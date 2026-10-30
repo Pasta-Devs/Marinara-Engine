@@ -3745,7 +3745,7 @@ test("Character row actions can add a resource to the active chat without draggi
     await clickTopbarPanel(page, "characters");
 
     // This action proof needs one character, not the shard's accumulated catalog.
-    await page.getByRole("textbox", { name: "Search characters", exact: true }).fill(characterName);
+    await page.getByRole("textbox", { name: "Search characters/tags", exact: true }).fill(characterName);
     const folderRow = page.locator(`[data-character-folder-id="${group.id}"]`);
     const folderHeader = folderRow.locator(':scope > [role="button"]');
     await folderHeader.click();
@@ -21622,8 +21622,9 @@ test("Roleplay reduced paint effects preserve semantic and custom styling", asyn
     await expect(defaultBubble).toHaveAttribute("data-roleplay-bubble-transparent", "true");
     await expect(defaultBubble).toHaveCSS("background-image", "none");
     await expect(defaultBubble).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    await expect(bubble).not.toHaveAttribute("data-roleplay-bubble-transparent", "true");
-    expect(await bubble.evaluate((element) => getComputedStyle(element).backgroundImage)).toContain("rgb(18, 52, 86)");
+    await expect(bubble).toHaveAttribute("data-roleplay-bubble-transparent", "true");
+    await expect(bubble).toHaveCSS("background-image", "none");
+    await expect(bubble).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 
     await expect
       .poll(() =>
@@ -21639,7 +21640,7 @@ test("Roleplay reduced paint effects preserve semantic and custom styling", asyn
     await page.reload();
     await expect(surface).toHaveClass(/mari-rp-reduced-paint/);
     await expect(defaultBubble).toHaveAttribute("data-roleplay-bubble-transparent", "true");
-    await expect(bubble).not.toHaveAttribute("data-roleplay-bubble-transparent", "true");
+    await expect(bubble).toHaveAttribute("data-roleplay-bubble-transparent", "true");
     await expect(bubble).not.toHaveCSS("box-shadow", "none");
   } finally {
     await Promise.all([

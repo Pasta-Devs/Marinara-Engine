@@ -41,6 +41,7 @@ import {
   normalizeConversationBackgroundImageOpacity,
   normalizeMariWindowHeightRem,
   normalizeMariWindowWidthRem,
+  normalizeMariCompanionWidthRem,
   normalizeRoleplayChatWidthPercent,
   normalizeOmnibarWindowWidthRem,
   normalizeOmnibarWindowHeightRem,
@@ -87,6 +88,9 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
   }
   if ("mariWindowWidthRem" in sanitized) {
     sanitized.mariWindowWidthRem = normalizeMariWindowWidthRem(sanitized.mariWindowWidthRem);
+  }
+  if ("mariCompanionWidthRem" in sanitized) {
+    sanitized.mariCompanionWidthRem = normalizeMariCompanionWidthRem(sanitized.mariCompanionWidthRem);
   }
   if ("omnibarWindowWidthRem" in sanitized) {
     sanitized.omnibarWindowWidthRem = normalizeOmnibarWindowWidthRem(sanitized.omnibarWindowWidthRem);

@@ -95,7 +95,7 @@ export function AvatarLayoutSettings({ chatId, layout }: { chatId: string; layou
         />
       </div>
 
-      {selected.kind === "vrm" && (
+      {(selected.kind === "vrm" || selected.kind === "mmd") && (
         <div className="mt-2 flex flex-col gap-2 @lg:flex-row @lg:items-center">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("avatars.layout.framing")}

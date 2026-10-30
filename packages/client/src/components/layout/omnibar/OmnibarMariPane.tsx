@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import type { ProfessorMariAskContext } from "@marinara-engine/shared";
+import type { ProfessorMariAskContext, ProfessorMariContextResource } from "@marinara-engine/shared";
 
 import type { MariArrival, MariArrivalAction, MariThreadContext } from "../../../lib/mari-arrival";
 import type { OmnibarCompletionAction } from "../../../lib/omnibar-completion-actions";
@@ -35,6 +35,8 @@ export interface OmnibarMariPaneProps {
   arrivalThread: MariThreadContext;
   onArrivalAction: (action: MariArrivalAction) => void;
   arrivalFixContext: ProfessorMariAskContext | null;
+  /** The open editor beside her; her pending context follows it when it changes. */
+  editorResource: ProfessorMariContextResource | null;
 }
 
 export function OmnibarMariPane({
@@ -57,6 +59,7 @@ export function OmnibarMariPane({
   arrivalThread,
   onArrivalAction,
   arrivalFixContext,
+  editorResource,
 }: OmnibarMariPaneProps) {
   const { t } = useTranslation();
   const setMariPaneVisible = useUIStore((state) => state.setMariPaneVisible);
@@ -100,6 +103,7 @@ export function OmnibarMariPane({
         arrivalThread={arrivalThread}
         onArrivalAction={onArrivalAction}
         arrivalFixContext={arrivalFixContext}
+        editorResource={editorResource}
         onChatWindowOpenChange={onChatWindowOpenChange}
       />
       {/* Review and return live on the receipt cards and the header's back arrow, so this bar only opens things. */}

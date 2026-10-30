@@ -4,7 +4,7 @@ This guide explains how to play background music in Marinara Engine using the **
 
 ## What Music DJ is
 
-**Music DJ** is an optional downloadable agent. An agent is a helper that runs automatically in the background of a chat. Open **Agents**, select **Download Agents**, and install **Music DJ** before configuring it. After each reply, Music DJ can read the mood of the scene and play matching background music.
+**Music DJ** is an optional downloadable agent. An agent is a helper that runs automatically in the background of a chat. Open **Agents**, select **Agent Organizer**, and install **Music DJ** before configuring it. After each reply, Music DJ can read the mood of the scene and play matching background music.
 
 **Music DJ** can play music from three sources:
 
@@ -106,7 +106,7 @@ Playing from a folder outside Game Assets needs local access on the server. If y
 
 The **Music Player** appears as a small pill in the top bar on desktop, or a draggable floating widget on mobile. You can hide or show it with a setting.
 
-Open **Settings**, go to the **General** tab, and find the **App Behavior** section. Toggle **Music Player** on or off. The help text reads "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." This toggle is always available and is on by default. If it is enabled without Music DJ installed, the desktop or mobile player surface instead reads **Download Music DJ Agent to configure** and provides a **Download Agents** button.
+Open **Settings**, go to the **General** tab, and find the **App Behavior** section. Toggle **Music Player** on or off. The help text reads "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." This toggle is always available and is on by default. If it is enabled without Music DJ installed, the desktop or mobile player surface instead reads **Download Music DJ Agent to configure** and provides an **Agent Organizer** button.
 
 On a fresh profile the visible source starts as **YouTube**. You can change the source three ways:
 

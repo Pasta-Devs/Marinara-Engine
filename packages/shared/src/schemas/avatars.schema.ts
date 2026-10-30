@@ -14,6 +14,7 @@ import {
   AVATAR_EXPRESSION_SLOTS,
   AVATAR_EXTRA_FEELINGS,
   AVATAR_KINDS,
+  AVATAR_MMD_METADATA_LIMITS,
   AVATAR_OWNER_ID_PATTERN,
   AVATAR_OWNER_TYPES,
   AVATAR_PNGTUBER_VARIANTS,
@@ -165,6 +166,27 @@ export const avatarKindDataSchema = z
     pngtuber: pngtuberAvatarDataSchema.optional(),
     "mesh-avatar": meshAvatarDataSchema.optional(),
     vrm: vrmAvatarDataSchema.optional(),
+    mmd: z
+      .object({
+        file: avatarFilePathSchema.refine((path) => path.startsWith("mmd/"), "An MMD model lives in mmd/."),
+        texturePaths: z
+          .record(
+            z.string().min(1).max(AVATAR_MMD_METADATA_LIMITS.textureReferenceChars),
+            avatarFilePathSchema.refine((path) => path.startsWith("mmd/"), "An MMD texture lives in mmd/."),
+          )
+          .refine(
+            (paths) => Object.keys(paths).length <= AVATAR_MMD_METADATA_LIMITS.textures,
+            "This MMD model has too many textures.",
+          ),
+        expressionMap: avatarExpressionMapSchema,
+        expressionNames: z.array(z.string().min(1).max(128)).max(AVATAR_MMD_METADATA_LIMITS.expressionNames).optional(),
+        idleAnimation: avatarFilePathSchema
+          .refine((path) => path.startsWith("mmd/"), "An MMD motion lives in mmd/.")
+          .nullable()
+          .optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

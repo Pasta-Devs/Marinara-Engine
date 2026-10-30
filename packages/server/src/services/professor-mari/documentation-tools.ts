@@ -539,6 +539,22 @@ export function formatDocumentationGroundingExcerpts(
     .join("\n");
 }
 
+/** The canonical docs for a picker: path plus the first heading (the file name when it has none). */
+export async function listCanonicalDocumentation(
+  workspaceRoot: string,
+): Promise<Array<{ path: string; title: string }>> {
+  const discovery = await canonicalDocumentationFiles(workspaceRoot);
+  const docs = await Promise.all(
+    discovery.files.map(async (file) => {
+      const content = await readBoundedMarkdown(file.absolutePath).catch(() => null);
+      const heading =
+        content === null ? null : (iterateMarkdownHeadings(content.split(/\r?\n/)).next().value?.heading ?? null);
+      return { path: file.path, title: heading?.trim() || file.path.split("/").pop() || file.path };
+    }),
+  );
+  return docs.sort((a, b) => a.path.localeCompare(b.path));
+}
+
 export function formatDocumentationRead(result: Awaited<ReturnType<typeof readCanonicalDocumentation>>) {
   return [
     `Source: ${result.path}`,

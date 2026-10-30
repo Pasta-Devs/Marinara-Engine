@@ -19,12 +19,14 @@ export type MariHandbookTurn = { read: string[]; touched: string[] };
 /**
  * One turn's record from its tool results. Only successful app_data calls count, and only built-in skills are read.
  * Calls held for the user's approval (Manual mode) count as touches too: she wrote them on that surface.
+ * Built-in skills the user linked with `@` in the composer (`linkedReads`) count as reads, with no `skill.get` call.
  */
 export function handbookTurnFromResults(
   results: WorkspaceCommandResult[],
   heldCalls: WorkspaceCommandCall[] = [],
+  linkedReads: string[] = [],
 ): MariHandbookTurn {
-  const read = new Set<string>();
+  const read = new Set<string>(linkedReads);
   const touched = new Set<string>();
   for (const result of results) {
     if (!result.success || result.name !== "app_data") continue;

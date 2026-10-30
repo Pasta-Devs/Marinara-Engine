@@ -88,6 +88,7 @@ import {
   LayoutDashboard,
   Link2,
   MessagesSquare,
+  Pin,
   ScanText,
   Shield,
   Wallpaper,
@@ -107,6 +108,7 @@ import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameS
 import { ChatVariablesSection } from "../../features/chat-settings/sections/ChatVariablesSection";
 import { CombatStyleSection } from "../../features/chat-settings/sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
+import { useHasDecisionModel } from "../../hooks/use-decision-model";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
 import { ConnectionSection, type ChatConnectionOption } from "../../features/chat-settings/sections/ConnectionSection";
 import { ConversationPromptSection } from "../../features/chat-settings/sections/ConversationPromptSection";
@@ -119,9 +121,10 @@ import { PromptPresetSection } from "../../features/chat-settings/sections/Promp
 import { SceneInstructionsSection } from "../../features/chat-settings/sections/SceneInstructionsSection";
 import { TranslationSection } from "../../features/chat-settings/sections/TranslationSection";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
-import type { AvatarCrop, MultiplayerHostAction } from "@marinara-engine/shared";
+import type { AutoActiveCharactersMode, AvatarCrop, MultiplayerHostAction } from "@marinara-engine/shared";
 import {
   AVATAR_AGENT_IDS,
+  BUILT_IN_AGENT_IDS,
   audioConnectionSupportsGeneration,
   BUILT_IN_AGENTS,
   VIDEO_FIRST_FRAMES,
@@ -1522,6 +1525,42 @@ export function ChatSettingsDrawer({
       ),
     [deletedBuiltInAgentTypes, metadata.activeAgentIds],
   );
+  // Automated active characters run only in Merged Roleplay groups; anywhere else the setting is ignored.
+  const autoActiveCharactersMode: AutoActiveCharactersMode =
+    isRoleplayMode && groupChatMode === "merged" && chatCharIds.length > 1
+      ? metadata.autoActiveCharacters === "decision" || metadata.autoActiveCharacters === "tracker"
+        ? metadata.autoActiveCharacters
+        : "off"
+      : "off";
+  const autoActiveCharacterPins = useMemo<string[]>(
+    () =>
+      Array.isArray(metadata.autoActiveCharacterPins)
+        ? metadata.autoActiveCharacterPins.filter((id: unknown): id is string => typeof id === "string")
+        : [],
+    [metadata.autoActiveCharacterPins],
+  );
+  const hasDecisionModel = useHasDecisionModel();
+  const characterTrackerEnabled =
+    metadata.enableAgents === true && activeAgentIds.includes(BUILT_IN_AGENT_IDS.CHARACTER_TRACKER);
+  const setAutoActiveCharactersMode = (mode: AutoActiveCharactersMode) => {
+    if (mode === autoActiveCharactersMode) return;
+    // Turning automation off clears the pins: their icons hide with it, so kept pins would
+    // silently freeze characters when it comes back on.
+    updateMeta.mutate({
+      id: chat.id,
+      autoActiveCharacters: mode,
+      ...(mode === "off" ? { autoActiveCharacterPins: [] } : {}),
+    });
+  };
+  // Pins the character's current state, on or off, so automation leaves it alone.
+  const togglePin = (charId: string) => {
+    updateMeta.mutate({
+      id: chat.id,
+      autoActiveCharacterPins: autoActiveCharacterPins.includes(charId)
+        ? autoActiveCharacterPins.filter((id) => id !== charId)
+        : [...autoActiveCharacterPins, charId],
+    });
+  };
   const mapsPackage = installedCapabilities.find(
     (item) => item.status === "active" && item.manifest.kind.includes("maps") && item.manifest.entrypoints.client,
   );
@@ -3139,6 +3178,10 @@ export function ChatSettingsDrawer({
       inactiveCharacterIds: isInactive
         ? inactiveCharacterIds.filter((id) => id !== charId)
         : [...inactiveCharacterIds, charId],
+      // A hand toggle while automation runs pins the character, so the next turn keeps it.
+      ...(autoActiveCharactersMode !== "off" && !autoActiveCharacterPins.includes(charId)
+        ? { autoActiveCharacterPins: [...autoActiveCharacterPins, charId] }
+        : {}),
     });
   };
 
@@ -6602,6 +6645,31 @@ export function ChatSettingsDrawer({
                               )}
                             </div>
                           </button>
+                          {/* On every row while automation runs, so pinning never shifts the row's buttons.
+                              Styled like the eye: muted when unpinned, primary when pinned. */}
+                          {autoActiveCharactersMode !== "off" && (
+                            <button
+                              type="button"
+                              onClick={() => togglePin(c.id)}
+                              aria-pressed={autoActiveCharacterPins.includes(c.id)}
+                              className={cn(
+                                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                                autoActiveCharacterPins.includes(c.id) && "text-[var(--primary)]",
+                              )}
+                              title={
+                                autoActiveCharacterPins.includes(c.id)
+                                  ? localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.unpin")
+                                  : localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.pin")
+                              }
+                              aria-label={
+                                autoActiveCharacterPins.includes(c.id)
+                                  ? localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.unpin")
+                                  : localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.pin")
+                              }
+                            >
+                              <Pin size="0.6875rem" />
+                            </button>
+                          )}
                           {supportsCharacterActivityToggle && (
                             <button
                               onClick={() => toggleCharacterActivity(c.id)}
@@ -7028,6 +7096,48 @@ export function ChatSettingsDrawer({
                     )}
                     labelClassName="text-[0.6875rem] font-medium"
                   />
+                </div>
+              )}
+
+              {/* Merged Roleplay: who keeps the active characters current. Same segmented control as Mode. */}
+              {isRoleplayMode && groupChatMode === "merged" && (
+                <div className="mt-2 space-y-2">
+                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.label")}
+                  </label>
+                  <div className="flex rounded-lg ring-1 ring-[var(--border)]">
+                    {(["off", "decision", "tracker"] as const).map((mode, index, modes) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setAutoActiveCharactersMode(mode)}
+                        aria-pressed={autoActiveCharactersMode === mode}
+                        className={cn(
+                          "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors",
+                          index === 0 && "rounded-l-lg",
+                          index === modes.length - 1 && "rounded-r-lg",
+                          autoActiveCharactersMode === mode
+                            ? "bg-[var(--primary)] text-white"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                        )}
+                      >
+                        {localizeUi(`ui.chat.chatsettingsdrawer.autoActiveCharacters.${mode}`)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {autoActiveCharactersMode === "decision"
+                      ? hasDecisionModel
+                        ? localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.decisionHint")
+                        : localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.decisionMissingHint")
+                      : autoActiveCharactersMode === "tracker"
+                        ? !characterTrackerEnabled
+                          ? localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.trackerMissingHint")
+                          : activeManualTrackerTypes.has(BUILT_IN_AGENT_IDS.CHARACTER_TRACKER)
+                            ? localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.trackerManualHint")
+                            : localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.trackerHint")
+                        : localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.offHint")}
+                  </p>
                 </div>
               )}
 

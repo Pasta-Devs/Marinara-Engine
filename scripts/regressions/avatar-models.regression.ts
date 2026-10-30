@@ -248,7 +248,7 @@ try {
     ...multipartBody({}, { name: "notes.txt", bytes: Buffer.from("hi") }),
   });
   assert.equal(unknown.statusCode, 415);
-  assert.match(unknown.json().error, /^Choose a \.save, \.mavatar, \.vrm, \.vrma file\.$/u);
+  assert.match(unknown.json().error, /^Choose a \.save, \.mavatar, \.vrm, \.vrma, \.pmx, \.vmd, \.zip file\.$/u);
   const badKind = await app.inject({
     method: "POST",
     url: `${base}/import`,

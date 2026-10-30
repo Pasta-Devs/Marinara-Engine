@@ -20,9 +20,11 @@ If you have many characters, a **Load more** button appears at the bottom. Click
 
 ## Search
 
-Type in the search box at the top of the panel to filter the list. The placeholder text reads **Search characters or -tag:"tag name"**.
+Type in the search box at the top of the panel to filter the list. The placeholder text reads **Search characters/tags**.
 
 Plain text matches against a character's name, title, description, and tags. For example, typing `knight` shows every character with "knight" in any of those fields.
+
+To match several tags together, separate them with spaces or commas: `male genshin` or `male,genshin` finds cards with both exact tags. Quote a tag containing spaces or commas, such as `male "Modern AU"`. Matching ignores case. Ordinary phrase searches still work, so a card can also match the complete phrase in its name or text. This search also works in the full-page Character Library and for personas.
 
 You can also exclude characters that have a certain tag. Put a minus sign in front of the tag:
 

@@ -105,13 +105,13 @@ When a character messages you in a chat you are not currently viewing, a floatin
 
 Characters can send you selfies, which are AI-generated photos of the character. Selfies differ from the scene art used in Roleplay and Game Mode, because a selfie is tied to one character.
 
-To use selfies, install **Illustrator** from **Agents → Download Agents**. Then open the chat settings drawer, go to **Agents → Illustrator Settings**, and set a **Selfie Connection**. A selfie connection is an image-generation provider. Each selfie costs one image-generation call.
+To use selfies, install **Illustrator** from **Agents → Agent Organizer**. Then open the chat settings drawer, go to **Agents → Illustrator Settings**, and set a **Selfie Connection**. A selfie connection is an image-generation provider. Each selfie costs one image-generation call.
 
 Full setup, including style, resolution, and the manual request button, lives in [Selfies](selfies.md).
 
 ## Table games
 
-Conversation Mode has six optional table-game packages: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe**, and **Rock-Paper-Scissors**. Install the games you want from **Agents → Download Agents**. The app deals the board, enforces the rules, and has each character narrate its own moves in character. Table games only run in Conversation chats.
+Conversation Mode has six optional table-game packages: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe**, and **Rock-Paper-Scissors**. Install the games you want from **Agents → Agent Organizer**. The app deals the board, enforces the rules, and has each character narrate its own moves in character. Table games only run in Conversation chats.
 
 You can start a game three ways:
 

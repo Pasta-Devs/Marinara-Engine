@@ -2732,9 +2732,7 @@ export const ChatMessage = memo(function ChatMessage({
   const personaScenario = msgPersona ? msgPersona.scenario : personaInfo?.scenario;
   const macroCharacters = useMemo(() => {
     if (scopedCharacterMap?.size) {
-      const candidates = Array.from(scopedCharacterMap.values()).filter(
-        (candidate): candidate is NonNullable<typeof candidate> => !!candidate,
-      );
+      const candidates = Array.from(scopedCharacterMap, ([id, character]) => ({ ...character, id }));
       if (candidates.length > 0) return candidates;
     }
     return charName ? [{ name: charName }] : [];
@@ -2755,6 +2753,7 @@ export const ChatMessage = memo(function ChatMessage({
         },
         primaryCharacter: primaryCharInfo ?? { name: charName },
         characters: macroCharacters,
+        inactiveCharacterIds: isRoleplay ? parseChatMetadata(activeChatMetadata).inactiveCharacterIds : undefined,
       };
       // #3164: seed display randomness by message identity, not content — a
       // content-based seed re-rolls every {{random}}/{{roll}} on each streamed
@@ -2773,6 +2772,8 @@ export const ChatMessage = memo(function ChatMessage({
       return resolveDisplayMacros(text);
     },
     [
+      activeChatMetadata,
+      isRoleplay,
       applyToAIOutput,
       scopedRegexMode,
       presetVariables,
@@ -2855,7 +2856,14 @@ export const ChatMessage = memo(function ChatMessage({
   const ownDialogueColor = !isMergedGroup && !!msgColors?.dialogueColor;
   const boxBgColor = msgColors?.boxColor;
   const msgNameColor = msgColors?.nameColor;
-  const roleplayBubbleBg = boxBgColor ? boxBgColor : isUser ? userBubbleBg : assistantBubbleBg;
+  const roleplayBubbleBg =
+    chatFontOpacity <= 0
+      ? "transparent"
+      : boxBgColor
+        ? `rgb(from ${boxBgColor} r g b / ${chatFontOpacity / 100})`
+        : isUser
+          ? userBubbleBg
+          : assistantBubbleBg;
   const nameColorMap = useMemo(() => {
     if (!colorInlineNames || !scopedCharacterMap) return null;
     const map = new Map<string, string>();
@@ -4124,6 +4132,7 @@ export const ChatMessage = memo(function ChatMessage({
                   // an inline `background` so card CSS can override the bubble
                   // (inline styles beat every selector). Applied by `.mari-rp-bubble`.
                   "--mari-rp-bubble-bg": roleplayBubbleBg,
+                  "--mari-rp-bubble-opacity": chatFontOpacity / 100,
                 } as React.CSSProperties
               }
             >

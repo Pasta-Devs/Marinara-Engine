@@ -460,7 +460,7 @@ test("persona summary, creator notes and dialogue stay searchable in the panel a
   try {
     await prepare(page);
     await clickTopbarPanel(page, "personas");
-    const panelSearch = page.getByPlaceholder("Search personas", { exact: true });
+    const panelSearch = page.getByPlaceholder("Search personas/tags", { exact: true });
     for (const query of [summaryToken, token, creatorNotesToken]) {
       await panelSearch.fill(`missing${query}`);
       await expect(page.getByText(name, { exact: true })).toHaveCount(0);

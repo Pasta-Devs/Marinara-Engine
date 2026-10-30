@@ -28,7 +28,11 @@ import {
   stripCapabilityConversationCommands,
   type CapabilityConversationCommandRegistration,
 } from "./capability-command-registry.service.js";
-import { getCapabilityService, registerCapabilityService } from "./capability-service-registry.service.js";
+import {
+  getCapabilityService,
+  isHostOnlyCapabilityService,
+  registerCapabilityService,
+} from "./capability-service-registry.service.js";
 import { assertCapabilityAgentRuntimeServiceRegistration } from "./capability-agent-runtime.service.js";
 import { assertCapabilityMariActionsServiceRegistration } from "./capability-mari-actions.service.js";
 import { createCapabilityDecisionHost } from "./capability-decision.service.js";
@@ -84,7 +88,8 @@ type CapabilityActivationContext = {
     runtime: CapabilityRuntimeHost;
     registerTurnGameEngine(engine: AnyTurnGameEngine): Cleanup;
     registerConversationCommand(registration: CapabilityConversationCommandRegistration): Cleanup;
-    registerService<T>(key: string, service: T): Cleanup;
+    /** `hostOnly` (Capability API 1.388) keeps the service from `runtime.services.get`; only the Engine reads it. */
+    registerService<T>(key: string, service: T, options?: { hostOnly?: boolean }): Cleanup;
     /** Contribute text to each turn's system prompt. Requires the `prompt-context` permission. */
     registerPromptContext(contributor: CapabilityPromptContextContributor): Cleanup;
     /** Offer the model a tool this package handles. Requires the `tools` permission. */
@@ -159,10 +164,12 @@ async function createCapabilityRuntimeHost(
     persistence: createCapabilityPersistenceHost(app.db, permissions),
     resources: createCapabilityResourceHost(app.db),
     services: Object.freeze({
-      // Agent runtime hooks and Mari actions are read only by the Engine itself, so a package can't call
-      // another package's hooks through this lookup.
+      // Agent runtime hooks, Mari actions and services registered with `hostOnly` are read only by the Engine
+      // itself, so a package can't call another package's hooks through this lookup.
       get: <T>(key: string) =>
-        HOST_ONLY_SERVICE_PREFIXES.some((prefix) => key.startsWith(prefix)) ? null : getCapabilityService<T>(key),
+        HOST_ONLY_SERVICE_PREFIXES.some((prefix) => key.startsWith(prefix)) || isHostOnlyCapabilityService(key)
+          ? null
+          : getCapabilityService<T>(key),
     }),
     commands: Object.freeze({
       parse: (content: string) => parseCapabilityConversationCommands(content),
@@ -396,10 +403,10 @@ class CapabilityModuleRuntime {
             }
             return trackCleanup(registerCapabilityConversationCommand(registration));
           },
-          registerService: (key, service) => {
+          registerService: (key, service, options) => {
             assertCapabilityAgentRuntimeServiceRegistration(installed.id, installed.manifest.permissions ?? [], key);
             assertCapabilityMariActionsServiceRegistration(installed.id, installed.manifest.permissions ?? [], key);
-            return trackCleanup(registerCapabilityService(key, service));
+            return trackCleanup(registerCapabilityService(key, service, options));
           },
           // Gated on the permission the manifest already declares, so a package can't reach the prompt
           // without asking for it up front. Contract in capability-prompt-context.service.ts.

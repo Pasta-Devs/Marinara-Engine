@@ -33,6 +33,7 @@ import type { DB } from "../../db/connection.js";
 import { loadLorebookIncludes, processLorebooks, type LorebookScanResult } from "../lorebook/index.js";
 import { createCharactersStorage, type PersonaStorageRow } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
+import { createChatsStorage, parseCharacterIds } from "../storage/chats.storage.js";
 import { createGameStateStorage } from "../storage/game-state.storage.js";
 import { wrapContent } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
@@ -808,6 +809,20 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
   const groupCharacterMacroData = input.groupCharacterIds
     ? await resolveCharacterMacroData(input.db, input.groupCharacterIds, input.chatId)
     : characterMacroData;
+  const chat = input.chatId && input.db ? await createChatsStorage(input.db).getById(input.chatId) : null;
+  // Only the names cross into the full roster: inactive profiles must not enter
+  // grouped card expansion, reference discovery, or lorebook macro sources.
+  // Game callers supply the party scope, including legacy sessions whose chat row was not mirrored.
+  const rosterIds =
+    chat?.mode === "game"
+      ? (input.groupCharacterIds ?? input.characterIds)
+      : chat?.characterIds !== undefined
+        ? parseCharacterIds(chat.characterIds)
+        : input.characterIds;
+  const rosterNames =
+    rosterIds.length === input.characterIds.length && rosterIds.every((id, index) => id === input.characterIds[index])
+      ? characterMacroData.names
+      : (await resolveCharacterMacroData(input.db, rosterIds, input.chatId)).names;
   const variables = input.variables ?? {};
 
   let lorebookEntryCounts: Record<string, number> = {};
@@ -836,7 +851,7 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
     userPhonetic: input.personaPhoneticName || input.personaFields?.phoneticName || input.personaName || "User",
     char: characterMacroData.names[0] || "Character",
     charPhonetic: characterMacroData.phoneticNames[0] || characterMacroData.names[0] || "Character",
-    characters: characterMacroData.names,
+    characters: rosterNames,
     groupCharacters: groupCharacterMacroData.names,
     characterProfiles: characterMacroData.profiles,
     variables,

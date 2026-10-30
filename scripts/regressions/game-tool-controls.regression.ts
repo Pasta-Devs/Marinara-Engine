@@ -543,6 +543,16 @@ try {
     'The attack is resolved. [skill_check: skill="Coincidence" dc="2" dice="2d2"] [dice: d1]',
   ]) {
     Math.random = nativeDraft.includes("Coincidence") ? () => 0 : originalRandom;
+    // The check's dice come from the shared secure roller (#8489): pin that draw to its lowest face too.
+    if (nativeDraft.includes("Coincidence")) {
+      Object.defineProperty(globalThis.crypto, "getRandomValues", {
+        value: <T extends ArrayBufferView>(array: T) => ((array as unknown as Uint32Array).fill(0), array),
+        configurable: true,
+        writable: true,
+      });
+    } else {
+      Reflect.deleteProperty(globalThis.crypto, "getRandomValues");
+    }
     const chat = (await chats.create({
       name: "Native and text rolls",
       mode: "game",
@@ -569,6 +579,7 @@ try {
     );
   }
   Math.random = originalRandom;
+  Reflect.deleteProperty(globalThis.crypto, "getRandomValues");
   nativeDraft = "";
 
   // A tool round's thinking is not the final reply's: an empty, finished reply after it must not

@@ -41,12 +41,13 @@ import {
   type MariWorkspaceStatus,
   type Message,
   type ProfessorMariAskContext,
+  type ProfessorMariContextResource,
   type ProfessorMariHandoff,
 } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
 import { useFeatureModels } from "../../hooks/use-connection-accounts";
 import { useTrackAchievement } from "../../hooks/use-achievements";
-import { chatKeys } from "../../hooks/use-chats";
+import { chatKeys, useChats } from "../../hooks/use-chats";
 import { characterKeys, useCharacters, usePersonas } from "../../hooks/use-characters";
 import { getCharacterDisplayIdentity } from "../../lib/character-display";
 import { buildCharacterPreviewModel, type CharacterPreviewModel } from "../../lib/character-preview";
@@ -54,6 +55,10 @@ import { buildLorebookPreviewModel } from "../../lib/lorebook-preview";
 import { completeInline } from "../../lib/inline-completion";
 import { resolveMariRestStory, type MariStoryState } from "../../lib/mari-work-animations";
 import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
+import { useMariComposerReferences } from "../../hooks/use-mari-composer-references";
+import { useMariDocs } from "../../hooks/use-mari-docs";
+import { useAgentConfigs } from "../../hooks/use-agents";
+import type { MariCommandId } from "../../lib/mari-commands";
 import { presetKeys, usePresets } from "../../hooks/use-presets";
 import { useMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
@@ -123,6 +128,8 @@ import {
   transcriptScrollAction,
 } from "../../lib/professor-mari-transcript-scroll";
 import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
+import { heldCharacterFields, keptCharacterFields, mariFieldDraft, mariFieldText } from "../../lib/mari-editor-fields";
+import { fieldLabel } from "../../lib/mari-edit-diff";
 import { rafThrottle } from "../../lib/raf-throttle";
 import {
   cachedMariThread,
@@ -164,6 +171,8 @@ import {
   toMessageExtra,
   getProfessorMariMessageContext,
   persistentResourceContext,
+  retargetEditorContext,
+  withEditorField,
   continuedThereByContext,
   classifyProfessorMariFailure,
   PROFESSOR_MARI_ATTACHMENT_MAX_BYTES,
@@ -242,6 +251,8 @@ type HomeProfessorMariChatProps = {
   onArrivalAction?: (action: MariArrivalAction) => void;
   /** N6 (R22): the handoff an arrival Fix card sends with; the only arrival path that carries the error text. */
   arrivalFixContext?: ProfessorMariAskContext | null;
+  /** The open editor beside her (omnibar); her pending context follows it when it changes. */
+  editorResource?: ProfessorMariContextResource | null;
   onChatWindowOpenChange?: (open: boolean) => void;
   onChatWindowExitComplete?: () => void;
 };
@@ -274,6 +285,7 @@ export function HomeProfessorMariChat({
   arrivalThread = null,
   onArrivalAction,
   arrivalFixContext = null,
+  editorResource = null,
   onChatWindowOpenChange,
   onChatWindowExitComplete,
 }: HomeProfessorMariChatProps) {
@@ -315,6 +327,9 @@ export function HomeProfessorMariChat({
   const completionPersonas = usePersonas();
   const completionLorebooks = useLorebooks();
   const completionPresets = usePresets();
+  const referenceChats = useChats();
+  const referenceAgents = useAgentConfigs();
+  const referenceDocs = useMariDocs();
   const completionCandidates = useMemo(
     () => [
       // A character's display name lives inside its card data, not on the row —
@@ -835,6 +850,20 @@ export function HomeProfessorMariChat({
   // Read when the history load lands, not when it starts: M9's arrival context can come in a commit
   // after this pane mounted, and the load must not then restore an older focus over it.
   const initialAskContextRef = useRef(initialAskContext);
+  // Companion mode keeps her open while the user switches or closes the editor beside her, so the
+  // context the next send carries must follow the editor, not stay on the one she was opened over.
+  const lastEditorResourceRef = useRef(editorResource);
+  useEffect(() => {
+    const previous = lastEditorResourceRef.current;
+    if (
+      previous?.kind === editorResource?.kind &&
+      previous?.id === editorResource?.id &&
+      previous?.label === editorResource?.label
+    )
+      return;
+    lastEditorResourceRef.current = editorResource;
+    setHandoffContext((current) => retargetEditorContext(current, previous, editorResource));
+  }, [editorResource]);
   useEffect(() => {
     initialAskContextRef.current = initialAskContext;
     if (initialAskContext) setHandoffContext(initialAskContext);
@@ -2276,7 +2305,7 @@ export function HomeProfessorMariChat({
   });
   const handleSubmit = async (
     overrideText?: string,
-    overrideRecovery?: Pick<ProfessorMariRecovery, "attachments" | "context" | "localMessageId"> & {
+    overrideRecovery?: Pick<ProfessorMariRecovery, "attachments" | "context" | "localMessageId" | "references"> & {
       /** A retry: reuse your message when the server already saved it, instead of sending it twice. */
       reuseSavedMessage?: boolean;
     },
@@ -2284,6 +2313,12 @@ export function HomeProfessorMariChat({
   ) => {
     const text = (overrideText ?? draft).trim();
     const submittedAttachments = overrideRecovery?.attachments ?? attachments;
+    // A chip or retry sends its own text; the composer's links belong to the composer's draft.
+    const submittedReferences = overrideRecovery
+      ? (overrideRecovery.references ?? [])
+      : overrideText !== undefined
+        ? []
+        : composerReferences.references;
     const submittedContext = overrideRecovery
       ? overrideRecovery.context
       : overrideContext !== undefined
@@ -2342,7 +2377,13 @@ export function HomeProfessorMariChat({
       if (existingUserMessageId) {
         setTurnStartMessageId(existingUserMessageId);
       } else {
-        const localMessage = createLocalUserMessage(chat.id, messageText, submittedAttachments, submittedContext);
+        const localMessage = createLocalUserMessage(
+          chat.id,
+          messageText,
+          submittedAttachments,
+          submittedContext,
+          submittedReferences,
+        );
         localMessageId = localMessage.id;
         setMessages((current) => [
           ...current.filter((message) => message.id !== overrideRecovery?.localMessageId),
@@ -2368,6 +2409,7 @@ export function HomeProfessorMariChat({
         submittedAttachments,
         existingUserMessageId,
         submittedContext,
+        submittedReferences,
       );
       // No answer at all is a failure like any other: the same red state and card, not a toast that leaves.
       if (!received && !hiddenDuringStream)
@@ -2384,6 +2426,7 @@ export function HomeProfessorMariChat({
           text: messageText,
           attachments: submittedAttachments,
           context: submittedContext,
+          references: [...submittedReferences],
           localMessageId,
         },
         runChatId ?? undefined,
@@ -2393,6 +2436,7 @@ export function HomeProfessorMariChat({
         // so the reload took your bubble away. Give it back in the composer, ahead of anything typed since.
         setDraft((current) => [text, current].filter((part) => part.trim()).join("\n\n"));
         setAttachments((current) => [...submittedAttachments, ...current]);
+        composerReferences.restoreReferences(submittedReferences);
         setRecoveryState((current) => current && { ...current, inComposer: true });
       });
     } finally {
@@ -2548,6 +2592,69 @@ export function HomeProfessorMariChat({
     [refreshWorkspaceStatus, visiblePendingChangeReviews],
   );
 
+  // `@` links and `/` commands: the picker's picks, their marks in the draft, and what a send carries.
+  // Declared here because the commands run handlers defined above.
+  const availableCommands = useMemo<MariCommandId[]>(
+    () => [
+      "new",
+      "history",
+      "skills",
+      "memories",
+      "context",
+      "attach",
+      "model",
+      "permissions",
+      ...(visiblePendingChangeReviews.length > 0 ? (["approvals"] as const) : []),
+    ],
+    [visiblePendingChangeReviews.length],
+  );
+  const runComposerCommand = (id: MariCommandId) => {
+    if (id === "new") void runRestart();
+    else if (id === "history") toggleChatHistory();
+    else if (id === "skills") toggleSkillsMenu();
+    else if (id === "memories") toggleMemoriesMenu();
+    else if (id === "context") void handleOpenContextViewer();
+    else if (id === "attach") attachmentInputRef.current?.click();
+    else if (id === "model") {
+      setPermissionsMenuOpen(false);
+      setConnectionMenuOpen(true);
+    } else if (id === "permissions") {
+      setConnectionMenuOpen(false);
+      setPermissionsMenuOpen(true);
+    } else openPendingApprovals();
+  };
+  // An `@` field pick: she takes that field (its text as it is now) and the editor shows it.
+  const focusEditorField = (field: { id: string; label: string }) => {
+    const ui = useUIStore.getState();
+    const root = ui.mariCompanionRoot?.closest<HTMLElement>(".mari-editor-shell") ?? ui.mariCompanionRoot;
+    const value = root ? mariFieldText(root, field.id) : null;
+    const captured = value === null ? null : mariFieldDraft(field.id, value, null, null);
+    setHandoffContext((current) =>
+      withEditorField(current, editorResource, { ...field, ...(captured ? { draft: { value: captured.value } } : {}) }),
+    );
+    if (editorResource?.kind === "character") ui.revealMariField(editorResource.id, field.id);
+  };
+  const composerReferences = useMariComposerReferences({
+    draft,
+    setDraft,
+    editorResource,
+    companionDocked: useUIStore((state) => state.mariCompanionDocked),
+    sources: {
+      characters: completionCharacters.data,
+      personas: completionPersonas.data,
+      lorebooks: completionLorebooks.data,
+      presets: completionPresets.data,
+      skills,
+      memories,
+      chats: referenceChats.data,
+      agents: referenceAgents.data,
+      docs: referenceDocs.data,
+    },
+    onCommand: runComposerCommand,
+    onField: focusEditorField,
+    availableCommands,
+  });
+
   const handledPendingReviewRequestRef = useRef(0);
   useEffect(() => {
     if (!chatWindowOpen || pendingReviewRequest <= handledPendingReviewRequestRef.current) return;
@@ -2628,6 +2735,78 @@ export function HomeProfessorMariChat({
   const answerAll = async (entries: ReadonlyArray<{ approval: MariWorkspacePendingApproval }>, keep: boolean) => {
     for (const { approval } of entries) await answerApproval(approval, keep);
   };
+
+  // Slice 5: her change to a character also shows in the editor's fields. The field's Keep and
+  // Not this one send the same replies as her card; Undo answers the same reviews as her receipt.
+  const fieldReviewActions = useRef<{
+    keep: () => boolean;
+    decline: (fieldId: string) => boolean;
+    undo: (ids: readonly string[]) => void;
+  } | null>(null);
+  // handleSubmit's own guards: when one holds, nothing is sent (it may open the connection menu).
+  const canSend = () => !isBusy && !regenerationInFlightRef.current && !isReadingAttachments && !!effectiveConnectionId;
+  fieldReviewActions.current = {
+    keep: () => {
+      const sent = canSend();
+      handleSuggestionSelect(MARI_AUTHORIZATION_ACCEPT_CHIP);
+      return sent;
+    },
+    decline: (fieldId) => {
+      const sent = canSend();
+      void handleSubmit(
+        `${MARI_AUTHORIZATION_DECLINE_CHIP.prompt} Propose the change again without the ${fieldLabel(fieldId)} field.`,
+      );
+      return sent;
+    },
+    undo: (ids) =>
+      void answerAll(
+        pendingChangeReviews.flatMap((approval) => (ids.includes(approval.id) ? [{ approval }] : [])),
+        false,
+      ),
+  };
+  useEffect(() => {
+    const publish = useUIStore.getState().setMariFieldReview;
+    const message = lastLoadedMessage;
+    if (isBusy) return publish({ mode: "busy" });
+    if (!message || message.role !== "assistant") return publish(null);
+    const actions = () => fieldReviewActions.current!;
+    if (pendingDeferredMutations) {
+      const fields = heldCharacterFields(lastLoadedMessageExtra?.mariHeldCalls);
+      const total =
+        lastLoadedMessageExtra?.mariHeldChanges?.reduce((sum, change) => sum + (change.fields?.length ?? 0), 0) ||
+        fields.length;
+      if (fields.length > 0) {
+        return publish({
+          mode: "waiting",
+          key: message.id,
+          fields,
+          total,
+          others: (lastLoadedMessageExtra?.mariHeldChanges ?? []).filter(
+            (change) => !fields.some((field) => field.characterId === change.id),
+          ).length,
+          keep: () => actions().keep(),
+          decline: (fieldId) => actions().decline(fieldId),
+        });
+      }
+    }
+    const kept = keptCharacterFields(latestActionResults, new Set(pendingChangeReviews.map(({ id }) => id)));
+    if (kept.fields.length === 0) return publish(null);
+    publish({
+      mode: "kept",
+      key: kept.reviewIds.join(","),
+      fields: kept.fields,
+      undoUntil: kept.undoUntil,
+      undo: () => actions().undo(kept.reviewIds),
+    });
+  }, [
+    isBusy,
+    lastLoadedMessage,
+    lastLoadedMessageExtra,
+    pendingDeferredMutations,
+    latestActionResults,
+    pendingChangeReviews,
+  ]);
+  useEffect(() => () => useUIStore.getState().setMariFieldReview(null), []);
   // M5a / slice 71 (F1): applied changes and answered prompts are "what changed"; everything still waiting
   // - a delete too, whose rows stay hidden until you choose - needs you. The deletes of one turn are one card.
   // Slice 74: a change her message has a receipt for shows as that receipt, which answers its reviews.
@@ -3284,6 +3463,21 @@ export function HomeProfessorMariChat({
                           connectionOptions={connectionOptions}
                           draft={draft}
                           draftSuffix={draftSuffix}
+                          pickerOpen={composerReferences.pickerOpen}
+                          onPickerAction={composerReferences.onPickerAction}
+                          onActiveTokenChange={composerReferences.onActiveTokenChange}
+                          referenceMarks={composerReferences.referenceMarks}
+                          availableCommands={availableCommands}
+                          onCommand={runComposerCommand}
+                          commandCounts={{
+                            skills: activeSkillCount,
+                            memories: activeMemoryCount,
+                            approvals: visiblePendingChangeReviews.length,
+                          }}
+                          referenceUi={{
+                            ...composerReferences.referenceUi,
+                            canLinkCompletion: composerReferences.canLinkCompletion,
+                          }}
                           effectiveConnection={effectiveConnection}
                           effectiveConnectionId={effectiveConnectionId}
                           enterToSend={enterToSend}

@@ -28,7 +28,8 @@ Object.defineProperty(globalThis, "localStorage", {
 try {
   const { useUIStore, pickPersistedUIState, pickSyncedSettings } =
     await import("../../packages/client/src/stores/ui.store.js");
-  const { mergeUndatedSyncedSettings } = await import("../../packages/client/src/hooks/use-settings-sync.js");
+  const { mergeUndatedSyncedSettings, omitLocalOnlySettings } =
+    await import("../../packages/client/src/hooks/use-settings-sync.js");
 
   const state = useUIStore.getState() as unknown as Record<string, unknown>;
   for (const key of ["mariConnectionId", "omnibarAsideConnectionId", "impersonateConnectionId"]) {
@@ -38,9 +39,13 @@ try {
     JSON.parse(stored.get("marinara:legacy-feature-models") ?? "null"),
     {
       mariConnectionId: "mari-connection",
+      mariFallbackConnectionId: null,
       omnibarAsideConnectionId: "quick-model",
+      omnibarAsideFallbackConnectionId: null,
       impersonateConnectionId: null,
+      impersonateFallbackConnectionId: null,
       visionConnectionId: null,
+      visionFallbackConnectionId: null,
     },
     "the migration stages the old picks (Mari's old browser key included) for the one-time server copy",
   );
@@ -57,6 +62,22 @@ try {
     omnibarAsideEnabled: true,
   });
   assert.equal(fresh.omnibarAsideEnabled, true, "a server value wins over the default");
+
+  useUIStore.getState().setMariCompanionDocked(false);
+  useUIStore.getState().setMariCompanionWidthRem(29.5);
+  const companionSettings = pickSyncedSettings(useUIStore.getState());
+  assert.equal(companionSettings.mariCompanionDocked, false, "an undocked preference syncs");
+  assert.equal(companionSettings.mariCompanionWidthRem, 29.5, "the resized companion width syncs");
+  assert.ok(!("mariCompanionRoot" in companionSettings), "the editor DOM root stays local");
+  assert.equal(
+    omitLocalOnlySettings({ mariCompanionWidthRem: 100 }).mariCompanionWidthRem,
+    32,
+    "incoming companion widths stay within the supported bounds",
+  );
+  assert.ok(
+    !("mariCompanionWidthRem" in omitLocalOnlySettings({})),
+    "older server settings do not reset the local companion width",
+  );
 
   // Let the debounced browser-storage write land before the fake storage is removed.
   await new Promise((resolve) => setTimeout(resolve, 1100));

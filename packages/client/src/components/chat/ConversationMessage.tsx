@@ -372,12 +372,14 @@ export const ConversationMessage = memo(function ConversationMessage({
       },
       primaryCharacter: primaryCharInfo ?? { name: displayName },
       characters: scopedCharacterMap
-        ? Array.from(scopedCharacterMap.values())
+        ? Array.from(scopedCharacterMap, ([id, character]) => ({ ...character, id }))
         : displayName
           ? [{ name: displayName }]
           : [],
+      inactiveCharacterIds: parseChatMetadata(activeChatMetadata).inactiveCharacterIds,
     }),
     [
+      activeChatMetadata,
       displayName,
       macroUserName,
       presetVariables,

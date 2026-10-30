@@ -4,7 +4,7 @@ This guide explains Conversation calls in Marinara Engine. You will learn how a 
 
 Calls exist only in Conversation Mode. Roleplay and Game chats do not have a call screen.
 
-Calls is an optional agent package. Install **Calls** from **Agents → Download Agents** before following the setup below, then restart Marinara when the catalog asks.
+Calls is an optional agent package. Install **Calls** from **Agents → Agent Organizer** before following the setup below, then restart Marinara when the catalog asks.
 
 ## What a call is
 
@@ -91,7 +91,7 @@ While the switch is on, **Mic recording + Local Whisper** sends your speech to t
 
 A server on the same machine as Marinara works as is. A server on another machine in your home network is refused unless you set `STT_LOCAL_URLS_ENABLED=true` in the server `.env` file. See [Server Configuration Reference](../CONFIGURATION.md).
 
-This needs a Calls version that supports it. If calls still use Local Whisper after you turn the switch on, update Calls from **Agents → Download Agents**.
+This needs a Calls version that supports it. If calls still use Local Whisper after you turn the switch on, update Calls from **Agents → Agent Organizer**.
 
 ## Turn calls on for a chat
 

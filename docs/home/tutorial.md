@@ -20,7 +20,7 @@ The tour has 18 steps. Here they are in order, with the exact title of each card
 4. **Lorebooks** Highlights the **Lorebooks** panel button, which holds extra world and character details.
 5. **Presets** Highlights the **Presets** panel button, which controls how the prompt is built.
 6. **Connections** Highlights the **Connections** panel button. The card says connections are the first thing to set up before chatting.
-7. **Agents** Highlights the **Agents** panel button, which adds helpers on top of your chats. The card points you to **Download Agents** to install them.
+7. **Agents** Highlights the **Agents** panel button, which adds helpers on top of your chats. The card points you to **Agent Organizer** to install them.
 8. **Settings** Highlights the **Settings** panel button and opens **Settings** to the **General** tab.
 9. **Chats** Highlights the sidebar toggle and opens the chat sidebar, where your chats live.
 10. **Conversation Mode** Highlights the conversation tab in the chat sidebar. The tab itself is labeled **CONVO**.

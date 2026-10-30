@@ -961,6 +961,7 @@ for (const [preset, theme] of [
       await page.goto("/");
       await page.evaluate(async () => {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setChatFontOpacity(100);
         useUIStore.getState().setGameTextSpeed(100);
         useUIStore.getState().setGameDialogueDisplayMode("stacked");
         useUIStore.getState().setConversationMessageStyle("bubble");
@@ -1112,8 +1113,9 @@ for (const [preset, theme] of [
       const colored = await surfaceAppearance(scope.surface);
       expect(colored.radius).toBe(original.surface.radius);
       expect(colored.clip).toBe(original.surface.clip);
+      const presetBackground = await resolvedStyle(page, "background-color", PALETTES[theme][preset].background);
       expect(colored.background).toBe(
-        await resolvedStyle(page, "background-color", PALETTES[theme][preset].background),
+        await resolvedStyle(page, "background-color", `rgb(from ${PALETTES[theme][preset].background} r g b / 1)`),
       );
       await expect(scope.text).toHaveCSS("font-family", original.font);
 
@@ -1124,7 +1126,7 @@ for (const [preset, theme] of [
         const painted = await surfaceAppearance(target);
         expect(painted.radius).toBe(old.radius);
         expect(painted.clip).toBe(old.clip);
-        expect(painted.background).toBe(colored.background);
+        expect(painted.background).toBe(presetBackground);
       }
 
       controls = await openAppearance(page);
@@ -1144,7 +1146,7 @@ for (const [preset, theme] of [
           await expect(control).toHaveCount(1);
           await expect(control).toHaveCSS("font-family", selectedFont);
           const painted = await surfaceAppearance(control);
-          expect(painted.background).toBe(colored.background);
+          expect(painted.background).toBe(presetBackground);
           if (preset === "dottore") expect(painted.clip).toContain("polygon");
         }
         const path = info.outputPath(`chat-style-${preset}-${chat.view}.png`);
@@ -1164,6 +1166,11 @@ for (const [preset, theme] of [
       await clickTopbarPanel(page, "settings");
       await expectButtonRing(page, page.locator("[data-chat-settings-button]"), preset);
       const background = await resolvedStyle(page, "background-image", GRADIENT_COLORS.background);
+      const roleplayBackground = await resolvedStyle(
+        page,
+        "background-image",
+        "linear-gradient(135deg, rgb(from #667eea r g b / 1), rgb(from #764ba2 r g b / 1))",
+      );
       const border = await resolvedStyle(page, "background-image", GRADIENT_COLORS.border);
       const textGradient = await resolvedStyle(page, "background-image", GRADIENT_COLORS.text);
       for (const chat of fixture.chats) {
@@ -1174,7 +1181,9 @@ for (const [preset, theme] of [
           await expect(scope.input).toHaveCSS("-webkit-text-fill-color", "rgb(108, 92, 231)");
           for (const target of [scope.surface, scope.composer]) {
             const painted = await surfaceAppearance(target);
-            expect(painted.image).toBe(background);
+            expect(painted.image).toBe(
+              chat.view === "classic" && target === scope.surface ? roleplayBackground : background,
+            );
             expect(painted.borderImage).toBe(border);
             if (chat.mode === "conversation" && target === scope.surface) {
               expect(painted.radius).toBe(baseline.get(chat.view)!.surface.radius);

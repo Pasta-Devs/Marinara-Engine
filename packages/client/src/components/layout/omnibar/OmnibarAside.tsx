@@ -288,7 +288,7 @@ export function OmnibarAside({
               onClick={onOpenDownloadAgents}
               className="mari-chrome-control mari-chrome-control--compact"
             >
-              {t("omnibar.aside.downloadAgents", "Download Agents")}
+              {t("omnibar.aside.downloadAgents", "Agent Organizer")}
             </button>
           ) : null}
         </div>

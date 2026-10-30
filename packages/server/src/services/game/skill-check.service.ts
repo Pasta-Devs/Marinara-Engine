@@ -6,7 +6,7 @@
 // and attribute-linked modifiers.
 // ──────────────────────────────────────────────
 
-import type { RPGAttributes } from "@marinara-engine/shared";
+import { rollDieSecurely, type RPGAttributes } from "@marinara-engine/shared";
 
 export interface SkillCheckInput {
   /** Skill name (e.g. "Perception", "Stealth"). */
@@ -28,8 +28,7 @@ export interface SkillCheckInput {
   preRolledD20?: number;
   /**
    * Die source, for tests and for callers that own their own RNG. Defaults to
-   * the shipped unseeded `Math.random()` roller — consolidating call sites onto
-   * this service deliberately did not change how the engine rolls.
+   * the shared secure roller every player-facing roll uses.
    */
   rollD20?: () => number;
 }
@@ -60,7 +59,7 @@ export interface SkillCheckResult {
 }
 
 function d20(): number {
-  return Math.floor(Math.random() * 20) + 1;
+  return rollDieSecurely(20);
 }
 
 /**

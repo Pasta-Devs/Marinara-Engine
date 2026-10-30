@@ -271,7 +271,8 @@ try {
     const chat = await chats.create({
       name: `Macro scope ${coat}`,
       mode: "game",
-      characterIds: cardIds,
+      // Legacy sessions may keep their authoritative party in metadata while this column is empty.
+      characterIds: coat === "emerald velvet" ? [] : cardIds,
       personaId: macroPersona.id,
     });
     assert.ok(chat);
@@ -279,6 +280,7 @@ try {
       enableSpriteGeneration: true,
       gameImageConnectionId: connection.id,
       gameImageDynamicPromptEnabled: false,
+      gamePartyCharacterIds: cardIds,
       macroVariables: { coat },
     });
     scopedChats.push({ chat, coat });

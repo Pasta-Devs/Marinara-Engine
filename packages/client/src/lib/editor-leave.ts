@@ -28,6 +28,15 @@ export function hasEditorLeaveHandler(state: EditorIds): boolean {
   return handler !== null && editorLeaveKey(state) === handler.key;
 }
 
+/**
+ * Guards every path that leaves an open editor, so no route skips the prompt. An editor with a leave
+ * handler saves itself on the way out (the store routes the leave through it), so only editors without
+ * one need the prompt.
+ */
+export function confirmEditorLeave(state: EditorIds & { editorDirty?: boolean }, message: string): boolean {
+  return !state.editorDirty || hasEditorLeaveHandler(state) || window.confirm(message);
+}
+
 /** Explicit deletion/discard has already been confirmed by the editor. */
 export function leaveWithoutSaving(proceed: () => void) {
   const previous = handler;

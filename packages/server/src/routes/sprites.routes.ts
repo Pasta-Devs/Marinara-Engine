@@ -26,6 +26,7 @@ import {
   removeSpriteBackgroundPng,
   selectSpriteChromaMatte,
   spriteBackgroundContract,
+  SPRITE_CLEANUP_REVISION,
   type SpriteCleanupEngine,
   type UsedSpriteCleanupEngine,
   type SpriteChromaMatte,
@@ -1418,6 +1419,7 @@ export async function spritesRoutes(app: FastifyInstance) {
 
   app.get("/cleanup/status", async () => ({
     backgroundRemover: getBackgroundRemoverStatus(),
+    cleanupRevision: SPRITE_CLEANUP_REVISION,
   }));
 
   /**
@@ -2628,6 +2630,7 @@ export async function spritesRoutes(app: FastifyInstance) {
         engine: cleanupEngine,
         backgroundRemoverProcessed: engineCounts.backgroundremover,
         builtinProcessed: engineCounts.builtin,
+        cleanupRevision: SPRITE_CLEANUP_REVISION,
       };
     } catch (err: any) {
       logger.error(err, "Sprite cleanup failed");

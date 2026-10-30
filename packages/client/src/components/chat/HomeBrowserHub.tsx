@@ -91,6 +91,7 @@ import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
+import { capabilityPackageAssetUrl } from "../../lib/capability-package-assets";
 
 const HOME_BROWSER_PANEL_ID = "marinara-home-browser-panel";
 // Outside homeBrowserTabId's `marinara-home-tab-` namespace, so no package id can produce them.
@@ -245,14 +246,6 @@ function rememberSeenNoodleRefreshMarker(marker: string) {
   } catch {
     /* Local storage is optional; the badge still clears for the current mount. */
   }
-}
-
-function capabilityPackageAssetUrl(packageId: string, version: string, assetPath: string): string {
-  const encodedPath = assetPath
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-  return `/api/capability-packages/${encodeURIComponent(packageId)}/assets/${encodedPath}?v=${encodeURIComponent(version)}`;
 }
 
 function BrowserPackageTabIcon({

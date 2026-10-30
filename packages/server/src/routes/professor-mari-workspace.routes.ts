@@ -25,6 +25,8 @@ import { getProfessorMariWorkspaceService } from "../services/professor-mari/wor
 import { getProfessorMariWorkspaceSkillsService } from "../services/professor-mari/workspace-skills.service.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
 import { renderMariEditPrompt } from "../services/professor-mari/workspace-edit-render.js";
+import { listCanonicalDocumentation } from "../services/professor-mari/documentation-tools.js";
+import { getMonorepoRoot } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
 import {
@@ -95,6 +97,7 @@ export const professorMariPromptSchema = z.object({
         .optional(),
       field: z.string().min(1).max(200).optional(),
       fieldId: z.string().min(1).max(200).optional(),
+      fieldDraft: z.object({ value: z.string().max(20_000), selection: z.string().max(4_000).optional() }).optional(),
       error: z.object({ message: z.string().min(1).max(2_000), code: z.string().max(200).optional() }).optional(),
       action: z.string().max(500).optional(),
       commandCenterResultId: z.string().min(1).max(256).optional(),
@@ -130,6 +133,34 @@ export const professorMariPromptSchema = z.object({
         filename: z.string().optional(),
       }),
     )
+    .optional()
+    .default([]),
+  // `@` links from the composer: resolved once, beside this message (the ids are re-read server-side).
+  references: z
+    .array(
+      z.object({
+        kind: z.enum([
+          "character",
+          "persona",
+          "lorebook",
+          "lorebookEntry",
+          "preset",
+          "skill",
+          "memory",
+          "chat",
+          "doc",
+          "agent",
+        ]),
+        id: z.string().min(1).max(200),
+        // A long record name or doc heading is cut, not a reason to refuse the whole message.
+        label: z
+          .string()
+          .min(1)
+          .transform((label) => label.slice(0, 200)),
+        parentId: z.string().max(200).optional(),
+      }),
+    )
+    .max(8)
     .optional()
     .default([]),
 });
@@ -305,6 +336,12 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       keepRun: input.keepRun === true,
     });
     return { ok: true };
+  });
+
+  // The canonical docs the composer's `@` picker offers (the same set `docs_read` can open).
+  app.get("/docs", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    return listCanonicalDocumentation(getMonorepoRoot());
   });
 
   app.get("/skills", async (req, reply) => {
@@ -484,6 +521,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
         connectionId: body.connectionId ?? null,
         debugMode: body.debugMode,
         attachments: body.attachments,
+        references: body.references,
         existingUserMessageId: body.existingUserMessageId,
         context: body.context,
         seasonalPackId: body.seasonalPackId,

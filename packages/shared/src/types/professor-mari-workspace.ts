@@ -100,6 +100,8 @@ export interface ProfessorMariAskContext {
   field?: string;
   /** Stable editor field identifier; `field` remains the human-readable compatibility label. */
   fieldId?: string;
+  /** Current focused-field text, including unsaved edits and an optional selection. */
+  fieldDraft?: { value: string; selection?: string };
   error?: { message: string; code?: string };
   action?: string;
   commandCenterResultId?: string;

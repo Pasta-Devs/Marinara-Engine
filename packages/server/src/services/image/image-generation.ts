@@ -1010,6 +1010,17 @@ function decodeImageDataUrl(imageUrl: string): ImageGenResult {
   return { base64, mimeType, ext: imageExtensionFromMimeType(mimeType) };
 }
 
+/**
+ * A provider's `b64_json`-style field as an image. Some fill it with a whole data URL (xAI's generations endpoint
+ * returns `data:image/jpeg;base64,…`), and few say the type, so a data URL is decoded as one and bare base64 is typed
+ * by its bytes, as PNG only when they match no known format.
+ */
+function imageResultFromBase64Field(value: string): ImageGenResult {
+  if (value.trim().startsWith("data:")) return decodeImageDataUrl(value);
+  const mimeType = detectImageMimeType(value) ?? "image/png";
+  return { base64: value, mimeType, ext: imageExtensionFromMimeType(mimeType) };
+}
+
 function nanoGPTImagesUrl(baseUrl: string): string {
   const trimmed = baseUrl.replace(/\/+$/, "");
   try {
@@ -1128,7 +1139,7 @@ async function readOpenAIImageResult(
     throw new Error(`No image data in ${provider} response (fields: ${fields || "none"})`);
   }
 
-  return { base64: b64, mimeType: "image/png", ext: "png" };
+  return imageResultFromBase64Field(b64);
 }
 
 async function downloadImageUrl(
@@ -1598,7 +1609,7 @@ async function generateXAI(baseUrl: string, apiKey: string, request: ImageGenReq
 
   const data = (await resp.json()) as { data?: Array<{ b64_json?: string; url?: string }> };
   const result = data.data?.[0];
-  if (result?.b64_json) return { base64: result.b64_json, mimeType: "image/png", ext: "png" };
+  if (result?.b64_json) return imageResultFromBase64Field(result.b64_json);
   if (result?.url) return downloadImageUrl(result.url, request.privateImageResultOrigin, request.signal);
 
   throw new Error("No image data in xAI response");
@@ -2394,7 +2405,7 @@ async function generateTogetherAI(baseUrl: string, apiKey: string, request: Imag
   const b64 = data.data?.[0]?.b64_json;
   if (!b64) throw new Error("No image data in Together AI response");
 
-  return { base64: b64, mimeType: "image/png", ext: "png" };
+  return imageResultFromBase64Field(b64);
 }
 
 export function buildArliImageUrl(baseUrl: string, endpoint: "txt2img" | "img2img"): string {

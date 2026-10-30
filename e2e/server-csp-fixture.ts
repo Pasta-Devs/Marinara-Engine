@@ -3,7 +3,7 @@ import { securityHeadersHook } from "../packages/server/src/middleware/security-
 
 /** Serves the app page with the server's own connect-src and img-src (the directives the avatar renderers meet).
  *  Vite's dev page needs inline scripts the production build does not, so the other directives stay off. */
-export async function serveWithServerCsp(page: Page) {
+export async function serveWithServerCsp(page: Page, body?: string) {
   const headers = new Map<string, string>();
   const setHeader = (name: string, value: string) => headers.set(name.toLowerCase(), value);
   securityHeadersHook(
@@ -23,9 +23,18 @@ export async function serveWithServerCsp(page: Page) {
     (url) => url.pathname === "/",
     async (route) => {
       const response = await route.fetch();
+      const headers: Record<string, string> = {
+        ...response.headers(),
+        "content-security-policy": directives.join("; "),
+      };
+      if (body !== undefined) {
+        delete headers["content-length"];
+        delete headers["content-encoding"];
+      }
       await route.fulfill({
         response,
-        headers: { ...response.headers(), "content-security-policy": directives.join("; ") },
+        ...(body === undefined ? {} : { body }),
+        headers,
       });
     },
   );

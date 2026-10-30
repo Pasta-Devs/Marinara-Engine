@@ -4,6 +4,7 @@
 import type { LLMUsage } from "../llm/base-provider.js";
 import { MARI_AUTHORIZATION_ACCEPT_CHIP, mergeMariActionResults, PROFESSOR_MARI_ID } from "@marinara-engine/shared";
 import type {
+  MariComposerReference,
   MariHeldChange,
   MariSuggestionChip,
   MariWorkspaceActionResult,
@@ -25,11 +26,18 @@ type ChatStorage = ReturnType<typeof createChatsStorage>;
 export async function saveRunStart(
   chatStorage: ChatStorage,
   userMessageId: string,
-  run: { attachments: unknown[]; context: ProfessorMariAskContext | undefined; runStartedAt: number },
+  run: {
+    attachments: unknown[];
+    context: ProfessorMariAskContext | undefined;
+    references: MariComposerReference[];
+    runStartedAt: number;
+  },
 ) {
   const userMessageExtra = {
     ...(run.attachments.length > 0 ? { attachments: run.attachments } : {}),
     professorMariContext: run.context ?? null,
+    // A retry reuses this message, and a retry sends no links of its own: keep the ones it was sent with.
+    ...(run.references.length > 0 ? { references: run.references } : {}),
     // A retry reuses this message: its earlier failure is answered now.
     mariRunError: null,
     // The run's clock, on the server, so a reload mid-run resumes from the true start.
@@ -69,6 +77,8 @@ export type AssistantRunRecord = {
   latestUsage: LLMUsage | undefined;
   latestFinishReason: string | null;
   totalUsage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  /** Built-in skills the user linked with `@` this turn; they count as handbook reads. */
+  linkedHandbookIds?: string[];
 };
 
 export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<string, unknown> {
@@ -95,7 +105,11 @@ export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<stri
   });
   if (continuity) extraUpdate.mariWorkspaceContinuity = continuity;
   // #8391: what this turn did with handbooks, so the next turn knows which ones to keep in context.
-  extraUpdate.mariHandbooks = handbookTurnFromResults(run.commandResults, run.endedWithDeferral ? run.heldCalls : []);
+  extraUpdate.mariHandbooks = handbookTurnFromResults(
+    run.commandResults,
+    run.endedWithDeferral ? run.heldCalls : [],
+    run.linkedHandbookIds ?? [],
+  );
   extraUpdate.generationInfo = {
     provider: run.connection.provider,
     model: run.connection.model,

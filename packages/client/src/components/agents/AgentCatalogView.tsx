@@ -1,23 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   ArrowLeft,
   Check,
+  ChevronRight,
   Download,
-  ExternalLink,
   GitFork,
-  HardDrive,
+  Home,
+  Info,
   Loader2,
+  MoreHorizontal,
+  PackageCheck,
   RefreshCw,
   Search,
-  ShieldCheck,
   Sparkles,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { compareCapabilityPackageVersions, type CapabilityCatalogPackage } from "@marinara-engine/shared";
 import { toast } from "sonner";
+import type { CapabilityCatalogPackage } from "@marinara-engine/shared";
 import {
-  isAppCapabilityPackage,
+  useCapabilityAgentRegistry,
   useCapabilityCatalog,
   useInstallAllCapabilityPackages,
   useInstallCapabilityPackage,
@@ -26,107 +28,39 @@ import {
   useUninstallCapabilityPackage,
 } from "../../hooks/use-capability-packages";
 import { useCustomAgentRepositories } from "../../hooks/use-custom-agent-repositories";
+import { useChats } from "../../hooks/use-chats";
+import { parseChatMetadata } from "../../lib/chat-display";
 import { ApiError, getPrivilegedActionErrorMessage } from "../../lib/api-client";
-import { isAgentCatalogKindBadgeVisible } from "../../lib/agent-catalog-kind-badges";
-import { AgentVersionHistory } from "./AgentVersionHistory";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { notifyDecisionImport } from "../../lib/decision-import-notice";
+import { executeStateNavigation } from "../../lib/state-navigation";
 import { useUIStore } from "../../stores/ui.store";
-import { AgentArtwork } from "./AgentArtwork";
+import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { AgentModeFilter, type AgentModeFilterValue } from "./AgentModeFilter";
 import { CustomAgentRepositoriesModal } from "./CustomAgentRepositoriesModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
-
-const CATEGORY_SECTIONS = [
-  { id: "app", labelKey: "ui.agents.agentcatalogview.apps" },
-  { id: "writer", labelKey: "ui.agents.agentcatalogview.writerAgents" },
-  { id: "tracker", labelKey: "ui.agents.agentcatalogview.trackerAgents" },
-  { id: "misc", labelKey: "ui.agents.agentcatalogview.miscAgents" },
-] as const;
-
-/** Standalone apps get their own section, whatever category their catalog entry names. */
-function catalogCategory({ manifest, category }: Pick<CapabilityCatalogPackage, "manifest" | "category">) {
-  return isAppCapabilityPackage(manifest) ? "app" : category;
-}
-
-type CatalogMode = "conversation" | "roleplay" | "game";
-
-const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> = Object.freeze({
-  beholder: ["roleplay"],
-  "card-evolution-auditor": ["roleplay"],
-  continuity: ["roleplay"],
-  "knowledge-retrieval": ["roleplay"],
-  "knowledge-router": ["roleplay"],
-  director: ["roleplay"],
-  "prose-guardian": ["roleplay"],
-  background: ["roleplay"],
-  "character-tracker": ["roleplay"],
-  "custom-tracker": ["roleplay"],
-  "inventory-tracker": ["roleplay"],
-  quartermaster: ["roleplay"],
-  "relationship-tracker": ["roleplay"],
-  "memory-nag": ["roleplay"],
-  "long-term-memory": ["conversation", "roleplay", "game"],
-  expression: ["roleplay"],
-  "gacha-forge": ["conversation", "roleplay", "game"],
-  "hierarchical-maps": ["roleplay", "game"],
-  "persona-stats": ["roleplay"],
-  quest: ["roleplay"],
-  "world-state": ["roleplay"],
-  "2d-avatars": ["roleplay", "game"],
-  "3d-avatars": ["roleplay", "game"],
-  eightball: ["conversation"],
-  chess: ["conversation"],
-  combat: ["roleplay"],
-  "conversation-calls": ["conversation"],
-  cyoa: ["roleplay"],
-  "echo-chamber": ["roleplay"],
-  haptic: ["conversation", "roleplay", "game"],
-  illustrator: ["conversation", "roleplay", "game"],
-  storyboard: ["roleplay", "game"],
-  html: ["roleplay"],
-  "lorebook-keeper": ["roleplay", "game"],
-  noodle: ["conversation", "roleplay", "game"],
-  slurp: ["conversation", "roleplay", "game"],
-  spotify: ["conversation", "roleplay", "game"],
-  poker: ["conversation"],
-  "rock-paper-scissors": ["conversation"],
-  "ruleset-5e-2014": ["game"],
-  "tic-tac-toe": ["conversation"],
-  uno: ["conversation"],
-});
-
-const MODE_BADGES: Record<CatalogMode, { labelKey: string; className: string }> = {
-  conversation: {
-    labelKey: "ui.agents.agentcatalogview.conversationMode",
-    className:
-      "border-[color-mix(in_srgb,var(--mari-logo-cyan)_55%,var(--border))] bg-[color-mix(in_srgb,var(--mari-logo-cyan)_18%,transparent)]",
-  },
-  roleplay: {
-    labelKey: "ui.agents.agentcatalogview.roleplayMode",
-    className:
-      "border-[color-mix(in_srgb,var(--mari-logo-orange)_55%,var(--border))] bg-[color-mix(in_srgb,var(--mari-logo-orange)_18%,transparent)]",
-  },
-  game: {
-    labelKey: "ui.agents.agentcatalogview.gameMode",
-    className:
-      "border-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_55%,var(--border))] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_18%,transparent)]",
-  },
-};
-
-const DETAIL_ACTION_CLASS = "mari-chrome-control mari-chrome-control--primary px-4 py-2.5 max-sm:flex-1";
+import {
+  checkReasonOf,
+  hasUpdate,
+  ORGANIZER_SECTIONS,
+  packageModes,
+  sectionLabelKey,
+  sectionOf,
+  taglineOf,
+  type OrganizerEntry,
+  type OrganizerPage,
+} from "./organizer/organizer-model";
+import { AgentIcon, IconStack, OrganizerContext, type OrganizerActions } from "./organizer/OrganizerParts";
+import { OrganizerHome } from "./organizer/OrganizerHome";
+import { InstalledPage, SearchResults, SectionPage, UpdatesPage } from "./organizer/OrganizerLists";
+import { AgentPage } from "./organizer/AgentPage";
 
 type BulkActionProgress = {
   action: "install" | "uninstall";
   completed: number;
   total: number;
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
-}
 
 function catalogErrorDescription(error: unknown) {
   const offlineSuffix = "Installed agents remain available offline.";
@@ -137,19 +71,7 @@ function catalogErrorDescription(error: unknown) {
   return `Marinara Engine could not load the official catalog. ${offlineSuffix}`;
 }
 
-function kindLabel(kind: CapabilityCatalogPackage["manifest"]["kind"][number]) {
-  if (kind === "conversation-calls") return "Calls";
-  if (kind === "turn-game") return "Conversation Game";
-  if (kind === "maps") return "Maps";
-  if (kind === "ruleset") return "Rules";
-  if (kind === "experience") return "Experience";
-  return "Agent";
-}
-
-function packageModes(packageId: string): readonly CatalogMode[] {
-  return OFFICIAL_PACKAGE_MODES[packageId] ?? [];
-}
-
+/** The Agent Organizer: browse, install, update and remove downloadable agents. */
 export function AgentCatalogView() {
   const { t: localizeUi } = useUiTranslation();
   const closeAgentCatalog = useUIStore((state) => state.closeAgentCatalog);
@@ -163,95 +85,97 @@ export function AgentCatalogView() {
   const customRepositories = useCustomAgentRepositories();
   const [query, setQuery] = useState("");
   const [modeFilter, setModeFilter] = useState<AgentModeFilterValue>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(initialPackageId);
-  const [mobileDetail, setMobileDetail] = useState(Boolean(initialPackageId));
+  const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleSection = (section: string) =>
+    setOpenSections((current) => {
+      const next = new Set(current);
+      if (!next.delete(section)) next.add(section);
+      return next;
+    });
+  const [page, setPage] = useState<OrganizerPage>(() =>
+    initialPackageId ? { kind: "agent", id: initialPackageId } : { kind: "home" },
+  );
+  const [menu, setMenu] = useState<{ entry: OrganizerEntry | null; x: number; y: number } | null>(null);
   const [bulkProgress, setBulkProgress] = useState<BulkActionProgress | null>(null);
   const [customRepositoriesOpen, setCustomRepositoriesOpen] = useState(false);
-  const hasActiveFilters = Boolean(query.trim()) || modeFilter !== "all";
+  const mainRef = useRef<HTMLElement>(null);
 
   const installedById = useMemo(() => new Map((installed.data ?? []).map((item) => [item.id, item])), [installed.data]);
-  const packages = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return (catalog.data?.packages ?? []).filter(
-      ({ manifest, category }) =>
-        (modeFilter === "all" || packageModes(manifest.id).includes(modeFilter)) &&
-        (!needle ||
-          [
-            manifest.name,
-            manifest.description,
-            manifest.id,
-            catalogCategory({ manifest, category }),
-            localizeUi(
-              CATEGORY_SECTIONS.find((section) => section.id === catalogCategory({ manifest, category }))?.labelKey ??
-                "",
-            ),
-            ...manifest.kind.map(kindLabel),
-            ...packageModes(manifest.id).map((mode) => localizeUi(MODE_BADGES[mode].labelKey)),
-          ]
-            .join(" ")
-            .toLowerCase()
-            .includes(needle)),
+  const chats = useChats();
+  const capabilityAgents = useCapabilityAgentRegistry();
+  // Chats that run each package: a chat lists agent ids (or the package id), and only counts with agents on.
+  const chatCountById = useMemo(() => {
+    const packageByAgent = new Map(
+      (capabilityAgents.data ?? []).flatMap((agent) => (agent.packageId ? [[agent.id, agent.packageId] as const] : [])),
     );
-  }, [catalog.data, localizeUi, modeFilter, query]);
-  const packageGroups = useMemo(
-    () => [
-      {
-        id: "installed",
-        title: "Installed Agents",
-        entries: packages.filter((entry) => installedById.has(entry.manifest.id)),
-      },
-      {
-        id: "uninstalled",
-        title: "Uninstalled Agents",
-        entries: packages.filter((entry) => !installedById.has(entry.manifest.id)),
-      },
-    ],
-    [installedById, packages],
+    const counts = new Map<string, number>();
+    for (const chat of chats.data ?? []) {
+      const metadata = parseChatMetadata(chat.metadata);
+      if (metadata.enableAgents !== true || !Array.isArray(metadata.activeAgentIds)) continue;
+      const packageIds = new Set(
+        metadata.activeAgentIds
+          .filter((id: unknown): id is string => typeof id === "string")
+          .map((id: string) => packageByAgent.get(id) ?? id),
+      );
+      for (const id of packageIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return counts;
+  }, [capabilityAgents.data, chats.data]);
+  const settingsAgentById = useMemo(() => {
+    const ids = new Map<string, string>();
+    for (const agent of capabilityAgents.data ?? []) {
+      if (agent.packageId && !ids.has(agent.packageId)) ids.set(agent.packageId, agent.id);
+    }
+    return ids;
+  }, [capabilityAgents.data]);
+  const all = useMemo(() => catalog.data?.packages ?? [], [catalog.data]);
+  const entries = useMemo(
+    () => (modeFilter === "all" ? all : all.filter((entry) => packageModes(entry.manifest.id).includes(modeFilter))),
+    [all, modeFilter],
+  );
+  const needle = query.trim().toLowerCase();
+  const results = useMemo(
+    () =>
+      needle
+        ? entries.filter(({ manifest, ...entry }) =>
+            [manifest.name, manifest.id, manifest.description, taglineOf({ manifest, ...entry })]
+              .join(" ")
+              .toLowerCase()
+              .includes(needle),
+          )
+        : null,
+    [entries, needle],
+  );
+  const updates = useMemo(
+    () => all.filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id))),
+    [all, installedById],
   );
   const installablePackageIds = useMemo(
+    // Until the installed list loads, every package would look installable.
     () =>
-      (catalog.data?.packages ?? [])
-        .filter((entry) => !installedById.has(entry.manifest.id))
-        .map((entry) => entry.manifest.id),
-    [catalog.data, installedById],
+      installed.data
+        ? all.filter((entry) => !installedById.has(entry.manifest.id)).map((entry) => entry.manifest.id)
+        : [],
+    [all, installed.data, installedById],
   );
   const installedPackageIds = useMemo(() => (installed.data ?? []).map((entry) => entry.id), [installed.data]);
   const bulkActionPending = installAll.isPending || uninstallAll.isPending;
   const packageActionPending = install.isPending || uninstall.isPending || bulkActionPending;
-  const selected =
-    (catalog.data?.packages ?? []).find((item) => item.manifest.id === selectedId) ?? packages[0] ?? null;
-  const selectedInstalled = selected ? installedById.get(selected.manifest.id) : undefined;
-  const installedPermissions = selectedInstalled?.manifest.permissions;
-  const permissionGroups = selected
-    ? [
-        ...(selectedInstalled
-          ? [
-              {
-                kind: "installed",
-                version: selectedInstalled.version,
-                permissions: selectedInstalled.manifest.permissions,
-              },
-            ]
-          : []),
-        ...(!installedPermissions ||
-        installedPermissions.length !== selected.manifest.permissions.length ||
-        selected.manifest.permissions.some((permission) => !installedPermissions.includes(permission))
-          ? [{ kind: "available", version: selected.manifest.version, permissions: selected.manifest.permissions }]
-          : []),
-      ]
-    : [];
-  const selectedVersionComparison = selectedInstalled
-    ? compareCapabilityPackageVersions(selected.manifest.version, selectedInstalled.version)
-    : 0;
+  const busyId = install.isPending
+    ? (install.variables?.id ?? null)
+    : uninstall.isPending
+      ? (uninstall.variables ?? null)
+      : null;
 
   useEffect(() => {
-    if (packages.length === 0) return;
-    if (!selectedId && packages[0]) setSelectedId(packages[0].manifest.id);
-    if (selectedId && !packages.some((item) => item.manifest.id === selectedId)) {
-      setSelectedId(packages[0]?.manifest.id ?? null);
-      setMobileDetail(false);
-    }
-  }, [packages, selectedId]);
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [page]);
+
+  useEffect(() => {
+    if (!initialPackageId) return;
+    setQuery("");
+    setPage({ kind: "agent", id: initialPackageId });
+  }, [initialPackageId]);
 
   const handleInstall = async (entry: CapabilityCatalogPackage) => {
     const isUpdate = installedById.has(entry.manifest.id);
@@ -306,17 +230,30 @@ export function AgentCatalogView() {
     }
   };
 
-  const handleInstallAll = async () => {
-    if (installablePackageIds.length === 0 || packageActionPending) return;
-    const total = installablePackageIds.length;
+  const handleUpdateAll = () => handleInstallAll(updates, true);
+
+  const handleInstallAll = async (
+    packages: CapabilityCatalogPackage[] = all.filter((entry) => installablePackageIds.includes(entry.manifest.id)),
+    isUpdate = false,
+  ) => {
+    if (!installed.data || packages.length === 0 || packageActionPending) return;
+    const total = packages.length;
     setBulkProgress({ action: "install", completed: 0, total });
     try {
       const result = await installAll.mutateAsync({
-        packages: (catalog.data?.packages ?? []).filter((entry) => installablePackageIds.includes(entry.manifest.id)),
+        packages,
         onProgress: (completed) => setBulkProgress({ action: "install", completed, total }),
       });
       void notifyDecisionImport(result.usesDecisions, localizeUi);
-      if (result.failures.length === 0) {
+      if (result.failures.length === 0 && isUpdate) {
+        toast.success(
+          localizeUi(
+            result.restartRequired
+              ? "ui.agents.agentupdateprompter.updatesAppliedRestartRequired"
+              : "ui.agents.agentupdateprompter.updatesAppliedReadyToUse",
+          ),
+        );
+      } else if (result.failures.length === 0) {
         toast.success(
           result.restartRequired
             ? localizeUi("ui.agents.agentcatalogview.value1AgentsInstalledRestartMarinaraEngineToFinishSetup", {
@@ -387,498 +324,437 @@ export function AgentCatalogView() {
     }
   };
 
-  return (
-    <div
-      data-component="AgentCatalogView"
-      className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[var(--marinara-editor-bg)]"
-    >
-      <header className="relative z-10 flex shrink-0 items-center gap-3 border-b border-[var(--border)]/50 bg-[var(--card)]/90 px-3 py-2 backdrop-blur-md md:px-6 md:py-3">
-        <button
-          type="button"
-          onClick={closeAgentCatalog}
-          className="mari-chrome-control h-9 w-9 shrink-0 rounded-xl p-0 md:h-10 md:w-10"
-          title={localizeUi("capabilities.actions.backToAgents")}
-          aria-label={localizeUi("capabilities.actions.backToAgents")}
-        >
-          <ArrowLeft size="1rem" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <p className="text-[0.625rem] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
-            {localizeUi("ui.agents.agentcatalogview.agentLibrary")}
-          </p>
-          <h1 className="truncate text-base font-semibold text-[var(--foreground)] md:text-xl">
-            {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
-          </h1>
-          <p className="truncate text-xs text-[var(--muted-foreground)]">
-            {localizeUi("ui.agents.agentcatalogview.catalogSummary", {
-              availableCount: catalog.data?.packages.length ?? 0,
-              installedCount: installed.data?.length ?? 0,
-            })}
-          </p>
-        </div>
-        {customRepositories.data?.enabled && (
-          <button
-            type="button"
-            className="mari-chrome-control h-9 shrink-0 px-3 text-xs md:h-10 md:px-4"
-            onClick={() => setCustomRepositoriesOpen(true)}
-            aria-label={localizeUi("ui.agents.agentcatalogview.customSources")}
-          >
-            <GitFork size="0.85rem" />
-            <span className="max-sm:hidden">{localizeUi("ui.agents.agentcatalogview.customSources")}</span>
-          </button>
-        )}
-        {selected && selectedInstalled && selectedVersionComparison > 0 && (
-          <button
-            type="button"
-            className={cn(
-              "mari-chrome-control h-9 shrink-0 px-3 text-xs md:h-10 md:px-4",
-              !mobileDetail && "max-md:hidden",
-            )}
-            disabled={packageActionPending}
-            onClick={() => void handleInstall(selected)}
-            aria-label={localizeUi("ui.agents.agentcatalogview.updateAgent", { name: selected.manifest.name })}
-            title={localizeUi("ui.agents.agentcatalogview.updateAgent", { name: selected.manifest.name })}
-          >
-            {install.isPending ? <Loader2 size="0.85rem" className="animate-spin" /> : <Download size="0.85rem" />}
-            <span className="max-sm:hidden">{localizeUi("ui.agents.agentcatalogview.update")}</span>
-          </button>
-        )}
-        <button
-          type="button"
-          className="mari-chrome-control h-9 shrink-0 px-3 text-xs md:h-10 md:px-4"
-          onClick={() => void Promise.all([catalog.refetch(), installed.refetch()])}
-          disabled={catalog.isFetching || installed.isFetching || packageActionPending}
-          aria-label={localizeUi("ui.noodle.noodlehome.refresh")}
-        >
-          <RefreshCw size="0.85rem" className={cn((catalog.isFetching || installed.isFetching) && "animate-spin")} />
-          <span className="max-sm:hidden">{localizeUi("ui.noodle.noodlehome.refresh")}</span>
-        </button>
-      </header>
+  const go = (next: OrganizerPage) => {
+    setQuery("");
+    setPage(next);
+  };
 
-      <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
-        <aside
-          className={cn(
-            "flex min-h-0 flex-col border-[var(--border)] bg-[var(--card)]/35 md:border-r",
-            mobileDetail && "max-md:hidden",
-          )}
-        >
-          <div className="border-b border-[var(--border)]/50 p-3 md:p-4">
-            <div className="relative">
-              <Search
-                size="0.9rem"
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-              />
-              <input
-                className="mari-chrome-field h-10 w-full pl-9 pr-3 text-sm"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={localizeUi("ui.agents.agentcatalogview.searchAgents")}
-                aria-label={localizeUi("ui.agents.agentcatalogview.searchDownloadableAgents")}
-              />
-            </div>
-            <AgentModeFilter className="mt-2" value={modeFilter} onChange={setModeFilter} />
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className="mari-chrome-control mari-chrome-control--primary h-9 min-h-9! min-w-0 px-2! text-xs"
-                onClick={() => void handleInstallAll()}
-                disabled={
-                  installablePackageIds.length === 0 || packageActionPending || catalog.isLoading || installed.isLoading
-                }
-                title={
-                  installablePackageIds.length === 0
-                    ? localizeUi("ui.agents.agentcatalogview.allAvailableAgentsAreInstalled")
-                    : undefined
-                }
-              >
-                {bulkProgress?.action === "install" ? (
-                  <Loader2 size="0.8rem" className="shrink-0 animate-spin" />
-                ) : (
-                  <Download size="0.8rem" className="shrink-0" />
-                )}
-                <span className="truncate">
-                  {bulkProgress?.action === "install"
-                    ? localizeUi("ui.agents.agentcatalogview.installingValue1Value2", {
-                        value1: bulkProgress.completed,
-                        value2: bulkProgress.total,
-                      })
-                    : localizeUi("ui.agents.agentcatalogview.installAll")}
-                </span>
-              </button>
-              <button
-                type="button"
-                className="mari-chrome-control h-9 min-w-0 px-2 text-xs"
-                onClick={() => void handleUninstallAll()}
-                disabled={
-                  installedPackageIds.length === 0 || packageActionPending || catalog.isLoading || installed.isLoading
-                }
-                title={
-                  installedPackageIds.length === 0
-                    ? localizeUi("ui.agents.agentcatalogview.noAgentsAreInstalled")
-                    : undefined
-                }
-              >
-                {bulkProgress?.action === "uninstall" ? (
-                  <Loader2 size="0.8rem" className="shrink-0 animate-spin" />
-                ) : (
-                  <Trash2 size="0.8rem" className="shrink-0" />
-                )}
-                <span className="truncate">
-                  {bulkProgress?.action === "uninstall"
-                    ? localizeUi("ui.agents.agentcatalogview.uninstallingValue1Value2", {
-                        value1: bulkProgress.completed,
-                        value2: bulkProgress.total,
-                      })
-                    : localizeUi("ui.agents.agentcatalogview.uninstallAll")}
-                </span>
-              </button>
-            </div>
-            {bulkProgress && (
-              <p
-                className="mt-2 text-center text-[0.6875rem] text-[var(--muted-foreground)]"
-                role="status"
-                aria-live="polite"
-              >
-                {bulkProgress.action === "install"
-                  ? localizeUi("ui.agents.agentcatalogview.installing")
-                  : localizeUi("ui.agents.agentcatalogview.uninstalling")}{" "}
-                {localizeUi("ui.agents.agentcatalogview.agent")} {bulkProgress.completed}{" "}
-                {localizeUi("ui.noodle.noodlehome.of")} {bulkProgress.total}
-                {localizeUi("ui.agents.agentcatalogview.keepMarinaraEngineOpenUntilThisFinishes")}
-              </p>
-            )}
-          </div>
+  const openMenu = (entry: OrganizerEntry | null, event: MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMenu({ entry, x: rect.right - 192, y: rect.bottom + 4 });
+  };
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-2 md:p-3">
-            {catalog.isLoading ? (
-              <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-[var(--muted-foreground)]">
-                <Loader2 className="animate-spin" size="1rem" />{" "}
-                {localizeUi("ui.agents.agentcatalogview.loadingTheOfficialCatalog")}
-              </div>
-            ) : catalog.isError ? (
-              <div className="flex min-h-56 flex-col items-center justify-center gap-3 px-4 text-center">
-                <TriangleAlert size="2rem" className="text-[var(--muted-foreground)]" />
-                <div>
-                  <p className="font-semibold">
-                    {localizeUi("ui.agents.agentcatalogview.theAgentCatalogIsUnavailable")}
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                    {catalogErrorDescription(catalog.error)}
-                  </p>
-                </div>
-                <button
-                  className="mari-chrome-control mari-chrome-control--primary px-4 py-2"
-                  onClick={() => void catalog.refetch()}
-                >
-                  {localizeUi("capabilities.actions.tryAgain")}
-                </button>
-              </div>
-            ) : packages.length === 0 ? (
-              <div className="flex min-h-56 flex-col items-center justify-center gap-2 px-4 text-center">
-                <Sparkles size="2rem" className="text-[var(--muted-foreground)]" />
-                <p className="font-semibold">
-                  {hasActiveFilters
-                    ? localizeUi("ui.agents.agentcatalogview.noMatchingAgents")
-                    : localizeUi("ui.agents.agentcatalogview.theOfficialCatalogIsEmpty")}
-                </p>
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  {hasActiveFilters
-                    ? localizeUi("ui.noodle.noodlehome.tryADifferentSearch")
-                    : localizeUi("ui.agents.agentcatalogview.publishedAgentsWillAppearHereAutomatically")}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {packageGroups.map((group) => (
-                  <section key={group.id} aria-labelledby={`agent-catalog-${group.id}`}>
-                    <div className="mb-2 flex items-center justify-between gap-2 px-2">
-                      <h2
-                        id={`agent-catalog-${group.id}`}
-                        className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]"
-                      >
-                        {group.title}
-                      </h2>
-                      <span className="text-[0.625rem] tabular-nums text-[var(--muted-foreground)]">
-                        {group.entries.length}
-                      </span>
-                    </div>
-                    {group.entries.length === 0 ? (
-                      <p className="px-2 py-2 text-xs text-[var(--muted-foreground)]">
-                        {group.id === "installed"
-                          ? localizeUi("ui.agents.agentcatalogview.noAgentsInstalledInThisView")
-                          : localizeUi("ui.agents.agentcatalogview.everyMatchingAgentIsInstalled")}
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {CATEGORY_SECTIONS.map((category) => {
-                          const entries = group.entries.filter((entry) => catalogCategory(entry) === category.id);
-                          if (entries.length === 0) return null;
-                          return (
-                            <div key={category.id}>
-                              <h3 className="mb-1 px-2 text-[0.6875rem] font-semibold text-[var(--foreground)]/75">
-                                {localizeUi(category.labelKey)}
-                              </h3>
-                              <div className="space-y-1">
-                                {entries.map((entry) => {
-                                  const active = entry.manifest.id === selected?.manifest.id;
-                                  const modes = packageModes(entry.manifest.id);
-                                  return (
-                                    <button
-                                      key={entry.manifest.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedId(entry.manifest.id);
-                                        setMobileDetail(true);
-                                      }}
-                                      className={cn(
-                                        "flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--sidebar-accent)]",
-                                        active &&
-                                          "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-inset ring-[var(--border)]",
-                                      )}
-                                    >
-                                      <span className="mari-panel-gradient-surface mari-panel-gradient--agents flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl">
-                                        <AgentArtwork
-                                          imageUrl={entry.iconUrl}
-                                          alt={localizeUi("ui.agents.agentcatalogview.value1Artwork", {
-                                            value1: entry.manifest.name,
-                                          })}
-                                          iconSize="1.15rem"
-                                        />
-                                      </span>
-                                      <span className="min-w-0 flex-1">
-                                        <span className="flex items-center gap-2">
-                                          <span className="truncate text-sm font-semibold">{entry.manifest.name}</span>
-                                          {group.id === "installed" && (
-                                            <span className="mari-chrome-tag bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.6rem] font-semibold text-[var(--marinara-chat-chrome-highlight-text)]">
-                                              {localizeUi("ui.agents.agentcatalogview.installed_7bb4405")}
-                                            </span>
-                                          )}
-                                        </span>
-                                        <span className="mt-0.5 line-clamp-2 text-xs text-[var(--muted-foreground)]">
-                                          {entry.manifest.description}
-                                        </span>
-                                        {modes.length > 0 && (
-                                          <span data-agent-catalog-mode-badges className="mt-1 flex flex-wrap gap-1">
-                                            {modes.map((mode) => (
-                                              <span
-                                                key={mode}
-                                                className={cn(
-                                                  "rounded-md border px-1.5 py-0.5 text-[0.5625rem] font-semibold text-[var(--foreground)]",
-                                                  MODE_BADGES[mode].className,
-                                                )}
-                                              >
-                                                {localizeUi(MODE_BADGES[mode].labelKey)}
-                                              </span>
-                                            ))}
-                                          </span>
-                                        )}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-                ))}
-              </div>
-            )}
-          </div>
-        </aside>
+  const actions: OrganizerActions = {
+    installedById,
+    chatCountById,
+    settingsAgentById,
+    busyId,
+    pending: packageActionPending,
+    install: (entry) => void handleInstall(entry),
+    open: (entry) => {
+      closeAgentCatalog();
+      executeStateNavigation({ kind: "package", packageId: entry.manifest.id });
+    },
+    go,
+    menu: openMenu,
+  };
 
-        {selected ? (
-          <main className={cn("min-h-0 overflow-y-auto", !mobileDetail && "max-md:hidden")}>
-            <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-6 px-4 py-4 md:px-8 md:py-8 lg:px-12">
-              <button
-                type="button"
-                className="mari-chrome-control mb-1 w-fit px-3 py-2 text-sm md:!hidden"
-                onClick={() => setMobileDetail(false)}
-              >
-                <ArrowLeft size="0.9rem" /> {localizeUi("ui.agents.agentcatalogview.allAgents")}
-              </button>
+  const menuItems = (entry: OrganizerEntry | null): ContextMenuItem[] => {
+    if (entry) {
+      const isInstalled = installedById.has(entry.manifest.id);
+      return [
+        {
+          label: localizeUi("ui.agents.organizer.details"),
+          icon: <Info size="0.85rem" />,
+          onSelect: () => go({ kind: "agent", id: entry.manifest.id }),
+        },
+        isInstalled
+          ? {
+              label: localizeUi("ui.agents.agentcatalogview.uninstall"),
+              icon: <Trash2 size="0.85rem" />,
+              destructive: true,
+              disabled: packageActionPending,
+              onSelect: () => void handleUninstall(entry),
+            }
+          : {
+              label: localizeUi("ui.agents.organizer.get"),
+              icon: <Download size="0.85rem" />,
+              disabled: packageActionPending,
+              onSelect: () => void handleInstall(entry),
+            },
+      ];
+    }
+    return [
+      ...(updates.length > 0
+        ? [
+            {
+              label: localizeUi("ui.agents.organizer.updateAllCount", { count: updates.length }),
+              icon: <RefreshCw size="0.85rem" />,
+              disabled: packageActionPending,
+              onSelect: () => void handleUpdateAll(),
+            },
+          ]
+        : []),
+      {
+        label: localizeUi("ui.agents.organizer.installAllCount", { count: installablePackageIds.length }),
+        icon: <Download size="0.85rem" />,
+        disabled: installablePackageIds.length === 0 || packageActionPending,
+        onSelect: () => void handleInstallAll(),
+      },
+      ...(customRepositories.data?.enabled
+        ? [
+            {
+              label: localizeUi("ui.agents.agentcatalogview.customSources"),
+              icon: <GitFork size="0.85rem" />,
+              onSelect: () => setCustomRepositoriesOpen(true),
+            },
+          ]
+        : []),
+      {
+        label: localizeUi("ui.agents.organizer.refresh"),
+        icon: <RefreshCw size="0.85rem" />,
+        disabled: catalog.isFetching || installed.isFetching,
+        onSelect: () => void Promise.all([catalog.refetch(), installed.refetch()]),
+      },
+      {
+        label: localizeUi("ui.agents.agentcatalogview.uninstallAll"),
+        icon: <Trash2 size="0.85rem" />,
+        destructive: true,
+        disabled: installedPackageIds.length === 0 || packageActionPending,
+        onSelect: () => void handleUninstallAll(),
+      },
+    ];
+  };
 
-              <div className="flex items-start gap-4 md:gap-5">
-                <div className="mari-panel-gradient-surface mari-panel-gradient--agents flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl md:h-24 md:w-24">
-                  <AgentArtwork
-                    imageUrl={selected.iconUrl}
-                    alt={localizeUi("ui.agents.agentcatalogview.value1Artwork", { value1: selected.manifest.name })}
-                    iconSize="2rem"
-                  />
-                </div>
-                <div className="min-w-0 pt-1">
-                  <p className="text-xs font-semibold text-[var(--muted-foreground)]">
-                    {localizeUi(
-                      CATEGORY_SECTIONS.find((category) => category.id === catalogCategory(selected))?.labelKey ??
-                        "ui.agents.agentcatalogview.miscAgents",
-                    )}
-                  </p>
-                  <h2 className="mt-1 text-xl font-bold md:text-2xl">{selected.manifest.name}</h2>
-                  <p className="mt-2 max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">
-                    {selected.manifest.description}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {selected.manifest.kind.filter(isAgentCatalogKindBadgeVisible).map((kind) => (
-                      <span
-                        key={kind}
-                        className="mari-chrome-tag border border-[var(--border)] px-2.5 py-1 text-[0.68rem]"
-                      >
-                        {kindLabel(kind)}
-                      </span>
-                    ))}
-                    {packageModes(selected.manifest.id).map((mode) => (
-                      <span
-                        key={mode}
-                        data-chat-mode={mode}
-                        className={cn(
-                          "mari-chrome-tag border px-2.5 py-1 text-[0.68rem] font-semibold text-[var(--foreground)]",
-                          MODE_BADGES[mode].className,
-                        )}
-                      >
-                        {localizeUi(MODE_BADGES[mode].labelKey)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+  const agentEntry = page.kind === "agent" ? all.find((entry) => entry.manifest.id === page.id) : undefined;
+  const sectionCounts = ORGANIZER_SECTIONS.map((section) => ({
+    section,
+    entries: entries.filter((entry) => sectionOf(entry) === section),
+  })).filter((item) => item.entries.length > 0);
+  const navItems = [
+    { page: { kind: "home" } as const, label: localizeUi("ui.agents.organizer.home"), icon: Home, count: 0 },
+    {
+      page: { kind: "updates" } as const,
+      label: localizeUi("ui.agents.organizer.updatesTitle"),
+      icon: RefreshCw,
+      count: updates.length,
+    },
+    {
+      page: { kind: "installed" } as const,
+      label: localizeUi("ui.agents.organizer.installedTitle"),
+      icon: PackageCheck,
+      count: installedById.size,
+    },
+  ];
+  const isCurrent = (target: OrganizerPage) =>
+    !results &&
+    target.kind === page.kind &&
+    (target.kind !== "section" || (page.kind === "section" && page.id === target.id));
+  const showAside = page.kind !== "agent" || Boolean(results);
+  const backLabel = agentEntry
+    ? localizeUi("ui.agents.organizer.backToSection", {
+        section: localizeUi(sectionLabelKey(sectionOf(agentEntry))),
+      })
+    : localizeUi("capabilities.actions.backToAgents");
 
-              <div className="flex flex-wrap gap-x-6 gap-y-3 border-y border-[var(--border)] py-4 text-xs text-[var(--muted-foreground)]">
-                <span className="flex items-center gap-1.5">
-                  <HardDrive size="0.8rem" /> {formatBytes(selected.artifact.bytes)}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck size="0.8rem" />
-                  {localizeUi(
-                    catalog.data?.provenance?.kind === "custom"
-                      ? "ui.agents.agentcatalogview.customChecksumWillBeVerifiedDuringInstallation"
-                      : "ui.agents.agentcatalogview.officialChecksumWillBeVerifiedDuringInstallation",
-                  )}
-                </span>
-                {selectedInstalled ? (
-                  <>
-                    <span>
-                      {localizeUi("ui.agents.agentcatalogview.installedV")}
-                      {selectedInstalled.version}
-                    </span>
-                    {selectedVersionComparison > 0 && (
-                      <span>
-                        {localizeUi("ui.agents.agentcatalogview.catalogV")}
-                        {selected.manifest.version} {localizeUi("ui.agents.agentcatalogview.available_7b231a5")}
-                      </span>
-                    )}
-                    {selectedVersionComparison < 0 && (
-                      <span>
-                        {localizeUi("ui.agents.agentcatalogview.catalogV")}
-                        {selected.manifest.version} {localizeUi("ui.agents.agentcatalogview.older")}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span>
-                    {localizeUi("ui.agents.agentcatalogview.agentV")}
-                    {selected.manifest.version}
-                  </span>
-                )}
-                <span>
-                  {localizeUi("ui.agents.agentcatalogview.marinaraEngineV")}
-                  {selected.manifest.engine.min}+
-                </span>
-              </div>
-
-              <section>
-                <h3 className="text-sm font-semibold">{localizeUi("ui.agents.agentcatalogview.permissions")}</h3>
-                {(selected.manifest.entrypoints.server || selected.manifest.entrypoints.client) && (
-                  <p className="mt-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs leading-relaxed text-[var(--foreground)]">
-                    {localizeUi("ui.agents.agentcatalogview.trustedCodeAccessNotice")}
-                  </p>
-                )}
-                <p className="mt-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
-                  {localizeUi("ui.agents.agentcatalogview.permissionScopeNotice")}
-                </p>
-                {permissionGroups.map((group) => (
-                  <div key={group.kind} className="mt-3">
-                    <h4 className="text-xs font-medium">
-                      {localizeUi(
-                        group.kind === "installed"
-                          ? "ui.agents.agentcatalogview.installedPermissions"
-                          : "ui.agents.agentcatalogview.availablePermissions",
-                        { version: group.version },
-                      )}
-                    </h4>
-                    {group.permissions.length > 0 ? (
-                      <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-                        {group.permissions.map((permission) => (
-                          <li
-                            key={permission}
-                            className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]"
-                          >
-                            <Check size="0.85rem" className="text-[var(--marinara-chat-chrome-highlight-text)]" />
-                            {permission.replaceAll("-", " ")}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                        {localizeUi("ui.agents.agentcatalogview.noPermissions")}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </section>
-
-              <AgentVersionHistory packageId={selected.manifest.id} />
-
-              <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-5">
-                {selected.documentationUrl && (
-                  <a href={selected.documentationUrl} target="_blank" rel="noreferrer" className={DETAIL_ACTION_CLASS}>
-                    <ExternalLink size="0.85rem" /> {localizeUi("ui.agents.agentcatalogview.readHowThisAgentWorks")}
-                  </a>
-                )}
-                <div className="ml-auto flex flex-wrap gap-3 max-sm:ml-0 max-sm:w-full">
-                  {installedById.has(selected.manifest.id) ? (
-                    <>
-                      <button
-                        type="button"
-                        className={DETAIL_ACTION_CLASS}
-                        disabled={packageActionPending}
-                        onClick={() => void handleUninstall(selected)}
-                      >
-                        {uninstall.isPending ? (
-                          <Loader2 size="0.9rem" className="animate-spin" />
-                        ) : (
-                          <Trash2 size="0.9rem" />
-                        )}
-                        {localizeUi("ui.agents.agentcatalogview.uninstall")}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className={DETAIL_ACTION_CLASS}
-                      disabled={packageActionPending}
-                      onClick={() => void handleInstall(selected)}
-                    >
-                      {install.isPending ? (
-                        <Loader2 size="0.9rem" className="animate-spin" />
-                      ) : (
-                        <Download size="0.9rem" />
-                      )}
-                      {localizeUi("ui.agents.agentcatalogview.install")}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </main>
-        ) : (
-          <main className="hidden min-h-0 items-center justify-center text-sm text-[var(--muted-foreground)] md:flex">
-            {localizeUi("ui.agents.agentcatalogview.selectAnAgentToSeeItsDetails")}
-          </main>
-        )}
-      </div>
-      <CustomAgentRepositoriesModal open={customRepositoriesOpen} onClose={() => setCustomRepositoriesOpen(false)} />
+  const searchField = (
+    <div className="relative">
+      <Search
+        size="0.9rem"
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+        aria-hidden="true"
+      />
+      <input
+        type="search"
+        className="mari-chrome-field h-10 w-full pl-9 pr-3 text-sm"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder={localizeUi("ui.agents.agentcatalogview.searchAgents")}
+        aria-label={localizeUi("ui.agents.agentcatalogview.searchDownloadableAgents")}
+      />
     </div>
+  );
+
+  let content;
+  if (catalog.isLoading) {
+    content = (
+      <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-[var(--muted-foreground)]">
+        <Loader2 className="animate-spin" size="1rem" />{" "}
+        {localizeUi("ui.agents.agentcatalogview.loadingTheOfficialCatalog")}
+      </div>
+    );
+  } else if (catalog.isError) {
+    content = (
+      <div className="flex min-h-56 flex-col items-center justify-center gap-3 px-4 text-center">
+        <TriangleAlert size="2rem" className="text-[var(--muted-foreground)]" />
+        <div>
+          <p className="font-semibold">{localizeUi("ui.agents.agentcatalogview.theAgentCatalogIsUnavailable")}</p>
+          <p className="mt-1 text-sm text-[var(--muted-foreground)]">{catalogErrorDescription(catalog.error)}</p>
+        </div>
+        <button
+          type="button"
+          className="mari-chrome-control mari-chrome-control--primary px-4 py-2"
+          onClick={() => void catalog.refetch()}
+        >
+          {localizeUi("capabilities.actions.tryAgain")}
+        </button>
+      </div>
+    );
+  } else if (all.length === 0) {
+    content = (
+      <div className="flex min-h-56 flex-col items-center justify-center gap-2 px-4 text-center">
+        <Sparkles size="2rem" className="text-[var(--muted-foreground)]" />
+        <p className="font-semibold">{localizeUi("ui.agents.agentcatalogview.theOfficialCatalogIsEmpty")}</p>
+        <p className="text-sm text-[var(--muted-foreground)]">
+          {localizeUi("ui.agents.agentcatalogview.publishedAgentsWillAppearHereAutomatically")}
+        </p>
+      </div>
+    );
+  } else if (results) {
+    content = <SearchResults query={query.trim()} entries={results} />;
+  } else if (page.kind === "agent") {
+    content = agentEntry ? (
+      <AgentPage
+        key={agentEntry.manifest.id}
+        entry={agentEntry}
+        entries={all}
+        customSource={catalog.data?.provenance?.kind === "custom"}
+      />
+    ) : (
+      <p className="py-10 text-center text-sm text-[var(--muted-foreground)]">
+        {localizeUi("ui.agents.organizer.agentMissing")}
+      </p>
+    );
+  } else if (page.kind === "updates") {
+    content = <UpdatesPage entries={all} onUpdateAll={() => void handleUpdateAll()} />;
+  } else if (page.kind === "installed") {
+    content = <InstalledPage entries={all} />;
+  } else if (page.kind === "section") {
+    content = <SectionPage section={page.id} entries={entries.filter((entry) => sectionOf(entry) === page.id)} />;
+  } else {
+    content = (
+      <OrganizerHome
+        entries={entries}
+        kits={(catalog.data?.kits ?? []).map((kit) => ({
+          ...kit,
+          entries: all.filter((entry) => kit.packages.includes(entry.manifest.id)),
+        }))}
+        onUpdateAll={() => void handleUpdateAll()}
+        onInstallKit={(kitEntries) =>
+          void handleInstallAll(kitEntries.filter((entry) => !installedById.has(entry.manifest.id)))
+        }
+      />
+    );
+  }
+
+  return (
+    <OrganizerContext.Provider value={actions}>
+      <div
+        data-component="AgentCatalogView"
+        className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[var(--marinara-editor-bg)]"
+      >
+        <header className="relative z-10 flex shrink-0 items-center gap-3 border-b border-[var(--border)]/50 bg-[var(--card)]/90 px-3 py-2 backdrop-blur-md md:px-6 md:py-3">
+          <button
+            type="button"
+            onClick={agentEntry ? () => go({ kind: "section", id: sectionOf(agentEntry) }) : closeAgentCatalog}
+            className="mari-chrome-control h-9 w-9 shrink-0 rounded-xl p-0 md:h-10 md:w-10"
+            title={backLabel}
+            aria-label={backLabel}
+          >
+            <ArrowLeft size="1rem" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.625rem] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
+              {localizeUi("ui.agents.organizer.eyebrow")}
+            </p>
+            <h1 className="truncate text-base font-semibold text-[var(--foreground)] md:text-xl">
+              {localizeUi("ui.agents.organizer.title")}
+            </h1>
+            <p className="truncate text-xs text-[var(--muted-foreground)]">
+              {localizeUi("ui.agents.organizer.summary", {
+                count: all.length,
+                installed: installedById.size,
+                updates: updates.length,
+              })}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="mari-chrome-control h-9 w-9 shrink-0 p-0 md:h-10 md:w-10"
+            aria-label={localizeUi("ui.agents.organizer.moreActions")}
+            aria-haspopup="menu"
+            aria-expanded={menu?.entry === null}
+            onClick={(event) => openMenu(null, event)}
+          >
+            {bulkActionPending ? (
+              <Loader2 size="0.95rem" className="animate-spin" aria-hidden="true" />
+            ) : (
+              <MoreHorizontal size="0.95rem" aria-hidden="true" />
+            )}
+          </button>
+        </header>
+
+        {bulkProgress && (
+          <p
+            className="shrink-0 border-b border-[var(--border)]/50 px-4 py-1.5 text-center text-[0.6875rem] text-[var(--muted-foreground)]"
+            role="status"
+            aria-live="polite"
+          >
+            {bulkProgress.action === "install"
+              ? localizeUi("ui.agents.agentcatalogview.installingValue1Value2", {
+                  value1: bulkProgress.completed,
+                  value2: bulkProgress.total,
+                })
+              : localizeUi("ui.agents.agentcatalogview.uninstallingValue1Value2", {
+                  value1: bulkProgress.completed,
+                  value2: bulkProgress.total,
+                })}{" "}
+            {localizeUi("ui.agents.agentcatalogview.keepMarinaraEngineOpenUntilThisFinishes")}
+          </p>
+        )}
+
+        <div className="flex min-h-0 flex-1">
+          {showAside && (
+            <aside className="hidden w-64 shrink-0 flex-col gap-4 overflow-y-auto border-r border-[var(--border)] bg-[var(--card)]/35 p-4 md:flex">
+              {searchField}
+              <AgentModeFilter value={modeFilter} onChange={setModeFilter} />
+              <nav className="space-y-0.5" aria-label={localizeUi("ui.agents.organizer.title")}>
+                {navItems.map((item) => (
+                  <button
+                    key={item.page.kind}
+                    type="button"
+                    onClick={() => go(item.page)}
+                    aria-current={isCurrent(item.page) ? "page" : undefined}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-[var(--sidebar-accent)]",
+                      isCurrent(item.page) && "bg-[var(--marinara-chat-chrome-highlight-bg)] font-semibold",
+                    )}
+                  >
+                    <item.icon size="0.95rem" className="text-[var(--muted-foreground)]" aria-hidden="true" />
+                    <span className="flex-1">{item.label}</span>
+                    {item.count > 0 && (
+                      <span className="text-xs tabular-nums text-[var(--muted-foreground)]">{item.count}</span>
+                    )}
+                  </button>
+                ))}
+              </nav>
+              <div>
+                <h2 className="mb-1 px-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.organizer.sectionsHeading")}
+                </h2>
+                <div className="space-y-0.5">
+                  {sectionCounts.map(({ section, entries: sectionEntries }) => {
+                    const target = { kind: "section", id: section } as const;
+                    const expanded = openSections.has(section);
+                    const sectionLabel = localizeUi(sectionLabelKey(section));
+                    return (
+                      <div key={section}>
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            onClick={() => go(target)}
+                            aria-current={isCurrent(target) ? "page" : undefined}
+                            className={cn(
+                              "flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-[var(--sidebar-accent)]",
+                              isCurrent(target) && "bg-[var(--marinara-chat-chrome-highlight-bg)] font-semibold",
+                            )}
+                          >
+                            <IconStack entries={sectionEntries} />
+                            <span className="min-w-0 flex-1 truncate">{sectionLabel}</span>
+                            <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
+                              {sectionEntries.length}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleSection(section)}
+                            aria-expanded={expanded}
+                            aria-label={localizeUi("ui.agents.organizer.showSectionAgents", { section: sectionLabel })}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]"
+                          >
+                            <ChevronRight
+                              size="0.9rem"
+                              aria-hidden="true"
+                              className={cn("transition-transform", expanded && "rotate-90")}
+                            />
+                          </button>
+                        </div>
+                        {expanded && (
+                          <ul className="mb-1 ml-5 space-y-0.5 border-l border-[var(--border)] pl-2">
+                            {sectionEntries.map((entry) => {
+                              const installed = installedById.get(entry.manifest.id);
+                              return (
+                                <li key={entry.manifest.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => go({ kind: "agent", id: entry.manifest.id })}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-[var(--sidebar-accent)]"
+                                  >
+                                    <AgentIcon entry={entry} className="h-7 w-7 rounded-lg" />
+                                    <span className="min-w-0 flex-1 truncate">{entry.manifest.name}</span>
+                                    {checkReasonOf(installed) !== null ? (
+                                      <span className="text-xs font-semibold text-[var(--marinara-app-accent-static)]">
+                                        {localizeUi("ui.agents.organizer.needsCheck")}
+                                      </span>
+                                    ) : hasUpdate(entry, installed) ? (
+                                      <span className="text-xs font-semibold text-[var(--marinara-chat-chrome-highlight-text,var(--primary))]">
+                                        {localizeUi("ui.agents.agentcatalogview.update")}
+                                      </span>
+                                    ) : installed ? (
+                                      <Check
+                                        size="0.85rem"
+                                        className="text-[var(--muted-foreground)]"
+                                        aria-label={localizeUi("ui.agents.organizer.installed")}
+                                      />
+                                    ) : null}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </aside>
+          )}
+
+          <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto">
+            <div className={cn("space-y-2 border-b border-[var(--border)]/50 p-3 md:hidden", !showAside && "hidden")}>
+              {searchField}
+              <AgentModeFilter value={modeFilter} onChange={setModeFilter} />
+              <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">
+                {[
+                  ...navItems.map((item) => ({
+                    target: item.page as OrganizerPage,
+                    label: item.label,
+                    count: item.count,
+                  })),
+                  ...sectionCounts.map(({ section, entries: sectionEntries }) => ({
+                    target: { kind: "section", id: section } as OrganizerPage,
+                    label: localizeUi(sectionLabelKey(section)),
+                    count: sectionEntries.length,
+                  })),
+                ].map((chip) => (
+                  <button
+                    key={chip.target.kind === "section" ? chip.target.id : chip.target.kind}
+                    type="button"
+                    onClick={() => go(chip.target)}
+                    aria-pressed={isCurrent(chip.target)}
+                    className={cn(
+                      "mari-chrome-control h-8 shrink-0 px-3 text-xs",
+                      isCurrent(chip.target) && "mari-chrome-control--selected",
+                    )}
+                  >
+                    {chip.label}
+                    {chip.count > 0 && chip.target.kind !== "home" && (
+                      <span className="ml-1 tabular-nums text-[var(--muted-foreground)]">{chip.count}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={cn(page.kind !== "agent" && "mx-auto w-full max-w-6xl p-4 md:p-6")}>{content}</div>
+          </main>
+        </div>
+
+        {menu && (
+          <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.entry)} onClose={() => setMenu(null)} autoFocus />
+        )}
+        <CustomAgentRepositoriesModal open={customRepositoriesOpen} onClose={() => setCustomRepositoriesOpen(false)} />
+      </div>
+    </OrganizerContext.Provider>
   );
 }

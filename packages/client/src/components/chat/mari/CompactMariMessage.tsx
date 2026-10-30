@@ -1,5 +1,5 @@
 // One message in Mari's transcript, with its reply actions, referenced records and the outcome of her run.
-import { type ReactNode, memo, useEffect, useState } from "react";
+import { type ReactNode, memo, useEffect, useMemo, useState } from "react";
 import { Check, Copy, ChevronRight, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -43,7 +43,8 @@ import { chatResultType, resourceResultType } from "../../../lib/command-icons";
 import { MacroTextarea } from "../../ui/MacroTextarea";
 import { MariList, MariRow } from "../mari-primitives";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { getProfessorMariAttachments, formatMariMessageTime } from "./mari-chat-helpers";
+import { formatReferenceToken } from "../../../lib/composer-triggers";
+import { getProfessorMariAttachments, formatMariMessageTime, toMessageExtra } from "./mari-chat-helpers";
 import {
   getMessageWorkspaceActionResults,
   getMessageWorkspaceTrace,
@@ -505,6 +506,11 @@ export const CompactMariMessage = memo(function CompactMariMessage({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
   const messageTime = formatMariMessageTime(message.createdAt);
+  const references = toMessageExtra(message)?.references;
+  const referenceTokens = useMemo(
+    () => (references ?? []).map((reference) => formatReferenceToken(reference.label)),
+    [references],
+  );
 
   // UX-15: Accept is a card action, not something you said; the receipt card that follows is its record.
   if (message.role === "user" && content.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt) return null;
@@ -565,7 +571,7 @@ export const CompactMariMessage = memo(function CompactMariMessage({
           </div>
         ) : (
           <div className="mari-user-request__bubble" title={messageTime ?? undefined}>
-            <CompactMarkdown content={content} />
+            <CompactMarkdown content={content} referenceTokens={referenceTokens} />
           </div>
         )}
         {messageContext?.asideAnswer?.answer ? <QuickAnswerHandoff handoff={messageContext.asideAnswer} /> : null}

@@ -880,7 +880,7 @@ export function CharactersPanel() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("search.panels.characters")}
+            placeholder={t("search.panels.charactersAndTags")}
             className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
           />
         </div>

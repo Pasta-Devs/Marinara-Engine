@@ -3,7 +3,7 @@ import { BaseLLMProvider, LLMHttpError, type ChatMessage, type ChatOptions, type
 
 /** Retry only explicit image-input incompatibility, before any output has been delivered. */
 export function isImageInputUnsupported(error: unknown): boolean {
-  if (!(error instanceof LLMHttpError) || ![400, 415, 422].includes(error.status)) return false;
+  if (!(error instanceof LLMHttpError) || ![400, 415, 422, 500].includes(error.status)) return false;
   return (
     /(?:image(?:_url|s)?|vision|multimodal)/iu.test(error.message) &&
     /(?:not support|unsupported|does not accept|only support(?:s)? text|only supported by|not (?:a )?(?:multimodal|vision)|image input.*not allowed)/iu.test(

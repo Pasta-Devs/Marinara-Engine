@@ -105,7 +105,7 @@ export function receiptSummary(result: MariWorkspaceActionResult, t: Localize, l
 }
 
 /** "Undo until 19:05" when it ends today, "Undo until tomorrow, 19:05" next day, nothing while it is more than a day away. */
-function undoLabel(iso: string | undefined, t: Localize, lang: string): string | null {
+export function undoLabel(iso: string | undefined, t: Localize, lang: string): string | null {
   const until = iso ? Date.parse(iso) : NaN;
   const now = Date.now();
   if (!Number.isFinite(until) || until <= now || until - now >= DAY_MS) return null;
@@ -126,7 +126,7 @@ export function Field({ label: name, children, folded }: { label: string; childr
   );
 }
 
-function TextBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "text" }> }) {
+export function TextBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "text" }> }) {
   if (!change.before || !change.after) {
     return (
       <div className={cn("mari-receipt__box", !change.after && "mari-receipt__box--old")}>

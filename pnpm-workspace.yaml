@@ -16,6 +16,8 @@ trustPolicy: off
 blockExoticSubdeps: true
 
 patchedDependencies:
+  # GHSA-gcqx-w48m-w2h4: reject __proto__ in both merge copy loops. See patch notes.
+  deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
   # Let an explicit speech-clock opening override held vowels; voice and idle without it stay native.
   # The painted mouth opens across the whole lip line (rig halfLen), not its middle half, for every vowel.
   mesh-avatar@0.2.1: patches/mesh-avatar@0.2.1.patch
@@ -26,13 +28,14 @@ patchedDependencies:
   # bounded-collection fix backported to both bundled parsers. See patch notes.
   zod@3.25.76: patches/zod@3.25.76.patch
 
-# The advisory matches versions, so it cannot recognize the security backport.
-# The security regression verifies the patch is installed and pins this exception
-# to exactly 3.25.76 in the API-1 compatibility alias. Engine core uses native
-# 4.6.7; retire the patch and exception only when the legacy package API retires.
+# Version-only advisories cannot recognize reviewed source backports. Each
+# exception has an installed-package regression binding its version and patch hash.
 audit:
   ignore:
+    # API-1 alias 3.25.76 only; core uses native 4.6.7. Retire with the legacy API.
     - GHSA-mrhx-c7xc-m3w5
+    # deepmerge 4.3.1 only; retire when an upstream fixed release replaces it.
+    - GHSA-gcqx-w48m-w2h4
 
 # Native/build dependencies permitted to run install scripts. Explicitly deny the
 # known no-op so noninteractive installs never need to edit this tracked policy.
@@ -56,7 +59,7 @@ overrides:
   "@earendil-works/pi-coding-agent>undici@>=8 <8.12.2": "8.12.3"
   "@fastify/busboy@<3.2.3": "3.2.3"
   "@hono/node-server": "2.1.5"
-  "@modelcontextprotocol/sdk": "1.32.1"
+  "@modelcontextprotocol/sdk": "1.32.2"
   "adm-zip@<0.6.1": "0.6.1"
   "body-parser": "2.4.0"
   "brace-expansion@>=2 <2.1.7": "2.1.7"

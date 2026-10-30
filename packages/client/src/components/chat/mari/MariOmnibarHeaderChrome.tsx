@@ -11,6 +11,7 @@ import {
   countBlockingReviews,
 } from "../../../lib/professor-mari-presentation";
 import { ProfessorMariWorkspaceDestination } from "../../../lib/professor-mari-workspace-navigation";
+import { revealWaitingField } from "../../layout/omnibar/use-mari-companion";
 import { MariTurnReviewEntry } from "./MariTranscript";
 
 /** The omnibar header's Mari parts, portaled into its slots: destinations, her status line, and the phone menu. */
@@ -261,11 +262,14 @@ export function MariOmnibarHeaderChrome({
     }, 0) +
     countBlockingReviews(reviewsByTurn.unassigned.filter(({ outcome }) => !outcome).map(({ approval }) => approval)) +
     (heldChangeCard ? 1 : 0);
-  const scrollToNeedsYou = () =>
+  const scrollToNeedsYou = () => {
+    // Slice 6: as a sheet under the editor, her status jumps to the first field waiting for review.
+    if (revealWaitingField()) return;
     document.querySelector<HTMLElement>('[data-needs-you="true"]')?.scrollIntoView({
       block: "center",
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
     });
+  };
   const omnibarStatusChrome =
     omnibarMode && omnibarStatusSlot
       ? createPortal(

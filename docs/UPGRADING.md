@@ -199,11 +199,13 @@ The button shows **Refreshing…** while it works, then the app reloads.
 
 Upgrades are always safe, but going backwards is not always possible directly. Newer versions of Marinara store chat messages in a newer on-disk format, and a version older than your data's format cannot read it. To protect your chat history, the launcher skips auto-updates that would land on an incompatible version, and the in-app updater refuses to apply one.
 
-If you need an older version anyway, a one-command conversion puts your data back in the old format first. See [Chats show no messages after switching to an older version](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) for the steps.
+Data upgraded to storage format 8, which adds MMD avatars, cannot be opened by format-7 or older builds. To return to one of those builds, stop Marinara and restore a full backup made before that upgrade. The chat-file conversion command cannot convert MMD avatar settings. Do not change the format number by hand.
+
+For older data that has not reached format 8, a one-command conversion can put chat files back in the old layout. See [Chats show no messages after switching to an older version](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) for the steps.
 
 ### Going back to 2.5.0
 
-Version 2.5.0 uses the same storage format as the versions after it, so going back to it is not blocked and it opens your chats normally. It does not know the data that newer features added, though: some connection settings, the details used to regenerate chat images, and parts of game checkpoints, ruleset clocks and scene videos. When 2.5.0 saves a chat or a connection, for example when you send a message, play a game turn, make an image or change a connection, it drops that newer data from the whole chat or connection. Updating again does not bring it back.
+Version 2.5.0 cannot open data upgraded to format 8; use a pre-upgrade backup. With older, format-7 data it can still open your chats, but it does not know data that newer features added: some connection settings, the details used to regenerate chat images, and parts of game checkpoints, ruleset clocks and scene videos. When 2.5.0 saves a chat or a connection, for example when you send a message, play a game turn, make an image or change a connection, it drops that newer data from the whole chat or connection. Updating again does not bring it back.
 
 To be able to return to exactly where you were, make a backup before you update. See [Back up first](#back-up-first) and [Backing Up and Restoring Marinara](data/backup-and-restore.md).
 

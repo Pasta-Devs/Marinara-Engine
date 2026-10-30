@@ -162,6 +162,7 @@ export function buildMessageMacroContext({
   persona,
   primaryCharacter,
   characters = [],
+  inactiveCharacterIds,
   userName,
   variables = {},
   lastInput,
@@ -169,16 +170,22 @@ export function buildMessageMacroContext({
   persona?: MacroPersonaData | null;
   primaryCharacter?: MacroCharacterData | null;
   characters?: MacroCharacterData[];
+  inactiveCharacterIds?: unknown;
   userName?: string;
   variables?: Record<string, string>;
   lastInput?: string;
 }): MacroContext {
   const fallbackCharacter = primaryCharacter ?? characters[0] ?? null;
+  const inactiveIds = new Set(Array.isArray(inactiveCharacterIds) ? inactiveCharacterIds : []);
 
   return {
     user: userName ?? persona?.name ?? "User",
     char: fallbackCharacter?.name ?? "Character",
     characters: characters.map((character) => character.name).filter((name) => name.trim().length > 0),
+    groupCharacters: characters
+      .filter((character) => !character.id || !inactiveIds.has(character.id))
+      .map((character) => character.name)
+      .filter((name) => name.trim().length > 0),
     variables,
     lastInput,
     characterFields: fallbackCharacter
@@ -257,7 +264,13 @@ export function isPromptPreviewMacro(input: string): boolean {
 
 export function createInputMacroResolverForChat(
   chat:
-    | { characterIds?: unknown; personaId?: string | null; personaCharacterId?: string | null; mode?: string | null }
+    | {
+        characterIds?: unknown;
+        personaId?: string | null;
+        personaCharacterId?: string | null;
+        mode?: string | null;
+        metadata?: unknown;
+      }
     | null
     | undefined,
   characters: Array<{ id: string; data: unknown }> | undefined,
@@ -278,6 +291,7 @@ export function createInputMacroResolverForChat(
     persona: activePersona,
     primaryCharacter: chatCharacters[0] ?? null,
     characters: chatCharacters,
+    inactiveCharacterIds: chat?.mode === "game" ? undefined : parseChatMetadata(chat?.metadata).inactiveCharacterIds,
     lastInput,
     variables,
   });

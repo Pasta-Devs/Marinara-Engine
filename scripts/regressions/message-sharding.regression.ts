@@ -249,6 +249,39 @@ assert.equal(
   }
 }
 
+// Format 8 only adds a compatibility guard: existing format-7 rows round-trip unchanged.
+{
+  const dir = tempStorageDir();
+  const shard = join(dir, "tables", "messages", `${encodeShardKey("legacy7-chat")}.json`);
+  mkdirSync(join(dir, "tables", "messages"), { recursive: true });
+  const row = {
+    id: "legacy7-message",
+    chatId: "legacy7-chat",
+    role: "user",
+    content: "Keep all legacy7 text",
+    createdAt: "2026-10-30T00:00:00.000Z",
+  };
+  writeFileSync(shard, JSON.stringify([row]));
+  writeFileSync(
+    join(dir, "manifest.json"),
+    JSON.stringify({ version: 7, backend: "file-native", tables: { messages: 1 }, shards: { messages: 1 } }),
+  );
+  let db = await createFileNativeDB();
+  try {
+    assert.equal((await db.select().from(messages))[0]!.content, row.content);
+    await db._fileStore.flush();
+    assert.equal(JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")).version, STORAGE_VERSION);
+    await db._fileStore.close();
+    db = await createFileNativeDB();
+    const saved = (await db.select().from(messages))[0]!;
+    for (const [key, value] of Object.entries(row))
+      assert.equal(saved[key], value, `format7 ${key} survives upgrade and reload`);
+  } finally {
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // ── Migration: monolith -> shards, rename set, orphan swipes ──
 
 {

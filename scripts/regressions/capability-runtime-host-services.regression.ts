@@ -100,6 +100,7 @@ function fixturePackage(id: string, permissions: string[], source: string) {
 const fullSource = `export function activate(context) {
   context.api.registerService("host-services-full:runtime", context.api.runtime);
   context.api.registerService("host-services-full:value", { answer: 42 });
+  context.api.registerService("host-services-full:hidden", { secret: 1 }, { hostOnly: true });
   context.api.registerConversationCommand({
     commandType: "probe",
     tags: ["probe"],
@@ -154,6 +155,20 @@ try {
     } finally {
       release();
     }
+  }
+  // A service registered with `hostOnly` stays readable by the Engine, but no package reads it, not even its owner.
+  assert.deepEqual(getCapabilityService("host-services-full:hidden"), { secret: 1 });
+  assert.equal(reader.services?.get("host-services-full:hidden"), null);
+  assert.equal(full.services?.get("host-services-full:hidden"), null);
+  // The flag belongs to one registration: releasing the service clears it, so the same key without the flag is visible.
+  const releaseHidden = registerCapabilityService("host-services-flag:key", { n: 1 }, { hostOnly: true });
+  assert.equal(reader.services?.get("host-services-flag:key"), null);
+  releaseHidden();
+  const releaseOpen = registerCapabilityService("host-services-flag:key", { n: 2 });
+  try {
+    assert.deepEqual(reader.services?.get("host-services-flag:key"), { n: 2 });
+  } finally {
+    releaseOpen();
   }
 
   // ── commands use the host grammar and every package's registered tags ──
@@ -313,6 +328,58 @@ try {
   assert.equal((await full.persistence.listMessages(chat.id)).length, 2);
   assert.equal((await hostChats.listNotes(roleplay.id)).length, 1);
   assert.equal((await hostChats.listPendingInfluences(roleplay.id)).length, 1);
+
+  // ── persistence.setMessagesHiddenFromAI (1.389) flips hiddenFromAI through host storage ──
+  const hideChat = (await hostChats.create({
+    name: "Hide from the AI",
+    mode: "conversation",
+    characterIds: [],
+    promptPresetId: null,
+  }))!;
+  const [plain, swiped, alreadyHidden, setByHand] = await full.persistence.appendMessages!(hideChat.id, [
+    { role: "user", characterId: null, content: "plain" },
+    { role: "assistant", characterId: null, content: "swiped" },
+    { role: "assistant", characterId: null, content: "already hidden", extra: { hiddenFromAI: true } },
+    { role: "assistant", characterId: null, content: "set by hand", extra: { visibilityManual: true } },
+  ]);
+  await hostChats.addSwipe(swiped!.id, "second swipe", true);
+  const [otherChatMessage] = await full.persistence.appendMessages!(chat.id, [
+    { role: "user", characterId: null, content: "another chat" },
+  ]);
+  const hideIds = [plain!.id, swiped!.id, alreadyHidden!.id, setByHand!.id, otherChatMessage!.id];
+  const hiddenFlags = async (ids: string[]) =>
+    (await Promise.all(ids.map((id) => hostChats.getMessage(id)))).map(
+      (message) => JSON.parse(message!.extra as string).hiddenFromAI === true,
+    );
+
+  await assert.rejects(
+    () => reader.persistence.setMessagesHiddenFromAI!(hideChat.id, hideIds, true),
+    /requires chat-write/,
+    "chat-read alone cannot hide messages",
+  );
+  assert.deepEqual(await hiddenFlags(hideIds), [false, false, true, false, false]);
+  await assert.rejects(() => full.persistence.setMessagesHiddenFromAI!("missing-chat", hideIds, true), /was not found/);
+
+  assert.deepEqual(
+    (await full.persistence.setMessagesHiddenFromAI!(hideChat.id, hideIds, true)).sort(),
+    [plain!.id, swiped!.id].sort(),
+    "only the ids this call flipped come back: not the hidden one, the manual one or another chat's",
+  );
+  assert.deepEqual(await hiddenFlags(hideIds), [true, true, true, false, false]);
+  assert.deepEqual(
+    (await hostChats.getSwipes(swiped!.id)).map((swipe) => JSON.parse(swipe.extra as string).hiddenFromAI),
+    [true, true],
+    "every swipe is hidden with its message",
+  );
+  assert.equal(JSON.parse((await hostChats.getMessage(plain!.id))!.extra as string).visibilityManual, undefined);
+  assert.deepEqual(await full.persistence.setMessagesHiddenFromAI!(hideChat.id, hideIds, true), []);
+
+  assert.deepEqual(
+    (await full.persistence.setMessagesHiddenFromAI!(hideChat.id, [plain!.id, setByHand!.id], false)).sort(),
+    [plain!.id],
+    "showing returns only the ids that changed back",
+  );
+  assert.deepEqual(await hiddenFlags(hideIds), [false, true, true, false, false]);
 
   // ── persistence.updateCharacterStatus is the host's [schedule_update]: a status on the character card ──
   const characters = createCharactersStorage(db);

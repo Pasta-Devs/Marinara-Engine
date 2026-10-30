@@ -6,7 +6,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { ChevronRight, Undo2 } from "lucide-react";
+import { ChevronRight, Crosshair, Undo2 } from "lucide-react";
 import type { MariDbPendingApproval, MariDbRowChange } from "@marinara-engine/shared";
 
 import { cn } from "../../lib/utils";
@@ -25,6 +25,9 @@ import {
 } from "../../lib/mari-edit-diff";
 import { UnifiedLineDiff } from "./MariUnifiedDiff";
 import { ResultTypeIcon } from "../command-center/ResultTypeIcon";
+import { openCharacterAtField } from "../../hooks/use-mari-editor-fields";
+import { hasMariField } from "../../lib/mari-editor-fields";
+import { useUIStore } from "../../stores/ui.store";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -240,6 +243,23 @@ export function MariEditEasyViewer({
         const switches = exact ? [] : fields.filter((field) => fieldChangeStyle(field) === "toggle");
         const name = rowTitle(change, localizeUi);
         const open = openIndex === index;
+        // Companion mode only (the editor is visible beside her): hovering a row pulses its field once.
+        const pulseField =
+          change.table === "characters" && change.action === "update"
+            ? (event: React.MouseEvent<HTMLElement>, path: string) => {
+                const ui = useUIStore.getState();
+                // Only the open character: a request for another one would wait and pulse when it opens.
+                if (ui.characterDetailId === change.id && event.currentTarget.closest("[data-mari-companion]"))
+                  ui.revealMariField(change.id, path, { scroll: false });
+              }
+            : null;
+        const openAtField =
+          change.table === "characters" && change.action === "update"
+            ? (path: string) => {
+                if (!openCharacterAtField(change.id, path, localizeUi("commandCenter.dirtyEditor"))) return;
+                useUIStore.getState().setOmnibarOpen(false);
+              }
+            : null;
         return (
           <div
             key={`${index}:${change.table}:${change.id}`}
@@ -286,8 +306,29 @@ export function MariEditEasyViewer({
                   {fields
                     .filter((field) => !switches.includes(field))
                     .map((field) => (
-                      <div key={field.path} className="mari-field">
-                        <span className="mari-field__label">{field.label}</span>
+                      <div
+                        key={field.path}
+                        className="mari-field"
+                        onMouseEnter={
+                          pulseField && hasMariField(field.path) ? (event) => pulseField(event, field.path) : undefined
+                        }
+                      >
+                        <div className="mari-field__head">
+                          <span className="mari-field__label">{field.label}</span>
+                          {openAtField && hasMariField(field.path) ? (
+                            <button
+                              type="button"
+                              onClick={() => openAtField(field.path)}
+                              aria-label={localizeUi("ui.chat.mariediteasyviewer.openAtFieldNamed", {
+                                field: field.label,
+                              })}
+                              className="mari-link"
+                            >
+                              <Crosshair size="0.75rem" aria-hidden="true" />
+                              {localizeUi("ui.chat.mariediteasyviewer.openAtField")}
+                            </button>
+                          ) : null}
+                        </div>
                         {exact ? (
                           <UnifiedLineDiff before={field.before} after={field.after} />
                         ) : (

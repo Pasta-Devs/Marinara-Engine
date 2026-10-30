@@ -38,6 +38,8 @@ export function normalizeGroupChatMode(value: unknown): GroupChatMode {
 
 /** How individual-mode group chats decide response order. */
 export type GroupResponseOrder = "sequential" | "smart" | "manual";
+/** Who keeps a Merged Roleplay group's active characters current: nobody, the Decision model, or the Character Tracker. */
+export type AutoActiveCharactersMode = "off" | "decision" | "tracker";
 
 export interface KnowledgeAgentSourceSettings {
   /** When true/omitted, this agent uses the chat's active lorebooks unless fixed sources are selected. */
@@ -495,6 +497,10 @@ export interface ChatMetadata {
   groupTurnPromptEnabled?: boolean;
   /** Chat members that are temporarily excluded from group prompt/generation participation. */
   inactiveCharacterIds?: string[];
+  /** Merged Roleplay groups: who updates `inactiveCharacterIds` each turn. Missing means "off". */
+  autoActiveCharacters?: AutoActiveCharactersMode;
+  /** Characters toggled by hand while automation is on; automation leaves their state alone. */
+  autoActiveCharacterPins?: string[];
   /** Characters with visible roleplay sprites enabled for this chat. */
   spriteCharacterIds?: string[];
   /** Which sprite file families the roleplay Expression Engine may display. */
@@ -965,6 +971,16 @@ export interface ConversationSceneRequest {
   connectionId?: string | null;
 }
 
+/** A resource the user linked from Professor Mari's composer with `@`; the server resolves it once, beside that message. */
+export interface MariComposerReference {
+  kind:
+    "character" | "persona" | "lorebook" | "lorebookEntry" | "preset" | "skill" | "memory" | "chat" | "doc" | "agent";
+  id: string;
+  label: string;
+  /** A lorebook entry's lorebook id. */
+  parentId?: string;
+}
+
 /** Additional data attached to a message. */
 export interface MessageExtra {
   /** Quoted snapshot shown in the transcript and included only for the latest user turn in prompts. */
@@ -1021,6 +1037,8 @@ export interface MessageExtra {
   mariWorkspaceActionResults?: MariWorkspaceActionResult[] | null;
   /** Resource focus used for this Professor Mari exchange, retained for transcript context. */
   professorMariContext?: ProfessorMariAskContext | null;
+  /** What the user linked with `@` in the composer on this Professor Mari message; later turns keep a one-line ledger of it. */
+  references?: MariComposerReference[] | null;
   /** True when this Mari turn deferred mutating commands behind an Accept action (#5725 Manual mode). */
   mariDeferredMutations?: boolean | null;
   /** Slice 71: what those held commands would change, for the "Needs you" card. */

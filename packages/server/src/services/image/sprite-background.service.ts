@@ -7,6 +7,9 @@ import { clampByte, clampUnit, getSharp, type RgbColor } from "./sharp-runtime.j
 export type SpriteCleanupEngine = "auto" | "backgroundremover" | "builtin";
 export type UsedSpriteCleanupEngine = "backgroundremover" | "builtin";
 
+/** Builtin matte cleanup revision, advertised so clients can refresh derived cutout caches. */
+export const SPRITE_CLEANUP_REVISION = 2;
+
 export type SpriteChromaMatte = {
   id: "green" | "magenta" | "cyan";
   label: string;
@@ -351,6 +354,12 @@ export async function removeUniformSpriteBackgroundPng(
       matteLowChannels.reduce((sum, index) => sum + (channels[index] ?? 0), 0) / Math.max(1, matteLowChannels.length);
     return high - low;
   };
+  const chromaExcess = (color: RgbColor) => {
+    const channels = [color.red, color.green, color.blue];
+    const high = Math.min(...matteHighChannels.map((index) => channels[index] ?? 0));
+    const low = Math.max(...matteLowChannels.map((index) => channels[index] ?? 0));
+    return high - low;
+  };
   const matteChromaDominance = chromaDominance(analysis.color);
   if (matteSaturation >= 120) {
     for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++) {
@@ -470,7 +479,7 @@ export async function removeUniformSpriteBackgroundPng(
           const sampleOffset = pixelOffset(sampleIndex);
           if ((rgba[sampleOffset + 3] ?? 255) <= 32) continue;
           const sampleColor = readPixel(sampleIndex);
-          if (matteDistance(sampleIndex) <= haloCutoff || chromaDominance(sampleColor) > 8) continue;
+          if (matteDistance(sampleIndex) <= haloCutoff || chromaExcess(sampleColor) > 8) continue;
           return radius;
         }
       }
@@ -531,13 +540,16 @@ export async function removeUniformSpriteBackgroundPng(
     const offset = pixelOffset(pixelIndex);
     const originalAlpha = rgba[offset + 3] ?? 255;
     let foreground: RgbColor | null = null;
+    let nearestForegroundDistance: number | null = null;
     if (matteSaturation >= 120) {
       const observed = readPixel(pixelIndex);
       const observedDominance = chromaDominance(observed);
-      const nearestForegroundDistance = observedDominance > 8 ? findNearestForegroundDistance(pixelIndex) : null;
+      nearestForegroundDistance = observedDominance > 8 ? findNearestForegroundDistance(pixelIndex) : null;
       if (nearestForegroundDistance !== null) foreground = findForegroundNeighborColor(pixelIndex);
       const foregroundDominance = foreground ? chromaDominance(foreground) : 0;
-      const hasChromaSpill = observedDominance > Math.max(8, foregroundDominance + 6);
+      // Classify against the strongest non-key channel; keep the average only for linear blend estimation.
+      const foregroundExcess = foreground ? chromaExcess(foreground) : 0;
+      const hasChromaSpill = chromaExcess(observed) > Math.max(8, foregroundExcess + 6);
 
       if (hasChromaSpill) {
         if (matteNeighbors === 0 && (nearestForegroundDistance === null || nearestForegroundDistance > 2)) {
@@ -564,6 +576,8 @@ export async function removeUniformSpriteBackgroundPng(
         } else {
           rgba[offset + 3] = 0;
         }
+        // Classified spill remains matte contact for the next foreground edge.
+        matteMask[pixelIndex] = 1;
         continue;
       }
     }
@@ -596,11 +610,15 @@ export async function removeUniformSpriteBackgroundPng(
           blue: analysis.color.blue + foregroundVector.blue * foregroundCoverage,
         };
         const residual = rgbDistance(observed, reconstructed);
-        if (foregroundCoverage < 0.995 && residual <= 38 + strength * 0.18) {
+        // A chroma blend must closely fit the key/foreground line, not merely resemble a neighboring shade.
+        const projectionTolerance = matteSaturation >= 120 ? 16 : 38 + strength * 0.18;
+        if (foregroundCoverage < 0.995 && residual <= projectionTolerance) {
           rgba[offset] = clampByte(foreground.red);
           rgba[offset + 1] = clampByte(foreground.green);
           rgba[offset + 2] = clampByte(foreground.blue);
           rgba[offset + 3] = clampByte(originalAlpha * foregroundCoverage);
+          // Continue cleanup across a substantial verified matte blend, not a slight opaque shade variation.
+          if (foregroundCoverage < 0.9) matteMask[pixelIndex] = 1;
           continue;
         }
       }
@@ -622,6 +640,7 @@ export async function removeUniformSpriteBackgroundPng(
       if (originalAlpha <= 4) continue;
 
       const color = readPixel(pixelIndex);
+      if (chromaExcess(color) <= 8) continue;
       const residualDominance = chromaDominance(color);
       if (residualDominance <= residualDominanceFloor) continue;
 

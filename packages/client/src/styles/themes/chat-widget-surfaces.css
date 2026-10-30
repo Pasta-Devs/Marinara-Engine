@@ -76,9 +76,30 @@
 :root[data-chat-widget-apply-colors="true"] :is(.mari-chat-style-surface, .mari-chat-style-conversation),
 /* Outrank the gradient accent's popover paint (globals.css 4a) on chat popovers that opt in. */
 :root[data-chat-widget-apply-colors="true"] .marinara-chat-popover.mari-chat-style-surface {
-  --mari-chat-surface-paint: var(--mari-chat-resolved-bg);
-  background: var(--mari-chat-resolved-bg);
+  --mari-rp-preset-bg: initial;
+  --mari-chat-surface-paint: var(--mari-rp-preset-bg, var(--mari-chat-resolved-bg));
+  background: var(--mari-rp-preset-bg, var(--mari-chat-resolved-bg));
   border-color: var(--mari-chat-resolved-border-solid);
+}
+
+/* The Roleplay slider owns fill alpha, including authored RGBA and gradient stops.
+   Keep text, avatars, borders and the other chat modes outside this override. */
+:root[data-chat-widget-apply-colors="true"] .mari-rp-bubble {
+  /* Explicit custom-theme hooks retain their author-defined paint and priority. */
+  --mari-rp-preset-bg: var(
+    --mari-chat-bg,
+    var(
+      --mari-window-bg,
+      var(
+        --mari-widget-custom-roleplay-background,
+        rgb(from var(--mari-chat-resolved-bg) r g b / var(--mari-rp-bubble-opacity))
+      )
+    )
+  );
+}
+
+:root[data-chat-widget-apply-colors="true"] .mari-rp-bubble[data-roleplay-bubble-transparent="true"] {
+  --mari-rp-preset-bg: transparent;
 }
 
 /* Action windows and Game sections use the same chat palette inside their own shell.
@@ -767,8 +788,11 @@
   inset: 1px;
   z-index: -1;
   background: var(
-    --mari-chat-resolved-bg,
-    var(--mari-chat-bg, var(--mari-chat-existing-bg, var(--marinara-chat-chrome-panel-bg)))
+    --mari-rp-preset-bg,
+    var(
+      --mari-chat-resolved-bg,
+      var(--mari-chat-bg, var(--mari-chat-existing-bg, var(--marinara-chat-chrome-panel-bg)))
+    )
   );
   clip-path: var(
     --mari-chat-frame-inner-clip,

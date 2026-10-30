@@ -112,7 +112,7 @@ const STEPS: TourStep[] = [
   {
     target: "panel-agents",
     title: "Agents",
-    body: "Agents add optional features without making the base app heavy. Open Download Agents here to browse and install image and video generation, trackers, writers, maps, audio and video calls, and various chat games, then enable the ones you want for each chat. You can update or uninstall them from the same catalog.",
+    body: "Agents add optional features without making the base app heavy. Open the Agent Organizer here to browse and install image and video generation, trackers, writers, maps, audio and video calls, and various chat games, then enable the ones you want for each chat. You can update or uninstall them from the same catalog.",
     side: "bottom",
     openPanel: "agents",
     sprite: { pose: "point-up", flip: true },

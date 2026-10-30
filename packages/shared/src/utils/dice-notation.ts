@@ -3,13 +3,18 @@
 //
 // The tool executor, the /roll service, the GM
 // skill-check tag and the client slash roller all
-// parse through this module. Display-only parsers
-// keep their own: the {{roll}} macro, the dice
-// card's, and the narration badge formatter's.
+// parse through this module; the {{roll}} macro and
+// the narration badge read the same grammar (the
+// macro keeps its own looser count and face limits).
+// The dice card keeps its own display-only reader.
 // Before this module existed, those four command
 // readers each carried their own regex, and they
 // disagreed: bare "d20" was legal in three of them
 // and an error in the fourth.
+//
+// It also holds the one roller shape (`DieRoller`),
+// so the code that reads a roll never chooses where
+// its dice come from.
 // ──────────────────────────────────────────────
 
 import type { DiceRollResult } from "../types/game.js";
@@ -19,6 +24,13 @@ import type { DiceRollResult } from "../types/game.js";
  * and an optional flat modifier. Case-insensitive.
  */
 export const DICE_NOTATION_REGEX = /^(\d+)?d(\d+)([+-]\d+)?$/i;
+
+/**
+ * The same notation as a pattern source with no groups, for a reader that finds
+ * dice inside longer text (the narration badge's `[dice: 2d6+3 = 11]`) rather
+ * than parsing a whole string. Build with the `i` flag.
+ */
+export const DICE_NOTATION_PATTERN = String.raw`\d*d\d+(?:[+-]\d+)?`;
 
 /** Most dice one notation may throw. */
 export const MAX_DICE_COUNT = 100;
@@ -149,20 +161,46 @@ export function clampParsedDiceToLimits(parsed: ParsedDiceNotation): ParsedDiceN
 }
 
 /**
- * Throw the dice a parsed notation asks for.
+ * One die of `sides` faces, 1..sides inclusive.
  *
- * Unseeded `Math.random()`, exactly as each call site rolled before this module
- * existed — consolidating the grammar deliberately did not touch the RNG.
+ * Every roller in the engine has this shape, so a caller decides where its dice
+ * come from and the code that reads a roll does not: player-facing rolls use
+ * `rollDieSecurely`, and a ruleset fight passes its seeded stream so it can be
+ * replayed.
  */
-export function rollParsedDice(parsed: ParsedDiceNotation): DiceRollResult {
+export type DieRoller = (sides: number) => number;
+
+/** Most faces `rollDieSecurely` can draw evenly from one 32-bit value. */
+const SECURE_DIE_RANGE = 0x1_0000_0000;
+
+/**
+ * Throw one fair die from the platform's cryptographic RNG.
+ *
+ * Web Crypto's `getRandomValues`, so the browser and the server roll the same
+ * way. A draw past the last whole multiple of `sides` is thrown again rather
+ * than wrapped, so no face comes up more often than another.
+ */
+export const rollDieSecurely: DieRoller = (sides) => {
+  if (!Number.isInteger(sides) || sides < 1 || sides > SECURE_DIE_RANGE) {
+    throw new RangeError(`A die needs at least one whole face, received ${String(sides)}`);
+  }
+  const limit = SECURE_DIE_RANGE - (SECURE_DIE_RANGE % sides);
+  const draw = new Uint32Array(1);
+  do globalThis.crypto.getRandomValues(draw);
+  while (draw[0]! >= limit);
+  return (draw[0]! % sides) + 1;
+};
+
+/** Throw the dice a parsed notation asks for, one `roll(sides)` per die. */
+export function rollParsedDice(parsed: ParsedDiceNotation, roll: DieRoller = rollDieSecurely): DiceRollResult {
   const rolls: number[] = [];
   for (let index = 0; index < parsed.count; index += 1) {
-    rolls.push(Math.floor(Math.random() * parsed.sides) + 1);
+    rolls.push(roll(parsed.sides));
   }
   return {
     notation: parsed.notation,
     rolls,
     modifier: parsed.modifier,
-    total: rolls.reduce((sum, roll) => sum + roll, 0) + parsed.modifier,
+    total: rolls.reduce((sum, face) => sum + face, 0) + parsed.modifier,
   };
 }

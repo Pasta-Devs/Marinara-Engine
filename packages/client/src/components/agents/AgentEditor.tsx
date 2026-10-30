@@ -18,10 +18,13 @@ import {
   useCreateAgent,
   type AgentConfigRow,
 } from "../../hooks/use-agents";
+import { useCapabilityAgentRegistry, useCapabilityCatalog } from "../../hooks/use-capability-packages";
 import { useConnections } from "../../hooks/use-connections";
 import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useOpenGameAssetsFolder } from "../../hooks/use-game-assets";
+import { AgentArtwork } from "./AgentArtwork";
+import { StoreBanner } from "./organizer/OrganizerParts";
 import {
   isCustomToolSelectable,
   useCustomToolCapabilities,
@@ -751,6 +754,15 @@ export function AgentEditor() {
   // Custom agent = DB entry with no matching built-in
   const isCustomAgent = !builtIn && !!dbConfig;
   const isNewCustomAgent = agentDetailId === "__new__";
+  // Downloaded agents show their store logo and banner, like their Organizer page.
+  const { data: capabilityAgents } = useCapabilityAgentRegistry();
+  const capabilityCatalog = useCapabilityCatalog();
+  const storeEntry = useMemo(() => {
+    const type = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
+    const packageId = capabilityAgents?.find((agent) => agent.id === type)?.packageId;
+    return packageId ? capabilityCatalog.data?.packages.find((entry) => entry.manifest.id === packageId) : undefined;
+  }, [agentDetailId, builtIn, capabilityAgents, capabilityCatalog.data, dbConfig]);
+  const hasBanner = Boolean(storeEntry?.store?.bannerSmallUrl ?? storeEntry?.store?.bannerUrl);
   const customRunIntervalMeta =
     isCustomAgent || isNewCustomAgent
       ? getAgentRunIntervalMeta(isNewCustomAgent ? "__new__" : (dbConfig?.type ?? agentDetailId ?? ""), false)
@@ -2097,17 +2109,46 @@ export function AgentEditor() {
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="mari-editor-header">
+      {/* Downloaded agents: the store banner is the header, with Back and actions on top and logo and name below. */}
+      <div
+        className={cn(
+          "mari-editor-header",
+          hasBanner &&
+            "relative isolate aspect-[16/7] h-auto! max-h-[260px] content-between! border-b-0! bg-transparent! p-4! sm:aspect-[16/5]",
+        )}
+      >
+        {hasBanner && storeEntry && (
+          <>
+            <StoreBanner
+              entry={storeEntry}
+              sizes="100vw"
+              className="absolute inset-0 -z-10 h-full w-full rounded-none! shadow-none!"
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-2/3 bg-gradient-to-t from-[var(--marinara-editor-bg,var(--background))] to-transparent" />
+          </>
+        )}
         <button
           type="button"
           onClick={handleClose}
           aria-label={localizeUi("ui.agents.agenteditor.backToAgents")}
-          className="mari-editor-action inline-flex"
+          className={cn("mari-editor-action inline-flex", hasBanner && "order-1")}
         >
           <ArrowLeft size="1.125rem" />
         </button>
-        <div className="mari-editor-icon-tile">
-          <Sparkles size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
+        <div
+          className={cn(
+            "mari-editor-icon-tile",
+            storeEntry?.store?.iconUrl && "h-14! w-14! rounded-2xl!",
+            hasBanner && "order-3 bg-[var(--marinara-editor-bg,var(--background))]!",
+          )}
+        >
+          {storeEntry?.store?.iconUrl ? (
+            <span className="flex h-[70%] w-[70%]">
+              <AgentArtwork imageUrl={storeEntry.store.iconUrl} alt="" iconSize="1.125rem" />
+            </span>
+          ) : (
+            <Sparkles size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
+          )}
         </div>
         <input
           value={localName}
@@ -2116,10 +2157,18 @@ export function AgentEditor() {
             markDirty();
           }}
           onFocus={reportField("name", localizeUi("ui.agents.agenteditor.nameField"))}
-          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
+          className={cn(
+            "mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]",
+            hasBanner && "order-3 [text-shadow:0_1px_6px_rgb(0_0_0/0.6)]",
+          )}
           placeholder={localizeUi("ui.agents.agenteditor.agentName")}
         />
-        <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
+        <div
+          className={cn(
+            "mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2",
+            hasBanner && "order-2 ml-auto max-md:w-auto! max-md:border-t-0! max-md:pt-0!",
+          )}
+        >
           {saveError && (
             <span className="mari-editor-status mr-2 text-red-400">
               <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
@@ -2162,6 +2211,8 @@ export function AgentEditor() {
             </button>
           )}
         </div>
+        {/* Breaks the banner header into a top row (Back, actions) and a bottom row (logo, name). */}
+        {hasBanner && <span className="order-2 basis-full" />}
       </div>
 
       {/* Unsaved warning */}

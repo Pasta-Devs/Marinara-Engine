@@ -233,10 +233,26 @@ try {
       capability: "explain",
       resource: { kind: "character", id: "character-1", label: "Luna" },
       field: "firstMessage",
+      fieldDraft: { value: "An unsaved greeting", selection: "unsaved" },
       action: "Explain the selected greeting",
     },
   });
   assert.equal(handoff.success, true, "valid contextual handoffs pass the server schema");
+  assert.deepEqual(handoff.success ? handoff.data.context?.fieldDraft : undefined, {
+    value: "An unsaved greeting",
+    selection: "unsaved",
+  });
+  const oversizedDraft = professorMariPromptSchema.safeParse({
+    chatId: "mari-workspace",
+    message: "Improve this.",
+    context: {
+      source: "character-editor",
+      capability: "edit",
+      resource: { kind: "character", id: "character-1" },
+      fieldDraft: { value: "x".repeat(20_001) },
+    },
+  });
+  assert.equal(oversizedDraft.success, false, "oversized field drafts are rejected at the handoff boundary");
 
   const invalidHandoff = professorMariPromptSchema.safeParse({
     chatId: "mari-workspace",

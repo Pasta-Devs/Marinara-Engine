@@ -3697,6 +3697,53 @@ def format_contract_entries_for_prompt(entries, limit=12_000):
     return truncate("\n".join(lines).strip(), limit)
 
 
+SUMMARY_HEADING = "### 🧭 Summary"
+NO_SUMMARY = "No summary produced."
+SUMMARY_UPDATE = "*Since `{}`:* "
+SUMMARY_UPDATE_RE = re.compile("^" + re.escape(SUMMARY_UPDATE).replace(re.escape("{}"), "[^`]+"))
+# The incremental examinations a summary keeps beneath the full one, newest last.
+MAX_SUMMARY_UPDATES = 3
+
+
+def walkthrough_summary(body):
+    """The bullets under a walkthrough's summary heading."""
+    lines, inside = [], False
+    for line in str(body or "").splitlines():
+        if line.startswith("### "):
+            if inside:
+                break
+            inside = line.strip() == SUMMARY_HEADING
+        elif inside and line.startswith("- ") and line[2:].strip() != NO_SUMMARY:
+            lines.append(line[2:].strip())
+    return lines
+
+
+def prior_walkthrough_summary(pr_num):
+    """The summary of the last completed walkthrough and the head it examined. An incremental examination sees only
+    the commits since that head, so its own summary covers them alone; the walkthrough keeps the earlier one."""
+    body = (latest_walkthrough_comment(pr_num) or {}).get("body") or ""
+    if not is_completed_review_body(body):
+        return {}
+    return {"since": STATE_MARKER_RE.search(walkthrough_header(body)).group(1), "lines": walkthrough_summary(body)}
+
+
+def summary_lines(review_obj, head_sha):
+    """A full examination's summary stands alone. An incremental one keeps the summary it was handed and adds its own
+    beneath it, one line per examination, the oldest dropped past the limit. A rerun on the head that summary already
+    covers (only judging candidates it left unjudged) has no new commits to describe and adds nothing."""
+    current = [" ".join(str(line).split()) for line in (review_obj.get("change_summary") or [])[:2]]
+    current = [line for line in current if line]
+    prior = review_obj.get("prior_summary") or {}
+    carried = list(prior.get("lines") or [])
+    if review_obj.get("mode") != "incremental" or not carried:
+        return current or [NO_SUMMARY]
+    original = [line for line in carried if not SUMMARY_UPDATE_RE.match(line)]
+    updates = [line for line in carried if SUMMARY_UPDATE_RE.match(line)]
+    if current and prior.get("since") != head_sha:
+        updates.append(SUMMARY_UPDATE.format(short_ref(prior.get("since"))) + " ".join(current))
+    return original + updates[-MAX_SUMMARY_UPDATES:]
+
+
 def render_walkthrough(
     review_obj,
     findings,
@@ -3705,7 +3752,7 @@ def render_walkthrough(
     head_sha,
     prior_contracts=None,
 ):
-    summary = review_obj.get("change_summary") or []
+    summary = summary_lines(review_obj, head_sha)
     questions = review_obj.get("open_questions") or []
     checked = review_obj.get("what_i_checked") or []
     pre_merge = review_obj.get("pre_merge_checks") or []
@@ -3750,11 +3797,11 @@ def render_walkthrough(
     body.extend([
         render_merge_signal(review_obj, defects, notes, pre_merge, head_sha),
         "",
-        "### 🧭 Summary",
+        SUMMARY_HEADING,
     ])
     if quote_line(review_obj.get("summary_quip")):
         body.extend([quote_line(review_obj.get("summary_quip")), ""])
-    body.extend([f"- {line}" for line in summary[:2]] or ["- No summary produced."])
+    body.extend(f"- {line}" for line in summary)
     # No defects needs no section: the verdict box above already says so.
     if defects:
         body.extend(
@@ -4689,6 +4736,12 @@ def produce_review(args):
     review_obj.setdefault("review_base", base)
     review_obj.setdefault("base_ref", base_ref)
     review_obj.setdefault("mode", effective_mode)
+    if effective_mode == "incremental":
+        try:
+            review_obj["prior_summary"] = prior_walkthrough_summary(pr_num)
+        except Exception as exc:
+            # The examination stands without it; the walkthrough then shows this examination's summary alone.
+            print(f"Dottore telemetry: prior_summary=unavailable ({type(exc).__name__})", flush=True)
     review_obj.setdefault("what_i_checked", []).append(
         f"Selected review base `{base}` for target branch `{base_ref}` in `{effective_mode}` mode."
     )

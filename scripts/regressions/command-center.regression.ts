@@ -1181,6 +1181,7 @@ assert.equal(
     activeChat: { id: "chat-one", label: "Moonlit room" },
     field: "Greeting",
     fieldId: "greeting",
+    fieldDraft: { value: "Unsaved greeting" },
     error: { message: "Generation failed" },
   };
   const withoutChat = withoutProfessorMariContextFacet(handoff, "chat");
@@ -1191,6 +1192,7 @@ assert.equal(
   const withoutField = withoutProfessorMariContextFacet(handoff, "field");
   assert.equal(withoutField?.field, undefined);
   assert.equal(withoutField?.fieldId, undefined);
+  assert.equal(withoutField?.fieldDraft, undefined, "removing the field chip must drop its unsaved text");
   assert.deepEqual(
     professorMariContextFacets(withoutField).map((facet) => facet.kind),
     ["chat", "error"],

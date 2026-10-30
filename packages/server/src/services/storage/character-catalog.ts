@@ -1,5 +1,7 @@
 import {
   estimateCharacterCardTokens,
+  matchesAllCardSearchTags,
+  parseCardTagSearchTerms,
   PROFESSOR_MARI_ID,
   type CharacterData,
   type CharacterCatalogEntry,
@@ -134,7 +136,12 @@ export function createCharacterCatalog(db: DB) {
       let entries = catalog.entries;
       if (!options.includeBuiltIn) entries = entries.filter((item) => item.id !== PROFESSOR_MARI_ID);
       const query = options.search?.trim().toLocaleLowerCase();
-      if (query) entries = entries.filter((item) => item.searchText.includes(query));
+      if (query) {
+        const tagTerms = parseCardTagSearchTerms(query);
+        entries = entries.filter(
+          (item) => item.searchText.includes(query) || matchesAllCardSearchTags(item.tags, tagTerms),
+        );
+      }
       if (options.favoriteFilter === "favorites") entries = entries.filter((item) => item.favorite);
       if (options.favoriteFilter === "non-favorites") entries = entries.filter((item) => !item.favorite);
       entries = sortEntries(entries, options.sort ?? "");

@@ -64,10 +64,7 @@ assert.doesNotMatch(
   source("components/characters/CharacterEditor.tsx"),
   /\{(?:formData\.description|value)\.length\}/u,
 );
-assert.match(
-  source("features/chat-settings/sections/TranslationSection.tsx"),
-  /estimateTextTokens\(customPrompt \|\| DEFAULT_TRANSLATION_SYSTEM_PROMPT\)/u,
-);
+// Translation live counters are covered behaviorally in e2e/translation-prompt-editing.e2e.ts.
 assert.match(source("components/panels/settings/PromptOverridesEditor.tsx"), /estimateTextTokens\(draft\)/u);
 
 for (const path of [

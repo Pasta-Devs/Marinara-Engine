@@ -234,6 +234,10 @@ All server-side logging goes through a shared [Pino](https://getpino.io/) logger
 
 4. **Smaller and working beats big and broken.** We'd rather review a tight PR that works on the first try than a large one that needs multiple rounds of fixes.
 
+### AI provider integrations
+
+We do not accept dedicated provider integrations for services already supported by the **Custom (OAI-Compatible)** connection. Configure those services through the existing custom endpoint instead.
+
 ## AI Agent Workflow
 
 AI coding agents should use `.github/agents/chai-workflow.md` as an additive workflow overlay. It adapts the Chai Agent Workflow Pack for Marinara's branch, issue, PR, validation, and risky-work expectations.

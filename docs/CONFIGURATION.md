@@ -17,11 +17,11 @@ You might edit configuration when you want to:
 
 Almost everything else, like your AI provider keys, characters, and chat options, is set inside the app, not here. To add an AI provider, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
-Optional first-party agents are also managed inside the app. Open **Agents → Download Agents** to install or uninstall them. Marinara automatically selects the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog lane matching its Engine major version.
+Optional first-party agents are also managed inside the app. Open **Agents → Agent Organizer** to install or uninstall them. Marinara automatically selects the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog lane matching its Engine major version.
 
 Package lifecycle and storage:
 
-- **Updates:** Marinara checks already-installed official packages for compatible updates and asks before downloading each new version. Choosing **No** keeps the current version and leaves the manual **Update** action available in Download Agents. A fresh install remains empty until you choose packages.
+- **Updates:** Marinara checks already-installed official packages for compatible updates and asks before downloading each new version. Choosing **Not now** keeps the current version and leaves the manual **Update** action available in Agent Organizer. A fresh install remains empty until you choose packages.
 - **Platforms:** The same behavior applies to desktop, Docker, and Termux-hosted Android installations. iOS and other browser clients use the packages installed on their Marinara host server.
 - **Persistence:** Packages live under `DATA_DIR/capability-packages`. Docker volumes, custom data directories, backups, and normal upgrades preserve them.
 - **Disk use:** Marinara keeps the current version of each package and the one before it, so a failed update can roll back. It deletes older versions and the temporary copies in `DATA_DIR/capability-runtime-snapshots` on its own. Package data is never deleted.
@@ -33,11 +33,11 @@ Custom agents can enable **Previous output** under Context Sources to read their
 
 External Agent files, folders, and custom repositories are locked by default. To allow them, open **Settings → Advanced → Danger Zone** and enable **Allow custom Agent imports**. Unlike External Extensions, this user-controlled gate does not require an environment variable. The import controls remain greyed out until it is enabled.
 
-Every import shows the Agent's requested capabilities before it is stored. Permissions must be approved explicitly, bundled functions and tool selections are not imported, generated CSS is sanitized, and result actions are checked against the approved capability set. Turning the gate off stops externally imported Agents from running. Custom Agents created in Marinara and official packages installed through **Download Agents** remain runnable and do not use this gate.
+Every import shows the Agent's requested capabilities before it is stored. Permissions must be approved explicitly, bundled functions and tool selections are not imported, generated CSS is sanitized, and result actions are checked against the approved capability set. Turning the gate off stops externally imported Agents from running. Custom Agents created in Marinara and official packages installed through **Agent Organizer** remain runnable and do not use this gate.
 
 ### Custom agent repositories
 
-Custom repositories are disabled by default because their prompts and tool selections are unvetted third-party content. Set `ENABLE_CUSTOM_AGENT_REPOS=true`, enable **Allow custom Agent imports** in the Danger Zone, then open **Agents → Download Agents → Custom Sources** to preview a public GitHub repository. Adding a source and applying any later content change both require explicit confirmation. Synchronization is manual; Marinara does not clone repositories or poll them in the background.
+Custom repositories are disabled by default because their prompts and tool selections are unvetted third-party content. Set `ENABLE_CUSTOM_AGENT_REPOS=true`, enable **Allow custom Agent imports** in the Danger Zone, then open **Agents → Agent Organizer → Custom Sources** to preview a public GitHub repository. Adding a source and applying any later content change both require explicit confirmation. Synchronization is manual; Marinara does not clone repositories or poll them in the background.
 
 A repository may publish agents, Game Mode rulesets, or both. It needs at least one of them.
 

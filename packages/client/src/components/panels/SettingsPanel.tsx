@@ -5039,6 +5039,9 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 >
                   {localizeUi("ui.panels.appearancesettings.resetOpacityToDefault")}
                 </button>
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  {localizeUi("settings.controls.roleplayMessageOpacity.help")}
+                </span>
               </label>
 
               <ToggleSetting

@@ -513,6 +513,9 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
   const chatIds: string[] = [];
   let connectionId = "";
   let releaseMetadata: (() => void) | undefined;
+  let releasePreparation: (() => Promise<void>) | undefined;
+  let releasePromptFailure: (() => void) | undefined;
+  let releaseFirstPromptFailure: (() => void) | undefined;
   const readMetadata = async (id: string) => {
     const chat = await (await request.get(`/api/chats/${id}`)).json();
     return typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : chat.metadata;
@@ -601,6 +604,32 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
     const forget = section.getByRole("button", { name: "Forget saved defaults", exact: true });
     const incomingPrompt = section.locator("textarea").nth(1);
     await expect(incomingPrompt).toHaveValue("An older translation prompt.");
+    await page.evaluate(async (id) => {
+      const { queryClient } = await import("/src/lib/query-client.ts" as string);
+      const cancelQueries = queryClient.cancelQueries.bind(queryClient);
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const state = {
+        entered: false,
+        release: () => {
+          release();
+          queryClient.cancelQueries = cancelQueries;
+        },
+      };
+      (window as unknown as { translatorPreparation: typeof state }).translatorPreparation = state;
+      queryClient.cancelQueries = async (...args: unknown[]) => {
+        const key = (args[0] as { queryKey?: unknown[] } | undefined)?.queryKey;
+        if (!state.entered && key?.[0] === "chats" && key[1] === "detail" && key[2] === id) {
+          state.entered = true;
+          await gate;
+        }
+        return cancelQueries(...args);
+      };
+    }, origin.id);
+    releasePreparation = () =>
+      page.evaluate(() =>
+        (window as unknown as { translatorPreparation?: { release: () => void } }).translatorPreparation?.release(),
+      );
     let heldPatch = false;
     const metadataGate = new Promise<void>((resolve) => (releaseMetadata = resolve));
     await page.route(`**/api/chats/${origin.id}/metadata`, async (route) => {
@@ -611,11 +640,21 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
       await route.continue();
     });
     await incomingPrompt.fill(expected.translationOutputPrompt);
-    await expect.poll(() => heldPatch).toBe(true);
     await save.click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as unknown as { translatorPreparation?: { entered: boolean } }).translatorPreparation?.entered,
+        ),
+      )
+      .toBe(true);
+    expect((await (await request.get(settingsPath)).json()).value).toBe("");
     await expect(section.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
+    await releasePreparation();
+    await expect.poll(() => heldPatch).toBe(true);
     // Hold the real autosave before persistence: Save must not capture the older prompt.
     expect((await (await request.get(settingsPath)).json()).value).toBe("");
+    await expect(section.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
     releaseMetadata!();
     await expect(save).toBeEnabled();
     await expect
@@ -664,7 +703,72 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
       const metadata = await readMetadata(chat.id);
       for (const key of Object.keys(expected)) expect(metadata).not.toHaveProperty(key);
     }
+
+    let defaultsWrites = 0;
+    let promptAttempts = 0;
+    const failedPrompt = "A prompt that cannot be saved.";
+    const laterFailedPrompt = "A later incoming prompt that cannot be saved.";
+    const firstFailureGate = new Promise<void>((resolve) => (releaseFirstPromptFailure = resolve));
+    const failureGate = new Promise<void>((resolve) => (releasePromptFailure = resolve));
+    await page.route(`**${settingsPath}`, async (route) => {
+      if (route.request().method() === "PUT") defaultsWrites++;
+      await route.continue();
+    });
+    await page.route(`**/api/chats/${origin.id}/metadata`, async (route) => {
+      if (
+        route.request().method() === "PATCH" &&
+        [failedPrompt, laterFailedPrompt].includes(route.request().postDataJSON().translationOutputPrompt)
+      ) {
+        promptAttempts++;
+        if (promptAttempts === 1) await firstFailureGate;
+        if (promptAttempts === 2) await failureGate;
+        if (promptAttempts <= 2) {
+          await route.fulfill({ status: 500, json: { error: "Controlled prompt-save failure" } });
+          return;
+        }
+      }
+      await route.fallback();
+    });
+    await incomingPrompt.fill(failedPrompt);
+    await save.click();
+    await expect.poll(() => promptAttempts).toBe(1);
+    releaseFirstPromptFailure!();
+    await expect(save).toBeEnabled();
+    expect(defaultsWrites).toBe(0);
+    expect((await (await request.get(settingsPath)).json()).value).toBe("");
+
+    const outgoingPrompt = "An outgoing edit must not hide an incoming failure.";
+    await incomingPrompt.fill(laterFailedPrompt);
+    await section.locator("textarea").first().fill(outgoingPrompt);
+    await save.click();
+    await expect.poll(() => promptAttempts).toBe(2);
+    expect(defaultsWrites).toBe(0);
+    releasePromptFailure!();
+    await expect(save).toBeEnabled();
+    expect(defaultsWrites).toBe(0);
+    expect((await (await request.get(settingsPath)).json()).value).toBe("");
+    await expect(incomingPrompt).toHaveValue(laterFailedPrompt);
+
+    // Explicit Save retries the retained failed intent once, without another edit.
+    await save.click();
+    await expect
+      .poll(async () => JSON.parse((await (await request.get(settingsPath)).json()).value || "{}"))
+      .toEqual({ ...expected, translationInputPrompt: outgoingPrompt, translationOutputPrompt: laterFailedPrompt });
+    expect(defaultsWrites).toBe(1);
+    expect(promptAttempts).toBe(3);
+
+    const recoveredPrompt = "A fresh successful prompt replaces the failed edit.";
+    await incomingPrompt.fill(recoveredPrompt);
+    await save.click();
+    await expect
+      .poll(async () => JSON.parse((await (await request.get(settingsPath)).json()).value || "{}"))
+      .toEqual({ ...expected, translationInputPrompt: outgoingPrompt, translationOutputPrompt: recoveredPrompt });
+    expect(defaultsWrites).toBe(2);
+    expect((await readMetadata(origin.id)).translationOutputPrompt).toBe(recoveredPrompt);
   } finally {
+    releaseFirstPromptFailure?.();
+    releasePromptFailure?.();
+    await releasePreparation?.().catch(() => undefined);
     releaseMetadata?.();
     await page.close();
     for (const id of chatIds.reverse()) await request.delete(`/api/chats/${id}?force=true`).catch(() => undefined);
