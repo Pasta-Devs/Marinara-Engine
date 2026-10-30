@@ -1399,9 +1399,7 @@ export function ConnectionSwitcherBody({
         {shuffle?.active ? (
           poolList
         ) : nothing ? (
-          (empty ?? (
-            <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>
-          ))
+          (empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>)
         ) : searching ? (
           <div data-switcher-results>
             {searchEntries.slice(0, savedCount).map((entry, index) => renderEntry(entry, { index, star: "all" }))}
