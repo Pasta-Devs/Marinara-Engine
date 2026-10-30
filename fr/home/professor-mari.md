@@ -10,7 +10,7 @@ Professor Mari vit sur l'écran d'accueil. L'écran d'accueil, c'est ce que tu v
 
 Repère le widget **Professor Mari** avec son pixel art, puis clique sur **Ask Professor Mari** (demander à Professor Mari) pour ouvrir sa fenêtre de chat complète. L'onglet **Professor** en haut de l'accueil l'ouvre aussi. Sa fenêtre s'ouvre dans Search (la recherche de l'application) : tu peux donc aussi la joindre depuis n'importe quel écran. Saisis du texte dans le champ de Search et choisis **Ask Prof. Mari** (demander à Prof. Mari), appuie sur Ctrl+J (Cmd+J sur Mac), ou tire vers le bas depuis la barre supérieure sur téléphone. Une ligne d'état dans l'en-tête de sa fenêtre affiche **Ready to help** quand elle est disponible, ou **Working on it...** quand elle travaille.
 
-Tu lui parles en langage courant. Saisis un message dans le champ, puis appuie sur Enter pour l'envoyer. Appuie sur Shift et Enter ensemble pour aller à la ligne. Si tu désactives **Enter sends to Professor Mari** (Enter envoie à Professor Mari) dans ses réglages, Enter va à la ligne et Ctrl+Enter (Cmd+Enter sur Mac) envoie le message.
+Tu lui parles en langage courant. Saisis un message dans le champ, puis appuie sur Enter pour l'envoyer. Appuie sur Shift et Enter ensemble pour aller à la ligne. Si tu désactives **Enter sends to Professor Mari** (Enter envoie à Professor Mari) dans ses réglages, Enter va à la ligne et Ctrl+Enter (Cmd+Enter sur Mac) envoie le message. Les touches font un peu plus pendant qu'elle travaille, comme décrit dans [Envoyer des messages pendant qu'elle travaille](#sending-messages-while-she-works).
 
 Le tout premier message que tu lui envoies débloque le succès **Hello World**.
 
@@ -66,7 +66,7 @@ Dans un chat Professor Mari vide, des pastilles de démarrage comme **Create a C
 
 Les parcours guidés posent une seule question à la fois, au lieu d'afficher un long formulaire d'un coup.
 
-Pour une demande complète de création ou de modification, Professor Mari peut renvoyer un plan guidé limité. Chaque étape propose un petit nombre de suggestions. En choisir une remplit le brouillon en cours et fait avancer le plan localement. Ton texte reste dans le brouillon quand tu changes de suggestion. Le plan appartient au chat Professor Mari en cours : changer de chat, redémarrer, arrêter une exécution ou terminer le plan efface les étapes périmées. Les suggestions mal formées ou trop nombreuses sont écartées, et les pastilles sont désactivées pendant que Professor Mari travaille.
+Quand une demande laisse de vraies décisions ouvertes, Professor Mari peut s'arrêter et poser ses questions sur une carte de questions sous sa réponse : jusqu'à quatre questions, une à la fois, chacune avec quelques options dont celle qu'elle recommande est repérée. Certaines questions acceptent plusieurs réponses. Choisis une option ou écris la tienne, puis appuie sur **Submit** (valider) : tes réponses partent comme ton message suivant, donc rien n'est caché et tu vois ce qu'on lui a dit. Son tour se termine quand elle pose sa question, et rien de ce qu'elle a proposé en même temps ne s'exécute avant que tu aies répondu. Tu peux aussi ignorer la carte et écrire dans le champ de message ; ton message suivant y répond.
 
 Les suggestions ne sont disponibles que dans les chats Professor Mari. Les autres personnages ne reçoivent pas les pastilles de Professor Mari.
 
@@ -126,7 +126,7 @@ Les mêmes commandes se saisissent aussi avec `/`, comme décrit dans [Commandes
 
 Choisis **Attach files or photos** dans le menu du trombone, ou saisis `/attach`, pour ajouter un fichier à ton message.
 
-Elle accepte les images, les fichiers PDF et les fichiers texte courants comme `.txt`, `.md`, `.json`, `.csv` et `.log`. Chaque fichier peut peser jusqu'à 20 Mo. Avant l'envoi, les fichiers joints apparaissent sous forme de pastilles supprimables au-dessus du champ de message.
+Elle accepte les images, les fichiers PDF et les fichiers texte courants comme `.txt`, `.md`, `.json`, `.csv` et `.log`. Chaque fichier peut peser jusqu'à 20 Mo. Avant l'envoi, les fichiers joints apparaissent sous forme de pastilles supprimables au-dessus du champ de message. Tu peux aussi coller une capture d'écran ou un fichier copié directement dans le champ de message, avec **Ctrl+V** ou la fonction coller de ton téléphone.
 
 Pour qu'elle puisse lire une image, le modèle de la connexion choisie doit prendre en charge les images en entrée.
 
@@ -268,7 +268,43 @@ Clique sur le bouton **Chats** dans son en-tête pour ouvrir tes chats Professor
 
 Clique sur le bouton **New chat** pour commencer une nouvelle conversation avec elle. Il enregistre d'abord le chat en cours dans la liste **Chats**. Autre option : saisir `/new` (ou `/restart`) dans le champ de message, avec le même effet. Le message "Professor Mari's previous chat was saved." s'affiche.
 
-Pendant qu'elle travaille, le bouton d'envoi devient un bouton **Stop** (arrêter). Clique dessus pour annuler la tâche en cours.
+Pendant qu'elle travaille, un bouton **Stop** (arrêter) se trouve à côté du bouton d'envoi. Clique dessus pour annuler la tâche en cours.
+
+<a id="sending-messages-while-she-works"></a>
+
+### Envoyer des messages pendant qu'elle travaille
+
+Le champ de message reste ouvert pendant qu'elle travaille, et c'est toi qui choisis quand ton message lui parvient :
+
+- **Send now** (envoyer maintenant) arrive à sa prochaine étape, sans l'arrêter. Sa réponse jusque-là est enregistrée, ton message apparaît en dessous, et elle continue en tenant compte de ce que tu as dit. C'est ainsi que tu la corriges en pleine tâche sans perdre le travail déjà fait.
+- **Queue for later** (mettre en file pour plus tard) attend dans une liste au-dessus du champ, repérée par **Sends when she finishes** (envoyé quand elle a terminé). Quand elle termine proprement, elle prend les messages en attente un par un, dans l'ordre.
+
+| | Send now | Queue for later |
+|---|---|---|
+| **Enter sends** activé (par défaut) | Enter | Ctrl+Enter |
+| **Enter sends** désactivé | Ctrl+Enter | Ctrl+Shift+Enter |
+
+Sur Mac, utilise Cmd à la place de Ctrl. Shift+Enter ajoute toujours une nouvelle ligne. La petite flèche à côté du bouton d'envoi propose les deux choix, ce qui aide sur téléphone.
+
+Send now sert uniquement pour du texte seul, dans l'exécution qu'elle a déjà en cours. Un message avec des fichiers, des liens `@` ou un champ que tu lui as confié est mis en file à la place, de même qu'un message sur un autre sujet ou envoyé après un changement du mode de permissions. Un court avis te le signale. Un message en attente sans ces particularités a son propre bouton **Send now**. Clique sur le **X** d'un message pour le retirer. Un chat peut contenir jusqu'à 20 messages en attente.
+
+Si elle a déjà fait quelques étapes mais n'a encore rien dit quand ton message arrive, ses étapes sont conservées, avec une ligne estompée **Still working**. Send now ne peut pas lui donner plus d'étapes que ce qu'une exécution autorise. Si elle a atteint la limite, ou si elle s'est arrêtée pour te poser une question, ton message reste dans la liste.
+
+Les messages en attente ne partent pas d'eux-mêmes dans ces cas :
+
+- **Tu appuies sur Stop.** Ils reviennent dans le champ de message, pour que tu puisses les modifier ou les renvoyer.
+- **Elle t'attend**, pour une approbation ou la réponse à une question. Ils affichent **Held** (retenu), avec un bouton **Send** (envoyer).
+- **L'exécution a échoué, ou l'application a redémarré.** Ils affichent aussi **Held**. Rien n'est perdu.
+
+Un message retenu le reste jusqu'à ce que tu l'envoies ou le retires. **Send** n'envoie que celui-là, et écrire un nouveau message ne libère pas les autres.
+
+`/restart` et `/title` ne font rien pendant qu'elle travaille, et ils restent dans le champ jusqu'à ce qu'elle ait fini.
+
+<a id="her-to-do-list"></a>
+
+### Sa liste de tâches
+
+Sur un travail plus long, elle tient pour elle-même une courte liste d'étapes. Elle se trouve sous son dernier message, avec un compteur comme **2 of 5** (2 sur 5) ; l'étape en cours tourne pendant qu'elle travaille, et les étapes terminées sont barrées. Tu ne peux pas la modifier. Elle est là pour que tu voies où elle en est, et elle la met à jour au fur et à mesure. Dès que tu écris après la réponse qui l'a enregistrée, la liste est estompée et affiche **Plan from before your last message** (plan antérieur à ton dernier message). Elle disparaît après sa prochaine réponse qui n'y touche pas.
 
 ## Quitter sa fenêtre
 
@@ -298,7 +334,7 @@ Professor Mari est une assistante, pas la documentation complète. Garde ces lim
 - Créer du contenu est en général sans risque, puisque rien n'est écrasé. Modifier du contenu existant demande plus d'attention.
 - Une dépendance approuvée reste du code tiers, avec le même accès à l'exécution que le code de Marinara qui l'importe. Vérifie le nom du paquet, la version exacte, l'usage et l'intégrité affichés dans l'encart d'approbation.
 - Pour les modifications, nomme l'élément exact et le champ exact à changer. Une demande comme "réécris tout ce personnage" est plus risquée que "raccourcis le message d'accueil de Luna, garde sa personnalité telle quelle".
-- Pour une création en plusieurs étapes, sers-toi des pastilles de suggestion pour répondre à une question à la fois, plutôt que de fournir tous les champs d'un coup.
+- Pour une création en plusieurs étapes, réponds à sa carte de questions ou sers-toi des pastilles de suggestion plutôt que de fournir tous les champs d'un coup.
 - Si elle annonce une tâche terminée mais que l'application ne montre rien, fie-toi à l'application. Termine la tâche toi-même depuis le panneau correspondant.
 - Si tu rejoins Marinara depuis un autre appareil au lieu du même ordinateur, ses actions de modification demandent un accès distant configuré. Consulte le guide de l'accès distant.
 

@@ -54,6 +54,8 @@ Plus bas dans le même onglet, une seconde liste s'appelle **Character Questions
 
 Ces cinq champs sont ceux que lit le modèle : ce sont donc les seuls qu'une réponse sur le personnage peut atteindre.
 
+Un message d'accueil peut aussi utiliser le `{{name}}` d'une question de persona, comme `Ah, so you are a {{class}}`. Il n'est rempli que lorsque le joueur crée ce persona dans l'assistant de nouveau chat, dans le premier message et ses messages d'accueil alternatifs. Avec un persona existant ou avec Quick Start, la balise s'affiche telle qu'elle est écrite, et le Character Editor t'en avertit. Clique dans un message d'accueil et sa liste **Available variables** (variables disponibles) présente les deux types de questions, avec leur étiquette.
+
 Les réponses sont stockées comme variables du chat, si bien que la fiche lit une valeur différente dans chaque chat sans jamais avoir besoin d'être modifiée. Une question de fiche est posée dès que la fiche est dans le chat, que le joueur crée un persona ou non. La fenêtre n'affiche une section **About you** (à propos de toi) que lorsqu'un persona est en cours de création.
 
 Trois points à connaître pour un auteur :
@@ -72,7 +74,7 @@ Class: {{class}}
 Role: {{player}} is a {{class}} sworn to {{faction}}.
 ```
 
-Quand tu cliques dans un champ, ses **Available variables** (variables disponibles) apparaissent dessous. Clique sur l'une d'elles pour l'insérer à l'emplacement de ton curseur.
+Quand tu cliques dans un champ, ses **Available variables** apparaissent dessous. Clique sur l'une d'elles pour l'insérer à l'emplacement de ton curseur.
 
 Utilise `{{#if}}` pour n'afficher du texte que pour certaines réponses :
 
@@ -101,6 +103,8 @@ Les deux parcours fonctionnent aussi après la configuration, depuis **Chat Sett
 
 - Dans un chat Roleplay, le sélecteur **Persona** liste **Create your persona** pour chaque fiche du chat qui en propose un. Sers-t'en si tu as sauté l'assistant ou si tu veux un nouveau persona plus tard.
 - Le marqueur d'accueil interactif à côté d'un personnage, dans **Characters** (personnages), rouvre uniquement les questions sur le personnage de cette fiche. Elles s'ouvrent sur les réponses que le chat contient déjà : enregistrer une modification laisse donc les autres telles quelles, et enregistrer de nouveau restaure aussi une réponse que tu as supprimée de Chat Variables (variables du chat). Les réponses des autres fiches ne sont pas touchées, sauf pour un nom que deux fiches partagent : c'est une seule valeur, donc les deux fiches lisent la nouvelle réponse.
+
+Ajouter une fiche avec des questions sur le personnage à un chat Roleplay en cours, depuis **Chat Settings** ou en la déposant sur le chat, pose d'abord ses questions. Le message d'accueil est ensuite proposé, avec tes réponses insérées et signalées.
 
 ## Partager des fiches avec accueil interactif
 
