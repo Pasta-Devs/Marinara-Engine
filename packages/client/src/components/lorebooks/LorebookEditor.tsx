@@ -1914,14 +1914,15 @@ export function LorebookEditor() {
     },
     edit: editMariField,
     beforeKeep: async (takenOver) => {
-      takenOverRef.current =
-        lorebookId && takenOver.length > 0
-          ? { lorebookId, values: Object.fromEntries(takenOver.map((fieldId) => [fieldId, mariFieldText(fieldId)])) }
-          : null;
+      if (takenOver)
+        takenOverRef.current =
+          lorebookId && takenOver.length > 0
+            ? { lorebookId, values: Object.fromEntries(takenOver.map((fieldId) => [fieldId, mariFieldText(fieldId)])) }
+            : null;
       // A row that closed (Next) saves in the background; her change must land after it.
       const closedSaves = await Promise.allSettled(pendingEntrySavesRef.current);
       if (closedSaves.some(({ status }) => status === "rejected")) {
-        takenOverRef.current = null;
+        if (takenOver) takenOverRef.current = null;
         return "failed";
       }
       const draft = entryDraftRef.current;
@@ -1929,7 +1930,7 @@ export function LorebookEditor() {
       if (!lorebookDirty && !entryDirty) return "clean";
       if ((!lorebookDirty || (await handleSaveLorebook())) && (!entryDirty || !draft || (await draft.flush())))
         return "saved";
-      takenOverRef.current = null;
+      if (takenOver) takenOverRef.current = null;
       return "failed";
     },
     keepDropped: () => {

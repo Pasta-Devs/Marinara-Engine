@@ -136,6 +136,7 @@ import {
   findMariField,
   heldEditorFields,
   isMariEditorKind,
+  keptAfterPresave,
   keptEditorFields,
   mariFieldDraft,
   mariFieldText,
@@ -1161,6 +1162,8 @@ export function HomeProfessorMariChat({
   // The list the composer shows comes with the status poll; a queue action's answer is just a fresher copy of it.
   const pendingWriteSeqRef = useRef(0);
   const queuedSinceSendRef = useRef<string[]>([]);
+  // The newest message id when a send saved the editor first ("" for none); null when the last send did not.
+  const presavedAfterRef = useRef<string | null>(null);
   const showPendingMessages = useCallback((forChatId: string, pendingMessages: MariPendingMessageSummary[]) => {
     pendingWriteSeqRef.current += 1;
     setWorkspaceStatus((current) => current && { ...current, pendingMessages, pendingMessagesChatId: forChatId });
@@ -2490,7 +2493,13 @@ export function HomeProfessorMariChat({
       return;
     }
 
+    // Her writes skip review in these modes: save the open editor's unsaved text before she starts.
+    // A failed save shows the editor's own error toast and keeps the message in the composer.
+    // ponytail: queued sends (sent while she is busy) skip this pre-save; run it when the queue drains if needed.
     setSending(true);
+    const presave = appliesWithoutReview(permissionsMode) ? await useUIStore.getState().mariEditorSave?.() : undefined;
+    if (presave === "failed") return setSending(false);
+    presavedAfterRef.current = presave === "saved" ? (lastLoadedMessage?.id ?? "") : null;
     // R14: a new message or a retry answers the failure at once: no red while she starts again.
     setRecovery(null);
     // D1: the appended arrival is local UI only — it never lingers once the user is really sending.
@@ -3018,7 +3027,7 @@ export function HomeProfessorMariChat({
   useEffect(() => {
     const publish = useUIStore.getState().setMariFieldReview;
     const message = lastLoadedMessage;
-    if (isBusy) return publish({ mode: "busy", ...(appliesWithoutReview(permissionsMode) ? { bypass: true } : {}) });
+    if (isBusy) return publish({ mode: "busy" });
     if (!message || message.role !== "assistant") return publish(null);
     const actions = () => fieldReviewActions.current!;
     if (pendingDeferredMutations) {
@@ -3048,6 +3057,7 @@ export function HomeProfessorMariChat({
       fields: kept.fields,
       undoUntil: kept.undoUntil,
       undo: () => actions().undo(kept.reviewIds),
+      savedUnsaved: keptAfterPresave(presavedAfterRef.current, message.id),
     });
   }, [
     isBusy,
@@ -3056,7 +3066,6 @@ export function HomeProfessorMariChat({
     pendingDeferredMutations,
     latestActionResults,
     pendingChangeReviews,
-    permissionsMode,
   ]);
   useEffect(() => () => useUIStore.getState().setMariFieldReview(null), []);
   // M5a / slice 71 (F1): applied changes and answered prompts are "what changed"; everything still waiting

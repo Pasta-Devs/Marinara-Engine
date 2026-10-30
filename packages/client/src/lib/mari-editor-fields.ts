@@ -272,8 +272,8 @@ export interface MariReviewField {
 /** Her change to a record as its editor shows it in the fields: waiting for Keep, or kept
  * with Undo. Her open chat publishes it and owns the replies. */
 export type MariFieldReview =
-  /** She is working on a reply; `bypass`: her writes apply without a review first (see appliesWithoutReview). */
-  | { mode: "busy"; bypass?: boolean }
+  /** She is working on a reply. */
+  | { mode: "busy" }
   | {
       mode: "waiting";
       /** The held message id. */
@@ -296,6 +296,8 @@ export type MariFieldReview =
       fields: MariReviewField[];
       undoUntil: string | null;
       undo: () => void;
+      /** The send that started her run saved the user's unsaved text first (see appliesWithoutReview). */
+      savedUnsaved?: boolean;
     };
 
 /** The text fields a held turn's raw calls (`mariHeldCalls`) would write, full values, editor
@@ -326,13 +328,10 @@ export function appliesWithoutReview(mode: string): boolean {
   return mode === "bypass" || mode === "accept-edits";
 }
 
-/** Bypass mode saved the user's unsaved text as her run began ("bypass"): the next kept review is
- * the one that saved it. The review is briefly empty between her run and its kept review, so only a
- * later run that does not apply directly ends the mark. */
-export function settleBypassSave(savedFor: string | null, review: MariFieldReview | null): string | null {
-  if (savedFor !== "bypass") return savedFor;
-  if (review?.mode === "kept") return review.key;
-  return review?.mode === "busy" && !review.bypass ? null : savedFor;
+/** A send saved the user's unsaved text first while `presavedAfter` was the newest message id ("" for
+ * none); a kept change on a later message is that run's, so its line says the text was saved too. */
+export function keptAfterPresave(presavedAfter: string | null, messageId: string): boolean {
+  return presavedAfter !== null && presavedAfter !== messageId;
 }
 
 /** The text fields of an applied change that can still be undone (a review of it is

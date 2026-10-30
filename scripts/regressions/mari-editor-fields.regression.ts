@@ -15,7 +15,7 @@ import {
   mariEditorKindForAction,
   mariEditorKindForTable,
   mariFieldPath,
-  settleBypassSave,
+  keptAfterPresave,
   appliesWithoutReview,
 } from "../../packages/client/src/lib/mari-editor-fields.js";
 
@@ -314,14 +314,12 @@ assert.deepEqual(
   },
 );
 
-// Bypass mode: the save made as her run began belongs to that run's kept review, or ends with the run.
-const keptReview = { mode: "kept" as const, key: "r1", fields: [], undoUntil: null, undo: () => {} };
-assert.equal(settleBypassSave("bypass", { mode: "busy", bypass: true }), "bypass");
-assert.equal(settleBypassSave("bypass", keptReview), "r1");
-assert.equal(settleBypassSave("bypass", null), "bypass", "the gap between her run and its kept review keeps the mark");
-assert.equal(settleBypassSave("bypass", { mode: "busy" }), null, "a run that does not apply directly ends it");
-assert.equal(settleBypassSave("pending", null), "pending", "a Keep save is not a Bypass save");
-assert.equal(settleBypassSave(null, keptReview), null);
+// A send in Bypass/accept-edits saved the user's text while "m1" was the newest message: only a later
+// message's kept change is that run's; the change already shown, or a send that saved nothing, is not.
+assert.equal(keptAfterPresave("m1", "m2"), true);
+assert.equal(keptAfterPresave("", "m1"), true, "the first message of a new chat");
+assert.equal(keptAfterPresave("m1", "m1"), false, "the kept change from before the send");
+assert.equal(keptAfterPresave(null, "m2"), false, "a send that saved nothing");
 assert.equal(appliesWithoutReview("bypass"), true);
 assert.equal(appliesWithoutReview("accept-edits"), true);
 for (const mode of ["auto", "manual", "plan"]) assert.equal(appliesWithoutReview(mode), false, mode);

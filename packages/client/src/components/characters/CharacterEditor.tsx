@@ -682,17 +682,18 @@ export function CharacterEditor() {
     touched: (fieldId) => dirty && formFieldValue(formData, fieldId) !== formFieldValue(loadedDataRef.current, fieldId),
     edit: (fieldId, text) => updateFormData((prev) => withFormFieldValue(prev, fieldId, text)),
     beforeKeep: async (takenOver) => {
-      takenOverRef.current = characterId
-        ? {
-            characterId,
-            values: Object.fromEntries(
-              takenOver.map((fieldId) => [fieldId, formFieldValue(formDataRef.current, fieldId)]),
-            ),
-          }
-        : null;
+      if (takenOver)
+        takenOverRef.current = characterId
+          ? {
+              characterId,
+              values: Object.fromEntries(
+                takenOver.map((fieldId) => [fieldId, formFieldValue(formDataRef.current, fieldId)]),
+              ),
+            }
+          : null;
       if (!dirtyRef.current) return "clean";
       if (await handleSave()) return "saved";
-      takenOverRef.current = null;
+      if (takenOver) takenOverRef.current = null;
       return "failed";
     },
     keepDropped: () => {
