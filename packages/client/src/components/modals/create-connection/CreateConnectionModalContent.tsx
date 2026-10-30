@@ -441,7 +441,7 @@ export function CreateConnectionModalContent({
   const finishAdded = async (account: Target) => {
     setFinishing(true);
     const count = await countModels(account.connectionId);
-    const label = presetName ?? serviceName(service ?? provider!);
+    const label = name.trim() || presetName || serviceName(service ?? provider!);
     toast.success(
       count === null
         ? t("connections.add.added", { name: label })

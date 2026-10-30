@@ -1647,7 +1647,7 @@
   "connections.accounts.lastTestFailedLabel": "Key not accepted",
   "connections.accounts.needKeyBanner_one": "{{count}} account needs a key",
   "connections.accounts.needKeyBanner_other": "{{count}} accounts need a key",
-  "connections.accounts.noModels": "No models yet",
+  "connections.accounts.noModels": "None starred yet. Every job can still pick from this account's models.",
   "connections.accounts.replaceKey": "Replace key",
   "connections.accounts.replaceKeyFor": "Replace the key for {{name}}",
   "connections.accounts.row.actions": "Actions for {{name}}",
