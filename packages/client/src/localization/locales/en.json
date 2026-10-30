@@ -5702,7 +5702,7 @@
   "sprites.library.referenceImage": "Reference image",
   "sprites.library.referenceSheet": "Character sheet",
   "sprites.library.removeFolder": "Remove folder",
-  "sprites.library.removeFolderMessage": "Remove this folder? Its sprites will stay in the main collection.",
+  "sprites.library.removeFolderMessage": "Remove this folder? Any contained sprites will not be deleted.",
   "sprites.library.saveFolder": "Save folder",
   "sprites.library.search": "Search sprites",
   "sprites.library.selectAllSprites": "Select all sprites",

@@ -606,7 +606,7 @@ function SpriteInlineFolder({
         </div>
         <button
           type="button"
-          className="min-h-11 min-w-11 shrink-0 rounded-md p-2 text-[var(--muted-foreground)] opacity-0 transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100 md:min-h-7 md:min-w-7 [@media(pointer:coarse)]:opacity-100"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md p-2 text-[var(--muted-foreground)] opacity-0 transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100 md:min-h-7 md:min-w-7 [@media(pointer:coarse)]:opacity-100"
           aria-label={label("removeFolder")}
           disabled={busy}
           onClick={async () => {
