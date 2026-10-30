@@ -131,7 +131,7 @@ export function ServiceListStep({
                 >
                   {tile.icon}
                   <span className="flex min-w-0 flex-col">
-                    <strong className="text-sm font-medium [overflow-wrap:anywhere]">{tile.name}</strong>
+                    <span className="text-sm font-medium [overflow-wrap:anywhere]">{tile.name}</span>
                     {tile.tag && (
                       <span
                         className={cn(
