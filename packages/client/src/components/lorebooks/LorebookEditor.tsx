@@ -1920,7 +1920,10 @@ export function LorebookEditor() {
           : null;
       // A row that closed (Next) saves in the background; her change must land after it.
       const closedSaves = await Promise.allSettled(pendingEntrySavesRef.current);
-      if (closedSaves.some(({ status }) => status === "rejected")) return "failed";
+      if (closedSaves.some(({ status }) => status === "rejected")) {
+        takenOverRef.current = null;
+        return "failed";
+      }
       const draft = entryDraftRef.current;
       const entryDirty = !!draft && Object.keys(draft.changed()).length > 0;
       if (!lorebookDirty && !entryDirty) return "clean";
