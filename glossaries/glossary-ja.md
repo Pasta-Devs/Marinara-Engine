@@ -573,3 +573,18 @@ These are translation choices, not a new native-reader review.
 ## Agent Organizer
 
 Use the English UI label **Agent Organizer** for the renamed official agent store.
+
+## Mari question card, queued messages, to-do list and Automate active characters (2026-10-31)
+
+Glosses follow the shipped `ui/ja.json` strings: **Send now**(今すぐ送信), **Queue for later**(あとで送るためにキューに入れる), **Sends when she finishes**(完了したら送信されます), **Plan from before your last message**(直前のメッセージより前のプラン), **Automate active characters**(アクティブなキャラクターを自動化). **Held**(保留中) is the head of the shipped `mari.queue.held` tooltip. **2 of 5** is glossed (5件中2件), the shipped count format. **Still working**, **Submit** and **X** run unglossed.
+
+| English | Translation |
+| --- | --- |
+| question card (Professor Mari) | 質問カード |
+| waiting message / queue | 待機中のメッセージ / キュー |
+| her to-do list | Professor Mariのやることリスト, after the shipped label |
+| pin (Automate active characters) | ピン留め, as in the **Pin** gloss; "pins" lead-in is **ピン留め。** |
+| name aliases (Character Tracker) | 別名, after `/ttt` (別名) in `agents/built-in-agents.md` |
+| link text for the setting | アクティブなキャラクターの自動化 (the noun form of the shipped label) |
+
+The new `###` sections gloss their labels once each, per the once-per-section rule. These are translation choices, not a new native-reader review.

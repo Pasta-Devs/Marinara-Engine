@@ -16,6 +16,7 @@ Decisionモデルは、特定の種類の問いに答えます。チャットの
 - **[プロンプト内の判定文](../prompts/conditional-prompts.md#asking-the-decision-model)**は、チャットやエージェントのプロンプトを準備するときにテキストを選びます。回答がなければ判定はいいえとなり、単純な判定ブロックは`{{else}}`分岐があればそれを使います。
 - **[ロアブックのDecision欄](../lorebooks/entries.md#decision-activation)**は、チャットのロアブックスキャン中にRequireまたはTriggerを確認します。回答がなければRequireは新しいエントリーを通せず、Triggerは起動経路を追加しません。既存のStickyによる保持と、Triggerエントリーの通常の起動経路は引き続き適用されます。
 - **[Smart応答順](../chats/group-chats.md#response-order-individual-only)**は、有効な場合、グループチャットで次に誰が話すかを採点します。回答がなければSmart順序は通常のAI呼び出しを行います。
+- **[アクティブなキャラクターの自動化](../chats/group-chats.md#automate-active-characters-merged-only)**は、**Decision model**に設定されている場合、MergedのRoleplayグループで返信のたびに、シーンにいるのは誰かを尋ねます。すべてのキャラクターについて回答がなければ、Character Trackerの直近のシーンを使うか、一覧をそのまま維持します。
 
 - **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)**はRoleplayのシーン境界と記憶選択に、別に選んだローカルモデルまたは判断接続を使用できます。そのチャットのAdvanced Memory設定で**Use Decision model**をオンにしてください。要約は引き続き補助モデルが作成します。判断に失敗すると通常の記憶検索またはシーン確認に戻ります。
 
@@ -29,7 +30,9 @@ Decisionモデルは、特定の種類の問いに答えます。チャットの
 
 **Smart応答順ではキャラクター一覧も送信します。** 利用可能な場合は各候補の名前、状態、活動、発言頻度と、最大300文字の性格、性格が空なら説明を含めます。ホスト型Decisionプロバイダーは、最近のメッセージとこの一覧を受け取ります。
 
-- プロンプトとロアブックエントリー内の判定文、およびSmart応答順は、直近5件のメッセージを読みます。この数は固定です。
+**アクティブなキャラクターの自動化でもキャラクター一覧を送信します。** 各キャラクターの名前と、最大300文字の説明、説明が空なら性格を含めます。出演者が多くて収まらない場合は100文字まで、または名前だけに切り詰めます。さらに、Character Trackerが直近にシーンで見たキャラクターの名前も含めます。名前だけにしても最近のメッセージの余地が足りない場合は、モデルに質問せず、Character Trackerが代わりを務めます。ホスト型Decisionプロバイダーは、最近のメッセージとこの一覧を受け取ります。Mergedグループでは、1つの返信が全員の声を担うため、返信に「the narrator」というラベルが付きます。
+
+- プロンプトとロアブックエントリー内の判定文、Smart応答順、およびアクティブなキャラクターの自動化は、直近5件のメッセージを読みます。この数は固定です。
 - 起動質問はエージェントの**Scan Depth**(スキャン深度)を使い、デフォルトは5です。
 - 各メッセージには発言者名が付けられます。AIから隠したメッセージは除外されます。
 - 後処理エージェントの起動質問やプロンプト内の判定文など、返信後に確認するものには、書き終えた返信も含まれます。
@@ -221,6 +224,7 @@ Marinaraに判定専用モデルをダウンロード・実行させることも
 - **起動質問があるエージェントが毎ターン動く。** Decisionモデルが未設定か回答していないため、質問がない場合と同じように動いています。**Test**を確認してください。
 - **プロンプトの判定分岐が一度も使われない。** [判定分岐が表示されない場合](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears)を参照してください。
 - **Smart応答順が通常のAI呼び出しを続ける。** スイッチがオフか、そのターンにDecisionモデルが回答しませんでした。
+- **アクティブなキャラクターの自動化が、代わりにCharacter Trackerに従う。** そのターンにDecisionモデルがすべてのキャラクターについて回答しなかったか、先に思考するモデルで**Also gate agents that run before the reply**がオフか、出演者が名前だけでもモデルの入力に収まらないほど多く、質問されませんでした。
 - **生成中のDecisionスコアと出力を見るには**、Debug Modeを有効にするか、ログレベルをdebugにします。プロンプトのDecisionログには、しきい値、結果、回答の再利用や時間ルールによる保持の有無が含まれます。[ログレベル](../CONFIGURATION.md#logging-levels)を参照してください。
 - **返信を生成せず独自の文をテストするには**、**Peek Prompt → Decision diagnostics → Test decisions**(Peek Prompt → Decision診断 → Decisionをテスト)を開きます。入力プレビューはモデルを呼び出しません。明示的なテストは選択したモデルを呼び出し、ホスト型では料金が発生する場合があります。[Decision文のテスト](../chats/peek-prompt.md#testing-decision-statements)を参照してください。
 
