@@ -37,14 +37,11 @@ import {
   type RemoteConnectionModel,
 } from "../../hooks/use-connections";
 import { usePresets } from "../../hooks/use-presets";
-import { useEditorSections } from "../../hooks/use-editor-sections";
-import { EditorTabNavigation, type EditorTabItem } from "../ui/EditorTabNavigation";
 import {
   ArrowLeft,
   Save,
   Trash2,
   Upload,
-  Link,
   Wifi,
   MessageSquare,
   Check,
@@ -52,12 +49,12 @@ import {
   Loader2,
   AlertCircle,
   ChevronDown,
+  ChevronRight,
   ExternalLink,
   ImageIcon,
   Film,
   Music,
   RotateCcw,
-  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -324,18 +321,27 @@ function normalizeMaxParallelJobs(value: unknown): number {
 //  Main Editor
 // ═══════════════════════════════════════════════
 
-// ── Tab definitions ── (chat Models only; media Models keep one short form)
-const TABS = [
-  { id: "model", label: "connections.editor.tab.model", icon: Link },
-  { id: "generation", label: "connections.editor.tab.generation", icon: SlidersHorizontal },
-] as const;
-type TabId = (typeof TABS)[number]["id"];
-
-/** One tab of the Model editor; without tabs its fields join the page's one column. */
-function EditorSection({ id, tabbed, children }: { id: TabId; tabbed: boolean; children: ReactNode }) {
+/** A card of the Model editor; `advanced` starts collapsed. It hides itself when no field applies. */
+function EditorSection({ title, advanced, children }: { title: string; advanced?: boolean; children: ReactNode }) {
+  const card = "rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 has-[>div:empty]:hidden";
+  if (advanced)
+    return (
+      <details className={cn("group", card)}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold">
+          {title}
+          <ChevronDown
+            size="1rem"
+            className="shrink-0 text-[var(--muted-foreground)] transition-transform group-open:rotate-180"
+            aria-hidden
+          />
+        </summary>
+        <div className="mt-4 space-y-6">{children}</div>
+      </details>
+    );
   return (
-    <section data-editor-section={tabbed ? id : undefined} className={tabbed ? "space-y-6" : "contents"}>
-      {children}
+    <section className={cn("space-y-4", card)}>
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="space-y-6">{children}</div>
     </section>
   );
 }
@@ -362,9 +368,8 @@ export function ConnectionEditor({
   const closeEditor = closeConnectionDetail;
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
-  const [activeTab, setActiveTab] = useState<TabId>("model");
   const [moreOpen, setMoreOpen] = useState(false);
-  const { contentRef, scrollToSection } = useEditorSections<TabId>(connectionDetailId, !!conn, "model", setActiveTab);
+  const contentRef = useRef<HTMLDivElement>(null);
   const openModal = useUIStore((s) => s.openModal);
   const { data: connectionAccounts } = useConnectionAccounts();
   const accountId = (conn as { accountId?: string | null } | undefined)?.accountId ?? null;
@@ -1738,8 +1743,6 @@ export function ConnectionEditor({
     isAudioProvider ||
     isGenerativeAudioProvider ||
     isDecisionProvider;
-  const tabbed = !isMediaGenerationProvider;
-  const tabs: EditorTabItem<TabId>[] = TABS.map((tab) => ({ ...tab, label: t(tab.label) }));
   const isClaudeSubscriptionProvider = localProvider === "claude_subscription";
   const isOpenAIChatGPTProvider = localProvider === "openai_chatgpt";
   const isGrokSubscriptionProvider = localProvider === "grok_subscription";
@@ -1747,8 +1750,12 @@ export function ConnectionEditor({
   // A Model of a Connection gets key, token, usage and local flag from it. Image/video/audio/decision Models
   // keep their own endpoint (decision 20), so only that field stays here.
   const accountLinked = !!accountId;
+  // The server keeps a Model's own address only when its kind differs from the account's (an image
+  // Model on a chat account) or for a TypeSafe Decision (#7084); otherwise an edit here was dropped.
   const hasOwnEndpoint =
     accountLinked &&
+    (localProvider !== linkedAccount?.provider ||
+      (localProvider === "decision" && localDecisionSource === "typesafe")) &&
     ["image_generation", "video_generation", "audio", "audio_generation", "decision"].includes(localProvider);
   const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
@@ -2157,7 +2164,7 @@ export function ConnectionEditor({
   return (
     <div className={cn("mari-editor-shell mari-connection-scope flex flex-1 flex-col overflow-hidden")}>
       {/* ── Header ── */}
-      <div className={cn("mari-editor-header", tabbed && "mari-editor-header--with-nav")}>
+      <div className={"mari-editor-header"}>
         <div className="mari-editor-header-main">
           <button
             onClick={handleClose}
@@ -2194,7 +2201,6 @@ export function ConnectionEditor({
             aria-label={localizeUi("connections.editor.modelName")}
           />
         </div>
-        {tabbed && <EditorTabNavigation tabs={tabs} activeId={activeTab} onChange={scrollToSection} />}
         <div className="mari-editor-actions flex shrink-0">
           {saveError && (
             <span className="mari-editor-status mr-2 text-[var(--destructive)]">
@@ -2305,8 +2311,8 @@ export function ConnectionEditor({
 
       {/* ── Body ── */}
       <div ref={contentRef} className="mari-editor-content max-md:p-4">
-        <div className={cn("mari-editor-content-inner", !tabbed && "flex flex-col gap-6")}>
-          <EditorSection id="model" tabbed={tabbed}>
+        <div className={"mari-editor-content-inner flex flex-col gap-6"}>
+          <>
             {/* ── Model Name ── */}
 
             <FieldGroup label={localizeUi("connections.editor.name")}>
@@ -2323,7 +2329,12 @@ export function ConnectionEditor({
 
             {/* ── Provider (or the Connection that owns the credentials) ── */}
             {accountLinked ? (
-              <div className="mari-connection-group text-sm">
+              <button
+                type="button"
+                onClick={() => openModal("connection-account", { accountId })}
+                aria-label={t("connections.editor.editConnection")}
+                className="mari-connection-group block w-full text-left text-sm transition-colors hover:bg-[var(--accent)]/40"
+              >
                 <ServiceRow
                   account={linkedAccount ?? { name: "…", provider: localProvider, baseUrl: localBaseUrl }}
                   rows={[
@@ -2338,17 +2349,11 @@ export function ConnectionEditor({
                     },
                   ]}
                   density="sm"
-                  end={
-                    <button
-                      type="button"
-                      onClick={() => openModal("connection-account", { accountId })}
-                      className="mari-chrome-control mari-chrome-control--small shrink-0 whitespace-nowrap px-3"
-                    >
-                      {t("connections.editor.editConnection")}
-                    </button>
+                  trailing={
+                    <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
                   }
                 />
-              </div>
+              </button>
             ) : (
               <FieldGroup label={localizeUi("ui.connections.connectioneditor.provider")}>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
@@ -3500,10 +3505,15 @@ export function ConnectionEditor({
                 </div>
               </FieldGroup>
             )}
-            {tabbed && testSection}
-          </EditorSection>
+          </>
 
-          <EditorSection id="generation" tabbed={tabbed}>
+          <EditorSection
+            title={t(
+              isMediaGenerationProvider
+                ? "connections.editor.section.generationDefaults"
+                : "connections.editor.section.chatDefaults",
+            )}
+          >
             {/* ── Prompt Preset Override ── */}
             {!isMediaGenerationProvider && (
               <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}>
@@ -3800,29 +3810,31 @@ export function ConnectionEditor({
             )}
           </EditorSection>
 
-          <EditorSection id="generation" tabbed={tabbed}>
+          <EditorSection title={t("connections.editor.section.advanced")} advanced>
             <div className="grid gap-6 empty:hidden sm:grid-cols-2">
               {/* ── Max Output Tokens Override ── */}
               {!isMediaGenerationProvider && !isLocalAuthProvider && (
                 <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}>
                   <div className="flex items-center gap-3">
                     <DraftNumberInput
-                      value={localMaxTokensOverride ?? 0}
+                      allowEmpty
+                      value={localMaxTokensOverride}
                       min={0}
                       selectOnFocus
+                      placeholder={t("connections.editor.maxOutputAutomatic")}
                       onCommit={(nextValue) => {
-                        setLocalMaxTokensOverride(nextValue > 0 ? nextValue : null);
+                        setLocalMaxTokensOverride(nextValue && nextValue > 0 ? nextValue : null);
                         markDirty();
                       }}
                       className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
                     />
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      {localMaxTokensOverride
-                        ? localizeUi("ui.connections.connectioneditor.value1TokensMax", {
-                            value1: localMaxTokensOverride.toLocaleString(),
-                          })
-                        : t("connections.editor.maxOutputAutomatic")}
-                    </span>
+                    {localMaxTokensOverride ? (
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {localizeUi("ui.connections.connectioneditor.value1TokensMax", {
+                          value1: localMaxTokensOverride.toLocaleString(),
+                        })}
+                      </span>
+                    ) : null}
                   </div>
                 </FieldGroup>
               )}
@@ -3859,31 +3871,30 @@ export function ConnectionEditor({
                 <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}>
                   <div className="flex items-center gap-3">
                     <DraftNumberInput
-                      value={localMaxRequestsPerMinute ?? 0}
+                      allowEmpty
+                      value={localMaxRequestsPerMinute}
                       ariaLabel={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
                       min={0}
                       max={600}
                       selectOnFocus
+                      placeholder={localizeUi("ui.connections.connectioneditor.requestsPerMinuteUnlimited")}
                       onCommit={(nextValue) => {
-                        setLocalMaxRequestsPerMinute(nextValue > 0 ? Math.floor(nextValue) : null);
+                        setLocalMaxRequestsPerMinute(nextValue && nextValue > 0 ? Math.floor(nextValue) : null);
                         markDirty();
                       }}
-                      className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
+                      className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
                     />
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      {localMaxRequestsPerMinute === null
-                        ? localizeUi("ui.connections.connectioneditor.requestsPerMinuteUnlimited")
-                        : localizeUi("ui.connections.connectioneditor.value1RequestsPerMinute", {
-                            value1: localMaxRequestsPerMinute,
-                          })}
-                    </span>
+                    {localMaxRequestsPerMinute !== null && (
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {localizeUi("ui.connections.connectioneditor.value1RequestsPerMinute", {
+                          value1: localMaxRequestsPerMinute,
+                        })}
+                      </span>
+                    )}
                   </div>
                 </FieldGroup>
               )}
             </div>
-          </EditorSection>
-
-          <EditorSection id="generation" tabbed={tabbed}>
             <button
               type="button"
               onClick={() => setMoreOpen((open) => !open)}
@@ -4012,7 +4023,7 @@ export function ConnectionEditor({
             )}
           </EditorSection>
 
-          {!tabbed && testSection}
+          {testSection}
         </div>
       </div>
     </div>
