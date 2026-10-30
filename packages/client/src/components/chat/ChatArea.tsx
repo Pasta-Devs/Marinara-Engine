@@ -848,8 +848,8 @@ const LocalChatArea = memo(function LocalChatArea({
       ).detail;
       if (detail?.chatId !== useChatStore.getState().activeChatId || !detail.section) return;
       const section = detail.section;
-      // Opening again would toggle an open drawer shut; jump inside it instead.
-      // The reset lets a repeat request for the same section run its scroll again.
+      // Drawer already open: a repeat request for the same section must still scroll,
+      // so reset the section and set it again on the next frame.
       if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
         setSettingsInitialSection(null);
         window.requestAnimationFrame(() => setSettingsInitialSection(section));

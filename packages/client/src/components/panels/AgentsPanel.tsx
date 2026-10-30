@@ -127,6 +127,7 @@ import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { hasUpdate, iconOf, taglineOf } from "../agents/organizer/organizer-model";
 import { useChatStore } from "../../stores/chat.store";
 import { requestChatSettingsSectionOpen } from "../../lib/chat-floating-ui-events";
+import { confirmEditorLeave } from "../../lib/editor-leave";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
 
@@ -2244,10 +2245,17 @@ function renderAgentCard({
           type="button"
           onClick={(event) => {
             event.stopPropagation();
+            const ui = useUIStore.getState();
+            // A detail page (agent, character, ...) replaces the chat view, so leave it first.
+            if (!confirmEditorLeave(ui, localizeUi("commandCenter.dirtyEditor"))) return;
+            ui.closeAllDetails();
             // On phones the panel covers the chat, so close it to show the drawer.
-            if (window.matchMedia("(max-width: 767px)").matches) useUIStore.getState().closeRightPanel();
+            if (window.matchMedia("(max-width: 767px)").matches) ui.closeRightPanel();
+            // Next frame: the chat view has mounted its listener, and the panel's close is done.
             // Custom agents share one menu in Chat Settings.
-            requestChatSettingsSectionOpen(chatSettingsChatId, `agent:${custom ? "custom-agents" : type}`);
+            requestAnimationFrame(() =>
+              requestChatSettingsSectionOpen(chatSettingsChatId, `agent:${custom ? "custom-agents" : type}`),
+            );
           }}
           title={localizeUi("ui.panels.agentspanel.chatSettings", { name })}
           aria-label={localizeUi("ui.panels.agentspanel.chatSettings", { name })}

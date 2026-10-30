@@ -7600,7 +7600,6 @@ export function ChatSettingsDrawer({
           {modeSettingsSurfaces.agentSettingsSurface === "conversation" && (
             <Section
               id="conversation-agents"
-              forceOpen={initialAgentId !== null}
               style={{ order: CHAT_SETTINGS_ORDER.agents }}
               label={localizeUi("navigation.topbar.agents")}
               icon={<Sparkles size="0.875rem" />}
