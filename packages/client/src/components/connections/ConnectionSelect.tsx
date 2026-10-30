@@ -257,8 +257,11 @@ export function ConnectionSelect({
   });
   // "Add a model for this…" sets the new Model through the latest onChange, and its Undo through the one after it.
   const onChangeRef = useRef(onChange);
+  // The picker's Undo runs after it closed, so it compares with the value shown now, not the one it opened with.
+  const valueRef = useRef(value);
   useEffect(() => {
     onChangeRef.current = onChange;
+    valueRef.current = value;
   });
 
   if (variant === "native") {
@@ -391,7 +394,7 @@ export function ConnectionSelect({
             kind={kind}
             embedding={embedding}
             value={value}
-            onChange={(next) => next !== (value || null) && onChange(next)}
+            onChange={(next) => next !== (valueRef.current || null) && onChangeRef.current(next)}
             defaultText={choices.defaultText}
             includeDefault={!required}
             fallback={fallback}
