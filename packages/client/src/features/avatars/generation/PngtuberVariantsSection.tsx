@@ -106,8 +106,10 @@ export function PngtuberVariantsSection({
     const sources = new Set(avatarSourceSprites(spriteList));
     const family = pngtuberSpriteFamily(spriteList).filter((sprite) => sources.has(sprite));
     const labelFor = (key: string) =>
-      family.find((sprite) => normalizeSpriteExpressionKey(sprite.label ?? sprite.expression) === key)?.expression ??
-      null;
+      (
+        family.find((sprite) => normalizeSpriteExpressionKey(sprite.label ?? sprite.expression) === key) ??
+        family.find((sprite) => normalizeSpriteExpressionKey(sprite.expression) === key)
+      )?.expression ?? null;
     // What the avatar shows now: the saved setup, or the sprites until one is saved (as in the setup panel).
     return talkingHeadFaces(config?.kinds.pngtuber ?? fromSprites, fromSprites, labelFor);
   }, [config, spriteList]);

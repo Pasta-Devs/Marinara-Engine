@@ -28,6 +28,8 @@ export interface CharacterSpriteInfo {
   name: string;
   expressions: string[];
   expressionChoices: string[];
+  expressionAliases?: Record<string, string>;
+  fullBodyAliases?: Record<string, string>;
   /** Custom full-body aliases the model may intentionally choose. */
   fullBody: string[];
   /** Engine-assigned standard full-body poses; not exposed to the model. */
