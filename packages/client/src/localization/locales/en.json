@@ -6267,6 +6267,7 @@
   "ui.agents.customagentrepositoriesmodal.value1ContentChangeValue2ToReview": "{{value1}} content change{{value2}} to review.",
   "ui.agents.customagentrepositoriesmodal.value1RemoteValuesReplaceTheManagedPromptSettingsAnd": "{{value1}} Remote values replace the managed prompt, settings, and tools shown in this preview. Removed definitions are kept as local custom agents. {{value2}}",
   "ui.agents.customagentrepositoriesmodal.value1Value2AgentValue3WillBeImported": "{{value1}} {{value2}} agent{{value3}} will be imported.",
+  "ui.agents.featureagentdetailhost.activeToggle": "Active",
   "ui.agents.featureagentdetailhost.currentChat": "Current chat",
   "ui.agents.featureagentdetailhost.feature": "Feature",
   "ui.agents.featureagentdetailhost.featureManagedSettings": "Feature-managed settings",
