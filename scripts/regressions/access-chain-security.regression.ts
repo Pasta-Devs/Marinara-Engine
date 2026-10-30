@@ -12,6 +12,7 @@ process.env.FILE_STORAGE_DIR = join(dataDir, "file-storage");
 process.env.MARINARA_FILE_STORAGE_DIR = join(dataDir, "file-storage");
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
+process.env.MARINARA_ENV_FILE = join(dataDir, ".env");
 process.env.HOST = "0.0.0.0";
 
 const ENV_KEYS = [
@@ -60,8 +61,16 @@ try {
   // Default: nothing configured.
   await assertRemoteLockedOut("default");
   assert.equal((await get("/api/health")).statusCode, 200, "health stays reachable");
-  assert.notEqual((await get("/api/chats", "127.0.0.1", { host: "127.0.0.1:7860" })).statusCode, 403, "loopback gets through");
-  assert.notEqual((await get("/", "127.0.0.1", { host: "127.0.0.1:7860" })).statusCode, 403, "loopback gets the app shell");
+  assert.equal(
+    (await get("/api/chats", "127.0.0.1", { host: "127.0.0.1:7860" })).statusCode,
+    200,
+    "loopback gets through",
+  );
+  assert.notEqual(
+    (await get("/", "127.0.0.1", { host: "127.0.0.1:7860" })).statusCode,
+    403,
+    "loopback gets the app shell",
+  );
 
   // Partial or invalid config must not broaden access.
   const cases: Array<[string, Record<string, string>]> = [
@@ -83,10 +92,20 @@ try {
   resetEnv();
   Object.assign(process.env, { BASIC_AUTH_USER: "mari", BASIC_AUTH_PASS: "secret", IP_ALLOWLIST: "10.9.9.9" });
   const authorization = `Basic ${Buffer.from("mari:secret").toString("base64")}`;
-  assert.notEqual((await get("/api/chats", "10.9.9.9", { authorization })).statusCode, 403, "allowlisted client with valid login");
-  assert.equal((await get("/api/chats", REMOTE, { authorization })).statusCode, 403, "valid login outside the allowlist");
+  assert.equal(
+    (await get("/api/chats", "10.9.9.9", { authorization })).statusCode,
+    200,
+    "allowlisted client with valid login",
+  );
+  assert.equal(
+    (await get("/api/chats", REMOTE, { authorization })).statusCode,
+    403,
+    "valid login outside the allowlist",
+  );
 
   resetEnv();
+  // let the 2 s login-file cache recheck
+  await new Promise((r) => setTimeout(r, 2_100));
   writeFileSync(join(dataDir, ".remote-login.json"), "{ not json");
   await assertRemoteLockedOut("damaged login file");
   rmSync(join(dataDir, ".remote-login.json"));
