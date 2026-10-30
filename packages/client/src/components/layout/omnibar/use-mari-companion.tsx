@@ -10,6 +10,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { useMatchMedia } from "../../../hooks/use-match-media";
 import {
+  CHAT_VISUAL_VIEWPORT_CHANGE_EVENT,
+  type ChatVisualViewportChangeDetail,
+} from "../../../hooks/use-visual-viewport-chat-bottom";
+import {
   MARI_COMPANION_WIDTH_MAX_REM,
   MARI_COMPANION_WIDTH_MIN_REM,
   normalizeMariCompanionWidthRem,
@@ -18,7 +22,7 @@ import {
 
 const GAP_PX = 12;
 /** The editor's field column keeps at least this much room; the panel stops growing first. */
-const MIN_COLUMN_REM = 28;
+const MIN_COLUMN_REM = 24;
 
 export type MariCompanionShape = "panel" | "sheet";
 export type MariSheetSnap = "peek" | "half" | "full";
@@ -27,6 +31,8 @@ const SNAPS: MariSheetSnap[] = ["peek", "half", "full"];
 // The omnibar remounts per open: these outlive it, so one held change auto-peeks only once.
 let handledWaitingKey: string | null = null;
 let peekSheet: (() => void) | null = null;
+// Set when a drag ends on a new snap, so that snap lands without the glide.
+let sheetReleased = false;
 
 /** Drops the open sheet to peek and scrolls the editor to the first field of her held change.
  *  False when she is not a sheet or the editor shows another character. */
@@ -62,6 +68,7 @@ export function useMariCompanion(mariSurface: boolean, panelRef: RefObject<HTMLE
   const shape: MariCompanionShape | null = active ? (desktop ? "panel" : "sheet") : null;
   // The omnibar remounts per open, so every open starts at half height.
   const [snap, setSnap] = useState<MariSheetSnap>("half");
+  const sheetHeight = useRef<number | null>(null);
   const waitingKey = useUIStore((s) => (s.mariFieldReview?.mode === "waiting" ? s.mariFieldReview.key : null));
 
   // A held change drops the sheet to peek, closes her keyboard and scrolls the first
@@ -92,16 +99,53 @@ export function useMariCompanion(mariSurface: boolean, panelRef: RefObject<HTMLE
     const panel = panelRef.current;
     if (!root || shape !== "sheet" || !panel) return;
     root.dataset.mariSheetHost = "";
-    const pad = () => root.style.setProperty("--mari-sheet-pad", `${panel.offsetHeight}px`);
+    const pad = () => {
+      sheetHeight.current = panel.offsetHeight;
+      root.style.setProperty("--mari-sheet-pad", `${panel.offsetHeight}px`);
+    };
     pad();
     const observer = new ResizeObserver(pad);
     observer.observe(panel);
     return () => {
       observer.disconnect();
+      sheetHeight.current = null;
       delete root.dataset.mariSheetHost;
       root.style.removeProperty("--mari-sheet-pad");
     };
   }, [root, shape, panelRef]);
+
+  // A snap glides from the last height to the new one. Peek is `height: auto`, which CSS cannot
+  // transition. A drag already moved the sheet, so its release lands at once. Height, not transform:
+  // the editor's scroll pad and her chat follow the sheet's real height.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const running = panel?.getAnimations().filter((animation) => animation.id === "mari-sheet-snap") ?? [];
+    if (shape !== "sheet" || !panel || sheetHeight.current === null) {
+      running.forEach((animation) => animation.cancel());
+      return;
+    }
+    const from = running.length > 0 ? panel.offsetHeight : sheetHeight.current;
+    running.forEach((animation) => animation.cancel());
+    const to = panel.offsetHeight;
+    const skip =
+      sheetReleased ||
+      Math.abs(to - from) < 2 ||
+      document.documentElement.hasAttribute("data-mari-software-keyboard-open") ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    sheetReleased = false;
+    if (skip) return;
+    const animation = panel.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+      id: "mari-sheet-snap",
+      duration: 220,
+      easing: "ease-out",
+    });
+    // The keyboard rules set their own height, so a glide in flight stops when the keyboard opens.
+    const onViewport = (event: Event) => {
+      if ((event as CustomEvent<ChatVisualViewportChangeDetail>).detail.keyboardOpen) animation.cancel();
+    };
+    window.addEventListener(CHAT_VISUAL_VIEWPORT_CHANGE_EVENT, onViewport);
+    return () => window.removeEventListener(CHAT_VISUAL_VIEWPORT_CHANGE_EVENT, onViewport);
+  }, [snap, shape, panelRef]);
   const drawnRem = Math.max(MARI_COMPANION_WIDTH_MIN_REM, Math.min(savedRem, maxRem));
 
   // A drag previews its width here and only saves on release.
@@ -295,7 +339,10 @@ export function MariSheetHandle({
     if (!state?.moved || event.type === "pointercancel") return;
     dragged.current = true;
     const share = event.clientY / window.innerHeight;
-    setSnap(share > 0.75 ? "peek" : share > 0.35 ? "half" : "full");
+    const next = share > 0.75 ? "peek" : share > 0.35 ? "half" : "full";
+    // An upward drag shows no preview, so only a pull down lands at once.
+    sheetReleased = next !== snap && event.clientY > state.startY;
+    setSnap(next);
   };
   const onClick = () => {
     // A drag also ends in a click; only a tap steps.

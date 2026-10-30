@@ -4155,6 +4155,8 @@
   "mari.needsYou.decline": "Don't apply",
   "mari.needsYou.deleteCount": "Delete {{count}}",
   "mari.needsYou.deleteMany": "Delete {{count}} {{things}}",
+  "mari.needsYou.editorWaiting_one": "1 change is waiting in the editor",
+  "mari.needsYou.editorWaiting_other": "{{count}} changes are waiting in the editor",
   "mari.needsYou.fileFact": "This file controls how things install and start",
   "mari.needsYou.headerStatus_one": "Needs you · 1 choice waiting",
   "mari.needsYou.headerStatus_other": "Needs you · {{count}} choices waiting",

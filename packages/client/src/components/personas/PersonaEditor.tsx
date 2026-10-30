@@ -4278,7 +4278,7 @@ function PersonaVersionHistoryPanel({
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-2.5">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
           <History size="0.75rem" />
           {localizeUi("ui.personas.personaversionhistorypanel.versionHistory")}

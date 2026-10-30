@@ -87,6 +87,12 @@ export function useMariFieldReview({
     (answeredHere?.key === waitingReview?.key ? null : waitingReview)?.fields
       .filter((field) => field.characterId === characterId && !editedIds.includes(field.fieldId))
       .map(({ fieldId, value }) => ({ fieldId, value })) ?? [];
+  // Her header names this count; it is 0 while no character editor is open.
+  const waitingCount = waiting.length;
+  useEffect(() => {
+    useUIStore.getState().setMariFieldWaitingCount(waitingCount);
+    return () => useUIStore.getState().setMariFieldWaitingCount(0);
+  }, [waitingCount]);
   const keptIds =
     keptReview && !(undoUntil <= Date.now())
       ? keptReview.fields

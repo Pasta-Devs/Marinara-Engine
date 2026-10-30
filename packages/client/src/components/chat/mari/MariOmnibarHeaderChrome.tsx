@@ -12,6 +12,7 @@ import {
 } from "../../../lib/professor-mari-presentation";
 import { ProfessorMariWorkspaceDestination } from "../../../lib/professor-mari-workspace-navigation";
 import { revealWaitingField } from "../../layout/omnibar/use-mari-companion";
+import { useUIStore } from "../../../stores/ui.store";
 import { MariTurnReviewEntry } from "./MariTranscript";
 
 /** The omnibar header's Mari parts, portaled into its slots: destinations, her status line, and the phone menu. */
@@ -265,6 +266,8 @@ export function MariOmnibarHeaderChrome({
     countBlockingReviews(reviewsByTurn.unassigned.filter(({ outcome }) => !outcome).map(({ approval }) => approval)) +
     (heldChangeCard ? 1 : 0) +
     (questionCardWaiting ? 1 : 0);
+  // Names the open editor only when its held change is the one thing waiting.
+  const editorWaiting = useUIStore((s) => (needsYouCount === 1 ? s.mariFieldWaitingCount : 0));
   const scrollToNeedsYou = () => {
     // Slice 6: as a sheet under the editor, her status jumps to the first field waiting for review.
     if (revealWaitingField()) return;
@@ -288,7 +291,9 @@ export function MariOmnibarHeaderChrome({
             ) : needsYouCount > 0 ? (
               // Slice 71 (N7): names the open choices; a tap brings the first card into view.
               <button type="button" className="mari-status-needs-you" onClick={scrollToNeedsYou}>
-                {localizeUi("mari.needsYou.headerStatus", { count: needsYouCount })}
+                {editorWaiting > 0
+                  ? localizeUi("mari.needsYou.editorWaiting", { count: editorWaiting })
+                  : localizeUi("mari.needsYou.headerStatus", { count: needsYouCount })}
               </button>
             ) : (
               localizeUi(

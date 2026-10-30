@@ -4700,6 +4700,15 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   color: color-mix(in srgb, var(--muted-foreground) 85%, transparent);
 }
 
+/* The docked panel can be narrow, so her hint stays on one line. Chromium draws no ellipsis in a
+   textarea, so the end fades there instead. */
+[data-mari-companion="panel"] .mari-workspace-composer__input:placeholder-shown {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+
 .mari-workspace-composer__input:disabled {
   cursor: not-allowed;
 }
