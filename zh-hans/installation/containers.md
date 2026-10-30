@@ -21,6 +21,8 @@ Marinara 的官方镜像发布在 `ghcr.io/pasta-devs/marinara-engine`。
 
 仓库根目录里自带一个开箱即用的 `docker-compose.yml` 文件。Compose 会读这个文件并替你启动容器，这也是运行 Marinara 的推荐方式。
 
+Docker 信任容器网关。在 Docker Desktop、OrbStack 和 rootless Docker 上，每台访问已发布端口的设备都来自这个网关，所以没有登录时，发布在所有接口上的端口会让它们全部进入。去掉 `127.0.0.1:` 之前先设好登录。参见 [Tailscale 与 Docker 放行](../REMOTE_ACCESS.md#tailscale-and-docker-bypass)。
+
 1. 先拿到仓库的一份副本。如果本地已经有 Marinara Engine 的代码，在那个文件夹里打开终端即可。如果没有，先克隆：
 
 ```bash

@@ -146,6 +146,8 @@ IP_ALLOWLIST_ENABLED=false
 
 默认情况下，Marinara 信任直连这台电脑的 Tailscale 网络的设备。它也信任 Docker 容器自己的主机。登录、IP 允许列表或 `TRUSTED_AUTH_PROXY` 会让自动的 Docker 信任失效，这样每台设备都需要自己的登录或在允许列表里的位置。想了解改变这一点的开关，见[访问控制](CONFIGURATION.md#access-control)。
 
+Docker Desktop、OrbStack 和 rootless Docker 会让每台使用已发布端口的设备都显示为 Docker 网关地址。如果你把端口发布在所有接口上（`-p 7860:7860`）又没有设置登录，你网络里的任何人都能进来。请让端口只监听 `127.0.0.1`，或者先设置登录。服务器日志在启动时会就此给出警告。
+
 <a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
 
 ## 同一台电脑上的反向代理和隧道

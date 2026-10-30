@@ -144,6 +144,8 @@ Kilka flag znosi blokadę dla zaufanej sieci prywatnej. Służą do specjalnych 
 
 Domyślnie Marinara ufa urządzeniu, które łączy się bezpośrednio przez twoją sieć Tailscale. Ufa też własnemu hostowi kontenera Docker. Logowanie, lista dozwolonych adresów IP albo `TRUSTED_AUTH_PROXY` wyłącza automatyczne zaufanie do Dockera, więc każde urządzenie potrzebuje wtedy swojego logowania albo miejsca na liście. Flagi, które to zmieniają, opisuje [Kontrola dostępu](CONFIGURATION.md#access-control).
 
+W środowiskach Docker Desktop, OrbStack i rootless Docker każde urządzenie korzystające z opublikowanego portu widać pod adresem bramy Dockera. Jeśli opublikujesz port na wszystkich interfejsach (`-p 7860:7860`) i nie ustawisz logowania, wejdzie każdy w twojej sieci. Zostaw port na `127.0.0.1` albo najpierw ustaw logowanie. Dziennik serwera ostrzega o tym przy starcie.
+
 <a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
 
 ## Odwrotne proxy i tunele na tym samym komputerze

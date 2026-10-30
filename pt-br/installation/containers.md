@@ -21,6 +21,8 @@ As imagens oficiais do Marinara ficam publicadas em `ghcr.io/pasta-devs/marinara
 
 O repositório já traz um arquivo `docker-compose.yml` pronto para uso, na raiz do projeto. O Compose lê esse arquivo e inicia o contêiner para você. Esta é a forma recomendada de rodar Marinara.
 
+O Docker confia no gateway do contêiner. No Docker Desktop, no OrbStack e no Docker sem root, todo dispositivo que alcança uma porta publicada chega por esse gateway, então, sem login, uma porta publicada em todas as interfaces deixa todos entrarem. Defina o login antes de remover `127.0.0.1:`. Veja [Liberação para Tailscale e Docker](../REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+
 1. Consiga uma cópia do repositório. Se você já tem um checkout do Marinara Engine, abra um terminal nessa pasta. Se não tem, clone o repositório antes:
 
 ```bash

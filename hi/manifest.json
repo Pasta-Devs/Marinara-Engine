@@ -1,6 +1,6 @@
 {
   "language": "hi",
-  "sourceCommit": "c0f6b4f524ecf6adbb1b916c3ac8e663f1671963",
+  "sourceCommit": "a5c56c6934df10a5f3df1f23550f8560a2a3d0c8",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -19,8 +19,8 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "9b2dd254f9ef3394a7002df20dc00b0335c5b1122bb0ffc1f17301b0bef86cb3",
-      "bytes": 59273
+      "sha256": "bcf9a664cf6bc8b1b3b485c2155cdd386f6151202b7231276b2b24dd437578a7",
+      "bytes": 60119
     },
     {
       "path": "TROUBLESHOOTING.md",
@@ -519,8 +519,8 @@
     },
     {
       "path": "installation/containers.md",
-      "sha256": "dd1353a6559baf2e65a58b828593c7d64701ec218e7972b6b0bd84b7d1cb9f5e",
-      "bytes": 25833
+      "sha256": "a9d5a56abb285b971f0b4c4557d6d6abff5b1973c45133fa9a759fc25b56570d",
+      "bytes": 26541
     },
     {
       "path": "installation/ios-pwa.md",

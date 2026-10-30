@@ -21,6 +21,8 @@ Oficjalne obrazy aplikacji Marinara Engine publikowane są pod adresem `ghcr.io/
 
 W głównym folderze repozytorium leży gotowy plik `docker-compose.yml`. Compose czyta ten plik i sam uruchamia kontener. To zalecany sposób uruchamiania aplikacji Marinara Engine.
 
+Docker ufa bramie kontenera. W środowiskach Docker Desktop, OrbStack i rootless Docker każde urządzenie, które łączy się z opublikowanym portem, przychodzi z tej bramy, więc bez logowania port opublikowany na wszystkich interfejsach wpuszcza je wszystkie. Ustaw logowanie, zanim usuniesz `127.0.0.1:`. Zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](../REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+
 1. Pobierz kopię repozytorium. Jeśli kopia repozytorium Marinara Engine już jest na dysku, otwórz terminal w tym folderze. Jeśli nie, najpierw sklonuj repozytorium:
 
 ```bash

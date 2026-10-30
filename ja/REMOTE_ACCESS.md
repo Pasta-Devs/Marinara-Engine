@@ -147,6 +147,8 @@ IP_ALLOWLIST_ENABLED=false
 
 デフォルトでは、MarinaraはTailscaleネットワーク経由で直接接続したデバイスを信頼します。また、Dockerコンテナー自身のホストも信頼します。ログイン、IP許可リスト、`TRUSTED_AUTH_PROXY`のいずれかを設定すると、Dockerの自動的な信頼は止まり、すべてのデバイスにログインか許可リストへの登録が必要になります。これを変更するフラグについては、[アクセス制御](CONFIGURATION.md#access-control)を参照してください。
 
+Docker Desktop、OrbStack、rootless Dockerでは、公開したポートを使うすべてのデバイスが、Dockerゲートウェイのアドレスから接続したように見えます。ポートをすべてのインターフェースで公開し(`-p 7860:7860`)、ログインを設定していない場合、ネットワーク上の誰でも入れます。ポートは`127.0.0.1`にとどめるか、先にログインを設定してください。サーバーログは起動時にこの点を警告します。
+
 
 <a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
 

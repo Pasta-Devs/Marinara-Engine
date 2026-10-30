@@ -146,6 +146,8 @@ Quelques indicateurs suppriment le verrouillage pour un réseau privé de confia
 
 Par défaut, Marinara fait confiance à un appareil qui se connecte directement à ton réseau Tailscale. Il fait aussi confiance à l'hôte propre d'un conteneur Docker. Une connexion, une liste d'autorisation d'IP ou `TRUSTED_AUTH_PROXY` arrête la confiance automatique envers Docker : chaque appareil a alors besoin de sa connexion ou de sa place dans la liste d'autorisation. Pour les indicateurs qui changent cela, voir [Contrôle d'accès](CONFIGURATION.md#access-control).
 
+Docker Desktop, OrbStack et Docker sans root (rootless) font apparaître chaque appareil qui utilise un port publié à l'adresse de la passerelle Docker. Si tu publies le port sur toutes les interfaces (`-p 7860:7860`) et que tu ne définis aucune connexion, n'importe qui sur ton réseau peut entrer. Garde le port sur `127.0.0.1` ou définis d'abord une connexion. Le journal du serveur avertit de ce risque au démarrage.
+
 <a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
 
 ## Reverse proxies et tunnels sur le même ordinateur

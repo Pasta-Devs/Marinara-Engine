@@ -144,6 +144,8 @@ Algunos indicadores quitan el bloqueo para una red privada de confianza. Son par
 
 De forma predeterminada, Marinara confía en un dispositivo que se conecta directamente a tu red Tailscale. También confía en el propio host de un contenedor Docker. Un inicio de sesión, una lista de IP permitidas o `TRUSTED_AUTH_PROXY` detienen la confianza automática de Docker, así que cada dispositivo necesita entonces su inicio de sesión o su lugar en la lista permitida. Para ver los indicadores que cambian esto, consulta [Control de acceso](CONFIGURATION.md#access-control).
 
+Docker Desktop, OrbStack y Docker sin root (rootless) muestran todos los dispositivos que usan un puerto publicado con la dirección del gateway de Docker. Si publicas el puerto en todas las interfaces (`-p 7860:7860`) y no configuras un inicio de sesión, cualquiera en tu red puede entrar. Mantén el puerto en `127.0.0.1` o configura primero un inicio de sesión. El registro del servidor avisa de esto al arrancar.
+
 <a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
 
 ## Proxies inversos y túneles en la misma computadora

@@ -21,6 +21,8 @@
 
 저장소의 최상위 폴더에는 바로 쓸 수 있는 `docker-compose.yml` 파일이 들어 있습니다. Compose가 이 파일을 읽어서 컨테이너를 대신 띄워 줍니다. Marinara를 실행하는 가장 권장하는 방법입니다.
 
+Docker는 컨테이너 게이트웨이를 신뢰합니다. Docker Desktop, OrbStack, rootless Docker에서는 공개한 포트에 닿는 모든 기기가 그 게이트웨이에서 오기 때문에, 로그인이 없으면 모든 인터페이스에 공개한 포트로 어떤 기기든 들어올 수 있습니다. `127.0.0.1:`을 지우기 전에 로그인을 설정하세요. [Tailscale과 Docker 우회](../REMOTE_ACCESS.md#tailscale-and-docker-bypass)를 참고하세요.
+
 1. 저장소를 다운로드하세요. 이미 Marinara Engine 저장소를 받아 두었다면 그 폴더에서 터미널을 여세요. 없다면 먼저 복제하세요.
 
 ```bash
