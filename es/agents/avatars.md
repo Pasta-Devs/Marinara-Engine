@@ -1,6 +1,6 @@
 # Avatares 2D y 3D
 
-Dos agentes descargables les dan a tus personajes y personas (una persona es el perfil que te representa en el chat) un avatar animado que reacciona mientras una respuesta llega en streaming. **2D Avatars** (Avatares 2D) muestra sprites (imágenes del personaje) al estilo PNGTuber o avatares de malla, y **3D Avatars** (Avatares 3D) muestra modelos VRM. Las caras siguen la respuesta, y las bocas se mueven con el texto o con el texto a voz.
+Dos agentes descargables les dan a tus personajes y personas (una persona es el perfil que te representa en el chat) un avatar animado que reacciona mientras una respuesta llega en streaming. **2D Avatars** (Avatares 2D) muestra sprites (imágenes del personaje) al estilo PNGTuber o avatares de malla, y **3D Avatars** (Avatares 3D) muestra modelos VRM y MMD PMX. Las caras siguen la respuesta, y las bocas se mueven con el texto o con el texto a voz.
 
 Los modelos Live2D no son compatibles. La licencia de Live2D exige un acuerdo aparte con Live2D incluso para apps gratuitas de código abierto, y su entorno de ejecución no se puede incluir con Marinara Engine.
 
@@ -23,7 +23,7 @@ Los agentes no envían solicitudes adicionales a tus conexiones de IA mientras c
 Los avatares se configuran en la página propia de cada agente. Abre **Agents**, abre **2D Avatars** o **3D Avatars** y usa la sección **Avatars** (Avatares) cerca de la parte de arriba.
 
 1. En **Character or persona** (Personaje o persona), elige quién recibe el avatar. Los nombres marcados con "(has an avatar)" ya tienen uno guardado.
-2. En **Avatar type** (Tipo de avatar), elige el tipo que quieres configurar. 2D Avatars ofrece **PNGTuber sprites** (Sprites PNGTuber) y **Mesh avatar** (Avatar de malla). 3D Avatars ofrece **VRM model** (Modelo VRM).
+2. En **Avatar type** (Tipo de avatar), elige el tipo que quieres configurar. 2D Avatars ofrece **PNGTuber sprites** (Sprites PNGTuber) y **Mesh avatar** (Avatar de malla). 3D Avatars ofrece **VRM model** (Modelo VRM) y **MMD PMX model** (Modelo MMD PMX).
 3. Configúralo en la sección propia de ese tipo, debajo de los selectores: usa tus sprites o importa un archivo, elige la cara para cada emoción, o quítalo. Consulta [Avatares 2D](#2d-avatars-pngtuber-sprites-and-mesh-avatars) y [Avatares 3D](#3d-avatars-vrm-models).
 4. Usa **Preview** (Vista previa) para verlo. **Try a face** (Probar una cara) cambia de emoción y **Talk** (Hablar) mueve la boca. Cuando todavía no hay nada que mostrar, la vista previa muestra un avatar de ejemplo.
 
@@ -106,6 +106,20 @@ Algunos archivos no se pueden usar, y la importación dice por qué:
 - **Modelos incompletos.** Se rechaza un modelo cuyo esqueleto no tiene huesos que VRM necesita o apunta a partes que no están en el archivo, o que apunta a archivos fuera de sí mismo.
 
 No hay un límite de tamaño más allá del límite de subida habitual de la app, pero los modelos grandes tardan más en cargar, sobre todo en los teléfonos.
+
+<a id="mmd-avatars-pmx-models-and-vmd-motions"></a>
+
+## Avatares MMD: modelos PMX y animaciones VMD
+
+En la página **3D Avatars**, elige **MMD PMX model** en **Avatar type**. Selecciona **Import PMX or ZIP** (Importar PMX o ZIP) y elige un ZIP con un modelo PMX y sus imágenes. Conserva las carpetas y los nombres de archivo del modelo dentro del ZIP, incluidos los nombres japoneses. Si el modelo no necesita imágenes, puedes importar solo su archivo `.pmx`. Las imágenes faltantes, las rutas inseguras y los archivos dañados se rechazan antes de reemplazar el modelo guardado.
+
+En **Faces and mouth shapes**, elige la cara del modelo para cada emoción, forma de boca y parpadeo. Los nombres comunes en inglés y japonés se asignan automáticamente; revisa la vista previa y corrige las suposiciones incorrectas. Un modelo sin caras adecuadas puede seguir mostrándose y moviendo el cuerpo. La configuración muestra los primeros 256 nombres de expresión y avisa si hay más. Las caras ya elegidas siguen funcionando, y otras expresiones pueden seguir reproduciéndose en una animación.
+
+En **VMD motion** (Animación VMD), puedes añadir un archivo `.vmd` hecho para ese modelo. Se reproduce mientras **Idle motion** está activado, y las caras elegidas siguen respondiendo al chat. La reducción de movimiento detiene la animación, pero mantiene las caras controladas por el chat y la sincronización labial. Sin un VMD, el modelo se balancea suavemente. Reemplazar un PMX elimina su VMD anterior; vuelve a añadir una animación para el nuevo modelo. Quitar un modelo MMD también borra sus imágenes y su animación, sin afectar a los otros tipos de avatar.
+
+**Archivos compatibles.** Funcionan los modelos PMX 2.0 y los modelos PMX 2.1 compatibles, con imágenes PNG, JPEG, BMP y TGA, incluidos los archivos `.sph` y `.spa`. Algunas funciones más recientes de PMX 2.1 no son compatibles, y la importación explica por qué. No se admiten modelos PMD, poses VPD ni animaciones de cámara o luz. No se simula la física, así que el pelo y la ropa pueden verse distintos que en MikuMikuDance. Se rechazan los modelos con más de 256 rutas de imagen, rutas muy largas, imágenes que requieren demasiada memoria o estructuras de animación demasiado complejas. Comprueba el resultado con tu propio modelo, sobre todo en un teléfono.
+
+Tu navegador debe admitir WebGL2. Los avatares MMD usan los mismos controles de pausa, frecuencia de fotogramas y encuadre que los demás avatares. Los modelos y las imágenes solo se cargan desde tu instancia de Marinara Engine. Respeta las licencias y condiciones de uso de quienes crearon el modelo y la animación antes de usarlos o compartirlos. Importar o reproducir un avatar MMD no envía nada a un proveedor de IA.
 
 <a id="get-a-3d-model"></a>
 

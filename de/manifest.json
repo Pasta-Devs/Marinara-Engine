@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "0ffea55f0676",
+  "sourceCommit": "43986816149a63216bc6483f04ad5060c2a8cd68",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "ae7b1255a45fe2388365fc7160552e153a4ed661bca11de65671f8bd045c3075",
-      "bytes": 48040
+      "sha256": "43b0d32cf570f1b5081050d951bec5368d836af767862e677fdfc37d4a98bd0a",
+      "bytes": 50925
     },
     {
       "path": "agents/built-in-agents.md",
