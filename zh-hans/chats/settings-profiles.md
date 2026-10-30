@@ -27,7 +27,9 @@
 - 是否隐藏 Chat Settings 的布局提示。套用 **Default** 或没有这个选项的旧方案，会重新显示提示。
 - 其他可复用的聊天选项
 
-方案不会替换聊天自身的内容，比如角色、用户角色、世界书、立绘、摘要、标签和场景提示词。方案里也不包含聊天记录，以及聊天的运行状态，比如它的宏变量、你在这个聊天里关闭的角色，或者它的多人模式房间。
+方案还可以保存**初始选择**：用户角色、要启用的世界书，以及背景。套用方案时，这些选择会复制到聊天里。如果方案没有指定其中某一项，聊天会保留自己的选择。方案中的其他设置仍会覆盖聊天设置。这些选择不会保持关联：之后在聊天中所做的更改只留在该聊天中。使用 **Save current chat settings into this profile** 时，方案会保留自身的用户角色、世界书和背景。如果方案没有背景，保存时会采用聊天的背景。更新其他聊天绝不会更改它们的用户角色、世界书或背景。导出的方案文件不包含用户角色和世界书，因为它们只存在于当前安装环境中。
+
+方案不会替换聊天自身的内容，比如角色、立绘、摘要、标签和场景提示词。方案里也不包含聊天记录，以及聊天的运行状态，比如它的宏变量、你在这个聊天里关闭的角色，或者它的多人模式房间。
 
 ## 套用方案
 
@@ -40,6 +42,18 @@
 
 聊天会立即更新。如果方案打开或关闭了 **Hide summarised messages**(隐藏已摘要消息)，聊天里已摘要的消息也会在同一时刻对 AI 隐藏，或重新对它显示。当前设置和任何已保存的方案都对不上时，下拉菜单显示 **Custom settings profile**。之前套用过的方案已经不存在了，则显示 **Missing profile - choose a profile**。
 
+## 方案构建器
+
+构建器将方案显示为一组槽位，按 Chat、Story、Pictures 和 Behind the scenes 分类。每个槽位容纳一种设置，例如连接、智能体、用户角色或世界书。
+
+- 将底部 **Your library** 中的项目拖入槽位，或点击槽位并从列表中选择。拖动时，能够接收该项目的槽位会高亮显示。
+- 已填入项目的槽位会为每个项目显示一个标签。点击项目的 **×** 按钮即可移除。
+- Parameters、Memory & summary 和 Translation 会显示方案是否包含这些设置。先在 Chat Settings 中修改，再保存到方案中。
+
+选择 **Save and choose chats…** 保存。下一步会列出 **New roleplay chats**（或 Conversation 聊天）以及该模式下已有的聊天。勾选 **Make this the default**，让新聊天使用该方案。勾选现在要套用方案的聊天，然后选择 **Apply**。
+
+在新建聊天向导中，**Use a Profile** 步骤的方案列表顶部还有 **New profile…**，已保存方案旁边有 **Edit**。保存后，向导会选中该方案。
+
 ## 保存方案
 
 下拉菜单下面那排图标提供以下操作：
@@ -48,12 +62,11 @@
 |---|---|---|
 | Save | **Save current chat settings into this profile** | 用当前设置覆盖选中方案里保存的值 |
 | Rename | **Rename profile** | 修改选中方案的名称 |
-| Save As | **Save current chat settings as a new profile** | 用当前聊天再建一个新方案 |
 | Import | **Import settings profile (.json)** | 载入一个方案文件 |
 | Export | **Export settings profile (.json)** | 下载选中的方案 |
 | Delete | **Delete profile** | 永久删除选中的方案 |
 
-新建第一个方案的做法是：先把一个聊天配置好，然后选择 **Save current chat settings as a new profile**。之后想更新它，就先套用这个方案，改好聊天设置，再选择 **Save current chat settings into this profile**。
+要创建方案，选择下拉菜单旁的 **New**。方案构建器打开时，槽位里已经放入当前聊天的设置。要修改方案，先选中它，再选择 **Edit**。**Default** 方案不可编辑。若要从聊天更新方案，先套用方案，修改聊天，再选择 **Save current chat settings into this profile**。
 
 ### 更新使用该方案的其他聊天
 

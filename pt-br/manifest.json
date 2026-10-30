@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "a5c56c6934df10a5f3df1f23550f8560a2a3d0c8",
+  "sourceCommit": "aac35cba82215c33c23584684b1b1f3a2ecf5617",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -199,8 +199,8 @@
     },
     {
       "path": "chats/settings-profiles.md",
-      "sha256": "14fa67c4ae6764d6e6ae728be00f097e3bcbdd91a0d98831e58054e5eba0b334",
-      "bytes": 9185
+      "sha256": "8b273eb4dc26e4eb37a3e576b340da0e6883fe2108226870018ed8c53c8b1ea8",
+      "bytes": 11127
     },
     {
       "path": "chats/slash-commands.md",
