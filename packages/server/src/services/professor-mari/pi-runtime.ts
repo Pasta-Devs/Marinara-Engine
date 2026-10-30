@@ -233,7 +233,7 @@ const UI_TOOL_SCHEMAS: Record<(typeof UI_TOOLS)[number], { description: string; 
 
 const TODO_TOOL_SCHEMA: { description: string; parameters: Record<string, unknown> } = {
   description:
-    "Keep a visible to-do list for work of 3 or more steps; skip it for quick answers. Each call replaces the whole list. Keep one item in_progress, mark items completed as you go, at most 12 items. Pass [] to clear it. Changes nothing else and does not end your turn.",
+    "Keep a visible to-do list for work of 3 or more steps: call this in your first round, and mark what you finished completed before you end a turn. Skip it for quick answers. Each call replaces the whole list. Keep one item in_progress, at most 12 items. Pass [] to clear it. Changes nothing else and does not end your turn.",
   parameters: {
     type: "object",
     properties: {
