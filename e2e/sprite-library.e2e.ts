@@ -8,8 +8,21 @@ const png = Buffer.from(
   "base64",
 );
 
-test("sprite details, folders and bulk tools keep their intended scope", async ({ page, request, baseURL }, info) => {
+test("sprite details, folders and bulk tools keep their intended scope", async ({
+  page,
+  request,
+  baseURL,
+  browserName,
+}, info) => {
   test.setTimeout(180_000);
+  const desktop = !info.project.use.isMobile;
+  const touchChromium = Boolean(info.project.use.isMobile) && browserName === "chromium";
+  if (browserName === "webkit")
+    info.annotations.push({
+      type: "coverage",
+      description:
+        "Core sprite UI and folder editing; native hold-to-drag is exercised through Chromium CDP and remains a physical Safari check.",
+    });
   const cleanup = await createRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL!).origin } });
   const created = await request.post("/api/characters", {
     data: { data: { name: "Sprite library UI proof", first_mes: "" } },
@@ -118,7 +131,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const emptyBounds = (await emptyText.boundingBox())!;
     const emptyX = emptyBounds.x + emptyBounds.width / 2;
     const emptyY = emptyBounds.y + emptyBounds.height / 2;
-    if (info.project.name === "phone") {
+    if (touchChromium) {
       const touch = await page.context().newCDPSession(page);
       await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: emptyX, y: emptyY }] });
       await page.waitForTimeout(500);
@@ -145,7 +158,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const restingFolderColor = await reorderHeader.evaluate((element) => getComputedStyle(element).backgroundColor);
     const from = (await frontSection.boundingBox())!;
     const to = (await testSection.boundingBox())!;
-    if (info.project.name === "phone") {
+    if (touchChromium) {
       const touch = await page.context().newCDPSession(page);
       await touch.send("Input.dispatchTouchEvent", {
         type: "touchStart",
@@ -239,7 +252,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const upload = (await addPanel.getByRole("button", { name: "Upload images", exact: true }).boundingBox())!;
     const importFolder = (await addPanel.getByRole("button", { name: "Import folder", exact: true }).boundingBox())!;
     const generate = (await addPanel.getByRole("button", { name: "Generate Sprite", exact: true }).boundingBox())!;
-    if (info.project.name === "desktop") {
+    if (desktop) {
       expect(Math.abs(upload.y + upload.height / 2 - (importFolder.y + importFolder.height / 2))).toBeLessThan(2);
       expect(Math.abs(generate.y - importFolder.y)).toBeLessThan(2);
     } else {
@@ -290,7 +303,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     };
 
     // A picture opens neutral details, and moving that picture does not change the chat default.
-    if (info.project.name === "phone") {
+    if (touchChromium) {
       const card = frontSection.getByRole("button", { name: "Preview idle", exact: true });
       await card.scrollIntoViewIfNeeded();
       const session = await page.context().newCDPSession(page);
@@ -470,7 +483,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(frontSection.getByRole("button", { name: /^Preview / })).toHaveCount(0);
     await frontSection.getByRole("button", { name: "Front", exact: true }).press("Enter");
     await expect(frontSection.locator("[data-sprite-card]")).toHaveCount(3);
-    if (info.project.name === "desktop") {
+    if (desktop) {
       const card = frontSection
         .getByRole("button", { name: "Preview idle", exact: true })
         .locator("xpath=ancestor::*[@data-sprite-card][1]");
@@ -707,7 +720,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await select.nth(1).check();
     const selectedCards = library.locator("[data-sprite-expression]").filter({ has: page.locator("input:checked") });
     await expect(selectedCards).toHaveCount(2);
-    if (info.project.name === "desktop") {
+    if (desktop) {
       const box = await selectedCards.first().boundingBox();
       expect(box).not.toBeNull();
       await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -721,7 +734,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       await expect(preview).toHaveCount(0);
       await expect(selectedCards.nth(0)).toHaveCSS("opacity", "1");
       await expect(selectedCards.nth(1)).toHaveCSS("opacity", "1");
-    } else {
+    } else if (touchChromium) {
       const handles = await selectedCards.evaluateAll((tiles) =>
         tiles.map((tile) => tile.getAttribute("data-sprite-expression")),
       );
