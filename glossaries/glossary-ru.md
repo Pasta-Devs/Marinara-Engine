@@ -734,3 +734,12 @@ These are documented translation choices from this sync, not an independent nati
 ## Agent Organizer
 
 Use the English UI label **Agent Organizer** for the renamed official agent store.
+
+## Mari question card, queued messages, to-do list and Automate active characters (2026-10-31)
+
+- Controls take the shipped `ui/ru.json` wording, lowercased and without final punctuation (§5): **Send now** (отправить сейчас), **Queue for later** (в очередь на потом), **Submit** (отправить), **Automate active characters** (автоматизировать активных персонажей). **Send** (отправить), **Off** (выключено), **Narrator** (рассказчик) and **Roleplay Commands** (команды Roleplay) reuse the existing pack glosses.
+- The status strings **Held**, **Sends when she finishes**, **Plan from before your last message**, **Still working** and the count **2 of 5** follow Pattern B (§5) and take no gloss; the sentence explains them.
+- The question card is **карточка с вопросами**, a waiting message is **ожидающее сообщение** and the queue is **очередь**. Her to-do list is **список дел** (heading `### Ее список дел`). Name aliases are **псевдонимы**. The pin is **закрепление** and **значок закрепления**.
+- Prose says "модель решений"; the label **Decision model** stays bare where the file glosses it later. Link text of the new section is translated in prose (`автоматизация активных персонажей`) and stays English in the `**[...]**` bullet list of `connections/decision-models.md`, as its neighbours do.
+
+These are translation choices, not a new native-reader review.
