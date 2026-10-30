@@ -161,9 +161,9 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 
 | 变量 | 默认值 | 作用 |
 | --- | --- | --- |
-| `BASIC_AUTH_USER` | 空 | 密码提示框里的用户名。与 `BASIC_AUTH_PASS` 一起设置即可要求登录。 |
-| `BASIC_AUTH_PASS` | 空 | 登录提示框里的密码。任一项留空即关闭登录。 |
-| `BASIC_AUTH_REALM` | `Marinara Engine` | 浏览器密码框里显示的文字。 |
+| `BASIC_AUTH_USER` | 空 | 远程登录用的用户名。与 `BASIC_AUTH_PASS` 一起设置即可要求登录。 |
+| `BASIC_AUTH_PASS` | 空 | 远程登录用的密码。任一项留空即关闭登录。 |
+| `BASIC_AUTH_REALM` | `Marinara Engine` | 面向脚本和 API 客户端的 Basic Auth 质询里的 realm；浏览器使用 `/login` 页面。 |
 | `IP_ALLOWLIST` | 空 | 始终放行的 IP 或 CIDR 段，用逗号分隔。直连的环回地址始终放行；同一台机器上的反向代理则不会。 |
 | `IP_ALLOWLIST_ENABLED` | `true` | 设为 `false` 可保留列表但暂停生效。 |
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 在没设登录的情况下，恢复私有网络的免密访问。`100.64.0.0/10` 段（运营商级 NAT）不包含在内，因为网络服务商会让互不相关的用户共用这一段；只有在你信任它时，才把它加入 `TRUSTED_PRIVATE_NETWORKS`（它会替换默认范围，所以请保留你的局域网范围）。 |
@@ -179,7 +179,9 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 | `SSL_KEY` | 空 | TLS 私钥文件的路径。 |
 | `CSRF_TRUSTED_ORIGINS` | 空 | 额外允许保存修改的浏览器源。用于公网域名或非常规端口。字面值 `null` 会被忽略，不得用于 Android APK；APK 自行认证的登录路由无需全局信任不透明源即可工作。 |
 
-Basic Auth 是 HTTP Basic Authentication 的简称，就是一个简单的用户名密码提示框。它的凭据只做编码、不做加密，所以服务器面向公网时一定要配合 HTTPS 使用。HTTPS 是 HTTP 的安全加密版本。要直接启用，把 `SSL_CERT` 和 `SSL_KEY` 都设上，或者在 Marinara 前面放一个反向代理。
+Basic Auth 是 HTTP Basic Authentication 的简称，就是一个简单的用户名密码提示框。脚本和 API 客户端会在每次请求时发送用户名和密码；浏览器使用 `/login` 页面。它的凭据只做编码、不做加密，所以服务器面向公网时一定要配合 HTTPS 使用。HTTPS 是 HTTP 的安全加密版本。要直接启用，把 `SSL_CERT` 和 `SSL_KEY` 都设上，或者在 Marinara 前面放一个反向代理。
+
+在 `IP_ALLOWLIST` 里写 `0.0.0.0/0` 这样的大范围公网地址，可能让公网客户端不用登录就进来。只列出你信任的地址。
 
 想让其他设备能访问服务器，前提是服务器绑定到一个可达的网络接口。设置 `HOST=0.0.0.0`。shell 启动脚本会替你做这件事，但 `pnpm start` 只绑定环回地址。
 
@@ -351,7 +353,7 @@ Marinara 通知是 Marinara 维护者发出的简短警告，例如安全问题�
 | 变量 | 默认值 | 作用 |
 | --- | --- | --- |
 | `PORT` | `7860` | 服务器监听的端口。Android、Docker 和 Termux 上保持同一个值。 |
-| `HOST` | `127.0.0.1`(shell 启动脚本里是 `0.0.0.0`) | 要绑定的网络接口。局域网访问用 `0.0.0.0`。 |
+| `HOST` | `127.0.0.1`(shell 启动脚本和 Docker 镜像里是 `0.0.0.0`) | 要绑定的网络接口。局域网访问用 `0.0.0.0`。默认的 Compose 文件只把 Docker 端口发布到 `127.0.0.1`。 |
 | `MARINARA_ANDROID_SECRET` | 空 | APK 管理的 Termux 安装使用的内部本地认证密钥。这不是安装程序的输入项：Android 外壳会生成并传递它，Termux 启动脚本会自动导出。不要要求 APK 用户提供，也不要在普通桌面安装或手动 Termux 安装中设置。设置后必须正好是 64 个十六进制字符。非空值无效时，设备本地请求会收到 HTTP 503，而不会通过削弱认证来继续运行。 |
 | `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Termux 启动脚本和本地 `mari` CLI 使用的私密密钥文件路径。APK 和启动脚本会自动管理这个文件；普通 APK 用户无需读取或复制。 |
 | `AUTO_OPEN_BROWSER` | `true` | 控制 shell 启动脚本是否自动打开应用 URL。设为 `false` 即可关闭。APK 管理的安装会关闭 shell 的浏览器自动打开功能。APK 会单独处理记住的应用或浏览器选择以及认证。 |

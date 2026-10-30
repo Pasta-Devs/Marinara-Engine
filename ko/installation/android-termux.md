@@ -75,6 +75,12 @@ cd Marinara-Engine
 
 런처는 의존성을 업데이트하는 동안 로컬 pnpm 캐시에서 더 이상 참조되지 않는 패키지도 정리합니다. 예전 릴리스가 쌓여 휴대폰 저장 공간을 몇 기가바이트씩 차지하는 일을 막아 줍니다. Marinara의 채팅, 설정을 비롯한 사용자 데이터는 건드리지 않습니다.
 
+## 업데이트 후 접속이 막혔을 때
+
+다른 기기에서 로그인할 수 없다면 Termux를 열고 `cd "$HOME/Marinara-Engine" && pnpm reset-login`을 실행하세요. 앱 로그인이 삭제되고 모든 브라우저가 로그아웃됩니다. 명령이 실패하면 `packages/server/data`(또는 설정한 `DATA_DIR`)에서 `.remote-login.json`과 `.remote-sessions.json`을 삭제하세요. 프로젝트 `.env`에 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정했다면 거기서 바꾸세요. 기기에 **403**이 표시되면 같은 `.env` 파일의 `IP_ALLOWLIST`를 확인하세요. 그런 다음 서버 기기의 **Settings → Advanced → Access**에서 새 원격 로그인을 설정하거나, 차단된 기기에서 Termux 서버 로그의 설정 코드를 사용하세요. [업데이트 후 접속이 막혔을 때](../REMOTE_ACCESS.md#locked-out-after-updating)를 참고하세요.
+
+APK 자체가 localhost를 열지 못한다면 APK를 업데이트하고 **Install / Start Marinara**를 누르세요. APK의 비공개 로컬 자격 증명은 원격 로그인과 별개입니다. [Android localhost 로그인 도움말](../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503)을 참고하세요.
+
 ## 다른 기기에서 접근하기
 
 런처는 기본적으로 로컬 네트워크에서 Marinara에 접근할 수 있게 합니다. 같은 Wi-Fi에 연결된 노트북이나 다른 휴대폰에서 열 수 있다는 뜻입니다. 알맞은 주소를 찾는 단계별 안내는 [자주 묻는 질문](../FAQ.md)을 참고하세요.

@@ -51,7 +51,7 @@ HOST=0.0.0.0
 
 按顺序往下读，读到第一条符合自己情况的就停下。
 
-1. 只通过 Tailscale 连接，或者只从同一台主机上的 Docker 容器连接。什么都不用做，现在就能用。
+1. 只通过 Tailscale 直接连接，或者只从同一台主机上的 Docker 容器连接。用 `pnpm start` 时，直连的 Tailscale 客户端会跳过登录；请设置 `HOST=0.0.0.0`，它们才能连上服务器。默认的 Compose 文件只发布到 `127.0.0.1`。如果你把端口发布到回环地址之外，好让 Tailscale 设备能连上，请先设置登录。这样 Docker 会向每台设备索要登录，包括 Tailscale 设备，因为 Docker 在网关地址上看到它们。参见 [Tailscale 与 Docker 放行](#tailscale-and-docker-bypass)。
 2. 想在家里 Wi-Fi 下用手机、平板或笔记本电脑访问 Marinara。设置登录（下面的方案 1）。
 3. 要把 Marinara 暴露到公网。设置登录，并使用 HTTPS。
 4. 你的网络上有登录代理，比如 tinyauth、Authelia 或 Authentik，它已经要求每位访客先登录。读[登录代理（转发认证）](#login-proxies-forward-auth)。
@@ -95,7 +95,7 @@ openssl rand -base64 24
 
 如果 15 分钟内输错了 10 个不同的密码或设置码，Marinara 会以 **429 Too Many Requests** 拒绝来自该地址的登录，直到这 15 分钟过去。在此之前输对一次密码就会清零计数。主机上的反向代理或隧道转发过来的访客共用一个计数，其中一人登录成功也不会清零。重启服务器同样会清零。之前登录过的浏览器只要输对密码仍然能进，所以别人输错密码不会把你挡在自己常用的设备之外。登录页会告诉你还要等几分钟。如果忘了密码，登录页有 **Forgot the password?** 提示。
 
-浏览器的密码提示默认显示 **Marinara Engine**，这段文字可以用 `BASIC_AUTH_REALM` 改。
+浏览器在 `/login` 页面登录。`BASIC_AUTH_REALM` 改的是面向脚本和 API 客户端的 Basic Auth 质询里的 realm，不会改登录页面。
 
 即使开着 Basic Auth，仍有几类客户端不需要输密码：
 
@@ -117,9 +117,11 @@ IP_ALLOWLIST=192.168.1.0/24,203.0.113.42
 
 例子里的 `/24` 是 CIDR 写法。CIDR 是用一条记录表示一整段地址的简写方式，比如 `192.168.1.0/24` 覆盖从 `192.168.1.0` 到 `192.168.1.255` 的全部地址。不带斜杠的单个地址，比如 `203.0.113.42`，只匹配那一台设备。
 
+`0.0.0.0/0` 这样的大范围公网地址，可能让公网客户端不用登录就进来。只列出你信任的地址。
+
 IP 允许列表的行为如下：
 
-- 不在列表里的地址一律以 **403 Forbidden** 拒绝。
+- 不在列表里的地址一律以 **403 Forbidden** 拒绝。受信任的 Tailscale 和 Docker 对端以及 `TRUSTED_AUTH_PROXY` 仍然放行，和回环地址一样。
 - 环回地址始终放行，所以不会因为配错而把自己关在本机之外。同一台机器上的反向代理或隧道转发过来的访客不算环回，所以会被允许列表拦下。在代理后面请使用 Basic Auth。
 - 在 Docker Desktop、OrbStack 和 rootless Docker 上，每台设备都从同一个网关地址访问容器，允许列表无法区分它们。这种情况下请使用 Basic Auth。
 - 直连的 Tailscale 流量也会跳过这个列表，除非把它的放行开关关掉。Docker 网桥/网关流量只有在没有设置登录、允许列表或有效的 `TRUSTED_AUTH_PROXY` 时才会跳过（见 [Tailscale 与 Docker 放行](#tailscale-and-docker-bypass)）。

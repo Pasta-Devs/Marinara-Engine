@@ -1,11 +1,11 @@
 {
   "language": "ko",
-  "sourceCommit": "54ae24a1bd91e307bbaf5d30208991b677f35f65",
+  "sourceCommit": "c0f6b4f524ecf6adbb1b916c3ac8e663f1671963",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "c844b57d453a35a82733e14aec9b7fc22fd539dde49d196cab12cfe98fab571e",
-      "bytes": 65905
+      "sha256": "6ddd2a7c03307dcf6b4f7ac7a1f9812cf3a3ae9ab8565e59a05cfbd62ff2efc2",
+      "bytes": 66433
     },
     {
       "path": "FAQ.md",
@@ -19,8 +19,8 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "e6cd54b23aa7924fdd5d5627e21bde46d146e16d96bae7f68ab508a807018a42",
-      "bytes": 32740
+      "sha256": "1bec05d3386c36cf7c1e4058190da71e3a05db1ec28e31ed3f6db14d0dc2a2c5",
+      "bytes": 33631
     },
     {
       "path": "TROUBLESHOOTING.md",
@@ -29,8 +29,8 @@
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "7ab4711742341b4d945fe563dc40af60317c5d7c734dbabdf11a88e950201d95",
-      "bytes": 20386
+      "sha256": "50ef4b1ce7acddc6910a3f04847384953b98f70a3977568a0efcb21709767b6a",
+      "bytes": 20792
     },
     {
       "path": "agents/agents-overview.md",
@@ -514,8 +514,8 @@
     },
     {
       "path": "installation/android-termux.md",
-      "sha256": "f600101423f44e9745437ba6ccd0edac9db403917ed32aadcef7210723a39c29",
-      "bytes": 8936
+      "sha256": "1541cf662878d19d9e61e40c0fcf026f148d9835db1c86f5ba5fc81ab68043ff",
+      "bytes": 10182
     },
     {
       "path": "installation/containers.md",
@@ -524,8 +524,8 @@
     },
     {
       "path": "installation/ios-pwa.md",
-      "sha256": "7e559d3b6a806474730ef0531bd0f534c2c6ff7bcca91b8448395a9381d9a646",
-      "bytes": 8651
+      "sha256": "f4fc6e1720271cefd99b5404e69b3005454e064dcde1b3b51dd8bd9939fd496b",
+      "bytes": 9346
     },
     {
       "path": "installation/macos-linux.md",

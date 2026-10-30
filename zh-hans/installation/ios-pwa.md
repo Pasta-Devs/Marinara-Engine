@@ -30,7 +30,7 @@ http://<host-ip>:7860
 4. 在 Safari 地址栏里输入这个地址并访问。
 5. 浏览器里应该会加载出 Marinara 的主页。
 
-如果页面打不开，或者弹出密码提示，参见下面的故障排查一节。网络访问权限和密码由服务器管理者控制，这些服务器设置写在[远程访问](../REMOTE_ACCESS.md)指南里，不在 iPhone 或 iPad 上。
+如果页面打不开，或者出现登录页或设置页，参见下面的故障排查一节。网络访问权限和密码由服务器管理者控制，这些服务器设置写在[远程访问](../REMOTE_ACCESS.md)指南里，不在 iPhone 或 iPad 上。
 
 ## 添加到主屏幕
 
@@ -74,7 +74,7 @@ Tailscale 会给每台设备分配一个固定的私有地址，可达性也更�
 
 **Safari 里页面打不开。** 检查服务器在宿主设备上是否还在运行。检查两台设备是否处在同一个网络或同一个 Tailscale 网络里。确认 IP 地址和端口 `7860` 都填对了。需要更深入的网络排查，参见[远程访问](../REMOTE_ACCESS.md)指南和 [Marinara Engine 故障排查](../TROUBLESHOOTING.md)。
 
-**Safari 要求输入用户名和密码。** 服务器管理者为远程设备开启了密码保护。找运行服务器的人要用户名和密码。设置方法在[远程访问](../REMOTE_ACCESS.md)指南里有介绍。
+**更新后 Safari 显示登录页或设置页。** 在 `/login` 用服务器的用户名和密码登录。如果还没有登录，就从服务器日志里取一次性设置码，在设置页里设置一个。如果服务器只监听回环地址、没有打印设置码，请在服务器设备上到 **Settings → Advanced → Access** 设置登录。出现 **403** 可能是因为 iPhone 不在 `IP_ALLOWLIST` 里，请在服务器上修改这个列表。PWA 无法重置服务器登录。如果应用登录丢失，请让服务器管理者在服务器上运行 `pnpm reset-login`（在 Docker 里：`docker exec <container> node scripts/reset-login.mjs`），或者在那里修改 `.env` 里设置的登录。参见[更新后被锁在外面](../REMOTE_ACCESS.md#locked-out-after-updating)。
 
 **Safari 一直显示旧版本。** 先刷新页面。如果还是旧的，按上面“清除并重装 PWA”的步骤操作。
 

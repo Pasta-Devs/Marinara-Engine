@@ -30,7 +30,7 @@ http://<host-ip>:7860
 4. Tippe die Adresse in die Safari-Adresszeile ein und ruf sie auf.
 5. Im Browser sollte nun der Startbildschirm von Marinara erscheinen.
 
-Lädt die Seite nicht oder erscheint eine Passwortabfrage, hilft der Abschnitt Fehlerbehebung weiter unten. Über Netzwerkzugriff und Passwörter entscheidet die Person, der der Server gehört. Diese Server-Einstellungen stehen im [Leitfaden zum Fernzugriff](../REMOTE_ACCESS.md), nicht auf dem iPhone oder iPad.
+Lädt die Seite nicht oder erscheint eine Anmelde- oder Einrichtungsseite, hilft der Abschnitt Fehlerbehebung weiter unten. Über Netzwerkzugriff und Passwörter entscheidet die Person, der der Server gehört. Diese Server-Einstellungen stehen im [Leitfaden zum Fernzugriff](../REMOTE_ACCESS.md), nicht auf dem iPhone oder iPad.
 
 ## Zum Home-Bildschirm hinzufügen
 
@@ -74,7 +74,7 @@ Chats, Charaktere und Einstellungen liegen auf dem Server, nicht auf dem iPhone 
 
 **Die Seite lädt in Safari nicht.** Prüf, ob der Server auf dem Host-Gerät noch läuft. Prüf, ob beide Geräte im selben Netzwerk oder im selben Tailscale-Netzwerk sind. Kontrollier IP-Adresse und Port `7860`. Bei tiefer gehenden Netzwerkfragen helfen der [Leitfaden zum Fernzugriff](../REMOTE_ACCESS.md) und die [Fehlerbehebung für Marinara Engine](../TROUBLESHOOTING.md).
 
-**Safari fragt nach Benutzername und Passwort.** Dann ist der Passwortschutz für entfernte Geräte aktiviert. Hol dir Benutzername und Passwort bei der Person, die den Server betreibt. Die Einrichtung beschreibt der [Leitfaden zum Fernzugriff](../REMOTE_ACCESS.md).
+**Safari zeigt nach einem Update eine Anmelde- oder Einrichtungsseite.** Melde dich auf `/login` mit Benutzername und Passwort des Servers an. Gibt es noch keine Anmeldung, hol den einmaligen Einrichtungscode aus dem Server-Log und lege auf der Einrichtungsseite eine fest. Lauscht der Server nur auf Loopback und gibt keinen Code aus, lege die Anmeldung auf dem Server-Gerät unter **Settings → Advanced → Access** fest. Ein **403** kann bedeuten, dass das iPhone nicht in `IP_ALLOWLIST` steht; ändere diese Liste auf dem Server. Die PWA kann die Server-Anmeldung nicht zurücksetzen. Bitte die Person, die den Server betreibt, auf dem Server `pnpm reset-login` auszuführen (in Docker: `docker exec <container> node scripts/reset-login.mjs`), wenn die App-Anmeldung verloren ist, oder eine in `.env` gesetzte Anmeldung dort zu ändern. Siehe [Nach dem Update ausgesperrt](../REMOTE_ACCESS.md#locked-out-after-updating).
 
 **Safari zeigt weiterhin einen alten Stand.** Lad die Seite zuerst neu. Sieht sie danach immer noch alt aus, folge den Schritten unter PWA löschen und neu einrichten weiter oben.
 

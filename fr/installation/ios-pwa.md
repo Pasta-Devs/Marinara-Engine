@@ -30,7 +30,7 @@ http://<host-ip>:7860
 4. Saisis cette adresse dans la barre d'adresse de Safari, puis valide.
 5. L'écran d'accueil de Marinara doit se charger dans le navigateur.
 
-Si la page ne se charge pas, ou si un mot de passe t'est demandé, va voir la section Dépannage plus bas. C'est le propriétaire du serveur qui règle l'accès au réseau et les mots de passe. Ces réglages de serveur sont décrits dans le [guide d'accès à distance](../REMOTE_ACCESS.md), et pas sur ton iPhone ou ton iPad.
+Si la page ne se charge pas, ou si tu vois une page de connexion ou de configuration, va voir la section Dépannage plus bas. C'est le propriétaire du serveur qui règle l'accès au réseau et les mots de passe. Ces réglages de serveur sont décrits dans le [guide d'accès à distance](../REMOTE_ACCESS.md), et pas sur ton iPhone ou ton iPad.
 
 ## Ajouter à l'écran d'accueil
 
@@ -74,7 +74,7 @@ Les chats, les personnages et les réglages sont stockés sur le serveur, pas su
 
 **La page refuse de se charger dans Safari.** Vérifie que le serveur tourne toujours sur l'appareil hôte. Vérifie que les deux appareils sont sur le même réseau ou sur le même Tailscale. Confirme que l'adresse IP et le port `7860` sont corrects. Pour une aide réseau plus poussée, va voir le [guide d'accès à distance](../REMOTE_ACCESS.md) et [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md).
 
-**Safari demande un nom d'utilisateur et un mot de passe.** Le propriétaire du serveur a activé la protection par mot de passe pour les appareils distants. Demande le nom d'utilisateur et le mot de passe à la personne qui gère le serveur. La configuration est décrite dans le [guide d'accès à distance](../REMOTE_ACCESS.md).
+**Safari affiche une page de connexion ou de configuration après une mise à jour.** Connecte-toi sur `/login` avec le nom d'utilisateur et le mot de passe du serveur. Si aucune connexion n'existe, récupère le code de configuration à usage unique dans le journal du serveur et définis-en une sur la page de configuration. Si le serveur écoute uniquement sur le loopback et n'affiche aucun code, définis la connexion sur l'appareil du serveur dans **Settings → Advanced → Access**. Une erreur **403** peut signifier que l'iPhone n'est pas dans `IP_ALLOWLIST` ; modifie cette liste sur le serveur. La PWA ne peut pas réinitialiser la connexion du serveur. Demande à la personne qui gère le serveur d'exécuter `pnpm reset-login` sur le serveur (dans Docker : `docker exec <container> node scripts/reset-login.mjs`) si la connexion de l'app est perdue, ou de modifier là-bas une connexion définie dans `.env`. Voir [Verrouillé après une mise à jour](../REMOTE_ACCESS.md#locked-out-after-updating).
 
 **Safari affiche toujours une ancienne version.** Recharge d'abord la page. Si elle a encore l'air ancienne, suis les étapes de la section Effacer et réinstaller la PWA, plus haut.
 

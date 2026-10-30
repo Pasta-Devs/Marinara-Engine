@@ -51,7 +51,7 @@ Adresse de liaison par défaut selon la façon dont tu lances Marinara :
 
 Lis les cas suivants dans l'ordre et arrête-toi au premier qui te correspond.
 
-1. Tu te connectes uniquement via Tailscale, ou uniquement depuis des conteneurs Docker sur le même hôte. Tu n'as rien à faire, ça fonctionne déjà.
+1. Tu te connectes uniquement en direct via Tailscale, ou uniquement depuis des conteneurs Docker sur le même hôte. Avec `pnpm start`, les clients Tailscale directs passent sans connexion ; définis `HOST=0.0.0.0` pour qu'ils puissent joindre le serveur. Le fichier Compose par défaut publie uniquement sur `127.0.0.1`. Si tu publies le port au-delà du loopback pour qu'un appareil Tailscale puisse le joindre, définis d'abord une connexion. Docker la demande alors à chaque appareil, appareils Tailscale compris, car Docker les voit à l'adresse de la passerelle. Voir [Exception pour Tailscale et Docker](#tailscale-and-docker-bypass).
 2. Tu veux ouvrir Marinara depuis un téléphone, une tablette ou un ordinateur portable, sur le Wi-Fi de la maison. Définis une connexion (option 1 ci-dessous).
 3. Tu exposes Marinara sur Internet. Définis une connexion et utilise le HTTPS.
 4. Un proxy de connexion de ton réseau, comme tinyauth, Authelia ou Authentik, fait déjà connecter chaque visiteur. Lis [Proxys de connexion (forward auth)](#login-proxies-forward-auth).
@@ -95,7 +95,7 @@ Si tu oublies le mot de passe, lance `pnpm reset-login` sur l'ordinateur qui fai
 
 Après 10 mots de passe ou codes erronés différents en 15 minutes, Marinara refuse les tentatives de connexion depuis cette adresse avec **429 Too Many Requests**, jusqu'à la fin de ces 15 minutes. Un mot de passe correct saisi avant remet le compteur à zéro. Les visiteurs transmis par un reverse proxy ou un tunnel sur l'hôte partagent un seul compteur, et la connexion de l'un d'eux ne le remet pas à zéro. Redémarrer le serveur le remet aussi à zéro. Un navigateur déjà connecté entre toujours avec le bon mot de passe : les mots de passe erronés d'autres personnes ne peuvent donc pas te bloquer l'accès depuis un appareil que tu utilises déjà. La page de connexion indique combien de minutes attendre. Si tu oublies le mot de passe, la page de connexion affiche un indice **Forgot the password?**.
 
-Par défaut, la fenêtre du navigateur affiche **Marinara Engine**. Ce texte se change avec la variable `BASIC_AUTH_REALM`.
+Les navigateurs se connectent sur la page `/login`. `BASIC_AUTH_REALM` change le realm du défi Basic Auth pour les scripts et les clients d'API ; il ne change pas la page de connexion.
 
 Certains clients passent outre le mot de passe, même quand Basic Auth est activé :
 
@@ -117,9 +117,11 @@ IP_ALLOWLIST=192.168.1.0/24,203.0.113.42
 
 Le `/24` de l'exemple, c'est de la notation CIDR. Le CIDR est une façon courte d'écrire toute une plage d'adresses en une seule entrée. Par exemple, `192.168.1.0/24` couvre toutes les adresses de `192.168.1.0` à `192.168.1.255`. Une adresse seule, sans barre oblique, comme `203.0.113.42`, ne correspond qu'à cet appareil-là.
 
+Une large plage publique, comme `0.0.0.0/0`, peut laisser entrer des clients d'internet sans connexion. N'indique que des adresses de confiance.
+
 Comment se comporte la liste d'autorisation d'IP :
 
-- Toute adresse absente de la liste est rejetée avec une erreur **403 Forbidden**.
+- Toute adresse absente de la liste est rejetée avec une erreur **403 Forbidden**. Les pairs Tailscale et Docker de confiance et un `TRUSTED_AUTH_PROXY` passent toujours, comme le loopback.
 - Loopback est toujours autorisé : impossible de te couper toi-même l'accès local. Les visiteurs transmis par un reverse proxy ou un tunnel sur la même machine ne sont pas du loopback : la liste d'autorisation les bloque donc. Derrière un proxy, utilise une connexion.
 - Avec Docker Desktop, OrbStack et Docker sans root (rootless), tous les appareils atteignent le conteneur depuis la même adresse de passerelle : la liste d'autorisation ne peut donc pas les distinguer. Dans ce cas, utilise Basic Auth.
 - Le trafic Tailscale direct contourne aussi la liste. Le trafic Docker de pont ou de passerelle ne la contourne que tant qu'aucune connexion, liste d'autorisation ni `TRUSTED_AUTH_PROXY` valide n'est définie (voir [Contournement Tailscale et Docker](#tailscale-and-docker-bypass)).

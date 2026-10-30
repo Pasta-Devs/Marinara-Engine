@@ -75,6 +75,12 @@ cd Marinara-Engine
 
 起動スクリプトは、依存関係のアップデート時にローカルのpnpmキャッシュから参照されていないパッケージも削除します。古いリリースが数ギガバイト分たまるのを防ぐためで、Marinaraのチャットや設定などのデータには影響しません。
 
+## アップデート後にログインできなくなった場合
+
+ほかのデバイスからサインインできない場合は、Termuxを開いて`cd "$HOME/Marinara-Engine" && pnpm reset-login`を実行してください。アプリのログインが削除され、すべてのブラウザーがサインアウトされます。コマンドが失敗する場合は、`packages/server/data`(または設定した`DATA_DIR`)から`.remote-login.json`と`.remote-sessions.json`を削除してください。プロジェクトの`.env`に`BASIC_AUTH_USER`と`BASIC_AUTH_PASS`を設定している場合は、そこで変更します。デバイスに**403**が表示される場合は、同じ`.env`ファイルの`IP_ALLOWLIST`を確認してください。そのあと、サーバー側のデバイスで**Settings → Advanced → Access**から新しいリモートログインを設定するか、ブロックされたデバイスでTermuxのサーバーログに表示されるセットアップコードを使います。[アップデート後にログインできなくなった場合](../REMOTE_ACCESS.md#locked-out-after-updating)を参照してください。
+
+APK自体がlocalhostを開けない場合は、APKを更新して**Install / Start Marinara**をタップしてください。APKのローカル専用の資格情報はリモートログインとは別です。[Androidのlocalhostログインのヘルプ](../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503)を参照してください。
+
 ## 別のデバイスからアクセスする
 
 デフォルトでは、起動スクリプトはMarinaraをローカルネットワークからアクセスできる状態にします。つまり、同じWi-Fiにつないだラップトップや別のスマートフォンからも開けます。正しいアドレスを調べる手順は、[よくある質問](../FAQ.md)を参照してください。
