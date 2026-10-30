@@ -15,6 +15,11 @@ import {
   PenLine,
   Radar,
   Puzzle,
+  LayoutGrid,
+  BookOpen,
+  Compass,
+  ImageIcon,
+  Drama,
   Camera,
   Download,
   Check,
@@ -123,7 +128,27 @@ import { Modal } from "../ui/Modal";
 import { RulesetImportReviewModal } from "../agents/RulesetImportReviewModal";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
-import { hasUpdate, iconOf, taglineOf } from "../agents/organizer/organizer-model";
+import {
+  hasUpdate,
+  iconOf,
+  ORGANIZER_SECTIONS,
+  sectionLabelKey,
+  sectionOf,
+  taglineOf,
+  type OrganizerSectionId,
+} from "../agents/organizer/organizer-model";
+
+const STORE_SECTION_ICONS: Record<OrganizerSectionId, ReactNode> = {
+  apps: <LayoutGrid size="0.8125rem" />,
+  games: <Dices size="0.8125rem" />,
+  writing: <PenLine size="0.8125rem" />,
+  memory: <BookOpen size="0.8125rem" />,
+  trackers: <Radar size="0.8125rem" />,
+  adventure: <Compass size="0.8125rem" />,
+  media: <ImageIcon size="0.8125rem" />,
+  alive: <Drama size="0.8125rem" />,
+  more: <Puzzle size="0.8125rem" />,
+};
 import { useChatStore } from "../../stores/chat.store";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
@@ -364,6 +389,16 @@ export function AgentsPanel() {
       new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, iconOf(entry) ?? null] as const)),
     [capabilityCatalog],
   );
+  const catalogEntryById = useMemo(
+    () => new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, entry] as const)),
+    [capabilityCatalog],
+  );
+  // Agents not in the catalog (offline, sideloaded) fall back to their built-in category.
+  const storeSectionOf = (agent: { id: string; category: string }): OrganizerSectionId => {
+    const entry = catalogEntryById.get(packageIdByAgentType.get(agent.id) ?? agent.id);
+    if (entry) return sectionOf(entry);
+    return agent.category === "writer" ? "writing" : agent.category === "tracker" ? "trackers" : "more";
+  };
   const catalogTaglineByAgentId = useMemo(
     () => new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, taglineOf(entry)] as const)),
     [capabilityCatalog],
@@ -532,26 +567,13 @@ export function AgentsPanel() {
           agents: panelBuiltInAgents.filter((agent) => !isInActiveChat({ id: agent.id, type: agent.id })),
         },
       ]
-    : [
-        {
-          key: "writer",
-          title: localizeUi("ui.panels.agentspanel.writingAgents"),
-          icon: <PenLine size="0.8125rem" />,
-          agents: panelBuiltInAgents.filter((agent) => agent.category === "writer"),
-        },
-        {
-          key: "tracker",
-          title: localizeUi("ui.panels.agentspanel.trackerAgents"),
-          icon: <Radar size="0.8125rem" />,
-          agents: panelBuiltInAgents.filter((agent) => agent.category === "tracker"),
-        },
-        {
-          key: "misc",
-          title: localizeUi("ui.panels.agentspanel.miscAgents"),
-          icon: <Puzzle size="0.8125rem" />,
-          agents: panelBuiltInAgents.filter((agent) => agent.category === "misc"),
-        },
-      ];
+    : // The Agent Organizer's store sections, so an agent sits in the same group in both places.
+      ORGANIZER_SECTIONS.map((section) => ({
+        key: section,
+        title: localizeUi(sectionLabelKey(section)),
+        icon: STORE_SECTION_ICONS[section],
+        agents: panelBuiltInAgents.filter((agent) => storeSectionOf(agent) === section),
+      })).filter((section) => section.agents.length > 0);
   const visibleCustomAgents = manualOrder.orderItems(
     sortBasicPanelItems(
       customAgents.filter(
