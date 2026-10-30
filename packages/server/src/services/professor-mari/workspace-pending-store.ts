@@ -157,9 +157,9 @@ function canSteer(message: Partial<Pick<MariPendingMessage, "attachments" | "ref
   );
 }
 
-/** Whether a Send now message is waiting for her next step. */
+/** Whether a Send now message is waiting for her next step. Asked every step, so it reads the file only once it changes. */
 export async function hasPendingSteers(chatId: string): Promise<boolean> {
-  return (await listPending(chatId)).some((message) => message.steer && !message.held);
+  return (await listPendingSummaries(chatId)).some((message) => message.steer && !message.held);
 }
 
 /** Takes every Send now message that is not held, oldest first: they reach her together at one step. */

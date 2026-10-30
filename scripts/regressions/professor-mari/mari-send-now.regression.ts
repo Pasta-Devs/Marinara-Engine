@@ -2,7 +2,7 @@
 // provider: no network, no real model. Covers the checkpoint rows, the reset per reply, waiting wins, the round limit,
 // what may join a run (words alone, the run's subject and mode, no armed "yes") and the keys.
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { composerKeyAction } from "../../../packages/client/src/lib/composer-triggers.js";
@@ -97,6 +97,22 @@ try {
   assert.deepEqual(await store.takePendingSteers("store"), []);
   const heldRow = (await store.listPending("store")).find((message) => message.text === "was held");
   assert.equal(await store.promotePendingToSteer("store", heldRow!.id), false);
+
+  // Asked at every step, with attachments of up to 20 MB in the file: an unchanged file is not parsed again.
+  await store.addPending("cached", { text: "x".repeat(40) });
+  const cachedPath = join(store.getMariPendingDir(), "cached.json");
+  const sameTime = new Date(1_700_000_000_000);
+  utimesSync(cachedPath, sameTime, sameTime);
+  assert.equal(await store.hasPendingSteers("cached"), false);
+  const unsteered = readFileSync(cachedPath, "utf8");
+  const steered = unsteered.replace(`"${"x".repeat(40)}"`, `"${"x".repeat(27)}","steer":true`);
+  assert.equal(steered.length, unsteered.length, "The test needs the same size, so only a parse could see the change");
+  writeFileSync(cachedPath, steered);
+  utimesSync(cachedPath, sameTime, sameTime);
+  assert.equal(await store.hasPendingSteers("cached"), false, "Same size and time: the file was not read again");
+  const later = new Date(1_700_000_001_000);
+  utimesSync(cachedPath, later, later);
+  assert.equal(await store.hasPendingSteers("cached"), true, "A changed file is read, so Send now is still seen");
 
   // ── Both runtimes ───────────────────────────────────────────────────────────────────────────────
   const db = await getDB();

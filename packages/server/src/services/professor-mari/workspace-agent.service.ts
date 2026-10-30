@@ -3287,13 +3287,6 @@ export class ProfessorMariWorkspaceService {
   }
 
   /**
-   * #5725 per-chat modes (maintainer call): the effective mode for a run is
-   * the chat's own override when one is set, else the global default. The
-   * override lives in chat metadata under "mariPermissionsMode" and is
-   * written only by the validated PUT route (raw-db writes to it are blocked
-   * by the planMutation floor, like the global row).
-   */
-  /**
    * Whether a message can join the run going on now. A new subject or a changed permissions mode waits for its own run,
    * which reads them. A chat with no run says yes: the row is simply next in the queue.
    */
@@ -3305,6 +3298,13 @@ export class ProfessorMariWorkspaceService {
     return context.resource.kind === run.context?.resource?.kind && context.resource.id === run.context.resource.id;
   }
 
+  /**
+   * #5725 per-chat modes (maintainer call): the effective mode for a run is
+   * the chat's own override when one is set, else the global default. The
+   * override lives in chat metadata under "mariPermissionsMode" and is
+   * written only by the validated PUT route (raw-db writes to it are blocked
+   * by the planMutation floor, like the global row).
+   */
   private async resolvePermissionsMode(chatId: string | null): Promise<{
     mode: MariPermissionsMode;
     defaultMode: MariPermissionsMode;
@@ -3909,8 +3909,12 @@ export class ProfessorMariWorkspaceService {
     // The mode is read once per run, so a changed one leaves your message for the next run, which reads it.
     const runModeStands = async () =>
       (await this.resolvePermissionsMode(args.chatId)).mode === this.activeSteerRun?.mode;
-    const steersWaiting = async () =>
-      canTakeSteers() && (await hasPendingSteers(args.chatId).catch(() => false)) && (await runModeStands());
+    const hasSteers = () =>
+      hasPendingSteers(args.chatId).catch((err) => {
+        logger.warn(err, "[professor-mari] Could not read the queued messages for chat %s", args.chatId);
+        return false;
+      });
+    const steersWaiting = async () => canTakeSteers() && (await hasSteers()) && (await runModeStands());
     /**
      * Send now, at a step boundary: saves her reply so far and your message(s), starts a new reply, and returns what the
      * model should read next, or null when there is nothing to deliver. Not reset: `commandResultsForContinuity` (the
@@ -3918,7 +3922,7 @@ export class ProfessorMariWorkspaceService {
      * "yes", and a changed mode means no delivery.
      */
     const deliverSteers = async (): Promise<string | null> => {
-      if (!canTakeSteers() || !(await runModeStands())) return null;
+      if (!(await steersWaiting())) return null;
       const steers = await takePendingSteers(args.chatId).catch((err) => {
         logger.warn(err, "[professor-mari] Could not read the queued messages for chat %s", args.chatId);
         return [];
