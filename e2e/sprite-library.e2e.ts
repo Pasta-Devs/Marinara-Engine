@@ -109,6 +109,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await testHeader.click();
     const emptyText = testSection.getByText("Drop sprites here.", { exact: true });
     await expect(emptyText).toBeVisible();
+    await expect(library.getByText(/or use Move selected/)).toHaveCount(0);
     await emptyText.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     const emptyBounds = (await emptyText.boundingBox())!;
@@ -135,6 +136,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(testHeader).toHaveAttribute("aria-expanded", "false");
     await frontSection.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
+    await page.mouse.move(1, 400);
+    await page.waitForTimeout(200);
+    const reorderHeader = testSection.locator(":scope > div").first();
+    const restingFolderColor = await reorderHeader.evaluate((element) => getComputedStyle(element).backgroundColor);
     const from = (await frontSection.boundingBox())!;
     const to = (await testSection.boundingBox())!;
     if (info.project.name === "phone") {
@@ -153,6 +158,14 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       });
       await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchTarget] });
       await expect(testSection).toHaveAttribute("data-drag-insert", "before");
+      const hoveredHeader = (await reorderHeader.boundingBox())!;
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: hoveredHeader.x + 60, y: hoveredHeader.y + hoveredHeader.height / 4 }],
+      });
+      await expect(testSection).not.toHaveAttribute("data-drag-target");
+      await expect(reorderHeader).toHaveCSS("background-color", restingFolderColor);
+      await page.screenshot({ path: info.outputPath("folder-reorder-phone.png"), animations: "disabled" });
       await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await touch.detach();
     } else {
@@ -161,6 +174,11 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       await page.mouse.move(to.x + 60, to.y + 8, { steps: 10 });
       await expect(frontSection).toHaveAttribute("data-drag-source", "true");
       await expect(testSection).toHaveAttribute("data-drag-insert", "before");
+      const hoveredHeader = (await reorderHeader.boundingBox())!;
+      await page.mouse.move(hoveredHeader.x + 60, hoveredHeader.y + hoveredHeader.height / 4, { steps: 3 });
+      await expect(testSection).not.toHaveAttribute("data-drag-target");
+      await expect(reorderHeader).toHaveCSS("background-color", restingFolderColor);
+      await page.screenshot({ path: info.outputPath("folder-reorder-desktop.png"), animations: "disabled" });
       await page.mouse.up();
     }
     await expect.poll(folderOrder).toEqual([front, testFolderId, alternate]);

@@ -106,7 +106,7 @@ export function SpriteLibraryShell({
     library.visible.length > 0 && library.visible.every((sprite) => library.selected.includes(sprite.expression));
   return (
     <div
-      className="@container/sprite-library min-w-0 space-y-4 [overflow-wrap:anywhere]"
+      className="group/sprite-library @container/sprite-library min-w-0 space-y-4 [overflow-wrap:anywhere]"
       data-sprite-library
       data-sprite-owner={library.ownerId}
       aria-busy={library.query.isPending}
@@ -548,7 +548,7 @@ function SpriteInlineFolder({
       data-drag-target={highlighted ? "inside" : undefined}
       className="group/sprite-folder min-w-0 rounded-lg transition-colors max-md:touch-pan-y"
     >
-      <div className="group relative flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 group-data-[drag-target=inside]/sprite-folder:border-[var(--marinara-chat-chrome-button-border-active)] group-data-[drag-target=inside]/sprite-folder:bg-[var(--marinara-chat-chrome-highlight-bg)] group-data-[drag-target=inside]/sprite-folder:text-[var(--marinara-chat-chrome-button-text-active)] md:min-h-9">
+      <div className="group relative flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 group-has-[[data-sprite-folder][data-drag-source=true]]/sprite-library:hover:bg-[var(--sidebar)] group-data-[drag-target=inside]/sprite-folder:border-[var(--marinara-chat-chrome-button-border-active)] group-data-[drag-target=inside]/sprite-folder:bg-[var(--marinara-chat-chrome-highlight-bg)] group-data-[drag-target=inside]/sprite-folder:text-[var(--marinara-chat-chrome-button-text-active)] md:min-h-9">
         <div
           role="button"
           tabIndex={0}
