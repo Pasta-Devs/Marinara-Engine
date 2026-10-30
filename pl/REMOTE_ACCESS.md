@@ -49,7 +49,7 @@ Domyślny adres wiązania zależy od sposobu uruchomienia Marinary:
 
 Czytaj po kolei i zatrzymaj się przy pierwszym pasującym punkcie.
 
-1. Łączysz się wyłącznie przez sieć Tailscale albo tylko z kontenerów Docker na tym samym komputerze. Nie trzeba nic robić, to już działa.
+1. Łączysz się wyłącznie bezpośrednio przez sieć Tailscale albo tylko z kontenerów Docker na tym samym komputerze. Przy `pnpm start` bezpośredni klienci Tailscale pomijają logowanie; ustaw `HOST=0.0.0.0`, żeby mogli dotrzeć do serwera. Domyślny plik Compose publikuje tylko na `127.0.0.1`. Jeśli publikujesz port poza loopback, żeby urządzenie Tailscale mogło do niego dotrzeć, najpierw ustaw logowanie. Docker będzie wtedy pytał o nie każde urządzenie, także urządzenia Tailscale, bo Docker widzi je pod adresem bramy. Zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](#tailscale-and-docker-bypass).
 2. Chcesz otworzyć aplikację Marinara na telefonie, tablecie albo laptopie w domowej sieci Wi-Fi. Ustaw logowanie (opcja 1 poniżej).
 3. Udostępniasz aplikację Marinara w publicznym internecie. Ustaw logowanie i użyj HTTPS.
 4. Proxy logowania w twojej sieci, na przykład tinyauth, Authelia albo Authentik, już pyta każdego gościa o logowanie. Przeczytaj [Proxy logowania (forward auth)](#login-proxies-forward-auth).
@@ -93,7 +93,7 @@ Jeśli zapomnisz hasła, uruchom `pnpm reset-login` na komputerze, na którym dz
 
 Po 10 różnych błędnych hasłach lub kodach w ciągu 15 minut Marinara odrzuca logowania z tego adresu z kodem **429 Too Many Requests**, dopóki te 15 minut nie minie. Poprawne hasło wpisane wcześniej zeruje licznik. Goście przekazywani przez odwrotne proxy albo tunel na komputerze z serwerem mają jeden wspólny licznik, a zalogowanie się jednego z nich go nie zeruje. Licznik zeruje też restart serwera. Przeglądarka, która logowała się już wcześniej, nadal wchodzi po podaniu poprawnego hasła, więc cudze błędne hasła nie zablokują ci dostępu z urządzenia, z którego już korzystasz. Strona logowania podaje, ile minut trzeba czekać. Jeśli zapomnisz hasła, strona logowania ma podpowiedź **Forgot the password?**.
 
-Domyślnie okno przeglądarki pokazuje napis **Marinara Engine**. Ten tekst zmienia zmienna `BASIC_AUTH_REALM`.
+Przeglądarki logują się na stronie `/login`. Zmienna `BASIC_AUTH_REALM` zmienia realm w zapytaniu Basic Auth dla skryptów i klientów API; nie zmienia strony logowania.
 
 Część klientów pomija hasło nawet przy włączonym Basic Auth:
 
@@ -115,9 +115,11 @@ IP_ALLOWLIST=192.168.1.0/24,203.0.113.42
 
 Zapis `/24` w przykładzie to notacja CIDR. CIDR to skrócony sposób zapisania całego zakresu adresów w jednym wpisie. Na przykład `192.168.1.0/24` obejmuje wszystkie adresy od `192.168.1.0` do `192.168.1.255`. Sam adres bez ukośnika, taki jak `203.0.113.42`, pasuje tylko do tego jednego urządzenia.
 
+Szeroki publiczny zakres, na przykład `0.0.0.0/0`, może wpuścić klientów z internetu bez logowania. Wpisuj tylko adresy, którym ufasz.
+
 Jak działa lista dozwolonych adresów IP:
 
-- Każdy adres spoza listy dostaje odpowiedź **403 Forbidden**.
+- Każdy adres spoza listy dostaje odpowiedź **403 Forbidden**. Zaufane urządzenia Tailscale i Docker oraz `TRUSTED_AUTH_PROXY` nadal przechodzą, tak jak loopback.
 - Loopback jest zawsze dozwolony, więc dostępu lokalnego nie da się sobie zablokować. Goście przekazywani przez odwrotne proxy albo tunel na tym samym komputerze nie są ruchem loopback, więc lista ich blokuje. Za proxy używaj Basic Auth.
 - W środowiskach Docker Desktop, OrbStack i rootless Docker każde urządzenie dociera do kontenera z tego samego adresu bramy, więc lista nie potrafi ich odróżnić. Tam używaj Basic Auth.
 - Bezpośredni ruch z sieci Tailscale też pomija listę. Ruch z mostka lub bramy Docker pomija ją tylko dopóki nie ustawiono logowania, listy dozwolonych adresów ani ważnego `TRUSTED_AUTH_PROXY` (zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](#tailscale-and-docker-bypass)).

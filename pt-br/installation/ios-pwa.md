@@ -30,7 +30,7 @@ http://<host-ip>:7860
 4. Digite esse endereço na barra de endereços do Safari e acesse.
 5. A tela inicial do Marinara deve carregar no navegador.
 
-Se a página não carregar, ou se aparecer um pedido de senha, veja a seção Solução de problemas mais abaixo. Quem controla o acesso pela rede e as senhas é o dono do servidor. Essas configurações do servidor estão no guia [Acesso remoto](../REMOTE_ACCESS.md), não no iPhone nem no iPad.
+Se a página não carregar, ou se aparecer uma página de login ou de configuração, veja a seção Solução de problemas mais abaixo. Quem controla o acesso pela rede e as senhas é o dono do servidor. Essas configurações do servidor estão no guia [Acesso remoto](../REMOTE_ACCESS.md), não no iPhone nem no iPad.
 
 ## Adicionar à Tela de Início
 
@@ -74,7 +74,7 @@ Os chats, os personagens e as configurações ficam guardados no servidor, não 
 
 **A página não carrega no Safari.** Confira se o servidor continua rodando no dispositivo anfitrião. Confira se os dois dispositivos estão na mesma rede ou no mesmo Tailscale. Confirme se o endereço IP e a porta `7860` estão certos. Para uma ajuda mais a fundo com a rede, veja o guia [Acesso remoto](../REMOTE_ACCESS.md) e a [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md).
 
-**O Safari pede nome de usuário e senha.** O dono do servidor ativou a proteção por senha para dispositivos remotos. Peça o nome de usuário e a senha a quem cuida do servidor. Essa configuração está no guia [Acesso remoto](../REMOTE_ACCESS.md).
+**O Safari mostra uma página de login ou de configuração depois de uma atualização.** Faça login em `/login` com o nome de usuário e a senha do servidor. Se não houver login, pegue o código de configuração de uso único no log do servidor e defina um na página de configuração. Se o servidor escuta apenas no loopback e não imprime nenhum código, defina o login no dispositivo do servidor em **Settings → Advanced → Access**. Um **403** pode significar que o iPhone não está em `IP_ALLOWLIST`; altere essa lista no servidor. O PWA não consegue redefinir o login do servidor. Peça ao dono do servidor que execute `pnpm reset-login` no servidor (no Docker: `docker exec <container> node scripts/reset-login.mjs`) se o login do app for perdido, ou que altere ali um login definido no `.env`. Veja [Bloqueado depois de atualizar](../REMOTE_ACCESS.md#locked-out-after-updating).
 
 **O Safari continua mostrando uma versão antiga.** Recarregue a página primeiro. Se ela ainda parecer antiga, siga os passos da seção Limpar e reinstalar o PWA, acima.
 

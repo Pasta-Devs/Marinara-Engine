@@ -163,9 +163,9 @@ Najważniejsze ustawienia kontroli dostępu:
 
 | Zmienna | Domyślnie | Do czego służy |
 | --- | --- | --- |
-| `BASIC_AUTH_USER` | pusta | Nazwa użytkownika do okna logowania. Ustaw razem z `BASIC_AUTH_PASS`, żeby wymusić logowanie. |
-| `BASIC_AUTH_PASS` | pusta | Hasło do okna logowania. Zostaw jedno z pól puste, żeby wyłączyć logowanie. |
-| `BASIC_AUTH_REALM` | `Marinara Engine` | Tekst wyświetlany w oknie hasła w przeglądarce. |
+| `BASIC_AUTH_USER` | pusta | Nazwa użytkownika do logowania zdalnego. Ustaw razem z `BASIC_AUTH_PASS`, żeby wymusić logowanie. |
+| `BASIC_AUTH_PASS` | pusta | Hasło do logowania zdalnego. Zostaw jedno z pól puste, żeby wyłączyć logowanie. |
+| `BASIC_AUTH_REALM` | `Marinara Engine` | Realm w zapytaniu Basic Auth dla skryptów i klientów API; przeglądarki używają strony `/login`. |
 | `IP_ALLOWLIST` | pusta | Rozdzielone przecinkami adresy IP lub zakresy CIDR, które są zawsze dozwolone. Bezpośrednia pętla zwrotna jest dozwolona zawsze; odwrotne proxy na tym samym komputerze – nie. |
 | `IP_ALLOWLIST_ENABLED` | `true` | Ustaw `false`, żeby zachować listę, ale wstrzymać jej egzekwowanie. |
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | Przywraca dostęp bez hasła z sieci prywatnych, gdy nie ustawiono logowania. Zakres `100.64.0.0/10` (CGNAT, czyli NAT klasy operatorskiej) nie jest uwzględniony, bo dostawcy internetu dzielą go między niezwiązanych ze sobą klientów; dodaj go do `TRUSTED_PRIVATE_NETWORKS` (które zastępuje wartości domyślne, więc zachowaj swoje zakresy LAN) tylko wtedy, gdy mu ufasz. |
@@ -181,7 +181,9 @@ Najważniejsze ustawienia kontroli dostępu:
 | `SSL_KEY` | pusta | Ścieżka do pliku klucza prywatnego TLS. |
 | `CSRF_TRUSTED_ORIGINS` | pusta | Dodatkowe źródła przeglądarki, z których wolno zapisywać zmiany. Przydaje się przy publicznej domenie albo nietypowym porcie. Dosłowna wartość `null` jest ignorowana i nie wolno jej używać dla pliku APK na Android; jego samouwierzytelniające trasy logowania działają bez globalnego zaufania nieprzejrzystemu źródłu. |
 
-Basic Auth to skrót od HTTP Basic Authentication, czyli prostego okna z nazwą użytkownika i hasłem. Dane logowania są tam tylko zakodowane, a nie zaszyfrowane, więc przy serwerze wystawionym do publicznego internetu zawsze łącz je z HTTPS. HTTPS to bezpieczna, szyfrowana wersja protokołu HTTP. Żeby włączyć ją bezpośrednio, ustaw jednocześnie `SSL_CERT` i `SSL_KEY` albo postaw przed serwerem Marinara odwrotne proxy.
+Basic Auth to skrót od HTTP Basic Authentication, czyli prostego okna z nazwą użytkownika i hasłem. Skrypty i klienci API wysyłają nazwę użytkownika i hasło z każdym żądaniem; przeglądarki używają strony `/login`. Dane logowania są tam tylko zakodowane, a nie zaszyfrowane, więc przy serwerze wystawionym do publicznego internetu zawsze łącz je z HTTPS. HTTPS to bezpieczna, szyfrowana wersja protokołu HTTP. Żeby włączyć ją bezpośrednio, ustaw jednocześnie `SSL_CERT` i `SSL_KEY` albo postaw przed serwerem Marinara odwrotne proxy.
+
+Szeroki publiczny zakres w `IP_ALLOWLIST`, na przykład `0.0.0.0/0`, może wpuścić klientów z internetu bez logowania. Wpisuj tylko adresy, którym ufasz.
 
 Żeby inne urządzenia w ogóle dotarły do serwera, musi on nasłuchiwać na osiągalnym interfejsie. Ustaw `HOST=0.0.0.0`. Programy uruchamiające robią to za ciebie, ale `pnpm start` nasłuchuje wyłącznie na pętli zwrotnej.
 
@@ -353,7 +355,7 @@ Ta sekcja wymienia pozostałe ustawienia, pogrupowane według przeznaczenia. Tab
 | Zmienna | Domyślnie | Do czego służy |
 | --- | --- | --- |
 | `PORT` | `7860` | Port, na którym nasłuchuje serwer. W systemie Android, w kontenerze Docker i w środowisku Termux trzymaj tę samą wartość. |
-| `HOST` | `127.0.0.1` (`0.0.0.0` w programach uruchamiających) | Interfejs sieciowy do nasłuchu. Do dostępu z sieci lokalnej użyj `0.0.0.0`. |
+| `HOST` | `127.0.0.1` (`0.0.0.0` w programach uruchamiających i obrazach Docker) | Interfejs sieciowy do nasłuchu. Do dostępu z sieci lokalnej użyj `0.0.0.0`. Domyślny plik Compose publikuje port Docker tylko na `127.0.0.1`. |
 | `MARINARA_ANDROID_SECRET` | pusta | Wewnętrzny sekret uwierzytelniania lokalnego dla instalacji środowiska Termux zarządzanych przez plik APK. Nie jest daną wejściową instalatora: nakładka na system Android tworzy go i przekazuje, a program uruchamiający w środowisku Termux eksportuje automatycznie. Nie proś użytkowników APK o jego podanie ani nie ustawiaj go w zwykłych instalacjach komputerowych i ręcznych instalacjach środowiska Termux. Ustawiony sekret musi mieć dokładnie 64 znaki szesnastkowe. Nieprawidłowa, niepusta wartość powoduje błąd HTTP 503 dla lokalnych żądań urządzenia zamiast osłabienia uwierzytelniania. |
 | `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Ścieżka do prywatnego pliku sekretu używanego przez program uruchamiający w środowisku Termux i lokalne narzędzie `mari` CLI. Plikiem automatycznie zarządzają APK i program uruchamiający; zwykli użytkownicy APK nigdy nie muszą go odczytywać ani kopiować. |
 | `AUTO_OPEN_BROWSER` | `true` | Decyduje, czy programy uruchamiające otwierają adres aplikacji. Ustaw `false`, żeby tego nie robiły. Konfiguracja zarządzana przez APK wyłącza automatyczne otwieranie przeglądarki przez skrypt powłoki. APK osobno obsługuje zapamiętany wybór aplikacji lub przeglądarki oraz uwierzytelnianie. |

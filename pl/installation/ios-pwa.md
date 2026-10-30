@@ -30,7 +30,7 @@ http://<host-ip>:7860
 4. Wpisz ten adres w pasku adresu przeglądarki Safari i przejdź do niego.
 5. W przeglądarce powinna wczytać się strona startowa aplikacji Marinara Engine.
 
-Jeśli strona się nie wczytuje albo pojawia się prośba o hasło, zajrzyj do sekcji Rozwiązywanie problemów poniżej. To właściciel serwera decyduje o dostępie sieciowym i hasłach. Te ustawienia serwera opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md), a nie ustawienia na iPhone lub iPad.
+Jeśli strona się nie wczytuje albo pojawia się strona logowania lub konfiguracji, zajrzyj do sekcji Rozwiązywanie problemów poniżej. To właściciel serwera decyduje o dostępie sieciowym i hasłach. Te ustawienia serwera opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md), a nie ustawienia na iPhone lub iPad.
 
 ## Dodawanie do ekranu głównego
 
@@ -74,7 +74,7 @@ Czaty, postacie i ustawienia są zapisane na serwerze, a nie na iPhone lub iPad.
 
 **Strona nie wczytuje się w przeglądarce Safari.** Sprawdź, czy serwer nadal działa na urządzeniu głównym. Sprawdź, czy oba urządzenia są w tej samej sieci lub w sieci Tailscale. Upewnij się, że adres IP i port `7860` są poprawne. Więcej pomocy dotyczącej sieci znajdziesz w dokumentach [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 
-**Safari prosi o nazwę użytkownika i hasło.** Właściciel serwera włączył ochronę hasłem dla urządzeń zdalnych. Poproś o nazwę użytkownika i hasło osobę, która prowadzi serwer. Konfigurację opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+**Safari po aktualizacji pokazuje stronę logowania lub konfiguracji.** Zaloguj się na `/login` nazwą użytkownika i hasłem serwera. Jeśli logowania nie ma, weź jednorazowy kod konfiguracyjny z logu serwera i ustaw logowanie na stronie konfiguracji. Jeśli serwer nasłuchuje tylko na loopback i nie wypisuje kodu, ustaw logowanie na urządzeniu z serwerem w **Settings → Advanced → Access**. **403** może oznaczać, że iPhone nie jest na liście `IP_ALLOWLIST`; zmień tę listę na serwerze. PWA nie może zresetować logowania serwera. Jeśli logowanie do aplikacji zostało utracone, poproś właściciela serwera o uruchomienie na serwerze `pnpm reset-login` (w Dockerze: `docker exec <container> node scripts/reset-login.mjs`) albo o zmianę tam logowania ustawionego w `.env`. Zobacz [Zablokowany dostęp po aktualizacji](../REMOTE_ACCESS.md#locked-out-after-updating).
 
 **Safari wciąż pokazuje starą wersję.** Najpierw odśwież stronę. Jeśli nadal wygląda staro, wykonaj kroki z sekcji Czyszczenie i ponowna instalacja aplikacji PWA powyżej.
 

@@ -30,7 +30,7 @@ http://<host-ip>:7860
 4. Escribe esa dirección en la barra de direcciones de Safari y ve a ella.
 5. Deberías ver cargar la pantalla de inicio de Marinara en el navegador.
 
-Si la página no carga, o si te aparece una solicitud de contraseña, consulta la sección de Solución de problemas más abajo. El dueño del servidor controla el acceso de red y las contraseñas. Esos ajustes del servidor viven en la [guía de acceso remoto](../REMOTE_ACCESS.md), no en tu iPhone o iPad.
+Si la página no carga, o si ves una página de inicio de sesión o de configuración, consulta la sección de Solución de problemas más abajo. El dueño del servidor controla el acceso de red y las contraseñas. Esos ajustes del servidor viven en la [guía de acceso remoto](../REMOTE_ACCESS.md), no en tu iPhone o iPad.
 
 ## Agregar a la pantalla de inicio
 
@@ -74,7 +74,7 @@ Tus chats, personajes y ajustes se guardan en el servidor, no en tu iPhone o iPa
 
 **La página no carga en Safari.** Verifica que el servidor siga corriendo en el dispositivo anfitrión. Verifica que ambos dispositivos estén en la misma red o en Tailscale. Confirma que la dirección IP y el puerto `7860` sean correctos. Para ayuda de red más a fondo, consulta la [guía de acceso remoto](../REMOTE_ACCESS.md) y [Solución de problemas de Marinara Engine](../TROUBLESHOOTING.md).
 
-**Safari pide un usuario y una contraseña.** El dueño del servidor activó la protección con contraseña para dispositivos remotos. Consigue el usuario y la contraseña de quien administra el servidor. La configuración se cubre en la [guía de acceso remoto](../REMOTE_ACCESS.md).
+**Safari muestra una página de inicio de sesión o de configuración tras una actualización.** Inicia sesión en `/login` con el usuario y la contraseña del servidor. Si no existe ningún inicio de sesión, toma el código de configuración de un solo uso del registro del servidor y define uno en la página de configuración. Si el servidor escucha solo en loopback y no imprime ningún código, define el inicio de sesión en el dispositivo del servidor en **Settings → Advanced → Access**. Un **403** puede significar que el iPhone no está en `IP_ALLOWLIST`; cambia esa lista en el servidor. La PWA no puede restablecer el inicio de sesión del servidor. Pide a quien administra el servidor que ejecute `pnpm reset-login` en él (en Docker: `docker exec <container> node scripts/reset-login.mjs`) si se perdió el inicio de sesión de la app, o que cambie allí un inicio de sesión definido en `.env`. Consulta [Bloqueado después de actualizar](../REMOTE_ACCESS.md#locked-out-after-updating).
 
 **Safari sigue mostrando una compilación antigua.** Primero recarga la página. Si aún se ve antigua, sigue los pasos de Borrar y reinstalar la PWA de arriba.
 

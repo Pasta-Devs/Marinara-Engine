@@ -49,7 +49,7 @@ Dirección de vinculación predeterminada según cómo inicies Marinara:
 
 Léelas en orden y detente en la primera que coincida contigo.
 
-1. Solo te conectas por Tailscale, o solo desde contenedores de Docker en el mismo host. No necesitas hacer nada. Ya funciona.
+1. Solo te conectas directamente por Tailscale, o solo desde contenedores de Docker en el mismo host. Con `pnpm start`, los clientes directos de Tailscale se saltan el inicio de sesión; define `HOST=0.0.0.0` para que puedan llegar al servidor. El archivo Compose predeterminado publica solo en `127.0.0.1`. Si publicas el puerto más allá del loopback para que un dispositivo Tailscale pueda llegar, define primero un inicio de sesión. Docker entonces lo pide a todos los dispositivos, incluidos los de Tailscale, porque Docker los ve en la dirección de la puerta de enlace. Consulta [Bypass de Tailscale y Docker](#tailscale-and-docker-bypass).
 2. Quieres llegar a Marinara desde un teléfono, una tableta o una laptop en la Wi-Fi de tu casa. Configura un inicio de sesión (Opción 1, abajo).
 3. Estás exponiendo Marinara al internet público. Configura un inicio de sesión y usa HTTPS.
 4. Un proxy de inicio de sesión en tu red, como tinyauth, Authelia o Authentik, ya hace iniciar sesión a cada visitante. Lee [Proxies de inicio de sesión (forward auth)](#login-proxies-forward-auth).
@@ -93,7 +93,7 @@ Si olvidas la contraseña, ejecuta `pnpm reset-login` en la computadora que ejec
 
 Tras 10 contraseñas o códigos incorrectos distintos en 15 minutos, Marinara rechaza los inicios de sesión desde esa dirección con **429 Too Many Requests** (429 Demasiadas solicitudes) hasta que pasan los 15 minutos. Una contraseña correcta antes de ese momento borra el recuento. Los visitantes con un proxy inverso o un túnel en el host que reenvía comparten un recuento, y que uno de ellos inicie sesión no lo borra. Reiniciar el servidor también lo borra. Un navegador que ya inició sesión antes sigue entrando con la contraseña correcta, así que las contraseñas incorrectas de otras personas no pueden bloquearte el acceso desde un dispositivo que ya usas. La página de inicio de sesión te dice cuántos minutos esperar. Si olvidas la contraseña, la página de inicio de sesión tiene una pista **Forgot the password?** (¿Olvidaste la contraseña?).
 
-De forma predeterminada, el aviso del navegador dice **Marinara Engine**. Puedes cambiar ese texto con `BASIC_AUTH_REALM`.
+Los navegadores inician sesión en la página `/login`. `BASIC_AUTH_REALM` cambia el realm del desafío de Basic Auth para scripts y clientes de API; no cambia la página de inicio de sesión.
 
 Algunos clientes se saltan la contraseña incluso con un inicio de sesión activado:
 
@@ -115,9 +115,11 @@ IP_ALLOWLIST=192.168.1.0/24,203.0.113.42
 
 El `/24` del ejemplo es notación CIDR. CIDR es una forma corta de escribir todo un rango de direcciones en una sola entrada. Por ejemplo, `192.168.1.0/24` cubre todas las direcciones desde `192.168.1.0` hasta `192.168.1.255`. Una dirección sola, sin barra, como `203.0.113.42`, coincide solo con ese dispositivo.
 
+Un rango público amplio, como `0.0.0.0/0`, puede dejar entrar a clientes de internet sin iniciar sesión. Incluye solo direcciones de confianza.
+
 Cómo se comporta la lista de IP permitidas:
 
-- Toda dirección que no esté en la lista se rechaza con **403 Forbidden** (403 Prohibido).
+- Toda dirección que no esté en la lista se rechaza con **403 Forbidden** (403 Prohibido). Los pares de confianza de Tailscale y Docker y un `TRUSTED_AUTH_PROXY` siguen pasando, igual que el loopback.
 - Loopback siempre está permitido, así que no puedes bloquearte a ti mismo el acceso local. Los visitantes que reenvía un proxy inverso o un túnel en la misma máquina no son loopback, así que la lista permitida los bloquea. Usa Basic Auth detrás de un proxy.
 - En Docker Desktop, OrbStack y Docker sin root (rootless), todos los dispositivos llegan al contenedor desde la misma dirección de puerta de enlace, así que la lista permitida no puede distinguirlos. Usa Basic Auth en esos casos.
 - El tráfico directo de Tailscale también se salta la lista. El tráfico de puente/puerta de enlace de Docker se la salta solo mientras no haya inicio de sesión, lista permitida ni `TRUSTED_AUTH_PROXY` válido configurados (ver [Bypass de Tailscale y Docker](#tailscale-and-docker-bypass)).

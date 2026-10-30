@@ -75,6 +75,12 @@ cd Marinara-Engine
 
 更新依赖时，启动脚本还会从本地 pnpm 缓存里清掉没有被引用的包，免得旧版本在手机上越堆越多、占掉好几个 GB。这个清理不会碰 Marinara 的聊天、设置和其他用户数据。
 
+## 更新后被锁在外面
+
+如果其他设备无法登录，请打开 Termux，运行 `cd "$HOME/Marinara-Engine" && pnpm reset-login`。这会移除应用登录，并让所有浏览器退出登录。如果命令失败，请从 `packages/server/data`（或你配置的 `DATA_DIR`）里删除 `.remote-login.json` 和 `.remote-sessions.json`。如果你在项目的 `.env` 里设置了 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS`，请在那里修改。如果设备显示 **403**，请检查同一个 `.env` 文件里的 `IP_ALLOWLIST`。然后在服务器设备上到 **Settings → Advanced → Access** 设置新的远程登录，或者在被拦住的设备上使用 Termux 服务器日志里的设置码。参见[更新后被锁在外面](../REMOTE_ACCESS.md#locked-out-after-updating)。
+
+如果 APK 本身打不开 localhost，请更新 APK，然后点按 **Install / Start Marinara**。它的私有本地凭据与远程登录相互独立；参见[Android localhost 登录帮助](../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503)。
+
 ## 从其他设备访问
 
 默认情况下，启动脚本会让 Marinara 在局域网内可访问，也就是说同一个 Wi-Fi 下的笔记本或另一部手机都能打开它。找到正确地址的详细步骤见[常见问题](../FAQ.md)。

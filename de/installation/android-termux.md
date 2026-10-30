@@ -75,6 +75,12 @@ cd Marinara-Engine
 
 Beim Aktualisieren der Abhängigkeiten räumt der Starter außerdem nicht mehr benötigte Pakete aus dem lokalen pnpm-Cache. So sammeln sich keine alten Releases im Gigabyte-Bereich auf dem Handy an; Chats, Einstellungen und andere Nutzerdaten von Marinara bleiben unangetastet.
 
+## Nach dem Update ausgesperrt
+
+Kann sich ein anderes Gerät nicht anmelden, öffne Termux und führe `cd "$HOME/Marinara-Engine" && pnpm reset-login` aus. Das entfernt die App-Anmeldung und meldet alle Browser ab. Schlägt der Befehl fehl, entferne `.remote-login.json` und `.remote-sessions.json` aus `packages/server/data` (oder deinem konfigurierten `DATA_DIR`). Hast du `BASIC_AUTH_USER` und `BASIC_AUTH_PASS` in der `.env` des Projekts gesetzt, ändere sie dort. Zeigt das Gerät **403**, prüfe `IP_ALLOWLIST` in derselben `.env`-Datei. Lege danach unter **Settings → Advanced → Access** auf dem Server-Gerät eine neue Remote-Anmeldung fest oder nutze auf dem blockierten Gerät den Einrichtungscode aus dem Termux-Server-Log. Siehe [Nach dem Update ausgesperrt](../REMOTE_ACCESS.md#locked-out-after-updating).
+
+Kann die APK selbst localhost nicht öffnen, aktualisiere die APK und tippe auf **Install / Start Marinara**. Ihre private lokale Zugangskennung ist von der Remote-Anmeldung getrennt; siehe [Hilfe zur Android-localhost-Anmeldung](../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503).
+
 ## Zugriff von einem anderen Gerät
 
 Standardmäßig macht der Starter Marinara im lokalen Netzwerk erreichbar. Ein Laptop oder ein zweites Handy im selben WLAN kann es also öffnen. Wie du die passende Adresse Schritt für Schritt findest, steht in den [Häufig gestellten Fragen](../FAQ.md).

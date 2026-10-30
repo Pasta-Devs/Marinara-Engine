@@ -161,9 +161,9 @@ As principais configurações de controle de acesso são:
 
 | Variável | Padrão | O que faz |
 | --- | --- | --- |
-| `BASIC_AUTH_USER` | vazio | Nome de usuário para a solicitação de senha. Defina junto com `BASIC_AUTH_PASS` para exigir login. |
-| `BASIC_AUTH_PASS` | vazio | Senha da solicitação de login. Deixe qualquer um dos dois campos vazio para desligar o login. |
-| `BASIC_AUTH_REALM` | `Marinara Engine` | Texto exibido na caixa de senha do navegador. |
+| `BASIC_AUTH_USER` | vazio | Nome de usuário para o login remoto. Defina junto com `BASIC_AUTH_PASS` para exigir login. |
+| `BASIC_AUTH_PASS` | vazio | Senha do login remoto. Deixe qualquer um dos dois campos vazio para desligar o login. |
+| `BASIC_AUTH_REALM` | `Marinara Engine` | Realm do desafio de Basic Auth para scripts e clientes de API; os navegadores usam a página `/login`. |
 | `IP_ALLOWLIST` | vazio | IPs ou faixas CIDR separados por vírgula que têm acesso sempre liberado. O loopback direto é sempre permitido; um proxy reverso na mesma máquina, não. |
 | `IP_ALLOWLIST_ENABLED` | `true` | Defina como `false` para manter a lista, mas pausar a aplicação dela. |
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | Restaura o acesso sem senha de redes privadas quando nenhum login está definido. A faixa `100.64.0.0/10` (CGNAT, NAT de nível de operadora) não está incluída, porque provedores de internet a compartilham entre clientes sem relação entre si; adicione-a a `TRUSTED_PRIVATE_NETWORKS` (que substitui os padrões, então mantenha suas faixas de LAN) somente se você confiar nela. |
@@ -179,7 +179,9 @@ As principais configurações de controle de acesso são:
 | `SSL_KEY` | vazio | Caminho do arquivo de chave privada TLS. |
 | `CSRF_TRUSTED_ORIGINS` | vazio | Origens de navegador adicionais com permissão para salvar mudanças. Use para um domínio público ou uma porta fora do comum. O valor literal `null` é ignorado e não deve ser usado para o APK do Android; as rotas de login com autenticação própria funcionam sem confiar globalmente em uma origem opaca. |
 
-Basic Auth é a abreviação de HTTP Basic Authentication, uma solicitação simples de nome de usuário e senha. As credenciais dela são apenas codificadas, não criptografadas, então use sempre junto com HTTPS quando o servidor estiver exposto à internet pública. HTTPS é a versão segura e criptografada do HTTP. Para ligar o HTTPS diretamente, defina `SSL_CERT` e `SSL_KEY`, ou coloque um proxy reverso na frente do Marinara.
+Basic Auth é a abreviação de HTTP Basic Authentication, uma solicitação simples de nome de usuário e senha. Scripts e clientes de API enviam o nome de usuário e a senha a cada requisição; os navegadores usam a página `/login`. As credenciais dela são apenas codificadas, não criptografadas, então use sempre junto com HTTPS quando o servidor estiver exposto à internet pública. HTTPS é a versão segura e criptografada do HTTP. Para ligar o HTTPS diretamente, defina `SSL_CERT` e `SSL_KEY`, ou coloque um proxy reverso na frente do Marinara.
+
+Uma faixa pública ampla em `IP_ALLOWLIST`, como `0.0.0.0/0`, pode deixar clientes da internet entrarem sem login. Liste apenas endereços em que você confia.
 
 Para que outros dispositivos consigam alcançar o servidor, ele precisa escutar em uma interface acessível. Defina `HOST=0.0.0.0`. Os inicializadores de shell fazem isso por você, mas o comando `pnpm start` escuta só no loopback.
 
@@ -351,7 +353,7 @@ Esta seção lista as configurações restantes, agrupadas por finalidade. As ta
 | Variável | Padrão | O que faz |
 | --- | --- | --- |
 | `PORT` | `7860` | A porta em que o servidor escuta. Use o mesmo valor no Android, no Docker e no Termux. |
-| `HOST` | `127.0.0.1` (`0.0.0.0` nos inicializadores de shell) | A interface de rede a que o servidor se associa. Use `0.0.0.0` para acesso pela rede local. |
+| `HOST` | `127.0.0.1` (`0.0.0.0` nos inicializadores de shell e nas imagens Docker) | A interface de rede a que o servidor se associa. Use `0.0.0.0` para acesso pela rede local. O arquivo Compose padrão publica a porta do Docker apenas em `127.0.0.1`. |
 | `MARINARA_ANDROID_SECRET` | vazio | Segredo interno de autenticação local para instalações do Termux gerenciadas pelo APK. Não é uma entrada do instalador: o invólucro do Android o gera e provisiona, e o inicializador do Termux o exporta automaticamente. Não peça aos usuários do APK que o forneçam nem o defina em instalações comuns de desktop ou manuais do Termux. Quando definido, ele deve ter exatamente 64 caracteres hexadecimais. Um valor inválido e não vazio faz as requisições locais do dispositivo falharem com HTTP 503 em vez de enfraquecer a autenticação. |
 | `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Caminho do arquivo privado de segredo usado pelo inicializador do Termux e pela CLI local `mari`. O APK e o inicializador gerenciam esse arquivo automaticamente; usuários comuns do APK nunca precisam ler ou copiar o arquivo. |
 | `AUTO_OPEN_BROWSER` | `true` | Define se os inicializadores de shell abrem a URL do aplicativo para você. Use `false` para desativar isso. A configuração gerenciada pelo APK desativa a abertura automática do navegador pelo shell. O APK cuida separadamente da escolha salva entre aplicativo e navegador e da autenticação. |

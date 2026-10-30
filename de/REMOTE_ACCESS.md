@@ -49,7 +49,7 @@ Standard-Bind-Adresse je nach Startweg:
 
 Lies die Liste der Reihe nach und halte beim ersten Punkt an, der auf dich zutrifft.
 
-1. Du verbindest dich nur über Tailscale oder nur aus Docker-Containern auf demselben Host. Dann ist nichts zu tun, es funktioniert bereits.
+1. Du verbindest dich nur direkt über Tailscale oder nur aus Docker-Containern auf demselben Host. Mit `pnpm start` überspringen direkte Tailscale-Clients die Anmeldung; setze `HOST=0.0.0.0`, damit sie den Server erreichen. Die Standard-Compose-Datei veröffentlicht nur auf `127.0.0.1`. Wenn du den Port über Loopback hinaus veröffentlichst, damit ein Tailscale-Gerät ihn erreicht, lege zuerst eine Anmeldung fest. Docker fragt dann jedes Gerät danach, auch Tailscale-Geräte, weil Docker sie an der Gateway-Adresse sieht. Siehe [Ausnahme für Tailscale und Docker](#tailscale-and-docker-bypass).
 2. Du willst Marinara vom Handy, Tablet oder Laptop im heimischen WLAN erreichen. Richte eine Anmeldung ein (Option 1 unten).
 3. Du stellst Marinara ins öffentliche Internet. Richte eine Anmeldung ein und nutze HTTPS.
 4. Ein Login-Proxy in deinem Netzwerk, etwa tinyauth, Authelia oder Authentik, lässt bereits jeden Besucher sich anmelden. Lies [Login-Proxys (Forward-Auth)](#login-proxies-forward-auth).
@@ -93,7 +93,7 @@ Wenn du das Passwort vergisst, führe `pnpm reset-login` auf dem Computer aus, a
 
 Nach 10 verschiedenen falschen Passwörtern oder Codes innerhalb von 15 Minuten lehnt Marinara Anmeldungen von dieser Adresse mit **429 Too Many Requests** ab, bis die 15 Minuten vorbei sind. Ein richtiges Passwort vor Ablauf dieser Zeit setzt den Zähler zurück. Besucher, die ein Reverse-Proxy oder Tunnel auf dem Host weiterreicht, teilen sich einen Zähler, und wenn sich einer von ihnen anmeldet, wird er nicht zurückgesetzt. Auch ein Neustart des Servers setzt ihn zurück. Ein Browser, der sich schon einmal angemeldet hat, kommt mit dem richtigen Passwort weiterhin hinein, falsche Passwörter anderer Leute können dich also nicht von einem Gerät aussperren, das du bereits nutzt. Die Anmeldeseite zeigt dir, wie viele Minuten du warten musst. Wenn du das Passwort vergisst, hat die Anmeldeseite einen Hinweis **Forgot the password?**.
 
-Im Browser-Dialog steht standardmäßig **Marinara Engine**. Diesen Text kannst du mit `BASIC_AUTH_REALM` ändern.
+Browser melden sich auf der Seite `/login` an. `BASIC_AUTH_REALM` ändert den Realm in der Basic-Auth-Abfrage für Skripte und API-Clients; die Anmeldeseite ändert sich dadurch nicht.
 
 Manche Clients umgehen das Passwort auch bei aktiviertem Basic Auth:
 
@@ -115,9 +115,11 @@ IP_ALLOWLIST=192.168.1.0/24,203.0.113.42
 
 Das `/24` im Beispiel ist CIDR-Schreibweise. CIDR ist eine Kurzform, um einen ganzen Adressbereich in einem einzigen Eintrag zu notieren. `192.168.1.0/24` umfasst etwa jede Adresse von `192.168.1.0` bis `192.168.1.255`. Eine nackte Adresse ohne Schrägstrich wie `203.0.113.42` trifft dagegen nur genau dieses eine Gerät.
 
+Ein breiter öffentlicher Bereich wie `0.0.0.0/0` kann Internet-Clients ohne Anmeldung hereinlassen. Trage nur Adressen ein, denen du vertraust.
+
 So verhält sich die IP-Allowlist:
 
-- Jede Adresse außerhalb der Liste wird mit **403 Forbidden** abgewiesen.
+- Jede Adresse außerhalb der Liste wird mit **403 Forbidden** abgewiesen. Vertrauenswürdige Tailscale- und Docker-Peers sowie ein `TRUSTED_AUTH_PROXY` kommen wie Loopback weiterhin durch.
 - Loopback ist immer erlaubt, du kannst dich also nicht vom lokalen Zugriff aussperren. Besucher, die ein Reverse-Proxy oder Tunnel auf demselben Rechner weiterreicht, sind kein Loopback, die Allowlist blockiert sie also. Nutze hinter einem Proxy Basic Auth.
 - Unter Docker Desktop, OrbStack und rootless Docker erreicht jedes Gerät den Container über dieselbe Gateway-Adresse, die Allowlist kann die Geräte also nicht unterscheiden. Nutze dort Basic Auth.
 - Auch direkter Tailscale-Verkehr überspringt die Liste. Docker-Bridge- und Gateway-Verkehr überspringt sie nur, solange weder Anmeldung noch Allowlist noch ein gültiger `TRUSTED_AUTH_PROXY` gesetzt ist (siehe [Ausnahme für Tailscale und Docker](#tailscale-and-docker-bypass)).
