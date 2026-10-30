@@ -27,7 +27,9 @@ Profil zapisuje sposób, w jaki czat rozmawia z AI:
 - Widoczność wskazówek dotyczących układu w Chat Settings. Zastosowanie **Default** lub starszego profilu bez tej opcji pokazuje wskazówki ponownie.
 - Pozostałe wielokrotnie używane opcje czatu
 
-Profil nie zastępuje treści należących do czatu, czyli postaci, persony (postaci, w którą się wcielasz), lorebooków (zbiorów faktów o twoim świecie), sprite'ów (obrazków postaci na obszarze sceny), podsumowania, tagów ani promptu sceny. Nie zawiera też historii czatu ani bieżącego stanu czatu, takiego jak jego zmienne makr, postacie wyłączone w nim przez ciebie czy jego pokój gry wieloosobowej.
+Profil może też przechowywać **wybory początkowe**: personę, lorebooki do włączenia i tło. Zastosowanie profilu kopiuje je do czatu. Jeśli jeden z tych trzech wyborów jest w profilu pusty, czat zachowuje własny. Pozostałe ustawienia profilu nadal zastępują ustawienia czatu. Wybory nie pozostają powiązane: późniejsza zmiana w czacie zostaje tylko w nim. **Save current chat settings into this profile** zachowuje personę, lorebooki i tło zapisane w samym profilu. Jeśli profil nie ma tła, podczas takiego zapisu pobiera tło czatu. Aktualizacja innych czatów nigdy nie zmienia ich persony, lorebooków ani tła. Wyeksportowane pliki profilu nie zawierają persony ani lorebooków, ponieważ istnieją one tylko w tej instalacji.
+
+Profil nie zastępuje treści należących do czatu, czyli postaci, sprite'ów (obrazków postaci na obszarze sceny), podsumowania, tagów ani promptu sceny. Nie zawiera też historii czatu ani bieżącego stanu czatu, takiego jak jego zmienne makr, postacie wyłączone w nim przez ciebie czy jego pokój gry wieloosobowej.
 
 ## Zastosowanie profilu
 
@@ -40,6 +42,18 @@ Lista rozwijana z profilami znajduje się na górze panelu **Chat Settings**. Je
 
 Czat zmienia się od razu. Jeśli profil włącza albo wyłącza **Hide summarised messages** (ukrywanie podsumowanych wiadomości), podsumowane wiadomości czatu w tej samej chwili zostają ukryte przed AI albo znów stają się dla niego widoczne. Kiedy bieżące wartości czatu nie odpowiadają żadnemu zapisanemu profilowi, lista pokazuje **Custom settings profile**. Jeśli wcześniej zastosowany profil już nie istnieje, widnieje tam **Missing profile - choose a profile**.
 
+## Kreator profili
+
+Kreator przedstawia profil jako pola pogrupowane w Chat, Story, Pictures i Behind the scenes. Każde pole przyjmuje jeden rodzaj ustawienia, na przykład połączenie, agentów, personę albo lorebooki.
+
+- Przeciągnij element z **Your library** na dole do pola albo kliknij pole i wybierz element z listy. Podczas przeciągania podświetlają się pola, które mogą przyjąć dany element.
+- Wypełnione pole pokazuje osobny znacznik dla każdego elementu. Usuń element jego przyciskiem **×**.
+- Parameters, Memory & summary i Translation pokazują, czy profil je zawiera. Zmień je w Chat Settings, a następnie zapisz w profilu.
+
+Wybierz **Save and choose chats…**, aby zapisać profil. Następny krok pokazuje **New roleplay chats** (lub czaty Conversation) oraz istniejące czaty w tym trybie. Zaznacz **Make this the default**, aby używać profilu w nowych czatach. Zaznacz czaty, w których chcesz go teraz zastosować, a potem wybierz **Apply**.
+
+W kreatorze nowego czatu krok **Use a Profile** zawiera też **New profile…** na początku listy profili i **Edit** obok zapisanego profilu. Po zapisaniu kreator wybiera ten profil.
+
 ## Zapisywanie profilu
 
 Rząd ikon pod listą rozwijaną zawiera te działania:
@@ -48,12 +62,11 @@ Rząd ikon pod listą rozwijaną zawiera te działania:
 |---|---|---|
 | Save | **Save current chat settings into this profile** | Zastępuje wartości zapisane w wybranym profilu |
 | Rename | **Rename profile** | Zmienia nazwę wybranego profilu |
-| Save As | **Save current chat settings as a new profile** | Tworzy kolejny profil na podstawie bieżącego czatu |
 | Import | **Import settings profile (.json)** | Wczytuje plik profilu |
 | Export | **Export settings profile (.json)** | Pobiera wybrany profil |
 | Delete | **Delete profile** | Trwale usuwa wybrany profil |
 
-Aby utworzyć pierwszy profil, skonfiguruj czat i wybierz **Save current chat settings as a new profile**. Aby zaktualizować go później, zastosuj profil, zmień ustawienia czatu, a potem wybierz **Save current chat settings into this profile**.
+Aby utworzyć profil, wybierz **New** obok listy rozwijanej. Kreator profili otworzy się z ustawieniami tego czatu już umieszczonymi w polach. Aby zmienić profil, wybierz go i naciśnij **Edit**. Profilu **Default** nie można edytować. Aby zamiast tego zaktualizować profil na podstawie czatu, zastosuj go, zmień czat i wybierz **Save current chat settings into this profile**.
 
 ### Aktualizowanie innych czatów korzystających z profilu
 

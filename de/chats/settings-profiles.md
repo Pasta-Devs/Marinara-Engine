@@ -27,7 +27,9 @@ Ein Profil hält fest, wie der Chat mit der KI spricht:
 - Ob die Hinweise zur Anordnung in Chat Settings verborgen sind. **Default** und ältere Profile ohne diese Auswahl zeigen die Hinweise wieder an.
 - Weitere wiederverwendbare Chat-Optionen
 
-Chat-eigene Inhalte ersetzt ein Profil nicht: Charaktere, Persona, Lorebooks, Sprites, Zusammenfassung, Tags oder Szenen-Prompt bleiben unberührt. Auch der Chatverlauf steckt nicht darin, ebenso wenig der laufende Zustand eines Chats, etwa seine Makrovariablen, die Charaktere, die du darin deaktiviert hast, oder sein Raum im Mehrspielermodus.
+Ein Profil kann auch **Startauswahlen** speichern: eine Persona, zu aktivierende Lorebooks und einen Hintergrund. Wenn du das Profil anwendest, werden sie in den Chat kopiert. Fehlt eine dieser drei Auswahlen im Profil, behält der Chat seine eigene. Die übrigen Profileinstellungen ersetzen weiterhin die Einstellungen des Chats. Die Auswahlen bleiben nicht verknüpft: Spätere Änderungen im Chat bleiben dort. **Save current chat settings into this profile** behält die Persona, Lorebooks und den Hintergrund des Profils bei. Nur wenn das Profil keinen Hintergrund hat, übernimmt es beim Speichern den Hintergrund des Chats. Das Aktualisieren anderer Chats ändert niemals deren Persona, Lorebooks oder Hintergrund. Exportierte Profildateien enthalten weder Persona noch Lorebooks, da diese nur in dieser Installation vorhanden sind.
+
+Chat-eigene Inhalte ersetzt ein Profil nicht: Charaktere, Sprites, Zusammenfassung, Tags oder Szenen-Prompt bleiben unberührt. Auch der Chatverlauf steckt nicht darin, ebenso wenig der laufende Zustand eines Chats, etwa seine Makrovariablen, die Charaktere, die du darin deaktiviert hast, oder sein Raum im Mehrspielermodus.
 
 ## Ein Profil anwenden
 
@@ -40,6 +42,18 @@ Das Profil-Dropdown sitzt ganz oben in den **Chat Settings**. Sein Tooltip (Kurz
 
 Der Chat übernimmt die Werte sofort. Schaltet das Profil **Hide summarised messages** (zusammengefasste Nachrichten ausblenden) ein oder aus, werden die zusammengefassten Nachrichten des Chats im selben Moment vor der KI verborgen oder ihr wieder gezeigt. Passen die aktuellen Werte zu keinem gespeicherten Profil, zeigt das Dropdown **Custom settings profile**. Existiert ein zuvor angewendetes Profil nicht mehr, steht dort **Missing profile - choose a profile**.
 
+## Der Profil-Builder
+
+Der Builder zeigt ein Profil als Steckplätze, gruppiert nach Chat, Story, Pictures und Behind the scenes. Jeder Steckplatz nimmt eine Art von Einstellung auf, etwa eine Verbindung, Agenten, eine Persona oder Lorebooks.
+
+- Ziehe einen Eintrag aus **Your library** unten auf einen Steckplatz, oder klicke auf einen Steckplatz und wähle ihn aus der Liste aus. Beim Ziehen leuchten passende Steckplätze auf.
+- Ein belegter Steckplatz zeigt für jeden Eintrag ein Element. Entferne einen Eintrag mit seiner **×**-Schaltfläche.
+- Parameters, Memory & summary und Translation zeigen an, ob das Profil diese Einstellungen enthält. Ändere sie in Chat Settings und speichere sie dann im Profil.
+
+Wähle **Save and choose chats…**, um zu speichern. Im nächsten Schritt siehst du **New roleplay chats** (oder Conversation-Chats) und deine bestehenden Chats dieses Modus. Aktiviere **Make this the default**, um das Profil für neue Chats zu verwenden. Wähle die Chats aus, die es jetzt erhalten sollen, und klicke auf **Apply**.
+
+Im Assistenten für neue Chats enthält der Schritt **Use a Profile** außerdem **New profile…** oben in der Profilliste und **Edit** neben einem gespeicherten Profil. Nach dem Speichern wählt der Assistent dieses Profil aus.
+
 ## Ein Profil speichern
 
 Die Symbolleiste unter dem Dropdown bietet diese Aktionen:
@@ -48,12 +62,11 @@ Die Symbolleiste unter dem Dropdown bietet diese Aktionen:
 |---|---|---|
 | Save | **Save current chat settings into this profile** | Überschreibt die gespeicherten Werte des ausgewählten Profils |
 | Rename | **Rename profile** | Ändert den Namen des ausgewählten Profils |
-| Save As | **Save current chat settings as a new profile** | Legt aus dem aktuellen Chat ein weiteres Profil an |
 | Import | **Import settings profile (.json)** | Lädt eine Profil-Datei |
 | Export | **Export settings profile (.json)** | Lädt das ausgewählte Profil herunter |
 | Delete | **Delete profile** | Entfernt das ausgewählte Profil dauerhaft |
 
-Für das erste eigene Profil richtest du einen Chat ein und wählst **Save current chat settings as a new profile**. Zum Aktualisieren später: Profil anwenden, den Chat anpassen, dann **Save current chat settings into this profile** wählen.
+Um ein Profil anzulegen, wähle **New** neben dem Dropdown. Der Profil-Builder öffnet sich mit den Einstellungen dieses Chats in seinen Steckplätzen. Um ein Profil zu ändern, wähle es aus und klicke auf **Edit**. Das Profil **Default** lässt sich nicht bearbeiten. Um ein Profil stattdessen über einen Chat zu aktualisieren, wende es an, ändere den Chat und wähle **Save current chat settings into this profile**.
 
 ### Andere Chats aktualisieren, die das Profil nutzen
 
