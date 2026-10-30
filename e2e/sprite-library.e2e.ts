@@ -173,6 +173,18 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         touchPoints: [{ x: touchTarget.x, y: (from.y + 20 + touchTarget.y) / 2 }],
       });
       await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchTarget] });
+      // An insertion gap or edge scrolling can move the row during pickup.
+      // Follow its visible top edge rather than releasing at stale coordinates.
+      await expect
+        .poll(async () => {
+          const box = (await testHeader.boundingBox())!;
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [{ x: box.x + 60, y: box.y + 3 }],
+          });
+          return testSection.getAttribute("data-drag-insert");
+        })
+        .toBe("before");
       await expect(testSection).toHaveAttribute("data-drag-insert", "before");
       const hoveredHeader = (await reorderHeader.boundingBox())!;
       await touch.send("Input.dispatchTouchEvent", {
@@ -382,7 +394,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         .not.toBe(looseRestingColor);
       for (let i = 0; i < 20; i++) {
         const root = await loose.boundingBox();
-        if (root && root.y < 740) break;
+        if (root && root.y < 660) break;
         await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: 810 }] });
         await page.waitForTimeout(150);
       }
@@ -390,6 +402,17 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       expect(root).not.toBeNull();
       const y = Math.max(20, Math.min(780, root!.y + 25));
       await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] });
+      await expect
+        .poll(async () => {
+          const bounds = (await loose.boundingBox())!;
+          const point = { x, y: Math.max(180, Math.min(700, bounds.y + 20)) };
+          await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
+          return page.evaluate(
+            ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest("[data-sprite-loose]")),
+            point,
+          );
+        })
+        .toBe(true);
       await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await expect
         .poll(
@@ -855,6 +878,23 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(library.locator("[data-sprite-folder]")).toHaveCount(0);
     await expect(library.locator("[data-sprite-loose] [data-sprite-card]")).toHaveCount(1);
     expect(errors).toEqual([]);
+  } catch (error) {
+    const fixtureState = await page
+      .evaluate(() => {
+        const stored = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? "null");
+        return {
+          version: stored?.version,
+          completedOnboarding: stored?.state?.hasCompletedOnboarding,
+          characterDetailId: stored?.state?.characterDetailId,
+          url: location.href,
+        };
+      })
+      .catch(() => null);
+    await info.attach("sprite-fixture-diagnostics", {
+      body: JSON.stringify({ errors, fixtureState }),
+      contentType: "application/json",
+    });
+    throw error;
   } finally {
     releaseFrameSave();
     const removed = await cleanup.delete(`/api/characters/${owner.id}`);
