@@ -2498,7 +2498,7 @@ export function HomeProfessorMariChat({
     }
 
     // Her writes skip review in these modes: save the open editor's unsaved text before she starts.
-    // A failed save shows the editor's own error toast and keeps the message in the composer.
+    // A failed save keeps the message in the composer and says why (some editor paths fail without a toast).
     // ponytail: queued sends (sent while she is busy) skip this pre-save; run it when the queue drains if needed.
     setSending(true);
     // Cleared before the save wait: a second Enter during it would send this text again.
@@ -2511,6 +2511,8 @@ export function HomeProfessorMariChat({
       if (clearedDraft) setDraft((current) => [text, current].filter((part) => part.trim()).join("\n\n"));
       if (clearedAttachments) setAttachments((current) => [...submittedAttachments, ...current]);
       if (clearedDraft) composerReferences.restoreReferences(submittedReferences);
+      toast.error(t("mari.presave.failed"));
+      void refreshWorkspaceStatus().catch(() => undefined);
       return setSending(false);
     }
     const presavedAfter = presave === "saved" ? (lastLoadedMessage?.id ?? "") : null;
