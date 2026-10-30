@@ -1,7 +1,9 @@
 // How one of Mari's tool calls reads in her timeline: its title, detail and tone, from the raw call.
 import {
   isDryRunOutput,
+  latestMariTodos,
   mergeMariActionResults,
+  type MariTodoItem,
   type MariWorkspaceActionResult,
   type MariWorkspaceTraceItem,
   type Message,
@@ -937,4 +939,26 @@ export function inferToolPresentation(tool: WorkspaceToolCall): ToolPresentation
     return { eyebrow: "Files", title: "Listing folder", detail, tone: "file" };
   }
   return { eyebrow: "Tool", title: name, detail, tone: "generic" };
+}
+
+export interface ShownMariTodos {
+  todos: MariTodoItem[];
+  stale: boolean;
+}
+
+/**
+ * Which to-do list the transcript pins: the live one from this run (`[]` means she cleared it, so nothing falls
+ * through to the saved one), else the run status's (a reloaded page or a late window), else the newest saved row.
+ */
+export function chooseMariTodos(
+  live: readonly MariTodoItem[] | null,
+  server: readonly MariTodoItem[] | null | undefined,
+  messagesOldestFirst: readonly Message[],
+): ShownMariTodos | null {
+  const fresh = live ?? server;
+  if (fresh) return fresh.length > 0 ? { todos: [...fresh], stale: false } : null;
+  const newestFirst = messagesOldestFirst
+    .map((message) => ({ role: message.role, extra: toMessageExtra(message) as { mariTodos?: unknown } | null }))
+    .reverse();
+  return latestMariTodos(newestFirst);
 }

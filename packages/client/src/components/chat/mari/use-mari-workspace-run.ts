@@ -7,6 +7,7 @@ import {
   MariSuggestionChip,
   Chat,
   MariComposerReference,
+  sanitizeMariTodos,
 } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefObject, Dispatch, SetStateAction, useCallback } from "react";
@@ -16,6 +17,7 @@ import { awaitMariPermissionsModeWrites } from "../../../lib/mari-permissions-wr
 import { describeProfessorMariError } from "../../../lib/professor-mari-errors";
 import { RafThrottle, rafThrottle } from "../../../lib/raf-throttle";
 import { mariPatchFieldId, reviewRank, mariWorkingFieldFromTool } from "../../../lib/mari-editor-fields";
+import { useAgentStore } from "../../../stores/agent.store";
 import { useChatStore } from "../../../stores/chat.store";
 import { shownMariAppearancePack, useUIStore } from "../../../stores/ui.store";
 import {
@@ -159,6 +161,8 @@ export function useMariWorkspaceRun({
       );
       setWorkspaceTimeline([]);
       setMariChips(chat.id, []);
+      // The last run's live list is done; her saved rows show until this run sends its own.
+      useAgentStore.getState().setMariTodos(null, null);
       useChatStore.getState().setAbortController(chat.id, controller);
       useChatStore.getState().clearStreamBuffer(chat.id);
       useChatStore.getState().clearThinkingBuffer(chat.id);
@@ -328,6 +332,9 @@ export function useMariWorkspaceRun({
             ) {
               setMariChips(chat.id, chips);
             }
+          } else if (event.type === "todos") {
+            // The whole list every time; [] means she cleared it. A Send now checkpoint leaves it be.
+            useAgentStore.getState().setMariTodos(chat.id, sanitizeMariTodos(event.data));
           } else if (event.type === "metadata") {
             const data = asRecord(event.data);
             if (data?.narration === true) setWorkspaceTimeline(markNarrationTimeline);
@@ -451,6 +458,8 @@ export function useMariWorkspaceRun({
       if (messagesReloaded) {
         useChatStore.getState().clearStreamBuffer(completedChatId);
         useChatStore.getState().clearThinkingBuffer(completedChatId);
+        // The saved row carries her list now; dropping the live one in the same tick leaves no flicker.
+        useAgentStore.getState().setMariTodos(null, null);
       }
       await Promise.allSettled([
         refreshWorkspaceStatus(

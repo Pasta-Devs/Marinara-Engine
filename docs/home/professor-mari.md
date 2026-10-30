@@ -294,6 +294,10 @@ A held message stays held until you send or remove it. **Send** sends only that 
 
 `/restart` and `/title` do nothing while she works, and they stay in the box until she is done.
 
+### Her to-do list
+
+On a longer job she keeps a short list of steps for herself. It sits under her latest message with a count such as **2 of 5**, the step she is on spins while she works, and finished steps are crossed out. You cannot edit it. It is there so you can see where she is, and she updates it as she goes. Once you write after the reply that saved it, the list is muted and reads **Plan from before your last message**. It goes away after her next reply that doesn't touch it.
+
 ## Leaving her window
 
 You can close her window and keep using the app while she works. The line and the pill in the top bar show how she is doing, as described in [Where to find her](#where-to-find-her). Click the pill to go back to her chat.

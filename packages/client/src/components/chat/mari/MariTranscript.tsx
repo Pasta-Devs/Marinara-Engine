@@ -87,6 +87,7 @@ type MariTranscriptProps = {
   showConnectionFirstHint: boolean;
   showJumpToLatest: boolean;
   showNextStepCards: boolean;
+  todoListNode: ReactElement | null;
   transcriptHeadMessages: Message[];
   workspaceRunClock: { startedAt: number; endedAt: number | null } | null;
   workspaceStatus: MariWorkspaceStatus | null;
@@ -145,6 +146,7 @@ export function MariTranscript({
   showConnectionFirstHint,
   showJumpToLatest,
   showNextStepCards,
+  todoListNode,
   transcriptHeadMessages,
   workspaceRunClock,
   workspaceStatus,
@@ -326,6 +328,8 @@ export function MariTranscript({
                   {reviewsByTurn.unassigned.map(renderTurnPrompt)}
                 </div>
               ) : null}
+              {/* Her own list for a longer job: pinned under her newest line, above the next-step chips. */}
+              {todoListNode}
               {showNextStepCards ? (
                 <MariNextStepCards chips={chipRowChips} onSelect={handleSuggestionSelect} disabled={isBusy} />
               ) : null}

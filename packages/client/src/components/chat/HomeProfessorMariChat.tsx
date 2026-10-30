@@ -211,6 +211,7 @@ import {
   getMessageWorkspaceActionResults,
   getMessageWorkspaceTrace,
   timelineItemsFromTrace,
+  chooseMariTodos,
 } from "./mari/mari-tool-presentation";
 import { ProfessorMariPixelScene } from "./mari/MariChatStates";
 import { isHardStepFailure } from "./mari/mari-tool-presentation";
@@ -218,6 +219,7 @@ import { MariSeesPanel } from "./mari/MariSeesPanel";
 import { MariChatsPanel } from "./mari/MariChatsPanel";
 import { MariComposer } from "./mari/MariComposer";
 import { MariQuestionCard } from "./mari/MariQuestionCard";
+import { MariTodoList } from "./mari/MariTodoList";
 import { MariTranscript } from "./mari/MariTranscript";
 import { MariWindowHeader } from "./mari/MariWindowHeader";
 import { useMariSkillMemoryActions } from "./mari/use-mari-skill-memory-actions";
@@ -706,6 +708,8 @@ export function HomeProfessorMariChat({
   const mariChips = useAgentStore((state) => state.mariChips);
   const mariChipsChatId = useAgentStore((state) => state.mariChipsChatId);
   const setMariChips = useAgentStore((state) => state.setMariChips);
+  const mariTodos = useAgentStore((state) => state.mariTodos);
+  const mariTodosChatId = useAgentStore((state) => state.mariTodosChatId);
   const clearMariChips = useAgentStore((state) => state.clearMariChips);
   const professorMariSuggestionsEnabled = useUIStore((state) => state.professorMariSuggestionsEnabled);
   const showContextUsage = useUIStore((state) => state.showContextUsage);
@@ -790,6 +794,17 @@ export function HomeProfessorMariChat({
     chatId !== null && loadedMessagesChatId === chatId && lastLoadedMessage?.role === "assistant"
       ? sanitizeMariQuestions(lastLoadedMessageExtra?.mariQuestions)
       : [];
+  // Her to-do list: this run's live one, else the run status's (a reloaded page, a late window), else the newest saved row.
+  const serverTodos = serverRunningHere ? serverRun?.todos : undefined;
+  const shownTodos = useMemo(
+    () =>
+      chooseMariTodos(
+        mariTodosChatId === chatId ? mariTodos : null,
+        serverTodos,
+        chatId !== null && loadedMessagesChatId === chatId ? messages : [],
+      ),
+    [chatId, loadedMessagesChatId, mariTodos, mariTodosChatId, messages, serverTodos],
+  );
   const storeChipsForChat = mariChipsChatId === chatId && mariChips.length > 0 ? mariChips : savedChips;
   const visibleSuggestionChips =
     pendingDeferredMutations && !storeChipsForChat.some((chip) => chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id)
@@ -3033,6 +3048,9 @@ export function HomeProfessorMariChat({
         onDecline={() => handleSuggestionSelect(MARI_AUTHORIZATION_DECLINE_CHIP)}
       />
     ) : null;
+  const todoListNode = shownTodos ? (
+    <MariTodoList todos={shownTodos.todos} stale={shownTodos.stale} running={workspaceTimelineActive} />
+  ) : null;
   const questionCardNode =
     pendingQuestions.length > 0 ? (
       <MariQuestionCard
@@ -3732,6 +3750,7 @@ export function HomeProfessorMariChat({
                           handleSuggestionSelect={handleSuggestionSelect}
                           handleTranscriptScroll={handleTranscriptScroll}
                           heldCardNode={heldCardNode}
+                          todoListNode={todoListNode}
                           isBusy={isBusy}
                           lastAssistantId={lastAssistantId}
                           lastUserMessage={lastUserMessage}

@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ChatCompletionResult, ChatMessage } from "../../../packages/server/src/services/llm/base-provider.js";
+import { chooseMariTodos } from "../../../packages/client/src/components/chat/mari/mari-tool-presentation.js";
 import {
   latestMariTodos,
   MARI_TODO_MAX_ITEMS,
@@ -98,6 +99,31 @@ assert.deepEqual(
 assert.equal(latestMariTodos([reply("junk"), reply(undefined)]), null, "a non-array is not a list");
 assert.deepEqual(latestMariTodos([reply("junk"), reply(open)]), { todos: open, stale: false }, "and is skipped");
 assert.deepEqual(latestMariTodos([{ role: "assistant", extra: null }, reply(open)]), { todos: open, stale: false });
+
+// ── Which list the transcript pins (the client's choice) ───────────────────────────────────────────
+const savedRow = (role: string, mariTodos?: unknown) =>
+  ({ role, extra: mariTodos === undefined ? {} : { mariTodos } }) as never;
+const savedOpen = [savedRow("user"), savedRow("assistant", open)];
+assert.deepEqual(chooseMariTodos(done, open, savedOpen), { todos: done, stale: false }, "the live list beats the rest");
+assert.equal(chooseMariTodos([], open, savedOpen), null, "a live [] means she cleared it: nothing, not the saved list");
+assert.deepEqual(
+  chooseMariTodos(null, open, [savedRow("assistant", done)]),
+  { todos: open, stale: false },
+  "a reloaded page mid-run uses the run status's list",
+);
+assert.equal(chooseMariTodos(null, [], savedOpen), null, "and so does its [] (cleared)");
+assert.deepEqual(chooseMariTodos(null, undefined, savedOpen), { todos: open, stale: false }, "else the saved row");
+assert.deepEqual(
+  chooseMariTodos(null, null, [...savedOpen, savedRow("user")]),
+  { todos: open, stale: true },
+  "your message after it makes it stale",
+);
+assert.equal(chooseMariTodos(null, null, []), null, "nothing loaded, nothing shown");
+assert.deepEqual(
+  chooseMariTodos(null, null, [{ role: "assistant", extra: JSON.stringify({ mariTodos: open }) } as never]),
+  { todos: open, stale: false },
+  "an extra still held as JSON text is parsed",
+);
 
 type Call = { name: string; args: Record<string, unknown> };
 type Step = {
