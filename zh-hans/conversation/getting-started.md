@@ -105,13 +105,13 @@ Conversation 模式还加了一些只有长期聊天关系才用得上的功能�
 
 角色可以给你发自拍，也就是 AI 生成的角色照片。自拍和 Roleplay、Game Mode 里用的场景美术不一样，因为一张自拍只属于一个角色。
 
-要用自拍，先从 **Agents → Download Agents** 安装 **Illustrator**。然后打开聊天设置面板，进入 **Agents → Illustrator Settings**，设置一个 **Selfie Connection**(自拍连接)。自拍连接指的是一个图像生成服务商。每张自拍会消耗一次图像生成调用。
+要用自拍，先从 **Agents → Agent Organizer(智能体管理器)** 安装 **Illustrator**。然后打开聊天设置面板，进入 **Agents → Illustrator Settings**，设置一个 **Selfie Connection**(自拍连接)。自拍连接指的是一个图像生成服务商。每张自拍会消耗一次图像生成调用。
 
 完整设置，包括风格、分辨率和手动请求按钮，见[自拍](selfies.md)。
 
 ## 桌面游戏
 
-Conversation 模式有六个可选的桌面游戏包：**UNO**、**Chess**、**Poker**、**8-Ball Pool**、**Tic-Tac-Toe** 和 **Rock-Paper-Scissors**。到 **Agents → Download Agents** 安装想玩的游戏。发牌、摆盘和规则判定都由应用负责，每个角色会以自己的口吻讲述自己的每一步。桌面游戏只能在 Conversation 聊天里运行。
+Conversation 模式有六个可选的桌面游戏包：**UNO**、**Chess**、**Poker**、**8-Ball Pool**、**Tic-Tac-Toe** 和 **Rock-Paper-Scissors**。到 **Agents → Agent Organizer(智能体管理器)** 安装想玩的游戏。发牌、摆盘和规则判定都由应用负责，每个角色会以自己的口吻讲述自己的每一步。桌面游戏只能在 Conversation 聊天里运行。
 
 开一局游戏有三种方式：
 

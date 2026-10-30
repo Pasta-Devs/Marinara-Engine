@@ -258,7 +258,7 @@ Własnego agenta da się udostępnić jako plik.
 
 Żeby wyeksportować kilku agentów naraz, użyj opcji **Select agents** w panelu **Agents**, zaznacz wybranych agentów i wyeksportuj całą grupę.
 
-Import zewnętrznych agentów jest domyślnie zablokowany. Otwórz **Settings → Advanced → Danger Zone** i najpierw włącz opcję **Allow custom Agent imports**. Ten przełącznik nie wymaga zmian w pliku `.env`. Dotyczy wyłącznie agentów dostarczanych przez pliki, foldery lub własne repozytoria: agenci utworzeni przez ciebie w aplikacji Marinara Engine oraz oficjalni agenci zainstalowani przez **Download Agents** działają normalnie.
+Import zewnętrznych agentów jest domyślnie zablokowany. Otwórz **Settings → Advanced → Danger Zone** i najpierw włącz opcję **Allow custom Agent imports**. Ten przełącznik nie wymaga zmian w pliku `.env`. Dotyczy wyłącznie agentów dostarczanych przez pliki, foldery lub własne repozytoria: agenci utworzeni przez ciebie w aplikacji Marinara Engine oraz oficjalni agenci zainstalowani przez **Agent Organizer (organizowanie agentów)** działają normalnie.
 
 Żeby zaimportować agenta, otwórz panel **Agents** i kliknij przycisk **Import agents** dla pojedynczego pliku albo **Import agent folder**, żeby wskazać cały folder. Marinara pokazuje przegląd uprawnień, zanim cokolwiek zapisze. Zatwierdź tylko te uprawnienia, których agent naprawdę potrzebuje – niezaznaczone pozostają zablokowane. Każdy import pliku dostaje nową, własną tożsamość, więc nie zastąpi agenta z katalogu o tym samym typie wewnętrznym.
 

@@ -20,7 +20,7 @@ El recorrido tiene 18 pasos. Aquí están en orden, con el título exacto de cad
 4. **Lorebooks** Resalta el botón del panel **Lorebooks** (lorebooks, o libros de trasfondo), que guarda detalles adicionales del mundo y de los personajes.
 5. **Presets** Resalta el botón del panel **Presets** (presets, o ajustes guardados), que controla cómo se construye el prompt (las instrucciones enviadas a la IA).
 6. **Connections** Resalta el botón del panel **Connections**. La tarjeta dice que las conexiones son lo primero que hay que configurar antes de chatear.
-7. **Agents** Resalta el botón del panel **Agents**, que añade ayudantes sobre tus chats. La tarjeta te indica **Download Agents** (Descargar agentes) para instalarlos.
+7. **Agents** Resalta el botón del panel **Agents**, que añade ayudantes sobre tus chats. La tarjeta te indica **Agent Organizer** (Organizador de agentes) para instalarlos.
 8. **Settings** Resalta el botón del panel **Settings** y abre **Settings** en la pestaña **General**.
 9. **Chats** Resalta el interruptor de la barra lateral y abre la barra lateral de chats, donde viven tus chats.
 10. **Conversation Mode** Resalta la pestaña de conversación en la barra lateral de chats. La pestaña en sí está etiquetada como **CONVO**.

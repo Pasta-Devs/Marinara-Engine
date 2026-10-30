@@ -6,7 +6,7 @@ Dans ce guide, tu découvres les six packs de jeux de table facultatifs auxquels
 
 Les jeux de table sont de petits jeux de société qui se déroulent directement dans un chat en mode Conversation. Marinara Engine distribue les cartes ou installe le plateau de jeu, et applique toutes les règles à ta place. Chaque personnage assis à la table commente ses propres coups, en restant dans son rôle. Un plateau de jeu vivant s'affiche au-dessus de la zone de saisie pendant la partie.
 
-Installe chaque jeu qui t'intéresse depuis **Agents → Download Agents** (télécharger des agents). Il devient utilisable tout de suite, sans redémarrer Marinara. Un jeu non installé n'apparaît pas dans le sélecteur de jeux, sa commande slash reste indisponible et son réglage de commande de personnage reste masqué.
+Installe chaque jeu qui t'intéresse depuis **Agents → Agent Organizer (organisateur d’agents)** . Il devient utilisable tout de suite, sans redémarrer Marinara. Un jeu non installé n'apparaît pas dans le sélecteur de jeux, sa commande slash reste indisponible et son réglage de commande de personnage reste masqué.
 
 Deux points à garder en tête :
 

@@ -105,13 +105,13 @@ Conversationのメッセージには、どれでも絵文字のリアクショ�
 
 キャラクターは自撮り写真、つまりAIが生成したそのキャラクターの写真を送ってきます。自撮り写真は1人のキャラクターに結び付いている点で、RoleplayやGame Modeで使うシーンの絵とは違います。
 
-自撮り写真を使うには、**Agents → Download Agents**から**Illustrator**をインストールします。次にチャット設定パネルを開き、**Agents → Illustrator Settings**へ進んで**Selfie Connection**(自撮り写真用の接続)を設定します。ここで指定するのは画像生成のプロバイダーです。自撮り写真は1枚につき画像生成の呼び出しを1回使います。
+自撮り写真を使うには、**Agents → Agent Organizer (エージェント管理)**から**Illustrator**をインストールします。次にチャット設定パネルを開き、**Agents → Illustrator Settings**へ進んで**Selfie Connection**(自撮り写真用の接続)を設定します。ここで指定するのは画像生成のプロバイダーです。自撮り写真は1枚につき画像生成の呼び出しを1回使います。
 
 画風、解像度、手動でリクエストするボタンを含む設定の全体は[自撮り写真](selfies.md)にあります。
 
 ## テーブルゲーム
 
-Conversationモードでは、テーブルゲームのパッケージを6つ、任意で追加できます。**UNO**、**Chess**、**Poker**、**8-Ball Pool**、**Tic-Tac-Toe**、**Rock-Paper-Scissors**の6種類です。遊びたいゲームは**Agents → Download Agents**からインストールします。盤面を配るのもルールを守らせるのもアプリが行い、キャラクターはそれぞれ自分の手をキャラクターらしく語ります。テーブルゲームが動くのはConversationチャットだけです。
+Conversationモードでは、テーブルゲームのパッケージを6つ、任意で追加できます。**UNO**、**Chess**、**Poker**、**8-Ball Pool**、**Tic-Tac-Toe**、**Rock-Paper-Scissors**の6種類です。遊びたいゲームは**Agents → Agent Organizer (エージェント管理)**からインストールします。盤面を配るのもルールを守らせるのもアプリが行い、キャラクターはそれぞれ自分の手をキャラクターらしく語ります。テーブルゲームが動くのはConversationチャットだけです。
 
 ゲームの始め方は3つあります。
 

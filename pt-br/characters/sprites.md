@@ -127,7 +127,7 @@ Fazer o upload dos sprites é só metade do trabalho. Você também decide quand
 
 ### Roleplay Mode
 
-No **Roleplay Mode**, o agente opcional **Expression Engine** comanda a exibição dos sprites. Baixe o agente em **Agents → Download Agents** e depois adicione-o ao chat. Ele lê o humor de cada mensagem e escolhe o sprite de expressão correspondente. Para detalhes, veja [Referência dos agentes para download](../agents/built-in-agents.md).
+No **Roleplay Mode**, o agente opcional **Expression Engine** comanda a exibição dos sprites. Baixe o agente em **Agents → Agent Organizer (organizador de agentes)** e depois adicione-o ao chat. Ele lê o humor de cada mensagem e escolhe o sprite de expressão correspondente. Para detalhes, veja [Referência dos agentes para download](../agents/built-in-agents.md).
 
 Para os sprites aparecerem em um chat de Roleplay, tudo isto precisa ser verdade:
 

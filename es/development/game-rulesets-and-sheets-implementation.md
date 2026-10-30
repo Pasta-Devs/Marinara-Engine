@@ -880,7 +880,7 @@ Sin lorebook de reglas en v1. El bloque de instrucciones y el de ficha bastan pa
 
 | Vía | Cómo | Adecuada para |
 | --- | --- | --- |
-| Catálogo oficial | Enviar un paquete mediante PR a Marinara-Agents; instalación con un clic desde **Download Agents** (descargar agentes) | Sistemas muy utilizados con licencias claras |
+| Catálogo oficial | Enviar un paquete mediante PR a Marinara-Agents; instalación con un clic desde **Agent Organizer** (Organizador de agentes) | Sistemas muy utilizados con licencias claras |
 | Repositorio personalizado | La vía existente de repositorios de agentes personalizados también lee `rulesets/*.json`. El usuario añade una vez la URL GitHub del autor, revisa la vista previa y recibe las actualizaciones posteriores de la misma manera | Un autor con varios sistemas; el repositorio del solicitante ya tiene esta estructura |
 | Archivo único | **Import ruleset** (importar conjunto de reglas) acepta un `ruleset.json` | Iterar localmente o entregar un archivo a un amigo |
 

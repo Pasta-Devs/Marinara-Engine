@@ -3517,7 +3517,7 @@ Użytkownik dodaje twoje repozytorium raz przez listę własnych repozytoriów a
 
 Obowiązują dwa limity. Repozytorium może zawierać najwyżej 32 pliki JSON bezpośrednio w `rulesets`; większa liczba powoduje odrzucenie. Konto o nazwie `local` nie może publikować zestawów, ponieważ `local/` jest zarezerwowane dla importów z pliku.
 
-**W oficjalnym katalogu.** Popularny system z jasną licencją może być oferowany wszystkim przez **Download Agents** (pobierz agentów). Wymaga to pull requestu do repozytorium [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Układ można sprawdzić w tamtejszym pakiecie `ruleset-5e-2014`.
+**W oficjalnym katalogu.** Popularny system z jasną licencją może być oferowany wszystkim przez **Agent Organizer** (organizowanie agentów). Wymaga to pull requestu do repozytorium [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Układ można sprawdzić w tamtejszym pakiecie `ruleset-5e-2014`.
 
 ## Licencjonowanie
 

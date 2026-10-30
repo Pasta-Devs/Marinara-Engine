@@ -4,7 +4,7 @@ In dieser Anleitung erfährst du, wie du mit dem **Music DJ** (Musik-DJ) Hinterg
 
 ## Was der Music DJ ist
 
-**Music DJ** ist ein optionaler Agent zum Herunterladen. Ein Agent ist ein Helfer, der im Hintergrund eines Chats automatisch mitläuft. Öffne **Agents** (Agenten), wähle **Download Agents** (Agenten herunterladen) und installiere **Music DJ**, bevor du ihn einrichtest. Nach jeder Antwort liest Music DJ die Stimmung der Szene und spielt dazu passende Hintergrundmusik.
+**Music DJ** ist ein optionaler Agent zum Herunterladen. Ein Agent ist ein Helfer, der im Hintergrund eines Chats automatisch mitläuft. Öffne **Agents** (Agenten), wähle **Agent Organizer** (Agentenverwaltung) und installiere **Music DJ**, bevor du ihn einrichtest. Nach jeder Antwort liest Music DJ die Stimmung der Szene und spielt dazu passende Hintergrundmusik.
 
 **Music DJ** kennt drei Musikquellen:
 
@@ -106,7 +106,7 @@ Für die Wiedergabe aus einem Ordner außerhalb von Game Assets ist lokaler Zugr
 
 Der **Music Player** erscheint am Desktop als kleine Plakette in der oberen Leiste, auf dem Handy als frei verschiebbares Widget. Per Einstellung lässt er sich ein- oder ausblenden.
 
-Öffne **Settings** (Einstellungen), geh auf den Tab **General** und such den Bereich **App Behavior**. Dort schaltest du **Music Player** ein oder aus. Der Hilfetext lautet „Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings.“ Dieser Schalter steht immer zur Verfügung und ist standardmäßig an. Ist er aktiv, ohne dass Music DJ installiert ist, zeigt der Player am Desktop wie auf dem Handy stattdessen **Download Music DJ Agent to configure** und eine Schaltfläche **Download Agents**.
+Öffne **Settings** (Einstellungen), geh auf den Tab **General** und such den Bereich **App Behavior**. Dort schaltest du **Music Player** ein oder aus. Der Hilfetext lautet „Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings.“ Dieser Schalter steht immer zur Verfügung und ist standardmäßig an. Ist er aktiv, ohne dass Music DJ installiert ist, zeigt der Player am Desktop wie auf dem Handy stattdessen **Download Music DJ Agent to configure** und eine Schaltfläche **Agent Organizer (Agentenverwaltung)**.
 
 In einem frischen Profil startet die sichtbare Quelle als **YouTube**. Ändern lässt sie sich auf drei Wegen:
 

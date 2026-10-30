@@ -568,3 +568,8 @@ Choices from the #7763 sync (`media/tts-setup.md`) against `staging` `5ae55e73`.
 | **Enable emotion indicators** | **Enable emotion indicators**(感情表現の指示を使う) |
 
 These are translation choices, not a new native-reader review.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

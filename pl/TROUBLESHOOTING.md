@@ -146,7 +146,7 @@ Przycisk **Refresh App** czyści service worker przeglądarki (skrypt działają
 
 ## Problemy z agentami do pobrania
 
-Jeśli sekcja **Agents → Download Agents** informuje, że katalog jest niedostępny, komputer z serwerem Marinara Engine – a nie tylko przeglądarka – musi mieć dostęp do oficjalnego katalogu [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) przez GitHub HTTPS. Zainstalowani agenci działają dalej offline w obecnej wersji. Przywróć serwerowi dostęp do sieci, a potem kliknij przycisk **Refresh** lub **Try again**, żeby przejrzeć katalog i sprawdzić aktualizacje.
+Jeśli sekcja **Agents → Agent Organizer (organizowanie agentów)** informuje, że katalog jest niedostępny, komputer z serwerem Marinara Engine – a nie tylko przeglądarka – musi mieć dostęp do oficjalnego katalogu [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) przez GitHub HTTPS. Zainstalowani agenci działają dalej offline w obecnej wersji. Przywróć serwerowi dostęp do sieci, a potem kliknij przycisk **Refresh** lub **Try again**, żeby przejrzeć katalog i sprawdzić aktualizacje.
 
 Jeśli zainstalowana mapa lub rozmowa się nie pojawia, zamknij aplikację Marinara Engine całkowicie i uruchom ją ponownie. Pakiety z własnymi trasami pozostają w stanie **Restart required** aż do kolejnego uruchomienia procesu. Z grami do trybu Conversation jest inaczej: obecne wersje aplikacji aktywują je od razu. Jeśli instalacja się nie powiodła, odśwież katalog i sprawdź, czy gra jest gotowa; dodawanie jej w ustawieniach **Commands** danego czatu jest potrzebne tylko wtedy, gdy postacie mają same ją rozpoczynać – do ręcznej komendy slash nie jest konieczne.
 
@@ -156,7 +156,7 @@ Jeśli folder `data/capability-runtime-snapshots` albo `data/capability-packages
 
 Marinara odrzuca pobierane pakiety, gdy ich suma kontrolna, zadeklarowana lista plików, zakres wersji aplikacji lub ścieżki w archiwum nie zgadzają się z oficjalnym katalogiem. Najpierw zaktualizuj aplikację Marinara Engine, odśwież katalog i spróbuj ponownie. Nie wypakowuj plików ręcznie do folderu z danymi.
 
-Aktualizacje agentów nigdy nie instalują się przy starcie. Kiedy pojawia się nowsza zgodna wersja, Marinara pyta, czy ją zainstalować. Wybierz **No**, żeby zostać przy wersji zainstalowanej; przycisk **Update** pozostaje dostępny w sekcji **Agents → Download Agents**. Nieudana aktualizacja także zostawia zarejestrowaną wersję zainstalowaną, a świeżo zaktualizowane środowisko serwera, które nie przejdzie testu przy starcie, wraca do wersji poprzedniej.
+Aktualizacje agentów nigdy nie instalują się przy starcie. Kiedy pojawia się nowsza zgodna wersja, Marinara pyta, czy ją zainstalować. Wybierz **No**, żeby zostać przy wersji zainstalowanej; przycisk **Update** pozostaje dostępny w sekcji **Agents → Agent Organizer (organizowanie agentów)**. Nieudana aktualizacja także zostawia zarejestrowaną wersję zainstalowaną, a świeżo zaktualizowane środowisko serwera, które nie przejdzie testu przy starcie, wraca do wersji poprzedniej.
 
 ## Dostęp do aplikacji Marinara Engine z innego urządzenia
 
@@ -288,7 +288,7 @@ Potem uruchom aplikację Marinara Engine ponownie i kliknij przycisk **Reapply C
 
 Storyboardy w trybie Game Mode zamieniają zakończoną narrację postaci GM w obrazy klatek kluczowych i opcjonalne klipy. Storyboardy w trybie Roleplay łączą zakończone wymiany zdań i pokazują wynik bezpośrednio pod odpowiedzią asystenta.
 
-- Sprawdź, czy agent **Storyboard** jest zainstalowany z **Agents** > **Download Agents**, a potem włącz dla czatu przełączniki **Enable Agents** i **Enable Storyboards**.
+- Sprawdź, czy agent **Storyboard** jest zainstalowany z **Agents** > **Agent Organizer (organizowanie agentów)**, a potem włącz dla czatu przełączniki **Enable Agents** i **Enable Storyboards**.
 - Aby ręcznie zrobić wideo sceny, otwórz **Chat Settings** > **Gallery** (galeria), wygeneruj lub wgraj obraz, a potem użyj przy nim akcji **Video** albo **Animate**. Sekcja **Gallery** rozdziela **Images** i **Videos** na zakładki, więc zajrzyj do zakładki **Videos**.
 - Przy automatycznych storyboardach w trybie Game Mode otwórz **Chat Settings** > **Agents** > **Storyboards** i sprawdź, czy **Automatic Storyboard Illustrations** jest włączone. Jeśli mają powstawać także klipy, włącz również **Automatic Storyboard Animations**.
 - W trybie Roleplay dodaj do czatu agenta **Storyboard**. Wybierz **Still images** albo **Animations**, ustaw **Messages per episode** i wskaż połączenie do generowania obrazów dla storyboardu. Opcja **Manual only** uruchamia storyboard dopiero przyciskiem **Create storyboard** w sekcji **Gallery** w **Chat Settings**.
@@ -311,7 +311,7 @@ Jeśli start gry zawodzi, bo model zwrócił uszkodzony JSON, Marinara otwiera o
 
 - Jeśli postacie nie mówią podczas rozmowy, nie jest skonfigurowana funkcja Text to Speech. Otwórz **Connections** > **Text to Speech**, włącz ją, wybierz źródło, wpisz klucz, wybierz głos i zapisz. Postać bez głosu pojawia się wyłącznie w formie tekstu.
 - Jeśli mowa urywa się z komunikatem **No audio after 60 s**, twój serwer głosu działa wolniej, niż Marinara na niego czeka. Lokalny serwer na laptopie często tak działa. Zwiększ **Request timeout (seconds)** (limit czasu żądania w sekundach) w **Connections** > **Text to Speech** albo w połączeniu audio wskazanym w komunikacie. Zobacz [Limit czasu żądania](media/tts-setup.md#request-timeout).
-- Jeśli mikrofon nie działa, może być potrzebny lokalny model mowy. Zainstaluj agenta **Calls** z sekcji **Agents > Download Agents**, potem otwórz **Connections** > **Local Model**, rozwiń panel, znajdź **Local Speech Model**, wybierz model Whisper i kliknij przycisk **Download Whisper**. Szczególnie Firefox tego wymaga, bo nie ma wbudowanego rozpoznawania mowy. Odinstalowanie agenta **Calls** usuwa jego modele Whisper i zwalnia miejsce na dysku. Możesz też użyć własnego serwera zamiany mowy na tekst z sekcji **Speech to Text** (zamiana mowy na tekst) w **Connections**; zobacz [Korzystanie z własnego serwera zamiany mowy na tekst](conversation/calls.md#use-your-own-speech-to-text-server).
+- Jeśli mikrofon nie działa, może być potrzebny lokalny model mowy. Zainstaluj agenta **Calls** z sekcji **Agents > Agent Organizer (organizowanie agentów)**, potem otwórz **Connections** > **Local Model**, rozwiń panel, znajdź **Local Speech Model**, wybierz model Whisper i kliknij przycisk **Download Whisper**. Szczególnie Firefox tego wymaga, bo nie ma wbudowanego rozpoznawania mowy. Odinstalowanie agenta **Calls** usuwa jego modele Whisper i zwalnia miejsce na dysku. Możesz też użyć własnego serwera zamiany mowy na tekst z sekcji **Speech to Text** (zamiana mowy na tekst) w **Connections**; zobacz [Korzystanie z własnego serwera zamiany mowy na tekst](conversation/calls.md#use-your-own-speech-to-text-server).
 - W wersji Lite komunikat **Local Whisper is disabled in Lite mode** oznacza, że ta odchudzona wersja nie uruchomi lokalnego modelu mowy. Użyj pełnej instalacji aplikacji Marinara Engine.
 
 ### Logowanie do Spotify w agencie Music DJ zawodzi przy instalacji zdalnej lub sieciowej

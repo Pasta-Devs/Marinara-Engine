@@ -127,7 +127,7 @@
 
 ### Roleplay Mode
 
-在 **Roleplay Mode** 里，立绘的显示由可选的 **Expression Engine**(表情引擎) 智能体负责。先从 **Agents → Download Agents** 下载它，再添加到聊天里。它会读取每条消息的情绪，挑一张对应的表情立绘。详见[可下载智能体参考](../agents/built-in-agents.md)。
+在 **Roleplay Mode** 里，立绘的显示由可选的 **Expression Engine**(表情引擎) 智能体负责。先从 **Agents → Agent Organizer(智能体管理器)** 下载它，再添加到聊天里。它会读取每条消息的情绪，挑一张对应的表情立绘。详见[可下载智能体参考](../agents/built-in-agents.md)。
 
 Roleplay 聊天里要让立绘出现，下面几条必须同时成立：
 

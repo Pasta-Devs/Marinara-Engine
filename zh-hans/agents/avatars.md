@@ -6,11 +6,11 @@
 
 ## 下载智能体
 
-所有安装都能在 **Download Agents**(下载智能体) 的 **Roleplay** 和 **Game** 筛选项下找到这两个智能体。需要 Marinara Engine 2.5.1 或更新版本。
+所有安装都能在 **Agent Organizer** (智能体管理器) 的 **Roleplay** 和 **Game** 筛选项下找到这两个智能体。需要 Marinara Engine 2.5.1 或更新版本。
 
 **2D Avatars** 和 **3D Avatars** 是分开下载的，可以只装你想要的那个。两者都适用于 Roleplay(角色扮演) 和 Game(游戏模式) 聊天里的角色和用户角色。
 
-1. 打开 **Agents → Download Agents**(智能体 → 下载智能体)，安装 **2D Avatars**、**3D Avatars** 或两个都装。都不需要重启。
+1. 打开 **Agents → Agent Organizer(智能体管理器)**，安装 **2D Avatars**、**3D Avatars** 或两个都装。都不需要重启。
 2. 在 **Agents** 里该智能体的页面上设置每个虚拟形象。见[设置虚拟形象](#setting-up-an-avatar)。
 3. 在 Roleplay 或 Game 聊天里，打开 **Chat Settings → Agents → Misc Agents**(聊天设置 → 智能体 → 其他智能体)，添加这个智能体。
 

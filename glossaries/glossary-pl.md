@@ -162,7 +162,7 @@ ani w trybie Game Mode nie da się ich dodać."; `characters/sprites.md:12` — 
 w trybie **Roleplay Mode** i **Game Mode**".
 
 **R-15 — Panel, section, tab and control names stay English, in bold.**
-*Evidence:* `CONFIGURATION.md:20` — "Otwórz sekcję **Agents → Download Agents**";
+*Evidence:* `CONFIGURATION.md:20` — "Otwórz sekcję **Agents → Agent Organizer**";
 `lorebooks/overview.md:25` — "Panel **Lorebooks**"; `UPGRADING.md:128` — "Lista
 rozwijana **Release Channel**".
 
@@ -372,7 +372,7 @@ style.
 
 **R-108 — `→` is the target UI-path separator, but the pack has not settled.**
 *Evidence:* 80 U+2192 across 21 files, of which ~74 are UI paths —
-`CONFIGURATION.md:20` "**Agents → Download Agents**"; `CONFIGURATION.md:31`
+`CONFIGURATION.md:20` "**Agents → Agent Organizer**"; `CONFIGURATION.md:31`
 "**Settings → Advanced → Danger Zone**". The remaining ~6 arrows are not paths:
 in-world location chains (`agents/hierarchical-maps.md:366` `Tower → Floor 7 →
 Alchemy Lab`, `:490`), sort-option labels (`lorebooks/entries.md:14` **Name A→Z**)
@@ -439,7 +439,7 @@ out)** (nieosiągalny, przekroczono limit czasu żądania)"; "**Server unreachab
 (serwer nieosiągalny)".
 
 **R-118 — UI path arrows are glossed as a Polish chain in one parenthesis.**
-*Evidence:* `CONFIGURATION.md:20` "**Agents → Download Agents** (agenci,
+*Evidence:* `CONFIGURATION.md:20` "**Agents → Agent Organizer** (agenci,
 pobieranie agentów)"; `CONFIGURATION.md:31` "**Settings → Advanced → Danger Zone**
 (ustawienia, zaawansowane, strefa zagrożenia)".
 
@@ -1052,3 +1052,8 @@ Translation choices for `media/tts-setup.md` in #7763, matching English source `
 
 - **Roleplay speaker extractor** is glossed once as *(rozpoznawanie mówców w trybie Roleplay)*, using the guide's speaker-detection wording with the mode carrier required by R-14.
 - **Enable emotion indicators** is glossed once as *(włącz oznaczenia emocji)*. Later prose uses *oznaczenia emocji*; voice directions are *wskazówki dotyczące głosu*.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

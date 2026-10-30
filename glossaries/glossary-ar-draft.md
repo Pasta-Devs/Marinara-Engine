@@ -67,3 +67,8 @@ actually built.
   are the surviving substance. Term-table work (prompt, token, lorebook,
   agent, …) starts fresh at cycle time and must follow the same
   evidence-and-banned-alternates format as the shipped glossaries.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

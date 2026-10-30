@@ -20,7 +20,7 @@ Los dos modos guardan las imágenes de fotogramas clave en la pestaña **Images*
 ## Instala el agente
 
 1. Abre el panel **Agents** (Agentes) desde el icono de destellos.
-2. Selecciona **Download Agents** (Descargar agentes).
+2. Selecciona **Agent Organizer** (Organizador de agentes).
 3. Abre **Storyboard** y selecciona **Install** (Instalar).
 4. Abre un chat de Roleplay o de Game, y luego abre **Chat Settings > Agents** (Ajustes del chat > Agentes).
 5. Activa **Enable Agents** (Activar agentes) y luego activa **Enable Storyboards** (Activar storyboards) en la tarjeta Storyboard.
@@ -317,7 +317,7 @@ Los ajustes antiguos son datos de migración, no una segunda implementación de 
 
 ### Storyboard no aparece en Chat Settings
 
-- Instala **Storyboard** desde **Agents > Download Agents**.
+- Instala **Storyboard** desde **Agents > Agent Organizer (Organizador de agentes)**.
 - Usa un chat de Roleplay o de Game; Conversation no es compatible.
 - Comprueba que la versión del paquete sea compatible con la versión instalada del Engine.
 

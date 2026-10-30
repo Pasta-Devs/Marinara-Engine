@@ -164,7 +164,7 @@ Local Model 也可以为世界书的语义搜索提供支持。在世界书的�
 
 **Local Speech Model**(本地语音模型) 是 Calls 的一个可选下载项，用于离线麦克风转写。选择在本机转写自己的语音时，Conversation 通话就靠它工作。它是一个 Whisper 模型，属于语音识别模型，负责把说出来的话转成文字。
 
-先从 **Agents > Download Agents** 安装 **Calls**，之后就能在 Connections 的 **Local Model** 卡片里、**Local Speech Model** 标题下管理 Whisper。没安装 Calls 时，这个标题和下载控件都是隐藏的。
+先从 **Agents > Agent Organizer(智能体管理器)** 安装 **Calls**，之后就能在 Connections 的 **Local Model** 卡片里、**Local Speech Model** 标题下管理 Whisper。没安装 Calls 时，这个标题和下载控件都是隐藏的。
 
 有两个选项：
 

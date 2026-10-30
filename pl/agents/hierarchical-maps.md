@@ -85,7 +85,7 @@ wiążącego wspólnego świata.
 
 ## Szybki start
 
-1. Otwórz sekcję **Agents** (Agenci), kliknij przycisk **Download Agents** (pobranie agentów) i zainstaluj pakiet **World Maps**.
+1. Otwórz sekcję **Agents** (Agenci), kliknij przycisk **Agent Organizer (organizowanie agentów)**  i zainstaluj pakiet **World Maps**.
 2. Uruchom aplikację Marinara Engine ponownie, gdy pojawi się prośba. Pakiet zawiera kod serwera.
 3. Otwórz czat Roleplay lub Game.
 4. Otwórz osobną ikonę globusa **World Maps**, jeśli aplikacja ją udostępnia,
@@ -108,7 +108,7 @@ i zapisana.
 ## Instalacja i włączenie pakietu
 
 Otwórz sekcję **Agents** z zakładki Sparkles na prawym pasku bocznym. Kliknij
-przycisk **Download Agents**, wybierz pakiet **World Maps** i kliknij
+przycisk **Agent Organizer (organizowanie agentów)**, wybierz pakiet **World Maps** i kliknij
 przycisk **Install**. Jeśli katalog zaproponuje potem **Update**, zainstaluj
 także tę aktualizację. Zanim zaczniesz korzystać z pakietu, uruchom aplikację
 ponownie zgodnie z komunikatem.

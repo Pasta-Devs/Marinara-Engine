@@ -20,7 +20,7 @@ O tour tem 18 etapas. Veja todas em ordem, com o título exato de cada card e o 
 4. **Lorebooks** Destaca o botão do painel **Lorebooks**, que guarda detalhes extras do mundo e dos personagens.
 5. **Presets** Destaca o botão do painel **Presets**, que controla como o prompt é montado.
 6. **Connections** Destaca o botão do painel **Connections**. O card diz que a conexão é a primeira coisa a configurar antes de conversar.
-7. **Agents** Destaca o botão do painel **Agents**, que acrescenta ajudantes por cima dos chats. O card indica **Download Agents** (baixar agentes) para instalá-los.
+7. **Agents** Destaca o botão do painel **Agents**, que acrescenta ajudantes por cima dos chats. O card indica **Agent Organizer** (organizador de agentes) para instalá-los.
 8. **Settings** Destaca o botão do painel **Settings** e abre a seção **Settings** na aba **General**.
 9. **Chats** Destaca o botão liga/desliga da barra lateral e abre a barra lateral de chats, onde ficam os chats.
 10. **Conversation Mode** Destaca a aba de conversa na barra lateral de chats. A aba em si aparece como **CONVO**.

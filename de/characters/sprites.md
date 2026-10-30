@@ -127,7 +127,7 @@ Mit dem Hochladen ist erst die Hälfte getan. Wann und wie die Sprites während 
 
 ### Roleplay Mode
 
-Im **Roleplay Mode** steuert der optionale Agent **Expression Engine** die Anzeige der Sprites. Lade ihn über **Agents → Download Agents** herunter und füge ihn dem Chat hinzu. Er erkennt die Stimmung jeder Nachricht und wählt das passende Gesichtsausdruck-Sprite. Details stehen in der [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md).
+Im **Roleplay Mode** steuert der optionale Agent **Expression Engine** die Anzeige der Sprites. Lade ihn über **Agents → Agent Organizer (Agentenverwaltung)** herunter und füge ihn dem Chat hinzu. Er erkennt die Stimmung jeder Nachricht und wählt das passende Gesichtsausdruck-Sprite. Details stehen in der [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md).
 
 Damit Sprites in einem Roleplay-Chat erscheinen, müssen alle folgenden Punkte zutreffen:
 

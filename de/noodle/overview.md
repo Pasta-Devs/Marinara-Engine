@@ -23,7 +23,7 @@ Hinweis zu den Inhalten: Die eingebauten Anweisungen, die Noodle an die KI schic
 
 Noodle ist ein herunterladbares Agentenpaket. Installiere es einmal, bevor du nach seinem Home-Tab suchst:
 
-1. Öffne **Agents** (Agenten), wähle **Download Agents** (Agenten herunterladen) und installiere **Noodle**.
+1. Öffne **Agents** (Agenten), wähle **Agent Organizer** (Agentenverwaltung) und installiere **Noodle**.
 2. Starte Marinara Engine neu, wenn du dazu aufgefordert wirst, damit Server und Home-Beiträge des Pakets geladen werden.
 3. Öffne **Home** und klick auf den Tab **Noodle** neben **Home** und **Professor**.
 

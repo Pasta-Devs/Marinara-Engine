@@ -3520,7 +3520,7 @@ Un usuario añade tu repositorio una sola vez mediante la lista de repositorios 
 
 Se aplican dos límites. Un repositorio puede contener como máximo 32 archivos JSON directamente dentro de `rulesets`; si tiene más, se rechaza. Una cuenta llamada `local` no puede publicar conjuntos de reglas, porque `local/` se reserva para los importados desde un archivo.
 
-**En el catálogo oficial.** Un sistema muy utilizado y con licencias claras puede ofrecerse a todo el mundo mediante **Download Agents** (descargar agentes). Eso requiere un pull request al repositorio [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Consulta allí el paquete `ruleset-5e-2014` para ver la estructura.
+**En el catálogo oficial.** Un sistema muy utilizado y con licencias claras puede ofrecerse a todo el mundo mediante **Agent Organizer** (Organizador de agentes). Eso requiere un pull request al repositorio [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Consulta allí el paquete `ruleset-5e-2014` para ver la estructura.
 
 ## Licencias
 

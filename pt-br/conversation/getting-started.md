@@ -105,13 +105,13 @@ Quando um personagem manda mensagem em um chat que você não está vendo, apare
 
 Os personagens podem enviar selfies, que são fotos do personagem geradas por IA. A selfie é diferente da arte de cena usada no Roleplay e no Game Mode, porque está ligada a um único personagem.
 
-Para usar as selfies, instale o agente **Illustrator** em **Agents → Download Agents**. Depois abra o painel lateral de configurações do chat, vá em **Agents → Illustrator Settings** e defina uma **Selfie Connection** (conexão para selfies). Essa conexão aponta para um provedor de geração de imagens. Cada selfie consome uma chamada de geração de imagens.
+Para usar as selfies, instale o agente **Illustrator** em **Agents → Agent Organizer (organizador de agentes)**. Depois abra o painel lateral de configurações do chat, vá em **Agents → Illustrator Settings** e defina uma **Selfie Connection** (conexão para selfies). Essa conexão aponta para um provedor de geração de imagens. Cada selfie consome uma chamada de geração de imagens.
 
 A configuração completa, com estilo, resolução e o botão de pedido manual, está em [Selfies](selfies.md).
 
 ## Jogos de mesa
 
-O Conversation Mode tem seis pacotes opcionais de jogos de mesa: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** e **Rock-Paper-Scissors**. Instale os jogos que quiser em **Agents → Download Agents**. O aplicativo distribui as peças, aplica as regras e faz cada personagem narrar as próprias jogadas sem sair do papel. Os jogos de mesa funcionam apenas em chats do Conversation.
+O Conversation Mode tem seis pacotes opcionais de jogos de mesa: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** e **Rock-Paper-Scissors**. Instale os jogos que quiser em **Agents → Agent Organizer (organizador de agentes)**. O aplicativo distribui as peças, aplica as regras e faz cada personagem narrar as próprias jogadas sem sair do papel. Os jogos de mesa funcionam apenas em chats do Conversation.
 
 Há três formas de começar uma partida:
 

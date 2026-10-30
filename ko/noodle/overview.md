@@ -23,7 +23,7 @@ Noodle 활동은 선택 기능이며 기본값은 꺼짐입니다. 캐릭터를 
 
 Noodle은 내려받아 설치하는 에이전트 패키지입니다. Home 탭을 찾기 전에 한 번 설치하세요.
 
-1. **Agents**(에이전트)를 열고 **Download Agents**(에이전트 다운로드)를 선택한 다음 **Noodle**을 설치하세요.
+1. **Agents**(에이전트)를 열고 **Agent Organizer** (에이전트 관리)를 선택한 다음 **Noodle**을 설치하세요.
 2. 안내가 나오면 Marinara Engine을 다시 시작하세요. 그래야 Noodle의 서버 기능과 Home 구성 요소가 불러와집니다.
 3. **Home**(홈)을 열고 **Home**과 **Professor**(교수님) 옆에 있는 **Noodle** 탭을 클릭하세요.
 

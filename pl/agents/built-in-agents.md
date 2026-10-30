@@ -1,6 +1,6 @@
 # Agenci do pobrania: przegląd pakietów
 
-Ten przewodnik opisuje oficjalne pakiety twórców aplikacji Marinara Engine, dostępnych w sekcji **Agents → Download Agents** (agenci → pobieranie agentów), z podziałem na kategorie. Świeża instalacja aplikacji Marinara Engine nie zawiera żadnych agentów. Źródła pakietów, manifesty, artefakty i katalog do odczytu maszynowego znajdują się w repozytorium [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Przy każdym agencie znajdziesz opis tego, co robi, kiedy się uruchamia lub jak się integruje, w których trybach czatu działa i jakie ma najważniejsze ustawienia. O instalacji i włączaniu przeczytaj najpierw w przewodniku [Agenci: pomocnicy AI](agents-overview.md). Pozycje oznaczone jako **staging only** (tylko staging) są dostępne dla użytkowników wersji staging aplikacji Marinara Engine; użytkownicy wersji stabilnej zobaczą je po opublikowaniu pakietu w kanale stabilnym.
+Ten przewodnik opisuje oficjalne pakiety twórców aplikacji Marinara Engine, dostępnych w sekcji **Agents → Agent Organizer (organizowanie agentów)** (agenci → pobieranie agentów), z podziałem na kategorie. Świeża instalacja aplikacji Marinara Engine nie zawiera żadnych agentów. Źródła pakietów, manifesty, artefakty i katalog do odczytu maszynowego znajdują się w repozytorium [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Przy każdym agencie znajdziesz opis tego, co robi, kiedy się uruchamia lub jak się integruje, w których trybach czatu działa i jakie ma najważniejsze ustawienia. O instalacji i włączaniu przeczytaj najpierw w przewodniku [Agenci: pomocnicy AI](agents-overview.md). Pozycje oznaczone jako **staging only** (tylko staging) są dostępne dla użytkowników wersji staging aplikacji Marinara Engine; użytkownicy wersji stabilnej zobaczą je po opublikowaniu pakietu w kanale stabilnym.
 
 ## Jak czytać ten przegląd
 
@@ -30,7 +30,7 @@ Dodaje opcjonalną lokalną publiczną oś czasu Noodle. Otwiera się w osobnej 
 
 - **Integracja**: pakiet funkcji; udostępnia zakładkę Home, lokalne trasy, procesy generowania i multimediów oraz harmonogramy w tle.
 - **Gdzie działa**: Home, z opcjonalnym kontekstem przenoszonym z czatów Conversation, Roleplay i Game.
-- **Najważniejsze ustawienia**: zainstaluj go przez **Agents → Download Agents** i uruchom ponownie Marinara Engine, gdy pojawi się taka prośba. W Noodle możesz skonfigurować zaproszone konta, połączenia tekstowe i obrazowe, odświeżanie osi czasu, losowych użytkowników oraz przenoszenie treści do czatów.
+- **Najważniejsze ustawienia**: zainstaluj go przez **Agents → Agent Organizer (organizowanie agentów)** i uruchom ponownie Marinara Engine, gdy pojawi się taka prośba. W Noodle możesz skonfigurować zaproszone konta, połączenia tekstowe i obrazowe, odświeżanie osi czasu, losowych użytkowników oraz przenoszenie treści do czatów.
 - **Cykl życia danych**: odinstalowanie usuwa zakładkę Home i po ponownym uruchomieniu zatrzymuje trasy oraz harmonogramy pakietu, zachowując istniejące dane Noodle na wypadek późniejszej instalacji.
 - **Pełny przewodnik**: [Noodle: wbudowana oś czasu społecznościowa](../noodle/overview.md).
 
@@ -40,7 +40,7 @@ Prywatna aplikacja społecznościowa dla twoich postaci. Zamieniaj postacie i pe
 
 - **Integracja**: aplikacja; otwiera się we własnej zakładce **Slurp** w **Home**.
 - **Gdzie działa**: Home.
-- **Najważniejsze ustawienia**: zainstaluj ją przez **Agents → Download Agents**, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Slurp**. Żeby postacie z czatu pamiętały swoje ostatnie wpisy i wiadomości z zakładki Slurp, włącz **Include Slurp activity** (uwzględnianie aktywności w Slurp) w **Chat Settings** tego czatu, w sekcji **Connected Chats** (połączone czaty). W ustawieniach Slurp przenoszenie treści do czatów musi być też włączone dla tego trybu czatu. **Slurp Settings → Autopurge** (ustawienia Slurp → automatyczne czyszczenie) usuwa stare multimedia Slurp, żeby oszczędzać miejsce; domyślnie jest wyłączone.
+- **Najważniejsze ustawienia**: zainstaluj ją przez **Agents → Agent Organizer (organizowanie agentów)**, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Slurp**. Żeby postacie z czatu pamiętały swoje ostatnie wpisy i wiadomości z zakładki Slurp, włącz **Include Slurp activity** (uwzględnianie aktywności w Slurp) w **Chat Settings** tego czatu, w sekcji **Connected Chats** (połączone czaty). W ustawieniach Slurp przenoszenie treści do czatów musi być też włączone dla tego trybu czatu. **Slurp Settings → Autopurge** (ustawienia Slurp → automatyczne czyszczenie) usuwa stare multimedia Slurp, żeby oszczędzać miejsce; domyślnie jest wyłączone.
 - **Starsze nazwy**: starsze katalogi pokazują ją jako **Slurp Remastered**, obok wycofanego pakietu **Slurp Legacy**. Slurp Legacy nie dostaje już aktualizacji.
 - **Pełny przewodnik**: [Przewodnik pakietu Slurp](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/slurp2/README.md).
 
@@ -50,7 +50,7 @@ Kompletna gra typu gacha. Opisz świat, a Gacha Forge zbuduje resztę: banery do
 
 - **Integracja**: aplikacja; otwiera się we własnej zakładce **Gacha Forge** w **Home**.
 - **Gdzie działa**: Home.
-- **Najważniejsze ustawienia**: zainstaluj ją przez **Agents → Download Agents**, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Gacha Forge**. Odinstalowanie usuwa zakładkę po ponownym uruchomieniu.
+- **Najważniejsze ustawienia**: zainstaluj ją przez **Agents → Agent Organizer (organizowanie agentów)**, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Gacha Forge**. Odinstalowanie usuwa zakładkę po ponownym uruchomieniu.
 - **Pełny przewodnik**: [Przewodnik pakietu Gacha Forge](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/gacha-forge/README.md).
 
 ### Modern Life Sim
@@ -60,7 +60,7 @@ Symulacja życia. Żyjesz w małym miasteczku według zegara: trzeba znaleźć i
 - **Integracja**: aplikacja; otwiera się we własnej zakładce **Life Sim** w **Home**.
 - **Gdzie działa**: Home.
 - **Dostępność**: **Staging only**; wymaga aplikacji Marinara Engine w wersji **2.4.4+** (< 4.0.0). To wersja alfa. Jeśli aktualizacja zmieni coś, od czego zależy starszy zapis gry, Life Sim poinformuje o tym przy otwarciu tego zapisu, a ty możesz zacząć nowe życie albo grać dalej na własne ryzyko.
-- **Najważniejsze ustawienia**: zainstaluj ją przez **Agents → Download Agents**, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Life Sim**. Wymaga połączenia tekstowego. Połączenie obrazowe jest opcjonalne: bez niego miejsca pokazują ilustrowane karty zamiast generowanych teł. Opcjonalne moduły pozostają wyłączone, dopóki nie włączysz ich dla danego życia; moduł **Adult** (dla dorosłych) prosi o potwierdzenie pełnoletności.
+- **Najważniejsze ustawienia**: zainstaluj ją przez **Agents → Agent Organizer (organizowanie agentów)**, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Life Sim**. Wymaga połączenia tekstowego. Połączenie obrazowe jest opcjonalne: bez niego miejsca pokazują ilustrowane karty zamiast generowanych teł. Opcjonalne moduły pozostają wyłączone, dopóki nie włączysz ich dla danego życia; moduł **Adult** (dla dorosłych) prosi o potwierdzenie pełnoletności.
 - **Pełny przewodnik**: [Przewodnik pakietu Modern Life Sim](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
 ### Story Writer
@@ -69,8 +69,8 @@ Książka, którą piszesz wspólnie z modelem. Ustaw fabułę, obsadę i lorebo
 
 - **Integracja**: aplikacja; otwiera się we własnej zakładce **Story Writer** w **Home**.
 - **Gdzie działa**: Home.
-- **Dostępność**: wymaga aplikacji Marinara Engine w wersji nowszej niż **v2.5.1** (następnego wydania albo aktualnej wersji staging). Starsze wersje silnika nie pokazują tego pakietu w **Download Agents**.
-- **Najważniejsze ustawienia**: zainstaluj go przez **Agents → Download Agents**, uruchom aplikację Marinara Engine ponownie, gdy pojawi się prośba, a potem otwórz **Home → Story Writer** i wybierz połączenie tekstowe na pasku bocznym. Każda historia jest zapisywana na twoim serwerze Marinara Engine. Możesz zaczynać nowe historie, wracać do wcześniejszych i pobierać je jako Markdown albo zwykły tekst.
+- **Dostępność**: wymaga aplikacji Marinara Engine w wersji nowszej niż **v2.5.1** (następnego wydania albo aktualnej wersji staging). Starsze wersje silnika nie pokazują tego pakietu w **Agent Organizer (organizowanie agentów)**.
+- **Najważniejsze ustawienia**: zainstaluj go przez **Agents → Agent Organizer (organizowanie agentów)**, uruchom aplikację Marinara Engine ponownie, gdy pojawi się prośba, a potem otwórz **Home → Story Writer** i wybierz połączenie tekstowe na pasku bocznym. Każda historia jest zapisywana na twoim serwerze Marinara Engine. Możesz zaczynać nowe historie, wracać do wcześniejszych i pobierać je jako Markdown albo zwykły tekst.
 - **Pełny przewodnik**: [Przewodnik pakietu Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
 ## Agenci piszący
@@ -218,7 +218,7 @@ Zarządza ekwipunkiem aktywnej persony, miejscami na wyposażenie, liczbą przed
 - **Faza**: Post-Processing, z kontekstem ekwipunku przekazywanym do kolejnych odpowiedzi.
 - **Gdzie działa**: Roleplay; śledzi aktywną personę, a nie członków drużyny ani NPC.
 - **Dostępność**: wymaga aplikacji Marinara Engine w wersji **2.4.6+**.
-- **Instalacja i włączanie**: zainstaluj **Quartermaster** w sekcji **Agents → Download Agents** i uruchom aplikację ponownie, gdy pojawi się prośba. W każdym czacie Roleplay włącz agentów w sekcji **Chat Settings → Agents** (ustawienia czatu → agenci), dodaj Quartermaster w grupie **Tracker Agents** (agenci śledzący stan) i wybierz połączenie z modelem. Otwórz pływający panel przyciskiem nad Tracker Panel.
+- **Instalacja i włączanie**: zainstaluj **Quartermaster** w sekcji **Agents → Agent Organizer (organizowanie agentów)** i uruchom aplikację ponownie, gdy pojawi się prośba. W każdym czacie Roleplay włącz agentów w sekcji **Chat Settings → Agents** (ustawienia czatu → agenci), dodaj Quartermaster w grupie **Tracker Agents** (agenci śledzący stan) i wybierz połączenie z modelem. Otwórz pływający panel przyciskiem nad Tracker Panel.
 - **Najważniejsze opcje**: zakładanie i przechowywanie przedmiotów, zapisywanie strojów, przywracanie ekwipunku lub cofanie ostatnich zmian trackera oraz eksport i import konfiguracji czatu. Generowanie obrazów wymaga osobno skonfigurowanego połączenia obrazowego. Makro wyglądu i zastępowanie awatara persony są opcjonalne; przed włączeniem przeczytaj [przewodnik pakietu Quartermaster](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/quartermaster/README.md).
 
 ### Relationship Tracker
@@ -228,7 +228,7 @@ Utrzymuje edytowalną sieć relacji między kartami postaci przypisanymi do grup
 - **Faza**: Post-Processing, z kontekstem relacji przekazywanym do kolejnych odpowiedzi.
 - **Gdzie działa**: grupowe czaty Roleplay.
 - **Dostępność**: wymaga aplikacji Marinara Engine w wersji **2.4.4+** (< 4.0.0).
-- **Instalacja i włączanie**: zainstaluj **Relationship Tracker** w sekcji **Agents → Download Agents** i uruchom aplikację ponownie, gdy pojawi się prośba. W każdym czacie Roleplay włącz agentów w sekcji **Chat Settings → Agents**, dodaj pakiet w grupie **Tracker Agents** i wybierz połączenie z modelem. Sieć pojawi się w Tracker Panel. Przed edycją lub aktualizacją relacji wybierz tam raz **All relationships** (wszystkie relacje) albo **Scene-only relationships** (tylko relacje w scenie), aby zainicjować czat.
+- **Instalacja i włączanie**: zainstaluj **Relationship Tracker** w sekcji **Agents → Agent Organizer (organizowanie agentów)** i uruchom aplikację ponownie, gdy pojawi się prośba. W każdym czacie Roleplay włącz agentów w sekcji **Chat Settings → Agents**, dodaj pakiet w grupie **Tracker Agents** i wybierz połączenie z modelem. Sieć pojawi się w Tracker Panel. Przed edycją lub aktualizacją relacji wybierz tam raz **All relationships** (wszystkie relacje) albo **Scene-only relationships** (tylko relacje w scenie), aby zainicjować czat.
 - **Najważniejsze opcje**: **All relationships** lub **Scene-only relationships** określają kontekst promptu, **Update from History** (aktualizuj z historii) skanuje ograniczoną liczbę ostatnich wiadomości; dostępne są też ręczna edycja, blokowanie i **Resume automatic updates** (wznów automatyczne aktualizacje). **Context Size** (rozmiar kontekstu; domyślnie 5 wiadomości), **Presence lookback** (zakres sprawdzania obecności; domyślnie 15) i liczba wiadomości skanowanych z historii to osobne ustawienia. Najedź kursorem na linię lub ustaw na niej fokus klawiaturą, aby ją odczytać; na ekranie dotykowym lub przy użyciu rysika naciśnij linię. Zobacz [przewodnik pakietu Relationship Tracker](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/relationship-tracker/README.md).
 
 ### Memory Nag
@@ -346,7 +346,7 @@ Pokazuje twoje postacie i persony jako animowane awatary 2D, które mrugają, m�
 
 - **Integracja**: pakiet agenta – silnik go uruchamia i rysuje awatary. Podczas czatu nie wysyła żadnych dodatkowych zapytań do twoich połączeń AI.
 - **Gdzie działa**: Roleplay i Game, dla postaci i person.
-- **Dostępność**: na ekranie **Download Agents** w każdej instalacji. Wymaga aplikacji Marinara Engine w wersji 2.5.1 lub nowszej.
+- **Dostępność**: na ekranie **Agent Organizer (organizowanie agentów)** w każdej instalacji. Wymaga aplikacji Marinara Engine w wersji 2.5.1 lub nowszej.
 - **Najważniejsze ustawienia**: każdy awatar konfigurujesz na stronie agenta w panelu **Agents**. Agent zawiera też prompty, za pomocą których z jednego z twoich sprite'ów powstają obrazki mrugania i mówienia oraz awatar mesh.
 - **Zgodność**: silnik od wersji `2.5.0` do wersji sprzed `4.0.0`, z Capability API 1.73. Pakiet korzysta z uprawnień `agent-runtime`, `chat-read`, `storage` i `ui`, a jego instalacja nie wymaga ponownego uruchomienia.
 - **Pełny przewodnik**: [Awatary 2D i 3D](avatars.md).
@@ -357,7 +357,7 @@ Pokazuje twoje postacie i persony jako animowane modele 3D, które mrugają, mó
 
 - **Integracja**: pakiet agenta – silnik go uruchamia i rysuje awatary. Podczas czatu nie wysyła żadnych dodatkowych zapytań do twoich połączeń AI.
 - **Gdzie działa**: Roleplay i Game, dla postaci i person.
-- **Dostępność**: na ekranie **Download Agents** w każdej instalacji. Wymaga aplikacji Marinara Engine w wersji 2.5.1 lub nowszej.
+- **Dostępność**: na ekranie **Agent Organizer (organizowanie agentów)** w każdej instalacji. Wymaga aplikacji Marinara Engine w wersji 2.5.1 lub nowszej.
 - **Najważniejsze ustawienia**: każdy awatar konfigurujesz na stronie agenta w panelu **Agents**.
 - **Zgodność**: silnik od wersji `2.5.0` do wersji sprzed `4.0.0`, z Capability API 1.73. Pakiet korzysta z uprawnień `agent-runtime`, `chat-read`, `storage` i `ui`, a jego instalacja nie wymaga ponownego uruchomienia.
 - **Pełny przewodnik**: [Awatary 2D i 3D](avatars.md).

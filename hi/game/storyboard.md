@@ -20,7 +20,7 @@
 ## एजेंट इंस्टॉल करें
 
 1. Sparkles आइकन से **Agents** (एजेंट) पैनल खोलें।
-2. **Download Agents** चुनें।
+2. **Agent Organizer (एजेंट व्यवस्थित करें)** चुनें।
 3. **Storyboard** खोलें और **Install** चुनें।
 4. कोई Roleplay या Game चैट खोलें, फिर **Chat Settings > Agents** (चैट सेटिंग्स > एजेंट) खोलें।
 5. **Enable Agents** चालू करें, फिर Storyboard कार्ड में **Enable Storyboards** चालू करें।
@@ -317,7 +317,7 @@ Storyboard एजेंट Standard और Storyboard Optimized, दोनों
 
 ### Chat Settings में Storyboard नहीं दिखता
 
-- **Agents > Download Agents** से **Storyboard** इंस्टॉल करें।
+- **Agents > Agent Organizer (एजेंट व्यवस्थित करें)** से **Storyboard** इंस्टॉल करें।
 - Roleplay या Game चैट इस्तेमाल करें; Conversation में यह नहीं चलता।
 - जाँच लें कि पैकेज का वर्ज़न इंस्टॉल किए हुए Engine वर्ज़न के साथ चलता है।
 

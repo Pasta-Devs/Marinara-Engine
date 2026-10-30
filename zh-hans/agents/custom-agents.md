@@ -258,7 +258,7 @@ Marinara 读取 `editedText`，把它换进回复里，于是消息就成了英�
 
 一次导出多个智能体，可以在 **Agents** 面板里用 **Select agents**(选择智能体)，勾选需要的智能体，然后整组导出。
 
-外部智能体导入默认是锁住的。先打开 **Settings → Advanced → Danger Zone**，启用 **Allow custom Agent imports**(允许导入自定义智能体)。这个开关不需要改 `.env`。它只影响通过文件、文件夹或自定义仓库提供的智能体：在 Marinara 里自己创建的智能体，以及通过 **Download Agents**(下载智能体) 安装的官方智能体，照常可用。
+外部智能体导入默认是锁住的。先打开 **Settings → Advanced → Danger Zone**，启用 **Allow custom Agent imports**(允许导入自定义智能体)。这个开关不需要改 `.env`。它只影响通过文件、文件夹或自定义仓库提供的智能体：在 Marinara 里自己创建的智能体，以及通过 **Agent Organizer** (智能体管理器) 安装的官方智能体，照常可用。
 
 要导入，打开 **Agents** 面板，单个文件点 **Import agents**(导入智能体)，整个文件夹点 **Import agent folder**(导入智能体文件夹)。在存下任何内容之前，Marinara 都会先弹出一次权限审核。只批准这个智能体确实需要的能力，没勾选的能力保持禁用。每次文件导入都会得到一个新的自定义身份，所以它无法顶替内部类型相同的官方智能体。
 

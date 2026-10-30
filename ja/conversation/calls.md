@@ -4,7 +4,7 @@
 
 通話が使えるのはConversationモードだけです。RoleplayとGameのチャットに通話画面はありません。
 
-Callsは任意で追加するエージェントパッケージです。以下の設定に進む前に**Agents → Download Agents**から**Calls**をインストールし、カタログから求められたらMarinaraを再起動してください。
+Callsは任意で追加するエージェントパッケージです。以下の設定に進む前に**Agents → Agent Organizer (エージェント管理)**から**Calls**をインストールし、カタログから求められたらMarinaraを再起動してください。
 
 ## 通話とは
 
@@ -93,7 +93,7 @@ Callsをアンインストールすると、ダウンロード済みのWhisper�
 
 Marinaraと同じコンピューター上のサーバーは、そのまま使えます。自宅のネットワーク内にある別のコンピューターのサーバーは、サーバーの`.env`ファイルで`STT_LOCAL_URLS_ENABLED=true`を設定しない限り拒否されます。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
 
-この機能には、対応したバージョンのCallsが必要です。スイッチをオンにしても通話がLocal Whisperを使い続ける場合は、**Agents → Download Agents**からCallsをアップデートしてください。
+この機能には、対応したバージョンのCallsが必要です。スイッチをオンにしても通話がLocal Whisperを使い続ける場合は、**Agents → Agent Organizer (エージェント管理)**からCallsをアップデートしてください。
 
 ## チャットで通話をオンにする
 

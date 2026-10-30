@@ -4,7 +4,7 @@ Ce guide explique les appels du mode **Conversation** dans Marinara Engine. Au p
 
 Les appels existent uniquement en mode **Conversation**. Les chats Roleplay et Game Mode n'ont pas d'écran d'appel.
 
-Calls est un package d'agents optionnel. Installe **Calls** depuis **Agents → Download Agents** (télécharger des agents) avant de suivre la configuration ci-dessous, puis redémarre Marinara quand le catalogue te le demande.
+Calls est un package d'agents optionnel. Installe **Calls** depuis **Agents → Agent Organizer (organisateur d’agents)**  avant de suivre la configuration ci-dessous, puis redémarre Marinara quand le catalogue te le demande.
 
 ## Ce qu'est un appel
 
@@ -93,7 +93,7 @@ Tant que l'interrupteur est activé, **Mic recording + Local Whisper** envoie ta
 
 Un serveur situé sur la même machine que Marinara fonctionne tel quel. Un serveur situé sur une autre machine de ton réseau domestique est refusé, sauf si tu définis `STT_LOCAL_URLS_ENABLED=true` dans le fichier `.env` du serveur. Voir [Référence de configuration du serveur](../CONFIGURATION.md).
 
-Cette fonction nécessite une version de Calls qui la prend en charge. Si les appels utilisent toujours Local Whisper une fois l'interrupteur activé, mets à jour Calls depuis **Agents → Download Agents**.
+Cette fonction nécessite une version de Calls qui la prend en charge. Si les appels utilisent toujours Local Whisper une fois l'interrupteur activé, mets à jour Calls depuis **Agents → Agent Organizer (organisateur d’agents)**.
 
 ## Activer les appels pour un chat
 

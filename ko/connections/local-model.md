@@ -164,7 +164,7 @@ Game Mode에서는 장면 관련 작업도 Local Model로 넘길 수 있습니�
 
 **Local Speech Model**은 오프라인 마이크 받아쓰기를 위해 Calls에서 선택적으로 다운로드하는 모델입니다. 목소리를 컴퓨터 안에서 직접 받아쓰도록 설정했을 때 Conversation 통화에 쓰입니다. 말한 내용을 글로 바꿔 주는 음성-텍스트 변환 모델인 Whisper 모델입니다.
 
-먼저 **Agents > Download Agents**에서 **Calls**를 설치하세요. 그러면 Connections의 **Local Model** 카드에 있는 **Local Speech Model** 항목에서 Whisper를 관리할 수 있습니다. Calls를 설치하지 않았다면 이 제목과 다운로드 컨트롤은 나타나지 않습니다.
+먼저 **Agents > Agent Organizer (에이전트 관리)**에서 **Calls**를 설치하세요. 그러면 Connections의 **Local Model** 카드에 있는 **Local Speech Model** 항목에서 Whisper를 관리할 수 있습니다. Calls를 설치하지 않았다면 이 제목과 다운로드 컨트롤은 나타나지 않습니다.
 
 선택지는 두 가지입니다.
 

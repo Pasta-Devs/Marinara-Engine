@@ -880,7 +880,7 @@ Pas de lorebook de règles en v1. Le bloc de consignes et celui de fiche suffise
 
 | Voie | Comment | Convient à |
 | --- | --- | --- |
-| Catalogue officiel | Proposer un paquet par PR à Marinara-Agents ; installation en un clic depuis **Download Agents** (télécharger des agents) | Systèmes largement joués avec des licences claires |
+| Catalogue officiel | Proposer un paquet par PR à Marinara-Agents ; installation en un clic depuis **Agent Organizer** (organisateur d’agents) | Systèmes largement joués avec des licences claires |
 | Dépôt personnalisé | La voie existante des dépôts d'agents personnalisés lit aussi `rulesets/*.json`. L'utilisateur ajoute une fois l'URL GitHub de l'auteur, examine l'aperçu et reçoit les mises à jour de la même façon | Auteur ayant plusieurs systèmes ; le dépôt du demandeur a déjà cette structure |
 | Fichier unique | **Import ruleset** (importer un ensemble de règles) accepte un `ruleset.json` | Itération locale ou fichier donné à un ami |
 

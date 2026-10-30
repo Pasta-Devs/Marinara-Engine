@@ -228,7 +228,7 @@ All figures below are whole-pack counts over the shipped bytes.
 |---|---|
 | **Straight ASCII double quotes only** (`"…"`). Curly quotes `“ ” ‘ ’` and guillemets `« »` are banned — Portuguese typographic quotes are *not* used in this pack. | `“ ” ‘ ’` **0 occurrences**; `« »` **0**. `TROUBLESHOOTING.md:330` `"Opening chat..."`; `home/achievements.md:61`. Matches `CONTRIBUTING.md:237` ("straight quotes"). |
 | **En dash `–` is the parenthetical dash**, spaced. Em dash `—` is not the house dash. | `–` 54 hits in 11 files (`lorebooks/entries.md:174,179,185`; `game/game-assets.md:95`; `agents/hierarchical-maps.md:613`); `—` only 7, in 4 files, all residual (§7.3, residual 1). `CONTRIBUTING.md:237` says "en dashes". |
-| **Menu paths use `→`**, normally inside a single bold span, then one Portuguese gloss with the same arrows. 45 of the 82 arrows sit inside a bold span; the other 37 are in glosses, backticked location paths, or the four unbolded table cells noted below. | `→` 82 hits in 21 files. `agents/built-in-agents.md:3` `**Agents → Download Agents** (agentes → baixar agentes)`; `CONFIGURATION.md:31` `**Settings → Advanced → Danger Zone** (Configurações → Avançado → Zona de perigo)`. Non-menu uses that are correct: backticked Maps hierarchies (`agents/hierarchical-maps.md:389,513,705` — `` `Tower → Floor 7 → Alchemy Lab` ``) and "then" between two bold labels (`lorebooks/entries.md:377`). Unbolded menu paths inside table cells — `CONFIGURATION.md:243,316`, 4 arrows — are residual (§7.3, residual 9). |
+| **Menu paths use `→`**, normally inside a single bold span, then one Portuguese gloss with the same arrows. 45 of the 82 arrows sit inside a bold span; the other 37 are in glosses, backticked location paths, or the four unbolded table cells noted below. | `→` 82 hits in 21 files. `agents/built-in-agents.md:3` `**Agents → Agent Organizer** (agentes → Organizador de agentes)`; `CONFIGURATION.md:31` `**Settings → Advanced → Danger Zone** (Configurações → Avançado → Zona de perigo)`. Non-menu uses that are correct: backticked Maps hierarchies (`agents/hierarchical-maps.md:389,513,705` — `` `Tower → Floor 7 → Alchemy Lab` ``) and "then" between two bold labels (`lorebooks/entries.md:377`). Unbolded menu paths inside table cells — `CONFIGURATION.md:243,316`, 4 arrows — are residual (§7.3, residual 9). |
 | **No NBSP, no narrow NBSP, no soft hyphen, no ideographic space, no zero-width joiner.** Portuguese needs no pre-punctuation space. | U+00A0 **0**, U+202F **0**, U+2011 **0**, U+00AD **0**, U+3000 **0**, U+200B **0**, U+200D **0**. Also U+2212 (minus), U+2012, U+2015, U+2032: all **0**. |
 | **Ellipsis: never author one.** `…` (U+2026, 15 hits in 8 files) and `...` (ASCII, 102 hits) appear **only** where they are copied byte-exact out of an English UI string, an English code/XML placeholder, or a path pattern that English also shows with an ellipsis. Do not normalise either direction. | `…`: UI labels at `UPGRADING.md:27,135,139,182`, `lorebooks/entries.md:13,31`, `characters/creating-and-editing-characters.md:29`, `connections/connecting-to-a-provider.md:34`, `data/backup-and-restore.md:30`; non-label but still English-mirrored at `TROUBLESHOOTING.md:275` (`` `messages.post-unshard-…` ``), `agents/built-in-agents.md:160` (`<memory_nags>…</memory_nags>`), `development/localization.md:51` (a Polish sample string). ASCII form at `TROUBLESHOOTING.md:330` `"Opening chat..."`, `characters/bot-browser.md:34,57,136` (**Search characters...**, **Importing...**). See §5.1 for why. |
 | **Decimal comma, thousands period** — Brazilian convention, in prose and tables. | `connections/local-model.md:72,73,77` "cerca de 5,4 GB", "cerca de 3,6 GB"; `game/combat.md:43` "multiplica o total por 1,5"; `agents/built-in-agents.md:200` "16.384"; `conversation/table-games.md:109` "1.000". |
@@ -273,7 +273,7 @@ every bold span is an English label: some bold Portuguese, so 6 752 is an upper 
 not glosses):
 
 ```
-Abra **Agents → Download Agents** (baixar agentes) para instalar ou desinstalar.
+Abra **Agents → Agent Organizer** (Organizador de agentes) para instalar ou desinstalar.
 ```
 `CONFIGURATION.md:20`. More: `installation/android-termux.md:90` `**Settings**
 (Configurações)`, `**Check for Updates**` (procurar atualizações), `**Apply Update**`
@@ -694,3 +694,8 @@ Precedent from the #7763 sync (`media/tts-setup.md`):
 
 - **Roleplay speaker extractor** is glossed **(identificação de falantes em Roleplay)**.
 - **Enable emotion indicators** is glossed **(ativar indicadores de emoção)**.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

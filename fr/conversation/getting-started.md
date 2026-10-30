@@ -105,13 +105,13 @@ Quand un personnage t'écrit dans un chat que tu n'as pas sous les yeux, une bul
 
 Les personnages peuvent t'envoyer des selfies, c'est-à-dire des photos du personnage générées par l'IA. Un selfie n'est pas une illustration de scène comme dans le mode Roleplay ou dans Game Mode : il est lié à un seul personnage.
 
-Pour utiliser les selfies, installe **Illustrator** depuis **Agents → Download Agents**. Ouvre ensuite le panneau latéral des réglages du chat, va dans **Agents → Illustrator Settings**, puis renseigne le champ **Selfie Connection**. Une connexion de selfie pointe vers un fournisseur de génération d'images. Chaque selfie consomme un appel de génération d'images.
+Pour utiliser les selfies, installe **Illustrator** depuis **Agents → Agent Organizer (organisateur d’agents)**. Ouvre ensuite le panneau latéral des réglages du chat, va dans **Agents → Illustrator Settings**, puis renseigne le champ **Selfie Connection**. Une connexion de selfie pointe vers un fournisseur de génération d'images. Chaque selfie consomme un appel de génération d'images.
 
 La configuration complète, avec le style, la résolution et le bouton de demande manuelle, est détaillée dans [Selfies](selfies.md).
 
 ## Jeux de table
 
-Le mode Conversation propose six packages de jeux de table facultatifs : **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** et **Rock-Paper-Scissors**. Installe les jeux qui t'intéressent depuis **Agents → Download Agents**. L'application met en place le plateau de jeu, applique les règles et fait narrer à chaque personnage ses propres coups, en restant dans son rôle. Les jeux de table ne fonctionnent que dans les chats en mode Conversation.
+Le mode Conversation propose six packages de jeux de table facultatifs : **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** et **Rock-Paper-Scissors**. Installe les jeux qui t'intéressent depuis **Agents → Agent Organizer (organisateur d’agents)**. L'application met en place le plateau de jeu, applique les règles et fait narrer à chaque personnage ses propres coups, en restant dans son rôle. Les jeux de table ne fonctionnent que dans les chats en mode Conversation.
 
 Une partie se lance de trois façons :
 

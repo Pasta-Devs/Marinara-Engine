@@ -105,13 +105,13 @@ Kiedy postać napisze w czacie, którego akurat nie oglądasz, przy krawędzi ek
 
 Postacie mogą przysyłać selfie, czyli zdjęcia postaci wygenerowane przez AI. Selfie różni się od grafiki scen z trybów Roleplay i Game Mode, bo jest przypisane do jednej postaci.
 
-Żeby korzystać z selfie, zainstaluj agenta **Illustrator** przez **Agents → Download Agents**. Następnie otwórz panel boczny ustawień czatu, przejdź do **Agents → Illustrator Settings** i ustaw **Selfie Connection**. Połączenie do selfie to dostawca generowania obrazów. Każde selfie kosztuje jedno wywołanie generowania obrazu.
+Żeby korzystać z selfie, zainstaluj agenta **Illustrator** przez **Agents → Agent Organizer (organizowanie agentów)**. Następnie otwórz panel boczny ustawień czatu, przejdź do **Agents → Illustrator Settings** i ustaw **Selfie Connection**. Połączenie do selfie to dostawca generowania obrazów. Każde selfie kosztuje jedno wywołanie generowania obrazu.
 
 Pełną konfigurację, w tym styl, rozdzielczość i przycisk ręcznego zamówienia, opisuje przewodnik [Selfie](selfies.md).
 
 ## Gry przy stole
 
-Tryb Conversation ma sześć opcjonalnych pakietów z grami przy stole: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** i **Rock-Paper-Scissors**. Wybrane gry zainstaluj przez **Agents → Download Agents**. Aplikacja przygotowuje stół, pilnuje zasad, a każda postać opisuje własne ruchy zgodnie ze swoją osobowością. Gry przy stole działają wyłącznie w czatach Conversation.
+Tryb Conversation ma sześć opcjonalnych pakietów z grami przy stole: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** i **Rock-Paper-Scissors**. Wybrane gry zainstaluj przez **Agents → Agent Organizer (organizowanie agentów)**. Aplikacja przygotowuje stół, pilnuje zasad, a każda postać opisuje własne ruchy zgodnie ze swoją osobowością. Gry przy stole działają wyłącznie w czatach Conversation.
 
 Grę można zacząć na trzy sposoby:
 

@@ -20,7 +20,7 @@ Samouczek ma 18 kroków. Oto one po kolei, z dokładnym tytułem każdej karty i
 4. **Lorebooks** Podświetla przycisk panelu **Lorebooks**, czyli miejsce na dodatkowe szczegóły o świecie i postaciach.
 5. **Presets** Podświetla przycisk panelu **Presets**, który steruje sposobem budowania promptu, czyli tekstu wysyłanego do AI.
 6. **Connections** Podświetla przycisk panelu **Connections**. Karta mówi, że połączenia to pierwsza rzecz do skonfigurowania przed rozpoczęciem czatu.
-7. **Agents** Podświetla przycisk panelu **Agents**, czyli agentów, którzy dokładają dodatkowe możliwości do czatów. Karta kieruje do **Download Agents** (pobieranie agentów), gdzie można ich zainstalować.
+7. **Agents** Podświetla przycisk panelu **Agents**, czyli agentów, którzy dokładają dodatkowe możliwości do czatów. Karta kieruje do **Agent Organizer** (organizowanie agentów), gdzie można ich zainstalować.
 8. **Settings** Podświetla przycisk panelu **Settings** i otwiera panel **Settings** na zakładce **General**.
 9. **Chats** Podświetla przełącznik paska bocznego i otwiera pasek boczny z czatami.
 10. **Conversation Mode** Podświetla zakładkę trybu Conversation na pasku bocznym czatów. Sama zakładka nosi nazwę **CONVO**.

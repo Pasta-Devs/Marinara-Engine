@@ -4,7 +4,7 @@
 
 通话只存在于 Conversation(对话模式)。Roleplay 和 Game 聊天没有通话界面。
 
-Calls 是一个可选的智能体包。按下面的步骤配置之前，先从 **Agents → Download Agents**(智能体 → 下载智能体) 安装 **Calls**，目录提示时重启 Marinara。
+Calls 是一个可选的智能体包。按下面的步骤配置之前，先从 **Agents → Agent Organizer(智能体管理器)** 安装 **Calls**，目录提示时重启 Marinara。
 
 ## 通话是什么
 
@@ -93,7 +93,7 @@ Local Whisper 属于 Calls 包。对于语音支持较弱的浏览器（包括 F
 
 和 Marinara 在同一台机器上的服务器可以直接使用。家庭网络里另一台机器上的服务器会被拒绝，除非在 Marinara 的 `.env` 文件里设置 `STT_LOCAL_URLS_ENABLED=true`。见[服务器配置参考](../CONFIGURATION.md)。
 
-这需要支持该功能的 Calls 版本。如果打开开关后通话仍在使用 Local Whisper，就从 **Agents → Download Agents** 更新 Calls。
+这需要支持该功能的 Calls 版本。如果打开开关后通话仍在使用 Local Whisper，就从 **Agents → Agent Organizer(智能体管理器)** 更新 Calls。
 
 ## 为聊天开启通话
 

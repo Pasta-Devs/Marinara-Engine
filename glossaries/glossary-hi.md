@@ -336,8 +336,7 @@ never glosses the bold label at all — its only gloss is on an unbolded mention
 | `**Game Mode**` | (गेम मोड) | `game/ltx-2-3-storyboards.md:3` |
 | `**Conversation Theme**` | (कन्वर्सेशन थीम) | `appearance/chat-backgrounds.md:15` |
 
-Gloss style: noun phrase for nouns, आप-imperative for verbs (`**Download Agents** (एजेंट डाउनलोड
-करें)`), no terminal punctuation inside the parentheses.
+Gloss style: noun phrase for nouns, आप-imperative for verbs (`**Agent Organizer** (एजेंट ऑर्गनाइज़र)`), no terminal punctuation inside the parentheses.
 
 ### Arrow paths are glossed **whole**
 
@@ -346,7 +345,7 @@ A menu path's gloss covers **every segment**, mirroring the `→` chain:
 ```
 **Settings → Advanced → Danger Zone** (सेटिंग्स → एडवांस्ड → डेंजर ज़ोन)
 ```
-— `CONFIGURATION.md:31`; likewise `**Agents → Download Agents** (एजेंट → एजेंट डाउनलोड करें)`
+— `CONFIGURATION.md:31`; likewise `**Agents → Agent Organizer** (एजेंट → एजेंट ऑर्गनाइज़र)`
 (`CONFIGURATION.md:20`).
 
 A gloss covering only the first segment is a defect — two shipped instances are logged at §7-C.
@@ -579,7 +578,7 @@ are the only Sanskritized-register lines in a user-facing guide.
 **C. Truncated arrow-path glosses (2 instances, rule §5).**
 
 - `agents/custom-agents.md:205` — `**Settings → Advanced → Danger Zone** (सेटिंग्स)`
-- `agents/built-in-agents.md:3` — `**Agents → Download Agents** (एजेंट)`
+- `agents/built-in-agents.md:3` — `**Agents → Agent Organizer** (एजेंट → एजेंट ऑर्गनाइज़र)`
 
 Both should gloss the whole path, as `CONFIGURATION.md:31` and `:20` do.
 
@@ -809,3 +808,8 @@ Precedents from the #7763 sync (`media/tts-setup.md`):
 - **Enable emotion indicators** (भाव के संकेत चालू करें)
 
 These are translation choices, not a new native-reader review.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

@@ -1,6 +1,6 @@
 # ダウンロードできるエージェント一覧
 
-このガイドでは、**Agents → Download Agents**(エージェント → エージェントのダウンロード)から入手できる公式パッケージをカテゴリー別に紹介します。エージェントはMarinara Engineをインストールした直後の状態には含まれていません。パッケージのソース、マニフェスト、成果物、機械可読のカタログは[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)で公開しています。それぞれについて、何をするエージェントなのか、いつ動くのか(またはどう組み込まれるのか)、どのチャットモードで使えるのか、主な設定は何かを説明します。インストールと有効化の方法は、先に[エージェント: チャットを支えるAIヘルパー](agents-overview.md)を読んでください。**staging only**(stagingのみ)と記載された項目はEngineのstaging版で利用でき、安定版ではパッケージが安定版に公開された後に表示されます。
+このガイドでは、**Agents → Agent Organizer (エージェント管理)**から入手できる公式パッケージをカテゴリー別に紹介します。エージェントはMarinara Engineをインストールした直後の状態には含まれていません。パッケージのソース、マニフェスト、成果物、機械可読のカタログは[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)で公開しています。それぞれについて、何をするエージェントなのか、いつ動くのか(またはどう組み込まれるのか)、どのチャットモードで使えるのか、主な設定は何かを説明します。インストールと有効化の方法は、先に[エージェント: チャットを支えるAIヘルパー](agents-overview.md)を読んでください。**staging only**(stagingのみ)と記載された項目はEngineのstaging版で利用でき、安定版ではパッケージが安定版に公開された後に表示されます。
 
 ## この一覧の読み方
 
@@ -30,7 +30,7 @@ Appsは、**Home**に専用のタブを持つパッケージです。チャッ�
 
 - **統合方法**: 機能パッケージ。Homeタブ、ローカルルート、生成とメディアのフロー、バックグラウンドスケジューラーを追加します。
 - **利用できる場所**: Home。必要に応じてConversation、Roleplay、Gameのチャットからコンテキストを引き継げます。
-- **主な設定**: **Agents → Download Agents**からインストールし、案内に従ってMarinara Engineを再起動します。Noodle内で招待アカウント、テキストと画像の接続、タイムライン更新、ランダムユーザー、チャットからの引き継ぎを設定できます。
+- **主な設定**: **Agents → Agent Organizer (エージェント管理)**からインストールし、案内に従ってMarinara Engineを再起動します。Noodle内で招待アカウント、テキストと画像の接続、タイムライン更新、ランダムユーザー、チャットからの引き継ぎを設定できます。
 - **データの扱い**: アンインストールするとHomeタブが消え、再起動後にパッケージのルートとスケジューラーが停止します。既存のNoodleデータは再インストール用に保持します。
 - **詳しいガイド**: [Noodle: アプリ内のソーシャルタイムライン](../noodle/overview.md)。
 
@@ -40,7 +40,7 @@ Appsは、**Home**に専用のタブを持つパッケージです。チャッ�
 
 - **統合方法**: アプリ。**Home**にある専用の**Slurp**タブで開きます。
 - **使える場所**: Home。
-- **主な設定**: **Agents → Download Agents**からインストールし、案内が表示されたらMarinara Engineを再起動してから、**Home → Slurp**を開きます。チャットのキャラクターに最近のSlurpの投稿とメッセージを覚えさせるには、そのチャットの**Chat Settings**(チャット設定)で、**Connected Chats**(接続チャット)の下にある**Include Slurp activity**(Slurpの活動を含める)をオンにします。Slurpの設定で、そのチャットモードの引き継ぎもオンにしておく必要があります。**Slurp Settings → Autopurge**(Slurpの設定 → 自動削除)は、容量を節約するために古いSlurpのメディアを削除します。デフォルトではオフです。
+- **主な設定**: **Agents → Agent Organizer (エージェント管理)**からインストールし、案内が表示されたらMarinara Engineを再起動してから、**Home → Slurp**を開きます。チャットのキャラクターに最近のSlurpの投稿とメッセージを覚えさせるには、そのチャットの**Chat Settings**(チャット設定)で、**Connected Chats**(接続チャット)の下にある**Include Slurp activity**(Slurpの活動を含める)をオンにします。Slurpの設定で、そのチャットモードの引き継ぎもオンにしておく必要があります。**Slurp Settings → Autopurge**(Slurpの設定 → 自動削除)は、容量を節約するために古いSlurpのメディアを削除します。デフォルトではオフです。
 - **以前の名前**: 古いカタログでは**Slurp Remastered**という名前で、提供を終了した**Slurp Legacy**パッケージと並んで表示されます。Slurp Legacyは今後アップデートされません。
 - **詳しいガイド**: [Slurpパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/slurp2/README.md)。
 
@@ -50,7 +50,7 @@ Appsは、**Home**に専用のタブを持つパッケージです。チャッ�
 
 - **統合方法**: アプリ。**Home**にある専用の**Gacha Forge**タブで開きます。
 - **使える場所**: Home。
-- **主な設定**: **Agents → Download Agents**からインストールし、案内が表示されたらMarinara Engineを再起動してから、**Home → Gacha Forge**を開きます。アンインストールすると、再起動後にタブが消えます。
+- **主な設定**: **Agents → Agent Organizer (エージェント管理)**からインストールし、案内が表示されたらMarinara Engineを再起動してから、**Home → Gacha Forge**を開きます。アンインストールすると、再起動後にタブが消えます。
 - **詳しいガイド**: [Gacha Forgeパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/gacha-forge/README.md)。
 
 ### Modern Life Sim
@@ -60,7 +60,7 @@ Appsは、**Home**に専用のタブを持つパッケージです。チャッ�
 - **統合方法**: アプリ。**Home**にある専用の**Life Sim**タブで開きます。
 - **使える場所**: Home。
 - **提供状況**: **Staging only**(stagingのみ)。Engine **2.4.4+** (< 4.0.0)が必要です。アルファ版です。古いセーブが依存している部分がアップデートで変わった場合は、そのセーブを開いたときにLife Simが知らせます。新しい人生を始めるか、自己責任で続けるかを選べます。
-- **主な設定**: **Agents → Download Agents**からインストールし、案内が表示されたらMarinara Engineを再起動してから、**Home → Life Sim**を開きます。テキスト接続が必要です。画像接続は任意で、ない場合は生成した背景の代わりにイラストのカードで場所を表示します。モジュールと呼ばれる追加要素は、人生ごとにオンにしない限りオフのままです。**Adult**(成人向け)モジュールでは、成人であることの確認を求められます。
+- **主な設定**: **Agents → Agent Organizer (エージェント管理)**からインストールし、案内が表示されたらMarinara Engineを再起動してから、**Home → Life Sim**を開きます。テキスト接続が必要です。画像接続は任意で、ない場合は生成した背景の代わりにイラストのカードで場所を表示します。モジュールと呼ばれる追加要素は、人生ごとにオンにしない限りオフのままです。**Adult**(成人向け)モジュールでは、成人であることの確認を求められます。
 - **詳しいガイド**: [Modern Life Simパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md)。
 
 ### Story Writer
@@ -69,8 +69,8 @@ Appsは、**Home**に専用のタブを持つパッケージです。チャッ�
 
 - **連携**: App。**Home**内の専用の**Story Writer**タブで開きます。
 - **対応する場所**: Home。
-- **利用条件**: **v2.5.1**より新しいMarinara Engine(次のリリースまたは現在のstagingビルド)が必要です。古いEngineでは**Download Agents**に表示されません。
-- **主な設定**: **Agents → Download Agents**からインストールし、指示に従ってMarinara Engineを再起動してから、**Home → Story Writer**を開き、サイドバーでテキスト接続を選びます。物語はそれぞれMarinara Engineサーバーに保存されます。新しい物語の作成、過去の物語の再開、Markdownまたはプレーンテキストでのダウンロードができます。
+- **利用条件**: **v2.5.1**より新しいMarinara Engine(次のリリースまたは現在のstagingビルド)が必要です。古いEngineでは**Agent Organizer (エージェント管理)**に表示されません。
+- **主な設定**: **Agents → Agent Organizer (エージェント管理)**からインストールし、指示に従ってMarinara Engineを再起動してから、**Home → Story Writer**を開き、サイドバーでテキスト接続を選びます。物語はそれぞれMarinara Engineサーバーに保存されます。新しい物語の作成、過去の物語の再開、Markdownまたはプレーンテキストでのダウンロードができます。
 - **詳しいガイド**: [Story Writerパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md)。
 
 ## 執筆エージェント
@@ -218,7 +218,7 @@ Knowledge Retrievalより費用を抑えられる代替手段です。要約す�
 - **実行フェーズ**: Post-Processing。インベントリのコンテキストは後続の応答に渡されます。
 - **対応モード**: Roleplay。追跡対象は有効なペルソナで、パーティーメンバーやNPCではありません。
 - **提供状況**: Engine **2.4.6+**が必要です。
-- **インストールと有効化**: **Agents → Download Agents**から**Quartermaster**をインストールし、案内が表示されたら再起動してください。各Roleplayチャットで**Chat Settings → Agents**(チャット設定 → エージェント)を有効にし、**Tracker Agents**(トラッカーエージェント)にQuartermasterを追加して、モデル接続を選択します。Tracker Panelの上にある起動ボタンからフローティングパネルを開きます。
+- **インストールと有効化**: **Agents → Agent Organizer (エージェント管理)**から**Quartermaster**をインストールし、案内が表示されたら再起動してください。各Roleplayチャットで**Chat Settings → Agents**(チャット設定 → エージェント)を有効にし、**Tracker Agents**(トラッカーエージェント)にQuartermasterを追加して、モデル接続を選択します。Tracker Panelの上にある起動ボタンからフローティングパネルを開きます。
 - **主な操作**: アイテムの装備と保管、衣装の保存、インベントリの復元や最近のトラッカー変更の取り消し、チャット設定のエクスポートとインポートができます。画像生成には別途設定した画像接続を使います。外見マクロとペルソナのアバター置換は任意です。有効にする前に[Quartermasterパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/quartermaster/README.md)を確認してください。
 
 ### Relationship Tracker
@@ -228,7 +228,7 @@ Roleplayグループチャットに割り当てたキャラクターカード間
 - **実行フェーズ**: Post-Processing。関係のコンテキストは後続の応答に渡されます。
 - **対応モード**: Roleplayグループチャット。
 - **提供状況**: Engine **2.4.4+** (< 4.0.0)が必要です。
-- **インストールと有効化**: **Agents → Download Agents**から**Relationship Tracker**をインストールし、案内が表示されたら再起動してください。各Roleplayチャットで**Chat Settings → Agents**を有効にし、**Tracker Agents**に追加して、モデル接続を選択します。ネットワークはTracker Panelに表示されます。関係を編集または更新する前に、そこで**All relationships**(すべての関係)か**Scene-only relationships**(シーン内の関係のみ)を一度選んでチャットを初期化してください。
+- **インストールと有効化**: **Agents → Agent Organizer (エージェント管理)**から**Relationship Tracker**をインストールし、案内が表示されたら再起動してください。各Roleplayチャットで**Chat Settings → Agents**を有効にし、**Tracker Agents**に追加して、モデル接続を選択します。ネットワークはTracker Panelに表示されます。関係を編集または更新する前に、そこで**All relationships**(すべての関係)か**Scene-only relationships**(シーン内の関係のみ)を一度選んでチャットを初期化してください。
 - **主な操作**: プロンプトのコンテキストを**All relationships**か**Scene-only relationships**で選び、**Update from History**(履歴から更新)で指定件数の最近のメッセージを解析できます。手動編集、ロック、**Resume automatic updates**(自動更新を再開)も使えます。**Context Size**(コンテキストサイズ、初期値5メッセージ)、**Presence lookback**(登場確認の遡及件数、初期値15)、履歴解析のメッセージ数は別々の設定です。線にポインターを重ねるかキーボードでフォーカスすると内容を読めます。タッチやペンでは線を押してください。[Relationship Trackerパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/relationship-tracker/README.md)も参照してください。
 
 ### Memory Nag
@@ -346,7 +346,7 @@ Roleplayチャットごとに、短く編集可能な記憶保管庫を維持し
 
 - **統合方法**: エージェントパッケージです。Engineがこれを実行し、アバターを描画します。チャット中に、AIの接続へ追加のリクエストを送ることはありません。
 - **使える場所**: RoleplayとGameで、キャラクターとペルソナに使えます。
-- **提供状況**: どのインストールでも**Download Agents**から入手できます。Marinara Engine 2.5.1以降が必要です。
+- **提供状況**: どのインストールでも**Agent Organizer (エージェント管理)**から入手できます。Marinara Engine 2.5.1以降が必要です。
 - **主な設定**: **Agents**にあるこのエージェントのページで、アバターを1つずつ設定します。このエージェントには、スプライトの1枚からまばたき用と口パク用の画像やメッシュアバターを作るためのプロンプトも含まれています。
 - **対応バージョン**: Engineの`2.5.0`以上`4.0.0`未満で、Capability API 1.73が必要です。このパッケージは`agent-runtime`、`chat-read`、`storage`、`ui`の権限を使い、再起動は不要です。
 - **詳しいガイド**: [2Dアバターと3Dアバター](avatars.md)。
@@ -357,7 +357,7 @@ Roleplayチャットごとに、短く編集可能な記憶保管庫を維持し
 
 - **統合方法**: エージェントパッケージです。Engineがこれを実行し、アバターを描画します。チャット中に、AIの接続へ追加のリクエストを送ることはありません。
 - **使える場所**: RoleplayとGameで、キャラクターとペルソナに使えます。
-- **提供状況**: どのインストールでも**Download Agents**から入手できます。Marinara Engine 2.5.1以降が必要です。
+- **提供状況**: どのインストールでも**Agent Organizer (エージェント管理)**から入手できます。Marinara Engine 2.5.1以降が必要です。
 - **主な設定**: **Agents**にあるこのエージェントのページで、アバターを1つずつ設定します。
 - **対応バージョン**: Engineの`2.5.0`以上`4.0.0`未満で、Capability API 1.73が必要です。このパッケージは`agent-runtime`、`chat-read`、`storage`、`ui`の権限を使い、再起動は不要です。
 - **詳しいガイド**: [2Dアバターと3Dアバター](avatars.md)。

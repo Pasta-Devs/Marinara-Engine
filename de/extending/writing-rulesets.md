@@ -3530,7 +3530,7 @@ Nutzer fügen dein Repository einmal über die Liste eigener Agenten-Repositorie
 
 Es gelten zwei Grenzen. Ein Repository darf höchstens 32 JSON-Dateien direkt in `rulesets` enthalten; mehr führen zur Ablehnung. Ein Konto namens `local` kann keine Regelsätze veröffentlichen, denn `local/` ist für Dateiimporte reserviert.
 
-**Im offiziellen Katalog.** Ein verbreitetes System mit geklärten Lizenzrechten kann über **Download Agents** (Agenten herunterladen) allen angeboten werden. Dafür öffnest du einen Pull Request im Repository [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Das dortige Paket `ruleset-5e-2014` zeigt die Verzeichnisstruktur.
+**Im offiziellen Katalog.** Ein verbreitetes System mit geklärten Lizenzrechten kann über **Agent Organizer** (Agentenverwaltung) allen angeboten werden. Dafür öffnest du einen Pull Request im Repository [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Das dortige Paket `ruleset-5e-2014` zeigt die Verzeichnisstruktur.
 
 ## Lizenzierung
 

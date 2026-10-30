@@ -24,7 +24,7 @@ Il te faut :
 2. Le workflow modifiable `ltx-director-simple`, ou un graphe LTX 2.3 image-vers-vidéo équivalent qui s'exécute jusqu'au bout dans ComfyUI.
 3. Son export au format API `ltx-director-simple-api`, destiné à la connexion Marinara.
 4. Une connexion Marinara de génération d'images pour les illustrations de première image.
-5. L'agent **Storyboard**, installé depuis **Agents > Download Agents** et activé pour la partie dans **Chat Settings > Agents**.
+5. L'agent **Storyboard**, installé depuis **Agents > Agent Organizer (organisateur d’agents)** et activé pour la partie dans **Chat Settings > Agents**.
 
 Le workflow ComfyUI modifiable et son export API sont deux fichiers différents. Ouvre `ltx-director-simple` dans ComfyUI, installe tous les nœuds personnalisés manquants signalés par ComfyUI Manager, puis teste le graphe sur place. Importe `ltx-director-simple-api` dans la connexion Marinara. Après chaque changement de nœud ou de modèle, réexporte le graphe au format API et remplace le JSON enregistré sur la connexion. Ne colle jamais le workflow de l'éditeur visuel classique dans Marinara.
 

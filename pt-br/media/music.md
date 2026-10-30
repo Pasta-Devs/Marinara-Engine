@@ -4,7 +4,7 @@ Neste guia você aprende a tocar música de fundo no Marinara Engine com o agent
 
 ## O que é o Music DJ
 
-**Music DJ** é um agente opcional que precisa ser baixado. Um agente é um ajudante que roda sozinho, em segundo plano, durante o chat. Abra a seção **Agents** (Agentes), selecione **Download Agents** (baixar agentes) e instale **Music DJ** antes de configurá-lo. Depois de cada resposta, Music DJ identifica o clima da cena e toca uma música de fundo combinando com ela.
+**Music DJ** é um agente opcional que precisa ser baixado. Um agente é um ajudante que roda sozinho, em segundo plano, durante o chat. Abra a seção **Agents** (Agentes), selecione **Agent Organizer** (organizador de agentes) e instale **Music DJ** antes de configurá-lo. Depois de cada resposta, Music DJ identifica o clima da cena e toca uma música de fundo combinando com ela.
 
 **Music DJ** toca música de três fontes:
 
@@ -106,7 +106,7 @@ Tocar a partir de uma pasta fora do Game Assets exige acesso local no servidor. 
 
 O **Music Player** aparece como uma pequena marca na barra superior no computador, ou como um widget flutuante que você arrasta no celular. Uma configuração permite mostrar ou ocultar o player.
 
-Abra **Settings** (Configurações), vá na aba **General** e localize a seção **App Behavior**. Ative ou desative **Music Player**. O texto de ajuda diz "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Esse botão liga/desliga está sempre disponível e vem ativado por padrão. Se ele estiver ativado sem o Music DJ instalado, o player do computador ou do celular mostra **Download Music DJ Agent to configure** e oferece um botão **Download Agents**.
+Abra **Settings** (Configurações), vá na aba **General** e localize a seção **App Behavior**. Ative ou desative **Music Player**. O texto de ajuda diz "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Esse botão liga/desliga está sempre disponível e vem ativado por padrão. Se ele estiver ativado sem o Music DJ instalado, o player do computador ou do celular mostra **Download Music DJ Agent to configure** e oferece um botão **Agent Organizer (organizador de agentes)**.
 
 Em um perfil novo, a fonte visível começa como **YouTube**. A fonte pode ser trocada de três maneiras:
 

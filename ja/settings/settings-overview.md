@@ -51,7 +51,7 @@
 - **Hide chat Help button**(チャットのヘルプボタンを非表示): デフォルトでオフです。オンにすると、Conversation、Roleplay、Gameのチャットから**Help**ボタンが消えます。
 - **Show Android status bar**(Androidステータスバーを表示): デフォルトでオフで、Marinara EngineのAndroidアプリでだけ働きます。オンにすると、時刻、バッテリー残量、通知アイコンがMarinaraの上に表示されたままになります。
 - **Achievements**: デフォルトでオンです。オンにすると、ホーム画面に**Achievements**のブックマークと解除の通知が表示されます。任意の**Achievements**ウィジェットは、ホームのレイアウトに追加していれば表示されます。オフにすると、記録は裏で静かに続きます。[実績](../home/achievements.md)を参照してください。
-- **Music Player**: デフォルトでオンです。オンにすると、小さなMusic Playerが表示されます。**Agents** > **Download Agents**の**Music DJ**エージェントが必要で、インストールするまでスイッチはグレー表示のままです。[Music DJ](../media/music.md)を参照してください。
+- **Music Player**: デフォルトでオンです。オンにすると、小さなMusic Playerが表示されます。**Agents** > **Agent Organizer (エージェント管理)**の**Music DJ**エージェントが必要で、インストールするまでスイッチはグレー表示のままです。[Music DJ](../media/music.md)を参照してください。
 - **Search and Professor Mari settings**: **Open**を選ぶと、その設定ページに移動します。SearchとProfessor Mariの設定はすべてここにあり、次のグループに分かれています。
 
   - **Search**: 欄の改善の提案と検索履歴

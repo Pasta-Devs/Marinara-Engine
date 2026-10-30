@@ -23,7 +23,7 @@ Aviso sobre o conteúdo: as instruções que Noodle envia para a IA tratam toda 
 
 Noodle é um pacote de agente para download. Instale-o uma vez antes de procurar a aba dele na tela inicial:
 
-1. Abra **Agents** (agentes), escolha **Download Agents** (baixar agentes) e instale o **Noodle**.
+1. Abra **Agents** (agentes), escolha **Agent Organizer** (organizador de agentes) e instale o **Noodle**.
 2. Reinicie Marinara Engine quando o aplicativo pedir, para que o servidor e as contribuições do Noodle à tela inicial possam carregar.
 3. Abra **Home** e clique na aba **Noodle**, ao lado de **Home** e **Professor**.
 

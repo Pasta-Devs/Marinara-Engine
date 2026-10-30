@@ -24,7 +24,7 @@ GM narration
 2. 편집 가능한 `ltx-director-simple` 워크플로, 또는 ComfyUI 안에서 문제없이 끝까지 실행되는 동등한 LTX 2.3 이미지-투-비디오 그래프.
 3. Marinara 연결에 넣을 API 형식 내보내기 파일 `ltx-director-simple-api`.
 4. 첫 프레임 삽화를 만들 Marinara 이미지 생성 연결.
-5. **Agents > Download Agents**에서 설치하고 **Chat Settings > Agents**에서 해당 게임에서 활성화한 **Storyboard** 에이전트.
+5. **Agents > Agent Organizer (에이전트 관리)**에서 설치하고 **Chat Settings > Agents**에서 해당 게임에서 활성화한 **Storyboard** 에이전트.
 
 편집용 ComfyUI 워크플로와 API 내보내기 파일은 서로 다른 파일입니다. ComfyUI에서 `ltx-director-simple`을 열고, ComfyUI Manager가 알려 주는 누락된 사용자 지정 노드를 모두 설치한 다음, 그래프를 그 자리에서 테스트하세요. Marinara 연결에는 `ltx-director-simple-api`를 가져오세요. 노드나 모델을 바꿀 때마다 그래프를 API 형식으로 다시 내보내고, 연결에 저장된 JSON을 교체하세요. 일반 비주얼 편집기용 워크플로를 Marinara에 붙여넣으면 안 됩니다.
 

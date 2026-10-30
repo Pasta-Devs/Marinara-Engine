@@ -20,7 +20,7 @@
 ## エージェントのインストール
 
 1. Sparklesのアイコンから**Agents**(エージェント)パネルを開きます。
-2. **Download Agents**を選びます。
+2. **Agent Organizer (エージェント管理)**を選びます。
 3. **Storyboard**を開いて**Install**を選びます。
 4. RoleplayかGameのチャットを開き、**Chat Settings > Agents**(チャット設定 > エージェント)を開きます。
 5. **Enable Agents**をオンにし、Storyboardカードの**Enable Storyboards**をオンにします。
@@ -317,7 +317,7 @@ Storyboardは現在ダウンロードできるエージェントですが、既�
 
 ### Chat SettingsにStoryboardが出てこない
 
-- **Agents > Download Agents**から**Storyboard**をインストールします。
+- **Agents > Agent Organizer (エージェント管理)**から**Storyboard**をインストールします。
 - RoleplayかGameのチャットで使います。Conversationは対象外です。
 - パッケージのバージョンが、インストール済みのEngineのバージョンに対応しているか確かめます。
 

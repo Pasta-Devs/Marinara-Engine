@@ -51,7 +51,7 @@
 - **Hide chat Help button**(채팅 도움말 버튼 숨기기): 기본값은 꺼짐입니다. 켜면 Conversation, Roleplay, Game 채팅에서 **Help**(도움말) 버튼이 사라집니다.
 - **Show Android status bar**(Android 상태 표시줄 표시): 기본값은 꺼짐이며, Marinara Engine Android 앱에서만 작동합니다. 켜면 시간, 배터리 잔량, 알림 아이콘이 Marinara 위에 계속 표시됩니다.
 - **Achievements**(업적): 기본값은 켜짐입니다. 켜면 홈 화면에 **Achievements** 북마크와 달성 알림이 표시됩니다. 선택 사항인 **Achievements** 위젯은 홈 레이아웃에 추가한 경우에 나타납니다. 끄면 기록은 조용히 계속됩니다. [업적](../home/achievements.md)을 참고하세요.
-- **Music Player**(음악 플레이어): 기본값은 켜짐입니다. 켜면 작은 Music Player가 표시됩니다. **Agents**(에이전트) > **Download Agents**(에이전트 다운로드)에서 받는 **Music DJ** 에이전트가 필요하며, 설치하기 전까지 스위치는 흐리게 표시됩니다. [Music DJ](../media/music.md)를 참고하세요.
+- **Music Player**(음악 플레이어): 기본값은 켜짐입니다. 켜면 작은 Music Player가 표시됩니다. **Agents**(에이전트) > **Agent Organizer** (에이전트 관리)에서 받는 **Music DJ** 에이전트가 필요하며, 설치하기 전까지 스위치는 흐리게 표시됩니다. [Music DJ](../media/music.md)를 참고하세요.
 - **Search and Professor Mari settings**(검색 및 Professor Mari 설정): **Open**(열기)을 선택하면 해당 설정 페이지로 이동합니다. Search와 Professor Mari의 설정은 모두 이 페이지에 있으며 다음 그룹으로 나뉩니다.
 
   - **Search**(검색): 필드 개선 제안과 검색 기록.

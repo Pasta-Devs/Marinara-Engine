@@ -105,13 +105,13 @@ Conversation 메시지에는 모두 이모지 반응을 달 수 있습니다. �
 
 캐릭터는 셀카를 보낼 수 있습니다. 셀카는 그 캐릭터를 AI로 생성한 사진입니다. Roleplay와 Game Mode에서 쓰는 장면 그림과 달리 셀카는 캐릭터 한 명에 묶여 있습니다.
 
-셀카를 쓰려면 **Agents → Download Agents**에서 **Illustrator**를 설치하세요. 그다음 채팅 설정 패널을 열어 **Agents → Illustrator Settings**로 가서 **Selfie Connection**(셀카 연결)을 설정하세요. 셀카 연결은 이미지 생성 제공자를 가리킵니다. 셀카 한 장마다 이미지 생성 호출이 한 번 발생합니다.
+셀카를 쓰려면 **Agents → Agent Organizer (에이전트 관리)**에서 **Illustrator**를 설치하세요. 그다음 채팅 설정 패널을 열어 **Agents → Illustrator Settings**로 가서 **Selfie Connection**(셀카 연결)을 설정하세요. 셀카 연결은 이미지 생성 제공자를 가리킵니다. 셀카 한 장마다 이미지 생성 호출이 한 번 발생합니다.
 
 스타일, 해상도, 수동 요청 버튼을 포함한 전체 설정 방법은 [셀카](selfies.md)에 있습니다.
 
 ## 테이블 게임
 
-Conversation 모드에는 선택 사항인 테이블 게임 패키지가 6가지 있습니다. **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe**, **Rock-Paper-Scissors**입니다. 원하는 게임을 **Agents → Download Agents**에서 설치하세요. 앱이 판을 깔고 규칙을 적용하며, 각 캐릭터가 자기 수를 캐릭터에 맞게 이야기로 풀어냅니다. 테이블 게임은 Conversation 채팅에서만 실행됩니다.
+Conversation 모드에는 선택 사항인 테이블 게임 패키지가 6가지 있습니다. **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe**, **Rock-Paper-Scissors**입니다. 원하는 게임을 **Agents → Agent Organizer (에이전트 관리)**에서 설치하세요. 앱이 판을 깔고 규칙을 적용하며, 각 캐릭터가 자기 수를 캐릭터에 맞게 이야기로 풀어냅니다. 테이블 게임은 Conversation 채팅에서만 실행됩니다.
 
 게임을 시작하는 방법은 3가지입니다.
 

@@ -20,7 +20,7 @@ Nos dois modos, Marinara salva as imagens dos quadros-chave na aba **Images** da
 ## Instalar o agente
 
 1. Abra o painel **Agents** (agentes) pelo ícone de estrelinhas.
-2. Selecione a opção **Download Agents** (baixar agentes).
+2. Selecione a opção **Agent Organizer** (organizador de agentes).
 3. Abra o item **Storyboard** e clique no botão **Install** (instalar).
 4. Abra um chat em Roleplay ou em Game Mode e depois a seção **Chat Settings > Agents** (as configurações do chat, área de agentes).
 5. Ative a opção **Enable Agents** (ativar os agentes) e, no card do Storyboard, ative **Enable Storyboards** (ativar os storyboards).
@@ -317,7 +317,7 @@ As configurações antigas são apenas dados de migração, não uma segunda imp
 
 ### O Storyboard não aparece no painel Chat Settings
 
-- Instale o **Storyboard** pelo painel **Agents > Download Agents**.
+- Instale o **Storyboard** pelo painel **Agents > Agent Organizer (organizador de agentes)**.
 - Use um chat em Roleplay ou em Game Mode: o modo Conversation não tem suporte.
 - Verifique se a versão do pacote é compatível com a versão instalada do Engine.
 

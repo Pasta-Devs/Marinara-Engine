@@ -8,7 +8,7 @@
 
 自拍依赖图像生成。角色每发一张自拍，就会向选定的连接发出一次图像生成请求。正因如此，自拍在配置好之前一直是关闭的。
 
-自拍功能由可选的 **Illustrator** 包提供。配置之前先从 **Agents → Download Agents**(智能体 → 下载智能体) 安装 Illustrator。
+自拍功能由可选的 **Illustrator** 包提供。配置之前先从 **Agents → Agent Organizer(智能体管理器)** 安装 Illustrator。
 
 ## 开启自拍
 

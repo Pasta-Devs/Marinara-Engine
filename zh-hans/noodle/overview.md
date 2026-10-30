@@ -23,7 +23,7 @@ Noodle 的活动是可选的，默认关闭。在邀请角色（或者开启随�
 
 Noodle 是一个可下载的智能体包。先安装一次，再去找它在主页上的标签页：
 
-1. 打开 **Agents**(智能体)，选择 **Download Agents**(下载智能体)，安装 **Noodle**。
+1. 打开 **Agents**(智能体)，选择 **Agent Organizer** (智能体管理器)，安装 **Noodle**。
 2. 按提示重启 Marinara Engine，让它的服务器部分和主页内容能够加载。
 3. 打开 **Home**(主页)，点击 **Home** 和 **Professor**(教授) 旁边的 **Noodle** 标签页。
 

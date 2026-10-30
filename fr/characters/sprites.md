@@ -127,7 +127,7 @@ Téléverser des sprites ne fait que la moitié du travail. Tu décides aussi qu
 
 ### Mode Roleplay
 
-En mode **Roleplay**, c'est l'agent optionnel **Expression Engine** qui pilote l'affichage des sprites. Télécharge-le depuis **Agents → Download Agents**, puis ajoute-le au chat. Il analyse l'humeur de chaque message et choisit le sprite d'expression correspondant. Consulte [Référence des agents téléchargeables](../agents/built-in-agents.md) pour le détail.
+En mode **Roleplay**, c'est l'agent optionnel **Expression Engine** qui pilote l'affichage des sprites. Télécharge-le depuis **Agents → Agent Organizer (organisateur d’agents)**, puis ajoute-le au chat. Il analyse l'humeur de chaque message et choisit le sprite d'expression correspondant. Consulte [Référence des agents téléchargeables](../agents/built-in-agents.md) pour le détail.
 
 Pour que les sprites apparaissent dans un chat Roleplay, il faut que toutes ces conditions soient réunies :
 

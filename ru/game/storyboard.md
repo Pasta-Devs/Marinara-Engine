@@ -20,7 +20,7 @@
 ## Установка агента
 
 1. Откройте панель **Agents** (агенты) значком с искрами.
-2. Перейдите в раздел **Download Agents**.
+2. Перейдите в раздел **Agent Organizer (организатор агентов)**.
 3. Откройте карточку **Storyboard** и нажмите кнопку **Install**.
 4. Откройте чат в режиме Roleplay или Game Mode, затем перейдите в **Chat Settings > Agents** (настройки чата, раздел агентов).
 5. Включите переключатель **Enable Agents**, а затем переключатель **Enable Storyboards** в карточке **Storyboard**.
@@ -317,7 +317,7 @@ completed GM narration
 
 ### Агента Storyboard нет в панели Chat Settings
 
-- Установите агента **Storyboard** в разделе **Agents > Download Agents**.
+- Установите агента **Storyboard** в разделе **Agents > Agent Organizer (организатор агентов)**.
 - Работайте в чате Roleplay или Game Mode: режим Conversation не поддерживается.
 - Проверьте, что версия пакета совместима с установленной версией движка.
 

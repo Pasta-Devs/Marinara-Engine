@@ -1,6 +1,6 @@
 # 다운로드 가능한 에이전트 레퍼런스
 
-이 가이드에서는 **Agents → Download Agents**(에이전트 → 에이전트 다운로드)에서 받을 수 있는 공식 패키지를 카테고리별로 소개합니다. 에이전트는 갓 설치한 Marinara Engine에 들어 있지 않습니다. 패키지 소스, 매니페스트, 아티팩트, 기계가 읽을 수 있는 카탈로그는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)에 공개되어 있습니다. 각 에이전트가 무슨 일을 하고, 언제 실행되거나 어디에 연동되며, 어떤 채팅 모드에서 쓸 수 있고, 주요 설정이 무엇인지 정리했습니다. 설치와 활성화 방법은 [에이전트: 채팅을 도와주는 AI](agents-overview.md)를 먼저 읽어 보세요. **staging only**(staging 전용)로 표시된 항목은 Engine의 staging 버전에서 사용할 수 있으며, 안정 채널에는 패키지가 해당 채널에 공개된 뒤 표시됩니다.
+이 가이드에서는 **Agents → Agent Organizer (에이전트 관리)**에서 받을 수 있는 공식 패키지를 카테고리별로 소개합니다. 에이전트는 갓 설치한 Marinara Engine에 들어 있지 않습니다. 패키지 소스, 매니페스트, 아티팩트, 기계가 읽을 수 있는 카탈로그는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)에 공개되어 있습니다. 각 에이전트가 무슨 일을 하고, 언제 실행되거나 어디에 연동되며, 어떤 채팅 모드에서 쓸 수 있고, 주요 설정이 무엇인지 정리했습니다. 설치와 활성화 방법은 [에이전트: 채팅을 도와주는 AI](agents-overview.md)를 먼저 읽어 보세요. **staging only**(staging 전용)로 표시된 항목은 Engine의 staging 버전에서 사용할 수 있으며, 안정 채널에는 패키지가 해당 채널에 공개된 뒤 표시됩니다.
 
 ## 이 문서를 읽는 법
 
@@ -28,7 +28,7 @@ Apps는 **Home**(홈)에 전용 탭이 있는 패키지입니다. 채팅에 추�
 
 - **통합 방식**: 기능 패키지로, Home 탭과 로컬 경로, 생성 및 미디어 흐름, 백그라운드 스케줄러를 제공합니다.
 - **작동 위치**: Home. 필요하면 Conversation, Roleplay, Game 채팅의 맥락을 가져올 수 있습니다.
-- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작하세요. Noodle에서 초대 계정, 텍스트와 이미지 연결, 타임라인 새로고침, 무작위 사용자, 채팅 내용 이어받기를 설정할 수 있습니다.
+- **주요 설정**: **Agents → Agent Organizer (에이전트 관리)**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작하세요. Noodle에서 초대 계정, 텍스트와 이미지 연결, 타임라인 새로고침, 무작위 사용자, 채팅 내용 이어받기를 설정할 수 있습니다.
 - **데이터 수명 주기**: 제거하면 Home 탭이 사라지고 재시작 후 패키지 경로와 스케줄러가 멈추며, 기존 Noodle 데이터는 재설치를 위해 보존합니다.
 - **전체 안내서**: [Noodle: 앱 안의 소셜 타임라인](../noodle/overview.md).
 
@@ -38,7 +38,7 @@ Apps는 **Home**(홈)에 전용 탭이 있는 패키지입니다. 채팅에 추�
 
 - **연동 방식**: 앱입니다. **Home**의 전용 **Slurp** 탭에서 열립니다.
 - **사용 가능한 곳**: Home.
-- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작한 다음 **Home → Slurp**을 여세요. 채팅의 캐릭터가 최근 Slurp 게시물과 메시지를 기억하게 하려면 그 채팅의 **Chat Settings**에서 **Connected Chats**(연결된 채팅) 아래에 있는 **Include Slurp activity**(Slurp 활동 포함)를 켜세요. Slurp 설정에서도 해당 채팅 모드의 이어받기가 켜져 있어야 합니다. **Slurp Settings → Autopurge**는 공간을 아끼기 위해 오래된 Slurp 미디어를 지웁니다. 기본값은 꺼짐입니다.
+- **주요 설정**: **Agents → Agent Organizer (에이전트 관리)**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작한 다음 **Home → Slurp**을 여세요. 채팅의 캐릭터가 최근 Slurp 게시물과 메시지를 기억하게 하려면 그 채팅의 **Chat Settings**에서 **Connected Chats**(연결된 채팅) 아래에 있는 **Include Slurp activity**(Slurp 활동 포함)를 켜세요. Slurp 설정에서도 해당 채팅 모드의 이어받기가 켜져 있어야 합니다. **Slurp Settings → Autopurge**는 공간을 아끼기 위해 오래된 Slurp 미디어를 지웁니다. 기본값은 꺼짐입니다.
 - **이전 이름**: 이전 카탈로그에서는 **Slurp Remastered**라는 이름으로, 지원이 끝난 **Slurp Legacy** 패키지 옆에 표시됩니다. Slurp Legacy는 더 이상 업데이트되지 않습니다.
 - **전체 가이드**: [Slurp 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/slurp2/README.md).
 
@@ -48,7 +48,7 @@ Apps는 **Home**(홈)에 전용 탭이 있는 패키지입니다. 채팅에 추�
 
 - **연동 방식**: 앱입니다. **Home**의 전용 **Gacha Forge** 탭에서 열립니다.
 - **사용 가능한 곳**: Home.
-- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작한 다음 **Home → Gacha Forge**를 여세요. 제거하면 재시작 후 탭이 사라집니다.
+- **주요 설정**: **Agents → Agent Organizer (에이전트 관리)**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작한 다음 **Home → Gacha Forge**를 여세요. 제거하면 재시작 후 탭이 사라집니다.
 - **전체 가이드**: [Gacha Forge 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/gacha-forge/README.md).
 
 ### Modern Life Sim
@@ -58,7 +58,7 @@ Apps는 **Home**(홈)에 전용 탭이 있는 패키지입니다. 채팅에 추�
 - **연동 방식**: 앱입니다. **Home**의 전용 **Life Sim** 탭에서 열립니다.
 - **사용 가능한 곳**: Home.
 - **제공 범위**: **Staging only**(staging 전용). Engine **2.4.4+** (< 4.0.0)가 필요합니다. 알파 버전입니다. 업데이트가 이전 저장 데이터에 필요한 부분을 바꾸면 그 저장 데이터를 열 때 Life Sim이 알려 주며, 새 인생을 시작하거나 위험을 감수하고 계속할 수 있습니다.
-- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작한 다음 **Home → Life Sim**을 여세요. 텍스트 연결이 필요합니다. 이미지 연결은 선택 사항이며, 없으면 장소에 생성된 배경 대신 일러스트 카드가 표시됩니다. 모듈이라는 선택형 추가 기능은 인생마다 직접 켜지 않으면 꺼져 있습니다. **Adult** 모듈은 성인인지 확인해 달라고 요청합니다.
+- **주요 설정**: **Agents → Agent Organizer (에이전트 관리)**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작한 다음 **Home → Life Sim**을 여세요. 텍스트 연결이 필요합니다. 이미지 연결은 선택 사항이며, 없으면 장소에 생성된 배경 대신 일러스트 카드가 표시됩니다. 모듈이라는 선택형 추가 기능은 인생마다 직접 켜지 않으면 꺼져 있습니다. **Adult** 모듈은 성인인지 확인해 달라고 요청합니다.
 - **전체 가이드**: [Modern Life Sim 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
 ### Story Writer
@@ -67,8 +67,8 @@ Apps는 **Home**(홈)에 전용 탭이 있는 패키지입니다. 채팅에 추�
 
 - **통합**: App. **Home**의 전용 **Story Writer** 탭에서 열립니다.
 - **사용 위치**: Home.
-- **사용 조건**: **v2.5.1**보다 새로운 Marinara Engine(다음 릴리스 또는 현재 staging 빌드)이 필요합니다. 이전 Engine에서는 **Download Agents**에 표시되지 않습니다.
-- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내에 따라 Marinara Engine을 다시 시작한 다음, **Home → Story Writer**를 열고 사이드바에서 텍스트 연결을 선택하세요. 각 이야기는 Marinara Engine 서버에 저장됩니다. 새 이야기를 시작하고 이전 이야기로 돌아가거나 Markdown 또는 일반 텍스트로 다운로드할 수 있습니다.
+- **사용 조건**: **v2.5.1**보다 새로운 Marinara Engine(다음 릴리스 또는 현재 staging 빌드)이 필요합니다. 이전 Engine에서는 **Agent Organizer (에이전트 관리)**에 표시되지 않습니다.
+- **주요 설정**: **Agents → Agent Organizer (에이전트 관리)**에서 설치하고 안내에 따라 Marinara Engine을 다시 시작한 다음, **Home → Story Writer**를 열고 사이드바에서 텍스트 연결을 선택하세요. 각 이야기는 Marinara Engine 서버에 저장됩니다. 새 이야기를 시작하고 이전 이야기로 돌아가거나 Markdown 또는 일반 텍스트로 다운로드할 수 있습니다.
 - **전체 가이드**: [Story Writer 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
 ## Writer 에이전트
@@ -216,7 +216,7 @@ Tracker 에이전트는 장면, 캐릭터, 스탯의 현재 상태를 계속 기
 - **실행 단계**: Post-Processing이며, 이후 응답에 인벤토리 컨텍스트를 제공합니다.
 - **지원 모드**: Roleplay. 파티원이나 NPC가 아닌 활성 페르소나를 추적합니다.
 - **제공 범위**: Engine **2.4.6+**가 필요합니다.
-- **설치 및 활성화**: **Agents → Download Agents**에서 **Quartermaster**를 설치하고 안내가 나오면 다시 시작하세요. 각 Roleplay 채팅에서 **Chat Settings → Agents**(채팅 설정 → 에이전트)를 켜고 **Tracker Agents**(트래커 에이전트)에 Quartermaster를 추가한 다음 모델 연결을 선택하세요. Tracker Panel 위의 실행 버튼으로 플로팅 패널을 여세요.
+- **설치 및 활성화**: **Agents → Agent Organizer (에이전트 관리)**에서 **Quartermaster**를 설치하고 안내가 나오면 다시 시작하세요. 각 Roleplay 채팅에서 **Chat Settings → Agents**(채팅 설정 → 에이전트)를 켜고 **Tracker Agents**(트래커 에이전트)에 Quartermaster를 추가한 다음 모델 연결을 선택하세요. Tracker Panel 위의 실행 버튼으로 플로팅 패널을 여세요.
 - **주요 기능**: 아이템 장착과 보관, 의상 저장, 인벤토리 복원이나 최근 트래커 변경 되돌리기, 채팅 설정 내보내기와 가져오기를 지원합니다. 이미지 생성은 별도로 설정한 이미지 연결을 사용합니다. 외모 매크로와 페르소나 아바타 교체는 선택 사항입니다. 켜기 전에 [Quartermaster 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/quartermaster/README.md)를 확인하세요.
 
 ### Relationship Tracker
@@ -226,7 +226,7 @@ Roleplay 그룹 채팅에 지정된 캐릭터 카드 간의 관계와 각 캐릭
 - **실행 단계**: Post-Processing이며, 이후 응답에 관계 컨텍스트를 제공합니다.
 - **지원 모드**: Roleplay 그룹 채팅.
 - **제공 범위**: Engine **2.4.4+** (< 4.0.0)가 필요합니다.
-- **설치 및 활성화**: **Agents → Download Agents**에서 **Relationship Tracker**를 설치하고 안내가 나오면 다시 시작하세요. 각 Roleplay 채팅에서 **Chat Settings → Agents**를 켜고 **Tracker Agents**에 추가한 다음 모델 연결을 선택하세요. 관계망은 Tracker Panel에 표시됩니다. 관계를 편집하거나 업데이트하기 전에 **All relationships**(모든 관계) 또는 **Scene-only relationships**(현재 장면의 관계만)를 한 번 선택하여 채팅을 초기화하세요.
+- **설치 및 활성화**: **Agents → Agent Organizer (에이전트 관리)**에서 **Relationship Tracker**를 설치하고 안내가 나오면 다시 시작하세요. 각 Roleplay 채팅에서 **Chat Settings → Agents**를 켜고 **Tracker Agents**에 추가한 다음 모델 연결을 선택하세요. 관계망은 Tracker Panel에 표시됩니다. 관계를 편집하거나 업데이트하기 전에 **All relationships**(모든 관계) 또는 **Scene-only relationships**(현재 장면의 관계만)를 한 번 선택하여 채팅을 초기화하세요.
 - **주요 기능**: **All relationships** 또는 **Scene-only relationships**로 프롬프트 컨텍스트를 정하고, **Update from History**(기록에서 업데이트)로 제한된 수의 최근 메시지를 분석합니다. 수동 편집, 잠금, **Resume automatic updates**(자동 업데이트 재개)도 지원합니다. **Context Size**(컨텍스트 크기, 기본 5개 메시지), **Presence lookback**(등장 여부 확인 범위, 기본 15개), 기록 분석 메시지 수는 별도 설정입니다. 선 위에 포인터를 올리거나 키보드 포커스를 두면 내용을 읽을 수 있습니다. 터치나 펜으로는 선을 누르세요. [Relationship Tracker 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/relationship-tracker/README.md)를 참고하세요.
 
 ### Memory Nag
@@ -344,7 +344,7 @@ Misc 에이전트는 이미지, 음악, 관객 반응, 카드 업데이트 같�
 
 - **연동 방식**: 에이전트 패키지입니다. Engine이 이 패키지를 실행하고 아바타를 그립니다. 채팅하는 동안 AI 연결에 추가 요청을 보내지 않습니다.
 - **사용 가능한 곳**: Roleplay, Game. 캐릭터와 페르소나에 쓸 수 있습니다.
-- **제공 범위**: 모든 설치에서 **Download Agents**로 받을 수 있습니다. Marinara Engine 2.5.1 이상이 필요합니다.
+- **제공 범위**: 모든 설치에서 **Agent Organizer (에이전트 관리)**로 받을 수 있습니다. Marinara Engine 2.5.1 이상이 필요합니다.
 - **주요 설정**: **Agents**의 에이전트 페이지에서 아바타를 하나씩 설정합니다. 이 에이전트에는 스프라이트 하나로 눈 깜박임 그림과 말하는 그림, 메시 아바타를 만드는 데 쓰는 프롬프트도 들어 있습니다.
 - **호환성**: Engine `2.5.0` 이상 `4.0.0` 미만, Capability API 1.73. 이 패키지는 `agent-runtime`, `chat-read`, `storage`, `ui` 권한을 쓰며 재시작은 필요하지 않습니다.
 - **전체 가이드**: [2D와 3D 아바타](avatars.md).
@@ -355,7 +355,7 @@ Misc 에이전트는 이미지, 음악, 관객 반응, 카드 업데이트 같�
 
 - **연동 방식**: 에이전트 패키지입니다. Engine이 이 패키지를 실행하고 아바타를 그립니다. 채팅하는 동안 AI 연결에 추가 요청을 보내지 않습니다.
 - **사용 가능한 곳**: Roleplay, Game. 캐릭터와 페르소나에 쓸 수 있습니다.
-- **제공 범위**: 모든 설치에서 **Download Agents**로 받을 수 있습니다. Marinara Engine 2.5.1 이상이 필요합니다.
+- **제공 범위**: 모든 설치에서 **Agent Organizer (에이전트 관리)**로 받을 수 있습니다. Marinara Engine 2.5.1 이상이 필요합니다.
 - **주요 설정**: **Agents**의 에이전트 페이지에서 아바타를 하나씩 설정합니다.
 - **호환성**: Engine `2.5.0` 이상 `4.0.0` 미만, Capability API 1.73. 이 패키지는 `agent-runtime`, `chat-read`, `storage`, `ui` 권한을 쓰며 재시작은 필요하지 않습니다.
 - **전체 가이드**: [2D와 3D 아바타](avatars.md).

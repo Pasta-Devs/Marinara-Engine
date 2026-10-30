@@ -679,3 +679,8 @@ Cycle precedent for #7763 (`media/tts-setup.md`).
 - **Enable emotion indicators**(启用情绪提示)
 
 These are translation choices, not a new native-reader review.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

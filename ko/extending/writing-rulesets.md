@@ -3529,7 +3529,7 @@ your-repository/
 
 제한은 두 가지입니다. 저장소의 `rulesets` 바로 아래 JSON 파일은 최대 32개이며, 더 많으면 저장소를 거부합니다. `local/`은 파일에서 가져온 규칙 집합용으로 예약되어 있으므로 `local`이라는 계정은 규칙 집합을 배포할 수 없습니다.
 
-**공식 카탈로그로.** 널리 플레이하며 라이선스가 명확한 시스템은 **Download Agents**(에이전트 다운로드)를 통해 모두에게 제공할 수 있습니다. [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 저장소에 풀 리퀘스트를 보내면 됩니다. 배치는 그곳의 `ruleset-5e-2014` 패키지를 참고하세요.
+**공식 카탈로그로.** 널리 플레이하며 라이선스가 명확한 시스템은 **Agent Organizer** (에이전트 관리)를 통해 모두에게 제공할 수 있습니다. [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 저장소에 풀 리퀘스트를 보내면 됩니다. 배치는 그곳의 `ruleset-5e-2014` 패키지를 참고하세요.
 
 ## 라이선스
 

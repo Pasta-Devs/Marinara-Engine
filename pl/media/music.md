@@ -4,7 +4,7 @@ Z tego przewodnika dowiesz się, jak odtwarzać muzykę w tle w aplikacji Marina
 
 ## Czym jest Music DJ
 
-**Music DJ** to opcjonalny agent do pobrania. Agent to pomocnik, który działa automatycznie w tle czatu. Otwórz sekcję **Agents** (Agenci), wybierz **Download Agents** (pobieranie agentów) i zainstaluj agenta **Music DJ**, zanim przejdziesz do konfiguracji. Po każdej odpowiedzi Music DJ rozpoznaje nastrój sceny i odtwarza pasującą muzykę w tle.
+**Music DJ** to opcjonalny agent do pobrania. Agent to pomocnik, który działa automatycznie w tle czatu. Otwórz sekcję **Agents** (Agenci), wybierz **Agent Organizer** (organizowanie agentów) i zainstaluj agenta **Music DJ**, zanim przejdziesz do konfiguracji. Po każdej odpowiedzi Music DJ rozpoznaje nastrój sceny i odtwarza pasującą muzykę w tle.
 
 Agent **Music DJ** odtwarza muzykę z trzech źródeł:
 
@@ -106,7 +106,7 @@ Odtwarzanie z folderu spoza Game Assets wymaga lokalnego dostępu na serwerze. J
 
 Odtwarzacz **Music Player** pojawia się jako mały kafelek na górnym pasku na komputerze albo jako przeciągany pływający widget na telefonie. Da się go ukryć i pokazać w ustawieniach.
 
-Otwórz **Settings** (Ustawienia), przejdź do zakładki **General** i znajdź sekcję **App Behavior**. Przestaw przełącznik **Music Player**. Tekst pomocy brzmi "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Ten przełącznik jest dostępny zawsze i domyślnie włączony. Kiedy jest włączony, a agent Music DJ nie został zainstalowany, odtwarzacz na komputerze i na telefonie pokazuje zamiast tego napis **Download Music DJ Agent to configure** oraz przycisk **Download Agents**.
+Otwórz **Settings** (Ustawienia), przejdź do zakładki **General** i znajdź sekcję **App Behavior**. Przestaw przełącznik **Music Player**. Tekst pomocy brzmi "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Ten przełącznik jest dostępny zawsze i domyślnie włączony. Kiedy jest włączony, a agent Music DJ nie został zainstalowany, odtwarzacz na komputerze i na telefonie pokazuje zamiast tego napis **Download Music DJ Agent to configure** oraz przycisk **Agent Organizer (organizowanie agentów)**.
 
 W świeżym profilu widoczne źródło startuje na **YouTube**. Źródło zmienia się na trzy sposoby:
 

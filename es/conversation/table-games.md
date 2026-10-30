@@ -6,7 +6,7 @@ Esta guía cubre los seis paquetes opcionales de juegos de mesa que puedes jugar
 
 Los juegos de mesa son pequeños juegos de tablero que corren dentro de un chat en Conversation Mode. Marinara Engine reparte las cartas o prepara el tablero, y aplica cada regla por ti. Cada personaje sentado narra sus propias jugadas dentro de su papel. Un tablero en vivo aparece encima de la caja de mensajes mientras juegas.
 
-Instala cada juego que quieras desde **Agents → Download Agents** (Agentes → Descargar agentes). Queda disponible de inmediato, sin reiniciar Marinara. Un juego que no esté instalado no aparece en el selector de juegos, su comando slash no está disponible y su ajuste de comando de personaje se mantiene oculto.
+Instala cada juego que quieras desde **Agents → Agent Organizer (Organizador de agentes)** . Queda disponible de inmediato, sin reiniciar Marinara. Un juego que no esté instalado no aparece en el selector de juegos, su comando slash no está disponible y su ajuste de comando de personaje se mantiene oculto.
 
 Dos cosas que debes tener presentes:
 

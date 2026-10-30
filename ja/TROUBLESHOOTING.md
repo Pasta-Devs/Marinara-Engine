@@ -146,7 +146,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ## ダウンロードしたエージェントの問題
 
-**Agents → Download Agents**でカタログを利用できないと表示される場合、ブラウザーだけでなく、Marinaraのサーバーが動いているコンピューター自体が、公式カタログ[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)にGitHubのHTTPSで到達できる必要があります。インストール済みのエージェントは、オフラインでも現在のバージョンのまま動きます。サーバーの接続を回復してから、**Refresh**または**Try again**をクリックすると、カタログの閲覧とアップデートの確認ができます。
+**Agents → Agent Organizer (エージェント管理)**でカタログを利用できないと表示される場合、ブラウザーだけでなく、Marinaraのサーバーが動いているコンピューター自体が、公式カタログ[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)にGitHubのHTTPSで到達できる必要があります。インストール済みのエージェントは、オフラインでも現在のバージョンのまま動きます。サーバーの接続を回復してから、**Refresh**または**Try again**をクリックすると、カタログの閲覧とアップデートの確認ができます。
 
 インストールしたマップや通話が表示されない場合は、Marinara Engineを完全に終了してから起動し直してください。ルートを持つこれらのパッケージは、次にプロセスを起動するまで**Restart required**の状態のままです。Conversationのゲームは異なり、現行のEngineビルドでは即座に有効になります。インストールに失敗した場合はカタログを更新し、ゲームが利用可能になっているか確かめてください。チャットの**Commands**設定に追加する必要があるのは、キャラクター自身にゲームを始めさせたいときだけで、手動のスラッシュコマンドで遊ぶ分には不要です。
 
@@ -156,7 +156,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 チェックサム、宣言されたファイル一覧、対応するEngineのバージョン範囲、アーカイブ内のパスのいずれかが公式カタログと一致しないパッケージは、ダウンロードが拒否されます。先にMarinara Engineをアップデートし、カタログを更新してから、もう一度試してください。ダウンロードしたファイルをデータフォルダーへ手動で展開しないでください。
 
-エージェントのアップデートは起動時に自動適用されることはありません。新しい互換バージョンがあるときは、Marinaraが適用するかどうかを確認します。**No**を選べばインストール済みのバージョンをそのまま使い続けられます。**Update**ボタンは**Agents → Download Agents**に残ります。アップデートに失敗した場合もインストール済みのバージョンは登録されたままで、アップデート直後のサーバーランタイムが起動時の自己チェックに失敗すると、前のバージョンへ戻ります。
+エージェントのアップデートは起動時に自動適用されることはありません。新しい互換バージョンがあるときは、Marinaraが適用するかどうかを確認します。**No**を選べばインストール済みのバージョンをそのまま使い続けられます。**Update**ボタンは**Agents → Agent Organizer (エージェント管理)**に残ります。アップデートに失敗した場合もインストール済みのバージョンは登録されたままで、アップデート直後のサーバーランタイムが起動時の自己チェックに失敗すると、前のバージョンへ戻ります。
 
 ## 別のデバイスからMarinaraにアクセスする
 
@@ -288,7 +288,7 @@ pnpm backgroundremover:install
 
 Game Modeの絵コンテは、そろったGMの語りをキーフレーム画像と、任意で短い動画に変換します。Roleplayの絵コンテは、そろったやり取りをまとめ、その結果をアシスタントの返信の下に表示します。
 
-- **Agents** > **Download Agents**から**Storyboard**をインストールしてあるか確かめ、そのチャットで**Enable Agents**(エージェントを有効にする)と**Enable Storyboards**(絵コンテを有効にする)をオンにします。
+- **Agents** > **Agent Organizer (エージェント管理)**から**Storyboard**をインストールしてあるか確かめ、そのチャットで**Enable Agents**(エージェントを有効にする)と**Enable Storyboards**(絵コンテを有効にする)をオンにします。
 - 手動でシーンの動画を作るには、**Chat Settings** > **Gallery**(チャット設定 > ギャラリー)を開いて画像を生成またはアップロードし、その**Video**または**Animate**の操作を使います。**Gallery**は**Images**と**Videos**のタブに分かれているので、**Videos**タブを確認してください。
 - Game Modeの絵コンテを自動生成するには、**Chat Settings** > **Agents** > **Storyboards**を開き、**Automatic Storyboard Illustrations**がオンになっているか確かめます。短い動画も欲しい場合は**Automatic Storyboard Animations**もオンにします。
 - Roleplayでは、**Storyboard**エージェントをチャットに追加します。**Still images**か**Animations**を選び、**Messages per episode**を設定して、Storyboardの画像用の接続を選びます。**Manual only**の場合は、代わりに**Chat Settings**の**Gallery**セクションにある**Create storyboard**から実行します。
@@ -311,7 +311,7 @@ Game Modeの絵コンテは、そろったGMの語りをキーフレーム画像
 
 - 通話中にキャラクターが話さない場合は、音声合成が設定されていません。**Connections** > **Text to Speech**を開いて有効にし、生成元を選び、キーを入力し、声を選んで保存します。声が設定されていないキャラクターはテキストだけで応答します。
 - 音声が**No audio after 60 s**で止まる場合は、音声サーバーの応答がMarinaraの待ち時間より遅くなっています。ノートパソコン上のローカルサーバーではよくあることです。**Connections** > **Text to Speech**、またはメッセージに示された音声の接続で、**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)の値を大きくしてください。[リクエストのタイムアウト](media/tts-setup.md#request-timeout)を参照してください。
-- マイクが動かない場合は、ローカルの音声認識モデルが必要なことがあります。**Agents > Download Agents**から**Calls**をインストールし、**Connections** > **Local Model**を開いてカードを展開し、**Local Speech Model**でWhisperのモデルを選んで**Download Whisper**をクリックします。特にFirefoxはブラウザー側の音声認識を持たないため、これが必要です。**Calls**をアンインストールすると、ディスク容量を空けるためにWhisperのモデルも削除されます。**Connections**の**Speech to Text**(音声認識)カードから、自分の音声認識サーバーを使うこともできます。[自分の音声認識サーバーを使う](conversation/calls.md#use-your-own-speech-to-text-server)を参照してください。
+- マイクが動かない場合は、ローカルの音声認識モデルが必要なことがあります。**Agents > Agent Organizer (エージェント管理)**から**Calls**をインストールし、**Connections** > **Local Model**を開いてカードを展開し、**Local Speech Model**でWhisperのモデルを選んで**Download Whisper**をクリックします。特にFirefoxはブラウザー側の音声認識を持たないため、これが必要です。**Calls**をアンインストールすると、ディスク容量を空けるためにWhisperのモデルも削除されます。**Connections**の**Speech to Text**(音声認識)カードから、自分の音声認識サーバーを使うこともできます。[自分の音声認識サーバーを使う](conversation/calls.md#use-your-own-speech-to-text-server)を参照してください。
 - Liteビルドで**Local Whisper is disabled in Lite mode**と表示される場合、この小さいビルドではローカルの音声認識モデルを動かせません。通常のMarinaraをインストールして使ってください。
 
 ### リモートやネットワーク越しのインストールでMusic DJのSpotifyログインが失敗する

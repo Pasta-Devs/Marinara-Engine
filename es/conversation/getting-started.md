@@ -105,13 +105,13 @@ Cuando un personaje te escribe en un chat que no estás viendo en ese momento, a
 
 Los personajes pueden enviarte selfies, que son fotos del personaje generadas por IA. Las selfies se diferencian del arte de escena usado en Roleplay y Game Mode, porque una selfie está ligada a un solo personaje.
 
-Para usar selfies, instala **Illustrator** desde **Agents → Download Agents**. Luego abre el panel lateral de ajustes del chat, ve a **Agents → Illustrator Settings** y establece una **Selfie Connection**. Una conexión de selfie es un proveedor de generación de imágenes. Cada selfie cuesta una llamada de generación de imágenes.
+Para usar selfies, instala **Illustrator** desde **Agents → Agent Organizer (Organizador de agentes)**. Luego abre el panel lateral de ajustes del chat, ve a **Agents → Illustrator Settings** y establece una **Selfie Connection**. Una conexión de selfie es un proveedor de generación de imágenes. Cada selfie cuesta una llamada de generación de imágenes.
 
 La configuración completa, incluido el estilo, la resolución y el botón de solicitud manual, está en [Selfies](selfies.md).
 
 ## Juegos de mesa
 
-Conversation Mode tiene seis paquetes opcionales de juegos de mesa: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** y **Rock-Paper-Scissors**. Instala los juegos que quieras desde **Agents → Download Agents**. La app reparte el tablero, hace cumplir las reglas y hace que cada personaje narre sus propios movimientos manteniéndose en personaje. Los juegos de mesa solo se ejecutan en chats de Conversation.
+Conversation Mode tiene seis paquetes opcionales de juegos de mesa: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** y **Rock-Paper-Scissors**. Instala los juegos que quieras desde **Agents → Agent Organizer (Organizador de agentes)**. La app reparte el tablero, hace cumplir las reglas y hace que cada personaje narre sus propios movimientos manteniéndose en personaje. Los juegos de mesa solo se ejecutan en chats de Conversation.
 
 Puedes iniciar un juego de tres formas:
 

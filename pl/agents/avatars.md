@@ -6,11 +6,11 @@ Modele Live2D nie są obsługiwane. Licencja Live2D wymaga osobnej umowy z firm�
 
 ## Pobieranie agentów
 
-Obaj agenci są dostępni na ekranie **Download Agents** (pobieranie agentów) w każdej instalacji, w filtrach **Roleplay** i **Game**. Wymagają aplikacji Marinara Engine w wersji 2.5.1 lub nowszej.
+Obaj agenci są dostępni na ekranie **Agent Organizer** (organizowanie agentów) w każdej instalacji, w filtrach **Roleplay** i **Game**. Wymagają aplikacji Marinara Engine w wersji 2.5.1 lub nowszej.
 
 **2D Avatars** i **3D Avatars** pobiera się osobno, więc możesz zainstalować tylko tego agenta, którego chcesz. Obaj działają dla postaci i person w czatach w trybie Roleplay i Game.
 
-1. Otwórz **Agents → Download Agents** (agenci, pobieranie agentów) i zainstaluj **2D Avatars**, **3D Avatars** albo obu agentów. Żaden z nich nie wymaga restartu.
+1. Otwórz **Agents → Agent Organizer (organizowanie agentów)** (agenci, pobieranie agentów) i zainstaluj **2D Avatars**, **3D Avatars** albo obu agentów. Żaden z nich nie wymaga restartu.
 2. Skonfiguruj każdy awatar na stronie agenta w panelu **Agents**. Zobacz [Konfigurowanie awatara](#setting-up-an-avatar).
 3. W czacie w trybie Roleplay albo Game otwórz **Chat Settings → Agents → Misc Agents** (ustawienia czatu, agenci, agenci różni) i dodaj agenta.
 
