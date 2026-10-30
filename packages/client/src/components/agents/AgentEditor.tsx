@@ -2033,7 +2033,7 @@ export function AgentEditor() {
     edit: editMariField,
     beforeKeep: async (takenOver) => {
       takenOverRef.current =
-        agentRecordId && takenOver.length > 0
+        agentRecordId && takenOver && takenOver.length > 0
           ? { agentId: agentRecordId, values: Object.fromEntries(takenOver.map((id) => [id, mariFieldText(id)])) }
           : null;
       if (!dirty) return "clean";

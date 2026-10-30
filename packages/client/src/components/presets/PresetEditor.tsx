@@ -448,7 +448,7 @@ export function PresetEditor() {
     edit: editMariField,
     beforeKeep: async (takenOver) => {
       takenOverRef.current =
-        presetDetailId && takenOver.length > 0
+        presetDetailId && takenOver && takenOver.length > 0
           ? { presetId: presetDetailId, values: Object.fromEntries(takenOver.map((id) => [id, mariFieldText(id)])) }
           : null;
       if (!dirtyRef.current) return "clean";
