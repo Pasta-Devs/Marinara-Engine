@@ -119,7 +119,7 @@ A broad public range, such as `0.0.0.0/0`, can let internet clients in without a
 
 How the IP allowlist behaves:
 
-- Any address not in the list is rejected with **403 Forbidden**.
+- Any address not in the list is rejected with **403 Forbidden**. Trusted Tailscale and Docker peers and a `TRUSTED_AUTH_PROXY` still pass, like loopback.
 - Loopback is always allowed, so you cannot lock yourself out of local access. Visitors that a reverse proxy or tunnel on the same machine passes along are not loopback, so the allowlist blocks them. Use Basic Auth behind a proxy.
 - On Docker Desktop, OrbStack, and rootless Docker, every device reaches the container from the same gateway address, so the allowlist cannot tell them apart. Use Basic Auth there.
 - Direct Tailscale traffic also skips the list. Docker bridge/gateway traffic skips it only while no login, allowlist or valid `TRUSTED_AUTH_PROXY` is set (see [Tailscale and Docker bypass](#tailscale-and-docker-bypass)).
