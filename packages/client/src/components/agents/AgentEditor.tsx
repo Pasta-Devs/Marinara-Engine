@@ -925,6 +925,8 @@ export function AgentEditor() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
 
+  /** The record the last populate pass saw; a dirty refetch compares against it, not the load-time record. */
+  const lastSeenConfigRef = useRef<typeof dbConfig>(undefined);
   // Populate from DB config or built-in defaults
   useEffect(() => {
     if (!agentDetailId) return;
@@ -940,7 +942,8 @@ export function AgentEditor() {
       setLocalDescription((current) => (current === loaded.description ? fresh.description : current));
       setLocalPrompt((current) => (current === loaded.promptTemplate ? fresh.promptTemplate : current));
       loadedMariFieldsRef.current = fresh;
-      const before = loadedSaveRef.current?.config;
+      const before = lastSeenConfigRef.current ?? loadedSaveRef.current?.config;
+      lastSeenConfigRef.current = dbConfig;
       if (before?.id === dbConfig.id) {
         const phase = (config: typeof before) => normalizeAgentPhaseForType(dbConfig.type, config.phase);
         const connection = (config: typeof before) => normalizeTextConnectionOverride(config.connectionId);
@@ -957,6 +960,7 @@ export function AgentEditor() {
           promptTemplate: dbConfig.promptTemplate || "",
         }
       : null;
+    lastSeenConfigRef.current = dbConfig;
     setLoadTick((tick) => tick + 1);
     const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
     const defaultSettings = getDefaultBuiltInAgentSettings(agentType);
@@ -1748,8 +1752,12 @@ export function AgentEditor() {
         }
         const loadedSave = loadedSaveRef.current;
         if (loadedSave?.config.id === dbConfig.id) {
-          if (payload.phase === loadedSave.payload.phase) delete patch.phase;
-          if (payload.connectionId === loadedSave.payload.connectionId) delete patch.connectionId;
+          if (payload.phase === loadedSave.payload.phase && payload.phase === dbConfig.phase) delete patch.phase;
+          if (
+            payload.connectionId === loadedSave.payload.connectionId &&
+            payload.connectionId === (dbConfig.connectionId ?? null)
+          )
+            delete patch.connectionId;
           patch.settings = rebaseUntouchedKeys(
             payload.settings,
             loadedSave.payload.settings,
