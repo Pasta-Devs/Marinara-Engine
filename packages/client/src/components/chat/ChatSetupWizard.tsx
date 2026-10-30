@@ -2252,9 +2252,9 @@ function RoleplaySetupWizard({
     return flag;
   });
   const [shortcutPresetId, setShortcutPresetId] = useState<string>("");
-  const profileSeedRef = useRef<{ personaId: string | null; personaCharacterId: string | null; seeded: string } | null>(
-    null,
-  );
+  // The quick-setup picker only shows the profile's starting persona; nothing is written until
+  // the user picks one here (their pick then wins) or Apply & Start applies the profile.
+  const [shortcutPersonaPicked, setShortcutPersonaPicked] = useState(false);
   const [profileBuilder, setProfileBuilder] = useState<"edit" | "new" | null>(null);
 
   const updateChat = useUpdateChat();
@@ -2292,6 +2292,11 @@ function RoleplaySetupWizard({
   const applyChatPreset = useApplyChatPreset();
 
   const personas = useMemo(() => allPersonas ?? [], [allPersonas]);
+  const shortcutProfilePersonaId = useMemo(() => {
+    if (shortcutPersonaPicked) return null;
+    const personaId = chatPresetList.find((preset) => preset.id === shortcutPresetId)?.settings.personaId;
+    return personaId && personas.some((persona) => persona.id === personaId) ? personaId : null;
+  }, [shortcutPersonaPicked, chatPresetList, shortcutPresetId, personas]);
   const characters = useMemo(
     () =>
       (allCharacters ?? []) as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>,
@@ -2772,7 +2777,7 @@ function RoleplaySetupWizard({
       setShortcutApplying(true);
       const applied = await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
       profileApplied = true;
-      if (applied && applied.personaId !== pickedPersonaId) {
+      if (shortcutPersonaPicked && applied && applied.personaId !== pickedPersonaId) {
         if (pickedPersonaCharacterId) setPersonaCharacter(pickedPersonaCharacterId);
         else if (pickedPersonaId) setPersona(pickedPersonaId);
       }
@@ -2786,6 +2791,7 @@ function RoleplaySetupWizard({
     }
   }, [
     shortcutPresetId,
+    shortcutPersonaPicked,
     chat.id,
     chat.personaId,
     chat.personaCharacterId,
@@ -3924,27 +3930,6 @@ function RoleplaySetupWizard({
             onChange={(event) => {
               if (event.target.value === NEW_PROFILE_OPTION) return setProfileBuilder("new");
               setShortcutPresetId(event.target.value);
-              // Show the profile's starting persona in the picker, so the user sees it and can change it.
-              const personaId = chatPresetList.find((preset) => preset.id === event.target.value)?.settings.personaId;
-              // A persona the user picked after the last seed is their own choice: forget the seed.
-              if (profileSeedRef.current && chat.personaId !== profileSeedRef.current.seeded)
-                profileSeedRef.current = null;
-              const seed = profileSeedRef.current;
-              if (personaId && personas.some((persona) => persona.id === personaId)) {
-                profileSeedRef.current = seed
-                  ? { ...seed, seeded: personaId }
-                  : {
-                      personaId: chat.personaId ?? null,
-                      personaCharacterId: chat.personaCharacterId ?? null,
-                      seeded: personaId,
-                    };
-                setPersona(personaId);
-              } else if (seed) {
-                // The previous profile's persona is still set: put back what the user had before.
-                profileSeedRef.current = null;
-                if (seed.personaCharacterId) setPersonaCharacter(seed.personaCharacterId);
-                else setPersona(seed.personaId);
-              }
             }}
             aria-label={localizeUi("chat.settingsProfile.label")}
             className={WIZARD_INPUT_CLASS}
@@ -3989,15 +3974,17 @@ function RoleplaySetupWizard({
           characters={characters}
           characterGroups={(allCharacterGroups ?? []) as CharacterGroup[]}
           showCharacterIdentities={showCharacterIdentities}
-          value={chat.personaId ?? null}
-          characterValue={chat.personaCharacterId ?? null}
+          value={shortcutProfilePersonaId ?? chat.personaId ?? null}
+          characterValue={shortcutProfilePersonaId ? null : (chat.personaCharacterId ?? null)}
           // A persona picked here replaces "Create your persona", as in the step picker.
           onChange={(personaId) => {
             setOnboardingCharacterId(null);
+            setShortcutPersonaPicked(true);
             setPersona(personaId);
           }}
           onCharacterChange={(characterId) => {
             setOnboardingCharacterId(null);
+            setShortcutPersonaPicked(true);
             setPersonaCharacter(characterId);
           }}
         />
