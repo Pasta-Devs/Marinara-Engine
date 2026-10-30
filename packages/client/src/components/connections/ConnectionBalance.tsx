@@ -419,7 +419,7 @@ function UsageKeySheet({
               {t("connections.usage.remove")}
             </button>
           )}
-          <button type="button" onClick={onClose} disabled={busy} className="mari-chrome-control">
+          <button type="button" onClick={onClose} disabled={busy} className="mari-chrome-control px-3">
             {t("connections.accounts.editor.cancel")}
           </button>
           <button

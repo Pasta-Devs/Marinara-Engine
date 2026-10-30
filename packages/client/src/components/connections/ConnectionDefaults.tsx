@@ -4,7 +4,7 @@
 // problem shows it as a chip on its row. Agents and Decision keep their other settings behind a gear.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Loader2, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -61,9 +61,9 @@ function JobIcon({ job }: { job: JobKey }) {
 }
 
 /** Feature values that are not a Model: quick answers can follow Professor Mari, Impersonate can shuffle. */
-const FEATURE_EXTRA_OPTIONS: Partial<Record<JobKey, Array<{ value: string; key: string }>>> = {
-  quick: [{ value: MARI_QUICK_CONNECTION, key: "connections.defaults.featureOption.sameAsMari" }],
-  impersonate: [{ value: "random", key: "connections.defaults.featureOption.random" }],
+const FEATURE_EXTRA_OPTIONS: Partial<Record<JobKey, Array<{ value: string; key: string; icon: LucideIcon }>>> = {
+  quick: [{ value: MARI_QUICK_CONNECTION, key: "connections.defaults.featureOption.sameAsMari", icon: JOB.mari.icon }],
+  impersonate: [{ value: "random", key: "connections.defaults.featureOption.random", icon: Shuffle }],
 };
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
@@ -463,6 +463,7 @@ function useJobModels(connectionsList: ConnectionRowData[]) {
         extraOptions: (FEATURE_EXTRA_OPTIONS[job.key as JobKey] ?? []).map((extra) => ({
           value: extra.value,
           label: t(extra.key),
+          icon: <extra.icon size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />,
         })),
         includeLocalSidecar: !lite && job.key !== "vision",
       };

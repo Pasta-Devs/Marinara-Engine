@@ -281,7 +281,7 @@ function ModelStep({
               !search.isFetching && (
                 <div role="alert" className="mb-2 flex items-center gap-2 text-[0.6875rem]">
                   <span className="min-w-0 flex-1 text-foreground/60">{t("connections.move.searchFailed")}</span>
-                  <button type="button" onClick={() => void search.refetch()} className="mari-chrome-control">
+                  <button type="button" onClick={() => void search.refetch()} className="mari-chrome-control px-3">
                     <RefreshCw size="0.75rem" aria-hidden />
                     {t("connections.picker.retry")}
                   </button>

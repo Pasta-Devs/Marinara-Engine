@@ -52,8 +52,10 @@ import {
   NO_RECOMMENDED,
   PRIMARY_CLASS,
   SECONDARY_CLASS,
+  SELF_HOSTED,
   errorText,
   failureReason,
+  hostOf,
   isDevice,
   jobSourceOf,
   NETWORK_ERROR,
@@ -240,7 +242,12 @@ export function CreateConnectionModalContent({
   // A network failure reads as one plain sentence, never a raw "Failed to fetch".
   const friendlyError = (error: unknown) =>
     NETWORK_ERROR.test(errorText(error))
-      ? t("connections.add.error.unreachable", { host: serviceName(service ?? provider ?? "custom") })
+      ? t("connections.add.error.unreachable", {
+          host:
+            hostOf(withHttpScheme(baseUrl.trim()) || selectedMedia?.defaultBaseUrl || def?.defaultBaseUrl || "") ||
+            presetName ||
+            serviceName(service ?? provider ?? "custom"),
+        })
       : errorText(error);
 
   // Done applies the footer's choices. With no Main model yet the first model added becomes Main (its box starts
@@ -385,6 +392,8 @@ export function CreateConnectionModalContent({
             ? "custom"
             : (key as APIProvider),
     );
+    // A server you run starts with its usual address filled in, like Ollama.
+    if (media && SELF_HOSTED.has(media.source)) setBaseUrl(media.defaultBaseUrl ?? "");
     if (key === LINKAPI_SERVICE) {
       setBaseUrl(LINKAPI.baseUrl);
       setName(LINKAPI.name);
@@ -730,7 +739,11 @@ export function CreateConnectionModalContent({
           {t("connections.add.continue")}
         </button>
       ) : (
-        <button type="button" onClick={onClose} className={SECONDARY_CLASS}>
+        <button
+          type="button"
+          onClick={onClose}
+          className={device === "local_model" ? SECONDARY_CLASS : PRIMARY_CLASS}
+        >
           {device === "local_model" ? t("connections.add.close") : t("connections.add.done")}
         </button>
       )

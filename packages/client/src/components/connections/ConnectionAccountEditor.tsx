@@ -409,7 +409,7 @@ export function ConnectionAccountEditor({
                 testRow && test.mutate({ id: testRow.id, apiKey: changes.apiKey, baseUrl: changes.baseUrl })
               }
               disabled={!testRow || test.isPending}
-              className="mari-chrome-control"
+              className="mari-chrome-control px-3"
             >
               {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.75rem" />}
               {t("connections.accounts.editor.test")}
@@ -546,7 +546,7 @@ export function ConnectionAccountEditor({
               type="button"
               onClick={() => void leaveFor(() => {})}
               disabled={update.isPending || remove.isPending || test.isPending}
-              className="mari-chrome-control"
+              className="mari-chrome-control px-3"
             >
               {t("connections.accounts.editor.cancel")}
             </button>

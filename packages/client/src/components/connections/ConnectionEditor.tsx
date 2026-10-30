@@ -1883,7 +1883,7 @@ export function ConnectionEditor({
       <div className="flex gap-2">
         {/* A chat Model of a Connection is tested on its card; only a Model with its own endpoint tests here. */}
         {(!accountLinked || hasOwnEndpoint) && (
-          <button onClick={handleTestConnection} disabled={testConnection.isPending} className="mari-chrome-control">
+          <button onClick={handleTestConnection} disabled={testConnection.isPending} className="mari-chrome-control px-3">
             {testConnection.isPending ? (
               <Loader2 size="0.8125rem" className="animate-spin" />
             ) : (
@@ -1896,7 +1896,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestMessage}
             disabled={testMessage.isPending || !canSendTestMessage}
-            className="mari-chrome-control"
+            className="mari-chrome-control px-3"
           >
             {testMessage.isPending ? (
               <Loader2 size="0.8125rem" className="animate-spin" />
@@ -1910,7 +1910,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestImage}
             disabled={testImageGeneration.isPending}
-            className="mari-chrome-control"
+            className="mari-chrome-control px-3"
             title={dirty ? localizeUi("ui.connections.connectioneditor.saveFirstToTestImageGeneration") : undefined}
           >
             {testImageGeneration.isPending ? (
@@ -1925,7 +1925,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestVideo}
             disabled={testVideoGeneration.isPending}
-            className="mari-chrome-control"
+            className="mari-chrome-control px-3"
             title={dirty ? localizeUi("ui.connections.connectioneditor.saveFirstToTestVideoGeneration") : undefined}
           >
             {testVideoGeneration.isPending ? (
@@ -1940,7 +1940,7 @@ export function ConnectionEditor({
           <button
             onClick={handleDiagnoseClaudeSubscription}
             disabled={diagnoseClaudeSubscription.isPending || !localModel}
-            className="mari-chrome-control"
+            className="mari-chrome-control px-3"
             title={localizeUi("ui.connections.connectioneditor.verifyWhichModelTheSdkActuallyBillsAgainstCatches")}
           >
             {diagnoseClaudeSubscription.isPending ? (

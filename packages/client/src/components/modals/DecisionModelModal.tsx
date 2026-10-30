@@ -419,7 +419,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                         setInspectedRepo(repo);
                         inspect.mutate({ repoId: repo }, { onError: report });
                       }}
-                      className="mari-chrome-control"
+                      className="mari-chrome-control px-3"
                     >
                       {localizeUi(
                         inspect.isPending
@@ -513,7 +513,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                     }
                   }
                 }}
-                className="mari-chrome-control"
+                className="mari-chrome-control px-3"
               >
                 <Trash2 size="0.75rem" />
                 {localizeUi("ui.modals.decisionmodelmodal.remove")}
@@ -523,7 +523,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
         )}
 
         {nothingRuns && (
-          <button type="button" onClick={openDecisionConnection} className="mari-chrome-control">
+          <button type="button" onClick={openDecisionConnection} className="mari-chrome-control px-3">
             <Link2 size="0.75rem" />
             {localizeUi("ui.modals.decisionmodelmodal.setUpDecisionConnection")}
           </button>

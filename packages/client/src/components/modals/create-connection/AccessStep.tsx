@@ -15,6 +15,7 @@ import {
   LOCAL_PRESETS,
   LOGIN_COMMANDS,
   MEDIA_KEY_URLS,
+  SELF_HOSTED,
   LINKAPI,
   LINKAPI_SERVICE,
   failureReason,
@@ -76,6 +77,20 @@ export function AccessStep(props: AccessStepProps) {
   }, [failure]);
 
   const keyName = props.service ? props.serviceName(props.service) : props.def?.name;
+  // A server you run: its address matters more than its name.
+  const addressFirst = !!props.selectedMedia && SELF_HOSTED.has(props.selectedMedia.source);
+  const loginCommand = props.provider ? LOGIN_COMMANDS[props.provider] : undefined;
+  const nameField = (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
+      <input
+        value={props.name}
+        onChange={(event) => props.setName(event.target.value)}
+        placeholder={props.presetName ?? keyName}
+        className={inputClass}
+      />
+    </label>
+  );
   const keyField = (optional: boolean) => (
     <div className="flex flex-col gap-1">
       <label htmlFor="add-connection-key" className={labelClass}>
@@ -153,6 +168,11 @@ export function AccessStep(props: AccessStepProps) {
     <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
       <div className="max-w-xl">
         <div className="flex flex-col gap-4 px-3 py-4">
+          {loginCommand && failure !== "plan" && (
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {t("connections.add.signInFirst", { command: loginCommand })}
+            </p>
+          )}
           {props.isLocal && (
             <div className="flex flex-col gap-1">
               <label htmlFor="add-connection-url" className={labelClass}>
@@ -237,15 +257,7 @@ export function AccessStep(props: AccessStepProps) {
           {(!props.isMedia || props.selectedMedia) && (
             <div className="flex flex-col gap-2">
               {props.isLocal && failure !== "key" && keyField(true)}
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
-                <input
-                  value={props.name}
-                  onChange={(event) => props.setName(event.target.value)}
-                  placeholder={props.presetName ?? props.def?.name}
-                  className={inputClass}
-                />
-              </label>
+              {!addressFirst && nameField}
               {!props.isLocal && (!props.keyless || props.selectedMedia) && (
                 <label className="flex flex-col gap-1">
                   <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
@@ -261,6 +273,7 @@ export function AccessStep(props: AccessStepProps) {
                   />
                 </label>
               )}
+              {addressFirst && nameField}
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-1">
                   <span className="text-xs text-[var(--muted-foreground)]">
@@ -271,6 +284,7 @@ export function AccessStep(props: AccessStepProps) {
                     min={1}
                     max={600}
                     value={props.maxRpm}
+                    placeholder={t("connections.accounts.editor.noLimit")}
                     onChange={(event) => props.setMaxRpm(event.target.value)}
                     className={inputClass}
                   />
@@ -282,6 +296,7 @@ export function AccessStep(props: AccessStepProps) {
                     min={1}
                     max={16}
                     value={props.maxJobs}
+                    placeholder={t("connections.accounts.editor.noLimit")}
                     onChange={(event) => props.setMaxJobs(event.target.value)}
                     className={inputClass}
                   />

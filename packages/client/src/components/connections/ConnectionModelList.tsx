@@ -169,7 +169,7 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
             {/* NanoGPT plan badges need the user's yes once: the server then reads NanoGPT's public list. */}
             {upstream === "nanogpt" && outsideReads.value === null && showCostBadges && (
               <div className="mari-connection-model-slot flex min-h-9 min-w-0 items-center ps-[3.625rem] pe-2 max-md:ps-[2.75rem]">
-                <button type="button" onClick={() => void outsideReads.ask()} className="mari-chrome-control">
+                <button type="button" onClick={() => void outsideReads.ask()} className="mari-chrome-control px-3">
                   {t("connections.nanogptPlan.show")}
                 </button>
               </div>

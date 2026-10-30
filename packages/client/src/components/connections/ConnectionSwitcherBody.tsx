@@ -638,7 +638,7 @@ export function ConnectionSwitcherBody({
         group.account?.state === "off" ? "connections.switcher.fixTurnOn" : "connections.switcher.fixAddKey",
         { connection: group.name },
       )}
-      className="mari-chrome-control"
+      className="mari-chrome-control px-3"
     >
       {fixLabel(group)}
     </button>
@@ -1400,7 +1400,7 @@ export function ConnectionSwitcherBody({
           poolList
         ) : nothing ? (
           (empty ?? (
-            <ListStatus className="italic">{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>
+            <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>
           ))
         ) : searching ? (
           <div data-switcher-results>

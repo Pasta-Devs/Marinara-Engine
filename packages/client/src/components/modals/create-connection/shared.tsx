@@ -294,7 +294,7 @@ export type TestResult = { success: boolean; message?: string };
 export const inputClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
 export const labelClass = "text-xs font-medium text-[var(--muted-foreground)]";
 export const PRIMARY_CLASS = "mari-chrome-control mari-chrome-control--primary px-4 text-sm";
-export const SECONDARY_CLASS = "mari-chrome-control text-sm";
+export const SECONDARY_CLASS = "mari-chrome-control px-4 text-sm";
 export const BADGE_CLASS = "mari-connection-pill";
 export const MUTED_BADGE_CLASS = "mari-chrome-muted-badge px-1.5 py-0.5 text-[0.5625rem]";
 export const HIGHLIGHT_BADGE_CLASS = "mari-connection-pill mari-connection-pill--blue";
@@ -323,6 +323,7 @@ export const MEDIA_KEY_URLS: Record<string, string> = {
   runpod_comfyui: "https://www.runpod.io/console/user/settings",
   blockentropy: "https://blockentropy.ai/",
   seedance: "https://seedance2.ai/",
+  elevenlabs: "https://elevenlabs.io/app/settings/api-keys",
 };
 
 /** A plain reason for a failed test; the raw message stays visible below it. */
