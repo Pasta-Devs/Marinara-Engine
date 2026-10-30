@@ -1,6 +1,6 @@
 # Awatary 2D i 3D
 
-Dwaj agenci do pobrania dają twoim postaciom i personom animowany awatar, który reaguje, gdy odpowiedź się streamuje. **2D Avatars** (awatary 2D) pokazuje sprite'y w stylu PNGTuber albo awatary mesh, a **3D Avatars** (awatary 3D) pokazuje modele VRM. Miny podążają za odpowiedzią, a usta poruszają się zgodnie z tekstem albo z syntezą mowy.
+Dwaj agenci do pobrania dają twoim postaciom i personom animowany awatar, który reaguje, gdy odpowiedź się streamuje. **2D Avatars** (awatary 2D) pokazuje sprite'y w stylu PNGTuber albo awatary mesh, a **3D Avatars** (awatary 3D) pokazuje modele VRM i MMD PMX. Miny podążają za odpowiedzią, a usta poruszają się zgodnie z tekstem albo z syntezą mowy.
 
 Modele Live2D nie są obsługiwane. Licencja Live2D wymaga osobnej umowy z firmą Live2D nawet w przypadku darmowych aplikacji open source, a środowiska uruchomieniowego Live2D nie można dołączyć do aplikacji Marinara Engine.
 
@@ -23,7 +23,7 @@ Podczas czatu agenci nie wysyłają żadnych dodatkowych zapytań do twoich poł
 Awatary konfiguruje się na własnej stronie każdego agenta. Otwórz panel **Agents**, otwórz **2D Avatars** albo **3D Avatars** i skorzystaj z sekcji **Avatars** (awatary) u góry strony.
 
 1. W polu **Character or persona** (postać lub persona) wybierz, kto dostanie awatar. Nazwy oznaczone "(has an avatar)" mają już zapisany awatar.
-2. W polu **Avatar type** (typ awatara) wybierz rodzaj do skonfigurowania. 2D Avatars oferuje **PNGTuber sprites** (sprite'y PNGTuber) i **Mesh avatar** (awatar mesh). 3D Avatars oferuje **VRM model** (model VRM).
+2. W polu **Avatar type** (typ awatara) wybierz rodzaj do skonfigurowania. 2D Avatars oferuje **PNGTuber sprites** (sprite'y PNGTuber) i **Mesh avatar** (awatar mesh). 3D Avatars oferuje **VRM model** (model VRM) i **MMD PMX model** (model MMD PMX).
 3. Skonfiguruj go we własnej sekcji tego typu pod przełącznikami: użyj swoich sprite'ów albo zaimportuj plik, wybierz minę dla każdej emocji albo usuń awatar. Zobacz [Awatary 2D](#2d-avatars-pngtuber-sprites-and-mesh-avatars) i [Awatary 3D](#3d-avatars-vrm-models).
 4. Obejrzyj go w sekcji **Preview** (podgląd). **Try a face** (wypróbowanie miny) przełącza emocje, a **Talk** (mówienie) porusza ustami. Gdy nie ma jeszcze nic do pokazania, podgląd wyświetla przykładowy awatar.
 
@@ -106,6 +106,20 @@ Niektórych plików nie da się użyć, a import podaje powód:
 - **Niekompletne modele.** Model, którego szkielet nie ma kości wymaganych przez VRM albo wskazuje części, których nie ma w pliku, a także model wskazujący pliki poza sobą, zostaje odrzucony.
 
 Poza zwykłym limitem wgrywania w aplikacji nie ma limitu rozmiaru, ale duże modele wczytują się dłużej, zwłaszcza na telefonach.
+
+<a id="mmd-avatars-pmx-models-and-vmd-motions"></a>
+
+## Awatary MMD: modele PMX i animacje VMD
+
+Na stronie **3D Avatars** wybierz **MMD PMX model** w polu **Avatar type**. Wybierz **Import PMX or ZIP** (import pliku PMX lub ZIP) i wskaż archiwum ZIP z jednym modelem PMX i jego obrazkami. Zachowaj w archiwum foldery i nazwy plików modelu, także nazwy japońskie. Model, który nie potrzebuje obrazków, można zaimportować jako sam plik `.pmx`. Brakujące obrazki, niebezpieczne ścieżki i uszkodzone pliki są odrzucane, zanim zastąpią zapisany model.
+
+W sekcji **Faces and mouth shapes** wybierz minę modelu dla każdej emocji, kształtu ust i mrugania. Typowe nazwy angielskie i japońskie są dopasowywane automatycznie; sprawdź podgląd i popraw nietrafione dopasowania. Model bez odpowiednich min nadal może być wyświetlany i poruszać ciałem. Konfiguracja pokazuje pierwsze 256 nazw ekspresji i ostrzega, jeśli jest ich więcej. Wybrane wcześniej miny nadal działają, a inne ekspresje mogą nadal być odtwarzane w animacji.
+
+W sekcji **VMD motion** (animacja VMD) możesz dodać plik `.vmd` przygotowany dla tego modelu. Jest odtwarzany przy włączonej opcji **Idle motion**, a wybrane miny nadal podążają za czatem. Ograniczenie ruchu zatrzymuje animację, ale zachowuje miny sterowane czatem i synchronizację ust. Bez pliku VMD model łagodnie się kołysze. Zastąpienie modelu PMX usuwa jego poprzednią animację VMD; dodaj animację dla nowego modelu ponownie. Usunięcie modelu MMD usuwa też jego obrazki i animację, pozostawiając inne typy awatarów bez zmian.
+
+**Obsługiwane pliki.** Działają modele PMX 2.0 i zgodne modele PMX 2.1 z obrazkami PNG, JPEG, BMP i TGA, także w plikach `.sph` i `.spa`. Niektóre nowsze funkcje PMX 2.1 nie są obsługiwane, a import podaje powód. Modele PMD, pozy VPD oraz animacje kamery i światła nie są obsługiwane. Fizyka nie jest symulowana, więc włosy i ubrania mogą wyglądać inaczej niż w programie MikuMikuDance. Modele z ponad 256 ścieżkami do obrazków, bardzo długimi ścieżkami, obrazkami wymagającymi zbyt wiele pamięci albo nadmiernie złożonym układem kości są odrzucane. Sprawdź wynik na własnym modelu, zwłaszcza na telefonie.
+
+Przeglądarka musi obsługiwać WebGL2. Awatary MMD korzystają z tych samych ustawień pauzy, liczby klatek i kadru co pozostałe awatary. Modele i obrazki wczytują się tylko z twojej aplikacji Marinara Engine. Przed użyciem lub udostępnieniem przestrzegaj licencji i warunków twórców modelu i animacji. Importowanie i odtwarzanie awatara MMD nie wysyła niczego do dostawcy AI.
 
 <a id="get-a-3d-model"></a>
 
