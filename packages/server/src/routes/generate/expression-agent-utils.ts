@@ -99,6 +99,7 @@ export function buildAvailableSpriteCharacter(
     fullBody: string[];
     automaticFullBody: string[];
     expressionAliases?: Record<string, string>;
+    fullBodyAliases?: Record<string, string>;
     folderName?: string | null;
     folderNames?: string[];
     folderDescription?: string;
@@ -111,14 +112,19 @@ export function buildAvailableSpriteCharacter(
   ]);
 
   if (expressions.length === 0) return null;
+  const expressionAliases: Record<string, string> = Object.assign(
+    Object.create(null),
+    displayModes.includes("full-body") ? sprites.fullBodyAliases : {},
+    displayModes.includes("expressions") ? sprites.expressionAliases : {},
+  );
   return {
     characterId,
     characterName,
     expressions,
     expressionChoices: buildSpriteExpressionChoices(
-      expressions.map((expression) => sprites.expressionAliases?.[expression] ?? expression),
+      expressions.map((expression) => expressionAliases[expression] ?? expression),
     ),
-    expressionAliases: sprites.expressionAliases,
+    expressionAliases,
     folderName: sprites.folderName,
     folderNames: sprites.folderNames,
     folderDescription: sprites.folderDescription,
@@ -238,14 +244,16 @@ function resolveExpression(
   const trimmed = expression.trim();
   if (!trimmed) return null;
   if (aliases) {
-    const choices = availableExpressions.filter((entry) => {
-      const alias = aliases[entry] ?? entry;
-      return (
-        normalizeExpressionToken(alias) === normalizeExpressionToken(trimmed) ||
-        alias.toLowerCase().startsWith(`${trimmed.toLowerCase()}_`)
-      );
-    });
-    if (choices.length) return pickRandomExpression(choices);
+    const savedHandle = availableExpressions.find(
+      (entry) => entry.toLowerCase() === trimmed.toLowerCase() && /_sprite_[a-f0-9]{12}$/iu.test(entry),
+    );
+    if (savedHandle) return savedHandle;
+    const label = resolveExpression(
+      trimmed,
+      uniqueStrings(availableExpressions.map((entry) => aliases[entry] ?? entry)),
+    );
+    const choices = label ? availableExpressions.filter((entry) => (aliases[entry] ?? entry) === label) : [];
+    if (choices.length) return choices.length === 1 ? choices[0]! : pickRandomExpression(choices);
   }
 
   const lower = trimmed.toLowerCase();
@@ -272,7 +280,19 @@ function resolveExpression(
   );
 }
 
-function pickFallbackExpression(expressions: string[], sourceText: string): string | null {
+function pickFallbackExpression(
+  expressions: string[],
+  sourceText: string,
+  aliases?: Record<string, string>,
+): string | null {
+  if (aliases) {
+    const label = pickFallbackExpression(
+      uniqueStrings(expressions.map((expression) => aliases[expression] ?? expression)),
+      sourceText,
+    );
+    const matches = label ? expressions.filter((expression) => (aliases[expression] ?? expression) === label) : [];
+    return matches.length === 1 ? matches[0]! : pickRandomExpression(matches);
+  }
   for (const candidate of inferExpressionCandidates(sourceText)) {
     const resolved = resolveExpression(candidate, expressions);
     if (resolved) return resolved;
@@ -308,7 +328,7 @@ export function completeRequiredSpriteExpressionEntries<T extends SpriteExpressi
     if (!character) continue;
 
     const sourceText = options.sourceTextByCharacterId?.get(characterId) ?? options.defaultSourceText ?? "";
-    const expression = pickFallbackExpression(character.expressions, sourceText);
+    const expression = pickFallbackExpression(character.expressions, sourceText, character.expressionAliases);
     if (!expression) continue;
 
     completed.push({

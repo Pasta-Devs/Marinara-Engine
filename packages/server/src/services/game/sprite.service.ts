@@ -94,6 +94,7 @@ export function listCharacterSprites(characterId: string): {
   fullBody: string[];
   automaticFullBody: string[];
   expressionAliases: Record<string, string>;
+  fullBodyAliases: Record<string, string>;
   folderName: string | null;
   folderNames: string[];
   folderDescription: string;
@@ -102,11 +103,13 @@ export function listCharacterSprites(characterId: string): {
   const expressions: string[] = [];
   const fullBody: string[] = [];
   const automaticFullBody: string[] = [];
-  const expressionAliases: Record<string, string> = {};
+  const expressionAliases: Record<string, string> = Object.create(null);
+  const fullBodyAliases: Record<string, string> = Object.create(null);
 
   for (const f of files) {
     const name = f.expression;
-    expressionAliases[name.startsWith("full_") ? name.slice(5) : name] = f.label.replace(/^full_/u, "");
+    if (name.startsWith("full_")) fullBodyAliases[name.slice(5)] = f.label.replace(/^full_/u, "");
+    else expressionAliases[name] = f.label;
     if (name.startsWith("full_")) {
       const stripped = name.slice(5);
       if (stripped) {
@@ -128,6 +131,7 @@ export function listCharacterSprites(characterId: string): {
     fullBody,
     automaticFullBody,
     expressionAliases,
+    fullBodyAliases,
     folderNames: catalog.folders.map((folder) => folder.name),
     folderDescription: "",
     folderName: null,

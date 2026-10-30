@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 
 const dir = mkdtempSync(join(tmpdir(), "marinara-expression-group-"));
 process.env.DATA_DIR = dir;
@@ -144,6 +145,12 @@ try {
         expectedIds.includes(character.id),
         `${JSON.parse(character.data).name} sprite availability matches this turn`,
       );
+    for (const id of expectedIds.filter((id) => roster.some((character) => character.id === id))) {
+      const line = available.split(/\\n|\n/u).find((line) => line.includes(`(${id})`));
+      assert(line, "eligible owner is listed");
+      for (const expression of ["happy", "sad", "neutral"])
+        assert(line.includes(expression), "loose and both folder expressions remain in the model choices");
+    }
     const message = retryMessageId
       ? await chats.getMessage(retryMessageId)
       : (await chats.listMessages(chat.id)).at(-1)!;
@@ -158,6 +165,26 @@ try {
     return message;
   };
   const merged = await run([alice.id, bob.id]);
+  // Organizational folders must not change the real generation/retry availability or persisted choices.
+  for (const character of roster) {
+    const happyFolder = randomUUID();
+    const sadFolder = randomUUID();
+    writeFileSync(
+      join(dir, "sprites", character.id, "catalog.json"),
+      JSON.stringify({
+        version: 1,
+        folders: [
+          { id: happyFolder, name: "Front", description: "", category: "expressions" },
+          { id: sadFolder, name: "Side", description: "", category: "expressions" },
+        ],
+        defaultFolderId: happyFolder,
+        sprites: {
+          happy: { id: randomUUID(), label: "happy", folderId: happyFolder },
+          sad: { id: randomUUID(), label: "sad", folderId: sadFolder },
+        },
+      }),
+    );
+  }
   await run([alice.id, bob.id], {}, merged.id);
   await run([alice.id, bob.id], { regenerateMessageId: merged.id });
   await chats.patchMetadata(chat.id, { spriteCharacterIds: [bob.id] });
