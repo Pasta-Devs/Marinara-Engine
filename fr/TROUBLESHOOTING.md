@@ -358,7 +358,9 @@ Les versions récentes de Marinara stockent les données de chaque chat (message
 
 Marinara refuse de lui-même les downgrades évidents : le lanceur ignore une mise à jour automatique qui mènerait à une version incompatible, et le programme de mise à jour intégré la bloque avec une erreur qui renvoie ici.
 
-Pour revenir malgré tout à une ancienne version :
+Si tes données ont atteint le format de stockage 8 (prise en charge des avatars MMD), restaure une sauvegarde complète faite avant cette mise à niveau pour utiliser une version au format 7 ou antérieur. La commande ci-dessous ne convertit que les anciennes organisations de fichiers de chat ; elle ne peut pas convertir les réglages des avatars MMD. Ne change pas le numéro de format à la main.
+
+Pour convertir l'ancienne organisation des fichiers de chat avec des données qui n'ont pas atteint le format 8 :
 
 1. Arrête le serveur Marinara.
 2. Depuis le dossier Marinara, exécute :

@@ -200,13 +200,15 @@ Während der Arbeit zeigt die Schaltfläche **Refreshing…**, danach lädt die 
 
 Upgrades sind immer sicher, doch ein direkter Rückweg ist nicht immer möglich. Neuere Marinara-Versionen speichern Chatnachrichten in einem neueren Format auf der Festplatte, das ältere Versionen nicht lesen können. Zum Schutz deines Chatverlaufs überspringt der Launcher Auto-Updates auf eine inkompatible Version, und der Updater in der App verweigert sie.
 
-Falls du trotzdem eine ältere Version brauchst, bringt ein einzelner Konvertierungsbefehl deine Daten zuerst wieder in das alte Format. Die Schritte stehen unter [Nach dem Wechsel zu einer älteren Version zeigen Chats keine Nachrichten](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
+Daten im Speicherformat 8, das MMD-Avatare hinzufügt, lassen sich mit Builds für Format 7 oder älter nicht öffnen. Um zu einem solchen Build zurückzukehren, stoppe Marinara und stelle eine vollständige Sicherung von vor diesem Upgrade wieder her. Der Befehl zur Konvertierung von Chat-Dateien kann MMD-Avatar-Einstellungen nicht umwandeln. Ändere die Formatnummer nicht von Hand.
+
+Bei älteren Daten, die Format 8 noch nicht erreicht haben, kann ein einzelner Konvertierungsbefehl die Chat-Dateien in das alte Layout zurückversetzen. Die Schritte stehen unter [Nach dem Wechsel zu einer älteren Version zeigen Chats keine Nachrichten](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
 
 <a id="going-back-to-250"></a>
 
 ### Zurück zu 2.5.0
 
-Version 2.5.0 nutzt dasselbe Speicherformat wie die Versionen danach. Der Weg zurück ist deshalb nicht gesperrt, und 2.5.0 öffnet deine Chats ganz normal. Die Daten, die neuere Funktionen hinzugefügt haben, kennt 2.5.0 allerdings nicht: einige Verbindungseinstellungen, die Angaben zum Neugenerieren von Chat-Bildern sowie Teile von Game-Checkpoints, Uhren aus Regelsätzen und Szenenvideos. Sobald 2.5.0 einen Chat oder eine Verbindung speichert – etwa wenn du eine Nachricht sendest, einen Spielzug machst, ein Bild erstellst oder eine Verbindung änderst –, entfernt es diese neueren Daten aus dem gesamten Chat beziehungsweise der gesamten Verbindung. Ein erneutes Update holt sie nicht zurück.
+Version 2.5.0 kann Daten im Format 8 nicht öffnen; verwende eine Sicherung von vor dem Upgrade. Mit älteren Daten im Format 7 kann sie deine Chats weiterhin öffnen, kennt aber die Daten neuerer Funktionen nicht: einige Verbindungseinstellungen, die Angaben zum Neugenerieren von Chat-Bildern sowie Teile von Game-Checkpoints, Uhren aus Regelsätzen und Szenenvideos. Sobald 2.5.0 einen Chat oder eine Verbindung speichert – etwa wenn du eine Nachricht sendest, einen Spielzug machst, ein Bild erstellst oder eine Verbindung änderst –, entfernt es diese neueren Daten aus dem gesamten Chat beziehungsweise der gesamten Verbindung. Ein erneutes Update holt sie nicht zurück.
 
 Damit du genau dorthin zurückkehren kannst, wo du warst, leg vor dem Update ein Backup an. Siehe [Vorher ein Backup anlegen](#back-up-first) und [Marinara sichern und wiederherstellen](data/backup-and-restore.md).
 

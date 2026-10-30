@@ -200,13 +200,15 @@ Na czas pracy przycisk pokazuje **Refreshing…**, a potem aplikacja przeładowu
 
 Aktualizacje są zawsze bezpieczne, ale bezpośredni powrót nie zawsze jest możliwy. Nowsze wersje Marinara Engine zapisują wiadomości czatu w nowszym formacie na dysku, którego wersja starsza niż format danych nie potrafi odczytać. Aby chronić historię czatów, program uruchamiający pomija automatyczne aktualizacje prowadzące do niezgodnej wersji, a aktualizator w aplikacji odmawia ich zastosowania.
 
-Jeśli mimo to potrzebujesz starszej wersji, jedno polecenie konwertujące najpierw przywróci stary format danych. Instrukcję znajdziesz w sekcji [Po przejściu na starszą wersję czaty nie pokazują wiadomości](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
+Danych zaktualizowanych do formatu przechowywania 8, który dodaje awatary MMD, nie da się otworzyć w kompilacjach obsługujących format 7 lub starszy. Aby wrócić do jednej z nich, zatrzymaj aplikację Marinara i przywróć pełną kopię zapasową wykonaną przed tą aktualizacją. Polecenie konwertujące pliki czatu nie potrafi przekształcić ustawień awatarów MMD. Nie zmieniaj ręcznie numeru formatu.
+
+W przypadku starszych danych, które nie osiągnęły formatu 8, jedno polecenie może przywrócić plikom czatu poprzedni układ. Instrukcję znajdziesz w sekcji [Po przejściu na starszą wersję czaty nie pokazują wiadomości](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
 
 <a id="going-back-to-250"></a>
 
 ### Powrót do wersji 2.5.0
 
-Wersja 2.5.0 używa tego samego formatu przechowywania danych co kolejne wersje, więc powrót do niej nie jest blokowany, a czaty otwierają się normalnie. Nie zna jednak danych dodanych przez nowsze funkcje: części ustawień połączeń, szczegółów potrzebnych do ponownego generowania obrazów w czacie oraz części punktów kontrolnych gry, zegarów zestawów zasad i wideo ze scen. Gdy wersja 2.5.0 zapisuje czat lub połączenie, na przykład gdy wysyłasz wiadomość, rozgrywasz turę gry, tworzysz obraz albo zmieniasz połączenie, usuwa te nowsze dane z całego czatu lub połączenia. Ponowna aktualizacja ich nie przywraca.
+Wersja 2.5.0 nie otwiera danych zaktualizowanych do formatu 8; użyj kopii zapasowej sprzed aktualizacji. Czaty ze starszymi danymi w formacie 7 nadal otwiera, ale nie zna danych dodanych przez nowsze funkcje: części ustawień połączeń, szczegółów potrzebnych do ponownego generowania obrazów w czacie oraz części punktów kontrolnych gry, zegarów zestawów zasad i wideo ze scen. Gdy wersja 2.5.0 zapisuje czat lub połączenie, na przykład gdy wysyłasz wiadomość, rozgrywasz turę gry, tworzysz obraz albo zmieniasz połączenie, usuwa te nowsze dane z całego czatu lub połączenia. Ponowna aktualizacja ich nie przywraca.
 
 Żeby móc wrócić dokładnie do obecnego stanu, zrób kopię zapasową przed aktualizacją. Zobacz [Najpierw kopia zapasowa](#back-up-first) i [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
 

@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "43986816149a63216bc6483f04ad5060c2a8cd68",
+  "sourceCommit": "b0331450d98bf2483a1763efd039407b4deddad8",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,13 +24,13 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "29843dfd146bc5e1d1d3e51cb7be90d650735abef804741253396a90f976ebb1",
-      "bytes": 61490
+      "sha256": "3e784f2aecf11abba5aea61d5384605b6a18cd0108a2f90c787bdadff445cf61",
+      "bytes": 61907
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "e7bdcf2f36e5b1ae35c99ffedd52676e2176e89e4f8486825d681fbe08fb1f5b",
-      "bytes": 18297
+      "sha256": "7c4b3107ba1de3b1cf40204145baa0797936ad24887de0f30d5ddfccb60c81bc",
+      "bytes": 18677
     },
     {
       "path": "agents/agents-overview.md",

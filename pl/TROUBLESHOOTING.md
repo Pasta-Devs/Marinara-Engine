@@ -358,7 +358,9 @@ Nowsze wersje Marinara Engine przechowują dane każdego czatu (wiadomości, war
 
 Marinara Engine sam odrzuca oczywiste obniżenia wersji: program uruchamiający pomija automatyczną aktualizację prowadzącą do niezgodnej wersji, a aktualizator w aplikacji blokuje ją z błędem odsyłającym tutaj.
 
-Aby mimo to obniżyć wersję:
+Jeśli twoje dane osiągnęły format przechowywania 8 (obsługa awatarów MMD), przywróć pełną kopię zapasową sprzed tej aktualizacji, aby użyć kompilacji obsługującej format 7 lub starszy. Poniższe polecenie przekształca tylko starsze układy plików czatu; nie potrafi przekształcić ustawień awatarów MMD. Nie zmieniaj ręcznie numeru formatu.
+
+Aby przekształcić starszy układ plików czatu w przypadku danych, które nie osiągnęły formatu 8:
 
 1. Zatrzymaj serwer Marinara Engine.
 2. W katalogu Marinara Engine uruchom:

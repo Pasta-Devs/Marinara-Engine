@@ -358,7 +358,9 @@ Las versiones nuevas de Marinara guardan los datos de cada chat (mensajes, swipe
 
 Marinara rechaza por sí solo los downgrades evidentes: el lanzador omite una actualización automática que llevaría a una versión incompatible, y el actualizador de la app la bloquea con un error que apunta aquí.
 
-Para hacer el downgrade de todos modos:
+Si tus datos han llegado al formato de almacenamiento 8 (compatibilidad con avatares MMD), restaura una copia de seguridad completa hecha antes de esa actualización para usar una versión para el formato 7 o anterior. El siguiente comando solo convierte estructuras antiguas de archivos de chat; no puede convertir los ajustes de los avatares MMD. No cambies el número de formato a mano.
+
+Para convertir la estructura antigua de archivos de chat en datos que todavía no han llegado al formato 8:
 
 1. Detén el servidor de Marinara.
 2. Desde la carpeta de Marinara, ejecuta:

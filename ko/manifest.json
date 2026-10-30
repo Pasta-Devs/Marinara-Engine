@@ -1,6 +1,6 @@
 {
   "language": "ko",
-  "sourceCommit": "43986816149a63216bc6483f04ad5060c2a8cd68",
+  "sourceCommit": "b0331450d98bf2483a1763efd039407b4deddad8",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,13 +24,13 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "201d4d8f02b4792f7258d026fbe4fa061905b0c5ef7672688e4ec00adcffffed",
-      "bytes": 66021
+      "sha256": "91e04d758a978a7b407a56a75915a62c75bd2cd6e96f9cafd63cc6141cf7a6b0",
+      "bytes": 66437
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "6d381387c92fa0df1a1cd1a1ca7e51d7661122b622a15129e25ff8bf634505a7",
-      "bytes": 19963
+      "sha256": "7ab4711742341b4d945fe563dc40af60317c5d7c734dbabdf11a88e950201d95",
+      "bytes": 20386
     },
     {
       "path": "agents/agents-overview.md",
