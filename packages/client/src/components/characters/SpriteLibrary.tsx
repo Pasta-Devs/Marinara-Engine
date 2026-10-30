@@ -202,6 +202,9 @@ export function SpriteFolderGrid({
   const dragPreview = useRef<HTMLElement | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   const [touchDragging, setTouchDragging] = useState(false);
+  const showMoveOutTarget =
+    touchDragging &&
+    library.visible.some((sprite) => Boolean(sprite.folderId) && draggedExpressions.includes(sprite.expression));
   const suppressClick = useRef(false);
   const touchInput = useRef(false);
   const disabled = busy || library.mutation.isPending || !library.query.data;
@@ -477,11 +480,11 @@ export function SpriteFolderGrid({
         className={cn(
           "min-h-12 rounded-xl",
           target === null && "ring-2 ring-[var(--primary)]",
-          touchDragging &&
+          showMoveOutTarget &&
             "min-h-16 border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-1",
         )}
       >
-        {touchDragging && (
+        {showMoveOutTarget && (
           <div className="pointer-events-none px-2 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-button-text-active)]">
             {t("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
           </div>
@@ -542,13 +545,10 @@ function SpriteInlineFolder({
       {...zone}
       data-sprite-folder={current.id}
       data-sprite-folder-id={current.id}
-      className={cn(
-        "min-w-0 rounded-lg transition-colors max-md:touch-pan-y",
-        highlighted &&
-          "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
-      )}
+      data-drag-target={highlighted ? "inside" : undefined}
+      className="group/sprite-folder min-w-0 rounded-lg transition-colors max-md:touch-pan-y"
     >
-      <div className="group relative flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 md:min-h-9">
+      <div className="group relative flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 group-data-[drag-target=inside]/sprite-folder:border-[var(--marinara-chat-chrome-button-border-active)] group-data-[drag-target=inside]/sprite-folder:bg-[var(--marinara-chat-chrome-highlight-bg)] group-data-[drag-target=inside]/sprite-folder:text-[var(--marinara-chat-chrome-button-text-active)] md:min-h-9">
         <div
           role="button"
           tabIndex={0}

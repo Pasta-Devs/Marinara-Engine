@@ -328,6 +328,61 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
               .folderId,
         )
         .toBeNull();
+      await frontSection.getByRole("button", { name: "Front", exact: true }).click();
+      await expect(frontSection.getByRole("button", { name: "Front", exact: true })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+      const looseTile = loose.locator('[data-sprite-expression="full_idle"]');
+      await looseTile.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(500);
+      const looseBefore = await loose.boundingBox();
+      const looseBox = (await looseTile.boundingBox())!;
+      const destination = library.locator(`[data-sprite-folder="${alternate}"]`);
+      const destinationHeader = destination.getByRole("button", { name: "Alternate", exact: true });
+      const restingColor = await destinationHeader.evaluate(
+        (element) => getComputedStyle(element.parentElement!).backgroundColor,
+      );
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x: looseBox.x + looseBox.width / 2, y: looseBox.y + looseBox.height / 2 }],
+      });
+      await expect(looseTile).toHaveAttribute("data-drag-source", "true");
+      await expect(library.getByText("Drop here to move out of folder", { exact: true })).toHaveCount(0);
+      expect((await loose.boundingBox())!.height).toBeCloseTo(looseBefore!.height, 1);
+      const destinationBox = (await destinationHeader.boundingBox())!;
+      const destinationPoint = { x: destinationBox.x + 40, y: destinationBox.y + destinationBox.height / 2 };
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: destinationPoint.x, y: (looseBox.y + looseBox.height / 2 + destinationPoint.y) / 2 }],
+      });
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [destinationPoint] });
+      await expect(destination).toHaveAttribute("data-drag-target", "inside");
+      await expect
+        .poll(() => destinationHeader.evaluate((element) => getComputedStyle(element.parentElement!).backgroundColor))
+        .not.toBe(restingColor);
+      await expect(destinationHeader).toHaveAttribute("aria-expanded", "false");
+      await page.screenshot({ path: info.outputPath("collapsed-folder-target-phone.png"), animations: "disabled" });
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 1, y: 400 }],
+      });
+      await expect(destination).not.toHaveAttribute("data-drag-target");
+      const returnBox = (await destinationHeader.boundingBox())!;
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: returnBox.x + 40, y: returnBox.y + returnBox.height / 2 }],
+      });
+      await expect(destination).toHaveAttribute("data-drag-target", "inside");
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect
+        .poll(
+          async () =>
+            (await catalog()).sprites.find((sprite: { expression: string }) => sprite.expression === "full_idle")
+              .folderId,
+        )
+        .toBe(alternate);
+      await expect(destination).not.toHaveAttribute("data-drag-target");
       // Restore this test fixture through the API before the shared editing checks.
       expect(
         (await request.post(path + "/move", { data: { expressions: ["full_idle"], folderId: front } })).ok(),
@@ -422,6 +477,37 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
           .getByRole("button", { name: "Preview idle", exact: true })
           .locator("xpath=ancestor::*[@draggable][1]"),
       ).toHaveAttribute("draggable", "true");
+      const transfer = await page.evaluateHandle(
+        ({ owner }) => {
+          const data = new DataTransfer();
+          data.setData(
+            "application/x-marinara-sprites",
+            JSON.stringify({ ownerId: owner, expressions: ["full_idle"] }),
+          );
+          return data;
+        },
+        { owner: owner.id },
+      );
+      for (const id of [alternate, front]) {
+        const destination = library.locator(`[data-sprite-folder="${id}"]`);
+        const header = destination.locator(":scope > div").first();
+        const restingColor = await header.evaluate((element) => getComputedStyle(element).backgroundColor);
+        await header.dispatchEvent("dragover", { dataTransfer: transfer });
+        await expect(destination).toHaveAttribute("data-drag-target", "inside");
+        await expect
+          .poll(() => header.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .not.toBe(restingColor);
+        await expect(
+          destination.getByRole("button", { name: id === alternate ? "Alternate" : "Front", exact: true }),
+        ).toHaveAttribute("aria-expanded", id === alternate ? "false" : "true");
+        await header.screenshot({
+          path: info.outputPath(`folder-target-desktop-${id === alternate ? "collapsed" : "expanded"}.png`),
+          animations: "disabled",
+        });
+        await destination.dispatchEvent("dragleave", { dataTransfer: transfer });
+        await expect(destination).not.toHaveAttribute("data-drag-target");
+      }
+      await transfer.dispose();
       await library
         .locator("[data-sprite-loose]")
         .getByRole("button", { name: "Preview idle", exact: true })
