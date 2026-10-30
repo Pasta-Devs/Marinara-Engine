@@ -194,7 +194,7 @@ const MARI_EDITOR_KINDS = {
     table: "agent_configs",
     idArgs: ["id", "agentId", "agentConfigId"],
     wrappers: ["patch", "data", "agent"],
-    fieldIds: new Set(["name", "description", "promptTemplate"]),
+    fieldIds: new Set(["description", "promptTemplate"]),
     aliases: { prompt_template: "promptTemplate", prompt: "promptTemplate" } as Record<string, string>,
     reviewOrder: ["description", "promptTemplate"],
   },
