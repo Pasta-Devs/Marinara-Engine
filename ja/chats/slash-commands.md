@@ -75,7 +75,7 @@
 
 | コマンド | 別名 | 動作 |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | 次のAIの返信を、指定した方向へ誘導します。 |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | 次のAIの返信を、指定した方向へ誘導します。 |
 | `/as [name] [message (optional)]` | `/respond` | キャラクターとしてメッセージを投稿するか、キャラクターに返信させます。 |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | キャラクターのスプライトの表情を一覧表示するか、切り替えます。 |
 | `/roll [dice (optional)]` | `/r`, `/dice` | ダイスを振って結果を投稿します。 |
@@ -94,10 +94,10 @@
 /guided make him confess he is lying
 ```
 
-Roleplayのグループチャットでは、`/guided respond for [name] [direction (optional)]`で返信するキャラクターを指定できます。たとえば次のように入力します。
+Roleplayのグループチャットでは、`/guided respond as [name] [direction (optional)]`で返信するキャラクターを指定できます。`reply as` と `respond for` も使えます。たとえば次のように入力します。
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 `/as [name] [message (optional)]`で、キャラクターとしてテキストを投稿できます。メッセージを省略すると、代わりにモデルがそのキャラクターの次の返信を生成します。
