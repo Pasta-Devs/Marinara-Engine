@@ -700,6 +700,13 @@ function getAccessConfig(): AccessFacts["config"] {
 
 export type PasswordlessPeer = "internet" | "privateNetwork" | "allowlist" | "tailscale" | "docker" | "proxy";
 
+/** Startup warning for Docker gateway trust: the server cannot see how the host publishes the port. */
+export function dockerTrustWarning(peers: PasswordlessPeer[]): string | null {
+  return peers.includes("docker")
+    ? "[access] Docker trusts the container gateway, so anyone who reaches the published port gets in without a login. Keep the port on 127.0.0.1 (the default Compose setup) or set a login before you publish it to your network."
+    : null;
+}
+
 /** True when a bind address is loopback only, so other devices reach it only through a local proxy. */
 export function isLoopbackBind(host: string): boolean {
   return host === "localhost" || isLoopbackIp(host);

@@ -29,7 +29,7 @@ import {
   logStorageDiagnostics,
 } from "./config/runtime-config.js";
 import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
-import { getPasswordlessPeers, isLoopbackBind } from "./middleware/ip-allowlist.js";
+import { dockerTrustWarning, getPasswordlessPeers, isLoopbackBind } from "./middleware/ip-allowlist.js";
 import { enableLoginSetupCode } from "./config/login-credential.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
 import { migrateTaskbarShortcuts } from "./services/setup/taskbar-shortcut-migration.js";
@@ -181,6 +181,8 @@ async function main() {
         "[access] These visitors get in without a password: %s. See Settings → Advanced → Access and docs/REMOTE_ACCESS.md.",
         passwordlessPeers.join(", "),
       );
+      const dockerWarning = dockerTrustWarning(passwordlessPeers);
+      if (dockerWarning) logger.warn(dockerWarning);
     }
     if (!isLoopbackBind(boundHost)) enableLoginSetupCode();
     scheduleTaskbarShortcutMigration();
