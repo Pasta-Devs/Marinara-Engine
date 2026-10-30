@@ -218,6 +218,8 @@ function ChatProfileBuilderBody({
   const [settings, setSettings] = useState<ChatPresetSettings>(profile?.settings ?? initialSettings ?? {});
   const [openSlot, setOpenSlot] = useState<SlotKey | null>(null);
   const [dragKind, setDragKind] = useState<SlotKey | null>(null);
+  // Touch screens and phone widths (no library tray) cannot drag, so they only get the pick hint.
+  const canDrag = !window.matchMedia("(pointer: coarse), (max-width: 639px)").matches;
   const [overSlot, setOverSlot] = useState<SlotKey | null>(null);
   const [query, setQuery] = useState("");
   const [saved, setSaved] = useState<ChatPreset | null>(null);
@@ -339,6 +341,9 @@ function ChatProfileBuilderBody({
       if (failed > 0) toast.error(t("chat.settingsProfile.builder.applyFailed", { count: failed }));
       else if (ids.length > 0) toast.success(t("chat.settingsProfile.builder.applied", { count: ids.length }));
       onClose();
+    } catch {
+      // Chat applies are settled above, so only the default switch can throw here.
+      toast.error(t("chat.settingsProfile.builder.defaultFailed"));
     } finally {
       setBusy(false);
     }
@@ -409,7 +414,7 @@ function ChatProfileBuilderBody({
               <span className="text-[0.8125rem] font-semibold text-[var(--foreground)]">{label(key)}</span>
               {!isFilled && (
                 <span className="text-xs text-[var(--muted-foreground)]">
-                  {summary || !meta.library
+                  {summary || !meta.library || !canDrag
                     ? t(summary ? "chat.settingsProfile.builder.hintSummary" : "chat.settingsProfile.builder.hintPick")
                     : t("chat.settingsProfile.builder.hintDrop")}
                 </span>

@@ -149,6 +149,7 @@ import {
 } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { showAlertDialog, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
+import { saveIntoProfileSettings } from "../../lib/chat-preset-apply";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ChatProfileBuilder } from "./ChatProfileBuilder";
 import { MacroTextarea } from "../ui/MacroTextarea";
@@ -4934,17 +4935,7 @@ export function ChatSettingsDrawer({
   const handleSaveIntoPreset = async () => {
     if (!selectedChatPreset || selectedChatPreset.isDefault) return;
     const profileId = selectedChatPreset.id;
-    // Starting picks are copied, never linked: saving keeps the profile's own, not this chat's.
-    const snapshot = snapshotCurrentPresetSettings();
-    const { background: _chatBackground, ...metadata } = (snapshot.metadata ?? {}) as Record<string, unknown>;
-    const own = selectedChatPreset.settings;
-    if (own.metadata?.background !== undefined) metadata.background = own.metadata.background;
-    const settings: ChatPresetSettings = {
-      ...snapshot,
-      metadata: metadata as ChatPresetSettings["metadata"],
-      ...(own.personaId ? { personaId: own.personaId } : {}),
-      ...(own.lorebookIds?.length ? { lorebookIds: own.lorebookIds } : {}),
-    };
+    const settings = saveIntoProfileSettings(snapshotCurrentPresetSettings(), selectedChatPreset.settings);
     // Count from a fresh list so chats changed in another window are included. One try without
     // retries, so a failing list falls back to the loaded one at once.
     const chatList = await api.get<Chat[]>("/chats").catch(() => allChats ?? []);

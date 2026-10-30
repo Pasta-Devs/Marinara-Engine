@@ -27,7 +27,7 @@ A profile stores how the chat talks to the AI:
 - Whether the layout tips in Chat Settings are hidden. Applying **Default**, or an older profile without this choice, shows the tips again.
 - Other reusable chat options
 
-A profile can also hold **starting picks**: a persona, lorebooks to switch on, and a background. Applying the profile copies them into the chat. They are not linked: a later change in the chat stays in that chat, **Save current chat settings into this profile** keeps the profile's own picks, and updating other chats never changes their persona, lorebooks, or background. Exported profile files leave the persona and lorebooks out, because they only exist on this install.
+A profile can also hold **starting picks**: a persona, lorebooks to switch on, and a background. Applying the profile copies them into the chat. If the profile leaves one of these three empty, the chat keeps its own. Other settings in the profile still replace the chat's settings. The picks are not linked: a later change in the chat stays in that chat, **Save current chat settings into this profile** keeps the profile's own persona and lorebooks, and its own background. A profile without a background takes the chat's background when you save into it. Updating other chats never changes their persona, lorebooks, or background. Exported profile files leave the persona and lorebooks out, because they only exist on this install.
 
 A profile does not replace chat-owned content such as characters, sprites, summary, tags, or scene prompt. It also does not contain the conversation history, or a chat's running state such as its macro variables, the characters you turned off in it, or its multiplayer room.
 

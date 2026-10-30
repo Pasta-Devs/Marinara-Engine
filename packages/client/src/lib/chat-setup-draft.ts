@@ -67,7 +67,7 @@ export function advanceStarredProfileDraft(
   })) {
     if (!(key in settings)) metadata[key] = initial.metadata[key] ?? fallback;
   }
-  for (const key of ["windowLayout", ...sceneSettings]) {
+  for (const key of ["windowLayout", "background", ...sceneSettings]) {
     if (!(key in settings) && key in initial.metadata) metadata[key] = initial.metadata[key];
   }
   const memoryKeys = new Set(["knowledgeStarts", "knowledgeConfirmed", "narratorCharacterId"]);

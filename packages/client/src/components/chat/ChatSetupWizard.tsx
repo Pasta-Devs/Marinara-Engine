@@ -2762,10 +2762,17 @@ function RoleplaySetupWizard({
       return;
     }
     let profileApplied = false;
+    // The persona picked in this step wins over the profile's starting persona.
+    const pickedPersonaId = chat.personaId;
+    const pickedPersonaCharacterId = chat.personaCharacterId;
     try {
       setShortcutApplying(true);
-      await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
+      const applied = await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
       profileApplied = true;
+      if (applied && applied.personaId !== pickedPersonaId) {
+        if (pickedPersonaCharacterId) setPersonaCharacter(pickedPersonaCharacterId);
+        else if (pickedPersonaId) setPersona(pickedPersonaId);
+      }
     } catch {
       /* fall through — still close the wizard */
     } finally {
@@ -2774,7 +2781,17 @@ function RoleplaySetupWizard({
       setShortcutApplying(false);
       onFinish();
     }
-  }, [shortcutPresetId, chat.id, applyChatPreset, onFinish, seedInitialGreetingsIfEmpty]);
+  }, [
+    shortcutPresetId,
+    chat.id,
+    chat.personaId,
+    chat.personaCharacterId,
+    applyChatPreset,
+    setPersona,
+    setPersonaCharacter,
+    onFinish,
+    seedInitialGreetingsIfEmpty,
+  ]);
 
   // Search state for character & lorebook pickers
   const [charSearch, setCharSearch] = useState("");
@@ -3902,8 +3919,11 @@ function RoleplaySetupWizard({
           <select
             value={shortcutPresetId}
             onChange={(event) => {
-              if (event.target.value === NEW_PROFILE_OPTION) setProfileBuilder("new");
-              else setShortcutPresetId(event.target.value);
+              if (event.target.value === NEW_PROFILE_OPTION) return setProfileBuilder("new");
+              setShortcutPresetId(event.target.value);
+              // Show the profile's starting persona in the picker, so the user sees it and can change it.
+              const personaId = chatPresetList.find((preset) => preset.id === event.target.value)?.settings.personaId;
+              if (personaId && personas.some((persona) => persona.id === personaId)) setPersona(personaId);
             }}
             aria-label={localizeUi("chat.settingsProfile.label")}
             className={WIZARD_INPUT_CLASS}

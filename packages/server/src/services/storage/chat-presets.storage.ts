@@ -3,9 +3,9 @@
 // ──────────────────────────────────────────────
 // CRUD for the saved chat-settings bundles applied to new chats.
 // One profile per mode is marked active and used as the starting state.
-import { eq, and, ne, asc } from "../../db/file-query.js";
+import { eq, and, ne, asc, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { chats, chatPresets, personas } from "../../db/schema/index.js";
+import { chats, chatPresets, lorebooks, personas } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
 import { createChatsStorage, withChatMetadataPatchQueue } from "./chats.storage.js";
@@ -419,7 +419,8 @@ export function createChatPresetsStorage(db: DB) {
           preserved.advancedMemory = { ...pickAdvancedMemoryKeys(presetMetadata.advancedMemory, false), ...ownMemory };
         }
         // Profiles saved before they held window layouts or the video settings leave the chat's own.
-        for (const key of ["windowLayout", ...PROFILE_SCENE_SETTING_KEYS]) {
+        // A background is a starting pick like the persona: a profile without one keeps the chat's own.
+        for (const key of ["windowLayout", "background", ...PROFILE_SCENE_SETTING_KEYS]) {
           if (
             !Object.prototype.hasOwnProperty.call(presetMetadata, key) &&
             Object.prototype.hasOwnProperty.call(currentMetadata, key)
@@ -446,8 +447,10 @@ export function createChatPresetsStorage(db: DB) {
         };
         // Starting picks are copied, never linked: a hand apply adds the profile's lorebooks.
         if (!options.asFollower && preset.settings.lorebookIds?.length) {
+          const existing = await db.select().from(lorebooks).where(inArray(lorebooks.id, preset.settings.lorebookIds));
+          const picks = preset.settings.lorebookIds.filter((id) => existing.some((row) => row.id === id));
           appliedMetadata.activeLorebookIds = [
-            ...new Set([...readStringIds(currentMetadata.activeLorebookIds), ...preset.settings.lorebookIds]),
+            ...new Set([...readStringIds(currentMetadata.activeLorebookIds), ...picks]),
           ];
         }
         const newMetadata = options.asFollower
