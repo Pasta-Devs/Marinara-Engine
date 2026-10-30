@@ -1790,6 +1790,7 @@ function normalizeAgentActionData(input: Row, existing?: Row | null): Row {
   delete row.resultType;
   delete row.result_type;
   delete row.prompt;
+  delete row.prompt_template;
   return row;
 }
 
@@ -5530,6 +5531,7 @@ export class MariDbService {
               "imagePath",
               "promptTemplate",
               "prompt",
+              "prompt_template",
               "settings",
               "resultType",
             ],
@@ -5662,6 +5664,8 @@ export class MariDbService {
             "wrapFormat",
             "scopedRegexMode",
             "scoped_regex_mode",
+            "conversation_prompt",
+            "game_prompt",
             "defaultChoices",
             "isDefault",
             "author",

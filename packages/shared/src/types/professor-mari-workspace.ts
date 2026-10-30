@@ -251,7 +251,7 @@ export type ProfessorMariQuickPromptEvent =
 
 export type MariWorkspaceActionResourceKind = Extract<
   ProfessorMariContextResourceKind,
-  "character" | "persona" | "lorebook" | "preset"
+  "character" | "persona" | "lorebook" | "preset" | "agent"
 >;
 
 export interface MariWorkspaceActionResult {

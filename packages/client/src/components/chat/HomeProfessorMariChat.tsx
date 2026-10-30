@@ -60,7 +60,7 @@ import { resolveMariRestStory, type MariStoryState } from "../../lib/mari-work-a
 import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
 import { useMariComposerReferences } from "../../hooks/use-mari-composer-references";
 import { useMariDocs } from "../../hooks/use-mari-docs";
-import { useAgentConfigs } from "../../hooks/use-agents";
+import { agentKeys, useAgentConfigs } from "../../hooks/use-agents";
 import type { MariCommandId } from "../../lib/mari-commands";
 import { presetKeys, usePresets } from "../../hooks/use-presets";
 import { useMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
@@ -1252,8 +1252,10 @@ export function HomeProfessorMariChat({
         ]);
       } else if (result.resource.kind === "lorebook") {
         await qc.invalidateQueries({ queryKey: lorebookKeys.all });
-      } else {
+      } else if (result.resource.kind === "preset") {
         await qc.invalidateQueries({ queryKey: presetKeys.all });
+      } else if (result.resource.kind === "agent") {
+        await qc.invalidateQueries({ queryKey: agentKeys.all });
       }
     },
     [qc],

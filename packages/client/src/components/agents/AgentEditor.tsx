@@ -4,10 +4,13 @@ import { useDecisionCalibration, useHasDecisionModel } from "../../hooks/use-dec
 // Full-Page Agent Editor
 // Click an agent → opens this editor
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { lazy, Suspense, useState, useCallback, useEffect, useEffectEvent, useId, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
+import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
+import { rebaseUntouchedKeys } from "../../lib/mari-editor-fields";
+import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { HostDeviceFileManagerError } from "../../lib/host-device";
@@ -687,7 +690,7 @@ export function AgentEditor() {
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
 
-  const { data: agentConfigs } = useAgentConfigs();
+  const { data: agentConfigs, refetch: refetchAgentConfigs } = useAgentConfigs();
   const { data: connections } = useConnections();
   const { data: customToolsRaw } = useCustomTools();
   const { data: customToolCapabilities } = useCustomToolCapabilities();
@@ -869,6 +872,15 @@ export function AgentEditor() {
   const [youtubeSaving, setYoutubeSaving] = useState(false);
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(dirty);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+  // Prof. Mari's fields as the form last loaded them: a refetch while the form is dirty takes her
+  // newer text only for fields the user left alone, and Save does not send them back unchanged.
+  const loadedMariFieldsRef = useRef<{ id: string; name: string; description: string; promptTemplate: string } | null>(
+    null,
+  );
   /**
    * Re-seed the threshold once the decision model's calibration arrives.
    *
@@ -913,9 +925,43 @@ export function AgentEditor() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
 
+  /** The record the last populate pass saw; a dirty refetch compares against it, not the load-time record. */
+  const lastSeenConfigRef = useRef<typeof dbConfig>(undefined);
   // Populate from DB config or built-in defaults
   useEffect(() => {
     if (!agentDetailId) return;
+    const loaded = loadedMariFieldsRef.current;
+    if (dbConfig && dirtyRef.current && loaded?.id === dbConfig.id) {
+      const fresh = {
+        id: dbConfig.id,
+        name: builtIn ? builtIn.name : dbConfig.name,
+        description: dbConfig.description,
+        promptTemplate: dbConfig.promptTemplate || "",
+      };
+      setLocalName((current) => (current === loaded.name ? fresh.name : current));
+      setLocalDescription((current) => (current === loaded.description ? fresh.description : current));
+      setLocalPrompt((current) => (current === loaded.promptTemplate ? fresh.promptTemplate : current));
+      loadedMariFieldsRef.current = fresh;
+      const before = lastSeenConfigRef.current ?? loadedSaveRef.current?.config;
+      lastSeenConfigRef.current = dbConfig;
+      if (before?.id === dbConfig.id) {
+        const phase = (config: typeof before) => normalizeAgentPhaseForType(dbConfig.type, config.phase);
+        const connection = (config: typeof before) => normalizeTextConnectionOverride(config.connectionId);
+        setLocalPhase((current) => (current === phase(before) ? phase(dbConfig) : current));
+        setLocalConnectionId((current) => (current === connection(before) ? connection(dbConfig) : current));
+      }
+      return;
+    }
+    loadedMariFieldsRef.current = dbConfig
+      ? {
+          id: dbConfig.id,
+          name: builtIn ? builtIn.name : dbConfig.name,
+          description: dbConfig.description,
+          promptTemplate: dbConfig.promptTemplate || "",
+        }
+      : null;
+    lastSeenConfigRef.current = dbConfig;
+    setLoadTick((tick) => tick + 1);
     const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
     const defaultSettings = getDefaultBuiltInAgentSettings(agentType);
     if (dbConfig) {
@@ -1413,13 +1459,12 @@ export function AgentEditor() {
 
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
 
-  const handleSave = useCallback(async () => {
-    if (!agentDetailId) return;
-    setSaveError(null);
+  // The record the form saves now, or the reason it cannot save.
+  const buildSavePayload = useCallback(() => {
+    if (!agentDetailId) return "";
     const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
     if (isEditingCustomAgent && !homeAgentWidgetsSchema.safeParse(localHomeWidgets).success) {
-      setSaveError(localizeUi("ui.agents.agenteditor.invalidHomeWidgets"));
-      return;
+      return localizeUi("ui.agents.agenteditor.invalidHomeWidgets");
     }
     const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
     const selectedPhase = resolveCustomAgentPhase(localPhase, localResultType, isEditingCustomAgent);
@@ -1435,8 +1480,7 @@ export function AgentEditor() {
           );
     const customCapabilities = customCapabilityMapFromLocal(localCustomCapabilities);
     if (isEditingCustomAgent && !resultTypeAllowedByCapabilities(localResultType, customCapabilities)) {
-      setSaveError("Enable the matching custom-agent ability before saving this result type.");
-      return;
+      return "Enable the matching custom-agent ability before saving this result type.";
     }
     const writableLorebookId = localWritableLorebookId.trim();
     const lorebookWriterEnabled =
@@ -1448,8 +1492,7 @@ export function AgentEditor() {
       (lorebookWriterEnabled || (lorebookReadBehindEnabled && customCapabilities.edit_lorebooks === true)) &&
       writableLorebookId.length > 0;
     if (lorebookWriterEnabled && !writableLorebookId) {
-      setSaveError("Select a target lorebook before enabling lorebook writing for this agent.");
-      return;
+      return "Select a target lorebook before enabling lorebook writing for this agent.";
     }
     const effectiveEnabledTools = Array.from(
       new Set(
@@ -1600,31 +1643,7 @@ export function AgentEditor() {
         ...(localImageNegativePrompt.trim() ? { imageNegativePrompt: localImageNegativePrompt.trim() } : {}),
       },
     };
-
-    try {
-      if (dbConfig) {
-        await updateAgent.mutateAsync({ id: dbConfig.id, ...payload });
-      } else {
-        // Built-ins are keyed by type. Custom agents need unique types so creating
-        // another "New Agent" does not overwrite the existing custom agent.
-        const typeId = builtIn ? agentDetailId : createCustomAgentType(localName);
-        const created = (await createAgent.mutateAsync({
-          ...payload,
-          type: typeId,
-        })) as { id?: string } | undefined;
-        // After creating a new custom agent, switch agentDetailId to its DB id
-        if (!builtIn && created?.id) {
-          openAgentDetail(created.id);
-        }
-      }
-      setDirty(false);
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1500);
-      return true;
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
-      return false;
-    }
+    return payload;
   }, [
     agentDetailId,
     localName,
@@ -1699,11 +1718,100 @@ export function AgentEditor() {
     isMusicAgent,
     isKnowledgeRetrievalAgent,
     isKnowledgeRouterAgent,
+    normalizeTextConnectionOverride,
+    normalizeImageConnectionOverride,
+  ]);
+  // The record and the save payload as the form last loaded them: Save sends only what the user changed.
+  const loadedSaveRef = useRef<{
+    config: NonNullable<typeof dbConfig>;
+    payload: Exclude<ReturnType<typeof buildSavePayload>, string>;
+  } | null>(null);
+  const [loadTick, setLoadTick] = useState(0);
+  useEffect(() => {
+    const payload = buildSavePayload();
+    loadedSaveRef.current = dbConfig && typeof payload !== "string" ? { config: dbConfig, payload } : null;
+    // Only a load moves this snapshot; the form state it reads is the one the load set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadTick]);
+
+  const handleSave = useCallback(async () => {
+    if (!agentDetailId) return;
+    setSaveError(null);
+    const payload = buildSavePayload();
+    if (typeof payload === "string") {
+      setSaveError(payload);
+      return;
+    }
+
+    try {
+      if (dbConfig) {
+        const loaded = loadedMariFieldsRef.current;
+        const patch: Record<string, unknown> = { ...payload };
+        for (const key of ["name", "description", "promptTemplate"] as const) {
+          if (loaded?.id === dbConfig.id && payload[key] === loaded[key]) delete patch[key];
+        }
+        const loadedSave = loadedSaveRef.current;
+        if (loadedSave?.config.id === dbConfig.id) {
+          if (
+            payload.phase === loadedSave.payload.phase &&
+            payload.phase === normalizeAgentPhaseForType(dbConfig.type, dbConfig.phase)
+          )
+            delete patch.phase;
+          // A stored id the form cannot show (deleted or sidecar) is stale: Save clears it.
+          const storedConnection = normalizeTextConnectionOverride(dbConfig.connectionId) || null;
+          const staleConnection = !!dbConfig.connectionId && !storedConnection;
+          if (
+            !staleConnection &&
+            payload.connectionId === loadedSave.payload.connectionId &&
+            payload.connectionId === storedConnection
+          )
+            delete patch.connectionId;
+          patch.settings = rebaseUntouchedKeys(
+            payload.settings,
+            loadedSave.payload.settings,
+            parseAgentSettingsRecord(loadedSave.config.settings),
+            parseAgentSettingsRecord(dbConfig.settings),
+          );
+        }
+        await updateAgent.mutateAsync({ id: dbConfig.id, ...patch });
+        if (loaded?.id === dbConfig.id)
+          loadedMariFieldsRef.current = {
+            id: dbConfig.id,
+            name: payload.name,
+            description: payload.description,
+            promptTemplate: payload.promptTemplate,
+          };
+      } else {
+        // Built-ins are keyed by type. Custom agents need unique types so creating
+        // another "New Agent" does not overwrite the existing custom agent.
+        const typeId = builtIn ? agentDetailId : createCustomAgentType(localName);
+        const created = (await createAgent.mutateAsync({
+          ...payload,
+          type: typeId,
+        })) as { id?: string } | undefined;
+        // After creating a new custom agent, switch agentDetailId to its DB id
+        if (!builtIn && created?.id) {
+          openAgentDetail(created.id);
+        }
+      }
+      setDirty(false);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1500);
+      return true;
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
+      return false;
+    }
+  }, [
+    agentDetailId,
+    buildSavePayload,
+    dbConfig,
+    normalizeTextConnectionOverride,
+    builtIn,
+    localName,
     updateAgent,
     createAgent,
     openAgentDetail,
-    normalizeTextConnectionOverride,
-    normalizeImageConnectionOverride,
   ]);
 
   const handleExportAgent = () => {
@@ -1882,6 +1990,97 @@ export function AgentEditor() {
   }, [defaultPrompt]);
 
   const markDirty = useCallback(() => setDirty(true), []);
+
+  // Prof. Mari and the agent's own fields (`agent.update`), as in the Preset editor. A built-in agent
+  // without a saved config has no record for her to change.
+  const mariContentRef = useRef<HTMLDivElement>(null);
+  const descriptionLabelId = useId();
+  const agentRecordId = dbConfig?.id ?? null;
+  const scrollToMariField = useCallback(
+    (field: HTMLElement) => field.scrollIntoView({ block: "center", behavior: "smooth" }),
+    [],
+  );
+  useMariEditorFields(mariContentRef, agentRecordId, !!dbConfig, scrollToMariField);
+  useMariCompanionEditor(mariContentRef, !!dbConfig);
+  const mariFieldText = (fieldId: string): string =>
+    ({ name: localName, description: localDescription, promptTemplate: localPrompt })[fieldId] ?? "";
+  const editMariField = (fieldId: string, text: string) => {
+    const set = { name: setLocalName, description: setLocalDescription, promptTemplate: setLocalPrompt }[fieldId];
+    if (!set) return;
+    set(text);
+    markDirty();
+  };
+  // Fields the user took over with Edit get the user's text back after her change lands, unsaved.
+  const takenOverRef = useRef<{ agentId: string; values: Record<string, string> } | null>(null);
+  const pendingTakenRef = useRef<Record<string, string> | null>(null);
+  const [restoreTick, setRestoreTick] = useState(0);
+  useEffect(() => {
+    takenOverRef.current = null;
+    pendingTakenRef.current = null;
+  }, [agentRecordId]);
+  const mariReview = useMariFieldReview({
+    entityId: agentRecordId,
+    current: mariFieldText,
+    touched: (fieldId) => {
+      if (!dirty || !dbConfig) return false;
+      const saved: Record<string, unknown> = {
+        name: dbConfig.name,
+        description: dbConfig.description,
+        promptTemplate: dbConfig.promptTemplate || "",
+      };
+      return mariFieldText(fieldId) !== saved[fieldId];
+    },
+    edit: editMariField,
+    beforeKeep: async (takenOver) => {
+      takenOverRef.current =
+        agentRecordId && takenOver && takenOver.length > 0
+          ? { agentId: agentRecordId, values: Object.fromEntries(takenOver.map((id) => [id, mariFieldText(id)])) }
+          : null;
+      if (!dirty) return "clean";
+      if (await handleSave()) return "saved";
+      takenOverRef.current = null;
+      return "failed";
+    },
+    keepDropped: () => {
+      takenOverRef.current = null;
+    },
+  });
+  const handledKeptRef = useRef(mariReview.review?.mode === "kept" ? mariReview.review.key : null);
+  const reviewModeRef = useRef(mariReview.review?.mode);
+  const restoreTakenOver = useEffectEvent(async () => {
+    const taken = takenOverRef.current;
+    takenOverRef.current = null;
+    if (!taken || taken.agentId !== agentRecordId) return;
+    const type = dbConfig?.type;
+    await refetchAgentConfigs();
+    // The user may have closed the editor or opened another agent meanwhile.
+    const openId = useUIStore.getState().agentDetailId;
+    if (!openId || (openId !== taken.agentId && openId !== type)) return;
+    // A changed record re-runs the load effect, which resets the form: the effect below puts the
+    // user's text back after it, in the render that holds the fresh record.
+    pendingTakenRef.current = taken.values;
+    setRestoreTick((tick) => tick + 1);
+  });
+  const applyPendingTaken = useEffectEvent(() => {
+    const values = pendingTakenRef.current;
+    pendingTakenRef.current = null;
+    for (const [fieldId, text] of Object.entries(values ?? {})) editMariField(fieldId, text);
+  });
+  // Declared after the load effect, so for the same record change it runs after the form reset.
+  useEffect(() => {
+    applyPendingTaken();
+  }, [dbConfig, restoreTick]);
+  useEffect(() => {
+    const review = mariReview.review;
+    const wasBusy = reviewModeRef.current === "busy";
+    reviewModeRef.current = review?.mode;
+    const mine = (field: { entityId: string }) => field.entityId === agentRecordId;
+    // Her apply failed and the change waits again: the text captured for that Keep is stale.
+    if (wasBusy && review?.mode === "waiting" && review.fields.some(mine)) takenOverRef.current = null;
+    if (review?.mode !== "kept" || handledKeptRef.current === review.key) return;
+    handledKeptRef.current = review.key;
+    if (review.fields.some(mine)) void restoreTakenOver();
+  }, [mariReview.review, agentRecordId]);
 
   const handleMusicProviderChange = useCallback(
     (provider: MusicProvider) => {
@@ -2117,6 +2316,7 @@ export function AgentEditor() {
         onBack={handleClose}
         title={
           <input
+            data-mari-field="name"
             value={localName}
             onChange={(e) => {
               setLocalName(e.target.value);
@@ -2236,6 +2436,7 @@ export function AgentEditor() {
 
       {/* ── Body ── */}
       <div
+        ref={mariContentRef}
         className="mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4"
         onScroll={(e) => {
           // Two thresholds so the header height change cannot toggle it back at once.
@@ -2271,21 +2472,26 @@ export function AgentEditor() {
             help={localizeUi("ui.agents.agenteditor.aShortSummaryOfWhatThisAgentDoesPlus")}
           >
             <div className="grid gap-3 sm:grid-cols-[1fr_14rem]">
-              <label className="flex min-w-0 flex-col gap-1.5">
-                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+              <div className="flex min-w-0 flex-col gap-1.5" data-mari-field="description">
+                <span id={descriptionLabelId} className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                   {localizeUi("chat.settings.inlineEditor.fields.description")}
                 </span>
-                <input
-                  value={localDescription}
-                  onChange={(e) => {
-                    setLocalDescription(e.target.value);
-                    markDirty();
-                  }}
-                  onFocus={reportField("description", localizeUi("chat.settings.inlineEditor.fields.description"))}
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  placeholder={localizeUi("ui.agents.agenteditor.whatDoesThisAgentDo")}
-                />
-              </label>
+                <MariFieldReviewProvider value={mariReview.value}>
+                  <MariFieldReview field="description">
+                    <input
+                      value={localDescription}
+                      aria-labelledby={descriptionLabelId}
+                      onChange={(e) => {
+                        setLocalDescription(e.target.value);
+                        markDirty();
+                      }}
+                      onFocus={reportField("description", localizeUi("chat.settings.inlineEditor.fields.description"))}
+                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      placeholder={localizeUi("ui.agents.agenteditor.whatDoesThisAgentDo")}
+                    />
+                  </MariFieldReview>
+                </MariFieldReviewProvider>
+              </div>
               <label className="flex min-w-0 flex-col gap-1.5">
                 <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                   {localizeUi("ui.agents.agenteditor.author")}
@@ -4505,7 +4711,11 @@ export function AgentEditor() {
                 </div>
               )}
 
-              {builtIn && isUsingDefaultPrompt ? (
+              {/* Her held change to an empty prompt needs the field to show in. */}
+              {builtIn &&
+              isUsingDefaultPrompt &&
+              !mariReview.value?.waiting.some(({ fieldId }) => fieldId === "promptTemplate") &&
+              !mariReview.value?.kept?.fieldIds.includes("promptTemplate") ? (
                 <div className="relative">
                   <pre className="w-full max-h-[50vh] overflow-y-auto resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] text-[var(--muted-foreground)] whitespace-pre-wrap">
                     {defaultPrompt || "No default prompt."}
@@ -4521,24 +4731,30 @@ export function AgentEditor() {
                   </span>
                 </div>
               ) : (
-                <MacroTextarea
-                  showTokenCount
-                  value={localPrompt}
-                  tokenCountFooter={promptTemplateHelp}
-                  onChange={(value) => {
-                    setLocalPrompt(value);
-                    markDirty();
-                  }}
-                  onFocus={reportField("promptTemplate", localizeUi("ui.agents.agenteditor.promptTemplate"))}
-                  rows={16}
-                  title={localizeUi("ui.agents.agenteditor.promptTemplate")}
-                  placeholder={
-                    isCustomAgent || isNewCustomAgent
-                      ? customPromptPlaceholder
-                      : localizeUi("ui.agents.agenteditor.writeTheSystemPromptForThisAgent")
-                  }
-                  className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] max-h-[60vh] overflow-y-auto"
-                />
+                <div data-mari-field="promptTemplate">
+                  <MariFieldReviewProvider value={mariReview.value}>
+                    <MariFieldReview field="promptTemplate">
+                      <MacroTextarea
+                        showTokenCount
+                        value={localPrompt}
+                        tokenCountFooter={promptTemplateHelp}
+                        onChange={(value) => {
+                          setLocalPrompt(value);
+                          markDirty();
+                        }}
+                        onFocus={reportField("promptTemplate", localizeUi("ui.agents.agenteditor.promptTemplate"))}
+                        rows={16}
+                        title={localizeUi("ui.agents.agenteditor.promptTemplate")}
+                        placeholder={
+                          isCustomAgent || isNewCustomAgent
+                            ? customPromptPlaceholder
+                            : localizeUi("ui.agents.agenteditor.writeTheSystemPromptForThisAgent")
+                        }
+                        className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] max-h-[60vh] overflow-y-auto"
+                      />
+                    </MariFieldReview>
+                  </MariFieldReviewProvider>
+                </div>
               )}
 
               <div className="mt-4 space-y-2">

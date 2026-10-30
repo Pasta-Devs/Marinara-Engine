@@ -8,6 +8,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -100,6 +101,8 @@ import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
 import { useRegexScripts } from "../../hooks/use-regex-scripts";
 import { PresetVariablesEditor, reorderIdsByOffset, reorderIdsToGap } from "./PresetVariablesEditor";
+import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
+import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 
 // ── Tab definitions ──
 const TABS = [
@@ -161,6 +164,55 @@ function readMarkerConfig(value: unknown) {
 //  Main Editor
 // ═══════════════════════════════════════════════
 
+// The preset's own form fields as loaded, so a save sends only what the user changed.
+type PresetFormFields = {
+  name: string;
+  description: string;
+  wrapFormat: WrapFormat;
+  author: string;
+  conversationPrompt: string;
+  gamePrompt: string;
+  parameters: Record<string, unknown>;
+  scopedRegexMode: ScopedRegexMode;
+};
+
+function presetFormFields(p: any): PresetFormFields {
+  let parameters: Record<string, unknown> = {};
+  try {
+    const parsed = typeof p.parameters === "string" ? JSON.parse(p.parameters) : p.parameters;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) parameters = parsed;
+  } catch {
+    // Unreadable stored parameters start from the defaults.
+  }
+  return {
+    name: p.name ?? "",
+    description: p.description ?? "",
+    wrapFormat: (p.wrapFormat ?? "xml") as WrapFormat,
+    author: p.author ?? "",
+    conversationPrompt: p.conversationPrompt ?? "",
+    gamePrompt: p.gamePrompt ?? "",
+    parameters,
+    scopedRegexMode: resolveScopedRegexMode(p.scopedRegexMode),
+  };
+}
+
+function presetSavePayload(form: PresetFormFields): Record<string, unknown> {
+  return {
+    ...form,
+    parameters: withoutPresetTokenLimits({ ...DEFAULT_GENERATION_PARAMS, ...form.parameters }),
+  };
+}
+
+/** Only the keys that differ from the loaded preset, so a save cannot undo a change Prof. Mari made meanwhile. */
+function presetSavePatch(form: PresetFormFields, loaded: PresetFormFields | null): Record<string, unknown> {
+  const next = presetSavePayload(form);
+  if (!loaded) return next;
+  const before = presetSavePayload(loaded);
+  return Object.fromEntries(
+    Object.entries(next).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(before[key])),
+  );
+}
+
 export function PresetEditor() {
   const { t: localizeUi } = useUiTranslation();
   const presetDetailId = useUIStore((s) => s.presetDetailId);
@@ -169,7 +221,7 @@ export function PresetEditor() {
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const activeChatId = useChatStore((s) => s.activeChatId);
 
-  const { data, isLoading } = usePresetFull(presetDetailId);
+  const { data, isLoading, refetch: refetchPreset } = usePresetFull(presetDetailId);
   const { data: activeChat } = useChat(activeChatId);
   const updatePreset = useUpdatePreset();
   const deletePreset = useDeletePreset();
@@ -187,7 +239,7 @@ export function PresetEditor() {
   const reorderVariables = useReorderVariables();
 
   const [activeTab, setActiveTab] = useState<TabId>(() => presetDetailInitialTab ?? "overview");
-  const { contentRef, scrollToSection } = useEditorSections(
+  const { contentRef, scrollToSection, scrollToElement } = useEditorSections(
     presetDetailId,
     !!data,
     presetDetailInitialTab ?? "overview",
@@ -224,26 +276,27 @@ export function PresetEditor() {
     dirtyRef.current = dirty;
   }, [dirty]);
 
+  const loadedFormRef = useRef<PresetFormFields | null>(null);
+  const adoptPreset = useCallback((preset: unknown) => {
+    const form = presetFormFields(preset);
+    setLocalName(form.name);
+    setLocalDescription(form.description);
+    setLocalWrapFormat(form.wrapFormat);
+    setLocalAuthor(form.author);
+    setLocalConversationPrompt(form.conversationPrompt);
+    setLocalGamePrompt(form.gamePrompt);
+    setLocalParameters(form.parameters);
+    setLocalScopedRegexMode(form.scopedRegexMode);
+    loadedFormRef.current = form;
+  }, []);
+
   // Populate local state when data loads
   useEffect(() => {
     if (!data || !presetDetailId) return;
     if (dirtyRef.current && hydratedPresetIdRef.current === presetDetailId) return;
-    const p = data.preset as any;
     hydratedPresetIdRef.current = presetDetailId;
-    setLocalName(p.name ?? "");
-    setLocalDescription(p.description ?? "");
-    setLocalWrapFormat((p.wrapFormat ?? "xml") as WrapFormat);
-    setLocalAuthor(p.author ?? "");
-    setLocalConversationPrompt(p.conversationPrompt ?? "");
-    setLocalGamePrompt(p.gamePrompt ?? "");
-    try {
-      const parameters = typeof p.parameters === "string" ? JSON.parse(p.parameters) : p.parameters;
-      setLocalParameters(parameters && typeof parameters === "object" && !Array.isArray(parameters) ? parameters : {});
-    } catch {
-      setLocalParameters({});
-    }
-    setLocalScopedRegexMode(resolveScopedRegexMode(p.scopedRegexMode));
-  }, [data, presetDetailId]);
+    adoptPreset(data.preset);
+  }, [data, presetDetailId, adoptPreset]);
 
   useEffect(() => {
     setStockCopyError(null);
@@ -277,18 +330,18 @@ export function PresetEditor() {
   const handleSave = useCallback(async () => {
     if (!presetDetailId) return false;
     const revision = editRevisionRef.current;
-    const payload: { id: string } & Record<string, unknown> = {
-      id: presetDetailId,
+    const form: PresetFormFields = {
       name: localName,
       description: localDescription,
       wrapFormat: localWrapFormat,
       author: localAuthor,
       conversationPrompt: localConversationPrompt,
       gamePrompt: localGamePrompt,
-      parameters: withoutPresetTokenLimits({ ...DEFAULT_GENERATION_PARAMS, ...localParameters }),
+      parameters: localParameters,
       scopedRegexMode: localScopedRegexMode,
     };
-    await updatePreset.mutateAsync(payload);
+    await updatePreset.mutateAsync({ id: presetDetailId, ...presetSavePatch(form, loadedFormRef.current) });
+    loadedFormRef.current = form;
     if (editRevisionRef.current !== revision) return false;
     setDirty(false);
     setShowSaved(true);
@@ -349,6 +402,88 @@ export function PresetEditor() {
     editRevisionRef.current += 1;
     setDirty(true);
   }, []);
+
+  // Prof. Mari and the preset's own fields, as in the Lorebook editor. Prompt sections are their own records.
+  const editorReady = !isLoading && !!data;
+  const { workingOffscreen, revealWorkingField } = useMariEditorFields(
+    contentRef,
+    presetDetailId,
+    editorReady,
+    scrollToElement,
+  );
+  useMariCompanionEditor(contentRef, editorReady);
+  const mariFieldText = (fieldId: string): string =>
+    ({
+      name: localName,
+      description: localDescription,
+      author: localAuthor,
+      conversationPrompt: localConversationPrompt,
+      gamePrompt: localGamePrompt,
+    })[fieldId] ?? "";
+  const editMariField = (fieldId: string, text: string) => {
+    const set = {
+      name: setLocalName,
+      description: setLocalDescription,
+      author: setLocalAuthor,
+      conversationPrompt: setLocalConversationPrompt,
+      gamePrompt: setLocalGamePrompt,
+    }[fieldId];
+    if (!set) return;
+    set(text);
+    markDirty();
+  };
+  // Her change lands on a saved preset and Undo restores that saved text. Fields the user took over
+  // with Edit get the user's text back after her change lands, unsaved.
+  const takenOverRef = useRef<{ presetId: string; values: Record<string, string> } | null>(null);
+  useEffect(() => {
+    takenOverRef.current = null;
+  }, [presetDetailId]);
+  const mariReview = useMariFieldReview({
+    entityId: presetDetailId,
+    current: mariFieldText,
+    touched: (fieldId) => {
+      const loaded = loadedFormRef.current;
+      return dirty && !!loaded && mariFieldText(fieldId) !== loaded[fieldId as keyof PresetFormFields];
+    },
+    edit: editMariField,
+    beforeKeep: async (takenOver) => {
+      takenOverRef.current =
+        presetDetailId && takenOver && takenOver.length > 0
+          ? { presetId: presetDetailId, values: Object.fromEntries(takenOver.map((id) => [id, mariFieldText(id)])) }
+          : null;
+      if (!dirtyRef.current) return "clean";
+      if (await handleSave().catch(() => false)) return "saved";
+      takenOverRef.current = null;
+      return "failed";
+    },
+    keepDropped: () => {
+      takenOverRef.current = null;
+    },
+  });
+  const handledKeptRef = useRef(mariReview.review?.mode === "kept" ? mariReview.review.key : null);
+  const reviewModeRef = useRef(mariReview.review?.mode);
+  const restoreTakenOver = useEffectEvent(async () => {
+    const taken = takenOverRef.current;
+    takenOverRef.current = null;
+    if (!taken || taken.presetId !== presetDetailId) return;
+    const revision = editRevisionRef.current;
+    const fresh = await refetchPreset();
+    if (useUIStore.getState().presetDetailId !== taken.presetId) return;
+    // Her other fields show at once, unless the user typed meanwhile.
+    if (fresh.data && editRevisionRef.current === revision) adoptPreset(fresh.data.preset);
+    for (const [fieldId, text] of Object.entries(taken.values)) editMariField(fieldId, text);
+  });
+  useEffect(() => {
+    const review = mariReview.review;
+    const wasBusy = reviewModeRef.current === "busy";
+    reviewModeRef.current = review?.mode;
+    const mine = (field: { entityId: string }) => field.entityId === presetDetailId;
+    // Her apply failed and the change waits again: the text captured for that Keep is stale.
+    if (wasBusy && review?.mode === "waiting" && review.fields.some(mine)) takenOverRef.current = null;
+    if (review?.mode !== "kept" || handledKeptRef.current === review.key) return;
+    handledKeptRef.current = review.key;
+    if (review.fields.some(mine)) void restoreTakenOver();
+  }, [mariReview.review, presetDetailId]);
 
   // Parse sections in order
   const sectionOrder = useMemo(() => {
@@ -480,6 +615,7 @@ export function PresetEditor() {
             )}
           </div>
           <input
+            data-mari-field="name"
             value={localName}
             onFocus={(e) => e.target.select()}
             onChange={(e) => {
@@ -563,36 +699,54 @@ export function PresetEditor() {
       )}
 
       {/* ── Body ── */}
-      <div className="mari-editor-body">
+      <div className="mari-editor-body relative">
+        {workingOffscreen && (
+          <button
+            type="button"
+            className="mari-topbar-status mari-field-chip"
+            data-state="working"
+            data-edge={workingOffscreen}
+            onClick={revealWorkingField}
+          >
+            {workingOffscreen === "above" ? (
+              <ArrowUp size="0.75rem" aria-hidden="true" />
+            ) : (
+              <ArrowDown size="0.75rem" aria-hidden="true" />
+            )}
+            {localizeUi("ui.characters.charactereditor.mariIsHere")}
+          </button>
+        )}
         {/* Content area */}
         <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner space-y-6">
             <section data-editor-section="overview">
-              <OverviewTab
-                preset={data.preset}
-                name={localName}
-                onNameChange={(v) => {
-                  setLocalName(v);
-                  markDirty();
-                }}
-                description={localDescription}
-                onDescriptionChange={(v) => {
-                  setLocalDescription(formatQuotes(v));
-                  markDirty();
-                }}
-                wrapFormat={localWrapFormat}
-                onWrapFormatChange={(v) => {
-                  setLocalWrapFormat(v);
-                  markDirty();
-                }}
-                author={localAuthor}
-                onAuthorChange={(v) => {
-                  setLocalAuthor(formatQuotes(v));
-                  markDirty();
-                }}
-                sectionCount={orderedSections.length}
-                groupCount={data.groups?.length ?? 0}
-              />
+              <MariFieldReviewProvider value={mariReview.value}>
+                <OverviewTab
+                  preset={data.preset}
+                  name={localName}
+                  onNameChange={(v) => {
+                    setLocalName(v);
+                    markDirty();
+                  }}
+                  description={localDescription}
+                  onDescriptionChange={(v) => {
+                    setLocalDescription(formatQuotes(v));
+                    markDirty();
+                  }}
+                  wrapFormat={localWrapFormat}
+                  onWrapFormatChange={(v) => {
+                    setLocalWrapFormat(v);
+                    markDirty();
+                  }}
+                  author={localAuthor}
+                  onAuthorChange={(v) => {
+                    setLocalAuthor(formatQuotes(v));
+                    markDirty();
+                  }}
+                  sectionCount={orderedSections.length}
+                  groupCount={data.groups?.length ?? 0}
+                />
+              </MariFieldReviewProvider>
             </section>
             <section data-editor-section="sections">
               <SectionsTab
@@ -617,18 +771,20 @@ export function PresetEditor() {
               />
             </section>
             <section data-editor-section="prompts">
-              <PromptsTab
-                conversationPrompt={localConversationPrompt}
-                onConversationPromptChange={(v) => {
-                  setLocalConversationPrompt(v);
-                  markDirty();
-                }}
-                gamePrompt={localGamePrompt}
-                onGamePromptChange={(v) => {
-                  setLocalGamePrompt(v);
-                  markDirty();
-                }}
-              />
+              <MariFieldReviewProvider value={mariReview.value}>
+                <PromptsTab
+                  conversationPrompt={localConversationPrompt}
+                  onConversationPromptChange={(v) => {
+                    setLocalConversationPrompt(v);
+                    markDirty();
+                  }}
+                  gamePrompt={localGamePrompt}
+                  onGamePromptChange={(v) => {
+                    setLocalGamePrompt(v);
+                    markDirty();
+                  }}
+                />
+              </MariFieldReviewProvider>
             </section>
             <section data-editor-section="parameters" className="space-y-3">
               <h3 className="text-sm font-semibold">{localizeUi("generationParameters.preset.title")}</h3>
@@ -960,16 +1116,19 @@ function OverviewTab({
       </FieldGroup>
 
       <FieldGroup
+        mariField="description"
         label={localizeUi("chat.settings.inlineEditor.fields.description")}
         help={localizeUi("ui.presets.overviewtab.aShortSummaryOfWhatThisPresetIsDesigned")}
       >
-        <textarea
-          value={description}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          placeholder={localizeUi("ui.presets.overviewtab.whatDoesThisPresetDo")}
-          className="mari-editor-field min-h-[5rem] w-full p-3 text-sm"
-        />
+        <MariFieldReview field="description">
+          <textarea
+            value={description}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder={localizeUi("ui.presets.overviewtab.whatDoesThisPresetDo")}
+            className="mari-editor-field min-h-[5rem] w-full p-3 text-sm"
+          />
+        </MariFieldReview>
       </FieldGroup>
 
       <FieldGroup
@@ -1011,6 +1170,7 @@ function OverviewTab({
       </FieldGroup>
 
       <FieldGroup
+        mariField="author"
         label={localizeUi("ui.presets.overviewtab.author")}
         help={localizeUi("ui.presets.overviewtab.optionalCreatorNameUsefulIfYouSharePresetsWith")}
       >
@@ -1129,21 +1289,24 @@ function PromptsTab({
   return (
     <>
       <FieldGroup
+        mariField="conversationPrompt"
         label={localizeUi("onboarding.conversation.title")}
         help={localizeUi("ui.presets.promptstab.usedAsThePromptPresetSConversationPromptIn")}
       >
-        <MacroTextarea
-          showTokenCount
-          value={conversationPrompt}
-          tokenCountAlign="start"
-          onChange={onConversationPromptChange}
-          title={localizeUi("ui.presets.promptstab.editConversationModePrompt")}
-          placeholder={localizeUi("ui.presets.promptstab.leaveEmptyToUseMarinaraSBuiltInConversation")}
-          className="mari-editor-field mari-prompt-font min-h-[12rem] w-full p-3 text-xs"
-          formatOnChange={formatPrompt}
-          showMarkdownPreview
-          spellCheck={false}
-        />
+        <MariFieldReview field="conversationPrompt">
+          <MacroTextarea
+            showTokenCount
+            value={conversationPrompt}
+            tokenCountAlign="start"
+            onChange={onConversationPromptChange}
+            title={localizeUi("ui.presets.promptstab.editConversationModePrompt")}
+            placeholder={localizeUi("ui.presets.promptstab.leaveEmptyToUseMarinaraSBuiltInConversation")}
+            className="mari-editor-field mari-prompt-font min-h-[12rem] w-full p-3 text-xs"
+            formatOnChange={formatPrompt}
+            showMarkdownPreview
+            spellCheck={false}
+          />
+        </MariFieldReview>
       </FieldGroup>
 
       <FieldGroup
@@ -1156,21 +1319,24 @@ function PromptsTab({
       </FieldGroup>
 
       <FieldGroup
+        mariField="gamePrompt"
         label={localizeUi("onboarding.game.title")}
         help={localizeUi("ui.presets.promptstab.usedAsThePromptPresetSGamePromptIn")}
       >
-        <MacroTextarea
-          showTokenCount
-          value={gamePrompt}
-          tokenCountAlign="start"
-          onChange={onGamePromptChange}
-          title={localizeUi("ui.presets.promptstab.editGameModePrompt")}
-          placeholder={localizeUi("ui.presets.promptstab.leaveEmptyToUseMarinaraSBuiltInGame")}
-          className="mari-editor-field mari-prompt-font min-h-[12rem] w-full p-3 text-xs"
-          formatOnChange={formatPrompt}
-          showMarkdownPreview
-          spellCheck={false}
-        />
+        <MariFieldReview field="gamePrompt">
+          <MacroTextarea
+            showTokenCount
+            value={gamePrompt}
+            tokenCountAlign="start"
+            onChange={onGamePromptChange}
+            title={localizeUi("ui.presets.promptstab.editGameModePrompt")}
+            placeholder={localizeUi("ui.presets.promptstab.leaveEmptyToUseMarinaraSBuiltInGame")}
+            className="mari-editor-field mari-prompt-font min-h-[12rem] w-full p-3 text-xs"
+            formatOnChange={formatPrompt}
+            showMarkdownPreview
+            spellCheck={false}
+          />
+        </MariFieldReview>
       </FieldGroup>
     </>
   );
@@ -2294,9 +2460,19 @@ function SectionNameInput({ value, onCommit }: { value: string; onCommit: (v: st
 //  Shared UI Components
 // ═══════════════════════════════════════════════
 
-function FieldGroup({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
+function FieldGroup({
+  label,
+  help,
+  mariField,
+  children,
+}: {
+  label: string;
+  help?: string;
+  mariField?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mari-editor-panel space-y-2 p-3">
+    <div className="mari-editor-panel space-y-2 p-3" data-mari-field={mariField}>
       <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)]">
         {label}
         {help && <HelpTooltip text={help} />}

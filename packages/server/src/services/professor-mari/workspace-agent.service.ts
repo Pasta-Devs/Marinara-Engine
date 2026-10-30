@@ -21,7 +21,7 @@ import { setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
-import { createChatPresetsStorage } from "../storage/chat-presets.storage.js";
+import { createPromptsStorage } from "../storage/prompts.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createAgentsStorage } from "../storage/agents.storage.js";
@@ -194,6 +194,7 @@ const ACTION_RESULT_TABLES = {
   personas: "persona",
   lorebooks: "lorebook",
   prompt_presets: "preset",
+  agent_configs: "agent",
 } as const satisfies Record<string, MariWorkspaceActionResult["resource"]["kind"]>;
 
 // `field` names the list a child row shows under on the change receipt (slice 74).
@@ -285,6 +286,7 @@ const FAILED_ACTION_KINDS = {
   persona: "persona",
   lorebook: "lorebook",
   preset: "preset",
+  agent: "agent",
 } as const;
 
 export function buildMariFailedActionResult(
@@ -5024,7 +5026,7 @@ export class ProfessorMariWorkspaceService {
           : candidate.kind === "lorebook"
             ? await createLorebooksStorage(this.app.db).getById(candidate.id)
             : candidate.kind === "preset"
-              ? await createChatPresetsStorage(this.app.db).getById(candidate.id)
+              ? await createPromptsStorage(this.app.db).getById(candidate.id)
               : candidate.kind === "chat"
                 ? await createChatsStorage(this.app.db).getById(candidate.id)
                 : candidate.kind === "connection"

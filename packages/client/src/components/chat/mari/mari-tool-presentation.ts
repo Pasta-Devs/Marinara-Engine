@@ -171,7 +171,7 @@ export function isMariWorkspaceActionResult(value: unknown): value is MariWorksp
       (result?.status === "failed" && typeof result.error === "string")) &&
     typeof result.summary === "string" &&
     !!resource &&
-    ["character", "persona", "lorebook", "preset"].includes(String(resource.kind)) &&
+    ["character", "persona", "lorebook", "preset", "agent"].includes(String(resource.kind)) &&
     typeof resource.id === "string" &&
     resource.id.length > 0 &&
     Array.isArray(result.changedFields) &&

@@ -130,6 +130,25 @@ export const MARI_EDITOR_KINDS = {
     aliases: {} as Record<string, string>,
     reviewOrder: ["name", "description", "content"],
   },
+  // Prompt sections are their own records (`preset.updateSection`) and are not covered here.
+  preset: {
+    action: "preset.update",
+    table: "prompt_presets",
+    idArgs: ["id", "presetId", "promptPresetId"],
+    wrappers: ["patch", "data", "preset", "promptPreset"],
+    fieldIds: new Set(["name", "description", "author", "conversationPrompt", "gamePrompt"]),
+    aliases: { conversation_prompt: "conversationPrompt", game_prompt: "gamePrompt" } as Record<string, string>,
+    reviewOrder: ["description", "conversationPrompt", "gamePrompt"],
+  },
+  agent: {
+    action: "agent.update",
+    table: "agent_configs",
+    idArgs: ["id", "agentId", "agentConfigId"],
+    wrappers: ["patch", "data", "agent"],
+    fieldIds: new Set(["description", "promptTemplate"]),
+    aliases: { prompt_template: "promptTemplate", prompt: "promptTemplate" } as Record<string, string>,
+    reviewOrder: ["description", "promptTemplate"],
+  },
 };
 
 export type MariEditorKind = keyof typeof MARI_EDITOR_KINDS;
@@ -164,7 +183,8 @@ export function appDataAction(action: unknown): string {
     .trim()
     .toLowerCase()
     .replace(/[-_\s]+/g, "")
-    .replace(/^(character|persona|lorebook)s\./, "$1.")
+    .replace(/^promptpresets?\./, "preset.")
+    .replace(/^(character|persona|lorebook|preset|agent)s\./, "$1.")
     .replace(/^lorebook\.entr(?:y|ies)\.update$/, "lorebook.updateentry");
 }
 
