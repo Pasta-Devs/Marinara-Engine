@@ -167,6 +167,8 @@ Eine einzelne Karte, die mehrere Personen beschreibt, etwa eine Szenariokarte mi
 
 Kehrt ein wiederkehrender Charakter nach dem Verlassen der Szene zurück, verwendet Character Tracker seine zuletzt gespeicherten Werte und benutzerdefinierten Felder für die Kontinuität. Kartenbasierte Charaktere erhalten außerdem ihre konfigurierten RPG-Pools und Attribute als Grundlage. Einträge für Einzelcharakterkarten behalten den Avatar und Bildausschnitt der Karte. Mitglieder einer Mehrcharakterkarte verwenden ihre eigenen Porträts über denselben Bibliotheks-, gespeicherten Avatar- oder optionalen Porträtgenerierungsweg wie NPCs; sie übernehmen nicht das gemeinsame Kartenporträt.
 
+In einer Roleplay-Gruppe im Modus Merged können seine anwesenden Charaktere außerdem festlegen, welche Charakterkarten bei der nächsten Antwort aktiv sind. Siehe [Aktive Charaktere automatisieren](../chats/group-chats.md#automate-active-characters-merged-only).
+
 - **Phase**: Post-Processing.
 - **Wo er funktioniert**: Roleplay.
 - **Wichtige Einstellungen**: **Add as Prompt Section** (standardmäßig an) und die optionale Einstellung **Auto-Generate NPC Avatars** mit eigener Auswahl für die Bild-Verbindung. Darunter ist der Schalter **Include the outfit in portraits** (Kleidung in Porträts einbeziehen) standardmäßig an, sodass neue Porträts neben dem Aussehen auch die Kleidung zeigen, die der Tracker notiert hat. Schaltest du ihn aus, entstehen Porträts allein aus dem Aussehen.

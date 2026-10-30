@@ -52,6 +52,8 @@ Weiter unten im selben Tab gibt es eine zweite Liste, **Character Questions** (C
 
 Diese fünf Felder liest das Modell, deshalb kann eine Charakterantwort auch nur sie erreichen.
 
+Eine Begrüßung kann auch das `{{name}}` einer Persona-Frage verwenden, etwa `Ah, so you are a {{class}}`. Es wird nur ausgefüllt, wenn der Spieler diese Persona im Einrichtungsassistenten für neue Chats erstellt, und zwar in der ersten Nachricht und ihren alternativen Begrüßungen. Bei einer vorhandenen Persona oder Quick Start erscheint das Tag unverändert, und der Charakter-Editor warnt dich davor. Klick in eine Begrüßung, und die Liste **Available variables** (verfügbare Variablen) zeigt beide Arten von Fragen, jeweils beschriftet.
+
 Die Antworten werden als Chat-Variablen gespeichert. So liest die Karte in jedem Chat einen anderen Wert und muss nie bearbeitet werden. Eine Kartenfrage wird immer gestellt, wenn die Karte im Chat ist, egal ob der Spieler eine Persona erstellt. Der Abschnitt **About you** (Über dich) erscheint im Fenster nur, wenn gerade eine Persona entsteht.
 
 Drei Dinge sollten Autoren wissen:
@@ -70,7 +72,7 @@ Class: {{class}}
 Role: {{player}} is a {{class}} sworn to {{faction}}.
 ```
 
-Klickst du in ein Feld, erscheinen darunter seine **Available variables** (verfügbare Variablen). Klick auf eine davon, um sie an der Cursorposition einzufügen.
+Klickst du in ein Feld, erscheinen darunter seine **Available variables**. Klick auf eine davon, um sie an der Cursorposition einzufügen.
 
 Mit `{{#if}}` zeigst du Text nur bei bestimmten Antworten an:
 
@@ -99,6 +101,8 @@ Beide Wege funktionieren auch nach der Einrichtung, über **Chat Settings** (Cha
 
 - Das Auswahlfenster im Abschnitt **Persona** eines Roleplay-Chats listet **Create your persona** für jede Karte im Chat auf, die das anbietet. Nutze es, wenn du den Einrichtungsassistenten übersprungen hast oder später eine neue Persona willst.
 - Die Onboarding-Markierung neben einem Charakter unter **Characters** (Charaktere) öffnet nur die Charakterfragen dieser Karte erneut. Sie startet mit den Antworten, die der Chat bereits hat. Speicherst du eine Änderung, bleiben die anderen Antworten also, wie sie waren; erneutes Speichern stellt außerdem eine Antwort wieder her, die du unter **Chat Variables** (Chat-Variablen) gelöscht hast. Die Antworten anderer Karten bleiben unberührt – außer bei einem Namen, den zwei Karten teilen: Er ist ein einziger Wert, also lesen beide Karten die neue Antwort.
+
+Fügst du einem laufenden Roleplay-Chat eine Karte mit Charakterfragen hinzu, über **Chat Settings** oder indem du sie auf den Chat ziehst, stellt der Chat zuerst ihre Fragen. Danach bietet er ihre Begrüßung an, mit deinen eingesetzten und markierten Antworten.
 
 ## Karten mit Onboarding teilen
 
