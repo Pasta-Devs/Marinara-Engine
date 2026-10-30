@@ -132,6 +132,7 @@ import {
 } from "../../lib/professor-mari-transcript-scroll";
 import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import {
+  appliesWithoutReview,
   findMariField,
   heldEditorFields,
   isMariEditorKind,
@@ -3017,7 +3018,7 @@ export function HomeProfessorMariChat({
   useEffect(() => {
     const publish = useUIStore.getState().setMariFieldReview;
     const message = lastLoadedMessage;
-    if (isBusy) return publish({ mode: "busy" });
+    if (isBusy) return publish({ mode: "busy", ...(appliesWithoutReview(permissionsMode) ? { bypass: true } : {}) });
     if (!message || message.role !== "assistant") return publish(null);
     const actions = () => fieldReviewActions.current!;
     if (pendingDeferredMutations) {
@@ -3055,6 +3056,7 @@ export function HomeProfessorMariChat({
     pendingDeferredMutations,
     latestActionResults,
     pendingChangeReviews,
+    permissionsMode,
   ]);
   useEffect(() => () => useUIStore.getState().setMariFieldReview(null), []);
   // M5a / slice 71 (F1): applied changes and answered prompts are "what changed"; everything still waiting

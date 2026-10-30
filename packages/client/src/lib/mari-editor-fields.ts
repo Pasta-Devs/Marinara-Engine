@@ -272,8 +272,8 @@ export interface MariReviewField {
 /** Her change to a record as its editor shows it in the fields: waiting for Keep, or kept
  * with Undo. Her open chat publishes it and owns the replies. */
 export type MariFieldReview =
-  /** She is working on a reply. */
-  | { mode: "busy" }
+  /** She is working on a reply; `bypass`: her writes apply without a review first (see appliesWithoutReview). */
+  | { mode: "busy"; bypass?: boolean }
   | {
       mode: "waiting";
       /** The held message id. */
@@ -319,6 +319,20 @@ export function heldEditorFields(heldCalls: unknown): Array<MariReviewField & { 
     }
   }
   return fields.sort((a, b) => a.rank - b.rank).map(({ rank: _rank, ...field }) => field);
+}
+
+/** Permission modes where her writes apply without a review, so unsaved editor text is saved first. */
+export function appliesWithoutReview(mode: string): boolean {
+  return mode === "bypass" || mode === "accept-edits";
+}
+
+/** Bypass mode saved the user's unsaved text as her run began ("bypass"): the next kept review is
+ * the one that saved it. The review is briefly empty between her run and its kept review, so only a
+ * later run that does not apply directly ends the mark. */
+export function settleBypassSave(savedFor: string | null, review: MariFieldReview | null): string | null {
+  if (savedFor !== "bypass") return savedFor;
+  if (review?.mode === "kept") return review.key;
+  return review?.mode === "busy" && !review.bypass ? null : savedFor;
 }
 
 /** The text fields of an applied change that can still be undone (a review of it is

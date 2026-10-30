@@ -2,11 +2,21 @@
 // character waits, each changed field shows her diff in place (read-only) with Keep / Not this one
 // / Edit / Next; after Keep the field says "Edited by Prof. Mari" with Undo until the user edits
 // it, leaves, or the undo window ends. Her card stays the full record; this is an extra surface.
-import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 import { ArrowDown, Check, Pencil, Undo2 } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
+import { settleBypassSave } from "../../lib/mari-editor-fields";
 import { fieldLabel } from "../../lib/mari-edit-diff";
 import { mariFieldLabel } from "../../hooks/use-mari-editor-fields";
 import { TextBody, undoLabel } from "../chat/MariChangeReceipt";
@@ -116,6 +126,18 @@ export function useMariFieldReview({
   // Her Keep reply brought no kept review; a later reply's kept review is not this Keep's.
   if (savedFor === "pending" && !answered && review?.mode === "busy") setSavedFor(null);
   if (savedFor === "pending" && keptReview) setSavedFor(keptReview.key);
+  if (settleBypassSave(savedFor, review) !== savedFor) setSavedFor(settleBypassSave(savedFor, review));
+  // Bypass permissions: her writes skip review, so the user's unsaved text is saved before she writes.
+  // ponytail: saves when her run starts, so a run that writes nothing still saved it (as Save would).
+  const bypassBusy = review?.mode === "busy" && review.bypass === true;
+  const saveBeforeBypass = useEffectEvent(async () => {
+    const saved = await beforeKeep([]);
+    // A run that saved nothing must not inherit an earlier run's mark.
+    setSavedFor((prev) => (saved === "saved" ? "bypass" : prev === "bypass" ? null : prev));
+  });
+  useEffect(() => {
+    if (bypassBusy) void saveBeforeBypass();
+  }, [bypassBusy]);
 
   const value: MariFieldReviewValue | null =
     entityId && (waiting.length > 0 || keptIds.length > 0 || declinedField)
@@ -310,14 +332,23 @@ function ReviewBox({ review, index, autoFocus }: { review: MariFieldReviewValue;
 function KeptLine({ kept }: { kept: NonNullable<MariFieldReviewValue["kept"]> }) {
   const { t, i18n } = useUiTranslation();
   const pack = useMariAppearancePack();
-  const deadline = undoLabel(kept.undoUntil ?? undefined, t, i18n.resolvedLanguage ?? "en");
+  const lang = i18n.resolvedLanguage ?? "en";
+  // undoLabel names only a deadline within a day; her undo window is longer, so name its date.
+  const deadline =
+    undoLabel(kept.undoUntil ?? undefined, t, lang) ??
+    (kept.undoUntil && Date.parse(kept.undoUntil) > Date.now()
+      ? t("mari.fieldReview.undoUntilDate", {
+          date: new Intl.DateTimeFormat(lang, { month: "short", day: "numeric" }).format(new Date(kept.undoUntil)),
+        })
+      : null);
   return (
     <p className="mari-field-review-line" role="status">
       <img src={pack.portraits.idle} alt="" draggable={false} />
       <span>
-        {[t("mari.fieldReview.edited"), kept.savedUnsaved ? t("mari.fieldReview.savedUnsaved") : null, deadline]
+        {[t("mari.fieldReview.edited"), kept.savedUnsaved ? t("mari.fieldReview.savedUnsaved") : null]
           .filter(Boolean)
           .join(" · ")}
+        {deadline && <span className="mari-field-review-line__deadline"> · {deadline}</span>}
       </span>
       <button type="button" className="mari-btn" onClick={kept.undo}>
         <Undo2 aria-hidden="true" />

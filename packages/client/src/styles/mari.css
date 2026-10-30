@@ -4012,6 +4012,13 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   height: 1.5rem;
 }
 
+/* Phones: drop the date so Undo stays on the line. */
+@media (max-width: 26.25rem) {
+  .mari-field-review-line__deadline {
+    display: none;
+  }
+}
+
 @media (pointer: coarse) {
   .mari-field-review__bar .mari-btn,
   .mari-field-review-line .mari-btn,
