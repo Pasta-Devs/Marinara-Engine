@@ -10,7 +10,7 @@ Professor Mari vive en la pantalla de inicio. La pantalla de inicio es lo que ve
 
 Busca el widget **Professor Mari** con su pixel art y luego haz clic en **Ask Professor Mari** (Pregúntale a Professor Mari) para abrir su ventana de chat completa. La pestaña **Professor** de la parte superior de la pantalla de inicio también la abre. Su ventana se abre dentro de Search, así que también puedes llegar a ella desde cualquier pantalla: escribe en el campo de Search y elige **Ask Prof. Mari** (Pregúntale a Professor Mari), pulsa Ctrl+J (Cmd+J en un Mac), o desliza hacia abajo desde la barra superior en un teléfono. Una línea de estado en la cabecera de su ventana muestra **Ready to help** (Lista para ayudar) cuando está inactiva, o **Working on it...** (Trabajando en ello...) mientras está ocupada.
 
-Le hablas en lenguaje sencillo. Escribe un mensaje en el cuadro y pulsa Enter para enviarlo. Pulsa Shift y Enter juntas para añadir una línea nueva en su lugar. Si desactivas **Enter sends to Professor Mari** (Enter envía a Professor Mari) en sus ajustes, Enter añade una línea nueva y Ctrl+Enter (Cmd+Enter en un Mac) envía.
+Le hablas en lenguaje sencillo. Escribe un mensaje en el cuadro y pulsa Enter para enviarlo. Pulsa Shift y Enter juntas para añadir una línea nueva en su lugar. Si desactivas **Enter sends to Professor Mari** (Enter envía a Professor Mari) en sus ajustes, Enter añade una línea nueva y Ctrl+Enter (Cmd+Enter en un Mac) envía. Las teclas hacen algo más mientras ella trabaja, como se describe en [Enviar mensajes mientras ella trabaja](#sending-messages-while-she-works).
 
 Enviarle tu primer mensaje desbloquea el logro **Hello World**.
 
@@ -66,7 +66,7 @@ En un chat vacío de Professor Mari, los chips iniciales como **Create a Charact
 
 Los flujos guiados hacen una pregunta enfocada cada vez, en lugar de presentar un formulario largo de golpe.
 
-Ante una solicitud completa de creación o edición, Professor Mari puede devolver un plan guiado acotado. Cada paso tiene un pequeño conjunto de sugerencias. Al seleccionar una, se rellena el borrador actual y el plan avanza localmente. Tu texto se mantiene en el borrador cuando cambias de sugerencia. El plan pertenece al chat actual de Professor Mari, así que cambiar de chat, reiniciar, detener una ejecución o completar el plan borra los pasos obsoletos. Las sugerencias mal formadas o excesivas se descartan, y los chips se desactivan mientras Professor Mari trabaja.
+Cuando una solicitud deja decisiones reales sin resolver, Professor Mari puede detenerse y preguntar en una tarjeta de preguntas bajo su respuesta: hasta cuatro preguntas, una a la vez, cada una con algunas opciones y con la que ella recomienda marcada. Algunas preguntas admiten varias respuestas. Elige una opción o escribe la tuya y luego pulsa **Submit** (Enviar): tus respuestas se envían como tu siguiente mensaje, así que nada queda oculto y puedes ver lo que se le dijo. Su turno termina cuando pregunta, y nada de lo que propuso junto con la pregunta se ejecuta hasta que respondas. También puedes ignorar la tarjeta y escribir en el cuadro de mensaje; tu siguiente mensaje la responde.
 
 Las sugerencias solo están disponibles en los chats de Professor Mari. Los demás personajes no reciben los chips de Professor Mari.
 
@@ -126,7 +126,7 @@ Los mismos comandos se pueden escribir con `/`, como se describe en [Comandos co
 
 Elige **Attach files or photos** en el menú del clip, o escribe `/attach`, para añadir un archivo a tu mensaje.
 
-Acepta imágenes, archivos PDF y archivos de texto comunes como `.txt`, `.md`, `.json`, `.csv` y `.log`. Cada archivo puede pesar hasta 20 MB. Los archivos adjuntos aparecen como chips que puedes quitar encima del cuadro de mensaje antes de enviar.
+Acepta imágenes, archivos PDF y archivos de texto comunes como `.txt`, `.md`, `.json`, `.csv` y `.log`. Cada archivo puede pesar hasta 20 MB. Los archivos adjuntos aparecen como chips que puedes quitar encima del cuadro de mensaje antes de enviar. También puedes pegar una captura de pantalla o un archivo copiado directamente en el cuadro de mensaje, con **Ctrl+V** o con la función de pegar de tu teléfono.
 
 Para que ella lea una imagen, el modelo de la conexión que elegiste debe admitir la entrada de imágenes.
 
@@ -268,7 +268,43 @@ Haz clic en el botón **Chats** en su cabecera para abrir tus chats guardados de
 
 Haz clic en el botón **New chat** para empezar una conversación nueva con ella. Primero guarda tu chat actual en la lista **Chats**. También puedes escribir `/new` (o `/restart`) en el cuadro de mensaje para hacer lo mismo. Ves el mensaje "Professor Mari's previous chat was saved."
 
-Mientras ella trabaja, el botón de enviar se convierte en un botón **Stop** (Detener). Haz clic en él para cancelar la tarea actual.
+Mientras ella trabaja, aparece un botón **Stop** (Detener) junto al botón de enviar. Haz clic en él para cancelar la tarea actual.
+
+<a id="sending-messages-while-she-works"></a>
+
+### Enviar mensajes mientras ella trabaja
+
+El cuadro de mensaje sigue abierto mientras ella trabaja, y tú eliges cuándo le llega tu mensaje:
+
+- **Send now** (Enviar ahora) entra en su siguiente paso, sin detenerla. Su respuesta hasta ese momento se guarda, tu mensaje aparece debajo y ella sigue adelante teniendo en cuenta lo que dijiste. Así la corriges a mitad de una tarea y conservas el trabajo que ya hizo.
+- **Queue for later** (Poner en cola para después) espera en una lista encima del cuadro, marcado con **Sends when she finishes** (Se envía cuando ella termine). Cuando ella termina sin problemas, toma los mensajes en espera uno por uno, en orden.
+
+| | Send now | Queue for later |
+|---|---|---|
+| **Enter sends** activado (el valor predeterminado) | Enter | Ctrl+Enter |
+| **Enter sends** desactivado | Ctrl+Enter | Ctrl+Shift+Enter |
+
+En un Mac, usa Cmd en lugar de Ctrl. Shift+Enter siempre añade una línea nueva. La pequeña flecha junto al botón de enviar ofrece ambas opciones, lo que ayuda en un teléfono.
+
+Send now es solo para palabras, dentro de la ejecución que ella ya está haciendo. Un mensaje con archivos, enlaces con `@` o un campo que le pasaste se pone en cola en su lugar, igual que uno sobre un tema distinto o uno enviado después de cambiar el modo de permisos. Un breve aviso lo indica. Un mensaje en espera sin esas cosas tiene su propio botón **Send now**. Haz clic en la **X** de un mensaje para quitarlo. Un chat puede contener hasta 20 mensajes en espera.
+
+Si ella ha dado algunos pasos pero aún no ha dicho nada cuando llega tu mensaje, sus pasos se conservan con una línea atenuada **Still working**. Send now no puede darle más pasos de los que permite una ejecución. Si ha llegado al límite, o se ha detenido para preguntarte algo, tu mensaje se queda en la lista.
+
+Los mensajes en espera no se envían solos en estos casos:
+
+- **Pulsas Stop.** Vuelven al cuadro de mensaje, para que puedas editarlos o reenviarlos.
+- **Ella te está esperando**, por una aprobación o una respuesta a una pregunta. Muestran **Held** (Retenido), con un botón **Send** (Enviar).
+- **La ejecución falló, o la app se reinició.** También muestran **Held**. No se pierde nada.
+
+Un mensaje retenido sigue retenido hasta que lo envíes o lo quites. **Send** envía solo ese, y escribir un mensaje nuevo no libera los demás.
+
+`/restart` y `/title` no hacen nada mientras ella trabaja, y se quedan en el cuadro hasta que termine.
+
+<a id="her-to-do-list"></a>
+
+### Su lista de tareas
+
+En un trabajo más largo, ella lleva una lista corta de pasos para sí misma. Aparece bajo su último mensaje con un recuento como **2 of 5** (2 de 5), el paso en el que está gira mientras ella trabaja y los pasos terminados aparecen tachados. No puedes editarla. Está ahí para que veas dónde va, y ella la actualiza sobre la marcha. Cuando escribes después de la respuesta que guardó la lista, esta se atenúa y dice **Plan from before your last message** (Plan de antes de tu último mensaje). Desaparece tras su siguiente respuesta que no la toque.
 
 ## Salir de su ventana
 
@@ -298,7 +334,7 @@ Professor Mari es un ayudante, no la documentación completa. Ten presentes esto
 - Crear contenido nuevo suele ser seguro, ya que no se sobrescribe nada. Editar contenido existente merece más cuidado.
 - Una dependencia revisada es código de terceros con el mismo acceso en tiempo de ejecución que el código de Marinara que la importa. Revisa el nombre del paquete, la versión exacta, el propósito y la integridad que se muestran en la tarjeta de aprobación.
 - Para las ediciones, nombra el elemento exacto y el campo exacto que quieres cambiar. Una solicitud como "reescribe todo este personaje" es más arriesgada que "haz más corto el saludo inicial de Luna, mantén su personalidad igual".
-- Para una creación de varios pasos, usa los chips de sugerencia para responder una pregunta enfocada cada vez, en lugar de intentar dar todos los campos de golpe.
+- Para una creación de varios pasos, responde a su tarjeta de preguntas o usa los chips de sugerencia en lugar de intentar dar todos los campos de golpe.
 - Si dice que terminó una tarea pero la app no la muestra, confía en la app. Termina la tarea tú mismo desde el panel correspondiente.
 - Si llegas a Marinara desde otro dispositivo en lugar de la misma computadora, sus acciones de edición necesitan tener configurado el acceso remoto. Consulta la guía de acceso remoto.
 
