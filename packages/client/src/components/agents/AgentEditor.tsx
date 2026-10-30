@@ -4,7 +4,7 @@ import { useDecisionCalibration, useHasDecisionModel } from "../../hooks/use-dec
 // Full-Page Agent Editor
 // Click an agent → opens this editor
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useState, useCallback, useEffect, useEffectEvent, useMemo, useRef } from "react";
+import { lazy, Suspense, useState, useCallback, useEffect, useEffectEvent, useId, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
@@ -871,6 +871,15 @@ export function AgentEditor() {
   const [youtubeSaving, setYoutubeSaving] = useState(false);
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(dirty);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+  // Prof. Mari's fields as the form last loaded them: a refetch while the form is dirty takes her
+  // newer text only for fields the user left alone, and Save does not send them back unchanged.
+  const loadedMariFieldsRef = useRef<{ id: string; name: string; description: string; promptTemplate: string } | null>(
+    null,
+  );
   /**
    * Re-seed the threshold once the decision model's calibration arrives.
    *
@@ -918,6 +927,28 @@ export function AgentEditor() {
   // Populate from DB config or built-in defaults
   useEffect(() => {
     if (!agentDetailId) return;
+    const loaded = loadedMariFieldsRef.current;
+    if (dbConfig && dirtyRef.current && loaded?.id === dbConfig.id) {
+      const fresh = {
+        id: dbConfig.id,
+        name: builtIn ? builtIn.name : dbConfig.name,
+        description: dbConfig.description,
+        promptTemplate: dbConfig.promptTemplate || "",
+      };
+      setLocalName((current) => (current === loaded.name ? fresh.name : current));
+      setLocalDescription((current) => (current === loaded.description ? fresh.description : current));
+      setLocalPrompt((current) => (current === loaded.promptTemplate ? fresh.promptTemplate : current));
+      loadedMariFieldsRef.current = fresh;
+      return;
+    }
+    loadedMariFieldsRef.current = dbConfig
+      ? {
+          id: dbConfig.id,
+          name: builtIn ? builtIn.name : dbConfig.name,
+          description: dbConfig.description,
+          promptTemplate: dbConfig.promptTemplate || "",
+        }
+      : null;
     const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
     const defaultSettings = getDefaultBuiltInAgentSettings(agentType);
     if (dbConfig) {
@@ -1605,7 +1636,19 @@ export function AgentEditor() {
 
     try {
       if (dbConfig) {
-        await updateAgent.mutateAsync({ id: dbConfig.id, ...payload });
+        const loaded = loadedMariFieldsRef.current;
+        const patch: Record<string, unknown> = { ...payload };
+        for (const key of ["name", "description", "promptTemplate"] as const) {
+          if (loaded?.id === dbConfig.id && payload[key] === loaded[key]) delete patch[key];
+        }
+        await updateAgent.mutateAsync({ id: dbConfig.id, ...patch });
+        if (loaded?.id === dbConfig.id)
+          loadedMariFieldsRef.current = {
+            id: dbConfig.id,
+            name: payload.name,
+            description: payload.description,
+            promptTemplate: payload.promptTemplate,
+          };
       } else {
         // Built-ins are keyed by type. Custom agents need unique types so creating
         // another "New Agent" does not overwrite the existing custom agent.
@@ -1888,6 +1931,7 @@ export function AgentEditor() {
   // Prof. Mari and the agent's own fields (`agent.update`), as in the Preset editor. A built-in agent
   // without a saved config has no record for her to change.
   const mariContentRef = useRef<HTMLDivElement>(null);
+  const descriptionLabelId = useId();
   const agentRecordId = dbConfig?.id ?? null;
   const scrollToMariField = useCallback(
     (field: HTMLElement) => field.scrollIntoView({ block: "center", behavior: "smooth" }),
@@ -2363,14 +2407,14 @@ export function AgentEditor() {
           >
             <div className="grid gap-3 sm:grid-cols-[1fr_14rem]">
               <div className="flex min-w-0 flex-col gap-1.5" data-mari-field="description">
-                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                <span id={descriptionLabelId} className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                   {localizeUi("chat.settings.inlineEditor.fields.description")}
                 </span>
                 <MariFieldReviewProvider value={mariReview.value}>
                   <MariFieldReview field="description">
                     <input
                       value={localDescription}
-                      aria-label={localizeUi("chat.settings.inlineEditor.fields.description")}
+                      aria-labelledby={descriptionLabelId}
                       onChange={(e) => {
                         setLocalDescription(e.target.value);
                         markDirty();
