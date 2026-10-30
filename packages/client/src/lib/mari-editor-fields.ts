@@ -330,11 +330,15 @@ export function heldCallsAreEditorText(heldCalls: unknown) {
       const call = asRecord(raw);
       const update = mariUpdateCall(call?.name, call?.arguments);
       if (!update) return false;
-      // Keys the server writes for this kind; ids, the action and wrappers map to no field.
-      const written = Object.entries(update.patch).flatMap(([key, value]) => {
+      // Keys the server writes for this kind; ids, the action, wrappers and the `extensions` parent map to no field.
+      const { idArgs, wrappers } = MARI_EDITOR_KINDS[update.kind];
+      const written: Array<{ fieldId: string; value: unknown }> = [];
+      for (const [key, value] of Object.entries(update.patch)) {
         const fieldId = mariPatchFieldId(update.kind, key);
-        return fieldId ? [{ fieldId, value }] : [];
-      });
+        if (fieldId) written.push({ fieldId, value });
+        else if (key !== "action" && key !== "extensions" && !idArgs.includes(key) && !wrappers.includes(key))
+          return false;
+      }
       return (
         written.length > 0 &&
         written.every(({ fieldId, value }) => typeof value === "string" && reviewRank(update.kind, fieldId) >= 0)

@@ -110,3 +110,35 @@ assert.equal(
 assert.equal(heldCallsAreEditorText([]), false, "no held calls");
 
 console.log("held-change-and-retry regression passed");
+
+assert.equal(
+  heldCallsAreEditorText([update({ description: "a", unknown_key: "x" })]),
+  false,
+  "a key no editor field shows keeps the change waiting",
+);
+assert.equal(
+  heldCallsAreEditorText([update({ description: "a", extensions: { other_key: "x" } })]),
+  false,
+  "an extensions entry no editor field shows keeps the change waiting",
+);
+
+const dbStep = (id: string, status: "done" | "error", row: string, payload = "{}") => ({
+  id,
+  name: "bash",
+  status,
+  input: { command: `mari db patch characters ${row} --json '${payload}' --apply` },
+  detail: null,
+  output: null,
+  startedAt: 1,
+  updatedAt: 2,
+});
+assert.equal(
+  isHardStepFailure(dbStep("d1", "error", "row-a"), [dbStep("d2", "done", "row-b")]),
+  true,
+  "a db patch on another row does not recover a failed one",
+);
+assert.equal(
+  isHardStepFailure(dbStep("d1", "error", "row-a"), [dbStep("d2", "done", "row-a", '{"a":1}')]),
+  false,
+  "the same row with a new payload recovers it",
+);

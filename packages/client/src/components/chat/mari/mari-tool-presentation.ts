@@ -31,7 +31,17 @@ function writeKey(tool: WorkspaceToolCall) {
     return JSON.stringify([tool.name, input.action.trim().toLowerCase(), ids]);
   }
   const { title, detail } = inferToolPresentation(tool);
-  return JSON.stringify([tool.name, title, detail]);
+  return JSON.stringify([tool.name, title, detail, mariDbRowTokens(tool)]);
+}
+
+/** The positional tokens of a `mari db` command before its first flag (table, row id), so two rows of one table differ. */
+function mariDbRowTokens(tool: WorkspaceToolCall) {
+  const command = getBashCommand(tool);
+  const tokens = command ? getMariTokens(command) : null;
+  if (!tokens || tokens[1] !== "db") return null;
+  const rest = tokens.slice(3);
+  const flag = rest.findIndex((token) => token.startsWith("-"));
+  return flag >= 0 ? rest.slice(0, flag) : rest;
 }
 
 export type WorkspaceToolCall = {
