@@ -33,9 +33,14 @@ import {
   MAX_DICE_SIDES,
   formatKeptRolls,
   parseDicePool,
+  rollDieSecurely,
   rollParsedDice,
+  rollSymbolDiceNotation,
+  type SymbolDiceRollResult,
+  skillCheckSymbolText,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
 } from "@marinara-engine/shared";
+import { symbolDiceResolution } from "../game/dice.service.js";
 
 type ToolExecutionOutcome =
   { result: unknown; success: true; httpStatus?: never } | { result: unknown; success: false; httpStatus?: number };
@@ -380,7 +385,7 @@ async function executeBuiltInTool(
 ): Promise<unknown> {
   switch (name) {
     case "roll_dice":
-      return rollDice(context?.prepareDiceRoll ? context.prepareDiceRoll(args) : args);
+      return rollDiceTool(context?.prepareDiceRoll ? context.prepareDiceRoll(args) : args, context?.chatMeta);
     case "update_game_state":
       return updateGameState(args, context?.applyGameStateUpdate);
     case "set_expression":
@@ -561,6 +566,44 @@ async function executeCustomTool(
 }
 
 // ── Built-in Tool Implementations ──
+
+/** `roll_dice`: NdM and keep/drop pools, and in a game whose ruleset throws symbol dice, those dice
+ *  by name (`2 ability 1 proficiency vs 2 difficulty`). */
+async function rollDiceTool(
+  args: Record<string, unknown>,
+  chatMeta: Record<string, unknown> | undefined,
+): Promise<Record<string, unknown>> {
+  const notation = String(args.notation ?? "1d6");
+  if (parseDicePool(notation)) return rollDice(args);
+  const rolled = rollSymbolDiceNotation(await symbolDiceResolution(chatMeta), notation, rollDieSecurely);
+  if (!rolled) return rollDice(args);
+  return symbolDiceToolResult(rolled, args);
+}
+
+/** The roll_dice result for named symbol dice, saying so when a modifier or DC had no effect. */
+export function symbolDiceToolResult(
+  rolled: SymbolDiceRollResult,
+  args: Record<string, unknown>,
+): Record<string, unknown> {
+  const reason = String(args.reason ?? "");
+  const symbolText = skillCheckSymbolText(rolled) || "no net symbols";
+  const ignored = [
+    typeof args.modifier === "number" && args.modifier !== 0 ? "modifier" : null,
+    typeof args.dc === "number" ? "dc" : null,
+  ].filter(Boolean);
+  return {
+    ...rolled,
+    reason,
+    display: `🎲 ${rolled.notation}${reason ? ` (${reason})` : ""}: ${rolled.thrown
+      .map((die, index) => `${die} ${rolled.rolls[index]}`)
+      .join(", ")} → **${symbolText}** (${rolled.success ? "success" : "failure"})`,
+    ...(ignored.length
+      ? {
+          note: `Symbol dice ignore ${ignored.join(" and ")}: success comes from the ruleset's symbols. Add or remove dice instead.`,
+        }
+      : {}),
+  };
+}
 
 function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   const notation = String(args.notation ?? "1d6");

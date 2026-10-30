@@ -525,6 +525,17 @@ export function hasOnboardingContent(onboarding: CharacterOnboarding): boolean {
 }
 
 /**
+ * Whether a card's data shows interactive onboarding to the player: enabled and
+ * offering something. The one gate the setup wizard's marker uses, so any list
+ * that flags "has onboarding" agrees with it. Reads a JSON string or a parsed
+ * object.
+ */
+export function cardHasInteractiveOnboarding(data: unknown): boolean {
+  const cardOnboarding = readCardOnboarding(data);
+  return !!cardOnboarding?.onboarding.enabled && hasOnboardingContent(cardOnboarding.onboarding);
+}
+
+/**
  * Whether this card would actually PRODUCE a persona, which is a narrower
  * question than `hasOnboardingContent`: a card that only declares card questions
  * is still worth offering to the player (its fields read this chat's answers),

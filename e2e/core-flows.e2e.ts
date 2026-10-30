@@ -7502,8 +7502,24 @@ for (const mode of ["roleplay", "conversation"] as const) {
   test(
     `${mode} exposes reasoning and explains unavailable saved summaries`,
     { tag: "@smoke" },
-    async ({ page }, testInfo) => {
+    async ({ page, context }, testInfo) => {
       const characters: Array<{ id: string; name: string }> = [];
+      if (testInfo.project.name.includes("webkit")) {
+        await page.addInitScript(() => {
+          let clipboardText = "";
+          Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: {
+              readText: async () => clipboardText,
+              writeText: async (value: string) => {
+                clipboardText = String(value);
+              },
+            },
+          });
+        });
+      } else {
+        await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      }
       if (mode === "conversation") {
         for (const name of ["Reasoning One", "Reasoning Two"]) {
           const characterResponse = await page.request.post("/api/characters", {
@@ -7601,6 +7617,12 @@ for (const mode of ["roleplay", "conversation"] as const) {
         const thoughtsDialog = page.getByRole("dialog", { name: "Model Thoughts" });
         await expect(thoughtsDialog).toBeVisible();
         await expect(thoughtsDialog).toContainText("First reasoning chunk.");
+        const copyThoughtsButton = thoughtsDialog.getByRole("button", { name: "Copy model thoughts" });
+        await expect(copyThoughtsButton).toBeVisible();
+        if (testInfo.project.name.includes("mobile")) await copyThoughtsButton.tap();
+        else await copyThoughtsButton.click();
+        await expect(thoughtsDialog.getByRole("button", { name: "Thoughts copied" })).toBeVisible();
+        await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("First reasoning chunk.");
 
         await updateLiveReasoningState(page, chat.id, "append-thinking", " Second reasoning chunk.");
         await expect(thoughtsDialog).toContainText("First reasoning chunk. Second reasoning chunk.");
@@ -7619,8 +7641,9 @@ for (const mode of ["roleplay", "conversation"] as const) {
         await expect
           .poll(() => thoughtsDialog.evaluate((dialog) => dialog.contains(document.activeElement)))
           .toBe(true);
+        await closeThoughtsButton.focus();
         await page.keyboard.press("Tab");
-        await expect(closeThoughtsButton).toBeFocused();
+        await expect(thoughtsDialog.getByRole("button", { name: /Copy model thoughts|Thoughts copied/ })).toBeFocused();
         await page.keyboard.press("Tab");
         await expect(closeThoughtsButton).toBeFocused();
         await page.keyboard.press("Escape");
@@ -7661,6 +7684,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
         await unavailableThoughtsButton.click();
         const unavailableDialog = page.getByRole("dialog", { name: "Model Thoughts" });
         await expect(unavailableDialog).toContainText("Reasoning summary unavailable");
+        await expect(unavailableDialog.getByRole("button", { name: "Copy model thoughts" })).toHaveCount(0);
         await expect(unavailableDialog).toContainText(
           "The model used reasoning, but the provider did not return a displayable summary for this response.",
         );
@@ -7675,8 +7699,12 @@ for (const mode of ["roleplay", "conversation"] as const) {
   );
 }
 
-test("Roleplay can show streaming reasoning inline and control automatic collapse", async ({ page }, testInfo) => {
+test("Roleplay can show streaming reasoning inline and control automatic collapse", async ({
+  page,
+  context,
+}, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Inline Roleplay reasoning behavior is covered on desktop.");
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 
   const chatResponse = await page.request.post("/api/chats", {
     data: { name: "Inline Roleplay Reasoning Smoke", mode: "roleplay", characterIds: [] },
@@ -7738,6 +7766,11 @@ test("Roleplay can show streaming reasoning inline and control automatic collaps
     const savedRow = page.locator(`[data-message-id="${message.id}"]`);
     const savedThinking = savedRow.locator("[data-message-thinking-inline]");
     const savedThinkingButton = savedThinking.getByRole("button", { name: "Thought for 2 seconds…" });
+    const copyInlineThoughtsButton = savedThinking.getByRole("button", { name: "Copy model thoughts" });
+    await expect(copyInlineThoughtsButton).toBeVisible();
+    await copyInlineThoughtsButton.click();
+    await expect(savedThinking.getByRole("button", { name: "Thoughts copied" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("Saved inline reasoning.");
     await expect(savedThinkingButton).toHaveAttribute("aria-expanded", "false");
     const chromeTextColor = await readCssVariableColor(page, "--marinara-chat-chrome-text");
     const accentTextColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");

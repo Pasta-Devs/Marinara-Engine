@@ -1,4 +1,5 @@
 import {
+  cardHasInteractiveOnboarding,
   estimateCharacterCardTokens,
   matchesAllCardSearchTags,
   parseCardTagSearchTerms,
@@ -90,6 +91,7 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
     firstMessage: typeof data.first_mes === "string" ? data.first_mes : "",
     creatorNotes: typeof data.creator_notes === "string" ? data.creator_notes : "",
     tokenEstimate: estimateCharacterCardTokens(data),
+    hasOnboarding: cardHasInteractiveOnboarding(data),
     nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : null,
     avatarPath: row.avatarPath ?? null,
     avatarCrop: extensions.avatarCrop ?? null,

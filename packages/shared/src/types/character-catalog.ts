@@ -15,6 +15,8 @@ export type CharacterCatalogEntry = {
   creatorNotes: string;
   tokenEstimate: number;
   nameColor: string | null;
+  /** The card has interactive onboarding the player will be offered. */
+  hasOnboarding: boolean;
   avatarPath: string | null;
   avatarCrop: unknown;
   createdAt: string;

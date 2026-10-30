@@ -8,8 +8,11 @@ import {
 import { rejectGenerationOutput, type GenerationOutput } from "./generate/sse.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import {
+  SYMBOL_DICE_NOTATION_MAX_LENGTH,
   TTS_SETTINGS_KEY,
   normalizeGameDifficulty,
+  rollDieSecurely,
+  rollSymbolDiceNotation,
   normalizeWeatherType,
   combatWeatherSchema,
   readImageAppearanceOverride,
@@ -150,7 +153,7 @@ import {
   type ChatMessage,
   type ChatOptions,
 } from "../services/llm/base-provider.js";
-import { isRollableDiceNotation, rollDice } from "../services/game/dice.service.js";
+import { isRollableDiceNotation, rollDice, symbolDiceResolution } from "../services/game/dice.service.js";
 import { jsonishLooksTruncated, parseGameJsonish } from "../services/game/jsonish.js";
 import {
   formatInitialGameGmConnectionError,
@@ -2364,7 +2367,8 @@ const removePartyMemberSchema = z.object({
 const diceRollSchema = z.object({
   /** The game it is rolled for; a sheet editor outside any game (a rolled list column) has none. */
   chatId: z.string().min(1).optional(),
-  notation: z.string().min(1).max(50).refine(isRollableDiceNotation, "Invalid dice notation"),
+  /** NdM or a keep/drop pool; in a game whose ruleset throws symbol dice, also those dice by name. */
+  notation: z.string().trim().min(1).max(SYMBOL_DICE_NOTATION_MAX_LENGTH),
   context: z.string().max(500).optional(),
 });
 
@@ -10120,9 +10124,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   });
 
   // ── POST /game/dice/roll ──
-  app.post("/dice/roll", async (req) => {
-    const { notation } = diceRollSchema.parse(req.body);
-    const result = rollDice(notation);
+  app.post("/dice/roll", async (req, reply) => {
+    const { chatId, notation } = diceRollSchema.parse(req.body);
+    if (isRollableDiceNotation(notation)) return { result: rollDice(notation) };
+    // Anything else may name a symbol-pool game's own dice: "2 ability 1 proficiency vs 2 difficulty".
+    const chat = chatId ? await createChatsStorage(app.db).getById(chatId) : null;
+    const resolution = chat?.mode === "game" ? await symbolDiceResolution(parseMeta(chat.metadata), app.db) : null;
+    const result = rollSymbolDiceNotation(resolution, notation, rollDieSecurely);
+    if (!result) return reply.status(400).send({ error: "Invalid dice notation" });
     return { result };
   });
 

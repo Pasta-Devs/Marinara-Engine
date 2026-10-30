@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
-import { skillCheckDiceSumToTotal, type DiceRollResult } from "@marinara-engine/shared";
+import { skillCheckDiceSumToTotal, skillCheckSymbolText, type DiceRollResult } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { DiceGlyph, type DiceGlyphPhase, type DiceGlyphSize } from "./DiceGlyph";
 import { getFaceLabel } from "./dice-shapes";
@@ -79,6 +79,11 @@ export function AnimatedDiceRoll({
   compare,
   faceValues,
   label,
+  success,
+  thrown,
+  symbolFaces,
+  symbols,
+  symbolLabels,
 }: AnimatedDiceRollProps) {
   const { t: localizeUi } = useUiTranslation();
   const sides = parseDiceSides(notation);
@@ -185,32 +190,48 @@ export function AnimatedDiceRoll({
         className="dice-stage"
         aria-label={localizeUi("ui.dice.animateddiceroll.rolledValue1Value2", { value1: notation, value2: rollText })}
       >
-        {rolls.map((roll, index) => {
-          const shown = displayValues[index] ?? roll;
-          const emphasized =
-            emphasizedIndices !== undefined
-              ? emphasizedIndices.includes(index)
-              : countedFrom == null
-                ? highlightValue == null || roll === highlightValue
-                : compare === "below"
-                  ? roll < countedFrom
-                  : compare === "above"
-                    ? roll > countedFrom
-                    : roll >= countedFrom;
-          return (
-            <DiceGlyph
-              key={`${index}-${roll}`}
-              sides={sides}
-              value={shown}
-              faceText={faceText(shown)}
-              phase={phase}
-              size={glyphSize}
-              index={index}
-              emphasized={emphasized}
-              hero={isHero}
-            />
-          );
-        })}
+        {/* A symbol-pool ruleset's dice by name: each die reads as its symbols, not a number. */}
+        {symbols && thrown && symbolFaces ? (
+          <div className="flex flex-wrap gap-2 py-2">
+            {symbolFaces.map((face, index) => (
+              <span
+                key={index}
+                className="max-w-full break-words rounded border border-[var(--border)] px-2 py-1 text-sm"
+              >
+                {thrown[index]} ({rolls[index]}):{" "}
+                {face.map((id) => symbolLabels?.[id] ?? id).join(", ") ||
+                  localizeUi("ui.dice.animatedskillcheckresult.blankFace")}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {!symbols &&
+          rolls.map((roll, index) => {
+            const shown = displayValues[index] ?? roll;
+            const emphasized =
+              emphasizedIndices !== undefined
+                ? emphasizedIndices.includes(index)
+                : countedFrom == null
+                  ? highlightValue == null || roll === highlightValue
+                  : compare === "below"
+                    ? roll < countedFrom
+                    : compare === "above"
+                      ? roll > countedFrom
+                      : roll >= countedFrom;
+            return (
+              <DiceGlyph
+                key={`${index}-${roll}`}
+                sides={sides}
+                value={shown}
+                faceText={faceText(shown)}
+                phase={phase}
+                size={glyphSize}
+                index={index}
+                emphasized={emphasized}
+                hero={isHero}
+              />
+            );
+          })}
       </div>
 
       {/* Which dice counted is shown by dimming the ones that did not, which is a picture. The rule
@@ -228,32 +249,49 @@ export function AnimatedDiceRoll({
         </span>
       )}
 
-      <div className="dice-roll-footer">
-        <span className="dice-roll-breakdown">
-          {/* Only show the addition when the dice genuinely add up to the total.
+      {symbols ? (
+        <div className="dice-roll-footer">
+          <span className="dice-roll-breakdown">
+            {skillCheckSymbolText({ symbols, symbolLabels }) ||
+              localizeUi("ui.dice.animatedskillcheckresult.noSymbols")}
+          </span>
+          <span className={cn("dice-roll-total", totalVisible && "is-visible")}>
+            {" → "}
+            {localizeUi(
+              success
+                ? "ui.dice.animatedskillcheckresult.symbolSuccess"
+                : "ui.dice.animatedskillcheckresult.symbolFailure",
+            )}
+          </span>
+        </div>
+      ) : (
+        <div className="dice-roll-footer">
+          <span className="dice-roll-breakdown">
+            {/* Only show the addition when the dice genuinely add up to the total.
               They do not under advantage/disadvantage (one die is discarded) or
               in pool systems that count successes, and printing "4 + 1 + 9 = 1"
               makes correct results look like broken arithmetic. */}
-          {sumsToTotal ? (
-            <>
-              {counted.map(worthOf).join(" + ")}
-              {modifierText && ` ${modifierText}`}
-            </>
-          ) : (
-            <>
-              {rolls.map(worthOf).join(" · ")}
-              {resolution === "sum" && modifierText && ` ${modifierText}`}
-            </>
-          )}
-        </span>
-        <span className={cn("dice-roll-total", totalVisible && "is-visible")}>
-          {sumsToTotal ? " = " : " → "}
-          {total}
-          {resolution === "successes" ? (
-            <> {localizeUi("ui.dice.animateddiceroll.successCount", { count: total })}</>
-          ) : null}
-        </span>
-      </div>
+            {sumsToTotal ? (
+              <>
+                {counted.map(worthOf).join(" + ")}
+                {modifierText && ` ${modifierText}`}
+              </>
+            ) : (
+              <>
+                {rolls.map(worthOf).join(" · ")}
+                {resolution === "sum" && modifierText && ` ${modifierText}`}
+              </>
+            )}
+          </span>
+          <span className={cn("dice-roll-total", totalVisible && "is-visible")}>
+            {sumsToTotal ? " = " : " → "}
+            {total}
+            {resolution === "successes" ? (
+              <> {localizeUi("ui.dice.animateddiceroll.successCount", { count: total })}</>
+            ) : null}
+          </span>
+        </div>
+      )}
 
       {onDismiss && (
         <button

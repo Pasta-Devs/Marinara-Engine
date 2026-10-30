@@ -1065,6 +1065,7 @@ function RoleplayThinkingDisclosure({
   const contentId = useId();
   const startedAtRef = useRef(Date.now());
   const [expanded, setExpanded] = useState(isStreaming || keepExpanded);
+  const [copied, setCopied] = useState(false);
   const [liveDurationMs, setLiveDurationMs] = useState(0);
   const [capturedReasoningDurationMs, setCapturedReasoningDurationMs] = useState<number | null>(null);
 
@@ -1099,26 +1100,46 @@ function RoleplayThinkingDisclosure({
       data-message-thinking-inline
       className="mb-2 overflow-hidden rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]"
     >
-      <button
-        type="button"
-        aria-expanded={expanded}
-        aria-controls={expanded ? contentId : undefined}
-        title={t(expanded ? "chat.message.thoughts.collapse" : "chat.message.thoughts.expand")}
-        onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-[0.75rem] font-medium text-[var(--marinara-chat-chrome-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)]"
-      >
-        <Brain
-          size="0.875rem"
-          aria-hidden="true"
-          className={cn("shrink-0", isStreaming && !outputStarted && "animate-pulse")}
-        />
-        <span className="min-w-0 flex-1">{durationLabel}</span>
-        <ChevronRight
-          size="0.875rem"
-          aria-hidden="true"
-          className={cn("shrink-0 transition-transform", expanded && "rotate-90")}
-        />
-      </button>
+      <div className="flex items-center">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={expanded ? contentId : undefined}
+          title={t(expanded ? "chat.message.thoughts.collapse" : "chat.message.thoughts.expand")}
+          onClick={() => setExpanded((value) => !value)}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-[0.75rem] font-medium text-[var(--marinara-chat-chrome-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)]"
+        >
+          <Brain
+            size="0.875rem"
+            aria-hidden="true"
+            className={cn("shrink-0", isStreaming && !outputStarted && "animate-pulse")}
+          />
+          <span className="min-w-0 flex-1">{durationLabel}</span>
+          <ChevronRight
+            size="0.875rem"
+            aria-hidden="true"
+            className={cn("shrink-0 transition-transform", expanded && "rotate-90")}
+          />
+        </button>
+        {!summaryUnavailable && thinking && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!(await copyToClipboard(thinking))) {
+                toast.error(t("chat.message.thoughts.copyFailed"));
+                return;
+              }
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            aria-label={t(copied ? "chat.message.thoughts.copied" : "chat.message.thoughts.copy")}
+            title={t(copied ? "chat.message.thoughts.copied" : "chat.message.thoughts.copy")}
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-[var(--marinara-chat-chrome-text)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          >
+            {copied ? <Check size="0.875rem" aria-hidden="true" /> : <Copy size="0.875rem" aria-hidden="true" />}
+          </button>
+        )}
+      </div>
       {expanded && (
         <div
           id={contentId}

@@ -51,7 +51,7 @@ Default bind address by how you start Marinara:
 
 Read these in order and stop at the first one that matches you.
 
-1. You only connect over Tailscale, or only from Docker containers on the same host. You do not need to do anything. It already works.
+1. You only connect directly over Tailscale, or only from Docker containers on the same host. With `pnpm start`, direct Tailscale clients skip the login; set `HOST=0.0.0.0` so they can reach the server. The default Compose file publishes on `127.0.0.1` only. If you publish the port beyond loopback so a Tailscale device can reach it, set a login first. Docker then asks every device for that login, Tailscale devices included, because Docker sees them at the gateway address. See [Tailscale and Docker bypass](#tailscale-and-docker-bypass).
 2. You want to reach Marinara from a phone, tablet, or laptop on your home Wi-Fi. Set a login (Option 1 below).
 3. You are exposing Marinara to the public internet. Set a login and use HTTPS.
 4. A login proxy on your network, such as tinyauth, Authelia, or Authentik, already asks every visitor to log in. Read [Login proxies (forward auth)](#login-proxies-forward-auth).
@@ -93,7 +93,7 @@ If you forget the password, run `pnpm reset-login` on the computer that runs Mar
 
 After 10 different wrong passwords or codes within 15 minutes, Marinara refuses sign-ins from that address with **429 Too Many Requests** until the 15 minutes are up. A correct password before then clears the count. Visitors that a reverse proxy or tunnel on the host passes along share one count, and one of them signing in does not clear it. Restarting the server also clears it. A browser that has signed in before still gets in with the correct password, so other people's wrong passwords cannot lock you out of a device you already use. The sign-in page tells you how many minutes to wait. If you forget the password, the sign-in page has a **Forgot the password?** hint.
 
-By default, the browser prompt says **Marinara Engine**. You can change that text with `BASIC_AUTH_REALM`.
+Browsers sign in on the `/login` page. `BASIC_AUTH_REALM` changes the realm in the Basic Auth challenge for scripts and API clients; it does not change the sign-in page.
 
 Some clients skip the password even when Basic Auth is on:
 
@@ -114,6 +114,8 @@ IP_ALLOWLIST=192.168.1.0/24,203.0.113.42
 ```
 
 The `/24` in the example is CIDR notation. CIDR is a short way to write a whole range of addresses in one entry. For example, `192.168.1.0/24` covers every address from `192.168.1.0` to `192.168.1.255`. A bare address with no slash, like `203.0.113.42`, matches only that one device.
+
+A broad public range, such as `0.0.0.0/0`, can let internet clients in without a login. List only addresses you trust.
 
 How the IP allowlist behaves:
 

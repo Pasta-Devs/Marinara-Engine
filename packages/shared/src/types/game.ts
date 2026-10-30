@@ -468,6 +468,13 @@ export interface DiceRollResult {
   /** Who rolled, or who and why, as the roll was asked for: a `[dice:]` tag's `who=`, or a tool
    *  roll's reason. Absent on rolls that named nobody. */
   label?: string;
+  /** A roll of a symbol-pool ruleset's dice by name (`2 ability 1 difficulty`). All four are present
+   *  together: each die's label and the symbols on its face, beside the 1-based faces in `rolls`, and
+   *  the net symbols after cancellation with their labels. `total` is then the net success symbol. */
+  thrown?: string[];
+  symbolFaces?: string[][];
+  symbols?: Record<string, number>;
+  symbolLabels?: Record<string, string>;
 }
 
 /** Result of a skill check resolution. */

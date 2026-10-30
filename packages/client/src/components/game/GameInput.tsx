@@ -20,7 +20,12 @@ import { SpeechToTextButton } from "../ui/SpeechToTextButton";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { translateDraftText } from "../../lib/draft-translation";
-import { formatTextQuotes, type DiceRollResult, type PendingSpatialTransition } from "@marinara-engine/shared";
+import {
+  formatTextQuotes,
+  skillCheckSymbolText,
+  type DiceRollResult,
+  type PendingSpatialTransition,
+} from "@marinara-engine/shared";
 import { getChatInputShellClass } from "../chat/chat-input-styles";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import type { PendingSpatialTransitionDraft } from "../../stores/chat.store";
@@ -121,6 +126,11 @@ function clearGameInputDraft(storageKey: string | null): void {
 }
 
 function formatDiceResultTag(result: DiceRollResult): string {
+  // A ruleset's symbol dice tell the GM their net symbols and the verdict, not a sum of face numbers.
+  if (result.symbols) {
+    const symbolText = skillCheckSymbolText(result) || "no net symbols";
+    return `[dice: ${result.notation} = ${symbolText}; ${result.success ? "success" : "failure"}]`;
+  }
   const rollDetail =
     result.rolls.length > 1 || result.modifier !== 0
       ? ` (${result.rolls.join(", ")}${result.modifier ? ` ${result.modifier > 0 ? "+" : ""}${result.modifier}` : ""})`
