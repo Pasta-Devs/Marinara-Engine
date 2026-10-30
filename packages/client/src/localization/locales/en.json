@@ -13435,6 +13435,7 @@
   "ui.panels.agentspanel.bulkConnectionDone": "All {{value1}} agents now use {{value2}}",
   "ui.panels.agentspanel.bulkConnectionFailed": "Could not update every agent connection",
   "ui.panels.agentspanel.bulkConnectionLabel": "Set every agent's connection",
+  "ui.panels.agentspanel.chatSettings": "{{name}} settings for this chat",
   "ui.panels.agentspanel.chooseAgentFilesOrFolder": "Choose agent files, an agent folder, or a Game Mode ruleset file to import.",
   "ui.panels.agentspanel.chooseAnImageFileForTheAgentPicture": "Choose an image file for the agent picture",
   "ui.panels.agentspanel.copiedValue1": "Copied \"{{value1}}\"",

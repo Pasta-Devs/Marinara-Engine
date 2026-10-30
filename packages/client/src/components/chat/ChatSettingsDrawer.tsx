@@ -460,6 +460,8 @@ interface ChatSettingsDrawerProps {
     // R2: the reply checkup's links to Max output tokens and the lorebook token budget.
     | "advanced-parameters"
     | "lorebooks"
+    // The agents panel's "In this chat" rows: opens Agents at that agent's menu.
+    | `agent:${string}`
     | null;
   /**
    * Chat Branches, Search, Active Context, Gallery and the drawers in `ChatSettingsTools`. Regular chats
@@ -2783,6 +2785,18 @@ export function ChatSettingsDrawer({
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
   }, [focusAgentMenu, pendingAgentMenuTargetId]);
+
+  const initialAgentId = initialSection?.startsWith("agent:") ? initialSection.slice("agent:".length) : null;
+  useEffect(() => {
+    if (!open || !initialAgentId) return;
+    const frame = window.requestAnimationFrame(() => {
+      panelRef.current
+        ?.querySelector(`[data-chat-settings-section="${chatMode}-agents"]`)
+        ?.scrollIntoView({ block: "start" });
+      scrollToAgentMenu(getAgentSettingsMenuId(chat.id, initialAgentId));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [chat.id, chatMode, initialAgentId, open, scrollToAgentMenu]);
   const gameAgentFeatureCount =
     (metadata.enableAgents ? 1 : 0) +
     (gameLorebookKeeperEnabled ? 1 : 0) +
@@ -7586,6 +7600,7 @@ export function ChatSettingsDrawer({
           {modeSettingsSurfaces.agentSettingsSurface === "conversation" && (
             <Section
               id="conversation-agents"
+              forceOpen={initialAgentId !== null}
               style={{ order: CHAT_SETTINGS_ORDER.agents }}
               label={localizeUi("navigation.topbar.agents")}
               icon={<Sparkles size="0.875rem" />}
@@ -8429,6 +8444,7 @@ export function ChatSettingsDrawer({
           {modeSettingsSurfaces.agentSettingsSurface === "generation" && (
             <Section
               id={`${chatMode}-agents`}
+              forceOpen={initialAgentId !== null}
               style={{ order: CHAT_SETTINGS_ORDER.agents }}
               label={localizeUi("navigation.topbar.agents")}
               icon={<Sparkles size="0.875rem" />}

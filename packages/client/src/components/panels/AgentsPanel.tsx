@@ -28,6 +28,7 @@ import {
   CirclePlus,
   Store,
   MessageSquare,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
@@ -125,6 +126,7 @@ import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../..
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { hasUpdate, iconOf, taglineOf } from "../agents/organizer/organizer-model";
 import { useChatStore } from "../../stores/chat.store";
+import { requestChatSettingsSectionOpen } from "../../lib/chat-floating-ui-events";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
 
@@ -2050,6 +2052,20 @@ export function AgentsPanel() {
   );
 }
 
+/**
+ * The open chat's id when Chat Settings lists per-agent menus for it: local roleplay chats only.
+ * ponytail: agents without their own menu (trackers) land at the top of the Agents section;
+ * pass a per-agent flag from the drawer's menu list if that is not enough.
+ */
+function agentChatSettingsChatId(): string | null {
+  const chat = useChatStore.getState().activeChat;
+  if (!chat) return null;
+  const metadata = parseChatMetadata(chat.metadata);
+  if (metadata.multiplayerSetup === true || metadata.multiplayer) return null;
+  const mode = (chat as { mode?: unknown }).mode;
+  return mode === "conversation" || mode === "game" ? null : chat.id;
+}
+
 function renderAgentCard({
   localizeUi,
   id,
@@ -2103,6 +2119,7 @@ function renderAgentCard({
   inChat?: boolean;
   onRemoveFromChat?: () => void;
 }) {
+  const chatSettingsChatId = inChat ? agentChatSettingsChatId() : null;
   const iconClasses = cn(
     "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
     imagePath ? "bg-[var(--secondary)]" : AGENT_GRADIENT_SURFACE,
@@ -2222,6 +2239,23 @@ function renderAgentCard({
           {description || localizeUi("ui.panels.agentcard.noDescription")}
         </div>
       </button>
+      {!selectionMode && inChat && chatSettingsChatId && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            // On phones the panel covers the chat, so close it to show the drawer.
+            if (window.matchMedia("(max-width: 767px)").matches) useUIStore.getState().closeRightPanel();
+            // Custom agents share one menu in Chat Settings.
+            requestChatSettingsSectionOpen(chatSettingsChatId, `agent:${custom ? "custom-agents" : type}`);
+          }}
+          title={localizeUi("ui.panels.agentspanel.chatSettings", { name })}
+          aria-label={localizeUi("ui.panels.agentspanel.chatSettings", { name })}
+          className="mari-chrome-control mari-chrome-control--small h-7 w-7 shrink-0 p-0"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
+        </button>
+      )}
       {!selectionMode && inChat !== undefined && (
         <span className="flex h-7 w-7 shrink-0 items-center justify-center">
           {inChat ? (
@@ -2251,7 +2285,7 @@ function renderAgentCard({
         <div
           className={cn(
             "pointer-events-none absolute top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto",
-            inChat === undefined ? "right-2" : "right-11",
+            inChat === undefined ? "right-2" : chatSettingsChatId ? "right-20" : "right-11",
           )}
         >
           {custom && onDuplicate && (

@@ -14,7 +14,10 @@ export function announceChatFloatingUiDismiss() {
 }
 
 /** Opens Chat Settings at one section, for omnibar rows that name a setting inside it (UX-13). */
-export function requestChatSettingsSectionOpen(chatId: string, section: "advanced-parameters" | "memory-recall") {
+export function requestChatSettingsSectionOpen(
+  chatId: string,
+  section: "advanced-parameters" | "memory-recall" | `agent:${string}`,
+) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, { detail: { chatId, section } }));
 }
