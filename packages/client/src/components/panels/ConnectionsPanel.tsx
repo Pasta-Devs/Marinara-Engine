@@ -71,9 +71,9 @@ import {
   useReorderConnectionFolders,
   useReorderConnections,
 } from "../../hooks/use-connection-folders";
-import { ConnectionRow, ROW_BUTTON, isMediaRow, type ConnectionRowData } from "../connections/ConnectionRow";
+import { ConnectionRow, ROW_BUTTON, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
-import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
+import { ConnectionGroup, GROUP_SURFACE, hostOf, sameServiceTargets } from "../connections/ConnectionGroup";
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { BuiltInModelCard } from "../connections/BuiltInModelCard";
@@ -118,14 +118,6 @@ const DEVICE_FOLD_ID = "device";
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
-function originOf(url: string): string {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return url.trim();
-  }
-}
-
 function connectionMatchesSearch(conn: ConnectionRowData, query: string, categoryLabel?: string) {
   if (!query) return true;
   const haystack = [
@@ -148,6 +140,31 @@ function connectionMatchesSearch(conn: ConnectionRowData, query: string, categor
     .join(" ")
     .toLowerCase();
   return haystack.includes(query);
+}
+
+/**
+ * The Connections a search and the attention filter keep, each with the Models it shows: a Connection that matches
+ * by its own name, service or host shows all its Models, and an empty one shows only while it matches (or with no
+ * search). Both views, by Connection and by folder, read it.
+ */
+function narrowGroups<G extends { account: ConnectionGroupData["account"]; rows: ConnectionRowData[] }>(
+  groups: G[],
+  query: string,
+  needsAttention: boolean,
+): (G & { visibleRows: ConnectionRowData[] })[] {
+  return groups.flatMap((group) => {
+    const { account, rows } = group;
+    if (needsAttention && account.state === "ok") return [];
+    const accountHit =
+      !!query &&
+      [account.name, PROVIDERS[account.provider as APIProvider]?.name ?? account.provider, hostOf(account.baseUrl)]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    const visibleRows = accountHit ? rows : rows.filter((row) => connectionMatchesSearch(row, query));
+    const showEmpty = rows.length === 0 && (!query || accountHit);
+    return visibleRows.length > 0 || showEmpty ? [{ ...group, visibleRows }] : [];
+  });
 }
 
 export function ConnectionsPanel() {
@@ -226,25 +243,11 @@ export function ConnectionsPanel() {
 
   const query = search.trim().toLowerCase();
   const visible = useMemo(() => {
-    const rowShown = (row: ConnectionRowData) => connectionMatchesSearch(row, query);
-    const groups = grouped.all.flatMap((group) => {
-      const { account } = group;
-      if (needsAttention && account.state === "ok") return [];
-      const accountHit =
-        !!query &&
-        [account.name, PROVIDERS[account.provider as APIProvider]?.name ?? account.provider, hostOf(account.baseUrl)]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      const visibleRows = accountHit ? group.rows : group.rows.filter(rowShown);
-      const showEmpty = group.rows.length === 0 && (!query || accountHit);
-      if (visibleRows.length === 0 && !showEmpty) return [];
-      return [{ ...group, visibleRows }];
-    });
+    const groups = narrowGroups(grouped.all, query, needsAttention);
     return {
       groups,
       // Models without a Connection and on-device engines have no key to miss.
-      standalone: needsAttention ? [] : grouped.standalone.filter(rowShown),
+      standalone: needsAttention ? [] : grouped.standalone.filter((row) => connectionMatchesSearch(row, query)),
       engines: needsAttention
         ? []
         : query
@@ -273,18 +276,10 @@ export function ConnectionsPanel() {
         sort,
         accountManualOrder?.ids,
       );
-      const visibleGroups = groups.flatMap((group) => {
-        const { account, rows } = group;
-        if (needsAttention && account.state === "ok") return [];
-        const accountHit =
-          !!query && [account.name, account.provider, hostOf(account.baseUrl)].join(" ").toLowerCase().includes(query);
-        const visibleRows = accountHit ? rows : rows.filter((row) => connectionMatchesSearch(row, query));
-        const showEmpty = rows.length === 0 && !query;
-        return visibleRows.length > 0 || showEmpty ? [{ ...group, visibleRows }] : [];
-      });
-      const visibleStandalone = rowsWithoutAccount.filter(
-        (row) => (!needsAttention && connectionMatchesSearch(row, query)) || (!query && !needsAttention),
-      );
+      const visibleGroups = narrowGroups(groups, query, needsAttention);
+      const visibleStandalone = needsAttention
+        ? []
+        : rowsWithoutAccount.filter((row) => connectionMatchesSearch(row, query));
       if (visibleGroups.length === 0 && visibleStandalone.length === 0 && (query || needsAttention || !folder))
         return [];
       return [
@@ -510,22 +505,7 @@ export function ConnectionsPanel() {
     const anchor =
       (row.accountId && starAnchorOf(connectionsList.filter((other) => other.accountId === row.accountId))) || row;
     const starred = !!row.model && parsePinnedModels(anchor.pinnedModels).includes(row.model);
-    // Media kinds can share access (for example ComfyUI image + video); the server verifies the vendor.
-    const source = mediaService(row);
-    const sameTargets =
-      account && !row.credentialsFromConnectionId
-        ? (accounts ?? []).filter(
-            (item) =>
-              item.id !== account.id &&
-              (item.provider === account.provider ||
-                (source &&
-                  connectionsList.some(
-                    (candidate) => candidate.accountId === item.id && mediaService(candidate) === source,
-                  ))) &&
-              (!(account.provider === "custom" || isMediaRow(row)) ||
-                originOf(item.baseUrl) === originOf(account.baseUrl)),
-          )
-        : [];
+    const sameTargets = account ? sameServiceTargets(row, account, accounts ?? [], connectionsList) : [];
     // Mirrors the server: chat Models move to chat Connections of other services; media, decision and local-login
     // (subscription) Models and Connections never change service.
     const portable = (provider: string) => isChatProvider(provider) && !isLocalAuthProvider(provider);
@@ -595,14 +575,13 @@ export function ConnectionsPanel() {
   };
 
   // ── List rows ──
-  // In a folder a row names where it runs: the gateway route for a proxy Model first (it survives a cut line),
-  // then its Connection.
+  // In a folder a row names where it runs: its Connection, then the gateway route for a proxy Model.
   const folderRow = (row: ConnectionRowData, catalog?: CachedCatalogFacts) => {
     const account = row.accountId ? accountById.get(row.accountId) : undefined;
     const upstream = account?.provider === "custom" ? upstreamOf(row.model) : null;
     const where = [
-      upstream && t("connections.accounts.section.via", { service: knownPrefixName(upstream) ?? upstream }),
       account?.name,
+      upstream && t("connections.accounts.section.via", { service: knownPrefixName(upstream) ?? upstream }),
     ]
       .filter(Boolean)
       .join(" · ");
@@ -808,9 +787,9 @@ export function ConnectionsPanel() {
                 >
                   <ServiceTile service={service} />
                   <span className="flex min-w-0 flex-col">
-                    <strong className="text-[0.8125rem] font-medium [overflow-wrap:anywhere]">
+                    <span className="text-[0.8125rem] font-medium [overflow-wrap:anywhere]">
                       {service === "local_model" ? t("connections.add.device.local_model") : PROVIDERS[service].name}
-                    </strong>
+                    </span>
                     {FIRST_RUN_TAGS[service] && (
                       <span className="text-[0.6875rem] text-[color-mix(in_srgb,var(--color-emerald-500)_80%,var(--foreground)_20%)]">
                         {t(FIRST_RUN_TAGS[service])}

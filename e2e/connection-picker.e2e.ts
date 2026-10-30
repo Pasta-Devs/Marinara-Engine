@@ -236,7 +236,7 @@ test("package and Engine share typed selection without changing chats or default
   }
 });
 
-test("picker waits for account state and native controls keep their current value", async ({ page }, info) => {
+test("picker waits for account state", async ({ page }, info) => {
   const { prepareViteFixtureDependencies } = await import("./vite-fixture-dependencies.js");
   let releaseAccounts!: () => void;
   const accountGate = new Promise<void>((resolve) => (releaseAccounts = resolve));
@@ -294,18 +294,6 @@ test("picker waits for account state and native controls keep their current valu
             React.Fragment,
             null,
             React.createElement(ConnectionSelect, {
-              variant: "native",
-              value: null,
-              onChange: () => {},
-              "aria-label": "New native choice",
-            }),
-            React.createElement(ConnectionSelect, {
-              variant: "native",
-              value: "state-fixture",
-              onChange: () => {},
-              "aria-label": "Existing native choice",
-            }),
-            React.createElement(ConnectionSelect, {
               value: null,
               onChange: () => {},
               "aria-label": "Shared state picker",
@@ -314,11 +302,6 @@ test("picker waits for account state and native controls keep their current valu
         ),
       );
     });
-    const native = page.locator('select[aria-label="New native choice"]');
-    const current = page.locator('select[aria-label="Existing native choice"]');
-    await expect(native.locator('option[value="state-fixture"]')).toBeDisabled();
-    await expect(current).toHaveValue("state-fixture");
-    await expect(current.locator('option[value="state-fixture"]')).toBeEnabled();
     await page.getByRole("button", { name: /^Shared state picker/ }).click();
     const dialog = page.getByRole("dialog", { name: "Choose a model", exact: true });
     await expect(dialog).toContainText("Loading models");
@@ -327,7 +310,6 @@ test("picker waits for account state and native controls keep their current valu
     releaseAccounts();
     await expect(dialog.getByRole("alert")).toContainText("Couldn't load your models");
     await expect(dialog.locator('[data-picker-value="state-fixture"]')).toHaveCount(0);
-    await expect(native.locator('option[value="state-fixture"]')).toBeDisabled();
     await page.screenshot({ path: `.tmp/shared-picker/screenshots/error-${info.project.name}.png` });
     failAccounts = false;
     await dialog.getByRole("button", { name: "Try again", exact: true }).click();
@@ -336,7 +318,6 @@ test("picker waits for account state and native controls keep their current valu
       "title",
       "OpenAI · State account",
     );
-    await expect(current).toHaveValue("state-fixture");
   } finally {
     releaseAccounts();
   }

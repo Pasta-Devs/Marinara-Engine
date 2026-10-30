@@ -340,16 +340,16 @@ for (const [size, theme] of [
     const nanoHeading = nano.locator("[data-connection-group-heading] strong");
     // Line 1 shows the account's own name; line 2 holds facts only and never repeats it.
     await expect(nanoHeading).toHaveText("NanoGPT subscription with a long name");
-    await expect(nano.locator("[data-connection-group-heading]")).toContainText("2 models · nano-gpt.com");
+    await expect(nano.locator("[data-connection-group-heading]")).toContainText("2 starred · nano-gpt.com");
     await expect(nano.locator("[data-connection-identity-meta]")).not.toContainText("long name");
     await expect(nanoHeading.locator("[data-connection-group-count]")).toHaveCount(0);
-    await expect(nano.locator("[data-connection-group-count]")).toHaveText("2 models");
+    await expect(nano.locator("[data-connection-group-count]")).toHaveText("2 starred");
     const countTop = await nano
       .locator("[data-connection-group-count]")
       .evaluate((el) => el.getBoundingClientRect().top);
     const nameBottom = await nanoHeading.evaluate((el) => el.getBoundingClientRect().bottom);
     expect(countTop).toBeGreaterThanOrEqual(nameBottom - 1);
-    await expect(claude.locator("[data-connection-group-heading]")).toContainText("1 model · Plan");
+    await expect(claude.locator("[data-connection-group-heading]")).toContainText("1 starred · Plan");
 
     // The usage meter: two windows, the limit reads as the problem; still there with the card folded.
     const claudeMeter = claude.locator("[data-connection-usage-meter]");

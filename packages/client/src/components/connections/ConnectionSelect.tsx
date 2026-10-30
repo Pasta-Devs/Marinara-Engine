@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // ConnectionSelect — picks a Model, grouped by Connection: a field (or a Settings label/value row) that opens
-// the searchable ConnectionPicker, or a native <select> where a caller asks for one.
+// the searchable ConnectionPicker.
 // ──────────────────────────────────────────────
 import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -213,9 +213,9 @@ export function ConnectionSelect({
   inherits?: InheritsFrom;
   /**
    * `picker` (default): a field that opens the searchable picker. `menu`: a Settings-style label/value row that
-   * opens the same picker. `native`: a native select, for callers that need one.
+   * opens the same picker. `controlled`: no field; the caller's own row opens the picker.
    */
-  variant?: "picker" | "native" | "menu" | "controlled";
+  variant?: "picker" | "menu" | "controlled";
   /** Left side of the `menu` row (icon and role name). */
   label?: ReactNode;
   /** The picker window's title. */
@@ -263,52 +263,6 @@ export function ConnectionSelect({
     onChangeRef.current = onChange;
     valueRef.current = value;
   });
-
-  if (variant === "native") {
-    const option = (row: ConnectionChoiceRow) => {
-      const { suffix } = choices.stateOf(row);
-      return (
-        <option key={row.id} value={row.id} disabled={!!suffix && row.id !== value}>
-          {[choiceLabel(row), suffix && `(${suffix})`].filter(Boolean).join(" ")}
-        </option>
-      );
-    };
-    return (
-      <select
-        {...aria}
-        value={value ?? ""}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value || null)}
-        className={cn(
-          "mari-chrome-field h-9 w-full max-md:min-h-11 [@media(pointer:coarse)]:min-h-11 min-w-0 truncate px-2 py-0 text-[0.6875rem]",
-          className,
-        )}
-      >
-        {!extraOptions.some((extra) => extra.value === "") && <option value="">{choices.defaultText}</option>}
-        {extraOptions
-          .filter((extra) => extra.value !== "")
-          .map((extra) => (
-            <option key={extra.value} value={extra.value}>
-              {extra.label}
-            </option>
-          ))}
-        {choices.missing && (
-          <option value={value!}>{choices.loading ? value : t("connections.select.missing", { id: value })}</option>
-        )}
-        {choices.groups
-          .filter((group) => group.rows.length > 0)
-          .map((group) => (
-            <optgroup key={group.account.id} label={group.account.name}>
-              {group.rows.map(option)}
-            </optgroup>
-          ))}
-        {choices.standalone.length > 0 && (
-          <optgroup label={t("connections.select.standalone")}>{choices.standalone.map(option)}</optgroup>
-        )}
-        {choices.local && <option value={LOCAL_SIDECAR_CONNECTION_ID}>{t("connections.select.localModel")}</option>}
-      </select>
-    );
-  }
 
   const { current } = choices;
   // Empty with no custom first-option text means "follow the job's default": say whose.

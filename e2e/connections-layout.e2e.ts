@@ -108,7 +108,7 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(singleProvider.locator(":scope > button")).toHaveCount(0);
     // Line 1 is the account's own name; the service stays in the tile and the accessible name.
     await expect(accountHeader.locator("strong")).toHaveText(`Mixed studio ${info.project.name}`);
-    await expect(accountHeader.locator("[data-connection-identity-meta]")).toHaveText("3 models · 127.0.0.1:9");
+    await expect(accountHeader.locator("[data-connection-identity-meta]")).toHaveText("3 starred · 127.0.0.1:9");
     await expect(accountHeader).toHaveAttribute("aria-label", new RegExp(`^OpenAI, Mixed studio ${info.project.name}`));
     // A healthy Connection shows no status word.
     await expect(accountHeader).not.toContainText("Ready");
@@ -143,7 +143,7 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
     await search.fill("Studio Image");
-    await expect(accountHeader).toContainText("3 models");
+    await expect(accountHeader).toContainText("3 starred");
     await accountHeader.click();
     await expect(group.locator("[data-connection-id]")).toHaveCount(0);
     await search.fill("Studio Voice");
@@ -171,8 +171,8 @@ test("Connections keep the established header, mixed models and compact role con
     const comfyAccount = provider.locator(`[data-connection-account-id="${comfy[0]!.accountId}"]`);
     const comfyHeader = comfyAccount.locator(`[data-connections-row="account:${comfy[0]!.accountId}"]`);
     await expect(comfyHeader).toContainText("ComfyUI");
-    await expect(comfyHeader).toContainText("2 models");
-    await expect(comfyHeader).toContainText("2 models · 127.0.0.1:8188");
+    await expect(comfyHeader).toContainText("2 starred");
+    await expect(comfyHeader).toContainText("2 starred · 127.0.0.1:8188");
     // The card head holds the picture tile (its own button) and the folding heading.
     const comfyHead = comfyAccount.locator(".mari-connection-card-head");
     const primaryBox = await group.locator(".mari-connection-card-head").boundingBox();

@@ -31,6 +31,7 @@ import {
 } from "@marinara-engine/shared";
 import {
   useCachedCatalogFacts,
+  useConnections,
   useDeleteConnection,
   useMoveConnection,
   useTestConnection,
@@ -55,8 +56,14 @@ import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
 import { balanceWord } from "./ConnectionBalance";
 import { useFolderChooser } from "./ConnectionFolderGroup";
-import { confirmAccountDelete, deleteAccountModels, ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
-import { ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
+import {
+  confirmAccountDelete,
+  deleteAccountModels,
+  isMediaRow,
+  ROW_BUTTON,
+  type ConnectionRowData,
+} from "./ConnectionRow";
+import { ModelRow, ModelTile, mediaService, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 import { useVoiceRowId } from "../../hooks/use-tts";
 
 /** A block in the Connections list: a tint and spacing, no outline. */
@@ -69,6 +76,37 @@ export function hostOf(url: string | null | undefined): string {
   } catch {
     return url?.trim() ?? "";
   }
+}
+
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url.trim();
+  }
+}
+
+/**
+ * The Connections one Model can move to without picking a model: another Connection of the same service (media
+ * kinds can share access, for example ComfyUI image + video), at the same address for a custom endpoint or a media
+ * Model. A Model that borrows another row's key never moves. The server verifies the vendor.
+ */
+export function sameServiceTargets(
+  row: ConnectionRowData,
+  account: ConnectionAccountListItem,
+  accounts: readonly ConnectionAccountListItem[],
+  allRows: readonly ConnectionRowData[],
+): ConnectionAccountListItem[] {
+  if (row.credentialsFromConnectionId) return [];
+  const source = mediaService(row);
+  return accounts.filter(
+    (item) =>
+      item.id !== account.id &&
+      (item.provider === account.provider ||
+        (source &&
+          allRows.some((candidate) => candidate.accountId === item.id && mediaService(candidate) === source))) &&
+      (!(account.provider === "custom" || isMediaRow(row)) || originOf(item.baseUrl) === originOf(account.baseUrl)),
+  );
 }
 
 export function ConnectionGroup({
@@ -106,6 +144,7 @@ export function ConnectionGroup({
   const removeAccount = useDeleteConnectionAccount();
   const duplicateAccount = useDuplicateConnectionAccount();
   const { data: accounts } = useConnectionAccounts();
+  const allRows = useConnections().data as ConnectionRowData[] | undefined;
   const moveModel = useMoveConnection();
   const deleteModel = useDeleteConnection();
   /** Select mode: the ids of the checked Models; null while the card shows its normal rows. */
@@ -152,13 +191,12 @@ export function ConnectionGroup({
   };
   const pickedRows = picked ? rows.filter((row) => picked.has(row.id)) : [];
   const nameOf = (row: ConnectionRowData) => row.name?.trim() || row.model || row.id;
-  // ponytail: same-service targets only (same host for custom); a move to another service needs a catalog model per
-  // Model, which the single-Model Move dialog asks for.
-  const moveTargets = (accounts ?? []).filter(
-    (item) =>
-      item.id !== account.id &&
-      item.provider === account.provider &&
-      (account.provider !== "custom" || hostOf(item.baseUrl) === hostOf(account.baseUrl)),
+  // ponytail: same-service targets only; a move to another service needs a catalog model per Model, which the
+  // single-Model Move dialog asks for. A target must take every picked Model (every Model while none is picked).
+  const moveTargets = (accounts ?? []).filter((item) =>
+    (pickedRows.length ? pickedRows : rows).every((row) =>
+      sameServiceTargets(row, account, accounts ?? [], allRows ?? rows).includes(item),
+    ),
   );
   const runBulk = async (each: (row: ConnectionRowData) => Promise<unknown>) => {
     setBulkBusy(true);
@@ -198,8 +236,8 @@ export function ConnectionGroup({
   const heading = identity.name;
   const accountLabel = identity.accountLabel;
   const endpoint = identity.endpoint;
-  // No starred models yet: the card says nothing rather than "0 models" while every job lists the account's catalog.
-  const count = visibleRows.length ? t("connections.list.models", { count: visibleRows.length }) : undefined;
+  // No starred models yet: the card says nothing rather than "0 starred" while every job lists the account's catalog.
+  const count = visibleRows.length ? t("connections.list.starred", { count: visibleRows.length }) : undefined;
   const modelsId = `connection-models-${account.id}`;
   // One status word: Ready is plain text; Needs key and Off are the word itself as the fix.
   const keyRejected = /\b401\b|invalid.*key|key.*invalid|unauthori[sz]ed/i.test(testFailure ?? "");
