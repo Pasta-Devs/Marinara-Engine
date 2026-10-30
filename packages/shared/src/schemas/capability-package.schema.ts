@@ -380,6 +380,13 @@ const capabilityPackageManifestBaseSchema = z
               )
               .min(1)
               .max(32),
+            /**
+             * Capability API 1.390. `"engine"`: the Engine draws the page header (Back, store banner
+             * and logo, name, author and version, Active, Manage package). The package's
+             * `view="detail"` gets `engineHeader: true` and a `headerSlot` element to portal its own
+             * header buttons into. Leave it out to draw the whole page, header included, as before.
+             */
+            header: z.literal("engine").optional(),
           })
           .strict()
           .optional(),
@@ -1490,7 +1497,9 @@ const capabilityPackageManifestBaseSchema = z
 //        the Engine reads it.
 // 1.389: `persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` hides or shows a chat's messages from the
 //        AI and resolves the ids it changed. Requires `chat-write`; skips messages the user set by hand.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 389 } as const);
+// 1.390: `contributions.agentDetail.header: "engine"`: the Engine draws an agent page's header and
+//        passes the package's detail view `engineHeader: true` and a `headerSlot` for its buttons.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 390 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

@@ -72,6 +72,8 @@ type Session = {
   actions: number[];
   /** Hash of the rejoin key this request holds: the one it presented, or its own new session token. */
   seatKey: Buffer;
+  /** Why the host's Approve could not seat it, told to the one waiting. */
+  declinedFor?: "identity-conflict";
 };
 type Host = {
   chatId: string;
@@ -523,7 +525,8 @@ export class MultiplayerService {
     this.live(host);
     if (session.expiresAt <= Date.now() || session.status === "revoked")
       return { phase: "ended", snapshot: null, error: "revoked" };
-    if (session.status === "declined") return { phase: "ended", snapshot: null, error: "declined" };
+    if (session.status === "declined")
+      return { phase: "ended", snapshot: null, error: session.declinedFor ?? "declined" };
     if (session.status === "pending") return { phase: "awaiting-approval", snapshot: null, error: null };
     const snapshot = await this.snapshot(host, session.participant.id);
     this.live(host);
@@ -744,7 +747,18 @@ export class MultiplayerService {
               if (other.participant.id === returning.id) other.status = "revoked";
             session.participant = returning;
           } else {
-            await host.store.admit(session.participant);
+            try {
+              await host.store.admit(session.participant);
+            } catch (error) {
+              // Its name is taken (a seat kept for one who left, or the game's own): the one waiting is
+              // told so instead of waiting on forever (laptop room playtest 2026-10-30).
+              if (error instanceof MultiplayerError && error.code === "identity-conflict") {
+                session.status = "declined";
+                session.declinedFor = "identity-conflict";
+                this.wake(host);
+              }
+              throw error;
+            }
             host.seatKeys.set(session.participant.id, session.seatKey);
           }
           session.status = "approved";

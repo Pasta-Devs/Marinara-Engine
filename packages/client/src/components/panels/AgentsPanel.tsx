@@ -15,6 +15,11 @@ import {
   PenLine,
   Radar,
   Puzzle,
+  LayoutGrid,
+  BookOpen,
+  Compass,
+  ImageIcon,
+  Drama,
   Camera,
   Download,
   Check,
@@ -28,6 +33,7 @@ import {
   CirclePlus,
   Store,
   MessageSquare,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
@@ -123,8 +129,30 @@ import { Modal } from "../ui/Modal";
 import { RulesetImportReviewModal } from "../agents/RulesetImportReviewModal";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
-import { hasUpdate, iconOf, taglineOf } from "../agents/organizer/organizer-model";
+import {
+  hasUpdate,
+  iconOf,
+  ORGANIZER_SECTIONS,
+  sectionLabelKey,
+  sectionOf,
+  taglineOf,
+  type OrganizerSectionId,
+} from "../agents/organizer/organizer-model";
+
+const STORE_SECTION_ICONS: Record<OrganizerSectionId, ReactNode> = {
+  apps: <LayoutGrid size="0.8125rem" />,
+  games: <Dices size="0.8125rem" />,
+  writing: <PenLine size="0.8125rem" />,
+  memory: <BookOpen size="0.8125rem" />,
+  trackers: <Radar size="0.8125rem" />,
+  adventure: <Compass size="0.8125rem" />,
+  media: <ImageIcon size="0.8125rem" />,
+  alive: <Drama size="0.8125rem" />,
+  more: <Puzzle size="0.8125rem" />,
+};
 import { useChatStore } from "../../stores/chat.store";
+import { requestChatSettingsSectionOpen } from "../../lib/chat-floating-ui-events";
+import { confirmEditorLeave } from "../../lib/editor-leave";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
 
@@ -364,6 +392,16 @@ export function AgentsPanel() {
       new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, iconOf(entry) ?? null] as const)),
     [capabilityCatalog],
   );
+  const catalogEntryById = useMemo(
+    () => new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, entry] as const)),
+    [capabilityCatalog],
+  );
+  // Agents not in the catalog (offline, sideloaded) fall back to their built-in category.
+  const storeSectionOf = (agent: { id: string; category: string }): OrganizerSectionId => {
+    const entry = catalogEntryById.get(packageIdByAgentType.get(agent.id) ?? agent.id);
+    if (entry) return sectionOf(entry);
+    return agent.category === "writer" ? "writing" : agent.category === "tracker" ? "trackers" : "more";
+  };
   const catalogTaglineByAgentId = useMemo(
     () => new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, taglineOf(entry)] as const)),
     [capabilityCatalog],
@@ -532,26 +570,13 @@ export function AgentsPanel() {
           agents: panelBuiltInAgents.filter((agent) => !isInActiveChat({ id: agent.id, type: agent.id })),
         },
       ]
-    : [
-        {
-          key: "writer",
-          title: localizeUi("ui.panels.agentspanel.writingAgents"),
-          icon: <PenLine size="0.8125rem" />,
-          agents: panelBuiltInAgents.filter((agent) => agent.category === "writer"),
-        },
-        {
-          key: "tracker",
-          title: localizeUi("ui.panels.agentspanel.trackerAgents"),
-          icon: <Radar size="0.8125rem" />,
-          agents: panelBuiltInAgents.filter((agent) => agent.category === "tracker"),
-        },
-        {
-          key: "misc",
-          title: localizeUi("ui.panels.agentspanel.miscAgents"),
-          icon: <Puzzle size="0.8125rem" />,
-          agents: panelBuiltInAgents.filter((agent) => agent.category === "misc"),
-        },
-      ];
+    : // The Agent Organizer's store sections, so an agent sits in the same group in both places.
+      ORGANIZER_SECTIONS.map((section) => ({
+        key: section,
+        title: localizeUi(sectionLabelKey(section)),
+        icon: STORE_SECTION_ICONS[section],
+        agents: panelBuiltInAgents.filter((agent) => storeSectionOf(agent) === section),
+      })).filter((section) => section.agents.length > 0);
   const visibleCustomAgents = manualOrder.orderItems(
     sortBasicPanelItems(
       customAgents.filter(
@@ -2050,6 +2075,20 @@ export function AgentsPanel() {
   );
 }
 
+/**
+ * The open chat's id when Chat Settings lists per-agent menus for it: local roleplay chats only.
+ * ponytail: agents without their own menu (trackers) land at the top of the Agents section;
+ * pass a per-agent flag from the drawer's menu list if that is not enough.
+ */
+function agentChatSettingsChatId(): string | null {
+  const chat = useChatStore.getState().activeChat;
+  if (!chat) return null;
+  const metadata = parseChatMetadata(chat.metadata);
+  if (metadata.multiplayerSetup === true || metadata.multiplayer) return null;
+  const mode = (chat as { mode?: unknown }).mode;
+  return mode === "conversation" || mode === "game" ? null : chat.id;
+}
+
 function renderAgentCard({
   localizeUi,
   id,
@@ -2103,6 +2142,7 @@ function renderAgentCard({
   inChat?: boolean;
   onRemoveFromChat?: () => void;
 }) {
+  const chatSettingsChatId = inChat ? agentChatSettingsChatId() : null;
   const iconClasses = cn(
     "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
     imagePath ? "bg-[var(--secondary)]" : AGENT_GRADIENT_SURFACE,
@@ -2222,6 +2262,30 @@ function renderAgentCard({
           {description || localizeUi("ui.panels.agentcard.noDescription")}
         </div>
       </button>
+      {!selectionMode && inChat && chatSettingsChatId && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            const ui = useUIStore.getState();
+            // A detail page (agent, character, ...) replaces the chat view, so leave it first.
+            if (!confirmEditorLeave(ui, localizeUi("commandCenter.dirtyEditor"))) return;
+            ui.closeAllDetails();
+            // On phones the panel covers the chat, so close it to show the drawer.
+            if (window.matchMedia("(max-width: 767px)").matches) ui.closeRightPanel();
+            // Next frame: the chat view has mounted its listener, and the panel's close is done.
+            // Custom agents share one menu in Chat Settings.
+            requestAnimationFrame(() =>
+              requestChatSettingsSectionOpen(chatSettingsChatId, `agent:${custom ? "custom-agents" : type}`),
+            );
+          }}
+          title={localizeUi("ui.panels.agentspanel.chatSettings", { name })}
+          aria-label={localizeUi("ui.panels.agentspanel.chatSettings", { name })}
+          className="mari-chrome-control mari-chrome-control--small h-7 w-7 shrink-0 p-0"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
+        </button>
+      )}
       {!selectionMode && inChat !== undefined && (
         <span className="flex h-7 w-7 shrink-0 items-center justify-center">
           {inChat ? (
@@ -2251,7 +2315,7 @@ function renderAgentCard({
         <div
           className={cn(
             "pointer-events-none absolute top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto",
-            inChat === undefined ? "right-2" : "right-11",
+            inChat === undefined ? "right-2" : chatSettingsChatId ? "right-20" : "right-11",
           )}
         >
           {custom && onDuplicate && (

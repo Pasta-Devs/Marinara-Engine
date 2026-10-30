@@ -41,7 +41,7 @@ import {
   type PromptAttachment,
 } from "../generation/prompt-attachments.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
-import { MARI_GUIDED_SEQUENCES } from "./guided-sequences.js";
+import { MARI_ASK_SEQUENCES } from "./guided-sequences.js";
 import { getFileStorageDir, getPort, getServerProtocol, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { apiConnections } from "../../db/schema/index.js";
 import { decryptApiKey } from "../../utils/crypto.js";
@@ -76,7 +76,8 @@ import {
   MODEL_LISTS,
   buildMariChangeExcerpts,
   mariReceiptReason,
-  sanitizeMariGuidedPlan,
+  mariQuestionsAsText,
+  sanitizeMariQuestions,
   sanitizeMariSuggestionChips,
   type APIProvider,
   type GenerationParameterSendMap,
@@ -87,8 +88,8 @@ import type {
   MariDbCommandResult,
   MariWorkspaceActionResult,
   MariDbReadTruncation,
-  MariGuidedPlanStep,
   MariHeldChange,
+  MariQuestion,
   MariSuggestionChip,
   MariWorkspaceConnectionSummary,
   MariWorkspacePromptEvent,
@@ -106,7 +107,7 @@ import type {
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
 import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
-import { getMariDbService } from "../mari-db/mari-db.service.js";
+import { getMariDbService, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
@@ -320,7 +321,7 @@ export type AssistantWorkspaceAction = {
   visibleText: string;
   commands: WorkspaceCommandCall[];
   suggestions: MariSuggestionChip[];
-  plan: MariGuidedPlanStep[];
+  questions: MariQuestion[];
   awaitingAuthorization: boolean;
   /** #5740 diagnostic field: the trigger phrase the model reported. Never enforced. */
   understoodRequest: string | null;
@@ -907,7 +908,7 @@ Use other workspace files to understand Marinara internals, answer source-code q
  * only the JSON schema, field rules and examples around it belong to the classic protocol.
  */
 export function workspaceCommandKnowledgePrompt() {
-  return `${MARI_GUIDED_SEQUENCES}
+  return `${MARI_ASK_SEQUENCES}
 
 \`app_data\` quick reference:
 - Shipped skills are procedures you must read, never optional docs: before the first write or multi-step answer on a surface one covers (characters, onboarding, lorebooks, presets, themes, extensions, decisions, home widgets, reply repair), \`skill.get\` it in that same response. Explaining how one of those surfaces works counts too — read its skill before you explain it. Acting without it is guessing.
@@ -963,15 +964,15 @@ function smallOutputLimitRule(maxOutputTokens?: number) {
 export function piRuntimePrompt(maxOutputTokens?: number) {
   return `<workspace_tools>
 You work through native tool calls. Wherever the rules below say \`say\`, write ordinary assistant text; wherever they say \`commands\`, call the tools. There is no JSON frame, no \`stop\` and no \`awaitingAuthorization\` field.
-Write your words as plain assistant text: never wrap them in tags such as \`<say>\`, \`<commands>\`, \`<suggestions>\` or \`<plan>\`, and never write a tool call as a tag — a tool call is a call, not text.
+Write your words as plain assistant text: never wrap them in tags such as \`<say>\`, \`<commands>\`, \`<suggestions>\` or \`<ask>\`, and never write a tool call as a tag — a tool call is a call, not text.
 - To ask the user to approve a change, write the change and your question as text in the SAME turn as the mutating tool calls; Marinara holds those calls behind an Accept action and ends the run.
-- Call the \`suggestions\` tool for quick-reply chips (at most 5; each has label and prompt) and the \`plan\` tool for a guided plan. Both only show UI; they change nothing. Call them in the SAME turn as your final text.
+- Call the \`suggestions\` tool for quick-reply chips (at most 5; each has label and prompt). It only shows UI and changes nothing. Call it in the SAME turn as your final text.
 - Your first action on a surface a shipped skill covers is \`skill.get\` with its plain id (e.g. \`id: "builtin-characters"\`), before any write or multi-step answer. The skill index below names them; acting without one means guessing.
 - Immediately after you successfully create or update something, call \`suggestions\` with 2-4 follow-up chips for a natural next step: refine a field, link it to something else, or open it for full editing. Lean toward refining or connecting what already exists rather than making new items, unless the user's task is itself about creating. Tag each with the relevant entity (\`characters|lorebooks|personas|presets|connections|agents|settings|chat\`).
 - When your answer ends with a question the user can answer by picking an option, call \`suggestions\` with one chip per option.
 - A chip may carry a \`detail\` (under 80 characters, no full stop) only for a real fact from this run, and an \`action\` that acts at once: \`{"kind":"resource","resource":"character|persona|preset|lorebook|agent","id":"..."}\` opens it, \`{"kind":"chat","chatId":"..."}\`, \`{"kind":"start-chat","characterId":"..."}\`, \`{"kind":"panel","panel":"characters|personas|lorebooks|presets|connections|agents"}\` (a list; "connections" to pick one), \`{"kind":"peek-prompt","chatId":"..."}\`. Only ids you already know; never read just to fill \`detail\` or \`action\`. Keep \`prompt\` filled; no \`action\` when it needs your help.
-- Use \`plan\` ONLY when a create/edit request is vague ("make me a character" with no details): return the WHOLE plan in one call, an ordered list of the natural fields, each with 3-5 example-answer chips. For a vague edit, read the item first, then offer 2-4 concrete directions as \`suggestions\`. A named subject ("a lorebook for my pirate world") is enough detail. Prefer one \`plan\` to asking turn by turn: the client walks the plan with no further calls from you, then sends you one summary of all the answers to act on. If the request already has enough detail, skip \`plan\` and do the work — after reading that surface's skill.
-- Do not mention tapping, clicking, chips, quick replies or buttons unless you call \`suggestions\` or \`plan\` in the same turn.
+- Use \`ask\` when you need the user's decisions before you can do this well and the answers fit a few clear options: a vague create or edit request ("make me a character" with no details), or a fork where the answer changes what you build. A card shows 1-4 questions, each with 2-4 options (\`label\`, optional \`detail\`). Mark your own pick \`recommended: true\` on one option, set \`multiple: true\` when several answers can apply, and never add an "Other" option: the user can always type their own answer. Put everything you need on ONE card instead of asking turn by turn. Calling \`ask\` ends your turn: changes beside it do not run, and the answer arrives as the user's next message. Say in a sentence what you are asking and why, then call it. For a vague edit, read the item first, then offer 2-4 concrete directions the same way. A named subject ("a lorebook for my pirate world") is enough detail. If the request already has enough detail, skip \`ask\` and do the work — after reading that surface's skill.
+- Do not mention tapping, clicking, chips, quick replies or buttons unless you call \`suggestions\` or \`ask\` in the same turn.
 - If you say you will do something, make the tool call in the same turn; a turn with no tool call ends the run.
 - Finish by answering in text with no tool call.${smallOutputLimitRule(maxOutputTokens)}
 
@@ -998,8 +999,8 @@ Required schema:
   "suggestions": [
     { "label": "short button text", "prompt": "exact message to send if tapped", "detail": "one short fact", "entity": "characters|lorebooks|personas|presets|connections|agents|settings|chat", "tone": "danger|caution|success", "action": { "kind": "resource|chat|panel|start-chat|peek-prompt" } }
   ],
-  "plan": [
-    { "fieldKey": "name", "question": "short question for this field", "chips": [ { "label": "...", "prompt": "..." } ] }
+  "ask": [
+    { "question": "short question", "options": [ { "label": "short answer", "detail": "one short fact", "recommended": true } ], "multiple": false }
   ],
   "stop": false
 }
@@ -1012,13 +1013,13 @@ Field rules:
 - \`suggestions\` is optional. Include at most 5 quick-reply chips when useful; omit it when no chips are needed.
 - Give a suggestion a \`detail\` (under 80 characters, no full stop) only for a real fact from this run ("3 messages since your last summary", not the label again).
 - Optional \`action\` acts at once: \`{"kind":"resource","resource":"character|persona|preset|lorebook|agent","id":"..."}\` opens it, \`{"kind":"chat","chatId":"..."}\`, \`{"kind":"start-chat","characterId":"..."}\`, \`{"kind":"panel","panel":"characters|personas|lorebooks|presets|connections|agents"}\` (a list; "connections" to pick one), \`{"kind":"peek-prompt","chatId":"..."}\`. Only ids you already know; never read just to fill \`detail\` or \`action\`. Keep \`prompt\` filled; no \`action\` when it needs your help.
-- \`plan\` is optional and mutually exclusive with a multi-turn interrogation: use it ONLY when the user's create/edit request is vague (e.g. "make me a character" with no details; a named subject such as "a lorebook for my pirate world" is enough detail); a vague edit ("overhaul X a bit"): read it, then offer 2-4 concrete directions as suggestions, not a field list. Return the WHOLE plan in this ONE turn - an ordered list of the natural fields for what they're creating (e.g. name, vibe, scenario, greeting for a character), each with 3-5 illustrative example-answer chips. The client walks the plan locally with no further calls from you, then sends you one summary message with all the answers so you can actually create it with your normal commands. If the request already has enough detail, skip \`plan\` entirely and create it now, after reading that surface's skill - don't force the user through fields they already answered.
+- \`ask\` is optional. Use \`ask\` when you need the user's decisions before you can do this well and the answers fit a few clear options: a vague create or edit request ("make me a character" with no details), or a fork where the answer changes what you build. A card shows 1-4 questions, each with 2-4 options (\`label\`, optional \`detail\`). Mark your own pick \`recommended: true\` on one option, set \`multiple: true\` when several answers can apply, and never add an "Other" option: the user can always type their own answer. Put everything you need on ONE card instead of asking turn by turn. A response with \`ask\` ends your turn: mutating commands in it do not run, \`stop\` counts as true, and the answer arrives as the user's next message. Say in \`say\` what you are asking and why. For a vague edit, read the item first, then offer 2-4 concrete directions the same way. A named subject ("a lorebook for my pirate world") is enough detail. If the request already has enough detail, skip \`ask\` and do the work — after reading that surface's skill.
 - \`stop\` is \`false\` while you need command results or another model turn. Set \`stop\` to \`true\` only when the response is complete.
 - If \`commands\` is not empty, \`stop\` should usually be \`false\`.
 - If you say you will do workspace/app-data work, include the command in the same JSON object.
 - Immediately after you successfully create or update something, offer 2-4 follow-up suggestions for a natural next step: refine a field, link it to something else, or open it for full editing. Lean toward refining or connecting what already exists rather than making new items — unless the user's task is itself about creating (for example, they asked you to help build a lorebook), in which case suggesting the next thing to create is welcome. Tag each with the relevant entity.
-- Do not mention tapping, clicking, choosing chips, quick replies, buttons, or examples unless \`suggestions\` or \`plan\` is present in the same JSON object. If you want the user to answer in plain chat, ask directly without referring to UI controls.
-- For vague create/edit requests, prefer one \`plan\` instead of interrogating the user turn by turn. Use \`suggestions\` only for simple quick replies or follow-up next steps, not as a hidden substitute for a guided plan.${smallOutputLimitRule(maxOutputTokens)}
+- Do not mention tapping, clicking, choosing chips, quick replies, buttons, or examples unless \`suggestions\` or \`ask\` is present in the same JSON object. If you want the user to answer in plain chat, ask directly without referring to UI controls.
+- For vague create/edit requests, prefer one \`ask\` instead of interrogating the user turn by turn. Use \`suggestions\` only for simple quick replies or follow-up next steps, not as a hidden substitute for \`ask\`.${smallOutputLimitRule(maxOutputTokens)}
 
 ${workspaceCommandKnowledgePrompt()}
 Examples:
@@ -1487,6 +1488,7 @@ function newToolCallId(name: string, index: number) {
 function hasActionPayload(payload: Record<string, unknown>): boolean {
   return (
     rawJsonToolCalls(payload).length > 0 ||
+    Array.isArray(payload.ask) ||
     ["say", "message", "response", "final", "answer"].some((key) => typeof payload[key] === "string")
   );
 }
@@ -1796,7 +1798,7 @@ export function dedupeWorkspaceCommandCalls(calls: WorkspaceCommandCall[]): Work
 function assistantHistoryContentForAction(
   action: Pick<AssistantWorkspaceAction, "visibleText" | "commands" | "stop"> & {
     suggestions?: MariSuggestionChip[];
-    plan?: MariGuidedPlanStep[];
+    questions?: MariQuestion[];
     awaitingAuthorization?: boolean;
   },
 ): string {
@@ -1806,7 +1808,7 @@ function assistantHistoryContentForAction(
     stop: action.stop,
   };
   if (action.suggestions && action.suggestions.length > 0) payload.suggestions = action.suggestions;
-  if (action.plan && action.plan.length > 0) payload.plan = action.plan;
+  if (action.questions && action.questions.length > 0) payload.ask = action.questions;
   if (action.awaitingAuthorization) payload.awaitingAuthorization = true;
   return JSON.stringify(payload);
 }
@@ -1854,15 +1856,19 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     .filter(Boolean)
     .join("\n\n");
   const visibleText = scrubInternalNames([inlineVisibleText, frameVisibleText].filter(Boolean).join("\n\n").trim());
-  const suggestions = matches
+  const parsedSuggestions = matches
     .flatMap((match) => sanitizeSuggestionChips(match.payload.suggestions))
     .map((chip) => ({
       ...chip,
       label: scrubInternalNames(chip.label),
       ...(chip.detail ? { detail: scrubInternalNames(chip.detail) } : {}),
     }));
-  const plan = matches.flatMap((match) => sanitizePlanSteps(match.payload.plan));
-  const awaitingAuthorization = matches.some((match) => match.payload.awaitingAuthorization === true);
+  // A frame with invalid commands is repaired, not shown, so its card is dropped with it.
+  const questions = hasInvalidCommands
+    ? []
+    : (matches.map((match) => sanitizeWorkspaceQuestions(match.payload.ask)).find((asked) => asked.length > 0) ?? []);
+  const asking = questions.length > 0;
+  const awaitingAuthorization = !asking && matches.some((match) => match.payload.awaitingAuthorization === true);
   // #5740: diagnostic only - stored and displayed, never validated or gated.
   // Only frames that themselves carry a mutating command may supply the
   // phrase: in a tolerated multi-frame response, a read-only frame's phrase
@@ -1875,7 +1881,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
       )
       .find((value) => value.length > 0)
       ?.slice(0, 2000) ?? null;
-  const commands = hasInvalidCommands
+  const parsedCommands = hasInvalidCommands
     ? []
     : dedupeWorkspaceCommandCalls([
         ...parseXmlCommandCalls(contentWithoutJson),
@@ -1883,15 +1889,21 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
         ...textualCommands,
         ...parseBracketCommandCalls(contentWithoutJson),
       ]);
+  // A question ends the turn: reads beside it run, changes don't (no Accept card next to a question), and the card
+  // replaces any chips.
+  // Even an invalid card means she wants an answer first.
+  const askCalled = matches.some((match) => Array.isArray(match.payload.ask) && match.payload.ask.length > 0);
+  const commands = askCalled ? parsedCommands.filter((call) => !isMutatingWorkspaceCommand(call)) : parsedCommands;
+  const suggestions = asking ? [] : parsedSuggestions;
   const protocolValid = matches.length > 0 && !hasInvalidCommands;
   const explicitStop = [...matches].reverse().find((match) => jsonPayloadStopValue(match.payload) !== undefined);
   const explicitStopValue = explicitStop ? jsonPayloadStopValue(explicitStop.payload) : undefined;
-  const stop = !hasInvalidCommands && (explicitStopValue ?? (commands.length === 0 && protocolValid));
+  const stop = asking || (!hasInvalidCommands && (explicitStopValue ?? (commands.length === 0 && protocolValid)));
   return {
     visibleText,
     commands,
     suggestions,
-    plan,
+    questions,
     awaitingAuthorization,
     understoodRequest,
     stop,
@@ -1902,7 +1914,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
           visibleText,
           commands,
           suggestions,
-          plan,
+          questions,
           awaitingAuthorization,
           stop,
         }),
@@ -1927,7 +1939,7 @@ function isEmptyCompletedAction(action: AssistantWorkspaceAction): boolean {
     action.stop &&
     !action.visibleText &&
     action.suggestions.length === 0 &&
-    action.plan.length === 0
+    action.questions.length === 0
   );
 }
 
@@ -1939,12 +1951,16 @@ export function sanitizeSuggestionChips(raw: unknown): MariSuggestionChip[] {
   return chips;
 }
 
-export function sanitizePlanSteps(raw: unknown): MariGuidedPlanStep[] {
-  const steps = sanitizeMariGuidedPlan(raw, { maxSteps: 8, maxChipsPerStep: 5 });
-  if (Array.isArray(raw) && raw.length > 0 && steps.length === 0) {
-    logger.debug("[Professor Mari] Dropped invalid workspace guided plan");
-  }
-  return steps;
+export function sanitizeWorkspaceQuestions(raw: unknown): MariQuestion[] {
+  return sanitizeMariQuestions(raw).map((question) => ({
+    ...question,
+    question: scrubInternalNames(question.question),
+    options: question.options.map((option) => ({
+      ...option,
+      label: scrubInternalNames(option.label),
+      ...(option.detail ? { detail: scrubInternalNames(option.detail) } : {}),
+    })),
+  }));
 }
 
 function roleForMessage(row: { role: string }): "system" | "user" | "assistant" {
@@ -3749,6 +3765,7 @@ export class ProfessorMariWorkspaceService {
     // Slice 70: the chips her last answer offered, saved on the message so they survive a reload; and the one
     // chips-only round a question-shaped answer without chips may get (see askedWithoutChips below).
     let runSuggestions: MariSuggestionChip[] = [];
+    let runQuestions: MariQuestion[] = [];
     let chipRepairPending = false;
     let chipRepairUsed = false;
 
@@ -3779,6 +3796,7 @@ export class ProfessorMariWorkspaceService {
         runError,
         runStartedAt,
         suggestions: runSuggestions,
+        questions: runQuestions,
         connection,
         latestUsage,
         latestFinishReason,
@@ -3983,6 +4001,7 @@ export class ProfessorMariWorkspaceService {
           heldChanges: runHeldChanges,
           heldCalls: runHeldCalls,
           suggestions: runSuggestions,
+          questions: runQuestions,
         };
         try {
           await this.runPiRuntime({
@@ -4053,14 +4072,27 @@ export class ProfessorMariWorkspaceService {
           runHeldChanges = piState.heldChanges;
           runHeldCalls = piState.heldCalls;
           runSuggestions = piState.suggestions;
+          runQuestions = piState.questions;
         }
       }
 
+      let fieldsStreamed = false;
+      const endFieldStream = () => {
+        if (fieldsStreamed) args.onEvent({ type: "edit_delta", data: null });
+        fieldsStreamed = false;
+      };
       for (let round = 0; round < MAX_COMMAND_ROUNDS; round += 1) {
         // The pi runtime already ran above; classic owns this loop.
         if (usePi || acceptedCalls) break;
         if (controller.signal.aborted) throw new Error("aborted");
         let result: ChatCompletionResult;
+        // Character fields she writes show in the open editor as she writes them; provisional like the draft.
+        // The text stays up until the round's command has been applied or held (next round or loop end).
+        endFieldStream();
+        const streamFields = createCharacterFieldStreamExtractor((data) => {
+          fieldsStreamed = true;
+          args.onEvent({ type: "edit_delta", data });
+        });
         try {
           // The frame's `say` streams as a provisional draft only: the audited text still lands as tokens
           // after the round is parsed (a protocol repair or a failed claim audit can take the words back).
@@ -4071,6 +4103,7 @@ export class ProfessorMariWorkspaceService {
             baseOptions,
             chipRepairPending ? () => {} : emitDraft,
             debugLog,
+            chipRepairPending ? undefined : streamFields,
           );
         } catch (error) {
           // No command was returned or executed: reuse the bounded protocol repair loop below.
@@ -4100,7 +4133,7 @@ export class ProfessorMariWorkspaceService {
               ...parsedFrame,
               visibleText: "",
               commands: [],
-              plan: [],
+              questions: [],
               awaitingAuthorization: false,
               stop: true,
               assistantHistoryContent: assistantHistoryContentForAction({
@@ -4121,7 +4154,6 @@ export class ProfessorMariWorkspaceService {
                 visibleText: parsedAction.visibleText,
                 commands: [],
                 suggestions: parsedAction.suggestions,
-                plan: parsedAction.plan,
                 awaitingAuthorization: true,
                 stop: true,
               }),
@@ -4320,7 +4352,6 @@ export class ProfessorMariWorkspaceService {
           runSuggestions = action.suggestions;
           args.onEvent({ type: "suggestions", data: action.suggestions });
         }
-        if (action.plan.length > 0) args.onEvent({ type: "plan", data: action.plan });
 
         messages.push({ role: "assistant", content: action.assistantHistoryContent });
 
@@ -4347,13 +4378,13 @@ export class ProfessorMariWorkspaceService {
         }
 
         // Slice 70: an answer that ends on a question ("apply all five, or pick some?") with no chips and no
-        // plan makes the user type the answer; ask once for chips only (the visible answer stays as it is).
+        // card makes the user type the answer; ask once for chips only (the visible answer stays as it is).
         if (
           action.commands.length === 0 &&
           !chipRepairUsed &&
           !shouldDeferMutations &&
           action.suggestions.length === 0 &&
-          action.plan.length === 0 &&
+          action.questions.length === 0 &&
           answerEndsWithQuestion(action.visibleText)
         ) {
           chipRepairUsed = true;
@@ -4366,6 +4397,17 @@ export class ProfessorMariWorkspaceService {
           });
           round -= 1;
           continue;
+        }
+
+        // Set only here, past every repair: a discarded round's card was never shown. A wordless card still saves words:
+        // the empty fallback would otherwise replace it.
+        if (action.questions.length > 0) {
+          runQuestions = action.questions;
+          if (!action.visibleText) {
+            assistantText = mariQuestionsAsText(action.questions);
+            emitRoundText(workspaceTrace, assistantText, args.onEvent);
+          }
+          break;
         }
 
         if (action.commands.length === 0) {
@@ -4421,14 +4463,14 @@ export class ProfessorMariWorkspaceService {
             appendTraceStatus(workspaceTrace, content);
             args.onEvent({ type: "status", data: { content, kind: "retry", level: "warning" } });
             for (const chunk of chunkText(content)) args.onEvent({ type: "token", data: chunk });
-          } else if (finalAction.visibleText) {
-            assistantText = finalAction.visibleText.trim();
-            emitRoundText(workspaceTrace, finalAction.visibleText, args.onEvent);
+          } else if (finalAction.visibleText || finalAction.questions.length > 0) {
+            assistantText = finalAction.visibleText.trim() || mariQuestionsAsText(finalAction.questions);
+            emitRoundText(workspaceTrace, assistantText, args.onEvent);
+            runQuestions = finalAction.questions;
             if (finalAction.suggestions.length > 0) {
               runSuggestions = finalAction.suggestions;
               args.onEvent({ type: "suggestions", data: finalAction.suggestions });
             }
-            if (finalAction.plan.length > 0) args.onEvent({ type: "plan", data: finalAction.plan });
           } else if (finalAction.commands.length > 0) {
             const content =
               "Professor Mari tried to run more workspace commands after the command limit, so I stopped the loop. Ask her to continue if you want her to keep working from the saved trace.";
@@ -4439,6 +4481,8 @@ export class ProfessorMariWorkspaceService {
           }
         }
       }
+      // Errors and aborts skip this; the client clears her field text when the run ends.
+      endFieldStream();
 
       if (!assistantText.trim()) {
         const failedTool = workspaceTrace.find((item) => item.type === "tool" && item.tool.status === "error");
@@ -4972,6 +5016,7 @@ export class ProfessorMariWorkspaceService {
     baseOptions: ChatOptions,
     onToken?: (chunk: string) => void,
     debugLog?: (message: string, ...values: unknown[]) => void,
+    onFrame?: (chunk: string) => void,
   ): Promise<ChatCompletionResult> {
     // Local chat templates commonly accept a single system message at index 0.
     // Keep trusted context in that role, including context added after history,
@@ -4986,7 +5031,7 @@ export class ProfessorMariWorkspaceService {
     const options: ChatOptions = onToken
       ? {
           ...baseOptions,
-          onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {})),
+          onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {}), onFrame),
         }
       : { ...baseOptions };
     logger.debug(
@@ -5075,7 +5120,10 @@ function formatWorkspaceToolName(name: string): string {
 
 // Extracts and streams a single named string field from a JSON object as tokens arrive,
 // forwarding each character to the provided sink as it is encountered.
-function createJsonFieldStreamExtractor(fieldName: string, onChunk: (chunk: string) => void): (chunk: string) => void {
+export function createJsonFieldStreamExtractor(
+  fieldName: string,
+  onChunk: (chunk: string) => void,
+): (chunk: string) => void {
   const pattern = new RegExp(`"${fieldName}"\\s*:\\s*"`);
   let buffer = "";
   let state: "seeking" | "in_value" | "done" = "seeking";
@@ -5095,31 +5143,115 @@ function createJsonFieldStreamExtractor(fieldName: string, onChunk: (chunk: stri
     }
 
     if (state === "in_value") {
-      let text = "";
-      let index = 0;
-      while (index < buffer.length) {
-        const char = buffer[index]!;
-        if (char === "\\") {
-          const next = buffer[index + 1];
-          if (next === undefined) break;
-          if (next === "n") text += "\n";
-          else if (next === "r") text += "\r";
-          else if (next === "t") text += "\t";
-          else text += next;
-          index += 2;
-        } else if (char === '"') {
-          state = "done";
-          if (text) onChunk(text);
-          buffer = "";
-          return;
-        } else {
-          text += char;
-          index += 1;
-        }
-      }
+      const { text, end, closed } = readJsonString(buffer, 0);
       if (text) onChunk(text);
-      buffer = buffer.slice(index);
+      if (closed) state = "done";
+      buffer = closed ? "" : buffer.slice(end);
     }
+  };
+}
+
+const JSON_ESCAPES: Record<string, string> = { n: "\n", r: "\r", t: "\t", b: "\b", f: "\f" };
+
+/** Decodes a JSON string's characters from `start` up to its closing quote. Stops before an escape
+ *  that a later chunk completes (`\`, `\u12`, or a high surrogate whose low half is still out). */
+function readJsonString(buffer: string, start: number): { text: string; end: number; closed: boolean } {
+  let text = "";
+  let index = start;
+  while (index < buffer.length) {
+    const char = buffer[index]!;
+    if (char === '"') return { text, end: index + 1, closed: true };
+    if (char !== "\\") {
+      text += char;
+      index += 1;
+      continue;
+    }
+    const next = buffer[index + 1];
+    if (next === undefined) break;
+    if (next === "u") {
+      if (index + 6 > buffer.length) break;
+      const hex = buffer.slice(index + 2, index + 6);
+      if (!/^[0-9a-f]{4}$/i.test(hex)) {
+        text += buffer.slice(index, index + 6);
+        index += 6;
+        continue;
+      }
+      const code = parseInt(hex, 16);
+      if (code >= 0xd800 && code <= 0xdbff && index + 12 > buffer.length) break;
+      text += String.fromCharCode(code);
+      index += 6;
+      continue;
+    }
+    text += JSON_ESCAPES[next] ?? next;
+    index += 2;
+  }
+  return { text, end: index, closed: false };
+}
+
+/** Streams the string values of `app_data` `character.update` arguments while the classic runtime
+ *  writes its JSON frame. `field` is the patch key as written (`firstMes`, `extensions.backstory`);
+ *  the client maps it to its editor field and drops keys that are not text fields. A value's first
+ *  chunk has `restart`, so a later command that writes the same field replaces the earlier text. */
+export function createCharacterFieldStreamExtractor(
+  onDelta: (delta: { characterId: string; field: string; text: string; restart?: true }) => void,
+): (chunk: string) => void {
+  const stack: Array<{ isArray: boolean; key: string | null; expectKey: boolean }> = [];
+  let buffer = "";
+  let inString: "key" | "value" | null = null;
+  let restart = false;
+  let stringText = "";
+  let command = { name: "", action: "", characterId: "" };
+  const path = () => stack.filter((frame) => !frame.isArray).map((frame) => frame.key ?? "");
+  return (chunk) => {
+    buffer += chunk;
+    let index = 0;
+    while (index < buffer.length) {
+      if (inString) {
+        const { text, end, closed } = readJsonString(buffer, index);
+        stringText += text;
+        index = end;
+        const keys = path();
+        const rest = keys.slice(2);
+        if (
+          inString === "value" &&
+          text &&
+          keys[0] === "commands" &&
+          keys[1] === "arguments" &&
+          rest.length <= 3 &&
+          command.name === "app_data" &&
+          command.action === "character.update" &&
+          command.characterId
+        ) {
+          const field = rest.at(-2) === "extensions" ? `extensions.${rest.at(-1)}` : rest.at(-1)!;
+          onDelta({ characterId: command.characterId, field, text, ...(restart ? { restart: true as const } : {}) });
+          restart = false;
+        }
+        if (!closed) break;
+        if (inString === "key") stack.at(-1)!.key = stringText;
+        else if (keys.join(".") === "commands.name") command.name = stringText;
+        else if (keys.join(".") === "commands.arguments.action")
+          command.action = normalizeAppDataActionName(stringText);
+        else if (/^commands\.arguments\.(characterId|id)$/.test(keys.join("."))) command.characterId = stringText;
+        inString = null;
+        stringText = "";
+        continue;
+      }
+      const char = buffer[index]!;
+      index += 1;
+      const top = stack.at(-1);
+      if (char === "{") {
+        if (top?.isArray && path().join(".") === "commands") command = { name: "", action: "", characterId: "" };
+        stack.push({ isArray: false, key: null, expectKey: true });
+      } else if (char === "[") stack.push({ isArray: true, key: null, expectKey: false });
+      else if (char === "}" || char === "]") stack.pop();
+      else if (char === ":" && top) top.expectKey = false;
+      else if (char === "," && top && !top.isArray) top.expectKey = true;
+      else if (char === '"') {
+        inString = top && !top.isArray && top.expectKey ? "key" : "value";
+        restart = true;
+      }
+    }
+    buffer = buffer.slice(index);
   };
 }
 
@@ -5127,6 +5259,7 @@ function createJsonFieldStreamExtractor(fieldName: string, onChunk: (chunk: stri
 function createWorkspaceStreamExtractor(
   onToken: (chunk: string) => void,
   onThinking: (chunk: string) => void,
+  onFrame?: (chunk: string) => void,
 ): (chunk: string) => void {
   const sayExtractor = createJsonFieldStreamExtractor("say", onToken);
   const reasoningExtractor = createJsonFieldStreamExtractor("reasoning_content", onThinking);
@@ -5134,6 +5267,7 @@ function createWorkspaceStreamExtractor(
   return (chunk: string) => {
     sayExtractor(chunk);
     reasoningExtractor(chunk);
+    onFrame?.(chunk);
   };
 }
 

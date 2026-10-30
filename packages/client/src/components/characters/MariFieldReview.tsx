@@ -10,6 +10,7 @@ import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { fieldLabel } from "../../lib/mari-edit-diff";
 import { mariFieldLabel } from "../../hooks/use-mari-editor-fields";
 import { TextBody, undoLabel } from "../chat/MariChangeReceipt";
+import { MariFieldWriting } from "./MariFieldWriting";
 
 interface MariFieldReviewValue {
   entityId: string;
@@ -179,6 +180,8 @@ export function MariFieldReview({ field, children }: { field: string; children: 
   const index = review?.waiting.findIndex((item) => item.fieldId === field) ?? -1;
   const showReview = review && index >= 0 && focus !== "typing";
   const kept = review?.kept?.fieldIds.includes(field) ? review.kept : null;
+  const writing = useUIStore((state) => state.mariFieldStream?.[state.characterDetailId ?? ""]?.[field]);
+  if (writing !== undefined && focus === "none") return <MariFieldWriting text={writing} />;
   return (
     <div
       className="contents"
@@ -310,7 +313,7 @@ function KeptLine({ kept }: { kept: NonNullable<MariFieldReviewValue["kept"]> })
           .filter(Boolean)
           .join(" · ")}
       </span>
-      <button type="button" className="mari-link" onClick={kept.undo}>
+      <button type="button" className="mari-btn" onClick={kept.undo}>
         <Undo2 aria-hidden="true" />
         {t("ui.chat.mariappliededit.undo")}
       </button>

@@ -5,7 +5,6 @@ import {
   MessageRole,
   MariWorkspaceStatus,
   MariSuggestionChip,
-  MariGuidedPlanStep,
   Chat,
   MariComposerReference,
 } from "@marinara-engine/shared";
@@ -16,7 +15,7 @@ import { api, isPassiveStreamDisconnect } from "../../../lib/api-client";
 import { awaitMariPermissionsModeWrites } from "../../../lib/mari-permissions-write-chain";
 import { describeProfessorMariError } from "../../../lib/professor-mari-errors";
 import { RafThrottle, rafThrottle } from "../../../lib/raf-throttle";
-import { mariWorkingFieldFromTool } from "../../../lib/mari-editor-fields";
+import { mariPatchFieldId, reviewRank, mariWorkingFieldFromTool } from "../../../lib/mari-editor-fields";
 import { useChatStore } from "../../../stores/chat.store";
 import { shownMariAppearancePack, useUIStore } from "../../../stores/ui.store";
 import {
@@ -45,7 +44,6 @@ import {
 type MariWorkspaceRunInput = {
   activeChatIdRef: RefObject<string | null>;
   chatId: string | null;
-  clearMariPlan: () => void;
   effectiveConnectionId: string;
   handoffContext: ProfessorMariAskContext | null;
   invalidateActionResult: (result: MariWorkspaceActionResult) => Promise<void>;
@@ -72,7 +70,6 @@ type MariWorkspaceRunInput = {
   refreshWorkspaceStatus: (shouldApply?: () => boolean) => Promise<MariWorkspaceStatus>;
   setCancelledChatId: Dispatch<SetStateAction<string | null>>;
   setMariChips: (chatId: string | null, chips: MariSuggestionChip[]) => void;
-  setMariPlan: (chatId: string | null, steps: MariGuidedPlanStep[]) => void;
   setRecovery: (value: ProfessorMariRecovery | null) => void;
   setWorkspaceActive: Dispatch<SetStateAction<boolean>>;
   setWorkspaceRunClock: Dispatch<SetStateAction<{ startedAt: number; endedAt: number | null } | null>>;
@@ -85,7 +82,6 @@ type MariWorkspaceRunInput = {
 export function useMariWorkspaceRun({
   activeChatIdRef,
   chatId,
-  clearMariPlan,
   effectiveConnectionId,
   handoffContext,
   invalidateActionResult,
@@ -95,7 +91,6 @@ export function useMariWorkspaceRun({
   refreshWorkspaceStatus,
   setCancelledChatId,
   setMariChips,
-  setMariPlan,
   setRecovery,
   setWorkspaceActive,
   setWorkspaceRunClock,
@@ -171,6 +166,17 @@ export function useMariWorkspaceRun({
         draftThrottle.cancel();
         useChatStore.getState().setMariDraft(chat.id, null);
       };
+      // Her text for character fields while she writes them, also once a frame. Kept for every
+      // character, so an editor opened mid-stream shows the whole text so far.
+      let fieldStream: Record<string, Record<string, string>> = {};
+      const fieldStreamThrottle = rafThrottle<Record<string, Record<string, string>>>((value) =>
+        useUIStore.getState().setMariFieldStream(value),
+      );
+      const clearFieldStream = () => {
+        fieldStream = {};
+        fieldStreamThrottle.cancel();
+        if (useUIStore.getState().mariFieldStream) useUIStore.getState().setMariFieldStream(null);
+      };
       // Mirror use-generate's backgrounding bookkeeping: Android browsers tear
       // down a hidden tab's connection with a plain TypeError, and the shared
       // classifier needs to know the page was hidden to call that passive.
@@ -211,6 +217,22 @@ export function useMariWorkspaceRun({
           if (event.type === "draft") {
             if (typeof event.data !== "string") clearDraft();
             else draftThrottle.call((draft = event.data));
+            continue;
+          }
+          if (event.type === "edit_delta") {
+            const delta = asRecord(event.data);
+            const characterId = typeof delta?.characterId === "string" ? delta.characterId : "";
+            const fieldId =
+              characterId && typeof delta?.field === "string" && typeof delta.text === "string"
+                ? mariPatchFieldId("character", delta.field)
+                : null;
+            if (!delta) clearFieldStream();
+            else if (fieldId && reviewRank("character", fieldId) >= 0) {
+              const fields = fieldStream[characterId] ?? {};
+              const before = delta.restart ? "" : (fields[fieldId] ?? "");
+              fieldStream = { ...fieldStream, [characterId]: { ...fields, [fieldId]: before + String(delta.text) } };
+              fieldStreamThrottle.call(fieldStream);
+            }
             continue;
           }
           // Her real words or a step replace the draft.
@@ -295,12 +317,6 @@ export function useMariWorkspaceRun({
             ) {
               setMariChips(chat.id, chips);
             }
-          } else if (event.type === "plan") {
-            if (useUIStore.getState().professorMariSuggestionsEnabled) {
-              const steps = Array.isArray(event.data) ? (event.data as MariGuidedPlanStep[]) : [];
-              if (steps.length > 0) setMariPlan(chat.id, steps);
-              else clearMariPlan();
-            }
           } else if (event.type === "metadata") {
             const data = asRecord(event.data);
             if (data?.narration === true) setWorkspaceTimeline(markNarrationTimeline);
@@ -347,6 +363,7 @@ export function useMariWorkspaceRun({
         }
         workspaceTextThrottle.flush();
         clearDraft();
+        clearFieldStream();
         workspaceAbortRef.current = null;
         setWorkspaceActive(false);
         if (useUIStore.getState().mariWorkingField) useUIStore.getState().setMariWorkingField(null);
@@ -364,7 +381,6 @@ export function useMariWorkspaceRun({
       return { received, runId, hiddenDuringStream: pageWasHiddenDuringStream };
     },
     [
-      clearMariPlan,
       effectiveConnectionId,
       handoffContext,
       invalidateActionResult,
@@ -372,7 +388,6 @@ export function useMariWorkspaceRun({
       qc,
       setCancelledChatId,
       setMariChips,
-      setMariPlan,
       setWorkspaceActive,
       setWorkspaceRunClock,
       setWorkspaceTimeline,

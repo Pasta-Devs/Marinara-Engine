@@ -4,6 +4,7 @@ import {
   composerKeyAction,
   draftSegments,
   formatReferenceToken,
+  pastedFiles,
   type ComposerKeyInput,
   type ComposerMark,
 } from "../../packages/client/src/lib/composer-triggers.js";
@@ -169,5 +170,21 @@ const markSets: ComposerMark[][] = [
   ],
 ];
 for (const marks of markSets) assert.equal(joined(sample, marks), sample);
+
+// A screenshot attaches; a copy that also carries text stays a text paste.
+{
+  const shot = new File(["x"], "image.png", { type: "image/png" });
+  const clipboard = (text: string, items: { kind: string; getAsFile: () => File | null }[]) =>
+    ({ getData: () => text, items }) as unknown as Pick<DataTransfer, "items" | "getData">;
+  const fileItem = { kind: "file", getAsFile: () => shot };
+  assert.deepEqual(pastedFiles(clipboard("", [fileItem])), [shot]);
+  assert.deepEqual(pastedFiles(clipboard("  ", [fileItem])), [shot]);
+  assert.deepEqual(pastedFiles(clipboard("Cell A1", [fileItem])), []);
+  assert.deepEqual(pastedFiles(clipboard("image.png", [fileItem])), [shot]);
+  assert.deepEqual(pastedFiles(clipboard("/home/me/image.png", [fileItem])), [shot]);
+  assert.deepEqual(pastedFiles(clipboard("see image.png for details", [fileItem])), []);
+  assert.deepEqual(pastedFiles(clipboard("hello", [{ kind: "string", getAsFile: () => null }])), []);
+  assert.deepEqual(pastedFiles(clipboard("", [{ kind: "file", getAsFile: () => null }])), []);
+}
 
 console.log("Composer triggers regression passed");

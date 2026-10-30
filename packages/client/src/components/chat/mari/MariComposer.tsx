@@ -41,6 +41,7 @@ import { RESULT_TYPE_ICONS, resourceResultType } from "../../../lib/command-icon
 import {
   activeToken,
   composerKeyAction,
+  pastedFiles,
   type ComposerMark,
   type ComposerPickerAction,
 } from "../../../lib/composer-triggers";
@@ -90,7 +91,7 @@ type MariComposerProps = {
   effectiveConnectionId: string;
   enterToSend: boolean;
   floatingTextareaRef: RefObject<HTMLTextAreaElement | null>;
-  handleAttachmentUpload: (files: FileList | null) => Promise<void>;
+  handleAttachmentUpload: (files: FileList | readonly File[] | null) => Promise<void>;
   handleConnectionChange: (id: string) => void;
   handleOpenContextViewer: () => Promise<void>;
   handleOpenHistoryPicker: () => Promise<void>;
@@ -515,6 +516,12 @@ export function MariComposer({
               const { scrollLeft, scrollTop } = event.currentTarget;
               event.currentTarget.toggleAttribute("data-scrolled", scrollTop > 0);
               setComposerScroll({ left: scrollLeft, top: scrollTop });
+            }}
+            onPaste={(event) => {
+              const files = pastedFiles(event.clipboardData);
+              if (files.length === 0) return;
+              event.preventDefault();
+              void handleAttachmentUpload(files);
             }}
             onSelect={(event) => trackCaret(event.currentTarget)}
             onKeyUp={(event) => trackCaret(event.currentTarget)}

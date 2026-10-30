@@ -384,6 +384,68 @@ export function resolveOnboardingPersona(
   return result;
 }
 
+/**
+ * The template's persona question names that `texts` mention, as a bare
+ * `{{name}}` or in the left operand of an `{{#if}}` / `{{else if}}` condition.
+ * One scan for the Character Editor's greeting warning and for the wizard's
+ * decision to fill a greeting in, so the two can't disagree. `{{classy}}` is not
+ * `class`: names are matched whole.
+ */
+export function findPersonaVariableUses(onboarding: CharacterOnboarding, texts: readonly string[]): Set<string> {
+  const personaNames = onboardingNames(onboarding);
+  const uses = new Set<string>();
+  for (const name of readNames(texts.join("\n"))) {
+    if (personaNames.has(name)) uses.add(name);
+  }
+  return uses;
+}
+
+/** True when the greeting mentions one of the template's persona question names. */
+export function greetingMentionsPersonaName(onboarding: CharacterOnboarding, greeting: string): boolean {
+  return findPersonaVariableUses(onboarding, [greeting]).size > 0;
+}
+
+/**
+ * Whether the wizard fills in this card's greetings from the persona answers:
+ * the persona was created from THIS card's template, and the chat still uses
+ * that persona (picking another one afterwards leaves the greeting as written).
+ */
+export function shouldFillGreetingFromPersona(
+  created: { cardId: string; personaId: string } | null | undefined,
+  characterId: string,
+  chatPersonaId: string | null | undefined,
+): boolean {
+  return !!created && created.cardId === characterId && !!chatPersonaId && created.personaId === chatPersonaId;
+}
+
+/**
+ * One greeting with the player's persona answers filled in, as plain text. A
+ * greeting that mentions no persona question is returned untouched, byte for byte.
+ *
+ * Read like the persona: same answer context, so `{{#if}}`, macros inside option
+ * values and unanswered follow-ups going blank all behave alike, and `{{user}}` /
+ * `{{char}}` stay live. Tags the persona answers don't own (`{{time}}`,
+ * `{{random}}`) resolve here, once, as they do when a persona is created.
+ *
+ * `characterAnswers` are the chat's character-question answers. They are only
+ * read: a condition on one (`{{#if relationshipToUser == friend}}`) has to take
+ * the right branch, because the text this returns can't be re-evaluated. For the
+ * same reason a plain `{{relationshipToUser}}` in a greeting like this is filled
+ * in as well, and stops following later edits of that answer.
+ */
+export function resolveOnboardingGreeting(
+  onboarding: CharacterOnboarding,
+  answers: OnboardingAnswers,
+  greeting: string,
+  characterAnswers: Record<string, string> = {},
+): string {
+  if (!greetingMentionsPersonaName(onboarding, greeting)) return greeting;
+  const ctx = answerContext(onboarding, answers, { user: "{{user}}", char: "{{char}}" });
+  // A copy, so a `{{setvar}}` in the greeting can't write into the caller's map.
+  ctx.localVariables = { ...characterAnswers };
+  return blankOnboardingNames(onboardingNames(onboarding), resolveMacros(greeting, ctx, { trimResult: false }));
+}
+
 // ──────────────────────────────────────────────
 // Card variables (#7434)
 //
@@ -490,29 +552,6 @@ function onboardingCardFieldTexts(card: OnboardingCardFields | null | undefined)
 }
 
 /**
- * Card texts that reference a card variable but would NOT be resolved in the
- * prompt, so an author can be told. The greeting is the notable one: it is
- * displayed from the client's own macro context, which does not read chat
- * variables, so a `{{name}}` there shows literally (deferred, see the PR).
- * ponytail: a text scan, not the engine — these fields are never macro-resolved
- * on the cards path, so there is nothing to measure against.
- */
-export function findUnresolvedCardVariableUses(
-  onboarding: CharacterOnboarding,
-  greetings: readonly string[] = [],
-): Set<string> {
-  const names = new Set((onboarding.cardVariables ?? []).map((variable) => variable.variableName));
-  const found = new Set<string>();
-  if (names.size === 0) return found;
-  for (const text of greetings) {
-    for (const match of text.matchAll(/\{\{([A-Za-z_]\w*)\}\}/g)) {
-      if (names.has(match[1]!)) found.add(match[1]!);
-    }
-  }
-  return found;
-}
-
-/**
  * Whether this card's onboarding offers the player anything, used to suppress
  * the wizard's marker and trigger for an enabled-but-empty block. A card with no
  * questions is still meaningful when its fields carry text: it ships a
@@ -590,6 +629,26 @@ export function getCardVariableChipNames(onboarding: CharacterOnboarding | null 
     if (name) names.add(name);
   }
   return [...names];
+}
+
+/**
+ * The chips a greeting offers. A card field reads character answers and a persona
+ * field reads persona answers, but a greeting resolves both, so it lists both,
+ * split by who answers them. Persona names need a template to fill them in, and a
+ * name both lists declare is one chat variable, so it stays with the character.
+ */
+export function getGreetingVariableChipNames(onboarding: CharacterOnboarding | null | undefined): {
+  character: string[];
+  persona: string[];
+} {
+  const character = getCardVariableChipNames(onboarding);
+  if (!onboarding?.enabled || !canBuildPersona(onboarding)) return { character, persona: [] };
+  const persona = new Set<string>();
+  for (const variable of getOnboardingVariables(onboarding)) {
+    const name = variable.variableName.trim();
+    if (name && !character.includes(name)) persona.add(name);
+  }
+  return { character, persona: [...persona] };
 }
 
 /** The next card question without an answer, or null when they are all answered. */

@@ -53,7 +53,8 @@ import {
 } from "./organizer/organizer-model";
 import { AgentIcon, IconStack, OrganizerContext, type OrganizerActions } from "./organizer/OrganizerParts";
 import { OrganizerHome } from "./organizer/OrganizerHome";
-import { InstalledPage, SearchResults, SectionPage, UpdatesPage } from "./organizer/OrganizerLists";
+import { InstalledPage, SearchResults, SectionPage, UpdatesPage, type UpdateRun } from "./organizer/OrganizerLists";
+import type { AgentUpdateResult } from "./AgentUpdateDialog";
 import { AgentPage } from "./organizer/AgentPage";
 
 type BulkActionProgress = {
@@ -97,6 +98,7 @@ export function AgentCatalogView() {
   );
   const [menu, setMenu] = useState<{ entry: OrganizerEntry | null; x: number; y: number } | null>(null);
   const [bulkProgress, setBulkProgress] = useState<BulkActionProgress | null>(null);
+  const [updateRun, setUpdateRun] = useState<UpdateRun | null>(null);
   const [customRepositoriesOpen, setCustomRepositoriesOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
@@ -160,7 +162,8 @@ export function AgentCatalogView() {
   );
   const installedPackageIds = useMemo(() => (installed.data ?? []).map((entry) => entry.id), [installed.data]);
   const bulkActionPending = installAll.isPending || uninstallAll.isPending;
-  const packageActionPending = install.isPending || uninstall.isPending || bulkActionPending;
+  const packageActionPending =
+    install.isPending || uninstall.isPending || bulkActionPending || (updateRun?.running ?? false);
   const busyId = install.isPending
     ? (install.variables?.id ?? null)
     : uninstall.isPending
@@ -170,6 +173,11 @@ export function AgentCatalogView() {
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [page]);
+
+  // A finished run stays on the Updates page until the user leaves it.
+  useEffect(() => {
+    if (page.kind !== "updates") setUpdateRun((current) => (current?.running ? current : null));
+  }, [page, updateRun?.running]);
 
   useEffect(() => {
     if (!initialPackageId) return;
@@ -230,11 +238,73 @@ export function AgentCatalogView() {
     }
   };
 
-  const handleUpdateAll = () => handleInstallAll(updates, true);
+  /** Updates one by one so each row on the Updates page shows its own state; a retry reuses the open run. */
+  const runUpdates = async (rows: OrganizerEntry[], retry = false) => {
+    if (rows.length === 0 || packageActionPending) return;
+    // go() also clears the search, which would otherwise hide the Updates page.
+    if (page.kind !== "updates" || query) go({ kind: "updates" });
+    setUpdateRun((current) =>
+      retry && current
+        ? {
+            ...current,
+            // A retry installs the live catalog entry, so the row shows that version too.
+            rows: current.rows.map((row) => rows.find((next) => next.manifest.id === row.manifest.id) ?? row),
+            running: true,
+          }
+        : {
+            rows,
+            from: Object.fromEntries(
+              rows.map((entry) => [entry.manifest.id, installedById.get(entry.manifest.id)!.version]),
+            ),
+            results: {},
+            running: true,
+          },
+    );
+    let restartRequired = false;
+    let usesDecisions = false;
+    let failed = 0;
+    for (const entry of rows) {
+      const id = entry.manifest.id;
+      const setResult = (result: AgentUpdateResult) =>
+        setUpdateRun((current) => current && { ...current, results: { ...current.results, [id]: result } });
+      setResult({ status: "running" });
+      try {
+        const result = await install.mutateAsync({
+          id,
+          expectedVersion: entry.manifest.version,
+          expectedArtifactSha256: entry.artifact.sha256,
+        });
+        const needsRestart = result.status === "restart-required";
+        restartRequired ||= needsRestart;
+        usesDecisions ||= result.usesDecisions ?? false;
+        setResult({ status: "updated", restartRequired: needsRestart });
+      } catch (error) {
+        failed += 1;
+        setResult({
+          status: "failed",
+          error: getPrivilegedActionErrorMessage(
+            error,
+            localizeUi("ui.agents.agentupdateprompter.someUpdatesCouldNotBeApplied"),
+          ),
+        });
+      }
+    }
+    setUpdateRun((current) => current && { ...current, running: false });
+    void notifyDecisionImport(usesDecisions, localizeUi);
+    if (failed > 0) toast.warning(localizeUi("ui.agents.agentupdateprompter.someUpdatesCouldNotBeApplied"));
+    else
+      toast.success(
+        localizeUi(
+          restartRequired
+            ? "ui.agents.agentupdateprompter.updatesAppliedRestartRequired"
+            : "ui.agents.agentupdateprompter.updatesAppliedReadyToUse",
+        ),
+      );
+  };
+  const handleUpdateAll = () => void runUpdates(updates);
 
   const handleInstallAll = async (
     packages: CapabilityCatalogPackage[] = all.filter((entry) => installablePackageIds.includes(entry.manifest.id)),
-    isUpdate = false,
   ) => {
     if (!installed.data || packages.length === 0 || packageActionPending) return;
     const total = packages.length;
@@ -245,15 +315,7 @@ export function AgentCatalogView() {
         onProgress: (completed) => setBulkProgress({ action: "install", completed, total }),
       });
       void notifyDecisionImport(result.usesDecisions, localizeUi);
-      if (result.failures.length === 0 && isUpdate) {
-        toast.success(
-          localizeUi(
-            result.restartRequired
-              ? "ui.agents.agentupdateprompter.updatesAppliedRestartRequired"
-              : "ui.agents.agentupdateprompter.updatesAppliedReadyToUse",
-          ),
-        );
-      } else if (result.failures.length === 0) {
+      if (result.failures.length === 0) {
         toast.success(
           result.restartRequired
             ? localizeUi("ui.agents.agentcatalogview.value1AgentsInstalledRestartMarinaraEngineToFinishSetup", {
@@ -516,7 +578,16 @@ export function AgentCatalogView() {
       </p>
     );
   } else if (page.kind === "updates") {
-    content = <UpdatesPage entries={all} onUpdateAll={() => void handleUpdateAll()} />;
+    content = (
+      <UpdatesPage
+        entries={all}
+        run={updateRun}
+        onUpdateAll={handleUpdateAll}
+        onRetry={(entry) =>
+          void runUpdates([all.find((live) => live.manifest.id === entry.manifest.id) ?? entry], true)
+        }
+      />
+    );
   } else if (page.kind === "installed") {
     content = <InstalledPage entries={all} />;
   } else if (page.kind === "section") {

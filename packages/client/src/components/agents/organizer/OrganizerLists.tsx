@@ -5,6 +5,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { useCapabilityPackageReleaseNotes } from "../../../hooks/use-capability-packages";
 import { cn } from "../../../lib/utils";
 import { AgentReleaseNoteList } from "../AgentReleaseNoteList";
+import { AgentUpdateFailure, AgentUpdateStatus, type AgentUpdateResult } from "../AgentUpdateDialog";
 import {
   formatBytes,
   checkReasonOf,
@@ -203,17 +204,37 @@ function UpdateNotes({ entry, installedVersion }: { entry: OrganizerEntry; insta
   );
 }
 
-export function UpdatesPage({ entries, onUpdateAll }: { entries: readonly OrganizerEntry[]; onUpdateAll: () => void }) {
+/** An "Update all" run: its rows stay listed with their result after they are up to date. */
+export interface UpdateRun {
+  rows: OrganizerEntry[];
+  /** Installed version of each row when the run started, by package id. */
+  from: Record<string, string>;
+  results: Record<string, AgentUpdateResult>;
+  running: boolean;
+}
+
+export function UpdatesPage({
+  entries,
+  run,
+  onUpdateAll,
+  onRetry,
+}: {
+  entries: readonly OrganizerEntry[];
+  run: UpdateRun | null;
+  onUpdateAll: () => void;
+  onRetry: (entry: OrganizerEntry) => void;
+}) {
   const { installedById, pending } = useOrganizer();
   const { t: localizeUi } = useUiTranslation();
-  const rows = entries.filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id)));
+  const rows = run?.rows ?? entries.filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id)));
+  const notUpdated = rows.filter((entry) => run?.results[entry.manifest.id]?.status !== "updated").length;
   return (
     <div>
       <PageHeader
         title={localizeUi("ui.agents.organizer.updatesTitle")}
-        hint={rows.length > 0 ? localizeUi("ui.agents.organizer.updatesReady", { count: rows.length }) : undefined}
+        hint={notUpdated > 0 ? localizeUi("ui.agents.organizer.updatesReady", { count: notUpdated }) : undefined}
       >
-        {rows.length > 1 && (
+        {rows.length > 1 && !run && (
           <button
             type="button"
             className={cn(PRIMARY_ACTION, "h-9 gap-2 px-4 text-sm font-semibold")}
@@ -230,17 +251,22 @@ export function UpdatesPage({ entries, onUpdateAll }: { entries: readonly Organi
       ) : (
         <ul>
           {rows.map((entry) => {
-            const installedVersion = installedById.get(entry.manifest.id)!.version;
+            const installedVersion = run?.from[entry.manifest.id] ?? installedById.get(entry.manifest.id)!.version;
+            const result = run?.results[entry.manifest.id];
             return (
               <AgentRow
                 key={entry.manifest.id}
                 entry={entry}
+                action={run ? <AgentUpdateStatus result={result} /> : undefined}
                 meta={`${localizeUi("ui.agents.organizer.versionChange", { from: installedVersion, to: entry.manifest.version })}${
                   entry.manifest.restartRequired
                     ? ` · ${localizeUi("ui.agents.agentupdatedialog.restartRequired")}`
                     : ""
                 }`}
               >
+                {result?.status === "failed" && (
+                  <AgentUpdateFailure error={result.error} disabled={pending} onRetry={() => onRetry(entry)} />
+                )}
                 <UpdateNotes entry={entry} installedVersion={installedVersion} />
               </AgentRow>
             );

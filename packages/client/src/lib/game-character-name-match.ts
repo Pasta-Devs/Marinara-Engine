@@ -114,6 +114,20 @@ export function findNamedEntry<T>(
   return undefined;
 }
 
+/** Whether an entry carries exactly this name, not only a variant of it. */
+export function hasExactNamedEntry<T>(
+  entries: Iterable<T>,
+  targetName: string,
+  getName: (entry: T) => string | null | undefined,
+): boolean {
+  const normalizedTarget = normalizeCharacterName(targetName);
+  if (!normalizedTarget) return false;
+  for (const entry of entries) {
+    if (normalizeCharacterName(getName(entry) ?? "") === normalizedTarget) return true;
+  }
+  return false;
+}
+
 export function findNamedMapValue<T>(map: Map<string, T>, targetName: string): T | undefined {
   const entry = findNamedEntry(map.entries(), targetName, ([name]) => name);
   return entry?.[1];

@@ -2028,7 +2028,7 @@ assert.ok(!("mariDetailId" in mariSession));
     1,
     "back-to-back steps of one kind share one phase",
   );
-  // Slice 70: a finished, answered run shows steps and the answer, not each round's narration.
+  // A finished, answered run keeps each round's words folded in its phases; the last round is the answer.
   const narrated: WorkTimelineItem<Step>[] = [
     { id: "n0", type: "text", content: "Let me pull up her card." },
     step("r1", "Reading character"),
@@ -2039,19 +2039,24 @@ assert.ok(!("mariDetailId" in mariSession));
   ];
   const finished = groupRunPhases(narrated, { active: false, describe });
   assert.deepEqual(
-    [finished.intro.length, finished.phases[0]!.items.map((item) => item.id), finished.tail.map((item) => item.id)],
-    [0, ["r1", "r2"], ["a"]],
-    "slice 70: a finished answered run drops interim narration",
+    [
+      finished.intro.map((item) => item.id),
+      finished.phases[0]!.items.map((item) => item.id),
+      finished.phases[0]!.caption,
+      finished.tail.map((item) => item.id),
+    ],
+    [["n0"], ["r1", "n1", "r2"], "Got the full card.", ["a"]],
+    "a finished answered run keeps her words between steps and shows only the last round as the answer",
   );
   assert.deepEqual(
     groupRunPhases(narrated, { active: true, describe }).intro.map((item) => item.id),
     ["n0"],
-    "slice 70: while she runs, her narration stays as live status",
+    "while she runs, her narration stays as live status",
   );
   assert.deepEqual(
     groupRunPhases(narrated.slice(0, 4), { active: false, describe }).phases[0]!.items.map((item) => item.id),
     ["r1", "n1", "r2"],
-    "slice 70: a run that ended without an answer keeps her last words",
+    "a run that ended without an answer keeps her last words",
   );
   // Slice 72: the server sends a round's words after its steps and marks them; they caption that phase.
   const marked: WorkTimelineItem<Step>[] = [
@@ -2077,8 +2082,34 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.equal(
     groupRunPhases([...marked, { id: "a", type: "text", content: "Done." }], { active: false, describe }).phases[0]!
       .caption,
-    undefined,
-    "slice 72: a finished answered run drops the captions (slice 70)",
+    "Let me look at both of them first.",
+    "a finished answered run keeps its captions",
+  );
+  assert.equal(
+    groupRunPhases(
+      [
+        step("c1", "Reading character"),
+        { id: "s1", type: "text", content: "Which era do you lean towards?", narration: true },
+        step("c2", "Reading character"),
+        { id: "s2", type: "text", content: "Still reading.", narration: true },
+      ],
+      { active: true, describe },
+    ).phases[0]!.caption,
+    "Which era do you lean towards?\n\nStill reading.",
+    "every round's words join the phase's caption",
+  );
+  assert.equal(
+    groupRunPhases(
+      [
+        step("c1", "Reading character"),
+        { id: "s1", type: "text", content: "Mari: First look.", narration: true },
+        step("c2", "Reading character"),
+        { id: "s2", type: "text", content: "Professor Mari: Second look.", narration: true },
+      ],
+      { active: true, describe },
+    ).phases[0]!.caption,
+    "First look.\n\nSecond look.",
+    "a caption drops the speaker prefix, as a text block does",
   );
 }
 
@@ -4082,8 +4113,8 @@ assert.ok(!("mariDetailId" in mariSession));
   );
   assert.match(
     headerChromeSource,
-    /const needsYouCount =[\s\S]*?isMariReviewWaiting\(approval\)[\s\S]*?\(heldChangeCard \? 1 : 0\);/u,
-    "the omnibar header asks for an answer only for a real approval or a held change",
+    /const needsYouCount =[\s\S]*?isMariReviewWaiting\(approval\)[\s\S]*?\(heldChangeCard \? 1 : 0\) \+\s*\(questionCardWaiting \? 1 : 0\);/u,
+    "the omnibar header asks for an answer only for a real approval, a held change or a question card",
   );
   // UX-04: the top-bar pill, the Now row, the empty state and the open-with-review flags count only waiting reviews.
   // An applied change (Keep/Undo) is not a question, so it never raises "Needs you".

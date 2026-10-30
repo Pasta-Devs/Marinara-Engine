@@ -211,7 +211,7 @@ assert.ok("home.browser.tabMenu" in enJson);
 // Slice 71: the held change is now a "Needs you" card (no chip row, no caption) whose words say
 // plainly that nothing is applied yet, and whose buttons send the same Accept / decline replies.
 assert.ok(
-  mariChatFlat.includes("const heldChangeCard = chipRowAwaitsApproval && !guidedPlanStep;"),
+  mariChatFlat.includes("const heldChangeCard = chipRowAwaitsApproval;"),
   "a held change renders as its card, not as a suggestions row",
 );
 assert.ok(

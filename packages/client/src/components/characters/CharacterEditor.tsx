@@ -145,6 +145,7 @@ import {
   applyBakedGreetingImages,
   findGreetingImageUrls,
   getCardVariableChipNames,
+  getGreetingVariableChipNames,
   normalizeAvatarCrop,
   readBakedGreetingImages,
   hasBakedGreetingImages,
@@ -177,7 +178,7 @@ import { SETTINGS_BUTTON_CLASS, SettingsSwitch } from "../panels/settings/Settin
 import {
   characterOnboardingSchema,
   createDefaultRpgStatPools,
-  findUnresolvedCardVariableUses,
+  findPersonaVariableUses,
   getOnboardingVariables,
   getRelevantOnboardingVariables,
   hasOnboardingContent,
@@ -1647,6 +1648,58 @@ function SectionHeader({
   );
 }
 
+function VariableChip({ name, onInsert }: { name: string; onInsert: (name: string) => void }) {
+  const { t: localizeUi } = useUiTranslation();
+  return (
+    <button
+      type="button"
+      onClick={() => onInsert(name)}
+      title={name}
+      aria-label={localizeUi("ui.characters.onboarding.insertCardVariable", { value1: `{{${name}}}` })}
+      className={cn(
+        SETTINGS_BUTTON_CLASS,
+        "mari-chrome-control--chip mari-chrome-control--regular-label font-mono text-[0.6rem]",
+      )}
+    >
+      <Code2 size="0.625rem" />
+      {"{{" + name + "}}"}
+    </button>
+  );
+}
+
+/** A greeting resolves both kinds of answer, so its chips list both, split by who answers them. */
+function GreetingVariableChips({
+  names,
+  onInsert,
+}: {
+  names: { character: string[]; persona: string[] };
+  onInsert: (name: string) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const groups = [
+    { label: localizeUi("ui.characters.onboarding.cardQuestions"), names: names.character },
+    { label: localizeUi("ui.characters.onboarding.questions"), names: names.persona },
+  ].filter((group) => group.names.length > 0);
+  if (groups.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+        {localizeUi("ui.panels.promptoverrideseditorbody.availableVariables")}
+      </span>
+      {groups.map((group) => (
+        <div key={group.label} className="flex flex-col gap-1">
+          <span className="text-[0.625rem] text-[var(--muted-foreground)]/70">{group.label}</span>
+          <div className="flex flex-wrap gap-1.5">
+            {group.names.map((name) => (
+              <VariableChip key={name} name={name} onInsert={onInsert} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CharacterCardTab({
   formData,
   updateField,
@@ -1747,20 +1800,7 @@ function CharacterCardTab({
         </span>
         <div className="flex flex-wrap gap-1.5">
           {chipNames.map((name) => (
-            <button
-              type="button"
-              key={name}
-              onClick={() => insertVariable(field, name)}
-              title={name}
-              aria-label={localizeUi("ui.characters.onboarding.insertCardVariable", { value1: `{{${name}}}` })}
-              className={cn(
-                SETTINGS_BUTTON_CLASS,
-                "mari-chrome-control--chip mari-chrome-control--regular-label font-mono text-[0.6rem]",
-              )}
-            >
-              <Code2 size="0.625rem" />
-              {"{{" + name + "}}"}
-            </button>
+            <VariableChip key={name} name={name} onInsert={(chip) => insertVariable(field, chip)} />
           ))}
         </div>
       </div>
@@ -2082,11 +2122,11 @@ function OnboardingTab({
     onboarding.cardVariables ?? [],
     "ui.characters.onboarding.issueUnusedCard",
   );
-  // A greeting is shown from the chat's own text, which does not read chat
-  // variables, so a card question's tag there would reach the player as typed.
-  const greetingUses = useMemo(
+  // A greeting that uses a persona question's name is filled in only when the
+  // player creates that persona in the wizard; otherwise the tag shows as written.
+  const greetingPersonaUses = useMemo(
     () =>
-      findUnresolvedCardVariableUses(onboarding, [
+      findPersonaVariableUses(onboarding, [
         formData.first_mes,
         ...((formData.alternate_greetings as string[] | undefined) ?? []),
       ]),
@@ -2273,20 +2313,6 @@ function OnboardingTab({
                   })
                 }
               />
-              {greetingUses.size > 0 && (
-                <p role="status" className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-[var(--foreground)]">
-                  <AlertTriangle
-                    size="0.625rem"
-                    className="mt-0.5 shrink-0 text-[var(--marinara-app-accent-static)]"
-                    aria-hidden
-                  />
-                  <span>
-                    {localizeUi("ui.characters.onboarding.cardVariableInGreeting", {
-                      value1: [...greetingUses].join(", "),
-                    })}
-                  </span>
-                </p>
-              )}
             </EditorSectionAnchor>
             <EditorSectionAnchor id="character-onboarding-questions">
               <PresetVariablesEditor
@@ -2322,6 +2348,20 @@ function OnboardingTab({
                   })
                 }
               />
+              {greetingPersonaUses.size > 0 && (
+                <p role="status" className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-[var(--foreground)]">
+                  <AlertTriangle
+                    size="0.625rem"
+                    className="mt-0.5 shrink-0 text-[var(--marinara-app-accent-static)]"
+                    aria-hidden
+                  />
+                  <span>
+                    {localizeUi("ui.characters.onboarding.personaQuestionInGreeting", {
+                      value1: [...greetingPersonaUses].map((name) => `{{${name}}}`).join(", "),
+                    })}
+                  </span>
+                </p>
+              )}
             </EditorSectionAnchor>
             {/* One anchor and one nav chip for the whole group: the five fields
                 below are a single template a card provides, so listing five
@@ -2357,18 +2397,7 @@ function OnboardingTab({
                           </span>
                           <div className="flex flex-wrap gap-1.5">
                             {variableNames.map((name) => (
-                              <button
-                                type="button"
-                                key={name}
-                                onClick={() => insertVariable(field, name)}
-                                className={cn(
-                                  SETTINGS_BUTTON_CLASS,
-                                  "mari-chrome-control--chip mari-chrome-control--regular-label font-mono text-[0.6rem]",
-                                )}
-                              >
-                                <Code2 size="0.625rem" />
-                                {"{{" + name + "}}"}
-                              </button>
+                              <VariableChip key={name} name={name} onInsert={(chip) => insertVariable(field, chip)} />
                             ))}
                           </div>
                         </div>
@@ -2544,6 +2573,7 @@ function TextareaTab({
   onChange,
   placeholder,
   rows = 8,
+  textareaClassName,
   helpText,
   textareaRef,
   onFocus,
@@ -2558,6 +2588,8 @@ function TextareaTab({
   onChange: (v: string) => void;
   placeholder: string;
   rows?: number;
+  /** Extra classes on the textarea; wins over the defaults, e.g. a prompt font. */
+  textareaClassName?: string;
   textareaRef?: Ref<HTMLTextAreaElement>;
   onFocus?: () => void;
   /** Shown under the textarea, inside the panel. */
@@ -2586,7 +2618,10 @@ function TextareaTab({
           title={title}
           showMarkdownPreview
           selfCharacterId={selfCharacterId}
-          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+          className={cn(
+            "w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20",
+            textareaClassName,
+          )}
         />
       </MariFieldReview>
       {footer}
@@ -3599,7 +3634,43 @@ function DialogueTab({
   };
 
   const greetingActionButtonClassName =
-    "mari-editor-action mari-editor-action--compact inline-flex h-8 w-8 rounded-lg p-0 disabled:cursor-not-allowed disabled:opacity-40";
+    "mari-editor-action inline-flex h-10 w-10 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-40";
+
+  // Same read as the Card tab: `safeParse` keeps a malformed block from throwing in render.
+  const greetingChipNames = useMemo(() => {
+    const parsed = characterOnboardingSchema.safeParse(formData.extensions.onboarding ?? {});
+    return getGreetingVariableChipNames(parsed.success ? parsed.data : null);
+  }, [formData.extensions.onboarding]);
+  // The greeting that last had the caret, so its chips are the ones on screen:
+  // `first`, or an alternate's stable key (moving a greeting keeps its key).
+  const [activeGreeting, setActiveGreeting] = useState<string | null>(null);
+  const greetingFieldRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
+  const insertGreetingVariable = (target: string, name: string) => {
+    const token = "{{" + name + "}}";
+    const textarea = greetingFieldRefs.current[target];
+    const alternateIndex = greetingKeysRef.current.indexOf(target);
+    const current = target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "");
+    const start = textarea?.selectionStart ?? current.length;
+    const end = textarea?.selectionEnd ?? current.length;
+    const next = current.slice(0, start) + token + current.slice(end);
+    // Without quote normalisation, as on the Card tab: inserting one tag must not
+    // rewrite every quote already in the author's text.
+    updateFormData((data) =>
+      target === "first"
+        ? { ...data, first_mes: next }
+        : {
+            ...data,
+            alternate_greetings: data.alternate_greetings.map((greeting, i) =>
+              i === alternateIndex ? next : greeting,
+            ),
+          },
+    );
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + token.length, start + token.length);
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -3648,13 +3719,25 @@ function DialogueTab({
         </div>
       )}
 
-      {/* First Message */}
-      <div className="block space-y-1.5" data-mari-field="first_mes">
-        <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.characters.dialoguetab.firstMessage")}{" "}
-            <HelpTooltip text={localizeUi("ui.characters.dialoguetab.theCharacterSOpeningMessageWhenANewChat")} />
-          </span>
+      {/* First Message, with its Alternate Greetings: every new chat offers them as swipes. */}
+      <TextareaTab
+        title={localizeUi("ui.characters.dialoguetab.firstMessage")}
+        subtitle={localizeUi("ui.characters.dialoguetab.greetingsRoleplayOnly")}
+        helpText={localizeUi("ui.characters.dialoguetab.theCharacterSOpeningMessageWhenANewChat")}
+        mariField="first_mes"
+        value={formData.first_mes}
+        onChange={(value) => updateField("first_mes", value)}
+        textareaRef={(element) => {
+          greetingFieldRefs.current.first = element;
+        }}
+        onFocus={() => setActiveGreeting("first")}
+        rows={6}
+        placeholder={
+          localizeUi("ui.characters.dialoguetab.whatIsTheCharacterSFirstMessageWhenA") +
+          " " +
+          localizeUi("ui.cardFields.seedPlaceholder")
+        }
+        actions={
           <CharacterGreetingWand
             entityId={selfCharacterId}
             card={card}
@@ -3662,155 +3745,140 @@ function DialogueTab({
             onApply={(text) => updateField("first_mes", text)}
             label={localizeUi("ui.characters.dialoguetab.firstMessage")}
           />
-        </div>
-        <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">
-          {localizeUi("ui.characters.dialoguetab.greetingsRoleplayOnly")}
-        </p>
-        <MariFieldReview field="first_mes">
-          <MacroTextarea
-            ariaLabel={localizeUi("ui.characters.dialoguetab.firstMessage")}
-            showTokenCount
-            value={formData.first_mes}
-            onChange={(value) => updateField("first_mes", value)}
-            rows={6}
-            title={localizeUi("ui.characters.dialoguetab.firstMessage")}
-            showMarkdownPreview
-            selfCharacterId={selfCharacterId}
-            className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={
-              localizeUi("ui.characters.dialoguetab.whatIsTheCharacterSFirstMessageWhenA") +
-              " " +
-              localizeUi("ui.cardFields.seedPlaceholder")
-            }
-          />
-        </MariFieldReview>
-      </div>
-
-      {/* Alternate Greetings */}
-      <div className="space-y-3" data-mari-field="alternate_greetings">
-        <div className="flex items-center justify-between">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.characters.dialoguetab.alternateGreetings")}
-            {formData.alternate_greetings.length})
-            <HelpTooltip
-              text={localizeUi("ui.characters.dialoguetab.alternativeFirstMessagesForVarietyWhenStartingANew")}
-            />
-          </span>
-          <button
-            type="button"
-            onClick={addGreeting}
-            className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-3 py-1 text-xs"
-          >
-            {localizeUi("ui.characters.dialoguetab.add")}
-          </button>
-        </div>
-        <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">
-          {localizeUi("ui.characters.dialoguetab.greetingsRoleplayOnly")}
-        </p>
-        {formData.alternate_greetings.map((g, i) => (
-          <div
-            key={greetingKeysRef.current[i] ?? i}
-            className="space-y-2 rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/35 p-2.5"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.characters.dialoguetab.greeting")}
-                {i + 1}
-              </span>
-              <div className="flex shrink-0 items-center gap-1">
-                <CharacterGreetingWand
-                  entityId={selfCharacterId}
-                  card={card}
-                  value={g}
-                  onApply={(text) => updateGreeting(i, text)}
-                  label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+        }
+        footer={
+          <>
+            {activeGreeting === "first" && (
+              <GreetingVariableChips
+                names={greetingChipNames}
+                onInsert={(name) => insertGreetingVariable("first", name)}
+              />
+            )}
+            <div className="space-y-3" data-mari-field="alternate_greetings">
+              <div className="flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+                {localizeUi("ui.characters.dialoguetab.alternateGreetings")}
+                {formData.alternate_greetings.length})
+                <HelpTooltip
+                  text={localizeUi("ui.characters.dialoguetab.alternativeFirstMessagesForVarietyWhenStartingANew")}
                 />
-                <button
-                  type="button"
-                  onClick={() => moveGreeting(i, -1)}
-                  disabled={i === 0}
-                  className={greetingActionButtonClassName}
-                  aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Up", { value1: i + 1 })}
-                  title={localizeUi("ui.characters.dialoguetab.moveUp")}
-                >
-                  <ArrowUp size="0.75rem" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveGreeting(i, 1)}
-                  disabled={i === formData.alternate_greetings.length - 1}
-                  className={greetingActionButtonClassName}
-                  aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Down", {
-                    value1: i + 1,
-                  })}
-                  title={localizeUi("ui.characters.dialoguetab.moveDown")}
-                >
-                  <ArrowDown size="0.75rem" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeGreeting(i)}
-                  className={cn(greetingActionButtonClassName, "mari-editor-action--accent")}
-                  aria-label={localizeUi("ui.characters.dialoguetab.removeAlternateGreetingValue1", { value1: i + 1 })}
-                  title={localizeUi("ui.characters.dialoguetab.removeGreeting")}
-                >
-                  <Trash2 size="0.75rem" />
-                </button>
               </div>
+              {formData.alternate_greetings.map((g, i) => (
+                <section
+                  key={greetingKeysRef.current[i] ?? i}
+                  aria-label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                  className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-xs font-semibold">
+                      {localizeUi("ui.characters.dialoguetab.greeting")}
+                      {/* First Message is greeting #1. */}
+                      {i + 2}
+                    </h4>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <CharacterGreetingWand
+                        entityId={selfCharacterId}
+                        card={card}
+                        value={g}
+                        onApply={(text) => updateGreeting(i, text)}
+                        label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => moveGreeting(i, -1)}
+                        disabled={i === 0}
+                        className={greetingActionButtonClassName}
+                        aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Up", {
+                          value1: i + 1,
+                        })}
+                        title={localizeUi("ui.characters.dialoguetab.moveUp")}
+                      >
+                        <ArrowUp size="0.875rem" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveGreeting(i, 1)}
+                        disabled={i === formData.alternate_greetings.length - 1}
+                        className={greetingActionButtonClassName}
+                        aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Down", {
+                          value1: i + 1,
+                        })}
+                        title={localizeUi("ui.characters.dialoguetab.moveDown")}
+                      >
+                        <ArrowDown size="0.875rem" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeGreeting(i)}
+                        className={greetingActionButtonClassName}
+                        aria-label={localizeUi("ui.characters.dialoguetab.removeAlternateGreetingValue1", {
+                          value1: i + 1,
+                        })}
+                        title={localizeUi("ui.characters.dialoguetab.removeGreeting")}
+                      >
+                        <Trash2 size="0.875rem" aria-hidden />
+                      </button>
+                    </div>
+                  </div>
+                  <MacroTextarea
+                    ariaLabel={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                    showTokenCount
+                    value={g}
+                    onChange={(value) => updateGreeting(i, value)}
+                    textareaRef={(element) => {
+                      const key = greetingKeysRef.current[i];
+                      if (key) greetingFieldRefs.current[key] = element;
+                    }}
+                    onFocus={() => setActiveGreeting(greetingKeysRef.current[i] ?? null)}
+                    rows={5}
+                    title={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                    showMarkdownPreview
+                    selfCharacterId={selfCharacterId}
+                    className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+                    placeholder={
+                      localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 2 }) +
+                      " " +
+                      localizeUi("ui.cardFields.seedPlaceholder")
+                    }
+                  />
+                  {activeGreeting === greetingKeysRef.current[i] && (
+                    <GreetingVariableChips
+                      names={greetingChipNames}
+                      onInsert={(name) => insertGreetingVariable(greetingKeysRef.current[i] ?? "", name)}
+                    />
+                  )}
+                </section>
+              ))}
+              <button
+                type="button"
+                onClick={addGreeting}
+                className="mari-editor-action inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-xs"
+              >
+                <Plus size="0.875rem" aria-hidden />
+                {localizeUi("ui.characters.dialoguetab.addAlternateGreeting")}
+              </button>
             </div>
-            <MacroTextarea
-              ariaLabel={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-              value={g}
-              onChange={(value) => updateGreeting(i, value)}
-              rows={3}
-              title={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-              showMarkdownPreview
-              selfCharacterId={selfCharacterId}
-              className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40"
-              placeholder={
-                localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 1 }) +
-                " " +
-                localizeUi("ui.cardFields.seedPlaceholder")
-              }
-            />
-          </div>
-        ))}
-      </div>
+          </>
+        }
+      />
 
       {/* Example Messages */}
-      <div className="block space-y-1.5" data-mari-field="mes_example">
-        <div className="flex items-start justify-between gap-3">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}{" "}
-            <HelpTooltip
-              text={localizeUi("ui.characters.dialoguetab.sampleConversationsShowingHowTheCharacterTalksHelpsThe")}
-            />
-          </span>
-          {exampleActions}
-        </div>
-        <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">
-          {localizeUi("ui.characters.dialoguetab.useStartToSeparateExchangesUseUserAndChar")}
-        </p>
-        <MariFieldReview field="mes_example">
-          <MacroTextarea
-            ariaLabel={localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}
-            showTokenCount
-            value={formData.mes_example}
-            onChange={(value) => updateField("mes_example", value)}
-            rows={10}
-            title={localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}
-            showMarkdownPreview
-            selfCharacterId={selfCharacterId}
-            className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 mari-prompt-font text-xs leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={
-              localizeUi("ui.characters.dialoguetab.startUserHelloCharWavesExcitedlyHeyThere") +
-              " " +
-              localizeUi("ui.cardFields.seedPlaceholder")
-            }
-          />
-        </MariFieldReview>
-        {exampleFooter}
-      </div>
+      <TextareaTab
+        title={localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}
+        subtitle={localizeUi("ui.characters.dialoguetab.useStartToSeparateExchangesUseUserAndChar")}
+        helpText={localizeUi("ui.characters.dialoguetab.sampleConversationsShowingHowTheCharacterTalksHelpsThe")}
+        mariField="mes_example"
+        value={formData.mes_example}
+        onChange={(value) => updateField("mes_example", value)}
+        rows={10}
+        textareaClassName="mari-prompt-font text-xs"
+        placeholder={
+          localizeUi("ui.characters.dialoguetab.startUserHelloCharWavesExcitedlyHeyThere") +
+          " " +
+          localizeUi("ui.cardFields.seedPlaceholder")
+        }
+        actions={exampleActions}
+        footer={exampleFooter}
+      />
     </div>
   );
 }

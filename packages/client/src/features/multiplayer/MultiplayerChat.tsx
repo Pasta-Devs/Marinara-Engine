@@ -101,6 +101,17 @@ function JoinedMultiplayerChat({ chat }: { chat: Chat }) {
         error: guest.isLoading ? null : "unavailable",
       };
   const leave = async () => {
+    // A misclick must not drop a player out of the room (laptop room playtest 2026-10-30).
+    if (
+      enabled &&
+      !(await showConfirmDialog({
+        title: t("multiplayer.guest.leave"),
+        message: t("multiplayer.guest.leaveConfirm"),
+        confirmLabel: t("multiplayer.guest.leave"),
+        tone: "destructive",
+      }))
+    )
+      return;
     try {
       if (enabled) await disconnect.mutateAsync();
     } finally {

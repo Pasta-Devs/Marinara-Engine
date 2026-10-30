@@ -1047,6 +1047,8 @@ export interface MessageExtra {
   mariHeldCalls?: unknown;
   /** Slice 70: the quick-reply chips this Mari turn offered (raw; the client sanitizes), so a reload keeps them. */
   mariSuggestions?: unknown;
+  /** The question card this Mari turn ended on (raw; the client sanitizes). */
+  mariQuestions?: unknown;
   /**
    * R14: why this Mari turn failed, on the turn's last saved message (her partial reply, or your message
    * when she saved nothing), so a reload still shows it failed. `dismissed` once you close its card.

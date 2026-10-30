@@ -5876,8 +5876,7 @@ assert.match(
   /resolveFeatureAgentPackage\(selectedFeatureAgent, installedCapabilities\.data \?\? \[\]\)/u,
 );
 assert.match(featureAgentDetailHostSource, /mari-editor-shell mari-editor-legacy-bridge/u);
-assert.match(featureAgentDetailHostSource, /<header className="mari-editor-header">/u);
-assert.match(featureAgentDetailHostSource, /<Sparkles size="1\.125rem"/u);
+assert.match(featureAgentDetailHostSource, /<AgentDetailHeader\b/u);
 assert.doesNotMatch(featureAgentDetailHostSource, /\bPuzzle\b/u);
 assert.doesNotMatch(featureAgentDetailHostSource, /featureagentdetailhost\.feature"/u);
 assert.match(

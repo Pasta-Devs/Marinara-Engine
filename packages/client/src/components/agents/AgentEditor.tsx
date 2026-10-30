@@ -21,8 +21,7 @@ import {
 import { useCapabilityAgentRegistry, useCapabilityCatalog } from "../../hooks/use-capability-packages";
 import { useConnections } from "../../hooks/use-connections";
 import { useOpenGameAssetsFolder } from "../../hooks/use-game-assets";
-import { AgentArtwork } from "./AgentArtwork";
-import { StoreBanner } from "./organizer/OrganizerParts";
+import { AgentDetailHeader } from "./AgentDetailHeader";
 import {
   isCustomToolSelectable,
   useCustomToolCapabilities,
@@ -31,7 +30,6 @@ import {
 } from "../../hooks/use-custom-tools";
 import {
   Activity,
-  ArrowLeft,
   Save,
   Sparkles,
   Check,
@@ -2112,115 +2110,69 @@ export function AgentEditor() {
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
       {/* Downloaded agents: the store banner is the header, with Back and actions on top and logo and name below. */}
-      <div
-        ref={headerRef}
-        className={cn(
-          "mari-editor-header",
-          hasBanner &&
-            "relative isolate aspect-[16/7] h-auto! max-h-[260px] content-between! border-b-0! bg-transparent! p-4! transition-[max-height] duration-300 motion-reduce:transition-none sm:aspect-[16/5]",
-          compact && "max-h-[4.5rem] flex-nowrap! py-3!",
-        )}
-      >
-        {hasBanner && storeEntry && (
+      <AgentDetailHeader
+        headerRef={headerRef}
+        storeEntry={storeEntry}
+        compact={compact}
+        onBack={handleClose}
+        title={
+          <input
+            value={localName}
+            onChange={(e) => {
+              setLocalName(e.target.value);
+              markDirty();
+            }}
+            onFocus={reportField("name", localizeUi("ui.agents.agenteditor.nameField"))}
+            className="mari-editor-title-input min-w-0 placeholder:text-[var(--marinara-editor-muted)]"
+            placeholder={localizeUi("ui.agents.agenteditor.agentName")}
+          />
+        }
+        actions={
           <>
-            <StoreBanner
-              entry={storeEntry}
-              sizes="100vw"
-              className="absolute inset-0 -z-10 h-full w-full rounded-none! shadow-none!"
-            />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-2/3 bg-gradient-to-t from-[var(--marinara-editor-bg,var(--background))] to-transparent" />
-          </>
-        )}
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label={localizeUi("ui.agents.agenteditor.backToAgents")}
-          className={cn("mari-editor-action inline-flex", hasBanner && !compact && "order-1")}
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
-        <div
-          className={cn(
-            "mari-editor-icon-tile",
-            storeEntry?.store?.iconUrl && (compact ? "h-9! w-9! rounded-xl!" : "h-14! w-14! rounded-2xl!"),
-            hasBanner && !compact && "order-3",
-            hasBanner && "bg-[var(--marinara-editor-bg,var(--background))]!",
-          )}
-        >
-          {storeEntry?.store?.iconUrl ? (
-            <span className="flex h-[70%] w-[70%]">
-              <AgentArtwork imageUrl={storeEntry.store.iconUrl} alt="" iconSize="1.125rem" />
-            </span>
-          ) : (
-            <Sparkles size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-          )}
-        </div>
-        <input
-          value={localName}
-          onChange={(e) => {
-            setLocalName(e.target.value);
-            markDirty();
-          }}
-          onFocus={reportField("name", localizeUi("ui.agents.agenteditor.nameField"))}
-          className={cn(
-            "mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]",
-            hasBanner && !compact && "order-3",
-            hasBanner && "[text-shadow:0_1px_6px_rgb(0_0_0/0.6)]",
-          )}
-          placeholder={localizeUi("ui.agents.agenteditor.agentName")}
-        />
-        <div
-          className={cn(
-            "mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2",
-            hasBanner && !compact && "order-2",
-            hasBanner && "ml-auto max-md:w-auto! max-md:border-t-0! max-md:pt-0!",
-          )}
-        >
-          {saveError && (
-            <span className="mari-editor-status mr-2 text-red-400">
-              <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
-            </span>
-          )}
-          {savedFlash && !dirty && (
-            <span className="mari-editor-status mr-2 text-emerald-400">
-              <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="mari-editor-status mr-2 text-amber-400">
-              {localizeUi("ui.agents.agenteditor.unsaved")}
-            </span>
-          )}
-          <button
-            onClick={handleSave}
-            aria-label={localizeUi("ui.noodle.noodlehome.save")}
-            disabled={isPending}
-            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-          >
-            <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
-          </button>
-          <button
-            onClick={handleExportAgent}
-            className="mari-editor-action inline-flex"
-            title={localizeUi("ui.agents.agenteditor.exportAgent")}
-            aria-label={localizeUi("ui.agents.agenteditor.exportAgent")}
-          >
-            <Upload size="0.9375rem" />
-          </button>
-          {isCustomAgent && dbConfig && (
+            {saveError && (
+              <span className="mari-editor-status mr-2 text-red-400">
+                <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
+              </span>
+            )}
+            {savedFlash && !dirty && (
+              <span className="mari-editor-status mr-2 text-emerald-400">
+                <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
+              </span>
+            )}
+            {dirty && !saveError && (
+              <span className="mari-editor-status mr-2 text-amber-400">
+                {localizeUi("ui.agents.agenteditor.unsaved")}
+              </span>
+            )}
             <button
-              onClick={handleDelete}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.agents.agenteditor.deleteAgent")}
-              aria-label={localizeUi("ui.agents.agenteditor.deleteAgent")}
+              onClick={handleSave}
+              aria-label={localizeUi("ui.noodle.noodlehome.save")}
+              disabled={isPending}
+              className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
             >
-              <Trash2 size="0.9375rem" />
+              <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
             </button>
-          )}
-        </div>
-        {/* Breaks the banner header into a top row (Back, actions) and a bottom row (logo, name). */}
-        {hasBanner && !compact && <span className="order-2 basis-full" />}
-      </div>
+            <button
+              onClick={handleExportAgent}
+              className="mari-editor-action inline-flex"
+              title={localizeUi("ui.agents.agenteditor.exportAgent")}
+              aria-label={localizeUi("ui.agents.agenteditor.exportAgent")}
+            >
+              <Upload size="0.9375rem" />
+            </button>
+            {isCustomAgent && dbConfig && (
+              <button
+                onClick={handleDelete}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.agents.agenteditor.deleteAgent")}
+                aria-label={localizeUi("ui.agents.agenteditor.deleteAgent")}
+              >
+                <Trash2 size="0.9375rem" />
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Unsaved warning */}
       {showUnsavedWarning && (

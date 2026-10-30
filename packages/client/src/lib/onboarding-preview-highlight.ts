@@ -9,6 +9,28 @@ export interface AnswerHighlightSegment {
   yours: boolean;
 }
 
+// The player's own words inside a field: a soft accent wash with no padding, so
+// a highlighted run keeps the pre-wrap layout exactly as the text will be saved.
+export const HIGHLIGHT_CLASS =
+  "rounded-[3px] bg-[var(--primary)]/20 text-[var(--foreground)] [box-decoration-break:clone]";
+
+/**
+ * The values a chat holds for one card's questions, to mark in a greeting preview.
+ * The chat stores each answer under its variable name, so the stored value is
+ * exactly what the greeting's `{{name}}` tags resolve to.
+ */
+export function cardAnswerValues(
+  variables: ReadonlyArray<{ variableName: string }>,
+  chatVariables: Readonly<Record<string, string>>,
+): string[] {
+  return variables.flatMap((variable) => {
+    const value = Object.prototype.hasOwnProperty.call(chatVariables, variable.variableName)
+      ? chatVariables[variable.variableName]
+      : undefined;
+    return value ? [value] : [];
+  });
+}
+
 const WORD_CHAR = /[\p{L}\p{N}_]/u;
 
 function isWordChar(char: string | undefined): boolean {

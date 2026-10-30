@@ -1787,6 +1787,17 @@ exit button available on every package screen and use `aria-pressed` to reflect 
 must update the button without replacing unfinished forms. Packages depending on this control
 declare capability API 1.376 or newer; older packages can keep their existing layouts.
 
+### Capability API 1.390: the Engine draws an agent page header
+
+A package with `contributions.agentDetail` can set `"header": "engine"`. The Engine then draws the
+same header as on every other agent page: Back, the store banner and logo, the name, the Active
+toggle for the open chat and Manage package. The `detail` view gets two extra props:
+`engineHeader: true` and `headerSlot`, an element in the header actions. Hide your own header when
+`engineHeader` is set, and render extra header buttons (for example "Add memories" or help) into
+`headerSlot`, with a React portal or `appendChild`. `headerSlot` is `null` on the first render, so
+wait for the next props update. Without the flag, the package keeps the full page as before.
+Declare capability API 1.390 when you set it.
+
 ### Capability API 1.389: hide or show messages from the AI
 
 `persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` hides messages of one chat from the AI,

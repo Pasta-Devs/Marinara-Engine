@@ -22,6 +22,7 @@ import { useUIStore, type ConversationMessageStyle } from "../../stores/ui.store
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { resolveMessageMacros } from "../../lib/chat-macros";
+import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
 import { useTranslate } from "../../hooks/use-translate";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { api } from "../../lib/api-client";
@@ -208,6 +209,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
   const presetVariables = useMessagePresetVariables(`${message.id}:${message.activeSwipeIndex ?? 0}`);
   const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
+  const chatVariables = useMemo(() => readChatVariables(activeChatMetadata), [activeChatMetadata]);
   const { applyToAIOutput } = useApplyRegex();
 
   // ── Translation ──
@@ -361,6 +363,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const macroContext = useMemo(
     () => ({
       variables: presetVariables,
+      chatVariables,
       userName: macroUserName,
       persona: {
         name: macroUserName,
@@ -380,6 +383,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     }),
     [
       activeChatMetadata,
+      chatVariables,
       displayName,
       macroUserName,
       presetVariables,

@@ -6,6 +6,7 @@ import { MARI_AUTHORIZATION_ACCEPT_CHIP, mergeMariActionResults, PROFESSOR_MARI_
 import type {
   MariComposerReference,
   MariHeldChange,
+  MariQuestion,
   MariSuggestionChip,
   MariWorkspaceActionResult,
   MariWorkspaceTraceItem,
@@ -73,6 +74,8 @@ export type AssistantRunRecord = {
   runError: { message: string } | null;
   runStartedAt: number;
   suggestions: MariSuggestionChip[];
+  /** The question card this run ended on, when it asked one. */
+  questions?: MariQuestion[];
   connection: { provider: string; model: string };
   latestUsage: LLMUsage | undefined;
   latestFinishReason: string | null;
@@ -80,6 +83,11 @@ export type AssistantRunRecord = {
   /** Built-in skills the user linked with `@` this turn; they count as handbook reads. */
   linkedHandbookIds?: string[];
 };
+
+function describeQuestion(question: MariQuestion) {
+  const options = question.options.map((option) => option.label + (option.recommended ? " (recommended)" : ""));
+  return `${question.question} Options: ${options.join("; ")}`;
+}
 
 export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<string, unknown> {
   const extraUpdate: Record<string, unknown> = {};
@@ -95,12 +103,21 @@ export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<stri
   if (run.runError) extraUpdate.mariRunError = run.runError;
   extraUpdate.mariRunStartedAt = run.runStartedAt;
   extraUpdate.mariRunFinishedAt = Date.now();
-  const savedChips = run.suggestions.filter((chip) => chip.id !== MARI_AUTHORIZATION_ACCEPT_CHIP.id);
+  const questions = run.questions ?? [];
+  // The card replaces chips, including ones an earlier round of this run offered.
+  const savedChips =
+    questions.length > 0 ? [] : run.suggestions.filter((chip) => chip.id !== MARI_AUTHORIZATION_ACCEPT_CHIP.id);
   if (savedChips.length > 0) extraUpdate.mariSuggestions = savedChips;
+  if (questions.length > 0) extraUpdate.mariQuestions = questions;
   extraUpdate.professorMariContext = run.context ?? null;
   const continuity = buildWorkspaceContinuitySnapshot({
     userText: run.promptText,
-    assistantText: run.assistantText,
+    // History keeps only her words, so the card goes here, first because this text is cut to length: she can still
+    // read a typed "the second one".
+    assistantText:
+      questions.length > 0
+        ? `Asked the user on a question card:\n${questions.map(describeQuestion).join("\n")}\n\n${run.assistantText}`
+        : run.assistantText,
     commandResults: run.commandResults,
   });
   if (continuity) extraUpdate.mariWorkspaceContinuity = continuity;

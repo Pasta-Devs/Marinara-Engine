@@ -418,12 +418,25 @@ html[data-marinara-effects-paused="true"] .mari-workspace-glow-band::after {
 }
 
 [data-mari-field][data-mari-glow]::after,
-[data-mari-field][data-mari-pulse]::before {
+[data-mari-field][data-mari-pulse]::before,
+[data-mari-field][data-mari-focus]::before {
   content: "";
   position: absolute;
   inset: -0.25rem;
   border-radius: 0.875rem;
   pointer-events: none;
+}
+
+/* The field her companion composer points at: a thin, static edge in the character gradient
+   (colours from .mari-panel-gradient--characters). The reveal pulse takes ::before over while it runs. */
+[data-mari-field][data-mari-focus]:not([data-mari-pulse])::before {
+  padding: 1px;
+  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.55;
 }
 
 [data-mari-field][data-mari-glow]::after {
@@ -3099,12 +3112,18 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   padding-inline-start: 1.375rem;
 }
 
-/* Slice 72: her words for the round that opened the phase, as its caption above its steps. */
+/* Slice 72: her words from the phase's rounds, as its caption above its steps. */
 .mari-phase__caption {
   margin: -0.15rem 0 0.1rem calc(-1.375rem + 1.3rem);
   color: color-mix(in srgb, var(--muted-foreground) 88%, transparent);
   font-size: 0.75rem;
   font-style: italic;
+}
+
+/* Her words render as markdown, which brings the answer's size and color with it. */
+.mari-phase__caption .mari-message-content {
+  font-size: inherit;
+  color: inherit;
 }
 
 /* The faces of what a look phase read, overlapping on its line. */
@@ -3844,6 +3863,23 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   padding: 0.55rem 0.75rem 0.75rem;
 }
 
+/* Slice 8: her text while she writes it. Provisional: a faint opacity waver on the line only. */
+.mari-field-review--writing .mari-field-review__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mari-field-review--writing .mari-field-review__strip span {
+  animation: mari-field-waver 1.6s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-field-review--writing .mari-field-review__strip span {
+    animation: none;
+  }
+}
+
 /* The diff is the field's text here, not a quoted box. */
 .mari-field-review__text .mari-receipt__box {
   background: none;
@@ -3896,23 +3932,36 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   height: 0.875rem;
 }
 
+/* Her line under a field she changed: one calm band in the character gradient (colours from
+   .mari-panel-gradient--characters, see globals.css) so it reads as hers. */
 .mari-field-review-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.4rem;
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
+  gap: 0.5rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-block: 0.5rem;
+  padding: 0.3rem 0.35rem 0.3rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--mari-panel-gradient-start) 28%, transparent);
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--mari-panel-gradient-start) 9%, transparent),
+    color-mix(in srgb, var(--mari-panel-gradient-end) 5%, transparent)
+  );
+  font-size: 0.8125rem;
+  color: var(--foreground);
 }
 
-.mari-field-review-line .mari-link {
-  min-height: 1.5rem;
-  padding-inline: 0.4rem;
-  font-size: 0.75rem;
+.mari-field-review-line img {
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 @media (pointer: coarse) {
   .mari-field-review__bar .mari-btn,
+  .mari-field-review-line .mari-btn,
   .mari-field-review__bar .mari-link {
     min-height: 2.75rem;
     padding-inline: 0.9rem;
@@ -4075,6 +4124,53 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 }
 
 /* ---- foot: Why, then the state in words and at most one main action ---- */
+.mari-question__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mari-question__recommended {
+  flex-shrink: 0;
+  border: 1px solid var(--mari-divider);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  color: var(--primary);
+  font-size: var(--mari-card-fact, 0.75rem);
+  font-weight: 500;
+}
+
+.mari-question__other {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  border: 0;
+  border-top: 1px solid var(--mari-divider);
+  background: transparent;
+  padding: 0.35rem var(--mari-card-pad-inline);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.mari-question__other::placeholder {
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+
+/* Touch: the composer's text size, so iOS does not zoom into the field. */
+@media (pointer: coarse) {
+  .mari-question__other {
+    font-size: var(--mari-composer-text);
+  }
+}
+
+.mari-question .mari-receipt__actions:first-child {
+  margin-inline-start: 0;
+}
+
+.mari-question__other:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
 .mari-receipt__foot {
   display: flex;
   min-height: 3rem;

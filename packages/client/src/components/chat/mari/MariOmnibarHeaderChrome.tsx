@@ -24,6 +24,7 @@ type MariOmnibarHeaderChromeProps = {
   headerMenuOpen: boolean;
   headerMenuRef: RefObject<HTMLDivElement | null>;
   heldChangeCard: boolean;
+  questionCardWaiting: boolean;
   isBusy: boolean;
   /** UX-30: no model connection yet, so she is not ready to help. */
   noConnection?: boolean;
@@ -50,6 +51,7 @@ export function MariOmnibarHeaderChrome({
   headerMenuOpen,
   headerMenuRef,
   heldChangeCard,
+  questionCardWaiting,
   isBusy,
   noConnection = false,
   mariPresentationState,
@@ -253,7 +255,7 @@ export function MariOmnibarHeaderChrome({
           omnibarMenuSlot,
         )
       : null;
-  // One per "Needs you" card: a turn's deletes are one card, a held change is one more.
+  // One per "Needs you" card: a turn's deletes are one card, a held change or a question card is one more.
   const needsYouCount =
     [...reviewsByTurn.byMessageId.values()].reduce((count, entries) => {
       const waiting = entries.filter(({ approval, outcome }) => !outcome && isMariReviewWaiting(approval));
@@ -261,7 +263,8 @@ export function MariOmnibarHeaderChrome({
       return count + waiting.length - Math.max(0, deletes - 1);
     }, 0) +
     countBlockingReviews(reviewsByTurn.unassigned.filter(({ outcome }) => !outcome).map(({ approval }) => approval)) +
-    (heldChangeCard ? 1 : 0);
+    (heldChangeCard ? 1 : 0) +
+    (questionCardWaiting ? 1 : 0);
   const scrollToNeedsYou = () => {
     // Slice 6: as a sheet under the editor, her status jumps to the first field waiting for review.
     if (revealWaitingField()) return;
