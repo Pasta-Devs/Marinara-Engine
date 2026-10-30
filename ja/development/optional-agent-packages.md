@@ -1042,6 +1042,10 @@ export async function activate({ api }) {
 
 これはアプリ内の全画面表示です。Homeのタブ、アドレスバー、ブックマークは非表示になりますが、Engineのトップバーは使えます。ブラウザーのFullscreen APIは呼び出さず、ブラウザーの全画面対応も必要ありません。状態は一時的で、パッケージまたはHomeから移動するとリセットされます。パッケージのすべての画面に終了ボタンを用意し、`aria-pressed`で`active`を示してください。プロパティー更新では、入力途中のフォームを置き換えずにボタンを更新する必要があります。この操作に依存するパッケージはCapability API 1.376以降を宣言します。古いパッケージは既存のレイアウトを維持できます。
 
+### Capability API 1.390: Engineがエージェントページのヘッダーを描画
+
+`contributions.agentDetail`を持つパッケージは`"header": "engine"`を設定できます。するとEngineは、ほかのすべてのエージェントページと同じヘッダーを描画します。戻るボタン、ストアのバナーとロゴ、名前、開いているチャット用のActiveトグル、パッケージの管理ボタンが含まれます。`detail`ビューには2つのプロップが追加されます。`engineHeader: true`と、ヘッダーのアクション内にある要素`headerSlot`です。`engineHeader`が設定されている場合は独自のヘッダーを隠し、追加のヘッダーボタン(例:「記憶を追加」やヘルプ)はReactポータルまたは`appendChild`で`headerSlot`に描画してください。最初のレンダーでは`headerSlot`は`null`なので、次のプロップ更新を待ってください。このフラグがなければ、パッケージはこれまでどおりページ全体を保持します。設定する場合はCapability API 1.390を宣言してください。
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: チャットの要約の読み取り

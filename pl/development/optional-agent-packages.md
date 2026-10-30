@@ -1041,6 +1041,10 @@ Widok `home-browser-tab` otrzymuje `capabilityProps.browserFullscreen`:
 
 To pełny ekran wewnątrz aplikacji: karty, pasek adresu i zakładki Home są ukryte, a górny pasek silnika pozostaje dostępny. Nie wywołuje to przeglądarkowego Fullscreen API ani nie wymaga obsługi pełnego ekranu przez przeglądarkę. Stan jest tymczasowy i resetuje się po opuszczeniu pakietu lub Home. Na każdym ekranie pakietu zapewnij przycisk wyjścia i odzwierciedlaj `active` przez `aria-pressed`. Zmiany właściwości muszą aktualizować przycisk bez zastępowania niedokończonych formularzy. Pakiety zależne od tej kontrolki deklarują Capability API 1.376 lub nowsze; starsze pakiety mogą zachować dotychczasowy układ.
 
+### Capability API 1.390: Engine rysuje nagłówek strony agenta
+
+Pakiet z `contributions.agentDetail` może ustawić `"header": "engine"`. Engine rysuje wtedy taki sam nagłówek jak na pozostałych stronach agentów: przycisk Wstecz, baner sklepu i logo, nazwę, przełącznik Active dla otwartego czatu oraz opcję zarządzania pakietem. Widok `detail` otrzymuje dwa dodatkowe propsy: `engineHeader: true` i `headerSlot`, element w sekcji akcji nagłówka. Ukryj własny nagłówek, gdy ustawiono `engineHeader`, a dodatkowe przyciski nagłówka (na przykład „Dodaj wspomnienia” lub pomoc) renderuj w `headerSlot` za pomocą portalu React albo `appendChild`. Przy pierwszym renderowaniu `headerSlot` ma wartość `null`, więc poczekaj na następną aktualizację propsów. Bez tej flagi pakiet zachowuje całą stronę jak dotychczas. Po ustawieniu flagi zadeklaruj Capability API 1.390.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: odczyt podsumowań czatu

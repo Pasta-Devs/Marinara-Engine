@@ -1053,6 +1053,10 @@ Eine Ansicht vom Typ `home-browser-tab` erhält `capabilityProps.browserFullscre
 
 Das ist Vollbild innerhalb der App: Tabs, Adressleiste und Lesezeichen von Home werden ausgeblendet, während die Engine-Topbar verfügbar bleibt. Die Browser-Fullscreen-API wird nicht aufgerufen; eine Vollbildunterstützung des Browsers ist nicht nötig. Der Zustand ist vorübergehend und wird zurückgesetzt, sobald du das Paket oder Home verlässt. Halte auf jedem Paketbildschirm eine Schaltfläche zum Verlassen bereit und bilde `active` über `aria-pressed` ab. Prop-Änderungen müssen die Schaltfläche aktualisieren, ohne unfertige Formulare zu ersetzen. Pakete, die diese Steuerung brauchen, deklarieren Capability API 1.376 oder neuer; ältere Pakete können ihre vorhandenen Layouts behalten.
 
+### Capability API 1.390: Die Engine zeichnet den Kopfbereich einer Agentenseite
+
+Ein Paket mit `contributions.agentDetail` kann `"header": "engine"` festlegen. Die Engine zeichnet dann denselben Kopfbereich wie auf allen anderen Agentenseiten: Zurück, das Store-Banner und Logo, den Namen, den Aktiv-Schalter für den geöffneten Chat und „Paket verwalten“. Die `detail`-Ansicht erhält zwei zusätzliche Props: `engineHeader: true` und `headerSlot`, ein Element im Aktionsbereich des Kopfbereichs. Blende deinen eigenen Kopfbereich aus, wenn `engineHeader` gesetzt ist, und rendere zusätzliche Schaltflächen im Kopfbereich (zum Beispiel „Erinnerungen hinzufügen“ oder Hilfe) mit einem React-Portal oder `appendChild` in `headerSlot`. `headerSlot` ist beim ersten Rendern `null`; warte daher auf die nächste Aktualisierung der Props. Ohne das Flag behält das Paket wie bisher die ganze Seite. Deklariere Capability API 1.390, wenn du es festlegst.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: Zusammenfassungen eines Chats lesen
