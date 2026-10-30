@@ -5656,7 +5656,7 @@ assert.equal(
 );
 assert.match(
   readFileSync(new URL("../../packages/client/src/lib/composer-triggers.ts", import.meta.url), "utf8"),
-  /input\.key === "Enter" &&\s*!input\.shiftKey &&\s*\(input\.enterToSend \|\| input\.metaKey \|\| input\.ctrlKey\)/u,
+  /if \(input\.enterToSend\) \{\s*if \(!input\.shiftKey\) return modifier \? "queue" : "send";\s*\} else if \(modifier\) \{\s*return input\.shiftKey \? "queue" : "send";/u,
   "Professor Mari's composer must preserve Shift+Enter and require the configured send shortcut",
 );
 assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);

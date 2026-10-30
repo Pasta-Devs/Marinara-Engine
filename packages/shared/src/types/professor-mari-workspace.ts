@@ -112,6 +112,14 @@ export interface ProfessorMariAskContext {
   asideAnswer?: { query: string; answer: string; tier: "local" | "remote"; sources?: ProfessorMariQuickSource[] };
 }
 
+/** A context that only names the subject, as the composer keeps it between sends. Anything more needs a full send. */
+export function isSubjectOnlyMariContext(context: ProfessorMariAskContext): boolean {
+  return (
+    context.capability === "explain" &&
+    Object.keys(context).every((key) => key === "source" || key === "capability" || key === "resource")
+  );
+}
+
 // "floating-assistant" is gone: the floating window was replaced by a presence
 // indicator that opens the omnibar. The surface enum above keeps the value,
 // because it records where a request came FROM, not where it goes.
@@ -1121,6 +1129,8 @@ export interface ProfessorMariPromptAttachment {
 export interface MariPendingMessage {
   /** Was still waiting when a later send began. It now goes only on its own Send. */
   held?: boolean;
+  /** Send now: goes in at her next step instead of when she finishes. Text only. */
+  steer?: boolean;
   id: string;
   text: string;
   createdAt: string;
@@ -1173,5 +1183,7 @@ export type MariWorkspacePromptEvent =
   | { type: "suggestions"; data: MariSuggestionChip[] }
   // A queued message is about to run on this same reply; the client moves it from the pending list into the transcript.
   | { type: "queue_next"; data: { id: string; text: string } }
+  // Send now reached her: her reply so far and your message(s) are saved, and the same run carries on with a new reply.
+  | { type: "checkpoint"; data: { ids: string[]; userMessageId: string } }
   | { type: "done"; data?: unknown }
   | { type: "error"; data: string };

@@ -46,7 +46,13 @@ import { getFileStorageDir, getPort, getServerProtocol, isDebugAgentsEnabled } f
 import { apiConnections } from "../../db/schema/index.js";
 import { decryptApiKey } from "../../utils/crypto.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { listPendingSummaries, type MariPromptOutcome } from "./workspace-pending-store.js";
+import {
+  hasPendingSteers,
+  listPendingSummaries,
+  restorePending,
+  takePendingSteers,
+  type MariPromptOutcome,
+} from "./workspace-pending-store.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { tryParseJsonRecord } from "../../lib/json-repair.js";
 import {
@@ -354,6 +360,8 @@ export const RUNTIME_API_KEY = "local-marinara-runtime";
 // Every review belongs to the Mari chat that made it (runSessionId()); slice 71 (F3) moved sensitive file
 // and install reviews there too. The status without a chat id (the omnibar's pending list) still lists all.
 const MAX_COMMAND_ROUNDS = 12;
+/** The saved words of a reply that Send now reached after steps but before she said anything. */
+const MARI_CHECKPOINT_FILLER = "Still working";
 export const MAX_PROTOCOL_REPAIR_ROUNDS = 2;
 // Local sidecar / small models fumble the JSON command protocol more often, so they get a larger
 // formatting-repair budget before Mari gives up. These repair rounds also do not count against the
@@ -3231,6 +3239,12 @@ export class ProfessorMariWorkspaceService {
   // prompt() start (never latched at construction, never cleared - each run
   // overwrites) so command execution and deferral read the run's own mode.
   private activeDecisionContext: { db: FastifyInstance["db"]; chatId: string; userMessageId: string } | null = null;
+  /** What this run was started with: the prompt is built once, so Send now can only add words to it. */
+  private activeSteerRun: {
+    chatId: string;
+    mode: MariPermissionsMode;
+    context: ProfessorMariAskContext | null;
+  } | null = null;
   private activeRunPermissionsMode: MariPermissionsMode = DEFAULT_MARI_PERMISSIONS_MODE;
   private readonly acceptedHeldMessageIds = new Set<string>();
   private activeRoundManualSilentMutationBlocked = false;
@@ -3272,6 +3286,18 @@ export class ProfessorMariWorkspaceService {
 
   private async readPermissionsMode(): Promise<MariPermissionsMode> {
     return readStoredMariPermissionsMode(createAppSettingsStorage(this.app.db));
+  }
+
+  /**
+   * Whether a message can join the run going on now. A new subject or a changed permissions mode waits for its own run,
+   * which reads them. A chat with no run says yes: the row is simply next in the queue.
+   */
+  async canSteerNow(chatId: string, context: ProfessorMariAskContext | null | undefined): Promise<boolean> {
+    const run = this.activeSteerRun;
+    if (!run || run.chatId !== chatId) return true;
+    if ((await this.resolvePermissionsMode(chatId)).mode !== run.mode) return false;
+    if (!context?.resource) return true;
+    return context.resource.kind === run.context?.resource?.kind && context.resource.id === run.context.resource.id;
   }
 
   /**
@@ -3683,7 +3709,9 @@ export class ProfessorMariWorkspaceService {
         throw new Error("Existing Professor Mari user message was not found in this chat.");
       }
       const chatMessages = await chatStorage.listMessages(args.chatId);
-      if (chatMessages[chatMessages.length - 1]?.id !== userMessage.id) {
+      // A failed run can leave her partial reply after your message, and Retry answers that same message.
+      const newerRows = chatMessages.slice(chatMessages.findIndex((row) => row.id === args.existingUserMessageId) + 1);
+      if (newerRows.some((row) => row.role !== "assistant" || !parseExtra(row.extra).mariRunError)) {
         throw new Error("Only the latest Professor Mari user message can be reused.");
       }
     } else {
@@ -3696,8 +3724,16 @@ export class ProfessorMariWorkspaceService {
       if (!userMessage) throw new Error("Professor Mari could not save the user message.");
     }
     args.onUserMessageSaved?.();
-    const promptText = userMessage.content;
+    let promptText = userMessage.content;
     const runStartedAt = Date.now();
+    // Send now starts a new reply inside the run: these follow it. `runStartedAt` and the first message name the run.
+    let replyStartedAt = runStartedAt;
+    let replyUserMessageId = userMessage.id;
+    let replyIsFiller = false;
+    // Where this reply's results start in `commandResultsForContinuity`: each row keeps only its own.
+    let replyResultsStart = 0;
+    // A typed "yes" armed this run for the change she held, not for whatever you send next.
+    let steerDisarmed = false;
     await saveRunStart(chatStorage, userMessage.id, {
       attachments,
       context: args.context,
@@ -3831,11 +3867,13 @@ export class ProfessorMariWorkspaceService {
         trace: workspaceTrace,
         actionResults: workspaceActionResults,
         commandResults: commandResultsForContinuity,
+        continuityResultsFrom: replyResultsStart,
         endedWithDeferral: runEndedWithDeferral,
         heldChanges: runHeldChanges,
         heldCalls: runHeldCalls,
         runError,
-        runStartedAt,
+        runStartedAt: replyStartedAt,
+        checkpointFiller: replyIsFiller,
         suggestions: runSuggestions,
         questions: runQuestions,
         connection,
@@ -3861,6 +3899,94 @@ export class ProfessorMariWorkspaceService {
       return message;
     };
 
+    // Waiting wins: a question, a hold or a staged change ends the run with Send now still in the list, and a run that
+    // was stopped or replaced has nothing to carry on with.
+    const canTakeSteers = () =>
+      !runEndedWithDeferral &&
+      !offeredAccept &&
+      !stagedForReview &&
+      runQuestions.length === 0 &&
+      !controller.signal.aborted &&
+      this.abortController === controller;
+    // The mode is read once per run, so a changed one leaves your message for the next run, which reads it.
+    const runModeStands = async () =>
+      (await this.resolvePermissionsMode(args.chatId)).mode === this.activeSteerRun?.mode;
+    const hasSteers = () =>
+      hasPendingSteers(args.chatId).catch((err) => {
+        logger.warn(err, "[professor-mari] Could not read the queued messages for chat %s", args.chatId);
+        return false;
+      });
+    const steersWaiting = async () => canTakeSteers() && (await hasSteers()) && (await runModeStands());
+    /**
+     * Send now, at a step boundary: saves her reply so far and your message(s), starts a new reply, and returns what the
+     * model should read next, or null when there is nothing to deliver. Not reset: `commandResultsForContinuity` (the
+     * claim audit's watermark indexes it), the ask latch, the round count. Permission never widens: this disarms a typed
+     * "yes", and a changed mode means no delivery.
+     */
+    const deliverSteers = async (): Promise<string | null> => {
+      if (!(await steersWaiting())) return null;
+      const steers = await takePendingSteers(args.chatId).catch((err) => {
+        logger.warn(err, "[professor-mari] Could not read the queued messages for chat %s", args.chatId);
+        return [];
+      });
+      if (steers.length === 0) return null;
+      const savedRows: NonNullable<Awaited<ReturnType<typeof chatStorage.createMessage>>>[] = [];
+      try {
+        // Steps but no words keep their row. Nothing done yet leaves no row: your message follows your last one.
+        if (!assistantText.trim() && workspaceTrace.some((item) => item.type === "tool")) {
+          assistantText = MARI_CHECKPOINT_FILLER;
+          replyIsFiller = true;
+        }
+        await persistAssistantMessage();
+        const startedAt = Date.now();
+        for (const steer of steers) {
+          const row = await chatStorage.createMessage({
+            chatId: args.chatId,
+            role: "user",
+            characterId: null,
+            content: steer.text,
+          });
+          if (!row) throw new Error("Professor Mari could not save the user message.");
+          savedRows.push(row);
+          await saveRunStart(chatStorage, row.id, {
+            attachments: [],
+            context: steer.context,
+            references: [],
+            runStartedAt: startedAt,
+          });
+        }
+        replyStartedAt = startedAt;
+      } catch (err) {
+        // Only the ones that never reached the thread go back; a saved one would then send twice.
+        for (const steer of steers.slice(savedRows.length)) {
+          await restorePending(args.chatId, steer).catch((restoreErr) => {
+            logger.warn(restoreErr, "[professor-mari] Could not put a queued message back for chat %s", args.chatId);
+          });
+        }
+        throw err;
+      }
+      const lastRow = savedRows[savedRows.length - 1]!;
+      args.onEvent({ type: "checkpoint", data: { ids: steers.map((steer) => steer.id), userMessageId: lastRow.id } });
+      promptText = lastRow.content;
+      replyUserMessageId = lastRow.id;
+      replyResultsStart = commandResultsForContinuity.length;
+      steerDisarmed = true;
+      // A Decision answer quotes the message it came from, so it must be able to find this one.
+      this.activeDecisionContext = { db: this.app.db, chatId: args.chatId, userMessageId: lastRow.id };
+      assistantText = "";
+      thinkingText = "";
+      replyIsFiller = false;
+      workspaceTrace.length = 0;
+      workspaceActionResults.length = 0;
+      totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+      latestUsage = undefined;
+      latestFinishReason = null;
+      runSuggestions = [];
+      assistantMessagePersisted = false;
+      persistedAssistantMessage = null;
+      return steers.map((steer) => steer.text).join("\n\n");
+    };
+
     try {
       await this.ensureMariCliShim();
       const { mode: permissionsMode } = await this.resolvePermissionsMode(args.chatId);
@@ -3873,6 +3999,7 @@ export class ProfessorMariWorkspaceService {
       controller.signal.throwIfAborted();
       this.activeRunPermissionsMode = permissionsMode;
       this.activeDecisionContext = { db: this.app.db, chatId: args.chatId, userMessageId: userMessage.id };
+      this.activeSteerRun = { chatId: args.chatId, mode: permissionsMode, context: args.context ?? null };
       const provider = createProviderForConnection(connection);
       const runtime = await this.readRuntime(connection);
       runRuntime = runtime.active;
@@ -4044,6 +4171,14 @@ export class ProfessorMariWorkspaceService {
           suggestions: runSuggestions,
           questions: runQuestions,
         };
+        const syncFromPi = () => {
+          assistantText = piState.assistantText;
+          runEndedWithDeferral = piState.endedWithDeferral;
+          runHeldChanges = piState.heldChanges;
+          runHeldCalls = piState.heldCalls;
+          runSuggestions = piState.suggestions;
+          runQuestions = piState.questions;
+        };
         try {
           await this.runPiRuntime({
             signal: controller.signal,
@@ -4057,6 +4192,21 @@ export class ProfessorMariWorkspaceService {
             commandResults: commandResultsForContinuity,
             onEvent: args.onEvent,
             maxOutputTokens: baseOptions.maxTokens,
+            steers: {
+              waiting: () => {
+                syncFromPi();
+                return steersWaiting();
+              },
+              take: async () => {
+                syncFromPi();
+                const text = await deliverSteers();
+                if (text !== null) {
+                  piState.assistantText = assistantText;
+                  piState.suggestions = runSuggestions;
+                }
+                return text;
+              },
+            },
             understood: {
               record: (text, mutating, held) => {
                 // Same superseded-run guard as the other shared writes.
@@ -4108,12 +4258,7 @@ export class ProfessorMariWorkspaceService {
             },
           });
         } finally {
-          assistantText = piState.assistantText;
-          runEndedWithDeferral = piState.endedWithDeferral;
-          runHeldChanges = piState.heldChanges;
-          runHeldCalls = piState.heldCalls;
-          runSuggestions = piState.suggestions;
-          runQuestions = piState.questions;
+          syncFromPi();
         }
       }
 
@@ -4267,7 +4412,7 @@ export class ProfessorMariWorkspaceService {
           // Same superseded-run guard for the round-scoped shared write.
           controller.signal.throwIfAborted();
           this.activeRoundManualSilentMutationBlocked =
-            permissionsMode === "manual" && !action.visibleText && !manualApprovalArmed;
+            permissionsMode === "manual" && !action.visibleText && (!manualApprovalArmed || steerDisarmed);
           // #5748 ask-latch mirror: after this run has asked for approval, a
           // SILENT mutating frame cannot be the user's answer either. Manual is
           // carved out (its own floor plus manualApprovalArmed govern the
@@ -4418,6 +4563,16 @@ export class ProfessorMariWorkspaceService {
           break;
         }
 
+        // Send now on what would be her last round: she carries on instead of ending. First, so no chips-only round
+        // is spent on a question you have already moved past. The last round leaves it for the queue: the limit holds.
+        if (action.commands.length === 0 && action.questions.length === 0 && round < MAX_COMMAND_ROUNDS - 1) {
+          const steerText = await deliverSteers();
+          if (steerText !== null) {
+            messages.push({ role: "user", content: steerText, contextKind: "history" });
+            continue;
+          }
+        }
+
         // Slice 70: an answer that ends on a question ("apply all five, or pick some?") with no chips and no
         // card makes the user type the answer; ask once for chips only (the visible answer stays as it is).
         if (
@@ -4466,6 +4621,11 @@ export class ProfessorMariWorkspaceService {
         }
 
         messages.push({ role: "user", content: formatCommandResultForPrompt(commandResults), contextKind: "history" });
+
+        if (round < MAX_COMMAND_ROUNDS - 1) {
+          const steerText = await deliverSteers();
+          if (steerText !== null) messages.push({ role: "user", content: steerText, contextKind: "history" });
+        }
 
         if (round === MAX_COMMAND_ROUNDS - 1) {
           const content = "Command round limit reached; asking Professor Mari to summarize with the evidence she has.";
@@ -4611,7 +4771,7 @@ export class ProfessorMariWorkspaceService {
         } else {
           // Nothing of hers to save: the failure goes on your message, so a reload still shows it.
           await chatStorage
-            .updateMessageExtra(userMessage.id, { mariRunError: runError })
+            .updateMessageExtra(replyUserMessageId, { mariRunError: runError })
             .catch((saveErr) => logger.error(saveErr, "[Professor Mari] Failed to save the run error"));
         }
         throw err;
@@ -4668,7 +4828,8 @@ export class ProfessorMariWorkspaceService {
     // the visible say text, never the JSON envelope.
     const lastAssistant = [...history].reverse().find((row) => row.role === "assistant");
     const lastExtra = parseExtra(lastAssistant?.extra);
-    const manualApprovalArmed = lastExtra.mariDeferredMutations === true;
+    // A Retry after a partial reply ends on her row: it answers nothing, so it arms nothing.
+    const manualApprovalArmed = lastExtra.mariDeferredMutations === true && history.at(-1)?.role === "user";
     // Stored held calls: a fresh id each, only mutating ones, anything malformed counts as none.
     const heldCalls: WorkspaceCommandCall[] = Array.isArray(lastExtra.mariHeldCalls)
       ? lastExtra.mariHeldCalls.flatMap((raw): WorkspaceCommandCall[] =>
@@ -4779,6 +4940,7 @@ export class ProfessorMariWorkspaceService {
     // is re-sent uncached on every turn and every new chat; everything before it stays a stable cached prefix.
     messages.push({ role: "system", content: workspaceInfo, contextKind: "prompt" });
 
+    let latestUserEntry: ChatMessage | null = null;
     for (const row of history) {
       const extra = parseExtra(row.extra);
       if (extra.hiddenFromAI === true) continue;
@@ -4788,7 +4950,7 @@ export class ProfessorMariWorkspaceService {
       const attachments = role === "user" ? normalizeProfessorMariAttachments(extra.attachments) : [];
       const images = extractImageAttachmentDataUrls(attachments);
       const files = extractFileAttachmentInputs(attachments);
-      messages.push({
+      const entry: ChatMessage = {
         role,
         content:
           role === "assistant" && runtime === "classic"
@@ -4797,8 +4959,12 @@ export class ProfessorMariWorkspaceService {
         contextKind: "history",
         ...(role === "user" && images.length > 0 ? { images } : {}),
         ...(role === "user" && files.length > 0 ? { files } : {}),
-      });
+      };
+      messages.push(entry);
+      if (role === "user") latestUserEntry = entry;
     }
+    // A Retry after a partial reply: her words stay in the history, and your message goes last again, as a turn must end.
+    if (messages.at(-1)?.role === "assistant" && latestUserEntry) messages.push({ ...latestUserEntry });
     // #5073: user-attached reference context (chat-history slices). contextKind:'injection' so the
     // trimmer preserves it (unlike 'history'), keeping it readable regardless of message age; the
     // renderer self-bounds its total size. Placed before continuity so the latest turn stays closest.

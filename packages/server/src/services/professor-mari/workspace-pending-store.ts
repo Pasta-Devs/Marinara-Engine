@@ -8,7 +8,11 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import type { MariPendingMessage, MariPendingMessageSummary } from "@marinara-engine/shared";
+import {
+  isSubjectOnlyMariContext,
+  type MariPendingMessage,
+  type MariPendingMessageSummary,
+} from "@marinara-engine/shared";
 import { getFileStorageDir } from "../../config/runtime-config.js";
 import { logger } from "../../lib/logger.js";
 
@@ -118,7 +122,8 @@ export async function listPending(chatId: string): Promise<MariPendingMessage[]>
 
 export async function addPending(
   chatId: string,
-  input: Pick<MariPendingMessage, "text"> & Partial<Pick<MariPendingMessage, "attachments" | "references" | "context">>,
+  input: Pick<MariPendingMessage, "text"> &
+    Partial<Pick<MariPendingMessage, "attachments" | "references" | "context" | "steer">>,
 ): Promise<MariPendingMessage> {
   const path = pendingFilePath(chatId);
   return serialized(chatId, async () => {
@@ -136,9 +141,54 @@ export async function addPending(
       attachments: input.attachments ?? [],
       references: input.references ?? [],
       ...(input.context ? { context: input.context } : {}),
+      ...(input.steer && canSteer(input) ? { steer: true } : {}),
     };
     await writeList(path, [...list, message]);
     return message;
+  });
+}
+
+/** Send now is your words alone: files, `@` links and a field's context wait for a full send, the only place they are read. */
+function canSteer(message: Partial<Pick<MariPendingMessage, "attachments" | "references" | "context">>) {
+  return (
+    (message.attachments?.length ?? 0) === 0 &&
+    (message.references?.length ?? 0) === 0 &&
+    (!message.context || isSubjectOnlyMariContext(message.context))
+  );
+}
+
+/** Whether a Send now message is waiting for her next step. Asked every step, so it reads the file only once it changes. */
+export async function hasPendingSteers(chatId: string): Promise<boolean> {
+  return (await listPendingSummaries(chatId)).some((message) => message.steer && !message.held);
+}
+
+/** Takes every Send now message that is not held, oldest first: they reach her together at one step. */
+export async function takePendingSteers(chatId: string): Promise<MariPendingMessage[]> {
+  const path = pendingFilePath(chatId);
+  return serialized(chatId, async () => {
+    const list = await readList(path);
+    const steers = list.filter((message) => message.steer && !message.held);
+    if (steers.length === 0) return [];
+    await writeList(
+      path,
+      list.filter((message) => !steers.includes(message)),
+    );
+    return steers;
+  });
+}
+
+/** Send now on a waiting row. False when it is gone, held, or carries more than words; nothing changes then. */
+export async function promotePendingToSteer(chatId: string, id: string): Promise<boolean> {
+  const path = pendingFilePath(chatId);
+  return serialized(chatId, async () => {
+    const list = await readList(path);
+    const found = list.find((message) => message.id === id);
+    if (!found || found.held || !canSteer(found)) return false;
+    await writeList(
+      path,
+      list.map((message) => (message === found ? { ...message, steer: true } : message)),
+    );
+    return true;
   });
 }
 

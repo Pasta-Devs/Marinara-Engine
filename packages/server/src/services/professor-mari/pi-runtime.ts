@@ -126,6 +126,11 @@ export type PiRunInput = {
     record: (text: string | null, mutating: WorkspaceCommandCall[], held: boolean) => void;
     settle: (failed: boolean, staged: boolean) => void;
   };
+  /** Send now: `take` saves the checkpoint and returns what she should read next, or null. */
+  steers?: {
+    waiting: () => Promise<boolean>;
+    take: () => Promise<string | null>;
+  };
   onSession?: (session: AgentSession, tools: ToolDefinition[]) => void;
 };
 
@@ -615,7 +620,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
    * Review one finished model turn (pi's `turn_end`, so it runs whatever happened to the turn's calls): claim audit,
    * then its words, then the repeated-failure stop and the round cap. A repair is returned for the caller to queue.
    */
-  const finishRound = (current: Round, toolResults: readonly ToolResultMessage[]) => {
+  const finishRound = (current: Round, toolResults: readonly ToolResultMessage[], steerWaiting: boolean) => {
     if (current.chipRound) {
       // The answer before it stands; this round only added chips (or nothing).
       stopRequested = true;
@@ -789,6 +794,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     // Same as classic (Slice 70): an answer that ends on a question with no chips and no card gets one chips-only round.
     if (
       current.calls.length === 0 &&
+      !steerWaiting &&
       chipRepair === "unused" &&
       state.suggestions.length === 0 &&
       answerEndsWithQuestion(current.text)
@@ -1119,18 +1125,34 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     assertClosedToolSet(session, tools);
     input.onSession?.(session, tools);
     // Agent listeners are awaited, so the review and a queued repair land before pi's next step.
-    session.agent.subscribe((event) => {
+    const steerSession = (text: string) =>
+      session!.agent.steer({ role: "user", content: [{ type: "text", text }], timestamp: Date.now() });
+    session.agent.subscribe(async (event) => {
       if (event.type !== "turn_end" || event.message.role !== "assistant") return;
       const finished = round;
       round = null;
       if (!finished || event.message.stopReason === "error" || event.message.stopReason === "aborted") return;
-      const decision = finishRound(finished, event.toolResults);
-      if (decision !== "done") {
-        session!.agent.steer({
-          role: "user",
-          content: [{ type: "text", text: decision.prompt }],
-          timestamp: Date.now(),
-        });
+      try {
+        // Read first: a chips-only round would answer a question you have already moved past.
+        const steerWaiting = finished.calls.length === 0 && (await input.steers?.waiting()) === true;
+        const decision = finishRound(finished, event.toolResults, steerWaiting);
+        if (decision !== "done") {
+          steerSession(decision.prompt);
+          return;
+        }
+        // pi reads steering after this listener, and it goes through even on a turn whose tools said terminate. A stop
+        // or the round limit leaves it for the queue.
+        if (stopRequested || toolRounds >= maxToolRounds) return;
+        const steerText = await input.steers?.take();
+        if (steerText) {
+          // A typed "yes" armed this run for the change she held, not for whatever you send next.
+          armedSpent = true;
+          steerSession(steerText);
+        }
+      } catch (error) {
+        // A listener's throw would surface as pi's own failure; this keeps the real one for the caller.
+        providerError = error;
+        stopRequested = true;
       }
     });
     await session.prompt(last.content, { expandPromptTemplates: false });

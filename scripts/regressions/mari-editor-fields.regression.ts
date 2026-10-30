@@ -16,6 +16,8 @@ import {
   mariEditorKindForAction,
   mariEditorKindForTable,
   mariFieldPath,
+  keptAfterPresave,
+  appliesWithoutReview,
 } from "../../packages/client/src/lib/mari-editor-fields.js";
 
 // Change-card paths come from the row's `data` column.
@@ -337,6 +339,16 @@ assert.deepEqual(
   mariWorkingFieldFromTool("app_data", { action: "preset.update", presetId: "p1", patch: { description: "x" } }),
   { entityId: "p1", path: "description" },
 );
+
+// A send in Bypass/accept-edits saved the user's text while "m1" was the newest message: only a later
+// message's kept change is that run's; the change already shown, or a send that saved nothing, is not.
+assert.equal(keptAfterPresave("m1", "m2"), true);
+assert.equal(keptAfterPresave("", "m1"), true, "the first message of a new chat");
+assert.equal(keptAfterPresave("m1", "m1"), false, "the kept change from before the send");
+assert.equal(keptAfterPresave(null, "m2"), false, "a send that saved nothing");
+assert.equal(appliesWithoutReview("bypass"), true);
+assert.equal(appliesWithoutReview("accept-edits"), true);
+for (const mode of ["auto", "manual", "plan"]) assert.equal(appliesWithoutReview(mode), false, mode);
 
 // Single-line fields get the in-field review too, first in editor order; list fields (tags, keys) stay on her card.
 assert.deepEqual(

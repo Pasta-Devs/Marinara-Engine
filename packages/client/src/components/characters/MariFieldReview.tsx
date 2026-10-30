@@ -52,7 +52,7 @@ export function useMariFieldReview({
   touched: (fieldId: string) => boolean;
   edit: (fieldId: string, value: string) => void;
   /** Runs before Keep: "saved" when it saved the user's unsaved text, "failed" stops Keep. */
-  beforeKeep: (takenOver: string[]) => Promise<"saved" | "clean" | "failed">;
+  beforeKeep: (takenOver: string[] | null) => Promise<"saved" | "clean" | "failed">;
   /** A Keep that saved but sent nothing. */
   keepDropped: () => void;
 }) {
@@ -134,6 +134,19 @@ export function useMariFieldReview({
   // Her Keep reply brought no kept review; a later reply's kept review is not this Keep's.
   if (savedFor === "pending" && !answered && review?.mode === "busy") setSavedFor(null);
   if (savedFor === "pending" && keptReview) setSavedFor(keptReview.key);
+  // Bypass and accept-edits: her chat saves this editor before a send (her writes skip review).
+  // null: a plain save that leaves Edit's taken-over text alone.
+  const beforeKeepRef = useRef(beforeKeep);
+  useEffect(() => {
+    beforeKeepRef.current = beforeKeep;
+  });
+  useEffect(() => {
+    const save = () => beforeKeepRef.current(null);
+    useUIStore.getState().setMariEditorSave(save);
+    return () => {
+      if (useUIStore.getState().mariEditorSave === save) useUIStore.getState().setMariEditorSave(null);
+    };
+  }, []);
 
   const value: MariFieldReviewValue | null =
     entityId && (waiting.length > 0 || keptIds.length > 0 || declinedField)
@@ -189,7 +202,7 @@ export function useMariFieldReview({
                   fieldIds: keptIds,
                   undoUntil: keptReview.undoUntil,
                   undo: keptReview.undo,
-                  savedUnsaved: savedFor === keptReview.key,
+                  savedUnsaved: savedFor === keptReview.key || keptReview.savedUnsaved === true,
                 }
               : null,
           dismissKept: (fieldId) => keptReview && setDismissed((prev) => [...prev, `${keptReview.key}:${fieldId}`]),
@@ -336,14 +349,24 @@ function ReviewBox({ review, index, autoFocus }: { review: MariFieldReviewValue;
 function KeptLine({ kept }: { kept: NonNullable<MariFieldReviewValue["kept"]> }) {
   const { t, i18n } = useUiTranslation();
   const pack = useMariAppearancePack();
-  const deadline = undoLabel(kept.undoUntil ?? undefined, t, i18n.resolvedLanguage ?? "en");
+  const lang = i18n.resolvedLanguage ?? "en";
+  // undoLabel names only a deadline within a day; her undo window is longer, so name its date.
+  const soon = undoLabel(kept.undoUntil ?? undefined, t, lang);
+  const date =
+    !soon && kept.undoUntil && Date.parse(kept.undoUntil) > Date.now()
+      ? t("mari.fieldReview.undoUntilDate", {
+          date: new Intl.DateTimeFormat(lang, { month: "short", day: "numeric" }).format(new Date(kept.undoUntil)),
+        })
+      : null;
   return (
     <p className="mari-field-review-line" role="status">
       <img src={pack.portraits.idle} alt="" draggable={false} />
       <span>
-        {[t("mari.fieldReview.edited"), kept.savedUnsaved ? t("mari.fieldReview.savedUnsaved") : null, deadline]
+        {[t("mari.fieldReview.edited"), kept.savedUnsaved ? t("mari.fieldReview.savedUnsaved") : null, soon]
           .filter(Boolean)
           .join(" · ")}
+        {/* Phones hide the date visually so Undo stays on the line; screen readers still get it. */}
+        {date && <span className="max-[26.25rem]:sr-only"> · {date}</span>}
       </span>
       <button type="button" className="mari-btn" onClick={kept.undo}>
         <Undo2 aria-hidden="true" />
