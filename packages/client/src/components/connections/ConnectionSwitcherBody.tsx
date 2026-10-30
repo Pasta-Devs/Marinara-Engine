@@ -771,17 +771,20 @@ export function ConnectionSwitcherBody({
     const starredIn = (group: SwitcherGroup | undefined, model: string | null | undefined) =>
       !!group?.account && !!model && starsOfRows(group.rows).has(model);
     const saved = byRank(
-      rows.map((row) => {
-        const model = { id: row.model ?? "", name: row.name };
-        const group = groupOfRow.get(row.id);
-        const byModel = rankModelMatch(q, model, { saved: true, starred: starredIn(group, row.model) });
-        const byOwner = `${group?.name ?? ""} ${modelBrand(row.model) ?? ""}`.toLowerCase().includes(q) ? 4 : -1;
-        return {
-          rank: byModel >= 0 ? byModel : byOwner,
-          text: rankModelMatch(q, model),
-          item: entryOfRow(row, group),
-        };
-      }),
+      // A row with no model yet (an account's placeholder) is not something a job can use.
+      rows
+        .filter((row) => row.model)
+        .map((row) => {
+          const model = { id: row.model ?? "", name: row.name };
+          const group = groupOfRow.get(row.id);
+          const byModel = rankModelMatch(q, model, { saved: true, starred: starredIn(group, row.model) });
+          const byOwner = `${group?.name ?? ""} ${modelBrand(row.model) ?? ""}`.toLowerCase().includes(q) ? 4 : -1;
+          return {
+            rank: byModel >= 0 ? byModel : byOwner,
+            text: rankModelMatch(q, model),
+            item: entryOfRow(row, group),
+          };
+        }),
     ).map(({ item }) => item);
     const added = byRank(
       (catalog.data ?? []).flatMap((hit) => {

@@ -198,7 +198,8 @@ export function ConnectionGroup({
   const heading = identity.name;
   const accountLabel = identity.accountLabel;
   const endpoint = identity.endpoint;
-  const count = t("connections.list.models", { count: visibleRows.length });
+  // No starred models yet: the card says nothing rather than "0 models" while every job lists the account's catalog.
+  const count = visibleRows.length ? t("connections.list.models", { count: visibleRows.length }) : undefined;
   const modelsId = `connection-models-${account.id}`;
   // One status word: Ready is plain text; Needs key and Off are the word itself as the fix.
   const keyRejected = /\b401\b|invalid.*key|key.*invalid|unauthori[sz]ed/i.test(testFailure ?? "");
