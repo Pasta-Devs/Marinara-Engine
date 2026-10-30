@@ -101,6 +101,33 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       library
         .locator("[data-sprite-folder]")
         .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-sprite-folder")));
+    const testHeader = testSection.getByRole("button", { name: "Test folder", exact: true });
+    await testHeader.click();
+    const emptyText = testSection.getByText("Drop sprites here.", { exact: true });
+    await expect(emptyText).toBeVisible();
+    await emptyText.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    const emptyBounds = (await emptyText.boundingBox())!;
+    const emptyX = emptyBounds.x + emptyBounds.width / 2;
+    const emptyY = emptyBounds.y + emptyBounds.height / 2;
+    if (info.project.name === "phone") {
+      const touch = await page.context().newCDPSession(page);
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: emptyX, y: emptyY }] });
+      await page.waitForTimeout(500);
+      await expect(testSection).not.toHaveAttribute("data-drag-source");
+      await touch.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      await touch.detach();
+    } else {
+      await page.mouse.move(emptyX, emptyY);
+      await page.mouse.down();
+      await page.mouse.move(emptyX + 20, emptyY, { steps: 5 });
+      await expect(testSection).not.toHaveAttribute("data-drag-source");
+      await page.mouse.up();
+    }
+    await expect(page.locator('body > [data-drag-kind][aria-hidden="true"]')).toHaveCount(0);
+    await expect.poll(folderOrder).toEqual([testFolderId, alternate, front]);
+    await testHeader.click();
+    await expect(testHeader).toHaveAttribute("aria-expanded", "false");
     await frontSection.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     const from = (await frontSection.boundingBox())!;
@@ -175,6 +202,19 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(section.getByRole("checkbox", { name: /Use as reference image/ })).toBeDisabled();
     await section.getByRole("button", { name: "Close", exact: true }).click();
     await library.getByRole("button", { name: "Add sprites", exact: true }).click();
+    const addPanel = library.getByRole("region", { name: "Add sprites", exact: true });
+    const upload = (await addPanel.getByRole("button", { name: "Upload images", exact: true }).boundingBox())!;
+    const importFolder = (await addPanel.getByRole("button", { name: "Import folder", exact: true }).boundingBox())!;
+    const generate = (await addPanel.getByRole("button", { name: "Generate Sprite", exact: true }).boundingBox())!;
+    if (info.project.name === "desktop") {
+      expect(Math.abs(upload.y + upload.height / 2 - (importFolder.y + importFolder.height / 2))).toBeLessThan(2);
+      expect(Math.abs(generate.y - importFolder.y)).toBeLessThan(2);
+    } else {
+      expect(upload.y + upload.height).toBeLessThanOrEqual(importFolder.y);
+      expect(Math.abs(importFolder.y - generate.y)).toBeLessThan(2);
+      expect(Math.abs(importFolder.width - generate.width)).toBeLessThan(2);
+    }
+    await page.screenshot({ path: info.outputPath("compact-upload.png"), animations: "disabled" });
     await expect(library.getByText(/^Adding to:/)).toHaveCount(0);
     await expect(
       library.getByText("Filenames become sprite names. Open a sprite to rename it or change its folder.", {

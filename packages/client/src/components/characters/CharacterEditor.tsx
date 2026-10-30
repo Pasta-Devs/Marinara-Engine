@@ -5988,10 +5988,21 @@ function SpritesTab({
             className="space-y-3 rounded-xl border border-[var(--border)] p-4"
             aria-label={localizeUi("sprites.library.addSprites")}
           >
-            <div className="flex flex-wrap justify-end gap-2">
+            <div className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center">
+              <ImageUploadDropzone
+                multiple
+                className="col-span-2 min-h-11 py-2 md:min-h-9"
+                disabled={spriteBusy}
+                label={localizeUi("sprites.library.uploadImages")}
+                pending={!!folderProgress || uploading}
+                pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
+                dragLabel={localizeUi("sprites.library.dropImages")}
+                onFilesSelected={(files) => void handleImageFiles(files)}
+                icon={<Upload size={16} />}
+              />
               <button
                 type="button"
-                className={spriteActionClass}
+                className={cn(spriteActionClass, "md:ml-auto")}
                 disabled={spriteBusy}
                 onClick={() => folderInputRef.current?.click()}
               >
@@ -6009,16 +6020,6 @@ function SpritesTab({
                 {localizeUi("ui.characters.spritestab.generateSprite")}
               </button>
             </div>
-            <ImageUploadDropzone
-              multiple
-              disabled={spriteBusy}
-              label={localizeUi("sprites.library.uploadImages")}
-              pending={!!folderProgress || uploading}
-              pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
-              dragLabel={localizeUi("sprites.library.dropImages")}
-              onFilesSelected={(files) => void handleImageFiles(files)}
-              icon={<Upload size={16} />}
-            />
             {spriteGenerationUnavailable && (
               <p className="text-xs text-[var(--muted-foreground)]">{spriteGenerationReason}</p>
             )}

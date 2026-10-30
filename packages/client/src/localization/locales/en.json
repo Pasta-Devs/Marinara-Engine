@@ -5670,7 +5670,7 @@
   "sprites.library.destination": "Destination folder",
   "sprites.library.dropImages": "Drop sprite images here",
   "sprites.library.dropLoose": "Drop sprites here to move them out of a folder.",
-  "sprites.library.emptyFolder": "Drop sprites here or use Move selected.",
+  "sprites.library.emptyFolder": "Drop sprites here.",
   "sprites.library.emptyHint": "Add images, import a folder, or generate sprites.",
   "sprites.library.emptyType": "No sprites of this type here yet.",
   "sprites.library.expand": "Expand",

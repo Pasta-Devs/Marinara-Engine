@@ -531,8 +531,14 @@ function SpriteInlineFolder({
   return (
     <section
       {...folderDragBindings}
-      onMouseDown={busy || editing ? undefined : folderDragBindings.onMouseDown}
-      onTouchStart={busy || editing ? undefined : folderDragBindings.onTouchStart}
+      onMouseDown={(event) => {
+        if (!busy && !editing && event.currentTarget.firstElementChild?.contains(event.target as Node))
+          folderDragBindings.onMouseDown(event);
+      }}
+      onTouchStart={(event) => {
+        if (!busy && !editing && event.currentTarget.firstElementChild?.contains(event.target as Node))
+          folderDragBindings.onTouchStart(event);
+      }}
       {...zone}
       data-sprite-folder={current.id}
       data-sprite-folder-id={current.id}
