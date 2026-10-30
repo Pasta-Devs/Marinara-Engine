@@ -23,6 +23,9 @@ assert.deepEqual(mariFieldDraft("description", "Make this warmer", 0, 9), {
   selection: "Make this",
 });
 assert.deepEqual(mariFieldDraft("description", "Draft", 2, 2), { fieldId: "description", value: "Draft" });
+const longDraft = mariFieldDraft("description", "x".repeat(20_001), 0, 20_001);
+assert.equal(longDraft?.value.length, 20_000, "a long field is capped like the route schema");
+assert.equal(longDraft?.selection?.length, 4_000, "a long selection is capped like the route schema");
 assert.equal(mariFieldDraft("tags", "half-typed", 0, 4), null, "a tag input is not the Tags field content");
 
 // Patch keys in every spelling the server accepts map to the editor id; unknown keys do not.

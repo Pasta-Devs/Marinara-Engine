@@ -42,9 +42,10 @@ export function mariFieldDraft(
   if (LIST_FIELD_IDS.has(fieldId)) return null;
   const selection =
     selectionStart !== null && selectionEnd !== null && selectionEnd > selectionStart
-      ? value.slice(selectionStart, selectionEnd)
+      ? value.slice(selectionStart, selectionEnd).slice(0, 4_000)
       : undefined;
-  return { fieldId, value, ...(selection ? { selection } : {}) };
+  // Same limits as the route schema (professor-mari-workspace.routes.ts), so a long field never fails the send.
+  return { fieldId, value: value.slice(0, 20_000), ...(selection ? { selection } : {}) };
 }
 
 /** The field for an id, or its closest anchored parent (`extensions.depth_prompt.role` -> the depth prompt). */
