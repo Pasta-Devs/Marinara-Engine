@@ -2252,6 +2252,9 @@ function RoleplaySetupWizard({
     return flag;
   });
   const [shortcutPresetId, setShortcutPresetId] = useState<string>("");
+  const profileSeedRef = useRef<{ personaId: string | null; personaCharacterId: string | null; seeded: string } | null>(
+    null,
+  );
   const [profileBuilder, setProfileBuilder] = useState<"edit" | "new" | null>(null);
 
   const updateChat = useUpdateChat();
@@ -3923,7 +3926,25 @@ function RoleplaySetupWizard({
               setShortcutPresetId(event.target.value);
               // Show the profile's starting persona in the picker, so the user sees it and can change it.
               const personaId = chatPresetList.find((preset) => preset.id === event.target.value)?.settings.personaId;
-              if (personaId && personas.some((persona) => persona.id === personaId)) setPersona(personaId);
+              // A persona the user picked after the last seed is their own choice: forget the seed.
+              if (profileSeedRef.current && chat.personaId !== profileSeedRef.current.seeded)
+                profileSeedRef.current = null;
+              const seed = profileSeedRef.current;
+              if (personaId && personas.some((persona) => persona.id === personaId)) {
+                profileSeedRef.current = seed
+                  ? { ...seed, seeded: personaId }
+                  : {
+                      personaId: chat.personaId ?? null,
+                      personaCharacterId: chat.personaCharacterId ?? null,
+                      seeded: personaId,
+                    };
+                setPersona(personaId);
+              } else if (seed) {
+                // The previous profile's persona is still set: put back what the user had before.
+                profileSeedRef.current = null;
+                if (seed.personaCharacterId) setPersonaCharacter(seed.personaCharacterId);
+                else setPersona(seed.personaId);
+              }
             }}
             aria-label={localizeUi("chat.settingsProfile.label")}
             className={WIZARD_INPUT_CLASS}

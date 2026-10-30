@@ -60,9 +60,13 @@ try {
   // A hand apply copies the picks and keeps the chat's own lorebooks.
   const chatId = await createChat("Elara");
   await inject("PATCH", `/api/chats/${chatId}/metadata`, { activeLorebookIds: ["own-lore"] });
+  // The chat plays as a character before the apply; the profile persona must replace that identity.
+  const asCharacter = await createCharactersStorage(db).create({ name: "Kestrel", description: "" } as never);
+  await inject("PATCH", `/api/chats/${chatId}`, { personaCharacterId: (asCharacter as { id: string }).id });
   await inject("POST", `/api/chat-presets/${profile.id}/apply/${chatId}`);
   const applied = await getChat(chatId);
   assert.equal(applied.personaId, persona.id, "applying copies the persona");
+  assert.equal(applied.personaCharacterId ?? null, null, "applying a persona clears the character identity");
   assert.deepEqual(
     applied.metadata.activeLorebookIds,
     ["own-lore", loreA, loreB],

@@ -475,7 +475,7 @@ export function createChatPresetsStorage(db: DB) {
               connectionId: nextConnectionId,
               promptPresetId: preset.settings.promptPresetId ?? null,
               ...(preset.settings.personaId && (await personaExists(preset.settings.personaId))
-                ? { personaId: preset.settings.personaId }
+                ? { personaId: preset.settings.personaId, personaCharacterId: null }
                 : {}),
               updatedAt: now(),
             }),
