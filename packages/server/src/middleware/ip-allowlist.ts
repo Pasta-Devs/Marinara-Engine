@@ -705,7 +705,11 @@ export function dockerTrustWarning(peers: PasswordlessPeer[]): string | null {
   if (!peers.includes("docker")) return null;
   // BYPASS_AUTH_DOCKER=true keeps the trust even with a login, so "set a login" would be wrong advice.
   if (getDockerBypassMode() === "enabled") {
-    return "[access] BYPASS_AUTH_DOCKER=true makes Marinara trust the Docker gateway, even after you set a login. On Docker Desktop, OrbStack and rootless Docker, every device that reaches a published port arrives from that gateway. Keep the port on 127.0.0.1 or remove BYPASS_AUTH_DOCKER=true before you publish it to your network.";
+    // Without a login, auto mode keeps the trust after the flag is gone, so both steps are needed.
+    const remedy = getAccessConfig().basicAuthConfigured
+      ? "remove BYPASS_AUTH_DOCKER=true"
+      : "remove BYPASS_AUTH_DOCKER=true and set a login";
+    return `[access] BYPASS_AUTH_DOCKER=true makes Marinara trust the Docker gateway, even after you set a login. On Docker Desktop, OrbStack and rootless Docker, every device that reaches a published port arrives from that gateway. Keep the port on 127.0.0.1 or ${remedy} before you publish it to your network.`;
   }
   return "[access] Marinara trusts the Docker gateway without a login. On Docker Desktop, OrbStack and rootless Docker, every device that reaches a published port arrives from that gateway. Keep the port on 127.0.0.1 (the default Compose setup) or set a login before you publish it to your network.";
 }

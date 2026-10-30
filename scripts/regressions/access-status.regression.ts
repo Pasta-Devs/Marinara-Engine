@@ -161,7 +161,12 @@ try {
   // The forced bypass survives a login, so its warning must not advise setting one.
   assert.match(
     dockerTrustWarning(networkPeers({ BYPASS_AUTH_DOCKER: "true", ...LOGIN }))!,
-    /remove BYPASS_AUTH_DOCKER=true/,
+    /or remove BYPASS_AUTH_DOCKER=true before/,
+  );
+  // Without a login, auto mode would keep the trust after the flag is removed.
+  assert.match(
+    dockerTrustWarning(networkPeers({ BYPASS_AUTH_DOCKER: "true" }))!,
+    /remove BYPASS_AUTH_DOCKER=true and set a login before/,
   );
   // A password wins over the unauthenticated opt-ins; an allowlist keeps everyone else out,
   // but its own devices always skip the password.
