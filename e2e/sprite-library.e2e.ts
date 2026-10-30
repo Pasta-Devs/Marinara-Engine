@@ -120,9 +120,67 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     if (info.project.name === "phone") {
       const card = frontSection.getByRole("button", { name: "Preview idle", exact: true });
       await card.scrollIntoViewIfNeeded();
+      const session = await page.context().newCDPSession(page);
+      const tile = card.locator("xpath=ancestor::*[@data-sprite-expression][1]");
+      const picture = card.locator("img");
+      for (const imageOrigin of [true, false]) {
+        await tile.scrollIntoViewIfNeeded();
+        const bounds = await (imageOrigin ? picture : tile).boundingBox();
+        expect(bounds).not.toBeNull();
+        const x = imageOrigin ? bounds!.x + bounds!.width / 2 : bounds!.x + 1;
+        const y = imageOrigin ? bounds!.y + bounds!.height / 2 : bounds!.y + bounds!.height - 1;
+        await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+        await expect(tile).toHaveAttribute("data-drag-source", "true");
+        await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+        await expect(tile).not.toHaveAttribute("data-drag-source");
+        // A browser context menu or HTML drag arriving after cancellation still belongs to the touch tile.
+        expect(
+          await picture.evaluate((element) =>
+            element.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true })),
+          ),
+        ).toBe(false);
+        expect(
+          await tile.evaluate((element) =>
+            element.dispatchEvent(
+              new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }),
+            ),
+          ),
+        ).toBe(false);
+        await expect(page.locator("[data-sprite-drag-preview]")).toHaveCount(0);
+      }
+      // Ordinary taps still open details, and a swipe before the hold timeout scrolls instead of picking up.
+      await card.tap();
+      await expect(page.getByRole("dialog").last()).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await card.scrollIntoViewIfNeeded();
+      const swipe = await card.boundingBox();
+      const swipeX = swipe!.x + swipe!.width / 2,
+        swipeY = swipe!.y + swipe!.height / 2;
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: swipeX, y: swipeY }] });
+      for (let offset = 20; offset <= 120; offset += 20)
+        await session.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x: swipeX, y: swipeY - offset }],
+        });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect.poll(async () => (await card.boundingBox())!.y).toBeLessThan(swipe!.y - 15);
+      await expect(tile).not.toHaveAttribute("data-drag-source");
+      await card.scrollIntoViewIfNeeded();
+      let settledY: number | null = null;
+      await expect
+        .poll(
+          async () => {
+            const bounds = await card.boundingBox();
+            const settled = bounds !== null && settledY !== null && Math.abs(bounds.y - settledY) < 1;
+            settledY = bounds?.y ?? null;
+            return settled;
+          },
+          { intervals: [150] },
+        )
+        .toBe(true);
       const box = await card.boundingBox();
       expect(box).not.toBeNull();
-      const session = await page.context().newCDPSession(page);
       const x = box!.x + box!.width / 2;
       await session.send("Input.dispatchTouchEvent", {
         type: "touchStart",

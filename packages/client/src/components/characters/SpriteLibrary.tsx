@@ -200,6 +200,7 @@ export function SpriteFolderGrid({
   const dragOffset = useRef({ x: 0, y: 0 });
   const [touchDragging, setTouchDragging] = useState(false);
   const suppressClick = useRef(false);
+  const touchInput = useRef(false);
   const disabled = busy || library.mutation.isPending || !library.query.data;
   const { startTouchDrag } = useTouchFolderDrag({
     getDragIds: (expression) => (library.selected.includes(expression) ? library.selected : [expression]),
@@ -285,9 +286,17 @@ export function SpriteFolderGrid({
           data-sprite-expression={sprite.expression}
           data-drag-kind="sprite"
           data-drag-id={sprite.expression}
+          onPointerDown={(event) => {
+            touchInput.current = event.pointerType === "touch" && window.matchMedia("(max-width: 767px)").matches;
+          }}
           onTouchStart={(event) => {
-            if (!disabled && window.matchMedia("(max-width: 767px)").matches)
-              startTouchDrag(event, sprite.expression, { sourceElement: event.currentTarget });
+            if (window.matchMedia("(max-width: 767px)").matches) {
+              touchInput.current = true;
+              if (!disabled) startTouchDrag(event, sprite.expression, { sourceElement: event.currentTarget });
+            }
+          }}
+          onContextMenu={(event) => {
+            if (touchInput.current) event.preventDefault();
           }}
           onClickCapture={(event) => {
             if (suppressClick.current) {
@@ -296,9 +305,12 @@ export function SpriteFolderGrid({
             }
           }}
           draggable={!disabled}
-          className={cn(draggedExpressions.includes(sprite.expression) && "opacity-50")}
+          className={cn(
+            "max-md:touch-pan-y max-md:select-none max-md:[-webkit-touch-callout:none] max-md:[&_*]:[-webkit-touch-callout:none] max-md:[&_img]:[-webkit-user-drag:none] max-md:[&_img]:select-none",
+            draggedExpressions.includes(sprite.expression) && "opacity-50",
+          )}
           onDragStart={(e) => {
-            if (disabled) {
+            if (disabled || touchInput.current) {
               e.preventDefault();
               return;
             }
