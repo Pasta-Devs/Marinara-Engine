@@ -312,4 +312,34 @@ assert.deepEqual(
   },
 );
 
+// Single-line fields get the in-field review too, first in editor order; list fields (tags, keys) stay on her card.
+assert.deepEqual(
+  heldEditorFields([
+    {
+      name: "app_data",
+      arguments: {
+        action: "character.update",
+        characterId: "c1",
+        patch: { description: "D", creator: "Me", name: "Shrek", characterVersion: "2", tags: ["a"] },
+      },
+    },
+    { name: "app_data", arguments: { action: "persona.update", id: "p1", patch: { phoneticName: "Pee", name: "P" } } },
+    {
+      name: "app_data",
+      arguments: { action: "lorebook.updateEntry", entryId: "e1", patch: { content: "C", name: "Gate", keys: ["k"] } },
+    },
+  ]).map(({ fieldId, value }) => [fieldId, value]),
+  // Sorted by each kind's review rank, across records.
+  [
+    ["name", "Shrek"],
+    ["name", "P"],
+    ["entries.e1.name", "Gate"],
+    ["creator", "Me"],
+    ["character_version", "2"],
+    ["phoneticName", "Pee"],
+    ["entries.e1.content", "C"],
+    ["description", "D"],
+  ],
+);
+
 console.log("mari-editor-fields regression passed");

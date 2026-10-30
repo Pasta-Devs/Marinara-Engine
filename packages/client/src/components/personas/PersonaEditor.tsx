@@ -3851,24 +3851,28 @@ function PersonaMetadataTab({
               text={localizeUi("ui.personas.personametadatatab.yourPersonaSDisplayNameThisIsInjectedInto")}
             />
           </span>
-          <input
-            value={formData.name}
-            onChange={(e) => updateField("name", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={localizeUi("ui.personas.personaeditor.personaName")}
-          />
+          <MariFieldReview field="name">
+            <input
+              value={formData.name}
+              onChange={(e) => updateField("name", e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+              placeholder={localizeUi("ui.personas.personaeditor.personaName")}
+            />
+          </MariFieldReview>
         </label>
         <label className="space-y-1.5 sm:col-span-2" data-mari-field="comment">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personametadatatab.titleComment")}{" "}
             <HelpTooltip text={localizeUi("ui.personas.personametadatatab.aShortNoteShownUnderThePersonaNameIn")} />
           </span>
-          <input
-            value={formData.comment}
-            onChange={(e) => updateField("comment", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={localizeUi("ui.personas.personametadatatab.modernAuVersion")}
-          />
+          <MariFieldReview field="comment">
+            <input
+              value={formData.comment}
+              onChange={(e) => updateField("comment", e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+              placeholder={localizeUi("ui.personas.personametadatatab.modernAuVersion")}
+            />
+          </MariFieldReview>
         </label>
         <label className="space-y-1.5" data-mari-field="phoneticName">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
@@ -3879,12 +3883,14 @@ function PersonaMetadataTab({
               )}
             />
           </span>
-          <input
-            value={formData.phoneticName}
-            onChange={(e) => updateField("phoneticName", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={formData.name}
-          />
+          <MariFieldReview field="phoneticName">
+            <input
+              value={formData.phoneticName}
+              onChange={(e) => updateField("phoneticName", e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+              placeholder={formData.name}
+            />
+          </MariFieldReview>
         </label>
         <label className="space-y-1.5" data-mari-field="creator">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
@@ -3893,12 +3899,14 @@ function PersonaMetadataTab({
               text={localizeUi("ui.personas.personametadatatab.thePersonWhoMadeThisPersonaUsefulForCredit")}
             />
           </span>
-          <input
-            value={formData.creator}
-            onChange={(e) => updateField("creator", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={localizeUi("ui.personas.personametadatatab.yourName")}
-          />
+          <MariFieldReview field="creator">
+            <input
+              value={formData.creator}
+              onChange={(e) => updateField("creator", e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+              placeholder={localizeUi("ui.personas.personametadatatab.yourName")}
+            />
+          </MariFieldReview>
         </label>
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
