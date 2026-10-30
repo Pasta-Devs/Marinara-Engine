@@ -875,6 +875,9 @@ export function HomeProfessorMariChat({
   // Companion mode keeps her open while the user switches or closes the editor beside her, so the
   // context the next send carries must follow the editor, not stay on the one she was opened over.
   const lastEditorResourceRef = useRef(editorResource);
+  const activeEditorField = useUIStore((state) => state.activeEditorField);
+  // Last anchored field id seen; a refocus of the same field (or an unanchored control in between) changes nothing.
+  const lastEditorFieldIdRef = useRef(activeEditorField?.id);
   useEffect(() => {
     const previous = lastEditorResourceRef.current;
     if (
@@ -883,15 +886,18 @@ export function HomeProfessorMariChat({
       previous?.label === editorResource?.label
     )
       return;
+    // Another record: its first focused field is new, even with the same id.
+    if (previous?.kind !== editorResource?.kind || previous?.id !== editorResource?.id)
+      lastEditorFieldIdRef.current = undefined;
     lastEditorResourceRef.current = editorResource;
     setHandoffContext((current) => retargetEditorContext(current, previous, editorResource));
   }, [editorResource]);
   // Companion mode: her field chip follows the anchored editor field the user focuses next.
-  const activeEditorField = useUIStore((state) => state.activeEditorField);
-  // Last anchored field id seen; a refocus of the same field (or an unanchored control in between) changes nothing.
-  const lastEditorFieldIdRef = useRef(activeEditorField?.id);
   useEffect(() => {
     if (!activeEditorField || activeEditorField.id === lastEditorFieldIdRef.current) return;
+    // The store value can outlive a record switch for one render; only a field that really has focus counts.
+    const focused = document.activeElement?.closest<HTMLElement>("[data-mari-field]");
+    if (focused?.dataset.mariField !== activeEditorField.id) return;
     lastEditorFieldIdRef.current = activeEditorField.id;
     if (!editorCompanion || !editorResource) return;
     setHandoffContext((current) =>
@@ -2387,7 +2393,17 @@ export function HomeProfessorMariChat({
       ? overrideRecovery.context
       : overrideContext !== undefined
         ? overrideContext
-        : handoffContext;
+        : // The field may have been typed in since she took it: send its text as it is now.
+          handoffContext?.fieldId &&
+            editorResource &&
+            useUIStore.getState().mariCompanionRoot &&
+            handoffContext.resource?.kind === editorResource.kind &&
+            handoffContext.resource.id === editorResource.id
+          ? withCapturedEditorField(handoffContext, editorResource, {
+              id: handoffContext.fieldId,
+              label: handoffContext.field ?? handoffContext.fieldId,
+            })
+          : handoffContext;
     const messageText = text || (submittedAttachments.length > 0 ? "Please inspect the attached file." : "");
     if (!messageText || isBusy || regenerationInFlightRef.current || isReadingAttachments) return;
 
@@ -2689,6 +2705,7 @@ export function HomeProfessorMariChat({
   };
   // An `@` field pick: she takes that field (its text as it is now) and the editor shows it.
   const focusEditorField = (field: { id: string; label: string }) => {
+    lastEditorFieldIdRef.current = field.id;
     setHandoffContext((current) => withCapturedEditorField(current, editorResource, field));
     if (editorResource?.kind === "character") useUIStore.getState().revealMariField(editorResource.id, field.id);
   };
