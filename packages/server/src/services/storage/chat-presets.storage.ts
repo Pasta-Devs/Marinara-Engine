@@ -5,7 +5,7 @@
 // One profile per mode is marked active and used as the starting state.
 import { eq, and, ne, asc } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { chats, chatPresets } from "../../db/schema/index.js";
+import { chats, chatPresets, personas } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
 import { createChatsStorage, withChatMetadataPatchQueue } from "./chats.storage.js";
@@ -57,6 +57,11 @@ function isPresetExcludedMetadataKey(key: string) {
     (key.startsWith("scene") && !PROFILE_SCENE_SETTING_KEYS.has(key)) ||
     key.startsWith("multiplayer")
   );
+}
+
+function readStringIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((id): id is string => typeof id === "string" && !!id.trim()).map((id) => id.trim()))];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -196,11 +201,16 @@ function sanitizePresetSettings(input: ChatPresetSettings | undefined | null): C
   const out: ChatPresetSettings = {};
   if ("connectionId" in input) out.connectionId = input.connectionId ?? null;
   if ("promptPresetId" in input) out.promptPresetId = input.promptPresetId ?? null;
+  if (typeof input.personaId === "string" && input.personaId.trim()) out.personaId = input.personaId.trim();
+  const lorebookIds = readStringIds(input.lorebookIds);
+  if (lorebookIds.length) out.lorebookIds = lorebookIds;
   if (input.metadata) out.metadata = sanitizePresetMetadata(input.metadata as Record<string, unknown>);
   return out;
 }
 
 export function createChatPresetsStorage(db: DB) {
+  const personaExists = async (id: string) =>
+    (await db.select().from(personas).where(eq(personas.id, id))).length > 0;
   const storage = {
     async list() {
       const rows = (await db
@@ -435,6 +445,12 @@ export function createChatPresetsStorage(db: DB) {
           ...preserved,
           appliedChatPresetId: preset.id,
         };
+        // Starting picks are copied, never linked: a hand apply adds the profile's lorebooks.
+        if (!options.asFollower && preset.settings.lorebookIds?.length) {
+          appliedMetadata.activeLorebookIds = [
+            ...new Set([...readStringIds(currentMetadata.activeLorebookIds), ...preset.settings.lorebookIds]),
+          ];
+        }
         const newMetadata = options.asFollower
           ? syncFollowerMetadata(
               currentMetadata,
@@ -456,6 +472,9 @@ export function createChatPresetsStorage(db: DB) {
             ...(!options.asFollower && {
               connectionId: nextConnectionId,
               promptPresetId: preset.settings.promptPresetId ?? null,
+              ...(preset.settings.personaId && (await personaExists(preset.settings.personaId))
+                ? { personaId: preset.settings.personaId }
+                : {}),
               updatedAt: now(),
             }),
             metadata: JSON.stringify(newMetadata),
