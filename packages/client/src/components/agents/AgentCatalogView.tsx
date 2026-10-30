@@ -241,7 +241,8 @@ export function AgentCatalogView() {
   /** Updates one by one so each row on the Updates page shows its own state; a retry reuses the open run. */
   const runUpdates = async (rows: OrganizerEntry[], retry = false) => {
     if (rows.length === 0 || packageActionPending) return;
-    if (page.kind !== "updates") setPage({ kind: "updates" });
+    // go() also clears the search, which would otherwise hide the Updates page.
+    if (page.kind !== "updates" || query) go({ kind: "updates" });
     setUpdateRun((current) =>
       retry && current
         ? { ...current, running: true }
@@ -577,7 +578,9 @@ export function AgentCatalogView() {
         entries={all}
         run={updateRun}
         onUpdateAll={handleUpdateAll}
-        onRetry={(entry) => void runUpdates([entry], true)}
+        onRetry={(entry) =>
+          void runUpdates([all.find((live) => live.manifest.id === entry.manifest.id) ?? entry], true)
+        }
       />
     );
   } else if (page.kind === "installed") {

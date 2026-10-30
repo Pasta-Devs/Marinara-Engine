@@ -227,12 +227,12 @@ export function UpdatesPage({
   const { installedById, pending } = useOrganizer();
   const { t: localizeUi } = useUiTranslation();
   const rows = run?.rows ?? entries.filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id)));
-  const waiting = rows.filter((entry) => run?.results[entry.manifest.id]?.status !== "updated").length;
+  const notUpdated = rows.filter((entry) => run?.results[entry.manifest.id]?.status !== "updated").length;
   return (
     <div>
       <PageHeader
         title={localizeUi("ui.agents.organizer.updatesTitle")}
-        hint={waiting > 0 ? localizeUi("ui.agents.organizer.updatesReady", { count: waiting }) : undefined}
+        hint={notUpdated > 0 ? localizeUi("ui.agents.organizer.updatesReady", { count: notUpdated }) : undefined}
       >
         {rows.length > 1 && !run && (
           <button
@@ -265,11 +265,7 @@ export function UpdatesPage({
                 }`}
               >
                 {result?.status === "failed" && (
-                  <AgentUpdateFailure
-                    error={result.error}
-                    disabled={run!.running || pending}
-                    onRetry={() => onRetry(entry)}
-                  />
+                  <AgentUpdateFailure error={result.error} disabled={pending} onRetry={() => onRetry(entry)} />
                 )}
                 <UpdateNotes entry={entry} installedVersion={installedVersion} />
               </AgentRow>
