@@ -106,17 +106,26 @@ export function buildAvailableSpriteCharacter(
   },
   displayModes: readonly SpriteDisplayMode[],
 ): AvailableSpriteCharacter | null {
-  const expressions = uniqueStrings([
-    ...(displayModes.includes("expressions") ? sprites.expressions : []),
-    ...(displayModes.includes("full-body") ? [...sprites.fullBody, ...sprites.automaticFullBody] : []),
-  ]);
+  const expressions = displayModes.includes("expressions") ? uniqueStrings(sprites.expressions) : [];
+  const portraits = new Map(expressions.map((expression) => [expression.toLowerCase(), expression]));
+  const expressionAliases: Record<string, string> = Object.create(null);
+  for (const expression of expressions) {
+    expressionAliases[expression] = sprites.expressionAliases?.[expression] ?? expression;
+  }
+  if (displayModes.includes("full-body")) {
+    for (const expression of uniqueStrings([...sprites.fullBody, ...sprites.automaticFullBody])) {
+      const label = sprites.fullBodyAliases?.[expression] ?? expression;
+      const portrait = portraits.get(expression.toLowerCase());
+      // Keep the legacy shared choice until the two file families have different labels.
+      if (portrait && expressionAliases[portrait]!.toLowerCase() === label.toLowerCase()) continue;
+      const baseLabel = expression.replace(/_sprite_[a-f0-9]{12}$/iu, "").toLowerCase();
+      const handle = portrait || label.toLowerCase() !== baseLabel ? `full_${expression}` : expression;
+      expressions.push(handle);
+      expressionAliases[handle] = label;
+    }
+  }
 
   if (expressions.length === 0) return null;
-  const expressionAliases: Record<string, string> = Object.assign(
-    Object.create(null),
-    displayModes.includes("full-body") ? sprites.fullBodyAliases : {},
-    displayModes.includes("expressions") ? sprites.expressionAliases : {},
-  );
   return {
     characterId,
     characterName,
@@ -245,7 +254,9 @@ function resolveExpression(
   if (!trimmed) return null;
   if (aliases) {
     const savedHandle = availableExpressions.find(
-      (entry) => entry.toLowerCase() === trimmed.toLowerCase() && /_sprite_[a-f0-9]{12}$/iu.test(entry),
+      (entry) =>
+        entry.toLowerCase() === trimmed.toLowerCase() &&
+        (/^full_/iu.test(entry) || /_sprite_[a-f0-9]{12}$/iu.test(entry)),
     );
     if (savedHandle) return savedHandle;
     const label = resolveExpression(

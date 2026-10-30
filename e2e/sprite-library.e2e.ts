@@ -254,6 +254,8 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await library.getByRole("button", { name: "Close", exact: true }).click();
     await expect(library.getByText("All sprites are available to chats and agents.", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
+    const looseArea = library.locator("[data-sprite-loose]");
+    const looseRestingColor = await looseArea.evaluate((element) => getComputedStyle(element).backgroundColor);
 
     // A picture opens neutral details, and moving that picture does not change the chat default.
     if (info.project.name === "phone") {
@@ -328,6 +330,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       await expect(frontSection.locator('[data-drag-source="true"]')).toHaveCount(1);
       await expect(library.getByText("Drop here to move out of folder", { exact: true })).toBeVisible();
       const loose = library.locator("[data-sprite-loose]");
+      await expect(loose).toHaveCSS("border-top-style", "dashed");
+      await expect
+        .poll(() => loose.evaluate((element) => getComputedStyle(element).backgroundColor))
+        .not.toBe(looseRestingColor);
       for (let i = 0; i < 20; i++) {
         const root = await loose.boundingBox();
         if (root && root.y < 740) break;
@@ -367,7 +373,12 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       });
       await expect(looseTile).toHaveAttribute("data-drag-source", "true");
       await expect(library.getByText("Drop here to move out of folder", { exact: true })).toHaveCount(0);
+      await expect(loose).toHaveCSS("outline-style", "dashed");
+      await expect
+        .poll(() => loose.evaluate((element) => getComputedStyle(element).backgroundColor))
+        .not.toBe(looseRestingColor);
       expect((await loose.boundingBox())!.height).toBeCloseTo(looseBefore!.height, 1);
+      await page.screenshot({ path: info.outputPath("loose-area-highlight-phone.png"), animations: "disabled" });
       const destinationBox = (await destinationHeader.boundingBox())!;
       const destinationPoint = { x: destinationBox.x + 40, y: destinationBox.y + destinationBox.height / 2 };
       await session.send("Input.dispatchTouchEvent", {
@@ -401,6 +412,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         )
         .toBe(alternate);
       await expect(destination).not.toHaveAttribute("data-drag-target");
+      await expect(loose).toHaveCSS("background-color", looseRestingColor);
       // Restore this test fixture through the API before the shared editing checks.
       expect(
         (await request.post(path + "/move", { data: { expressions: ["full_idle"], folderId: front } })).ok(),
@@ -453,6 +465,11 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         await expect(preview).toBeVisible();
         expect(await preview.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
         await expect(preview.locator("[data-sprite-card]")).toBeVisible();
+        await expect(looseArea).toHaveCSS("border-top-style", "dashed");
+        await expect(library.getByText("Drop here to move out of folder", { exact: true })).toBeVisible();
+        await expect
+          .poll(() => looseArea.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .not.toBe(looseRestingColor);
         await page.screenshot({
           path: info.outputPath(fromImage ? "drag-image.png" : "drag-border.png"),
           animations: "disabled",
@@ -466,6 +483,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         await expect(preview).toHaveCount(0);
         await expect(original).toHaveCSS("opacity", "1");
         await expect(original).toHaveAttribute("draggable", "true");
+        await expect(looseArea).toHaveCSS("background-color", looseRestingColor);
       }
       previousY = null;
       await expect
@@ -495,6 +513,27 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
           .getByRole("button", { name: "Preview idle", exact: true })
           .locator("xpath=ancestor::*[@draggable][1]"),
       ).toHaveAttribute("draggable", "true");
+      const looseTile = looseArea.locator('[data-sprite-expression="full_idle"]');
+      await looseTile.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(500);
+      const looseBefore = (await looseArea.boundingBox())!;
+      const looseBounds = (await looseTile.boundingBox())!;
+      await page.mouse.move(looseBounds.x + looseBounds.width / 2, looseBounds.y + looseBounds.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(looseBounds.x + looseBounds.width / 2 + 25, looseBounds.y + looseBounds.height / 2 + 8, {
+        steps: 5,
+      });
+      await expect(page.locator("[data-sprite-drag-preview]")).toBeVisible();
+      await expect(looseArea).toHaveCSS("outline-style", "dashed");
+      await expect
+        .poll(() => looseArea.evaluate((element) => getComputedStyle(element).backgroundColor))
+        .not.toBe(looseRestingColor);
+      await expect(library.getByText("Drop here to move out of folder", { exact: true })).toHaveCount(0);
+      expect((await looseArea.boundingBox())!.height).toBeCloseTo(looseBefore.height, 1);
+      await page.screenshot({ path: info.outputPath("loose-area-highlight-desktop.png"), animations: "disabled" });
+      await page.keyboard.press("Escape");
+      await page.mouse.up();
+      await expect(looseArea).toHaveCSS("background-color", looseRestingColor);
       const transfer = await page.evaluateHandle(
         ({ owner }) => {
           const data = new DataTransfer();

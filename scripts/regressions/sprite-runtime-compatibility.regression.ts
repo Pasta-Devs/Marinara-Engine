@@ -11,7 +11,10 @@ try {
   const { listCharacterSprites } = await import("../../packages/server/src/services/game/sprite.service.js");
   const { buildAvailableSpriteCharacter, validateSpriteExpressionEntries, completeRequiredSpriteExpressionEntries } =
     await import("../../packages/server/src/routes/generate/expression-agent-utils.js");
-  const { writeSpriteCatalog } = await import("../../packages/server/src/services/sprites/sprite-catalog.js");
+  const { writeSpriteCatalog, listSpriteCatalog } =
+    await import("../../packages/server/src/services/sprites/sprite-catalog.js");
+  const { resolveSpriteDisplayExpression } =
+    await import("../../packages/client/src/components/chat/sprite-display-expression.js");
   const { resolveSpriteUrl } =
     await import("../../packages/client/src/features/tracker-panel/lib/sprite-expressions.js");
   const trackerSprites = ["fneutral", "fhappy"].map((expression) => ({
@@ -105,6 +108,87 @@ try {
     "sad",
     "omitted-owner fallback uses the current label and persists the concrete handle",
   );
+  const familyOwner = "family-collision";
+  const familyDirectory = join(directory, "sprites", familyOwner);
+  mkdirSync(familyDirectory, { recursive: true });
+  for (const handle of ["happy", "full_happy"]) writeFileSync(join(familyDirectory, `${handle}.png`), "fixture");
+  const validateFamily = (expression: string, modes: ("expressions" | "full-body")[]) =>
+    validateSpriteExpressionEntries(
+      [{ characterId: familyOwner, expression }],
+      [buildAvailableSpriteCharacter(familyOwner, "Owner", listCharacterSprites(familyOwner)!, modes)!],
+    ).expressions[0]?.expression;
+  for (const [portraitLabel, bodyLabel] of [
+    ["pleased", "furious"],
+    ["happy", "furious"],
+    ["pleased", "happy"],
+    ["happy", "happy"],
+    ["pleased", "pleased"],
+  ] as const) {
+    await writeSpriteCatalog(familyOwner, {
+      version: 1,
+      defaultFolderId: null,
+      folders: [],
+      sprites: {
+        happy: { id: "face", label: portraitLabel!, folderId: null },
+        full_happy: { id: "body", label: `full_${bodyLabel}`, folderId: null },
+      },
+    });
+    const combined = buildAvailableSpriteCharacter(familyOwner, "Owner", listCharacterSprites(familyOwner)!, [
+      "expressions",
+      "full-body",
+    ])!;
+    assert(combined.expressionChoices!.includes(portraitLabel!));
+    assert(combined.expressionChoices!.includes(bodyLabel!));
+    for (const [label, family, expected] of [
+      [portraitLabel, "expressions", "happy"],
+      [bodyLabel, "full-body", "full_happy"],
+    ] as const) {
+      const result = validateSpriteExpressionEntries([{ characterId: familyOwner, expression: label }], [combined]);
+      assert.equal(result.expressions.length, 1, JSON.stringify(result.warnings));
+      const handle = result.expressions[0]!.expression!;
+      assert.equal(
+        resolveSpriteDisplayExpression(listSpriteCatalog(familyOwner).sprites, handle, [family])?.expression,
+        expected,
+        `combined choice ${label} resolves to its concrete ${family} image`,
+      );
+    }
+    assert.equal(validateFamily(portraitLabel, ["expressions"]), "happy");
+    const bodyHandle = validateFamily(bodyLabel, ["full-body"])!;
+    assert.equal(
+      resolveSpriteDisplayExpression(listSpriteCatalog(familyOwner).sprites, bodyHandle, ["full-body"])?.expression,
+      "full_happy",
+    );
+    if (portraitLabel === bodyLabel) {
+      assert(!combined.expressions.includes("full_happy"), "unchanged shared choices keep their legacy handles");
+      assert.equal(
+        resolveSpriteDisplayExpression(listSpriteCatalog(familyOwner).sprites, "happy", ["expressions", "full-body"])
+          ?.expression,
+        "full_happy",
+        "shared names retain the base Engine full-body preference",
+      );
+    } else {
+      assert(combined.expressions.includes("full_happy"));
+      assert.equal(
+        resolveSpriteDisplayExpression(listSpriteCatalog(familyOwner).sprites, "happy", ["expressions", "full-body"])
+          ?.expression,
+        "happy",
+        "a renamed family cannot steal a concrete portrait handle",
+      );
+      assert.equal(
+        validateSpriteExpressionEntries([{ characterId: familyOwner, expression: "full_happy" }], [combined])
+          .expressions[0]?.expression,
+        "full_happy",
+        "explicit family handles are not reinterpreted as another label",
+      );
+    }
+  }
+  const crossedBodies = [
+    { expression: "full_cheer", label: "full_happy" },
+    { expression: "full_happy", label: "full_furious" },
+  ];
+  assert.equal(resolveSpriteDisplayExpression(crossedBodies, "happy", ["full-body"])?.expression, "full_happy");
+  assert.equal(resolveSpriteDisplayExpression(crossedBodies, "full_happy", ["full-body"])?.expression, "full_happy");
+  assert.equal(resolveSpriteDisplayExpression(crossedBodies, "full_cheer", ["full-body"])?.expression, "full_cheer");
 } finally {
   Math.random = random;
   rmSync(directory, { recursive: true, force: true });

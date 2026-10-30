@@ -201,9 +201,9 @@ export function SpriteFolderGrid({
   const [draggedExpressions, setDraggedExpressions] = useState<string[]>([]);
   const dragPreview = useRef<HTMLElement | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
-  const [touchDragging, setTouchDragging] = useState(false);
+  const spriteDragging = draggedExpressions.length > 0;
   const showMoveOutTarget =
-    touchDragging &&
+    spriteDragging &&
     library.visible.some((sprite) => Boolean(sprite.folderId) && draggedExpressions.includes(sprite.expression));
   const suppressClick = useRef(false);
   const touchInput = useRef(false);
@@ -224,7 +224,6 @@ export function SpriteFolderGrid({
     getDragIds: (expression) => (library.selected.includes(expression) ? library.selected : [expression]),
     onActivate: (expression) => {
       suppressClick.current = true;
-      setTouchDragging(true);
       setDraggedExpressions(library.selected.includes(expression) ? library.selected : [expression]);
     },
     onDrop: (_expression, x, y, expressions) => {
@@ -241,14 +240,12 @@ export function SpriteFolderGrid({
           void library.mutate("post", "move", { expressions, folderId });
       }
       setDraggedExpressions([]);
-      setTouchDragging(false);
       window.setTimeout(() => {
         suppressClick.current = false;
       }, 0);
     },
     onCancel: () => {
       setDraggedExpressions([]);
-      setTouchDragging(false);
       window.setTimeout(() => {
         suppressClick.current = false;
       }, 0);
@@ -478,8 +475,11 @@ export function SpriteFolderGrid({
         data-sprite-folder-root
         aria-label={t("sprites.library.loose")}
         className={cn(
-          "min-h-12 rounded-xl",
-          target === null && "ring-2 ring-[var(--primary)]",
+          "min-h-12 rounded-xl transition-colors",
+          spriteDragging && "bg-[var(--marinara-chat-chrome-highlight-bg)]",
+          spriteDragging &&
+            !showMoveOutTarget &&
+            "outline outline-1 -outline-offset-1 outline-dashed outline-[var(--marinara-chat-chrome-button-border-active)]",
           showMoveOutTarget &&
             "min-h-16 border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-1",
         )}
@@ -490,7 +490,7 @@ export function SpriteFolderGrid({
           </div>
         )}
         {grid(library.visible.filter((sprite) => !sprite.folderId))}
-        {!touchDragging && library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId) && (
+        {!spriteDragging && library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId) && (
           <p className="p-3 text-center text-xs text-[var(--muted-foreground)]">{t("sprites.library.dropLoose")}</p>
         )}
       </div>

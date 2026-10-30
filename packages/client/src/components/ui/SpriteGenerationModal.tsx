@@ -1956,6 +1956,7 @@ export function SpriteGenerationModal({
           api.post(`/sprites/${entityId}`, {
             expression,
             image: cell.dataUrl,
+            replaceExisting: true,
             ...(folderId !== undefined ? { folderId } : {}),
           }),
         ),

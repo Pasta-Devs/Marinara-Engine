@@ -1610,7 +1610,7 @@ export async function spritesRoutes(app: FastifyInstance) {
   /**
    * POST /api/sprites/:characterId
    * Upload a sprite image for a given expression.
-   * Body: { expression: string, image: string (base64 data URL) }
+   * Body: { expression: string, image: string (base64 data URL), folderId?: string | null, replaceExisting?: boolean }
    */
   app.post<{ Params: { characterId: string } }>("/:characterId", async (req, reply) =>
     withSpriteCatalogLock(req.params.characterId, async () => {
@@ -1621,7 +1621,12 @@ export async function spritesRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Invalid character ID" });
       }
 
-      const body = req.body as { expression?: string; image?: string; folderId?: string | null };
+      const body = req.body as {
+        expression?: string;
+        image?: string;
+        folderId?: string | null;
+        replaceExisting?: boolean;
+      };
 
       if (!body.expression?.trim()) {
         return reply.status(400).send({ error: "Expression label is required" });
@@ -1652,25 +1657,35 @@ export async function spritesRoutes(app: FastifyInstance) {
       const catalog = readSpriteCatalog(characterId);
       const current = listSpriteInfos(characterId);
       const label = expression;
+      let replacement: (typeof current)[number] | undefined;
       if (Object.hasOwn(body, "folderId")) {
         if (body.folderId !== null && !catalog.folders.some((folder) => folder.id === body.folderId))
           return reply.code(400).send({ error: "Invalid destination folder" });
         const destination = catalog.folders.find((folder) => folder.id === body.folderId);
         if (destination && destination.category !== (label.startsWith("full_") ? "full-body" : "expressions"))
           return reply.code(400).send({ error: "Sprite and destination folder must have the same type" });
-        if (current.some((sprite) => sprite.label === label && sprite.folderId === body.folderId))
-          return reply.code(409).send({ error: "An expression with that name already exists in this folder" });
-        if (current.some((sprite) => sprite.expression === expression))
+        const matches = current.filter((sprite) => sprite.label === label && sprite.folderId === body.folderId);
+        if (matches.length > 0) {
+          if (body.replaceExisting !== true)
+            return reply.code(409).send({ error: "An expression with that name already exists in this folder" });
+          if (matches.length > 1)
+            return reply.code(409).send({
+              error: "More than one sprite has that name in this folder. Replace a specific sprite instead.",
+            });
+          replacement = matches[0]!;
+          expression = replacement.expression;
+        } else if (current.some((sprite) => sprite.expression === expression))
           expression = `${expression}_sprite_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
       }
       const filename = `${expression}.${ext}`;
       const filepath = join(dir, filename);
       await writeFile(filepath, Buffer.from(base64, "base64"));
+      if (replacement && replacement.filename !== filename) await unlink(join(dir, replacement.filename));
       const previous = current.find((sprite) => sprite.expression === expression);
       catalog.sprites[expression] = {
         id: previous?.id ?? randomUUID(),
         label: previous?.label ?? label,
-        folderId: previous?.folderId ?? body.folderId ?? null,
+        folderId: previous ? previous.folderId : (body.folderId ?? null),
       };
       await writeSpriteCatalog(characterId, catalog);
       return listSpriteInfos(characterId).find((sprite) => sprite.expression === expression);
