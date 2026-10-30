@@ -75,6 +75,12 @@ cd Marinara-Engine
 
 The launcher also removes unreferenced packages from its local pnpm cache during dependency updates. This keeps old releases from accumulating several gigabytes on the phone; it does not touch Marinara chats, settings, or other user data.
 
+## Locked out after updating
+
+If another device cannot sign in, open Termux and run `cd "$HOME/Marinara-Engine" && pnpm reset-login`. This removes the app login and signs out all browsers. If the command fails, remove `.remote-login.json` and `.remote-sessions.json` from `packages/server/data` (or your configured `DATA_DIR`). If you set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in the project `.env`, change them there instead. If the device shows **403**, check `IP_ALLOWLIST` in that same `.env` file. Then set a new remote login in **Settings → Advanced → Access** on the server device, or use the setup code from the Termux server log on the blocked device. See [Locked out after updating](../REMOTE_ACCESS.md#locked-out-after-updating).
+
+If the APK itself cannot open localhost, update the APK and tap **Install / Start Marinara**. Its private local credential is separate from the remote login; see [Android localhost login help](../TROUBLESHOOTING.md#android-localhost-opens-the-login-page-or-returns-401503).
+
 ## Access from another device
 
 By default, the launcher makes Marinara reachable on your local network. This means a laptop or another phone on the same Wi-Fi can open it. For step-by-step instructions on finding the right address, see the [Frequently Asked Questions](../FAQ.md).

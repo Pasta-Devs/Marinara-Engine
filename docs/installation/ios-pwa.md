@@ -30,7 +30,7 @@ http://<host-ip>:7860
 4. Type that address into the Safari address bar and go to it.
 5. You should see the Marinara home screen load in the browser.
 
-If the page does not load, or you get a password prompt, see the Troubleshooting section below. The server owner controls network access and passwords. Those server settings live in the [Remote Access guide](../REMOTE_ACCESS.md), not on your iPhone or iPad.
+If the page does not load, or you see a sign-in or setup page, see the Troubleshooting section below. The server owner controls network access and passwords. Those server settings live in the [Remote Access guide](../REMOTE_ACCESS.md), not on your iPhone or iPad.
 
 ## Add to Home Screen
 
@@ -74,7 +74,7 @@ Your chats, characters, and settings are stored on the server, not on your iPhon
 
 **The page will not load in Safari.** Check that the server is still running on the host device. Check that both devices are on the same network or Tailscale. Confirm the IP address and the port `7860` are correct. For deeper network help, see the [Remote Access guide](../REMOTE_ACCESS.md) and [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
-**Safari asks for a username and password.** The server owner turned on password protection for remote devices. Get the username and password from whoever runs the server. The setup is covered in the [Remote Access guide](../REMOTE_ACCESS.md).
+**Safari shows a sign-in or setup page after an update.** Sign in on `/login` with the server's username and password. If no login exists, get the one-time setup code from the server log and set one on the setup page. If the server listens on loopback only and prints no code, set the login on the server device under **Settings → Advanced → Access**. A **403** can mean the iPhone is not in `IP_ALLOWLIST`; change that list on the server. The PWA cannot reset the server login. Ask the server owner to run `pnpm reset-login` on the server (in Docker: `docker exec <container> node scripts/reset-login.mjs`) if the app login is lost, or to change a login set in `.env` there. See [Locked out after updating](../REMOTE_ACCESS.md#locked-out-after-updating).
 
 **Safari keeps showing an old build.** Reload the page first. If it still looks old, follow the Clearing and reinstalling the PWA steps above.
 
