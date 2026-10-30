@@ -40,8 +40,8 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
   });
 
   // Add connection → Other: the installer has its own tile, reachable before anything is set up.
-  await page.getByRole("button", { name: "Add connection", exact: true }).filter({ visible: true }).first().click();
-  const addDialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+  await page.getByRole("button", { name: "Add account", exact: true }).filter({ visible: true }).first().click();
+  const addDialog = page.getByRole("dialog", { name: "Add account", exact: true });
   await addDialog.getByRole("button", { name: /^Other/ }).click();
   // Not conditional: the decision sidecar is its own model and its own process, so
   // this must be reachable whether or not a chat model has been downloaded. Skipping

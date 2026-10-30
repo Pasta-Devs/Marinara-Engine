@@ -538,8 +538,19 @@ export function CreateConnectionModalContent({
     const linked = allRows.filter((candidate) => candidate.accountId === accountId);
     let row: ConnectionRowLite | undefined =
       linked.find((candidate) => candidate.id === connectionId) ?? starAnchorOf(linked) ?? linked[0];
+    // From a card (no service picked yet), asking for chat uses the account's vendor: its own provider,
+    // or the source of a Model it already has (an image key from OpenAI also reads OpenAI's chat list).
+    const askedChat = !service && ((kind ?? modelsFor?.kind) === "chat" || !!modelsFor?.chat);
+    const owner = accounts?.find((candidate) => candidate.id === accountId);
+    const vendor = askedChat
+      ? [owner?.provider, ...linked.flatMap((r) => [r.imageGenerationSource, r.videoGenerationSource])].find(
+          (candidate): candidate is string => !!candidate && isChatProvider(candidate),
+        )
+      : undefined;
     const chatProvider =
-      service && !selectedMedia && !isDevice(service) && isChatProvider(service) ? (service as APIProvider) : null;
+      service && !selectedMedia && !isDevice(service) && isChatProvider(service)
+        ? (service as APIProvider)
+        : ((vendor as APIProvider | undefined) ?? null);
     // A vendor key may have been set up for images first. Its chat catalog needs its own chat row.
     if (chatProvider && row && !isChatProvider(row.provider ?? "")) row = undefined;
     let placeholderId: string | undefined;
@@ -739,11 +750,7 @@ export function CreateConnectionModalContent({
           {t("connections.add.continue")}
         </button>
       ) : (
-        <button
-          type="button"
-          onClick={onClose}
-          className={device === "local_model" ? SECONDARY_CLASS : PRIMARY_CLASS}
-        >
+        <button type="button" onClick={onClose} className={device === "local_model" ? SECONDARY_CLASS : PRIMARY_CLASS}>
           {device === "local_model" ? t("connections.add.close") : t("connections.add.done")}
         </button>
       )

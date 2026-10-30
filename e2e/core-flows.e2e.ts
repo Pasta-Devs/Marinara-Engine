@@ -21471,7 +21471,7 @@ test("with no connection, new-chat opens Add connection directly for every mode"
     await sidebar.getByLabel(mode.label, { exact: true }).click();
 
     // No dead-end gate box: the Add window opens at once and names the chat that follows (decision 29).
-    const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
     await expect(dialog).toBeVisible();
     await expect(page.locator(`[data-new-chat-connection-gate="${mode.mode}"]`)).toHaveCount(0);
     await expect(dialog.getByText(`Connect an AI service, then we start your ${mode.name}.`)).toBeVisible();

@@ -139,7 +139,7 @@ test("connections concept A reference renders without overflow", async ({ browse
     await expect(panel).toBeVisible({ timeout: 30_000 });
     await expect(panel).toContainText("Bifrost Proxy");
     await expect(panel).toContainText("Arli AI");
-    await expect(panel.locator("[data-connection-group-count]")).toHaveCount(2);
+    await expect(panel.locator("[data-connection-account-id] [data-connection-group-count]")).toHaveCount(2);
     // The Decision row borrows credentials from GLM, so all 5 stay under Bifrost.
     const proxy = panel.locator('[data-connection-account-id="acc-bifrost"]');
     await expect(proxy.locator("[data-connection-id]")).toHaveCount(5);
@@ -222,7 +222,7 @@ test("connections concept A reference renders without overflow", async ({ browse
       const standalone = connection("c-standalone", "Standalone fixture", "custom", "local/fixture", null);
       await page.route("**/api/connections", (route) => route.fulfill({ json: [...connections, standalone] }));
       await page.reload();
-      const search = panel.getByRole("searchbox", { name: "Search models and connections" });
+      const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
       await search.fill("Standalone fixture");
       const row = panel.locator('[data-connection-id="c-standalone"]');
       await expect(row).toBeVisible();
@@ -415,17 +415,6 @@ for (const [size, theme] of [
     await expect(toggle).toHaveAttribute("aria-checked", "true");
     await toggle.click();
     await expect(panel.locator("[data-model-cost]")).toHaveCount(0);
-
-    // Add, service already connected: the existing Connection uses the card header's identity.
-    await panel.getByRole("button", { name: "Add connection" }).first().click();
-    const add = page.getByRole("dialog", { name: "Add connection", exact: true });
-    await add.locator("[data-add-connection-browse]").click();
-    await add.locator('[data-add-connection-service="nanogpt"]').click();
-    await expect(add.getByRole("heading", { name: "Use an existing NanoGPT connection?", exact: true })).toBeVisible();
-    const existing = add.locator('[data-add-connection-existing-account="acc-nano"]');
-    await expect(existing.locator("strong")).toHaveText("NanoGPT subscription with a long name");
-    await expect(existing.locator("[data-connection-group-count]")).toHaveText("2 models");
-    await page.screenshot({ path: `${out}/add-existing-${size.name}-${theme}.png` });
     await context.close();
   });
 }

@@ -16,7 +16,12 @@ import {
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import type { ModelsFor } from "../../../lib/add-connection";
-import { useCreateConnection, useTestConnection, useUpdateConnection } from "../../../hooks/use-connections";
+import {
+  useCreateConnection,
+  useDeleteConnection,
+  useTestConnection,
+  useUpdateConnection,
+} from "../../../hooks/use-connections";
 import { api } from "../../../lib/api-client";
 import { decisionConnectionTestMessage } from "../../../lib/decision-test-message";
 import { ttsService } from "../../../lib/tts-service";
@@ -83,6 +88,7 @@ export function ModelsStep(props: ModelsStepProps) {
   const { t } = useTranslation();
   const createRow = useCreateConnection();
   const updateRow = useUpdateConnection();
+  const deleteRow = useDeleteConnection();
   const testConnection = useTestConnection();
   const recordPick = (connectionId: string, modelId: string, kind: AddableKind = "chat") =>
     props.setPicks((current) =>
@@ -175,6 +181,14 @@ export function ModelsStep(props: ModelsStepProps) {
         })) as { id?: string };
         if (!created.id) throw new Error(t("connections.add.mediaCreateFailed"));
         id = created.id;
+        // Connect left one empty image or video row; the new row replaces it instead of sitting next to it.
+        const leftover = linked.find(
+          (row) =>
+            !row.model?.trim() &&
+            row.provider !== rowProvider &&
+            (row.provider === "image_generation" || row.provider === "video_generation"),
+        );
+        if (leftover) await deleteRow.mutateAsync(leftover.id).catch(() => undefined);
         props.setTarget((current) =>
           current?.accountId === target.accountId
             ? {

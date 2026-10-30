@@ -97,10 +97,10 @@ test("Connections keep the established header, mixed models and compact role con
     await page.goto("/");
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
     // One header row: Search, a labelled Add and More (Import and Export live in More).
-    await expect(panel.getByRole("button", { name: "Add connection", exact: true })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Add account", exact: true })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Import connection", exact: true })).toHaveCount(0);
     await expect(panel.getByRole("button", { name: "More actions", exact: true })).toBeVisible();
-    await expect(panel.getByRole("searchbox", { name: "Search models and connections" })).toBeVisible();
+    await expect(panel.getByRole("searchbox", { name: "Search models and accounts" })).toBeVisible();
     const group = panel.locator(`[data-connection-account-id="${created.account.id}"]`);
     const singleProvider = panel.locator('[data-connection-provider="openai"]');
     const accountHeader = group.locator(`[data-connections-row="account:${created.account.id}"]`);
@@ -141,13 +141,13 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(group.locator("[data-connection-id]")).toHaveCount(0);
     await group.locator(`[data-connections-toggle="${created.account.id}"]`).click();
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
-    const search = panel.getByRole("searchbox", { name: "Search models and connections" });
+    const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
     await search.fill("Studio Image");
-    await expect(accountHeader).toContainText("1 model");
+    await expect(accountHeader).toContainText("3 models");
     await accountHeader.click();
     await expect(group.locator("[data-connection-id]")).toHaveCount(0);
     await search.fill("Studio Voice");
-    await expect(group.locator("[data-connection-id]")).toHaveCount(1);
+    await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     await search.fill("");
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     expect(
@@ -163,10 +163,10 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(group.getByText("Ready", { exact: true })).toHaveCount(0);
     await accountHeader.press("Enter");
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
-    const provider = panel.locator('[data-connection-provider="comfyui"]');
+    const provider = panel;
     // One endpoint/access identity owns both image and video models, with one fold and settings page.
     expect(comfy[0]!.accountId).toBe(comfy[1]!.accountId);
-    await expect(provider.locator("[data-connection-account-id]")).toHaveCount(1);
+    await expect(provider.locator(`[data-connection-account-id="${comfy[0]!.accountId}"]`)).toHaveCount(1);
     await expect(provider.locator('[data-connections-row^="provider:"]')).toHaveCount(0);
     const comfyAccount = provider.locator(`[data-connection-account-id="${comfy[0]!.accountId}"]`);
     const comfyHeader = comfyAccount.locator(`[data-connections-row="account:${comfy[0]!.accountId}"]`);
@@ -195,7 +195,7 @@ test("Connections keep the established header, mixed models and compact role con
     await comfyHeader.press("Enter");
     await expect(comfyAccount.locator("[data-connection-id]")).toHaveCount(2);
     await comfyAccount.getByRole("button", { name: "Actions for ComfyUI · 127.0.0.1:8188", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Edit connection", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Edit account", exact: true }).click();
     const accountDialog = page.getByRole("dialog");
     for (const entry of comfy)
       await expect(accountDialog.getByRole("button", { name: `Edit ${entry.name}`, exact: true })).toBeVisible();
@@ -218,38 +218,28 @@ test("Connections keep the established header, mixed models and compact role con
       await page.setViewportSize(originalViewport);
       await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
     }
-    // The Defaults box starts unfolded; Main, Agents and Images always show.
+    // The Defaults box lists every job without a click; Main, Agents and Images always show.
     await expect(panel.locator('[data-defaults-tile="main"]')).toBeVisible();
-    await expect(panel.locator('[data-defaults-tile="main"]')).toHaveAttribute("aria-expanded", "false");
-    await panel.locator('[data-defaults-tile="main"]').click();
-    await expect(panel.locator('[data-defaults-role="main"]')).toContainText("Fallback");
+    await expect(panel.locator('[data-defaults-role="main"]')).toContainText("gpt-5.5");
     await expect(panel.locator('[data-defaults-tile="images"]')).toBeVisible();
     // A newly configured role must not remount while its controls are open.
     const images = panel.locator('[data-defaults-role="images"]');
-    await images.locator('[data-defaults-tile="images"]').click();
-    await images.evaluate((element) => element.setAttribute("data-retained-row", "true"));
-    const imageDefault = images.getByRole("button", { name: /^Default model for Images:/ });
-    await imageDefault.focus();
-    await imageDefault.press("Enter");
-    await page
-      .getByRole("dialog", { name: "Choose a model" })
-      .getByRole("button", { name: /Studio Image/ })
-      .click();
-    await expect(imageDefault).toContainText("Studio Image");
-    await expect(images).toHaveAttribute("data-retained-row", "true");
-    await expect(imageDefault).toBeFocused();
-    await imageDefault.focus();
-    await imageDefault.press("Enter");
-    await page
-      .getByRole("dialog", { name: "Choose a model" })
-      .getByRole("button", { name: "None", exact: true })
-      .click();
-    await expect(imageDefault).toContainText("None");
-    await images.locator('[data-defaults-tile="images"]').click();
-    await expect(images.locator('[data-defaults-tile="images"]')).toBeFocused();
+  const imageTile = images.locator('[data-defaults-tile="images"]');
+  await imageTile.click();
+  await images.evaluate((element) => element.setAttribute("data-retained-row", "true"));
+  const picker = page.getByRole("dialog", { name: /^Model for Images/ });
+  await picker.locator("[data-switcher-entry]").filter({ hasText: "Studio Image" }).click();
+  await expect(imageTile).toContainText("Studio Image");
+  await expect(images).toHaveAttribute("data-retained-row", "true");
+  await expect(imageTile).toBeFocused();
+  await imageTile.click();
+  await picker.getByRole("button", { name: /None/ }).click();
+  await expect(imageTile).not.toContainText("Studio Image");
+  await expect(images).toHaveAttribute("data-retained-row", "true");
+  await expect(imageTile).toBeFocused();
     // The saved key stays masked in the editor, and opening it never changes the connection.
     await group.getByRole("button", { name: `Actions for Mixed studio ${info.project.name}` }).click();
-    await page.getByRole("menuitem", { name: "Edit connection", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Edit account", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.locator("[data-account-address]")).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Replace", exact: true }).first()).toBeVisible();
@@ -275,7 +265,7 @@ test("Connections keep the established header, mixed models and compact role con
   }
 });
 
-test("Move to connection offers the same service first, then other services with a model step", async ({
+test("Move to account offers the same service first, then other services with a model step", async ({
   page,
   request,
 }, info) => {
@@ -346,13 +336,13 @@ test("Move to connection offers the same service first, then other services with
     await page.goto("/");
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
     const openMove = async () => {
-      await panel.getByRole("searchbox", { name: "Search models and connections" }).fill(modelName);
+      await panel.getByRole("searchbox", { name: "Search models and accounts" }).fill(modelName);
       await panel
         .locator(`[data-connection-id="${home.connectionId}"]`)
         .getByRole("button", { name: `Actions for ${modelName}`, exact: true })
         .click();
-      await page.getByRole("menuitem", { name: /^Move to connection…/ }).click();
-      return page.getByRole("dialog", { name: "Move to connection" });
+      await page.getByRole("menuitem", { name: /^Move to account…/ }).click();
+      return page.getByRole("dialog", { name: "Move to account" });
     };
 
     // Same service: listed above "Other services", and one tap moves without a model.
