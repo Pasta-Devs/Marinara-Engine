@@ -3707,7 +3707,9 @@ export class ProfessorMariWorkspaceService {
         throw new Error("Existing Professor Mari user message was not found in this chat.");
       }
       const chatMessages = await chatStorage.listMessages(args.chatId);
-      if (chatMessages[chatMessages.length - 1]?.id !== userMessage.id) {
+      // A failed run can leave her partial reply after your message, and Retry answers that same message.
+      const newerRows = chatMessages.slice(chatMessages.findIndex((row) => row.id === args.existingUserMessageId) + 1);
+      if (newerRows.some((row) => row.role !== "assistant" || !parseExtra(row.extra).mariRunError)) {
         throw new Error("Only the latest Professor Mari user message can be reused.");
       }
     } else {
@@ -4820,7 +4822,8 @@ export class ProfessorMariWorkspaceService {
     // the visible say text, never the JSON envelope.
     const lastAssistant = [...history].reverse().find((row) => row.role === "assistant");
     const lastExtra = parseExtra(lastAssistant?.extra);
-    const manualApprovalArmed = lastExtra.mariDeferredMutations === true;
+    // A Retry after a partial reply ends on her row: it answers nothing, so it arms nothing.
+    const manualApprovalArmed = lastExtra.mariDeferredMutations === true && history.at(-1)?.role === "user";
     // Stored held calls: a fresh id each, only mutating ones, anything malformed counts as none.
     const heldCalls: WorkspaceCommandCall[] = Array.isArray(lastExtra.mariHeldCalls)
       ? lastExtra.mariHeldCalls.flatMap((raw): WorkspaceCommandCall[] =>
@@ -4931,6 +4934,7 @@ export class ProfessorMariWorkspaceService {
     // is re-sent uncached on every turn and every new chat; everything before it stays a stable cached prefix.
     messages.push({ role: "system", content: workspaceInfo, contextKind: "prompt" });
 
+    let latestUserEntry: ChatMessage | null = null;
     for (const row of history) {
       const extra = parseExtra(row.extra);
       if (extra.hiddenFromAI === true) continue;
@@ -4940,7 +4944,7 @@ export class ProfessorMariWorkspaceService {
       const attachments = role === "user" ? normalizeProfessorMariAttachments(extra.attachments) : [];
       const images = extractImageAttachmentDataUrls(attachments);
       const files = extractFileAttachmentInputs(attachments);
-      messages.push({
+      const entry: ChatMessage = {
         role,
         content:
           role === "assistant" && runtime === "classic"
@@ -4949,8 +4953,12 @@ export class ProfessorMariWorkspaceService {
         contextKind: "history",
         ...(role === "user" && images.length > 0 ? { images } : {}),
         ...(role === "user" && files.length > 0 ? { files } : {}),
-      });
+      };
+      messages.push(entry);
+      if (role === "user") latestUserEntry = entry;
     }
+    // A Retry after a partial reply: her words stay in the history, and your message goes last again, as a turn must end.
+    if (messages.at(-1)?.role === "assistant" && latestUserEntry) messages.push({ ...latestUserEntry });
     // #5073: user-attached reference context (chat-history slices). contextKind:'injection' so the
     // trimmer preserves it (unlike 'history'), keeping it readable regardless of message age; the
     // renderer self-bounds its total size. Placed before continuity so the latest turn stays closest.

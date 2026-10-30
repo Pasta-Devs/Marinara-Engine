@@ -153,6 +153,10 @@ try {
     const originalRunPi = (service as unknown as { runPiRuntime: (args: unknown) => Promise<void> }).runPiRuntime.bind(
       service,
     );
+    const originalBuildPrompt = (
+      service as unknown as { buildPromptMessages: (...args: unknown[]) => Promise<unknown> }
+    ).buildPromptMessages.bind(service);
+    let realPrompt = false;
     Object.assign(service, {
       ensureMariCliShim: async () => {},
       resolveConnection: async () => ({
@@ -165,14 +169,17 @@ try {
         maxContext: 32768,
       }),
       resolvePermissionsMode: async () => ({ mode, defaultMode: "auto", source: "chat" }),
-      buildPromptMessages: async () => ({
-        messages: [
-          { role: "system", content: "You are Professor Mari (regression).", contextKind: "prompt" },
-          { role: "user", content: "Do the thing.", contextKind: "history" },
-        ],
-        manualApprovalArmed: armed,
-        heldCalls: [],
-      }),
+      buildPromptMessages: async (...args: unknown[]) =>
+        realPrompt
+          ? originalBuildPrompt(...args)
+          : {
+              messages: [
+                { role: "system", content: "You are Professor Mari (regression).", contextKind: "prompt" },
+                { role: "user", content: "Do the thing.", contextKind: "history" },
+              ],
+              manualApprovalArmed: armed,
+              heldCalls: [],
+            },
       runPiRuntime: (args: Record<string, unknown>) => originalRunPi({ ...args, maxToolRounds }),
       chatCompleteWorkspace: async (_provider: unknown, messages: ChatMessage[]) => {
         requests.push(structuredClone(messages));
@@ -247,6 +254,45 @@ try {
       (service as unknown as { activeDecisionContext: { userMessageId: string } }).activeDecisionContext.userMessageId,
       lastUserRow?.id,
       `${runtime}: a Decision answer can quote the message you just sent`,
+    );
+
+    // Retry after a partial reply: your message is reused, her words stay, and your message is what the model reads last.
+    const failedChat = await chats.create({ name: `${runtime} retry`, mode: "conversation", characterIds: [] });
+    latestChatId = failedChat.id;
+    const failedRows = async () =>
+      (await chats.listMessages(failedChat.id)).map((row) => ({ role: row.role, content: row.content, id: row.id }));
+    script = [{ say: "Reading it.", calls: [read] }];
+    await assert.rejects(service.prompt({ chatId: failedChat.id, text: "Do the thing.", onEvent: () => {} }));
+    assert.deepEqual(shape(await failedRows()), ["user: Do the thing.", "assistant: Reading it."]);
+    const failedQuestionId = (await failedRows())[0]!.id;
+    realPrompt = true;
+    script = [{ say: "Done now." }];
+    requests = [];
+    await service.prompt({
+      chatId: failedChat.id,
+      text: "Do the thing.",
+      existingUserMessageId: failedQuestionId,
+      onEvent: () => {},
+    });
+    realPrompt = false;
+    assert.deepEqual(
+      shape(await failedRows()),
+      ["user: Do the thing.", "assistant: Reading it.", "assistant: Done now."],
+      `${runtime}: Retry adds no second question and keeps her partial reply`,
+    );
+    const retried = requests[0]!.filter((message) => message.role !== "system");
+    assert.equal(retried.at(-1)?.role, "user", `${runtime}: a turn ends on your message`);
+    assert.ok(String(retried.at(-1)?.content).includes("Do the thing."));
+    assert.ok(asked(retried, "Reading it."), `${runtime}: she can see what she already said`);
+    await assert.rejects(
+      service.prompt({
+        chatId: failedChat.id,
+        text: "Do the thing.",
+        existingUserMessageId: failedQuestionId,
+        onEvent: () => {},
+      }),
+      /Only the latest/,
+      `${runtime}: a reply that finished closes the question`,
     );
 
     // A typed "yes" armed the run for the change she held, not for what you send next: the write still waits.
