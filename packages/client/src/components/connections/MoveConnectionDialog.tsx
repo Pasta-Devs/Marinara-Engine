@@ -6,7 +6,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import type { ConnectionAccountListItem } from "@marinara-engine/shared";
@@ -221,9 +221,9 @@ function ModelStep({
           onClick={onBack}
           aria-label={t("connections.add.back")}
           title={t("connections.add.back")}
-          className="mari-chrome-control mari-chrome-control--icon -ms-2"
+          className="mari-editor-action shrink-0"
         >
-          <ChevronLeft size="1rem" aria-hidden />
+          <ArrowLeft size="1.125rem" aria-hidden />
         </button>
         <h4 className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold">
           {t("connections.move.chooseModel", { connection: target.name })}

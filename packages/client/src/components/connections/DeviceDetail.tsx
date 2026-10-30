@@ -50,7 +50,7 @@ import { ProviderIcon } from "./ProviderIcon";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 
-export const SMALL_ACTION = "mari-chrome-control";
+export const SMALL_ACTION = "mari-chrome-control px-2.5";
 /** The facts and models card of a detail page, coloured from the Connections panel tokens. */
 export const DETAIL_CARD_CLASS =
   "mari-panel-gradient--connections rounded-xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--mari-panel-gradient-start)_5%,transparent),color-mix(in_srgb,var(--mari-panel-gradient-end)_5%,transparent))] p-3";

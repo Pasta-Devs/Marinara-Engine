@@ -467,7 +467,7 @@ export function ConnectionUsageSection({
 
   return (
     <section data-connection-usage className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2 px-1">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-baseline gap-1.5 text-xs font-semibold text-[var(--foreground)]">
           {t("connections.usage.title")}
           <span className="font-normal text-[var(--muted-foreground)]">

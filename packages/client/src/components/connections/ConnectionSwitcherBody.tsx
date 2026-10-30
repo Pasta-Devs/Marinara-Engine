@@ -1301,7 +1301,7 @@ export function ConnectionSwitcherBody({
 
   const searchBox = (
     <ListSearch
-      className="mx-1 mb-1 mt-1 shrink-0"
+      className="mx-2 my-2 shrink-0"
       inputRef={searchRef}
       data-switcher-search
       value={query}

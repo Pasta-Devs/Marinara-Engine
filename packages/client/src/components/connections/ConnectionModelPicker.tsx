@@ -6,6 +6,7 @@
 // ──────────────────────────────────────────────
 import {
   Fragment,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -66,8 +67,10 @@ export type ModelPickerConnection = {
   profileImportReviewRequired?: unknown;
 };
 
-/** Rows drawn at once in "All models"; searching narrows a longer list. */
+/** Rows drawn at most in "All models"; searching narrows a longer list. */
 const MAX_LISTED_MODELS = 300;
+/** Rows drawn first; scrolling to the end draws the next batch, so a big catalog opens fast. */
+const ROW_BATCH = 60;
 
 type PickerRow = {
   id: string;
@@ -184,8 +187,18 @@ export function ConnectionModelPicker({
   const [costFilter, setCostFilter] = useState<CostFilter | null>(null);
   const [sort, setSort] = useState<ModelSort>("list");
   const deferredSearch = useDeferredValue(search);
+  const [shownRows, setShownRows] = useState(ROW_BATCH);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => entry?.isIntersecting && setShownRows((count) => count + ROW_BATCH),
+      { root: listRef.current, rootMargin: "400px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const provider = (connection.provider ?? "") as APIProvider;
   const providerName = PROVIDERS[provider]?.name ?? connection.provider ?? "";
   const reviewRequired = isConnectionFlagTrue(connection.profileImportReviewRequired);
@@ -305,11 +318,13 @@ export function ConnectionModelPicker({
     return {
       recommendedRows: filterConnectionModelOptions(recommendedAll.filter(inFilter), deferredSearch),
       pinnedRows: filterConnectionModelOptions(pinnedAll.filter(inFilter), deferredSearch),
-      otherRows: filteredOthers.slice(0, MAX_LISTED_MODELS),
+      otherRows: filteredOthers.slice(0, Math.min(shownRows, MAX_LISTED_MODELS)),
       totalOther: filteredOthers.length,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only `only`, upstream and costFilter
-  }, [costFilter, deferredSearch, only, othersAll, pinnedAll, recommendedAll, sort, upstream]);
+  }, [costFilter, deferredSearch, only, othersAll, pinnedAll, recommendedAll, shownRows, sort, upstream]);
+  // A new search or filter starts again from the first batch.
+  useEffect(() => setShownRows(ROW_BATCH), [costFilter, deferredSearch, sort, upstream, connection.id]);
 
   // What Enter does with the search text: an exact ID or name picks that model, a search with a single match
   // picks it, and only text that matches nothing is used as a model ID. Several matches wait for a choice.
@@ -629,7 +644,7 @@ export function ConnectionModelPicker({
           <ListFrame
             className="flex-1"
             search={
-              <div className="flex min-w-0 items-center gap-1.5 px-3 pb-1.5">
+              <div className="flex min-w-0 items-center gap-1.5 px-3 pb-2.5">
                 <ListSearch
                   className="flex-1"
                   inputRef={searchRef}
@@ -666,14 +681,12 @@ export function ConnectionModelPicker({
             }
             header={
               <>
-                {addMode && updated && (
-                  <p data-model-updated className="px-3 pb-1.5 text-[0.625rem] text-foreground/50">
-                    {t("connections.modelPicker.updated", { when: updated })}
-                  </p>
-                )}
-                {addMode && costLegend && (
-                  <p data-model-cost-legend className="px-3 pb-1.5 text-[0.625rem] text-foreground/50">
-                    {costLegend}
+                {addMode && (updated || costLegend) && (
+                  <p className="flex flex-wrap gap-x-3 px-3 pb-2 text-[0.625rem] text-foreground/50">
+                    {updated && (
+                      <span data-model-updated>{t("connections.modelPicker.updated", { when: updated })}</span>
+                    )}
+                    {costLegend && <span data-model-cost-legend>{costLegend}</span>}
                   </p>
                 )}
 
@@ -765,7 +778,9 @@ export function ConnectionModelPicker({
                       <p className="break-words text-sm font-semibold text-foreground">
                         {detailRow.name || detailRow.id}
                       </p>
-                      <p className="break-all text-[0.6875rem] text-foreground/50">{detailRow.id}</p>
+                      {detailRow.name && detailRow.name !== detailRow.id && (
+                        <p className="break-all text-[0.6875rem] text-foreground/50">{detailRow.id}</p>
+                      )}
                     </div>
                   </div>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[0.6875rem]">
@@ -844,7 +859,11 @@ export function ConnectionModelPicker({
               </section>
             )}
 
-            {totalOther > otherRows.length && (
+            {otherRows.length < Math.min(totalOther, MAX_LISTED_MODELS) && (
+              // Remounts per batch, so a sentinel that is still in view loads the next one too.
+              <div key={otherRows.length} ref={loadMoreRef} aria-hidden className="h-px" />
+            )}
+            {otherRows.length >= MAX_LISTED_MODELS && totalOther > otherRows.length && (
               <p className="px-3 py-2 text-[0.625rem] text-foreground/45">
                 {t("connections.modelPicker.truncated", { shown: otherRows.length, total: totalOther })}
               </p>

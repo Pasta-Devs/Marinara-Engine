@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -855,7 +855,8 @@ export function CreateConnectionModalContent({
     <Modal
       open={open}
       onClose={requestClose}
-      title={t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
+      // Picking models has no back step: its heading is the window title, not a second line under it.
+      title={step === 3 && !goBack ? heading : t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
       width={step === 2 ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
       mobileFullscreen
       opaque
@@ -864,7 +865,7 @@ export function CreateConnectionModalContent({
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
-        {step !== 1 && (
+        {step !== 1 && (step === 2 || goBack) && (
           <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
             <div className="flex items-center gap-2">
               {goBack && (
@@ -876,9 +877,9 @@ export function CreateConnectionModalContent({
                   disabled={closeBlocked}
                   aria-label={t("connections.add.back")}
                   title={t("connections.add.back")}
-                  className="mari-chrome-control mari-chrome-control--compact -ms-2"
+                  className="mari-editor-action shrink-0"
                 >
-                  <ChevronLeft size="1rem" aria-hidden />
+                  <ArrowLeft size="1.125rem" aria-hidden />
                 </button>
               )}
               {step === 2 && service && (

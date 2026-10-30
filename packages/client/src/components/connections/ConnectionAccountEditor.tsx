@@ -447,7 +447,7 @@ export function ConnectionAccountEditor({
           />
 
           <section>
-            <h3 className="mb-2 flex items-baseline gap-1.5 px-1 text-xs font-semibold text-[var(--foreground)]">
+            <h3 className="mb-2 flex items-baseline gap-1.5 text-xs font-semibold text-[var(--foreground)]">
               {t("connections.accounts.editor.modelsHeading")}
               <span className="font-normal text-[var(--muted-foreground)]">{models.length}</span>
             </h3>
