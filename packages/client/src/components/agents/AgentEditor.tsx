@@ -1752,10 +1752,14 @@ export function AgentEditor() {
         }
         const loadedSave = loadedSaveRef.current;
         if (loadedSave?.config.id === dbConfig.id) {
-          if (payload.phase === loadedSave.payload.phase && payload.phase === dbConfig.phase) delete patch.phase;
+          if (
+            payload.phase === loadedSave.payload.phase &&
+            payload.phase === normalizeAgentPhaseForType(dbConfig.type, dbConfig.phase)
+          )
+            delete patch.phase;
           if (
             payload.connectionId === loadedSave.payload.connectionId &&
-            payload.connectionId === (dbConfig.connectionId ?? null)
+            payload.connectionId === (normalizeTextConnectionOverride(dbConfig.connectionId) || null)
           )
             delete patch.connectionId;
           patch.settings = rebaseUntouchedKeys(
@@ -1794,7 +1798,17 @@ export function AgentEditor() {
       setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
       return false;
     }
-  }, [agentDetailId, buildSavePayload, dbConfig, builtIn, localName, updateAgent, createAgent, openAgentDetail]);
+  }, [
+    agentDetailId,
+    buildSavePayload,
+    dbConfig,
+    normalizeTextConnectionOverride,
+    builtIn,
+    localName,
+    updateAgent,
+    createAgent,
+    openAgentDetail,
+  ]);
 
   const handleExportAgent = () => {
     if (!agentDetailId) return;
