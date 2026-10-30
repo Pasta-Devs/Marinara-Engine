@@ -414,8 +414,6 @@ export class OpenAIProvider extends BaseLLMProvider {
     maxTokensOverride?: number | null,
     private readonly providerKind: OpenAIProviderKind = "openai",
     private readonly extraHeaders?: Record<string, string>,
-    /** When true, body.tools is sent even if the model name triggers parameter suppression. */
-    private readonly allowsToolCalling: boolean = false,
   ) {
     super(baseUrl, apiKey, defaultMaxContext, defaultOpenrouterProvider, maxTokensOverride);
   }
@@ -1904,12 +1902,14 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.max_tokens = maxTokens;
     }
 
+    // Tools are the caller's requested protocol, not optional model sampling parameters.
+    if (options.tools?.length && !options.forceTextualToolCalls) {
+      body.tools = options.tools;
+      body.tool_choice = options.toolChoice ?? "auto";
+    }
+
     if (!suppressModelParameters) {
       if (this.shouldSendStopSequences(options.model) && options.stop?.length) body.stop = options.stop;
-      if (options.tools?.length && !options.forceTextualToolCalls) {
-        body.tools = options.tools;
-        body.tool_choice = options.toolChoice ?? "auto";
-      }
       // Mistral rejects stream_options and reports usage on its last chunk anyway.
       if (effectiveStream && this.providerKind !== "mistral") body.stream_options = { include_usage: true };
 
@@ -2224,11 +2224,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.max_tokens = maxTokens;
     }
 
-    if (
-      options.tools?.length &&
-      !options.forceTextualToolCalls &&
-      (!suppressModelParameters || this.allowsToolCalling)
-    ) {
+    if (options.tools?.length && !options.forceTextualToolCalls) {
       body.tools = options.tools;
       body.tool_choice = options.toolChoice ?? "auto";
     }
@@ -2898,7 +2894,6 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (
       !isOpenAIChatGPT &&
-      !suppressModelParameters &&
       options.tools?.length &&
       !options.forceTextualToolCalls &&
       !this.isXAIMultiAgentModel(options.model)

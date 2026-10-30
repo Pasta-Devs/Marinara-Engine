@@ -44,11 +44,8 @@ export function createLLMProvider(
   maxTokensOverride?: number | null,
   /** Claude (Subscription) only. When true, asks the Agent SDK to use fast-mode routing. */
   claudeFastMode?: boolean,
-  /**
-   * Custom endpoints: when false, body.tools is sent to the API even when the model name is
-   * not in the OpenAI catalog (suppression bypass). Mirrors the connection's treatAsLocalEndpoint flag.
-   */
-  treatAsLocalEndpoint?: boolean,
+  /** Retained positional argument for existing callers; tools no longer depend on the model catalog. */
+  _treatAsLocalEndpoint?: boolean,
   /** Stored connection defaults. Custom Parameters are bound to every text request made by this provider. */
   defaultParameters?: unknown,
   /** Configured connection ID for direct foreground calls. Fallback wrappers admit their providers separately. */
@@ -92,8 +89,6 @@ export function createLLMProvider(
         openrouterProvider,
         normalizedMaxTokensOverride,
         "custom",
-        undefined,
-        !(treatAsLocalEndpoint ?? false),
       );
       break;
     case "openai_chatgpt":
@@ -170,8 +165,6 @@ export function createLLMProvider(
         openrouterProvider,
         normalizedMaxTokensOverride,
         "custom",
-        undefined,
-        !(treatAsLocalEndpoint ?? false),
       );
       break;
   }
