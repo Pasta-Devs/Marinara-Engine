@@ -134,6 +134,7 @@ import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-cont
 import {
   appliesWithoutReview,
   findMariField,
+  heldCallsAreEditorText,
   heldEditorFields,
   isMariEditorKind,
   keptAfterPresave,
@@ -214,7 +215,7 @@ import {
   timelineItemsFromTrace,
 } from "./mari/mari-tool-presentation";
 import { ProfessorMariPixelScene } from "./mari/MariChatStates";
-import { isHardStepFailure } from "./mari/MariWorkTimeline";
+import { isHardStepFailure } from "./mari/mari-tool-presentation";
 import { MariSeesPanel } from "./mari/MariSeesPanel";
 import { MariChatsPanel } from "./mari/MariChatsPanel";
 import { MariComposer } from "./mari/MariComposer";
@@ -1679,9 +1680,9 @@ export function HomeProfessorMariChat({
   const latestTrace = latestMessage ? getMessageWorkspaceTrace(latestMessage) : null;
   const latestTraceFailed =
     latestMessage && latestTrace
-      ? timelineItemsFromTrace(latestTrace, latestMessage).some(
-          (item) => item.type === "tool" && isHardStepFailure(item.tool),
-        )
+      ? timelineItemsFromTrace(latestTrace, latestMessage)
+          .flatMap((item) => (item.type === "tool" ? [item.tool] : []))
+          .some((tool, index, tools) => isHardStepFailure(tool, tools.slice(index + 1)))
       : false;
   // A reply with a stored run shows Mari on its own timeline line; one without needs her line below it.
   const latestTurnHasTrace = Boolean(latestMessage && getMessageWorkspaceTrace(latestMessage));
@@ -2979,16 +2980,23 @@ export function HomeProfessorMariChat({
       />
     );
   const lastAssistantId = displayMessages.findLast((message) => message.role === "assistant")?.id ?? null;
-  const heldCardNode = heldChangeCard ? (
-    <MariHeldChangeCard
-      key="held-change"
-      held={lastLoadedMessage?.role === "assistant" ? lastLoadedMessageExtra?.mariHeldChanges : null}
-      nameOf={(id) => characterPreviewById.get(id)?.name ?? lorebookPreviewById.get(id)?.name}
-      disabled={isBusy}
-      onAccept={() => handleSuggestionSelect(MARI_AUTHORIZATION_ACCEPT_CHIP)}
-      onDecline={() => handleSuggestionSelect(MARI_AUTHORIZATION_DECLINE_CHIP)}
-    />
-  ) : null;
+  // The user's own Save answered the held change (`settle`): the card stays, saying so, with no Accept.
+  const heldSettled =
+    lastLoadedMessage?.role === "assistant" &&
+    lastLoadedMessageExtra?.mariDeferredMutations === false &&
+    Boolean(lastLoadedMessageExtra?.mariHeldChanges?.length);
+  const heldCardNode =
+    heldChangeCard || heldSettled ? (
+      <MariHeldChangeCard
+        key="held-change"
+        settled={!heldChangeCard}
+        held={lastLoadedMessage?.role === "assistant" ? lastLoadedMessageExtra?.mariHeldChanges : null}
+        nameOf={(id) => characterPreviewById.get(id)?.name ?? lorebookPreviewById.get(id)?.name}
+        disabled={isBusy}
+        onAccept={() => handleSuggestionSelect(MARI_AUTHORIZATION_ACCEPT_CHIP)}
+        onDecline={() => handleSuggestionSelect(MARI_AUTHORIZATION_DECLINE_CHIP)}
+      />
+    ) : null;
   const questionCardNode =
     pendingQuestions.length > 0 ? (
       <MariQuestionCard
@@ -3009,6 +3017,7 @@ export function HomeProfessorMariChat({
     keep: () => boolean;
     decline: (fieldId: string) => boolean;
     undo: (ids: readonly string[]) => void;
+    settle: (key: string) => Promise<boolean>;
   } | null>(null);
   // handleSubmit's own guards: when one holds, nothing is sent (it may open the connection menu).
   const canSend = () =>
@@ -3035,6 +3044,18 @@ export function HomeProfessorMariChat({
         pendingChangeReviews.flatMap((approval) => (ids.includes(approval.id) ? [{ approval }] : [])),
         false,
       ),
+    settle: async (key) => {
+      const id = chatId;
+      if (!id || lastLoadedMessage?.id !== key) return false;
+      try {
+        await api.patch(`/chats/${id}/messages/${key}/extra`, { mariDeferredMutations: false });
+      } catch (error) {
+        console.error("[Professor Mari] Failed to settle the held change", error);
+        return false;
+      }
+      void loadMessages(id, { restoreFocus: false });
+      return true;
+    },
   };
   useEffect(() => {
     const publish = useUIStore.getState().setMariFieldReview;
@@ -3058,6 +3079,8 @@ export function HomeProfessorMariChat({
           ).length,
           keep: () => actions().keep(),
           decline: (fieldId) => actions().decline(fieldId),
+          editorTextOnly: heldCallsAreEditorText(lastLoadedMessageExtra?.mariHeldCalls),
+          settle: (key) => actions().settle(key),
         });
       }
     }

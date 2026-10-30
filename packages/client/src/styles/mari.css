@@ -4821,7 +4821,8 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 .mari-composer-menu__trigger {
   display: inline-flex;
   min-width: 0;
-  max-width: 11rem;
+  /* Shrinks with its menu in a narrow composer, so the label ends before Send. */
+  max-width: min(11rem, 100%);
   align-items: center;
   gap: 0.3rem;
   padding-inline: 0.5rem 0.4rem;
@@ -5026,6 +5027,8 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 /* The connection menu spans the composer: the connection list, with the chosen connection's models beside it. */
 .mari-composer-menu--connection {
   position: static;
+  /* In a narrow composer the connection name gives way first, so the Permissions Mode name stays readable. */
+  flex-shrink: 100;
 }
 
 .mari-connection-picker {

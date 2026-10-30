@@ -98,6 +98,9 @@ const MARI_EDITOR_KINDS = {
       appearance: "extensions.appearance",
     } as Record<string, string>,
     reviewOrder: [
+      "name",
+      "creator",
+      "character_version",
       "creator_notes",
       "summary",
       "description",
@@ -139,6 +142,10 @@ const MARI_EDITOR_KINDS = {
       image_appearance: "imageAppearance",
     } as Record<string, string>,
     reviewOrder: [
+      "name",
+      "comment",
+      "phoneticName",
+      "creator",
       "creatorNotes",
       "summary",
       "description",
@@ -159,7 +166,7 @@ const MARI_EDITOR_KINDS = {
     wrappers: ["patch", "data", "lorebook"],
     fieldIds: new Set(["name", "description", "tags"]),
     aliases: {} as Record<string, string>,
-    reviewOrder: ["description"],
+    reviewOrder: ["name", "description"],
   },
   // Entry fields anchor as `entries.<entryId>.<key>` in the lorebook editor (`mariFieldPath`).
   lorebookEntry: {
@@ -170,7 +177,7 @@ const MARI_EDITOR_KINDS = {
     wrappers: ["patch", "data", "entry"],
     fieldIds: new Set(["name", "description", "keys", "secondaryKeys", "content"]),
     aliases: {} as Record<string, string>,
-    reviewOrder: ["description", "content"],
+    reviewOrder: ["name", "description", "content"],
   },
 };
 
@@ -288,6 +295,10 @@ export type MariFieldReview =
       keep: () => boolean;
       /** Decline the whole change and ask her to propose it again without this field. */
       decline: (fieldId: string) => boolean;
+      /** Every held call only rewrites text fields an editor shows, so Edit can take the whole change over. */
+      editorTextOnly: boolean;
+      /** The user took over every field with Edit and saved their own text: the held change `key` is answered, nothing is sent. */
+      settle: (key: string) => Promise<boolean>;
     }
   | {
       mode: "kept";
@@ -299,6 +310,51 @@ export type MariFieldReview =
       /** The send that started her run saved the user's unsaved text first (see appliesWithoutReview). */
       savedUnsaved?: boolean;
     };
+
+/**
+ * The user took over every field of her held change with Edit and saved their own text: it answers her change.
+ * `before` is each taken-over field's text at Edit; a field still unsaved, or saved back to that text, keeps it waiting.
+ */
+export function heldChangeSettledByUser(
+  review: { fields: readonly MariReviewField[]; editorTextOnly: boolean },
+  here: (entityId: string) => boolean,
+  before: Readonly<Record<string, string>>,
+  unsaved: (fieldId: string) => boolean,
+  current: (fieldId: string) => string,
+) {
+  const takenOver = Object.keys(before);
+  return (
+    review.editorTextOnly &&
+    review.fields.every((field) => here(field.entityId) && takenOver.includes(field.fieldId)) &&
+    takenOver.every((fieldId) => !unsaved(fieldId) && current(fieldId) !== before[fieldId])
+  );
+}
+
+/** Every held call is an update whose patch is only text fields an editor shows (see `heldEditorFields`). */
+export function heldCallsAreEditorText(heldCalls: unknown) {
+  return (
+    Array.isArray(heldCalls) &&
+    heldCalls.length > 0 &&
+    heldCalls.every((raw) => {
+      const call = asRecord(raw);
+      const update = mariUpdateCall(call?.name, call?.arguments);
+      if (!update) return false;
+      // Keys the server writes for this kind; ids, the action, wrappers and the `extensions` parent map to no field.
+      const { idArgs, wrappers } = MARI_EDITOR_KINDS[update.kind];
+      const written: Array<{ fieldId: string; value: unknown }> = [];
+      for (const [key, value] of Object.entries(update.patch)) {
+        const fieldId = mariPatchFieldId(update.kind, key);
+        if (fieldId) written.push({ fieldId, value });
+        else if (key !== "action" && key !== "extensions" && !idArgs.includes(key) && !wrappers.includes(key))
+          return false;
+      }
+      return (
+        written.length > 0 &&
+        written.every(({ fieldId, value }) => typeof value === "string" && reviewRank(update.kind, fieldId) >= 0)
+      );
+    })
+  );
+}
 
 /** The text fields a held turn's raw calls (`mariHeldCalls`) would write, full values, editor
  * order. The card's `mariHeldChanges` cut values to 400 characters, so the diff reads these. */
