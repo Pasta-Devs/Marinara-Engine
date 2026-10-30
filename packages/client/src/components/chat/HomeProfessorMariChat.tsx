@@ -132,11 +132,13 @@ import {
 } from "../../lib/professor-mari-transcript-scroll";
 import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import {
+  appliesWithoutReview,
   findMariField,
   declinedForHeldChange,
   heldCallsAreEditorText,
   heldEditorFields,
   isMariEditorKind,
+  keptAfterPresave,
   keptEditorFields,
   mariFieldDraft,
   mariFieldText,
@@ -1161,6 +1163,11 @@ export function HomeProfessorMariChat({
   // The list the composer shows comes with the status poll; a queue action's answer is just a fresher copy of it.
   const pendingWriteSeqRef = useRef(0);
   const queuedSinceSendRef = useRef<string[]>([]);
+  // The newest message id when a send saved the editor first ("" for none); null when the last send did not.
+  const presavedAfterRef = useRef<{ chatId: string; after: string } | null>(null);
+  useEffect(() => {
+    if (presavedAfterRef.current?.chatId !== chatId) presavedAfterRef.current = null;
+  }, [chatId]);
   const showPendingMessages = useCallback((forChatId: string, pendingMessages: MariPendingMessageSummary[]) => {
     pendingWriteSeqRef.current += 1;
     setWorkspaceStatus((current) => current && { ...current, pendingMessages, pendingMessagesChatId: forChatId });
@@ -2524,7 +2531,26 @@ export function HomeProfessorMariChat({
       return;
     }
 
+    // Her writes skip review in these modes: save the open editor's unsaved text before she starts.
+    // A failed save keeps the message in the composer and says why (some editor paths fail without a toast).
+    // ponytail: queued sends (sent while she is busy) skip this pre-save; run it when the queue drains if needed.
     setSending(true);
+    // Cleared before the save wait: a second Enter during it would send this text again.
+    const clearedDraft = overrideText === undefined;
+    const clearedAttachments = clearedDraft && !overrideRecovery;
+    if (clearedDraft) setDraft("");
+    if (clearedAttachments) setAttachments([]);
+    const presave = appliesWithoutReview(permissionsMode) ? await useUIStore.getState().mariEditorSave?.() : undefined;
+    if (presave === "failed") {
+      if (clearedDraft) setDraft((current) => [text, current].filter((part) => part.trim()).join("\n\n"));
+      if (clearedAttachments) setAttachments((current) => [...submittedAttachments, ...current]);
+      if (clearedDraft) composerReferences.restoreReferences(submittedReferences);
+      toast.error(t("mari.presave.failed"));
+      void refreshWorkspaceStatus().catch(() => undefined);
+      return setSending(false);
+    }
+    const presavedAfter = presave === "saved" ? (lastLoadedMessage?.id ?? "") : null;
+    presavedAfterRef.current = null;
     // R14: a new message or a retry answers the failure at once: no red while she starts again.
     setRecovery(null);
     // D1: the appended arrival is local UI only — it never lingers once the user is really sending.
@@ -2549,13 +2575,10 @@ export function HomeProfessorMariChat({
     queuedSinceSendRef.current = [];
     // Cleared before the first wait: the box stays open during a send, so a second Enter here would queue this text
     // again, and clearing it later would wipe what you typed since. A retry or a chip sends its own text.
-    if (overrideText === undefined) {
-      setDraft("");
-      if (!overrideRecovery) setAttachments([]);
-    }
     try {
       const chat = await ensureProfessorMariChat(effectiveConnectionId);
       runChatId = chat.id;
+      if (presavedAfter !== null) presavedAfterRef.current = { chatId: chat.id, after: presavedAfter };
       // The thread was still loading when you sent: ask the server, or a failed send cannot tell it was never saved.
       if (lastSavedUserId === undefined && loadedMessagesChatId !== chat.id) {
         lastSavedUserId = (await fetchMariThreadMessages(chat.id).catch(() => [] as Message[])).findLast(
@@ -2612,6 +2635,7 @@ export function HomeProfessorMariChat({
           queuedSinceSendIds: queuedSinceSendRef.current,
           // She finished and took the next one on the same reply: her answer comes in, your next message follows.
           onQueueNext: async (next) => {
+            presavedAfterRef.current = null;
             queuedMessageId = next.id;
             runningText = next.text;
             runningContext = null;
@@ -3135,9 +3159,14 @@ export function HomeProfessorMariChat({
       fields: kept.fields,
       undoUntil: kept.undoUntil,
       undo: () => actions().undo(kept.reviewIds),
+      savedUnsaved:
+        presavedAfterRef.current !== null &&
+        presavedAfterRef.current.chatId === chatId &&
+        keptAfterPresave(presavedAfterRef.current.after, message.id),
     });
   }, [
     isBusy,
+    chatId,
     lastLoadedMessage,
     lastLoadedMessageExtra,
     pendingDeferredMutations,

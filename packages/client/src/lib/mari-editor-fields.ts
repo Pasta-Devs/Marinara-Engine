@@ -139,6 +139,8 @@ export type MariFieldReview =
       fields: MariReviewField[];
       undoUntil: string | null;
       undo: () => void;
+      /** The send that started her run saved the user's unsaved text first (see appliesWithoutReview). */
+      savedUnsaved?: boolean;
     };
 
 /**
@@ -216,6 +218,17 @@ export function heldEditorFields(heldCalls: unknown): Array<MariReviewField & { 
     }
   }
   return fields.sort((a, b) => a.rank - b.rank).map(({ rank: _rank, ...field }) => field);
+}
+
+/** Permission modes where her writes apply without a review, so unsaved editor text is saved first. */
+export function appliesWithoutReview(mode: string): boolean {
+  return mode === "bypass" || mode === "accept-edits";
+}
+
+/** A send saved the user's unsaved text first while `presavedAfter` was the newest message id ("" for
+ * none); a kept change on a later message is that run's, so its line says the text was saved too. */
+export function keptAfterPresave(presavedAfter: string | null, messageId: string): boolean {
+  return presavedAfter !== null && presavedAfter !== messageId;
 }
 
 /** The text fields of an applied change that can still be undone (a review of it is

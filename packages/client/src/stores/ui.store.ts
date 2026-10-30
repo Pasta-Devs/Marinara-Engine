@@ -815,6 +815,8 @@ interface UIState {
   /** Her change to a character as the editor shows it in the fields: waiting for Keep, or kept
    * with Undo. Published by her open chat, which owns the replies. Transient. */
   mariFieldReview: MariFieldReview | null;
+  /** The open editor's plain save, which her chat runs before a send whose writes skip review. Transient. */
+  mariEditorSave: (() => Promise<"saved" | "clean" | "failed">) | null;
   /** Fields of her held change that wait in the open character editor. Transient. */
   mariFieldWaitingCount: number;
   /** Fields of the held change (by its message id) the user declined; every Accept sends them. Transient. */
@@ -1285,6 +1287,7 @@ interface UIState {
   setMariWorkingField: (field: { entityId: string; path: string } | null) => void;
   setMariFieldStream: (fields: Record<string, Record<string, string>> | null) => void;
   setMariFieldReview: (review: MariFieldReview | null) => void;
+  setMariEditorSave: (save: (() => Promise<"saved" | "clean" | "failed">) | null) => void;
   setMariFieldWaitingCount: (count: number) => void;
   setMariFieldDeclined: (declined: { key: string; fields: Array<{ entityId: string; fieldId: string }> }) => void;
   setLastAppError: (error: UIState["lastAppError"]) => void;
@@ -2158,6 +2161,7 @@ export const useUIStore = create<UIState>()(
         mariWorkingField: null,
         mariFieldStream: null,
         mariFieldReview: null,
+        mariEditorSave: null,
         mariFieldWaitingCount: 0,
         mariFieldDeclined: { key: "", fields: [] },
         lastAppError: null,
@@ -2554,6 +2558,7 @@ export const useUIStore = create<UIState>()(
         setMariWorkingField: (field) => set({ mariWorkingField: field }),
         setMariFieldStream: (fields) => set({ mariFieldStream: fields }),
         setMariFieldReview: (review) => set({ mariFieldReview: review }),
+        setMariEditorSave: (save) => set({ mariEditorSave: save }),
         setMariFieldWaitingCount: (count) => set({ mariFieldWaitingCount: count }),
         setMariFieldDeclined: (declined) => set({ mariFieldDeclined: declined }),
         setLastAppError: (error) => set({ lastAppError: error }),

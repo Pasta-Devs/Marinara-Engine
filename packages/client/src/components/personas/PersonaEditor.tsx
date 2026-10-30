@@ -1969,19 +1969,20 @@ export function PersonaEditor() {
     touched: (fieldId) => dirty && formFieldValue(formData, fieldId) !== formFieldValue(baselineForm, fieldId),
     edit: (fieldId, text) => updateField(fieldId as keyof PersonaFormData, text as never),
     beforeKeep: async (takenOver) => {
-      takenOverRef.current = personaId
-        ? {
-            personaId,
-            values: Object.fromEntries(
-              takenOver.map((fieldId) => [fieldId, formFieldValue(formDataRef.current, fieldId)]),
-            ),
-          }
-        : null;
+      if (takenOver)
+        takenOverRef.current = personaId
+          ? {
+              personaId,
+              values: Object.fromEntries(
+                takenOver.map((fieldId) => [fieldId, formFieldValue(formDataRef.current, fieldId)]),
+              ),
+            }
+          : null;
       const draft = formDataRef.current;
       const baseline = baselineFormRef.current;
       if (!draft || !baseline || personaFieldsDifferingFromBaseline(draft, baseline).length === 0) return "clean";
       if (await handleSave()) return "saved";
-      takenOverRef.current = null;
+      if (takenOver) takenOverRef.current = null;
       return "failed";
     },
     keepDropped: () => {

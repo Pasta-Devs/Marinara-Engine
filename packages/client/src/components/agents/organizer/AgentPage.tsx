@@ -33,7 +33,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-t border-[var(--border)] pt-5">
+    <section className="min-w-0 border-t border-[var(--border)] pt-5">
       <h3 className="mb-3 text-base font-semibold text-[var(--foreground)]">{title}</h3>
       {children}
     </section>
@@ -88,7 +88,7 @@ export function AgentPage({
   ];
 
   return (
-    <article className="pb-6">
+    <article className="min-w-0 pb-6 [overflow-wrap:anywhere]">
       <div className="relative">
         <StoreBanner
           entry={entry}
@@ -131,7 +131,7 @@ export function AgentPage({
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2 pb-1.5 max-sm:w-full">
+          <div className="flex flex-wrap items-center gap-2 pb-1.5 max-sm:w-full">
             {(!installed || update || type === "app") && <AgentAction entry={entry} size="lg" />}
             {update && type === "app" && (
               <button
@@ -205,10 +205,10 @@ export function AgentPage({
           </dl>
         </div>
 
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 min-w-0 space-y-6">
           {previews.length > 0 && (
             <Section title={localizeUi("ui.agents.organizer.preview")}>
-              <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {previews.map((url, index) => (
                   <img
                     key={url}
@@ -218,7 +218,7 @@ export function AgentPage({
                     height={400}
                     loading="lazy"
                     decoding="async"
-                    className="h-56 w-auto shrink-0 snap-start rounded-xl border border-[var(--border)] bg-[var(--card)] object-cover sm:h-72"
+                    className="aspect-[8/5] w-full rounded-xl border border-[var(--border)] bg-[var(--card)] object-contain"
                   />
                 ))}
               </div>
@@ -245,7 +245,7 @@ export function AgentPage({
             </Section>
           )}
 
-          <div className="grid gap-x-12 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-12 lg:grid-cols-2">
             <Section title={localizeUi("ui.agents.organizer.about")}>
               <p className="max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">{manifest.description}</p>
               {entry.documentationUrl && (
@@ -310,7 +310,7 @@ export function AgentPage({
             <Section
               title={localizeUi("ui.agents.organizer.moreIn", { section: localizeUi(sectionLabelKey(section)) })}
             >
-              <ul className="grid gap-x-6 md:grid-cols-2">
+              <ul className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 {more.map((item) => (
                   <AgentRow key={item.manifest.id} entry={item} />
                 ))}
