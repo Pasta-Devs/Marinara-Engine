@@ -350,6 +350,13 @@ assert.deepEqual(
   assert.deepEqual(withoutDeclinedMariFields(held, []), held);
   assert.equal(withoutDeclinedMariFields(held, [field("c1", "description"), field("c1", "first_mes")]).length, 3);
   assert.equal(withoutDeclinedMariFields(held, [field("e1", "entries.e1.content")]).length, 3);
+  // Keys the review does not show (`aboutMe`) still run when their field is the only one declined.
+  const extra = [
+    call({ action: "character.update", id: "c1", apply: true, patch: { description: "D", aboutMe: "A" } }),
+  ];
+  assert.deepEqual(withoutDeclinedMariFields(extra, [field("c1", "description")])[0]!.arguments.patch, {
+    aboutMe: "A",
+  });
 }
 
 console.log("mari-editor-fields regression passed");

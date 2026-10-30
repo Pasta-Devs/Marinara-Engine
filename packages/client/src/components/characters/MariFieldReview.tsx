@@ -85,6 +85,10 @@ export function useMariFieldReview({
 
   const editedIds = waitingReview && edited.key === waitingReview.key ? edited.ids : [];
   const declinedFields = waitingReview && declinedState.key === waitingReview.key ? declinedState.fields : [];
+  // Shown and counted here: only the declined fields of this editor's records.
+  const declinedHere = declinedFields.filter(
+    (field) => field.entityId === entityId || !!memberIds?.has(field.entityId),
+  );
   const answeredHere = answered?.entityId === entityId ? answered : null;
   const waiting =
     (answeredHere?.key === waitingReview?.key ? null : waitingReview)?.fields
@@ -118,7 +122,7 @@ export function useMariFieldReview({
   if (savedFor === "pending" && keptReview) setSavedFor(keptReview.key);
 
   const value: MariFieldReviewValue | null =
-    entityId && (waiting.length > 0 || keptIds.length > 0 || declinedFields.length > 0)
+    entityId && (waiting.length > 0 || keptIds.length > 0 || declinedHere.length > 0)
       ? {
           entityId,
           waiting,
@@ -151,12 +155,9 @@ export function useMariFieldReview({
             );
             if (!target) return;
             const fields = [...declinedFields, { entityId: target.entityId, fieldId }];
-            const left = waitingReview.fields.filter(
-              (field) => !fields.some((item) => item.entityId === field.entityId && item.fieldId === field.fieldId),
-            );
-            // Nothing is left to keep: reject the change, as before.
-            // Other records' edits stay on her card, whose Accept also leaves the declined fields out.
-            if (left.length === 0 && waitingReview.others === 0) {
+            // Nothing is left to keep: reject the change, as before. Fields she did not show here
+            // (`name`, `tags`) and other records' edits stay on her card, whose Accept also leaves these out.
+            if (fields.length >= waitingReview.total && waitingReview.others === 0) {
               if (waitingReview.reject()) setAnswered({ key: waitingReview.key, entityId });
               return;
             }
@@ -172,7 +173,7 @@ export function useMariFieldReview({
           },
           current,
           touched,
-          declined: declinedFields.map((field) => field.fieldId),
+          declined: declinedHere.map((field) => field.fieldId),
           kept:
             keptReview && keptIds.length > 0
               ? {

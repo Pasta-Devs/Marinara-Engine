@@ -232,8 +232,11 @@ export function withoutDeclinedMariFields<T extends { name: unknown; arguments: 
       const inner = asRecord(args[wrapper]);
       if (inner) args[wrapper] = strip(inner);
     }
-    const left = Object.keys(patchValues(args, MARI_EDITOR_KINDS[kind].wrappers)).some((key) =>
-      mariPatchFieldId(kind, key),
+    // A call still runs while it writes anything besides the action, the record id and the wrappers (`aboutMe`, `comment`...).
+    const { idArgs, wrappers } = MARI_EDITOR_KINDS[kind];
+    const meta = new Set<string>(["action", "apply", "reason", "dryRun", ...idArgs, ...wrappers]);
+    const left = Object.keys(patchValues(args, wrappers)).some(
+      (key) => !meta.has(key) && !(key === "extensions" && Object.keys(asRecord(args[key]) ?? {}).length === 0),
     );
     return left ? [{ ...call, arguments: args }] : [];
   });
