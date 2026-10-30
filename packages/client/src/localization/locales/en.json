@@ -5809,7 +5809,6 @@
   "sprites.library.selectAllSprites": "Select all sprites",
   "sprites.library.selected_one": "{{count}} selected",
   "sprites.library.selected_other": "{{count}} selected",
-  "sprites.library.selectSprite": "Select {{name}}",
   "sprites.library.selectSpriteInFolder": "Select {{name}} in {{folder}}",
   "sprites.library.tryAnotherSearch": "Try another name or clear the search.",
   "sprites.library.unfiled": "No folder",
