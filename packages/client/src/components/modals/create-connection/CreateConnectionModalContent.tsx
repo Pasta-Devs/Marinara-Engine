@@ -424,8 +424,9 @@ export function CreateConnectionModalContent({
   const accountFields = () => ({
     ...(name.trim() || autoName
       ? { name: name.trim() || autoName }
-      : // The server would name a voice or decision Connection "Audio" / "Decision"; it is named for its service.
-        selectedMedia?.job && service
+      : // The server would name a voice or decision Connection "Audio" / "Decision", and an image or
+        // video one before its source is saved (SD Web UI became "OpenAI (DALL-E)"); name it for its service.
+        selectedMedia && service
         ? { name: serviceName(service) }
         : {}),
     apiKey: keyless ? "" : apiKey.trim(),
@@ -451,7 +452,18 @@ export function CreateConnectionModalContent({
   };
 
   /** Creates the Connection with its empty first Model (or updates it on a retry), tests it, and on success goes on. */
+  const savingRef = useRef(false);
   const saveAndTest = async (continueAnyway = false) => {
+    // A fast double-click lands before the button disables, which saved the account twice.
+    if (!provider || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      await saveAndTestOnce(continueAnyway);
+    } finally {
+      savingRef.current = false;
+    }
+  };
+  const saveAndTestOnce = async (continueAnyway: boolean) => {
     if (!provider) return;
     let current = target;
     const discardFreshAccount = async () => {
@@ -568,7 +580,7 @@ export function CreateConnectionModalContent({
       }
       const mediaBaseUrl = chatProvider
         ? chatBaseUrl
-        : media && (media.source === "comfyui" || media.source === "swarmui" || media.source === "pockettts")
+        : media && SELF_HOSTED.has(media.source)
           ? account.baseUrl || media.defaultBaseUrl
           : media?.defaultBaseUrl;
       const rowProvider: APIProvider = media

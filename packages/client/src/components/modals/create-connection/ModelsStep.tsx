@@ -42,6 +42,7 @@ import {
   isSpeechModel,
   jobSourceOf,
   errorText,
+  SELF_HOSTED,
 } from "./shared";
 
 type RecommendedModel = NonNullable<ComponentProps<typeof ConnectionModelPicker>["recommended"]>;
@@ -146,7 +147,7 @@ export function ModelsStep(props: ModelsStepProps) {
       (candidate) => candidate.id === source,
     );
     const preserveAccountEndpoint =
-      source === "comfyui" || source === "swarmui" || props.service === "linkapi" || props.service === "custom";
+      SELF_HOSTED.has(source) || props.service === "linkapi" || props.service === "custom";
     const siblingEndpoint = linked.find((row) => rowUsesMediaSource(row, source))?.baseUrl;
     const endpoint = preserveAccountEndpoint
       ? siblingEndpoint || target.accountBaseUrl || sourceDef?.defaultBaseUrl || ""

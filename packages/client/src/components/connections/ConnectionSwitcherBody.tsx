@@ -804,11 +804,12 @@ export function ConnectionSwitcherBody({
         ];
       }),
     ).map(({ item }) => item);
-    // A pasted id goes to the Connection in use, else the first one.
-    const typed = deferredQuery;
+    // A pasted id goes to the Connection in use, else the first one. Only chat slots take a
+    // typed id: image and video slots once saved it as a chat Model on the wrong job.
+    const typed = kind === "chat" ? deferredQuery : "";
     const target = currentGroup?.account ? currentGroup : groups.find((group) => group.account);
     const known = rows.some((row) => row.model === typed) || added.some((entry) => entry.choice.model === typed);
-    if (target && !/\s/.test(typed) && !known) {
+    if (target && typed && !/\s/.test(typed) && !known) {
       added.push({
         key: `use:${typed}`,
         title: t("connections.switcher.useModelId", { model: typed }),
@@ -817,7 +818,7 @@ export function ConnectionSwitcherBody({
       });
     }
     return { saved, extra: added };
-  }, [anchorOf, catalog.data, currentGroup, deferredQuery, groupByAccount, groupOfRow, groups, rows, t]);
+  }, [anchorOf, catalog.data, currentGroup, deferredQuery, groupByAccount, groupOfRow, groups, kind, rows, t]);
   // Starred models of every provider, above the provider groups.
   const starredEntries = useMemo(
     () =>
@@ -851,7 +852,13 @@ export function ConnectionSwitcherBody({
   const savedCount = savedHits.length;
   const searching = deferredQuery.length > 0;
 
-  useEffect(() => setHighlight(0), [deferredQuery]);
+  // Enter adds a typed id only after the user moved onto that row; typing a name to filter
+  // and pressing Enter must not create a Model.
+  const highlightMoved = useRef(false);
+  useEffect(() => {
+    setHighlight(0);
+    highlightMoved.current = false;
+  }, [deferredQuery]);
 
   /**
    * One model line: maker icon, name (a sliders icon first when it has its own settings), then where it runs at the
@@ -1305,11 +1312,12 @@ export function ConnectionSwitcherBody({
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
           event.preventDefault();
           const step = event.key === "ArrowDown" ? 1 : -1;
+          highlightMoved.current = true;
           setHighlight((index) => Math.min(Math.max(index + step, 0), searchEntries.length - 1));
         } else if (event.key === "Enter") {
           event.preventDefault();
           const entry = searchEntries[highlight];
-          if (entry) void apply(entry);
+          if (entry && (!entry.key.startsWith("use:") || highlightMoved.current)) void apply(entry);
         }
       }}
       label={t("connections.switcher.searchLabel")}
