@@ -106,7 +106,7 @@ import type {
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
 import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
-import { getMariDbService } from "../mari-db/mari-db.service.js";
+import { getMariDbService, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
@@ -4056,11 +4056,23 @@ export class ProfessorMariWorkspaceService {
         }
       }
 
+      let fieldsStreamed = false;
+      const endFieldStream = () => {
+        if (fieldsStreamed) args.onEvent({ type: "edit_delta", data: null });
+        fieldsStreamed = false;
+      };
       for (let round = 0; round < MAX_COMMAND_ROUNDS; round += 1) {
         // The pi runtime already ran above; classic owns this loop.
         if (usePi || acceptedCalls) break;
         if (controller.signal.aborted) throw new Error("aborted");
         let result: ChatCompletionResult;
+        // Character fields she writes show in the open editor as she writes them; provisional like the draft.
+        // The text stays up until the round's command has been applied or held (next round or loop end).
+        endFieldStream();
+        const streamFields = createCharacterFieldStreamExtractor((data) => {
+          fieldsStreamed = true;
+          args.onEvent({ type: "edit_delta", data });
+        });
         try {
           // The frame's `say` streams as a provisional draft only: the audited text still lands as tokens
           // after the round is parsed (a protocol repair or a failed claim audit can take the words back).
@@ -4071,6 +4083,7 @@ export class ProfessorMariWorkspaceService {
             baseOptions,
             chipRepairPending ? () => {} : emitDraft,
             debugLog,
+            chipRepairPending ? undefined : streamFields,
           );
         } catch (error) {
           // No command was returned or executed: reuse the bounded protocol repair loop below.
@@ -4439,6 +4452,8 @@ export class ProfessorMariWorkspaceService {
           }
         }
       }
+      // Errors and aborts skip this; the client clears her field text when the run ends.
+      endFieldStream();
 
       if (!assistantText.trim()) {
         const failedTool = workspaceTrace.find((item) => item.type === "tool" && item.tool.status === "error");
@@ -4972,6 +4987,7 @@ export class ProfessorMariWorkspaceService {
     baseOptions: ChatOptions,
     onToken?: (chunk: string) => void,
     debugLog?: (message: string, ...values: unknown[]) => void,
+    onFrame?: (chunk: string) => void,
   ): Promise<ChatCompletionResult> {
     // Local chat templates commonly accept a single system message at index 0.
     // Keep trusted context in that role, including context added after history,
@@ -4986,7 +5002,7 @@ export class ProfessorMariWorkspaceService {
     const options: ChatOptions = onToken
       ? {
           ...baseOptions,
-          onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {})),
+          onToken: createWorkspaceStreamExtractor(onToken, baseOptions.onThinking ?? (() => {}), onFrame),
         }
       : { ...baseOptions };
     logger.debug(
@@ -5075,7 +5091,10 @@ function formatWorkspaceToolName(name: string): string {
 
 // Extracts and streams a single named string field from a JSON object as tokens arrive,
 // forwarding each character to the provided sink as it is encountered.
-function createJsonFieldStreamExtractor(fieldName: string, onChunk: (chunk: string) => void): (chunk: string) => void {
+export function createJsonFieldStreamExtractor(
+  fieldName: string,
+  onChunk: (chunk: string) => void,
+): (chunk: string) => void {
   const pattern = new RegExp(`"${fieldName}"\\s*:\\s*"`);
   let buffer = "";
   let state: "seeking" | "in_value" | "done" = "seeking";
@@ -5095,31 +5114,115 @@ function createJsonFieldStreamExtractor(fieldName: string, onChunk: (chunk: stri
     }
 
     if (state === "in_value") {
-      let text = "";
-      let index = 0;
-      while (index < buffer.length) {
-        const char = buffer[index]!;
-        if (char === "\\") {
-          const next = buffer[index + 1];
-          if (next === undefined) break;
-          if (next === "n") text += "\n";
-          else if (next === "r") text += "\r";
-          else if (next === "t") text += "\t";
-          else text += next;
-          index += 2;
-        } else if (char === '"') {
-          state = "done";
-          if (text) onChunk(text);
-          buffer = "";
-          return;
-        } else {
-          text += char;
-          index += 1;
-        }
-      }
+      const { text, end, closed } = readJsonString(buffer, 0);
       if (text) onChunk(text);
-      buffer = buffer.slice(index);
+      if (closed) state = "done";
+      buffer = closed ? "" : buffer.slice(end);
     }
+  };
+}
+
+const JSON_ESCAPES: Record<string, string> = { n: "\n", r: "\r", t: "\t", b: "\b", f: "\f" };
+
+/** Decodes a JSON string's characters from `start` up to its closing quote. Stops before an escape
+ *  that a later chunk completes (`\`, `\u12`, or a high surrogate whose low half is still out). */
+function readJsonString(buffer: string, start: number): { text: string; end: number; closed: boolean } {
+  let text = "";
+  let index = start;
+  while (index < buffer.length) {
+    const char = buffer[index]!;
+    if (char === '"') return { text, end: index + 1, closed: true };
+    if (char !== "\\") {
+      text += char;
+      index += 1;
+      continue;
+    }
+    const next = buffer[index + 1];
+    if (next === undefined) break;
+    if (next === "u") {
+      if (index + 6 > buffer.length) break;
+      const hex = buffer.slice(index + 2, index + 6);
+      if (!/^[0-9a-f]{4}$/i.test(hex)) {
+        text += buffer.slice(index, index + 6);
+        index += 6;
+        continue;
+      }
+      const code = parseInt(hex, 16);
+      if (code >= 0xd800 && code <= 0xdbff && index + 12 > buffer.length) break;
+      text += String.fromCharCode(code);
+      index += 6;
+      continue;
+    }
+    text += JSON_ESCAPES[next] ?? next;
+    index += 2;
+  }
+  return { text, end: index, closed: false };
+}
+
+/** Streams the string values of `app_data` `character.update` arguments while the classic runtime
+ *  writes its JSON frame. `field` is the patch key as written (`firstMes`, `extensions.backstory`);
+ *  the client maps it to its editor field and drops keys that are not text fields. A value's first
+ *  chunk has `restart`, so a later command that writes the same field replaces the earlier text. */
+export function createCharacterFieldStreamExtractor(
+  onDelta: (delta: { characterId: string; field: string; text: string; restart?: true }) => void,
+): (chunk: string) => void {
+  const stack: Array<{ isArray: boolean; key: string | null; expectKey: boolean }> = [];
+  let buffer = "";
+  let inString: "key" | "value" | null = null;
+  let restart = false;
+  let stringText = "";
+  let command = { name: "", action: "", characterId: "" };
+  const path = () => stack.filter((frame) => !frame.isArray).map((frame) => frame.key ?? "");
+  return (chunk) => {
+    buffer += chunk;
+    let index = 0;
+    while (index < buffer.length) {
+      if (inString) {
+        const { text, end, closed } = readJsonString(buffer, index);
+        stringText += text;
+        index = end;
+        const keys = path();
+        const rest = keys.slice(2);
+        if (
+          inString === "value" &&
+          text &&
+          keys[0] === "commands" &&
+          keys[1] === "arguments" &&
+          rest.length <= 3 &&
+          command.name === "app_data" &&
+          command.action === "character.update" &&
+          command.characterId
+        ) {
+          const field = rest.at(-2) === "extensions" ? `extensions.${rest.at(-1)}` : rest.at(-1)!;
+          onDelta({ characterId: command.characterId, field, text, ...(restart ? { restart: true as const } : {}) });
+          restart = false;
+        }
+        if (!closed) break;
+        if (inString === "key") stack.at(-1)!.key = stringText;
+        else if (keys.join(".") === "commands.name") command.name = stringText;
+        else if (keys.join(".") === "commands.arguments.action")
+          command.action = normalizeAppDataActionName(stringText);
+        else if (/^commands\.arguments\.(characterId|id)$/.test(keys.join("."))) command.characterId = stringText;
+        inString = null;
+        stringText = "";
+        continue;
+      }
+      const char = buffer[index]!;
+      index += 1;
+      const top = stack.at(-1);
+      if (char === "{") {
+        if (top?.isArray && path().join(".") === "commands") command = { name: "", action: "", characterId: "" };
+        stack.push({ isArray: false, key: null, expectKey: true });
+      } else if (char === "[") stack.push({ isArray: true, key: null, expectKey: false });
+      else if (char === "}" || char === "]") stack.pop();
+      else if (char === ":" && top) top.expectKey = false;
+      else if (char === "," && top && !top.isArray) top.expectKey = true;
+      else if (char === '"') {
+        inString = top && !top.isArray && top.expectKey ? "key" : "value";
+        restart = true;
+      }
+    }
+    buffer = buffer.slice(index);
   };
 }
 
@@ -5127,6 +5230,7 @@ function createJsonFieldStreamExtractor(fieldName: string, onChunk: (chunk: stri
 function createWorkspaceStreamExtractor(
   onToken: (chunk: string) => void,
   onThinking: (chunk: string) => void,
+  onFrame?: (chunk: string) => void,
 ): (chunk: string) => void {
   const sayExtractor = createJsonFieldStreamExtractor("say", onToken);
   const reasoningExtractor = createJsonFieldStreamExtractor("reasoning_content", onThinking);
@@ -5134,6 +5238,7 @@ function createWorkspaceStreamExtractor(
   return (chunk: string) => {
     sayExtractor(chunk);
     reasoningExtractor(chunk);
+    onFrame?.(chunk);
   };
 }
 

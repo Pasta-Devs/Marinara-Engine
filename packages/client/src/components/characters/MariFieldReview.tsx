@@ -9,6 +9,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { fieldLabel } from "../../lib/mari-edit-diff";
 import { TextBody, undoLabel } from "../chat/MariChangeReceipt";
+import { MariFieldWriting } from "./MariFieldWriting";
 
 interface MariFieldReviewValue {
   characterId: string;
@@ -170,6 +171,8 @@ export function MariFieldReview({ field, children }: { field: string; children: 
   const index = review?.waiting.findIndex((item) => item.fieldId === field) ?? -1;
   const showReview = review && index >= 0 && focus !== "typing";
   const kept = review?.kept?.fieldIds.includes(field) ? review.kept : null;
+  const writing = useUIStore((state) => state.mariFieldStream?.[state.characterDetailId ?? ""]?.[field]);
+  if (writing !== undefined && focus === "none") return <MariFieldWriting text={writing} />;
   return (
     <div
       className="contents"

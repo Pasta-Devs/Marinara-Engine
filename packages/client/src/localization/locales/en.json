@@ -4133,6 +4133,7 @@
   "mari.fieldReview.proposes": "Prof. Mari proposes: {{text}}",
   "mari.fieldReview.savedUnsaved": "Saved your unsaved text too",
   "mari.fieldReview.suggests": "<b>Prof. Mari</b> suggests",
+  "mari.fieldReview.writing": "Prof. Mari is writing…",
   "mari.fieldSuggestion.askAbout": "Ask about {{subject}}",
   "mari.fieldSuggestion.continueScene": "Continue the scene",
   "mari.fieldSuggestion.draftPersonality": "Draft a personality",

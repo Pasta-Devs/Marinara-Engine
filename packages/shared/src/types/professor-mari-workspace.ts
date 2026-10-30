@@ -1008,6 +1008,10 @@ export type MariWorkspacePromptEvent =
   // Her words as the model writes them, before the round is parsed and audited. Provisional: never
   // saved, never the answer; `data` is the full visible text so far (replace, not append); `null` ends the round's draft. The audited text still arrives as `token`.
   | { type: "draft"; data: string | null }
+  // A character field's text while she writes an `app_data` `character.update` (classic runtime
+  // only). `field` is the patch key as written; `text` is appended, or replaces with `restart`.
+  // `null` ends the round's text once its command was applied or held.
+  | { type: "edit_delta"; data: { characterId: string; field: string; text: string; restart?: true } | null }
   | {
       type: "status";
       data:

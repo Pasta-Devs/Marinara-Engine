@@ -3844,6 +3844,23 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   padding: 0.55rem 0.75rem 0.75rem;
 }
 
+/* Slice 8: her text while she writes it. Provisional: a faint opacity waver on the line only. */
+.mari-field-review--writing .mari-field-review__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mari-field-review--writing .mari-field-review__strip span {
+  animation: mari-field-waver 1.6s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-field-review--writing .mari-field-review__strip span {
+    animation: none;
+  }
+}
+
 /* The diff is the field's text here, not a quoted box. */
 .mari-field-review__text .mari-receipt__box {
   background: none;

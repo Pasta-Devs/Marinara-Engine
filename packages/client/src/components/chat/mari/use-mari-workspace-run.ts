@@ -16,7 +16,11 @@ import { api, isPassiveStreamDisconnect } from "../../../lib/api-client";
 import { awaitMariPermissionsModeWrites } from "../../../lib/mari-permissions-write-chain";
 import { describeProfessorMariError } from "../../../lib/professor-mari-errors";
 import { RafThrottle, rafThrottle } from "../../../lib/raf-throttle";
-import { mariWorkingFieldFromTool } from "../../../lib/mari-editor-fields";
+import {
+  MARI_REVIEW_FIELD_ORDER,
+  characterPatchFieldId,
+  mariWorkingFieldFromTool,
+} from "../../../lib/mari-editor-fields";
 import { useChatStore } from "../../../stores/chat.store";
 import { shownMariAppearancePack, useUIStore } from "../../../stores/ui.store";
 import {
@@ -171,6 +175,17 @@ export function useMariWorkspaceRun({
         draftThrottle.cancel();
         useChatStore.getState().setMariDraft(chat.id, null);
       };
+      // Her text for character fields while she writes them, also once a frame. Kept for every
+      // character, so an editor opened mid-stream shows the whole text so far.
+      let fieldStream: Record<string, Record<string, string>> = {};
+      const fieldStreamThrottle = rafThrottle<Record<string, Record<string, string>>>((value) =>
+        useUIStore.getState().setMariFieldStream(value),
+      );
+      const clearFieldStream = () => {
+        fieldStream = {};
+        fieldStreamThrottle.cancel();
+        if (useUIStore.getState().mariFieldStream) useUIStore.getState().setMariFieldStream(null);
+      };
       // Mirror use-generate's backgrounding bookkeeping: Android browsers tear
       // down a hidden tab's connection with a plain TypeError, and the shared
       // classifier needs to know the page was hidden to call that passive.
@@ -211,6 +226,22 @@ export function useMariWorkspaceRun({
           if (event.type === "draft") {
             if (typeof event.data !== "string") clearDraft();
             else draftThrottle.call((draft = event.data));
+            continue;
+          }
+          if (event.type === "edit_delta") {
+            const delta = asRecord(event.data);
+            const characterId = typeof delta?.characterId === "string" ? delta.characterId : "";
+            const fieldId =
+              characterId && typeof delta?.field === "string" && typeof delta.text === "string"
+                ? characterPatchFieldId(delta.field)
+                : null;
+            if (!delta) clearFieldStream();
+            else if (fieldId && (MARI_REVIEW_FIELD_ORDER as readonly string[]).includes(fieldId)) {
+              const fields = fieldStream[characterId] ?? {};
+              const before = delta.restart ? "" : (fields[fieldId] ?? "");
+              fieldStream = { ...fieldStream, [characterId]: { ...fields, [fieldId]: before + String(delta.text) } };
+              fieldStreamThrottle.call(fieldStream);
+            }
             continue;
           }
           // Her real words or a step replace the draft.
@@ -347,6 +378,7 @@ export function useMariWorkspaceRun({
         }
         workspaceTextThrottle.flush();
         clearDraft();
+        clearFieldStream();
         workspaceAbortRef.current = null;
         setWorkspaceActive(false);
         if (useUIStore.getState().mariWorkingField) useUIStore.getState().setMariWorkingField(null);

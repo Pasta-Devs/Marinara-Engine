@@ -809,6 +809,8 @@ interface UIState {
   mariRevealField: { characterId: string; path: string; scroll?: boolean } | null;
   /** The editor field a running Prof. Mari step is writing, for its working glow. Transient. */
   mariWorkingField: { characterId: string; path: string } | null;
+  /** Her text so far while she writes character fields: character id → editor field id → text. Transient. */
+  mariFieldStream: Record<string, Record<string, string>> | null;
   /** Her change to a character as the editor shows it in the fields: waiting for Keep, or kept
    * with Undo. Published by her open chat, which owns the replies. Transient. */
   mariFieldReview: MariFieldReview | null;
@@ -1276,6 +1278,7 @@ interface UIState {
   revealMariField: (characterId: string, path: string, options?: { scroll?: boolean }) => void;
   clearMariRevealField: () => void;
   setMariWorkingField: (field: { characterId: string; path: string } | null) => void;
+  setMariFieldStream: (fields: Record<string, Record<string, string>> | null) => void;
   setMariFieldReview: (review: MariFieldReview | null) => void;
   setLastAppError: (error: UIState["lastAppError"]) => void;
   setSettingsTargetControlId: (controlId: string | null) => void;
@@ -2146,6 +2149,7 @@ export const useUIStore = create<UIState>()(
         mariFieldDraft: null,
         mariRevealField: null,
         mariWorkingField: null,
+        mariFieldStream: null,
         mariFieldReview: null,
         lastAppError: null,
         settingsTargetControlId: null,
@@ -2539,6 +2543,7 @@ export const useUIStore = create<UIState>()(
         revealMariField: (characterId, path, options) => set({ mariRevealField: { characterId, path, ...options } }),
         clearMariRevealField: () => set({ mariRevealField: null }),
         setMariWorkingField: (field) => set({ mariWorkingField: field }),
+        setMariFieldStream: (fields) => set({ mariFieldStream: fields }),
         setMariFieldReview: (review) => set({ mariFieldReview: review }),
         setLastAppError: (error) => set({ lastAppError: error }),
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
