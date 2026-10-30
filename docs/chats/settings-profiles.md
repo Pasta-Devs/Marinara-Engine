@@ -27,7 +27,9 @@ A profile stores how the chat talks to the AI:
 - Whether the layout tips in Chat Settings are hidden. Applying **Default**, or an older profile without this choice, shows the tips again.
 - Other reusable chat options
 
-A profile does not replace chat-owned content such as characters, persona, lorebooks, sprites, summary, tags, or scene prompt. It also does not contain the conversation history, or a chat's running state such as its macro variables, the characters you turned off in it, or its multiplayer room.
+A profile can also hold **starting picks**: a persona, lorebooks to switch on, and a background. Applying the profile copies them into the chat. If the profile leaves one of these three empty, the chat keeps its own. Other settings in the profile still replace the chat's settings. The picks are not linked: a later change in the chat stays in that chat, **Save current chat settings into this profile** keeps the profile's own persona and lorebooks, and its own background. A profile without a background takes the chat's background when you save into it. Updating other chats never changes their persona, lorebooks, or background. Exported profile files leave the persona and lorebooks out, because they only exist on this install.
+
+A profile does not replace chat-owned content such as characters, sprites, summary, tags, or scene prompt. It also does not contain the conversation history, or a chat's running state such as its macro variables, the characters you turned off in it, or its multiplayer room.
 
 ## Applying a profile
 
@@ -40,20 +42,31 @@ The profile dropdown sits at the top of **Chat Settings**. Its tooltip reads **A
 
 The chat updates immediately. If the profile turns **Hide summarised messages** on or off, the chat's summarised messages are hidden from the AI, or shown to it again, at the same moment. When its current values do not match a saved profile, the dropdown shows **Custom settings profile**. If a previously applied profile no longer exists, it shows **Missing profile - choose a profile**.
 
+## The profile builder
+
+The builder shows a profile as a set of slots, grouped into Chat, Story, Pictures, and Behind the scenes. Each slot holds one kind of setting, such as a connection, agents, a persona, or lorebooks.
+
+- Drag an item from **Your library** at the bottom onto a slot, or click a slot and pick from the list. While you drag, the slots that can take the item light up.
+- A filled slot shows one chip per item. Remove an item with its **×** button.
+- Parameters, Memory & summary, and Translation show whether the profile holds them. Change them in Chat Settings, then save into the profile.
+
+Choose **Save and choose chats…** to save. The next step lists **New roleplay chats** (or conversation chats) and your existing chats of that mode. Tick **Make this the default** to use the profile for new chats, tick the chats that should get it now, then choose **Apply**.
+
+In the new chat wizard, the **Use a Profile** step also has **New profile…** at the top of the profile list and **Edit** beside a saved profile. After you save, the wizard selects that profile.
+
 ## Saving a profile
 
 The icon row below the dropdown contains these actions:
 
-| Button | Tooltip | Result |
-|---|---|---|
-| Save | **Save current chat settings into this profile** | Replaces the selected profile's saved values |
-| Rename | **Rename profile** | Changes the selected profile's name |
-| Save As | **Save current chat settings as a new profile** | Creates another profile from the current chat |
-| Import | **Import settings profile (.json)** | Loads a profile file |
-| Export | **Export settings profile (.json)** | Downloads the selected profile |
-| Delete | **Delete profile** | Permanently removes the selected profile |
+| Button | Tooltip                                          | Result                                       |
+| ------ | ------------------------------------------------ | -------------------------------------------- |
+| Save   | **Save current chat settings into this profile** | Replaces the selected profile's saved values |
+| Rename | **Rename profile**                               | Changes the selected profile's name          |
+| Import | **Import settings profile (.json)**              | Loads a profile file                         |
+| Export | **Export settings profile (.json)**              | Downloads the selected profile               |
+| Delete | **Delete profile**                               | Permanently removes the selected profile     |
 
-To create your first profile, configure a chat and choose **Save current chat settings as a new profile**. To update it later, apply the profile, change the chat, then choose **Save current chat settings into this profile**.
+To create a profile, choose **New** beside the dropdown. The profile builder opens with this chat's settings already in its slots. To change a profile, select it and choose **Edit**. The Default profile cannot be edited. To update a profile from a chat instead, apply it, change the chat, then choose **Save current chat settings into this profile**.
 
 ### Updating other chats that use the profile
 

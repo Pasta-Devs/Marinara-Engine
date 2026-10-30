@@ -2895,15 +2895,17 @@ function MetadataTab({
             {localizeUi("ui.characters.metadatatab.name")}{" "}
             <HelpTooltip text={localizeUi("ui.characters.metadatatab.theCharacterSDisplayNameThisIsWhatAppears")} />
           </span>
-          <input
-            value={formData.name}
-            onChange={(e) => updateField("name", e.target.value)}
-            onBlur={() => {
-              const trimmedName = formData.name.trim();
-              if (trimmedName !== formData.name) updateField("name", trimmedName);
-            }}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-          />
+          <MariFieldReview field="name">
+            <input
+              value={formData.name}
+              onChange={(e) => updateField("name", e.target.value)}
+              onBlur={() => {
+                const trimmedName = formData.name.trim();
+                if (trimmedName !== formData.name) updateField("name", trimmedName);
+              }}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            />
+          </MariFieldReview>
         </label>
         <label className="space-y-1.5 sm:col-span-2">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
@@ -2922,12 +2924,14 @@ function MetadataTab({
             {localizeUi("ui.characters.metadatatab.creator")}{" "}
             <HelpTooltip text={localizeUi("ui.characters.metadatatab.thePersonWhoMadeThisCharacterUsefulForGiving")} />
           </span>
-          <input
-            value={formData.creator}
-            onChange={(e) => updateField("creator", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={localizeUi("ui.characters.metadatatab.yourName")}
-          />
+          <MariFieldReview field="creator">
+            <input
+              value={formData.creator}
+              onChange={(e) => updateField("creator", e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+              placeholder={localizeUi("ui.characters.metadatatab.yourName")}
+            />
+          </MariFieldReview>
         </label>
         <div className="space-y-1.5" data-mari-field="character_version">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -2950,13 +2954,15 @@ function MetadataTab({
               labelClassName="text-xs font-medium text-[var(--muted-foreground)]"
             />
           </div>
-          <input
-            value={formData.character_version}
-            onChange={(e) => updateField("character_version", e.target.value)}
-            disabled={formData.extensions.versioningEnabled === false}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="1.0"
-          />
+          <MariFieldReview field="character_version">
+            <input
+              value={formData.character_version}
+              onChange={(e) => updateField("character_version", e.target.value)}
+              disabled={formData.extensions.versioningEnabled === false}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder="1.0"
+            />
+          </MariFieldReview>
           <CharacterVersionHistoryPanel
             characterId={characterId}
             currentData={formData}

@@ -66,7 +66,6 @@ import {
   Radar,
   Save,
   FileText,
-  FilePlus2,
   FolderOpen,
   Folder,
   Upload,
@@ -149,8 +148,10 @@ import {
   isConversationCommandToggleOn,
 } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { showAlertDialog, showChoiceDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
+import { showAlertDialog, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
+import { saveIntoProfileSettings } from "../../lib/chat-preset-apply";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { ChatProfileBuilder } from "./ChatProfileBuilder";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
@@ -273,7 +274,6 @@ import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import {
   useChatPresets,
   useSaveChatPresetSettings,
-  useDuplicateChatPreset,
   useUpdateChatPreset,
   useDeleteChatPreset,
   useApplyChatPreset,
@@ -4391,7 +4391,6 @@ export function ChatSettingsDrawer({
   const presetMode = chatMode;
   const { data: chatPresets } = useChatPresets(presetMode);
   const saveChatPreset = useSaveChatPresetSettings();
-  const duplicateChatPreset = useDuplicateChatPreset();
   const renameChatPreset = useUpdateChatPreset();
   const deleteChatPreset = useDeleteChatPreset();
   const applyChatPreset = useApplyChatPreset();
@@ -4950,7 +4949,7 @@ export function ChatSettingsDrawer({
   const handleSaveIntoPreset = async () => {
     if (!selectedChatPreset || selectedChatPreset.isDefault) return;
     const profileId = selectedChatPreset.id;
-    const settings = snapshotCurrentPresetSettings();
+    const settings = saveIntoProfileSettings(snapshotCurrentPresetSettings(), selectedChatPreset.settings);
     // Count from a fresh list so chats changed in another window are included. One try without
     // retries, so a failing list falls back to the loaded one at once.
     const chatList = await api.get<Chat[]>("/chats").catch(() => allChats ?? []);
@@ -5013,33 +5012,19 @@ export function ChatSettingsDrawer({
     setRenamingPreset(false);
   };
 
-  const handleSaveAsPreset = async () => {
-    if (!selectedChatPreset) return;
-    const baseName = await showPromptDialog({
-      title: localizeUi("chat.settingsProfile.dialog.createTitle"),
-      message: localizeUi("chat.settingsProfile.dialog.newName"),
-      defaultValue: `${selectedChatPreset.name} Copy`,
-      confirmLabel: localizeUi("ui.modals.createcharactermodal.create"),
-    });
-    if (!baseName?.trim()) return;
-    const trimmed = baseName.trim().slice(0, 120);
-    duplicateChatPreset.mutate(
-      { id: selectedChatPreset.id, name: trimmed },
-      {
-        onSuccess: (created) => {
-          if (!created) return;
-          // Save the current chat settings into the new profile, then apply it
-          // (which records appliedChatPresetId on the chat so the dropdown follows).
-          saveChatPreset.mutate(
-            { id: created.id, settings: snapshotCurrentPresetSettings() },
-            {
-              onSuccess: () => applyChatPreset.mutate({ presetId: created.id, chatId: chat.id }),
-            },
-          );
-        },
-      },
-    );
-  };
+  // "New" starts the builder from this chat's settings, persona and lorebooks (the old "Save as").
+  const [profileBuilder, setProfileBuilder] = useState<"edit" | "new" | null>(null);
+  const newProfileSettings = useMemo(
+    (): ChatPresetSettings =>
+      profileBuilder === "new"
+        ? {
+            ...snapshotCurrentPresetSettings(),
+            ...(chat.personaId ? { personaId: chat.personaId } : {}),
+            ...(activeLorebookIds.length ? { lorebookIds: [...activeLorebookIds] } : {}),
+          }
+        : {},
+    [profileBuilder, snapshotCurrentPresetSettings, chat.personaId, activeLorebookIds],
+  );
 
   const handleDeletePreset = async () => {
     if (!selectedChatPreset || selectedChatPreset.isDefault) return;
@@ -5727,6 +5712,14 @@ export function ChatSettingsDrawer({
                 className="hidden"
                 onChange={handleImportFile}
               />
+              <ChatProfileBuilder
+                open={profileBuilder !== null}
+                onClose={() => setProfileBuilder(null)}
+                mode={chatMode}
+                profile={profileBuilder === "edit" ? selectedChatPreset : null}
+                initialSettings={newProfileSettings}
+                currentChatId={chat.id}
+              />
               {/* Dropdown / rename input + help */}
               <div className="flex items-center gap-2">
                 {renamingPreset ? (
@@ -5767,6 +5760,28 @@ export function ChatSettingsDrawer({
                     ))}
                   </select>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setProfileBuilder("edit")}
+                  disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+                  title={
+                    selectedChatPreset?.isDefault
+                      ? localizeUi("chat.settingsProfile.default.cannotSave")
+                      : localizeUi("chat.settingsProfile.builder.editHint")
+                  }
+                  className="shrink-0 rounded-md px-2 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {localizeUi("chat.settingsProfile.builder.edit")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfileBuilder("new")}
+                  title={localizeUi("chat.settingsProfile.builder.newHint")}
+                  className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                >
+                  <Plus size="0.75rem" aria-hidden />
+                  {localizeUi("chat.settingsProfile.builder.new")}
+                </button>
                 <button
                   onClick={handleToggleDefaultPreset}
                   disabled={!selectedChatPreset || selectedChatPreset.isActive || setActiveChatPreset.isPending}
@@ -5830,14 +5845,6 @@ export function ChatSettingsDrawer({
                   className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Pencil size="0.875rem" />
-                </button>
-                <button
-                  onClick={handleSaveAsPreset}
-                  disabled={!selectedChatPreset}
-                  title={localizeUi("chat.settingsProfile.action.saveAs")}
-                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <FilePlus2 size="0.875rem" />
                 </button>
                 <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden />
                 <button

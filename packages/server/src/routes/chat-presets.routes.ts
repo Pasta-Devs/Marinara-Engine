@@ -30,9 +30,11 @@ interface ChatSettingsProfileExportPayload {
   settings: ChatPresetSettings;
 }
 
-/** Outside addresses and keys in a profile stay on this install: shared files neither carry nor bring them. */
+/** Outside addresses and keys in a profile stay on this install: shared files neither carry nor bring them.
+ * Persona and lorebook picks are ids from this install, so they stay too. */
 function withoutLocalDestinations(settings: ChatPresetSettings): ChatPresetSettings {
-  return settings.metadata ? { ...settings, metadata: omitChatMetadataLocalDestinations(settings.metadata) } : settings;
+  const { personaId: _personaId, lorebookIds: _lorebookIds, ...shared } = settings;
+  return shared.metadata ? { ...shared, metadata: omitChatMetadataLocalDestinations(shared.metadata) } : shared;
 }
 
 export async function chatPresetsRoutes(app: FastifyInstance) {

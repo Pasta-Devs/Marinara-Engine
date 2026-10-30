@@ -41,8 +41,10 @@ export function buildChatBranchRows<T extends BranchTreeChat>(
   const byId = new Map(chats.map((chat) => [chat.id, chat]));
   const sortSiblings = (siblings: readonly T[]) => [...siblings].sort(compareSiblings ?? byCreationAsc);
 
-  // Only a parent inside this group is lineage. A self-reference is nonsense, and a pointer at a
-  // deleted or imported-elsewhere chat says nothing about order, so both fall back to "no parent".
+  // Only a parent inside this group can place a chat at a level. A self-reference is nonsense, and a
+  // pointer at a deleted or imported-elsewhere chat names no row here, so both fall back to "no
+  // parent" for ordering. The chat is still a recorded branch, though, which is why
+  // hasChatBranchLineage below does count such a pointer.
   const parentOf = new Map<string, string>();
   for (const chat of chats) {
     const parentId = readParentChatId(chat);
@@ -95,18 +97,23 @@ export function buildChatBranchRows<T extends BranchTreeChat>(
 }
 
 /**
- * Whether this group has a parent pointer a tree can hang from. Groups without one — branch sets made
- * before lineage was recorded, or Game sessions that are siblings rather than branches — keep the
- * list's single-row behaviour, because drawing a hierarchy the data does not describe would be a lie
- * about someone's chats.
+ * Whether this group has a recorded parent pointer a tree can hang from. Groups without one — branch
+ * sets made before lineage was recorded, or Game sessions that are siblings rather than branches —
+ * keep the list's single-row behaviour, because drawing a hierarchy the data does not describe would
+ * be a lie about someone's chats.
+ *
+ * A pointer that names a chat outside the group still counts. Importing, copying and restoring a chat
+ * strip `branchParentChatId`, so a pointer with no chat behind it means the source was deleted, not
+ * that lineage is unknown. Deleting a middle branch must not retire the branches below it: the
+ * descendants are still branches of this group, and the builder hangs the orphan under the surviving
+ * top chat.
  */
 export function hasChatBranchLineage<T extends BranchTreeChat>(groupChats: readonly T[]): boolean {
   const chats = groupChats.filter((chat): chat is T => Boolean(chat?.id));
   if (chats.length < 2) return false;
-  const ids = new Set(chats.map((chat) => chat.id));
   return chats.some((chat) => {
     const parentId = readParentChatId(chat);
-    return Boolean(parentId) && parentId !== chat.id && ids.has(parentId!);
+    return Boolean(parentId) && parentId !== chat.id;
   });
 }
 

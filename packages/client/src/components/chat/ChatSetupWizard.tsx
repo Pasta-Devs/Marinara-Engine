@@ -130,6 +130,7 @@ import { AdvancedMemorySettings } from "./AdvancedMemorySettings";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
+import { ChatProfileBuilder } from "./ChatProfileBuilder";
 
 // ─── Step definitions ─────────────────────────
 
@@ -298,6 +299,7 @@ const WIZARD_PANEL_CLASS = cn(
 );
 
 const WIZARD_FIELD_LABEL = "text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]";
+const NEW_PROFILE_OPTION = "__new-profile__";
 const WIZARD_INPUT_CLASS =
   "w-full min-w-0 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40";
 const WIZARD_NUMBER_INPUT_CLASS =
@@ -2250,6 +2252,10 @@ function RoleplaySetupWizard({
     return flag;
   });
   const [shortcutPresetId, setShortcutPresetId] = useState<string>("");
+  // The quick-setup picker only shows the profile's starting persona; nothing is written until
+  // the user picks one here (their pick then wins) or Apply & Start applies the profile.
+  const [shortcutPersonaPicked, setShortcutPersonaPicked] = useState(false);
+  const [profileBuilder, setProfileBuilder] = useState<"edit" | "new" | null>(null);
 
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
@@ -2282,9 +2288,15 @@ function RoleplaySetupWizard({
   const activeChatMode = ((chat as unknown as { mode?: ChatMode }).mode ?? "roleplay") as ChatMode;
   const { data: chatPresetsData } = useChatPresets(chatPresetMode);
   const chatPresetList = useMemo(() => (chatPresetsData ?? []) as ChatPreset[], [chatPresetsData]);
+  const shortcutPreset = chatPresetList.find((preset) => preset.id === shortcutPresetId) ?? null;
   const applyChatPreset = useApplyChatPreset();
 
   const personas = useMemo(() => allPersonas ?? [], [allPersonas]);
+  const shortcutProfilePersonaId = useMemo(() => {
+    if (shortcutPersonaPicked) return null;
+    const personaId = chatPresetList.find((preset) => preset.id === shortcutPresetId)?.settings.personaId;
+    return personaId && personas.some((persona) => persona.id === personaId) ? personaId : null;
+  }, [shortcutPersonaPicked, chatPresetList, shortcutPresetId, personas]);
   const characters = useMemo(
     () =>
       (allCharacters ?? []) as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>,
@@ -2758,10 +2770,17 @@ function RoleplaySetupWizard({
       return;
     }
     let profileApplied = false;
+    // The persona picked in this step wins over the profile's starting persona.
+    const pickedPersonaId = chat.personaId;
+    const pickedPersonaCharacterId = chat.personaCharacterId;
     try {
       setShortcutApplying(true);
-      await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
+      const applied = await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
       profileApplied = true;
+      if (shortcutPersonaPicked && applied && applied.personaId !== pickedPersonaId) {
+        if (pickedPersonaCharacterId) setPersonaCharacter(pickedPersonaCharacterId);
+        else if (pickedPersonaId) setPersona(pickedPersonaId);
+      }
     } catch {
       /* fall through — still close the wizard */
     } finally {
@@ -2770,7 +2789,18 @@ function RoleplaySetupWizard({
       setShortcutApplying(false);
       onFinish();
     }
-  }, [shortcutPresetId, chat.id, applyChatPreset, onFinish, seedInitialGreetingsIfEmpty]);
+  }, [
+    shortcutPresetId,
+    shortcutPersonaPicked,
+    chat.id,
+    chat.personaId,
+    chat.personaCharacterId,
+    applyChatPreset,
+    setPersona,
+    setPersonaCharacter,
+    onFinish,
+    seedInitialGreetingsIfEmpty,
+  ]);
 
   // Search state for character & lorebook pickers
   const [charSearch, setCharSearch] = useState("");
@@ -3894,21 +3924,47 @@ function RoleplaySetupWizard({
     <div className="space-y-4">
       <div className="space-y-1.5">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("chat.settingsProfile.label")}</label>
-        <select
-          value={shortcutPresetId}
-          onChange={(event) => setShortcutPresetId(event.target.value)}
-          aria-label={localizeUi("chat.settingsProfile.label")}
-          className={WIZARD_INPUT_CLASS}
-        >
-          {chatPresetList.length === 0 && (
-            <option value="">{localizeUi("ui.characters.characterlibraryview.loading")}</option>
+        <div className="flex items-center gap-2">
+          <select
+            value={shortcutPresetId}
+            onChange={(event) => {
+              if (event.target.value === NEW_PROFILE_OPTION) return setProfileBuilder("new");
+              setShortcutPresetId(event.target.value);
+            }}
+            aria-label={localizeUi("chat.settingsProfile.label")}
+            className={WIZARD_INPUT_CLASS}
+          >
+            {chatPresetList.length === 0 && (
+              <option value="">{localizeUi("ui.characters.characterlibraryview.loading")}</option>
+            )}
+            {chatPresetList.length > 0 && (
+              <option value={NEW_PROFILE_OPTION}>{localizeUi("chat.settingsProfile.builder.newOption")}</option>
+            )}
+            {chatPresetList.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.isDefault ? localizeUi("ui.noodle.noodlehome.default") : preset.name}
+              </option>
+            ))}
+          </select>
+          {shortcutPreset && !shortcutPreset.isDefault && (
+            <button
+              type="button"
+              onClick={() => setProfileBuilder("edit")}
+              title={localizeUi("chat.settingsProfile.builder.editHint")}
+              className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              {localizeUi("chat.settingsProfile.builder.edit")}
+            </button>
           )}
-          {chatPresetList.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.isDefault ? localizeUi("ui.noodle.noodlehome.default") : preset.name}
-            </option>
-          ))}
-        </select>
+        </div>
+        <ChatProfileBuilder
+          open={profileBuilder !== null}
+          onClose={() => setProfileBuilder(null)}
+          mode={chatPresetMode}
+          profile={profileBuilder === "edit" ? shortcutPreset : null}
+          saveOnly
+          onSaved={(saved) => setShortcutPresetId(saved.id)}
+        />
       </div>
 
       <div className="space-y-1.5">
@@ -3918,15 +3974,17 @@ function RoleplaySetupWizard({
           characters={characters}
           characterGroups={(allCharacterGroups ?? []) as CharacterGroup[]}
           showCharacterIdentities={showCharacterIdentities}
-          value={chat.personaId ?? null}
-          characterValue={chat.personaCharacterId ?? null}
+          value={shortcutProfilePersonaId ?? chat.personaId ?? null}
+          characterValue={shortcutProfilePersonaId ? null : (chat.personaCharacterId ?? null)}
           // A persona picked here replaces "Create your persona", as in the step picker.
           onChange={(personaId) => {
             setOnboardingCharacterId(null);
+            setShortcutPersonaPicked(true);
             setPersona(personaId);
           }}
           onCharacterChange={(characterId) => {
             setOnboardingCharacterId(null);
+            setShortcutPersonaPicked(true);
             setPersonaCharacter(characterId);
           }}
         />

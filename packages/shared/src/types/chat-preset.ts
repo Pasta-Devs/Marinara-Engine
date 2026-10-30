@@ -11,8 +11,14 @@
 // context limit, memory recall, discord mirror, etc.). Exported profile files leave out the outside
 // addresses and keys (CHAT_METADATA_LOCAL_DESTINATION_KEYS), and imported ones never bring them.
 //
+// Starting picks: a profile may also hold a persona, lorebooks to switch on and
+// a background (metadata.background). Applying the profile by hand COPIES them
+// into the chat; they are never linked, so later edits in the chat stay there,
+// "Save into profile" keeps the profile's own picks, and chats that follow the
+// profile never receive them.
+//
 // What profiles DO NOT carry: per-chat identity (name, characters,
-// persona, group, sprites, scene prompt, generated summaries, tags,
+// group, sprites, scene prompt, generated summaries, tags,
 // ephemeral lorebook overrides, generated schedules, scene lifecycle
 // state, connected chat link, hierarchical map state, folder/sort placement,
 // or running state such as multiplayer rooms and macro variables).
@@ -24,6 +30,10 @@ export interface ChatPresetSettings {
   /** Top-level chat fields */
   connectionId?: string | null;
   promptPresetId?: string | null;
+  /** Starting pick: persona copied into the chat when the profile is applied by hand. */
+  personaId?: string | null;
+  /** Starting pick: lorebooks switched on in the chat when the profile is applied by hand. */
+  lorebookIds?: string[];
   /** Subset of ChatMetadata — chat-specific keys (sprites, summary, tags, etc.) are stripped before saving. */
   metadata?: Partial<ChatMetadata>;
 }
