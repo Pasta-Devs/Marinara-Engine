@@ -22,10 +22,10 @@ Por ejemplo, esta dirección empuja la próxima respuesta hacia una confesión:
 
 El comando tiene alias cortos. Puedes escribir `/narrator`, `/narrate` o `/nar` en lugar de `/guided`.
 
-En un chat grupal puedes apuntar la dirección a un personaje. Escribe `/guided respond for <character> <direction>`. Reemplaza `<character>` con el nombre del personaje y `<direction>` con tu instrucción. Por ejemplo:
+En un chat grupal puedes apuntar la dirección a un personaje. Escribe `/guided respond as <character> <direction>`. Reemplaza `<character>` con el nombre del personaje y `<direction>` con tu instrucción. También funcionan `reply as` y `respond for`. Por ejemplo:
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### Regenerar guiado

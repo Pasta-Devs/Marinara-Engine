@@ -174,8 +174,8 @@
     },
     {
       "path": "chats/guided-and-impersonate.md",
-      "sha256": "33448a1305a25ace49369e9e6cc48b459558fa493a6fee6a92081c16019d3f38",
-      "bytes": 9226
+      "sha256": "f633848de652c32faafe43b3739a3b477f23aae7e81b504d0a32003999975a30",
+      "bytes": 9268
     },
     {
       "path": "chats/managing-chats.md",
@@ -204,8 +204,8 @@
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "2270900eb39301466daaa14fa8e47211ab557ad6152a5ddb741da5f7a3d913ae",
-      "bytes": 11952
+      "sha256": "f71f62bdea9d657ce08325558549557f65729212903e9d167928c67c0137ec83",
+      "bytes": 11993
     },
     {
       "path": "configuration/features.md",

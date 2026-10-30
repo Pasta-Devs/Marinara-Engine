@@ -22,10 +22,10 @@
 
 У команды есть короткие псевдонимы. Вместо `/guided` можно ввести `/narrator`, `/narrate` или `/nar`.
 
-В групповом чате направление можно адресовать одному персонажу. Введите `/guided respond for <character> <direction>`. На месте `<character>` укажите имя персонажа, на месте `<direction>` – само направление. Например:
+В групповом чате направление можно адресовать одному персонажу. Введите `/guided respond as <character> <direction>`. На месте `<character>` укажите имя персонажа, на месте `<direction>` – само направление. Также работают `reply as` и `respond for`. Например:
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### Направление при повторной генерации

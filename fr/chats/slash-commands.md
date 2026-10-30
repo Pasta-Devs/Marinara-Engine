@@ -75,7 +75,7 @@ Ces commandes servent à orienter une histoire, à jouer un personnage et à ajo
 
 | Commande | Autres formes | Ce qu'elle fait |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Oriente la prochaine réponse de l'IA dans la direction que tu décris. |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Oriente la prochaine réponse de l'IA dans la direction que tu décris. |
 | `/as [name] [message (optional)]` | `/respond` | Publie un message au nom d'un personnage, ou demande à un personnage de répondre. |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Liste les expressions du sprite d'un personnage, ou en change. |
 | `/roll [dice (optional)]` | `/r`, `/dice` | Lance les dés et publie le résultat. |
@@ -94,10 +94,10 @@ Pour orienter la prochaine réponse, ajoute ta direction après `/guided` :
 /guided make him confess he is lying
 ```
 
-Dans un chat Roleplay de groupe, utilise `/guided respond for [name] [direction (optional)]` pour choisir le personnage qui répond. Par exemple :
+Dans un chat Roleplay de groupe, utilise `/guided respond as [name] [direction (optional)]` pour choisir le personnage qui répond. `reply as` et `respond for` fonctionnent aussi. Par exemple :
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 Utilise `/as [name] [message (optional)]` pour publier du texte au nom d'un personnage. Si tu omets le message, le modèle génère plutôt la prochaine réponse de ce personnage :

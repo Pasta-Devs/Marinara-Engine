@@ -75,7 +75,7 @@
 
 | कमांड | यह भी चलता है | क्या करता है |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | AI के अगले जवाब को आपकी बताई दिशा में मोड़ता है। |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | AI के अगले जवाब को आपकी बताई दिशा में मोड़ता है। |
 | `/as [name] [message (optional)]` | `/respond` | किसी कैरेक्टर के नाम से संदेश डालता है, या उससे जवाब मँगवाता है। |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | कैरेक्टर के स्प्राइट एक्सप्रेशन दिखाता है या बदल देता है। |
 | `/roll [dice (optional)]` | `/r`, `/dice` | डाइस रोल करके नतीजा चैट में डालता है। |
@@ -94,10 +94,10 @@
 /guided make him confess he is lying
 ```
 
-ग्रुप Roleplay चैट में जवाब देने वाला कैरेक्टर चुनने के लिए `/guided respond for [name] [direction (optional)]` इस्तेमाल करें। उदाहरण:
+ग्रुप Roleplay चैट में जवाब देने वाला कैरेक्टर चुनने के लिए `/guided respond as [name] [direction (optional)]` इस्तेमाल करें। `reply as` और `respond for` भी काम करते हैं। उदाहरण:
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 किसी कैरेक्टर की तरफ़ से टेक्स्ट भेजने के लिए `/as [name] [message (optional)]` इस्तेमाल करें। संदेश छोड़ देने पर मॉडल उस कैरेक्टर का अगला जवाब जेनरेट करता है:

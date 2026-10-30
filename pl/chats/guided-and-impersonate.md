@@ -22,10 +22,10 @@ Na przykład taka wskazówka popycha następną odpowiedź w stronę wyznania:
 
 Komenda ma krótkie odpowiedniki. Zamiast `/guided` możesz wpisać `/narrator`, `/narrate` albo `/nar`.
 
-Na czacie grupowym wskazówkę da się skierować do jednej postaci. Wpisz `/guided respond for <character> <direction>`. W miejsce `<character>` wstaw nazwę postaci, a w miejsce `<direction>` swoją wskazówkę. Na przykład:
+Na czacie grupowym wskazówkę da się skierować do jednej postaci. Wpisz `/guided respond as <character> <direction>`. W miejsce `<character>` wstaw nazwę postaci, a w miejsce `<direction>` swoją wskazówkę. Działają też `reply as` i `respond for`. Na przykład:
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### Sterowanie przy ponownym generowaniu

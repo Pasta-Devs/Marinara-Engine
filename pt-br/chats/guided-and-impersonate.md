@@ -22,10 +22,10 @@ Veja um exemplo de instrução que empurra a resposta seguinte para uma confiss�
 
 O comando tem apelidos curtos. No lugar de `/guided`, digite `/narrator`, `/narrate` ou `/nar`.
 
-Em um chat em grupo, o rumo pode ser direcionado a um personagem só. Digite `/guided respond for <character> <direction>`. Troque `<character>` pelo nome do personagem e `<direction>` pela sua instrução. Por exemplo:
+Em um chat em grupo, o rumo pode ser direcionado a um personagem só. Digite `/guided respond as <character> <direction>`. Troque `<character>` pelo nome do personagem e `<direction>` pela sua instrução. `reply as` e `respond for` também funcionam. Por exemplo:
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### Regeneração guiada

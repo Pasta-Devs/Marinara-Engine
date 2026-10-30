@@ -75,7 +75,7 @@ Te komendy pomagają prowadzić fabułę, wcielać się w postać i dodawać gra
 
 | Komenda | Działa też jako | Co robi |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Nadaje kolejnej odpowiedzi AI kierunek, który opiszesz. |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Nadaje kolejnej odpowiedzi AI kierunek, który opiszesz. |
 | `/as [name] [message (optional)]` | `/respond` | Wysyła wiadomość w imieniu postaci albo prosi postać o odpowiedź. |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Wypisuje wyrazy twarzy sprite'ów postaci albo przełącza między nimi. |
 | `/roll [dice (optional)]` | `/r`, `/dice` | Rzuca kością i wysyła wynik. |
@@ -94,10 +94,10 @@ W trybie **Roleplay** komenda `/illustrate range=12` ilustruje wiadomość 12, a
 /guided make him confess he is lying
 ```
 
-W grupowym czacie Roleplay użyj `/guided respond for [name] [direction (optional)]`, żeby wybrać odpowiadającą postać. Na przykład:
+W grupowym czacie Roleplay użyj `/guided respond as [name] [direction (optional)]`, żeby wybrać odpowiadającą postać. Działają też `reply as` i `respond for`. Na przykład:
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 Użyj `/as [name] [message (optional)]`, żeby wysłać tekst w imieniu postaci. Jeśli pominiesz wiadomość, model wygeneruje kolejną odpowiedź tej postaci:

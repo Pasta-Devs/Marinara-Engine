@@ -75,7 +75,7 @@ Estos comandos te ayudan a guiar una historia, interpretar un personaje y añadi
 
 | Comando | También funciona como | Qué hace |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Guía la siguiente respuesta de la IA en la dirección que describas. |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Guía la siguiente respuesta de la IA en la dirección que describas. |
 | `/as [name] [message (optional)]` | `/respond` | Publica un mensaje como un personaje, o pide a un personaje que responda. |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Enumera o cambia la expresión del sprite (imagen del personaje) de un personaje. |
 | `/roll [dice (optional)]` | `/r`, `/dice` | Tira los dados y publica el resultado. |
@@ -94,10 +94,10 @@ Para guiar la siguiente respuesta, añade tu dirección después de `/guided`:
 /guided make him confess he is lying
 ```
 
-En un chat grupal de Roleplay, usa `/guided respond for [name] [direction (optional)]` para elegir qué personaje responde. Por ejemplo:
+En un chat grupal de Roleplay, usa `/guided respond as [name] [direction (optional)]` para elegir qué personaje responde. También funcionan `reply as` y `respond for`. Por ejemplo:
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 Usa `/as [name] [message (optional)]` para publicar texto como un personaje. Si omites el mensaje, el modelo genera la siguiente respuesta de ese personaje:

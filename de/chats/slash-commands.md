@@ -75,7 +75,7 @@ Mit diesen Befehlen lenkst du die Geschichte, spielst einen Charakter und ergän
 
 | Befehl | Auch als | Was er macht |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Lenkt die nächste KI-Antwort in eine Richtung, die du vorgibst. |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Lenkt die nächste KI-Antwort in eine Richtung, die du vorgibst. |
 | `/as [name] [message (optional)]` | `/respond` | Postet eine Nachricht als Charakter oder bittet einen Charakter um eine Antwort. |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Zeigt die Gesichtsausdrücke eines Sprites an oder wechselt zwischen ihnen. |
 | `/roll [dice (optional)]` | `/r`, `/dice` | Würfelt und postet das Ergebnis. |
@@ -94,10 +94,10 @@ Um die nächste Antwort zu lenken, hängst du deine Vorgabe hinter `/guided`:
 /guided make him confess he is lying
 ```
 
-In einem Roleplay-Gruppenchat wählst du mit `/guided respond for [name] [direction (optional)]` den antwortenden Charakter. Zum Beispiel:
+In einem Roleplay-Gruppenchat wählst du mit `/guided respond as [name] [direction (optional)]` den antwortenden Charakter. Auch `reply as` und `respond for` funktionieren. Zum Beispiel:
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 Mit `/as [name] [message (optional)]` postest du Text im Namen eines Charakters. Lässt du die Nachricht weg, generiert das Modell stattdessen die nächste Antwort dieses Charakters:

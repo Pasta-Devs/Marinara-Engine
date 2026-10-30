@@ -75,7 +75,7 @@
 
 | 命令 | 别名 | 作用 |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`、`/narrate`、`/nar` | 按描述的方向引导 AI 的下一条回复。 |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`、`/narrate`、`/nar` | 按描述的方向引导 AI 的下一条回复。 |
 | `/as [name] [message (optional)]` | `/respond` | 以某个角色的身份发一条消息，或者点名让某个角色回复。 |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`、`/sprite` | 列出或切换角色的立绘表情。 |
 | `/roll [dice (optional)]` | `/r`、`/dice` | 掷骰子并把结果发出来。 |
@@ -94,10 +94,10 @@
 /guided make him confess he is lying
 ```
 
-在 Roleplay 群聊中，用 `/guided respond for [name] [direction (optional)]` 选择要回复的角色。例如：
+在 Roleplay 群聊中，用 `/guided respond as [name] [direction (optional)]` 选择要回复的角色。`reply as` 和 `respond for` 也同样有效。例如：
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 用 `/as [name] [message (optional)]` 以某个角色的身份发送文字。省略消息内容时，模型会改为生成该角色的下一条回复：
