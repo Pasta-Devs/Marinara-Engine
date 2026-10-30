@@ -158,6 +158,11 @@ try {
   assert.match(dockerTrustWarning(networkPeers({ MARINARA_DOCKER: "true" }))!, /127\.0\.0\.1/);
   assert.equal(dockerTrustWarning(networkPeers({ MARINARA_DOCKER: "true", ...LOGIN })), null);
   assert.deepEqual(networkPeers({ BYPASS_AUTH_DOCKER: "true" }), ["docker"]);
+  // The forced bypass survives a login, so its warning must not advise setting one.
+  assert.match(
+    dockerTrustWarning(networkPeers({ BYPASS_AUTH_DOCKER: "true", ...LOGIN }))!,
+    /remove BYPASS_AUTH_DOCKER=true/,
+  );
   // A password wins over the unauthenticated opt-ins; an allowlist keeps everyone else out,
   // but its own devices always skip the password.
   assert.deepEqual(networkPeers({ ALLOW_UNAUTHENTICATED_REMOTE: "true", ...LOGIN }), []);
