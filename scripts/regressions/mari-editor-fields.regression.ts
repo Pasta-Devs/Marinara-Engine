@@ -14,6 +14,7 @@ import {
   appDataAction,
   mariEditorKindForAction,
   mariEditorKindForTable,
+  mariFieldPath,
 } from "../../packages/client/src/lib/mari-editor-fields.js";
 
 // Change-card paths come from the row's `data` column.
@@ -100,7 +101,7 @@ assert.deepEqual(
       arguments: { action: "character.update", characterId: "c1", extensions: { backstory: "Swamp" } },
     },
     { name: "app_data", arguments: { action: "character.update", characterId: "c1", patch: { personality: "Warm" } } },
-    { name: "app_data", arguments: { action: "lorebook.update", lorebookId: "l1", patch: { description: "No" } } },
+    { name: "app_data", arguments: { action: "lorebook.create", lorebookId: "l1", patch: { description: "No" } } },
     { name: "write", arguments: { path: "x" } },
   ]),
   [
@@ -120,7 +121,7 @@ const updated = {
   reviewIds: ["r1"],
   undoUntil: "2026-10-28T14:32:00.000Z",
 };
-assert.deepEqual(keptEditorFields([updated], new Set(["r1"])), {
+assert.deepEqual(keptEditorFields([updated], [{ id: "r1" }]), {
   reviewIds: ["r1"],
   fields: [
     { entityId: "c1", fieldId: "description" },
@@ -128,7 +129,7 @@ assert.deepEqual(keptEditorFields([updated], new Set(["r1"])), {
   ],
   undoUntil: "2026-10-28T14:32:00.000Z",
 });
-assert.deepEqual(keptEditorFields([updated], new Set()), { reviewIds: [], fields: [], undoUntil: null });
+assert.deepEqual(keptEditorFields([updated], []), { reviewIds: [], fields: [], undoUntil: null });
 
 // Reading and writing a field by its editor id (Edit, and the user's text after her change).
 const server = { description: "Hers", extensions: { backstory: "Hers b", talkativeness: 0.5 } };
@@ -155,7 +156,7 @@ assert.equal(appDataAction("Personas.Update"), "persona.update");
 assert.equal(mariEditorKindForAction("Personas.Update"), "persona");
 assert.equal(mariEditorKindForAction("persona_update"), null);
 assert.equal(mariEditorKindForAction("character-update"), null);
-assert.equal(mariEditorKindForAction("lorebook.update"), null);
+assert.equal(mariEditorKindForAction("lorebook.delete"), null);
 assert.equal(mariEditorKindForTable("personas"), "persona");
 assert.equal(hasMariField("backstory", "persona"), true);
 assert.equal(hasMariField("backstory"), false);
@@ -187,7 +188,7 @@ assert.deepEqual(
         reviewId: "r2",
       },
     ],
-    new Set(["r2"]),
+    [{ id: "r2" }],
   ),
   {
     reviewIds: ["r2"],
@@ -217,6 +218,95 @@ assert.deepEqual(
 assert.deepEqual(
   mariWorkingFieldFromTool("app_data", { action: "character.update", id: "c2", characterId: "c1", scenario: "Rain" }),
   { entityId: "c2", path: "scenario" },
+);
+
+// Slice 7b: the Lorebook editor. Book fields go by their key; an entry's record is the entry (the server
+// reads `entryId` first) and its fields anchor under `entries.<entryId>.` beside the book's.
+assert.equal(appDataAction("Lorebooks.Entries.Update"), "lorebook.updateentry");
+assert.equal(appDataAction("lorebook.update_entry"), "lorebook.updateentry");
+assert.equal(mariEditorKindForAction("lorebook.entry.update"), "lorebookEntry");
+assert.equal(mariEditorKindForAction("lorebooks.update"), "lorebook");
+assert.equal(mariEditorKindForTable("lorebook_entries"), "lorebookEntry");
+assert.equal(mariFieldPath("lorebookEntry", "e1", "content"), "entries.e1.content");
+assert.equal(mariFieldPath("lorebook", "l1", "description"), "description");
+assert.equal(hasMariField("content", "lorebookEntry"), true);
+assert.equal(hasMariField("probability", "lorebookEntry"), false);
+assert.equal(mariFieldDraft("entries.e1.keys", "half", 0, 2), null, "a key input is not the Keys field content");
+assert.deepEqual(
+  mariWorkingFieldFromTool("app_data", {
+    action: "lorebook.updateEntry",
+    id: "x",
+    entryId: "e1",
+    entry: { content: "Rain" },
+  }),
+  { entityId: "e1", path: "entries.e1.content" },
+);
+assert.equal(
+  mariWorkingFieldFromTool("app_data", {
+    action: "lorebook.updateEntry",
+    entryId: "e1",
+    lorebook: { content: "Rain" },
+  }),
+  null,
+);
+assert.deepEqual(
+  mariWorkingFieldFromTool("app_data", {
+    action: "lorebooks.update",
+    lorebookId: "l1",
+    lorebook: { description: "Old" },
+  }),
+  { entityId: "l1", path: "description" },
+);
+assert.deepEqual(
+  heldEditorFields([
+    {
+      name: "app_data",
+      arguments: {
+        action: "lorebook.updateEntry",
+        entryId: "e1",
+        patch: { content: "C", keys: ["a"], description: "D" },
+      },
+    },
+    {
+      name: "app_data",
+      arguments: { action: "lorebook.update", id: "l1", data: { description: "Book", scanDepth: 3 } },
+    },
+  ]),
+  [
+    { entityId: "e1", fieldId: "entries.e1.description", value: "D" },
+    { entityId: "l1", fieldId: "description", value: "Book" },
+    { entityId: "e1", fieldId: "entries.e1.content", value: "C" },
+  ],
+);
+// Kept: a lorebook result names only the book, also for an entry edit; the pending review's rows
+// name the records and their changed columns.
+assert.deepEqual(
+  keptEditorFields(
+    [{ resource: { kind: "lorebook", id: "l1" }, status: "updated", changedFields: ["content"], reviewId: "r3" }],
+    [
+      {
+        id: "r3",
+        diffPreview: [
+          {
+            table: "lorebook_entries",
+            id: "e1",
+            action: "update",
+            before: { content: "a", order: 1, updatedAt: "1" },
+            after: { content: "b", order: 1, updatedAt: "2" },
+          },
+          { table: "lorebooks", id: "l1", action: "update", before: { description: "x" }, after: { description: "y" } },
+        ],
+      },
+    ],
+  ),
+  {
+    reviewIds: ["r3"],
+    fields: [
+      { entityId: "l1", fieldId: "description" },
+      { entityId: "e1", fieldId: "entries.e1.content" },
+    ],
+    undoUntil: null,
+  },
 );
 
 console.log("mari-editor-fields regression passed");

@@ -2346,7 +2346,7 @@ export function isMutatingWorkspaceCommand(command: WorkspaceCommandCall): boole
 
 /** The "Needs you" card lists this many held changes; Accept applies stored calls only when it showed them all. */
 const MAX_HELD_CHANGES_SHOWN = 8;
-const HELD_ID_ARGS = ["characterId", "lorebookId", "entryId", "personaId", "presetId", "id"] as const;
+const HELD_ID_ARGS = ["characterId", "entryId", "lorebookId", "personaId", "presetId", "id"] as const;
 
 /**
  * Slice 71: what held commands would change, for the "Needs you" card: the action, the record, its name

@@ -26,7 +26,7 @@ import {
 import { UnifiedLineDiff } from "./MariUnifiedDiff";
 import { ResultTypeIcon } from "../command-center/ResultTypeIcon";
 import { isMariEditorOpen, openEditorAtField } from "../../hooks/use-mari-editor-fields";
-import { hasMariField, mariEditorKindForTable } from "../../lib/mari-editor-fields";
+import { hasMariField, mariEditorKindForTable, mariFieldPath } from "../../lib/mari-editor-fields";
 import { useUIStore } from "../../stores/ui.store";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -249,7 +249,9 @@ export function MariEditEasyViewer({
           ? (event: React.MouseEvent<HTMLElement>, path: string) => {
               // Only the open record: a request for another one would wait and pulse when it opens.
               if (isMariEditorOpen(change.id) && event.currentTarget.closest("[data-mari-companion]"))
-                useUIStore.getState().revealMariField(change.id, path, { scroll: false });
+                useUIStore.getState().revealMariField(change.id, mariFieldPath(editorKind, change.id, path), {
+                  scroll: false,
+                });
             }
           : null;
         const openAtField = editorKind

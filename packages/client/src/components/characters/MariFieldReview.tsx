@@ -8,6 +8,7 @@ import { ArrowDown, Check, Pencil, Undo2 } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { fieldLabel } from "../../lib/mari-edit-diff";
+import { mariFieldLabel } from "../../hooks/use-mari-editor-fields";
 import { TextBody, undoLabel } from "../chat/MariChangeReceipt";
 
 interface MariFieldReviewValue {
@@ -40,8 +41,11 @@ export function useMariFieldReview({
   edit,
   beforeKeep,
   keepDropped,
+  memberIds,
 }: {
   entityId: string | null;
+  /** Records shown inside this editor whose fields it reviews too (a lorebook's entries). */
+  memberIds?: ReadonlySet<string>;
   current: (fieldId: string) => string;
   touched: (fieldId: string) => boolean;
   edit: (fieldId: string, value: string) => void;
@@ -84,12 +88,19 @@ export function useMariFieldReview({
   const answeredHere = answered?.entityId === entityId ? answered : null;
   const waiting =
     (answeredHere?.key === waitingReview?.key ? null : waitingReview)?.fields
-      .filter((field) => field.entityId === entityId && !editedIds.includes(field.fieldId))
+      .filter(
+        (field) =>
+          (field.entityId === entityId || !!memberIds?.has(field.entityId)) && !editedIds.includes(field.fieldId),
+      )
       .map(({ fieldId, value }) => ({ fieldId, value })) ?? [];
   const keptIds =
     keptReview && !(undoUntil <= Date.now())
       ? keptReview.fields
-          .filter((field) => field.entityId === entityId && !dismissed.includes(`${keptReview.key}:${field.fieldId}`))
+          .filter(
+            (field) =>
+              (field.entityId === entityId || !!memberIds?.has(field.entityId)) &&
+              !dismissed.includes(`${keptReview.key}:${field.fieldId}`),
+          )
           .map((field) => field.fieldId)
       : [];
   const declinedField = answeredHere?.declined ?? null;
@@ -195,7 +206,7 @@ function ReviewBox({ review, index, autoFocus }: { review: MariFieldReviewValue;
   const pack = useMariAppearancePack();
   const { fieldId, value } = review.waiting[index]!;
   const count = review.waiting.length;
-  const label = fieldLabel(fieldId);
+  const label = mariFieldLabel(fieldId);
   const before = review.current(fieldId);
   const touched = review.touched(fieldId);
   const next = () => {
@@ -313,7 +324,7 @@ function DeclinedLine({ field }: { field: string }) {
   return (
     <p className="mari-field-review-line" role="status">
       <img src={pack.portraits.idle} alt="" draggable={false} />
-      <span>{t("mari.fieldReview.declined", { field: fieldLabel(field).toLowerCase() })}</span>
+      <span>{t("mari.fieldReview.declined", { field: mariFieldLabel(field, fieldLabel(field).toLowerCase()) })}</span>
     </p>
   );
 }
