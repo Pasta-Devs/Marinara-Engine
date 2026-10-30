@@ -49,6 +49,9 @@ export const MARI_EDITOR_KINDS = {
       appearance: "extensions.appearance",
     } as Record<string, string>,
     reviewOrder: [
+      "name",
+      "creator",
+      "character_version",
       "creator_notes",
       "summary",
       "description",
@@ -90,6 +93,10 @@ export const MARI_EDITOR_KINDS = {
       image_appearance: "imageAppearance",
     } as Record<string, string>,
     reviewOrder: [
+      "name",
+      "comment",
+      "phoneticName",
+      "creator",
       "creatorNotes",
       "summary",
       "description",
@@ -110,7 +117,7 @@ export const MARI_EDITOR_KINDS = {
     wrappers: ["patch", "data", "lorebook"],
     fieldIds: new Set(["name", "description", "tags"]),
     aliases: {} as Record<string, string>,
-    reviewOrder: ["description"],
+    reviewOrder: ["name", "description"],
   },
   // Entry fields anchor as `entries.<entryId>.<key>` in the lorebook editor (`mariFieldPath`).
   lorebookEntry: {
@@ -121,7 +128,7 @@ export const MARI_EDITOR_KINDS = {
     wrappers: ["patch", "data", "entry"],
     fieldIds: new Set(["name", "description", "keys", "secondaryKeys", "content"]),
     aliases: {} as Record<string, string>,
-    reviewOrder: ["description", "content"],
+    reviewOrder: ["name", "description", "content"],
   },
 };
 

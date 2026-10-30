@@ -134,6 +134,7 @@ import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-cont
 import {
   findMariField,
   declinedForHeldChange,
+  heldCallsAreEditorText,
   heldEditorFields,
   isMariEditorKind,
   keptEditorFields,
@@ -212,7 +213,7 @@ import {
   timelineItemsFromTrace,
 } from "./mari/mari-tool-presentation";
 import { ProfessorMariPixelScene } from "./mari/MariChatStates";
-import { isHardStepFailure } from "./mari/MariWorkTimeline";
+import { isHardStepFailure } from "./mari/mari-tool-presentation";
 import { MariSeesPanel } from "./mari/MariSeesPanel";
 import { MariChatsPanel } from "./mari/MariChatsPanel";
 import { MariComposer } from "./mari/MariComposer";
@@ -662,7 +663,7 @@ export function HomeProfessorMariChat({
     void textarea.offsetHeight;
     textarea.style.height = `${to}px`;
     textarea.scrollTop = scrollTop;
-    textarea.toggleAttribute("data-scrolled", textarea.scrollTop > 0);
+    textarea.toggleAttribute("data-scrolled", textarea.scrollTop >= 1);
   }, []);
 
   const focusComposer = useCallback(() => {
@@ -1544,6 +1545,25 @@ export function HomeProfessorMariChat({
       () => undefined,
     );
   }, [workspaceTimelineActive, chatId, loadMessages, sending]);
+  // A window that joined the run late gets no checkpoint event, so a Send now row leaving the list is its cue.
+  const waitingSteerIds =
+    workspaceStatus?.pendingMessagesChatId === chatId
+      ? (workspaceStatus?.pendingMessages ?? [])
+          .filter((message) => message.steer)
+          .map((message) => message.id)
+          .join(",")
+      : "";
+  const waitingSteerIdsRef = useRef(waitingSteerIds);
+  useEffect(() => {
+    const before = waitingSteerIdsRef.current ? waitingSteerIdsRef.current.split(",") : [];
+    waitingSteerIdsRef.current = waitingSteerIds;
+    const left = before.some((id) => !waitingSteerIds.split(",").includes(id));
+    // A send in flight has the live stream and its own reload.
+    if (!left || !chatId || sending || !workspaceTimelineActive) return;
+    void loadMessages(chatId, { restoreFocus: false, shouldApply: () => activeChatIdRef.current === chatId }).catch(
+      () => undefined,
+    );
+  }, [waitingSteerIds, chatId, loadMessages, sending, workspaceTimelineActive]);
   const emptyStateReady =
     omnibarMode && messages.length === 0 && !isBusy && chatId !== null && loadedMessagesChatId === chatId;
   // D1: an arrival door (⌘J, the pull, the drag, Home's "Ask Professor Mari") opened into a chat that
@@ -1672,9 +1692,9 @@ export function HomeProfessorMariChat({
   const latestTrace = latestMessage ? getMessageWorkspaceTrace(latestMessage) : null;
   const latestTraceFailed =
     latestMessage && latestTrace
-      ? timelineItemsFromTrace(latestTrace, latestMessage).some(
-          (item) => item.type === "tool" && isHardStepFailure(item.tool),
-        )
+      ? timelineItemsFromTrace(latestTrace, latestMessage)
+          .flatMap((item) => (item.type === "tool" ? [item.tool] : []))
+          .some((tool, index, tools) => isHardStepFailure(tool, tools.slice(index + 1)))
       : false;
   // A reply with a stored run shows Mari on its own timeline line; one without needs her line below it.
   const latestTurnHasTrace = Boolean(latestMessage && getMessageWorkspaceTrace(latestMessage));
@@ -2414,6 +2434,8 @@ export function HomeProfessorMariChat({
       reuseSavedMessage?: boolean;
     },
     overrideContext?: ProfessorMariAskContext | null,
+    /** Ctrl+Enter or the send menu: wait until she finishes instead of going in at her next step. */
+    queueLater = false,
   ) => {
     const text = (overrideText ?? draft).trim();
     const submittedAttachments = overrideRecovery?.attachments ?? attachments;
@@ -2474,9 +2496,13 @@ export function HomeProfessorMariChat({
             attachments: submittedAttachments,
             references: submittedReferences.length > 0 ? submittedReferences : undefined,
             context: submittedContext ?? undefined,
+            steer: queueLater ? undefined : true,
           },
         );
         sendIds.push(addedId);
+        // The server decides whether it can go now: only it knows what the run started with.
+        if (!queueLater && pending.some((message) => message.id === addedId && !message.steer))
+          toast(t("mari.queue.textOnly"));
         showPendingMessages(chatId, pending);
       } catch (error) {
         returnToComposer();
@@ -2613,6 +2639,27 @@ export function HomeProfessorMariChat({
                 },
             );
           },
+          // Her reply so far and your message are saved rows now, so a failure from here on has nothing to give back.
+          onCheckpoint: async ({ ids, userMessageId }) => {
+            queuedMessageId = undefined;
+            // The same run, so the same subject: a failure from here on must not lose it from the composer or Retry.
+            runningContext = persistentResourceContext(runningContext);
+            runningAttachments = [];
+            runningReferences = [];
+            localMessageId = undefined;
+            lastSavedUserId = userMessageId;
+            const loaded = await loadMessages(chat.id, { restoreFocus: false }).catch(() => undefined);
+            runningText = loaded?.find((message) => message.id === userMessageId)?.content ?? runningText;
+            setTurnStartMessageId(userMessageId);
+            pendingWriteSeqRef.current += 1;
+            setWorkspaceStatus(
+              (current) =>
+                current && {
+                  ...current,
+                  pendingMessages: current.pendingMessages?.filter((message) => !ids.includes(message.id)),
+                },
+            );
+          },
         },
       );
       // No answer at all is a failure like any other: the same red state and card, not a toast that leaves.
@@ -2671,6 +2718,18 @@ export function HomeProfessorMariChat({
       showPendingMessages(chatId, pending);
     } catch (error) {
       toast.error(t("mari.queue.removeFailed"), { description: describeProfessorMariError(error) });
+    }
+  };
+  const sendPendingNow = async (id: string) => {
+    if (!chatId) return;
+    try {
+      const { pending } = await api.post<{ pending: MariPendingMessageSummary[] }>(
+        `/professor-mari/workspace/pending/${chatId}/${id}/steer`,
+        {},
+      );
+      showPendingMessages(chatId, pending);
+    } catch (error) {
+      toast.error(t("mari.queue.sendNowFailed"), { description: describeProfessorMariError(error) });
     }
   };
   const sendHeldMessage = (message: MariPendingMessageSummary) => {
@@ -2966,16 +3025,23 @@ export function HomeProfessorMariChat({
       />
     );
   const lastAssistantId = displayMessages.findLast((message) => message.role === "assistant")?.id ?? null;
-  const heldCardNode = heldChangeCard ? (
-    <MariHeldChangeCard
-      key="held-change"
-      held={lastLoadedMessage?.role === "assistant" ? lastLoadedMessageExtra?.mariHeldChanges : null}
-      nameOf={(id) => characterPreviewById.get(id)?.name ?? lorebookPreviewById.get(id)?.name}
-      disabled={isBusy}
-      onAccept={() => handleSuggestionSelect(MARI_AUTHORIZATION_ACCEPT_CHIP)}
-      onDecline={() => handleSuggestionSelect(MARI_AUTHORIZATION_DECLINE_CHIP)}
-    />
-  ) : null;
+  // The user's own Save answered the held change (`settle`): the card stays, saying so, with no Accept.
+  const heldSettled =
+    lastLoadedMessage?.role === "assistant" &&
+    lastLoadedMessageExtra?.mariDeferredMutations === false &&
+    Boolean(lastLoadedMessageExtra?.mariHeldChanges?.length);
+  const heldCardNode =
+    heldChangeCard || heldSettled ? (
+      <MariHeldChangeCard
+        key="held-change"
+        settled={!heldChangeCard}
+        held={lastLoadedMessage?.role === "assistant" ? lastLoadedMessageExtra?.mariHeldChanges : null}
+        nameOf={(id) => characterPreviewById.get(id)?.name ?? lorebookPreviewById.get(id)?.name}
+        disabled={isBusy}
+        onAccept={() => handleSuggestionSelect(MARI_AUTHORIZATION_ACCEPT_CHIP)}
+        onDecline={() => handleSuggestionSelect(MARI_AUTHORIZATION_DECLINE_CHIP)}
+      />
+    ) : null;
   const questionCardNode =
     pendingQuestions.length > 0 ? (
       <MariQuestionCard
@@ -2996,6 +3062,7 @@ export function HomeProfessorMariChat({
     keep: () => boolean;
     reject: () => boolean;
     undo: (ids: readonly string[]) => void;
+    settle: (key: string) => Promise<boolean>;
   } | null>(null);
   // handleSubmit's own guards: when one holds, nothing is sent (it may open the connection menu).
   const canSend = () =>
@@ -3020,6 +3087,18 @@ export function HomeProfessorMariChat({
         pendingChangeReviews.flatMap((approval) => (ids.includes(approval.id) ? [{ approval }] : [])),
         false,
       ),
+    settle: async (key) => {
+      const id = chatId;
+      if (!id || lastLoadedMessage?.id !== key) return false;
+      try {
+        await api.patch(`/chats/${id}/messages/${key}/extra`, { mariDeferredMutations: false });
+      } catch (error) {
+        console.error("[Professor Mari] Failed to settle the held change", error);
+        return false;
+      }
+      void loadMessages(id, { restoreFocus: false });
+      return true;
+    },
   };
   useEffect(() => {
     const publish = useUIStore.getState().setMariFieldReview;
@@ -3043,6 +3122,8 @@ export function HomeProfessorMariChat({
           ).length,
           keep: () => actions().keep(),
           reject: () => actions().reject(),
+          editorTextOnly: heldCallsAreEditorText(lastLoadedMessageExtra?.mariHeldCalls),
+          settle: (key) => actions().settle(key),
         });
       }
     }
@@ -3703,6 +3784,7 @@ export function HomeProfessorMariChat({
                           pendingMessages={pendingMessages ?? []}
                           onRemovePendingMessage={(id) => void removePendingMessage(id)}
                           onSendHeldMessage={sendHeldMessage}
+                          onSendPendingNow={(id) => void sendPendingNow(id)}
                           workspaceStatus={workspaceStatus}
                           refreshWorkspaceStatus={refreshWorkspaceStatus}
                           acceptDraftCompletion={acceptDraftCompletion}

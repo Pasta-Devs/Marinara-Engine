@@ -2436,19 +2436,20 @@ export function LorebookEditor() {
                 <section data-editor-section="overview">
                   <div className="space-y-4">
                     {/* Name */}
-                    <div className="mari-editor-panel p-3">
+                    <div className="mari-editor-panel p-3" data-mari-field="name">
                       <label className="mb-1.5 block text-xs font-medium">
                         {localizeUi("ui.lorebooks.lorebookeditor.name")}
                       </label>
-                      <input
-                        data-mari-field="name"
-                        value={formName}
-                        onChange={(e) => {
-                          setFormName(e.target.value);
-                          markLorebookDirty();
-                        }}
-                        className="mari-editor-field w-full px-3 py-2.5 text-sm"
-                      />
+                      <MariFieldReview field="name">
+                        <input
+                          value={formName}
+                          onChange={(e) => {
+                            setFormName(e.target.value);
+                            markLorebookDirty();
+                          }}
+                          className="mari-editor-field w-full px-3 py-2.5 text-sm"
+                        />
+                      </MariFieldReview>
                     </div>
 
                     {/* Description */}

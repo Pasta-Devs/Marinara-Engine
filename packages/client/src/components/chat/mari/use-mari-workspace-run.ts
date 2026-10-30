@@ -134,6 +134,8 @@ export function useMariWorkspaceRun({
         /** What you queued after pressing Send: the server holds everything else. */
         queuedSinceSendIds?: string[];
         onQueueNext?: (next: { id: string; text: string }) => Promise<void>;
+        /** Send now reached her: the saved rows are in the thread and a new reply begins on the same stream. */
+        onCheckpoint?: (checkpoint: { ids: string[]; userMessageId: string }) => Promise<void>;
       },
     ) => {
       // A mode change immediately before send must not race its PUTs: the run
@@ -334,9 +336,16 @@ export function useMariWorkspaceRun({
                 console.error("[Professor Mari] Failed to refresh action result", error);
               });
             }
-          } else if (event.type === "queue_next") {
+          } else if (event.type === "queue_next" || event.type === "checkpoint") {
             const data = asRecord(event.data);
-            if (typeof data?.id === "string" && typeof data.text === "string") {
+            if (event.type === "checkpoint") {
+              if (Array.isArray(data?.ids) && typeof data.userMessageId === "string") {
+                await queue?.onCheckpoint?.({
+                  ids: data.ids.filter((id): id is string => typeof id === "string"),
+                  userMessageId: data.userMessageId,
+                });
+              }
+            } else if (typeof data?.id === "string" && typeof data.text === "string") {
               await queue?.onQueueNext?.({ id: data.id, text: data.text });
             }
             // A new turn on the same stream: everything the last one drew starts over, its clock too.

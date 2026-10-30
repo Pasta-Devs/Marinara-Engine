@@ -159,10 +159,11 @@ export type ComposerKeyAction =
   | "ghost-accept"
   | "ghost-link"
   | "send"
+  | "queue"
   | "none";
 
 /** The actions the picker (or the linking ghost) handles; the composer routes them to its owner. */
-export type ComposerPickerAction = Exclude<ComposerKeyAction, "ghost-accept" | "send" | "none">;
+export type ComposerPickerAction = Exclude<ComposerKeyAction, "ghost-accept" | "send" | "queue" | "none">;
 
 /** Who owns a key in the composer textarea. Priority: picker, then the ghost, then Send. */
 export function composerKeyAction(input: ComposerKeyInput): ComposerKeyAction {
@@ -179,7 +180,16 @@ export function composerKeyAction(input: ComposerKeyInput): ComposerKeyAction {
     return input.inReferenceToken ? "ghost-link" : "ghost-accept";
   // Prose: the first Tab completes the name, the second (the ghost is gone now) links it.
   if (input.key === "Tab" && !input.shiftKey && input.canLinkCompletion) return "ghost-link";
-  if (input.key === "Enter" && !input.shiftKey && (input.enterToSend || input.metaKey || input.ctrlKey)) return "send";
+  // Enter-to-send on: Enter sends, Ctrl+Enter queues. Off: Enter is a new line, Ctrl+Enter sends, Ctrl+Shift+Enter
+  // queues. Shift+Enter is a new line either way.
+  if (input.key === "Enter") {
+    const modifier = input.metaKey || input.ctrlKey;
+    if (input.enterToSend) {
+      if (!input.shiftKey) return modifier ? "queue" : "send";
+    } else if (modifier) {
+      return input.shiftKey ? "queue" : "send";
+    }
+  }
   return "none";
 }
 

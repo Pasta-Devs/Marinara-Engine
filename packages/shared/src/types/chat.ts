@@ -1054,6 +1054,8 @@ export interface MessageExtra {
    * when she saved nothing), so a reload still shows it failed. `dismissed` once you close its card.
    */
   mariRunError?: { message: string; dismissed?: boolean } | null;
+  /** Send now reached her after steps but before any words: the text is a placeholder, shown muted. */
+  mariCheckpointFiller?: boolean;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Presentation-only ID-macro card references for merged Roleplay narrator avatars; never chat members. */

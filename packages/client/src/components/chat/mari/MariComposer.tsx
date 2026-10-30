@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Plus,
   ArrowUp,
+  Clock,
   Square,
   RotateCcw,
 } from "lucide-react";
@@ -69,6 +70,7 @@ import {
 import { MariReferencePicker, type MariReferencePickerProps } from "./MariReferencePicker";
 import { MariRuntimeRecovery } from "./MariRuntimeRecovery";
 import { CompactMarkdown, ProfessorMariAttachmentPreviews } from "./MariReplyContent";
+import { useInDialogFocusScope } from "../../../hooks/use-in-dialog-focus-scope";
 
 /** R11 (composer v5): her composer dock: the question strip, context chips, the field, attach, connection and mode menus, and Send/Stop. */
 type MariComposerProps = {
@@ -106,11 +108,13 @@ type MariComposerProps = {
       reuseSavedMessage?: boolean;
     },
     overrideContext?: ProfessorMariAskContext | null,
+    queueLater?: boolean,
   ) => Promise<void>;
   handleSuggestionSelect: (chip: MariSuggestionChip, draft?: boolean, context?: ProfessorMariAskContext) => void;
   isBusy: boolean;
   pendingMessages: MariPendingMessageSummary[];
   onRemovePendingMessage: (id: string) => void;
+  onSendPendingNow: (id: string) => void;
   onSendHeldMessage: (message: MariPendingMessageSummary) => void;
   isReadingAttachments: boolean;
   jumpToLatest: () => void;
@@ -207,6 +211,7 @@ export function MariComposer({
   isBusy,
   pendingMessages,
   onRemovePendingMessage,
+  onSendPendingNow,
   onSendHeldMessage,
   isReadingAttachments,
   jumpToLatest,
@@ -249,6 +254,25 @@ export function MariComposer({
   const localize = useLocalizedUiText();
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
+  // Send's small menu, for phones and anyone who hasn't learned the keys. It only exists while she works.
+  const [sendMenuOpen, setSendMenuOpen] = useState(false);
+  const sendMenuRef = useRef<HTMLDivElement | null>(null);
+  const sendMenuPopoverRef = useRef<HTMLDivElement | null>(null);
+  const sendMenuVisible = sendMenuOpen && workspaceTimelineActive && canSubmitMessage;
+  // Inside the omnibar, Escape closes this menu and not the dialog behind it.
+  const handleSendMenuKeyDown = useInDialogFocusScope(
+    sendMenuPopoverRef,
+    () => setSendMenuOpen(false),
+    sendMenuVisible,
+  );
+  useEffect(() => {
+    if (!sendMenuVisible) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!sendMenuRef.current?.contains(event.target as Node)) setSendMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [sendMenuVisible]);
   // Where the caret sits in the draft, so a live `@` / `/` token can be found.
   const [caret, setCaret] = useState(draft.length);
   const liveToken = activeToken(draft, Math.min(caret, draft.length));
@@ -433,6 +457,7 @@ export function MariComposer({
         running={workspaceTimelineActive}
         onRemove={onRemovePendingMessage}
         onSend={onSendHeldMessage}
+        onSendNow={onSendPendingNow}
       />
       {/* R11 (composer v5): Mari's own shell, not the regular chat input's: neutral at rest, a primary
                               ring only on focus, quiet controls and one neutral filled Send. */}
@@ -519,7 +544,8 @@ export function MariComposer({
             }}
             onScroll={(event) => {
               const { scrollLeft, scrollTop } = event.currentTarget;
-              event.currentTarget.toggleAttribute("data-scrolled", scrollTop > 0);
+              // Display scaling leaves a fraction of a pixel to scroll even on one line: that must not fade the text.
+              event.currentTarget.toggleAttribute("data-scrolled", scrollTop >= 1);
               setComposerScroll({ left: scrollLeft, top: scrollTop });
             }}
             onPaste={(event) => {
@@ -550,6 +576,7 @@ export function MariComposer({
               event.preventDefault();
               if (action === "ghost-accept") acceptDraftCompletion();
               else if (action === "send") void handleSubmit();
+              else if (action === "queue") void handleSubmit(undefined, undefined, undefined, true);
               else {
                 // In companion mode the first Escape closes only the picker, not the omnibar behind it.
                 if (action === "picker-close") event.stopPropagation();
@@ -792,6 +819,43 @@ export function MariComposer({
         >
           <ArrowUp size="1rem" strokeWidth={2.25} aria-hidden="true" />
         </button>
+        {workspaceTimelineActive ? (
+          <div ref={sendMenuRef} className="mari-composer-menu mari-workspace-composer__send-menu">
+            <button
+              type="button"
+              disabled={!canSubmitMessage}
+              onClick={() => setSendMenuOpen((current) => !current)}
+              className="mari-workspace-composer__send-more"
+              aria-expanded={sendMenuVisible}
+              aria-label={t("mari.queue.sendOptions")}
+              title={t("mari.queue.sendOptions")}
+            >
+              <ChevronDown aria-hidden="true" />
+            </button>
+            {sendMenuVisible ? (
+              <div ref={sendMenuPopoverRef} onKeyDown={handleSendMenuKeyDown} className="mari-composer-menu__popover">
+                <MariRow
+                  slot={<ArrowUp aria-hidden="true" />}
+                  title={t("mari.queue.sendNow")}
+                  fact={t("mari.queue.sendNowFact")}
+                  onClick={() => {
+                    setSendMenuOpen(false);
+                    void handleSubmit();
+                  }}
+                />
+                <MariRow
+                  slot={<Clock aria-hidden="true" />}
+                  title={t("mari.queue.later")}
+                  fact={t("mari.queue.waiting")}
+                  onClick={() => {
+                    setSendMenuOpen(false);
+                    void handleSubmit(undefined, undefined, undefined, true);
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </form>
   );

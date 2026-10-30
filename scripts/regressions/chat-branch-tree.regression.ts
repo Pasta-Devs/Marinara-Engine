@@ -73,7 +73,7 @@ const importedRows = buildChatBranchRows(withImported);
 assert.equal(importedRows.length, 6);
 assert.equal(importedRows[importedRows.length - 1]?.chat.id, "imported");
 
-// A parent that was deleted is not lineage: the orphan is just another child, never a crash.
+// A parent that was deleted is not a level: the orphan is just another child, never a crash.
 assert.deepEqual(
   shape(
     buildChatBranchRows([
@@ -98,10 +98,33 @@ const messyRows = buildChatBranchRows([...nested, ...legacy, ...cyclic]);
 assert.equal(messyRows.length, nested.length + legacy.length + cyclic.length);
 assert.equal(new Set(messyRows.map((row) => row.chat.id)).size, messyRows.length);
 
-// Only a group whose lineage actually points inside itself gets a tree. Legacy branch sets and Game
-// sessions stay on the list's single-row behaviour rather than being given an invented hierarchy.
+// The issue's repro (#8488): root + a middle branch + a branch of that branch, then the middle
+// branch is deleted. The descendant keeps its own branch below it, and the group must still get a
+// tree — otherwise deleting a middle branch retires every branch under it from the chat list.
+const afterMiddleDeleted = nested.filter((row) => row.id !== "b1");
+assert.deepEqual(shape(buildChatBranchRows(afterMiddleDeleted)), ["root:0", "b1-1:1", "b1-1-1:2", "b2:1"]);
+
+// Every survivor pointing at a deleted chat still renders, but the real top is gone: the oldest
+// survivor becomes the top row and the rest hang at depth 1 under it. Nothing may be dropped, and
+// this is the only hierarchy the data allows, so the fallback is pinned rather than assumed.
+const allOrphaned = [
+  chat("sib-old", "deleted-source", "2026-10-01T00:00:00.000Z"),
+  chat("sib-new", "deleted-source", "2026-10-02T00:00:00.000Z"),
+];
+assert.deepEqual(shape(buildChatBranchRows(allOrphaned)), ["sib-old:0", "sib-new:1"]);
+
+// A recorded pointer that names a deleted chat is still lineage. Imported and copied chats have the
+// pointer stripped, so a pointer with no chat behind it can only mean the source was deleted; hiding
+// its descendants would lose them from the list for no reason the data supports.
 assert.equal(hasChatBranchLineage(nested), true);
+assert.equal(hasChatBranchLineage(afterMiddleDeleted), true);
+assert.equal(hasChatBranchLineage([chat("a", "deleted"), chat("b")]), true);
+assert.equal(hasChatBranchLineage([chat("a", "deleted-1"), chat("b", "deleted-2")]), true);
+assert.equal(hasChatBranchLineage(allOrphaned), true);
+
+// Legacy branch sets, a lone chat and a self-reference still get no tree: nothing records a lineage
+// there, and legacy sets and Game sessions stay on the list's single-row behaviour rather than being
+// given an invented hierarchy.
 assert.equal(hasChatBranchLineage(legacy), false);
 assert.equal(hasChatBranchLineage([chat("solo")]), false);
-assert.equal(hasChatBranchLineage([chat("a", "deleted"), chat("b")]), false);
 assert.equal(hasChatBranchLineage([chat("self", "self"), chat("other")]), false);

@@ -817,21 +817,27 @@ export function LorebookEntryRow({
               : localizeUi("ui.lorebooks.lorebookentryrow.alwaysActive")}
           </span>
         )}
-        <input
+        <div
+          className="min-w-0 flex-1 sm:min-w-[7rem]"
           data-mari-field={`entries.${entry.id}.name`}
-          value={localName}
-          onChange={(e) => setLocalName(e.target.value)}
-          onBlur={handleNameCommit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.currentTarget as HTMLInputElement).blur();
-            }
-          }}
           onClick={(e) => e.stopPropagation()}
-          placeholder={localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
-          className="min-w-0 flex-1 truncate rounded bg-transparent px-1 text-sm font-medium outline-none transition-colors hover:bg-[var(--accent)]/40 focus:bg-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--ring)] sm:min-w-[7rem]"
-        />
+        >
+          <MariFieldReview field={`entries.${entry.id}.name`}>
+            <input
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onBlur={handleNameCommit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.currentTarget as HTMLInputElement).blur();
+                }
+              }}
+              placeholder={localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
+              className="w-full truncate rounded bg-transparent px-1 text-sm font-medium outline-none transition-colors hover:bg-[var(--accent)]/40 focus:bg-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--ring)]"
+            />
+          </MariFieldReview>
+        </div>
 
         {activationStat && activationStat.count > 0 && (
           <span

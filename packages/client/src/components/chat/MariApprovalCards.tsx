@@ -360,12 +360,15 @@ export function MariHeldChangeCard({
   disabled,
   onAccept,
   onDecline,
+  settled = false,
 }: {
   held: readonly MariHeldChange[] | null | undefined;
   nameOf: (id: string) => string | undefined;
   disabled: boolean;
   onAccept: () => void;
   onDecline: () => void;
+  /** The user saved their own text in every field, so the change is answered. */
+  settled?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
@@ -424,7 +427,7 @@ export function MariHeldChangeCard({
             {fact ? <span className="mari-receipt__what">{fact}</span> : null}
           </span>
         </div>
-        {fields.length > 0 ? (
+        {!settled && fields.length > 0 ? (
           <div className={open ? "mari-receipt__body" : "mari-receipt__folded"}>
             {fields.map(
               (field, index) =>
@@ -449,7 +452,7 @@ export function MariHeldChangeCard({
             )}
           </div>
         ) : null}
-        {fields.length > 1 ? (
+        {!settled && fields.length > 1 ? (
           <button type="button" className="mari-receipt__more" aria-expanded={open} onClick={() => setOpen(!open)}>
             {open
               ? localizeUi("ui.chat.marichangereceipt.showLess")
@@ -458,23 +461,34 @@ export function MariHeldChangeCard({
           </button>
         ) : null}
       </div>
-      <p className="mari-receipt__why">
-        <Trans i18nKey="mari.needsYou.then.held" components={{ b: <b /> }} />
-      </p>
-      <div className="mari-receipt__foot">
-        <span className="mari-receipt__state" data-tone="wait">
-          <Clock aria-hidden="true" />
-          {localizeUi("ui.chat.marichangereceipt.notAppliedYet")}
-        </span>
-        <span className="mari-receipt__actions">
-          <button type="button" onClick={onDecline} disabled={disabled} className="mari-link">
-            {localizeUi("mari.needsYou.decline")}
-          </button>
-          <button type="button" onClick={onAccept} disabled={disabled} className="mari-btn mari-btn--solid">
-            {localizeUi("mari.needsYou.accept")}
-          </button>
-        </span>
-      </div>
+      {settled ? (
+        <div className="mari-receipt__foot">
+          <span className="mari-receipt__state" data-tone="ok" role="status">
+            <Check aria-hidden="true" />
+            {localizeUi("mari.needsYou.held.ownText")}
+          </span>
+        </div>
+      ) : (
+        <>
+          <p className="mari-receipt__why">
+            <Trans i18nKey="mari.needsYou.then.held" components={{ b: <b /> }} />
+          </p>
+          <div className="mari-receipt__foot">
+            <span className="mari-receipt__state" data-tone="wait">
+              <Clock aria-hidden="true" />
+              {localizeUi("ui.chat.marichangereceipt.notAppliedYet")}
+            </span>
+            <span className="mari-receipt__actions">
+              <button type="button" onClick={onDecline} disabled={disabled} className="mari-link">
+                {localizeUi("mari.needsYou.decline")}
+              </button>
+              <button type="button" onClick={onAccept} disabled={disabled} className="mari-btn mari-btn--solid">
+                {localizeUi("mari.needsYou.accept")}
+              </button>
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
