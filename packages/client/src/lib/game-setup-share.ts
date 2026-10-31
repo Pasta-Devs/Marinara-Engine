@@ -8,6 +8,8 @@ import {
   readWorldSnapshot,
   rulesetRefSchema,
   storyScriptSchema,
+  TACTICAL_BATTLEFIELD_SIZES,
+  type TacticalBattlefieldSize,
 } from "@marinara-engine/shared";
 import {
   ANIME_GAME_PROMPT_TEMPLATE_ID,
@@ -115,7 +117,15 @@ export interface GameSetupSummarySection {
 
 const TACTICAL_BATTLEFIELD_SEED_MAX = 0xffffffff;
 const TACTICAL_BATTLEFIELD_INSTRUCTIONS_MAX = 4_000;
-const TACTICAL_BATTLEFIELD_SIZES = new Set(["small", "medium", "large"]);
+const TACTICAL_BATTLEFIELD_SIZE_SET = new Set<string>(TACTICAL_BATTLEFIELD_SIZES);
+const BATTLEFIELD_SIZE_SUMMARY_KEYS: Record<TacticalBattlefieldSize, string> = {
+  small: "ui.game.gamesetupsummary.sizeSmall",
+  medium: "ui.game.gamesetupsummary.sizeMedium",
+  large: "ui.game.gamesetupsummary.sizeLarge",
+  huge: "ui.game.gamesetupsummary.sizeHuge",
+  vast: "ui.game.gamesetupsummary.sizeVast",
+  colossal: "ui.game.gamesetupsummary.sizeColossal",
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -273,7 +283,7 @@ function parseShareConfig(value: unknown): GameSetupConfig {
     }
     if (
       battlefield.size !== undefined &&
-      (typeof battlefield.size !== "string" || !TACTICAL_BATTLEFIELD_SIZES.has(battlefield.size))
+      (typeof battlefield.size !== "string" || !TACTICAL_BATTLEFIELD_SIZE_SET.has(battlefield.size))
     ) {
       throw new Error(translate("ui.game.gamesetupshare.invalidTacticalBattlefieldSize"));
     }
@@ -855,11 +865,12 @@ function tacticalBattlefieldRows(config: GameSetupConfig): GameSetupSummaryRow[]
       value:
         settings?.size == null
           ? translate("ui.game.gamesetupsummary.auto")
-          : settings.size === "small"
-            ? translate("ui.game.gamesetupsummary.sizeSmall")
-            : settings.size === "large"
-              ? translate("ui.game.gamesetupsummary.sizeLarge")
-              : translate("ui.game.gamesetupsummary.sizeMedium"),
+          : translate(
+              Object.hasOwn(BATTLEFIELD_SIZE_SUMMARY_KEYS, settings.size)
+                ? BATTLEFIELD_SIZE_SUMMARY_KEYS[settings.size]
+                : // An older or malformed value reads as the medium board it played as.
+                  BATTLEFIELD_SIZE_SUMMARY_KEYS.medium,
+            ),
     },
   ];
 }

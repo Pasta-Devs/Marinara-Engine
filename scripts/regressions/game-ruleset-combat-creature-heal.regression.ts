@@ -166,6 +166,7 @@ try {
       {
         type: "heal",
         sourceId: "deva",
+        label: "Healing Touch",
         targetId: "ally",
         rolls: [1, 2, 3, 4],
         flat: 2,

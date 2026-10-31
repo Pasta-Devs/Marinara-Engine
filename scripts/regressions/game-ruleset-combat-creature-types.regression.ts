@@ -267,7 +267,7 @@ try {
     refused((doc) => (holy(doc).plus[0].targetIs = {}), /names types, tags or both/);
     refused(
       (doc) => (holy(doc).targetTypes = {}),
-      /"is", "not", "abilityAtMost", "abilityAtLeast", "notImmuneTo" or several/,
+      /"is", "not", "abilityAtMost", "abilityAtLeast", "notImmuneTo", "calledBySelf", "understands", "uncontrolled" or several/,
     );
     refused((doc) => (doc.combat.creatureTypes.default = "giant"), /Unknown creature type "giant"/);
     refused((doc) => (doc.combat.creatureTypes.field = "level"), /text or choice field/);
@@ -301,6 +301,49 @@ try {
     const typed = JSON.parse(fiveE);
     typed.catalogs[0].entries[0].creature.type = "plant";
     assert.equal(getCapabilityPackageInstallIssue(manifest(167) as never, typed), gate, "a creature's own type");
+  }
+
+  // An invented opponent is what the Game Master says it is, else what a character is (laptop party
+  // A: Hold Person had nobody to hold in a cult made up for the fight).
+  {
+    const { createRulesetFight } =
+      await import("../../packages/server/src/services/game/ruleset-combat-director.service.js");
+    const built = createRulesetFight({
+      definition,
+      seed: 1,
+      party: [{ id: "hero", name: "Hero" }],
+      enemies: [
+        { id: "cultist", name: "Cultist", tier: "cr_1" },
+        { id: "wight", name: "Wight", tier: "cr_3", creatureType: "Undead" },
+        { id: "rotter", name: "Rotting Zombie 2", tier: "cr_1" },
+        // A word that ends in a one-word creature's name is that creature (laptop 2026-10-26: an
+        // Archlich with a Lich's legendary actions was a Humanoid); a short one is not.
+        { id: "archzombie", name: "Archzombie Vel", tier: "cr_1" },
+      ],
+      cards: [{ name: "Hero", rulesetSheet: { v: 1, build: build() } }],
+      playerName: "Hero",
+      live: {},
+      partyCatalogs: {},
+      bestiary: {
+        creatures: [
+          {
+            id: "zombie",
+            label: "Zombie",
+            creature: { type: "undead", health: 22, defense: 8, initiativeModifier: -2, actions: [] },
+          },
+        ],
+      },
+    } as never);
+    assert.ok(built.ok, built.ok ? "" : built.error);
+    const kind = (id: string) =>
+      rulesetCreatureKind(
+        definition,
+        built.fight.encounter.combatants.find((one) => one.id === id)!,
+      ).type;
+    assert.equal(kind("cultist"), "humanoid");
+    assert.equal(kind("wight"), "undead");
+    assert.equal(kind("rotter"), "undead", "a Zombie by its name");
+    assert.equal(kind("archzombie"), "undead", "an Archzombie by the word its name ends in");
   }
 
   console.log("Creature types: slayer dice, holy water, beasts only, Sleep past the undead, gated at 1.168.");

@@ -46,6 +46,11 @@ export function advanceTime(current: GameTime, action: string): GameTime {
   return addMinutes(current, minutes);
 }
 
+/** The clock as minutes since day 0, for how long passed between two times. */
+export function gameTimeMinutes(time: GameTime): number {
+  return time.day * 24 * 60 + time.hour * 60 + time.minute;
+}
+
 /** Add a specific number of minutes to the clock. */
 export function addMinutes(current: GameTime, minutes: number): GameTime {
   let totalMinutes = current.day * 24 * 60 + current.hour * 60 + current.minute + minutes;

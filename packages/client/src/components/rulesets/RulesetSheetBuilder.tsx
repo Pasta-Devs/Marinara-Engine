@@ -3,11 +3,12 @@
 // beside them. Everything it writes goes through the shared builder, which keeps the build the one
 // sheet the rest of the Engine reads and takes back what an unpicked entry gave.
 import { Check, ChevronLeft, ChevronRight, Dices, Minus, Plus, Trash2 } from "lucide-react";
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   applyRulesetBuilder,
+  withRulesetPlanMemoIn,
   rulesetBuilderAbilityIds,
   rulesetBuilderAllocations,
   rulesetBuilderSpending,
@@ -20,12 +21,18 @@ import {
   rulesetBuilderStartingGearOptions,
   rulesetBuilderPickAdded,
   rulesetBuilderPicks,
+  rulesetBuilderMarkRows,
+  rulesetBuilderMarkCount,
+  rulesetBuilderMarked,
   rulesetBuilderPickReason,
   rulesetBuilderInactiveChoices,
   rulesetBuilderStepVisible,
   rulesetBuilderStepCount,
   rulesetBuilderRemaining,
+  rulesetBuilderFillRows,
+  rulesetBuilderNewRow,
   rulesetBuilderOwnRows,
+  rulesetBuilderRowsMin,
   rulesetBuilderInitialize,
   rulesetBuilderRoll,
   rulesetBuilderRollScoresInOrder,
@@ -41,6 +48,7 @@ import {
   rulesetBuilderMethod,
   rulesetSheetBuildIsBlank,
   rulesetBuilderEntryHeld,
+  listRulesetLivePools,
   defaultRulesetSheetBuild,
   isRulesetItemHidden,
   evaluateRulesetSheet,
@@ -61,14 +69,18 @@ import {
   type RulesetLayerOptions,
   type RulesetSheetBuild,
   type RulesetBuilderRatingTarget,
+  rulesetListRollNotation,
   workOutRulesetListRow,
 } from "@marinara-engine/shared";
 import { rulesetCatalogQuery } from "../../hooks/use-capability-packages";
+import { rulesetPoolLevels, rulesetSheetAttacks } from "../../lib/ruleset-sheet-view";
 import { api } from "../../lib/api-client";
 import { visibleCatalogEntries } from "../../lib/ruleset-catalog";
 import { rulesetCheckValueText } from "../../lib/ruleset-resolution";
+import { useRulesetText } from "../../lib/ruleset-text";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
-import { clamp, inputClass, labelClass, TypedInput } from "./RulesetTypedInput";
+import { clamp, inputClass, labelClass, rulesetPickCount, TypedInput } from "./RulesetTypedInput";
+import { RollCellButton, rollRulesetCell } from "./RulesetRollCellButton";
 
 /** A bonus with its sign, as a sheet prints one. */
 const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
@@ -134,6 +146,7 @@ function ChoiceSlot({
   atCap,
   held,
   filterLabelOf = (id) => id,
+  infoOf,
 }: {
   title: string;
   slot: RulesetBuilderAbilitySlot | RulesetBuilderTrainedSlot | RulesetBuilderEntrySlot;
@@ -144,8 +157,13 @@ function ChoiceSlot({
   /** Whether the sheet already has it from somewhere else (a dwarf's Dwarvish), so it is no pick. */
   held?: (id: string) => boolean;
   filterLabelOf?: (id: string) => string;
+  /** What an option is, for its Info (laptop class builds 2026-10-24): a Fighting Style's summary, as
+   *  a catalog step's card shows it. */
+  infoOf?: (id: string) => string | undefined;
 }) {
   const { t } = useUiTranslation();
+  const [openInfo, setOpenInfo] = useState<string | null>(null);
+  const infoDomId = useId();
   const full = slot.chosen.length >= slot.count;
   const repeat = "repeat" in slot && !!slot.repeat;
   const left = Math.max(
@@ -219,32 +237,54 @@ function ChoiceSlot({
             );
           }
           const known = !on && !!held?.(id);
+          const info = infoOf?.(id);
           return (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={on}
-              disabled={!on && (full || known || !!atCap?.(id) || !!slot.disabled?.[id])}
-              onClick={() =>
-                onChange(on ? stored.filter((each) => each !== id) : [...stored.filter((each) => each !== id), id])
-              }
-              className={`${chipClass} ${on ? chipOn : chipOff}`}
-            >
-              {labelOf(id)}
-              {known ? (
-                <span className="block font-normal">{t("ui.rulesets.builder.alreadyKnown")}</span>
-              ) : (
-                !on &&
-                slot.disabled?.[id] && <span className="block font-normal">{t(reasonKey[slot.disabled[id]!])}</span>
+            <span key={id} className="inline-flex items-start gap-0.5">
+              <button
+                type="button"
+                aria-pressed={on}
+                disabled={!on && (full || known || !!atCap?.(id) || !!slot.disabled?.[id])}
+                onClick={() =>
+                  onChange(on ? stored.filter((each) => each !== id) : [...stored.filter((each) => each !== id), id])
+                }
+                className={`${chipClass} ${on ? chipOn : chipOff}`}
+              >
+                {labelOf(id)}
+                {known ? (
+                  <span className="block font-normal">{t("ui.rulesets.builder.alreadyKnown")}</span>
+                ) : (
+                  !on &&
+                  slot.disabled?.[id] && <span className="block font-normal">{t(reasonKey[slot.disabled[id]!])}</span>
+                )}
+              </button>
+              {info && (
+                <button
+                  type="button"
+                  aria-expanded={openInfo === id}
+                  aria-controls={infoDomId}
+                  aria-label={t("ui.rulesets.builder.infoFor", { name: labelOf(id) })}
+                  onClick={() => setOpenInfo(openInfo === id ? null : id)}
+                  className={`${chipClass} ${chipOff}`}
+                >
+                  {t("ui.rulesets.builder.info")}
+                </button>
               )}
-            </button>
+            </span>
           );
         })}
       </div>
+      {openInfo && infoOf?.(openInfo) && (
+        <div id={infoDomId} className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+          <p className="font-semibold text-[var(--foreground)]">{labelOf(openInfo)}</p>
+          <p>{infoOf(openInfo)}</p>
+        </div>
+      )}
     </fieldset>
   );
 }
 
+/** A catalog step offering more than this many entries is searched by name. */
+const CATALOG_SEARCH_FROM = 12;
 export function RulesetSheetBuilder({
   definition,
   layerOptions,
@@ -252,6 +292,8 @@ export function RulesetSheetBuilder({
   state: rawState,
   evaluated: rawEvaluated,
   onApply,
+  outsideGame = false,
+  gearNote = false,
 }: {
   definition: RulesetDefinition;
   layerOptions?: RulesetLayerOptions;
@@ -260,12 +302,23 @@ export function RulesetSheetBuilder({
   evaluated: ReturnType<typeof evaluateRulesetSheet>;
   /** The build with the choices applied, and the choices: one envelope change. */
   onApply: (build: RulesetSheetBuild, state: RulesetBuilderState) => void;
+  /** Shown outside a game: what the sheet has to spend at its most, as the All fields tab shows it. */
+  outsideGame?: boolean;
+  /** Armor and weapons wait on a game's Starting gear, so armor class here counts none worn. */
+  gearNote?: boolean;
 }) {
   const { t } = useUiTranslation();
+  // The ruleset's own words in the player's language (1.811): shown only, never written to the sheet.
+  const rt = useRulesetText();
   const builder = definition.sheet.builder!;
   const [stepId, setStepId] = useState(builder.steps[0]!.id);
   const [freeEdit, setFreeEdit] = useState(false);
+  // A rows step's "roll all" (hit point rolls) while its throws are out, and whether one failed.
+  const [allRolling, setAllRolling] = useState(false);
+  const [rollAllFailed, setRollAllFailed] = useState(false);
   const [openInfo, setOpenInfo] = useState<string | null>(null);
+  /** What a long catalog step is narrowed to, by name: a wizard's spells. */
+  const [searches, setSearches] = useState<Record<string, string>>({});
   // The steps the player asked to take more than one in (a second class).
   const [moreWanted, setMoreWanted] = useState<ReadonlySet<string>>(() => new Set());
   /** An entry's facts in one line before its description: what its row says in words besides its
@@ -278,13 +331,16 @@ export function RulesetSheetBuilder({
     const nameColumn =
       definition.gm.sheetSummary.lists.find((one) => one.list === list.id)?.nameColumn ??
       list.columns.find((column) => column.type === "text")?.id;
-    return list.columns
-      .filter((column) => (column.type === "text" || column.type === "longtext") && column.id !== nameColumn)
-      .flatMap((column) => {
-        const value = first.values[column.id];
-        return typeof value === "string" && value.trim() ? [value.trim()] : [];
-      })
-      .join(" · ");
+    return (
+      list.columns
+        // Short words only: a feature's prose (a race's Speed row, first of every race) is its own Info.
+        .filter((column) => column.type === "text" && column.id !== nameColumn)
+        .flatMap((column) => {
+          const value = first.values[column.id];
+          return typeof value === "string" && value.trim() ? [rt(value.trim())] : [];
+        })
+        .join(" · ")
+    );
   };
   const [rolling, setRolling] = useState(false);
   const [rollFailed, setRollFailed] = useState(false);
@@ -341,40 +397,76 @@ export function RulesetSheetBuilder({
     () => (preview ? evaluateRulesetSheet(definition, preview.build) : rawEvaluated),
     [definition, preview, rawEvaluated],
   );
+  // Its attacks as a fight works them out, for the summary.
+  const attacks = useMemo(
+    () => (ready ? rulesetSheetAttacks(definition, build, undefined, undefined, catalogs) : []),
+    [build, catalogs, definition, ready],
+  );
   const increases = (preview?.state ?? rawState).applied?.increases ?? {};
   // What the reads below see: the preview's state (its method, once the builder starts the sheet).
   const shownState = useMemo(() => (preview ? { ...preview.state, describing } : state), [describing, preview, state]);
 
-  const steps = builder.steps.filter((step) => rulesetBuilderStepVisible(definition, step, build));
+  // The reads below see one sheet until it changes: each works it out once for all of them, render
+  // after render, rather than every read and every entry on a step working it out afresh.
+  const memo = useMemo(
+    () => new Map<unknown, unknown>(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [build, shownState, state, catalogs, definition, evaluated],
+  );
+  const read = useCallback(<T,>(plan: () => T): T => withRulesetPlanMemoIn(memo, plan), [memo]);
+
+  const steps = useMemo(
+    () => builder.steps.filter((step) => rulesetBuilderStepVisible(definition, step, build)),
+    [build, builder.steps, definition],
+  );
   const activeIndex = Math.max(
     0,
     steps.findIndex((step) => step.id === stepId),
   );
   const step = steps[activeIndex] ?? builder.steps[0]!;
   const remaining = useMemo(
-    () => (ready ? rulesetBuilderRemaining(definition, build, shownState, catalogs) : {}),
-    [build, catalogs, definition, ready, shownState],
+    () => (ready ? read(() => rulesetBuilderRemaining(definition, build, shownState, catalogs)) : {}),
+    [build, catalogs, definition, read, ready, shownState],
   );
   const failedRules = useMemo(() => rulesetBuilderConstraintFailures(definition, build), [build, definition]);
   const abilitySlots = useMemo(
-    () => (ready ? rulesetBuilderAbilitySlots(definition, shownState, catalogs, build) : []),
-    [build, catalogs, definition, ready, shownState],
+    () => (ready ? read(() => rulesetBuilderAbilitySlots(definition, shownState, catalogs, build)) : []),
+    [build, catalogs, definition, read, ready, shownState],
   );
   const trainedSlots = useMemo(
-    () => (ready ? rulesetBuilderTrainedSlots(definition, shownState, catalogs, build) : []),
-    [build, catalogs, definition, ready, shownState],
+    () => (ready ? read(() => rulesetBuilderTrainedSlots(definition, shownState, catalogs, build)) : []),
+    [build, catalogs, definition, read, ready, shownState],
   );
   const allocations = useMemo(
-    () => (ready ? rulesetBuilderAllocations(definition, build, shownState, catalogs) : []),
-    [build, catalogs, definition, ready, shownState],
+    () => (ready ? read(() => rulesetBuilderAllocations(definition, build, shownState, catalogs)) : []),
+    [build, catalogs, definition, read, ready, shownState],
   );
   const spending = useMemo(
-    () => (ready ? rulesetBuilderSpending(definition, build, shownState, catalogs) : []),
-    [build, catalogs, definition, ready, shownState],
+    () => (ready ? read(() => rulesetBuilderSpending(definition, build, shownState, catalogs)) : []),
+    [build, catalogs, definition, read, ready, shownState],
   );
   const entrySlots = useMemo(
-    () => (ready ? rulesetBuilderEntrySlots(definition, shownState, catalogs, build) : []),
-    [build, catalogs, definition, ready, shownState],
+    () => (ready ? read(() => rulesetBuilderEntrySlots(definition, shownState, catalogs, build)) : []),
+    [build, catalogs, definition, read, ready, shownState],
+  );
+  // The steps that ask this character anything, which are the ones walked through: a wizard is never
+  // shown Pact Boon or Fighting Style. A choices step none of whose picks gives a choice asks nothing,
+  // nor does a catalog step that takes none, offers none and holds none. The open step always shows.
+  const asked = useMemo(
+    () =>
+      steps.filter((each) => {
+        if (!ready || each.id === step.id) return true;
+        if (each.kind === "choices") return entrySlots.some((slot) => slot.stepId === each.id);
+        if (each.kind !== "catalog") return true;
+        if ((shownState.picks?.[each.id]?.length ?? 0) > 0) return true;
+        if (!each.takesAll && rulesetBuilderStepCount(definition, each, build).max === 0) return false;
+        return read(() => rulesetBuilderOptions(definition, each, shownState, catalogs, build)).length > 0;
+      }),
+    [build, catalogs, definition, entrySlots, read, ready, shownState, step.id, steps],
+  );
+  const askedIndex = Math.max(
+    0,
+    asked.findIndex((each) => each.id === step.id),
   );
 
   // The sheet as it stands now, for the dice, which land after an await: the render that threw them may
@@ -393,9 +485,23 @@ export function RulesetSheetBuilder({
   };
   const infoBaseId = useId();
 
-  const abilityLabel = (id: string) => definition.sheet.abilities.find((ability) => ability.id === id)?.label ?? id;
-  const skillLabel = (id: string) => definition.sheet.skills.find((skill) => skill.id === id)?.label ?? id;
-  const saveLabel = (id: string) => definition.sheet.saves.find((save) => save.id === id)?.label ?? id;
+  // A rows step that asks for a count of rows (1.799, 5e's hit point rolls: one per level after 1st)
+  // starts with that many when it is shown, each as "add row" makes it; it never takes a row away,
+  // and a row the player removes there stays removed until the step is shown again. A character being
+  // described is not written to by looking at it. 5e ship-readiness re-test 2026-10-24.
+  useEffect(() => {
+    if (!ready || describing || step.kind !== "rows" || !step.countFrom) return;
+    const filled = rulesetBuilderFillRows(definition, step, latest.current.build, build);
+    if (filled === latest.current.build) return;
+    const applied = applyRulesetBuilder(definition, filled, latest.current.state, catalogs);
+    onApply(applied.build, applied.state);
+    // Only when the step is shown (or the catalogs it waits on arrive), not on each edit made there.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.id, ready, describing]);
+
+  const abilityLabel = (id: string) => rt(definition.sheet.abilities.find((ability) => ability.id === id)?.label ?? id);
+  const skillLabel = (id: string) => rt(definition.sheet.skills.find((skill) => skill.id === id)?.label ?? id);
+  const saveLabel = (id: string) => rt(definition.sheet.saves.find((save) => save.id === id)?.label ?? id);
 
   const slotsHere = (
     <>
@@ -406,7 +512,7 @@ export function RulesetSheetBuilder({
             key={slot.key}
             title={
               t("ui.rulesets.builder.chooseScores", {
-                from: slot.entry?.label ?? step.label,
+                from: rt(slot.entry?.label ?? step.label),
                 count: slot.count,
                 amount: signed(slot.amount),
               }) +
@@ -436,7 +542,7 @@ export function RulesetSheetBuilder({
         .map((slot) => (
           <p key={slot.key} className="text-xs text-[var(--muted-foreground)]">
             {t("ui.rulesets.builder.heldWaiting", {
-              from: slot.entry?.label ?? step.label,
+              from: rt(slot.entry?.label ?? step.label),
               count: slot.count,
               what: t(slot.what === "skills" ? "ui.rulesets.builder.heldSkills" : "ui.rulesets.builder.heldSaves"),
             })}
@@ -449,7 +555,7 @@ export function RulesetSheetBuilder({
           <ChoiceSlot
             key={slot.key}
             title={t(slot.what === "skills" ? "ui.rulesets.builder.chooseSkills" : "ui.rulesets.builder.chooseSaves", {
-              from: slot.entry?.label ?? step.label,
+              from: rt(slot.entry?.label ?? step.label),
               count: slot.count,
             })}
             slot={slot}
@@ -462,14 +568,23 @@ export function RulesetSheetBuilder({
         .map((slot) => (
           <ChoiceSlot
             key={slot.key}
-            title={t("ui.rulesets.builder.chooseEntries", { from: slot.entry?.label ?? step.label, count: slot.count })}
+            title={t("ui.rulesets.builder.chooseEntries", {
+              from: rt(slot.entry?.label ?? step.label),
+              count: slot.count,
+            })}
             slot={slot}
             filterLabelOf={(id) =>
-              definition.catalogs
-                ?.find((catalog) => catalog.id === slot.catalog)
-                ?.filters?.find((filter) => filter.id === id)?.label ?? id
+              rt(
+                definition.catalogs
+                  ?.find((catalog) => catalog.id === slot.catalog)
+                  ?.filters?.find((filter) => filter.id === id)?.label ?? id,
+              )
             }
-            labelOf={(id) => (catalogs[slot.catalog] ?? []).find((entry) => entry.id === id)?.label ?? id}
+            labelOf={(id) => rt((catalogs[slot.catalog] ?? []).find((entry) => entry.id === id)?.label ?? id)}
+            infoOf={(id) => {
+              const summary = (catalogs[slot.catalog] ?? []).find((entry) => entry.id === id)?.summary;
+              return summary && rt(summary);
+            }}
             held={(id) => {
               const entry = (catalogs[slot.catalog] ?? []).find((one) => one.id === id);
               return !!entry && rulesetBuilderEntryHeld(definition, build, slot.catalog, entry);
@@ -484,7 +599,7 @@ export function RulesetSheetBuilder({
   const pricedPool = (poolId: string | undefined) => {
     if (!poolId) return null;
     const pool = spending.find((each) => each.id === poolId);
-    const label = builder.pools?.find((each) => each.id === poolId)?.label ?? poolId;
+    const label = rt(builder.pools?.find((each) => each.id === poolId)?.label ?? poolId);
     if (!pool) return null;
     return (
       <p
@@ -502,184 +617,255 @@ export function RulesetSheetBuilder({
     );
   };
 
-  const catalogStep = (current: StepOf<"catalog">) => {
-    const picked = rulesetBuilderPicks(definition, current.id, state, catalogs, build).map((entry) => entry.id);
-    const shown = visible.get(current.catalog);
-    const offered = rulesetBuilderOptions(definition, current, state, catalogs, build);
-    const offeredIds = new Set(offered.map((entry) => entry.id));
-    const inactive = (state.picks?.[current.id] ?? []).filter((id) => !picked.includes(id));
-    const options = [
-      ...offered,
-      ...(catalogs[current.catalog] ?? []).filter((entry) => inactive.includes(entry.id) && !offeredIds.has(entry.id)),
-    ].filter((entry) => picked.includes(entry.id) || !shown || shown.has(entry.id));
-    // An entry picked at another step on the same catalog is that step's.
-    const elsewhere = new Map<string, string>();
-    for (const other of builder.steps) {
-      if (other.kind !== "catalog" || other.id === current.id || other.catalog !== current.catalog) continue;
-      for (const entry of rulesetBuilderPicks(definition, other.id, state, catalogs, build))
-        elsewhere.set(entry.id, other.label);
-    }
-    const toggle = (id: string) => {
-      const on = (state.picks?.[current.id] ?? []).includes(id);
-      // Against every stored pick, so one the sheet has fallen below (`upTo`) is kept, not dropped.
-      const stored = state.picks?.[current.id] ?? [];
-      // A pick of an `exclusive` group (1.94) replaces the step's other pick of that group.
-      const next = on ? stored.filter((each) => each !== id) : rulesetBuilderPickAdded(current, stored, id, catalogs);
-      update({ ...state, picks: { ...state.picks, [current.id]: next } });
-    };
-    // A count read off the sheet (1.90) moves with the character; the step's own max otherwise. A
-    // step that takes one and may take more (a class, then a second) offers one until the player
-    // asks for another, so nobody multiclasses by accident.
-    const counted = rulesetBuilderStepCount(definition, current, build);
-    const oneFirst = counted.max > 1 && counted.min <= 1 && picked.length <= 1 && !moreWanted.has(current.id);
-    const most = oneFirst ? 1 : counted.max;
-    if (options.length === 0 && inactive.length === 0) {
-      return (
-        <p className="text-xs text-[var(--muted-foreground)]">
-          {current.within && rulesetBuilderPicks(definition, current.within.step, state, catalogs, build).length === 0
-            ? t("ui.rulesets.builder.pickEarlier")
-            : (current.quotas || current.distinctBy || current.quotaBelow || current.when || current.requiredWhen) &&
-                (remaining[current.id] ?? 0) > 0
-              ? t("ui.rulesets.builder.notConfigured")
-              : current.within
-                ? t("ui.rulesets.builder.pickEarlier")
-                : t("ui.rulesets.builder.noOptions")}
-        </p>
+  const catalogStep = (current: StepOf<"catalog">) =>
+    // Every entry is weighed against the same sheet: one pass of reads for them all.
+    read(() => {
+      const picked = rulesetBuilderPicks(definition, current.id, state, catalogs, build).map((entry) => entry.id);
+      const shown = visible.get(current.catalog);
+      const offered = rulesetBuilderOptions(definition, current, state, catalogs, build);
+      const offeredIds = new Set(offered.map((entry) => entry.id));
+      const inactive = (state.picks?.[current.id] ?? []).filter((id) => !picked.includes(id));
+      const options = [
+        ...offered,
+        ...(catalogs[current.catalog] ?? []).filter(
+          (entry) => inactive.includes(entry.id) && !offeredIds.has(entry.id),
+        ),
+      ].filter((entry) => picked.includes(entry.id) || !shown || shown.has(entry.id));
+      // An entry picked at another step on the same catalog is that step's.
+      const elsewhere = new Map<string, string>();
+      for (const other of builder.steps) {
+        if (other.kind !== "catalog" || other.id === current.id || other.catalog !== current.catalog) continue;
+        for (const entry of rulesetBuilderPicks(definition, other.id, state, catalogs, build))
+          elsewhere.set(entry.id, rt(other.label));
+      }
+      const toggle = (id: string) => {
+        const on = (state.picks?.[current.id] ?? []).includes(id);
+        // Against every stored pick, so one the sheet has fallen below (`upTo`) is kept, not dropped.
+        const stored = state.picks?.[current.id] ?? [];
+        // A pick of an `exclusive` group (1.94) replaces the step's other pick of that group.
+        const next = on ? stored.filter((each) => each !== id) : rulesetBuilderPickAdded(current, stored, id, catalogs);
+        update({ ...state, picks: { ...state.picks, [current.id]: next } });
+      };
+      // A count read off the sheet (1.90) moves with the character; the step's own max otherwise. A
+      // step that takes one and may take more (a class, then a second) offers one until the player
+      // asks for another, so nobody multiclasses by accident.
+      const counted = rulesetBuilderStepCount(definition, current, build);
+      const oneFirst =
+        !current.takesAll && counted.max > 1 && counted.min <= 1 && picked.length <= 1 && !moreWanted.has(current.id);
+      const most = oneFirst ? 1 : counted.max;
+      // A long list is searched by name, and each entry says what tells it apart from the rest: a
+      // spell's level and school, where the offered spells are not all one level or school.
+      const searching = options.length > CATALOG_SEARCH_FROM;
+      const query = searching ? (searches[current.id] ?? "").trim().toLowerCase() : "";
+      const listed = query
+        ? options.filter(
+            (entry) =>
+              picked.includes(entry.id) ||
+              entry.label.toLowerCase().includes(query) ||
+              rt(entry.label).toLowerCase().includes(query),
+          )
+        : options;
+      const telling = (definition.catalogs?.find((catalog) => catalog.id === current.catalog)?.filters ?? []).filter(
+        (filter) =>
+          (filter.type === "number" || filter.type === "text") &&
+          new Set(options.map((entry) => entry.filters?.[filter.id])).size > 1,
       );
-    }
-    return (
-      <div className="space-y-2">
-        <ChoiceConstraints
-          limits={current}
-          labelOf={(id) =>
-            definition.catalogs
-              ?.find((catalog) => catalog.id === current.catalog)
-              ?.filters?.find((filter) => filter.id === id)?.label ?? id
-          }
-        />
-        {inactive.length > 0 && (
-          <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("ui.rulesets.builder.inactiveChoices")}</p>
-        )}
-        {inactive
-          .filter((id) => !options.some((entry) => entry.id === id))
-          .map((id) => (
-            <button key={id} type="button" className={buttonClass} onClick={() => toggle(id)}>
-              {t("ui.rulesets.builder.removeInactive", {
-                name: (catalogs[current.catalog] ?? []).find((entry) => entry.id === id)?.label ?? id,
-              })}
+      const tellsApart = (entry: (typeof options)[number]) =>
+        telling
+          .flatMap((filter) => {
+            const value = entry.filters?.[filter.id];
+            if (value === undefined || value === "" || Array.isArray(value)) return [];
+            // A value written as an id ("multiclass", "bard") is for the steps to match on, not words.
+            if (typeof value === "string" && /^[a-z0-9_-]+$/u.test(value)) return [];
+            return [filter.type === "number" ? `${rt(filter.label)} ${value}` : rt(String(value))];
+          })
+          .join(" · ");
+      if (options.length === 0 && inactive.length === 0) {
+        return (
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {current.within && rulesetBuilderPicks(definition, current.within.step, state, catalogs, build).length === 0
+              ? t("ui.rulesets.builder.pickEarlier")
+              : (current.quotas || current.distinctBy || current.quotaBelow || current.when || current.requiredWhen) &&
+                  (remaining[current.id] ?? 0) > 0
+                ? t("ui.rulesets.builder.notConfigured")
+                : current.within
+                  ? t("ui.rulesets.builder.pickEarlier")
+                  : t("ui.rulesets.builder.noOptions")}
+          </p>
+        );
+      }
+      return (
+        <div className="space-y-2">
+          <ChoiceConstraints
+            limits={current}
+            labelOf={(id) =>
+              rt(
+                definition.catalogs
+                  ?.find((catalog) => catalog.id === current.catalog)
+                  ?.filters?.find((filter) => filter.id === id)?.label ?? id,
+              )
+            }
+          />
+          {inactive.length > 0 && (
+            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+              {t("ui.rulesets.builder.inactiveChoices")}
+            </p>
+          )}
+          {inactive
+            .filter((id) => !options.some((entry) => entry.id === id))
+            .map((id) => (
+              <button key={id} type="button" className={buttonClass} onClick={() => toggle(id)}>
+                {t("ui.rulesets.builder.removeInactive", {
+                  name: rt((catalogs[current.catalog] ?? []).find((entry) => entry.id === id)?.label ?? id),
+                })}
+              </button>
+            ))}
+          {pricedPool(current.pool)}
+          <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+            {current.takesAll
+              ? t("ui.rulesets.builder.takesAll", { count: picked.length })
+              : most === 0
+                ? t("ui.rulesets.builder.pickNoneYet", { picked: picked.length })
+                : t("ui.rulesets.builder.pickCount", { count: most, picked: picked.length })}
+          </p>
+          {oneFirst && picked.length === 1 && (
+            <button
+              type="button"
+              className={buttonClass}
+              onClick={() => setMoreWanted(new Set([...moreWanted, current.id]))}
+            >
+              {t("ui.rulesets.builder.addAnother", { step: rt(current.label) })}
             </button>
-          ))}
-        {pricedPool(current.pool)}
-        <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
-          {most === 0
-            ? t("ui.rulesets.builder.pickNoneYet", { picked: picked.length })
-            : t("ui.rulesets.builder.pickCount", { count: most, picked: picked.length })}
-        </p>
-        {oneFirst && picked.length === 1 && (
-          <button
-            type="button"
-            className={buttonClass}
-            onClick={() => setMoreWanted(new Set([...moreWanted, current.id]))}
-          >
-            {t("ui.rulesets.builder.addAnother", { step: current.label })}
-          </button>
-        )}
-        {/* Each card keeps its own height, so one opened for its Info never stretches its neighbour. */}
-        <ul className="grid items-start gap-1.5 sm:grid-cols-2">
-          {options.map((entry) => {
-            const on = picked.includes(entry.id);
-            const stored = (state.picks?.[current.id] ?? []).includes(entry.id);
-            const reason = !on
-              ? rulesetBuilderPickReason(definition, current, state, catalogs, build, entry.id)
-              : undefined;
-            const takenAt = on ? undefined : elsewhere.get(entry.id);
-            // A pick that only replaces the step's pick of its own group (1.94) never makes it fuller.
-            const replaces =
-              !!entry.exclusive &&
-              options.some((other) => other.exclusive === entry.exclusive && picked.includes(other.id));
-            // Already on the sheet from somewhere else (a domain spell a later step grants): no pick.
-            const known =
-              !on &&
-              !stored &&
-              takenAt === undefined &&
-              rulesetBuilderEntryHeld(definition, build, current.catalog, entry);
-            const full =
-              (!on && !replaces && (counted.max > 1 || most === 0) && picked.length >= most) ||
-              takenAt !== undefined ||
-              known;
-            const infoId = `${current.id}:${entry.id}`;
-            const infoDomId = `${infoBaseId}-${current.id}-${entry.id}`;
-            return (
-              <li
-                key={entry.id}
-                className={`flex flex-col gap-1 rounded-lg border p-2 ${on ? "border-[var(--primary)]" : "border-[var(--border)]"} bg-[var(--card)]`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="min-w-0 truncate text-xs font-semibold text-[var(--foreground)]">{entry.label}</span>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {current.pool && (
-                      <span className="text-[0.625rem] tabular-nums text-[var(--muted-foreground)]">
-                        {t("ui.rulesets.builder.pricedCost", {
-                          cost: rulesetBuilderPickPrice(current, entry) ?? "—",
-                        })}
-                      </span>
-                    )}
-                    {entry.summary && (
+          )}
+          {searching && (
+            <input
+              type="search"
+              value={searches[current.id] ?? ""}
+              onChange={(event) => setSearches({ ...searches, [current.id]: event.target.value })}
+              placeholder={t("ui.rulesets.builder.search", { count: options.length })}
+              aria-label={t("ui.rulesets.builder.search", { count: options.length })}
+              className={inputClass}
+            />
+          )}
+          {searching && listed.length === 0 && (
+            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("ui.rulesets.builder.noMatch")}</p>
+          )}
+          {/* Each card keeps its own height, so one opened for its Info never stretches its neighbour. */}
+          <ul className="grid items-start gap-1.5 sm:grid-cols-2">
+            {listed.map((entry) => {
+              const on = picked.includes(entry.id);
+              const stored = (state.picks?.[current.id] ?? []).includes(entry.id);
+              const reason = !on
+                ? rulesetBuilderPickReason(definition, current, state, catalogs, build, entry.id)
+                : undefined;
+              const takenAt = on ? undefined : elsewhere.get(entry.id);
+              // A pick that only replaces the step's pick of its own group (1.94) never makes it fuller.
+              const replaces =
+                !!entry.exclusive &&
+                options.some((other) => other.exclusive === entry.exclusive && picked.includes(other.id));
+              // Taken without asking (1.766): only a choice within an `exclusive` group is the player's.
+              const locked = !!current.takesAll && !entry.exclusive;
+              // Already on the sheet from somewhere else (a domain spell a later step grants): no pick.
+              // A step that names its pick in a field (a class, a race) is held only by that pick: a
+              // Paladin's armour rows are a Fighter's too, and do not make a Fighter one.
+              const known =
+                !on &&
+                !stored &&
+                takenAt === undefined &&
+                !current.field &&
+                rulesetBuilderEntryHeld(definition, build, current.catalog, entry);
+              const full =
+                locked ||
+                (!current.takesAll && !on && !replaces && (counted.max > 1 || most === 0) && picked.length >= most) ||
+                takenAt !== undefined ||
+                known;
+              const infoId = `${current.id}:${entry.id}`;
+              const infoDomId = `${infoBaseId}-${current.id}-${entry.id}`;
+              return (
+                <li
+                  key={entry.id}
+                  className={`flex flex-col gap-1 rounded-lg border p-2 ${on ? "border-[var(--primary)]" : "border-[var(--border)]"} bg-[var(--card)]`}
+                >
+                  {/* The buttons wrap below a long name rather than squeezing it to a letter a line. */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-[6rem] flex-1 break-words text-xs font-semibold text-[var(--foreground)]">
+                      {rt(entry.label)}
+                      {tellsApart(entry) && (
+                        <span className="block text-[0.625rem] font-normal text-[var(--muted-foreground)]">
+                          {tellsApart(entry)}
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {current.pool && (
+                        <span className="text-[0.625rem] tabular-nums text-[var(--muted-foreground)]">
+                          {t("ui.rulesets.builder.pricedCost", {
+                            cost: rulesetBuilderPickPrice(current, entry) ?? "—",
+                          })}
+                        </span>
+                      )}
+                      {entry.summary && (
+                        <button
+                          type="button"
+                          aria-expanded={openInfo === infoId}
+                          aria-controls={infoDomId}
+                          onClick={() => setOpenInfo(openInfo === infoId ? null : infoId)}
+                          aria-label={t("ui.rulesets.builder.infoFor", { name: rt(entry.label) })}
+                          className={`${chipClass} ${chipOff}`}
+                        >
+                          {t("ui.rulesets.builder.info")}
+                        </button>
+                      )}
                       <button
                         type="button"
-                        aria-expanded={openInfo === infoId}
-                        aria-controls={infoDomId}
-                        onClick={() => setOpenInfo(openInfo === infoId ? null : infoId)}
-                        aria-label={t("ui.rulesets.builder.infoFor", { name: entry.label })}
-                        className={`${chipClass} ${chipOff}`}
+                        aria-pressed={on}
+                        disabled={locked || (!stored && (full || !!reason))}
+                        onClick={() => toggle(entry.id)}
+                        aria-label={
+                          !on && known
+                            ? t("ui.rulesets.builder.alreadyKnownName", { name: rt(entry.label) })
+                            : t(stored ? "ui.rulesets.builder.unpick" : "ui.rulesets.builder.pick", {
+                                name: rt(entry.label),
+                              })
+                        }
+                        className={`${chipClass} ${on ? chipOn : chipOff}`}
                       >
-                        {t("ui.rulesets.builder.info")}
+                        {on ? (
+                          // Removing it says so, not only a tick (laptop 2026-10-26).
+                          <span className="inline-flex items-center gap-1">
+                            <Check size={12} aria-hidden="true" />
+                            {t("ui.rulesets.builder.remove")}
+                          </span>
+                        ) : known ? (
+                          t("ui.rulesets.builder.alreadyKnown")
+                        ) : stored ? (
+                          t("ui.rulesets.builder.removeInactive", { name: rt(entry.label) })
+                        ) : (
+                          t("ui.rulesets.builder.select")
+                        )}
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      aria-pressed={on}
-                      disabled={!stored && (full || !!reason)}
-                      onClick={() => toggle(entry.id)}
-                      aria-label={
-                        !on && known
-                          ? t("ui.rulesets.builder.alreadyKnownName", { name: entry.label })
-                          : t(stored ? "ui.rulesets.builder.unpick" : "ui.rulesets.builder.pick", { name: entry.label })
-                      }
-                      className={`${chipClass} ${on ? chipOn : chipOff}`}
-                    >
-                      {on ? (
-                        <Check size={12} aria-hidden="true" />
-                      ) : known ? (
-                        t("ui.rulesets.builder.alreadyKnown")
-                      ) : stored ? (
-                        t("ui.rulesets.builder.removeInactive", { name: entry.label })
-                      ) : (
-                        t("ui.rulesets.builder.select")
-                      )}
-                    </button>
+                    </div>
                   </div>
-                </div>
-                {reason && <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t(reasonKey[reason])}</p>}
-                {takenAt && (
-                  <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                    {t("ui.rulesets.builder.pickedAt", { step: takenAt })}
-                  </p>
-                )}
-                {openInfo === infoId && entry.summary && (
-                  <div id={infoDomId} className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-                    {entryStatLine(entry) && <p className="text-[var(--foreground)]">{entryStatLine(entry)}</p>}
-                    <p>{entry.summary}</p>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-        {slotsHere}
-      </div>
-    );
-  };
+                  {reason && <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t(reasonKey[reason])}</p>}
+                  {takenAt && (
+                    <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {t("ui.rulesets.builder.pickedAt", { step: takenAt })}
+                    </p>
+                  )}
+                  {openInfo === infoId && entry.summary && (
+                    <div id={infoDomId} className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {entryStatLine(entry) && <p className="text-[var(--foreground)]">{entryStatLine(entry)}</p>}
+                      <p>{rt(entry.summary)}</p>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {slotsHere}
+        </div>
+      );
+    });
 
   const fieldsStep = (current: StepOf<"fields">) => (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -696,9 +882,10 @@ export function RulesetSheetBuilder({
         }
         return (
           <label key={id} className={`flex min-w-0 flex-col gap-1 ${field.type === "longtext" ? "col-span-full" : ""}`}>
-            <span className={labelClass}>{field.label}</span>
+            <span className={labelClass}>{rt(field.label)}</span>
             <TypedInput
               spec={spec}
+              pick={rulesetPickCount(definition, build, spec)}
               value={build.fields[id]}
               onChange={(value) =>
                 // A value the builder answers for, changed here, is still the builder's: a later pick
@@ -713,19 +900,24 @@ export function RulesetSheetBuilder({
                     return;
                   }
                   if (!ready) return;
-                  // Applied again on the new value, which a step's `upTo` may read (a lower level).
+                  // Applied again on the new value, which a step's `upTo` may read (a lower level). One the
+                  // builder answers for is marked typed over, so the next run keeps it rather than
+                  // writing its own answer back (a class level reset to 1 on every click).
                   const owned =
                     id in rawState.applied.fields
                       ? {
                           ...state,
-                          applied: { ...rawState.applied, fields: { ...rawState.applied.fields, [id]: value } },
+                          applied: {
+                            ...rawState.applied,
+                            typedFields: [...new Set([...(rawState.applied.typedFields ?? []), id])],
+                          },
                         }
                       : state;
                   const applied = applyRulesetBuilder(definition, typed, owned, catalogs);
                   onApply(applied.build, applied.state);
                 }
               }
-              ariaLabel={field.label}
+              ariaLabel={rt(field.label)}
             />
           </label>
         );
@@ -775,7 +967,7 @@ export function RulesetSheetBuilder({
                 className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 text-xs"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="font-semibold">{spec.label}</span>{" "}
+                  <span className="font-semibold">{rt(spec.label)}</span>{" "}
                   <span className="text-[var(--muted-foreground)]">
                     {spec.gain
                       ? t("ui.rulesets.builder.rollImprove", {
@@ -860,7 +1052,7 @@ export function RulesetSheetBuilder({
           <tbody className="tabular-nums">
             {shown.rows.map((row) => (
               <tr key={row.field} className="border-t border-[var(--border)]">
-                <td className="py-1 pr-2">{row.label}</td>
+                <td className="py-1 pr-2">{rt(row.label)}</td>
                 <td className="py-1 pr-2">{text(row.now)}</td>
                 <td className="py-1">
                   {shown.done
@@ -893,6 +1085,47 @@ export function RulesetSheetBuilder({
 
   // Named rows (1.154): the player's own rows are edited where they sit in the list, so two rows with
   // the same name stay two rows. Rows a pick wrote are shown and left to the pick.
+  // Rows already on a list, marked to tick one of their columns (1.767): a wizard's prepared spells.
+  const markStep = (current: StepOf<"mark">) => {
+    const list = definition.sheet.lists.find((each) => each.id === current.list);
+    const name = list?.columns.find((column) => column.type === "text")?.id;
+    const rows = rulesetBuilderMarkRows(current, build);
+    const marked = rulesetBuilderMarked(definition, current.id, state, build);
+    const most = Math.min(rulesetBuilderMarkCount(definition, current, build), rows.length);
+    const toggle = (ref: string) => {
+      const stored = state.marks?.[current.id] ?? [];
+      const next = marked.includes(ref) ? stored.filter((each) => each !== ref) : [...marked, ref];
+      update({ ...state, marks: { ...state.marks, [current.id]: next } });
+    };
+    return (
+      <div className="space-y-1.5">
+        <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+          {rows.length === 0
+            ? t("ui.rulesets.builder.markNone")
+            : t("ui.rulesets.builder.markCount", { count: most, marked: marked.length })}
+        </p>
+        <ul className="space-y-1">
+          {rows.map(({ ref, row }) => {
+            const on = marked.includes(ref);
+            return (
+              <li key={ref}>
+                <label className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={!on && marked.length >= most}
+                    onChange={() => toggle(ref)}
+                  />
+                  {String((name && row[name]) || ref)}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
+
   const rowsStep = (current: StepOf<"rows">) => {
     const list = definition.sheet.lists.find((each) => each.id === current.list);
     if (!list) return null;
@@ -917,7 +1150,17 @@ export function RulesetSheetBuilder({
       onApply(applied.build, applied.state);
     };
     const blank = (cell: unknown) => cell === undefined || cell === "";
+    // The player's own rows' rolled cells still empty that know what to throw (a hit point roll).
+    const rollable = own.flatMap(({ row, index }) =>
+      columns.flatMap((column) => {
+        if (column.type !== "number" || !column.roll || !blank(row[column.id])) return [];
+        const notation = rulesetListRollNotation(definition, build, column, row, evaluated);
+        return notation ? [{ index, column: column.id, notation, min: column.min, max: column.max }] : [];
+      }),
+    );
     const complete = own.filter(({ row }) => !(current.required ?? []).some((id) => blank(row[id]))).length;
+    // The rows the step waits on: its min, or what its countFrom asks for when that is more (1.799).
+    const wanted = rulesetBuilderRowsMin(definition, current, build);
     // A catalog to copy rows from (1.159): each copy is the player's own row, priced on its own.
     const copies = current.from
       ? (catalogs[current.from] ?? []).flatMap((entry) => {
@@ -928,9 +1171,9 @@ export function RulesetSheetBuilder({
     return (
       <div className="space-y-2">
         {pricedPool(current.pool)}
-        {current.min !== undefined && current.min > 0 && (
+        {wanted > 0 && (
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
-            {t("ui.rulesets.builder.rowsCount", { count: complete, min: current.min })}
+            {t("ui.rulesets.builder.rowsCount", { count: complete, min: wanted })}
           </p>
         )}
         {own.length === 0 && picked.length === 0 && (
@@ -945,7 +1188,7 @@ export function RulesetSheetBuilder({
               .filter((column) => !blank(row[column.id]))
               .map((column) => (
                 <span key={column.id} className="min-w-0">
-                  <span className="text-[var(--muted-foreground)]">{column.label}:</span> {String(row[column.id])}
+                  <span className="text-[var(--muted-foreground)]">{rt(column.label)}:</span> {String(row[column.id])}
                 </span>
               ))}
             <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">
@@ -967,7 +1210,7 @@ export function RulesetSheetBuilder({
                     className={`flex min-w-0 flex-col gap-0.5 ${column.type === "longtext" ? "col-span-full" : ""}`}
                   >
                     <span className={labelClass}>
-                      {column.label}
+                      {rt(column.label)}
                       {needed && blank(row[column.id]) && (
                         <span className="ml-1 text-[var(--marinara-app-accent-static)]">
                           {t("ui.rulesets.builder.rowsRequired")}
@@ -984,9 +1227,28 @@ export function RulesetSheetBuilder({
                           ),
                         )
                       }
-                      ariaLabel={`${list.label} ${position + 1}: ${column.label}`}
+                      ariaLabel={`${rt(list.label)} ${position + 1}: ${rt(column.label)}`}
                       disabled={column.type === "number" && !!column.sum}
                     />
+                    {/* A rolled cell (1.85) is thrown with the Engine's dice here as on All fields. */}
+                    {column.type === "number" && column.roll && (
+                      <RollCellButton
+                        notation={rulesetListRollNotation(definition, build, column, row, evaluated)}
+                        ariaLabel={`${rt(list.label)} ${position + 1}: ${rt(column.label)}`}
+                        onRolled={(total) =>
+                          write(
+                            rawRows.map((each, i) =>
+                              i === index
+                                ? workOutRulesetListRow(list, {
+                                    ...each,
+                                    [column.id]: clamp(total, column.min, column.max),
+                                  })
+                                : each,
+                            ),
+                          )
+                        }
+                      />
+                    )}
                   </label>
                 );
               })}
@@ -999,7 +1261,7 @@ export function RulesetSheetBuilder({
             <button
               type="button"
               onClick={() => write(rawRows.filter((_, i) => i !== index))}
-              aria-label={t("ui.rulesets.sheet.removeRow", { list: list.label, index: position + 1 })}
+              aria-label={t("ui.rulesets.sheet.removeRow", { list: rt(list.label), index: position + 1 })}
               className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--marinara-app-accent-static)]"
             >
               <Trash2 size={14} aria-hidden="true" />
@@ -1009,24 +1271,44 @@ export function RulesetSheetBuilder({
         <button
           type="button"
           disabled={full}
-          onClick={() =>
-            write([
-              ...rawRows,
-              {
-                ...Object.fromEntries(
-                  list.columns
-                    .filter((column) => column.default !== undefined)
-                    .map((column) => [column.id, column.default as string | number | boolean]),
-                ),
-                ...current.defaults,
-              },
-            ])
-          }
+          onClick={() => write([...rawRows, rulesetBuilderNewRow(definition, current)])}
           className={buttonClass}
         >
           <Plus size={12} aria-hidden="true" />
           {t("ui.rulesets.sheet.addRow")}
         </button>
+        {rollable.length > 1 && (
+          <button
+            type="button"
+            disabled={allRolling}
+            onClick={() => {
+              setAllRolling(true);
+              setRollAllFailed(false);
+              // Every empty rolled cell at once, written together, so no throw overwrites another.
+              void Promise.all(rollable.map((cell) => rollRulesetCell(cell.notation)))
+                .then((totals) => {
+                  const next = [...rawRows];
+                  rollable.forEach((cell, n) => {
+                    next[cell.index] = workOutRulesetListRow(list, {
+                      ...next[cell.index],
+                      [cell.column]: clamp(totals[n]!, cell.min, cell.max),
+                    });
+                  });
+                  write(next);
+                })
+                .catch(() => setRollAllFailed(true))
+                .finally(() => setAllRolling(false));
+            }}
+            className={`${buttonClass} ml-2`}
+          >
+            {t("ui.rulesets.builder.rollAll", { count: rollable.length })}
+          </button>
+        )}
+        {rollAllFailed && (
+          <span role="status" className="ml-2 text-[0.625rem] text-[var(--marinara-app-accent-static)]">
+            {t("ui.rulesets.sheet.rollFailed")}
+          </span>
+        )}
         {copies.length > 0 && (
           <select
             value=""
@@ -1041,7 +1323,7 @@ export function RulesetSheetBuilder({
             <option value="">{t("ui.rulesets.builder.rowsFromCatalog")}</option>
             {copies.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {entry.label}
+                {rt(entry.label)}
               </option>
             ))}
           </select>
@@ -1185,7 +1467,7 @@ export function RulesetSheetBuilder({
               {current.methods.rolls.map((group, index) => (
                 <li key={index}>
                   {group.abilities
-                    .map((id) => definition.sheet.abilities.find((each) => each.id === id)?.short ?? id)
+                    .map((id) => rt(definition.sheet.abilities.find((each) => each.id === id)?.short ?? id))
                     .join(", ")}
                   {": "}
                   {rulesetCreationDiceText(group.dice)}
@@ -1231,7 +1513,7 @@ export function RulesetSheetBuilder({
                       type="button"
                       disabled={costOf(score - 1) === undefined}
                       onClick={() => set(score - 1)}
-                      aria-label={t("ui.rulesets.builder.lower", { name: ability.label })}
+                      aria-label={t("ui.rulesets.builder.lower", { name: rt(ability.label) })}
                       className={`${chipClass} ${chipOff} px-1.5`}
                     >
                       <Minus size={12} aria-hidden="true" />
@@ -1241,7 +1523,7 @@ export function RulesetSheetBuilder({
                       type="button"
                       disabled={!canUp}
                       onClick={() => set(score + 1)}
-                      aria-label={t("ui.rulesets.builder.raise", { name: ability.label })}
+                      aria-label={t("ui.rulesets.builder.raise", { name: rt(ability.label) })}
                       className={`${chipClass} ${chipOff} px-1.5`}
                     >
                       <Plus size={12} aria-hidden="true" />
@@ -1259,7 +1541,7 @@ export function RulesetSheetBuilder({
                     min={min}
                     max={max}
                     integer
-                    ariaLabel={t("ui.rulesets.builder.baseFor", { name: ability.label })}
+                    ariaLabel={t("ui.rulesets.builder.baseFor", { name: rt(ability.label) })}
                     className={`${inputClass} text-center`}
                   />
                 );
@@ -1280,7 +1562,7 @@ export function RulesetSheetBuilder({
                       }
                       update({ ...state, assign });
                     }}
-                    aria-label={t("ui.rulesets.builder.baseFor", { name: ability.label })}
+                    aria-label={t("ui.rulesets.builder.baseFor", { name: rt(ability.label) })}
                     className={inputClass}
                   >
                     <option value="">{t("ui.rulesets.builder.unassigned")}</option>
@@ -1289,7 +1571,10 @@ export function RulesetSheetBuilder({
                         {takenBy.has(valueIndex) && takenBy.get(valueIndex) !== id
                           ? t("ui.rulesets.builder.valueTaken", {
                               value,
-                              by: definition.sheet.abilities.find((each) => each.id === takenBy.get(valueIndex))?.short,
+                              by: rt(
+                                definition.sheet.abilities.find((each) => each.id === takenBy.get(valueIndex))?.short ??
+                                  "",
+                              ),
                             })
                           : String(value)}
                       </option>
@@ -1302,9 +1587,9 @@ export function RulesetSheetBuilder({
                   key={id}
                   className="grid grid-cols-[minmax(0,1fr)_minmax(0,6.5rem)_2.5rem_2.5rem_2.5rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1"
                 >
-                  <span className="min-w-0 truncate text-xs text-[var(--foreground)]" title={ability.label}>
+                  <span className="min-w-0 truncate text-xs text-[var(--foreground)]" title={rt(ability.label)}>
                     {/* A phone's row is narrow: the short name there, the full one where it fits. */}
-                    <span className="sm:hidden">{ability.short ?? ability.label}</span>
+                    <span className="sm:hidden">{rt(ability.short ?? ability.label)}</span>
                     <span className="hidden sm:inline">{ability.label}</span>
                   </span>
                   {control}
@@ -1351,14 +1636,14 @@ export function RulesetSheetBuilder({
           const assigned = saved.priorities?.[group.id];
           return (
             <fieldset key={group.id} className="min-w-0 space-y-2">
-              <legend className="text-xs font-semibold text-[var(--foreground)]">{group.label}</legend>
+              <legend className="text-xs font-semibold text-[var(--foreground)]">{rt(group.label)}</legend>
               {current.priorities && (
                 <label className={labelClass}>
-                  {t("ui.rulesets.builder.priorityFor", { name: group.label })}
+                  {t("ui.rulesets.builder.priorityFor", { name: rt(group.label) })}
                   <select
                     className={inputClass}
                     value={assigned ?? ""}
-                    aria-label={t("ui.rulesets.builder.priorityFor", { name: group.label })}
+                    aria-label={t("ui.rulesets.builder.priorityFor", { name: rt(group.label) })}
                     onChange={(event) => {
                       const priorities = { ...saved.priorities };
                       if (event.target.value === "") delete priorities[group.id];
@@ -1398,7 +1683,7 @@ export function RulesetSheetBuilder({
                     "ability" in target
                       ? abilityLabel(target.ability)
                       : "field" in target
-                        ? (definition.sheet.fields.find((field) => field.id === target.field)?.label ?? target.field)
+                        ? rt(definition.sheet.fields.find((field) => field.id === target.field)?.label ?? target.field)
                         : "skill" in target
                           ? skillLabel(target.skill)
                           : "save" in target
@@ -1504,17 +1789,17 @@ export function RulesetSheetBuilder({
     const targetOf = (target: RulesetBuilderRatingTarget): { label: string; value: unknown } => {
       if ("ability" in target)
         return {
-          label: definition.sheet.abilities.find((each) => each.id === target.ability)?.label ?? target.ability,
+          label: rt(definition.sheet.abilities.find((each) => each.id === target.ability)?.label ?? target.ability),
           value: build.abilities[target.ability],
         };
       if ("field" in target)
         return {
-          label: definition.sheet.fields.find((each) => each.id === target.field)?.label ?? target.field,
+          label: rt(definition.sheet.fields.find((each) => each.id === target.field)?.label ?? target.field),
           value: build.fields[target.field],
         };
       const id = "skill" in target ? target.skill : "save" in target ? target.save : target.bonus;
       const entry = [...definition.sheet.skills, ...definition.sheet.saves].find((each) => each.id === id);
-      return { label: entry?.label ?? id, value: undefined };
+      return { label: rt(entry?.label ?? id), value: undefined };
     };
     return (
       <div className="space-y-3">
@@ -1522,7 +1807,7 @@ export function RulesetSheetBuilder({
           {pool.budget === null
             ? t("ui.rulesets.builder.spendNotConfigured")
             : t("ui.rulesets.builder.spendPool", {
-                name: spec.label,
+                name: rt(spec.label),
                 budget: pool.budget,
                 spent: pool.spent,
                 credit: pool.credit,
@@ -1566,14 +1851,14 @@ export function RulesetSheetBuilder({
             .map((row) => (
               <div key={row.stepId + "/" + row.offer.id} className="space-y-1.5 py-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="min-w-0 text-xs text-[var(--foreground)]">{row.offer.label}</span>
+                  <span className="min-w-0 text-xs text-[var(--foreground)]">{rt(row.offer.label)}</span>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       className={buttonClass}
                       disabled={!row.purchases.length}
                       onClick={() => act(row.offer.id, "refund", row.stepId)}
-                      aria-label={t("ui.rulesets.builder.spendRefundFor", { name: row.offer.label })}
+                      aria-label={t("ui.rulesets.builder.spendRefundFor", { name: rt(row.offer.label) })}
                     >
                       {t("ui.rulesets.builder.spendRefund", { cost: row.purchases.at(-1)?.paid ?? 0 })}
                     </button>
@@ -1582,7 +1867,7 @@ export function RulesetSheetBuilder({
                       className={buttonClass}
                       disabled={!row.canBuy}
                       onClick={() => act(row.offer.id, "buy", row.stepId)}
-                      aria-label={t("ui.rulesets.builder.spendBuyFor", { name: row.offer.label })}
+                      aria-label={t("ui.rulesets.builder.spendBuyFor", { name: rt(row.offer.label) })}
                     >
                       {row.offer.exchange
                         ? t("ui.rulesets.builder.spendTrade", {
@@ -1605,7 +1890,7 @@ export function RulesetSheetBuilder({
                         className={buttonClass}
                         disabled={!row.canReduce}
                         onClick={() => act(row.offer.id, "reduce", row.stepId)}
-                        aria-label={t("ui.rulesets.builder.spendReduceFor", { name: row.offer.label })}
+                        aria-label={t("ui.rulesets.builder.spendReduceFor", { name: rt(row.offer.label) })}
                       >
                         {t("ui.rulesets.builder.spendReduce", { cost: row.reduce?.paid ?? "?" })}
                       </button>
@@ -1707,7 +1992,7 @@ export function RulesetSheetBuilder({
       }
     }
     const fixed = [...named.values()].map(({ label, tier }) =>
-      rank(tier) > 1 ? `${label} (${tiers[rank(tier)]!.label})` : label,
+      rank(tier) > 1 ? `${label} (${rt(tiers[rank(tier)]!.label)})` : label,
     );
     return (
       <div className="space-y-2">
@@ -1750,8 +2035,8 @@ export function RulesetSheetBuilder({
         <ul className="space-y-1">
           {gear.map((gear) => (
             <li key={gear.id} className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs">
-              <span className="font-semibold text-[var(--foreground)]">{gear.label}</span>
-              {gear.summary && <span className="ml-1 text-[var(--muted-foreground)]">{gear.summary}</span>}
+              <span className="font-semibold text-[var(--foreground)]">{rt(gear.label)}</span>
+              {gear.summary && <span className="ml-1 text-[var(--muted-foreground)]">{rt(gear.summary)}</span>}
             </li>
           ))}
         </ul>
@@ -1771,6 +2056,8 @@ export function RulesetSheetBuilder({
   // fields step asks for is left out while it still stands at its default, so ten class levels at 0
   // never crowd the scores.
   const summary = definition.gm.sheetSummary;
+  const restingPools = outsideGame ? listRulesetLivePools(definition, build) : [];
+  const poolLevels = outsideGame ? rulesetPoolLevels(definition, build, evaluated) : {};
   const fieldById = new Map(definition.sheet.fields.map((field) => [field.id, field]));
   const blankFields = defaultRulesetSheetBuild(definition).fields;
   const shownFields = [
@@ -1789,7 +2076,7 @@ export function RulesetSheetBuilder({
       const value = build.fields[id];
       if (!field || value === undefined || value === "" || isRulesetItemHidden(field, build, definition)) return [];
       if (!always && field.type === "number" && value === blankFields[id]) return [];
-      const text = field.type === "enum" ? (field.valueLabels?.[String(value)] ?? String(value)) : String(value);
+      const text = field.type === "enum" ? rt(field.valueLabels?.[String(value)] ?? String(value)) : String(value);
       return [{ id, label: field.label, text }];
     });
   const shownDerived = summary.derived.flatMap((id) => {
@@ -1804,11 +2091,11 @@ export function RulesetSheetBuilder({
     <div className="space-y-3">
       <nav aria-label={t("ui.rulesets.builder.steps")}>
         <ol className="flex flex-wrap gap-1.5">
-          {steps.map((each, index) => {
+          {asked.map((each, index) => {
             const left = remaining[each.id] ?? 0;
             // A step is said to be done only once every step before it is: one that has nothing to
             // choose yet because its choices come from a class not picked is waiting, not finished.
-            const waiting = steps.slice(0, index).some((before) => (remaining[before.id] ?? 0) > 0);
+            const waiting = asked.slice(0, index).some((before) => (remaining[before.id] ?? 0) > 0);
             return (
               <li key={each.id}>
                 <button
@@ -1817,7 +2104,7 @@ export function RulesetSheetBuilder({
                   onClick={() => setStepId(each.id)}
                   className={`${chipClass} inline-flex items-center gap-1 ${each.id === step.id ? chipOn : chipOff}`}
                 >
-                  {each.label}
+                  {rt(each.label)}
                   {ready && left > 0 ? (
                     <>
                       <span
@@ -1846,7 +2133,7 @@ export function RulesetSheetBuilder({
       {builder.profiles && (
         <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
           {t("ui.rulesets.builder.profile", {
-            name: rulesetBuilderActiveProfile(definition, build)?.label ?? t("ui.rulesets.builder.profileNone"),
+            name: rt(rulesetBuilderActiveProfile(definition, build)?.label ?? t("ui.rulesets.builder.profileNone")),
           })}
         </p>
       )}
@@ -1876,14 +2163,17 @@ export function RulesetSheetBuilder({
         </button>
       )}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem]">
-        <section aria-label={steps.length ? step.label : t("ui.rulesets.builder.steps")} className="min-w-0 space-y-2">
-          {steps.length > 0 && <h4 className="text-xs font-semibold text-[var(--foreground)]">{step.label}</h4>}
+        <section
+          aria-label={steps.length ? rt(step.label) : t("ui.rulesets.builder.steps")}
+          className="min-w-0 space-y-2"
+        >
+          {steps.length > 0 && <h4 className="text-xs font-semibold text-[var(--foreground)]">{rt(step.label)}</h4>}
           {ready && failedRules.some((rule) => rule.step === step.id) && (
             <ul role="status" className="space-y-0.5 text-[0.6875rem] text-[var(--marinara-app-accent-static)]">
               {failedRules
                 .filter((rule) => rule.step === step.id)
                 .map((rule) => (
-                  <li key={rule.id}>{rule.label}</li>
+                  <li key={rule.id}>{rt(rule.label)}</li>
                 ))}
             </ul>
           )}
@@ -1907,6 +2197,8 @@ export function RulesetSheetBuilder({
             allocateStep(step)
           ) : step.kind === "rows" ? (
             rowsStep(step)
+          ) : step.kind === "mark" ? (
+            markStep(step)
           ) : step.kind === "initialize" ? (
             initializeStep(step)
           ) : step.kind === "roll" ? (
@@ -1921,8 +2213,8 @@ export function RulesetSheetBuilder({
           <div className="flex justify-between gap-2 pt-1">
             <button
               type="button"
-              disabled={activeIndex === 0}
-              onClick={() => setStepId(steps[activeIndex - 1]!.id)}
+              disabled={askedIndex === 0}
+              onClick={() => setStepId(asked[askedIndex - 1]!.id)}
               className={buttonClass}
             >
               <ChevronLeft size={12} aria-hidden="true" />
@@ -1930,8 +2222,8 @@ export function RulesetSheetBuilder({
             </button>
             <button
               type="button"
-              disabled={activeIndex >= steps.length - 1}
-              onClick={() => setStepId(steps[activeIndex + 1]!.id)}
+              disabled={askedIndex >= asked.length - 1}
+              onClick={() => setStepId(asked[askedIndex + 1]!.id)}
               className={buttonClass}
             >
               {t("ui.rulesets.builder.next")}
@@ -1949,7 +2241,7 @@ export function RulesetSheetBuilder({
             <dl className="space-y-0.5 text-[0.6875rem]">
               {shownFields.map((entry) => (
                 <div key={entry.id} className="flex justify-between gap-2">
-                  <dt className="min-w-0 break-words text-[var(--muted-foreground)]">{entry.label}</dt>
+                  <dt className="min-w-0 break-words text-[var(--muted-foreground)]">{rt(entry.label)}</dt>
                   <dd className="min-w-0 break-words text-right text-[var(--foreground)]">{entry.text}</dd>
                 </div>
               ))}
@@ -1959,7 +2251,9 @@ export function RulesetSheetBuilder({
             <div className="grid grid-cols-3 gap-1">
               {definition.sheet.abilities.map((ability) => (
                 <div key={ability.id} className="rounded border border-[var(--border)] px-1 py-0.5 text-center">
-                  <div className="text-[0.625rem] text-[var(--muted-foreground)]">{ability.short ?? ability.label}</div>
+                  <div className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {rt(ability.short ?? ability.label)}
+                  </div>
                   <div className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
                     {evaluated.abilityScores[ability.id] ?? ability.default}
                   </div>
@@ -1975,12 +2269,50 @@ export function RulesetSheetBuilder({
               {shownDerived.map((entry) => (
                 <div key={entry.id} className="rounded border border-[var(--border)] px-1.5 py-0.5">
                   <dt className="break-words text-[0.625rem] leading-tight text-[var(--muted-foreground)]">
-                    {entry.label}
+                    {rt(entry.label)}
                   </dt>
                   <dd className="text-xs font-semibold tabular-nums text-[var(--foreground)]">{entry.text}</dd>
                 </div>
               ))}
             </dl>
+          )}
+          {outsideGame && restingPools.length > 0 && (
+            <dl className="grid grid-cols-2 gap-1 text-[0.6875rem]" aria-label={t("ui.rulesets.sheet.pools")}>
+              {restingPools.map((pool) => (
+                <div key={pool.key} className="rounded border border-dashed border-[var(--border)] px-1.5 py-0.5">
+                  <dt className="break-words text-[0.625rem] leading-tight text-[var(--muted-foreground)]">
+                    {rt(pool.label)}
+                    {poolLevels[pool.key] !== undefined &&
+                      ` · ${t("game.ruleset.sheet.poolLevel", { level: poolLevels[pool.key]! })}`}
+                  </dt>
+                  <dd className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                    {/* A tally counts uses (1.801), as the game sheet says it (ship readiness 2026-10-25:
+                        Relentless Rage read "20"). */}
+                    {pool.tally
+                      ? t("game.ruleset.sheet.tallyUsed", { count: 0 })
+                      : pool.start === "empty"
+                        ? t("ui.rulesets.sheet.poolStartsEmpty", { max: pool.max })
+                        : pool.max}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {gearNote && (
+            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("ui.rulesets.sheet.gearInGame")}</p>
+          )}
+          {/* Its attacks as a fight works them out (laptop class builds 2026-10-24): Unarmed Strike,
+              and Martial Arts' Dexterity on a quarterstaff. */}
+          {attacks.length > 0 && (
+            <p className="text-[0.6875rem] text-[var(--foreground)]">
+              <span className="text-[var(--muted-foreground)]">{t("game.ruleset.sheet.attacks")}: </span>
+              {attacks
+                .map(
+                  (attack) =>
+                    `${rt(attack.label)}${attack.toHit !== undefined ? ` ${attack.toHit >= 0 ? "+" : ""}${attack.toHit}` : ""}${attack.damage ? ` (${attack.damage})` : ""}`,
+                )
+                .join(", ")}
+            </p>
           )}
           {(["saves", "skills"] as const).map((what) => {
             const names = trainedNames(what);

@@ -37,12 +37,15 @@ withRulesetSheetEvaluationCache(() => {
   const live = readRulesetLive(definition, build, {});
   const withLive = evaluateRulesetSheet(definition, build, live);
   assert.notEqual(withLive, first, "a read with live values is worked out");
-  assert.notEqual(evaluateRulesetSheet(definition, build, live), withLive, "and worked out again");
+  // The same live values read again may come back from the content memo, which keys on what the
+  // sheet and its live values hold, never on the objects, so it is never stale.
+  assert.deepEqual(evaluateRulesetSheet(definition, build, live), withLive, "and read the same again");
   assert.equal(evaluateRulesetSheet(definition, build), first, "without displacing the live-less one");
 });
 
-// (b) No scope, no memory; a scope that threw is closed all the same.
-assert.notEqual(evaluateRulesetSheet(definition, build), evaluateRulesetSheet(definition, build));
+// (b) No scope, no identity memory (the content memo may still share an equal answer); a scope that
+// threw is closed all the same.
+assert.deepEqual(evaluateRulesetSheet(definition, build), evaluateRulesetSheet(definition, build));
 assert.throws(
   () =>
     withRulesetSheetEvaluationCache(() => {
@@ -51,7 +54,11 @@ assert.throws(
     }),
   /command failed/,
 );
-assert.notEqual(evaluateRulesetSheet(definition, build), evaluateRulesetSheet(definition, build));
+// Closed: a build changed after the failed scope reads its new value, not the scope's old answer.
+const changed = structuredClone(build);
+const before = evaluateRulesetSheet(definition, changed);
+changed.fields.hp_max = 150;
+assert.notDeepEqual(evaluateRulesetSheet(definition, changed), before);
 
 // (c) Health 200 held into CR 2's 27 to 67 inside a scope says 67, not the clone's stale 200.
 const tier = definition.combat!.threat!.tiers.find((entry) => entry.id === "cr_2")!;
@@ -70,7 +77,10 @@ withRulesetSheetEvaluationCache(() => {
 
 // (e) A promise would outlive the scope, so it is refused, and the scope is closed after.
 assert.throws(() => withRulesetSheetEvaluationCache(() => Promise.resolve(1)), /synchronous work only/);
-assert.notEqual(evaluateRulesetSheet(definition, build), evaluateRulesetSheet(definition, build));
+const later = structuredClone(build);
+const earlier = evaluateRulesetSheet(definition, later);
+later.fields.hp_max = 150;
+assert.notDeepEqual(evaluateRulesetSheet(definition, later), earlier);
 withRulesetSheetEvaluationCache(() => {
   assert.throws(() => withRulesetSheetEvaluationCache(() => Promise.resolve(1)), /synchronous work only/);
 });

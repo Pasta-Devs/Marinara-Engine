@@ -884,16 +884,21 @@ try {
   assert.equal((await store.read()).room.round!.phase, "interrupted");
   assert.equal((await store.read()).room.status, "paused");
   assert.equal(await store.beginGeneration(), null, "a failed round is never automatically retried");
+  // The host tries it again (laptop 2026-10-30): the same round, its actions not appended twice.
+  const retried = await store.retry();
+  assert.ok(retried, "an interrupted round the Game Master wrote nothing of is tried again");
+  assert.equal(retried.roundId, completed.claim!.roundId);
+  assert.equal((await store.read()).room.round!.phase, "resolving");
+  assert.equal((await hostChats.listMessages(game.id)).length, 2, "its actions are not written twice");
+  await store.finishGeneration(retried, false);
+  await hostChats.createMessage({ chatId: game.id, role: "assistant", content: "The half-told round" });
+  await assert.rejects(store.retry(), expectCode("busy"), "never once the Game Master wrote some of it");
   await store.resume();
   const next = (await store.read()).room;
   assert.equal(next.round!.number, 2);
   assert.equal(next.participants.find((p) => p.id === hostPlayer.id)!.persona.name, "Changed Captain");
   assert.ok(next.round!.requiredParticipantIds.includes(latePlayer.id));
-  assert.equal(
-    await store.finishGeneration(completed.claim, true),
-    null,
-    "late completion cannot replay an interrupted round",
-  );
+  assert.equal(await store.finishGeneration(retried, true), null, "late completion cannot replay an interrupted round");
   assert.equal((await store.read()).room.round!.number, 2);
   for (let sequence = 3; sequence < 133; sequence++) {
     await store.action(

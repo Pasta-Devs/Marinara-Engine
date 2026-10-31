@@ -280,7 +280,7 @@ for (const [preset, theme] of [
           inventory,
           // Phones show the Inventory button as its icon alone.
           () => narration.locator("button:has(> svg.lucide-package)").filter({ visible: true }).first().click(),
-          () => inventory.getByRole("button", { name: "Close", exact: true }).click(),
+          () => inventory.getByRole("button", { name: "Close inventory", exact: true }).click(),
         ],
       ];
       const isSection = (name: string) => sections.some(([section]) => section === name);
@@ -305,7 +305,7 @@ for (const [preset, theme] of [
             background: getComputedStyle(section).getPropertyValue("--mari-game-bg"),
           };
         });
-        await inventory.getByRole("button", { name: "Close", exact: true }).click();
+        await inventory.getByRole("button", { name: "Close inventory", exact: true }).click();
         await expect(inventory).toBeHidden();
         return tints;
       };

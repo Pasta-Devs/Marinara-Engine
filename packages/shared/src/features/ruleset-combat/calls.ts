@@ -18,6 +18,9 @@ import type { RulesetDefinition } from "../../schemas/ruleset.schema.js";
 /** The most a fight holds once anybody has been called into it. */
 export const RULESET_CALLED_FIGHT_MAX = 40;
 
+/** The most one call brings (1.403). */
+export const RULESET_CALL_MAX = 32;
+
 /**
  * Calls `count` of the action's creatures into the fight, beside or among `cells`: the ids of those
  * who came. None come once the fight holds as many as it may.
@@ -30,11 +33,14 @@ export function rulesetCallCreatures(
   count: number,
   roll: RulesetCombatRoller,
   cells?: readonly RulesetCombatCell[],
+  /** Only on `cells` (1.621): none set down anywhere else, so those with no cell left do not come. */
+  only = false,
 ): string[] {
   const calls = action.calls;
   if (!calls) return [];
   const room = Math.max(0, RULESET_CALLED_FIGHT_MAX - state.combatants.length);
-  const coming = Math.min(Math.max(0, Math.floor(count)), room, 8);
+  // As many as Conjure Animals calls at 9th level (1.403): eight, four times over.
+  const coming = Math.min(Math.max(0, Math.floor(count)), room, RULESET_CALL_MAX);
   if (coming === 0) return [];
   const same = state.combatants.filter((one) => one.calledBy && one.name.startsWith(calls.name)).length;
   const entries = Array.from({ length: coming }, (_, index) => {
@@ -63,7 +69,7 @@ export function rulesetCallCreatures(
         const fit = rulesetFitCell(grid, cell, 1, taken);
         return fit?.x === cell.x && fit.y === cell.y;
       });
-      const at = inside ?? (near ? rulesetFitCell(grid, near, 1, taken) : null);
+      const at = inside ?? (near && !only ? rulesetFitCell(grid, near, 1, taken) : null);
       if (!at) continue;
       placements[entry.id] = at;
       taken.add(`${at.x},${at.y}`);
@@ -89,8 +95,17 @@ export function rulesetCallCreatures(
     const placed = built.combatants.filter((one) => placements[one.id] && rulesetPositionOf(one));
     for (const combatant of [...placed].sort((a, b) => rulesetSpanOf(b) - rulesetSpanOf(a))) {
       const span = rulesetSpanOf(combatant);
-      const at = rulesetFitCell(grid, { x: combatant.x!, y: combatant.y! }, span, taken);
-      if (!at) {
+      const inArea = (at: { x: number; y: number }) => (cells ?? []).some((cell) => cell.x === at.x && cell.y === at.y);
+      let at = rulesetFitCell(grid, { x: combatant.x!, y: combatant.y! }, span, taken);
+      // Where the nearest room falls outside the area, any room inside it, in the area's own order
+      // (Ruleset 0.435 proof 2026-10-25: of Giant Insect's three Large spiders, one was dropped).
+      if (only && (!at || !inArea(at)))
+        at =
+          (cells ?? []).find((cell) => {
+            const fit = rulesetFitCell(grid, cell, span, taken);
+            return fit?.x === cell.x && fit.y === cell.y;
+          }) ?? null;
+      if (!at || (only && !inArea(at))) {
         delete placements[combatant.id];
         continue;
       }
@@ -105,7 +120,20 @@ export function rulesetCallCreatures(
     if (grid && !placements[combatant.id]) continue;
     combatant.side = caller.side;
     combatant.calledBy = caller.id;
+    // What called it (1.533), for a zone that sets aside what entries of its catalog call.
+    if (action.catalog) combatant.calledFrom = action.catalog;
     combatant.creature = { ...calls.creature };
+    // Called kin that cannot call kin of their own (1.446).
+    if (calls.cantCall) {
+      combatant.actions = combatant.actions.filter(
+        (one) =>
+          !one.calls &&
+          !one.callsOf &&
+          !one.callChoice &&
+          !one.modes?.some((mode) => mode.call) &&
+          !(one.switches && "called" in one.switches),
+      );
+    }
     state.combatants.push(combatant);
     came.push(combatant);
   }
@@ -113,6 +141,11 @@ export function rulesetCallCreatures(
   // this round's turn has passed is next round's.
   const order = state.order;
   for (const combatant of came) {
+    // An object takes no turn (1.479).
+    if (calls.turnless) {
+      combatant.turnless = true;
+      continue;
+    }
     let place: number;
     if (calls.after) {
       combatant.initiative = caller.initiative;

@@ -22,6 +22,7 @@ import {
   rulesetCombatant,
   rulesetCombatOptions,
   rulesetSheetBuildSchema,
+  rulesetThingsToDrop,
   supportedCapabilityApi,
   type RulesetCatalogEntry,
   type RulesetCatalogItem,
@@ -498,6 +499,81 @@ try {
     assert.equal((conjured[0]!.event as { item: string }).item, "Flame Tongue", "the 2d6 one");
   }
 
+  // ── Let fall, and gone once left far off for a minute (1.480) ──
+  {
+    const conjures = (pact.mechanics as { conjures: Record<string, unknown> }).conjures;
+    conjures.vanishes = { beyond: 5, rounds: 10 };
+    try {
+      parsed(fiveE());
+      const state = conjure(fight([pact], 16, [], true), "Longsword").state;
+      const lock = rulesetCombatant(state, "lock")!;
+      const things = rulesetThingsToDrop(lock, { slots: ["hands"] });
+      assert.deepEqual(
+        things.map((one) => [one.key, one.label]),
+        [[`conjured:${Object.keys(lock.conjured!)[0]}`, "Longsword"]],
+        "a pact weapon falls from the hand",
+      );
+      assert.deepEqual(rulesetThingsToDrop(lock, { tags: ["magic"] }), [], "it is no magic item");
+      lock.dropped = things;
+      assert.ok(
+        !rulesetCombatOptions(definition, state, "lock").some(
+          (one) => one.label === "Longsword" && !one.pickUp && !one.dismiss,
+        ),
+        "not struck with where it lies",
+      );
+      assert.ok(
+        rulesetCombatOptions(definition, state, "lock").some((one) => one.dismiss),
+        "still dismissed",
+      );
+      // Picked up again from beside it.
+      const pickUp = rulesetCombatOptions(definition, state, "lock").find((one) => one.pickUp)!;
+      const back = applyRulesetCombatChoice(
+        definition,
+        structuredClone(state),
+        { actorId: "lock", optionId: pickUp.id, targetIds: [] },
+        () => 15,
+      );
+      assert.ok(
+        rulesetCombatOptions(definition, back.state, "lock").some(
+          (one) => one.label === "Longsword" && !one.pickUp && !one.dismiss,
+        ),
+      );
+      // Walked away from, it lasts its minute and no more.
+      lock.x = 8;
+      let at = state;
+      const round = () => {
+        at.turn = at.order.indexOf("b");
+        at = applyRulesetCombatChoice(
+          definition,
+          at,
+          { actorId: "b", optionId: "end-turn", targetIds: [] },
+          () => 15,
+        ).state;
+        assert.equal(at.order[at.turn], "lock");
+      };
+      for (let count = 0; count < 10; count += 1) round();
+      const made = (one: RulesetEncounterState) => Object.keys(rulesetCombatant(one, "lock")!.conjured ?? {}).length;
+      assert.equal(made(at), 1, "ten turns far off: still there");
+      round();
+      assert.equal(made(at), 0, "gone after a minute");
+      assert.deepEqual(rulesetCombatant(at, "lock")!.dropped ?? [], [], "from where it lay, too");
+      // Back beside it, the count starts over.
+      const near = conjure(fight([pact], 16, [], true), "Longsword").state;
+      const holder = rulesetCombatant(near, "lock")!;
+      holder.dropped = rulesetThingsToDrop(holder, { slots: ["hands"] });
+      holder.x = 8;
+      at = near;
+      for (let count = 0; count < 6; count += 1) round();
+      rulesetCombatant(at, "lock")!.x = 3;
+      round();
+      rulesetCombatant(at, "lock")!.x = 8;
+      for (let count = 0; count < 6; count += 1) round();
+      assert.equal(made(at), 1, "the minute counts from when it was last near");
+    } finally {
+      delete conjures.vanishes;
+    }
+  }
+
   // ── Refusals ──
   {
     const withFeature = (mechanics: Record<string, unknown>) =>
@@ -549,6 +625,15 @@ try {
       assert.equal(getCapabilityPackageInstallIssue(manifest(305) as never, doc), gate, entry.id);
       assert.notEqual(getCapabilityPackageInstallIssue(manifest(306) as never, doc), gate);
     }
+    // Gone once left far off (1.480).
+    const vanishing = JSON.parse(fiveEText) as Record<string, any>;
+    const left = structuredClone(pact) as unknown as { mechanics: { conjures: Record<string, unknown> } };
+    left.mechanics.conjures.vanishes = { beyond: 5, rounds: 10 };
+    vanishing.catalogs.push({ id: "features", label: "Features", feeds: ["features"], entries: [left] });
+    const later =
+      "A ruleset whose conjured weapons are gone once left lying far off (conjures vanishes) requires schemaVersion 2 and capabilityApi 1.480 or newer";
+    assert.equal(getCapabilityPackageInstallIssue(manifest(479) as never, vanishing), later);
+    assert.notEqual(getCapabilityPackageInstallIssue(manifest(480) as never, vanishing), later);
   }
 
   console.log(

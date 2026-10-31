@@ -2099,3 +2099,23 @@ export function parseGameStateRow(row: Record<string, unknown>): GameState {
     createdAt: row.createdAt as string,
   };
 }
+
+/** A turn's live sheet state laid over what the player changed while it was being written. A rest or
+ *  a slot pressed back on the sheet during a reply lands on the row the turn started from, and the
+ *  turn's own row, built from the state before it, would otherwise put the old numbers back
+ *  (laptop playtest 2026-10-27). Per character: one the turn left alone takes the player's edit; one
+ *  the turn changed keeps the turn's, which already started from the sheet the Game Master saw. */
+export function rebaseTurnRulesetLive<T>(
+  start: Readonly<Record<string, T>>,
+  after: Readonly<Record<string, T>>,
+  now: Readonly<Record<string, T>>,
+): Record<string, T> {
+  const next = { ...after };
+  for (const name of new Set([...Object.keys(start), ...Object.keys(now)])) {
+    if (isDeepStrictEqual(start[name], now[name])) continue;
+    if (!isDeepStrictEqual(start[name], after[name])) continue;
+    if (now[name] === undefined) delete next[name];
+    else next[name] = now[name]!;
+  }
+  return next;
+}

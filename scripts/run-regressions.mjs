@@ -40,6 +40,10 @@ export function regressionTimeoutMs(relativePath) {
   if (relativePath === 'scripts/regressions/chat-request-validation.regression.ts') return 90_000;
   // Eighteen blink and talk pictures lined up with their face at full size: about 10 s, more on a busy runner.
   if (relativePath === 'scripts/regressions/avatar-variant-composite.regression.ts') return 120_000;
+  // Every cap of the ruleset schema proved at its edge, against the whole 5e ruleset: about 40 s.
+  if (relativePath === 'scripts/regressions/game-ruleset-caps.regression.ts') return 120_000;
+  // Every language's ruleset strings read and drawn against the whole 5e ruleset: about 60 s alone.
+  if (relativePath === 'scripts/regressions/game-ruleset-locales.regression.ts') return 120_000;
   return FILE_TIMEOUT_MS;
 }
 

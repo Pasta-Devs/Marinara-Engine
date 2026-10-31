@@ -1,10 +1,12 @@
 // The log of a fight on a board, under the board: newest first, each round named once in a column of
 // its own, names in their side's colour and the arithmetic of every roll in a chip. The sentences are
 // the plain log's own (`rulesetCombatEventLine`); only how they are drawn is new.
+import { useRulesetText } from "../../lib/ruleset-text";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DirectedRulesetView, RulesetDefinition } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { rulesetRichLogLines, rulesetWindowLineSeq, type RulesetLogPiece } from "../../lib/ruleset-combat-log-rich";
+import { rulesetFightNoteText } from "../../lib/ruleset-combat-log";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 
@@ -32,7 +34,11 @@ export function RulesetCombatLog({
   const debugMode = useUIStore((state) => state.debugMode);
   // Built fresh from the events on every view, as the plain log is, so a fight read back or a
   // language changed mid-battle prints in the language on screen now.
-  const lines = useMemo(() => rulesetRichLogLines(definition, view, t, debugMode), [definition, view, t, debugMode]);
+  const text = useRulesetText();
+  const lines = useMemo(
+    () => rulesetRichLogLines(definition, view, t, debugMode, text),
+    [definition, view, t, debugMode, text],
+  );
   const newestFirst = useMemo(() => [...lines].reverse(), [lines]);
   const asking = rulesetWindowLineSeq(view);
   const box = useRef<HTMLDivElement>(null);
@@ -74,7 +80,7 @@ export function RulesetCombatLog({
         {adjustmentsOpen && view.adjustments.length > 0 && (
           <ul className="m-0 mb-1.5 list-none space-y-1 rounded-md border border-[var(--border)] p-2 text-xs text-[var(--muted-foreground)]">
             {view.adjustments.map((line) => (
-              <li key={line}>{line}</li>
+              <li key={line}>{rulesetFightNoteText(line, t, text)}</li>
             ))}
           </ul>
         )}

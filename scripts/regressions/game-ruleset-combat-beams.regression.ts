@@ -196,6 +196,21 @@ try {
     assert.equal(hits(once).filter((one) => one.startsWith("a:")).length, 1, "the same one once");
   }
 
+  // ── A beam at one an earlier beam dropped goes at the next still up, or nowhere (laptop playtest
+  //    2026-10-25: Magic Missile darts landing on a downed foe) ──
+  {
+    const frail = fight(11);
+    rulesetCombatant(frail, "a")!.health.value = 1;
+    const step = cast(frail, "Eldritch Blast", ["a", "a", "b"]);
+    assert.equal(refused(step), undefined, JSON.stringify(step.events));
+    const dealt = hits(step);
+    assert.equal(dealt.filter((one) => one.startsWith("a:")).length, 1, `one beam drops A: ${dealt}`);
+    assert.equal(dealt.filter((one) => one.startsWith("b:")).length, 2, "the second goes at B");
+    const alone = fight(11);
+    rulesetCombatant(alone, "a")!.health.value = 1;
+    assert.equal(hits(cast(alone, "Eldritch Blast", ["a", "a"])).length, 1, "with nobody else up, it goes nowhere");
+  }
+
   // ── What amends it rides on every beam ──
   {
     const plain = hits(cast(fight(5), "Eldritch Blast", ["a", "a"]));

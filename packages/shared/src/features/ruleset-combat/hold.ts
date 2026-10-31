@@ -21,6 +21,7 @@
 
 import {
   RULESET_CATALOG_ROW_KEY,
+  RULESET_STANDS_FOR_ROW_KEY,
   type RulesetCatalogEntriesById,
   type RulesetCatalogEntry,
   type RulesetCombatThreatTier,
@@ -31,10 +32,16 @@ import {
   type RulesetSheetBuild,
 } from "../../schemas/ruleset.schema.js";
 import { combatAiHash, type CombatTactics } from "../combat-ai.js";
-import { readRulesetLive } from "../rulesets/live-state.js";
+import { applyRulesetSheetOp, planRulesetUse, readRulesetLive } from "../rulesets/live-state.js";
 import { sheetFieldMatchTexts } from "../rulesets/scaled-rows.js";
 import { resolveRulesetValueRef } from "../rulesets/sheet-math.js";
-import { heaviestRider, RULESET_CLAMP_HEADROOM, smallerDie } from "./creatures.js";
+import {
+  heaviestRider,
+  RULESET_CLAMP_HEADROOM,
+  rulesetActionAverage,
+  rulesetStepAverageTimes,
+  smallerDie,
+} from "./creatures.js";
 import { rulesetAverageAmount, rulesetAverageDamage } from "./dice.js";
 import { rulesetCostSteps, rulesetPoolFamily } from "./options.js";
 import type { RulesetCombatAction, RulesetCombatAmount, RulesetCombatant } from "./types.js";
@@ -112,6 +119,42 @@ function entryFor(
   return null;
 }
 
+/**
+ * A Game Master's sheet with each of `names` on it as the catalog entry of that name (laptop playtest
+ * 2026-10-25: an invented cult mage given a Counterspell reaction, which this ruleset has as a spell,
+ * never countered): a row naming it on the first list a catalog holding it feeds, unless a row there
+ * names it already. Returns the names it found nowhere, for the caller to say.
+ */
+export function rulesetProposedSheetWithEntries(
+  definition: RulesetDefinition,
+  proposed: RulesetSheetBuild,
+  names: readonly string[],
+  catalogs: RulesetCatalogEntriesById,
+): { sheet: RulesetSheetBuild; missing: string[] } {
+  const lists: Record<string, Array<Record<string, unknown>>> = Object.fromEntries(
+    Object.entries(proposed.lists ?? {}).map(([id, rows]) => [id, Array.isArray(rows) ? [...rows] : []]),
+  );
+  const missing: string[] = [];
+  for (const name of names) {
+    const placed = definition.sheet.lists.some((list) => {
+      const nameColumn = nameColumnOf(list);
+      if (!nameColumn || !(definition.catalogs ?? []).some((catalog) => catalog.feeds?.includes(list.id))) return false;
+      const found = entryFor(definition, list, { [nameColumn.id]: name }, catalogs);
+      if (!found) return false;
+      const rows = (lists[list.id] ??= []);
+      const mark = `${found.catalogId}/${found.entry.id}`;
+      const already = rows.some(
+        (row) =>
+          row[RULESET_CATALOG_ROW_KEY] === mark || entryFor(definition, list, row, catalogs)?.entry === found.entry,
+      );
+      if (!already) rows.push({ [nameColumn.id]: name });
+      return true;
+    });
+    if (!placed) missing.push(name);
+  }
+  return { sheet: { ...proposed, lists: lists as RulesetSheetBuild["lists"] }, missing };
+}
+
 /** The rows an entry writes onto OTHER lists than the one it was named or filled in on, such as the
  *  counter that tracks a feature beside the feature itself, added once each, the way picking the
  *  entry adds them to a character's sheet. Without them a feature whose uses a counter tracks
@@ -130,7 +173,11 @@ function addCompanionRows(
     if (!list) continue;
     const rows = (sheet.lists[row.list] ??= []);
     if (rows.length >= list.maxItems || rows.some((existing) => existing[RULESET_CATALOG_ROW_KEY] === mark)) continue;
-    rows.push({ ...row.values, [RULESET_CATALOG_ROW_KEY]: mark });
+    rows.push({
+      ...row.values,
+      [RULESET_CATALOG_ROW_KEY]: mark,
+      ...(row.standsFor ? { [RULESET_STANDS_FOR_ROW_KEY]: row.standsFor } : {}),
+    });
   }
 }
 
@@ -206,6 +253,41 @@ export function readProposedRulesetSheet(
     sheet.fields[id] = kept;
   }
 
+  // An entry the sheet names by a level it sets (5e's level_cleric, which choosing Cleric sets) sets
+  // the rest of what choosing it sets too, where the sheet left it out (laptop playtest 2026-10-25: a
+  // cleric 4 written with no spellcasting ability had no slots and a save DC of 10). One per group of
+  // entries a sheet takes only one of, the highest level first.
+  const named: Array<{ entry: RulesetCatalogEntry; by: string[]; level: number }> = [];
+  for (const entries of Object.values(catalogs)) {
+    for (const entry of entries) {
+      if (!entry.exclusive || !entry.grants?.sets) continue;
+      const by = Object.entries(entry.grants.sets).flatMap(([id, value]) =>
+        typeof value === "number" && value > 0 && typeof proposed.fields?.[id] === "number" && id in sheet.fields
+          ? [id]
+          : [],
+      );
+      if (by.length > 0) named.push({ entry, by, level: Math.max(...by.map((id) => sheet.fields[id] as number)) });
+    }
+  }
+  // Each level read once, by the first entry that sets it (a Cleric, never a Cleric taken second too).
+  const taken = new Set<string>();
+  for (const { entry, by } of named.sort((a, b) => b.level - a.level)) {
+    if (taken.has(`group:${entry.exclusive}`) || by.some((id) => taken.has(id))) continue;
+    taken.add(`group:${entry.exclusive}`);
+    for (const id of by) taken.add(id);
+    const filled: string[] = [];
+    for (const [id, value] of Object.entries(entry.grants!.sets!)) {
+      if (proposed.fields?.[id] !== undefined || sheet.fields[id] !== undefined) continue;
+      const field = declared.fields.find((candidate) => candidate.id === id);
+      const kept = field ? fitted(field, value) : undefined;
+      if (kept === undefined) continue;
+      sheet.fields[id] = kept;
+      filled.push(field!.label);
+    }
+    if (filled.length > 0)
+      adjusted.push(`${listed(filled)} set as ${entry.label} sets ${filled.length === 1 ? "it" : "them"}.`);
+  }
+
   const nothing: string[] = [];
   const picked: Array<{ catalogId: string; entry: RulesetCatalogEntry; listId: string }> = [];
   for (const [listId, rows] of Object.entries(proposed.lists ?? {})) {
@@ -225,7 +307,8 @@ export function readProposedRulesetSheet(
         if (value !== undefined) own[column.id] = value;
       }
       const found = entryFor(definition, list, row as Record<string, unknown>, catalogs);
-      const entryValues = found?.entry.rows?.find((entryRow) => entryRow.list === list.id)?.values ?? {};
+      const entryRow = found?.entry.rows?.find((candidate) => candidate.list === list.id);
+      const entryValues = entryRow?.values ?? {};
       const nameColumn = nameColumnOf(list);
       // The Game Master's own values on top of the entry's, except its name, which is the entry's:
       // "ember lance" is Ember Lance, and the sheet's `use` command knows it by that name.
@@ -237,6 +320,7 @@ export function readProposedRulesetSheet(
               ? { [nameColumn.id]: entryValues[nameColumn.id]! }
               : {}),
             [RULESET_CATALOG_ROW_KEY]: `${found.catalogId}/${found.entry.id}`,
+            ...(entryRow?.standsFor ? { [RULESET_STANDS_FOR_ROW_KEY]: entryRow.standsFor } : {}),
           }
         : own;
       if (list.columns.some((column) => column.required && built[column.id] === undefined)) continue;
@@ -298,19 +382,32 @@ function entryOpenTo(
   catalogId: string,
   entry: RulesetCatalogEntry,
   sheet: RulesetSheetBuild,
+  /** The whole catalog, when a value it never names opens all of it: a sheet's own invention (an
+   *  "Orc War-Shaman") is no class of the ruleset's to hold its spells to. */
+  everything?: readonly RulesetCatalogEntry[],
 ): boolean {
+  const valuesOf = (one: RulesetCatalogEntry, filterId: string) => {
+    const value = one.filters?.[filterId];
+    return (Array.isArray(value) ? value : value === undefined ? [] : [value]).map((candidate) =>
+      String(candidate).trim().toLowerCase(),
+    );
+  };
   return boundFilters(definition, catalogId).every(({ filter, field }) => {
     const texts = sheetFieldMatchTexts(field, sheet.fields[field.id]).map((text) => text.trim().toLowerCase());
-    const value = entry.filters?.[filter.id];
-    const values = Array.isArray(value) ? value : value === undefined ? [] : [value];
-    return values.some((candidate) => texts.includes(String(candidate).trim().toLowerCase()));
+    if (valuesOf(entry, filter.id).some((candidate) => texts.includes(candidate))) return true;
+    // No value at all (an invented Cult Necromancer with no Class) holds it to nothing either.
+    return (
+      !!everything && !everything.some((one) => valuesOf(one, filter.id).some((candidate) => texts.includes(candidate)))
+    );
   });
 }
 
 /**
  * Only the entries the ruleset opens to this sheet: a row out of a catalog whose filters are bound
  * to a sheet field (5e's spells by class) is kept only when the sheet's own value opens it. Rows not
- * out of such a catalog are untouched. What went is said, and why.
+ * out of such a catalog are untouched, and so is every row of one whose value the catalog never
+ * names (laptop playtest 2026-10-24: an invented "Orc War-Shaman" lost Bane, Cure Wounds and Guiding
+ * Bolt). What went is said, and why.
  */
 export function restrictRulesetSheetEntries(
   definition: RulesetDefinition,
@@ -325,7 +422,7 @@ export function restrictRulesetSheetEntries(
       if (typeof mark !== "string") return true;
       const catalogId = mark.slice(0, mark.indexOf("/"));
       const entry = catalogs[catalogId]?.find((candidate) => candidate.id === mark.slice(mark.indexOf("/") + 1));
-      if (!entry || entryOpenTo(definition, catalogId, entry, sheet)) return true;
+      if (!entry || entryOpenTo(definition, catalogId, entry, sheet, catalogs[catalogId])) return true;
       const reason = boundFilters(definition, catalogId)
         .map(({ field }) => {
           const value = sheet.fields[field.id] ?? field.default;
@@ -370,6 +467,12 @@ const LEANING: Record<CombatTactics["adjective"], Partial<Record<Nature, number>
   patient: { control: 2, meta: 2 },
   methodical: { control: 2.5, meta: 1.5 },
   coordinated: { support: 2, control: 2 },
+  fanatical: { offense: 3, support: 1.5 },
+  arrogant: { offense: 2.5 },
+  territorial: { offense: 2, control: 2 },
+  cruel: { control: 2.5, offense: 2 },
+  honourable: { offense: 2, support: 1.5, meta: 0.5 },
+  hungry: { offense: 2.5, control: 2 },
 };
 
 const COMPETENCE = ["novice", "trained", "veteran", "master"] as const;
@@ -462,10 +565,12 @@ export function fillRulesetSheetChoices(
         }
         const { catalogId, entry } = pool[picked]!;
         pool = pool.filter((_, index) => index !== picked);
+        const own = entry.rows?.find((row) => row.list === list.id);
         rows.push({
-          ...(entry.rows?.find((row) => row.list === list.id)?.values ?? {}),
+          ...(own?.values ?? {}),
           [ready]: true,
           [RULESET_CATALOG_ROW_KEY]: `${catalogId}/${entry.id}`,
+          ...(own?.standsFor ? { [RULESET_STANDS_FOR_ROW_KEY]: own.standsFor } : {}),
         });
         addCompanionRows(definition, sheet, catalogId, entry, list.id);
         filled.push(entry.label);
@@ -496,6 +601,360 @@ function healthField(definition: RulesetDefinition, poolId: string): Extract<Rul
   return field?.type === "number" ? field : null;
 }
 
+/** How many entries paid for out of a pool family (5e's leveled spells, off its spell slots) an
+ *  invented caster keeps (Alyssa, 2026-10-25): enough for one role, "unless it's supposed to be some
+ *  legendary Elminster or Daurgothoth level entity or literal Deity". */
+export const RULESET_INVENTED_CASTER_MOST = 6;
+
+/**
+ * An invented caster sent with none of the pools its spells are paid out of (5e's spell slots: a
+ * sheet with no class level, laptop playtest 2026-10-25, cast Chill Touch for 11 rounds with its
+ * leveled spells dropped) has the one number field that opens them raised, a step at a time, until
+ * as many of its spells as that field can pay for are paid for, at the lowest value that does. Of
+ * several such fields, the one that pays for the most, then the one whose label the sheet names most
+ * (its class "Wizard", its spells' classes: so a wizard's slots come back as a wizard's do), then the
+ * lowest. A sheet with any of those
+ * pools is the Game Master's own and never touched. What changed is said.
+ */
+export function raiseRulesetCasterPools(
+  definition: RulesetDefinition,
+  proposed: RulesetSheetBuild,
+  catalogs: RulesetCatalogEntriesById,
+): { sheet: RulesetSheetBuild; adjusted: string[] } {
+  const pools = definition.sheet.live.pools;
+  const family = (id: string) => pools.find((pool) => pool.id === id)?.group;
+  const familyOf = new Map(pools.flatMap((pool) => (pool.group !== undefined ? [[pool.id, pool.group]] : [])));
+  // The rows paid out of a family, with the family each is paid out of.
+  const wanted: Array<{ label: string; group: string }> = [];
+  for (const rows of Object.values(proposed.lists)) {
+    for (const row of rows) {
+      const mark = row[RULESET_CATALOG_ROW_KEY];
+      if (typeof mark !== "string") continue;
+      const entry = catalogs[mark.slice(0, mark.indexOf("/"))]?.find(
+        (candidate) => candidate.id === mark.slice(mark.indexOf("/") + 1),
+      );
+      if (!entry?.mechanics) continue;
+      const asked = planRulesetUse(definition, proposed, {}, catalogs, { op: "use", name: entry.label });
+      const spent = asked.ok
+        ? asked.steps.find((step) => step.op.op === "spend" && familyOf.has(step.op.pool))
+        : undefined;
+      if (spent) wanted.push({ label: entry.label, group: family((spent.op as { pool: string }).pool)! });
+    }
+  }
+  if (wanted.length === 0) return { sheet: proposed, adjusted: [] };
+  const groups = new Set(wanted.map((one) => one.group));
+  const open = (build: RulesetSheetBuild) =>
+    readRulesetLive(definition, build, {}).pools.some(
+      (pool) => groups.has(familyOf.get(pool.key) ?? "") && pool.max > 0,
+    );
+  if (open(proposed)) return { sheet: proposed, adjusted: [] };
+  const paidFor = (build: RulesetSheetBuild) =>
+    wanted.filter(({ label }) => {
+      const pools = definition.sheet.live.pools;
+      const plan = planRulesetUse(definition, build, {}, catalogs, { op: "use", name: label });
+      if (!plan.ok) return false;
+      const spent = plan.steps.find((step) => step.op.op === "spend")?.op as { pool: string } | undefined;
+      const own = pools.find((pool) => pool.id === spent?.pool);
+      const rungs = own?.group !== undefined ? pools.filter((pool) => pool.group === own.group) : [];
+      // Out of its own pool or a bigger one of the family, as `capRulesetCasterSheet` reads it.
+      return [undefined, ...rungs.slice(rungs.indexOf(own!) + 1).map((pool) => pool.id)].some((pool) => {
+        const tried = planRulesetUse(definition, build, {}, catalogs, {
+          op: "use",
+          name: label,
+          ...(pool ? { pool } : {}),
+        });
+        if (!tried.ok) return false;
+        let live: unknown = {};
+        for (const step of tried.steps) {
+          const result = applyRulesetSheetOp(definition, build, live, step.op);
+          if (!result.ok) return false;
+          live = result.live;
+        }
+        return true;
+      });
+    }).length;
+  // The words the sheet says of itself: its text and choice fields, and its rows' text.
+  const said = [
+    ...Object.values(proposed.fields),
+    ...Object.values(proposed.lists).flatMap((rows) => rows.flatMap((row) => Object.values(row))),
+  ]
+    .flatMap((value) => (typeof value === "string" ? [value] : Array.isArray(value) ? value.map(String) : []))
+    .map((value) => ` ${value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ")} `);
+  const named = (label: string) => {
+    const word = ` ${label
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim()} `;
+    return word.trim() ? said.filter((text) => text.includes(word)).length : 0;
+  };
+  // Each way to open them: a number field raised alone, or an entry that sets one (5e's classes,
+  // whose own Spellcasting ability shows the slots at all), its other fields set where the sheet
+  // wrote none, then that field raised (cloud re-test 2026-10-25: a wizard with no level and no
+  // casting ability kept only its cantrips).
+  const ways: Array<{
+    label: string;
+    base: RulesetSheetBuild;
+    field: Extract<RulesetField, { type: "number" }>;
+    entry?: true;
+  }> = [];
+  for (const field of definition.sheet.fields)
+    if (field.type === "number" && field.integer) ways.push({ label: field.label, base: proposed, field });
+  for (const entries of Object.values(catalogs))
+    for (const entry of entries) {
+      const sets = entry.grants?.sets;
+      if (!sets) continue;
+      const base = structuredClone(proposed);
+      let raised: Extract<RulesetField, { type: "number" }> | undefined;
+      for (const [id, value] of Object.entries(sets)) {
+        const field = definition.sheet.fields.find((one) => one.id === id);
+        if (!field) continue;
+        if (field.type === "number" && field.integer && typeof value === "number") raised ??= field;
+        const written = proposed.fields[id];
+        const unset =
+          written === undefined ||
+          written === "" ||
+          (field.type === "enum" && written === (field.default ?? field.values[0]));
+        if (unset) base.fields[id] = value;
+      }
+      if (raised) ways.push({ label: entry.label, base, field: raised, entry: true });
+    }
+  let best: ((typeof ways)[number] & { value: number; paid: number; named: number }) | undefined;
+  for (const way of ways) {
+    const { label, base, field } = way;
+    const at = (value: number) => {
+      const sheet = structuredClone(base);
+      sheet.fields[field.id] = value;
+      return sheet;
+    };
+    const from = typeof proposed.fields[field.id] === "number" ? (proposed.fields[field.id] as number) : field.min;
+    if (from >= field.max || !open(at(field.max))) continue;
+    // Only what its holder may cast counts: a class keeps to its own spell list.
+    const pays = (sheet: RulesetSheetBuild) => paidFor(restrictRulesetSheetEntries(definition, sheet, catalogs).sheet);
+    const most = pays(at(field.max));
+    if (most === 0) continue;
+    // The lowest value that pays for as many as its top does.
+    let value = Math.max(from + 1, field.min);
+    while (value < field.max && pays(at(value)) < most) value += 1;
+    const names = named(label);
+    if (
+      !best ||
+      most > best.paid ||
+      (most === best.paid && (names > best.named || (names === best.named && value < best.value)))
+    )
+      best = { ...way, value, paid: most, named: names };
+  }
+  if (!best) return { sheet: proposed, adjusted: [] };
+  const sheet = structuredClone(best.base);
+  sheet.fields[best.field.id] = best.value;
+  return {
+    sheet,
+    adjusted: [
+      best.entry
+        ? `Made a ${best.label} ${best.value}, so its spells have the pools they are paid out of.`
+        : `${best.field.label} was set to ${best.value}, so its spells have the pools they are paid out of.`,
+    ],
+  };
+}
+
+/**
+ * An invented caster held to its tier's damage: a spell whose damage alone, on average, is more than
+ * the most its tier deals in a round goes (cloud re-test 2026-10-26: a boss stepped down to a CR 4's
+ * numbers was made a 13th level caster to pay for Finger of Death, and kept it). Heals and rows not out
+ * of a catalog are untouched. What went is said.
+ */
+export function holdRulesetCasterSpellDamage(
+  proposed: RulesetSheetBuild,
+  catalogs: RulesetCatalogEntriesById,
+  tier: RulesetCombatThreatTier,
+): { sheet: RulesetSheetBuild; adjusted: string[] } {
+  const cap = tier.damagePerRound[1];
+  const sheet = structuredClone(proposed);
+  const gone: string[] = [];
+  for (const [listId, rows] of Object.entries(sheet.lists))
+    sheet.lists[listId] = rows.filter((row) => {
+      const mark = row[RULESET_CATALOG_ROW_KEY];
+      if (typeof mark !== "string") return true;
+      const catalogId = mark.slice(0, mark.indexOf("/"));
+      const entry = catalogs[catalogId]?.find((candidate) => candidate.id === mark.slice(mark.indexOf("/") + 1));
+      const mechanics = entry?.mechanics as { kind?: string; amount?: { dice?: string; flat?: number } } | undefined;
+      if (!entry || !mechanics?.amount || mechanics.kind === "heal") return true;
+      const average = rulesetActionAverage({ damage: mechanics.amount });
+      if (average <= cap) return true;
+      gone.push(`${entry.label} (${Math.round(average)})`);
+      return false;
+    });
+  return {
+    sheet,
+    adjusted:
+      gone.length > 0
+        ? [`${gone.join(", ")} went: more damage on its own than ${tier.label} deals in a round (${cap} at most).`]
+        : [],
+  };
+}
+
+/**
+ * An invented caster held to what it can cast: an entry its fresh sheet could never pay for (a 5th
+ * level spell on a sheet with no 5th level slots) goes, and of those paid for out of a pool family
+ * (spell slots, as against a cantrip or a ki feature) it keeps `most`, spread over its pools from the
+ * biggest down. Rows not out of a catalog are untouched. What went is said.
+ */
+export function capRulesetCasterSheet(
+  definition: RulesetDefinition,
+  proposed: RulesetSheetBuild,
+  catalogs: RulesetCatalogEntriesById,
+  most = RULESET_INVENTED_CASTER_MOST,
+): { sheet: RulesetSheetBuild; adjusted: string[] } {
+  const sheet = structuredClone(proposed);
+  const families = new Set(
+    definition.sheet.live.pools.flatMap((pool) => (pool.group !== undefined ? [pool.id, pool.group] : [])),
+  );
+  const pays = (name: string, pool?: string) => {
+    const plan = planRulesetUse(definition, proposed, {}, catalogs, { op: "use", name, ...(pool ? { pool } : {}) });
+    if (!plan.ok) return null;
+    let live: unknown = {};
+    for (const step of plan.steps) {
+      const result = applyRulesetSheetOp(definition, proposed, live, step.op);
+      if (!result.ok) return null;
+      live = result.live;
+    }
+    return plan;
+  };
+  const uncastable: string[] = [];
+  const over: string[] = [];
+  // Each row paid out of a family, with how far up the family its own pool is (a spell's level).
+  const paidRows = new Map<
+    Record<string, unknown>,
+    { label: string; rung: number; order: number; role?: "heal" | "control" }
+  >();
+  for (const [listId, rows] of Object.entries(sheet.lists)) {
+    sheet.lists[listId] = rows.filter((row) => {
+      const mark = row[RULESET_CATALOG_ROW_KEY];
+      if (typeof mark !== "string") return true;
+      const catalogId = mark.slice(0, mark.indexOf("/"));
+      const entry = catalogs[catalogId]?.find((candidate) => candidate.id === mark.slice(mark.indexOf("/") + 1));
+      if (!entry?.mechanics) return true;
+      const asked = planRulesetUse(definition, proposed, {}, catalogs, { op: "use", name: entry.label });
+      const fromFamily = (plan: typeof asked) =>
+        plan.ok && plan.steps.some((step) => step.op.op === "spend" && families.has(step.op.pool));
+      if (!asked.ok || !fromFamily(asked)) return true;
+      // Out of its own pool, or a bigger one of the same family (a 2nd level spell off a 3rd level
+      // slot), never a smaller one.
+      const spent = asked.steps.find((step) => step.op.op === "spend")!.op as { pool: string };
+      const pools = definition.sheet.live.pools;
+      const own = pools.find((pool) => pool.id === spent.pool);
+      const family = own?.group !== undefined ? pools.filter((pool) => pool.group === own.group) : [];
+      const paid =
+        pays(entry.label) ??
+        family
+          .slice(family.indexOf(own!) + 1)
+          .map((pool) => pays(entry.label, pool.id))
+          .find((plan) => plan);
+      if (!paid) {
+        uncastable.push(entry.label);
+        return false;
+      }
+      const mechanics = entry.mechanics as { kind?: string; amount?: unknown; applies?: unknown[]; targets?: string };
+      const role =
+        mechanics.kind === "heal"
+          ? ("heal" as const)
+          : !mechanics.amount && (mechanics.applies?.length ?? 0) > 0 && mechanics.targets === "enemy"
+            ? ("control" as const)
+            : undefined;
+      paidRows.set(row, {
+        label: entry.label,
+        rung: Math.max(0, family.indexOf(own!)),
+        order: paidRows.size,
+        ...(role ? { role } : {}),
+      });
+      return true;
+    });
+  }
+  // Which it keeps: the first of its biggest, then its first heal and its first spell that holds a
+  // foe, where it has them (laptop pass 6 2026-10-26: a druid's Cure Wounds, its only heal, went),
+  // then the rest spread over its
+  // pools from the biggest down, one of each in turn, as written within each (cloud re-test
+  // 2026-10-25: a wizard 5 kept its six 1st and 2nd level spells, and Fireball, Counterspell and
+  // Haste went).
+  if (paidRows.size > most) {
+    const byRung = new Map<number, Array<Record<string, unknown>>>();
+    for (const [row, one] of [...paidRows].sort((a, b) => a[1].order - b[1].order))
+      byRung.set(one.rung, [...(byRung.get(one.rung) ?? []), row]);
+    const rungs = [...byRung.keys()].sort((a, b) => b - a);
+    const keep = new Set<Record<string, unknown>>();
+    const top = byRung.get(rungs[0]!)?.[0];
+    if (top) keep.add(top);
+    for (const role of ["heal", "control"] as const) {
+      const first = [...paidRows].filter(([, one]) => one.role === role).sort((a, b) => a[1].order - b[1].order)[0];
+      if (first && keep.size < most) keep.add(first[0]);
+    }
+    for (let turn = 0; keep.size < most; turn += 1)
+      for (const rung of rungs) {
+        const row = byRung.get(rung)![turn];
+        if (row && keep.size < most) keep.add(row);
+      }
+    for (const [listId, rows] of Object.entries(sheet.lists))
+      sheet.lists[listId] = rows.filter((row) => !paidRows.has(row) || keep.has(row));
+    over.push(
+      ...[...paidRows]
+        .filter(([row]) => !keep.has(row))
+        .sort((a, b) => a[1].order - b[1].order)
+        .map(([, one]) => one.label),
+    );
+  }
+  const adjusted: string[] = [];
+  if (uncastable.length > 0)
+    adjusted.push(
+      `${listed(uncastable)} ${uncastable.length === 1 ? "is" : "are"} beyond what this sheet can pay for, so dropped.`,
+    );
+  if (over.length > 0)
+    adjusted.push(`${listed(over)} went: an invented caster keeps ${most} of what it pays for out of its pools.`);
+  return { sheet, adjusted };
+}
+
+/**
+ * An invented sheet written with no ability scores, whose fields name the ability it works from (5e's
+ * spellcasting ability), has that ability raised until what reads it reaches its tier: a number that
+ * reads like a save difficulty up to the tier's, one that reads like a bonus to hit up to its to-hit
+ * (laptop playtest 2026-10-25: a cleric 4 with no scores cast at DC 10 and +2). The ruleset's own
+ * formulas say what each score gives; scores it did write are its own and never touched.
+ */
+export function raiseRulesetSheetAbilities(
+  definition: RulesetDefinition,
+  proposed: RulesetSheetBuild,
+  tier: RulesetCombatThreatTier,
+): { sheet: RulesetSheetBuild; adjusted: string[] } {
+  if (Object.keys(proposed.abilities ?? {}).length > 0) return { sheet: proposed, adjusted: [] };
+  const declared = definition.sheet;
+  const abilityIds = new Set(declared.abilities.filter((ability) => !ability.value).map((ability) => ability.id));
+  const sheet = structuredClone(proposed);
+  const adjusted: string[] = [];
+  for (const field of declared.fields) {
+    if (field.type !== "enum") continue;
+    const ability = sheet.fields[field.id];
+    if (typeof ability !== "string" || !abilityIds.has(ability)) continue;
+    const reads = declared.derived.filter((derived) =>
+      JSON.stringify(derived).includes(`"abilityModFromField":${JSON.stringify(field.id)}`),
+    );
+    if (reads.length === 0) continue;
+    const valueOf = (build: RulesetSheetBuild) =>
+      reads.map((derived) => resolveRulesetValueRef(definition, build, { derived: derived.id }));
+    const start = valueOf(sheet);
+    // Each is held to whichever of the tier's two numbers it is nearer.
+    const targets = start.map((value) =>
+      Math.abs(value - tier.saveDifficulty) <= Math.abs(value - tier.toHit) ? tier.saveDifficulty : tier.toHit,
+    );
+    const rule = declared.abilities.find((candidate) => candidate.id === ability)!;
+    const from = sheet.abilities[ability] ?? rule.default;
+    let score = from;
+    while (score < rule.max && valueOf(sheet).some((value, index) => value < targets[index]!)) {
+      score += 1;
+      sheet.abilities[ability] = score;
+    }
+    if (score !== from) adjusted.push(`${rule.label} was set to ${score}, as no scores were written.`);
+  }
+  return { sheet, adjusted };
+}
+
 /**
  * Health into the tier's band, through the one field the ruleset's health is read off, so the sheet
  * itself says the new number and nothing downstream has to know it was held. A wound track's length
@@ -506,6 +965,9 @@ export function holdRulesetSheetHealth(
   definition: RulesetDefinition,
   proposed: RulesetSheetBuild,
   tier: RulesetCombatThreatTier,
+  /** The health the Game Master gave it, held to where it is inside the band (laptop playtest
+   *  2026-10-25: three invented CR 3 foes sent at 45, 45 and 40 came out at 52, 52 and 32). */
+  given?: number,
 ): { sheet: RulesetSheetBuild; adjusted: string[] } {
   const health = definition.combat?.health;
   if (!health || !("pool" in health)) return { sheet: proposed, adjusted: [] };
@@ -513,7 +975,10 @@ export function holdRulesetSheetHealth(
     readRulesetLive(definition, build, {}).pools.find((pool) => pool.key === health.pool)?.max ?? 0;
   const before = maxOf(proposed);
   const [low, high] = tier.health;
-  if (before >= low && before <= high) return { sheet: proposed, adjusted: [] };
+  const asked =
+    given !== undefined && Number.isFinite(given) && given >= low && given <= high ? Math.round(given) : undefined;
+  if (asked === undefined ? before >= low && before <= high : before === asked)
+    return { sheet: proposed, adjusted: [] };
   const field = healthField(definition, health.pool);
   if (!field) {
     return {
@@ -523,7 +988,7 @@ export function holdRulesetSheetHealth(
       ],
     };
   }
-  const target = Math.min(high, Math.max(low, before));
+  const target = asked ?? Math.min(high, Math.max(low, before));
   const bounded = (value: number) =>
     Math.min(field.max, Math.max(field.min, field.integer ? Math.round(value) : value));
   // The field moved by what health is short, then by what is still short, a few times: health need not
@@ -556,7 +1021,7 @@ export function holdRulesetSheetHealth(
       Math.abs(other.after - target) < Math.abs(one.after - target) ? other : one,
     );
   };
-  const within = (value: number) => value >= low && value <= high;
+  const within = (value: number) => (asked === undefined ? value >= low && value <= high : value === asked);
   let best = through(proposed);
   let reset: Extract<RulesetField, { type: "enum" }> | undefined;
   // A choice the sheet made that health reads, and that leaves the field out of it, is set back to the
@@ -587,13 +1052,18 @@ export function holdRulesetSheetHealth(
     }
   }
   const { sheet, after } = best;
+  // Already in the band, and not to be moved to the Game Master's own number: as written.
+  if (asked !== undefined && after === before && before >= low && before <= high)
+    return { sheet: proposed, adjusted: [] };
   const back = reset ? ` with its ${reset.label} set back to the ruleset's default` : "";
   return {
     sheet,
     adjusted: [
-      within(after)
-        ? `Health ${before} was pulled into the ${low} to ${high} of ${tier.label} through its ${field.label}${back}, and is now ${after}.`
-        : `Health ${before} was moved toward the ${low} to ${high} of ${tier.label} as far as its ${field.label} goes, and is now ${after}.`,
+      asked !== undefined && after === asked
+        ? `Health ${before} was set to the Game Master's ${asked} through its ${field.label}${back}.`
+        : within(after) || (asked !== undefined && after >= low && after <= high)
+          ? `Health ${before} was pulled into the ${low} to ${high} of ${tier.label} through its ${field.label}${back}, and is now ${after}.`
+          : `Health ${before} was moved toward the ${low} to ${high} of ${tier.label} as far as its ${field.label} goes, and is now ${after}.`,
     ],
   };
 }
@@ -636,7 +1106,9 @@ function healthChoices(
 function poolValues(definition: RulesetDefinition, combatant: RulesetCombatant): Map<string, number> {
   const sheet = combatant.sheet;
   if (!sheet) return new Map();
-  return new Map(readRulesetLive(definition, sheet.build, sheet.live).pools.map((pool) => [pool.key, pool.value]));
+  return new Map(
+    readRulesetLive(definition, sheet.build, sheet.live, sheet.items).pools.map((pool) => [pool.key, pool.value]),
+  );
 }
 
 /** How many rungs the biggest payment it can afford climbs, for an action that grows when paid for
@@ -667,7 +1139,7 @@ interface SheetRound {
   parts: RulesetCombatAction[];
 }
 
-/** The heaviest round one spend buys against one target: every strike it buys, the biggest payment
+/** The heaviest round one spend buys against one target (two, for what reaches more): every strike it buys, the biggest payment
  *  it can afford, and the heaviest rider counted once on top, exactly as the plain clamp counts.
  *  Strikes bought by one spend wait in hand and may go to ANY row that declares strikes, so a
  *  striking round is the row spent on and then the rest of its strikes on the heaviest such row. */
@@ -680,7 +1152,11 @@ function bestSheetRound(definition: RulesetDefinition, combatant: RulesetCombata
     if (!action?.damage) return 0;
     const steps = stepsAffordable(definition, combatant, action, pools);
     const grown = steps > 0 ? steps * rulesetAverageAmount(action.use!.perCostStep!) : 0;
-    return Math.max(0, rulesetAverageDamage(action.damage) + grown);
+    // What reaches more than one is counted on two of them, as a tier's damage a round is meant
+    // (laptop pass 6 2026-10-26: a wizard 11 brought down to CR 8 kept a Chain Lightning of 45 on each
+    // of four heroes, under a cap read for one).
+    const reach = action.area || action.around || action.targets.count > 1 ? 2 : 1;
+    return Math.max(0, (rulesetAverageDamage(action.damage) + grown) * reach);
   };
   const striking = combatant.actions.filter((action) => action.strikes !== undefined);
   const heaviestStrike = striking.reduce<RulesetCombatAction | null>(
@@ -698,7 +1174,10 @@ function bestSheetRound(definition: RulesetDefinition, combatant: RulesetCombata
         ? [action, heaviestStrike]
         : [action];
     const average = action.sequence
-      ? action.sequence.reduce((total, step) => total + step.times * once(byId.get(step.actionId)), 0)
+      ? action.sequence.reduce(
+          (total, step) => total + rulesetStepAverageTimes(step) * once(byId.get(step.actionId)),
+          0,
+        )
       : once(action) + Math.max(0, (action.strikes ?? 1) - 1) * once(heaviestStrike ?? action);
     const round = average > 0 ? average + carried : 0;
     if (round > best.average) {
@@ -706,6 +1185,59 @@ function bestSheetRound(definition: RulesetDefinition, combatant: RulesetCombata
     }
   }
   return best;
+}
+
+/**
+ * What its points buy between turns is part of its round too, on top of its own best turn (laptop
+ * 2026-10-26: a CR 3 Archlich's borrowed Disrupt Life, on the whole party with all 3 points, came on
+ * top of a round already near the cap, and wiped four rested level-4 heroes). Each such action is
+ * scaled down until its points' worth fits what the round leaves, and goes when it cannot. Any
+ * invented opponent with points is held so, however it was built (laptop v3b 2026-10-26: one built
+ * from a proposed block kept a full Disrupt Life).
+ */
+export function holdRulesetLegendary(
+  definition: RulesetDefinition,
+  combatant: RulesetCombatant,
+  tier: RulesetCombatThreatTier,
+): string[] {
+  const adjusted: string[] = [];
+  const cap = tier.damagePerRound[1];
+  const points = combatant.signature?.max ?? 0;
+  if (points > 0) {
+    const plain = bestSheetRound(definition, {
+      ...combatant,
+      actions: combatant.actions.filter((action) => !action.signature),
+    }).average;
+    const room = Math.max(0, cap - plain);
+    const worth = (action: RulesetCombatAction) =>
+      (bestSheetRound(definition, { ...combatant, actions: [action], riders: [] }).average * points) /
+      Math.max(1, action.signature!.cost);
+    const scaledDown: string[] = [];
+    const dropped: string[] = [];
+    for (const action of combatant.actions.filter((one) => one.signature && one.damage)) {
+      let shaved = false;
+      for (let guard = 0; guard < 200 && worth(action) > room; guard++) {
+        const heaviest = [action.damage!, ...(action.damage!.plus ?? [])].sort(
+          (left, right) => rulesetAverageAmount(right) - rulesetAverageAmount(left),
+        )[0]!;
+        if (!shave(heaviest)) break;
+        shaved = true;
+      }
+      if (worth(action) > room) dropped.push(action.label);
+      else if (shaved) scaledDown.push(action.label);
+    }
+    if (dropped.length > 0) {
+      combatant.actions = combatant.actions.filter((action) => !dropped.includes(action.label) || !action.signature);
+      adjusted.push(
+        `${dropped.join(", ")} went from what its points buy: with its own turn, it would deal more in a round than the ${cap} of ${tier.label}.`,
+      );
+    }
+    if (scaledDown.length > 0)
+      adjusted.push(
+        `${scaledDown.join(", ")}, bought with its points, was scaled down so its turn and its points together stay inside the ${cap} of ${tier.label}.`,
+      );
+  }
+  return adjusted;
 }
 
 /** One amount a step down: fewer dice, then less flat, then a smaller die. False when there is
@@ -740,7 +1272,8 @@ export function holdRulesetCombatant(
   const difficultyCap = tier.saveDifficulty + RULESET_CLAMP_HEADROOM;
   for (const action of combatant.actions) {
     if (action.toHit !== undefined && action.toHit > toHitCap) {
-      adjusted.push(`"${action.label}" now hits at ${toHitCap} instead of ${action.toHit}.`);
+      if (!action.id.startsWith("granted:"))
+        adjusted.push(`"${action.label}" now hits at ${toHitCap} instead of ${action.toHit}.`);
       action.toHit = toHitCap;
     }
     const saves = [
@@ -753,7 +1286,10 @@ export function holdRulesetCombatant(
       action.saveDifficulty = difficultyCap;
       lowered = true;
     }
-    if (lowered) adjusted.push(`The save against "${action.label}" was lowered to ${difficultyCap}.`);
+    // Said only for what it has of its own: what a condition would give it (a Sunbeam's later line)
+    // is held all the same, unsaid (laptop pass 6 2026-10-26: 17 lines for spells it did not know).
+    if (lowered && !action.id.startsWith("granted:"))
+      adjusted.push(`The save against "${action.label}" was lowered to ${difficultyCap}.`);
   }
   // A contest is won with a number added to the dice an attack throws, so it is held where a blow's
   // chance to land is.
@@ -803,6 +1339,7 @@ export function holdRulesetCombatant(
     else if (!heaviest || !shave(heaviest)) break;
     scaled = true;
   }
+  adjusted.push(...holdRulesetLegendary(definition, combatant, tier));
   if (growth) adjusted.push("What a bigger payment buys was scaled down to fit the tier.");
   if (scaled) {
     const left = Math.round(bestSheetRound(definition, combatant).average * 100) / 100;

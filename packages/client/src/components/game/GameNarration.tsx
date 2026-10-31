@@ -368,6 +368,15 @@ const GAME_TTS_CHUNK_ATTEMPTS = 2;
 function GameGenerationStatus() {
   const { t: localizeUi } = useUiTranslation();
   const narrationSaved = useChatStore((s) => (s.activeChatId ? s.narrationSavedChatIds.has(s.activeChatId) : false));
+  // How long the turn has been waiting, so a slow or stalled provider is not five silent minutes
+  // (playtest 2026-10-26). Shown once the wait is long enough to wonder about.
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  useEffect(() => {
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const elapsed = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
 
   return (
     <div className="mt-2 flex items-center gap-1 text-xs text-[var(--foreground)]/50">
@@ -375,8 +384,11 @@ function GameGenerationStatus() {
       <span>
         {narrationSaved
           ? localizeUi("ui.game.gamenarration.preparingScene")
-          : localizeUi("ui.game.gamenarration.theGameMasterIsWritingTheNextSegment")}
+          : elapsedSeconds >= 60
+            ? localizeUi("ui.game.gamenarration.stillWaitingOnTheModel")
+            : localizeUi("ui.game.gamenarration.theGameMasterIsWritingTheNextSegment")}
       </span>
+      {elapsedSeconds >= 15 && <span className="tabular-nums">· {elapsed}</span>}
     </div>
   );
 }
@@ -1134,11 +1146,16 @@ function formatSkillCheckLogContent(
   const checkSegments: NarrationSegment[] = skillChecks.map((skillCheck, index) => {
     const result = skillCheck.resolvedResult;
     // Not rolled because the character could not attempt it: said as that, never as a check still owed.
-    if (!result && skillCheck.reason === "untrained") {
+    if (!result && skillCheck.reason) {
       return {
         id: `${message.id}-skill-check-log-${index}`,
         type: "system",
-        content: localizeUi("game.narration.skillCheckUntrained", { skill: skillCheck.skill }),
+        content: localizeUi(
+          skillCheck.reason === "untrained"
+            ? "game.narration.skillCheckUntrained"
+            : "game.narration.skillCheckUnknownRoller",
+          { skill: skillCheck.skill },
+        ),
       };
     }
     if (!result) {
@@ -3864,8 +3881,14 @@ export function GameNarration({
     const TICK_MS = 33; // ~30 fps
     const charsPerTick = Math.max(1, Math.round((cps * TICK_MS) / 1000));
 
+    // Read off the clock as well as counted per tick: a browser slows the timers of a tab it hides
+    // to one a second, and counted alone a turn then took minutes to type out (the 2026-10-23
+    // playtest's fight that waited 6.5 minutes on the narration).
+    const startedAt = performance.now();
+    const from = tw.pos;
     const interval = setInterval(() => {
-      tw.pos = Math.min(dispLen, tw.pos + charsPerTick);
+      const byClock = from + Math.floor((performance.now() - startedAt) / msPerChar);
+      tw.pos = Math.min(dispLen, Math.max(tw.pos + charsPerTick, byClock));
       setVisibleChars(tw.pos);
       if (tw.pos >= dispLen) clearInterval(interval);
     }, TICK_MS);

@@ -6,6 +6,7 @@
 // engine.ts and are intentionally not re-exported here.
 
 export * from "./types.js";
+export * from "./board-outline.js";
 export { TACTICAL_ENVIRONMENTS, TACTICAL_TERRAINS } from "./environments.js";
 
 export {
@@ -27,6 +28,7 @@ export {
   tickRound as tickTacticalRound,
 } from "./engine.js";
 export { decideTacticalAction, runEnemyPhase, runInitiativeTurns, applyTacticalTurn } from "./ai.js";
+export { decideProfileAction } from "./profile-ai.js";
 
 export { summarizeTacticalBattlefield } from "./battlefield-summary.js";
 
@@ -51,7 +53,11 @@ export {
   foothillElevation,
   tacticalMadeBoardIssues,
   placeSpawns,
+  defaultBattlefieldSize,
+  tacticalArena,
+  tacticalEngagement,
   validateTacticalBattlefieldBrief,
+  salvageTacticalBattlefieldBrief,
   type GenerateTacticalBattlefieldResult,
   type TacticalBattlefieldBriefValidation,
   type TacticalPlaceable,

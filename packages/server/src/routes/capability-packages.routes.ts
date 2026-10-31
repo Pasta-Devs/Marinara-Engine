@@ -12,8 +12,13 @@ import {
   type RulesetDefinition,
 } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
-import { EXPERIENCE_FILE_IMPORT_RATE_LIMIT, PACKAGE_UPDATE_DECLINE_RATE_LIMIT } from "../middleware/rate-limit.js";
-import { openRulesetCatalog } from "../services/game/ruleset-catalog.service.js";
+import {
+  EXPERIENCE_FILE_IMPORT_RATE_LIMIT,
+  PACKAGE_INSTALL_RATE_LIMIT,
+  PACKAGE_UPDATE_DECLINE_RATE_LIMIT,
+  RULESET_LANGUAGE_RATE_LIMIT,
+} from "../middleware/rate-limit.js";
+import { openRulesetCatalog, openRulesetLocale } from "../services/game/ruleset-catalog.service.js";
 import { readRulesetRegistry } from "../services/game/ruleset-registry.service.js";
 import {
   capabilityPackageManager,
@@ -43,6 +48,20 @@ const rulesetCatalogQuery = z.object({
   catalogId: z.string().min(1).max(40),
   version: z.coerce.number().int().min(1).optional(),
 });
+
+const rulesetLocale = z
+  .string()
+  .min(2)
+  .max(30)
+  .regex(/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/);
+
+const rulesetStringsQuery = z.object({
+  rulesetId: z.string().min(1).max(140),
+  version: z.coerce.number().int().min(1).optional(),
+  locale: rulesetLocale,
+});
+
+const rulesetLanguageBody = z.object({ locale: rulesetLocale }).strict();
 
 /** The definition as the ruleset LIST reports it: an inline catalog's entries are replaced by their
  *  count, because the list is read whenever a sheet editor opens and the entries have a route of
@@ -77,7 +96,12 @@ const packageVersion = z
   .max(80);
 const packageUpdateParams = packageParams.extend({ version: packageVersion });
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
-const installBody = z.object({ expectedVersion: packageVersion, expectedArtifactSha256: sha256 });
+const installBody = z.object({
+  expectedVersion: packageVersion,
+  expectedArtifactSha256: sha256,
+  /** The page's language, for a ruleset's language pack (1.811). */
+  locale: rulesetLocale.optional(),
+});
 const declineUpdatesBody = z.object({
   updates: z
     .array(packageParams.extend({ version: packageVersion }))
@@ -208,6 +232,47 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     if (!read.ok) return unusable(read.issues);
     return payload(read.entries);
   });
+  // The Engine's language changed (or a page opened in it): each installed catalog ruleset's language pack
+  // (1.811) is fetched in it and the old language's removed. A pack that cannot be had leaves English.
+  app.post("/rulesets/language", { config: { rateLimit: RULESET_LANGUAGE_RATE_LIMIT } }, async (request, reply) => {
+    if (!requirePrivilegedAccess(request, reply, { feature: "Ruleset language packs" })) return;
+    const { locale } = rulesetLanguageBody.parse(request.body);
+    return { locale, rulesets: await capabilityPackageManager.setRulesetLanguage(locale) };
+  });
+  // A ruleset's display strings in one language: what the fight screen shows in place of the ruleset's
+  // English, word for word, from its language pack (1.811) or the language kept with an imported file.
+  // None is an empty set, so a screen just shows the English.
+  app.get("/rulesets/strings", async (request, reply) => {
+    const { rulesetId, version, locale } = rulesetStringsQuery.parse(request.query);
+    const registry = await readRulesetRegistry(app.db);
+    const registered = registry.get(rulesetId);
+    if (!registered) {
+      return reply.status(404).send({ error: "That ruleset is not installed", code: "ruleset_not_installed" });
+    }
+    const definition =
+      version !== undefined && version !== registered.definition.version
+        ? registered.versions?.get(version)
+        : registered.definition;
+    if (!definition) {
+      return reply
+        .status(404)
+        .send({ error: "That version of the ruleset is not installed", code: "ruleset_version_missing" });
+    }
+    const none = { rulesetId: definition.id, version: definition.version, locale: null, strings: {} };
+    if (locale === "en") return none;
+    const opened = await openRulesetLocale(registered.packageId, definition, locale);
+    if (!opened) return none;
+    const etag = `"${opened.sha256}.${opened.locale}"`;
+    reply.header("ETag", etag).header("Cache-Control", "no-cache");
+    if (ifNoneMatchSatisfied(request.headers["if-none-match"], etag)) return reply.status(304).send();
+    const read = await opened.read();
+    if (!read.ok) {
+      return reply
+        .status(422)
+        .send({ error: "That translation cannot be read", code: "ruleset_locale_unusable", issues: [read.issue] });
+    }
+    return { rulesetId: definition.id, version: definition.version, locale: opened.locale, strings: read.strings };
+  });
   app.get<{ Params: { id: string } }>("/:id/release-notes", async (request) => {
     const { id } = packageParams.parse(request.params);
     return capabilityPackageManager.releaseNotes(id);
@@ -266,40 +331,40 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     // The verification step read and hashed these exact bytes.
     return reply.send(asset.data);
   });
-  app.post<{ Params: { id: string }; Body: { expectedVersion: string; expectedArtifactSha256: string } }>(
-    "/:id/install",
-    async (request, reply) => {
-      if (!requirePrivilegedAccess(request, reply, { feature: "Agent package installation" })) return;
-      const { id } = packageParams.parse(request.params);
-      const { expectedVersion, expectedArtifactSha256 } = installBody.parse(request.body);
-      let installed;
-      try {
-        installed = await capabilityPackageManager.install(id, expectedVersion, expectedArtifactSha256);
-      } catch (error) {
-        // A version this Engine refuses says why ("Package requires capability API 1.342; this Engine supports
-        // 1.341"), instead of the error handler's "Internal Server Error".
-        if (
-          error instanceof CapabilityPackageVersionMismatchError ||
-          error instanceof CapabilityPackageCompatibilityError
-        ) {
-          return reply.status(409).send({ error: error.message });
-        }
-        throw error;
+  app.post<{
+    Params: { id: string };
+    Body: { expectedVersion: string; expectedArtifactSha256: string; locale?: string };
+  }>("/:id/install", { config: { rateLimit: PACKAGE_INSTALL_RATE_LIMIT } }, async (request, reply) => {
+    if (!requirePrivilegedAccess(request, reply, { feature: "Agent package installation" })) return;
+    const { id } = packageParams.parse(request.params);
+    const { expectedVersion, expectedArtifactSha256, locale } = installBody.parse(request.body);
+    let installed;
+    try {
+      installed = await capabilityPackageManager.install(id, expectedVersion, expectedArtifactSha256, locale);
+    } catch (error) {
+      // A version this Engine refuses says why ("Package requires capability API 1.342; this Engine supports
+      // 1.341"), instead of the error handler's "Internal Server Error".
+      if (
+        error instanceof CapabilityPackageVersionMismatchError ||
+        error instanceof CapabilityPackageCompatibilityError
+      ) {
+        return reply.status(409).send({ error: error.message });
       }
-      try {
-        const result =
-          installed.manifest.kind.includes("turn-game") && installed.status !== "restart-required"
-            ? await capabilityModuleRuntime.activatePackage(app, id)
-            : installed;
-        return { ...result, usesDecisions: installed.usesDecisions };
-      } finally {
-        // A restart-required update leaves the prior runtime active in this
-        // process. Keep its agent definitions visible until startup activates
-        // the replacement; refreshing now would make the package disappear.
-        if (installed.status !== "restart-required") await refreshCapabilityAgentRegistry();
-      }
-    },
-  );
+      throw error;
+    }
+    try {
+      const result =
+        installed.manifest.kind.includes("turn-game") && installed.status !== "restart-required"
+          ? await capabilityModuleRuntime.activatePackage(app, id)
+          : installed;
+      return { ...result, usesDecisions: installed.usesDecisions };
+    } finally {
+      // A restart-required update leaves the prior runtime active in this
+      // process. Keep its agent definitions visible until startup activates
+      // the replacement; refreshing now would make the package disappear.
+      if (installed.status !== "restart-required") await refreshCapabilityAgentRegistry();
+    }
+  });
   // An Experience file (Capability API 1.373), after the user reviewed it: the body is read as it arrives,
   // never buffered, so the file may be any size; the manager checks every byte against the manifest.
   app.addContentTypeParser(EXPERIENCE_FILE_CONTENT_TYPE, (_request, payload, done) => done(null, payload));

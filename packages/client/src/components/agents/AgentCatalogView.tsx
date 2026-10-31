@@ -33,6 +33,7 @@ import { parseChatMetadata } from "../../lib/chat-display";
 import { ApiError, getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { resolveCapabilityCatalogEntryDisplay } from "../../lib/capability-package-localization";
 import { notifyDecisionImport } from "../../lib/decision-import-notice";
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { useUIStore } from "../../stores/ui.store";
@@ -74,7 +75,8 @@ function catalogErrorDescription(error: unknown) {
 
 /** The Agent Organizer: browse, install, update and remove downloadable agents. */
 export function AgentCatalogView() {
-  const { t: localizeUi } = useUiTranslation();
+  const { t: localizeUi, i18n } = useUiTranslation();
+  const shownLanguage = i18n.resolvedLanguage ?? i18n.language;
   const closeAgentCatalog = useUIStore((state) => state.closeAgentCatalog);
   const initialPackageId = useUIStore((state) => state.agentCatalogInitialPackageId);
   const catalog = useCapabilityCatalog();
@@ -139,14 +141,23 @@ export function AgentCatalogView() {
   const results = useMemo(
     () =>
       needle
-        ? entries.filter(({ manifest, ...entry }) =>
-            [manifest.name, manifest.id, manifest.description, taglineOf({ manifest, ...entry })]
+        ? entries.filter(({ manifest, ...entry }) => {
+            // The name a card shows in this language is found too, beside the manifest's own.
+            const shown = resolveCapabilityCatalogEntryDisplay({ manifest, ...entry }, shownLanguage);
+            return [
+              manifest.name,
+              manifest.id,
+              manifest.description,
+              shown.name,
+              shown.description,
+              taglineOf({ manifest, ...entry }),
+            ]
               .join(" ")
               .toLowerCase()
-              .includes(needle),
-          )
+              .includes(needle);
+          })
         : null,
-    [entries, needle],
+    [entries, needle, shownLanguage],
   );
   const updates = useMemo(
     () => all.filter((entry) => hasUpdate(entry, installedById.get(entry.manifest.id))),

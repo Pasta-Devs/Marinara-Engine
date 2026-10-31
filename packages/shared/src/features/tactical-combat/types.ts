@@ -1,5 +1,5 @@
 import type { CombatWeather, CombatAttackTraits, GameDifficulty } from "../combat-conditions.js";
-import type { CombatController, CombatTactics } from "../combat-ai.js";
+import type { CombatController, CombatOrders, CombatTactics } from "../combat-ai.js";
 import type { WorldElementSet } from "../world/elements.js";
 // ──────────────────────────────────────────────
 // Tactical Combat — shared types
@@ -18,9 +18,12 @@ export type { GameCombatStyle } from "../../types/game.js";
 
 export type { TacticalTerrain } from "./environments.js";
 import type { TacticalTerrain, TacticalEnvironment } from "./environments.js";
+import type { TacticalBoardOutline } from "./board-outline.js";
 
-/** Fixed board sizes for procedural tactical encounters. */
-export type TacticalBattlefieldSize = "small" | "medium" | "large";
+/** Fixed board sizes for procedural tactical encounters, smallest first: 12x8, 13x9, 14x10, and
+ *  (2026-10-24) 24x16 for a great hall, 40x26 for a lair, 64x40 for a war's battlefield. */
+export const TACTICAL_BATTLEFIELD_SIZES = ["small", "medium", "large", "huge", "vast", "colossal"] as const;
+export type TacticalBattlefieldSize = (typeof TACTICAL_BATTLEFIELD_SIZES)[number];
 
 /** Setup-owned preferences for newly-created tactical encounters. */
 export interface TacticalBattlefieldSetup {
@@ -47,7 +50,12 @@ export interface TacticalBattlefieldFeature {
 export interface TacticalBattlefieldBrief {
   exposure?: CombatWeather["exposure"];
   size?: TacticalBattlefieldSize;
+  /** The outline it is cut to (2026-10-24); its place's when none is named. */
+  outline?: TacticalBoardOutline;
   features?: TacticalBattlefieldFeature[];
+  /** A share of the open ground (0.05 to 0.6) turned into one terrain, scattered over the board
+   *  (laptop playtest 2026-10-30: a brief of "every other cell deep water" came out mostly plains). */
+  scatter?: { terrain: Exclude<TacticalTerrain, "plains">; share: number };
 }
 
 /** Saved provenance for a grid: generated from a brief, or painted by hand for a world's place (worldgen
@@ -55,9 +63,12 @@ export interface TacticalBattlefieldBrief {
 export type TacticalBattlefieldProvenance =
   | {
       kind: "generated";
-      /** 1: flat; 2: with foothills (combat C6b). A saved fight keeps the board it was fought on. */
-      generatorVersion: 1 | 2;
+      /** 1: flat; 2: with foothills (combat C6b); 3: cut to an outline and sized past large
+       *  (2026-10-24). A saved fight keeps the board it was fought on. */
+      generatorVersion: 1 | 2 | 3;
       size: TacticalBattlefieldSize;
+      /** The outline it was cut to, when it is not a box. */
+      outline?: TacticalBoardOutline;
       brief?: TacticalBattlefieldBrief;
     }
   | { kind: "hand-made"; size: TacticalBattlefieldSize; id: string; name: string; scene: TacticalEnvironment };
@@ -194,6 +205,10 @@ export interface TacticalGrid {
   /** What lies on each cell over its terrain (Capability API 1.318), by "x,y": growth (hard going,
    *  lightly obscuring), its own light, a fog, a season. Only a ruleset fight sets it. */
   ground?: Record<string, TacticalGroundCell>;
+  /** Cells off the map (2026-10-24), outside[y][x]: beyond the outline a generated board is cut to (a
+   *  cavern, a round tower, a ruin). Their tile is a wall, so nothing moves into or sees through them,
+   *  as off the board's edge; they are drawn as nothing and never change. Absent on a box. */
+  outside?: boolean[][];
 }
 
 /** What lies on one cell over its terrain (1.318). */
@@ -227,6 +242,8 @@ export interface TacticalUnit extends CombatAttackTraits {
   spellSlots?: Record<string, number>;
   tactics?: CombatTactics;
   controller?: CombatController;
+  /** Its player's standing orders, while the Engine plays it. */
+  orders?: CombatOrders;
   // ── carried from Combatant ──
   id: string;
   name: string;
@@ -276,6 +293,8 @@ export interface TacticalUnit extends CombatAttackTraits {
 
 export type TacticalAction =
   | { type: "control"; unitId: string; controller: CombatController }
+  /** A companion's standing orders, or none to go back to its default. */
+  | { type: "orders"; unitId: string; orders: CombatOrders | null }
   | { type: "move"; unitId: string; to: TacticalCoord }
   | { type: "attack"; unitId: string; targetId: string; to?: TacticalCoord }
   | { type: "skill"; unitId: string; skillName: string; targetId?: string; tile?: TacticalCoord; to?: TacticalCoord }

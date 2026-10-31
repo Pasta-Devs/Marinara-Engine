@@ -44,6 +44,18 @@ export const EXPERIENCE_FILE_IMPORT_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+// Installing a package downloads and verifies its archive; a ruleset language switch fetches one
+// pack per installed catalog ruleset. Both are a click each, never a loop.
+export const PACKAGE_INSTALL_RATE_LIMIT = {
+  max: 20,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
+export const RULESET_LANGUAGE_RATE_LIMIT = {
+  max: 20,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const UPDATE_CHANNEL_RATE_LIMIT = {
   max: 30,
   timeWindow: 60_000,
@@ -333,6 +345,22 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       key: "package-update-decline",
       limit: PACKAGE_UPDATE_DECLINE_RATE_LIMIT.max,
       windowMs: PACKAGE_UPDATE_DECLINE_RATE_LIMIT.timeWindow,
+    },
+  },
+  {
+    pattern: /^\/api\/capability-packages\/[^/?]+\/install(?:\?|$)/,
+    rule: {
+      key: "package-install",
+      limit: PACKAGE_INSTALL_RATE_LIMIT.max,
+      windowMs: PACKAGE_INSTALL_RATE_LIMIT.timeWindow,
+    },
+  },
+  {
+    pattern: /^\/api\/capability-packages\/rulesets\/language(?:\?|$)/,
+    rule: {
+      key: "ruleset-language",
+      limit: RULESET_LANGUAGE_RATE_LIMIT.max,
+      windowMs: RULESET_LANGUAGE_RATE_LIMIT.timeWindow,
     },
   },
   {

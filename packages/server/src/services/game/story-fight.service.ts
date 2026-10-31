@@ -182,3 +182,39 @@ export function storyFightBlueprintEnemies(
     };
   });
 }
+
+/**
+ * A fight the model called a boss fight (`visuals.encounterTier: "boss"`, or `isBossFight` whatever its tier:
+ * laptop 0706 Party B, Captain Mordek Vane at "miniboss") with no enemy marked boss
+ * (laptop pass 8 2026-10-26: Lich Seraphon, named, a leader and the strongest there, was weighed at a
+ * Moderate budget with no legendary block): its strongest enemy, a named or leading one first, is the
+ * boss. Returns the enemies unchanged when one is marked already, or the fight is no boss fight.
+ */
+export function blueprintEnemiesWithBoss(
+  visuals: unknown,
+  enemies: ReadonlyArray<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const said =
+    visuals && typeof visuals === "object" ? (visuals as { encounterTier?: unknown; isBossFight?: unknown }) : {};
+  if (
+    (said.encounterTier !== "boss" && said.isBossFight !== true) ||
+    enemies.length === 0 ||
+    enemies.some((one) => one.boss)
+  )
+    return [...enemies];
+  const hints = (one: Record<string, unknown>) =>
+    one.aiHints && typeof one.aiHints === "object" ? (one.aiHints as { named?: unknown; leader?: unknown }) : {};
+  const standing = (one: Record<string, unknown>) => (hints(one).named ? 2 : 0) + (hints(one).leader ? 1 : 0);
+  const size = (one: Record<string, unknown>) =>
+    (typeof one.maxHp === "number" ? one.maxHp : 0) + 10 * (typeof one.level === "number" ? one.level : 0);
+  let best = 0;
+  enemies.forEach((one, index) => {
+    const top = enemies[best]!;
+    if (standing(one) > standing(top) || (standing(one) === standing(top) && size(one) > size(top))) best = index;
+  });
+  return enemies.map((one, index) =>
+    index === best
+      ? { ...one, boss: { points: 3, anticipation: true, attackCost: 1, defendCost: 1, moveCost: 1 } }
+      : one,
+  );
+}

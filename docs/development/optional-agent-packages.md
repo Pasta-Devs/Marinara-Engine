@@ -763,7 +763,7 @@ Design every use for a user with no Decision model. A statement with no answer r
 
 ### A note for Game Mode Experience developers
 
-Engine combat decides what ordinary enemies do on its own. Every non-boss enemy on the GM's side of a fight gets a role from its skills and class (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter or controller), a proficiency from its level unless the enemy sets one (novice, trained, veteran or master), and a temperament such as reckless, cautious, opportunistic or protective. Beasts and monstrosities are always mindless. Engine code picks these from a seed with no model call, and the game's difficulty changes how consistently enemies play to type. Only authored bosses are directed by the GM through a model call. See [Game Mode combat AI](game-combat-ai-design.md).
+Engine combat decides what ordinary enemies do on its own. Every non-boss enemy on the GM's side of a fight gets a role from its skills and class (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter or controller), a proficiency from its level unless the enemy sets one (novice, trained, veteran or master), and a temperament such as reckless, cautious, opportunistic or protective. Beasts and monstrosities are always mindless. Engine code picks these from a seed with no model call, and the game's difficulty changes how consistently enemies play to type. Only authored bosses are directed by the GM through a model call. See [Game Mode combat AI](game-combat-ai.md).
 
 More combat improvements are on the way. Before involving a decision model anywhere in the combat pipeline, check that vanilla Engine combat does not already do what you need. If an enemy needs a particular personality, give it the matching proficiency and temperament first. A decision per enemy turn would add model work and a time limit; a hosted backend would also add network requests and charges. The fight would then depend on answers from a model the user may not have set up, so it would need a sensible no-answer fallback.
 
@@ -783,7 +783,7 @@ The base keeps the package manager, catalog client, generic agent pipeline contr
 
 ## Trust and installation
 
-The official catalog is a schema-validated, versioned JSON document fetched over HTTPS. Each release entry includes immutable artifact URLs, SHA-256 digests, byte sizes, engine compatibility, permissions, and whether its runtime requires a restart.
+The official catalog is a schema-validated, versioned JSON document fetched over HTTPS. Each release entry includes immutable artifact URLs, SHA-256 digests, byte sizes, engine compatibility, permissions, and whether its runtime requires a restart. A ruleset entry may also list `locales`, its language packs by language (Capability API 1.811), each with its own URL, SHA-256 digest and byte size and the store card's translated name and description. The Engine fetches only the pack in its current language after installing the ruleset, and again when its language changes (`POST /api/capability-packages/rulesets/language`, sent by the page as it opens and on each change), keeping it with the installed version and removing the others; see [Writing Rulesets](../extending/writing-rulesets.md).
 
 Updates need the user's consent: apart from one-time migrations that keep an upgraded install's former built-ins (see [Compatibility migration](#compatibility-migration)), startup never downloads or installs a package. `GET /api/capability-packages/updates/pending` lists each installed official package whose catalog version is newer and compatible with the running Engine and capability API, leaving out a version the user already declined. The client shows them in one **Agent updates available** prompt. The prompt installs each selected update through the normal installation pipeline, pinned to the offered version and artifact SHA-256. Updates the user leaves unselected are declined the same way as **Not now**. **Not now** records the declined versions in `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), so that version is not offered again, while a newer one is. **Update** stays available in **Agent Organizer** either way. Failures are isolated per package. Existing files and registry state remain usable when the catalog is offline or verification fails, and server-runtime readiness failures use the previous-version rollback path.
 
@@ -1182,9 +1182,9 @@ A ruleset package needs no permission, no server or client entrypoint and no age
 asset go together: a package of kind `ruleset` must list `ruleset.json`, and a package that lists
 `ruleset.json` must declare the kind, so a ruleset cannot ride in under another kind. Nothing in the
 file is executed: there are no expression strings, and a mechanic that no resolution kind expresses
-is an Engine change that adds a kind, not something a ruleset can do. The format, the first-party 5e
-file and the reasons behind its shape are in
-[`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
+is an Engine change that adds a kind, not something a ruleset can do. The format is documented in the
+author guide, [`writing-rulesets.md`](../extending/writing-rulesets.md), and the code that reads it in
+[Game Mode architecture](game-mode-architecture.md).
 
 This is not a soft seam. A ruleset package does nothing on an Engine that cannot read it, so a
 manifest that lists `ruleset.json` must declare Capability API 1.20, and an older Engine refuses the

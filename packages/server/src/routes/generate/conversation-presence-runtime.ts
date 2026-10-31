@@ -181,7 +181,14 @@ export async function resolveConversationPresenceRuntime(args: {
   if (!args.regenerateMessageId && !args.impersonate) {
     respondingConvoCharInfo = respondingConvoCharInfo.filter((character) => effectiveStatus(character) !== "offline");
   }
-  if (respondingConvoCharInfo.length === 0 && !args.regenerateMessageId && !args.impersonate) {
+  // A conversation with no character at all is answered as a plain assistant: there is nobody whose presence
+  // could hold the reply back, and ending here sent the player nothing at all (playtest 2026-10-26).
+  if (
+    requestedResponders.length > 0 &&
+    respondingConvoCharInfo.length === 0 &&
+    !args.regenerateMessageId &&
+    !args.impersonate
+  ) {
     const sceneNames = requestedResponders
       .filter((character) => sceneBusyCharIds.has(character.charId))
       .map((character) => character.displayName);

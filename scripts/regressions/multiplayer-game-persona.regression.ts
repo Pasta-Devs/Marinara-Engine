@@ -287,6 +287,14 @@ try {
   const rejoinedCards = JSON.parse((await chats.getById(fresh.id))!.metadata).gameCharacterCards;
   assert.equal(rejoinedCards.length, lateCards.length, "no second Sorrel card");
   assert.equal(rejoinedCards[2].multiplayerParticipantId, "sorrel_again", "the removed hero's card is rebound");
+  const { gamePartyRoster } = await import("../../packages/server/src/services/game/ruleset-sheet-turn.service.js");
+  const party = await gamePartyRoster(
+    db,
+    fresh.id,
+    { gamePartyCharacterIds: [], gameCharacterCards: [{ name: "Sorrel", multiplayerParticipantId: "gone_seat" }] },
+    "Host",
+  );
+  assert.ok(party?.has("sorrel"), "a room player's hero, seated or removed, stays in the party a long rest reaches");
   await assert.rejects(
     validateNewRoomHumanGameName(db, fresh.id, "Rowan"),
     RoomPersonaConflictError,

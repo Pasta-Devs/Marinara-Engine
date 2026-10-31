@@ -112,24 +112,29 @@ test("starting gear is taken into the bag on the player's word, with its choices
     };
     await openInventory(page, chatId);
     const slot = (label: string) => page.getByRole("button", { name: label, exact: true });
+    // The nudge toast carries a button of the same name; the one in the bag is the one under test.
+    const gearButton = page
+      .getByRole("button", { name: "Starting gear", exact: true })
+      .and(page.locator(":not([data-sonner-toast] *)"));
 
     // Nothing is in the bag until the player asks.
     await expect(slot("Hand axe")).toHaveCount(0);
-    await page.getByRole("button", { name: "Starting gear", exact: true }).click();
+    await gearButton.click();
     const dialog = page.getByRole("dialog", { name: "Starting gear" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("radio", { name: /Traveller/ }).check();
     const take = dialog.getByRole("button", { name: "Take Traveller", exact: true });
     // Every choice needs an option, and every list a pick.
     await expect(take).toBeDisabled();
-    await dialog.getByRole("radio", { name: "A hand axe", exact: true }).check();
-    await dialog.getByRole("radio", { name: "A second weapon", exact: true }).check();
+    // An option shows how many it gives beside its name, which is read with it.
+    await dialog.getByRole("radio", { name: /^A hand axe( \d+)?$/ }).check();
+    await dialog.getByRole("radio", { name: /^A second weapon( \d+)?$/ }).check();
     await expect(take).toBeDisabled();
     const pick = dialog.getByRole("combobox", { name: "Pick one", exact: true });
     await pick.selectOption({ label: "Boar spear" });
     // Another option's lists are its own: switching away and back clears the pick.
-    await dialog.getByRole("radio", { name: "A leather coat", exact: true }).check();
-    await dialog.getByRole("radio", { name: "A second weapon", exact: true }).check();
+    await dialog.getByRole("radio", { name: /^A leather coat( \d+)?$/ }).check();
+    await dialog.getByRole("radio", { name: /^A second weapon( \d+)?$/ }).check();
     await expect(pick).toHaveValue("");
     await expect(take).toBeDisabled();
     await pick.selectOption({ label: "Boar spear" });
@@ -144,7 +149,7 @@ test("starting gear is taken into the bag on the player's word, with its choices
     await expect.poll(async () => (await metadata()).gameStartingGearTaken).toEqual({ "": ["traveller"] });
 
     // The calling's gear is taken; the background's is still there to take.
-    await page.getByRole("button", { name: "Starting gear", exact: true }).click();
+    await gearButton.click();
     await expect(dialog.getByText("Taken", { exact: true })).toBeVisible();
     await dialog.getByRole("radio", { name: /Pilgrim/ }).check();
     await dialog.getByRole("button", { name: "Take Pilgrim", exact: true }).click();

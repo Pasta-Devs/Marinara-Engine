@@ -46,9 +46,9 @@ export function typeOf(entry: OrganizerEntry): OrganizerType {
 export const typeLabelKey = (type: OrganizerType) => `ui.agents.organizer.types.${type}`;
 
 /** The short line on rows and cards: the store tagline, else the first sentence of the description. */
-export function taglineOf(entry: OrganizerEntry): string {
+export function taglineOf(entry: OrganizerEntry, description = entry.manifest.description): string {
   if (entry.store?.tagline) return entry.store.tagline;
-  const sentence = entry.manifest.description.split(/(?<=\.)\s/)[0] ?? "";
+  const sentence = description.split(/(?<=\.)\s/)[0] ?? "";
   return sentence.length > 90 ? `${sentence.slice(0, 89)}…` : sentence;
 }
 

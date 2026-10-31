@@ -2,15 +2,20 @@
 // Game Master planning written out as prose
 // ──────────────────────────────────────────────
 
-/** The labels only a plan uses. A run of planning paragraphs is lifted only when one of its lines carries one. */
-const PLAN_ONLY_LABEL = /^\s*(?:[*_#>-]+\s*)?(?:opening scene|scene plan|plan|planning)(?:[*_]+)?\s*:/im;
+/**
+ * The labels only a plan uses. A run of planning paragraphs is lifted only when one of its lines carries one. "Hidden:"
+ * and "GM notes:" name what the player must not read yet (playtest 2026-10-26: a "Location / Stakes / Hidden" block
+ * opened the scene and gave its secret away).
+ */
+const PLAN_ONLY_LABEL =
+  /^\s*(?:[*_#>-]+\s*)?(?:opening scene|scene plan|plan|planning|hidden(?: (?:facts?|info|information|truths?))?|gm notes?)(?:[*_]+)?\s*:/im;
 /**
  * The labels a plan's other paragraphs open with, ahead of the plan or behind it, which no out-of-character answer
  * plausibly opens with. "Notes:", "Checks:", "Approach:", "Goals:", "Outline:" or "Next steps:" can open an answer or
  * a question to the player, so a paragraph opening with one of those ends the run.
  */
 const PLAN_PART_LABEL =
-  /^\s*(?:[*_#>-]+\s*)?(?:opening scene|scene plan|plan|planning|location|setting|beats?)(?:[*_]+)?\s*:/i;
+  /^\s*(?:[*_#>-]+\s*)?(?:opening scene|scene plan|plan|planning|location|setting|beats?|stakes|hidden(?: (?:facts?|info|information|truths?))?|gm notes?)(?:[*_]+)?\s*:/i;
 
 export interface LeadingPlanningExtraction {
   content: string;
@@ -28,14 +33,160 @@ export function extractLeadingGmPlanning(text: string): LeadingPlanningExtractio
   let planned = 0;
   // Paragraphs sit at even indexes, the blank lines between them at odd ones.
   while (planned < paragraphs.length && PLAN_PART_LABEL.test(paragraphs[planned] ?? "")) planned += 2;
-  if (planned === 0) return { content: text, planning: "" };
+  if (planned === 0) return extractLabelledPlanBlock(text);
   const planning = paragraphs
     .slice(0, planned - 1)
     .join("")
     .trim();
   const content = paragraphs.slice(planned).join("").trimStart();
-  if (!PLAN_ONLY_LABEL.test(planning)) return { content: text, planning: "" };
+  if (!PLAN_ONLY_LABEL.test(planning)) return extractLabelledPlanBlock(text);
   return { content, planning };
+}
+
+/** One short `Label: ...` line, the label a few capitalized words; never a speaker's quoted line. */
+const LABELLED_LINE = /^\s*(?:[*_#>-]+\s*)?([A-Z][\p{L}'’]*(?:[ /&][\p{L}'’]+){0,2})(?:[*_]+)?\s*:(?:[*_]+)?\s*(.*)$/u;
+/** A numbered or bulleted beat under a label: "(1) ...", "2. ...", "- ...". */
+const BEAT_LINE = /^\s*(?:\(?\d{1,2}[.)]|[-*•])\s+\S/;
+/** What only a plan talks about: the reply's commands and tags, its beats, numbered steps. */
+const PLAN_MENTION = /\b(?:commands?|tags?|beats?)\b|\[\w+:|\(\d{1,2}\)/i;
+/** The longest line a plan's label line is read as. A long line is prose, whatever opens it. */
+const MAX_PLAN_LINE = 400;
+
+/**
+ * A plan written with labels of its own (cheap-GM playtest 2026-10-26: "Location: ... / Beats: (1)...
+ * / Commands: place, branch nature check..." opened the narration). The leading run of paragraphs
+ * whose every line is a short `Label: ...` line or a beat under one is lifted when it carries at
+ * least three different labels and talks like a plan: numbered beats, or the reply's commands or
+ * tags. A scene that opens with a speaker's line, a single labelled line or a run of dialogue that
+ * says nothing about commands, tags or beats stays, and so does a reply that would be left empty.
+ */
+function extractLabelledPlanBlock(text: string): LeadingPlanningExtraction {
+  const paragraphs = text.trimStart().split(/(\n\s*\n)/);
+  const labels = new Set<string>();
+  let beats = false;
+  let planned = 0;
+  for (; planned < paragraphs.length; planned += 2) {
+    const lines = (paragraphs[planned] ?? "").split("\n").filter((line) => line.trim());
+    let labelled = 0;
+    const ok =
+      lines.length > 0 &&
+      lines.every((line, index) => {
+        if (line.length > MAX_PLAN_LINE) return false;
+        const label = LABELLED_LINE.exec(line);
+        // A speaker's quoted words are dialogue, whatever their name looks like.
+        if (label && !/^["“«「『]/.test(label[2] ?? "")) {
+          labels.add(label[1]!.toLowerCase());
+          labelled += 1;
+          return true;
+        }
+        if (index > 0 && BEAT_LINE.test(line)) return (beats = true);
+        return false;
+      });
+    if (!ok || labelled === 0) break;
+  }
+  if (planned === 0) return extractFirstPersonPlan(text);
+  const planning = paragraphs
+    .slice(0, planned - 1)
+    .join("")
+    .trim();
+  const content = paragraphs.slice(planned).join("").trimStart();
+  const talksLikePlan = beats || PLAN_MENTION.test(planning);
+  if (labels.size < 3 || !talksLikePlan || !content.trim()) return extractFirstPersonPlan(text);
+  return { content, planning };
+}
+
+/** A sentence in which the Game Master says what it is about to do: "I'm carrying ...", "I'll ...", "Let me ...". */
+const PLANNER_SENTENCE =
+  /^(?:(?:okay|ok|alright|right|so|now|first|next|then),?\s+)?(?:i(?:'m|’m| am|'ll|’ll| will| need to| should| must| have to| want to| plan to| can)|let(?:'s|’s| me)|the players?(?:'s|’s)? (?:wants?|asks?|asked|is|are|has|have|chose|chooses|picked|requests?|requested|just))\b/i;
+/**
+ * What only talk about the reply itself names: the player or the sheets, the fight's report, the narration, the
+ * reply's commands or tags, the rules it resolves. A scene can say "she checks the door"; it does not say "the
+ * recorded sheets" or "the combat report".
+ */
+const REPLY_MENTION = new RegExp(
+  [
+    String.raw`\bthe players?\b(?!\s+piano)`,
+    String.raw`\b(?:the|supplied|recorded|character|their|her|his|its) (?:\w+ )?sheets?\b(?! of)`,
+    String.raw`\b(?:combat|battle|fight) (?:report|result|recap)\b`,
+    String.raw`\bnarrat(?:e|es|ed|ing|ion)\b`,
+    String.raw`\b(?:commands?|tags?|widgets?|memory panel)\b`,
+    String.raw`\b(?:this|the|my|next) (?:reply|response)\b`,
+    String.raw`\b(?:skill|ability) checks?\b|\bsaving throws?\b|\bspell slots?\b|\bhit dice\b`,
+    String.raw`\b(?:out of character|in-character|mechanics?)\b`,
+    String.raw`\breturn(?:s|ing)? control\b`,
+  ].join("|"),
+  "i",
+);
+/** A plan sentence run straight into the scene with no space: "...still unresolved.The water closes over...". */
+const GLUED_SENTENCE = /[\p{Ll}\d)][.!?](?=\p{Lu}\p{Ll})/u;
+/** The longest opening a first-person plan is read in. */
+const MAX_FIRST_PERSON_PLAN = 1200;
+
+/**
+ * A first-person plan the Game Master wrote ahead of its scene (cheap-GM playtest 2026-10-26: "The combat report
+ * leaves the party standing ... I'm carrying that damage into the aftermath ... rather than inventing any further
+ * combat actions.The last maintenance frame collapses ..."). Only the opening is read: its first paragraph, or the
+ * part of it before a line break or before a sentence glued to the next with no space. That opening is lifted when
+ * every sentence in it is the model saying what it will do ("I'm ...", "I'll ...", "Let me ...", "The player wants
+ * ...") or names the reply itself (the player, the sheets, the combat report, the narration, the commands), at least
+ * one sentence of each kind is there, it quotes nobody and speaks for nobody, and narration is left behind it. A
+ * story line in the first person ("I need to get out of here.") names nothing of the reply and stays.
+ */
+function extractFirstPersonPlan(text: string): LeadingPlanningExtraction {
+  const kept = { content: text, planning: "" };
+  const trimmed = text.trimStart();
+  const blank = /\n[^\S\n]*\n/.exec(trimmed);
+  const paragraph = blank ? trimmed.slice(0, blank.index) : trimmed;
+  const glued = GLUED_SENTENCE.exec(paragraph);
+  const lineBreak = paragraph.indexOf("\n");
+  let end = paragraph.length;
+  if (glued) end = glued.index + 2;
+  if (lineBreak >= 0 && lineBreak < end) end = lineBreak;
+  const opening = trimmed.slice(0, end).trim();
+  const content = trimmed.slice(end).trimStart();
+  if (!opening || !content || opening.length > MAX_FIRST_PERSON_PLAN) return kept;
+  // A speaker's line, a quote or a tag is the scene, whatever it says; an out-of-character note is the
+  // player's to read.
+  if (/["“”«»「」『』]|\[|^\s*[\p{L} .'’-]{1,40}:/u.test(opening) || /^\s*\(|\bOOC\b/i.test(opening)) return kept;
+  const sentences = opening.split(/(?<=[.!?…])\s+/).filter((one) => one.trim());
+  let planner = false;
+  let mention = false;
+  for (const sentence of sentences) {
+    const plans = PLANNER_SENTENCE.test(sentence.trim());
+    const names = REPLY_MENTION.test(sentence);
+    if (!plans && !names) return kept;
+    planner ||= plans;
+    mention ||= names;
+  }
+  if (!planner || !mention) return kept;
+  return { content, planning: opening };
+}
+
+/** A line that is only a markdown rule: three or more `-`, `*` or `_`, spaced or not. */
+const RULE_LINE = /^[^\S\r\n]*(?:(?:-[^\S\r\n]*){3,}|(?:\*[^\S\r\n]*){3,}|(?:_[^\S\r\n]*){3,})\r?$/;
+
+/**
+ * Drop the markdown rules (`---`, `***`, `___`) a Game Master writes between its notes and its scene (playtest
+ * 2026-10-26: a stray `---` after an OOC note showed in the story). The narration screen has no rule to draw, so a
+ * rule line is never story; a rule inside a bracket tag, such as a `[Book: ...]` the player reads, is kept.
+ */
+export function stripStrayRuleLines(text: string): string {
+  const lines = text.split("\n");
+  const kept: string[] = [];
+  let depth = 0;
+  for (const line of lines) {
+    if (depth === 0 && RULE_LINE.test(line)) continue;
+    kept.push(line);
+    for (const char of line) {
+      if (char === "[") depth++;
+      else if (char === "]" && depth > 0) depth--;
+    }
+  }
+  if (kept.length === lines.length) return text;
+  return kept
+    .join("\n")
+    .replace(/(?:\r?\n[^\S\r\n]*){3,}/g, "\n\n")
+    .trim();
 }
 
 /**

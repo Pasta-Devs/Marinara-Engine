@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { experienceSetupDefaultsSchema } from "../features/world/game-intro.js";
 import { agentResultTypeSchema } from "./agent.schema.js";
-import { isRulesetCatalogAssetPath, RULESET_ASSET_PATH } from "./ruleset.schema.js";
+import {
+  isRulesetCatalogAssetPath,
+  isRulesetLocaleAssetPath,
+  isRulesetLocaleCode,
+  RULESET_ASSET_PATH,
+  RULESET_LOCALE_MAX_BYTES,
+  RULESET_LOCALE_MAX_FILES,
+} from "./ruleset.schema.js";
 
 /** Caps mirrored by the Marinara-Agents catalog build. Kept here so a hostile or
  *  broken notes document cannot push an unbounded string into a modal. */
@@ -1501,7 +1508,51 @@ const capabilityPackageManifestBaseSchema = z
 //        passes the package's detail view `engineHeader: true` and a `headerSlot` for its buttons.
 // 1.391: `persistence.listChatSummaries(chatId).advancedMemory`: Advanced Memory's scene summaries with the
 //        `memory` block from `long-term-memory:runtime.summaryMemoryInstruction()`, stored untouched.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 391 } as const);
+// 1.392-1.790: the 5e work (Ruleset Engine capabilities and combat AI), held until 5e lands; each
+//        minor's keys are documented in docs/extending/writing-rulesets.md and the ruleset-*.md pages beside it.
+// 1.791: what a ruleset's weights are counted in (`items.carry.unit`), said after every weight shown.
+// 1.792: a damage change only on a blow carrying given damage types (`onTypes`), and one that spends
+//        its condition once it adds (`spentOnUse`).
+// 1.793: an attack list's `abilityChoices`: a value of a row's ability column that stands for the
+//        best of several abilities, for its damage too (5e's Finesse, the better of STR and DEX).
+// 1.794: a sheet migration's `setColumn`: one column set on every list row its `where` columns match,
+//        as attack rows made before a weapon's ability choice existed.
+// 1.795: a bestiary creature's `inventory`: what it has on it as a fight begins, each line an item of
+//        the ruleset's or a loot table's picks, `chance` in a hundred and `count` of it. It uses what it
+//        can (a sheet-backed one as a party member does; a plain stat block what is used up in the using
+//        and reads nothing of its user), and what it has left drops when it is beaten. The Game Master
+//        may give an opponent its own instead (`carrying`).
+// 1.796: a text field's or list column's `suggestions`: words offered as chips to pick, the field still
+//        typed in freely (a ranger's favored enemies).
+// 1.797: a text field's or list column's `pick`: how many of its `suggestions` its holder picks, read
+//        off the sheet (a ranger's favored enemies by level), shown as "choose N".
+// 1.798: a `beforeFight` entry that calls a creature, used outside a fight, keeps it on its user's
+//        sheet, and it joins every fight they are in until it is dismissed or killed (Find Familiar).
+// 1.799: a guided-builder rows step's `countFrom`: how many of the player's own rows it wants, read off
+//        the sheet (5e's hit point rolls, one per level after 1st). The step starts with that many and
+//        waits on that many whole rows, as its `min` does.
+// 1.800: an attack list's `toHit.sheetBonus`: a number off the sheet added to hit on its rows, or on
+//        only the rows whose `when` column holds a value (5e's Archery on ranged weapons).
+// 1.803: an encounter budget, `combat.threat.budget`, and a threat tier's `worth`: what a fight may hold
+//        for a party by level and game difficulty. The Game Master is told it, and invented opponents
+//        are brought down a rung while a fight is over it.
+// 1.804: a rest's `clear.temp`: every pool's temporary points go as it ends (5e's temporary hit points
+//        at a long rest).
+// 1.805: `combat.signatureAtTurnStart`: signature actions also bought as a foe's turn starts.
+// 1.807: a sheet list's `ritual`: a yes-or-no column whose ticked rows may be used outside a fight as a
+//        ritual, the use tag's ritual="yes", paying none of their pools (5e's ritual spells).
+// 1.808: `items.drawOnUse`: items of some categories or tags used while only carried, each put in hand
+//        as it is used by putting away the fewest other such items in its slots (5e's weapons).
+// 1.809: a sheet list's `ritualNeeds`: the entries a sheet must hold a row from to use its rows as
+//        rituals (5e's Ritual Casting).
+// 1.810: a rest's `every`: the hours of the game's clock before it may be taken again (5e's one long
+//        rest in 24 hours).
+// 1.811: a ruleset's language packs: a catalog entry's `locales`, one `<id>-<version>.<lang>.json` per
+//        language, fetched only in the Engine's language; and a ruleset package file a player shares may
+//        carry `locales/<lang>.json`, of which an import keeps the Engine's language alone.
+// 1.812: an `ammoRider`'s `toHit`: what magic ammunition adds to the attack roll of the shot it rides
+//        (5e's Arrow +1).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 812 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1947,7 +1998,41 @@ export const capabilityPackageManifestSchema = z
         });
       }
     }
+    // A ruleset package file's translations (1.811) ship beside its ruleset. Only a ruleset package's are:
+    // another package's locales/ folder is its own business. The catalog never carries them inside the
+    // file: its rulesets list language packs instead.
+    if (
+      manifest.contributions?.assets?.paths.includes(RULESET_ASSET_PATH) &&
+      manifest.contributions.assets.paths.some(isRulesetLocaleAssetPath)
+    ) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 811)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message:
+            "A ruleset file's translations (locales/<language>.json) require schemaVersion 2 and capabilityApi 1.811 or newer",
+        });
+      }
+    }
   });
+
+/** One language pack of a catalog ruleset (1.811): where it is, pinned by its sha256 and size, and the
+ *  store card's name and description in its language. */
+const capabilityCatalogLocalePackSchema = z
+  .object({
+    url: z
+      .string()
+      .url()
+      .refine((url) => url.startsWith("https://"), { message: "A language pack is fetched over https" }),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/),
+    bytes: z.number().int().positive().max(RULESET_LOCALE_MAX_BYTES),
+    // The store card's text in this language. One that is not usable (empty, too long, not text) is
+    // left out, so the card reads in English rather than hiding the whole package.
+    name: z.string().min(1).max(120).optional().catch(undefined),
+    description: z.string().max(2000).optional().catch(undefined),
+  })
+  .strict();
 
 export const capabilityCatalogPackageSchema = z
   .object({
@@ -1966,8 +2051,52 @@ export const capabilityCatalogPackageSchema = z
       .strict(),
     iconUrl: z.string().url().optional(),
     documentationUrl: z.string().url().optional(),
+    /** A ruleset's language packs (1.811), by language: each `<id>-<version>.<lang>.json`, fetched only in
+     *  the Engine's language, with the store card's name and description in it. English is the ruleset. */
+    locales: z
+      .record(z.string(), capabilityCatalogLocalePackSchema)
+      .refine((locales) => Object.keys(locales).length <= RULESET_LOCALE_MAX_FILES, {
+        message: `A ruleset lists at most ${RULESET_LOCALE_MAX_FILES} language packs`,
+      })
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((entry, ctx) => {
+    if (!entry.locales) return;
+    const { manifest } = entry;
+    const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+    if (!manifest.kind.includes("ruleset") || !api || api.major < 1 || (api.major === 1 && api.minor < 811)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["locales"],
+        message: "Language packs belong to a ruleset of schemaVersion 2 and capabilityApi 1.811 or newer",
+      });
+    }
+    for (const [locale, pack] of Object.entries(entry.locales)) {
+      if (locale === "en" || !isRulesetLocaleCode(locale)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["locales", locale],
+          message: `"${locale}" is not a language a pack is listed under (English is the ruleset itself)`,
+        });
+        continue;
+      }
+      // The pack is the ruleset version's own, named as the catalog build names it.
+      let pathname = "";
+      try {
+        pathname = new URL(pack.url).pathname;
+      } catch {
+        // The url schema has already said so.
+      }
+      if (!pathname.endsWith(`/${manifest.id}-${manifest.version}.${locale}.json`)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["locales", locale, "url"],
+          message: `The ${locale} pack is not ${manifest.id}-${manifest.version}.${locale}.json`,
+        });
+      }
+    }
+  });
 
 export const capabilityCatalogSchema = z
   .object({

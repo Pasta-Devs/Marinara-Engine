@@ -20,6 +20,13 @@ for (const [written, repaired] of [
     "[Vyre Ashcombe] [thought] - Something doesn't sit right.",
     "[Vyre Ashcombe] [thought]: Something doesn't sit right.",
   ],
+  // The speaker written as a markdown link (DeepSeek, playtest 2026-10-26): the link's target is a slot.
+  [
+    '[Thistle](/whisper:Brannagh) [main] [scared]: "Did you hear that?"',
+    '[Thistle] [whisper:Brannagh] [scared]: "Did you hear that?"',
+  ],
+  ['[Thistle](main): "Over here."', '[Thistle] [main]: "Over here."'],
+  ['[Thistle](https://example.com) [main] [calm]: "Hi."', '[Thistle] [main] [calm]: "Hi."'],
 ] as const) {
   assert.equal(repairGameSpeakerLine(written), repaired, written);
 }
@@ -32,6 +39,9 @@ for (const line of [
   "Rain falls on the [old] road - again.",
   "[Note: the bridge is out]",
   "[Alice] [main] [happy] waves.",
+  "See [the old map](https://example.com/map) - it is torn.",
+  "[the old map](https://example.com/map): torn at the fold.",
+  "[Thistle](/whisper:Brannagh) [main] [scared] backs away.",
 ]) {
   assert.equal(repairGameSpeakerLine(line), line, line);
 }
@@ -45,6 +55,18 @@ const segments = (content: string) =>
     whisperTarget: segment.whisperTarget,
     content: segment.content,
   }));
+
+// A link-shaped speaker shows as the character's whisper, not as raw brackets.
+assert.deepEqual(segments('[Thistle](/whisper:Brannagh) [main] [scared]: "Did you hear that?"'), [
+  {
+    type: "dialogue",
+    speaker: "Thistle",
+    sprite: "scared",
+    partyType: "whisper",
+    whisperTarget: "Brannagh",
+    content: "Did you hear that?",
+  },
+]);
 
 // The narration screen shows each drifted line as the character's line.
 assert.deepEqual(segments('[Vyre Ashcombe] [main] [side] [disgusted]: "Charming."'), [
@@ -115,6 +137,7 @@ for (const drifted of [
   '[Vyre Ashcombe] [main] [side] [disgusted]: "Charming."',
   '[Brother Kesh] [main|thinking]: "Hm."',
   '[music: calm] [Vyre Ashcombe] [main] [side] [disgusted]: "Charming."',
+  '[Thistle](/whisper:Brannagh) [main] [scared]: "Did you hear that?"',
 ]) {
   const raw = `The hall goes quiet.\n${drifted}\nRain on the roof.\n\n[Brother Kesh] [main] [calm]: "Let it be."\nThe fire dies.`;
   const screen = parseGameNarrationSegments({ id: "m", content: raw });

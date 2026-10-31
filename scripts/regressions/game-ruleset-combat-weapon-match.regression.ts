@@ -9,6 +9,7 @@
  *     these, or none is. `grantsStrike.when` keeps a granted strike within the sheet's bounds.
  *   - `afterAttack`'s `items` (1.246): the attack action taken with a club +1 is taken with a monk
  *     weapon, and Martial Arts' bonus strike follows it.
+ *   - A row whose ability the ruleset cannot read takes a rule's better ability to hit and to damage.
  *   - Import refusals and the install gate.
  */
 import assert from "node:assert/strict";
@@ -215,6 +216,13 @@ try {
     const state = fight({ items: [weapon("Shortsword", "1d6", ["martial", "melee", "finesse"])] });
     assert.equal(attack(state, "Shortsword").ability, "dex");
     assert.equal(attack(state, "Unarmed Strike").ability, "dex", "wielding only monk weapons");
+  }
+
+  // ── A row whose ability its ruleset cannot read (a card from a later version) takes Martial Arts'
+  //    Dexterity to hit and to damage alike (laptop playtest 2026-10-24: a shortsword +7, 1d6) ──
+  {
+    const state = fight({ rows: [{ ...unarmed, name: "Shortsword", ability: "finesse", damage: "1d6" }] });
+    assert.deepEqual(shape(attack(state, "Shortsword")), ["dex", 3 + 3, 1, 6, 3]);
   }
 
   // ── The attack action with a club +1 is with a monk weapon: the bonus unarmed strike follows ──

@@ -15,6 +15,7 @@ import {
   stripMapUpdateTag,
   stripDanglingTagClosers,
   stripEngineResultBlocks,
+  renderOocNotes,
 } from "./game-narration-text.js";
 import { stripGameBranchDelimiters } from "./dice-branch.js";
 import { stripClockCommandTags } from "./clock-command-tag.js";
@@ -66,6 +67,10 @@ export interface SegmentInventoryUpdate {
 export interface PartyChangeTag {
   characterName: string;
   change: "add" | "remove";
+  /** Joins as a copy of this party member (5e's Simulacrum). */
+  copyOf?: string;
+  /** A condition of the game's ruleset the copy holds from the start. */
+  condition?: string;
 }
 
 export interface ReadableTag {
@@ -344,7 +349,7 @@ function parsePartyCharacterName(body: string): string {
   const unquoted = quoted ? null : /(?:character|name)\s*=\s*([^,\]]+)/i.exec(body);
   const rawName = quoted?.[1] ?? unquoted?.[1] ?? body;
   return rawName
-    .replace(/\s+change\s*=\s*"?(?:add|remove)"?.*$/i, "")
+    .replace(/\s+(?:change|copy_of|condition)\s*=.*$/i, "")
     .trim()
     .replace(/^["']|["']$/g, "");
 }
@@ -354,7 +359,12 @@ function parsePartyChangeTagBody(body: string, fallbackChange?: "add" | "remove"
   const change = (changeMatch?.[1]?.toLowerCase() as "add" | "remove" | undefined) ?? fallbackChange;
   if (!change) return null;
   const characterName = parsePartyCharacterName(body);
-  return characterName ? { characterName, change } : null;
+  if (!characterName) return null;
+  const attribute = (name: string) =>
+    (new RegExp(`${name}\\s*=\\s*"([^"]+)"`, "i").exec(body)?.[1] ?? "").trim() || undefined;
+  const copyOf = change === "add" ? attribute("copy_of") : undefined;
+  const condition = copyOf ? attribute("condition") : undefined;
+  return { characterName, change, ...(copyOf ? { copyOf } : {}), ...(condition ? { condition } : {}) };
 }
 
 /** Match a legacy flat-tag body with one forward scan, including malformed input. */
@@ -541,7 +551,8 @@ export function parseSegmentInventoryUpdates(content: string): SegmentInventoryU
 
 /** Extract all command tags from GM narration and return clean content. */
 export function parseGmTags(content: string): ParsedGmTags {
-  let text = content;
+  // An OOC answer is shown, not stripped as an unknown tag.
+  let text = renderOocNotes(content);
   const result: ParsedGmTags = {
     cleanContent: "",
     music: null,
@@ -717,7 +728,8 @@ export function parseGmTags(content: string): ParsedGmTags {
         const v = pair.slice(colonIdx + 1).trim();
         const stripped = v.replace(/^["']|["']$/g, "");
         if (k === "value") {
-          const parsed = parseFloat(stripped);
+          // A number only when that is all it is: "44/44" keeps its maximum (laptop 2026-10-25).
+          const parsed = /^[-+]?\d+(?:\.\d+)?%?$/.test(stripped) ? parseFloat(stripped) : NaN;
           changes.value = isNaN(parsed) ? stripped : parsed;
         } else if (k === "stat") changes.statName = stripped;
         else if (k === "add") changes.add = stripped;
@@ -830,7 +842,7 @@ export function parseGmTags(content: string): ParsedGmTags {
 
 /** Strip all GM command tags from text, returning clean display content. */
 export function stripGmTags(content: string): string {
-  let text = stripEngineResultBlocks(content);
+  let text = renderOocNotes(stripEngineResultBlocks(content));
   text = extractFlatTags(text, /\[music:/gi).remaining;
   text = extractFlatTags(text, /\[sfx:/gi).remaining;
   text = extractFlatTags(text, /\[bg:/gi).remaining;

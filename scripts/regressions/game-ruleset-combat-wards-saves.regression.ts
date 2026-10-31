@@ -406,7 +406,7 @@ try {
     refusedDoc(withSave({ succeeds: { is: { tags: ["gilled"] } } }), /Unknown creature tag "gilled"/);
     refusedDoc(withSave({ against: { damage: ["glitter"] } }), /Unknown damage type "glitter"/);
     refusedDoc(withSave({ against: { conditions: ["sneezy"] } }), /Unknown condition "sneezy"/);
-    refusedDoc(withSave({ against: {} }), /Against names conditions or damage/);
+    refusedDoc(withSave({ against: {} }), /Against names conditions, damage or qualities/);
     const withHag = (components: Record<string, unknown>) => (doc: Record<string, any>) => {
       doc.catalogs.push({ id: "spells", label: "Spells", feeds: ["spells"], entries: [shout] });
       doc.catalogs.push({ id: "beasts", label: "Beasts", holds: "creatures", entries: [hag(components)] });

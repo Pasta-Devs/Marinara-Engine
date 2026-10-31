@@ -3,12 +3,13 @@
 // ──────────────────────────────────────────────
 // The official catalog pins each entry's artifact to its canonical Marinara-Agents URL. A ruleset is
 // published as its ruleset package file (`<id>-<version>.ruleset.json`, Capability API 1.374) and an
-// Experience as its Experience file (`<id>-<version>.experience.json`), never a zip, since those are the
-// only forms the installer takes. The canonical name used to be `<id>-<version>.zip` for every kind, so a
-// ruleset entry made the published catalog throw (every package gone) and was dropped from the preview
-// overlay, and its URL would have been rewritten to a .zip that does not exist. Pinned here:
-//   * a ruleset or Experience file entry loads from the published catalog and from the overlay, its
-//     artifact resolved onto the catalog's own branch under its published name;
+// Experience as its Experience file (`<id>-<version>.experience.json`, 1.373), never a zip, since those are
+// the only forms the installer takes, with a ruleset's language packs (`<id>-<version>.<lang>.json`, 1.811)
+// beside it. The canonical name used to be `<id>-<version>.zip` for every kind, so a ruleset entry made the
+// published catalog throw (every package gone) and was dropped from the preview overlay, and its URL would
+// have been rewritten to a .zip that does not exist. Pinned here:
+//   * a ruleset (with a language pack) or Experience file entry loads from the published catalog and from
+//     the overlay, its artifact and pack resolved onto the catalog's own branch under their published names;
 //   * a .zip entry (including a ruleset still listed as one) still loads and resolves as before;
 //   * a name that is not the entry's own (another kind's, another version's) is still refused.
 import assert from "node:assert/strict";
@@ -42,16 +43,24 @@ function rulesetEntry(id: string, branch: "main" | "staging", artifactName = `${
       files: [{ path: "ruleset.json", sha256: sha256("{}"), bytes: 2 }],
       permissions: [],
       restartRequired: false,
-      capabilityApi: { major: 1, minor: 374 },
+      capabilityApi: { major: 1, minor: 811 },
       builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     },
     category: "misc" as const,
     artifact: { url: `${artifacts(branch)}/${artifactName}`, sha256: "1".repeat(64), bytes: 10 },
+    locales: {
+      ru: {
+        url: `${artifacts(branch)}/${id}-1.0.0.ru.json`,
+        sha256: "2".repeat(64),
+        bytes: 10,
+        name: "Правила",
+      },
+    },
   };
 }
 
 function experienceEntry(id: string, branch: "main" | "staging") {
-  const entry = rulesetEntry(id, branch, `${id}-1.0.0.experience.json`);
+  const { locales: _locales, ...entry } = rulesetEntry(id, branch, `${id}-1.0.0.experience.json`);
   return {
     ...entry,
     manifest: {
@@ -160,6 +169,13 @@ try {
       /canonical Marinara-Agents artifact URL/,
       "only a ruleset is published as a ruleset file",
     );
+    const offPack = parse({
+      ...rulesetEntry("rules-pack", "main"),
+      locales: {
+        ru: { ...rulesetEntry("rules-pack", "main").locales.ru, url: `https://example.com/rules-pack-1.0.0.ru.json` },
+      },
+    });
+    assert.match(getCapabilityPackageArtifactSourceIssue(offPack, catalogUrl) ?? "", /ru language pack URL/);
   }
   // A custom catalog is not held to the official names.
   const custom = parse(rulesetEntry("rules-pack", "main", "rules-pack-1.0.0.json"));
@@ -186,6 +202,8 @@ try {
   const byId = new Map(catalog.packages.map((entry) => [entry.manifest.id, entry]));
   assert.deepEqual([...byId.keys()].sort(), ["preview-rules", "published-agent", "published-rules", "published-world"]);
   assert.equal(byId.get("published-rules")?.artifact.url, `${artifacts("staging")}/published-rules-1.0.0.ruleset.json`);
+  assert.equal(byId.get("published-rules")?.locales?.ru?.url, `${artifacts("staging")}/published-rules-1.0.0.ru.json`);
+  assert.equal(byId.get("published-rules")?.locales?.ru?.name, "Правила");
   assert.equal(
     byId.get("published-world")?.artifact.url,
     `${artifacts("staging")}/published-world-1.0.0.experience.json`,
@@ -194,8 +212,11 @@ try {
   const preview = byId.get("preview-rules");
   assert.equal(preview?.preview, true, "the overlay's ruleset is kept, not dropped");
   assert.equal(preview?.artifact.url, `${artifacts("staging")}/preview-rules-1.0.0.ruleset.json`);
+  assert.equal(preview?.locales?.ru?.url, `${artifacts("staging")}/preview-rules-1.0.0.ru.json`);
 
-  console.info("Official catalog file artifacts: ruleset and Experience files load and resolve; zips unchanged.");
+  console.info(
+    "Official catalog file artifacts: ruleset files with their language packs and Experience files load and resolve; zips unchanged.",
+  );
 } finally {
   rmSync(dataDir, { recursive: true, force: true });
 }

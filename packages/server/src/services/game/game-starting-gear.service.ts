@@ -11,8 +11,12 @@ import {
   resolveRulesetStartingGear,
   rulesetStartingGearKind,
   rulesetStartingGearTakenBy,
+  rulesetStartingGearEquips,
+  rulesetStartingGearUnheld,
+  type GameInventoryEngineOp,
   type GameInventoryOp,
   type GameInventoryStack,
+  type RulesetStartingGearAdd,
   type RulesetStartingGearRefusal,
   type RulesetStartingGearSelection,
 } from "@marinara-engine/shared";
@@ -64,7 +68,14 @@ export type GameStartingGearOutcome =
 
 export async function takeGameStartingGear(
   db: DB,
-  input: { chatId: string; holder?: string; selection: RulesetStartingGearSelection; again?: boolean },
+  input: {
+    chatId: string;
+    holder?: string;
+    selection: RulesetStartingGearSelection;
+    again?: boolean;
+    /** Free edit: all of it goes in, past what its bearer can carry, who is then over their limit. */
+    pastLimit?: boolean;
+  },
 ): Promise<GameStartingGearOutcome> {
   const refuse = (status: 404 | 409, reason: GameStartingGearRefusal, error: string): GameStartingGearOutcome => ({
     ok: false,
@@ -137,7 +148,9 @@ export async function takeGameStartingGear(
   const { gear } = resolution;
   const kind = rulesetStartingGearKind(definition, gear.id);
 
-  type Value = { refused: GameStartingGearRefusal; error: string } | { taken: GameStartingGearTaken };
+  type Value =
+    | { refused: GameStartingGearRefusal; error: string }
+    | { taken: GameStartingGearTaken; adds: RulesetStartingGearAdd[] };
   const committed = await commitGameInventoryChange<Value>(db, input.chatId, (stacks, current) => {
     const bag = bagOf(current);
     if ("refused" in bag) return { stacks, journal: [], value: bag };
@@ -153,18 +166,24 @@ export async function takeGameStartingGear(
         value: { refused: "taken", error: `${who} has already taken starting gear of this kind` },
       };
     }
-    const ops: GameInventoryOp[] = resolution.adds.map((add) => ({
+    // What the bag already holds of what is worn is not taken twice, unless the gear is taken again on
+    // purpose (laptop 2026-10-26: the Game Master's shield, then the kit's).
+    const { adds, held } = input.again
+      ? { adds: resolution.adds, held: [] as string[] }
+      : rulesetStartingGearUnheld(resolution.adds, stacks, holder, book);
+    const ops: GameInventoryEngineOp[] = adds.map((add) => ({
       op: "add",
       name: add.name,
       ...(add.item ? { item: add.item } : {}),
       count: add.count,
       ...(holder ? { holder } : {}),
       log: true,
+      ...(input.pastLimit ? { pastLimit: true as const } : {}),
     }));
     const added = applyGameInventoryOps(stacks, ops, undefined, book);
     // All of it or none of it: gear half in the bag is not what the player chose.
     for (const [index, result] of added.results.entries()) {
-      const name = resolution.adds[index]!.name;
+      const name = adds[index]!.name;
       if (!result.ok) {
         const reason = result.reason === "too-heavy" ? "too-heavy" : "refused";
         return {
@@ -185,13 +204,12 @@ export async function takeGameStartingGear(
         };
       }
     }
-    // Armor and a shield go on as they are taken, where their slots are free; one that does not fit
-    // stays in the bag.
-    const equips: GameInventoryOp[] = [];
-    for (const [index, add] of resolution.adds.entries()) {
-      const result = added.results[index];
-      if (add.equip && result?.ok && result.id) equips.push({ op: "equip", id: result.id });
-    }
+    // Armor and a shield go on as they are taken, where their slots are free, and each of several put
+    // on alike (two shortswords, one in each hand); one that does not fit stays in the bag.
+    const equips: GameInventoryOp[] = rulesetStartingGearEquips(
+      adds,
+      added.results.map((result) => (result?.ok ? result.id : undefined)),
+    );
     const worn = equips.length > 0 ? applyGameInventoryOps(added.stacks, equips, undefined, book) : added;
     const next: GameStartingGearTaken = {
       ...taken,
@@ -199,13 +217,17 @@ export async function takeGameStartingGear(
       [bagKey]: [...takenHere.filter((id) => id !== gear.id), gear.id].slice(-40),
     };
     // Written as the bag writes a stack: "Handaxe x2".
-    const list = resolution.adds.map((add) => (add.count > 1 ? `${add.name} x${add.count}` : add.name)).join(", ");
+    const list = adds.map((add) => (add.count > 1 ? `${add.name} x${add.count}` : add.name)).join(", ");
+    const content = [
+      ...(list ? [`${who} took ${list}.`] : []),
+      ...(held.length > 0 ? [`${who} already had ${held.join(", ")}.`] : []),
+    ].join(" ");
     return {
       stacks: worn.stacks,
       journal: added.journal,
-      events: [{ title: `Starting gear: ${gear.label}`, content: `${who} took ${list}.` }],
+      events: [{ title: `Starting gear: ${gear.label}`, content }],
       metadata: { [GAME_STARTING_GEAR_TAKEN_KEY]: next },
-      value: { taken: next },
+      value: { taken: next, adds },
     };
   });
   if (!committed) return refuse(404, "no-gear", "Chat not found");
@@ -213,7 +235,7 @@ export async function takeGameStartingGear(
   return {
     ok: true,
     inventory: committed.stacks,
-    added: resolution.adds.map((add) => ({ name: add.name, count: add.count })),
+    added: committed.value.adds.map((add) => ({ name: add.name, count: add.count })),
     dropped: resolution.dropped,
     taken: committed.value.taken,
     ...(committed.playerStats ? { playerStats: committed.playerStats } : {}),

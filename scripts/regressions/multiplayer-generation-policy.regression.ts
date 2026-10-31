@@ -85,9 +85,16 @@ runWithRoomGeneration(carded, () =>
     "the GM is told which game card each player plays, so it never voices it",
   ),
 );
-runWithRoomGeneration(carded, () =>
-  assert.match(roomRosterPrompt()!, /Played by these people, never by you: [^\n]*Rowan, Guest Hero\./u),
-);
+runWithRoomGeneration(carded, () => {
+  assert.match(roomRosterPrompt()!, /Played by these people, never by you: [^\n]*Rowan, Guest Hero\./u);
+  assert.match(
+    roomRosterPrompt()!,
+    /never write a party_change for one of them/u,
+    "a seated hero never leaves the party by the Game Master's word",
+  );
+  // Laptop room playtest 2026-10-30: the reply after a fight gave the seated Guest Hero a line.
+  assert.match(roomRosterPrompt()!, /After a fight too, where a \[combat_result\] lists them/u);
+});
 for (const characters of [
   undefined,
   "not-a-roster",

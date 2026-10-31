@@ -130,7 +130,7 @@ test.describe("chat control windows on desktop", () => {
       const inventory = page.getByRole("dialog", { name: "Inventory", exact: true });
       await expect(inventory).toBeVisible();
       await expect(settings).toBeHidden();
-      await inventory.getByRole("button", { name: "Close", exact: true }).click();
+      await inventory.getByRole("button", { name: "Close inventory", exact: true }).click();
       await expect(inventory).toHaveCount(0);
       await expect(settings).toBeVisible();
     } finally {

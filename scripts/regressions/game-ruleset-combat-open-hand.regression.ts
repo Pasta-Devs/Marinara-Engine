@@ -6,6 +6,7 @@
  *   - A reaction's `oneOf`: of the holder's answers sharing it, one is taken per hit; the next hit
  *     offers them all again.
  *   - The three riders: a Dexterity save or prone, a Strength save or pushed, no reactions.
+ *   - A hit the target's own answer (a Parry) turned into a miss offers the riders nothing to ride.
  *   - Import refusals and the install gate.
  */
 import assert from "node:assert/strict";
@@ -140,7 +141,7 @@ try {
     features.flatMap((entry) =>
       rowsFromCatalogEntry("monk", entry).flatMap((one) => (one.list === list ? [one.row] : [])),
     );
-  const fight = (): RulesetEncounterState => {
+  const fight = (foe: RulesetStatBlock = block()): RulesetEncounterState => {
     const state = createRulesetEncounter({
       definition,
       seed: 1,
@@ -164,7 +165,7 @@ try {
           live: {},
           catalogs: { monk: features },
         },
-        { id: "foe", name: "Foe", side: "enemy", block: block() },
+        { id: "foe", name: "Foe", side: "enemy", block: foe },
       ],
     });
     state.order = ["monk", "foe"];
@@ -230,6 +231,67 @@ try {
     const first = take(flurried(), "Unarmed Strike", "flurry");
     const shook = answer(first.state, "Open Hand: No Reactions");
     assert.deepEqual(holds(shook.state), ["unreacting"]);
+  }
+
+  // ── A hit its target's Parry turns into a miss takes no rider (cheap-GM playtest 2026-10-26: Open
+  //    Hand Technique knocked a captain prone on a hit his Parry then turned into a miss) ──
+  {
+    const total = take(flurried(), "Unarmed Strike", "flurry").state.window?.trigger;
+    assert.ok(total?.kind === "hit");
+    // Hit exactly at its defense: two more, and the same roll misses.
+    const parrier = {
+      ...block(),
+      defense: total.total,
+      actions: [
+        {
+          id: "parry",
+          name: "Parry",
+          budget: "reaction",
+          self: true,
+          reaction: { on: "hit" },
+          applies: [{ condition: "parrying", duration: { rounds: 1 }, endsAfter: "attacked" }],
+        },
+      ],
+    } as unknown as RulesetStatBlock;
+    const foeAnswers = (state: RulesetEncounterState) => rulesetWindowOptions(definition, state, "foe");
+    const foePasses = (state: RulesetEncounterState) =>
+      state.window
+        ? applyRulesetCombatChoice(
+            definition,
+            state,
+            { actorId: "foe", optionId: RULESET_PASS_OPTION, targetIds: [] },
+            roll,
+          ).state
+        : state;
+    // The attack action's own strike hits too, and the foe lets that one through.
+    const hitParrier = () =>
+      take(
+        take(foePasses(take(fight(parrier), "Unarmed Strike", "action").state), "Flurry of Blows").state,
+        "Unarmed Strike",
+        "flurry",
+      );
+    const struck = hitParrier();
+    assert.equal(struck.state.window?.waiting[0], "foe", "the one hit answers before the hit's maker");
+    const parry = foeAnswers(struck.state).find((one) => one.label === "Parry");
+    assert.ok(parry, `the foe can parry: ${foeAnswers(struck.state).map((one) => one.label)}`);
+    const parried = applyRulesetCombatChoice(
+      definition,
+      struck.state,
+      { actorId: "foe", optionId: parry.id, targetIds: [] },
+      roll,
+    );
+    assert.deepEqual(answers(parried.state), [], "no rider on a hit that now misses");
+    assert.equal(parried.state.window, undefined, "the window closes with nothing left to answer");
+    assert.ok(!holds(parried.state).includes("prone"), "the parried foe is not knocked down");
+    assert.equal(of(parried.events, "recheck")[0]?.outcome, "miss");
+    // Not parried, the hit stands and the riders are offered.
+    const unparried = applyRulesetCombatChoice(
+      definition,
+      hitParrier().state,
+      { actorId: "foe", optionId: RULESET_PASS_OPTION, targetIds: [] },
+      roll,
+    );
+    assert.deepEqual(answers(unparried.state), riders);
   }
 
   // ── Import refusals ──

@@ -263,7 +263,7 @@ try {
     const rule = (doc: Record<string, any>, id: string) =>
       doc.combat.conditions.find((one: { condition: string }) => one.condition === id).modifiers[0];
     refused((doc) => (rule(doc, "brutal").to = "attacks"), /"criticalDice" changes the damage a blow deals only/);
-    refused((doc) => (rule(doc, "reckless").to = "saves"), /"blow" narrows damage or attacks only/);
+    refused((doc) => (rule(doc, "reckless").to = "saves"), /"blow" narrows damage, attacks or defense only/);
     refused((doc) => (rule(doc, "brutal").criticalDice = 9), /criticalDice/);
   }
 

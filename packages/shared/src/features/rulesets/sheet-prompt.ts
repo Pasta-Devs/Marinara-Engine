@@ -18,7 +18,7 @@ import {
 } from "../../schemas/ruleset.schema.js";
 import { rulesetCheckSources, rulesetHideLines } from "./check-effects.js";
 import { rulesetItemEffectFacts, rulesetItemEffectText } from "./item-book.js";
-import { readRulesetLive } from "./live-state.js";
+import { readRulesetLive, rulesetKeptCalls, rulesetKeptForm } from "./live-state.js";
 import { rulesetCatalogEntriesByRef } from "./scaled-rows.js";
 import { rulesetItemAccess } from "./sheet-builder.js";
 import {
@@ -97,7 +97,7 @@ export function renderRulesetSheetBlock(
 ): string {
   const { sheet, gm } = definition;
   const build = card.build;
-  const live = { ...readRulesetLive(definition, build, stored), ...(items ? { items } : {}) };
+  const live = { ...readRulesetLive(definition, build, stored, items), ...(items ? { items } : {}) };
   const evaluated = evaluateRulesetSheet(definition, build, live);
   const catalogEntries = rulesetCatalogEntriesByRef(catalogs);
   const lines: string[] = [];
@@ -164,7 +164,12 @@ export function renderRulesetSheetBlock(
 
   push(
     live.pools
-      .map((pool) => `${pool.label} ${pool.value}/${pool.max}${pool.temp > 0 ? ` +${pool.temp} temp` : ""}`)
+      .map((pool) =>
+        // A tally reads as the times it has been used (1.801), not as something left to spend.
+        pool.tally
+          ? `${pool.label} used ${pool.max - pool.value} times`
+          : `${pool.label} ${pool.value}/${pool.max}${pool.temp > 0 ? ` +${pool.temp} temp` : ""}`,
+      )
       .join(", "),
   );
 
@@ -213,6 +218,14 @@ export function renderRulesetSheetBlock(
 
   const conditions = live.conditions.flatMap((condition) => (condition.active ? [condition.label] : []));
   if (conditions.length > 0) push(`Conditions: ${conditions.join(", ")}`);
+  // What a use outside a fight called and keeps (1.798), which comes into every fight with them.
+  const kept = rulesetKeptCalls(stored).map((call) =>
+    call.as ? `${safeValue(call.as)} (${safeValue(call.entry)})` : safeValue(call.entry),
+  );
+  if (kept.length > 0) push(`With them: ${kept.join(", ")}`);
+  // And the shape one keeps them in (1.801), which they start every fight in.
+  const shaped = rulesetKeptForm(stored);
+  if (shaped) push(`In the shape of: ${safeValue(shaped.as)} (${safeValue(shaped.entry)})`);
   for (const source of rulesetCheckSources(definition, build, stored, items)) {
     const modifiers = source.modifiers?.filter((one) => one.to === "damage");
     if (modifiers?.length)

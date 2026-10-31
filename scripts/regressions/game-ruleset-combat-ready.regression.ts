@@ -331,6 +331,26 @@ try {
     assert.equal(act(ally, { actorId: "fighter", optionId: sword.id, targetIds: ["gob"] }).state.window, undefined);
   }
 
+  // ── A sword readied for the gob acting, with nobody in its reach: nobody is asked, and the log says
+  //    nothing (laptop playtest 2026-10-24: "may take what they readied" on every action) ──
+  {
+    const state = ready(fight(), "fighter", "Sword", "acts").state;
+    who(state, "gob").x = 2;
+    who(state, "gob").y = 1;
+    const claw = optionsOf(state, "gob").find((one) => one.label === "Claw")!;
+    const far = act(state, { actorId: "gob", optionId: claw.id, targetIds: ["mage"] });
+    assert.ok(
+      far.events.some((one) => one.type === "damage" || one.type === "attack"),
+      JSON.stringify(far.events),
+    );
+    assert.equal(far.state.window, undefined, JSON.stringify(far.events));
+    // Beside it, the same sword is offered.
+    const near = ready(fight(), "fighter", "Sword", "acts").state;
+    who(near, "gob").x = 3;
+    const clawed = act(near, { actorId: "gob", optionId: claw.id, targetIds: ["fighter"] });
+    assert.equal(clawed.state.window?.trigger.kind, "readied", JSON.stringify(clawed.events));
+  }
+
   // ── Waiting runs out at its holder's next turn; a held spell is spent all the same ──
   {
     let state = ready(fight(), "mage", "Bolt", "acts").state;

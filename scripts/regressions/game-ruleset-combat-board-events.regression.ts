@@ -746,6 +746,28 @@ try {
     assert.equal(at(1, 1).season, "winter");
     assert.ok(rulesetCellSentences(at(0, 2), view, t).includes("game.combat.ruleset.board.growth"));
     assert.ok(rulesetCellSentences(at(1, 1), view, t).includes('game.combat.ruleset.board.season{"season":"winter"}'));
+    // One that gave itself up stays on the board where it did, a prisoner (re-test 14); one sent
+    // away does not.
+    {
+      const x = encounter.combatants.find((one) => one.id === "x")!;
+      const tokenOf = (away: NonNullable<typeof x.away>) => {
+        const was = { away: x.away, defeated: x.defeated };
+        x.away = away;
+        x.defeated = true;
+        try {
+          const seen = directedRulesetView(definition, {
+            style: "ruleset",
+            rulesetFight: { encounter, events: [], eventSeq: 0, controllers: {}, live: {}, adjustments: [] },
+          } as never) as DirectedRulesetView;
+          return rulesetBoardCells(seen, null).find((cell) => cell.x === x.x && cell.y === x.y)?.occupant?.id;
+        } finally {
+          x.away = was.away;
+          x.defeated = was.defeated;
+        }
+      };
+      assert.equal(tokenOf({ by: "x", label: "Surrendered", surrendered: true }), "x", "a prisoner stays");
+      assert.equal(tokenOf({ by: "ada", label: "Banished" }), undefined, "one sent away is gone");
+    }
     const plain = createRulesetFight({
       definition,
       seed: 3,

@@ -167,11 +167,14 @@ process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 // A stand-in model that answers from a script, one reply per request.
 const replies: string[] = [];
 const requests: Array<{ messages: Array<{ role: string; content: string }> }> = [];
+// While set, the stand-in holds its answer until it is let go: a request still on its way.
+let held: Promise<void> | null = null;
 const server = createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   const body = JSON.parse(Buffer.concat(chunks).toString());
   requests.push(body);
+  if (held) await held;
   res.writeHead(200, { "content-type": "application/json" });
   res.end(
     JSON.stringify({
@@ -350,6 +353,41 @@ try {
     // The connection the setup ran on becomes the game's own, for the start screen and the turns after.
     assert.equal((await createChatsStorage(db).getById(withKit.json().sessionChat.id))!.connectionId, connection!.id);
     assert.ok(!(await setupAsks(withoutKit.json().sessionChat.id)).includes("<world>"));
+    // One world created at a time (laptop playtest 2026-10-24): a game's setup open in two tabs,
+    // Create world pressed in both, and the second is refused while the first runs.
+    {
+      const chatId = withoutKit.json().sessionChat.id as string;
+      let release!: () => void;
+      held = new Promise<void>((resolve) => (release = resolve));
+      requests.length = 0;
+      // Started now, not when awaited: an inject runs once something waits on it.
+      const first = app
+        .inject({
+          method: "POST",
+          url: "/api/game/setup",
+          payload: { chatId, connectionId: connection!.id, streaming: false },
+        })
+        .then((response) => response);
+      for (let i = 0; i < 200 && requests.length === 0; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.ok(requests.length > 0, "the first setup is waiting on the model");
+      const second = await app.inject({
+        method: "POST",
+        url: "/api/game/setup",
+        payload: { chatId, connectionId: connection!.id, streaming: false },
+      });
+      release();
+      held = null;
+      assert.equal(second.statusCode, 409, second.body);
+      assert.match(second.body, /already being created/);
+      await first;
+      requests.length = 0;
+      await app.inject({
+        method: "POST",
+        url: "/api/game/setup",
+        payload: { chatId, connectionId: connection!.id, streaming: false },
+      });
+      assert.ok(requests.length > 0, "once it has finished, setup may be tried again");
+    }
     const broken = await create({ ...baseConfig, worldKit: { ...harbor, sizes: [] } });
     assert.equal(broken.statusCode, 400, broken.body);
   }

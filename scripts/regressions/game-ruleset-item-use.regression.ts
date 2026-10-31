@@ -490,6 +490,7 @@ try {
       type: "heal",
       targetId: "ada",
       sourceId: "ada",
+      label: "Poultice",
       rolls: [3],
       flat: 1,
       amount: 4,

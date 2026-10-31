@@ -6,6 +6,7 @@ import {
   Download,
   FileText,
   Hash,
+  ListChecks,
   MessageSquare,
   Pencil,
   Trash2,
@@ -24,6 +25,7 @@ import {
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { getChatDisplayName } from "../../lib/chat-display";
 import { openChatStats } from "../../lib/chat-insights";
+import { requestChatMessageRangeExport } from "../../lib/chat-floating-ui-events";
 import { compareChatsByActivityDesc } from "../../lib/chat-recency";
 import { api } from "../../lib/api-client";
 import { useChatStore } from "../../stores/chat.store";
@@ -43,10 +45,17 @@ interface ChatBranchesPanelProps {
   activeChatId: string;
   activeChatName?: string | null;
   groupId?: string | null;
+  /** Offers "Export a range"; game chats leave it out, since their rows cannot be selected. */
+  allowRangeExport?: boolean;
 }
 
 /** Switch, rename, export, import and delete a chat's branches (the Chat Branches drawer). */
-export function ChatBranchesPanel({ activeChatId, activeChatName, groupId }: ChatBranchesPanelProps) {
+export function ChatBranchesPanel({
+  activeChatId,
+  activeChatName,
+  groupId,
+  allowRangeExport = false,
+}: ChatBranchesPanelProps) {
   const { t: localizeUi } = useUiTranslation();
   const { data: groupChats } = useChatGroup(groupId ?? null);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
@@ -231,6 +240,17 @@ export function ChatBranchesPanel({ activeChatId, activeChatName, groupId }: Cha
             <ChartColumn size="0.75rem" />
             {localizeUi("chatInsights.stats.button")}
           </button>
+          {allowRangeExport && (
+            <button
+              type="button"
+              onClick={() => requestChatMessageRangeExport(activeChatId)}
+              title={localizeUi("chat.rangeExport.openTitle")}
+              className="col-span-3 flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              <ListChecks size="0.75rem" />
+              {localizeUi("chat.rangeExport.open")}
+            </button>
+          )}
         </div>
       </div>
 

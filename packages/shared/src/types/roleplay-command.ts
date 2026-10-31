@@ -4,6 +4,7 @@ export const ROLEPLAY_COMMAND_KEYS = [
   "illustrate",
   "video",
   "document",
+  "html",
   "sound",
   "music",
   "notes",
@@ -36,6 +37,7 @@ export type RoleplayCommand =
   | { type: "illustrate"; subject: string; characters?: string[] }
   | { type: "video"; subject: string; motion?: string; characters?: string[] }
   | { type: "document"; documentType: string; title: string; content: string }
+  | { type: "html"; prompt: string }
   | { type: "sound"; description: string }
   | { type: "music"; mood: string }
   | {
@@ -74,6 +76,8 @@ export interface RoleplayCommandActivity {
   originalContentAnchor?: string;
   /** Resolve once so a rename cannot redirect a saved secret. */
   whisperRecipient?: RoleplayWhisperRecipient;
+  /** What an html command made: the markup for the player, and the plain text the narrator keeps in later turns. */
+  artifact?: { html: string; memory: string };
   /** Exact before/after text makes interruption reversible without overwriting later edits. */
   interruption?: {
     targetMessageId: string;
@@ -136,6 +140,18 @@ export function getRoleplayDocuments(extra: Record<string, unknown>): RoleplayDo
     typeof command.title === "string" &&
     typeof command.content === "string"
       ? [{ type: command.documentType, title: command.title, content: command.content }]
+      : [],
+  );
+}
+
+export function getRoleplayArtifacts(extra: Record<string, unknown>) {
+  return getRoleplayCommandActivity(extra).flatMap((activity, index) =>
+    !activity.deleted &&
+    !activity.error &&
+    activity.command.type === "html" &&
+    typeof activity.artifact?.html === "string" &&
+    typeof activity.artifact.memory === "string"
+      ? [{ activity, index, artifact: activity.artifact }]
       : [],
   );
 }

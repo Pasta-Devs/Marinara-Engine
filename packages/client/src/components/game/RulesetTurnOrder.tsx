@@ -4,6 +4,7 @@
 //
 // Every number is the view's. The rows only print it; the Player/AI choice is sent to the server,
 // which owns who controls whom, exactly as the old "Party control" strip did.
+import { useRulesetText } from "../../lib/ruleset-text";
 import { Fragment } from "react";
 import {
   rulesetConditionIcons,
@@ -24,16 +25,26 @@ import { initialsOf } from "../../lib/tactical-board-look";
 import { rulesetHealthPercent } from "../../lib/ruleset-combat-board";
 import { cn } from "../../lib/utils";
 
-/** The ruleset's own words for what a combatant is (1.168): "Fiend (devil)". */
-export function rulesetKindLine(kind: { type?: string; tags?: string[] }): string {
-  const tags = (kind.tags ?? []).join(", ");
-  if (!kind.type) return tags;
-  return tags ? `${kind.type} (${tags})` : kind.type;
+/** The ruleset's own words for what a combatant is (1.168): "Fiend · Devil", its tags beside its type
+ *  rather than inside it, since a ruleset's tags are as often traits ("Headless") as subtypes. In the
+ *  player's language where the ruleset has it: its type, tags and alignment are the stat block's own
+ *  words, which the fight's view keeps as they are written (`kind`, `type`), so they are put in that
+ *  language here. */
+export function rulesetKindLine(
+  kind: { type?: string; tags?: string[]; alignment?: string },
+  text: (english: string) => string = (english) => english,
+  withAlignment = false,
+): string {
+  const tags = (kind.tags ?? []).map((tag) => text(tag)).join(", ");
+  const what = [kind.type ? text(kind.type) : undefined, tags].filter(Boolean).join(" · ");
+  // Its alignment as the stat block writes it, after what it is: "Humanoid · Goblinoid, neutral evil".
+  return [what, withAlignment && kind.alignment ? text(kind.alignment) : undefined].filter(Boolean).join(", ");
 }
 
 /** The one word for how a combatant stands, when it is anything but simply in the fight. The order is
  *  the order that decides: somebody who left is not also down. */
 export function rulesetStateWord(combatant: DirectedRulesetCombatant, t: TFunction): string {
+  if (combatant.surrendered) return t("game.combat.ruleset.status.surrendered");
   if (combatant.left) return t("game.combat.ruleset.status.left");
   if (combatant.away) return t("game.combat.ruleset.status.away");
   if (combatant.defeated) return t("game.combat.ruleset.status.defeated");
@@ -46,9 +57,13 @@ export function rulesetStateWord(combatant: DirectedRulesetCombatant, t: TFuncti
 
 /** The defense column's heading: what the ruleset says (1.375), else its defense's own name made
  *  short, "Armor Class" read as "AC" and a short word kept as it is. */
-export function rulesetDefenseShort(definition: RulesetDefinition, names: RulesetCombatNames): string {
+export function rulesetDefenseShort(
+  definition: RulesetDefinition,
+  names: RulesetCombatNames,
+  text: (english: string) => string = (english) => english,
+): string {
   const own = definition.combat?.display?.defense?.short;
-  if (own) return own;
+  if (own) return text(own);
   const label = names.defense.trim();
   if (!label) return "";
   if (label.length <= 6) return label;
@@ -94,6 +109,7 @@ export function RulesetTurnOrder({
   selectedId,
   onSelect,
   onControl,
+  onControlCompanions,
   onSpends,
   locked,
 }: {
@@ -104,12 +120,15 @@ export function RulesetTurnOrder({
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onControl: (id: string, controller: CombatController) => void;
+  /** Every companion at once (Alyssa 2026-10-26: "let this toggle be easy to find"). */
+  onControlCompanions?: (controller: CombatController) => void;
   /** Whether the player picks their own symbol spends (1.382), in a fight that has them. */
   onSpends?: (choose: boolean) => void;
   locked: boolean;
 }) {
   const { t } = useTranslation();
-  const names = rulesetCombatNames(definition, view, t);
+  const text = useRulesetText();
+  const names = rulesetCombatNames(definition, view, t, text);
   const byId = new Map(view.combatants.map((combatant) => [combatant.id, combatant]));
   // One who takes two turns this round (1.238) is listed once.
   const order = [...new Set(view.order)].flatMap((id) => {
@@ -117,10 +136,19 @@ export function RulesetTurnOrder({
     return combatant ? [combatant] : [];
   });
   const unitById = new Map(units.map((unit) => [unit.id, unit]));
-  // The leader is whoever of the party is still standing first, as the old controls said: they are
-  // always the player's, so their choice is shown and locked.
-  const leader = units.find((unit) => unit.side === "player" && unit.hp > 0)?.id;
-  const defenseShort = rulesetDefenseShort(definition, names);
+  // The leader is the character the player plays as their own, as the fight says; else whoever of the
+  // party is still standing first, as the old controls said. Theirs is shown and locked.
+  const leader = view.lead ?? units.find((unit) => unit.side === "player" && unit.hp > 0)?.id;
+  // In a shared room (2026-10-26) only the viewer's own are theirs to command; the rest say who plays them.
+  const yours = (id: string) => !view.yours || view.yours.includes(id);
+  // The companions, all at once: every party member but the leader, whoever was called aside.
+  const companions = view.combatants.filter(
+    (combatant) =>
+      combatant.side === "party" && combatant.id !== leader && unitById.has(combatant.id) && yours(combatant.id),
+  );
+  const companionControllers = new Set(companions.map((combatant) => unitById.get(combatant.id)?.controller ?? "ai"));
+  const companionsValue = companionControllers.size === 1 ? [...companionControllers][0]! : "mixed";
+  const defenseShort = rulesetDefenseShort(definition, names, text);
   const showDefense = !definition.combat?.display?.defense?.hide;
   const answering = view.window?.actorId;
   const columns = showDefense
@@ -135,6 +163,25 @@ export function RulesetTurnOrder({
           {t("game.combat.ruleset.status.round", { round: view.round })}
         </span>
       </div>
+      {onControlCompanions && companions.length > 0 && (
+        <label className="flex items-center gap-2 px-3.5 pb-1.5 text-xs text-[var(--muted-foreground)]">
+          <span className="flex-1">{t("game.combat.ai.allCompanions")}</span>
+          <select
+            value={companionsValue}
+            disabled={locked}
+            onChange={(event) => onControlCompanions(event.target.value as CombatController)}
+            className="h-6 min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-1 text-[0.7rem] text-[var(--foreground)] disabled:opacity-60"
+          >
+            {companionsValue === "mixed" && (
+              <option value="mixed" disabled>
+                {t("game.combat.ai.allCompanionsMixed")}
+              </option>
+            )}
+            <option value="ai">{t("game.combat.ai.allCompanionsAi")}</option>
+            <option value="manual">{t("game.combat.ai.allCompanionsManual")}</option>
+          </select>
+        </label>
+      )}
       {view.spends && onSpends && (
         <RulesetSpendToggle choose={view.spends.choose} locked={locked} onChange={onSpends} className="px-3.5 pb-1.5" />
       )}
@@ -162,9 +209,28 @@ export function RulesetTurnOrder({
           const unit = unitById.get(combatant.id);
           const percent = rulesetHealthPercent(combatant.health);
           const state = rulesetStateWord(combatant, t);
+          // Another room player's own character says whose it is, and that the Engine plays it for them.
+          const player = combatant.side === "party" && !yours(combatant.id) ? view.players?.[combatant.id] : undefined;
+          const playedBy = player
+            ? t(
+                unit?.controller === "ai"
+                  ? "game.combat.ruleset.screen.playedByEngineFor"
+                  : "game.combat.ruleset.screen.playedBy",
+                { name: player.name },
+              )
+            : "";
           const second = [
-            combatant.kind ? rulesetKindLine(combatant.kind) : "",
+            playedBy,
+            combatant.kind ? rulesetKindLine(combatant.kind, text) : "",
             combatant.tier ? t("game.combat.ruleset.status.tier", { label: names.tier(combatant.tier) }) : "",
+            // Its legendary points as they stand, on the board's table too (laptop 2026-10-26: shown
+            // only on the classic status list).
+            combatant.legendary
+              ? t("game.combat.ruleset.status.legendary", {
+                  points: combatant.legendary.points,
+                  max: combatant.legendary.max,
+                })
+              : "",
             state ||
               (asked
                 ? t("game.combat.ruleset.screen.answering")
@@ -232,11 +298,30 @@ export function RulesetTurnOrder({
                   </span>
                 </span>
                 {showDefense && (
-                  <span className="text-center text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                    {combatant.defense}
+                  <span
+                    className="text-center text-xs font-semibold tabular-nums text-[var(--foreground)]"
+                    title={
+                      combatant.cover
+                        ? t("game.combat.ruleset.screen.defenseCover", { amount: combatant.cover })
+                        : undefined
+                    }
+                  >
+                    {combatant.defense - (combatant.cover ?? 0)}
+                    {combatant.cover ? (
+                      <span className="ml-0.5 text-[0.625rem] font-normal text-[var(--muted-foreground)]">
+                        +{combatant.cover}
+                      </span>
+                    ) : null}
                   </span>
                 )}
-                {party && !isLeader ? (
+                {party && !yours(combatant.id) ? (
+                  <span
+                    className="inline-flex h-6 min-w-0 items-center truncate rounded-md border border-dashed border-[var(--border)] px-1.5 text-[0.7rem] text-[var(--muted-foreground)]"
+                    title={playedBy || undefined}
+                  >
+                    {player ? player.name : t("game.combat.ruleset.screen.host")}
+                  </span>
+                ) : party && !isLeader ? (
                   <select
                     aria-label={t("game.combat.ai.controllerFor", { name: combatant.name })}
                     value={unit?.controller ?? "ai"}
@@ -363,7 +448,15 @@ function RulesetCombatantDetail({
           <span className="font-semibold text-[var(--foreground)]">{trait.name}.</span> {trait.text}
         </p>
       ))}
-      {empty && <p className="m-0">{t("game.combat.ruleset.screen.nothingSpecial")}</p>}
+      {combatant.carrying?.length ? (
+        <p className="m-0">
+          <span className="font-semibold text-[var(--foreground)]">{t("game.combat.ruleset.screen.carrying")}</span>{" "}
+          {combatant.carrying
+            .map((one) => (one.count > 1 ? t("game.combat.ruleset.screen.carriedCount", one) : one.name))
+            .join(", ")}
+        </p>
+      ) : null}
+      {empty && !combatant.carrying?.length && <p className="m-0">{t("game.combat.ruleset.screen.nothingSpecial")}</p>}
     </div>
   );
 }

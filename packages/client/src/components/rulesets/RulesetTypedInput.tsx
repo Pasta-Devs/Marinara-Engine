@@ -1,8 +1,16 @@
 // One sheet value's input, typed by the ruleset: a number within its bounds, a checkbox, a choice, text.
 // Shared by the full sheet form and the guided builder.
-import type { RulesetField, RulesetListColumn } from "@marinara-engine/shared";
+import {
+  resolveRulesetValueRef,
+  type RulesetDefinition,
+  type RulesetField,
+  type RulesetListColumn,
+  type RulesetSheetBuild,
+} from "@marinara-engine/shared";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
+import { useTranslation as useUiTranslation } from "react-i18next";
+import { useRulesetText } from "../../lib/ruleset-text";
 
 export type Scalar = number | string | boolean;
 
@@ -14,6 +22,16 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+/** How many of a text field's suggestions its holder picks (1.797), as the sheet reads now. */
+export function rulesetPickCount(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  spec: RulesetField | RulesetListColumn,
+): number | undefined {
+  if (spec.type !== "text" || !spec.pick) return undefined;
+  return resolveRulesetValueRef(definition, build, spec.pick);
+}
+
 export function TypedInput({
   spec,
   value,
@@ -22,6 +40,7 @@ export function TypedInput({
   disabled = false,
   title,
   describedBy,
+  pick,
 }: {
   spec: RulesetField | RulesetListColumn;
   value: Scalar | undefined;
@@ -34,23 +53,52 @@ export function TypedInput({
   /** The id of the visible text that says the same thing. A disabled control cannot be focused, so
    *  a `title` alone never reaches a keyboard or a screen reader. */
   describedBy?: string;
+  /** How many of a text field's suggestions its holder picks (1.797), as the sheet reads now. */
+  pick?: number;
 }) {
-  if (spec.type === "number") {
+  // A choice's words in the player's language (1.811); the value kept is the ruleset's own.
+  const rt = useRulesetText();
+  if (spec.type === "text" && spec.suggestions?.length)
     return (
-      <DraftNumberInput
-        value={
-          typeof value === "number" && Number.isFinite(value) ? value : (spec.default ?? clamp(0, spec.min, spec.max))
-        }
-        onCommit={(next) => onChange(clamp(next, spec.min, spec.max))}
-        min={spec.min}
-        max={spec.max}
-        integer={spec.integer}
+      <SuggestedText
+        spec={spec}
+        value={value}
+        onChange={onChange}
+        ariaLabel={ariaLabel}
         disabled={disabled}
         title={title}
-        ariaLabel={ariaLabel}
-        ariaDescribedBy={describedBy}
-        className={`${inputClass} text-center`}
+        describedBy={describedBy}
+        pick={pick}
       />
+    );
+  if (spec.type === "number") {
+    const shown = typeof value === "number" && Number.isFinite(value) ? value : spec.default;
+    const shared = {
+      min: spec.min,
+      max: spec.max,
+      integer: spec.integer,
+      disabled,
+      title,
+      ariaLabel,
+      ariaDescribedBy: describedBy,
+      className: `${inputClass} text-center`,
+    };
+    // A cell nobody filled in, with no default, shows empty rather than its lowest allowed number
+    // (Ruleset 2026-10-25: an unrolled hit-point row read "1"), and stays empty until one is typed.
+    if (shown === undefined)
+      return (
+        <DraftNumberInput
+          {...shared}
+          allowEmpty
+          value={null}
+          placeholder="—"
+          onCommit={(next) => {
+            if (next !== null) onChange(clamp(next, spec.min, spec.max));
+          }}
+        />
+      );
+    return (
+      <DraftNumberInput {...shared} value={shown} onCommit={(next) => onChange(clamp(next, spec.min, spec.max))} />
     );
   }
   if (spec.type === "boolean") {
@@ -85,7 +133,7 @@ export function TypedInput({
       >
         {spec.values.map((option) => (
           <option key={option} value={option}>
-            {spec.valueLabels?.[option] ?? option}
+            {rt(spec.valueLabels?.[option] ?? option)}
           </option>
         ))}
       </select>
@@ -107,7 +155,7 @@ export function TypedInput({
     );
   }
   const maxLength = spec.type === "text" ? spec.maxLength : 40;
-  return (
+  const input = (
     <input
       type="text"
       value={typeof value === "string" ? value : ""}
@@ -120,5 +168,88 @@ export function TypedInput({
       aria-describedby={describedBy}
       className={inputClass}
     />
+  );
+  return input;
+}
+
+/** A text field offering words to pick (1.796): a chip adds its word to what is written, and takes it
+ *  out again. With a count to pick (1.797) it says how many, and offers no more once they are in
+ *  (laptop class builds 2026-10-24: a ranger's favored enemies showed no count); typing is never
+ *  refused. */
+function SuggestedText({
+  spec,
+  value,
+  onChange,
+  ariaLabel,
+  disabled,
+  title,
+  describedBy,
+  pick,
+}: {
+  spec: Extract<RulesetField | RulesetListColumn, { type: "text" }>;
+  value: Scalar | undefined;
+  onChange: (value: Scalar) => void;
+  ariaLabel: string;
+  disabled: boolean;
+  title?: string;
+  describedBy?: string;
+  pick?: number;
+}) {
+  const { t } = useUiTranslation();
+  const rt = useRulesetText();
+  const maxLength = spec.maxLength;
+  const suggestions = spec.suggestions ?? [];
+  const input = (
+    <input
+      type="text"
+      value={typeof value === "string" ? value : ""}
+      onChange={(event) => onChange(event.target.value.slice(0, maxLength))}
+      maxLength={maxLength}
+      disabled={disabled}
+      title={title}
+      aria-label={ariaLabel}
+      aria-describedby={describedBy}
+      className={inputClass}
+    />
+  );
+  const text = typeof value === "string" ? value : "";
+  const words = text
+    .split(",")
+    .map((one) => one.trim())
+    .filter(Boolean);
+  const has = (word: string) => words.some((one) => one.toLowerCase() === word.toLowerCase());
+  const count = pick !== undefined && pick > 0 ? Math.trunc(pick) : undefined;
+  const full = count !== undefined && words.length >= count;
+  return (
+    <div className="space-y-1">
+      {input}
+      {count !== undefined && (
+        <p className={labelClass}>{t("ui.rulesets.typed.pick", { count, picked: Math.min(words.length, count) })}</p>
+      )}
+      <div className="flex flex-wrap gap-1">
+        {suggestions.map((word) => (
+          <button
+            key={word}
+            type="button"
+            aria-pressed={has(word)}
+            disabled={disabled || (full && !has(word))}
+            onClick={() =>
+              onChange(
+                (has(word) ? words.filter((one) => one.toLowerCase() !== word.toLowerCase()) : [...words, word])
+                  .join(", ")
+                  .slice(0, maxLength),
+              )
+            }
+            className={`rounded-full border px-2 py-0.5 text-[0.6875rem] disabled:opacity-50 ${
+              has(word)
+                ? "border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--foreground)]"
+                : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+            }`}
+          >
+            {rt(word)}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

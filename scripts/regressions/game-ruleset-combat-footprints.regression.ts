@@ -153,6 +153,23 @@ try {
     assert.equal(who(state, "ogre").span, 2);
     assert.equal(who(state, "hero").span, undefined, "one cell says nothing");
     assert.deepEqual(keys(rulesetFootprint(who(state, "ogre"))), ["5,5", "5,6", "6,5", "6,6"]);
+    // A large swimmer set in water stays in it; a large walker set there is moved onto ground (laptop
+    // 2026-10-30: Large crocodiles set in the lake went back onto the shore).
+    const lake = () =>
+      grid((tiles) => {
+        for (let y = 4; y <= 7; y++) for (let x = 4; x <= 7; x++) tiles[y]![x] = "water";
+      });
+    const wet = fight(
+      { hero: { x: 0, y: 0 }, ogre: { x: 5, y: 5 } },
+      { ogre: { size: "large", speeds: { swim: 30 } } },
+      lake(),
+    );
+    assert.deepEqual([who(wet, "ogre").x, who(wet, "ogre").y], [5, 5]);
+    const dry = fight({ hero: { x: 0, y: 0 }, ogre: { x: 5, y: 5 } }, { ogre: { size: "large" } }, lake());
+    assert.ok(
+      rulesetFootprint(who(dry, "ogre")).every((cell) => cell.x < 4 || cell.x > 7 || cell.y < 4 || cell.y > 7),
+      `a walker is not set in it: ${JSON.stringify([who(dry, "ogre").x, who(dry, "ogre").y])}`,
+    );
     // At the board's edge it is set back onto it, and off a wall onto open ground.
     const edge = fight({ hero: { x: 0, y: 0 }, ogre: { x: 11, y: 11 } });
     assert.deepEqual([who(edge, "ogre").x, who(edge, "ogre").y], [10, 10]);

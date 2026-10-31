@@ -14,6 +14,12 @@
 
 import { clamp, climbCost, isImpassable, manhattan } from "./math.js";
 import { TERRAIN_DATA } from "./types.js";
+import {
+  TACTICAL_BOARD_OUTLINES,
+  tacticalOutlineCells,
+  tacticalOutlineFor,
+  type TacticalBoardOutline,
+} from "./board-outline.js";
 import type {
   TacticalBattlefieldBrief,
   TacticalBattlefieldFeature,
@@ -30,7 +36,7 @@ import type {
 
 /** Increment when a generated brief's resolved-grid semantics intentionally change. Version 2 (combat C6b)
  *  adds foothills: the same tiles as version 1 for the same seed, with height read off them. */
-export const TACTICAL_BATTLEFIELD_GENERATOR_VERSION = 2 as const;
+export const TACTICAL_BATTLEFIELD_GENERATOR_VERSION = 3 as const;
 
 /**
  * Foothills (combat C6b): a mountain stands two levels high, ground beside one (any of its eight
@@ -63,14 +69,22 @@ export function foothillElevation(grid: TacticalGrid): number[][] | undefined {
 export interface TacticalPlaceable {
   side: TacticalUnit["side"];
   isBoss?: boolean;
+  /** How far it keeps from the rest of its side, where it can (combat AI S1a): past the size of a
+   *  blast the other side holds, for one that thinks ahead about it. */
+  spread?: number;
   x: number;
   y: number;
 }
 
+/** The larger three (2026-10-24, Alyssa): a great hall or a big blast's room to spread out, a lair
+ *  (a dragon's castle ruins), a war's battlefield. 64 across is the most a board may be. */
 const BATTLEFIELD_SIZES: Record<TacticalBattlefieldSize, { width: number; height: number }> = {
   small: { width: 12, height: 8 },
   medium: { width: 13, height: 9 },
   large: { width: 14, height: 10 },
+  huge: { width: 24, height: 16 },
+  vast: { width: 40, height: 26 },
+  colossal: { width: 64, height: 40 },
 };
 
 const FEATURE_PLACEMENTS = ["center", "north", "south", "east", "west"] as const;
@@ -91,7 +105,13 @@ export function validateTacticalBattlefieldBrief(value: unknown): TacticalBattle
   if (value === undefined) return { ok: true };
   if (!value || typeof value !== "object" || Array.isArray(value))
     return { ok: false, error: "Invalid battlefield brief." };
-  const source = value as { size?: unknown; features?: unknown; exposure?: unknown };
+  const source = value as {
+    size?: unknown;
+    features?: unknown;
+    exposure?: unknown;
+    outline?: unknown;
+    scatter?: unknown;
+  };
   if (
     source.exposure !== undefined &&
     (typeof source.exposure !== "string" || !["exposed", "sheltered", "unknown"].includes(source.exposure))
@@ -99,6 +119,25 @@ export function validateTacticalBattlefieldBrief(value: unknown): TacticalBattle
     return { ok: false, error: "Unknown battlefield exposure." };
   if (source.size !== undefined && (typeof source.size !== "string" || !hasOwnKey(BATTLEFIELD_SIZES, source.size))) {
     return { ok: false, error: "Unknown battlefield size." };
+  }
+  if (
+    source.outline !== undefined &&
+    (typeof source.outline !== "string" || !TACTICAL_BOARD_OUTLINES.includes(source.outline as TacticalBoardOutline))
+  ) {
+    return { ok: false, error: "Unknown battlefield outline." };
+  }
+  const scatter = source.scatter as { terrain?: unknown; share?: unknown } | undefined;
+  if (
+    scatter !== undefined &&
+    (!scatter ||
+      typeof scatter !== "object" ||
+      typeof scatter.terrain !== "string" ||
+      scatter.terrain === "plains" ||
+      !hasOwnKey(TERRAIN_DATA, scatter.terrain) ||
+      typeof scatter.share !== "number" ||
+      !(scatter.share >= 0.05 && scatter.share <= 0.6))
+  ) {
+    return { ok: false, error: "Scattered terrain needs a terrain other than plains and a share from 0.05 to 0.6." };
   }
   if (source.features !== undefined && !Array.isArray(source.features)) {
     return { ok: false, error: "Battlefield features must be a list." };
@@ -143,9 +182,57 @@ export function validateTacticalBattlefieldBrief(value: unknown): TacticalBattle
     brief: {
       ...(source.exposure ? { exposure: source.exposure as TacticalBattlefieldBrief["exposure"] } : {}),
       ...(source.size ? { size: source.size as TacticalBattlefieldSize } : {}),
+      ...(source.outline ? { outline: source.outline as TacticalBoardOutline } : {}),
       ...(features.length ? { features } : {}),
+      ...(scatter
+        ? {
+            scatter: {
+              terrain: scatter.terrain as Exclude<TacticalTerrain, "plains">,
+              share: scatter.share as number,
+            },
+          }
+        : {}),
     },
   };
+}
+
+/**
+ * What can be kept of a brief that does not validate (laptop interim 2026-10-26: one barrier of
+ * passable terrain threw away a whole defense board's brief): each of its size, outline and exposure
+ * that is good on its own, and each good feature, a barrier of terrain that does not block made a
+ * wall. Undefined when nothing of it is good.
+ */
+export function salvageTacticalBattlefieldBrief(value: unknown): TacticalBattlefieldBrief | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const source = value as {
+    size?: unknown;
+    features?: unknown;
+    exposure?: unknown;
+    outline?: unknown;
+    scatter?: unknown;
+  };
+  const kept: Record<string, unknown> = {};
+  for (const key of ["size", "outline", "exposure", "scatter"] as const) {
+    if (source[key] !== undefined && validateTacticalBattlefieldBrief({ [key]: source[key] }).ok)
+      kept[key] = source[key];
+  }
+  const features: unknown[] = [];
+  for (const raw of Array.isArray(source.features) ? source.features : []) {
+    if (features.length >= 4) break;
+    const feature =
+      raw &&
+      typeof raw === "object" &&
+      (raw as { shape?: unknown }).shape === "barrier" &&
+      typeof (raw as { terrain?: unknown }).terrain === "string" &&
+      hasOwnKey(TERRAIN_DATA, (raw as { terrain: string }).terrain) &&
+      !TERRAIN_DATA[(raw as { terrain: TacticalTerrain }).terrain].impassable
+        ? { ...(raw as object), terrain: "wall" }
+        : raw;
+    if (validateTacticalBattlefieldBrief({ features: [...features, feature] }).ok) features.push(feature);
+  }
+  if (features.length) kept.features = features;
+  const checked = validateTacticalBattlefieldBrief(kept);
+  return checked.ok && checked.brief && Object.keys(checked.brief).length > 0 ? checked.brief : undefined;
 }
 
 // ── Environment theming ──
@@ -201,28 +288,79 @@ function pickTerrain(weights: EnvProfile["weights"], rng: () => number): Tactica
   return "forest";
 }
 
-function defaultBattlefieldSize(unitCount: number): TacticalBattlefieldSize {
-  return unitCount > 8 ? "large" : unitCount > 5 ? "medium" : "small";
+export function defaultBattlefieldSize(unitCount: number): TacticalBattlefieldSize {
+  return unitCount > 20 ? "huge" : unitCount > 8 ? "large" : unitCount > 5 ? "medium" : "small";
 }
 
-/** Grid dimensions scale with the number of combatants. Default 12x8, cap 14x10. */
+/** Grid dimensions scale with the number of combatants. Default 12x8; past 20 fighters, 24x16. The
+ *  vast and colossal boards only when asked for. */
 export function gridDimensions(unitCount: number, size?: TacticalBattlefieldSize): { width: number; height: number } {
   return { ...BATTLEFIELD_SIZES[size ?? defaultBattlefieldSize(unitCount)] };
 }
 
 const SPAWN_COLS = 2;
 
+/** A cell off the map (2026-10-24): outside the board's outline. Nothing is ever painted on it. */
+function offMap(grid: TacticalGrid, x: number, y: number): boolean {
+  return grid.outside?.[y]?.[x] === true;
+}
+
 function set(grid: TacticalGrid, x: number, y: number, terrain: TacticalTerrain): void {
   if (Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < grid.width && y < grid.height)
-    grid.tiles[y]![x] = terrain;
+    // fill() rather than an indexed write: x and y are bounded integers, never property names.
+    if (!offMap(grid, x, y)) grid.tiles[y]!.fill(terrain, x, x + 1);
 }
 
 function inBounds(grid: TacticalGrid, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < grid.width && y < grid.height;
 }
 
-function inSpawnZone(grid: TacticalGrid, x: number): boolean {
-  return x < SPAWN_COLS || x >= grid.width - SPAWN_COLS;
+/**
+ * Where the fighting starts on a board (2026-10-24): all of a board up to the huge one's 24 by 16; on
+ * a larger one, the middle of it, half of it each way and never less than that, so the sides do not
+ * start a whole battlefield apart and there is ground behind each to fall back on or come round by.
+ */
+export function tacticalArena(grid: Pick<TacticalGrid, "width" | "height">): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const width = Math.min(grid.width, Math.max(24, Math.round(grid.width / 2)));
+  const height = Math.min(grid.height, Math.max(16, Math.round(grid.height / 2)));
+  return { x: Math.floor((grid.width - width) / 2), y: Math.floor((grid.height - height) / 2), width, height };
+}
+
+/**
+ * Where the sides line up on the arena (re-test B1, 2026-10-24): as far apart across as on a large
+ * board, 14 wide, in its middle, however wide the board. On a vast one they had started 21 squares
+ * apart, and casters fired freely the three rounds a sword took to reach them; a board taken for a
+ * blast's room gives that room along the sides and round them, not between them.
+ */
+export function tacticalEngagement(grid: Pick<TacticalGrid, "width" | "height">): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const arena = tacticalArena(grid);
+  const width = Math.min(arena.width, 14);
+  return { ...arena, x: arena.x + Math.floor((arena.width - width) / 2), width };
+}
+
+/** The two columns at each side of where the sides engage, along its rows: where they line up. */
+function inSpawnZone(grid: TacticalGrid, x: number, y: number): boolean {
+  const arena = tacticalEngagement(grid);
+  if (y < arena.y || y >= arena.y + arena.height) return false;
+  const at = x - arena.x;
+  return (at >= 0 && at < SPAWN_COLS) || (at >= arena.width - SPAWN_COLS && at < arena.width);
+}
+
+/** The middle of the two strips where the sides engage, the party's and the other side's. */
+function spawnAnchors(grid: TacticalGrid): { party: TacticalCoord; enemy: TacticalCoord } {
+  const arena = tacticalEngagement(grid);
+  const y = arena.y + Math.floor(arena.height / 2);
+  return { party: { x: arena.x + SPAWN_COLS - 1, y }, enemy: { x: arena.x + arena.width - SPAWN_COLS, y } };
 }
 
 /** Grow a blob of `terrain` around a center via a bounded random walk. */
@@ -237,7 +375,7 @@ function growBlob(
   let x = cx;
   let y = cy;
   for (let i = 0; i < size; i++) {
-    if (!inSpawnZone(grid, x)) set(grid, x, y, terrain);
+    if (!inSpawnZone(grid, x, y)) set(grid, x, y, terrain);
     const dir = Math.floor(rng() * 4);
     if (dir === 0) x += 1;
     else if (dir === 1) x -= 1;
@@ -304,25 +442,25 @@ export function generateGrid(
   const profile = envProfile(environment);
 
   // Terrain clusters over the contested middle band, themed + densitied by environment.
-  const blobCount = Math.round((profile.density * (width * height)) / 14) + Math.floor(rng() * 3);
+  // On a big board fewer, larger clusters, the same share of it covered (2026-10-24).
+  const scale = boardScale(grid);
+  const blobCount = Math.round((profile.density * (width * height)) / 14 / scale ** 2) + Math.floor(rng() * 3);
   for (let i = 0; i < blobCount; i++) {
     const cx = SPAWN_COLS + Math.floor(rng() * Math.max(1, width - SPAWN_COLS * 2));
     const cy = Math.floor(rng() * height);
-    const size = 3 + Math.floor(rng() * 5);
+    const size = (3 + Math.floor(rng() * 5)) * scale ** 2;
     growBlob(grid, cx, cy, size, pickTerrain(profile.weights, rng), rng);
   }
 
   // Spawn strips stay plains so units always have clean footing.
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      if (inSpawnZone(grid, x)) set(grid, x, y, "plains");
+      if (inSpawnZone(grid, x, y)) set(grid, x, y, "plains");
     }
   }
 
   // Guarantee a passable route between the spawn strips.
-  const midY = Math.floor(height / 2);
-  const partyAnchor = { x: SPAWN_COLS - 1, y: midY };
-  const enemyAnchor = { x: width - SPAWN_COLS, y: midY };
+  const { party: partyAnchor, enemy: enemyAnchor } = spawnAnchors(grid);
   if (!reachable(grid, partyAnchor, enemyAnchor)) {
     carveCorridor(grid, partyAnchor, enemyAnchor);
   }
@@ -342,13 +480,15 @@ function featureAnchor(grid: TacticalGrid, placement: TacticalBattlefieldFeature
   const center = { x: Math.floor(grid.width / 2), y: Math.floor(grid.height / 2) };
   switch (placement) {
     case "north":
-      return { x: center.x, y: 1 };
-    case "south":
-      return { x: center.x, y: grid.height - 2 };
+      return { x: center.x, y: tacticalArena(grid).y + 1 };
+    case "south": {
+      const arena = tacticalArena(grid);
+      return { x: center.x, y: arena.y + arena.height - 2 };
+    }
     case "east":
-      return { x: grid.width - SPAWN_COLS - 1, y: center.y };
+      return { x: spawnAnchors(grid).enemy.x - 1, y: center.y };
     case "west":
-      return { x: SPAWN_COLS, y: center.y };
+      return { x: spawnAnchors(grid).party.x + 1, y: center.y };
     default:
       return center;
   }
@@ -383,9 +523,25 @@ function featureTiles(grid: TacticalGrid, feature: TacticalBattlefieldFeature): 
             [0, 1],
             [1, 0],
           ];
-  return offsets
-    .map(([dx, dy]) => ({ x: anchor.x + dx, y: anchor.y + dy }))
-    .filter((tile) => inBounds(grid, tile.x, tile.y) && !inSpawnZone(grid, tile.x));
+  // Each tile of the shape a block as wide as the board's scale, so a wall stays a wall on a big one.
+  const scale = boardScale(grid);
+  const lead = Math.floor(scale / 2);
+  const tiles = new Map<string, TacticalCoord>();
+  for (const [dx, dy] of offsets)
+    for (let j = 0; j < scale; j++)
+      for (let i = 0; i < scale; i++) {
+        const tile = { x: anchor.x + dx * scale + i - lead, y: anchor.y + dy * scale + j - lead };
+        tiles.set(tileKey(tile.x, tile.y), tile);
+      }
+  return [...tiles.values()].filter(
+    (tile) => inBounds(grid, tile.x, tile.y) && !inSpawnZone(grid, tile.x, tile.y) && !offMap(grid, tile.x, tile.y),
+  );
+}
+
+/** How many times a standard board's size a board is, each way (2026-10-24): 1 up to the huge one,
+ *  2 on the vast, 4 on the colossal. Terrain grows with it, so a big board is not speckled. */
+function boardScale(grid: Pick<TacticalGrid, "width" | "height">): number {
+  return Math.max(1, Math.floor(Math.sqrt((grid.width * grid.height) / 140)));
 }
 
 function carveCorridorWithoutProtectedTiles(
@@ -407,7 +563,7 @@ function carveCorridorWithoutProtectedTiles(
     ] as const) {
       const next = { x: current.x + dx, y: current.y + dy };
       const key = tileKey(next.x, next.y);
-      if (!inBounds(grid, next.x, next.y) || parent.has(key)) continue;
+      if (!inBounds(grid, next.x, next.y) || parent.has(key) || offMap(grid, next.x, next.y)) continue;
       if (protectedTiles.has(key) && isImpassable(grid, next.x, next.y)) continue;
       parent.set(key, tileKey(current.x, current.y));
       queue.push(next);
@@ -442,6 +598,22 @@ export function generateTacticalBattlefield(
   const size = brief?.size ?? defaultBattlefieldSize(unitCount);
   const grid = generateGrid(unitCount, rng, environment, size);
   const protectedTiles = new Set<string>();
+  // Cut to the place's outline (2026-10-24): what is off the map is a wall nobody sees, keeping the
+  // strips the sides line up on and the middle on it.
+  const outline = brief?.outline ?? tacticalOutlineFor(environment);
+  const middle = { x: Math.floor(grid.width / 2), y: Math.floor(grid.height / 2) };
+  const inside = tacticalOutlineCells(
+    grid.width,
+    grid.height,
+    outline,
+    rng,
+    (x, y) => inSpawnZone(grid, x, y) || (Math.abs(x - middle.x) <= 1 && Math.abs(y - middle.y) <= 1),
+  );
+  if (inside) {
+    grid.outside = inside.map((row) => row.map((on) => !on));
+    for (let y = 0; y < grid.height; y++)
+      for (let x = 0; x < grid.width; x++) if (grid.outside[y]![x]) grid.tiles[y]![x] = "wall";
+  }
 
   for (const feature of brief?.features ?? []) {
     for (const tile of featureTiles(grid, feature)) {
@@ -458,9 +630,30 @@ export function generateTacticalBattlefield(
     }
   }
 
-  const midY = Math.floor(grid.height / 2);
-  const partyAnchor = { x: SPAWN_COLS - 1, y: midY };
-  const enemyAnchor = { x: grid.width - SPAWN_COLS, y: midY };
+  // Scattered over the open ground the features left, never in a deployment strip; a route the
+  // scatter closes is carved open again below. The share is of the whole board as a player counts it
+  // (laptop 2026-10-30: "every other cell" came out a third, the strips and features dry), so the open
+  // ground it may fall on takes more of it, all of it at the most.
+  if (brief?.scatter) {
+    const open: Array<{ x: number; y: number }> = [];
+    let board = 0;
+    for (let y = 0; y < grid.height; y++)
+      for (let x = 0; x < grid.width; x++) {
+        if (grid.outside?.[y]?.[x]) continue;
+        board += 1;
+        if (grid.tiles[y]![x] === "plains" && !inSpawnZone(grid, x, y) && !protectedTiles.has(tileKey(x, y)))
+          open.push({ x, y });
+      }
+    const already = grid.tiles.reduce(
+      (count, row, y) =>
+        count + row.filter((terrain, x) => terrain === brief.scatter!.terrain && !grid.outside?.[y]?.[x]).length,
+      0,
+    );
+    const chance = open.length > 0 ? Math.min(1, Math.max(0, brief.scatter.share * board - already) / open.length) : 0;
+    for (const { x, y } of open) if (rng() < chance) set(grid, x, y, brief.scatter.terrain);
+  }
+
+  const { party: partyAnchor, enemy: enemyAnchor } = spawnAnchors(grid);
   if (
     !reachable(grid, partyAnchor, enemyAnchor) &&
     !carveCorridorWithoutProtectedTiles(grid, partyAnchor, enemyAnchor, protectedTiles)
@@ -476,7 +669,8 @@ export function generateTacticalBattlefield(
       kind: "generated",
       generatorVersion: TACTICAL_BATTLEFIELD_GENERATOR_VERSION,
       size,
-      ...(brief && (brief.size || brief.features?.length) ? { brief } : {}),
+      ...(inside ? { outline } : {}),
+      ...(brief && (brief.size || brief.features?.length || brief.outline || brief.scatter) ? { brief } : {}),
     },
   };
 }
@@ -514,8 +708,13 @@ export function tacticalMadeBoardIssues(size: TacticalBattlefieldSize, grid: Tac
     return ["The battlefield's heights are one a tile, from 0 to 3."];
   }
   const issues: string[] = [];
-  if (grid.tiles.some((row) => row.some((terrain, x) => inSpawnZone(grid, x) && terrain !== "plains"))) {
-    issues.push("The two columns at each side are where the sides line up: they must be plains.");
+  if (grid.tiles.some((row, y) => row.some((terrain, x) => inSpawnZone(grid, x, y) && terrain !== "plains"))) {
+    const arena = tacticalEngagement(grid);
+    issues.push(
+      arena.width === grid.width && arena.height === grid.height
+        ? "The two columns at each side are where the sides line up: they must be plains."
+        : `The two columns at each side of the middle ${arena.width} by ${arena.height} (columns ${arena.x + 1} to ${arena.x + arena.width}, rows ${arena.y + 1} to ${arena.y + arena.height}) are where the sides line up: they must be plains.`,
+    );
   }
   // Every open tile, flooded from ONE open tile of the first column: the column's tiles must reach each
   // other too, which a cliff round some of them would prevent (combat C6b).
@@ -606,7 +805,11 @@ function claimNear(
   while (queue.length) {
     const cur = queue.shift()!;
     const key = `${cur.x},${cur.y}`;
-    if (!occupied.has(key) && (!isImpassable(grid, cur.x, cur.y) || !protectedTiles.has(key))) {
+    if (
+      !occupied.has(key) &&
+      !offMap(grid, cur.x, cur.y) &&
+      (!isImpassable(grid, cur.x, cur.y) || !protectedTiles.has(key))
+    ) {
       occupied.add(key);
       if (isImpassable(grid, cur.x, cur.y)) set(grid, cur.x, cur.y, "plains");
       return cur;
@@ -707,7 +910,22 @@ function formationTargets(
   partyCount: number,
   enemyCount: number,
   rng: () => number,
+  partyTogether = false,
 ): FormationTargets {
+  // On a board wider than a large one, the formations are laid on where the sides engage (B1).
+  const arena = tacticalEngagement(grid);
+  if (arena.width < grid.width || arena.height < grid.height) {
+    const view: TacticalGrid = {
+      ...grid,
+      width: arena.width,
+      height: arena.height,
+      tiles: grid.tiles.slice(arena.y, arena.y + arena.height).map((row) => row.slice(arena.x, arena.x + arena.width)),
+    };
+    delete view.elevation;
+    const laid = formationTargets(view, formation, partyCount, enemyCount, rng, partyTogether);
+    const back = (cell: TacticalCoord) => ({ x: cell.x + arena.x, y: cell.y + arena.y });
+    return { party: laid.party.map(back), enemies: laid.enemies.map(back) };
+  }
   const W = grid.width;
   const H = grid.height;
   const cx = Math.floor(W / 2);
@@ -775,14 +993,18 @@ function formationTargets(
       }
       quadrant.sort((a, b) => b.def - a.def || a.dist - b.dist);
       const party = Array.from({ length: partyCount }, (_, i) => quadrant[i]?.c ?? home);
-      // Enemies fan out along the two edges meeting at the opposite corner.
+      // Enemies fan out along the far halves of the two edges meeting at the opposite corner: never
+      // along the party's own half, where a fan to the board's far ends set them two steps from it
+      // (laptop pass 6 2026-10-26: "start far apart" in a huge cavern).
+      const midX = (W - 1) / 2;
+      const midY = (H - 1) / 2;
       const enemies: TacticalCoord[] = [];
       for (let i = 0; i < enemyCount; i++) {
         const t = enemyCount <= 1 ? 0.5 : i / (enemyCount - 1);
         if (i % 2 === 0) {
-          enemies.push({ x: opposite.x, y: Math.round(t * (H - 1)) });
+          enemies.push({ x: opposite.x, y: Math.round(midY + (opposite.y - midY) * t) });
         } else {
-          enemies.push({ x: Math.round((opposite.x === 0 ? t : 1 - t) * (W - 1)), y: opposite.y });
+          enemies.push({ x: Math.round(midX + (opposite.x - midX) * t), y: opposite.y });
         }
       }
       return { party, enemies };
@@ -790,8 +1012,18 @@ function formationTargets(
 
     case "line":
     default: {
-      // Legacy: party on the left strip, enemies on the right strip.
-      const party = columnTargets(grid, [0, 1].slice(0, SPAWN_COLS), partyCount);
+      // Legacy: party on the left strip, enemies on the right strip. A party kept together stands
+      // around the strip's middle instead of spread to its corners.
+      const party = partyTogether
+        ? Array.from({ length: partyCount }, (_, i) => {
+            const rows = Math.ceil(partyCount / SPAWN_COLS);
+            const slot = Math.floor(i / SPAWN_COLS);
+            return {
+              x: clamp(i % SPAWN_COLS, 0, W - 1),
+              y: clamp(Math.floor(H / 2) - Math.floor(rows / 2) + slot, 0, H - 1),
+            };
+          })
+        : columnTargets(grid, [0, 1].slice(0, SPAWN_COLS), partyCount);
       const enemies = columnTargets(grid, [W - 1, W - 2].slice(0, SPAWN_COLS), enemyCount);
       return { party, enemies };
     }
@@ -848,13 +1080,86 @@ function ensureConnectivity(
   for (const u of units) {
     const from = { x: u.x, y: u.y };
     if (reachable(grid, from, hub)) continue;
-    if (protectedTiles.size === 0) {
+    // A straight corridor may run off a shaped board's map, so one goes round inside it instead.
+    if (protectedTiles.size === 0 && !grid.outside) {
       carveCorridor(grid, from, hub);
-    } else if (!carveCorridorWithoutProtectedTiles(grid, from, hub, protectedTiles)) {
+    } else if (
+      !carveCorridorWithoutProtectedTiles(grid, from, hub, protectedTiles) &&
+      // On a shaped board a feature may close the only way through a narrow of it: the way is cut.
+      !(grid.outside && carveCorridorWithoutProtectedTiles(grid, from, hub, new Set()))
+    ) {
       return false;
     }
   }
   return true;
+}
+
+/**
+ * Targets moved apart where they can (combat AI S1a): each one's `gaps` entry is how far it keeps from
+ * the rest of its side, so a pair stands at least the larger of their two gaps apart and a pair that
+ * keeps none stays together (a zombie beside a zombie, while the cultist among them keeps clear of
+ * both). A target too close to one kept before it moves to the nearest open cell clear of all of
+ * them, a step toward the other side counting double and never more than half the gap nearer it.
+ * Where the board has no room for the gaps, the widest it has room for.
+ */
+function spreadTargets(
+  grid: TacticalGrid,
+  targets: readonly TacticalCoord[],
+  gaps: readonly number[],
+  others: readonly TacticalCoord[],
+  /** A little give in where each one moved settles, so a spaced side is no exact lattice (laptop
+   *  playtest 2026-10-24: every foe on x 20/25/30/35). */
+  rng: () => number = () => 0,
+): TacticalCoord[] {
+  const gap = Math.max(0, ...gaps);
+  if (gap < 2 || targets.length < 2) return [...targets];
+  const apart = (a: TacticalCoord, b: TacticalCoord) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  const fromOthers = (at: TacticalCoord) =>
+    others.length > 0 ? Math.min(...others.map((one) => apart(at, one))) : Number.POSITIVE_INFINITY;
+  // `packed`: those that keep apart start from the top of their column instead, so a column holds as
+  // many as its height allows, not two either side of its middle.
+  const lay = (width: number, packed = false) => {
+    const kept: TacticalCoord[] = [];
+    let fits = true;
+    targets.forEach((target, index) => {
+      const at = {
+        x: clamp(Math.round(target.x), 0, grid.width - 1),
+        y: packed && (gaps[index] ?? 0) >= 2 ? 0 : clamp(Math.round(target.y), 0, grid.height - 1),
+      };
+      const needs = (other: number) => Math.min(width, Math.max(gaps[index] ?? 0, gaps[other] ?? 0));
+      const clear = (cell: TacticalCoord) => kept.every((one, other) => apart(cell, one) >= needs(other));
+      if (clear(at)) {
+        kept.push(at);
+        return;
+      }
+      const from = fromOthers(at);
+      let best: TacticalCoord | undefined;
+      let bestCost = Number.POSITIVE_INFINITY;
+      for (let y = 0; y < grid.height; y++) {
+        for (let x = 0; x < grid.width; x++) {
+          const cell = { x, y };
+          if (isImpassable(grid, x, y) || !clear(cell)) continue;
+          const nearer = Math.max(0, from - fromOthers(cell));
+          if (nearer > Math.ceil(width / 2)) continue;
+          const cost = (x - at.x) ** 2 + (y - at.y) ** 2 + 3 * nearer ** 2 + rng() * 2 * width;
+          if (cost < bestCost) {
+            best = cell;
+            bestCost = cost;
+          }
+        }
+      }
+      if (!best) fits = false;
+      kept.push(best ?? at);
+    });
+    return { kept, fits };
+  };
+  for (let width = gap; width > 2; width--) {
+    const laid = lay(width);
+    if (laid.fits) return laid.kept;
+    const packed = lay(width, true);
+    if (packed.fits) return packed.kept;
+  }
+  return lay(2).kept;
 }
 
 /**
@@ -872,6 +1177,9 @@ export function placeSpawns(
   formation: TacticalFormation = "line",
   rng: () => number = () => 0,
   protectedTiles: ReadonlySet<string> = new Set(),
+  /** The party starts together around its strip's middle, not spread to its corners (a ruleset
+   *  fight's, re-test 2026-10-23: a rogue's first turn spent dashing nine squares to the leader). */
+  partyTogether = false,
 ): boolean {
   const occupied = new Set<string>();
   const party = units.filter((u) => u.side === "party");
@@ -879,21 +1187,35 @@ export function placeSpawns(
   // Bosses claim their spot first so they anchor the back of the enemy group.
   const bossFirst = [...enemies].sort((a, b) => Number(!!b.isBoss) - Number(!!a.isBoss));
 
-  const targets = formationTargets(grid, formation, party.length, bossFirst.length, rng);
+  const targets = formationTargets(grid, formation, party.length, bossFirst.length, rng, partyTogether);
 
   const lastPartyTarget = targets.party[targets.party.length - 1] ?? { x: 0, y: Math.floor(grid.height / 2) };
-  party.forEach((u, i) => {
-    const tile = claimNear(grid, occupied, targets.party[i] ?? lastPartyTarget, protectedTiles);
-    u.x = tile.x;
-    u.y = tile.y;
-  });
-
   const lastEnemyTarget = targets.enemies[targets.enemies.length - 1] ?? {
     x: grid.width - 1,
     y: Math.floor(grid.height / 2),
   };
+  const partyTargets = spreadTargets(
+    grid,
+    party.map((_, i) => targets.party[i] ?? lastPartyTarget),
+    party.map((u) => u.spread ?? 0),
+    targets.enemies,
+    rng,
+  );
+  const enemyTargets = spreadTargets(
+    grid,
+    bossFirst.map((_, i) => targets.enemies[i] ?? lastEnemyTarget),
+    bossFirst.map((u) => u.spread ?? 0),
+    partyTargets,
+    rng,
+  );
+  party.forEach((u, i) => {
+    const tile = claimNear(grid, occupied, partyTargets[i]!, protectedTiles);
+    u.x = tile.x;
+    u.y = tile.y;
+  });
+
   bossFirst.forEach((u, i) => {
-    const tile = claimNear(grid, occupied, targets.enemies[i] ?? lastEnemyTarget, protectedTiles);
+    const tile = claimNear(grid, occupied, enemyTargets[i]!, protectedTiles);
     u.x = tile.x;
     u.y = tile.y;
   });

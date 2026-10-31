@@ -33,6 +33,7 @@ import {
   type StoryTurnWorld,
 } from "../../packages/shared/src/index.js";
 import {
+  blueprintEnemiesWithBoss,
   storyFightBlueprintEnemies,
   storyFightPromptText,
 } from "../../packages/server/src/services/game/story-fight.service.js";
@@ -163,10 +164,10 @@ const reply = (turn: ReturnType<typeof turnOf>, words = "The Game Master speaks.
 // ── Turn 1: the gifts, by id and by name; an id the ruleset lacks is refused ──
 const first = turnOf([]);
 assert.deepEqual(first.tripped, ["gift"]);
-assert.match(first.prepend, /\[inventory: action="add" item="Hempen Rope" count="2"\]/);
+assert.match(first.prepend, /\[inventory: action="add" item="Hempen Rope" count="2" source="story"\]/);
 assert.match(
   first.prepend,
-  /\[inventory: action="add" item="A corn-dolly" count="1" summary="A doll of plaited straw"\]/,
+  /\[inventory: action="add" item="A corn-dolly" count="1" summary="A doll of plaited straw" source="story"\]/,
 );
 assert.match(
   first.prepend,
@@ -294,7 +295,7 @@ assert.match(storyTurnPromptText(story, sixth), /The story has ended \("The Year
 const gmAnswered = applyStoryTags('[story: event="spare"]', story, game, third.state, [], (ref) => items[ref]);
 assert.match(
   gmAnswered,
-  /\[story: event="spare" fight="granary" result="ok"\]\[inventory: action="add" item="Hempen Rope" count="1"\]\[state: combat\]/,
+  /\[story: event="spare" fight="granary" result="ok"\]\[inventory: action="add" item="Hempen Rope" count="1" source="story"\]\[state: combat\]/,
 );
 const late = applyStoryTags('[story: event="spare"]', story, game, fifth.state, [], (ref) => items[ref]);
 assert.match(late, /result="refused" reason="ended"/);
@@ -343,9 +344,9 @@ assert.deepEqual(
   });
   const gives = turn.prepend.match(/\[inventory: [^\]]*\]/g) ?? [];
   assert.deepEqual(gives, [
-    '[inventory: action="add" item="Fennick\'s Hymnal" count="1"]',
-    '[inventory: action="add" item="Fennick\'s Hymnal" count="1"]',
-    '[inventory: action="add" item="A Straw Hat" count="1"]',
+    '[inventory: action="add" item="Fennick\'s Hymnal" count="1" source="story"]',
+    '[inventory: action="add" item="Fennick\'s Hymnal" count="1" source="story"]',
+    '[inventory: action="add" item="A Straw Hat" count="1" source="story"]',
   ]);
   assert.match(turn.prepend, /give="magic_items\/none\|equipment\/none" result="refused"/, "none offered");
   // A lone bare id nothing offers is a name, as it always was.
@@ -384,7 +385,29 @@ assert.deepEqual(
     fight: null,
     item: () => undefined,
   });
-  assert.match(namesTurn.prepend, /\[inventory: action="add" item="rope" count="1"\]/);
+  assert.match(namesTurn.prepend, /\[inventory: action="add" item="rope" count="1" source="story"\]/);
+}
+
+// A boss fight with no boss marked: the named leader is the boss (laptop pass 8 2026-10-26).
+{
+  const lich = { name: "Lich Seraphon", maxHp: 90, level: 9, aiHints: { named: true, leader: true } };
+  const zombie = { name: "Zombie", maxHp: 22, level: 1 };
+  const bossed = blueprintEnemiesWithBoss({ isBossFight: true, encounterTier: "boss" }, [zombie, lich, zombie]);
+  assert.deepEqual(
+    bossed.map((one) => !!one.boss),
+    [false, true, false],
+  );
+  assert.equal((bossed[1]!.boss as { points: number }).points, 3);
+  // Not a boss fight, or one marked already: as written.
+  assert.ok(!blueprintEnemiesWithBoss({ encounterTier: "common" }, [lich]).some((one) => one.boss));
+  assert.ok(!blueprintEnemiesWithBoss({ encounterTier: "miniboss" }, [lich]).some((one) => one.boss));
+  // A boss fight at a lesser tier is still one (laptop 0706 Party B: Captain Mordek Vane, "miniboss").
+  assert.deepEqual(
+    blueprintEnemiesWithBoss({ isBossFight: true, encounterTier: "miniboss" }, [zombie, lich]).map((one) => !!one.boss),
+    [false, true],
+  );
+  const marked = { ...zombie, boss: { points: 2 } };
+  assert.deepEqual(blueprintEnemiesWithBoss({ encounterTier: "boss" }, [marked, lich]), [marked, lich]);
 }
 
 console.log("world-story-actions: ok");

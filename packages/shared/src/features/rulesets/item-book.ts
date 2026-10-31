@@ -6,7 +6,7 @@
 // screen and the Game Master are shown about it. The server builds the book from the catalogs it
 // loads and the browser from the ones it fetches, so both read an item the same way.
 // ──────────────────────────────────────────────
-import { parseRulesetCombatDice } from "../ruleset-combat/dice.js";
+import { parseRulesetCombatDice, rulesetChargesStart, rulesetFoundStored } from "../ruleset-combat/dice.js";
 import {
   rulesetCoinAmount,
   RULESET_ITEM_CHARGES_MAX,
@@ -24,7 +24,9 @@ import {
 import { normalizeCharacterLookupName } from "../../utils/character-lookup-name.js";
 import {
   gameInventoryBagKey,
+  gameInventoryFoldStandIn,
   gameInventoryCoinRef,
+  gameInventoryLooseNameKey,
   gameInventoryNameKey,
   type GameInventoryStack,
   type GameInventoryBearer,
@@ -47,6 +49,7 @@ import {
   defaultRulesetSheetBuild,
   evaluateRulesetSheet,
   resolveRulesetValueRef,
+  rulesetFormedItem,
   type RulesetSheetItem,
 } from "./sheet-math.js";
 
@@ -93,6 +96,10 @@ export interface RulesetItemEffectFact {
     ability?: string;
     type?: string;
     fromSource?: true;
+    /** Only on blows of these types (1.792). */
+    onTypes?: string[];
+    /** Spent the first time it adds (1.792). */
+    spentOnUse?: true;
   };
   /** Conditions and damage labels, and magic, that narrow this save modifier (1.134). */
   against?: { names: string[]; magic?: true };
@@ -103,9 +110,13 @@ export interface RulesetItemEffectFact {
     | { value: string }
     | { fails: true }
     | { atLeast: number }
+    /** Defense never below this (1.406): a number, or the label of what it reads off the sheet. */
+    | { floor: string }
     | { times: 0.5 | 2 }
     | { effect: string }
-    | { hide: "resist" | "vulnerable" | "immune" };
+    | { hide: "resist" | "vulnerable" | "immune" }
+    /** More weapon dice on a critical hit (Brutal Critical), summed over the levels that give them. */
+    | { criticalDice: number };
 }
 
 /** A fight effect's own words, for the Game Master, by effect id. The ones about the holder's own
@@ -115,6 +126,7 @@ const FIGHT_EFFECT_TEXT: Record<string, string> = {
   "attacks-against-disadvantage": "attacks against them have disadvantage",
   "attacks-against-adjacent-advantage": "attacks against them from next to them have advantage",
   "attacks-against-far-disadvantage": "attacks against them from afar have disadvantage",
+  "attacks-against-no-advantage": "no attack against them has advantage",
   "attacks-from-adjacent-critical": "a hit on them from next to them is critical",
   "cannot-act": "cannot act",
   "cannot-react": "cannot react",
@@ -178,15 +190,23 @@ export interface RulesetItemUseFact {
    *  and the dead it brings back within so many rounds. */
   ends?: { conditions: string[]; count?: number };
   stabilizes?: true;
+  /** Its chance in 100 to backfire on its user as it is used (1.630), what it deals them, and whether
+   *  it is destroyed. */
+  backfires?: { chance: number; amount: string; damageType?: string; destroys?: true };
   revives?: { withinRounds: number; health: string };
   /** What one use spends of the charges the item holds at most, the rests (by label) that bring them
    *  back and how many (`"max"` or a sum), and the die it rolls to break when emptied. */
   charges?: {
     cost: number;
     max: number;
-    recharge?: { rests: string[]; amount: "max" | string };
+    /** The dice a stack is found holding (1.573), rather than full. */
+    rolled?: string;
+    /** `after` (1.556): the days, and the hours (a sum, perhaps dice), it waits once run out. */
+    recharge?: { rests: string[]; amount: "max" | string; after?: { days?: number; hours?: string } };
     /** `regains` (1.271): the faces at or over `atLeast` give back `amount` charges. */
     breaksOn?: { die: number; atMost?: number; regains?: { atLeast: number; amount: string }; becomes?: string };
+    /** Used on with none left (1.624): its chance in 100 of tearing, cumulative or not. */
+    overuse?: { chance: number; cumulative?: true };
   };
   /** A pool it gives back some of, by the pool's label. */
   restore?: { pool: string; amount: string };
@@ -241,8 +261,10 @@ export interface RulesetItemAttackFact {
    *  conditions it puts on the one hit, by their labels. */
   spends?: Array<{
     label: string;
-    charges: number;
-    amount: string;
+    /** Or its own uses (1.534), and its amount none where it only puts conditions on. */
+    charges?: number;
+    uses?: number;
+    amount?: string;
     type?: string;
     more?: { max: number; amount: string };
     onHit?: Array<{ condition: string; rounds?: number; save?: { save: string; difficulty: number } }>;
@@ -374,21 +396,43 @@ function rulesetItemUseFacts(
         }
       : {}),
     ...(use.stabilizes ? { stabilizes: true as const } : {}),
+    ...(use.backfires
+      ? {
+          backfires: {
+            chance: use.backfires.chance,
+            amount: amount(use.backfires.amount),
+            ...(use.backfires.damageType ? { damageType: use.backfires.damageType } : {}),
+            ...(use.backfires.destroys ? { destroys: true as const } : {}),
+          },
+        }
+      : {}),
     ...(use.revives ? { revives: { withinRounds: use.revives.withinRounds, health: amount(use.revives.health) } } : {}),
     ...(use.charges !== undefined && max !== undefined
       ? {
           charges: {
             cost: use.charges,
             max,
+            ...(item.charges?.rolled ? { rolled: item.charges.rolled } : {}),
             ...(item.charges?.recharge
               ? {
                   recharge: {
                     rests: item.charges.recharge.rests.map((rest) => labelOf(definition.rests, rest)),
                     amount:
                       item.charges.recharge.amount === "max" ? ("max" as const) : amount(item.charges.recharge.amount),
+                    ...(item.charges.recharge.after
+                      ? {
+                          after: {
+                            ...(item.charges.recharge.after.days ? { days: item.charges.recharge.after.days } : {}),
+                            ...(item.charges.recharge.after.hours
+                              ? { hours: amount(item.charges.recharge.after.hours) }
+                              : {}),
+                          },
+                        }
+                      : {}),
                   },
                 }
               : {}),
+            ...(item.charges?.overuse ? { overuse: { ...item.charges.overuse } } : {}),
             ...(item.charges?.breaksOn
               ? {
                   breaksOn: {
@@ -581,8 +625,9 @@ function rulesetItemAttackFacts(
       ? {
           spends: attack.spends.map((spend) => ({
             label: spend.label,
-            charges: spend.charges,
-            amount: amountWords(spend.amount),
+            ...(spend.charges !== undefined ? { charges: spend.charges } : {}),
+            ...(spend.uses ? { uses: spend.uses.max } : {}),
+            ...(spend.amount ? { amount: amountWords(spend.amount) } : {}),
             ...(spend.type ? { type: spend.type } : {}),
             ...(spend.chargeStep
               ? { more: { max: spend.chargeStep.max, amount: amountWords(spend.chargeStep.amount) } }
@@ -764,6 +809,8 @@ export function rulesetItemEffectFacts(
                 : {}),
               ...(modifier.damageType ? { type: modifier.damageType } : {}),
               ...(modifier.fromSource ? { fromSource: modifier.fromSource } : {}),
+              ...(modifier.onTypes ? { onTypes: modifier.onTypes } : {}),
+              ...(modifier.spentOnUse ? { spentOnUse: modifier.spentOnUse } : {}),
             },
           }
         : {};
@@ -801,6 +848,10 @@ export function rulesetItemEffectFacts(
       });
     }
     if (modifier.mode) facts.push({ to, names: narrowed, ...against, change: { mode: modifier.mode } });
+    if (modifier.criticalDice)
+      facts.push({ to, names: [], ...damage, change: { criticalDice: modifier.criticalDice } });
+    if (modifier.atLeast !== undefined)
+      facts.push({ to, names: [], change: { floor: floorLabel(definition, modifier.atLeast) } });
   }
   if (effect.failsSaves?.length) {
     facts.push({ to: "saves", names: names("saves", effect.failsSaves), change: { fails: true } });
@@ -831,6 +882,12 @@ export function rulesetItemEffectFacts(
   return facts;
 }
 
+/** What a floor under defense reads (1.406), as a reader would say it: its number, or the sheet value
+ *  it reads in the sheet's own words. */
+function floorLabel(definition: RulesetDefinition, atLeast: number | RulesetValueRef): string {
+  return typeof atLeast === "number" ? String(atLeast) : sheetBonusWords(definition, atLeast);
+}
+
 /** One effect fact in plain words, as the Game Master reads it: "-1 on checks (Sneak)", "+1 Brawn". */
 export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
   if (fact.label) return fact.label;
@@ -853,6 +910,8 @@ export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
       fact.damage.ability ? `using ${fact.damage.ability}` : "",
       fact.damage.type,
       fact.damage.fromSource ? "from the condition's source only" : "",
+      fact.damage.onTypes ? `only on ${fact.damage.onTypes.join(" or ")} damage` : "",
+      fact.damage.spentOnUse ? "once" : "",
     ]
       .filter(Boolean)
       .join(", ");
@@ -863,6 +922,7 @@ export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
   // The health maximum is only ever halved (the schema refuses anything else).
   if (fact.to === "health-max") return "half health maximum";
   if ("times" in change) return change.times === 0.5 ? "half speed" : "double speed";
+  if ("floor" in change) return `defense at least ${change.floor}`;
   if (fact.to === "defense" || fact.to === "speed") {
     return `${"value" in change ? change.value : ""} ${fact.to === "speed" ? "speed" : list || "defense"}`;
   }
@@ -886,6 +946,21 @@ export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
   const which = `${to}${fact.names.length ? ` (${fact.names.join(", ")})` : ""}${against}`;
   if ("fails" in change) return `fails ${which}`;
   return `${"mode" in change ? change.mode : "value" in change ? change.value : ""} on ${which}`;
+}
+
+/** Whether an item is drawn as it is used (Capability API 1.808): it takes slots, and its category
+ *  or one of its tags is one the ruleset's `items.drawOnUse` names. Weapons, in 5e: a sword is used
+ *  out of its sheath and a bow off the back, and either goes in hand as a free swap. */
+export function rulesetItemDrawsOnUse(
+  definition: RulesetDefinition,
+  item: { category?: string; tags?: readonly string[]; slots?: Readonly<Record<string, number>> },
+): boolean {
+  const draws = definition.items?.drawOnUse;
+  if (!draws || !Object.values(item.slots ?? {}).some((count) => count > 0)) return false;
+  return (
+    (item.category !== undefined && (draws.categories ?? []).includes(item.category)) ||
+    (item.tags ?? []).some((tag) => (draws.tags ?? []).includes(tag))
+  );
 }
 
 export interface RulesetItemBookEntry extends GameInventoryRulesetItem {
@@ -1063,6 +1138,7 @@ export function rulesetItemBook(
       ...(entry.item.stack !== undefined ? { stack: entry.item.stack } : {}),
       ...(typeof weight === "number" && weight > 0 ? { weight } : {}),
       ...(entry.item.slots && Object.keys(entry.item.slots).length > 0 ? { slots: entry.item.slots } : {}),
+      ...(rulesetItemDrawsOnUse(definition, entry.item) ? { drawOnUse: true as const } : {}),
       ...(entry.item.binds
         ? {
             binds: {
@@ -1072,7 +1148,17 @@ export function rulesetItemBook(
           }
         : {}),
       ...(entry.item.service ? { service: true as const } : {}),
-      ...(entry.item.toggle ? { toggle: { label: entry.item.toggle.label } } : {}),
+      ...(entry.item.toggle
+        ? {
+            toggle: {
+              label: entry.item.toggle.label,
+              ...(entry.item.toggle.freesSlots ? { freesSlots: true as const } : {}),
+            },
+          }
+        : {}),
+      ...(entry.item.forms
+        ? { forms: [entry.item.forms.label, ...entry.item.forms.into.map((form) => form.label)] }
+        : {}),
       ...(charges
         ? {
             charges: {
@@ -1092,6 +1178,9 @@ export function rulesetItemBook(
   const visible: RulesetItemBookEntry[] = [];
   const offered = new Set<string>();
   const byName = new Map<string, RulesetItemBookEntry>();
+  /** The names (own or other) two of the ruleset's items have. */
+  const sharedNames = new Set<string>();
+  const aliased: Array<{ read: RulesetItemBookEntry; aliases: readonly string[] }> = [];
   for (const catalog of definition.catalogs ?? []) {
     if (catalog.holds !== "items") continue;
     for (const entry of entries[catalog.id] ?? []) {
@@ -1104,7 +1193,50 @@ export function rulesetItemBook(
       // Two items of one name: the first the ruleset lists is the one the name finds.
       const key = gameInventoryNameKey(entry.label);
       if (!byName.has(key)) byName.set(key, read);
+      else if (byName.get(key)!.item !== read.item) sharedNames.add(key);
+      if (entry.aliases) aliased.push({ read, aliases: entry.aliases });
     }
+  }
+  // Other names (1.788) find an item after every item's own name: "Plate" for Plate Armor.
+  const aliasOnly = new Set<string>();
+  for (const { read, aliases } of aliased)
+    for (const alias of aliases) {
+      const key = gameInventoryNameKey(alias);
+      if (!byName.has(key)) {
+        byName.set(key, read);
+        aliasOnly.add(key);
+      } else if (byName.get(key)!.item !== read.item) sharedNames.add(key);
+    }
+  // And last, any of those names with its words in another order or counted many ("Heavy Crossbow",
+  // "Crossbows, heavy" for Crossbow, heavy: laptop playtest 2026-10-25). A loose name two items share
+  // finds neither.
+  const byLoose = new Map<string, RulesetItemBookEntry | null>();
+  // And after that, without what a name says in brackets ("Arrows" for 5e's "Arrow (bow)": cloud
+  // re-test 2026-10-25), the same way.
+  const byBare = new Map<string, RulesetItemBookEntry | null>();
+  // A bracket that is only a number is a count ("Poultices (2)"), which its reader takes off itself.
+  const bare = (name: string) => gameInventoryLooseNameKey(name.replace(/\((?!\s*\d+\s*\))[^)]*\)/g, " "));
+  // Of those a bare name finds, the plainest: "Arrow (bow)" for "Arrows", not "Arrow (+1)" (cloud
+  // re-test 2026-10-26). The one of the ruleset's first rarity, or of none, is it, where only one is.
+  const rarities = (definition.items?.rarities ?? []).map((one) => one.label);
+  const rank = (read: RulesetItemBookEntry) => (read.facts.rarity ? rarities.indexOf(read.facts.rarity) : -1);
+  const bareAll = new Map<string, RulesetItemBookEntry[]>();
+  for (const [key, read] of byName) {
+    const loose = gameInventoryLooseNameKey(key);
+    if (loose) {
+      const had = byLoose.get(loose);
+      byLoose.set(loose, had === undefined || had?.item === read.item ? read : null);
+    }
+    const stripped = bare(key);
+    if (!stripped) continue;
+    const found = bareAll.get(stripped) ?? [];
+    if (!found.some((one) => one.item === read.item)) found.push(read);
+    bareAll.set(stripped, found);
+  }
+  for (const [key, found] of bareAll) {
+    const least = Math.min(...found.map(rank));
+    const plain = found.filter((one) => rank(one) === least);
+    byBare.set(key, plain.length === 1 ? plain[0]! : null);
   }
   // The items the Game Master invented, found by name after the ruleset's own. One name may have
   // several: each telling of a turn that proposed it made its own, and a switch back to an older
@@ -1166,14 +1298,48 @@ export function rulesetItemBook(
       families.set(read.item, members);
     }
   }
+  /** The coins some price of the book is written in, which change is given in where they make it. */
+  let pricedIn: Set<string> | undefined;
+  const usualOf = (family: readonly GameInventoryCoin[]) => {
+    pricedIn ??= new Set(
+      visible.flatMap((one) => (one.entry.item?.cost?.unit ? [gameInventoryCoinRef(one.entry.item.cost.unit)] : [])),
+    );
+    const usual = family.filter((coin) => pricedIn!.has(coin.item)).map((coin) => coin.item);
+    return usual.length > 0 && usual.length < family.length ? { usual } : {};
+  };
   /** The coin a name is: its id or label, one of it or many ("penny", "pennies"), any case. */
   const coinNamed = (name: string) => {
     const one = (text: string) => gameInventoryNameKey(text).replace(/ies$/, "y").replace(/s$/, "");
     const wanted = one(name);
     const found = coins.find((coin) => one(coin.entry.id) === wanted || one(coin.name) === wanted);
     return found
-      ? { coin: { item: found.item, name: found.name, value: found.coin!.value }, family: families.get(found.item)! }
+      ? {
+          coin: { item: found.item, name: found.name, value: found.coin!.value },
+          family: families.get(found.item)!,
+          ...usualOf(families.get(found.item)!),
+        }
       : undefined;
+  };
+  /** The ruleset's item a name's last words are, after a word or more in front of them that only say
+   *  what it is like: "Wooden Shield" is 5e's Shield (laptop 2026-10-26: the Game Master gave a
+   *  "Wooden Shield", which was no item, so it stayed a plain one nobody could equip). The longest
+   *  such run that is exactly one item's own or other name finds it; a name two items have finds
+   *  neither. Only a name of plain words: one with a comma is a list, and a bracket or a "+1" says more
+   *  than a word in front does; and a number in front is a count ("2 Javelin"), not a word. */
+  const byLastWords = (name: string): RulesetItemBookEntry | undefined => {
+    const words = name.trim().split(/\s+/u);
+    if (words.length < 2 || !/^[\p{L}\p{N}' -]+$/u.test(name.trim())) return undefined;
+    for (let from = 1; from < words.length; from++) {
+      if (!/\p{L}/u.test(words[from - 1]!)) return undefined;
+      const key = gameInventoryNameKey(words.slice(from).join(" "));
+      if (sharedNames.has(key)) return undefined;
+      // Past one word in front, only an item's own name: "Raw deer hide" is no Hide Armor, whose
+      // other name is "Hide" (laptop room playtest 2026-10-30).
+      if (from > 1 && aliasOnly.has(key)) continue;
+      const found = byName.get(key);
+      if (found) return found;
+    }
+    return undefined;
   };
   const itemNamed = (name: string): RulesetItemBookEntry | undefined => {
     const key = gameInventoryNameKey(name);
@@ -1185,7 +1351,10 @@ export function rulesetItemBook(
     return (
       byName.get(key) ??
       (made ? all.get(rulesetInventedItemRef(made.id)) : coin ? all.get(coin.coin.item) : undefined) ??
-      (offered.has(ref) ? all.get(ref) : undefined)
+      (offered.has(ref) ? all.get(ref) : undefined) ??
+      byLoose.get(gameInventoryLooseNameKey(name)) ??
+      byBare.get(bare(name)) ??
+      byLastWords(name)
     );
   };
   /** The ruleset's own weapon of this category whose name shares the most words with `name` (a word
@@ -1232,7 +1401,10 @@ export function rulesetItemBook(
     const text = rulesetInventedItemText(proposal);
     if (!text.name) return { refused: "unreadable" };
     const key = gameInventoryNameKey(text.name);
-    const own = byName.get(key);
+    // Or by its words in another order or written another way (laptop playtest 2026-10-30: an
+    // invented "Arrow +1" with "+1 attacks" carried added 1 to every attack, the Rapier's too, where
+    // the ruleset's own Arrow (+1) rides only its own shots).
+    const own = byName.get(key) ?? byLoose.get(gameInventoryLooseNameKey(text.name)) ?? undefined;
     if (own) return { item: own.item, notes: [`${own.name} is one of this ruleset's own items, so it is that item.`] };
     if (definition.items?.propose === false) return { refused: "no-invention" };
     // One of that name the game holds is that item: a proposal never changes it. So is one this
@@ -1276,12 +1448,16 @@ export function rulesetItemBook(
     ...(options.actor === "game-master" && definition.items ? { invent } : {}),
     plain: options.plain ?? "allow",
     ...(options.actor ? { actor: options.actor } : {}),
+    ...(options.actor === "game-master" && (definition.items?.market || definition.items?.lootTables?.length)
+      ? { sourcedOnly: (item: string) => all.get(item)?.entry.item?.use?.consumes === true }
+      : {}),
     ...(definition.items?.slots?.length
       ? { slots: definition.items.slots.map(({ id, label, count }) => ({ id, label, count })) }
       : {}),
     ...(definition.items?.carry || definition.items?.binding
       ? { bearer: rulesetItemBearers(definition, options.sheets) }
       : {}),
+    ...(definition.items?.carry?.unit ? { weightUnit: definition.items.carry.unit } : {}),
   };
 }
 
@@ -1325,6 +1501,15 @@ export function rulesetItemBearers(
   };
 }
 
+/** What a stack of an item with rolled charges holds before anything spent or gained them (1.573),
+ *  against its written most or its stat's. */
+function foundCharges(item: RulesetCatalogItem, stackId: string): number {
+  const most = item.charges?.max;
+  const read = typeof most === "number" ? most : most ? item.stats?.[most.stat] : undefined;
+  const max = typeof read === "number" && Number.isFinite(read) ? Math.max(0, Math.trunc(read)) : 0;
+  return rulesetChargesStart(item.charges ?? {}, Math.min(RULESET_ITEM_CHARGES_MAX, max), stackId);
+}
+
 /**
  * The items one bag holds, as a sheet reads them (`itemStat`): each stack of one of the ruleset's
  * items in it, with whether it is worn. An item that takes slots is worn while equipped, one that
@@ -1339,23 +1524,46 @@ export function rulesetSheetItems(
   const bag = gameInventoryBagKey(holder);
   const held = stacks.flatMap((stack) => {
     if (!stack.item || gameInventoryBagKey(stack.holder) !== bag) return [];
-    const item = book.itemOf(stack.item)?.entry.item;
-    if (!item) return [];
+    const made = book.itemOf(stack.item)?.entry.item;
+    if (!made) return [];
+    // In another form (1.575): that form's item's attack, worn effect and switch.
+    const formRef = stack.form ? made.forms?.into[stack.form - 1]?.item : undefined;
+    const formItem = formRef ? book.itemOf(formRef)?.entry.item : undefined;
+    const item = formItem ? rulesetFormedItem(made, formItem) : made;
     const known = stack.truly ? book.itemOf(stack.truly) : undefined;
     const truly = known?.entry.item ? { item: known.entry.item, name: known.name } : undefined;
     const takesSlots = Object.values(item.slots ?? {}).some((count) => count > 0);
     const binds = !!item.binds;
     const worn = (takesSlots || binds) && (!takesSlots || stack.equipped === true) && (!binds || stack.bound === true);
+    // Drawn as it is used (1.808): a fight offers it while it is only carried, and draws it as it is used.
+    const drawOnUse = book.itemOf(stack.item)?.drawOnUse === true;
     return [
       {
         item,
         quantity: stack.quantity,
         worn,
+        ...(drawOnUse ? { drawOnUse: true as const } : {}),
+        ...(drawOnUse && stack.bound ? { bound: true as const } : {}),
         name: stack.name,
         stack: { id: stack.id, ref: stack.item, ...(stack.holder !== undefined ? { holder: stack.holder } : {}) },
         ...(stack.loaded !== undefined ? { loaded: stack.loaded } : {}),
         ...(stack.on ? { on: true as const } : {}),
-        ...(stack.charges !== undefined ? { charges: stack.charges } : {}),
+        ...(formItem ? { form: stack.form } : {}),
+        ...(stack.charges !== undefined
+          ? { charges: stack.charges }
+          : item.charges?.rolled
+            ? { charges: foundCharges(item, stack.id) }
+            : {}),
+        ...(stack.corroded ? { corroded: stack.corroded } : {}),
+        ...(stack.absorbedEver ? { absorbedEver: stack.absorbedEver } : {}),
+        ...(stack.callRoll ? { callRoll: stack.callRoll } : {}),
+        ...(stack.usesLeft ? { usesLeft: stack.usesLeft } : {}),
+        // Found holding some (1.576) until a fight stores or casts out of it.
+        ...(stack.storedEntries
+          ? { storedEntries: stack.storedEntries }
+          : item.stores?.found
+            ? { storedEntries: rulesetFoundStored(item.stores, stack.id) }
+            : {}),
         ...(truly ? { truly } : {}),
       },
     ];
@@ -1384,10 +1592,41 @@ export function rulesetCardItems(
   cardNames: readonly string[],
   playerName?: string | null,
 ): (cardName: string) => RulesetSheetItem[] {
+  const holderOf = rulesetCardHolder(cardNames, playerName);
+  const key = normalizeCharacterLookupName;
+  // No card is the player's own (a game with no persona): the first card stands in for the player
+  // and reads the player's bag, but what the Game Master puts in its own name is its too.
+  const standIn = !playerName || !cardNames.some((name) => key(name) === key(playerName));
+  return (cardName) => {
+    const holder = holderOf(cardName);
+    if (holder !== null || !standIn || !stacks.some((stack) => stack.holder && key(stack.holder) === key(cardName)))
+      return rulesetSheetItems(book, stacks, holder ?? undefined);
+    // One list, so a binding that needs another item worn sees both bags.
+    const own = gameInventoryBagKey(cardName);
+    const moved = new Map(
+      stacks.flatMap((stack) =>
+        stack.holder && gameInventoryBagKey(stack.holder) === own ? [[stack.id, stack.holder] as const] : [],
+      ),
+    );
+    const read = rulesetSheetItems(book, gameInventoryFoldStandIn(stacks, cardName), undefined);
+    // Each still says whose bag it is in, for whatever changes it.
+    return read.map((held) => {
+      const holder = held.stack ? moved.get(held.stack.id) : undefined;
+      return holder && held.stack ? { ...held, stack: { ...held.stack, holder } } : held;
+    });
+  };
+}
+
+/** Whose bag a party card's items are in (1.721): the card read for the player (the one named for
+ *  who the chat plays as, else the first) carries the player's own, null; every other card its own,
+ *  by its name. */
+export function rulesetCardHolder(
+  cardNames: readonly string[],
+  playerName?: string | null,
+): (cardName: string) => string | null {
   const key = normalizeCharacterLookupName;
   const player = (playerName ? cardNames.find((name) => key(name) === key(playerName)) : undefined) ?? cardNames[0];
-  return (cardName) =>
-    rulesetSheetItems(book, stacks, player !== undefined && key(cardName) === key(player) ? undefined : cardName);
+  return (cardName) => (player !== undefined && key(cardName) === key(player) ? null : cardName);
 }
 
 /** The item catalogs a ruleset declares: the ones the book is built from. */
@@ -1395,9 +1634,24 @@ export function rulesetItemCatalogIds(definition: RulesetDefinition): string[] {
   return (definition.catalogs ?? []).filter((catalog) => catalog.holds === "items").map((catalog) => catalog.id);
 }
 
+/** Most of an item's description the Game Master reads, cut at a sentence where one ends in time. */
+const PROMPT_SUMMARY_LIMIT = 320;
+
+/** An item's description for the Game Master, short: whole sentences up to the limit. */
+function promptSummary(summary: string): string {
+  const text = summary.replace(/\s+/g, " ").trim();
+  if (text.length <= PROMPT_SUMMARY_LIMIT) return text;
+  const cut = text.slice(0, PROMPT_SUMMARY_LIMIT);
+  const end = cut.lastIndexOf(". ");
+  return end > PROMPT_SUMMARY_LIMIT / 4 ? cut.slice(0, end + 1) : `${cut.trimEnd()}…`;
+}
+
 /** An item's facts as one line for the Game Master: category, rarity and tags, then the stats the
- *  ruleset shows it, such as "Weapon, Common, Thrown; Damage 1d6, Reach close". */
-export function rulesetItemPromptFacts(facts: RulesetItemFacts): string {
+ *  ruleset shows it, such as "Weapon, Common, Thrown; Damage 1d6, Reach close". An item with no rules
+ *  of its own (no attack, use, toggle or effects) also carries its description, so the Game Master
+ *  reads what it is instead of making it up (playtest 2026-10-31: a family-named Arrow of Slaying
+ *  became one for "wyverns"). */
+export function rulesetItemPromptFacts(facts: RulesetItemFacts, summary?: string): string {
   const kind = [facts.category, facts.rarity, ...facts.tags].filter(Boolean).join(", ");
   const stats = facts.stats
     .filter((stat) => stat.promptVisible)
@@ -1419,6 +1673,9 @@ export function rulesetItemPromptFacts(facts: RulesetItemFacts): string {
     facts.attack ? rulesetItemAttackText(facts.attack) : "",
     facts.use ? rulesetItemUseText(facts.use) : "",
     facts.toggle ? `${facts.toggle.label} turned on or off (${facts.toggle.budget})` : "",
+    summary?.trim() && !facts.attack && !facts.use && !facts.toggle && !effects.length && !needs.length
+      ? promptSummary(summary)
+      : "",
   ]
     .filter(Boolean)
     .join("; ");
@@ -1449,15 +1706,21 @@ export function rulesetItemUseText(use: RulesetItemUseFact): string {
       ? `ends ${use.ends.count !== undefined && use.ends.count < use.ends.conditions.length ? `${use.ends.count} of ` : ""}${use.ends.conditions.join(", ")}`
       : "",
     use.stabilizes ? "stabilizes the dying" : "",
+    use.backfires
+      ? `${use.backfires.chance}% each use to backfire for ${use.backfires.amount}${use.backfires.damageType ? ` ${use.backfires.damageType}` : ""} to its user${use.backfires.destroys ? " and be destroyed" : ""}`
+      : "",
     use.revives
       ? `revives one dead no longer than ${use.revives.withinRounds} round${use.revives.withinRounds === 1 ? "" : "s"} at ${use.revives.health}`
       : "",
     use.charges ? `spends ${use.charges.cost} of ${use.charges.max} charges` : "",
     use.charges?.recharge
-      ? `regains ${use.charges.recharge.amount === "max" ? "all" : use.charges.recharge.amount} on ${use.charges.recharge.rests.join(" or ")}`
+      ? `regains ${use.charges.recharge.amount === "max" ? "all" : use.charges.recharge.amount}${use.charges.recharge.rests.length ? ` on ${use.charges.recharge.rests.join(" or ")}` : ""}${use.charges.recharge.after ? `${use.charges.recharge.rests.length ? " or" : ""} once ${[use.charges.recharge.after.days ? `${use.charges.recharge.after.days} days` : "", use.charges.recharge.after.hours ? `${use.charges.recharge.after.hours} hours` : ""].filter(Boolean).join(" and ")} of game time have passed since it ran out` : ""}`
       : "",
     use.charges?.breaksOn?.atMost !== undefined
       ? `${use.charges.breaksOn.becomes ? `becomes ${use.charges.breaksOn.becomes}` : "breaks"} on ${rulesetBreakFaces({ atMost: use.charges.breaksOn.atMost })} on a d${use.charges.breaksOn.die} when emptied`
+      : "",
+    use.charges?.overuse
+      ? `may be used with none left, ${use.charges.overuse.chance}% ${use.charges.overuse.cumulative ? "more each time " : ""}to tear apart for nothing`
       : "",
     use.charges?.breaksOn?.regains
       ? `regains ${use.charges.breaksOn.regains.amount} on ${rulesetRegainFaces(use.charges.breaksOn.die, use.charges.breaksOn.regains.atLeast)} on a d${use.charges.breaksOn.die} when emptied`
@@ -1539,9 +1802,13 @@ export function rulesetItemAttackText(attack: RulesetItemAttackFact): string {
     ),
     ...(attack.spends ?? []).map(
       (spend) =>
-        `${spend.label}: on a hit, ${spend.charges} ${spend.charges === 1 ? "charge" : "charges"} for +${spend.amount}${
-          spend.type ? ` ${spend.type}` : ""
-        }${spend.more ? `, up to ${spend.more.max} more for +${spend.more.amount} each` : ""}${(spend.onHit ?? [])
+        `${spend.label}: on a hit, ${
+          spend.uses !== undefined
+            ? `one of its ${spend.uses} ${spend.uses === 1 ? "use" : "uses"}`
+            : `${spend.charges} ${spend.charges === 1 ? "charge" : "charges"}`
+        }${spend.amount ? ` for +${spend.amount}${spend.type ? ` ${spend.type}` : ""}` : ""}${spend.more ? `, up to ${spend.more.max} more for +${spend.more.amount} each` : ""}${(
+          spend.onHit ?? []
+        )
           .map(
             (entry) =>
               `, ${entry.condition}${entry.rounds !== undefined ? ` for ${entry.rounds} rounds` : ""}${

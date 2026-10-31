@@ -15,11 +15,15 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { chatKeys } from "../../hooks/use-chats";
 import { gameKeys } from "../../hooks/use-game";
 import { useGameStateStore } from "../../stores/game-state.store";
+import { GAME_CHECKPOINT_LOADED_EVENT } from "../../lib/game-checkpoint-events";
 
 interface GameCheckpointsModalProps {
   open: boolean;
   onClose: () => void;
   chatId: string;
+  /** The newest checkpoint of this kind is marked as the one to go back to (a fight's start, after a
+   *  party fell in it). */
+  highlight?: GameCheckpoint["triggerType"];
 }
 
 /** The app's own language, not the browser's: a player who picks a language sees its dates. */
@@ -31,7 +35,7 @@ function useWhen() {
   );
 }
 
-export function GameCheckpointsModal({ open, onClose, chatId }: GameCheckpointsModalProps) {
+export function GameCheckpointsModal({ open, onClose, chatId, highlight }: GameCheckpointsModalProps) {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
   /** The checkpoint a load or delete is running for; both buttons wait while it does. */
@@ -57,6 +61,7 @@ export function GameCheckpointsModal({ open, onClose, chatId }: GameCheckpointsM
       setBusyId(checkpoint.id);
       try {
         await api.post("/game/checkpoint/load", { chatId, checkpointId: checkpoint.id });
+        window.dispatchEvent(new Event(GAME_CHECKPOINT_LOADED_EVENT));
       } catch (error) {
         toast.error(error instanceof Error ? error.message : localizeUi("ui.game.checkpoints.loadFailed"));
         setBusyId(null);
@@ -111,6 +116,7 @@ export function GameCheckpointsModal({ open, onClose, chatId }: GameCheckpointsM
   );
 
   const rows = checkpoints.data ?? [];
+  const marked = highlight ? rows.find((row) => row.triggerType === highlight)?.id : undefined;
 
   return (
     <Modal open={open} onClose={onClose} title={localizeUi("ui.game.checkpoints.title")} width="max-w-xl">
@@ -134,11 +140,23 @@ export function GameCheckpointsModal({ open, onClose, chatId }: GameCheckpointsM
           rows.map((checkpoint) => (
             <div
               key={checkpoint.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2.5 ring-1 ring-[var(--border)]"
+              className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2.5 ${
+                checkpoint.id === marked
+                  ? "ring-2 ring-[var(--marinara-app-accent-static)]"
+                  : "ring-1 ring-[var(--border)]"
+              }`}
+              ref={checkpoint.id === marked ? (node) => node?.scrollIntoView({ block: "nearest" }) : undefined}
             >
               <Flag size="0.875rem" className="shrink-0 text-[var(--marinara-app-accent-static)]" />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm text-[var(--foreground)]">{checkpoint.label}</div>
+                <div className="truncate text-sm text-[var(--foreground)]">
+                  {checkpoint.label}
+                  {checkpoint.id === marked ? (
+                    <span className="ml-2 text-xs text-[var(--marinara-app-accent-static)]">
+                      {localizeUi("ui.game.checkpoints.suggested")}
+                    </span>
+                  ) : null}
+                </div>
                 <div className="truncate text-xs text-[var(--muted-foreground)]">
                   {localizeUi(`ui.game.checkpoints.triggers.${checkpoint.triggerType}`)} ·{" "}
                   {when.format(new Date(checkpoint.createdAt))}

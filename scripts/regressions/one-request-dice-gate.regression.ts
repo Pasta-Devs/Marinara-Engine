@@ -238,7 +238,11 @@ try {
   assert.equal(saved.role, "assistant");
   assert.match(saved.content, /He does not see you/, "the committed draft stands; nothing is rewritten");
   assert.match(saved.content, /\[dice: 3d1\+2 = 5/, "the engine's record is still written into the turn");
-  assert.match(saved.content, /result="failure"/, "the check still resolves for real against the sheet");
+  assert.match(
+    saved.content,
+    /result="(?:failure|critical_failure|critical_success)"/,
+    "the check still resolves for real against the sheet (a natural 1 or 20 reads critical)",
+  );
   assert.equal(JSON.parse(saved.extra).diceRollResults[0].total, 5);
   assert.equal(
     JSON.parse((await chats.getById(chat.id))!.metadata).gameDiceOutcomeNarration,

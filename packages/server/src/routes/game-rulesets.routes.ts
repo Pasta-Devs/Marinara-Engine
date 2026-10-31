@@ -28,6 +28,12 @@ import {
   RULESET_LOCAL_NAMESPACE,
   RULESET_MAX_BYTES,
   RULESET_PACKAGE_FILE_MAX_BYTES,
+  isRulesetLocaleCode,
+  readRulesetLocaleFile,
+  rulesetLocaleAssetPath,
+  rulesetLocalePackFileName,
+  RULESET_LOCALE_MAX_BYTES,
+  rulesetTranslationLanguages,
   supportedCapabilityApi,
   type RulesetDefinition,
 } from "@marinara-engine/shared";
@@ -65,9 +71,61 @@ const removeRulesetQuery = z.object({
 
 /** A package file travels as itself, the JSON body's `package`: its size and a little more. */
 const PACKAGE_BODY_LIMIT = RULESET_PACKAGE_FILE_MAX_BYTES + 16_384;
+/** How many language packs may come with a package file: the page's language and the one it is a kind
+ *  of are all an import keeps, so a few is room enough. */
+const IMPORT_PACKS_MAX = 4;
+const PACKAGE_IMPORT_BODY_LIMIT = PACKAGE_BODY_LIMIT + IMPORT_PACKS_MAX * (RULESET_LOCALE_MAX_BYTES + 1024);
 // The package file is checked whole by its reader; here it only has to be an object.
 const packageFile = z.record(z.string(), z.unknown());
-const importPackageBody = z.object({ package: packageFile, dryRun: z.boolean().optional() }).strict();
+const importPackageBody = z
+  .object({
+    package: packageFile,
+    dryRun: z.boolean().optional(),
+    /** The page's language: of the translations a file carries, the one kept (1.811). */
+    locale: z
+      .string()
+      .max(30)
+      .refine((locale) => isRulesetLocaleCode(locale))
+      .optional(),
+    /** Language packs picked with the file (1.811), each by its file name: a catalog ruleset's packs are
+     *  published beside its package file, so one installed from the file brings them the same way. */
+    packs: z
+      .array(z.object({ name: z.string().min(1).max(300), document: packageFile }).strict())
+      .max(IMPORT_PACKS_MAX)
+      .optional(),
+  })
+  .strict();
+
+/**
+ * The language packs picked with a package file, read as its translations: each must be a pack of this
+ * very package and version, by the name it is published under (`<id>-<version>.<lang>.json`), since a pack
+ * names no ruleset inside it. By language, as the package's own `locales/` are read; or why one is refused.
+ */
+function readPickedPacks(
+  packs: ReadonlyArray<{ name: string; document: Record<string, unknown> }>,
+  manifestText: string,
+): { ok: true; locales: Record<string, string> } | { ok: false; issue: string } {
+  const manifest = JSON.parse(manifestText) as { id: string; version: string };
+  const locales: Record<string, string> = {};
+  for (const pack of packs) {
+    const meta = pack.document._meta as { locale?: unknown } | undefined;
+    const locale = typeof meta?.locale === "string" && isRulesetLocaleCode(meta.locale) ? meta.locale : null;
+    if (!locale) return { ok: false, issue: `${pack.name} is not a ruleset language pack` };
+    const expected = rulesetLocalePackFileName(manifest.id, manifest.version, locale);
+    if (pack.name !== expected) {
+      return {
+        ok: false,
+        issue: `${pack.name} is not a language pack of ${manifest.id} ${manifest.version}: its ${locale} pack is ${expected}`,
+      };
+    }
+    if (Buffer.byteLength(JSON.stringify(pack.document)) > RULESET_LOCALE_MAX_BYTES)
+      return { ok: false, issue: `${pack.name} is over the ${RULESET_LOCALE_MAX_BYTES}-byte limit of a language pack` };
+    const read = readRulesetLocaleFile(pack.document, locale, { name: pack.name, pack: true });
+    if (!read.ok) return { ok: false, issue: read.issue };
+    if (Object.keys(read.strings).length) locales[locale] = JSON.stringify(read.strings);
+  }
+  return { ok: true, locales };
+}
 /** A ruleset to check: its text alone, or a whole package file (catalogs and all). */
 const checkBody = z.union([
   z.object({ definition: z.string().min(1) }).strict(),
@@ -91,10 +149,13 @@ function leastCapabilityApi(
   catalogs: Record<string, string>,
   /** The ruleset's own text, whose size a package of it declares (a larger one needs 1.340). */
   rulesetText: string,
+  /** The languages a package file of it carries (a translation in the file needs 1.811). */
+  locales: readonly string[] = [],
 ) {
   const paths = [
     "ruleset.json",
     ...(definition.catalogs ?? []).flatMap((catalog) => (catalog.asset ? [catalog.asset] : [])),
+    ...locales.map((locale) => rulesetLocaleAssetPath(locale)),
   ];
   // Keyed by each catalog's file, as an install reads them.
   const catalogDocuments = new Map<string, unknown>(
@@ -274,7 +335,7 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
   // `local/<its id>` with its catalog files. `dryRun` reads and checks it for the review, keeping nothing.
   app.post(
     "/import-package",
-    { bodyLimit: PACKAGE_BODY_LIMIT, config: { rateLimit: GAME_RULESETS_RATE_LIMIT } },
+    { bodyLimit: PACKAGE_IMPORT_BODY_LIMIT, config: { rateLimit: GAME_RULESETS_RATE_LIMIT } },
     async (req, reply) => {
       if (!requirePrivilegedAccess(req, reply, { feature: "Ruleset import" })) return;
       if (!(await getCustomAgentImportPolicy(app.db)).enabled) {
@@ -288,9 +349,13 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
       if (!body.success) {
         return reply.status(400).send({ error: "Send the ruleset package file (.ruleset.json) as the body's package" });
       }
-      const { package: file, dryRun } = body.data;
+      const { package: file, dryRun, locale, packs } = body.data;
       const read = readRulesetPackageFile(file);
       if (!read.ok) return reply.status(400).send({ error: read.issues.slice(0, 5).join("; "), issues: read.issues });
+      const picked = readPickedPacks(packs ?? [], read.manifest);
+      if (!picked.ok) return reply.status(400).send({ error: picked.issue });
+      // A pack picked with the file stands over the same language carried inside it.
+      const translations = { ...read.locales, ...picked.locales };
       let rulesetId: string;
       try {
         rulesetId = communityRulesetId(RULESET_LOCAL_NAMESPACE, read.definition.id);
@@ -304,7 +369,16 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
           (JSON.parse(text) as { entries?: unknown[] }).entries?.length ?? 0,
         ]),
       );
-      if (dryRun) return { status: "checked", rulesetId, version, ruleset: read.ruleset, catalogs };
+      const locales = Object.keys(translations).sort();
+      if (dryRun) return { status: "checked", rulesetId, version, ruleset: read.ruleset, catalogs, locales };
+      // Of the languages the file carries, only the Engine's is kept, and it replaces whatever language
+      // was kept before; to read the ruleset in another, import the file again in it. A file carrying
+      // none in the Engine's language leaves what was kept: importing French while playing in Spanish
+      // must not take the Spanish away (laptop 2026-10-27).
+      const language = rulesetTranslationLanguages(locale ?? (await capabilityPackageManager.rulesetLanguage())).find(
+        (each) => translations[each] !== undefined,
+      );
+      const kept = language ? { [language]: translations[language]! } : undefined;
       try {
         const { status } = await createGameRulesetsStorage(app.db).put({
           rulesetId,
@@ -312,15 +386,17 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
           sourceKind: "local",
           definition: read.ruleset,
           catalogs: read.catalogs,
+          locales: kept,
         });
         logger.info(
-          "[game/rulesets] Package import of %s version %d (%d catalog files): %s",
+          "[game/rulesets] Package import of %s version %d (%d catalog files, translation kept: %s): %s",
           rulesetId,
           version,
           Object.keys(catalogs).length,
+          language ?? "none",
           status,
         );
-        return { status, rulesetId, version, catalogs };
+        return { status, rulesetId, version, catalogs, locales: language ? [language] : [] };
       } catch (error) {
         if (error instanceof RulesetVersionConflictError) {
           return reply.status(409).send({ error: error.message, code: "ruleset_version_conflict" });
@@ -348,9 +424,16 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
         return {
           ok: true,
           issues: [],
-          capabilityApi: leastCapabilityApi(JSON.parse(read.ruleset), read.definition, read.catalogs, read.ruleset),
+          capabilityApi: leastCapabilityApi(
+            JSON.parse(read.ruleset),
+            read.definition,
+            read.catalogs,
+            read.ruleset,
+            Object.keys(read.locales),
+          ),
           ruleset: read.ruleset,
           catalogs: read.catalogs,
+          locales: Object.keys(read.locales).sort(),
         };
       }
       const sizeIssue = rulesetSizeIssue(body.data.definition);

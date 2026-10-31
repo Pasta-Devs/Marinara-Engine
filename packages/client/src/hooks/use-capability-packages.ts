@@ -4,6 +4,7 @@ import {
   EXPERIENCE_FILE_CONTENT_TYPE,
   isInstalledCapabilityReady,
   replaceBuiltInAgentDefinitions,
+  rulesetTranslationLanguages,
   type CapabilityCatalog,
   type CapabilityPackageManifest,
   type CapabilityPackageUpdate,
@@ -15,6 +16,7 @@ import {
   type RulesetCatalogPayload,
 } from "@marinara-engine/shared";
 import { api, ApiError } from "../lib/api-client";
+import { i18n } from "../localization/i18n";
 import {
   beginCapabilityClientImport,
   capabilityClientNeedsRefresh,
@@ -64,6 +66,45 @@ export function rulesetCatalogQuery(rulesetId: string, catalogId: string, versio
   };
 }
 
+/** The page's language, for the ruleset language packs (1.811) an install fetches. */
+function rulesetPackLanguage(): string {
+  return i18n.resolvedLanguage ?? i18n.language ?? "en";
+}
+
+/** Tells the Engine the page's language, so each installed catalog ruleset's language pack (1.811) is
+ *  fetched in it and the old one removed; then the fight screen's strings are read again. Quiet: a page
+ *  that may not ask, or an Engine offline, leaves the rulesets in English until the next try. */
+export async function syncRulesetLanguage(
+  locale: string,
+  queryClient: ReturnType<typeof useQueryClient>,
+): Promise<void> {
+  try {
+    await api.post("/capability-packages/rulesets/language", { locale });
+    await queryClient.invalidateQueries({ queryKey: [...capabilityPackageKeys.rulesets(), "strings"] });
+  } catch {
+    // English stays on screen; opening the page again tries again.
+  }
+}
+
+/** A ruleset's display strings in one language (1.811), as the fight screen swaps them in: empty when
+ *  none is kept in that language. Under `rulesets()`, so an install or an import refreshes it. */
+export function useRulesetStrings(rulesetId: string | undefined, version: number | undefined, locale: string) {
+  return useQuery({
+    queryKey: [...capabilityPackageKeys.rulesets(), "strings", rulesetId, version ?? "latest", locale] as const,
+    queryFn: () => {
+      const query = new URLSearchParams({ rulesetId: rulesetId!, locale });
+      if (version !== undefined) query.set("version", String(version));
+      return api.get<{ locale: string | null; strings: Record<string, string> }>(
+        `/capability-packages/rulesets/strings?${query.toString()}`,
+      );
+    },
+    enabled: !!rulesetId && locale !== "en",
+    staleTime: 30 * 60_000,
+    retry: (failures: number, error: unknown) =>
+      failures < 1 && !(error instanceof ApiError && error.status >= 400 && error.status < 500),
+  });
+}
+
 /** The picker's own query: only fetched while a picker is open. */
 export function useRulesetCatalog(rulesetId: string, catalogId: string, version: number | undefined, enabled: boolean) {
   return useQuery({
@@ -94,19 +135,44 @@ export interface RulesetPackageRead {
   ruleset?: string;
   /** Each catalog file's number of entries, by catalog id. */
   catalogs: Record<string, number>;
+  /** The translations it carries (a dry run), or the one kept (an import). */
+  locales?: string[];
 }
 
-/** Read a ruleset package file (a parsed `.ruleset.json`) without keeping anything, for the review. */
-export function readRulesetPackage(file: Record<string, unknown>) {
-  return api.post<RulesetPackageRead>("/game-rulesets/import-package", { package: file, dryRun: true });
+/** A language pack picked with a ruleset package file (1.811): its file name, which says whose it is. */
+export interface RulesetPickedPack {
+  name: string;
+  document: Record<string, unknown>;
 }
 
-/** Import a ruleset package file (RM): its ruleset and catalog files, as data, under `local/<id>`. */
+/** Of the language packs picked, the ones in the page's language (or the language it is a kind of): the
+ *  only ones an import keeps, so the rest are never sent. */
+export function rulesetPacksForPage(packs: readonly RulesetPickedPack[]): RulesetPickedPack[] {
+  const wanted = rulesetTranslationLanguages(rulesetPackLanguage());
+  return packs.filter((pack) => wanted.includes(String((pack.document._meta as { locale?: unknown })?.locale)));
+}
+
+/** Read a ruleset package file (a parsed `.ruleset.json`), with any language packs picked with it, without
+ *  keeping anything, for the review. */
+export function readRulesetPackage(file: Record<string, unknown>, packs: RulesetPickedPack[] = []) {
+  return api.post<RulesetPackageRead>("/game-rulesets/import-package", {
+    package: file,
+    dryRun: true,
+    ...(packs.length ? { packs } : {}),
+  });
+}
+
+/** Import a ruleset package file (RM): its ruleset and catalog files, as data, under `local/<id>`, and of
+ *  the translations it carries the one in the page's language (1.811). */
 export function useImportRulesetPackage() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (file: Record<string, unknown>) =>
-      api.post<RulesetPackageRead>("/game-rulesets/import-package", { package: file }),
+    mutationFn: ({ file, packs = [] }: { file: Record<string, unknown>; packs?: RulesetPickedPack[] }) =>
+      api.post<RulesetPackageRead>("/game-rulesets/import-package", {
+        package: file,
+        locale: rulesetPackLanguage(),
+        ...(packs.length ? { packs } : {}),
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: capabilityPackageKeys.rulesets() }),
   });
 }
@@ -623,6 +689,7 @@ export function useInstallCapabilityPackage() {
         {
           expectedVersion,
           expectedArtifactSha256,
+          locale: rulesetPackLanguage(),
         },
       );
     },
@@ -685,6 +752,7 @@ export function useInstallAllCapabilityPackages() {
             {
               expectedVersion: entry.manifest.version,
               expectedArtifactSha256: entry.artifact.sha256,
+              locale: rulesetPackLanguage(),
             },
           );
           return { restartRequired: result.status === "restart-required", usesDecisions: result.usesDecisions };

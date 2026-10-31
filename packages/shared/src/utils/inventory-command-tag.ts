@@ -35,7 +35,9 @@ export type InventoryTagAction =
   | "buy"
   | "sell"
   /** A fake shown for what it truly is (Capability API 1.79). */
-  | "reveal";
+  | "reveal"
+  /** A character looks an item over before trusting it (Capability API 1.802). */
+  | "inspect";
 
 const INVENTORY_TAG_ACTIONS: readonly InventoryTagAction[] = [
   "add",
@@ -51,6 +53,7 @@ const INVENTORY_TAG_ACTIONS: readonly InventoryTagAction[] = [
   "buy",
   "sell",
   "reveal",
+  "inspect",
 ];
 
 function readAction(value: string | undefined): InventoryTagAction | undefined {
@@ -72,9 +75,41 @@ export interface InventoryTagRequest {
   to?: string;
   /** An add that proposes an item of the ruleset: the parts the Game Master gave it. */
   proposal?: Omit<GameInventoryItemProposal, "name">;
-  /** A buy's price level and seller, as the Game Master named them (#6917). */
+  /** A buy's price level and seller, as the Game Master named them (#6917); an inspection's seller,
+   *  whose ware is looked at (1.802). */
   level?: string;
   seller?: string;
+  /** An inspection's way of seeing through fakes, cast on the item (1.802). */
+  with?: string;
+  /** An add that vanishes after so many minutes of game time (Capability API 1.760): 5e's Creation. */
+  lasts?: number;
+}
+
+/** The most a thing made to vanish lasts, in minutes (1.760): ten years. */
+const MOST_LASTS_MINUTES = 5_256_000;
+const LASTS_UNITS: ReadonlyArray<[RegExp, number]> = [
+  [/^(?:m|mins?|minutes?)$/, 1],
+  [/^(?:h|hrs?|hours?)$/, 60],
+  [/^(?:d|days?)$/, 1440],
+  [/^(?:w|weeks?)$/, 10080],
+];
+
+/** How long an add lasts (1.760), in minutes: "10 minutes", "12 hours", "1 day", "2 weeks", or a bare
+ *  number of minutes. Undefined when it says nothing it can read. */
+export function readInventoryLasts(text: string | undefined): number | undefined {
+  const match = /^(\d{1,7})\s*([a-z]*)$/i.exec(text?.trim().toLowerCase() ?? "");
+  if (!match) return undefined;
+  const count = Number.parseInt(match[1]!, 10);
+  const unit = match[2] ? LASTS_UNITS.find(([pattern]) => pattern.test(match[2]!))?.[1] : 1;
+  if (!unit || count < 1) return undefined;
+  return Math.min(MOST_LASTS_MINUTES, count * unit);
+}
+
+/** Minutes said the way a person would (1.760): "1 day", "12 hours", "10 minutes". */
+export function inventoryLastsWords(minutes: number): string {
+  const [count, unit] =
+    minutes % 1440 === 0 ? [minutes / 1440, "day"] : minutes % 60 === 0 ? [minutes / 60, "hour"] : [minutes, "minute"];
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
 }
 
 /** "damage=1d8, bulk: 2; hands" as parts: each `key=value` or `key: value`, split only before the
@@ -150,6 +185,30 @@ function cleanName(value: string | undefined): string | undefined {
   return cleaned ? cleaned : undefined;
 }
 
+/** Words a leading number measures rather than counts: "50 feet of hempen rope" is one rope. */
+const MEASURE_WORDS =
+  /^(?:feet|foot|ft|inch|inches|yards?|miles?|days?|hours?|pounds?|lbs?|gallons?|pints?|quarts?|ounces?|oz|years?|percent)\b/i;
+
+/** The count a name carries in itself, and the name without it: "Arrows ×10", "Arrows x10", "10
+ *  Arrows". Null for a name with none, or a number that measures it ("50 feet of rope"). A number in
+ *  brackets may be the item's own name ("Arrows (20)"), so it stays. */
+export function inventoryNameCount(name: string): { name: string; count: number } | null {
+  // Each pattern is anchored on one side and has no two repeats that can take the same characters, so
+  // a long name cannot make it backtrack.
+  const trailing = /\s[×x]\s*(\d{1,4})$/i.exec(name) ?? /×\s*(\d{1,4})$/.exec(name);
+  const counted = trailing ? name.slice(0, trailing.index).trim() : "";
+  if (trailing && counted) {
+    const count = Number(trailing[1]);
+    return count > 0 ? { name: counted, count } : null;
+  }
+  const leading = /^(\d{1,4})\s+(\S.*)$/.exec(name);
+  if (leading && !MEASURE_WORDS.test(leading[2]!)) {
+    const count = Number(leading[1]);
+    return count > 0 ? { name: leading[2]!.trim(), count } : null;
+  }
+  return null;
+}
+
 /**
  * Read one tag body, leniently: attributes in any order, quoted or not, `item` or `items`, `count`,
  * `quantity` or `qty`, and a bare action word (`add`, `remove`, `equip`...) in place of `action=`. An unquoted item runs to
@@ -172,7 +231,7 @@ export function parseInventoryTagBody(body: string): InventoryTagRequest | null 
   let action: InventoryTagAction = readAction(actionValue) ?? "add";
   if (actionValue === undefined) {
     // A bare word, read only before the first attribute so an item's own name never counts.
-    const bare = /\b(add|remove|give|equip|unequip|bind|unbind|use|pay|earn|buy|sell|reveal)\b/i.exec(
+    const bare = /\b(add|remove|give|equip|unequip|bind|unbind|use|pay|earn|buy|sell|reveal|inspect)\b/i.exec(
       body.slice(0, Math.min(attributes[0]?.start ?? body.length, 40)),
     );
     if (bare) action = bare[1]!.toLowerCase() as InventoryTagAction;
@@ -189,7 +248,16 @@ export function parseInventoryTagBody(body: string): InventoryTagRequest | null 
   if (items.length === 0) return null;
   const whole = items.length > 1 ? cleanName(unquote(listed)) : undefined;
 
-  const countText = amount?.[1] ?? values.get("count") ?? values.get("quantity") ?? values.get("qty");
+  let countText = amount?.[1] ?? values.get("count") ?? values.get("quantity") ?? values.get("qty");
+  // A count written into one item's name, with none beside it: "Arrows ×10", "Arrows x10", "10 Arrows"
+  // (cloud re-test 2026-10-25: each a new item at 1).
+  if (countText === undefined && items.length === 1) {
+    const counted = inventoryNameCount(items[0]!);
+    if (counted) {
+      items[0] = counted.name;
+      countText = String(counted.count);
+    }
+  }
   const parsedCount = countText && /^\d{1,9}$/.test(countText.trim()) ? Number.parseInt(countText, 10) : 1;
   // Coins come by the thousand, so a payment or an earning is held only to what one stack may hold.
   const most = action === "pay" || action === "earn" ? GAME_INVENTORY_MAX_QUANTITY : INVENTORY_TAG_COUNT_MAX;
@@ -198,7 +266,10 @@ export function parseInventoryTagBody(body: string): InventoryTagRequest | null 
   const to = cleanName(values.get("to"));
   const proposal = action === "add" ? readProposal(values) : undefined;
   const level = action === "buy" ? cleanName(values.get("level")) : undefined;
-  const seller = action === "buy" || action === "sell" ? cleanName(values.get("seller")) : undefined;
+  const seller =
+    action === "buy" || action === "sell" || action === "inspect" ? cleanName(values.get("seller")) : undefined;
+  const by = action === "inspect" ? cleanName(values.get("with")) : undefined;
+  const lasts = action === "add" ? readInventoryLasts(values.get("lasts")) : undefined;
   return {
     action,
     items,
@@ -209,6 +280,8 @@ export function parseInventoryTagBody(body: string): InventoryTagRequest | null 
     ...(proposal ? { proposal } : {}),
     ...(level ? { level } : {}),
     ...(seller ? { seller } : {}),
+    ...(by ? { with: by } : {}),
+    ...(lasts ? { lasts } : {}),
   };
 }
 
@@ -279,6 +352,10 @@ export function serializeInventoryTag(
         /** A fake shown for what it truly is: its true name (a reveal, or a sale an honest buyer saw
          *  through). */
         revealed?: string;
+        /** How long an add lasts before it vanishes, in minutes (1.760). */
+        lasts?: number;
+        /** What an inspection found (1.802): fake, named, genuine or unsure. */
+        found?: string;
       }
     | { raw: string },
   outcome: InventoryTagOutcome,
@@ -298,6 +375,8 @@ export function serializeInventoryTag(
     if (input.level) attribute("level", input.level);
     if (input.seller) attribute("seller", input.seller);
     if (input.revealed) attribute("revealed", input.revealed);
+    if (input.found) attribute("found", input.found);
+    if (input.lasts) attribute("lasts", inventoryLastsWords(input.lasts));
   }
   if (outcome.ok) {
     attribute("result", "ok");
@@ -328,7 +407,13 @@ export interface ResolvedInventoryTag {
   stock?: boolean;
   /** A fake's true name, once it is shown for what it is (1.79). */
   revealed?: string;
+  /** What an inspection found (1.802). */
+  found?: "fake" | "named" | "genuine" | "unsure";
+  /** What the Engine said about it: an inspection's roll and finding, a held buy's warning. */
+  note?: string;
 }
+
+const FOUND = new Set(["fake", "named", "genuine", "unsure"]);
 
 /** Read one resolved tag body, or null for one the Engine has not answered. */
 export function readResolvedInventoryTagBody(body: string): ResolvedInventoryTag | null {
@@ -359,9 +444,16 @@ export function readResolvedInventoryTagBody(body: string): ResolvedInventoryTag
     ...(result === "ok" && Number.isFinite(now) ? { now } : {}),
     ...(reason && result !== "ok" ? { reason } : {}),
     ...(price && result === "ok" && (action === "buy" || action === "sell") ? { price } : {}),
-    ...(values.get("seller")?.trim() && result === "ok" ? { seller: values.get("seller")!.trim() } : {}),
+    // A buy held for a warning keeps its seller too (1.802), for the day's count of them.
+    ...(values.get("seller")?.trim() && (result === "ok" || reason === "held")
+      ? { seller: values.get("seller")!.trim() }
+      : {}),
     ...(values.get("stock")?.trim() === "true" && result === "ok" ? { stock: true } : {}),
     ...(cleanName(values.get("revealed")) ? { revealed: cleanName(values.get("revealed"))! } : {}),
+    ...(action === "inspect" && result === "ok" && FOUND.has(values.get("found") ?? "")
+      ? { found: values.get("found") as NonNullable<ResolvedInventoryTag["found"]> }
+      : {}),
+    ...(values.get("note")?.trim() ? { note: values.get("note")!.trim() } : {}),
   };
 }
 

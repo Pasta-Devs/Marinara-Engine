@@ -669,6 +669,9 @@ export function GameMapPanel({
   );
 
   if (!map && !hasWorldMap) {
+    // Nothing to show and nothing worth making mid-fight: the box would only lie over the fight
+    // board's top-left squares (playtest 2026-10-24).
+    if (inFight) return null;
     return (
       <div
         data-tour="game-map"

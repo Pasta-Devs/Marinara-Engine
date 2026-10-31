@@ -1,7 +1,7 @@
 import { Suspense, lazy, type ComponentProps } from "react";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { ChevronUp, ChevronDown, Layers, ListChecks, Loader2, Trash2, X } from "lucide-react";
+import { ChevronUp, ChevronDown, Download, Layers, ListChecks, Loader2, Trash2, X } from "lucide-react";
 import type { PeekPromptData } from "./chat-area.types";
 import type { LocalSpriteVisualSettings } from "./local-sprite-visual-settings";
 import type { AvatarLayoutControls } from "./AvatarLayoutSettings";
@@ -137,7 +137,11 @@ function DeleteConfirmationDialog({
 type MultiSelectBarProps = {
   open: boolean;
   selectedCount: number;
-  onDelete: () => void;
+  /** A delete selection passes onDelete; a range-export selection passes onExport and never changes the chat. */
+  onDelete?: () => void;
+  onExport?: () => void;
+  /** Shown instead of the count until a message is picked, in a range-export selection. */
+  hint?: string;
   onCancel: () => void;
   onUnselectAll: () => void;
   onSelectAllAbove: () => void;
@@ -148,6 +152,8 @@ function MultiSelectBar({
   open,
   selectedCount,
   onDelete,
+  onExport,
+  hint,
   onCancel,
   onUnselectAll,
   onSelectAllAbove,
@@ -165,18 +171,31 @@ function MultiSelectBar({
       )}
     >
       <span className="text-center text-xs font-medium text-[var(--marinara-chat-chrome-panel-muted)]">
-        {t("chat.delete.selection.count", { count: selectedCount })}
+        {hint && selectedCount === 0 ? hint : t("chat.delete.selection.count", { count: selectedCount })}
       </span>
       <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={selectedCount === 0}
-          className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs"
-        >
-          <Trash2 size="0.75rem" />
-          <span>{t("chat.delete.selection.delete")}</span>
-        </button>
+        {onExport && (
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={selectedCount === 0}
+            className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs"
+          >
+            <Download size="0.75rem" />
+            <span>{t("chat.rangeExport.export")}</span>
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={selectedCount === 0}
+            className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs"
+          >
+            <Trash2 size="0.75rem" />
+            <span>{t("chat.delete.selection.delete")}</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={onCancel}
@@ -273,7 +292,9 @@ type ChatCommonOverlaysProps = {
   onDeleteOtherSwipes: () => void;
   onDeleteMore: () => void;
   onCloseDeleteDialog: () => void;
-  onBulkDelete: () => void;
+  onBulkDelete?: () => void;
+  onExportSelected?: () => void;
+  multiSelectHint?: string;
   onCancelMultiSelect: () => void;
   onUnselectAllMessages: () => void;
   onSelectAllAboveSelection: () => void;
@@ -306,6 +327,8 @@ export function ChatCommonOverlays({
   onDeleteMore,
   onCloseDeleteDialog,
   onBulkDelete,
+  onExportSelected,
+  multiSelectHint,
   onCancelMultiSelect,
   onUnselectAllMessages,
   onSelectAllAboveSelection,
@@ -365,6 +388,8 @@ export function ChatCommonOverlays({
         open={multiSelectMode}
         selectedCount={selectedMessageCount}
         onDelete={onBulkDelete}
+        onExport={onExportSelected}
+        hint={multiSelectHint}
         onCancel={onCancelMultiSelect}
         onUnselectAll={onUnselectAllMessages}
         onSelectAllAbove={onSelectAllAboveSelection}

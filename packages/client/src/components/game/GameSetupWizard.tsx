@@ -65,7 +65,6 @@ import {
   type SpatialMapGroundingMode,
   type SpatialMapDraftSize,
   type GameCombatStyle,
-  type TacticalBattlefieldSize,
   type Persona,
   type AvatarCrop,
   type MultiplayerPlayer,
@@ -134,6 +133,9 @@ import { useAgentImportPolicy } from "../../hooks/use-agents";
 import { useGameAssetStore } from "../../stores/game-asset.store";
 import { useUIStore } from "../../stores/ui.store";
 import {
+  GAME_SETUP_SHARE_FORMAT,
+  GAME_SETUP_SHARE_VERSION,
+  type GameSetupShareFile,
   buildGameSetupShareFile,
   parseGameSetupShareFileJson,
   resolveGameSetupImport,
@@ -185,6 +187,8 @@ export interface GameSetupWizardProps {
   activeChatId: string;
   isNewGame: boolean;
   chatMetadata?: Record<string, unknown>;
+  /** The game's current name, restored with its saved setup when setup is reopened. */
+  savedGameName?: string;
   onSetupError: (error: unknown) => boolean;
   onComplete: (
     config: GameSetupConfig,
@@ -207,6 +211,8 @@ export interface GameSetupWizardProps {
         },
   ) => void;
   onCancel: () => void;
+  /** Stops the world being generated, while it is. Absent when nothing can be stopped. */
+  onStopGeneration?: () => void;
   isLoading: boolean;
   isDraftingMap: boolean;
   isLinkingSharedWorld: boolean;
@@ -314,16 +320,6 @@ const SPATIAL_MAP_DRAFT_SIZE_OPTIONS: Array<{
   { value: "large", targetLocationCount: 28, label: "Large", detail: "About 28 places" },
 ];
 const SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT = 40;
-const TACTICAL_BATTLEFIELD_SIZE_OPTIONS: Array<{
-  value: "auto" | TacticalBattlefieldSize;
-  labelKey: string;
-}> = [
-  { value: "auto", labelKey: "ui.game.gamesetupwizard.auto" },
-  { value: "small", labelKey: "ui.game.gamesetupwizard.small" },
-  { value: "medium", labelKey: "ui.game.gamesetupwizard.medium" },
-  { value: "large", labelKey: "ui.game.gamesetupwizard.large" },
-];
-
 function normalizeSpatialMapTargetLocationCount(value: string): number | null {
   const parsed = Number(value);
   if (!value.trim() || !Number.isInteger(parsed) || !Number.isFinite(parsed)) return null;
@@ -430,9 +426,16 @@ function filterCustomLearnedValues(values: string[], builtIns: string[]) {
 function RememberedTextNote({ onClear }: { onClear: () => void }) {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="mt-1 flex items-center gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
+    <div className="mt-1 flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
       <span>{localizeUi("ui.game.gamesetupwizard.fromYourLastGame")}</span>
-      <button type="button" onClick={onClear} className="underline transition-colors hover:text-[var(--primary)]">
+      {/* A button that reads as one, under each field it empties (laptop pass 5 2026-10-26: the
+          second, a bare underlined word, was easy to miss). */}
+      <button
+        type="button"
+        onClick={onClear}
+        className="flex items-center gap-1 rounded-md bg-[var(--secondary)] px-2 py-0.5 font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--primary)]/10 hover:text-[var(--primary)]"
+      >
+        <X size={10} />
         {localizeUi("ui.game.gamesetupwizard.clearRememberedText")}
       </button>
     </div>
@@ -552,9 +555,11 @@ export function GameSetupWizard({
   activeChatId,
   isNewGame,
   chatMetadata,
+  savedGameName,
   onSetupError,
   onComplete,
   onCancel,
+  onStopGeneration,
   isLoading,
   isDraftingMap,
   isLinkingSharedWorld,
@@ -654,7 +659,12 @@ export function GameSetupWizard({
   const combatStyles = rulesetCombatStyles(activeRuleset?.definition);
   const combatStyle = rulesetCombatStyle(activeRuleset?.definition, pickedCombatStyle, listCombatStyles());
   const [gmBossControl, setGmBossControl] = useState(true);
-  const [tacticalBattlefieldSize, setTacticalBattlefieldSize] = useState<"auto" | TacticalBattlefieldSize>("auto");
+  // The named and the brilliant opponents too (combat AI P9).
+  const [gmNamedControl, setGmNamedControl] = useState(true);
+  // A cruel opponent may strike the fallen (combat AI T3): off unless asked for.
+  const [cruelOpponents, setCruelOpponents] = useState(false);
+  // Companions fight on their own unless the player plays them (Alyssa 2026-10-26): on unless asked.
+  const [companionsOnTheirOwn, setCompanionsOnTheirOwn] = useState(true);
   const [gmMode, setGmMode] = useState<GameGmMode>("standalone");
   // The GM intro message (1.339): null follows the Experience's own.
   const [gameIntro, setGameIntro] = useState<GameIntroChoice | null>(null);
@@ -664,6 +674,19 @@ export function GameSetupWizard({
   const [partyCharacterIds, setPartyCharacterIds] = useState<string[]>(() =>
     Array.from(new Set(initialPartyCharacterIds.filter((id) => characters.some((character) => character.id === id)))),
   );
+  // Somebody added to the chat while the wizard is open (from Characters) joins the party it starts
+  // with (laptop re-test 2026-10-24: a member added mid-setup was left out of the game).
+  const seenPartyIds = useRef(new Set(partyCharacterIds));
+  const offeredPartyIds = initialPartyCharacterIds.join("\n");
+  useEffect(() => {
+    const added = initialPartyCharacterIds.filter(
+      (id) => !seenPartyIds.current.has(id) && characters.some((character) => character.id === id),
+    );
+    if (added.length === 0) return;
+    for (const id of added) seenPartyIds.current.add(id);
+    setPartyCharacterIds((ids) => Array.from(new Set([...ids, ...added])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the ids, not the array's identity
+  }, [offeredPartyIds, characters]);
   // Goals and preferences start as the last game's; a note says so while the text is unchanged.
   const [rememberedSetupText] = useState(() => ({
     playerGoals: useUIStore.getState().rememberedGameSetupText?.playerGoals ?? "",
@@ -1265,6 +1288,11 @@ export function GameSetupWizard({
         setting: setting || `A ${(genres[0] ?? "fantasy").toLowerCase()} world`,
         tone: tones.join(", ") || "Heroic",
         language: normalizedLanguage || undefined,
+        // The world is written with the reasoning effort chosen here, as the game is (cheap-GM playtest
+        // 2026-10-26: Medium was chosen and the world was still asked for at the connection's maximum).
+        ...(customizeParameters
+          ? { generationParameters: { ...(importedGenerationParametersRef.current ?? {}), ...generationParameters } }
+          : {}),
       }
     : null;
   const illustratorEnabled = enableAgents && illustratorInstalled && enableSpriteGeneration;
@@ -1300,206 +1328,8 @@ export function GameSetupWizard({
       }
 
       const shareFile = parseGameSetupShareFileJson(await file.text());
-      const imported = resolveGameSetupImport(shareFile, {
-        characters,
-        connections,
-        lorebooks,
-        personas,
-        promptPresets,
-        experiencePackages: experiences,
-        installedRulesets: rulesets,
-        isNewGame,
-      });
-      const config = imported.config;
-      setRulesetId(config.ruleset?.id ?? null);
-      // A file with a kit is an Overworld game's; one without is Classic unless it says otherwise.
-      setGameStyle(config.worldKit ? "overworld" : (config.gameStyle ?? "classic"));
-      kitChosenRef.current = Boolean(config.worldKit);
-      setWorldKit(config.worldKit ?? null);
-      setWorldDraft(config.world ? worldDraftFromWorld(config.world, config.story, config.worldSnapshot) : null);
-      // The layers the file chose, against the definition installed HERE: an id this version of the
-      // ruleset no longer has is dropped rather than sent to a create call that would refuse it.
-      const importedRuleset = rulesets.find((entry) => entry.definition.id === config.ruleset?.id);
-      setRulesetLayerIds(
-        importedRuleset ? restoredRulesetLayers(importedRuleset.definition, config.ruleset?.options) : [],
-      );
-      const sharedRuleset = shareFile.setup.config.ruleset;
-      // Installed but left off the list means the import switch hid it, which needs a different
-      // fix from the user than installing something. Only an answer that says "off" counts as off:
-      // a policy that could not be read gets its own notice, not a wrong diagnosis.
-      const hiddenFromList =
-        sharedRuleset &&
-        !rulesets.some((entry) => entry.definition.id === sharedRuleset.id) &&
-        (installedRulesets ?? []).some((entry) => entry.definition.id === sharedRuleset.id);
-      const droppedRulesetNotice = !hiddenFromList
-        ? "game.ruleset.setup.unavailableImport"
-        : agentImportPolicy?.enabled === false
-          ? "game.ruleset.setup.importsOffImport"
-          : "game.ruleset.setup.importPolicyUnknownImport";
-      setRulesetImportNotice(
-        sharedRuleset && !config.ruleset
-          ? !isNewGame
-            ? localizeUi("game.ruleset.setup.existingImport")
-            : localizeUi(droppedRulesetNotice, { name: shareFile.setup.labels?.rulesetName ?? sharedRuleset.id })
-          : null,
-      );
-      const importedExperience = experiences.find((item) => item.id === config.gameExperienceId);
-      const importedSetup = importedExperience?.manifest.contributions?.gameSurface?.setup;
-      const importedSeed = importedSetup?.seed
-        ? parseExperienceSeed(config.experienceConfig?.[importedSetup.seed.key])
-        : null;
-      setExperienceId(isNewGame && importedExperience ? importedExperience.id : null);
-      // A setup file without a usable Experience seed leaves the prefilled seed alone instead of blanking it.
-      if (importedSeed !== null) setExperienceSeed(String(importedSeed));
-      setExperienceImportNotice(
-        shareFile.setup.config.gameExperienceId
-          ? !isNewGame
-            ? localizeUi("game.experienceSetup.existingImport")
-            : !importedExperience
-              ? localizeUi("game.experienceSetup.unavailableImport")
-              : null
-          : null,
-      );
-      const importedGenres = config.genre
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const importedTones = config.tone
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const importedStoryboardGamePrompt = config.gameGmPromptTemplateId === ANIME_GAME_PROMPT_TEMPLATE_ID;
-      const importedPromptPreset = promptPresets.find((preset) => preset.id === config.promptPresetId) ?? null;
-      const importedCustomPrompt = config.gameSystemPrompt?.trim() ?? "";
-      const importedBasePrompt = importedStoryboardGamePrompt
-        ? ANIME_GAME_SYSTEM_PROMPT
-        : importedPromptPreset?.gamePrompt?.trim() || DEFAULT_GAME_SYSTEM_PROMPT;
-      const importedWidgets = normalizeGameHudWidgets(config.customHudWidgets ?? []);
-      const importedGenerationParameters =
-        imported.effectiveGenerationParameters ?? config.generationParameters ?? null;
-      const importedParameterOverrides = parseEditableGenerationParameters(importedGenerationParameters);
-      const hasImportedGenerationParameters =
-        importedGenerationParameters !== null && Object.keys(importedGenerationParameters).length > 0;
-      const importedGmConnection = connections.find((connection) => connection.id === imported.gmConnectionId) ?? null;
-      const importedGmDefaults = getEditableGenerationParameters(
-        ROLEPLAY_PARAMETER_DEFAULTS,
-        importedGmConnection?.defaultParameters,
-        importedGmConnection?.provider,
-      );
-
-      setStep(0);
-      setGameName(imported.gameName);
-      genresChosenRef.current = true;
-      setGenres(importedGenres.length > 0 ? importedGenres : ["Fantasy"]);
-      setCustomGenre("");
-      setSetting(config.setting);
-      setTones(importedTones.length > 0 ? importedTones : ["Heroic"]);
-      setCustomTone("");
-      setDifficulty(
-        DIFFICULTIES.find((d) => normalizeGameDifficulty(d) === normalizeGameDifficulty(config.difficulty)) ?? "Normal",
-      );
-      setCombatStyle(resolveCombatStyle(config.combatStyle));
-      setGmBossControl(config.gmBossControl ?? true);
-      setTacticalBattlefieldSize(config.tacticalBattlefield?.size ?? "auto");
-      setRating(config.rating);
-      setLanguage(config.language?.trim() || "English");
-      setAutoTranslate(config.autoTranslate === true);
-      setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
-      setGmMode(config.gmMode);
-      setGameIntro(config.gameIntro ?? null);
-      setGmCharacterId(config.gmCharacterId ?? null);
-      setPartyCharacterIds(config.partyCharacterIds);
-      setPersonaId(config.personaId ?? null);
-      setPlayerGoals(config.playerGoals);
-      setPreferences(imported.preferences);
-      setGmSearch("");
-      setPartySearch("");
-      setPartyFolderId("");
-      setPersonaSearch("");
-      setGmConnectionId(imported.gmConnectionId);
-      setCustomizeParameters(hasImportedGenerationParameters);
-      setGenerationParameters(getEditableGenerationParameters(importedGmDefaults, importedParameterOverrides));
-      importedGenerationParametersRef.current = importedGenerationParameters;
-      pendingImportedGenerationParametersRef.current =
-        importedParameterOverrides && (imported.gmConnectionId === null || imported.gmConnectionId !== gmConnectionId)
-          ? importedParameterOverrides
-          : null;
-      importedArtStyleSettingsRef.current = {
-        artStylePrompt: config.artStylePrompt,
-        generatedArtStylePrompt: config.generatedArtStylePrompt,
-        useCampaignArtStyle: config.useCampaignArtStyle,
-        imageStyleProfileId: config.imageStyleProfileId,
-      };
-      setUseLocalScene(
-        sidecarAvailable && !config.sceneConnectionId && shareFile.setup.connections?.scene?.provider === "local",
-      );
-      setSceneConnectionId(config.sceneConnectionId ?? null);
-
-      const visualGenerationEnabled =
-        config.enableSpriteGeneration === true ||
-        config.gameStoryboardAutoIllustrationsEnabled === true ||
-        config.gameStoryboardAutoGenerationEnabled === true;
-      setEnableAgents(
-        config.enableAgents === true ||
-          visualGenerationEnabled ||
-          config.enableSpotifyDj === true ||
-          config.enableLorebookKeeper === true ||
-          config.gameWorldMapMode === "hierarchical" ||
-          Boolean(config.spatialMapInstructions?.trim()),
-      );
-      setEnableQuickTimeEvents(config.enableQuickTimeEvents !== false);
-      setEnableSpriteGeneration(visualGenerationEnabled);
-      setGameImageDynamicPromptEnabled(config.gameImageDynamicPromptEnabled === true);
-      setImageConnectionId(config.imageConnectionId ?? null);
-      setVideoConnectionId(config.videoConnectionId ?? null);
-      setAudioConnectionId(config.audioConnectionId ?? null);
-      setEnableGameSoundEffects(config.enableGameSoundEffects !== false);
-      setEnableGameMusic(config.enableGameMusic !== false);
-      setActiveLorebookIds(config.activeLorebookIds ?? []);
-      setActiveLorebookEntryIds(config.activeLorebookEntryIds ?? []);
-      setImportedLorebookEntryIds(config.activeLorebookEntryIds?.length ? config.activeLorebookEntryIds : null);
-      setLbSearch("");
-      setEnableCustomWidgets(config.enableCustomWidgets !== false);
-      setManualWidgetSetupEnabled(importedWidgets.length > 0);
-      setCustomHudWidgets(
-        importedWidgets.length > 0
-          ? importedWidgets
-          : normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
-      );
-      setEnableSpotifyDj(config.enableSpotifyDj === true);
-      setGameSpotifySourceType(normalizeSpotifySourceType(config.spotifySourceType));
-      setGameSpotifyPlaylistId(config.spotifyPlaylistId?.trim() || "");
-      setGameSpotifyPlaylistName(config.spotifyPlaylistName?.trim() || "");
-      setGameSpotifyArtist(config.spotifyArtist?.trim() || "");
-      setEnableLorebookKeeper(config.enableLorebookKeeper === true);
-      setPromptPresetTouched(true);
-      setPromptPresetId(config.promptPresetId ?? null);
-      setGamePresentation(importedStoryboardGamePrompt ? "anime" : "standard");
-      setCustomGamePromptEnabled(Boolean(importedCustomPrompt));
-      setGameSystemPromptDraft(importedCustomPrompt || importedBasePrompt);
-      setGameSystemPromptEdited(Boolean(importedCustomPrompt));
-      setGameSpecialInstructions(config.gameSpecialInstructions?.trim() || "");
-      const importedSpatialMapInstructions = config.spatialMapInstructions?.trim() || "";
-      const importedSpatialMapDraftOptions = resolveGameSpatialMapDraftOptions(
-        config.spatialMapDraftSize,
-        config.spatialMapTargetLocationCount,
-      );
-      setDraftSpatialMap(
-        hierarchicalMapsInstalled &&
-          (config.gameWorldMapMode === "hierarchical" || Boolean(importedSpatialMapInstructions)),
-      );
-      setManualSpatialMap(false);
-      setTemplateSpatialMap(false);
-      setWorldSpatialMap(false);
-      setSpatialTemplateSelection(null);
-      setSpatialTemplatePickerOpen(false);
-      setSpatialMapDraftSize(importedSpatialMapDraftOptions.size);
-      setSpatialMapTargetLocationCount(importedSpatialMapDraftOptions.targetLocationCount);
-      setSpatialMapTargetLocationCountInput(String(importedSpatialMapDraftOptions.targetLocationCount));
-      setSpatialMapGroundingMode(config.spatialMapGroundingMode ?? "setup");
-      setSpatialMapInstructions(importedSpatialMapInstructions);
-
-      const warningCount = imported.warnings.length;
+      const warnings = applySetupShareFile(shareFile);
+      const warningCount = warnings.length;
       setImportedSetupNotice(
         warningCount > 0
           ? `${file.name} loaded. ${warningCount} local ${warningCount === 1 ? "selection needs" : "selections need"} review.`
@@ -1508,7 +1338,7 @@ export function GameSetupWizard({
       toast.success(localizeUi("ui.game.gamesetupwizard.gameModeSetupImported"));
       if (warningCount > 0) {
         toast.warning(localizeUi("ui.game.gamesetupwizard.someLocalSelectionsCouldNotBeRestored"), {
-          description: imported.warnings.join(" "),
+          description: warnings.join(" "),
         });
       }
     } catch (error) {
@@ -1521,6 +1351,244 @@ export function GameSetupWizard({
     }
   };
 
+  /** Fills every step from a setup snapshot (a shared file, or this game's own saved setup) and
+   *  returns the selections this install could not restore. */
+  const applySetupShareFile = (shareFile: GameSetupShareFile) => {
+    const imported = resolveGameSetupImport(shareFile, {
+      characters,
+      connections,
+      lorebooks,
+      personas,
+      promptPresets,
+      experiencePackages: experiences,
+      installedRulesets: rulesets,
+      isNewGame,
+    });
+    const config = imported.config;
+    setRulesetId(config.ruleset?.id ?? null);
+    // A file with a kit is an Overworld game's; one without is Classic unless it says otherwise.
+    setGameStyle(config.worldKit ? "overworld" : (config.gameStyle ?? "classic"));
+    kitChosenRef.current = Boolean(config.worldKit);
+    setWorldKit(config.worldKit ?? null);
+    setWorldDraft(config.world ? worldDraftFromWorld(config.world, config.story, config.worldSnapshot) : null);
+    // The layers the file chose, against the definition installed HERE: an id this version of the
+    // ruleset no longer has is dropped rather than sent to a create call that would refuse it.
+    const importedRuleset = rulesets.find((entry) => entry.definition.id === config.ruleset?.id);
+    setRulesetLayerIds(
+      importedRuleset ? restoredRulesetLayers(importedRuleset.definition, config.ruleset?.options) : [],
+    );
+    const sharedRuleset = shareFile.setup.config.ruleset;
+    // Installed but left off the list means the import switch hid it, which needs a different
+    // fix from the user than installing something. Only an answer that says "off" counts as off:
+    // a policy that could not be read gets its own notice, not a wrong diagnosis.
+    const hiddenFromList =
+      sharedRuleset &&
+      !rulesets.some((entry) => entry.definition.id === sharedRuleset.id) &&
+      (installedRulesets ?? []).some((entry) => entry.definition.id === sharedRuleset.id);
+    const droppedRulesetNotice = !hiddenFromList
+      ? "game.ruleset.setup.unavailableImport"
+      : agentImportPolicy?.enabled === false
+        ? "game.ruleset.setup.importsOffImport"
+        : "game.ruleset.setup.importPolicyUnknownImport";
+    setRulesetImportNotice(
+      sharedRuleset && !config.ruleset
+        ? !isNewGame
+          ? localizeUi("game.ruleset.setup.existingImport")
+          : localizeUi(droppedRulesetNotice, { name: shareFile.setup.labels?.rulesetName ?? sharedRuleset.id })
+        : null,
+    );
+    const importedExperience = experiences.find((item) => item.id === config.gameExperienceId);
+    const importedSetup = importedExperience?.manifest.contributions?.gameSurface?.setup;
+    const importedSeed = importedSetup?.seed
+      ? parseExperienceSeed(config.experienceConfig?.[importedSetup.seed.key])
+      : null;
+    setExperienceId(isNewGame && importedExperience ? importedExperience.id : null);
+    // A setup file without a usable Experience seed leaves the prefilled seed alone instead of blanking it.
+    if (importedSeed !== null) setExperienceSeed(String(importedSeed));
+    setExperienceImportNotice(
+      shareFile.setup.config.gameExperienceId
+        ? !isNewGame
+          ? localizeUi("game.experienceSetup.existingImport")
+          : !importedExperience
+            ? localizeUi("game.experienceSetup.unavailableImport")
+            : null
+        : null,
+    );
+    const importedGenres = config.genre
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const importedTones = config.tone
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const importedStoryboardGamePrompt = config.gameGmPromptTemplateId === ANIME_GAME_PROMPT_TEMPLATE_ID;
+    const importedPromptPreset = promptPresets.find((preset) => preset.id === config.promptPresetId) ?? null;
+    const importedCustomPrompt = config.gameSystemPrompt?.trim() ?? "";
+    const importedBasePrompt = importedStoryboardGamePrompt
+      ? ANIME_GAME_SYSTEM_PROMPT
+      : importedPromptPreset?.gamePrompt?.trim() || DEFAULT_GAME_SYSTEM_PROMPT;
+    const importedWidgets = normalizeGameHudWidgets(config.customHudWidgets ?? []);
+    const importedGenerationParameters = imported.effectiveGenerationParameters ?? config.generationParameters ?? null;
+    const importedParameterOverrides = parseEditableGenerationParameters(importedGenerationParameters);
+    const hasImportedGenerationParameters =
+      importedGenerationParameters !== null && Object.keys(importedGenerationParameters).length > 0;
+    const importedGmConnection = connections.find((connection) => connection.id === imported.gmConnectionId) ?? null;
+    const importedGmDefaults = getEditableGenerationParameters(
+      ROLEPLAY_PARAMETER_DEFAULTS,
+      importedGmConnection?.defaultParameters,
+      importedGmConnection?.provider,
+    );
+
+    setStep(0);
+    setGameName(imported.gameName);
+    genresChosenRef.current = true;
+    setGenres(importedGenres.length > 0 ? importedGenres : ["Fantasy"]);
+    setCustomGenre("");
+    setSetting(config.setting);
+    setTones(importedTones.length > 0 ? importedTones : ["Heroic"]);
+    setCustomTone("");
+    setDifficulty(
+      DIFFICULTIES.find((d) => normalizeGameDifficulty(d) === normalizeGameDifficulty(config.difficulty)) ?? "Normal",
+    );
+    setCombatStyle(resolveCombatStyle(config.combatStyle));
+    setGmBossControl(config.gmBossControl ?? true);
+    setGmNamedControl(config.gmNamedControl ?? false);
+    setCruelOpponents(config.cruelOpponents === true);
+    setCompanionsOnTheirOwn(config.playerRunsCompanions !== true);
+    setRating(config.rating);
+    setLanguage(config.language?.trim() || "English");
+    setAutoTranslate(config.autoTranslate === true);
+    setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
+    setGmMode(config.gmMode);
+    setGameIntro(config.gameIntro ?? null);
+    setGmCharacterId(config.gmCharacterId ?? null);
+    setPartyCharacterIds(config.partyCharacterIds);
+    setPersonaId(config.personaId ?? null);
+    setPlayerGoals(config.playerGoals);
+    setPreferences(imported.preferences);
+    setGmSearch("");
+    setPartySearch("");
+    setPartyFolderId("");
+    setPersonaSearch("");
+    setGmConnectionId(imported.gmConnectionId);
+    setCustomizeParameters(hasImportedGenerationParameters);
+    setGenerationParameters(getEditableGenerationParameters(importedGmDefaults, importedParameterOverrides));
+    importedGenerationParametersRef.current = importedGenerationParameters;
+    pendingImportedGenerationParametersRef.current =
+      importedParameterOverrides && (imported.gmConnectionId === null || imported.gmConnectionId !== gmConnectionId)
+        ? importedParameterOverrides
+        : null;
+    importedArtStyleSettingsRef.current = {
+      artStylePrompt: config.artStylePrompt,
+      generatedArtStylePrompt: config.generatedArtStylePrompt,
+      useCampaignArtStyle: config.useCampaignArtStyle,
+      imageStyleProfileId: config.imageStyleProfileId,
+    };
+    setUseLocalScene(
+      sidecarAvailable && !config.sceneConnectionId && shareFile.setup.connections?.scene?.provider === "local",
+    );
+    setSceneConnectionId(config.sceneConnectionId ?? null);
+
+    const visualGenerationEnabled =
+      config.enableSpriteGeneration === true ||
+      config.gameStoryboardAutoIllustrationsEnabled === true ||
+      config.gameStoryboardAutoGenerationEnabled === true;
+    setEnableAgents(
+      config.enableAgents === true ||
+        visualGenerationEnabled ||
+        config.enableSpotifyDj === true ||
+        config.enableLorebookKeeper === true ||
+        config.gameWorldMapMode === "hierarchical" ||
+        Boolean(config.spatialMapInstructions?.trim()),
+    );
+    setEnableQuickTimeEvents(config.enableQuickTimeEvents !== false);
+    setEnableSpriteGeneration(visualGenerationEnabled);
+    setGameImageDynamicPromptEnabled(config.gameImageDynamicPromptEnabled === true);
+    setImageConnectionId(config.imageConnectionId ?? null);
+    setVideoConnectionId(config.videoConnectionId ?? null);
+    setAudioConnectionId(config.audioConnectionId ?? null);
+    setEnableGameSoundEffects(config.enableGameSoundEffects !== false);
+    setEnableGameMusic(config.enableGameMusic !== false);
+    setActiveLorebookIds(config.activeLorebookIds ?? []);
+    setActiveLorebookEntryIds(config.activeLorebookEntryIds ?? []);
+    setImportedLorebookEntryIds(config.activeLorebookEntryIds?.length ? config.activeLorebookEntryIds : null);
+    setLbSearch("");
+    setEnableCustomWidgets(config.enableCustomWidgets !== false);
+    setManualWidgetSetupEnabled(importedWidgets.length > 0);
+    setCustomHudWidgets(
+      importedWidgets.length > 0
+        ? importedWidgets
+        : normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
+    );
+    setEnableSpotifyDj(config.enableSpotifyDj === true);
+    setGameSpotifySourceType(normalizeSpotifySourceType(config.spotifySourceType));
+    setGameSpotifyPlaylistId(config.spotifyPlaylistId?.trim() || "");
+    setGameSpotifyPlaylistName(config.spotifyPlaylistName?.trim() || "");
+    setGameSpotifyArtist(config.spotifyArtist?.trim() || "");
+    setEnableLorebookKeeper(config.enableLorebookKeeper === true);
+    setPromptPresetTouched(true);
+    setPromptPresetId(config.promptPresetId ?? null);
+    setGamePresentation(importedStoryboardGamePrompt ? "anime" : "standard");
+    setCustomGamePromptEnabled(Boolean(importedCustomPrompt));
+    setGameSystemPromptDraft(importedCustomPrompt || importedBasePrompt);
+    setGameSystemPromptEdited(Boolean(importedCustomPrompt));
+    setGameSpecialInstructions(config.gameSpecialInstructions?.trim() || "");
+    const importedSpatialMapInstructions = config.spatialMapInstructions?.trim() || "";
+    const importedSpatialMapDraftOptions = resolveGameSpatialMapDraftOptions(
+      config.spatialMapDraftSize,
+      config.spatialMapTargetLocationCount,
+    );
+    setDraftSpatialMap(
+      hierarchicalMapsInstalled &&
+        (config.gameWorldMapMode === "hierarchical" || Boolean(importedSpatialMapInstructions)),
+    );
+    setManualSpatialMap(false);
+    setTemplateSpatialMap(false);
+    setWorldSpatialMap(false);
+    setSpatialTemplateSelection(null);
+    setSpatialTemplatePickerOpen(false);
+    setSpatialMapDraftSize(importedSpatialMapDraftOptions.size);
+    setSpatialMapTargetLocationCount(importedSpatialMapDraftOptions.targetLocationCount);
+    setSpatialMapTargetLocationCountInput(String(importedSpatialMapDraftOptions.targetLocationCount));
+    setSpatialMapGroundingMode(config.spatialMapGroundingMode ?? "setup");
+    setSpatialMapInstructions(importedSpatialMapInstructions);
+    return imported.warnings;
+  };
+
+  // Reopening setup on a game whose setup never finished starts from what was chosen last time,
+  // not a blank wizard. Once per open, after the lists the snapshot resolves against have loaded.
+  const savedSetupRestoredRef = useRef(false);
+  useEffect(() => {
+    if (isNewGame || savedSetupRestoredRef.current || !setupImportResourcesReady) return;
+    const saved = chatMetadata?.gameInitialSetup;
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return;
+    savedSetupRestoredRef.current = true;
+    try {
+      const shareFile = parseGameSetupShareFileJson(
+        JSON.stringify({
+          format: GAME_SETUP_SHARE_FORMAT,
+          version: GAME_SETUP_SHARE_VERSION,
+          exportedAt: new Date().toISOString(),
+          gameName: (savedGameName ?? "").trim().slice(0, 200) || "Game",
+          setup: saved,
+        }),
+      );
+      const warnings = applySetupShareFile(shareFile);
+      // This game's own ruleset and Experience are already fixed: no notice about importing them.
+      setRulesetImportNotice(null);
+      setExperienceImportNotice(null);
+      setImportedSetupNotice(
+        warnings.length > 0
+          ? localizeUi("ui.game.gamesetupwizard.savedSetupRestoredReview", { count: warnings.length })
+          : localizeUi("ui.game.gamesetupwizard.savedSetupRestored"),
+      );
+    } catch {
+      /* an unreadable snapshot leaves the wizard as it was */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the lists are ready
+  }, [isNewGame, setupImportResourcesReady]);
+
   const buildSetupConfig = (): GameSetupConfig => {
     const trimmedGameSystemPrompt = gameSystemPromptDraft.trim();
     const customGameSystemPrompt =
@@ -1528,12 +1596,6 @@ export function GameSetupWizard({
         ? trimmedGameSystemPrompt
         : null;
     const trimmedGameSpecialInstructions = gameSpecialInstructions.trim();
-    const tacticalBattlefield =
-      combatStyle === "tactical"
-        ? {
-            ...(tacticalBattlefieldSize !== "auto" ? { size: tacticalBattlefieldSize } : {}),
-          }
-        : {};
 
     return {
       ...buildExperienceSetup(activeExperience, experienceSeed, isNewGame),
@@ -1564,7 +1626,10 @@ export function GameSetupWizard({
       // keeps the party's phase then the enemies', as it always has.
       ...(overworldChosen ? { tacticalTurnOrder: "initiative" as const } : {}),
       gmBossControl,
-      ...(Object.keys(tacticalBattlefield).length > 0 ? { tacticalBattlefield } : {}),
+      ...(gmBossControl ? { gmNamedControl } : {}),
+      ...(cruelOpponents ? { cruelOpponents } : {}),
+      ...(companionsOnTheirOwn ? {} : { playerRunsCompanions: true }),
+      // The board's size is the Game Master's to choose, by the place (2026-10-24, Alyssa).
       spatialMapInstructions:
         enableAgents && hierarchicalMapsInstalled && draftSpatialMap
           ? spatialMapInstructions.trim() || undefined
@@ -2348,31 +2413,50 @@ export function GameSetupWizard({
                           </span>
                         </span>
                       </label>
-                      {combatStyle === "tactical" && (
-                        <div className="mt-3 space-y-3 rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 p-3">
-                          <div>
-                            <div>
-                              <label htmlFor="game-setup-battlefield-size" className={GAME_SETUP_FIELD_LABEL}>
-                                {localizeUi("ui.game.gamesetupwizard.battlefieldSize")}
-                              </label>
-                              <select
-                                id="game-setup-battlefield-size"
-                                value={tacticalBattlefieldSize}
-                                onChange={(event) =>
-                                  setTacticalBattlefieldSize(event.target.value as "auto" | TacticalBattlefieldSize)
-                                }
-                                className={GAME_SETUP_INPUT_CLASS}
-                              >
-                                {TACTICAL_BATTLEFIELD_SIZE_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {localizeUi(option.labelKey)}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        </div>
+                      {gmBossControl && (
+                        <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
+                          <input
+                            type="checkbox"
+                            checked={gmNamedControl}
+                            onChange={(e) => setGmNamedControl(e.target.checked)}
+                            className="mt-1 size-4 accent-[var(--primary)]"
+                          />
+                          <span>
+                            {localizeUi("game.combat.director.namedLabel")}
+                            <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                              {localizeUi("game.combat.director.namedHelp")}
+                            </span>
+                          </span>
+                        </label>
                       )}
+                      <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
+                        <input
+                          type="checkbox"
+                          checked={companionsOnTheirOwn}
+                          onChange={(e) => setCompanionsOnTheirOwn(e.target.checked)}
+                          className="mt-1 size-4 accent-[var(--primary)]"
+                        />
+                        <span>
+                          {localizeUi("game.combat.director.companionsLabel")}
+                          <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                            {localizeUi("game.combat.director.companionsHelp")}
+                          </span>
+                        </span>
+                      </label>
+                      <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
+                        <input
+                          type="checkbox"
+                          checked={cruelOpponents}
+                          onChange={(e) => setCruelOpponents(e.target.checked)}
+                          className="mt-1 size-4 accent-[var(--primary)]"
+                        />
+                        <span>
+                          {localizeUi("game.combat.director.cruelLabel")}
+                          <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                            {localizeUi("game.combat.director.cruelHelp")}
+                          </span>
+                        </span>
+                      </label>
                     </div>
 
                     {!isNewGame && chatMetadata?.gameRuleset != null && (
@@ -4231,11 +4315,28 @@ export function GameSetupWizard({
                           ? localizeUi("ui.game.gamesetupwizard.theGameIsReadyNowLinkingItsSharedWorld")
                           : localizeUi("ui.game.gamesetupwizard.holdOnTightTheGameIsBeingGeneratedRight")}
                     </span>
-                    <span aria-hidden="true" className="shrink-0 tabular-nums text-[var(--muted-foreground)]">
-                      {generationElapsedSeconds}
-                      {localizeUi("ui.noodle.stageprofileview.s")}
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span aria-hidden="true" className="tabular-nums text-[var(--muted-foreground)]">
+                        {generationElapsedSeconds}
+                        {localizeUi("ui.noodle.stageprofileview.s")}
+                      </span>
+                      {onStopGeneration && (
+                        <button
+                          type="button"
+                          onClick={onStopGeneration}
+                          className="rounded-md border border-[var(--border)] px-2 py-0.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                        >
+                          {localizeUi("game.setup.stopGeneration")}
+                        </button>
+                      )}
                     </span>
                   </div>
+                  {/* A reasoning model can think for many minutes with nothing to show: say it is still waiting. */}
+                  {generationElapsedSeconds >= 60 && !isDraftingMap && !isLinkingSharedWorld && (
+                    <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {localizeUi("game.setup.stillWaiting")}
+                    </p>
+                  )}
                   <div
                     className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--muted)]/60"
                     role="progressbar"

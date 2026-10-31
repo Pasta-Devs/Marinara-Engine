@@ -33,6 +33,7 @@ import {
   rulesetCombatant,
   rulesetCombatRoller,
   rulesetCombatStanding,
+  rulesetDefenseAgainst,
   rulesetReachableCells,
   rulesetSheetBuildSchema,
   rulesetWindowOptions,
@@ -50,9 +51,12 @@ import {
   commandRulesetCombatDirector,
   createRulesetFight,
   directedRulesetView,
+  rankRulesetChoices,
+  rulesetCellTakenFor,
   rulesetDirectorStage,
   rulesetFightLiveStates,
   RULESET_COMBAT_EVENT_LIMIT,
+  RULESET_COMBAT_REASON_LIMIT,
   rulesetWindowTargetOf,
   syncRulesetCombatants,
   trimRulesetFightEvents,
@@ -285,16 +289,18 @@ const emberParty = [
   assert.equal(unitOf(state, "brenna").maxHp, 60, "the Engine's own party array is kept in step");
   assert.equal(unitOf(state, "brenna").hp, 60);
 
-  assert.match(
-    refusedStart({
+  // A member the setup invented, with no sheet, stays out of the fight (2026-10-23 playtest).
+  {
+    const without = started({
       definition: fiveE,
       cards: fiveECards,
       partyCatalogs: spellCatalogs,
       party: [...fiveEParty, { id: "tam", name: "Tam" }],
       enemies: [{ id: "lurker", name: "Thorn Lurker" }],
-    }),
-    /^Tam has no ruleset sheet/,
-  );
+    });
+    assert.ok(!without.rulesetFight!.encounter.combatants.some((one) => one.id === "tam"));
+    assert.ok(without.rulesetFight!.adjustments.includes("Tam has no ruleset sheet and stays out of the fight."));
+  }
 
   // The pools a ruleset names for the turn are shown in its order, once each (1.375).
   const shown = parsedOrThrow(
@@ -324,16 +330,18 @@ const emberParty = [
     enemies: [{ id: "moth", name: "Cinder Moth" }],
   });
   assert.equal(view(ember, rough).ruleset.id, "ember-roads");
-  assert.match(
-    refusedStart({
+  // A member the setup invented, with no sheet, stays out of the fight (2026-10-23 playtest).
+  {
+    const without = started({
       definition: ember,
       cards: emberCards,
       partyCatalogs: emberCatalogs,
       party: [...emberParty, { id: "wick", name: "Wick" }],
       enemies: [{ id: "moth", name: "Cinder Moth" }],
-    }),
-    /^Wick has no ruleset sheet/,
-  );
+    });
+    assert.ok(!without.rulesetFight!.encounter.combatants.some((one) => one.id === "wick"));
+    assert.ok(without.rulesetFight!.adjustments.includes("Wick has no ruleset sheet and stays out of the fight."));
+  }
 }
 
 // ── Where an opponent's numbers come from: a bestiary, a proposal, a tier ──
@@ -413,6 +421,11 @@ const emberParty = [
     1,
     "a tier gives one attack and nothing else",
   );
+  // Its one attack is named for what it is, not for whom (laptop playtest 2026-10-24: "Orc Raider 2
+  // readies Orc Raider 2: attack"), and it walks as most of the bestiary does: with no speed a
+  // tier-built ogre never left its cell and readied all fight.
+  assert.equal(thing.actions.find((action) => action.kind !== "contest")?.label, "Attack");
+  assert.ok(thing.speed > 0, "the walk most of the bestiary has");
   assert.ok(
     tiered.rulesetFight!.adjustments.some((line) => line.includes("was built from the numbers of")),
     "an opponent nobody wrote says where its numbers came from",
@@ -513,13 +526,17 @@ for (const setup of [
       `${what}: the fight waits on the one being asked, not on whoever is on turn`,
     );
     const carried = JSON.stringify(fight.encounter.window);
+    const answerable = (view(definition, held).options ?? []).length > 0;
     const went = commandRulesetCombatDirector(definition, held, { type: "continue" });
     assert.equal(went.ok, true);
-    assert.equal(
-      JSON.stringify(held.rulesetFight!.encounter.window),
-      carried,
-      `${what}: and asking again moves nothing, because the answer is theirs to give`,
-    );
+    if (answerable)
+      assert.equal(
+        JSON.stringify(held.rulesetFight!.encounter.window),
+        carried,
+        `${what}: and asking again moves nothing, because the answer is theirs to give`,
+      );
+    // Asked with nothing to answer with, a player is never shown an empty prompt: it lets it go by.
+    else assert.notEqual(held.rulesetFight!.encounter.window?.id, "w1", `${what}: an empty ask passes by itself`);
   }
 
   const before = view(definition, state);
@@ -737,13 +754,31 @@ for (const setup of [
     }
     // And the base way of paying is still there beside it: the bigger ways are candidates ADDED to
     // it, not candidates that replaced it. (What the extra rungs are worth against what they buy is
-    // the picker's own weighing, and is not pinned here: with the price taken out entirely this
-    // sweep still casts it as written somewhere, because a caster out of third-level slots has
-    // nothing else to spend.)
-    assert.ok(
-      spentPools.has("slots_2"),
-      `${setup.what}: the base way of paying vanished, it spent only ${[...spentPools].join(", ")}`,
-    );
+    // the picker's own weighing, and is not pinned here, so this reads the candidates themselves:
+    // which of them a sweep happens to cast turns on the temperaments its seeds deal.)
+    {
+      const state = started({
+        definition: setup.definition,
+        cards: setup.cards,
+        partyCatalogs: setup.catalogs,
+        party: setup.party,
+        enemies: [{ id: "a", name: setup.enemy }],
+        seed: 1,
+      });
+      for (const member of setup.party)
+        commandRulesetCombatDirector(setup.definition, state, { type: "control", unitId: member.id, controller: "ai" });
+      for (let guard = 0; guard < 6 && currentRulesetActor(state.rulesetFight!.encounter)?.id !== "corwin"; guard++)
+        commandRulesetCombatDirector(setup.definition, state, { type: "continue" });
+      const encounter = state.rulesetFight!.encounter;
+      assert.equal(currentRulesetActor(encounter)?.id, "corwin");
+      const lances = rankRulesetChoices(setup.definition, state, encounter, "corwin", 200)
+        .map((ranked) => ranked.candidate.action.option.label)
+        .filter((label) => label.startsWith("Ember Lance"));
+      assert.ok(
+        lances.includes("Ember Lance") && lances.some((label) => label.includes("3rd")),
+        `${setup.what}: the base way of paying vanished beside the bigger one: ${lances.join(", ")}`,
+      );
+    }
   }
 }
 
@@ -873,6 +908,101 @@ for (const setup of [
   assert.notEqual(after.order[after.turn], "sentinel", "and the turn has moved on");
 }
 
+// ── A boss on a board never walks onto somebody, and a pick that would is played anyway ──
+// (laptop playtest 2026-10-25: a war-chief offered only walks onto his own archer's cell stood on his
+// turn for good.)
+{
+  const state = started({
+    definition: fiveE,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: [fiveEParty[0]!],
+    enemies: [{ id: "sentinel", name: "Hollow Sentinel", boss: true }],
+    gm: true,
+    positioned: true,
+    seed: 11,
+  });
+  commandRulesetCombatDirector(fiveE, state, { type: "control", unitId: "brenna", controller: "ai" });
+  for (let guard = 0; guard < 6 && !state.window; guard++) {
+    assert.ok(commandRulesetCombatDirector(fiveE, state, { type: "continue" }).ok);
+  }
+  assert.equal(state.window?.actorId, "sentinel", "the boss's turn is a decision");
+  const encounter = state.rulesetFight!.encounter;
+  const boss = rulesetCombatant(encounter, "sentinel")!;
+  for (const option of state.window!.options) {
+    if (option.to) assert.ok(!rulesetCellTakenFor(encounter, boss, option.to), `option ${option.id} walks onto nobody`);
+  }
+  // The board moves under the question: whatever the pick walks to, Brenna now stands there.
+  const brenna = rulesetCombatant(encounter, "brenna")!;
+  const pick = state.window!.options.find((option) => option.to) ?? state.window!.options[0]!;
+  const home = { x: brenna.x, y: brenna.y };
+  if (pick.to) {
+    brenna.x = pick.to.x;
+    brenna.y = pick.to.y;
+    assert.ok(rulesetCellTakenFor(encounter, boss, pick.to));
+  }
+  const turn = encounter.turn;
+  const round = encounter.round;
+  assert.ok(commandRulesetCombatDirector(fiveE, state, { type: "choose", candidateId: pick.id }).ok);
+  const now = state.rulesetFight!.encounter;
+  const moved = rulesetCombatant(now, "sentinel")!;
+  assert.ok(
+    !(pick.to && moved.x === pick.to.x && moved.y === pick.to.y),
+    "it never ends in the cell somebody stands in",
+  );
+  assert.ok(
+    state.window !== undefined || now.turn !== turn || now.round !== round || !!now.window,
+    "and the fight is not left standing on its turn",
+  );
+  void home;
+}
+
+// ── A boss that walks onto a fallen friend's cell finishes its turn (laptop playtest 2026-10-25:
+// Grak's pick onto his dead archer's cell never answered, and the fight stood on his turn) ──
+{
+  const state = started({
+    definition: fiveE,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: [fiveEParty[0]!],
+    enemies: [
+      { id: "sentinel", name: "Hollow Sentinel", boss: true },
+      { id: "lurker", name: "Thorn Lurker" },
+    ],
+    gm: true,
+    positioned: true,
+    seed: 11,
+  });
+  commandRulesetCombatDirector(fiveE, state, { type: "control", unitId: "brenna", controller: "ai" });
+  {
+    // Brenna four cells off, so the boss walks before it strikes.
+    const board = state.rulesetFight!.encounter;
+    const boss = rulesetCombatant(board, "sentinel")!;
+    const brenna = rulesetCombatant(board, "brenna")!;
+    const width = board.board!.grid!.width;
+    brenna.x = boss.x! + 4 < width ? boss.x! + 4 : boss.x! - 4;
+    brenna.y = boss.y!;
+    brenna.movementLeft = 0;
+  }
+  for (let guard = 0; guard < 8 && !state.window; guard++) {
+    assert.ok(commandRulesetCombatDirector(fiveE, state, { type: "continue" }).ok);
+  }
+  assert.equal(state.window?.actorId, "sentinel", "the boss's turn is a decision");
+  const encounter = state.rulesetFight!.encounter;
+  const pick = state.window!.options.find((option) => option.to);
+  assert.ok(pick?.to, "the boss is offered a walk first");
+  {
+    const lurker = rulesetCombatant(encounter, "lurker")!;
+    lurker.x = pick.to!.x;
+    lurker.y = pick.to!.y;
+    lurker.down = true;
+    lurker.defeated = true;
+    const started = Date.now();
+    assert.ok(commandRulesetCombatDirector(fiveE, state, { type: "choose", candidateId: pick.id }).ok);
+    assert.ok(Date.now() - started < 20_000, "the pick is answered");
+  }
+}
+
 // ── A finished fight says so once ──
 {
   const state = started({
@@ -982,6 +1112,128 @@ for (const setup of [
   // The live sheet state the route writes back is keyed the way the game stores it.
   const live = rulesetFightLiveStates(state.rulesetFight!);
   assert.deepEqual(Object.keys(live).sort(), ["brenna", "corwin"]);
+}
+
+// ── A Game Master's boss with nobody in reach walks toward the fight before it is asked (laptop
+//    playtest 2026-10-24: a war-chief offered only readying, hiding and dodging readied three rounds
+//    running), and what the Game Master chose says so on the debug log ──
+{
+  const state = started({
+    definition: fiveE,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: fiveEParty,
+    enemies: [{ id: "lurker", name: "Thorn Lurker", boss: true }],
+    positioned: true,
+    gm: true,
+  });
+  const encounter = state.rulesetFight!.encounter;
+  const width = encounter.board!.grid!.width;
+  const lurker = rulesetCombatant(encounter, "lurker")!;
+  // Far off at the board's other end, out of reach even after a full walk.
+  for (const one of encounter.combatants) {
+    one.x = one.side === "party" ? 0 : width - 1;
+    one.y = one.side === "party" ? (one.id === "brenna" ? 0 : 1) : 0;
+  }
+  const startX = lurker.x!;
+  const seq = state.rulesetFight!.eventSeq;
+  // The party stays where it is: each of its turns is ended as it comes.
+  for (let guard = 0; guard < 8 && !state.window; guard++) {
+    const now = state.rulesetFight!.encounter;
+    const on = now.order[now.turn]!;
+    if (on === "lurker" && rulesetCombatant(now, "lurker")!.x !== startX) break;
+    const command =
+      on === "lurker"
+        ? ({ type: "continue" } as const)
+        : ({ type: "ruleset", optionId: "end-turn", targetIds: [] } as const);
+    assert.ok(commandRulesetCombatDirector(fiveE, state, command).ok);
+  }
+  const after = state.rulesetFight!.events.filter((entry) => entry.seq > seq).map((entry) => entry.event);
+  assert.ok(rulesetCombatant(state.rulesetFight!.encounter, "lurker")!.x! < startX, JSON.stringify(after));
+  assert.ok(
+    after.some(
+      (event) =>
+        event.type === "reasoning" && event.actorId === "lurker" && event.reasons.some((one) => one.why === "approach"),
+    ),
+    JSON.stringify(after),
+  );
+  // Asked from there, what the Game Master picks says the Game Master picked it.
+  // Its next turn, close enough to strike, is asked of the Game Master.
+  for (let guard = 0; guard < 8 && !state.window; guard++) {
+    const now = state.rulesetFight!.encounter;
+    const on = now.order[now.turn]!;
+    const command =
+      on === "lurker"
+        ? ({ type: "continue" } as const)
+        : ({ type: "ruleset", optionId: "end-turn", targetIds: [] } as const);
+    assert.ok(commandRulesetCombatDirector(fiveE, state, command).ok);
+  }
+  assert.equal(state.window?.actorId, "lurker", "and is asked what to do from there");
+  // The defense its targets show says how much of it is the cover they stand in: the number the
+  // rules check a blow of the boss's against, with the cover apart.
+  {
+    const now = state.rulesetFight!.encounter;
+    const tiles = structuredClone(now.board!.grid!.tiles);
+    const shown = () => view(fiveE, state).combatants.find((one) => one.id === "brenna")!;
+    const rules = () =>
+      rulesetDefenseAgainst(
+        fiveE,
+        fiveE.combat!,
+        now,
+        rulesetCombatant(now, "brenna")!,
+        rulesetCombatant(now, "lurker")!,
+      );
+    for (const ground of ["plains", "ruin"] as const) {
+      now.board!.grid!.tiles = tiles.map((row) => row.map(() => ground));
+      const against = rules();
+      assert.equal(shown().defense, against.defense, ground);
+      assert.equal(shown().cover, against.cover > 0 ? against.cover : undefined, ground);
+    }
+    assert.equal(shown().cover, 2, "standing in ruins is cover");
+    now.board!.grid!.tiles = tiles;
+  }
+  {
+    // A pick other than the Engine's first says what the first was (laptop pass 5 2026-10-26: "choice
+    // number 3" told the player nothing).
+    const first = state.window!.options.find((option) => option.suggested?.rank === 1);
+    assert.ok(first?.label, "the Engine has a first choice");
+    // The same choice offered twice, picked as the second, is said as taking the first (laptop level-4
+    // pass 2026-10-26: "chose it over the Engine's first choice, Maul Smash on Garrick Thorne", 21 times).
+    const twin = state.window!.options.find(
+      (option) => option !== first && option.label === first!.label && option.targetId === first!.targetId,
+    );
+    assert.ok(twin, "this menu offers the first choice twice");
+    {
+      const copy = structuredClone(state);
+      const seq = copy.rulesetFight!.eventSeq;
+      assert.ok(commandRulesetCombatDirector(fiveE, copy, { type: "choose", candidateId: twin.id }).ok);
+      const said = copy.rulesetFight!.events.flatMap((entry) =>
+        entry.seq > seq && entry.event.type === "reasoning"
+          ? entry.event.reasons.filter((one) => one.why === "gmPick")
+          : [],
+      );
+      assert.deepEqual(said, [{ why: "gmPick", rank: 1 }]);
+    }
+    // Another choice, not the same one offered twice (laptop level-4 pass 2026-10-26).
+    const pick = state.window!.options.find(
+      (option) => option.label !== first!.label || option.targetId !== first!.targetId,
+    )!;
+    assert.ok(pick, "and another");
+    const before = state.rulesetFight!.eventSeq;
+    assert.ok(commandRulesetCombatDirector(fiveE, state, { type: "choose", candidateId: pick.id }).ok);
+    const why = state.rulesetFight!.events.flatMap((entry) =>
+      entry.seq > before && entry.event.type === "reasoning"
+        ? entry.event.reasons.filter((one) => one.why === "gmPick")
+        : [],
+    );
+    assert.equal(why.length, 1, "the Game Master's pick has its why");
+    assert.deepEqual((why[0] as { over?: unknown }).over, {
+      label: first!.label,
+      ...(first!.targetId ? { targetId: first!.targetId } : {}),
+      // A first choice to end the turn is said as such (laptop pass 6 2026-10-26).
+      ...(first!.kind === "wait" ? { ends: true } : {}),
+    });
+  }
 }
 
 // ── A fight on a board, from the same path the tactical style takes ──
@@ -1625,6 +1877,132 @@ console.log(
     assert.ok(hits.letGo > 0, "and let a blow it could not stop land");
     assert.ok(hits.shownRaised > 0, "and the screen showed the raised defense while Shield held");
 
+    // A boss's blow that a player's Shield may answer is heldAsked of the player, never hidden under the
+    // boss's next decision (laptop playtest 2026-10-25: Mara's Hellish Rebuke never drew, and the
+    // fight stood on Grak's turn).
+    let heldAsked = 0;
+    for (let seed = 1; seed <= 30 && heldAsked === 0; seed++) {
+      const state = started({
+        definition: shielding,
+        cards: [card("Corwin", guarded)],
+        partyCatalogs: { spells: [...spellEntries, shield] },
+        party: [{ id: "corwin", name: "Corwin" }],
+        enemies: [{ id: "a", name: "Thorn Lurker", boss: true }],
+        gm: true,
+        seed,
+      });
+      for (let step = 0; step < 12 && !state.outcome && heldAsked === 0; step++) {
+        const encounter = state.rulesetFight!.encounter;
+        if (encounter.window) {
+          // Corwin's to answer: shown to the player, with nothing of the boss's opened over it.
+          assert.equal(state.window, undefined, `seed ${seed}: a boss decision opened over Corwin's window`);
+          assert.ok(view(shielding, state).options?.length, `seed ${seed}: Corwin is shown the question`);
+          // And a boss decision found open over it (however it got there) is put away, so he is.
+          state.window = {
+            id: `${state.id}:stray`,
+            kind: "ordinary",
+            actorId: "a",
+            controller: "gm",
+            options: [{ id: "0", kind: "end-turn", actorId: "a", mpCost: 0, legendaryCost: 0, optionId: "end-turn" }],
+          } as NonNullable<typeof state.window>;
+          assert.ok(commandRulesetCombatDirector(shielding, state, { type: "continue" }).ok);
+          assert.equal(state.window, undefined, `seed ${seed}: the stray decision is put away`);
+          assert.ok(state.rulesetFight!.encounter.window, `seed ${seed}: and Corwin's window still waits on him`);
+          assert.ok(view(shielding, state).options?.length, `seed ${seed}: so he is shown the question`);
+          heldAsked++;
+          break;
+        }
+        if (state.window?.actorId === "a") {
+          const blow =
+            state.window.options.find((option) => option.targetIds?.includes("corwin") && !option.to) ??
+            state.window.options.find((option) => option.targetIds?.includes("corwin"));
+          const pick = blow ?? state.window.options[0]!;
+          assert.ok(commandRulesetCombatDirector(shielding, state, { type: "choose", candidateId: pick.id }).ok);
+          continue;
+        }
+        const actor = currentRulesetActor(encounter);
+        if (actor?.id === "corwin") {
+          assert.ok(
+            commandRulesetCombatDirector(shielding, state, {
+              type: "ruleset",
+              optionId: "end-turn",
+              targetIds: [],
+            } as Parameters<typeof commandRulesetCombatDirector>[2]).ok,
+          );
+          continue;
+        }
+        assert.ok(commandRulesetCombatDirector(shielding, state, { type: "continue" }).ok);
+      }
+    }
+    assert.ok(heldAsked > 0, "a boss's blow held for Corwin's Shield was heldAsked of him");
+
+    // A raise that lasts only through the hit it answers (a Parry's, gone once the attack is done) is
+    // weighed by what the hit came to once looked at again, not by the defense left after it: taken
+    // when it turns the hit, and a hit no raise could turn is let go without a word (cloud AI fights
+    // 2026-10-25: "letGo" on a Longsword 24 against 16, which Parry's 19 could never turn).
+    const parry = {
+      ...shield,
+      id: "parry-ward",
+      label: "Parry Ward",
+      rows: [{ list: "spells", values: { name: "Parry Ward", level: 0, prepared: true } }],
+      mechanics: {
+        ...shield.mechanics,
+        applies: [{ condition: "shielded", duration: { rounds: 1 }, endsAfter: "attacked" }],
+      },
+    } as unknown as RulesetCatalogEntry;
+    const parryRows = rowsFromCatalogEntry("spells", parry).map((row) => row.row);
+    const parrying = { ...base, lists: { ...base.lists, spells: [...(base.lists?.spells ?? []), ...parryRows] } };
+    const parries = { deflected: 0, hopeless: 0 };
+    for (let seed = 1; seed <= 40; seed++) {
+      const state = started({
+        definition: shielding,
+        cards: [card("Corwin", parrying)],
+        partyCatalogs: { spells: [...spellEntries, parry] },
+        party: [{ id: "corwin", name: "Corwin" }],
+        enemies: [
+          { id: "a", name: "Thorn Lurker" },
+          { id: "b", name: "Thorn Lurker" },
+        ],
+        seed,
+      });
+      commandRulesetCombatDirector(shielding, state, { type: "control", unitId: "corwin", controller: "ai" });
+      for (let turn = 0; turn < 10 && !state.outcome; turn++) {
+        const before = state.rulesetFight!.events.length;
+        assert.ok(commandRulesetCombatDirector(shielding, state, { type: "continue" }).ok);
+        const events = state.rulesetFight!.events.slice(before).map((entry) => entry.event);
+        for (const [index, event] of events.entries()) {
+          if (event.type !== "window" || event.moment !== "hit" || event.total === undefined) continue;
+          const next = events.slice(index + 1).findIndex((later) => later.type === "attack" || later.type === "window");
+          const after = next < 0 ? events.slice(index + 1) : events.slice(index + 1, index + 1 + next);
+          const raised = after.some(
+            (later) => later.type === "condition" && later.condition === "shielded" && later.active,
+          );
+          if (raised) {
+            parries.deflected++;
+            const recheck = after.find((later) => later.type === "recheck");
+            assert.equal(
+              recheck?.type === "recheck" && recheck.outcome,
+              "miss",
+              `seed ${seed}: a Parry Ward spent for nothing`,
+            );
+          } else if (event.defense !== undefined && event.total >= event.defense + 5) {
+            parries.hopeless++;
+            assert.ok(
+              !after.some(
+                (later) =>
+                  later.type === "reasoning" &&
+                  later.actorId === "corwin" &&
+                  later.reasons.some((one) => one.why === "letGo"),
+              ),
+              `seed ${seed}: a hit no Parry Ward could turn was said to be let go`,
+            );
+          }
+        }
+      }
+    }
+    assert.ok(parries.deflected > 0, "the Engine raised a Parry Ward when it turned the hit aside");
+    assert.ok(parries.hopeless > 0, "and met a hit it could not turn");
+
     // Played by hand, the held hit's answer says what it does: Shield raises the defense by 5, and
     // says whether that turns the hit aside; the question says what rides on it.
     let asked = 0;
@@ -1753,6 +2131,32 @@ console.log(
   assert.ok(seen.soaked > 0, "and soaked by kind");
   assert.ok(seen.rethrown > 0, "initiative was thrown again as rounds began");
   assert.equal(seen.overspent, 0, "nobody spent past the limit");
+
+  // A blow counts as dropping whoever its dice could drop with every die a success (K7: a ghoul under
+  // orders to spare shot a 4-dice pistol at one with 4 health left).
+  {
+    const state = started({
+      definition: gravewatch,
+      cards: [card("Ada", warden(3, 2)), card("Bram", warden(2, 3))],
+      partyCatalogs: { charms },
+      party,
+      enemies: [{ id: "hollow", name: "Hollow warden", creature: "night/hollow-warden" }],
+      seed: 1,
+    });
+    for (const member of party)
+      commandRulesetCombatDirector(gravewatch, state, { type: "control", unitId: member.id, controller: "manual" });
+    for (let guard = 0; guard < 6 && currentRulesetActor(state.rulesetFight!.encounter)?.id !== "ada"; guard++)
+      commandRulesetCombatDirector(gravewatch, state, { type: "continue" });
+    const encounter = state.rulesetFight!.encounter;
+    assert.equal(currentRulesetActor(encounter)?.id, "ada");
+    const hollow = encounter.combatants.find((one) => one.id === "hollow")!;
+    hollow.health = { ...hollow.health!, value: 2 };
+    const spade = rankRulesetChoices(gravewatch, state, encounter, "ada", 20).find(
+      (one) => one.candidate.targetId === "hollow" && one.candidate.action.option.label === "Spade",
+    );
+    assert.ok(spade, "the spade is weighed");
+    assert.deepEqual(spade!.candidate.action.drops, ["hollow"], "two dice, two successes: it can drop one at 2");
+  }
 }
 
 // ── Initiative as a number attacks move, played out by the Engine on both sides ──
@@ -1957,7 +2361,16 @@ console.log(
     "approach",
     "driven",
     "nothingWorth",
+    "noWay",
+    "holding",
+    "focus",
+    "mostInNeed",
+    "keptBack",
+    "pressCaster",
+    "leavesHarm",
+    "guarding",
   ]);
+  const idle = new Set(["nothingWorth", "noWay", "holding", "guarding"]);
   const played = (definition: RulesetDefinition, state: CombatDirectorState, party: Array<{ id: string }>) => {
     for (const member of party)
       assert.ok(
@@ -1993,6 +2406,22 @@ console.log(
     emberParty,
   );
   for (const events of [board, plain]) {
+    // Never a turn with nothing in it (laptop playtest 2026-10-23): each one shows a step of its
+    // own, or says why it took none.
+    events.forEach((event, index) => {
+      if (event.type !== "turn") return;
+      const next = events.findIndex((one, at) => at > index && one.type === "turn");
+      const during = events.slice(index + 1, next < 0 ? undefined : next);
+      if (next < 0 && during.length === 0) return;
+      assert.ok(
+        during.some(
+          (one) =>
+            ("actorId" in one && one.actorId === event.actorId) ||
+            ("sourceId" in one && one.sourceId === event.actorId),
+        ),
+        `${event.actorId}'s turn ${index} shows something: ${JSON.stringify(during)}`,
+      );
+    });
     const reasons = events.flatMap((event, index) => (event.type === "reasoning" ? [{ event, index }] : []));
     assert.ok(reasons.length > 0, "the picker says why it did what it did");
     for (const { event, index } of reasons) {
@@ -2002,7 +2431,7 @@ console.log(
         if (reason.why === "damage") assert.ok(["heavy", "solid", "some"].includes(reason.strength));
       }
       // A turn it did nothing with says so, and follows no step.
-      if (event.reasons.every((reason) => reason.why === "nothingWorth")) continue;
+      if (event.reasons.every((reason) => idle.has(reason.why))) continue;
       // Right after a step of its own: something it did since the last reason or turn began.
       const since: typeof events = [];
       for (const one of events.slice(0, index).reverse()) {
@@ -2073,22 +2502,26 @@ console.log(
   assert.equal(approach.targetId, "moth", "toward the moth her walk closed on, not the jackal behind the rock");
 }
 
-// The AI's reasons give way first when the fight's events are cut back: the fight's own events keep
-// the whole window, and only once they fill it does the oldest of them go.
+// The fight's events and the AI's reasons are cut back each to its own window: a reason never costs
+// the fight an event, and a long fight keeps its newest reasons (laptop playtest 2026-10-23).
 {
   const entry = (seq: number, type: string) => ({ seq, event: { type } });
   const real = Array.from({ length: RULESET_COMBAT_EVENT_LIMIT }, (_, index) => entry(index * 2, "attack"));
   const mixed = real.flatMap((one) => [one, entry(one.seq + 1, "reasoning")]);
-  assert.deepEqual(trimRulesetFightEvents(mixed), real, "every reason goes before any event of the fight");
-  const fewer = [...real.slice(0, 150).flatMap((one) => [one, entry(one.seq + 1, "reasoning")])];
-  const trimmed = trimRulesetFightEvents(fewer);
-  assert.equal(trimmed.length, RULESET_COMBAT_EVENT_LIMIT);
-  assert.equal(trimmed.filter((one) => one.event.type === "attack").length, 150, "no event of the fight lost");
+  const trimmed = trimRulesetFightEvents(mixed);
+  assert.equal(trimmed.filter((one) => one.event.type === "attack").length, RULESET_COMBAT_EVENT_LIMIT);
   assert.deepEqual(
     trimmed.filter((one) => one.event.type === "reasoning").map((one) => one.seq),
-    real.slice(100, 150).map((one) => one.seq + 1),
+    real.slice(-RULESET_COMBAT_REASON_LIMIT).map((one) => one.seq + 1),
     "the newest reasons are the ones kept",
   );
+  // Past the window, a new reason is kept and the oldest goes.
+  const next = trimRulesetFightEvents([...trimmed, entry(RULESET_COMBAT_EVENT_LIMIT * 2 + 1, "reasoning")]);
+  assert.equal(next.at(-1)!.seq, RULESET_COMBAT_EVENT_LIMIT * 2 + 1, "a new reason is never cut as it is written");
   const over = [...real, entry(RULESET_COMBAT_EVENT_LIMIT * 2, "attack")];
-  assert.deepEqual(trimRulesetFightEvents(over), over.slice(1), "with no reason left, the oldest event goes");
+  assert.deepEqual(trimRulesetFightEvents(over), over.slice(1), "the oldest event of the fight goes");
+  // And a reason about a turn no longer shown goes with it (laptop playtest 2026-10-25: orphan "Why..."
+  // lines for rounds 1 to 3).
+  const orphan = [entry(-1, "reasoning"), ...over];
+  assert.deepEqual(trimRulesetFightEvents(orphan), over.slice(1));
 }

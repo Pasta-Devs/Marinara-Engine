@@ -77,8 +77,9 @@ try {
       const board = grid();
       board.tiles[origin.y + dy * 2]![origin.x + dx * 2] = terrain;
       for (const size of [0.1, 3, 3.5, 10000]) {
-        // Unequal aim differences still select the same eight directions as before.
-        const toward = { x: origin.x + dx * 2, y: origin.y + dy * 3 };
+        // Along the eight ways a grid runs, a one-cell line is as it was. Aimed between them it runs
+        // at its own angle (ruleset-combat-aiming covers that).
+        const toward = { x: origin.x + dx * 2, y: origin.y + dy * 2 };
         const before = keys(previousLine(size, toward, board));
         assert.deepEqual(keys(rulesetAreaCells("line", size, origin, toward, board)), before);
         assert.deepEqual(keys(rulesetAreaCells("line", size, origin, toward, board, 1)), before);

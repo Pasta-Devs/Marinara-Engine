@@ -357,7 +357,7 @@ for (const theme of ["dark", "light"] as const) {
     await wizard.getByRole("button", { name: /^Registered battles/ }).click();
     await expect(custom).toHaveAttribute("aria-pressed", "true");
     for (let step = 1; step < 6; step++) await next();
-    await wizard.getByRole("button", { name: /Start/u }).click();
+    await wizard.getByRole("button", { name: "Create world", exact: true }).click();
     const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
     expect(result.config.combatStyle).toBe("hex-board");
     expect(result.config.ruleset.id).toBe("registered-fixture");
@@ -589,7 +589,7 @@ for (const isNewGame of [true, false]) {
     await expect(wizard.getByRole("alert")).toContainText("Could not load the entries.");
     await next();
     await next();
-    await expect(wizard.getByRole("button", { name: /Start/u })).toBeDisabled();
+    await expect(wizard.getByRole("button", { name: "Create world", exact: true })).toBeDisabled();
     await back();
     await expect(wizard.getByRole("heading", { name: "Features", exact: true })).toBeVisible();
     await back();
@@ -618,7 +618,7 @@ for (const isNewGame of [true, false]) {
     }
     await next();
     await expect(wizard.getByRole("heading", { name: "GM", exact: true })).toBeVisible();
-    await wizard.getByRole("button", { name: /Start/u }).click();
+    await wizard.getByRole("button", { name: "Create world", exact: true }).click();
     const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
     expect(result.config.partyCharacterIds).toEqual(["party-fixture"]);
     expect(result.config.playerGoals).toBe("Find the missing keeper");
@@ -636,7 +636,7 @@ for (const isNewGame of [true, false]) {
       ).toBeVisible();
       await wizard.getByRole("spinbutton", { name: "World seed" }).fill("");
       for (let step = 0; step < 6; step++) await next();
-      await expect(wizard.getByRole("button", { name: /Start/u })).toBeDisabled();
+      await expect(wizard.getByRole("button", { name: "Create world", exact: true })).toBeDisabled();
     } else {
       expect(result.config).not.toHaveProperty("gameExperienceId");
       expect(result.config).not.toHaveProperty("experienceConfig");
@@ -759,7 +759,9 @@ test("an ordinary setup import keeps the prefilled seed", async ({ page }, testI
   await expect(wizard.getByRole("alert")).toHaveCount(0);
 });
 
-test("Tactical setup keeps size and retires battlefield seed and terrain guidance", async ({ page }, testInfo) => {
+test("Tactical setup leaves the board size to the Game Master and retires battlefield seed and terrain guidance", async ({
+  page,
+}, testInfo) => {
   test.setTimeout(90_000);
   await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
@@ -798,27 +800,24 @@ test("Tactical setup keeps size and retires battlefield seed and terrain guidanc
   await expect(wizard.getByPlaceholder("Name your adventure...", { exact: true })).toHaveValue("River crossing");
   const { next } = stepNavigation(wizard);
   await next();
-  await expect(wizard.getByLabel("Battlefield seed", { exact: true })).toHaveCount(0);
-  const size = wizard.getByLabel("Battlefield size", { exact: true });
-  await expect(size).toHaveValue("large");
-  await expect(wizard.getByLabel("Terrain guidance", { exact: true })).toHaveCount(0);
+  // The board's size is the Game Master's, by the place (2026-10-24): the wizard asks for no size, seed or
+  // terrain guidance, whatever a setup file carries.
+  for (const field of ["Battlefield seed", "Battlefield size", "Terrain guidance"]) {
+    await expect(wizard.getByLabel(field, { exact: true })).toHaveCount(0);
+  }
   await expect(wizard.getByText(/Fire Emblem|current style/)).toHaveCount(0);
   await wizard.getByRole("button", { name: /^Classic/ }).click();
-  await expect(size).toHaveCount(0);
   await expect(wizard.getByText("Cinematic menu battles", { exact: true })).toBeVisible();
   await wizard.getByRole("button", { name: /^Tactical/ }).click();
-  await expect(size).toHaveValue("large");
-  await size.scrollIntoViewIfNeeded();
+  await expect(wizard.getByLabel("Battlefield size", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("hybrid-terrain-setup.png") });
   for (let step = 0; step < 5; step++) await next();
   await expect(wizard.getByRole("button", { name: "Download setup", exact: true })).toBeEnabled();
-  await wizard.getByRole("button", { name: /Start/u }).click();
+  await wizard.getByRole("button", { name: "Create world", exact: true }).click();
   const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
   expect(result.config.combatStyle).toBe("tactical");
   expect(result.config.difficulty).toBe("normal");
-  expect(result.config.tacticalBattlefield).toEqual({
-    size: "large",
-  });
+  expect(result.config.tacticalBattlefield).toBeUndefined();
 });
 
 test("A setting kit is off by default, can be picked, written for the setting, edited and carried", async ({
@@ -948,7 +947,7 @@ test("A setting kit is off by default, can be picked, written for the setting, e
   await wizard.getByLabel("Name", { exact: true }).fill("");
   await expect(wizard.getByText("This kit cannot be used yet:", { exact: true })).toBeVisible();
   for (let step = 0; step < 5; step++) await next();
-  await expect(wizard.getByRole("button", { name: /Start/u })).toBeDisabled();
+  await expect(wizard.getByRole("button", { name: "Create world", exact: true })).toBeDisabled();
   await expect(wizard.getByRole("button", { name: "Download setup", exact: true })).toBeDisabled();
   await expect(
     wizard.getByText("Fix the setting kit on the World step before starting.", { exact: true }),
@@ -962,7 +961,7 @@ test("A setting kit is off by default, can be picked, written for the setting, e
 
   for (let step = 0; step < 5; step++) await next();
   await expect(wizard.getByRole("button", { name: "Download setup", exact: true })).toBeEnabled();
-  await wizard.getByRole("button", { name: /Start/u }).click();
+  await wizard.getByRole("button", { name: "Create world", exact: true }).click();
   const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
   expect(result.config.worldKit.label).toBe("Harbor town life");
   // A word renamed in place keeps the id of the word it replaced, so a world that refers to it still
@@ -1116,7 +1115,7 @@ test("A shared setup brings its setting kit to a new game and refuses one that d
   await next();
   await expect(wizard.getByRole("button", { name: /^Wuxia and xianxia/u })).toHaveAttribute("aria-pressed", "true");
   for (let step = 0; step < 5; step++) await next();
-  await wizard.getByRole("button", { name: /Start/u }).click();
+  await wizard.getByRole("button", { name: "Create world", exact: true }).click();
   const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
   expect(result.config.worldKit.id).toBe("wuxia_xianxia");
 });
@@ -1262,13 +1261,13 @@ test("A world is made from a seed in the kit's words: the lore's places kept, th
   await expect(wizard.getByText("A seed is a whole number from 0 to 4294967295.", { exact: true })).toBeVisible();
   await expect(wizard.getByTestId("world-preview")).toHaveCount(0);
   for (let step = 0; step < 5; step++) await next();
-  await expect(wizard.getByRole("button", { name: /Start/u })).toBeDisabled();
+  await expect(wizard.getByRole("button", { name: "Create world", exact: true })).toBeDisabled();
   await expect(wizard.getByRole("button", { name: "Download setup", exact: true })).toBeDisabled();
   await expect(wizard.getByText("Fix the world on the World step before starting.", { exact: true })).toBeVisible();
   for (let step = 0; step < 5; step++) await back();
   await wizard.getByLabel("World seed", { exact: true }).fill("12345");
   for (let step = 0; step < 5; step++) await next();
-  await wizard.getByRole("button", { name: /Start/u }).click();
+  await wizard.getByRole("button", { name: "Create world", exact: true }).click();
   const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
   expect(result.config.world).toMatchObject({
     seed: 12345,
@@ -1318,7 +1317,7 @@ test("A game that makes a world can lay it out as its World Maps map, exactly th
   await fromTheWorld.click();
   await expect(fromTheWorld).toHaveAttribute("aria-pressed", "true");
   await next();
-  await wizard.getByRole("button", { name: /Start/u }).click();
+  await wizard.getByRole("button", { name: "Create world", exact: true }).click();
 
   const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
   expect(result.config.gameWorldMapMode).toBe("hierarchical");
@@ -1378,7 +1377,7 @@ test("A shared setup brings its world to a new game", async ({ page }, testInfo)
   await expect(wizard.getByText("Your world", { exact: true })).toBeVisible();
   await expect(wizard.getByLabel("World seed", { exact: true })).toHaveValue("7");
   for (let step = 0; step < 5; step++) await next();
-  await wizard.getByRole("button", { name: /Start/u }).click();
+  await wizard.getByRole("button", { name: "Create world", exact: true }).click();
   const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
   expect(result.config.world).toMatchObject({ seed: 7, brief: { premise: "Rivers and lakes stir." } });
 });

@@ -1138,6 +1138,7 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     pool: "slots_3",
     label: "3rd-level slots",
     amount: 1,
+    on: "Fireball",
   });
   const hits = eventsOf(blast.events, "damage");
   assert.deepEqual(
@@ -1285,6 +1286,24 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     { type: "refused", actorId: "snag", optionId: "scimitar", reason: "cannot-act" },
   ]);
 
+  // Shaken off at the end of its turn, the hold holds nobody, and the caster stops concentrating.
+  const shaken = endTurn(fiveE, state, "snag", 19);
+  assert.equal(who(shaken.state, "corwin").concentrating, null, "nobody left held");
+  assert.equal(firstOf(shaken.events, "concentration").state, "ended");
+
+  // Killed while held, it holds nobody either (playtest): the caster lets go, the fight going on.
+  {
+    let two = fight(fiveE, [wizard({ pools: { slots_3: { value: 0 } } }), fighter(), snag(), mote()], 20, 15, 5, 1);
+    two = act(fiveE, two, { actorId: "corwin", optionId: hold.id, targetIds: ["snag"] }, 5).state;
+    assert.ok(who(two, "corwin").concentrating, "holding");
+    two = endTurn(fiveE, two, "corwin").state;
+    const blow = rulesetCombatOptions(fiveE, two, "brenna").find((option) => option.kind === "attack")!;
+    who(two, "snag").health!.value = 1;
+    const killed = act(fiveE, two, { actorId: "brenna", optionId: blow.id, targetIds: ["snag"] }, 15, 6, 6, 6, 6);
+    assert.ok(who(killed.state, "snag").defeated, JSON.stringify(killed.events.slice(0, 5)));
+    assert.equal(who(killed.state, "corwin").concentrating, null, "a hold on the fallen holds nobody");
+  }
+
   // The end of its own turn is when it gets to try again, and this one fails.
   const ticked = endTurn(fiveE, state, "snag", 3);
   const repeated = firstOf(ticked.events, "save");
@@ -1369,6 +1388,19 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
   );
   state = felled.state;
   assert.equal(rulesetEncounterOutcome(state), "ongoing", "the party is not beaten while somebody stands");
+  // Nor while one of them is still rolling to live (laptop pass 8 2026-10-26): a natural 20 gets them
+  // up. All of them stable, or dead, the party has fallen.
+  {
+    const all = structuredClone(state);
+    for (const one of all.combatants.filter((combatant) => combatant.side === "party")) {
+      one.down = true;
+      one.dying = true;
+      one.stable = false;
+    }
+    assert.equal(rulesetEncounterOutcome(all), "ongoing", "still rolling to live");
+    for (const one of all.combatants.filter((combatant) => combatant.side === "party")) one.stable = true;
+    assert.equal(rulesetEncounterOutcome(all), "defeat", "all stable");
+  }
 
   const first = endTurn(fiveE, state, "rot", 3);
   const failed = firstOf(first.events, "dying");
@@ -1385,11 +1417,24 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
       (entry) => entry.id === track,
     )!.value;
   assert.equal(tracks("brenna", "death_save_failures"), 2);
+  // The blow is said as what it cost (laptop playtest 2026-10-25: failures that came with no line).
+  assert.deepEqual(
+    [
+      firstOf(kicked.events, "dying").harmed,
+      firstOf(kicked.events, "dying").result,
+      firstOf(kicked.events, "dying").failures,
+    ],
+    [1, "failure", 2],
+  );
 
   const up = endTurn(fiveE, kicked.state, "rot", 20);
   assert.equal(firstOf(up.events, "dying").result, "revived");
   assert.deepEqual(firstOf(up.events, "revived"), { type: "revived", actorId: "brenna", health: 1 });
   assert.deepEqual([who(up.state, "brenna").down, who(up.state, "brenna").dying], [false, false]);
+  // The roll is said before the revival, and she acts on the turn it brings her back on.
+  const said = up.events.findIndex((event) => event.type === "dying");
+  assert.ok(said >= 0 && said < up.events.findIndex((event) => event.type === "revived"));
+  assert.ok(labels(fiveE, up.state, "brenna").includes("Longsword"), "brought back up, she acts on this turn");
   assert.equal(tracks("brenna", "death_save_failures", up.state), 0, "the tracks are cleared with her");
   assert.deepEqual(rulesetEncounterSummary(fiveE, up.state).party[0]!.conditions, [], "and so is being down");
 }
@@ -1398,12 +1443,19 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
 {
   let state = fight(fiveE, [fighter({ pools: { hp: { value: 0 } } }), wizard(), rot()], 10, 9, 18);
   assert.deepEqual([who(state, "brenna").down, who(state, "brenna").dying], [true, true]);
+  let rolled: ReturnType<typeof endTurn> | undefined;
   for (const face of [3, 5, 7]) {
-    state = endTurn(fiveE, state, "rot", face).state;
-    state = endTurn(fiveE, state, "brenna").state;
+    rolled = endTurn(fiveE, state, "rot", face);
+    state = endTurn(fiveE, rolled.state, "brenna").state;
     state = endTurn(fiveE, state, "corwin").state;
   }
   assert.equal(who(state, "brenna").defeated, true, "three failures and she is gone");
+  // The roll that kills is said with its roll, once (laptop playtest 2026-10-25: a death at 2 passed
+  // and 1 failed with no roll shown).
+  assert.deepEqual(
+    eventsOf(rolled!.events, "dying").map((event) => [event.rolls, event.result, event.failures, event.harmed]),
+    [[[7], "dead", 3, undefined]],
+  );
   assert.equal(rulesetEncounterOutcome(state), "ongoing");
 
   // Healing brings somebody back from zero, which is why a downed ally is still a legal target.
@@ -1463,7 +1515,12 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
 // ── Defeat, and a fight that is over ──
 {
   const state = fight(fiveE, [fighter({ pools: { hp: { value: 3 } } }), rot()], 5, 18);
-  const over = act(fiveE, state, { actorId: "rot", optionId: "bite", targetIds: ["brenna"] }, 18, 8);
+  const dropped = act(fiveE, state, { actorId: "rot", optionId: "bite", targetIds: ["brenna"] }, 18, 8);
+  // Down, she still rolls to live, so the fight goes on (laptop pass 8 2026-10-26); stable, it is lost.
+  assert.equal(rulesetEncounterOutcome(dropped.state), "ongoing", "still rolling to live");
+  let over = endTurn(fiveE, dropped.state, "rot", 12);
+  for (const face of [14, 16]) over = endTurn(fiveE, endTurn(fiveE, over.state, "brenna").state, "rot", face);
+  assert.equal(who(over.state, "brenna").stable, true);
   assert.deepEqual(firstOf(over.events, "outcome"), { type: "outcome", outcome: "defeat" });
   assert.deepEqual(act(fiveE, over.state, { actorId: "rot", optionId: "bite", targetIds: ["brenna"] }).events, [
     { type: "refused", actorId: "rot", optionId: "bite", reason: "encounter-over" },
@@ -1472,7 +1529,8 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
   const summary = rulesetEncounterSummary(fiveE, over.state);
   assert.deepEqual(summary, {
     outcome: "defeat",
-    rounds: 1,
+    rounds: 3,
+    turns: 2,
     party: [
       {
         id: "brenna",
@@ -1482,7 +1540,7 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
         temp: 0,
         down: true,
         dying: true,
-        stable: false,
+        stable: true,
         conditions: ["unconscious"],
       },
     ],
@@ -1720,6 +1778,7 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     pool: "luck",
     label: "Luck",
     amount: 1,
+    on: "Hold the Line",
   });
   assert.equal(firstOf(steady.events, "temporary").amount, 2);
   assert.equal(pool(steady.state, "juno", "luck").value, 2, "the sheet is where the price came from");
@@ -1785,6 +1844,7 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
   assert.deepEqual(summary, {
     outcome: "victory",
     rounds: 1,
+    turns: 0,
     party: [
       {
         id: "juno",
@@ -2395,7 +2455,9 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     const holdFast = rulesetCombatOptions(fiveE, running, "corwin").find((option) => option.label === "Hold Fast")!;
     // The biter shakes the hold off, so it is still the thing that bites back.
     running = act(fiveE, running, { actorId: "corwin", optionId: holdFast.id, targetIds: ["biter"] }, 19).state;
-    assert.equal(who(running, "corwin").concentrating?.label, "Hold Fast");
+    // Held on nobody, it is let go at once; held again here, so the bite has something to shake.
+    assert.equal(who(running, "corwin").concentrating, null, "a hold every target shook off holds nothing");
+    who(running, "corwin").concentrating = { actionId: holdFast.id, label: "Hold Fast" };
     running = endTurn(fiveE, running, "corwin").state;
     assert.equal(currentRulesetActor(running)?.id, "biter");
     const struck = act(fiveE, running, { actorId: "biter", optionId: "bite", targetIds: ["corwin"] }, 15, 6, 4, 3, 14);
@@ -2631,6 +2693,12 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
         ["standard:hide@bonus", "bonus"],
       ],
       "only the three the entry named, and only for the budget it named",
+    );
+    // Each named after the entry that grants it, so a menu says Quick Hands rather than a plain Dash
+    // (laptop class builds 2026-10-24: Patient Defense read as Dodge).
+    assert.deepEqual(
+      [...new Set(menu.filter((option) => option.id.includes("@")).map((option) => option.grantedBy))],
+      ["Quick Hands"],
     );
     // Nobody helps themselves, whichever budget the help was bought with: the rule reads the
     // action's NAME, so the budgeted id is held to it exactly as the plain one is. The permission
@@ -3213,7 +3281,13 @@ console.info("game ruleset combat core regressions passed.");
   const aimed = act(fiveE, endTurn(fiveE, state, "corwin").state, swing);
   const window = aimed.state.window;
   assert.ok(window, "the swing is held while the one it is aimed at is asked");
-  assert.deepEqual(window.trigger, { kind: "aimed", sourceId: "snag", optionId: "scimitar", label: "Scimitar" });
+  assert.deepEqual(window.trigger, {
+    kind: "aimed",
+    sourceId: "snag",
+    optionId: "scimitar",
+    label: "Scimitar",
+    blow: "melee",
+  });
   assert.deepEqual(window.waiting, ["corwin"]);
   assert.equal(eventsOf(aimed.events, "attack").length, 0, "and nothing is rolled until it is answered");
   // Paid for before the asking: the budget is gone whatever the answer turns out to be.
@@ -3260,6 +3334,7 @@ console.info("game ruleset combat core regressions passed.");
     optionId: "scimitar",
     label: "Scimitar",
     byId: "corwin",
+    with: "Unmake",
   });
   assert.equal(eventsOf(stopped.events, "attack").length, 0, "the swing never lands");
   assert.equal(eventsOf(stopped.events, "damage").length, 0);

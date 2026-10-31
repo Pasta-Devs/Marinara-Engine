@@ -65,6 +65,43 @@ export function stripUnknownBracketTags(text: string, keep?: (tagName: string) =
   return out;
 }
 
+/** The head of an out-of-character tag: `[OOC:`, any case, spaced or not. */
+const OOC_TAG_HEAD = /\[[^\S\r\n]*ooc[^\S\r\n]*:/gi;
+
+/**
+ * Turn the Game Master's `[OOC: ...]` answers into the plain out-of-character note they are, so the
+ * tag strippers do not drop them as an unknown tag (cheap-GM playtest 2026-10-26: OOC answers to the
+ * player vanished and left a lone `---`, so the questions looked ignored). The note keeps its words
+ * and reads `(OOC: ...)`; an empty one, or one never closed, is left for the strippers as before.
+ */
+export function renderOocNotes(text: string): string {
+  if (!/\[[^\S\r\n]*ooc[^\S\r\n]*:/i.test(text)) return text;
+  let out = "";
+  let from = 0;
+  for (const head of text.matchAll(OOC_TAG_HEAD)) {
+    if (head.index < from) continue;
+    let depth = 1;
+    let end = -1;
+    for (let at = head.index + head[0].length; at < text.length; at++) {
+      if (text[at] === "[") depth++;
+      else if (text[at] === "]" && --depth === 0) {
+        end = at;
+        break;
+      }
+    }
+    // Unclosed: no later head can close either, so the rest is left as it is.
+    if (end < 0) break;
+    const note = text
+      .slice(head.index + head[0].length, end)
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!note) continue;
+    out += `${text.slice(from, head.index)}(OOC: ${note})`;
+    from = end + 1;
+  }
+  return out + text.slice(from);
+}
+
 /**
  * `[whisper:Target]` in a speaker line (`[Name] [whisper:Target] [expression]: text`) is the line's
  * type, not a command: only bracket groups stand before it on its line, the speaker's first, and it
@@ -169,7 +206,7 @@ function stripResultBlocks(content: string, tags: RegExp): string {
  * story position.
  */
 export function stripGmTagsKeepReadables(content: string): string {
-  let text = stripEngineResultBlocks(content).replace(/\[(?:party-turn|party-chat)\]/gi, "");
+  let text = renderOocNotes(stripEngineResultBlocks(content)).replace(/\[(?:party-turn|party-chat)\]/gi, "");
   // The one-request dice branch delimiters. Three of the four are unreachable by
   // everything below: `stripUnknownBracketTags` and the `[\w+:` catch-all both require a
   // `:` after the name, and `[on success]` has a space before its `]` while `[/branch]`
@@ -266,31 +303,46 @@ const SPEAKER_TYPE_RE = /^(?:main|side|extra|action|thought|whisper(?::[^[\]]*)?
  * Puts a speaker line written slightly off the taught `[Name] [type] [expression]: text` back into
  * that shape, so it shows as the character's line instead of raw brackets or a wrong speaker. Models
  * drift in a few fixed ways: two types (`[main] [side]`, the first is kept), a merged slot
- * (`[main|thinking]`), or a dash where the colon goes. A line with no type slot, or with no
- * bracket after the speaker, is returned as it is.
+ * (`[main|thinking]`), a dash where the colon goes, or the speaker written as a markdown link
+ * (`[Thistle](/whisper:Brannagh) [main] [scared]:`), whose target is read as one more slot. A line
+ * with no type slot, or with no bracket after the speaker, is returned as it is.
  */
 export function repairGameSpeakerLine(line: string): string {
   let at = 0;
   while (line[at] === " " || line[at] === "\t") at++;
-  const groups: string[] = [];
-  while (line[at] === "[" && groups.length < 6) {
+  const slots: string[] = [];
+  let groups = 0;
+  while (line[at] === "[" && groups < 6) {
     const close = line.indexOf("]", at);
     if (close < 0) return line;
     const inner = line.slice(at + 1, close).trim();
     if (!inner || inner.includes("[")) return line;
-    groups.push(inner);
+    slots.push(inner);
+    groups++;
     at = close + 1;
+    // A link-shaped speaker: `[Name](/whisper:Target)`. The parenthesis follows the name directly.
+    if (groups === 1 && line[at] === "(") {
+      const end = line.indexOf(")", at);
+      if (end < 0 || end - at > 120) return line;
+      const target = line
+        .slice(at + 1, end)
+        .trim()
+        .replace(/^\/+/, "");
+      if (/[[\]()\n]/.test(target)) return line;
+      if (SPEAKER_TYPE_RE.test(target)) slots.push(target);
+      at = end + 1;
+    }
     while (line[at] === " " || line[at] === "\t") at++;
   }
-  if (groups.length < 2) return line;
-  let rest: string;
+  if (slots.length < 2) return line;
+  let rest: string | null;
   if (line[at] === ":") rest = line.slice(at + 1);
   else if (/^[-–—]\s/u.test(line.slice(at, at + 2))) rest = line.slice(at + 1);
-  else return line;
-  const [name, ...slots] = groups;
+  else rest = null;
+  const [name, ...speakerSlots] = slots;
   // A command tag ahead of the speaker is not a speaker; the strippers take it out first.
   if (/^\w+\s*:/.test(name!)) return line;
-  const parts = slots.flatMap((slot) =>
+  const parts = speakerSlots.flatMap((slot) =>
     slot.includes("|")
       ? slot
           .split("|")
@@ -300,9 +352,45 @@ export function repairGameSpeakerLine(line: string): string {
   );
   const type = parts.find((part) => SPEAKER_TYPE_RE.test(part));
   if (!type) return line;
+  // A thought with no colon at all (cheap-GM playtest 2026-10-26: `[Saffron Reyes] [thought] ...`
+  // showed as narration) is the thought all the same. Any other type without one may be prose about
+  // the character (`[Alice] [main] [happy] waves.`), and is left as it is.
+  if (rest === null) {
+    if (type.toLowerCase() !== "thought") return line;
+    rest = line.slice(at);
+  }
   const expression = parts.filter((part) => !SPEAKER_TYPE_RE.test(part)).at(-1);
   return `[${name}] [${type}]${expression ? ` [${expression}]` : ""}: ${rest.trim()}`;
 }
+
+const BARE_THOUGHT_LINE_RE = /^\s*\[[^[\]]+\]\s*\[thought\]\s*(?:\[[^[\]]+\]\s*)?:\s*$/i;
+
+/** A thought line with nothing after it (`[Saffron Reyes] [thought]` on a line of its own) takes the
+ *  next line that has text as what they think. */
+function joinBareThoughtLines(lines: string[]): string[] {
+  const joined: string[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!;
+    if (!BARE_THOUGHT_LINE_RE.test(line)) {
+      joined.push(line);
+      continue;
+    }
+    let next = index + 1;
+    while (next < lines.length && !lines[next]!.trim()) next++;
+    const text = lines[next]?.trim();
+    // Not another tagged line or a readable, which carry their own.
+    if (!text || text.startsWith("[") || text.startsWith("__READABLE_")) {
+      joined.push(line);
+      continue;
+    }
+    joined.push(`${line.trimEnd()} ${text}`);
+    index = next;
+  }
+  return joined;
+}
+
+/** A line of markdown marks alone: `---`, `***`, `* * *`, `__`, `**`, `~~`, `##`. */
+const MARKUP_ONLY_LINE_RE = /^(?=.*[*_~#=-])[*_~#=\-\s]+$/;
 
 /** Split a Game turn into the narration, dialogue and readable beats the narration screen shows. */
 export function parseGameNarrationSegments(
@@ -347,12 +435,14 @@ export function parseGameNarrationSegments(
   }
 
   // Repaired before the inline split, which would read the second slot of `[Name] [main] [side]:` as a speaker.
-  const lines = normalizeInlineVnDialogueLines(
-    source
-      .split(/\r?\n/)
-      .map((line) => repairGameSpeakerLine(line))
-      .join("\n"),
-  ).split(/\r?\n/);
+  const lines = joinBareThoughtLines(
+    normalizeInlineVnDialogueLines(
+      source
+        .split(/\r?\n/)
+        .map((line) => repairGameSpeakerLine(line))
+        .join("\n"),
+    ).split(/\r?\n/),
+  );
   const parsed: GameNarrationTextSegment[] = [];
   // Readable placeholder regex
   const readablePlaceholderRe = /^__READABLE_(\d+)__$/;
@@ -372,6 +462,9 @@ export function parseGameNarrationSegments(
 
   for (const rawLine of lines) {
     const line = repairGameSpeakerLine(rawLine.trim());
+    // Markdown left with nothing to mark (a `---` rule, the `**` around a note lifted out as a
+    // readable) is no beat of the story (cheap-GM playtest 2026-10-26: lone `---` and `**` segments).
+    if (MARKUP_ONLY_LINE_RE.test(line)) continue;
     if (!line) {
       if (fallbackText.trim()) {
         parsed.push({

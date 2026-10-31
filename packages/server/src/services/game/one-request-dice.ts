@@ -75,11 +75,17 @@ import {
 } from "./skill-check.service.js";
 import type { GameSkillModifierView } from "./gm-prompts.js";
 import {
+  inferRulesetCheckWho,
   isResolvableSkillCheckRequest,
   readRulesetDifficulty,
   loadSkillCheckModifierContext,
   resolveSkillCheckWithContext,
+  rulesetCheckRollerRefused,
+  rulesetGroupCheckRollers,
+  resolveRulesetGroupCheck,
+  serializeRulesetGroupCheck,
   rulesetRefusesUntrained,
+  takeIssuedD20s,
   type SkillCheckModifierContext,
   type SkillCheckRulesetContext,
   type SkillCheckRequest,
@@ -133,6 +139,12 @@ export interface GameTurnChanceSession {
   readonly placeholders: GameDicePlaceholderRecord[];
   /** True once an arm threw and the fallback rewrite took over. */
   failed: boolean;
+  /**
+   * The d20 faces somebody other than the Game Master threw for this turn, as the tag pass reads
+   * them (`issuedD20s`): the player's own die, then each one a branch check here rolled. Null when
+   * the caller gave none, and every `rolls="N"` is read as it always was.
+   */
+  readonly issuedD20s: number[] | null;
 }
 
 export interface GameTurnChanceSessionOptions {
@@ -142,6 +154,8 @@ export interface GameTurnChanceSessionOptions {
   roll?: DieRoller;
   /** Substitutable for a lane that must not touch the database. */
   loadModifierContext?: () => Promise<SkillCheckModifierContext>;
+  /** The d20 faces the player threw for this turn. Absent keeps every `rolls="N"` as before. */
+  playerD20s?: readonly number[];
 }
 
 /** Absent means on (2026-10-25): a rolled turn is finished in one request unless the chat turned the
@@ -184,6 +198,7 @@ export function createGameTurnChanceSession(options: GameTurnChanceSessionOption
     diceRolls: [],
     placeholders: [],
     failed: false,
+    issuedD20s: options.playerD20s ? [...options.playerD20s] : null,
   };
 }
 
@@ -196,7 +211,9 @@ export type GameBranchArmRefusal =
   | "ambiguous-label"
   /** The claimed tag is not a check this engine rolls, is out of bounds, or already carries a result. */
   | "unrollable-check"
-  | "untrained-check";
+  | "untrained-check"
+  /** The claimed check picks out no one party member to roll it. */
+  | "unknown-roller";
 
 /** Plain words for each refusal, so the log says what the model wrote rather than what a flag is called. */
 const BRANCH_REFUSAL_REASONS: Record<GameBranchArmRefusal, string> = {
@@ -209,6 +226,7 @@ const BRANCH_REFUSAL_REASONS: Record<GameBranchArmRefusal, string> = {
   "ambiguous-label": "the label was claimed more than once, so it decides nothing",
   "unrollable-check": "the claimed check is not one this engine rolls",
   "untrained-check": "the claimed check is one the character cannot attempt untrained",
+  "unknown-roller": "the claimed check picks out no one party member to roll it",
 };
 
 /** What the arm decided about one block, before anything is spliced. */
@@ -293,6 +311,7 @@ export function planGameTurnBranches(content: string, blocks: GameBranchBlock[])
               // grant, so the arm rolls (or refuses) what the content resolver would.
               who: tag.who,
               withAbility: tag.withAbility,
+              ...(tag.purpose ? { purpose: tag.purpose } : {}),
               threshold: tag.threshold,
               bonusDice: tag.bonusDice,
             }
@@ -345,17 +364,53 @@ export async function resolveGameTurnBranches(
   const edits: GameBranchEdit[] = [];
   for (const plan of plans) {
     let result: SkillCheckResult | null = null;
+    // Which half happened: one roller's success, or the whole party's in a group check.
+    let outcome: boolean | null = null;
     let refusal = plan.refusal;
     if (plan.check && context) {
       const definition = context.ruleset?.definition;
-      const request = readRulesetDifficulty(plan.check.request, definition);
+      let asked = plan.check.request;
+      // laptop 2026-10-26: a `rolls="N"` is the player's die only when the player threw N this turn.
+      if (
+        asked.preRolledD20 !== undefined &&
+        session.issuedD20s &&
+        !takeIssuedD20s(session.issuedD20s, [asked.preRolledD20])
+      ) {
+        asked = { ...asked, preRolledD20: undefined };
+      }
+      // The same roller the tag pass picks for a check that names nobody.
+      const inferredWho =
+        context.ruleset && !asked.who ? inferRulesetCheckWho(context.ruleset, content, plan.check) : undefined;
+      if (inferredWho) asked = { ...asked, who: inferredWho };
+      const request = readRulesetDifficulty(asked, definition);
       // Only a named difficulty is read here; a check that wrote its own number was bounded above.
+      const groupRollers = context.ruleset ? rulesetGroupCheckRollers(context.ruleset, request.who) : undefined;
       if (plan.check.request.dc === undefined && !isResolvableSkillCheckRequest(request, definition)) {
         refusal = "unrollable-check";
-      } else if (context.ruleset && rulesetRefusesUntrained(context.ruleset, request)) {
+      } else if (groupRollers) {
+        // Everyone in the party rolls, and the half is the party's: at least half of them passed.
+        const group = resolveRulesetGroupCheck(context, request, groupRollers, () => session.roll(20));
+        outcome = group.success;
+        for (const one of group.results) {
+          if (session.issuedD20s && one.resolution === "sum") session.issuedD20s.push(...one.rolls);
+        }
+        edits.push({
+          start: plan.check.start,
+          end: plan.check.end,
+          replacement: serializeRulesetGroupCheck(request, group, {
+            ...(request.difficulty ? { difficulty: request.difficulty } : {}),
+            ...(request.withAbility ? { with: request.withAbility } : {}),
+            ...(request.purpose ? { for: request.purpose } : {}),
+          }),
+        });
+      } else if (
+        context.ruleset &&
+        (rulesetCheckRollerRefused(context.ruleset, request.who) || rulesetRefusesUntrained(context.ruleset, request))
+      ) {
         // Not rolled, and so neither half happened. The ask is written back with the reason on it,
         // which settles it: the client's own fallback never rolls it a second time.
-        refusal = "untrained-check";
+        const noRoller = rulesetCheckRollerRefused(context.ruleset, request.who);
+        refusal = noRoller ? "unknown-roller" : "untrained-check";
         edits.push({
           start: plan.check.start,
           end: plan.check.end,
@@ -377,12 +432,16 @@ export async function resolveGameTurnBranches(
               ...(request.who ? { who: request.who } : {}),
               ...(request.withAbility ? { with: request.withAbility } : {}),
               ...(request.bonusDice != null ? { bonus: request.bonusDice } : {}),
-              reason: "untrained",
+              ...(request.purpose ? { for: request.purpose } : {}),
+              reason: noRoller ? "unknown-roller" : "untrained",
             },
           ),
         });
       } else {
         result = resolveSkillCheckWithContext(context, request, () => session.roll(20));
+        outcome = result.success;
+        // The record this writes is the Engine's own, so the tag pass after this one must vouch for it.
+        if (session.issuedD20s && result.resolution === "sum") session.issuedD20s.push(...result.rolls);
         edits.push({
           start: plan.check.start,
           end: plan.check.end,
@@ -391,7 +450,7 @@ export async function resolveGameTurnBranches(
       }
     }
 
-    const half = refusal === null && result ? selectGameBranchHalf(plan.block, result.success) : null;
+    const half = refusal === null && outcome !== null ? selectGameBranchHalf(plan.block, outcome) : null;
     if (half) {
       edits.push({ start: plan.block.start, end: plan.block.end, replacement: half.text });
       session.ledger.push({ stage: "branch", outcome: "resolved", span: plan.block.raw.slice(0, LOGGED_SPAN_MAX) });
@@ -411,7 +470,7 @@ export async function resolveGameTurnBranches(
       session.chatId,
       plan.block.raw.slice(0, LOGGED_SPAN_MAX),
       BRANCH_REFUSAL_REASONS[refusal ?? "unmatched-label"],
-      result ? " the check was still rolled and recorded" : "",
+      outcome !== null ? " the check was still rolled and recorded" : "",
     );
   }
 

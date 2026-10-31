@@ -46,6 +46,12 @@ export function applyGameWidgetUpdate(widgets: HudWidget[], update: WidgetUpdate
     const changes = update.changes;
     const newConfig = { ...w.config };
 
+    // A stat_block's row taken out by its name, any case (a member's second health row).
+    if (changes.remove && !changes.statName && w.type === "stat_block") {
+      const gone = changes.remove.trim().toLowerCase();
+      const stats = Array.isArray(newConfig.stats) ? newConfig.stats : [];
+      return { ...w, config: { ...newConfig, stats: stats.filter((stat) => stat.name.trim().toLowerCase() !== gone) } };
+    }
     // Handle stat_block: update a specific stat by name, creating it when needed.
     if (changes.statName && w.type === "stat_block") {
       const targetName = changes.statName.trim();
@@ -59,7 +65,28 @@ export function applyGameWidgetUpdate(widgets: HudWidget[], update: WidgetUpdate
       if (targetName && newValue !== undefined) {
         const stats = Array.isArray(newConfig.stats) ? [...newConfig.stats] : [];
         const targetKey = targetName.toLowerCase();
-        const statIndex = stats.findIndex((stat) => stat.name.trim().toLowerCase() === targetKey);
+        const exact = stats.findIndex((stat) => stat.name.trim().toLowerCase() === targetKey);
+        // "Aldric" is the row "Aldric HP", where it is the only one it could be (laptop 2026-10-25:
+        // every Game Master update added a second row beside the one the setup wrote).
+        const near = stats.flatMap((stat, index) => {
+          const name = stat.name.trim().toLowerCase();
+          const longer = name.length > targetKey.length ? name : targetKey;
+          const shorter = longer === name ? targetKey : name;
+          return longer.startsWith(`${shorter} `) && !longer.slice(shorter.length + 1).includes(" ") ? [index] : [];
+        });
+        // A bare "Kesh" beside "Kesh HP" is the same health twice, left by older builds: the update
+        // goes to "Kesh HP" and the bare row goes (laptop playtest 2026-10-25: "Kesh" said 26/38 while
+        // "Kesh HP" stayed 33/33).
+        const healthTwin = stats.findIndex((stat) =>
+          HEALTH_WORDS.some((word) => stat.name.trim().toLowerCase().replace(/\s+/g, " ") === `${targetKey} ${word}`),
+        );
+        if (exact >= 0 && healthTwin >= 0) {
+          stats[healthTwin] = { ...stats[healthTwin]!, value: newValue };
+          stats.splice(exact, 1);
+          newConfig.stats = stats;
+          return { ...w, config: newConfig };
+        }
+        const statIndex = exact >= 0 ? exact : near.length === 1 ? near[0]! : -1;
         if (statIndex >= 0) {
           stats[statIndex] = { ...stats[statIndex]!, value: newValue };
         } else {
@@ -146,9 +173,10 @@ export function partyHealthWidgetUpdates(
     else if (unique && existing !== row) byName.set(key, null);
   };
   for (const row of rows) add(row.name.trim().toLowerCase(), row, false);
+  // Each word of a longer name, where no other member shares it: "Brother Kesh" is "Kesh" too.
   for (const row of rows) {
-    const first = row.name.trim().toLowerCase().split(/\s+/)[0] ?? "";
-    if (first !== row.name.trim().toLowerCase()) add(first, row, true);
+    const words = row.name.trim().toLowerCase().split(/\s+/);
+    if (words.length > 1) for (const word of words) add(word, row, true);
   }
   const updates: WidgetUpdate[] = [];
   for (const widget of widgets) {
@@ -157,10 +185,29 @@ export function partyHealthWidgetUpdates(
     // A widget update reaches only the first row of a name, so a later row of the same name is not
     // one this can bring in step: asking for it again would never settle.
     const seen = new Set<string>();
+    const names = new Set(widget.config.stats.map((stat) => stat.name.trim().toLowerCase().replace(/\s+/g, " ")));
     for (const stat of widget.config.stats) {
       const name = stat.name.trim().toLowerCase();
       if (seen.has(name)) continue;
       seen.add(name);
+      // A member's bare name beside their "<name> HP" row is the same health twice (laptop playtest
+      // 2026-10-25: "Aldric 44/44" under a stale "Aldric HP 36/36", left by older builds): it goes,
+      // and the "HP" row follows the sheet.
+      // With no sheet to follow, the bare row holds the Game Master's latest word (older builds sent
+      // its updates there), so the "HP" row takes it first.
+      const twinWord = aboutHealth
+        ? [...healthWords].find((word) => names.has(`${name.replace(/\s+/g, " ")} ${word}`))
+        : undefined;
+      if (twinWord !== undefined) {
+        const twin = widget.config.stats.find(
+          (other) =>
+            other.name.trim().toLowerCase().replace(/\s+/g, " ") === `${name.replace(/\s+/g, " ")} ${twinWord}`,
+        );
+        if (twin && !byName.get(name) && twin.value !== stat.value)
+          updates.push({ widgetId: widget.id, changes: { statName: twin.name, value: stat.value } });
+        updates.push({ widgetId: widget.id, changes: { remove: stat.name } });
+        continue;
+      }
       const parts = name.split(/\s+/);
       let who: string | undefined;
       for (let cut = parts.length - 1; cut >= 1 && !who; cut--) {

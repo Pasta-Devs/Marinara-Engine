@@ -496,7 +496,8 @@ const removeSpatial = registerCapabilityService("hierarchical-maps:state-resolut
 
 // `rolls="N"` is the player's own d20 echoed by the GM, which the resolver uses instead of
 // throwing its own. That is what makes a route-driven turn deterministic without replacing
-// the crypto roller the real path uses.
+// the crypto roller the real path uses. The player's message throws that die: laptop 2026-10-26,
+// a `rolls="N"` the player never threw is the Game Master picking its face, and the Engine rolls it.
 let preRolled = 12;
 let calls = 0;
 function draftFor(roll: number): string {
@@ -559,7 +560,11 @@ try {
       enableAgents: true,
       activeAgentIds: ["hierarchical-maps"],
     });
-    await chats.createMessage({ chatId: chat.id, role: "user", content: "Sneak past the guard." });
+    await chats.createMessage({
+      chatId: chat.id,
+      role: "user",
+      content: `Sneak past the guard.\n[dice: 1d20 = ${preRolled}]`,
+    });
     const response = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: chat.id } });
     assert.equal(response.statusCode, 200, response.body);
     assert.ok(!response.body.includes('"type":"error"'), response.body);
@@ -613,7 +618,11 @@ try {
     gameDiceOutcomeNarration: false,
     gameOneRequestDice: false,
   });
-  await chats.createMessage({ chatId: off.id, role: "user", content: "Sneak past the guard." });
+  await chats.createMessage({
+    chatId: off.id,
+    role: "user",
+    content: `Sneak past the guard.\n[dice: 1d20 = ${preRolled}]`,
+  });
   const offResponse = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: off.id } });
   assert.equal(offResponse.statusCode, 200, offResponse.body);
   const offSaved = (await chats.listMessages(off.id)).at(-1)!;

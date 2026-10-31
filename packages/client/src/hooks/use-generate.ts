@@ -3068,6 +3068,10 @@ export function useGenerate() {
               }
               break;
             }
+            case "roleplay_artifact": {
+              qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
+              break;
+            }
             case "spotify_command": {
               const spotifyData = event.data as {
                 track?: { name?: string; artist?: string };

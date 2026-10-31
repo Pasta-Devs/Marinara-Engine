@@ -11,20 +11,34 @@ import {
   normalizeGameInventoryStacks,
   rulesetCombatStyle,
   rulesetProposedCreatureSchema,
+  rulesetBestiaryReactionNames,
+  type RulesetCatalogEntriesById,
   type CombatItemEffect,
   type RulesetDefinition,
   type WorldElementSet,
   gameWorldElementSet,
   TACTICAL_TERRAINS,
+  COMBAT_START_PLACES,
   WORLD_DEFAULT_BATTLEFIELDS,
   gameWorldBattlefields,
+  worldSceneForPlace,
   type WorldBattlefields,
+  normalizeGameDifficulty,
+  rulesetBudgetLevel,
+  rulesetBestiaryNamedIn,
+  rulesetEncounterBudget,
+  rulesetFightWorth,
+  rulesetSheetBuildsByName,
+  type GameDifficulty,
+  type RulesetEncounterBudget,
+  RULESET_INVENTED_CASTER_MOST,
 } from "@marinara-engine/shared";
 import { loadGameFightItems } from "../services/game/game-inventory.service.js";
 import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
 import {
   latestStoryFight,
   storyFightBlueprintEnemies,
+  blueprintEnemiesWithBoss,
   storyFightOpponents,
   storyFightPromptText,
 } from "../services/game/story-fight.service.js";
@@ -46,7 +60,8 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import type { ChatMessage } from "../services/llm/base-provider.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
-import { normalizeRpgStatPools } from "@marinara-engine/shared";
+import { normalizeCharacterLookupName, normalizeRpgStatPools } from "@marinara-engine/shared";
+import { roomCharacterNames } from "../services/multiplayer/fight-players.js";
 import {
   tacticalBattlefieldSetupSchema,
   validateTacticalEncounterBlueprint,
@@ -107,8 +122,26 @@ function configuredHpMax(rpgStats: RPGStatsConfig | undefined): number | null {
   return Number.isFinite(max) && max > 0 ? max : null;
 }
 
+/** JSON text with the raw line breaks and tabs inside its strings escaped, as JSON requires. */
+export function escapeRawStringBreaks(text: string): string {
+  let out = "";
+  let inString = false;
+  let escape = false;
+  for (const ch of text) {
+    if (escape) escape = false;
+    else if (ch === "\\") escape = inString;
+    else if (ch === '"') inString = !inString;
+    else if (inString && (ch === "\n" || ch === "\r" || ch === "\t")) {
+      out += ch === "\n" ? "\\n" : ch === "\r" ? "\\r" : "\\t";
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
 /** Extract reliable JSON from an LLM response that may include markdown fences. */
-function parseJSON(raw: string): unknown {
+export function parseJSON(raw: string): unknown {
   // Strip code fences (```json ... ``` or ``` ... ```)
   let cleaned = raw
     .trim()
@@ -138,7 +171,18 @@ function parseJSON(raw: string): unknown {
     if (ch === "{") depth++;
     else if (ch === "}") {
       depth--;
-      if (depth === 0) return JSON.parse(cleaned.substring(start, i + 1));
+      if (depth === 0) {
+        const text = cleaned.substring(start, i + 1);
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          // A model that breaks a line inside a string ("Shape Dru" / "id", laptop playtest
+          // 2026-10-30) wrote JSON that is wrong only there: those breaks are read as escaped.
+          const repaired = escapeRawStringBreaks(text);
+          if (repaired === text) throw error;
+          return JSON.parse(repaired);
+        }
+      }
     }
   }
   throw new Error("Unbalanced JSON in AI response");
@@ -189,6 +233,73 @@ async function buildCharacterContext(
   return ctx;
 }
 
+/** A ruleset game with no persona plays its first character card as the player, as its sheets, bags
+ *  and fights do: a fight is set up and told around that character, never a "User" with no sheet. */
+function withStandIn(
+  identity: { personaName: string; personaCtx: string; found: boolean },
+  chatMeta: Record<string, unknown> | null,
+): { personaName: string; personaCtx: string } {
+  const firstCard = Array.isArray(chatMeta?.gameCharacterCards)
+    ? (chatMeta.gameCharacterCards as Array<{ name?: unknown }>)[0]?.name
+    : undefined;
+  const standIn =
+    !identity.found && chatMeta?.gameRuleset != null && typeof firstCard === "string" && firstCard.trim()
+      ? firstCard.trim()
+      : undefined;
+  if (!standIn) return { personaName: identity.personaName, personaCtx: identity.personaCtx };
+  return {
+    personaName: standIn,
+    personaCtx: `Name: ${standIn}\nThe player has no persona of their own: they direct the whole party, which ${standIn} leads.`,
+  };
+}
+
+/** The host's own room character as the player, with the room's other players' characters named as
+ *  fighting beside them. */
+function roomPersonaContext(
+  host: { name: string; description: string },
+  others: readonly string[],
+): { personaName: string; personaCtx: string } {
+  let personaCtx = `Name: ${host.name}\n`;
+  const description = cardPromptText(host.description);
+  if (description) personaCtx += `${description}\n`;
+  if (others.length > 0)
+    personaCtx += `This is a shared game. Other players play ${others.join(", ")}, each their own character, and every one of them is in the party and fights.\n`;
+  return { personaName: host.name, personaCtx };
+}
+
+/** Every room player's character in the fight's party: one the model left out goes in with a plain
+ *  attack, as a ruleset fight reads its numbers off the character's sheet anyway. */
+export function withRoomCharacters(party: unknown, others: readonly string[]): Array<Record<string, unknown>> {
+  const members = Array.isArray(party) ? (party as Array<Record<string, unknown>>) : [];
+  const present = new Set(
+    members.map((member) => (typeof member.name === "string" ? normalizeCharacterLookupName(member.name) : "")),
+  );
+  const missing = others.filter((name) => !present.has(normalizeCharacterLookupName(name)));
+  if (missing.length === 0) return members;
+  const template = members[0] ?? {};
+  const hp = typeof template.maxHp === "number" && template.maxHp > 0 ? template.maxHp : 10;
+  return [
+    ...members,
+    ...missing.map((name) => ({
+      name,
+      hp,
+      maxHp: hp,
+      attacks: [{ name: "Attack", type: "single-target", description: "A basic attack", power: 1, cooldown: 0 }],
+      items: [],
+      statuses: [],
+    })),
+  ];
+}
+
+function readChatMeta(raw: unknown): Record<string, unknown> | null {
+  if (typeof raw !== "string") return (raw as Record<string, unknown> | null) ?? null;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Build context from the chat's selected Persona or character identity.
  * Chats without an explicit identity remain Persona-less in combat prompts.
@@ -206,7 +317,7 @@ async function buildPersonaContext(
     personaCharacterId,
     mode: chatMode,
   });
-  if (!persona) return { personaName: "User", personaCtx: "No persona information available." };
+  if (!persona) return { personaName: "User", personaCtx: "No persona information available.", found: false };
   let ctx = `Name: ${persona.name}\n`;
   const description = cardPromptText(persona.description);
   const personality = cardPromptText(persona.personality);
@@ -256,7 +367,7 @@ async function buildPersonaContext(
       ctx += `- Attributes: ${personaRpg.attributes.map((a) => `${a.name} ${a.value}`).join(", ")}\n`;
     }
   }
-  return { personaName: persona.name, personaCtx: ctx };
+  return { personaName: persona.name, personaCtx: ctx, found: true };
 }
 
 /** Get the latest game state context string for the chat. */
@@ -383,6 +494,29 @@ export const encounterBlueprintSchema = z
           aiHints: combatAiHintsSchema.optional(),
           // Caught unaware as the fight begins (1.237); a ruleset fight reads it.
           surprised: z.boolean().optional().catch(undefined),
+          // Where the story put them (2026-10-24); a ruleset fight reads it.
+          start: z.enum(COMBAT_START_PLACES).optional().catch(undefined),
+          // What it set up before the fight, standing as it begins (1.462); a ruleset fight reads it.
+          standing: z
+            .array(
+              z
+                .object({
+                  entry: z.string().min(1).max(200),
+                  at: z.enum(["self", "between"]).optional().catch(undefined),
+                  stores: z.string().min(1).max(200).optional().catch(undefined),
+                  on: z.array(z.string().min(1).max(200)).max(12).optional().catch(undefined),
+                  kind: z.string().min(1).max(80).optional().catch(undefined),
+                  mode: z.string().min(1).max(200).optional().catch(undefined),
+                  into: z.string().min(1).max(200).optional().catch(undefined),
+                  spares: z.array(z.string().min(1).max(80)).max(8).optional().catch(undefined),
+                  tag: z.string().min(1).max(80).optional().catch(undefined),
+                  kinds: z.array(z.string().min(1).max(80)).max(16).optional().catch(undefined),
+                })
+                .strip(),
+            )
+            .max(6)
+            .optional()
+            .catch(undefined),
           spellSlots: z.record(z.string().regex(/^[1-9]$/), z.number().int().min(0).max(100)).optional(),
           attacks: z
             .array(
@@ -404,10 +538,35 @@ export const encounterBlueprintSchema = z
           projectile: z.boolean().optional(),
           requiresSight: z.boolean().optional(),
           aiHints: combatAiHintsSchema.optional(),
-          // Caught unaware as the fight begins (1.237); a ruleset fight reads it.
+          // Caught unaware as the fight begins (1.237); a ruleset fight reads it, and any other fight checks such an opponent's morale first.
           surprised: z.boolean().optional().catch(undefined),
+          // What it set up before the fight, standing as it begins (1.462); a ruleset fight reads it.
+          standing: z
+            .array(
+              z
+                .object({
+                  entry: z.string().min(1).max(200),
+                  at: z.enum(["self", "between"]).optional().catch(undefined),
+                  stores: z.string().min(1).max(200).optional().catch(undefined),
+                  on: z.array(z.string().min(1).max(200)).max(12).optional().catch(undefined),
+                  kind: z.string().min(1).max(80).optional().catch(undefined),
+                  mode: z.string().min(1).max(200).optional().catch(undefined),
+                  into: z.string().min(1).max(200).optional().catch(undefined),
+                  spares: z.array(z.string().min(1).max(80)).max(8).optional().catch(undefined),
+                  tag: z.string().min(1).max(80).optional().catch(undefined),
+                  kinds: z.array(z.string().min(1).max(80)).max(16).optional().catch(undefined),
+                })
+                .strip(),
+            )
+            .max(6)
+            .optional()
+            .catch(undefined),
           // Fights in its own lair (1.315); a ruleset fight reads it.
           inLair: z.boolean().optional().catch(undefined),
+          // Where the Game Master starts it (2026-10-24); a ruleset fight reads it.
+          start: z.enum(COMBAT_START_PLACES).optional().catch(undefined),
+          // What it has on it (1.795), the ruleset's items by name; a ruleset fight reads it.
+          carrying: z.array(z.string().min(1).max(200)).max(16).optional().catch(undefined),
           spellSlots: z.record(z.string().regex(/^[1-9]$/), z.number().int().min(0).max(100)).optional(),
           boss: combatBossSchema.optional(),
           mp: z.number().min(0).max(100000).optional(),
@@ -416,6 +575,8 @@ export const encounterBlueprintSchema = z
           // opponent the proposal, never the whole blueprint: the Engine falls back to the
           // bestiary and then to the tier.
           creature: z.string().max(200).optional().catch(undefined),
+          // What an invented one is (a humanoid cultist), which spells that hold only some read.
+          creatureType: z.string().max(80).optional().catch(undefined),
           tier: z.string().max(80).optional().catch(undefined),
           proposed: rulesetProposedCreatureSchema.optional().catch(undefined),
           attacks: z
@@ -445,9 +606,9 @@ export const ENCOUNTER_BESTIARY_INDEX_MAX = 60;
 
 /** How many catalog entry names one list of the sheet brief shows. The names are what lets a Game
  *  Master give an invented caster spells this ruleset actually has.
- *  ponytail: the first ones in declaration order, with no filtering by tier or level. A long catalog
- *  wants the names narrowed to the tier being written, and that is the upgrade path. */
-export const ENCOUNTER_SHEET_NAMES_MAX = 60;
+ *  Enough for a whole spell list (5e's SRD has about 320), so the Game Master picks from what is there
+ *  rather than inventing one it lacks (laptop party A: Ray of Sickness). */
+export const ENCOUNTER_SHEET_NAMES_MAX = 400;
 
 /** The ruleset's own sheet, as a Game Master needs it to write an invented creature on it: every id
  *  with what it may hold, and the lists a fight reads with the names their catalogs offer. */
@@ -471,12 +632,49 @@ export interface EncounterSheetBrief {
 /** What a ruleset that resolves its own fights lends the blueprint prompt: the rungs an opponent is
  *  picked from, the names already written, and the ids a proposed stat block has to be written in. */
 export interface EncounterRulesetBrief {
-  tiers: Array<{ id: string; label: string }>;
+  tiers: Array<{ id: string; label: string; worth?: number }>;
+  /** What a fight may be worth for this party (1.803), when the ruleset has a budget. */
+  budget?: RulesetEncounterBudget | null;
+  /** The highest tier one enemy alone fits that budget at, a boss's included (laptop 2026-10-26:
+   *  every invented boss was asked at CR 5 and brought down to CR 3). */
+  budgetTop?: { id: string; label: string };
   bestiary: Array<{ label: string; tier: string }>;
+  /** Bestiary creatures the latest words of the story name, whether or not the list above reaches them
+   *  (laptop 2026-10-26: a player's Giant Crocodile, past the list's sixty, was made up as another). */
+  named?: Array<{ label: string; tier?: string }>;
   budgets: string[];
   saves: string[];
   damageTypes: string[];
+  /** The creature types an invented enemy is one of (Hold Person holds only a humanoid). */
+  creatureTypes: string[];
   sheet: EncounterSheetBrief;
+  /** The reactions its bestiaries hold, by name: the only ones an invented enemy can take. */
+  reactions?: string[];
+  /** The enemies that got away from an earlier fight and are kept to come back, by the name they
+   *  are kept under. */
+  returning?: string[];
+}
+
+/** How many kept enemies the prompt names: past this, the ones kept first are left unsaid. */
+const ENCOUNTER_RETURNING_MAX = 12;
+
+/** The names of the enemies a game keeps to come back (`gameReturningFoes`), each once, the latest
+ *  kept last. Only a name the Game Master writes again brings one back as it left (cheap-GM playtest
+ *  2026-10-26: a foe that fled the first fight came back renamed, a tier higher and at full health),
+ *  and nothing told it the name. */
+export function encounterReturningNames(stored: unknown): string[] {
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) return [];
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const foe of Object.values(stored as Record<string, unknown>)) {
+    const name = (foe as { name?: unknown } | null)?.name;
+    if (typeof name !== "string" || !name.trim()) continue;
+    const key = name.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(name.trim());
+  }
+  return names.slice(-ENCOUNTER_RETURNING_MAX);
 }
 
 /** The sheet brief, with the names each catalog-fed list offers read out of the catalogs that feed
@@ -559,18 +757,25 @@ async function encounterSheetBrief(
 export async function encounterRulesetBrief(
   definition: RulesetDefinition,
   packageId: string | null,
+  /** The party's sheet cards and the game's difficulty, for the encounter budget (1.803). */
+  party?: { cards: unknown; difficulty: GameDifficulty },
+  /** The story's latest words (the player's message, the Game Master's reply), for the bestiary
+   *  creatures they name. */
+  story?: ReadonlyArray<string | undefined>,
 ): Promise<EncounterRulesetBrief | null> {
   const combat = definition.combat;
   if (!combat) return null;
   const bestiary: EncounterRulesetBrief["bestiary"] = [];
+  const creatures: RulesetCatalogEntriesById = {};
   for (const catalog of definition.catalogs ?? []) {
-    if (catalog.holds !== "creatures" || bestiary.length >= ENCOUNTER_BESTIARY_INDEX_MAX) continue;
+    if (catalog.holds !== "creatures") continue;
     try {
       const read = await loadRulesetCatalogEntries(packageId, definition, catalog);
       if (!read.ok) {
         logger.warn("[game/combat:init] Bestiary %s of %s could not be read", catalog.id, definition.id);
         continue;
       }
+      creatures[catalog.id] = read.entries;
       for (const entry of read.entries) {
         if (!entry.creature || bestiary.length >= ENCOUNTER_BESTIARY_INDEX_MAX) break;
         bestiary.push({ label: entry.label, tier: entry.creature.tier });
@@ -579,14 +784,44 @@ export async function encounterRulesetBrief(
       logger.warn(error, "[game/combat:init] Could not read bestiary %s of %s", catalog.id, definition.id);
     }
   }
+  const budget =
+    party && combat.threat?.budget
+      ? rulesetEncounterBudget(
+          definition,
+          [...rulesetSheetBuildsByName(definition, party.cards).values()].map((build) =>
+            rulesetBudgetLevel(combat.threat!.budget!, build.fields),
+          ),
+          party.difficulty,
+        )
+      : null;
+  const top = budget
+    ? (combat.threat?.tiers ?? [])
+        .filter(
+          (tier) =>
+            tier.worth !== undefined && rulesetFightWorth(definition, [tier.id], budget.members) <= budget.bossWorth,
+        )
+        .at(-1)
+    : undefined;
   return {
-    tiers: (combat.threat?.tiers ?? []).map((tier) => ({ id: tier.id, label: tier.label })),
+    tiers: (combat.threat?.tiers ?? []).map((tier) => ({
+      id: tier.id,
+      label: tier.label,
+      ...(tier.worth !== undefined ? { worth: tier.worth } : {}),
+    })),
+    budget,
+    ...(top ? { budgetTop: { id: top.id, label: top.label } } : {}),
     bestiary,
+    ...(() => {
+      const named = story ? rulesetBestiaryNamedIn(creatures, story) : [];
+      return named.length ? { named } : {};
+    })(),
     // A budget of no count is one only a condition fills, so it is not one an invented creature spends.
     budgets: combat.economy.budgets.filter((budget) => budget.count > 0).map((budget) => budget.id),
     saves: definition.sheet.saves.map((save) => save.id),
     damageTypes: [...(combat.damageTypes ?? [])],
+    creatureTypes: (combat.creatureTypes?.types ?? []).map((type) => type.id),
     sheet: await encounterSheetBrief(definition, packageId),
+    reactions: rulesetBestiaryReactionNames(creatures),
   };
 }
 
@@ -598,7 +833,8 @@ export function buildInitPrompt(
   gameStateCtx: string,
   spellbookCtx: string,
   tactical: boolean,
-  tacticalBattlefield?: TacticalBattlefieldSetup,
+  // The board's size is the Game Master's to choose (2026-10-24): a setup's own is no longer pressed on it.
+  _tacticalBattlefield?: TacticalBattlefieldSetup,
   /** Present only for a game whose ruleset resolves its own fights. */
   ruleset?: EncounterRulesetBrief | null,
   /** What the model is asked about the inventory's items. `guess` is false when the game's ruleset
@@ -683,6 +919,9 @@ export function buildInitPrompt(
   if (ruleset) {
     inst += `      "creature": "a name from the bestiary list below, when one of them is this enemy",\n`;
     inst += `      "tier": "one of the threat tier ids listed below",\n`;
+    inst += `      "carrying": ["what it has on it, each named as one of this ruleset's items"],\n`;
+    if (ruleset.creatureTypes.length > 0)
+      inst += `      "creatureType": "always, for an enemy in no bestiary or one whose creature only stands in for what it is: what it is, ${ruleset.creatureTypes.join("|")}",\n`;
     inst += `      "proposed": {"health":12,"defense":13,"initiativeModifier":2,"tier":"tier id","speed":30,"saves":{"save id":2},"resist":["damage type"],"actions":[{"id":"strike","name":"Strike","budget":"budget id","toHit":4,"damage":{"dice":"1d6","flat":2,"type":"damage type"}}]},\n`;
   }
   inst += `      "sprite": "emoji or brief visual description"\n`;
@@ -700,8 +939,9 @@ export function buildInitPrompt(
   inst += `    "terrainBrief": {\n`;
   inst += `      "exposure": "exposed|sheltered|unknown"`;
   if (tactical) {
-    inst += `,\n      "size": "small|medium|large",\n`;
-    inst += `      "features": [{"terrain":"plains|forest|mountain|ruin|water|wall","placement":"center|north|south|east|west","shape":"patch|barrier"}]`;
+    inst += `,\n      "size": "small|medium|large|huge|vast|colossal",\n      "outline": "box|round|cavern|valley|broken",\n`;
+    inst += `      "features": [{"terrain":"plains|forest|mountain|ruin|water|wall","placement":"center|north|south|east|west","shape":"patch|barrier"}],\n`;
+    inst += `      "scatter": {"terrain":"forest|mountain|ruin|water|wall","share":0.5}`;
   }
   inst += `\n    }\n  },\n`;
   if (items.guess) {
@@ -718,15 +958,17 @@ export function buildInitPrompt(
   inst += `  "visuals": {"isBossFight": false, "encounterTier": "common|miniboss|boss|special", "enemyImagePrompts": [{"name":"Enemy Name","prompt":"portrait prompt"}], "backgroundPrompt": "optional boss arena background prompt", "illustrationPrompt": "optional boss fight splash illustration prompt", "slug": "optional-short-slug"}\n`;
   inst += `}\n\n`;
   inst += `IMPORTANT NOTES:\n`;
-  inst += `- For each party member and enemy, include aiHints: {category: "beast|monstrosity|other|unknown", proficiency: "novice|trained|veteran|master", temperament: "mindless|reckless|cautious|opportunistic|protective|supportive|disciplined|cowardly|patient|methodical|coordinated"}. Use established identity and training, not HP or appearance. Omit temperament when personality is unknown; do not mistake negated traits for positive evidence. Every Beast and Monstrosity is Mindless. These values are protocol enums and must not be translated.\n`;
+  inst += `- For each party member and enemy, include aiHints: {proficiency: "novice|trained|veteran|master", temperament: "mindless|reckless|cautious|opportunistic|protective|supportive|disciplined|cowardly|patient|methodical|coordinated|fanatical|arrogant|territorial|cruel|honourable|hungry", mind: "mindless|instinct|cunning|tactical|genius", named: true, morale: 2..12, leader: true, shifts: [{on: "bloodied|ally-down|leader-down|cornered", to: <a temperament>}]}. Use established identity and training, not HP or appearance. Omit temperament when personality is unknown; do not mistake negated traits for positive evidence. mind is how much thought it puts into a fight: mindless only for things that never think (constructs, oozes, zombies, skeletons, husks and other walking dead or blighted shells), instinct for animals, cunning for dim but scheming foes, tactical for anyone who plans, genius for brilliant ones (a lich, an ancient dragon, a sphinx). Give mind for every combatant, except where a ruleset bestiary listed below says it for that creature: then give it only when the story changes it (a dominated or maddened creature). Temperament mindless goes only with mind mindless. Temperament fanatical only for zealots who never break and give no thought to their own lives (cultists, a holy warrior sworn to die). Temperament arrogant only for the proud and mighty who think a fight beneath them until it hurts (a dragon, a lich, a vampire lord). Temperament territorial only for guardians who hold their ground and chase only those who shoot at them from afar (a golem at a gate, a treant in its grove). Temperament cruel only for the sadistic who relish suffering (a ghoul, a hag, a devil); whether it may strike the fallen is the game's setting, not yours. Temperament honourable only for those who fight fair and spare the beaten (a knight, a metallic dragon, a celestial). Temperament hungry only for predators that seize one victim and drag it off to feed (a giant crocodile, a roper, a grick). Give named: true only to a named individual of the story (a rival, a villain's lieutenant, a known NPC), never to a nameless guard or beast. morale is how steady an enemy is when the fight turns against it, on the old games' 2 to 12 scale (2 breaks at the first scare, 12 never does): give it only where its source states one or the story makes it plain (fanatics, a cowed press-gang); otherwise leave it out and the Engine reads it off mind and temperament. Give leader: true to the one enemy its side follows (a bandit chief, a pack's alpha), whose fall shakes the rest. Give shifts only where the story says a combatant changes as the fight turns (a proud duelist turns methodical once bloodied, a cornered thief turns reckless, a loyal guard turns reckless when its leader falls); the first that happens applies, once. These values are protocol enums and must not be translated.\n`;
   inst += `- For every attack include kind: "attack|heal|buff|debuff" and a nonnegative mpCost. For every enemy include numeric mp and maxMp, preserving established resources. Otherwise give a finite pool appropriate to its skills. Class hints (fighter|knight|rogue|archer|mage|healer) may be supplied in either combat mode. Do not invent abilities to fit a temperament.\n`;
   inst += `- Explicitly identify each actual boss enemy with boss: {points: 3, anticipation: true, attackCost: 1, defendCost: 1, moveCost: 1}; omit boss for ordinary enemies and elites. This also applies to a solo boss. Do not infer boss status from HP alone. Boss skills may have legendaryCost: 1..3 when they are appropriate additional actions.\n`;
   inst += `- Mark actual spellcasting abilities with spell: true. For an established area attack, supply areaRadius: 1..3 and friendlyFire: true/false for Tactical; targetScope: "all-enemies" supplies explicit non-spatial group damage in Classic. Omit these for single-target spells. Only when the established kit includes one, represent an interrupting spell with reaction: "counterspell", spell: true, range: 3, and its real mpCost/cooldown. A defensive ward/interception can use reaction: "guard" with its real cost/range. Reaction-only abilities are not ordinary turn attacks. Do not give every caster Counterspell. You may supply range: 1..12 tiles for Tactical abilities; an ability used on oneself takes range: 1 or none. Spell slots may be supplied as spellSlots: {"3": 2} and slotLevel: 3 ONLY when established; otherwise use finite MP and omit slot fields. These are generic Engine rules, not a claim of 5e compliance.\n`;
+  if (tactical)
+    inst += `- battlefield.terrainBrief.size goes by the place, not the head count: small to large for a room, a clearing or a street; huge (24 by 16 squares) for a great hall, a wide cavern or an open field; vast (40 by 26) for a lair or a ruin, such as a dragon's castle ruins; colossal (64 by 40) only for a war's battlefield. Omit it to let the Engine size it by the fighters. battlefield.terrainBrief.outline is the shape of the place: round for a tower, an arena or a ring of stones; cavern for a cave; valley for a pass or a ravine between slopes; broken for a ruin, a dungeon or a castle whose walls have fallen; box for a hall, a street or open ground. Omit it to let the Engine shape it by the environment.\n`;
   inst += `- battlefield.terrainBrief.exposure: exposed only when the actual combat site is open to outdoor weather; sheltered for enclosed/covered sites; unknown if context cannot establish either. Apply this in both Classic and Tactical. Do not invent current weather.\n`;
   inst += `- On each combatant, projectile and requiresSight are optional boolean traits of their BASIC attack. On each attack/skill, supply its own projectile/requiresSight booleans when grounded in its actual mechanics (arrows are projectiles; sight-aimed attacks require sight). These flags control weather penalties. Do not infer traits from translated names or grant weather immunity. Omitted flags receive no weather accuracy modifier.\n`;
   inst += `- Describe the environment at THIS encounter's current location, using current scene details. Do not reuse a world-creation terrain template.\n`;
   inst += `- attacks: each has "name" and "type" (single-target, AoE, or both). Add cooldown/status/element only when useful.\n`;
-  inst += `- allies: include ${personaName} and any party members or nearby NPCs clearly fighting on ${personaName}'s side. Give allies battle-specific attacks inspired by their cards/context.\n`;
+  inst += `- allies: include ${personaName} and any party members or nearby NPCs clearly fighting on ${personaName}'s side. Every party member at the scene fights, however hurt: one on 1 health is in the fight unless the story has them unconscious, held or elsewhere. Give allies battle-specific attacks inspired by their cards/context.\n`;
   inst += `- enemies: weak enemies can have one simple attack; bosses and elites should have multiple attacks and one memorable mechanic.\n`;
   inst += items.guess
     ? `- items: DO NOT invent inventory. itemEffects must only describe how existing inventory items from context work in this encounter. Examples: potion heals, bottle of alcohol can wet/prime a target for fire.${
@@ -746,7 +988,7 @@ export function buildInitPrompt(
     inst += `- battlefield.formation: pick the arrangement matching how the scene led into combat — ambushed → ambush, encircled → surrounded, holding/defending a position → defense, sudden chance encounter → skirmish, otherwise line.\n`;
     inst += `- class: pick each combatant's tactical role from how they fight — ranged bow/gun users → archer, spellcasters → mage, dedicated healers → healer, fast skirmishers/assassins → rogue, armored defenders → knight, otherwise fighter.\n`;
     inst += `- movementMode: use fly only when established context says the combatant can sustain battlefield flight, teleport only when established context says they can reliably teleport during combat, otherwise walk. Do not invent movement powers.\n`;
-    inst += `- battlefield.terrainBrief: describe at most four important semantic terrain features supported by the scene. A barrier may use only wall, water, or mountain. Do not repeat the same terrain/placement/shape combination. The server generates and validates exact tiles.\n`;
+    inst += `- battlefield.terrainBrief: describe at most four important semantic terrain features supported by the scene. A barrier may use only wall, water, or mountain. Do not repeat the same terrain/placement/shape combination. The server generates and validates exact tiles. scatter turns a share of the open ground (0.05 to 0.6) into one terrain spread over the board: 0.5 is every other cell, 0.25 one cell in four, 0.1 a few patches. Pick the share the scene describes (a flooded field or a dense wood is 0.4 to 0.6, a rubble-strewn ruin 0.2 to 0.3); omit it for a place that is not mostly that ground.\n`;
     // The setting's own words for the tiles (worldgen W6d), so the model knows what each id stands for here.
     const tileWords = TACTICAL_TERRAINS.filter(
       (terrain) => battlefields && battlefields.tiles[terrain] !== WORLD_DEFAULT_BATTLEFIELDS.tiles[terrain],
@@ -754,25 +996,42 @@ export function buildInitPrompt(
     if (tileWords.length) {
       inst += `- battlefield.terrainBrief.features: in this setting ${tileWords.join(", ")}. Write the terrain id, not the setting's word.\n`;
     }
-    if (tacticalBattlefield?.size) {
-      inst += `- battlefield.terrainBrief.size: use exactly "${tacticalBattlefield.size}" because the player selected that board size.\n`;
-    }
   }
   inst += `- statuses: format {"name":"Status","emoji":"💀","duration":X,"modifier":-2,"stat":"attack|defense|speed|hp"}\n`;
   inst += `- HP values: if the persona section above lists a configured Max HP (from stat bars named HP/Health/etc, or from "Max HP" under Persona RPG Stats), use that EXACT number for the player's maxHp, and set hp = maxHp so combat starts at full health. If a character ally has a "Max HP: N" line in its block, do the same for that ally. Do NOT invent or "rebalance" a defined Max HP, and do NOT start any combatant below full HP at combat init. Only invent HP for combatants (enemies, unstatted allies) that have no defined HP in the context.\n`;
   inst += `- RPG attribute scaling: when the context lists Attributes for the player or an ally (STR/DEX/CON/INT/WIS/CHA, on a roughly 8-20 D&D-style scale), let those values shape the generated stats: high STR → stronger physical attack power; high DEX → higher speed and accuracy; high CON → larger HP pool when HP is not already defined; high INT/WIS/CHA → stronger magical/support attack power for casters. Treat 10 as average and scale proportionally. Do NOT override an explicitly configured Max HP using these attributes.\n`;
   inst += `- Use the player's stats/inventory from the context to populate their data. Return ONLY the JSON.\n`;
   inst += `- Write ALL text values (environment, descriptions, attack names, item names, etc.) in the same language the chat history is written in.\n`;
+  inst += `- Surprise: give "surprised": true to every party member or enemy the scene shows was caught unaware (it did not notice the ambush or the attackers before the fight began). Leave it out for anyone who saw it coming, and for everybody when nobody was caught off guard.\n`;
   if (ruleset) {
     inst += `\nTHIS GAME'S RULESET RESOLVES ITS OWN FIGHTS. Describe every enemy in the ruleset's own terms as well:\n`;
-    inst += `- Threat tiers, hardest rung last. Use an id exactly as written: ${ruleset.tiers.map((tier) => `${tier.id} (${tier.label})`).join(", ") || "this ruleset declares none"}.\n`;
+    inst += `- Threat tiers, hardest rung last. Use an id exactly as written: ${ruleset.tiers.map((tier) => `${tier.id} (${tier.label}${tier.worth !== undefined ? `, worth ${tier.worth}` : ""})`).join(", ") || "this ruleset declares none"}.\n`;
+    const budget = ruleset.budget;
+    if (budget) {
+      inst += `- Budget: this game is played at ${budget.step.label} for a party of ${budget.members} (level${budget.levels.length === 1 ? "" : "s"} ${budget.levels.join(", ")}), so the enemies' worths together should come to at most ${budget.worth}${budget.bossWorth > budget.worth ? `, or ${budget.bossWorth} for a fight with a boss in it` : ""}.${ruleset.budgetTop ? ` One enemy alone, a boss too, fits it at ${ruleset.budgetTop.id} at most: give no invented enemy a higher tier.` : ""} Many weak enemies or a few strong ones, never more than that. A party that has not rested since its last fight is weaker than its levels say: spend less. An invented enemy is brought down a tier by the Engine while the fight is over budget; a bestiary creature is counted as it is, so choose fewer of them, and one far beyond the budget alone does not come: lesser creatures of its kind that fit come in its place, and it stays out of the fight for the story to keep.\n`;
+    }
     inst += `- Bestiary this ruleset already ships: ${ruleset.bestiary.map((entry) => `${entry.label} [${entry.tier}]`).join(", ") || "it ships none"}.\n`;
-    inst += `- For each enemy, give "creature" with a bestiary name when one of them IS this enemy. Otherwise give "tier" with the rung this enemy belongs on, judged from the scene and the party, never from its hp.\n`;
+    if (ruleset.named?.length)
+      inst += `- Named in the story and in the bestiary: ${ruleset.named.map((entry) => (entry.tier ? `${entry.label} [${entry.tier}]` : entry.label)).join(", ")}.\n`;
+    inst += `- When the story or a player names a creature the bestiary holds, use that entry rather than inventing one.\n`;
+    inst += `- For each enemy, give "creature" with a bestiary name when one of them IS this enemy. One of a kind on the list with its own name, a rank or a flourish of gear is still that creature: a raider, a chief or an armoured one of a listed kind is that kind, named in "creature" while its own name stays in "name". Only an enemy that is no kind on the list goes without "creature": then give "tier" with the rung this enemy belongs on, judged from the scene and the party, never from its hp.\n`;
     inst += `- Add "proposed" only for an enemy that is in no bestiary and needs its own numbers. The Engine pulls a proposal onto the tier's scale, so write what the enemy IS and let it be adjusted.\n`;
     inst += `- Inside "proposed", every id must come from this ruleset: budgets are ${ruleset.budgets.join(", ") || "none"}; saves are ${ruleset.saves.join(", ") || "none"}; damage types are ${ruleset.damageTypes.join(", ") || "untyped only"}. A name this ruleset does not have is dropped.\n`;
+    inst += `- A breath, or an attack that lands in a cone, a line or an area, is one of its "attacks" named for what it is (a breath has Breath in its name), with "areaRadius" or the word cone or line in its "description": the Engine makes it an area its targets save against for half, back on a recharge, as this ruleset's bestiary breaths are. Inside "proposed", such an action may give its own "area" ({"shape":"cone|line|burst","size":N}), "save" ({"save":"save id","difficulty":N,"onSuccess":"half"}) and "recharge" ({"dice":{"count":1,"sides":N},"from":N}) in place of "toHit".\n`;
     inst += `- Keep the hp, attack, defense, speed and level fields as well. They are the Engine's own numbers and are used outside the fight.\n`;
-    inst += `- Surprise: give "surprised": true to every party member or enemy the scene shows was caught unaware (it did not notice the ambush or the attackers before the fight began). Leave it out for anyone who saw it coming, and for everybody when nobody was caught off guard.\n`;
+    inst += `- An enemy the story already hurt before this fight (a blow, a spell or a fall that landed on it in the narration, not one only tried or refused) is the one exception to starting at full HP: give it hp below its maxHp by the share it lost, and the Engine begins it with that share of its health. Every other enemy has hp equal to maxHp. The party's health comes from their sheets.\n`;
+    inst += `- Gear: an enemy has on it only what its bestiary entry rolls for, which is often nothing. Give any enemy things to carry whenever it fits who they are and where the fight is: a bandit with a healing potion, a guard with the cell key, a cultist with the letter that names their master, a scout with a horn. Not every enemy needs something, but an encounter where nobody carries anything is the exception. To decide what it carries yourself (a bandit with two healing potions, a guard with the cell key), give "carrying": ["item name", "item name"], one line an item, named exactly as this ruleset's items are, and coins as one line with how many ("9 gold pieces": the purse a thief took, which drops when it is beaten); it then has exactly those, and [] means nothing at all. It uses what it can in the fight, and what is left drops when it is beaten. Leave it out to let its bestiary decide. Whatever the scene or your own narration says an enemy has (the stolen salves, the key on a belt) goes in its "carrying", or the fight never knows it is there.\n`;
+    inst += ruleset.reactions?.length
+      ? `- Reactions: an enemy's reaction is one of its "attacks" with "kind": "buff", named exactly as this ruleset's bestiary has it, and only these work: ${ruleset.reactions.join(", ")}. Write no other reaction for it.\n`
+      : `- Reactions: this ruleset's bestiary has none, so write no reaction for an enemy.\n`;
+    if (ruleset.returning?.length) {
+      inst += `- Enemies that got away from an earlier fight, which the Engine keeps as they left it: ${ruleset.returning.join(", ")}. One of them back in this fight is written under exactly that name, never a new one or a new title; the Engine brings it back with the tier and the wounds it left with, whatever else is written for it.\n`;
+    }
     inst += `- Lair: give "inLair": true to an enemy the party is fighting inside its own lair (a dragon in its cave, a lich in its tomb). Its lair then acts each round. Leave it out anywhere else.\n`;
+    if (tactical) {
+      inst += `- Where each begins on the board: you place every enemy. Give an enemy "start" when the scene says where it is: "front" or "rear" of its own side, "ahead" of it alone, on the party's "flank", "behind" the party, "among" them, or "hidden" in cover. Leave it out to keep it in its side's formation. The players place their own characters, so give a party member "start" ONLY when the story put them somewhere as the fight began (the wizard who walked into the cavern first is at the "front" when the goblins spring); leave it out for everybody else.\n`;
+    }
+    inst += `- Set up beforehand: give "standing": [{"entry": "its own spell's name", "at": "between" or "self"}] to a party member or enemy the scene shows set up a lasting ward, glyph or hallowed ground before the fight began (a Glyph of Warding on the door, Hallow over the shrine). "between" puts it between them and their foes, "self" where they stand; for a glyph holding a spell, add "stores": "that spell's name". A spell cast beforehand that is not a ward on the ground (Heroes' Feast, Foresight, a buff) may be listed the same way with "on": ["names of those it was cast on"], and is in effect as the fight starts. A ward that works on one sort of creature (Hallow's extra effect) may add "kind": "that creature type". A spell cast beforehand that is done one of several ways (the creature Find Familiar calls, or the damage type Forbiddance deals) adds "mode": "that way's name". A ward that strikes the sorts of creature its caster named (Forbiddance's) adds "kinds": ["those creature types"]. A creature a party member's sheet already keeps ("With them") comes into the fight on its own, and so does a shape it keeps ("In the shape of"), so neither is listed; never list a party member's change of their own shape (Wild Shape). A spell cast beforehand into something that stores it (a Ring of Spell Storing, a shield guardian) adds "into": "that item's or creature's name", with "on": ["its holder's name"] when somebody else holds it. Only for what the scene says was really done; leave it out otherwise.\n`;
     const sheet = ruleset.sheet;
     inst += `- An enemy whose power comes from this ruleset's own lists and pools (a spellcaster, say) may be proposed as a SHEET instead of numbers: "proposed": {"tier":"tier id","sheet":{"abilities":{},"skills":{},"saves":{},"fields":{},"lists":{}}}. Give no health, defense, initiativeModifier, speed, abilities or saves beside a sheet: the Engine builds it exactly as it builds a character, fills in anything left out with the ruleset's defaults, and then holds it to the tier. Every id must come from this sheet:\n`;
     inst += `  - abilities: ${sheet.abilities.join(", ") || "none"}\n`;
@@ -782,13 +1041,14 @@ export function buildInitPrompt(
     for (const list of sheet.lists) {
       inst += `  - lists.${list.id}: rows of ${list.columns.join(", ")}${list.counts ? `; ${list.counts}` : ""}\n`;
       if (list.nameColumn && list.names.length > 0) {
-        inst += `    A row may name an entry this ruleset offers, as {"${list.nameColumn}":"<name>"}, and the Engine fills in the rest of it: ${list.names.join(", ")}${list.more > 0 ? `, and ${list.more} more` : ""}.\n`;
+        inst += `    A row may name an entry this ruleset offers, as {"${list.nameColumn}":"<name>"}, and the Engine fills in the rest of it: ${list.names.join(", ")}${list.more > 0 ? `, and ${list.more} more` : ""}. Give an invented creature only names this ruleset offers: one it does not have does nothing in a fight, so pick the nearest one it has.\n`;
       }
       if (list.openBy.length > 0) {
         inst += `    Which of these a creature may have depends on ${list.openBy.map((field) => `fields.${field}`).join(" and ")}, so set it.\n`;
       }
     }
     inst += `  - An enemy that is not a boss may only have what this ruleset opens to its sheet, and only needs the entries it should certainly have: the Engine fills its other choices from its aiHints, by temperament and proficiency. A boss is written in full by you and may be the exception: it may have anything this ruleset offers, and nothing is filled in for it.\n`;
+    inst += `  - A caster you make up has one role (it blasts, heals, or holds the party back) and spells that fit its theme and tier: two or three that cost nothing and at most ${RULESET_INVENTED_CASTER_MOST} that spend its pools, its class level about what its tier would have, and every spell one its class can learn (a sorcerer has no warlock's spells; give it the class whose spells you want). At most one or two that take somebody out of the fight on one failed save, and a spell that stops another spell only on a boss. A spell its sheet cannot pay for is dropped, and past ${RULESET_INVENTED_CASTER_MOST} the rest go, unless it is a boss of legend (with legendaryResistance or signature actions): a famed archmage, a god. Prefer a caster from the bestiary above when one fits, and give a caster others to stand in front of it, or make it the boss.\n`;
   }
 
   msgs.push({ role: "user", content: inst });
@@ -1012,7 +1272,7 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
       const characterCtx = await buildCharacterContext(chars, characterIds, chat.id);
-      const { personaName, personaCtx } = await buildPersonaContext(
+      const identity = await buildPersonaContext(
         chars,
         chat.personaId ?? null,
         chat.mode,
@@ -1029,6 +1289,13 @@ export async function encounterRoutes(app: FastifyInstance) {
       } else {
         chatMeta = (chat.metadata as Record<string, unknown> | null) ?? null;
       }
+      // A room this Engine hosts sets its fight up around the players' own characters: the host plays
+      // theirs, and every other player's is in the party (room playtest 2026-10-27: the guest's
+      // character was left out of the fight, so the guest had nobody to place or command).
+      const room = roomCharacterNames(chatMeta);
+      const { personaName, personaCtx } = room?.host
+        ? roomPersonaContext(room.host, room.others)
+        : withStandIn(identity, chatMeta);
       // The game's ruleset, read once: it may name the combat styles its games play (1.379), and a fight
       // it resolves gets its brief below.
       const resolvedRuleset =
@@ -1069,7 +1336,18 @@ export async function encounterRoutes(app: FastifyInstance) {
       if (chatMeta && resolvedRuleset?.status === "ok") {
         const resolved = resolvedRuleset;
         fightRuleset = { definition: resolved.definition, packageId: resolved.packageId };
-        rulesetBrief = await encounterRulesetBrief(resolved.definition, resolved.packageId);
+        // The player's latest words and the Game Master's, for the bestiary creatures they name.
+        const latest = (role: string) =>
+          [...chatMessages].reverse().find((message: { role?: unknown }) => message.role === role)?.content as
+            string | undefined;
+        rulesetBrief = await encounterRulesetBrief(
+          resolved.definition,
+          resolved.packageId,
+          { cards: chatMeta.gameCharacterCards, difficulty: normalizeGameDifficulty(setupConfig?.difficulty) },
+          [latest("user"), latest("assistant")],
+        );
+        const returning = encounterReturningNames(chatMeta.gameReturningFoes);
+        if (rulesetBrief && returning.length) rulesetBrief.returning = returning;
         items.guess = resolved.definition.items?.native !== false;
         if (resolved.definition.items) {
           items.ruleset = gameInventoryFightLines(normalizeGameInventoryStacks(chatMeta.gameInventory)).flatMap(
@@ -1191,6 +1469,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       if (!aiBlueprint.success)
         return refuse({ error: `Invalid combat AI data: ${aiBlueprint.error.issues[0]?.message}` });
       combatState = aiBlueprint.data;
+      if (room) combatState = { ...combatState, party: withRoomCharacters(combatState.party, room.others) };
       if (storyOpponents?.length) {
         combatState = {
           ...combatState,
@@ -1200,6 +1479,34 @@ export async function encounterRoutes(app: FastifyInstance) {
             rulesetBrief !== null,
           ),
         };
+      }
+      // The board follows the place the Game Master described, not the open plains it named or a word
+      // that is no scene (cheap-GM playtest 2026-10-26: an iron arena and an underground cistern were
+      // fought on Plains boards).
+      {
+        const notes =
+          combatState.styleNotes && typeof combatState.styleNotes === "object"
+            ? (combatState.styleNotes as Record<string, unknown>)
+            : {};
+        const named = typeof notes.environmentType === "string" ? notes.environmentType : "";
+        const scene = worldSceneForPlace(
+          gameWorldBattlefields(chatMeta) ?? WORLD_DEFAULT_BATTLEFIELDS,
+          named,
+          typeof combatState.environment === "string" ? combatState.environment : "",
+        );
+        if (scene && scene !== named) {
+          logger.info("[game/combat:init] chatId=%s scene %s laid out as %s", chatId, named || "(none)", scene);
+          combatState = { ...combatState, styleNotes: { ...notes, environmentType: scene } };
+        }
+      }
+      {
+        const enemies = (combatState.enemies as Array<Record<string, unknown>>) ?? [];
+        const bossed = blueprintEnemiesWithBoss(combatState.visuals, enemies);
+        const made = bossed.find((one, index) => one.boss && !enemies[index]!.boss);
+        if (made) {
+          combatState = { ...combatState, enemies: bossed };
+          logger.info("[game/combat:init] chatId=%s boss fight with no boss marked: %s is the boss", chatId, made.name);
+        }
       }
       if (combatStyle === "tactical") {
         const tacticalResult = validateTacticalEncounterBlueprint(combatState);
@@ -1259,12 +1566,9 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
       const characterCtx = await buildCharacterContext(chars, characterIds, chat.id);
-      const { personaName, personaCtx } = await buildPersonaContext(
-        chars,
-        chat.personaId ?? null,
-        chat.mode,
-        chat.personaCharacterId,
-        chat.id,
+      const { personaName, personaCtx } = withStandIn(
+        await buildPersonaContext(chars, chat.personaId ?? null, chat.mode, chat.personaCharacterId, chat.id),
+        readChatMeta(chat.metadata),
       );
       const spellbookCtx = await loadSpellbookContext(spellbookId);
 
@@ -1370,12 +1674,9 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
       const characterCtx = await buildCharacterContext(chars, characterIds, chat.id);
-      const { personaName, personaCtx } = await buildPersonaContext(
-        chars,
-        chat.personaId ?? null,
-        chat.mode,
-        chat.personaCharacterId,
-        chat.id,
+      const { personaName, personaCtx } = withStandIn(
+        await buildPersonaContext(chars, chat.personaId ?? null, chat.mode, chat.personaCharacterId, chat.id),
+        readChatMeta(chat.metadata),
       );
 
       const prompt = buildSummaryPrompt(

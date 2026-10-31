@@ -14,6 +14,7 @@ import {
   isCommunityRulesetId,
   parseBorrowedRulesetCatalog,
   parseRulesetCatalogFile,
+  readRulesetLocaleFile,
   RULESET_LOCAL_NAMESPACE,
   type RulesetCatalogEntry,
   type RulesetCatalogHeader,
@@ -185,6 +186,75 @@ async function storedCatalog(
   }
   const stored = await createGameRulesetsStorage(await getDB()).catalogText(rulesetId, definition.version, catalogId);
   return stored ? { sha256: stored.sha256, read: async () => ({ data: Buffer.from(stored.text, "utf8") }) } : null;
+}
+
+/**
+ * A ruleset's translation into a language: its strings, each its English display text word for word to
+ * that text in the language, or null when none is kept in that language or the one it is a kind of ("pt"
+ * for "pt-BR"). A catalog package's language pack (1.811), or the one language kept with an imported
+ * package file.
+ */
+export async function openRulesetLocale(
+  packageId: string | null,
+  definition: RulesetDefinition,
+  locale: string,
+): Promise<{
+  locale: string;
+  sha256: string;
+  read: () => Promise<{ ok: true; strings: Record<string, string> } | { ok: false; issue: string }>;
+} | null> {
+  const base = locale.split("-")[0]!;
+  for (const language of base !== locale ? [locale, base] : [locale]) {
+    let source:
+      { sha256: string; read: () => Promise<{ data: Buffer } | { issue: string }> } | { issue: string } | null;
+    if (packageId) source = await capabilityPackageManager.rulesetLocaleAsset(packageId, language);
+    else {
+      let rulesetId = definition.id;
+      if (!isCommunityRulesetId(rulesetId)) {
+        try {
+          rulesetId = communityRulesetId(RULESET_LOCAL_NAMESPACE, definition.id);
+        } catch {
+          return null;
+        }
+      }
+      const stored = await createGameRulesetsStorage(await getDB()).localeText(rulesetId, definition.version, language);
+      source = stored
+        ? {
+            sha256: stored.sha256,
+            // Kept as the strings alone, as the package file was read.
+            read: async () => ({
+              data: Buffer.from(
+                JSON.stringify({ _meta: { locale: language }, ruleset: JSON.parse(stored.text) }),
+                "utf8",
+              ),
+            }),
+          }
+        : null;
+    }
+    if (!source) continue;
+    if ("issue" in source) {
+      logger.warn("[capability/rulesets] Translation %s of %s is unusable: %s", language, definition.id, source.issue);
+      continue;
+    }
+    const file = source;
+    return {
+      locale: language,
+      sha256: file.sha256,
+      read: async () => {
+        const data = await file.read();
+        if ("issue" in data) return { ok: false, issue: data.issue };
+        let document: unknown;
+        try {
+          document = JSON.parse(data.data.toString("utf8"));
+        } catch {
+          return { ok: false, issue: `The ${language} translation is not valid JSON` };
+        }
+        const read = readRulesetLocaleFile(document, language, { name: `The ${language} translation` });
+        return read.ok ? { ok: true, strings: read.strings } : { ok: false, issue: read.issue };
+      },
+    };
+  }
+  return null;
 }
 
 /** One catalog's entries as a game reads them, for a caller with no cached copy to compare against:

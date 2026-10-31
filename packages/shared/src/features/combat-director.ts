@@ -1,14 +1,18 @@
 import type { RulesetCheckSource } from "./rulesets/check-effects.js";
 import type { RulesetItemEffectFact } from "./rulesets/item-book.js";
 import type { CombatWeather } from "./combat-conditions.js";
+import type { CombatOrders } from "./combat-ai.js";
 import { z } from "zod";
 import type { Combatant, CombatPlayerAction, CombatSummary } from "../types/game.js";
 import type {
+  RulesetCombatCell,
   RulesetCombatEvent,
   RulesetCombatOption,
   RulesetCombatSide,
   RulesetEncounterSummary,
+  RulesetUnansweredBecause,
 } from "./ruleset-combat/types.js";
+import type { RulesetInHand } from "./ruleset-combat/in-hand.js";
 import type {
   TacticalAction,
   TacticalCombatState,
@@ -92,8 +96,22 @@ export type DirectedCommand =
       also?: Array<{ x: number; y: number }>;
       /** A wall's section struck at instead of a creature (1.200): one of the option's `walls`. */
       wall?: { x: number; y: number };
+      /** A lasting area ended instead of a creature (1.427): one of the option's `dispels`. */
+      dispel?: { casterId: string; actionId: string };
+      /** A condition struck at and cut away instead of a creature (1.531): one of the option's `cuts`. */
+      cut?: { holderId: string; condition: string };
+      /** Which of its target's conditions it ends (1.427), from the option's `endsChoices`. */
+      ends?: string[];
       /** Who goes along on a teleport (1.276): ids its option's `teleport.carries` offers. */
       carries?: string[];
+      /** Whom a layered wall spares (1.492): ids its option's `designates` offers. */
+      designates?: string[];
+      /** The kinds its zone strikes (1.753): ids its option's `kindsOf` offers. */
+      kinds?: string[];
+      /** Stored instead of done (1.524). */
+      storesIn?: { holderId: string; item?: number };
+      /** How many levels up a target moved to `to` is lifted (1.565): Telekinesis. */
+      rises?: number;
       /** How many uses it spends, where the option offers an `amount` (1.251): Lay on Hands. */
       amount?: number;
       /** The alterations it is used with (1.253), from the option's `alters`: Metamagic. */
@@ -104,12 +122,28 @@ export type DirectedCommand =
       heightens?: string;
     }
   | { type: "choose"; candidateId: string }
+  /** A party member the player plays set down before the first turn (2026-10-24), on one of the
+   *  view's `deploy.cells`; `deployed` begins the fight. */
+  | { type: "deploy"; unitId: string; to: { x: number; y: number } }
+  | { type: "deployed" }
   | { type: "continue" }
   | { type: "fallback" }
   | { type: "control"; unitId: string; controller: "manual" | "ai" }
+  /** Every companion at once, all but the one the player plays as their own (a ruleset fight's). */
+  | { type: "controlCompanions"; controller: "manual" | "ai" }
+  /** A ruleset fight's party member takes a carried weapon or shield in hand on their own turn
+   *  (2026-10-26), by its place in their items: `DirectedRulesetCombatant.hands.carried`. */
+  | { type: "draw"; unitId: string; item: number }
+  /** Which stack a ruleset fight's party member's weapon shoots first, by places in their items:
+   *  `DirectedRulesetCombatant.hands.ammo`. */
+  | { type: "ammo"; unitId: string; weapon: number; stack: number }
+  /** A companion's standing orders, or none to go back to its default. */
+  | { type: "orders"; unitId: string; orders: CombatOrders | null }
   /** Whether the player chooses what their own symbol throws buy (1.382) rather than the Engine. */
   | { type: "spends"; choose: boolean }
-  | { type: "flee" };
+  | { type: "flee" }
+  /** The party gives itself up to opponents who are all honourable (combat AI T6): a ruleset fight's. */
+  | { type: "yield" };
 export interface CombatDecisionOption {
   id: string;
   kind: "attack" | "skill" | "move" | "defend" | "wait" | "pass";
@@ -136,6 +170,9 @@ export interface CombatDecisionOption {
   zoneTo?: { x: number; y: number };
   /** The altering actions a ruleset candidate is used with (1.253). */
   alters?: string[];
+  /** Where the Engine's own tactics rank it among its top picks for this turn, and why in a few
+   *  words, shown to a Game Master deciding for the same unit. */
+  suggested?: { rank: number; reason: string };
 }
 export interface CombatDecisionWindow {
   id: string;
@@ -167,8 +204,16 @@ export interface DirectedRulesetCombatant {
   /** What an attack is rolled against. Sent for both sides: every option's forecast already carries
    *  the chance it would land against this combatant, so the number is not a secret to keep. */
   defense: number;
-  /** `icons`: the art icons it may be drawn with (1.338), first found first, for a token's badge. */
-  conditions: Array<{ id: string; label: string; rounds?: number; icons?: string[] }>;
+  /** How much of `defense` is the cover it stands in (laptop playtest 2026-10-24: a War-Chief's 21
+   *  with nothing to say 2 of it was cover); left out with none. */
+  cover?: number;
+  /** `trait` marks one only what they are or carry keeps on them for the whole fight (a halfling's
+   *  Lucky, a worn ring's): it is listed, never badged, so it does not hide what the fight did.
+   *  `icons`: the art icons it may be drawn with (1.338), first found first, for a token's badge. */
+  conditions: Array<{ id: string; label: string; rounds?: number; trait?: true; icons?: string[] }>;
+  /** What a standard action left them doing until their next turn: dodging, hidden, disengaged or
+   *  with something readied. Not conditions, so a screen names them in its own words. */
+  stances?: Array<"dodging" | "hidden" | "disengaged" | "readied" | "praying">;
   /** All active typed defenses, including exceptions (Capability API 1.132). */
   hides?: Pick<RulesetCheckSource, "resist" | "vulnerable" | "immune" | "conditionImmunities">;
   /** Active damage dealt/taken sources (Capability API 1.133), also read by the Game Master. */
@@ -181,12 +226,21 @@ export interface DirectedRulesetCombatant {
   defeated: boolean;
   /** Sent out of the fight, alive (1.236): off the board until it comes back, if it does. */
   away?: true;
+  /** Gave itself up (1.762): out of the fight, but still standing where it gave up, a prisoner. */
+  surrendered?: true;
   /** Gone of its own accord, by a teleport that leaves the fight (1.279). */
   left?: true;
   /** Caught unaware (1.237): their first turn is only ended, and they answer nothing until then. */
   surprised?: true;
+  /** What an opponent still has on it of what it began the fight with (1.795), by name. */
+  carrying?: Array<{ name: string; count: number }>;
+  /** A party member's hands (2026-10-26): what they hold, what they carry that could go in them, and
+   *  what each weapon shoots first. Absent for one with no weapon among their items. */
+  hands?: RulesetInHand;
   /** The two counts of the ruleset's dying rule, for a member the fight is still rolling for. */
   deathTrack?: { successes: number; failures: number; successesMax: number; failuresMax: number };
+  /** The points it buys its legendary actions with between turns, as they stand. */
+  legendary?: { points: number; max: number };
   /** What this combatant is holding together, when the ruleset has concentration. */
   concentrating?: string;
   /** A party member's pools their actions spend, as they stand (spell slots, ki): the fight's HUD. */
@@ -195,8 +249,9 @@ export interface DirectedRulesetCombatant {
   /** An opponent's rung of the threat scale, and the lines the Game Master is shown. */
   tier?: string;
   traits?: Array<{ name: string; text: string }>;
-  /** What it is, in the ruleset's words (1.168): its creature type and tags, read by target tests. */
-  kind?: { type?: string; tags?: string[] };
+  /** What it is, in the ruleset's words (1.168): its creature type and tags, read by target tests.
+   *  A creature's own tags only, with its alignment as it is written (1.378). */
+  kind?: { type?: string; tags?: string[]; alignment?: string };
   /** Active save modifiers narrowed by what the roll is against (1.134). */
   saveModifiers?: RulesetItemEffectFact[];
   /** Where they stand and how many cells of this turn's allowance they have left. Present exactly
@@ -212,6 +267,10 @@ export interface DirectedRulesetCombatant {
   /** Shown in its flying art (1.352): it flies without walking, hovers, is up in the air, or flew this
    *  turn. Art only. */
   flying?: true;
+  /** Art and marks only (1.786): the options it casts by praying (the ruleset's
+   *  `combat.poses.divine`), and that it is hidden, so it sneaks as it moves. */
+  prays?: string[];
+  hidden?: true;
 }
 /**
  * What a ruleset fight's log holds: everything the resolver did, plus the few things the DIRECTOR
@@ -223,7 +282,22 @@ export type DirectedRulesetEvent =
   | { type: "director"; reason: "ruleset-unavailable"; text: string }
   /** Why the Engine played a combatant's step the way it did, right after the step: read back from
    *  its own scoring, never from a model. Shown only with Debug on. */
-  | { type: "reasoning"; actorId: string; reasons: DirectedRulesetReason[] };
+  | { type: "reasoning"; actorId: string; reasons: DirectedRulesetReason[] }
+  /** A companion the Engine plays says what it just set up for its side (Alyssa 2026-10-24): an
+   *  opponent whose every blow from beside it is a critical, or one open to attack. Always shown. */
+  | { type: "callout"; actorId: string; targetId: string; way: DirectedRulesetCalloutWay };
+
+/** What a call-out tells the rest of the side: blows from beside the target land as criticals, or
+ *  attacks against it have advantage. */
+export type DirectedRulesetCalloutWay = "critical" | "advantage";
+
+/** A set-up its side can still use, for the player's turn to show as a follow-up: who set it up,
+ *  on whom, and what it opens. */
+export interface DirectedRulesetCallout {
+  by: string;
+  targetId: string;
+  way: DirectedRulesetCalloutWay;
+}
 
 /**
  * One reason the Engine's AI gives for what a combatant just did, in no ruleset's words: the parts of
@@ -239,15 +313,79 @@ export type DirectedRulesetEvent =
  *   - `approach`: nothing in reach, so it closed on the nearest opponent (`sprinted` with a sprint).
  *   - `driven`: a condition drove it toward or away from somebody.
  *   - `nothingWorth`: nothing it could do was worth its price, so it ended its turn.
+ *   - `sparing`: told to spare them, it ended its turn, since every blow it had might kill.
+ *   - `noWay`: what it meant to do could not be carried out from where it got to, so it ended its turn.
+ *   - `holding`: told to hold or fall back, it stayed where it was with nothing in reach.
+ *   - `leavesHarm`: with nothing worth doing, it stepped out of a lasting area striking it there.
+ *   - `focus`: its target is the one its side most wants down (one dropping areas on it).
+ *   - `mostInNeed`: the friend it picked is the one of its side most in need of it.
+ *   - `keptBack`: an item's healing it weighed and kept for later (`label`, for `targetId`).
+ *   - `routed`: its morale broke, so its turn is getting away off the field.
+ *   - `liesInWait`: it keeps still, hidden where it can, until its prey comes to it.
+ *   - `stops`: an answer that stops what `targetId` was about to do (a Counterspell).
+ *   - `takesTurn`: it keeps `targetId` from acting, taking its turns away (a stun, a hold).
+ *   - `letGo`: in a window, nothing it could answer with was worth its price, so it let it go by.
+ *   - `wards`: an answer that turns aside what was coming at it (a Shield, an Uncanny Dodge).
+ *   - `spread`: it stopped apart from its own side rather than nearest, out of an opponent's blast.
+ *   - `pressCaster`: nothing to do yet, so it closed on the one dropping areas on its side from out
+ *     of reach.
+ *   - `guarding`: nothing in reach, and it stays beside `targetId`, whom its orders keep it near.
+ *   - `gmPick`: the Game Master chose it for an opponent it plays, `rank` the Engine's suggestion it
+ *     took, if it took one.
  */
 export type DirectedRulesetReason =
-  | { why: "damage"; targetId?: string; strength: "heavy" | "solid" | "some" }
-  | { why: "finish" | "healing" | "support" | "setup" | "protection" | "coordination"; targetId?: string }
+  | {
+      why: "damage";
+      targetId?: string;
+      strength: "heavy" | "solid" | "some";
+      /** Why it is worth more against the target than its forecast says (I1): a damage type it is
+       *  vulnerable to, one that stops it regenerating, or a clause dealt only to what it is. */
+      edge?: { way: "vulnerable" | "stops" | "suits"; damageType: string };
+    }
+  | {
+      why:
+        | "finish"
+        | "healing"
+        | "support"
+        | "setup"
+        | "protection"
+        | "coordination"
+        | "focus"
+        | "mostInNeed"
+        | "takesTurn";
+      targetId?: string;
+    }
+  | { why: "pressCaster"; targetId: string }
+  | { why: "guarding"; targetId: string }
+  | { why: "stops"; targetId?: string }
   | { why: "risk" | "cost" }
   | { why: "walked"; cells: number }
   | { why: "approach"; targetId?: string; sprinted?: true }
   | { why: "driven" }
-  | { why: "nothingWorth" };
+  | {
+      why:
+        | "nothingWorth"
+        | "sparing"
+        | "spareYields"
+        | "cannotAct"
+        | "noWay"
+        | "holding"
+        | "leavesHarm"
+        | "spread"
+        | "routed"
+        | "cornered"
+        | "liesInWait"
+        | "wards"
+        | "harmless"
+        | "letGo";
+    }
+  | { why: "keptBack"; label: string; targetId?: string }
+  /** An answer it held to an opponent using something, which it could not give (laptop party A
+   *  2026-10-25): a Counterspell out of reach, or with no line to the caster. */
+  | { why: "couldNotAnswer"; label: string; because: RulesetUnansweredBecause }
+  /** The Game Master's own pick: which of the Engine's suggestions it was, and, when it was not the
+   *  first, what the first was (laptop pass 5 2026-10-26: "choice number 3" told the player nothing). */
+  | { why: "gmPick"; rank?: number; over?: { label: string; targetId?: string; ends?: true } };
 /** One option of the legal menu, with the combatants it may be pointed at right now. */
 export interface DirectedRulesetOption extends RulesetCombatOption {
   targetIds: string[];
@@ -257,15 +395,59 @@ export interface DirectedRulesetOption extends RulesetCombatOption {
   /** For an answer to a held hit: the defense the hit is checked against once it is taken, where it
    *  raises it, and whether the hit then misses. */
   raisesDefense?: { to: number; misses?: true };
+  /** For an answer to a held hit that halves its harm instead: about what the hit comes to then. */
+  halvesTo?: number;
   /** For an option that lands as a shape: the cells it may be aimed at, and who each aim would
    *  catch, so a board can draw the template before the choice is confirmed. */
   aim?: Array<{ x: number; y: number; targetIds: string[] }>;
+  /** What the sheet calls each pool `payWith` names, by pool id: "3rd-level slots", not "slots_3". */
+  payLabels?: Record<string, string>;
+  /** An answer that stops what is held only up to its own level (1.116): Counterspell. `sure` when
+   *  it stops it outright; else the check it needs, its modifier against `dc`, and with neither it
+   *  cannot stop it at all. */
+  counter?: { sure?: true; level: number; dc?: number; modifier?: number };
+  /** An attack's chance to land on each of `targetIds`, by id: the forecast reads only the first,
+   *  and a player picking a target wants the odds for the one they pick. */
+  hitChances?: Record<string, number>;
+  /** The chance each target fails the option's save, for one that calls for a save (playtest). */
+  saveChances?: Record<string, number>;
+  /** How far each of `targetIds` is, in cells, on a board (2026-10-25). */
+  distances?: Record<string, number>;
+  /** Whom it would be pointed at but cannot be now, and why: too far (how far, and its reach, in
+   *  cells), no line to them, or not seen (laptop 2026-10-25: "Nobody in reach" at 61 ft of 60). */
+  beyond?: Array<{ id: string; why: "out-of-reach" | "no-line-of-sight" | "unseen"; cells?: number; reach?: number }>;
+  /** The level it is paid at as it is, and at each pool `payWith` offers, where a level changes
+   *  what it does (Sculpt Spells spares one more a level). */
+  levels?: { base: number; pay: Record<string, number> };
+}
+/** The room player a party member of a shared room's fight belongs to (2026-10-26). */
+export interface DirectedRulesetPlayer {
+  participantId: string;
+  /** The player's display name, for "played by". */
+  name: string;
+  /** The room's host, who also commands every party member no other player plays. */
+  host?: true;
 }
 export interface DirectedRulesetView {
   /** What the fight is resolved by, as the game pinned it. */
   ruleset: { id: string; version: number };
   round: number;
+  /** Every opponent still standing is honourable (combat AI T6): the party may yield to them. */
+  canYield?: true;
+  /** Why the party may not yield, when honour is in the fight: the standing opponents who are not
+   *  honourable now (a captain turned methodical once bloodied). */
+  yieldRefusedBy?: string[];
   order: string[];
+  /** The party member the player plays as their own character; the others may be the Engine's. */
+  lead?: string;
+  /** A shared room's fight (2026-10-26): the room player whose own character each party member is,
+   *  by combatant id, and whoever one of them called to the party's side. `name` is the player's
+   *  display name. Absent outside a room. */
+  players?: Record<string, DirectedRulesetPlayer>;
+  /** In a shared room's fight, the party members the one viewing may command: their own character,
+   *  and for the host every member no other player plays. Absent outside a room, where the viewer
+   *  commands the whole party. */
+  yours?: string[];
   /** The board, when the fight is on one, with what this ruleset calls one cell's worth of
    *  distance. Absent from a fight that is theatre of the mind, which is every fight until a
    *  ruleset declares `combat.distance` and the game asks for a positioned one. */
@@ -279,6 +461,8 @@ export interface DirectedRulesetView {
     walls?: Record<string, number>;
     /** Growth and seasons on its cells (1.318), by "x,y". */
     ground?: Record<string, { growth?: true; season?: string }>;
+    /** Cells off the map (2026-10-24), outside[y][x]: drawn as nothing. Absent on a box. */
+    outside?: boolean[][];
     distance: { label: string; perCell: number };
     /** The scene a board painted for the place (worldgen W9g) looks like, drawn instead of the fight's own. */
     scene?: TacticalEnvironment;
@@ -291,10 +475,18 @@ export interface DirectedRulesetView {
     /** The cells a fog or haze covers, by "x,y": heavy unless it only lightly obscures. */
     fog?: Record<string, "light" | "heavy">;
   };
+  /** Before the first turn (2026-10-24): whom the player sets down, and the squares they may. */
+  deploy?: { ids: string[]; cells: Array<{ x: number; y: number }> };
   actorId?: string;
   /** Who plays the actor whose turn it is. */
   controller: "manual" | "ai" | "gm";
+  /** The set-ups the party's companions called out that still stand (Alyssa 2026-10-24), for the
+   *  player's turn to offer as follow-ups. Absent when there are none. */
+  callouts?: DirectedRulesetCallout[];
   combatants: DirectedRulesetCombatant[];
+  /** What spells called up that strike from a square of their own (Spiritual Weapon): whose, what,
+   *  and where it is. Only on a board. */
+  summons?: Array<{ casterId: string; label: string; x: number; y: number }>;
   /** The areas spells left standing (1.172): whose, what, how many of its caster's turns are left,
    *  and the cells it covers now (none off a board). */
   zones?: Array<{
@@ -331,9 +523,14 @@ export interface DirectedRulesetView {
     /** For a `spend` window (1.382): the side being asked spends for, and whether the throw landed. */
     spend?: { by: "attacker" | "target"; hit: boolean };
     /** Which moment, for the ones a reaction waits for, and what is happening at it. */
-    moment?: "aimed" | "hit" | "harmed" | "used" | "falls" | "turn-start";
+    moment?: "aimed" | "hit" | "harmed" | "used" | "falls" | "turn-start" | "caught" | "attacked";
     targetIds?: string[];
     label?: string;
+    /** What is held while they answer, where it is something being used: the level it was paid at
+     *  (0 for what costs nothing of a family, a cantrip), the cell an area was aimed at. */
+    /** What is held for the answer: the level it is cast at, where its area was aimed, whom it
+     *  would catch or was aimed at, and the cells of that area for a board to draw. */
+    held?: { level: number; at?: RulesetCombatCell; targetIds?: string[]; cells?: RulesetCombatCell[] };
     /** For a held hit: what the roll came to, and what it was made against. */
     total?: number;
     defense?: number;
@@ -349,6 +546,9 @@ export interface DirectedRulesetView {
     waiting: number;
     /** Whose walk opened it, for a window opened by somebody breaking away. */
     moverId?: string;
+    /** What a readied action waited for, for a window it opened (1.288): `sourceId` coming in reach,
+     *  or acting. */
+    readied?: "comes" | "acts";
     /** Who answers it: the same three the fight has everywhere else. */
     controller: "manual" | "ai" | "gm";
     /** The cells an area being aimed covers, so a board can show who it would catch before anybody
@@ -371,7 +571,8 @@ export interface DirectedCombatView {
   revision: number;
   style: "classic" | "tactical" | "ruleset";
   round: number;
-  stage: "select" | "action" | "decision" | "finished";
+  /** `deploy`: before a ruleset fight's first turn, while the player sets their party down (2026-10-24). */
+  stage: "select" | "action" | "decision" | "deploy" | "finished";
   actorId?: string;
   party: Combatant[];
   enemies: Combatant[];

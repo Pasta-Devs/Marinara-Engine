@@ -120,6 +120,13 @@ export interface GameBranchBlock {
   label: string;
   /** The halves found, in reading order. */
   halves: GameBranchHalf[];
+  /**
+   * The prose inside the block ahead of its first half marker, trimmed: it belongs to neither
+   * outcome, so it is kept whichever half the roll selects, and kept when the block is refused.
+   * A check tag in it is left out, since `innerCheckTags` re-emits it, and a lead holding another
+   * block's opener is empty.
+   */
+  lead: string;
   /** Every `[skill_check:]` tag that sat inside the block, verbatim and in order. */
   innerCheckTags: string[];
   /** Set when the block cannot be read. A readable block has exactly two usable halves. */
@@ -171,18 +178,18 @@ export function scanSkillCheckTagSpans(content: string): SkillCheckTagSpan[] {
  * Bound one block, starting just past its opener.
  *
  *   1. The first `[/branch]` after the opener closes it.
- *   2. With no closer, the block runs to the end of the content — but ONLY when at
- *      least one half marker follows the opener. That condition is the whole guard: a
- *      stray `[branch:` written into the middle of ordinary prose would otherwise take
- *      the rest of the turn with it, and a truncated block genuinely IS the rest of the
- *      turn. With no half marker the block is the opener tag alone, removed as a stray
- *      delimiter with no prose lost.
+ *   2. With no closer, the block runs from its opener to the end of the paragraph that holds
+ *      its second half marker (its first, when it wrote only one), and never past the next
+ *      `[branch:` opener — but ONLY when at least one half marker follows the opener. That
+ *      condition is the whole guard: a stray `[branch:` written into the middle of ordinary
+ *      prose would otherwise take prose with it. With no half marker the block is the opener
+ *      tag alone, removed as a stray delimiter with no prose lost.
  *
- * The cost of rule 2 is stated rather than hidden: an unterminated block that did write
- * a half marker loses every character after its opener. It is only reachable when the
- * model wrote a block it never closed, the raw block is logged verbatim, and the
- * alternative — keeping one unrolled outcome, or both — is asserting something no die
- * decided.
+ * Rule 2 used to run an unclosed block to the end of the content, which dropped every scene
+ * the model wrote after a block it forgot to close (playtest 2026-10-26). A half is one
+ * paragraph, so the prose after the blank line that ends the last half is the scene going on,
+ * and it stays. The raw block is still logged verbatim, and neither half is kept: keeping an
+ * unrolled outcome is asserting something no die decided.
  */
 /**
  * The two positions a bound depends on, remembered across openers. Both only ever move
@@ -195,6 +202,9 @@ export function scanSkillCheckTagSpans(content: string): SkillCheckTagSpan[] {
 interface BranchScanMemory {
   closer: [number, number] | null;
   half: [number, number] | null;
+  /** The half marker after the first one, and the next opener: the same memory, for rule 2. */
+  secondHalf: [number, number] | null;
+  opener: [number, number] | null;
 }
 
 function nextMatch(
@@ -222,8 +232,25 @@ function boundBranchBlock(
   memory.closer = nextMatch(content, bodyStart, memory.closer, createBranchCloserPattern);
   if (memory.closer[0] !== -1) return { end: memory.closer[1], closed: true };
   memory.half = nextMatch(content, bodyStart, memory.half, createBranchHalfPattern);
-  if (memory.half[0] !== -1) return { end: content.length, closed: false };
-  return { end: bodyStart, closed: false };
+  if (memory.half[0] === -1) return { end: bodyStart, closed: false };
+  memory.opener = nextMatch(content, bodyStart, memory.opener, createBranchOpenerPattern);
+  const limit = memory.opener[0] === -1 ? content.length : memory.opener[0];
+  // A half marker past the next opener belongs to that block, and so does one past the limit.
+  if (memory.half[0] >= limit) return { end: bodyStart, closed: false };
+  memory.secondHalf = nextMatch(content, memory.half[1], memory.secondHalf, createBranchHalfPattern);
+  const lastHalfEnd =
+    memory.secondHalf[0] !== -1 && memory.secondHalf[1] <= limit ? memory.secondHalf[1] : memory.half[1];
+  return { end: endOfParagraph(content, lastHalfEnd, limit), closed: false };
+}
+
+/** Where the paragraph holding `from` ends: its blank line, or `limit`. Scans only up to `limit`. */
+function endOfParagraph(content: string, from: number, limit: number): number {
+  for (let at = content.indexOf("\n", from); at !== -1 && at < limit; at = content.indexOf("\n", at + 1)) {
+    let next = at + 1;
+    while (next < limit && (content[next] === " " || content[next] === "\t" || content[next] === "\r")) next++;
+    if (next < limit && content[next] === "\n") return at;
+  }
+  return limit;
 }
 
 /** Read the halves inside one block's interior, and say what is wrong with them. */
@@ -259,7 +286,7 @@ function readBranchHalves(interior: string): { halves: GameBranchHalf[]; refusal
 export function scanGameBranchBlocks(content: string): GameBranchBlock[] {
   const opener = createBranchOpenerPattern();
   const blocks: GameBranchBlock[] = [];
-  const memory: BranchScanMemory = { closer: null, half: null };
+  const memory: BranchScanMemory = { closer: null, half: null, secondHalf: null, opener: null };
   for (let match = opener.exec(content); match; match = opener.exec(content)) {
     const start = match.index;
     const bodyStart = start + match[0].length;
@@ -279,6 +306,8 @@ export function scanGameBranchBlocks(content: string): GameBranchBlock[] {
     else if (innerCheckTags.length > 0) refusal = "nested";
     else refusal = halvesRead.refusal;
 
+    const firstHalf = createBranchHalfPattern().exec(interior);
+    const leadText = interior.slice(0, firstHalf ? firstHalf.index : interior.length);
     blocks.push({
       start,
       end: bounded.end,
@@ -286,6 +315,9 @@ export function scanGameBranchBlocks(content: string): GameBranchBlock[] {
       rawLabel,
       label: normalizeGameBranchLabel(rawLabel),
       halves: halvesRead.halves,
+      lead: createBranchOpenerPattern().test(leadText)
+        ? ""
+        : innerCheckTags.reduce((text, tag) => text.split(tag).join(""), leadText).trim(),
       innerCheckTags,
       refusal,
     });
@@ -319,7 +351,8 @@ export function stripGameBranchDelimiters(content: string): string {
 }
 
 /**
- * Drop every branch block whole, keeping the check tags that sat inside one.
+ * Drop every branch block whole, keeping the check tags that sat inside one and the prose it
+ * wrote ahead of its first half, which belongs to neither outcome.
  *
  * This is the FAILURE sweep, used by the chance pass when it could not decide: keeping
  * both halves would save a turn asserting two contradictory outcomes, and keeping one
@@ -332,7 +365,7 @@ export function dropGameBranchBlocks(content: string): { content: string; change
   let result = "";
   let cursor = 0;
   for (const block of blocks) {
-    result += content.slice(cursor, block.start) + block.innerCheckTags.join(" ");
+    result += content.slice(cursor, block.start) + [block.lead, ...block.innerCheckTags].filter(Boolean).join(" ");
     cursor = block.end;
   }
   result += content.slice(cursor);

@@ -6,7 +6,7 @@ import { chatSettingsDrawer, drawerToggle, openChatSettings } from "./chat-setti
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 for (const mode of ["roleplay", "game"] as const) {
   test(`World Maps attachment requires an updated package in ${mode}`, async ({ page }, testInfo) => {
-    let minor = 379;
+    let minor = 392;
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: null } }));
     await page.route("**/api/capability-packages/agents", (route) =>
       route.fulfill({
@@ -118,7 +118,7 @@ for (const mode of ["roleplay", "game"] as const) {
       const attachment = page.locator('[data-agent-lorebook-attachment="hierarchical-maps"]');
       await expect(hint).toBeVisible();
       await expect(attachment).toHaveCount(0);
-      minor = 380;
+      minor = 379;
       await page.reload();
       await open();
       await expect(hint).toHaveCount(0);

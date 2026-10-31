@@ -794,7 +794,7 @@ try {
     const saved = swing(once, state, "ada", "Stern Word", "hollow", 7, 8, 2);
     assert.equal(
       rulesetCombatEventLine(firstOf(saved.events, "save"), names, t),
-      "Hollow rolls Steel: 2 successes from 3 dice at 7 or more (7, 8, 2), needing 2 successes, a success.",
+      "Hollow rolls Steel against Ada’s Stern Word: 2 successes from 3 dice at 7 or more (7, 8, 2), needing 2 successes, a success.",
     );
     const gripped = swing(
       once,
@@ -837,6 +837,48 @@ try {
     const clamped = clampRulesetStatBlock(shipped, proposed, "nuisance");
     assert.equal(clamped.block.soak, undefined);
     assert.ok(clamped.adjusted.some((line) => /soaks nothing/.test(line)));
+  }
+
+  // ── What a spell puts on a target is weighed by the pool's own odds of the save (combat AI E4) ──
+  {
+    const { rulesetEffectWorth } =
+      await import("../../packages/server/src/services/game/ruleset-combat-director.service.js");
+    const stat = (saves: Record<string, number>, actions: unknown[] = []) =>
+      ({
+        ...rulesetProposedStatBlock(shipped, {
+          tier: "nuisance",
+          health: 3,
+          defense: 1,
+          initiativeModifier: 1,
+          actions: [{ id: "bite", name: "Bite", budget: "act", toHit: 4, damage: { dice: "1d10" } }],
+        } as never)!,
+        saves,
+        ...(actions.length ? { actions } : {}),
+      }) as never;
+    const dread = {
+      id: "dread",
+      name: "Dread",
+      budget: "act",
+      reach: 1,
+      save: { save: "steel", difficulty: 3 },
+      applies: [{ condition: "rattled", duration: { rounds: 2 } }],
+    };
+    const encounter = createRulesetEncounter({
+      definition: shipped,
+      seed: 1,
+      roller: () => 5,
+      combatants: [
+        { id: "wight", name: "Wight", side: "enemy", block: stat({}, [dread]) },
+        { id: "meek", name: "Meek", side: "party", block: stat({ steel: 1 }) },
+        { id: "stern", name: "Stern", side: "party", block: stat({ steel: 9 }) },
+      ] as RulesetCombatantInput[],
+    });
+    const wight = rulesetCombatant(encounter, "wight")!;
+    const worth = (id: string) =>
+      rulesetEffectWorth(shipped, shipped.combat!, encounter, wight, dread as never, rulesetCombatant(encounter, id)!)!;
+    assert.ok(worth("meek") > 0 && worth("stern") > 0);
+    // One die against three successes almost never saves; nine dice usually do.
+    assert.ok(worth("meek") > worth("stern") * 2, `${worth("meek")} against ${worth("stern")}`);
   }
 
   // ── Every new key needs 1.47 to install ──

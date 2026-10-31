@@ -38,8 +38,13 @@ import { fileURLToPath } from "node:url";
 
 import {
   applyRulesetCombatChoice,
+  capRulesetCasterSheet,
+  raiseRulesetCasterPools,
+  raiseRulesetSheetAbilities,
   createRulesetEncounter,
   holdRulesetSheetHealth,
+  holdRulesetLegendary,
+  rulesetAverageAmount,
   normalizeCharacterLookupName,
   parseRulesetCatalogFile,
   parseRulesetDefinition,
@@ -53,6 +58,7 @@ import {
   rulesetLayerOptionKey,
   rulesetProposedCreatureSchema,
   rulesetSheetBuildSchema,
+  rulesetUnpricedLegendary,
   type CombatTactics,
   type RulesetCatalogEntriesById,
   type RulesetCatalogEntry,
@@ -71,6 +77,7 @@ import {
   commandRulesetCombatDirector,
   createRulesetFight,
   directedRulesetView,
+  priced,
   rulesetDirectorStage,
   rulesetFightLiveStates,
   syncRulesetCombatants,
@@ -1139,6 +1146,112 @@ const spellbook = parsedOrThrow(
   );
   assert.ok(planRulesetCombatCost(spellbook, built, lance, "slots_3"), "and it may still pay out of the bigger slot");
 
+  // A reaction the Game Master named that this ruleset has as a spell, not a bestiary reaction
+  // (laptop playtest 2026-10-25: a cult mage's Counterspell never countered): it goes on the sheet as
+  // that spell, once, and nobody is told the ruleset has no such reaction.
+  for (const listed of [false, true]) {
+    const counterer = started({
+      definition: spellbook,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "warder",
+          name: "Cult Warder",
+          tier: "cr_2",
+          boss: true,
+          attacks: [{ name: "hex counter", reaction: "counter" }],
+          proposed: {
+            tier: "cr_2",
+            sheet: {
+              fields: { class: "Sorcerer", level: 5, spellcasting_ability: "int", slots_max_1: 2 },
+              lists: {
+                spells: [
+                  { name: "Spark Lash", prepared: true },
+                  ...(listed ? [{ name: "Hex Counter", prepared: true }] : []),
+                ],
+              },
+            },
+          },
+        },
+      ],
+    }).rulesetFight!;
+    const warder = who(counterer.encounter, "warder");
+    const counters = warder.actions.filter((action) => action.label === "Hex Counter");
+    assert.equal(counters.length, 1, `the named reaction is its spell, once: ${warder.actions.map((a) => a.label)}`);
+    assert.equal(
+      warder.sheet!.build.lists.spells?.filter((row) => row._catalog === "spells/hex-counter").length,
+      1,
+      "one row on its spell list",
+    );
+    assert.ok(!counterer.adjustments.some((line) => /no reaction called/.test(line)), counterer.adjustments.join("; "));
+  }
+  // One whose sheet could never pay for it (laptop playtest 2026-10-25: a Cult Mage's sheet with no
+  // slots "held Counterspell, but could not pay for it"): cast as its own, once this fight, and not
+  // left on its sheet as a spell it can only hold.
+  {
+    const slotless = started({
+      definition: spellbook,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "warder",
+          name: "Cult Warder",
+          tier: "cr_2",
+          boss: true,
+          attacks: [{ name: "hex counter", reaction: "counter" }],
+          proposed: {
+            tier: "cr_2",
+            sheet: {
+              fields: { class: "Fighter", level: 5 },
+              lists: { spells: [{ name: "Spark Lash", prepared: true }] },
+            },
+          },
+        },
+      ],
+    }).rulesetFight!;
+    const warder = who(slotless.encounter, "warder");
+    const counters = warder.actions.filter((action) => action.label === "Hex Counter");
+    assert.equal(counters.length, 1, `the named reaction, once: ${warder.actions.map((a) => a.label)}`);
+    assert.ok(counters[0]!.innate, "cast as its own");
+    assert.deepEqual(counters[0]!.uses, { per: "encounter", count: 1 }, "once this fight");
+    assert.ok(planRulesetCombatCost(spellbook, warder, counters[0]!), "which it can pay for, so it can be cast");
+    assert.ok(
+      !warder.sheet!.build.lists.spells?.some((row) => row._catalog === "spells/hex-counter"),
+      "and it is not a row on its spell list",
+    );
+    assert.match(
+      slotless.adjustments.join("\n"),
+      /"hex counter" is this ruleset's own, so it may be cast once this fight/,
+    );
+  }
+  // And on an invented creature with no sheet, written in plain numbers or only a tier: cast as its
+  // own, once this fight.
+  for (const proposed of [plainProposal, undefined]) {
+    const plain = started({
+      definition: spellbook,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "mage",
+          name: "Cult Mage",
+          tier: "cr_1",
+          attacks: [{ name: "Hex Counter", reaction: "counter" }],
+          ...(proposed ? { proposed } : {}),
+        },
+      ],
+    }).rulesetFight!;
+    const mage = who(plain.encounter, "mage");
+    const counter = mage.actions.find((action) => action.label === "Hex Counter");
+    assert.ok(counter, `the named reaction is the ruleset's spell: ${mage.actions.map((a) => a.label)}`);
+    assert.ok(counter.reaction, "and answers as that spell does");
+    assert.deepEqual(counter.uses, { per: "encounter", count: 1 }, "once this fight");
+    assert.ok(!plain.adjustments.some((line) => /no reaction called/.test(line)), plain.adjustments.join("; "));
+    assert.ok(plain.adjustments.some((line) => /"Hex Counter" is this ruleset's own/.test(line)));
+  }
+
   // On Ember Roads, whose health adds its Toughness to a constant and its Brawn: the one field in
   // the sum is the one moved.
   const roadFight = started({
@@ -1320,6 +1433,16 @@ const spellbook = parsedOrThrow(
     assert.equal(capped.sheet.fields.hp_mode, undefined);
     assert.equal(capped.sheet.fields.hp_build, undefined);
     assert.doesNotMatch(capped.adjusted.join("\n"), /set back/);
+    // The Game Master's own number, where it is inside the band, is the one it gets (laptop playtest
+    // 2026-10-25: invented CR 3 foes sent at 45, 45 and 40 came out at 52, 52 and 32).
+    const given = holdRulesetSheetHealth(typedElseFixed, fixed, tier, 60);
+    assert.equal(max(given.sheet), 60, given.adjusted.join("; "));
+    assert.match(
+      given.adjusted.join("\n"),
+      /Health 28 was set to the Game Master's 60 through its Hit points by hand\./,
+    );
+    // One outside the band is held to the band as ever.
+    assert.equal(max(holdRulesetSheetHealth(typedElseFixed, fixed, tier, 500).sheet), 45);
   }
 
   // Strikes bought by one spend wait in hand and may go to ANY striking row, so a round is one spend
@@ -1541,13 +1664,15 @@ const spellbook = parsedOrThrow(
   assert.ok(!spellsOf(named).includes("Mending Touch"));
   // A spell it names is one it has ready, without being told so.
   assert.equal(rowsOf(named).find((row) => row.name === "Spark Lash")?.prepared, true);
-  // A caster that names no class has nothing open to it in a list organised by class.
+  // A class the ruleset has never heard of holds it to nothing: what it names, it keeps (laptop
+  // playtest 2026-10-24: an "Orc War-Shaman" lost every spell it was written with).
+  const invented = fightOf(sorcerer({ class: "Orc War-Shaman" }, [{ name: "Mending Touch" }, { name: "Spark Lash" }]));
+  assert.ok(spellsOf(invented).includes("Mending Touch") && spellsOf(invented).includes("Spark Lash"));
+  assert.doesNotMatch(invented.adjustments.join("\n"), /not open to a sheet/);
+  // Nor does naming no class (laptop party A: a Cult Necromancer lost Chill Touch and Animate Dead).
   const classless = fightOf(sorcerer({ class: "" }, [{ name: "Spark Lash" }]));
-  assert.match(
-    classless.adjustments.join("\n"),
-    /Road Caster: "Spark Lash" is not open to a sheet with no Class in this ruleset, so dropped\./,
-  );
-  assert.deepEqual(spellsOf(classless), []);
+  assert.doesNotMatch(classless.adjustments.join("\n"), /not open to a sheet/);
+  assert.ok(spellsOf(classless).includes("Spark Lash"));
 
   // The choices it left open are filled: only with its class's spells, only what it can pay for.
   const veteran = { proficiency: "veteran", adjective: "disciplined" } as const;
@@ -1577,6 +1702,63 @@ const spellbook = parsedOrThrow(
     spellsOf(novice).filter((name) => firstRung.includes(name)),
     ["Spark Lash"],
   );
+  // One its writer named as an attack beside the sheet rather than in it is on the sheet all the same
+  // (laptop playtest 2026-10-25: a cult priest's Mace and a druid's Quarterstaff, fought without).
+  // A boss, whose sheet is the Game Master's in full, so nothing else fills it in.
+  const beside = fightOf(sorcerer(), { attacks: [{ name: "Spark Lash" }, { name: "Rotting Claws" }], boss: true });
+  assert.ok(spellsOf(beside).includes("Spark Lash"), `named beside its sheet: ${spellsOf(beside)}`);
+  // And an opponent spends its pools as the share of them it is: it has only this fight to spend
+  // them in (laptop playtest 2026-10-25: a druid with four of its smallest pool never spent one).
+  const lasher = who(beside.encounter, "caster");
+  const onTurn = { ...beside.encounter, turn: beside.encounter.order.indexOf("caster") };
+  const lash = priced(spellbook, onTurn, lasher).find((way) => way.option.label === "Spark Lash");
+  assert.ok(lash, `Spark Lash is on its menu: ${priced(spellbook, onTurn, lasher).map((way) => way.option.label)}`);
+  assert.equal(lash.price, (1 / 4) * (1 + 0.5 / 4), "one of four, the fewer left the dearer");
+  // A level it gives itself sets what choosing that class sets, where the sheet left it out (laptop
+  // playtest 2026-10-25: a cleric 4 written with no spellcasting ability cast only cantrips, at a
+  // save DC of 10). One entry per level: the class taken second does not set a second class.
+  {
+    const classed = structuredClone(spellbook);
+    classed.catalogs!.push({
+      id: "classes",
+      label: "Classes",
+      feeds: ["spells"],
+      entries: [
+        {
+          id: "sorcerer",
+          label: "Sorcerer",
+          exclusive: "first_class",
+          grants: { sets: { level: 1, class: "Sorcerer", spellcasting_ability: "cha" } },
+        },
+        {
+          id: "sorcerer-second",
+          label: "Sorcerer (second class)",
+          exclusive: "second_class",
+          grants: { sets: { level: 1, spellcasting_ability: "int" } },
+        },
+      ],
+    } as never);
+    const caster = started({
+      definition: classed,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "caster",
+          name: "Cult Adept",
+          tier: "cr_2",
+          proposed: { tier: "cr_2", sheet: { fields: { level: 4 }, lists: { spells: [{ name: "Spark Lash" }] } } },
+        },
+      ],
+    }).rulesetFight!;
+    const adept = who(caster.encounter, "caster");
+    assert.equal(adept.sheet!.build.fields.spellcasting_ability, "cha", caster.adjustments.join("; "));
+    assert.equal(adept.sheet!.build.fields.class, "Sorcerer");
+    assert.ok(
+      caster.adjustments.includes('Cult Adept: "Class", "Spellcasting ability" set as Sorcerer sets them.'),
+      caster.adjustments.join("; "),
+    );
+  }
 
   // Temperament and competence tilt the draw, over many fights.
   /** How often each kind of first-rung spell is filled in over sixty fights, for one temperament. */
@@ -1679,6 +1861,633 @@ const spellbook = parsedOrThrow(
 
 // ── Capability API 1.34 ──
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-creature-sheets-"));
+// ── An invented caster casts what its sheet pays for, and keeps a few spells for its one role ──
+// (Alyssa, 2026-10-25: at most 6 leveled spells, "unless it's supposed to be some legendary Elminster
+// or Daurgothoth level entity or literal Deity".)
+{
+  const caster = (spells: string[], extra: Record<string, unknown> = {}) => ({
+    tier: "cr_2",
+    ...extra,
+    sheet: {
+      fields: { class: "Sorcerer", level: 3, spellcasting_ability: "cha", slots_max_1: 4 },
+      lists: { spells: spells.map((name) => ({ name, prepared: true })) },
+    },
+  });
+  const many = [
+    "Frost Mote",
+    "Ember Lance",
+    "Spark Lash",
+    "Warding Word",
+    "Kindle Heart",
+    "Binding Glare",
+    "Hex Counter",
+  ];
+  const spellsOf = (fight: NonNullable<ReturnType<typeof started>["rulesetFight"]>, id: string) =>
+    who(fight.encounter, id).sheet!.build.lists.spells!.map((row) => row.name);
+  const plain = started({
+    definition: spellbook,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [{ id: "mage", name: "Ash Mage", tier: "cr_2", boss: true, proposed: caster(many) }],
+  }).rulesetFight!;
+  // No 2nd level slots, so Ember Lance goes; the cantrip is no slot's and stays; five 1st level ones fit.
+  assert.deepEqual(spellsOf(plain, "mage"), [
+    "Frost Mote",
+    "Spark Lash",
+    "Warding Word",
+    "Kindle Heart",
+    "Binding Glare",
+    "Hex Counter",
+  ]);
+  assert.ok(
+    plain.adjustments.some((line) =>
+      /Ash Mage: "Ember Lance" is beyond what this sheet can pay for, so dropped\./.test(line),
+    ),
+    plain.adjustments.join("; "),
+  );
+  // Kept as it was filled in, so one that comes back has the same spells (cloud re-test 2026-10-25).
+  assert.deepEqual((plain.made!.mage!.proposed as { sheet: unknown }).sheet, who(plain.encounter, "mage").sheet!.build);
+  const again = started({
+    definition: spellbook,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [{ id: "mage", name: "Ash Mage", tier: "cr_2", proposed: plain.made!.mage!.proposed }],
+  }).rulesetFight!;
+  assert.deepEqual(spellsOf(again, "mage"), spellsOf(plain, "mage"), "the same spells again");
+  // Past the most it keeps, the first written of its biggest stays, then its first heal (laptop pass 6
+  // 2026-10-26: a druid's only heal went), and the rest go, said.
+  const sheet = who(plain.encounter, "mage").sheet!.build;
+  const two = capRulesetCasterSheet(spellbook, sheet, fightCatalogs(spellbook), 2);
+  assert.deepEqual(
+    two.sheet.lists.spells!.map((row) => row.name),
+    ["Frost Mote", "Spark Lash", "Kindle Heart"],
+  );
+  assert.deepEqual(two.adjusted, [
+    '"Warding Word", "Binding Glare", "Hex Counter" went: an invented caster keeps 2 of what it pays for out of its pools.',
+  ]);
+  // Spread over its slots from the biggest down, not the first ones written (cloud re-test 2026-10-25:
+  // a wizard 5 kept six 1st and 2nd level spells, and Fireball went).
+  const higher = started({
+    definition: spellbook,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [
+      {
+        id: "mage",
+        name: "Ash Mage",
+        tier: "cr_2",
+        boss: true,
+        proposed: {
+          ...caster(many),
+          sheet: { ...caster(many).sheet, fields: { ...caster(many).sheet.fields, level: 5, slots_max_2: 2 } },
+        },
+      },
+    ],
+  }).rulesetFight!;
+  const spread = capRulesetCasterSheet(
+    spellbook,
+    who(higher.encounter, "mage").sheet!.build,
+    fightCatalogs(spellbook),
+    2,
+  );
+  assert.deepEqual(
+    spread.sheet.lists.spells!.map((row) => row.name),
+    ["Frost Mote", "Ember Lance", "Kindle Heart"],
+    "its one 2nd level spell, then its heal",
+  );
+  // Written with no scores, the ability it casts with is raised to its tier; written ones stay (laptop
+  // playtest 2026-10-25: a cleric 4 with "abilities": {} cast at DC 10).
+  {
+    const tier = spellbook.combat!.threat!.tiers.find((one) => one.id === "cr_2")!;
+    const bare = { ...sheet, abilities: {} };
+    const raised = raiseRulesetSheetAbilities(spellbook, bare, tier);
+    assert.ok((raised.sheet.abilities.cha ?? 0) > 10, JSON.stringify(raised));
+    assert.match(raised.adjusted[0] ?? "", /^Charisma was set to \d+, as no scores were written\.$/);
+    const written = { ...sheet, abilities: { cha: 8 } };
+    assert.equal(raiseRulesetSheetAbilities(spellbook, written, tier).sheet, written);
+  }
+  // Sent with no slots at all, it is given the pools its spells are paid out of, so they stay (laptop
+  // playtest 2026-10-25: casters with no class level cast Chill Touch for 11 rounds).
+  {
+    const fields = Object.fromEntries(
+      Object.entries(caster(many).sheet.fields).filter(([id]) => !id.startsWith("slots_max_")),
+    );
+    const slotless = started({
+      definition: spellbook,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "mage",
+          name: "Ash Mage",
+          tier: "cr_2",
+          boss: true,
+          proposed: { ...caster(many), sheet: { ...caster(many).sheet, fields } },
+        },
+      ],
+    }).rulesetFight!;
+    assert.ok(spellsOf(slotless, "mage").includes("Ember Lance"), spellsOf(slotless, "mage").join(", "));
+    assert.ok(
+      slotless.adjustments.some((line) =>
+        /was set to 1, so its spells have the pools they are paid out of\./.test(line),
+      ),
+      slotless.adjustments.join("; "),
+    );
+    assert.ok(!slotless.adjustments.some((line) => /beyond what this sheet can pay for/.test(line)));
+    // One sent with some slots is its own and untouched.
+    assert.equal(raiseRulesetCasterPools(spellbook, sheet, fightCatalogs(spellbook)).sheet, sheet);
+    // An entry that sets the field (a class) is taken whole where the sheet names it, its other
+    // fields set where none was written (cloud re-test 2026-10-25: 5e's slots show only with a
+    // casting ability, which a class sets).
+    const classes = {
+      ...fightCatalogs(spellbook),
+      classes: [
+        { id: "sorcerer", label: "Sorcerer", grants: { sets: { slots_max_2: 1, spellcasting_ability: "cha" } } },
+      ],
+    } as never;
+    const named = raiseRulesetCasterPools(spellbook, { ...sheet, fields: { class: "Sorcerer", level: 3 } }, classes);
+    assert.deepEqual(named.adjusted, ["Made a Sorcerer 1, so its spells have the pools they are paid out of."]);
+    assert.equal(named.sheet.fields.spellcasting_ability, "cha");
+    assert.equal(named.sheet.fields.slots_max_2, 1);
+    assert.equal(named.sheet.fields.class, "Sorcerer", "what it wrote stays");
+  }
+  // Written with no sheet, its spells named beside its attacks, it is given a sheet of them and the
+  // pools they are paid from, and its attacks as written (laptop pass 5 2026-10-26: a Cult Healer and
+  // an Enchanter built from a tier's numbers alone cast nothing).
+  {
+    const classed = structuredClone(spellbook);
+    classed.catalogs!.push({
+      id: "classes",
+      label: "Classes",
+      feeds: ["spells"],
+      entries: [
+        {
+          id: "sorcerer",
+          label: "Sorcerer",
+          grants: { sets: { class: "Sorcerer", spellcasting_ability: "cha", slots_max_1: 2 } },
+        },
+      ],
+    } as never);
+    const sheetless = started({
+      definition: classed,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "mage",
+          name: "Ash Mage",
+          tier: "cr_2",
+          attacks: [
+            { name: "Ash Knife" },
+            { name: "Kindle Heart", kind: "heal" },
+            { name: "Spark Lash (Twin)", kind: "debuff" },
+            { name: "Moon Dance", kind: "buff" },
+          ],
+        },
+      ],
+    }).rulesetFight!;
+    const mage = who(sheetless.encounter, "mage");
+    assert.deepEqual(
+      mage.sheet?.build.lists.spells?.map((row) => row.name),
+      ["Kindle Heart", "Spark Lash"],
+    );
+    assert.ok(
+      mage.actions.some((one) => one.label === "Ash Knife"),
+      mage.actions.map((one) => one.label).join(", "),
+    );
+    const said = sheetless.adjustments.join("; ");
+    assert.match(said, /Ash Mage was given a sheet for Kindle Heart, Spark Lash \(Twin\), at /);
+    assert.match(said, /Ash Mage: this ruleset has no entry called "Moon Dance", so it was not given\./);
+    assert.match(said, /so its spells have the pools they are paid out of\./);
+    // Written with numbers and no sheet, its spells beside them, it is given that sheet and keeps
+    // its numbers; a boss's spell priced out of its points is a Cantrip bought with them (laptop pass
+    // 6 2026-10-26: a legendary Archmage with Ray of Frost and Chill Touch at a cost of 1 only swung
+    // its staff).
+    const numbered = (boss: boolean, priced = true) =>
+      started({
+        definition: classed,
+        cards: [card("Brenna", fighterBuild())],
+        party: [{ id: "brenna", name: "Brenna" }],
+        enemies: [
+          {
+            id: "veyl",
+            name: "Archmage Veyl",
+            tier: "cr_3",
+            boss,
+            points: 2,
+            proposed: {
+              tier: "cr_3",
+              health: 50,
+              defense: 13,
+              initiativeModifier: 2,
+              actions: [
+                {
+                  id: "staff",
+                  name: "Staff",
+                  budget: "action",
+                  toHit: 5,
+                  reach: 5,
+                  damage: { dice: "1d8", flat: 2, type: "bludgeoning" },
+                },
+                // Its spell written among its numbers too, as an attack.
+                {
+                  id: "spark_written",
+                  name: "Spark Lash",
+                  budget: "action",
+                  toHit: 5,
+                  reach: 60,
+                  damage: { dice: "2d6", type: "fire" },
+                },
+              ],
+            },
+            attacks: [
+              { name: "Staff" },
+              { name: "Frost Mote", spell: true, ...(priced ? { legendary: 1 } : {}) },
+              { name: "Spark Lash", spell: true },
+              { name: "Grave Bolt", spell: true },
+            ],
+          },
+        ],
+      }).rulesetFight!;
+    const legendary = numbered(true);
+    const veyl = who(legendary.encounter, "veyl");
+    const lines = legendary.adjustments.join("; ");
+    assert.deepEqual(
+      veyl.sheet?.build.lists.spells?.map((row) => row.name),
+      ["Frost Mote", "Spark Lash"],
+      lines,
+    );
+    assert.match(lines, /Archmage Veyl was given a sheet for Frost Mote, Spark Lash\./);
+    assert.match(lines, /Archmage Veyl may spend 2 points between turns on Cantrip\./);
+    assert.ok(
+      veyl.actions.some((one) => one.label === "Staff"),
+      veyl.actions.map((one) => one.label).join(", "),
+    );
+    assert.match(lines, /Archmage Veyl: this ruleset has no entry called "Grave Bolt", so it was not given\./);
+    assert.equal(veyl.actions.find((one) => one.id.endsWith("legendary_cantrip"))?.signature?.cost, 1);
+    assert.equal(rulesetCombatHealth(classed, classed.combat!, veyl).max, 50, "its own health kept");
+    // Its Spark Lash is cast from the entry, not thrown as the attack written beside it (laptop pass 7
+    // 2026-10-26: an Archlich's Cone of Cold rolled to hit).
+    assert.ok(
+      !veyl.actions.some((one) => one.id.includes("spark_written")),
+      veyl.actions.map((one) => one.id).join(", "),
+    );
+    assert.doesNotMatch(lines, /no legendary actions/);
+    // Not a boss, nothing is bought with points.
+    assert.ok(!who(numbered(false).encounter, "veyl").actions.some((one) => one.signature));
+    // A boss given points and nothing priced out of them buys its own with them (laptop level-4 pass
+    // 2026-10-26: a Lich Morrigast, a Pale Master and a Big Grakka each fought with none): a cantrip
+    // where it casts, a move, and its one attack at 1.
+    const unpriced = numbered(true, false);
+    const unpricedLines = unpriced.adjustments.join("; ");
+    assert.match(
+      unpricedLines,
+      /Archmage Veyl had nothing priced out of its points, so it buys its own actions with them\./,
+    );
+    // Said as it is left after the hold (laptop re-test 2026-10-26: Disrupt Life was listed, then taken).
+    assert.match(unpricedLines, /Archmage Veyl may spend 2 points between turns on Cantrip, Move, Staff\./);
+    assert.doesNotMatch(unpricedLines, /no legendary actions/);
+    // Its Staff twice between turns on top of its own turn is past a CR 3's round, so it is scaled down
+    // (laptop 2026-10-26: a CR 3 Archlich's Disrupt Life wiped four rested heroes).
+    assert.match(
+      unpricedLines,
+      /Archmage Veyl: Staff, bought with its points, was scaled down so its turn and its points together stay inside the 13 of CR 3\./,
+    );
+    assert.deepEqual(
+      who(unpriced.encounter, "veyl")
+        .actions.filter((one) => one.signature)
+        .map((one) => [one.id.replace(/^.*?legendary_/, "legendary_"), one.signature?.cost]),
+      [
+        ["legendary_cantrip", 1],
+        ["legendary_move", 1],
+        ["legendary_staff", 1],
+      ],
+    );
+    // A skill a creature of this ruleset has, priced out of its points, is bought with them and never
+    // called missing (cloud re-test 2026-10-26: "no entry called Frightening Gaze" said beside "may
+    // spend points on ... Frightening Gaze").
+    const gazer = started({
+      definition: classed,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "veyl",
+          name: "Archmage Veyl",
+          tier: "cr_3",
+          boss: true,
+          points: 2,
+          attacks: [
+            { name: "Frost Mote", spell: true },
+            { name: "Watchful strike", kind: "debuff", legendary: 1 },
+          ],
+        },
+      ],
+    }).rulesetFight!;
+    const gazeSaid = gazer.adjustments.join("; ");
+    assert.doesNotMatch(gazeSaid, /no entry called "Watchful strike"/);
+    // Bought with its points, and held to its tier's round.
+    assert.match(gazeSaid, /Archmage Veyl may spend 2 points between turns on Watchful strike\./);
+    assert.match(gazeSaid, /Archmage Veyl: Watchful strike, bought with its points, was scaled down/);
+    // A spell priced above 1 is still only a Cantrip, never a spell of a slot cast between turns
+    // (laptop Archlich fight 2026-10-26: Finger of Death and upcast Fireballs as legendary actions).
+    const dearCaster = started({
+      definition: classed,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "veyl",
+          name: "Archmage Veyl",
+          tier: "cr_3",
+          boss: true,
+          points: 2,
+          attacks: [{ name: "Spark Lash", spell: true, legendary: 2 }],
+        },
+      ],
+    }).rulesetFight!;
+    const dearOnes = who(dearCaster.encounter, "veyl").actions.filter((one) => one.signature);
+    assert.deepEqual(
+      dearOnes.map((one) => [one.id.replace(/^.*?legendary_/, "legendary_"), one.signature?.cost]),
+      [["legendary_cantrip", 2]],
+      dearCaster.adjustments.join("; "),
+    );
+  }
+  // A boss named for a creature of the bestiary buys that creature's legendary actions, held to its own
+  // tier; one priced its writer's way buys each as itself, a strike its sheet has under another name as
+  // its best attack, and a skill nothing here has is said (laptop level-4 pass 2026-10-26: Varkas the
+  // Wyvern-Knight's Lance Thrust, Wing Buffet and Terrifying Glare, all priced, bought only a Cantrip).
+  {
+    const fight = (enemy: RulesetFightOpponent) =>
+      started({
+        definition: fiveE,
+        cards: [card("Brenna", fighterBuild())],
+        party: [{ id: "brenna", name: "Brenna" }],
+        enemies: [enemy],
+      }).rulesetFight!;
+    const strike = (id: string, name: string, toHit: number, dice: string) => ({
+      id,
+      name,
+      budget: "action",
+      toHit,
+      reach: 5,
+      damage: { dice, type: "piercing" },
+    });
+    const numbers = (actions: unknown[]) => ({ tier: "cr_3", health: 60, defense: 15, initiativeModifier: 1, actions });
+    const sentinel = fight({
+      id: "varn",
+      name: "Hollow Sentinel Varn",
+      tier: "cr_3",
+      boss: true,
+      points: 2,
+      proposed: numbers([strike("fist", "Fist", 5, "1d8")]),
+    });
+    const varn = who(sentinel.encounter, "varn");
+    const said = sentinel.adjustments.join("; ");
+    assert.match(
+      said,
+      /Hollow Sentinel Varn had nothing priced out of its points, so it has the legendary actions of the Hollow Sentinel\./,
+    );
+    assert.match(said, /Hollow Sentinel Varn may spend 2 points between turns on Watchful strike\./);
+    assert.equal(varn.actions.find((one) => one.label === "Watchful strike")?.signature?.cost, 1, said);
+
+    const knight = fight({
+      id: "varkas",
+      name: "Varkas the Wyvern-Knight",
+      tier: "cr_3",
+      boss: true,
+      points: 3,
+      proposed: numbers([
+        strike("serrated_lance", "Serrated Lance", 6, "2d6"),
+        strike("bite", "Vyvern Bite", 5, "1d6"),
+      ]),
+      attacks: [
+        { name: "Lance Thrust", legendary: 1 },
+        { name: "Wing Buffet", legendary: 2 },
+        { name: "Terrifying Glare", kind: "debuff", legendary: 1 },
+      ],
+    });
+    const varkas = who(knight.encounter, "varkas");
+    const knightSaid = knight.adjustments.join("; ");
+    // Held to the most a creature of CR 3 has (Alyssa 2026-10-30: balance is strict).
+    assert.match(
+      knightSaid,
+      /Varkas the Wyvern-Knight may have at most 2 legendary points at CR 3, what this ruleset's creatures of that tier have, so it was given 2, not 3\./,
+    );
+    assert.match(
+      knightSaid,
+      /Varkas the Wyvern-Knight may spend 2 points between turns on Lance Thrust, Wing Buffet\./,
+    );
+    assert.match(
+      knightSaid,
+      /Varkas the Wyvern-Knight: this ruleset has nothing called "Terrifying Glare" to buy with its points\./,
+    );
+    assert.deepEqual(
+      varkas.actions.filter((one) => one.signature).map((one) => [one.label, one.signature?.cost]),
+      [
+        ["Lance Thrust", 1],
+        ["Wing Buffet", 2],
+      ],
+    );
+    assert.doesNotMatch(knightSaid, /Cantrip/);
+
+    // Written with no numbers at all, it is built from its tier's, and buys with its points there too.
+    const grakka = fight({
+      id: "grakka",
+      name: "Big Grakka",
+      tier: "cr_3",
+      boss: true,
+      points: 2,
+      attacks: [{ name: "Cleaver" }],
+    });
+    const grakkaSaid = grakka.adjustments.join("; ");
+    assert.match(grakkaSaid, /Big Grakka was built from the numbers of /);
+    assert.match(grakkaSaid, /Big Grakka may spend 2 points between turns on Move, Cleaver\./);
+    assert.doesNotMatch(grakkaSaid, /no legendary actions/);
+
+    // A bestiary creature marked a boss, with points and no legendary actions of its own, buys its own
+    // with them (cloud re-test 2026-10-26: a bestiary ogre marked boss fought with none).
+    const ogreFight = fight({ id: "ogre", name: "Toll Ogre", creature: "Toll Sergeant", boss: true, points: 2 });
+    const ogreSaid = ogreFight.adjustments.join("; ");
+    assert.match(ogreSaid, /Toll Ogre had nothing priced out of its points, so it buys its own actions with them\./);
+    assert.ok(
+      who(ogreFight.encounter, "ogre").actions.some((one) => one.signature),
+      ogreSaid,
+    );
+    // Below the lowest tier any creature of this ruleset has legendary actions at, it has none (Alyssa
+    // 2026-10-30: a CR 1/2 elemental fought with legendary actions 3/3; balance is strict).
+    const houndFight = fight({ id: "hound", name: "Cinder Hound", tier: "cr_3", boss: true, points: 2 });
+    const houndSaid = houndFight.adjustments.join("; ");
+    assert.match(
+      houndSaid,
+      /Cinder Hound has no legendary actions at CR 1: no creature of this ruleset that low has any\./,
+    );
+    assert.doesNotMatch(houndSaid, /Cinder Hound may spend/);
+    const hound = who(houndFight.encounter, "hound");
+    assert.ok(!hound.actions.some((one) => one.signature), houndSaid);
+
+    // A bestiary boss with legendary actions of its own has them said (laptop 2026-10-26).
+    const sentinelBoss = fight({ id: "warden", name: "Hollow Sentinel", tier: "cr_3", boss: true, points: 2 });
+    assert.match(
+      sentinelBoss.adjustments.join("; "),
+      /Hollow Sentinel may spend 2 points between turns on Watchful strike\./,
+    );
+
+    // A one-word bestiary name fits a word ending in it: an Archlich borrows a Lich's (cloud re-test
+    // 2026-10-26: an "Archlich" found no lich).
+    const sentinel5e = creatureEntry(fiveE, "creatures", "hollow-sentinel");
+    const lichLike = { lich: [{ ...structuredClone(sentinel5e), id: "lich", label: "Lich" }] } as never;
+    const borrowed = rulesetUnpricedLegendary(fiveE, lichLike, {
+      name: "Archlich Vorn",
+      points: 3,
+      budget: "action",
+      casts: false,
+      actions: [],
+    });
+    assert.equal(borrowed.from, "Lich");
+    // A short name does not: "Rat" is no "Pirat".
+    const ratLike = { rat: [{ ...structuredClone(sentinel5e), id: "rat", label: "Rat" }] } as never;
+    assert.equal(
+      rulesetUnpricedLegendary(fiveE, ratLike, {
+        name: "Pirat",
+        points: 3,
+        budget: "action",
+        casts: false,
+        actions: [],
+      }).from,
+      undefined,
+    );
+
+    // A breath that waits on its recharge is never bought again as a second copy with its own (laptop
+    // 2026-10-26: a dragon's legendary Fire Breath ignored the breath's recharge).
+    const breather = rulesetUnpricedLegendary(
+      fiveE,
+      {},
+      {
+        name: "Ember Wyrm",
+        points: 3,
+        budget: "action",
+        casts: false,
+        actions: [
+          { id: "bite", name: "Bite", budget: "action", toHit: 5, damage: { dice: "2d10", type: "piercing" } },
+          { id: "claw", name: "Claw", budget: "action", toHit: 5, damage: { dice: "1d6", type: "slashing" } },
+          {
+            id: "fire_breath",
+            name: "Fire Breath",
+            budget: "action",
+            damage: { dice: "12d6", type: "fire" },
+            area: { shape: "cone", size: 30 },
+            recharge: { dice: { count: 1, sides: 6 }, from: 5 },
+          },
+        ] as never,
+      },
+    );
+    assert.deepEqual(
+      breather.actions.map((one) => one.name),
+      ["Move", "Claw", "Bite"],
+    );
+
+    // What points buy is held for any invented opponent, however it was built, and a burst around it
+    // counts as reaching two (laptop v3b 2026-10-26: an Archlich from a proposed block, brought down to
+    // CR 3, spent a full Disrupt Life on every hero five times).
+    const rot = structuredClone(hound);
+    const base = rot.actions.find((one) => one.damage && !one.signature)!;
+    rot.signature = { points: 3, max: 3 };
+    rot.actions = [
+      base,
+      {
+        ...structuredClone(base),
+        id: "legendary_disrupt_life",
+        label: "Disrupt Life",
+        signature: { cost: 3 },
+        around: { size: 4 },
+        damage: { ...structuredClone(base.damage!), count: 6, sides: 6, flat: 0 },
+      } as never,
+    ];
+    const cr3 = fiveE.combat!.threat!.tiers.find((one) => one.id === "cr_3")!;
+    const rotSaid = holdRulesetLegendary(fiveE, rot, cr3).join("; ");
+    assert.match(rotSaid, /Disrupt Life(, bought with its points, was scaled down| went from what its points buy)/);
+    const disrupt = rot.actions.find((one) => one.id === "legendary_disrupt_life");
+    if (disrupt) assert.ok(rulesetAverageAmount(disrupt.damage!) * 2 <= cr3.damagePerRound[1], rotSaid);
+  }
+  // What reaches more than one is held as if it hit two (laptop pass 6 2026-10-26: a wizard 11
+  // brought down to CR 8 kept a Chain Lightning of 45 on each of four heroes, under a cap read for one).
+  {
+    const burst = structuredClone(spellbook);
+    burst
+      .catalogs!.find((catalog) => catalog.id === "spells")!
+      .entries!.push({
+        id: "cinder-burst",
+        label: "Cinder Burst",
+        filters: { classes: ["Sorcerer"] },
+        rows: [{ list: "spells", values: { name: "Cinder Burst", level: 1, prepared: false } }],
+        mechanics: {
+          kind: "attack",
+          area: { shape: "burst", size: 10 },
+          range: 60,
+          amount: { dice: "2d6" },
+          damageType: "fire",
+          save: { save: "dex_save", onSuccess: "half" },
+          cost: [{ pool: "slots_1", amount: 1 }],
+        },
+      } as never);
+    const fight = started({
+      definition: burst,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [{ id: "pyro", name: "Pyromancer", tier: "cr_2", proposed: caster(["Cinder Burst"]) }],
+    }).rulesetFight!;
+    const spell = who(fight.encounter, "pyro").actions.find((one) => one.label === "Cinder Burst")!;
+    assert.ok(
+      spell.damage!.count * ((spell.damage!.sides + 1) / 2) + spell.damage!.flat <= 4.5,
+      JSON.stringify(spell.damage),
+    );
+    assert.ok(
+      fight.adjustments.some((line) =>
+        /Pyromancer: The damage was scaled down until the best round averages/.test(line),
+      ),
+      fight.adjustments.join("; "),
+    );
+  }
+  // A spell whose damage alone is more than its tier deals in a round goes (cloud re-test 2026-10-26: a
+  // boss brought down to CR 4 was made a 13th level caster to pay for Finger of Death, and kept it).
+  {
+    const small = started({
+      definition: spellbook,
+      cards: [card("Brenna", fighterBuild())],
+      party: [{ id: "brenna", name: "Brenna" }],
+      enemies: [
+        {
+          id: "adept",
+          name: "Hedge Adept",
+          tier: "cr_1_4",
+          proposed: caster(["Frost Mote", "Spark Lash", "Kindle Heart"], { tier: "cr_1_4" }),
+        },
+      ],
+    }).rulesetFight!;
+    assert.deepEqual(spellsOf(small, "adept"), ["Frost Mote", "Kindle Heart"], small.adjustments.join("; "));
+    assert.ok(
+      small.adjustments.some((line) =>
+        /Hedge Adept: Spark Lash \(7\) went: more damage on its own than CR 1\/4 deals in a round \(5 at most\)\./.test(
+          line,
+        ),
+      ),
+      small.adjustments.join("; "),
+    );
+  }
+  // A legendary one (a boss with Legendary Resistance) keeps all it can cast; uncastable still goes.
+  const legend = started({
+    definition: spellbook,
+    cards: [card("Brenna", fighterBuild())],
+    party: [{ id: "brenna", name: "Brenna" }],
+    enemies: [
+      { id: "arch", name: "Archmage", tier: "cr_2", boss: true, proposed: caster(many, { legendaryResistance: 3 }) },
+    ],
+  }).rulesetFight!;
+  assert.equal(spellsOf(legend, "arch").length, 6);
+  assert.ok(!legend.adjustments.some((line) => /an invented caster keeps/.test(line)));
+}
+
 const previousDataDir = process.env.DATA_DIR;
 process.env.DATA_DIR = dataDir;
 try {

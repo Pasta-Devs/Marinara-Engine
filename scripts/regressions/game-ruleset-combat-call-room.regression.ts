@@ -13,6 +13,7 @@ import {
   applyRulesetCombatChoice,
   createRulesetEncounter,
   parseRulesetDefinition,
+  rulesetCallCreatures,
   rulesetFootprint,
   rulesetSheetBuildSchema,
   type RulesetCatalogEntriesById,
@@ -148,6 +149,52 @@ const overlaps = (state: RulesetEncounterState) => {
   for (const horse of horses) {
     assert.ok(Math.max(Math.abs(horse.x! - 5), Math.abs(horse.y! - 3)) <= 1, `${horse.id} beside the druid`);
   }
+}
+
+// ── Only in its area: every one where all of it fits inside (Ruleset 0.435 proof
+//    2026-10-25: of Giant Insect's three Large spiders, only two came) ──
+{
+  const definition = definitionWith("large");
+  const bestiary: RulesetCatalogEntriesById = {
+    creatures: definition.catalogs!.find((catalog) => catalog.holds === "creatures")!.entries!,
+  };
+  const state = createRulesetEncounter({
+    definition,
+    seed: 1,
+    roller: roll,
+    bestiary,
+    combatants: [
+      { id: "druid", name: "Druid", side: "enemy", creature: { catalogId: "creatures", entryId: "druid" } },
+      hero("ogre"),
+    ],
+    board: {
+      grid: {
+        width: 30,
+        height: 14,
+        tiles: Array.from({ length: 14 }, () => Array.from({ length: 30 }, () => "plains")),
+      },
+      placements: { druid: { x: 6, y: 6 }, ogre: { x: 25, y: 12 } },
+    },
+  });
+  const druid = state.combatants.find((one) => one.id === "druid")!;
+  const conjure = druid.actions.find((action) => action.id === "conjure")!;
+  const area = Array.from({ length: 14 }, (_, y) => Array.from({ length: 30 }, (_, x) => ({ x, y })))
+    .flat()
+    .filter((cell) => Math.max(Math.abs(cell.x - 6), Math.abs(cell.y - 6)) <= 6)
+    // Nearest the ogre first, as a call within range orders them.
+    .sort(
+      (a, b) => Math.max(Math.abs(a.x - 25), Math.abs(a.y - 12)) - Math.max(Math.abs(b.x - 25), Math.abs(b.y - 12)),
+    );
+  const came = rulesetCallCreatures(definition, state, druid, conjure, 3, roll, area, true);
+  assert.equal(came.length, 3, "all three came");
+  const spiders = state.combatants.filter((one) => came.includes(one.id));
+  for (const one of spiders) {
+    assert.ok(
+      area.some((cell) => cell.x === one.x && cell.y === one.y),
+      `${one.id} in the area`,
+    );
+  }
+  assert.deepEqual(overlaps(state), []);
 }
 
 console.log("Called creatures are set down where all of each one fits, clear of everybody already in the fight.");

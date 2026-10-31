@@ -449,6 +449,8 @@ try {
     give(give(summoned, "charmed"), "stupor");
     const strike = rulesetCombatOptions(definition, summoned, "corwin").find((one) => one.id.startsWith("summon:"));
     assert.ok(strike);
+    // Its strike button says what it does, as the spell's own attack would.
+    assert.ok((strike.forecast?.averageDamage ?? 0) > 0, JSON.stringify(strike.forecast));
     const struck = act(JSON.parse(JSON.stringify(summoned)), {
       actorId: "corwin",
       optionId: strike.id,
@@ -611,8 +613,18 @@ try {
       refused(withKeys({ endsWhen: value }), /endsWhen|unique/);
     }
     refused(
-      withKeys({ endsWhen: ["damaged", "harmed-by-source-side", "attacked", "ally-harmed-in-sight", "damaged"] }),
-      /endsWhen: Too big: expected array to have <=4 items/,
+      withKeys({
+        endsWhen: [
+          "damaged",
+          "harmed-by-source-side",
+          "attacked",
+          "ally-harmed-in-sight",
+          "healed",
+          "healed-by-magic",
+          "damaged",
+        ],
+      }),
+      /endsWhen: Too big: expected array to have <=6 items/,
     );
     refused(withKeys({ shakeOff: {} }), /shakeOff\.budget: Invalid input: expected string, received undefined/);
     for (const value of [false, "true", 1, null]) refused(withKeys({ saveWhenDamaged: value }), /saveWhenDamaged/);
@@ -641,11 +653,15 @@ try {
       "harmed-by-source-side",
       "attacked",
       "ally-harmed-in-sight",
+      "healed",
+      "healed-by-magic",
     ]);
     assert.equal(condition.endsWhen.minItems, 1);
-    assert.equal(condition.endsWhen.maxItems, 4);
+    assert.equal(condition.endsWhen.maxItems, 6);
     assert.equal(condition.endsWhen.uniqueItems, true);
-    assert.equal(condition.saveWhenDamaged.const, true);
+    // True, or the lean the save is rolled with as it is damaged (1.712).
+    assert.equal(condition.saveWhenDamaged.anyOf[0].const, true);
+    assert.deepEqual(condition.saveWhenDamaged.anyOf[1].required, ["lean"]);
     assert.deepEqual(condition.shakeOff.required, ["budget"]);
     assert.equal(condition.shakeOff.additionalProperties, false);
     assert.equal(condition.shakeOff.properties.reach.exclusiveMinimum, 0);

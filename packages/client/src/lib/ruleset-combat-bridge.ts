@@ -72,11 +72,15 @@ export function rulesetCombatRecapLines(definition: RulesetDefinition, summary: 
       ? (definition.sheet.live.tracks.find((track) => track.id === health.track)?.label ?? health.track)
       : (definition.sheet.live.pools.find((pool) => pool.id === health.pool)?.label ?? health.pool);
   const conditionLabel = new Map(definition.sheet.live.conditions.map((entry) => [entry.id, entry.label]));
-  // Stable outranks dying, because a member who has stopped slipping is not still on the clock, and
-  // both outrank plain "down": the ruleset's own dying rule is what put them there.
+  // Dead outranks everything. Stable outranks dying, because a member who has stopped slipping is not
+  // still on the clock, and both outrank plain "down": the ruleset's own dying rule is what put them there.
   const standing = (member: RulesetEncounterSummary["party"][number]) =>
-    member.stable ? "stable" : member.dying ? "dying" : member.down ? "down" : "";
-  const party = summary.party.map((member) => {
+    member.dead ? "dead" : member.stable ? "stable" : member.dying ? "dying" : member.down ? "down" : "";
+  // What was called into the fight is no member of the party (laptop 2026-10-25: Conjure Animals'
+  // horses joined the story's party, still Squeezing): said apart, for the story to end.
+  const members = summary.party.filter((member) => !member.called);
+  const called = summary.party.filter((member) => member.called && member.health > 0 && !member.left);
+  const party = members.map((member) => {
     const notes = [
       member.left ? "left the fight" : "",
       standing(member),
@@ -87,6 +91,10 @@ export function rulesetCombatRecapLines(definition: RulesetDefinition, summary: 
     return `${member.name}: ${member.health}/${member.maxHealth} ${healthLabel}${suffix}`;
   });
   const lines = [`Party on ${definition.name} rules: ${party.join("; ")}`];
+  if (called.length > 0)
+    lines.push(
+      `Called into the fight, not party members: ${called.map((member) => member.name).join(", ")}. They go when what called them ends; do not add them to the party.`,
+    );
   const alive = summary.enemies.filter((enemy) => !enemy.defeated);
   if (alive.length > 0) {
     const left = alive.map((enemy) => `${enemy.name} (${enemy.health}/${enemy.maxHealth})`).join(", ");
@@ -96,6 +104,16 @@ export function rulesetCombatRecapLines(definition: RulesetDefinition, summary: 
   const gone = summary.enemies.filter((enemy) => enemy.left);
   if (gone.length > 0) {
     lines.push(`Got away: ${gone.map((enemy) => `${enemy.name} (${enemy.health}/${enemy.maxHealth})`).join(", ")}`);
+  }
+  // Beaten but alive (1.720): knocked out, unconscious and stable, for the story to deal with.
+  const knocked = summary.enemies.filter((enemy) => enemy.knockedOut);
+  if (knocked.length > 0) {
+    lines.push(`Knocked out, alive: ${knocked.map((enemy) => enemy.name).join(", ")}`);
+  }
+  // Gave up (1.762): alive and the party's to deal with, captives for the story.
+  const yielded = summary.enemies.filter((enemy) => enemy.surrendered);
+  if (yielded.length > 0) {
+    lines.push(`Surrendered to the party, alive: ${yielded.map((enemy) => enemy.name).join(", ")}`);
   }
   // What the fight broke (1.316): the story goes on with it broken.
   if (summary.broken?.length) lines.push(`Broken: ${summary.broken.join("; ")}`);
@@ -111,7 +129,7 @@ export function rulesetCombatRecapLines(definition: RulesetDefinition, summary: 
   const dyingCondition = combat?.dying?.condition;
   const lingeringOf = (member: RulesetEncounterSummary["party"][number]) =>
     member.conditions.filter((id) => id !== dyingCondition);
-  const lingering = summary.party.filter((member) => lingeringOf(member).length > 0);
+  const lingering = members.filter((member) => lingeringOf(member).length > 0);
   if (lingering.length > 0) {
     const who = lingering
       .map(

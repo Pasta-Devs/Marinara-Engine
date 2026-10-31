@@ -31,15 +31,22 @@ export interface RulesetBudgetMark {
 /** How each budget of the ruleset is marked: its own letters and tone when the file gives them
  *  (1.375), else the first letter of its label and the tone of its place, which for 5e's Action,
  *  Bonus action and Reaction is A, B and R in rose, amber and violet. */
-export function rulesetBudgetMarks(definition: RulesetDefinition | undefined): RulesetBudgetMark[] {
+export function rulesetBudgetMarks(
+  definition: RulesetDefinition | undefined,
+  /** The ruleset's own words in the player's language (1.806): its labels, and the letter read off one. */
+  text: (english: string) => string = (english) => english,
+): RulesetBudgetMark[] {
   const budgets = definition?.combat?.economy.budgets ?? [];
-  return budgets.map((budget, index) => ({
-    id: budget.id,
-    label: budget.label,
-    short: (budget.short ?? Array.from(budget.label.trim())[0] ?? "?").toLocaleUpperCase(),
-    fill: TONE_FILL[budget.tone ?? RULESET_BUDGET_TONES[index % RULESET_BUDGET_TONES.length]!],
-    count: budget.count,
-  }));
+  return budgets.map((budget, index) => {
+    const label = text(budget.label);
+    return {
+      id: budget.id,
+      label,
+      short: (budget.short ? text(budget.short) : (Array.from(label.trim())[0] ?? "?")).toLocaleUpperCase(),
+      fill: TONE_FILL[budget.tone ?? RULESET_BUDGET_TONES[index % RULESET_BUDGET_TONES.length]!],
+      count: budget.count,
+    };
+  });
 }
 
 export function RulesetBudgetPip({

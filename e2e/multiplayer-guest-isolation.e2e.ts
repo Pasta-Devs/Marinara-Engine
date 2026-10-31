@@ -222,6 +222,15 @@ test("production guest renders hostile data as inert text with no capabilities o
   expect(await page.evaluate(() => (window as any).nativeCalls ?? 0)).toBe(0);
 });
 
+test("closing the tab is no fault, so the player keeps their seat", async ({ page }) => {
+  // Room playtest 2026-10-27: the frame's own unload read as a protocol fault, and the guest left the room.
+  await openGuest(page);
+  const guestFrame = page.frames().find((frame) => frame.url().endsWith("/api/multiplayer/guest-view"))!;
+  await guestFrame.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide")));
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(await page.evaluate(() => (window as any).proof.errors)).toBe(0);
+});
+
 test("actions stay typed and rejected sends preserve the draft", async ({ page }) => {
   const guest = await openGuest(page);
   await page.evaluate(() => {
@@ -308,6 +317,8 @@ test("Game HUD stays inert and choices only extend the player's draft", async ({
             values: [{ label: "Health", value: '<iframe src="/api/secret">' }],
           },
         ],
+        ownRolls: [],
+        bag: [],
       },
     },
   };

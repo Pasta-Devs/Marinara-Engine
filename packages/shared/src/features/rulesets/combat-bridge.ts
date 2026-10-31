@@ -21,7 +21,7 @@ import {
   type RulesetSheetBuild,
 } from "../../schemas/ruleset.schema.js";
 import { normalizeCharacterLookupName } from "../../utils/character-lookup-name.js";
-import { readRulesetSheetEnvelope } from "./sheet-math.js";
+import { readRulesetSheetEnvelope, type RulesetSheetItem } from "./sheet-math.js";
 import {
   applyRulesetSheetOp,
   readRulesetLive,
@@ -94,6 +94,20 @@ export function rulesetSheetBuildsByName(
   return builds;
 }
 
+/** The party cards that are a bestiary creature rather than a sheet (a copy of one, 5e's
+ *  Simulacrum), keyed by normalized name: the creature each fights as. */
+export function rulesetCardCreaturesByName(cards: unknown): Map<string, { catalogId: string; entryId: string }> {
+  const creatures = new Map<string, { catalogId: string; entryId: string }>();
+  for (const card of Array.isArray(cards) ? (cards as Array<Record<string, unknown>>) : []) {
+    const name = typeof card?.name === "string" ? card.name.trim() : "";
+    const ref = card?.rulesetCreature as { catalogId?: unknown; entryId?: unknown } | undefined;
+    if (!name || !ref || typeof ref.catalogId !== "string" || typeof ref.entryId !== "string") continue;
+    const key = normalizeCharacterLookupName(name);
+    if (!creatures.has(key)) creatures.set(key, { catalogId: ref.catalogId, entryId: ref.entryId });
+  }
+  return creatures;
+}
+
 function own(row: Record<string, unknown>, key: string): unknown {
   return Object.prototype.hasOwnProperty.call(row, key) ? row[key] : undefined;
 }
@@ -162,6 +176,20 @@ export function rulesetHealthWords(definition: RulesetDefinition): string[] {
   return label ? [label] : [];
 }
 
+/** Whether a sheet is dead by the ruleset's dying saves: every failure it allows marked. False for a
+ *  ruleset with none. */
+export function rulesetSheetDead(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  storedLive: unknown,
+  items?: ReadonlyArray<RulesetSheetItem>,
+): boolean {
+  const failures = definition.combat?.dying?.failures;
+  if (!failures) return false;
+  const track = readRulesetLive(definition, build, storedLive, items).tracks.find((entry) => entry.id === failures);
+  return !!track && track.max > 0 && track.value >= track.max;
+}
+
 /** A sheet's health as it stands, read from the pool or track the ruleset's `battle` block names, or
  *  undefined for a ruleset with none. What a party health widget is kept in step with. */
 export function rulesetSheetHealth(
@@ -173,6 +201,39 @@ export function rulesetSheetHealth(
   if (!battle) return undefined;
   const health = liveHealth(readRulesetLive(definition, build, storedLive), battle.health);
   return health ? { value: health.value, max: health.max } : undefined;
+}
+
+/** What a sheet has left to spend in a fight, by the ruleset's `battle` block: its energy pool (with that
+ *  pool's label) and its slots taken together, each as value out of max, or undefined for one it has none
+ *  of. What tells a Game Master that a party has spent itself (Alyssa 2026-10-26). */
+export function rulesetSheetSpendables(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  storedLive: unknown,
+): {
+  energy?: { value: number; max: number; label: string };
+  slots?: { value: number; max: number };
+} {
+  const battle = definition.battle;
+  if (!battle) return {};
+  const live = readRulesetLive(definition, build, storedLive);
+  const out: ReturnType<typeof rulesetSheetSpendables> = {};
+  const energyPool = battle.energy?.pool;
+  const energy = energyPool ? livePool(live, energyPool) : undefined;
+  if (energyPool && energy && energy.max > 0) {
+    const label = definition.sheet.live?.pools?.find((pool) => pool.id === energyPool)?.label ?? energyPool;
+    out.energy = { value: energy.value, max: energy.max, label };
+  }
+  let value = 0;
+  let max = 0;
+  for (const slot of battle.slots ?? []) {
+    const pool = livePool(live, slot.pool);
+    if (!pool || pool.max <= 0) continue;
+    value += pool.value;
+    max += pool.max;
+  }
+  if (max > 0) out.slots = { value, max };
+  return out;
 }
 
 /**

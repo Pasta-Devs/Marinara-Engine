@@ -231,7 +231,7 @@ export function roomRosterPrompt(): string | null {
       .flatMap((participant) => [participant.persona.name, ...(participant.character ? [participant.character] : [])])
       .join(
         ", ",
-      )}. Never write a line of dialogue labelled with one of these names, nor decide what they do or think: say only what their own player wrote they do, and end there.`,
+      )}. Never write a line of dialogue labelled with one of these names, nor decide what they do or think: say only what their own player wrote they do, and end there. They stay in the party while their people play: never write a party_change for one of them. After a fight too, where a [combat_result] lists them with the party, tell only how they stand, never a line or a deed of theirs.`,
     "[End shared room human participants]",
     "[Approved AI roles]",
     "AI characters speak and act as their own characters. An approved GM narrates the shared scene, manages the situation and adjudicates declared actions in this mode, without taking over human personas. Follow the approved role of the current speaker.",

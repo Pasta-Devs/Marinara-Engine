@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { BUILT_IN_GAME_COMBAT_STYLES, GAME_COMBAT_STYLE_ID_PATTERN } from "../types/game.js";
 import { GAME_INVENTORY_MAX_NEW_STACKS, GAME_INVENTORY_MAX_QUANTITY } from "../utils/game-inventory-stacks.js";
+import { COMBAT_MINDS, COMBAT_ROLES, COMBAT_SHIFT_TRIGGERS, COMBAT_TEMPERAMENTS } from "../features/combat-minds.js";
 
 // Game Mode rulesets. A ruleset is validated DATA: it parameterises one of a closed set of
 // Engine-owned resolution kinds and declares a character sheet from a closed set of primitives.
@@ -232,6 +233,9 @@ export const rulesetValueRefSchema = z
   });
 
 export type RulesetValueRef = z.infer<typeof rulesetValueRefSchema>;
+/** How many days an applied condition lasts outside a fight: a number off the sheet, until midnight
+ *  (1.751), or rolled (1.756), resting days counting `restingCounts` each. */
+export type RulesetLastsDays = RulesetValueRef | "midnight" | { dice: string; restingCounts?: number };
 
 /** `[[threshold, value], …]`, ascending: the value of the highest threshold at or below the input.
  *  An input below the first threshold reads as the first value. */
@@ -258,8 +262,9 @@ const stepTableSchema = z
 const roundingSchema = z.enum(["down", "up", "nearest"]);
 
 /** How many conditions a sheet declares, a rest clears and a fight describes: 80 until Capability API
- *  1.188, which 5e's own list outgrew, and 160 until 1.269, which its monsters' traits outgrew. */
-export const RULESET_CONDITIONS_MAX = 320;
+ *  1.188, which 5e's own list outgrew, 160 until 1.269, which its monsters' traits outgrew, and 320
+ *  until 1.552, which its magic items outgrew. */
+export const RULESET_CONDITIONS_MAX = 640;
 
 /** How long one creature trait's words may run: 400 until Capability API 1.378, which 5e's Vampire
  *  Weaknesses and Hag Coven outgrew. */
@@ -934,6 +939,13 @@ const textFieldShape = {
   type: z.literal("text"),
   maxLength: z.number().int().min(1).max(500),
   default: z.string().max(500).optional(),
+  /** Words offered to pick (1.796), each added as a chip, the field still typed in freely: a
+   *  ranger's favored enemies out of the creature types. */
+  suggestions: z.array(z.string().trim().min(1).max(80)).min(1).max(40).optional(),
+  /** How many of them its holder picks (1.797), read off the sheet: a ranger's favored enemies, one
+   *  more at 6th and 14th level. The editor says "choose N" and stops offering more once N are in;
+   *  what is typed is never refused. */
+  pick: rulesetValueRefSchema.optional(),
 };
 const longtextFieldShape = {
   type: z.literal("longtext"),
@@ -1016,15 +1028,21 @@ const abilitySchema = z
      *  `min` and `max`, and shown read-only. A Blades attribute is its marked actions; GURPS
      *  Perception is IQ plus what was bought. No derived value, cap or proficiency may read it. */
     value: z.array(rulesetValueRefSchema).min(1).max(8).optional(),
+    /** Added to a check made with this ability alone, outside any skill (Capability API 1.419): 5e's
+     *  Jack of All Trades on a raw Strength check. Like a cap, it reads no skill or save. */
+    checkAdd: rulesetValueRefSchema.optional(),
   })
   .strict();
 
 /** What a check on a skill or save does when the character has no training in it (its tier is the
  *  first one): roll as usual, roll one step harder (a pool's per-die target goes up one), not be
- *  rolled at all, or add `by` to its number (dice on a pool, a flat amount on a sum). */
+ *  rolled at all, or add `by` to its number (dice on a pool, a flat amount on a sum), or add a value
+ *  off the sheet, `add` (Capability API 1.419): 5e's Jack of All Trades, half the proficiency bonus
+ *  from 2nd bard level. Like a cap, it reads no skill or save. */
 const untrainedSchema = z.union([
   z.enum(["normal", "harder", "refuse"]),
   z.object({ by: z.number().int().min(-20).max(20) }).strict(),
+  z.object({ add: rulesetValueRefSchema }).strict(),
 ]);
 export type RulesetUntrained = z.infer<typeof untrainedSchema>;
 
@@ -1052,9 +1070,13 @@ const derivedBase = {
   /** A bonus, shown with its sign on the sheet (Capability API 1.378): a spell attack of "+7". */
   signed: z.literal(true).optional(),
 };
-/** The most derived values a sheet may have: 400 since Capability API 1.111 (240 since 1.88,
- *  120 since 1.84), which a package exceeding the corresponding older limit declares. */
-export const RULESET_DERIVED_MAX = 400;
+/** The most derived values a sheet may have: 800 since Capability API 1.729, which 5e's armor
+ *  training outgrew (400 since 1.111, 240 since 1.88, 120 since 1.84), which a package exceeding the
+ *  corresponding older limit declares. */
+export const RULESET_DERIVED_MAX = 800;
+export const RULESET_DERIVED_MAX_BEFORE_1676 = 400;
+/** An older Engine refused more than 8 senses (`combat.senses`); 1.743 takes 12. */
+export const RULESET_COMBAT_SENSES_MAX_BEFORE_1690 = 8;
 export const RULESET_DERIVED_MAX_BEFORE_1106 = 240;
 export const RULESET_DERIVED_MAX_BEFORE_183 = 120;
 export const RULESET_DERIVED_MAX_BEFORE_179 = 60;
@@ -1099,6 +1121,25 @@ export const rulesetDerivedSchema = z.discriminatedUnion("op", [
       default: z.number().finite().default(0),
     })
     .strict(),
+  /** A number for the words a text field holds (Capability API 1.690): each key a word or phrase,
+   *  read as whole words ignoring case, the first the field names giving the number, and `default`
+   *  when it names none. 5e's alignment written freely, "Lawful Good" reading `good`. */
+  z
+    .object({
+      ...derivedBase,
+      op: z.literal("wordsTable"),
+      from: z.object({ field: sheetId }).strict(),
+      table: z
+        .record(z.string(), z.number().finite())
+        .refine((table) => Object.keys(table).length >= 1 && Object.keys(table).length <= 40, {
+          message: "A words table names from 1 to 40 words",
+        })
+        .refine((table) => Object.keys(table).every((key) => key.trim().length >= 1 && key.length <= 40), {
+          message: "A words table's words are 1 to 40 characters",
+        }),
+      default: z.number().finite().default(0),
+    })
+    .strict(),
 ]);
 export const RULESET_DERIVED_OPS = Object.freeze([
   "sum",
@@ -1108,6 +1149,7 @@ export const RULESET_DERIVED_OPS = Object.freeze([
   "min",
   "max",
   "enumTable",
+  "wordsTable",
 ] as const);
 
 /** What applying something does to a pool check's own dice (Capability API 1.156): dice added to
@@ -1204,7 +1246,20 @@ const listSchema = z
     /** Makes every row a live pool (a named class resource with its own maximum). Rows are keyed
      *  by `nameColumn`, so renaming a row starts its pool over. */
     pools: z
-      .object({ nameColumn: sheetId, maxColumn: sheetId, rechargeColumn: sheetId.optional() })
+      .object({
+        nameColumn: sheetId,
+        maxColumn: sheetId,
+        rechargeColumn: sheetId.optional(),
+        /** Recharge values that fill a spent row again once this many days of game time have
+         *  passed (Capability API 1.445), counted by the sheet's `pass` command: 5e's Divine
+         *  Intervention, `{"week": 7}`. */
+        rechargeDays: z.record(sheetId, z.number().int().min(1).max(3650)).optional(),
+        /** A yes-or-no or number column (Capability API 1.801): a row with it set (true, or above 0)
+         *  is a tally rather than something to spend, its pool read as how many times it has been
+         *  used since its recharge, its maximum only how far it may count. 5e's Relentless Rage,
+         *  whose save a `tally` raises each time it works. */
+        tallyColumn: sheetId.optional(),
+      })
       .strict()
       .optional(),
     /** How a player reads the list (Capability API 1.378): the sheet's tab it shows on, the number
@@ -1221,6 +1276,17 @@ const listSchema = z
         mark: sheetId.optional(),
       })
       .strict()
+      .optional(),
+    /** A yes-or-no column (Capability API 1.807): a row with it ticked may be used outside a fight as
+     *  a ritual, the use tag's `ritual="yes"`, paying none of its pools (its slots or its counters).
+     *  What else a ritual takes, such as its longer casting time, is the story's. 5e's ritual spells. */
+    ritual: sheetId.optional(),
+    /** Who may use its rows as rituals (Capability API 1.809): a sheet holding a row from one of these
+     *  entries, in any list. Left out, anybody whose row is ticked. 5e's Ritual Casting features. */
+    ritualNeeds: z
+      .array(z.lazy(() => catalogEntryRef))
+      .min(1)
+      .max(20)
       .optional(),
   })
   .strict();
@@ -1426,6 +1492,10 @@ const liveSchema = z
  * - `routeLive`: one live pool's or track's value to the one of `cases` the migrated sheet shows (a
  *   maximum above 0), else to `else`. Live state has no version, so this runs on every read: the old
  *   key always goes, and the value moves only while the new key is not there yet.
+ * - `setColumn` (Capability API 1.794): one column of a list's rows set to `to`, on every row whose
+ *   `where` columns each hold one of the values listed (text ignoring case and spaces at its ends),
+ *   as the attack rows a weapon's new ability choice now reads. The one step that overwrites: what
+ *   it sets is a fix to rows made before the ruleset knew better.
  */
 const sheetMigrationWordsSchema = z.array(z.string().trim().min(1).max(40)).min(1).max(8);
 const sheetMigrationStepSchema = z.union([
@@ -1450,6 +1520,28 @@ const sheetMigrationStepSchema = z.union([
       else: sheetId,
     })
     .strict(),
+  z
+    .object({
+      setColumn: z
+        .object({
+          list: sheetId,
+          where: z
+            .record(
+              sheetId,
+              z
+                .array(z.union([z.number().finite(), z.string().trim().min(1).max(200)]))
+                .min(1)
+                .max(32),
+            )
+            .refine((where) => Object.keys(where).length >= 1 && Object.keys(where).length <= 8, {
+              message: "Name between 1 and 8 columns to match rows by",
+            }),
+          column: sheetId,
+          to: z.union([z.number().finite(), z.string().max(200), z.boolean()]),
+        })
+        .strict(),
+    })
+    .strict(),
 ]);
 const sheetMigrationSchema = z
   .object({
@@ -1462,8 +1554,12 @@ const sheetMigrationSchema = z
 // ── The guided builder (Capability API 1.86) ──
 
 /** How many steps one guided builder may have. */
-export const RULESET_BUILDER_STEPS_MAX = 24;
+export const RULESET_BUILDER_STEPS_MAX = 32;
+export const RULESET_BUILDER_STEPS_MAX_BEFORE_1715 = 24;
 export const RULESET_BUILDER_STEPS_MAX_BEFORE_1107 = 16;
+/** How many entries one catalog step may ask for or take (60 from Capability API 1.768, 40 before). */
+export const RULESET_BUILDER_CATALOG_PICKS_MAX = 60;
+export const RULESET_BUILDER_CATALOG_PICKS_MAX_BEFORE_1715 = 40;
 
 /** Point buy: every score a player may buy and what it costs, lowest score first. The lowest is
  *  where every score starts, and the highest the most one score may be bought up to. */
@@ -1489,15 +1585,24 @@ const builderPointBuySchema = z
   })
   .strict();
 
-/** A catalog step's limit by a sheet value (1.87). */
+/** A catalog step's limit by a sheet value (1.87), or by one read for each entry (1.766). */
 export interface RulesetBuilderUpTo {
   filter: string;
   value: RulesetValueRef;
+  per?: { filter: string; prefix: string };
 }
 // Typed by hand: inferred, the value ref inside it makes every type holding a builder step too long for
 // the compiler to write out.
 const rulesetBuilderUpToSchema: z.ZodType<RulesetBuilderUpTo, unknown> = z
-  .object({ filter: sheetId, value: rulesetValueRefSchema })
+  .object({
+    filter: sheetId,
+    value: rulesetValueRefSchema,
+    /** Read for each entry instead (Capability API 1.766): the sheet's field or derived value named
+     *  `prefix` and one of the entry's own `filter` values, the highest of those the sheet has, and
+     *  `value` for an entry naming none. 5e's class features up to that class's own level,
+     *  `{ "filter": "class_id", "prefix": "level_" }`. */
+    per: z.object({ filter: sheetId, prefix: sheetId }).strict().optional(),
+  })
   .strict();
 
 /** Counted choices and catalog quotas (Capability API 1.151). */
@@ -1817,8 +1922,8 @@ const builderStepSchema = z.discriminatedUnion("kind", [
       /** A catalog of rows whose entries are offered as cards. */
       catalog: sheetId,
       /** How many entries the step asks for, and at most takes. */
-      min: z.number().int().min(0).max(40).default(1),
-      max: z.number().int().min(1).max(40).default(1),
+      min: z.number().int().min(0).max(RULESET_BUILDER_CATALOG_PICKS_MAX).default(1),
+      max: z.number().int().min(1).max(RULESET_BUILDER_CATALOG_PICKS_MAX).default(1),
       /** A text or enum field the picked entries' labels are written to (a race, a class). */
       field: sheetId.optional(),
       /** Values written onto every row this step adds (1.108). Later edits remain the player's.
@@ -1829,8 +1934,21 @@ const builderStepSchema = z.discriminatedUnion("kind", [
           message: "A step stamps 1 to 4 columns",
         })
         .optional(),
-      /** Fixed values of the catalog's filters: only entries that match are offered. */
-      filters: z.record(z.string(), z.union([z.number().finite(), z.string().max(80)])).optional(),
+      /** Fixed values of the catalog's filters: only entries that match are offered. A list (Capability
+       *  API 1.731) matches any of its values: a bard's Magical Secrets, `{"kind": ["spell", "cantrip"]}`. */
+      filters: z
+        .record(
+          z.string(),
+          z.union([
+            z.number().finite(),
+            z.string().max(80),
+            z
+              .array(z.union([z.number().finite(), z.string().max(80)]))
+              .min(1)
+              .max(12),
+          ]),
+        )
+        .optional(),
       /** Only entries whose `filter` names an entry picked at an earlier step (a subrace by its race). */
       within: z.object({ step: sheetId, filter: sheetId }).strict().optional(),
       /** Only entries whose number `filter` is at most `value`, read off the sheet as it stands (features
@@ -1847,6 +1965,11 @@ const builderStepSchema = z.discriminatedUnion("kind", [
       /** Entries' `offeredWhen` and the step's `upTo` read the sheet as the steps before `before`
        *  make it (Capability API 1.160): multiclass prerequisites on the scores before this level. */
       reads: z.object({ before: sheetId }).strict().optional(),
+      /** Every entry it offers is taken without asking (Capability API 1.766): the class features a
+       *  character's levels give. Of each `exclusive` group it offers, the player picks one (an ability
+       *  score improvement, or a feat in its place), and a group not yet picked is what the step waits
+       *  on. `min`, `max` and `countFrom` say nothing for it. */
+      takesAll: z.literal(true).optional(),
     })
     .strict(),
   z
@@ -1856,6 +1979,9 @@ const builderStepSchema = z.discriminatedUnion("kind", [
       fields: z.array(sheetId).min(1).max(20),
       /** Fields of the step its badge does not wait on, such as a subclass chosen at a later level. */
       optional: z.array(sheetId).min(1).max(20).optional(),
+      /** Fields of the step its badge still waits on while they hold their default (Capability API
+       *  1.788): an enum whose default means "not chosen yet", 5e's dragon ancestor. */
+      unansweredAtDefault: z.array(sheetId).min(1).max(20).optional(),
       /** Fields shown only while their value reference reads above 0 on the sheet (1.107). */
       shownWhen: z.record(sheetId, rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
       /** Number fields held to a combined maximum (1.107). */
@@ -1988,6 +2114,11 @@ const builderStepSchema = z.discriminatedUnion("kind", [
       min: z.number().int().min(0).max(20).optional(),
       /** Rows the step lets the player add, never above the list's own maximum. */
       max: z.number().int().min(1).max(200).optional(),
+      /** How many of the player's own rows the step wants, read off the sheet (Capability API 1.799):
+       *  one hit point roll per level after 1st. The builder starts the step with that many rows, never
+       *  above its max and never removing one, and the step waits on that many whole rows, as `min` does
+       *  (the larger of the two when both are given). 5e ship-readiness re-test 2026-10-24. */
+      countFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
       /** Values a new row starts with, in place of the columns' own defaults. */
       defaults: z.record(sheetId, sheetScalar).optional(),
       /** Each row is paid out of this builder pool (Capability API 1.159): a custom stunt, a trait, a
@@ -1998,6 +2129,27 @@ const builderStepSchema = z.discriminatedUnion("kind", [
       /** A catalog of rows the player may copy a row from, as many times as they like: each copy is a
        *  row of their own, priced and removed on its own. */
       from: sheetId.optional(),
+    })
+    .strict(),
+  /** Rows already on one of the sheet's lists that the player marks, ticking a boolean column on each
+   *  (Capability API 1.767): a wizard's prepared spells out of the spellbook the steps before wrote. */
+  z
+    .object({
+      ...builderStepBase,
+      kind: z.literal("mark"),
+      list: sheetId,
+      /** The boolean column a mark ticks. */
+      column: sheetId,
+      /** Only rows with these values are offered; `{ atLeast }` for a number column (1 to 4 columns). */
+      where: z
+        .record(sheetId, z.union([sheetScalar, z.object({ atLeast: z.number().finite() }).strict()]))
+        .refine((where) => Object.keys(where).length >= 1 && Object.keys(where).length <= 4, {
+          message: "A mark step filters on 1 to 4 columns",
+        })
+        .optional(),
+      /** How many rows the player marks: a fixed number, or a sheet value (`countFrom`), exactly one. */
+      max: z.number().int().min(1).max(200).optional(),
+      countFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     })
     .strict(),
   /** Starting values written once, when the player confirms them (Capability API 1.158): SAN from POW,
@@ -2057,18 +2209,20 @@ export type RulesetBuilderStep =
         max: number;
         field?: string;
         stamp?: Record<string, string | number | boolean | { fromWithin: string }>;
-        filters?: Record<string, string | number>;
+        filters?: Record<string, string | number | (string | number)[]>;
         within?: { step: string; filter: string };
         upTo?: RulesetBuilderUpTo;
         countFrom?: RulesetValueRef;
         pool?: string;
         cost?: number | { filter: string };
         reads?: { before: string };
+        takesAll?: true;
       })
   | (BuilderStepBase & {
       kind: "fields";
       fields: string[];
       optional?: string[];
+      unansweredAtDefault?: string[];
       shownWhen?: Record<string, RulesetValueRef>;
       total?: { fields: string[]; max: number };
     })
@@ -2103,10 +2257,19 @@ export type RulesetBuilderStep =
       required?: string[];
       min?: number;
       max?: number;
+      countFrom?: RulesetValueRef;
       defaults?: Record<string, string | number | boolean>;
       pool?: string;
       cost?: number | RulesetBuilderRowsCost;
       from?: string;
+    })
+  | (BuilderStepBase & {
+      kind: "mark";
+      list: string;
+      column: string;
+      where?: Record<string, string | number | boolean | { atLeast: number }>;
+      max?: number;
+      countFrom?: RulesetValueRef;
     })
   | (BuilderStepBase & {
       kind: "roll";
@@ -2231,6 +2394,20 @@ const advancementSchema = z
     message: "Advancement must allow at least one field, abilities, skills or saves",
   });
 
+/** Number fields held to a combined most (1.672). */
+export interface RulesetSheetTotal {
+  fields: string[];
+  max: number;
+  label?: string;
+}
+const sheetTotalSchema: z.ZodType<RulesetSheetTotal, unknown> = z
+  .object({
+    fields: z.array(sheetId).min(2).max(24),
+    max: z.number().int().min(1).max(100000),
+    label: promptSafeText(80).optional(),
+  })
+  .strict();
+
 export const rulesetSheetSchema = z
   .object({
     /** Bumped by the author when the sheet's shape changes. Stored sheets record it as `v`. */
@@ -2272,6 +2449,10 @@ export const rulesetSheetSchema = z
     builder: sheetBuilderSchema.optional(),
     /** Permanent changes the Game Master may make (Capability API 1.142). */
     advancement: advancementSchema.optional(),
+    /** Number fields held to a combined most wherever the sheet is edited (Capability API 1.672):
+     *  the full form lowers each one's most by what the others hold, the Game Master's advancement
+     *  refuses a value past it, and a sheet already over it says so. 5e's class levels, 20 in all. */
+    totals: z.array(sheetTotalSchema).min(1).max(8).optional(),
   })
   .strict();
 
@@ -2302,6 +2483,11 @@ const restRestoreSchema = z
     /** Row pools of the named list, optionally only rows whose recharge column is one of `recharge`. */
     listPools: sheetId.optional(),
     recharge: z.array(z.string().min(1).max(80)).min(1).max(12).optional(),
+    /** Only the row pool of this name among `listPools` (Capability API 1.434): 5e's Sorcery Points. */
+    row: z.string().trim().min(1).max(80).optional(),
+    /** Given back only while a value off the sheet stands within these bounds (Capability API 1.434):
+     *  5e's Sorcerous Restoration, 4 sorcery points on a short rest from sorcerer 20. */
+    when: sheetBoundsSchema("when", "given back").optional(),
     track: sheetId.optional(),
     /** On a wound track: clear only marks of this kind, leaving the others where they are. */
     kind: sheetId.optional(),
@@ -2342,6 +2528,9 @@ const restRestoreSchema = z
     if ((op.to === undefined) === (op.by === undefined)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'A restore step has exactly one of "to" or "by"' });
     }
+    if (op.row !== undefined && op.listPools === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["row"], message: '"row" only narrows listPools' });
+    }
     if (op.recharge && op.listPools === undefined) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["recharge"], message: '"recharge" only filters listPools' });
     }
@@ -2365,6 +2554,10 @@ const restDiceSchema = z
     add: rulesetValueRefSchema.optional(),
     heals: sheetId,
     extra: z.object({ die: rulesetValueRefSchema, add: rulesetValueRefSchema.optional() }).strict().optional(),
+    /** What each die heals, its `add` included, is multiplied by this (Capability API 1.688), never
+     *  less than once: 5e's Periapt of Wound Closure doubling the hit points a Hit Die restores,
+     *  `{"itemStat": {"stat": "hit_die_times", "from": "worn", "pick": "max", "default": 1}}`. */
+    times: rulesetValueRefSchema.optional(),
   })
   .strict();
 
@@ -2380,9 +2573,23 @@ const restSchema = z
       .object({
         text: z.array(sheetId).max(12).default([]),
         conditions: z.union([z.literal("all"), z.array(sheetId).max(RULESET_CONDITIONS_MAX)]).default([]),
+        /** Every pool's temporary points go as it ends (Capability API 1.804): 5e's temporary hit
+         *  points, which last until a long rest. */
+        temp: z.boolean().optional(),
       })
       .strict()
       .prefault({}),
+    /** Live conditions it puts on as it ends (Capability API 1.426), after `clear`, each only on a
+     *  sheet `when` holds for: 5e's Tranquility, a sanctuary from one long rest to the next. One the
+     *  rest also clears is put back on; one a fight takes off stays off until the next. */
+    puts: z
+      .array(z.object({ condition: sheetId, when: sheetBoundsSchema("when", "met").optional() }).strict())
+      .min(1)
+      .max(8)
+      .optional(),
+    /** How often it may be taken (Capability API 1.810): hours of the game's clock from the start of the
+     *  last one. 5e's long rest, once in 24 hours. Without a clock, once a reply and the next. */
+    every: z.number().int().min(1).max(8760).optional(),
   })
   .strict();
 
@@ -2398,6 +2605,11 @@ const gmSchema = z
      *  suits the rules the party will play by (no gunpowder, magic is rare, the dead walk). It is
      *  read once, at setup, and never reaches a turn. */
     worldGuidance: promptSafeText(1500).optional(),
+    /** Who plays the other side of a fight (1.774): `game-master` gives every opponent's turn to the
+     *  Game Master, in a game that lets it play bosses, rather than to the Engine's own picker. For a
+     *  narrative system (Fate, Blades in the Dark, Trophy) whose opposition is played as fiction, not
+     *  as a damage sum. `engine`, or nothing, is the Engine's picker with bosses to the Game Master. */
+    opposition: z.enum(["engine", "game-master"]).optional(),
     /** What the compact per-character sheet block shows beyond what the Engine always renders
      *  (ability modifiers, trained skills and saves, live state). */
     sheetSummary: z
@@ -2453,6 +2665,18 @@ const combatDiceSchema = z
  *  what a sheet already has. A column id starts with a letter, so this can never be one. */
 export const RULESET_CATALOG_ROW_KEY = "_catalog";
 
+/** The reserved key a row carries when it stands for another entry than the one that put it there
+ *  (1.493), `<catalogId>/<entryId>`: a feature's row for the spell it grants, which a fight reads
+ *  its price and mechanics from, while `_catalog` still says which entry the row belongs to. */
+export const RULESET_STANDS_FOR_ROW_KEY = "_standsFor";
+
+/** The entry a fight reads a row as: the one it stands for, else the one it came from. */
+export function rulesetRowEntryRef(row: Record<string, unknown>): unknown {
+  const own = (key: string) => (Object.prototype.hasOwnProperty.call(row, key) ? row[key] : undefined);
+  const standsFor = own(RULESET_STANDS_FOR_ROW_KEY);
+  return typeof standsFor === "string" ? standsFor : own(RULESET_CATALOG_ROW_KEY);
+}
+
 /** Byte ceiling for one `catalogs/<id>.json` asset, checked against the manifest's declared
  *  `files[].bytes` BEFORE the asset is read. Larger than a ruleset because a spell list is long. 2 MB
  *  since Capability API 1.340; a package with a catalog over the earlier ceiling declares 1.340. */
@@ -2475,6 +2699,110 @@ const RULESET_CATALOG_ASSET_PATTERN = /^catalogs\/[a-z][a-z0-9_]{0,39}\.json$/;
 /** Whether a declared package asset path belongs to the catalog family. */
 export function isRulesetCatalogAssetPath(path: string): boolean {
   return RULESET_CATALOG_ASSET_PATTERN.test(path);
+}
+
+/** A ruleset's translation into one language: what a language pack holds (Capability API 1.811), and what a
+ *  ruleset package file a player shares may carry as `locales/<lang>.json`. Named by the language's code as
+ *  the Engine's own language packs name theirs ("ru", "pt-BR", "zh-Hans"). */
+const RULESET_LOCALE_CODE = "[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}";
+const RULESET_LOCALE_ASSET_PATTERN = new RegExp(`^locales\\/(${RULESET_LOCALE_CODE})\\.json$`);
+const RULESET_LOCALE_CODE_PATTERN = new RegExp(`^${RULESET_LOCALE_CODE}$`);
+
+/** Whether a code is one a ruleset translation is named by. */
+export function isRulesetLocaleCode(code: string): boolean {
+  return RULESET_LOCALE_CODE_PATTERN.test(code);
+}
+
+/** The language a ruleset translation asset is in, or null for a path that is none. */
+export function rulesetLocaleOfAssetPath(path: string): string | null {
+  return RULESET_LOCALE_ASSET_PATTERN.exec(path)?.[1] ?? null;
+}
+
+/** Whether a declared package asset path is one of a ruleset file's translations (1.811). */
+export function isRulesetLocaleAssetPath(path: string): boolean {
+  return RULESET_LOCALE_ASSET_PATTERN.test(path);
+}
+
+/** The asset path a ruleset package file carries its translation into `locale` under. */
+export function rulesetLocaleAssetPath(locale: string): string {
+  return `locales/${locale}.json`;
+}
+
+/** The languages a translation for a reader of `language` may be under: the language, then the one it is
+ *  a kind of ("pt" for "pt-BR"). None for English, which a ruleset is written in. */
+export function rulesetTranslationLanguages(language: string): string[] {
+  const base = language.split("-")[0]!;
+  return base === "en" ? [] : base !== language ? [language, base] : [language];
+}
+
+/** A catalog ruleset's language pack (1.811): `<id>-<version>.<lang>.json`, published beside its
+ *  `<id>-<version>.ruleset.json` and fetched only in the language the Engine is set to. */
+export function rulesetLocalePackFileName(packageId: string, version: string, locale: string): string {
+  return `${packageId}-${version}.${locale}.json`;
+}
+
+/** How large one translation may be: every display string of the 5e SRD, its English as the keys and a
+ *  language that takes two or three bytes a letter as the values, with room to spare. */
+export const RULESET_LOCALE_MAX_BYTES = 8 * 1024 * 1024;
+
+/** How many languages one ruleset may ship. */
+export const RULESET_LOCALE_MAX_FILES = 40;
+
+/** The longest English string a translation keys by, and the longest translation of it. */
+export const RULESET_LOCALE_KEY_MAX = 8000;
+export const RULESET_LOCALE_VALUE_MAX = 16000;
+
+/**
+ * A ruleset translation, as a language pack (1.811) or a package file's `locales/<lang>.json` holds it: the
+ * package localization catalog the Agents repository writes (`_meta`, `package`) with a `ruleset` section,
+ * each key a display string of the ruleset's data word for word and its value that string in the file's
+ * language. Display only: the rules go on reading the English. Read to the strings it translates, or the
+ * reason it does not read. A pack (`pack`) must have its `ruleset` section: it exists only to translate.
+ */
+export function readRulesetLocaleFile(
+  document: unknown,
+  locale: string,
+  options: { name?: string; pack?: boolean } = {},
+): { ok: true; strings: Record<string, string> } | { ok: false; issue: string } {
+  const where = options.name ?? rulesetLocaleAssetPath(locale);
+  if (!document || typeof document !== "object" || Array.isArray(document))
+    return { ok: false, issue: `${where} is not a JSON object` };
+  const file = document as Record<string, unknown>;
+  const extra = Object.keys(file).filter((key) => !["$schema", "_meta", "package", "ruleset"].includes(key));
+  if (extra.length) return { ok: false, issue: `${where} holds "${extra[0]}", which a translation does not have` };
+  if (file.$schema !== undefined && (typeof file.$schema !== "string" || file.$schema.length > 300))
+    return { ok: false, issue: `${where} $schema is not a short path` };
+  const meta = file._meta as Record<string, unknown> | undefined;
+  if (!meta || typeof meta !== "object" || meta.locale !== locale)
+    return { ok: false, issue: `${where} _meta.locale is not "${locale}", the language its name says` };
+  if (meta.direction !== undefined && meta.direction !== "ltr" && meta.direction !== "rtl")
+    return { ok: false, issue: `${where} _meta.direction is neither "ltr" nor "rtl"` };
+  if (file.package !== undefined) {
+    const own = file.package as Record<string, unknown>;
+    if (
+      !own ||
+      typeof own !== "object" ||
+      Array.isArray(own) ||
+      Object.values(own).some((value) => typeof value !== "string" || value.length > 4000)
+    )
+      return { ok: false, issue: `${where} package is not a few lines of text` };
+  }
+  if (options.pack && file.ruleset === undefined) return { ok: false, issue: `${where} has no ruleset section` };
+  // A package's own catalog listing in English (locales/en.json) has no ruleset section: it translates nothing.
+  const section = file.ruleset ?? {};
+  if (!section || typeof section !== "object" || Array.isArray(section))
+    return { ok: false, issue: `${where} ruleset is not a section of strings` };
+  // No prototype, so a key such as "__proto__" is only ever a string.
+  const strings = Object.create(null) as Record<string, string>;
+  for (const [english, translated] of Object.entries(section as Record<string, unknown>)) {
+    if (typeof translated !== "string")
+      return { ok: false, issue: `${where} ruleset "${english.slice(0, 60)}" is not text` };
+    if (english.length > RULESET_LOCALE_KEY_MAX || translated.length > RULESET_LOCALE_VALUE_MAX)
+      return { ok: false, issue: `${where} ruleset "${english.slice(0, 60)}" is longer than a ruleset string may be` };
+    // One not translated yet is shown in English, so it is not kept.
+    if (english.trim() && translated.trim()) strings[english] = translated;
+  }
+  return { ok: true, strings };
 }
 
 /** One plain line for the picker. Catalog text never reaches the model, so this does not carry the
@@ -2501,32 +2829,362 @@ const catalogDice = z
 
 const catalogAmountShape = { dice: catalogDice.optional(), flat: z.number().int().optional() };
 
+/** The most dice written as `catalogDice` allow can roll: 1d4+1's 5. */
+function diceMost(dice: string): number {
+  const [, count, sides, flat] = /^(\d+)d(\d+)([+-]\d+)?$/.exec(dice) ?? [];
+  return Number(count ?? 0) * Number(sides ?? 0) + Number(flat ?? 0);
+}
+
+/** When an item's charges, or a use's own uses, come back: on the ruleset's `rests` it names, all of
+ *  them (`"max"`) or an `amount`; and (Capability API 1.556) `after` so many `days` or `hours` of game
+ *  time from their running out, the wait rolled as they run out where it is dice: a Figurine of
+ *  Wondrous Power's days, Wings of Flying's 1d12 hours. With `after`, `rests` may be empty. Typed by
+ *  hand, to keep the definition's type small. */
+export interface RulesetItemRechargeRule {
+  rests: string[];
+  amount: "max" | { dice?: string; flat?: number };
+  after?: { days?: number; hours?: { dice?: string; flat?: number }; fromDeparture?: true };
+}
+const itemRechargeSchema: z.ZodType<RulesetItemRechargeRule, unknown> = z
+  .object({
+    rests: z.array(sheetId).max(12),
+    amount: z.union([z.literal("max"), z.object(catalogAmountShape).strict()]),
+    after: z
+      .object({
+        days: z.number().int().min(1).max(3650).optional(),
+        hours: z
+          .object(catalogAmountShape)
+          .strict()
+          .refine((hours) => hours.dice !== undefined || (hours.flat ?? 0) > 0, {
+            message: "A wait in hours names dice or a flat number above 0",
+          })
+          .optional(),
+        /** The wait starts once the creature its use called has left, not at the use (Capability API
+         *  1.612): a Ring of Djinni Summoning, "After the djinni departs, it can't be summoned again
+         *  for 24 hours". Its stay past a fight is counted with `combat.roundSeconds`. */
+        fromDeparture: z.literal(true).optional(),
+      })
+      .strict()
+      .refine((after) => after.days !== undefined || after.hours !== undefined, {
+        message: 'Say how long it waits: "days", "hours" or both',
+      })
+      .optional(),
+  })
+  .strict()
+  .refine((recharge) => recharge.rests.length > 0 || recharge.after !== undefined, {
+    message: 'Say when they come back: on "rests", "after" a wait, or both',
+  });
+
 /** The moment a reaction waits for, and what it answers. A catalog entry and a creature's own action
  *  say it the same way. */
 /** An area that stays (Capability API 1.172), as a catalog entry or an item's use carries it. Typed by
  *  hand: written out, its inferred type is too long for the definition schema around it to emit. */
+/** How much one creature may hold inside it at once (Capability API 1.405): `of` places, each held
+ *  creature taking one, or what `takes` gives its size. A water elemental's Whelm, "one Large
+ *  creature or up to two Medium or smaller", is `{"of": 2, "takes": {"large": 2}}`. */
+export interface RulesetInsideRoom {
+  of: number;
+  takes?: Record<string, number>;
+}
+export const insideRoomSchema: z.ZodType<RulesetInsideRoom, unknown> = z
+  .object({
+    of: z.number().int().min(1).max(20),
+    takes: z.record(sheetId, z.number().int().min(1).max(20)).optional(),
+  })
+  .strict();
+
+/** A combat condition that holds its holder inside whoever put it on (Capability API 1.403), with,
+ *  since 1.405, how much that one may hold at once (`room`), being let out on the blows the held one
+ *  deals it (`releasedWhen`), and climbing out of it once it has fallen (`corpse`). Typed by hand, as
+ *  its harm is. */
+export interface RulesetConditionInside {
+  room?: RulesetInsideRoom;
+  releasedWhen?: { dealt: number; save: { save: string; difficulty: number }; prone?: true };
+  corpse?: { costs: number; prone?: true };
+}
+const conditionInsideSchema: z.ZodType<true | RulesetConditionInside, unknown> = z.union([
+  z.literal(true),
+  z
+    .object({
+      room: insideRoomSchema.optional(),
+      /** Dealt this much or more in one turn by somebody it holds, its holder saves at that turn's
+       *  end or lets them out, `prone` where it says so: a behir's 30 damage and DC 14. */
+      releasedWhen: z
+        .object({
+          dealt: z.number().int().min(1).max(10000),
+          save: z.object({ save: sheetId, difficulty: z.number().int().min(0).max(1000) }).strict(),
+          prone: z.literal(true).optional(),
+        })
+        .strict()
+        .optional(),
+      /** Its holder fallen, those inside stay inside until they climb out for this much of their
+       *  walk, in the ruleset's own distance, `prone` where it says so: "escape from the corpse by
+       *  using 15 feet of movement, exiting prone". */
+      corpse: z
+        .object({ costs: z.number().int().min(0).max(1000), prone: z.literal(true).optional() })
+        .strict()
+        .optional(),
+    })
+    .strict(),
+]);
+
+/** The effects of a condition its holder may break at a cost (Capability API 1.644), beside its
+ *  `forbids` and `behavior`. */
+export const RULESET_DEFIABLE_EFFECTS = ["cannot-harm", "cannot-approach-source"] as const;
+
 /** Damage a combat condition deals its holder each turn (Capability API 1.189). Typed by hand:
  *  written out, its inferred type is too long for the definition schema around it to emit. */
 export interface RulesetConditionHarms {
-  at: "turn-start" | "turn-end";
+  at:
+    | "turn-start"
+    | "turn-end"
+    | "source-turn-start"
+    | "source-turn-end"
+    | "attacks-source"
+    | "attacks-source-side"
+    | "defies"
+    | "casts";
+  once?: true;
+  perLevel?: true;
+  unblockable?: true;
+  catalogs?: string[];
   dice?: string;
   flat?: number;
   type?: string;
   healedOnlyByRest?: true;
+  save?: { save: string; difficulty?: number; drops?: string };
 }
 const conditionHarmsSchema: z.ZodType<RulesetConditionHarms, unknown> = z
   .object({
-    at: z.enum(["turn-start", "turn-end"]),
+    /** As its holder's turns start or end, or (Capability API 1.403) as those of whoever put it on
+     *  do: a gelatinous cube's 6d6 acid "at the start of each of the cube's turns". */
+    /** Or (Capability API 1.562) as its holder makes an attack, or anything that deals damage, at
+     *  whoever put it on (`attacks-source`) or at anybody of their side (`attacks-source-side`): 5e's
+     *  Geas, "takes 5d10 psychic damage each time it acts in a manner directly counter to your
+     *  instructions". */
+    /** Or (Capability API 1.644) as its holder breaks what the condition commands (`defies`): what
+     *  its `forbids` and `behavior` stop, and its "cannot-harm" and "cannot-approach-source" effects,
+     *  stop nothing, and doing any of it deals this. 5e's Geas, "You can't cast spells", "Stay within
+     *  this room". */
+    at: z.enum([
+      "turn-start",
+      "turn-end",
+      "source-turn-start",
+      "source-turn-end",
+      "attacks-source",
+      "attacks-source-side",
+      "defies",
+      "casts",
+    ]),
+    /** With `at: "casts"` (Capability API 1.646): as its holder casts an entry of these catalogs,
+     *  once for each level it was cast at with `perLevel`. 5e's Wish's stress, "each time you cast a
+     *  spell until you finish a long rest, you take 1d10 necrotic damage per level of that spell". */
+    catalogs: z.array(sheetId).min(1).max(8).optional(),
+    perLevel: z.literal(true).optional(),
+    /** Neither resistance nor immunity counts against it (Capability API 1.646): "This damage can't be
+     *  reduced or prevented in any way". */
+    unblockable: z.literal(true).optional(),
+    /** It harms only once while it holds (Capability API 1.562): Geas's "no more than once each
+     *  day". */
+    once: z.literal(true).optional(),
     dice: catalogDice.optional(),
     flat: z.number().int().min(0).max(1000).optional(),
     type: promptSafeText(40).optional(),
     /** What it takes comes back only with a rest (Capability API 1.193): a sword of wounding's. */
     healedOnlyByRest: z.literal(true).optional(),
+    /** A save that spares its holder this time (Capability API 1.403), against `difficulty` or the
+     *  one it was put on with: a shambling mound's "must succeed on a DC 14 Constitution saving throw
+     *  ... or take 13 (2d8 + 4) bludgeoning damage". */
+    save: z
+      .object({
+        save: sheetId,
+        difficulty: z.number().int().min(0).max(1000).optional(),
+        /** Each save made takes these dice off what it harms with from then on (Capability API
+         *  1.635), and with none left the condition ends: 5e's Potion of Poison, 3d6 poison "decreases
+         *  by 1d6" on each success and "ends when the damage decreases to 0". Dice of its own size. */
+        drops: catalogDice.optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((harm) => harm.dice !== undefined || harm.flat !== undefined, {
     message: "What it harms with names dice, a flat amount, or both",
+  })
+  .refine((harm) => (harm.at === "casts") === (harm.catalogs !== undefined), {
+    message: 'A harm as its holder casts names the "catalogs" cast from, and only then',
+    path: ["catalogs"],
+  })
+  .refine((harm) => !harm.perLevel || harm.at === "casts", {
+    message: '"perLevel" counts the level of what was cast, so it harms "at": "casts"',
+    path: ["perLevel"],
+  })
+  .refine(
+    (harm) => {
+      if (!harm.save?.drops) return true;
+      const drops = /^(\d+)d(\d+)$/.exec(harm.save.drops);
+      const own = harm.dice ? /^(\d+)d(\d+)/.exec(harm.dice) : null;
+      return !!drops && !!own && drops[2] === own[2];
+    },
+    { message: '"drops" takes off dice of the size it harms with', path: ["save", "drops"] },
+  );
+
+/** Health its holder regains as each of their own turns starts (Capability API 1.396): a troll's
+ *  Regeneration, 5e's Survivor. `flat` and `dice`, plus `add` read off the holder's own sheet (Survivor's
+ *  Constitution modifier; never on a creature). Harm of a kind in `stoppedBy` keeps it off at the
+ *  start of their next turn (fire and acid on a troll). `atMostHalf` works only at half health or
+ *  less, `notAtZero` never at 0. `keepsUp`: at 0 its holder is down rather than out, and is out only
+ *  if it starts its turn at 0 and does not regenerate (a troll, a vampire). `notIn` (Capability API
+ *  1.555) keeps it off while its holder starts a turn in one of these `light`s where they stand, or on
+ *  a tile or a board whose place one of `terrain` names: a vampire's "isn't in sunlight or running
+ *  water". */
+export interface RulesetRegeneration {
+  flat?: number;
+  dice?: string;
+  add?: RulesetValueRef;
+  stoppedBy?: string[];
+  atMostHalf?: true;
+  notAtZero?: true;
+  keepsUp?: true;
+  notIn?: { light?: Array<"sunlight" | "bright" | "dim" | "dark">; terrain?: string[] };
+}
+/** A face of the fight's own dice its holder rolls again, once, on their own rolls of these kinds
+ *  (Capability API 1.408), keeping the new face: a halfling's Lucky, `{"face": 1}`. Every kind when
+ *  `rolls` is left out. Typed by hand, to keep the definition's type small. */
+export interface RulesetRerollsFace {
+  face: number;
+  rolls?: Array<"attacks" | "saves" | "checks">;
+}
+export const rerollsFaceSchema: z.ZodType<RulesetRerollsFace, unknown> = z
+  .object({
+    face: z.number().int().min(1).max(1000),
+    rolls: z
+      .array(z.enum(["attacks", "saves", "checks"]))
+      .min(1)
+      .max(3)
+      .refine((rolls) => new Set(rolls).size === rolls.length, { message: "A kind of roll is named once" })
+      .optional(),
+  })
+  .strict();
+
+/** Temporary points its holder gains as a foe they harmed last drops to 0 (Capability API 1.412): a
+ *  fiend warlock's Dark One's Blessing, `{"temporary": {"derived": "dark_ones_blessing"}}` on a
+ *  level, Charisma modifier + warlock level read off their sheet. A creature reads a `const`. */
+export const fellsGrantSchema = z.object({ temporary: rulesetValueRefSchema }).strict();
+
+export const regenerationSchema: z.ZodType<RulesetRegeneration, unknown> = z
+  .object({
+    flat: z.number().int().min(0).max(1000).optional(),
+    dice: catalogDice.optional(),
+    add: rulesetValueRefSchema.optional(),
+    stoppedBy: z.array(promptSafeText(40)).min(1).max(8).optional(),
+    atMostHalf: z.literal(true).optional(),
+    notAtZero: z.literal(true).optional(),
+    keepsUp: z.literal(true).optional(),
+    notIn: z
+      .object({
+        light: z
+          .array(z.enum(["sunlight", "bright", "dim", "dark"]))
+          .min(1)
+          .max(4)
+          .optional(),
+        terrain: z.array(promptSafeText(40)).min(1).max(12).optional(),
+      })
+      .strict()
+      .refine((where) => where.light || where.terrain, { message: 'Say where: "light", "terrain" or both' })
+      .optional(),
+  })
+  .strict()
+  .refine((given) => given.dice !== undefined || given.flat !== undefined || given.add !== undefined, {
+    message: "What it regains names dice, a flat amount, a value to add, or some of them",
+  })
+  .refine((given) => !(given.keepsUp && given.notAtZero), {
+    message: '"keepsUp" regenerates at 0, so it goes without "notAtZero"',
   });
+
+/** Left at 1 instead of dropping to 0 (Capability API 1.320, widened in 1.400). `uses` is how many
+ *  times a fight; `spends` names a pool on the holder's own sheet that pays 1 each time and stops it
+ *  when empty (5e's Relentless Endurance, once a long rest). `save` has its holder roll first:
+ *  `difficulty`, plus the damage the blow dealt with `plusDamage` (Undead Fortitude's 5 + the damage),
+ *  plus `raisedBy` for each time it has worked before: counted this fight, or with `tally` as what
+ *  has been spent off a pool on the sheet, each success spending 1 and a rest that refills the pool
+ *  starting the count again (Relentless Rage's DC 10, +5 a time, back to 10 after a rest).
+ *  It never works against a blow with a damage type in `notFrom` or a critical hit with `notCritical`
+ *  (Undead Fortitude's radiant and critical hits), nor one that dealt more than `dealtAtMost` (a
+ *  boar's Relentless, 7). `extraTurn` gives its holder a turn of its own straight after. With no
+ *  `uses`, `spends` or `save` it would work every time, so one of them is needed.
+ *  Since Capability API 1.404 `spends` and `tally` may name a list row's pool by its name (the
+ *  half-orc's "Relentless Endurance" counter), and `whileHolding` keeps it to while its holder holds
+ *  one of these conditions (Relentless Rage, only while raging). */
+export interface RulesetHangsOn {
+  uses?: number;
+  spends?: string;
+  save?: { save: string; difficulty: number; plusDamage?: true; raisedBy?: number; tally?: string };
+  notFrom?: string[];
+  notCritical?: true;
+  dealtAtMost?: number;
+  extraTurn?: true;
+  label?: string;
+  whileHolding?: string[];
+  becomes?: { action: string; form: string };
+  ends?: true;
+  outright?: true;
+}
+export const hangsOnSchema: z.ZodType<RulesetHangsOn, unknown> = z
+  .object({
+    uses: z.number().int().min(1).max(10).optional(),
+    spends: z.string().trim().min(1).max(60).optional(),
+    save: z
+      .object({
+        save: sheetId,
+        difficulty: z.number().int().min(0).max(100),
+        plusDamage: z.literal(true).optional(),
+        raisedBy: z.number().int().min(1).max(20).optional(),
+        tally: z.string().trim().min(1).max(60).optional(),
+      })
+      .strict()
+      .refine((save) => !save.tally || save.raisedBy !== undefined, {
+        message: '"tally" counts what "raisedBy" raises, so it goes with "raisedBy"',
+        path: ["tally"],
+      })
+      .optional(),
+    notFrom: z.array(promptSafeText(40)).min(1).max(8).optional(),
+    notCritical: z.literal(true).optional(),
+    dealtAtMost: z.number().int().min(0).max(10000).optional(),
+    extraTurn: z.literal(true).optional(),
+    label: promptSafeText(60).optional(),
+    whileHolding: z.array(sheetId).min(1).max(12).optional(),
+    /** Hanging on, it takes one of its own action's forms at once (Capability API 1.548), as that
+     *  action would put it on: `action` its own action with `forms`, `form` the form's
+     *  `"<catalogId>/<entryId>"`. 5e's vampire's Misty Escape, into its mist. */
+    becomes: z
+      .object({
+        action: sheetId,
+        form: z.string().regex(/^[a-z0-9_-]+\/[a-z0-9_-]+$/i, "A form is a catalog/entry"),
+      })
+      .strict()
+      .optional(),
+    /** Once it works, the condition it is on ends (Capability API 1.596): 5e's Death Ward, "and the
+     *  spell ends". On a combat condition only. */
+    ends: z.literal(true).optional(),
+    /** It works as well against what would slay its holder outright without dealing damage (Capability
+     *  API 1.596), which is then undone: Death Ward against Power Word Kill's `kills` and Divine
+     *  Word's `killsAtMost`, a failed save that slays, or a tier that destroys. */
+    outright: z.literal(true).optional(),
+  })
+  .strict()
+  .refine((hangs) => hangs.uses !== undefined || hangs.spends !== undefined || hangs.save !== undefined, {
+    message: 'Hanging on at 1 names "uses", "spends" or a "save", or it would work every time',
+  })
+  .refine(
+    (hangs) =>
+      !hangs.outright || (!hangs.save && !hangs.notFrom && !hangs.notCritical && hangs.dealtAtMost === undefined),
+    {
+      message:
+        '"outright" works against what deals no damage, so it reads no blow: no "save", "notFrom", "notCritical" or "dealtAtMost"',
+      path: ["outright"],
+    },
+  );
 
 /** Temporary points a combat condition gives its holder each turn (Capability API 1.274). Typed by
  *  hand, as its harm is. */
@@ -2558,6 +3216,7 @@ export interface RulesetConditionEndHarm {
   flat?: number;
   type?: string;
   unless?: RulesetTargetIs;
+  save?: { save: string; difficulty: number; onSuccess: "half" };
 }
 const conditionEndHarmSchema: z.ZodType<RulesetConditionEndHarm, unknown> = z
   .object({
@@ -2565,6 +3224,16 @@ const conditionEndHarmSchema: z.ZodType<RulesetConditionEndHarm, unknown> = z
     flat: z.number().int().min(0).max(1000).optional(),
     type: promptSafeText(40).optional(),
     unless: z.lazy(() => targetIsSchema).optional(),
+    /** A save its holder makes as it is dealt, for half on a success (Capability API 1.751): 5e's
+     *  Midnight tears, DC 17 Constitution for half of 9d6. */
+    save: z
+      .object({
+        save: sheetId,
+        difficulty: z.number().int().min(0).max(1000),
+        onSuccess: z.literal("half"),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((harm) => harm.dice !== undefined || harm.flat !== undefined, {
@@ -2581,6 +3250,8 @@ export interface RulesetSeenThrough {
   dispersed?: true | { after: number };
   /** Magical darkness (1.297), which a zone that `dispelsDark` ends. */
   darkness?: true;
+  /** Its caster sees through it (1.609). */
+  notForCaster?: true;
 }
 const seenThroughSchema: z.ZodType<RulesetSeenThrough, unknown> = z
   .object({
@@ -2606,6 +3277,10 @@ const seenThroughSchema: z.ZodType<RulesetSeenThrough, unknown> = z
     /** It is magical darkness (Capability API 1.297): a zone that `dispelsDark` ends it where the
      *  two meet, at its level or lower. 5e's Darkness. */
     darkness: z.literal(true).optional(),
+    /** It obscures only for creatures other than its caster, who sees through it (Capability API
+     *  1.609): a Staff of Swarming Insects' Insect Cloud, "heavily obscured for creatures other than
+     *  you". */
+    notForCaster: z.literal(true).optional(),
   })
   .strict();
 
@@ -2656,7 +3331,41 @@ const senseRangesSchema: z.ZodType<Record<string, RulesetSenseGrant>, unknown> =
 export interface RulesetZoneInside {
   conditions?: string[];
   immune?: string[];
+  is?: RulesetTargetIs;
+  chooses?: "type";
+  save?: { save: string; ignoresUntilLeaves: true; onCast?: true };
 }
+/** A condition kept on (1.263, 1.513), or kept on only while a number read off the sheet is above
+ *  zero (Capability API 1.653): a Holy Avenger's aura of 30 feet from paladin level 17. */
+export type RulesetKeptOn = string | { condition: string; when: RulesetValueRef };
+const keptOnSchema: z.ZodType<RulesetKeptOn[], unknown> = z
+  .array(
+    z.union([
+      sheetId,
+      z
+        .object({
+          condition: sheetId,
+          when: z.lazy(() => rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>),
+        })
+        .strict(),
+    ]),
+  )
+  .min(1)
+  .max(4);
+/** The condition a `keepsOn` line keeps on. */
+export function rulesetKeptOnCondition(kept: RulesetKeptOn): string {
+  return typeof kept === "string" ? kept : kept.condition;
+}
+
+/** What a wall is made of and how thick it is, in inches (1.759). */
+export interface RulesetWallMaterial {
+  of: string;
+  inches: number;
+}
+const wallMaterialSchema: z.ZodType<RulesetWallMaterial, unknown> = z
+  .object({ of: sheetId, inches: z.number().int().min(1).max(1200) })
+  .strict();
+
 const uniqueIds = (max: number) =>
   z
     .array(sheetId)
@@ -2676,20 +3385,117 @@ const zoneInsideSchema: z.ZodType<RulesetZoneInside, unknown> = z
   .object({
     conditions: uniqueIds(8).optional(),
     immune: z.array(promptSafeText(40)).min(1).max(12).optional(),
+    /** Only those it matches have them there (Capability API 1.460): Hallow's chosen kinds. */
+    is: z.lazy(() => targetIsSchema).optional(),
+    /** Whom it works on is one creature type chosen as it is cast, as a mode (Capability API 1.466),
+     *  or everybody when none is chosen: Hallow's "creatures of a specific sort". */
+    chooses: z.literal("type").optional(),
+    /** Whoever enters it, or starts a turn there, throws this save against the entry's own save
+     *  difficulty, and on a success ignores what it does inside until they leave (Capability API
+     *  1.460): Hallow's extra effect, a Charisma save. */
+    save: z
+      .object({
+        save: sheetId,
+        ignoresUntilLeaves: z.literal(true),
+        /** Thrown too by whoever is inside as it is cast, before what it does there goes on
+         *  (Capability API 1.579): Reverse Gravity's grab at something fixed. */
+        onCast: z.literal(true).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((inside) => inside.conditions !== undefined || inside.immune !== undefined, {
     message: "Say what standing inside does: conditions, immune or both",
   });
 export interface RulesetForbids {
-  components: string[];
+  components?: string[];
+  teleport?: true | "into" | RulesetForbidsTeleport;
+  casts?: string[];
 }
-const forbidsSchema: z.ZodType<RulesetForbids, unknown> = z.object({ components: uniqueIds(8) }).strict();
+/** Teleporting out only past a save (Capability API 1.603): 5e's Forcecage. */
+export interface RulesetForbidsTeleport {
+  save: string;
+  difficulty: "caster";
+}
+const forbidsSchema: z.ZodType<RulesetForbids, unknown> = z
+  .object({
+    components: uniqueIds(8).optional(),
+    /** Nobody it works on inside teleports into it, out of it or within it, nor leaves the fight by
+     *  teleporting from inside it (Capability API 1.467): Hallow's Extradimensional Interference. */
+    teleport: z
+      .union([
+        z.literal(true),
+        /** Or (Capability API 1.603) one inside who teleports out first throws this save against its
+         *  caster's difficulty: made, they go; failed, they stay and the use is spent. Teleporting
+         *  into it or within it is not stopped. 5e's Forcecage, `{"save": "cha_save", "difficulty":
+         *  "caster"}`. */
+        z.object({ save: sheetId, difficulty: z.literal("caster") }).strict(),
+        /** Or (Capability API 1.753) nobody at all, whoever the zone works on, teleports into it;
+         *  teleporting out of it or within it stays allowed. 5e's Forbiddance. */
+        z.literal("into"),
+      ])
+      .optional(),
+    /** Nothing from these catalogs is cast from inside it (Capability API 1.521): 5e's Antimagic
+     *  Field, `["spells"]`. */
+    casts: uniqueIds(8).optional(),
+  })
+  .strict()
+  .refine((forbids) => forbids.components || forbids.teleport || forbids.casts, {
+    message: 'Say what it stops: "components", "teleport", "casts" or more than one',
+  });
+/** What a condition stops its holder using (1.179), and, from Capability API 1.438, casting from
+ *  these catalogs or concentrating at all: 5e's Rage. */
+export interface RulesetConditionForbids {
+  components?: string[];
+  casts?: string[];
+  concentration?: true;
+  items?: { tags?: string[] };
+  entries?: string[];
+}
+const conditionForbidsSchema: z.ZodType<RulesetConditionForbids, unknown> = z
+  .object({
+    components: uniqueIds(8).optional(),
+    /** Nothing cast from these catalogs while it holds (Capability API 1.438). */
+    casts: z
+      .array(sheetId)
+      .min(1)
+      .max(8)
+      .refine((catalogs) => new Set(catalogs).size === catalogs.length, { message: "A catalog is named once" })
+      .optional(),
+    /** Nothing needing concentration while it holds, and what its holder concentrates on ends as it
+     *  comes on (Capability API 1.438). */
+    concentration: z.literal(true).optional(),
+    /** No item used while it holds (Capability API 1.525): one with any of `tags`, or any at all
+     *  without them. Its weapon blows are still made. 5e's Feeblemind, "can't ... activate magic
+     *  items": `{ "tags": ["magical"] }`. */
+    items: z
+      .object({ tags: uniqueIds(8).optional() })
+      .strict()
+      .optional(),
+    /** Nothing of these entries used while it holds (Capability API 1.646), `<catalog>/<entry>`: 5e's
+     *  Wish lost, "unable to cast wish ever again". */
+    entries: z
+      .array(z.string().regex(/^[a-z][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/))
+      .min(1)
+      .max(24)
+      .refine((entries) => new Set(entries).size === entries.length, { message: "An entry is named once" })
+      .optional(),
+  })
+  .strict()
+  .refine(
+    (forbids) => forbids.components || forbids.casts || forbids.concentration || forbids.items || forbids.entries,
+    {
+      message: 'Say what it stops: "components", "casts", "concentration", "items", "entries" or more than one',
+    },
+  );
 export interface RulesetZoneWards {
   catalogs: string[];
   maxLevel: number;
   by?: "base" | "paid";
   maxLevelPerCostStep?: number;
+  where?: RulesetCatalogWhere;
+  entries?: string[];
 }
 const zoneWardsSchema: z.ZodType<RulesetZoneWards, unknown> = z
   .object({
@@ -2702,6 +3508,149 @@ const zoneWardsSchema: z.ZodType<RulesetZoneWards, unknown> = z
     /** It keeps out this many levels more for each step its own cast was paid above its base
      *  (Capability API 1.181): Globe, one higher for each slot level above 6th. */
     maxLevelPerCostStep: z.number().int().min(1).max(10).optional(),
+    /** Only the entries whose declared filter reads so (Capability API 1.645), as an amend's `where`
+     *  (1.414): 5e's Mind Blank, divination spells, `{"filter": "school", "equals": "divination"}`. */
+    where: z.lazy(() => catalogWhereSchema).optional(),
+    /** Only these entries, `<catalog>/<entry>` (Capability API 1.645): 5e's Wish, "immunity to a
+     *  single spell". */
+    entries: z
+      .array(z.string().regex(/^[a-z][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/))
+      .min(1)
+      .max(24)
+      .refine((entries) => new Set(entries).size === entries.length, { message: "An entry is named once" })
+      .optional(),
+  })
+  .strict();
+
+/** What its holder takes in when it is a foe's entry's only target (Capability API 1.522). */
+export interface RulesetAbsorbs {
+  catalogs: string[];
+  maxLevel: number;
+  by?: "base" | "paid";
+  charges?: "spends" | "gains";
+  seen?: true;
+  spends?: string;
+  lifetime?: number;
+}
+const absorbsSchema: z.ZodType<RulesetAbsorbs, unknown> = z
+  .object({
+    catalogs: uniqueIds(8),
+    maxLevel: z.number().int().min(0).max(20),
+    /** The level it reads, as a ward's `by` (1.181). */
+    by: z.enum(["base", "paid"]).optional(),
+    /** On an item's `worn` only: each one taken in spends its level of the item's charges, and none is
+     *  taken in without them (an Ioun Stone of Absorption's 20 levels), or gives its level to them, up to
+     *  their most (a Rod of Absorption's 50). */
+    charges: z.enum(["spends", "gains"]).optional(),
+    /** Only an entry whose user its holder can see (Capability API 1.570): an Ioun Stone of Greater
+     *  Absorption's "cast by a creature you can see". */
+    seen: z.literal(true).optional(),
+    /** Taking it in costs its holder 1 of this budget, and nothing is taken in without one left
+     *  (Capability API 1.570): a Rod of Absorption's "you can use your reaction to absorb a spell". */
+    spends: sheetId.optional(),
+    /** The most levels it ever takes in, over its whole existence (Capability API 1.571): a Rod of
+     *  Absorption's 50. Spending what it took in never makes room again; an item's worn effect only. */
+    lifetime: z.number().int().min(1).max(1000).optional(),
+  })
+  .strict();
+
+/** What an item or a creature holds to be cast later (Capability API 1.524): entries of `catalogs`,
+ *  each of the first level or higher, their levels together no more than `levels`, and no more than
+ *  `count` of them. */
+export interface RulesetStores {
+  catalogs: string[];
+  levels: number;
+  count?: number;
+  castsOn?: { on: "harmed" | "down"; at?: "self" | "source" };
+  found?: { levels: string; from: Array<{ entry: string; level: number; label?: string }> };
+}
+const storesSchema: z.ZodType<RulesetStores, unknown> = z
+  .object({
+    catalogs: uniqueIds(8),
+    levels: z.number().int().min(1).max(40),
+    count: z.number().int().min(1).max(20).optional(),
+    /** What is stored is cast by itself when the moment comes (Capability API 1.569), for nothing,
+     *  with its own caster's numbers, the first stored first: `"harmed"` as its holder (the wearer of
+     *  an item) takes damage, `"down"` as they drop to no health and are still alive. It is cast at
+     *  them (`"self"`, the default) or at whoever harmed them (`"source"`). 5e's Contingency, a
+     *  shield guardian's stored spell cast at a moment set beforehand. */
+    castsOn: z
+      .object({ on: z.enum(["harmed", "down"]), at: z.enum(["self", "source"]).optional() })
+      .strict()
+      .optional(),
+    /** Found already holding some (Capability API 1.576): `levels` dice of them, rolled once for
+     *  each stack, drawn for it out of `from` (each an entry of its catalogs at a level) until no more
+     *  fit. A Ring of Spell Storing's "1d6 - 1 levels of stored spells chosen by the DM". */
+    found: z
+      .object({
+        levels: catalogDice,
+        from: z
+          .array(
+            z
+              .object({
+                entry: z.string().regex(/^[a-z][a-z0-9_]*\/[a-z0-9][a-z0-9_-]*$/u),
+                level: z.number().int().min(1).max(40),
+                label: promptSafeText(80).optional(),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(40),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+/** What its holder turns back at its caster (Capability API 1.523): a Ring of Spell Turning. */
+export interface RulesetTurns {
+  catalogs: string[];
+  maxLevel: number;
+  by?: "base" | "paid";
+}
+const turnsSchema: z.ZodType<RulesetTurns, unknown> = z
+  .object({
+    catalogs: uniqueIds(8),
+    maxLevel: z.number().int().min(0).max(20),
+    /** The level it reads, as a ward's `by` (1.181). */
+    by: z.enum(["base", "paid"]).optional(),
+  })
+  .strict();
+
+/** Some kinds kept out of a zone, or in it (Capability API 1.452): 5e's Magic Circle and Hallow. */
+export interface RulesetZoneKeepsOut {
+  is: RulesetTargetIs;
+  way?: "in" | "out";
+  attacksInto?: "disadvantage";
+  cantGive?: string[];
+  frees?: string[];
+  reach?: true;
+  endsOnSweep?: true;
+}
+const zoneKeepsOutSchema: z.ZodType<RulesetZoneKeepsOut, unknown> = z
+  .object({
+    is: z.lazy(() => targetIsSchema),
+    /** `in` (the default): they cannot walk into it; `out`: once inside, they cannot walk out (a
+     *  Magic Circle turned inward to hold one). */
+    way: z.enum(["in", "out"]).optional(),
+    /** Their attacks at whoever stands inside have disadvantage. */
+    attacksInto: z.literal("disadvantage").optional(),
+    /** These conditions they cannot put on whoever stands inside: charmed, frightened, possessed.
+     *  Up to 12 (8 before Capability API 1.697). */
+    cantGive: uniqueIds(12).optional(),
+    /** These conditions, put on by one of those it keeps out, come off whoever steps into it
+     *  (Capability API 1.459): Hallow's "no longer charmed, frightened, or possessed upon entering
+     *  the area". Up to 12 (8 before Capability API 1.697). */
+    frees: uniqueIds(12).optional(),
+    /** Nor do they reach through it (Capability API 1.595): a melee attack of theirs with no more than
+     *  the least reach, not a spell, at whoever it holds, nor an opportunity attack. 5e's Antilife
+     *  Shell, "prevents an affected creature from passing or reaching through"; their ranged and
+     *  reach weapons and their spells still do. */
+    reach: z.literal(true).optional(),
+    /** Carried over one of them by whoever it is around, it ends instead (Capability API 1.595):
+     *  Antilife Shell's "If you move so that an affected creature is forced to pass through the
+     *  barrier, the spell ends". A zone around its caster, or carried. */
+    endsOnSweep: z.literal(true).optional(),
   })
   .strict();
 
@@ -2764,38 +3713,249 @@ export interface RulesetCatalogZone {
   art?: string;
   rounds: number;
   untilLair?: true;
+  outlasts?: true;
+  endsWithCaller?: "incapacitated";
   anchor?: "point" | "caster";
   carried?: "own" | "any";
   triggers: Array<"enter" | "turn-start" | "turn-end">;
   atCast?: boolean;
-  move?: { budget: string; distance: number; ram?: true };
+  enterOnlyByMoving?: true;
+  move?: {
+    budget: string;
+    distance: number;
+    ram?: true;
+    check?: {
+      check: string;
+      difficulty: number;
+      within: number;
+      distanceBy?: { abilityMod: string; times: number; atLeast?: number };
+      failsToward?: number;
+      holding?: {
+        tags: string[];
+        adds?: RulesetValueRef;
+        advantage?: true;
+        distanceBy?: { abilityMod: string; times: number; add?: number; atLeast?: number };
+      };
+    };
+  };
   drift?: { distance: number };
   turn?: { budget: string };
+  close?: { budget: string; lingers?: number };
+  spreads?: { by: number; every: number; upTo: number };
   terrain?: {
     difficult?: true;
     costTimes?: number;
     halvesSpeed?: true;
     towardCaster?: true;
+    slippery?: true;
+    spareSlowWalkers?: true;
+    endsWalk?: true;
     perDistance?: { every: number; amount: { dice?: string; flat?: number }; damageType?: string };
   };
   breaksConcentration?: true;
   damageCap?: number;
   damageType?: string;
   whileHeld?: { condition: string; amount: { dice?: string; flat?: number }; damageType?: string };
-  blocks?: Array<"move" | "sight">;
+  blocks?: Array<"move" | "sight" | "spells" | "ranged">;
+  material?: RulesetWallMaterial;
+  cover?: "half" | "three-quarters";
+  turnsShots?: { spares?: string[] };
   side?: { distance: number; triggers: Array<"enter" | "turn-start" | "turn-end"> };
   sections?: RulesetZoneSections;
   obscures?: RulesetSeenThrough;
   disperses?: true;
+  sealsAir?: true;
   lights?: RulesetLightRadius;
   dispelsDark?: { upTo: number; within?: number };
   dispelsLight?: { upTo: number };
   inside?: RulesetZoneInside;
   forbids?: RulesetForbids;
   wards?: RulesetZoneWards;
-  detonates?: { grows?: { dice?: string; flat?: number }; touched?: true };
+  suppresses?: { catalogs?: string[]; tags?: string[]; setsAsideCalled?: true };
+  keepsOut?: RulesetZoneKeepsOut;
+  hidden?: { check: string };
+  disarm?: RulesetZoneDisarm;
+  detonates?: {
+    grows?: { dice?: string; flat?: number };
+    touched?: true;
+    entered?: true;
+    by?: RulesetTargetIs;
+    within?: number;
+    becomes?: {
+      size: number;
+      rounds: number;
+      triggers: Array<"enter" | "turn-start" | "turn-end">;
+      lights?: RulesetLightRadius;
+    };
+    stores?: true;
+  };
   burns?: { by: string[]; amount?: { dice?: string; flat?: number }; damageType?: string };
+  layers?: RulesetZoneLayers;
+  stages?: RulesetZoneStage[];
 }
+
+/** What a zone does from one of its caster's turns on (Capability API 1.557), in place of what came
+ *  before: 5e's Storm of Vengeance, acid rain on the second turn, lightning on the third, hail on the
+ *  fourth, and gusts and freezing rain from the fifth. */
+export interface RulesetZoneStage {
+  from: number;
+  label: string;
+  amount?: { dice?: string; flat?: number };
+  damageType?: string;
+  save?: string;
+  onSave?: "half" | "none";
+  count?: number;
+  difficult?: true;
+  obscures?: true;
+  noRanged?: true;
+  breaksConcentration?: true;
+  disperses?: true;
+}
+const zoneStagesSchema: z.ZodType<RulesetZoneStage[], unknown> = z
+  .array(
+    z
+      .object({
+        from: z.number().int().min(2).max(1000),
+        label: promptSafeText(40),
+        amount: z
+          .object(catalogAmountShape)
+          .strict()
+          .refine((amount) => amount.dice !== undefined || amount.flat !== undefined, {
+            message: "A stage's amount names dice, a flat amount, or both",
+          })
+          .optional(),
+        damageType: promptSafeText(40).optional(),
+        save: sheetId.optional(),
+        onSave: z.enum(["half", "none"]).optional(),
+        count: z.number().int().min(1).max(20).optional(),
+        difficult: z.literal(true).optional(),
+        obscures: z.literal(true).optional(),
+        noRanged: z.literal(true).optional(),
+        /** Whoever starts a turn inside while it lasts rolls the ruleset's concentration save against
+         *  the entry's own save difficulty, else 10, or loses it (Capability API 1.580). */
+        breaksConcentration: z.literal(true).optional(),
+        /** A wind while it lasts (Capability API 1.580): fog it reaches that is `dispersed` ends. */
+        disperses: z.literal(true).optional(),
+      })
+      .strict()
+      .refine((stage) => !stage.onSave || stage.save, {
+        message: '"onSave" says what a made save leaves, so it goes with "save"',
+        path: ["onSave"],
+      })
+      .refine((stage) => (!stage.save && !stage.damageType && !stage.count) || stage.amount, {
+        message: 'A stage that strikes says its "amount"',
+        path: ["amount"],
+      }),
+  )
+  .min(1)
+  .max(10)
+  .refine((stages) => stages.every((stage, at) => at === 0 || stage.from > stages[at - 1]!.from), {
+    message: "Stages run in order: each starts on a later turn than the one before",
+  });
+
+/** One layer of a layered wall (Capability API 1.490): 5e's Prismatic Wall's red, orange and the rest. */
+export interface RulesetZoneLayer {
+  id: string;
+  label: string;
+  damageType?: string;
+  applies?: string[];
+  save?: string;
+  endedBy?: { damage?: { types: string[]; atLeast: number }; entries?: string[]; wind?: true };
+  blocks?: Array<"ranged-nonmagical" | "ranged-magical" | "spells">;
+}
+/** A wall or globe of layers crossed one at a time (Capability API 1.490), and its flash. */
+export interface RulesetZoneLayers {
+  rows: RulesetZoneLayer[];
+  spares?: "caster" | "allies" | { chosen: number };
+  flash?: {
+    within: number;
+    save: string;
+    applies: RulesetCatalogApplies[];
+    triggers: Array<"appears" | "enter" | "turn-start">;
+  };
+}
+const zoneLayersSchema: z.ZodType<RulesetZoneLayers, unknown> = z
+  .object({
+    rows: z
+      .array(
+        z
+          .object({
+            id: sheetId,
+            label: promptSafeText(40),
+            /** The entry's own amount, dealt as this type; none without one. */
+            damageType: promptSafeText(40).optional(),
+            /** Those of the entry's own `applies` this layer puts on. */
+            applies: z.array(sheetId).min(1).max(6).optional(),
+            /** Its own save in place of the entry's, at the entry's difficulty. */
+            save: sheetId.optional(),
+            /** What destroys it, once every layer before it is gone: one blow or one area dealing at
+             *  least `atLeast` of these types, an entry named `<catalog>/<entry>` aimed at it or
+             *  reaching it, or a wind (a zone that `disperses`) reaching it. */
+            endedBy: z
+              .object({
+                damage: z
+                  .object({
+                    types: z.array(promptSafeText(40)).min(1).max(8),
+                    atLeast: z.number().int().min(1).max(100000),
+                  })
+                  .strict()
+                  .optional(),
+                entries: z
+                  .array(z.lazy(() => catalogEntryRef))
+                  .min(1)
+                  .max(8)
+                  .optional(),
+                wind: z.literal(true).optional(),
+              })
+              .strict()
+              .refine((ended) => ended.damage || ended.entries || ended.wind, {
+                message: '"endedBy" says "damage", "entries", "wind" or several',
+              })
+              .optional(),
+            /** What cannot pass through the wall while this layer stands (Capability API 1.492):
+             *  attacks from afar that are not magical, those that are (a spell's or a `magical`
+             *  one's), and spells cast across it. 5e's red, orange and indigo layers. */
+            blocks: z
+              .array(z.enum(["ranged-nonmagical", "ranged-magical", "spells"]))
+              .min(1)
+              .max(3)
+              .refine((blocks) => new Set(blocks).size === blocks.length, { message: "Each is named once" })
+              .optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(12)
+      .refine((rows) => new Set(rows.map((row) => row.id)).size === rows.length, {
+        message: "Each layer's id is its own",
+      }),
+    /** Who crosses it, and stands near it, unharmed: its caster, or their whole side; or (Capability
+     *  API 1.492) its caster and up to `chosen` creatures its caster picks as it is cast, 5e's "you and
+     *  creatures you designate". */
+    spares: z
+      .union([z.enum(["caster", "allies"]), z.object({ chosen: z.number().int().min(1).max(20) }).strict()])
+      .optional(),
+    /** Who sees it within `within` (the ruleset's distance) of it throws `save` at the entry's own
+     *  difficulty or has `applies`: as it `appears`, as they move that near (`enter`), or as their turn
+     *  starts there (`turn-start`). 5e's blinding Constitution save. */
+    flash: z
+      .object({
+        within: z.number().finite().gt(0).max(10000),
+        save: sheetId,
+        applies: z
+          .array(z.lazy(() => catalogAppliesSchema))
+          .min(1)
+          .max(4),
+        triggers: z
+          .array(z.enum(["appears", "enter", "turn-start"]))
+          .min(1)
+          .max(3)
+          .refine((triggers) => new Set(triggers).size === triggers.length, { message: "A trigger is named once" }),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 
 /** What a creature's action does to the ground (Capability API 1.324): the tactical terrains, a
  *  height of 0 to 3, a cell's own light or obscurement (`clear` takes it off), growth, a season. */
@@ -2832,6 +3992,20 @@ const creatureGroundSchema: z.ZodType<RulesetCreatureGround, unknown> = z
     path: ["occupants"],
   });
 
+/** A trap disarmed with a check (1.669). */
+export interface RulesetZoneDisarm {
+  check: string;
+  difficulty?: number;
+  tripsOnFailBy?: number;
+}
+const zoneDisarmSchema: z.ZodType<RulesetZoneDisarm, unknown> = z
+  .object({
+    check: sheetId,
+    difficulty: z.number().int().min(1).max(60).optional(),
+    tripsOnFailBy: z.number().int().min(1).max(30).optional(),
+  })
+  .strict();
+
 const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
   .object({
     /** How it looks on a fight's board (Capability API 1.333): a tile of the board's pack, `bz_` and
@@ -2841,10 +4015,20 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
       .max(60)
       .regex(/^bz_[a-z0-9]+(?:_[a-z0-9]+)*$/, "A zone's art is bz_ then lowercase words joined by _")
       .optional(),
-    rounds: z.number().int().min(1).max(1000),
+    /** Up to 14400 (Capability API 1.637; 1000 before): an Oil of Slipperiness's 8 hours, 4800. */
+    rounds: z.number().int().min(1).max(14400),
     /** It ends as its maker's lair count next comes round (Capability API 1.324), if `rounds` has
      *  not ended it first: "until the next lair action", The Owed's Freezing Fog. */
     untilLair: z.literal(true).optional(),
+    /** It stays when its caster is defeated or leaves the fight (Capability API 1.456), counting down
+     *  a round as each round ends, rather than ending with them: 5e's Glyph of Warding and Symbol,
+     *  lasting until triggered or dispelled. Never one held by concentration, nor one around its
+     *  caster. */
+    outlasts: z.literal(true).optional(),
+    /** It also ends as soon as its maker is incapacitated, down or holding anything that `cannot-act`
+     *  (Capability API 1.741), as well as when they are out: an ice devil's Wall of Ice, "until the
+     *  devil is incapacitated or dies". Never with `outlasts`. */
+    endsWithCaller: z.literal("incapacitated").optional(),
     anchor: z.enum(["point", "caster"]).optional(),
     /** Cast on a thing somebody holds (Capability API 1.301), it is carried with them: a burst put on
      *  a cell its caster stands on (`own`), or on anybody's (`any`), moves with whoever stands
@@ -2855,6 +4039,10 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
       .max(3)
       .refine((triggers) => new Set(triggers).size === triggers.length, { message: "A trigger is named once" }),
     atCast: z.boolean().optional(),
+    /** Its `enter` catches only a creature that moves into it by its own movement or by being moved
+     *  (Capability API 1.764), never one the zone comes onto: carried with its caster, moved by them,
+     *  or turned to face elsewhere. 5e's Spirit Guardians and Moonbeam. */
+    enterOnlyByMoving: z.literal(true).optional(),
     /** Its caster may move it on their turn (Capability API 1.173), spending `budget`, up to
      *  `distance` in the catalog's unit: 5e's Moonbeam and Flaming Sphere. */
     move: z
@@ -2864,12 +4052,78 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
         /** Moved into a creature, it stops for the turn and catches them (Capability API 1.175),
          *  in place of `enter`: 5e's Flaming Sphere rammed into a creature. */
         ram: z.literal(true).optional(),
+        /** Moved by anybody within `within` of its middle, its caster too, only on a `check` (one of
+         *  `combat.checks`) meeting `difficulty`; while somebody else last moved it, contested by
+         *  theirs, the tie theirs (Capability API 1.694). As far as `distance`, or `distanceBy` times
+         *  the mover's ability modifier and at least `atLeast`; a failure against the difficulty
+         *  moves it `failsToward` the mover. 5e's Sphere of Annihilation: DC 25 Arcana within 60
+         *  feet, 5 × Intelligence modifier feet (at least 5), 10 feet toward a mover who fails. */
+        check: z
+          .object({
+            check: sheetId,
+            difficulty: z.number().int().min(1).max(100),
+            within: z.number().finite().gt(0).max(10000),
+            distanceBy: z
+              .object({
+                abilityMod: sheetId,
+                times: z.number().finite().gt(0).max(1000),
+                atLeast: z.number().finite().gt(0).max(10000).optional(),
+              })
+              .strict()
+              .optional(),
+            failsToward: z.number().finite().gt(0).max(10000).optional(),
+            /** What a mover holding an item with one of `tags` (worn or held) does better
+             *  (Capability API 1.703): `adds` read off their sheet on the check, it thrown with
+             *  `advantage`, and, while they already control it, as far as `distanceBy` times their
+             *  ability modifier plus `add`. 5e's Talisman of the Sphere: proficiency doubled on the
+             *  Arcana check, and 10 feet plus 10 × Intelligence modifier for one in control. */
+            holding: z
+              .object({
+                tags: z.array(sheetId).min(1).max(8),
+                adds: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+                advantage: z.literal(true).optional(),
+                distanceBy: z
+                  .object({
+                    abilityMod: sheetId,
+                    times: z.number().finite().min(0).max(1000),
+                    add: z.number().finite().min(0).max(10000).optional(),
+                    atLeast: z.number().finite().gt(0).max(10000).optional(),
+                  })
+                  .strict()
+                  .optional(),
+              })
+              .strict()
+              .refine((holding) => holding.adds !== undefined || holding.advantage || holding.distanceBy, {
+                message: "Holding it does something: adds, advantage or distanceBy",
+              })
+              .optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),
     /** Its caster may turn it to blast another way on their turn (Capability API 1.182), spending
      *  `budget`: a line or cone that moves with them, as 5e's Gust of Wind on a bonus action. */
     turn: z.object({ budget: sheetId }).strict().optional(),
+    /** Its caster may close it on their turn, spending `budget` (Capability API 1.637): it ends then,
+     *  or with `lingers` stays that many more rounds and spreads no more. 5e's Eversmoking Bottle,
+     *  stoppered with an action, its smoke dispersing after 10 minutes. */
+    close: z
+      .object({ budget: sheetId, lingers: z.number().int().min(1).max(14400).optional() })
+      .strict()
+      .optional(),
+    /** A burst that widens by `by` every `every` of its caster's turns, to a radius of `upTo`, in the
+     *  ruleset's distance (Capability API 1.637): the Eversmoking Bottle's smoke, 10 feet each minute
+     *  to 120 feet. */
+    spreads: z
+      .object({
+        by: z.number().finite().gt(0).max(10000),
+        every: z.number().int().min(1).max(14400),
+        upTo: z.number().finite().gt(0).max(10000),
+      })
+      .strict()
+      .optional(),
     /** It does nothing where it stands until it goes off (Capability API 1.183): when it ends, by its
      *  concentration ending or its rounds running out, it does the entry's own effect once to
      *  everybody in it. Its amount `grows` by this at the end of each of its caster's turns, and
@@ -2885,10 +4139,52 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
           })
           .optional(),
         touched: z.literal(true).optional(),
+        /** It goes off as somebody other than its caster enters any of its cells (Capability API
+         *  1.451), only those that are `by` when it says, with no save of the mover's own; it then
+         *  goes off only so, never as its time runs out. 5e's Glyph of Warding and Symbol. */
+        entered: z.literal(true).optional(),
+        by: z.lazy(() => targetIsSchema).optional(),
+        /** Going off, it reaches everybody within this distance of its middle, in the ruleset's own
+         *  unit, rather than only those in its cells (Capability API 1.451): Symbol's 60-foot sphere
+         *  from a 10-foot glyph. */
+        within: z.number().finite().gt(0).max(10000).optional(),
+        /** Once set off, it stays (Capability API 1.453): a burst of `size` around its middle, in the
+         *  ruleset's own unit, for `rounds`, doing the entry's own effect again at its `triggers` and
+         *  shedding `lights`. Symbol's sphere, glowing for ten minutes and striking whoever enters it
+         *  or ends a turn in it. */
+        becomes: z
+          .object({
+            size: z.number().finite().gt(0).max(10000),
+            rounds: z.number().int().min(1).max(1000),
+            triggers: z
+              .array(z.enum(["enter", "turn-start", "turn-end"]))
+              .min(1)
+              .max(3)
+              .refine((triggers) => new Set(triggers).size === triggers.length, {
+                message: "A trigger is named once",
+              }),
+            lights: lightRadiusSchema.optional(),
+          })
+          .strict()
+          .optional(),
+        /** Its caster may store one of their own entries in it as they cast it (Capability API
+         *  1.454), of the first level or higher and no higher than this one was paid at, paying for
+         *  both; set off, the stored entry is cast at whoever set it off, or centred on them for one
+         *  with an area, in place of the entry's own effect. Picked as a mode; none picked, it does
+         *  its own. 5e's Glyph of Warding as a spell glyph. */
+        stores: z.literal(true).optional(),
       })
       .strict()
-      .refine((detonates) => detonates.grows || detonates.touched, {
-        message: '"detonates" says how it "grows", that it goes off when "touched", or both',
+      .refine((detonates) => detonates.grows || detonates.touched || detonates.entered, {
+        message: '"detonates" says how it "grows", that it goes off when "touched" or "entered", or more than one',
+      })
+      .refine((detonates) => !detonates.by || detonates.entered, {
+        message: '"by" says who sets it off by entering it: it goes with "entered"',
+        path: ["by"],
+      })
+      .refine((detonates) => !detonates.stores || detonates.entered, {
+        message: '"stores" casts what it holds at whoever sets it off by entering it: it goes with "entered"',
+        path: ["stores"],
       })
       .optional(),
     /** Damage of one of these types reaching it sets it alight (Capability API 1.183): it burns away
@@ -2922,6 +4218,18 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
         /** Its hard going counts only for a step that brings the mover nearer its caster
          *  (Capability API 1.182): 5e's Gust of Wind, 2 feet for every 1 moving closer. */
         towardCaster: z.literal(true).optional(),
+        /** Slick underfoot (Capability API 1.671): nobody climbs into it by a speed a condition's
+         *  `climbNotOn.slippery` keeps off slippery ground. 5e's Grease. */
+        slippery: z.literal(true).optional(),
+        /** Whoever walks into it carefully, at half speed there (every step into it costing double),
+         *  is not caught by its `enter` trigger (Capability API 1.689): ball bearings and caltrops,
+         *  "a creature moving through the area at half speed doesn't need to make the save". A walk
+         *  taken that way is the "Move carefully" option, offered while such ground is near. */
+        spareSlowWalkers: z.literal(true).optional(),
+        /** Caught by its `enter` trigger and failing its save (or with no save at all), the walker
+         *  stops there with no movement left this turn (Capability API 1.689): caltrops' "stop
+         *  moving this turn". */
+        endsWalk: z.literal(true).optional(),
         perDistance: z
           .object({
             every: z.number().finite().gt(0),
@@ -2932,9 +4240,20 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
           .optional(),
       })
       .strict()
-      .refine((terrain) => terrain.difficult || terrain.costTimes || terrain.halvesSpeed || terrain.perDistance, {
-        message: '"terrain" says "difficult", "costTimes", "halvesSpeed", "perDistance" or several',
-      })
+      .refine(
+        (terrain) =>
+          terrain.difficult ||
+          terrain.costTimes ||
+          terrain.halvesSpeed ||
+          terrain.perDistance ||
+          terrain.slippery ||
+          terrain.spareSlowWalkers ||
+          terrain.endsWalk,
+        {
+          message:
+            '"terrain" says "difficult", "costTimes", "halvesSpeed", "perDistance", "slippery", "spareSlowWalkers", "endsWalk" or several',
+        },
+      )
       .refine((terrain) => !(terrain.difficult && terrain.costTimes), {
         message: '"costTimes" is its own price for the ground, so it is not also "difficult"',
       })
@@ -2992,6 +4311,10 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
     /** A wind (Capability API 1.286): every obscuring zone that is `dispersed` ends where this one
      *  reaches it, as it appears, moves or turns: 5e's Gust of Wind on a Fog Cloud. */
     disperses: z.literal(true).optional(),
+    /** Gases, wind and fog do not pass its edge (Capability API 1.659): an obscuring zone that is
+     *  `dispersed`, or a wind, covers only the side of it its middle is on. 5e's Cube of Force's
+     *  first face. */
+    sealsAir: z.literal(true).optional(),
     /** Whoever stands in it has these conditions and shrugs off these damage types while there
      *  (Capability API 1.179): 5e's Silence deafens and keeps thunder out. */
     inside: zoneInsideSchema.optional(),
@@ -3000,13 +4323,72 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
     /** What is cast from outside it at this level or lower, off these catalogs, does not reach whoever
      *  is inside (1.179): 5e's Globe of Invulnerability, spells of 5th level or lower. */
     wards: zoneWardsSchema.optional(),
+    /** What does nothing inside it (Capability API 1.521): conditions put on by entries of these
+     *  `catalogs`, on whoever is inside; and items with any of these `tags`, held by whoever is
+     *  inside, whose worn and carried effects stop, whose uses are not offered, and whose attacks
+     *  lose their own to-hit and damage bonus, their extra damage and those tags as qualities, made
+     *  from inside or at somebody inside. 5e's Antimagic Field, `{ "catalogs": ["spells"], "tags":
+     *  ["magical"] }`, beside `forbids.casts` (no casting inside, Capability API 1.521) and a `wards` of every level. */
+    suppresses: z
+      .object({
+        catalogs: uniqueIds(8).optional(),
+        tags: uniqueIds(8).optional(),
+        /** Creatures called by entries of its `catalogs` are set aside while they are inside
+         *  (Capability API 1.533): out of the fight, and back where they stood once it no longer
+         *  covers them. Antimagic Field's "summoned creatures disappear". */
+        setsAsideCalled: z.literal(true).optional(),
+      })
+      .strict()
+      .refine((hush) => hush.catalogs || hush.tags, { message: "Say what it suppresses: catalogs, tags or both" })
+      .refine((hush) => !hush.setsAsideCalled || hush.catalogs, {
+        message: '"setsAsideCalled" sets aside what entries of its "catalogs" called, so it names them',
+        path: ["setsAsideCalled"],
+      })
+      .optional(),
+    /** Kinds of creature it keeps out (Capability API 1.452): they cannot walk into it, their attacks
+     *  into it may have disadvantage, and they cannot put `cantGive` on whoever is inside. With
+     *  `way: "out"` it keeps them in: they cannot walk out of it, and (Capability API 1.458) their
+     *  attacks out of it and what they cannot give ward whoever stands outside. 5e's Magic Circle,
+     *  either way, and Hallow. */
+    keepsOut: zoneKeepsOutSchema.optional(),
+    /** Hidden from its caster's foes (Capability API 1.455): not shown to them until one of them
+     *  finds it with the `search` standard action, which also throws this `check` (one of
+     *  `combat.checks`) against the entry's own save difficulty. 5e's Glyph of Warding and Symbol,
+     *  found with Intelligence (Investigation). */
+    hidden: z.object({ check: sheetId }).strict().optional(),
+    /** A trap (Capability API 1.669): a foe of its caster's within a cell of it, who sees it, may
+     *  take the `disarm` standard action on it, throwing this `check` (one of `combat.checks`)
+     *  against `difficulty` (the entry's own save difficulty if left out). Made, it is gone without
+     *  going off; failed by `tripsOnFailBy` or more, it goes off, at whoever tried as though they
+     *  had walked into it where it goes off when entered. 5e's Fast Hands takes it with the bonus
+     *  action, by a `standard` grant naming `disarm`. */
+    disarm: zoneDisarmSchema.optional(),
     /** A wall that nobody walks through, sees through, or both (Capability API 1.177): 5e's Wall of
-     *  Stone and Wall of Ice block both, Wall of Force movement only, Wall of Fire sight only. */
+     *  Stone and Wall of Ice block both, Wall of Force movement only, Wall of Fire sight only.
+     *  `spells` (Capability API 1.602): no spell is cast into, out of or across it, a wall or not:
+     *  5e's Forcecage as a box. `ranged` (Capability API 1.659): no attack from afar with a weapon,
+     *  magical or not, is made into, out of or across it, a wall or not: 5e's Cube of Force's second
+     *  face, which nonliving matter does not pass. */
     blocks: z
-      .array(z.enum(["move", "sight"]))
+      .array(z.enum(["move", "sight", "spells", "ranged"]))
       .min(1)
-      .max(2)
+      .max(4)
       .refine((blocks) => new Set(blocks).size === blocks.length, { message: "Each is named once" })
+      .optional(),
+    /** What a wall that blocks sight is made of, and how thick it is in inches (Capability API 1.759),
+     *  for a sense that sees through only so much of it (a sense's `throughWalls`): 5e's Wall of Stone,
+     *  `{ "of": "stone", "inches": 6 }`; Wall of Iron, `{ "of": "metal", "inches": 1 }`. */
+    material: wallMaterialSchema.optional(),
+    /** Cover it gives (Capability API 1.555): an attack or effect whose line to its target crosses a
+     *  standing cell of it is against at least this much cover, as the ruleset's `combat.cover` grades
+     *  it. 5e's Blade Barrier, three-quarters. */
+    cover: z.enum(["half", "three-quarters"]).optional(),
+    /** Turns aside every attack from afar with a weapon that is not magical, made into, out of or
+     *  across it (Capability API 1.581), but those its `spares` names by label: 5e's Wind Wall, sparing
+     *  a giant's hurled Rock. */
+    turnsShots: z
+      .object({ spares: z.array(promptSafeText(60)).min(1).max(12).optional() })
+      .strict()
       .optional(),
     /** The wall stands in sections `every` long (Capability API 1.200), each struck at like a creature
      *  with this `defense` and `health`, taking double, half or none of the damage types it is
@@ -3015,6 +4397,20 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
      *  with its `save` at the entry's own difficulty. 5e's Wall of Ice: 10-foot panels, AC 12, 30 hit
      *  points, vulnerable to fire, leaving frigid air that deals 5d6 cold on a Constitution save. */
     sections: zoneSectionsSchema.optional(),
+    /** Layers crossed one at a time (Capability API 1.490): moving into it, each layer in turn does
+     *  the entry's own effect as its row says, each saved against on its own. A layer is destroyed
+     *  only once those before it are gone, as its `endedBy` says, and the zone ends with its last.
+     *  5e's Prismatic Wall, as a wall or a globe. */
+    layers: zoneLayersSchema.optional(),
+    /** What it does from one of its caster's turns on, counting the turn it was cast as the first
+     *  (Capability API 1.557): each stage, from its `from` until the next begins, strikes whoever is
+     *  inside as its caster's turn starts with its `amount` of `damageType`, saved against with its
+     *  `save` at the entry's own difficulty (`onSave` "half" or "none", the default), at most `count`
+     *  of them (its caster's foes first, nearest its middle first); and while it lasts its ground is
+     *  `difficult`, it heavily `obscures`, and with `noRanged` no attack with a ranged weapon is made
+     *  into, out of or across it. The entry's own effect is its first turn's, at its `triggers`. 5e's
+     *  Storm of Vengeance. */
+    stages: zoneStagesSchema.optional(),
     /** A wall's one side, chosen as it is cast (1.177): the cells within `distance` of it on that
      *  side catch as `triggers` say, beside the wall's own. 5e's Wall of Fire, 10 ft, turn-end. */
     side: z
@@ -3028,6 +4424,282 @@ const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
       })
       .strict()
       .optional(),
+  })
+  .strict();
+
+/** A table of rays rolled for each target (1.468): Prismatic Spray. Typed by hand, as the mechanics
+ *  are near the limit of what the compiler writes out. */
+export interface RulesetCatalogRays {
+  dice: string;
+  rows: Array<{ atMost: number; label: string; damageType?: string; applies?: string[]; again?: number }>;
+}
+/** A condition's `shape`: see the combat condition's own. */
+export interface RulesetConditionShape {
+  health?: "form" | "own";
+  keepsSaves?: string[];
+  keepsChecks?: string[];
+  keeps?: string[];
+  revert?: string;
+  betterOf?: true;
+}
+const conditionShapeSchema: z.ZodType<RulesetConditionShape, unknown> = z
+  .object({
+    health: z.enum(["form", "own"]).optional(),
+    keepsSaves: uniqueIds(12).optional(),
+    keepsChecks: uniqueIds(32).optional(),
+    keeps: z.array(z.string().trim().min(1).max(200)).max(24).optional(),
+    revert: sheetId.optional(),
+    /** Each save and contest check its holder's sheet is proficient in (by the skill a check
+     *  reads) is the better of the form's own and the form's ability with the holder's proficiency
+     *  (Capability API 1.404, read this way since 1.405); everything else is the form's. Wild
+     *  Shape's "you retain all of your skill and saving throw proficiencies ... if the bonus in its
+     *  stat block is higher than yours, use the creature's bonus instead of yours". What they keep
+     *  is still their own. */
+    betterOf: z.literal(true).optional(),
+  })
+  .strict();
+
+/** A condition's `weapon` (1.501): see the combat condition's own. */
+export interface RulesetConditionWeapon {
+  names?: string[];
+  items?: { names?: string[]; tags?: string[]; notTags?: string[] };
+  toHit?: number;
+  damage?: number;
+  ability?: string;
+  abilityFrom?: string;
+  die?: number;
+  qualities?: string[];
+}
+const conditionWeaponSchema: z.ZodType<RulesetConditionWeapon, unknown> = z
+  .object({
+    names: z.array(promptSafeText(40)).min(1).max(16).optional(),
+    items: z
+      .object({
+        names: z.array(promptSafeText(40)).min(1).max(16).optional(),
+        tags: z.array(sheetId).min(1).max(8).optional(),
+        notTags: z.array(sheetId).min(1).max(8).optional(),
+      })
+      .strict()
+      .optional(),
+    toHit: z.number().int().min(-20).max(20).optional(),
+    damage: z.number().int().min(-20).max(20).optional(),
+    ability: sheetId.optional(),
+    abilityFrom: sheetId.optional(),
+    die: z.number().int().min(2).max(100).optional(),
+    qualities: z.array(sheetId).min(1).max(8).optional(),
+  })
+  .strict()
+  .refine(
+    (rule) =>
+      rule.toHit !== undefined ||
+      rule.damage !== undefined ||
+      rule.ability !== undefined ||
+      rule.abilityFrom !== undefined ||
+      rule.die !== undefined ||
+      rule.qualities !== undefined,
+    { message: "weapon changes something: toHit, damage, ability, abilityFrom, die or qualities" },
+  )
+  .refine((rule) => !(rule.ability && rule.abilityFrom), { message: "weapon takes ability or abilityFrom, not both" });
+
+/** An item use's `raises` (1.516): see the item use's own. */
+export type RulesetItemRaises = Record<string, { by: number; max?: number }>;
+const itemRaisesSchema: z.ZodType<RulesetItemRaises, unknown> = z.record(
+  sheetId,
+  z.object({ by: z.number().int().min(1).max(20), max: z.number().int().min(1).max(20).optional() }).strict(),
+);
+
+/** A condition's `abilities` (1.515): see the combat condition's own. */
+/** `atMost` (1.756): lowered to that number only where it is higher, after everything else, as `to` is
+ *  but never raising one: 5e's Wish stress, "your Strength drops to 3, if it isn't 3 or lower already". */
+export type RulesetConditionAbilityChange =
+  { set: number } | { to: number } | { atMost: number } | { add: number; max?: number };
+export type RulesetConditionAbilities = Record<string, RulesetConditionAbilityChange>;
+const conditionAbilitiesSchema: z.ZodType<RulesetConditionAbilities, unknown> = z.record(
+  sheetId,
+  z.union([
+    z.object({ set: z.number().int() }).strict(),
+    z.object({ to: z.number().int() }).strict(),
+    z.object({ atMost: z.number().int() }).strict(),
+    z
+      .object({ add: z.number().int().min(-100).max(100), max: z.number().int().min(-1000).max(1000).optional() })
+      .strict(),
+  ]),
+);
+
+/** A condition's `derivedChanges` (1.662): see the combat condition's own. */
+export type RulesetConditionDerivedChanges = Record<string, { times?: number; add?: number }>;
+const conditionDerivedChangesSchema: z.ZodType<RulesetConditionDerivedChanges, unknown> = z.record(
+  sheetId,
+  z
+    .object({
+      times: z.number().finite().gt(0).max(100).optional(),
+      add: z.number().finite().min(-100000).max(100000).optional(),
+    })
+    .strict()
+    .refine((change) => change.times !== undefined || change.add !== undefined, {
+      message: "A derived value's change multiplies it, adds to it, or both",
+    }),
+);
+
+/** A condition's `endsWhenHolder` (1.311): see the combat condition's own. */
+export interface RulesetConditionEndsWhenHolder {
+  moves?: true;
+  acts?: true;
+  attacks?: true;
+  casts?: string[];
+  castsAtFoes?: true;
+  downed?: true;
+  gains?: string[];
+  incapacitated?: true;
+  cantHearSource?: { sense: string; beyond?: number };
+}
+const conditionEndsWhenHolderSchema: z.ZodType<RulesetConditionEndsWhenHolder, unknown> = z
+  .object({
+    moves: z.literal(true).optional(),
+    acts: z.literal(true).optional(),
+    /** Its holder attacking, or casting from these catalogs, only at a foe with `castsAtFoes`
+     *  (Capability API 1.426): 5e's Tranquility, held from a rest, ends as Sanctuary does. */
+    attacks: z.literal(true).optional(),
+    casts: z
+      .array(sheetId)
+      .min(1)
+      .max(8)
+      .refine((catalogs) => new Set(catalogs).size === catalogs.length, { message: "A catalog is named once" })
+      .optional(),
+    castsAtFoes: z.literal(true).optional(),
+    /** Its holder going down or out of the fight (Capability API 1.438): 5e's Rage. */
+    downed: z.literal(true).optional(),
+    /** Its holder coming to hold one of these conditions (Capability API 1.440): Rage. */
+    gains: uniqueIds(8).optional(),
+    /** Its holder holding anything that keeps them from acting, `cannot-act` (Capability API 1.608):
+     *  a knight's Leadership, "This effect ends if the knight is incapacitated". */
+    incapacitated: z.literal(true).optional(),
+    /** Its holder starting a turn unable to hear whoever put it on (Capability API 1.618): lacking
+     *  `sense`, farther from them than `beyond` (the ruleset's distance) when it says, or with them
+     *  gone or down. 5e's Pipes of the Sewers, a swarm that can't hear the pipes' music,
+     *  `{ "sense": "hearing" }`. */
+    cantHearSource: z
+      .object({ sense: sheetId, beyond: z.number().finite().gt(0).max(1000000).optional() })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .refine(
+    (ends) =>
+      ends.moves ||
+      ends.acts ||
+      ends.attacks ||
+      ends.casts ||
+      ends.downed ||
+      ends.gains ||
+      ends.incapacitated ||
+      ends.cantHearSource,
+    {
+      message:
+        'Say what ends it: "moves", "acts", "attacks", "casts", "downed", "gains", "incapacitated", "cantHearSource" or more than one',
+    },
+  )
+  .refine((ends) => !ends.castsAtFoes || !!ends.casts, {
+    message: '"castsAtFoes" narrows "casts" to a cast that reaches a foe, so it goes with "casts"',
+  });
+
+/** A condition's `stopsTime` (1.507) and `blinks` (1.506): see the combat condition's own. */
+export interface RulesetConditionStopsTime {
+  dice?: string;
+  flat?: number;
+}
+const conditionStopsTimeSchema: z.ZodType<RulesetConditionStopsTime, unknown> = z
+  .object(catalogAmountShape)
+  .strict()
+  .refine((rule) => rule.dice !== undefined || rule.flat !== undefined, {
+    message: "stopsTime says how many turns: dice, flat or both",
+  });
+export interface RulesetConditionBlinks {
+  sides?: number;
+  atLeast: number;
+}
+const conditionBlinksSchema: z.ZodType<RulesetConditionBlinks, unknown> = z
+  .object({ sides: z.number().int().min(2).max(100).optional(), atLeast: z.number().int().min(1).max(100) })
+  .strict()
+  .refine((rule) => rule.atLeast <= (rule.sides ?? 20), {
+    message: "blinks atLeast is a face of its die",
+    path: ["atLeast"],
+  });
+
+/** A condition's `jumps` (1.499): see the combat condition's own. */
+export interface RulesetConditionJumps {
+  times?: number;
+  plus?: { ability: string; long?: true };
+}
+const conditionJumpsSchema: z.ZodType<RulesetConditionJumps, unknown> = z
+  .object({
+    times: z.number().int().min(2).max(10).optional(),
+    plus: z
+      .object({ ability: sheetId, long: z.literal(true).optional() })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .refine((rule) => rule.times !== undefined || rule.plus !== undefined, {
+    message: "jumps says how much further: times or plus",
+  });
+
+/** Walking through solid ground (1.495), and what ending a turn inside it deals. */
+export interface RulesetPassesObjects {
+  harm?: { dice?: string; flat?: number; damageType?: string };
+}
+const passesObjectsSchema: z.ZodType<RulesetPassesObjects, unknown> = z
+  .object({
+    harm: z
+      .object({ ...catalogAmountShape, damageType: promptSafeText(40).optional() })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+const catalogRaysSchema: z.ZodType<RulesetCatalogRays, unknown> = z
+  .object({
+    dice: catalogDice,
+    rows: z
+      .array(
+        z
+          .object({
+            atMost: z.number().int().min(1).max(100),
+            label: promptSafeText(40),
+            damageType: promptSafeText(40).optional(),
+            applies: z.array(sheetId).min(1).max(6).optional(),
+            again: z.number().int().min(1).max(3).optional(),
+          })
+          .strict(),
+      )
+      .min(2)
+      .max(12)
+      .superRefine((rows, ctx) => {
+        for (let index = 1; index < rows.length; index++) {
+          if (rows[index]!.atMost <= rows[index - 1]!.atMost) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [index, "atMost"],
+              message: "Rows run strictly up",
+            });
+          }
+        }
+      }),
+  })
+  .strict();
+
+/** What an entry casts in its place (1.474): Wish. Typed by hand, as the mechanics are near the
+ *  limit of what the compiler writes out. */
+export interface RulesetCatalogDuplicates {
+  catalog: string;
+  upTo: number;
+  only?: string[];
+}
+const catalogDuplicatesSchema: z.ZodType<RulesetCatalogDuplicates, unknown> = z
+  .object({
+    catalog: sheetId,
+    upTo: z.number().int().min(1).max(20),
+    only: z.array(sheetId).min(1).max(200).optional(),
   })
   .strict();
 
@@ -3047,12 +4719,19 @@ const rulesetReactionAgainstSchema = z
     catalogs: z.array(sheetId).min(1).max(12).optional(),
     entries: z.array(catalogEntryRef).min(1).max(12).optional(),
     actions: z.array(z.string().trim().min(1).max(80)).min(1).max(12).optional(),
+    /** Or anything carrying one of these qualities (Capability API 1.564), on a stat block's action,
+     *  its damage, a catalog entry or an item: Rock Catching's "rock or similar object". */
+    qualities: z.array(sheetId).min(1).max(8).optional(),
   })
   .strict()
   .refine(
-    (against) => against.catalogs !== undefined || against.entries !== undefined || against.actions !== undefined,
+    (against) =>
+      against.catalogs !== undefined ||
+      against.entries !== undefined ||
+      against.actions !== undefined ||
+      against.qualities !== undefined,
     {
-      message: '"against" names catalogs, entries or both, or creature actions',
+      message: '"against" names catalogs, entries or both, or creature actions, or qualities',
     },
   );
 
@@ -3077,6 +4756,19 @@ const rulesetMomentNarrowing = {
   /** Only a hit by a strike paid for from this budget (Capability API 1.248): 5e's Open Hand
    *  Technique, on the strikes Flurry of Blows grants. */
   budget: sheetId.optional(),
+  /** Only while its holder's worn items leave one of this item slot free (Capability API 1.416):
+   *  Deflect Missiles' catch, "you have at least one hand free". */
+  freeSlot: sheetId.optional(),
+  /** On an `"attacked"` moment (Capability API 1.422), only an attack that missed its holder: Stand
+   *  Against the Tide. */
+  missed: z.literal(true).optional(),
+  /** Only when whoever caused it is this (Capability API 1.422), as a target test reads it: Giant
+   *  Killer's Large or larger creature. */
+  // Declared further down, with the other target tests.
+  sourceIs: z.lazy(() => targetIsSchema).optional(),
+  /** Only when the one it answers for holds an item, worn or carried, with one of these tags
+   *  (Capability API 1.564): a shield guardian's Shield, for whoever wears its amulet. */
+  forHolds: z.array(sheetId).min(1).max(8).optional(),
 };
 const blowOnlyOnHit = (
   moment: {
@@ -3088,15 +4780,33 @@ const blowOnlyOnHit = (
     budget?: string;
     for?: string;
     within?: number;
+    missed?: true;
+    sourceIs?: RulesetTargetIs;
   },
   ctx: z.RefinementCtx,
   path: (string | number)[],
 ) => {
-  if (moment.blow && moment.on !== "hit") {
+  // On an attack aimed (1.509), the kind it is: Arrow-Catching Shield's ranged attacks.
+  if (moment.blow && moment.on !== "hit" && moment.on !== "attacked" && moment.on !== "aimed") {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: [...path, "blow"],
-      message: '"blow" says what kind of hit opens the moment, so it is on a "hit" moment',
+      message:
+        '"blow" says what kind of hit or attack opens the moment, so it is on a "hit", "attacked" or "aimed" moment',
+    });
+  }
+  if (moment.missed && moment.on !== "attacked") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [...path, "missed"],
+      message: '"missed" narrows an attack that is over, so it is on an "attacked" moment',
+    });
+  }
+  if (moment.sourceIs && (moment.on === "falls" || moment.on === "turn-start")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [...path, "sourceIs"],
+      message: `A "${moment.on}" moment has nobody else behind it for "sourceIs" to test`,
     });
   }
   for (const key of ["by", "weapon", "names", "budget"] as const) {
@@ -3119,7 +4829,7 @@ const blowOnlyOnHit = (
 
 const rulesetReactionMomentBase = z
   .object({
-    on: z.enum(["aimed", "hit", "harmed", "used", "falls", "turn-start"]),
+    on: z.enum(["aimed", "hit", "harmed", "used", "falls", "turn-start", "caught", "attacked"]),
     at: z.enum(["source", "chosen", "target"]).default("source"),
     ...rulesetMomentNarrowing,
     /** Stops what opened the window from happening at all. Only a moment BEFORE something resolves
@@ -3138,7 +4848,7 @@ const rulesetReactionMomentBase = z
       .array(
         z
           .object({
-            on: z.enum(["aimed", "hit", "harmed", "used", "falls", "turn-start"]),
+            on: z.enum(["aimed", "hit", "harmed", "used", "falls", "turn-start", "caught", "attacked"]),
             against: rulesetReactionAgainstSchema.optional(),
             ...rulesetMomentNarrowing,
           })
@@ -3164,7 +4874,12 @@ const rulesetReactionMomentBase = z
   .superRefine((reaction, ctx) => {
     if (
       reaction.cancels &&
-      (reaction.on === "harmed" || reaction.on === "hit" || reaction.on === "falls" || reaction.on === "turn-start")
+      (reaction.on === "harmed" ||
+        reaction.on === "hit" ||
+        reaction.on === "falls" ||
+        reaction.on === "turn-start" ||
+        reaction.on === "caught" ||
+        reaction.on === "attacked")
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -3263,20 +4978,102 @@ const catalogClauseSaveSchema = z
   .strict();
 
 /** What a target is (Capability API 1.168): one of these `combat.creatureTypes` types, or carrying
- *  one of these tags. Any one match passes; a combatant with no type and no tags never does. */
+ *  one of these tags. Any one match passes; a combatant with no type and no tags never does. And of
+ *  a size (Capability API 1.403): no bigger than `upToSize` and no smaller than `atLeastSize`, by
+ *  `combat.sizes`, as well as any type or tag it names; a combatant with no size passes on size. 5e's
+ *  "If the target is Medium or smaller, it is grappled" is an applied grapple with
+ *  `{"upToSize": "medium"}`. */
 export interface RulesetTargetIs {
   types?: string[];
   tags?: string[];
+  upToSize?: string;
+  atLeastSize?: string;
+  /** Only one with a fly speed (Capability API 1.555), and only one holding one of these conditions
+   *  (`holding`), as well as whatever else it asks. */
+  flying?: true;
+  holding?: string[];
+  /** Only one wearing something tagged one of these (Capability API 1.711): an item worn on its
+   *  sheet, or what a creature `wears`. 5e's "a creature wearing armor made of metal",
+   *  `{"wears": {"tags": ["metal"]}}`: Shocking Grasp, Heat Metal, a rust monster's Antennae. */
+  wears?: { tags: string[] };
+  /** Only one standing in, or only one not standing in, a zone one of these entries left (Capability
+   *  API 1.755), by entry id or name, whoever cast it: 5e's Magic Jar, which cannot possess a
+   *  creature "warded by ... magic circle", `{"outsideZoneOf": ["magic-circle"]}`. */
+  insideZoneOf?: string[];
+  outsideZoneOf?: string[];
+  /** Never one that is this (Capability API 1.530), whatever else it is: a net's "no effect on
+   *  creatures that are formless", `{ "except": { "tags": ["formless"] } }`. */
+  except?: Omit<RulesetTargetIs, "except" | "anyOf">;
+  /** One that is at least one of these (Capability API 1.555), as well as whatever else it asks: 5e's
+   *  Wind Wall, tiny fliers or gases, `{"anyOf": [{"upToSize": "tiny", "flying": true}, {"holding":
+   *  ["gaseous_form"]}]}`. */
+  anyOf?: Array<Omit<RulesetTargetIs, "except" | "anyOf">>;
 }
+const targetIsShape = {
+  types: z.array(sheetId).min(1).max(20).optional(),
+  tags: z.array(sheetId).min(1).max(20).optional(),
+  upToSize: sheetId.optional(),
+  atLeastSize: sheetId.optional(),
+  flying: z.literal(true).optional(),
+  holding: z.array(sheetId).min(1).max(12).optional(),
+  wears: z
+    .object({ tags: z.array(sheetId).min(1).max(12) })
+    .strict()
+    .optional(),
+  insideZoneOf: z.array(promptSafeText(80)).min(1).max(8).optional(),
+  outsideZoneOf: z.array(promptSafeText(80)).min(1).max(8).optional(),
+};
+const namesSomething = (test: Omit<RulesetTargetIs, "except" | "anyOf">) =>
+  test.types !== undefined ||
+  test.tags !== undefined ||
+  test.upToSize !== undefined ||
+  test.atLeastSize !== undefined ||
+  test.flying !== undefined ||
+  test.holding !== undefined ||
+  test.wears !== undefined ||
+  test.insideZoneOf !== undefined ||
+  test.outsideZoneOf !== undefined;
 const targetIsSchema: z.ZodType<RulesetTargetIs, unknown> = z
   .object({
-    types: z.array(sheetId).min(1).max(20).optional(),
-    tags: z.array(sheetId).min(1).max(20).optional(),
+    ...targetIsShape,
+    except: z
+      .object(targetIsShape)
+      .strict()
+      .refine(namesSomething, { message: "What a target test excepts names types, tags or both, or a size" })
+      .optional(),
+    anyOf: z
+      .array(
+        z
+          .object(targetIsShape)
+          .strict()
+          .refine(namesSomething, { message: "Each of anyOf names types, tags, a size, flying or holding" }),
+      )
+      .min(2)
+      .max(4)
+      .optional(),
   })
   .strict()
-  .refine((test) => test.types !== undefined || test.tags !== undefined, {
-    message: "A target test names types, tags or both",
+  .refine((test) => namesSomething(test) || test.except !== undefined || test.anyOf !== undefined, {
+    message: "A target test names types, tags or both, or a size",
   });
+
+/** Nobody within `within` hides from its holder, unless they have one of `lostWith` (1.292). Only
+ *  those that are `of` (Capability API 1.439), and with `uncovered` only those not behind total
+ *  cover: 5e's Divine Sense, celestials, fiends and undead within 60 feet. */
+export interface RulesetAware {
+  within: number;
+  lostWith?: string[];
+  of?: RulesetTargetIs;
+  uncovered?: true;
+}
+const awareSchema: z.ZodType<RulesetAware, unknown> = z
+  .object({
+    within: z.number().finite().gt(0).max(10000),
+    lostWith: z.array(sheetId).min(1).max(8).optional(),
+    of: targetIsSchema.optional(),
+    uncovered: z.literal(true).optional(),
+  })
+  .strict();
 
 /** One more amount on the same blow, rolled and typed on its own: "and 2d6 fire", "and 1d6 poison
  *  the target may shake off". Never a second attack roll: a clause rides the blow that carried it. */
@@ -3318,6 +5115,94 @@ function sheetBoundsSchema(key: string, never: string) {
 }
 
 const catalogUsableWhenSchema = sheetBoundsSchema("usableWhen", "usable");
+
+/** A catalog entry's contest of checks (1.565), typed by name to keep the mechanics' type short. */
+export interface RulesetCatalogContest {
+  attacker: string[];
+  defender: string[];
+  ties?: "attacker" | "defender";
+  onLose?: { applies: Array<{ condition: string; rounds: number }> };
+  takes?: RulesetContestTakes;
+  takesMode?: { label: string; restLabel: string };
+}
+/** What a contest won takes from its target (Capability API 1.668), by slot or tag. */
+export interface RulesetContestTakes {
+  slots?: string[];
+  tags?: string[];
+}
+const contestTakesSchema: z.ZodType<RulesetContestTakes, unknown> = z
+  .object({ slots: z.array(sheetId).min(1).max(8).optional(), tags: z.array(sheetId).min(1).max(8).optional() })
+  .strict()
+  .refine((takes) => takes.slots || takes.tags, { message: '"takes" names "slots", "tags" or both' });
+
+/** An item's other forms (1.575), typed by name to keep the item's type short. */
+export interface RulesetItemForms {
+  label: string;
+  budget: string;
+  into: Array<{ label: string; item: string }>;
+}
+/** An item's binding: attunement and what it asks (1.313, 1.667). */
+export interface RulesetItemBinds {
+  restriction?: string;
+  cursed?: boolean;
+  needsWorn?: Array<{ anyOf: string[] }>;
+  needs?: RulesetSheetNeeds;
+  needsAny?: true;
+}
+/** What a sheet must meet, each a value with `atLeast` and/or `atMost` (Capability API 1.667); up
+ *  to 8 since 1.691, which a package naming more than 4 declares. */
+export type RulesetSheetNeeds = Array<{ value: RulesetValueRef; atLeast?: number; atMost?: number }>;
+export const RULESET_SHEET_NEEDS_MAX = 8;
+export const RULESET_SHEET_NEEDS_MAX_BEFORE_1638 = 4;
+function sheetNeedsSchema(key: string): z.ZodType<RulesetSheetNeeds, unknown> {
+  return z.array(sheetBoundsSchema(key, "met")).min(1).max(RULESET_SHEET_NEEDS_MAX);
+}
+
+/** A use that works only on a roll (Capability API 1.441): one die of `sides`, at most `atMost`, a
+ *  number or a value off its user's sheet. Its price is paid either way. 5e's Divine Intervention, a
+ *  percentile roll at or under the cleric's level, sure from 20th level (`sure`); a failure spends the
+ *  row `failUses` names instead of its own, so its own row (recharging only after seven days) stays
+ *  and the long-rest row is spent. A demon's 30 percent summoning. */
+export interface RulesetUseChance {
+  sides: number;
+  atMost: number | RulesetValueRef;
+  sure?: { value: RulesetValueRef; atLeast?: number; atMost?: number };
+  failUses?: string;
+}
+const useChanceSchema: z.ZodType<RulesetUseChance, unknown> = z
+  .object({
+    sides: z.number().int().min(2).max(100),
+    atMost: z.union([z.number().int().min(1).max(100), rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>]),
+    sure: sheetBoundsSchema("sure", "sure").optional(),
+    failUses: z.string().trim().min(1).max(80).optional(),
+  })
+  .strict();
+/** A creature's (Capability API 1.441): a printed chance, nothing off a sheet. */
+/** What a creature's action does to whoever its blow drops (Capability API 1.677). */
+export interface RulesetCreatureOnFell {
+  stabilizes?: true;
+  applies?: RulesetCatalogApplies[];
+}
+
+interface CreatureOncePerTarget {
+  whenSaved?: true;
+  whenEnds?: true;
+  until?: string;
+  shared?: string;
+}
+
+const creatureOncePerTargetSchema: z.ZodType<CreatureOncePerTarget, unknown> = z
+  .object({
+    whenSaved: z.literal(true).optional(),
+    whenEnds: z.literal(true).optional(),
+    until: sheetId.optional(),
+    shared: sheetId.optional(),
+  })
+  .strict();
+
+const creatureChanceSchema = z
+  .object({ sides: z.number().int().min(2).max(100), atMost: z.number().int().min(1).max(100) })
+  .strict();
 
 /** Held weapons that are these (Capability API 1.244): one of `names`, the name its attack goes by,
  *  or carrying every one of `tags` and none of `notTags`. 5e's monk weapons are the shortsword and
@@ -3430,7 +5315,7 @@ const catalogAttackRowsSchema: z.ZodType<RulesetAttackRowsDeclaration, unknown> 
  *  here rather than beside the combat block because a catalog entry names them too: an ability that
  *  lets its holder buy one of them with another budget says which ones. */
 /** `search` (Capability API 1.287) looks for whoever is hiding: see `combat.hiding`. */
-const combatStandardActionSchema = z.enum(["dash", "disengage", "dodge", "help", "hide", "ready", "search"]);
+const combatStandardActionSchema = z.enum(["dash", "disengage", "disarm", "dodge", "help", "hide", "ready", "search"]);
 
 const hidingTraitFields = {
   /** It may hide behind somebody at least one size larger than it, as behind anything else that
@@ -3457,13 +5342,7 @@ const hidingTraitFields = {
   slow: z.literal("advantage").optional(),
   /** Nobody within this distance, in the ruleset's own unit, is hidden from it, unless it has one
    *  of `lostWith` (a rogue's Blindsense, 10 feet, lost while deafened). */
-  aware: z
-    .object({
-      within: z.number().finite().gt(0).max(10000),
-      lostWith: z.array(sheetId).min(1).max(8).optional(),
-    })
-    .strict()
-    .optional(),
+  aware: awareSchema.optional(),
 };
 /** Ways of hiding and of finding the hidden that are their holder's own (Capability API 1.292), read
  *  where `combat.hiding` hides for real. */
@@ -3506,9 +5385,13 @@ const catalogDurationSchema = z.union([
   z.literal("instant"),
   z.literal("until-save"),
   z.literal("this-action"),
+  /** No clock at all, said as it reads (Capability API 1.485): on until something takes it off, as
+   *  `instant` is. 5e's Continual Flame, "until dispelled". */
+  z.literal("until-dispelled"),
   z
     .object({
-      rounds: z.number().int().min(1).max(1000),
+      /** Up to 1000, or up to 14400 (a day, Capability API 1.482): 5e's Aid for 8 hours, 4800. */
+      rounds: z.number().int().min(1).max(14400),
       at: z.literal("turn-start").optional(),
       /** Counted on the turns of whoever put it on, from their next one (Capability API 1.119):
        *  "until the end of your next turn", as Guiding Bolt's advantage lasts. */
@@ -3516,17 +5399,52 @@ const catalogDurationSchema = z.union([
       /** Or until whoever put it on next comes to their lair's count, if that is sooner (Capability
        *  API 1.327): the Hour Bell's "until the next lair action". */
       untilLair: z.literal(true).optional(),
+      /** And this many rounds more for each step of higher cost it is paid with (Capability API
+       *  1.447): Primeval Awareness' "1 minute per level of the spell slot you expend" is
+       *  `{"rounds": 10, "perStep": 10}` on a 1st-level slot. */
+      perStep: z.number().int().min(1).max(1000).optional(),
+      /** Or lasting these many rounds instead when paid one step higher, two, and so on, the last
+       *  holding for every step beyond (Capability API 1.470): Bestow Curse's ten minutes from a
+       *  4th-level slot and eight hours from a 5th, `{"rounds": 10, "bySteps": [100, 4800]}`. Any of
+       *  them may be `"until-dispelled"` (Capability API 1.482): no clock at all, as Bestow Curse
+       *  from a 9th-level slot lasts until it is dispelled. */
+      bySteps: z
+        .array(z.union([z.number().int().min(1).max(14400), z.literal("until-dispelled")]))
+        .min(1)
+        .max(9)
+        .optional(),
+      /** No longer than what was left of this condition on its target when it last came off before
+       *  it ran out (Capability API 1.616), `rounds` at most; and the entry is offered only while
+       *  some of that is left and its user is not under it again. 5e's Wind Walk, back into the
+       *  cloud for what is left of the spell's 8 hours. */
+      remainingOf: sheetId.optional(),
+      /** `rounds` that many times over, rolled with these dice as it is put on (Capability API
+       *  1.625): 5e's Potion of Growth, "1d4 hours", `{"rounds": 600, "times": "1d4"}`. No more than
+       *  a day at the most the dice can roll. */
+      times: catalogDice.optional(),
     })
-    .strict(),
+    .strict()
+    .refine((duration) => !duration.perStep || !duration.bySteps, {
+      message: '"perStep" and "bySteps" both say how it grows with the cost paid: one of them',
+      path: ["bySteps"],
+    })
+    .refine((duration) => !duration.times || duration.rounds * diceMost(duration.times) <= 14400, {
+      message: '"rounds" times the most "times" rolls is no more than a day, 14400 rounds',
+      path: ["times"],
+    }),
 ]);
 
 /** What its holder does that takes a condition off (1.180). */
 export interface RulesetHolderEnding {
   attacks?: true;
   casts?: string[];
+  castsAtFoes?: true;
   moves?: true;
   acts?: true;
   uses?: string[];
+  downed?: true;
+  gains?: string[];
+  incapacitated?: true;
 }
 const holderEndingSchema: z.ZodType<RulesetHolderEnding, unknown> = z
   .object({
@@ -3537,6 +5455,10 @@ const holderEndingSchema: z.ZodType<RulesetHolderEnding, unknown> = z
       .max(8)
       .refine((catalogs) => new Set(catalogs).size === catalogs.length, { message: "A catalog is named once" })
       .optional(),
+    /** Only a cast of those that reaches one of its holder's foes ends it (Capability API 1.425): one
+     *  aimed at a foe, or an area or a harm that catches one. 5e's Sanctuary ends on a spell that
+     *  affects an enemy, not on Cure Wounds cast on a friend. */
+    castsAtFoes: z.literal(true).optional(),
     /** Its holder moving (Capability API 1.303): 5e's One with Shadows. */
     moves: z.literal(true).optional(),
     /** Its holder taking any action or reaction after the one that put it on (Capability API 1.303). */
@@ -3549,20 +5471,47 @@ const holderEndingSchema: z.ZodType<RulesetHolderEnding, unknown> = z
       .max(8)
       .refine((uses) => new Set(uses).size === uses.length, { message: "An action is named once" })
       .optional(),
+    /** Its holder going down or out of the fight (Capability API 1.438): 5e's Rage, "if you are
+     *  knocked unconscious". */
+    downed: z.literal(true).optional(),
+    /** Its holder coming to hold one of these conditions, however (Capability API 1.440): 5e's Rage,
+     *  "knocked unconscious", by a blow or by Sleep. */
+    gains: uniqueIds(8).optional(),
+    /** Its holder holding anything with `cannot-act` (Capability API 1.608): Leadership. */
+    incapacitated: z.literal(true).optional(),
   })
   .strict()
-  .refine((ends) => ends.attacks || ends.casts || ends.moves || ends.acts || ends.uses, {
-    message: "Say what ends it: attacking, casting, moving, acting or using one of its actions",
+  .refine(
+    (ends) =>
+      ends.attacks ||
+      ends.casts ||
+      ends.moves ||
+      ends.acts ||
+      ends.uses ||
+      ends.downed ||
+      ends.gains ||
+      ends.incapacitated,
+    {
+      message:
+        "Say what ends it: attacking, casting, moving, acting or using one of its actions, or going down, gaining a condition or being incapacitated",
+    },
+  )
+  .refine((ends) => !ends.castsAtFoes || !!ends.casts, {
+    message: '"castsAtFoes" narrows "casts" to a cast that reaches a foe, so it goes with "casts"',
   });
 
 /** Who passes a save without rolling, and what else it counts as being against (1.181). */
 export interface RulesetSaveExtras {
-  against?: { conditions?: string[]; damage?: string[] };
+  against?: { conditions?: string[]; damage?: string[]; qualities?: string[] };
   succeeds?: { immune?: string[]; conditionImmune?: string[]; is?: RulesetTargetIs };
   modes?: Array<{ is: RulesetTargetIs; mode: (typeof RULESET_ROLL_MODES)[number] }>;
   alliesMayFail?: true;
+  or?: string;
 }
 const saveExtrasShape = {
+  /** Another save its target may make in its place, whichever is better for them (Capability API
+   *  1.724): 5e's bulette's Deadly Leap, "a Strength or Dexterity saving throw (target's choice)". */
+  or: sheetId.optional(),
   /** Its user's own side may choose to fail it (Capability API 1.278), and do: they fail without
    *  rolling, as a friend lets a spell in. 5e's Calm Emotions. */
   alliesMayFail: z.literal(true).optional(),
@@ -3572,9 +5521,14 @@ const saveExtrasShape = {
     .object({
       conditions: z.array(sheetId).min(1).max(8).optional(),
       damage: z.array(promptSafeText(40)).min(1).max(8).optional(),
+      /** What it is (Capability API 1.652), for a modifier's `against.qualities`: Cloudkill's and
+       *  Stinking Cloud's `["gas"]`, which a Necklace of Adaptation gives advantage against. */
+      qualities: z.array(sheetId).min(1).max(8).optional(),
     })
     .strict()
-    .refine((against) => against.conditions || against.damage, { message: "Against names conditions or damage" })
+    .refine((against) => against.conditions || against.damage || against.qualities, {
+      message: "Against names conditions, damage or qualities",
+    })
     .optional(),
   /** Who succeeds on it without rolling (Capability API 1.181): a target immune to one of these
    *  damage types or conditions, or one that is this. 5e's Stinking Cloud: immune to poison, or a
@@ -3597,6 +5551,10 @@ const saveExtrasShape = {
     .min(1)
     .max(4)
     .optional(),
+  /** A target its user's side is fighting, one on a side hostile to theirs, rolls it with advantage
+   *  (Capability API 1.582): 5e's Charm Person and Enthrall, "with advantage if you or your
+   *  companions are fighting it". */
+  advantageIfFought: z.literal(true).optional(),
 };
 
 /** What an entry spends itself on once its holder's own roll has failed (Capability API 1.249,
@@ -3609,6 +5567,7 @@ export interface RulesetCatalogRescue {
   die?: { from: RulesetValueRef; table: Array<[number, number]> };
   saves?: string[];
   budget?: string;
+  against?: { where?: { filter: string; equals: string | number }; fromTypes?: string[] };
 }
 const catalogRescueSchema: z.ZodType<RulesetCatalogRescue, unknown> = z
   .object({
@@ -3631,8 +5590,33 @@ const catalogRescueSchema: z.ZodType<RulesetCatalogRescue, unknown> = z
       .optional(),
     /** The budget spending it takes (Capability API 1.257): a ring of evasion's reaction. */
     budget: sheetId.optional(),
+    /** Only a save against these (Capability API 1.787), either one enough: an entry whose declared
+     *  filter reads so (`where`, as a ward's), or anything a creature of one of `fromTypes` (ids of
+     *  `combat.creatureTypes`) makes them save against. A Scarab of Protection's "a necromancy spell
+     *  or a harmful effect originating from an undead creature". */
+    against: z
+      .object({
+        where: z
+          .object({ filter: sheetId, equals: z.union([promptSafeText(60), z.number()]) })
+          .strict()
+          .optional(),
+        fromTypes: z
+          .array(sheetId)
+          .min(1)
+          .max(12)
+          .refine((types) => new Set(types).size === types.length, { message: "Name each type once" })
+          .optional(),
+      })
+      .strict()
+      .refine((against) => against.where !== undefined || against.fromTypes !== undefined, {
+        message: 'Say what it rescues against: "where", "fromTypes" or both',
+      })
+      .optional(),
   })
   .strict()
+  .refine((rescue) => rescue.against === undefined || rescue.roll === "saves", {
+    message: '"against" narrows a rescue of "saves"',
+  })
   .refine((rescue) => rescue.saves === undefined || rescue.roll === "saves", {
     message: '"saves" narrows a rescue of "saves"',
   })
@@ -3654,9 +5638,11 @@ const catalogRescueSchema: z.ZodType<RulesetCatalogRescue, unknown> = z
 /** A save that ends a condition, and what counting them decides (1.258). */
 export interface RulesetCatalogSaveEnds {
   save: string;
-  at: "turn-end" | "turn-start" | "damaged" | "action";
+  at: "turn-end" | "turn-start" | "damaged" | "action" | "source-turn-start" | "days";
+  days?: number;
   successes?: number;
-  failures?: { count: number; becomes: string };
+  harmsOnFail?: { dice?: string; flat?: number; type?: string };
+  failures?: { count: number; becomes?: string; dismisses?: true };
   unseen?: true;
   seenLean?: "advantage" | "disadvantage";
   beyond?: number;
@@ -3666,21 +5652,56 @@ export interface RulesetCatalogSaveEnds {
 export interface RulesetCatalogApplies {
   condition: string;
   duration: z.infer<typeof catalogDurationSchema>;
+  chance?: number;
+  withAdvantage?: true;
+  unlessImposing?: string[];
   saveEnds?: RulesetCatalogSaveEnds;
-  endsAfter?: "own-attack" | "attacked" | "own-save";
+  endsAfter?: "own-attack" | "own-hit" | "attacked" | "attacked-by-source" | "own-save";
   endsWhenHolder?: RulesetHolderEnding;
-  endsAway?: { beyond: number; unseen?: true };
+  endsAway?: { beyond: number; unseen?: true; orUnseen?: true };
   escapeDc?: number | "save";
   escapeChecks?: string[];
   heldAtMost?: number;
   when?: z.infer<ReturnType<typeof sheetBoundsSchema>>;
   targetIs?: RulesetTargetIs;
+  targetHealthAtMost?: number;
+  paidSteps?: { atLeast?: number; atMost?: number };
   endsWith?: string;
-  checkEnds?: { check: string; difficulty: number; passes?: RulesetTargetIs };
+  checkEnds?: {
+    check: string;
+    difficulty: number;
+    passes?: RulesetTargetIs;
+    by?: "any";
+    spendsItem?: true;
+    failedRetryAfter?: number;
+  };
   harmsPerCostStep?: { dice?: string; flat?: number };
+  raisesMax?: { dice?: string; flat?: number; perStep?: number };
   destroysUpTo?: RulesetDestroysUpTo[];
   value?: RulesetValueRef;
+  lastsDays?: RulesetLastsDays;
+  whileItemWorn?: true;
+  targetHolds?: RulesetTargetHolds;
+  endsOnTarget?: string[];
+  harmsPuller?: { dice?: string; flat?: number; type?: string };
 }
+
+/** Whom an action may be pointed at by what they hold (1.235): one of `conditions`, or one of
+ *  `fromSelf` that its maker put on them. A vampire's Bite: grappled by it, incapacitated or
+ *  restrained. */
+export interface RulesetTargetHolds {
+  conditions?: string[];
+  fromSelf?: string[];
+}
+const targetHoldsSchema: z.ZodType<RulesetTargetHolds, unknown> = z
+  .object({
+    conditions: z.array(sheetId).min(1).max(8).optional(),
+    fromSelf: z.array(sheetId).min(1).max(8).optional(),
+  })
+  .strict()
+  .refine((holds) => holds.conditions || holds.fromSelf, {
+    message: '"targetHolds" names "conditions", "fromSelf" or both',
+  });
 
 /** How strong a creature a failed save destroys outright, by its threat tier (1.266). */
 export interface RulesetDestroysUpTo {
@@ -3692,23 +5713,79 @@ const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, unknown> = z
   .object({
     condition: sheetId,
     duration: catalogDurationSchema,
+    /** Put on only a target with this much health left or less as it lands (Capability API 1.450):
+     *  5e's Divine Word, deafened at 50 or fewer, blinded too at 40, stunned too at 30. */
+    targetHealthAtMost: z.number().int().min(0).max(100000).optional(),
+    /** Put on only on a d100 of this or lower (Capability API 1.646), rolled for each it would land
+     *  on: 5e's Wish, "a 33 percent chance that you are unable to cast wish ever again". */
+    chance: z.number().int().min(1).max(99).optional(),
+    /** Put on only by an attack rolled with advantage (Capability API 1.676): a cloaker's bite that
+     *  lands on its target's head, blinding them. */
+    withAdvantage: z.literal(true).optional(),
+    /** Put on only while its applier holds none of these on anybody (Capability API 1.740), and with
+     *  it whatever of the same list `endsWith` it: a chain devil's Chain, grappled "if the devil isn't
+     *  already grappling a creature", `["grappled"]`. */
+    unlessImposing: uniqueIds(8).optional(),
+    /** Put on only when its entry is paid this many steps above its lowest cost, or more, or fewer
+     *  (Capability API 1.517): 5e's Magic Weapon, +1 from a 2nd-level slot (`atMost: 1`), +2 from a
+     *  4th (`atLeast: 2, atMost: 3`), +3 from a 6th (`atLeast: 4`), each its own condition. */
+    paidSteps: z
+      .object({
+        atLeast: z.number().int().min(0).max(20).optional(),
+        atMost: z.number().int().min(0).max(20).optional(),
+      })
+      .strict()
+      .refine((steps) => steps.atLeast !== undefined || steps.atMost !== undefined, {
+        message: "paidSteps says atLeast, atMost or both",
+      })
+      .refine((steps) => steps.atLeast === undefined || steps.atMost === undefined || steps.atLeast <= steps.atMost, {
+        message: "paidSteps atLeast is no more than atMost",
+      })
+      .optional(),
     /** `at: "damaged"` rolls only on damage above zero, never on a turn (Capability API 1.129):
      *  5e's Dominate Person. */
     saveEnds: z
       .object({
         save: sheetId,
         /** `action` (Capability API 1.264): rolled when its holder spends their action on it, as 5e's
-         *  Irresistible Dance allows. */
-        at: z.enum(["turn-end", "turn-start", "damaged", "action"]),
+         *  Irresistible Dance allows. `source-turn-start` (Capability API 1.483): rolled as the turn
+         *  of whoever put it on starts, Prismatic Spray's Violet ray's "at the start of your next
+         *  turn". `days` (Capability API 1.526): never in a fight, but once each `days` of game time
+         *  that pass outside one, Feeblemind's "at the end of every 30 days". */
+        at: z.enum(["turn-end", "turn-start", "damaged", "action", "source-turn-start", "days"]),
+        days: z.number().int().min(1).max(3650).optional(),
         /** It takes this many successes, counted over the turns, to end it (Capability API 1.258):
-         *  5e's Contagion, three. */
+         *  5e's Contagion, three. With `at: "days"` (Capability API 1.750), counted over the days and
+         *  kept on the sheet: Pale tincture's seven. */
         successes: z.number().int().min(2).max(10).optional(),
+        /** With `at: "days"` (Capability API 1.750), dealt to its holder's sheet on each failed day's
+         *  save: Pale tincture's 1d6 poison. */
+        harmsOnFail: z
+          .object({
+            dice: catalogDice.optional(),
+            flat: z.number().int().min(0).max(1000).optional(),
+            type: promptSafeText(40).optional(),
+          })
+          .strict()
+          .refine((harm) => harm.dice !== undefined || harm.flat !== undefined, {
+            message: "What it harms with names dice, a flat amount, or both",
+          })
+          .optional(),
         /** After this many failures it `becomes` another condition, put on in its place with no
          *  clock, and no more saves are made (Capability API 1.258): Contagion's disease setting in
          *  after three, Flesh to Stone's petrification. */
         failures: z
-          .object({ count: z.number().int().min(1).max(10), becomes: sheetId })
+          .object({
+            count: z.number().int().min(1).max(10),
+            becomes: sheetId.optional(),
+            /** Or its holder leaves the fight for good, alive (Capability API 1.483): Violet's
+             *  "transported to another plane of existence". */
+            dismisses: z.literal(true).optional(),
+          })
           .strict()
+          .refine((failures) => (failures.becomes === undefined) !== (failures.dismisses === undefined), {
+            message: 'After its failures it "becomes" another condition or "dismisses" its holder: one of them',
+          })
           .optional(),
         /** Rolled only while its holder cannot see whoever put it on (Capability API 1.266): 5e's
          *  Fear, saved against at the end of a turn out of the caster's line of sight. */
@@ -3728,11 +5805,26 @@ const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, unknown> = z
         message: '"bySource" narrows a save rolled on damage: it goes with "at": "damaged"',
         path: ["bySource"],
       })
+      .refine((ends) => (ends.at === "days") === (ends.days !== undefined), {
+        message: '"days" says how often a save "at": "days" is made, and goes only with it',
+        path: ["days"],
+      })
+      .refine((ends) => ends.at !== "days" || ends.failures === undefined, {
+        message: 'A save made as days pass ends it on its successes: no "failures"',
+        path: ["at"],
+      })
+      .refine((ends) => ends.harmsOnFail === undefined || ends.at === "days", {
+        message: '"harmsOnFail" is dealt as a failed day\'s save is: it goes with "at": "days"',
+        path: ["harmsOnFail"],
+      })
       .optional(),
     /** It comes off after the first of these that happens to its holder: their own next attack roll,
      *  the next attack roll made against them, or their own next save. Whatever clock it has still
-     *  runs beside it, so "on its next attack before the end of its next turn" is both. */
-    endsAfter: z.enum(["own-attack", "attacked", "own-save"]).optional(),
+     *  runs beside it, so "on its next attack before the end of its next turn" is both.
+     *  `"attacked-by-source"` (Capability API 1.502): the next attack roll whoever put it on makes
+     *  against them, 5e's True Strike. `"own-hit"` (Capability API 1.503): their own next weapon
+     *  attack that hits, a miss leaving it on, 5e's smites. */
+    endsAfter: z.enum(["own-attack", "own-hit", "attacked", "attacked-by-source", "own-save"]).optional(),
     /** It comes off once its holder has made an attack (`attacks`), or used an entry of one of the
      *  catalogs `casts` names, or an item's use that casts one (Capability API 1.180): 5e's
      *  Invisibility, which ends for a target that attacks or casts a spell. What the attack or the
@@ -3741,10 +5833,20 @@ const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, unknown> = z
     /** It comes off once its holder stands farther than `beyond` (the ruleset's own distance) from
      *  whoever put it on, and, with `unseen`, can no longer see them (Capability API 1.310): 5e's
      *  Eyebite, whose panicked target is free again "at least 60 feet away from you where it can no
-     *  longer see you". Asked as each step of a walk ends and as each turn ends. */
+     *  longer see you". Asked as each step of a walk ends and as each turn ends. With `orUnseen`
+     *  (Capability API 1.433) either is enough, asked only as its holder ends a turn: 5e's
+     *  Intimidating Presence, which ends "if the creature ends its turn out of line of sight or more
+     *  than 60 feet away from you". */
     endsAway: z
-      .object({ beyond: z.number().min(0).max(100000), unseen: z.literal(true).optional() })
+      .object({
+        beyond: z.number().min(0).max(100000),
+        unseen: z.literal(true).optional(),
+        orUnseen: z.literal(true).optional(),
+      })
       .strict()
+      .refine((away) => !(away.unseen && away.orUnseen), {
+        message: '"endsAway" ends out of sight AND far ("unseen") or out of sight OR far ("orUnseen"): one of them',
+      })
       .optional(),
     /** What breaking free of it is rolled against, in place of the holder's own side of the contest
      *  that breaks free of it (Capability API 1.103): 5e's "the target is grappled (escape DC 13)".
@@ -3781,6 +5883,16 @@ const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, unknown> = z
         check: sheetId,
         difficulty: z.number().int().min(0).max(1000),
         passes: targetIsSchema.optional(),
+        /** Anybody next to its holder may spend their own standard budget on the check for them
+         *  (Capability API 1.518), rolling it with their own: dousing a creature on fire. */
+        by: z.literal("any").optional(),
+        /** Made, it spends for good the item whose use put it on (Capability API 1.636): Iron Bands of
+         *  Binding, "On a success, the item is destroyed". */
+        spendsItem: z.literal(true).optional(),
+        /** Failed, its holder's own tries fail for this many rounds (Capability API 1.636), and are
+         *  not offered: the bands' "any further attempts made by that creature automatically fail
+         *  until 24 hours have elapsed", 14400. */
+        failedRetryAfter: z.number().int().min(1).max(14400).optional(),
       })
       .strict()
       .optional(),
@@ -3791,6 +5903,21 @@ const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, unknown> = z
       .strict()
       .refine((amount) => amount.dice !== undefined || (amount.flat ?? 0) > 0, {
         message: '"harmsPerCostStep" names dice, a flat amount, or both',
+      })
+      .optional(),
+    /** Its holder's health maximum is raised by this while it holds, and their health by the same
+     *  as it goes on (Capability API 1.473): dice rolled once, `flat`, and `perStep` more for each
+     *  step of higher cost it was put on with. Put on again, the new raise replaces the old. 5e's
+     *  Aid, `{"flat": 5, "perStep": 5}`; Heroes' Feast, `{"dice": "2d10"}`. */
+    raisesMax: z
+      .object({
+        dice: catalogDice.optional(),
+        flat: z.number().int().min(1).max(1000).optional(),
+        perStep: z.number().int().min(1).max(1000).optional(),
+      })
+      .strict()
+      .refine((raise) => raise.dice !== undefined || raise.flat !== undefined, {
+        message: '"raisesMax" names dice, a flat amount, or both',
       })
       .optional(),
     /** A creature whose threat tier is at or below one of these is destroyed outright in place of
@@ -3806,9 +5933,60 @@ const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, unknown> = z
      *  1.274), for the condition's `temporary` to give: 5e's Heroism, its caster's spellcasting
      *  modifier. */
     value: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+    /** With `duration: "until-dispelled"`, it lasts this many days, read off the sheet of whoever
+     *  applies it as it goes on (Capability API 1.663): no clock in the fight, and on a sheet it is
+     *  still on as the fight ends, counted down by the days that pass. 5e's Quivering Palm, "a
+     *  number of days equal to your monk level". Or `"midnight"` (Capability API 1.751): until the
+     *  next midnight, the sheet's next `pass` of a day, 5e's Midnight tears. Or `{ dice }` (Capability
+     *  API 1.756): rolled as it goes on, and with `restingCounts` each day its holder spends resting
+     *  (a `pass` with `resting`) counts as that many: 5e's Wish stress, "2d4 days. For each of those
+     *  days that you spend resting ..., your remaining recovery time decreases by 2 days". */
+    lastsDays: z
+      .union([
+        z.literal("midnight"),
+        z.object({ dice: catalogDice, restingCounts: z.number().int().min(2).max(7).optional() }).strict(),
+        rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
+      ])
+      .optional(),
+    /** Put on by an item's use, it ends once that item is no longer worn (Capability API 1.664): 5e's
+     *  Armor of Invulnerability, "for 10 minutes or until you are no longer wearing the armor". */
+    whileItemWorn: z.literal(true).optional(),
+    /** It goes on only a target that already holds one of these, from anybody (`conditions`) or
+     *  from whoever applies it (`fromSelf`), read as it goes on (Capability API 1.407), so one put on
+     *  earlier in the same list counts. A kraken's Bite swallows only a creature the kraken grapples;
+     *  the bite itself lands on anybody. */
+    targetHolds: targetHoldsSchema.optional(),
+    /** Conditions whoever applies it had put on the target, taken off once it is on (Capability API
+     *  1.407): a purple worm's swallow, after which "the grapple ends". */
+    endsOnTarget: z
+      .array(sheetId)
+      .min(1)
+      .max(8)
+      .refine((ends) => new Set(ends).size === ends.length, { message: "A condition is named once" })
+      .optional(),
+    /** What a creature that tries to pull its holder out takes, win or lose, from whoever applied it
+     *  (Capability API 1.407), with a contest that `pulls`: a gelatinous cube's 10 (3d6) acid. */
+    harmsPuller: z
+      .object({
+        dice: catalogDice.optional(),
+        flat: z.number().int().min(0).max(1000).optional(),
+        type: promptSafeText(40).optional(),
+      })
+      .strict()
+      .refine((harm) => harm.dice !== undefined || harm.flat !== undefined, {
+        message: "What it harms with names dice, a flat amount, or both",
+      })
+      .optional(),
   })
   .strict()
   .superRefine((applies, ctx) => {
+    if (applies.endsOnTarget?.includes(applies.condition)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endsOnTarget"],
+        message: "A condition does not end itself as it goes on",
+      });
+    }
     if (applies.endsWith !== undefined && applies.endsWith === applies.condition) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -3823,6 +6001,31 @@ const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, unknown> = z
         message: '"until-save" needs the save that ends it',
       });
     }
+    if (applies.lastsDays !== undefined && applies.duration !== "until-dispelled") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["lastsDays"],
+        message: '"lastsDays" is its clock outside a fight, so its "duration" is "until-dispelled"',
+      });
+    }
+  });
+
+/** A save failed badly enough that something worse goes on in place of what it puts on (1.592): by
+ *  at least `atLeast`, or (Capability API 1.673) with a total of `resultAtMost` or lower. */
+export interface RulesetSaveFailedBy {
+  atLeast?: number;
+  resultAtMost?: number;
+  applies: RulesetCatalogApplies[];
+}
+const saveFailedBySchema: z.ZodType<RulesetSaveFailedBy, unknown> = z
+  .object({
+    atLeast: z.number().int().min(1).max(50).optional(),
+    resultAtMost: z.number().int().min(-50).max(100).optional(),
+    applies: z.array(catalogAppliesSchema).min(1).max(4),
+  })
+  .strict()
+  .refine((rule) => (rule.atLeast === undefined) !== (rule.resultAtMost === undefined), {
+    message: 'Say "atLeast" or "resultAtMost"',
   });
 
 /** A list of conditions put on together: each `endsWith` names another one of the same list (1.202). */
@@ -3845,16 +6048,30 @@ function linkedApplies(list: RulesetCatalogApplies[], ctx: z.RefinementCtx): voi
  *  `when` is any-of: one of the listed things being true is enough. "advantage" is how the attack
  *  roll finally leaned, and "ally-adjacent" is a standing ally of the attacker who can act, within
  *  one cell of the target on a board and anywhere at all without one. "ally-adjacent-no-disadvantage"
- *  (Capability API 1.126) also needs the roll's final mode not to be disadvantage. */
+ *  (Capability API 1.126) also needs the roll's final mode not to be disadvantage. "target-hurt"
+ *  (Capability API 1.393) is a target below its most health: Colossus Slayer.
+ *
+ *  `oncePer` "own-turn" (Capability API 1.393) fires only on its holder's own turn, once in it:
+ *  "once on each of your turns" (Divine Strike), never on an opportunity attack between. */
 const riderCoreShape = {
   /** The one moment a rider fires. More of them arrive with the slice that builds windows. */
   on: z.literal("hit"),
   when: z
-    .array(z.enum(["advantage", "ally-adjacent", "ally-adjacent-no-disadvantage"]))
+    .array(
+      z.enum([
+        "advantage",
+        "ally-adjacent",
+        "ally-adjacent-no-disadvantage",
+        "target-hurt",
+        // A target surprised, or one that has not yet taken a turn in the fight (1.544).
+        "target-surprised",
+        "target-not-yet-acted",
+      ]),
+    )
     .min(1)
-    .max(3)
+    .max(6)
     .optional(),
-  oncePer: z.enum(["turn", "round"]),
+  oncePer: z.enum(["turn", "round", "own-turn"]),
   // Marked so the published JSON Schema can find it by name rather than by guessing from its keys,
   // which would also match every other pair of dice and flat in the file.
   amount: z.object(catalogAmountShape).strict().describe("rider-amount"),
@@ -3936,11 +6153,13 @@ export interface RulesetCatalogArea {
   size: number;
   width?: number;
   ring?: number;
+  ringOnly?: true;
   copies?: number;
   copiesWithin?: number;
   sizePerCostStep?: number;
   around?: true;
   throughWalls?: true;
+  oneCell?: true;
 }
 const catalogAreaSchema: z.ZodType<RulesetCatalogArea, unknown> = z
   .object({
@@ -3951,6 +6170,8 @@ const catalogAreaSchema: z.ZodType<RulesetCatalogArea, unknown> = z
     width: z.number().finite().gt(0).optional(),
     /** A wall its caster may lay as a ring instead (1.177), this many across: 5e's Wall of Fire, 20. */
     ring: z.number().finite().gt(0).optional(),
+    /** Always laid as its ring, never as a straight wall (Capability API 1.602): 5e's Forcecage. */
+    ringOnly: z.literal(true).optional(),
     /** How many of it its maker sets down at once (1.178), each touching another: 5e's Fire Storm,
      *  ten 10-ft cubes. Only a burst or a box. */
     copies: z.number().int().min(2).max(10).optional(),
@@ -3967,6 +6188,10 @@ const catalogAreaSchema: z.ZodType<RulesetCatalogArea, unknown> = z
     /** Walls and corners do not stop it (Capability API 1.282): "including ones behind barriers and
      *  around corners". Only with `around`. */
     throughWalls: z.literal(true).optional(),
+    /** Smaller than a cell (Capability API 1.702): it covers only the cell it is at, however small
+     *  its `size`, where a burst otherwise covers at least the cells around it. 5e's Sphere of
+     *  Annihilation, a 2-foot sphere. Only a single burst held at a point. */
+    oneCell: z.literal(true).optional(),
   })
   .strict()
   .refine((area) => !area.around || (area.shape === "burst" && area.copies === undefined), {
@@ -3989,6 +6214,10 @@ const catalogAreaSchema: z.ZodType<RulesetCatalogArea, unknown> = z
     message: "Only a wall is a ring",
     path: ["ring"],
   })
+  .refine((area) => !area.ringOnly || area.ring !== undefined, {
+    message: '"ringOnly" lays it as its ring, so it has "ring"',
+    path: ["ringOnly"],
+  })
   .refine((area) => area.copies === undefined || area.shape === "burst" || area.shape === "box", {
     message: "Only a burst or a box is set down several times",
     path: ["copies"],
@@ -3996,11 +6225,41 @@ const catalogAreaSchema: z.ZodType<RulesetCatalogArea, unknown> = z
   .refine((area) => area.copiesWithin === undefined || area.copies !== undefined, {
     message: '"copiesWithin" spaces out its copies, so it has "copies"',
     path: ["copiesWithin"],
-  });
+  })
+  .refine(
+    (area) =>
+      !area.oneCell ||
+      (area.shape === "burst" && !area.around && area.copies === undefined && area.sizePerCostStep === undefined),
+    { message: "Only a single burst held at a point is one cell", path: ["oneCell"] },
+  );
 
 /** What an entry DOES. The Engine does not act on it in this slice: it validates it and the client
  *  shows one compact line. A later combat bridge turns it into the Engine's own `CombatSkill`, so
  *  the vocabulary is closed and strict, and a typo is refused now rather than ignored then. */
+/** The entries of a catalog whose declared filter reads this (Capability API 1.414): a word, a
+ *  number, or one of a list of words. 5e's wizard evocation spells, `{"filter": "school", "equals":
+ *  "evocation"}`, and its cantrips, `{"filter": "level", "equals": 0}`. */
+export interface RulesetCatalogWhere {
+  filter: string;
+  equals: string | number;
+}
+/** Healing an amend adds (Capability API 1.421): a value off the sheet, and so much for each level
+ *  the entry is paid at, from `fromLevel` up (below it, nothing). */
+const amendHealSchema = z
+  .object({
+    add: rulesetValueRefSchema.optional(),
+    perLevel: z.number().int().min(1).max(20).optional(),
+    fromLevel: z.number().int().min(0).max(20).optional(),
+  })
+  .strict()
+  .refine((heal) => heal.add !== undefined || heal.perLevel !== undefined, {
+    message: 'Healing an amend adds is an "add", a "perLevel" or both',
+  });
+
+export const catalogWhereSchema: z.ZodType<RulesetCatalogWhere, unknown> = z
+  .object({ filter: sheetId, equals: z.union([z.string().trim().min(1).max(80), z.number().finite()]) })
+  .strict();
+
 /** How an entry changes another as it is used (Capability API 1.253): 5e's Metamagic. Typed by hand,
  *  as written out its inferred type is too long for the schema around it to emit. */
 export interface RulesetCatalogAlters {
@@ -4014,6 +6273,11 @@ export interface RulesetCatalogAlters {
   drops?: string[];
   twins?: true;
   joins?: true;
+  where?: RulesetCatalogWhere;
+  sparesWhole?: true;
+  sparesByLevel?: true;
+  maximizes?: { fromLevel?: number; upToLevel?: number };
+  backlash?: { free: number; dice: string; grows?: string; type?: string; unblockable?: true };
 }
 
 const catalogAltersSchema: z.ZodType<RulesetCatalogAlters, unknown> = z
@@ -4041,8 +6305,57 @@ const catalogAltersSchema: z.ZodType<RulesetCatalogAlters, unknown> = z
     twins: z.literal(true).optional(),
     /** May be chosen beside another one: Empowered. */
     joins: z.literal(true).optional(),
+    /** Only entries of its catalogs whose filter reads this (Capability API 1.414): Sculpt Spells on
+     *  evocation spells. */
+    where: catalogWhereSchema.optional(),
+    /** Those it spares take nothing where a success would leave them half (Capability API 1.414):
+     *  Sculpt Spells. */
+    sparesWhole: z.literal(true).optional(),
+    /** It spares as many more as the level the entry is paid at (Capability API 1.414): Sculpt
+     *  Spells' 1 + the spell's level. */
+    sparesByLevel: z.literal(true).optional(),
+    /** Its damage dealt at its most, every die at its top face, for an entry paid at a level from
+     *  `fromLevel` up to `upToLevel` (Capability API 1.415): Overchannel, 1st through 5th. */
+    maximizes: z
+      .object({
+        fromLevel: z.number().int().min(0).max(20).optional(),
+        upToLevel: z.number().int().min(0).max(20).optional(),
+      })
+      .strict()
+      .optional(),
+    /** Harm to its user as it is used, past the first `free` uses of its counter since that counter
+     *  last came back (Capability API 1.415): `dice` for each level the entry is paid at, and `grows`
+     *  more for each use past the first that harms. `unblockable` passes resistance and immunity.
+     *  Overchannel: `{"free": 1, "dice": "2d12", "grows": "1d12", "type": "necrotic",
+     *  "unblockable": true}`. */
+    backlash: z
+      .object({
+        free: z.number().int().min(0).max(20).default(0),
+        dice: catalogDice,
+        grows: catalogDice.optional(),
+        type: z.string().trim().min(1).max(80).optional(),
+        unblockable: z.literal(true).optional(),
+      })
+      .strict()
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((alters, ctx) => {
+    if (
+      alters.maximizes?.fromLevel !== undefined &&
+      alters.maximizes.upToLevel !== undefined &&
+      alters.maximizes.fromLevel > alters.maximizes.upToLevel
+    )
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["maximizes"],
+        message: '"fromLevel" is above "upToLevel", so it maximizes nothing',
+      });
+    for (const key of ["sparesWhole", "sparesByLevel"] as const) {
+      if (alters[key] && alters.spares === undefined)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `"${key}" changes "spares", so it has one` });
+    }
+  });
 
 /** Who an entry may be pointed at or catch, by what they are (Capability API 1.168). Typed by hand:
  *  written out, its inferred type is too long for the definition schema around it to emit. */
@@ -4053,6 +6366,9 @@ const catalogTargetTypesSchema: z.ZodType<
     abilityAtMost?: Record<string, number>;
     abilityAtLeast?: Record<string, number>;
     notImmuneTo?: string[];
+    calledBySelf?: true;
+    understands?: true;
+    uncontrolled?: true;
   },
   unknown
 > = z
@@ -4070,16 +6386,33 @@ const catalogTargetTypesSchema: z.ZodType<
     /** Only a target not immune to any of these conditions (1.185): 5e's Sleep, which passes over
      *  whoever cannot be charmed. */
     notImmuneTo: z.array(sheetId).min(1).max(8).optional(),
+    /** Only a creature its user called into the fight (Capability API 1.487): 5e's "your familiar",
+     *  for Voice of the Chain Master and seeing through its eyes. */
+    calledBySelf: z.literal(true).optional(),
+    /** Only a creature that understands a language its user speaks (Capability API 1.561), read off
+     *  `combat.languages` and a creature's own `languages`: 5e's Suggestion, Command. One whose
+     *  languages are not written down is not kept out by it. */
+    understands: z.literal(true).optional(),
+    /** Only a creature under no other creature's control (Capability API 1.633): not called into the
+     *  fight by anybody else, or called but wild or turned on its caller. Its user's own calls pass.
+     *  5e's Pipes of the Sewers, "a swarm of rats that isn't under another creature's control". */
+    uncontrolled: z.literal(true).optional(),
   })
   .strict()
   .refine(
     (types) =>
+      types.understands !== undefined ||
+      types.uncontrolled !== undefined ||
       types.is !== undefined ||
       types.not !== undefined ||
       types.abilityAtMost !== undefined ||
       types.abilityAtLeast !== undefined ||
-      types.notImmuneTo !== undefined,
-    { message: '"targetTypes" says "is", "not", "abilityAtMost", "abilityAtLeast", "notImmuneTo" or several' },
+      types.notImmuneTo !== undefined ||
+      types.calledBySelf !== undefined,
+    {
+      message:
+        '"targetTypes" says "is", "not", "abilityAtMost", "abilityAtLeast", "notImmuneTo", "calledBySelf", "understands", "uncontrolled" or several',
+    },
   );
 
 /** A health pool an entry shares out among its targets (Capability API 1.196). Typed by hand:
@@ -4142,7 +6475,10 @@ const catalogCheckSchema: z.ZodType<
   });
 
 /** Conditions a cure takes off (Capability API 1.176). Typed, to keep the mechanics' type small. */
-const catalogEndsSchema: z.ZodType<{ conditions: string[]; count?: number; from?: RulesetTargetIs }, unknown> = z
+const catalogEndsSchema: z.ZodType<
+  { conditions: string[]; count?: number; from?: RulesetTargetIs; chosen?: true },
+  unknown
+> = z
   .object({
     conditions: z
       .array(sheetId)
@@ -4154,6 +6490,9 @@ const catalogEndsSchema: z.ZodType<{ conditions: string[]; count?: number; from?
      *  Enchantment ends a charm, a fright or a possession by a celestial, an elemental, a fey, a
      *  fiend or an undead. */
     from: targetIsSchema.optional(),
+    /** Its user picks which of those its target holds end, up to `count` (Capability API 1.442),
+     *  rather than the first named: 5e's Greater Restoration, "end one of the following effects". */
+    chosen: z.literal(true).optional(),
   })
   .strict();
 
@@ -4179,14 +6518,31 @@ const catalogTracksSchema: z.ZodType<Array<{ track: string; by: number }>, unkno
   });
 
 /** What an entry's summons spends and how long it stays. Typed, to keep the mechanics' type small. */
-const catalogSummonsSchema: z.ZodType<{ budget: string; rounds: number; move?: number; reach?: number }, unknown> = z
+const catalogSummonsSchema: z.ZodType<
+  { budget?: string; rounds: number; move?: number; reach?: number; strikesAtTurnStart?: true },
+  unknown
+> = z
   .object({
-    budget: sheetId,
-    rounds: z.number().int().min(1).max(100),
+    budget: sheetId.optional(),
+    /** Up to 100 rounds, or 14400 for one that strikes by itself (Capability API 1.539). */
+    rounds: z.number().int().min(1).max(14400),
     move: z.number().finite().gt(0).optional(),
     reach: z.number().finite().gt(0).optional(),
+    /** It strikes by itself, never commanded, as its summoner's turn starts (Capability API 1.539):
+     *  the entry's attack at the nearest creature hostile to them within its `reach` of where it
+     *  stands. Cast, it only appears. 5e's Faithful Hound, "at the start of each of your turns, the
+     *  hound attempts to bite one creature within 5 feet of it that is hostile to you". */
+    strikesAtTurnStart: z.literal(true).optional(),
   })
-  .strict();
+  .strict()
+  .refine((summons) => summons.budget !== undefined || summons.strikesAtTurnStart, {
+    message: 'A summons its user commands names the "budget" each command spends',
+    path: ["budget"],
+  })
+  .refine((summons) => summons.rounds <= 100 || summons.strikesAtTurnStart, {
+    message: "A summons its user commands stays up to 100 rounds",
+    path: ["rounds"],
+  });
 
 /** Its maker regains health by the damage a blow dealt (1.281): an aboleth's Psychic Drain, all of it;
  *  Vampiric Touch, half of the necrotic. The target's maximum is not touched. */
@@ -4244,26 +6600,11 @@ const reducesMaxSchema: z.ZodType<RulesetReducesMax, unknown> = z
     }
   });
 
-/** Whom an action may be pointed at by what they hold (1.235): one of `conditions`, or one of
- *  `fromSelf` that its maker put on them. A vampire's Bite: grappled by it, incapacitated or
- *  restrained. */
-export interface RulesetTargetHolds {
-  conditions?: string[];
-  fromSelf?: string[];
-}
-const targetHoldsSchema: z.ZodType<RulesetTargetHolds, unknown> = z
-  .object({
-    conditions: z.array(sheetId).min(1).max(8).optional(),
-    fromSelf: z.array(sheetId).min(1).max(8).optional(),
-  })
-  .strict()
-  .refine((holds) => holds.conditions || holds.fromSelf, {
-    message: '"targetHolds" names "conditions", "fromSelf" or both',
-  });
-
 /** Where a teleport goes (Capability API 1.276). Typed by hand, to keep the definition's type small. */
 export interface RulesetTeleportRule {
   distance: number;
+  familiarity?: Array<{ id: string; label: string; mishap: number; similar?: number; off?: number }>;
+  mishap?: { dice: string; type: string };
   seen?: true;
   carries?: number;
   carriesWithin?: number;
@@ -4291,13 +6632,61 @@ const teleportSchema: z.ZodType<RulesetTeleportRule, unknown> = z
     /** It leaves a cloud on the cell its user left and the one it lands in, obscuring as a zone's
      *  `obscures` does, until the end of its user's next turn (Capability API 1.279): the Cape of
      *  the Mountebank's smoke. */
-    smoke: seenThroughSchema.optional(),
+    smoke: seenThroughSchema
+      .refine((smoke) => !smoke.notForCaster, { message: '"notForCaster" is for a zone\'s "obscures"' })
+      .optional(),
     /** A creature's: one of its own actions it may make once, before or after teleporting, as the
      *  same action (Capability API 1.280): a blink dog's bite. The menu offers the teleport, with
      *  the strike after it, and the strike, with the teleport after it. */
     strike: sheetId.optional(),
+    /** How well its user knows where it goes, picked as it is used (Capability API 1.670): each a
+     *  mode, with the chances in a hundred of a mishap, of a similar area and of landing off target
+     *  (the rest lands on it). Leaving the fight, a d100 is rolled: a mishap deals `mishap` to its
+     *  user and everybody it carries, and rolls again. 5e's Teleport. */
+    familiarity: z
+      .array(
+        z
+          .object({
+            id: sheetId,
+            label,
+            mishap: z.number().int().min(0).max(99),
+            similar: z.number().int().min(0).max(100).optional(),
+            off: z.number().int().min(0).max(100).optional(),
+          })
+          .strict()
+          .refine((row) => row.mishap + (row.similar ?? 0) + (row.off ?? 0) <= 100, {
+            message: "A row's chances come to no more than 100",
+          }),
+      )
+      .min(1)
+      .max(8)
+      .optional(),
+    /** What a mishap deals each traveller (Capability API 1.670): `{"dice": "3d10", "type": "force"}`. */
+    mishap: z
+      .object({
+        dice: z
+          .string()
+          .max(20)
+          .regex(/^\d{1,2}d\d{1,3}([+-]\d{1,3})?$/u),
+        type: z.string().min(1).max(40),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
+  .refine((teleport) => !teleport.familiarity || (teleport.leaves && teleport.mishap), {
+    message: '"familiarity" is rolled leaving the fight, so it goes with "leaves" and a "mishap"',
+    path: ["familiarity"],
+  })
+  .refine((teleport) => !teleport.mishap || teleport.familiarity, {
+    message: '"mishap" is what "familiarity" rolls, so it goes with it',
+    path: ["mishap"],
+  })
+  .refine(
+    (teleport) =>
+      new Set((teleport.familiarity ?? []).map((row) => row.id)).size === (teleport.familiarity ?? []).length,
+    { message: "Each familiarity has its own id", path: ["familiarity"] },
+  )
   .refine((teleport) => teleport.carriesWithin === undefined || teleport.carries !== undefined, {
     message: '"carriesWithin" is how near those it "carries" stand, so it goes with "carries"',
     path: ["carriesWithin"],
@@ -4305,6 +6694,458 @@ const teleportSchema: z.ZodType<RulesetTeleportRule, unknown> = z
   .refine((teleport) => !teleport.carriesSeen || teleport.carries !== undefined, {
     message: '"carriesSeen" says which of those it "carries" may go, so it goes with "carries"',
     path: ["carriesSeen"],
+  });
+
+const catalogFilterValues = z.union([
+  z.number().finite(),
+  z.string().max(80),
+  z
+    .array(z.union([z.number().finite(), z.string().max(80)]))
+    .min(1)
+    .max(32),
+]);
+/** Every entry of a bestiary catalog that matches (Capability API 1.401 for shape forms, 1.402 for
+ *  calls): `filters` each entry must match (any of a list, without regard to case), `notFilters`
+ *  none it may. A list-valued filter, such as tags, matches on any of its own. */
+export interface RulesetCatalogFrom {
+  catalog: string;
+  filters?: Record<string, string | number | Array<string | number>>;
+  notFilters?: Record<string, string | number | Array<string | number>>;
+}
+const catalogFromSchema: z.ZodType<RulesetCatalogFrom, unknown> = z
+  .object({
+    catalog: z
+      .string()
+      .trim()
+      .regex(/^[^/\s]{1,80}$/, "A catalog id"),
+    filters: z.record(sheetId, catalogFilterValues).optional(),
+    notFilters: z.record(sheetId, catalogFilterValues).optional(),
+  })
+  .strict();
+
+/** The forms a shape change offers (Capability API 1.392), each a bestiary entry as
+ *  `"<catalogId>/<entryId>"`, from this ruleset's catalogs or the fight's bestiary, or every match
+ *  of a catalog's `from` (1.401): what its user picks
+ *  as they use it, like a weapon's mode. The entry also `applies` a condition with `shape`, and the
+ *  one it lands on becomes the picked form while that holds. `upTo` keeps out the forms whose bestiary
+ *  `filter` (5e's `challenge`) is above `at`, read off the user's sheet, and above `targetLevel`, read
+ *  off the target's sheet (a target with no sheet: its own bestiary entry's `filter`): Wild Shape's
+ *  challenge by druid level, Polymorph's "equal or less than the target's". `without` keeps out the
+ *  forms that move a way `speed` names unless `unless` reads above nought on the user's sheet: no
+ *  flying before druid level 8. */
+export const shapeFormsSchema = z
+  .object({
+    into: z
+      .array(
+        z
+          .string()
+          .trim()
+          .regex(/^[^/\s]{1,80}\/[^/\s]{1,120}$/, 'A form is named "<catalogId>/<entryId>"'),
+      )
+      .min(1)
+      .max(64)
+      .refine((into) => new Set(into).size === into.length, { message: "A form is listed once" })
+      .optional(),
+    /** Every entry of a bestiary catalog that matches (Capability API 1.401), besides any `into`
+     *  names: `filters` each entry must match (any of a list), `notFilters` none it may. 5e's Wild
+     *  Shape is `{"catalog": "creatures", "filters": {"type": "Beast"}}`, Shapechange
+     *  `{"catalog": "creatures", "notFilters": {"type": ["Construct", "Undead"]}}`. */
+    from: catalogFromSchema.optional(),
+    upTo: z
+      .object({
+        filter: sheetId,
+        at: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+        targetLevel: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+      })
+      .strict()
+      .refine((upTo) => upTo.at !== undefined || upTo.targetLevel !== undefined, {
+        message: '"upTo" reads "at", "targetLevel" or both',
+      })
+      .optional(),
+    without: z
+      .array(
+        z
+          .object({
+            speed: z.enum(["fly", "swim", "climb", "burrow"]),
+            unless: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+          })
+          .strict(),
+      )
+      .max(4)
+      .optional(),
+  })
+  .strict()
+  .refine((forms) => forms.into !== undefined || forms.from !== undefined, {
+    message: 'The forms are named in "into", read "from" a catalog, or both',
+  });
+export type RulesetShapeForms = z.infer<typeof shapeFormsSchema>;
+
+/** The highest a called creature's bestiary `filter` may read (Capability API 1.402): Conjure
+ *  Animals' "challenge rating 2 or lower". */
+/** `perStep` (Capability API 1.537): `at` rises this much for each step of higher cost it is paid
+ *  with, Conjure Elemental's "the challenge rating increases by 1 for each slot level above 5th". */
+const calledUpTo = z
+  .object({ filter: sheetId, at: z.number().finite(), perStep: z.number().finite().gt(0).max(100).optional() })
+  .strict();
+const calledCreatureRef = z
+  .string()
+  .trim()
+  .regex(/^[^/\s]{1,80}\/[^/\s]{1,120}$/, 'A called creature is named "<catalogId>/<entryId>"');
+const calledCount = z
+  .object(catalogAmountShape)
+  .strict()
+  .refine((count) => count.dice !== undefined || (count.flat ?? 0) >= 1, {
+    message: "A call brings at least one creature",
+  });
+
+/** Where a call may be made (1.614): not in one of `notLight` where its caller stands, only outdoors
+ *  or only indoors by the board's place. */
+export interface RulesetCallWhere {
+  notLight?: Array<"sunlight" | "bright" | "dim" | "dark">;
+  outdoors?: true;
+  indoors?: true;
+}
+const callWhereSchema: z.ZodType<RulesetCallWhere, unknown> = z
+  .object({
+    notLight: z
+      .array(z.enum(["sunlight", "bright", "dim", "dark"]))
+      .min(1)
+      .max(4)
+      .optional(),
+    outdoors: z.literal(true).optional(),
+    indoors: z.literal(true).optional(),
+  })
+  .strict()
+  .refine((where) => where.notLight || where.outdoors || where.indoors, {
+    message: 'Say where: "notLight", "outdoors" or "indoors"',
+  })
+  .refine((where) => !(where.outdoors && where.indoors), {
+    message: 'A call is made "outdoors" or "indoors", not both',
+  });
+
+/** What called creatures take from their caller (1.558), typed by hand to keep the definition's
+ *  type small. */
+/** Where a call sets down what it calls (1.621): see the call's `within`. */
+export interface RulesetCallWithin {
+  distance: number;
+  seen?: true;
+}
+const callWithinSchema: z.ZodType<RulesetCallWithin, unknown> = z
+  .object({ distance: z.number().finite().gt(0).max(10000), seen: z.literal(true).optional() })
+  .strict();
+
+const callFromCallerSchema: z.ZodType<{ health?: true; toHit?: RulesetValueRef; adds?: RulesetValueRef }, unknown> = z
+  .object({
+    health: z.literal(true).optional(),
+    toHit: rulesetValueRefSchema.optional(),
+    adds: rulesetValueRefSchema.optional(),
+  })
+  .strict()
+  .refine((from) => from.health || from.toHit || from.adds, {
+    message: 'Say what they take from their caller: "health", "toHit", "adds" or more',
+  });
+
+/** How many of their caller's turns called creatures take to arrive (1.614), typed by hand. */
+const callArrivesSchema: z.ZodType<{ dice?: string; flat?: number }, unknown> = z
+  .object(catalogAmountShape)
+  .strict()
+  .refine((count) => count.dice !== undefined || (count.flat ?? 0) >= 1, {
+    message: "They arrive after one turn at least",
+  });
+
+/** One of the creatures a call picks among (1.394), typed by hand so the definition's type stays
+ *  small enough to write out. */
+export interface RulesetCalledOption {
+  creature?: string;
+  from?: RulesetCatalogFrom;
+  upTo?: z.infer<typeof calledUpTo>;
+  count?: z.infer<typeof calledCount>;
+  label?: string;
+  fromStep?: number;
+  perStep?: number;
+  weight?: number;
+  hostile?: true;
+  none?: true;
+  rounds?: number;
+  spendsItem?: true;
+  pastLifetime?: true;
+  onlyWhere?: RulesetCallWhere;
+}
+
+/** The creatures a call picks among as it is used (1.394), up to 8, each like a weapon's mode. */
+const calledOptionsSchema: z.ZodType<RulesetCalledOption[], unknown> = z
+  .array(
+    z
+      .object({
+        creature: calledCreatureRef.optional(),
+        from: catalogFromSchema.optional(),
+        upTo: calledUpTo.optional(),
+        count: calledCount.optional(),
+        label: promptSafeText(80).optional(),
+        /** Offered only when paid this many steps of higher cost or more (Capability API 1.537):
+         *  Create Undead's ghasts or wights from an 8th-level slot, `2`. */
+        fromStep: z.number().int().min(1).max(20).optional(),
+        /** This many more for each step of higher cost (1.537), beyond its own `fromStep`. */
+        perStep: z.number().int().min(1).max(20).optional(),
+        /** How likely a `rolled` call comes up with it (Capability API 1.559), against the others'
+         *  weights: an Efreeti Bottle's service, `8` of `10`. */
+        weight: z.number().int().min(1).max(100).optional(),
+        /** Those it calls join the other side, against their caller (Capability API 1.559): an Efreeti
+         *  Bottle's efreeti that attacks you. */
+        hostile: z.literal(true).optional(),
+        /** It calls nobody into the fight (Capability API 1.559), only its `label` told: an Efreeti
+         *  Bottle's three wishes. Only in a `rolled` call. */
+        none: z.literal(true).optional(),
+        /** Those it calls leave after this many rounds (Capability API 1.591), in place of the call's
+         *  own `rounds`: an Efreeti Bottle's efreeti that attacks you, 5. Only in a `rolled` call. */
+        rounds: z.number().int().min(1).max(14400).optional(),
+        /** Once it comes, the item it was rolled from is spent for good (Capability API 1.591), never
+         *  used again: the Efreeti Bottle's attacking efreeti and its wishes. Only in a `rolled` call. */
+        spendsItem: z.literal(true).optional(),
+        /** It comes, never rolled, at each use past the call's `lifetimeUses` (Capability API 1.591),
+         *  and at no other: the Efreeti Bottle's fourth opening, the efreeti escaping. */
+        pastLifetime: z.literal(true).optional(),
+        /** Offered only where its caller stands in no light of `notLight`, or only `outdoors` (or
+         *  `indoors`) by the board's place (Capability API 1.614): a vampire's Children of the
+         *  Night, bats or rats "provided that the sun isn't up", wolves "while outdoors". */
+        onlyWhere: callWhereSchema.optional(),
+      })
+      .strict()
+      .refine((option) => option.none || (option.creature === undefined) !== (option.from === undefined), {
+        message: 'An option names one "creature" or reads "from" a catalog',
+      })
+      .refine(
+        (option) => !option.none || (option.creature === undefined && option.from === undefined && !!option.label),
+        {
+          message: 'An option that calls nobody names no creature, only its "label"',
+          path: ["none"],
+        },
+      )
+      .refine((option) => option.none || option.count !== undefined, {
+        message: 'An option says its "count"',
+        path: ["count"],
+      })
+      .refine((option) => !option.upTo || option.from !== undefined, {
+        message: '"upTo" caps what is read "from" a catalog',
+        path: ["upTo"],
+      }),
+  )
+  .min(1)
+  .max(8);
+
+/** Creatures a catalog entry or an item use calls into the fight on its user's side (Capability API
+ *  1.394): 5e's Conjure Animals, Animate Dead, Find Familiar, a Figurine of Wondrous Power. Either
+ *  one `creature` and its `count`, or up to 8 `options` its user picks among as they use it, like a
+ *  weapon's mode ("one beast of challenge rating 2, two of 1, four of 1/2 ..."). They are set down
+ *  in the entry's `area` where it is aimed, or beside its user, and roll their own initiative, or
+ *  with `"initiative": "after"` act right after their caller. They leave when `rounds` have passed,
+ *  counted from their caller's next turn, or when the concentration the entry holds ends. */
+export const catalogCallsSchema = z
+  .object({
+    creature: calledCreatureRef.optional(),
+    count: calledCount.optional(),
+    /** Or any one creature of a bestiary catalog that matches (Capability API 1.402), picked as it
+     *  is used, no higher than `upTo`. */
+    from: catalogFromSchema.optional(),
+    upTo: calledUpTo.optional(),
+    options: calledOptionsSchema.optional(),
+    /** `"none"` (Capability API 1.479): they take no turns and keep no side standing, an object the
+     *  entry is cast on: 5e's Antipathy/Sympathy's target object or area. */
+    initiative: z.enum(["roll", "after", "none"]).optional(),
+    rounds: z.number().int().min(1).max(14400).optional(),
+    /** Its count once over again for each this many steps of higher cost it is paid with (Capability
+     *  API 1.402): 5e's Conjure Animals, twice as many with a 5th-level slot, three times with 7th
+     *  and four times with 9th, is `2`. */
+    timesPerSteps: z.number().int().min(1).max(20).optional(),
+    /** This many more for each step of higher cost it is paid with (Capability API 1.537): 5e's
+     *  Animate Dead, "two additional undead creatures for each slot level above 3rd", is `2`. */
+    perStep: z.number().int().min(1).max(20).optional(),
+    /** Its concentration broken (by harm, its caster going down, or a zone), they stay and turn on
+     *  their caller's side instead of leaving, no longer theirs to dismiss (Capability API 1.538):
+     *  5e's Conjure Elemental and Conjure Fey. Their `rounds` still run out. */
+    hostileOnBreak: z.literal(true).optional(),
+    /** The creature type each one called is instead of its own, picked as it is used like a mode
+     *  (Capability API 1.487), by id of `combat.creatureTypes.types`: 5e's Find Familiar, "a
+     *  celestial, fey, or fiend (your choice) instead of a beast". */
+    asTypes: z.array(sheetId).min(1).max(6).optional(),
+    /** Built from their caller (Capability API 1.558): `health` gives each their caller's health
+     *  maximum, `toHit` makes each of their attacks' bonus a value read off their caller's sheet, and
+     *  `adds` adds one read off it to each of their damage amounts. 5e's Arcane Hand, "hit points equal
+     *  to your hit point maximum", your spell attack bonus and your spellcasting modifier. */
+    fromCaller: callFromCallerSchema.optional(),
+    /** They act only as their caller commands (Capability API 1.558): at each of their turns but the
+     *  first, their caller pays 1 of this budget, or the turn passes. With `"initiative": "after"`
+     *  that turn comes right after their caller's. 5e's Arcane Hand, a bonus action. */
+    commandedWith: sheetId.optional(),
+    /** They are images, not creatures (Capability API 1.568): whatever is aimed at or catches one
+     *  passes through, doing nothing, and shows it for what it is to its maker's side, who may aim at
+     *  it no more. 5e's Mislead and Project Image, "physical interaction with the image reveals it to
+     *  be an illusion, because things can pass through it". */
+    illusion: z.literal(true).optional(),
+    /** Which of its `options` comes is rolled as it is used, never picked (Capability API 1.559), each
+     *  as likely as its `weight` against the rest (1 unless it says): a Bag of Tricks' d8 of beasts, an
+     *  Efreeti Bottle's d100. Each option names one `creature`, or calls nobody (`none`). Or which of
+     *  what it reads `from` a catalog (Capability API 1.748), each as likely: one chosen for its user,
+     *  as a Necklace of Prayer Beads' Planar Ally's deity chooses. */
+    rolled: z.literal(true).optional(),
+    /** An item's rolled call keeps what it first rolled (Capability API 1.591), the same option coming
+     *  at each later use: an Efreeti Bottle, "the same effect occurs". */
+    keepsRoll: z.literal(true).optional(),
+    /** An item's rolled call is used this many times over the item's existence (Capability API
+     *  1.591), each use past them its `pastLifetime` option: the Efreeti Bottle's 3. */
+    lifetimeUses: z.number().int().min(1).max(100).optional(),
+    /** They leave once their caller is farther from them than this, in the ruleset's distance
+     *  (Capability API 1.610): a treant's animated trees, "more than 120 feet from the tree". */
+    leash: z.number().finite().gt(0).max(10000).optional(),
+    /** They leave as soon as their caller is out (Capability API 1.733), as a creature's call's do
+     *  (1.446); `"incapacitated"` also as soon as their caller is down or cannot act: a Feather
+     *  Token's whip, which "vanishes when you are incapacitated or die". */
+    endsWithCaller: z.union([z.literal(true), z.literal("incapacitated")]).optional(),
+    /** They leave once every action of theirs that counts its uses has none left (Capability API
+     *  1.742), an item they became (`becomesItem`) back in hand: a Dancing Sword's, "after the
+     *  hovering sword attacks for the fourth time", its attack with `uses` 4. */
+    endsWhenSpent: z.literal(true).optional(),
+    /** Their caller commands them only while within this distance of them and able to act (Capability
+     *  API 1.620); otherwise each turn they act on their own, as the Engine runs them, defending
+     *  themselves and going at their caller's foes, and their caller pays nothing for it. 5e's Staff of
+     *  the Python, "if it is within 60 feet of you and you aren't incapacitated". */
+    commandedWithin: z.number().finite().gt(0).max(10000).optional(),
+    /** Where those it calls are set down (Capability API 1.621): on open cells within `distance` (the
+     *  ruleset's distance) of their caller, and with `seen` only ones the caller can see, nearest its
+     *  foes first. 5e's treant's Animate Trees, "one or two trees it can see within 60 feet of it". */
+    within: callWithinSchema.optional(),
+    /** They come against their user, on the other side, unless the user's derived value `derived`
+     *  is at least `atLeast` (Capability API 1.611): a Horn of Valhalla's requirement, "If you blow
+     *  the horn without meeting its requirement, the summoned berserkers attack you". */
+    hostileUnless: z
+      .object({ derived: sheetId, atLeast: z.number().finite().min(-1000).max(1000) })
+      .strict()
+      .optional(),
+    /** An item's call: the item is spent for good once a creature it called dies (Capability API
+     *  1.612), as a rolled option's `spendsItem` is when it comes: a Ring of Djinni Summoning, "the
+     *  ring becomes nonmagical if the djinni dies". */
+    spendsItemOnDeath: z.literal(true).optional(),
+    /** An item's call: the item itself becomes the creature (Capability API 1.613), out of its
+     *  holder's hands, none of its uses or blows offered, while it stands: a Staff of the Python. */
+    becomesItem: z.literal(true).optional(),
+    /** Its user has an action that sends them away again (Capability API 1.613), on the entry's or
+     *  the use's own budget, or with `{ "budget": "<id>" }` on that one: a Staff of the Python's
+     *  bonus action to turn it back into a staff. */
+    dismissible: z.union([z.literal(true), z.object({ budget: sheetId }).strict()]).optional(),
+    /** `"none"` (Capability API 1.615): they are under nobody's control, acting on their own, each
+     *  turn only moving toward their caller by the shortest way, and keep no side standing. With
+     *  `tamedWhile`, one that holds that condition is its caller's to command as any called
+     *  creature is, for as long as it holds it. Pipes of the Sewers' swarms, "move toward the music
+     *  by the shortest available route but aren't under your control otherwise". */
+    side: z.literal("none").optional(),
+    tamedWhile: sheetId.optional(),
+    /** A chance in 100, rolled as they are called, that they ignore every order (Capability API
+     *  1.665): under nobody's control as `side: "none"` is, and not sent away by a dismissal, for as
+     *  long as they stay. Rolled only while `when` holds on the caller's sheet. 5e's obsidian steed,
+     *  "If you have a good alignment, the figurine has a 10 percent chance each time you use it to
+     *  ignore your orders, including a command to revert to figurine form". */
+    disobeys: z
+      .object({ chance: z.number().int().min(1).max(99), when: sheetBoundsSchema("when", "met").optional() })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .superRefine((calls, ctx) => {
+    if (calls.rolled && !calls.options && !calls.from)
+      ctx.addIssue({
+        code: "custom",
+        path: ["rolled"],
+        message: 'A rolled call rolls among its "options", or among what it reads "from" a catalog',
+      });
+    // An item's rolled call kept, counted and spent (1.591).
+    if ((calls.keepsRoll || calls.lifetimeUses !== undefined) && !calls.rolled)
+      ctx.addIssue({
+        code: "custom",
+        path: [calls.keepsRoll ? "keepsRoll" : "lifetimeUses"],
+        message: '"keepsRoll" and "lifetimeUses" are for a "rolled" call',
+      });
+    const past = (calls.options ?? []).filter((option) => option.pastLifetime).length;
+    if (calls.lifetimeUses !== undefined && past !== 1)
+      ctx.addIssue({
+        code: "custom",
+        path: ["lifetimeUses"],
+        message: 'A call with "lifetimeUses" has one option that comes past them ("pastLifetime")',
+      });
+    if (past > 0 && calls.lifetimeUses === undefined)
+      ctx.addIssue({
+        code: "custom",
+        path: ["options"],
+        message: '"pastLifetime" comes past the call\'s "lifetimeUses"',
+      });
+    if (calls.options && calls.options.filter((option) => !option.pastLifetime).length < 1)
+      ctx.addIssue({ code: "custom", path: ["options"], message: "A rolled call has an option to roll" });
+    calls.options?.forEach((option, index) => {
+      if (calls.rolled && option.from)
+        ctx.addIssue({
+          code: "custom",
+          path: ["options", index, "from"],
+          message: 'Each option of a rolled call names one "creature", or calls nobody',
+        });
+      if (!calls.rolled && (option.weight !== undefined || option.hostile || option.none))
+        ctx.addIssue({
+          code: "custom",
+          path: ["options", index],
+          message: '"weight", "hostile" and "none" are for an option a call is "rolled" among',
+        });
+      if (!calls.rolled && (option.rounds !== undefined || option.spendsItem || option.pastLifetime))
+        ctx.addIssue({
+          code: "custom",
+          path: ["options", index],
+          message: '"rounds", "spendsItem" and "pastLifetime" are for an option a call is "rolled" among',
+        });
+    });
+    const ways = [calls.creature, calls.from, calls.options].filter((one) => one !== undefined).length;
+    if (ways !== 1)
+      ctx.addIssue({
+        code: "custom",
+        message: 'A call names one "creature", reads "from" a catalog, or lists "options": one of them',
+      });
+    if (calls.options && calls.options.length < 2 && !calls.options[0]?.from)
+      ctx.addIssue({
+        code: "custom",
+        path: ["options"],
+        message: 'A list of "options" has two at least, or one read "from" a catalog',
+      });
+    if (calls.upTo && !calls.from)
+      ctx.addIssue({ code: "custom", path: ["upTo"], message: '"upTo" caps what is read "from" a catalog' });
+    if ((calls.creature !== undefined || calls.from !== undefined) && !calls.count)
+      ctx.addIssue({ code: "custom", path: ["count"], message: 'A call of one creature says its "count"' });
+    if (calls.options && calls.count)
+      ctx.addIssue({ code: "custom", path: ["count"], message: 'Each of the "options" says its own "count"' });
+  });
+export type RulesetCatalogCalls = z.infer<typeof catalogCallsSchema>;
+
+/** What an attack does differently against a target that is something (Capability API 1.187), or
+ *  one carrying a condition its maker put on it (1.189): a weapon's `against`, and since 1.738 an
+ *  entry's. */
+const attackAgainstSchema = z
+  .object({
+    is: targetIsSchema.optional(),
+    marked: sheetId.optional(),
+    toHit: z.number().int().min(-20).max(20).optional(),
+    mode: z.enum(["advantage", "disadvantage"]).optional(),
+    ignoresCover: z.literal(true).optional(),
+    ignoresLongRange: z.literal(true).optional(),
+  })
+  .strict()
+  .superRefine((entry, ctx) => {
+    if (entry.is === undefined && entry.marked === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'An "against" names who it is against: "is", "marked" or both',
+      });
+    }
+    if (entry.toHit === undefined && entry.mode === undefined && !entry.ignoresCover && !entry.ignoresLongRange) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'An "against" changes something: toHit, mode, ignoresCover or ignoresLongRange',
+      });
+    }
   });
 
 const catalogMechanicsObject = z
@@ -4317,15 +7158,48 @@ const catalogMechanicsObject = z
     /** The creatures it is aimed at must all stand within this distance of each other (Capability
      *  API 1.267): 5e's Command, "within 30 feet of each other when you target them". */
     targetsWithin: z.number().finite().gt(0).optional(),
+    /** Each creature after the first must stand within this distance of the first one picked
+     *  (Capability API 1.594): 5e's Chain Lightning, "each of which must be within 30 feet of the
+     *  first target". */
+    targetsWithinFirst: z.number().finite().gt(0).optional(),
     /** Only a creature its maker can see may be picked (Capability API 1.178): 5e's "a creature you
      *  can see within range". Who sees whom is the fight's `sight`, obscuring zones and senses. */
     seen: z.literal(true).optional(),
     /** What using it needs, by the ids of `combat.components` (Capability API 1.179): a 5e spell's
      *  verbal and somatic components, which Silence or a gag can take away. */
     components: componentIdsSchema.optional(),
+    /** A priced material its user must carry to use it (Capability API 1.790): items of one of
+     *  `items` or carrying one of `tags`, worth `worth` between them by their cost. Nothing else
+     *  stands in for it, a focus or a component pouch included. `consumed` uses it up: what is
+     *  worth the least while still enough, else the dearest first until enough is taken. 5e's
+     *  Identify, a pearl worth 100 gp that stays; Revivify, diamonds worth 300 gp, consumed. */
+    material: z
+      .object({
+        label: promptSafeText(120),
+        worth: z.object({ amount: z.number().int().min(1).max(1_000_000_000), unit: sheetId }).strict(),
+        items: z
+          .array(
+            z
+              .string()
+              .max(81)
+              .regex(/^[a-z][a-z0-9_]{0,39}\/[a-z0-9]+(?:-[a-z0-9]+)*$/, "An item is named as <catalog>/<entry>"),
+          )
+          .min(1)
+          .max(12)
+          .optional(),
+        tags: uniqueIds(8).optional(),
+        consumed: z.literal(true).optional(),
+      })
+      .strict()
+      .refine((material) => material.items || material.tags, {
+        message: 'Say what counts: "items", "tags" or both',
+      })
+      .optional(),
     /** Offered in a fight only while a value off its holder's sheet, live state and items stands
      *  within these bounds (Capability API 1.166): 5e's Protection, which needs a shield in hand. */
     usableWhen: catalogUsableWhenSchema.optional(),
+    /** It works only on a roll (Capability API 1.441), paid for either way. */
+    chance: useChanceSchema.optional(),
     /** Who may be picked or caught at all, by what they are (Capability API 1.168): Animal
      *  Friendship takes only a beast (`is`), Sleep passes over the undead (`not`). A combatant with
      *  no type never matches `is` and always passes `not`. */
@@ -4333,12 +7207,31 @@ const catalogMechanicsObject = z
     /** It deals its most to a target that is this (Capability API 1.185): every die at its top face.
      *  5e's Blight, against a plant creature. */
     maxAgainst: targetIsSchema.optional(),
+    /** What its attack roll does differently against a target that is something (Capability API
+     *  1.738), as a weapon's `against`: 5e's Shocking Grasp, advantage against a target wearing metal,
+     *  `[{"is": {"wears": {"tags": ["metal"]}}, "mode": "advantage"}]`. */
+    against: z.array(attackAgainstSchema).min(1).max(4).optional(),
+    /** Another amount, dealt instead to a target that is this (Capability API 1.629): a Horn of
+     *  Blasting's 10d6 thunder to a creature of glass or crystal, 5d6 to anybody else. */
+    amountAgainst: z
+      .object({ is: targetIsSchema, amount: z.object(catalogAmountShape).strict() })
+      .strict()
+      .optional(),
     /** In the catalog's own distance unit. 0 is self or touch. */
     range: z.number().finite().min(0).optional(),
+    /** How far it still carries beyond `range`, in the same unit (Capability API 1.420), made harder
+     *  as `combat.ranged` says: Deflect Missiles' throw back, 20 feet and 60 long. */
+    longRange: z.number().finite().gt(0).max(10000).optional(),
     area: catalogAreaSchema.optional(),
     targets: z.enum(["self", "ally", "enemy", "any"]).optional(),
     friendlyFire: z.boolean().optional(),
     amount: z.object(catalogAmountShape).strict().optional(),
+    /** `amount`'s roll times this (Capability API 1.593): a Wand of Wonder's "1d4 × 10 gems". */
+    amountTimes: z.number().int().min(2).max(100).optional(),
+    /** `amount`'s roll split evenly, rounded down, among the creatures its area catches (Capability
+     *  API 1.593), with no attack roll or save: the Wand of Wonder's gems, "the total damage of the
+     *  gems is divided equally among all creatures in the line". */
+    dividedAmong: z.literal("caught").optional(),
     /** Added to `amount`, read off the user's sheet as the entry is used (Capability API 1.83): 5e's
      *  Second Wind heals 1d10 plus the fighter's level. Needs an amount. */
     amountAdd: rulesetValueRefSchema.optional(),
@@ -4361,6 +7254,10 @@ const catalogMechanicsObject = z
         onSuccess: z.enum(["none", "half", "negates"]),
         ignoresCover: z.literal(true).optional(),
         ...saveExtrasShape,
+        /** A failure by at least `atLeast` puts these on in place of its `applies` (Capability API
+         *  1.592), as an aura's does: a Wand of Wonder's petrification, petrified outright on a
+         *  failure by 5 or more. */
+        failedBy: saveFailedBySchema.optional(),
       })
       .strict()
       .optional(),
@@ -4385,6 +7282,57 @@ const catalogMechanicsObject = z
      *  added to that blow instead of dealt on its own (Capability API 1.241): rolled with it, doubled
      *  by its critical, and taken as part of it. 5e's Divine Smite. */
     addsToBlow: z.literal(true).optional(),
+    /** Taken as a `"caught"` moment opens (Capability API 1.416), its attack deals the dice and the
+     *  type of the blow it caught in place of its own: Deflect Missiles' throw back, with the
+     *  entry's own ability, proficiency and range. */
+    /** Taken as its moment opens (Capability API 1.422), it is its holder's own best melee weapon
+     *  strike at whoever caused it, made as an opportunity attack is: 5e's Retaliation, Giant
+     *  Killer. On an entry with an `area` and no reaction (Capability API 1.428), its user's best
+     *  melee or `"ranged"` weapon strikes each creature the area catches, a roll and a shot for
+     *  each, a ranged area as far off as the weapon carries: Whirlwind Attack, Volley. */
+    strikesWith: z.enum(["melee", "ranged"]).optional(),
+    /** Taken at an `"attacked"` moment that `missed` its holder (Capability API 1.422), whoever
+     *  attacked makes that same attack again at the creature its holder picks, never themself:
+     *  Stand Against the Tide. */
+    redirects: z.literal(true).optional(),
+    /** Taken at an `"aimed"` moment for somebody else within reach (Capability API 1.509), its holder
+     *  becomes the target of what was aimed in their place: 5e's Arrow-Catching Shield, on a ranged
+     *  attack at a creature within 5 feet. */
+    takesAim: z.literal(true).optional(),
+    /** Taken as a `"caught"` moment opens (Capability API 1.626), its holder keeps the missile they
+     *  caught: one of its shooter's own ammunition where it was that (never won back by them), else
+     *  the `otherwise` item, `<catalog>/<entry>`, a creature's arrow. 5e's Gloves of Missile
+     *  Snaring. */
+    keepsCaught: z
+      .union([
+        z.literal(true),
+        z
+          .object({
+            otherwise: z
+              .string()
+              .max(81)
+              .regex(/^[^/]+\/[^/]+$/, "otherwise is a <catalog>/<entry> reference"),
+          })
+          .strict(),
+      ])
+      .optional(),
+    throwsCaught: z
+      .union([
+        z.literal(true),
+        /** One `die` sized by a value off the sheet in place of the caught dice where it is the
+         *  better (Capability API 1.420): the missile counts as a monk weapon, so Martial Arts' die. */
+        z
+          .object({
+            die: z
+              .object({
+                from: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
+                table: stepTableSchema,
+              })
+              .strict(),
+          })
+          .strict(),
+      ])
+      .optional(),
     /** Taken as somebody else's attack hits (a `"hit"` reaction without `"by"`), this many dice come
      *  off the roll before it is checked again (Capability API 1.250): 5e's Cutting Words, a bardic
      *  inspiration die, sized by the bard's level with `die` as Martial Arts' is. */
@@ -4434,6 +7382,15 @@ const catalogMechanicsObject = z
      *  in the catalog's unit (Capability API 1.182): 5e's Gust of Wind, 15 feet. A zone pushes
      *  whoever it catches the same way. */
     push: z.number().finite().gt(0).max(10000).optional(),
+    /** Whoever it lands on and does not save against is pulled this far straight toward its maker,
+     *  stopping beside them, in the catalog's unit (Capability API 1.675): 5e's Thorn Whip and
+     *  Lightning Lure, 10 feet. */
+    pull: z.number().finite().gt(0).max(10000).optional(),
+    /** Whoever its area catches and makes their save is pushed straight away from where it was aimed
+     *  until no cell they fill is inside it (Capability API 1.631), as far as the way allows: 5e's
+     *  Bead of Force, "creatures that succeeded on the save ... are pushed away from the center of the
+     *  sphere until they are no longer inside it". Needs an area and a save. */
+    pushesOutSaved: z.literal(true).optional(),
     /** Its user teleports (Capability API 1.276), in the catalog's unit: 5e's Misty Step, 30 feet to
      *  a place they can see; Dimension Door, 500 feet, carrying one willing creature within 5 feet. */
     teleport: teleportSchema.optional(),
@@ -4441,6 +7398,33 @@ const catalogMechanicsObject = z
      *  the order named (Capability API 1.176): 5e's Lesser Restoration ends one of blinded, deafened,
      *  paralyzed or poisoned. */
     ends: catalogEndsSchema.optional(),
+    /** Ends what entries of these catalogs put on its target (Capability API 1.424), the highest level
+     *  first and `count` of them at most: within `upTo` (`"paid"`, the level it is paid at, or a
+     *  number) outright, above it on a check of `above.check` against `above.dc` plus its level.
+     *  5e's Dispel Magic, `{"catalogs": ["spells"], "upTo": "paid", "above": {...}}`; Cleansing
+     *  Touch, one spell. On an item's use too (Capability API 1.427): a scroll of Dispel Magic. */
+    endsSpells: z
+      .object({
+        catalogs: z.array(sheetId).min(1).max(8),
+        count: z.number().int().min(1).max(16).optional(),
+        upTo: z.union([z.literal("paid"), z.number().int().min(0).max(20)]).optional(),
+        above: z
+          .object({ check: rulesetValueRefSchema, dc: z.number().int().min(0).max(1000) })
+          .strict()
+          .optional(),
+        /** Its user picks which of them end, up to `count` (Capability API 1.427), rather than the
+         *  highest first: 5e's Cleansing Touch, "one spell". */
+        chosen: z.literal(true).optional(),
+        /** It may be aimed at a lasting area one of those catalogs' entries left standing instead of a
+         *  creature (Capability API 1.427), ending it on the same terms: Dispel Magic on a Wall of Fire. */
+        zones: z.literal(true).optional(),
+      })
+      .strict()
+      .refine((ends) => !ends.above || ends.upTo !== undefined, {
+        message: '"above" is a check past "upTo", so it goes with "upTo"',
+        path: ["above"],
+      })
+      .optional(),
     /** Used, it ends this condition on its user (Capability API 1.236), with the concentration that
      *  holds it when that is theirs: Dispel Evil and Good's Break Enchantment and Dismissal end the
      *  spell. */
@@ -4464,6 +7448,9 @@ const catalogMechanicsObject = z
       .object({ prop: z.string().trim().min(1).max(60), within: z.number().finite().gt(0).max(10000) })
       .strict()
       .optional(),
+    /** Used only while its user holds one of these conditions (Capability API 1.617): the Pipes of the
+     *  Sewers' call and sway, offered only while their user is playing them, `["piping"]`. */
+    userHolds: uniqueIds(8).optional(),
     /** Held on a sheet's list, surprise is shaken off by using this entry first on the surprised
      *  turn (Capability API 1.237), when nothing keeps its holder from acting: 5e's Feral Instinct
      *  with Rage. The entry is otherwise passive. */
@@ -4476,8 +7463,10 @@ const catalogMechanicsObject = z
     afterAttack: afterAttackSchema.optional(),
     /** Held on a sheet's list, these conditions are on its holder through every fight (Capability
      *  API 1.263), as long as nothing they are immune to: 5e's Aura of Protection, whose condition
-     *  spreads the aura. Never written to the sheet; the fight ends, they are gone with it. */
-    keepsOn: uniqueIds(4).optional(),
+     *  spreads the aura. Never written to the sheet; the fight ends, they are gone with it. A line
+     *  may be `{ "condition": id, "when": valueRef }` (Capability API 1.653), kept on only while that
+     *  reads above zero: Aura of Protection's 30 feet from paladin level 18. */
+    keepsOn: keptOnSchema.optional(),
     /** Used, it puts a weapon in its user's hand for the rest of the fight (Capability API 1.306),
      *  one of `items` (melee weapons of the item catalogs) picked as it is used, or one they already
      *  hold that `binds` matches: 5e's Pact of the Blade. Whatever amends this entry amends that
@@ -4493,12 +7482,49 @@ const catalogMechanicsObject = z
          *  out of the fight, as 5e's hour-long ritual during a short rest is, by writing its name
          *  there. Empty, nothing is bound. */
         boundIn: sheetId.optional(),
+        /** A weapon it made, let fall and lying farther than `beyond` (the ruleset's distance) from
+         *  its maker for `rounds` of their turns, is gone (Capability API 1.480): 5e's pact weapon,
+         *  "more than 5 feet away from you for 1 minute or more", `{ "beyond": 5, "rounds": 10 }`. */
+        vanishes: z
+          .object({ beyond: z.number().finite().min(0).max(10000), rounds: z.number().int().min(1).max(1000) })
+          .strict()
+          .optional(),
       })
       .strict()
       .refine((conjures) => conjures.boundIn === undefined || conjures.binds !== undefined, {
         message: '"boundIn" names the weapon "binds" binds, so it goes with "binds"',
         path: ["boundIn"],
       })
+      .optional(),
+    /** Cast in a fight, it puts `count` of an item of the ruleset (`<catalog>/<entry>`) into its
+     *  caster's hand (Capability API 1.721), used there as any held item is and written to their bag
+     *  as the fight ends: 5e's Goodberry, ten berries. */
+    makesItems: z
+      .object({
+        item: catalogEntryRef,
+        count: z.number().int().min(1).max(100),
+        /** How long what it makes lasts before it vanishes, in minutes of game time (Capability API
+         *  1.760), counted in the fight by its rounds (`combat.roundSeconds`, 6 seconds when unsaid)
+         *  and after it on the game's clock, on a stack of its own. With more than one, its user picks
+         *  one as they use it, each by its `label`: 5e's Creation, vegetable matter a day, stone or
+         *  crystal 12 hours, precious metals an hour, gems 10 minutes, adamantine or mithral a minute. */
+        lasts: z
+          .array(
+            z
+              .object({
+                label: promptSafeText(40).optional(),
+                minutes: z.number().int().min(1).max(5_256_000),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(8)
+          .refine((lasts) => lasts.length === 1 || lasts.every((one) => one.label), {
+            message: "Each of several lasts is picked by its label",
+          })
+          .optional(),
+      })
+      .strict()
       .optional(),
     /** Held on a sheet's list, how it changes one named entry of its holder's every time they use it
      *  (Capability API 1.302), stacking with every other such: 5e's Agonizing Blast adds the
@@ -4509,8 +7535,33 @@ const catalogMechanicsObject = z
       .array(
         z
           .object({
-            entry: catalogEntryRef,
+            entry: catalogEntryRef.optional(),
+            /** In place of `entry`, every entry of these catalogs (Capability API 1.414), only those
+             *  `where` reads so: Empowered Evocation's wizard evocation spells. */
+            catalogs: z.array(sheetId).min(1).max(8).optional(),
+            where: catalogWhereSchema.optional(),
+            /** Only an entry dealing damage of the type this text or enum field of the holder's sheet
+             *  names (Capability API 1.429), its own or a clause's: 5e's Elemental Affinity, the
+             *  Charisma modifier on a spell of the draconic ancestry's type. */
+            damageTypeIn: sheetId.optional(),
             damageAdd: rulesetValueRefSchema.optional(),
+            /** Added to one damage roll of each use (Capability API 1.414): every target of a roll
+             *  they all take, the first of an entry that rolls for each. Empowered Evocation's
+             *  Intelligence modifier. */
+            damageOnce: rulesetValueRefSchema.optional(),
+            /** A save that `negates` it leaves half its damage instead, and nothing else it does
+             *  (Capability API 1.414): Potent Cantrip. */
+            halfOnSave: z.literal(true).optional(),
+            /** Its healing at its most, every die at its top face (Capability API 1.415): Supreme
+             *  Healing. */
+            maxHeal: z.literal(true).optional(),
+            /** More healing to every creature it heals (Capability API 1.421): `add` off the sheet
+             *  plus `perLevel` for each level it is paid at, from `fromLevel` up. 5e's Disciple of
+             *  Life, 2 + the spell's level from 1st. */
+            healAdd: amendHealSchema.optional(),
+            /** Its user heals as much themself, once a use, when it heals somebody else (Capability API
+             *  1.421): 5e's Blessed Healer. */
+            healsSelf: amendHealSchema.optional(),
             /** More damage of its own type on a hit (Capability API 1.306), at least `atLeast`:
              *  Lifedrinker's necrotic equal to the Charisma modifier, minimum 1. */
             damagePlus: z
@@ -4533,11 +7584,26 @@ const catalogMechanicsObject = z
             (amend) =>
               amend.damageAdd !== undefined ||
               amend.damagePlus !== undefined ||
+              amend.damageOnce !== undefined ||
+              amend.halfOnSave !== undefined ||
+              amend.maxHeal !== undefined ||
+              amend.healAdd !== undefined ||
+              amend.healsSelf !== undefined ||
               amend.range !== undefined ||
               amend.push !== undefined ||
               amend.strikes !== undefined,
-            { message: 'An amend changes something: "damageAdd", "damagePlus", "range", "push" or "strikes"' },
+            {
+              message:
+                'An amend changes something: "damageAdd", "damagePlus", "damageOnce", "halfOnSave", "maxHeal", "healAdd", "healsSelf", "range", "push" or "strikes"',
+            },
           )
+          .refine((amend) => (amend.entry === undefined) !== (amend.catalogs === undefined), {
+            message: 'An amend names one "entry" or "catalogs" of them',
+          })
+          .refine((amend) => amend.where === undefined || amend.catalogs !== undefined, {
+            message: '"where" narrows "catalogs"',
+            path: ["where"],
+          })
           .refine((amend) => !amend.pushOptional || amend.push !== undefined, {
             message: '"pushOptional" offers its "push" or none, so it has one',
             path: ["pushOptional"],
@@ -4589,10 +7655,26 @@ const catalogMechanicsObject = z
      *  of `tracks`, or `unseals`, picked as it is used like a weapon's mode, and otherwise the first
      *  of them, in that order, the target has something for. 5e's Greater Restoration. */
     cureOneOf: z.literal(true).optional(),
+    /** It puts on ONE of its `applies`, not all of them (Capability API 1.448), picked as it is used
+     *  like a weapon's mode, and otherwise the first: Primeval Awareness' one mile, or six in the
+     *  ranger's favored terrain, as two conditions with their own `presence`. */
+    appliesOneOf: z.literal(true).optional(),
     /** Its user names a creature type of `combat.creatureTypes` as they use it (Capability API
      *  1.270), picked like a weapon's mode: what it puts on remembers it, for an aura with
      *  `chosenKind` to reach only that kind (5e's Antipathy/Sympathy). */
-    kindChoice: z.literal(true).optional(),
+    kindChoice: z.union([z.literal(true), z.literal("many")]).optional(),
+    /** With `kindChoice: "many"` on an entry with a zone (Capability API 1.753), its user names one
+     *  or more kinds of `combat.creatureTypes` as they use it, and the zone's strikes reach only
+     *  those, in place of its `targetTypes`' kinds: 5e's Forbiddance. Named as it is used, a damage
+     *  type of these (Capability API 1.753), offered as modes: the type its damage and its zone's
+     *  strikes deal. Forbiddance's `["radiant", "necrotic"]`. */
+    damageTypeChoice: z.array(promptSafeText(40)).min(2).max(8).optional(),
+    /** The forms it changes its target into (Capability API 1.392), picked as it is used: see
+     *  `shapeFormsSchema`. 5e's Wild Shape, Polymorph, True Polymorph, Shapechange. */
+    forms: shapeFormsSchema.optional(),
+    /** Creatures it calls into the fight on its user's side (Capability API 1.394): see
+     *  `catalogCallsSchema`. */
+    calls: catalogCallsSchema.optional(),
     /** Its damage lowers the health maximum as a creature's can (Capability API 1.235), with no save
      *  of its own: on every target, or with `onFailedSave` only on one that failed the entry's save
      *  (5e's Harm). Health only in points. */
@@ -4604,6 +7686,9 @@ const catalogMechanicsObject = z
     leavesAtLeast: z.number().int().min(1).max(100000).optional(),
     /** Offered only on a target that holds one of these (Capability API 1.235). */
     targetHolds: targetHoldsSchema.optional(),
+    /** Offered only while its user has put none of these on anybody still holding it (Capability API
+     *  1.715): not while grappling, `["grappled"]`. */
+    unlessImposing: uniqueIds(8).optional(),
     /** Brings back whoever died no more than `withinRounds` rounds ago, with `health` (1.176): 5e's
      *  Revivify, within 10 rounds with 1 hit point. It is pointed only at them. */
     revives: z
@@ -4611,6 +7696,14 @@ const catalogMechanicsObject = z
       .strict()
       .optional(),
     concentration: z.boolean().optional(),
+    /** Its `concentration` holds only when it is paid fewer than this many steps of higher cost
+     *  (Capability API 1.470): paid this many or more, nobody concentrates on it. Bestow Curse from
+     *  a 5th-level slot is `2` on its 3rd-level cost. */
+    concentrationBelowStep: z.number().int().min(1).max(9).optional(),
+    /** What it `applies` goes on the creatures it `calls`, the kind named as it was used remembered,
+     *  in place of on anybody it is aimed at or catches (Capability API 1.479): 5e's Antipathy/Sympathy
+     *  cast on an object or an area, whose condition's aura then spreads from it. */
+    appliesToCalled: z.literal(true).optional(),
     /** Made again on later turns while its user concentrates on it (Capability API 1.310), on
      *  `budget`, with no cost and no new concentration, at the cost it was cast at: Vampiric Touch,
      *  Call Lightning, Heat Metal (a bonus action). `notSaved`: never at a creature that succeeded on a
@@ -4625,9 +7718,19 @@ const catalogMechanicsObject = z
          *  user concentrates on any of them, every one of them is offered again. Eyebite's asleep,
          *  panicked and sickened, picked anew for each creature. */
         group: sheetId.optional(),
+        /** Offered again only once everybody the cast was last aimed at is down (Capability API
+         *  1.604), and what it put on them moves to the new target: 5e's Hunter's Mark and Hex, "if
+         *  the target drops to 0 hit points before this spell ends, you can use a bonus action on a
+         *  subsequent turn of yours to mark a new creature". */
+        afterTargetDown: z.literal(true).optional(),
       })
       .strict()
       .optional(),
+    /** Kept up on later turns with `budget` (Capability API 1.431), with no concentration, no cost
+     *  and no save: what it put on a creature, still on them, starts its rounds again. 5e's
+     *  Intimidating Presence, "on subsequent turns, you can use your action to extend the duration of
+     *  this effect on the frightened creature until the end of your next turn". */
+    sustains: z.object({ budget: sheetId }).strict().optional(),
     /** Something taken at a MOMENT rather than on a turn. `true` says only that much, and an entry
      *  that says only that much is on no menu: nothing knows which moment it waits for. An object
      *  names the moment, and then the entry is offered in the window that moment opens.
@@ -4673,12 +7776,16 @@ const catalogMechanicsObject = z
     /** The amount simply lands: no roll and no save. */
     autoHit: z.boolean().optional(),
     /** Conditions a use puts on the targets it affects: up to 6 (Capability API 1.277; 4 before),
-     *  for a rage whose path adds its own (Mindless Rage beside Rage's and Frenzy's). */
-    applies: z.array(catalogAppliesSchema).max(6).superRefine(linkedApplies).optional(),
+     *  for a rage whose path adds its own (Mindless Rage beside Rage's and Frenzy's). Up to 12 with
+     *  `appliesOneOf` (Capability API 1.469), one picked: Bestow Curse's nine curses. */
+    applies: z.array(catalogAppliesSchema).max(12).superRefine(linkedApplies).optional(),
     /** Conditions a use puts on its own user as it is made (Capability API 1.307), whatever happens to
      *  its targets, held by its concentration when it has one: Sunbeam's mote of radiance, which
      *  sheds light and gives the later beams as an action. */
     appliesSelf: z.array(catalogAppliesSchema).min(1).max(4).superRefine(linkedApplies).optional(),
+    /** Its user rolls its `save` too, against the same difficulty, and `appliesSelf` goes on only if
+     *  they fail (Capability API 1.693): 5e's Dust of Sneezing and Choking, its thrower in the cloud. */
+    appliesSelfSaves: z.literal(true).optional(),
     /** Standard actions its user takes as part of it, for nothing more (Capability API 1.313): 5e's
      *  Expeditious Retreat, which Dashes as it is cast; its later bonus-action Dashes are what the
      *  condition it puts on its caster `grants`. */
@@ -4693,6 +7800,74 @@ const catalogMechanicsObject = z
      *  left first, each affected only while their health is no more than what remains of it, which
      *  they then use up; the rest are left alone. 5e's Sleep and Color Spray. `perCostStep` adds to it. */
     healthPool: catalogHealthPoolSchema.optional(),
+    /** What it heals is one amount shared out among its targets in the order they were picked, each
+     *  healed up to their maximum, or with `"half"` up to half of it, until it runs out (Capability
+     *  API 1.563): 5e's Preserve Life, "divide those hit points among them ... no more than half of
+     *  its hit point maximum". Needs a heal. */
+    sharesHeal: z.union([z.literal(true), z.literal("half")]).optional(),
+    /** It heals each target all the health they are missing (Capability API 1.757), whatever its
+     *  `amount`, which it needs none of: 5e's Wish, "up to twenty creatures ... regain all hit points".
+     *  A "heal". */
+    healsAll: z.literal(true).optional(),
+    /** Its user picks, as they use it, one entry or creature action of anybody in the fight, and
+     *  what it puts on wards its holder off that one alone (Capability API 1.758), from anybody but
+     *  themselves, whatever level it is: an entry `<catalog>/<entry>`, or a creature's action by its
+     *  name. 5e's Wish, "immunity to a single spell or other magical effect for 8 hours" (a lich's
+     *  life drain). Needs `applies`. */
+    wardPick: z.literal(true).optional(),
+    /** Each target is won over by a contest of checks instead of a roll to hit or a save (Capability
+     *  API 1.565): its user throws the best of `attacker`, the target the best of `defender`, and a
+     *  tie goes to `ties` (the defender when left out). Only on a target it wins does the rest of it
+     *  land. 5e's Telekinesis, the caster's spellcasting ability check against the target's Strength
+     *  check. Ids of `combat.checks`. */
+    contest: (
+      z
+        .object({
+          attacker: z.array(sheetId).min(1).max(4),
+          defender: z.array(sheetId).min(1).max(4),
+          ties: z.enum(["attacker", "defender"]).optional(),
+          /** Conditions put on a target its user loses to (Capability API 1.618), with its user as
+           *  their source, each for `rounds`: 5e's Pipes of the Sewers, a swarm that can't be swayed
+           *  for 24 hours, `{ "applies": [{ "condition": "pipes_spurned", "rounds": 14400 }] }`. */
+          onLose: z
+            .object({
+              applies: z
+                .array(z.object({ condition: sheetId, rounds: z.number().int().min(1).max(1000000) }).strict())
+                .min(1)
+                .max(4),
+            })
+            .strict()
+            .optional(),
+          /** What it takes from a target it wins against (Capability API 1.668): the first thing they
+           *  hold in one of these `slots` or with one of these `tags`, which then lies at its user's
+           *  feet for its owner to fetch and pick up. 5e's Telekinesis on "an object worn or carried by
+           *  a creature", `{ "slots": ["hand"] }`. */
+          takes: contestTakesSchema.optional(),
+          /** `takes` as a mode of its own, picked as it is cast like a weapon's mode (Capability API
+           *  1.692): in mode `label` a win takes and does nothing else, in mode `restLabel` (and when
+           *  none is picked) it does everything else and takes nothing. A repeat keeps the mode the
+           *  cast was made in. 5e's Telekinesis, the object pulled from a creature or the creature moved. */
+          takesMode: z
+            .object({ label: promptSafeText(40), restLabel: promptSafeText(40) })
+            .strict()
+            .optional(),
+        })
+        .strict()
+        .refine((contest) => !contest.takesMode || contest.takes, {
+          message: '"takesMode" picks "takes" as a mode, so it needs "takes"',
+          path: ["takesMode"],
+        }) as z.ZodType<RulesetCatalogContest, unknown>
+    ).optional(),
+    /** Each target it lands on is moved to a cell its user picks (Capability API 1.565), up to
+     *  `distance` from where it stood and within the entry's `range` of its user, set down with no
+     *  step between, so nobody gets a strike at it; with `up` it may be lifted that many levels
+     *  above the ground there, and stays up only while something keeps it there (a condition with
+     *  `hover`). 5e's Telekinesis, "move it up to 30 feet in any direction, including upward". Only
+     *  on an entry aimed at creatures. */
+    movesTarget: z
+      .object({ distance: z.number().finite().gt(0).max(10000), up: z.literal(true).optional() })
+      .strict()
+      .optional(),
     /** Whom the pool passes over, using none of it and leaving them alone (Capability API 1.199):
      *  whoever holds one of `conditions` (5e's Sleep ignores the unconscious), and with `unseeing`
      *  whoever cannot see its maker (Color Spray ignores those that can't see). */
@@ -4702,6 +7877,19 @@ const catalogMechanicsObject = z
     healthAtMost: z.number().int().min(0).max(100000).optional(),
     /** Kills outright whoever it affects (Capability API 1.196): Power Word Kill. */
     kills: z.literal(true).optional(),
+    /** Kills outright whoever fails its save with this much health left or less, in place of all
+     *  else it does to them (Capability API 1.450): Divine Word at 20. */
+    killsAtMost: z.number().int().min(0).max(100000).optional(),
+    /** Whoever its damage drops to 0 dies outright, never dying (Capability API 1.787): 5e's
+     *  Disintegrate, "If this damage reduces the target to 0 hit points, it is disintegrated". A
+     *  target its blow finds already at 0 dies too; one that hangs on at 1 (Death Ward) does not. */
+    fellsKill: z.literal(true).optional(),
+    /** A heal on its user that a Game Master's `use` of it makes outside a fight too (Capability API
+     *  1.788), rolled and put on the sheet's health: 5e's Second Wind. */
+    outsideFight: z.literal(true).optional(),
+    /** Sends out of the fight with `dismisses` only those that are this (Capability API 1.450):
+     *  Divine Word's celestials, elementals, fey and fiends. */
+    dismissesIs: targetIsSchema.optional(),
     /** An amount that grows with the sheet: the table gives the EXTRA dice at each step of the
      *  value it reads, so a trick that grows with a level needs no second entry. */
     scales: z.object({ from: rulesetValueRefSchema, table: stepTableSchema }).strict().optional(),
@@ -4739,13 +7927,48 @@ const catalogMechanicsObject = z
     /** Used on a creature, not used on that one again until its user takes this rest (Capability API
      *  1.304), however many fights come between: Chains of Carceri's "You must finish a long rest
      *  before you can use this invocation on the same creature again". Not on an area or on its user. */
-    oncePerTarget: z.object({ until: sheetId }).strict().optional(),
+    /** `whenSaved` (Capability API 1.431): only a creature that succeeded on its save against it is
+     *  spared it until then: Intimidating Presence's "If the creature succeeds on its saving throw,
+     *  you can't use this feature on that creature again for 24 hours". */
+    oncePerTarget: z
+      .object({ until: sheetId, whenSaved: z.literal(true).optional() })
+      .strict()
+      .optional(),
     /** How many of those uses one use spends (Capability API 1.245): Quivering Palm's 3 ki. */
     usesSpent: z.number().int().min(2).max(20).optional(),
     /** Its user chooses how many of those uses one use spends, one up to what is left, and it heals
      *  that many times its amount (Capability API 1.251): 5e's Lay on Hands, a point of its pool for
      *  each hit point. */
     usesChosen: z.literal(true).optional(),
+    /** It takes this many rounds to cast (Capability API 1.461): its user spends the same budget on it
+     *  again as each of their next turns starts, concentrating on the casting all the while, and it
+     *  lands as the last is spent. Broken off (their concentration lost, or no budget to spend), it
+     *  fails, and what it cost is given back. 5e's spells cast over a minute: Symbol's `10`. */
+    castingRounds: z.number().int().min(2).max(10).optional(),
+    /** It takes longer to cast than a fight lasts (Capability API 1.462), so it is never on the fight
+     *  menu: its zone is set up before a fight, and stands as the fight starts. 5e's Glyph of
+     *  Warding (an hour) and Hallow (a day). On an entry with no zone (Capability API 1.465), what it
+     *  does is done as the fight starts when it was set up before it: Heroes' Feast, Foresight. */
+    beforeFight: z.literal(true).optional(),
+    /** Points where a condition its user put on is measured `from` (Capability API 1.464): aimed at a
+     *  point, every holder of this condition its user put on is steered toward (or away from) there.
+     *  Offered only while somebody holds it from them. 5e's Compulsion, its bonus action. */
+    steers: sheetId.optional(),
+    /** Casts any other entry of `catalog` no higher than `upTo` (Capability API 1.474), each on the
+     *  menu as its own option beside this one's name, paid for as this one is and needing none of
+     *  its components; this entry itself is on no menu. `only` keeps it to those entry ids. 5e's
+     *  Wish, duplicating a spell of 8th level or lower. */
+    duplicates: catalogDuplicatesSchema.optional(),
+    /** It may be aimed at a standing layered wall (Capability API 1.491) whose layer names it in its
+     *  `endedBy.entries`, within its range, destroying that layer once those before it are gone; with
+     *  nothing else to do it is offered only while such a wall stands. 5e's Passwall on the green
+     *  layer of a Prismatic Wall. */
+    endsLayers: z.literal(true).optional(),
+    /** A table rolled for each target (Capability API 1.468), its row the ray that strikes them: each
+     *  row deals `amount` as its own `damageType` (none without one), puts on those of `applies` it
+     *  names, and `again` strikes that many more rays, landing on it again rolled over. Each target
+     *  throws `save` once, which every ray striking them reads. 5e's Prismatic Spray. */
+    rays: catalogRaysSchema.optional(),
     /** Changes how another entry is used, chosen as it is used and paid for with this entry's own
      *  uses (Capability API 1.253): 5e's Metamagic. Never on a menu of its own. One per use, unless
      *  it `joins` another. */
@@ -4762,6 +7985,34 @@ const catalogMechanicsObject = z
         pool: z.string().trim().min(1).max(60),
         amount: z.object(catalogAmountShape).strict(),
         overMax: z.literal(true).optional(),
+      })
+      .strict()
+      .optional(),
+    /** As a fight's initiative is rolled, gives `amount` back to the pool named here (a live pool by
+     *  id, or a list row's pool by its name) when its holder has none of it left (Capability API
+     *  1.411): 5e's Superior Inspiration, "when you roll initiative and have no uses of Bardic
+     *  Inspiration left, you regain one use". Never past the pool's maximum. */
+    refillsAtInitiative: z
+      .object({ pool: z.string().trim().min(1).max(60), amount: z.number().int().min(1).max(100).default(1) })
+      .strict()
+      .optional(),
+    /** Gives back spent pools of one group that its user picks as they use it, whose levels add up
+     *  to no more than `upTo` read off their sheet, none above level `most` (Capability API 1.410):
+     *  5e's Arcane Recovery and Natural Recovery, "a combined level that is equal to or less than half
+     *  your wizard level (rounded up), and none of the slots can be 6th level or higher". A pool's
+     *  level is its own `level`, else its place in the group. Named in the use as `recover`. `count`
+     *  (Capability API 1.656) is how many spent pools it gives back in all, at most; on an item's
+     *  use it is required, and the use gives back the highest spent ones itself: 5e's Pearl of
+     *  Power, `{ "group": "slots", "upTo": { "const": 3 }, "most": 3, "count": 1 }`. */
+    recovers: z
+      .object({
+        group: sheetId,
+        upTo: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
+        most: z.number().int().min(1).max(100).optional(),
+        count: z.number().int().min(1).max(20).optional(),
+        /** The rest (Capability API 1.789) that offers to use it as it ends, with the spent pools to
+         *  give back picked there: 5e's Arcane Recovery and Natural Recovery on a Short rest. */
+        atRest: sheetId.optional(),
       })
       .strict()
       .optional(),
@@ -4783,7 +8034,7 @@ const catalogMechanicsObject = z
     /** The standard actions its holder may take for a budget other than the main one. The menu
      *  offers them beside the ordinary ones, and the resolver spends the budget named here. */
     standard: z
-      .object({ actions: z.array(combatStandardActionSchema).min(1).max(7), budget: sheetId })
+      .object({ actions: z.array(combatStandardActionSchema).min(1).max(8), budget: sheetId })
       .strict()
       .optional(),
     /** Its holder's own ways of hiding and finding the hidden (Capability API 1.292): a permission
@@ -4807,14 +8058,22 @@ function zoneIssue(mechanics: {
   reaction?: unknown;
   save?: unknown;
   amount?: { dice?: string; flat?: number };
+  concentration?: unknown;
 }): string | undefined {
   const zone = mechanics.zone;
   if (!zone) return mechanics.area?.shape === "wall" ? "A wall only ever stays, so it needs a zone" : undefined;
   const wall = mechanics.area?.shape === "wall";
-  if ((zone.blocks || zone.side) && !wall) return 'Only a wall "blocks" or has a "side"';
-  if (zone.sections && !zone.blocks) return 'A wall in "sections" is one that "blocks"';
+  // Spells and shots from afar are blocked by any zone (1.602, 1.659); a body or a look only by a wall.
+  const walled = (kind: string) => kind !== "spells" && kind !== "ranged";
+  if ((zone.blocks?.some(walled) || zone.side) && !wall) return 'Only a wall "blocks" or has a "side"';
+  if (zone.sections && !zone.blocks?.some(walled)) return 'A wall in "sections" is one that "blocks"';
+  if (zone.material && !zone.blocks?.includes("sight"))
+    return 'A wall\'s "material" is what sight goes through, so it "blocks" sight';
   if (zone.sections?.broken?.save && !mechanics.save) {
     return "A broken section's save is rolled against the entry's own difficulty, so it has a save";
+  }
+  if (zone.stages?.some((stage) => stage.save) && !mechanics.save) {
+    return "A stage's save is rolled against the entry's own difficulty, so it has a save";
   }
   if (wall && (zone.anchor === "caster" || zone.move || zone.drift)) return "A wall stays where it is cast";
   if ((mechanics.area as { copies?: number } | undefined)?.copies && (zone.anchor === "caster" || zone.drift)) {
@@ -4830,6 +8089,16 @@ function zoneIssue(mechanics: {
       (mechanics.area as { copies?: number }).copies)
   ) {
     return "A zone carried with somebody is a single burst put on a point, never moved of its own";
+  }
+  // Outlasting its caster (1.456): nothing they hold, nothing around them.
+  if (zone.outlasts && mechanics.concentration) {
+    return 'A zone held by concentration ends with it, so it never "outlasts" its caster';
+  }
+  if (zone.outlasts && zone.anchor === "caster") return 'A zone around its caster never "outlasts" them';
+  if (zone.outlasts && zone.endsWithCaller) return 'A zone that ends with its caster never "outlasts" them';
+  // Ending as it is carried over somebody it keeps out (1.595).
+  if (zone.keepsOut?.endsOnSweep && zone.anchor !== "caster" && !zone.carried) {
+    return '"endsOnSweep" ends a zone as whoever it is around moves, so it is around its caster or carried';
   }
   // Going off later and burning away (1.183).
   if (zone.detonates && (zone.anchor === "caster" || zone.move || zone.drift || wall)) {
@@ -4870,10 +8139,18 @@ function zoneIssue(mechanics: {
                 !zone.inside &&
                 !zone.forbids &&
                 !zone.wards &&
+                !zone.keepsOut &&
+                !zone.cover &&
+                !zone.turnsShots &&
+                !zone.stages &&
                 !zone.detonates &&
                 !zone.burns &&
                 !zone.lights &&
-                !zone.dispelsDark
+                !zone.dispelsDark &&
+                // Blocking spells is what it does to its ground (1.602): Forcecage's box.
+                !zone.blocks &&
+                // As is sealing it from gases and fog (1.659): Cube of Force.
+                !zone.sealsAir
               ? "A zone names at least one trigger, unless it is a wall, or what it does is to its ground or to whoever stands in it"
               : (zone.move || zone.drift) && (zone.anchor === "caster" || mechanics.area.shape !== "burst")
                 ? "Only a burst held at a point is moved or drifts"
@@ -4901,11 +8178,43 @@ const catalogMechanicsSchema: z.ZodType<
     });
   }
   // Made again only while held by concentration (1.310).
+  if (
+    mechanics.sustains &&
+    !mechanics.applies?.some((one) => typeof one.duration === "object" && typeof one.duration.rounds === "number")
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["sustains"],
+      message: '"sustains" starts again the rounds of what it puts on, so it applies a condition lasting some rounds',
+    });
+  }
+  if (mechanics.push !== undefined && mechanics.pull !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pull"],
+      message: "An entry pushes or pulls whoever it lands on, not both",
+    });
+  }
+  if (mechanics.oncePerTarget?.whenSaved && !mechanics.save) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["oncePerTarget", "whenSaved"],
+      message: '"whenSaved" spares a creature that made its save, so the entry asks one',
+    });
+  }
   if (mechanics.repeats && !mechanics.concentration) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["repeats"],
       message: '"repeats" is made again while its user concentrates on it, so it goes with "concentration"',
+    });
+  }
+  if (mechanics.repeats?.afterTargetDown && (!mechanics.applies?.length || mechanics.repeats.sameTargets)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["repeats", "afterTargetDown"],
+      message:
+        '"afterTargetDown" moves what the entry applies to a new target, so it applies something and is not "sameTargets"',
     });
   }
   if (mechanics.teleport && (mechanics.area || mechanics.reaction)) {
@@ -4917,11 +8226,128 @@ const catalogMechanicsSchema: z.ZodType<
   }
   const cureParts =
     (mechanics.ends?.conditions.length ?? 0) + (mechanics.tracks?.length ?? 0) + (mechanics.unseals ? 1 : 0);
-  if (mechanics.kindChoice && !mechanics.applies?.length) {
+  if (mechanics.kindChoice === "many" && !mechanics.zone) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["kindChoice"],
+      message: 'The kinds chosen are what its zone strikes, so "kindChoice": "many" goes with "zone"',
+    });
+  }
+  if (mechanics.damageTypeChoice && !mechanics.amount && !mechanics.zone) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["damageTypeChoice"],
+      message: '"damageTypeChoice" names the type of what it deals: it goes with "amount" or a "zone"',
+    });
+  }
+  // Picked as a mode (1.753), so beside nothing else picked as one.
+  if (
+    mechanics.damageTypeChoice &&
+    (mechanics.appliesOneOf ||
+      mechanics.cureOneOf ||
+      mechanics.kindChoice === true ||
+      mechanics.forms ||
+      mechanics.calls ||
+      mechanics.conjures ||
+      mechanics.contest?.takesMode ||
+      mechanics.zone?.inside?.chooses)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["damageTypeChoice"],
+      message:
+        '"damageTypeChoice" is picked as a mode, so it goes without "appliesOneOf", "cureOneOf", "kindChoice": true, "forms", "calls", "conjures", "takesMode" or a zone that chooses whom it works on',
+    });
+  }
+  if (mechanics.kindChoice === "many" && mechanics.zone?.inside?.chooses) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["kindChoice"],
+      message: 'A zone that chooses whom it works on picks one kind: it goes without "kindChoice": "many"',
+    });
+  }
+  if (mechanics.kindChoice === true && !mechanics.applies?.length) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["kindChoice"],
       message: 'The kind chosen is remembered by what it puts on, so "kindChoice" goes with "applies"',
+    });
+  }
+  if (mechanics.dismissesIs && !mechanics.dismisses) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["dismissesIs"],
+      message: '"dismissesIs" narrows whom "dismisses" sends away: it goes with "dismisses"',
+    });
+  }
+  if (mechanics.outsideFight && (mechanics.kind !== "heal" || mechanics.targets !== "self" || !mechanics.amount)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["outsideFight"],
+      message:
+        '"outsideFight" heals its user when used outside a fight: it goes with a "heal" on "self" with an "amount"',
+    });
+  }
+  if (mechanics.fellsKill && (mechanics.kind !== "attack" || !mechanics.amount)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["fellsKill"],
+      message: '"fellsKill" kills whoever its damage drops to 0: it goes with an attack\'s "amount"',
+    });
+  }
+  if (mechanics.killsAtMost !== undefined && !mechanics.save) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["killsAtMost"],
+      message: '"killsAtMost" kills whoever fails its save: it goes with "save"',
+    });
+  }
+  // Up to 12 when each goes on only at the steps it is paid at (1.525): Branding Smite's 2d6 to 9d6.
+  if (
+    !mechanics.appliesOneOf &&
+    (mechanics.applies?.length ?? 0) > 6 &&
+    !mechanics.applies!.every((entry) => entry.paidSteps)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["applies"],
+      message:
+        'An entry puts on up to 6 conditions; up to 12 with "appliesOneOf", which picks one, or when each says its "paidSteps"',
+    });
+  }
+  if (mechanics.appliesOneOf && (mechanics.applies?.length ?? 0) < 2) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["appliesOneOf"],
+      message: '"appliesOneOf" picks one of at least two "applies"',
+    });
+  }
+  if (
+    mechanics.appliesOneOf &&
+    (mechanics.cureOneOf || mechanics.kindChoice || mechanics.forms || mechanics.calls || mechanics.conjures)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["appliesOneOf"],
+      message:
+        '"appliesOneOf" is picked as a mode, so it goes without "cureOneOf", "kindChoice", "forms", "calls" or "conjures"',
+    });
+  }
+  // Picked as a mode (1.692), so beside nothing else picked as one.
+  if (
+    mechanics.contest?.takesMode &&
+    (mechanics.appliesOneOf ||
+      mechanics.cureOneOf ||
+      mechanics.kindChoice ||
+      mechanics.forms ||
+      mechanics.calls ||
+      mechanics.conjures)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["contest", "takesMode"],
+      message:
+        '"takesMode" is picked as a mode, so it goes without "appliesOneOf", "cureOneOf", "kindChoice", "forms", "calls" or "conjures"',
     });
   }
   if (mechanics.cureOneOf && cureParts < 2) {
@@ -4996,9 +8422,18 @@ const catalogMechanicsSchema: z.ZodType<
       !alters.heightens &&
       !alters.budget &&
       !alters.drops?.length &&
-      !alters.twins
+      !alters.twins &&
+      !alters.maximizes
     ) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["alters"], message: '"alters" changes something' });
+    }
+    // Backlash counts the uses of a counter (1.415).
+    if (alters.backlash && !mechanics.usesOf) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["alters", "backlash"],
+        message: '"backlash" counts the uses of a counter, so the entry spends one with "usesOf"',
+      });
     }
     if (mechanics.kind !== "utility" || mechanics.reaction !== undefined) {
       ctx.addIssue({
@@ -5027,11 +8462,12 @@ const catalogMechanicsSchema: z.ZodType<
       message: '"conjures" is on a "utility" entry its user uses on themselves',
     });
   }
-  if (mechanics.oncePerTarget && (mechanics.targets === "self" || mechanics.area)) {
+  // On an area too (1.628): whoever it is spent on is passed over by the next. The Pipes of Haunting.
+  if (mechanics.oncePerTarget && mechanics.targets === "self" && !mechanics.area) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["oncePerTarget"],
-      message: '"oncePerTarget" is on an entry pointed at a creature, not an area or its user',
+      message: '"oncePerTarget" is on an entry pointed at a creature or an area, not only its user',
     });
   }
   if (mechanics.targetsUpTo && (mechanics.targets === "self" || mechanics.area)) {
@@ -5086,6 +8522,98 @@ const catalogMechanicsSchema: z.ZodType<
       });
     }
   }
+  if (mechanics.rays) {
+    if (!mechanics.save) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rays"],
+        message: '"rays" are saved against once by each target: they go with "save"',
+      });
+    }
+    if (mechanics.attackRoll) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rays"],
+        message: '"rays" are saved against, so they go with no "attackRoll"',
+      });
+    }
+    const conditions = new Set((mechanics.applies ?? []).map((one) => one.condition));
+    mechanics.rays.rows.forEach((row, index) => {
+      if (row.damageType && !mechanics.amount) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["rays", "rows", index, "damageType"],
+          message: "A ray's \"damageType\" is for the entry's own amount, so it has one",
+        });
+      }
+      row.applies?.forEach((condition, at) => {
+        if (!conditions.has(condition)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["rays", "rows", index, "applies", at],
+            message: `A ray puts on only what the entry "applies": "${condition}" is not there`,
+          });
+        }
+      });
+    });
+  }
+  const layers = mechanics.zone?.layers;
+  if (layers) {
+    if (!mechanics.area) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["zone", "layers"],
+        message: 'Layers are a wall or a globe crossed: they go with an "area"',
+      });
+    }
+    if (!mechanics.save) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["zone", "layers"],
+        message: 'Each layer is saved against at the entry\'s own difficulty: layers go with "save"',
+      });
+    }
+    const conditions = new Set((mechanics.applies ?? []).map((one) => one.condition));
+    layers.rows.forEach((row, index) => {
+      if (row.damageType && !mechanics.amount) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["zone", "layers", "rows", index, "damageType"],
+          message: "A layer's \"damageType\" is for the entry's own amount, so it has one",
+        });
+      }
+      row.applies?.forEach((condition, at) => {
+        if (!conditions.has(condition)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["zone", "layers", "rows", index, "applies", at],
+            message: `A layer puts on only what the entry "applies": "${condition}" is not there`,
+          });
+        }
+      });
+    });
+  }
+  if (mechanics.appliesToCalled && !(mechanics.calls && mechanics.applies?.length)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["appliesToCalled"],
+      message: '"appliesToCalled" puts what it "applies" on what it "calls": it goes with both',
+    });
+  }
+  if (mechanics.concentrationBelowStep && !mechanics.concentration) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["concentrationBelowStep"],
+      message: '"concentrationBelowStep" says when its concentration stops: it goes with "concentration"',
+    });
+  }
+  if (mechanics.steers && !mechanics.area) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["steers"],
+      message: '"steers" is aimed at a point: it goes with "area"',
+    });
+  }
   if (mechanics.usesChosen && (mechanics.kind !== "heal" || mechanics.usesSpent !== undefined)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -5100,6 +8628,75 @@ const catalogMechanicsSchema: z.ZodType<
         code: z.ZodIssueCode.custom,
         path: ["lowersRoll"],
         message: '"lowersRoll" is taken as somebody else\'s attack hits: reaction "hit" without "by" or "also"',
+      });
+    }
+  }
+  if (mechanics.takesAim) {
+    const moment = typeof mechanics.reaction === "object" ? mechanics.reaction : undefined;
+    if (
+      moment?.on !== "aimed" ||
+      !moment.for ||
+      moment.for === "self" ||
+      moment.cancels ||
+      mechanics.amount ||
+      mechanics.attackRoll
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["takesAim"],
+        message:
+          '"takesAim" is taken at an "aimed" moment for somebody else ("for" an ally or anyone, "within"), calls nothing off and deals nothing of its own',
+      });
+    }
+  }
+  for (const key of ["strikesWith", "redirects"] as const) {
+    if (mechanics[key] === undefined) continue;
+    const moment = typeof mechanics.reaction === "object" ? mechanics.reaction : undefined;
+    const fits =
+      key === "redirects"
+        ? moment?.on === "attacked" && moment.missed === true && moment.at === "chosen"
+        : moment !== undefined
+          ? moment.on !== "falls" &&
+            moment.on !== "turn-start" &&
+            moment.at !== "chosen" &&
+            mechanics.strikesWith === "melee"
+          : // Weapon strikes over an area (1.428): Whirlwind Attack, Volley.
+            !mechanics.reaction && !!mechanics.area && mechanics.kind === "utility" && !mechanics.zone;
+    if (!fits || mechanics.amount || mechanics.attackRoll) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message:
+          key === "redirects"
+            ? '"redirects" is taken at an "attacked" moment that "missed" its holder, "at": "chosen", and deals nothing of its own'
+            : '"strikesWith" is a reaction aimed back at whoever caused its moment with a melee weapon, or a utility with an area its weapon strikes over, and deals nothing of its own',
+      });
+    }
+  }
+  if (mechanics.longRange !== undefined && !(mechanics.range !== undefined && mechanics.longRange > mechanics.range)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["longRange"],
+      message: '"longRange" is further than a "range" above 0',
+    });
+  }
+  if (mechanics.keepsCaught) {
+    const moment = typeof mechanics.reaction === "object" ? mechanics.reaction : undefined;
+    if (moment?.on !== "caught" || mechanics.amount || mechanics.attackRoll) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["keepsCaught"],
+        message: '"keepsCaught" is taken at a "caught" moment and deals nothing of its own',
+      });
+    }
+  }
+  if (mechanics.throwsCaught) {
+    const moment = typeof mechanics.reaction === "object" ? mechanics.reaction : undefined;
+    if (moment?.on !== "caught" || !mechanics.amount || !mechanics.attackRoll || mechanics.kind !== "attack") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["throwsCaught"],
+        message: '"throwsCaught" is an attack that rolls to hit with an amount, taken at a "caught" moment',
       });
     }
   }
@@ -5136,6 +8733,57 @@ const catalogMechanicsSchema: z.ZodType<
       code: z.ZodIssueCode.custom,
       path: ["perCostStepsEvery"],
       message: '"perCostStepsEvery" spaces out what "perCostStep" adds, so it has one',
+    });
+  }
+  // Its user's own save against what it puts on them (1.693) is its save.
+  if (mechanics.appliesSelfSaves && (!mechanics.appliesSelf?.length || !mechanics.save)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["appliesSelfSaves"],
+      message: '"appliesSelfSaves" rolls its "save" against its "appliesSelf", so it needs both',
+    });
+  }
+  // A contest stands in for the roll to hit and the save (1.565).
+  if (mechanics.contest && (mechanics.attackRoll || mechanics.save)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["contest"],
+      message: 'A "contest" decides who it lands on, so it has no "attackRoll" or "save" beside it',
+    });
+  }
+  if (
+    mechanics.movesTarget &&
+    (mechanics.area ||
+      mechanics.targets === "self" ||
+      (mechanics.targetCount ?? 1) > 1 ||
+      mechanics.targetsPerCostStep !== undefined)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["movesTarget"],
+      message: '"movesTarget" moves the one creature it is aimed at, so it has no "area", one target and not "self"',
+    });
+  }
+  if (mechanics.wardPick && (!mechanics.applies?.length || mechanics.kindChoice === "many")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["wardPick"],
+      message:
+        '"wardPick" wards off one picked entry through what it puts on, so it has "applies" and no "kindChoice" of many',
+    });
+  }
+  if (mechanics.healsAll && (mechanics.kind !== "heal" || mechanics.sharesHeal || mechanics.usesChosen)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["healsAll"],
+      message: '"healsAll" heals all the health each target is missing, so it is a "heal", not shared out or by uses',
+    });
+  }
+  if (mechanics.sharesHeal && (mechanics.kind !== "heal" || (!mechanics.amount && !mechanics.amountAdd))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["sharesHeal"],
+      message: '"sharesHeal" shares out what it heals, so it is a "heal" with an amount',
     });
   }
   if (mechanics.healthPoolSkips && !mechanics.healthPool) {
@@ -5227,7 +8875,26 @@ export const RULESET_SCALED_MAX_COLUMNS = 4;
 /** A number column whose value follows the sheet: the reference's own number, or that number looked
  *  up in `table` (a maximum that grows with a level). The sheet editor writes it when the build
  *  changes; nothing recomputes it at read time, so a stored row is always the number it says. */
-const catalogScaledColumnSchema = z.object({ from: rulesetValueRefSchema, table: stepTableSchema.optional() }).strict();
+const catalogScaledColumnSchema = z
+  .object({
+    from: rulesetValueRefSchema,
+    table: stepTableSchema.optional(),
+    /** For a text or enum column (Capability API 1.411): the reference's number looked up in steps of
+     *  text, the last whose threshold it reaches, the first when it reaches none. 5e's Font of
+     *  Inspiration: a bard's counter recharges `[[1, "long"], [5, "short"]]` by level. */
+    texts: z
+      .array(z.tuple([z.number().finite(), promptSafeText(80)]))
+      .min(1)
+      .max(30)
+      .refine((steps) => steps.every((step, index) => index === 0 || step[0] > steps[index - 1]![0]), {
+        message: "Each step of texts starts above the one before it",
+      })
+      .optional(),
+  })
+  .strict()
+  .refine((scaled) => !(scaled.table && scaled.texts), {
+    message: 'A scaled column is looked up in "table" (a number) or "texts" (a text), not both',
+  });
 
 const catalogScaledSchema = z.record(z.string(), catalogScaledColumnSchema).superRefine((scaled, ctx) => {
   const keys = Object.keys(scaled);
@@ -5255,6 +8922,13 @@ const catalogEntryRowSchema = z
     /** Optional. `values` still holds what the row starts as, because a catalog is picked before
      *  anything knows which sheet it lands on. */
     scaled: catalogScaledSchema.optional(),
+    /** Optional (1.493). The entry this row stands for, `<catalogId>/<entryId>`, when the entry that
+     *  writes it only grants it: Pact of the Chain's Find Familiar row is the spell's in a fight. */
+    standsFor: z
+      .string()
+      .max(81)
+      .regex(/^[^/]+\/[^/]+$/, "standsFor is a <catalog>/<entry> reference")
+      .optional(),
   })
   .strict();
 
@@ -5266,8 +8940,9 @@ const catalogEntryRowSchema = z
 // system's vocabulary, and nothing in it is text a fight interprets.
 
 /** How many actions one creature may carry. Generous, because a written opponent has its strikes,
- *  the sequence that spends them and a thing it does once a fight. */
-export const RULESET_CREATURE_MAX_ACTIONS = 12;
+ *  the sequence that spends them and a thing it does once a fight. 16 from Capability API 1.754,
+ *  12 before: 5e's vampire, with its bat and mist forms beside its own. */
+export const RULESET_CREATURE_MAX_ACTIONS = 16;
 
 /** What a creature can take: a plain number, or dice thrown once when the fight is created. The
  *  average is what a forecast reads, so a menu never promises a die nobody has thrown. */
@@ -5319,6 +8994,53 @@ const creatureDamageSchema = z
 
 /** A save the action itself forces. The difficulty is the action's own, because a stat block is not
  *  a sheet and has no abilities list to read one off. */
+export interface RulesetCreatureDismisses {
+  while: string;
+  gone?: RulesetTargetIs;
+  turns?: true;
+  carries?: { count: number; within: number; condition: string };
+  possesses?: true;
+}
+const creatureDismissesSchema: z.ZodType<true | RulesetCreatureDismisses, unknown> = z.union([
+  z.literal(true),
+  z
+    .object({
+      while: sheetId,
+      gone: targetIsSchema.optional(),
+      turns: z.literal(true).optional(),
+      /** Up to `count` of its allies within `within`, in the ruleset's own distance, nearest first,
+       *  go with it (Capability API 1.685), each holding `condition` while away and coming back
+       *  when it does: a nightmare's Ethereal Stride and its three riders. */
+      carries: z
+        .object({
+          count: z.number().int().min(1).max(20),
+          within: z.number().finite().gt(0).max(10000),
+          condition: sheetId,
+        })
+        .strict()
+        .optional(),
+      /** The creature itself leaves, not its target, while its target holds `while` from it, and
+       *  comes back beside them once that ends (Capability API 1.696): a ghost's Possession, the
+       *  body holding a condition with `controls` and `endsWhenHolder.downed`, so the ghost returns
+       *  as the body drops to 0 hit points or the possession is ended. Never with `turns`, `gone`
+       *  or `carries`, nor on a `self` action. */
+      possesses: z.literal(true).optional(),
+    })
+    .strict()
+    .refine((rule) => !rule.possesses || (!rule.turns && !rule.gone && !rule.carries), {
+      message: '"possesses" sends the creature into its target, so it goes without "turns", "gone" or "carries"',
+      path: ["possesses"],
+    }),
+]);
+
+const creatureOnFellSchema: z.ZodType<RulesetCreatureOnFell, unknown> = z
+  .object({
+    stabilizes: z.literal(true).optional(),
+    applies: z.array(catalogAppliesSchema).min(1).max(4).optional(),
+  })
+  .strict()
+  .refine((fell) => fell.stabilizes || fell.applies, { message: '"onFell" stabilizes, applies, or both' });
+
 const creatureSaveSchema = z
   .object({
     save: sheetId,
@@ -5327,6 +9049,11 @@ const creatureSaveSchema = z
     /** The target gains nothing from cover on this save (Capability API 1.74). */
     ignoresCover: z.literal(true).optional(),
     ...saveExtrasShape,
+    /** Failed by `atLeast` or more, or with a total of `resultAtMost` or lower, these go on in place
+     *  of the action's `applies` (Capability API 1.673): a mummy's Dreadful Glare, frightened and
+     *  paralyzed on a failure by 5 or more; a sprite's arrow, poisoned and unconscious on a total of
+     *  5 or lower. */
+    failedBy: saveFailedBySchema.optional(),
   })
   .strict();
 
@@ -5375,6 +9102,10 @@ const creatureSpellcastingSchema = z
             uses: creatureUsesSchema.optional(),
             level: z.number().int().min(0).max(20).optional(),
             coven: z.literal(true).optional(),
+            /** Its own save difficulty and attack, in place of the trait's (Capability API 1.642): a
+             *  hag's innate spells at DC 12 beside her coven's at DC 13. */
+            saveDifficulty: z.number().int().min(1).max(60).optional(),
+            toHit: z.number().int().min(-50).max(100).optional(),
             /** What casting it this way needs, in place of the entry's own (Capability API 1.181):
              *  `[]` for innate spellcasting that needs no components. */
             components: componentOverrideSchema.optional(),
@@ -5386,6 +9117,13 @@ const creatureSpellcastingSchema = z
     /** What every spell of the trait needs, in place of each entry's own, unless a spell says
      *  (Capability API 1.181): 5e's "requiring no material components" is `["verbal", "somatic"]`. */
     components: componentOverrideSchema.optional(),
+    /** Spell slots by spell level (Capability API 1.642): a spell of the trait with no `uses` and a
+     *  level of 1 or more spends one, the lowest it has at or above that level. A coven's slots are
+     *  shared by every member of the coven: 5e's "1st level (4 slots)". */
+    slots: z
+      .record(z.string().regex(/^[1-9]$/, "A slot level is 1 to 9"), z.number().int().min(1).max(20))
+      .refine((slots) => Object.keys(slots).length > 0, { message: "slots names at least one level" })
+      .optional(),
     coven: z
       .object({ id: sheetId, size: z.number().int().min(2).max(6), within: z.number().finite().positive() })
       .strict()
@@ -5417,7 +9155,7 @@ const creatureSpellcastingSchema = z
       });
   });
 
-const creatureActionSchema = z
+const creatureActionFullSchema = z
   .object({
     id: sheetId,
     name: promptSafeText(80),
@@ -5455,6 +9193,10 @@ const creatureActionSchema = z
      *  distance (Capability API 1.184); with a save, only on a failed one: a bronze dragon's
      *  Repulsion Breath, a dragon turtle's Tail. */
     push: z.number().finite().gt(0).max(10000).optional(),
+    /** Whoever it lands on is pulled this far straight toward the creature, stopping beside it, in the
+     *  ruleset's own distance (Capability API 1.675); with a save, only on a failed one: a balor's
+     *  whip, 25 feet; a roper's Reel, every creature it grapples, with `targetHolds.fromSelf`. */
+    pull: z.number().finite().gt(0).max(10000).optional(),
     /** The creature teleports (Capability API 1.276), in the ruleset's own distance, as a catalog
      *  entry's `teleport` does: a blink dog's Teleport, 40 feet to a place it can see. */
     teleport: teleportSchema.optional(),
@@ -5465,11 +9207,26 @@ const creatureActionSchema = z
      *  (Capability API 1.203), until a rest, or with `lasting` until something gives it back
      *  (`unseals`); brought to 0 that way, it dies. 5e's wraith's Life Drain, a clay golem's Slam. */
     reducesMax: reducesMaxSchema.optional(),
+    /** On a creature called with `fromCaller.adds` (Capability API 1.586), `false` keeps the caller's
+     *  number off this action's damage: Arcane Hand's Clenched Fist, 4d8 and nothing more. */
+    callerAdds: z.literal(false).optional(),
+    /** On a called creature (Capability API 1.586), added to this action's damage once for every step
+     *  the call was paid above its base: Arcane Hand's "2d8 for each slot level above 5th". */
+    perCallerStep: z
+      .object(catalogAmountShape)
+      .strict()
+      .refine((amount) => amount.dice !== undefined || amount.flat !== undefined, {
+        message: "perCallerStep names dice, a flat amount, or both",
+      })
+      .optional(),
     /** The creature regains health by the damage it dealt, or a share of it (Capability API 1.281):
      *  an aboleth's Psychic Drain. */
     drain: drainSchema.optional(),
     /** Offered only on a target that holds one of these (Capability API 1.235). */
     targetHolds: targetHoldsSchema.optional(),
+    /** Offered only while the creature has put none of these on anybody still holding it (Capability
+     *  API 1.715): an ankheg's Acid Spray, "only while not grappling", `["grappled"]`. */
+    unlessImposing: uniqueIds(8).optional(),
     /** What a save that ENDS one of `applies` is rolled against, when the action has no save of its
      *  own to borrow the number from. */
     saveDifficulty: z.number().int().min(0).max(1000).optional(),
@@ -5489,10 +9246,18 @@ const creatureActionSchema = z
      *  off it may be aimed, and a shape with none is aimed from where the creature stands. */
     area: z
       .object({
-        shape: z.enum(["burst", "cone", "line", "box"]),
+        /** A wall (Capability API 1.728) stands as a catalog entry's does, so it has a `zone`: an ice
+         *  devil's Wall of Ice. */
+        shape: z.enum(["burst", "cone", "line", "box", "wall"]),
         size: z.number().finite().gt(0).max(10000),
-        /** A line's width in the same unit as its size (Capability API 1.128). Without it, one cell. */
+        /** A line's width in the same unit as its size (Capability API 1.128), or a wall's thickness
+         *  (1.728). Without it, one cell. */
         width: z.number().finite().gt(0).optional(),
+        /** A wall its creature may lay as a ring instead (Capability API 1.728), this many across: an
+         *  ice devil's Wall of Ice, a 20-foot dome. */
+        ring: z.number().finite().gt(0).max(10000).optional(),
+        /** Always laid as its ring, never as a straight wall (Capability API 1.728). */
+        ringOnly: z.literal(true).optional(),
         /** False spares the creature's own side, as a catalog entry's does. */
         friendlyFire: z.boolean().optional(),
         /** Centred on its user and never aimed (Capability API 1.282): everybody within `size` of them
@@ -5511,9 +9276,17 @@ const creatureActionSchema = z
         message: '"aroundProp" is a burst around the props, never centred on its user',
         path: ["aroundProp"],
       })
-      .refine((area) => area.width === undefined || area.shape === "line", {
-        message: "Only a line area may carry width",
+      .refine((area) => area.width === undefined || area.shape === "line" || area.shape === "wall", {
+        message: "Only a line or a wall may carry width",
         path: ["width"],
+      })
+      .refine((area) => area.ring === undefined || area.shape === "wall", {
+        message: "Only a wall is a ring",
+        path: ["ring"],
+      })
+      .refine((area) => !area.ringOnly || area.ring !== undefined, {
+        message: '"ringOnly" lays it as its ring, so it has "ring"',
+        path: ["ringOnly"],
       })
       .refine((area) => !area.around || area.shape === "burst", {
         message: "Only a single burst is centred on its user",
@@ -5551,20 +9324,61 @@ const creatureActionSchema = z
           .optional(),
         push: z.number().finite().gt(0).max(10000).optional(),
         applies: z.array(catalogAppliesSchema).min(1).max(4).superRefine(linkedApplies).optional(),
+        /** What it may do next to the one it charged (Capability API 1.546): another of its own
+         *  actions, paid from `budget`, at that target alone, and only while it holds all of
+         *  `targetHolds`. A lion's Pounce, `{"action": "bite", "budget": "bonus", "targetHolds":
+         *  ["prone"]}`. */
+        then: z
+          .object({
+            action: sheetId,
+            budget: sheetId,
+            targetHolds: z.array(sheetId).min(1).max(4).optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
-      .refine((charge) => charge.plus || charge.push !== undefined || charge.applies, {
-        message: 'A charge adds damage ("plus"), a "push" or conditions ("applies")',
+      .refine((charge) => charge.plus || charge.push !== undefined || charge.applies || charge.then, {
+        message: 'A charge adds damage ("plus"), a "push", conditions ("applies") or what follows ("then")',
       })
       .optional(),
     /** Other actions of this same block, in order, each with its own target choice. ONE budget pays
      *  for the lot: this is how a creature that strikes twice in one action is written. A step may
      *  never name another sequence. */
     sequence: z
-      .array(z.object({ action: sheetId, times: z.number().int().min(1).max(10).default(1) }).strict())
+      .array(
+        z
+          .object({
+            action: sheetId,
+            times: z.number().int().min(1).max(10).default(1),
+            /** Made `times` for each head its creature has now (Capability API 1.550): a hydra's
+             *  Multiattack, "as many bite attacks as it has heads". Its creature has `heads`. */
+            perHead: z.literal(true).optional(),
+            /** Made as many times as these dice roll as the sequence is made (Capability API 1.643), in
+             *  place of `times`: a violet fungus's "1d4 Rotting Touch attacks". */
+            dice: combatDiceSchema.optional(),
+            /** Made only if every attack of the earlier step at this place (counted from 0) hit, and
+             *  then at the one it hit (Capability API 1.643): a grick's beak, "If that attack hits,
+             *  the grick can make one beak attack against the same target". It takes no target of
+             *  its own. */
+            ifHit: z.number().int().min(0).max(5).optional(),
+            /** Its maker may leave it out (Capability API 1.643): the sequence is offered without it
+             *  as one of its modes. A gibbering mouther's Blinding Spittle, "if it can". */
+            optional: z.literal(true).optional(),
+          })
+          .strict()
+          .refine((step) => !step.dice || (step.times === 1 && !step.perHead), {
+            message: 'A step rolled for ("dice") is not also made a set number of times or once per head',
+          }),
+      )
       .min(1)
       .max(6)
       .optional(),
+    /** Then one spell (Capability API 1.787): once this sequence is made, its creature may cast any
+     *  one spell of its own spellcasting this turn without spending the budget again (its uses and
+     *  slots are still spent). A glabrezu's "two attacks with its pincers and casts one spell", as a
+     *  second Multiattack of the two pincers with this. Only on a sequence. */
+    castsOne: z.literal(true).optional(),
     /** Bought out of the creature's own points instead of a budget. */
     signature: z
       .object({ cost: z.number().int().min(1).max(20) })
@@ -5579,6 +9393,12 @@ const creatureActionSchema = z
     reaction: rulesetReactionMomentSchema.optional(),
     /** It lands on the creature itself rather than on somebody else: a parry, a guard, a hardening. */
     self: z.literal(true).optional(),
+    /** Costs no budget (Capability API 1.606), as a catalog entry's `free` does. */
+    free: z.literal(true).optional(),
+    /** Offered only on its own turn before it has made an attack in it (Capability API 1.606), as a
+     *  catalog entry's `beforeAttack` is. The Engine-run creature takes a free one of these with
+     *  `self` as it is about to make a melee weapon attack: a berserker's Reckless. */
+    beforeAttack: z.literal(true).optional(),
     /** A move bought with points between turns (Capability API 1.283), to a cell its maker picks:
      *  `share` of its speed (a tarrasque's half), or `distance` in the ruleset's own unit (a mummy
      *  lord's 60 feet), its own speed when neither is given. `noOpportunity`: nobody strikes at it
@@ -5594,6 +9414,10 @@ const creatureActionSchema = z
         /** The one way of moving it uses (Capability API 1.285), its share read off that speed: a
          *  dragon "can then fly up to half its flying speed". */
         speed: z.enum(["walk", "fly", "swim", "climb", "burrow"]).optional(),
+        /** Every step of it nearer a hostile creature it can see (Capability API 1.607), and taken on
+         *  its own turn with its `budget` when it does nothing but move: an orc's Aggressive, "As a
+         *  bonus action, the orc can move up to its speed toward a hostile creature that it can see". */
+        toward: z.literal("seen-hostile").optional(),
       })
       .strict()
       .refine((move) => move.share === undefined || move.distance === undefined, {
@@ -5627,7 +9451,7 @@ const creatureActionSchema = z
      *  `{ "name": "Nimble Escape", "budget": "bonus", "standard": { "actions": ["disengage", "hide"] } }`. */
     standard: z
       .object({
-        actions: z.array(combatStandardActionSchema).min(1).max(7),
+        actions: z.array(combatStandardActionSchema).min(1).max(8),
         while: z.literal("obscured").optional(),
       })
       .strict()
@@ -5635,39 +9459,252 @@ const creatureActionSchema = z
     /** Only a creature at no health that is still alive may be picked (Capability API 1.311): a
      *  will-o'-wisp's Consume Life, at a dying or stable character. */
     dyingOnly: z.literal(true).optional(),
+    /** Offered only while its holder is up in the air (Capability API 1.787), and a sequence step
+     *  naming it is made only then: a wyvern's claws, "While flying, it can use its claws in place of
+     *  one other attack", as a second Multiattack of bite and claws with this. */
+    whileFlying: z.literal(true).optional(),
+    /** Offered only while its holder is in one of these shapes (Capability API 1.547): `"own"` for
+     *  its own, or a form's bestiary entry as `"<catalogId>/<entryId>"`. A wereboar's Charge in boar
+     *  or hybrid form, a mimic's Adhesive in object form. */
+    inShape: z
+      .array(
+        z.union([
+          z.literal("own"),
+          z.string().regex(/^[a-z0-9_-]+\/[a-z0-9_-]+$/i, 'A shape is "own" or a catalog/entry'),
+        ]),
+      )
+      .min(1)
+      .max(8)
+      .optional(),
     /** A target that fails its save dies (Capability API 1.311), and with `healsOnSlay` the creature
      *  regains that much for each one that does: Consume Life's "or die ... regains 10 (3d6)". */
     slaysOnFailedSave: z.literal(true).optional(),
+    /** Only a target with this much health or less as it fails is slain (Capability API 1.678); any
+     *  other takes the blow as if it had saved: a solar's Slaying Longbow, 190. */
+    slaysHealthAtMost: z.number().int().min(0).max(100000).optional(),
+    /** A target that fails its save drops to no health instead (Capability API 1.678), dying where
+     *  the ruleset has dying, as a catalog entry's `dropsOnFailedSave` does: a sea hag's Death Glare. */
+    dropsOnFailedSave: z.literal(true).optional(),
     healsOnSlay: z.object(catalogAmountShape).strict().optional(),
+    /** Used on a creature, never on that one again (Capability API 1.674): with `whenSaved` only once
+     *  it made its save, with `whenEnds` once what it put on ends, else once it is used on them at
+     *  all. For the rest of the fight, and with `until` (a rest) on a character's sheet until they
+     *  take that rest. `shared` makes every creature whose action says the same one source: 5e's
+     *  dragons' Frightful Presence, 24 hours, and the Dreadful Glare "of all mummies". */
+    oncePerTarget: creatureOncePerTargetSchema.optional(),
+    /** Whoever its blow drops to nothing (Capability API 1.677), not already down: left stable where
+     *  it `stabilizes`, with what it `applies`. A giant spider's bite, "the target is stable but
+     *  poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this
+     *  way". */
+    onFell: creatureOnFellSchema.optional(),
+    /** Whoever it lands on leaves the fight (Capability API 1.685), as a catalog entry's `dismisses`
+     *  does; its own creature too, with `self` and `"turns": true`, still taking its turns away and
+     *  offered there only the way back (the condition's `endable`): a ghost's Etherealness,
+     *  `{"while": "ethereal", "turns": true}`, a phase spider's Ethereal Jaunt. */
+    dismisses: creatureDismissesSchema.optional(),
+    /** What each use does, in turn (Capability API 1.687): other actions of this block, the first
+     *  use making the first, the second the second, and every use past the end the last, counted by
+     *  its `uses` (which it has). Each is made at whom this one was aimed, never on a menu itself.
+     *  An androsphinx's Roar, louder each time before it rests: `["roar_1", "roar_2", "roar_3"]`. */
+    byUse: z.array(sheetId).min(2).max(6).optional(),
+    /** What it puts on, pushes or pulls goes on a target it lands on only if the creature wins a
+     *  contest of checks against them (Capability API 1.695): its own best of `attacker` against
+     *  their best of `defender` (ids of `combat.checks`), a tie theirs unless `ties` says otherwise.
+     *  Its damage lands either way. A merrow's Harpoon, "a Strength contest against the merrow or be
+     *  pulled up to 20 feet toward the merrow". Never beside a `save`. */
+    contest: z
+      .object({
+        attacker: z.array(sheetId).min(1).max(4),
+        defender: z.array(sheetId).min(1).max(4),
+        ties: z.enum(["attacker", "defender"]).optional(),
+      })
+      .strict()
+      .optional(),
+    /** What it puts on (`applies`), pushes, pulls or sends away (`dismisses`), and its `contest`,
+     *  go only on a target that is this (Capability API 1.698); its damage lands on anybody. A
+     *  merrow's Harpoon, "If the target is Huge or smaller, it must succeed on a Strength contest
+     *  ... or be pulled", `{"upToSize": "huge"}`. */
+    ridersIs: targetIsSchema.optional(),
     /** Who it fells on Held Ground is reaped there and then (Capability API 1.323), and stays down. */
     reaps: z.literal(true).optional(),
+    /** It works only on a roll (Capability API 1.441): a demon's "30 percent chance of summoning",
+     *  `{"sides": 100, "atMost": 30}`. Its use is spent either way. */
+    chance: creatureChanceSchema.optional(),
     /** Creatures it calls into the fight (Capability API 1.325), on its side: `creature` names a
      *  bestiary entry as `"<catalogId>/<entryId>"`, from this ruleset's catalogs or the fight's
      *  bestiary, and `count` how many (`{"dice": "1d4"}`, or `{"flat": 2}`), eight at most. They
      *  appear in the action's `area` where it is aimed, or beside it without one, and roll their
      *  own initiative, or with `"initiative": "after"` act right after it. The Owed's Jars Burst,
-     *  Shelves Lean's specters. */
+     *  Shelves Lean's specters. Or (Capability API 1.446) up to 8 `options` its user picks among as
+     *  it is used, one use between them, as a catalog entry's are: a demon's Summon Demon, "2d4
+     *  dretches or one vrock". They leave once `rounds` have passed, counted from their caller's next
+     *  turn; with `endsWithCaller` as soon as their caller is out; and with `cantCall` they come
+     *  without any calling actions of their own. With `dismissible` (Capability API 1.449) its
+     *  caller has an action, on the action's own budget, that sends away those it called: "until its
+     *  summoner dismisses it as an action". */
     calls: z
       .object({
         creature: z
           .string()
           .trim()
-          .regex(/^[^/\s]{1,80}\/[^/\s]{1,120}$/, 'A called creature is named "<catalogId>/<entryId>"'),
+          .regex(/^[^/\s]{1,80}\/[^/\s]{1,120}$/, 'A called creature is named "<catalogId>/<entryId>"')
+          .optional(),
         count: z
           .object(catalogAmountShape)
           .strict()
           .refine((count) => count.dice !== undefined || (count.flat ?? 0) >= 1, {
             message: "A call brings at least one creature",
-          }),
+          })
+          .optional(),
+        options: calledOptionsSchema.optional(),
         initiative: z.enum(["roll", "after"]).optional(),
+        rounds: z.number().int().min(1).max(14400).optional(),
+        /** `"incapacitated"` (Capability API 1.736), as a catalog entry's (1.733): they also leave
+         *  as soon as their caller is down or cannot act. A chain devil's chains. */
+        endsWithCaller: z.union([z.literal(true), z.literal("incapacitated")]).optional(),
+        cantCall: z.literal(true).optional(),
+        /** `{ "budget": "<id>" }` (Capability API 1.610): sent away on that budget instead of the
+         *  action's own, a treant's bonus action to turn its tree back. */
+        dismissible: z.union([z.literal(true), z.object({ budget: sheetId }).strict()]).optional(),
+        /** They leave once their caller is farther from them than this (Capability API 1.610): a
+         *  treant's animated trees, 120 feet. */
+        leash: z.number().finite().gt(0).max(10000).optional(),
+        /** Where those it calls are set down (Capability API 1.621): on open cells within `distance` (the
+         *  ruleset's distance) of their caller, and with `seen` only ones the caller can see, nearest its
+         *  foes first. 5e's treant's Animate Trees, "one or two trees it can see within 60 feet of it". */
+        within: callWithinSchema.optional(),
+        /** Offered only where it says (Capability API 1.614), as an option's `onlyWhere`. */
+        onlyWhere: callWhereSchema.optional(),
+        /** They appear only after this many of their caller's turns (Capability API 1.614), rolled as
+         *  they are called: a vampire's Children of the Night, "The called creatures arrive in 1d4
+         *  rounds". */
+        arrivesIn: callArrivesSchema.optional(),
+        /** Raised from a corpse (Capability API 1.554): aimed at one creature that died no more than
+         *  `withinRounds` rounds ago and is `is` (when given), within the action's reach; the called
+         *  creature rises in its space and the corpse is gone. 5e's wraith's Create Specter,
+         *  `{"withinRounds": 10, "is": {"types": ["humanoid"]}}`. */
+        atCorpse: z
+          .object({ withinRounds: z.number().int().min(1).max(14400), is: targetIsSchema.optional() })
+          .strict()
+          .optional(),
+        /** No more than this many it called with this action stand at once (Capability API 1.554): a
+         *  wraith's seven specters. */
+        atMost: z.number().int().min(1).max(32).optional(),
+        /** They act only as their caller commands, as a catalog entry's do (Capability API 1.707): at
+         *  each of their turns but the first, their caller pays 1 of this budget, or the turn passes.
+         *  A solar's Flying Sword, a bonus action. */
+        commandedWith: sheetId.optional(),
+        /** They act only once their caller has made this one of its own actions, by id, since their
+         *  last turn (Capability API 1.736); otherwise their turn passes. A chain devil's chains, "when
+         *  the devil uses Multiattack on its turn, it can use each animated chain to make one
+         *  additional chain attack": `{"action": "multiattack"}`. Not with `commandedWith`. */
+        commandedBy: z.object({ action: sheetId }).strict().optional(),
+        /** Their attacks are made with their caller's own `action`'s bonus to hit and damage
+         *  (Capability API 1.707), one of the caller's actions by id: a solar's Flying Sword, "using
+         *  the solar's own greatsword attack". */
+        fromCaller: z.object({ action: sheetId }).strict().optional(),
       })
       .strict()
+      .superRefine((calls, ctx) => {
+        calls.options?.forEach((option, index) => {
+          if (
+            option.weight !== undefined ||
+            option.hostile ||
+            option.none ||
+            option.rounds !== undefined ||
+            option.spendsItem ||
+            option.pastLifetime
+          )
+            ctx.addIssue({
+              code: "custom",
+              path: ["options", index],
+              message:
+                '"weight", "hostile", "none", "rounds", "spendsItem" and "pastLifetime" are for a catalog entry\'s or an item\'s rolled call',
+            });
+        });
+        if (calls.atCorpse && calls.options)
+          ctx.addIssue({
+            code: "custom",
+            path: ["atCorpse"],
+            message: "A call raised from a corpse names one creature",
+          });
+        if ((calls.creature === undefined) === (calls.options === undefined))
+          ctx.addIssue({
+            code: "custom",
+            message: 'A call names one "creature" or lists "options": one of them',
+          });
+        if (calls.options && calls.options.length < 2 && !calls.options[0]?.from)
+          ctx.addIssue({
+            code: "custom",
+            path: ["options"],
+            message: 'A list of "options" has two at least, or one read "from" a catalog',
+          });
+        if (calls.creature !== undefined && !calls.count)
+          ctx.addIssue({ code: "custom", path: ["count"], message: 'A call of one creature says its "count"' });
+        if (calls.options && calls.count)
+          ctx.addIssue({ code: "custom", path: ["count"], message: 'Each of the "options" says its own "count"' });
+      })
       .optional(),
+    /** The forms it changes into (Capability API 1.392), with `applies` putting on a condition with
+     *  `shape`: a monster's Change Shape. See `shapeFormsSchema`; `upTo.at` reads nothing here. */
+    forms: shapeFormsSchema.optional(),
     /** Whoever it lands on spends `spends` from their own budgets, if they have it left, to walk up
      *  to their speed toward the creature there and then (Capability API 1.326), by the shortest
      *  open way and drawing no strikes; with a save, only on a failed one. The Owed's Whisper a
      *  Name: `{ "spends": "reaction" }`. */
     draws: z.object({ spends: sheetId }).strict().optional(),
+    /** It moves and takes in whoever it enters (Capability API 1.403): 5e's gelatinous cube Engulf
+     *  and water elemental Whelm. Picked as a cell on the board, it walks there up to its speed (or,
+     *  with `ownMovement`, on what is left of its own walk this turn), entering the spaces of those
+     *  no bigger than `upToSize` as it goes. Each it enters makes `save` against `difficulty`: on a
+     *  failure, the action's damage and `applies` land on them, and one of those it applies with
+     *  `inside` keeps them within it; on a success, they are pushed out of its way. `atMost` holds no
+     *  more than that many inside it at once. Off a board it is aimed at one creature. */
+    engulf: z
+      .object({
+        upToSize: sheetId,
+        save: z.object({ save: sheetId, difficulty: z.number().int().min(0).max(1000) }).strict(),
+        ownMovement: z.literal(true).optional(),
+        atMost: z.number().int().min(1).max(20).optional(),
+        /** What it holds by size (Capability API 1.405), in place of `atMost`: Whelm's. */
+        room: insideRoomSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    /** It leaps onto whoever stands where it lands (Capability API 1.725): 5e's bulette's Deadly
+     *  Leap. Picked as a cell on the board, it is a jump of at least `atLeast` (in the ruleset's
+     *  distance) on its own movement, as `combat.jumping` and its own `jump` say, landing in a space
+     *  one or more others fill. Each of them makes the action's save: the action's damage and
+     *  `applies` land on a failure as always, half on a success with `onSuccess: "half"`; then each is
+     *  set down out of its space, beside it. One who saved with no room to be set down takes
+     *  `noRoom` where it is: "falls prone in the bulette's space". Off a board it is aimed as the
+     *  action otherwise is. */
+    leapsOnto: z
+      .object({ atLeast: z.number().finite().min(0).max(10000), noRoom: sheetId.optional() })
+      .strict()
+      .optional(),
+    /** Kept up on its later turns with `budget` (Capability API 1.727), as a catalog entry's
+     *  `sustains` (1.431): what it put on a creature, still on them, starts its rounds again. A
+     *  harpy's Luring Song, "must take a bonus action on its subsequent turns to continue singing". */
+    sustains: z.object({ budget: sheetId }).strict().optional(),
+    /** Aimed only at a target that is this (Capability API 1.405), as a catalog entry's
+     *  `targetTypes` reads: a behir's Constrict at "one Large or smaller creature". */
+    targetTypes: catalogTargetTypesSchema.optional(),
+    /** What a sequence does once every attack in it has hit the one target (Capability API 1.405):
+     *  `applies` on them, then the action `uses` names made at them, as long as they are `targetIs`.
+     *  A shambling mound's Multiattack: "If both attacks hit a Medium or smaller target, the target
+     *  is grappled (escape DC 14), and the shambling mound uses its Engulf on it." */
+    allHit: z
+      .object({
+        targetIs: targetIsSchema.optional(),
+        applies: z.array(catalogAppliesSchema).min(1).max(4).optional(),
+        uses: sheetId.optional(),
+      })
+      .strict()
+      .refine((hit) => hit.applies !== undefined || hit.uses !== undefined, {
+        message: '"allHit" names "applies", "uses" or both',
+      })
+      .optional(),
     /** Only somebody who has already taken their turn this round may be picked (Capability API
      *  1.327): the Hour Bell's "one creature that has already acted this round". */
     actedOnly: z.literal(true).optional(),
@@ -5689,6 +9726,111 @@ const creatureActionSchema = z
         });
       }
     }
+    // A wall it lays (1.728) stands, as a catalog entry's does.
+    if (action.area?.shape === "wall") {
+      if (!action.zone) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["area", "shape"],
+          message: "A wall only ever stays, so it needs a zone",
+        });
+      } else if (action.zone.anchor === "caster" || action.zone.move || action.zone.drift) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["zone"], message: "A wall stays where it is cast" });
+      }
+      if (action.zone?.sections?.broken?.save && !action.save && action.saveDifficulty === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["zone", "sections", "broken", "save"],
+          message: "A broken section's save is rolled against the action's own difficulty, so it has one",
+        });
+      }
+    }
+    if (action.push !== undefined && action.pull !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pull"],
+        message: "An action pushes or pulls whoever it lands on, not both",
+      });
+    }
+    // Something after the blow for a target test to narrow (1.698).
+    if (
+      action.ridersIs &&
+      !action.applies?.length &&
+      action.push === undefined &&
+      action.pull === undefined &&
+      !action.contest &&
+      !action.dismisses
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["ridersIs"],
+        message: '"ridersIs" narrows what goes on after the blow, so the action applies, pushes, pulls or dismisses',
+      });
+    }
+    // A contest stands in for the save on what it puts on (1.695).
+    if (action.contest && action.save) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["contest"],
+        message: 'A "contest" decides what goes on after the blow, so it has no "save" beside it',
+      });
+    }
+    // What each use does is in the actions it names (1.687), counted by its uses.
+    if (action.byUse) {
+      if (!action.uses) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["byUse"],
+          message: '"byUse" is counted by the action\'s own "uses", so it has them',
+        });
+      }
+      for (const key of ["toHit", "autoHit", "damage", "heal", "save", "applies", "sequence", "self"] as const) {
+        if (action[key] !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: 'An action made "byUse" does what the actions it names do, so it carries nothing of its own',
+          });
+        }
+      }
+    }
+    // Away while it holds what the same use puts on (1.685).
+    const away = action.dismisses;
+    if (away && away !== true && !action.applies?.some((applied) => applied.condition === away.while)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dismisses", "while"],
+        message: `Away while it holds "${away.while}", so the action puts it on`,
+      });
+    }
+    if (away && away !== true && away.possesses && action.self) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dismisses", "possesses"],
+        message: '"possesses" goes into whom the action lands on, so the action is not "self"',
+      });
+    }
+    if (away && away !== true && away.carries && !action.self) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dismisses", "carries"],
+        message: 'Those it "carries" go with the creature itself, so the action is "self"',
+      });
+    }
+    if (action.oncePerTarget?.whenSaved && !action.save) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["oncePerTarget", "whenSaved"],
+        message: '"whenSaved" follows the action\'s own save, so it has one',
+      });
+    }
+    if (action.oncePerTarget?.whenEnds && !action.applies?.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["oncePerTarget", "whenEnds"],
+        message: '"whenEnds" follows what the action puts on, so it has "applies"',
+      });
+    }
     if (action.slaysOnFailedSave && !action.save) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -5701,6 +9843,20 @@ const creatureActionSchema = z
         code: z.ZodIssueCode.custom,
         path: ["healsOnSlay"],
         message: '"healsOnSlay" is given back for a target slain, so it goes with "slaysOnFailedSave"',
+      });
+    }
+    if (action.slaysHealthAtMost !== undefined && !action.slaysOnFailedSave) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["slaysHealthAtMost"],
+        message: '"slaysHealthAtMost" says whom "slaysOnFailedSave" slays, so it goes with it',
+      });
+    }
+    if (action.dropsOnFailedSave && (!action.save || action.slaysOnFailedSave)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dropsOnFailedSave"],
+        message: '"dropsOnFailedSave" follows the action\'s own save, and slays nobody beside',
       });
     }
     // A light switched (1.296) is nothing else.
@@ -5798,11 +9954,20 @@ const creatureActionSchema = z
     // A legendary move (1.283) is bought with points, and follows whatever else it does (1.285): a
     // dragon's Wing Attack, then its flight.
     if (action.move) {
-      if (!action.signature) {
+      // Or taken on its own turn toward a hostile it sees (1.607), when it does nothing but move.
+      const ownTurn =
+        action.move.toward !== undefined &&
+        (["damage", "heal", "applies", "area", "save", "ends", "push", "toHit", "autoHit"] as const).every(
+          (key) => action[key] === undefined,
+        );
+      if (!action.signature && !ownTurn) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["move"],
-          message: "A move is bought with points between turns, so it carries a signature",
+          message:
+            action.move.toward !== undefined
+              ? 'A move taken on its own turn ("toward") does nothing but move'
+              : "A move is bought with points between turns, so it carries a signature",
         });
       }
       const extras = (["teleport", "sequence", "reaction", "charge"] as const).filter(
@@ -5842,6 +10007,14 @@ const creatureActionSchema = z
           });
         }
       }
+    }
+    // Then one spell (1.787) follows a sequence.
+    if (action.castsOne && !action.sequence) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["castsOne"],
+        message: '"castsOne" is the spell a sequence lets follow, so it goes with "sequence"',
+      });
     }
     if (action.sequence) {
       // A sequence is a container. Anything else on it would be a second thing the one budget also
@@ -5942,6 +10115,10 @@ const creatureActionSchema = z
     }
   });
 
+/** Typed by its output so the ruleset schema's inferred type stays small enough to serialize. */
+export interface RulesetCreatureActionParsed extends z.output<typeof creatureActionFullSchema> {}
+const creatureActionSchema: z.ZodType<RulesetCreatureActionParsed, unknown> = creatureActionFullSchema;
+
 /** How many riders one creature may carry. Four, for the same reason a blow carries three clauses:
  *  past that nobody at a table could hold the creature in their head. */
 export const RULESET_CREATURE_MAX_RIDERS = 4;
@@ -6001,6 +10178,71 @@ const creatureHideEntrySchema = z.union([
 ]);
 export type RulesetCreatureHideEntry = z.infer<typeof creatureHideEntrySchema>;
 
+/** Whom a combatant the Engine plays goes for first (Capability API 1.763), in its `behavior`. */
+export const RULESET_TARGET_PREFERENCES = [
+  "nearest",
+  "weakest",
+  "wounded",
+  "strongest",
+  "casters",
+  "healers",
+  "attacker",
+  "concentrating",
+  "leader",
+] as const;
+export type RulesetTargetPreference = (typeof RULESET_TARGET_PREFERENCES)[number];
+
+/** Whom a bodyguard stands up for (Capability API 1.777), in its `behavior.guards`. */
+export const RULESET_GUARDED_KINDS = ["leader", "casters", "healers"] as const;
+
+/**
+ * How a combatant the Engine plays goes about a fight (Capability API 1.763), beside its `mind`: its
+ * `temperament` and `role` in place of the ones it would be dealt; whom it goes for first
+ * (`targets`, in order); the actions or spells it opens with (`opens`, the first of them it can use
+ * on its first turns); `pack`, going for whoever a friend of its stands beside; and `ambush`, lying
+ * in wait, hidden where it can, until an opponent comes within reach or it is hurt; and `guards`
+ * (Capability API 1.777), keeping near the nearest friend of the kinds it names and going at whoever
+ * is on them, as a companion told to protect them; and `shifts` (Capability API 1.779), the
+ * temperament it turns to, once, when hurt below half (`bloodied`), when one of its side or its
+ * leader is down, or when cornered; and `territory` (Capability API 1.781), how far from where it
+ * began a `territorial` one goes. A Game Master's
+ * temperament for one fight wins over it; a mindless creature has none of it.
+ */
+const combatBehaviorSchema = z
+  .object({
+    temperament: z.enum(COMBAT_TEMPERAMENTS).optional(),
+    role: z.enum(COMBAT_ROLES).optional(),
+    targets: z
+      .array(z.enum(RULESET_TARGET_PREFERENCES))
+      .min(1)
+      .max(4)
+      .refine((targets) => new Set(targets).size === targets.length, { message: "Name each once" })
+      .optional(),
+    opens: z.array(sheetId).min(1).max(4).optional(),
+    pack: z.literal(true).optional(),
+    ambush: z.literal(true).optional(),
+    guards: z
+      .array(z.enum(RULESET_GUARDED_KINDS))
+      .min(1)
+      .max(3)
+      .refine((kinds) => new Set(kinds).size === kinds.length, { message: "Name each once" })
+      .optional(),
+    shifts: z
+      .array(z.object({ on: z.enum(COMBAT_SHIFT_TRIGGERS), to: z.enum(COMBAT_TEMPERAMENTS) }).strict())
+      .min(1)
+      .max(4)
+      .refine((shifts) => new Set(shifts.map((one) => one.on)).size === shifts.length, {
+        message: "Name each trigger once",
+      })
+      .optional(),
+    /** How many squares from where it began a `territorial` one goes (Capability API 1.781); 6
+     *  unless it says. */
+    territory: z.number().int().min(1).max(40).optional(),
+  })
+  .strict()
+  .refine((behavior) => Object.keys(behavior).length > 0, { message: "Say something about how it fights" });
+export type RulesetCombatBehavior = z.infer<typeof combatBehaviorSchema>;
+
 const creatureFields = {
   health: creatureHealthSchema,
   defense: z.number().int().min(0).max(1000),
@@ -6023,6 +10265,31 @@ const creatureFields = {
   /** It flies without needing to keep moving (Capability API 1.113): what knocks a flier out of the
    *  air does not knock it out. Needs a `fly` speed. */
   hover: z.literal(true).optional(),
+  /** Ridden, it acts as it will, never controlled by its rider (Capability API 1.496): an
+   *  intelligent mount. */
+  mountIndependent: z.literal(true).optional(),
+  /** Ridden by as many as its back bears (Capability API 1.641), weighed as `combat.mounts.weights`
+   *  says: up to `weight` at its full speed and, with `slowedUpTo`, up to that much at half speed. Its
+   *  first rider steers it; the rest are carried along. Any size may ride it. 5e's Carpet of Flying,
+   *  4 by 6 feet: `{ "weight": 400, "slowedUpTo": 800 }`. `slowedSpeed` (Capability API 1.660) is the
+   *  speed it keeps past `weight`, in the ruleset's distance, in place of half: 5e's Broom of Flying,
+   *  `{ "weight": 200, "slowedUpTo": 400, "slowedSpeed": 30 }`. */
+  mountCarries: z
+    .object({
+      weight: z.number().finite().gt(0).max(1000000),
+      slowedUpTo: z.number().finite().gt(0).max(1000000).optional(),
+      slowedSpeed: z.number().finite().gt(0).max(10000).optional(),
+    })
+    .strict()
+    .refine((carries) => carries.slowedUpTo === undefined || carries.slowedUpTo > carries.weight, {
+      message: '"slowedUpTo" is more than "weight"',
+      path: ["slowedUpTo"],
+    })
+    .refine((carries) => carries.slowedSpeed === undefined || carries.slowedUpTo !== undefined, {
+      message: '"slowedSpeed" is its speed past "weight", so it carries more than that, up to "slowedUpTo"',
+      path: ["slowedSpeed"],
+    })
+    .optional(),
   initiativeModifier: z.number().int().min(-50).max(100),
   /** Scores, keyed by the sheet's own ability ids. Shown to the Game Master; a later slice asks a
    *  creature for a check with them. */
@@ -6066,7 +10333,11 @@ const creatureFields = {
    *  comes back when it ends: a will-o'-wisp invisible, its light with it. */
   lightOutWhile: z.array(sheetId).min(1).max(8).optional(),
   /** Its own attack rolls rolled twice (Capability API 1.293), where it says, as `checkModes` hold:
-   *  5e's Sunlight Sensitivity `{ "mode": "disadvantage", "sight": true, "light": ["sunlight"] }`. */
+   *  5e's Sunlight Sensitivity `{ "mode": "disadvantage", "sight": true, "light": ["sunlight"] }`.
+   *  `allyAdjacent` (Capability API 1.393): only while one of its allies who can act stands beside
+   *  the target, Pack Tactics. `targetHurt` (1.393): only at a target below its most health, Blood
+   *  Frenzy. `melee` (1.402): melee attacks only, Blood Frenzy's "melee attack rolls". Everything it
+   *  names must hold. */
   attackModes: z
     .array(
       z
@@ -6079,11 +10350,32 @@ const creatureFields = {
             .max(4)
             .optional(),
           terrain: z.array(promptSafeText(40)).min(1).max(12).optional(),
+          allyAdjacent: z.literal(true).optional(),
+          targetHurt: z.literal(true).optional(),
+          melee: z.literal(true).optional(),
+          /** Only at a target surprised, or not yet acted in the fight (Capability API 1.544): a
+           *  doppelganger's Ambusher. */
+          whenTarget: z.enum(["surprised", "not-yet-acted"]).optional(),
+          /** Only at a target holding one of these that it put on them (Capability API 1.553): a
+           *  mimic's Grappler, `["grappled"]`. */
+          targetHoldsFromSelf: z.array(sheetId).min(1).max(4).optional(),
         })
         .strict()
-        .refine((rule) => rule.sight || rule.light || rule.terrain, {
-          message: "A mode on attacks says where it holds: sight, light or terrain",
-        }),
+        .refine(
+          (rule) =>
+            rule.sight ||
+            rule.light ||
+            rule.terrain ||
+            rule.allyAdjacent ||
+            rule.targetHurt ||
+            rule.melee ||
+            rule.whenTarget ||
+            rule.targetHoldsFromSelf,
+          {
+            message:
+              "A mode on attacks says where it holds: sight, light, terrain, allyAdjacent, targetHurt, melee, whenTarget or targetHoldsFromSelf",
+          },
+        ),
     )
     .min(1)
     .max(8)
@@ -6116,12 +10408,62 @@ const creatureFields = {
    *  a fiend tagged "devil", a humanoid tagged "goblinoid". What a target test reads. */
   type: sheetId.optional(),
   tags: z.array(sheetId).min(1).max(8).optional(),
+  /** Its alignment in words (Capability API 1.699), "lawful evil" or "any non-good alignment": each
+   *  of `combat.creatureTypes.tags` it names by label or id as whole words is one of its tags too,
+   *  never one it names after "non-" or "not". What a target test by alignment reads. */
+  alignment: promptSafeText(60).optional(),
+  /** How much thought it puts into a fight (Capability API 1.761), over its type's and its score's:
+   *  a 5e zombie or skeleton `mindless`, whatever its Intelligence. */
+  mind: z.enum(COMBAT_MINDS).optional(),
+  /** How it goes about a fight (Capability API 1.763), over its type's and `combat.behavior`, each
+   *  key on its own: a 5e wolf's `{ "targets": ["wounded"], "pack": true }`. */
+  behavior: combatBehaviorSchema.optional(),
+  /** Its morale score (Capability API 1.762), what a `combat.morale` check that rolls is thrown
+   *  against: it breaks on a roll above it. Old-School Essentials' 2 to 12, 12 never breaking. */
+  morale: z.number().int().min(0).max(100).optional(),
+  /** The one its side follows (Capability API 1.762): its fall is `combat.morale`'s "leader-down". */
+  leader: z.literal(true).optional(),
   /** Damage types, matched without case: half, double, none at all. A resistance or an immunity may
    *  say what gets through it (`{ "type": "cut", "except": ["silver"] }`): a blow from a weapon item
    *  with any of those tags is taken as it comes. */
   resist: z.array(creatureHideEntrySchema).max(30).optional(),
   vulnerable: z.array(promptSafeText(40)).max(30).optional(),
   immune: z.array(creatureHideEntrySchema).max(30).optional(),
+  /** Damage types, matched without case, that heal it instead (Capability API 1.541): it takes none
+   *  and regains as many hit points as the blow would have dealt. 5e's flesh golem's Lightning
+   *  Absorption, an iron golem's Fire Absorption. */
+  healedBy: z.array(promptSafeText(40)).min(1).max(12).optional(),
+  /** It deals double damage to objects (Capability API 1.560): a wall's sections, a layered wall's
+   *  layers and a board's props. 5e's Siege Monster. */
+  doubleToObjects: z.literal(true).optional(),
+  /** The tags of what it wears (Capability API 1.711), which a target test's `wears` reads as it
+   *  reads a character's worn items: a knight's plate, `["armor", "metal"]`. */
+  wears: z.array(sheetId).min(1).max(8).optional(),
+  /** Its own jump (Capability API 1.716), in the ruleset's distance, in place of what `combat.jumping`
+   *  reads off its abilities: as far with a run-up, and as the ruleset's `standing` says without one
+   *  unless `withoutRunUp`. A bulette's Standing Leap, `{"long": 30, "high": 15, "withoutRunUp": true}`. */
+  jump: z
+    .object({
+      long: z.number().finite().min(0).max(10000),
+      high: z.number().finite().min(0).max(10000),
+      withoutRunUp: z.literal(true).optional(),
+    })
+    .strict()
+    .optional(),
+  /** Who may move through its space (Capability API 1.600): only a foe whose `ability` score is above
+   *  `above`, and with `difficult` as hard going. 5e's Arcane Hand, "can't move through the hand's
+   *  space if its Strength score is less than or equal to the hand's ... that space is difficult
+   *  terrain", `{"ability": "str", "above": 26, "difficult": true}`. */
+  passableBy: z
+    .object({ ability: sheetId, above: z.number().int().min(0).max(100), difficult: z.literal(true).optional() })
+    .strict()
+    .optional(),
+  /** It does not fill its space (Capability API 1.600): a friend may stop in it, and a foe it lets
+   *  through may too. The Arcane Hand. */
+  fillsSpace: z.literal(false).optional(),
+  /** The languages it understands (Capability API 1.561), by name, matched without case against a
+   *  character's `combat.languages`: what `targetTypes.understands` reads. */
+  languages: z.array(promptSafeText(60)).max(30).optional(),
   /** The sheet's own condition ids this creature is never in. */
   conditionImmunities: z.array(sheetId).max(40).optional(),
   /** Conditions it has on through every fight (Capability API 1.263), as a sheet's `keepsOn` entry
@@ -6161,17 +10503,123 @@ const creatureFields = {
   /** How many failed saves it may turn into successes (Capability API 1.317), each fight: 5e's
    *  Legendary Resistance (3/Day). */
   legendaryResistance: z.number().int().min(1).max(20).optional(),
-  /** Dropping to 0 hit points, it is left at 1 instead, `uses` times a fight, and with `extraTurn`
-   *  takes a turn of its own straight after the one it happened in (Capability API 1.320): the
-   *  showcase's Miller of Hours and its Hourglass. Not against what slays outright. */
-  hangsOn: z
+  /** What it regains as each of its turns starts (Capability API 1.396): Regeneration. See
+   *  `regenerationSchema`; `add` reads nothing here. */
+  regenerates: regenerationSchema.optional(),
+  /** Dropping to 0 hit points, it is left at 1 instead (Capability API 1.320): the showcase's Miller
+   *  of Hours and its Hourglass, `uses` times a fight with a turn straight after. From 1.400 a save
+   *  and the blow's own terms too: Undead Fortitude, Relentless. Not against what slays outright. See
+   *  `hangsOnSchema`; `spends` and `tally` read a sheet, so a creature takes neither. */
+  hangsOn: hangsOnSchema.optional(),
+  /** Harmed by one of `by` and left standing with at least `atLeast` health, it splits in two
+   *  (Capability API 1.475): a second of it beside it, each with half the health it had, rounded
+   *  down, and each one size smaller when the fight has sizes; not when it is smaller than
+   *  `smallest`. 5e's Black Pudding and Ochre Jelly, `{"by": ["lightning", "slashing"], "atLeast":
+   *  10, "smallest": "medium"}`. */
+  splits: z
     .object({
-      uses: z.number().int().min(1).max(10),
-      extraTurn: z.literal(true).optional(),
-      label: promptSafeText(60).optional(),
+      by: z.array(promptSafeText(40)).min(1).max(8),
+      atLeast: z.number().int().min(2).max(10000),
+      smallest: sheetId.optional(),
     })
     .strict()
     .optional(),
+  /** Budgets of the fight's economy it has back in full as every turn starts, anybody's
+   *  (Capability API 1.549): 5e's marilith's Reactive, `["reaction"]`, "one reaction on every turn
+   *  in a combat". */
+  refillsEveryTurn: z.array(sheetId).min(1).max(4).optional(),
+  /** Heads that die and grow back (Capability API 1.550): 5e's hydra's Multiple Heads. It starts
+   *  with `count`. Taking `lostAt` or more damage in a single turn kills one; with none left it dies.
+   *  As its turn ends it grows `grows` (2) for each that died since its last turn, up to `max`, and
+   *  regains `healsPerHead` health for each grown, unless damage of one of `growthStoppedBy` (fire)
+   *  reached it since its last turn. With `opportunityReactions`, each head beyond one gives it an
+   *  extra reaction used only for opportunity attacks (Reactive Heads), back as its turn starts.
+   *  While it has more than one head it holds the conditions `whileMany` names, as a condition's
+   *  save advantage against being blinded or charmed is written. A sequence step's `perHead` makes
+   *  that strike once per head. */
+  /** Weapons that hit it corrode (Capability API 1.551): a held weapon with any of `tags`, after
+   *  dealing damage, takes `step` (1) more off its damage rolls for good, kept on its stack, and is
+   *  destroyed once that reaches `destroyedAt` (5). `sparesMagical` leaves a magical weapon alone.
+   *  With `ammunition`, ammunition with any of `tags` that hits it is destroyed after dealing damage
+   *  rather than won back. 5e's rust monster's Rust Metal, `{"tags": ["metal"], "sparesMagical": true,
+   *  "ammunition": true}`, and a black pudding's Corrosive Form, `["metal", "wood"]`. */
+  corrodesWeapons: z
+    .object({
+      tags: z.array(sheetId).min(1).max(8),
+      sparesMagical: z.literal(true).optional(),
+      step: z.number().int().min(1).max(10).optional(),
+      destroyedAt: z.number().int().min(1).max(100).optional(),
+      ammunition: z.literal(true).optional(),
+    })
+    .strict()
+    .optional(),
+  heads: z
+    .object({
+      count: z.number().int().min(2).max(20),
+      max: z.number().int().min(2).max(40).optional(),
+      lostAt: z.number().int().min(1).max(100000),
+      grows: z.number().int().min(1).max(4).optional(),
+      growthStoppedBy: z.array(promptSafeText(40)).min(1).max(8).optional(),
+      healsPerHead: z.number().int().min(1).max(1000).optional(),
+      opportunityReactions: z.literal(true).optional(),
+      whileMany: z.array(sheetId).min(1).max(4).optional(),
+    })
+    .strict()
+    .refine((heads) => heads.max === undefined || heads.max >= heads.count, {
+      message: "A creature's most heads are at least the heads it starts with",
+    })
+    .optional(),
+  /** When it drops a creature to 0 with a melee attack on its own turn, it spends `budget` (if it
+   *  has it left) to move up to `move` of its speed, and its `action` is free once more this turn
+   *  (Capability API 1.545): 5e's gnoll's Rampage, `{"action": "bite", "budget": "bonus", "move":
+   *  0.5}`. */
+  rampage: z
+    .object({
+      action: sheetId,
+      budget: sheetId,
+      move: z.number().gt(0).max(1).optional(),
+    })
+    .strict()
+    .optional(),
+  /** Rolled as each of its turns starts while its health is at most `healthAtMost` and it does not
+   *  hold all of `applies` already (Capability API 1.543): `atLeast` or more on `dice` puts them on
+   *  it. 5e's flesh golem's Berserk, `{"healthAtMost": 40, "dice": "1d6", "atLeast": 6, "applies":
+   *  [{"condition": "berserk", "duration": "until-dispelled"}]}`. */
+  rollsAtTurnStart: z
+    .array(
+      z
+        .object({
+          healthAtMost: z.number().int().min(0).max(100000),
+          dice: catalogDice,
+          atLeast: z.number().int().min(1).max(1000),
+          applies: z.array(catalogAppliesSchema).min(1).max(4),
+        })
+        .strict(),
+    )
+    .min(1)
+    .max(4)
+    .optional(),
+  /** Conditions it puts on itself when a blow of one of `by` deals it anything (Capability API
+   *  1.542), matched without case. 5e's flesh golem's Aversion of Fire, `{"by": ["fire"],
+   *  "applies": [{"condition": "poisoned", "duration": {"rounds": 1}}]}`, and a water elemental's
+   *  Freeze. */
+  whenHarmedBy: z
+    .array(
+      z
+        .object({
+          by: z.array(promptSafeText(40)).min(1).max(8),
+          applies: z.array(catalogAppliesSchema).min(1).max(4),
+        })
+        .strict(),
+    )
+    .min(1)
+    .max(4)
+    .optional(),
+  /** What it does as it dies (Capability API 1.540): an action of its own, never on its menu, a
+   *  burst centred on it (`area.around`) resolved on whoever it catches as it is out of the fight.
+   *  5e's mephits' Death Burst and a balor's Death Throes. Its `budget` is never spent. With a
+   *  `zone` (anchor "point", outlasts) it leaves that area where it fell: a smoke mephit's cloud. */
+  onDeath: creatureActionSchema.optional(),
   /** It does not move while any of its cells is in one of these lights (Capability API 1.319): the
    *  showcase's Lantern-Shy, `["bright", "sunlight"]`. */
   stillIn: z
@@ -6183,6 +10631,9 @@ const creatureFields = {
   /** Catalog spells cast without spending anything off a sheet (Capability API 1.123). Omitted
    *  uses means at will; a coven spell shares its uses while enough members stand nearby. */
   spellcasting: creatureSpellcastingSchema.optional(),
+  /** Entries cast into it to be cast again later by itself (Capability API 1.524), as an item's
+   *  `stores` holds them: 5e's shield guardian, `{ "catalogs": ["spells"], "levels": 4, "count": 1 }`. */
+  stores: storesSchema.optional(),
   /** What this creature adds to the first qualifying hit of a period, all by itself. */
   riders: z.array(creatureRiderSchema).min(1).max(RULESET_CREATURE_MAX_RIDERS).optional(),
 };
@@ -6269,7 +10720,8 @@ const rulesetProposedCreatureBaseSchema = z.preprocess(
           message: `A creature without a sheet needs its ${key}`,
         });
       }
-      if (creature.actions.length === 0 && !creature.spellcasting) {
+      // A mount that carries riders (1.641) is ridden, and needs nothing of its own to do.
+      if (creature.actions.length === 0 && !creature.spellcasting && !creature.mountCarries) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["actions"],
@@ -6285,6 +10737,29 @@ export type RulesetProposedCreature = z.infer<typeof rulesetProposedCreatureBase
 export const rulesetProposedCreatureSchema: z.ZodType<RulesetProposedCreature, unknown> =
   rulesetProposedCreatureBaseSchema;
 
+/** One line of what a creature may have on it as a fight begins (1.795): one of the ruleset's items, or
+ *  a loot table's picks, with the chance in a hundred that it has them and how many. */
+const creatureInventoryLineSchema = z
+  .object({
+    item: z
+      .string()
+      .max(81)
+      .regex(/^[a-z][a-z0-9_]{0,39}\/[a-z0-9]+(?:-[a-z0-9]+)*$/, "An item is named as <catalog>/<entry>")
+      .optional(),
+    table: sheetId.optional(),
+    chance: z.number().int().min(1).max(100).default(100),
+    count: z.union([z.number().int().min(1).max(99), catalogDice]).default(1),
+  })
+  .strict()
+  .superRefine((line, ctx) => {
+    if ((line.item === undefined) === (line.table === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A line of what a creature has on it names an item or a loot table, one of them",
+      });
+    }
+  });
+
 /** A creature a bestiary ships: the plain block, or a `sheet` in the ruleset's own terms. With a
  *  sheet it is built the way a party member is, so the numbers the sheet gives are not also given
  *  here, and there is one place each of them comes from. */
@@ -6299,6 +10774,10 @@ const rulesetCreatureBaseSchema = z
     sheet: creatureSheetSchema.optional(),
     /** The loot table a won fight rolls for it, by the id `items.lootTables` gives it. */
     loot: sheetId.optional(),
+    /** What it may have on it as a fight begins (1.795), each line rolled for once: an item of the
+     *  ruleset's, or a loot table's picks, `chance` in a hundred. It uses what it can in the fight,
+     *  and what it has left drops when it is beaten. */
+    inventory: z.array(creatureInventoryLineSchema).min(1).max(16).optional(),
   })
   .strict()
   .superRefine((creature, ctx) => {
@@ -6322,7 +10801,8 @@ const rulesetCreatureBaseSchema = z
         message: `A creature without a sheet needs its ${key}`,
       });
     }
-    if (creature.actions.length === 0 && !creature.spellcasting) {
+    // A mount that carries riders (1.641) is ridden, and needs nothing of its own to do.
+    if (creature.actions.length === 0 && !creature.spellcasting && !creature.mountCarries) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["actions"],
@@ -6419,6 +10899,14 @@ const lootEntrySchema = z
     }
   });
 
+/** What a check about an item rolls: a skill, an ability, or a value off the sheet. A use's `gate`,
+ *  and a fake's `tells` and a seller's `manner` (Capability API 1.802). */
+const itemCheckSchema = z.union([
+  z.object({ skill: sheetId }).strict(),
+  z.object({ ability: sheetId }).strict(),
+  z.object({ value: rulesetValueRefSchema }).strict(),
+]);
+
 /** One of the ruleset's items, named as `<catalog>/<entry>`. */
 const rulesetItemRefSchema = z
   .string()
@@ -6483,6 +10971,23 @@ const startingGearLineSchema = z
     }
   });
 
+/** One option of a starting gear choice, with its lines. `offeredWhen` (Capability API 1.661), read
+ *  off the sheet, offers it only while that reads above zero: 5e's "a martial weapon (if proficient)".
+ *  A choice none of whose options is offered asks nothing. Typed by its own name, as written out the
+ *  definition's inferred type grows too long for the compiler to emit. */
+export interface RulesetStartingGearOption {
+  label: string;
+  lines: RulesetStartingGearLine[];
+  offeredWhen?: RulesetValueRef;
+}
+const startingGearOptionSchema: z.ZodType<RulesetStartingGearOption, unknown> = z
+  .object({
+    label,
+    lines: z.array(startingGearLineSchema).min(1).max(40),
+    offeredWhen: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+  })
+  .strict();
+
 /** Gear a character may take into their bag at the start (Capability API 1.78), never on their own:
  *  the player asks for it, once for each `group` (a class's gear beside a background's). `fits` says
  *  which characters it is for, read off the sheet; it orders the list and refuses nobody. */
@@ -6499,10 +11004,7 @@ const startingGearSchema = z
         z
           .object({
             label,
-            options: z
-              .array(z.object({ label, lines: z.array(startingGearLineSchema).min(1).max(40) }).strict())
-              .min(2)
-              .max(6),
+            options: z.array(startingGearOptionSchema).min(2).max(6),
           })
           .strict(),
       )
@@ -6610,6 +11112,18 @@ const marketSchema = z
             /** A dishonest seller (Capability API 1.79) passes fakes off as what they pass for, from
              *  their stock, and buys a fake as what it seems. Sellers are honest unless they say so. */
             honest: z.literal(false).optional(),
+            /** What gives a dishonest seller away (Capability API 1.802): a check on the seller, not the
+             *  item, whose success says something is off about what they sell, never what it is. */
+            manner: z
+              .object({
+                check: itemCheckSchema,
+                dc: z.number().int().min(1).max(100),
+                advantageIf: sheetNeedsSchema("advantageIf").optional(),
+                disadvantageIf: sheetNeedsSchema("disadvantageIf").optional(),
+                says: promptSafeText(160),
+              })
+              .strict()
+              .optional(),
             only: z
               .object({ value: rulesetValueRefSchema, atLeast: z.number().finite(), label: promptSafeText(80) })
               .strict()
@@ -6629,16 +11143,39 @@ const itemsSchema = z
     tags: z.array(itemWordSchema).max(48).optional(),
     stats: z.array(rulesetItemStatSchema).max(24).optional(),
     slots: z.array(itemSlotSchema).max(12).optional(),
+    /** Items drawn as they are used (Capability API 1.808): those of one of these `categories` or
+     *  carrying one of these `tags`. One still takes its slots only while it is on, and is put on only
+     *  where they are free, but it is used while only carried: a use puts it on, first putting away
+     *  the fewest other such items that hold the slots it needs. Nothing else is ever taken off for it,
+     *  and where that leaves no room the use is refused. 5e's weapons: `{ "categories": ["weapon"] }`. */
+    drawOnUse: z
+      .object({
+        categories: z.array(sheetId).min(1).max(24).optional(),
+        tags: z.array(sheetId).min(1).max(48).optional(),
+      })
+      .strict()
+      .refine((draws) => draws.categories || draws.tags, { message: 'Say what is drawn: "categories", "tags" or both' })
+      .optional(),
     /** Attunement, investiture and the like: how many items one character may have bound at once,
      *  read off their sheet. */
     binding: z
       .object({ label: promptSafeText(40), max: rulesetValueRefSchema })
       .strict()
       .optional(),
+    /** A value off the sheet that, above zero, waives what items ask of their bearer or user (their
+     *  `binds.needs` and `userNeeds`, Capability API 1.667): 5e's Use Magic Device, "you ignore all
+     *  class, race, and level requirements on the use of magic items". */
+    needsWaivedBy: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     /** Which stat is an item's weight, and what a character carries before they are encumbered and
-     *  at most, read off their sheet. Without it weight means nothing and nobody is encumbered. */
+     *  at most, read off their sheet. Without it weight means nothing and nobody is encumbered. `unit`
+     *  is what a weight is counted in ("lb"), said after it wherever one is shown (Capability API 1.791). */
     carry: z
-      .object({ stat: sheetId, encumberedAbove: rulesetValueRefSchema, limit: rulesetValueRefSchema.optional() })
+      .object({
+        stat: sheetId,
+        encumberedAbove: rulesetValueRefSchema,
+        limit: rulesetValueRefSchema.optional(),
+        unit: promptSafeText(12).optional(),
+      })
       .strict()
       .optional(),
     currencies: z.array(currencyFamilySchema).max(6).optional(),
@@ -6667,6 +11204,32 @@ const itemsSchema = z
     /** What an item the player types in becomes: a plain item, or nothing at all. */
     freeform: z.enum(["plain", "refuse"]).default("plain"),
     market: marketSchema.optional(),
+    /** How far past a fake's tell a check must go to tell what the fake truly is too (Capability API
+     *  1.802): 5 in 5e. Without it a check only ever says it is a fake. */
+    namesItAt: z.number().int().min(1).max(50).optional(),
+    /** What a passive score starts from before a character's number (Capability API 1.802): 10 in
+     *  5e, the default. */
+    passiveBase: z.number().int().min(0).max(100).optional(),
+    /** How the party notices a fake about to be bought (Capability API 1.802): with no dice, by
+     *  passive scores (the default), or by rolling each check (`"roll"`). */
+    warnBy: z.enum(["passive", "roll"]).optional(),
+    /** The ways of seeing through fakes a character may cast on an item (Capability API 1.802): a
+     *  spell, a ritual. One with `tags` or `items` reads only a fake carrying one of the tags or being
+     *  one of the items (fakes' refs, "<catalog>/<entry>"), and none without either reads any fake. */
+    revealsFakes: z
+      .array(
+        z
+          .object({
+            id: sheetId,
+            label: promptSafeText(60),
+            tags: z.array(sheetId).min(1).max(8).optional(),
+            items: z.array(rulesetItemRefSchema).min(1).max(24).optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(8)
+      .optional(),
     /** Gear a character may take at the start, never given on its own (Capability API 1.78). */
     startingGear: z.array(startingGearSchema).min(1).max(40).optional(),
   })
@@ -6896,14 +11459,21 @@ const itemAttackDamageSchema: z.ZodType<RulesetItemAttackDamage, unknown> = item
  *  its Constitution save. Typed by hand, as the last-charge die is. */
 export interface RulesetItemAttackSpend {
   label: string;
-  charges: number;
-  amount: { dice?: string; flat?: number };
+  charges?: number;
+  uses?: {
+    max: number;
+    recharge?: RulesetItemRechargeRule;
+  };
+  amount?: { dice?: string; flat?: number };
   type?: string;
   blow?: "melee" | "ranged";
   chargeStep?: { max: number; amount: { dice?: string; flat?: number } };
+  save?: { save: string; difficulty: number };
+  drain?: { share?: number };
   onHit?: Array<{
     condition: string;
     rounds?: number;
+    of?: "source";
     save?: { save: string; difficulty: number };
     saveEnds?: { save: string; difficulty: number; at: "turn-end" | "turn-start" | "damaged" };
   }>;
@@ -6911,9 +11481,32 @@ export interface RulesetItemAttackSpend {
 const itemAttackSpendSchema: z.ZodType<RulesetItemAttackSpend, unknown> = z
   .object({
     label: promptSafeText(40),
-    charges: z.number().int().min(1).max(100),
-    amount: z.object(catalogAmountShape).strict(),
+    charges: z.number().int().min(1).max(100).optional(),
+    /** Its own count of uses in place of the item's charges (Capability API 1.534), kept on the
+     *  stack as a further use's are and brought back by `recharge` on the rests it names: a Staff of
+     *  Thunder and Lightning's Lightning and Thunder, once a dawn each. */
+    uses: z
+      .object({
+        max: z.number().int().min(1).max(100),
+        recharge: itemRechargeSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    /** Left out (1.534) where all it does is its `onHit`: a Rod of Lordly Might's Paralyze. */
+    amount: z.object(catalogAmountShape).strict().optional(),
     type: promptSafeText(40).optional(),
+    /** A save the one it hit makes against its `amount`, a made one keeping all of it off (Capability
+     *  API 1.534): Drain Life's Constitution 17. */
+    save: z
+      .object({ save: sheetId, difficulty: z.number().int().min(0).max(1000) })
+      .strict()
+      .optional(),
+    /** Its wielder regains `share` (1 when left out) of what its `amount` dealt (Capability API
+     *  1.534): Drain Life's half. */
+    drain: z
+      .object({ share: z.number().finite().gt(0).max(1).optional() })
+      .strict()
+      .optional(),
     /** Only on a blow of this kind: a Staff of Striking's melee attack. */
     blow: z.enum(["melee", "ranged"]).optional(),
     /** Up to `max` more charges spent on the same hit, each adding `amount`: a Staff of Striking's
@@ -6928,7 +11521,11 @@ const itemAttackSpendSchema: z.ZodType<RulesetItemAttackSpend, unknown> = z
         z
           .object({
             condition: sheetId,
+            /** Beside `saveEnds` (Capability API 1.534), the most it lasts: Paralyze's minute. */
             rounds: z.number().int().min(1).max(10000).optional(),
+            /** Its `rounds` counted on its wielder's turns (Capability API 1.534): Thunder's "until
+             *  the end of your next turn". */
+            of: z.literal("source").optional(),
             save: z
               .object({ save: sheetId, difficulty: z.number().int().min(0).max(1000) })
               .strict()
@@ -6943,9 +11540,9 @@ const itemAttackSpendSchema: z.ZodType<RulesetItemAttackSpend, unknown> = z
               .optional(),
           })
           .strict()
-          .refine((entry) => entry.saveEnds === undefined || entry.rounds === undefined, {
-            message: "A condition that ends on a save lasts until it is made, not some rounds",
-            path: ["rounds"],
+          .refine((entry) => entry.of === undefined || entry.rounds !== undefined, {
+            message: 'Counted on its wielder\'s turns, it lasts some "rounds"',
+            path: ["of"],
           }),
       )
       .min(1)
@@ -6953,8 +11550,24 @@ const itemAttackSpendSchema: z.ZodType<RulesetItemAttackSpend, unknown> = z
       .optional(),
   })
   .strict()
-  .refine((spend) => spend.amount.dice !== undefined || spend.amount.flat !== undefined, {
+  .refine((spend) => !spend.amount || spend.amount.dice !== undefined || spend.amount.flat !== undefined, {
     message: "What spending charges on a hit adds is dice, a flat amount, or both",
+    path: ["amount"],
+  })
+  .refine((spend) => spend.amount !== undefined || (spend.onHit?.length ?? 0) > 0, {
+    message: "What it does on a hit is an amount, conditions or both",
+    path: ["amount"],
+  })
+  .refine((spend) => (spend.charges === undefined) !== (spend.uses === undefined), {
+    message: 'A hit spends "charges" of the item or its own "uses": one of them',
+    path: ["uses"],
+  })
+  .refine((spend) => !spend.chargeStep || spend.charges !== undefined, {
+    message: "A charge more is the item's charges, so it spends some",
+    path: ["chargeStep"],
+  })
+  .refine((spend) => (!spend.save && !spend.drain) || spend.amount !== undefined, {
+    message: "A save against it or a drain is of its amount, so it has one",
     path: ["amount"],
   })
   .refine(
@@ -6962,6 +11575,59 @@ const itemAttackSpendSchema: z.ZodType<RulesetItemAttackSpend, unknown> = z
       !spend.chargeStep || spend.chargeStep.amount.dice !== undefined || spend.chargeStep.amount.flat !== undefined,
     { message: "A charge more adds dice, a flat amount, or both", path: ["chargeStep", "amount"] },
   );
+
+/** A condition a weapon's hit puts on the one it hit (1.169), typed by hand to keep the item
+ *  attack's inferred type short enough to emit. */
+export interface RulesetItemOnHit {
+  condition: string;
+  atLeast: number;
+  checkEnds?: { check: string; difficulty: number; by?: "any" };
+  rounds?: number;
+  save?: { save: string; difficulty: number };
+  saveEnds?: { save: string; difficulty: number; at: "turn-end" | "turn-start" | "damaged" };
+  targetIs?: RulesetTargetIs;
+  oncePerTurn?: true;
+}
+const itemOnHitSchema: z.ZodType<RulesetItemOnHit, unknown> = z
+  .object({
+    condition: sheetId,
+    atLeast: z.number().int().min(0).max(100),
+    /** Its holder may spend the standard budget on this check against `difficulty` to end it
+     *  (Capability API 1.511), as a condition's own `checkEnds` is: a net's DC 10 Strength. */
+    checkEnds: z
+      .object({
+        check: sheetId,
+        difficulty: z.number().int().min(0).max(1000),
+        /** Or anybody next to its holder, for them (Capability API 1.518): alchemist's fire. */
+        by: z.literal("any").optional(),
+      })
+      .strict()
+      .optional(),
+    rounds: z.number().int().min(1).max(100).optional(),
+    /** The target saves against it, and a success keeps it off (Capability API 1.169). */
+    save: z
+      .object({ save: sheetId, difficulty: z.number().int().min(0).max(1000) })
+      .strict()
+      .optional(),
+    /** It lasts until its holder makes this save, rolled at the start or end of each of their
+     *  turns or on damage above zero (Capability API 1.169): a sword of wounding's wound, Con 15
+     *  at the turn's start. */
+    saveEnds: z
+      .object({
+        save: sheetId,
+        difficulty: z.number().int().min(0).max(1000),
+        at: z.enum(["turn-end", "turn-start", "damaged"]),
+      })
+      .strict()
+      .optional(),
+    /** Only on a target that is this (Capability API 1.187): a giant slayer's knockdown of a
+     *  giant. */
+    targetIs: targetIsSchema.optional(),
+    /** At most once in any one turn, the holder's or anybody else's (Capability API 1.187): a
+     *  sword of wounding's wound. */
+    oncePerTurn: z.literal(true).optional(),
+  })
+  .strict();
 
 export const rulesetItemAttackSchema = z
   .object({
@@ -7006,82 +11672,15 @@ export const rulesetItemAttackSchema = z
      *  fight's damage. */
     floor: orItemStat(z.number().int().min(1).max(100)).optional(),
     /** A condition the target takes when the harm the blow dealt reaches `atLeast`, for `rounds` of
-     *  their own turns or until something takes it off. */
-    onHit: z
-      .array(
-        z
-          .object({
-            condition: sheetId,
-            atLeast: z.number().int().min(1).max(100),
-            rounds: z.number().int().min(1).max(100).optional(),
-            /** The target saves against it, and a success keeps it off (Capability API 1.169). */
-            save: z
-              .object({ save: sheetId, difficulty: z.number().int().min(0).max(1000) })
-              .strict()
-              .optional(),
-            /** It lasts until its holder makes this save, rolled at the start or end of each of their
-             *  turns or on damage above zero (Capability API 1.169): a sword of wounding's wound, Con 15
-             *  at the turn's start. */
-            saveEnds: z
-              .object({
-                save: sheetId,
-                difficulty: z.number().int().min(0).max(1000),
-                at: z.enum(["turn-end", "turn-start", "damaged"]),
-              })
-              .strict()
-              .optional(),
-            /** Only on a target that is this (Capability API 1.187): a giant slayer's knockdown of a
-             *  giant. */
-            targetIs: targetIsSchema.optional(),
-            /** At most once in any one turn, the holder's or anybody else's (Capability API 1.187): a
-             *  sword of wounding's wound. */
-            oncePerTurn: z.literal(true).optional(),
-          })
-          .strict(),
-      )
-      .min(1)
-      .max(4)
-      .optional(),
+     *  their own turns or until something takes it off. `atLeast: 0` (Capability API 1.511) is any
+     *  hit, harm or not: a net's restraint. */
+    onHit: z.array(itemOnHitSchema).min(1).max(4).optional(),
     /** More to hit against a target that is this (Capability API 1.187): a mace of smiting's +2 more
      *  against constructs. Its damage is a `plus` clause with the same `targetIs`. Since Capability
      *  API 1.189 the target may instead be one carrying a condition the wielder put on it
      *  (`marked`), and the attack may roll twice (`mode`), ignore cover short of total
      *  (`ignoresCover`) and long range (`ignoresLongRange`): an oathbow's sworn enemy. */
-    against: z
-      .array(
-        z
-          .object({
-            is: targetIsSchema.optional(),
-            marked: sheetId.optional(),
-            toHit: z.number().int().min(-20).max(20).optional(),
-            mode: z.enum(["advantage", "disadvantage"]).optional(),
-            ignoresCover: z.literal(true).optional(),
-            ignoresLongRange: z.literal(true).optional(),
-          })
-          .strict()
-          .superRefine((entry, ctx) => {
-            if (entry.is === undefined && entry.marked === undefined) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'An "against" names who it is against: "is", "marked" or both',
-              });
-            }
-            if (
-              entry.toHit === undefined &&
-              entry.mode === undefined &&
-              !entry.ignoresCover &&
-              !entry.ignoresLongRange
-            ) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'An "against" changes something: toHit, mode, ignoresCover or ignoresLongRange',
-              });
-            }
-          }),
-      )
-      .min(1)
-      .max(4)
-      .optional(),
+    against: z.array(attackAgainstSchema).min(1).max(4).optional(),
     /** A hit that leaves its target at `healthAtMost` or less kills it outright, on a failed `save`
      *  where it has one (Capability API 1.187): a mace of disruption against fiends and undead, a
      *  mace of smiting's construct, a nine lives stealer (on a `critical`, spending a `charges` of
@@ -7141,6 +11740,14 @@ export const rulesetItemAttackSchema = z
      *  at that moment: more damage, more for each charge more, and conditions with their saves. The
      *  item holds charges. */
     spends: z.array(itemAttackSpendSchema).min(1).max(4).optional(),
+    /** Up to this much of its bonus to hit and damage may go to its wielder's defense instead
+     *  (Capability API 1.737), chosen for nothing before their first attack with it on a turn: the
+     *  weapon's attacks that turn lose it, and their defense keeps it until the start of their next
+     *  turn. A Defender's +3. `label` names the choice ("Defender" by default, the item's name). */
+    bonusToDefense: z
+      .object({ upTo: z.number().int().min(1).max(10), label: promptSafeText(40).optional() })
+      .strict()
+      .optional(),
   })
   .strict();
 export type RulesetItemAttack = z.infer<typeof rulesetItemAttackSchema>;
@@ -7244,9 +11851,6 @@ const itemChargeStepSchema: z.ZodType<RulesetItemChargeStep, unknown> = z
 export const rulesetItemUseSchema = catalogMechanicsObject
   .omit({
     kind: true,
-    // Sense needs belong to catalog entries and creature actions (1.127).
-    needs: true,
-    needsAny: true,
     cost: true,
     perCostStep: true,
     targetsPerCostStep: true,
@@ -7254,7 +11858,6 @@ export const rulesetItemUseSchema = catalogMechanicsObject
     summons: true,
     scales: true,
     conjures: true,
-    repeats: true,
     standard: true,
     rider: true,
   })
@@ -7262,6 +11865,43 @@ export const rulesetItemUseSchema = catalogMechanicsObject
     /** `utility` (Capability API 1.181) is a use that only leaves an area standing: a scroll of Fog
      *  Cloud, Darkness or Silence; or one that teleports (1.276): a cape's Dimension Door. */
     kind: z.enum(["attack", "heal", "buff", "debuff", "utility"]),
+    /** Weapons of the ruleset (`<catalog>/<entry>`, items with an `attack`) its user wields only
+     *  while a creature this use `calls` stands (Capability API 1.739), each first taken on `takes`
+     *  where it says. Never written to their bag. A Figurine of Wondrous Power's goat of terror, whose
+     *  horns become a +1 lance and a +2 longsword: `{"items": ["gear/goat-horn-lance",
+     *  "gear/goat-horn-longsword"], "takes": "action"}`. */
+    wieldsWhileCalled: z
+      .object({ items: z.array(catalogEntryRef).min(1).max(4), takes: sheetId.optional() })
+      .strict()
+      .optional(),
+    /** Using it again before its user has taken one of `rests` costs them (Capability API 1.744): a
+     *  `save` against its `difficulty`, failed, moves their `tracks` and puts on their `conditions`.
+     *  Counted on its stack, in a fight and out of one, and cleared by such a rest. 5e's Ring of
+     *  X-ray Vision, `{ "rests": ["long"], "save": { "save": "con_save", "difficulty": 15 }, "tracks":
+     *  [{ "track": "exhaustion", "by": 1 }] }`. */
+    againBeforeRest: z
+      .object({
+        rests: z.array(sheetId).min(1).max(4),
+        save: z.object({ save: sheetId, difficulty: z.number().int().min(1).max(100) }).strict(),
+        tracks: catalogTracksSchema.optional(),
+        conditions: z.array(sheetId).min(1).max(4).optional(),
+      })
+      .strict()
+      .refine((rule) => rule.tracks !== undefined || rule.conditions !== undefined, {
+        message: '"againBeforeRest" moves tracks, puts on conditions, or both',
+      })
+      .optional(),
+    /** The level it casts at (Capability API 1.730): a scroll's spell's. Whatever reads the level an
+     *  entry is paid at reads this, a reaction's `"upTo": "paid"` among them: a scroll of
+     *  Counterspell, 3, stops a spell of 3rd level or lower outright. */
+    level: z.number().int().min(0).max(20).optional(),
+    /** Abilities it raises on its user's sheet for good (Capability API 1.516), by ability id: `by`
+     *  onto the score, and `max` onto the most it may be. Used outside a fight only; a fight never
+     *  offers it. 5e's Manual of Gainful Exercise, `{ "str": { "by": 2, "max": 2 } }`. */
+    raises: itemRaisesSchema.optional(),
+    /** Using it rolls on its item's `useTable` for what happens (Capability API 1.559): a Wand of
+     *  Wonder. */
+    rollsTable: z.literal(true).optional(),
     // A wall's thickness and a ring are a wand's or a scroll's too (1.177), and a line's width
     // (1.184): a scroll of Gust of Wind.
     area: z
@@ -7270,11 +11910,35 @@ export const rulesetItemUseSchema = catalogMechanicsObject
         size: z.number().finite().gt(0),
         width: z.number().finite().gt(0).optional(),
         ring: z.number().finite().gt(0).optional(),
+        /** Laid as its ring alone (Capability API 1.602), as a catalog entry's is: a scroll of
+         *  Forcecage's cage. */
+        ringOnly: z.literal(true).optional(),
         copies: z.number().int().min(2).max(10).optional(),
         // Its copies spaced out (1.301): a scroll of Dancing Lights.
         copiesWithin: z.number().finite().gt(0).max(10000).optional(),
+        /** Centred on its user and never aimed (Capability API 1.532), as a catalog entry's is: the
+         *  Staff of Thunder and Lightning's Thunderclap, everybody within 60 feet but its wielder.
+         *  Only a single burst. */
+        around: z.literal(true).optional(),
+        /** Walls and corners do not stop it (Capability API 1.532). Only with `around`. */
+        throughWalls: z.literal(true).optional(),
+        /** Only the cell it is at (Capability API 1.702), as a catalog entry's: a Sphere of
+         *  Annihilation's use. Only a single burst held at a point. */
+        oneCell: z.literal(true).optional(),
       })
       .strict()
+      .refine((area) => !area.around || (area.shape === "burst" && area.copies === undefined), {
+        message: "Only a single burst is centred on its user",
+        path: ["around"],
+      })
+      .refine((area) => !area.oneCell || (area.shape === "burst" && !area.around && area.copies === undefined), {
+        message: "Only a single burst held at a point is one cell",
+        path: ["oneCell"],
+      })
+      .refine((area) => !area.throughWalls || area.around, {
+        message: "Only a burst centred on its user goes through walls",
+        path: ["throughWalls"],
+      })
       .refine((area) => area.copiesWithin === undefined || area.copies !== undefined, {
         message: '"copiesWithin" spaces out its copies, so it has "copies"',
         path: ["copiesWithin"],
@@ -7290,6 +11954,10 @@ export const rulesetItemUseSchema = catalogMechanicsObject
       .refine((area) => area.ring === undefined || area.shape === "wall", {
         message: "Only a wall is a ring",
         path: ["ring"],
+      })
+      .refine((area) => !area.ringOnly || area.ring !== undefined, {
+        message: '"ringOnly" lays it as its ring, so it has "ring"',
+        path: ["ringOnly"],
       })
       .optional(),
     toHit: itemToHitSchema.optional(),
@@ -7310,16 +11978,45 @@ export const rulesetItemUseSchema = catalogMechanicsObject
      *  each adds `amount` and `targets`, and counts as one step of a higher cost (a Staff of Power's
      *  spell cast at a higher level, a Staff of Striking's 1d6 force a charge). */
     chargeStep: itemChargeStepSchema.optional(),
+    /** A chance in 100, rolled each time it is used (Capability API 1.630), that it backfires on its
+     *  user: `amount` damage (of `damageType`) to them, and with `destroys` the item is gone for good.
+     *  With `instead` the use does nothing besides. 5e's Horn of Blasting, `{ "chance": 20, "amount":
+     *  { "dice": "10d6" }, "damageType": "fire", "destroys": true }`. */
+    backfires: z
+      .object({
+        chance: z.number().int().min(1).max(100),
+        amount: z.object(catalogAmountShape).strict(),
+        damageType: promptSafeText(40).optional(),
+        destroys: z.literal(true).optional(),
+        instead: z.literal(true).optional(),
+      })
+      .strict()
+      .refine((rule) => rule.amount.dice !== undefined || rule.amount.flat !== undefined, {
+        message: '"backfires" says no dice and no flat amount',
+      })
+      .optional(),
     consumes: z.literal(true).optional(),
     /** Using it casts an entry of this catalog (Capability API 1.180), as a scroll or a wand does: a
      *  condition that ends when its holder casts from that catalog ends when they use it. */
     casts: sheetId.optional(),
+    /** The entry a use that breaks a layered wall's layer (`endsLayers`) is read as (Capability API
+     *  1.494), `<catalog>/<entry>`, matched against a layer's `endedBy.entries`: a scroll of
+     *  Passwall, `"spells/passwall"`. */
+    endsLayersAs: z
+      .string()
+      .max(81)
+      .regex(/^[^/]+\/[^/]+$/, "endsLayersAs is a <catalog>/<entry> reference")
+      .optional(),
     /** Only a creature this size or smaller is a target (Capability API 1.317), one of
      *  `combat.sizes`: a scroll of Resilient Sphere's "Large size or smaller". */
     targetsUpTo: sheetId.optional(),
     /** Takes growth off the cells its area covers (Capability API 1.318): pruning shears. */
     clears: z.literal("growth").optional(),
     charges: z.number().int().min(1).max(RULESET_ITEM_CHARGES_MAX).optional(),
+    /** What it puts on lasts while the item's charges do (Capability API 1.623): each round it then
+     *  holds spends one more, and it comes off as the last goes; ended early, the rest are kept. 5e's
+     *  Boots of Speed, 100 charges for "a total of 10 minutes". */
+    chargesPerRound: z.literal(true).optional(),
     /** A pool of the user's sheet it gives back some of, as a blood bag gives back blood. */
     restore: z
       .object({ pool: sheetId, amount: z.object(catalogAmountShape).strict() })
@@ -7330,11 +12027,7 @@ export const rulesetItemUseSchema = catalogMechanicsObject
      *  nothing. `check` names what is rolled: a skill, an ability, or a value off the sheet. */
     gate: z
       .object({
-        check: z.union([
-          z.object({ skill: sheetId }).strict(),
-          z.object({ ability: sheetId }).strict(),
-          z.object({ value: rulesetValueRefSchema }).strict(),
-        ]),
+        check: itemCheckSchema,
         difficulty: orItemStat(z.number().int().min(1).max(100)),
         unless: z.object({ value: rulesetValueRefSchema, atLeast: z.number().finite() }).strict().optional(),
       })
@@ -7372,15 +12065,28 @@ export const rulesetItemUseSchema = catalogMechanicsObject
       );
     // A kind named as it is used (Capability API 1.274), as a spell names one (1.270): a scroll of
     // Antipathy/Sympathy.
-    if (use.kindChoice && !use.applies?.length) {
+    if (use.kindChoice === true && !use.applies?.length) {
       issue("kindChoice", 'The kind chosen is remembered by what it puts on, so "kindChoice" goes with "applies"');
+    }
+    // Kinds its zone strikes, and a damage type, named as it is used (Capability API 1.753).
+    if (use.kindChoice === "many" && !use.zone) {
+      issue("kindChoice", 'The kinds chosen are what its zone strikes, so "kindChoice": "many" goes with "zone"');
+    }
+    if (use.damageTypeChoice && !use.amount && !use.zone) {
+      issue(
+        "damageTypeChoice",
+        '"damageTypeChoice" names the type of what it deals: it goes with "amount" or a "zone"',
+      );
     }
     if (
       use.chargeStep &&
       !use.chargeStep.targets &&
       !use.chargeStep.push &&
       !use.chargeStep.amount?.dice &&
-      !use.chargeStep.amount?.flat
+      !use.chargeStep.amount?.flat &&
+      // Or calls more for each (1.615): Pipes of the Sewers' swarm a charge.
+      !use.calls?.perStep &&
+      !use.calls?.timesPerSteps
     ) {
       issue("chargeStep", "A charge more adds an amount, targets, a push, or some of them");
     }
@@ -7392,10 +12098,60 @@ export const rulesetItemUseSchema = catalogMechanicsObject
     if (use.restore && use.kind !== "heal" && use.kind !== "buff") {
       issue("restore", "A restore is on a use that helps, a heal or a buff");
     }
-    if (use.kind === "utility" && !use.teleport && !use.clears && (!use.zone || !use.area)) {
+    // And giving back spent pools (1.656), its user's own, as many as it says.
+    if (use.recovers && (use.kind !== "buff" || use.targets !== "self")) {
+      issue("recovers", 'Giving back spent pools is a "buff" on its user, targets "self"');
+    }
+    if (use.recovers && use.recovers.count === undefined) {
+      issue("recovers", "An item's use says how many spent pools it gives back, as count");
+    }
+    // A rest offers a feature (1.789); an item is used when its holder uses it.
+    if (use.recovers?.atRest !== undefined) {
+      issue("recovers", "atRest is for a feature a rest offers, not an item's use");
+    }
+    // A priced material (1.790) is what a cast from a sheet needs; an item's use is the item.
+    if (use.material) issue("material", "material is for an entry cast from a sheet, not an item's use");
+    // As is raising an ability (1.516), and only its own user's.
+    if (use.raises && (use.kind !== "buff" || use.targets !== "self")) {
+      issue("raises", 'Raising an ability is a "buff" on its user, targets "self"');
+    }
+    // Or ends what spells put on (1.427): a scroll of Dispel Magic.
+    if (
+      use.kind === "utility" &&
+      !use.teleport &&
+      !use.clears &&
+      !use.calls &&
+      !use.endsSpells &&
+      // Or rolls for what it does (1.559): a Wand of Wonder.
+      !use.rollsTable &&
+      // Or breaks a layered wall's layer (1.494): a scroll of Passwall.
+      !use.endsLayers &&
+      // Or keeps a missile caught (1.626): Gloves of Missile Snaring.
+      !use.keepsCaught &&
+      // Or casts other entries (1.640): a Ring of Three Wishes.
+      !use.duplicates &&
+      // Or stops what it answers (1.730): a scroll of Counterspell.
+      !(typeof use.reaction === "object" && use.reaction.cancels) &&
+      // Or makes items (1.745): a scroll of Goodberry.
+      !use.makesItems &&
+      (!use.zone || !use.area)
+    ) {
       issue(
         "kind",
-        "A utility use leaves an area standing, clears growth or teleports, so it has an area and a zone, clears, or a teleport",
+        "A utility use leaves an area standing, clears growth, teleports, calls creatures, casts other entries, stops what it answers or makes items, so it has an area and a zone, clears, a teleport, calls, duplicates, a reaction that cancels or makesItems",
+      );
+    }
+    // What it stops it reads against the level it casts at (1.730).
+    if (typeof use.reaction === "object" && use.reaction.upTo === "paid" && use.level === undefined) {
+      issue("level", 'An item\'s use that stops up to "paid" reads the level it casts at, so it has "level"');
+    }
+    if (use.endsLayers && !use.endsLayersAs) {
+      issue("endsLayersAs", "A use that breaks a layer says which entry it is read as, so it names endsLayersAs");
+    }
+    if (use.endsLayersAs && !use.endsLayers) {
+      issue(
+        "endsLayersAs",
+        'endsLayersAs names what a use that breaks a layer is read as, so it goes with "endsLayers"',
       );
     }
     // A scroll's or a wand's beams and darts (Capability API 1.308), as the spell's own (1.305).
@@ -7407,16 +12163,85 @@ export const rulesetItemUseSchema = catalogMechanicsObject
     // An area that stays, as a scroll of the spell leaves one (1.174).
     const zone = zoneIssue(use);
     if (zone) issue("zone", zone);
+    // Made again while concentrated on (1.583), as the spell's own repeats.
+    if (use.repeats && !use.concentration) {
+      issue("repeats", '"repeats" is made again while its user concentrates on it, so it goes with "concentration"');
+    }
   });
 export type RulesetItemUse = z.infer<typeof rulesetItemUseSchema>;
 /** One more thing an item does when used (1.267), named for the menu. Typed by hand, as written out
  *  its inferred type is too long for the item schema around it to emit. */
+/** A row of an item's `useTable` (Capability API 1.559). */
+export interface RulesetItemUseTableRow {
+  weight: number;
+  label: string;
+  use?: RulesetItemUse;
+}
+const itemUseTableRowSchema: z.ZodType<RulesetItemUseTableRow, unknown> = z
+  .object({
+    weight: z.number().int().min(1).max(100),
+    label: promptSafeText(80),
+    use: rulesetItemUseSchema.optional(),
+  })
+  .strict();
 export interface RulesetItemMoreUse {
   label: string;
   use: RulesetItemUse;
+  alongside?: string[];
+  uses?: {
+    max: number;
+    rolled?: string;
+    recharge?: RulesetItemRechargeRule;
+  };
+  usesOf?: string;
 }
 const itemMoreUseSchema: z.ZodType<RulesetItemMoreUse, unknown> = z
-  .object({ label: promptSafeText(40), use: rulesetItemUseSchema })
+  .object({
+    label: promptSafeText(40),
+    use: rulesetItemUseSchema,
+    /** The item's other uses, by their labels, whose effects happen too as this one is used, each
+     *  centred on its user and spending nothing of its own (Capability API 1.535): a Staff of Thunder
+     *  and Lightning's Thunder and Lightning, its Lightning Strike with Thunderclap beside it. */
+    alongside: z.array(promptSafeText(40)).min(1).max(3).optional(),
+    /** Its own count of uses, spent in place of the item's charges (Capability API 1.519), kept on the
+     *  stack: a Staff of Thunder and Lightning's once a dawn for each property, a Helm of Brilliance's
+     *  gems. `recharge` brings them back on the rests it names, all of them or an amount. */
+    uses: z
+      .object({
+        max: z.number().int().min(1).max(100),
+        /** How many an item has, rolled once for each stack of it as it is made (Capability API
+         *  1.536), `max` the most that may come up: a Helm of Brilliance's "1d10 diamonds", a
+         *  Necklace of Prayer Beads' "1d4 + 2". */
+        rolled: catalogDice.optional(),
+        recharge: itemRechargeSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    /** Spends another further use's own count, by its label, in place of a count of its own
+     *  (Capability API 1.747): offered while that one has any left. A Necklace of Prayer Beads' bead
+     *  of curing, Cure Wounds or Lesser Restoration off one bead. */
+    usesOf: promptSafeText(40).optional(),
+  })
+  .strict();
+
+/** One way to tell a fake for what it is (Capability API 1.802): a check anyone may make, its
+ *  difficulty, and what a success sees. `needs` is what the sheet must meet to make it at all,
+ *  `carries` an item the checker must have in their bag (a kit for a tool check). With any one line
+ *  of `advantageIf` met it is rolled with advantage, of `disadvantageIf` with disadvantage. */
+const itemTellSchema = z
+  .object({
+    check: itemCheckSchema,
+    dc: z.number().int().min(1).max(100),
+    needs: sheetNeedsSchema("needs").optional(),
+    needsAny: z.literal(true).optional(),
+    carries: z
+      .object({ anyOf: z.array(rulesetItemRefSchema).min(1).max(6) })
+      .strict()
+      .optional(),
+    advantageIf: sheetNeedsSchema("advantageIf").optional(),
+    disadvantageIf: sheetNeedsSchema("disadvantageIf").optional(),
+    says: promptSafeText(160),
+  })
   .strict();
 
 const catalogItemObjectSchema = z
@@ -7448,52 +12273,142 @@ const catalogItemObjectSchema = z
     /** A fake (Capability API 1.79): the ruleset item it passes for, "<catalog>/<entry>". A dishonest
      *  seller sells it as that item, at that item's price; an honest one never sells it. */
     passesFor: rulesetItemRefSchema.optional(),
+    /** What can give a fake away (Capability API 1.802): up to six checks, each with what a success
+     *  sees. Inspected, the best one the checker can make is rolled; about to be bought, the party
+     *  weighs them with no dice. A real item inspected rolls the tells of the fakes that pass for it. */
+    tells: z.array(itemTellSchema).min(1).max(6).optional(),
+    /** The ways of seeing through fakes (`items.revealsFakes`, by id) this one shows itself to as what
+     *  it passes for (Capability API 1.802): 5e's dust of sneezing and choking fools identify. */
+    foolsReveal: z.array(sheetId).min(1).max(8).optional(),
     /** The item has to be bound (attuned, invested) before it does anything while worn. */
-    binds: z
-      .object({
-        restriction: catalogText(200).optional(),
-        cursed: z.boolean().optional(),
-        /** Items its bearer must have worn to bind it, one of each group's `anyOf`, each bound where
-         *  it binds (Capability API 1.313): a Hammer of Thunderbolts needs a belt of giant strength
-         *  and the gauntlets of ogre power. It is unbound as soon as one comes off. */
-        needsWorn: z
-          .array(z.object({ anyOf: z.array(rulesetItemRefSchema).min(1).max(12) }).strict())
-          .min(1)
-          .max(4)
-          .optional(),
-      })
-      .strict()
-      .optional(),
+    binds: (
+      z
+        .object({
+          restriction: catalogText(200).optional(),
+          cursed: z.boolean().optional(),
+          /** Items its bearer must have worn to bind it, one of each group's `anyOf`, each bound where
+           *  it binds (Capability API 1.313): a Hammer of Thunderbolts needs a belt of giant strength
+           *  and the gauntlets of ogre power. It is unbound as soon as one comes off. */
+          needsWorn: z
+            .array(z.object({ anyOf: z.array(rulesetItemRefSchema).min(1).max(12) }).strict())
+            .min(1)
+            .max(4)
+            .optional(),
+          /** What its bearer's sheet must meet for it to work while bound (Capability API 1.667), each a
+           *  value with `atLeast` and/or `atMost`: 5e's "requires attunement by a cleric", a cleric
+           *  level of at least 1. Bound without them, it reads as not worn. `items.needsWaivedBy`
+           *  waives them. */
+          needs: sheetNeedsSchema("needs").optional(),
+          /** Met when any one of `needs` is, not all (Capability API 1.691): "requires attunement by a
+           *  cleric, druid, or warlock". */
+          needsAny: z.literal(true).optional(),
+        })
+        .strict() as z.ZodType<RulesetItemBinds, unknown>
+    ).optional(),
+    /** What its user's sheet must meet to use it, any of its uses (Capability API 1.667), as
+     *  `binds.needs` says: a spell scroll read only by a class whose list has the spell.
+     *  `items.needsWaivedBy` waives them. */
+    userNeeds: sheetNeedsSchema("userNeeds").optional(),
+    /** Met when any one of `userNeeds` is, not all (Capability API 1.691): a scroll on the bard,
+     *  cleric and wizard lists, read by any of them. */
+    userNeedsAny: z.literal(true).optional(),
     /** What it does while worn: on, and bound where it binds. */
     worn: z.lazy(() => rulesetItemEffectSchema).optional(),
+    /** More to its number stats while worn (bound where it binds), each line only while its wearer's
+     *  sheet meets `needs` (all of them, or any one with `needsAny`), as `binds.needs` reads them
+     *  (Capability API 1.700): `add` adds to the item's own `stats`, a missing one counting 0. 5e's
+     *  Talisman of Pure Good, "+2 to spell attack rolls" only for a cleric or paladin. Up to 4. */
+    statsIf: z
+      .array(
+        z
+          .object({
+            needs: sheetNeedsSchema("needs"),
+            needsAny: z.literal(true).optional(),
+            add: z
+              .record(z.string(), z.number().finite())
+              .refine((add) => Object.keys(add).length >= 1 && Object.keys(add).length <= 12, {
+                message: "A line adds to 1 to 12 stats",
+              }),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(4)
+      .optional(),
     /** What it does while it is only carried. */
     carried: z.lazy(() => rulesetItemEffectSchema).optional(),
+    /** What it deals whoever it comes into the hands of (Capability API 1.701): added to their bag,
+     *  given to them or more of it gained. The first line whose `needs` their sheet meets (all of
+     *  them, or any one with `needsAny`; a line with none meets anybody) rolls `dice` and `flat` of
+     *  `type` off their health. 5e's Talisman of Pure Good, 8d6 radiant to the evil and 6d6 to who
+     *  is neither good nor evil. Up to 4 lines. */
+    touchHarms: z
+      .array(
+        z
+          .object({
+            needs: sheetNeedsSchema("needs").optional(),
+            needsAny: z.literal(true).optional(),
+            ...catalogAmountShape,
+            type: promptSafeText(40).optional(),
+          })
+          .strict()
+          .refine((line) => line.dice !== undefined || line.flat !== undefined, {
+            message: "What it deals names dice, a flat amount, or both",
+          })
+          .refine((line) => !line.needsAny || line.needs !== undefined, {
+            message: '"needsAny" says how "needs" is met, so it needs "needs"',
+          }),
+      )
+      .min(1)
+      .max(4)
+      .optional(),
     /** What it asks of whoever wears it, and what applies while they fall short. */
     requires: z.lazy(() => z.array(rulesetItemRequirementSchema).min(1).max(4)).optional(),
     /** What it does as a weapon in a fight, while it is worn. */
     attack: rulesetItemAttackSchema.optional(),
     /** What it does when it is used: from the bag, or while worn where it takes a slot or binds. */
     use: rulesetItemUseSchema.optional(),
+    /** What its `use` may do, one rolled each time it is used (Capability API 1.559), each as likely
+     *  as its `weight` against the rest: a Wand of Wonder's d100. Each row's `use` happens at whom the
+     *  item's use was aimed (centred there, with an area), or on its user where it targets `self`; a
+     *  row with no `use` happens outside the fight, only its `label` told. The item's `use` says
+     *  `rollsTable`. */
+    useTable: z.array(itemUseTableRowSchema).min(2).max(24).optional(),
     /** Other things it does when used, each its own choice on the menu named by `label` and paid
-     *  from the same charges (Capability API 1.267): a wand of fear's Command beside its cone, a
-     *  staff's spells. Only beside a `use`. */
-    moreUses: z.array(itemMoreUseSchema).min(1).max(8).optional(),
+     *  from the same charges (Capability API 1.267), or from its own `uses` (1.519): a wand of fear's
+     *  Command beside its cone, a staff's spells. Only beside a `use`. Up to 8, or 16 (1.519). */
+    moreUses: z.array(itemMoreUseSchema).min(1).max(16).optional(),
+    /** Its further uses' counts rolled for each stack (Capability API 1.746): `dice` many pieces, each
+     *  one of the further uses picked by `weights` (one per `moreUses`, in order, each as likely as its
+     *  weight against the rest), each adding one to that use's `uses` (never past its `max`, and none
+     *  where none was picked). Thrown once for the stack and the same at every reading. Such an item
+     *  may have no `use` of its own, only these (Capability API 1.749). 5e's Necklace of Prayer Beads,
+     *  `{ "dice": "1d4+2", "weights": [6, 6, 4, 2, 1, 1] }`. */
+    moreUsesRolled: z
+      .object({ dice: catalogDice, weights: z.array(z.number().int().min(0).max(100)).min(1).max(16) })
+      .strict()
+      .optional(),
     /** How many charges it holds, which its use spends. The count is kept on its stack. */
     charges: z
       .object({
         max: orItemStat(z.number().int().min(1).max(RULESET_ITEM_CHARGES_MAX)),
         /** Which of the ruleset's rests bring them back, and how many: all of them, or an amount. */
-        recharge: z
-          .object({
-            rests: z.array(sheetId).min(1).max(12),
-            amount: z.union([z.literal("max"), z.object(catalogAmountShape).strict()]),
-          })
-          .strict()
-          .optional(),
+        recharge: itemRechargeSchema.optional(),
         /** A die rolled when a use spends the last charge: at or under `atMost`, the item breaks; at or
          *  over `regains.atLeast` (Capability API 1.271), it gets back `regains.amount` charges, a
          *  Staff of the Magi's 1d12 + 1 on a 20. Either, or both. */
         breaksOn: itemLastChargeSchema.optional(),
+        /** Found holding a rolled count rather than full (Capability API 1.573): each stack starts
+         *  with these dice, rolled once for it and never past `max`. A Rod of Absorption's `"1d10"`. */
+        rolled: catalogDice.optional(),
+        /** Used on past its last charge (Capability API 1.624): each use it has none for is a `chance`
+         *  in 100 of tearing it apart for nothing, and with `cumulative` that chance again for each such
+         *  use since its charges last came back. 5e's Wind Fan, `{ "chance": 20, "cumulative": true }`
+         *  on 1 charge back at dawn. */
+        overuse: z
+          .object({ chance: z.number().int().min(1).max(100), cumulative: z.literal(true).optional() })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),
@@ -7512,6 +12427,49 @@ const catalogItemObjectSchema = z
          *  Engine's "Turn on" and the item's name: "Raise the hood", "Lower the hood". */
         onLabel: promptSafeText(40).optional(),
         offLabel: promptSafeText(40).optional(),
+        /** While it is on, the slots it takes are free and it does all it does worn (Capability API
+         *  1.706): 5e's Animated Shield, hovering "as if you were wielding it, leaving your hands
+         *  free". It goes off after `rounds` of its holder's turns and as the fight ends; turned off
+         *  with no room for it, it falls. */
+        freesSlots: z.literal(true).optional(),
+        rounds: z.number().int().min(1).max(100).optional(),
+      })
+      .strict()
+      .optional(),
+    /** Entries cast into it to be cast again later by whoever wears it (Capability API 1.524), at the
+     *  level they were paid at and with their caster's numbers, for nothing: 5e's Ring of Spell
+     *  Storing, `{ "catalogs": ["spells"], "levels": 5 }`. What it holds is kept on its stack. */
+    stores: storesSchema.optional(),
+    /** Other forms its holder turns it into and back (Capability API 1.575), spending `budget` in a
+     *  fight: in each it takes another item's `attack`, `worn` effect and `toggle`, and keeps all else
+     *  of its own. `label` names it as it is made. 5e's Rod of Lordly Might, a mace that becomes a
+     *  flame tongue, a +3 battleaxe or spear, a climbing pole or a battering ram. Kept on its stack. */
+    forms: (
+      z
+        .object({
+          label: promptSafeText(40),
+          budget: sheetId,
+          into: z
+            .array(z.object({ label: promptSafeText(40), item: rulesetItemRefSchema }).strict())
+            .min(1)
+            .max(8),
+        })
+        .strict() as z.ZodType<RulesetItemForms, unknown>
+    ).optional(),
+    /** What it adds to the shot it is fired as (Capability API 1.657): ammunition, which a weapon's
+     *  `ammo` draws by its tag, with clauses of its own on that blow, each with its own `targetIs`.
+     *  Each such stack is offered as its own way to shoot the weapon, and plain ammunition is shot
+     *  first otherwise. With `spentOnUse` it is spent once one of its clauses reaches a target: what
+     *  of it comes back after the fight comes back as its holder's plain ammunition of that tag.
+     *  5e's Arrow of Slaying, `{ "plus": [{ "dice": "6d10", "type": "piercing", "save": { "save":
+     *  "con_save", "difficulty": 17, "onSuccess": "half" }, "targetIs": { "types": ["dragon"] } }],
+     *  "spentOnUse": true }`. */
+    ammoRider: z
+      .object({
+        plus: z.array(itemPlusClauseSchema).min(1).max(6),
+        /** Added to the attack roll of the shot it rides (1.812): 5e's Arrow +1. */
+        toHit: z.number().int().min(-20).max(20).optional(),
+        spentOnUse: z.literal(true).optional(),
       })
       .strict()
       .optional(),
@@ -7542,7 +12500,8 @@ export interface RulesetCatalogGrants {
   sets?: Record<string, number | string | boolean>;
   itemAccess?: string[];
   entries?: {
-    choose: (RulesetBuilderChoice &
+    add?: { catalog: string; ids: string[] }[];
+    choose?: (RulesetBuilderChoice &
       RulesetBuilderCatalogLimits & { catalog: string; filters?: Record<string, number | string>; ids?: string[] })[];
   };
 }
@@ -7603,6 +12562,13 @@ const catalogGrantsSchema: z.ZodType<RulesetCatalogGrants, unknown> = z
      *  and their rows go on the sheet. */
     entries: z
       .object({
+        /** Entries of another catalog given outright (Capability API 1.788), their rows on the sheet: an
+         *  elf's Common and Elvish. A choice of the same catalog never offers them again. */
+        add: z
+          .array(z.object({ catalog: sheetId, ids: z.array(z.string().max(80)).min(1).max(20) }).strict())
+          .min(1)
+          .max(6)
+          .optional(),
         choose: z
           .array(
             z
@@ -7617,9 +12583,13 @@ const catalogGrantsSchema: z.ZodType<RulesetCatalogGrants, unknown> = z
               .strict(),
           )
           .min(1)
-          .max(6),
+          .max(6)
+          .optional(),
       })
       .strict()
+      .refine((entries) => entries.add !== undefined || entries.choose !== undefined, {
+        message: 'Say what entries it gives: "add", "choose" or both',
+      })
       .optional(),
   })
   .strict();
@@ -7643,20 +12613,68 @@ const catalogEntrySchema = z
     creature: rulesetCreatureSchema.optional(),
     /** A thing to carry instead: it goes into Game Mode's inventory, not onto a sheet or into a fight. */
     item: catalogItemSchema.optional(),
+    /** Other names an item is found by (Capability API 1.788), after every item's own: "Plate" for
+     *  Plate Armor, as a Game Master or a shop's buy tag may say it. */
+    aliases: z.array(promptSafeText(120)).min(1).max(8).optional(),
     /** What a pick through the guided builder gives (1.86). An entry that grants may write no rows. */
     grants: catalogGrantsSchema.optional(),
     /** A group this entry shares with others a builder step offers (Capability API 1.94): a step keeps
      *  one pick of a group, so picking one drops the other ("a feat in place of an ability score
      *  improvement"). */
     exclusive: sheetId.optional(),
+    /** Taken of its `exclusive` group by a step that takes all it offers while the player has picked
+     *  none of it (Capability API 1.772): the ability score improvement a feat may replace. */
+    exclusiveDefault: z.literal(true).optional(),
     /** Read off the sheet as it stands: a builder step offers this entry only while it reads above 0
      *  (Capability API 1.99), as 5e offers a second class only when its prerequisites are met. A pick
      *  that later reads 0 counts for nothing and is kept. An entry of an `exclusive` group is read on
      *  the sheet without the step's picks of that group (1.100). */
     offeredWhen: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+    /** Other entries of this catalog the same row may be used as (Capability API 1.769): Chromatic
+     *  Orb's acid, cold and fire, each with its own mechanics. A picker offers only this entry, and a
+     *  sheet row of it is each of them in a fight. Each one names this entry back in `variantOf`. */
+    variants: z
+      .array(
+        z.string().max(80).regex(RULESET_ID_PATTERN, "An entry id is lowercase letters, digits and single hyphens"),
+      )
+      .min(1)
+      .max(32)
+      .optional(),
+    /** The entry this one is a variant of (1.769): never offered by a picker on its own. */
+    variantOf: z
+      .string()
+      .max(80)
+      .regex(RULESET_ID_PATTERN, "An entry id is lowercase letters, digits and single hyphens")
+      .optional(),
   })
   .strict()
   .superRefine((entry, ctx) => {
+    if (entry.aliases && !entry.item)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["aliases"],
+        message: '"aliases" names an item: it goes with "item"',
+      });
+    if (entry.variants && new Set(entry.variants).size !== entry.variants.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["variants"], message: "A variant is listed once" });
+    }
+    if (entry.variants?.includes(entry.id) || entry.variantOf === entry.id) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["variants"], message: "An entry is no variant of itself" });
+    }
+    if (entry.variants && entry.variantOf !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["variants"],
+        message: "A variant has no variants of its own",
+      });
+    }
+    if (entry.exclusiveDefault && entry.exclusive === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["exclusiveDefault"],
+        message: 'Only an entry of an "exclusive" group is its default',
+      });
+    }
     const kinds = [entry.rows, entry.creature, entry.item].filter((kind) => kind !== undefined).length;
     if (kinds > 1 || (kinds === 0 && !entry.grants)) {
       ctx.addIssue({
@@ -7946,6 +12964,16 @@ const combatAttackSourceSchema = z
      *  shares one count, which is right for swords and wrong for a crossbow. Meaningless without
      *  `strikes`, and refused there, because a list that buys one strike already caps every row. */
     strikesCappedBy: combatColumnSchema.optional(),
+    /** Values of the row's ability columns that stand for the best of several abilities (1.793): a
+     *  row that reads one swings with whichever of them adds the most to hit, and deals its damage
+     *  with that one too. SRD 5.1, Finesse: "you can use your choice of your Strength or Dexterity
+     *  modifier for the attack and damage rolls. You must use the same modifier for both rolls." */
+    abilityChoices: z
+      .record(z.string().trim().min(1).max(40), z.array(sheetId).min(2).max(6))
+      .refine((values) => Object.keys(values).length >= 1 && Object.keys(values).length <= 10, {
+        message: "A list names 1 to 10 ability choices",
+      })
+      .optional(),
     toHit: z
       .object({
         /** An enum column holding an ability id. Another value adds nothing, exactly as
@@ -7959,6 +12987,19 @@ const combatAttackSourceSchema = z
         proficiency: combatColumnSchema.optional(),
         /** A number column, added as it stands. */
         bonus: combatColumnSchema.optional(),
+        /** A number off the sheet added to every row, or only to rows whose `when` column holds the
+         *  value it names (1.800): SRD 5.1's Archery, "+2 bonus to attack rolls you make with ranged
+         *  weapons", the features' sum on rows that reach nobody up close. */
+        sheetBonus: z
+          .object({
+            value: rulesetValueRefSchema,
+            when: z
+              .object({ column: sheetId, equals: z.union([z.number().finite(), z.boolean(), z.string().max(80)]) })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .prefault({}),
@@ -8029,10 +13070,16 @@ const combatConditionEffectSchema = z.enum([
   "own-attacks-disadvantage",
   "attacks-against-advantage",
   "attacks-against-disadvantage",
+  /** No attack roll against the holder has advantage, whatever gave it, while the holder can act
+   *  (Capability API 1.417); a disadvantage still counts: 5e's Elusive. */
+  "attacks-against-no-advantage",
   /** By distance, so they wait for the slice that gives a fight positions. */
   "attacks-against-adjacent-advantage",
   "attacks-against-far-disadvantage",
   "attacks-from-adjacent-critical",
+  /** A critical hit on its holder is a plain hit (Capability API 1.510), whatever made it one: 5e's
+   *  Adamantine Armor, worn. */
+  "criticals-against-normal",
   "cannot-act",
   /** Reactions and movement are later slices; both are validated now so a ruleset can say it once. */
   "cannot-react",
@@ -8064,6 +13111,10 @@ const combatConditionEffectSchema = z.enum([
    *  1.261), in a fight or out of it, a rest included: a diseased giant rat's bite. A heal is
    *  magical when its action's qualities say "magical" (a spell, a potion tagged so). */
   "cannot-heal-nonmagical",
+  /** Its holder may not attack, nor use on anybody what harms them (Capability API 1.457): no
+   *  attack, no harmful entry, nothing aimed at a foe, no grab or shove, no area that deals damage,
+   *  and no strike as somebody leaves its reach. 5e's Symbol of Hopelessness. */
+  "cannot-harm",
 ]);
 export const RULESET_COMBAT_CONDITION_EFFECTS = combatConditionEffectSchema.options;
 
@@ -8116,6 +13167,8 @@ export interface RulesetModifierAgainst {
   from?: RulesetTargetIs;
   actions?: string[];
   casts?: string[];
+  alone?: true;
+  qualities?: string[];
 }
 const modifierAgainstSchema: z.ZodType<RulesetModifierAgainst, unknown> = z
   .object({
@@ -8133,6 +13186,13 @@ const modifierAgainstSchema: z.ZodType<RulesetModifierAgainst, unknown> = z
      *  one (Capability API 1.265), AND whatever else it names: Holy Nimbus, against spells cast
      *  by fiends or undead. */
     casts: z.array(sheetId).min(1).max(8).optional(),
+    /** Only a save against something aimed at its holder alone, never an area (Capability API
+     *  1.523), AND whatever else it names: a Ring of Spell Turning's "any spell that targets only
+     *  you (not in an area of effect)", `{ "casts": ["spells"], "alone": true }`. */
+    alone: z.literal(true).optional(),
+    /** A save against something its save says it is (Capability API 1.652), its `against.qualities`:
+     *  a Necklace of Adaptation's advantage against gases, `["gas"]`. */
+    qualities: z.array(sheetId).min(1).max(8).optional(),
   })
   .strict()
   .refine((against) => Object.keys(against).length > 0, "Against names conditions, damage, magic, from or actions");
@@ -8142,7 +13202,7 @@ const modifierAgainstSchema: z.ZodType<RulesetModifierAgainst, unknown> = z
  *  and damage (the health maximum only halves), applied after additions. A change to checks may name
  *  the `skills` it is about, and one to saves the `saves`; either may roll twice (`mode`) where the
  *  ruleset rolls twice at all. */
-const combatModifierSchema = z
+const combatModifierBaseSchema = z
   .object({
     to: z.enum(RULESET_COMBAT_MODIFIER_TARGETS),
     /** Damage dealt or taken on an attack hit (Capability API 1.133): narrowed to its kind,
@@ -8159,6 +13219,10 @@ const combatModifierSchema = z
     abilities: z.array(sheetId).min(1).max(12).optional(),
     damageType: z.string().trim().min(1).max(80).optional(),
     fromSource: z.literal(true).optional(),
+    /** Counts on damage with no attack roll too (Capability API 1.471): a save's, or one that simply
+     *  lands. Without it a damage change counts on attack hits only. 5e's Bestow Curse, "your
+     *  attacks and spells deal an extra 1d8 necrotic damage to the target". */
+    alsoUnrolled: z.literal(true).optional(),
     flat: z.number().int().min(-100).max(100).optional(),
     dice: catalogDice.optional(),
     minus: z.literal(true).optional(),
@@ -8170,6 +13234,11 @@ const combatModifierSchema = z
      *  (Capability API 1.247): 5e's Brutal Critical and Savage Attacks. Damage dealt only. */
     criticalDice: z.number().int().min(1).max(6).optional(),
     skills: z.array(sheetId).min(1).max(24).optional(),
+    /** Only a check made for one of these purposes (Capability API 1.752), as the Game Master's check
+     *  tag names it (`for="climb"`): 5e's Gloves of Swimming and Climbing, +5 to Strength (Athletics)
+     *  checks made to climb or swim, `["climb", "swim"]`, never a grapple or a shove. A fight's own
+     *  checks are made for no such purpose. */
+    for: z.array(sheetId).min(1).max(8).optional(),
     saves: z.array(sheetId).min(1).max(12).optional(),
     /** What this save is against (Capability API 1.134): any named condition, damage type or
      *  magic qualifies; `saves` still narrows which save. Nothing matches a save with no source. */
@@ -8177,13 +13246,72 @@ const combatModifierSchema = z
     mode: z.enum(RULESET_ROLL_MODES).optional(),
     /** Narrows a change to attacks-taken to attackers that are this (Capability API 1.185). */
     from: targetIsSchema.optional(),
+    /** Narrows a change to the holder's own attacks or damage to targets that are this (Capability
+     *  API 1.726): 5e's Demon Armor, disadvantage on attack rolls against demons. */
+    at: targetIsSchema.optional(),
     /** Narrows a change to the holder's own attacks to those against whoever put this on them
      *  (Capability API 1.185): 5e's Chill Touch, an undead's attacks against the caster. */
     atSource: z.literal(true).optional(),
+    /** Narrows a change to checks to those made to find anybody but whoever put this on its holder
+     *  (Capability API 1.567), the search for the hidden: 5e's Enthrall, disadvantage on Wisdom
+     *  (Perception) checks made to perceive any creature other than the caster. */
+    exceptSource: z.literal(true).optional(),
     /** Held back until the holder's own attack, save or check falls short, then added only where
      *  its most could make up the difference, and the condition it came from is spent (Capability
      *  API 1.249): 5e's Bardic Inspiration, Guidance and Resistance, added after seeing the roll. */
     rescue: z.literal(true).optional(),
+    /** Defense never below this while it holds (Capability API 1.406), after every other change and
+     *  before cover: a number (Barkskin's "can't be less than 16"), or a value read off the holder's
+     *  sheet (Mage Armor's 13 + Dexterity, as the ruleset's own derived value works it out with a
+     *  shield and without armor); a creature without a sheet reads a `const` or an `abilityMod` off
+     *  its block's abilities, and nothing else. */
+    atLeast: z.union([z.number().int().min(0).max(1000), rulesetValueRefSchema]).optional(),
+    /** A value read off the holder's sheet added to damage dealt or taken, beside any dice and taken
+     *  away with them under `minus` (Capability API 1.413): Deflect Missiles' 1d10 + Dexterity
+     *  modifier + monk level. A creature without a sheet reads a `const` or an `abilityMod` off its
+     *  block. */
+    add: rulesetValueRefSchema.optional(),
+    /** Damage taken from a fall only, and no other (Capability API 1.413): Slow Fall's five times
+     *  the monk's level. A condition whose modifier lessens a fall is spent by it. */
+    falls: z.literal(true).optional(),
+    /** A damage change only on a blow that carries damage of one of these types, its own or any
+     *  clause of it, read without case (Capability API 1.792): 5e's oil, 5 more fire damage taken
+     *  only from a blow that deals fire. `damageType` still names what the change itself adds. */
+    onTypes: z.array(z.string().trim().min(1).max(80)).min(1).max(8).optional(),
+    /** A damage change that spends the condition it came from the first time it adds (Capability
+     *  API 1.792): burning oil, once. One an item, a level or the sheet itself gives is never spent. */
+    spentOnUse: z.literal(true).optional(),
+    /** Only against a target whose creature type or tag one of these text or enum fields of the
+     *  holder's sheet names, comma-separated words read without case (Capability API 1.429): 5e's
+     *  Foe Slayer against the favored enemies the ranger chose. The holder's own attacks and damage
+     *  only. */
+    atTypesIn: z.array(sheetId).min(1).max(6).optional(),
+    /** Once on each of its holder's own turns (Capability API 1.429): Foe Slayer. A change held back
+     *  for a roll that falls short (`rescue`) is then never spent with its condition. */
+    oncePer: z.literal("own-turn").optional(),
+    /** A change to attacks held back for a roll that falls short (`rescue`) that goes on the blow's
+     *  damage instead when the attack hits without it (Capability API 1.429): Foe Slayer's Wisdom
+     *  modifier to the attack roll or the damage roll. */
+    orDamage: z.literal(true).optional(),
+    /** Only a check with a skill its holder adds their whole proficiency to (Capability API 1.429):
+     *  Natural Explorer's doubled proficiency bonus. */
+    proficient: z.literal(true).optional(),
+    /** Defense only against an attacker that has already hit its holder with an attack this turn
+     *  (Capability API 1.430): 5e's Multiattack Defense, +4 against a creature's later attacks. */
+    afterHitBy: z.literal(true).optional(),
+    /** Attacks-taken only on an opportunity attack (Capability API 1.430): 5e's Escape the Horde. */
+    opportunity: z.literal(true).optional(),
+    /** The holder's own attacks or damage only at a target that is surprised, or that has not yet
+     *  taken a turn in the fight (Capability API 1.544): 5e's Assassinate and a bugbear's Surprise
+     *  Attack. */
+    whenTarget: z.enum(["surprised", "not-yet-acted"]).optional(),
+    /** The holder's own attacks or damage only at a target holding one of these conditions that the
+     *  holder put on them (Capability API 1.553): 5e's Grappler, "advantage on attack rolls against a
+     *  creature you are grappling", `["grappled"]`. */
+    targetHoldsFromSelf: z.array(sheetId).min(1).max(4).optional(),
+    /** A hit by the holder's attack is a critical hit (Capability API 1.544), where the change
+     *  reaches: Assassinate's "any hit you score against a creature that is surprised". */
+    critical: z.literal(true).optional(),
     /** What a card says it does, in place of the phrase the Engine composes from the rest (Capability
      *  API 1.378): 5e's Fey Ancestry, "advantage on saves against being charmed". */
     label: promptSafeText(120).optional(),
@@ -8191,17 +13319,48 @@ const combatModifierSchema = z
   .strict()
   .superRefine((modifier, ctx) => {
     const add = (path: string, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+    if (modifier.whenTarget !== undefined && modifier.to !== "attacks" && modifier.to !== "damage")
+      add("whenTarget", '"whenTarget" narrows the holder\'s own attacks or damage');
+    if (modifier.targetHoldsFromSelf !== undefined && modifier.to !== "attacks" && modifier.to !== "damage")
+      add("targetHoldsFromSelf", '"targetHoldsFromSelf" narrows the holder\'s own attacks or damage');
+    if (modifier.critical && modifier.to !== "attacks")
+      add("critical", '"critical" makes the holder\'s hits criticals');
+    if (modifier.afterHitBy && modifier.to !== "defense")
+      add("afterHitBy", '"afterHitBy" narrows defense to attackers that have hit already');
+    if (modifier.opportunity && modifier.to !== "attacks-taken")
+      add("opportunity", '"opportunity" narrows attacks-taken to opportunity attacks');
+    if (modifier.atTypesIn !== undefined && modifier.to !== "attacks" && modifier.to !== "damage")
+      add("atTypesIn", '"atTypesIn" narrows the holder\'s own attacks or damage');
+    if (modifier.oncePer !== undefined && !(modifier.to === "attacks" && modifier.rescue) && modifier.to !== "damage")
+      add("oncePer", '"oncePer" counts the damage the holder deals, or a change to attacks held back ("rescue")');
+    if (modifier.orDamage && (modifier.to !== "attacks" || !modifier.rescue))
+      add("orDamage", '"orDamage" moves a held-back change to attacks ("rescue") onto the damage');
+    if (modifier.proficient && modifier.to !== "checks") add("proficient", '"proficient" narrows checks');
+    if (modifier.for !== undefined && modifier.to !== "checks") add("for", '"for" narrows checks to their purpose');
+    if (modifier.atLeast !== undefined) {
+      if (modifier.to !== "defense") add("atLeast", '"atLeast" is a floor under defense only');
+      if (
+        modifier.flat !== undefined ||
+        modifier.dice !== undefined ||
+        modifier.times !== undefined ||
+        modifier.mode !== undefined
+      )
+        add("atLeast", 'A floor says "atLeast" alone, with no flat, dice, times or mode beside it');
+      return;
+    }
     if (
       modifier.flat === undefined &&
       modifier.dice === undefined &&
       modifier.times === undefined &&
       modifier.diceTimes === undefined &&
       modifier.criticalDice === undefined &&
-      modifier.mode === undefined
+      modifier.add === undefined &&
+      modifier.mode === undefined &&
+      !modifier.critical
     ) {
       add(
         "to",
-        "A modifier changes its number by a flat amount, by dice, for speed, health-max or damage by times, or for checks and saves by a mode",
+        "A modifier changes its number by a flat amount, by dice, for speed, health-max or damage by times, or for checks and saves by a mode (or damage by a value off the sheet with add)",
       );
     }
     if (modifier.skills !== undefined && modifier.to !== "checks" && modifier.to !== "checks-taken")
@@ -8239,30 +13398,48 @@ const combatModifierSchema = z
     }
     if (modifier.from !== undefined && modifier.to !== "attacks-taken")
       add("from", '"from" narrows attacks-taken only');
+    if (modifier.at !== undefined && modifier.to !== "attacks" && modifier.to !== "damage")
+      add("at", '"at" narrows the holder\'s own attacks or damage');
     if (modifier.atSource && modifier.to !== "attacks")
       add("atSource", '"atSource" narrows the holder\'s own attacks only');
     const damage = modifier.to === "damage" || modifier.to === "damage-taken";
-    for (const key of ["damageType", "fromSource"] as const) {
+    for (const key of ["damageType", "alsoUnrolled", "onTypes", "spentOnUse"] as const) {
       if (modifier[key] !== undefined && !damage) add(key, `"${key}" narrows damage only`);
     }
-    for (const key of ["attacks", "blow"] as const) {
-      if (modifier[key] !== undefined && !damage && modifier.to !== "attacks")
-        add(key, `"${key}" narrows damage or attacks only`);
-    }
+    // Defense against one kind of attack (1.509): Arrow-Catching Shield's +2 against ranged ones.
+    if (modifier.attacks !== undefined && !damage && modifier.to !== "attacks")
+      add("attacks", '"attacks" narrows damage or attacks only');
+    if (modifier.blow !== undefined && !damage && modifier.to !== "attacks" && modifier.to !== "defense")
+      add("blow", '"blow" narrows damage, attacks or defense only');
     if (modifier.ability !== undefined && !damage && modifier.to !== "attacks") {
       add("ability", '"ability" narrows damage or attacks only');
     }
     if (modifier.abilities !== undefined && modifier.to !== "checks") {
       add("abilities", '"abilities" narrows a change to checks');
     }
-    if (modifier.fromSource && modifier.to !== "damage-taken") {
-      add("fromSource", '"fromSource" narrows damage-taken only');
+    if (modifier.fromSource && modifier.to !== "damage-taken" && !(modifier.to === "attacks-taken" && modifier.mode)) {
+      add("fromSource", '"fromSource" narrows damage-taken, or the advantage of attacks-taken');
     }
     if (modifier.flat === 0) add("flat", "A flat change of 0 changes nothing");
     if (modifier.dice !== undefined && !RULESET_ROLLED_MODIFIER_TARGETS.includes(modifier.to)) {
       add("dice", `Dice are rolled, so they change ${RULESET_ROLLED_MODIFIER_TARGETS.join(", ")} and nothing else`);
     }
-    if (modifier.minus && modifier.dice === undefined) add("minus", '"minus" takes dice away, so it needs "dice"');
+    if (modifier.minus && modifier.dice === undefined && modifier.add === undefined)
+      add("minus", '"minus" takes dice away, or a value off the sheet, so it needs "dice" or "add"');
+    if (
+      modifier.add !== undefined &&
+      !damage &&
+      modifier.to !== "attacks" &&
+      modifier.to !== "checks" &&
+      modifier.to !== "saves"
+    )
+      add("add", '"add" changes damage dealt or taken, attacks, checks or saves only');
+    if (modifier.falls) {
+      if (modifier.to !== "damage-taken") add("falls", '"falls" narrows damage taken only');
+      for (const key of ["attacks", "blow", "ability", "fromSource", "times"] as const) {
+        if (modifier[key] !== undefined) add(key, `A fall is no blow, so "falls" goes without "${key}"`);
+      }
+    }
     if (modifier.times !== undefined && modifier.to !== "speed" && modifier.to !== "health-max" && !damage) {
       add("times", '"times" changes speed, the health maximum and damage only');
     }
@@ -8275,20 +13452,24 @@ const combatModifierSchema = z
     if (
       modifier.rescue &&
       ((modifier.to !== "attacks" && modifier.to !== "saves" && modifier.to !== "checks") ||
-        (modifier.flat === undefined && modifier.dice === undefined) ||
+        (modifier.flat === undefined && modifier.dice === undefined && modifier.add === undefined) ||
         (modifier.flat !== undefined && modifier.flat < 0) ||
         modifier.minus ||
         modifier.mode !== undefined)
     ) {
       add(
         "rescue",
-        '"rescue" adds dice or a positive flat number to the holder\'s own attack, save or check, and nothing else',
+        '"rescue" adds dice or a positive flat number, or a value off the sheet, to the holder\'s own attack, save or check, and nothing else',
       );
     }
     if (modifier.to === "health-max" && (modifier.times !== 0.5 || modifier.flat !== undefined)) {
       add("times", 'The health maximum is only halved: "times": 0.5 and nothing else');
     }
   });
+/** Named as an interface, so every schema that lists modifiers stays short enough for the compiler
+ *  to write (1.553). */
+export interface RulesetCombatModifierDeclaration extends z.infer<typeof combatModifierBaseSchema> {}
+const combatModifierSchema: z.ZodType<RulesetCombatModifierDeclaration, unknown> = combatModifierBaseSchema;
 
 /** What a condition does to saves has to be about saves: `saves` narrows the save effects and the
  *  modifiers to saves, and nothing else reads it. */
@@ -8328,6 +13509,34 @@ function skillsNeedSomethingToNarrow(
   }
 }
 
+/** A floor under its holder's own checks (Capability API 1.418): a d20 face below `face` counts as
+ *  `face`, and a total below `total` (a value off the sheet) as that value. `proficient` narrows it to
+ *  checks its holder adds a trained tier to, and `abilities` and `skills` to checks made with those.
+ *  5e's Reliable Talent, `{"face": 10, "proficient": true}`; Indomitable Might, `{"total":
+ *  {"abilityScore": "str"}, "abilities": ["str"]}`. */
+export const checkFloorSchema = z
+  .object({
+    face: z.number().int().min(1).max(100).optional(),
+    total: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+    proficient: z.literal(true).optional(),
+    abilities: z.array(sheetId).min(1).max(12).optional(),
+    skills: z.array(sheetId).min(1).max(40).optional(),
+  })
+  .strict()
+  .refine((floor) => floor.face !== undefined || floor.total !== undefined, {
+    message: 'A check floor names a "face", a "total" or both',
+  });
+export type RulesetCheckFloor = z.infer<typeof checkFloorSchema>;
+
+/** Actions made from rows of a list whose column holds one of these (Capability API 1.437). */
+const rowsWhereSchema = z
+  .object({
+    list: sheetId,
+    column: sheetId,
+    is: z.array(z.string().trim().min(1).max(80)).min(1).max(12),
+  })
+  .strict();
+
 /** The effects a LEVEL may not have: a level is not something anybody put on its holder, so it has
  *  no source to be kept from, and it ends only when the track goes down, not by standing up or being
  *  hurt. */
@@ -8364,6 +13573,55 @@ const combatLevelSchema = z
     /** Saves among these, against something that deals half on a success, take nothing on a
      *  success and half on a failure (Capability API 1.250): 5e's Evasion, on Dexterity saves. */
     evasion: z.array(sheetId).min(1).max(12).optional(),
+    /** What its holder regains as each of their own turns starts (Capability API 1.396): 5e's
+     *  Survivor on a champion's level. */
+    regenerates: regenerationSchema.optional(),
+    /** Left at 1 instead of dropping to 0 (Capability API 1.400): 5e's Relentless Endurance on a
+     *  half-orc's level, spending its pool. */
+    hangsOn: hangsOnSchema.optional(),
+    /** A face of the fight's own dice rolled again (Capability API 1.408): 5e's Lucky on a
+     *  halfling's level. See `rerollsFaceSchema`. */
+    rerollsFace: rerollsFaceSchema.optional(),
+    /** Temporary points as a foe its holder harmed last drops (Capability API 1.412): 5e's Dark
+     *  One's Blessing on a fiend warlock's level. See `fellsGrantSchema`. */
+    fellsGrant: fellsGrantSchema.optional(),
+    /** Held off while its holder has any of these (Capability API 1.417): a condition by its id, or
+     *  what a condition does by its effect, so `"cannot-act"` is incapacitated by anything. 5e's
+     *  Danger Sense, `["blinded", "deafened", "cannot-act"]`. */
+    notWhile: z
+      .array(z.union([sheetId, combatConditionEffectSchema]))
+      .min(1)
+      .max(12)
+      .optional(),
+    /** Its save effects count only on a save against something its holder can see, and a save with
+     *  no source at all (Capability API 1.417): Danger Sense's "effects that you can see". And its
+     *  `attacks-against-disadvantage` only on an attack by somebody who can see its holder
+     *  (Capability API 1.655): a Robe of Scintillating Colors' "creatures that can see you". */
+    whenSeen: z.literal(true).optional(),
+    checkFloor: checkFloorSchema.optional(),
+    /** Once on each of its holder's turns, after a weapon attack at one creature, the same weapon may
+     *  strike another within `within` of it, for nothing (Capability API 1.428): 5e's Horde
+     *  Breaker. */
+    strikesAgain: z
+      .object({ within: z.number().finite().gt(0).max(10000) })
+      .strict()
+      .optional(),
+    /** As on a condition (Capability API 1.432): ground hard going of itself costs a plain step,
+     *  and on foot steps of any height and water are crossed but never stopped on. Read off a
+     *  derived value, a level holds only while it says so: 5e's Unarmored Movement at monk 9 while no
+     *  armor or shield is worn. */
+    ignoresHardGround: z.literal(true).optional(),
+    runsAcross: z.literal(true).optional(),
+    /** As on a condition (Capability API 1.495). */
+    passesCreatures: z.enum(["larger", "any"]).optional(),
+    /** As on a condition (Capability API 1.435): what any shape its holder takes keeps of their own
+     *  actions, and the components their uses need none of. */
+    shapeKeeps: z.array(z.string().trim().min(1).max(200)).min(1).max(24).optional(),
+    waives: uniqueIds(8).optional(),
+    /** As on a condition (Capability API 1.437). */
+    rowsWhere: rowsWhereSchema.optional(),
+    /** As on a condition (Capability API 1.439). */
+    aware: awareSchema.optional(),
     /** Reaching it takes the holder out of the fight for good (Capability API 1.115): 5e's sixth
      *  level of exhaustion. */
     defeats: z.literal(true).optional(),
@@ -8395,13 +13653,24 @@ const combatLevelSchema = z
       !entry.resist &&
       !entry.vulnerable &&
       !entry.immune &&
-      !entry.conditionImmunities
+      !entry.conditionImmunities &&
+      !entry.regenerates &&
+      !entry.hangsOn &&
+      !entry.rerollsFace &&
+      !entry.fellsGrant &&
+      !entry.checkFloor &&
+      !entry.strikesAgain &&
+      !entry.ignoresHardGround &&
+      !entry.runsAcross &&
+      !entry.passesCreatures &&
+      !entry.shapeKeeps &&
+      !entry.waives
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["effects"],
         message:
-          "A level does something: effects, modifiers, saves it fails, defeating its holder, or harm or conditions it keeps off",
+          "A level does something: effects, modifiers, saves it fails, defeating its holder, harm or conditions it keeps off, health it regains or keeps, a face it rolls again, points as a foe drops, a floor under its checks, a strike again, a way over the ground, what a shape keeps, or components waived",
       });
     }
     savesNeedSomethingToNarrow(entry, ctx);
@@ -8424,20 +13693,80 @@ const combatConditionDelaysBase = z
 export type RulesetConditionDelays = z.infer<typeof combatConditionDelaysBase>;
 const combatConditionDelaysSchema: z.ZodType<RulesetConditionDelays, unknown> = combatConditionDelaysBase;
 
+/** A fall that does its holder no harm (1.124), or only one no higher than `upTo`, in the ruleset's
+ *  distance, while they hold none of `unless` (Capability API 1.650): 5e's Cat's Grace, `{ "upTo": 20,
+ *  "unless": ["incapacitated"] }`. */
+export type RulesetFallsSafely = true | { upTo: number; unless?: string[] };
+/** Attacks at others near its holder are made at its holder instead (Capability API 1.658): not a
+ *  reaction, nothing spent and nobody asked. `within` is in the ruleset's distance; `blow` narrows it
+ *  to blows struck in reach or from afar, and `weapon` to a weapon's blow. 5e's Shield of Missile
+ *  Attraction's curse, `{ "within": 10, "blow": "ranged", "weapon": true }`. */
+const drawsAimSchema = z
+  .object({
+    within: z.number().finite().gt(0).max(10000),
+    blow: z.enum(["melee", "ranged"]).optional(),
+    weapon: z.literal(true).optional(),
+  })
+  .strict();
+
+const fallsSafelySchema: z.ZodType<RulesetFallsSafely, unknown> = z.union([
+  z.literal(true),
+  z
+    .object({
+      upTo: z.number().finite().gt(0).max(100000),
+      unless: z
+        .array(sheetId)
+        .min(1)
+        .max(8)
+        .refine((ids) => new Set(ids).size === ids.length, { message: "Each condition is named once" })
+        .optional(),
+    })
+    .strict(),
+]);
+
 /** A sense that sees where eyes cannot (1.178). */
 export interface RulesetCombatSense {
   id: string;
   label: string;
   sheet?: RulesetValueRef;
   blind?: true;
+  seesTrue?: true;
+  /** Every wall (1.719), or (1.759) only as many inches of each material as it names. */
+  throughWalls?: true | Record<string, number>;
 }
 /** Conditions kept off when a creature that is `from` puts them on (1.191). */
 export interface RulesetConditionImmunityFrom {
   conditions: string[];
-  from: RulesetTargetIs;
+  from?: RulesetTargetIs;
+  catalogs?: string[];
 }
 const combatSenseSchema: z.ZodType<RulesetCombatSense, unknown> = z
-  .object({ id: sheetId, label, sheet: rulesetValueRefSchema.optional(), blind: z.literal(true).optional() })
+  .object({
+    id: sheetId,
+    label,
+    sheet: rulesetValueRefSchema.optional(),
+    blind: z.literal(true).optional(),
+    /** It sees things as they truly are (Capability API 1.649), within its range and in sight: an
+     *  image (`calls.illusion`) is never taken for a creature, and illusory duplicates (`duplicates`)
+     *  draw nothing from it. 5e's Witch Sight. */
+    seesTrue: z.literal(true).optional(),
+    /** It sees into and through solid matter (Capability API 1.719), within its range: a wall
+     *  between keeps nothing from it. 5e's X-ray vision (Ring of X-ray Vision). */
+    throughWalls: z
+      .union([
+        z.literal(true),
+        /** Or only so much of what walls are made of (Capability API 1.759): the most inches of
+         *  each material it sees through, every wall it looks through added up; any other material,
+         *  and a wall the board knows nothing of, it does not. 5e's Ring of X-ray Vision, `{"stone":
+         *  12, "metal": 1, "wood": 36, "dirt": 36}`, lead never named. */
+        z
+          .record(sheetId, z.number().int().min(1).max(1200))
+          .refine((most) => Object.keys(most).length >= 1 && Object.keys(most).length <= 16, {
+            message: "A sense sees through 1 to 16 materials",
+          }),
+      ])
+      .optional(),
+  })
   .strict();
 
 /** The dark keeping eyes from seeing (1.294): see `combat.sight.darkness`. */
@@ -8451,6 +13780,7 @@ export interface RulesetCombatSight {
   unseenAttacks?: true;
   eyes?: string;
   darkness?: RulesetCombatDarkness;
+  boardWalls?: RulesetWallMaterial;
 }
 const combatSightSchema: z.ZodType<RulesetCombatSight, unknown> = z
   .object({
@@ -8481,6 +13811,11 @@ const combatSightSchema: z.ZodType<RulesetCombatSight, unknown> = z
       })
       .strict()
       .optional(),
+    /** What a board's own walls (a wall or mountain tile, a prop that blocks sight, ground risen
+     *  between) are made of, each cell this thick in inches (Capability API 1.759), for a sense that
+     *  sees through only so much (`throughWalls`): `{ "of": "stone", "inches": 60 }`. Unsaid, such a
+     *  sense sees through none of them. */
+    boardWalls: wallMaterialSchema.optional(),
   })
   .strict();
 
@@ -8489,7 +13824,26 @@ export interface RulesetConditionOnEnd {
   applies?: RulesetCatalogApplies[];
   tracks?: Array<{ track: string; by: number }>;
   harm?: RulesetConditionEndHarm;
+  when?: RulesetConditionEndedBy[];
 }
+
+/** The ways a condition can end that its `onEnd.when` names (Capability API 1.632). */
+export const RULESET_CONDITION_ENDINGS = [
+  "expired",
+  "save",
+  "damage",
+  "harmed",
+  "concentration",
+  "spent",
+  "cured",
+  "dispelled",
+  "contest",
+  "freed",
+  "slipped",
+  "endsWhenSource",
+  "cantHearSource",
+] as const;
+export type RulesetConditionEndedBy = (typeof RULESET_CONDITION_ENDINGS)[number];
 const conditionOnEndSchema: z.ZodType<RulesetConditionOnEnd, unknown> = z
   .object({
     applies: z
@@ -8510,6 +13864,12 @@ const conditionOnEndSchema: z.ZodType<RulesetConditionOnEnd, unknown> = z
      *  the holder is what `unless` names: Hurl Through Hell's 10d10 psychic, which a fiend
      *  never takes. */
     harm: conditionEndHarmSchema.optional(),
+    /** Only as it ends these ways (Capability API 1.632), and not when it ends any other: running out
+     *  (`expired`), a save, damage, its concentration, being spent, cured or dispelled, a contest,
+     *  breaking free, its source's `endsWhenSource`, or its holder no longer hearing its source
+     *  (`cantHearSource`). 5e's Pipes of the Sewers: a swarm unswayable for a day only once it cannot
+     *  hear the pipes, `["cantHearSource"]`, not when its piper merely stops playing. */
+    when: z.array(z.enum(RULESET_CONDITION_ENDINGS)).min(1).max(13).optional(),
   })
   .strict()
   .refine((ending) => ending.applies || ending.tracks || ending.harm, {
@@ -8524,8 +13884,13 @@ export interface RulesetConditionBehavior {
   moves?: "away" | "toward";
   keepsOut?: number;
   keepsIn?: number;
+  from?: "point" | "steered";
+  walks?: true | "after";
+  wastes?: { save: string; budget: string };
   drops?: RulesetBehaviorDrops;
   table?: { dice: string; rows: Array<{ atMost: number; does: "wander" | "nothing" | "strike" | "normal" }> };
+  nearest?: true;
+  actions?: true;
 }
 /** What its holder lets fall from their hands (1.266): Command's "drop", Fear. */
 export interface RulesetBehaviorDrops {
@@ -8535,6 +13900,17 @@ export interface RulesetBehaviorDrops {
   pickUp?: string;
 }
 /** What a turn may hold besides walking: breaking free, and the standard actions. */
+/** What sets off a `combat.morale` check (Capability API 1.762; `surprised` and `helpless` 1.775). */
+export const RULESET_MORALE_TRIGGERS = [
+  "first-fall",
+  "half-down",
+  "leader-down",
+  "hurt",
+  "surprised",
+  "helpless",
+] as const;
+export type RulesetMoraleTrigger = (typeof RULESET_MORALE_TRIGGERS)[number];
+
 export const RULESET_BEHAVIOR_ONLY = ["move", "escape", ...RULESET_COMBAT_STANDARD_ACTIONS] as const;
 const conditionBehaviorSchema: z.ZodType<RulesetConditionBehavior, unknown> = z
   .object({
@@ -8570,6 +13946,21 @@ const conditionBehaviorSchema: z.ZodType<RulesetConditionBehavior, unknown> = z
     /** Once within this distance of whoever put it on, it never walks farther off than this
      *  (Capability API 1.274): Sympathy's "can't willingly move away from the target". */
     keepsIn: z.number().int().min(1).max(1000).optional(),
+    /** `moves` and `keepsOut` are measured from the point it was put on from, rather than from
+     *  whoever put it on (Capability API 1.457): a zone's middle, or where an area was aimed. Put on
+     *  from nowhere in particular, from whoever put it on. 5e's Symbol of Fear, fleeing the glyph. */
+    from: z.enum(["point", "steered"]).optional(),
+    /** Its holder is walked `moves` as far as they can as each of their turns starts (Capability API
+     *  1.464), rather than only kept from walking the other way. With `"from": "steered"`, measured
+     *  from the point whoever put it on last steered it at with an entry that `steers` it, and
+     *  nothing until they have (1.464): 5e's Compulsion. `"after"` (Capability API 1.472) walks
+     *  them with the movement they have left as they end their turn instead, so they act first:
+     *  Compulsion's "it can take its action before it moves". */
+    walks: z.union([z.literal(true), z.literal("after")]).optional(),
+    /** As each of its holder's turns starts they throw this save against the difficulty it was put
+     *  on with, and on a failure this budget is wasted for the turn (Capability API 1.463): 5e's
+     *  Bestow Curse, "wastes its action that turn doing nothing". */
+    wastes: z.object({ save: sheetId, budget: sheetId }).strict().optional(),
     /** It lets fall what it holds (Capability API 1.266): each worn item taking one of `slots`
      *  (a hand), each item and each stat block action carrying one of `tags`, as the condition goes
      *  on or as each of its holder's turns starts. What falls lies where they stood: it does nothing
@@ -8619,12 +14010,28 @@ const conditionBehaviorSchema: z.ZodType<RulesetConditionBehavior, unknown> = z
       })
       .strict()
       .optional(),
+    /** As each of its holder's turns starts, the nearest other creature they can see, friend or foe,
+     *  is the only one they may attack that turn, and they are walked toward it first when it is
+     *  not beside them (Capability API 1.543): 5e's golems' Berserk, "attacks the nearest creature
+     *  it can see". Seeing nobody, the turn is their own. */
+    nearest: z.literal(true).optional(),
+    /** With `only`, the condition's own `actions` stay offered too (Capability API 1.601): 5e's Wind
+     *  Walk, whose holder may only Dash or revert, the revert one of its actions. */
+    actions: z.literal(true).optional(),
   })
   .strict()
   .refine((behavior) => Object.keys(behavior).length > 0, "A behavior says at least one thing")
   .refine((behavior) => !behavior.onlyWhenStuck || behavior.only?.includes("move"), {
     message: '"onlyWhenStuck" goes with "only" naming "move"',
     path: ["onlyWhenStuck"],
+  })
+  .refine((behavior) => !behavior.from || behavior.moves || behavior.keepsOut !== undefined, {
+    message: '"from" says where "moves" or "keepsOut" is measured from, so it goes with one of them',
+    path: ["from"],
+  })
+  .refine((behavior) => !behavior.walks || behavior.moves, {
+    message: '"walks" walks its holder the way "moves" says, so it goes with "moves"',
+    path: ["walks"],
   });
 
 /** Conditions a condition's holder spreads around them (1.263): 5e's Aura of Protection. */
@@ -8641,10 +14048,13 @@ export interface RulesetConditionAura {
     abilityAtMost?: Record<string, number>;
     abilityAtLeast?: Record<string, number>;
     notImmuneTo?: string[];
+    calledBySelf?: true;
   };
   sourcesOf?: string[];
   chosenKind?: true;
   orSeen?: true;
+  seenByHolder?: true;
+  whileRidden?: true;
   harms?: { dice?: string; flat?: number; type?: string; on?: "holder-turn" | "their-turn" };
   grows?: { by: number; upTo: number };
   lingers?: true;
@@ -8689,6 +14099,13 @@ const conditionAuraSchema: z.ZodType<RulesetConditionAura, unknown> = z
     /** Also to whoever can see its holder, however far off (Capability API 1.270): Antipathy's
      *  "can see the target or comes within 60 feet". */
     orSeen: z.literal(true).optional(),
+    /** Only to whoever its holder can see (Capability API 1.608): a knight's Leadership, "a
+     *  nonhostile creature that it can see". */
+    seenByHolder: z.literal(true).optional(),
+    /** It spreads only while somebody rides its holder (Capability API 1.735), its sides read from
+     *  the rider's: allies and enemies are the rider's. 5e's goat of terror, "an aura of terror while
+     *  you are riding it": hostile to its rider, 30 feet. */
+    whileRidden: z.literal(true).optional(),
     /** It reaches `by` further as each of its holder's turns starts, to no more than `upTo`, in the
      *  ruleset's distance (Capability API 1.320): Frost Debt, 20 feet growing by 10 to 40. */
     grows: z
@@ -8831,26 +14248,339 @@ const conditionOnDamagedSchema: z.ZodType<RulesetConditionOnDamaged, unknown> = 
   })
   .strict();
 
+/** Conditions kept off only when a creature that is `from` would put them on (Capability API 1.191),
+ *  or an entry of one of `catalogs` would (Capability API 1.476). On an item's effect too (Capability
+ *  API 1.486): a Ring of Freedom of Movement. */
+const conditionImmunitiesFromSchema = z
+  .array(
+    z
+      .object({
+        conditions: z.array(sheetId).min(1).max(40),
+        from: targetIsSchema.optional(),
+        catalogs: z.array(sheetId).min(1).max(8).optional(),
+      })
+      .strict()
+      .refine((ward) => ward.from || ward.catalogs, {
+        message: 'Say what it is kept off from: "from", "catalogs" or both',
+      }) as z.ZodType<RulesetConditionImmunityFrom, unknown>,
+  )
+  .min(1)
+  .max(10);
+
+/** What a condition does to whoever hits its holder, by itself (1.489). Typed by hand, to keep the
+ *  condition's inferred type short enough to emit.
+ *  `harms` (Capability API 1.508) deals the hitter that much with no save, once the blow is over, and
+ *  `within` keeps it all to a hitter that near, in the ruleset's distance: 5e's Fire Shield, 2d8 fire
+ *  on a melee hit from within 5 feet; an azer's Heated Body. With neither `save` nor `harms`, what it
+ *  `applies` goes on with no save. */
+export interface RulesetConditionWhenHit {
+  blow?: "melee" | "ranged";
+  from?: RulesetTargetIs;
+  save?: { save: string; difficulty?: number };
+  applies?: RulesetCatalogApplies[];
+  harms?: { dice?: string; flat?: number; damageType?: string };
+  within?: number;
+  touches?: true;
+}
+const conditionWhenHitSchema: z.ZodType<RulesetConditionWhenHit, unknown> = z
+  .object({
+    blow: z.enum(["melee", "ranged"]).optional(),
+    from: targetIsSchema.optional(),
+    save: z
+      .object({ save: sheetId, difficulty: z.number().int().min(0).max(1000).optional() })
+      .strict()
+      .optional(),
+    applies: z.array(catalogAppliesSchema).min(1).max(4).optional(),
+    harms: z
+      .object({ ...catalogAmountShape, damageType: promptSafeText(40).optional() })
+      .strict()
+      .refine((harm) => harm.dice !== undefined || harm.flat !== undefined, {
+        message: "whenHit harms says how much: dice, flat or both",
+      })
+      .optional(),
+    within: z.number().finite().gt(0).max(10000).optional(),
+    /** Whoever touches its holder too, hit or not (Capability API 1.527): one who tries to grapple
+     *  or shove them, or to break free of their grip. 5e's Heated Body, "a creature that touches the
+     *  azer or hits it with a melee attack". */
+    touches: z.literal(true).optional(),
+  })
+  .strict()
+  .refine((rule) => !rule.touches || rule.blow !== "ranged", {
+    message: 'A touch is made in reach: "touches" goes with no "blow" or "blow": "melee"',
+    path: ["touches"],
+  })
+  .refine((rule) => rule.applies || rule.harms, { message: "whenHit does something: applies, harms or both" })
+  .refine((rule) => !rule.save || rule.applies, {
+    message: "A whenHit save is against what it applies, so it goes with applies",
+  });
+
+/** What its holder's own hits put on whoever they hit (Capability API 1.503): only a weapon's blow with
+ *  `weapon`, only one struck so with `blow`. Each `applies` goes on the one hit, from the holder, once
+ *  the blow is over. 5e's Branding Smite, a condition that keeps its target from being unseen. */
+export interface RulesetConditionOnHit {
+  weapon?: true;
+  blow?: "melee" | "ranged";
+  damageTypes?: string[];
+  applies?: RulesetCatalogApplies[];
+  damage?: { dice?: string; flat?: number; type?: string };
+  save?: { save: string; difficulty: number; onSuccess: "half" | "negates" };
+  failedBy?: { atLeast: number; applies: RulesetCatalogApplies[] };
+}
+const conditionOnHitSchema: z.ZodType<RulesetConditionOnHit, unknown> = z
+  .object({
+    weapon: z.literal(true).optional(),
+    blow: z.enum(["melee", "ranged"]).optional(),
+    /** Only a hit dealing one of these damage types (Capability API 1.683): a poison coating "one
+     *  slashing or piercing weapon". */
+    damageTypes: z.array(promptSafeText(40)).min(1).max(8).optional(),
+    applies: z.array(catalogAppliesSchema).min(1).max(4).optional(),
+    /** Damage dealt on top of the hit (Capability API 1.683): a poison's 1d4. */
+    damage: z
+      .object({
+        dice: catalogDice.optional(),
+        flat: z.number().int().min(0).max(1000).optional(),
+        type: promptSafeText(40).optional(),
+      })
+      .strict()
+      .refine((damage) => damage.dice || damage.flat !== undefined, {
+        message: "The damage names dice, a flat amount, or both",
+      })
+      .optional(),
+    /** A save the one hit makes first (Capability API 1.683): made, `damage` is halved or not dealt
+     *  and `applies` does not go on. Serpent venom, DC 11 Constitution, half. */
+    save: z
+      .object({ save: sheetId, difficulty: z.number().int().min(0).max(1000), onSuccess: z.enum(["half", "negates"]) })
+      .strict()
+      .optional(),
+    /** Failed by this much or more, these go on as well (Capability API 1.683): drow poison's
+     *  unconsciousness on a failure by 5. */
+    failedBy: z
+      .object({ atLeast: z.number().int().min(1).max(100), applies: z.array(catalogAppliesSchema).min(1).max(4) })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .refine((rule) => rule.applies || rule.damage, { message: "onHit applies something, deals damage, or both" })
+  .refine((rule) => !rule.failedBy || rule.save, {
+    message: '"failedBy" reads onHit\'s own save, so it has one',
+    path: ["failedBy"],
+  });
+
+/** What its holder does to a creature whose space it enters (Capability API 1.504), the first time in
+ *  each of its turns: `harm` with no save, and `applies` from the holder. 5e's Fire Form, 1d10 fire
+ *  and set alight. */
+export interface RulesetConditionEntering {
+  harm?: { dice?: string; flat?: number; damageType?: string };
+  applies?: RulesetCatalogApplies[];
+}
+const conditionEnteringSchema: z.ZodType<RulesetConditionEntering, unknown> = z
+  .object({
+    harm: z
+      .object({ ...catalogAmountShape, damageType: promptSafeText(40).optional() })
+      .strict()
+      .optional(),
+    applies: z.array(catalogAppliesSchema).min(1).max(4).optional(),
+  })
+  .strict()
+  .refine((rule) => rule.harm || rule.applies, { message: "entering does something: harm or applies" });
+
+/** Whoever aims an attack or a harmful entry at its holder first makes this save (Capability API
+ *  1.423); see the condition's `sanctuary`. */
+export interface RulesetConditionSanctuary {
+  save: string;
+  difficulty?: RulesetValueRef;
+  from?: RulesetTargetIs;
+  immuneOnSave?: true;
+  against?: { attacks?: true; casts?: string[] };
+}
+const conditionSanctuarySchema: z.ZodType<RulesetConditionSanctuary, unknown> = z
+  .object({
+    save: sheetId,
+    difficulty: rulesetValueRefSchema.optional(),
+    from: targetIsSchema.optional(),
+    immuneOnSave: z.literal(true).optional(),
+    /** What it stops (Capability API 1.425), rather than every harmful entry: attacks, and harmful
+     *  entries cast from these catalogs. 5e's Sanctuary stops attacks and harmful spells, Nature's
+     *  Sanctuary only attacks. */
+    against: z
+      .object({
+        attacks: z.literal(true).optional(),
+        casts: z
+          .array(sheetId)
+          .min(1)
+          .max(8)
+          .refine((catalogs) => new Set(catalogs).size === catalogs.length, { message: "A catalog is named once" })
+          .optional(),
+      })
+      .strict()
+      .refine((against) => against.attacks || against.casts, {
+        message: 'Say what it stops: "attacks", harmful entries it "casts" or both',
+      })
+      .optional(),
+  })
+  .strict();
+
+/** Illusory duplicates of its holder (Capability API 1.505). Each attack roll made against its holder
+ *  first rolls a `sides` die (a d20 unless said); at or over `thresholds[left - 1]`, where `left` is how
+ *  many are still there, the attack is made against a duplicate instead, whose defense is `defense.flat`
+ *  plus the holder's `defense.ability` modifier. A duplicate it hits is destroyed, and the condition ends
+ *  with the last. An attacker who can't see the holder, or who senses them with one of `pierced` within
+ *  its range, is never fooled. 5e's Mirror Image: `{ "count": 3, "thresholds": [11, 8, 6], "defense":
+ *  { "flat": 10, "ability": "dex" }, "pierced": ["blindsight", "truesight"] }`. */
+export interface RulesetConditionDuplicates {
+  count: number;
+  thresholds: number[];
+  sides?: number;
+  defense: { flat: number; ability?: string };
+  pierced?: string[];
+}
+const conditionDuplicatesSchema: z.ZodType<RulesetConditionDuplicates, unknown> = z
+  .object({
+    count: z.number().int().min(1).max(10),
+    thresholds: z.array(z.number().int().min(1).max(100)).min(1).max(10),
+    sides: z.number().int().min(2).max(100).optional(),
+    defense: z.object({ flat: z.number().int().min(-100).max(100), ability: sheetId.optional() }).strict(),
+    pierced: z
+      .array(sheetId)
+      .min(1)
+      .max(8)
+      .refine((senses) => new Set(senses).size === senses.length, { message: "Each sense is named once" })
+      .optional(),
+  })
+  .strict()
+  .refine((rule) => rule.thresholds.length === rule.count, {
+    message: "duplicates has one threshold for each number of duplicates left, from one up to count",
+    path: ["thresholds"],
+  })
+  .refine((rule) => rule.thresholds.every((one) => one <= (rule.sides ?? 20)), {
+    message: "A duplicates threshold is a face of its die",
+    path: ["thresholds"],
+  });
+
+/** Its holder's speed is not lowered by what entries of these catalogs put on them (Capability API
+ *  1.486): a slowing, a halving or a stop that a spell put on does nothing to their walk, and the
+ *  same from anything else still does. 5e's Freedom of Movement, `{ "catalogs": ["spells"] }`. */
+const speedKeptFromSchema = z.object({ catalogs: z.array(sheetId).min(1).max(8) }).strict();
+
+/** Its holder may slip free of these conditions on their turn (Capability API 1.486), with no check,
+ *  for `cost` of their walk in the ruleset's own distance: one put on by an entry of `unlessCatalogs`
+ *  holds. The walk a condition kept from them comes back as it ends. 5e's Freedom of Movement, 5 feet
+ *  out of a grapple or a nonmagical restraint. */
+export interface RulesetSlipsFree {
+  conditions: string[];
+  cost: number;
+  unlessCatalogs?: string[];
+}
+const slipsFreeSchema: z.ZodType<RulesetSlipsFree, unknown> = z
+  .object({
+    conditions: z.array(sheetId).min(1).max(12),
+    cost: z.number().finite().min(0).max(10000),
+    unlessCatalogs: z.array(sheetId).min(1).max(8).optional(),
+  })
+  .strict();
+
+/** A condition's `grants` (1.181): see the combat condition's own. */
+export interface RulesetConditionGrants {
+  budget: string;
+  standard?: Array<z.infer<typeof combatStandardActionSchema>>;
+  attacks?: true;
+  items?: true | { tags: string[] };
+  melee?: true;
+  names?: string[];
+  afterAttack?: RulesetAfterAttackDeclaration;
+}
+const conditionGrantsSchema: z.ZodType<RulesetConditionGrants, unknown> = z
+  .object({
+    budget: sheetId,
+    standard: z.array(combatStandardActionSchema).min(1).max(8).optional(),
+    attacks: z.literal(true).optional(),
+    /** Any item's use, or only the use of an item with one of these tags (5e's Use an Object is a
+     *  mundane item's, never a magic item's activation). */
+    items: z.union([z.literal(true), z.object({ tags: z.array(sheetId).min(1).max(8) }).strict()]).optional(),
+    /** With `attacks`, only a weapon that strikes in reach, and only within it (Capability API
+     *  1.239): 5e's Frenzy, a melee weapon attack as a bonus action. A thrown weapon is swung. */
+    melee: z.literal(true).optional(),
+    /** With `attacks`, only the attacks named so (Capability API 1.242). */
+    names: attackNamesSchema.optional(),
+    /** With `attacks`, only once the attack action has been taken this turn (Capability API 1.242). */
+    afterAttack: afterAttackSchema.optional(),
+  })
+  .strict()
+  .refine((grants) => !grants.melee || grants.attacks, {
+    message: '"melee" narrows "attacks", so the grant gives attacks',
+    path: ["melee"],
+  })
+  .refine((grants) => (!grants.names && !grants.afterAttack) || grants.attacks, {
+    message: '"names" and "afterAttack" narrow "attacks", so the grant gives attacks',
+    path: ["names"],
+  });
+
+/** A condition's `speeds`: see the combat condition's own. Typed by hand, as `sealed` is. */
+export type RulesetConditionSpeeds = Partial<Record<"fly" | "swim" | "climb" | "burrow", number | "walk">>;
+const conditionSpeedsSchema: z.ZodType<RulesetConditionSpeeds, unknown> = z
+  .object(
+    Object.fromEntries(
+      (["fly", "swim", "climb", "burrow"] as const).map((mode) => [
+        mode,
+        z.union([z.number().int().min(1).max(10000), z.literal("walk")]).optional(),
+      ]),
+    ) as Record<"fly" | "swim" | "climb" | "burrow", z.ZodOptional<z.ZodUnion<[z.ZodNumber, z.ZodLiteral<"walk">]>>>,
+  )
+  .strict();
+
+/** A condition's `sealed` (1.314): see the combat condition's own. Typed by hand, as written out the
+ *  ruleset's inferred type grows too long for the compiler to emit. */
+export interface RulesetConditionSealed {
+  rolls?: { budget: string; share: number };
+  lifted?: { budget: string };
+  brokenBy?: string[];
+}
+const conditionSealedSchema: z.ZodType<RulesetConditionSealed, unknown> = z
+  .object({
+    rolls: z
+      .object({ budget: sheetId, share: z.number().finite().gt(0).max(1) })
+      .strict()
+      .optional(),
+    lifted: z.object({ budget: sheetId }).strict().optional(),
+    brokenBy: z.array(catalogEntryRef).min(1).max(8).optional(),
+  })
+  .strict();
+
+/** Whoever put a condition on hangs on to its holder (Capability API 1.676). Typed by hand, so the
+ *  condition schema around it stays short enough to emit. */
+export interface RulesetConditionAttaches {
+  sourceAttacks: "none" | "holder";
+  endsAfterHarm?: number;
+}
+const conditionAttachesSchema: z.ZodType<RulesetConditionAttaches, unknown> = z
+  .object({
+    sourceAttacks: z.enum(["none", "holder"]),
+    endsAfterHarm: z.number().int().min(1).max(10000).optional(),
+  })
+  .strict();
+
 const combatConditionSchema = z
   .object({
     /** Harm and conditions kept off while this applies (Capability API 1.132), as on a creature. */
     resist: z.array(creatureHideEntrySchema).min(1).max(30).optional(),
+    /** Harm halved of whatever kinds these text or enum fields of the holder's sheet name,
+     *  comma-separated (Capability API 1.429): 5e's Elemental Affinity, resistance to the damage type
+     *  of the sorcerer's draconic ancestry. A holder with no sheet resists nothing by it. */
+    resistIn: z.array(sheetId).min(1).max(4).optional(),
     vulnerable: z.array(promptSafeText(40)).min(1).max(30).optional(),
     immune: z.array(creatureHideEntrySchema).min(1).max(30).optional(),
     conditionImmunities: z.array(sheetId).min(1).max(40).optional(),
     /** Conditions kept off only when a creature that is `from` would put them on (Capability API
      *  1.191): 5e's Protection from Evil and Good, no charm or fright from a fiend or undead. One
-     *  already on stays. */
-    conditionImmunitiesFrom: z
-      .array(
-        z.object({ conditions: z.array(sheetId).min(1).max(40), from: targetIsSchema }).strict() as z.ZodType<
-          RulesetConditionImmunityFrom,
-          unknown
-        >,
-      )
-      .min(1)
-      .max(10)
-      .optional(),
+     *  already on stays. Or only when an entry of one of `catalogs` would (Capability API 1.476), with
+     *  `from` or without it: 5e's Freedom of Movement, no paralysis or restraint from a spell. */
+    conditionImmunitiesFrom: conditionImmunitiesFromSchema.optional(),
+    /** What entries of these catalogs put on its holder does not lower their speed (Capability API
+     *  1.486): 5e's Freedom of Movement. */
+    speedKeptFrom: speedKeptFromSchema.optional(),
+    /** Conditions its holder may slip free of for some of their walk (Capability API 1.486): 5e's
+     *  Freedom of Movement. */
+    slipsFree: slipsFreeSchema.optional(),
     condition: sheetId,
     /** Saves among these, against something that deals half on a success, take nothing on a
      *  success and half on a failure (Capability API 1.250): 5e's Evasion, on Dexterity saves. */
@@ -8861,7 +14591,7 @@ const combatConditionSchema = z
      *  `pierced` names, within its range: 5e's invisible, which blindsight and truesight see. */
     unseen: seenThroughSchema.optional(),
     /** Nothing needing these components is used while it holds (Capability API 1.179): gagged. */
-    forbids: forbidsSchema.optional(),
+    forbids: conditionForbidsSchema.optional(),
     /** How far its holder senses with each of `combat.senses` while it holds, in the ruleset's
      *  distance (Capability API 1.180): 5e's Darkvision spell, True Seeing's truesight. Their own
      *  reach stands where it is longer; `{ "add": N }` (1.182) adds to it. */
@@ -8872,6 +14602,8 @@ const combatConditionSchema = z
     /** Whoever moves unseen this near its holder is given away while it holds (Capability API 1.319),
      *  in the ruleset's distance: an alarm, a wind-chime. */
     alerts: z.number().finite().gt(0).max(10000).optional(),
+    /** Attacks at others near its holder are made at its holder instead (Capability API 1.658). */
+    drawsAim: drawsAimSchema.optional(),
     /** A condition's `unseen` hides its holder from nobody while this holds (Capability API 1.180):
      *  5e's Faerie Fire, under which the invisible are outlined. */
     cancelsUnseen: z.literal(true).optional(),
@@ -8903,20 +14635,388 @@ const combatConditionSchema = z
       .object({ prop: z.string().trim().min(1).max(60), within: z.number().finite().gt(0).max(10000) })
       .strict()
       .optional(),
+    /** Whoever put it on sees what its holder sees while it holds (Capability API 1.481), as well as
+     *  what they see themselves: for whatever reads who sees whom (a target that must be seen, an
+     *  attack at somebody unseen, an aura that needs sight). 5e's familiar seen through (Find
+     *  Familiar, Voice of the Chain Master) and Gaze of Two Minds; what their own senses lose while
+     *  they do is the entry's `appliesSelf`. */
+    lendsSenses: z.literal(true).optional(),
+    /** Its holder may give up one attack of their attack action for a creature they called to make
+     *  one of its own attacks, paid out of `budget` of its own economy (Capability API 1.488), even
+     *  one that may not otherwise harm. 5e's Pact of the Chain: "forgo one of your own attacks to
+     *  allow your familiar to make one attack with its reaction", `{ "budget": "reaction" }`. */
+    lendsStrikes: z.object({ budget: sheetId }).strict().optional(),
+    /** What it does to whoever hits its holder with an attack, nobody choosing and nothing spent
+     *  (Capability API 1.489): only a blow of `blow`, from a creature that is `from`, and they make
+     *  `save` against `difficulty`, else the save difficulty of the entry that put this on, or take
+     *  `applies`, held as long as this condition's own concentration. 5e's Holy Aura: a fiend or
+     *  undead hitting its holder in melee saves with Constitution or is blinded until the spell ends. */
+    whenHit: conditionWhenHitSchema.optional(),
+    /** What its holder's own hits put on whoever they hit (Capability API 1.503): Branding Smite. */
+    onHit: conditionOnHitSchema.optional(),
+    /** Its holder walks into a hostile creature's space and may stop there (Capability API 1.504): 5e's
+     *  Air, Fire and Water Form. */
+    stopsInFoes: z.literal(true).optional(),
+    /** Its holder shares spaces (Capability API 1.680): it walks into and stops in anybody's space, and
+     *  anybody walks into and stops in its own. 5e's swarms, "can occupy another creature's space and
+     *  vice versa", kept on with `keepsOn`. */
+    sharesSpace: z.literal(true).optional(),
+    /** Its holder moves through any opening that fits a creature of this size (Capability API 1.681),
+     *  of `combat.sizes`, without squeezing: 5e's Amorphous, and a swarm's "any opening large enough
+     *  for a Tiny" creature, `"tiny"`. */
+    squeezesAs: sheetId.optional(),
+    /** What its holder does to a creature whose space it enters, once a turn each (Capability API
+     *  1.504): Fire Form. */
+    entering: conditionEnteringSchema.optional(),
+    /** Illusory duplicates that draw attacks made against its holder (Capability API 1.505): Mirror
+     *  Image. */
+    duplicates: conditionDuplicatesSchema.optional(),
+    /** Its holder takes this many turns in a row once the turn it was put on in ends (Capability API
+     *  1.507), rolled then: nobody else acts, reacts or counts down meanwhile. Whatever they do in them
+     *  that reaches another creature (an attack at them, harm, a save to throw, a condition put on
+     *  them) ends it there and then, and it ends after the last. 5e's Time Stop, `{ "dice": "1d4",
+     *  "flat": 1 }`. */
+    stopsTime: conditionStopsTimeSchema.optional(),
+    /** As each of its holder's turns ends, a `sides` die (a d20 unless said) at or over `atLeast` takes
+     *  them off the board until their next turn starts (Capability API 1.506): out of reach of
+     *  everything, and back as it starts where they vanished, or the nearest free place. 5e's Blink,
+     *  `{ "atLeast": 11 }`. */
+    blinks: conditionBlinksSchema.optional(),
+    /** Held off, not ended, while its holder stands on one of these terrains, or the board's
+     *  environment is one of them (Capability API 1.478); it holds again once they leave it. A fight
+     *  with no board holds it. 5e's aboleth's curse, which keeps healing off except underwater:
+     *  `["water"]`. */
+    whileOffTerrain: z.array(promptSafeText(40)).min(1).max(12).optional(),
+    /** Held off, not ended, while its holder holds one of `conditions`, or another condition on them
+     *  does one of `effects` (Capability API 1.528); it holds again once neither is so. 5e's Cloak
+     *  of Displacement, "suppressed while you are incapacitated, restrained, or otherwise unable to
+     *  move": `{ "conditions": ["restrained"], "effects": ["cannot-act", "speed-zero"] }`. */
+    heldOffWhile: z
+      .object({
+        conditions: z.array(sheetId).min(1).max(12).optional(),
+        effects: z.array(combatConditionEffectSchema).min(1).max(12).optional(),
+      })
+      .strict()
+      .refine((rule) => rule.conditions || rule.effects, {
+        message: 'Say what holds it off: "conditions", "effects" or both',
+      })
+      .optional(),
+    /** Holds only while its holder stands in one of these lights (Capability API 1.605), read where
+     *  they stand as `checkModes.light` is; anywhere else it is held off, not ended. 5e's shadow's
+     *  Sunlight Weakness, kept on with disadvantage on its own attacks, checks and saves:
+     *  `{ "light": ["sunlight"] }`. */
+    /** Moved against its will along the ground, its holder goes this much less, in the ruleset's
+     *  distance (Capability API 1.718), paying 1 of `budget` for it where one is named and they have
+     *  it: a push, a pull, or being thrust out of an area. 5e's Dwarven Plate, kept on by the armor,
+     *  `{"by": 10, "budget": "reaction"}`. Not while up in the air. */
+    pushReducedBy: z
+      .object({ by: z.number().finite().gt(0).max(10000), budget: sheetId.optional() })
+      .strict()
+      .optional(),
+    /** Held on the sheet, its holder gains no benefit from these rests (Capability API 1.722), by
+     *  rest id, or from any with `"all"`: the rest does nothing at all, and says so. A rakshasa's
+     *  curse. */
+    blocksRests: z.union([z.literal("all"), uniqueIds(12)]).optional(),
+    /** What of its holder's foes' entries it takes on a die (Capability API 1.723): an entry of one of
+     *  `against.catalogs` aimed at its holder that is one of `entries`, has an area of one of `area`'s
+     *  shapes, or (`attackRoll: "ranged"`) makes a ranged attack roll. A die of `sides` is rolled and
+     *  its holder is untouched by it; on `backFrom` or more it is turned back at its maker, who takes
+     *  it instead. A tarrasque's Reflective Carapace: `{"sides": 6, "backFrom": 6, "against":
+     *  {"catalogs": ["spells"], "entries": ["spells/magic-missile"], "area": ["line"], "attackRoll":
+     *  "ranged"}}`. */
+    reflects: z
+      .object({
+        sides: z.number().int().min(2).max(100),
+        backFrom: z.number().int().min(1).max(100),
+        against: z
+          .object({
+            catalogs: uniqueIds(8),
+            entries: z.array(catalogEntryRef).min(1).max(20).optional(),
+            area: z
+              .array(z.enum(["burst", "cone", "line", "box", "wall"]))
+              .min(1)
+              .max(5)
+              .optional(),
+            attackRoll: z.literal("ranged").optional(),
+          })
+          .strict()
+          .refine((against) => !!(against.entries || against.area || against.attackRoll), {
+            message: 'What it takes is named by "entries", "area" or "attackRoll"',
+          }),
+      })
+      .strict()
+      .refine((reflects) => reflects.backFrom <= reflects.sides, {
+        message: '"backFrom" is a face of the die',
+        path: ["backFrom"],
+      })
+      .optional(),
+    heldOnlyIn: z
+      .object({
+        light: z
+          .array(z.enum(["sunlight", "bright", "dim", "dark"]))
+          .min(1)
+          .max(4)
+          .optional(),
+        /** Or only while its holder sees an ally of theirs within this distance, in the ruleset's own
+         *  unit (Capability API 1.682): a bearded devil's Steadfast, 30, on a kept-on condition with
+         *  `conditionImmunities: ["frightened"]`. */
+        allySeenWithin: z.number().finite().gt(0).max(10000).optional(),
+        /** Or only while its holder stands on ground one of these names (Capability API 1.714): a
+         *  tile of the board's, the board's whole place, or a lasting area left by an action named by
+         *  id or label. 5e's vampire in running water, `["water", "Running Water"]`, with an
+         *  aura's `harms` on itself. Off a board it is held off. */
+        ground: z.array(promptSafeText(40)).min(1).max(12).optional(),
+      })
+      .strict()
+      .refine((held) => held.light || held.allySeenWithin !== undefined || held.ground, {
+        message: '"heldOnlyIn" names a light, an ally seen within a distance, ground, or more than one',
+      })
+      .optional(),
     /** While this holds, these conditions on its holder are held off, not ended (Capability API
      *  1.275): what they do stops and their clocks run on, and they hold again once this ends.
      *  Calm Emotions' charm and fright, Mindless Rage's. */
     suppresses: uniqueIds(12).optional(),
+    /** Its holder is changed into another creature's shape while it holds (Capability API 1.392): the
+     *  form an entry's `forms` picked, put on with this. They fight with the form's actions, defense,
+     *  saves, checks, speeds, senses, size and traits in place of their own; `keepsSaves` and
+     *  `keepsChecks` are their own still (Wild Shape's Intelligence, Wisdom and Charisma), and `keeps`
+     *  names their own actions they keep, by entry (`"<catalogId>/<entryId>"`) or action id. With
+     *  `health: "form"` (the default) the form has its own health, and when that runs out the shape
+     *  ends and what is left of the blow carries on to their own (5e's "reverts to its normal form ...
+     *  any excess damage carries over"); `"own"` keeps their own (Change Shape). `revert` offers
+     *  ending it on that budget (Wild Shape's bonus action). It ends as the condition does, and when
+     *  they go down. */
+    shape: conditionShapeSchema.optional(),
+    /** Ways of moving it gives its holder while it holds (Capability API 1.395), in the ruleset's own
+     *  distance, or `"walk"` for as fast as they walk: 5e's Fly `{"fly": 60}`, Dragon Wings
+     *  `{"fly": "walk"}`, an item use's Wings of Flying. A faster one of their own stays theirs.
+     *  `hover` keeps them up while they cannot move (a Broom of Flying). `levitates` (Levitate,
+     *  Boots of Levitation) moves them only up and down, by its fly speed, never across, and they
+     *  hover. When it ends, somebody up in the air with no flight left falls. */
+    speeds: conditionSpeedsSchema.optional(),
+    hover: z.literal(true).optional(),
+    levitates: z.literal(true).optional(),
+    /** Its holder is up this far above the ground under them while it holds (Capability API 1.566),
+     *  in the ruleset's own distance, rounded to the board's levels, and hovers there; when it ends
+     *  they fall as anybody up in the air does. 5e's Reverse Gravity, "fall upward and reach the top
+     *  of the area", 100 feet: a lasting area's `inside.conditions`, its Dexterity save the grab at
+     *  something fixed. */
+    lifts: z.number().finite().gt(0).max(10000).optional(),
+    /** Whoever holds it fights on the side of whoever put it on, and back on their own once it ends
+     *  (Capability API 1.577): 5e's Magic Jar, "Once you possess a creature's body, you control it". */
+    controls: z.literal(true).optional(),
+    /** As its holder dies while it holds, whoever put it on throws `save` against `difficulty`, read
+     *  off their own sheet (a number for one without), and dies on a failure (Capability API 1.577):
+     *  Magic Jar's "If the host body dies while you're in it ... you must make a Charisma saving
+     *  throw against your own spellcasting DC ... Otherwise, you die." */
+    holderDies: z.object({ save: sheetId, difficulty: rulesetValueRefSchema }).strict().optional(),
+    /** Its `speeds` are its holder's only ways of moving while it holds (Capability API 1.555): their
+     *  walk and their own other speeds are 0. 5e's Gaseous Form, "its only method of movement is a
+     *  flying speed of 10 feet". */
+    onlySpeeds: z.literal(true).optional(),
+    /** The climb its `speeds` give is no good here (Capability API 1.671): on a tile, or a board
+     *  whose place, one of `terrain` names, and with `slippery` into ground a lasting area makes
+     *  slippery. A climb of its holder's own, or another's that says nothing of it, still climbs
+     *  there. 5e's Slippers of Spider Climbing, "can't use this climbing speed on slippery
+     *  surfaces". */
+    climbNotOn: z
+      .object({ terrain: z.array(promptSafeText(40)).min(1).max(12).optional(), slippery: z.literal(true).optional() })
+      .strict()
+      .refine((where) => where.terrain || where.slippery, { message: 'Say where: "terrain", "slippery" or both' })
+      .optional(),
+    /** Ground hard going of itself costs its holder a plain step (Capability API 1.432): the board's
+     *  terrain and its growth, 5e's Land's Stride over nonmagical difficult terrain and plants. Hard
+     *  going a lasting area makes, a spell's, still counts. */
+    ignoresHardGround: z.literal(true).optional(),
+    /** On foot its holder takes steps of any height and crosses water, on the ground it steps onto
+     *  (Capability API 1.432), but never stops on water: 5e's Unarmored Movement at 9th level, along
+     *  walls and across liquids without falling during the move. A walk cut short on water sets
+     *  them down on the nearest open ground. */
+    runsAcross: z.literal(true).optional(),
+    /** Its holder, with a flying speed, draws no opportunity attacks leaving anybody's reach
+     *  (Capability API 1.679): it flies out of it. 5e's Flyby, kept on an owl with `keepsOn`. */
+    flyby: z.literal(true).optional(),
+    /** Actions, by id or label, that never hinder its holder (Capability API 1.704): a lasting area
+     *  one of them leaves does not catch them, so its ground is no hard going and it strikes and puts
+     *  nothing on them, and what one of them puts on them does not go on. 5e's Web Walker, `["Web"]`:
+     *  "ignores movement restrictions caused by webbing", the spell's and a giant spider's. */
+    unhinderedBy: z.array(promptSafeText(60)).min(1).max(12).optional(),
+    /** Its holder's attacks ignore cover up to `upTo` (Capability API 1.705): only their `attacks` of
+     *  that kind (`"weapon"` or `"spell"`) and `blow` (`"melee"` or `"ranged"`) where said. Cover past
+     *  it counts in full, and total cover always does. 5e's Wand of the War Mage, kept on with
+     *  `keepsOn`: `{"upTo": "half", "attacks": "spell"}`; Sharpshooter's ranged weapon attacks and
+     *  Spell Sniper's spell attacks, `"three-quarters"`. */
+    /** Hard going costs its holder a plain step (Capability API 1.708) on a tile one of these names,
+     *  anywhere on a board whose place one names, and in a lasting area left by an action one names
+     *  by id or label: 5e's Ice Walk, `["snow", "Sleet Storm"]`, "difficult terrain composed of ice
+     *  or snow doesn't cost it extra movement". */
+    easyGround: z.array(promptSafeText(40)).min(1).max(12).optional(),
+    /** What its holder takes, with no save, for each cell it walks into on a tile `terrain` names or
+     *  in a lasting area left by an action `zones` names by id or label (Capability API 1.708): 5e's
+     *  fire elemental's Water Susceptibility, "for every 5 feet the elemental moves in water ... it
+     *  takes 1 cold damage", `{"terrain": ["water"], "zones": ["Wall of Water"], "harm": {"flat": 1,
+     *  "damageType": "cold"}}`. */
+    harmedEntering: z
+      .object({
+        terrain: z.array(promptSafeText(40)).min(1).max(12).optional(),
+        zones: z.array(promptSafeText(60)).min(1).max(12).optional(),
+        harm: z
+          .object({ ...catalogAmountShape, damageType: promptSafeText(40).optional() })
+          .strict()
+          .refine((harm) => harm.dice !== undefined || harm.flat !== undefined, {
+            message: 'Say what it harms with: "dice", "flat" or both',
+          }),
+      })
+      .strict()
+      .refine((rule) => rule.terrain || rule.zones, { message: 'Say where it harms: "terrain", "zones" or both' })
+      .optional(),
+    coverIgnored: z
+      .object({
+        upTo: z.enum(["half", "three-quarters"]),
+        attacks: z.enum(["weapon", "spell", "any"]).optional(),
+        blow: z.enum(["melee", "ranged"]).optional(),
+      })
+      .strict()
+      .optional(),
+    /** Its holder stands on water and walks across it as if it were solid ground (Capability API
+     *  1.529), stopping there if they like, and is never under it: 5e's Water Walk, a Ring of Water
+     *  Walking kept on with `keepsOn`. Unlike `runsAcross`, no wall is climbed. */
+    walksOnLiquid: z.literal(true).optional(),
+    /** Its holder walks through other creatures' spaces, never stopping in one (Capability API
+     *  1.495): `"larger"` through any creature of a larger size than its own, 5e's Halfling
+     *  Nimbleness; `"any"` through anybody, a ghost's Incorporeal Movement. */
+    passesCreatures: z.enum(["larger", "any"]).optional(),
+    /** Its holder walks through solid ground as hard going and may stop inside it (Capability API
+     *  1.495), taking `harm`, with no save, when a turn of its own ends there: Incorporeal
+     *  Movement's 1d10 force. */
+    passesObjects: passesObjectsSchema.optional(),
+    /** Its holder is dragged along when whoever put it on walks (Capability API 1.497), into each cell
+     *  they leave, and their speed is halved for it unless its holder is at least `unlessSmaller`
+     *  sizes smaller than them: 5e's grappled, `{ "unlessSmaller": 2 }`. */
+    dragged: z
+      .object({ unlessSmaller: z.number().int().min(1).max(9).optional() })
+      .strict()
+      .optional(),
+    /** Its holder jumps further (Capability API 1.499): `times` over, 5e's Jump and Boots of Striding
+     *  and Springing (3) and Step of the Wind (2); and, on a jump with a run-up, `plus` an ability's
+     *  modifier more, to the long jump only with `long`: Remarkable Athlete (Strength, long) and
+     *  Second-Story Work (Dexterity). */
+    jumps: conditionJumpsSchema.optional(),
+    /** What it does to its holder's abilities while it holds (Capability API 1.515), by ability id,
+     *  as an item's do: `set` lifts a score to at least a number, `add` goes on top (to no more than
+     *  `max`), and `to` makes it that number whatever it was. Held on the sheet, everything the sheet
+     *  works out reads it; put on in a fight, the fighter's attacks, saves, checks and defense are
+     *  worked out again, their health and speed staying as they are. 5e's Potion of Hill Giant
+     *  Strength, `{ "str": { "set": 21 } }`; Feeblemind, `{ "int": { "to": 1 }, "cha": { "to": 1 } }`. */
+    abilities: conditionAbilitiesSchema.optional(),
+    /** What it does to its holder's derived values while it holds (Capability API 1.662), by derived
+     *  id: `times` multiplies the value as it is worked out, then `add` goes on top, and everything
+     *  that reads it reads the changed value. Held on the sheet or put on in a fight, as `abilities`.
+     *  5e's Enhance Ability (Bull's Strength) doubles carrying capacity, `{ "carry_capacity":
+     *  { "times": 2 } }`. */
+    derivedChanges: conditionDerivedChangesSchema.optional(),
+    /** Its holder's dying rolls are made with this (Capability API 1.500): 5e's Beacon of Hope,
+     *  `"advantage"`. */
+    deathSaves: z.enum(["advantage", "disadvantage"]).optional(),
+    /** Its holder, dying as a turn of theirs starts, is stable in place of rolling (Capability API
+     *  1.688): 5e's Periapt of Wound Closure, kept on by the worn periapt. */
+    stabilizesWhenDying: z.literal(true).optional(),
+    /** Healing its holder gets is at its most (Capability API 1.500), every die of it its highest
+     *  face: 5e's Beacon of Hope. */
+    healedMax: z.literal(true).optional(),
+    /** What its holder's weapons are while it holds (Capability API 1.501): those whose attack goes by
+     *  one of `names` (a word of its label) or whose item is one of `items`, or every weapon with
+     *  neither, `toHit` and `damage` more, made with `ability` (or the ability a sheet field
+     *  `abilityFrom` names) instead of their own, their damage die a d`die`, and carrying `qualities`
+     *  past a resistance. A blow named by `names` or `items` that deals a flat number rolls the die in
+     *  its place, its ability's modifier still added (Capability API 1.654): Alter Self's unarmed
+     *  strikes, `{ "names": ["unarmed"], "die": 6 }`. 5e's Magic Weapon `{ "toHit": 1, "damage": 1, "qualities": ["magical"] }`,
+     *  Shillelagh `{ "names": ["club", "quarterstaff"], "abilityFrom": "spellcasting_ability",
+     *  "die": 8, "qualities": ["magical"] }`, Oil of Sharpness `{ "toHit": 3, "damage": 3 }`. */
+    weapon: conditionWeaponSchema.optional(),
+    /** Whatever shape its holder takes keeps these of their own actions too (Capability API 1.435):
+     *  as a shape's `keeps`, by entry (`"<catalogId>/<entryId>"`), action id, or a whole catalog
+     *  (`"<catalogId>/*"`). 5e's Beast Spells, a druid's spells in Wild Shape from 18th level. */
+    shapeKeeps: z.array(z.string().trim().min(1).max(200)).min(1).max(24).optional(),
+    /** Its holder's uses need none of these components (Capability API 1.435): what stops a
+     *  component stops nothing they use without it. 5e's Archdruid, verbal and somatic. */
+    waives: uniqueIds(8).optional(),
+    /** Narrows its `shapeKeeps` and `waives` to actions made from a row of `list` whose `column`
+     *  holds one of `is`, case aside (Capability API 1.437): 5e's "your druid spells", the spells
+     *  list's class column. */
+    rowsWhere: rowsWhereSchema.optional(),
+    /** Nobody within `within` hides from its holder while it holds, as a hiding `aware` (Capability
+     *  API 1.439), narrowed by `of` and `uncovered`: 5e's Divine Sense until the end of its next
+     *  turn, Primeval Awareness for a minute. */
+    aware: awareSchema.optional(),
+    /** Its holder knows whether creatures that are `of` are within `within`, in the ruleset's
+     *  distance, and nothing of where or how many (Capability API 1.444): said as it comes on and as
+     *  each of its holder's turns starts. 5e's Primeval Awareness, a mile or six. */
+    presence: z
+      .object({ within: z.number().finite().gt(0).max(1000000), of: targetIsSchema })
+      .strict()
+      .optional(),
+    /** It comes off as its holder ends a turn having neither made an attack at a foe nor taken damage
+     *  since their last turn ended (Capability API 1.436): 5e's Rage. `unless` keeps it on while a
+     *  value off its holder's sheet stands within its bounds: Persistent Rage from barbarian 15. */
+    endsIdle: z
+      .union([z.literal(true), z.object({ unless: sheetBoundsSchema("unless", "kept on") }).strict()])
+      .optional(),
     /** It comes off the moment whoever applied it goes down. */
     endsWhenSourceDown: z.boolean().optional(),
+    /** Its holder's attacks and effects at whoever applied it, or with `who: "caller"` at the one
+     *  who called that creature, meet at least this cover while the applier stands (Capability API
+     *  1.588): 5e's Arcane Hand's Interposing Hand, `{ "tier": "half", "who": "caller" }` on the
+     *  creature it stands in front of. Needs `combat.cover`. */
+    coverFor: z
+      .object({ tier: z.enum(["half", "three-quarters"]), who: z.enum(["source", "caller"]).optional() })
+      .strict()
+      .optional(),
+    /** Other conditions it counts as (Capability API 1.585): an immunity to one keeps it off, what
+     *  holds one off holds it off, a save against one is a save against it, and what ends one ends
+     *  it. 5e's Enthrall and Geas, `["charmed"]`. */
+    countsAs: z.array(sheetId).min(1).max(4).optional(),
+    /** Other conditions put on with it (Capability API 1.765), each lasting as it does when nothing
+     *  says how long: until what ends it on its own, such as standing up for prone. They stay when this
+     *  one comes off. 5e's unconscious, `["prone"]`. */
+    alsoApplies: z.array(sheetId).min(1).max(4).optional(),
+    /** It comes off once whoever applied it does one of `effects` or holds one of `conditions`, is
+     *  stopped from using one of `components`, or its holder lacks one of `holderLacks` (Capability API
+     *  1.584): 5e's Enthrall, which ends if its caster is incapacitated or can no longer speak, and
+     *  holds only those who can hear them: `{ "effects": ["cannot-act"], "components": ["verbal"],
+     *  "holderLacks": ["hearing"] }`. */
+    endsWhenSource: z
+      .object({
+        effects: z.array(combatConditionEffectSchema).min(1).max(12).optional(),
+        conditions: z.array(sheetId).min(1).max(12).optional(),
+        components: z.array(sheetId).min(1).max(6).optional(),
+        holderLacks: z.array(sheetId).min(1).max(4).optional(),
+        /** Or once whoever applied it takes another action (Capability API 1.599), anything but a
+         *  move, a reaction or ending their turn: 5e's Arcane Hand's Interposing Hand, "until you give
+         *  the hand a different command". What that action puts on goes on afresh. */
+        acts: z.literal(true).optional(),
+        /** Or once whoever applied it holds none of these conditions (Capability API 1.617): a swarm
+         *  swayed by the Pipes of the Sewers, only while its piper still plays, `["piping"]`. */
+        lacks: uniqueIds(8).optional(),
+      })
+      .strict()
+      .refine(
+        (rule) => rule.effects || rule.conditions || rule.components || rule.holderLacks || rule.acts || rule.lacks,
+        { message: 'Say what ends it: "effects", "conditions", "components", "holderLacks", "acts" or "lacks"' },
+      )
+      .optional(),
     /** What ends this condition (Capability API 1.125): any damage, or harm from whoever applied
      *  it or their side. Source-side harm finishes resolving before the condition ends. Or
      *  (Capability API 1.278) an attack roll at its holder, from anybody, or harm to one of its
-     *  holder's friends that its holder sees: 5e's Calm Emotions. Those too wait for the step. */
+     *  holder's friends that its holder sees: 5e's Calm Emotions. Those too wait for the step. Or
+     *  (Capability API 1.684) its holder regaining health, `healed` (caltrops' slowed walk), or
+     *  regaining it from magic, `healed-by-magic` (an Infernal Wound). */
     endsWhen: z
-      .array(z.enum(["damaged", "harmed-by-source-side", "attacked", "ally-harmed-in-sight"]))
+      .array(
+        z.enum(["damaged", "harmed-by-source-side", "attacked", "ally-harmed-in-sight", "healed", "healed-by-magic"]),
+      )
       .min(1)
-      .max(4)
+      .max(6)
       .refine((entries) => new Set(entries).size === entries.length, { message: "Condition endings must be unique" })
       .optional(),
     /** Harm from anything cast out of these catalogs ends it, from anybody (Capability API 1.278),
@@ -8924,8 +15024,12 @@ const combatConditionSchema = z
      *  waits for the step, as source-side harm does. */
     endsWhenHarmedFrom: uniqueIds(8).optional(),
     /** Damage above zero repeats the applies' saveEnds with its stored DC (Capability API 1.125).
-     *  A holder with no saveEnds or DC has nothing to roll. */
-    saveWhenDamaged: z.literal(true).optional(),
+     *  A holder with no saveEnds or DC has nothing to roll. From Capability API 1.712 it may say
+     *  how that save leans, `{"lean": "advantage"}`: 5e's Hideous Laughter, saved against at the end
+     *  of each turn and, with advantage, each time it takes damage. */
+    saveWhenDamaged: z
+      .union([z.literal(true), z.object({ lean: z.enum(["advantage", "disadvantage"]) }).strict()])
+      .optional(),
     /** Another combatant on the holder's side can spend this budget on their turn to end it
      *  (Capability API 1.125). Reach is in the ruleset's unit; omitted, it is one cell. `self`: its
      *  holder may too (Capability API 1.320), with no check: the showcase's Seed Hopper, torn free
@@ -8953,27 +15057,94 @@ const combatConditionSchema = z
      *  to pick them up, and then they go wherever their bearer goes until put down. `brokenBy` are
      *  the entries that may still be aimed at them, and end it instead of doing what they do:
      *  Disintegrate. */
-    sealed: z
-      .object({
-        rolls: z
-          .object({ budget: sheetId, share: z.number().finite().gt(0).max(1) })
-          .strict()
-          .optional(),
-        lifted: z.object({ budget: sheetId }).strict().optional(),
-        brokenBy: z.array(catalogEntryRef).min(1).max(8).optional(),
-      })
-      .strict()
+    sealed: conditionSealedSchema.optional(),
+    /** Its holder is held out of time while it holds (Capability API 1.647): 5e's Sequester. They take
+     *  no turns, so they make no death saves and nothing on their own turns harms them or counts down,
+     *  and what others put on them that runs on those others' turns stops as well: every condition but
+     *  this one keeps its rounds, and no harm or save of any comes. This one still runs on its own
+     *  clock where that is its source's, and ends as it says (`endsWhen: ["damaged"]`, a dispel). Pair it with
+     *  `unseen` for the invisibility the spell gives. */
+    stasis: z.literal(true).optional(),
+    /** What its holder understands while it holds (Capability API 1.648), whatever they speak:
+     *  `none`, nothing (5e's Feeblemind: no one understands them either), or `all`, every language
+     *  (Tongues: they understand any, and any creature that knows one understands them). `none` wins
+     *  over `all`. Read where an action needs its target to understand its user (`understands`).
+     *  `understands` (Capability API 1.734): every language is understood by its holder, who is
+     *  understood by nobody the more for it: 5e's Comprehend Languages. `all` wins over it. */
+    languages: z.enum(["none", "all", "understands"]).optional(),
+    /** Its holder cannot breathe while it holds (Capability API 1.651), wherever they are: they hold
+     *  their breath and then choke as `combat.underwater.breath` says, out of the water as in it,
+     *  unless that breath's `exempt` spares them. 5e's Dust of Sneezing and Choking. */
+    suffocates: z.literal(true).optional(),
+    /** Its save to end it is not rolled while its holder holds any of these (Capability API 1.651):
+     *  Dust of Sneezing and Choking's "as long as it is conscious", `["unconscious"]`. */
+    savesUnless: z
+      .array(sheetId)
+      .min(1)
+      .max(8)
+      .refine((ids) => new Set(ids).size === ids.length, { message: "Each condition is named once" })
       .optional(),
     /** Catalog entries its holder may use while it holds (Capability API 1.236), paying nothing for
      *  them but the budget each spends, with their own numbers as their spells': 5e's Dispel Evil and
-     *  Good, whose caster may Break Enchantment or Dismiss. */
-    actions: z.array(catalogEntryRef).min(1).max(6).optional(),
+     *  Good, whose caster may Break Enchantment or Dismiss. An entry may instead be written
+     *  `{ "entry": ref, "saveDifficulty"?: n, "toHit"?: n }` (Capability API 1.634), used at those
+     *  numbers whatever its holder's own: a Potion of Animal Friendship's spell at save DC 13. */
+    actions: z
+      .array(
+        z.union([
+          catalogEntryRef,
+          z
+            .object({
+              entry: catalogEntryRef,
+              saveDifficulty: z.number().int().min(0).max(1000).optional(),
+              toHit: z.number().int().min(-100).max(1000).optional(),
+            })
+            .strict(),
+        ]),
+      )
+      .min(1)
+      .max(6)
+      .optional(),
+    /** Its holder may take it off at will, paying 1 of `budget` (Capability API 1.622): offered as
+     *  "End" with its label while they hold it. 5e's Ring of Invisibility, "until you use a bonus
+     *  action to become visible again", and the Potion of Gaseous Form. */
+    endable: z.object({ budget: sheetId }).strict().optional(),
     /** Its holder is never surprised (Capability API 1.237): 5e's Foresight. Read as the fight
      *  begins. */
     cannotBeSurprised: z.literal(true).optional(),
+    /** It may be struck at as a thing of its own and cut away (Capability API 1.531): an attack
+     *  aimed at it rolls against `defense`, and once `health` of damage of `damageTypes` (any, when
+     *  left out) has reached it, it ends on its holder. 5e's net, "dealing 5 slashing damage to the
+     *  net (AC 10) also frees the creature": `{ "defense": 10, "health": 5, "damageTypes":
+     *  ["slashing"] }`. */
+    cutFree: z
+      .object({
+        defense: z.number().int().min(0).max(100),
+        health: z.number().int().min(1).max(1000),
+        damageTypes: z.array(promptSafeText(40)).min(1).max(8).optional(),
+      })
+      .strict()
+      .optional(),
+    /** Damage taken stops it working until its holder's next turn starts (Capability API 1.514),
+     *  ended or not: 5e's Cloak of Displacement. */
+    suppressedWhenHarmed: z.literal("until-own-turn-start").optional(),
+    /** What its holder is warded from, as a zone's `wards` keeps it off whoever stands inside
+     *  (Capability API 1.520): entries of these catalogs at this level or lower never reach them,
+     *  from anybody but themselves. 5e's rakshasa, kept on with `keepsOn`: Limited Magic Immunity,
+     *  `{ "catalogs": ["spells"], "maxLevel": 6 }`. */
+    wards: zoneWardsSchema.optional(),
+    /** An entry of these catalogs at this level or lower, used by a foe with its holder as its only
+     *  target, is taken in and does nothing (Capability API 1.522). On an item's `worn` it may spend
+     *  or gain the item's charges. */
+    absorbs: absorbsSchema.optional(),
+    /** An entry of these catalogs at this level or lower, used by a foe with its holder as its only
+     *  target, whose save its holder throws the top face on, does nothing to them and is turned back
+     *  at its user, its numbers as they were (Capability API 1.523). */
+    turns: turnsSchema.optional(),
     /** Its holder takes no falling damage and is not left prone by a fall (Capability API 1.124):
-     *  5e's Feather Fall. */
-    fallsSafely: z.literal(true).optional(),
+     *  5e's Feather Fall. Or only by a fall no higher than `upTo`, while they hold none of `unless`
+     *  (Capability API 1.650): Cat's Grace. */
+    fallsSafely: fallsSafelySchema.optional(),
     /**
      * The action economy while it holds (Capability API 1.76, combat C6d), as Haste and Slow change it:
      * - `budgets`: how many of a turn budget its holder gets, more or fewer, never below none;
@@ -8990,37 +15161,66 @@ const combatConditionSchema = z
       .min(1)
       .max(4)
       .optional(),
-    grants: z
-      .object({
-        budget: sheetId,
-        standard: z.array(combatStandardActionSchema).min(1).max(7).optional(),
-        attacks: z.literal(true).optional(),
-        /** Any item's use, or only the use of an item with one of these tags (5e's Use an Object is a
-         *  mundane item's, never a magic item's activation). */
-        items: z.union([z.literal(true), z.object({ tags: z.array(sheetId).min(1).max(8) }).strict()]).optional(),
-        /** With `attacks`, only a weapon that strikes in reach, and only within it (Capability API
-         *  1.239): 5e's Frenzy, a melee weapon attack as a bonus action. A thrown weapon is swung. */
-        melee: z.literal(true).optional(),
-        /** With `attacks`, only the attacks named so (Capability API 1.242). */
-        names: attackNamesSchema.optional(),
-        /** With `attacks`, only once the attack action has been taken this turn (Capability API 1.242). */
-        afterAttack: afterAttackSchema.optional(),
-      })
-      .strict()
-      .refine((grants) => !grants.melee || grants.attacks, {
-        message: '"melee" narrows "attacks", so the grant gives attacks',
-        path: ["melee"],
-      })
-      .refine((grants) => (!grants.names && !grants.afterAttack) || grants.attacks, {
-        message: '"names" and "afterAttack" narrow "attacks", so the grant gives attacks',
-        path: ["names"],
-      })
-      .optional(),
+    grants: conditionGrantsSchema.optional(),
     exclusive: z.tuple([sheetId, sheetId]).optional(),
     attacksPerTurn: z.number().int().min(0).max(10).optional(),
     /** Damage its holder takes as each of their turns starts or ends (Capability API 1.189), from
      *  whoever put it on: a sword of wounding's 1d4 necrotic, before the save that ends it. */
     harms: conditionHarmsSchema.optional(),
+    /** Its holder is inside whoever put it on (Capability API 1.403), off the ground and carried
+     *  along wherever they go, until it ends and they are set down beside them: a gelatinous cube's
+     *  engulfed. */
+    inside: conditionInsideSchema.optional(),
+    /** Whoever put it on hangs on to its holder (Capability API 1.676): carried along beside them
+     *  wherever they walk or are pushed, attacking nobody (`"sourceAttacks": "none"`, a stirge) or
+     *  nobody else (`"holder"`, a cloaker or darkmantle), and let go once its `harms` have dealt
+     *  `endsAfterHarm` in all (a stirge's 10). Walking off ends it where it also says `endsAway`, and
+     *  anybody's action where its applies say `checkEnds` with `"by": "any"`. */
+    attaches: conditionAttachesSchema.optional(),
+    /** Its holder takes this share of the damage dealt to whoever put it on, and they take only the
+     *  rest, rounded down, while it holds (Capability API 1.407): a rug of smothering's Damage
+     *  Transfer, `{"share": 0.5}` on what its Smother puts on. Read after their resistances; the
+     *  share is then read against the holder's own. */
+    takesSourceHarm: z
+      .object({ share: z.number().gt(0).lt(1) })
+      .strict()
+      .optional(),
+    /** Whoever put it on takes the same damage its holder is dealt, after the holder's own
+     *  resistances, and then their own (Capability API 1.409): 5e's Warding Bond, "each time it takes
+     *  damage, you take the same amount of damage". Damage passed on this way is never passed on
+     *  again. */
+    copiesHarmToSource: z.literal(true).optional(),
+    /** What its holder regains as each of their own turns starts (Capability API 1.396). */
+    regenerates: regenerationSchema.optional(),
+    /** Left at 1 instead of dropping to 0 while it holds (Capability API 1.400): Relentless Rage. */
+    hangsOn: hangsOnSchema.optional(),
+    /** A face of the fight's own dice its holder rolls again while it holds (Capability API 1.408).
+     *  See `rerollsFaceSchema`. */
+    rerollsFace: rerollsFaceSchema.optional(),
+    /** Temporary points as a foe its holder harmed last drops, while it holds (Capability API
+     *  1.412). See `fellsGrantSchema`. */
+    fellsGrant: fellsGrantSchema.optional(),
+    /** Held off while its holder has any of these (Capability API 1.417): a condition by its id, or
+     *  what a condition does by its effect, so `"cannot-act"` is incapacitated by anything. 5e's
+     *  Danger Sense, `["blinded", "deafened", "cannot-act"]`. */
+    notWhile: z
+      .array(z.union([sheetId, combatConditionEffectSchema]))
+      .min(1)
+      .max(12)
+      .optional(),
+    /** Its save effects count only on a save against something its holder can see, and a save with
+     *  no source at all (Capability API 1.417): Danger Sense's "effects that you can see". And its
+     *  `attacks-against-disadvantage` only on an attack by somebody who can see its holder
+     *  (Capability API 1.655): a Robe of Scintillating Colors' "creatures that can see you". */
+    whenSeen: z.literal(true).optional(),
+    checkFloor: checkFloorSchema.optional(),
+    /** Once on each of its holder's turns, after a weapon attack at one creature, the same weapon may
+     *  strike another within `within` of it, for nothing (Capability API 1.428): 5e's Horde
+     *  Breaker. */
+    strikesAgain: z
+      .object({ within: z.number().finite().gt(0).max(10000) })
+      .strict()
+      .optional(),
     /** Temporary points its holder gains as each of their turns starts or ends (Capability API
      *  1.274), lost as it ends where it says so: 5e's Heroism. */
     temporary: conditionTemporarySchema.optional(),
@@ -9076,6 +15276,9 @@ const combatConditionSchema = z
     /** What it makes its holder do with their turn (Capability API 1.264): what the turn may hold,
      *  which way they walk from whoever put it on, or a table rolled as the turn starts. */
     behavior: conditionBehaviorSchema.optional(),
+    /** It ends as its holder is back at their full health (Capability API 1.543): Berserk's "until
+     *  the golem is destroyed or regains all its hit points". */
+    endsAtFullHealth: z.literal(true).optional(),
     /** Run out on its clock, it turns into this condition, with no clock of its own (Capability API
      *  1.261): an aboleth's Tentacle disease after its minute. Ended any other way, it does not. A
      *  fight that ends first lets the clock run out. */
@@ -9083,11 +15286,13 @@ const combatConditionSchema = z
     /** It comes off its holder, and off their sheet, once they move (`moves`) or do anything at all,
      *  reactions included (`acts`), however it was put on (Capability API 1.311): a ranger's
      *  camouflage for Hide in Plain Sight, made before the fight, gone on the first step. */
-    endsWhenHolder: z
-      .object({ moves: z.literal(true).optional(), acts: z.literal(true).optional() })
-      .strict()
-      .refine((ends) => ends.moves || ends.acts, { message: 'Say what ends it: "moves", "acts" or both' })
-      .optional(),
+    endsWhenHolder: conditionEndsWhenHolderSchema.optional(),
+    /** Whoever aims an attack or a harmful entry at its holder, an area aside, first makes this save
+     *  (Capability API 1.423): failed, it goes to the nearest other creature it could be aimed at,
+     *  or is lost. Its difficulty is the one it was put on with, else `difficulty` off its holder's
+     *  sheet; `from` keeps it to attackers that are so, and `immuneOnSave` leaves one that saved
+     *  free of it for the rest of the fight. 5e's Sanctuary, Tranquility, Nature's Sanctuary. */
+    sanctuary: conditionSanctuarySchema.optional(),
     /** Only a cure from one of these catalogs, at this level or higher as it is paid, ends it
      *  (Capability API 1.261): the aboleth's later disease, only by a 6th-level spell. */
     curedOnlyBy: z
@@ -9097,6 +15302,25 @@ const combatConditionSchema = z
     /** What it leaves behind is on a clock of its holder's turns: nothing rolls a save against it (it
      *  has no difficulty) and an instant one would never come off. */
     onEnd: conditionOnEndSchema.optional(),
+    /** The damage it deals itself (its `harms`, and what a save made as days pass harms on a
+     *  failure) cannot be healed while it holds (Capability API 1.750): it lowers its
+     *  holder's health maximum, given back as it ends. 5e's Pale tincture, "Until this poison ends,
+     *  the damage the poison deals can't be healed by any means". */
+    keepsDamage: z.literal(true).optional(),
+    /** As its holder first sees another creature (Capability API 1.638), it gives way to what
+     *  `applies` puts on, with that creature its source: the nearest, where they see several at once.
+     *  5e's Philter of Love, "The next time you see a creature within 10 minutes ... you become
+     *  charmed by that creature for 1 hour", a 100-round condition with `onFirstSeen: { "applies":
+     *  { "condition": "charmed", "duration": { "rounds": 600 } } }`. */
+    onFirstSeen: z
+      .object({
+        applies: catalogAppliesSchema.refine((applied) => typeof applied.duration === "object", {
+          message: "What it gives way to lasts some rounds",
+          path: ["duration"],
+        }),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((entry, ctx) => {
@@ -9107,6 +15331,13 @@ const combatConditionSchema = z
         code: z.ZodIssueCode.custom,
         path: ["suppresses"],
         message: "A condition holds off others, not itself",
+      });
+    }
+    if (entry.attaches?.endsAfterHarm !== undefined && !entry.harms) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["attaches", "endsAfterHarm"],
+        message: '"endsAfterHarm" counts what the condition\'s "harms" deal, so it harms',
       });
     }
     if (entry.orSourceWithin !== undefined && entry.whileSourceInSight === undefined) {
@@ -9131,6 +15362,20 @@ const combatConditionSchema = z
         code: z.ZodIssueCode.custom,
         path: ["stacks"],
         message: "Stacks multiply what a condition harms with, so it names harms",
+      });
+    }
+    // A command broken at a cost (1.644) commands something.
+    if (
+      entry.harms?.at === "defies" &&
+      !entry.forbids &&
+      !entry.behavior &&
+      !entry.effects.some((effect) => (RULESET_DEFIABLE_EFFECTS as readonly string[]).includes(effect))
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["harms", "at"],
+        message:
+          'A command its holder may break says what it commands: "forbids", "behavior", "cannot-harm" or "cannot-approach-source"',
       });
     }
   });
@@ -9199,7 +15444,7 @@ export const rulesetContextualSchema = z
   });
 export type RulesetContextual = z.infer<typeof rulesetContextualSchema>;
 
-export const rulesetItemEffectSchema = z
+const rulesetItemEffectObjectSchema = z
   .object({
     effects: z.array(itemEffectSchema).min(1).max(6).optional(),
     modifiers: z.array(combatModifierSchema).min(1).max(6).optional(),
@@ -9223,9 +15468,117 @@ export const rulesetItemEffectSchema = z
     /** It gives away whoever moves unseen this near its holder (Capability API 1.319), in the
      *  ruleset's distance: the showcase's Wind-Chime, `15`. */
     alerts: z.number().finite().gt(0).max(10000).optional(),
+    /** Attacks at others near its holder are made at its holder instead (Capability API 1.658): the
+     *  Shield of Missile Attraction's curse. */
+    drawsAim: drawsAimSchema.optional(),
+    /** Its holder takes no falling damage and is not left prone by a fall (Capability API 1.477):
+     *  5e's Ring of Feather Falling. Or only some falls, as a condition's (Capability API 1.650). */
+    fallsSafely: fallsSafelySchema.optional(),
+    /** Conditions on its holder it holds off, not ends (Capability API 1.477): what they do stops and
+     *  their clocks run on, and they hold again once it is taken off. 5e's Periapt of Health, with
+     *  the same diseases in `conditionImmunities` so no new one is caught. It may name a kind of
+     *  condition (Capability API 1.484), every condition of that kind held off: `["disease"]`. */
+    suppresses: uniqueIds(12).optional(),
+    /** Hard going costs its holder no more than plain ground, as a condition's (Capability API
+     *  1.489): 5e's Ring of Free Action. */
+    ignoresHardGround: z.literal(true).optional(),
+    /** Conditions kept off by who or what would put them on, as a condition's (Capability API
+     *  1.486): a Ring of Freedom of Movement, no paralysis or restraint from a spell. */
+    conditionImmunitiesFrom: conditionImmunitiesFromSchema.optional(),
+    /** What entries of these catalogs put on its holder does not lower their speed, as a
+     *  condition's (Capability API 1.486). */
+    speedKeptFrom: speedKeptFromSchema.optional(),
+    /** Conditions its holder may slip free of for some of their walk, as a condition's (Capability
+     *  API 1.486). */
+    slipsFree: slipsFreeSchema.optional(),
+    /** Its holder jumps further, as a condition's `jumps` (Capability API 1.513): 5e's Boots of
+     *  Striding and Springing, `{ "times": 3 }`. */
+    jumps: conditionJumpsSchema.optional(),
+    /** The sheet's own conditions on its holder for as long as this applies (Capability API 1.513),
+     *  never written to the sheet: 5e's Ioun Stone of Awareness, Ring of Water Walking, Cloak of
+     *  Displacement, each a condition that does what the item says. A line may be `{ "condition":
+     *  id, "when": valueRef }` (Capability API 1.653), kept on only while that reads above zero off
+     *  the wearer's sheet: a Holy Avenger's 30-foot aura for a paladin of level 17 or higher. */
+    keepsOn: keptOnSchema.optional(),
+    /** Parts of this effect that hold only while something of the item is left (Capability API
+     *  1.732): its `keys`, while it has `charges` left, or while its further use of that label
+     *  (`uses`, one counting its own uses, 1.519) has any. 5e's Helm of Brilliance, `[{"keys":
+     *  ["resist"], "uses": "Wall of Fire"}, {"keys": ["keepsOn"], "charges": true}]`: fire resistance
+     *  while a ruby is left, the undead-burning light while a diamond is. */
+    whileLeft: z
+      .array(
+        z
+          .object({
+            keys: z.array(z.string().trim().min(1).max(40)).min(1).max(8),
+            charges: z.literal(true).optional(),
+            uses: promptSafeText(40).optional(),
+          })
+          .strict()
+          .refine((line) => (line.charges === true) !== (line.uses !== undefined), {
+            message: 'A "whileLeft" line holds while the item\'s "charges" or one of its "uses" last, one of them',
+          }),
+      )
+      .min(1)
+      .max(4)
+      .optional(),
+    /** A foe's entry aimed at its holder alone, taken in (Capability API 1.522): 5e's Rod of
+     *  Absorption, `{ "catalogs": ["spells"], "maxLevel": 9, "charges": "gains" }`, and Ioun Stone of
+     *  Absorption, `{ "catalogs": ["spells"], "maxLevel": 4, "charges": "spends" }`. */
+    absorbs: absorbsSchema.optional(),
+    /** A foe's entry aimed at its holder alone, turned back at its user on the save's top face
+     *  (Capability API 1.523): 5e's Ring of Spell Turning, `{ "catalogs": ["spells"], "maxLevel": 7 }`. */
+    turns: turnsSchema.optional(),
+    /** Its charges pay for a use of this pool group, a charge a level (Capability API 1.572): 5e's
+     *  Rod of Absorption, `"slots"`, a spell cast from what it took in rather than a slot of its
+     *  holder's own. Worn only, and only on an item with charges. Only pools its holder has some of
+     *  (Capability API 1.590), none past `paysSlotsMax`: the Rod's "a level equal to or lower than
+     *  your own spell slots, up to a maximum of 5th level", `"slots_5"`. */
+    paysSlots: sheetId.optional(),
+    /** The highest pool of `paysSlots`' group its charges pay for (Capability API 1.590). */
+    paysSlotsMax: sheetId.optional(),
+    /** Creatures made from these bestiary entries never aim at its wearer (Capability API 1.619),
+     *  with `untilHarmed` only until the wearer attacks, harms or forces a save on that one: 5e's
+     *  Pipes of the Sewers, "ordinary rats and giant rats are indifferent toward you and will not
+     *  attack you unless you threaten or harm them". */
+    ignoredBy: z
+      .object({
+        entries: z
+          .array(catalogEntryRef)
+          .min(1)
+          .max(12)
+          .refine((refs) => new Set(refs).size === refs.length, { message: "An entry is named once" }),
+        untilHarmed: z.literal(true).optional(),
+      })
+      .strict()
+      .optional(),
+    /** Added to its holder's proficiency bonus (Capability API 1.639), and so to everything that reads
+     *  it: 5e's Ioun Stone of Mastery, `1`. */
+    proficiencyBonus: z
+      .number()
+      .int()
+      .min(-6)
+      .max(6)
+      .refine((value) => value !== 0, "Adding 0 changes nothing")
+      .optional(),
+    /** Worn by its holder's mount instead (Capability API 1.717): what it `keepsOn` goes on the
+     *  creature its holder rides, for as long as they ride it, and nothing of it on its holder. 5e's
+     *  Horseshoes of Speed, a condition giving the horse 30 more feet of walking speed. Only with
+     *  `keepsOn`, and nothing else. */
+    wornBy: z.literal("mount").optional(),
   })
   .strict()
   .superRefine((entry, ctx) => {
+    if (entry.wornBy !== undefined) {
+      const others = Object.keys(entry).filter((key) => key !== "wornBy" && key !== "keepsOn");
+      if (!entry.keepsOn || others.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["wornBy"],
+          message: 'What a mount wears keeps conditions on it: "wornBy" goes with "keepsOn" and nothing else',
+        });
+      }
+      return;
+    }
     const abilities = Object.entries(entry.abilities ?? {});
     const hide = entry.resist ?? entry.vulnerable ?? entry.immune ?? entry.conditionImmunities;
     if (
@@ -9236,13 +15589,27 @@ export const rulesetItemEffectSchema = z
       !hide &&
       !entry.senses &&
       !entry.light &&
-      !entry.alerts
+      !entry.alerts &&
+      !entry.drawsAim &&
+      !entry.fallsSafely &&
+      !entry.suppresses &&
+      !entry.conditionImmunitiesFrom &&
+      !entry.speedKeptFrom &&
+      !entry.slipsFree &&
+      !entry.ignoresHardGround &&
+      !entry.jumps &&
+      !entry.keepsOn &&
+      !entry.absorbs &&
+      !entry.turns &&
+      !entry.paysSlots &&
+      !entry.ignoredBy &&
+      !entry.proficiencyBonus
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["effects"],
         message:
-          "An item's effect does something: effects, modifiers, saves it fails, abilities it changes, senses it gives, light it sheds, movers it gives away, or harm or conditions it keeps off",
+          "An item's effect does something: effects, modifiers, saves it fails, abilities it changes, senses it gives, light it sheds, movers it gives away, a fall it softens, harm or conditions it keeps or holds off, a walk it keeps or slips free with, a jump it lengthens, conditions it keeps on, what it takes in or turns back, what its charges pay for, who leaves its wearer alone, attacks it draws, or its holder's proficiency bonus",
       });
     }
     if (abilities.length > 12) {
@@ -9264,7 +15631,10 @@ export const rulesetItemEffectSchema = z
     savesNeedSomethingToNarrow(entry, ctx);
     skillsNeedSomethingToNarrow(entry, ctx);
   });
-export type RulesetItemEffect = z.infer<typeof rulesetItemEffectSchema>;
+/** An item's effect, named as an interface so the ruleset's own inferred type stays short enough for
+ *  the compiler to emit (1.522). */
+export interface RulesetItemEffect extends z.infer<typeof rulesetItemEffectObjectSchema> {}
+export const rulesetItemEffectSchema: z.ZodType<RulesetItemEffect, unknown> = rulesetItemEffectObjectSchema;
 
 /** Something an item asks of whoever wears it: a value off their sheet, the least it may be, and what
  *  applies while it falls short. What applies cannot change an ability, since the value may read one. */
@@ -9320,6 +15690,21 @@ const combatContestBaseSchema = z
     targetHolds: sheetId.optional(),
     /** Offered only on a target that is dying and not yet stable (Capability API 1.193). */
     targetDying: z.literal(true).optional(),
+    /** With `targetHolds`, offered only where the actor put that condition on the target (Capability
+     *  API 1.553): 5e's Grappler's pin, on "a creature grappled by you". */
+    targetHeldBySelf: z.literal(true).optional(),
+    /** Offered only to an actor holding every one of these conditions (Capability API 1.578): the
+     *  Grappler feat's pin, offered to whoever has the feat's `keepsOn` condition. */
+    actorHolds: z.array(sheetId).min(1).max(4).optional(),
+    /** The actor rolls with advantage against a target no bigger than this size of `combat.sizes`
+     *  (Capability API 1.587): Arcane Hand's Forceful Hand, against a Medium or smaller creature. */
+    advantageAtMostSize: sheetId.optional(),
+    /** Pulls the one `targetHolds` keeps inside another creature out (Capability API 1.407): it
+     *  reaches through the holder's body to them, measured to the holder, and is rolled against the
+     *  escape DC that hold names, else `difficulty`. Whoever tries takes the hold's `harmsPuller`,
+     *  win or lose. 5e's "a creature within 5 feet of the cube can take an action to pull a creature
+     *  or object out of the cube", with `onWin.ends` taking off what holds them inside. */
+    pulls: z.literal(true).optional(),
     /** Who takes a tie. */
     ties: z.enum(["defender", "attacker"]).default("defender"),
     /** Aimed only at whoever put this condition on the actor, and offered only while it holds: how
@@ -9356,18 +15741,51 @@ const combatContestBaseSchema = z
         /** How far the loser is pushed straight away from the winner, in the ruleset's own distance
          *  unit. Only a fight on a board moves anybody. */
         push: z.number().finite().gt(0).max(10000).optional(),
+        /** Added to `push`, read off the actor's sheet, or its caller's for a creature called with
+         *  none of its own (Capability API 1.587), in the ruleset's own distance: Arcane Hand's
+         *  Forceful Hand, 5 feet plus five times its caster's spellcasting modifier. */
+        pushRead: rulesetValueRefSchema.optional(),
+        /** The winner moves with the one it pushed, into the last cell they left, to stay beside them
+         *  (Capability API 1.598): Forceful Hand's "moves with the target to remain within 5 feet of
+         *  it". Drawing no strikes; nothing moves where there is no room. */
+        follows: z.literal(true).optional(),
         /** The target, if dying, is stable (Capability API 1.193). */
         stabilizes: z.literal(true).optional(),
+        /** Conditions on the loser and the winner alike (Capability API 1.553), each lasting while the
+         *  target holds `whileTargetHolds`: 5e's Grappler's pin, "you and the creature are both
+         *  restrained until the grapple ends", `{"applies": ["restrained"], "whileTargetHolds":
+         *  "grappled"}`. */
+        both: z
+          .object({ applies: z.array(sheetId).min(1).max(4), whileTargetHolds: sheetId })
+          .strict()
+          .optional(),
       })
       .strict()
-      .refine((onWin) => !!(onWin.applies || onWin.ends || onWin.push || onWin.stabilizes), {
-        message: "A contest's onWin applies, ends, pushes or stabilizes something",
-      }),
+      .refine(
+        (onWin) => !!(onWin.applies || onWin.ends || onWin.push || onWin.pushRead || onWin.stabilizes || onWin.both),
+        {
+          message: "A contest's onWin applies, ends, pushes or stabilizes something",
+        },
+      ),
   })
   .strict()
-  .refine((contest) => (contest.defender === undefined) !== (contest.difficulty === undefined), {
-    message: 'A contest is rolled against a "defender" or a fixed "difficulty": one of them',
-    path: ["difficulty"],
+  .refine(
+    (contest) =>
+      contest.pulls
+        ? contest.defender === undefined
+        : (contest.defender === undefined) !== (contest.difficulty === undefined),
+    {
+      message: 'A contest is rolled against a "defender" or a fixed "difficulty": one of them',
+      path: ["difficulty"],
+    },
+  )
+  .refine((contest) => !contest.targetHeldBySelf || contest.targetHolds !== undefined, {
+    message: 'A contest on a target "held by self" names what they hold in "targetHolds"',
+    path: ["targetHeldBySelf"],
+  })
+  .refine((contest) => !contest.pulls || (contest.targetHolds !== undefined && contest.from === undefined), {
+    message: 'A contest that "pulls" names the hold it pulls out of in "targetHolds", and breaks no hold "from"',
+    path: ["pulls"],
   });
 
 /** Named, so the whole definition's inferred type stays short enough for the compiler to write. */
@@ -9381,6 +15799,8 @@ export interface RulesetCombatSizes {
   order: Array<{ id: string; label: string; cells?: number }>;
   sheet?: RulesetValueRef;
   default?: string;
+  passing?: { apart?: number; crowded?: number };
+  squeezing?: { costs: number; condition?: string };
 }
 const combatSizesSchema: z.ZodType<RulesetCombatSizes, unknown> = z
   .object({
@@ -9400,6 +15820,225 @@ const combatSizesSchema: z.ZodType<RulesetCombatSizes, unknown> = z
       .max(10),
     sheet: rulesetValueRefSchema.optional(),
     default: sheetId.optional(),
+    /** Walking through other creatures (Capability API 1.495): a foe whose size is at least `apart`
+     *  steps from the mover's own may be walked through, 5e's 2; and a cell another creature fills
+     *  costs as ground hard going `crowded` times over, 5e's 2. Nobody stops in another's space. */
+    passing: z
+      .object({
+        apart: z.number().int().min(1).max(9).optional(),
+        crowded: z.number().int().min(2).max(4).optional(),
+      })
+      .strict()
+      .refine((passing) => passing.apart !== undefined || passing.crowded !== undefined, {
+        message: "passing says how far apart in size a foe may be walked through, or what a crowded cell costs",
+      })
+      .optional(),
+    /** Squeezing (Capability API 1.681): somebody whose whole space does not fit between walls moves
+     *  through as the size below their own, each step costing `costs` times over, and holds
+     *  `condition` while they stand squeezed. 5e's `{"costs": 2, "condition": "squeezed"}`, its
+     *  condition giving disadvantage on attacks and Dexterity saves and advantage to attacks at them. */
+    squeezing: z
+      .object({ costs: z.number().int().min(1).max(4), condition: sheetId.optional() })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+/** Mounted combat (Capability API 1.496): a combatant mounts a willing creature of its side beside it,
+ *  at least `larger` sizes bigger than itself, for half its speed, and dismounts the same way. The
+ *  rider goes where the mount goes. A mount with no sheet is controlled when `controlled` is given,
+ *  unless its block says `mountIndependent`: it acts on its rider's initiative, moving and taking only
+ *  the standard actions named. `fall`: while the mount holds a condition of `when` or is pushed, its
+ *  rider throws `save` against `difficulty` or comes off with `applies` on; one in `when` on the rider
+ *  brings them off too. */
+export interface RulesetCombatMounts {
+  larger: number;
+  weights?: { bySize: Record<string, number>; sheet?: RulesetValueRef };
+  controlled?: { standard: Array<z.infer<typeof combatStandardActionSchema>> };
+  fall?: { save: string; difficulty: number; applies?: string; when?: string[]; landsWith?: string };
+}
+const combatMountsSchema: z.ZodType<RulesetCombatMounts, unknown> = z
+  .object({
+    larger: z.number().int().min(1).max(9),
+    /** What a rider weighs, for a mount that carries by weight (Capability API 1.641): read off their
+     *  sheet by `sheet` where it gives more than 0, else by their size. 5e's `{ "bySize": { "small":
+     *  60, "medium": 180, "large": 900 } }`, or a derived value of body and gear. */
+    weights: z
+      .object({
+        bySize: z.record(sheetId, z.number().finite().min(0).max(1000000)),
+        sheet: rulesetValueRefSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    controlled: z
+      .object({ standard: z.array(combatStandardActionSchema).max(8) })
+      .strict()
+      .optional(),
+    fall: z
+      .object({
+        save: sheetId,
+        difficulty: z.number().int().min(0).max(100),
+        applies: sheetId.optional(),
+        when: z.array(sheetId).min(1).max(8).optional(),
+        /** A rider whose mount comes to hold a condition of `when` spends one of this budget, while
+         *  they have one, to land on their feet beside it instead of throwing the save (Capability
+         *  API 1.504): 5e's reaction. Being pushed off their mount is still the save. */
+        landsWith: sheetId.optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+/** Hiding for real (Capability API 1.287), as the combat block's `hiding` says. */
+export interface RulesetCombatHiding {
+  stealth: string;
+  perception: string;
+  passive?: number;
+  lightly?: number;
+  noisy?: string[];
+  /** Added to a passive Perception rolled with advantage, and taken off one with disadvantage
+   *  (Capability API 1.290): 5e's 5. Without it a passive reads no mode. */
+  passiveMode?: number;
+}
+const combatHidingSchema: z.ZodType<RulesetCombatHiding, unknown> = z
+  .object({
+    stealth: sheetId,
+    perception: sheetId,
+    passive: z.number().int().min(0).max(100).optional(),
+    lightly: z.number().int().min(0).max(100).optional(),
+    noisy: componentIdsSchema.optional(),
+    passiveMode: z.number().int().min(1).max(20).optional(),
+  })
+  .strict();
+
+/** Fighting under water (Capability API 1.498). Whoever stands on a board tile of `terrain`, not up
+ *  in the air and not a flier with no swim speed, is under water. Their melee attacks take `melee.mode`
+ *  unless they have a swim speed or the weapon is one `unless` names (by name, the attack's label
+ *  holding it as a word, or by quality); their ranged attacks never reach past a weapon's normal range
+ *  (`ranged.pastNormal: "never"`), and take `ranged.mode` within it unless `unless` names the weapon.
+ *  Damage of a type in `resist` is halved on whoever is under water. `breath`: whoever is under water
+ *  and is not `exempt` holds their breath `rounds` of their own turns (plus `perMod.rounds` for each
+ *  point of an ability's modifier, never under `atLeast`), then lasts `then` turns more, and as the
+ *  next one starts drops to 0. Out of the water, their breath comes back. Whoever carries a tag in
+ *  `waterOnly.tags` (Capability API 1.512) breathes only water: they hold their breath the same way
+ *  out of it, and under water it comes back. */
+export interface RulesetUnderwaterBreathSpan {
+  rounds: number;
+  perMod?: { ability: string; rounds: number };
+  atLeast?: number;
+}
+export interface RulesetUnderwaterUnless {
+  names?: string[];
+  qualities?: string[];
+}
+export interface RulesetCombatUnderwater {
+  terrain: string[];
+  melee?: { mode: "advantage" | "disadvantage"; unless?: RulesetUnderwaterUnless };
+  ranged?: { pastNormal?: "never"; mode?: "advantage" | "disadvantage"; unless?: RulesetUnderwaterUnless };
+  resist?: string[];
+  breath?: {
+    holds: RulesetUnderwaterBreathSpan;
+    then: RulesetUnderwaterBreathSpan;
+    exempt?: { conditions?: string[]; tags?: string[] };
+    waterOnly?: { tags: string[] };
+  };
+}
+const underwaterUnlessSchema = z
+  .object({
+    names: z.array(promptSafeText(40)).min(1).max(16).optional(),
+    qualities: z.array(promptSafeText(40)).min(1).max(16).optional(),
+  })
+  .strict();
+const breathSpanSchema = z
+  .object({
+    rounds: z.number().int().min(0).max(10000),
+    perMod: z
+      .object({ ability: sheetId, rounds: z.number().int().min(1).max(100) })
+      .strict()
+      .optional(),
+    atLeast: z.number().int().min(1).max(10000).optional(),
+  })
+  .strict();
+const combatUnderwaterSchema: z.ZodType<RulesetCombatUnderwater, unknown> = z
+  .object({
+    terrain: z.array(promptSafeText(40)).min(1).max(8),
+    melee: z
+      .object({ mode: z.enum(["advantage", "disadvantage"]), unless: underwaterUnlessSchema.optional() })
+      .strict()
+      .optional(),
+    ranged: z
+      .object({
+        pastNormal: z.literal("never").optional(),
+        mode: z.enum(["advantage", "disadvantage"]).optional(),
+        unless: underwaterUnlessSchema.optional(),
+      })
+      .strict()
+      .refine((ranged) => ranged.pastNormal || ranged.mode, {
+        message: "ranged says what under water does to a shot: pastNormal or mode",
+      })
+      .optional(),
+    resist: z.array(promptSafeText(40)).min(1).max(8).optional(),
+    breath: z
+      .object({
+        holds: breathSpanSchema,
+        then: breathSpanSchema,
+        exempt: z
+          .object({
+            conditions: z.array(sheetId).min(1).max(12).optional(),
+            tags: z.array(promptSafeText(40)).min(1).max(12).optional(),
+          })
+          .strict()
+          .optional(),
+        waterOnly: z
+          .object({ tags: z.array(promptSafeText(40)).min(1).max(12) })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .refine((rule) => rule.melee || rule.ranged || rule.resist || rule.breath, {
+    message: "underwater says what being under water does: melee, ranged, resist or breath",
+  });
+
+/** Jumping (Capability API 1.499). A long jump goes `long` far and a high jump clears `high`, each an
+ *  ability's score or modifier plus `plus`, in the ruleset's own distance: 5e's Strength score, and 3
+ *  plus the Strength modifier. Either is that far only with a run-up of `runUp` walked this turn just
+ *  before it; without one, `standing: "half"` halves it. A jump is a move in a straight line, every
+ *  cell of it a cell of movement whatever the ground, over hard going, water and pits and anything no
+ *  higher than the high jump clears, never over a foe. Landing on hard going, whoever jumped makes the
+ *  `hardLanding` check against its difficulty or takes its condition: 5e's DC 10 Acrobatics, prone. */
+export interface RulesetJumpSpan {
+  ability: string;
+  of: "score" | "modifier";
+  plus?: number;
+}
+export interface RulesetCombatJumping {
+  long: RulesetJumpSpan;
+  high: RulesetJumpSpan;
+  runUp: number;
+  standing?: "half";
+  hardLanding?: { check: string; difficulty: number; applies: string };
+}
+const jumpSpanSchema = z
+  .object({
+    ability: sheetId,
+    of: z.enum(["score", "modifier"]),
+    plus: z.number().int().min(-100).max(100).optional(),
+  })
+  .strict();
+const combatJumpingSchema: z.ZodType<RulesetCombatJumping, unknown> = z
+  .object({
+    long: jumpSpanSchema,
+    high: jumpSpanSchema,
+    runUp: z.number().int().min(0).max(1000),
+    standing: z.literal("half").optional(),
+    hardLanding: z
+      .object({ check: sheetId, difficulty: z.number().int().min(1).max(100), applies: sheetId })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -9417,7 +16056,22 @@ const combatConcentrationSchema = z
   .strict();
 
 /** What happens to a character at zero. A ruleset without this block simply has them go down. */
-const combatDyingSchema = z.discriminatedUnion("kind", [
+/** How a combatant down at 0 lives or dies: see the combat block's `dying`. */
+export interface RulesetCombatDyingSaves {
+  kind: "saves";
+  successes: string;
+  failures: string;
+  dice: { count: number; sides: number };
+  succeedAt: number;
+  naturals: { max: "revive-1" | "success" | "none"; min: "two-failures" | "one-failure" | "none" };
+  damageWhileDown: "one-failure" | "two-failures" | "none";
+  criticalWhileDown: "one-failure" | "two-failures" | "none";
+  condition?: string;
+  asSave?: true;
+  instantDeath?: "overflow-at-least-max";
+  knockOut?: { blow: "melee"; label?: string; condition?: string };
+}
+const combatDyingSchema: z.ZodType<RulesetCombatDyingSaves, unknown> = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("saves"),
@@ -9437,6 +16091,22 @@ const combatDyingSchema = z.discriminatedUnion("kind", [
       criticalWhileDown: z.enum(["one-failure", "two-failures", "none"]).default("none"),
       /** The condition a character is in while they are down, when the sheet declares one. */
       condition: sheetId.optional(),
+      /** The dying roll is a save (Capability API 1.500): what changes every save of its holder's,
+       *  narrowed to none, changes it too, its numbers and its advantage alike. 5e's death saving
+       *  throw, which Bless and a paladin's Aura of Protection add to. */
+      asSave: z.literal(true).optional(),
+      /** Massive damage (Capability API 1.709): a blow whose damage left past 0 is at least their
+       *  hit point maximum kills one who would lie dying outright, and so does a blow that much while
+       *  they are down. Only a ward against being slain outright (`hangsOn.outright`) holds. */
+      instantDeath: z.literal("overflow-at-least-max").optional(),
+      /** Knocking out (Capability API 1.720): a fighter may pull their blows (a free switch on their
+       *  turn, `label`, "Knock out" by default), and a melee attack of theirs that drops somebody to 0
+       *  knocks them out instead: out of the fight, stable and alive, in `condition` where it names
+       *  one (and a character in this rule's own `condition` too). */
+      knockOut: z
+        .object({ blow: z.literal("melee"), label: label.optional(), condition: sheetId.optional() })
+        .strict()
+        .optional(),
     })
     .strict(),
 ]);
@@ -9453,6 +16123,53 @@ const combatThreatTierSchema = z
     toHit: z.number().int().min(-20).max(50),
     damagePerRound: z.tuple([z.number().int().min(0).max(10000), z.number().int().min(0).max(10000)]),
     saveDifficulty: z.number().int().min(0).max(100),
+    /** What a creature of this tier counts for against an encounter budget (Capability API 1.803): 5e's
+     *  experience points by challenge rating. */
+    worth: z.number().min(0).max(100000000).optional(),
+  })
+  .strict();
+
+/** How much a fight may hold for the party that meets it (Capability API 1.803). A member's level is
+ *  the sum of the sheet's `level` fields (5e: one per class). `byLevel` gives what one member at a
+ *  level adds at each of `steps`, lowest step first; the fight's opponents' tier `worth`, times the
+ *  `crowd` row their number reaches, should be no more than the party's sum at the step its game's
+ *  difficulty plays at: `forGame`'s, else casual, normal, hard and brutal take the steps in order. A
+ *  party smaller than `smallParty` reads a `crowd` row up, one larger than `largeParty` a row down.
+ *  The Game Master is told the budget, and the Engine brings invented opponents down a rung while a
+ *  fight is over it (one with a boss may reach the next step). SRD 5.2: Low, Moderate and High per
+ *  character, no crowd. */
+const combatThreatBudgetSchema = z
+  .object({
+    level: z.array(sheetId).min(1).max(30),
+    steps: z
+      .array(z.object({ id: sheetId, label }).strict())
+      .min(1)
+      .max(6),
+    byLevel: z
+      .array(
+        z
+          .object({
+            level: z.number().int().min(0).max(1000),
+            worth: z.array(z.number().min(0).max(100000000)).min(1).max(6),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(100)
+      .refine((rows) => rows.every((row, i) => i === 0 || row.level > rows[i - 1]!.level), {
+        message: "Each level is above the one before it",
+      }),
+    crowd: z
+      .array(z.object({ from: z.number().int().min(0).max(1000), times: z.number().min(0).max(100) }).strict())
+      .min(1)
+      .max(20)
+      .refine((rows) => rows.every((row, i) => i === 0 || row.from > rows[i - 1]!.from), {
+        message: "Each row starts above the one before it",
+      })
+      .optional(),
+    smallParty: z.number().int().min(1).max(100).optional(),
+    largeParty: z.number().int().min(1).max(100).optional(),
+    forGame: z.partialRecord(z.enum(["casual", "normal", "hard", "brutal"]), sheetId).optional(),
   })
   .strict();
 
@@ -9676,6 +16393,10 @@ const combatObjectSchema = z
       })
       .strict()
       .optional(),
+    /** How long one round of a fight lasts, in seconds of game time (Capability API 1.612): what a
+     *  called creature's stay past the fight counts for, where an item's wait starts at its
+     *  departure. 5e's 6. */
+    roundSeconds: z.number().int().min(1).max(3600).optional(),
     economy: z
       .object({
         budgets: z.array(combatBudgetSchema).min(1).max(8),
@@ -9715,6 +16436,10 @@ const combatObjectSchema = z
      *  out, every style is offered. A ruleset whose rules need a board (areas, reach, cover) lists
      *  `["tactical"]`. */
     styles: z.array(z.string().regex(GAME_COMBAT_STYLE_ID_PATTERN)).min(1).max(8).optional(),
+    /** Signature actions also bought as a foe's turn starts (Capability API 1.805): a boss may answer
+     *  the hero about to act, as well as between two turns. Left out, they are bought only between
+     *  turns, as 5e's legendary actions are; a lair's actions keep their own count either way. */
+    signatureAtTurnStart: z.boolean().optional(),
     /** What one cell of a board is worth in this system's own distance, and what that distance is
      *  called. Declaring it is what makes a fight positionable at all: without it every fight stays
      *  theatre of the mind, and everything below is refused. */
@@ -9737,7 +16462,9 @@ const combatObjectSchema = z
      * C6a-2): `bonus` is half cover's, and `threeQuarters` the bigger one when the ruleset has it. A
      * target out of sight is total cover and cannot be aimed at, so it needs no number. `saves` names
      * the saves cover helps too, against an action's own save, from where the action comes; `creatures`
-     * makes anybody standing in the way half cover, friend or foe.
+     * makes anybody standing in the way half cover, friend or foe. `groundUnderTarget: false`
+     * (Capability API 1.770) drops the half cover a target has from the ground it stands on (a forest,
+     * ruins), leaving only what stands between: 5e's cover is what is in the way, not underfoot.
      */
     cover: z
       .object({
@@ -9745,6 +16472,7 @@ const combatObjectSchema = z
         threeQuarters: z.number().int().min(0).max(100).optional(),
         saves: z.array(sheetId).min(1).max(12).optional(),
         creatures: z.literal(true).optional(),
+        groundUnderTarget: z.boolean().optional(),
       })
       .strict()
       .optional(),
@@ -9796,7 +16524,7 @@ const combatObjectSchema = z
       .optional(),
     attacks: z.array(combatAttackSourceSchema).max(8).optional(),
     abilities: z.array(combatAbilitySourceSchema).max(8).optional(),
-    standard: z.array(combatStandardActionSchema).max(7).optional(),
+    standard: z.array(combatStandardActionSchema).max(8).optional(),
     /**
      * What a standard action does BEYOND the flag it sets, for the ones where the flag is not the
      * whole rule. Only `dodge` has such a part today: many systems also make the dodger harder to
@@ -9809,12 +16537,19 @@ const combatObjectSchema = z
           .object({ saves: z.array(sheetId).min(1).max(12) })
           .strict()
           .optional(),
+        /** Help is aid against an opponent beside the helper (Capability API 1.771), as 5e's "a
+         *  creature within 5 feet of you": on a board it is offered only with one there, and the
+         *  helped ally's edge counts only on an attack at one of them. */
+        help: z
+          .object({ beside: z.literal(true) })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),
     conditions: z.array(combatConditionSchema).max(RULESET_CONDITIONS_MAX).optional(),
     /** Levels of live tracks that count as conditions while the track is high enough. */
-    levels: z.array(combatLevelSchema).max(20).optional(),
+    levels: z.array(combatLevelSchema).max(40).optional(),
     /** Every row adds comma-separated harm or condition words from this column (Capability API
      *  1.132). A damage word may say `except` and the tags that get through it. */
     sheetHides: z
@@ -9829,8 +16564,9 @@ const combatObjectSchema = z
       )
       .max(8)
       .optional(),
-    /** The numbers a contest reads, and the contests a combatant may take. */
-    checks: z.array(combatCheckSchema).max(12).optional(),
+    /** The numbers a contest reads, and the contests a combatant may take. Up to 16 (Capability API
+     *  1.686; 12 before): 5e's thieves' tools check beside its skills. */
+    checks: z.array(combatCheckSchema).max(16).optional(),
     /**
      * Readying for real (Capability API 1.288). The `ready` standard action then readies one of its
      * user's other options taken with the same budget, or a move, to be taken with `budget` (5e's
@@ -9854,29 +16590,76 @@ const combatObjectSchema = z
      * finds them where its Perception check meets their total. 5e's Hide, Search and passive
      * Perception: `{ "stealth": "stealth", "perception": "perception", "noisy": ["verbal"] }`.
      */
-    hiding: z
+    hiding: combatHidingSchema.optional(),
+    /** Up to 16 (Capability API 1.597; 12 before). */
+    /**
+     * What people drawn in layers do for this system's own words (Capability API 1.786), read only by
+     * the art and the fight's marks. `hidden` are live conditions that hide their holder: drawn
+     * sneaking as they move. `divine` is what is cast by praying, as the caster kneels: an ability
+     * whose sheet row's `column` holds one of `values` (5e's spells and features of a Cleric or
+     * Paladin: `{ "column": "class", "values": ["Cleric", "Paladin"] }`), or one of `entries`
+     * (`catalog/entry`) whoever uses it.
+     */
+    poses: z
       .object({
-        stealth: sheetId,
-        perception: sheetId,
-        passive: z.number().int().min(0).max(100).optional(),
-        lightly: z.number().int().min(0).max(100).optional(),
-        noisy: componentIdsSchema.optional(),
-        /** Added to a passive Perception rolled with advantage, and taken off one with disadvantage
-         *  (Capability API 1.290): 5e's 5. Without it a passive reads no mode. */
-        passiveMode: z.number().int().min(1).max(20).optional(),
+        hidden: z.array(sheetId).min(1).max(12).optional(),
+        divine: z
+          .object({
+            column: sheetId.optional(),
+            values: z.array(promptSafeText(60)).min(1).max(24).optional(),
+            entries: z.array(z.string().min(3).max(120)).min(1).max(80).optional(),
+          })
+          .strict()
+          .refine((divine) => (divine.column && divine.values) || divine.entries, {
+            message: '"divine" names a column and its values, or entries',
+          })
+          .optional(),
       })
       .strict()
       .optional(),
-    contests: z.array(combatContestSchema).max(12).optional(),
+    contests: z.array(combatContestSchema).max(16).optional(),
     /** How big a combatant is, smallest first: what a contest's `maxSizeAbove` reads (1.103). */
     sizes: combatSizesSchema.optional(),
+    /** Riding a willing creature of its side (Capability API 1.496). */
+    mounts: combatMountsSchema.optional(),
+    /** Fighting under water and holding breath (Capability API 1.498). */
+    underwater: combatUnderwaterSchema.optional(),
+    /** Long and high jumps (Capability API 1.499). */
+    jumping: combatJumpingSchema.optional(),
+    /** Where a character's languages are read (Capability API 1.561): each row of `list` whose
+     *  `column` starts with `prefix` (when given) names one, the rest of it after the prefix. 5e's
+     *  `{"list": "proficiencies", "column": "name", "prefix": "Languages: "}`. A row may name several,
+     *  split on any of `split` (Capability API 1.589): 5e's `[", ", " and "]`, so "Languages: Common
+     *  and Dwarvish" names two. A sheet with no such row has its languages unwritten. */
+    languages: z
+      .object({
+        list: sheetId,
+        column: sheetId,
+        prefix: promptSafeText(40).optional(),
+        split: z.array(z.string().min(1).max(12)).min(1).max(4).optional(),
+      })
+      .strict()
+      .optional(),
     /** What a combatant is (Capability API 1.168): the types and tags a creature names and a target
      *  test reads. A character takes its type from `field` (a text or choice field holding a type id)
      *  or else `default`; a creature from its own `type` and `tags`. */
     creatureTypes: z
       .object({
+        /** A type's `mind` (Capability API 1.761) is how every creature of it fights unless its own
+         *  stat block says otherwise, whatever its `combat.minds` ability: 5e's beasts `instinct`, its
+         *  constructs and oozes `mindless`. A type's `behavior` (Capability API 1.763) is how every
+         *  creature of it goes about a fight, key by key, unless its own says otherwise. */
         types: z
-          .array(z.object({ id: sheetId, label }).strict())
+          .array(
+            z
+              .object({
+                id: sheetId,
+                label,
+                mind: z.enum(COMBAT_MINDS).optional(),
+                behavior: combatBehaviorSchema.optional(),
+              })
+              .strict(),
+          )
           .min(1)
           .max(40),
         tags: z
@@ -9886,14 +16669,21 @@ const combatObjectSchema = z
           .optional(),
         field: sheetId.optional(),
         default: sheetId.optional(),
+        /** A character's tags read off this text or choice field (Capability API 1.699): each of
+         *  `tags` it names by label or id as whole words, as a creature's `alignment` is read. 5e's
+         *  alignment, "Lawful Good" giving the tags `lawful` and `good`. From Capability API 1.713 a
+         *  list of fields, read alike and the tags of all of them kept: `["race", "alignment"]`,
+         *  "High Elf" giving `elf` for a ghoul's Claws to pass over. */
+        tagsFrom: z.union([sheetId, uniqueIds(6)]).optional(),
       })
       .strict()
       .optional(),
     concentration: combatConcentrationSchema.optional(),
     /** Senses that see where eyes cannot (Capability API 1.178): darkvision, blindsight, truesight.
      *  A creature says its range; a character's is read off its sheet by `sheet`, nothing at zero.
-     *  `blind` is one that works without eyes too: blindsight, tremorsense. */
-    senses: z.array(combatSenseSchema).min(1).max(8).optional(),
+     *  `blind` is one that works without eyes too: blindsight, tremorsense. Up to 8 before
+     *  Capability API 1.743, 12 since: 5e's Ring of X-ray Vision is its ninth. */
+    senses: z.array(combatSenseSchema).min(1).max(12).optional(),
     /** Seeing (1.178). `unseenAttacks` gives an attack advantage when its target cannot see the
      *  attacker, and disadvantage when the attacker cannot see its target. `eyes` is the sense (as a
      *  condition's `lacks` names it, 1.127) that is sight: whoever lacks it sees only by a `blind`
@@ -9902,6 +16692,23 @@ const combatObjectSchema = z
     /** What using something may need (Capability API 1.179): 5e's verbal, somatic and material. */
     components: combatComponentsSchema.optional(),
     dying: combatDyingSchema.optional(),
+    /** Spells a turn (Capability API 1.710). `afterBonusSpell`: 5e's bonus-action spell rule. On its
+     *  own turn, one who has cast an entry of `catalogs` with `budget` casts nothing more of them that
+     *  turn but what `only` allows, an entry of at most that level cast with that budget; and one who
+     *  has cast any other way first casts none with `budget`. A level is what the entry is paid at,
+     *  0 for a cantrip. Casting from an item that casts from those catalogs counts too. */
+    casting: z
+      .object({
+        afterBonusSpell: z
+          .object({
+            catalogs: z.array(sheetId).min(1).max(12),
+            budget: sheetId,
+            only: z.object({ level: z.number().int().min(0).max(20), budget: sheetId }).strict(),
+          })
+          .strict(),
+      })
+      .strict()
+      .optional(),
     /** The damage types this system has. Matched without case, so "Fire" and "fire" are one type. */
     damageTypes: z.array(promptSafeText(40)).max(40).optional(),
     /** Required when `health` names a wound track, and refused when it names a pool. Which of the
@@ -9913,8 +16720,87 @@ const combatObjectSchema = z
       )
       .optional(),
     threat: z
-      .object({ tiers: z.array(combatThreatTierSchema).min(1).max(40) })
+      .object({ tiers: z.array(combatThreatTierSchema).min(1).max(40), budget: combatThreatBudgetSchema.optional() })
       .strict()
+      .optional(),
+    /** How much thought a combatant the Engine plays puts into a fight (Capability API 1.761), read
+     *  off one of its ability scores: the mind of the highest tier whose `atLeast` it reaches, its
+     *  tiers in rising order. A creature's own `mind`, and then its type's, win over it, and one that
+     *  takes legendary actions or has Legendary Resistance is a `genius` where it would be
+     *  `tactical`. 5e: Intelligence, `mindless` from 0, `cunning` from 3, `tactical` from 8,
+     *  `genius` from 15. */
+    /** How every combatant the Engine plays goes about a fight unless its type or its own stat block
+     *  says otherwise (Capability API 1.763), key by key: see a creature's `behavior`. */
+    behavior: combatBehaviorSchema.optional(),
+    minds: z
+      .object({
+        ability: sheetId,
+        tiers: z
+          .array(z.object({ atLeast: z.number().int().min(0).max(1000), mind: z.enum(COMBAT_MINDS) }).strict())
+          .min(1)
+          .max(5)
+          .refine((tiers) => tiers.every((tier, i) => i === 0 || tier.atLeast > tiers[i - 1]!.atLeast), {
+            message: "Each tier starts above the one before it",
+          }),
+      })
+      .strict()
+      .optional(),
+    /**
+     * When a combatant the Engine plays loses heart (Capability API 1.762). Each of `on` is checked
+     * once per combatant, as its turn starts after it has happened: `first-fall` once anybody of its
+     * side has fallen, `half-down` once half its side has, `leader-down` once a `leader` of its side
+     * has, `hurt` once its own health is below `hurtBelow` of its most (half when unsaid). The check
+     * either `roll`s the dice against its stat block's `morale` (else `score`), breaking on a roll
+     * above it, or throws `save` against `difficulty`, breaking on a failure. Only combatants with a
+     * stat block check; a mindless one, a summoned one, and one immune to `unlessImmune` never do.
+     * One that breaks flees: it gets away from whoever is on it and runs for the edge of the board,
+     * leaving the fight as a turn of its starts there (at once, with no board). One whose mind is
+     * among `surrenders` and has an opponent beside it surrenders instead, out of the fight alive.
+     * Old-School Essentials: 2d6 against morale, on the first death and half down. 5e (the Dungeon
+     * Master's Guide's variant): a DC 10 Wisdom save, unless immune to frightened.
+     * Since 1.775 `on` may also name `surprised`, checked on a turn it starts surprised, and
+     * `helpless`, once a turn of its starts with no way to harm the other side (nothing on its menu
+     * to aim at them but a contest, a grapple or a shove);
+     * `halfDownUnanswered` counts `half-down` only while the other side has lost nobody.
+     * Since 1.785 `neverSurrender` names creature types of `creatureTypes` that never give themselves
+     * up: one of them that breaks always flees (5e: undead and fiends).
+     */
+    morale: z
+      .object({
+        check: z.union([
+          z.object({ roll: catalogDice, score: z.number().int().min(0).max(100).optional() }).strict(),
+          z.object({ save: sheetId, difficulty: z.number().int().min(1).max(100) }).strict(),
+        ]),
+        on: z
+          .array(z.enum(RULESET_MORALE_TRIGGERS))
+          .min(1)
+          .max(RULESET_MORALE_TRIGGERS.length)
+          .refine((on) => new Set(on).size === on.length, { message: "Name each once" }),
+        hurtBelow: z.number().min(0.05).max(0.95).optional(),
+        surrenders: z
+          .array(z.enum(COMBAT_MINDS))
+          .min(1)
+          .max(COMBAT_MINDS.length)
+          .refine((minds) => new Set(minds).size === minds.length, { message: "Name each once" })
+          .optional(),
+        unlessImmune: sheetId.optional(),
+        halfDownUnanswered: z.literal(true).optional(),
+        neverSurrender: z
+          .array(sheetId)
+          .min(1)
+          .max(20)
+          .refine((types) => new Set(types).size === types.length, { message: "Name each once" })
+          .optional(),
+      })
+      .strict()
+      .refine((morale) => morale.hurtBelow === undefined || morale.on.includes("hurt"), {
+        message: '"hurtBelow" goes with "on" naming "hurt"',
+        path: ["hurtBelow"],
+      })
+      .refine((morale) => morale.halfDownUnanswered === undefined || morale.on.includes("half-down"), {
+        message: '"halfDownUnanswered" goes with "on" naming "half-down"',
+        path: ["halfDownUnanswered"],
+      })
       .optional(),
     /** How much of a live pool one combatant may spend in a fight per turn or per round. A cost past
      *  it is not affordable. Read once as the fight begins. An opponent written in plain numbers pays
@@ -10170,7 +17056,7 @@ interface RulesetSheetNames {
 /** The values a derived value reads, in the one place that knows where each op keeps them. An enum
  *  table reads a field's or a state's VALUE rather than a number, so it has none. */
 function derivedRefs(derived: z.infer<typeof rulesetDerivedSchema>): RulesetValueRef[] {
-  if (derived.op === "enumTable") return [];
+  if (derived.op === "enumTable" || derived.op === "wordsTable") return [];
   return derived.op === "stepTable" ? [derived.from] : derived.op === "scale" ? [derived.of] : derived.of;
 }
 
@@ -10302,6 +17188,7 @@ function refReadsSheet(
     const derived = def.sheet.derived.find((entry) => entry.id === ref.derived);
     // An enum table reads its enum field, which derivedRefs leaves out as no number.
     if (derived?.op === "enumTable" && derived.from.field !== undefined) into.fields.add(derived.from.field);
+    if (derived?.op === "wordsTable") into.fields.add(derived.from.field);
     if (derived) for (const inner of derivedRefs(derived)) refReadsSheet(def, inner, into, depth + 1);
   }
   return into;
@@ -10568,6 +17455,20 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       );
     }
   }
+  // Fields held to a combined most (1.672): number fields, each named once.
+  for (const [index, total] of (sheet.totals ?? []).entries()) {
+    total.fields.forEach((id, fieldIndex) => {
+      const field = sheet.fields.find((entry) => entry.id === id);
+      if (!field || field.type !== "number") {
+        issue(
+          ["sheet", "totals", index, "fields", fieldIndex],
+          field ? `Total field "${id}" must be a number` : `Unknown total field "${id}"`,
+        );
+      }
+      if (total.fields.indexOf(id) !== fieldIndex)
+        issue(["sheet", "totals", index, "fields", fieldIndex], `"${id}" is named twice`);
+    });
+  }
   const derivedIds = unique(sheet.derived, ["sheet", "derived"], "derived value");
   const lists = unique(sheet.lists, ["sheet", "lists"], "list");
   const pools = unique(sheet.live.pools, ["sheet", "live", "pools"], "pool");
@@ -10706,6 +17607,18 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           if (!["number", "text", "longtext"].includes(field.type) || !empty) {
             issue(where, `"${end}" is a number or text field with no default, or a default of 0 or empty`);
           }
+        }
+      } else if ("setColumn" in step) {
+        const { list: listId, where, column } = step.setColumn;
+        const list = sheet.lists.find((entry) => entry.id === listId);
+        if (!list) {
+          issue([...path, "setColumn", "list"], `Unknown list "${listId}"`);
+          return;
+        }
+        const columns = new Set(list.columns.map((entry) => entry.id));
+        if (!columns.has(column)) issue([...path, "setColumn", "column"], `Unknown column "${column}" of "${listId}"`);
+        for (const id of Object.keys(where)) {
+          if (!columns.has(id)) issue([...path, "setColumn", "where", id], `Unknown column "${id}" of "${listId}"`);
         }
       } else {
         const kind = step.routeLive;
@@ -11096,6 +18009,14 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         }
       }
     }
+    if (derived.op === "wordsTable") {
+      // Words are read out of what a player wrote, so the field is text (or an enum, whose values are words).
+      const field = fieldById.get(derived.from.field);
+      if (!field) issue([...path, "from", "field"], `Unknown field "${derived.from.field}"`);
+      else if (field.type !== "text" && field.type !== "enum") {
+        issue([...path, "from", "field"], `Field "${derived.from.field}" is not text`);
+      }
+    }
     checkSection(derived.section, path);
     checkHideWhen(derived.hideWhen, path);
     derivedAbove.add(derived.id);
@@ -11456,6 +18377,18 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       const mark = list.columns.find((column) => column.id === list.display!.mark);
       if (mark?.type !== "boolean") issue([...path, "display", "mark"], "Must name a yes-or-no column");
     }
+    if (list.ritual) {
+      const ritual = list.columns.find((column) => column.id === list.ritual);
+      if (ritual?.type !== "boolean") issue([...path, "ritual"], "Must name a yes-or-no column");
+    }
+    if (list.ritualNeeds && !list.ritual) issue([...path, "ritualNeeds"], "Needs a ritual column");
+    list.ritualNeeds?.forEach((ref, refIndex) => {
+      const catalogId = ref.slice(0, ref.indexOf("/"));
+      const catalog = def.catalogs?.find((each) => each.id === catalogId);
+      if (!catalog) issue([...path, "ritualNeeds", refIndex], `Unknown catalog "${catalogId}"`);
+      else if (catalog.entries && !catalog.from && !catalog.entries.some((one) => `${catalogId}/${one.id}` === ref))
+        issue([...path, "ritualNeeds", refIndex], `Unknown entry "${ref}"`);
+    });
     if (list.pools) {
       const typeOf = (id: string) => list.columns.find((column) => column.id === id)?.type;
       if (typeOf(list.pools.nameColumn) !== "text") issue([...path, "pools", "nameColumn"], "Must name a text column");
@@ -11464,8 +18397,51 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (list.pools.rechargeColumn && typeOf(list.pools.rechargeColumn) !== "enum") {
         issue([...path, "pools", "rechargeColumn"], "Must name an enum column");
       }
+      const tally = list.pools.tallyColumn ? typeOf(list.pools.tallyColumn) : undefined;
+      if (list.pools.tallyColumn && tally !== "boolean" && tally !== "number") {
+        issue([...path, "pools", "tallyColumn"], "Must name a yes-or-no or number column");
+      }
+      // Days only for a recharge the column offers (1.445).
+      if (list.pools.rechargeDays) {
+        const column = list.columns.find((entry) => entry.id === list.pools!.rechargeColumn);
+        const values = column && column.type === "enum" ? column.values : undefined;
+        if (!values) issue([...path, "pools", "rechargeDays"], '"rechargeDays" reads the rows\' rechargeColumn');
+        else
+          for (const value of Object.keys(list.pools.rechargeDays)) {
+            if (!values.includes(value))
+              issue([...path, "pools", "rechargeDays", value], `"${value}" is not a value of the recharge column`);
+          }
+      }
     }
     void columns;
+  });
+
+  // What untrained adds, and what an ability check adds (1.419), feed a skill's or check's own
+  // number exactly as a cap does: they read no skill or save, nor does any derived value up to theirs.
+  const readsNoSkill = (ref: RulesetValueRef, path: (string | number)[], what: string) => {
+    checkRef(ref, path, derivedIds);
+    if (ref.skillMod !== undefined || ref.saveMod !== undefined)
+      issue(path, `${what} cannot read a skill or save modifier`);
+    if (ref.derived === undefined) return;
+    const end = sheet.derived.findIndex((derived) => derived.id === ref.derived);
+    sheet.derived.slice(0, end + 1).forEach((derived, derivedIndex) => {
+      if (refsOf(derived).some((one) => one.skillMod !== undefined || one.saveMod !== undefined)) {
+        issue(
+          ["sheet", "derived", derivedIndex],
+          `"${derived.id}" feeds ${what} and cannot read a skill or save modifier`,
+        );
+      }
+    });
+  };
+  for (const key of ["skills", "saves", "sections"] as const) {
+    (sheet[key] as ReadonlyArray<{ untrained?: RulesetUntrained }>).forEach((entry, index) => {
+      if (typeof entry.untrained === "object" && "add" in entry.untrained)
+        readsNoSkill(entry.untrained.add, ["sheet", key, index, "untrained", "add"], "What untrained adds");
+    });
+  }
+  sheet.abilities.forEach((ability, index) => {
+    if (ability.checkAdd)
+      readsNoSkill(ability.checkAdd, ["sheet", "abilities", index, "checkAdd"], "An ability check's add");
   });
 
   // A skill or save's cap feeds that skill's own number, so like the proficiency bonus it cannot
@@ -11491,6 +18467,18 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       });
     });
   }
+
+  // How many words a text field has picked (1.797) reads the sheet as it is built.
+  sheet.fields.forEach((field, index) => {
+    if (field.type === "text" && field.pick)
+      checkRef(field.pick, ["sheet", "fields", index, "pick"], derivedIds, false);
+  });
+  sheet.lists.forEach((list, listIndex) =>
+    list.columns.forEach((column, index) => {
+      if (column.type === "text" && column.pick)
+        checkRef(column.pick, ["sheet", "lists", listIndex, "columns", index, "pick"], derivedIds, false);
+    }),
+  );
 
   sheet.live.pools.forEach((pool, index) => {
     const path = ["sheet", "live", "pools", index];
@@ -11628,6 +18616,12 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           issue([...path, "kind"], `"${op.track}" declares no kind "${op.kind}"`);
         }
       }
+      if (op.when) {
+        const names = rulesetSheetNames(def.sheet, def.items);
+        for (const found of rulesetValueRefIssues(op.when.value, names, names.derived)) {
+          issue([...path, "when", "value", found.key], found.message);
+        }
+      }
       if (op.listPools !== undefined) {
         const list = listById.get(op.listPools);
         if (!list?.pools) issue([...path, "listPools"], `"${op.listPools}" is not a list with pools`);
@@ -11649,11 +18643,26 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     rest.clear.text.forEach((id, index) => {
       if (!liveText.has(id)) issue(["rests", restIndex, "clear", "text", index], `Unknown live text "${id}"`);
     });
+    // What its dice heal is made more by a value of the sheet's own (1.688).
+    (Array.isArray(rest.dice) ? rest.dice : rest.dice ? [rest.dice] : []).forEach((entry, entryIndex) => {
+      if (!entry.times) return;
+      const names = rulesetSheetNames(def.sheet, def.items);
+      const at = Array.isArray(rest.dice) ? ["rests", restIndex, "dice", entryIndex] : ["rests", restIndex, "dice"];
+      for (const found of rulesetValueRefIssues(entry.times, names, names.derived)) {
+        issue([...at, "times", found.key], found.message);
+      }
+    });
     if (rest.clear.conditions !== "all") {
       rest.clear.conditions.forEach((id, index) => {
         if (!conditions.has(id)) issue(["rests", restIndex, "clear", "conditions", index], `Unknown condition "${id}"`);
       });
     }
+    rest.puts?.forEach((put, index) => {
+      if (!conditions.has(put.condition)) {
+        issue(["rests", restIndex, "puts", index, "condition"], `Unknown condition "${put.condition}"`);
+      }
+      if (put.when) checkRef(put.when.value, ["rests", restIndex, "puts", index, "when", "value"], derivedIds);
+    });
   });
 
   const summary = def.gm.sheetSummary;
@@ -11778,6 +18787,15 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         }
       });
     });
+    // What is drawn as it is used (1.808): categories and tags the block declares.
+    (["categories", "tags"] as const).forEach((key) => {
+      const known = key === "categories" ? items.categories : (items.tags ?? []);
+      items.drawOnUse?.[key]?.forEach((id, index) => {
+        if (!known.some((word) => word.id === id)) {
+          issue(at("drawOnUse", key, index), `Unknown item ${key === "categories" ? "category" : "tag"} "${id}"`);
+        }
+      });
+    });
     // Starting gear (1.78): every item one of the ruleset's (a catalog kept in its own file is checked
     // when the gear is taken), never a service, and few enough stacks to fit a bag; coins it declares;
     // a plain item only where items may be plain; `fits` read off the sheet without the live state,
@@ -11811,11 +18829,19 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (gear.fits) checkRef(gear.fits.value, [...path, "fits", "value"], derivedIds, false);
       gear.lines.forEach((line, lineIndex) => checkGearLine(line, [...path, "lines", lineIndex]));
       gear.choices.forEach((choice, choiceIndex) =>
-        choice.options.forEach((option, optionIndex) =>
+        choice.options.forEach((option, optionIndex) => {
           option.lines.forEach((line, lineIndex) =>
             checkGearLine(line, [...path, "choices", choiceIndex, "options", optionIndex, "lines", lineIndex]),
-          ),
-        ),
+          );
+          if (option.offeredWhen) {
+            checkRef(
+              option.offeredWhen,
+              [...path, "choices", choiceIndex, "options", optionIndex, "offeredWhen"],
+              derivedIds,
+              false,
+            );
+          }
+        }),
       );
     });
     const market = items.market;
@@ -12057,7 +19083,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         for (const [filterId, value] of Object.entries(step.filters ?? {})) {
           const filter = filterOf(filterId);
           if (!filter) issue([...path, "filters", filterId], `Unknown filter "${filterId}"`);
-          else if ((filter.type === "number") !== (typeof value === "number")) {
+          else if ([value].flat().some((one) => (filter.type === "number") !== (typeof one === "number"))) {
             issue(
               [...path, "filters", filterId],
               `Filter "${filterId}" takes ${filter.type === "number" ? "a number" : "a word"}`,
@@ -12070,7 +19096,20 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
             issue([...path, "upTo", "filter"], `No number filter "${step.upTo.filter}"`);
           }
           checkRef(step.upTo.value, [...path, "upTo", "value"], derivedIds, false);
+          const per = step.upTo.per;
+          if (per) {
+            const filter = filterOf(per.filter);
+            if (!filter || filter.type === "number")
+              issue([...path, "upTo", "per", "filter"], `No text or tags filter "${per.filter}"`);
+            if (![...fields, ...derivedIds].some((id) => id.startsWith(per.prefix)))
+              issue([...path, "upTo", "per", "prefix"], `No field or derived value starts with "${per.prefix}"`);
+          }
         }
+        // Taken without asking (1.766): nothing to count, price or hold to a quota. What it took may
+        // still be written to a field (1.773): 5e's subclass.
+        if (step.takesAll)
+          for (const key of ["countFrom", "pool", "cost", "quotas", "distinctBy", "quotaBelow"] as const)
+            if (step[key] !== undefined) issue([...path, key], `A step that takes all it offers has no "${key}"`);
         if (step.countFrom) checkRef(step.countFrom, [...path, "countFrom"], derivedIds, false);
         if (step.within) {
           if (!catalogSteps.has(step.within.step)) {
@@ -12089,6 +19128,11 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         step.optional?.forEach((id, optionalIndex) => {
           if (!step.fields.includes(id))
             issue([...path, "optional", optionalIndex], `"${id}" is not one of this step's fields`);
+        });
+        step.unansweredAtDefault?.forEach((id, waitIndex) => {
+          const at = [...path, "unansweredAtDefault", waitIndex];
+          if (!step.fields.includes(id)) issue(at, `"${id}" is not one of this step's fields`);
+          else if (fieldById.get(id)?.default === undefined) issue(at, `Field "${id}" has no default to wait past`);
         });
         for (const [id, ref] of Object.entries(step.shownWhen ?? {})) {
           const at = [...path, "shownWhen", id];
@@ -12165,6 +19209,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           issue([...path, "max"], `"${step.list}" holds at most ${list.maxItems} rows`);
         if (step.min !== undefined && step.min > (step.max ?? list?.maxItems ?? 20))
           issue([...path, "min"], "The step asks for more rows than it lets the player add");
+        if (step.countFrom) checkRef(step.countFrom, [...path, "countFrom"], derivedIds, false);
         pricedIssues(step, path);
         if (typeof step.cost === "object") {
           const cost = step.cost;
@@ -12202,6 +19247,24 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           else if (!catalog.feeds?.includes(step.list))
             issue([...path, "from"], `"${step.from}" writes no rows to "${step.list}"`);
         }
+      } else if (step.kind === "mark") {
+        const list = listById.get(step.list);
+        if (!list) issue([...path, "list"], `Unknown list "${step.list}"`);
+        else {
+          if (list.columns.find((column) => column.id === step.column)?.type !== "boolean")
+            issue([...path, "column"], `No boolean column "${step.column}"`);
+          for (const [id, value] of Object.entries(step.where ?? {})) {
+            const column = list.columns.find((each) => each.id === id);
+            if (!column) issue([...path, "where", id], `Unknown column "${id}"`);
+            else if (typeof value === "object" && column.type !== "number")
+              issue([...path, "where", id], "Only a number column is filtered by atLeast");
+          }
+          if (step.max !== undefined && step.max > list.maxItems)
+            issue([...path, "max"], `"${step.list}" holds at most ${list.maxItems} rows`);
+        }
+        if ((step.max === undefined) === (step.countFrom === undefined))
+          issue([...path, "max"], "A mark step says max or countFrom, exactly one");
+        if (step.countFrom) checkRef(step.countFrom, [...path, "countFrom"], derivedIds, false);
       } else if (step.kind === "abilities") {
         abilitySteps += 1;
         if (sheet.abilities.length === 0) issue([...path, "kind"], "This sheet has no ability scores");
@@ -12885,6 +19948,22 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       limited.add(limit.pool);
       checkRef(limit.max, [...path, "max"], derivedIds);
     });
+    // Losing heart (1.762): a save the sheet has, and a condition it knows.
+    const morale = combat.morale;
+    if (morale) {
+      if (
+        "save" in morale.check &&
+        !def.sheet.saves.some((save) => save.id === (morale.check as { save: string }).save)
+      )
+        issue(at("morale", "check", "save"), `Unknown save "${morale.check.save}"`);
+      if (morale.unlessImmune && !def.sheet.live.conditions.some((entry) => entry.id === morale.unlessImmune))
+        issue(at("morale", "unlessImmune"), `Unknown condition "${morale.unlessImmune}"`);
+      // Creature types that never give themselves up (1.785): the fight's own types.
+      morale.neverSurrender?.forEach((type, index) => {
+        if (!combat.creatureTypes?.types.some((one) => one.id === type))
+          issue(at("morale", "neverSurrender", index), `Unknown creature type "${type}"`);
+      });
+    }
     // A pool fight adds dice to a pool, so a condition's rolled number would be a number of dice
     // nobody could throw; a symbol fight's flat number is boost or setback dice (1.382). Said per
     // modifier, on conditions and on levels alike.
@@ -12949,6 +20028,10 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     unique(combat.contests ?? [], at("contests"), "contest");
     if (combat.standard?.includes("search") && !combat.hiding)
       issue(at("standard"), "Search looks for whoever is hiding, so it needs combat.hiding");
+    // The conditions the art reads as hiding their holder (1.786) are the sheet's own.
+    combat.poses?.hidden?.forEach((id, index) => {
+      if (!conditions.has(id)) issue(at("poses", "hidden", index), `Unknown condition "${id}"`);
+    });
     // The dark (1.294): the senses that see in it are the fight's own, and it needs eyes to keep.
     if (combat.sight?.darkness) {
       const senses = new Set((combat.senses ?? []).map((sense) => sense.id));
@@ -12960,6 +20043,61 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       const switchBudget = combat.sight.darkness.carried?.budget;
       if (switchBudget !== undefined && !combat.economy.budgets.some((budget) => budget.id === switchBudget))
         issue(at("sight", "darkness", "carried", "budget"), `Unknown budget "${switchBudget}"`);
+    }
+    // Under water (1.498): the ability breath reads and the conditions that spare it.
+    const breath = combat.underwater?.breath;
+    for (const key of ["holds", "then"] as const) {
+      const ability = breath?.[key].perMod?.ability;
+      if (ability !== undefined && !abilityIds.has(ability))
+        issue(at("underwater", "breath", key, "perMod", "ability"), `Unknown ability "${ability}"`);
+    }
+    breath?.exempt?.conditions?.forEach((id, index) => {
+      if (!conditions.has(id))
+        issue(at("underwater", "breath", "exempt", "conditions", index), `Unknown condition "${id}"`);
+    });
+    // Where a character's languages are read (1.561): a list of the sheet's, and a column of it.
+    const tongues = combat.languages;
+    if (tongues) {
+      const list = def.sheet.lists.find((one) => one.id === tongues.list);
+      if (!list) issue(at("languages", "list"), `Unknown list "${tongues.list}"`);
+      else if (!list.columns.some((one) => one.id === tongues.column))
+        issue(at("languages", "column"), `"${tongues.list}" has no column "${tongues.column}"`);
+    }
+    // What riders weigh (1.641) is by the fight's own sizes.
+    for (const size of Object.keys(combat.mounts?.weights?.bySize ?? {})) {
+      if (!combat.sizes?.order.some((one) => one.id === size))
+        issue(at("mounts", "weights", "bySize", size), `Unknown size "${size}"`);
+    }
+    // What a rider lands on their feet with (1.504) is a budget of the fight's.
+    const landsWith = combat.mounts?.fall?.landsWith;
+    if (landsWith !== undefined && !combat.economy.budgets.some((one) => one.id === landsWith))
+      issue(at("mounts", "fall", "landsWith"), `Unknown budget "${landsWith}"`);
+    // The bonus-action spell rule (1.710): the fight's budgets, and the ruleset's catalogs.
+    const afterBonus = combat.casting?.afterBonusSpell;
+    if (afterBonus) {
+      checkBudget(afterBonus.budget, at("casting", "afterBonusSpell", "budget"));
+      checkBudget(afterBonus.only.budget, at("casting", "afterBonusSpell", "only", "budget"));
+      afterBonus.catalogs.forEach((catalogId, catalogIndex) => {
+        if (!def.catalogs?.some((catalog) => catalog.id === catalogId))
+          issue(at("casting", "afterBonusSpell", "catalogs", catalogIndex), `Unknown catalog "${catalogId}"`);
+      });
+      if (afterBonus.budget === afterBonus.only.budget)
+        issue(
+          at("casting", "afterBonusSpell", "only", "budget"),
+          "What the rule still allows is cast with another budget than the one it follows",
+        );
+    }
+    // Jumping (1.499): the abilities it reads, and the check and condition of a hard landing.
+    if (combat.jumping) {
+      for (const key of ["long", "high"] as const) {
+        if (!abilityIds.has(combat.jumping[key].ability))
+          issue(at("jumping", key, "ability"), `Unknown ability "${combat.jumping[key].ability}"`);
+      }
+      const landing = combat.jumping.hardLanding;
+      if (landing && !contestChecks.has(landing.check))
+        issue(at("jumping", "hardLanding", "check"), `Unknown contest check "${landing.check}"`);
+      if (landing && !conditions.has(landing.applies))
+        issue(at("jumping", "hardLanding", "applies"), `Unknown condition "${landing.applies}"`);
     }
     // Hiding (1.287): the checks it throws are the fight's own, and so are the components it hears.
     if (combat.hiding) {
@@ -12995,6 +20133,30 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       }
       if (contest.from) conditionId(contest.from.holding, [...path, "from", "holding"]);
       if (contest.targetHolds) conditionId(contest.targetHolds, [...path, "targetHolds"]);
+      contest.actorHolds?.forEach((id, holdIndex) => conditionId(id, [...path, "actorHolds", holdIndex]));
+      // A size of the fight's own (1.587).
+      if (
+        contest.advantageAtMostSize !== undefined &&
+        !combat.sizes?.order.some((one) => one.id === contest.advantageAtMostSize)
+      )
+        issue(
+          [...path, "advantageAtMostSize"],
+          combat.sizes
+            ? `Unknown size "${contest.advantageAtMostSize}"`
+            : '"advantageAtMostSize" reads sizes, so the block declares "sizes" too',
+        );
+      // Pulled out of a creature (1.407): the hold is one that keeps them inside it, and on a pool
+      // fight's dice there is no number to meet.
+      if (
+        contest.pulls &&
+        contest.targetHolds &&
+        !combat.conditions?.some((one) => one.condition === contest.targetHolds && one.inside)
+      ) {
+        issue([...path, "targetHolds"], `"${contest.targetHolds}" keeps nobody inside a creature to be pulled out of`);
+      }
+      if (contest.pulls && resolution.kind === "dice-pool") {
+        issue([...path, "pulls"], "A pool fight counts successes, so it has no escape DC to pull against");
+      }
       // A fixed number is met on the fight's own dice, which a pool fight does not add up (1.193).
       if (contest.difficulty !== undefined && resolution.kind === "dice-pool") {
         issue(
@@ -13018,12 +20180,21 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       contest.onWin.ends?.forEach((entry, entryIndex) =>
         conditionId(entry.condition, [...path, "onWin", "ends", entryIndex, "condition"]),
       );
+      // Moving with the one it pushes (1.598) needs a push.
+      if (contest.onWin.follows && contest.onWin.push === undefined && contest.onWin.pushRead === undefined)
+        issue([...path, "onWin", "follows"], '"follows" moves after the one it pushes, so it goes with "push"');
       if (!combat.distance) {
         if (contest.reach !== undefined) {
           issue([...path, "reach"], '"reach" is measured in cells, so the block declares "distance" too');
         }
         if (contest.onWin.push !== undefined) {
           issue([...path, "onWin", "push"], '"push" is measured in cells, so the block declares "distance" too');
+        }
+        if (contest.onWin.pushRead !== undefined) {
+          issue(
+            [...path, "onWin", "pushRead"],
+            '"pushRead" is measured in cells, so the block declares "distance" too',
+          );
         }
       }
     });
@@ -13034,6 +20205,10 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         issue(at("sizes", "default"), `Unknown size "${combat.sizes.default}"`);
       }
       if (combat.sizes.sheet) checkRef(combat.sizes.sheet, at("sizes", "sheet"), derivedIds);
+      const squeezed = combat.sizes.squeezing?.condition;
+      if (squeezed && !conditions.has(squeezed)) {
+        issue(at("sizes", "squeezing", "condition"), `Unknown condition "${squeezed}"`);
+      }
     }
 
     // Senses that see in the dark (1.178): unique, each read off a number on the sheet, and reaching
@@ -13063,6 +20238,21 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
             `A character's type is read off a text or choice field, not "${field.type}"`,
           );
         }
+      }
+      // A character's tags in the words of a field (1.699).
+      if (kinds.tagsFrom !== undefined) {
+        // One field, or a list of them (1.713).
+        const many = Array.isArray(kinds.tagsFrom);
+        const fields: string[] = Array.isArray(kinds.tagsFrom) ? kinds.tagsFrom : [kinds.tagsFrom];
+        for (const [index, id] of fields.entries()) {
+          const path = many ? at("creatureTypes", "tagsFrom", index) : at("creatureTypes", "tagsFrom");
+          const field = sheet.fields.find((one) => one.id === id);
+          if (!field) issue(path, `Unknown field "${id}"`);
+          else if (field.type !== "text" && field.type !== "enum")
+            issue(path, `A character's tags are read off a text or choice field, not "${field.type}"`);
+        }
+        if (!kinds.tags)
+          issue(at("creatureTypes", "tagsFrom"), '"tagsFrom" reads the words of "tags", so it declares them');
       }
     }
 
@@ -13114,9 +20304,37 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       column(source.strikesCappedBy?.column, "boolean", [...path, "strikesCappedBy", "column"]);
       column(source.toHit.proficiency?.column, "boolean", [...path, "toHit", "proficiency", "column"]);
       column(source.toHit.bonus?.column, "number", [...path, "toHit", "bonus", "column"]);
+      if (source.toHit.sheetBonus) {
+        checkRef(source.toHit.sheetBonus.value, [...path, "toHit", "sheetBonus", "value"], derivedIds);
+        const when = source.toHit.sheetBonus.when;
+        if (when && typeOf(when.column) === undefined)
+          issue([...path, "toHit", "sheetBonus", "when", "column"], `Unknown column "${when.column}"`);
+      }
       column(source.damage.dice.column, "dice", [...path, "damage", "dice", "column"]);
       column(source.damage.ability?.column, "enum", [...path, "damage", "ability", "column"]);
       column(source.damage.bonus?.column, "number", [...path, "damage", "bonus", "column"]);
+      // A choice of abilities (1.793) is a value an ability column may hold, standing for abilities
+      // the sheet has, and never one of them itself.
+      if (source.abilityChoices) {
+        const where = [...path, "abilityChoices"];
+        const columns = [source.toHit.ability?.column, source.damage.ability?.column].flatMap((id) => {
+          const found = id === undefined ? undefined : list.columns.find((one) => one.id === id);
+          return found ? [found] : [];
+        });
+        if (!columns.length) issue(where, "Ability choices are values of an ability column, and this list names none");
+        const abilityIds = new Set(sheet.abilities.map((ability) => ability.id));
+        for (const [value, abilities] of Object.entries(source.abilityChoices)) {
+          if (abilityIds.has(value)) issue([...where, value], `"${value}" is an ability, not a choice of them`);
+          const offered = columns.some(
+            (one) => one.type !== "enum" || !("values" in one) || !one.values || one.values.includes(value),
+          );
+          if (columns.length && !offered) issue([...where, value], `No ability column of this list offers "${value}"`);
+          abilities.forEach((ability, n) => {
+            if (!abilityIds.has(ability)) issue([...where, value, n], `Unknown ability "${ability}"`);
+          });
+          if (new Set(abilities).size !== abilities.length) issue([...where, value], "An ability is named twice");
+        }
+      }
       // A distance is a number, wherever it is read from: one column of this list, or the same
       // number on every row of it.
       const distance = (source: RulesetCombatDistanceSource | undefined, where: (string | number)[]) => {
@@ -13179,6 +20397,9 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         if (!saves.has(save)) issue(at("standardEffects", "dodge", "saves", index), `Unknown save "${save}"`);
       });
     }
+    if (combat.standardEffects?.help && !standard.has("help")) {
+      issue(at("standardEffects", "help"), "This ruleset has no help for this to belong to");
+    }
     combat.cover?.saves?.forEach((save, index) => {
       if (!saves.has(save)) issue(at("cover", "saves", index), `Unknown save "${save}"`);
     });
@@ -13219,12 +20440,52 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       }
     });
 
+    // Points as a foe drops (1.412): a buffer on hit points, read off the sheet.
+    const fellsGrantIssues = (grant: { temporary: RulesetValueRef }, path: (string | number)[]) => {
+      if ("track" in combat.health)
+        issue([...path, "temporary"], "Temporary points need health in points, not a wound track");
+      checkRef(grant.temporary, [...path, "temporary"], derivedIds);
+    };
+    // A floor under checks (1.418): a value the sheet reads, abilities and skills it has.
+    const checkFloorIssues = (floor: RulesetCheckFloor, path: (string | number)[]) => {
+      if (floor.total) checkRef(floor.total, [...path, "total"], derivedIds);
+      floor.abilities?.forEach((one, index) => {
+        if (!abilityIds.has(one)) issue([...path, "abilities", index], `Unknown ability "${one}"`);
+      });
+      floor.skills?.forEach((one, index) => {
+        if (!skills.has(one)) issue([...path, "skills", index], `Unknown skill "${one}"`);
+      });
+    };
+    // Held off while (1.417): conditions it names are declared ones, and whenSeen has saves to scope.
+    const notWhileIssues = (
+      entry: { notWhile?: string[]; whenSeen?: true; effects: string[]; modifiers?: Array<{ to: string }> },
+      path: (string | number)[],
+    ) => {
+      entry.notWhile?.forEach((one, index) => {
+        if (!(RULESET_COMBAT_CONDITION_EFFECTS as readonly string[]).includes(one) && !conditions.has(one))
+          issue([...path, "notWhile", index], `Unknown condition "${one}"`);
+      });
+      if (
+        entry.whenSeen &&
+        !entry.effects.some((one) => (RULESET_SAVE_SCOPED_EFFECTS as readonly string[]).includes(one)) &&
+        !entry.effects.includes("attacks-against-disadvantage") &&
+        !entry.modifiers?.some((one) => one.to === "saves")
+      )
+        issue(
+          [...path, "whenSeen"],
+          '"whenSeen" scopes save effects, modifiers to saves or attacks-against-disadvantage, so it needs one beside it',
+        );
+    };
     const mapped = new Set<string>();
     combat.conditions?.forEach((entry, index) => {
       const path = at("conditions", index);
       if (!conditions.has(entry.condition)) issue([...path, "condition"], `Unknown condition "${entry.condition}"`);
       if (mapped.has(entry.condition)) issue([...path, "condition"], `Duplicate condition "${entry.condition}"`);
       mapped.add(entry.condition);
+      // A size of the ruleset's own (1.681).
+      if (entry.squeezesAs && !combat.sizes?.order.some((size) => size.id === entry.squeezesAs)) {
+        issue([...path, "squeezesAs"], `Unknown size "${entry.squeezesAs}"`);
+      }
       entry.kinds?.forEach((kind, kindIndex) => {
         if (conditions.has(kind)) issue([...path, "kinds", kindIndex], `"${kind}" is a condition, so it is no kind`);
       });
@@ -13242,20 +20503,148 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       }
       effectNameIssues(entry, skills, saves, abilityIds, def, path, issue);
       hideIssues(def, entry, path, issue);
-      // Kept off by who puts them on (1.191): the ruleset's own conditions, from creatures it names.
-      entry.conditionImmunitiesFrom?.forEach((ward, wardIndex) => {
-        const where = [...path, "conditionImmunitiesFrom", wardIndex];
-        ward.conditions.forEach((condition, conditionIndex) => {
-          if (!conditions.has(condition))
-            issue([...where, "conditions", conditionIndex], `Unknown condition "${condition}"`);
-        });
-        targetIsIssues(def, ward.from, [...where, "from"], issue);
+      if (entry.hangsOn) hangsOnIssues(def, entry.hangsOn, [...path, "hangsOn"], issue);
+      // What it chokes with (1.651) is the fight's breath, and what keeps its save off are conditions.
+      if (entry.suffocates && !combat.underwater?.breath)
+        issue([...path, "suffocates"], "suffocates needs combat.underwater.breath to say how long breath is held");
+      entry.savesUnless?.forEach((id, index) => {
+        if (!def.sheet.live.conditions.some((one) => one.id === id))
+          issue([...path, "savesUnless", index], `Unknown condition "${id}"`);
       });
+      // What keeps a fall from being safe (1.650): conditions the sheet knows.
+      if (typeof entry.fallsSafely === "object") {
+        entry.fallsSafely.unless?.forEach((id, index) => {
+          if (!def.sheet.live.conditions.some((one) => one.id === id))
+            issue([...path, "fallsSafely", "unless", index], `Unknown condition "${id}"`);
+        });
+      }
+      // The derived values it changes (1.662), the sheet's own, at most 12.
+      const derivedChanged = Object.keys(entry.derivedChanges ?? {});
+      if (derivedChanged.length > 12)
+        issue([...path, "derivedChanges"], "A condition changes at most 12 derived values");
+      for (const id of derivedChanged) {
+        if (!def.sheet.derived.some((one) => one.id === id))
+          issue([...path, "derivedChanges", id], `Unknown derived value "${id}"`);
+      }
+      // The abilities it changes (1.515), at most 12, never by nothing.
+      const changed = Object.entries(entry.abilities ?? {});
+      if (changed.length > 12) issue([...path, "abilities"], "A condition changes at most 12 abilities");
+      for (const [id, change] of changed) {
+        if (!abilityIds.has(id)) issue([...path, "abilities", id], `Unknown ability "${id}"`);
+        if ("add" in change && change.add === 0) issue([...path, "abilities", id, "add"], "Adding 0 changes nothing");
+      }
+      // The abilities a jump adds (1.499) and a weapon is made with (1.501), and the field naming one.
+      const jumpAbility = entry.jumps?.plus?.ability;
+      if (jumpAbility !== undefined && !abilityIds.has(jumpAbility))
+        issue([...path, "jumps", "plus", "ability"], `Unknown ability "${jumpAbility}"`);
+      if (entry.duplicates?.defense.ability !== undefined && !abilityIds.has(entry.duplicates.defense.ability))
+        issue([...path, "duplicates", "defense", "ability"], `Unknown ability "${entry.duplicates.defense.ability}"`);
+      if (entry.duplicates) sightIssues(def, entry.duplicates.pierced, [...path, "duplicates"], issue);
+      if (entry.weapon?.ability !== undefined && !abilityIds.has(entry.weapon.ability))
+        issue([...path, "weapon", "ability"], `Unknown ability "${entry.weapon.ability}"`);
+      const abilityFrom = entry.weapon?.abilityFrom;
+      if (abilityFrom !== undefined && !def.sheet.fields.some((one) => one.id === abilityFrom))
+        issue([...path, "weapon", "abilityFrom"], `Unknown field "${abilityFrom}"`);
+      // Kept off by who puts them on (1.191): the ruleset's own conditions, from creatures it names.
+      freedomIssues(def, entry, path, issue);
+      // Who is hit saves with a save of the sheet's, or takes conditions it has (1.489).
+      if (entry.whenHit) {
+        const where = [...path, "whenHit"];
+        if (entry.whenHit.save && !def.sheet.saves.some((one) => one.id === entry.whenHit!.save!.save))
+          issue([...where, "save", "save"], `Unknown save "${entry.whenHit.save.save}"`);
+        const harmed = entry.whenHit.harms?.damageType;
+        if (
+          harmed !== undefined &&
+          combat.damageTypes &&
+          !combat.damageTypes.some((type) => type.trim().toLowerCase() === harmed.trim().toLowerCase())
+        )
+          issue([...where, "harms", "damageType"], `Unknown damage type "${harmed}"`);
+        entry.whenHit.applies?.forEach((applied, appliedIndex) => {
+          if (!conditions.has(applied.condition))
+            issue([...where, "applies", appliedIndex, "condition"], `Unknown condition "${applied.condition}"`);
+        });
+        if (entry.whenHit.from) targetIsIssues(def, entry.whenHit.from, [...where, "from"], issue);
+      }
+      // What its holder's hits put on is the ruleset's own (1.503), and what its entering does (1.504).
+      entry.onHit?.applies?.forEach((applied, appliedIndex) => {
+        if (!conditions.has(applied.condition))
+          issue([...path, "onHit", "applies", appliedIndex, "condition"], `Unknown condition "${applied.condition}"`);
+      });
+      // Its save is the sheet's, and what a bad failure puts on the ruleset's own (1.683).
+      if (entry.onHit?.save && !def.sheet.saves.some((one) => one.id === entry.onHit!.save!.save))
+        issue([...path, "onHit", "save", "save"], `Unknown save "${entry.onHit.save.save}"`);
+      entry.onHit?.failedBy?.applies.forEach((applied, appliedIndex) => {
+        if (!conditions.has(applied.condition))
+          issue(
+            [...path, "onHit", "failedBy", "applies", appliedIndex, "condition"],
+            `Unknown condition "${applied.condition}"`,
+          );
+      });
+      entry.entering?.applies?.forEach((applied, appliedIndex) => {
+        if (!conditions.has(applied.condition))
+          issue(
+            [...path, "entering", "applies", appliedIndex, "condition"],
+            `Unknown condition "${applied.condition}"`,
+          );
+      });
+      // What a called creature pays with is a budget of the fight's (1.488).
+      if (entry.lendsStrikes && !combat.economy.budgets.some((one) => one.id === entry.lendsStrikes!.budget))
+        issue([...path, "lendsStrikes", "budget"], `Unknown budget "${entry.lendsStrikes.budget}"`);
       // What it harms with is one of the ruleset's damage types (1.189).
       const harmType = entry.harms?.type;
       const damageTypes = combat.damageTypes?.map((type) => type.trim().toLowerCase());
       if (harmType && damageTypes && !damageTypes.includes(harmType.trim().toLowerCase())) {
         issue([...path, "harms", "type"], `Unknown damage type "${harmType}"`);
+      }
+      // What it counts as (1.585): other conditions of the ruleset's, never itself.
+      entry.countsAs?.forEach((id, at) => {
+        if (id === entry.condition) issue([...path, "countsAs", at], "A condition does not count as itself");
+        else if (!def.sheet.live.conditions.some((one) => one.id === id))
+          issue([...path, "countsAs", at], `Unknown condition "${id}"`);
+      });
+      // What it puts on as well (1.765): other conditions of the ruleset's, never itself.
+      entry.alsoApplies?.forEach((id, at) => {
+        if (id === entry.condition) issue([...path, "alsoApplies", at], "A condition does not put itself on");
+        else if (!def.sheet.live.conditions.some((one) => one.id === id))
+          issue([...path, "alsoApplies", at], `Unknown condition "${id}"`);
+      });
+      // Cover it gives its source (1.588), in a fight that has cover.
+      if (entry.coverFor && !combat.cover) {
+        issue([...path, "coverFor"], '"coverFor" gives cover, so the block declares "cover" too');
+      }
+      // What ends it through its source (1.584): conditions, components and senses of the ruleset's. A
+      // sense is one it declares or one a condition's `lacks` takes away: 5e's deafened, `hearing`.
+      const sourceRule = entry.endsWhenSource;
+      if (sourceRule) {
+        const knownComponents = new Set((combat.components ?? []).map((one) => one.id));
+        const knownSenses = new Set([
+          ...(combat.senses ?? []).map((one) => one.id),
+          ...(combat.conditions ?? []).flatMap((one) => one.lacks ?? []),
+        ]);
+        const knownConditions = new Set(def.sheet.live.conditions.map((one) => one.id));
+        sourceRule.conditions?.forEach((id, at) => {
+          if (!knownConditions.has(id))
+            issue([...path, "endsWhenSource", "conditions", at], `Unknown condition "${id}"`);
+        });
+        sourceRule.lacks?.forEach((id, at) => {
+          if (!knownConditions.has(id)) issue([...path, "endsWhenSource", "lacks", at], `Unknown condition "${id}"`);
+        });
+        sourceRule.components?.forEach((id, at) => {
+          if (!knownComponents.has(id))
+            issue([...path, "endsWhenSource", "components", at], `Unknown component "${id}"`);
+        });
+        sourceRule.holderLacks?.forEach((id, at) => {
+          if (!knownSenses.has(id)) issue([...path, "endsWhenSource", "holderLacks", at], `Unknown sense "${id}"`);
+        });
+      }
+      // The save its source throws as its holder dies (1.577), one the sheet has.
+      if (entry.holderDies && !def.sheet.saves.some((one) => one.id === entry.holderDies!.save)) {
+        issue([...path, "holderDies", "save"], `Unknown save "${entry.holderDies.save}"`);
+      }
+      // The save that spares it (1.403), one the sheet has.
+      const harmSave = entry.harms?.save?.save;
+      if (harmSave && !def.sheet.saves.some((one) => one.id === harmSave)) {
+        issue([...path, "harms", "save", "save"], `Unknown save "${harmSave}"`);
       }
       // What it deals as it ends (1.245): a damage type of the ruleset's, spared what it names.
       const endType = entry.onEnd?.harm?.type;
@@ -13263,6 +20652,73 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         issue([...path, "onEnd", "harm", "type"], `Unknown damage type "${endType}"`);
       }
       targetIsIssues(def, entry.onEnd?.harm?.unless, [...path, "onEnd", "harm", "unless"], issue);
+      // Saved against for half (1.751), with a save the sheet has.
+      const endSave = entry.onEnd?.harm?.save?.save;
+      if (endSave && !def.sheet.saves.some((one) => one.id === endSave))
+        issue([...path, "onEnd", "harm", "save", "save"], `Unknown save "${endSave}"`);
+      // Inside (1.405): room by the fight's own sizes, a save the sheet has, and somebody to lay prone.
+      if (entry.inside && entry.inside !== true) {
+        insideRoomIssues(def, entry.inside.room, [...path, "inside", "room"], issue);
+        const released = entry.inside.releasedWhen;
+        if (released && !def.sheet.saves.some((one) => one.id === released.save.save))
+          issue([...path, "inside", "releasedWhen", "save", "save"], `Unknown save "${released.save.save}"`);
+        if (
+          (released?.prone || entry.inside.corpse?.prone) &&
+          !combat.conditions?.some((one) => one.effects.includes("half-move-to-stand"))
+        )
+          issue(
+            [...path, "inside"],
+            'Let out prone needs a combat condition with the "half-move-to-stand" effect to lay them in',
+          );
+        if (entry.inside.corpse && !combat.distance)
+          issue([...path, "inside", "corpse"], "Climbing out costs movement, so the fight has a distance");
+      }
+      rerollsFaceIssues(def, entry.rerollsFace, [...path, "rerollsFace"], issue);
+      if (entry.fellsGrant) fellsGrantIssues(entry.fellsGrant, [...path, "fellsGrant"]);
+      notWhileIssues(entry, path);
+      if (entry.checkFloor) checkFloorIssues(entry.checkFloor, [...path, "checkFloor"]);
+      // A sanctuary (1.423): a save the sheet has, a difficulty it reads and attackers it knows.
+      if (entry.sanctuary) {
+        const ward = entry.sanctuary;
+        if (!def.sheet.saves.some((one) => one.id === ward.save))
+          issue([...path, "sanctuary", "save"], `Unknown save "${ward.save}"`);
+        if (ward.difficulty) checkRef(ward.difficulty, [...path, "sanctuary", "difficulty"], derivedIds);
+        targetIsIssues(def, ward.from, [...path, "sanctuary", "from"], issue);
+        castsIssues(def, ward.against?.casts, [...path, "sanctuary", "against", "casts"], issue);
+      }
+      // Harm its holder's sheet chose (1.429): a text or enum field each.
+      entry.resistIn?.forEach((id, index) => {
+        const found = choiceFieldIssue(def, id);
+        if (found) issue([...path, "resistIn", index], found);
+      });
+      // What its holder casts to end it (1.426) is cast from the ruleset's own catalogs.
+      gainsIssues(def, entry.endsWhenHolder?.gains, [...path, "endsWhenHolder", "gains"], issue);
+      if (entry.endsWhenHolder?.gains?.includes(entry.condition))
+        issue([...path, "endsWhenHolder", "gains"], "A condition is never ended by gaining itself");
+      if (entry.endsWhenHolder?.casts) {
+        castsIssues(def, entry.endsWhenHolder.casts, [...path, "endsWhenHolder", "casts"], issue);
+      }
+      // The sense its holder hears its source with (1.618): one the ruleset declares or takes away.
+      const hearing = entry.endsWhenHolder?.cantHearSource;
+      if (
+        hearing &&
+        !(combat.senses ?? []).some((one) => one.id === hearing.sense) &&
+        !(combat.conditions ?? []).some((one) => one.lacks?.includes(hearing.sense))
+      )
+        issue([...path, "endsWhenHolder", "cantHearSource", "sense"], `Unknown sense "${hearing.sense}"`);
+      // Regeneration (1.396): health in points, harm the ruleset has, and a value its sheet reads.
+      if (entry.regenerates) {
+        if ("track" in combat.health)
+          issue(
+            [...path, "regenerates"],
+            `Health is the wound track "${combat.health.track}", which regains no points`,
+          );
+        entry.regenerates.stoppedBy?.forEach((kind, index) => {
+          if (damageTypes && !damageTypes.includes(kind.trim().toLowerCase()))
+            issue([...path, "regenerates", "stoppedBy", index], `Unknown damage type "${kind}"`);
+        });
+        if (entry.regenerates.add) checkRef(entry.regenerates.add, [...path, "regenerates", "add"], derivedIds);
+      }
       // Temporary points each turn (1.274) need health with a buffer to hold them.
       if (entry.temporary && "track" in combat.health) {
         issue(
@@ -13275,6 +20731,31 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (entry.light && !combat.sight?.darkness)
         issue([...path, "light"], "Light is read where combat.sight.darkness makes the dark real");
       componentIssues(def, entry.forbids?.components, [...path, "forbids", "components"], issue);
+      castsIssues(def, entry.forbids?.casts, [...path, "forbids", "casts"], issue);
+      // Entries stopped by name, and catalogs cast from that harm (1.646), are the ruleset's own.
+      entry.forbids?.entries?.forEach((ref, refIndex) => {
+        const catalogId = ref.slice(0, ref.indexOf("/"));
+        if (!def.catalogs?.some((catalog) => catalog.id === catalogId))
+          issue([...path, "forbids", "entries", refIndex], `Unknown catalog "${catalogId}"`);
+      });
+      entry.harms?.catalogs?.forEach((catalogId, catalogIndex) => {
+        if (!def.catalogs?.some((catalog) => catalog.id === catalogId))
+          issue([...path, "harms", "catalogs", catalogIndex], `Unknown catalog "${catalogId}"`);
+      });
+      componentIssues(def, entry.waives, [...path, "waives"], issue);
+      if (entry.aware) awareIssues(def, entry.aware, [...path, "aware"], issue);
+      if (entry.presence) {
+        targetIsIssues(def, entry.presence.of, [...path, "presence", "of"], issue);
+        if (!combat.creatureTypes && (entry.presence.of.types || entry.presence.of.tags))
+          issue([...path, "presence", "of"], "Sensing kinds of creature reads combat.creatureTypes");
+      }
+      rowsWhereIssues(def, entry, [...path, "rowsWhere"], issue);
+      if (typeof entry.endsIdle === "object") {
+        const names = rulesetSheetNames(def.sheet, def.items);
+        for (const found of rulesetValueRefIssues(entry.endsIdle.unless.value, names, names.derived)) {
+          issue([...path, "endsIdle", "unless", "value", found.key], found.message);
+        }
+      }
       // The action economy it changes (1.76) is the ruleset's own: budgets it declares, conditions it has.
       entry.budgets?.forEach((change, changeIndex) => {
         const where = [...path, "budgets", changeIndex, "budget"];
@@ -13366,6 +20847,12 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
             issue([...path, "behavior", key, namedIndex], `This ruleset has no standard action "${named}"`);
         });
       }
+      // Its own actions kept (1.601): it has some, and an `only` they are kept through.
+      if (entry.behavior?.actions && (!entry.actions?.length || !entry.behavior.only))
+        issue(
+          [...path, "behavior", "actions"],
+          '"actions" keeps the condition\'s own actions through "only", so it has both',
+        );
       const drops = entry.behavior?.drops;
       if (drops) {
         const at = [...path, "behavior", "drops"];
@@ -13379,6 +20866,15 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         });
         if (drops.pickUp !== undefined && !combat.economy.budgets.some((budget) => budget.id === drops.pickUp))
           issue([...at, "pickUp"], `Unknown budget "${drops.pickUp}"`);
+      }
+      // The save that keeps a turn's budget, and the budget (1.463).
+      const wastes = entry.behavior?.wastes;
+      if (wastes) {
+        const at = [...path, "behavior", "wastes"];
+        if (!def.sheet.saves.some((save) => save.id === wastes.save))
+          issue([...at, "save"], `Unknown save "${wastes.save}"`);
+        if (!combat.economy.budgets.some((budget) => budget.id === wastes.budget))
+          issue([...at, "budget"], `Unknown budget "${wastes.budget}"`);
       }
       if (entry.expires) {
         if (!conditions.has(entry.expires.becomes))
@@ -13409,7 +20905,31 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           );
         }
       });
+      // What it gives way to at first sight (1.638): a condition the ruleset has, never itself.
+      const sighted = entry.onFirstSeen?.applies;
+      if (sighted) {
+        if (!conditions.has(sighted.condition))
+          issue([...path, "onFirstSeen", "applies", "condition"], `Unknown condition "${sighted.condition}"`);
+        else if (sighted.condition === entry.condition)
+          issue([...path, "onFirstSeen", "applies", "condition"], "A condition does not give way to itself");
+        if (sighted.when)
+          issue([...path, "onFirstSeen", "applies", "when"], 'What it gives way to has no sheet to read "when" off');
+      }
       if (entry.shakeOff) checkBudget(entry.shakeOff.budget, [...path, "shakeOff", "budget"]);
+      // The catalogs a carapace takes from (1.723).
+      entry.reflects?.against.catalogs.forEach((catalogId, catalogIndex) => {
+        if (!def.catalogs?.some((catalog) => catalog.id === catalogId))
+          issue([...path, "reflects", "against", "catalogs", catalogIndex], `Unknown catalog "${catalogId}"`);
+      });
+      // Rests it keeps from doing anything (1.722).
+      if (Array.isArray(entry.blocksRests))
+        entry.blocksRests.forEach((rest, restIndex) => {
+          if (!def.rests.some((one) => one.id === rest))
+            issue([...path, "blocksRests", restIndex], `Unknown rest "${rest}"`);
+        });
+      // What bracing against being moved costs (1.718).
+      if (entry.pushReducedBy?.budget !== undefined)
+        checkBudget(entry.pushReducedBy.budget, [...path, "pushReducedBy", "budget"]);
       if (entry.delays) {
         checkBudget(entry.delays.budget, [...path, "delays", "budget"]);
         entry.delays.catalogs.forEach((catalogId, catalogIndex) => {
@@ -13433,12 +20953,47 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           issue([...path, "sealed", "brokenBy", refIndex], `Unknown catalog "${catalogId}"`);
         }
       });
-      entry.actions?.forEach((ref, refIndex) => {
+      entry.actions?.forEach((one, refIndex) => {
+        const ref = typeof one === "string" ? one : one.entry;
         const catalogId = ref.slice(0, ref.indexOf("/"));
         if (!def.catalogs?.some((catalog) => catalog.id === catalogId)) {
           issue([...path, "actions", refIndex], `Unknown catalog "${catalogId}"`);
         }
       });
+      // Taken off at will (1.622) on a budget the ruleset has.
+      if (entry.endable && !combat.economy.budgets.some((one) => one.id === entry.endable!.budget))
+        issue([...path, "endable", "budget"], `Unknown budget "${entry.endable.budget}"`);
+      // A ward on its holder (1.520): of the ruleset's own catalogs, and never raised by a cast's steps.
+      entry.wards?.catalogs.forEach((catalogId, catalogIndex) => {
+        if (!def.catalogs?.some((catalog) => catalog.id === catalogId)) {
+          issue([...path, "wards", "catalogs", catalogIndex], `Unknown catalog "${catalogId}"`);
+        }
+      });
+      // Its entries (1.645) are of its own catalogs.
+      wardEntriesIssues(entry.wards, [...path, "wards"], issue);
+      entry.absorbs?.catalogs.forEach((catalogId, catalogIndex) => {
+        if (!def.catalogs?.some((catalog) => catalog.id === catalogId)) {
+          issue([...path, "absorbs", "catalogs", catalogIndex], `Unknown catalog "${catalogId}"`);
+        }
+      });
+      if (entry.absorbs?.charges) {
+        issue([...path, "absorbs", "charges"], "Only an item's worn effect moves its charges");
+      }
+      if (entry.absorbs?.lifetime !== undefined) {
+        issue([...path, "absorbs", "lifetime"], "Only an item's worn effect counts what it ever took in");
+      }
+      // What taking it in costs (1.570) is one of the economy's budgets.
+      if (entry.absorbs?.spends && !def.combat?.economy.budgets.some((one) => one.id === entry.absorbs!.spends)) {
+        issue([...path, "absorbs", "spends"], `Unknown budget "${entry.absorbs.spends}"`);
+      }
+      entry.turns?.catalogs.forEach((catalogId, catalogIndex) => {
+        if (!def.catalogs?.some((catalog) => catalog.id === catalogId)) {
+          issue([...path, "turns", "catalogs", catalogIndex], `Unknown catalog "${catalogId}"`);
+        }
+      });
+      if (entry.wards?.maxLevelPerCostStep !== undefined) {
+        issue([...path, "wards", "maxLevelPerCostStep"], "A condition's ward is not cast, so it rises by no steps");
+      }
       if (entry.size && !combat.sizes) {
         issue([...path, "size"], "A condition that changes size needs combat.sizes");
       }
@@ -13449,6 +21004,21 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       });
       entry.suppresses?.forEach((held, heldIndex) => {
         if (!conditions.has(held)) issue([...path, "suppresses", heldIndex], `Unknown condition "${held}"`);
+      });
+      entry.heldOffWhile?.conditions?.forEach((held, heldIndex) => {
+        if (!conditions.has(held)) {
+          issue([...path, "heldOffWhile", "conditions", heldIndex], `Unknown condition "${held}"`);
+        } else if (held === entry.condition) {
+          issue([...path, "heldOffWhile", "conditions", heldIndex], "A condition is held off by others, not itself");
+        }
+      });
+      // A shape (1.392): its revert's budget, and the saves it keeps, are the ruleset's own.
+      if (entry.shape?.revert && !combat.economy.budgets.some((budget) => budget.id === entry.shape!.revert)) {
+        issue([...path, "shape", "revert"], `Unknown budget "${entry.shape.revert}"`);
+      }
+      entry.shape?.keepsSaves?.forEach((save, saveIndex) => {
+        if (!sheet.saves.some((one) => one.id === save))
+          issue([...path, "shape", "keepsSaves", saveIndex], `Unknown save "${save}"`);
       });
       // Gating an effect this condition does not have says nothing, and is nearly always a typo for
       // one it does.
@@ -13486,8 +21056,18 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       const key = `${entry.derived !== undefined ? "derived" : "track"}:${read}@${entry.at}`;
       if (levelled.has(key)) issue([...path, "at"], `Level ${entry.at} of "${read}" is given twice`);
       levelled.add(key);
+      rerollsFaceIssues(def, entry.rerollsFace, [...path, "rerollsFace"], issue);
+      if (entry.fellsGrant) fellsGrantIssues(entry.fellsGrant, [...path, "fellsGrant"]);
+      notWhileIssues(entry, path);
+      if (entry.checkFloor) checkFloorIssues(entry.checkFloor, [...path, "checkFloor"]);
+      componentIssues(def, entry.waives, [...path, "waives"], issue);
+      if (entry.aware) awareIssues(def, entry.aware, [...path, "aware"], issue);
+      rowsWhereIssues(def, entry, [...path, "rowsWhere"], issue);
       effectNameIssues(entry, skills, saves, abilityIds, def, path, issue);
       hideIssues(def, entry, path, issue);
+      if (entry.hangsOn) hangsOnIssues(def, entry.hangsOn, [...path, "hangsOn"], issue);
+      if (entry.hangsOn?.ends)
+        issue([...path, "hangsOn", "ends"], '"ends" ends the combat condition it is on, so it goes on one');
     });
 
     if (combat.concentration) {
@@ -13531,6 +21111,10 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       }
       if (dying.condition !== undefined && !conditions.has(dying.condition)) {
         issue(at("dying", "condition"), `Unknown condition "${dying.condition}"`);
+      }
+      const knockedInto = dying.knockOut?.condition;
+      if (knockedInto !== undefined && !conditions.has(knockedInto)) {
+        issue(at("dying", "knockOut", "condition"), `Unknown condition "${knockedInto}"`);
       }
       // The same rule the attack roll has: a natural result is one face of one die.
       if (dying.dice.count !== 1 && (dying.naturals.max !== "none" || dying.naturals.min !== "none")) {
@@ -13606,6 +21190,27 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
             issue(at("threat", "tiers", index, key, 0), "The lowest is above the highest");
         }
       });
+      const budget = combat.threat.budget;
+      if (budget) {
+        const stepIds = unique(budget.steps, at("threat", "budget", "steps"), "budget step");
+        for (const [index, field] of budget.level.entries()) {
+          const found = def.sheet.fields.find((one) => one.id === field);
+          if (!found) issue(at("threat", "budget", "level", index), `Unknown sheet field "${field}"`);
+          else if (found.type !== "number")
+            issue(at("threat", "budget", "level", index), `"${field}" is not a number field`);
+        }
+        budget.byLevel.forEach((row, index) => {
+          if (row.worth.length !== budget.steps.length)
+            issue(
+              at("threat", "budget", "byLevel", index, "worth"),
+              `Give one worth for each of the ${budget.steps.length} steps`,
+            );
+        });
+        for (const [game, step] of Object.entries(budget.forGame ?? {}))
+          if (!stepIds.has(step)) issue(at("threat", "budget", "forGame", game), `Unknown budget step "${step}"`);
+        if (!combat.threat.tiers.some((tier) => tier.worth !== undefined))
+          issue(at("threat", "budget"), "A budget needs a worth on the threat tiers to spend it on");
+      }
     }
   }
 
@@ -13844,7 +21449,7 @@ export type RulesetCombatDistance = NonNullable<RulesetCombat["distance"]>;
 /** A distance carried by one column of an attack list, or the same on every row of it. */
 export type RulesetCombatDistanceSource = z.infer<typeof combatDistanceSourceSchema>;
 export type RulesetCombatConcentration = NonNullable<RulesetCombat["concentration"]>;
-export type RulesetCombatDying = NonNullable<RulesetCombat["dying"]>;
+export type RulesetCombatDying = RulesetCombatDyingSaves;
 export type RulesetCombatThreatTier = NonNullable<RulesetCombat["threat"]>["tiers"][number];
 /** Where a community ruleset was imported from. `url` is null for a file the user picked. */
 export type CommunityRulesetSource = { kind: "repository" | "local"; url: string | null };
@@ -14115,29 +21720,32 @@ function creatureSheetIssues(
     if (rows.length > list.maxItems) add([...at, "lists", listId], `"${listId}" holds at most ${list.maxItems} rows`);
     rows.forEach((row, index) => {
       // Held to exactly what a catalog's row is held to, less the mark that says which entry it is.
-      const { [RULESET_CATALOG_ROW_KEY]: _mark, ...values } = row;
+      const { [RULESET_CATALOG_ROW_KEY]: _mark, [RULESET_STANDS_FOR_ROW_KEY]: _standsFor, ...values } = row;
       for (const message of rulesetListRowIssues(list, values)) add([...at, "lists", listId, index], message);
       // A row picked out of a catalog says which entry it is, which is what a fight reads its price
       // and its mechanics from. The catalog has to be one that holds rows and feeds this list; when
-      // it is written inline, the entry has to be in it too.
-      const ref = row[RULESET_CATALOG_ROW_KEY];
-      if (ref === undefined) return;
-      const where = [...at, "lists", listId, index, RULESET_CATALOG_ROW_KEY];
-      const slash = typeof ref === "string" ? ref.indexOf("/") : -1;
-      if (typeof ref !== "string" || slash <= 0 || slash === ref.length - 1) {
-        add(where, `"${String(ref)}" is not a <catalog>/<entry> reference`);
-        return;
-      }
-      const catalogId = ref.slice(0, slash);
-      const catalog = definition.catalogs?.find((candidate) => candidate.id === catalogId);
-      // A bestiary declares no feeds, so it is never one of these.
-      if (!catalog?.feeds?.includes(listId)) {
-        add(where, `No catalog "${catalogId}" feeds the list "${listId}"`);
-        return;
-      }
-      const entryId = ref.slice(slash + 1);
-      if (catalog.entries && !catalog.from && !catalog.entries.some((entry) => entry.id === entryId)) {
-        add(where, `Catalog "${catalogId}" has no entry "${entryId}"`);
+      // it is written inline, the entry has to be in it too. A row that stands for another entry
+      // (1.493) is held to the same.
+      for (const key of [RULESET_CATALOG_ROW_KEY, RULESET_STANDS_FOR_ROW_KEY]) {
+        const ref = row[key];
+        if (ref === undefined) continue;
+        const where = [...at, "lists", listId, index, key];
+        const slash = typeof ref === "string" ? ref.indexOf("/") : -1;
+        if (typeof ref !== "string" || slash <= 0 || slash === ref.length - 1) {
+          add(where, `"${String(ref)}" is not a <catalog>/<entry> reference`);
+          continue;
+        }
+        const catalogId = ref.slice(0, slash);
+        const catalog = definition.catalogs?.find((candidate) => candidate.id === catalogId);
+        // A bestiary declares no feeds, so it is never one of these.
+        if (!catalog?.feeds?.includes(listId)) {
+          add(where, `No catalog "${catalogId}" feeds the list "${listId}"`);
+          continue;
+        }
+        const entryId = ref.slice(slash + 1);
+        if (catalog.entries && !catalog.from && !catalog.entries.some((entry) => entry.id === entryId)) {
+          add(where, `Catalog "${catalogId}" has no entry "${entryId}"`);
+        }
       }
     });
   }
@@ -14176,6 +21784,22 @@ function targetIsIssues(
   add: (path: (string | number)[], message: string) => void,
 ): void {
   if (!test) return;
+  if (test.except) targetIsIssues(definition, test.except, [...at, "except"], add);
+  test.anyOf?.forEach((one, index) => targetIsIssues(definition, one, [...at, "anyOf", index], add));
+  // Conditions held (1.555) are the fight's own.
+  test.holding?.forEach((id, index) => {
+    if (!definition.combat?.conditions?.some((one) => one.condition === id))
+      add([...at, "holding", index], `Unknown combat condition "${id}"`);
+  });
+  // Sizes (1.403) read combat.sizes.
+  for (const key of ["upToSize", "atLeastSize"] as const) {
+    const size = test[key];
+    if (size === undefined) continue;
+    const sizes = definition.combat?.sizes;
+    if (!sizes) add([...at, key], `"${key}" reads combat.sizes, so the block declares "sizes" too`);
+    else if (!sizes.order.some((one) => one.id === size)) add([...at, key], `Unknown size "${size}"`);
+  }
+  if (test.types === undefined && test.tags === undefined) return;
   const kinds = definition.combat?.creatureTypes;
   if (!kinds) {
     add(at, "This ruleset declares no creature types for a target to be");
@@ -14187,6 +21811,21 @@ function targetIsIssues(
   test.tags?.forEach((tag, index) => {
     if (!kinds.tags?.some((one) => one.id === tag)) add([...at, "tags", index], `Unknown creature tag "${tag}"`);
   });
+}
+
+/** How much one creature holds inside it (1.405): sizes the fight has. */
+function insideRoomIssues(
+  definition: RulesetDefinition,
+  room: RulesetInsideRoom | undefined,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  if (!room?.takes) return;
+  const sizes = definition.combat?.sizes;
+  for (const size of Object.keys(room.takes)) {
+    if (!sizes) add([...at, "takes", size], '"takes" reads combat.sizes, so the block declares "sizes" too');
+    else if (!sizes.order.some((one) => one.id === size)) add([...at, "takes", size], `Unknown size "${size}"`);
+  }
 }
 
 /** The target tests one action, entry or use carries (1.168): on its extra clauses, the conditions it
@@ -14206,14 +21845,22 @@ function targetTestIssues(
       abilityAtMost?: Record<string, number>;
       abilityAtLeast?: Record<string, number>;
       notImmuneTo?: string[];
+      calledBySelf?: true;
     };
     save?: RulesetSaveExtras;
     maxAgainst?: RulesetTargetIs;
+    amountAgainst?: { is: RulesetTargetIs; amount: { dice?: string; flat?: number } };
+    amount?: unknown;
+    area?: unknown;
+    pushesOutSaved?: true;
+    heals?: unknown;
+    dismissesIs?: RulesetTargetIs;
   },
   at: (string | number)[],
   add: (path: (string | number)[], message: string) => void,
 ): void {
   saveExtrasIssues(definition, carrier.save, [...at, "save"], add);
+  targetIsIssues(definition, carrier.dismissesIs, [...at, "dismissesIs"], add);
   carrier.plus?.forEach((clause, index) =>
     targetIsIssues(definition, clause.targetIs, [...at, "plus", index, "targetIs"], add),
   );
@@ -14247,6 +21894,19 @@ function targetTestIssues(
   targetIsIssues(definition, carrier.targetTypes?.is, [...at, "targetTypes", "is"], add);
   targetIsIssues(definition, carrier.targetTypes?.not, [...at, "targetTypes", "not"], add);
   targetIsIssues(definition, carrier.maxAgainst, [...at, "maxAgainst"], add);
+  targetIsIssues(definition, carrier.amountAgainst?.is, [...at, "amountAgainst", "is"], add);
+  // Instead of the amount it deals (1.629), so only on one that deals some.
+  if (carrier.amountAgainst && (carrier.amount === undefined || carrier.heals))
+    add([...at, "amountAgainst"], '"amountAgainst" is on an entry that deals no damage');
+  if (
+    carrier.amountAgainst &&
+    carrier.amountAgainst.amount.dice === undefined &&
+    carrier.amountAgainst.amount.flat === undefined
+  )
+    add([...at, "amountAgainst", "amount"], '"amountAgainst" says no dice and no flat amount');
+  // Out of its area, those who saved (1.631): so it has both.
+  if (carrier.pushesOutSaved && (!carrier.area || !carrier.save))
+    add([...at, "pushesOutSaved"], '"pushesOutSaved" is on an entry with no area or no save');
   const abilities = new Set(definition.sheet.abilities.map((ability) => ability.id));
   for (const key of ["abilityAtMost", "abilityAtLeast"] as const) {
     for (const id of Object.keys(carrier.targetTypes?.[key] ?? {})) {
@@ -14332,7 +21992,7 @@ export function rulesetConditionKindIds(definition: RulesetDefinition): Set<stri
 function cureIssues(
   definition: RulesetDefinition,
   mechanics: {
-    ends?: { conditions: string[]; count?: number };
+    ends?: { conditions: string[]; count?: number; chosen?: true };
     stabilizes?: true;
     tracks?: Array<{ track: string; by: number }>;
     unseals?: true;
@@ -14372,6 +22032,24 @@ function cureIssues(
 }
 
 /** The senses an obscuring zone or an unseen condition lets through are the fight's own (1.178). */
+/** What `rowsWhere` narrows is there to narrow, on a list and column the sheet has (1.437). */
+function rowsWhereIssues(
+  def: RulesetDefinitionBase,
+  entry: { rowsWhere?: { list: string; column: string }; shapeKeeps?: string[]; waives?: string[] },
+  path: (string | number)[],
+  issue: (path: (string | number)[], message: string) => void,
+): void {
+  const where = entry.rowsWhere;
+  if (!where) return;
+  if (!entry.shapeKeeps && !entry.waives)
+    issue(path, '"rowsWhere" narrows "shapeKeeps" or "waives", so it goes with one');
+  const list = def.sheet.lists.find((one) => one.id === where.list);
+  if (!list) issue([...path, "list"], `Unknown list "${where.list}"`);
+  else if (!list.columns.some((column) => column.id === where.column)) {
+    issue([...path, "column"], `List "${where.list}" has no column "${where.column}"`);
+  }
+}
+
 /** The components something needs, or a zone or condition stops, are the fight's own (1.179). */
 function componentIssues(
   definition: RulesetDefinition,
@@ -14387,6 +22065,19 @@ function componentIssues(
         known.size ? `Unknown component "${component}"` : "This ruleset declares no combat components",
       );
     }
+  });
+}
+
+/** A ward's own entries (1.645) are of the catalogs it wards. */
+function wardEntriesIssues(
+  wards: RulesetZoneWards | undefined,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  wards?.entries?.forEach((ref, index) => {
+    const catalog = ref.slice(0, ref.indexOf("/"));
+    if (!wards.catalogs.includes(catalog))
+      add([...at, "entries", index], `"${ref}" is not of a catalog this ward names`);
   });
 }
 
@@ -14408,7 +22099,27 @@ function zoneInsideIssues(
       add([...at, "inside", "immune", index], `Unknown damage type "${type}"`);
     }
   });
+  // Whom it works on, and the save that shrugs it off (1.460).
+  targetIsIssues(definition, zone.inside?.is, [...at, "inside", "is"], add);
+  // A kind chosen as it is cast (1.466), one of the fight's creature types, in place of `is`.
+  if (zone.inside?.chooses) {
+    if (zone.inside.is) add([...at, "inside", "chooses"], 'Whom it works on is chosen or named in "is", not both');
+    if (!definition.combat?.creatureTypes?.types?.length) {
+      add(
+        [...at, "inside", "chooses"],
+        "A kind is chosen from combat.creatureTypes, which this ruleset does not declare",
+      );
+    }
+  }
+  const insideSave = zone.inside?.save?.save;
+  if (insideSave && !definition.sheet.saves.some((save) => save.id === insideSave)) {
+    add([...at, "inside", "save", "save"], `Unknown save "${insideSave}"`);
+  }
   componentIssues(definition, zone.forbids?.components, [...at, "forbids", "components"], add);
+  const teleportSave = typeof zone.forbids?.teleport === "object" ? zone.forbids.teleport.save : undefined;
+  if (teleportSave && !definition.sheet.saves.some((save) => save.id === teleportSave)) {
+    add([...at, "forbids", "teleport", "save"], `Unknown save "${teleportSave}"`);
+  }
   zone.burns?.by.forEach((type, index) => {
     if (types && !types.includes(type.trim().toLowerCase()))
       add([...at, "burns", "by", index], `Unknown damage type "${type}"`);
@@ -14431,6 +22142,16 @@ function zoneInsideIssues(
   if (zone.damageType && types && !types.includes(zone.damageType.trim().toLowerCase())) {
     add([...at, "damageType"], `Unknown damage type "${zone.damageType}"`);
   }
+  // Each stage's type and save (1.557).
+  zone.stages?.forEach((stage, index) => {
+    if (stage.damageType && types && !types.includes(stage.damageType.trim().toLowerCase()))
+      add([...at, "stages", index, "damageType"], `Unknown damage type "${stage.damageType}"`);
+    if (stage.save && !definition.sheet.saves.some((save) => save.id === stage.save))
+      add([...at, "stages", index, "save"], `Unknown save "${stage.save}"`);
+    // Shaking concentration needs the ruleset's concentration save (1.580).
+    if (stage.breaksConcentration && !definition.combat?.concentration)
+      add([...at, "stages", index, "breaksConcentration"], "Nothing here is held by concentration to break");
+  });
   const burnType = zone.burns?.damageType;
   if (burnType && types && !types.includes(burnType.trim().toLowerCase())) {
     add([...at, "burns", "damageType"], `Unknown damage type "${burnType}"`);
@@ -14438,6 +22159,13 @@ function zoneInsideIssues(
   const catalogs = new Set((definition.catalogs ?? []).map((catalog) => catalog.id));
   zone.wards?.catalogs.forEach((catalog, index) => {
     if (!catalogs.has(catalog)) add([...at, "wards", "catalogs", index], `Unknown catalog "${catalog}"`);
+  });
+  wardEntriesIssues(zone.wards, [...at, "wards"], add);
+  zone.forbids?.casts?.forEach((catalog, index) => {
+    if (!catalogs.has(catalog)) add([...at, "forbids", "casts", index], `Unknown catalog "${catalog}"`);
+  });
+  zone.suppresses?.catalogs?.forEach((catalog, index) => {
+    if (!catalogs.has(catalog)) add([...at, "suppresses", "catalogs", index], `Unknown catalog "${catalog}"`);
   });
 }
 
@@ -14476,6 +22204,19 @@ function senseRangeIssues(
   });
 }
 
+/** The conditions whose coming on ends something are the sheet's own (1.440). */
+function gainsIssues(
+  definition: RulesetDefinition,
+  conditions: string[] | undefined,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  const known = new Set(definition.sheet.live.conditions.map((condition) => condition.id));
+  conditions?.forEach((condition, index) => {
+    if (!known.has(condition)) add([...at, index], `Unknown condition "${condition}"`);
+  });
+}
+
 /** The catalogs casting from which ends something are the ruleset's own (1.180). */
 function castsIssues(
   definition: RulesetDefinition,
@@ -14489,14 +22230,33 @@ function castsIssues(
   });
 }
 
+/** A face rolled again (1.408) is one the fight's own single die can show. */
+function rerollsFaceIssues(
+  definition: RulesetDefinition,
+  rerolls: RulesetRerollsFace | undefined,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  if (!rerolls) return;
+  const dice = definition.combat?.attackRoll?.dice;
+  if (!dice) {
+    add(at, "A face is rolled again on the fight's own attack dice, which this fight does not roll");
+  } else if (rerolls.face > dice.sides) {
+    add([...at, "face"], `The fight's d${dice.sides} never shows ${rerolls.face}`);
+  }
+}
+
 function escapeDcIssues(
   definition: RulesetDefinition,
   applies: {
     condition: string;
     escapeDc?: number | "save";
     escapeChecks?: string[];
-    endsWhenHolder?: { casts?: string[] };
+    endsWhenHolder?: { casts?: string[]; gains?: string[] };
     checkEnds?: { check: string };
+    targetHolds?: RulesetTargetHolds;
+    endsOnTarget?: string[];
+    harmsPuller?: { type?: string };
   },
   at: (string | number)[],
   add: (path: (string | number)[], message: string) => void,
@@ -14507,6 +22267,25 @@ function escapeDcIssues(
   }
   // What ends it when its holder casts (1.180) is cast from the ruleset's own catalogs.
   castsIssues(definition, applies.endsWhenHolder?.casts, [...at, "endsWhenHolder", "casts"], add);
+  gainsIssues(definition, applies.endsWhenHolder?.gains, [...at, "endsWhenHolder", "gains"], add);
+  // What it asks the target to hold, and ends on them (1.407), are the sheet's own conditions.
+  targetHoldsIssues(definition, applies.targetHolds, [...at, "targetHolds"], add);
+  const known = new Set(definition.sheet.live.conditions.map((condition) => condition.id));
+  applies.endsOnTarget?.forEach((condition, index) => {
+    if (!known.has(condition)) add([...at, "endsOnTarget", index], `Unknown condition "${condition}"`);
+  });
+  // Only somebody who pulls them out takes it, and only out of a hold that keeps them inside.
+  if (
+    applies.harmsPuller &&
+    !definition.combat?.conditions?.some((one) => one.condition === applies.condition && one.inside)
+  ) {
+    add([...at, "harmsPuller"], `"${applies.condition}" keeps nobody inside a creature to be pulled out of`);
+  }
+  const pullerType = applies.harmsPuller?.type;
+  const damageTypes = definition.combat?.damageTypes?.map((type) => type.trim().toLowerCase());
+  if (pullerType && damageTypes && !damageTypes.includes(pullerType.trim().toLowerCase())) {
+    add([...at, "harmsPuller", "type"], `Unknown damage type "${pullerType}"`);
+  }
   // The checks that may break it (1.175) are contest checks, and only mean something with an escape DC.
   applies.escapeChecks?.forEach((check, index) => {
     if (!definition.combat?.checks?.some((one) => one.id === check)) {
@@ -14518,7 +22297,13 @@ function escapeDcIssues(
   }
   if (applies.escapeDc === undefined) return;
   const combat = definition.combat;
-  if (!combat?.contests?.some((contest) => contest.from?.holding === applies.condition)) {
+  // Broken free of, or pulled out of (1.407).
+  if (
+    !combat?.contests?.some(
+      (contest) =>
+        contest.from?.holding === applies.condition || (contest.pulls && contest.targetHolds === applies.condition),
+    )
+  ) {
     add([...at, "escapeDc"], `No contest breaks free of "${applies.condition}" for an escape DC to be rolled against`);
   } else if (combat.kind === "dice-pool" || combat.kind === "symbol-pool") {
     add([...at, "escapeDc"], `A "${combat.kind}" fight counts successes, so it has no escape DC to meet`);
@@ -14549,6 +22334,10 @@ function creatureIssues(
   if (creature.loot !== undefined && !definition.items?.lootTables?.some((table) => table.id === creature.loot)) {
     add([...at, "loot"], `Unknown loot table "${creature.loot}"`);
   }
+  creature.inventory?.forEach((line, lineIndex) => {
+    if (line.table !== undefined && !definition.items?.lootTables?.some((table) => table.id === line.table))
+      add([...at, "inventory", lineIndex, "table"], `Unknown loot table "${line.table}"`);
+  });
   const budgets = new Set(combat.economy.budgets.map((budget) => budget.id));
   const saves = new Set(definition.sheet.saves.map((save) => save.id));
   const abilities = new Set(definition.sheet.abilities.map((ability) => ability.id));
@@ -14597,6 +22386,12 @@ function creatureIssues(
   if (creature.passive !== undefined && !combat.hiding) {
     add([...at, "passive"], "A printed passive Perception is read by hiding, so it needs combat.hiding");
   }
+  // Its Regeneration (1.396) has no sheet to add anything off.
+  if (creature.regenerates?.add) add([...at, "regenerates", "add"], 'A creature has no sheet to read "add" off');
+  if (creature.hangsOn) hangsOnIssues(definition, creature.hangsOn, [...at, "hangsOn"], add, true);
+  // Moved through by an ability the sheet declares (1.600).
+  if (creature.passableBy && !definition.sheet.abilities.some((one) => one.id === creature.passableBy!.ability))
+    add([...at, "passableBy", "ability"], `Unknown ability "${creature.passableBy.ability}"`);
   // What it may take as a standard action with another budget (1.291) is one the fight has.
   creature.actions.forEach((action, index) => {
     action.standard?.actions.forEach((name, nameIndex) => {
@@ -14606,6 +22401,9 @@ function creatureIssues(
     });
   });
   if (creature.hover && !creature.speeds?.fly) add([...at, "hover"], "A creature that hovers has a fly speed");
+  // Bearing riders by weight (1.641) needs the fight to weigh them.
+  if (creature.mountCarries && !combat.mounts?.weights)
+    add([...at, "mountCarries"], "A mount that carries by weight needs combat.mounts.weights");
   if (creature.type !== undefined || creature.tags) {
     const kinds = combat.creatureTypes;
     if (!kinds) add([...at, creature.type !== undefined ? "type" : "tags"], "This ruleset declares no creature types");
@@ -14658,6 +22456,13 @@ function creatureIssues(
   creature.actions?.forEach((action, index) => {
     if (action.teleport?.smoke)
       sightIssues(definition, action.teleport.smoke.pierced, [...at, "actions", index, "teleport", "smoke"], add);
+    // More dice for each step a call was paid (1.586) are the damage's own size.
+    const sidesOf = (dice: string | undefined) => /d(\d+)/.exec(dice ?? "")?.[1];
+    const perSides = sidesOf(action.perCallerStep?.dice);
+    if (action.perCallerStep && !action.damage)
+      add([...at, "actions", index, "perCallerStep"], '"perCallerStep" adds to the action\'s damage, so it has one');
+    else if (perSides && sidesOf(action.damage?.dice) && perSides !== sidesOf(action.damage?.dice))
+      add([...at, "actions", index, "perCallerStep"], '"perCallerStep" rolls dice the size of the damage\'s own');
   });
   const kinds = rulesetConditionKindIds(definition);
   creature.conditionImmunities?.forEach((condition, index) => {
@@ -14727,6 +22532,93 @@ function creatureIssues(
     if (action.draws && !budgets.has(action.draws.spends)) {
       add([...path, "draws", "spends"], `Unknown budget "${action.draws.spends}"`);
     }
+    // Sent away on a budget of its own (1.610).
+    const dismissal = action.calls?.dismissible;
+    if (typeof dismissal === "object" && !budgets.has(dismissal.budget)) {
+      add([...path, "calls", "dismissible", "budget"], `Unknown budget "${dismissal.budget}"`);
+    }
+    // Commanded on a budget, with the caller's own attack (1.707): a solar's Flying Sword.
+    if (action.calls?.commandedWith !== undefined && !budgets.has(action.calls.commandedWith)) {
+      add([...path, "calls", "commandedWith"], `Unknown budget "${action.calls.commandedWith}"`);
+    }
+    // Or through one of the caller's own actions (1.736): a chain devil's Multiattack.
+    const commandedBy = action.calls?.commandedBy?.action;
+    if (commandedBy !== undefined) {
+      if (!creature.actions.some((one) => one.id === commandedBy))
+        add([...path, "calls", "commandedBy", "action"], `No action "${commandedBy}" of this creature's`);
+      if (action.calls?.commandedWith !== undefined)
+        add([...path, "calls", "commandedBy"], "Commanded through an action or on a budget, not both");
+    }
+    const struckWith = action.calls?.fromCaller?.action;
+    if (struckWith !== undefined) {
+      const own = byId.get(struckWith);
+      if (!own || own.toHit === undefined || !own.damage)
+        add([...path, "calls", "fromCaller", "action"], `"${struckWith}" is not one of its attacks`);
+    }
+    // Engulfing (1.403): sizes the fight has, and a save the sheet has.
+    if (action.engulf) {
+      const sizes = definition.combat?.sizes;
+      if (!sizes)
+        add([...path, "engulf", "upToSize"], '"upToSize" reads combat.sizes, so the block declares "sizes" too');
+      else if (!sizes.order.some((one) => one.id === action.engulf!.upToSize))
+        add([...path, "engulf", "upToSize"], `Unknown size "${action.engulf.upToSize}"`);
+      if (!definition.sheet.saves.some((one) => one.id === action.engulf!.save.save))
+        add([...path, "engulf", "save", "save"], `Unknown save "${action.engulf.save.save}"`);
+      if (action.area || action.targets !== undefined)
+        add([...path, "engulf"], "An engulf walks to a cell and takes in whom it enters, so it has no area or targets");
+      if (action.toHit !== undefined || action.save)
+        add(
+          [...path, "engulf"],
+          "An engulf is saved against with its own save, so it has no attack roll or save of its own",
+        );
+      insideRoomIssues(definition, action.engulf.room, [...path, "engulf", "room"], add);
+      if (action.engulf.room && action.engulf.atMost !== undefined)
+        add([...path, "engulf", "room"], 'An engulf says how much it holds with "room" or "atMost", not both');
+    }
+    // Kept up on a budget the fight has (1.727), starting again the rounds of what it puts on.
+    if (action.sustains) {
+      if (!budgets.has(action.sustains.budget))
+        add([...path, "sustains", "budget"], `Unknown budget "${action.sustains.budget}"`);
+      if (!action.applies?.some((one) => typeof one.duration === "object" && typeof one.duration.rounds === "number"))
+        add(
+          [...path, "sustains"],
+          '"sustains" starts again the rounds of what it puts on, so it applies a condition lasting some rounds',
+        );
+    }
+    // Leaping onto whoever stands where it lands (1.725): a jump, so the fight has jumping.
+    if (action.leapsOnto) {
+      if (!combat.jumping) add([...path, "leapsOnto"], 'A leap is a jump, so the combat block has "jumping"');
+      if (action.area || action.engulf)
+        add([...path, "leapsOnto"], "A leap lands on whoever stands where it does, so it has no area or engulf");
+      const noRoom = action.leapsOnto.noRoom;
+      if (noRoom && !conditions.has(noRoom)) add([...path, "leapsOnto", "noRoom"], `Unknown condition "${noRoom}"`);
+    }
+    // Aimed only at whoever is this (1.405), as an entry's own reads.
+    if (action.targetTypes) targetTestIssues(definition, { targetTypes: action.targetTypes }, path, add);
+    // Once every attack in a sequence hit (1.405): a sequence's, with conditions it knows and an action
+    // of its own to use.
+    const allHit = action.allHit;
+    if (allHit) {
+      const where = [...path, "allHit"];
+      if (!action.sequence) add(where, '"allHit" is what a sequence does once all of it hit, so it has a "sequence"');
+      else if (!action.sequence.some((step) => byId.get(step.action)?.toHit !== undefined))
+        add(where, '"allHit" needs a sequence with an attack roll in it');
+      targetIsIssues(definition, allHit.targetIs, [...where, "targetIs"], add);
+      allHit.applies?.forEach((applies, appliesIndex) => {
+        const at = [...where, "applies", appliesIndex];
+        if (!conditions.has(applies.condition)) add([...at, "condition"], `Unknown condition "${applies.condition}"`);
+        escapeDcIssues(definition, applies, at, add);
+        if (applies.when) add([...at, "when"], 'A creature has no sheet to read "when" off');
+        if (applies.saveEnds && !saves.has(applies.saveEnds.save))
+          add([...at, "saveEnds", "save"], `Unknown save "${applies.saveEnds.save}"`);
+      });
+      if (allHit.uses !== undefined) {
+        const used = byId.get(allHit.uses);
+        if (!used) add([...where, "uses"], `"${allHit.uses}" is not one of its actions`);
+        else if (used.sequence || used.id === action.id)
+          add([...where, "uses"], `"${allHit.uses}" is a sequence, which another sequence does not use`);
+      }
+    }
     if (action.ability !== undefined && !definition.sheet.abilities.some((one) => one.id === action.ability)) {
       add([...path, "ability"], `Unknown ability "${action.ability}"`);
     }
@@ -14773,6 +22665,7 @@ function creatureIssues(
     if (action.save && !saves.has(action.save.save)) {
       add([...path, "save", "save"], `Unknown save "${action.save.save}"`);
     }
+    if (action.save?.or && !saves.has(action.save.or)) add([...path, "save", "or"], `Unknown save "${action.save.or}"`);
     // A lowered maximum (1.203) is a save against a blow, and only health in points has one to lower.
     if (action.reducesMax) {
       reducesMaxIssues(definition, action.reducesMax, [...path, "reducesMax"], add);
@@ -14786,6 +22679,15 @@ function creatureIssues(
     targetHoldsIssues(definition, action.targetHolds, [...path, "targetHolds"], add);
     targetTestIssues(definition, { plus: action.damage?.plus }, [...path, "damage"], add);
     targetTestIssues(definition, { applies: action.applies, save: action.save }, path, add);
+    if (action.forms) {
+      shapeFormsIssues(definition, action.applies, path, add);
+      // A stat block has no sheet to read its own cap off.
+      if (action.forms.upTo?.at) add([...path, "forms", "upTo", "at"], 'A creature has no sheet to read "at" off');
+      action.forms.without?.forEach((bar, barIndex) => {
+        if (bar.unless)
+          add([...path, "forms", "without", barIndex, "unless"], 'A creature has no sheet to read "unless" off');
+      });
+    }
     // What it ends is held to the names a catalog entry's cures are (1.261).
     if (action.ends) cureIssues(definition, { ends: action.ends }, path, add);
     action.applies?.forEach((applies, appliesIndex) => {
@@ -14797,6 +22699,31 @@ function creatureIssues(
       if (applies.saveEnds && !saves.has(applies.saveEnds.save)) {
         add([...where, "saveEnds", "save"], `Unknown save "${applies.saveEnds.save}"`);
       }
+    });
+    // The rest that frees what it spares on a sheet (1.674).
+    const sparedUntil = action.oncePerTarget?.until;
+    if (sparedUntil && !definition.rests.some((rest) => rest.id === sparedUntil)) {
+      add([...path, "oncePerTarget", "until"], `Unknown rest "${sparedUntil}"`);
+    }
+    // What those it carries away hold is the ruleset's own (1.685).
+    const carried = action.dismisses && action.dismisses !== true ? action.dismisses.carries?.condition : undefined;
+    if (carried && !conditions.has(carried)) {
+      add([...path, "dismisses", "carries", "condition"], `Unknown condition "${carried}"`);
+    }
+    // What it puts on whoever it drops (1.677), held to the same names; steadying needs dying rules.
+    action.onFell?.applies?.forEach((applies, appliesIndex) => {
+      const where = [...path, "onFell", "applies", appliesIndex];
+      if (!conditions.has(applies.condition)) add([...where, "condition"], `Unknown condition "${applies.condition}"`);
+      if (applies.when) add([...where, "when"], 'A creature has no sheet to read "when" off');
+    });
+    if (action.onFell?.stabilizes && !definition.combat?.dying) {
+      add([...path, "onFell", "stabilizes"], "Steadying the dying needs a combat block with a dying rule");
+    }
+    // What a bad failure puts on instead (1.673), held to the same names.
+    action.save?.failedBy?.applies.forEach((applies, appliesIndex) => {
+      const where = [...path, "save", "failedBy", "applies", appliesIndex];
+      if (!conditions.has(applies.condition)) add([...where, "condition"], `Unknown condition "${applies.condition}"`);
+      if (applies.when) add([...where, "when"], 'A creature has no sheet to read "when" off');
     });
     // A charge's clauses, save and conditions are held to the same names the blow's own are (1.186).
     const charge = action.charge;
@@ -14864,6 +22791,37 @@ function creatureIssues(
         add([...path, "reaction", "above", "check"], 'A creature without a sheet writes its check as { "const": n }');
       }
     }
+    // What follows a charge (1.546) is one of its actions, a budget and conditions it knows; the
+    // charging action itself once more (1.574), a warhorse's hooves.
+    const then = action.charge?.then;
+    if (then) {
+      const next = byId.get(then.action);
+      if (!next) add([...path, "charge", "then", "action"], `Unknown action "${then.action}"`);
+      if (!combat.economy.budgets.some((one) => one.id === then.budget))
+        add([...path, "charge", "then", "budget"], `Unknown budget "${then.budget}"`);
+      then.targetHolds?.forEach((condition, index) => {
+        if (!definition.sheet.live.conditions.some((one) => one.id === condition))
+          add([...path, "charge", "then", "targetHolds", index], `Unknown condition "${condition}"`);
+      });
+    }
+    // Whom its riders go on is the fight's own kinds and sizes (1.698).
+    targetIsIssues(definition, action.ridersIs, [...path, "ridersIs"], add);
+    // Each side of its contest throws one of the fight's checks (1.695).
+    (["attacker", "defender"] as const).forEach((side) => {
+      action.contest?.[side].forEach((check, checkIndex) => {
+        if (!combat.checks?.some((one) => one.id === check))
+          add([...path, "contest", side, checkIndex], `Unknown check "${check}"`);
+      });
+    });
+    // Each use's own action (1.687): another plain action of this block.
+    action.byUse?.forEach((id, idIndex) => {
+      const where: (string | number)[] = [...path, "byUse", idIndex];
+      const named = byId.get(id);
+      if (!named) return add(where, `Unknown action "${id}"`);
+      if (named.id === action.id) return add(where, "An action cannot name itself for a use");
+      if (named.byUse || named.sequence || named.reaction || named.lair || named.signature)
+        add(where, `"${id}" is not a plain action, so a use cannot make it`);
+    });
     action.sequence?.forEach((step, stepIndex) => {
       const where: (string | number)[] = [...path, "sequence", stepIndex, "action"];
       const named = byId.get(step.action);
@@ -14918,6 +22876,89 @@ function creatureIssues(
     }
   }
 
+  // What it has back every turn (1.549) is the fight's own budgets.
+  creature.refillsEveryTurn?.forEach((budget, index) => {
+    if (definition.combat && !definition.combat.economy.budgets.some((one) => one.id === budget))
+      add([...at, "refillsEveryTurn", index], `Unknown budget "${budget}"`);
+  });
+  // What many heads hold (1.550) is the ruleset's own conditions; a strike per head needs heads.
+  creature.heads?.whileMany?.forEach((id, index) => {
+    if (!definition.sheet.live.conditions.some((one) => one.id === id))
+      add([...at, "heads", "whileMany", index], `Unknown condition "${id}"`);
+  });
+  creature.actions.forEach((action, actionIndex) =>
+    action.sequence?.forEach((step, index) => {
+      if (step.perHead && !creature.heads)
+        add(
+          [...at, "actions", actionIndex, "sequence", index, "perHead"],
+          "A strike made once per head needs a creature with heads",
+        );
+      // Made after an earlier step hit (1.643): that step is an attack, and comes first.
+      if (step.ifHit !== undefined) {
+        const where = [...at, "actions", actionIndex, "sequence", index, "ifHit"];
+        const earlier = step.ifHit < index ? action.sequence![step.ifHit] : undefined;
+        if (!earlier) add(where, "A step made after another hit names an earlier step of its sequence");
+        else if (creature.actions.find((one) => one.id === earlier.action)?.toHit === undefined)
+          add(where, `"${earlier.action}" rolls no attack, so nothing can follow it hitting`);
+      }
+    }),
+  );
+  // A sequence its maker may leave parts of out (1.643) still does something, in at most 8 ways.
+  creature.actions.forEach((action, actionIndex) => {
+    const optional = action.sequence?.filter((step) => step.optional).length ?? 0;
+    if (optional === 0) return;
+    if (optional === action.sequence!.length)
+      add([...at, "actions", actionIndex, "sequence"], "A sequence keeps at least one step that is not optional");
+    else if (optional > 3) add([...at, "actions", actionIndex, "sequence"], "A sequence has at most 3 optional steps");
+  });
+  // A rampage (1.545) is one of its own actions, bought with one of the fight's budgets.
+  if (creature.rampage) {
+    if (!creature.actions.some((one) => one.id === creature.rampage!.action))
+      add([...at, "rampage", "action"], `Unknown action "${creature.rampage.action}"`);
+    if (definition.combat && !definition.combat.economy.budgets.some((one) => one.id === creature.rampage!.budget))
+      add([...at, "rampage", "budget"], `Unknown budget "${creature.rampage.budget}"`);
+  }
+  // What its turn's roll puts on it (1.543) is the ruleset's own conditions, and can be rolled.
+  creature.rollsAtTurnStart?.forEach((rule, ruleIndex) => {
+    rule.applies.forEach((entry, index) => {
+      if (!definition.sheet.live.conditions.some((one) => one.id === entry.condition))
+        add(
+          [...at, "rollsAtTurnStart", ruleIndex, "applies", index, "condition"],
+          `Unknown condition "${entry.condition}"`,
+        );
+    });
+    const top = /^(\d+)d(\d+)(?:\s*\+\s*(\d+))?$/.exec(rule.dice.trim());
+    if (top && rule.atLeast > Number(top[1]) * Number(top[2]) + Number(top[3] ?? 0))
+      add([...at, "rollsAtTurnStart", ruleIndex, "atLeast"], "No roll of its dice reaches it");
+  });
+  // What harm puts on it (1.542) is the ruleset's own conditions.
+  creature.whenHarmedBy?.forEach((rule, ruleIndex) =>
+    rule.applies.forEach((entry, index) => {
+      if (!definition.sheet.live.conditions.some((one) => one.id === entry.condition))
+        add(
+          [...at, "whenHarmedBy", ruleIndex, "applies", index, "condition"],
+          `Unknown condition "${entry.condition}"`,
+        );
+    }),
+  );
+  // What it does as it dies (1.540) is a burst around it, with the ruleset's own saves and conditions.
+  if (creature.onDeath) {
+    const path = [...at, "onDeath"];
+    if (!creature.onDeath.area?.around)
+      add([...path, "area"], "What it does as it dies is a burst centred on it (area around)");
+    const save = creature.onDeath.save?.save;
+    if (save !== undefined && !definition.sheet.saves.some((one) => one.id === save))
+      add([...path, "save", "save"], `Unknown save "${save}"`);
+    creature.onDeath.applies?.forEach((entry, index) => {
+      if (!definition.sheet.live.conditions.some((one) => one.id === entry.condition))
+        add([...path, "applies", index, "condition"], `Unknown condition "${entry.condition}"`);
+    });
+    // An area it leaves behind stays where it fell, after it is gone.
+    const zone = creature.onDeath.zone;
+    if (zone && (!zone.outlasts || zone.anchor !== "point"))
+      add([...path, "zone"], 'An area left as it dies stays where it fell after it is gone (anchor "point", outlasts)');
+    if (zone?.obscures) sightIssues(definition, zone.obscures.pierced, [...path, "zone", "obscures"], add);
+  }
   // Every rider names this block's own actions and this ruleset's own damage types.
   const riderIds = new Set<string>();
   creature.riders?.forEach((rider, index) => {
@@ -14936,6 +22977,19 @@ function creatureIssues(
 
 /** The skills and saves a condition, a level or an item's effect names, each one the sheet declares:
  *  its own `skills`, `saves` and `failsSaves`, and each modifier's `skills` and `saves`. */
+/** A `keepsOn` line's `when` (1.653) reads the sheet as anything worked out in play does. */
+function keptWhenIssues(
+  definition: RulesetDefinition,
+  kept: RulesetKeptOn,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  if (typeof kept === "string") return;
+  const names = rulesetSheetNames(definition.sheet, definition.items);
+  for (const issue of rulesetValueRefIssues(kept.when, names, names.derived, true))
+    add([...at, "when", issue.key], issue.message);
+}
+
 function effectNameIssues(
   entry: {
     skills?: string[];
@@ -14949,6 +23003,10 @@ function effectNameIssues(
       abilities?: string[];
       against?: { conditions?: string[]; damage?: string[]; from?: RulesetTargetIs };
       from?: RulesetTargetIs;
+      at?: RulesetTargetIs;
+      atLeast?: number | RulesetValueRef;
+      add?: RulesetValueRef;
+      atTypesIn?: string[];
     }>;
   },
   skills: ReadonlySet<string>,
@@ -14967,13 +23025,33 @@ function effectNameIssues(
   each(entry.failsSaves, saves, [...at, "failsSaves"], "save");
   each(entry.evasion, saves, [...at, "evasion"], "save");
   entry.modifiers?.forEach((modifier, index) => {
+    // A floor read off the holder's sheet (1.406) reads what the sheet has.
+    if (typeof modifier.atLeast === "object") {
+      const names = rulesetSheetNames(definition.sheet, definition.items);
+      for (const found of rulesetValueRefIssues(modifier.atLeast, names, names.derived)) {
+        add([...at, "modifiers", index, "atLeast", found.key], found.message);
+      }
+    }
+    // What a modifier adds off the holder's sheet (1.413).
+    if (modifier.add) {
+      const names = rulesetSheetNames(definition.sheet, definition.items);
+      for (const found of rulesetValueRefIssues(modifier.add, names, names.derived)) {
+        add([...at, "modifiers", index, "add", found.key], found.message);
+      }
+    }
     if (modifier.ability !== undefined && !abilities.has(modifier.ability)) {
       add([...at, "modifiers", index, "ability"], `Unknown ability "${modifier.ability}"`);
     }
+    // The sheet's own choices it reads (1.429): a text or enum field each.
+    modifier.atTypesIn?.forEach((id, fieldIndex) => {
+      const issue = choiceFieldIssue(definition, id);
+      if (issue) add([...at, "modifiers", index, "atTypesIn", fieldIndex], issue);
+    });
     each(modifier.skills, skills, [...at, "modifiers", index, "skills"], "skill");
     each(modifier.abilities, abilities, [...at, "modifiers", index, "abilities"], "ability");
     each(modifier.saves, saves, [...at, "modifiers", index, "saves"], "save");
     targetIsIssues(definition, modifier.from, [...at, "modifiers", index, "from"], add);
+    targetIsIssues(definition, modifier.at, [...at, "modifiers", index, "at"], add);
     targetIsIssues(definition, modifier.against?.from, [...at, "modifiers", index, "against", "from"], add);
     const against = [...at, "modifiers", index, "against"];
     each(
@@ -14991,6 +23069,16 @@ function effectNameIssues(
       );
     }
   });
+}
+
+/** Why a sheet field cannot hold a choice the Engine reads by its words (1.429), or null when it can:
+ *  a text or enum field the sheet has. */
+function choiceFieldIssue(definition: RulesetDefinition, id: string): string | null {
+  const field = definition.sheet.fields.find((one) => one.id === id);
+  if (!field) return `Unknown field "${id}"`;
+  return field.type === "text" || field.type === "enum"
+    ? null
+    : `"${id}" is a ${field.type} field; a choice is text or enum`;
 }
 
 /** Why a fake cannot pass for its target (Capability API 1.79), or null when it can: the target is
@@ -15047,6 +23135,22 @@ function itemIssues(
   for (const message of rulesetListRowIssues({ columns: items.stats ?? [] }, item.stats ?? {}, "Stat")) {
     add([...at, "stats"], message);
   }
+  // What it deals whoever takes it up (1.701) comes off their health, in a type of the ruleset's.
+  item.touchHarms?.forEach((line, index) => {
+    const types = definition.combat?.damageTypes;
+    if (line.type !== undefined && types && !types.some((one) => one.toLowerCase() === line.type!.toLowerCase()))
+      add([...at, "touchHarms", index, "type"], `Unknown damage type "${line.type}"`);
+  });
+  if (item.touchHarms && !(definition.combat?.health ?? definition.battle?.health))
+    add([...at, "touchHarms"], "What an item deals comes off health, so the ruleset says what health is");
+  // What it adds while its wearer meets what a line asks (1.700): number stats of the ruleset's.
+  item.statsIf?.forEach((line, index) => {
+    for (const id of Object.keys(line.add)) {
+      const stat = items.stats?.find((one) => one.id === id);
+      if (!stat) add([...at, "statsIf", index, "add", id], `Unknown stat "${id}"`);
+      else if (stat.type !== "number") add([...at, "statsIf", index, "add", id], `"${id}" is not a number stat`);
+    }
+  });
   const slots = new Map((items.slots ?? []).map((slot) => [slot.id, slot]));
   for (const [id, count] of Object.entries(item.slots ?? {})) {
     const slot = slots.get(id);
@@ -15120,29 +23224,197 @@ function itemIssues(
   if (toggle && definition.combat && !definition.combat.economy.budgets.some((one) => one.id === toggle.budget)) {
     add([...at, "toggle", "budget"], `Unknown budget "${toggle.budget}"`);
   }
+  // Slots freed while on (1.706): only an item that takes some.
+  if (toggle?.freesSlots && !Object.values(item.slots ?? {}).some((count) => count > 0)) {
+    add([...at, "toggle", "freesSlots"], 'An item that frees its slots while on takes some: give it "slots"');
+  }
   item.attack?.plus?.forEach((clause, index) => {
     if (clause.when === "toggled" && !toggle) {
       add([...at, "attack", "plus", index, "when"], 'A clause dealt while the item is on needs the item\'s "toggle"');
     }
   });
+  // Ammunition's own clauses (1.657): drawn by a weapon by its tag, so it has one, and never dealt
+  // while switched on, since ammunition has no switch of its own.
+  if (item.ammoRider) {
+    if (!item.tags?.length) {
+      add([...at, "ammoRider"], "Ammunition is drawn by its tag, so an item with an ammoRider has one");
+    }
+    item.ammoRider.plus.forEach((clause, index) => {
+      plusClauseIssues(definition, clause, [...at, "ammoRider", "plus", index], add);
+      if (clause.when === "toggled") {
+        add(
+          [...at, "ammoRider", "plus", index, "when"],
+          "Ammunition has no switch: its clause is dealt always, or on a critical hit",
+        );
+      }
+    });
+  }
   if (item.use) useIssues(definition, item, item.use, [...at, "use"], add);
   item.moreUses?.forEach((more, index) =>
     useIssues(definition, item, more.use, [...at, "moreUses", index, "use"], add),
   );
-  if (item.moreUses && !item.use) add([...at, "moreUses"], 'More uses go beside a "use"');
+  // Only further uses, where they are rolled for (1.749): a Necklace of Prayer Beads' beads.
+  if (item.moreUses && !item.use && !item.moreUsesRolled)
+    add([...at, "moreUses"], 'More uses go beside a "use", or are rolled for ("moreUsesRolled")');
+  // What holds only while something of the item is left (1.732).
+  for (const side of ["worn", "carried"] as const) {
+    const effect = item[side];
+    effect?.whileLeft?.forEach((line, index) => {
+      const path = [...at, side, "whileLeft", index];
+      for (const key of line.keys) {
+        if (key === "whileLeft" || (effect as Record<string, unknown>)[key] === undefined)
+          add([...path, "keys"], `"${key}" is not something this effect does`);
+      }
+      if (line.charges && !item.charges) add([...path, "charges"], "The item has no charges to hold it");
+      if (line.uses !== undefined && !item.moreUses?.some((more) => more.label === line.uses && more.uses))
+        add([...path, "uses"], `No further use "${line.uses}" that counts its own uses`);
+    });
+  }
+  // What a use rolls for (1.559): its rows are uses of their own, none rolling again.
+  item.useTable?.forEach((row, index) => {
+    if (!row.use) return;
+    useIssues(definition, item, row.use, [...at, "useTable", index, "use"], add);
+    if (row.use.rollsTable)
+      add([...at, "useTable", index, "use", "rollsTable"], "A row of the table rolls nothing more");
+    if (row.use.charges !== undefined)
+      add([...at, "useTable", index, "use", "charges"], "A row is paid for by the use that rolled it");
+  });
+  if (item.use?.rollsTable && !item.useTable)
+    add([...at, "use", "rollsTable"], 'A use that rolls has its item\'s "useTable"');
+  if (item.useTable && !item.use?.rollsTable)
+    add([...at, "useTable"], 'A table is rolled by the item\'s "use", which says "rollsTable"');
+  item.moreUses?.forEach((more, index) => {
+    if (more.use.rollsTable)
+      add([...at, "moreUses", index, "use", "rollsTable"], 'Only the item\'s own "use" rolls its table');
+  });
+  // What it stores (1.524) is off the ruleset's own catalogs.
+  // What it is found holding (1.576): entries of its own catalogs, none past what it holds.
+  item.stores?.found?.from.forEach((one, index) => {
+    const at2 = [...at, "stores", "found", "from", index];
+    if (!item.stores!.catalogs.includes(one.entry.split("/")[0]!))
+      add([...at2, "entry"], `"${one.entry}" is not of a catalog it stores`);
+    if (one.level > item.stores!.levels) add([...at2, "level"], "Found holding more levels than it holds");
+  });
+  item.stores?.catalogs.forEach((catalog, index) => {
+    if (!definition.catalogs?.some((one) => one.id === catalog))
+      add([...at, "stores", "catalogs", index], `Unknown catalog "${catalog}"`);
+  });
+  // What it takes in moves its charges (1.522), so it holds some.
+  if (item.worn?.absorbs?.charges && !item.charges)
+    add([...at, "worn", "absorbs", "charges"], "What it takes in spends or gains its charges, so it holds some");
+  if (item.carried?.absorbs?.charges)
+    add([...at, "carried", "absorbs", "charges"], "Charges are moved by what a worn item takes in");
+  // Charges that pay for a pool group's uses (1.572): a worn item's, with charges, of a group there is.
+  if (item.worn?.paysSlots) {
+    if (!item.charges) add([...at, "worn", "paysSlots"], "What pays with its charges holds some");
+    if (!definition.sheet.live.pools.some((pool) => pool.group === item.worn!.paysSlots))
+      add([...at, "worn", "paysSlots"], `No pool is of the group "${item.worn.paysSlots}"`);
+  }
+  if (item.carried?.paysSlots) add([...at, "carried", "paysSlots"], "Only a worn item's charges pay for a use");
+  // The highest pool they pay for (1.590): one of that group's.
+  for (const where of ["worn", "carried"] as const) {
+    const most = item[where]?.paysSlotsMax;
+    if (most === undefined) continue;
+    const group = item[where]?.paysSlots;
+    if (!group) add([...at, where, "paysSlotsMax"], '"paysSlotsMax" caps "paysSlots", so the item says that too');
+    else if (!definition.sheet.live.pools.some((pool) => pool.id === most && pool.group === group))
+      add([...at, where, "paysSlotsMax"], `No pool "${most}" is of the group "${group}"`);
+  }
+  if (item.carried?.absorbs?.lifetime !== undefined)
+    add([...at, "carried", "absorbs", "lifetime"], "What it ever took in is counted on a worn item");
+  // Rolled counts (1.746): a weight for each further use, each of which counts its own uses.
+  const rolledKinds = item.moreUsesRolled;
+  if (rolledKinds) {
+    if (!item.moreUses || rolledKinds.weights.length !== item.moreUses.length)
+      add([...at, "moreUsesRolled", "weights"], "Rolled counts weigh each further use, one weight apiece");
+    else if (item.moreUses.some((more, n) => (more.usesOf ? rolledKinds.weights[n] !== 0 : !more.uses)))
+      add(
+        [...at, "moreUsesRolled"],
+        "Rolled counts are counts of further uses that count their own uses; one spending another's weighs 0",
+      );
+    if (rolledKinds.weights.every((weight) => weight === 0))
+      add([...at, "moreUsesRolled", "weights"], "Rolled counts weigh some further use above nothing");
+  }
+  // Spending another's count (1.747): one that counts its own, and none of its own beside it.
+  item.moreUses?.forEach((more, index) => {
+    if (more.usesOf === undefined) return;
+    const wanted = more.usesOf.trim().toLowerCase();
+    const other = item.moreUses!.find((one) => one !== more && one.label.trim().toLowerCase() === wanted);
+    if (more.uses)
+      add([...at, "moreUses", index, "usesOf"], "A further use counts its own uses or spends another's, not both");
+    else if (!other?.uses || other.usesOf !== undefined)
+      add([...at, "moreUses", index, "usesOf"], `No further use "${more.usesOf}" that counts its own uses`);
+  });
   item.moreUses?.forEach((more, index) => {
     if (more.use.label !== undefined)
       add([...at, "moreUses", index, "use", "label"], "A further use is named by its own label");
+    // Its own uses are what it spends (1.519), never the item's charges as well.
+    if (more.uses && more.use.charges !== undefined)
+      add([...at, "moreUses", index, "uses"], "A use with its own uses spends those, not the item's charges");
+    // Other uses' effects beside it (1.535): another of the item's, centred on its user, none beside
+    // anything itself.
+    more.alongside?.forEach((label, at2) => {
+      const where = [...at, "moreUses", index, "alongside", at2];
+      const wanted = label.trim().toLowerCase();
+      const named =
+        item.use?.label?.trim().toLowerCase() === wanted
+          ? item.use
+          : item.moreUses?.find((other) => other !== more && other.label.trim().toLowerCase() === wanted)?.use;
+      const self = more.label.trim().toLowerCase() === wanted;
+      if (!named || self) add(where, self ? "A use is never beside itself" : `No other use of the item is "${label}"`);
+      else if (!named.area?.around)
+        add(where, "A use beside another is centred on its user (area around), so nothing is aimed twice");
+      else if (item.moreUses?.some((other) => other.use === named && other.alongside))
+        add(where, "A use beside another has nothing beside it itself");
+    });
+    if (more.uses?.recharge?.after?.fromDeparture && !definition.combat?.roundSeconds)
+      add(
+        [...at, "moreUses", index, "uses", "recharge", "after", "fromDeparture"],
+        'A wait from a departure counts the stay in rounds, so the fight says its "roundSeconds"',
+      );
+    more.uses?.recharge?.rests.forEach((rest, at2) => {
+      if (!definition.rests.some((entry) => entry.id === rest))
+        add([...at, "moreUses", index, "uses", "recharge", "rests", at2], `Unknown rest "${rest}"`);
+    });
+    // Rolled dice (1.536), whose most is its `max`.
+    const rolled = more.uses?.rolled ? /^(\d+)d(\d+)([+-]\d+)?$/.exec(more.uses.rolled) : null;
+    if (rolled && more.uses) {
+      if (Number(rolled[1]) * Number(rolled[2]) + Number(rolled[3] ?? 0) > more.uses.max)
+        add(
+          [...at, "moreUses", index, "uses", "rolled"],
+          "A rolled count never comes up past its max, so max is its most",
+        );
+    }
   });
+  // Its forms (1.575) are one item's, as charges are, and turning it spends a budget there is.
+  if (item.forms && item.stack !== 1)
+    add([...at, "stack"], "An item that changes form is one to a stack, so its stack is 1");
+  if (
+    item.forms &&
+    definition.combat &&
+    !definition.combat.economy.budgets.some((one) => one.id === item.forms!.budget)
+  )
+    add([...at, "forms", "budget"], `Unknown budget "${item.forms.budget}"`);
+  // Its own uses are one item's, as charges are (1.519).
+  if (item.moreUses?.some((more) => more.uses) && !item.charges && item.stack !== 1)
+    add([...at, "stack"], "An item whose uses count their own is one to a stack, so its stack is 1");
   if (item.charges) {
     itemValueChecker(definition, add)(item.charges.max, "number", [...at, "charges", "max"]);
+    // Found with a rolled count (1.573), never past a written most.
+    const found = item.charges.rolled ? /^(\d+)d(\d+)([+-]\d+)?$/.exec(item.charges.rolled) : null;
+    if (found && typeof item.charges.max === "number") {
+      if (Number(found[1]) * Number(found[2]) + Number(found[3] ?? 0) > item.charges.max)
+        add([...at, "charges", "rolled"], "A rolled count never comes up past its max, so max is its most");
+    }
     // Or by its weapon slaying (1.187): a nine lives stealer's.
     // Or by one of its weapon's modes (1.190): a javelin of lightning's bolt.
     if (
       item.use?.charges === undefined &&
       !item.attack?.slay?.some((entry) => entry.charges !== undefined) &&
       !item.attack?.modes?.some((mode) => mode.charges !== undefined) &&
-      !item.attack?.spends
+      !item.attack?.spends?.some((spend) => spend.charges !== undefined) &&
+      // Or by what it takes in (1.522): an Ioun Stone of Absorption's, a Rod of Absorption's gained.
+      !item.worn?.absorbs?.charges
     ) {
       add(
         [...at, "charges"],
@@ -15158,6 +23430,11 @@ function itemIssues(
       add([...at, "stats", (max as { stat: string }).stat], "An item that holds charges holds at least one");
     }
     const recharge = item.charges.recharge;
+    if (recharge?.after?.fromDeparture && !definition.combat?.roundSeconds)
+      add(
+        [...at, "charges", "recharge", "after", "fromDeparture"],
+        'A wait from a departure counts the stay in rounds, so the fight says its "roundSeconds"',
+      );
     recharge?.rests.forEach((rest, index) => {
       if (!definition.rests.some((entry) => entry.id === rest)) {
         add([...at, "charges", "recharge", "rests", index], `Unknown rest "${rest}"`);
@@ -15196,6 +23473,143 @@ function itemHideIssues(
     });
   }
   hideIssues(definition, effect, at, add);
+  // What it holds off (1.477) is the sheet's own conditions, or their kinds (1.484).
+  const conditions = new Set(definition.sheet.live.conditions.map((condition) => condition.id));
+  const kinds = rulesetConditionKindIds(definition);
+  effect.suppresses?.forEach((condition, index) => {
+    if (!conditions.has(condition) && !kinds.has(condition))
+      add([...at, "suppresses", index], `Unknown condition "${condition}"`);
+  });
+  // What it keeps on (1.513) is the sheet's own conditions, and a jump reads one of its abilities.
+  effect.keepsOn?.forEach((kept, index) => {
+    const condition = rulesetKeptOnCondition(kept);
+    if (!conditions.has(condition)) add([...at, "keepsOn", index], `Unknown condition "${condition}"`);
+    keptWhenIssues(definition, kept, [...at, "keepsOn", index], add);
+  });
+  // What it takes in (1.522) is off the ruleset's own catalogs.
+  effect.absorbs?.catalogs.forEach((catalog, index) => {
+    if (!definition.catalogs?.some((one) => one.id === catalog))
+      add([...at, "absorbs", "catalogs", index], `Unknown catalog "${catalog}"`);
+  });
+  if (effect.absorbs?.spends && !definition.combat?.economy.budgets.some((one) => one.id === effect.absorbs!.spends))
+    add([...at, "absorbs", "spends"], `Unknown budget "${effect.absorbs.spends}"`);
+  // What it turns back (1.523), as well.
+  effect.turns?.catalogs.forEach((catalog, index) => {
+    if (!definition.catalogs?.some((one) => one.id === catalog))
+      add([...at, "turns", "catalogs", index], `Unknown catalog "${catalog}"`);
+  });
+  const jumpAbility = effect.jumps?.plus?.ability;
+  if (jumpAbility !== undefined && !definition.sheet.abilities.some((one) => one.id === jumpAbility))
+    add([...at, "jumps", "plus", "ability"], `Unknown ability "${jumpAbility}"`);
+  freedomIssues(definition, effect, at, add);
+}
+
+/** What keeps conditions off by who puts them on (1.191, 1.476), keeps a walk from being lowered and
+ *  slips free (1.486), on a condition or an item: the ruleset's own conditions and catalogs. */
+function freedomIssues(
+  definition: RulesetDefinition,
+  entry: Pick<RulesetItemEffect, "conditionImmunitiesFrom" | "speedKeptFrom" | "slipsFree">,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  const conditions = new Set(definition.sheet.live.conditions.map((condition) => condition.id));
+  const catalogIssues = (catalogs: readonly string[] | undefined, where: (string | number)[]) =>
+    catalogs?.forEach((catalog, index) => {
+      if (!definition.catalogs?.some((one) => one.id === catalog))
+        add([...where, index], `Unknown catalog "${catalog}"`);
+    });
+  const conditionIssues = (ids: readonly string[], where: (string | number)[]) =>
+    ids.forEach((condition, index) => {
+      if (!conditions.has(condition)) add([...where, index], `Unknown condition "${condition}"`);
+    });
+  entry.conditionImmunitiesFrom?.forEach((ward, wardIndex) => {
+    const where = [...at, "conditionImmunitiesFrom", wardIndex];
+    conditionIssues(ward.conditions, [...where, "conditions"]);
+    if (ward.from) targetIsIssues(definition, ward.from, [...where, "from"], add);
+    catalogIssues(ward.catalogs, [...where, "catalogs"]);
+  });
+  catalogIssues(entry.speedKeptFrom?.catalogs, [...at, "speedKeptFrom", "catalogs"]);
+  if (entry.slipsFree) {
+    conditionIssues(entry.slipsFree.conditions, [...at, "slipsFree", "conditions"]);
+    catalogIssues(entry.slipsFree.unlessCatalogs, [...at, "slipsFree", "unlessCatalogs"]);
+    if (entry.slipsFree.cost > 0 && !definition.combat?.distance)
+      add([...at, "slipsFree", "cost"], "Slipping free costs some of the walk, so the fight has a distance");
+  }
+}
+
+/** Hanging on at 1 (1.400): health in points, harm the ruleset has, and on a sheet its own saves and
+ *  pools. A creature's block has no sheet, so it neither spends nor tallies. */
+/** A hang-on's `spends` and `tally` (1.404): a declared pool by id, or a list row's pool by its name,
+ *  a row some catalog entry writes into a list that keeps pools. */
+function hangsOnNameIssues(
+  definition: RulesetDefinition,
+  hangs: RulesetHangsOn,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  const pools = new Set(definition.sheet.live.pools.map((pool) => pool.id));
+  const rowNames = new Set<string>();
+  for (const list of definition.sheet.lists) {
+    if (!list.pools) continue;
+    for (const catalog of definition.catalogs ?? [])
+      for (const entry of catalog.entries ?? [])
+        for (const row of entry.rows ?? []) {
+          const name = row.list === list.id ? row.values?.[list.pools.nameColumn] : undefined;
+          if (typeof name === "string") rowNames.add(name.trim().toLowerCase());
+        }
+  }
+  const known = (name: string) => pools.has(name) || rowNames.has(name.trim().toLowerCase());
+  if (hangs.spends !== undefined && !known(hangs.spends)) add([...at, "spends"], `Unknown pool "${hangs.spends}"`);
+  if (hangs.save?.tally !== undefined && !known(hangs.save.tally))
+    add([...at, "save", "tally"], `Unknown pool "${hangs.save.tally}"`);
+}
+
+/** The pools hang-ons name (1.404), checked against a ruleset with every catalog's entries joined to it
+ *  (1.405): a package's catalog files read beside its ruleset file. */
+export function rulesetHangsOnRowIssues(definition: RulesetDefinition): string[] {
+  const issues: string[] = [];
+  // Borrowed from another ruleset, its rows are not here to read.
+  if (definition.catalogs?.some((catalog) => catalog.from && !catalog.entries?.length)) return issues;
+  const add = (path: (string | number)[], message: string) => issues.push(`${path.join(".")}: ${message}`);
+  definition.combat?.conditions?.forEach((entry, index) => {
+    if (entry.hangsOn) hangsOnNameIssues(definition, entry.hangsOn, ["combat", "conditions", index, "hangsOn"], add);
+  });
+  definition.combat?.levels?.forEach((entry, index) => {
+    if (entry.hangsOn) hangsOnNameIssues(definition, entry.hangsOn, ["combat", "levels", index, "hangsOn"], add);
+  });
+  return issues;
+}
+
+function hangsOnIssues(
+  definition: RulesetDefinition,
+  hangs: RulesetHangsOn,
+  at: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+  creature = false,
+): void {
+  const health = definition.combat?.health;
+  if (health && "track" in health) add(at, `Health is the wound track "${health.track}", which has no 1 to hang on at`);
+  const declared = definition.combat?.damageTypes?.map((type) => type.trim().toLowerCase());
+  hangs.notFrom?.forEach((kind, index) => {
+    if (declared && !declared.includes(kind.trim().toLowerCase()))
+      add([...at, "notFrom", index], `Unknown damage type "${kind}"`);
+  });
+  const conditions = new Set(definition.sheet.live.conditions.map((one) => one.id));
+  hangs.whileHolding?.forEach((condition, index) => {
+    if (!conditions.has(condition)) add([...at, "whileHolding", index], `Unknown condition "${condition}"`);
+  });
+  if (creature) {
+    if (hangs.ends) add([...at, "ends"], '"ends" ends the combat condition it is on, so it goes on one');
+    if (hangs.spends !== undefined) add([...at, "spends"], 'A creature has no sheet to spend "spends" off');
+    if (hangs.save?.tally !== undefined) add([...at, "save", "tally"], 'A creature has no sheet to keep "tally" on');
+    return;
+  }
+  // A list row's pool, where some catalog's entries are in files of their own, is checked once they
+  // are joined to it (`rulesetHangsOnRowIssues`), not on the ruleset file alone (1.405).
+  const unseen = definition.catalogs?.some((catalog) => (catalog.asset && !catalog.entries) || catalog.from);
+  if (!unseen) hangsOnNameIssues(definition, hangs, at, add);
+  if (hangs.save && !definition.sheet.saves.some((save) => save.id === hangs.save!.save))
+    add([...at, "save", "save"], `Unknown save "${hangs.save.save}"`);
 }
 
 /** Typed hides share a creature's damage words and exception tags (Capability API 1.132). */
@@ -15276,10 +23690,52 @@ function useIssues(
   const types = declared ? new Set(declared.map((type) => type.trim().toLowerCase())) : null;
   const value = itemValueChecker(definition, add);
   if (use.save && !saves.has(use.save.save)) add([...at, "save", "save"], `Unknown save "${use.save.save}"`);
+  // What it casts (1.640) is a catalog of the ruleset's, and it casts nothing else.
+  if (use.duplicates && !definition.catalogs?.some((catalog) => catalog.id === use.duplicates!.catalog))
+    add([...at, "duplicates", "catalog"], `Unknown catalog "${use.duplicates.catalog}"`);
+  if (use.duplicates && (use.kind !== "utility" || use.amount || use.applies?.length || use.area))
+    add([...at, "duplicates"], 'A use that casts other entries is a "utility" use that does nothing else');
+  // Its time drawn from the item's charges (1.623): an item that has them, and something it puts on.
+  if (use.chargesPerRound && !item.charges)
+    add([...at, "chargesPerRound"], '"chargesPerRound" spends the item\'s charges, so the item has "charges"');
+  if (use.chargesPerRound && !use.applies?.length)
+    add([...at, "chargesPerRound"], '"chargesPerRound" keeps up what it puts on, so it "applies" something');
+  // A missile kept (1.626): taken as one is caught, dealing nothing of its own.
+  if (
+    use.keepsCaught &&
+    ((typeof use.reaction === "object" ? use.reaction.on : undefined) !== "caught" || use.amount || use.attackRoll)
+  )
+    add([...at, "keepsCaught"], '"keepsCaught" is taken at a "caught" moment and deals nothing of its own');
+  // Only while its user holds one of these (1.617): conditions the sheet has.
+  use.userHolds?.forEach((id, index) => {
+    if (!conditions.has(id)) add([...at, "userHolds", index], `Unknown condition "${id}"`);
+  });
+  // What a lost contest puts on its target (1.618).
+  use.contest?.onLose?.applies.forEach((one, index) => {
+    if (!conditions.has(one.condition))
+      add([...at, "contest", "onLose", "applies", index, "condition"], `Unknown condition "${one.condition}"`);
+  });
   if (use.sheetDifficulty) {
     const names = rulesetSheetNames(definition.sheet, definition.items);
     for (const issue of rulesetValueRefIssues(use.sheetDifficulty, names, names.derived, true)) {
       add([...at, "sheetDifficulty", issue.key], issue.message);
+    }
+  }
+  // The entry a use that breaks a layer is read as (1.494) is in a catalog there is.
+  if (use.endsLayersAs) {
+    const catalogId = use.endsLayersAs.slice(0, use.endsLayersAs.indexOf("/"));
+    if (!definition.catalogs?.some((catalog) => catalog.id === catalogId)) {
+      add([...at, "endsLayersAs"], `Unknown catalog "${catalogId}"`);
+    }
+  }
+  // What ends a catalog's entries' conditions from an item (1.427): catalogs there are, a sheet it reads.
+  if (use.endsSpells) {
+    castsIssues(definition, use.endsSpells.catalogs, [...at, "endsSpells", "catalogs"], add);
+    if (use.endsSpells.above) {
+      const names = rulesetSheetNames(definition.sheet, definition.items);
+      for (const issue of rulesetValueRefIssues(use.endsSpells.above.check, names, names.derived, true)) {
+        add([...at, "endsSpells", "above", "check", issue.key], issue.message);
+      }
     }
   }
   if (use.amountAdd) {
@@ -15361,12 +23817,25 @@ function useIssues(
   if (use.charges !== undefined && !item.charges) {
     add([...at, "charges"], "A use that spends charges is on an item that holds some");
   }
+  for (const id of Object.keys(use.raises ?? {})) {
+    if (!definition.sheet.abilities.some((ability) => ability.id === id))
+      add([...at, "raises", id], `Unknown ability "${id}"`);
+  }
   if (use.restore) {
     const pool = definition.sheet.live.pools.find((entry) => entry.id === use.restore!.pool);
     const health = definition.combat?.health ?? definition.battle?.health;
     if (!pool) add([...at, "restore", "pool"], `Unknown pool "${use.restore.pool}"`);
     else if (health && "pool" in health && health.pool === pool.id) {
       add([...at, "restore", "pool"], "Health comes back with a heal, not a restore");
+    }
+  }
+  // What it gives back by itself (1.656): a pool group the sheet has, and a budget its sheet reads.
+  if (use.recovers) {
+    if (!definition.sheet.live.pools.some((pool) => pool.group === use.recovers!.group))
+      add([...at, "recovers", "group"], `Unknown pool group "${use.recovers.group}"`);
+    const names = rulesetSheetNames(definition.sheet, definition.items);
+    for (const found of rulesetValueRefIssues(use.recovers.upTo, names, names.derived, false)) {
+      add([...at, "recovers", "upTo", found.key], found.message);
     }
   }
   if (use.toHit && !use.attackRoll) add([...at, "toHit"], "A to-hit is for a use that rolls to hit");
@@ -15399,17 +23868,100 @@ function useIssues(
     health && "track" in health ? definition.sheet.live.tracks.find((one) => one.id === health.track) : null;
   if (use.kindChoice && !definition.combat?.creatureTypes)
     add([...at, "kindChoice"], "This ruleset has no creature types to choose from");
+  // The types picked among as it is used (1.753), the ruleset's own.
+  use.damageTypeChoice?.forEach((type, typeIndex) => {
+    if (
+      definition.combat?.damageTypes &&
+      !definition.combat.damageTypes.some((one) => one.trim().toLowerCase() === type.trim().toLowerCase())
+    )
+      add([...at, "damageTypeChoice", typeIndex], `Unknown damage type "${type}"`);
+  });
   if (use.teleport && !definition.combat?.distance)
     add([...at, "teleport"], '"teleport" is measured in cells, so the combat block declares "distance" too');
   if (use.temporary && track) {
     add([...at, "temporary"], `Health is the track "${track.id}", which carries no buffer for temporary points`);
   }
+  // What its use makes is an item (1.745): a scroll of Goodberry's berries.
+  const madeRef = use.makesItems?.item;
+  if (madeRef !== undefined) {
+    const catalogId = madeRef.slice(0, madeRef.indexOf("/"));
+    const catalog = definition.catalogs?.find((one) => one.id === catalogId);
+    if (!catalog) add([...at, "makesItems", "item"], `Unknown entry "${madeRef}"`);
+    else if (catalog.entries && !catalog.from) {
+      const made = catalog.entries.find((one) => `${catalogId}/${one.id}` === madeRef);
+      if (!made) add([...at, "makesItems", "item"], `Unknown entry "${madeRef}"`);
+      else if (!made.item) add([...at, "makesItems", "item"], `"${madeRef}" is not an item`);
+    }
+  }
+  // Used again before a rest (1.744): its rests, save, tracks and conditions are the ruleset's.
+  const again = use.againBeforeRest;
+  if (again) {
+    again.rests.forEach((rest, n) => {
+      if (!definition.rests.some((one) => one.id === rest))
+        add([...at, "againBeforeRest", "rests", n], `Unknown rest "${rest}"`);
+    });
+    if (!saves.has(again.save.save))
+      add([...at, "againBeforeRest", "save", "save"], `Unknown save "${again.save.save}"`);
+    if (definition.resolution.kind !== "dice-sum")
+      add([...at, "againBeforeRest", "save"], "A save on using it again is rolled only where checks are a dice sum");
+    again.tracks?.forEach((moved, n) => {
+      const track = definition.sheet.live.tracks.find((one) => one.id === moved.track);
+      if (!track || track.kinds)
+        add([...at, "againBeforeRest", "tracks", n, "track"], `Unknown track "${moved.track}"`);
+    });
+    again.conditions?.forEach((condition, n) => {
+      if (!conditions.has(condition))
+        add([...at, "againBeforeRest", "conditions", n], `Unknown condition "${condition}"`);
+    });
+  }
   // Where the ruleset has no fight, the rest is read by nothing.
   const combat = definition.combat;
   if (!combat) return;
   if (!use.free && use.budget === undefined) add([...at, "budget"], "A use spends a budget, or is free");
+  // Weapons wielded while what it calls stands (1.739): it calls, they are weapons, and the budget is.
+  const lends = use.wieldsWhileCalled;
+  if (lends) {
+    if (!use.calls) add([...at, "wieldsWhileCalled"], 'Weapons wielded while called come with a "calls"');
+    if (lends.takes !== undefined && !combat.economy.budgets.some((budget) => budget.id === lends.takes))
+      add([...at, "wieldsWhileCalled", "takes"], `Unknown budget "${lends.takes}"`);
+    lends.items.forEach((ref, n) => {
+      const catalog = definition.catalogs?.find((one) => one.id === ref.slice(0, ref.indexOf("/")));
+      if (!catalog) add([...at, "wieldsWhileCalled", "items", n], `Unknown entry "${ref}"`);
+      else if (catalog.entries && !catalog.from) {
+        const entry = catalog.entries.find((one) => one.id === ref.slice(ref.indexOf("/") + 1));
+        if (!entry) add([...at, "wieldsWhileCalled", "items", n], `Unknown entry "${ref}"`);
+        else if (!entry.item?.attack) add([...at, "wieldsWhileCalled", "items", n], `"${ref}" is not a weapon`);
+      }
+    });
+  }
   if (use.budget !== undefined && !combat.economy.budgets.some((budget) => budget.id === use.budget)) {
     add([...at, "budget"], `Unknown budget "${use.budget}"`);
+  }
+  // A call's dismissal on a budget of its own (1.613), and the requirement it reads (1.611).
+  const dismissal = use.calls?.dismissible;
+  if (typeof dismissal === "object" && !combat.economy.budgets.some((budget) => budget.id === dismissal.budget)) {
+    add([...at, "calls", "dismissible", "budget"], `Unknown budget "${dismissal.budget}"`);
+  }
+  if (use.calls?.tamedWhile !== undefined) {
+    if (!definition.sheet.live.conditions.some((condition) => condition.id === use.calls!.tamedWhile))
+      add([...at, "calls", "tamedWhile"], `Unknown condition "${use.calls.tamedWhile}"`);
+    if (use.calls.side !== "none")
+      add(
+        [...at, "calls", "tamedWhile"],
+        'Only a call whose creatures are under nobody\'s control ("side": "none") is tamed',
+      );
+  }
+  const unlessRequirement = use.calls?.hostileUnless;
+  if (
+    unlessRequirement &&
+    !rulesetSheetNames(definition.sheet, definition.items).derived.has(unlessRequirement.derived)
+  ) {
+    add([...at, "calls", "hostileUnless", "derived"], `Unknown derived value "${unlessRequirement.derived}"`);
+  }
+  // A scroll's spell made again (1.583): Telekinesis, Call Lightning.
+  const repeatBudget = use.repeats?.budget;
+  if (repeatBudget !== undefined && !combat.economy.budgets.some((budget) => budget.id === repeatBudget)) {
+    add([...at, "repeats", "budget"], `Unknown budget "${repeatBudget}"`);
   }
   // A worn item's rescue (1.259) takes a budget of the fight's own, as an entry's does.
   const rescueBudget = use.rescue?.budget;
@@ -15549,7 +24101,9 @@ function attackIssues(
   }
   const pooled = definition.resolution.kind === "dice-pool";
   // A summed fight's hit already deals its dice; a pool fight's deals its successes, and dice on top.
-  if (!pooled && attack.damage.dice === undefined) add([...at, "damage", "dice"], "A weapon deals dice");
+  // Without dice (1.511) it deals its bonus alone, or only puts on what its hit does: a blowgun, a net.
+  if (!pooled && attack.damage.dice === undefined && attack.damage.bonus === undefined && !attack.onHit?.length)
+    add([...at, "damage", "dice"], "A weapon deals dice, a bonus, or what its hit puts on");
   if (pooled && attack.damage.rerollUpTo) {
     add([...at, "damage", "rerollUpTo"], "A pool fight's damage is successes, not faces, so it has nothing to reroll");
   }
@@ -15648,6 +24202,9 @@ function attackIssues(
       add([...at, "onHit", index, "rounds"], "A condition that ends on a save lasts until it is made, not some rounds");
     }
     targetIsIssues(definition, entry.targetIs, [...at, "onHit", index, "targetIs"], add);
+    const check = entry.checkEnds?.check;
+    if (check !== undefined && !combat.checks?.some((one) => one.id === check))
+      add([...at, "onHit", index, "checkEnds", "check"], `Unknown check "${check}"`);
   });
   attack.against?.forEach((entry, index) => {
     targetIsIssues(definition, entry.is, [...at, "against", index, "is"], add);
@@ -15681,7 +24238,16 @@ function attackIssues(
   // ruleset's.
   attack.spends?.forEach((spend, index) => {
     const where = [...at, "spends", index];
-    if (!item.charges) add([...where, "charges"], "Charges spent on a hit are the item's own, so it holds some");
+    if (spend.charges !== undefined && !item.charges)
+      add([...where, "charges"], "Charges spent on a hit are the item's own, so it holds some");
+    // Its own uses (1.534) are one item's, as a further use's are.
+    if (spend.uses && !item.charges && item.stack !== 1)
+      add([...where, "uses"], "An item whose hits count their own uses is one to a stack, so its stack is 1");
+    spend.uses?.recharge?.rests.forEach((rest, at2) => {
+      if (!definition.rests.some((entry) => entry.id === rest))
+        add([...where, "uses", "recharge", "rests", at2], `Unknown rest "${rest}"`);
+    });
+    if (spend.save && !saves.has(spend.save.save)) add([...where, "save", "save"], `Unknown save "${spend.save.save}"`);
     if (spend.type !== undefined && damageTypes && !damageTypes.includes(spend.type.trim().toLowerCase()))
       add([...where, "type"], `Unknown damage type "${spend.type}"`);
     spend.onHit?.forEach((entry, entryIndex) => {
@@ -15920,7 +24486,7 @@ function builderChoicesIssues(
       for (const group of step.groups) for (const target of group.targets) ratingWrites(target);
     if (step.kind === "abilities") for (const ability of definition.sheet.abilities) writes.abilities.add(ability.id);
     if (step.kind === "fields") for (const id of step.fields) writes.fields.add(id);
-    if (step.kind === "rows") writes.lists.add(step.list);
+    if (step.kind === "rows" || step.kind === "mark") writes.lists.add(step.list);
     if (step.kind === "trained")
       for (const choice of step.choose ?? [])
         for (const id of choice.onDuplicate
@@ -15951,7 +24517,7 @@ function builderChoicesIssues(
             : (choice.from ?? definition.sheet[choice.what].map((entry) => entry.id)))
             freeRatingWrites(choice.what === "skills" ? { skill: id } : { save: id });
         for (const row of entry.rows ?? []) writes.lists.add(row.list);
-        for (const choice of grants?.entries?.choose ?? [])
+        for (const choice of [...(grants?.entries?.choose ?? []), ...(grants?.entries?.add ?? [])])
           for (const id of definition.catalogs?.find((catalog) => catalog.id === choice.catalog)?.feeds ?? [])
             writes.lists.add(id);
       }
@@ -16195,7 +24761,27 @@ function grantsIssues(
     if (grants.itemAccess!.indexOf(ref) !== index) add(at, `"${ref}" is named twice`);
   });
   // Entries to choose (1.91) are chosen at a `choices` step, which is what loads their catalog.
-  grants.entries?.choose.forEach((choice, index) => {
+  grants.entries?.add?.forEach((given, index) => {
+    const at = [...path, "entries", "add", index];
+    const catalog = definition.catalogs?.find((each) => each.id === given.catalog);
+    if (!catalog || (catalog.holds ?? "rows") !== "rows")
+      return add([...at, "catalog"], `No catalog of rows "${given.catalog}"`);
+    // The builder loads only the catalogs its steps read.
+    if (
+      !sheet.builder?.steps.some(
+        (step) => (step.kind === "choices" || step.kind === "catalog") && step.catalog === given.catalog,
+      )
+    )
+      add([...at, "catalog"], `No builder step reads catalog "${given.catalog}"`);
+    if (!catalog.entries || catalog.from) return;
+    given.ids.forEach((id, idIndex) => {
+      const entry = catalog.entries!.find((each) => each.id === id);
+      if (!entry) add([...at, "ids", idIndex], `No entry "${id}" in catalog "${given.catalog}"`);
+      else if (!entry.rows?.length) add([...at, "ids", idIndex], `"${id}" writes no rows`);
+      if (given.ids.indexOf(id) !== idIndex) add([...at, "ids", idIndex], `"${id}" is named twice`);
+    });
+  });
+  grants.entries?.choose?.forEach((choice, index) => {
     const at = [...path, "entries", "choose", index];
     builderChoiceIssues(definition, choice, at, add);
     builderLimitsIssues(
@@ -16276,6 +24862,24 @@ function contextualCheckIssues(
   return found;
 }
 
+/** What a shape change's forms need (1.392): a fight, and a condition with `shape` among what it puts
+ *  on, which is what holds the form. */
+function shapeFormsIssues(
+  definition: RulesetDefinition,
+  applies: ReadonlyArray<{ condition: string }> | undefined,
+  path: (string | number)[],
+  add: (path: (string | number)[], message: string) => void,
+): void {
+  if (!definition.combat) {
+    add([...path, "forms"], "A shape is taken in a fight, so the ruleset declares a combat block");
+    return;
+  }
+  const shaped = new Set((definition.combat.conditions ?? []).filter((one) => one.shape).map((one) => one.condition));
+  if (!applies?.some((one) => shaped.has(one.condition))) {
+    add([...path, "forms"], 'The form is held by what it puts on, so "applies" names a condition with "shape"');
+  }
+}
+
 export function rulesetCatalogEntryIssues(
   definition: RulesetDefinition,
   catalog: RulesetCatalogHeader,
@@ -16342,6 +24946,33 @@ export function rulesetCatalogEntryIssues(
     } else if (becomes !== undefined && readable(becomes) && !itemsByRef.has(becomes)) {
       add([index, "item", "charges", "breaksOn", "becomes"], `Unknown item "${becomes}"`);
     }
+    // What it keeps of a missile caught from a creature (1.626) is an item.
+    const keeps = [
+      { at: [index, "mechanics"], mechanics: entry.mechanics },
+      { at: [index, "item", "use"], mechanics: entry.item?.use },
+      ...(entry.item?.moreUses ?? []).map((more, moreIndex) => ({
+        at: [index, "item", "moreUses", moreIndex, "use"],
+        mechanics: more.use,
+      })),
+    ];
+    for (const one of keeps) {
+      const kept = one.mechanics?.keepsCaught;
+      const otherwise = typeof kept === "object" ? kept.otherwise : undefined;
+      if (otherwise !== undefined && readable(otherwise) && !itemsByRef.has(otherwise))
+        add([...one.at, "keepsCaught", "otherwise"], `Unknown item "${otherwise}"`);
+    }
+    // What it changes into (1.575) are other items, none of which changes form itself.
+    entry.item?.forms?.into.forEach((form, formIndex) => {
+      const at = [index, "item", "forms", "into", formIndex, "item"];
+      if (form.item === `${catalog.id}/${entry.id}`) add(at, "An item changes into other items");
+      else if (readable(form.item) && !itemsByRef.has(form.item)) add(at, `Unknown item "${form.item}"`);
+      else if (itemsByRef.get(form.item)?.forms) add(at, "A form is an item that does not change form itself");
+    });
+    // Any one of what it asks (1.691) is said of something it asks.
+    if (entry.item?.binds?.needsAny && !entry.item.binds.needs)
+      add([index, "item", "binds", "needsAny"], '"needsAny" says how "needs" is met, so it needs "needs"');
+    if (entry.item?.userNeedsAny && !entry.item.userNeeds)
+      add([index, "item", "userNeedsAny"], '"userNeedsAny" says how "userNeeds" is met, so it needs "userNeeds"');
     // What its binding needs worn (1.313) are other items, each worn in its own right.
     entry.item?.binds?.needsWorn?.forEach((group, groupIndex) =>
       group.anyOf.forEach((ref, refIndex) => {
@@ -16370,6 +25001,10 @@ export function rulesetCatalogEntryIssues(
         `Catalog "${catalog.id}" holds ${holds}, so an entry cannot carry ${kind === "creatures" ? "a creature" : "an item"}`,
       );
     }
+    entry.creature?.stores?.catalogs.forEach((catalogId, catalogIndex) => {
+      if (!definition.catalogs?.some((one) => one.id === catalogId))
+        add([index, "creature", "stores", "catalogs", catalogIndex], `Unknown catalog "${catalogId}"`);
+    });
     if (entry.creature?.spellcasting) {
       const creature = entry.creature;
       const casting = creature.spellcasting!;
@@ -16398,18 +25033,23 @@ export function rulesetCatalogEntryIssues(
           add(path, `Unknown spell entry "${spell.entry}"`);
           return;
         }
-        const mechanics = target.mechanics;
-        if (!mechanics) {
+        // Its own, and each of its variants' (1.769): Chromatic Orb is cast as its kinds.
+        const ways = [target, ...(target.variants ?? []).flatMap((id) => available.filter((one) => one.id === id))]
+          .map((one) => one.mechanics)
+          .filter((one): one is NonNullable<typeof one> => !!one);
+        if (ways.length === 0) {
           add(path, `Spell entry "${spell.entry}" needs mechanics`);
           return;
         }
         if (creature.sheet) return;
-        if (mechanics.attackRoll && casting.toHit === undefined)
+        if (ways.some((mechanics) => mechanics.attackRoll) && casting.toHit === undefined)
           add(path, `Spell "${spell.entry}" needs spellcasting.toHit`);
-        const needsSave =
-          mechanics.save ||
-          mechanics.plus?.some((part) => part.save && part.save.difficulty === undefined) ||
-          mechanics.applies?.some((applies) => applies.saveEnds);
+        const needsSave = ways.some(
+          (mechanics) =>
+            mechanics.save ||
+            mechanics.plus?.some((part) => part.save && part.save.difficulty === undefined) ||
+            mechanics.applies?.some((applies) => applies.saveEnds),
+        );
         if (needsSave && casting.saveDifficulty === undefined)
           add(path, `Spell "${spell.entry}" needs spellcasting.saveDifficulty`);
       });
@@ -16440,6 +25080,21 @@ export function rulesetCatalogEntryIssues(
       for (const issue of rulesetValueRefIssues(entry.mechanics.usableWhen.value, names, names.derived)) {
         add([index, "mechanics", "usableWhen", "value", issue.key], issue.message);
       }
+    }
+    // What a chance reads off the sheet (1.441) is the sheet's own.
+    const chance = entry.mechanics?.chance;
+    if (chance) {
+      for (const [key, ref] of [
+        ["atMost", typeof chance.atMost === "number" ? undefined : chance.atMost],
+        ["sure", chance.sure?.value],
+      ] as const) {
+        if (!ref) continue;
+        for (const issue of rulesetValueRefIssues(ref, names, names.derived)) {
+          add([index, "mechanics", "chance", key, ...(key === "sure" ? ["value"] : []), issue.key], issue.message);
+        }
+      }
+      if (typeof chance.atMost === "number" && chance.atMost > chance.sides)
+        add([index, "mechanics", "chance", "atMost"], "A chance of more than its die can show always works");
     }
     entry.mechanics?.attackRows?.forEach((rule, ruleIndex) => {
       for (const [key, ref] of [
@@ -16521,6 +25176,26 @@ export function rulesetCatalogEntryIssues(
       const list = listById.get(row.list);
       if (!list) return add([...path, "list"], `Unknown list "${row.list}"`);
       for (const message of rulesetListRowIssues(list, row.values)) add([...path, "values"], message);
+      // The entry a row stands for (1.493) is one a catalog that feeds the row's list holds, so a
+      // fight finds its mechanics where it finds every other row's.
+      if (row.standsFor) {
+        const standsCatalog = definition.catalogs?.find(
+          (candidate) => candidate.id === row.standsFor!.slice(0, row.standsFor!.indexOf("/")),
+        );
+        const standsEntry = row.standsFor.slice(row.standsFor.indexOf("/") + 1);
+        if (!standsCatalog?.feeds?.includes(row.list)) {
+          add([...path, "standsFor"], `No catalog "${row.standsFor.split("/")[0]}" feeds the list "${row.list}"`);
+        } else if (standsCatalog.id === catalog.id && !entries.some((one) => one.id === standsEntry)) {
+          add([...path, "standsFor"], `Catalog "${standsCatalog.id}" has no entry "${standsEntry}"`);
+        } else if (
+          standsCatalog.id !== catalog.id &&
+          standsCatalog.entries &&
+          !standsCatalog.from &&
+          !standsCatalog.entries.some((one) => one.id === standsEntry)
+        ) {
+          add([...path, "standsFor"], `Catalog "${standsCatalog.id}" has no entry "${standsEntry}"`);
+        }
+      }
       if (!row.scaled) return;
       if ((rowsPerList.get(row.list) ?? 0) > 1 && !namedApart(row.list)) {
         add(
@@ -16531,7 +25206,22 @@ export function rulesetCatalogEntryIssues(
       for (const [columnId, scaled] of Object.entries(row.scaled)) {
         const column = list.columns.find((candidate) => candidate.id === columnId);
         if (!column) add([...path, "scaled", columnId], `Unknown column "${columnId}"`);
-        else if (column.type !== "number") add([...path, "scaled", columnId], `Column "${columnId}" is not a number`);
+        // A text read off a step table (1.411) goes in a text or enum column, and an enum's is one of
+        // its values.
+        else if (scaled.texts) {
+          if (column.type !== "text" && column.type !== "enum")
+            add([...path, "scaled", columnId], `Column "${columnId}" holds no text for "texts" to set`);
+          else if (column.type === "enum")
+            scaled.texts.forEach(([, text], stepIndex) => {
+              if (!column.values.includes(text))
+                add(
+                  [...path, "scaled", columnId, "texts", stepIndex],
+                  `"${text}" is not one of "${columnId}"'s values`,
+                );
+            });
+          if (!Object.prototype.hasOwnProperty.call(row.values, columnId))
+            add([...path, "values"], `Scaled column "${columnId}" needs a starting value in values`);
+        } else if (column.type !== "number") add([...path, "scaled", columnId], `Column "${columnId}" is not a number`);
         // `values` holds what the row starts as, because an entry is picked before anything knows
         // which sheet it lands on. Without it a picked row would sit incomplete until the first
         // recompute, and a reader without the catalog would never see a number at all.
@@ -16560,6 +25250,31 @@ export function rulesetCatalogEntryIssues(
     if (mechanics?.reducesMax)
       reducesMaxIssues(definition, mechanics.reducesMax, [index, "mechanics", "reducesMax"], add);
     targetHoldsIssues(definition, mechanics?.targetHolds, [index, "mechanics", "targetHolds"], add);
+    // What it recovers (1.410): a pool group the sheet has, and a budget its sheet reads.
+    // A priced material's worth (1.790) is in one of the ruleset's coins.
+    if (
+      mechanics?.material &&
+      !(definition.items?.currencies ?? []).some((family) =>
+        family.units.some((unit) => unit.id === mechanics.material!.worth.unit),
+      )
+    )
+      add(
+        [index, "mechanics", "material", "worth", "unit"],
+        `Unknown currency unit "${mechanics.material.worth.unit}"`,
+      );
+    if (mechanics?.recovers) {
+      if (!definition.sheet.live.pools.some((pool) => pool.group === mechanics.recovers!.group))
+        add([index, "mechanics", "recovers", "group"], `Unknown pool group "${mechanics.recovers.group}"`);
+      // The rest that offers it (1.789) is one the ruleset has.
+      if (
+        mechanics.recovers.atRest !== undefined &&
+        !definition.rests.some((rest) => rest.id === mechanics.recovers!.atRest)
+      )
+        add([index, "mechanics", "recovers", "atRest"], `Unknown rest "${mechanics.recovers.atRest}"`);
+      for (const found of rulesetValueRefIssues(mechanics.recovers.upTo, names, names.derived, false)) {
+        add([index, "mechanics", "recovers", "upTo", found.key], found.message);
+      }
+    }
     mechanics?.healthPoolSkips?.conditions?.forEach((condition, conditionIndex) => {
       if (!liveConditions.has(condition))
         add([index, "mechanics", "healthPoolSkips", "conditions", conditionIndex], `Unknown condition "${condition}"`);
@@ -16577,6 +25292,8 @@ export function rulesetCatalogEntryIssues(
     if (mechanics?.save && !saves.has(mechanics.save.save)) {
       add([index, "mechanics", "save", "save"], `Unknown save "${mechanics.save.save}"`);
     }
+    if (mechanics?.save?.or && !saves.has(mechanics.save.or))
+      add([index, "mechanics", "save", "or"], `Unknown save "${mechanics.save.or}"`);
     // The same names the first amount is held to. A clause's damage type is checked where the
     // ruleset says what its types are, exactly as a creature's is.
     const declaredTypes = definition.combat?.damageTypes
@@ -16587,6 +25304,14 @@ export function rulesetCatalogEntryIssues(
     if (mechanics?.damageType && declaredTypes && !declaredTypes.has(mechanics.damageType.trim().toLowerCase())) {
       add([index, "mechanics", "damageType"], `Unknown damage type "${mechanics.damageType}"`);
     }
+    // The types picked among as it is used (1.753), the ruleset's own and none twice.
+    mechanics?.damageTypeChoice?.forEach((type, typeIndex) => {
+      const key = type.trim().toLowerCase();
+      if (declaredTypes && !declaredTypes.has(key))
+        add([index, "mechanics", "damageTypeChoice", typeIndex], `Unknown damage type "${type}"`);
+      if (mechanics.damageTypeChoice!.findIndex((other) => other.trim().toLowerCase() === key) !== typeIndex)
+        add([index, "mechanics", "damageTypeChoice", typeIndex], `Damage type "${type}" is named twice`);
+    });
     // What the harm carries past an exception is what a weapon's tags carry, so it is the ruleset's
     // own item tags, exactly as an exception's names are.
     if (mechanics?.qualities) {
@@ -16646,15 +25371,52 @@ export function rulesetCatalogEntryIssues(
         add([index, "mechanics", "appliesSelf", appliesIndex, "condition"], `Unknown condition "${applies.condition}"`);
       }
     });
+    // Near the first or near each other (1.594), not both.
+    if (mechanics?.targetsWithinFirst !== undefined && mechanics.targetsWithin !== undefined)
+      add(
+        [index, "mechanics", "targetsWithinFirst"],
+        '"targetsWithinFirst" and "targetsWithin" each say how near the targets stand, so it takes one',
+      );
+    // Times so many, and split among those caught (1.593): an amount, and for a split an area with
+    // no attack roll or save.
+    if (mechanics?.amountTimes !== undefined && !mechanics.amount)
+      add([index, "mechanics", "amountTimes"], '"amountTimes" multiplies "amount", so the entry has one');
+    if (mechanics?.dividedAmong) {
+      if (!mechanics.amount)
+        add([index, "mechanics", "dividedAmong"], '"dividedAmong" splits "amount", so the entry has one');
+      if (!mechanics.area)
+        add([index, "mechanics", "dividedAmong"], '"dividedAmong" splits among those an "area" catches');
+      if (mechanics.attackRoll || mechanics.save)
+        add([index, "mechanics", "dividedAmong"], "A split amount is rolled with no attack roll or save");
+    }
+    // What a failure by a margin puts on (1.592), the sheet's conditions too.
+    mechanics?.save?.failedBy?.applies.forEach((applies, appliesIndex) => {
+      if (!liveConditions.has(applies.condition))
+        add(
+          [index, "mechanics", "save", "failedBy", "applies", appliesIndex, "condition"],
+          `Unknown condition "${applies.condition}"`,
+        );
+    });
     mechanics?.applies?.forEach((applies, appliesIndex) => {
       const path = [index, "mechanics", "applies", appliesIndex];
       if (!liveConditions.has(applies.condition)) {
         add([...path, "condition"], `Unknown condition "${applies.condition}"`);
       }
+      // What is left of a condition (1.616).
+      const remainingOf = typeof applies.duration === "object" ? applies.duration.remainingOf : undefined;
+      if (remainingOf !== undefined && !liveConditions.has(remainingOf)) {
+        add([...path, "duration", "remainingOf"], `Unknown condition "${remainingOf}"`);
+      }
+      // Kept on by the item that put it on (1.664): an item's use, not a catalog entry's.
+      if (applies.whileItemWorn) add([...path, "whileItemWorn"], '"whileItemWorn" is for what an item\'s use puts on');
       escapeDcIssues(definition, applies, path, add);
       if (applies.saveEnds && !saves.has(applies.saveEnds.save)) {
         add([...path, "saveEnds", "save"], `Unknown save "${applies.saveEnds.save}"`);
       }
+      // What a failed day's save deals (1.750), of the ruleset's damage types.
+      const dayHarm = applies.saveEnds?.harmsOnFail?.type;
+      if (dayHarm && declaredTypes && !declaredTypes.has(dayHarm.trim().toLowerCase()))
+        add([...path, "saveEnds", "harmsOnFail", "type"], `Unknown damage type "${dayHarm}"`);
       const becomes = applies.saveEnds?.failures?.becomes;
       if (becomes !== undefined && !liveConditions.has(becomes)) {
         add([...path, "saveEnds", "failures", "becomes"], `Unknown condition "${becomes}"`);
@@ -16767,12 +25529,34 @@ export function rulesetCatalogEntryIssues(
         `Health is the track "${trackHealth}", which carries no buffer for temporary points`,
       );
     }
+    // A slot left free (1.416) is one the items declare.
+    const declaredMoment = typeof mechanics?.reaction === "object" ? mechanics.reaction : undefined;
+    [declaredMoment, ...(declaredMoment?.also ?? [])].forEach((moment, momentIndex) => {
+      if (!moment?.freeSlot) return;
+      if (!definition.items?.slots?.some((slot) => slot.id === moment.freeSlot))
+        add(
+          [index, "mechanics", "reaction", ...(momentIndex === 0 ? [] : ["also", momentIndex - 1]), "freeSlot"],
+          `Unknown item slot "${moment.freeSlot}"`,
+        );
+    });
     if (mechanics?.alters) {
       const alters = mechanics.alters;
       const path = [index, "mechanics", "alters"];
+      // Backlash of a kind of harm the fight has (1.415).
+      const backlashType = alters.backlash?.type?.trim().toLowerCase();
+      if (
+        backlashType &&
+        definition.combat?.damageTypes &&
+        !definition.combat.damageTypes.some((one) => one.trim().toLowerCase() === backlashType)
+      )
+        add([...path, "backlash", "type"], `Unknown damage type "${alters.backlash!.type}"`);
       alters.catalogs.forEach((catalogId, catalogIndex) => {
-        if (!definition.catalogs?.some((catalog) => catalog.id === catalogId)) {
+        const catalog = definition.catalogs?.find((one) => one.id === catalogId);
+        if (!catalog) {
           add([...path, "catalogs", catalogIndex], `Unknown catalog "${catalogId}"`);
+        } else if (alters.where && !catalog.filters?.some((one) => one.id === alters.where!.filter)) {
+          // A filter its catalogs declare (1.414).
+          add([...path, "where", "filter"], `Catalog "${catalogId}" has no filter "${alters.where.filter}"`);
         }
       });
       for (const key of ["spares", "rerolls"] as const) {
@@ -16799,23 +25583,78 @@ export function rulesetCatalogEntryIssues(
     }
     if (mechanics) cureIssues(definition, mechanics, [index, "mechanics"], add);
     targetIsIssues(definition, mechanics?.ends?.from, [index, "mechanics", "ends", "from"], add);
+    // What ends a catalog's entries' conditions (1.424) names catalogs there are, and reads the sheet.
+    mechanics?.endsSpells?.catalogs.forEach((id, at) => {
+      if (!definition.catalogs?.some((one) => one.id === id))
+        add([index, "mechanics", "endsSpells", "catalogs", at], `Unknown catalog "${id}"`);
+    });
+    // Whoever caused a reaction's moment (1.422).
+    if (typeof mechanics?.reaction === "object") {
+      const reaction = mechanics.reaction;
+      [reaction, ...(reaction.also ?? [])].forEach((moment, at) =>
+        targetIsIssues(
+          definition,
+          moment.sourceIs,
+          [index, "mechanics", "reaction", ...(at === 0 ? [] : ["also", at - 1]), "sourceIs"],
+          add,
+        ),
+      );
+    }
     if (mechanics?.dismisses && mechanics.dismisses !== true) {
       targetIsIssues(definition, mechanics.dismisses.gone, [index, "mechanics", "dismisses", "gone"], add);
     }
     if (mechanics?.kindChoice && !definition.combat?.creatureTypes)
       add([index, "mechanics", "kindChoice"], "This ruleset has no creature types to choose from");
+    // The types a call may make what it calls (1.487), the fight's own.
+    mechanics?.calls?.asTypes?.forEach((type, typeIndex) => {
+      if (!definition.combat?.creatureTypes?.types.some((one) => one.id === type))
+        add([index, "mechanics", "calls", "asTypes", typeIndex], `Unknown creature type "${type}"`);
+    });
+    if (mechanics?.forms) {
+      shapeFormsIssues(definition, mechanics.applies, [index, "mechanics"], add);
+      for (const [key, ref] of [
+        ["at", mechanics.forms.upTo?.at],
+        ["targetLevel", mechanics.forms.upTo?.targetLevel],
+      ] as const) {
+        if (!ref) continue;
+        for (const refIssue of rulesetValueRefIssues(ref, names, names.derived, false)) {
+          add([index, "mechanics", "forms", "upTo", key, refIssue.key], refIssue.message);
+        }
+      }
+      mechanics.forms.without?.forEach((bar, barIndex) => {
+        if (!bar.unless) return;
+        for (const refIssue of rulesetValueRefIssues(bar.unless, names, names.derived, false)) {
+          add([index, "mechanics", "forms", "without", barIndex, "unless", refIssue.key], refIssue.message);
+        }
+      });
+    }
     if (mechanics?.teleport && !definition.combat?.distance)
       add(
         [index, "mechanics", "teleport"],
         '"teleport" is measured in cells, so the combat block declares "distance" too',
       );
     mechanics?.keepsOn?.forEach((kept, keptIndex) => {
-      if (!liveConditions.has(kept)) add([index, "mechanics", "keepsOn", keptIndex], `Unknown condition "${kept}"`);
+      const condition = rulesetKeptOnCondition(kept);
+      if (!liveConditions.has(condition))
+        add([index, "mechanics", "keepsOn", keptIndex], `Unknown condition "${condition}"`);
+      keptWhenIssues(definition, kept, [index, "mechanics", "keepsOn", keptIndex], add);
     });
     // The weapon bound out of the fight is named in a live text field (1.309).
     const boundIn = mechanics?.conjures?.boundIn;
     if (boundIn !== undefined && !definition.sheet.live.text.some((one) => one.id === boundIn)) {
       add([index, "mechanics", "conjures", "boundIn"], `Unknown live text "${boundIn}"`);
+    }
+    // What it makes is an item (1.721).
+    const madeRef = mechanics?.makesItems?.item;
+    if (madeRef !== undefined) {
+      const catalogId = madeRef.slice(0, madeRef.indexOf("/"));
+      const catalog = definition.catalogs?.find((one) => one.id === catalogId);
+      if (!catalog) add([index, "mechanics", "makesItems", "item"], `Unknown entry "${madeRef}"`);
+      else if (catalog.entries && !catalog.from) {
+        const made = catalog.entries.find((one) => `${catalogId}/${one.id}` === madeRef);
+        if (!made) add([index, "mechanics", "makesItems", "item"], `Unknown entry "${madeRef}"`);
+        else if (!made.item) add([index, "mechanics", "makesItems", "item"], `"${madeRef}" is not an item`);
+      }
     }
     mechanics?.conjures?.items.forEach((ref, refIndex) => {
       const catalogId = ref.slice(0, ref.indexOf("/"));
@@ -16836,6 +25675,13 @@ export function rulesetCatalogEntryIssues(
     ) {
       add([index, "mechanics", "repeats", "budget"], `Unknown budget "${mechanics.repeats.budget}"`);
     }
+    if (
+      mechanics?.sustains &&
+      definition.combat &&
+      !definition.combat.economy.budgets.some((one) => one.id === mechanics.sustains!.budget)
+    ) {
+      add([index, "mechanics", "sustains", "budget"], `Unknown budget "${mechanics.sustains.budget}"`);
+    }
     // The biggest it reaches is one of the fight's sizes (1.314).
     if (mechanics?.targetsUpTo && !definition.combat?.sizes?.order.some((one) => one.id === mechanics.targetsUpTo)) {
       add(
@@ -16848,10 +25694,35 @@ export function rulesetCatalogEntryIssues(
     if (mechanics?.oncePerTarget && !definition.rests.some((one) => one.id === mechanics.oncePerTarget!.until)) {
       add([index, "mechanics", "oncePerTarget", "until"], `Unknown rest "${mechanics.oncePerTarget.until}"`);
     }
+    mechanics?.userHolds?.forEach((id, at) => {
+      if (!liveConditions.has(id)) add([index, "mechanics", "userHolds", at], `Unknown condition "${id}"`);
+    });
     if (mechanics?.endsCondition && !liveConditions.has(mechanics.endsCondition)) {
       add([index, "mechanics", "endsCondition"], `Unknown condition "${mechanics.endsCondition}"`);
     }
     mechanics?.amends?.forEach((amend, amendIndex) => {
+      if ((amend.range !== undefined || amend.push !== undefined) && !definition.combat?.distance)
+        add(
+          [index, "mechanics", "amends", amendIndex],
+          'A range or a push is measured in cells, so the combat block declares "distance" too',
+        );
+      // The sheet's own choice of damage type (1.429): a text or enum field.
+      if (amend.damageTypeIn !== undefined) {
+        const found = choiceFieldIssue(definition, amend.damageTypeIn);
+        if (found) add([index, "mechanics", "amends", amendIndex, "damageTypeIn"], found);
+      }
+      // Catalogs by name, and a filter they declare (1.414).
+      amend.catalogs?.forEach((id, catalogIndex) => {
+        const catalog = definition.catalogs?.find((one) => one.id === id);
+        if (!catalog)
+          add([index, "mechanics", "amends", amendIndex, "catalogs", catalogIndex], `Unknown catalog "${id}"`);
+        else if (amend.where && !catalog.filters?.some((one) => one.id === amend.where!.filter))
+          add(
+            [index, "mechanics", "amends", amendIndex, "where", "filter"],
+            `Catalog "${id}" has no filter "${amend.where.filter}"`,
+          );
+      });
+      if (!amend.entry) return;
       const catalogId = amend.entry.slice(0, amend.entry.indexOf("/"));
       const catalog = definition.catalogs?.find((one) => one.id === catalogId);
       // A catalog kept in its own file has no entries here yet: the whole ruleset's pass checks it.
@@ -16860,11 +25731,6 @@ export function rulesetCatalogEntryIssues(
         (catalog.entries && !catalog.from && !catalog.entries.some((one) => `${catalogId}/${one.id}` === amend.entry))
       )
         add([index, "mechanics", "amends", amendIndex, "entry"], `Unknown entry "${amend.entry}"`);
-      if ((amend.range !== undefined || amend.push !== undefined) && !definition.combat?.distance)
-        add(
-          [index, "mechanics", "amends", amendIndex],
-          'A range or a push is measured in cells, so the combat block declares "distance" too',
-        );
     });
     if (mechanics?.ignoresSurpriseWith) {
       const catalogId = mechanics.ignoresSurpriseWith.slice(0, mechanics.ignoresSurpriseWith.indexOf("/"));
@@ -16880,6 +25746,107 @@ export function rulesetCatalogEntryIssues(
       sightIssues(definition, mechanics.teleport.smoke.pierced, [index, "mechanics", "teleport", "smoke"], add);
     }
     zoneInsideIssues(definition, mechanics?.zone, [index, "mechanics", "zone"], add);
+    // Whom a zone keeps out (1.452), and the conditions it keeps them from giving.
+    targetIsIssues(definition, mechanics?.zone?.keepsOut?.is, [index, "mechanics", "zone", "keepsOut", "is"], add);
+    mechanics?.zone?.keepsOut?.cantGive?.forEach((condition, conditionIndex) => {
+      if (!liveConditions.has(condition)) {
+        add([index, "mechanics", "zone", "keepsOut", "cantGive", conditionIndex], `Unknown condition "${condition}"`);
+      }
+    });
+    mechanics?.zone?.keepsOut?.frees?.forEach((condition, conditionIndex) => {
+      if (!liveConditions.has(condition)) {
+        add([index, "mechanics", "zone", "keepsOut", "frees", conditionIndex], `Unknown condition "${condition}"`);
+      }
+    });
+    // What it duplicates (1.474) is a catalog of the ruleset's.
+    if (
+      mechanics?.duplicates &&
+      !definition.catalogs?.some((catalog) => catalog.id === mechanics.duplicates!.catalog)
+    ) {
+      add([index, "mechanics", "duplicates", "catalog"], `Unknown catalog "${mechanics.duplicates.catalog}"`);
+    }
+    // What it steers (1.464) is a condition.
+    if (mechanics?.steers && !liveConditions.has(mechanics.steers)) {
+      add([index, "mechanics", "steers"], `Unknown condition "${mechanics.steers}"`);
+    }
+    // What finds a hidden zone (1.455) is one of the fight's checks, thrown by its Search.
+    // A layered wall's saves and what its flash puts on (1.490).
+    const layers = mechanics?.zone?.layers;
+    if (layers) {
+      const at = [index, "mechanics", "zone", "layers"];
+      const saves = new Set(definition.sheet.saves.map((save) => save.id));
+      layers.rows.forEach((row, rowIndex) => {
+        if (row.save && !saves.has(row.save)) add([...at, "rows", rowIndex, "save"], `Unknown save "${row.save}"`);
+      });
+      if (layers.flash) {
+        if (!saves.has(layers.flash.save)) add([...at, "flash", "save"], `Unknown save "${layers.flash.save}"`);
+        layers.flash.applies.forEach((one, appliesIndex) => {
+          if (!liveConditions.has(one.condition)) {
+            add([...at, "flash", "applies", appliesIndex, "condition"], `Unknown condition "${one.condition}"`);
+          }
+        });
+      }
+    }
+    // What a lost contest puts on its target (1.618): conditions the sheet has.
+    mechanics?.contest?.onLose?.applies.forEach((one, at) => {
+      if (!liveConditions.has(one.condition))
+        add(
+          [index, "mechanics", "contest", "onLose", "applies", at, "condition"],
+          `Unknown condition "${one.condition}"`,
+        );
+    });
+    // Each side of a contest throws one of the fight's checks (1.565).
+    (["attacker", "defender"] as const).forEach((side) => {
+      mechanics?.contest?.[side].forEach((check, checkIndex) => {
+        if (!definition.combat?.checks?.some((one) => one.id === check)) {
+          add([index, "mechanics", "contest", side, checkIndex], `Unknown check "${check}"`);
+        }
+      });
+    });
+    const hidden = mechanics?.zone?.hidden;
+    if (hidden) {
+      if (!definition.combat?.checks?.some((check) => check.id === hidden.check)) {
+        add([index, "mechanics", "zone", "hidden", "check"], `Unknown check "${hidden.check}"`);
+      }
+      if (!definition.combat?.standard?.includes("search")) {
+        add([index, "mechanics", "zone", "hidden"], 'A hidden zone is found with the "search" standard action');
+      }
+    }
+    // Moved on a check of the fight's (1.694), as far as an ability of the mover's says.
+    const moveCheck = mechanics?.zone?.move?.check;
+    if (moveCheck) {
+      if (!definition.combat?.checks?.some((check) => check.id === moveCheck.check)) {
+        add([index, "mechanics", "zone", "move", "check", "check"], `Unknown check "${moveCheck.check}"`);
+      }
+      const ability = moveCheck.distanceBy?.abilityMod;
+      if (ability !== undefined && !definition.sheet.abilities.some((one) => one.id === ability)) {
+        add([index, "mechanics", "zone", "move", "check", "distanceBy", "abilityMod"], `Unknown ability "${ability}"`);
+      }
+      // What holding something does (1.703): items' own tags, an ability of the mover's.
+      const holding = moveCheck.holding;
+      holding?.tags.forEach((tag, tagIndex) => {
+        if (!definition.items?.tags?.some((one) => one.id === tag))
+          add([index, "mechanics", "zone", "move", "check", "holding", "tags", tagIndex], `Unknown item tag "${tag}"`);
+      });
+      const heldAbility = holding?.distanceBy?.abilityMod;
+      if (heldAbility !== undefined && !definition.sheet.abilities.some((one) => one.id === heldAbility))
+        add(
+          [index, "mechanics", "zone", "move", "check", "holding", "distanceBy", "abilityMod"],
+          `Unknown ability "${heldAbility}"`,
+        );
+    }
+    // A trap is disarmed with one of the fight's checks, by the "disarm" standard action (1.669).
+    const disarm = mechanics?.zone?.disarm;
+    if (disarm) {
+      if (!definition.combat?.checks?.some((check) => check.id === disarm.check)) {
+        add([index, "mechanics", "zone", "disarm", "check"], `Unknown check "${disarm.check}"`);
+      }
+      if (!definition.combat?.standard?.includes("disarm")) {
+        add([index, "mechanics", "zone", "disarm"], 'A trap is disarmed with the "disarm" standard action');
+      }
+    }
+    // Who sets a glyph off (1.451) is a target test like any other.
+    targetIsIssues(definition, mechanics?.zone?.detonates?.by, [index, "mechanics", "zone", "detonates", "by"], add);
     componentIssues(definition, mechanics?.components, [index, "mechanics", "components"], add);
     if (mechanics?.zone?.whileHeld && !liveConditions.has(mechanics.zone.whileHeld.condition)) {
       add(
@@ -16893,8 +25860,37 @@ export function rulesetCatalogEntryIssues(
     if (mechanics?.zone?.turn && !budgets?.has(mechanics.zone.turn.budget)) {
       add([index, "mechanics", "zone", "turn", "budget"], `Unknown budget "${mechanics.zone.turn.budget}"`);
     }
-    if (mechanics?.summons && !budgets?.has(mechanics.summons.budget)) {
+    if (mechanics?.summons?.budget !== undefined && !budgets?.has(mechanics.summons.budget)) {
       add([index, "mechanics", "summons", "budget"], `Unknown budget "${mechanics.summons.budget}"`);
+    }
+    // The budget its callers' commands spend (1.558).
+    const commanded = (mechanics?.calls as { commandedWith?: string } | undefined)?.commandedWith;
+    if (commanded !== undefined && !budgets?.has(commanded)) {
+      add([index, "mechanics", "calls", "commandedWith"], `Unknown budget "${commanded}"`);
+    }
+    // The requirement its user meets or is attacked by those it calls (1.611).
+    const unless = (mechanics?.calls as RulesetCatalogCalls | undefined)?.hostileUnless;
+    if (unless && !names.derived.has(unless.derived)) {
+      add([index, "mechanics", "calls", "hostileUnless", "derived"], `Unknown derived value "${unless.derived}"`);
+    }
+    // What only an item's call does (1.612, 1.613), and the budget a dismissal spends (1.613).
+    const entryCalls = mechanics?.calls as RulesetCatalogCalls | undefined;
+    if (entryCalls?.spendsItemOnDeath || entryCalls?.becomesItem)
+      add(
+        [index, "mechanics", "calls", entryCalls.becomesItem ? "becomesItem" : "spendsItemOnDeath"],
+        '"spendsItemOnDeath" and "becomesItem" are for an item\'s call',
+      );
+    // A call's own creatures tamed while they hold a condition (1.615).
+    if (entryCalls?.tamedWhile !== undefined && !liveConditions.has(entryCalls.tamedWhile))
+      add([index, "mechanics", "calls", "tamedWhile"], `Unknown condition "${entryCalls.tamedWhile}"`);
+    if (entryCalls?.tamedWhile !== undefined && entryCalls.side !== "none")
+      add(
+        [index, "mechanics", "calls", "tamedWhile"],
+        'Only a call whose creatures are under nobody\'s control ("side": "none") is tamed',
+      );
+    const entryDismissal = entryCalls?.dismissible;
+    if (typeof entryDismissal === "object" && budgets && !budgets.has(entryDismissal.budget)) {
+      add([index, "mechanics", "calls", "dismissible", "budget"], `Unknown budget "${entryDismissal.budget}"`);
     }
     // A strike bought with a budget the fight declares, rows changed by abilities the sheet has (1.242).
     // A hit answered only when a strike from a budget the fight declares made it (1.248).
@@ -17005,6 +26001,54 @@ export function rulesetCatalogEntryIssues(
         add([index, "mechanics", "scales", "from", refIssue.key], refIssue.message);
       }
     }
+    // A die sized off the sheet (1.250, 1.420) reads it as a scaled amount does.
+    const dies = [
+      ["lowersRoll", mechanics?.lowersRoll?.die],
+      ["throwsCaught", typeof mechanics?.throwsCaught === "object" ? mechanics.throwsCaught.die : undefined],
+    ] as const;
+    if (mechanics?.endsSpells?.above) {
+      for (const refIssue of rulesetValueRefIssues(mechanics.endsSpells.above.check, names, names.derived, false)) {
+        add([index, "mechanics", "endsSpells", "above", "check", refIssue.key], refIssue.message);
+      }
+    }
+    for (const [key, die] of dies) {
+      if (!die) continue;
+      for (const refIssue of rulesetValueRefIssues(die.from, names, names.derived, false)) {
+        add([index, "mechanics", key, "die", "from", refIssue.key], refIssue.message);
+      }
+    }
+    // Healing an amend adds (1.421) reads the sheet the same way.
+    mechanics?.amends?.forEach((amend, amendIndex) => {
+      for (const key of ["healAdd", "healsSelf"] as const) {
+        const ref = amend[key]?.add;
+        if (!ref) continue;
+        for (const refIssue of rulesetValueRefIssues(ref, names, names.derived, false)) {
+          add([index, "mechanics", "amends", amendIndex, key, "add", refIssue.key], refIssue.message);
+        }
+      }
+    });
+  });
+  // Variants (1.769): each one another entry of this catalog that names its parent back.
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  entries.forEach((entry, index) => {
+    entry.variants?.forEach((id, at) => {
+      const variant = byId.get(id);
+      if (!variant) add([index, "variants", at], `Unknown entry "${id}"`);
+      else if (variant.variantOf !== entry.id)
+        add([index, "variants", at], `"${id}" does not say variantOf "${entry.id}"`);
+    });
+    if (entry.variantOf !== undefined && !byId.get(entry.variantOf)?.variants?.includes(entry.id)) {
+      add([index, "variantOf"], `"${entry.variantOf}" does not list "${entry.id}" among its variants`);
+    }
+  });
+  // One default for each group (1.772).
+  const defaults = new Map<string, string>();
+  entries.forEach((entry, index) => {
+    if (!entry.exclusiveDefault || entry.exclusive === undefined) return;
+    const first = defaults.get(entry.exclusive);
+    if (first !== undefined)
+      add([index, "exclusiveDefault"], `"${first}" is already the default of group "${entry.exclusive}"`);
+    else defaults.set(entry.exclusive, entry.id);
   });
   return issues;
 }
@@ -17022,7 +26066,14 @@ export type RulesetCatalogRow = { list: string; row: Record<string, string | num
  *  nothing onto a sheet, so it comes back as no rows at all. */
 export function rowsFromCatalogEntry(catalogId: string, entry: RulesetCatalogEntry): RulesetCatalogRow[] {
   const ref = catalogRowRef(catalogId, entry.id);
-  return (entry.rows ?? []).map((row) => ({ list: row.list, row: { ...row.values, [RULESET_CATALOG_ROW_KEY]: ref } }));
+  return (entry.rows ?? []).map((row) => ({
+    list: row.list,
+    row: {
+      ...row.values,
+      [RULESET_CATALOG_ROW_KEY]: ref,
+      ...(row.standsFor ? { [RULESET_STANDS_FOR_ROW_KEY]: row.standsFor } : {}),
+    },
+  }));
 }
 
 /** A `catalogs/<id>.json` asset. `$comment` is allowed anywhere, exactly as in `ruleset.json`. */
@@ -17295,7 +26346,7 @@ export function capImportedRulesetSheets(value: unknown): {
  *  somebody larger only where there are sizes, and lost only with conditions the sheet has. */
 function hidingTraitsIssues(
   definition: RulesetDefinition,
-  traits: { behindLarger?: true; aware?: { lostWith?: string[] }; stillWhile?: { holds?: string } },
+  traits: { behindLarger?: true; aware?: RulesetAware; stillWhile?: { holds?: string } },
   path: Array<string | number>,
   add: (path: Array<string | number>, message: string) => void,
 ): void {
@@ -17311,9 +26362,24 @@ function hidingTraitsIssues(
   const holds = traits.stillWhile?.holds;
   if (holds !== undefined && !conditions.has(holds))
     add([...path, "stillWhile", "holds"], `Unknown condition "${holds}"`);
-  traits.aware?.lostWith?.forEach((condition, conditionIndex) => {
-    if (!conditions.has(condition)) {
-      add([...path, "aware", "lostWith", conditionIndex], `Unknown condition "${condition}"`);
-    }
+  if (traits.aware) awareIssues(definition, traits.aware, [...path, "aware"], add);
+}
+
+/** What is wrong with an awareness (1.292, 1.439): lost only with the sheet's conditions, of the
+ *  ruleset's own creature types, and read where hiding is real. */
+function awareIssues(
+  definition: RulesetDefinition,
+  aware: RulesetAware,
+  path: Array<string | number>,
+  add: (path: Array<string | number>, message: string) => void,
+): void {
+  if (!definition.combat?.hiding) {
+    add(path, "Awareness is read where combat.hiding hides for real, so it needs combat.hiding");
+    return;
+  }
+  const conditions = new Set(definition.sheet.live.conditions.map((condition) => condition.id));
+  aware.lostWith?.forEach((condition, conditionIndex) => {
+    if (!conditions.has(condition)) add([...path, "lostWith", conditionIndex], `Unknown condition "${condition}"`);
   });
+  targetIsIssues(definition, aware.of, [...path, "of"], add);
 }

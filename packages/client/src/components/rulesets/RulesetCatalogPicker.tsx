@@ -33,6 +33,7 @@ import {
   type CatalogListRow,
 } from "../../lib/ruleset-catalog";
 import { Modal } from "../ui/Modal";
+import { useRulesetText, type RulesetText } from "../../lib/ruleset-text";
 
 /** The header as the picker needs it: where the entries live is the hook's business, not this one's. */
 export type RulesetCatalogHeaderView = Omit<RulesetCatalogHeader, "entries" | "asset">;
@@ -58,13 +59,20 @@ function describeCatalogError(error: unknown, fallback: string): { message: stri
  *  whatever their case, because two filters may well name the same word and one chip says it once,
  *  and a value that only repeats the entry's own label or id ("wizard" under Wizard) is left out. A
  *  bare number says nothing on its own, so a number filter's chip carries the filter's label too. */
-function entryChips(entry: RulesetCatalogEntry, catalog: RulesetCatalogHeaderView, t: TFunction): string[] {
+function entryChips(
+  entry: RulesetCatalogEntry,
+  catalog: RulesetCatalogHeaderView,
+  t: TFunction,
+  rt: RulesetText,
+): string[] {
   const seen = new Set([entry.id, entry.label].map((text) => text.trim().toLowerCase()));
   const chips: string[] = [];
   for (const filter of catalog.filters ?? []) {
     for (const text of catalogEntryFilterTexts(entry, filter.id)) {
       const chip =
-        filter.type === "number" ? t("game.ruleset.catalog.filterChip", { label: filter.label, value: text }) : text;
+        filter.type === "number"
+          ? t("game.ruleset.catalog.filterChip", { label: rt(filter.label), value: text })
+          : rt(text);
       const key = chip.trim().toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
@@ -94,6 +102,7 @@ export function RulesetCatalogPicker({
   /** The lists that change, each with its full new rows, for one commit. */
   onAdd: (lists: Record<string, CatalogListRow[]>) => void;
 }) {
+  const rt = useRulesetText();
   const { t } = useUiTranslation();
   const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
@@ -105,11 +114,12 @@ export function RulesetCatalogPicker({
   // Narrowed before anything else reads them, so a filter never offers a value only a hidden entry
   // carries and the match count is the count of entries that can really be picked. The query itself
   // is untouched, which is what keeps Refresh from ruleset and the scaled columns whole. An entry that
-  // only grants (1.86) is the guided builder's and writes no row, so the picker never offers it.
+  // only grants (1.86) is the guided builder's and writes no row, so the picker never offers it; nor
+  // a variant (1.769), which its parent's row is used as.
   const entries = useMemo(
     () =>
       visibleCatalogEntries(definition, layerOptions, catalog.id, query.data?.entries ?? []).filter(
-        (entry) => entry.rows,
+        (entry) => entry.rows && entry.variantOf === undefined,
       ),
     [catalog.id, definition, layerOptions, query.data],
   );
@@ -121,10 +131,21 @@ export function RulesetCatalogPicker({
   const starts = useMemo(() => Object.fromEntries(views.map((view) => [view.filter.id, view.start])), [views]);
   const active = chosen ?? starts;
 
-  const matches = useMemo(() => filterCatalogEntries(entries, views, search, active), [active, entries, search, views]);
+  // A search finds an entry by its name as shown too, so a player reading the ruleset in their own
+  // language finds what they read.
+  const matches = useMemo(() => {
+    const found = filterCatalogEntries(entries, views, search, active);
+    const needle = search.trim().toLowerCase();
+    if (!needle) return found;
+    const ids = new Set(found.map((entry) => entry.id));
+    const shown = filterCatalogEntries(entries, views, "", active).filter(
+      (entry) => !ids.has(entry.id) && rt(entry.label).toLowerCase().includes(needle),
+    );
+    return [...found, ...shown];
+  }, [active, entries, rt, search, views]);
   const visible = matches.slice(0, CATALOG_VISIBLE_LIMIT);
 
-  const labels = useMemo(() => catalogMechanicsLabels(definition, catalog), [catalog, definition]);
+  const labels = useMemo(() => catalogMechanicsLabels(definition, catalog, rt), [catalog, definition, rt]);
   const battleCatalogIds = useMemo(() => rulesetBattleCatalogIds(definition), [definition]);
   const showsMechanics = useMemo(() => entries.some((entry) => entry.mechanics), [entries]);
 
@@ -161,7 +182,7 @@ export function RulesetCatalogPicker({
     <Modal
       open={open}
       onClose={onClose}
-      title={t("game.ruleset.catalog.title", { catalog: catalog.label })}
+      title={t("game.ruleset.catalog.title", { catalog: rt(catalog.label) })}
       width="max-w-2xl"
       mobileFullscreen
       initialFocusRef={searchRef}
@@ -183,7 +204,7 @@ export function RulesetCatalogPicker({
           </label>
           {views.map((view) => (
             <label key={view.filter.id} className="flex min-w-0 basis-36 flex-col gap-1">
-              <span className={labelClass}>{view.filter.label}</span>
+              <span className={labelClass}>{rt(view.filter.label)}</span>
               <select
                 value={active[view.filter.id] ?? CATALOG_FILTER_ANY}
                 onChange={(event) => setChosen({ ...active, [view.filter.id]: event.target.value })}
@@ -192,7 +213,7 @@ export function RulesetCatalogPicker({
                 <option value={CATALOG_FILTER_ANY}>{t("game.ruleset.catalog.filterAny")}</option>
                 {view.options.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {rt(option)}
                   </option>
                 ))}
               </select>
@@ -228,7 +249,7 @@ export function RulesetCatalogPicker({
             )}
             {visible.map((entry) => {
               const added = catalogEntryAlreadyAdded(catalog.id, entry, catalog.feeds ?? [], build.lists);
-              const chips = entryChips(entry, catalog, t);
+              const chips = entryChips(entry, catalog, t, rt);
               return (
                 <label
                   key={entry.id}
@@ -238,12 +259,12 @@ export function RulesetCatalogPicker({
                     type="checkbox"
                     checked={selected.has(entry.id)}
                     onChange={() => toggle(entry.id)}
-                    aria-label={entry.label}
+                    aria-label={rt(entry.label)}
                     className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
                   />
                   <span className="min-w-0 flex-1 space-y-1">
                     <span className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs font-medium text-[var(--foreground)]">{entry.label}</span>
+                      <span className="text-xs font-medium text-[var(--foreground)]">{rt(entry.label)}</span>
                       {added && (
                         <span className={chipClass} title={t("game.ruleset.catalog.addedHint")}>
                           {t("game.ruleset.catalog.added")}
@@ -251,7 +272,7 @@ export function RulesetCatalogPicker({
                       )}
                     </span>
                     {entry.summary && (
-                      <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">{entry.summary}</span>
+                      <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">{rt(entry.summary)}</span>
                     )}
                     {chips.length > 0 && (
                       <span className="flex flex-wrap gap-1">
@@ -295,7 +316,7 @@ export function RulesetCatalogPicker({
           {plan.targets.map((target) => (
             <p key={target.listId} className="text-[0.6875rem] text-[var(--muted-foreground)]">
               {t("game.ruleset.catalog.listGain", {
-                list: target.label,
+                list: rt(target.label),
                 adding: target.adding,
                 room: target.room,
               })}
@@ -308,7 +329,7 @@ export function RulesetCatalogPicker({
           )}
           {plan.full.length > 0 && (
             <p role="alert" className="text-[0.6875rem] text-[var(--destructive)]">
-              {t("game.ruleset.catalog.overflow", { lists: plan.full.join(", ") })}
+              {t("game.ruleset.catalog.overflow", { lists: plan.full.map(rt).join(", ") })}
             </p>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2">

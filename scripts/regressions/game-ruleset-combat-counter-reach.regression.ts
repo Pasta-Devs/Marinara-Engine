@@ -25,6 +25,7 @@ import {
   rulesetPaidLevel,
   rulesetSheetBuildSchema,
   rulesetWindowOptions,
+  RULESET_PASS_OPTION,
   type RulesetCatalogEntry,
   type RulesetCombatantInput,
   type RulesetCombatEvent,
@@ -32,6 +33,7 @@ import {
   type RulesetDefinition,
   type RulesetEncounterState,
 } from "../../packages/shared/src/index.js";
+import { letAnswerThrough } from "./fixtures/ruleset-counter-pass.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-counter-reach-"));
 process.env.DATA_DIR = dataDir;
@@ -167,19 +169,55 @@ try {
   const answer = (held: ReturnType<typeof bolt>, payWith: string | undefined, ...faces: number[]) => {
     const option = rulesetWindowOptions(definition, held.state, "corwin").find((entry) => entry.label === "Counter");
     assert.ok(option, "Corwin may answer");
-    return applyRulesetCombatChoice(
+    const roller = dice(...faces);
+    return letAnswerThrough(
       definition,
-      held.state,
-      {
-        actorId: "corwin",
-        optionId: option.id,
-        targetIds: [],
-        window: held.state.window!.id,
-        ...(payWith ? { payWith } : {}),
-      },
-      dice(...faces),
+      applyRulesetCombatChoice(
+        definition,
+        held.state,
+        {
+          actorId: "corwin",
+          optionId: option.id,
+          targetIds: [],
+          window: held.state.window!.id,
+          ...(payWith ? { payWith } : {}),
+        },
+        roller,
+      ),
+      roller,
     );
   };
+
+  // ── An answer held but not given says why (laptop party A 2026-10-25: a silent Counterspell) ──
+  {
+    const state = fight(definition);
+    rulesetCombatant(state, "corwin")!.budgets.reaction = 0;
+    const option = rulesetCombatOptions(definition, state, "mage").find((entry) => entry.label === "Bolt")!;
+    const cast = applyRulesetCombatChoice(
+      definition,
+      state,
+      { actorId: "mage", optionId: option.id, targetIds: ["corwin"] },
+      () => 10,
+    );
+    assert.equal(cast.state.window, undefined, "nobody is asked");
+    assert.deepEqual(cast.unanswered, [{ actorId: "corwin", label: "Counter", because: "used" }]);
+    const asked = bolt(fight(definition));
+    assert.equal(asked.unanswered, undefined, "one who can answer is asked, and nothing is said");
+    // One that does not have it ready is not said to have failed to pay for it (laptop 2026-10-25).
+    const entries = spells();
+    const counter = entries.find((entry) => entry.id === "counter")!;
+    (counter.mechanics as Record<string, unknown>).usableWhen = { value: { const: 0 }, atLeast: 1 };
+    const unready = fight(parsedOrThrow(fiveE(), "the 5e example"), entries);
+    const mageBolt = rulesetCombatOptions(definition, unready, "mage").find((entry) => entry.label === "Bolt")!;
+    const silent = applyRulesetCombatChoice(
+      definition,
+      unready,
+      { actorId: "mage", optionId: mageBolt.id, targetIds: ["corwin"] },
+      () => 10,
+    );
+    assert.equal(silent.state.window, undefined, "nobody is asked");
+    assert.equal(silent.unanswered, undefined, "and nothing is said of a reaction not ready");
+  }
 
   // ── Levels ──
   {
@@ -209,6 +247,66 @@ try {
       },
       "the check read off his sheet as the fight began",
     );
+  }
+
+  // ── A teleport that a Counter is asked about still goes once nobody answers (re-test 10) ──
+  {
+    const blink = {
+      id: "blink",
+      label: "Blink",
+      rows: [{ list: "spells", values: { name: "Blink", level: 2, prepared: true } }],
+      mechanics: {
+        kind: "utility",
+        range: 0,
+        targets: "self",
+        teleport: { distance: 30 },
+        cost: [{ pool: "slots_2", amount: 1 }],
+        budget: "bonus",
+      },
+    } as unknown as RulesetCatalogEntry;
+    const entries = [...spells(), blink];
+    const state = fight(definition, entries);
+    state.board = {
+      grid: {
+        width: 12,
+        height: 6,
+        tiles: Array.from({ length: 6 }, () => Array(12).fill("plains")),
+      },
+      placements: {},
+    } as never;
+    const mage = rulesetCombatant(state, "mage")!;
+    const corwin = rulesetCombatant(state, "corwin")!;
+    Object.assign(mage, { x: 1, y: 1 });
+    Object.assign(corwin, { x: 2, y: 1 });
+    const option = rulesetCombatOptions(definition, state, "mage").find((entry) => entry.label === "Blink");
+    assert.ok(
+      option?.teleport?.cells.some((cell) => cell.x === 7 && cell.y === 1),
+      "it may go to 7,1",
+    );
+    const held = applyRulesetCombatChoice(
+      definition,
+      state,
+      { actorId: "mage", optionId: option!.id, targetIds: ["mage"], at: { x: 7, y: 1 } },
+      dice(),
+    );
+    assert.ok(held.state.window, `Corwin is asked first: ${JSON.stringify(held.events)}`);
+    const passed = letAnswerThrough(
+      definition,
+      applyRulesetCombatChoice(
+        definition,
+        held.state,
+        { actorId: "corwin", optionId: RULESET_PASS_OPTION, targetIds: [], window: held.state.window!.id },
+        dice(),
+      ),
+      dice(),
+    );
+    const moved = rulesetCombatant(passed.state, "mage")!;
+    assert.deepEqual(
+      { x: moved.x, y: moved.y },
+      { x: 7, y: 1 },
+      `the slot bought the step: ${JSON.stringify(passed.events)}`,
+    );
+    assert.equal(eventsOf(passed.events, "teleported").length, 1);
   }
 
   // ── Stopping what is low enough, outright ──
@@ -273,10 +371,14 @@ try {
     const entries = spells(counterReaction({ above: undefined }));
     const held = bolt(fight(definition, entries), "slots_4");
     const option = rulesetWindowOptions(definition, held.state, "corwin").find((entry) => entry.label === "Counter")!;
-    const tried = applyRulesetCombatChoice(
+    const tried = letAnswerThrough(
       definition,
-      held.state,
-      { actorId: "corwin", optionId: option.id, targetIds: [], window: held.state.window!.id },
+      applyRulesetCombatChoice(
+        definition,
+        held.state,
+        { actorId: "corwin", optionId: option.id, targetIds: [], window: held.state.window!.id },
+        dice(),
+      ),
       dice(),
     );
     assert.deepEqual(eventsOf(tried.events, "counter"), [
@@ -288,10 +390,14 @@ try {
     const plain = spells(counterReaction({ upTo: undefined, above: undefined }));
     const old = bolt(fight(definition, plain), "slots_5");
     const oldOption = rulesetWindowOptions(definition, old.state, "corwin").find((entry) => entry.label === "Counter")!;
-    const stopped = applyRulesetCombatChoice(
+    const stopped = letAnswerThrough(
       definition,
-      old.state,
-      { actorId: "corwin", optionId: oldOption.id, targetIds: [], window: old.state.window!.id },
+      applyRulesetCombatChoice(
+        definition,
+        old.state,
+        { actorId: "corwin", optionId: oldOption.id, targetIds: [], window: old.state.window!.id },
+        dice(),
+      ),
       dice(),
     );
     assert.equal(eventsOf(stopped.events, "cancelled").length, 1);

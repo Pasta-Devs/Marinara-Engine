@@ -278,6 +278,51 @@ try {
   const libraryData = typeof library!.data === "string" ? JSON.parse(library!.data) : library!.data;
   assert.deepEqual(libraryData.extensions.rulesetSheets["5e-2014"], starting);
 
+  // A member added to the chat before its world was created (the Characters panel's "Add to active
+  // chat") gets a card with their own sheet, though the setup's party never named them and the Game
+  // Master's cards leave them out (laptop playtest 2026-10-24: blank level-1 sheets).
+  {
+    const keshBuild = createRulesetSheetEnvelope(fiveE);
+    keshBuild.build.abilities.dex = 18;
+    const kesh = await characters.create({
+      ...blankCard,
+      name: "Kesh",
+      extensions: { rulesetSheets: { "5e-2014": keshBuild } },
+    } as never);
+    const late = await create({
+      ...baseConfig,
+      partyCharacterIds: [withSheet.id],
+      ruleset: { id: "5e-2014", version: 1 },
+    });
+    const lateId = late.json().sessionChat.id as string;
+    const lateChat = await createChatsStorage(db).getById(lateId);
+    const ids = JSON.parse(lateChat!.characterIds as unknown as string) as string[];
+    await createChatsStorage(db).update(lateId, { characterIds: [...ids, kesh!.id, withoutSheet.id] });
+    const lateApplied = await app.inject({
+      method: "POST",
+      url: "/api/game/setup/apply-json",
+      payload: {
+        chatId: lateId,
+        rawJson: JSON.stringify({
+          storyArc: "An arc.",
+          worldOverview: "A harbor town.",
+          plotTwists: ["A twist."],
+          startingNpcs: [{ name: "Harbormaster" }],
+          characterCards: [{ name: "Mira" }],
+        }),
+      },
+    });
+    assert.equal(lateApplied.statusCode, 200, lateApplied.body);
+    const lateCards = JSON.parse((await createChatsStorage(db).getById(lateId))!.metadata as string)
+      .gameCharacterCards as typeof cards;
+    assert.deepEqual(
+      lateCards.map((card) => card.name),
+      ["Mira", "Kesh", "Tam the Bold"],
+    );
+    assert.equal(lateCards[1]!.rulesetSheet?.build.abilities.dex, 18, "Kesh joins with his own sheet");
+    assert.deepEqual(lateCards[2]!.rulesetSheet, createRulesetSheetEnvelope(fiveE), "Tam, with none, on a blank one");
+  }
+
   // ── After setup, nothing that rewrites a card may cost it the game's sheet ──
   // A session conclusion rebuilds the cards it names from an allow-list.
   {

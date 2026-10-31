@@ -21,6 +21,7 @@ import {
   SECONDARY_ACTION,
   StoreBanner,
   useOrganizer,
+  useShownEntry,
 } from "./OrganizerParts";
 
 const SHELF_SIZE = 4;
@@ -30,6 +31,7 @@ export type OrganizerKit = CapabilityStoreKit & { entries: readonly OrganizerEnt
 function FeaturedCard({ entry, large, priority }: { entry: OrganizerEntry; large: boolean; priority: boolean }) {
   const { go } = useOrganizer();
   const { t: localizeUi } = useUiTranslation();
+  const shown = useShownEntry(entry);
   return (
     <div className="group relative isolate overflow-hidden rounded-2xl border border-[var(--border)]">
       <StoreBanner
@@ -58,9 +60,9 @@ function FeaturedCard({ entry, large, priority }: { entry: OrganizerEntry; large
           <AgentIcon entry={entry} className={large ? "h-14 w-14 bg-black/40" : "h-10 w-10 bg-black/40"} />
           <span className="min-w-0">
             <span className={cn("block truncate font-bold text-white", large ? "text-2xl" : "text-base")}>
-              {entry.manifest.name}
+              {shown.name}
             </span>
-            <span className="line-clamp-2 text-xs text-white/85 sm:text-sm">{taglineOf(entry)}</span>
+            <span className="line-clamp-2 text-xs text-white/85 sm:text-sm">{taglineOf(entry, shown.description)}</span>
           </span>
         </span>
       </button>

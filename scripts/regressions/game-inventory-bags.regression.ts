@@ -436,6 +436,15 @@ try {
         { action: "unequip", items: ["Coat", "Bow"], whole: "Coat, Bow", count: 1 },
       ],
       [` bind item="Bell"`, { action: "bind", items: ["Bell"], count: 1 }],
+      // A count written into the name (cloud re-test 2026-10-25: "Arrows ×10" was a new item at 1).
+      [` add item="Arrows ×10"`, { action: "add", items: ["Arrows"], count: 10 }],
+      [` add item="Arrows x10"`, { action: "add", items: ["Arrows"], count: 10 }],
+      [` add item="Crossbow bolts×20"`, { action: "add", items: ["Crossbow bolts"], count: 20 }],
+      [` add item="20 crossbow bolts"`, { action: "add", items: ["crossbow bolts"], count: 20 }],
+      [` add item="50 feet of hempen rope"`, { action: "add", items: ["50 feet of hempen rope"], count: 1 }],
+      [` add item="Arrows (20)"`, { action: "add", items: ["Arrows (20)"], count: 1 }],
+      [` add item="Arrows ×10" count="3"`, { action: "add", items: ["Arrows ×10"], count: 3 }],
+      [` add item="Box"`, { action: "add", items: ["Box"], count: 1 }],
     ];
     for (const [body, expected] of forms) assert.deepEqual(parseInventoryTagBody(body), expected, body);
     // What the Game Master claims happened is not part of the request.
@@ -1130,6 +1139,15 @@ try {
     });
     assert.match(nicknamed, /- Ada: Grandpa's rope \(Rope\) ×2; Arrow ×5/);
     assert.match(nicknamed, /An item listed as "Nickname \(Name\)" is one item: write either name in item, never both/);
+    // Starting gear not taken yet is the player's to take, never handed out by the Game Master (laptop v3
+    // 2026-10-26: the opening gave class gear, then the kit doubled it).
+    const waiting = buildGmFormatReminder({
+      ...base,
+      partyInventory: gameInventoryBags(bag()),
+      startingGearWaiting: ["Bram", "Cass"],
+    });
+    assert.match(waiting, /STARTING GEAR not taken yet by Bram, Cass: the player takes each one's kit/);
+    assert.doesNotMatch(shared, /STARTING GEAR/);
   }
 
   console.info("game inventory bag regressions passed.");

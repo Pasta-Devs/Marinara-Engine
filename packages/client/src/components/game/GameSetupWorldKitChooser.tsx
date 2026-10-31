@@ -44,6 +44,8 @@ export interface WorldKitWriteRequest {
   setting: string;
   tone: string;
   language?: string;
+  /** The game's own generation settings (its reasoning effort), sent over the connection's. */
+  generationParameters?: unknown;
 }
 
 // A lighter label than the wizard's own, since these fields sit inside one choice of the World step.

@@ -35,6 +35,7 @@ import {
   type RulesetSheetItem,
   type RulesetStatBlock,
 } from "../../packages/shared/src/index.js";
+import { letAnswerThrough } from "./fixtures/ruleset-counter-pass.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-own-rescue-"));
 process.env.DATA_DIR = dataDir;
@@ -430,11 +431,16 @@ try {
       );
       assert.ok(held.state.window, JSON.stringify(held.events));
       const counter = rulesetWindowOptions(definition, held.state, "corwin").find((one) => one.label === "Counter")!;
-      return applyRulesetCombatChoice(
+      const roller = (sides: number) => (sides === 20 ? 2 : 3);
+      return letAnswerThrough(
         definition,
-        held.state,
-        { actorId: "corwin", optionId: counter.id, targetIds: [], window: held.state.window!.id },
-        (sides) => (sides === 20 ? 2 : 3),
+        applyRulesetCombatChoice(
+          definition,
+          held.state,
+          { actorId: "corwin", optionId: counter.id, targetIds: [], window: held.state.window!.id },
+          roller,
+        ),
+        roller,
       );
     };
     assert.equal(of(answered(true).events, "cancelled").length, 1, "6 against 15, and a 20 makes it 24");

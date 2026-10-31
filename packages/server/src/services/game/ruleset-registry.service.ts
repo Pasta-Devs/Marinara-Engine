@@ -28,6 +28,7 @@ import {
   type RulesetDefinition,
   type RulesetRef,
 } from "@marinara-engine/shared";
+import { createHash } from "node:crypto";
 import { getDB, type DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { createGameRulesetsStorage } from "../storage/game-rulesets.storage.js";
@@ -109,11 +110,61 @@ function withExperienceOverlay(
 
 type RegistryLog = (message: string) => void;
 
+/**
+ * Rulesets parsed, by the bytes they were parsed from. The registry is re-read on every call so that
+ * install, update and import need no invalidation, but the same bytes always parse to the same
+ * definition, and handing back the very same object lets what is worked out from it (a fighter's
+ * sheet, a fight's menu) be remembered from one request to the next instead of from scratch each
+ * time. Bytes that change are another key; the least recently read are let go.
+ *
+ * A definition handed out is shared: nothing changes it.
+ */
+const parsedByBytes = new Map<
+  string,
+  { json: true; parsed: ReturnType<typeof parseRulesetDefinition> } | { json: false }
+>();
+const PARSED_KEPT = 24;
+const freezesShared =
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.MARINARA_MEMO_FREEZE === "1";
+
+function parsedRuleset(text: string) {
+  const key = createHash("sha256").update(text).digest("base64");
+  const kept = parsedByBytes.get(key);
+  if (kept) {
+    parsedByBytes.delete(key);
+    parsedByBytes.set(key, kept);
+    return kept;
+  }
+  let made: { json: true; parsed: ReturnType<typeof parseRulesetDefinition> } | { json: false };
+  try {
+    made = { json: true, parsed: parseRulesetDefinition(JSON.parse(text)) };
+  } catch {
+    made = { json: false };
+  }
+  // In tests, a shared definition that something changes throws where it is changed.
+  if (freezesShared && made.json && made.parsed.ok) deepFreeze(made.parsed.definition);
+  parsedByBytes.set(key, made);
+  if (parsedByBytes.size > PARSED_KEPT) parsedByBytes.delete(parsedByBytes.keys().next().value!);
+  return made;
+}
+
+function deepFreeze(value: unknown): void {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return;
+  Object.freeze(value);
+  for (const one of Object.values(value)) deepFreeze(one);
+}
+
 /** Re-key a community definition under its namespaced id. The rest of the Engine and the client key
  *  sheets, pins and wizard choices by `definition.id`, so the id the file carries (always bare)
  *  would collide with an official ruleset's the moment it left this function. */
+const namespaced = new WeakMap<RulesetDefinition, Map<string, RulesetDefinition>>();
 function namespaceDefinition(definition: RulesetDefinition, rulesetId: string): RulesetDefinition {
-  return { ...definition, id: rulesetId };
+  // The same object for the same file each time, as `parsedRuleset` keeps it.
+  let byId = namespaced.get(definition);
+  if (!byId) namespaced.set(definition, (byId = new Map()));
+  let made = byId.get(rulesetId);
+  if (!made) byId.set(rulesetId, (made = { ...definition, id: rulesetId }));
+  return made;
 }
 
 /** Build the registry from raw sources. Pure apart from `log`, and never throws: a source the
@@ -141,14 +192,12 @@ export function buildRulesetRegistry(
       log(`Ruleset from ${owner} is ${bytes} bytes, over the ${RULESET_MAX_BYTES}-byte ceiling; dropped`);
       continue;
     }
-    let json: unknown;
-    try {
-      json = JSON.parse(typeof source.data === "string" ? source.data : source.data.toString("utf8"));
-    } catch {
+    const read = parsedRuleset(typeof source.data === "string" ? source.data : source.data.toString("utf8"));
+    if (!read.json) {
       log(`Ruleset from ${owner} is not valid JSON; dropped`);
       continue;
     }
-    const parsed = parseRulesetDefinition(json);
+    const parsed = read.parsed;
     if (!parsed.ok) {
       log(`Ruleset from ${owner} is not usable; dropped (${parsed.issues.slice(0, 5).join("; ")})`);
       continue;
@@ -172,14 +221,12 @@ export function buildRulesetRegistry(
       log(`Stored ruleset "${row.rulesetId}" is not namespaced and cannot shadow an official id; dropped`);
       continue;
     }
-    let json: unknown;
-    try {
-      json = JSON.parse(row.definition);
-    } catch {
+    const read = parsedRuleset(row.definition);
+    if (!read.json) {
       log(`Stored ruleset "${row.rulesetId}" version ${row.version} is not valid JSON; dropped`);
       continue;
     }
-    const parsed = parseRulesetDefinition(json);
+    const parsed = read.parsed;
     if (!parsed.ok) {
       log(
         `Stored ruleset "${row.rulesetId}" version ${row.version} is no longer usable; dropped (${parsed.issues
@@ -236,6 +283,8 @@ export type ResolvedGameRuleset =
  *  layer the Engine could not apply is left out and the game keeps its rules. A chosen layer the
  *  file does not have, or the later of a conflicting pair, is a debug line rather than a warning,
  *  because this runs on every turn and the same pin would repeat it for the life of the game. */
+const layeredBy = new WeakMap<RulesetDefinition, Map<string, ReturnType<typeof resolveRulesetLayers>>>();
+
 function resolvedWithLayers(
   ref: RulesetRef,
   definition: RulesetDefinition,
@@ -258,12 +307,17 @@ function resolvedWithLayers(
       );
     }
   }
-  // ponytail: no cache. With a layer on, this re-validates one definition per resolution, which
-  // is what `buildRulesetRegistry` already does for EVERY installed ruleset on every call, because
-  // the registry is deliberately re-read so install, update and import need no invalidation. A
-  // cache here would have nothing stable to key on (the registry and its definitions are new
-  // objects each time) until the registry itself is cached, and that is the upgrade path.
-  const layered = resolveRulesetLayers(definition, ref.options);
+  // Kept by the definition, which the registry hands back as the same object for the same file, and
+  // the options: the same pin gets the same layered object each time.
+  const optionsKey = JSON.stringify(ref.options);
+  let byOptions = layeredBy.get(definition);
+  if (!byOptions) layeredBy.set(definition, (byOptions = new Map()));
+  let layered = byOptions.get(optionsKey);
+  if (!layered) {
+    layered = resolveRulesetLayers(definition, ref.options);
+    if (freezesShared) deepFreeze(layered.definition);
+    byOptions.set(optionsKey, layered);
+  }
   for (const layer of active) {
     if (layered.applied.includes(layer)) continue;
     logger.debug(

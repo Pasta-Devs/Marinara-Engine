@@ -18,6 +18,7 @@
 // ──────────────────────────────────────────────
 
 import type { DiceRollResult } from "../types/game.js";
+import { deriveSubSeed, mulberry32 } from "../features/tactical-combat/rng.js";
 
 /**
  * NdM notation: an optional die count (bare `d20` means one die), a face count,
@@ -244,6 +245,21 @@ export const rollDieSecurely: DieRoller = (sides) => {
   while (draw[0]! >= limit);
   return (draw[0]! % sides) + 1;
 };
+
+/**
+ * A replayable roller: each die is drawn from its own tick of `seed`, starting
+ * at `cursor`, so the same seed and cursor always throw the same faces. A ruleset
+ * fight, its item uses, loot and markets all roll through this.
+ */
+export function seededDieRoller(seed: number, cursor: number): DieRoller {
+  let tick = cursor;
+  return (sides) => Math.floor(mulberry32(deriveSubSeed(seed, tick++))() * sides) + 1;
+}
+
+/** A roller over a [0,1) stream the caller already holds, one draw per die. */
+export function dieRollerFrom(rng: () => number): DieRoller {
+  return (sides) => Math.floor(rng() * sides) + 1;
+}
 
 /** Throw the dice a parsed notation asks for, one `roll(sides)` per die. A pool that keeps some
  *  (`4d6kh3`) reports every face and the places of the kept ones, and totals only those. */

@@ -48,6 +48,9 @@ export function payGameInventoryCoins(
   holder: string | undefined,
   family: readonly GameInventoryCoin[],
   owed: number,
+  /** The coins change comes back in where they make it: those prices are written in (laptop pass 6,
+   *  2026-10-26: an inn's change came back in electrum, a coin no 5e price uses). */
+  changeIn?: readonly string[],
 ): ({ ok: true; stacks: GameInventoryStack[] } & GameInventoryPayment) | { ok: false; reason: "cannot-afford" } {
   const bag = gameInventoryBagKey(holder);
   const mine = (stack: GameInventoryStack, coin: GameInventoryCoin) =>
@@ -71,13 +74,21 @@ export function payGameInventoryCoins(
       .reverse()
       .find((coin) => (held.get(coin.item) ?? 0) - (taken.get(coin.item) ?? 0) > 0)!;
     taken.set(broken.item, (taken.get(broken.item) ?? 0) + 1);
-    // The change is worth less than the coin broken, so it comes back in smaller coins only.
-    let change = broken.value - left;
-    for (const coin of largestFirst) {
-      const count = Math.floor(change / coin.value);
-      if (count > 0) given.set(coin.item, count);
-      change -= count * coin.value;
-    }
+    // The change is worth less than the coin broken, so it comes back in smaller coins only: the
+    // usual ones where they make it, else any.
+    const owedBack = broken.value - left;
+    const makeChange = (coins: readonly GameInventoryCoin[]) => {
+      const back = new Map<string, number>();
+      let change = owedBack;
+      for (const coin of coins) {
+        const count = Math.floor(change / coin.value);
+        if (count > 0) back.set(coin.item, count);
+        change -= count * coin.value;
+      }
+      return change === 0 ? back : undefined;
+    };
+    const usual = changeIn ? largestFirst.filter((coin) => changeIn.includes(coin.item)) : undefined;
+    for (const [item, count] of (usual && makeChange(usual)) || makeChange(largestFirst)!) given.set(item, count);
   }
   // The coins handed over come off the bag's stacks of them, first stack first.
   const owedOf = new Map(taken);
@@ -110,4 +121,40 @@ export function payGameInventoryCoins(
       return count > 0 ? [{ name: coin.name, count }] : [];
     });
   return { ok: true, stacks: next, paid: named(taken), change: named(given) };
+}
+
+/**
+ * Pay `owed` out of several bags in turn (laptop playtest 2026-10-25: "the party's coin" took it all
+ * from one purse, or refused): out of the first alone where it can, else each bag's coins of `family`
+ * in turn, the first first, until it is paid. Refused when all of them together are worth less.
+ */
+export function payGameInventoryCoinsTogether(
+  stacks: readonly GameInventoryStack[],
+  holders: ReadonlyArray<string | undefined>,
+  family: readonly GameInventoryCoin[],
+  owed: number,
+  changeIn?: readonly string[],
+): ({ ok: true; stacks: GameInventoryStack[] } & GameInventoryPayment) | { ok: false; reason: "cannot-afford" } {
+  const [first, ...rest] = holders;
+  const alone = payGameInventoryCoins(stacks, first, family, owed, changeIn);
+  if (alone.ok || rest.length === 0) return alone;
+  const total = holders.reduce((sum, holder) => sum + gameInventoryCoinWorth(stacks, holder, family), 0);
+  if (total < owed) return { ok: false, reason: "cannot-afford" };
+  let current: GameInventoryStack[] = [...stacks];
+  let left = owed;
+  const paid = new Map<string, number>();
+  const change = new Map<string, number>();
+  for (const holder of holders) {
+    if (left <= 0) break;
+    const share = Math.min(left, gameInventoryCoinWorth(current, holder, family));
+    if (share <= 0) continue;
+    const part = payGameInventoryCoins(current, holder, family, share, changeIn);
+    if (!part.ok) return part;
+    current = part.stacks;
+    left -= share;
+    for (const each of part.paid) paid.set(each.name, (paid.get(each.name) ?? 0) + each.count);
+    for (const each of part.change) change.set(each.name, (change.get(each.name) ?? 0) + each.count);
+  }
+  const listed = (counts: Map<string, number>) => [...counts].map(([name, count]) => ({ name, count }));
+  return { ok: true, stacks: current, paid: listed(paid), change: listed(change) };
 }

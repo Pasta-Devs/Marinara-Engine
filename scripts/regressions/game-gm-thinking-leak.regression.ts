@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { extractLeadingThinkingBlocks } from "../../packages/shared/src/utils/thinking-tags.js";
 import { buildGmFormatReminder } from "../../packages/server/src/services/game/gm-prompts.js";
 import { thinkingOnlyReplyPromotable } from "../../packages/server/src/services/generation/empty-response-reason.js";
+import { extractLeadingGmPlanning, stripStrayRuleLines } from "../../packages/server/src/services/game/gm-planning.js";
 
 // Game Mode showed the GM's planning as narration. The format reminder told every model to
 // "Think step by step" with nowhere to put it, so a model without a native thinking channel
@@ -140,5 +141,39 @@ assert.equal(
   }),
   false,
 );
+
+// A plan written with no <think> block and no "Plan:" label still leaves the scene when it names what is hidden
+// (playtest 2026-10-26: Haiku opened with "Location / Stakes / Hidden" and gave the secret away).
+{
+  const planned = extractLeadingGmPlanning(
+    [
+      "**Location:** The salt market at dusk.",
+      "**Stakes:** Brannagh needs the ledger before the tide turns.",
+      "**Hidden:** The fishmonger is the smuggler.",
+      "",
+      "Gulls wheel over the stalls as the lamps come on.",
+    ].join("\n"),
+  );
+  assert.equal(planned.content, "Gulls wheel over the stalls as the lamps come on.");
+  assert.match(planned.planning, /The fishmonger is the smuggler/);
+  // Labels a scene or an answer could open with are left alone when nothing names a plan or a secret.
+  for (const reply of [
+    "Location: the salt market. The lamps come on.\n\nGulls wheel overhead.",
+    "Stakes: high, as ever. Brannagh grins.\n\nThe tide turns.",
+    "Hidden in the reeds, a heron waits.\n\nThe tide turns.",
+  ]) {
+    assert.deepEqual(extractLeadingGmPlanning(reply), { content: reply, planning: "" }, reply);
+  }
+}
+
+// A markdown rule is never story: a stray `---` after an OOC note is dropped, a rule in a book is kept.
+assert.equal(
+  stripStrayRuleLines("(OOC: rolling Stealth for you.)\n\n---\n\nThe corridor is dark.\n\n***"),
+  "(OOC: rolling Stealth for you.)\n\nThe corridor is dark.",
+);
+assert.equal(stripStrayRuleLines("Rain.\n- - -\nMore rain."), "Rain.\nMore rain.");
+const book = "[Book: Chapter one\n---\nChapter two]\n\nShe closes it.";
+assert.equal(stripStrayRuleLines(book), book);
+assert.equal(stripStrayRuleLines("A list:\n- one\n- two"), "A list:\n- one\n- two");
 
 console.log("game-gm-thinking-leak regression passed");

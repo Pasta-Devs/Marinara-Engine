@@ -4,8 +4,8 @@
 // module): its manifest, and its ruleset.json and catalogs/<id>.json documents, each as its exact bytes in
 // base64. There is no archive to open and nothing compressed, so nothing in it is ever larger than the
 // file itself. It is read in memory and never written anywhere: what comes out is the text of its
-// manifest, its ruleset and its catalogs, each read through the strict schemas, or the reasons it was
-// refused. Nothing else in a file is accepted, and nothing in one is ever run, served or loaded as code:
+// manifest, its ruleset, its catalogs and its translations (1.811), each read through the strict schemas,
+// or the reasons it was refused. Nothing else in a file is accepted, and nothing in one is ever run, served or loaded as code:
 // a ruleset is data.
 //
 // The file is held to what a ruleset package is:
@@ -20,7 +20,12 @@ import { createHash } from "node:crypto";
 import {
   capabilityPackageManifestSchema,
   isRulesetCatalogAssetPath,
+  readRulesetLocaleFile,
+  rulesetLocaleOfAssetPath,
+  RULESET_LOCALE_MAX_BYTES,
+  RULESET_LOCALE_MAX_FILES,
   parseRulesetCatalogFile,
+  rulesetHangsOnRowIssues,
   rulesetCatalogEntryIssues,
   type RulesetCatalogEntriesById,
   parseRulesetDefinition,
@@ -32,10 +37,12 @@ import {
   type RulesetDefinition,
 } from "@marinara-engine/shared";
 
-/** Its ruleset and at most 12 catalogs (a ruleset declares no more). */
-const MAX_FILES = 13;
+/** Its ruleset, at most 12 catalogs (a ruleset declares no more) and its translations (1.811). */
+const MAX_FILES = 13 + RULESET_LOCALE_MAX_FILES;
 const MANIFEST_MAX_BYTES = 64 * 1024;
-const TOTAL_MAX_BYTES = 16 * 1024 * 1024;
+/** The ruleset and its catalogs within 16 MB, as before translations, and room for a translation into
+ *  every language the Engine speaks. */
+const TOTAL_MAX_BYTES = 96 * 1024 * 1024;
 // Past the longest note in any ruleset the project ships (5e-2014 has one of 1,016 characters).
 const COMMENT_MAX_CHARS = 2000;
 /** The `$schema` an author may point at: the Engine's own published schema. */
@@ -49,6 +56,8 @@ export type RulesetPackageRead =
       /** Each document as it was read (re-serialized: no repeated keys, padding or byte-order mark). */
       ruleset: string;
       catalogs: Record<string, string>;
+      /** Its translations (1.811), by language: the JSON of the strings each translates, English to it. */
+      locales: Record<string, string>;
       manifest: string;
     }
   | { ok: false; issues: string[] };
@@ -59,6 +68,7 @@ const sha256Of = (data: Buffer) => createHash("sha256").update(data).digest("hex
 /** The cap on a file's size, by its name; null for a name a ruleset package does not have. */
 function capOf(name: string): number | null {
   if (name === "ruleset.json") return RULESET_MAX_BYTES;
+  if (rulesetLocaleOfAssetPath(name)) return RULESET_LOCALE_MAX_BYTES;
   return isRulesetCatalogAssetPath(name) ? RULESET_CATALOG_MAX_BYTES : null;
 }
 
@@ -132,7 +142,9 @@ function readPackage(value: unknown): RulesetPackageRead {
   for (const name of names) {
     const cap = capOf(name);
     if (cap === null) {
-      issues.push(`"${name}" is not a file a ruleset package has (ruleset.json, catalogs/<id>.json)`);
+      issues.push(
+        `"${name}" is not a file a ruleset package has (ruleset.json, catalogs/<id>.json, locales/<language>.json)`,
+      );
       continue;
     }
     const text = encoded[name];
@@ -251,6 +263,9 @@ function readPackage(value: unknown): RulesetPackageRead {
       entries: [...(entriesById[catalog.id] ?? catalog.entries ?? [])],
     })),
   };
+  // The pools hang-ons name off list rows, now every catalog's rows are here (1.405).
+  const rowIssues = rulesetHangsOnRowIssues(complete);
+  if (rowIssues.length) return refused(...rowIssues.slice(0, 10).map((issue) => `ruleset.json ${issue}`));
   for (const catalog of complete.catalogs ?? []) {
     // What names entries of other catalogs: a creature's spells, an entry's amends (1.302), the
     // weapons it conjures (1.306).
@@ -265,15 +280,35 @@ function readPackage(value: unknown): RulesetPackageRead {
       return refused(...issues.slice(0, 10).map((issue) => `${catalog.id} ${issue.path.join(".")}: ${issue.message}`));
   }
   const unnamed = contents.filter(
-    (name) => name !== "ruleset.json" && !named.some((catalog) => catalog.asset === name),
+    (name) =>
+      name !== "ruleset.json" && !rulesetLocaleOfAssetPath(name) && !named.some((catalog) => catalog.asset === name),
   );
   if (unnamed.length) return refused(`${unnamed[0]} is not a catalog the ruleset names`);
+
+  // Its translations (1.811), each the strings it translates and nothing else: display only, never read
+  // by a rule.
+  const locales: Record<string, string> = {};
+  for (const name of contents) {
+    const locale = rulesetLocaleOfAssetPath(name);
+    if (!locale) continue;
+    let document: unknown;
+    try {
+      document = JSON.parse(texts.get(name)!.text);
+    } catch {
+      return refused(`${name} is not valid JSON`);
+    }
+    const read = readRulesetLocaleFile(document, locale);
+    if (!read.ok) return refused(read.issue);
+    // One that translates nothing (a package's own English listing) is not kept.
+    if (Object.keys(read.strings).length) locales[locale] = JSON.stringify(read.strings);
+  }
 
   return {
     ok: true,
     definition,
     ruleset: JSON.stringify(rulesetJson.value),
     catalogs,
+    locales,
     manifest: manifestText,
   };
 }

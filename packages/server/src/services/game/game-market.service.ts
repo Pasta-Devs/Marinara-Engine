@@ -9,6 +9,7 @@ import {
   lastGamePlace,
   readResolvedInventoryTags,
   rulesetMarketStockKey,
+  rulesetMarketInspectKey,
   normalizeCharacterLookupName,
   resolveRulesetValueRef,
   rulesetMarketPlace,
@@ -20,6 +21,7 @@ import {
   type RulesetItemBook,
   type RulesetLiveStates,
   type RulesetMarketDay,
+  type RulesetSpotter,
   type WorldKitItems,
   readWorldLedger,
   type WorldLedgerCarry,
@@ -177,12 +179,19 @@ export async function gameMarketDayFor(
   const bought = new Map<string, number>();
   const stockBought = new Map<string, number>();
   const paidOut = new Map<string, number>();
-  // What the replies from `from` on bought and sold (the first read from `offset` on).
+  const warned = new Set<string>();
+  const inspected = new Set<string>();
+  // What the replies from `from` on bought and sold (the first read from `offset` on), the fakes'
+  // buys held for a warning, and who inspected which seller's ware (1.802).
   const count = (from: { text: number; end: number }) => {
     texts.forEach((text, index) => {
       if (index < from.text) return;
       const since = index === from.text ? text.slice(from.end) : text;
       for (const tag of readResolvedInventoryTags(since)) {
+        if (tag.action === "buy" && !tag.ok && tag.reason === "held" && tag.seller)
+          warned.add(rulesetMarketStockKey(tag.seller, tag.item));
+        if (tag.action === "inspect" && tag.ok && tag.seller && tag.who && tag.found)
+          inspected.add(rulesetMarketInspectKey(tag.who, tag.seller, tag.item));
         if (!tag.ok) continue;
         if (tag.action === "buy") {
           const key = tag.stock ? rulesetMarketStockKey(tag.seller ?? "", tag.item) : gameInventoryNameKey(tag.item);
@@ -217,7 +226,14 @@ export async function gameMarketDayFor(
       place: inForce,
       // Named by the reply before the run (it is there before and after each turn of the day, so a reply
       // deleted inside the run does not move it), or the start when the run is the first.
-      day: { key: `${chatId}|${worldPlace}|${replies.replyIds[first - 1] ?? "start"}`, bought, stockBought, paidOut },
+      day: {
+        key: `${chatId}|${worldPlace}|${replies.replyIds[first - 1] ?? "start"}`,
+        bought,
+        stockBought,
+        paidOut,
+        warned,
+        inspected,
+      },
       worldPlace,
     };
   }
@@ -229,6 +245,8 @@ export async function gameMarketDayFor(
       bought,
       stockBought,
       paidOut,
+      warned,
+      inspected,
     },
   };
 }
@@ -275,7 +293,24 @@ export async function loadGameMarket(
   };
   const at = place?.size ? (rulesetMarketPlace(market, place.size) ?? null) : null;
   const layerOptions = gameRulesetLayerOptions(resolved);
-  return () => rulesetMarketQuoter(definition, book, at, meets, layerOptions, day);
+  // Who may spot a fake (1.802): every card, the player's first, each with their own bag and live state.
+  const spotter = (card: (typeof cards)[number]): RulesetSpotter => ({
+    name: card.name,
+    build: card.build,
+    live: live?.[normalizeCharacterLookupName(card.name)],
+    holder: card === player ? undefined : card.name,
+  });
+  const spotters = [...(player ? [player] : []), ...cards.filter((card) => card !== player)].map(spotter);
+  const spotting = {
+    spotters,
+    spotterOf: (who: string | undefined) => {
+      if (!who) return spotters[0] && player ? spotters[0] : undefined;
+      if (context?.playerName && same(who, context.playerName)) return player ? spotters[0] : undefined;
+      return spotters.find((each) => same(each.name, who));
+    },
+    seed: chatId,
+  };
+  return () => rulesetMarketQuoter(definition, book, at, meets, layerOptions, day, spotting);
 }
 
 /**

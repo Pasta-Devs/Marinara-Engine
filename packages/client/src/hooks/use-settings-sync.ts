@@ -68,6 +68,8 @@ const LOCAL_ONLY_SETTING_KEYS = [
   "trackerPanelOpen",
   "impersonatePromptTemplate",
   "activeImpersonatePromptTemplateId",
+  // The New Game wizard's goals and preferences belong to the browser they were typed in.
+  "rememberedGameSetupText",
 ] as const;
 
 export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings {

@@ -45,11 +45,12 @@ const { createGameRulesetsStorage } =
   await import("../../packages/server/src/services/storage/game-rulesets.storage.js");
 const { createGameEngineStateStorage } =
   await import("../../packages/server/src/services/storage/game-engine-state.storage.js");
-const { combatDirectorRoutes, COMBAT_DIRECTOR_NAMESPACE } =
+const { combatDirectorRoutes, COMBAT_DIRECTOR_NAMESPACE, proposedSheetLists } =
   await import("../../packages/server/src/routes/combat-director.routes.js");
 const { buildInitPrompt, encounterBlueprintSchema, encounterRulesetBrief } =
   await import("../../packages/server/src/routes/encounter.routes.js");
 
+const { buildRulesetCombatBossPrompt } = await import("../../packages/server/src/services/game/combat-boss.service.js");
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 // An imported ruleset keeps its own bare id in the file and is filed under a namespaced one, which
 // is what a game pins. That is the shortest way to give this lane a ruleset with no package.
@@ -116,6 +117,33 @@ assert.ok(parsed.ok, `the fixture ruleset must import: ${parsed.ok ? "" : parsed
 const definition: RulesetDefinition = parsed.definition;
 const fixtureText = JSON.stringify(document);
 
+// An invented sheet that sets fields wants the catalogs of rows that set them (a class), read off the
+// PARSED ruleset, whose catalogs of rows say `holds: "rows"` (cloud re-test 2026-10-25: an invented
+// Cleric 5 never loaded the classes catalog, and cast only cantrips).
+{
+  const rows = (definition.catalogs ?? []).filter(
+    (catalog) => catalog.holds !== "items" && catalog.holds !== "creatures",
+  );
+  assert.ok(
+    rows.length > 0 && rows.every((catalog) => catalog.holds !== undefined),
+    "parsed catalogs say what they hold",
+  );
+  const lists = proposedSheetLists(definition, [{ proposed: { tier: "cr_1", sheet: { fields: { level: 3 } } } }]);
+  for (const catalog of rows) for (const list of catalog.feeds ?? []) assert.ok(lists.has(list), list);
+  assert.ok(lists.has(":fields"));
+  assert.ok(!proposedSheetLists(definition, [{ proposed: { tier: "cr_1", sheet: {} } }]).has(":fields"));
+  // A foe written with the Game Master's own skills, one a heal, reads them as its attacks do (cloud
+  // and laptop re-tests 2026-10-26: a Cult Healer's Cure Wounds dropped, and a returning one's too).
+  const healerSkills = proposedSheetLists(definition, [{ skills: [{ type: "attack" }, { type: "heal" }] }]);
+  for (const catalog of rows) for (const list of catalog.feeds ?? []) assert.ok(healerSkills.has(list), list);
+  assert.ok(!proposedSheetLists(definition, [{ skills: [{ type: "attack" }] }]).has(":fields"));
+  // And one written with numbers and no sheet, its spells beside them (laptop pass 6 2026-10-26).
+  const numbered = proposedSheetLists(definition, [
+    { proposed: { tier: "cr_1", health: 30 }, skills: [{ type: "attack" }, { type: "attack", spell: true }] },
+  ]);
+  for (const catalog of rows) for (const list of catalog.feeds ?? []) assert.ok(numbered.has(list), list);
+}
+
 const fighterBuild = build({
   abilities: { str: 18, dex: 14, con: 16, int: 10, wis: 10, cha: 10 },
   saves: { str_save: "proficient", con_save: "proficient" },
@@ -139,10 +167,13 @@ const app = Fastify();
 app.decorate("db", db);
 let bossAnswer: string | null = null;
 let bossCalls = 0;
+let firstBossState: unknown = null;
 await app.register(combatDirectorRoutes, {
   prefix: "/combat",
-  chooseBoss: async () => {
+  chooseBoss: async (_db: unknown, _chat: string, asked: unknown) => {
     bossCalls++;
+    // The first since it was cleared: a hero left dying keeps the fight going (no threat by then).
+    firstBossState ??= asked;
     if (bossAnswer === null) throw new Error("the Game Master answered with garbage");
     return bossAnswer;
   },
@@ -154,6 +185,17 @@ await createGameRulesetsStorage(db).put({
   version: 1,
   sourceKind: "local",
   definition: fixtureText,
+});
+// The same ruleset giving the Game Master the whole opposition (1.774).
+const OPPOSITION_ID = "local/5e-gm-opposition";
+const opposed = JSON.parse(fixtureText) as Record<string, any>;
+opposed.id = "5e-gm-opposition";
+opposed.gm.opposition = "game-master";
+await createGameRulesetsStorage(db).put({
+  rulesetId: OPPOSITION_ID,
+  version: 1,
+  sourceKind: "local",
+  definition: JSON.stringify(opposed),
 });
 // The same ruleset with no bestiary sheet that marks a spell, so the only thing that can make the
 // route load the spell catalog is a Game Master's invented sheet naming one.
@@ -186,11 +228,16 @@ const unit = (id: string, name: string, side: "player" | "enemy") => ({
 });
 const post = (url: string, payload: unknown) => app.inject({ method: "POST", url, payload });
 
-async function newGame(options: { ruleset: boolean; gm?: boolean; rulesetId?: string }) {
+async function newGame(options: { ruleset: boolean; gm?: boolean; named?: boolean; rulesetId?: string }) {
   const chat = await chats.create({ name: "Ruleset fight", mode: "game", characterIds: [] });
   const anchor = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "[state: combat]" });
   await chats.patchMetadata(chat.id, {
-    gameSetupConfig: { combatDirector: true, gmBossControl: options.gm === true, difficulty: "Normal" },
+    gameSetupConfig: {
+      combatDirector: true,
+      gmBossControl: options.gm === true,
+      ...(options.named ? { gmNamedControl: true } : {}),
+      difficulty: "Normal",
+    },
     ...(options.ruleset
       ? {
           gameRuleset: { id: options.rulesetId ?? RULESET_ID, version: 1, packageId: null, options: {} },
@@ -244,7 +291,28 @@ try {
       unit("hound", "Cinder Hound", "enemy"),
     ],
   };
-  const start = await post("/combat/start", body);
+  // Nobody on the party's side, or nobody to fight, is refused in plain words (Kenhito prep K3).
+  const empty = await post("/combat/start", { ...body, party: [] });
+  assert.equal(empty.statusCode, 400);
+  assert.equal(empty.json().error, "This fight has nobody on the party's side.");
+  const none = await post("/combat/start", { ...body, enemies: [] });
+  assert.equal(none.json().error, "This fight has nobody to fight.");
+  // A mechanic no interval drives may say 0 (laptop party B fight 2: an hp_threshold one's refused
+  // the whole fight), and a value that is refused is named where it is.
+  const blight = {
+    name: "Blighted Sap",
+    description: "Sap that corrodes.",
+    trigger: "hp_threshold",
+    interval: 0,
+    hpThreshold: 75,
+    effectType: "damage_all",
+    power: 0.8,
+    status: { name: "Corroded", emoji: "", duration: 2, modifier: -2 },
+  };
+  const named = await post("/combat/start", { ...body, mechanics: [{ ...blight, interval: -1 }] });
+  assert.equal(named.statusCode, 400);
+  assert.match(named.json().error, /^mechanics\.0\.interval: /);
+  const start = await post("/combat/start", { ...body, mechanics: [blight] });
   assert.equal(start.statusCode, 200, start.body);
   let s = start.json().session as DirectedCombatView;
   assert.equal(s.style, "ruleset");
@@ -518,6 +586,12 @@ try {
       if (response.statusCode === 200) fight = response.json().session;
       return response;
     };
+    // The player sets Brenna down before the first turn (2026-10-24): nobody acts until they begin.
+    assert.equal(fight.stage, "deploy", "the fight waits for the party to be set down");
+    assert.deepEqual(fight.ruleset!.deploy?.ids, ["brenna"]);
+    assert.equal((await send({ type: "continue" })).statusCode, 400, "and no turn is taken meanwhile");
+    assert.equal((await send({ type: "deployed" })).statusCode, 200);
+    assert.equal(fight.ruleset!.deploy, undefined, "beginning it ends the setting down");
     for (let guard = 0; guard < 20 && fight.ruleset!.controller !== "manual" && !fight.outcome; guard++) {
       await send({ type: "continue" });
     }
@@ -598,6 +672,11 @@ try {
       });
       assert.equal(walled.statusCode, 400, walled.body);
       assert.match(walled.json().error, /Invalid saved position/);
+      // Water is no wall: a crocodile's prey dragged into it is where the resolver put it (re-test 15).
+      const wet = await tamper((combatants, tiles) => {
+        tiles[combatants[0]!.y as number]![combatants[0]!.x as number] = "water";
+      });
+      assert.equal(wet.statusCode, 200, wet.body);
       // A fight with NO board carrying any coordinate at all is refused, whatever the value is.
       for (const stray of [{ y: 2 }, { x: null }, { x: "2" }] as Array<Record<string, unknown>>) {
         const doc = JSON.parse(honest);
@@ -614,6 +693,23 @@ try {
         assert.equal(answer.statusCode, 400, `${JSON.stringify(stray)} is not a position: ${answer.body}`);
         assert.match(answer.json().error, /Invalid saved position/);
       }
+
+      // One the resolver itself took off the board, a called creature sent away, stands nowhere and
+      // is let be (class re-test 2026-10-24); one merely beaten and taken off is still refused.
+      const sentAway = await tamper((combatants) => {
+        delete combatants[1]!.x;
+        delete combatants[1]!.y;
+        combatants[1]!.defeated = true;
+        combatants[1]!.dismissed = true;
+      });
+      assert.equal(sentAway.statusCode, 200, sentAway.body);
+      const vanished = await tamper((combatants) => {
+        delete combatants[1]!.x;
+        delete combatants[1]!.y;
+        combatants[1]!.defeated = true;
+      });
+      assert.equal(vanished.statusCode, 400, vanished.body);
+      assert.match(vanished.json().error, /Invalid saved position/);
 
       // Off the board altogether is still refused.
       const outside = await tamper((combatants, tiles) => {
@@ -664,138 +760,16 @@ try {
 
   // ── A creature's sheet reads its spells out of the ruleset's other catalogs ──
   {
+    // Alone, with no persona, it is the player: the first card fights in its place.
     const game4 = await newGame({ ruleset: true });
-    const response = await post("/combat/start", {
+    const alone = await post("/combat/start", {
       chatId: game4.chat.id,
       anchor: game4.anchor.id,
       style: "ruleset",
-      // Brenna has no spells of her own, so nothing loads the spell catalog for the party's sake.
-      party: [unit("brenna", "Brenna", "player")],
-      enemies: [{ ...unit("mender", "Hedge Mender", "enemy"), creature: "creatures/hedge-mender" }],
-    });
-    assert.equal(response.statusCode, 200, response.body);
-    const row = await createGameEngineStateStorage(db).getByChatAndMessage(
-      game4.chat.id,
-      game4.anchor.id,
-      0,
-      COMBAT_DIRECTOR_NAMESPACE,
-    );
-    const stored = JSON.parse(row!.state) as {
-      rulesetFight: { encounter: { combatants: Array<Record<string, any>> } };
-    };
-    const mender = stored.rulesetFight.encounter.combatants.find((combatant) => combatant.id === "mender");
-    assert.ok(mender?.sheet, "the creature fights with its sheet");
-    assert.ok(
-      (mender.actions as Array<{ label: string }>).some((action) => action.label === "Mending Light"),
-      "and the spell its sheet lists, read out of the catalog the route loaded for it",
-    );
-    // And the saved fight, sheet and all, loads back.
-    const reread = await app.inject({ url: `/combat/state?chatId=${game4.chat.id}&anchor=${game4.anchor.id}` });
-    assert.equal(reread.statusCode, 200, reread.body);
-  }
-
-  // ── A Game Master's invented caster names its spell, and the route loads the catalog for it ──
-  {
-    const game5 = await newGame({ ruleset: true, rulesetId: PLAIN_BESTIARY_ID });
-    const response = await post("/combat/start", {
-      chatId: game5.chat.id,
-      anchor: game5.anchor.id,
-      style: "ruleset",
-      party: [unit("brenna", "Brenna", "player")],
-      enemies: [
-        {
-          ...unit("hexer", "Hedge Hexer", "enemy"),
-          aiHints: { proficiency: "master", temperament: "protective" },
-          tier: "cr_1",
-          proposed: {
-            tier: "cr_1",
-            sheet: {
-              abilities: { wis: 14 },
-              fields: { class: "Cleric", level: 3, hp_max: 20, spellcasting_ability: "wis", slots_max_1: 2 },
-              lists: { spells: [{ name: "mending light", prepared: true }] },
-            },
-          },
-        },
-      ],
-    });
-    assert.equal(response.statusCode, 200, response.body);
-    const row = await createGameEngineStateStorage(db).getByChatAndMessage(
-      game5.chat.id,
-      game5.anchor.id,
-      0,
-      COMBAT_DIRECTOR_NAMESPACE,
-    );
-    const stored = JSON.parse(row!.state) as {
-      enemies: Array<{ id: string; tactics?: { proficiency: string; adjective: string } }>;
-      rulesetFight: { adjustments: string[]; encounter: { combatants: Array<Record<string, any>> } };
-    };
-    const hexer = stored.rulesetFight.encounter.combatants.find((combatant) => combatant.id === "hexer");
-    assert.ok(hexer?.sheet, "the invented caster fights with its sheet");
-    assert.ok(
-      (hexer.actions as Array<{ label: string }>).some((action) => action.label === "Mending Light"),
-      "and with the spell it named, read out of the catalog the route loaded for its sheet",
-    );
-    // Its open choices were filled by the very tactics it fights with, from its own hints.
-    const tactics = stored.enemies.find((enemy) => enemy.id === "hexer")?.tactics;
-    assert.equal(tactics?.proficiency, "master", "its tactics were given to it when the fight began");
-    assert.ok(
-      stored.rulesetFight.adjustments.includes(
-        `Hedge Hexer: Filled in for a master, ${tactics!.adjective} creature: "Sacred Spark".`,
-      ),
-      stored.rulesetFight.adjustments.join("; "),
-    );
-  }
-
-  // ── An invented caster that lists no spells is still filled from the spell catalog ──
-  {
-    // Alone in its fight, so nothing else in it names the spell list and loads the catalog for it.
-    const game6 = await newGame({ ruleset: true, rulesetId: PLAIN_BESTIARY_ID });
-    const response = await post("/combat/start", {
-      chatId: game6.chat.id,
-      anchor: game6.anchor.id,
-      style: "ruleset",
-      party: [unit("brenna", "Brenna", "player")],
-      enemies: [
-        {
-          ...unit("acolyte", "Hedge Acolyte", "enemy"),
-          aiHints: { proficiency: "trained", temperament: "supportive" },
-          tier: "cr_1",
-          proposed: {
-            tier: "cr_1",
-            sheet: { fields: { class: "Cleric", level: 2, hp_max: 16, spellcasting_ability: "wis", slots_max_1: 2 } },
-          },
-        },
-      ],
-    });
-    assert.equal(response.statusCode, 200, response.body);
-    const row = await createGameEngineStateStorage(db).getByChatAndMessage(
-      game6.chat.id,
-      game6.anchor.id,
-      0,
-      COMBAT_DIRECTOR_NAMESPACE,
-    );
-    const stored = JSON.parse(row!.state) as {
-      rulesetFight: { encounter: { combatants: Array<Record<string, any>> } };
-    };
-    const acolyte = stored.rulesetFight.encounter.combatants.find((combatant) => combatant.id === "acolyte");
-    assert.ok(
-      (acolyte?.actions as Array<{ label: string }> | undefined)?.some((action) => action.label === "Mending Light"),
-      "its open choices come from the spell catalog, which the route loaded because it may choose from that list",
-    );
-  }
-
-  // ── A party member with no sheet is refused by name ──
-  {
-    const game3 = await newGame({ ruleset: true });
-    const response = await post("/combat/start", {
-      chatId: game3.chat.id,
-      anchor: game3.anchor.id,
-      style: "ruleset",
-      party: [unit("brenna", "Brenna", "player"), unit("tam", "Tam", "player")],
+      party: [unit("tam", "Tam", "player")],
       enemies: [{ ...unit("lurker", "Thorn Lurker", "enemy") }],
     });
-    assert.equal(response.statusCode, 400);
-    assert.match(response.json().error, /^Tam has no ruleset sheet/);
+    assert.equal(alone.statusCode, 200, alone.body);
   }
 
   // ── The Game Master's window: a good id, a bad id and garbage ──
@@ -856,6 +830,84 @@ try {
     assert.ok(held > 0, `${answer}: and at least one of them was a moment the fight was holding open`);
     assert.ok(bossCalls > callsBefore, `${answer}: the Game Master was asked`);
     assert.ok(boss.outcome, `${answer}: the fight still finished, with ${boss.outcome}`);
+  }
+
+  // ── A named opponent (combat AI P9): the Game Master plays it too, when the game asks for that; and
+  //    every opponent, named or not, where the ruleset gives it the opposition (1.774) ──
+  for (const [named, rulesetId] of [
+    [true, undefined],
+    [false, undefined],
+    [false, OPPOSITION_ID],
+  ] as const) {
+    const game = await newGame({ ruleset: true, gm: true, named, ...(rulesetId ? { rulesetId } : {}) });
+    const opened = await post("/combat/start", {
+      chatId: game.chat.id,
+      anchor: game.anchor.id,
+      style: "ruleset",
+      party: [unit("brenna", "Brenna", "player")],
+      enemies: [
+        { ...unit("sentinel", "Hollow Sentinel", "enemy"), ...(rulesetId ? {} : { aiHints: { named: true } }) },
+      ],
+    });
+    assert.equal(opened.statusCode, 200, opened.body);
+    let fight = opened.json().session as DirectedCombatView;
+    const send = async (command: DirectedCommand) => {
+      const response = await post("/combat/command", {
+        chatId: game.chat.id,
+        anchor: game.anchor.id,
+        id: fight.id,
+        instanceId: fight.instanceId,
+        revision: fight.revision,
+        requestId: crypto.randomUUID(),
+        command,
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      fight = response.json().session;
+    };
+    await send({ type: "control", unitId: "brenna", controller: "ai" });
+    const callsBefore = bossCalls;
+    firstBossState = null;
+    let windows = 0;
+    for (let guard = 0; guard < 300 && !fight.outcome; guard++) {
+      if (fight.window?.controller === "gm") {
+        windows++;
+        assert.equal(fight.window.actorId, "sentinel");
+        bossAnswer = fight.window.options[0]!.id;
+      }
+      await send({ type: "continue" });
+    }
+    assert.ok(fight.outcome, `the fight finished: ${named}`);
+    if (rulesetId) {
+      assert.ok(windows > 0 && bossCalls > callsBefore, "the ruleset gives the Game Master every opponent");
+      continue;
+    }
+    if (!named) {
+      assert.equal(windows, 0, "with bosses only, a named opponent is the Engine's own");
+      assert.equal(bossCalls, callsBefore);
+      continue;
+    }
+    assert.ok(windows > 0 && bossCalls > callsBefore, "the named opponent's turns went to the Game Master");
+    // What it is told: how the opponent fights, the other side by danger, and the companions' orders.
+    const prompt = JSON.parse(buildRulesetCombatBossPrompt(definition, firstBossState as never)[1]!.content) as Record<
+      string,
+      any
+    >;
+    assert.ok(prompt.profile && typeof prompt.profile === "object", JSON.stringify(Object.keys(prompt)));
+    assert.deepEqual(
+      prompt.threats.map((one: { id: string }) => one.id),
+      ["brenna"],
+    );
+    assert.equal(typeof prompt.threats[0].threat, "number");
+    // And what the Engine's own tactics would do, best first, each on a line that names a real
+    // candidate and says why (re-test 9 follow-up).
+    assert.ok(Array.isArray(prompt.engineSuggestions) && prompt.engineSuggestions.length > 0, JSON.stringify(prompt));
+    const ids = new Set(prompt.candidates.map((one: { candidateId: string }) => one.candidateId));
+    for (const [index, line] of (prompt.engineSuggestions as string[]).entries()) {
+      const match = /^(\d+)\. CANDIDATE: (\S+) ACTION: .+ REASON: .+$/.exec(line);
+      assert.ok(match, line);
+      assert.equal(Number(match![1]), index + 1, line);
+      assert.ok(ids.has(match![2]), `a candidate it was offered: ${line}`);
+    }
   }
 
   // ── The blueprint prompt: today's words without a combat block, the ruleset's terms with one ──
@@ -1030,6 +1082,22 @@ try {
     );
     assert.equal((kinded.data!.party[0] as { attacks: Array<Record<string, unknown>> }).attacks[0]!.kind, "heal");
     assert.equal(combatInterruptFields.reaction.safeParse("counterattack").success, false);
+    // So is a temperament or proficiency it has no word for, and a mind written as its temperament
+    // or back is moved where it belongs (laptop 2026-10-25: temperament "cunning", mind "disciplined").
+    const tempered = encounterBlueprintSchema.safeParse({
+      party: [{ name: "Brannoc", hp: 10, maxHp: 10 }],
+      enemies: [
+        { name: "Fox", hp: 6, maxHp: 6, aiHints: { temperament: "Cunning", proficiency: "elite", leader: true } },
+        { name: "Sergeant", hp: 9, maxHp: 9, aiHints: { mind: "disciplined" } },
+        { name: "Hound", hp: 9, maxHp: 9, aiHints: { mind: "reckless" } },
+      ],
+      environment: "a wood",
+    });
+    assert.ok(tempered.success, JSON.stringify(tempered.error?.issues));
+    const hintsOf = (index: number) => (tempered.data!.enemies[index] as { aiHints: Record<string, unknown> }).aiHints;
+    assert.deepEqual(hintsOf(0), { mind: "cunning", proficiency: undefined, leader: true });
+    assert.deepEqual(hintsOf(1), { temperament: "disciplined" });
+    assert.deepEqual(hintsOf(2), { temperament: "reckless" });
     assert.ok(withBrief.at(-1)!.content.includes('"surprised": true'), "the prompt asks who was caught unaware");
     // An invention may be a sheet in the ruleset's own terms, and numbers written beside it go.
     const caster = blueprint({
@@ -1068,6 +1136,92 @@ try {
     assert.equal(await encounterRulesetBrief(plainRuleset.definition, null), null);
   }
 
+  // ── Who plays a companion is kept for the chat's next fight (laptop party A 2026-10-25) ──
+  {
+    const kept = await newGame({ ruleset: true });
+    const fightBody = (anchor: string) => ({
+      chatId: kept.chat.id,
+      anchor,
+      style: "ruleset",
+      party: [unit("brenna", "Brenna", "player"), unit("corwin", "Corwin", "player")],
+      enemies: [unit("hound", "Cinder Hound", "enemy")],
+    });
+    const first = (await post("/combat/start", fightBody(kept.anchor.id))).json().session as DirectedCombatView;
+    const handed = await post("/combat/command", {
+      chatId: kept.chat.id,
+      anchor: kept.anchor.id,
+      id: first.id,
+      instanceId: first.instanceId,
+      revision: first.revision,
+      requestId: crypto.randomUUID(),
+      command: { type: "control", unitId: "corwin", controller: "ai" },
+    });
+    assert.equal(handed.statusCode, 200, handed.body);
+    const meta = JSON.parse((await chats.getById(kept.chat.id))!.metadata || "{}");
+    assert.deepEqual(meta.combatControllers, { corwin: "ai" });
+    const later = await chats.createMessage({ chatId: kept.chat.id, role: "assistant", content: "[state: combat]" });
+    const next = (await post("/combat/start", fightBody(later.id))).json().session as DirectedCombatView;
+    assert.equal(next.party.find((one) => one.id === "corwin")?.controller, "ai", "the Engine plays Corwin again");
+    assert.notEqual(next.party.find((one) => one.id === "brenna")?.controller, "ai", "Brenna stays the player's");
+  }
+
+  // ── The orders the player gave a companion are kept for the chat's next fight (laptop playtest
+  //    2026-10-25: orders set back to none at every fight) ──
+  {
+    const kept = await newGame({ ruleset: true });
+    const fightBody = (
+      anchor: string,
+      party = [unit("brenna", "Brenna", "player"), unit("corwin", "Corwin", "player")],
+    ) => ({
+      chatId: kept.chat.id,
+      anchor,
+      style: "ruleset",
+      party,
+      enemies: [unit("hound", "Cinder Hound", "enemy")],
+    });
+    const first = (await post("/combat/start", fightBody(kept.anchor.id))).json().session as DirectedCombatView;
+    const ordered = await post("/combat/command", {
+      chatId: kept.chat.id,
+      anchor: kept.anchor.id,
+      id: first.id,
+      instanceId: first.instanceId,
+      revision: first.revision,
+      requestId: crypto.randomUUID(),
+      command: { type: "orders", unitId: "corwin", orders: { posture: "protect", protectId: "brenna", heal: true } },
+    });
+    assert.equal(ordered.statusCode, 200, ordered.body);
+    const meta = JSON.parse((await chats.getById(kept.chat.id))!.metadata || "{}");
+    assert.deepEqual(meta.combatOrders, { corwin: { posture: "protect", protectId: "brenna", heal: true } });
+    const later = await chats.createMessage({ chatId: kept.chat.id, role: "assistant", content: "[state: combat]" });
+    const next = (await post("/combat/start", fightBody(later.id))).json().session as DirectedCombatView;
+    assert.deepEqual(next.party.find((one) => one.id === "corwin")?.orders, {
+      posture: "protect",
+      protectId: "brenna",
+      heal: true,
+    });
+    assert.equal(next.party.find((one) => one.id === "brenna")?.orders, undefined, "Brenna has none");
+    // Whom it protects is not in this fight: its orders wait for one they are.
+    const alone = await chats.createMessage({ chatId: kept.chat.id, role: "assistant", content: "[state: combat]" });
+    const without = (await post("/combat/start", fightBody(alone.id, [unit("corwin", "Corwin", "player")]))).json()
+      .session as DirectedCombatView;
+    assert.equal(without.party.find((one) => one.id === "corwin")?.orders, undefined);
+  }
+
+  // ── A word in the setup the Engine has none of never refuses the fight (laptop playtest 2026-10-25:
+  //    a mechanic's trigger "charge") ──
+  {
+    const loose = await newGame({ ruleset: true });
+    const started = await post("/combat/start", {
+      chatId: loose.chat.id,
+      anchor: loose.anchor.id,
+      style: "ruleset",
+      party: [unit("brenna", "Brenna", "player")],
+      enemies: [{ ...unit("hound", "Cinder Hound", "enemy"), movementMode: "burrow", start: "rooftop" }],
+      mechanics: [{ name: "Bull Rush", description: "It charges.", trigger: "charge", effectType: "trample" }],
+    });
+    assert.equal(started.statusCode, 200, started.body);
+  }
+
   // ── One that got away comes back as it was (laptop playtest 2026-10-25: a Cult Mage that fled at
   //    CR 3 with 32 health came back at CR 4 with 65) ──
   {
@@ -1082,7 +1236,9 @@ try {
     const first = await post(
       "/combat/start",
       fightBody(away.anchor.id, [
-        { ...unit("mage", "Cult Mage", "enemy"), creature: "creatures/thorn-lurker" },
+        // A named one comes back by its name even beside another called so.
+        { ...unit("mage", "Cult Mage", "enemy"), creature: "creatures/thorn-lurker", aiHints: { named: true } },
+        { ...unit("mender", "Hedge Mender", "enemy"), creature: "creatures/hedge-mender" },
         unit("hound", "Cinder Hound", "enemy"),
       ]),
     );
@@ -1093,40 +1249,147 @@ try {
     const row = (await engineStates.getByChatAndMessage(away.chat.id, away.anchor.id, 0, COMBAT_DIRECTOR_NAMESPACE))!;
     const doc = JSON.parse(row.state);
     for (const one of doc.rulesetFight.encounter.combatants) {
-      if (one.id === "mage") Object.assign(one, { defeated: true, away: { by: "mage", label: "Fled", left: true } });
-      if (one.id === "hound") one.health.value = 1;
+      if (one.id === "mage") {
+        Object.assign(one, { defeated: true, away: { by: "mage", label: "Fled", left: true } });
+        one.health.value = one.health.max - 3;
+      }
+      // One made from a sheet keeps its health on the sheet: 10 of its 22 left.
+      if (one.id === "mender") {
+        Object.assign(one, { defeated: true, away: { by: "mender", label: "Fled", left: true } });
+        one.sheet.live = { ...one.sheet.live, pools: { ...one.sheet.live?.pools, hp: { value: 10 } } };
+      }
+      if (one.id === "hound") Object.assign(one, { defeated: true, down: true });
+    }
+    // One still standing as a fight ends (it won: laptop playtest 2026-10-25, a War-mage that beat
+    // the party came back rebuilt at 40 health from 65) is remembered as one that got away is.
+    {
+      const { rulesetFightReturningFoes } =
+        await import("../../packages/server/src/services/game/ruleset-combat-director.service.js");
+      const won = structuredClone(doc.rulesetFight);
+      const hound = won.encounter.combatants.find((one: { id: string }) => one.id === "hound");
+      delete hound.defeated;
+      delete hound.down;
+      const kept = rulesetFightReturningFoes(definition, won);
+      assert.deepEqual(kept.fled.map((one: { name: string }) => one.name).sort(), [
+        "Cinder Hound",
+        "Cult Mage",
+        "Hedge Mender",
+      ]);
+      assert.deepEqual(kept.beaten, []);
+      // Two nameless ones of a name are both kept, each to come back where the Game Master marks it
+      // ("Cult Thug (Scarred)", laptop playtest 2026-10-25), never to an unmarked pair of the name.
+      const pair = structuredClone(won);
+      const twin = structuredClone(pair.encounter.combatants.find((one: { id: string }) => one.id === "hound"));
+      twin.id = "hound2";
+      pair.encounter.combatants.push(twin);
+      pair.made.hound2 = structuredClone(pair.made.hound);
+      const twins = rulesetFightReturningFoes(definition, pair);
+      assert.equal(twins.fled.filter((one: { name: string }) => one.name === "Cinder Hound").length, 2);
+      assert.deepEqual(twins.beaten, []);
     }
     await engineStates.updateStateById(row.id, JSON.stringify(doc), undefined, away.chat.id);
-    let ended = fought;
-    const send = async (command: DirectedCommand) => {
-      const response = await post("/combat/command", {
-        chatId: away.chat.id,
-        anchor: away.anchor.id,
-        id: ended.id,
-        instanceId: ended.instanceId,
-        revision: ended.revision,
-        requestId: crypto.randomUUID(),
-        command,
-      });
-      assert.equal(response.statusCode, 200, response.body);
-      ended = response.json().session;
-    };
-    await send({ type: "control", unitId: "brenna", controller: "ai" });
-    for (let guard = 0; guard < 40 && !ended.outcome; guard++) await send({ type: "continue" });
-    assert.equal(ended.outcome, "victory");
+    const ended = await post("/combat/command", {
+      chatId: away.chat.id,
+      anchor: away.anchor.id,
+      id: fought.id,
+      instanceId: fought.instanceId,
+      revision: fought.revision,
+      requestId: crypto.randomUUID(),
+      command: { type: "control", unitId: "brenna", controller: "ai" },
+    });
+    assert.equal(ended.statusCode, 200, ended.body);
+    assert.equal(ended.json().session.outcome, "victory", ended.body);
     const meta = JSON.parse((await chats.getById(away.chat.id))!.metadata || "{}");
-    assert.deepEqual(Object.keys(meta.gameReturningFoes ?? {}), ["cult mage"], "only the one that got away");
+    assert.deepEqual(
+      Object.keys(meta.gameReturningFoes ?? {}).sort(),
+      ["cult mage", "hedge mender"],
+      "those that got away",
+    );
     assert.equal(meta.gameReturningFoes["cult mage"].creature, "creatures/thorn-lurker");
+    // With the temperament it fought with, to come back the same (cloud re-test 2026-10-25).
+    assert.equal(typeof meta.gameReturningFoes["cult mage"].temperament, "string");
     const later = await chats.createMessage({ chatId: away.chat.id, role: "assistant", content: "[state: combat]" });
-    const back = await post("/combat/start", fightBody(later.id, [unit("mage2", "Cult Mage", "enemy")]));
+    const back = await post(
+      "/combat/start",
+      fightBody(later.id, [
+        unit("mage2", "Cult Mage", "enemy"),
+        // Of two of its name, the one marked is the one that got away (laptop playtest 2026-10-25: a
+        // fresh "Cult Thug" took the sheet of "Cult Thug (Wounded)").
+        { ...unit("mender4", "Hedge Mender", "enemy"), creature: "creatures/hedge-mender" },
+        unit("mender2", "Hedge Mender (Wounded)", "enemy"),
+        // A second of the name is a fresh one (cloud re-test 2026-10-25: two Bandits came back as the
+        // one that fled).
+        { ...unit("mage3", "Cult Mage", "enemy"), creature: "creatures/thorn-lurker" },
+      ]),
+    );
     assert.equal(back.statusCode, 200, back.body);
     const again = back.json().session as DirectedCombatView;
     assert.equal(again.ruleset!.combatants.find((one) => one.id === "mage2")!.health.max, madeMax, "made as before");
-    assert.ok(again.ruleset!.adjustments.includes("Cult Mage is the same one that got away before."));
+    assert.ok(again.ruleset!.adjustments.includes("Cult Mage is the same one the party met before."));
+    assert.equal(
+      again.ruleset!.combatants.find((one) => one.id === "mage2")!.health.value,
+      madeMax - 3,
+      "still missing what it got away without",
+    );
+    assert.equal(
+      again.ruleset!.adjustments.filter((line) => line === "Cult Mage is the same one the party met before.").length,
+      1,
+      "only one Cult Mage comes back",
+    );
+    assert.equal(
+      again.ruleset!.combatants.find((one) => one.id === "mage3")!.health.value,
+      again.ruleset!.combatants.find((one) => one.id === "mage3")!.health.max,
+      "the other is fresh",
+    );
+    const mender = again.ruleset!.combatants.find((one) => one.id === "mender2")!.health;
+    assert.deepEqual([mender.value, mender.max], [10, 22], "on its sheet too");
+    const fresh = again.ruleset!.combatants.find((one) => one.id === "mender4")!.health;
+    assert.equal(fresh.value, fresh.max, "the unmarked one is a fresh one");
+    // Written again in other words, it is still the one (laptop playtest 2026-10-25: "Cult Thug
+    // (Highwayman)" came back as "Highwayman Thug", escaped druids as "Vengeful Cult Druid").
+    const { rulesetReturningFoeReworded } =
+      await import("../../packages/server/src/services/game/ruleset-combat-director.service.js");
+    assert.equal(rulesetReturningFoeReworded("Cult Thug (Highwayman)", "Highwayman Thug"), true);
+    assert.equal(rulesetReturningFoeReworded("Cult Druid", "Vengeful Cult Druid"), true);
+    assert.equal(rulesetReturningFoeReworded("Cult Thug", "Thug"), false, "one word is anybody");
+    assert.equal(rulesetReturningFoeReworded("Cult Thug", "Cult Mage"), false);
+    const third = await chats.createMessage({ chatId: away.chat.id, role: "assistant", content: "[state: combat]" });
+    const reworded = await post(
+      "/combat/start",
+      fightBody(third.id, [
+        { ...unit("mender5", "Vengeful Hedge Mender", "enemy"), creature: "creatures/hedge-mender" },
+        { ...unit("mender6", "Desperate Hedge Mender", "enemy"), creature: "creatures/hedge-mender" },
+      ]),
+    );
+    assert.equal(reworded.statusCode, 200, reworded.body);
+    const view = reworded.json().session as DirectedCombatView;
+    const vengeful = view.ruleset!.combatants.find((one) => one.id === "mender5")!.health;
+    assert.deepEqual([vengeful.value, vengeful.max], [10, 22], "the one that got away, in other words");
+    const desperate = view.ruleset!.combatants.find((one) => one.id === "mender6")!.health;
+    assert.equal(desperate.value, desperate.max, "only one was kept, so the other is fresh");
+    const rewordedRow = (await engineStates.getByChatAndMessage(away.chat.id, third.id, 0, COMBAT_DIRECTOR_NAMESPACE))!;
+    assert.deepEqual(JSON.parse(rewordedRow.state).rulesetFight.returnedFrom, ["hedge mender"]);
+    // Several marked of the name are a group told apart, not the one coming back (laptop pass 5
+    // 2026-10-26: two of four "Cult Thug (…)" linked to two kept from earlier fights).
+    const fourth = await chats.createMessage({ chatId: away.chat.id, role: "assistant", content: "[state: combat]" });
+    const group = await post(
+      "/combat/start",
+      fightBody(fourth.id, [
+        { ...unit("mender7", "Hedge Mender (Left)", "enemy"), creature: "creatures/hedge-mender" },
+        { ...unit("mender8", "Hedge Mender (Right)", "enemy"), creature: "creatures/hedge-mender" },
+      ]),
+    );
+    assert.equal(group.statusCode, 200, group.body);
+    const grouped = group.json().session as DirectedCombatView;
+    for (const id of ["mender7", "mender8"]) {
+      const health = grouped.ruleset!.combatants.find((one) => one.id === id)!.health;
+      assert.equal(health.value, health.max, `${id} is a fresh one`);
+    }
+    assert.ok(!grouped.ruleset!.adjustments.some((line) => line.includes("the same one the party met before")));
   }
 
   console.log(
-    "Ruleset combat director route: start, idempotency, refusal codes, the live sheet write-back, the board, an unchanged classic fight, the boss window and the blueprint prompt passed.",
+    "Ruleset combat director route: start, idempotency, refusal codes, the live sheet write-back, the board, an unchanged classic fight, the boss window, a named opponent the Game Master plays and the blueprint prompt passed.",
   );
 } finally {
   await app.close();

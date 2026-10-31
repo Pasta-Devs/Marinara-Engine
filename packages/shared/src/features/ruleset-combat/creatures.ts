@@ -17,6 +17,7 @@ import type {
   RulesetDefinition,
   RulesetProposedCreature,
 } from "../../schemas/ruleset.schema.js";
+import { withoutTrailingKind } from "../../utils/trailing-kind.js";
 import { rulesetCatalogIdsForBuild } from "../rulesets/scaled-rows.js";
 import { parseRulesetCombatDice, rulesetAverageAmount, rulesetAverageDamage } from "./dice.js";
 import type {
@@ -49,6 +50,7 @@ export function rulesetReactionAnswers(
           against: {
             ...(moment.against.catalogs ? { catalogs: [...moment.against.catalogs] } : {}),
             ...(moment.against.actions ? { actions: [...moment.against.actions] } : {}),
+            ...(moment.against.qualities ? { qualities: [...moment.against.qualities] } : {}),
             ...(moment.against.entries ? { entries: [...moment.against.entries] } : {}),
           },
         }
@@ -66,6 +68,10 @@ export function rulesetReactionAnswers(
     ...(moment.weapon ? { weapon: true as const } : {}),
     ...(moment.names ? { names: [...moment.names] } : {}),
     ...(moment.budget ? { budget: moment.budget } : {}),
+    ...(moment.freeSlot ? { freeSlot: moment.freeSlot } : {}),
+    ...(moment.missed ? { missed: true as const } : {}),
+    ...(moment.sourceIs ? { sourceIs: structuredClone(moment.sourceIs) } : {}),
+    ...(moment.forHolds ? { forHolds: [...moment.forHolds] } : {}),
   });
   return {
     ...narrowing(reaction),
@@ -99,7 +105,7 @@ export function findRulesetCreatureEntry(
 /**
  * The creature a Game Master named, looked up three ways and no more: the exact
  * `<catalogId>/<entryId>`, then a label or an id that matches once case and punctuation are set
- * aside, then nothing. Never fuzzy beyond that, because a fight built on a near miss is worse than
+ * aside (with any tag or kind said beside the name, too), then nothing. Never fuzzy beyond that, because a fight built on a near miss is worse than
  * one the Engine says it could not build.
  */
 export function findRulesetCreature(
@@ -115,15 +121,95 @@ export function findRulesetCreature(
     const exact = findRulesetCreatureEntry(catalogs, { catalogId, entryId });
     if (exact) return { catalogId, entry: exact };
   }
-  const plain = plainly(wanted);
-  if (!plain) return null;
-  for (const [catalogId, entries] of Object.entries(catalogs)) {
-    for (const entry of entries) {
-      if (!entry.creature) continue;
-      if (plainly(entry.label) === plain || plainly(entry.id) === plain) return { catalogId, entry };
+  // A tag or a kind said beside the name is no part of it (laptop 2026-10-26: "Giant Crocodile [cr_5]",
+  // "Reef Shark, Beast", "Wolf (Beast)").
+  const bare = withoutTrailingKind(wanted.replace(/\[[^\][]*\]/gu, " "));
+  // Nor is a leading "the" (laptop 2026-10-26: "the Giant Crocodile from the river").
+  const unarticled = bare.replace(/^the\s+/iu, "");
+  for (const plain of [...new Set([plainly(wanted), plainly(bare), plainly(unarticled)])]) {
+    if (!plain) continue;
+    for (const [catalogId, entries] of Object.entries(catalogs)) {
+      for (const entry of entries) {
+        if (!entry.creature) continue;
+        if (plainly(entry.label) === plain || plainly(entry.id) === plain) return { catalogId, entry };
+      }
     }
   }
   return null;
+}
+
+/**
+ * The type of `combat.creatureTypes` a writer said an opponent is: one named by its id or label, else
+ * the first named as a whole word among other words ("undead (skeleton)", "a skeletal undead",
+ * "constructs"). Undefined where it names none, or the ruleset has no creature types.
+ */
+export function rulesetSaidCreatureType(definition: RulesetDefinition, said: string | undefined): string | undefined {
+  const kinds = definition.combat?.creatureTypes?.types ?? [];
+  const words = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
+  const text = words(said ?? "");
+  if (!text || kinds.length === 0) return undefined;
+  const exact = kinds.find((one) => [one.id, one.label].some((name) => words(name) === text));
+  if (exact) return exact.id;
+  const padded = ` ${text} `;
+  let best: { at: number; id: string } | undefined;
+  for (const one of kinds)
+    for (const name of [one.id, one.label]) {
+      const word = words(name);
+      if (!word) continue;
+      const at = [` ${word} `, ` ${word}s `].map((form) => padded.indexOf(form)).find((found) => found >= 0);
+      if (at !== undefined && (!best || at < best.at)) best = { at, id: one.id };
+    }
+  return best?.id;
+}
+
+/** How many bestiary creatures `rulesetBestiaryNamedIn` names at most. */
+export const RULESET_BESTIARY_NAMED_MOST = 3;
+
+/**
+ * The bestiary creatures some words name, by label as whole words with case aside (a plural's s or es
+ * on the last word too), longest names first and each once, up to `most`: the player's "the Giant
+ * Crocodile from the river" names the Giant Crocodile, and not the Crocodile inside it. What lets the
+ * Game Master use the entry rather than invent one (laptop 2026-10-26: an "Enraged River Queen" was
+ * made up for the SRD's own Giant Crocodile).
+ */
+export function rulesetBestiaryNamedIn(
+  catalogs: RulesetCatalogEntriesById,
+  texts: ReadonlyArray<string | undefined>,
+  most = RULESET_BESTIARY_NAMED_MOST,
+): Array<{ label: string; tier?: string }> {
+  const words = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
+  let padded = texts
+    .filter((text): text is string => !!text?.trim())
+    .map((text) => ` ${words(text)} `)
+    .join(" | ");
+  if (!padded.trim()) return [];
+  const labels = new Map<string, { label: string; tier?: string; plain: string }>();
+  for (const entries of Object.values(catalogs))
+    for (const entry of entries) {
+      if (!entry.creature) continue;
+      const plain = words(entry.label).replace(/^the /u, "");
+      if (plain.length >= 3 && !labels.has(plain))
+        labels.set(plain, { label: entry.label, plain, ...(entry.creature.tier ? { tier: entry.creature.tier } : {}) });
+    }
+  const found: Array<{ label: string; tier?: string }> = [];
+  for (const one of [...labels.values()].sort((a, b) => b.plain.length - a.plain.length)) {
+    if (found.length >= most) break;
+    const forms = [one.plain, `${one.plain}s`, `${one.plain}es`];
+    const form = forms.find((each) => padded.includes(` ${each} `));
+    if (!form) continue;
+    found.push({ label: one.label, ...(one.tier ? { tier: one.tier } : {}) });
+    // Its words are spent, so a shorter name inside it is not named again.
+    padded = padded.split(` ${form} `).join(" | ");
+  }
+  return found;
 }
 
 /** A creature's amount as the fight rolls it: the dice text plus whatever flat part sits beside it. */
@@ -180,6 +266,7 @@ function chargeOf(
     ...(charge.save ? { save: { ...charge.save } } : {}),
     ...(charge.push !== undefined ? { push: charge.push } : {}),
     ...(charge.applies ? { applies: charge.applies.map((entry) => ({ ...entry })) } : {}),
+    ...(charge.then ? { then: structuredClone(charge.then) } : {}),
   };
 }
 
@@ -224,7 +311,14 @@ function creatureAction(action: RulesetCreatureAction): RulesetStatBlockAction {
     ...(action.concentration ? { concentration: true as const } : {}),
     // At the dying, and deadly to them (1.311): a will-o'-wisp's Consume Life.
     ...(action.dyingOnly ? { dyingOnly: true as const } : {}),
+    ...(action.inShape ? { inShape: [...action.inShape] } : {}),
+    ...(action.whileFlying ? { whileFlying: true as const } : {}),
+    ...(action.castsOne ? { castsOne: true as const } : {}),
     ...(action.slaysOnFailedSave ? { slaysOnFailedSave: true as const } : {}),
+    ...(action.slaysHealthAtMost !== undefined ? { slaysHealthAtMost: action.slaysHealthAtMost } : {}),
+    ...(action.dropsOnFailedSave ? { dropsOnFailedSave: true as const } : {}),
+    // Never on the same creature again (1.674): Frightful Presence.
+    ...(action.oncePerTarget ? { oncePerTarget: { ...action.oncePerTarget } } : {}),
     ...(action.healsOnSlay && amountOf(action.healsOnSlay) ? { healsOnSlay: amountOf(action.healsOnSlay)! } : {}),
     // Who it fells on Held Ground stays down (1.323).
     ...(action.reaps ? { reaps: true as const } : {}),
@@ -232,12 +326,28 @@ function creatureAction(action: RulesetCreatureAction): RulesetStatBlockAction {
     ...(action.reach !== undefined ? { reach: action.reach } : {}),
     // In the ruleset's distance, as reach is: the encounter turns both into cells (1.184).
     ...(action.push !== undefined ? { push: action.push } : {}),
+    ...(action.pull !== undefined ? { pull: action.pull } : {}),
+    ...(action.onFell ? { onFell: structuredClone(action.onFell) } : {}),
+    // A roar louder each time (1.687).
+    ...(action.byUse ? { byUse: [...action.byUse] } : {}),
+    // A Harpoon's contest (1.695).
+    ...(action.contest ? { contest: structuredClone(action.contest) } : {}),
+    // Only on a target small enough (1.698).
+    ...(action.ridersIs ? { ridersIs: structuredClone(action.ridersIs) } : {}),
+    // Etherealness (1.685).
+    ...(action.dismisses ? { dismisses: structuredClone(action.dismisses) } : {}),
     // What its attack is made with (1.189), so changes narrowed to an ability reach it.
     ...(action.ability ? { ability: action.ability } : {}),
     ...(action.reducesMax ? { reducesMax: { ...action.reducesMax } } : {}),
+    // On a called creature (1.586): Arcane Hand's fist, with no modifier and more for each slot.
+    ...(action.callerAdds === false ? { callerAdds: false as const } : {}),
+    ...(action.perCallerStep && amountOf(action.perCallerStep)
+      ? { perCallerStep: amountOf(action.perCallerStep)! }
+      : {}),
     // What it dealt comes back to it (1.281): an aboleth's Psychic Drain.
     ...(action.drain ? { drain: { ...action.drain } } : {}),
     ...(action.targetHolds ? { targetHolds: structuredClone(action.targetHolds) } : {}),
+    ...(action.unlessImposing ? { unlessImposing: [...action.unlessImposing] } : {}),
     ...(action.range !== undefined ? { range: action.range } : {}),
     ...(action.area ? { area: { ...action.area } } : {}),
     ...(action.uses ? { uses: { ...action.uses } } : {}),
@@ -264,6 +374,9 @@ function creatureAction(action: RulesetCreatureAction): RulesetStatBlockAction {
         }
       : {}),
     ...(action.self ? { self: true as const } : {}),
+    // Free, and only before its first attack of its own turn (1.606): Reckless.
+    ...(action.free ? { free: true as const } : {}),
+    ...(action.beforeAttack ? { beforeAttack: true as const } : {}),
     // In the ruleset's distance, as push is (1.276): the encounter turns it into cells.
     ...(action.teleport ? { teleport: { ...action.teleport } } : {}),
     // In the ruleset's distance too (1.283).
@@ -279,16 +392,47 @@ function creatureAction(action: RulesetCreatureAction): RulesetStatBlockAction {
     ...(action.ground ? { ground: structuredClone(action.ground) } : {}),
     // Whoever it lands on walks toward it (1.326).
     ...(action.draws ? { draws: { ...action.draws } } : {}),
+    // Engulf and Whelm (1.403).
+    ...(action.engulf ? { engulf: structuredClone(action.engulf) } : {}),
+    // Deadly Leap (1.725).
+    ...(action.leapsOnto ? { leapsOnto: { ...action.leapsOnto } } : {}),
+    // Luring Song (1.727).
+    ...(action.sustains ? { sustains: { budget: action.sustains.budget } } : {}),
+    // Aimed only at whoever is this, and what a sequence does once all of it hit (1.405).
+    ...(action.targetTypes ? { targetTypes: structuredClone(action.targetTypes) } : {}),
+    ...(action.allHit ? { allHit: structuredClone(action.allHit) } : {}),
     // The Hour Bell, and the Litany broken (1.327).
     ...(action.actedOnly ? { actedOnly: true as const } : {}),
     ...(action.brokenNextLair ? { brokenNextLair: action.brokenNextLair } : {}),
+    // The forms it changes into (1.392), found in the bestiary as the fight begins.
+    ...(action.forms ? { forms: structuredClone(action.forms) } : {}),
     // Who it calls into the fight (1.325), found in the bestiary as the fight begins.
-    ...(action.calls && amountOf(action.calls.count)
+    // A printed chance (1.441): a demon's summoning.
+    ...(action.chance ? { chance: { ...action.chance } } : {}),
+    // Or its options, for rounds and bound to its caller (1.446): Summon Demon.
+    ...(action.calls && (action.calls.options || (action.calls.creature && amountOf(action.calls.count)))
       ? {
           calls: {
-            creature: action.calls.creature,
-            count: amountOf(action.calls.count)!,
+            ...(action.calls.creature ? { creature: action.calls.creature, count: amountOf(action.calls.count)! } : {}),
+            ...(action.calls.options ? { options: structuredClone(action.calls.options) } : {}),
             ...(action.calls.initiative ? { initiative: action.calls.initiative } : {}),
+            ...(action.calls.rounds ? { rounds: action.calls.rounds } : {}),
+            ...(action.calls.endsWithCaller ? { endsWithCaller: action.calls.endsWithCaller } : {}),
+            ...(action.calls.cantCall ? { cantCall: true as const } : {}),
+            ...(action.calls.dismissible ? { dismissible: structuredClone(action.calls.dismissible) } : {}),
+            ...(action.calls.leash ? { leash: action.calls.leash } : {}),
+            // Set down within so far of it, seen (1.621): Animate Trees.
+            ...(action.calls.within ? { within: { ...action.calls.within } } : {}),
+            ...(action.calls.onlyWhere ? { onlyWhere: structuredClone(action.calls.onlyWhere) } : {}),
+            ...(action.calls.arrivesIn && amountOf(action.calls.arrivesIn)
+              ? { arrivesIn: amountOf(action.calls.arrivesIn)! }
+              : {}),
+            ...(action.calls.atCorpse ? { atCorpse: structuredClone(action.calls.atCorpse) } : {}),
+            ...(action.calls.atMost ? { atMost: action.calls.atMost } : {}),
+            // Commanded, with their caller's own attack (1.707): a solar's Flying Sword.
+            ...(action.calls.commandedWith ? { commandedWith: action.calls.commandedWith } : {}),
+            ...(action.calls.commandedBy ? { commandedBy: { action: action.calls.commandedBy.action } } : {}),
+            ...(action.calls.fromCaller ? { fromCaller: { action: action.calls.fromCaller.action } } : {}),
           },
         }
       : {}),
@@ -382,7 +526,9 @@ export function rulesetStatBlockFromCreature(
 export function rulesetTierStatBlock(
   definition: RulesetDefinition,
   tierId: string | undefined,
-  name: string,
+  /** What the Game Master called its attacks, each one the tier's numbers under that name (laptop
+   *  playtest 2026-10-25: an invented duelist's Rapier and Dagger both read "Attack"). */
+  names: readonly string[] = [],
 ): { block: RulesetStatBlock; tier: RulesetCombatThreatTier } | null {
   const combat = definition.combat;
   const tiers = combat?.threat?.tiers ?? [];
@@ -391,6 +537,7 @@ export function rulesetTierStatBlock(
   // belongs: too weak is a disappointing fight, too strong is a dead party.
   const tier = tiers.find((entry) => entry.id === tierId) ?? tiers[0]!;
   const middle = (band: readonly [number, number]) => Math.floor((band[0] + band[1]) / 2);
+  const named = [...new Set(names.map((name) => name.trim()).filter(Boolean))].slice(0, RULESET_TIER_ATTACK_NAMES_MAX);
   return {
     tier,
     block: {
@@ -398,17 +545,427 @@ export function rulesetTierStatBlock(
       defense: tier.defense,
       initiativeModifier: 0,
       tier: tier.id,
-      actions: [
-        {
-          id: "strike",
-          name: `${name}: attack`,
-          budget: combat.economy.budgets[0]!.id,
-          toHit: tier.toHit,
-          damage: { count: 0, sides: 0, flat: Math.max(1, middle(tier.damagePerRound)) },
-        },
-      ],
+      actions: (named.length > 0 ? named : ["Attack"]).map((name, index) => ({
+        id: index === 0 ? "strike" : `strike-${index + 1}`,
+        // Its own name is on the log beside it already: "Orc Raider 2 readies Orc Raider 2: attack".
+        name,
+        budget: combat.economy.budgets[0]!.id,
+        toHit: tier.toHit,
+        damage: { count: 0, sides: 0, flat: Math.max(1, middle(tier.damagePerRound)) },
+      })),
     },
   };
+}
+
+/** How many named attacks an opponent built off its tier keeps. */
+export const RULESET_TIER_ATTACK_NAMES_MAX = 4;
+
+/** An invented action as its writer said it: its name, the words they wrote of it, and whether they
+ *  marked it as reaching an area. */
+export interface RulesetWrittenAttack {
+  name: string;
+  description?: string;
+  area?: boolean;
+}
+
+/** What a breath that lands in an area comes back on when no creature of the ruleset says: 5 or 6 on a d6. */
+const RULESET_AREA_RECHARGE_USUAL = { dice: { count: 1, sides: 6 }, from: 5 } as const;
+
+/**
+ * Whether an invented action lands in an area, by its writer's words (laptop playtest 2026-10-26: an
+ * invented young red dragon's Rot Breath rolled to hit one hero every round): a breath by its name, a
+ * cone or a line by its name or what was written of it, or one marked as an area. The shape it was
+ * said to take; null for a blow at one.
+ */
+export function rulesetWrittenArea(written: RulesetWrittenAttack): { breath: boolean; shape?: "cone" | "line" } | null {
+  const words = `${written.name} ${written.description ?? ""}`.toLowerCase().split(/[^\p{L}\p{N}]+/u);
+  const breath = words.some((word) => /^breath(e|es|ed|ing|s)?$/.test(word));
+  // A line in its description only as a shape ("in a line", "a 30-foot line"), never a line of soldiers.
+  const lined =
+    written.name
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .includes("line") || /\b(?:in a|\d+[- ]?(?:foot|feet|ft\.?)) line\b/i.test(written.description ?? "");
+  const shape = words.includes("cone") ? "cone" : lined ? "line" : undefined;
+  if (!breath && !shape && !written.area) return null;
+  return { breath, ...(shape ? { shape } : {}) };
+}
+
+/**
+ * An invented action its writer said lands in an area, built as this ruleset's bestiary builds its
+ * breaths: the bestiary's own area action nearest it (the same shape, one that recharges, a breath
+ * for a breath, then the nearest tier) lends its shape, size, save, recharge and how many it catches
+ * off a board, and the tier its difficulty. Half on a success; its damage is halved for the area, and it
+ * no longer rolls to hit. With no such action in the bestiary, a cone of three cells against the save its
+ * creatures roll most, back on what their recharges usually are, else a 5 or 6. Null where it cannot be
+ * one: it deals no damage, already lands in an area or asks for a save, or the sheet has no save to roll.
+ */
+export function rulesetWrittenAreaAction<
+  T extends {
+    name: string;
+    damage?: unknown;
+    area?: unknown;
+    save?: unknown;
+    sequence?: unknown;
+    casting?: unknown;
+    reaction?: unknown;
+    heal?: unknown;
+    self?: unknown;
+  },
+>(
+  definition: RulesetDefinition,
+  catalogs: RulesetCatalogEntriesById,
+  action: T,
+  said: { breath: boolean; shape?: "cone" | "line" },
+  tierId: string | undefined,
+): T | null {
+  if (!action.damage || action.area || action.save || action.sequence || action.casting || action.reaction) return null;
+  if (action.heal !== undefined || action.self) return null;
+  const saves = new Set(definition.sheet.saves.map((save) => save.id));
+  if (saves.size === 0) return null;
+  const scale = definition.combat?.threat?.tiers ?? [];
+  const rung = (id: string | undefined) => scale.findIndex((tier) => tier.id === id);
+  const at = rung(tierId);
+  type Model = { action: RulesetCreatureAction; rung: number };
+  const models: Model[] = [];
+  const counted = new Map<string, number>();
+  const recharges = new Map<string, { count: number; recharge: NonNullable<RulesetCreatureAction["recharge"]> }>();
+  for (const entries of Object.values(catalogs))
+    for (const entry of entries)
+      for (const one of entry.creature?.actions ?? []) {
+        if (one.reaction || one.lair || one.signature) continue;
+        if (one.save && saves.has(one.save.save)) counted.set(one.save.save, (counted.get(one.save.save) ?? 0) + 1);
+        if (one.recharge) {
+          const key = `${one.recharge.dice.count}d${one.recharge.dice.sides}:${one.recharge.from}`;
+          recharges.set(key, { count: (recharges.get(key)?.count ?? 0) + 1, recharge: one.recharge });
+        }
+        const area = one.area;
+        if (!area || area.around || area.aroundProp || area.shape === "wall" || !one.save || !one.damage) continue;
+        if (!saves.has(one.save.save)) continue;
+        models.push({ action: one, rung: rung(entry.creature?.tier) });
+      }
+  const breathy = (one: RulesetCreatureAction) => rulesetWrittenArea({ name: one.name })?.breath === true;
+  // The one nearest what was said: its shape first, then a recharge, a breath for a breath, the tier.
+  const score = (model: Model) => [
+    said.shape && model.action.area!.shape !== said.shape ? 1 : 0,
+    model.action.recharge ? 0 : 1,
+    said.breath && !breathy(model.action) ? 1 : 0,
+    at < 0 || model.rung < 0 ? 0 : Math.abs(model.rung - at),
+  ];
+  const model = models
+    .map((one) => ({ one, by: score(one) }))
+    .sort((left, right) => {
+      for (let index = 0; index < left.by.length; index++)
+        if (left.by[index] !== right.by[index]) return left.by[index]! - right.by[index]!;
+      return 0;
+    })[0]?.one.action;
+  const borrowed = model && (!said.shape || model.area!.shape === said.shape) ? model : undefined;
+  const most = [...counted.entries()].sort((left, right) => right[1] - left[1])[0]?.[0];
+  const save = model?.save?.save ?? most ?? definition.sheet.saves[0]!.id;
+  const usual = [...recharges.values()].sort((left, right) => right.count - left.count)[0]?.recharge;
+  const recharge = model?.recharge ?? usual ?? RULESET_AREA_RECHARGE_USUAL;
+  const tier = scale[at];
+  const difficulty = tier?.saveDifficulty ?? model?.save?.difficulty ?? 10;
+  const perCell = definition.combat?.distance?.perCell ?? 1;
+  const shape = said.shape ?? model?.area!.shape ?? "cone";
+  const {
+    toHit: _toHit,
+    autoHit: _autoHit,
+    upgrades: _upgrades,
+    range: _range,
+    targetCount: _count,
+    ...rest
+  } = action as T & { toHit?: unknown; autoHit?: unknown; upgrades?: unknown; range?: unknown; targetCount?: unknown };
+  return {
+    ...rest,
+    ...(rest.damage !== undefined
+      ? {
+          damage: halvedForArea(
+            rest.damage,
+            parseRulesetCombatDice((model?.damage as { dice?: unknown } | undefined)?.dice)?.sides || 6,
+          ),
+        }
+      : {}),
+    area: borrowed
+      ? {
+          shape,
+          size: borrowed.area!.size,
+          ...(borrowed.area!.width !== undefined ? { width: borrowed.area!.width } : {}),
+          ...(borrowed.area!.friendlyFire !== undefined ? { friendlyFire: borrowed.area!.friendlyFire } : {}),
+        }
+      : { shape, size: 3 * perCell },
+    // A burst lent from a creature that aims it somewhere is aimed as far; a cone or a line from where it stands.
+    ...(borrowed?.range !== undefined && shape === "burst" ? { range: borrowed.range } : {}),
+    save: { save, difficulty, onSuccess: "half" },
+    recharge: { dice: { ...recharge.dice }, from: recharge.from },
+    ...(model?.targetCount !== undefined ? { targetCount: model.targetCount } : { targetCount: 2 }),
+  } as unknown as T;
+}
+
+/** An invented area's damage as half what it was written or built at for one target: a tier's damage
+ *  a round counts what reaches more than one on two of them (laptop re-test 2026-10-26: a breath built
+ *  at CR 3's single-target round dealt 37 to each of three heroes against a round of 43). Dice first,
+ *  then the flat part; each amount keeps at least what it rolls once. A flat amount (a tier's numbers)
+ *  is rolled as the dice its model breath rolls, about the same on average (cloud re-test 2026-10-26: a
+ *  flat 28 every time). */
+function halvedForArea<D>(damage: D, sides: number): D {
+  const half = (amount: unknown): unknown => {
+    if (!amount || typeof amount !== "object") return amount;
+    const one = amount as { count?: unknown; sides?: unknown; flat?: unknown; dice?: unknown; plus?: unknown };
+    // A block as written says its dice ("4d6+2"); a built one counts them.
+    const written = typeof one.dice === "string" ? parseRulesetCombatDice(one.dice) : null;
+    if (!written && (typeof one.count !== "number" || typeof one.sides !== "number" || typeof one.flat !== "number"))
+      return amount;
+    const next = written ?? { count: one.count as number, sides: one.sides as number, flat: one.flat as number };
+    const want = rulesetAverageAmount(next) / 2;
+    while (rulesetAverageAmount(next) > want) {
+      if (next.count > 1 && next.sides > 0) next.count -= 1;
+      else if (next.flat > (next.count > 0 && next.sides > 0 ? 0 : 1)) next.flat -= 1;
+      else break;
+    }
+    if ((next.count === 0 || next.sides === 0) && next.flat >= (sides + 1) / 2) {
+      const count = Math.max(1, Math.floor(next.flat / ((sides + 1) / 2)));
+      next.flat = Math.round(next.flat - (count * (sides + 1)) / 2);
+      next.count = count;
+      next.sides = sides;
+    }
+    const plus = Array.isArray(one.plus) ? { plus: one.plus.map(half) } : {};
+    if (written) {
+      const dice = next.count > 0 && next.sides > 0 ? `${next.count}d${next.sides}` : "";
+      const flat = next.flat === 0 && dice ? "" : dice && next.flat > 0 ? `+${next.flat}` : `${next.flat}`;
+      return { ...one, dice: `${dice}${flat}`, ...plus };
+    }
+    return { ...one, ...next, ...plus };
+  };
+  return half(damage) as D;
+}
+
+/**
+ * A reaction a creature of this ruleset's bestiaries has, found by its name, as a stat block takes it
+ * (laptop playtest 2026-10-25: the Game Master gave an invented duelist a "Parry", which nothing in the
+ * fight could read). The first creature holding one of that name lends it; null when none does.
+ */
+export function rulesetBestiaryReaction(
+  definition: RulesetDefinition,
+  catalogs: RulesetCatalogEntriesById,
+  name: string,
+): RulesetStatBlockAction | null {
+  const combat = definition.combat;
+  const wanted = plainly(name);
+  if (!combat || !wanted) return null;
+  const budgets = new Set(combat.economy.budgets.map((budget) => budget.id));
+  for (const entries of Object.values(catalogs))
+    for (const entry of entries)
+      for (const action of entry.creature?.actions ?? [])
+        if (
+          action.reaction &&
+          budgets.has(action.budget) &&
+          (plainly(action.name) === wanted || plainly(action.id) === wanted)
+        )
+          return creatureAction(action);
+  return null;
+}
+
+/**
+ * An action a creature of this ruleset's bestiaries has, found by its name as its writer gave it (laptop
+ * level-4 pass 2026-10-26: a boss's "Terrifying Glare" priced out of its points). Neither a reaction nor
+ * a lair's, and in a budget this ruleset has; null when no creature holds one of that name.
+ */
+export function rulesetBestiaryActionNamed(
+  definition: RulesetDefinition,
+  catalogs: RulesetCatalogEntriesById,
+  name: string,
+): RulesetCreatureAction | null {
+  const wanted = plainly(name);
+  const budgets = new Set(definition.combat?.economy.budgets.map((budget) => budget.id) ?? []);
+  if (!wanted) return null;
+  for (const entries of Object.values(catalogs))
+    for (const entry of entries)
+      for (const action of entry.creature?.actions ?? [])
+        if (
+          !action.reaction &&
+          !action.lair &&
+          budgets.has(action.budget) &&
+          (plainly(action.name) === wanted || plainly(action.id) === wanted)
+        ) {
+          const { inShape: _shape, signature: _signature, ...rest } = structuredClone(action);
+          return rest as RulesetCreatureAction;
+        }
+  return null;
+}
+
+/** The names of the reactions this ruleset's bestiaries hold, once each, for the Game Master. */
+export function rulesetBestiaryReactionNames(catalogs: RulesetCatalogEntriesById, max = 40): string[] {
+  const names = new Map<string, string>();
+  for (const entries of Object.values(catalogs))
+    for (const entry of entries)
+      for (const action of entry.creature?.actions ?? [])
+        if (action.reaction && !names.has(plainly(action.name)) && names.size < max)
+          names.set(plainly(action.name), action.name);
+  return [...names.values()].sort((a, b) => a.localeCompare(b));
+}
+
+/** What one of a creature's actions deals on average, its first amount: written as dice (`{ dice: "2d6" }`)
+ *  or as a tier's block writes it (`{ count, sides, flat }`). 0 for one that deals nothing. */
+export function rulesetActionAverage(action: { damage?: unknown }): number {
+  const damage = action.damage as ({ dice?: string; flat?: number } & Partial<RulesetCombatAmount>) | undefined;
+  if (!damage) return 0;
+  const amount = typeof damage.count === "number" ? (damage as RulesetCombatAmount) : amountOf(damage);
+  return amount ? rulesetAverageAmount(amount) : 0;
+}
+
+/**
+ * The most legendary points a creature may have at each tier of the ruleset's threat scale: the most
+ * any bestiary creature of that tier or below has, so none below the lowest that has any (room playtest
+ * 2026-10-30: an invented CR 1/2 elemental with legendary actions 3 of 3). Undefined when the scale is
+ * missing or no bestiary creature has any, which says nothing about where they start.
+ */
+export function rulesetTierPointCaps(
+  definition: RulesetDefinition,
+  catalogs: RulesetCatalogEntriesById,
+): Map<string, number> | undefined {
+  const tiers = definition.combat?.threat?.tiers ?? [];
+  if (tiers.length === 0) return undefined;
+  const at = new Map(tiers.map((tier, index) => [tier.id, index]));
+  const most = tiers.map(() => 0);
+  let any = false;
+  for (const entries of Object.values(catalogs)) {
+    for (const entry of entries) {
+      const points = entry.creature?.signaturePoints ?? 0;
+      const index = entry.creature?.tier !== undefined ? at.get(entry.creature.tier) : undefined;
+      if (points <= 0 || index === undefined) continue;
+      most[index] = Math.max(most[index]!, points);
+      any = true;
+    }
+  }
+  if (!any) return undefined;
+  const caps = new Map<string, number>();
+  let running = 0;
+  tiers.forEach((tier, index) => {
+    running = Math.max(running, most[index]!);
+    caps.set(tier.id, running);
+  });
+  return caps;
+}
+
+/**
+ * What a boss given points with nothing priced out of them buys with those points (laptop level-4 pass
+ * 2026-10-26: a "Lich Morrigast" asked for as the SRD lich, a Pale Master and a Big Grakka each fought
+ * with none): the legendary actions of the bestiary creature its name names ("Lich" in "Lich
+ * Morrigast", the longest name that fits), or else its own, a cantrip where it casts, a move, its
+ * weakest attack at 1 and its best at 2. None costs more than it has, none is a lair's, and the boss's
+ * tier holds them with the rest of it afterwards, so a lich's numbers on a lesser boss are that boss's.
+ */
+export function rulesetUnpricedLegendary(
+  definition: RulesetDefinition,
+  catalogs: RulesetCatalogEntriesById,
+  boss: {
+    name: string;
+    points: number;
+    budget: string;
+    casts: boolean;
+    actions: readonly RulesetCreatureAction[];
+  },
+): { from?: string; actions: RulesetCreatureAction[] } {
+  const budgets = new Set(definition.combat?.economy.budgets.map((budget) => budget.id) ?? []);
+  const words = ` ${boss.name
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()} `;
+  const spoken = words.trim().split(" ");
+  let best: { label: string; length: number; actions: RulesetCreatureAction[] } | undefined;
+  for (const entries of Object.values(catalogs))
+    for (const entry of entries) {
+      const own = (entry.creature?.actions ?? []).filter((action) => action.signature && !action.lair);
+      if (own.length === 0) continue;
+      const label = entry.label
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .trim();
+      // A one-word name also fits a word that ends in it, its label 4 letters or more (cloud re-test
+      // 2026-10-26: an "Archlich" found no lich).
+      const fitsName =
+        words.includes(` ${label} `) ||
+        (label.length >= 4 && !label.includes(" ") && spoken.some((word) => word.endsWith(label)));
+      if (label && fitsName && label.length > (best?.length ?? 0))
+        best = { label: entry.label, length: label.length, actions: own };
+    }
+  const taken = new Set(boss.actions.map((action) => action.id));
+  const named = (id: string) => {
+    let one = id.startsWith("legendary_") ? id : `legendary_${id}`;
+    for (let count = 2; taken.has(one); count++) one = `legendary_${id}_${count}`;
+    taken.add(one);
+    return one;
+  };
+  const fits = (action: RulesetCreatureAction) =>
+    (action.signature?.cost ?? 1) <= boss.points && budgets.has(action.budget) && (boss.casts || !action.casting);
+  if (best) {
+    const borrowed = best.actions.filter(fits).map((action) => {
+      // Another creature's shapes are not this one's.
+      const { inShape: _shape, ...rest } = structuredClone(action);
+      return { ...rest, id: named(action.id) } as RulesetCreatureAction;
+    });
+    if (borrowed.length > 0) return { from: best.label, actions: borrowed };
+  }
+  const bought: RulesetCreatureAction[] = [];
+  if (boss.casts)
+    bought.push({
+      id: named("cantrip"),
+      name: "Cantrip",
+      budget: boss.budget,
+      casting: { cantripsOnly: true },
+      signature: { cost: 1 },
+    } as RulesetCreatureAction);
+  bought.push({
+    id: named("move"),
+    name: "Move",
+    budget: boss.budget,
+    move: { share: 0.5 },
+    signature: { cost: 1 },
+  } as RulesetCreatureAction);
+  const attacks = boss.actions
+    .filter(
+      (action) =>
+        !action.signature &&
+        !action.reaction &&
+        !action.lair &&
+        !action.casting &&
+        !action.sequence &&
+        !action.charge &&
+        // One that waits on a recharge or a count of uses is that one action, never a second copy with
+        // its own (laptop 2026-10-26: a dragon's bought Fire Breath ignored its breath's recharge).
+        !action.recharge &&
+        !(action as { uses?: unknown }).uses &&
+        budgets.has(action.budget) &&
+        (action.toHit !== undefined || action.autoHit || !!action.damage),
+    )
+    .sort((a, b) => rulesetActionAverage(a) - rulesetActionAverage(b));
+  const weakest = attacks[0];
+  const strongest = attacks.length > 1 ? attacks[attacks.length - 1] : undefined;
+  if (weakest) bought.push({ ...structuredClone(weakest), id: named(weakest.id), signature: { cost: 1 } });
+  if (strongest && boss.points >= 2)
+    bought.push({ ...structuredClone(strongest), id: named(strongest.id), signature: { cost: 2 } });
+  return { actions: bought };
+}
+
+/** A sequence's steps with some left out (1.643), a step made after another's hit still pointing at
+ *  that step's new place, and gone with it when it went. */
+export function rulesetKeptSteps<T extends { ifHit?: number }>(steps: readonly T[], keep: (step: T) => boolean): T[] {
+  const places = new Map<number, number>();
+  const kept: T[] = [];
+  steps.forEach((step, index) => {
+    if (!keep(step)) return;
+    const after = step.ifHit === undefined ? undefined : places.get(step.ifHit);
+    if (step.ifHit !== undefined && after === undefined) return;
+    places.set(index, kept.length);
+    kept.push(after === undefined ? step : { ...step, ifHit: after });
+  });
+  return kept;
+}
+
+/** How many strikes a sequence step makes on average (1.643): its dice's average where it rolls. */
+export function rulesetStepAverageTimes(step: { times: number; dice?: { count: number; sides: number } }): number {
+  return step.dice ? (step.dice.count * (step.dice.sides + 1)) / 2 : step.times;
 }
 
 function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<string>): RulesetStatBlock {
@@ -417,7 +974,7 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
   const actions = kept.map((action) => {
     const built = creatureAction(action);
     if (!built.sequence) return built;
-    const steps = built.sequence.filter((step) => ids.has(step.action));
+    const steps = rulesetKeptSteps(built.sequence, (step) => ids.has(step.action));
     // A sequence whose parts are all gone is an action that would spend a budget and do nothing.
     if (steps.length === 0) return null;
     return { ...built, sequence: steps };
@@ -434,10 +991,17 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
     ...(creature.initiativeModifier !== undefined ? { initiativeModifier: creature.initiativeModifier } : {}),
     ...(creature.sheet ? { sheet: structuredClone(creature.sheet) } : {}),
     ...(creature.spellcasting ? { spellcasting: structuredClone(creature.spellcasting) } : {}),
-    actions: actions.filter((action): action is RulesetStatBlockAction => action !== null),
+    ...(creature.stores ? { stores: structuredClone(creature.stores) } : {}),
+    // What it does as it dies (1.540), last among them and never on its menu.
+    actions: [
+      ...actions.filter((action): action is RulesetStatBlockAction => action !== null),
+      ...(creature.onDeath ? [{ ...creatureAction(creature.onDeath), onDeath: true as const }] : []),
+    ],
     ...(creature.speed !== undefined ? { speed: creature.speed } : {}),
     ...(creature.speeds ? { speeds: { ...creature.speeds } } : {}),
     ...(creature.hover ? { hover: true as const } : {}),
+    ...(creature.mountIndependent ? { mountIndependent: true as const } : {}),
+    ...(creature.mountCarries ? { mountCarries: { ...creature.mountCarries } } : {}),
     ...(creature.abilities ? { abilities: { ...creature.abilities } } : {}),
     ...(creature.saves ? { saves: { ...creature.saves } } : {}),
     ...(creature.checks ? { checks: { ...creature.checks } } : {}),
@@ -454,6 +1018,13 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
     ...(creature.resist ? { resist: [...creature.resist] } : {}),
     ...(creature.vulnerable ? { vulnerable: [...creature.vulnerable] } : {}),
     ...(creature.immune ? { immune: [...creature.immune] } : {}),
+    ...(creature.healedBy ? { healedBy: [...creature.healedBy] } : {}),
+    ...(creature.doubleToObjects ? { doubleToObjects: true as const } : {}),
+    ...(creature.wears ? { wears: [...creature.wears] } : {}),
+    ...(creature.jump ? { jump: { ...creature.jump } } : {}),
+    ...(creature.passableBy ? { passableBy: { ...creature.passableBy } } : {}),
+    ...(creature.fillsSpace === false ? { fillsSpace: false as const } : {}),
+    ...(creature.languages ? { languages: [...creature.languages] } : {}),
     ...(creature.conditionImmunities ? { conditionImmunities: [...creature.conditionImmunities] } : {}),
     ...(creature.keepsOn ? { keepsOn: [...creature.keepsOn] } : {}),
     ...(creature.held ? { held: creature.held.map((thing) => ({ ...thing, tags: [...thing.tags] })) } : {}),
@@ -463,6 +1034,12 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
     ...(creature.size !== undefined ? { size: creature.size } : {}),
     ...(creature.type !== undefined ? { type: creature.type } : {}),
     ...(creature.tags ? { tags: [...creature.tags] } : {}),
+    ...(creature.alignment !== undefined ? { alignment: creature.alignment } : {}),
+    // How much thought it puts into a fight (1.761), and its nerve (1.762).
+    ...(creature.mind !== undefined ? { mind: creature.mind } : {}),
+    ...(creature.behavior ? { behavior: structuredClone(creature.behavior) } : {}),
+    ...(creature.morale !== undefined ? { morale: creature.morale } : {}),
+    ...(creature.leader ? { leader: true as const } : {}),
     ...(creature.soak
       ? {
           soak: {
@@ -477,7 +1054,15 @@ function blockFromCreature(creature: RulesetCreature, budgets: ReadonlySet<strin
     ...(creature.lairInitiative !== undefined ? { lairInitiative: creature.lairInitiative } : {}),
     ...(creature.legendaryResistance !== undefined ? { legendaryResistance: creature.legendaryResistance } : {}),
     ...(creature.stillIn ? { stillIn: [...creature.stillIn] } : {}),
-    ...(creature.hangsOn ? { hangsOn: { ...creature.hangsOn } } : {}),
+    ...(creature.hangsOn ? { hangsOn: structuredClone(creature.hangsOn) } : {}),
+    ...(creature.splits ? { splits: structuredClone(creature.splits) } : {}),
+    ...(creature.whenHarmedBy ? { whenHarmedBy: structuredClone(creature.whenHarmedBy) } : {}),
+    ...(creature.rollsAtTurnStart ? { rollsAtTurnStart: structuredClone(creature.rollsAtTurnStart) } : {}),
+    ...(creature.rampage ? { rampage: { ...creature.rampage } } : {}),
+    ...(creature.refillsEveryTurn ? { refillsEveryTurn: [...creature.refillsEveryTurn] } : {}),
+    ...(creature.heads ? { heads: structuredClone(creature.heads) } : {}),
+    ...(creature.corrodesWeapons ? { corrodesWeapons: structuredClone(creature.corrodesWeapons) } : {}),
+    ...(creature.regenerates ? { regenerates: structuredClone(creature.regenerates) } : {}),
     ...(creature.riders?.length ? { riders: creature.riders.flatMap((rider) => riderOf(rider, ids)) } : {}),
   };
 }
@@ -564,7 +1149,7 @@ function bestRound(
     const round: RulesetBestRound = action.sequence
       ? {
           average: action.sequence.reduce(
-            (total, step) => total + step.times * damageAverage(byId.get(step.action)),
+            (total, step) => total + rulesetStepAverageTimes(step) * damageAverage(byId.get(step.action)),
             0,
           ),
           action,
@@ -673,7 +1258,7 @@ export function clampRulesetStatBlock(
   const budgets = combat.economy.budgets.filter((budget) => budget.count > 0).map((budget) => budget.id);
   const mainBudget = budgets[0] ?? combat.economy.budgets[0]!.id;
 
-  const keepKnown = <K extends "resist" | "vulnerable" | "immune">(key: K) => {
+  const keepKnown = <K extends "resist" | "vulnerable" | "immune" | "healedBy">(key: K) => {
     const kept = onlyKnown<NonNullable<RulesetStatBlock[K]>[number]>(block[key], types);
     if (!kept) return;
     const dropped = (block[key]?.length ?? 0) - kept.length;
@@ -684,6 +1269,7 @@ export function clampRulesetStatBlock(
   keepKnown("resist");
   keepKnown("vulnerable");
   keepKnown("immune");
+  keepKnown("healedBy");
   // A track some level reads may be shrugged off as a condition is (1.115).
   const leveled = new Set((combat.levels ?? []).flatMap((level) => (level.track ? [level.track] : [])));
   if (block.conditionImmunities) {
@@ -924,7 +1510,7 @@ export function clampRulesetStatBlock(
       else delete action.applies;
     }
     if (action.sequence) {
-      const steps = action.sequence.filter((step) => ids.has(step.action) && !sequences.has(step.action));
+      const steps = rulesetKeptSteps(action.sequence, (step) => ids.has(step.action) && !sequences.has(step.action));
       if (steps.length === 0) {
         adjusted.push(`"${action.name}" named nothing this block still has, so it was dropped.`);
         return [];

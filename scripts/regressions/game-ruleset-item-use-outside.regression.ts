@@ -400,6 +400,20 @@ try {
       false,
     );
     assert.match(rulesetItemUseLine(last.said), /\. None left\.$/);
+    // What is left counts every stack of it in the bag, as the tag's count does; another bag's is not.
+    const split = use(
+      ember,
+      emberBook,
+      [
+        ...stacks,
+        { id: "st-poultice-2", name: "Poultice", item: "outfitter/poultice", quantity: 3, holder: "Juno" },
+        { id: "st-poultice-bram", name: "Poultice", item: "outfitter/poultice", quantity: 5, holder: "Bram" },
+      ],
+      "st-poultice",
+      hurt,
+    );
+    assert.ok(split.ok);
+    assert.deepEqual(split.said.left, { count: 4 });
     // What cannot be used changes nothing.
     assert.deepEqual(use(ember, emberBook, stacks, "st-missing", hurt), { ok: false, reason: "no-stack" });
     assert.deepEqual(use(ember, emberBook, stacks, "st-rope", hurt), { ok: false, reason: "not-ruleset-item" });

@@ -178,7 +178,7 @@ const arena = (grid: TacticalGrid, at: Record<string, { x: number; y: number }>,
         difficulty: "normal",
         ...(environment ? { environment } : {}),
       });
-      assert.equal(s.battlefield?.kind === "generated" && s.battlefield.generatorVersion, 2);
+      assert.equal(s.battlefield?.kind === "generated" && s.battlefield.generatorVersion, 3);
       const e = s.grid.elevation;
       const mountains = s.grid.tiles.flat().filter((terrain) => terrain === "mountain").length;
       assert.equal(!!e, mountains > 0, "heights exactly where there are mountains");

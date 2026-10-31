@@ -153,7 +153,15 @@ export function GameSetupRulesChooser({
               aria-pressed={selected}
               className={cardClass(selected)}
             >
-              <span className="block font-medium text-[var(--foreground)]">{definition.name}</span>
+              <span className="block font-medium text-[var(--foreground)]">
+                {definition.name}
+                {/* Which release of it (playtest 2026-10-24): a game keeps the version it was made with. */}
+                {definition.version && (
+                  <span className="ml-1.5 text-[0.625rem] font-normal tabular-nums text-[var(--muted-foreground)]">
+                    {t("game.ruleset.setup.version", { version: definition.version })}
+                  </span>
+                )}
+              </span>
               {source && (
                 <span className="mt-0.5 block text-[0.625rem] uppercase text-[var(--muted-foreground)]/80">
                   {repository

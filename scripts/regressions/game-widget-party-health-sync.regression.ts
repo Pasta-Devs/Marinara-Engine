@@ -159,3 +159,84 @@ assert.deepEqual(
   ),
   [{ widgetId: "party", changes: { statName: "Juno HP", value: "3/4" } }],
 );
+// Laptop playtest 2026-10-25: a Party Health widget held each member twice, "Aldric HP 36/36" (stale)
+// and "Aldric 44/44". The bare row goes and the "HP" row follows the sheet; once tidy, nothing more.
+const doubled = [
+  {
+    id: "party_hp",
+    type: "stat_block",
+    label: "Party Health",
+    config: {
+      stats: [
+        { name: "Aldric HP", value: "36/36" },
+        { name: "Kesh HP", value: "33/33" },
+        { name: "Aldric", value: "44/44" },
+        { name: "Kesh", value: "28/38" },
+      ],
+    },
+  },
+] as HudWidget[];
+const sheets = [
+  { name: "Aldric", value: 44, max: 44 },
+  { name: "Kesh", value: 28, max: 38 },
+];
+const tidy = partyHealthWidgetUpdates(doubled, sheets);
+assert.deepEqual(tidy, [
+  { widgetId: "party_hp", changes: { statName: "Aldric HP", value: "44/44" } },
+  { widgetId: "party_hp", changes: { statName: "Kesh HP", value: "28/38" } },
+  { widgetId: "party_hp", changes: { remove: "Aldric" } },
+  { widgetId: "party_hp", changes: { remove: "Kesh" } },
+]);
+const tidied = tidy.reduce((all, update) => applyGameWidgetUpdate(all, update), doubled);
+assert.deepEqual(tidied[0]!.config.stats, [
+  { name: "Aldric HP", value: "44/44" },
+  { name: "Kesh HP", value: "28/38" },
+]);
+assert.deepEqual(partyHealthWidgetUpdates(tidied, sheets), []);
+// A lone bare row (no "<name> HP" beside it) is the member's health row and stays.
+assert.deepEqual(
+  partyHealthWidgetUpdates(
+    [
+      {
+        id: "party_hp",
+        type: "stat_block",
+        label: "Party Health",
+        config: { stats: [{ name: "Kesh", value: "1/38" }] },
+      },
+    ] as HudWidget[],
+    sheets,
+  ),
+  [{ widgetId: "party_hp", changes: { statName: "Kesh", value: "28/38" } }],
+);
+// A card named "Brother Kesh" is "Kesh" too, and a bare row with no sheet behind it hands its value
+// (the Game Master's latest) to its "HP" row before it goes (laptop playtest 2026-10-25, Party A 424).
+{
+  const both = [
+    {
+      id: "party_hp",
+      type: "stat_block",
+      label: "Party Health",
+      config: {
+        stats: [
+          { name: "Aldric HP", value: "36/36" },
+          { name: "Kesh HP", value: "33/33" },
+          { name: "Aldric", value: "44/44" },
+          { name: "Kesh", value: "26/38" },
+        ],
+      },
+    },
+  ] as HudWidget[];
+  const kesh = [{ name: "Brother Kesh", value: 26, max: 38 }];
+  const fixed = partyHealthWidgetUpdates(both, kesh).reduce((all, update) => applyGameWidgetUpdate(all, update), both);
+  assert.deepEqual(fixed[0]!.config.stats, [
+    { name: "Aldric HP", value: "44/44" },
+    { name: "Kesh HP", value: "26/38" },
+  ]);
+  // The Game Master's "Kesh" goes to "Kesh HP", and a bare twin left behind goes with it.
+  const gm = applyGameWidgetUpdate(both, { widgetId: "party_hp", changes: { statName: "Kesh", value: "20/38" } });
+  assert.deepEqual(gm[0]!.config.stats, [
+    { name: "Aldric HP", value: "36/36" },
+    { name: "Kesh HP", value: "20/38" },
+    { name: "Aldric", value: "44/44" },
+  ]);
+}

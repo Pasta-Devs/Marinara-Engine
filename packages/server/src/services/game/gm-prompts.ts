@@ -109,6 +109,9 @@ export interface GmPromptContext {
   perceptionHints?: string;
   /** Pre-computed party morale context */
   moraleContext?: string;
+  /** Bestiary creatures the player's latest message names, by their labels: used as written there,
+   *  never made up again (laptop 2026-10-26: an "Enraged River Queen" for the SRD's Giant Crocodile). */
+  bestiaryNamed?: string[];
   /** Available sprite expressions per character (name → expressions + custom fullBody aliases) */
   characterSprites?: CharacterSpriteInfo[];
   /** Player's current inventory items (for GM context) */
@@ -126,6 +129,12 @@ export interface GmPromptContext {
   }>;
   /** Each bag's totals, the player's first (no `holder`). Read instead of `playerInventory` once
    *  anybody but the player carries something, so the Game Master knows who holds what. */
+  /** Whose name the player's own bag goes by when it is not the player's (1.789 playtest): the first
+   *  character card of a game with no persona, which plays as the player. */
+  playerBagName?: string;
+  /** The party members who have not taken their ruleset's starting gear yet (laptop v3 2026-10-26: the
+   *  Game Master's opening handed out class gear, then the kit doubled it). */
+  startingGearWaiting?: string[];
   partyInventory?: Array<{
     holder?: string;
     items: Array<{
@@ -813,6 +822,7 @@ export function buildGmSceneState(
     | "weatherContext"
     | "perceptionHints"
     | "moraleContext"
+    | "bestiaryNamed"
     | "encounterHint"
     | "combatResults"
     | "playerNotes"
@@ -837,6 +847,13 @@ export function buildGmSceneState(
 
   if (ctx.moraleContext) {
     sections.push(ctx.moraleContext);
+  }
+
+  if (ctx.bestiaryNamed?.length) {
+    const names = ctx.bestiaryNamed;
+    sections.push(
+      `Engine: ${names.length === 1 ? `${names[0]} is` : `${names.slice(0, -1).join(", ")} and ${names.at(-1)} are`} in the bestiary; use ${names.length === 1 ? "that entry" : "those entries"} rather than inventing one.`,
+    );
   }
 
   if (ctx.encounterHint) {
@@ -973,7 +990,9 @@ function renderRulesetKindCheckLine(
   // `with=` needs somewhere to go: a sheet with one ability has no other ability to roll with.
   const withClause =
     ruleset.sheet.abilities.length >= 2
-      ? [`Add with="Ability" to roll a skill or save with another ability than its own.`]
+      ? [
+          `Add with="Ability" to roll a skill or save with another ability than its own. A tool, kit or craft that is no skill on the sheet is rolled with the ability it is used with, always written out: skill="Its name" with="Ability" (leatherworking with="Dexterity"); without with= it rolls with no modifier at all.`,
+        ]
       : [];
   const branchClause = oneRequestDice
     ? [
@@ -982,8 +1001,8 @@ function renderRulesetKindCheckLine(
     : [];
   // With no character of their own, a check without a roller would be rolled off a blank sheet.
   const whoClause = playerIsParty
-    ? `Always add who="Character Name" naming the party member who rolls: the player has no character of their own.`
-    : `Add who="Character Name" to roll for a party member; without it the player is checked.`;
+    ? `Always add who="Character Name" naming the party member who rolls: the player has no character of their own. That is the one doing it, whose player wrote that action. A who that could be several party members is not rolled; anyone outside the party rolls a plain die. For something the whole party does together (sneaking past as a group, climbing as a group), write who="party": everyone rolls, and the party succeeds when at least half of them pass.`
+    : `Add who="Character Name" to roll for a party member; without it the player is checked. A who that could be several party members is not rolled; anyone outside the party rolls a plain die. For something the whole party does together (sneaking past as a group, climbing as a group), write who="party": everyone rolls, and the party succeeds when at least half of them pass.`;
   // Every ruleset has a ladder, so every ruleset can be asked for a step by name.
   const difficultyClause = `Or name a step with difficulty="Label" in place of dc.`;
   // What having no training does, named by the section that says it or the skill or save that says
@@ -994,7 +1013,9 @@ function renderRulesetKindCheckLine(
       : rule === "harder"
         ? "one step harder"
         : typeof rule === "object"
-          ? `${rule.by > 0 ? "+" : ""}${rule.by}${resolution.kind !== "dice-sum" ? (Math.abs(rule.by) === 1 ? " die" : " dice") : ""}`
+          ? "add" in rule
+            ? "adds a value off the sheet"
+            : `${rule.by > 0 ? "+" : ""}${rule.by}${resolution.kind !== "dice-sum" ? (Math.abs(rule.by) === 1 ? " die" : " dice") : ""}`
           : "";
   const untrainedItems = [
     ...ruleset.sheet.sections.flatMap((section) =>
@@ -1046,6 +1067,26 @@ function renderRulesetKindCheckLine(
       `When something a character has${
         contextualLists.length ? ` (${contextualLists.join(", ")})` : ""
       } applies to this particular roll, add apply="Its name" to that check, several separated by ";". Name only what the situation makes apply: having it is not enough. The engine works out what it does and what it costs.`,
+    );
+  // What checks are made for (1.752), where something changes only a check made for it: Gloves of
+  // Swimming and Climbing.
+  const purposes = new Set<string>();
+  const findPurposes = (value: unknown, depth: number): void => {
+    if (!value || typeof value !== "object" || depth > 40) return;
+    if (Array.isArray(value)) {
+      for (const one of value) findPurposes(one, depth + 1);
+      return;
+    }
+    const record = value as Record<string, unknown>;
+    if (record.to === "checks" && Array.isArray(record.for))
+      for (const one of record.for) if (typeof one === "string") purposes.add(one);
+    for (const one of Object.values(record)) findPurposes(one, depth + 1);
+  };
+  findPurposes(ruleset.combat?.conditions, 0);
+  findPurposes(ruleset.catalogs, 0);
+  if (purposes.size > 0)
+    effectsClause.push(
+      `When a check is made for one of these, add for="..." to it: ${[...purposes].map((one) => `"${one}"`).join(", ")}. What some characters have adds only to a check made for it.`,
     );
   const untrainedClause =
     untrainedItems.length > 0
@@ -1422,6 +1463,18 @@ function renderRulesetKindCheckLine(
   ].join(" ");
 }
 
+/** Whether any condition the ruleset applies wears off faster while its holder rests (1.756), read
+ *  once per ruleset. */
+const restingDaysRead = new WeakMap<object, boolean>();
+function countsRestingDays(ruleset: import("@marinara-engine/shared").RulesetDefinition): boolean {
+  let found = restingDaysRead.get(ruleset);
+  if (found === undefined) {
+    found = JSON.stringify(ruleset).includes('"restingCounts":');
+    restingDaysRead.set(ruleset, found);
+  }
+  return found;
+}
+
 /** The sheet command, the ruleset's own guidance for it, and the party's sheets as they stand.
  *  The command grammar is the Engine's and is the same for every ruleset; every NAME in it (pools,
  *  tracks, conditions, rests) comes from the ruleset and is shown on the sheets themselves. */
@@ -1445,6 +1498,13 @@ function renderRulesetSheetSection(
     `The Engine keeps every character sheet. Record each change with one command per change, written where it happens:`,
     `- [sheet: who="Name" op="spend" pool="Pool" amount="N"] - uses up a resource. Refused when not enough is left.`,
     `- [sheet: who="Name" op="restore" pool="Pool" amount="N"] - gives it back, up to the maximum (healing included).`,
+    // A pool only a rest gives back (laptop 2026-10-26: a cleric's spell slots restored after a short
+    // rest that gives back none of them).
+    ...(ruleset.rests.length > 0
+      ? [
+          `  A pool only a rest gives back comes back with that rest's command, or with the use of an ability that recovers it; a bare restore of it is refused.`,
+        ]
+      : []),
     `- [sheet: who="Name" op="damage" pool="Pool" amount="N"] - takes it away, temporary points first.`,
     `- [sheet: who="Name" op="temp" pool="Pool" amount="N"] - sets temporary points on a pool that has them.`,
     `- [sheet: who="Name" op="track" track="Track" by="+1"] - or to="N" to set it.`,
@@ -1465,7 +1525,23 @@ function renderRulesetSheetSection(
       : []),
     `- [sheet: who="Name" op="note" field="Field" value="text"] - an empty value clears it.`,
     ...(ruleset.rests.length > 0
-      ? [`- [sheet: who="Name" op="rest" rest="Rest"] - rests: ${names(ruleset.rests)}.`]
+      ? [
+          // Narrated without the tag, a rest gives back nothing (laptop playtest 2026-10-25: "a full eight
+          // hours... spells are prepared" twice, the sheets still at 1 health).
+          `- [sheet: who="party" op="rest" rest="Rest"] - rests: ${names(ruleset.rests)}. Write it in the same reply whenever the story says they rest; a rest told without it restores nothing.`,
+        ]
+      : []),
+    // Days of game time (1.445): rows that recharge after so many days count them.
+    ...(ruleset.sheet.lists.some((list) => list.pools?.rechargeDays)
+      ? [
+          `- [sheet: who="Name" op="pass" days="N"] - when N days of game time pass for them; what recharges after days (${[...new Set(ruleset.sheet.lists.flatMap((list) => Object.entries(list.pools?.rechargeDays ?? {}).map(([value, days]) => `${value}: ${days} days`)))].join(", ")}) comes back once they have.`,
+        ]
+      : []),
+    // Days spent resting (1.756): what wears off faster while its holder rests, Wish's stress.
+    ...(countsRestingDays(ruleset)
+      ? [
+          `- [sheet: who="Name" op="pass" days="N" resting="yes"] - N days they spent resting and doing nothing more than light activity; some conditions wear off faster for it.`,
+        ]
       : []),
     // Dice a rest may spend to heal (1.335): 5e's Hit Dice, as many as the player chooses.
     ...(ruleset.rests.some((rest) => rest.dice)
@@ -1479,13 +1555,78 @@ function renderRulesetSheetSection(
           `- Add pool="Pool" to that to spend from one pool only (${[...new Set(ruleset.rests.flatMap((rest) => (Array.isArray(rest.dice) ? rest.dice.map((entry) => entry.pool) : [])))].join(", ")}); without it they come from the first pool that has any.`,
         ]
       : []),
+    // A feature a rest offers as it ends (1.789): Arcane Recovery, used from the tag as well as the sheet.
+    ...(() => {
+      const offered = (ruleset.catalogs ?? [])
+        .flatMap((catalog) => catalog.entries ?? [])
+        .filter((entry) => entry.mechanics?.recovers?.atRest !== undefined);
+      if (offered.length === 0) return [];
+      const rests = new Map(ruleset.rests.map((rest) => [rest.id, rest.label]));
+      const said = [
+        ...new Set(
+          offered.map(
+            (entry) =>
+              `${entry.label} (${rests.get(entry.mechanics!.recovers!.atRest!) ?? entry.mechanics!.recovers!.atRest})`,
+          ),
+        ),
+      ];
+      return [
+        `- When a character uses a feature that works as a rest ends (${said.join(", ")}), add use="Feature" to that rest's command; add recover="Pool:count, Pool:count" when the player picks what it gives back, or the Engine gives back the highest spent that fit.`,
+      ];
+    })(),
     // Only a ruleset with catalogs of ROWS has entries to use: a bestiary or an item catalog writes
     // nothing onto a sheet, so without one of those nothing on a sheet carries a price the Engine
     // could pay, and the line would describe a command that always refuses.
     ...(ruleset.catalogs?.some((catalog) => catalog.holds === "rows")
       ? [
           `- [sheet: who="Name" op="use" name="Name on the sheet"] - pays what that ability costs. Add pool="Pool" to pay from a higher pool of the same group.`,
+          // A call that stays (1.798): a familiar, kept on its caller's sheet until it is lost.
+          ...(ruleset.combat
+            ? [
+                `- For an ability used outside a fight that calls a creature to stay with them, add as="Creature" (and its creature type after a comma where they pick one, as="Name, Type"). It stays on their sheet ("With them") and joins every fight they are in. [sheet: who="Name" op="dismiss" name="Ability or creature"] when it is sent away or killed outside a fight.`,
+                `- For an ability used outside a fight that changes their own shape, add as="Form" (a beast's name for Wild Shape). They stay in it ("In the shape of") and start every fight in it. [sheet: who="Name" op="dismiss" name="Ability or form"] when it ends outside a fight.`,
+              ]
+            : []),
         ]
+      : []),
+    // A ritual (1.807) pays no pool (laptop 2026-10-26: a ritual Detect Magic spent a slot).
+    ...(() => {
+      const marked = ruleset.sheet.lists.flatMap((list) => {
+        const column = list.ritual ? list.columns.find((one) => one.id === list.ritual) : undefined;
+        return column ? [`${column.label} on ${list.label}`] : [];
+      });
+      return marked.length && ruleset.catalogs?.some((catalog) => catalog.holds === "rows")
+        ? [
+            `- For an ability cast as a ritual outside a fight, add ritual="yes" to its use: it pays none of its pools. Only a row marked ${marked.join(" or ")} may be.`,
+          ]
+        : [];
+    })(),
+    // What a caster has ready (1.378's prepared mark), changed in the story (playtest 2026-10-26: a
+    // cleric swapping Sanctuary for Detect Magic after a long rest, with no command to write).
+    ...(() => {
+      const marked = ruleset.sheet.lists.flatMap((list) => {
+        const column = list.display?.mark ? list.columns.find((one) => one.id === list.display!.mark) : undefined;
+        return column ? [`${column.label} on ${list.label}`] : [];
+      });
+      return marked.length && ruleset.catalogs?.some((catalog) => catalog.holds === "rows")
+        ? [
+            `- [sheet: who="Name" op="prepare" name="Ability"] marks it ${marked.join(" or ")}, adding it from what they could pick; op="unprepare" clears it. When the story has a caster change what they have prepared, write one for each ability changed.`,
+          ]
+        : [];
+    })(),
+    // What a use gives back that its user picks (1.410): Arcane Recovery's slots.
+    ...(ruleset.catalogs?.some((catalog) => catalog.entries?.some((entry) => entry.mechanics?.recovers))
+      ? [
+          `- For an ability that recovers spent pools (such as ${
+            ruleset.catalogs.flatMap((catalog) => catalog.entries ?? []).find((entry) => entry.mechanics?.recovers)!
+              .label
+          }), add recover="Pool:count, Pool:count" with the pools the player picks; the Engine checks what they may.`,
+        ]
+      : []),
+    // A creature its bestiary holds is never made up again under another name (laptop 2026-10-26: an
+    // "Enraged River Queen" for the SRD's own Giant Crocodile).
+    ...(ruleset.combat && ruleset.catalogs?.some((catalog) => catalog.holds === "creatures")
+      ? [`- When the story or a player names a creature the bestiary holds, use that entry rather than inventing one.`]
       : []),
     `Leave out who for the player; who="party" applies to every member. Use the pool, track, field and condition names shown on the sheets. Never write result, reason or now yourself: the Engine adds them. A refused command did not happen, so do not narrate it as if it had.`,
     // Prose alone changes no number: a fall or a burn told without its command never reached the sheet.
@@ -1589,6 +1730,32 @@ function renderRulesetSheetSection(
 /** The parts `buildGmFormatReminder` can render. */
 export type GmReminderPart = "whole" | "stable" | "turn";
 
+/** The ruleset rest the player's turn asks for by name ("we take a long rest"), the longest name that
+ *  matches when several do, for the turn's reminder (laptop playtest 2026-10-25: a long rest the
+ *  player asked for was told with no rest command, and nothing came back). */
+export function rulesetRestAskedFor(
+  ruleset: Pick<import("@marinara-engine/shared").RulesetDefinition, "rests">,
+  text: string,
+): string | undefined {
+  let found: { label: string; length: number } | undefined;
+  for (const rest of ruleset.rests) {
+    // A rest called only "Rest" is not looked for: "the rest of us" asks for none.
+    const words = [rest.label, `${rest.id} rest`].filter(
+      (word, index, all) => all.indexOf(word) === index && word.trim().toLowerCase() !== "rest",
+    );
+    for (const word of words) {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, "iu");
+      if (pattern.test(text) && (!found || word.length > found.length))
+        found = { label: rest.label, length: word.length };
+    }
+  }
+  return found?.label;
+}
+
+/** What a party member's sheet block says when they are dead on it (see `renderGameRulesetSheetBlocks`). */
+export const RULESET_SHEET_DEAD_MARK = "\nDEAD: healing, rest and potions do nothing for them";
+
 export function buildGmFormatReminder(
   ctx: Pick<
     GmPromptContext,
@@ -1603,6 +1770,8 @@ export function buildGmFormatReminder(
     | "map"
     | "partyNames"
     | "playerName"
+    | "playerBagName"
+    | "startingGearWaiting"
     | "playerIsParty"
     | "characterSprites"
     | "playerInventory"
@@ -1631,6 +1800,8 @@ export function buildGmFormatReminder(
     addressMode?: "party" | "gm";
     /** Whether the current player turn already includes a resolved [dice: ...] roll. */
     playerDiceRollSubmitted?: boolean;
+    /** The ruleset rest the player's turn asks for by name (`rulesetRestAskedFor`). */
+    playerAsksRest?: string;
     /** The ruleset this game pinned, when the install can honour it. Its check guidance and
      *  difficulty ladder replace the built-in skill-check lines. Absent is the Engine's own rules
      *  and renders today's reminder byte for byte. */
@@ -1683,6 +1854,7 @@ export function buildGmFormatReminder(
       ...ctx,
       addressMode: undefined,
       playerDiceRollSubmitted: false,
+      playerAsksRest: undefined,
       gameActiveState: "exploration",
       dungeonMap: undefined,
       dicePoolBlock: undefined,
@@ -1706,6 +1878,19 @@ export function buildGmFormatReminder(
   const hasParty = partyNames.length > 0;
   // No character of the player's own: the party is who the player plays.
   const partyDirected = ctx.playerIsParty === true && hasParty;
+  // Those dead on their sheet are nobody the player directs (laptop 0706 Party B: a dead Ulfgar was
+  // still named among them).
+  const deadNames = partyNames.filter((name) =>
+    (ctx.rulesetSheetBlocks ?? []).some(
+      (block) => block.startsWith(`${name}\n`) && block.includes(RULESET_SHEET_DEAD_MARK),
+    ),
+  );
+  const directedNames = partyNames.filter((name) => !deadNames.includes(name));
+  const directedList = `${(directedNames.length ? directedNames : partyNames).join(", ")}${
+    deadNames.length && directedNames.length
+      ? `; ${deadNames.join(", ")} ${deadNames.length > 1 ? "are" : "is"} dead and do${deadNames.length > 1 ? "" : "es"} nothing until raised`
+      : ""
+  }`;
   const characterSprites = Array.isArray(ctx.characterSprites) ? ctx.characterSprites : [];
   const customSpriteLines = characterSprites
     .map((character) => ({
@@ -1879,7 +2064,7 @@ export function buildGmFormatReminder(
       `- Continue with new content directly from the player's input, treating it like a concluded beat. Do not reiterate anything.`,
       ...(partyDirected
         ? [
-            `- The player has no character of their own: they direct the whole party (${partyNames.join(", ")}). Their input says what one or more party members do or say. "You" means the party together, never one member: call each member by name when they act, speak, or are hurt or healed. Treat only quoted text as spoken aloud, by the member the input names. Never decide a member's strategic choices beyond what the player wrote.`,
+            `- The player has no character of their own: they direct the whole party (${directedList}). Their input says what one or more party members do or say. "You" means the party together, never one member: call each member by name when they act, speak, or are hurt or healed. Treat only quoted text as spoken aloud, by the member the input names. Never decide a member's strategic choices beyond what the player wrote.`,
           ]
         : [
             `- Treat only quoted player text as spoken aloud; unquoted text is action, narration, or internal thoughts that cannot be accessed by NPCs unless made observable. NEVER quote or speak for the player character (${ctx.playerName ?? "Player"}). You may indirectly narrate obvious, low-stakes participation and their thoughts (nodding during conversation, laying out details, looking around, etc.) in the second person, but never determine their strategic decisions or exact dialogue. Example:`,
@@ -1929,6 +2114,14 @@ export function buildGmFormatReminder(
             `- The player already threw for this turn. Use their roll rather than calling the tool again for the same action.`,
           ]
         : []),
+    );
+  }
+
+  if (T && ctx.ruleset && ctx.playerAsksRest) {
+    lines.push(
+      ``,
+      `THE PLAYER ASKS TO REST:`,
+      `- Their turn asks for a ${ctx.playerAsksRest}. Unless the story stops it, write [sheet: who="party" op="rest" rest="${ctx.playerAsksRest}"] in this reply; a rest told without it restores nothing.`,
     );
   }
 
@@ -2004,10 +2197,22 @@ export function buildGmFormatReminder(
       ...(experienceOwnsInventory
         ? []
         : [
-            `- [inventory: action="add|remove|give" item="Item A, Item B" count="3" who="Name" to="Name"] - every real item gain or loss, keep names short and use count/quantity for stacked items. Everyone in the party carries their own things: who is whose bag an item goes into or comes out of, and leaving it out means the player (a remove without who then takes from the rest of the party once the player has none). A give hands items from who to to. An item listed as "Nickname (Name)" is one item: write either name in item, never both. Never write result, reason or now yourself: the Engine adds them, and a refused one did not happen.`,
+            `- [inventory: action="add|remove|give" item="Item A, Item B" count="3" who="Name" to="Name"] - every real item gain or loss, keep names short and use count/quantity for stacked items. An add is only for what the story puts in their hands in this reply: found, looted, bought, made, or given by someone there (something made or gathered on a check is added in the reply that tells it succeeded, finished); never to hand a character something they need right now that the story never gave them. Everyone in the party carries their own things: who is whose bag an item goes into or comes out of, and leaving it out means the player (a remove without who then takes from the rest of the party once the player has none). A give hands items from who to to. An item listed as "Nickname (Name)" is one item: write either name in item, never both. An item that comes in kinds is written by the full name of the kind the story gives (an arrow of undead slaying, never the family's bare name), or it does nothing of that kind. Never write result, reason or now yourself: the Engine adds them, and a refused one did not happen.`,
+            // Things made to last only so long (1.760), counted on the game's clock: Creation's.
+            ...(ctx.ruleset
+              ? [
+                  `  Something made to last only so long (a conjured or created object): add lasts="10 minutes", "12 hours" or "1 day" to the add, and it vanishes from the bag once that much game time has passed.`,
+                ]
+              : []),
             ...(ctx.ruleset?.catalogs?.some((catalog) => catalog.holds === "items")
               ? [
                   `  This game's ruleset has its own items: an item named exactly as one of them becomes that item, and what an item of the ruleset is shows in [brackets] after it in the inventory below (never write the brackets in item).`,
+                  // The book refuses an add of one a use spends where it can check another source.
+                  ...(ctx.ruleset.items?.market || ctx.ruleset.items?.lootTables?.length
+                    ? [
+                        `  One of its items that a use spends (a potion, a scroll) is never added: it comes by buying or looting it.`,
+                      ]
+                    : []),
                 ]
               : []),
             ...(ctx.ruleset?.items?.native === false
@@ -2040,18 +2245,18 @@ export function buildGmFormatReminder(
               : []),
             ...(ctx.ruleset?.catalogs?.some((catalog) => catalog.holds === "items")
               ? [
-                  `- [inventory: action="use" item="Name" who="Name"] - when a character uses one of the ruleset's items whose [brackets] say "use (...)". The Engine rolls what it does to whoever uses it, writes that on their sheet and spends the item, and the answer says what happened: narrate that, and what it does to anybody else. A player's message may end with an [item_used] block: the Engine already used that item the same way, so narrate it and never use or remove it again.`,
+                  `- [inventory: action="use" item="Name" who="Name"] - when a character uses one of the ruleset's items whose [brackets] say "use (...)". The Engine rolls what it does to whoever uses it, writes that on their sheet and spends the item, and the answer says what happened: narrate that, and what it does to anybody else. Every such item drunk, eaten or used takes this tag, and the tag alone: never also a [sheet:] restore for what it heals. A player's message may end with an [item_used] block: the Engine already used that item the same way, so narrate it and never use or remove it again.`,
                 ]
               : []),
             ...(coins.length
               ? [
-                  `- [inventory: action="pay" amount="5 ${coins[0]!.units.at(-1)!.label}" who="Name"] and [inventory: action="earn" amount="12 ${coins[0]!.units[0]!.label}" who="Name"] - when a character pays for something or is paid, in the ${ctx.ruleset ? "ruleset's coins" : "setting's money"} (${promptCoins(coins)}). Coins are items in each character's purse: a payment comes out of that character's purse (the player's with who left out), inside the coin's own family, with change in its smaller coins, and one they cannot afford is refused; an earning goes into the bags as an add does. The answer says what was paid and what is left: narrate exactly that. ${market ? "Buying is a buy (below)" : "Buying is a payment and then an add"}; never add or remove coins any other way.`,
+                  `- [inventory: action="pay" amount="5 ${coins[0]!.units.at(-1)!.label}" who="Name"] and [inventory: action="earn" amount="12 ${coins[0]!.units[0]!.label}" who="Name"] - when a character pays for something or is paid, in the ${ctx.ruleset ? "ruleset's coins" : "setting's money"} (${promptCoins(coins)}). Coins are items in each character's purse: a payment comes out of that character's purse (the player's with who left out, everyone's together with who="party"), inside the coin's own family, with change in its smaller coins, and one they cannot afford is refused; an earning goes into the bags as an add does. The answer says what was paid and what is left: narrate exactly that. ${market ? "Buying is a buy (below)" : "Buying is a payment and then an add"}; never add or remove coins any other way.`,
                 ]
               : []),
             ...(market
               ? [
                   `- [place: name="Name" size="${market.places.at(-1)!.label}"] - whenever the scene moves to a new place, with its size, one of: ${market.places.map((place) => place.label).join(", ")} (smallest first). Leave size out for somewhere with no market (a road, the wilds). The Engine keeps the last place said until you say another, and the MARKET block below shows what it sells. Describe only the sellers and wares it lists: a shop, a stall or a shelf of goods it does not list is nothing anyone can buy there, so never narrate one as for sale. Say the place before the first buy or sell there: with no place said, every buy and sell is refused. When a new day begins where the party is staying, say the place again with day="new": what the sellers have in stock and what they will pay out start over.`,
-                  `- [inventory: action="buy" item="Name" count="1" level="${market.prices.find((level) => level.default)!.label}" seller="Seller" who="Name"] - when a character buys something, instead of paying and adding it yourself. Levels: ${market.prices.map((level) => `${level.label} ×${level.times}${level.default ? " (the default)" : ""}`).join(", ")}; haggling or a seller's mood moves the level, never the price. The Engine checks the place and the seller sell it, prices it, takes the price from the buyer's purse (the player's with who left out) and puts it in their bag (a service only pays), and the answer says what it cost or why not: narrate exactly that.`,
+                  `- [inventory: action="buy" item="Name" count="1" level="${market.prices.find((level) => level.default)!.label}" seller="Seller" who="Name"] - when a character buys something, instead of paying and adding it yourself. Levels: ${market.prices.map((level) => `${level.label} ×${level.times}${level.default ? " (the default)" : ""}`).join(", ")}; haggling or a seller's mood moves the level, never the price. The Engine checks the place and the seller sell it, prices it, takes the price from the buyer's purse (the player's with who left out) and puts it in their bag (a service only pays), and the answer says what it cost or why not: narrate exactly that. The answer comes only after your reply, so narrate the asking and the reaching for coin, never the coins changing hands or the item in hand: a buy the purse cannot cover is refused, and a refusal you see on an earlier buy means it never happened, so the story says so. who="party" pays out of everyone's purse together, the player's first.`,
                   ...(market.buyBack !== undefined
                     ? [
                         `- [inventory: action="sell" item="Name" count="1" seller="Seller" who="Name"] - when a character sells something here, instead of removing it and earning coins yourself. The Engine checks someone here buys that kind of thing and still has money today, takes it out of the seller's bag (the player's with who left out) and pays its coins in, and the answer says what it fetched or why not: narrate exactly that.`,
@@ -2074,6 +2279,7 @@ export function buildGmFormatReminder(
       `- [state: exploration|dialogue|combat|travel_rest] - only on actual mode transitions. If you're planning to use [state: combat], this one ALWAYS has to be at the end of the turn, as it initiates a new combat generation and UI.`,
       `- [reputation: npc="Name" action="helped"] - when an NPC's tracked stance changes because of what happened. When two tracked people share a name, add the one you mean: id="..." as listed.`,
       `- [party_change: character="Exact Character Name" change="add|remove"] - only when someone truly joins or leaves the party. Use remove when a party member dies, permanently departs, or is no longer traveling with the player.`,
+      `- [party_change: character="New Name" change="add" copy_of="Party Member" condition="Condition"] - a copy of that party member joins under the new name, with their sheet, holding the ruleset's condition from the start (a Simulacrum). copy_of may instead name a creature of the ruleset's bestiary (a beast or a stranger copied), who joins and fights as that creature. condition is optional.`,
       `- [session_end: reason="goal achieved|good place to pause"] - only when the current session truly ends.`,
     );
 
@@ -2100,7 +2306,7 @@ export function buildGmFormatReminder(
       `DICE:`,
       `- When an outcome turns on chance, you have three ways to write it. Pick by what the outcome is, not by preference.`,
       ``,
-      `- IF THE OUTCOME SPLITS TWO WAYS, WRITE A BRANCH BLOCK. Write the check without numbers, then write both halves. The engine rolls, keeps the half the roll selects, and deletes the other before anyone reads the turn. Neither half may contain a command.`,
+      `- IF THE OUTCOME SPLITS TWO WAYS, WRITE A BRANCH BLOCK. Write the check without numbers, then write both halves. The engine rolls, keeps the half the roll selects, and deletes the other before anyone reads the turn. Neither half may contain a command, but for an [inventory] add of what a success makes or gathers, written in its success half.`,
       `  [skill_check: skill="Stealth" dc="15" branch="crates"]`,
       `  [branch: crates]`,
       `  [on success] The guard's gaze slides over the crates and away. You are past him.`,
@@ -2121,7 +2327,7 @@ export function buildGmFormatReminder(
       ``,
       sightedPool
         ? `- ONLY IF THE NUMBER ITSELF HAS TO DECIDE BETWEEN THREE OR MORE DIFFERENT OUTCOMES, spend a pool value instead: write the value shown below into the check's rolls= and name its slot with pool=, then narrate what it meant in this same turn.`
-        : `- ONLY IF THE NUMBER ITSELF HAS TO DECIDE BETWEEN THREE OR MORE DIFFERENT OUTCOMES, ask for the value instead: write [skill_check: skill="Skill Name" dc="${ctx.ruleset ? "N" : "1-20"}"] or [dice: 3d8+2] and stop at the attempt. The engine rolls it and records it. Narrate what it meant at the start of your next turn.`,
+        : `- ONLY IF THE NUMBER ITSELF HAS TO DECIDE BETWEEN THREE OR MORE DIFFERENT OUTCOMES, ask for the value instead: write [skill_check: skill="Skill Name" dc="${ctx.ruleset ? "N" : "1-20"}"] or [dice: 3d8+2] and stop at the attempt. The engine rolls it and records it. Narrate what it meant at the start of your next turn, with the [inventory] add of anything a success made or gathered.`,
       ``,
       `- A check you write in none of these forms is rolled by the engine and recorded, and this turn ends without its outcome; narrate what the number meant at the start of your next turn.`,
       ``,
@@ -2237,7 +2443,7 @@ export function buildGmFormatReminder(
   // Inventory context. Skipped when an experience owns items: an older save can still carry a stale
   // built-in list, which would contradict the inventory the player has on screen.
   if (T && !experienceOwnsInventory && carriedByOthers) {
-    const playerLabel = normalizePromptText(ctx.playerName) || "Player";
+    const playerLabel = normalizePromptText(ctx.playerBagName ?? ctx.playerName) || "Player";
     const bags =
       withMoney && !partyBags.some((bag) => !bag.holder)
         ? [{ holder: "", items: [], note: bearerFor(undefined) }, ...partyBags]
@@ -2274,6 +2480,14 @@ export function buildGmFormatReminder(
       ``,
       `PLAYER INVENTORY${note ? ` (${note})` : ""}: ${buildCompactInventoryLine(playerInventory) || "nothing"}`,
       ...nobodyElse,
+    );
+  }
+
+  // Starting gear the player has not taken yet is theirs to take, never the Game Master's to hand out.
+  const gearWaiting = (ctx.startingGearWaiting ?? []).map((name) => normalizePromptText(name)).filter(Boolean);
+  if (T && !experienceOwnsInventory && gearWaiting.length > 0) {
+    lines.push(
+      `STARTING GEAR not taken yet by ${gearWaiting.join(", ")}: the player takes each one's kit (weapons, armor, pack, tools) from the Starting gear panel. Never add that gear for them in a tag or hand it to them in the story; what the story itself puts in their hands is added as usual.`,
     );
   }
 

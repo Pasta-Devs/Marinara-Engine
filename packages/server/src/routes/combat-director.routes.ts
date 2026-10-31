@@ -1,6 +1,9 @@
 import { createGameStateStorage, parseStoredRulesetLive } from "../services/storage/game-state.storage.js";
 import {
   normalizeGameDifficulty,
+  COMBAT_START_PLACES,
+  COMBAT_ADJECTIVES,
+  DECISION_TIMEOUT_MS,
   combatWeatherSchema,
   applyGameInventoryOps,
   applyRulesetFightItemChanges,
@@ -8,8 +11,10 @@ import {
   gameInventoryItemsOwnNamed,
   gameInventoryKeptByCurse,
   gameInventoryUsableStack,
+  drawGameInventoryFightItem,
   normalizeGameInventoryStacks,
   rulesetFightItemChanges,
+  rulesetCarriedLeft,
   gameWorldElementSet,
   worldElementSetSchema,
   WORLD_DEFAULT_BATTLEFIELDS,
@@ -24,6 +29,7 @@ import {
   loadGameInventoryItemBook,
 } from "../services/game/game-inventory.service.js";
 import { resolveCombatWeather } from "../services/game/weather.service.js";
+import { gameClockMinutes } from "../services/game/time.service.js";
 import { addGameLoot, planGameVictoryLoot } from "../services/game/game-loot.service.js";
 import { rollDieSecurely } from "../services/game/dice-rng.js";
 import { rollGameFightItemGate } from "../services/game/game-item-use.service.js";
@@ -33,17 +39,25 @@ import { z } from "zod";
 import {
   assignCombatTactics,
   TERRAIN_DATA,
+  tacticalOutsideValid,
   combatBossSchema,
   combatInterruptFields,
+  combatOrdersSchema,
+  type CombatOrders,
+  normalizeCharacterLookupName,
   combatTacticsSchema,
   combatAiHintsSchema,
-  normalizeCharacterLookupName,
   rulesetBestiarySheetCatalogIds,
+  rulesetCardHolder,
   rulesetCardItems,
   rulesetReadsItems,
   rulesetCatalogIdsForBuild,
   rulesetCellBlocked,
   rulesetSheetBuildsByName,
+  rulesetBudgetLevel,
+  rulesetBudgetStandIns,
+  rulesetSheetDead,
+  rulesetEncounterBudget,
   type Combatant,
   type DirectedCombatView,
   type DirectedCommand,
@@ -63,15 +77,27 @@ import {
 import { chooseGmCombatOption } from "../services/game/combat-boss.service.js";
 import {
   commandRulesetCombatDirector,
+  rulesetDecisionUnderWindow,
   createRulesetFight,
   directedRulesetView,
   releaseRulesetHeldGround,
+  rulesetBeginFight,
+  rulesetCommandRefusal,
+  rulesetCompanionIds,
+  rulesetDeployers,
+  rulesetUnitPlayer,
+  RULESET_ROOM_HOST,
+  type RulesetFightCommander,
   rulesetDirectorStage,
   rulesetFightLiveStates,
   rulesetFightReturningFoes,
+  rulesetBringBackFoe,
   rulesetReturningFoeKey,
+  rulesetReturningFoeMarked,
+  rulesetReturningFoeReworded,
   syncRulesetCombatants,
   RULESET_COMBAT_EVENT_LIMIT,
+  RULESET_COMBAT_REASON_LIMIT,
   type RulesetFightState,
   type RulesetReturningFoe,
 } from "../services/game/ruleset-combat-director.service.js";
@@ -86,13 +112,48 @@ import {
 } from "../services/game/story-held-ground.service.js";
 import { gameNoncombatants, gamePartyLevel } from "../services/game/experience-companions.service.js";
 import {
+  latestStoryFight,
   latestStoryFightAdjusts,
   latestStoryHeldGround,
   storyFightAdjustsFor,
 } from "../services/game/story-fight.service.js";
 import { buildPartyNpcId } from "../services/generation/game-party-utils.js";
+import { gamePartyRoster } from "../services/game/ruleset-sheet-turn.service.js";
+import {
+  ROOM_GUEST_FIGHT_CONTROLLER,
+  roomFightPlayers,
+  roomPlayersByName,
+} from "../services/multiplayer/fight-players.js";
 import { logger } from "../lib/logger.js";
 import { resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.js";
+
+/** Where a chat keeps who plays each of its party in a fight (the player or the Engine). */
+const COMBAT_CONTROLLERS_KEY = "combatControllers";
+
+/** Where a chat keeps the standing orders the player gave each companion, for its next fights too
+ *  (laptop playtest 2026-10-25: orders set back to none at every fight). */
+const COMBAT_ORDERS_KEY = "combatOrders";
+
+function rememberedOrders(meta: Record<string, unknown>): Record<string, CombatOrders> {
+  const kept = meta[COMBAT_ORDERS_KEY];
+  if (!kept || typeof kept !== "object" || Array.isArray(kept)) return {};
+  return Object.fromEntries(
+    Object.entries(kept as Record<string, unknown>).flatMap(([id, orders]) => {
+      const parsed = combatOrdersSchema.safeParse(orders);
+      return parsed.success ? [[id, parsed.data] as const] : [];
+    }),
+  );
+}
+
+function rememberedControllers(meta: Record<string, unknown>): Record<string, "manual" | "ai"> {
+  const kept = meta[COMBAT_CONTROLLERS_KEY];
+  if (!kept || typeof kept !== "object" || Array.isArray(kept)) return {};
+  return Object.fromEntries(
+    Object.entries(kept as Record<string, unknown>).filter(
+      (entry): entry is [string, "manual" | "ai"] => entry[1] === "manual" || entry[1] === "ai",
+    ),
+  );
+}
 
 // Host-owned Experience namespace: existing branch/checkpoint/export paths preserve these rows,
 // while turn-game readers and resets already exclude the entire experience: prefix.
@@ -118,7 +179,8 @@ const slots = z.record(z.string().regex(/^[1-9]$/), z.number().int().min(0).max(
 const skill = z.object({
   id: key,
   name: z.string().min(1).max(200),
-  type: z.enum(["attack", "heal", "buff", "debuff"]),
+  // A word the Engine has none of is an attack, never a refused fight (laptop playtest 2026-10-25).
+  type: z.enum(["attack", "heal", "buff", "debuff"]).catch("attack"),
   mpCost: num,
   power: num.max(20),
   cooldown: rounds.optional(),
@@ -131,10 +193,32 @@ const directedCombatantFields = z.object({
   id: key,
   name: z.string().min(1).max(200),
   side: z.enum(["player", "enemy"]),
-  /** Caught unaware as the fight begins (1.237): read by a ruleset fight only. */
+  /** Caught unaware as the fight begins: a ruleset fight reads it (1.237), and elsewhere an opponent caught so checks its morale first (combat AI E1). */
   surprised: z.boolean().optional(),
   /** Fights in its own lair (1.315): read by a ruleset fight only. */
   inLair: z.boolean().optional(),
+  /** Where the Game Master starts it on the board (2026-10-24): read by a ruleset fight only. */
+  start: z.enum(COMBAT_START_PLACES).optional().catch(undefined),
+  /** What it set up before the fight, standing as it begins (1.462): read by a ruleset fight only. */
+  standing: z
+    .array(
+      z
+        .object({
+          entry: z.string().min(1).max(200),
+          at: z.enum(["self", "between"]).optional().catch(undefined),
+          stores: z.string().min(1).max(200).optional(),
+          on: z.array(z.string().min(1).max(200)).max(12).optional(),
+          kind: z.string().min(1).max(80).optional(),
+          mode: z.string().min(1).max(200).optional(),
+          into: z.string().min(1).max(200).optional(),
+          spares: z.array(z.string().min(1).max(80)).max(8).optional(),
+          tag: z.string().min(1).max(80).optional(),
+          kinds: z.array(z.string().min(1).max(80)).max(16).optional(),
+        })
+        .strict(),
+    )
+    .max(6)
+    .optional(),
   hp: num,
   maxHp: num.min(1),
   mp: num.optional(),
@@ -148,14 +232,15 @@ const directedCombatantFields = z.object({
   skills: z.array(skill).max(64).optional(),
   tactics: combatTacticsSchema.optional(),
   aiHints: combatAiHintsSchema.optional(),
-  controller: z.enum(["manual", "ai"]).optional(),
+  controller: z.enum(["manual", "ai"]).optional().catch(undefined),
+  orders: combatOrdersSchema.optional(),
   skillCooldowns: z.record(z.string(), rounds).optional(),
   statusEffects: z
     .array(
       z.object({
         name: z.string().max(200),
         modifier: z.number().finite().min(-100000).max(100000),
-        stat: z.enum(["hp", "attack", "defense", "speed"]),
+        stat: z.enum(["hp", "attack", "defense", "speed"]).catch("attack"),
         turnsLeft: rounds,
       }),
     )
@@ -164,7 +249,7 @@ const directedCombatantFields = z.object({
   projectile: z.boolean().optional(),
   requiresSight: z.boolean().optional(),
   combatClass: z.string().max(100).optional(),
-  movementMode: z.enum(["walk", "fly", "teleport"]).optional(),
+  movementMode: z.enum(["walk", "fly", "teleport"]).optional().catch(undefined),
   element: z.string().max(100).optional(),
   sprite: z.string().max(3000).optional(),
 });
@@ -177,17 +262,22 @@ export const directedCombatantSchema = directedCombatantFields.refine(resourcePo
 const rulesetOpponentSchema = directedCombatantFields
   .extend({
     creature: z.string().min(1).max(200).optional(),
+    /** What an invented one is, by the ruleset's creature type id. */
+    creatureType: z.string().min(1).max(80).optional(),
     tier: key.optional(),
     /** A stat block in the shared creature form. Checked when the fight is built, so a malformed
      *  one costs its opponent its proposal rather than costing the whole battle. */
     proposed: z.unknown().optional(),
+    /** What the Game Master gave it to have on it (1.795): the ruleset's items, one a line, by name
+     *  or reference; read when the fight is built, and one it has no such item of is told. */
+    carrying: z.array(z.string().min(1).max(200)).max(16).optional(),
   })
   .refine(resourcePools, "Invalid resource pool.");
 const coord = z.object({ x: z.number().int().min(0).max(63), y: z.number().int().min(0).max(63) });
 const itemEffect = z.object({
   name: key,
-  target: z.enum(["self", "ally", "enemy", "any"]),
-  type: z.enum(["heal", "damage", "buff", "debuff", "status", "utility"]),
+  target: z.enum(["self", "ally", "enemy", "any"]).catch("any"),
+  type: z.enum(["heal", "damage", "buff", "debuff", "status", "utility"]).catch("utility"),
   description: z.string().max(3000),
   // An item's power past the most a fight reads is that most, as a long duration is.
   power: num.transform((value) => Math.min(value, COMBAT_DIRECTOR_MOST_POWER)).optional(),
@@ -201,7 +291,7 @@ const itemEffect = z.object({
       // default length, as a missing one is.
       duration: rounds,
       modifier: z.number().finite().min(-100000).max(100000).optional(),
-      stat: z.enum(["hp", "attack", "defense", "speed"]).optional(),
+      stat: z.enum(["hp", "attack", "defense", "speed"]).optional().catch(undefined),
     })
     .optional(),
 });
@@ -251,10 +341,27 @@ const command = z.discriminatedUnion("type", [
     also: z.array(coord).max(9).optional(),
     /** A wall's section struck at instead of a creature (1.200), checked by the resolver. */
     wall: coord.optional(),
+    /** A lasting area ended instead of a creature (1.427), checked by the resolver. */
+    dispel: z.object({ casterId: key, actionId: key }).strict().optional(),
+    /** A condition struck at to cut it away (1.531), checked against the menu by the resolver. */
+    cut: z.object({ holderId: key, condition: key }).strict().optional(),
+    /** Which of its target's conditions it ends (1.427), checked by the resolver. */
+    ends: z.array(key).max(16).optional(),
     /** Who goes along on a teleport (1.276), checked against the menu by the resolver. */
     carries: z.array(key).max(8).optional(),
+    /** Whom a layered wall spares (1.492), checked against the menu by the resolver. */
+    designates: z.array(key).max(20).optional(),
+    /** The kinds its zone strikes (1.753), checked against the menu by the resolver. */
+    kinds: z.array(key).max(40).optional(),
+    /** Stored instead of done (1.524), in a place the menu offers, checked by the resolver. */
+    storesIn: z
+      .object({ holderId: key, item: z.number().int().min(0).max(500).optional() })
+      .strict()
+      .optional(),
     /** How many uses it spends (1.251), checked against the menu by the resolver. */
     amount: z.number().int().min(1).max(1000).optional(),
+    /** How many levels up a target moved to `to` is lifted (1.565), checked by the resolver. */
+    rises: z.number().int().min(0).max(100).optional(),
     /** The alterations it is used with (1.253), checked against the action by the resolver. */
     alters: z.array(z.string().min(1).max(200)).max(8).optional(),
     /** Who of its user's side it spares (1.254), checked against the alterations by the resolver. */
@@ -263,10 +370,24 @@ const command = z.discriminatedUnion("type", [
     heightens: z.string().min(1).max(200).optional(),
   }),
   z.object({ type: z.literal("choose"), candidateId: key }),
+  z.object({ type: z.literal("deploy"), unitId: key, to: coord }),
+  z.object({ type: z.literal("deployed") }),
   z.object({ type: z.literal("continue") }),
   z.object({ type: z.literal("fallback") }),
   z.object({ type: z.literal("flee") }),
+  z.object({ type: z.literal("yield") }),
   z.object({ type: z.literal("control"), unitId: key, controller: z.enum(["manual", "ai"]) }),
+  z.object({ type: z.literal("controlCompanions"), controller: z.enum(["manual", "ai"]) }),
+  /** A carried weapon or shield taken in hand, and the stack a weapon shoots first (2026-10-26), by
+   *  places in the party member's items: checked against what they carry by the resolver. */
+  z.object({ type: z.literal("draw"), unitId: key, item: z.number().int().min(0).max(10000) }),
+  z.object({
+    type: z.literal("ammo"),
+    unitId: key,
+    weapon: z.number().int().min(0).max(10000),
+    stack: z.number().int().min(0).max(10000),
+  }),
+  z.object({ type: z.literal("orders"), unitId: key, orders: combatOrdersSchema.nullable() }),
   z.object({ type: z.literal("spends"), choose: z.boolean() }),
 ]);
 const queues = new Map<string, Promise<unknown>>();
@@ -295,24 +416,79 @@ async function loadBestiary(
 ): Promise<RulesetCatalogEntriesById> {
   const creatures = await loadFightCatalogs(packageId, definition, (c) => c.holds === "creatures");
   const marked = new Set(rulesetBestiarySheetCatalogIds(definition, creatures));
+  // A proposal that sets fields reads them off the entries that set them (a class), whatever list
+  // those feed (cloud re-test 2026-10-25: an invented Cleric 5 never loaded the classes catalog), so
+  // every catalog of rows is loaded for it.
   const wanted = (c: NonNullable<RulesetDefinition["catalogs"]>[number]) =>
-    marked.has(c.id) || (c.feeds ?? []).some((list) => proposedLists.has(list));
+    marked.has(c.id) ||
+    (c.feeds ?? []).some((list) => proposedLists.has(list)) ||
+    (proposedLists.has(RULESET_PROPOSED_FIELDS) && c.holds !== "items" && c.holds !== "creatures");
   if (marked.size === 0 && proposedLists.size === 0) return creatures;
   return { ...creatures, ...(await loadFightCatalogs(packageId, definition, wanted)) };
 }
 
+/** Among `proposedSheetLists`: some proposal sets fields, so the entries that set them are wanted. No
+ *  list id has a colon in it. */
+const RULESET_PROPOSED_FIELDS = ":fields";
+
 /** The lists the Game Master's invented sheets fill, read off the raw proposals: which catalogs a
  *  fight needs is decided before any proposal is parsed. Every list a creature CHOOSES from is among
  *  them too, whether a proposal wrote it or not, because its open choices are filled from there. */
-function proposedSheetLists(
+export function proposedSheetLists(
   definition: RulesetDefinition,
-  enemies: ReadonlyArray<{ proposed?: unknown }>,
+  enemies: ReadonlyArray<{
+    proposed?: unknown;
+    attacks?: ReadonlyArray<{ reaction?: unknown; kind?: unknown; spell?: unknown }>;
+    /** The Game Master's own skills, which become its attacks: one not an attack is a kind. */
+    skills?: ReadonlyArray<{ reaction?: unknown; type?: unknown; spell?: unknown }>;
+  }>,
 ): Set<string> {
   const lists = new Set<string>();
-  for (const enemy of enemies) {
+  for (const given of enemies) {
+    // Read as the fight reads them (cloud re-test 2026-10-26: a Cult Healer written with skills had
+    // no class list loaded, so its Cure Wounds was dropped as beyond its sheet).
+    const enemy = {
+      ...given,
+      attacks: [
+        ...(given.attacks ?? []),
+        ...(given.skills ?? []).map((skill) => ({
+          reaction: skill.reaction,
+          kind: skill.type !== "attack" ? skill.type : undefined,
+          spell: skill.spell,
+        })),
+      ],
+    };
+    // A reaction it was given by name may be an entry of the ruleset's own (a Counterspell that is a
+    // spell), read off whichever list that entry's catalog feeds; and so may a spell or a feature
+    // written beside the attacks of one with no sheet, which it is given a sheet for, with a class.
+    // One written with numbers and no sheet is given one as well (laptop pass 6 2026-10-26).
+    const proposedSheet = (enemy.proposed as { sheet?: unknown } | undefined)?.sheet;
+    const sheetless =
+      (enemy.proposed === undefined || proposedSheet === undefined) &&
+      !!enemy.attacks?.some((attack) => attack.kind || attack.spell);
+    if (sheetless || enemy.attacks?.some((attack) => attack.reaction))
+      for (const list of definition.sheet.lists) lists.add(list.id);
+    if (sheetless) {
+      lists.add(RULESET_PROPOSED_FIELDS);
+      for (const catalog of definition.catalogs ?? [])
+        if (catalog.holds !== "items" && catalog.holds !== "creatures")
+          for (const list of catalog.feeds ?? []) lists.add(list);
+    }
     const sheet = (enemy.proposed as { sheet?: { lists?: unknown } } | undefined)?.sheet;
     if (!sheet || typeof sheet !== "object") continue;
     if (sheet.lists && typeof sheet.lists === "object") for (const id of Object.keys(sheet.lists)) lists.add(id);
+    // A level it gives itself is read off the entry that sets it (a class), which may set more.
+    const fields = (sheet as { fields?: unknown }).fields;
+    // A parsed catalog of rows says so (`holds: "rows"`), so it is told apart from items and creatures.
+    // One with rows and no fields may be given a class to cast them (cloud re-test 2026-10-25), so it
+    // reads them too.
+    const rows = sheet.lists && typeof sheet.lists === "object" && Object.keys(sheet.lists).length > 0;
+    if (rows || (fields && typeof fields === "object" && Object.keys(fields).length > 0)) {
+      lists.add(RULESET_PROPOSED_FIELDS);
+      for (const catalog of definition.catalogs ?? [])
+        if (catalog.holds !== "items" && catalog.holds !== "creatures")
+          for (const list of catalog.feeds ?? []) lists.add(list);
+    }
     for (const source of definition.combat?.abilities ?? []) if (source.onlyWhen) lists.add(source.list);
   }
   return lists;
@@ -346,15 +522,53 @@ async function loadFightCatalogs(
   return catalogs;
 }
 
+/** A guest's command for their own party members, as the room hands it to the fight (2026-10-27). */
+export interface RoomFightCommandInput {
+  anchor: string;
+  id: string;
+  instanceId: string;
+  revision: number;
+  command: DirectedCommand;
+}
+
+/** What reads and commands a shared room's fight for one of its players (2026-10-27). */
+export interface RoomFightBridge {
+  /** The room's fight on the board now, as this player is shown it; null when none is. */
+  view(chatId: string, viewer: RulesetFightCommander): Promise<{ anchor: string; view: DirectedCombatView } | null>;
+  /** Sends one player's command, checked as the host's own are and against whose it is. */
+  command(
+    chatId: string,
+    input: RoomFightCommandInput,
+    viewer: RulesetFightCommander,
+  ): Promise<{ ok: true } | { ok: false; stale: boolean }>;
+}
+
+/** What a shared room gives the fight and takes from it (2026-10-27). */
+export interface RoomFightHooks {
+  /** The room's players not connected now, by participant id: their characters fight on their own. */
+  absent(chatId: string): ReadonlySet<string>;
+  /** The fight moved, so the room's players are shown where it is now. */
+  changed(chatId: string): void;
+  ready(bridge: RoomFightBridge): void;
+}
+
 export async function combatDirectorRoutes(
   app: FastifyInstance,
-  options: { chooseBoss?: typeof chooseGmCombatOption } = {},
+  options: { chooseBoss?: typeof chooseGmCombatOption; room?: RoomFightHooks } = {},
 ) {
   const chats = createChatsStorage(app.db),
     store = createGameEngineStateStorage(app.db);
+  /** The fight each chat last had on screen, which is the one a shared room's players are shown. */
+  const roomFights = new Map<string, string>();
+  const rememberFight = (chatId: string, anchor: string) => {
+    roomFights.delete(chatId);
+    roomFights.set(chatId, anchor);
+    if (roomFights.size > 200) roomFights.delete(roomFights.keys().next().value!);
+  };
   const load = async (chatId: string, anchor: string) => {
     const row = await store.getByChatAndMessage(chatId, anchor, 0, COMBAT_DIRECTOR_NAMESPACE);
     if (!row) return null;
+    rememberFight(chatId, anchor);
     let state: CombatDirectorState;
     try {
       state = JSON.parse(row.state) as CombatDirectorState;
@@ -413,6 +627,7 @@ export async function combatDirectorRoutes(
         )
         .max(200),
       itemSpends: z.record(key, z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)),
+      itemDraws: z.record(key, z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)).optional(),
       gmCalls: z.number().int().min(0).max(12),
       // The ruleset fight itself. Its numbers are the ruleset's own and are checked by the resolver
       // that reads them; what is bounded here is the SHAPE and the size, the way the rest is.
@@ -447,9 +662,11 @@ export async function combatDirectorRoutes(
           eventSeq: z.number().int().min(0),
           events: z
             .array(z.object({ seq: z.number().int().min(0), event: z.unknown().optional() }))
-            .max(RULESET_COMBAT_EVENT_LIMIT),
+            // The fight's own and the AI's reasons beside them, each kept to its own window.
+            .max(RULESET_COMBAT_EVENT_LIMIT + RULESET_COMBAT_REASON_LIMIT),
           controllers: z.record(key, z.enum(["manual", "ai"])),
           bosses: z.array(key).max(40),
+          thinkers: z.array(key).max(40).optional(),
           adjustments: z.array(z.string().max(1000)).max(200),
         })
         .optional(),
@@ -463,15 +680,22 @@ export async function combatDirectorRoutes(
         grid.tiles.length !== grid.height ||
         grid.tiles.some(
           (row) => row.length !== grid.width || row.some((tile) => !Object.hasOwn(TERRAIN_DATA, tile as string)),
-        )
+        ) ||
+        !tacticalOutsideValid(grid as Parameters<typeof tacticalOutsideValid>[0])
       )
         throw new Error("Invalid battlefield in save.");
       // Everybody on the board or nobody: a fight with one combatant standing nowhere could answer
-      // nothing about distance, and the resolver builds one only when it can place them all.
+      // nothing about distance, and the resolver builds one only when it can place them all. Those
+      // the resolver itself took off the board stand nowhere: a called creature sent away, a corpse
+      // risen as something else (class re-test 2026-10-24: a save refused once a druid's eight horses
+      // were sent away).
+      const gone = (combatant: { defeated?: boolean; dismissed?: true; corpseRaised?: true }) =>
+        !!combatant.defeated && (!!combatant.dismissed || !!combatant.corpseRaised);
       const placed = state.rulesetFight!.encounter.combatants.filter(
         (combatant) => typeof combatant.x === "number" || typeof combatant.y === "number",
       );
-      if (placed.length !== state.rulesetFight!.encounter.combatants.length) throw new Error("Invalid saved position.");
+      const unplaced = state.rulesetFight!.encounter.combatants.filter((combatant) => !placed.includes(combatant));
+      if (unplaced.some((combatant) => !gone(combatant))) throw new Error("Invalid saved position.");
       for (const combatant of placed) {
         if (
           !Number.isInteger(combatant.x) ||
@@ -486,9 +710,14 @@ export async function combatDirectorRoutes(
       // The resolver never puts anybody inside something solid, so a save that says otherwise was
       // not written by it and every distance read off it would be wrong. Two on one cell is NOT
       // refused: a walk may end on a fallen body, and healing that body stands two people on one
-      // square, which is the resolver's own doing.
+      // square, which is the resolver's own doing. Water is not solid to everybody: a swimmer or a
+      // flier stands in it, and so does whoever it drags there (re-test 15: a crocodile's prey).
       for (const combatant of placed) {
-        if (rulesetCellBlocked(grid, combatant.x!, combatant.y!)) throw new Error("Invalid saved position.");
+        if (
+          rulesetCellBlocked(grid, combatant.x!, combatant.y!) &&
+          grid.tiles[combatant.y!]?.[combatant.x!] !== "water"
+        )
+          throw new Error("Invalid saved position.");
       }
     } else if (
       // A fight with no board has no cells to stand in, so a saved combatant carrying EITHER
@@ -519,7 +748,8 @@ export async function combatDirectorRoutes(
         grid.tiles.some(
           (row) =>
             !Array.isArray(row) || row.length !== grid.width || row.some((tile) => !Object.hasOwn(TERRAIN_DATA, tile)),
-        )
+        ) ||
+        !tacticalOutsideValid(grid)
       )
         throw new Error("Invalid battlefield in save.");
       if (!Array.isArray(state.tactical.units) || state.tactical.units.length > 40)
@@ -561,16 +791,44 @@ export async function combatDirectorRoutes(
     }
     return { definition: resolved.definition, packageId: resolved.packageId };
   };
+  /** Whose own character each party member of a shared room's fight is, read from the room as it is
+   *  now (2026-10-26): a player who left hands theirs back to the host, and a fight outside a room, or
+   *  in one that ended, has no players. Set on the fight in hand; saved only with a step. */
+  const seatRoomPlayers = async (chatId: string, s: CombatDirectorState) => {
+    const fight = s.rulesetFight;
+    if (s.style !== "ruleset" || !fight) return;
+    const chat = await chats.getById(chatId);
+    const meta = chat ? (JSON.parse(chat.metadata || "{}") as Record<string, unknown>) : {};
+    const party = fight.encounter.combatants.filter((one) => one.side === "party" && !one.calledBy);
+    const players = roomFightPlayers(meta, party);
+    if (players) fight.players = players;
+    else delete fight.players;
+    // A player not connected now (left, or gone quiet) has the Engine play their character, as one
+    // absent when the fight began does, until they take it back (laptop room playtest 2026-10-30: a
+    // guest who pressed Leave held the fight on their turn).
+    const absent = options.room?.absent(chatId);
+    for (const [unitId, player] of Object.entries(players ?? {})) {
+      if (player.host || !absent?.has(player.participantId) || fight.controllers[unitId] === "ai") continue;
+      fight.controllers[unitId] = "ai";
+      // The party panel reads the member's own controller.
+      const member = s.party.find((one) => one.id === unitId);
+      if (member) member.controller = "ai";
+    }
+  };
   /** The session a client reads. A ruleset fight whose rules are gone comes back finished rather
    *  than resolved by other numbers, and nothing about that is written down: reinstalling the
    *  ruleset picks the same fight up where it was left. */
-  const sessionView = (s: CombatDirectorState, session: RulesetSession | null): DirectedCombatView => {
+  const sessionView = (
+    s: CombatDirectorState,
+    session: RulesetSession | null,
+    viewer: RulesetFightCommander = RULESET_ROOM_HOST,
+  ): DirectedCombatView => {
     const fight = s.rulesetFight;
     if (s.style !== "ruleset" || !fight) return combatDirectorView(s);
     if (session && "definition" in session) {
       const view = combatDirectorView(s);
       view.stage = rulesetDirectorStage(s);
-      view.ruleset = directedRulesetView(session.definition, s);
+      view.ruleset = directedRulesetView(session.definition, s, viewer);
       return view;
     }
     const reason = session && "unavailable" in session ? session.unavailable : "This fight's rules could not be read.";
@@ -632,14 +890,20 @@ export async function combatDirectorRoutes(
     // The ruleset's items as the player uses them, read before the chat's queue is held and only once
     // the fight has spent something: a bound cursed item is one the player cannot use up.
     const rules =
-      Object.keys(s.itemSpends).length > 0 ? await loadGameInventoryItemBook(app.db, { chatId }, "player") : undefined;
+      Object.keys(s.itemSpends).length > 0 || Object.keys(s.itemDraws ?? {}).length > 0
+        ? await loadGameInventoryItemBook(app.db, { chatId }, "player")
+        : undefined;
     // The step that wins drops the fight's loot, rolled before the queue is held and added with the
     // step: each defeated bestiary opponent's table, or the native tables by how many fell.
     const won = s.outcome === "victory" && s.loot === undefined;
     const encounter = s.style === "ruleset" ? s.rulesetFight?.encounter : undefined;
     const fallen = encounter
       ? encounter.combatants.filter((combatant) => combatant.side === "enemy" && combatant.defeated)
-      : s.enemies.filter((enemy) => enemy.hp <= 0);
+      : [
+          ...s.enemies.filter((enemy) => enemy.hp <= 0),
+          // One that gave up hands over what it carried (combat AI E1); one that ran takes it along.
+          ...(s.gone ?? []).filter((enemy) => enemy.left === "surrendered"),
+        ];
     const loot = won
       ? await planGameVictoryLoot(
           app.db,
@@ -648,6 +912,13 @@ export async function combatDirectorRoutes(
             tables: fallen.flatMap((enemy) => s.rulesetFight?.lootTables?.[enemy.id] ?? []),
             defeated: fallen.length,
             difficulty: s.difficulty,
+            // What the beaten still had on them (1.795); one that ran took its along.
+            // Its coins too (laptop playtest 2026-10-25: a thief's stolen 9 gp never came back).
+            carried: (encounter?.combatants ?? []).flatMap((combatant) =>
+              combatant.side === "enemy" && combatant.defeated && !combatant.away?.left
+                ? [...rulesetCarriedLeft(combatant), ...(s.rulesetFight?.purses?.[combatant.id] ?? [])]
+                : [],
+            ),
           },
           rollDieSecurely,
         )
@@ -702,11 +973,37 @@ export async function combatDirectorRoutes(
               throw new Error("Inventory changed. Reload the battle.");
             return { stacks: outcome.stacks, journal: outcome.journal, value: null };
           });
+        // What was used and is drawn as it is used (1.808) is put on, as a free swap: past what nothing
+        // may be put away for, the step is refused, as the fight offered it only while it could be drawn.
+        const draws = Object.entries(s.itemDraws ?? {}).flatMap(([name, count]) =>
+          count > (previous.state.itemDraws?.[name] ?? 0)
+            ? [s.inventory.find((line) => line.name === name)?.ownName ?? name]
+            : [],
+        );
+        if (draws.length)
+          await applyGameInventoryChangeHeld(app.db, chatId, (stacks) => {
+            let current = stacks;
+            for (const name of draws) {
+              const drawn = drawGameInventoryFightItem(current, name, rules);
+              if ("refused" in drawn)
+                throw new Error(
+                  drawn.refused === "hands-full"
+                    ? `${name} cannot be drawn: its slots are held by ${drawn.by.join(", ")}.`
+                    : `${name} cannot be drawn: there are too few of the slots it takes.`,
+                );
+              current = drawn.stacks;
+            }
+            return { stacks: current, journal: [], value: null };
+          });
         // What a ruleset fight shot, loaded and won back since the last step, onto those very stacks,
         // with the party's sheets: a step either changes both or changes neither.
         const fightItems =
           s.style === "ruleset" && s.rulesetFight
-            ? rulesetFightItemChanges(previous.state.rulesetFight?.encounter, s.rulesetFight.encounter)
+            ? rulesetFightItemChanges(
+                previous.state.rulesetFight?.encounter,
+                s.rulesetFight.encounter,
+                session && "definition" in session ? session.definition.combat?.roundSeconds : undefined,
+              )
             : [];
         if (fightItems.length > 0)
           await applyGameInventoryChangeHeld(app.db, chatId, (stacks) => {
@@ -715,10 +1012,17 @@ export async function combatDirectorRoutes(
             return { stacks: applied.stacks, journal: applied.journal, value: null };
           });
         if (s.style === "ruleset" && s.rulesetFight) live = await writeRulesetLive(chatId, s.anchor, s.rulesetFight);
-        // The fight just ended: one that got away is remembered by name as it was made, so a later fight
+        // The fight just ended: one that got away, or won, is remembered by name as it was made, so a later fight
         // that names it brings it back the same; one beaten here is forgotten.
         if (s.style === "ruleset" && s.rulesetFight && s.outcome && !previous.state.outcome) {
-          const { fled, beaten } = rulesetFightReturningFoes(s.rulesetFight);
+          const { fled, beaten } =
+            session && "definition" in session
+              ? rulesetFightReturningFoes(
+                  session.definition,
+                  s.rulesetFight,
+                  (id) => s.enemies.find((unit) => unit.id === id)?.tactics?.adjective,
+                )
+              : { fled: [], beaten: [] };
           if (fled.length || beaten.length)
             await chats.patchMetadata(
               chatId,
@@ -728,8 +1032,35 @@ export async function combatDirectorRoutes(
                     ? current.gameReturningFoes
                     : {}) as Record<string, RulesetReturningFoe>),
                 };
-                for (const name of beaten) delete kept[rulesetReturningFoeKey(name)];
-                for (const foe of fled) kept[rulesetReturningFoeKey(foe.name)] = foe;
+                // Each name this fight had starts over: several that got away of one name ("Cult Thug
+                // (Scarred)", "Cult Thug (Highwayman)") are kept one after another, as "<name>#2" on.
+                const names = new Set([...beaten, ...fled.map((foe) => foe.name)].map(rulesetReturningFoeKey));
+                for (const key of Object.keys(kept)) if (names.has(key.replace(/#\d+$/, ""))) delete kept[key];
+                // And each that came back in other words, under the name it was kept by, the rest of
+                // that name numbered on again.
+                const fight = s.rulesetFight!;
+                for (const gone of fight.returnedFrom ?? []) {
+                  if (!kept[gone]) continue;
+                  delete kept[gone];
+                  const base = gone.replace(/#\d+$/, "");
+                  const rest: RulesetReturningFoe[] = [];
+                  const nth = (key: string) => Number(/#(\d+)$/.exec(key)?.[1] ?? 1);
+                  for (const key of Object.keys(kept).sort((a, b) => nth(a) - nth(b)))
+                    if (key === base || (key.startsWith(`${base}#`) && /^#\d+$/.test(key.slice(base.length)))) {
+                      rest.push(kept[key]!);
+                      delete kept[key];
+                    }
+                  rest.forEach((foe, index) => (kept[index === 0 ? base : `${base}#${index + 1}`] = foe));
+                }
+                // Stamped with the game clock, so the rests it takes before it comes back are counted.
+                const clock = gameClockMinutes(current.gameTime);
+                const counted = new Map<string, number>();
+                for (const foe of fled) {
+                  const key = rulesetReturningFoeKey(foe.name);
+                  const nth = (counted.get(key) ?? 0) + 1;
+                  counted.set(key, nth);
+                  kept[nth === 1 ? key : `${key}#${nth}`] = clock === undefined ? foe : { ...foe, clock };
+                }
                 return { gameReturningFoes: kept };
               },
               { metadataQueueHeld: true, touchUpdatedAt: false },
@@ -758,8 +1089,8 @@ export async function combatDirectorRoutes(
         chatId: key,
         anchor: key,
         style: z.enum(["classic", "tactical", "ruleset"]),
-        party: z.array(directedCombatantSchema).min(1).max(20),
-        enemies: z.array(rulesetOpponentSchema).min(1).max(20),
+        party: z.array(directedCombatantSchema).min(1, "This fight has nobody on the party's side.").max(20),
+        enemies: z.array(rulesetOpponentSchema).min(1, "This fight has nobody to fight.").max(20),
         environment: z.string().max(80).optional(),
         formation: z.string().max(80).optional(),
         battlefield: z.unknown().optional(),
@@ -774,7 +1105,9 @@ export async function combatDirectorRoutes(
               name: key,
               description: z.string().max(3000),
               ownerName: z.string().max(200).optional(),
-              trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]),
+              // A trigger the Engine has none of ("charge") goes off as an attack does, never refusing the
+              // fight (laptop playtest 2026-10-25).
+              trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]).catch("on_attack"),
               // 0 for a mechanic no interval drives (an hp_threshold one's `interval: 0` refused the
               // whole fight), which every reader takes as none.
               interval: rounds.optional(),
@@ -782,7 +1115,8 @@ export async function combatDirectorRoutes(
               counterplay: z.string().max(3000).optional(),
               effectType: z
                 .enum(["damage_all", "damage_one", "buff_self", "debuff_party", "status_party", "status_enemy"])
-                .optional(),
+                .optional()
+                .catch(undefined),
               power: num.max(20).optional(),
               element: z.string().max(100).optional(),
               status: itemEffect.shape.status,
@@ -823,8 +1157,10 @@ export async function combatDirectorRoutes(
         if (!anchor || anchor.chatId !== input.chatId)
           return reply.code(400).send({ error: "Battle anchor is not in this chat." });
         const existing = await load(input.chatId, input.anchor);
-        if (existing)
+        if (existing) {
+          await seatRoomPlayers(input.chatId, existing.state);
           return { session: sessionView(existing.state, await rulesetSessionFor(input.chatId, existing.state)) };
+        }
         const meta = JSON.parse(chat.metadata || "{}"),
           setup = meta.gameSetupConfig ?? {};
         if (setup.combatDirector !== true)
@@ -884,11 +1220,50 @@ export async function combatDirectorRoutes(
         // A ruleset's fight is on a board only when the game asks for one and the ruleset says what a cell
         // is worth; the ruleset is read once, here.
         const resolved = input.style === "ruleset" ? resolveGameRuleset(meta, await loadRulesetRegistry()) : null;
+        // Who plays the other side (1.774), read off the game's ruleset whatever style resolves the fight.
+        const rules = resolved ?? (meta.gameRuleset ? resolveGameRuleset(meta, await loadRulesetRegistry()) : null);
+        const opposition = rules?.status === "ok" ? rules.definition.gm.opposition : undefined;
         const here =
           input.style === "tactical" ||
           (input.positioned === true && resolved?.status === "ok" && resolved.definition.combat?.distance)
             ? await gameBattlefieldHere(app.db, input.chatId, meta, battlefield.seed)
             : null;
+        // A bestiary creature far beyond the party sends lesser ones of its kind instead, swapped before
+        // the fight's units are made (Alyssa 2026-10-26: a CR 21 lich for a level 4 party). Never in a
+        // story's own fight, which is its author's.
+        let standIns: string[] = [];
+        if (
+          resolved?.status === "ok" &&
+          resolved.definition.combat?.threat?.budget &&
+          !(await latestStoryFight(app.db, input.chatId, meta))
+        ) {
+          const definition = resolved.definition;
+          const scale = definition.combat!.threat!.budget!;
+          // Weighed for those who will fight it: the party sent, and never the dead (laptop v3b 2026-10-26:
+          // two survivors were given servants worth a party of four).
+          const sent = new Set(input.party.map((member) => normalizeCharacterLookupName(member.name)));
+          const living = parseStoredRulesetLive((await visibleLiveRow(input.chatId)).row?.rulesetLive) ?? {};
+          const fighting = [...rulesetSheetBuildsByName(definition, meta.gameCharacterCards, null).entries()].filter(
+            ([key, build]) => (sent.size === 0 || sent.has(key)) && !rulesetSheetDead(definition, build, living[key]),
+          );
+          const budget = rulesetEncounterBudget(
+            definition,
+            fighting.map(([, build]) => rulesetBudgetLevel(scale, build.fields)),
+            normalizeGameDifficulty(setup.difficulty),
+          );
+          if (budget) {
+            const swapped = rulesetBudgetStandIns(
+              definition,
+              await loadFightCatalogs(resolved.packageId, definition, (c) => c.holds === "creatures"),
+              input.enemies,
+              budget,
+            );
+            if (swapped.lines.length > 0) {
+              input.enemies = swapped.enemies as typeof input.enemies;
+              standIns = swapped.lines;
+            }
+          }
+        }
         // A scene in the setting's own words is laid out like the battlefield it names (worldgen W6d).
         const environment =
           here?.scene ??
@@ -908,7 +1283,15 @@ export async function combatDirectorRoutes(
           // What the fight is RESOLVED by is read below and never stored on the Engine's own units.
           enemies: input.enemies.map(({ creature: _c, tier: _t, proposed: _p, ...unit }) => unit) as Combatant[],
           id: randomUUID(),
+          // Who the scene caught unaware: an opponent among them checks its morale first (combat AI E1).
+          surprised: input.enemies.flatMap((one) => (one.surprised ? [one.id] : [])),
           gm: setup.gmBossControl === true,
+          // The named and the brilliant opponents too (combat AI P9), when the game asks for it.
+          gmNamed: setup.gmBossControl === true && setup.gmNamedControl === true,
+          // A cruel opponent may strike the fallen only where the game allows it (combat AI T3).
+          cruel: setup.cruelOpponents === true,
+          // Every opponent, where the game's ruleset gives the Game Master the opposition (1.774).
+          gmAll: setup.gmBossControl === true && opposition === "game-master",
           difficulty: normalizeGameDifficulty(setup.difficulty),
           weather: resolveCombatWeather(
             weatherSource,
@@ -940,21 +1323,20 @@ export async function combatDirectorRoutes(
           const itemBook = rulesetReadsItems(definition)
             ? await loadGameInventoryItemBook(app.db, { metadata: meta, resolved }, "player")
             : undefined;
+          const cardNames = (Array.isArray(cards) ? (cards as Array<Record<string, unknown>>) : []).flatMap((card) =>
+            typeof card?.name === "string" && card.name.trim() ? [card.name.trim()] : [],
+          );
           const fightItems = itemBook
             ? rulesetCardItems(
                 itemBook,
                 normalizeGameInventoryStacks(meta.gameInventory),
-                (Array.isArray(cards) ? (cards as Array<Record<string, unknown>>) : []).flatMap((card) =>
-                  typeof card?.name === "string" && card.name.trim() ? [card.name.trim()] : [],
-                ),
+                cardNames,
                 persona?.name ?? null,
               )
             : undefined;
+          // Every sheet's lists, since the fight's party is who holds a sheet, whatever names the setup used.
           const partyLists = new Set(
-            input.party.flatMap((member) => {
-              const build = builds.get(normalizeCharacterLookupName(member.name));
-              return build ? rulesetCatalogIdsForBuild(definition, build) : [];
-            }),
+            [...builds.values()].flatMap((build) => rulesetCatalogIdsForBuild(definition, build)),
           );
           // One read of the visible game state, for both its live sheets and its time of day.
           const liveRow = (await visibleLiveRow(input.chatId)).row;
@@ -968,6 +1350,7 @@ export async function combatDirectorRoutes(
             await gamePartyLevel(app.db, input.chatId, meta, definition),
           );
           const enemyAdjusts = storyFightAdjustsFor(input.enemies, adjusts);
+          const storyFight = await latestStoryFight(app.db, input.chatId, meta);
           // Whether death is held where it is fought (1.366): the story's Held Ground (1.323).
           const heldGround = await latestStoryHeldGround(app.db, input.chatId, meta);
           // One that got away from an earlier fight comes back as it was made then, whatever this
@@ -976,16 +1359,87 @@ export async function combatDirectorRoutes(
           const returning = (
             meta.gameReturningFoes && typeof meta.gameReturningFoes === "object" ? meta.gameReturningFoes : {}
           ) as Record<string, RulesetReturningFoe>;
-          const backAs = input.enemies.map((enemy) => returning[rulesetReturningFoeKey(enemy.name)]);
+          // One of a name comes back once: the second Bandit of a fight where one Bandit got away is a
+          // fresh one (cloud re-test 2026-10-25: both came back at 1 of 13).
+          // Each kept one of a name goes to one of the fight's of that name: those the Game Master marked
+          // ("Cult Thug (Wounded)") first, in order, then the one of its name, or any of a named one's.
+          // A nameless one of several unmarked is a fresh one (2026-10-25: of two Cult Guards, neither
+          // is the guard that got away before).
+          const backAs: Array<RulesetReturningFoe | undefined> = input.enemies.map(() => undefined);
+          const keys = [...new Set(input.enemies.map((enemy) => rulesetReturningFoeKey(enemy.name)))];
+          for (const key of keys) {
+            const stored: RulesetReturningFoe[] = [];
+            for (let nth = 1; returning[nth === 1 ? key : `${key}#${nth}`]; nth++)
+              stored.push(returning[nth === 1 ? key : `${key}#${nth}`]!);
+            if (stored.length === 0) continue;
+            const same = input.enemies.flatMap((other, at) => (rulesetReturningFoeKey(other.name) === key ? [at] : []));
+            const marked = same.filter((at) => rulesetReturningFoeMarked(input.enemies[at]!.name));
+            const plain = same.filter((at) => !marked.includes(at));
+            // Several marked of a name not of the story are the Game Master telling a group apart
+            // ("Cult Thug (Crossbow)", "Cult Thug (Mace)"), not one coming back: each takes only the
+            // kept one written as it is (laptop pass 5 2026-10-26: two of four Cult Thugs linked).
+            if (marked.length > 1 && !stored[0]!.named) {
+              const left = [...stored];
+              for (const at of marked) {
+                const same = left.findIndex(
+                  (foe) =>
+                    normalizeCharacterLookupName(foe.name) === normalizeCharacterLookupName(input.enemies[at]!.name),
+                );
+                if (same >= 0) backAs[at] = left.splice(same, 1)[0];
+              }
+              continue;
+            }
+            const takers = [...marked, ...(same.length === 1 || stored[0]!.named ? plain : [])];
+            takers.forEach((at, index) => {
+              if (stored[index]) backAs[at] = stored[index];
+            });
+          }
+          // One kept from before and written again in other words, by the Game Master's own words for
+          // it, once each (laptop playtest 2026-10-25: "Cult Thug (Highwayman)" came back as "Highwayman
+          // Thug" with a fresh sheet). Only one of a name nothing in this fight is called.
+          const taken = new Set(backAs.filter((foe): foe is RulesetReturningFoe => !!foe));
+          const asked = new Set(keys);
+          const others = Object.entries(returning).filter(
+            ([key, foe]) => !asked.has(key.replace(/#\d+$/, "")) && !taken.has(foe),
+          );
+          // Forgotten under its old name once this fight ends, so it never comes back twice.
+          const reworded: string[] = [];
+          input.enemies.forEach((enemy, at) => {
+            if (backAs[at]) return;
+            // The first kept that fits, so two that got away of one name ("Cult Druid") come back as the
+            // story's two ("Vengeful Cult Druid", "Desperate Cult Druid"), one each.
+            const found = others.find(([, foe]) => rulesetReturningFoeReworded(foe.name, enemy.name));
+            if (!found) return;
+            backAs[at] = found[1];
+            reworded.push(found[0]);
+            others.splice(others.indexOf(found), 1);
+          });
+          // The game's whole party fights, not only those the setup named (cheap-GM playtest
+          // 2026-10-26: combat:init listed one of three heroes, accepted without a word, and he fought
+          // alone): only where its party list can be read, so who left it is known.
+          const roster = await gamePartyRoster(app.db, input.chatId, meta, persona?.name ?? null, persona?.id);
+          const partyRoster = roster
+            ? {
+                away: cardNames.filter((name) => !roster.has(normalizeCharacterLookupName(name))),
+                sitsOut: cardNames.filter((name) => noncombatants.has(buildPartyNpcId(name))),
+                idFor: (name: string) => roster.get(normalizeCharacterLookupName(name)) ?? "",
+              }
+            : undefined;
           const built = createRulesetFight({
             definition,
             seed: battlefield.seed,
             positioned: input.positioned === true,
+            // The player sets the party down before the first turn (2026-10-24).
+            deploy: true,
             environment: environment ?? null,
             formation: input.formation ?? null,
             ...(input.boardPack ? { pack: input.boardPack } : {}),
             ...(here ? { made: here } : battlefield.battlefield ? { battlefield: battlefield.battlefield } : {}),
-            party: input.party.map((member) => ({ id: member.id, name: member.name })),
+            party: input.party.map((member) => ({
+              id: member.id,
+              name: member.name,
+              ...(member.start ? { start: member.start } : {}),
+            })),
             enemies: input.enemies.map((enemy, index) => ({
               id: enemy.id,
               name: enemy.name,
@@ -994,40 +1448,169 @@ export async function combatDirectorRoutes(
                     ...(backAs[index]!.creature !== undefined ? { creature: backAs[index]!.creature } : {}),
                     ...(backAs[index]!.tier !== undefined ? { tier: backAs[index]!.tier } : {}),
                     ...(backAs[index]!.proposed !== undefined ? { proposed: backAs[index]!.proposed } : {}),
+                    ...(backAs[index]!.coins?.length ? { coins: backAs[index]!.coins } : {}),
                   }
                 : {
                     ...(enemy.creature !== undefined ? { creature: enemy.creature } : {}),
                     ...(enemy.tier !== undefined ? { tier: enemy.tier } : {}),
                     ...(enemy.proposed !== undefined ? { proposed: enemy.proposed } : {}),
                   }),
+              ...(enemy.creatureType !== undefined ? { creatureType: enemy.creatureType } : {}),
               ...(enemy.tactics ? { tactics: enemy.tactics } : {}),
               ...(enemyAdjusts[index] ? { adjust: enemyAdjusts[index] } : {}),
               boss: !!enemy.boss,
+              ...(enemy.aiHints?.named ? { named: true } : {}),
+              ...(enemy.aiHints?.mind ? { mind: enemy.aiHints.mind } : {}),
+              ...(enemy.aiHints?.leader ? { leader: true } : {}),
+              ...(enemy.start ? { start: enemy.start } : {}),
+              ...(enemy.carrying ? { items: enemy.carrying } : {}),
+              // Its attacks by name, and what may be its reactions, from the Game Master's own skills: a
+              // heal names no strike, and a reaction word the Engine has none of ("Parry") is dropped as
+              // the blueprint is read, so a skill that is no attack is looked for by name too (laptop
+              // 2026-10-25).
+              ...(enemy.skills?.length
+                ? {
+                    attacks: enemy.skills.map((skill) => ({
+                      name: skill.name,
+                      ...(skill.reaction ? { reaction: skill.reaction } : {}),
+                      ...(skill.type !== "attack" ? { kind: skill.type } : {}),
+                      ...(skill.spell ? { spell: true as const } : {}),
+                      ...(skill.legendaryCost ? { legendary: skill.legendaryCost } : {}),
+                      // What reaches more than one, and its own words, so a breath, a cone or a line is
+                      // built as an area its targets save against (laptop playtest 2026-10-26).
+                      ...(skill.areaRadius || skill.targetScope === "all-enemies" ? { area: true as const } : {}),
+                      ...(skill.description ? { description: skill.description } : {}),
+                    })),
+                  }
+                : {}),
+              ...(enemy.boss?.points ? { points: enemy.boss.points } : {}),
+              // Hurt in the story before the fight, by the hp the Game Master gave it; one that comes back
+              // keeps the wounds it left with instead.
+              ...(!backAs[index] && enemy.maxHp > 0 && enemy.hp > 0 && enemy.hp < enemy.maxHp
+                ? { hurt: enemy.hp / enemy.maxHp }
+                : {}),
             })),
             cards,
             playerName: persona?.name ?? null,
+            ...(partyRoster ? { roster: partyRoster } : {}),
+            // Companions fight on their own unless the game says the player plays them (Alyssa 2026-10-26).
+            companionsOnTheirOwn: setup.playerRunsCompanions !== true,
+            // In a shared room each player's own character is theirs to play (2026-10-26).
+            // One not connected as it starts fights on their own until they take them back (2026-10-27).
+            ...((players) =>
+              players
+                ? {
+                    players,
+                    othersPlay: ROOM_GUEST_FIGHT_CONTROLLER,
+                    absent: [...(options.room?.absent(input.chatId) ?? [])],
+                  }
+                : {})(roomPlayersByName(meta)),
             live: parseStoredRulesetLive(liveRow?.rulesetLive),
             // What each member holds as the fight starts, when the ruleset's sheet reads items.
-            ...(fightItems ? { items: fightItems } : {}),
+            ...(fightItems ? { items: fightItems, holders: rulesetCardHolder(cardNames, persona?.name ?? null) } : {}),
+            // The ruleset's items, for what its opponents have on them (1.795).
+            ...(itemBook ? { itemBook } : {}),
             partyCatalogs: await loadFightCatalogs(resolved.packageId, definition, (c) => partyLists.has(c.id)),
-            bestiary: await loadBestiary(resolved.packageId, definition, proposedSheetLists(definition, input.enemies)),
+            bestiary: await loadBestiary(
+              resolved.packageId,
+              definition,
+              proposedSheetLists(
+                definition,
+                // A foe that comes back is read off the sheet it was made with (laptop playtest
+                // 2026-10-25: a returning Kallian's Dagger "in no catalog").
+                input.enemies.map((enemy, index) =>
+                  backAs[index]?.proposed !== undefined ? { ...enemy, proposed: backAs[index]!.proposed } : enemy,
+                ),
+              ),
+            ),
             // Who the scene caught unaware (1.237).
             surprised: [...input.party, ...input.enemies].flatMap((one) => (one.surprised ? [one.id] : [])),
             // Who fights in its own lair (1.315).
             inLair: input.enemies.flatMap((one) => (one.inLair ? [one.id] : [])),
+            // What was set up before it, standing as it begins (1.462).
+            standing: [...input.party, ...input.enemies].flatMap((one) =>
+              (one.standing ?? []).map((entry) => ({ casterId: one.id, ...entry })),
+            ),
             ...(heldGround ? { heldGround } : {}),
             // The scene's time of day, for the light it is fought in (1.291).
             time: liveRow?.time ?? null,
+            // The ruleset's encounter budget (1.803), for a fight the Game Master made up: a story's
+            // fight is its author's, and one that comes back is as it was.
+            ...(storyFight
+              ? {}
+              : {
+                  budget: {
+                    difficulty: normalizeGameDifficulty(setup.difficulty),
+                    kept: input.enemies.flatMap((enemy, index) => (backAs[index] ? [enemy.id] : [])),
+                  },
+                }),
           });
           if (!built.ok) return reply.code(400).send({ error: built.error });
+          if (standIns.length > 0) built.fight.adjustments.unshift(...standIns);
+          if (reworded.length) built.fight.returnedFrom = reworded;
+          const clockNow = gameClockMinutes(meta.gameTime);
           backAs.forEach((back, index) => {
             if (!back) return;
             const one = built.fight.encounter.combatants.find((c) => c.id === input.enemies[index]!.id);
-            if (one && !one.sheet && one.health && back.health)
-              one.health = { value: back.health, max: back.health, temp: 0 };
-            built.fight.adjustments.push(`${input.enemies[index]!.name} is the same one that got away before.`);
+            // Still missing what it got away without, never down for it, and its spent slots still
+            // spent until it has rested (2026-10-25).
+            if (one) rulesetBringBackFoe(definition, one, back, clockNow);
+            // With the temperament it had, unless the story gives it another now.
+            const unit = state.enemies.find((one) => one.id === input.enemies[index]!.id);
+            const temperament = COMBAT_ADJECTIVES.find((word) => word === back.temperament);
+            if (unit && temperament && !unit.aiHints?.temperament) {
+              unit.aiHints = { ...unit.aiHints, temperament };
+              if (unit.tactics) unit.tactics.adjective = temperament;
+            }
+            built.fight.adjustments.push(`${input.enemies[index]!.name} is the same one the party met before.`);
+            logger.info("[combat-director/start] %s comes back as %s", input.enemies[index]!.name, back.name);
           });
+          // The Engine's own party array follows the fight's: a sheet the setup left out joins it, a
+          // member with no sheet leaves it, and a stand-in carries its card's name (2026-10-23 playtest).
+          const fought = new Map(
+            built.fight.encounter.combatants.flatMap((one) =>
+              one.side === "party" ? [[one.id, one.name] as const] : [],
+            ),
+          );
+          const template = state.party[0];
+          state.party = state.party.filter((unit) => fought.has(unit.id));
+          for (const unit of state.party) unit.name = fought.get(unit.id) ?? unit.name;
+          for (const [id, name] of fought) {
+            if (state.party.some((unit) => unit.id === id)) continue;
+            state.party.push({
+              id,
+              name,
+              hp: 1,
+              maxHp: 1,
+              attack: 0,
+              defense: 0,
+              speed: 0,
+              level: 1,
+              side: "player",
+              ...(template?.controller ? { controller: template.controller } : {}),
+            });
+          }
+          // Who the player last gave the Engine, or kept, in this chat's fights.
+          const kept = rememberedControllers(meta);
+          for (const id of fought.keys()) {
+            const controller = kept[id];
+            // What the host chose before never covers another room player's own character.
+            const player = rulesetUnitPlayer(built.fight, id);
+            if (controller && (!player || player.host)) built.fight.controllers[id] = controller;
+          }
+          // The one the player plays while their own character is dead is theirs, not the Engine's.
+          if (built.standIn) built.fight.controllers[built.standIn] = "manual";
+          // And the orders the player last gave each companion, where whom one protects is here too.
+          const ordered = rememberedOrders(meta);
+          for (const unit of state.party) {
+            const orders = ordered[unit.id];
+            if (unit.orders || !orders) continue;
+            if (orders.protectId !== undefined && !state.party.some((one) => one.id === orders.protectId)) continue;
+            unit.orders = orders;
+          }
           state.rulesetFight = built.fight;
+          // A party the Engine plays all of has nobody for the player to set down.
+          if (built.fight.deploy && rulesetDeployers(state, built.fight).length === 0) rulesetBeginFight(built.fight);
           syncRulesetCombatants(definition, state);
           state.stage = rulesetDirectorStage(state);
           session = { definition, packageId: resolved.packageId };
@@ -1042,6 +1625,8 @@ export async function combatDirectorRoutes(
           committed: true,
         });
         state.instanceId = rowId;
+        rememberFight(input.chatId, input.anchor);
+        options.room?.changed(input.chatId);
         return { session: sessionView(state, session) };
       });
     } catch (err) {
@@ -1055,9 +1640,9 @@ export async function combatDirectorRoutes(
     const { chatId, anchor } = parsed.data;
     try {
       const found = await load(chatId, anchor);
-      return found
-        ? { session: sessionView(found.state, await rulesetSessionFor(chatId, found.state)) }
-        : reply.code(404).send({ error: "Battle not found." });
+      if (!found) return reply.code(404).send({ error: "Battle not found." });
+      await seatRoomPlayers(chatId, found.state);
+      return { session: sessionView(found.state, await rulesetSessionFor(chatId, found.state)) };
     } catch (err) {
       logger.warn(err, "Unable to load directed combat");
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid combat save." });
@@ -1093,35 +1678,52 @@ export async function combatDirectorRoutes(
     if (!released) return save(rowId, chatId, s, session);
     return keepHeldGroundReleasedWhile(app.db, chatId, released, () => save(rowId, chatId, s, session));
   };
-  app.post("/command", async (req, reply) => {
-    const parsed = z
-      .object({
-        chatId: key,
-        anchor: key,
-        id: key,
-        instanceId: key,
-        revision: z.number().int().min(0),
-        requestId: key,
-        command,
-        debugMode: z.boolean().optional(),
-      })
-      .safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message });
-    const input = parsed.data;
+  const commandBody = z.object({
+    chatId: key,
+    anchor: key,
+    id: key,
+    instanceId: key,
+    revision: z.number().int().min(0),
+    requestId: key,
+    command,
+    debugMode: z.boolean().optional(),
+  });
+  type CommandAnswer = { code: 200 | 400; body: Record<string, unknown> };
+  /** One command, from the host's screen or (2026-10-27) a room player's through the room, checked
+   *  against whose party member it moves. */
+  const runCommand = async (
+    input: z.infer<typeof commandBody>,
+    commander: RulesetFightCommander,
+  ): Promise<CommandAnswer> => {
+    // Who the player hands to the Engine, or takes back, is kept for the chat's next fights too
+    // (laptop party A 2026-10-25: companions back on Player at every fight).
+    let controlled: Array<{ unitId: string; controller: "manual" | "ai" }> | undefined;
+    let ordered: { unitId: string; orders: CombatOrders | null } | undefined;
     try {
       const result = await serialized(input.chatId, async () => {
         const found = await load(input.chatId, input.anchor);
         if (!found) throw new Error("Battle not found.");
         const { row, state } = found;
         if (state.id !== input.id) throw new Error("Battle changed. Reload its current state.");
+        await seatRoomPlayers(input.chatId, state);
         const session = await rulesetSessionFor(input.chatId, state);
         const ruleset = session && "definition" in session ? session.definition : null;
-        if (state.instanceId !== input.instanceId) return { session: sessionView(state, session) };
-        if (state.requests.includes(input.requestId)) return { session: sessionView(state, session) };
-        if (state.revision !== input.revision) return { session: sessionView(state, session) };
+        // Sent at a fight that has since moved on (another tab, a restart): nothing is done, and the
+        // reply says so, so the client takes the fight as it stands rather than its own older copy.
+        if (state.instanceId !== input.instanceId)
+          return { session: sessionView(state, session, commander), stale: true };
+        if (state.requests.includes(input.requestId)) return { session: sessionView(state, session, commander) };
+        if (state.revision !== input.revision) return { session: sessionView(state, session, commander), stale: true };
         // A fight whose rules are gone changes nothing at all: it is already finished, and the view
         // says why.
-        if (state.style === "ruleset" && !ruleset) return { session: sessionView(state, session) };
+        if (state.style === "ruleset" && !ruleset) return { session: sessionView(state, session, commander) };
+        // In a shared room a party member is commanded by its own player only (2026-10-26): the host's
+        // come through this route, a guest's through the room (2026-10-27).
+        const notTheirs =
+          ruleset && state.rulesetFight
+            ? rulesetCommandRefusal(state, state.rulesetFight, input.command as DirectedCommand, commander)
+            : null;
+        if (notTheirs) return { refusal: notTheirs };
         const step = (command: DirectedCommand, source: "gm" | "ai" | "manual" | "fallback" = "manual") => {
           if (!ruleset) {
             commandCombatDirector(state, command, source);
@@ -1130,9 +1732,16 @@ export async function combatDirectorRoutes(
           const answered = commandRulesetCombatDirector(ruleset, state, command, source);
           return answered.ok ? null : answered;
         };
+        // A Game Master's decision a window waiting on somebody else stands over is put away, not asked.
+        if (input.command.type === "continue" && ruleset && rulesetDecisionUnderWindow(state)) {
+          step({ type: "continue" });
+          state.requests = [...state.requests, input.requestId].slice(-256);
+          return await saveLettingGo(row.id, input.chatId, state, session, ruleset);
+        }
         const w = state.window;
         if (input.command.type === "continue" && w?.controller === "gm") {
-          if (w.requestedAt && Date.now() - w.requestedAt < 12000) return { session: sessionView(state, session) };
+          if (w.requestedAt && Date.now() - w.requestedAt < 12000)
+            return { session: sessionView(state, session, commander) };
           if (w.requestedAt || state.gmCalls >= 12) {
             step({ type: "fallback" }, "fallback");
             state.requests = [...state.requests, input.requestId].slice(-256);
@@ -1192,6 +1801,12 @@ export async function combatDirectorRoutes(
         const refused = step(input.command as DirectedCommand);
         // A refusal changed nothing, so nothing is saved and no request id is spent on it.
         if (refused) return { refusal: refused };
+        if (input.command.type === "control" && ruleset) controlled = [input.command];
+        if (input.command.type === "controlCompanions" && ruleset && state.rulesetFight) {
+          const controller = input.command.controller;
+          controlled = rulesetCompanionIds(state, state.rulesetFight).map((unitId) => ({ unitId, controller }));
+        }
+        if (input.command.type === "orders" && ruleset) ordered = input.command;
         state.requests = [...state.requests, input.requestId].slice(-256);
         // What it spends is kept only while the step is saved: a save that fails takes it back.
         if (storySpend && "spend" in storySpend) {
@@ -1201,9 +1816,37 @@ export async function combatDirectorRoutes(
         }
         return await saveLettingGo(row.id, input.chatId, state, session, ruleset);
       });
+      if (ordered) {
+        const { unitId, orders } = ordered;
+        await chats
+          .patchMetadata(
+            input.chatId,
+            (current) => {
+              const kept: Record<string, CombatOrders> = { ...rememberedOrders(current) };
+              if (orders) kept[unitId] = orders;
+              else delete kept[unitId];
+              return { [COMBAT_ORDERS_KEY]: kept };
+            },
+            { touchUpdatedAt: false },
+          )
+          .catch((err) => logger.warn(err, "Unable to remember a companion's orders"));
+      }
+      if (controlled?.length) {
+        const chosen = Object.fromEntries(controlled.map(({ unitId, controller }) => [unitId, controller]));
+        await chats
+          .patchMetadata(
+            input.chatId,
+            (current) => ({
+              [COMBAT_CONTROLLERS_KEY]: { ...rememberedControllers(current), ...chosen },
+            }),
+            { touchUpdatedAt: false },
+          )
+          .catch((err) => logger.warn(err, "Unable to remember a combat controller"));
+      }
       if ("refusal" in result && result.refusal)
-        return reply.code(400).send({ error: result.refusal.error, code: result.refusal.code });
-      if ("session" in result) return result;
+        return { code: 400, body: { error: result.refusal.error, code: result.refusal.code } };
+      options.room?.changed(input.chatId);
+      if ("session" in result) return { code: 200, body: result };
       const job = result.job;
       const abort = new AbortController();
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -1221,7 +1864,8 @@ export async function combatDirectorRoutes(
             timer = setTimeout(() => {
               abort.abort();
               reject(new Error("Boss decision timed out."));
-            }, 10000);
+              // Room for a model that thinks before it answers (2026-10-23 re-test: 10 s fell back).
+            }, DECISION_TIMEOUT_MS.thinking);
           }),
         ]);
       } catch (err) {
@@ -1230,7 +1874,7 @@ export async function combatDirectorRoutes(
         if (timer) clearTimeout(timer);
         abort.abort();
       }
-      return await serialized(input.chatId, async () => {
+      const answered = await serialized(input.chatId, async () => {
         const current = await load(input.chatId, input.anchor);
         if (!current) throw new Error("Battle no longer exists.");
         const session = await rulesetSessionFor(input.chatId, current.state);
@@ -1241,22 +1885,75 @@ export async function combatDirectorRoutes(
           current.state.revision !== job.revision ||
           current.state.window?.id !== job.windowId ||
           (current.state.style === "ruleset" && !ruleset)
-        )
-          return { session: sessionView(current.state, session) };
+        ) {
+          // Said, so a fight that stands still after a Game Master's answer is never a silent one.
+          logger.info(
+            "[game/combat] A boss decision for chat %s arrived after the fight moved on (revision %d, now %d) and was dropped",
+            input.chatId,
+            job.revision,
+            current.state.revision,
+          );
+          return { session: sessionView(current.state, session, commander) };
+        }
         const answer: DirectedCommand = candidateId ? { type: "choose", candidateId } : { type: "fallback" };
         const source = candidateId ? "gm" : "fallback";
         if (ruleset) {
           // An answer the menu does not hold costs the model its turn, not the fight: the Engine's
           // own picker takes it instead.
           const answered = commandRulesetCombatDirector(ruleset, current.state, answer, source);
-          if (!answered.ok) commandRulesetCombatDirector(ruleset, current.state, { type: "fallback" }, "fallback");
+          if (!answered.ok) {
+            logger.warn(
+              "[game/combat] The boss decision %s for chat %s was refused (%s); the Engine's own pick plays it",
+              candidateId ?? "fallback",
+              input.chatId,
+              answered.code,
+            );
+            const fallback = commandRulesetCombatDirector(ruleset, current.state, { type: "fallback" }, "fallback");
+            if (!fallback.ok)
+              logger.warn("[game/combat] The fallback for chat %s was refused too (%s)", input.chatId, fallback.code);
+          }
         } else commandCombatDirector(current.state, answer, source);
         current.state.requests = [...current.state.requests, input.requestId].slice(-256);
         return await saveLettingGo(current.row.id, input.chatId, current.state, session, ruleset);
       });
+      options.room?.changed(input.chatId);
+      return { code: 200, body: answered };
     } catch (err) {
       logger.warn(err, "Directed combat command rejected");
-      return reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid combat action." });
+      return { code: 400, body: { error: err instanceof Error ? err.message : "Invalid combat action." } };
     }
+  };
+  app.post("/command", async (req, reply) => {
+    const parsed = commandBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message });
+    const answer = await runCommand(parsed.data, RULESET_ROOM_HOST);
+    return answer.code === 200 ? answer.body : reply.code(400).send(answer.body);
+  });
+  const roomView: RoomFightBridge["view"] = async (chatId, viewer) => {
+    const anchor = roomFights.get(chatId);
+    const found = anchor ? await load(chatId, anchor) : null;
+    if (!anchor || !found) return null;
+    await seatRoomPlayers(chatId, found.state);
+    return { anchor, view: sessionView(found.state, await rulesetSessionFor(chatId, found.state), viewer) };
+  };
+  options.room?.ready({
+    view: roomView,
+    async command(chatId, input, viewer) {
+      let command = input.command;
+      // A shape a guest aimed at a cell catches whoever the menu says it catches there.
+      if (command.type === "ruleset" && command.at && command.targetIds.length === 0) {
+        const { at, optionId } = command;
+        const shown = await roomView(chatId, viewer);
+        const aim = shown?.view.ruleset?.options
+          ?.find((option) => option.id === optionId)
+          ?.aim?.find((cell) => cell.x === at.x && cell.y === at.y);
+        if (aim) command = { ...command, targetIds: aim.targetIds.slice(0, 20) };
+      }
+      const parsed = commandBody.safeParse({ chatId, ...input, command, requestId: randomUUID() });
+      if (!parsed.success) return { ok: false, stale: false };
+      const answer = await runCommand(parsed.data, viewer);
+      if (answer.code !== 200) return { ok: false, stale: false };
+      return answer.body.stale === true ? { ok: false, stale: true } : { ok: true };
+    },
   });
 }

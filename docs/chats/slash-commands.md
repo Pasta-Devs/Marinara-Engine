@@ -82,11 +82,14 @@ These commands help you steer a story, play a character, and add art. Most of th
 | `/random` | `/rand`, `/event` | Asks the AI to add a surprise event to the story. |
 | `/scene [description (optional)]` | `/rp` | Run from a Conversation chat. Starts a new Roleplay scene that branches off that conversation. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Generates a gallery image for the current chat. |
+| `/html [what you want]` | | Roleplay: makes one in-world artifact at the end of the latest reply, for example `a spellbook page`. |
 | `/video [description (optional)]` | | Roleplay: makes a short clip of the latest reply, or of what you describe, under that reply. It follows Illustrator's **First frame** setting. In Conversation, `/video` sends a video message instead (see below). |
 | `/impersonate [direction (optional)]` | `/imp` | Writes a reply as your persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Sets the instruction that `/impersonate` uses in this chat. |
 
 In **Roleplay**, `/illustrate range=12` illustrates message 12, and `/illustrate range=12-18` sends messages 12 through 18 to the Illustrator. Use the same message numbers as `/goto`, in ascending order, with at most 200 messages. Hidden messages stay excluded. The image attaches to the last visible message in the selected range; prompt review keeps that selection even if newer messages arrive. Earlier messages remain available with Advanced Memory enabled. Without `range=`, the command keeps its usual current-scene behavior. An optional typed prompt is used directly, as before.
+
+`/html a terminal readout` makes one artifact at the end of the latest reply. It needs no agent and works whether or not **HTML Artifacts** is enabled. The narrator can make the same request itself with `[html: prompt="..."]` when **HTML Artifacts** is enabled under **Roleplay Commands**. See [Artifacts on demand](../roleplay/getting-started.md#artifacts-on-demand).
 
 To steer the next reply, add your direction after `/guided`:
 

@@ -134,7 +134,7 @@ try {
     getCapabilityPackageInstallIssue(manifest(minor) as never, doc as never, undefined as never) ?? "";
   assert.doesNotMatch(issueAt(378, fixture()), gate, "the example asks for nothing new");
   assert.match(issueAt(378, fixture(["tactical"])), gate);
-  assert.doesNotMatch(issueAt(379, fixture(["tactical"])), gate);
+  assert.doesNotMatch(issueAt(778, fixture(["tactical"])), gate);
 
   // ── Where it is read ──
   const wizard = readSource("packages/client/src/components/game/GameSetupWizard.tsx");

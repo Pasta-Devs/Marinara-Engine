@@ -268,7 +268,7 @@ try {
         creature.actions[0].reaction = reaction;
       });
     parsedOrThrow(withCreatureAnswer(parryReaction()), "a creature's Parry");
-    refused(withCreatureAnswer({ on: "aimed", blow: "melee" }), /"blow" says what kind of hit/, "blow off a hit");
+    refused(withCreatureAnswer({ on: "harmed", blow: "melee" }), /"blow" says what kind of hit/, "blow off a hit");
     refused(
       withCreatureAnswer({ on: "hit", also: [{ on: "harmed", blow: "ranged" }] }),
       /"blow" says what kind of hit/,

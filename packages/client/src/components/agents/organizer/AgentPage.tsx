@@ -18,7 +18,15 @@ import {
   typeOf,
   type OrganizerEntry,
 } from "./organizer-model";
-import { AgentAction, AgentIcon, AgentRow, SECONDARY_ACTION, StoreBanner, useOrganizer } from "./OrganizerParts";
+import {
+  AgentAction,
+  AgentIcon,
+  AgentRow,
+  SECONDARY_ACTION,
+  StoreBanner,
+  useOrganizer,
+  useShownEntry,
+} from "./OrganizerParts";
 
 const HOW_TO_STEPS = [1, 2, 3] as const;
 
@@ -65,6 +73,7 @@ export function AgentPage({
   const openAgentDetail = useUIStore((state) => state.openAgentDetail);
   const { t: localizeUi } = useUiTranslation();
   const { manifest } = entry;
+  const shown = useShownEntry(entry);
   const installed = installedById.get(manifest.id);
   const update = hasUpdate(entry, installed);
   const checkReason = checkReasonOf(installed);
@@ -109,10 +118,8 @@ export function AgentPage({
             <p className="text-xs font-semibold tracking-wide text-[var(--muted-foreground)]">
               {localizeUi(sectionLabelKey(section))} · {localizeUi(typeLabelKey(type))}
             </p>
-            <h2 className="text-2xl font-bold break-words text-[var(--foreground)] sm:text-[1.75rem]">
-              {manifest.name}
-            </h2>
-            <p className="text-sm text-[var(--muted-foreground)]">{taglineOf(entry)}</p>
+            <h2 className="text-2xl font-bold break-words text-[var(--foreground)] sm:text-[1.75rem]">{shown.name}</h2>
+            <p className="text-sm text-[var(--muted-foreground)]">{taglineOf(entry, shown.description)}</p>
             <p className="mt-2 text-xs text-[var(--muted-foreground)]">
               {installed
                 ? localizeUi("ui.agents.organizer.statusInstalled", { version: installed.version })
@@ -247,7 +254,7 @@ export function AgentPage({
 
           <div className="grid grid-cols-1 gap-x-12 lg:grid-cols-2">
             <Section title={localizeUi("ui.agents.organizer.about")}>
-              <p className="max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">{manifest.description}</p>
+              <p className="max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">{shown.description}</p>
               {entry.documentationUrl && (
                 <a
                   href={entry.documentationUrl}

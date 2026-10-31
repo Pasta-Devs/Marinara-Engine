@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
+  TACTICAL_BATTLEFIELD_SIZES,
   validateTacticalBattlefieldBrief,
+  salvageTacticalBattlefieldBrief,
   type TacticalBattlefieldBrief,
   type TacticalBattlefieldSetup,
   type TacticalMovementMode,
@@ -19,7 +21,7 @@ export const tacticalBattlefieldSeedSchema = z
 export const tacticalBattlefieldSetupSchema = z
   .object({
     seed: tacticalBattlefieldSeedSchema.optional(),
-    size: z.enum(["small", "medium", "large"]).optional(),
+    size: z.enum(TACTICAL_BATTLEFIELD_SIZES).optional(),
     instructions: z.string().trim().max(4000).optional(),
   })
   .strict();
@@ -77,8 +79,11 @@ export function validateTacticalEncounterBlueprint(value: unknown): TacticalEnco
   const battlefield = { ...blueprint.battlefield };
   const briefResult = validateTacticalBattlefieldBrief(battlefield.terrainBrief);
   if (!briefResult.ok) {
-    delete battlefield.terrainBrief;
-    battlefield.terrainBriefError = `The GM's terrain request was invalid: ${briefResult.error}`;
+    // What is good of it is kept, and the error says what was left out or changed.
+    const salvaged = salvageTacticalBattlefieldBrief(battlefield.terrainBrief);
+    if (salvaged) battlefield.terrainBrief = salvaged;
+    else delete battlefield.terrainBrief;
+    battlefield.terrainBriefError = `The GM's terrain request was invalid${salvaged ? ", so only its good parts were kept" : ""}: ${briefResult.error}`;
     return { ok: true, blueprint: { ...blueprint, battlefield } };
   }
   delete battlefield.terrainBriefError;

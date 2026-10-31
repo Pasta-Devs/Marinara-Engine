@@ -10,11 +10,13 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   gameInventoryBagKey,
   gameInventoryBearerStatus,
+  gameInventoryWeightText,
   resolveRulesetStartingGear,
   rulesetStartingGearCoinCount,
   rulesetStartingGearCoins,
   rulesetBuilderStartingGearOptions,
   rulesetStartingGearFits,
+  rulesetStartingGearOptionOffered,
   rulesetStartingGearKind,
   rulesetStartingGearTakenBy,
   type GameInventoryStack,
@@ -70,7 +72,12 @@ export function StartingGearPicker({
   sheets?: RulesetItemBookSheets;
   taken: StartingGearTaken;
   /** Resolves to whether the gear went into the bag. */
-  onTake: (holder: string | undefined, selection: RulesetStartingGearSelection, again: boolean) => Promise<boolean>;
+  onTake: (
+    holder: string | undefined,
+    selection: RulesetStartingGearSelection,
+    again: boolean,
+    pastLimit?: boolean,
+  ) => Promise<boolean>;
 }) {
   const { t } = useUiTranslation();
   const firstRef = useRef<HTMLSelectElement>(null);
@@ -154,8 +161,17 @@ export function StartingGearPicker({
         )
       : 0;
   const room = status.limit !== undefined ? status.limit - status.load : undefined;
+  // In what the ruleset counts weights in (1.791).
+  const weightText = (value: number) => gameInventoryWeightText(value, book.weightUnit);
+  // What the items of some lines weigh, a choice's option or a kit's own: nothing where weight means
+  // nothing here or none of them weighs anything.
+  const linesWeight = (lines: readonly RulesetStartingGearLine[]) =>
+    book.bearer
+      ? lines.reduce((total, line) => total + (line.item ? (book.itemOf(line.item)?.weight ?? 0) * line.count : 0), 0)
+      : 0;
   const tooHeavy = room !== undefined && weight > room + 1e-9;
-  const canTake = resolved?.ok === true && !tooHeavy && (!replaces || again) && !pending;
+  // With Free edit on, gear past what the bearer can carry still goes in, and they are over their limit.
+  const canTake = resolved?.ok === true && (!tooHeavy || freeEdit) && (!replaces || again) && !pending;
 
   // Written as the bag writes a stack: "Handaxe x2".
   const counted = (name: string, count: number) =>
@@ -348,40 +364,50 @@ export function StartingGearPicker({
                   <ul className="space-y-1">{chosen.lines.map((line, index) => renderLine(line, String(index)))}</ul>
                 </div>
               )}
-              {chosen.choices.map((choice, choiceIndex) => (
-                <fieldset key={choiceIndex} className="space-y-1.5">
-                  <legend className={labelClass}>{choice.label}</legend>
-                  {choice.options.map((option, optionIndex) => (
-                    <div key={optionIndex} className="space-y-1">
-                      <label className="flex items-start gap-2 text-xs text-[var(--foreground)]">
-                        <input
-                          type="radio"
-                          name={`starting-gear-choice-${choiceIndex}`}
-                          checked={choices[choiceIndex] === optionIndex}
-                          onChange={() => {
-                            setChoices((current) =>
-                              current.map((value, index) => (index === choiceIndex ? optionIndex : value)),
-                            );
-                            // Another option's lists are its own: a pick made for the last one goes.
-                            setPicks((current) =>
-                              Object.fromEntries(
-                                Object.entries(current).filter(([key]) => !key.startsWith(`${choiceIndex}.`)),
-                              ),
-                            );
-                          }}
-                          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
-                        />
-                        <span className="min-w-0 flex-1">{option.label}</span>
-                      </label>
-                      {choices[choiceIndex] === optionIndex && (
-                        <ul className="ml-6 space-y-1">
-                          {option.lines.map((line, lineIndex) => renderLine(line, `${choiceIndex}.${lineIndex}`))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </fieldset>
-              ))}
+              {chosen.choices.map((choice, choiceIndex) =>
+                // Only the options offered to this sheet (1.661), and no choice with none.
+                !choice.options.some((one) => rulesetStartingGearOptionOffered(definition, one, build)) ? null : (
+                  <fieldset key={choiceIndex} className="space-y-1.5">
+                    <legend className={labelClass}>{choice.label}</legend>
+                    {choice.options.map((option, optionIndex) =>
+                      !rulesetStartingGearOptionOffered(definition, option, build) ? null : (
+                        <div key={optionIndex} className="space-y-1">
+                          <label className="flex items-start gap-2 text-xs text-[var(--foreground)]">
+                            <input
+                              type="radio"
+                              name={`starting-gear-choice-${choiceIndex}`}
+                              checked={choices[choiceIndex] === optionIndex}
+                              onChange={() => {
+                                setChoices((current) =>
+                                  current.map((value, index) => (index === choiceIndex ? optionIndex : value)),
+                                );
+                                // Another option's lists are its own: a pick made for the last one goes.
+                                setPicks((current) =>
+                                  Object.fromEntries(
+                                    Object.entries(current).filter(([key]) => !key.startsWith(`${choiceIndex}.`)),
+                                  ),
+                                );
+                              }}
+                              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                            />
+                            <span className="min-w-0 flex-1">{option.label}</span>
+                            {linesWeight(option.lines) > 0 && (
+                              <span className="shrink-0 tabular-nums text-[var(--muted-foreground)]">
+                                {weightText(linesWeight(option.lines))}
+                              </span>
+                            )}
+                          </label>
+                          {choices[choiceIndex] === optionIndex && (
+                            <ul className="ml-6 space-y-1">
+                              {option.lines.map((line, lineIndex) => renderLine(line, `${choiceIndex}.${lineIndex}`))}
+                            </ul>
+                          )}
+                        </div>
+                      ),
+                    )}
+                  </fieldset>
+                ),
+              )}
               {resolved?.ok === false && resolved.reason === "empty" && (
                 <p className="text-[0.6875rem] text-[var(--destructive)]">{t("game.ruleset.startingGear.empty")}</p>
               )}
@@ -390,15 +416,27 @@ export function StartingGearPicker({
                   {t("game.ruleset.startingGear.dropped", { items: resolved.dropped.join(", ") })}
                 </p>
               )}
+              {resolved?.ok === true && room === undefined && book.bearer && weight > 0 && (
+                <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {t("game.ruleset.startingGear.weighs", { weight: weightText(weight) })}
+                </p>
+              )}
               {room !== undefined && resolved?.ok === true && (
                 <p
                   className={`text-[0.6875rem] ${tooHeavy ? "text-[var(--destructive)]" : "text-[var(--muted-foreground)]"}`}
                 >
-                  {t(tooHeavy ? "game.ruleset.startingGear.tooHeavy" : "game.ruleset.startingGear.weight", {
-                    who,
-                    weight: Math.round(weight * 100) / 100,
-                    room: Math.max(0, Math.round(room * 100) / 100),
-                  })}
+                  {t(
+                    tooHeavy
+                      ? freeEdit
+                        ? "game.ruleset.startingGear.tooHeavyFree"
+                        : "game.ruleset.startingGear.tooHeavy"
+                      : "game.ruleset.startingGear.weight",
+                    {
+                      who,
+                      weight: weightText(weight),
+                      room: weightText(Math.max(0, room)),
+                    },
+                  )}
                 </p>
               )}
               {replacedLabel && (
@@ -427,7 +465,7 @@ export function StartingGearPicker({
               if (!selection) return;
               setPending(true);
               try {
-                if (await onTake(holder, selection, again)) onClose();
+                if (await onTake(holder, selection, again, tooHeavy && freeEdit)) onClose();
               } finally {
                 setPending(false);
               }

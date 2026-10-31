@@ -18,6 +18,7 @@ import {
   rulesetCheckTakenModes,
   rulesetCombatConditions,
   rulesetSizeRank,
+  rulesetTargetIs,
 } from "./encounter.js";
 import {
   rulesetInCells,
@@ -28,7 +29,7 @@ import {
   rulesetFootprint,
   rulesetGap,
 } from "./grid.js";
-import type { RulesetLightRadius } from "../../schemas/ruleset.schema.js";
+import type { RulesetLightRadius, RulesetTargetIs } from "../../schemas/ruleset.schema.js";
 import type {
   RulesetBoardLight,
   RulesetCombatant,
@@ -36,10 +37,11 @@ import type {
   RulesetEncounterState,
   RulesetHidingTraits,
 } from "./types.js";
-import type { TacticalGrid } from "../tactical-combat/types.js";
+import { TERRAIN_DATA, type TacticalGrid } from "../tactical-combat/types.js";
+import { elevationAt } from "../tactical-combat/math.js";
 import type { RulesetSheetItem } from "../rulesets/sheet-math.js";
 import { rulesetDroppedItems, rulesetItemOn } from "./ammo.js";
-import { rulesetStandingZones } from "./zones.js";
+import { rulesetStandingZones, rulesetZoneLights } from "./zones.js";
 
 /** How far each of the fight's senses reaches for this combatant, in cells: a creature's off its
  *  block, anybody else's as it was read off their sheet when the fight began. What their conditions
@@ -72,6 +74,51 @@ export function rulesetSenseRanges(
   return ranges;
 }
 
+/**
+ * Whether a sense that sees through only so much of each material (1.759) sees from `a` to `b`: the
+ * walls on the line between them added up by what they are made of, a cast wall by its own
+ * `material`, the board's own (a solid tile, a prop, risen ground) by `combat.sight.boardWalls`, and
+ * none past what it names. A wall of nothing it knows stops it. The Ring of X-ray Vision's 1 foot of
+ * stone, and never lead.
+ */
+function seesThroughWalls(
+  definition: RulesetDefinition,
+  state: RulesetEncounterState,
+  grid: TacticalGrid,
+  a: RulesetCombatCell,
+  b: RulesetCombatCell,
+  most: Readonly<Record<string, number>>,
+): boolean {
+  const cast = new Map<string, { of: string; inches: number }>();
+  for (const { zone, action } of rulesetStandingZones(state)) {
+    const material = action.zone?.material;
+    if (!material || !action.zone?.blocks?.sight) continue;
+    for (const cell of zone.cells ?? []) cast.set(`${cell.x},${cell.y}`, material);
+  }
+  const board = definition.combat?.sight?.boardWalls;
+  const ridge = Math.max(elevationAt(grid, a.x, a.y), elevationAt(grid, b.x, b.y));
+  const through = new Map<string, number>();
+  const add = (material: { of: string; inches: number }) =>
+    through.set(material.of, (through.get(material.of) ?? 0) + material.inches);
+  for (const cell of cellsBetween(a, b)) {
+    if ((cell.x === a.x && cell.y === a.y) || (cell.x === b.x && cell.y === b.y)) continue;
+    const key = `${cell.x},${cell.y}`;
+    const terrain = grid.tiles[cell.y]?.[cell.x];
+    const solid = terrain === undefined || TERRAIN_DATA[terrain]?.blocksSight === true;
+    const risen = elevationAt(grid, cell.x, cell.y) > ridge;
+    const walled = ((grid.walls?.[key] ?? 0) & 2) === 2;
+    if (!solid && !risen && !walled) continue;
+    const own = walled ? cast.get(key) : undefined;
+    if (own) add(own);
+    // A wall the board stands (a prop's) or its own ground, of what the ruleset says it is.
+    if (solid || risen || (walled && !own)) {
+      if (!board) return false;
+      add(board);
+    }
+  }
+  return [...through].every(([of, inches]) => inches <= (most[of] ?? 0));
+}
+
 /** Every cell a straight line from one cell's middle to another's passes through, both ends included. */
 function cellsBetween(a: RulesetCombatCell, b: RulesetCombatCell): RulesetCombatCell[] {
   const steps = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) * 2;
@@ -102,8 +149,11 @@ function magicalDarkness(state: RulesetEncounterState): Set<string> {
   return cells;
 }
 
-/** The cells obscuring zones cover now, each with the senses that see through it. */
-function obscured(state: RulesetEncounterState): Array<{ cells: Set<string>; pierced: string[]; light?: true }> {
+/** The cells obscuring zones cover now, each with the senses that see through it, and (1.609) the
+ *  caster who sees through it whatever their senses. */
+function obscured(
+  state: RulesetEncounterState,
+): Array<{ cells: Set<string>; pierced: string[]; light?: true; casterSees?: string }> {
   // What lies on the ground (1.318): growth lightly obscures, and a fog of its own as it says.
   const lightly = new Set<string>();
   const heavily = new Set<string>();
@@ -122,7 +172,14 @@ function obscured(state: RulesetEncounterState): Array<{ cells: Set<string>; pie
         if (!rule) return [];
         const cells = new Set(rulesetZoneCells(state, caster, zone).map((cell) => `${cell.x},${cell.y}`));
         return cells.size > 0
-          ? [{ cells, pierced: rule.pierced, ...(rule.light ? { light: true as const } : {}) }]
+          ? [
+              {
+                cells,
+                pierced: rule.pierced,
+                ...(rule.light ? { light: true as const } : {}),
+                ...(rule.notForCaster ? { casterSees: caster.id } : {}),
+              },
+            ]
           : [];
       }),
     ),
@@ -201,7 +258,7 @@ export function rulesetLightOf(
   // A condition's light is a spell's (1.299), and magical.
   const spelled = active.flatMap((source) => (source.light && !source.item ? [source.light] : []));
   const all = [...(hidden ? [] : ownLight(who)), ...spelled, ...itemLights(who)];
-  if (darkness.carried && !who.doused && !daylit(who, state) && rulesetCarriesLight(definition, who, state))
+  if (darkness.carried && !who.doused && !rulesetDaylit(who, state) && rulesetCarriesLight(definition, who, state))
     all.push(darkness.carried);
   // Shade (1.319) is its own: it darkens what the rest lights.
   const shades = all.filter((one) => one.shade);
@@ -241,7 +298,7 @@ export function rulesetLightOf(
 /** Whether somebody stands where nobody would light a torch: in bright light or sunlight of the
  *  ground's own, or in shade on a board fought in sunlight, a barn at noon. Dark of the ground's own
  *  is lit whatever the board's. */
-function daylit(who: RulesetCombatant, state: RulesetEncounterState | undefined): boolean {
+export function rulesetDaylit(who: RulesetCombatant, state: RulesetEncounterState | undefined): boolean {
   const at = rulesetPositionOf(who);
   if (!state?.board || !at) return false;
   const ambient = state.board.light ?? "bright";
@@ -328,7 +385,7 @@ function lightSources(definition: RulesetDefinition, state: RulesetEncounterStat
   });
   // A zone's light (1.297), over its own cells from its middle: a point's, or its caster's.
   const zones = rulesetStandingZones(state).flatMap(({ caster, zone, action }): LightSource[] => {
-    const lights = action.zone?.lights;
+    const lights = rulesetZoneLights(zone, action);
     if (!lights) return [];
     const middle = rulesetZoneMiddles(state, caster, zone);
     const only = new Set(rulesetZoneCells(state, caster, zone).map((cell) => `${cell.x},${cell.y}`));
@@ -497,8 +554,47 @@ export function rulesetCanSee(
   seen: RulesetCombatant,
 ): boolean {
   // Nobody sees somebody hidden from them (1.287).
-  if (rulesetHiddenFrom(viewer, seen)) return false;
-  return sees(definition, state, viewer, seen, false);
+  if (!rulesetHiddenFrom(viewer, seen) && sees(definition, state, viewer, seen, false)) return true;
+  // Or through the eyes of somebody they put a condition on that lends its holder's senses (1.481): a
+  // familiar, Gaze of Two Minds.
+  return lendersOf(definition, state, viewer).some(
+    (lender) => !rulesetHiddenFrom(lender, seen) && sees(definition, state, lender, seen, false),
+  );
+}
+
+/** Whether `viewer` sees `seen` as it truly is (1.649): with a sense that `seesTrue`, `seen` within
+ *  its range, and in sight. 5e's Witch Sight, which no image or duplicate fools. */
+export function rulesetSeesTrue(
+  definition: RulesetDefinition,
+  state: RulesetEncounterState,
+  viewer: RulesetCombatant,
+  seen: RulesetCombatant,
+): boolean {
+  const senses = (definition.combat?.senses ?? []).filter((one) => one.seesTrue);
+  if (!senses.length || viewer.id === seen.id) return false;
+  const ranges = rulesetSenseRanges(definition, viewer, state);
+  const away = rulesetPositionOf(viewer) && rulesetPositionOf(seen) ? rulesetGap(viewer, seen) : 0;
+  if (!senses.some((sense) => (ranges[sense.id] ?? 0) > 0 && (ranges[sense.id] ?? 0) >= away)) return false;
+  return rulesetCanSee(definition, state, viewer, seen);
+}
+
+/** Who lends `viewer` their senses now (1.481): standing, holding a condition `viewer` put on them
+ *  whose rule lends its holder's senses. */
+function lendersOf(
+  definition: RulesetDefinition,
+  state: RulesetEncounterState,
+  viewer: RulesetCombatant,
+): RulesetCombatant[] {
+  const lending = new Set(
+    (definition.combat?.conditions ?? []).flatMap((entry) => (entry.lendsSenses ? [entry.condition] : [])),
+  );
+  if (!lending.size) return [];
+  return state.combatants.filter(
+    (one) =>
+      one.id !== viewer.id &&
+      !one.defeated &&
+      one.tracked.some((entry) => entry.source === viewer.id && lending.has(entry.condition)),
+  );
 }
 
 /** Whether `seen` is hidden from `viewer` (1.287): they hid, and that opponent has not found them. */
@@ -548,7 +644,7 @@ export function rulesetHidingTraits(
   stillWhile?: { holds?: string; wall?: true };
   unseenStrikes?: true;
   slow?: "advantage";
-  aware: Array<{ within: number; lostWith?: string[] }>;
+  aware: Array<{ within: number; lostWith?: string[]; of?: RulesetTargetIs; uncovered?: true }>;
   starts?: number;
   surprises?: true;
 } {
@@ -571,11 +667,19 @@ export function rulesetHidingTraits(
       traits.aware.push({
         within: inCells ? one.aware.within : rulesetInCells(one.aware.within, perCell),
         ...(one.aware.lostWith ? { lostWith: one.aware.lostWith } : {}),
+        ...(one.aware.of ? { of: one.aware.of } : {}),
+        ...(one.aware.uncovered ? { uncovered: true as const } : {}),
       });
     }
   };
   for (const action of who.actions) add(action.hiding, true);
   add(who.block?.hiding, false);
+  // While a condition or level of theirs says so (1.439): Divine Sense, Primeval Awareness.
+  if (definition.combat) {
+    for (const entry of rulesetActiveConditions(definition, definition.combat, who)) {
+      if (entry.aware) add({ aware: entry.aware }, false);
+    }
+  }
   return traits;
 }
 
@@ -591,7 +695,15 @@ export function rulesetAwareOf(
   if (aware.length === 0 || !state.board?.grid || !rulesetPositionOf(viewer) || !rulesetPositionOf(seen)) return false;
   const own = new Set(rulesetCombatConditions(definition, viewer));
   const gap = rulesetGap(viewer, seen);
-  return aware.some((one) => gap <= one.within && !one.lostWith?.some((condition) => own.has(condition)));
+  const grid = state.board.grid;
+  // Only of some kinds (1.439), and only with a line between them that total cover does not block.
+  return aware.some(
+    (one) =>
+      gap <= one.within &&
+      !one.lostWith?.some((condition) => own.has(condition)) &&
+      (!one.of || rulesetTargetIs(definition, seen, one.of)) &&
+      (!one.uncovered || rulesetLineOfSight(grid, rulesetPositionOf(viewer)!, rulesetPositionOf(seen)!)),
+  );
 }
 
 /** Whether somebody at least one size larger than `seen` stands between them and `viewer` (1.292),
@@ -714,7 +826,8 @@ function sees(
   }
   if (!positioned) return true;
   // A light obscurement hides nobody (1.286): it only keeps them from being seen clearly.
-  const fogs = obscured(state).filter((fog) => clearly || !fog.light);
+  // What its caster sees through (1.609) keeps nothing from them.
+  const fogs = obscured(state).filter((fog) => (clearly || !fog.light) && fog.casterSees !== viewer.id);
   // The dark (1.294), for eyes: nobody in darkness is seen, nor anybody in dim light clearly, but by
   // a sense that sees in the dark (one step brighter) or whatever the light, within its range.
   const darkness = combat.sight?.darkness;
@@ -742,9 +855,27 @@ function sees(
     if (light === "dim") return dark.seeIn || !clearly;
     return dark.seeIn && !clearly;
   };
+  // A sense that sees through solid matter (1.719) looks past the walls within its range; one that
+  // sees through only so much of each material (1.759), past as much as it does.
+  const piercing = (combat.senses ?? []).filter(
+    (sense) => sense.throughWalls && (!sightless || sense.blind) && (ranges[sense.id] ?? 0) >= away,
+  );
+  const xray = piercing.some((sense) => sense.throughWalls === true);
+  const most: Record<string, number> = {};
+  for (const sense of piercing) {
+    if (typeof sense.throughWalls !== "object") continue;
+    for (const [of, inches] of Object.entries(sense.throughWalls)) most[of] = Math.max(most[of] ?? 0, inches);
+  }
+  const limited = !xray && Object.keys(most).length > 0;
   // Any cell the viewer fills to any cell the seen one does (1.194): one clear line is enough.
   const clear = (a: RulesetCombatCell, b: RulesetCombatCell) => {
-    if (!rulesetLineOfSight(grid, a, b) || !lit(b)) return false;
+    if (
+      (!xray &&
+        !rulesetLineOfSight(grid, a, b) &&
+        !(limited && seesThroughWalls(definition, state, grid, a, b, most))) ||
+      !lit(b)
+    )
+      return false;
     if (fogs.length === 0) return true;
     const line = cellsBetween(a, b).map((cell) => `${cell.x},${cell.y}`);
     return fogs.every((fog) => !line.some((key) => fog.cells.has(key)) || pierces(fog.pierced));

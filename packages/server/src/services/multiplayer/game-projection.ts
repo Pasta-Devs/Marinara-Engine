@@ -6,6 +6,9 @@ import {
   parseGmTags,
   multiplayerGameStateSchema,
   normalizeCharacterLookupName,
+  normalizeGameInventoryStacks,
+  gameInventoryBagKey,
+  gameInventoryStackLabel,
   type MultiplayerGameState,
   type MultiplayerStoredRoom,
 } from "@marinara-engine/shared";
@@ -85,6 +88,8 @@ export function projectMultiplayerGame(input: {
   metadata: unknown;
   state?: unknown;
   messages: readonly { role: string; content: string; extra: unknown }[];
+  /** Who the snapshot is for: their own rolls and bag are shown to them alone. */
+  viewerId?: string | null;
 }): MultiplayerGameState {
   const meta = record(input.metadata);
   const state = record(input.state);
@@ -185,6 +190,46 @@ export function projectMultiplayerGame(input: {
     }
     if (values.length) trackers.push({ ownerId: owner.id, name: owner.name, values: values.slice(0, 16) });
   }
+  // The viewer's own: their checks in the latest reply as they may read it, and their bag. A name
+  // two of the room share is nobody's, as with the trackers.
+  const viewer = input.room.participants.find((participant) => participant.id === input.viewerId);
+  const ownRolls: MultiplayerGameState["ownRolls"] = [];
+  const bag: MultiplayerGameState["bag"] = [];
+  if (viewer) {
+    const bound = cards.filter((card) => card.multiplayerParticipantId === viewer.id);
+    const names = new Set(
+      [viewer.persona.name, ...(bound.length === 1 ? [shortText(bound[0]!.name, 80)] : [])]
+        .map((one) => normalizeCharacterLookupName(one))
+        .filter(Boolean),
+    );
+    const others = owners
+      .filter((owner) => owner.id !== viewer.id)
+      .map((owner) => normalizeCharacterLookupName(owner.name));
+    for (const one of [...names]) if (others.includes(one)) names.delete(one);
+    const seen = gameNarrationForParticipant(content, input.room, viewer.id, record(latest?.extra).audienceSnapshot);
+    for (const check of parseGmTags(seen).skillChecks) {
+      const result = check.resolvedResult;
+      const mine = check.who ? names.has(normalizeCharacterLookupName(check.who)) : viewer.isHost;
+      if (!mine || !result || !numeric(result.total) || !numeric(result.dc) || ownRolls.length >= 8) continue;
+      ownRolls.push({
+        skill: shortText(result.skill || check.skill, 100) || "Check",
+        total: result.total,
+        dc: result.dc,
+        success: result.success === true,
+      });
+    }
+    const keys = new Set([...names].map((one) => gameInventoryBagKey(one)));
+    for (const stack of normalizeGameInventoryStacks(meta.gameInventory)) {
+      const own = stack.holder ? keys.has(gameInventoryBagKey(stack.holder)) : viewer.isHost;
+      const label = shortText(gameInventoryStackLabel(stack), 120);
+      if (!own || !label || stack.quantity < 1 || bag.length >= 48) continue;
+      bag.push({
+        name: label,
+        quantity: Math.min(1_000_000, Math.floor(stack.quantity)),
+        equipped: stack.equipped === true,
+      });
+    }
+  }
   const field = (name: "location" | "weather" | "time") =>
     hidden[worldTrackerLockKey(name)] ? null : shortText(state[name], 200) || null;
   return multiplayerGameStateSchema.parse({
@@ -200,5 +245,7 @@ export function projectMultiplayerGame(input: {
       .slice(0, 8),
     rolls,
     trackers,
+    ownRolls,
+    bag,
   });
 }

@@ -483,6 +483,17 @@ export function CharacterEditor() {
     dirtyRef.current = dirty;
     setEditorDirty(dirty);
   }, [dirty, setEditorDirty]);
+  // Reloading or closing the window with unsaved edits asks first, rather than dropping them
+  // without a word (2026-10-24, Alyssa: warn on leave). Leaving through the editor saves as before.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);

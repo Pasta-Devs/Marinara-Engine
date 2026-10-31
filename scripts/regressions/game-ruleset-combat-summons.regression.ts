@@ -285,6 +285,13 @@ try {
     assert.equal(caster(held.state).summons, undefined, `${on}: no weapon while reactions wait`);
     const made = pass(JSON.parse(JSON.stringify(held.state)), after);
     assert.deepEqual(outcomes(made.events), ["appeared"]);
+    if (on === "used") {
+      // A later strike is no use of the spell: nothing answers it as one (no Counterspell for it).
+      const struck = strike(nextTurn(made.state), after);
+      assert.equal(struck.state.window, undefined, "a strike opens no used moment");
+      assert.deepEqual(outcomes(struck.events), ["struck"]);
+      continue;
+    }
     const again = strike(nextTurn(made.state), before);
     assert.equal(again.state.window?.trigger.kind, on, `later strikes reopen ${on}`);
     const struck = pass(again.state, after);
@@ -521,11 +528,13 @@ try {
     if (node.properties?.summons) {
       found++;
       const summon = node.properties.summons;
-      assert.deepEqual(summon.required, ["budget", "rounds"]);
+      // No budget for one that strikes by itself as its summoner's turn starts (1.539).
+      assert.deepEqual(summon.required, ["rounds"]);
       assert.equal(summon.additionalProperties, false);
       assert.equal(summon.properties.rounds.type, "integer");
       assert.equal(summon.properties.rounds.minimum, 1);
-      assert.equal(summon.properties.rounds.maximum, 100);
+      // 100 rounds unless it strikes by itself (1.539), checked past the schema: up to a day.
+      assert.equal(summon.properties.rounds.maximum, 14400);
       for (const key of ["move", "reach"]) assert.equal(summon.properties[key].exclusiveMinimum, 0);
       assert.deepEqual(node.allOf.find((rule: any) => rule.if?.required?.[0] === "summons").then.properties, {
         kind: { const: "attack" },
@@ -536,8 +545,27 @@ try {
   };
   visit(schema);
   assert.ok(found > 0, "the editor includes summons");
+
+  // The weapon strikes from its own square, as a swing: a foe beside its caster is no reason for
+  // disadvantage, at the cast or later, and it is struck from beside the target wherever the caster
+  // stands.
+  {
+    const near = fight();
+    rulesetCombatant(near, "snag")!.x = 1;
+    const made = cast(near);
+    const first = eventsOf(made.events, "attack")[0]!;
+    assert.notEqual(first.mode, "disadvantage", JSON.stringify(first));
+    assert.ok(!(first.why?.down ?? []).includes("@crowded"), JSON.stringify(first));
+    assert.deepEqual(caster(made.state).summons![0]!.at, { x: 2, y: 0 }, "it appears beside the target");
+    assert.equal(caster(made.state).x, 0, "its caster has not moved");
+    const later = strike(nextTurn(JSON.parse(JSON.stringify(made.state))));
+    const second = eventsOf(later.events, "attack")[0]!;
+    assert.notEqual(second.mode, "disadvantage", JSON.stringify(second));
+    assert.equal(caster(later.state).x, 0);
+    assert.equal(caster(later.state).actions[0]!.range?.normal !== undefined, true, "the cast keeps its range");
+  }
   console.log(
-    "Summons: later budget-only strikes, movement, duration, reactions, defeat, concentration, upcasts and import, gated at 1.122.",
+    "Summons: later budget-only strikes, movement, duration, reactions, defeat, concentration, upcasts and import, struck from the summons' own square, gated at 1.122.",
   );
 } finally {
   rmSync(dataDir, { recursive: true, force: true });

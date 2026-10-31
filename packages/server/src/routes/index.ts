@@ -55,7 +55,7 @@ import { themesRoutes } from "./themes.routes.js";
 import { appSettingsRoutes } from "./app-settings.routes.js";
 import { achievementsRoutes } from "./achievements.routes.js";
 import { gameRoutes } from "./game.routes.js";
-import { combatDirectorRoutes } from "./combat-director.routes.js";
+import { combatDirectorRoutes, type RoomFightBridge } from "./combat-director.routes.js";
 import { gameInventoryRoutes } from "./game-inventory.routes.js";
 import { gameAssetsRoutes } from "./game-assets.routes.js";
 import { gameRulesetsRoutes } from "./game-rulesets.routes.js";
@@ -167,7 +167,14 @@ export async function registerRoutes(app: FastifyInstance) {
     onRoomRuntimeReady: (runtime: MultiplayerGameRuntime) => multiplayer.setGameRuntime(runtime),
   });
   await app.register(multiplayerRoutes, { prefix: "/api/multiplayer", service: multiplayer });
-  await app.register(combatDirectorRoutes, { prefix: "/api/game/combat/director" });
+  await app.register(combatDirectorRoutes, {
+    prefix: "/api/game/combat/director",
+    room: {
+      absent: (chatId: string) => multiplayer.fightAbsent(chatId),
+      changed: (chatId: string) => multiplayer.fightChanged(chatId),
+      ready: (bridge: RoomFightBridge) => multiplayer.setFightBridge(bridge),
+    },
+  });
   await app.register(gameInventoryRoutes, { prefix: "/api/game/inventory" });
   await app.register(gameAssetsRoutes, { prefix: "/api/game-assets" });
   await app.register(gameRulesetsRoutes, { prefix: "/api/game-rulesets" });

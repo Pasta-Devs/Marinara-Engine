@@ -215,4 +215,44 @@ assert.equal(
   multiplayerGameStateSchema.safeParse({ ...projected, rolls: [{ label: "roll", total: Infinity }] }).success,
   false,
 );
+// Each viewer's own checks and bag, and nobody else's (Alyssa 2026-10-30).
+{
+  const check = (who: string, skill: string, total: number, result: string) =>
+    `[skill_check: skill="${skill}" dc="12" rolls="${total}" used="${total}" modifier="0" total="${total}" result="${result}" mode="normal" resolution="sum" dice="1d20"${who ? ` who="${who}"` : ""}]`;
+  const own = {
+    ...base,
+    metadata: {
+      ...base.metadata,
+      gameInventory: [
+        { name: "Rope", quantity: 2 },
+        { name: "Lute", quantity: 1, holder: "Rowan" },
+        { name: "Chain shirt", quantity: 1, holder: "rowan", equipped: true },
+        { name: "Map of the coast", quantity: 1, holder: "Guide" },
+      ],
+    },
+    messages: [
+      {
+        role: "assistant",
+        content: `[Narrator][main]They try. ${check("Rowan", "Stealth", 14, "success")} ${check("", "Perception", 8, "failure")} ${check("Guide", "History", 15, "success")}`,
+        extra: {},
+      },
+    ],
+  };
+  const guest = projectMultiplayerGame({ ...own, viewerId: "guest_fixture" });
+  assert.deepEqual(guest.ownRolls, [{ skill: "Stealth", total: 14, dc: 12, success: true }]);
+  assert.deepEqual(guest.bag, [
+    { name: "Lute", quantity: 1, equipped: false },
+    { name: "Chain shirt", quantity: 1, equipped: true },
+  ]);
+  const hosted = projectMultiplayerGame({ ...own, viewerId: "host_fixture" });
+  assert.deepEqual(
+    hosted.ownRolls,
+    [{ skill: "Perception", total: 8, dc: 12, success: false }],
+    "a check naming nobody is the host's",
+  );
+  assert.deepEqual(hosted.bag, [{ name: "Rope", quantity: 2, equipped: false }]);
+  const nobody = projectMultiplayerGame(own);
+  assert.deepEqual([nobody.ownRolls, nobody.bag], [[], []]);
+  assert.ok(!JSON.stringify(guest).includes("Map of the coast"), "another's bag never reaches a guest");
+}
 process.stdout.write("Multiplayer Game projection regression passed.\n");

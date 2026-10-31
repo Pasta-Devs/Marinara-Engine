@@ -472,7 +472,7 @@ try {
           {
             id: "kit",
             holds: "items",
-            entries: [{ id: "gun", item: { attack: { damage: { minimum: { const: 2 } } } } }],
+            entries: [{ id: "gun", item: { attack: { damage: { dice: "1d6", minimum: { const: 2 } } } } }],
           },
         ],
       },
@@ -483,7 +483,9 @@ try {
       new Map([
         [
           "catalogs/extra.json",
-          { entries: [{ id: "gun", item: { attack: { damage: { minimum: { stat: "overwhelming" } } } } }] },
+          {
+            entries: [{ id: "gun", item: { attack: { damage: { dice: "1d6", minimum: { stat: "overwhelming" } } } } }],
+          },
         ],
       ]),
     ],

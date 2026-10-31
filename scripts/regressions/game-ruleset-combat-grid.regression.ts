@@ -1649,10 +1649,10 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   //  0 . . # . . . .
   //  1 . . # . . . .
   //  2 B . S . . . .     Snag reaches one cell around 2,2
-  //  3 . . # . . . .
-  //  4 . . . . . . .
+  //  3 . . # . # . .
+  //  4 . . . . # . .     the rocks at 4,3 and 4,4 send the way back through the reach
   const maze = {
-    grid: drawn("..#....", "..#....", ".......", "..#....", "......."),
+    grid: drawn("..#....", "..#....", ".......", "..#.#..", "....#.."),
     placements: { brenna: { x: 0, y: 2 }, snag: { x: 2, y: 2 } },
   };
   const twice = fight(fiveE, [fighter(), snag()], [12, 9], maze);
@@ -1748,11 +1748,35 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
   assert.deepEqual(moved.to, { x: 1, y: 1 }, "they never left the cell they were struck in");
   assert.deepEqual(moved.path, []);
   assert.equal(moved.cost, 0, "and none of the allowance was spent");
+  // Slain there instead, it tells of no walk at all (re-test 2026-10-24: a zombie "moved" from its
+  // square to its square).
+  {
+    const imp: RulesetCombatantInput = {
+      id: "imp",
+      name: "Imp",
+      side: "enemy",
+      block: { health: 1, defense: 10, initiativeModifier: 0, speed: 30, actions: [] } as never,
+    };
+    const slayer = { ...snag(), side: "party" as const };
+    const slain = walkThrough(
+      fiveE,
+      fight(fiveE, [imp, slayer], [18, 9], {
+        grid: open(6, 3),
+        placements: { imp: { x: 1, y: 1 }, snag: { x: 0, y: 1 } },
+      }),
+      { actorId: "imp", optionId: RULESET_MOVE_OPTION, targetIds: [], to: { x: 5, y: 1 } },
+      18,
+      6,
+    );
+    assert.ok(who(slain.state, "imp").defeated, "the imp is slain as it sets off");
+    assert.equal(eventsOf(slain.events, "move").length, 0, "and walks nowhere");
+  }
   assert.equal(who(step.state, "glass").down, true);
   assert.equal(who(step.state, "glass").x, 1);
-  // Said once. The window path can end a fight in more than one place, and a log that printed two
-  // endings would read as two fights.
-  assert.equal(eventsOf(step.events, "outcome").length, 1, "the fight ends once");
+  // Never said twice: the window path can end a fight in more than one place, and a log that printed two
+  // endings would read as two fights. Down and still rolling to live, the last of the party has not
+  // lost it yet (laptop pass 8 2026-10-26).
+  assert.equal(eventsOf(step.events, "outcome").length, 0, "the fight goes on while she rolls to live");
 }
 
 // ── Movement is a budget: spent before, between and after, and sprinting buys it again ──

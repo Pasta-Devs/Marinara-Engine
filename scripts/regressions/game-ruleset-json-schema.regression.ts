@@ -81,6 +81,8 @@ assert.equal(
   // `to` is a word only on a state.
   const enumTableNodes: Array<{ properties: Record<string, any> }> = [];
   const restStepNodes: Array<{ allOf?: Array<Record<string, any>> }> = [];
+  const wordsTableNodes: Array<{ properties: Record<string, any> }> = [];
+  const setColumnNodes: Array<{ properties: Record<string, any> }> = [];
   const namedMaps: Array<Record<string, any>> = [];
   let abilityLimits: Record<string, any> | undefined;
   const walk = (node: unknown): void => {
@@ -109,6 +111,12 @@ assert.equal(
       enumTableNodes.push(object as { properties: Record<string, any> });
     }
     if (["track", "state", "to", "by"].every((key) => keys.includes(key))) restStepNodes.push(object);
+    if ((object.properties?.op as { const?: string } | undefined)?.const === "wordsTable") {
+      wordsTableNodes.push(object as { properties: Record<string, any> });
+    }
+    if (["list", "where", "column", "to"].every((key) => keys.includes(key))) {
+      setColumnNodes.push(object as { properties: Record<string, any> });
+    }
     Object.values(node).forEach(walk);
   };
   // The same for what a combat block measures in cells: the Engine refuses any of it in a block
@@ -200,6 +208,13 @@ assert.equal(
     [enumTableNodes[0]!.properties.table.minProperties, enumTableNodes[0]!.properties.table.maxProperties],
     [1, 40],
   );
+  // A words table's words and a setColumn's match columns are bounded as the Engine bounds them.
+  assert.equal(wordsTableNodes.length, 1, "the schema describes a words table");
+  const words = wordsTableNodes[0]!.properties.table.propertyNames.anyOf[0];
+  assert.deepEqual([words.minLength, words.maxLength, words.pattern], [1, 40, "\\S"]);
+  assert.equal(setColumnNodes.length, 1, "the schema describes a setColumn step");
+  const where = setColumnNodes[0]!.properties.where;
+  assert.deepEqual([where.minProperties, where.maxProperties], [1, 8]);
   assert.equal(restStepNodes.length, 1, "the schema describes a rest step");
   assert.ok(
     restStepNodes[0]!.allOf?.some(

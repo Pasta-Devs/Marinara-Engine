@@ -107,6 +107,8 @@ export interface WorldWriteRequest {
   tone: string;
   playerGoals?: string;
   language?: string;
+  /** The game's own generation settings (its reasoning effort), sent over the connection's. */
+  generationParameters?: unknown;
 }
 
 export const rollWorldSeed = () => String(crypto.getRandomValues(new Uint32Array(1))[0]);
@@ -301,7 +303,12 @@ export function GameSetupWorldChooser({
     }>(
       "lore",
       "/game/world-canon",
-      { connectionId: request!.connectionId, kit, lorebookIds: draft!.lorebookIds },
+      {
+        connectionId: request!.connectionId,
+        kit,
+        lorebookIds: draft!.lorebookIds,
+        ...(request!.generationParameters ? { generationParameters: request!.generationParameters } : {}),
+      },
       (value, into) => {
         into.canon = value.places;
         into.canonEvents = value.events;

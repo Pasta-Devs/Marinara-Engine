@@ -6,17 +6,28 @@
 // carries, and keeps a player's picking inside the option's own list and count.
 import type { DirectedCombatView, DirectedRulesetOption, DirectedRulesetView } from "@marinara-engine/shared";
 import {
+  RULESET_DISMOUNT_OPTION,
+  RULESET_MOUNT_OPTION_PREFIX,
   RULESET_FLY_DOWN_OPTION,
   RULESET_FLY_UP_OPTION,
   RULESET_LAND_OPTION,
   RULESET_TAKE_OFF_OPTION,
   RULESET_MOVE_OPTION,
+  RULESET_CAREFUL_OPTION,
+  RULESET_ZONE_CHECK_OPTION_PREFIX,
   RULESET_ZONE_OPTION_PREFIX,
+  RULESET_SUMMON_OPTION_PREFIX,
   RULESET_ZONE_TURN_OPTION_PREFIX,
   RULESET_STAND_OPTION,
+  RULESET_CLIMB_OUT_OPTION,
 } from "@marinara-engine/shared";
 import type { TFunction } from "i18next";
-import { rulesetDistanceText, type RulesetBoardDistance, type RulesetCellChoice } from "./ruleset-combat-board";
+import {
+  rulesetCarryCells,
+  rulesetDistanceText,
+  type RulesetBoardDistance,
+  type RulesetCellChoice,
+} from "./ruleset-combat-board";
 
 /** The order a menu reads in: what a symbol throw's leftovers buy (1.382), then where you go, what
  *  you swing, what you cast, what a stat block can do, the contests it may start, the moves the kind
@@ -43,9 +54,15 @@ export type RulesetMenuKind = (typeof RULESET_MENU_KINDS)[number];
  *  and landing), keyed by the resolver's own id.
  *  A key segment is built from the WORD and never from the id, which may carry punctuation a
  *  localization key may not. */
-const MOVE_OPTION_WORDS: Record<string, "walk" | "stand" | "flyUp" | "flyDown" | "takeOff" | "land"> = {
+const MOVE_OPTION_WORDS: Record<
+  string,
+  "walk" | "walkCarefully" | "stand" | "climbOut" | "flyUp" | "flyDown" | "takeOff" | "land"
+> = {
   [RULESET_MOVE_OPTION]: "walk",
+  // A careful walk over caltrops (1.689).
+  [RULESET_CAREFUL_OPTION]: "walkCarefully",
   [RULESET_STAND_OPTION]: "stand",
+  [RULESET_CLIMB_OUT_OPTION]: "climbOut",
   [RULESET_FLY_UP_OPTION]: "flyUp",
   [RULESET_FLY_DOWN_OPTION]: "flyDown",
   [RULESET_TAKE_OFF_OPTION]: "takeOff",
@@ -56,7 +73,21 @@ const MOVE_OPTION_WORDS: Record<string, "walk" | "stand" | "flyUp" | "flyDown" |
  *  the shape lands. The board holds this while it draws it, so the menu and the board are never
  *  two steps apart. */
 export interface RulesetMenuStep {
-  stage: "style" | "mode" | "alter" | "pay" | "amount" | "move" | "target" | "aim" | "spare" | "heighten";
+  stage:
+    | "variant"
+    | "store"
+    | "kinds"
+    | "style"
+    | "mode"
+    | "alter"
+    | "pay"
+    | "amount"
+    | "move"
+    | "target"
+    | "aim"
+    | "spare"
+    | "heighten"
+    | "carry";
   option: DirectedRulesetOption;
   /** The initiative style an attack is made in, where initiative is a number attacks move. */
   style?: string;
@@ -78,8 +109,11 @@ export interface RulesetMenuStep {
   spared?: string[];
   /** Who it could heighten, while that is picked (1.255). */
   heighten?: { ids: string[] };
-  /** Where a walk on a touch screen would end, or where an aim would land, picked once and waiting for a
-   *  second tap or click to go. */
+  /** Where it is being stored instead of done (1.524), while what pays for it is picked. */
+  storesIn?: { holderId: string; item?: number };
+  /** How many levels up its target is lifted, while where it is moved to is picked (1.565). */
+  rises?: number;
+  /** Where a walk on a touch screen would end, tapped once and waiting for a second tap to go. */
   to?: { x: number; y: number };
 }
 
@@ -107,8 +141,19 @@ export interface RulesetMenuGroup {
  *  one this Engine knows is dropped rather than shown without a heading. */
 export function rulesetMenuGroups(options: DirectedRulesetOption[] | undefined): RulesetMenuGroup[] {
   const groups: RulesetMenuGroup[] = [];
+  const offered = new Set((options ?? []).map((option) => option.id));
+  // The first of a spell's variants stands for the rest when the spell itself is not offered.
+  const standsFor = new Set<string>();
   for (const kind of RULESET_MENU_KINDS) {
-    const found = (options ?? []).filter((option) => option.kind === kind);
+    // A spell's variants (1.769) sit under one button: its own while it is offered, else the first
+    // of them (Command, whose plain cast is one of its ways). One Magic Circle, not twelve.
+    const found = (options ?? []).filter((option) => {
+      if (option.kind !== kind) return false;
+      if (!option.variantOf) return true;
+      if (offered.has(option.variantOf) || standsFor.has(option.variantOf)) return false;
+      standsFor.add(option.variantOf);
+      return true;
+    });
     if (found.length === 0) continue;
     const own = found.filter((option) => !option.menuGroup);
     if (own.length)
@@ -151,6 +196,34 @@ export function rulesetMenuGroups(options: DirectedRulesetOption[] | undefined):
   return groups;
 }
 
+/** The variants offered with an option (1.769), itself first; just itself when it has none. For the
+ *  variant that stands for a spell that is not offered itself, every way of that spell. */
+export function rulesetMenuVariants(
+  options: DirectedRulesetOption[] | undefined,
+  option: DirectedRulesetOption,
+): DirectedRulesetOption[] {
+  const all = options ?? [];
+  const base = option.variantOf;
+  if (base && !all.some((one) => one.id === base)) {
+    const ways = all.filter((one) => one.variantOf === base);
+    return ways.some((one) => one.id === option.id) ? ways : [option, ...ways];
+  }
+  return [option, ...all.filter((one) => one.variantOf === option.id)];
+}
+
+/** What the one button for a spell's ways is called when the spell itself is not offered: its own
+ *  name (Command, not Command (Approach)), or readying it. Undefined for any other option. */
+export function rulesetMenuVariantName(
+  options: DirectedRulesetOption[] | undefined,
+  option: DirectedRulesetOption,
+  t: TFunction,
+): string | undefined {
+  if (!option.variantOf || !option.variantName || rulesetMenuVariants(options, option).length < 2) return undefined;
+  return option.ready
+    ? rulesetOptionLabel({ ...option, ready: { ...option.ready, label: option.variantName } }, t)
+    : option.variantName;
+}
+
 /**
  * What an option is called on screen. An attack, an ability and a stat block's action are named by
  * the ruleset, so the label it sent is the label: nothing here touches them. The moves the KIND
@@ -169,6 +242,9 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
       name: option.lifts.name,
     });
   if (option.kind === "end-turn") return t("game.combat.ruleset.menu.endTurn", { defaultValue: option.label });
+  // A strike with what a spell called up, told apart from casting the spell again (Spiritual Weapon).
+  if (option.id.startsWith(RULESET_SUMMON_OPTION_PREFIX))
+    return t("game.combat.ruleset.menu.summonStrike", { name: option.label });
   // The Engine's own pick for what is left of a symbol throw (1.382), named by what it buys.
   if (option.symbolSpend?.engine) return t("game.combat.ruleset.menu.engineSpends", { spends: option.label });
   // Walking and getting back up are the board's own two moves, named by this Engine for the same
@@ -181,6 +257,13 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
       return t("game.combat.ruleset.menu.turnZone", { zone: option.label });
     if (option.id.startsWith(RULESET_ZONE_OPTION_PREFIX))
       return t("game.combat.ruleset.menu.moveZone", { zone: option.label });
+    // Moving one anybody near may move on a check (1.694).
+    if (option.id.startsWith(RULESET_ZONE_CHECK_OPTION_PREFIX))
+      return t("game.combat.ruleset.menu.controlZone", { zone: option.label });
+    // Mounting a creature, named by it, and getting down (1.496).
+    if (option.id.startsWith(RULESET_MOUNT_OPTION_PREFIX) && option.mounts)
+      return t("game.combat.ruleset.board.mount", { name: option.mounts });
+    if (option.id === RULESET_DISMOUNT_OPTION) return t("game.combat.ruleset.board.dismount");
     const word = MOVE_OPTION_WORDS[option.id];
     return word ? t(`game.combat.ruleset.board.${word}`, { defaultValue: option.label }) : option.label;
   }
@@ -192,6 +275,10 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
   if (option.dismiss) return t("game.combat.ruleset.menu.dismiss", { item: option.label });
   // A concentration entry made again (1.310): Vampiric Touch's later touches.
   if (option.again) return t("game.combat.ruleset.menu.again", { label: option.label });
+  if (option.sustain) return t("game.combat.ruleset.menu.sustain", { label: option.label });
+  // Pulling one's blows (1.720) says what the next blow does, not which way a switch is flipped.
+  if (option.knocksOut)
+    return t(option.on ? "game.combat.ruleset.menu.strikeToKill" : "game.combat.ruleset.menu.knockOut");
   // A switch says which way it turns the item, which is the Engine's own word too.
   if (option.kind === "switch") {
     // In the ruleset's own words for the two, where it gives them (1.378): "Lower the hood".
@@ -203,6 +290,8 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
   }
   // Picking up what was dropped (1.266) is the Engine's own move too.
   if (option.pickUp) return t("game.combat.ruleset.menu.pickUp", { item: option.label });
+  // Slipping free of what holds them (1.486).
+  if (option.slip) return t("game.combat.ruleset.menu.slip", { condition: option.label });
   // Averting the eyes from a gaze (1.268), and looking again.
   if (option.avert)
     return t(option.avert.back ? "game.combat.ruleset.menu.lookBack" : "game.combat.ruleset.menu.avert", {
@@ -217,8 +306,14 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
       },
     );
   if (option.readied) return t("game.combat.ruleset.menu.readied", { option: option.label });
+  // A trap disarmed (1.669), by name.
+  if (option.disarms) return t("game.combat.ruleset.menu.disarm", { zone: option.label });
   if (option.kind !== "standard") return option.label;
-  return t(`game.combat.ruleset.standard.${option.label}`, { defaultValue: option.label });
+  const standard = t(`game.combat.ruleset.standard.${option.label}`, { defaultValue: option.label });
+  // Bought with another budget by an entry of theirs: named after it, "Patient Defense (Dodge)".
+  return option.grantedBy
+    ? t("game.combat.ruleset.menu.granted", { source: option.grantedBy, action: standard })
+    : standard;
 }
 
 /** The name a readied option goes by (1.288): a walk is the Engine's own word. */
@@ -385,20 +480,61 @@ export function rulesetStyleForecastText(
   return parts.join(", ");
 }
 
+/** Whether this option must be pointed at somebody and has nobody it may be pointed at now (all of
+ *  them out of sight or reach): offered greyed out, never opening a pay step that leads nowhere. */
+/** Why an option is greyed for want of somebody to aim it at, as a translation key. */
+export function rulesetUnaimableKey(option: DirectedRulesetOption): string {
+  return option.besideOnly ? "game.combat.ruleset.menu.noFoeBeside" : "game.combat.ruleset.menu.nobodyToAim";
+}
+
+export function rulesetOptionUnaimable(option: DirectedRulesetOption): boolean {
+  // A standard action given to somebody (Help) with nobody it may be given to.
+  if (option.kind === "standard" && option.targets.side !== "self")
+    return option.targets.count > 0 && option.targetIds.length === 0;
+  return (
+    (option.kind === "attack" ||
+      option.kind === "ability" ||
+      option.kind === "item" ||
+      option.kind === "block" ||
+      option.kind === "contest") &&
+    (option.targets.side === "enemy" || option.targets.side === "any") &&
+    option.targets.count > 0 &&
+    !option.area &&
+    !option.teleport &&
+    option.targetIds.length === 0 &&
+    (option.aim?.length ?? 0) === 0 &&
+    (option.walls?.length ?? 0) === 0 &&
+    (option.dispels?.length ?? 0) === 0 &&
+    (option.cuts?.length ?? 0) === 0
+  );
+}
+
 /** Whether taking this option asks the player to point it at anybody at all. An option with
  *  nothing legal to hit is still on the menu, and taking it simply sends no targets. */
 export function rulesetOptionNeedsTargets(option: DirectedRulesetOption): boolean {
   // Something aimed at the actor themselves is not a choice, so it is never a picking step.
   if (option.targets.side === "self") return false;
   // A wall's section it may strike instead counts (1.200).
-  return option.targets.count > 0 && (option.targetIds.length > 0 || (option.walls?.length ?? 0) > 0);
+  return (
+    option.targets.count > 0 &&
+    (option.targetIds.length > 0 ||
+      (option.walls?.length ?? 0) > 0 ||
+      (option.dispels?.length ?? 0) > 0 ||
+      (option.cuts?.length ?? 0) > 0)
+  );
 }
 
 /** Whether an option is pointed at somebody and has nobody to point it at right now (a sword with
  *  every foe out of reach): the menu folds these into one muted line rather than a row each. */
 export function rulesetOptionOutOfReach(option: DirectedRulesetOption): boolean {
   if (option.targets.side === "self" || option.targets.count === 0) return false;
-  return option.targetIds.length === 0 && !(option.walls?.length ?? 0) && !(option.aim?.length ?? 0);
+  return (
+    option.targetIds.length === 0 &&
+    !(option.walls?.length ?? 0) &&
+    !(option.aim?.length ?? 0) &&
+    !(option.dispels?.length ?? 0) &&
+    !(option.cuts?.length ?? 0)
+  );
 }
 
 /** The targets a player has picked after clicking one more. Only ids the option itself lists can
@@ -425,13 +561,17 @@ export function rulesetPickTarget(option: DirectedRulesetOption, picked: string[
  */
 export function rulesetSparePick(
   view: DirectedRulesetView,
-  step: Pick<RulesetMenuStep, "option" | "alters">,
+  step: Pick<RulesetMenuStep, "option" | "alters" | "payWith">,
   targets: string[],
   cell?: RulesetCellChoice,
 ): { ids: string[]; most: number } | null {
+  const above = rulesetLevelsAbove(step.option, step.payWith);
   const most = Math.max(
     0,
-    ...(step.alters ?? []).map((id) => step.option.alters?.find((offer) => offer.id === id)?.spares ?? 0),
+    ...(step.alters ?? []).map((id) => {
+      const offer = step.option.alters?.find((one) => one.id === id);
+      return (offer?.spares ?? 0) + (offer?.sparesByLevel ? above : 0);
+    }),
   );
   if (most === 0) return null;
   const user = rulesetMenuUser(view);
@@ -505,6 +645,8 @@ export function rulesetPicksStep(
   }
   const heighten = rulesetHeightenPick(view, step, targets, cell);
   if (heighten) return { ...held, stage: "heighten", heighten };
+  // Where its target is moved to, picked on the board (1.565): Telekinesis.
+  if (rulesetCarryCells(step.option, targets).length > 0) return { ...held, stage: "carry" };
   return null;
 }
 
@@ -518,6 +660,55 @@ export function rulesetDefaultTargets(option: DirectedRulesetOption): string[] {
  *  anything that may take several is confirmed, so a second target is still reachable. */
 export function rulesetSendsOnPick(option: DirectedRulesetOption): boolean {
   return option.targets.count === 1;
+}
+
+/** What paying for an option with a higher pool gets, in a few words for its button: more dice, more
+ *  targets, a bigger shape. Empty where the server sent nothing it adds. */
+/** How many levels above its own a payment pays it at, for an option whose alterations count them:
+ *  Sculpt Spells spares one more for each. */
+export function rulesetLevelsAbove(option: DirectedRulesetOption, payWith: string | undefined): number {
+  const levels = option.levels;
+  return levels && payWith ? Math.max(0, (levels.pay[payWith] ?? levels.base) - levels.base) : 0;
+}
+
+export function rulesetPayGainText(
+  option: DirectedRulesetOption,
+  pool: string,
+  t: TFunction,
+  distance: RulesetBoardDistance | undefined,
+  /** The alterations it is used with: Sculpt Spells spares more at a higher level. */
+  alters?: readonly string[],
+): string {
+  const said: string[] = [];
+  const gain = option.payGains?.[pool];
+  if (gain?.amount && (gain.amount.count > 0 || gain.amount.flat !== 0)) {
+    const dice = [
+      gain.amount.count > 0 && gain.amount.sides > 0 ? `${gain.amount.count}d${gain.amount.sides}` : "",
+      gain.amount.flat ? String(gain.amount.flat) : "",
+    ]
+      .filter(Boolean)
+      .join("+");
+    said.push(
+      t(gain.heals ? "game.combat.ruleset.upcast.gainHeal" : "game.combat.ruleset.upcast.gainDamage", { dice }),
+    );
+  }
+  const targets = option.targetsWith?.[pool];
+  if (targets !== undefined && targets > option.targets.count) {
+    // Aimed more than once at whoever it likes (Magic Missile's darts): more shots, not more people.
+    said.push(
+      t(option.targets.repeat ? "game.combat.ruleset.upcast.gainShots" : "game.combat.ruleset.upcast.gainTargets", {
+        count: targets,
+      }),
+    );
+  }
+  if (gain?.size)
+    said.push(t("game.combat.ruleset.upcast.gainSize", { amount: rulesetDistanceText(gain.size, distance, t) }));
+  const above = rulesetLevelsAbove(option, pool);
+  if (above > 0 && option.alters?.some((offer) => offer.sparesByLevel && alters?.includes(offer.id)))
+    said.push(t("game.combat.ruleset.upcast.gainSpared", { count: above }));
+  // Grows only every so many levels (Spiritual Weapon, every two): a level between says it adds nothing.
+  if (said.length === 0 && gain) said.push(t("game.combat.ruleset.upcast.gainNothing"));
+  return said.join(", ");
 }
 
 /** The fight a spend carry was sent into, how many times it was lost on the way, and, while it has

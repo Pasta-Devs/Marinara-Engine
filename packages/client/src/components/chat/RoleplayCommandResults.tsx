@@ -14,7 +14,7 @@ import { ChevronDown, Eye, EyeOff, LockKeyhole, Pencil, RotateCcw, Trash2 } from
 import { useTranslation } from "react-i18next";
 import { getRoleplayCommandActivity, type RoleplayCommandActivity } from "@marinara-engine/shared";
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
-import { useRestoreRoleplayInterrupt } from "../../hooks/use-roleplay-commands";
+import { useRestoreRoleplayInterrupt, useRoleplayHtmlArtifactRunning } from "../../hooks/use-roleplay-commands";
 import { useChatStore } from "../../stores/chat.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { ExpandedTextarea } from "../ui/ExpandedTextarea";
@@ -22,6 +22,9 @@ import { RoleplayDocument } from "./RoleplayDocument";
 import { AnimatedDiceRoll, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
 import { isDiceRollResult } from "../../lib/dice-roll-result";
 import { rollTone, type RollOutcomeToneMode } from "../dice/dice-tone";
+import { extractChatStyleBlocks, sanitizeChatHtml } from "../../lib/chat-html";
+import { scopeChatMessageCss } from "../../lib/chat-message-css";
+import { handleRemoteImageClick, useRemoteImagePolicy } from "../../lib/remote-image-policy";
 
 const loadedAt = Date.now();
 
@@ -57,7 +60,8 @@ export function RoleplayWhisper({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const visible = knownToUser || revealed;
-  const pending = isStreaming || chatGenerating || mutation.isPending;
+  const artifactRunning = useRoleplayHtmlArtifactRunning(chatId);
+  const pending = isStreaming || chatGenerating || artifactRunning || mutation.isPending;
   const limit = 16000;
   const closeEditor = () => {
     if (!mutation.isPending) setEditing(false);
@@ -178,6 +182,25 @@ export function RoleplayWhisper({
         />
       )}
     </span>
+  );
+}
+
+/** An html command's artifact, sanitized and scoped like HTML in a message, plus drawing SVG and no dialogue styling. */
+export function RoleplayArtifact({ html, scopeClass }: { html: string; scopeClass: string }) {
+  const remoteImages = useRemoteImagePolicy();
+  const markup = useMemo(() => {
+    const { html: body, css } = extractChatStyleBlocks(html);
+    const clean = sanitizeChatHtml(body, { allowStyle: true, remoteImages, artifactSvgIdPrefix: `${scopeClass}-` });
+    const scoped = scopeChatMessageCss(css, `.${scopeClass}`, { remoteUrls: remoteImages.loadAll });
+    return scoped ? `<style>${scoped}</style>${clean}` : clean;
+  }, [html, scopeClass, remoteImages]);
+  return (
+    <div
+      className={`mari-html-content relative mx-auto mb-4 w-full max-w-[28rem] whitespace-normal !overflow-hidden !contain-paint [&_svg]:max-w-full ${scopeClass}`}
+      data-roleplay-artifact
+      onClick={handleRemoteImageClick}
+      dangerouslySetInnerHTML={{ __html: markup }}
+    />
   );
 }
 
@@ -308,12 +331,15 @@ function CommandNotice({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const { command } = item;
+  // An artifact's editable part is what the narrator remembers; its markup is not hand-edited.
   const content =
-    (command.type === "notes" || command.type === "memory" || command.type === "document") &&
-    typeof command.content === "string"
-      ? command.content
-      : null;
-  const limit = command.type === "memory" ? 1000 : command.type === "notes" ? 8000 : 16000;
+    command.type === "html"
+      ? (item.artifact?.memory ?? null)
+      : (command.type === "notes" || command.type === "memory" || command.type === "document") &&
+          typeof command.content === "string"
+        ? command.content
+        : null;
+  const limit = command.type === "memory" || command.type === "html" ? 1000 : command.type === "notes" ? 8000 : 16000;
   const save = async (next: RoleplayCommandActivity) => {
     setError("");
     try {
@@ -483,7 +509,11 @@ function CommandNotice({
                 disabled={pending || !draft.trim() || draft.length > limit}
                 onClick={() => {
                   if (content !== null)
-                    void save({ ...item, command: { ...command, content: draft } as typeof command });
+                    void save(
+                      command.type === "html" && item.artifact
+                        ? { ...item, artifact: { ...item.artifact, memory: draft } }
+                        : { ...item, command: { ...command, content: draft } as typeof command },
+                    );
                 }}
               >
                 {t("roleplay.commands.activity.save")}
@@ -517,6 +547,7 @@ export function RoleplayCommandResults({
   const chatGenerating = useChatStore(
     (state) => state.abortControllers.has(chatId) || (state.isStreaming && state.streamingChatId === chatId),
   );
+  const artifactRunning = useRoleplayHtmlArtifactRunning(chatId);
   const activity = getRoleplayCommandActivity(extra);
   const sounds = Array.isArray(extra.attachments)
     ? extra.attachments.filter(
@@ -536,7 +567,7 @@ export function RoleplayCommandResults({
             key={`${messageId}:${swipeIndex}:${index}`}
             item={item}
             characterName={characterName}
-            pending={isStreaming || chatGenerating || mutation.isPending || restore.isPending}
+            pending={isStreaming || chatGenerating || artifactRunning || mutation.isPending || restore.isPending}
             restore={() => restore.mutateAsync({ messageId, swipeIndex, activityIndex: index })}
             soundUrl={
               item.command.type === "sound"

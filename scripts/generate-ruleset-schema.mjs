@@ -125,6 +125,18 @@ function boundScaledColumns(node) {
   }
 }
 
+// A sheet migration's `setColumn` matches rows by 1 to 8 columns, a refinement too. Found by its shape:
+// `where` beside `list`, `column` and `to`.
+function boundSetColumnWhere(node) {
+  if (Array.isArray(node)) return node.forEach(boundSetColumnWhere);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(boundSetColumnWhere);
+  const properties = node.properties;
+  if (node.type !== "object" || !properties?.where || !properties.list || !properties.column || !properties.to) return;
+  properties.where.minProperties = 1;
+  properties.where.maxProperties = 8;
+}
+
 // A layer's `hide` compares a catalog filter exactly one way. That too is a refinement, so the
 // editor is told here. The node is found by its shape: `filter` beside the four comparisons.
 function requireOneHideComparison(node) {
@@ -181,6 +193,13 @@ function enumTableShape(node) {
   if (!node || typeof node !== "object") return;
   Object.values(node).forEach(enumTableShape);
   const properties = node.properties;
+  // A words table (1.690) names one to forty words the same way.
+  if (node.type === "object" && properties?.op?.const === "wordsTable" && properties.table) {
+    properties.table.minProperties = 1;
+    properties.table.maxProperties = 40;
+    // Each word 1 to 40 characters, not all spaces, as the Engine's refinement reads it.
+    properties.table.propertyNames = { type: "string", minLength: 1, maxLength: 40, pattern: "\\S" };
+  }
   if (node.type !== "object" || properties?.op?.const !== "enumTable" || !properties.from || !properties.table) return;
   properties.from.oneOf = [{ required: ["field"] }, { required: ["liveState"] }];
   properties.table.minProperties = 1;
@@ -328,7 +347,12 @@ function modifierSaysSomething(node) {
     },
     ...["attacks", "blow", "ability", "damageType", "fromSource"].map((key) => ({
       if: { required: [key] },
-      then: { properties: { to: { enum: key === "fromSource" ? ["damage-taken"] : ["damage", "damage-taken"] } } },
+      // fromSource also narrows the advantage of attacks-taken (1.502): True Strike.
+      then: {
+        properties: {
+          to: { enum: key === "fromSource" ? ["damage-taken", "attacks-taken"] : ["damage", "damage-taken"] },
+        },
+      },
     })),
     { if: { required: ["minus"] }, then: { required: ["dice"] } },
     { if: { required: ["mode"] }, then: { properties: { to: { enum: ["checks", "saves"] } } } },
@@ -806,6 +830,7 @@ initiativeOneWay(schema);
 styleTakesOrSpends(schema);
 soakSaysSomething(schema);
 boundScaledColumns(schema);
+boundSetColumnWhere(schema);
 requireOneHideComparison(schema);
 requireOneHideWhenComparison(schema);
 refuseNoSizeStep(schema);

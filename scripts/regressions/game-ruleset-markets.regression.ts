@@ -36,6 +36,7 @@ import {
   rulesetMarketLevel,
   rulesetMarketPlace,
   rulesetMarketPrice,
+  rulesetPricedCoins,
   rulesetCoinAmount,
   rulesetPurseText,
   rulesetMarketPromptText,
@@ -255,18 +256,35 @@ const night = { "layer.long_night": true };
   assert.deepEqual(rulesetMarketPrice(gravewatch, coat, 1.5, 1)?.said, "12 shillings", "8 shillings, dear");
   assert.deepEqual(rulesetMarketPrice(gravewatch, coat, 0.75, 1)?.said, "6 shillings");
   assert.equal(rulesetMarketPrice(gravewatch, coat, 1, 2)?.owed, 192, "two coats in pennies");
-  // Said in the coin the cost is written in where that coin pays it exactly, else the largest that does.
+  // Said in the coin the cost is written in where that coin pays it exactly, else in it and smaller ones.
   assert.equal(rulesetMarketPrice(gravewatch, coat, 1, 10)?.said, "80 shillings", "ten coats, in the coat's own coin");
   assert.equal(rulesetMarketPrice(gravewatch, coat, 1.5, 1)?.said, "12 shillings");
   assert.equal(
     rulesetMarketPrice(gravewatch, { amount: 5, unit: "shilling" }, 1.5, 1)?.said,
-    "90 pennies",
-    "7.5 shillings: the shilling does not pay it, the penny does",
+    "7 shillings and 6 pennies",
+    "7.5 shillings: in shillings and the pennies left over (laptop pass 6: 12.5 gold said as 125 silver)",
   );
   assert.equal(
     rulesetMarketPrice(gravewatch, { amount: 15, unit: "penny" }, 1, 4)?.said,
     "60 pennies",
     "a price in pennies stays in pennies, though a crown would pay it",
+  );
+  // Where its own coin does not pay it, a coin some price is written in says it before one none is
+  // (laptop playtest 2026-10-25: a Mace sold for "5 electrum pieces", a coin no 5e price uses).
+  assert.equal(rulesetMarketPrice(gravewatch, { amount: 1, unit: "crown" }, 0.6, 1)?.said, "3 shillings");
+  assert.equal(
+    rulesetMarketPrice(gravewatch, { amount: 1, unit: "crown" }, 0.6, 1, null, new Set(["coin:crown", "coin:penny"]))
+      ?.said,
+    "36 pennies",
+    "no price is written in shillings",
+  );
+  assert.deepEqual(
+    [...rulesetPricedCoins(book.entries)].sort(),
+    [
+      ...new Set(
+        book.entries.flatMap((entry) => (entry.entry.item?.cost ? [`coin:${entry.entry.item.cost.unit}`] : [])),
+      ),
+    ].sort(),
   );
   const tonic = book.itemOf("kit/warming-tonic")!.entry.item!.cost!;
   assert.equal(rulesetMarketPrice(gravewatch, tonic, 0.75, 1)?.owed, 3, "4 pennies cheap");
@@ -330,6 +348,17 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
   );
   assert.deepEqual(held(bram.stacks), [
     ["shillings", 5, ""],
+    ["Warming tonic", 3, "Bram"],
+  ]);
+  // A member short of coin pays the rest out of the party's (laptop pass 5 2026-10-26: "Hessa buys
+  // with the party's coin" refused with 62 gp in another's purse).
+  const broke = buy(
+    '[inventory: action="buy" item="Warming tonic" count="3" who="Bram"]',
+    coins([["shillings", "shilling", 5]]),
+  );
+  assert.match(broke.content, /who="Bram"[^\]]*result="ok" now="3"/, broke.content);
+  assert.deepEqual(held(broke.stacks), [
+    ["shillings", 4, ""],
     ["Warming tonic", 3, "Bram"],
   ]);
   // By its ref; and a name with a comma in it is one item, not two
@@ -633,11 +662,17 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
     lines[3],
     "- chapel of the Vigil (to wardens of Nerve 3 or more only): Page of the vigil litany 1 shillings",
   );
-  assert.equal(lines.length, 4);
+  // And nothing it does not name is priced or counted (laptop playtest 2026-10-25: a temple's last vial).
+  assert.equal(
+    lines[4],
+    "Never name a price or say how many are left of a ware this block does not name: try the buy first and narrate what the Engine answers.",
+  );
+  assert.equal(lines.length, 5);
   assert.deepEqual(
     rulesetMarketPromptText(gravewatch, book, { name: "Crossroads", size: "hamlet" })!.split("\n").slice(1),
     [
       "- chandler: Shot and powder 1 pennies, Warming tonic 4 pennies, A bed at the watch-house 6 pennies (a service), Lantern-keeper's coat 8 shillings",
+      "Never name a price or say how many are left of a ware this block does not name: try the buy first and narrate what the Engine answers.",
     ],
   );
   assert.equal(
@@ -660,7 +695,10 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
     rulesetMarketPromptText(smallOnly, rulesetItemBook(smallOnly, entriesOf(smallOnly)), { size: "hamlet" })!
       .split("\n")
       .slice(1),
-    ["- No seller keeps shop in a place this size."],
+    [
+      "- No seller keeps shop in a place this size.",
+      "Never name a price or say how many are left of a ware this block does not name: try the buy first and narrate what the Engine answers.",
+    ],
   );
   // More than a dozen of one seller's wares: the cheapest dozen, and how many more.
   const crowded = parsedOrThrow(
@@ -1140,6 +1178,15 @@ const manifest = (minor: number) => ({
     { item: "Lantern-keeper's coat", action: "sold", quantity: 1 },
     { item: "shillings", action: "acquired", quantity: 4 },
   ]);
+  // Paid in the coin its price is said in, never a bigger one (laptop playtest 2026-10-25: a 60 gold
+  // sale came in as 6 platinum).
+  const threeSold = dayTags(
+    '[inventory: action="sell" item="Lantern-keeper\'s coat" count="3"]',
+    coats(3),
+    dayQuoter(dayTown),
+  );
+  assert.match(threeSold.content, /result="ok"/, threeSold.content);
+  assert.deepEqual(held(threeSold.stacks), [["shillings", 12, ""]]);
   // Sold by its ref, it is the coat; and a fake sold by ref is seen through as one sold by name (#8271).
   assert.match(
     dayTags('[inventory: action="sell" item="kit/lantern-coat"]', coats(1), dayQuoter(dayHamlet)).content,
@@ -1467,7 +1514,14 @@ try {
   const quiet = await chats.create({ name: "No place yet", mode: "game", characterIds: [] });
   assert.deepEqual(await gameMarketDayFor(db, quiet.id, null, undefined, book), {
     place: null,
-    day: { key: "", bought: new Map(), stockBought: new Map(), paidOut: new Map() },
+    day: {
+      key: "",
+      bought: new Map(),
+      stockBought: new Map(),
+      paidOut: new Map(),
+      warned: new Set(),
+      inspected: new Set(),
+    },
   });
   // A place the world set (no place tag began a day there): its day runs over the replies in a row
   // whose turns were there, each stamped so on its extra, and counts what they bought; a turn anywhere

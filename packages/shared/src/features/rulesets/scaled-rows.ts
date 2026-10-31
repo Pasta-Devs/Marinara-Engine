@@ -122,6 +122,20 @@ export function recomputeScaledRows(
       let next: Record<string, string | number | boolean> | null = null;
       for (const [columnId, scaled] of Object.entries(spec.scaled)) {
         const column = columnById.get(columnId);
+        // A text by steps (1.411): Font of Inspiration's recharge by level.
+        if (scaled.texts && (column?.type === "text" || column?.type === "enum")) {
+          const read = resolveRulesetValueRef(definition, build, scaled.from, sheetNumbers());
+          if (!Number.isFinite(read)) continue;
+          let text = scaled.texts[0]![1];
+          for (const [threshold, step] of scaled.texts) {
+            if (read < threshold) break;
+            text = step;
+          }
+          if (own(cells, columnId) === text) continue;
+          next = next ?? { ...(row as Record<string, string | number | boolean>) };
+          next[columnId] = text;
+          continue;
+        }
         if (column?.type !== "number") continue;
         const raw = resolveRulesetValueRef(definition, build, scaled.from, sheetNumbers());
         const looked = scaled.table ? lookupStepTable(scaled.table, raw) : raw;
@@ -162,9 +176,12 @@ export function scaledRowColumns(
   const byRef = catalogs instanceof Map ? catalogs : rulesetCatalogEntriesByRef(catalogs as RulesetCatalogEntriesById);
   const spec = scaledRowSpec(byRef, list, row);
   if (!spec?.scaled) return [];
-  return Object.keys(spec.scaled).filter(
-    (columnId) => list.columns.find((column) => column.id === columnId)?.type === "number",
-  );
+  return Object.entries(spec.scaled)
+    .filter(([columnId, scaled]) => {
+      const type = list.columns.find((column) => column.id === columnId)?.type;
+      return type === "number" || (!!scaled.texts && (type === "text" || type === "enum"));
+    })
+    .map(([columnId]) => columnId);
 }
 
 /** The texts that could name the sheet's own value of a field. A catalog names a value the way a

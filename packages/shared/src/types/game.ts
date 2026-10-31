@@ -1,5 +1,5 @@
 import type { CombatAttackTraits } from "../features/combat-conditions.js";
-import type { CombatAiHints, CombatController, CombatTactics } from "../features/combat-ai.js";
+import type { CombatAiHints, CombatController, CombatOrders, CombatTactics } from "../features/combat-ai.js";
 // ──────────────────────────────────────────────
 // Game Mode Types
 // ──────────────────────────────────────────────
@@ -264,6 +264,15 @@ export interface GameSetupConfig {
   /** Versioned server-owned combat with interruption windows; absent preserves legacy battles. */
   combatDirector?: boolean;
   gmBossControl?: boolean;
+  /** With `gmBossControl`, the Game Master also plays every named opponent and every one with a
+   *  genius's mind (combat AI P9). Absent is bosses only, as every game before it. */
+  gmNamedControl?: boolean;
+  /** A cruel opponent (a `cruel` temperament, combat AI T3) may strike those already down. Absent is
+   *  never: off unless the game asks for it. */
+  cruelOpponents?: boolean;
+  /** The player plays every companion in a fight themselves. Absent, each companion fights on its
+   *  own (the Engine plays it) until the player takes it (Alyssa 2026-10-26). */
+  playerRunsCompanions?: boolean;
   /** Optional tactical battlefield preferences used for newly-created encounters. */
   tacticalBattlefield?: TacticalBattlefieldSetup;
   /** Who acts when in a new tactical fight (combat C6c): one unit at a time in a rolled order, or the
@@ -518,6 +527,8 @@ export interface SkillCheckResult {
    * ignored. Only a ruleset game sets them.
    */
   withAbility?: string;
+  /** What the check was made for (1.752), as its tag's `for=` said. */
+  purpose?: string;
   bonusDice?: number;
   /**
    * What the roller's wound track took off this check, when the ruleset names one with
@@ -712,6 +723,8 @@ export interface Combatant extends CombatAttackTraits, RulesetEncounterBlueprint
   tactics?: CombatTactics;
   aiHints?: CombatAiHints;
   controller?: CombatController;
+  /** Its player's standing orders, while the Engine plays it. */
+  orders?: CombatOrders;
   skillCooldowns?: Record<string, number>;
   id: string;
   name: string;
@@ -879,7 +892,13 @@ export interface CombatSummary {
     defeated: boolean;
     hp: number;
     maxHp: number;
+    /** Out of the fight alive, its heart gone: run off, or given up to the party. */
+    left?: "fled" | "surrendered";
   }>;
+  /** The party gave itself up to honourable opponents (combat AI T6), who take it alive. */
+  yielded?: true;
+  /** The fight broke off with both sides standing, after rounds in which nothing changed (K8). */
+  stalled?: true;
   /** Resolved tactical terrain retained after the live combat snapshot is cleared. */
   battlefieldSummary?: string;
   /** What the win dropped into the party's bags, and how many of each nobody could carry. */

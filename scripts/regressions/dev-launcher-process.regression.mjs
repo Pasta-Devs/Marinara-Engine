@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { tmpdir } from "node:os";
+import { constants, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -75,7 +75,7 @@ async function waitUntil(predicate, message, timeoutMs = 8_000) {
     if (await predicate()) return;
     await delay(50);
   }
-  throw new Error(message);
+  throw new Error(typeof message === "function" ? message() : message);
 }
 
 async function listen(server) {
@@ -184,25 +184,60 @@ async function stopLauncher(run, signal = "SIGTERM") {
   return exit;
 }
 
+// The stopped launcher and its trees must be gone, or a leftover keeps the launcher's output pipe open.
+async function assertRunStopped(run, message) {
+  const pids = readLines(run.pidPath).map(Number);
+  await waitUntil(
+    () => pids.every((pid) => !isProcessAlive(pid)),
+    () => `${message}: ${pids.filter(isProcessAlive).join(", ")}`,
+  );
+}
+
+// #8601: cleanup must reach every recorded process. A fake pnpm is its group's leader, but a worker is not,
+// so killing "-worker" fails with ESRCH; and a group outlives its dead leader, so a dead pid is still tried.
 function forceStopRun(run) {
   for (const rawPid of readLines(run.pidPath)) {
     const pid = Number(rawPid);
-    if (!Number.isInteger(pid) || pid <= 1 || !isProcessAlive(pid)) continue;
+    if (!Number.isInteger(pid) || pid <= 1) continue;
     if (process.platform === "win32") {
-      spawnSync("taskkill.exe", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore" });
-    } else {
+      if (isProcessAlive(pid)) spawnSync("taskkill.exe", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore" });
+      continue;
+    }
+    for (const target of [-pid, pid]) {
+      if (target > 0 && !isProcessAlive(target)) continue;
       try {
-        process.kill(-pid, "SIGKILL");
+        process.kill(target, "SIGKILL");
       } catch (err) {
-        if (err?.code !== "ESRCH") process.kill(pid, "SIGKILL");
+        if (err?.code !== "ESRCH") throw err;
       }
     }
   }
   if (run.child.exitCode === null && run.child.signalCode === null) run.child.kill("SIGKILL");
+  // A process that escaped anyway must not hold this script open by its share of the launcher's output.
+  run.child.stdout.destroy();
+  run.child.stderr.destroy();
 }
 
 const runs = [];
 const servers = [];
+
+function cleanUp() {
+  for (const run of runs) forceStopRun(run);
+  for (const server of servers) {
+    if (server.listening) server.close();
+  }
+  rmSync(fixtureRoot, { recursive: true, force: true });
+}
+
+// A stop from the launcher regression runner (a timeout or Ctrl+C) still cleans up: each fixture launcher and
+// fake pnpm leads its own process group, which a stop sent to this script's group does not reach.
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(signal, () => {
+    cleanUp();
+    process.exit(128 + constants.signals[signal]);
+  });
+}
+
 try {
   const ownedPort = await reservePort();
   const ownedRun = launchFixture(ownedPort, "owned");
@@ -217,12 +252,8 @@ try {
       return false;
     }
   }, "Fixture launcher did not start both process trees");
-  const ownedPids = readLines(ownedRun.pidPath).map(Number);
   await stopLauncher(ownedRun);
-  await waitUntil(
-    () => ownedPids.every((pid) => !isProcessAlive(pid)),
-    `Launcher shutdown left descendants alive: ${ownedPids.filter(isProcessAlive).join(", ")}`,
-  );
+  await assertRunStopped(ownedRun, "Launcher shutdown left descendants alive");
   await assertHealthEndpointUnavailable(ownedPort);
 
   if (process.platform !== "win32") {
@@ -237,12 +268,8 @@ try {
         return false;
       }
     }, "Fixture launcher did not start both process trees before terminal hangup");
-    const hangupPids = readLines(hangupRun.pidPath).map(Number);
     await stopLauncher(hangupRun, "SIGHUP");
-    await waitUntil(
-      () => hangupPids.every((pid) => !isProcessAlive(pid)),
-      `Terminal hangup left descendants alive: ${hangupPids.filter(isProcessAlive).join(", ")}`,
-    );
+    await assertRunStopped(hangupRun, "Terminal hangup left descendants alive");
     await assertHealthEndpointUnavailable(hangupPort);
   }
 
@@ -258,13 +285,20 @@ try {
   await waitUntil(async () => {
     try {
       const response = await fetchHealth(envFilePort);
-      return response.ok && readLines(envFileRun.logPath).some((line) => line.includes("@marinara-engine/client"));
+      // Four pids: both fake pnpm processes and both workers. Stopping while a worker is still being
+      // started can leave it behind (#8601).
+      return response.ok && readLines(envFileRun.pidPath).length >= 4;
     } catch {
       return false;
     }
   }, "Launcher did not start its server on the PORT from .env");
   assert.ok(envFileRun.output().stdout.includes(`127.0.0.1:${envFilePort}/api/health`), envFileRun.output().stdout);
+  assert.ok(
+    readLines(envFileRun.logPath).some((line) => line.includes("@marinara-engine/client")),
+    "Launcher did not start the client after the server on the PORT from .env",
+  );
   await stopLauncher(envFileRun);
+  await assertRunStopped(envFileRun, "Launcher shutdown with PORT from .env left descendants alive");
   rmSync(join(fixtureRoot, ".env"));
 
   const reusableServer = createServer((_request, response) => {
@@ -275,8 +309,12 @@ try {
   const reusablePort = await listen(reusableServer);
   const reusableRun = launchFixture(reusablePort, "reusable");
   runs.push(reusableRun);
+  // Two pids: the client's fake pnpm and its worker. The log line alone is written before the worker
+  // starts, and a stop in that gap left the worker running and this script waiting on it (#8601).
   await waitUntil(
-    () => readLines(reusableRun.logPath).some((line) => line.includes("@marinara-engine/client")),
+    () =>
+      readLines(reusableRun.logPath).some((line) => line.includes("@marinara-engine/client")) &&
+      readLines(reusableRun.pidPath).length >= 2,
     "Launcher did not start the client while reusing a healthy server",
   );
   const reusableInvocations = readLines(reusableRun.logPath);
@@ -286,6 +324,7 @@ try {
   );
   assert.match(reusableRun.output().stdout, /Reusing it and starting the client/u);
   await stopLauncher(reusableRun);
+  await assertRunStopped(reusableRun, "Launcher shutdown while reusing a server left descendants alive");
   const reusedHealth = await fetch(`http://127.0.0.1:${reusablePort}/api/health`);
   assert.equal(reusedHealth.ok, true, "Launcher shutdown must not stop a server it did not start");
   await new Promise((resolveClose) => reusableServer.close(resolveClose));
@@ -307,9 +346,5 @@ try {
 
   console.log("Dev launcher process regression checks passed.");
 } finally {
-  for (const run of runs) forceStopRun(run);
-  for (const server of servers) {
-    if (server.listening) server.close();
-  }
-  rmSync(fixtureRoot, { recursive: true, force: true });
+  cleanUp();
 }

@@ -167,7 +167,7 @@ export function RightPanel() {
     <section
       ref={sectionRef}
       data-component="RightPanel"
-      aria-label={config.title}
+      aria-label={localize(config.title)}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className="mari-right-panel-content mari-chrome-token-scope flex h-full min-h-0 flex-col outline-none"
@@ -186,7 +186,7 @@ export function RightPanel() {
           >
             {config.icon}
           </div>
-          <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{config.title}</h2>
+          <h2 className="mari-chrome-text-strong truncate text-sm font-semibold">{localize(config.title)}</h2>
           {config.helpKey && (
             <HelpTooltip
               key={panel}

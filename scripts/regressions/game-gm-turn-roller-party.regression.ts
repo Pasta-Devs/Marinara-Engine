@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { parseRulesetDefinition } from "../../packages/shared/src/index.js";
-import { buildGmFormatReminder, buildGmSystemPrompt } from "../../packages/server/src/services/game/gm-prompts.js";
+import {
+  buildGmFormatReminder,
+  buildGmSystemPrompt,
+  RULESET_SHEET_DEAD_MARK,
+} from "../../packages/server/src/services/game/gm-prompts.js";
 import { OpenAIProvider } from "../../packages/server/src/services/llm/providers/openai.provider.js";
 import type { ChatMessage } from "../../packages/server/src/services/llm/base-provider.js";
 import { extractLeadingGmPlanning } from "../../packages/server/src/services/game/gm-planning.js";
@@ -66,6 +70,16 @@ const party = ["Isolde", "Hessa", "Brannoc", "Pip"];
   assert.match(directed, /"You" means the party together, never one member/);
   assert.doesNotMatch(directed, /NEVER quote or speak for the player character \(User\)/);
   assert.doesNotMatch(directed, /\[User\]/, "no example puts words in a player character who does not exist");
+  // One dead on their sheet is nobody the player directs (laptop 0706 Party B).
+  const withDead = buildGmFormatReminder({
+    ...base,
+    playerIsParty: true,
+    rulesetSheetBlocks: [
+      `Hessa\nHit points 0/30${RULESET_SHEET_DEAD_MARK}; only what raises the dead brings them back.`,
+    ],
+  } as ReminderContext);
+  assert.match(withDead, /they direct the whole party \(Isolde[^)]*; Hessa is dead and does nothing until raised\)/);
+  assert.doesNotMatch(withDead, /they direct the whole party \([^)]*Hessa,/);
 
   const withPersona = buildGmFormatReminder(base as ReminderContext);
   assert.match(withPersona, /NEVER quote or speak for the player character \(User\)/, "a persona game is unchanged");

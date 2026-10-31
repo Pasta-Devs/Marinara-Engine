@@ -7,14 +7,19 @@
 // skills or saves. The check resolver rolls what comes out of here; a fight reads its own conditions.
 // ──────────────────────────────────────────────
 import type {
+  RulesetConditionImmunityFrom,
   RulesetCatalogEntriesById,
+  RulesetCheckFloor,
   RulesetContextualCheck,
   RulesetContextualCost,
   RulesetCombatCondition,
+  RulesetConditionJumps,
   RulesetCreatureHideEntry,
   RulesetDefinition,
   RulesetItemUse,
+  RulesetKeptOn,
   RulesetSheetBuild,
+  RulesetValueRef,
 } from "../../schemas/ruleset.schema.js";
 import { parseRulesetCombatDice } from "../ruleset-combat/dice.js";
 import { evaluateRulesetSheetLive, readRulesetLive, rulesetEntryNamed } from "./live-state.js";
@@ -42,6 +47,12 @@ export interface RulesetSaveAgainst {
   action?: readonly string[];
   /** The catalog the entry it is against came from, or the one an item's use casts from (1.265). */
   catalog?: string;
+  /** Aimed at the saver alone, not an area (1.523). */
+  alone?: boolean;
+  /** What its save says it is (1.652): a gas. */
+  qualities?: readonly string[];
+  /** The declared filters of the entry it is against (1.787), for a rescue's `against.where`. */
+  filters?: Record<string, unknown>;
 }
 
 /** Any one match is enough; the save's own name is checked separately. */
@@ -58,7 +69,16 @@ export function rulesetSaveAgainstMatches(
   }
   // As do the catalogs it is cast from (1.265): a spell, and then whoever cast it.
   if (against.casts && !(source.catalog !== undefined && against.casts.includes(source.catalog))) return false;
-  if ((against.actions || against.casts) && !against.conditions && !against.damage && !against.magic && !against.from) {
+  // And aimed at its holder alone (1.523): a Ring of Spell Turning.
+  if (against.alone && !source.alone) return false;
+  if (
+    (against.actions || against.casts || against.alone) &&
+    !against.conditions &&
+    !against.damage &&
+    !against.magic &&
+    !against.from &&
+    !against.qualities
+  ) {
     return true;
   }
   return !!(
@@ -67,6 +87,7 @@ export function rulesetSaveAgainstMatches(
       source.damage?.some((one) => one.trim().toLowerCase() === type.trim().toLowerCase()),
     ) ||
     (against.magic && source.magic) ||
+    against.qualities?.some((quality) => source.qualities?.includes(quality)) ||
     (against.from &&
       source.from &&
       ((source.from.type !== undefined && !!against.from.types?.includes(source.from.type)) ||
@@ -94,6 +115,28 @@ export interface RulesetCheckSource {
   light?: Readonly<{ bright: number; dim: number }>;
   /** How near it gives away whoever moves unseen (Capability API 1.319). */
   alerts?: number;
+  /** Attacks at others near its holder are made at its holder instead (Capability API 1.658). */
+  drawsAim?: Readonly<{ within: number; blow?: "melee" | "ranged"; weapon?: true }>;
+  /** A fall does its holder no harm (Capability API 1.477 on an item; a condition's since 1.124). */
+  fallsSafely?: true | Readonly<{ upTo: number; unless?: readonly string[] }>;
+  /** Conditions on its holder it holds off, not ends (Capability API 1.477 on an item). */
+  suppresses?: readonly string[];
+  /** Hard going costs no more than plain ground (Capability API 1.489 on an item). */
+  ignoresHardGround?: true;
+  /** How much further its holder jumps (Capability API 1.513 on an item). */
+  jumps?: Readonly<RulesetConditionJumps>;
+  /** The conditions it keeps on its holder in a fight (Capability API 1.513 on an item). */
+  keepsOn?: readonly string[];
+  /** Conditions kept off by who or what would put them on (Capability API 1.486 on an item). */
+  conditionImmunitiesFrom?: readonly RulesetConditionImmunityFrom[];
+  /** What entries of these catalogs put on its holder does not lower their speed (Capability API 1.486). */
+  speedKeptFrom?: Readonly<{ catalogs: readonly string[] }>;
+  /** Conditions its holder may slip free of for some of their walk (Capability API 1.486). */
+  slipsFree?: Readonly<{ conditions: readonly string[]; cost: number; unlessCatalogs?: readonly string[] }>;
+  /** Held off while its holder has any of these, conditions or effects (Capability API 1.417). */
+  notWhile?: readonly string[];
+  /** A floor under its holder's checks (Capability API 1.418). */
+  checkFloor?: RulesetCheckFloor;
 }
 
 /**
@@ -122,6 +165,9 @@ export function rulesetCheckSources(
       const label = active.get(entry.condition);
       if (label !== undefined) sources.push({ ...entry, name: label });
     }
+    // Levels of one value that each add the same weapon dice on a critical are one line, their dice
+    // summed (ship readiness 2026-10-25: Brutal Critical read four "one more weapon die" lines).
+    const folded = new Map<string, RulesetCheckSource>();
     for (const level of combat.levels ?? []) {
       const value =
         level.derived !== undefined
@@ -132,14 +178,63 @@ export function rulesetCheckSources(
         level.derived !== undefined
           ? (definition.sheet.derived.find((entry) => entry.id === level.derived)?.label ?? level.derived)
           : (definition.sheet.live.tracks.find((track) => track.id === level.track)?.label ?? level.track!);
+      const { at: _at, ...rest } = level;
+      const only = level.modifiers?.length === 1 ? level.modifiers[0]! : undefined;
+      const plain = Object.entries(rest).every(
+        ([key, one]) =>
+          ["derived", "track", "modifiers"].includes(key) || (key === "effects" && Array.isArray(one) && !one.length),
+      );
+      if (only?.criticalDice && plain) {
+        const { criticalDice, label: _said, ...kind } = only;
+        const key = JSON.stringify([level.derived, level.track, kind]);
+        const had = folded.get(key);
+        const dice = (had?.modifiers?.[0]?.criticalDice ?? 0) + criticalDice;
+        const source = { ...rest, name: label, modifiers: [{ ...kind, criticalDice: dice }] } as RulesetCheckSource;
+        if (!had) sources.push(source);
+        else sources[sources.indexOf(had)] = source;
+        folded.set(key, source);
+        continue;
+      }
+      // Levels that each add a plain number to the same rolls are one term, summed (laptop 0706 Party
+      // B: "Back from the dead (penalty)" read as three -1s on one death save).
+      const flats =
+        plain &&
+        !!level.modifiers?.length &&
+        level.modifiers.every(
+          (one) => typeof one.flat === "number" && Object.keys(one).every((key) => key === "to" || key === "flat"),
+        );
+      if (flats) {
+        const key = JSON.stringify([level.derived, level.track, "flat", level.modifiers!.map((one) => one.to)]);
+        const had = folded.get(key);
+        const source = {
+          ...rest,
+          name: label,
+          modifiers: level.modifiers!.map((one, index) => ({
+            ...one,
+            flat: (had?.modifiers?.[index]?.flat ?? 0) + one.flat!,
+          })),
+        } as RulesetCheckSource;
+        if (!had) sources.push(source);
+        else sources[sources.indexOf(had)] = source;
+        folded.set(key, source);
+        continue;
+      }
       sources.push({ ...level, name: `${label} ${level.at}` });
     }
   }
-  return [
+  const all = [
     ...sources,
     ...rulesetItemSources(definition, build, items, sheet),
     ...rulesetSheetHideSources(definition, build),
   ];
+  // Held off while its holder has something it names (1.417), as in a fight.
+  if (!all.some((source) => source.notWhile)) return all;
+  const live = readRulesetLive(definition, build, stored);
+  const has = new Set<string>([
+    ...live.conditions.filter((entry) => entry.active).map((entry) => entry.id),
+    ...all.flatMap((source) => source.effects ?? []),
+  ]);
+  return all.filter((source) => !source.notWhile?.some((one) => has.has(one)));
 }
 
 /** A sheet row's typed hides (Capability API 1.132), read afresh so removing the row removes them.
@@ -197,21 +292,37 @@ export function rulesetItemSources(
 ): RulesetCheckSource[] {
   const sources: RulesetCheckSource[] = [];
   const seen = new Set<unknown>();
+  // What an effect keeps on (1.513), and a line with a `when` only while it reads above zero (1.653).
+  const asSource = (
+    effect: Omit<RulesetCheckSource, "keepsOn" | "name"> & { keepsOn?: readonly RulesetKeptOn[] },
+    name: string,
+  ): RulesetCheckSource => {
+    const { keepsOn: lines, ...rest } = effect;
+    const keepsOn = lines?.flatMap((kept) =>
+      typeof kept === "string"
+        ? [kept]
+        : resolveRulesetValueRef(definition, build, kept.when, sheet()) > 0
+          ? [kept.condition]
+          : [],
+    );
+    return { ...rest, name, ...(keepsOn ? { keepsOn } : {}) };
+  };
   for (const held of items ?? []) {
     const name = held.name ?? held.item.category;
     // A fake does what it truly does (1.79), under the name it is shown by.
     const does = rulesetHeldItemDoes(held);
     const effect = held.worn ? does.worn : does.carried;
-    if (effect && !seen.has(effect)) {
+    // Worn by the mount its holder rides (1.717): nothing of it on them.
+    if (effect && !seen.has(effect) && !effect.wornBy) {
       seen.add(effect);
-      sources.push({ ...effect, name });
+      sources.push(asSource(effect, name));
     }
     // What the wearer falls short of, while it is worn.
     if (!held.worn || !does.requires || seen.has(does.requires)) continue;
     seen.add(does.requires);
     for (const requirement of does.requires) {
       if (resolveRulesetValueRef(definition, build, requirement.value, sheet()) >= requirement.atLeast) continue;
-      sources.push({ ...requirement.otherwise, name });
+      sources.push(asSource(requirement.otherwise, name));
     }
   }
   return sources;
@@ -226,6 +337,18 @@ export interface RulesetCheckEffects {
   disadvantage: string[];
   /** A save these make fail without a roll. Empty for a check. */
   fails: string[];
+  /** Floors under a check (Capability API 1.418), each from a source, its `total` not yet read off
+   *  the sheet and its `proficient` not yet weighed. Left out where there are none. */
+  floors?: Array<{ from: string; floor: RulesetCheckFloor }>;
+}
+
+/** Whether a skill trained to this tier adds its holder's whole proficiency (1.418): a tier above
+ *  the first whose multiplier is at least 1. Half proficiency is not "your proficiency bonus". */
+export function rulesetTierAddsProficiency(definition: RulesetDefinition, tier: string | undefined): boolean {
+  const tiers = definition.resolution.proficiencyTiers;
+  if (tier === undefined || tier === tiers[0]?.id) return false;
+  const found = tiers.find((one) => one.id === tier);
+  return !!found && found.multiplier >= 1;
 }
 
 /**
@@ -238,6 +361,9 @@ export interface RulesetCheckEffects {
 export function rulesetCheckEffects(
   sources: readonly RulesetCheckSource[],
   target: RulesetCheckTarget | null,
+  /** Whether the roller adds their whole proficiency to this check's skill (1.429), for a change
+   *  narrowed to such checks: Natural Explorer. */
+  trained = false,
   /** What the save is made against, where the Engine knows (1.364): a modifier narrowed with `against`
    *  applies outside a fight too when it matches. */
   against?: RulesetSaveAgainst,
@@ -269,16 +395,23 @@ export function rulesetCheckEffects(
       if (effects.includes("own-checks-advantage")) lean("advantage", source.name);
       if (effects.includes("own-checks-disadvantage")) lean("disadvantage", source.name);
     }
+    // A floor under a check (1.418), narrowed by its own abilities and skills.
+    const floor = source.checkFloor;
+    if (floor && save === undefined && about(floor.skills, skill) && about(floor.abilities, ability))
+      (found.floors ??= []).push({ from: source.name, floor });
     for (const modifier of source.modifiers ?? []) {
       const applies =
         save !== undefined
           ? modifier.to === "saves" && about(modifier.saves ?? source.saves, save)
           : modifier.to === "checks" &&
             about(modifier.skills ?? source.skills, skill) &&
-            about(modifier.abilities, ability);
+            about(modifier.abilities, ability) &&
+            // Only a check made for one of its purposes (1.752): climbing or swimming.
+            about(modifier.for, target?.purpose);
       if (!applies || !rulesetSaveAgainstMatches(modifier.against, against)) continue;
+      if (modifier.proficient && (skill === undefined || !trained)) continue;
       if (modifier.mode) lean(modifier.mode, source.name);
-      if (modifier.flat !== undefined || modifier.dice !== undefined) {
+      if (modifier.flat !== undefined || modifier.dice !== undefined || modifier.add !== undefined) {
         found.modifiers.push({ from: source.name, modifier });
       }
     }
@@ -302,11 +435,15 @@ export function rulesetCheckRollMode(
 export function rollRulesetCheckModifiers(
   modifiers: RulesetCheckEffects["modifiers"],
   rollDie: (sides: number) => number,
+  /** A value off the roller's sheet (1.429), for a change that adds one; without it, such adds
+   *  nothing. */
+  read?: (ref: RulesetValueRef) => number | undefined,
 ): { total: number; rolls: number[] } {
   let total = 0;
   const rolls: number[] = [];
   for (const { modifier } of modifiers) {
     total += modifier.flat ?? 0;
+    if (modifier.add && read) total += (modifier.minus ? -1 : 1) * Math.trunc(read(modifier.add) ?? 0);
     const dice = modifier.dice ? parseRulesetCombatDice(modifier.dice) : null;
     if (!dice) continue;
     let rolled = dice.flat;
@@ -460,7 +597,9 @@ export function rulesetContextualItems(
           ...(contextual.skills ? { skills: contextual.skills } : {}),
           ...(contextual.saves ? { saves: contextual.saves } : {}),
         };
-        const effects = rulesetCheckEffects([source], target);
+        // Trained in the skill rolled (1.429), for a change only to those: Natural Explorer.
+        const trained = target?.type === "skill" && rulesetTierAddsProficiency(definition, build.skills?.[target.id]);
+        const effects = rulesetCheckEffects([source], target, trained);
         const leans = effects.modifiers.length + effects.advantage.length + effects.disadvantage.length > 0;
         // A pool effect is narrowed as a condition is: to the skills or saves it names, else any check.
         const narrowedOut =
@@ -503,12 +642,21 @@ export function rulesetContextualCheck(items: readonly RulesetContextualItem[]):
   return out;
 }
 
+/** Item tags as words: each by the ruleset's label for it (its id read as words without one),
+ *  lowercased, joined with "or". */
+export function rulesetTagWords(definition: RulesetDefinition | undefined, tags: readonly string[]): string {
+  const words = tags.map((id) =>
+    (definition?.items?.tags?.find((tag) => tag.id === id)?.label ?? id.replace(/_/g, " ")).toLowerCase(),
+  );
+  return words.length > 1 ? `${words.slice(0, -1).join(", ")} or ${words.at(-1)}` : (words[0] ?? "");
+}
+
 /** Typed defenses, in the same words on the sheet, battle status and Game Master prompt (1.132). */
 export function rulesetHideLines(
   definition: RulesetDefinition,
   sources: readonly Pick<RulesetCheckSource, "resist" | "vulnerable" | "immune" | "conditionImmunities">[],
   text: (key: string, values: Record<string, string>) => string = (key, values) => {
-    if (key === "game.ruleset.hides.except") return `${values.type} except ${values.tags}`;
+    if (key === "game.ruleset.hides.except") return `${values.type} (not from ${values.tags})`;
     const labels: Record<string, string> = {
       resist: "Resists",
       vulnerable: "Vulnerable to",
@@ -521,8 +669,13 @@ export function rulesetHideLines(
   return (["resist", "vulnerable", "immune", "conditionImmunities"] as const).flatMap((kind) => {
     const names = sources.flatMap((source) =>
       (source[kind] ?? []).map((entry) => {
+        // The tags a blow is let through by, by the ruleset's own words for them (ship readiness
+        // 2026-10-25: "fire except magic_weapon silvered").
         if (typeof entry !== "string")
-          return text("game.ruleset.hides.except", { type: entry.type, tags: entry.except.join(" ") });
+          return text("game.ruleset.hides.except", {
+            type: entry.type,
+            tags: rulesetTagWords(definition, entry.except),
+          });
         return kind === "conditionImmunities"
           ? (definition.sheet.live.conditions.find((condition) => condition.id === entry)?.label ?? entry)
           : entry;

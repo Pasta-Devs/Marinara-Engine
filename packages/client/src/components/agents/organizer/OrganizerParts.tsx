@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, Loader2, MoreHorizontal } from "lucide-react";
 import type { InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../../lib/utils";
+import { resolveCapabilityCatalogEntryDisplay } from "../../../lib/capability-package-localization";
 import { AgentArtwork } from "../AgentArtwork";
 import {
   hasUpdate,
@@ -160,6 +161,13 @@ export function MenuButton({ entry, className }: { entry: OrganizerEntry; classN
   );
 }
 
+/** A catalog entry's name and description as this language shows them: a ruleset's from its language
+ *  pack's catalog listing (1.811) where there is one, else its manifest's. */
+export function useShownEntry(entry: OrganizerEntry) {
+  const { i18n } = useUiTranslation();
+  return resolveCapabilityCatalogEntryDisplay(entry, i18n.resolvedLanguage ?? i18n.language);
+}
+
 /** The one row used by Section, Installed, Updates and search results. */
 export function AgentRow({
   entry,
@@ -181,6 +189,7 @@ export function AgentRow({
 }) {
   const { go } = useOrganizer();
   const { t: localizeUi } = useUiTranslation();
+  const shown = useShownEntry(entry);
   return (
     <li className="border-b border-[var(--border)] last:border-b-0">
       <div className="flex items-center gap-3 py-3">
@@ -191,8 +200,10 @@ export function AgentRow({
         >
           <AgentIcon entry={entry} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{entry.manifest.name}</span>
-            <span className="block truncate text-xs text-[var(--muted-foreground)]">{taglineOf(entry)}</span>
+            <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{shown.name}</span>
+            <span className="block truncate text-xs text-[var(--muted-foreground)]">
+              {taglineOf(entry, shown.description)}
+            </span>
             <span className="mt-0.5 block truncate text-[0.6875rem] text-[var(--muted-foreground)]/80">
               {meta ?? localizeUi(typeLabelKey(typeOf(entry)))}
             </span>

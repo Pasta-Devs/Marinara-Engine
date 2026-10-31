@@ -3,9 +3,9 @@ import {
   TACTICAL_BATTLEFIELD_GENERATOR_VERSION,
   validateTacticalBattlefieldBrief,
 } from "./grid-gen.js";
-import { TERRAIN_DATA, type TacticalBattlefieldSize } from "./types.js";
+import { TACTICAL_BATTLEFIELD_SIZES, TERRAIN_DATA, type TacticalBattlefieldSize } from "./types.js";
 
-const BATTLEFIELD_SIZES = new Set(["small", "medium", "large"]);
+const BATTLEFIELD_SIZES = new Set<string>(TACTICAL_BATTLEFIELD_SIZES);
 const MAX_SUMMARY_LENGTH = 1000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -37,9 +37,12 @@ export function summarizeTacticalBattlefield(value: unknown): string | undefined
   if (
     !(
       madeName ||
-      // Either generator: version 1 boards are flat, version 2 ones may have foothills (combat C6b).
+      // Any generator: version 1 boards are flat, version 2 ones may have foothills (combat C6b),
+      // version 3 ones may be cut to an outline (2026-10-24).
       (provenance.kind === "generated" &&
-        (provenance.generatorVersion === 1 || provenance.generatorVersion === TACTICAL_BATTLEFIELD_GENERATOR_VERSION))
+        (provenance.generatorVersion === 1 ||
+          provenance.generatorVersion === 2 ||
+          provenance.generatorVersion === TACTICAL_BATTLEFIELD_GENERATOR_VERSION))
     ) ||
     !BATTLEFIELD_SIZES.has(provenance.size as string)
   ) {
@@ -52,12 +55,18 @@ export function summarizeTacticalBattlefield(value: unknown): string | undefined
     return undefined;
   }
 
+  // Off the map is no terrain of the board's (2026-10-24): it is counted apart.
+  const outside = (value.grid as { outside?: unknown }).outside;
+  const off = (x: number, y: number) =>
+    Array.isArray(outside) && Array.isArray(outside[y]) && (outside[y] as unknown[])[x] === true;
+  let offCount = 0;
   const counts = new Map<string, number>();
-  for (const row of tiles) {
+  for (const [y, row] of tiles.entries()) {
     if (!Array.isArray(row) || row.length !== width) return undefined;
-    for (const terrain of row) {
+    for (const [x, terrain] of row.entries()) {
       if (!isKnownTerrain(terrain)) return undefined;
-      counts.set(terrain, (counts.get(terrain) ?? 0) + 1);
+      if (off(x, y)) offCount += 1;
+      else counts.set(terrain, (counts.get(terrain) ?? 0) + 1);
     }
   }
 
@@ -66,6 +75,11 @@ export function summarizeTacticalBattlefield(value: unknown): string | undefined
     `Environment: ${typeof value.environment === "string" && /^[a-z]+$/.test(value.environment) ? value.environment : "unspecified"}`,
     `Board size: ${provenance.size}`,
   ];
+  if (offCount > 0) {
+    const outline =
+      typeof provenance.outline === "string" && /^[a-z]+$/.test(provenance.outline) ? provenance.outline : "shaped";
+    lines.push(`Outline: ${outline}, ${offCount} squares off the map`);
+  }
   if (madeName) {
     lines.push(`Board: "${madeName}", made by hand for this place (fought on exactly as made)`);
   } else {

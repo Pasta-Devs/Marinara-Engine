@@ -349,7 +349,14 @@ try {
       if (!node || typeof node !== "object") return;
       if (node.type === "object" && node.properties?.saveEnds && node.properties?.duration) {
         saves++;
-        assert.deepEqual(node.properties.saveEnds.properties.at.enum, ["turn-end", "turn-start", "damaged", "action"]);
+        assert.deepEqual(node.properties.saveEnds.properties.at.enum, [
+          "turn-end",
+          "turn-start",
+          "damaged",
+          "action",
+          "source-turn-start",
+          "days",
+        ]);
         assert.deepEqual(node.then, { required: ["saveEnds"] });
       }
       Object.values(node).forEach(walk);

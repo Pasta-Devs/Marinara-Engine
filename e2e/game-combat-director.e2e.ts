@@ -779,6 +779,9 @@ test("Combat director ruleset on a board: the walk, the log in paces, and the sw
       expect(result.ok(), await result.text()).toBeTruthy();
       s = (await result.json()).session;
     };
+    // The party is set down before the first turn (2026-10-24); this fight begins where it was laid.
+    expect(s.stage).toBe("deploy");
+    await command({ type: "deployed" });
 
     const patch = await request.patch(`/api/chats/${chatId}/metadata`, {
       data: {

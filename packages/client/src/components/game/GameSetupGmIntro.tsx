@@ -17,19 +17,22 @@ import { GAME_SETUP_FIELD_LABEL, GAME_SETUP_INPUT_CLASS } from "./game-setup-cla
 const MODES = ["none", "defined", "guided"] as const;
 
 /** What the setup sends: the choice, or nothing when it is the Experience's own (or none, with none).
- *  A defined intro is sent exactly as written; blank is none. */
+ *  A defined intro is sent exactly as written. One left blank is never quietly sent as none (cheap-GM
+ *  playtest 2026-10-26: a Guided intro was stored as "none"): it is asked for, below. */
 export function gameIntroForSetup(choice: GameIntroChoice | null): GameIntroChoice | undefined {
   if (!choice) return undefined;
   if (choice.mode === "none") return choice;
-  if (!choice.text.trim()) return { mode: "none" };
   return { mode: choice.mode, text: choice.mode === "defined" ? choice.text : choice.text.trim() };
 }
 
 /** Why the setup's intro cannot be sent, as its message's key, or null when it can: the same check the
  *  server makes, so the warning, Start and the setup's download agree. */
-export function gameIntroProblem(choice: GameIntroChoice | null): "noBraces" | "noBrackets" | "invalid" | null {
+export function gameIntroProblem(
+  choice: GameIntroChoice | null,
+): "blank" | "noBraces" | "noBrackets" | "invalid" | null {
   const sent = gameIntroForSetup(choice);
   if (!sent || sent.mode === "none" || gameIntroChoiceSchema.safeParse(sent).success) return null;
+  if (!sent.text.trim()) return "blank";
   if (/\{\{|\}\}/.test(sent.text)) return "noBraces";
   if (sent.mode === "guided" && /[[\]]/.test(sent.text)) return "noBrackets";
   return "invalid";

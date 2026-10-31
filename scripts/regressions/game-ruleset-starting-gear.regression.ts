@@ -483,6 +483,39 @@ try {
     );
     assert.deepEqual(coats.map((stack) => Boolean(stack.equipped)).sort(), [false, true]);
   }
+  {
+    // A coat the Game Master already gave is not taken twice (laptop 2026-10-26: heroes handed a
+    // shield before their kits carried two after). Taken again on purpose, it is.
+    const given: GameInventoryStack = {
+      id: "s1",
+      name: "Leather coat",
+      item: "outfitter/leather-coat",
+      quantity: 1,
+      holder: "Juno",
+    };
+    const chatId = await newGame([given]);
+    const kit = await take({ chatId, holder: "Juno", selection: { gear: "coat", choices: [], picks: {} } });
+    assert.equal(kit.statusCode, 200, kit.body);
+    assert.deepEqual(kit.json().added, []);
+    const coatsOf = (response: typeof kit) =>
+      (response.json().inventory as GameInventoryStack[]).filter((stack) => stack.item === "outfitter/leather-coat");
+    assert.deepEqual(
+      coatsOf(kit).map((stack) => [stack.holder, stack.quantity]),
+      [["Juno", 1]],
+    );
+    assert.deepEqual(kit.json().taken, { juno: ["coat"] });
+    const again = await take({
+      chatId,
+      holder: "Juno",
+      selection: { gear: "coat", choices: [], picks: {} },
+      again: true,
+    });
+    assert.equal(again.statusCode, 200, again.body);
+    assert.equal(
+      coatsOf(again).reduce((total, stack) => total + stack.quantity, 0),
+      2,
+    );
+  }
 
   console.log("Ruleset starting gear: schema and gate, fits, the resolver, and the route into one bag, once a group.");
 } finally {

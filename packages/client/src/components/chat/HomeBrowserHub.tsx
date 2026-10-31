@@ -72,7 +72,10 @@ import { achievementKeys, trackAchievementEvent } from "../../hooks/use-achievem
 import { api, ApiError } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
-import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
+import {
+  resolveCapabilityCatalogEntryDisplay,
+  resolveCapabilityPackageDisplay,
+} from "../../lib/capability-package-localization";
 import { isApplePlatform } from "../../lib/command-center";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { executeStateNavigation } from "../../lib/state-navigation";
@@ -1364,7 +1367,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const activeRecommendation =
     recommendations.length > 0 ? recommendations[discoveryIndex % recommendations.length] : null;
   const activeRecommendationDisplay = activeRecommendation
-    ? resolveCapabilityPackageDisplay(activeRecommendation.manifest, i18n.resolvedLanguage ?? i18n.language)
+    ? resolveCapabilityCatalogEntryDisplay(activeRecommendation, i18n.resolvedLanguage ?? i18n.language)
     : null;
 
   const discoveryRotationActive =

@@ -1,11 +1,17 @@
+import { isDeepStrictEqual } from "node:util";
 import {
   applyClockCommandTags,
+  rulesetChargesStart,
   normalizeVideoGenerationUserSettings,
   TTS_SETTINGS_KEY,
   isStockMarinaraUniversalPreset,
   VIDEO_GENERATION_SETTINGS_KEY,
   type RulesetClocks,
 } from "@marinara-engine/shared";
+import {
+  GAME_STARTING_GEAR_TAKEN_KEY,
+  readGameStartingGearTaken,
+} from "../services/game/game-starting-gear.service.js";
 import {
   currentRoomGeneration,
   resolveRoomGenerationPolicy,
@@ -214,6 +220,12 @@ import {
 } from "../services/storage/chats.storage.js";
 import { updateInterruptedPromptHistory } from "../services/generation/roleplay-interrupt-context.js";
 import {
+  HTML_ARTIFACT_LIMIT_ERROR,
+  HTML_ARTIFACT_LIMIT_PER_REPLY,
+  resolveHtmlArtifactMaxParallelJobs,
+  runHtmlArtifactCommand,
+} from "../services/generation/html-artifact.js";
+import {
   commitSpatialOwnerTurn,
   findAppliedSpatialOwnerTurn,
   SpatialOwnerTurnError,
@@ -243,6 +255,8 @@ import {
   isRoleplayCommandAllowed,
   getRoleplayCommandActivity,
   applyGameInventoryTags,
+  dropForgedStorySources,
+  dropGameLootRepeats,
   applyGamePlaceTags,
   worldKitSize,
   worldPlaceByName,
@@ -319,6 +333,7 @@ import {
   type GameInventoryMarket,
   createInventoryTagRegex,
   gameInventoryBags,
+  gameInventoryFoldStandIn,
   gameInventoryTellingStart,
   readGameInventoryTurn,
   rulesetInventedItemsHeld,
@@ -327,6 +342,7 @@ import {
   replaceTrailingInventoryTags,
   gameInventoryTotals,
   gameInventoryBagKey,
+  rulesetStartingGearTakenBy,
   gameInventoryBearerStatus,
   normalizeGameInventoryStacks,
   normalizeCharacterLookupName,
@@ -340,6 +356,7 @@ import {
   type RulesetDefinition,
   type RulesetItemBook,
   type RulesetLiveStates,
+  type RulesetMaterialTaken,
 } from "@marinara-engine/shared";
 import {
   isRoleplayRollEnabled,
@@ -384,11 +401,16 @@ import {
   loadGameRulesetSheetContext,
   loadTurnRulesetCatalogs,
   renderGameRulesetSheetBlocks,
+  gameRulesetCardsAway,
   sheetCommandCards,
   type GameRulesetSheetContext,
   type GameRulesetSheetTurn,
 } from "../services/game/ruleset-sheet-turn.service.js";
-import { gameInventoryItemUser, gameInventoryRestRecharge } from "../services/game/game-item-use.service.js";
+import {
+  gameInventoryItemUser,
+  gameInventoryMaterialsTaken,
+  gameInventoryRestRecharge,
+} from "../services/game/game-item-use.service.js";
 import { gameLootTagRoller } from "../services/game/game-loot.service.js";
 import {
   gameMarketDayFor,
@@ -402,6 +424,7 @@ import {
   followGameInventoryOnRow,
   gameRulesetLayerOptions,
   loadGameInventoryItemBook,
+  passGameInventoryTime,
 } from "../services/game/game-inventory.service.js";
 import { createCustomToolsStorage } from "../services/storage/custom-tools.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
@@ -415,6 +438,7 @@ import { resolveGalleryImagePath } from "../services/image/gallery-image-path.js
 import { isSentSelfieAttachment } from "../services/generation/prompt-attachments.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { gameTtsEmotionIndicatorsEnabled } from "../services/tts-emotion-guidance.js";
+import { createAgentConcurrencyLimiter } from "../services/agents/agent-concurrency.js";
 import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-import-policy.service.js";
 import { buildLorebookSemanticEmbeddingsById, warmLorebookEntryEmbeddings } from "../services/lorebook/embeddings.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
@@ -502,6 +526,7 @@ import { executeToolCalls } from "../services/tools/tool-executor.js";
 import { createAgentPipeline, type ResolvedAgent, type AgentInjection } from "../services/agents/agent-pipeline.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
+  buildAgentReferenceContextBlock,
   effectiveAgentPromptTemplate,
   executeAgent,
   normalizeAgentContextSize,
@@ -633,6 +658,7 @@ import {
   resolveUserRegenerationPersistentAttachments,
   resolveVisibleGameStateAnchor,
   resolveKnowledgeSourceLorebookIds,
+  rebaseTurnRulesetLive,
   mergedChatSummaryReaders,
   shouldPreferLatestVisibleGameState,
   shouldRunCharacterActivityAgents,
@@ -796,7 +822,7 @@ import {
 } from "../services/generation/provider-generation-runtime.js";
 import { applyContextMessageLimitWithPins, supportsNativeToolCalls } from "@marinara-engine/shared";
 import { planGameToolCalls } from "../services/generation/game-tool-planning.js";
-import { extractLeadingGmPlanning } from "../services/game/gm-planning.js";
+import { extractLeadingGmPlanning, stripStrayRuleLines } from "../services/game/gm-planning.js";
 import {
   countProfessorMariCommands,
   handleProfessorMariCommand,
@@ -880,7 +906,12 @@ import {
 import { createAgentLorebookTriggerResolver } from "../services/generation/agent-lorebook-triggers.js";
 import { addInventoryEntry, addLocationEntry, upsertQuest, addNpcEntry } from "../services/game/journal.service.js";
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
-import { buildGmFormatReminder, buildGmSceneState, insertStableGmInstructions } from "../services/game/gm-prompts.js";
+import {
+  buildGmFormatReminder,
+  buildGmSceneState,
+  insertStableGmInstructions,
+  rulesetRestAskedFor,
+} from "../services/game/gm-prompts.js";
 import { gmTurnNotices } from "../services/game/gm-turn-notices.js";
 import {
   createGameRollTagRegex,
@@ -888,7 +919,10 @@ import {
   resolveGameDiceRequests,
 } from "../services/game/dice.service.js";
 import {
+  checkIssuedD20s,
+  checkRecordsAsHistoryNotes,
   loadSkillCheckModifierContext,
+  playerSubmittedD20Faces,
   resolveSkillCheckTagsInContent,
 } from "../services/game/skill-check-resolution.service.js";
 import {
@@ -2710,6 +2744,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       // sees the corrected text in its conversation history.
       if (chatMode === "game") {
         applyAllSegmentEdits(mappedMessages, chatMeta as Record<string, unknown>, chatMessages);
+        // Settled checks read back as what they came to, never as records to copy (after the edits,
+        // which find their segments by those records).
+        for (const message of mappedMessages) {
+          if (message.role !== "user") message.content = checkRecordsAsHistoryNotes(message.content);
+        }
       }
 
       // User-message regeneration removes the target turn from real chat history,
@@ -3258,6 +3297,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       // The pinned ruleset follows the same rule: the resolution the reminder was rendered with is
       // the one the turn's sheet commands are checked against. Undefined until a game turn resolves it.
       let turnGameRuleset: ResolvedGameRuleset | null | undefined;
+      // A ruleset game with no persona plays its first character card as the player (as the sheet, the
+      // fight and the inventory window do), so that card's own bag is the player's.
+      let gameStandIn: string | undefined;
       let turnRulesetCatalogs: RulesetCatalogEntriesById | undefined;
       // The prompt and commands share one snapshot, including an older reply being continued.
       let turnStartSnapshotPromise: typeof selectedGameStateSnapshotPromise | null = null;
@@ -5302,6 +5344,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         });
 
         let addressMode: "party" | "gm" | undefined;
+        // The d20 faces the player's own message threw for this turn: the only die the Game Master
+        // may write into a check for them (laptop 2026-10-26).
+        let playerD20s: number[] = [];
         if (chatMode === "game") {
           // The lore written after the GM's prompt: the game's standing instructions go in front of
           // it, so lore that comes and goes leaves them in the cached part of the system prompt.
@@ -5312,6 +5357,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           const pinnedGameRuleset =
             chatMeta.gameRuleset != null ? resolveGameRuleset(chatMeta, await loadRulesetRegistry()) : null;
           turnGameRuleset = pinnedGameRuleset;
+          const firstGameCard = Array.isArray(chatMeta.gameCharacterCards)
+            ? (chatMeta.gameCharacterCards as Array<{ name?: unknown }>)[0]?.name
+            : undefined;
+          gameStandIn =
+            persona == null &&
+            pinnedGameRuleset?.status === "ok" &&
+            typeof firstGameCard === "string" &&
+            firstGameCard.trim()
+              ? firstGameCard.trim()
+              : undefined;
           const selectedGamePrompt =
             resolvedPreset && presetId
               ? resolvePresetModePrompt(resolvedPreset as Record<string, unknown>, "game")
@@ -5330,6 +5385,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               chatMetadata: gamePromptMetadata,
               world: await loadGameWorld(app.db, input.chatId, gamePromptMetadata),
               ruleset: pinnedGameRuleset?.status === "ok" ? pinnedGameRuleset.definition : undefined,
+              rulesetPackageId: pinnedGameRuleset?.status === "ok" ? pinnedGameRuleset.packageId : null,
               characterIds,
               chars,
               chats,
@@ -5473,6 +5529,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               ? "gm"
               : undefined;
           const playerDiceRollSubmitted = /\[dice\b/i.test(latestUserContent);
+          playerD20s = playerSubmittedD20Faces(latestUserContent);
           // The same table object the post-save parse will use — resolved here, cached for the turn.
           const gmVerbTableForPrompt = await getGmVerbTable();
           // One-request dice (#6215): the sheet names a `[[roll: 1d8+STR]]` placeholder
@@ -5755,7 +5812,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 promptInventoryStacks.flatMap((stack) =>
                   [stack.item, stack.truly].flatMap((ref) => {
                     const known = ref ? promptItemBook.itemOf(ref) : undefined;
-                    return known ? [[known.item, rulesetItemPromptFacts(known.facts)]] : [];
+                    return known ? [[known.item, rulesetItemPromptFacts(known.facts, known.summary)]] : [];
                   }),
                 ),
               )
@@ -5771,8 +5828,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // What each stack of an item that holds charges has left: its kept count, or all of them.
           const promptCharges = promptItemBook
             ? (stack: (typeof promptInventoryStacks)[number]) => {
-                const max = stack.item ? promptItemBook.itemOf(stack.item)?.facts.use?.charges?.max : undefined;
-                return max === undefined ? undefined : { now: Math.min(max, stack.charges ?? max), max };
+                const held = stack.item ? promptItemBook.itemOf(stack.item)?.facts.use?.charges : undefined;
+                const max = held?.max;
+                // Found with rolled charges (1.573) until something changed them.
+                const now = stack.charges ?? (held ? rulesetChargesStart(held, held.max, stack.id) : 0);
+                return max === undefined ? undefined : { now: Math.min(max, now), max };
               }
             : undefined;
           const gmReminderArgs: Parameters<typeof buildGmFormatReminder>[0] = {
@@ -5805,6 +5865,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             ...(pinnedGameRuleset?.status === "ok"
               ? {
                   ruleset: pinnedGameRuleset.definition,
+                  // A rest the player asked for by name is named in this turn's reminder.
+                  ...(() => {
+                    const asked = input.impersonate
+                      ? undefined
+                      : rulesetRestAskedFor(pinnedGameRuleset.definition, latestUserContent);
+                    return asked ? { playerAsksRest: asked } : {};
+                  })(),
                   // Gated on impersonate like the package verbs below: an impersonated turn is the
                   // player writing, nothing applies sheet commands to it, and a tag the model wrote
                   // there would land in the player's own message as visible text.
@@ -5832,6 +5899,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                               }
                             : undefined,
                           turnSheetMetadata.gamePartySheet,
+                          personaName || null,
+                          await gameRulesetCardsAway(
+                            app.db,
+                            input.chatId,
+                            pinnedGameRuleset.definition,
+                            turnSheetMetadata as Record<string, unknown>,
+                            personaName || null,
+                          ),
                         ),
                       }
                     : {}),
@@ -5861,7 +5936,24 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const inv = gameInventoryTotals(promptInventoryStacks, promptCharges);
               return inv.length > 0 ? inv : undefined;
             })(),
-            partyInventory: gameInventoryBags(promptInventoryStacks, promptCharges),
+            partyInventory: gameInventoryBags(
+              gameInventoryFoldStandIn(promptInventoryStacks, gameStandIn),
+              promptCharges,
+            ),
+            ...(gameStandIn ? { playerBagName: gameStandIn } : {}),
+            // Who has not taken the ruleset's starting gear yet, the player's own bag keyed "" (laptop v3
+            // 2026-10-26: the opening handed out class gear, then the kit doubled it).
+            ...(() => {
+              if (pinnedGameRuleset?.status !== "ok" || !pinnedGameRuleset.definition.items?.startingGear) return {};
+              const taken = readGameStartingGearTaken(chatMeta[GAME_STARTING_GEAR_TAKEN_KEY]);
+              const own = gameInventoryBagKey(personaName || gameStandIn || "");
+              const waiting = (turnSheetCards as Array<{ name?: unknown; rulesetSheet?: unknown }>).flatMap((card) => {
+                if (typeof card?.name !== "string" || !card.name.trim() || !card.rulesetSheet) return [];
+                const key = gameInventoryBagKey(card.name);
+                return rulesetStartingGearTakenBy(taken, key === own ? "" : key).length === 0 ? [card.name.trim()] : [];
+              });
+              return waiting.length > 0 ? { startingGearWaiting: waiting } : {};
+            })(),
             ...(promptItemFacts ? { inventoryItemFacts: promptItemFacts } : {}),
             ...(promptFakeNames && Object.keys(promptFakeNames).length > 0
               ? { inventoryFakeNames: promptFakeNames }
@@ -9674,6 +9766,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               contentReplaced = true;
             }
           }
+          // A markdown rule between an OOC note and the scene is no story (cheap-GM playtest 2026-10-26: a lone
+          // `---` stood where an OOC answer was).
+          if (chatMode === "game" && !input.impersonate) {
+            const unruled = stripStrayRuleLines(fullResponse);
+            if (unruled !== fullResponse) {
+              fullResponse = unruled;
+              contentReplaced = true;
+            }
+          }
 
           // ── LOG_LEVEL=debug or Settings -> Advanced -> Debug mode: log full response + usage to server console ──
           if (isDebug || requestDebug) {
@@ -9715,6 +9816,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           // ── Parse and strip hidden character commands ──
           let roleplayHadCommands = false;
+          let replyHtmlArtifacts = 0;
           const currentRoleplayMedia: RoleplayCommand[] = [];
           if (chatMode === "roleplay" && !input.impersonate) {
             const parsed = parseRoleplayCommands(fullResponse);
@@ -9776,8 +9878,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       ? "spotify"
                       : null;
               if (requiredAgent && !resolvedAgents.some((agent) => agent.type === requiredAgent)) continue;
-              if (command.type === "illustrate" && chatMeta.roleplayIllustrateInline === true) {
-                // Saved like a whisper's place, so edits keep the images next to the same text.
+              // A defined intro stays exactly as the card set it.
+              if (command.type === "html" && definedIntro?.mode === "defined") continue;
+              if (command.type === "html" && ++replyHtmlArtifacts > HTML_ARTIFACT_LIMIT_PER_REPLY)
+                activity.error = HTML_ARTIFACT_LIMIT_ERROR;
+              if (
+                command.type === "html" ||
+                (command.type === "illustrate" && chatMeta.roleplayIllustrateInline === true)
+              ) {
+                // Saved like a whisper's place, so edits keep the result next to the same text.
                 activity.contentOffset = parsed.positions.get(activity) ?? parsed.content.length;
                 roleplayInlinePrefixes.set(activity, parsed.content.slice(0, activity.contentOffset));
               }
@@ -9788,7 +9897,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 command.type === "video" ||
                 command.type === "combat" ||
                 command.type === "music" ||
-                command.type === "sound"
+                command.type === "sound" ||
+                (command.type === "html" && !activity.error)
               )
                 currentRoleplayMedia.push(command);
             }
@@ -9957,7 +10067,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // and the affected tags are left sparse.
           const gameChanceSession =
             chatMode === "game" && !input.impersonate && isOneRequestDiceEnabled(chatMeta)
-              ? createGameTurnChanceSession({ db: app.db, chatId: input.chatId })
+              ? createGameTurnChanceSession({ db: app.db, chatId: input.chatId, playerD20s })
               : null;
           if (gameChanceSession) {
             const branchArm = await runGameTurnChancePass(
@@ -10069,6 +10179,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               // the Engine's own arithmetic.
               ...(chatMeta.gameRuleset != null ? { rulesetPinned: true } : {}),
               ...(dicePoolSession ? { pool: dicePoolSession } : {}),
+              // A die the Game Master wrote stands only when the player or the Engine threw it this
+              // turn: the player's own, a branch check's above, and outside a ruleset game the dice
+              // tool's or a placeholder's.
+              issuedD20s: checkIssuedD20s(
+                chatMeta.gameRuleset != null,
+                gameChanceSession?.issuedD20s ?? playerD20s,
+                toolDiceRollResults,
+              ),
               // The prompt, check and sheet passes share the same catalog entries for this turn.
               loadCatalogs: async () => {
                 if (turnRulesetCatalogs) return turnRulesetCatalogs;
@@ -10116,7 +10234,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               definedIntro?.mode !== "defined" &&
               shouldNarrateGameDiceOutcome(
                 chatMeta,
-                Boolean(rolled.resolved || rolled.untrained || generalRolls.rolled),
+                Boolean(rolled.resolved || rolled.untrained || rolled.unknownRoller || generalRolls.rolled),
               )
             ) {
               // The first draft predates these results. Rewrite it with the real
@@ -10154,7 +10272,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   draftTurn,
                   {
                     role: "user",
-                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: any planning goes inside one <think>...</think> block at the very start, never in the narration.`,
+                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: any planning goes inside one <think>...</think> block at the very start, never in the narration.`,
                   },
                 ],
                 { tools: undefined },
@@ -10191,6 +10309,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   if (writtenPlan.planning)
                     fullThinking = [fullThinking, writtenPlan.planning].filter(Boolean).join("\n\n");
                 }
+                narration = stripStrayRuleLines(narration);
               } catch (err) {
                 if (generationSignal.aborted) return null;
                 geminiResponseParts = null;
@@ -10264,6 +10383,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 input.chatId,
                 turnGameRuleset,
                 input.regenerateMessageId,
+                // What the reply puts on counts on the sheets its commands read.
+                {
+                  content: fullResponse,
+                  party: { player: gameStandIn ?? (personaName || undefined), members: canonicalGamePartyNames },
+                },
               );
               turnSheetContext = sheetContext;
               if (sheetContext) {
@@ -10343,6 +10467,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               seed: number;
               /** The rests the turn's sheet commands took, whose charges come back to what is carried. */
               rests: Array<{ who: string; rest: string }>;
+              /** The priced materials the turn's casts used up (1.790), taken off what is carried. */
+              materials: RulesetMaterialTaken[];
             };
             /** What a `[loot:]` rolls: the ruleset its tables are in, and the dice's seed. */
             loot?: { definition: RulesetDefinition; seed: number };
@@ -10350,6 +10476,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
              *  each reading, since a market counts what the reply buys and sells. */
             market?: () => GameInventoryMarket;
           } | null = null;
+          // Before the story's own gifts join the reply: a mark of one the Game Master wrote is dropped.
+          if (chatMode === "game" && /\bsource\s*=\s*["']?story/i.test(fullResponse)) {
+            const unmarked = dropForgedStorySources(fullResponse);
+            if (unmarked !== fullResponse) {
+              fullResponse = unmarked;
+              contentReplaced = true;
+            }
+          }
           // ── Place tags (#6917) ──
           // Where the scene is, for a ruleset with a market or a game with a world: the last place the
           // player's visible messages said (not the telling a regeneration replaces), then the reply's
@@ -10524,16 +10658,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           const tellsInventory = /\[(?:inventory|loot):/i.test(fullResponse);
           // A rest the sheet commands took may bring charges back to what the rested carry.
           const turnRests = rulesetSheetTurn?.rests ?? [];
+          // A priced material a cast used up (1.790) comes out of the bag.
+          const turnMaterials = rulesetSheetTurn?.materials ?? [];
           const retellsInventoryTurn =
             !!input.regenerateMessageId &&
             readGameInventoryTurn(chatMeta.gameInventoryTurn)?.messageId === input.regenerateMessageId;
           if (
             chatMode === "game" &&
             !input.impersonate &&
-            (tellsInventory || retellsInventoryTurn || turnRests.length > 0)
+            (tellsInventory || retellsInventoryTurn || turnRests.length > 0 || turnMaterials.length > 0)
           ) {
             try {
-              const party = { player: personaName || undefined, members: canonicalGamePartyNames };
+              const party = { player: gameStandIn ?? (personaName || undefined), members: canonicalGamePartyNames };
               const retoldId = input.regenerateMessageId ?? input.continueMessageId ?? null;
               const retold = retoldId ? await chats.getMessage(retoldId) : null;
               const telling = retold
@@ -10554,9 +10690,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 normalizeGameInventoryStacks(currentMeta.gameInventory),
                 telling,
               );
-              const requested = fullResponse;
+              // What a won fight already dropped is not added again by the reply to its recap.
+              const recap = [...allChatMessages].reverse().find((message) => message.role === "user");
+              const requested = dropGameLootRepeats(
+                fullResponse,
+                typeof recap?.content === "string" ? recap.content : "",
+              );
               const rules =
-                tellsInventory || turnRests.length > 0
+                tellsInventory || turnRests.length > 0 || turnMaterials.length > 0
                   ? await loadGameInventoryItemBook(
                       app.db,
                       { metadata: currentMeta, resolved: turnGameRuleset, playerName: personaName || null },
@@ -10570,6 +10711,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       live: rulesetSheetTurn.live,
                       seed: randomInt(0, 2 ** 31 - 1),
                       rests: turnRests,
+                      materials: turnMaterials,
                     }
                   : undefined;
               const loot =
@@ -10944,6 +11086,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   ) as any,
                 );
               }
+              // What waits on game time counts the days (1.556).
+              if (clock) await passGameInventoryTime(app.db, input.chatId, turnClockDays * 24 * 60);
             } catch (err) {
               // The reply is saved either way: a failed write is logged, never the turn's failure.
               logger.error(err, "[generate] Overworld walk and clock update failed for chat %s", input.chatId);
@@ -11043,7 +11187,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 rulesetSheetTurn,
               );
               advancementSaved = true;
-              if (turnSheetContext.definition.sheet.advancement || turnSheetContext.definition.party) {
+              if (
+                turnSheetContext.definition.sheet.advancement ||
+                turnSheetContext.definition.party ||
+                Object.keys(rulesetSheetTurn.builds).length > 0
+              ) {
                 const metadata = parseExtra((await chats.getById(input.chatId))?.metadata);
                 sendSseEvent(reply, {
                   type: "metadata_patch",
@@ -11076,6 +11224,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   inventoryTurn.uses.context = turnSheetContext;
                   inventoryTurn.uses.live = rulesetSheetTurn.live;
                   inventoryTurn.uses.rests = rulesetSheetTurn.rests;
+                  inventoryTurn.uses.materials = rulesetSheetTurn.materials;
                 }
                 const before = fullResponse;
                 fullResponse = rulesetSheetTurn.content;
@@ -11155,6 +11304,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       pending.uses.rests,
                       pending.uses.seed,
                     )(outcome.stacks);
+                  }
+                  if (pending.uses?.materials.length) {
+                    outcome.stacks = gameInventoryMaterialsTaken(pending.uses.materials)(outcome.stacks);
                   }
                   const turnRecord = recordGameInventoryTelling(
                     pending.messageId ?? savedMsg.id,
@@ -11296,7 +11448,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // and otherwise just the purchases the checks already paid for. Without the second half a
           // turn whose sheet pass was skipped or threw would keep the automatic successes a player
           // bought and quietly give the points back, which is a free success.
-          const liveAfterTurn = inventoryLive ?? rulesetSheetTurn?.live ?? checkSpendLive;
+          const turnLive = inventoryLive ?? rulesetSheetTurn?.live ?? checkSpendLive;
+          // What the player changed on the sheet while this reply was written stays changed.
+          const liveAfterTurn = await (async () => {
+            const startRow = await turnStartRulesetSnapshot();
+            if (!startRow?.id) return turnLive;
+            const nowRow = await gameStateStore.getById(startRow.id, input.chatId);
+            const startLive = parseStoredRulesetLive(startRow.rulesetLive) ?? {};
+            const nowLive = parseStoredRulesetLive(nowRow?.rulesetLive) ?? {};
+            if (!nowRow || isDeepStrictEqual(startLive, nowLive)) return turnLive;
+            return rebaseTurnRulesetLive(startLive, turnLive ?? startLive, nowLive);
+          })().catch(() => turnLive);
           const rulesetStatePatch = {
             ...(liveAfterTurn ? { rulesetLive: liveAfterTurn } : {}),
             ...(rulesetClocksAfterTurn !== undefined ? { rulesetClocks: rulesetClocksAfterTurn } : {}),
@@ -12703,7 +12865,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             }
             agentContext.memory._expressionTargetIds = [...generatedExpressionTargetIds];
           }
-          if (hasPostProcessingAgents) {
+          if (hasPostProcessingAgents || roleplayMediaRequests.some(({ command }) => command.type === "html")) {
             sendSseEvent(reply, { type: "agent_start", data: { phase: "post_generation" } });
           }
 
@@ -12997,9 +13159,37 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // Persist agent runs to DB + handle game state updates
           const roleplayMediaTargets = new Map<AgentResult, (typeof roleplayMediaRequests)[number]>();
           let combatRequested = chatMeta.encounterActive === true;
+          // Each artifact needs no other's result, so they share the connection's Max Parallel Agent Jobs, which is 1
+          // on a local model that serves one request at a time.
+          let limitHtmlArtifact: ReturnType<typeof createAgentConcurrencyLimiter> | undefined;
           for (const request of roleplayMediaRequests) {
             if (agentSignal.aborted) break;
             const { command } = request;
+            if (command.type === "html") {
+              const { activityIndex } = request;
+              if (activityIndex === undefined) continue;
+              limitHtmlArtifact ??= createAgentConcurrencyLimiter(
+                await resolveHtmlArtifactMaxParallelJobs(app.db, conn.id),
+              );
+              const artifactRun = limitHtmlArtifact(async () => {
+                const error = await runHtmlArtifactCommand({
+                  db: app.db,
+                  messageId: request.messageId,
+                  swipeIndex: request.swipeIndex,
+                  activityIndex,
+                  request: command.prompt,
+                  chatConnectionId: conn.id,
+                  referenceContext: buildAgentReferenceContextBlock(postAgentContext),
+                  debugLog,
+                  signal: agentSignal,
+                });
+                sendSseEvent(reply, { type: "roleplay_artifact", data: { messageId: request.messageId } });
+                if (error && !agentSignal.aborted)
+                  sendSseEvent(reply, { type: "roleplay_command_error", data: { error } });
+              });
+              pendingRoleplayMedia.push(artifactRun);
+              continue;
+            }
             if (command.type === "sound") {
               pendingRoleplayMedia.push(
                 (async () => {

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Hook: Game Mode API
 // ──────────────────────────────────────────────
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
 } from "../stores/game-mode.store";
 export { patchChatMetadata } from "../lib/chat-metadata-patch";
 import { patchChatMetadata } from "../lib/chat-metadata-patch";
+import { readSetupDismissed } from "../lib/game-setup-dismissed";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useChatStore } from "../stores/chat.store";
@@ -253,26 +254,48 @@ export function useCreateGame() {
   });
 }
 
+/** Whether a request ended because it was cancelled on this side, not because it failed. */
+export function isRequestCancelled(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+/**
+ * World setup. `cancel` stops a setup in flight: the request is dropped, and the server stops the model call when
+ * it sees the connection close (playtest 2026-10-26: a setup at maximum reasoning ran 33 minutes with no way out).
+ */
 export function useGameSetup() {
   const qc = useQueryClient();
   const store = useGameModeStore;
+  const { t } = useTranslation();
+  const controllerRef = useRef<AbortController | null>(null);
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (data: {
       chatId: string;
       connectionId?: string;
       promptPresetId?: string | null;
       preferences: string;
       keepSetupActive?: boolean;
-    }) =>
-      api.post<SetupResponse>("/game/setup", {
-        chatId: data.chatId,
-        connectionId: data.connectionId,
-        promptPresetId: data.promptPresetId,
-        preferences: data.preferences,
-        streaming: useUIStore.getState().enableStreaming,
-        debugMode: useUIStore.getState().debugMode,
-      }),
+    }) => {
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      return api
+        .post<SetupResponse>(
+          "/game/setup",
+          {
+            chatId: data.chatId,
+            connectionId: data.connectionId,
+            promptPresetId: data.promptPresetId,
+            preferences: data.preferences,
+            streaming: useUIStore.getState().enableStreaming,
+            debugMode: useUIStore.getState().debugMode,
+          },
+          { signal: controller.signal },
+        )
+        .finally(() => {
+          if (controllerRef.current === controller) controllerRef.current = null;
+        });
+    },
     onSuccess: (res, variables) => {
       if (!variables.keepSetupActive) store.getState().setSetupActive(false);
       if (Array.isArray(res.gameNpcs)) {
@@ -285,6 +308,10 @@ export function useGameSetup() {
       }
     },
     onError: (err) => {
+      if (isRequestCancelled(err)) {
+        toast.info(t("game.setup.cancelled"));
+        return;
+      }
       console.error("[gameSetup] Error:", err);
       if (isJsonRepairApiError(err)) {
         toast.info("The model response needs a quick JSON repair before it can be applied.", { duration: 8000 });
@@ -293,6 +320,8 @@ export function useGameSetup() {
       toast.error(err.message || "Game setup failed. Try again or use a different model.", { duration: 10000 });
     },
   });
+  const cancel = useCallback(() => controllerRef.current?.abort(), []);
+  return { ...mutation, cancel };
 }
 
 export function useStartGame() {
@@ -524,8 +553,14 @@ export function useRecruitPartyMember() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { chatId: string; characterName: string; characterId?: string | null; connectionId?: string }) =>
-      api.post<RecruitPartyMemberResponse>("/game/party/recruit", data),
+    mutationFn: (data: {
+      chatId: string;
+      characterName: string;
+      characterId?: string | null;
+      connectionId?: string;
+      copyOf?: string;
+      condition?: string;
+    }) => api.post<RecruitPartyMemberResponse>("/game/party/recruit", data),
     onMutate: (variables) => ({ metadataVersion: captureChatMetadataVersion(variables.chatId) }),
     onSuccess: (res, variables, context) => {
       const guardedChat = guardServerChatSnapshot(qc, res.sessionChat, context?.metadataVersion ?? 0);
@@ -617,6 +652,8 @@ export function useSkillCheck() {
       preRolledD20?: number;
       who?: string;
       withAbility?: string;
+      /** `for=` (1.752): what the check is made for. */
+      purpose?: string;
       threshold?: number;
       bonusDice?: number;
       difficulty?: string;
@@ -830,7 +867,8 @@ export function useSyncGameState(activeChatId: string, chatMeta: Record<string, 
     if (chatMeta.gameSessionNumber) {
       useGameModeStore.getState().setSessionNumber(chatMeta.gameSessionNumber as number);
     }
-    if (chatMeta.gameSessionStatus === "setup") {
+    // A wizard the player closed on this unfinished setup stays closed until they open it again.
+    if (chatMeta.gameSessionStatus === "setup" && !readSetupDismissed(activeChatId)) {
       useGameModeStore.getState().setSetupActive(true);
     }
 

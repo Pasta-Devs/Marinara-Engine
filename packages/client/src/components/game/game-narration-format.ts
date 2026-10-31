@@ -1,5 +1,10 @@
 import DOMPurify from "dompurify";
-import { DICE_NOTATION_PATTERN, stripSheetCommandTags, stripClockCommandTags } from "@marinara-engine/shared";
+import {
+  DICE_NOTATION_PATTERN,
+  stripGameRewardPromptLine,
+  stripSheetCommandTags,
+  stripClockCommandTags,
+} from "@marinara-engine/shared";
 import { escapeStandaloneGameNarrationAngleLines } from "../../lib/game-tag-parser";
 import { HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../lib/dialogue-quotes";
 import { translate } from "../../localization/i18n";
@@ -39,7 +44,8 @@ export function formatNarration(content: string, boldDialogue = true): string {
   // (a translated turn, a storyboard line).
   let html = escapeStandaloneGameNarrationAngleLines(stripClockCommandTags(stripSheetCommandTags(content)))
     .replace(/\[combat_result]\s*([\s\S]*?)\s*\[\/combat_result]/gi, (_match, recap: string) => {
-      const cleaned = recap.trim();
+      // What the recap asks of the Game Master is not the player's to read.
+      const cleaned = stripGameRewardPromptLine(recap).trim();
       return `${commandBadge("bg-red-500/15 text-red-200 ring-1 ring-red-400/20", "⚔ Combat Result")}${
         cleaned ? `\n${cleaned}` : ""
       }`;

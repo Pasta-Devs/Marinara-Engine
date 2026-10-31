@@ -11,28 +11,37 @@
 // two ways of finishing it, and the same pure rules behind both.
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ChevronDown } from "lucide-react";
-import { RULESET_CHARGE_STEP_PREFIX, RULESET_PASS_OPTION } from "@marinara-engine/shared";
+import { RULESET_CHARGE_STEP_PREFIX, RULESET_PASS_OPTION, rulesetItemSlotPayment } from "@marinara-engine/shared";
 import type { DirectedRulesetOption, DirectedRulesetView } from "@marinara-engine/shared";
 import { ArtIcon } from "./ArtIcon";
+import { useRulesetKinds } from "./RulesetKindsContext";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
   rulesetAimSoFar,
   rulesetDistanceText,
+  rulesetBeyondText,
   rulesetAimTurning,
   type RulesetCellChoice,
   rulesetOptionHasAim,
   rulesetOptionNeedsAim,
+  rulesetSelfAim,
+  rulesetUsefulAlters,
   rulesetOptionNeedsCell,
 } from "../../lib/ruleset-combat-board";
 import {
   rulesetDefaultTargets,
   rulesetPicksStep,
+  rulesetPayGainText,
   rulesetMenuGroups,
   rulesetMenuReadyName,
+  rulesetMenuVariantName,
+  rulesetMenuVariants,
   rulesetOptionCostText,
   rulesetModeText,
   rulesetOptionForecastText,
+  rulesetOptionUnaimable,
+  rulesetUnaimableKey,
   rulesetOptionLabel,
   rulesetOptionOutOfReach,
   rulesetOptionNeedsTargets,
@@ -46,6 +55,9 @@ import {
 import { cn } from "../../lib/utils";
 import { RulesetBudgetPip, type RulesetBudgetMark } from "./RulesetBudgetPip";
 import { useMatchMedia } from "../../hooks/use-match-media";
+
+/** How many ways to use one option it takes before the list can be searched. */
+const RULESET_MODE_SEARCH_FROM = 12;
 
 export interface RulesetCombatMenuProps {
   view: DirectedRulesetView;
@@ -78,6 +90,9 @@ export interface RulesetCombatMenuProps {
   /** Walking away. The ruleset's menu never carries it, because leaving is not a thing the rules
    *  resolve: it is the director ending the session, exactly as the other two styles end it. */
   onFlee: () => void;
+  /** Giving the party up to opponents who are all honourable (combat AI T6), offered only when the
+   *  view says they may. */
+  onYield?: () => void;
   /** The half-made choice, when a board is holding it. Without both of these the menu keeps its
    *  own, which is what the fight with no board does. */
   step?: RulesetMenuStep | null;
@@ -132,6 +147,8 @@ const WINDOW_PROMPTS = {
   falls: "Falls",
   "turn-start": "TurnStart",
   used: "Used",
+  caught: "Caught",
+  attacked: "Attacked",
   signature: "Between",
   reaction: "Leaving",
   spend: "Spend",
@@ -154,8 +171,31 @@ export function rulesetWindowPrompt(view: DirectedRulesetView, defenseLabel: str
   // What rides on a held hit, so an answer that stops it is weighed against what it saves.
   const stakes =
     window.stakes !== undefined ? ` ${t("game.combat.ruleset.menu.windowStakes", { amount: window.stakes })}` : "";
+  // What is held, for an answer that stops it only up to its own level (Counterspell), and whom it
+  // would catch: an area's whole catch, not the square it was aimed at.
+  const held = window.held;
+  const caught = window.targetIds ?? [];
+  const heldLine = held
+    ? [
+        held.level > 0
+          ? t("game.combat.ruleset.menu.heldLevel", { label: window.label ?? "", level: held.level })
+          : t("game.combat.ruleset.menu.heldFree", { label: window.label ?? "" }),
+        caught.length
+          ? t(held.at ? "game.combat.ruleset.menu.heldCatches" : "game.combat.ruleset.menu.heldAt", {
+              names: caught.map(nameOf).join(", "),
+            })
+          : held.at
+            ? t("game.combat.ruleset.menu.heldArea", { x: held.at.x, y: held.at.y })
+            : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : "";
   return `${t(
-    `game.combat.ruleset.menu.window${window.targetIds?.some((id) => id !== window.actorId) && (window.moment === "aimed" || window.moment === "hit") ? "Bystander" : WINDOW_PROMPTS[window.moment ?? window.kind]}`,
+    // What somebody readied, set off (1.288), says what set it off rather than a walk away.
+    window.readied
+      ? `game.combat.ruleset.menu.windowReadied${window.readied === "comes" ? "Comes" : "Acts"}`
+      : `game.combat.ruleset.menu.window${window.targetIds?.some((id) => id !== window.actorId) && (window.moment === "aimed" || window.moment === "hit") ? "Bystander" : WINDOW_PROMPTS[window.moment ?? window.kind]}`,
     {
       name: asked,
       target: window.targetIds?.map(nameOf).join(", ") ?? asked,
@@ -165,7 +205,7 @@ export function rulesetWindowPrompt(view: DirectedRulesetView, defenseLabel: str
       defense:
         window.defense === undefined ? "" : defenseLabel ? `${defenseLabel} ${window.defense}` : String(window.defense),
     },
-  )}${stakes}`;
+  )}${stakes}${heldLine ? ` ${heldLine}` : ""}`;
 }
 
 /** Kinds the sidebar menu folds into a line of their own rather than listing: ending the turn is
@@ -178,6 +218,7 @@ export function RulesetCombatMenu({
   busy,
   onChoose,
   onFlee,
+  onYield,
   step: heldStep,
   onStepChange,
   menuRef,
@@ -196,6 +237,17 @@ export function RulesetCombatMenu({
   const [altersPicked, setAltersPicked] = useState<string[]>([]);
   // Who of its user's side is ticked to be spared in the spare step (1.254).
   const [sparesPicked, setSparesPicked] = useState<string[]>([]);
+  // The kinds ticked in the kinds step (1.753), handed up as it goes on.
+  const [kindsPicked, setKindsPicked] = useState<string[]>([]);
+  // What a long list of ways to use it is narrowed to, typed (laptop 2026-10-25: Conjure Animals
+  // offered 291 beasts in a row).
+  const [modeQuery, setModeQuery] = useState("");
+  const nameKinds = useRulesetKinds();
+  // Leaving the fight asks twice: one stray click is not a lost battle.
+  const [fleeing, setFleeing] = useState(false);
+  const [yielding, setYielding] = useState(false);
+  // A spell held together that a new one would end: asked about before it is let go.
+  const [dropping, setDropping] = useState<DirectedRulesetOption | null>(null);
   // Which folds the player opened. A step inside one holds it open; Back leaves it as the player had it.
   const [foldsOpen, setFoldsOpen] = useState<Record<string, boolean>>({});
   // Held by the owner only when it passes BOTH halves (`step` may be null, never left out): with one
@@ -241,6 +293,9 @@ export function RulesetCombatMenu({
     if (held && lastTurn.current === turnKey) return;
     lastTurn.current = turnKey;
     setStep(null);
+    setFleeing(false);
+    setYielding(false);
+    setDropping(null);
   }, [turnKey, held, setStep]);
   // On the pane a question put to the player takes the keyboard to its first answer, and Escape lets
   // the moment go by, as the button under the answers says.
@@ -284,9 +339,11 @@ export function RulesetCombatMenu({
     // A step the BOARD draws has its keyboard on the board, so the menu must not take it back the
     // moment the stage opens.
     if (
+      stepStage === "variant" ||
       stepStage === "style" ||
       stepStage === "mode" ||
       stepStage === "alter" ||
+      stepStage === "kinds" ||
       stepStage === "spare" ||
       stepStage === "heighten" ||
       stepStage === "pay" ||
@@ -363,6 +420,21 @@ export function RulesetCombatMenu({
       heightens,
     );
   };
+  /** A shape centred on its user is sent where it stands, with no square to place it on: what it
+   *  spares and heightens are still picked first. True when it was sent or that step opened. */
+  const sendSelfAimed = (
+    option: DirectedRulesetOption,
+    how: { payWith?: string; style?: string; mode?: string; amount?: number; alters?: string[] },
+  ): boolean => {
+    if (!view.grid || !rulesetOptionNeedsAim(option)) return false;
+    const at = rulesetSelfAim(view, option);
+    if (!at) return false;
+    const held: RulesetMenuStep = { stage: "aim", option, targets: [], ...how, cell: { at } };
+    if (picksFirst(held)) return true;
+    closeStep();
+    onChoose(option.id, [], how.payWith, { at }, how.style, how.mode, how.amount, how.alters);
+    return true;
+  };
   /** Which picking step this option opens, or null for one that is simply sent. On a board, a walk
    *  and a shape are picked on the board; everything else is the list below. */
   const stageFor = (option: DirectedRulesetOption): RulesetMenuStep["stage"] | null => {
@@ -390,7 +462,13 @@ export function RulesetCombatMenu({
       ...(typeof amount === "number" ? { amount } : {}),
       ...(alters?.length ? { alters } : {}),
     };
-    // What it may be used with comes first (1.253): Metamagic, which may give it another target.
+    // What it may be used with comes first (1.253): Metamagic, which may give it another target. One
+    // that only spares its user's side (Sculpt Spells, Careful Spell) is not offered for a shape no
+    // aim of which catches anybody of that side.
+    const offered = rulesetUsefulAlters(view, option);
+    if (offered.length !== (option.alters?.length ?? 0)) {
+      option = { ...option, alters: offered.length ? offered : undefined };
+    }
     if (option.alters?.length && alters === undefined) {
       setAltersPicked(option.alterNeeded ? [option.alterNeeded] : []);
       setStep({ stage: "alter", option, ...how, targets: [] });
@@ -412,6 +490,7 @@ export function RulesetCombatMenu({
       setStep({ stage: "pay", option: aimed, ...how, targets: [] });
       return;
     }
+    if (sendSelfAimed(aimed, how)) return;
     const stage = stageFor(aimed);
     if (heldForOnlyFoe(aimed, stage)) {
       send(aimed, aimed.targetIds, undefined, style, mode, how.amount, how.alters);
@@ -431,12 +510,36 @@ export function RulesetCombatMenu({
   /** The step after the style is chosen: the weapon's mode, where it has any. */
   const afterStyle = (option: DirectedRulesetOption, style?: string) => {
     if (option.modes && option.modes.length > 0) {
+      setModeQuery("");
       setStep({ stage: "mode", option, ...(style ? { style } : {}), targets: [] });
       return;
     }
     afterMode(option, style);
   };
-  const take = (option: DirectedRulesetOption) => {
+  /** Stored instead of done (1.524), paid with `payWith`. */
+  const store = (option: DirectedRulesetOption, place: { holderId: string; item?: number }, payWith?: string) => {
+    closeStep();
+    onChoose(option.id, [], payWith, { storesIn: place });
+  };
+  const take = (option: DirectedRulesetOption, cast = false, named = false, letGo = false) => {
+    // Starting another held spell ends the one held now: said first, never found out afterwards.
+    const holding = view.combatants.find((one) => one.id === (view.window?.actorId ?? view.actorId))?.concentrating;
+    if (!letGo && option.concentration && holding) {
+      setDropping(option);
+      return;
+    }
+    setDropping(null);
+    // Whether to store it instead comes first (1.524): a Ring of Spell Storing.
+    if (!cast && option.storesIn?.length) {
+      setStep({ stage: "store", option, targets: [] });
+      return;
+    }
+    // Then the kinds its zone strikes (1.753): Forbiddance's.
+    if (!named && option.kindsOf?.length && nameKinds) {
+      setKindsPicked([]);
+      setStep({ stage: "kinds", option, targets: [] });
+      return;
+    }
     // Where attacks move initiative, how the attack is made comes first: it decides what it does.
     if (option.styles && option.styles.length > 0) {
       setStep({ stage: "style", option, targets: [] });
@@ -446,9 +549,23 @@ export function RulesetCombatMenu({
   };
   const paid = (payWith?: string) => {
     if (!step) return;
+    if (step.storesIn) {
+      store(step.option, step.storesIn, payWith);
+      return;
+    }
     // A pool that lets it take more targets aims at as many as it lets it (1.171).
     const count = payWith ? step.option.targetsWith?.[payWith] : undefined;
     const option = count !== undefined ? { ...step.option, targets: { ...step.option.targets, count } } : step.option;
+    if (
+      sendSelfAimed(option, {
+        ...(payWith ? { payWith } : {}),
+        ...(step.style ? { style: step.style } : {}),
+        ...(step.mode ? { mode: step.mode } : {}),
+        ...(step.amount !== undefined ? { amount: step.amount } : {}),
+        ...(step.alters ? { alters: step.alters } : {}),
+      })
+    )
+      return;
     const stage = stageFor(option);
     if (!stage) {
       send(option, rulesetDefaultTargets(option), payWith, step.style, step.mode);
@@ -479,6 +596,177 @@ export function RulesetCombatMenu({
   // Every step but the menu itself, drawn where the layout puts it: in place of the menu on the
   // stage's band, under the option's own row on the pane.
   const stepPanel = (() => {
+    // ── Letting go of a held spell for a new one ──
+    if (dropping) {
+      const holding = view.combatants.find((one) => one.id === (view.window?.actorId ?? view.actorId))?.concentrating;
+      return (
+        <div className="flex flex-col gap-2 p-3">
+          <p className={`text-xs ${ink.body}`}>
+            {t("game.combat.ruleset.menu.dropConcentration", {
+              label: rulesetOptionLabel(dropping, t),
+              holding: holding ?? "",
+            })}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              ref={first}
+              type="button"
+              disabled={busy}
+              onClick={() => take(dropping, false, false, true)}
+              className={cn(buttonClass, `border-amber-400/40 bg-amber-500/15 ${ink.strong} hover:bg-amber-500/25`)}
+            >
+              {t("game.combat.ruleset.menu.dropConcentrationYes", { label: rulesetOptionLabel(dropping, t) })}
+            </button>
+          </div>
+          <BackButton ink={ink} onClick={() => setDropping(null)} label={t("game.combat.ruleset.target.back")} />
+        </div>
+      );
+    }
+
+    // ── Casting it now, or storing it (1.524) ──
+    if (step?.stage === "store") {
+      const option = step.option;
+      return (
+        <div className="flex flex-col gap-2 p-3">
+          <p className={`text-xs ${ink.muted}`} id="ruleset-store-prompt">
+            {t("game.combat.ruleset.store.prompt", { label: rulesetOptionLabel(option, t) })}
+          </p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ruleset-store-prompt">
+            <button
+              ref={first}
+              type="button"
+              disabled={busy}
+              onClick={() => take(option, true)}
+              className={cn(buttonClass, `${ink.border} ${ink.fill} ${ink.body} ${ink.hover}`)}
+            >
+              {t("game.combat.ruleset.store.now")}
+            </button>
+            {(option.storesIn ?? []).map((place) => {
+              const at = { holderId: place.holderId, ...(place.item !== undefined ? { item: place.item } : {}) };
+              return (
+                <button
+                  key={`${place.holderId}:${place.item ?? "self"}`}
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    option.payWith?.length
+                      ? setStep({ stage: "pay", option, targets: [], storesIn: at })
+                      : store(option, at)
+                  }
+                  className={cn(
+                    buttonClass,
+                    `border-violet-300/30 bg-violet-500/10 ${ink.body} hover:bg-violet-500/20`,
+                  )}
+                >
+                  {t("game.combat.ruleset.store.into", { place: place.label, room: place.room })}
+                </button>
+              );
+            })}
+          </div>
+          <BackButton ink={ink} onClick={closeStep} label={t("game.combat.ruleset.target.back")} />
+        </div>
+      );
+    }
+
+    // ── Which of a spell's variants (1.769): Magic Circle against fiends, or against undead ──
+    if (step?.stage === "variant") {
+      const ways = rulesetMenuVariants(view.options, step.option);
+      return (
+        <div className="flex flex-col gap-2 p-3">
+          <p className={`text-xs ${ink.muted}`} id="ruleset-variant-prompt">
+            {t("game.combat.ruleset.variant.prompt", {
+              label: rulesetMenuVariantName(view.options, step.option, t) ?? rulesetOptionLabel(step.option, t),
+            })}
+          </p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ruleset-variant-prompt">
+            {ways.map((way, index) => {
+              const unaimable = rulesetOptionUnaimable(way);
+              return (
+                <button
+                  ref={index === 0 ? first : undefined}
+                  key={way.id}
+                  type="button"
+                  disabled={busy || unaimable}
+                  title={unaimable ? t(rulesetUnaimableKey(way)) : undefined}
+                  onClick={() => {
+                    // Its own steps (a target, a slot) follow on from here, or it is sent as it is.
+                    setStep(null);
+                    take(way);
+                  }}
+                  className={cn(buttonClass, `${ink.border} ${ink.fill} ${ink.body} ${ink.hover}`)}
+                >
+                  {rulesetOptionLabel(way, t)}
+                </button>
+              );
+            })}
+          </div>
+          <BackButton ink={ink} onClick={closeStep} label={t("game.combat.ruleset.target.back")} />
+        </div>
+      );
+    }
+
+    // ── The kinds its zone strikes (1.753) ──
+    if (step?.stage === "kinds" && step.option.kindsOf?.length) {
+      const option = step.option;
+      // Exactly one where it wards off one thing (1.758): Wish's.
+      const toggle = (id: string) =>
+        setKindsPicked(
+          kindsPicked.includes(id)
+            ? kindsPicked.filter((one) => one !== id)
+            : option.kindsOne
+              ? [id]
+              : [...kindsPicked, id],
+        );
+      return (
+        <div className="flex flex-col gap-2 p-3">
+          <p className={`text-xs ${ink.muted}`} id="ruleset-kinds-prompt">
+            {t(option.kindsOne ? "game.combat.ruleset.kinds.ward_prompt" : "game.combat.ruleset.kinds.prompt", {
+              label: rulesetOptionLabel(option, t),
+            })}
+          </p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ruleset-kinds-prompt">
+            {option.kindsOf!.map((kind, index) => {
+              const picked = kindsPicked.includes(kind.id);
+              return (
+                <button
+                  ref={index === 0 ? first : undefined}
+                  key={kind.id}
+                  type="button"
+                  disabled={busy}
+                  aria-pressed={picked}
+                  onClick={() => toggle(kind.id)}
+                  className={cn(
+                    buttonClass,
+                    picked
+                      ? `border-[var(--primary)]/60 bg-[var(--primary)]/25 ${ink.strong}`
+                      : `${ink.border} ${ink.fill} ${ink.body} ${ink.hover}`,
+                  )}
+                >
+                  {kind.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || kindsPicked.length === 0}
+              onClick={() => {
+                nameKinds?.(option.id, kindsPicked);
+                take(option, true, true);
+              }}
+              className={cn(buttonClass, `${ink.border} ${ink.fill} ${ink.body} ${ink.hover}`)}
+            >
+              {option.kindsOne
+                ? t("game.combat.ruleset.kinds.ward_use")
+                : t("game.combat.ruleset.kinds.use", { count: kindsPicked.length })}
+            </button>
+          </div>
+          <BackButton ink={ink} onClick={closeStep} label={t("game.combat.ruleset.target.back")} />
+        </div>
+      );
+    }
+
     // ── Making an attack in one of the ruleset's initiative styles ──
     const styles = step?.stage === "style" ? (step.option.styles ?? []) : [];
     if (step && styles.length > 0) {
@@ -516,27 +804,58 @@ export function RulesetCombatMenu({
     if (step && modes.length > 0) {
       const option = step.option;
       const plain = rulesetOptionForecastText(option, t);
+      // One that puts on one of several (1.448) has no "as it is": one of them is picked (playtest
+      // 2026-10-31, Bestow Curse).
+      const pickOnly = modes.every((mode) => mode.appliesPick !== undefined);
+      // A long list is searched, and the ones that hit hardest come first.
+      const searchable = modes.length > RULESET_MODE_SEARCH_FROM;
+      const query = modeQuery.trim().toLowerCase();
+      const shown = (searchable && query ? modes.filter((mode) => mode.label.toLowerCase().includes(query)) : modes)
+        .map((mode, index) => ({ mode, index }))
+        .sort(
+          (a, b) =>
+            (b.mode.forecast?.averageDamage ?? 0) * (b.mode.forecast?.hitChance ?? 1) -
+              (a.mode.forecast?.averageDamage ?? 0) * (a.mode.forecast?.hitChance ?? 1) || a.index - b.index,
+        )
+        .map(({ mode }) => mode);
       return (
         <div className="flex flex-col gap-2 p-3">
           <p className={`text-xs ${ink.muted}`} id="ruleset-mode-prompt">
             {t("game.combat.ruleset.mode.prompt", { label: rulesetOptionLabel(option, t) })}
           </p>
-          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ruleset-mode-prompt">
-            <button
-              ref={first}
-              type="button"
-              disabled={busy}
-              onClick={() => afterMode(option, step.style)}
-              className={cn(buttonClass, `${ink.border} ${ink.fill} ${ink.body} ${ink.hover}`)}
-            >
-              <span className={`block font-semibold ${ink.strong}`}>{t("game.combat.ruleset.mode.plain")}</span>
-              {plain && <span className={`block text-[0.65rem] ${ink.faint}`}>{plain}</span>}
-            </button>
-            {modes.map((mode) => {
+          {searchable && (
+            <input
+              type="search"
+              value={modeQuery}
+              onChange={(event) => setModeQuery(event.target.value)}
+              placeholder={t("game.combat.ruleset.mode.search")}
+              aria-label={t("game.combat.ruleset.mode.search")}
+              className={`w-full rounded-md border px-2 py-1 text-xs ${ink.border} ${ink.fill} ${ink.body}`}
+            />
+          )}
+          <div
+            className={cn("flex flex-wrap gap-2", searchable && "max-h-64 overflow-y-auto")}
+            role="group"
+            aria-labelledby="ruleset-mode-prompt"
+          >
+            {!pickOnly && (
+              <button
+                ref={first}
+                type="button"
+                disabled={busy}
+                onClick={() => afterMode(option, step.style)}
+                className={cn(buttonClass, `${ink.border} ${ink.fill} ${ink.body} ${ink.hover}`)}
+              >
+                <span className={`block font-semibold ${ink.strong}`}>{t("game.combat.ruleset.mode.plain")}</span>
+                {plain && <span className={`block text-[0.65rem] ${ink.faint}`}>{plain}</span>}
+              </button>
+            )}
+            {shown.map((mode, place) => {
               const forecast = rulesetModeText(option, mode, t);
               return (
                 <button
                   key={mode.id}
+                  ref={pickOnly && place === 0 ? first : undefined}
                   type="button"
                   disabled={busy}
                   onClick={() => afterMode(option, step.style, mode.id)}
@@ -602,11 +921,24 @@ export function RulesetCombatMenu({
                   )}
                 >
                   <span className="block font-semibold">{offer.label}</span>
-                  <span className={`block text-[0.65rem] ${ink.faint}`}>
-                    {t(offer.perLevel ? "game.combat.ruleset.alter.costPerLevel" : "game.combat.ruleset.alter.cost", {
-                      count: offer.cost,
-                    })}
-                  </span>
+                  {(offer.cost > 0 || offer.perLevel) && (
+                    <span className={`block text-[0.65rem] ${ink.faint}`}>
+                      {t(offer.perLevel ? "game.combat.ruleset.alter.costPerLevel" : "game.combat.ruleset.alter.cost", {
+                        count: offer.cost,
+                      })}
+                    </span>
+                  )}
+                  {/* How many of its user's side it spares (Sculpt Spells, Careful Spell). */}
+                  {(offer.spares ?? 0) > 0 && (
+                    <span className={`block text-[0.65rem] ${ink.faint}`}>
+                      {t(
+                        offer.sparesByLevel
+                          ? "game.combat.ruleset.alter.sparesByLevel"
+                          : "game.combat.ruleset.alter.spares",
+                        { count: offer.spares },
+                      )}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -813,7 +1145,26 @@ export function RulesetCombatMenu({
                   ? t("game.combat.ruleset.upcast.charges", {
                       count: Number(pool.slice(RULESET_CHARGE_STEP_PREFIX.length)),
                     })
-                  : rulesetUpcastPoolText(option, pool, poolOf(pool)?.unit ?? poolLabel(pool), !!poolOf(pool)?.unit, t)}
+                  : rulesetItemSlotPayment(pool)
+                    ? // Out of a worn item's charges, a charge a level (1.572).
+                      t("game.combat.ruleset.upcast.itemSlot", {
+                        pool:
+                          option.payLabels?.[rulesetItemSlotPayment(pool)!.pool] ??
+                          poolLabel(rulesetItemSlotPayment(pool)!.pool),
+                      })
+                    : rulesetUpcastPoolText(
+                        option,
+                        pool,
+                        poolOf(pool)?.unit ?? poolOf(pool)?.label ?? option.payLabels?.[pool] ?? pool,
+                        !!poolOf(pool)?.unit,
+                        t,
+                      )}
+                {/* What the higher payment gets: Fireball's +1d6, Hold Person's other target. */}
+                {rulesetPayGainText(option, pool, t, distance, step.alters) && (
+                  <span className={`block text-[0.65rem] ${ink.muted}`}>
+                    {rulesetPayGainText(option, pool, t, distance, step.alters)}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -839,10 +1190,22 @@ export function RulesetCombatMenu({
         if (!laid) return;
         if (picksFirst({ ...step, targets: [], cell: laid })) return;
         closeStep();
-        onChoose(option.id, [], step.payWith, laid, step.style, step.mode, step.amount, step.alters);
+        // Whom a layered wall spares (1.492), ticked below.
+        const designates = option.designates && step.targets.length ? { designates: step.targets } : {};
+        onChoose(
+          option.id,
+          [],
+          step.payWith,
+          { ...laid, ...designates },
+          step.style,
+          step.mode,
+          step.amount,
+          step.alters,
+        );
       };
-      // Who may go along on a teleport (1.276), ticked here while the board takes the cell.
-      const carries = step.stage === "aim" ? option.teleport?.carries : undefined;
+      // Who may go along on a teleport (1.276), or whom a layered wall spares (1.492), ticked here
+      // while the board takes the cell.
+      const carries = step.stage === "aim" ? (option.teleport?.carries ?? option.designates) : undefined;
       const prompt =
         step.stage === "move"
           ? "game.combat.ruleset.board.movePrompt"
@@ -895,9 +1258,12 @@ export function RulesetCombatMenu({
                     }
                     className={cn(buttonClass, along ? "border-[var(--primary)]/60 bg-[var(--primary)]/25" : "")}
                   >
-                    {t("game.combat.ruleset.board.teleportCarry", {
-                      name: view.combatants.find((one) => one.id === id)?.name ?? id,
-                    })}
+                    {t(
+                      option.teleport
+                        ? "game.combat.ruleset.board.teleportCarry"
+                        : "game.combat.ruleset.board.designate",
+                      { name: view.combatants.find((one) => one.id === id)?.name ?? id },
+                    )}
                   </button>
                 );
               })}
@@ -973,6 +1339,60 @@ export function RulesetCombatMenu({
       );
     }
 
+    // ── Where its target is moved to (1.565): the board takes the cell, lifted as picked here ──
+    if (step?.stage === "carry") {
+      const option = step.option;
+      const levels = option.movesTarget?.levels ?? 0;
+      const rises = step.rises ?? 0;
+      const name = view.combatants.find((one) => one.id === step.targets[0])?.name ?? "";
+      return (
+        <div className="flex flex-col gap-2 p-3">
+          <p className={`text-xs ${ink.ask}`}>
+            {t("game.combat.ruleset.board.carryPrompt", { label: rulesetOptionLabel(option, t), name })}
+          </p>
+          {levels > 0 && (
+            <div className="flex flex-wrap gap-2" role="group" aria-label={t("game.combat.ruleset.board.carryLift")}>
+              {Array.from({ length: levels + 1 }, (_, up) => (
+                <button
+                  key={up}
+                  type="button"
+                  disabled={busy}
+                  aria-pressed={rises === up}
+                  onClick={() => setStep({ ...step, rises: up })}
+                  className={cn(buttonClass, rises === up ? "border-[var(--primary)]/60 bg-[var(--primary)]/25" : "")}
+                >
+                  {t("game.combat.ruleset.board.carryLevels", { count: up })}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                closeStep();
+                onChoose(
+                  option.id,
+                  step.targets,
+                  step.payWith,
+                  undefined,
+                  step.style,
+                  step.mode,
+                  step.amount,
+                  step.alters,
+                );
+              }}
+              className={buttonClass}
+            >
+              {t("game.combat.ruleset.board.carryStay", { name })}
+            </button>
+          </div>
+          <BackButton ink={ink} onClick={closeStep} label={t("game.combat.ruleset.target.back")} />
+        </div>
+      );
+    }
+
     // ── Pointing it at somebody ──
     if (step?.stage === "target" && rulesetOptionNeedsTargets(step.option)) {
       const option = step.option;
@@ -1001,6 +1421,21 @@ export function RulesetCombatMenu({
                 )
               : t("game.combat.ruleset.target.prompt", { label: rulesetOptionLabel(option, t) })}
           </p>
+          {/* Whom it cannot be pointed at now, and why: too far, no line, out of sight. */}
+          {(option.beyond?.length ?? 0) > 0 && (
+            <ul className={`m-0 list-none p-0 text-[0.65rem] ${ink.faint}`}>
+              {option.beyond!.map((one) => (
+                <li key={one.id}>
+                  {rulesetBeyondText(
+                    one,
+                    view.combatants.find((combatant) => combatant.id === one.id)?.name ?? one.id,
+                    view.grid?.distance,
+                    t,
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ruleset-target-prompt">
             {targets.map((combatant, index) => {
               const picked = step.targets.includes(combatant.id);
@@ -1029,6 +1464,25 @@ export function RulesetCombatMenu({
                       value: combatant.health.value,
                       max: combatant.health.max,
                     })}
+                    {/* Its odds where the forecast below does not give them, and the chance it fails the save. */}
+                    {!option.forecastFor?.[combatant.id] &&
+                      option.hitChances?.[combatant.id] !== undefined &&
+                      ` · ${t("game.combat.ruleset.option.forecastHit", {
+                        percent: Math.round(option.hitChances[combatant.id]! * 100),
+                      })}`}
+                    {option.saveChances?.[combatant.id] !== undefined &&
+                      ` · ${t("game.combat.ruleset.option.forecastFailSave", {
+                        percent: Math.round(option.saveChances[combatant.id]! * 100),
+                      })}`}
+                    {/* How far, on a board (laptop 2026-10-25: the list said only the odds). */}
+                    {option.distances?.[combatant.id] !== undefined &&
+                      ` · ${t("game.combat.ruleset.target.distance", {
+                        distance: rulesetDistanceText(
+                          Math.round(option.distances[combatant.id]! * 10) / 10,
+                          view.grid?.distance,
+                          t,
+                        ),
+                      })}`}
                   </span>
                   {/* Its odds against this one, as the server worked them out, so targets compare. */}
                   {option.forecastFor?.[combatant.id] && (
@@ -1044,6 +1498,95 @@ export function RulesetCombatMenu({
                 </button>
               );
             })}
+            {/* What to end on a target, picked (1.427): Cleansing Touch's one spell. */}
+            {!many &&
+              targets.flatMap((combatant) =>
+                (option.endsChoices?.[combatant.id] ?? []).map((choice) => (
+                  <button
+                    key={`${combatant.id}:${choice.condition}`}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      closeStep();
+                      onChoose(
+                        option.id,
+                        [combatant.id],
+                        step.payWith,
+                        { ends: [choice.condition] },
+                        step.style,
+                        step.mode,
+                        step.amount,
+                        step.alters,
+                      );
+                    }}
+                    className={cn(
+                      buttonClass,
+                      `border-violet-300/30 bg-violet-500/10 ${ink.body} hover:bg-violet-500/20`,
+                    )}
+                  >
+                    <span className="block font-semibold">
+                      {t("game.combat.ruleset.target.endsChosen", { target: combatant.name, spell: choice.label })}
+                    </span>
+                  </button>
+                )),
+              )}
+            {/* A lasting area to end instead (1.427): Dispel Magic on a wall. */}
+            {(option.dispels ?? []).map((zone, index) => (
+              <button
+                ref={index === 0 && targets.length === 0 ? first : undefined}
+                key={`${zone.casterId}:${zone.actionId}`}
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  closeStep();
+                  onChoose(
+                    option.id,
+                    [],
+                    step.payWith,
+                    { dispel: { casterId: zone.casterId, actionId: zone.actionId } },
+                    step.style,
+                    step.mode,
+                    step.amount,
+                    step.alters,
+                  );
+                }}
+                className={cn(buttonClass, `border-violet-300/30 bg-violet-500/10 ${ink.body} hover:bg-violet-500/20`)}
+              >
+                <span className="block font-semibold">
+                  {t("game.combat.ruleset.target.dispel", { zone: zone.label })}
+                </span>
+              </button>
+            ))}
+            {/* A condition to cut away instead (1.531): a net. */}
+            {(option.cuts ?? []).map((cut) => (
+              <button
+                key={`${cut.holderId}:${cut.condition}`}
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  closeStep();
+                  onChoose(
+                    option.id,
+                    [],
+                    step.payWith,
+                    { cut: { holderId: cut.holderId, condition: cut.condition } },
+                    step.style,
+                    step.mode,
+                    step.amount,
+                    step.alters,
+                  );
+                }}
+                className={cn(buttonClass, `border-violet-300/30 bg-violet-500/10 ${ink.body} hover:bg-violet-500/20`)}
+              >
+                <span className="block font-semibold">
+                  {t("game.combat.ruleset.target.cut", {
+                    condition: cut.label,
+                    target: view.combatants.find((one) => one.id === cut.holderId)?.name ?? cut.holderId,
+                    left: cut.left,
+                  })}
+                </span>
+              </button>
+            ))}
             {sections.map((section, index) => (
               <button
                 ref={index === 0 && targets.length === 0 ? first : undefined}
@@ -1099,7 +1642,7 @@ export function RulesetCombatMenu({
   // ── The pane's option list ──
   if (pane) {
     const marksById = new Map(marks.map((mark) => [mark.id, mark]));
-    const openId = step?.option.id;
+    const openId = step?.option.id ?? dropping?.id;
     const row = (option: DirectedRulesetOption, answer = false, index = -1, label?: string) => {
       const mark = option.budget ? marksById.get(option.budget) : undefined;
       // What it spends besides its budget, which the pip already says.
@@ -1116,7 +1659,9 @@ export function RulesetCombatMenu({
               to: option.raisesDefense.to,
             },
           ).trim()
-        : rulesetOptionForecastText(option, t);
+        : option.halvesTo !== undefined
+          ? t("game.combat.ruleset.screen.harmHalved", { amount: option.halvesTo })
+          : rulesetOptionForecastText(option, t);
       const reach = option.area
         ? t("game.combat.ruleset.screen.area", {
             size: rulesetDistanceText(option.area.size, distance, t),
@@ -1127,16 +1672,29 @@ export function RulesetCombatMenu({
             ? `${rulesetDistanceText(option.range.normal, distance, t)} / ${rulesetDistanceText(option.range.long, distance, t)}`
             : rulesetDistanceText(option.range.normal, distance, t)
           : "";
-      const open = openId === option.id;
+      // A spell's variants sit under one row (1.769); one of them that can be aimed opens the pick.
+      const ways = rulesetMenuVariants(view.options, option);
+      // The row stays open through the steps of the way picked (Polymorph's unwilling target and form,
+      // playtest 2026-10-27), as that way has no row of its own to open under.
+      const open = openId !== undefined && ways.some((way) => way.id === openId);
+      const unaimable = ways.every((way) => rulesetOptionUnaimable(way));
       return (
         <Fragment key={option.id}>
           <li>
             <button
               ref={answer && index === 0 ? first : undefined}
               type="button"
-              disabled={busy}
+              disabled={busy || unaimable}
               aria-expanded={open || undefined}
-              onClick={() => (open ? closeStep() : take(option))}
+              onClick={() =>
+                open
+                  ? dropping
+                    ? setDropping(null)
+                    : closeStep()
+                  : ways.length > 1
+                    ? setStep({ stage: "variant", option, targets: [] })
+                    : take(option)
+              }
               className={cn(
                 "grid w-full grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-2 rounded-md border px-2 text-left text-[0.78rem] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--primary)] disabled:opacity-50",
                 answer ? "min-h-11 py-1" : "min-h-11 py-0.5 md:min-h-[1.875rem]",
@@ -1151,7 +1709,7 @@ export function RulesetCombatMenu({
               <span className="min-w-0">
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="truncate font-semibold text-[var(--foreground)]">
-                    {label ?? rulesetOptionLabel(option, t)}
+                    {label ?? rulesetMenuVariantName(view.options, option, t) ?? rulesetOptionLabel(option, t)}
                   </span>
                   {mark && <RulesetBudgetPip mark={mark} size="sm" />}
                   {(cost || reach) && (
@@ -1166,6 +1724,44 @@ export function RulesetCombatMenu({
                       save: option.cancelSave.label,
                       dc: option.cancelSave.dc,
                     })}
+                  </span>
+                )}
+                {unaimable && (
+                  <span className="block truncate text-[0.66rem] text-[var(--muted-foreground)]">
+                    {t(rulesetUnaimableKey(option))}
+                  </span>
+                )}
+                {/* Whether it stops what is held (1.116): outright, on a check, or not at all. */}
+                {option.counter && (
+                  <span
+                    className={cn(
+                      "block text-[0.65rem]",
+                      option.counter.sure
+                        ? "text-emerald-600 dark:text-emerald-300/80"
+                        : option.counter.dc !== undefined
+                          ? "text-amber-600 dark:text-amber-300/80"
+                          : "text-rose-600 dark:text-rose-300/80",
+                    )}
+                  >
+                    {option.counter.sure
+                      ? t("game.combat.ruleset.menu.counterSure")
+                      : option.counter.dc !== undefined
+                        ? t("game.combat.ruleset.menu.counterCheck", {
+                            modifier:
+                              (option.counter.modifier ?? 0) >= 0
+                                ? `+${option.counter.modifier ?? 0}`
+                                : String(option.counter.modifier),
+                            dc: option.counter.dc,
+                          })
+                        : t("game.combat.ruleset.menu.counterNever")}
+                  </span>
+                )}
+                {/* Breaks a command at a cost (1.644): a Geas. */}
+                {option.defies && (
+                  <span className="block text-[0.65rem] text-rose-600 dark:text-rose-300/80">
+                    {t(
+                      option.defies.cells ? "game.combat.ruleset.menu.defiesCells" : "game.combat.ruleset.menu.defies",
+                    )}
                   </span>
                 )}
               </span>
@@ -1329,7 +1925,19 @@ export function RulesetCombatMenu({
           fold(
             "game.combat.ruleset.screen.outOfReachFold",
             unreachable,
-            unreachable.map((option) => rulesetOptionLabel(option, t)).join(", "),
+            unreachable
+              .map((option) => {
+                // Its nearest one it cannot reach, and why (laptop 2026-10-25: "Nobody in reach" at
+                // 61 ft with a range of 60 said nothing of either).
+                const nearest = [...(option.beyond ?? [])].sort(
+                  (a, b) => (a.cells ?? Infinity) - (b.cells ?? Infinity),
+                )[0];
+                const name = nearest && view.combatants.find((combatant) => combatant.id === nearest.id)?.name;
+                return nearest && name
+                  ? `${rulesetOptionLabel(option, t)} (${rulesetBeyondText(nearest, name, view.grid?.distance, t)})`
+                  : rulesetOptionLabel(option, t);
+              })
+              .join(", "),
           )}
         {readied.length > 0 &&
           fold(
@@ -1401,12 +2009,18 @@ export function RulesetCombatMenu({
               {group.options.map((option) => {
                 const cost = rulesetOptionCostText(option, budgetLabel, t, distance);
                 const forecast = rulesetOptionForecastText(option, t);
+                const ways = rulesetMenuVariants(view.options, option);
+                // One way of the spell that can be aimed is enough to open the pick.
+                const unaimable = ways.every((way) => rulesetOptionUnaimable(way));
                 return (
                   <button
                     key={option.id}
                     type="button"
-                    disabled={busy}
-                    onClick={() => take(option)}
+                    disabled={busy || unaimable}
+                    title={unaimable ? t(rulesetUnaimableKey(option)) : undefined}
+                    onClick={() =>
+                      ways.length > 1 ? setStep({ stage: "variant", option, targets: [] }) : take(option)
+                    }
                     className={cn(
                       buttonClass,
                       `${ink.border} ${ink.fill} ${ink.body} ${ink.hoverBorder} ${ink.hover} ${ink.hoverText}`,
@@ -1414,14 +2028,52 @@ export function RulesetCombatMenu({
                   >
                     <span className={`flex items-center gap-1.5 font-semibold ${ink.strong}`}>
                       <ArtIcon ids={option.icons ?? []} className="h-5 w-5" />
-                      {rulesetOptionLabel(option, t)}
+                      {rulesetMenuVariantName(view.options, option, t) ?? rulesetOptionLabel(option, t)}
                     </span>
+                    {unaimable && (
+                      <span className={`block text-[0.65rem] ${ink.faint}`}>{t(rulesetUnaimableKey(option))}</span>
+                    )}
                     {option.cancelSave && (
                       <span className={`block text-[0.65rem] ${ink.faint}`}>
                         {t("game.combat.ruleset.menu.cancelSave", {
                           save: option.cancelSave.label,
                           dc: option.cancelSave.dc,
                         })}
+                      </span>
+                    )}
+                    {/* Whether it stops what is held (1.116): outright, on a check, or not at all. */}
+                    {option.counter && (
+                      <span
+                        className={cn(
+                          "block text-[0.65rem]",
+                          option.counter.sure
+                            ? "text-emerald-600 dark:text-emerald-300/80"
+                            : option.counter.dc !== undefined
+                              ? "text-amber-600 dark:text-amber-300/80"
+                              : "text-rose-600 dark:text-rose-300/80",
+                        )}
+                      >
+                        {option.counter.sure
+                          ? t("game.combat.ruleset.menu.counterSure")
+                          : option.counter.dc !== undefined
+                            ? t("game.combat.ruleset.menu.counterCheck", {
+                                modifier:
+                                  (option.counter.modifier ?? 0) >= 0
+                                    ? `+${option.counter.modifier ?? 0}`
+                                    : String(option.counter.modifier),
+                                dc: option.counter.dc,
+                              })
+                            : t("game.combat.ruleset.menu.counterNever")}
+                      </span>
+                    )}
+                    {/* Breaks a command at a cost (1.644): a Geas. */}
+                    {option.defies && (
+                      <span className="block text-[0.65rem] text-rose-600 dark:text-rose-300/80">
+                        {t(
+                          option.defies.cells
+                            ? "game.combat.ruleset.menu.defiesCells"
+                            : "game.combat.ruleset.menu.defies",
+                        )}
                       </span>
                     )}
                     {cost && <span className={`mt-0.5 block text-[0.65rem] ${ink.faint}`}>{cost}</span>}
@@ -1449,14 +2101,55 @@ export function RulesetCombatMenu({
               {t(passKey("game.combat.ruleset.menu.pass"))}
             </button>
           )}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onFlee}
-            className={cn(buttonClass, `${ink.border} ${ink.fill} ${ink.muted} ${ink.hover} ${ink.hoverText}`)}
-          >
-            {t("game.combat.ruleset.menu.flee")}
-          </button>
+          {/* Never on a question asked between turns: answering a reaction is not the moment to run. */}
+          {!view.window && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => (fleeing ? onFlee() : setFleeing(true))}
+              className={cn(
+                buttonClass,
+                fleeing
+                  ? "border-red-400/50 bg-red-500/15 text-red-700 hover:bg-red-500/25 dark:text-red-100"
+                  : `${ink.border} ${ink.fill} ${ink.muted} ${ink.hover} ${ink.hoverText}`,
+              )}
+            >
+              {t(
+                fleeing
+                  ? touch
+                    ? "game.combat.ruleset.menu.fleeConfirmTouch"
+                    : "game.combat.ruleset.menu.fleeConfirm"
+                  : "game.combat.ruleset.menu.flee",
+              )}
+            </button>
+          )}
+          {/* Only before opponents who would take a surrender: every one standing is honourable. */}
+          {!view.window && view.canYield && onYield && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => (yielding ? onYield() : setYielding(true))}
+              className={cn(
+                buttonClass,
+                yielding
+                  ? "border-amber-400/50 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-100"
+                  : `${ink.border} ${ink.fill} ${ink.muted} ${ink.hover} ${ink.hoverText}`,
+              )}
+            >
+              {t(
+                yielding
+                  ? touch
+                    ? "game.combat.ruleset.menu.yieldConfirmTouch"
+                    : "game.combat.ruleset.menu.yieldConfirm"
+                  : "game.combat.ruleset.menu.yield",
+              )}
+            </button>
+          )}
+          {!view.window && !view.canYield && view.yieldRefusedBy?.length ? (
+            <span data-yield-refused className={cn("self-center text-[0.65rem] italic", ink.muted)}>
+              {t("game.combat.ruleset.menu.yieldRefused", { names: view.yieldRefusedBy.join(", ") })}
+            </span>
+          ) : null}
         </div>
       </div>
     </div>

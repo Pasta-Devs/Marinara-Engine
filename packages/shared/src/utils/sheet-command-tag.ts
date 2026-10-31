@@ -36,6 +36,8 @@ export interface ParsedSheetCommandTag {
   who?: string;
   /** Null when the tag names no op this Engine has, or is missing what that op needs. */
   op: RulesetSheetOp | null;
+  /** The value the Game Master said it leaves, as they wrote it. */
+  claimed?: string;
 }
 
 /** Longest name a `who=` may carry, the same ceiling the check tag uses. */
@@ -94,10 +96,15 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
   const whoValue = values.get("who")?.trim();
   const who = whoValue ? whoValue.slice(0, MAX_WHO_LENGTH) : undefined;
   const sheet = values.get("sheet");
+  // A `now=` beside a `result=` is an Engine record the model copied into its own tag, not a claim
+  // about this command, so it never marks the command as already paid (cheap-GM playtest 2026-10-26:
+  // models copy the Engine's outcome fields into new tags). The command is read as a fresh request.
+  const claimed = values.has("result") ? undefined : values.get("now")?.trim().slice(0, MAX_ATTRIBUTE_LENGTH);
   const parsed: ParsedSheetCommandTag = {
     op: null,
     ...(who ? { who } : {}),
     ...(sheet !== undefined ? { sheet } : {}),
+    ...(claimed ? { claimed } : {}),
   };
   const name = readOpName(values.get("op"));
   if (!name) return parsed;
@@ -188,12 +195,55 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
     // An absent value is how a note is cleared; the field still has to be named.
     return { ...parsed, op: { op: "note", field, value: values.get("value") ?? "" } };
   }
+  if (name === "pass") {
+    // Days of game time (1.445): a whole count.
+    const days = readInteger(values.get("days"));
+    if (days === null || days < 1) return parsed;
+    // Spent resting (1.756): yes, true or on.
+    const resting = /^(yes|true|on)$/i.test(values.get("resting")?.trim() ?? "");
+    return { ...parsed, op: { op: "pass", days, ...(resting ? { resting: true as const } : {}) } };
+  }
   if (name === "use") {
     // `spell=` is the word that goes with `cast=`; both are read as the general `name=`.
     const entry = (values.get("name") ?? values.get("spell"))?.trim();
-    if (!entry) return parsed;
     const pool = values.get("pool")?.trim();
-    return { ...parsed, op: { op: "use", name: entry, ...(pool ? { pool } : {}) } };
+    // A use that names only the pool it pays is that pool's spend (cheap-GM playtest 2026-10-26: a
+    // slot written as `op="use" pool="spell_slots_2"` was refused, so the spell cost nothing).
+    if (!entry) {
+      const amount = values.has("amount") ? readInteger(values.get("amount")) : 1;
+      return pool && amount !== null ? { ...parsed, op: { op: "spend", pool, amount } } : parsed;
+    }
+    // What it gives back (1.410): `recover="Level 1 Slot:2, Level 2 Slot:1"`, a count after each pool.
+    const rawRecover = values.get("recover");
+    const recover = rawRecover === undefined ? [] : readRecover(rawRecover);
+    if (recover === null) return parsed;
+    // The creature it calls (1.798): `as="Owl"`, for a call that stays once the use is done.
+    const as = values.get("as")?.trim();
+    // As a ritual (1.807): yes, true or on.
+    const ritual = /^(yes|true|on)$/i.test(values.get("ritual")?.trim() ?? "");
+    return {
+      ...parsed,
+      op: {
+        op: "use",
+        name: entry,
+        ...(pool ? { pool } : {}),
+        ...(recover.length ? { recover } : {}),
+        ...(as ? { as } : {}),
+        ...(ritual ? { ritual: true as const } : {}),
+      },
+    };
+  }
+  if (name === "dismiss") {
+    // What a use outside a fight called and kept (1.798), by the entry's name or the creature's.
+    const entry = values.get("name")?.trim();
+    if (!entry) return parsed;
+    return { ...parsed, op: { op: "dismiss", name: entry } };
+  }
+  if (name === "prepare" || name === "unprepare") {
+    // What a caster has ready, changed in the story; `spell=` is read as `name=`, as on a use.
+    const entry = (values.get("name") ?? values.get("spell"))?.trim();
+    if (!entry) return parsed;
+    return { ...parsed, op: { op: name, name: entry } };
   }
   const rest = values.get("rest")?.trim();
   if (!rest) return parsed;
@@ -203,7 +253,38 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
   if (rawDice !== undefined && (dice === null || dice < 0)) return parsed;
   // From one pool of several (1.337): 5e's d8 hit dice.
   const pool = dice ? values.get("pool")?.trim() : undefined;
-  return { ...parsed, op: { op: "rest", rest, ...(dice ? { dice } : {}), ...(pool ? { pool } : {}) } };
+  // A feature it offers as it ends (1.789): `use="Arcane Recovery"`, and what it gives back, if picked.
+  const use = values.get("use")?.trim();
+  const rawRecover = use ? values.get("recover") : undefined;
+  const recover = rawRecover === undefined ? [] : readRecover(rawRecover);
+  if (recover === null) return parsed;
+  return {
+    ...parsed,
+    op: {
+      op: "rest",
+      rest,
+      ...(dice ? { dice } : {}),
+      ...(pool ? { pool } : {}),
+      ...(use ? { use } : {}),
+      ...(recover.length ? { recover } : {}),
+    },
+  };
+}
+
+/** Pools and counts, `Pool:2, Other:1`; a pool without a count is one of it. Null when a count is not
+ *  a whole number above 0. */
+function readRecover(raw: string): Array<{ pool: string; count: number }> | null {
+  const out: Array<{ pool: string; count: number }> = [];
+  for (const part of raw.split(",")) {
+    const text = part.trim();
+    if (!text) continue;
+    const colon = text.lastIndexOf(":");
+    const pool = (colon < 0 ? text : text.slice(0, colon)).trim();
+    const count = colon < 0 ? 1 : readInteger(text.slice(colon + 1).trim());
+    if (!pool || count === null || count < 1) return null;
+    out.push({ pool, count });
+  }
+  return out;
 }
 
 /** The outcome summary (`now`) of a command for the whole party lists one value per member, so it
@@ -305,10 +386,22 @@ export function serializeSheetCommandTag(
     } else if (op.op === "use") {
       attribute("name", op.name);
       if (op.pool) attribute("pool", op.pool);
+      if (op.recover?.length)
+        attribute("recover", op.recover.map((entry) => `${entry.pool}:${entry.count}`).join(", "));
+      if (op.as) attribute("as", op.as);
+      if (op.ritual) attribute("ritual", "yes");
+    } else if (op.op === "dismiss" || op.op === "prepare" || op.op === "unprepare") {
+      attribute("name", op.name);
+    } else if (op.op === "pass") {
+      attribute("days", op.days);
+      if (op.resting) attribute("resting", "yes");
     } else if (op.op === "rest") {
       attribute("rest", op.rest);
       if (op.dice) attribute("dice", op.dice);
       if (op.dice && op.pool) attribute("pool", op.pool);
+      if (op.use) attribute("use", op.use);
+      if (op.use && op.recover?.length)
+        attribute("recover", op.recover.map((entry) => `${entry.pool}:${entry.count}`).join(", "));
     }
   }
   if (outcome.ok) {
@@ -316,7 +409,9 @@ export function serializeSheetCommandTag(
     attribute("now", outcome.now, SHEET_COMMAND_NOW_MAX_LENGTH);
   } else {
     attribute("result", "refused");
-    attribute("reason", outcome.reason);
+    // Whole, as a result's is: what a refusal says it may do instead comes after its list (Vex's
+    // "use \"Find Familiar (Pact of the Chain)\" for that", cut off at 120).
+    attribute("reason", outcome.reason, SHEET_COMMAND_NOW_MAX_LENGTH);
   }
   return `[sheet: ${parts.join(" ")}]`;
 }
@@ -365,7 +460,8 @@ export function readResolvedSheetCommandTags(text: string): ResolvedSheetCommand
       values.get("ability") ??
       values.get("skill") ??
       values.get("save") ??
-      values.get("rest");
+      values.get("rest") ??
+      (name === "pass" ? values.get("days") : undefined);
     const head = [sheet === "party" ? "party" : who, name ?? "sheet", target].filter(Boolean).join(" ");
     found.push({
       ...(sheet !== undefined ? { sheet } : {}),

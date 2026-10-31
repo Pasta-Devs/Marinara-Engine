@@ -1768,6 +1768,8 @@ function storyGiveTag(give: Extract<StoryAction, { give: unknown }>["give"], lab
     `count="${give.count ?? 1}"`,
     ...(give.who ? [`who="${clean(give.who)}"`] : []),
     ...(give.summary && !found ? [`summary="${clean(give.summary)}"`] : []),
+    // The Experience's own gift: an item only a checked source may add is still given by it.
+    `source="story"`,
   ];
   return { tag: `[inventory: ${parts.join(" ")}]`, refused: undefined };
 }

@@ -182,6 +182,8 @@ export function createMultiplayerRoomStore(db: DB, chatId: string, roomId: strin
   async function closeRound(
     room: MultiplayerStoredRoom,
     chats: ReturnType<typeof createChatsStorage>,
+    /** A round a fight's result closed: everyone played in the fight, so nobody "passes" in the story. */
+    quietPasses = false,
   ): Promise<RoomClaim | null> {
     const round = room.round;
     if (!round || round.phase !== "collecting" || !round.requiredParticipantIds.every((id) => round.submissions[id]))
@@ -191,7 +193,7 @@ export function createMultiplayerRoomStore(db: DB, chatId: string, roomId: strin
     for (const id of round.requiredParticipantIds) {
       const participant = room.participants.find((p) => p.id === id);
       const submission = round.submissions[id]!;
-      if (participant)
+      if (participant && !(quietPasses && submission.pass))
         await appendUser(
           chats,
           participant,
@@ -268,6 +270,10 @@ export function createMultiplayerRoomStore(db: DB, chatId: string, roomId: strin
             pass: action.type === "pass",
           };
           claimed = await closeRound(room, chats);
+        } else if (action.type === "fight-command") {
+          // The fight itself checks the command once its receipt is kept (2026-10-27); a room that is not
+          // playing a Game has no fight to send it to.
+          if (chat.mode !== "game" || room.status !== "active") throw new MultiplayerError("busy");
         } else if (action.type === "request-response") {
           if (chat.mode === "game") throw new MultiplayerError("restricted-command");
           claimed = claim(room);
@@ -317,6 +323,28 @@ export function createMultiplayerRoomStore(db: DB, chatId: string, roomId: strin
         };
         await appendEvent(chats, "host-pass", room.participants.find((p) => p.id === participantId)!.persona.name);
         return closeRound(room, chats);
+      });
+    },
+    /** The room's fight is over (2026-10-27): its result is the host's turn, and the round closes on it,
+     *  everybody yet to act passing, so the Game Master tells what came of it at once. */
+    async fightResult(text: string) {
+      return change(async (room, chats, chat) => {
+        const round = room.round;
+        const host = room.participants.find((p) => p.isHost)!;
+        if (chat.mode !== "game" || room.status !== "active" || !round || round.phase !== "collecting")
+          throw new MultiplayerError("busy");
+        const previous = round.submissions[host.id];
+        round.submissions[host.id] = {
+          operationId: newId(),
+          revision: previous ? previous.revision + 1 : 0,
+          text,
+          pass: false,
+        };
+        if (!round.requiredParticipantIds.includes(host.id)) round.requiredParticipantIds.push(host.id);
+        for (const id of round.requiredParticipantIds)
+          round.submissions[id] ??= { operationId: newId(), revision: 0, text: "", pass: true };
+        // The guests played their part in the fight itself (laptop room playtest 2026-10-30).
+        return closeRound(room, chats, true);
       });
     },
     async kick(participantId: string) {
@@ -388,6 +416,22 @@ export function createMultiplayerRoomStore(db: DB, chatId: string, roomId: strin
         room.generation = "idle";
         await appendEvent(chats, "resume");
         return closeRound(room, chats);
+      });
+    },
+    /** The interrupted round again, its actions as they were (laptop 2026-10-30: a 503 mid-round lost
+     *  both players' actions to Resume). Only while the Game Master wrote nothing of it, so nothing it
+     *  did is done twice: its actions, or a pause notice after them, are still the newest messages. */
+    async retry() {
+      return change(async (room, chats) => {
+        if (room.status !== "paused" || room.round?.phase !== "interrupted" || room.generation === "running")
+          throw new MultiplayerError("busy");
+        const newest = (await chats.listMessagesPaginated(chatId, 8))
+          .filter((message) => !(message.role === "narrator" && message.content === "The host paused the session."))
+          .at(-1);
+        if (newest?.role !== "user") throw new MultiplayerError("busy");
+        room.status = "active";
+        room.generation = "idle";
+        return claim(room);
       });
     },
     async stop() {

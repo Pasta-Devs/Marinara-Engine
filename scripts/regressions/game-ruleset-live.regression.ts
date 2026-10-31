@@ -553,10 +553,17 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
     `op="spend" amount="1"`,
     `op="rest"`,
     `op="use"`,
-    `op="cast" pool="4th-level slots"`,
+    `op="cast" pool="4th-level slots" amount="many"`,
   ]) {
     assert.equal(parseSheetCommandTagBody(body).op, null, body || "(empty)");
   }
+  // A cast that names only the slot it pays is that slot's spend (cheap-GM playtest 2026-10-26: a
+  // pool-only use was refused, so the spell cost nothing).
+  assert.deepEqual(parseSheetCommandTagBody(`op="cast" pool="4th-level slots"`).op, {
+    op: "spend",
+    pool: "4th-level slots",
+    amount: 1,
+  });
 
   // The attribute reader is linear; a body with no `=` at all used to be quadratic. The bodies are
   // sized so the two cannot be confused on any machine: linear work on 400,000 characters is
@@ -583,6 +590,16 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
     { ok: true, now: "ok" },
   );
   assert.equal(hostile.match(/\[sheet:/g)!.length, 1, "no value can close the tag and open another");
+  // A refusal's reason is kept whole, as a result's is: what it says to use instead comes last
+  // (cloud batch 2026-10-25: Vex's pointer to the Pact's Find Familiar was cut off at 120).
+  const pointed = `bad-amount: Find Familiar cannot call "Imp"; it calls ${"Bat, Cat, Crab, Frog, Hawk, Lizard, Octopus, ".repeat(2)}...; use "Find Familiar (Pact of the Chain)" for that`;
+  assert.match(
+    serializeSheetCommandTag(
+      { who: "Vex", op: { op: "use", name: "Find Familiar", as: "Imp" }, raw: "" },
+      { ok: false, reason: pointed },
+    ),
+    /reason="[^"]*use Find Familiar \(Pact of the Chain\) for that"\]$/,
+  );
 
   // A `use` round-trips through the canonical spelling: `cast` and `spell=` come back as `use` and
   // `name=`, exactly as `heal` comes back as `restore`.
@@ -685,8 +702,12 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
     party.content,
     /result="ok" now="Mira Long rest: Hit points 31\/31[^"]*Tam the Bold Long rest: Exhaustion 1"/,
   );
-  assert.deepEqual(Object.keys(party.live), ["tam the bold"], "a character back at every default drops out again");
-  assert.deepEqual(party.live["tam the bold"], { tracks: { exhaustion: 1 } });
+  // Each keeps that they rested for the reply after (laptop playtest 2026-10-26), then nothing more: a
+  // character back at every default drops out again.
+  assert.deepEqual(party.live.mira, { rested: { long: { fresh: true } } });
+  const after = applySheetCommandTags("They break camp.", { ...context, live: party.live });
+  assert.deepEqual(Object.keys(after.live), ["tam the bold"], "a character back at every default drops out again");
+  assert.deepEqual(after.live["tam the bold"], { tracks: { exhaustion: 1 } });
 
   // Four casters' long rest names all four: what does not fit says how many more, never drops one.
   const four = ["Isolde Venn", "Mother Hessa", "Brannoc Ashvale", "Pip Underbough"];
@@ -700,7 +721,11 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   });
   const said = /now="([^"]*)"/.exec(tired.content)?.[1] ?? "";
   for (const name of four) assert.ok(said.includes(name), `${name} is in the record: ${said}`);
-  assert.deepEqual(Object.keys(tired.live), [], "and all four are rested");
+  assert.deepEqual(
+    Object.values(tired.live),
+    four.map(() => ({ rested: { long: { fresh: true } } })),
+    "and all four are rested, with only that they did kept",
+  );
   assert.equal(joinSheetSummary(["a".repeat(8), "b".repeat(8), "c".repeat(8)], 24), `${"a".repeat(8)}; and 2 more`);
   // A refusal is never what the count stands for: it stays whole, and only successes are counted off.
   assert.equal(

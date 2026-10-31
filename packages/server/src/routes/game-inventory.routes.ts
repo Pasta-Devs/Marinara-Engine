@@ -4,9 +4,14 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { isDeepStrictEqual } from "node:util";
-import { applyGameInventoryOps, gameInventoryOpsRequestSchema } from "@marinara-engine/shared";
+import { applyGameInventoryOps, gameInventoryOpsRequestSchema, rulesetLiveStateSchema } from "@marinara-engine/shared";
 import { commitGameInventoryChange, loadGameInventoryItemBook } from "../services/game/game-inventory.service.js";
-import { restGameRulesetCharacter, useGameRulesetItem } from "../services/game/game-item-use.service.js";
+import {
+  gameRulesetRestOffers,
+  restGameRulesetCharacter,
+  setGameRulesetLive,
+  useGameRulesetItem,
+} from "../services/game/game-item-use.service.js";
 import { lootGameFight } from "../services/game/game-loot.service.js";
 import { takeGameStartingGear } from "../services/game/game-starting-gear.service.js";
 import { rollDieSecurely } from "../services/game/dice-rng.js";
@@ -16,6 +21,40 @@ const restRequestSchema = z
     chatId: z.string().min(1).max(200),
     character: z.string().min(1).max(200),
     rest: z.string().min(1).max(64),
+    /** The dice spent to heal first, by pool (a Short rest's hit dice). */
+    diceFrom: z
+      .record(z.string().min(1).max(64), z.number().int().min(0).max(100))
+      .refine((dice) => Object.keys(dice).length <= 12, { message: "Too many pools" })
+      .optional(),
+    /** The features chosen to use as it ends (1.789), each with the spent pools it gives back. */
+    recover: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().min(1).max(200),
+            recover: z
+              .array(z.object({ pool: z.string().min(1).max(64), count: z.number().int().min(1).max(20) }).strict())
+              .min(1)
+              .max(12),
+          })
+          .strict(),
+      )
+      .max(8)
+      .optional(),
+  })
+  .strict();
+const restOffersRequestSchema = z
+  .object({
+    chatId: z.string().min(1).max(200),
+    character: z.string().min(1).max(200),
+    rest: z.string().min(1).max(64),
+  })
+  .strict();
+const liveRequestSchema = z
+  .object({
+    chatId: z.string().min(1).max(200),
+    character: z.string().min(1).max(200),
+    live: rulesetLiveStateSchema.nullable(),
   })
   .strict();
 const lootRequestSchema = z
@@ -26,7 +65,14 @@ const lootRequestSchema = z
   })
   .strict();
 const itemUseRequestSchema = z
-  .object({ chatId: z.string().min(1).max(200), stackId: z.string().min(1).max(200) })
+  .object({
+    chatId: z.string().min(1).max(200),
+    stackId: z.string().min(1).max(200),
+    /** One of the item's further uses (Capability API 1.519), by its place in `moreUses` from 1. */
+    more: z.number().int().min(1).max(16).optional(),
+    /** How long what it makes lasts (Capability API 1.760), by its place in `makesItems.lasts` from 1. */
+    lasts: z.number().int().min(1).max(8).optional(),
+  })
   .strict();
 const startingGearRequestSchema = z
   .object({
@@ -40,6 +86,8 @@ const startingGearRequestSchema = z
       })
       .strict(),
     again: z.boolean().optional(),
+    /** Taken with Free edit on: into the bag even past what its bearer can carry. */
+    pastLimit: z.boolean().optional(),
   })
   .strict();
 
@@ -98,9 +146,20 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.status(400).send({ error: "Invalid item use", issues: parsed.error.issues.slice(0, 10) });
     }
-    const used = await useGameRulesetItem(app.db, parsed.data.chatId, parsed.data.stackId);
+    const used = await useGameRulesetItem(
+      app.db,
+      parsed.data.chatId,
+      parsed.data.stackId,
+      undefined,
+      parsed.data.more,
+      parsed.data.lasts,
+    );
     if (!used.ok)
-      return reply.status(used.status).send({ error: used.error, ...(used.reason ? { reason: used.reason } : {}) });
+      return reply.status(used.status).send({
+        error: used.error,
+        ...(used.reason ? { reason: used.reason } : {}),
+        ...(used.heldBy ? { heldBy: used.heldBy } : {}),
+      });
     return {
       inventory: used.inventory,
       rulesetLive: used.rulesetLive,
@@ -142,12 +201,43 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.status(400).send({ error: "Invalid rest", issues: parsed.error.issues.slice(0, 10) });
     }
-    const rested = await restGameRulesetCharacter(app.db, parsed.data.chatId, parsed.data.character, parsed.data.rest);
+    const rested = await restGameRulesetCharacter(
+      app.db,
+      parsed.data.chatId,
+      parsed.data.character,
+      parsed.data.rest,
+      undefined,
+      parsed.data.diceFrom,
+      parsed.data.recover,
+    );
     if (!rested.ok)
       return reply
         .status(rested.status)
         .send({ error: rested.error, ...(rested.reason ? { reason: rested.reason } : {}) });
     const { ok: _ok, ...answer } = rested;
     return answer;
+  });
+
+  // The features a rest offers this character to use as it ends (1.789), for the sheet's rest buttons.
+  app.post("/rest-offers", async (req, reply) => {
+    const parsed = restOffersRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Invalid rest", issues: parsed.error.issues.slice(0, 10) });
+    }
+    const offered = await gameRulesetRestOffers(app.db, parsed.data.chatId, parsed.data.character, parsed.data.rest);
+    if (!offered.ok) return reply.status(offered.status).send({ error: offered.error });
+    return { offers: offered.offers };
+  });
+
+  // One character's sheet set from the in-game sheet while the screen has no game state to patch
+  // (before the first turn): merged into the others here, and the row made if there is none.
+  app.post("/live", async (req, reply) => {
+    const parsed = liveRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Invalid sheet state", issues: parsed.error.issues.slice(0, 10) });
+    }
+    const set = await setGameRulesetLive(app.db, parsed.data.chatId, parsed.data.character, parsed.data.live);
+    if (!set.ok) return reply.status(set.status).send({ error: set.error });
+    return { rulesetLive: set.rulesetLive };
   });
 }

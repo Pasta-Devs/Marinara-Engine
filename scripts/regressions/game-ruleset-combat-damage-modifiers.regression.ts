@@ -40,6 +40,7 @@ try {
     ray: { to: "damage", attacks: "weapon", ability: "str", times: 0.5 },
     mark: { to: "damage-taken", attacks: "weapon", fromSource: true, dice: "1d6" },
     hex: { to: "damage-taken", fromSource: true, dice: "1d6", damageType: "necrotic" },
+    curse: { to: "damage-taken", fromSource: true, dice: "1d8", damageType: "necrotic", alsoUnrolled: true },
   };
   const spell = (id: string, mechanics: Record<string, unknown>): RulesetCatalogEntry =>
     ({
@@ -52,7 +53,7 @@ try {
     spell("bolt", { kind: "attack", attackRoll: true, amount: { flat: 8 }, damageType: "fire" }),
     spell("save", { kind: "attack", amount: { flat: 8 }, save: { save: "dex_save", onSuccess: "half" } }),
     spell("automatic", { kind: "attack", autoHit: true, amount: { flat: 8 } }),
-    ...["mark", "hex"].map((id) =>
+    ...["mark", "hex", "curse"].map((id) =>
       spell(id, { kind: "debuff", autoHit: true, applies: [{ condition: id, duration: { rounds: 4 } }] }),
     ),
   ];
@@ -216,6 +217,12 @@ try {
   delete who(sourceless, "target").tracked[0]!.source;
   assert.equal(dealt(use(sourceless, "Sword", [10, 4]).events), 8, "source is required");
   assert.equal(dealt(use(marked("hex"), "bolt", [10, 5]).events), 13, "Hex includes spell attacks");
+  // With no attack roll too (1.471): Bestow Curse's "your attacks and spells".
+  assert.equal(dealt(use(marked("hex"), "save", [1]).events), 8, "Hex excludes save spells");
+  assert.equal(dealt(use(marked("curse"), "save", [1, 5]).events), 13, "a curse counts on a save spell");
+  assert.equal(dealt(use(marked("curse"), "automatic", [5]).events), 13, "and on one that simply lands");
+  assert.equal(dealt(use(marked("curse"), "Sword", [10, 4, 5]).events), 13, "and on attack hits");
+  assert.equal(dealt(use(marked("curse"), "save", [20, 5]).events), 9, "saved: half the spell's, all the curse's");
 
   // Critical dice, separate damage types, same-type additions and multipliers before resistance.
   const critical = use(fight("favor"), "Sword", [20, 4, 4, 3, 3]);
@@ -322,6 +329,8 @@ try {
       if (key === "ability" && to === "attacks") continue;
       // Attacks are narrowed by kind of attack and blow since 1.247 (game-ruleset-combat-reckless).
       if ((key === "attacks" || key === "blow") && to === "attacks") continue;
+      // Defense is narrowed by blow since 1.509 (game-ruleset-combat-arrow-catching).
+      if (key === "blow" && to === "defense") continue;
       const doc = document((one) => {
         one.combat.conditions.at(-1).modifiers = [
           { to, ...(to === "health-max" ? { times: 0.5 } : { flat: 2 }), [key]: value },
@@ -357,7 +366,8 @@ try {
       assert.ok(
         node.allOf.some(
           (one: any) =>
-            one.if?.required?.includes("fromSource") && one.then.properties.to.enum.join() === "damage-taken",
+            one.if?.required?.includes("fromSource") &&
+            one.then.properties.to.enum.join() === "damage-taken,attacks-taken",
         ),
       );
     }
@@ -450,6 +460,13 @@ try {
     }
   }
   assert.equal(getCapabilityPackageInstallIssue(manifest(132) as any, JSON.parse(fiveE)), null);
+  {
+    const gate455 =
+      "A ruleset whose damage changes count with no attack roll too (alsoUnrolled) requires schemaVersion 2 and capabilityApi 1.471 or newer";
+    const doc = document();
+    assert.equal(getCapabilityPackageInstallIssue(manifest(470) as any, doc), gate455);
+    assert.notEqual(getCapabilityPackageInstallIssue(manifest(471) as any, doc), gate455);
+  }
   console.info(
     "Damage modifiers: hit filters, source-bound marks, criticals, typed resistance, once per hit, forecasts, summaries and 1.133 gate.",
   );

@@ -124,7 +124,8 @@ try {
     );
     refused(
       charges((c) => (c.recharge.rests = [])),
-      /recharge\.rests/,
+      // No rest needs a wait instead (1.556).
+      /recharge: Say when they come back/,
       "no rest",
     );
     refused(

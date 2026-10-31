@@ -376,3 +376,90 @@ export function MultiplayerPlayersSection({
     </ChatSettingsSection>
   );
 }
+
+/** The players a collecting round still waits on who are not here, with Pass and Remove a click away, so a
+ *  player whose Engine went away cannot hold the room's round forever (room playtest 2026-10-27). */
+export function MultiplayerAwayPlayers({ host }: { host: MultiplayerHostState }) {
+  const { t } = useTranslation();
+  const action = useMultiplayerMutation<unknown, MultiplayerHostAction>("/multiplayer/host/actions");
+  const round = host.snapshot.round;
+  if (host.snapshot.mode !== "game" || round?.phase !== "collecting") return null;
+  const away = host.snapshot.players.filter(
+    (player) =>
+      !player.isHost &&
+      !player.connected &&
+      round.requiredParticipantIds.includes(player.id) &&
+      !round.submittedParticipantIds.includes(player.id),
+  );
+  if (away.length === 0) return null;
+  const run = async (value: Extract<MultiplayerHostAction, { type: "pass" | "kick" }>) => {
+    const confirmed = await showConfirmDialog({
+      title: t(`multiplayer.host.${value.type}`),
+      message: t(`multiplayer.host.${value.type}Confirm`),
+      tone: value.type === "pass" ? "default" : "destructive",
+    });
+    if (confirmed) action.mutate(value);
+  };
+  return (
+    <ul className="shrink-0 space-y-1 border-b border-[var(--border)] px-3 py-2 text-xs">
+      {away.map((player) => (
+        <li key={player.id} className="flex flex-wrap items-center gap-2">
+          <p className="min-w-0 flex-1 break-words">
+            {t("multiplayer.host.awayWaiting", { name: player.personaName ?? player.displayName })}
+          </p>
+          <button
+            type="button"
+            className={MULTIPLAYER_BUTTON_CLASS}
+            disabled={action.isPending}
+            onClick={() => void run({ type: "pass", participantId: player.id })}
+          >
+            {t("multiplayer.host.pass")}
+          </button>
+          <button
+            type="button"
+            className={MULTIPLAYER_BUTTON_CLASS}
+            disabled={action.isPending}
+            onClick={() => void run({ type: "kick", participantId: player.id })}
+          >
+            {t("multiplayer.host.kick")}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A Game that could not reach its Game Master, said where the host plays (laptop 2026-10-30: a 503
+ *  left the host with Submit and Pass only, and a failed Start game with nothing on screen). An
+ *  interrupted round is tried again with its actions as they were. */
+export function MultiplayerGenerationFailed({ host }: { host: MultiplayerHostState }) {
+  const { t } = useTranslation();
+  const action = useMultiplayerMutation<unknown, MultiplayerHostAction>("/multiplayer/host/actions");
+  const { snapshot } = host;
+  if (snapshot.mode !== "game") return null;
+  const interrupted = snapshot.status === "paused" && snapshot.round?.phase === "interrupted";
+  const startFailed = snapshot.status === "lobby" && snapshot.generation === "failed";
+  if (!interrupted && !startFailed) return null;
+  return (
+    <div
+      role="alert"
+      data-generation-failed
+      className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border)] px-3 py-2 text-xs"
+    >
+      <p className="min-w-0 flex-1 break-words">
+        {t(interrupted ? "multiplayer.host.roundFailed" : "multiplayer.host.startFailed")}
+      </p>
+      {interrupted && (
+        <button
+          type="button"
+          className={MULTIPLAYER_BUTTON_CLASS}
+          disabled={action.isPending}
+          onClick={() => action.mutate({ type: "retry" })}
+        >
+          {t("multiplayer.host.retryRound")}
+        </button>
+      )}
+      {action.isError && <p className="w-full text-[var(--destructive)]">{t("multiplayer.host.retryRefused")}</p>}
+    </div>
+  );
+}
