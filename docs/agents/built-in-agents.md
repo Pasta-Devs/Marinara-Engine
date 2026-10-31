@@ -304,7 +304,7 @@ Adds in-world visual elements to the latest reply, such as a styled note or scre
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay only.
-- **Key settings**: **Hold Message Until Rewrite** toggle.
+- **Key settings**: **Hold Message Until Rewrite** toggle, and **Only when asked**, which stops automatic runs in the chat so it only runs when the narrator asks for a specific artifact with `[html: prompt="..."]` or you use `/html <what you want>`.
 
 ### Music DJ
 

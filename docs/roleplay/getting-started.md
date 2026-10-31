@@ -107,6 +107,14 @@ In **Chat Settings → Agents → Roleplay Commands**, enable **Illustrations** 
 
 Turn on **Render in-line** under **Illustrations** to show each image inside the message instead, at the place the character wrote the command, for example between two paragraphs. The image keeps its controls: select it to see its prompt, or use the **X** to remove it. The character is told it can place the command wherever the picture belongs. The setting applies to new images, so images already in the chat stay where they are. Automatic Illustrator images and the Visual Novel layout keep showing images as before.
 
+## Artifacts on demand
+
+In **Chat Settings → Agents → Roleplay Commands**, enable **Immersive HTML** to let the narrator ask the agent for one specific in-world artifact with `[html: prompt="..."]`: a spellbook page, a sign, a sketch on a letter, a terminal readout. The agent runs once for that reply with the request in hand and adds the artifact to the message, so you do not pay for a rewrite on every turn.
+
+The command needs the **Immersive HTML** agent added to the chat, the way **Illustrations** needs the Illustrator. The six prebuilt **Documents** kinds stay the free, instant option when a plain styled page is enough.
+
+On the Immersive HTML card in **Chat Settings → Agents**, turn on **Only when asked** to stop automatic runs in this chat. The narrator's command, or `/html <what you want>`, then becomes the only trigger.
+
 ## Whispers and secrets
 
 In **Chat Settings → Agents → Roleplay Commands**, enable **Whisper** to allow private asides, secrets, or visions inside a reply. It starts off. Choose whether **All** characters or only the appointed **Narrator** can use it. Like Personal Notes, it requires a solo chat or **Individual** group generation.
