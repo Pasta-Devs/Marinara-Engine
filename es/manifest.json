@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "1ed80e8809afd536f32eb295d9aecbaabbdfe09d",
+  "sourceCommit": "262ef5d131553ae5b64ad66a9f6800f83526f27f",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -339,8 +339,8 @@
     },
     {
       "path": "development/game-combat-ai-design.md",
-      "sha256": "0abc536398089049a78721dfcc95745ff6424d0a533f31b00e1ced3d2e6709cd",
-      "bytes": 108361
+      "sha256": "ece7c561a246a1da1bb6af0c7db05c32422e59de87b21922e4c50135e59e8056",
+      "bytes": 127113
     },
     {
       "path": "development/game-combat-difficulty-weather.md",
@@ -399,8 +399,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "34cb086be19652ba624385a3701c4aa9dfaa17da9293f0bd7dc36f0fa830350b",
-      "bytes": 177570
+      "sha256": "d567e3f0cff80a3f71d221043513de6b13a101be77bedecab31e6515a053525c",
+      "bytes": 180616
     },
     {
       "path": "development/personal-extensions.md",

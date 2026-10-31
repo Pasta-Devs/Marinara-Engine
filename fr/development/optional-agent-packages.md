@@ -389,7 +389,7 @@ La base conserve le gestionnaire de packages, le client de catalogue, les contra
 
 ## Confiance et installation
 
-Le catalogue officiel est un document JSON versionné, validé par schéma et récupéré en HTTPS. Chaque entrée de version contient des URL d'artefacts immuables, des empreintes SHA-256, des tailles en octets, la compatibilité moteur, les permissions et l'indication d'un redémarrage nécessaire à son exécution.
+Le catalogue officiel est un document JSON versionné, validé par schéma et récupéré en HTTPS. Chaque entrée de version contient des URL d'artefacts immuables, des empreintes SHA-256, des tailles en octets, la compatibilité moteur, les permissions et l'indication d'un redémarrage nécessaire à son exécution. Une entrée d'ensemble de règles peut aussi lister `locales`, ses packs de langue par langue (Capability API 1.811), chacun avec sa propre URL, son empreinte SHA-256 et sa taille en octets, ainsi que le nom et la description traduits de la fiche de la boutique. Le moteur ne récupère que le pack dans sa langue actuelle après l'installation de l'ensemble de règles, puis à chaque changement de langue (`POST /api/capability-packages/rulesets/language`, envoyé par la page à son ouverture et à chaque changement), en le conservant avec la version installée et en supprimant les autres ; consulte [Écrire des ensembles de règles](../extending/writing-rulesets.md).
 
 Les mises à jour exigent le consentement de l'utilisateur : à part les migrations ponctuelles qui conservent les anciens éléments intégrés d'une installation mise à jour (voir [Migration de compatibilité](#compatibility-migration)), le démarrage ne télécharge ni n'installe jamais de package. `GET /api/capability-packages/updates/pending` liste chaque package officiel installé dont la version du catalogue est plus récente et compatible avec le moteur et l'API de capacités en cours d'exécution, en laissant de côté une version que l'utilisateur a déjà refusée. Le client les affiche dans une seule invite **Agent updates available** (mises à jour d'agents disponibles). Cette invite installe chaque mise à jour sélectionnée par le pipeline d'installation habituel, épinglée à la version proposée et au SHA-256 de l'artefact. Les mises à jour que l'utilisateur laisse désélectionnées sont refusées comme avec **Not now**. **Not now** (pas maintenant) enregistre les versions refusées dans `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`) : cette version n'est plus proposée, mais une version plus récente le sera. **Update** reste disponible dans **Agent Organizer (organisateur d’agents)** dans tous les cas. Les échecs sont isolés package par package. Les fichiers existants et l'état du registre restent utilisables lorsque le catalogue est hors ligne ou que la vérification échoue, et les échecs de disponibilité du runtime serveur empruntent le chemin de rollback vers la version précédente.
 
@@ -1214,6 +1214,39 @@ Une vue `home-browser-tab` reçoit `capabilityProps.browserFullscreen` :
 - `enterLabel` et `exitLabel` : libellés accessibles localisés du bouton.
 
 Il s'agit d'un plein écran dans l'application : les onglets, la barre d'adresse et les favoris de Home sont masqués, tandis que la barre supérieure d'Engine reste disponible. Il n'appelle pas l'API Fullscreen du navigateur et ne nécessite pas sa prise en charge. Cet état est temporaire et se réinitialise quand on quitte le paquet ou Home. Garde un bouton de sortie sur chaque écran du paquet et utilise `aria-pressed` pour refléter `active`. Les mises à jour des propriétés doivent actualiser le bouton sans remplacer les formulaires inachevés. Les paquets qui dépendent de cette commande déclarent Capability API 1.376 ou une version ultérieure ; les anciens peuvent garder leurs dispositions actuelles.
+
+<a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
+
+### Capability API 1.391 : résumés de scène d'Advanced Memory et bloc de mémoire
+
+`persistence.listChatSummaries(chatId)` renvoie aussi `advancedMemory` : les résumés de scène d'Advanced Memory du chat qui sont activés et terminés,
+dans l'ordre où ils ont été écrits ; une scène résumée à nouveau passe à la fin,
+utilise donc `startMessageId` pour suivre l'ordre de l'histoire. Chacun a ses propriétés `id`, `sceneId`, `kind` (`"scene"`), `title`,
+`content`, `timeline`, `startMessageId`, `endMessageId`, `audienceCharacterIds`, `sourceFingerprint`,
+`updatedAt` et `memory`. Les anciens chats peuvent contenir plusieurs copies d'une même scène avec le même `sceneId`.
+Les enregistrements de résumés constants ou temporaires, d'extraits et de souvenirs personnels ne sont pas listés.
+
+Le service `long-term-memory:runtime` peut ajouter une méthode facultative `summaryMemoryInstruction()` qui
+renvoie un paragraphe, ou `null`. Quand le chat liste Long-Term Memory comme agent actif, le moteur
+ajoute ce paragraphe à chaque requête de premier passage pour un résumé de scène (chaque partie d'une scène découpée
+en plusieurs parties) et demande une chaîne `"memory"` dans la même réponse JSON. Il stocke cette chaîne telle quelle et la renvoie dans `memory` ; le moteur ne l'analyse
+jamais, son format relève donc du package. Une scène résumée en plusieurs parties reçoit le bloc de chaque partie, les blocs étant séparés
+par une ligne vide ; les requêtes de combinaison ne voient jamais ces blocs. Le paragraphe est limité à 4 000
+caractères.
+
+`memory` vaut `null` quand la réponse n'avait pas de bloc, après que l'utilisateur a modifié le résumé à la main, et dans les enregistrements
+écrits avant 1.391. Sans cette méthode, ou dans un chat qui ne liste pas Long-Term Memory, la requête de résumé
+reste inchangée.
+
+Le bloc est une chaîne de texte d'un seul tenant écrite à partir de la scène entière, y compris les messages que certains participants n'ont jamais
+vus ; contrairement au récapitulatif, il n'a pas de sections par lecteur. Un package qui montre des souvenirs à un personnage doit
+lui-même limiter la portée de l'enregistrement à l'aide de `audienceCharacterIds`.
+
+Les anciens moteurs ne renvoient pas `advancedMemory` : vérifie sa présence, ou déclare 1.391.
+
+```ts
+const scenes = (await api.runtime.persistence.listChatSummaries?.(chatId))?.advancedMemory ?? [];
+```
 
 ### Capability API 1.390 : le moteur dessine l'en-tête d'une page d'agent
 
