@@ -1163,7 +1163,7 @@ export async function activate({ api }) {
 }
 ```
 
-重要规则：
+需要了解的规则：
 
 - ID 使用 `<packageId>.<id>` 命名空间。内置 ID 没有点号，因此两者不会冲突。宿主接受本地 ID 或带命名空间的 ID，并拒绝该包未亲自注册的任何 ID。
 - `unlock(id)` 只有在本次调用实际解锁了徽章时才返回 `true`。`isUnlocked(id)` 和 `list()` 读取状态；`list()` 返回该包自身的徽章及进度。

@@ -1162,7 +1162,7 @@ export async function activate({ api }) {
 }
 ```
 
-Regras que vale conhecer:
+Regras importantes:
 
 - A chave deve ser `mari-actions:<package-id>` do pacote que registra. Sem a permissão ou sob o ID de outro pacote, o registro lança erro; assim, a ação executada por Mari sempre pertence ao pacote nomeado.
 - `list()` retorna entradas `{ name, summary?, inputs? }`. Nomes têm de 1 a 80 letras, dígitos, `.`, `_` ou `-`; outras entradas não aparecem. Mari lê `summary` e `inputs`, então escreva com clareza. Só as primeiras 50 ações podem ser vistas ou executadas. Mari vê até 40 entradas por ação; nomes são cortados em 80 caracteres e textos em 300. `list()` deve responder em 5 segundos ou as ações do pacote são omitidas.
@@ -1194,7 +1194,7 @@ export async function activate({ api }) {
 }
 ```
 
-Regras que vale conhecer:
+Regras que vale a pena conhecer:
 
 - Os IDs usam o espaço de nomes `<packageId>.<id>`. Um ID integrado não contém ponto, então os dois não podem entrar em conflito. O host aceita o ID local ou o que inclui o espaço de nomes e recusa qualquer ID que o próprio pacote não tenha registrado.
 - `unlock(id)` resolve com `true` apenas para a chamada que desbloqueou a medalha. `isUnlocked(id)` e `list()` leem o estado; `list()` retorna as medalhas do próprio pacote com o progresso.

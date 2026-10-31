@@ -30,7 +30,7 @@ Deleted from every pack, as in English (#8614): `development/game-rulesets-and-s
 
 - All 18 changed guides in all ten packs have the same heading counts and levels, bullets and table rows as English, byte-identical fenced code blocks, and the same link targets. Inline code matches too, except for a few extra spans in existing text of `optional-agent-packages.md` in hi, ja, ko and zh-hans, which this catch-up leaves as they were.
 - Every `#fragment` to or from these guides resolves in its pack, and no translated guide links to a renamed or deleted page.
-- Text that did not change in English keeps its existing translation byte for byte.
+- Text that did not change in English keeps its existing translation byte for byte. The one exception is the repeated heading `### Money` in fr, hi and zh-hans, which now reads the same in both places.
 - The largest guide is `hi/extending/ruleset-mechanics.md` at 1,022,387 bytes, under Professor Mari's 1 MiB (1,048,576 byte) limit.
 - `build-manifest.mjs <pack> --source-commit 0a53d4275d4de84e67d6ae77a135deab3b38ef5c` and `validate-pack.mjs <pack>` passed for all ten packs.
 - `git diff --check` passed. Markdown and JSON only.

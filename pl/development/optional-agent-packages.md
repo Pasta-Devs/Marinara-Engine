@@ -1174,7 +1174,7 @@ export async function activate({ api }) {
 }
 ```
 
-Zasady, które warto znać:
+Ważne reguły:
 
 - Klucz musi mieć postać `mari-actions:<package-id>` dla rejestrującego pakietu. Brak uprawnienia lub identyfikator innego pakietu powoduje wyjątek, więc wykonywana akcja zawsze należy do wskazanego pakietu.
 - `list()` zwraca wpisy `{ name, summary?, inputs? }`. Nazwy mają 1–80 liter, cyfr, `.`, `_` lub `-`; pozostałe wpisy nie są wyświetlane. Mari czyta `summary` i `inputs`, więc używaj jasnego języka. Widoczne i wykonywalne jest tylko pierwszych 50 akcji. Mari widzi najwyżej 40 wejść na akcję; nazwy są obcinane do 80 znaków, każdy tekst do 300. `list()` musi odpowiedzieć w 5 sekund, inaczej akcje pakietu są pomijane.

@@ -1347,7 +1347,7 @@ export async function activate({ api }) {
 }
 ```
 
-Règles à connaître :
+Règles importantes :
 
 - La clé doit être `mari-actions:<package-id>` pour le package qui s'enregistre. Sans permission ou sous l'identifiant d'un autre package, l'enregistrement lève une erreur : l'action exécutée par Mari appartient donc toujours au package nommé.
 - `list()` renvoie des entrées `{ name, summary?, inputs? }`. Les noms comptent de 1 à 80 lettres, chiffres, `.`, `_` ou `-` ; les autres entrées sont masquées. Mari lit `summary` et `inputs` : écris-les clairement. Seules les 50 premières actions sont visibles ou exécutables. Mari voit au plus 40 entrées par action ; les noms sont tronqués à 80 caractères et chaque texte à 300. `list()` doit répondre sous 5 secondes, sinon les actions du package sont omises.
@@ -1379,7 +1379,7 @@ export async function activate({ api }) {
 }
 ```
 
-Règles à connaître :
+Quelques règles à connaître :
 
 - Les identifiants utilisent l'espace de noms `<packageId>.<id>`. Un identifiant intégré ne contient aucun point : les deux ne peuvent donc pas entrer en conflit. L'hôte accepte l'identifiant local ou celui qui inclut l'espace de noms et refuse tout identifiant que le package n'a pas enregistré lui-même.
 - `unlock(id)` se résout avec `true` uniquement pour l'appel qui a débloqué le badge. `isUnlocked(id)` et `list()` lisent l'état ; `list()` renvoie les badges propres au package avec leur progression.

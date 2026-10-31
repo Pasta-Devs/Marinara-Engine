@@ -1290,7 +1290,7 @@ export async function activate({ api }) {
 }
 ```
 
-Reglas que conviene conocer:
+Reglas importantes:
 
 - La clave debe ser `mari-actions:<package-id>` del paquete que registra el servicio. Registrar sin permiso o bajo el ID de otro paquete lanza un error, así que la acción siempre pertenece al paquete que Mari nombra.
 - `list()` devuelve entradas `{ name, summary?, inputs? }`. Los nombres tienen de 1 a 80 letras, dígitos, `.`, `_` o `-`; las demás entradas no se muestran. Mari lee `summary` e `inputs`, así que usa lenguaje claro. Solo las primeras 50 acciones son visibles o ejecutables. Mari ve hasta 40 entradas por acción; los nombres se cortan a 80 caracteres y cada texto a 300. `list()` debe responder en 5 segundos o se omiten las acciones del paquete.

@@ -1185,7 +1185,7 @@ export async function activate({ api }) {
 }
 ```
 
-Wissenswerte Regeln:
+Wichtige Regeln:
 
 - Der Schlüssel muss `mari-actions:<package-id>` des registrierenden Pakets sein. Ohne Berechtigung oder unter einer fremden Paket-ID schlägt die Registrierung mit einem Fehler fehl. Eine von Mari ausgeführte Aktion gehört damit immer zum genannten Paket.
 - `list()` liefert Einträge `{ name, summary?, inputs? }`. Namen bestehen aus 1 bis 80 Buchstaben, Ziffern, `.`, `_` oder `-`; andere Einträge werden nicht angezeigt. Mari liest `summary` und `inputs`, also formuliere sie verständlich. Nur die ersten 50 Aktionen sind sichtbar und ausführbar. Mari sieht höchstens 40 Eingaben pro Aktion; Eingabenamen werden bei 80 und Texte bei 300 Zeichen gekürzt. `list()` muss innerhalb von 5 Sekunden antworten, sonst werden die Aktionen des Pakets ausgelassen.
@@ -1217,7 +1217,7 @@ export async function activate({ api }) {
 }
 ```
 
-Wissenswerte Regeln:
+Diese Regeln solltest du kennen:
 
 - IDs erhalten den Namensraum `<packageId>.<id>`. Eine mitgelieferte ID enthält keinen Punkt, sodass die beiden nicht kollidieren können. Der Host akzeptiert die lokale ID oder die ID mit Namensraum und lehnt jede ID ab, die das Paket nicht selbst registriert hat.
 - `unlock(id)` liefert nur bei dem Aufruf `true`, der das Abzeichen freigeschaltet hat. `isUnlocked(id)` und `list()` lesen den Zustand; `list()` liefert die eigenen Abzeichen des Pakets samt Fortschritt.
