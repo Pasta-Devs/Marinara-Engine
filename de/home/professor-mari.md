@@ -126,7 +126,7 @@ Dieselben Befehle kannst du auch mit `/` tippen, wie unter [Befehle mit /](#comm
 
 Wähl im Büroklammer-Menü **Attach files or photos** oder tipp `/attach`, um deiner Nachricht eine Datei beizulegen.
 
-Sie nimmt Bilder, PDF-Dateien und gängige Textdateien wie `.txt`, `.md`, `.json`, `.csv` und `.log` an. Jede Datei darf bis zu 20 MB groß sein. Angehängte Dateien erscheinen vor dem Absenden als entfernbare Chips über dem Nachrichtenfeld. Einen Screenshot oder eine kopierte Datei kannst du auch direkt in das Nachrichtenfeld einfügen, mit **Strg+V** oder dem Einfügen deines Handys.
+Sie nimmt Bilder, PDF-Dateien und gängige Textdateien wie `.txt`, `.md`, `.json`, `.csv` und `.log` an. Jede Datei darf bis zu 20 MB groß sein. Angehängte Dateien erscheinen vor dem Absenden als entfernbare Chips über dem Nachrichtenfeld. Einen Screenshot oder eine kopierte Datei kannst du auch direkt in das Nachrichtenfeld einfügen, mit **Strg+V** oder der Einfügen-Funktion deines Handys.
 
 Damit sie ein Bild lesen kann, muss das Modell der gewählten Verbindung Bilder als Eingabe unterstützen.
 
@@ -276,8 +276,8 @@ Während sie arbeitet, steht neben der Senden-Schaltfläche eine Schaltfläche *
 
 Das Nachrichtenfeld bleibt offen, während sie arbeitet, und du bestimmst, wann deine Nachricht sie erreicht:
 
-- **Send now** (jetzt senden) geht bei ihrem nächsten Schritt ein, ohne sie zu stoppen. Ihre bisherige Antwort wird gespeichert, deine Nachricht erscheint darunter, und sie macht mit dem weiter, was du gesagt hast. So korrigierst du sie mitten in der Aufgabe und behältst die Arbeit, die sie schon geleistet hat.
-- **Queue for later** (für später einreihen) wartet in einer Liste über dem Feld, markiert mit **Sends when she finishes** (wird gesendet, wenn sie fertig ist). Schließt sie sauber ab, nimmt sie die wartenden Nachrichten der Reihe nach einzeln auf.
+- **Send now** (jetzt senden) geht bei ihrem nächsten Schritt ein, ohne sie zu stoppen. Ihre bisherige Antwort wird gespeichert, deine Nachricht erscheint darunter, und sie macht weiter und berücksichtigt dabei, was du gesagt hast. So korrigierst du sie mitten in der Aufgabe und behältst die Arbeit, die sie schon geleistet hat.
+- **Queue for later** (für später einreihen) wartet in einer Liste über dem Feld, markiert mit **Sends when she finishes**. Schließt sie sauber ab, nimmt sie die wartenden Nachrichten der Reihe nach einzeln auf.
 
 | | Send now | Queue for later |
 |---|---|---|
@@ -293,7 +293,7 @@ Hat sie schon einige Schritte erledigt, aber noch nichts gesagt, wenn deine Nach
 Wartende Nachrichten werden in diesen Fällen nicht von selbst gesendet:
 
 - **Du drückst Stop.** Sie kommen zurück ins Nachrichtenfeld, sodass du sie bearbeiten oder erneut senden kannst.
-- **Sie wartet auf dich**, auf eine Freigabe oder die Antwort auf eine Frage. Sie zeigen **Held** (zurückgehalten) mit einer Schaltfläche **Send** (Senden).
+- **Sie wartet auf dich**, auf eine Freigabe oder die Antwort auf eine Frage. Sie zeigen **Held** mit einer Schaltfläche **Send** (Senden).
 - **Der Durchlauf ist fehlgeschlagen, oder die App wurde neu gestartet.** Sie zeigen ebenfalls **Held**. Nichts geht verloren.
 
 Eine zurückgehaltene Nachricht bleibt zurückgehalten, bis du sie sendest oder entfernst. **Send** sendet nur diese eine, und das Tippen einer neuen Nachricht gibt die anderen nicht frei.
@@ -304,7 +304,7 @@ Eine zurückgehaltene Nachricht bleibt zurückgehalten, bis du sie sendest oder 
 
 ### Ihre To-do-Liste
 
-Bei einer längeren Aufgabe führt sie für sich selbst eine kurze Liste mit Schritten. Sie steht unter ihrer neuesten Nachricht mit einer Zählung wie **2 of 5** (2 von 5); der Schritt, an dem sie gerade arbeitet, dreht sich, solange sie arbeitet, und erledigte Schritte sind durchgestrichen. Du kannst die Liste nicht bearbeiten. Sie soll dir zeigen, wo sie gerade steht, und sie aktualisiert sie laufend. Sobald du nach der Antwort schreibst, die die Liste gespeichert hat, wird sie abgeblendet und trägt die Aufschrift **Plan from before your last message** (Plan von vor deiner letzten Nachricht). Sie verschwindet nach ihrer nächsten Antwort, die sie nicht anfasst.
+Bei einer längeren Aufgabe führt sie für sich selbst eine kurze Liste mit Schritten. Sie steht unter ihrer neuesten Nachricht mit einer Zählung wie **2 of 5**; der Schritt, an dem sie gerade arbeitet, dreht sich, solange sie arbeitet, und erledigte Schritte sind durchgestrichen. Du kannst die Liste nicht bearbeiten. Sie soll dir zeigen, wo Professor Mari gerade steht, und wird von ihr laufend aktualisiert. Sobald du nach der Antwort schreibst, die die Liste gespeichert hat, wird sie abgeblendet und trägt die Aufschrift **Plan from before your last message**. Sie verschwindet nach ihrer nächsten Antwort, die die Liste nicht anfasst.
 
 ## Ihr Fenster verlassen
 

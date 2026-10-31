@@ -50,7 +50,7 @@ Weiter unten im selben Tab gibt es eine zweite Liste, **Character Questions** (C
 {{char}} treats {{relationshipToUser}} with open warmth.
 ```
 
-Diese fünf Felder liest das Modell, deshalb kann eine Charakterantwort auch nur sie erreichen.
+Diese fünf Felder liest das Modell, deshalb kann eine Charakterantwort auch nur sie erreichen. Auch eine Begrüßung kann das `{{name}}` einer Charakterfrage verwenden und zeigt dann die Antwort des Spielers.
 
 Eine Begrüßung kann auch das `{{name}}` einer Persona-Frage verwenden, etwa `Ah, so you are a {{class}}`. Es wird nur ausgefüllt, wenn der Spieler diese Persona im Einrichtungsassistenten für neue Chats erstellt, und zwar in der ersten Nachricht und ihren alternativen Begrüßungen. Bei einer vorhandenen Persona oder Quick Start erscheint das Tag unverändert, und der Charakter-Editor warnt dich davor. Klick in eine Begrüßung, und die Liste **Available variables** (verfügbare Variablen) zeigt beide Arten von Fragen, jeweils beschriftet.
 
