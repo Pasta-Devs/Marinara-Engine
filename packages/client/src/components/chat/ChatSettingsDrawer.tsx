@@ -5918,7 +5918,12 @@ export function ChatSettingsDrawer({
               count={branchCount}
               help={localizeUi("chat.settings.branchesHelp")}
             >
-              <ChatBranchesPanel activeChatId={chat.id} activeChatName={chat.name} groupId={chat.groupId ?? null} />
+              <ChatBranchesPanel
+                activeChatId={chat.id}
+                activeChatName={chat.name}
+                groupId={chat.groupId ?? null}
+                allowRangeExport={!isGame}
+              />
             </Section>
           )}
 

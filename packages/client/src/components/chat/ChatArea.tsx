@@ -30,7 +30,9 @@ import {
   useUpdateChatMetadata,
   useBranchChat,
   useChats,
+  useExportChat,
   chatKeys,
+  type ChatExportFormat,
 } from "../../hooks/use-chats";
 
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
@@ -60,7 +62,7 @@ import { getChatDisplayName, getConnectedChatDisplayName, parseChatMetadata } fr
 import { getChatCharacterIds } from "../../lib/chat-macros";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { parseCharacterDisplayData } from "../../lib/character-display";
-import { showConfirmDialog } from "../../lib/app-dialogs";
+import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
 import { trimInactiveMessagePageCaches } from "../../lib/message-page-cache";
 import {
@@ -133,6 +135,7 @@ import {
   blurActiveChatFloatingUiControl,
   CHAT_FLOATING_UI_DISMISS_EVENT,
   CHAT_LOREBOOK_ENTRIES_OPEN_REQUEST_EVENT,
+  CHAT_MESSAGE_RANGE_EXPORT_REQUEST_EVENT,
   CHAT_PEEK_PROMPT_REQUEST_EVENT,
   CHAT_REGENERATE_REQUEST_EVENT,
   CHAT_REPLY_CHECKUP_REQUEST_EVENT,
@@ -725,6 +728,8 @@ const LocalChatArea = memo(function LocalChatArea({
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
+  // A selection started from "Export a range" (#8547): it offers export only, never delete.
+  const [exportSelection, setExportSelection] = useState(false);
 
   const {
     data: chatDetail,
@@ -861,6 +866,22 @@ const LocalChatArea = memo(function LocalChatArea({
     return () => window.removeEventListener(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, openSection);
   }, [handleOpenSettingsPanel]);
 
+  // "Export a range" in Chat Branches: close Chat Settings (unless pinned) so the messages can be picked.
+  useEffect(() => {
+    const startRangeExport = (event: Event) => {
+      const chatId = (event as CustomEvent<{ chatId?: string }>).detail?.chatId;
+      if (!chatId || chatId !== useChatStore.getState().activeChatId) return;
+      handleCloseSettingsPanel();
+      setDeleteDialogMessageId(null);
+      setSelectedMessageIds(new Set());
+      setSelectionAnchorIndex(null);
+      setExportSelection(true);
+      setMultiSelectMode(true);
+    };
+    window.addEventListener(CHAT_MESSAGE_RANGE_EXPORT_REQUEST_EVENT, startRangeExport);
+    return () => window.removeEventListener(CHAT_MESSAGE_RANGE_EXPORT_REQUEST_EVENT, startRangeExport);
+  }, [handleCloseSettingsPanel]);
+
   useEffect(() => {
     window.addEventListener(CHAT_TOOLBAR_ACTION_EVENT, closeFloatingChatDrawers);
     window.addEventListener(CHAT_FLOATING_UI_DISMISS_EVENT, closeFloatingChatDrawers);
@@ -936,6 +957,7 @@ const LocalChatArea = memo(function LocalChatArea({
   const identityCharacterRow = identityCharacterQueries[0]?.data ?? null;
   const deleteMessage = useDeleteMessage(activeChatId);
   const deleteMessages = useDeleteMessages(activeChatId);
+  const { mutate: exportChat } = useExportChat();
   const deleteSwipe = useDeleteSwipe(activeChatId);
   const deleteOtherSwipes = useDeleteOtherSwipes(activeChatId);
   const { mutate: updateMessage, mutateAsync: updateMessageAsync } = useUpdateMessage(activeChatId);
@@ -2551,6 +2573,7 @@ const LocalChatArea = memo(function LocalChatArea({
       }
     }
     setDeleteDialogMessageId(null);
+    setExportSelection(false);
     setMultiSelectMode(true);
   }, [deleteDialogMessageId, messages]);
 
@@ -2586,18 +2609,86 @@ const LocalChatArea = memo(function LocalChatArea({
       deleteMessages.mutate([...selectedMessageIds]);
     }
     setMultiSelectMode(false);
+    setExportSelection(false);
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
   }, [selectedMessageIds, deleteMessages]);
 
   const handleCancelMultiSelect = useCallback(() => {
     setMultiSelectMode(false);
+    setExportSelection(false);
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
   }, []);
 
+  // Exports every message from the first to the last selected one, after a summary of the range and a format pick.
+  // The loaded messages are one contiguous window of the chat, so the count here matches what the server exports.
+  const handleExportSelection = useCallback(async () => {
+    if (!activeChatId || !messages) return;
+    const first = messages.findIndex((message) => selectedMessageIds.has(message.id));
+    const last = messages.findLastIndex((message) => selectedMessageIds.has(message.id));
+    if (first < 0 || last < 0) return;
+    const speaker = (message: MessageWithSwipes) => {
+      if (message.role === "user") {
+        const snapshotName = message.extra?.personaSnapshot?.name?.trim();
+        return snapshotName || personaInfo?.name || localizeUi("ui.chat.messagemarks.you");
+      }
+      if (message.role === "narrator") return localizeUi("ui.chat.chatmessage.narrator");
+      if (message.role === "system") return localizeUi("ui.chat.messagemarks.system");
+      return (
+        (message.characterId && characterMap.get(message.characterId)?.name) ||
+        chat?.name ||
+        localizeUi("ui.chat.messagemarks.character")
+      );
+    };
+    const snippet = (content: string) => {
+      const text = content.replace(/\s+/gu, " ").trim();
+      return text.length <= 60 ? text : `${text.slice(0, 60).trim()}…`;
+    };
+    const start = messages[first]!;
+    const end = messages[last]!;
+    const summary = localizeUi("chat.rangeExport.summary", {
+      count: last - first + 1,
+      startName: speaker(start),
+      startText: snippet(start.content),
+      endName: speaker(end),
+      endText: snippet(end.content),
+    });
+    const format = await showChoiceDialog({
+      title: localizeUi("chat.rangeExport.title"),
+      message: `${summary}\n\n${localizeUi("chat.rangeExport.storyFilterNote")}`,
+      choices: [
+        { key: "text", label: localizeUi("ui.chat.chatbranchselector.text") },
+        { key: "markdown", label: localizeUi("chatInsights.export.markdown") },
+        { key: "jsonl", label: localizeUi("ui.chat.chatbranchselector.jsonl") },
+        { key: "html", label: localizeUi("chatInsights.export.html") },
+      ],
+      cancelLabel: localizeUi("chat.delete.selection.cancel"),
+    });
+    if (!format) return;
+    exportChat(
+      {
+        chatId: activeChatId,
+        format: format as ChatExportFormat,
+        range: { startMessageId: start.id, endMessageId: end.id },
+      },
+      { onSuccess: handleCancelMultiSelect },
+    );
+  }, [
+    activeChatId,
+    characterMap,
+    chat?.name,
+    exportChat,
+    handleCancelMultiSelect,
+    localizeUi,
+    messages,
+    personaInfo?.name,
+    selectedMessageIds,
+  ]);
+
   useEffect(() => {
     setMultiSelectMode(false);
+    setExportSelection(false);
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
     setScheduleModalCharacterId(null);
@@ -4037,7 +4128,9 @@ const LocalChatArea = memo(function LocalChatArea({
             onDeleteOtherSwipes={handleDeleteOtherSwipes}
             onDeleteMore={handleDeleteMore}
             onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
-            onBulkDelete={handleBulkDelete}
+            onBulkDelete={exportSelection ? undefined : handleBulkDelete}
+            onExportSelected={() => void handleExportSelection()}
+            multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
             onCancelMultiSelect={handleCancelMultiSelect}
             onUnselectAllMessages={handleUnselectAllMessages}
             onSelectAllAboveSelection={handleSelectAllAboveSelection}
@@ -4127,7 +4220,9 @@ const LocalChatArea = memo(function LocalChatArea({
             onDeleteOtherSwipes={handleDeleteOtherSwipes}
             onDeleteMore={handleDeleteMore}
             onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
-            onBulkDelete={handleBulkDelete}
+            onBulkDelete={exportSelection ? undefined : handleBulkDelete}
+            onExportSelected={() => void handleExportSelection()}
+            multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
             onCancelMultiSelect={handleCancelMultiSelect}
             onUnselectAllMessages={handleUnselectAllMessages}
             onSelectAllAboveSelection={handleSelectAllAboveSelection}
@@ -4293,7 +4388,9 @@ const LocalChatArea = memo(function LocalChatArea({
           onDeleteOtherSwipes={handleDeleteOtherSwipes}
           onDeleteMore={handleDeleteMore}
           onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
-          onBulkDelete={handleBulkDelete}
+          onBulkDelete={exportSelection ? undefined : handleBulkDelete}
+          onExportSelected={() => void handleExportSelection()}
+          multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
           onCancelMultiSelect={handleCancelMultiSelect}
           onUnselectAllMessages={handleUnselectAllMessages}
           onSelectAllAboveSelection={handleSelectAllAboveSelection}

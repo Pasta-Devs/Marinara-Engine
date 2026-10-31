@@ -4863,17 +4863,38 @@ export async function chatsRoutes(app: FastifyInstance) {
   const serializeChatTranscript = async (
     chat: ChatRow,
     format: ExportFormat,
-    options: { includeReasoning?: boolean; includeAvatars?: boolean; includePrivateNotes?: boolean } = {},
+    options: {
+      includeReasoning?: boolean;
+      includeAvatars?: boolean;
+      includePrivateNotes?: boolean;
+      /** Export only the messages from one boundary to the other, inclusive, in chat order (#8547). */
+      range?: { startMessageId: string; endMessageId: string };
+    } = {},
   ) => {
     const includeReasoning = options.includeReasoning === true;
     const includePrivateNotes = options.includePrivateNotes === true;
+    const { range } = options;
     const exportNoteExtra = (extra: Record<string, unknown>) =>
       includePrivateNotes ? extra : stripPrivateMessageNote(extra);
+    // ponytail: a range still reads the whole chat once, like a full export; a ranged storage read is the
+    // upgrade path if excerpts of very long chats get slow.
     const rawMessages = await storage.listMessages(chat.id);
     const charIds = parseExportCharacterIds(chat.characterIds);
     const metadata = parseExportMetadata(chat.metadata);
-    const msgs = rawMessages.map((message) => ({ ...message }));
-    if (chat.mode === "game") applyAllSegmentEdits(msgs, metadata, rawMessages);
+    const allMsgs = rawMessages.map((message) => ({ ...message }));
+    if (chat.mode === "game") applyAllSegmentEdits(allMsgs, metadata, rawMessages);
+    // Boundaries are found in the stored order, since segment edits can drop messages from the copy.
+    const rangeIds = new Set<string>();
+    if (range) {
+      const start = rawMessages.findIndex((message) => message.id === range.startMessageId);
+      const end = rawMessages.findIndex((message) => message.id === range.endMessageId);
+      if (start >= 0 && end >= 0) {
+        for (const message of rawMessages.slice(Math.min(start, end), Math.max(start, end) + 1)) {
+          rangeIds.add(message.id);
+        }
+      }
+    }
+    const msgs = range ? allMsgs.filter((message) => rangeIds.has(message.id)) : allMsgs;
     const messageIndexById = new Map(msgs.map((message, index) => [message.id, index]));
     const spatialContextHistory = (await createSpatialContextStorage().listForChat(chat.id))
       .map((snapshot) => ({
@@ -4949,7 +4970,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         typeof metadata.groupScenarioText === "string" && metadata.groupScenarioText.trim()
           ? metadata.groupScenarioText.trim()
           : null,
-      lastInput: [...msgs].reverse().find((msg) => msg.role === "user")?.content,
+      lastInput: [...allMsgs].reverse().find((msg) => msg.role === "user")?.content,
       chatId: chat.id,
       // Without the chat's own variables an exported transcript would print a
       // raw {{char1}} where the model was sent "Mary".
@@ -5048,8 +5069,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
 
     const exportedMessages = msgs.map((message) => ({ ...message, content: resolveExportMessageContent(message) }));
+    // A range is an excerpt: its header leaves out the chat's summaries, memory, locations and world, which
+    // cover the rest of the story, and each message carries only its selected swipe.
     const advancedMemoryTransfer =
-      chat.mode === "roleplay"
+      chat.mode === "roleplay" && !range
         ? await createAdvancedMemoryService(app.db).exportTransferRecords(chat.id, exportedMessages)
         : [];
     const lines: string[] = [
@@ -5057,22 +5080,24 @@ export async function chatsRoutes(app: FastifyInstance) {
         user_name: persona?.name ?? "User",
         character_name: primaryCharName,
         create_date: chat.createdAt,
-        chat_metadata: {
-          mode: chat.mode,
-          ...jsonlMetadata,
-          branchName,
-          marinara_metadata: {
-            ...jsonlMetadata,
-            mode: chat.mode,
-            spatialContextHistory,
-            ...(advancedMemoryTransfer.length ? { advancedMemoryTransfer } : {}),
-            ...(worldSnapshot !== undefined ? { gameWorldSnapshot: worldSnapshot } : {}),
-          },
-        },
+        chat_metadata: range
+          ? { mode: chat.mode, branchName, marinara_metadata: { mode: chat.mode } }
+          : {
+              mode: chat.mode,
+              ...jsonlMetadata,
+              branchName,
+              marinara_metadata: {
+                ...jsonlMetadata,
+                mode: chat.mode,
+                spatialContextHistory,
+                ...(advancedMemoryTransfer.length ? { advancedMemoryTransfer } : {}),
+                ...(worldSnapshot !== undefined ? { gameWorldSnapshot: worldSnapshot } : {}),
+              },
+            },
       }),
     ];
 
-    const swipesByMessageId = await storage.getSwipesByMessageId(exportedMessages.map((msg) => msg.id));
+    const swipesByMessageId = range ? null : await storage.getSwipesByMessageId(exportedMessages.map((msg) => msg.id));
     for (const msg of exportedMessages) {
       const rawMessageExtra = parseExportMetadata(msg.extra);
       const normalizeInterruptionExtra = (extra: Record<string, unknown>) =>
@@ -5083,7 +5108,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         exportNoteExtra(sanitizeJsonlMessageExtra(rawMessageExtra)),
       );
       const thinking = includeReasoning ? getExportThinking(rawMessageExtra) : null;
-      const swipes = swipesByMessageId.get(msg.id) ?? [];
+      const swipes = swipesByMessageId?.get(msg.id) ?? [];
       const activeContent = msg.content;
       const exportSwipes =
         swipes.length > 0
@@ -5132,7 +5157,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               }
             : {}),
           swipes: exportSwipes.map((swipe) => swipe.content),
-          swipe_id: msg.activeSwipeIndex,
+          swipe_id: range ? 0 : msg.activeSwipeIndex,
           send_date: msg.createdAt,
           extra: {
             ...messageExtra,
@@ -5257,13 +5282,34 @@ export async function chatsRoutes(app: FastifyInstance) {
       .send(streamExportZip(files));
   });
 
-  // Export chat — supports JSONL (default, SillyTavern-compatible), plain text, Markdown and a standalone HTML story
+  // Export chat — supports JSONL (default, SillyTavern-compatible), plain text, Markdown and a standalone HTML story.
+  // `startMessageId` and `endMessageId` together export only that range of messages (#8547).
   app.get<{
     Params: { id: string };
-    Querystring: { format?: string; includeReasoning?: string; includeAvatars?: string; includePrivateNotes?: string };
+    Querystring: {
+      format?: string;
+      includeReasoning?: string;
+      includeAvatars?: string;
+      includePrivateNotes?: string;
+      startMessageId?: string;
+      endMessageId?: string;
+    };
   }>("/:id/export", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
+
+    const { startMessageId, endMessageId } = req.query;
+    let range: { startMessageId: string; endMessageId: string } | undefined;
+    if (startMessageId !== undefined || endMessageId !== undefined) {
+      if (typeof startMessageId !== "string" || typeof endMessageId !== "string") {
+        return reply.status(400).send({ error: "A range needs both startMessageId and endMessageId" });
+      }
+      const boundaries = await Promise.all([storage.getMessage(startMessageId), storage.getMessage(endMessageId)]);
+      if (boundaries.some((message) => message?.chatId !== chat.id)) {
+        return reply.status(404).send({ error: "Range message not found in this chat" });
+      }
+      range = { startMessageId, endMessageId };
+    }
 
     const format = normalizeExportFormat(req.query.format);
     const includeReasoning = normalizeExportBoolean(req.query.includeReasoning);
@@ -5272,11 +5318,13 @@ export async function chatsRoutes(app: FastifyInstance) {
       includeReasoning,
       includeAvatars: req.query.includeAvatars !== "false",
       includePrivateNotes,
+      range,
     });
+    const filename = `${chat.name}${range ? " excerpt" : ""}.${serialized.extension}`;
 
     return reply
       .header("Content-Type", serialized.contentType)
-      .header("Content-Disposition", `attachment; filename="${encodeURIComponent(chat.name)}.${serialized.extension}"`)
+      .header("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`)
       .send(serialized.content);
   });
 

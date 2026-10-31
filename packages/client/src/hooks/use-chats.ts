@@ -1800,14 +1800,26 @@ const CHAT_EXPORT_EXTENSIONS: Record<ChatExportFormat, string> = {
 /** Export a chat as JSONL, plain text, Markdown or a standalone HTML story */
 export function useExportChat() {
   return useMutation({
-    mutationFn: async ({ chatId, format = "jsonl" }: { chatId: string; format?: ChatExportFormat }) => {
+    mutationFn: async ({
+      chatId,
+      format = "jsonl",
+      range,
+    }: {
+      chatId: string;
+      format?: ChatExportFormat;
+      /** Export only the messages from one boundary to the other, inclusive (#8547). */
+      range?: { startMessageId: string; endMessageId: string };
+    }) => {
       const ext = CHAT_EXPORT_EXTENSIONS[format];
       const includeReasoning = useUIStore.getState().includeReasoningInExports;
       const reasoningParam = `${includeReasoning ? "&includeReasoning=true" : ""}${
         useUIStore.getState().includePrivateNotesInExports ? "&includePrivateNotes=true" : ""
       }`;
+      const rangeParam = range
+        ? `&startMessageId=${encodeURIComponent(range.startMessageId)}&endMessageId=${encodeURIComponent(range.endMessageId)}`
+        : "";
       await api.download(
-        `/chats/${encodeURIComponent(chatId)}/export?format=${encodeURIComponent(format)}${reasoningParam}`,
+        `/chats/${encodeURIComponent(chatId)}/export?format=${encodeURIComponent(format)}${reasoningParam}${rangeParam}`,
         `chat-${chatId}${ext}`,
       );
     },
