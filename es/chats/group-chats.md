@@ -95,7 +95,7 @@ La indicación bajo el ajuste dice cuándo falta algo: no hay un Decision model 
 
 Unas pocas reglas mantienen el chat funcionando:
 
-- **Fijados.** Mientras la automatización está activada, cada fila de la lista **Characters** muestra una chincheta a la izquierda de su ojo. Haz clic en ella para fijar al personaje tal como está ahora, activado o desactivado; la automatización entonces lo deja en paz. Cambiar un ojo a mano también fija a ese personaje, para que la siguiente respuesta no deshaga tu elección. La chincheta de una fila fijada se muestra en tu color de acento; haz clic otra vez para soltarla. Poner la automatización en **Off** quita todos los fijados.
+- **Fijaciones.** Mientras la automatización está activada, cada fila de la lista **Characters** muestra una chincheta a la izquierda de su ojo. Haz clic en ella para fijar al personaje tal como está ahora, activado o desactivado; la automatización entonces lo deja en paz. Cambiar un ojo a mano también fija a ese personaje, para que la siguiente respuesta no deshaga tu elección. La chincheta de una fila fijada se muestra en tu color de acento; haz clic otra vez para soltarla. Poner la automatización en **Off** quita todas las fijaciones.
 - **El narrador sigue activo.** El **Narrator** (narrador) designado en **Roleplay Commands** nunca se desactiva.
 - **Sin respuesta, se conserva la lista.** En el modo **Decision model**, si el modelo no da respuesta para cada personaje, se usa en su lugar la última escena del Character Tracker, cuando la hay. Un modelo que piensa primero no responde antes de la respuesta a menos que **Also gate agents that run before the reply** (evaluar también los agentes que se ejecutan antes de la respuesta) esté activado, así que el tracker lo sustituye. Lo mismo ocurre con un reparto demasiado grande para caber en la entrada del Decision model incluso solo con nombres, al que ni siquiera se le pregunta. Si ninguno de los dos tiene respuesta, la lista se queda como está.
 - **Que nadie esté activo no es una opción.** Se ignora un resultado que desactivaría a todos.
@@ -103,7 +103,7 @@ Unas pocas reglas mantienen el chat funcionando:
 
 El Character Tracker escribe su propio nombre para cada personaje que ve. Un personaje se asocia con su tarjeta por el id de esa tarjeta, luego por el nombre y luego por los alias de nombre de la tarjeta de la pestaña **Colors** del Character Editor, de modo que una tarjeta que entró estando desactivada se encuentra igualmente. Una lista del tracker que no nombra a ninguno de los personajes del chat, como una escena solo de extras, conserva la lista actual.
 
-La automatización se ejecuta antes de cada respuesta, swipe y regeneración. Omite **Continue** y la suplantación. El ajuste se guarda en los perfiles de ajustes; los fijados pertenecen a ese único chat.
+La automatización se ejecuta antes de cada respuesta, swipe y regeneración. Omite **Continue** e Impersonate. El ajuste se guarda en los perfiles de ajustes; las fijaciones pertenecen a ese único chat.
 
 <a id="response-order-individual-only"></a>
 
@@ -148,7 +148,7 @@ Una nota sobre la reutilización: el texto de **Scenario Override** está ligado
 | **Name Prefix History** | Sección Group Chat, modo Individual | Off |
 | **Scenario Override** | Sección Group Chat | Vacío (off) |
 
-La mayoría de estos ajustes se guardan en perfiles de ajustes, así que puedes reutilizarlos. La única excepción es **Scenario Override**, que se queda con el chat individual. Los fijados de la automatización también se quedan con el chat.
+La mayoría de estos ajustes se guardan en perfiles de ajustes, así que puedes reutilizarlos. La única excepción es **Scenario Override**, que se queda con el chat individual. Las fijaciones de la automatización también se quedan con el chat.
 
 ## Quién habla: modo Conversation
 

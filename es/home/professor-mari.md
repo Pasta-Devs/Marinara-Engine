@@ -288,7 +288,7 @@ En un Mac, usa Cmd en lugar de Ctrl. Shift+Enter siempre añade una línea nueva
 
 Send now es solo para palabras, dentro de la ejecución que ella ya está haciendo. Un mensaje con archivos, enlaces con `@` o un campo que le pasaste se pone en cola en su lugar, igual que uno sobre un tema distinto o uno enviado después de cambiar el modo de permisos. Un breve aviso lo indica. Un mensaje en espera sin esas cosas tiene su propio botón **Send now**. Haz clic en la **X** de un mensaje para quitarlo. Un chat puede contener hasta 20 mensajes en espera.
 
-Si ella ha dado algunos pasos pero aún no ha dicho nada cuando llega tu mensaje, sus pasos se conservan con una línea atenuada **Still working**. Send now no puede darle más pasos de los que permite una ejecución. Si ha llegado al límite, o se ha detenido para preguntarte algo, tu mensaje se queda en la lista.
+Si ella ha dado algunos pasos pero aún no ha dicho nada cuando llega tu mensaje, sus pasos se conservan con una línea atenuada **Still working** (Sigue trabajando). Send now no puede darle más pasos de los que permite una ejecución. Si ha llegado al límite, o se ha detenido para preguntarte algo, tu mensaje se queda en la lista.
 
 Los mensajes en espera no se envían solos en estos casos:
 

@@ -50,7 +50,7 @@ Más abajo, en la misma pestaña, hay una segunda lista: **Character Questions**
 {{char}} treats {{relationshipToUser}} with open warmth.
 ```
 
-Esos cinco campos son los que lee el modelo, así que son los únicos a los que puede llegar una respuesta de personaje.
+Esos cinco campos son los que lee el modelo, así que son los únicos a los que puede llegar una respuesta de personaje. Un saludo también puede usar el `{{name}}` de una pregunta de personaje, y muestra la respuesta del jugador.
 
 Un saludo también puede usar el `{{name}}` de una pregunta de persona, como `Ah, so you are a {{class}}`. Solo se rellena cuando el jugador crea esa persona en el asistente de chat nuevo, en el primer mensaje y en sus saludos alternativos. Con una persona existente o con Quick Start, la etiqueta se muestra tal como está escrita, y el Character Editor te avisa de ello. Haz clic en un saludo y su lista **Available variables** (Variables disponibles) muestra ambos tipos de preguntas, con su etiqueta.
 
