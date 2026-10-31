@@ -213,10 +213,13 @@ function rememberGatewayRefusedEffort(baseUrl: string, model: string) {
  * The `tool` role is a Chat Completions invention: an endpoint that hands the request to Anthropic's Messages API
  * refuses one, and only a user or assistant turn can carry the results. LinkAPI words it `messages: Unexpected role
  * "tool". Allowed roles are "user", "assistant" or "system"`; Anthropic itself says `Input tag 'tool' found using
- * 'role'`. Matched on the role/tool pairing only, so a plain refusal that never mentions either is left alone.
+ * 'role'`. Anchored on refusal wording, not on the two words standing near each other: OpenAI's own `messages with
+ * role 'tool' must be a response to a preceeding message with 'tool_calls'` names the role without refusing it, and
+ * matching that would retell a healthy endpoint's history and remember it as broken. The body is raw JSON, so a quote
+ * around the role arrives escaped (`\"tool\"`).
  */
 const TOOL_ROLE_REJECTION =
-  /\brole\b[^\n]{0,48}?["'`]?tool\b|["'`]tool["'`]?[^\n]{0,48}?\brole\b|\brole[^\n]{0,24}?tool[^\n]{0,24}?(?:not\s+(?:a\s+)?(?:valid|allowed|supported)|unsupported)/i;
+  /(?:unexpected|invalid|unknown|unsupported|disallowed)\s+role[\s:=]*\\?["'\u0060]?\s*tool\b|input\s+tag\s*\\?["'\u0060]\s*tool\s*\\?["'\u0060]\s*found\s+using\s*\\?["'\u0060]?\s*role\b|role\s*\\?["'\u0060]?\s*tool\\?["'\u0060]?[^\n]{0,40}?(?:not\s+(?:a\s+)?(?:valid|known|allowed|supported|recognized)|unsupported|invalid)|\\?["'\u0060]?tool\\?["'\u0060]?\s+role\b[^\n]{0,40}?(?:not\s+(?:a\s+)?(?:valid|known|allowed|supported|recognized)|unsupported|invalid)/i;
 
 function isToolRoleRejection(errorText: string): boolean {
   return TOOL_ROLE_REJECTION.test(errorText);
@@ -1084,8 +1087,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     ) {
       // Anthropic's Messages API has no `tool` role, so a gateway in front of it refuses the replayed history. The
       // calls cannot go as calls at all; the rounds are retold as text once, and remembered so later rounds skip the
-      // refusal. Native `tools` stay requested, so the model keeps calling them.
-      const messages = toolRoleSafeWireMessages(body.messages as ChatCompletionsWireMessage[]);
+      // refusal. Native `tools` stay requested, so the model keeps calling them. Retelling folds a round's results
+      // into one user turn, which can land beside the user's next message; the same endpoint also wants user and
+      // assistant turns to alternate, so they are merged here rather than left to a second refusal.
+      const messages = alternateWireMessageRoles(
+        toolRoleSafeWireMessages(body.messages as ChatCompletionsWireMessage[]),
+      );
       if (JSON.stringify(messages) !== JSON.stringify(body.messages)) {
         logger.warn(
           "[OpenAI] %s refused the tool role in history; retrying once with the tool rounds retold as text",
@@ -1876,11 +1883,14 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   /** The Chat Completions messages for a request: Claude gets them in the shape Anthropic takes, and a gateway that
-   *  refused the `tool` role gets its tool rounds retold as text from then on. */
+   *  refused the `tool` role gets its tool rounds retold as text from then on. Retelling folds a round's results into
+   *  one user turn, which can land beside the user's next message; that endpoint also wants user and assistant turns
+   *  to alternate, so they are merged here rather than left to a second refusal. */
   private chatCompletionsMessages(messages: ChatMessage[], model?: string): ChatCompletionsWireMessage[] {
     const formatted: ChatCompletionsWireMessage[] = this.formatMessages(messages, model);
     const shaped = looksLikeClaudeModel(model) ? anthropicSafeWireMessages(formatted) : formatted;
-    return model && endpointRefusedToolHistory(this.baseUrl, model) ? toolRoleSafeWireMessages(shaped) : shaped;
+    if (!model || !endpointRefusedToolHistory(this.baseUrl, model)) return shaped;
+    return alternateWireMessageRoles(toolRoleSafeWireMessages(shaped));
   }
 
   private formatMessages(messages: ChatMessage[], model?: string) {

@@ -1,7 +1,7 @@
 // An OpenAI-typed connection in front of an Anthropic-backed proxy refuses the `tool` role in replayed history
 // (LinkAPI: `messages: Unexpected role "tool". Allowed roles are "user", "assistant" or "system"`). The provider must
 // retry once with the tool rounds retold as text, keep native `tools` requested, and remember the endpoint so later
-// rounds skip the refusal. A plain 429 must still be a plain 429.
+// rounds skip the refusal. A refusal that merely names the tool role, and a plain 429, must both stay untouched.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { LLMHttpError } from "../../packages/server/src/services/llm/base-provider.js";
@@ -17,7 +17,16 @@ const tools = [
 type WireMessage = { role?: string; content?: unknown; tool_calls?: unknown[]; tool_call_id?: string };
 type WireRequest = { model?: string; messages: WireMessage[]; tools: unknown[] };
 const requests: WireRequest[] = [];
-let rateLimitOnly = false;
+
+/** How the fixture answers. `role-order` is OpenAI's own complaint about a tool row, which is not a refusal of it. */
+type Mode = "refuse-tool-role" | "rate-limit" | "role-order" | "accept";
+let mode: Mode = "refuse-tool-role";
+
+const LINKAPI_WORDING =
+  'messages: Unexpected role "tool". Allowed roles are "user", "assistant" or "system" (request id: 202610302337086847479988268d9d6Omw023bE)';
+const ANTHROPIC_WORDING =
+  "messages.1.role: Input tag 'tool' found using 'role' does not match any of the expected tags: 'user', 'assistant'";
+const ROLE_ORDER_WORDING = "messages with role 'tool' must be a response to a preceeding message with 'tool_calls'";
 
 const server = createServer(async (request, response) => {
   let raw = "";
@@ -25,23 +34,21 @@ const server = createServer(async (request, response) => {
   const body = JSON.parse(raw) as WireRequest;
   requests.push(body);
   response.setHeader("content-type", "application/json");
-  if (rateLimitOnly || (body.messages ?? []).some((message) => message.role === "tool")) {
+  const hasToolRow = (body.messages ?? []).some((message) => message.role === "tool");
+  if (mode === "rate-limit" || (mode !== "accept" && hasToolRow)) {
     // The proxy reports a schema rejection with the same status it uses for throttling, which is half of why this is
-    // hard to read from a screenshot; the other half is that only the body says it is about a role. Anthropic's own
-    // wording is covered too, since the same endpoint can pass it through unaltered.
+    // hard to read from a screenshot; the other half is that only the body says what is wrong.
     response.statusCode = 429;
     const anthropicWording = /anthropic-wording/u.test(String(body.model ?? ""));
-    response.end(
-      JSON.stringify({
-        error: rateLimitOnly
-          ? { message: "Rate limit exceeded, please retry later." }
-          : {
-              message: anthropicWording
-                ? "messages.1.role: Input tag 'tool' found using 'role' does not match any of the expected tags: 'user', 'assistant'"
-                : 'messages: Unexpected role "tool". Allowed roles are "user", "assistant" or "system" (request id: 202610302337086847479988268d9d6Omw023bE)',
-            },
-      }),
-    );
+    const message =
+      mode === "rate-limit"
+        ? "Rate limit exceeded, please retry later."
+        : mode === "role-order"
+          ? ROLE_ORDER_WORDING
+          : anthropicWording
+            ? ANTHROPIC_WORDING
+            : LINKAPI_WORDING;
+    response.end(JSON.stringify({ error: { message } }));
     return;
   }
   response.end(JSON.stringify({ choices: [{ message: { content: "Found the entry." }, finish_reason: "stop" }] }));
@@ -106,11 +113,11 @@ try {
   }
 
   // 4. A plain rate limit is not a shape problem: no retell, the error reaches the caller as a 429.
-  rateLimitOnly = true;
+  mode = "rate-limit";
   const limited = new OpenAIProvider(base, "");
   const beforeLimit = requests.length;
   await assert.rejects(
-    limited.chatComplete(history, { model: "claude-opus-4-5-20251101", tools, stream: false }),
+    limited.chatComplete(history, { model: "claude-rate-limited-opus", tools, stream: false }),
     (error) => {
       assert.ok(error instanceof LLMHttpError, "a rate limit must surface as the provider's typed error");
       assert.equal(error.status, 429);
@@ -119,6 +126,51 @@ try {
     },
   );
   assert.equal(requests.length - beforeLimit, 1, "a plain 429 must not be reshaped and resent");
+
+  // 5. A refusal that only *names* the tool role (OpenAI's own ordering rule) is not this bug: no retry, and — the
+  //    part that would hurt — the healthy endpoint must not be remembered as one that refuses tool history. A fresh
+  //    model id, because the loop above remembered the ones it used.
+  mode = "role-order";
+  const orderOnly = new OpenAIProvider(base, "");
+  const beforeOrder = requests.length;
+  await assert.rejects(
+    orderOnly.chatComplete(history, { model: "claude-role-order-opus", tools, stream: false }),
+    (error) => {
+      assert.ok(error instanceof LLMHttpError);
+      assert.match(error.message, /must be a response to a preceeding message/);
+      return true;
+    },
+  );
+  assert.equal(requests.length - beforeOrder, 1, "a mere mention of the tool role must not be reshaped and resent");
+  mode = "accept";
+  const beforeAccept = requests.length;
+  await orderOnly.chatComplete(history, { model: "claude-role-order-opus", tools, stream: false });
+  assert.equal(requests.length - beforeAccept, 1, "the accepted call is one request");
+  assert.ok(roles(requests.at(-1)!).includes("tool"), "a mere mention of the tool role must not be remembered");
+
+  // 6. The user's next message after a tool round: retelling folds that round's results into a user turn, which would
+  //    sit beside the user's next message. This endpoint also wants user and assistant turns to alternate, so the two
+  //    are merged instead of leaving a shape it would refuse again.
+  mode = "refuse-tool-role";
+  const nextTurn = new OpenAIProvider(base, "");
+  const conversation = [...history, { role: "user" as const, content: "and the next entry?" }];
+  const beforeNext = requests.length;
+  await nextTurn.chatComplete(conversation, { model: "claude-alternation-opus", tools, stream: false });
+  const sentNext = requests.slice(beforeNext);
+  assert.equal(sentNext.length, 2, "one refusal and one retry");
+  const retoldRoles = roles(sentNext[1]!);
+  assert.ok(!retoldRoles.includes("tool"), "the retried request must not carry a tool role");
+  for (let index = 1; index < retoldRoles.length; index += 1) {
+    assert.notEqual(retoldRoles[index], retoldRoles[index - 1], "a retold history must still alternate roles");
+  }
+  // Remembered, the same conversation goes out alternated in a single request.
+  const beforeRememberedNext = requests.length;
+  await nextTurn.chatComplete(conversation, { model: "claude-alternation-opus", tools, stream: false });
+  assert.equal(requests.length - beforeRememberedNext, 1, "the remembered shape is sent once");
+  const rememberedRoles = roles(requests.at(-1)!);
+  for (let index = 1; index < rememberedRoles.length; index += 1) {
+    assert.notEqual(rememberedRoles[index], rememberedRoles[index - 1], "the remembered shape must alternate too");
+  }
 } finally {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
