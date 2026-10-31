@@ -367,7 +367,7 @@ Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人�
 
 ## 信任与安装
 
-官方目录是一份带版本号、经过结构校验的 JSON 文档，通过 HTTPS 获取。每个发布条目都包含不可变的产物 URL、SHA-256 摘要、字节大小、引擎兼容性、权限，以及该包的运行时是否需要重启。
+官方目录是一份带版本号、经过结构校验的 JSON 文档，通过 HTTPS 获取。每个发布条目都包含不可变的产物 URL、SHA-256 摘要、字节大小、引擎兼容性、权限，以及该包的运行时是否需要重启。 规则集条目还可以列出 `locales`，即按语言列出的语言包（Capability API 1.811），每个语言包都有自己的 URL、SHA-256 摘要和字节大小，以及翻译后的商店卡片名称和描述。Engine 在安装规则集后只获取当前语言的语言包，并在语言更改时再次获取（`POST /api/capability-packages/rulesets/language`，由页面在打开时及每次语言更改时发送），将其与已安装的版本保存在一起，并移除其他语言包；见[编写规则集](../extending/writing-rulesets.md)。
 
 更新需要用户同意：除了为升级上来的安装保留原有内置功能的一次性迁移（见[兼容性迁移](#compatibility-migration)）之外，启动时绝不会下载或安装任何包。`GET /api/capability-packages/updates/pending` 会列出每个已安装、目录版本更新且与当前 Engine 和能力 API 兼容的官方包，用户已经拒绝过的版本不在其中。客户端会在一个 **Agent updates available**(有智能体更新可用) 提示里一并显示它们。提示窗口会通过常规安装流程逐个安装选中的更新，并固定为所提供的版本和产物 SHA-256。用户未勾选的更新会像选择 **Not now**(暂不更新) 一样被拒绝。**Not now** 会把被拒绝的版本记录到 `DATA_DIR/capability-packages/update-decisions-v1.json`(`POST /api/capability-packages/updates/decline`)，这样该版本不会再被提供，更新的版本则仍会提供。无论哪种情况，**Agent Organizer(智能体管理器)** 里的 **Update**(更新) 都一直可用。失败按包隔离，互不影响。目录离线或校验失败时，已有的文件和注册表状态照常可用；服务器运行时就绪失败则走回退到上一版本的路径。
 
@@ -1019,6 +1019,24 @@ export async function activate({ api }) {
 - `enterLabel` 和 `exitLabel`：切换按钮使用的本地化无障碍标签。
 
 这是应用内全屏：Home 的标签页、地址栏和书签会隐藏，但 Engine 顶栏仍可使用。它不会调用浏览器的 Fullscreen API，也不要求浏览器支持全屏。该状态是临时的，离开安装包或 Home 后会重置。安装包的每个页面都应提供退出按钮，并用 `aria-pressed` 反映 `active`。属性更新必须更新按钮，不能替换尚未填写完的表单。依赖此控件的安装包应声明 Capability API 1.376 或更高版本；旧安装包可以保留现有布局。
+
+<a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
+
+### Capability API 1.391：Advanced Memory(高级记忆) 场景摘要与记忆块
+
+`persistence.listChatSummaries(chatId)` 还会返回 `advancedMemory`：聊天中已启用且已完成的 Advanced Memory 场景摘要，按写入顺序排列；重新生成某个场景的摘要后，它会移到末尾，因此要按故事顺序排列时，应使用 `startMessageId`。每条摘要都有 `id`、`sceneId`、`kind`（`"scene"`）、`title`、`content`、`timeline`、`startMessageId`、`endMessageId`、`audienceCharacterIds`、`sourceFingerprint`、`updatedAt` 和 `memory`。旧聊天可能保留同一场景的多个副本，它们的 `sceneId` 相同。常驻、临时、摘录和回想记录不在此列表中。
+
+`long-term-memory:runtime` 服务可以添加可选的 `summaryMemoryInstruction()` 方法，返回一个段落或 `null`。当聊天将 Long-Term Memory(长期记忆) 列为活跃智能体时，Engine 会把该段落附加到每个场景摘要的首轮请求中（场景拆成多部分时，每个部分都如此），并要求在同一份 JSON 回复中提供一个 `"memory"` 字符串。Engine 会原样存储该字符串，并将它作为 `memory` 返回；Engine 从不解析它，因此其格式由包决定。分成多部分生成摘要的场景会得到每个部分的记忆块，并用空行连接；合并请求不会看到这些记忆块。该段落最多 4,000 个字符。
+
+回复没有记忆块时、手动编辑摘要后，以及在 1.391 之前写入的记录中，`memory` 都为 `null`。没有这个方法，或聊天没有列出 Long-Term Memory 时，摘要请求保持不变。
+
+记忆块是根据整个场景写成的单个扁平字符串，包含某些参与者从未看到的消息；与回顾摘要不同，它没有按读者划分的部分。向角色展示记忆的包必须自行根据 `audienceCharacterIds` 限定记录的受众范围。
+
+旧版 Engine 不返回 `advancedMemory`：先检查它是否存在，或声明版本 1.391。
+
+```ts
+const scenes = (await api.runtime.persistence.listChatSummaries?.(chatId))?.advancedMemory ?? [];
+```
 
 ### Capability API 1.390：Engine 绘制智能体页面标题栏
 

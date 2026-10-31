@@ -388,7 +388,7 @@ W podstawie zostaje menedżer pakietów, klient katalogu, ogólne kontrakty poto
 
 ## Zaufanie i instalacja
 
-Oficjalny katalog to wersjonowany dokument JSON o sprawdzanym schemacie, pobierany przez HTTPS. Każdy wpis wydania zawiera niezmienne adresy URL artefaktów, skróty SHA-256, rozmiary w bajtach, informacje o zgodności z silnikiem, uprawnienia oraz to, czy dane środowisko uruchomieniowe wymaga restartu.
+Oficjalny katalog to wersjonowany dokument JSON o sprawdzanym schemacie, pobierany przez HTTPS. Każdy wpis wydania zawiera niezmienne adresy URL artefaktów, skróty SHA-256, rozmiary w bajtach, informacje o zgodności z silnikiem, uprawnienia oraz to, czy dane środowisko uruchomieniowe wymaga restartu. Wpis zestawu zasad może też zawierać `locales`, czyli zestawienie jego pakietów językowych według języka (Capability API 1.811), każdego z własnym adresem URL, skrótem SHA-256 i rozmiarem w bajtach oraz przetłumaczoną nazwą i opisem na karcie w sklepie. Engine pobiera tylko pakiet w swoim bieżącym języku po zainstalowaniu zestawu zasad i ponownie po zmianie języka (`POST /api/capability-packages/rulesets/language`, wysyłane przez stronę przy jej otwarciu i przy każdej zmianie), zachowując go wraz z zainstalowaną wersją i usuwając pozostałe; zobacz [Pisanie zestawów zasad Game Mode](../extending/writing-rulesets.md).
 
 Aktualizacje wymagają zgody użytkownika: poza jednorazowymi migracjami, które zachowują dawne wbudowane elementy zaktualizowanej instalacji (zobacz [Migracja zgodności](#compatibility-migration)), start serwera nigdy nie pobiera ani nie instaluje pakietu. `GET /api/capability-packages/updates/pending` wymienia każdy zainstalowany oficjalny pakiet, którego wersja w katalogu jest nowsza i zgodna z działającym silnikiem i z API możliwości, z pominięciem wersji, którą użytkownik już odrzucił. Klient pokazuje je w jednym oknie **Agent updates available** (dostępne aktualizacje agentów). Okno instaluje każdą wybraną aktualizację zwykłym potokiem instalacyjnym, z przypięciem do oferowanej wersji i skrótu SHA-256 artefaktu. Aktualizacje pozostawione bez zaznaczenia są odrzucane tak samo jak po wybraniu **Not now** (nie teraz). **Not now** zapisuje odrzucone wersje w `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), więc ta wersja nie jest proponowana ponownie, a nowsza już tak. Przycisk **Update** (aktualizacja) w obu przypadkach pozostaje dostępny w **Agent Organizer (organizowanie agentów)**. Awarie są izolowane osobno dla każdego pakietu. Gdy katalog jest niedostępny albo weryfikacja się nie powiedzie, dotychczasowe pliki i stan rejestru nadal działają, a niepowodzenie gotowości środowiska serwerowego korzysta ze ścieżki wycofania do poprzedniej wersji.
 
@@ -1040,6 +1040,39 @@ Widok `home-browser-tab` otrzymuje `capabilityProps.browserFullscreen`:
 - `enterLabel` i `exitLabel`: zlokalizowane etykiety dostępności przełącznika.
 
 To pełny ekran wewnątrz aplikacji: karty, pasek adresu i zakładki Home są ukryte, a górny pasek silnika pozostaje dostępny. Nie wywołuje to przeglądarkowego Fullscreen API ani nie wymaga obsługi pełnego ekranu przez przeglądarkę. Stan jest tymczasowy i resetuje się po opuszczeniu pakietu lub Home. Na każdym ekranie pakietu zapewnij przycisk wyjścia i odzwierciedlaj `active` przez `aria-pressed`. Zmiany właściwości muszą aktualizować przycisk bez zastępowania niedokończonych formularzy. Pakiety zależne od tej kontrolki deklarują Capability API 1.376 lub nowsze; starsze pakiety mogą zachować dotychczasowy układ.
+
+<a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
+
+### Capability API 1.391: podsumowania scen funkcji Advanced Memory i blok pamięci
+
+`persistence.listChatSummaries(chatId)` zwraca też `advancedMemory`: włączone, ukończone podsumowania scen funkcji
+Advanced Memory dla danego czatu, w kolejności zapisania; scena podsumowana ponownie trafia na koniec,
+więc do ustalenia kolejności fabularnej użyj `startMessageId`. Każde podsumowanie zawiera `id`, `sceneId`, `kind` (`"scene"`), `title`,
+`content`, `timeline`, `startMessageId`, `endMessageId`, `audienceCharacterIds`, `sourceFingerprint`,
+`updatedAt` i `memory`. Starsze czaty mogą zawierać kilka kopii jednej sceny z tym samym `sceneId`.
+Rekordy stałe, tymczasowe, fragmentów i osobistych wspomnień nie są uwzględniane.
+
+Usługa `long-term-memory:runtime` może dodać opcjonalną metodę `summaryMemoryInstruction()`, która
+zwraca jeden akapit lub `null`. Gdy czat ma Long-Term Memory na liście aktywnych agentów, Engine
+dołącza ten akapit do każdego żądania pierwszego przebiegu podsumowywania sceny (dla każdej części sceny podzielonej na
+kilka części) i prosi o ciąg znaków `"memory"` w tej samej odpowiedzi JSON. Zapisuje ten ciąg bez zmian i zwraca go jako `memory`; Engine nigdy go nie parsuje,
+więc za jego format odpowiada pakiet. Scena podsumowana w kilku częściach otrzymuje blok każdej części, a bloki są łączone
+z pustym wierszem pomiędzy nimi; żądania łączące podsumowania nigdy nie otrzymują tych bloków. Akapit ma limit 4 000
+znaków.
+
+`memory` ma wartość `null`, gdy odpowiedź nie zawierała bloku, po ręcznej edycji podsumowania przez użytkownika oraz w rekordach
+zapisanych przed wersją 1.391. Bez tej metody lub w czacie, który nie ma Long-Term Memory na liście agentów, żądanie
+podsumowania pozostaje bez zmian.
+
+Blok to jeden płaski ciąg znaków utworzony na podstawie całej sceny, łącznie z wiadomościami, których niektórzy uczestnicy nigdy
+nie widzieli; w odróżnieniu od streszczenia nie ma sekcji dla poszczególnych odbiorców. Pakiet, który pokazuje wspomnienia postaci, musi
+samodzielnie ograniczyć dostęp do rekordu na podstawie `audienceCharacterIds`.
+
+Starsze wersje Engine nie zwracają `advancedMemory`: sprawdź, czy to pole istnieje, albo zadeklaruj wersję 1.391.
+
+```ts
+const scenes = (await api.runtime.persistence.listChatSummaries?.(chatId))?.advancedMemory ?? [];
+```
 
 ### Capability API 1.390: Engine rysuje nagłówek strony agenta
 

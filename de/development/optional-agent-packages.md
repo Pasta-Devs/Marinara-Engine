@@ -400,7 +400,7 @@ In der Basis bleiben nur der Paketmanager, der Katalog-Client, die generischen V
 
 ## Vertrauen und Installation
 
-Der offizielle Katalog ist ein schemavalidiertes, versioniertes JSON-Dokument und wird über HTTPS geladen. Jeder Release-Eintrag nennt unveränderliche Artefakt-URLs, SHA-256-Prüfsummen, Dateigrößen in Byte, die Engine-Kompatibilität, die Berechtigungen und ob die Laufzeit einen Neustart braucht.
+Der offizielle Katalog ist ein schemavalidiertes, versioniertes JSON-Dokument und wird über HTTPS geladen. Jeder Release-Eintrag nennt unveränderliche Artefakt-URLs, SHA-256-Prüfsummen, Dateigrößen in Byte, die Engine-Kompatibilität, die Berechtigungen und ob die Laufzeit einen Neustart braucht. Ein Regelsatz-Eintrag kann außerdem unter `locales` seine Sprachpakete nach Sprache auflisten (Capability API 1.811), jeweils mit eigener URL, SHA-256-Prüfsumme und Größe in Byte sowie dem übersetzten Namen und der übersetzten Beschreibung für die Store-Karte. Nach der Installation des Regelsatzes lädt die Engine nur das Paket in ihrer aktuellen Sprache und lädt es bei einem Sprachwechsel erneut (`POST /api/capability-packages/rulesets/language`, von der Seite beim Öffnen und bei jedem Wechsel gesendet). Sie speichert es bei der installierten Version und entfernt die anderen Sprachpakete; siehe [Regelsätze für Game Mode schreiben](../extending/writing-rulesets.md).
 
 Updates brauchen die Zustimmung des Nutzers: Abgesehen von einmaligen Migrationen, die die früheren eingebauten Funktionen einer aktualisierten Installation erhalten (siehe [Kompatibilitäts-Migration](#compatibility-migration)), lädt oder installiert der Start nie ein Paket. `GET /api/capability-packages/updates/pending` listet jedes installierte offizielle Paket auf, dessen Katalogversion neuer ist und zur laufenden Engine und zur Capability-API passt; eine Version, die der Nutzer bereits abgelehnt hat, fehlt darin. Der Client zeigt sie gesammelt in einer Abfrage **Agent updates available** an. Das Fenster installiert jedes ausgewählte Update über die normale Installationsstrecke, festgelegt auf die angebotene Version und die SHA-256-Prüfsumme des Artefakts. Nicht ausgewählte Updates werden genauso abgelehnt wie mit **Not now**. **Not now** speichert die abgelehnten Versionen in `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), sodass diese Version nicht erneut angeboten wird, eine neuere aber schon. **Update** bleibt in **Agent Organizer (Agentenverwaltung)** so oder so verfügbar. Fehler bleiben auf das jeweilige Paket beschränkt. Ist der Katalog offline oder schlägt eine Prüfung fehl, bleiben vorhandene Dateien und der Registry-Stand nutzbar; scheitert die Bereitschaft einer Server-Laufzeit, greift der Rollback auf die Vorgängerversion.
 
@@ -1052,6 +1052,39 @@ Eine Ansicht vom Typ `home-browser-tab` erhält `capabilityProps.browserFullscre
 - `enterLabel` und `exitLabel`: lokalisierte barrierefreie Beschriftungen für den Schalter.
 
 Das ist Vollbild innerhalb der App: Tabs, Adressleiste und Lesezeichen von Home werden ausgeblendet, während die Engine-Topbar verfügbar bleibt. Die Browser-Fullscreen-API wird nicht aufgerufen; eine Vollbildunterstützung des Browsers ist nicht nötig. Der Zustand ist vorübergehend und wird zurückgesetzt, sobald du das Paket oder Home verlässt. Halte auf jedem Paketbildschirm eine Schaltfläche zum Verlassen bereit und bilde `active` über `aria-pressed` ab. Prop-Änderungen müssen die Schaltfläche aktualisieren, ohne unfertige Formulare zu ersetzen. Pakete, die diese Steuerung brauchen, deklarieren Capability API 1.376 oder neuer; ältere Pakete können ihre vorhandenen Layouts behalten.
+
+<a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
+
+### Capability API 1.391: Szenenzusammenfassungen von Advanced Memory und der Erinnerungsblock
+
+`persistence.listChatSummaries(chatId)` gibt außerdem `advancedMemory` zurück: die aktivierten, fertiggestellten
+Szenenzusammenfassungen von Advanced Memory für den Chat, in der Reihenfolge, in der sie geschrieben wurden; eine erneut zusammengefasste Szene rückt ans Ende.
+Verwende deshalb `startMessageId` für die Reihenfolge der Handlung. Jede Zusammenfassung hat die Felder `id`, `sceneId`, `kind` (`"scene"`), `title`,
+`content`, `timeline`, `startMessageId`, `endMessageId`, `audienceCharacterIds`, `sourceFingerprint`,
+`updatedAt` und `memory`. Ältere Chats können mehrere Kopien einer Szene mit derselben `sceneId` enthalten.
+Datensätze für konstante und temporäre Zusammenfassungen, Auszüge und Charaktererinnerungen werden nicht aufgelistet.
+
+Der Dienst `long-term-memory:runtime` kann eine optionale Methode `summaryMemoryInstruction()` hinzufügen, die
+einen Absatz oder `null` zurückgibt. Wenn der Chat Long-Term Memory als aktiven Agenten aufführt, hängt die Engine
+diesen Absatz an jede Anfrage für eine Szenenzusammenfassung im ersten Durchlauf an (bei einer in mehrere Teile aufgeteilten Szene für jeden Teil)
+und fordert einen `"memory"`-String in derselben JSON-Antwort an. Sie speichert diesen String unverändert und gibt ihn als `memory` zurück; die Engine parst
+ihn nie, sein Format liegt also in der Verantwortung des Pakets. Eine in mehreren Teilen zusammengefasste Szene erhält die Blöcke aller Teile,
+getrennt durch eine Leerzeile; die Anfragen zum Zusammenführen bekommen die Blöcke nie zu sehen. Der Absatz ist auf 4,000
+Zeichen begrenzt.
+
+`memory` ist `null`, wenn die Antwort keinen Block enthielt, nachdem der Nutzer die Zusammenfassung von Hand bearbeitet hat und bei Datensätzen,
+die vor 1.391 geschrieben wurden. Ohne die Methode oder in einem Chat, der Long-Term Memory nicht aufführt, bleibt die Anfrage
+für die Zusammenfassung unverändert.
+
+Der Block ist ein einzelner, flacher String, der auf Grundlage der gesamten Szene geschrieben wird, einschließlich Nachrichten, die manche Teilnehmer nie
+gesehen haben; anders als der Rückblick hat er keine Abschnitte für einzelne Leser. Ein Paket, das einem Charakter Erinnerungen zeigt, muss
+den Zugriff auf den Datensatz selbst anhand von `audienceCharacterIds` begrenzen.
+
+Ältere Engines geben `advancedMemory` nicht zurück: Prüfe, ob es vorhanden ist, oder deklariere 1.391.
+
+```ts
+const scenes = (await api.runtime.persistence.listChatSummaries?.(chatId))?.advancedMemory ?? [];
+```
 
 ### Capability API 1.390: Die Engine zeichnet den Kopfbereich einer Agentenseite
 

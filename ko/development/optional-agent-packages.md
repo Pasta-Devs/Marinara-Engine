@@ -390,7 +390,7 @@ Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보�
 
 ## 신뢰와 설치
 
-공식 카탈로그는 스키마로 검증하고 버전을 매긴 JSON 문서이며 HTTPS로 다운로드합니다. 릴리스 항목마다 변하지 않는 아티팩트 URL, SHA-256 다이제스트, 바이트 크기, 엔진 호환 정보, 권한, 실행에 다시 시작이 필요한지 여부가 들어 있습니다.
+공식 카탈로그는 스키마로 검증하고 버전을 매긴 JSON 문서이며 HTTPS로 다운로드합니다. 릴리스 항목마다 변하지 않는 아티팩트 URL, SHA-256 다이제스트, 바이트 크기, 엔진 호환 정보, 권한, 실행에 다시 시작이 필요한지 여부가 들어 있습니다. 규칙 집합 항목은 `locales`에 언어별 언어 팩을 나열할 수도 있습니다(Capability API 1.811). 각 팩에는 자체 URL, SHA-256 다이제스트와 바이트 크기, 스토어 카드의 번역된 이름과 설명이 포함됩니다. Engine은 규칙 집합을 설치한 뒤 현재 언어의 팩만 가져오며, 언어가 바뀔 때마다 다시 가져옵니다(`POST /api/capability-packages/rulesets/language`, 페이지가 열릴 때와 변경될 때마다 페이지에서 전송). 해당 팩을 설치된 버전과 함께 보관하고 나머지 팩은 제거합니다. [규칙 집합 작성하기](../extending/writing-rulesets.md)를 참고하세요.
 
 업데이트에는 사용자의 동의가 필요합니다. 업그레이드한 설치의 예전 내장 기능을 유지하는 일회성 마이그레이션([호환성 마이그레이션](#compatibility-migration) 참고)을 제외하면, 시작할 때 패키지를 다운로드하거나 설치하는 일은 없습니다. `GET /api/capability-packages/updates/pending`은 카탈로그 버전이 더 새롭고 실행 중인 엔진 및 Capability API와 호환되는 설치된 공식 패키지를 나열하되, 사용자가 이미 거절한 버전은 뺍니다. 클라이언트는 이를 **Agent updates available**(에이전트 업데이트 있음) 안내 하나로 보여 줍니다. 이 안내 창은 선택한 각 업데이트를 제시된 버전과 아티팩트 SHA-256에 고정해 일반 설치 파이프라인으로 설치합니다. 선택하지 않은 업데이트는 **Not now**와 같은 방식으로 거절됩니다. **Not now**(나중에)는 거절한 버전을 `DATA_DIR/capability-packages/update-decisions-v1.json`에 기록하므로(`POST /api/capability-packages/updates/decline`) 그 버전은 다시 제시되지 않지만, 더 새 버전은 제시됩니다. 어느 쪽이든 **Agent Organizer (에이전트 관리)**의 **Update**는 계속 쓸 수 있습니다. 실패는 패키지 단위로 격리합니다. 카탈로그에 연결하지 못하거나 검증에 실패해도 이미 있는 파일과 레지스트리 상태는 그대로 쓸 수 있고, 서버 런타임 준비에 실패하면 이전 버전으로 되돌리는 경로를 탑니다.
 
@@ -1042,6 +1042,24 @@ export async function activate({ api }) {
 - `enterLabel`과 `exitLabel`: 토글에 사용할 현지화된 접근성 레이블입니다.
 
 앱 내부 전체 화면입니다. Home의 탭, 주소 표시줄과 북마크는 숨겨지지만 Engine 상단 바는 계속 사용할 수 있습니다. 브라우저 Fullscreen API를 호출하지 않으며 브라우저의 전체 화면 지원도 필요하지 않습니다. 상태는 일시적이며 패키지나 Home을 벗어나면 초기화됩니다. 패키지의 모든 화면에 나가기 버튼을 제공하고 `aria-pressed`로 `active`를 나타내세요. 속성 업데이트 시 작성 중인 양식을 교체하지 않고 버튼만 업데이트해야 합니다. 이 컨트롤에 의존하는 패키지는 Capability API 1.376 이상을 선언하며, 이전 패키지는 기존 레이아웃을 유지할 수 있습니다.
+
+<a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
+
+### Capability API 1.391: Advanced Memory 장면 요약과 기억 블록
+
+`persistence.listChatSummaries(chatId)`는 `advancedMemory`도 반환합니다. 이는 채팅에서 활성화되어 있고 완료된 Advanced Memory 장면 요약이며, 작성된 순서대로 정렬됩니다. 다시 요약한 장면은 끝으로 이동하므로 이야기 순서가 필요하면 `startMessageId`를 사용하세요. 각 요약에는 `id`, `sceneId`, `kind`(`"scene"`), `title`, `content`, `timeline`, `startMessageId`, `endMessageId`, `audienceCharacterIds`, `sourceFingerprint`, `updatedAt`, `memory`가 있습니다. 오래된 채팅에는 `sceneId`가 같은 한 장면의 복사본이 여러 개 있을 수 있습니다. 상시, 임시, 발췌 및 회고 레코드는 나열되지 않습니다.
+
+`long-term-memory:runtime` 서비스에는 문단 하나 또는 `null`을 반환하는 선택적 메서드 `summaryMemoryInstruction()`를 추가할 수 있습니다. 채팅의 활성 에이전트 목록에 Long-Term Memory가 있으면 Engine은 장면 요약의 각 첫 단계 요청(여러 부분으로 나눈 장면은 각 부분의 요청)에 해당 문단을 덧붙이고, 같은 JSON 응답에 `"memory"` 문자열을 포함하도록 요청합니다. 이 문자열은 그대로 저장하고 `memory`로 반환합니다. Engine은 이를 파싱하지 않으므로 형식은 패키지가 정합니다. 여러 부분으로 요약한 장면은 각 부분의 블록을 빈 줄로 연결하여 받습니다. 요약을 합치는 요청에는 이 블록이 전달되지 않습니다. 문단은 최대 4,000자로 제한됩니다.
+
+응답에 블록이 없었을 때, 사용자가 요약을 수동으로 편집한 뒤, 그리고 1.391 이전에 작성된 레코드에서는 `memory`가 `null`입니다. 이 메서드가 없거나 채팅의 목록에 Long-Term Memory가 없으면 요약 요청은 바뀌지 않습니다.
+
+블록은 일부 참여자가 보지 못한 메시지까지 포함한 전체 장면을 바탕으로 작성한 단일 문자열이며, 줄거리 요약과 달리 읽는 사람별 구역이 없습니다. 캐릭터에게 기억을 보여 주는 패키지는 `audienceCharacterIds`를 기준으로 레코드의 제공 범위를 직접 제한해야 합니다.
+
+이전 Engine은 `advancedMemory`를 반환하지 않습니다. 존재 여부를 확인하거나 1.391을 선언하세요.
+
+```ts
+const scenes = (await api.runtime.persistence.listChatSummaries?.(chatId))?.advancedMemory ?? [];
+```
 
 ### Capability API 1.390: Engine이 에이전트 페이지 헤더를 그립니다
 
