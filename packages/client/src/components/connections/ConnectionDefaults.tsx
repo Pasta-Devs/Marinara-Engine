@@ -174,7 +174,8 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const inherited = (row: ConnectionRowData | null, from: JobKey) => {
     const model =
       from === "main" && mainIsBuiltIn ? { ...sidecarModel, warning: builtInWarning } : row ? describe(row) : null;
-    return model && { ...model, follows: followsText(from) };
+    const warning = from === "main" && mainIsBuiltIn ? builtInWarning : row ? accountWarning(accountOf(row)) : null;
+    return model && { ...model, follows: followsText(from), warning };
   };
 
   const accountOf = (row: ConnectionRowData) => (row.accountId ? accountById.get(row.accountId) : undefined);

@@ -3,7 +3,7 @@
 // Defaults box, one folding block per Connection with its Models of every kind, and the engines set up on this
 // device. A device or the other Models open as a second column on a wide panel; a narrow one drills in. Search
 // narrows the blocks in place: a Connection that matches shows all its Models, and its fold still works. With no
-// Connection yet the panel only teaches the first step.
+// Connection yet the panel teaches the first step and shows the Jobs controls.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
@@ -20,7 +20,6 @@ import {
   Plus,
   RefreshCw,
   Upload,
-  X,
   BadgeDollarSign,
   ListFilter,
   Folder,
@@ -80,7 +79,7 @@ import { BuiltInModelCard } from "../connections/BuiltInModelCard";
 import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
-import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
+import { ProviderIcon } from "../connections/ProviderIcon";
 import { ServiceTile, type ServiceId } from "../modals/create-connection/shared";
 import { openAddConnection } from "../../lib/add-connection";
 import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
@@ -180,8 +179,6 @@ export function ConnectionsPanel() {
   const modelStar = useModelStar();
   const hiddenIds = useHiddenModelIds();
   const openModal = useUIStore((s) => s.openModal);
-  const linkApiBannerDismissed = useUIStore((s) => s.linkApiBannerDismissed);
-  const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
   const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
   const accountManualOrder = useUIStore((s) => s.libraryManualOrders?.connection);
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
@@ -640,7 +637,7 @@ export function ConnectionsPanel() {
     engines.some((engine) => engine.item === item)
       ? select(`device:${item}`)
       : openAddConnection({ category: "device", item });
-  const defaultsBox = connectionsList.length > 0 && (
+  const defaultsBox = !isLoading && !loadFailed && (
     <ConnectionDefaultsBox key="defaults" connectionsList={connectionsList} onOpenDevice={openDevice} />
   );
   // On this device: one card like a Connection's, its engines as rows, a Local Model's jobs as role badges.
@@ -817,32 +814,7 @@ export function ConnectionsPanel() {
               </button>
             </div>
           </section>
-          {!linkApiBannerDismissed && (
-            <div className="relative mt-1 flex items-start gap-2 rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-3 pe-10 text-xs text-[var(--muted-foreground)]">
-              <BrandMark of="linkapi" color className="h-6 w-6 shrink-0" />
-              <p>
-                {t("ui.panels.connectionspanel.lookingToTryNewModelsFromATrustedProvider")}{" "}
-                <a
-                  href="https://linkapi.ai/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-[var(--mari-connection-ink)] underline underline-offset-2"
-                >
-                  {t("ui.panels.connectionspanel.linkapi")}
-                </a>
-                !
-              </p>
-              <button
-                type="button"
-                onClick={dismissLinkApiBanner}
-                aria-label={t("ui.panels.connectionspanel.dismissPermanently")}
-                title={t("ui.panels.connectionspanel.dismissPermanently")}
-                className={cn(ROW_BUTTON, "absolute right-1.5 top-1.5")}
-              >
-                <X size="0.875rem" aria-hidden />
-              </button>
-            </div>
-          )}
+          {defaultsBox}
         </>
       ) : (
         <>
