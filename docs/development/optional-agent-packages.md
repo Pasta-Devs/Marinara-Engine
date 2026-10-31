@@ -748,7 +748,7 @@ Design every use for a user with no Decision model. A statement with no answer r
 
 ### A note for Game Mode Experience developers
 
-Engine combat decides what ordinary enemies do on its own. Every non-boss enemy on the GM's side of a fight gets a role from its skills and class (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter or controller), a proficiency from its level unless the enemy sets one (novice, trained, veteran or master), and a temperament such as reckless, cautious, opportunistic or protective. Beasts and monstrosities are always mindless. Engine code picks these from a seed with no model call, and the game's difficulty changes how consistently enemies play to type. Only authored bosses are directed by the GM through a model call. See [Game Mode combat AI](game-combat-ai-design.md).
+Engine combat decides what ordinary enemies do on its own. Every non-boss enemy on the GM's side of a fight gets a role from its skills and class (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter or controller), a proficiency from its level unless the enemy sets one (novice, trained, veteran or master), and a temperament such as reckless, cautious, opportunistic or protective. Beasts and monstrosities are always mindless. Engine code picks these from a seed with no model call, and the game's difficulty changes how consistently enemies play to type. Only authored bosses are directed by the GM through a model call. See [Game Mode combat AI](game-combat-ai.md).
 
 More combat improvements are on the way. Before involving a decision model anywhere in the combat pipeline, check that vanilla Engine combat does not already do what you need. If an enemy needs a particular personality, give it the matching proficiency and temperament first. A decision per enemy turn would add model work and a time limit; a hosted backend would also add network requests and charges. The fight would then depend on answers from a model the user may not have set up, so it would need a sensible no-answer fallback.
 
@@ -1167,9 +1167,9 @@ A ruleset package needs no permission, no server or client entrypoint and no age
 asset go together: a package of kind `ruleset` must list `ruleset.json`, and a package that lists
 `ruleset.json` must declare the kind, so a ruleset cannot ride in under another kind. Nothing in the
 file is executed: there are no expression strings, and a mechanic that no resolution kind expresses
-is an Engine change that adds a kind, not something a ruleset can do. The format, the first-party 5e
-file and the reasons behind its shape are in
-[`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
+is an Engine change that adds a kind, not something a ruleset can do. The format is documented in the
+author guide, [`writing-rulesets.md`](../extending/writing-rulesets.md), and the code that reads it in
+[Game Mode architecture](game-mode-architecture.md).
 
 This is not a soft seam. A ruleset package does nothing on an Engine that cannot read it, so a
 manifest that lists `ruleset.json` must declare Capability API 1.20, and an older Engine refuses the

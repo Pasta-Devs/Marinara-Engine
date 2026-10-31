@@ -3,15 +3,14 @@
 // Its own module so a creature, a party member's attack row and a turn in progress all throw dice
 // the same way, without the bestiary having to reach into the encounter or the other way round.
 
-import { deriveSubSeed, mulberry32 } from "../tactical-combat/rng.js";
+import { seededDieRoller } from "../../utils/dice-notation.js";
 import type { RulesetCombatAmount, RulesetCombatRoller } from "./types.js";
 
 /** The seeded roller a server uses: the tactical engine's own stream, one die per tick, so a fight
  *  replays from its seed and the choices that were made. A caller that has its own dice (a test
  *  with a written sequence) passes those instead. */
 export function rulesetCombatRoller(seed: number, cursor: number): RulesetCombatRoller {
-  let tick = cursor;
-  return (sides) => Math.floor(mulberry32(deriveSubSeed(seed, tick++))() * sides) + 1;
+  return seededDieRoller(seed, cursor);
 }
 
 /** A face this die actually has. A roller that hands back something else is a caller's bug, and it

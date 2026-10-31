@@ -12,6 +12,7 @@ import type {
   HudWidget,
 } from "@marinara-engine/shared";
 import {
+  COMBAT_PARTY_TEMPERAMENTS,
   DEFAULT_GAME_SYSTEM_PROMPT,
   gameInventoryBagKey,
   rulesetDefenseLabel,
@@ -2594,6 +2595,22 @@ export interface SetupPromptContext {
   gameSpecialInstructions?: string | null;
 }
 
+/** The temperaments a party member's card may have, as the model writes them. */
+const PARTY_TEMPERAMENT_ENUM = COMBAT_PARTY_TEMPERAMENTS.join("|");
+
+/** How a card's temperament is read when the card is made: from the character's Description, once. */
+const PARTY_TEMPERAMENT_RULE = [
+  `<temperament_rule>`,
+  `Every characterCard has "temperament": one of ${PARTY_TEMPERAMENT_ENUM}. It is how this character goes about a fight, and it stays theirs for the whole game, so read it from who they are in their Description and personality, never from the class alone or from this scene.`,
+  `- reckless: charges in; cautious: guards themselves first; opportunistic: goes for the weak and exposed; protective: shields others; supportive: heals and helps before striking; disciplined: steady, keeps formation; cowardly: avoids danger and flees when hurt; patient: waits for the right moment; methodical: plans, picks the best option; coordinated: fights as a team.`,
+  `- arrogant only for the proud who think a fight beneath them until it hurts; cruel only for the sadistic who relish suffering; honourable only for those who fight fair and spare the beaten.`,
+  `- Do not mistake negated traits for positive evidence. These values are protocol enums and must not be translated.`,
+  `</temperament_rule>`,
+].join("\n");
+
+/** How a card's temperament may change at a session's end: only for the story. */
+const PARTY_TEMPERAMENT_CHANGE_RULE = `- **temperament**: Keep it exactly as it is. Change it only when this session's story clearly changed how the character fights (a trauma that made them cautious, a vow that made them honourable), and then to one of ${PARTY_TEMPERAMENT_ENUM}.`;
+
 export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
   const rating = ctx.rating ?? "sfw";
   const normalizedLanguage = normalizePromptLanguage(ctx.language);
@@ -2816,6 +2833,7 @@ export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
     `      "abilities": ["1-2 abilities, each with a brief description"],`,
     `      "strengths": ["1-2 strengths"],`,
     `      "weaknesses": ["1-2 weaknesses"],`,
+    `      "temperament": "${PARTY_TEMPERAMENT_ENUM}: how they go about a fight, read from their Description (see <temperament_rule>)",`,
     `      "extra": { "voice": "brief speech style", "personalStake": "why this game matters to them", "temptation": "optional flaw/temptation", "key": "other compact context such as gender, title, affiliation, element, rank" }`,
     `    }`,
     `  ],`,
@@ -2860,6 +2878,7 @@ export function buildSetupPrompt(ctx: SetupPromptContext = {}): string {
     ``,
     `Use EXACTLY these top-level keys: worldOverview, storyArc, plotTwists, startingMap, startingNpcs, partyArcs, characterCards, artStylePrompt, blueprint. No other top-level keys. No wrapper objects.`,
     `Scope reminder: startingNpcs may include important non-party characters, but characterCards and partyArcs must not.`,
+    PARTY_TEMPERAMENT_RULE,
     `</output_format>`,
   ].join("\n");
 }
@@ -2947,7 +2966,8 @@ export function buildSessionConclusionPrompt(args: {
           `- Only make conservative changes that are clearly justified by session events. This represents organic growth, not sudden transformation.`,
         ]
       : [`- characterCards must be an empty JSON array because no current character cards were supplied.`]),
-    `- Keep each card aligned with the input schema: name, shortDescription, class, abilities, strengths, weaknesses, extra.`,
+    `- Keep each card aligned with the input schema: name, shortDescription, class, abilities, strengths, weaknesses, extra, and temperament where the card has one.`,
+    PARTY_TEMPERAMENT_CHANGE_RULE,
     ``,
     `Cross-section dedupe rules:`,
     `- Each fact belongs in the single best category only once. Do not restate the same information across summary.summary, summary.keyDiscoveries, summary.characterMoments, summary.littleDetails, summary.npcUpdates, summary.statsSnapshot, or campaignProgression.`,
@@ -2973,6 +2993,7 @@ export function buildCardAdjustmentPrompt(): string {
     `- **shortDescription**: Update only if the character's identity meaningfully shifted.`,
     `- **class**: Update only if the character evolved into a new class/role (e.g. "Apprentice Mage" → "Battlemage").`,
     `- **rpgStats**: Adjust attribute values (±1–3 per session), HP max, etc. Small incremental changes only.`,
+    PARTY_TEMPERAMENT_CHANGE_RULE,
     ``,
     `RULES:`,
     `- Return the FULL updated card for each character, even if only one field changed.`,
@@ -3044,7 +3065,8 @@ export function buildPartyRecruitCardPrompt(ctx: {
         ]
       : []),
     `RULES:`,
-    `- Return EXACTLY one JSON object with these keys: name, shortDescription, class, abilities, strengths, weaknesses, extra.`,
+    `- Return EXACTLY one JSON object with these keys: name, shortDescription, class, abilities, strengths, weaknesses, temperament, extra.`,
+    PARTY_TEMPERAMENT_RULE,
     `- Keep the name exactly "${ctx.targetCharacterName}".`,
     `- Ground the card in the existing campaign state, world, and recent events.`,
     `- Respect the supplied character card as canon. Do not contradict it.`,

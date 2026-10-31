@@ -35,7 +35,7 @@ try {
   const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
   const ember = JSON.parse(read("../../docs/examples/rulesets/ember-roads.json"));
   // Test the guide's actual six narrative dice and symbols, including its strict schema shape.
-  const guide = read("../../docs/extending/writing-rulesets.md").split("#### `symbol-pool`")[1]!;
+  const guide = read("../../docs/extending/ruleset-checks.md").split("### `symbol-pool`")[1]!;
   const example = JSON.parse(`{${guide.split("```json\n")[1]!.split("```")[0]}}`).resolution;
   const doc = (edit?: (document: any) => void) => {
     const document = structuredClone(ember);

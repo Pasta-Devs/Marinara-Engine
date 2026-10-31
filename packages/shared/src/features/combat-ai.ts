@@ -83,6 +83,9 @@ export const combatAiHintsSchema = z.preprocess(
       .max(4)
       .optional()
       .catch(undefined),
+    /** Its temperament is a party member's own, kept from fight to fight (see `gameCardTemperament`):
+     *  it fights with exactly that one, never a draw that only leans toward it. */
+    kept: z.literal(true).optional().catch(undefined),
   }),
 );
 export const combatTacticsSchema = z
@@ -280,9 +283,78 @@ export function assignCombatTactics(
       break;
     }
   }
+  // A party member's own temperament is theirs in every fight, not a lean (Alyssa 2026-10-31).
+  if (hints.kept && hints.temperament && hints.temperament !== "mindless") adjective = hints.temperament;
   const category = hints.category ?? "unknown";
   if (minded === "mindless") adjective = "mindless";
   return { version: 1, seed: seed >>> 0, category, proficiency, role, adjective, mind: minded };
+}
+
+/**
+ * The temperaments a player character or companion may have. Fanatical, territorial and hungry are
+ * for foes only; arrogant, cruel and honourable are open to the party where their description says so
+ * (Alyssa 2026-10-31).
+ */
+export const COMBAT_PARTY_TEMPERAMENTS = [
+  "reckless",
+  "cautious",
+  "opportunistic",
+  "protective",
+  "supportive",
+  "disciplined",
+  "cowardly",
+  "patient",
+  "methodical",
+  "coordinated",
+  "arrogant",
+  "cruel",
+  "honourable",
+] as const satisfies readonly CombatTemperament[];
+export type CombatPartyTemperament = (typeof COMBAT_PARTY_TEMPERAMENTS)[number];
+
+/** A party temperament as a model or an editor wrote it, in any case and either spelling of honourable. */
+export function readPartyTemperament(value: unknown): CombatPartyTemperament | undefined {
+  if (typeof value !== "string") return undefined;
+  const word = value.trim().toLowerCase();
+  const spelled = word === "honorable" ? "honourable" : word;
+  return (COMBAT_PARTY_TEMPERAMENTS as readonly string[]).includes(spelled)
+    ? (spelled as CombatPartyTemperament)
+    : undefined;
+}
+
+/**
+ * A party member's temperament as their game card keeps it: `current` is the one they fight with and
+ * the story may change, `initial` the one they started the game with, which decides their secondary
+ * class tree and never changes. A card from before either was kept has neither.
+ */
+export function gameCardTemperament(
+  card: Record<string, unknown> | null | undefined,
+): { current: CombatPartyTemperament; initial: CombatPartyTemperament } | null {
+  const current = readPartyTemperament(card?.temperament);
+  const initial = readPartyTemperament(card?.temperamentInitial) ?? current;
+  return current && initial ? { current, initial } : null;
+}
+
+/**
+ * The temperament a party member is given when nothing about them says one: drawn once for the game
+ * from its id and their name, so every fight draws the same one until it is kept on their card.
+ */
+export function partyTemperamentFallback(gameId: string, name: string): CombatPartyTemperament {
+  const allowed = COMBAT_PARTY_TEMPERAMENTS.filter(
+    // Nothing known says they would run or that they heal: those two are read, never dealt.
+    (one) =>
+      !(COMBAT_NAMED_TEMPERAMENTS as readonly string[]).includes(one) && one !== "supportive" && one !== "cowardly",
+  );
+  const key = name.trim().toLowerCase();
+  return allowed[combatAiHash(`party-temperament:${gameId}:${key}`) % allowed.length]!;
+}
+
+/** A party member's fight hints with their own temperament kept, over whatever the fight's setup gave. */
+export function withKeptTemperament(
+  hints: CombatAiHints | undefined,
+  temperament: CombatPartyTemperament,
+): CombatAiHints {
+  return { ...hints, temperament, kept: true };
 }
 
 /** Mode adapters enumerate only actions their resolver can actually execute. */

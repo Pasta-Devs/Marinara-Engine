@@ -29,13 +29,14 @@ import type {
   RulesetCombatBehavior,
 } from "../../schemas/ruleset.schema.js";
 import type { CombatMind } from "../combat-minds.js";
+import type { DieRoller } from "../../utils/dice-notation.js";
 import type { RulesetLiveState } from "../rulesets/live-state.js";
 import type { RulesetItemCallRoll, RulesetSheetItem, RulesetStoredEntry } from "../rulesets/sheet-math.js";
 import type { TacticalBattlefieldProvenance, TacticalGrid, TacticalTerrain } from "../tactical-combat/types.js";
 
 /** A die roller: one call, one die, a face from 1 to `sides`. Every random number a fight needs
  *  comes through one of these, so a scripted sequence reproduces a fight exactly. */
-export type RulesetCombatRoller = (sides: number) => number;
+export type RulesetCombatRoller = DieRoller;
 
 export type RulesetCombatSide = "party" | "enemy";
 

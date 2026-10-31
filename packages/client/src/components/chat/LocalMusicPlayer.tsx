@@ -2,6 +2,7 @@ import { GripVertical, Music2, Pause, Play, Volume2, VolumeX, X, type LucideIcon
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -10,6 +11,7 @@ import {
 } from "react";
 import { encodeAssetPath } from "../game-assets/encode-asset-path";
 import { MusicSourceButton, MusicSourceGlyph } from "../music/MusicSourceButton";
+import { createPortal } from "react-dom";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { useAgentStore } from "../../stores/agent.store";
@@ -388,7 +390,16 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
           >
             {displayTitle}
           </p>
-          <p className={cn("truncate text-[0.5625rem] leading-tight", MUSIC_NEUTRAL_MUTED_CLASS)}>{displaySubtitle}</p>
+          {!error && nowPlaying?.mood ? (
+            // #8590: the scene-mood line stays one line; its full text opens as a small panel on hover, focus or a tap,
+            // and stays reachable by keyboard, since the compact player clips it. A playback failure is not a mood: it
+            // stays a plain line below, so it is never announced as "Scene mood: Playback needs attention".
+            <MoodDisclosure text={nowPlaying.mood} />
+          ) : (
+            <p className={cn("truncate text-[0.5625rem] leading-tight", MUSIC_NEUTRAL_MUTED_CLASS)}>
+              {displaySubtitle}
+            </p>
+          )}
         </div>
       </div>
       {nowPlaying && (
@@ -520,6 +531,109 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The scene-mood line of the compact player (#8590). One line, clipped like the title, until it is asked for: hovering
+ * shows it, focusing it opens a pinned panel above the player, and a tap toggles that panel for touch screens. Nothing
+ * here changes playback or the agent's choice: it only shows what the track was picked for.
+ */
+function MoodDisclosure({ text }: { text: string }) {
+  const { t: localizeUi } = useUiTranslation();
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; ready: boolean }>({ top: 0, left: 0, ready: false });
+  const close = () => {
+    setOpen(false);
+    setPinned(false);
+  };
+  // Placed before paint so the panel never flickers, clamped to the viewport like HelpTooltip's. The panel exists as
+  // soon as it is open (hidden until measured): it cannot measure itself into existence.
+  useLayoutEffect(() => {
+    if (!open || !wrapRef.current || !tipRef.current) {
+      setPos({ top: 0, left: 0, ready: false });
+      return;
+    }
+    const rect = wrapRef.current.getBoundingClientRect();
+    const tip = tipRef.current.getBoundingClientRect();
+    const pad = 8;
+    const top = Math.max(pad, rect.top - 6 - tip.height);
+    const left = Math.max(pad, Math.min(rect.left, window.innerWidth - pad - tip.width));
+    setPos({ top, left, ready: true });
+  }, [open, text]);
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!wrapRef.current?.contains(target) && !tipRef.current?.contains(target)) close();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+  return (
+    <span ref={wrapRef} className="relative block min-w-0">
+      <button
+        type="button"
+        className={cn("block max-w-full truncate text-left text-[0.5625rem] leading-tight", MUSIC_NEUTRAL_MUTED_CLASS)}
+        aria-expanded={open}
+        aria-label={localizeUi("ui.chat.localmusicplayer.mood", { mood: text })}
+        title={text}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => {
+          if (!pinned) close();
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          if (!pinned) close();
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (pinned) close();
+          else {
+            setOpen(true);
+            setPinned(true);
+          }
+        }}
+      >
+        {text}
+      </button>
+      {open
+        ? createPortal(
+            <div
+              ref={tipRef}
+              role="status"
+              aria-hidden={!pos.ready}
+              className={cn(
+                "fixed z-[60] max-w-[min(22rem,calc(100vw-1rem))] rounded-lg border px-2 py-1.5 text-[0.6875rem] leading-snug shadow-xl backdrop-blur-xl",
+                MUSIC_NEUTRAL_SHELL_BORDER_CLASS,
+                MUSIC_NEUTRAL_SHELL_BG_CLASS,
+                MUSIC_NEUTRAL_TEXT_CLASS,
+              )}
+              // Measured on the frame it mounts, then placed; `visibility` keeps the one unmeasured frame unseen rather
+              // than gating the mount on a measurement of the element that has not mounted yet.
+              style={{ top: pos.top, left: pos.left, visibility: pos.ready ? "visible" : "hidden" }}
+              // The panel lives in the body, outside the mobile widget that drags: pressing it must not move the
+              // widget out from under it, as the trigger button already stops it.
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              {text}
+            </div>,
+            document.body,
+          )
+        : null}
+    </span>
   );
 }
 

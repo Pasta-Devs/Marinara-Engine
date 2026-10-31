@@ -1509,7 +1509,7 @@ const capabilityPackageManifestBaseSchema = z
 // 1.391: `persistence.listChatSummaries(chatId).advancedMemory`: Advanced Memory's scene summaries with the
 //        `memory` block from `long-term-memory:runtime.summaryMemoryInstruction()`, stored untouched.
 // 1.392-1.790: the 5e work (Ruleset Engine capabilities and combat AI), held until 5e lands; each
-//        minor's keys are documented in docs/extending/writing-rulesets.md.
+//        minor's keys are documented in docs/extending/writing-rulesets.md and the ruleset-*.md pages beside it.
 // 1.791: what a ruleset's weights are counted in (`items.carry.unit`), said after every weight shown.
 // 1.792: a damage change only on a blow carrying given damage types (`onTypes`), and one that spends
 //        its condition once it adds (`spentOnUse`).
@@ -1552,7 +1552,13 @@ const capabilityPackageManifestBaseSchema = z
 //        carry `locales/<lang>.json`, of which an import keeps the Engine's language alone.
 // 1.812: an `ammoRider`'s `toHit`: what magic ammunition adds to the attack roll of the shot it rides
 //        (5e's Arrow +1).
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 812 } as const);
+// 1.813: a ruleset layer's `items`: sellers taken out of the market (`market.removeSellers`), wares
+//        no seller sells (`market.unsold`, appended to the market's own new `unsold`), and loot tables
+//        replaced by id (`lootTables`). Nothing is added to the catalogs, so an item stays known and
+//        only where it is sold and how often it drops changes (a low-magic layer). Not a soft seam: an
+//        Engine that cannot read these refuses the whole ruleset file, so a package that ships either
+//        declares 1.813. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 813 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

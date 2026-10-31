@@ -4,6 +4,9 @@ import {
   resolveCombatIconUrl,
   RULESET_PARTY_KEY,
   assignCombatTactics,
+  gameCardTemperament,
+  partyTemperamentFallback,
+  withKeptTemperament,
   combatTacticsSchema,
   gameWorldKitFromMetadata,
   worldAssetsForFamily,
@@ -908,6 +911,7 @@ function combatLevelFromHp(maxHp: number, fallbackLevel: number): number {
 
 type StoredGameCombatCard = {
   name?: unknown;
+  temperament?: unknown;
   abilities?: unknown;
   rpgStats?: {
     attributes?: Array<{ name?: unknown; value?: unknown }>;
@@ -10856,6 +10860,13 @@ function GameSurfaceComponent({
           side: "player" as const,
           sprite: combatTokenSprite(m),
           skills: combatSkillsFromSheet(gameCard?.abilities),
+          // Their own temperament, the same in every fight (Alyssa 2026-10-31): the card's, or one
+          // drawn once for this game until a fight's setup keeps one on the card.
+          aiHints: withKeptTemperament(
+            undefined,
+            gameCardTemperament(gameCard as Record<string, unknown> | undefined)?.current ??
+              partyTemperamentFallback(activeChatId, typeof gameCard?.name === "string" ? gameCard.name : m.name),
+          ),
         };
       });
 

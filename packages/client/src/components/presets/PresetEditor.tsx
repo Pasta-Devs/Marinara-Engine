@@ -99,6 +99,8 @@ import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
+import { estimateEnabledStaticPresetTokens, estimatePresetSectionTokens } from "../../lib/preset-section-tokens";
 import { useRegexScripts } from "../../hooks/use-regex-scripts";
 import { PresetVariablesEditor, reorderIdsByOffset, reorderIdsToGap } from "./PresetVariablesEditor";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
@@ -1450,6 +1452,15 @@ function SectionsTab({
     setLorebookWarningDismissed(true);
   }, [presetId]);
 
+  // Every count in the panel comes from this one pass, so edits, enable toggles, duplicates, deletes and
+  // reorders all update together: sections arrive already ordered from the preset. Markers and disabled
+  // sections are excluded from the total by the helper, which also documents those rules.
+  const sectionTokenEstimates = useMemo(
+    () => sections.map((section: any) => estimatePresetSectionTokens(section)),
+    [sections],
+  );
+  const enabledStaticTokens = useMemo(() => estimateEnabledStaticPresetTokens(sections), [sections]);
+
   // Fetch agent configs and filter to those with injectAsSection enabled
   const { data: agentConfigs } = useAgentConfigs();
   const { data: capabilityAgents = [] } = useCapabilityAgentRegistry();
@@ -1730,6 +1741,18 @@ function SectionsTab({
           <FolderOpen size="0.8125rem" /> {localizeUi("ui.presets.sectionstab.groups")}
           {groupMap.size})
         </button>
+        <span
+          data-preset-token-total
+          className={cn(
+            "mari-editor-chip ml-auto shrink-0 whitespace-nowrap px-2 py-1 tabular-nums",
+            compact ? "text-[0.625rem] max-sm:basis-full max-sm:whitespace-normal max-sm:px-1.5" : "text-[0.6875rem]",
+          )}
+          title={localizeUi("ui.presets.sectionstab.enabledStaticPresetValue1TokensDescription")}
+        >
+          {localizeUi("ui.presets.sectionstab.enabledStaticPresetValue1Tokens", {
+            value1: enabledStaticTokens.toLocaleString(),
+          })}
+        </span>
         {!hasLorebookMarker && parentChatHasLorebook && !lorebookWarningDismissed && (
           <div className="mari-editor-chip mari-editor-chip--warning shrink px-2.5 py-1.5 text-[0.6875rem]">
             <AlertTriangle size="0.75rem" className="shrink-0" />
@@ -1859,6 +1882,7 @@ function SectionsTab({
             const RoleIcon = ROLE_ICONS[role] ?? Settings2;
             const markerConfig = isMarker ? readMarkerConfig(section.markerConfig) : null;
             const hasContentTextarea = !isMarker || markerConfig?.type === "agent_data";
+            const sectionTokens = sectionTokenEstimates[idx] ?? null;
             const positionControls = (
               <div
                 className={cn(
@@ -2047,6 +2071,28 @@ function SectionsTab({
                     )}
                     <span className="hidden shrink-0 text-[0.625rem] text-[var(--muted-foreground)] sm:inline">
                       {role}
+                    </span>
+
+                    {/* Rough cost of this section's own text. Markers are assembled per chat, so they say so
+                        instead of showing a misleading zero; a disabled section keeps its count, struck through
+                        to show it is left out of the header total. */}
+                    <span
+                      data-preset-section-tokens
+                      className={cn(
+                        "shrink-0 whitespace-nowrap tabular-nums text-[var(--muted-foreground)]",
+                        compact ? "text-[0.5625rem]" : "text-[0.625rem]",
+                        sectionTokens === null && "italic",
+                        !isEnabled && "line-through",
+                      )}
+                      title={
+                        sectionTokens === null
+                          ? localizeUi("ui.presets.sectionstab.dynamicSectionDescription")
+                          : undefined
+                      }
+                    >
+                      {sectionTokens === null
+                        ? localizeUi("ui.presets.sectionstab.dynamic")
+                        : formatEstimatedTokens(sectionTokens, localizeUi)}
                     </span>
 
                     <div className="flex shrink-0 items-center gap-0.5">

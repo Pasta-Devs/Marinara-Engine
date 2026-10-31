@@ -24,6 +24,7 @@ import {
   type MacroContext,
 } from "@marinara-engine/shared";
 import {
+  gameCardTemperament,
   checkStoryScript,
   compileGameWorld,
   gameStoryFromMetadata,
@@ -123,6 +124,7 @@ import { loadGameWorld, saveGameWorldSnapshot } from "../services/game/game-worl
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { buildFallbackGameCharacterCard } from "../services/game/game-party-cards.js";
+import { withCardTemperament } from "../services/game/party-temperament.service.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../services/storage/persona-gallery.storage.js";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
@@ -3106,11 +3108,17 @@ export function applyGeneratedGameCharacterCards(
     const normalizedCard = normalizeGeneratedGameCharacterCard(generatedCard, existingName);
     // The generated card is rebuilt from an allow-list. What the model never writes and the game
     // owns rides along: the RPG stats and this game's copy of the ruleset sheet.
-    return {
-      ...normalizedCard,
-      ...(existingCard.rpgStats ? { rpgStats: existingCard.rpgStats } : {}),
-      ...(existingCard.rulesetSheet ? { rulesetSheet: existingCard.rulesetSheet } : {}),
-    };
+    // Its temperament changes only where the model says the story changed it, and the one it started
+    // the game with never does.
+    return withCardTemperament(
+      {
+        ...normalizedCard,
+        ...(existingCard.rpgStats ? { rpgStats: existingCard.rpgStats } : {}),
+        ...(existingCard.rulesetSheet ? { rulesetSheet: existingCard.rulesetSheet } : {}),
+      },
+      generatedCard.temperament,
+      existingCard,
+    );
   });
 
   return { cards, updatedCount };
@@ -6930,25 +6938,28 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           const isPersona =
             rpgContext.personaName && normalizedCardName === normalizeCharacterLookupName(rpgContext.personaName);
           const rpg = isPersona ? rpgContext.personaRpgStats : charStats;
-          return {
-            ...normalizedCard,
-            rpgStats: rpg
-              ? {
-                  attributes: rpg.attributes,
-                  hp: { value: rpg.hp.max, max: rpg.hp.max },
-                  pools: normalizeRpgStatPools(rpg),
-                }
-              : undefined,
-            // The game's own copy of the starting build, or a blank one, so every card has a sheet.
-            ...(rulesetSheets
-              ? {
-                  rulesetSheet: copyRulesetSheetForGame(
-                    rulesetSheets.definition,
-                    rulesetSheets.stored.get(normalizedCardName),
-                  ),
-                }
-              : {}),
-          };
+          return withCardTemperament(
+            {
+              ...normalizedCard,
+              rpgStats: rpg
+                ? {
+                    attributes: rpg.attributes,
+                    hp: { value: rpg.hp.max, max: rpg.hp.max },
+                    pools: normalizeRpgStatPools(rpg),
+                  }
+                : undefined,
+              // The game's own copy of the starting build, or a blank one, so every card has a sheet.
+              ...(rulesetSheets
+                ? {
+                    rulesetSheet: copyRulesetSheetForGame(
+                      rulesetSheets.definition,
+                      rulesetSheets.stored.get(normalizedCardName),
+                    ),
+                  }
+                : {}),
+            },
+            c.temperament,
+          );
         })
         .filter((c) => c.name);
       if (cards.length > 0) updates.gameCharacterCards = cards;
@@ -9842,10 +9853,17 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       !Array.isArray(existingTargetCard.rpgStats)
         ? existingTargetCard.rpgStats
         : sourceRpgStats;
-    const gameCard = {
-      ...regeneratedCard,
-      ...(preservedRpgStats ? { rpgStats: preservedRpgStats } : {}),
-    };
+    // A sheet made again for its format keeps the temperament its character already has.
+    const gameCard = withCardTemperament(
+      {
+        ...regeneratedCard,
+        ...(preservedRpgStats ? { rpgStats: preservedRpgStats } : {}),
+      },
+      gameCardTemperament(existingTargetCard as Record<string, unknown> | null | undefined)
+        ? undefined
+        : rawCard.temperament,
+      existingTargetCard as Record<string, unknown> | null | undefined,
+    );
 
     logger.info("[game/character-sheet/regenerate] Generated draft sheet for %s in chat %s", targetName, input.chatId);
     return { characterName: targetName, gameCard };
@@ -10149,11 +10167,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
               ? (parsed[0] as Record<string, unknown>)
               : null;
         if (rawCard) {
-          nextCard = {
-            ...normalizeGeneratedGameCharacterCard(rawCard, recruitName),
-            ...(recruitRpgStats ? { rpgStats: recruitRpgStats } : {}),
-            ...(recruitRulesetSheet ? { rulesetSheet: recruitRulesetSheet } : {}),
-          };
+          nextCard = withCardTemperament(
+            {
+              ...normalizeGeneratedGameCharacterCard(rawCard, recruitName),
+              ...(recruitRpgStats ? { rpgStats: recruitRpgStats } : {}),
+              ...(recruitRulesetSheet ? { rulesetSheet: recruitRulesetSheet } : {}),
+            },
+            rawCard.temperament,
+          );
         }
       } catch (error) {
         logger.warn(error, "[game/party/recruit] Failed to generate recruit card, using fallback");

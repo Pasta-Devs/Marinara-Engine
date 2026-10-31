@@ -37,6 +37,7 @@ import {
   createRulesetEncounter,
   currentRulesetActor,
   deterministicRng,
+  dieRollerFrom,
   findRulesetCreature,
   findRulesetCreatureEntry,
   rulesetSaidCreatureType,
@@ -1775,7 +1776,7 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
       const entry = combatants.find((one) => one.id === opponent.id);
       if (!entry || "build" in entry) return;
       const rng = deterministicRng(input.seed >>> 0, RULESET_CARRIED_CURSOR + index);
-      const roll = (sides: number) => 1 + Math.floor(rng() * sides);
+      const roll = dieRollerFrom(rng);
       const lines = inventories.get(opponent.id);
       const coins = new Map<string, { ref: string; name: string; count: number }>();
       const had = opponent.items

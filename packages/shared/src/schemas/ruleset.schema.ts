@@ -11043,6 +11043,9 @@ const marketSoldShape = { place: sheetId.optional(), limited: marketCountSchema.
 const soldNamesSomething = (sold: { place?: string; limited?: unknown }) =>
   sold.place !== undefined || sold.limited !== undefined;
 
+/** How many `unsold` filters a market holds (1.813), its own and every layer's together. */
+export const RULESET_MARKET_UNSOLD_MAX = 24;
+
 /** What a place sells and at what price (#6917, Capability API 1.65). Buying is the Game Master's
  *  `buy`, answered with the price the Engine works out. A market day (#6934, 1.69) adds rare stock,
  *  limited items, and selling back up to a place's purse. */
@@ -11133,6 +11136,11 @@ const marketSchema = z
       )
       .max(24)
       .optional(),
+    /** What no seller has among their wares (Capability API 1.813): an item a filter here picks is
+     *  never sold as one of a place's wares, wherever its `sold` rule or a seller's `sells` would put
+     *  it. A seller's `stock` table still rolls it, so a rare odd lot is the only way to buy one.
+     *  Sellers still buy it back. A low-magic layer's "no magic in the shops": `[{ "tag": "magical" }]`. */
+    unsold: z.array(itemFilterSchema).min(1).max(RULESET_MARKET_UNSOLD_MAX).optional(),
   })
   .strict();
 
@@ -16881,6 +16889,36 @@ const layerGmSchema = z
     }
   });
 
+/** What a layer changes in the ruleset's items (Capability API 1.813): sellers taken out of the
+ *  market, items taken off every seller's wares (appended to the market's own `unsold`), and loot
+ *  tables swapped for others of the same id and shape. Every one narrows or replaces, as the rest of a
+ *  layer does: nothing is added to the item catalogs, so an item stays an item the game knows (a
+ *  carried one keeps working, and the Game Master can still hand one out) and only where it is SOLD or
+ *  how often it DROPS changes. */
+const layerItemsSchema = z
+  .object({
+    market: z
+      .object({
+        /** Sellers there are none of while the layer is on. At least one seller is left. */
+        removeSellers: z.array(sheetId).min(1).max(24).optional(),
+        /** Added to the market's `unsold`. */
+        unsold: z.array(itemFilterSchema).min(1).max(12).optional(),
+      })
+      .strict()
+      .refine((market) => market.removeSellers || market.unsold, {
+        message: "A layer's market takes out sellers (removeSellers) or wares (unsold)",
+      })
+      .optional(),
+    /** Each REPLACES the ruleset's loot table of its id, so a creature, a threat tier or a seller's
+     *  stock naming that table rolls this one. When several active layers replace one table, the last
+     *  of them wins. */
+    lootTables: z.array(lootTableSchema).min(1).max(24).optional(),
+  })
+  .strict()
+  .refine((items) => items.market || items.lootTables, {
+    message: "A layer's items change the market, the loot tables or both",
+  });
+
 /** A variant of this ruleset the player turns on when a game is created (Low magic, Hard winter),
  *  frozen into the pin for that game's lifetime. The effects are a closed set and every one of them
  *  narrows or appends, so a layer can never teach the Engine a mechanic the ruleset itself could
@@ -16914,6 +16952,8 @@ const rulesetLayerSchema = z
         message: "A layer's currencies take out coins (removeUnits) or families (removeFamilies)",
       })
       .optional(),
+    /** Where items are sold and what loot drops (Capability API 1.813). */
+    items: layerItemsSchema.optional(),
   })
   .strict();
 
@@ -18688,6 +18728,56 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       issue([...path, "onlyWhen"], "Must name a boolean column");
   });
 
+  // A loot line names one of the ruleset's items, or the words its filter picks them by. An item of a
+  // catalog kept in its own file is checked when that file is read. A layered definition may be the
+  // browser's listing, whose catalogs come without their entries: its items were checked at import.
+  // Hoisted so a layer's replacement tables (1.813) are held to the same rules.
+  const itemWords = def.items
+    ? { rarity: def.items.rarities ?? [], category: def.items.categories, tag: def.items.tags ?? [] }
+    : undefined;
+  const checkLootTable = (table: z.infer<typeof lootTableSchema>, tablePath: PropertyKey[]) => {
+    const items = def.items;
+    const words = itemWords;
+    if (!items || !words) return;
+    table.entries.forEach((entry, entryIndex) => {
+      const path = [...tablePath, "entries", entryIndex];
+      if (entry.item) {
+        const [catalogId, entryId] = entry.item.split("/") as [string, string];
+        const catalog = def.catalogs?.find((each) => each.id === catalogId);
+        if (!catalog || catalog.holds !== "items") issue([...path, "item"], `No item catalog "${catalogId}"`);
+        else if (
+          !layersApplied &&
+          catalog.entries &&
+          !catalog.from &&
+          !catalog.entries.some((each) => each.id === entryId && each.item)
+        ) {
+          issue([...path, "item"], `No item "${entryId}" in catalog "${catalogId}"`);
+        }
+      }
+      if (entry.coins && !items.currencies?.some((family) => family.units.some((unit) => unit.id === entry.coins))) {
+        issue([...path, "coins"], `Unknown currency unit "${entry.coins}"`);
+      }
+      for (const key of ["rarity", "category", "tag"] as const) {
+        const id = entry.filter?.[key];
+        if (id !== undefined && !words[key].some((word) => word.id === id)) {
+          issue([...path, "filter", key], `Unknown item ${key} "${id}"`);
+        }
+      }
+    });
+  };
+  /** An item filter (a market rule, a seller's wares, what is unsold) picks by the items block's own
+   *  words, and says at least one of them. */
+  const checkItemFilter = (filter: { rarity?: string; category?: string; tag?: string }, path: PropertyKey[]) => {
+    if (!itemWords) return;
+    if (Object.keys(filter).length === 0) issue(path, "A filter names a rarity, a category or a tag");
+    for (const key of ["rarity", "category", "tag"] as const) {
+      const id = filter[key];
+      if (id !== undefined && !itemWords[key].some((word) => word.id === id)) {
+        issue([...path, key], `Unknown item ${key} "${id}"`);
+      }
+    }
+  };
+
   if (def.items) {
     const items = def.items;
     const at = (...rest: (string | number)[]) => ["items", ...rest];
@@ -18755,38 +18845,8 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         issue([...path, "perWeight"], "Coins weigh something only when the items block has a carry block");
       }
     });
-    // A loot line names one of the ruleset's items, or the words its filter picks them by. An item
-    // of a catalog kept in its own file is checked when that file is read. A layered definition may be
-    // the browser's listing, whose catalogs come without their entries: its items were checked at import.
     unique(items.lootTables ?? [], at("lootTables"), "loot table");
-    const words = { rarity: items.rarities ?? [], category: items.categories, tag: items.tags ?? [] };
-    items.lootTables?.forEach((table, tableIndex) => {
-      table.entries.forEach((entry, entryIndex) => {
-        const path = at("lootTables", tableIndex, "entries", entryIndex);
-        if (entry.item) {
-          const [catalogId, entryId] = entry.item.split("/") as [string, string];
-          const catalog = def.catalogs?.find((each) => each.id === catalogId);
-          if (!catalog || catalog.holds !== "items") issue([...path, "item"], `No item catalog "${catalogId}"`);
-          else if (
-            !layersApplied &&
-            catalog.entries &&
-            !catalog.from &&
-            !catalog.entries.some((each) => each.id === entryId && each.item)
-          ) {
-            issue([...path, "item"], `No item "${entryId}" in catalog "${catalogId}"`);
-          }
-        }
-        if (entry.coins && !items.currencies?.some((family) => family.units.some((unit) => unit.id === entry.coins))) {
-          issue([...path, "coins"], `Unknown currency unit "${entry.coins}"`);
-        }
-        for (const key of ["rarity", "category", "tag"] as const) {
-          const id = entry.filter?.[key];
-          if (id !== undefined && !words[key].some((word) => word.id === id)) {
-            issue([...path, "filter", key], `Unknown item ${key} "${id}"`);
-          }
-        }
-      });
-    });
+    items.lootTables?.forEach((table, tableIndex) => checkLootTable(table, at("lootTables", tableIndex)));
     // What is drawn as it is used (1.808): categories and tags the block declares.
     (["categories", "tags"] as const).forEach((key) => {
       const known = key === "categories" ? items.categories : (items.tags ?? []);
@@ -18846,16 +18906,8 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     });
     const market = items.market;
     if (market) {
-      // A filter picks by the items block's own words, and says at least one of them.
-      const checkFilter = (filter: { rarity?: string; category?: string; tag?: string }, path: (string | number)[]) => {
-        if (Object.keys(filter).length === 0) issue(path, "A filter names a rarity, a category or a tag");
-        for (const key of ["rarity", "category", "tag"] as const) {
-          const id = filter[key];
-          if (id !== undefined && !words[key].some((word) => word.id === id)) {
-            issue([...path, key], `Unknown item ${key} "${id}"`);
-          }
-        }
-      };
+      const checkFilter = checkItemFilter;
+      market.unsold?.forEach((filter, index) => checkFilter(filter, at("market", "unsold", index)));
       const places = unique(market.places, at("market", "places"), "place");
       // A purse is counted in one of the ruleset's coins.
       market.places.forEach((place, index) => {
@@ -21219,6 +21271,20 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   const layers = def.layers ?? [];
   const layerIds = unique(layers, ["layers"], "layer");
   const catalogById = new Map(catalogs.map((catalog) => [catalog.id, catalog]));
+  // Every layer's unsold wares are appended to the market's own (1.813), and the layered market is
+  // held to the same 24 as the file's, so the sum is checked here: otherwise the layers that pushed it
+  // over would be skipped whole in play, guidance and all, with nobody told.
+  if (!layersApplied) {
+    const unsold =
+      (def.items?.market?.unsold?.length ?? 0) +
+      layers.reduce((sum, layer) => sum + (layer.items?.market?.unsold?.length ?? 0), 0);
+    if (unsold > RULESET_MARKET_UNSOLD_MAX) {
+      issue(
+        ["layers"],
+        `The market's unsold wares and every layer's come to ${unsold}, over the ${RULESET_MARKET_UNSOLD_MAX} a market holds`,
+      );
+    }
+  }
   layers.forEach((layer, index) => {
     const path = ["layers", index];
     layer.conflicts?.forEach((other, conflictIndex) => {
@@ -21298,6 +21364,41 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         if (family.units.find((unit) => unit.id === id)!.value === 1 && !gone.has(family.id)) {
           issue(at, `"${id}" is the smallest coin of "${family.id}", which goes only with its whole family`);
         }
+      });
+    }
+
+    // Items (1.813): sellers the market has, every seller not taken out, words the items block
+    // declares, and only tables the ruleset already rolls, each held to a loot table's own rules.
+    // Checked against the file as written: in a layered definition the sellers are already gone.
+    if (layer.items && !layersApplied) {
+      const at = [...path, "items"];
+      const market = def.items?.market;
+      if (layer.items.market) {
+        if (!market) issue([...at, "market"], "This ruleset has no market for a layer to change");
+        else {
+          const sellers = market.sellers ?? [];
+          const removed = new Set(layer.items.market.removeSellers ?? []);
+          layer.items.market.removeSellers?.forEach((id, sellerIndex) => {
+            if (!sellers.some((seller) => seller.id === id)) {
+              issue([...at, "market", "removeSellers", sellerIndex], `Unknown seller "${id}"`);
+            }
+          });
+          // A market without sellers lets anybody sell everything, the opposite of taking sellers out.
+          if (removed.size > 0 && sellers.every((seller) => removed.has(seller.id))) {
+            issue([...at, "market", "removeSellers"], "A layer leaves the market at least one seller");
+          }
+          layer.items.market.unsold?.forEach((filter, filterIndex) =>
+            checkItemFilter(filter, [...at, "market", "unsold", filterIndex]),
+          );
+        }
+      }
+      unique(layer.items.lootTables ?? [], [...at, "lootTables"], "loot table");
+      layer.items.lootTables?.forEach((table, tableIndex) => {
+        const tablePath = [...at, "lootTables", tableIndex];
+        if (!def.items?.lootTables?.some((each) => each.id === table.id)) {
+          return issue([...tablePath, "id"], `A layer replaces loot tables the ruleset has: no "${table.id}"`);
+        }
+        checkLootTable(table, tablePath);
       });
     }
 

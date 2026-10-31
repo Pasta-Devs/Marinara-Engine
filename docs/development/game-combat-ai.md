@@ -1,104 +1,10 @@
-# Game Mode combat AI: enemies, companions and GM bosses
+# Game Mode combat AI
 
-**Status: ordinary AI and the first GM boss/reaction implementation are present locally; Summoning and named rulesets remain proposals.** Prepared September 17, 2026 from the combat code merged into staging by [PR #6266](https://github.com/Pasta-Devs/Marinara-Engine/pull/6266). Original audited staging baseline: `1f2e965c34f77b19a1457439f61e291300e163c7`; checkout `025442b1722b090b4640e0f078d1e08a4435f965` had the same relevant combat implementation. The current local implementation branches from staging `abe61d30a`. Recheck staging before follow-up implementation; the original audit's line numbers describe its earlier baseline.
+How the Engine decides what opponents and AI-controlled companions do in Classic, Tactical and ruleset fights, and how the Game Master plays bosses. The code is in `packages/shared/src/features/combat-ai.ts`, `combat-minds.ts`, `tactical-combat/ai.ts` and `tactical-combat/profile-ai.ts`, with the server side in `packages/server/src/services/game/combat-director.service.ts`, `combat-ai.service.ts`, `combat-boss.service.ts` and `ruleset-combat-director.service.ts`. For where combat sits in Game Mode as a whole, see [Game Mode architecture](game-mode-architecture.md).
 
-This document is self-contained so another development task can continue without the original conversation. It records the maintainer's requirements, a source audit, recommended defaults, implementation boundaries, and acceptance scenarios. Proposed numbers and fields outside the implemented boundary in section 13 are not existing contracts or playtested balance claims. The implementation and handoffs are local work; no issue or PR has been submitted.
+Numbers in the implementation sections ([Current ordinary-AI implementation boundary](#current-ordinary-ai-implementation-boundary) and the ones tied to named constants) are the Engine's current tuning. Numbers marked example, proposed, provisional or design target are not, and none of them are playtested balance claims. Summoning in Marinara's own Classic and Tactical combat is still a proposal ([Summoning design extension](#summoning-design-extension)); ruleset fights summon through their own `summons` rules.
 
-## September 17 scope update
-
-The maintainer approved ordinary AI in Classic and Tactical plus optional AI companion control, then authorized implementation of the GM boss/reaction follow-up. Authored bosses can use legendary actions independently of whether the player chooses a 5e ruleset. The GM receives the party's combat sheets/resources and can anticipate likely actions when a unit begins its activation. Resource-consuming reactions such as Counterspell require a controller decision, not unconditional use whenever available. Summoning remains a design extension. The original source audit and fuller design below are retained; sections 13–17 specify the current decisions and supersede tactical-only sequencing, the eight-adjective launch proposal, earlier exploration-only scope statements, and the original observed-state-only boss prompt.
-
-The runtime work is a first utility-policy implementation, not completion of every acceptance scenario in this document. Its boundaries are recorded in sections 13 and 16. The separate [ruleset implementation handoff](game-combat-rulesets-implementation.md) covers Traditional speed follow-ups, turn/movement order, resource pools and future edition-specific profiles.
-
-## 1. What the maintainer asked for
-
-- Ordinary enemies use engine-controlled behavior described by **one adjective plus a combat role**, such as Reckless Bruiser or Cautious Spellcaster.
-- **Only boss-level enemies receive per-turn GM control.** The engine still determines legal actions and resolves their outcomes. Boss control means choosing actions during the fight, not merely generating a script before it.
-- Adjective assignment weighs proficiency/level, role, and known personality, with some randomness. Experienced enemies should more often have habits suited to their role, without making every veteran identical.
-- **Every Beast and Monstrosity is Mindless.** It pursues the nearest party member by the shortest legal route, ignoring target health and terrain advantages/disadvantages. Do not quietly exempt bosses or named creatures.
-- Optimize for strategic fun, plausible behavior, and replayability, especially tactical and future tabletop-like play. This does not require implementing 5e or V20 rules in the AI change.
-- Preserve a detailed design for later implementation. The original exploration scope has since been extended to ordinary AI and companion control; see the scope update above.
-
-Related direction lives in [the combat roadmap](game-combat-roadmap.md): battlefield rules, party/summoning participation, and tabletop rules profiles are independent choices. Enemy tactics should also remain independent of them. Summoning stays a later priority.
-
-### Recommended defaults that still need design acceptance
-
-1. Start with eight adjectives: Mindless, Reckless, Cautious, Opportunistic, Protective, Supportive, Disciplined, Cowardly.
-2. Show the adjective and role in enemy inspection, with a short explanation. Keep probabilities, utility weights, and raw personality analysis out of normal UI.
-3. Interpret Mindless's shortest route as **fewest legal spatial steps**, not lowest terrain movement cost. It may plow through a shorter forest route even when a longer open route would be faster. Movement still consumes the terrain's actual cost.
-4. A Beast/Monstrosity boss remains Mindless. The GM chooses only among actions consistent with its required target and pursuit behavior.
-5. Ordinary profiles are sampled once and saved. A named recurring NPC retains its established temperament; gaining a level alone does not reroll its personality.
-6. Implement ordinary AI in Tactical and Classic together under the revised scope. Completion of the full requested system includes actual GM boss turns; an engine-only milestone must not be described as the whole feature.
-
-## 2. Source audit before the overhaul
-
-The maintainer's second hypothesis is closest: each active combat engine has a common automatic policy. The GM authors the encounter; it does not choose individual turns in the active Game Mode battle UIs.
-
-| Area                    | Classic Game Mode                                                         | Tactical Game Mode                                                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Turn order              | Initiative rolls plus speed; all combatants participate                   | By initiative in new games (one unit at a time, an order rolled once, combat C6c); by side in older ones (player phase, then enemies by speed) |
-| Enemy policy            | Shared skill heuristic, otherwise random living opposing target           | Shared heal-first, scored attack, then approach policy                                                                                         |
-| Class differences       | No class-specific decision policy                                         | Six classes change range, movement and crit; all use the same decision policy                                                                  |
-| Personality/proficiency | No stored tactical personality or training model                          | No stored tactical personality or training model                                                                                               |
-| Boss decisions          | Same ordinary policy, plus supported scripted mechanics                   | Same ordinary policy; boss label affects placement/UI                                                                                          |
-| GM during each turn     | Not in the active resolver                                                | Not in the active resolver                                                                                                                     |
-| Reproducibility         | Uses unseeded random decisions/rolls                                      | Seed plus action counter governs decisions and combat rolls                                                                                    |
-| Persistence             | Client restores combat snapshot; round/animation state is not fully saved | Client persists the complete tactical snapshot in chat metadata                                                                                |
-
-There is also a separate encounter-modal system with a model-driven `/encounter/action` route and combat-action types. It is used by the general chat `EncounterModal` through `useEncounter`, not by Game Mode's current `GameCombatUI`. That model can return rewritten combat state; do not reuse it unchanged for the proposed engine-validated boss controller. Trace actual callers before reusing or deleting anything.
-
-Classic's explicit **Special** maneuver also asks the GM to adjudicate a narrative action and permits supported status/element tags. It does not resolve an ordinary round or select routine enemy turns. Preserve this distinction when updating GM prompts; “boss-only turn control” does not prohibit encounter generation, narrative adjudication or post-combat narration.
-
-### Classic policy
-
-In `combat.service.ts`, `resolveCombatRound` calls `chooseAutoSkill` for automatic allies and enemies:
-
-1. A skill is considered usable if MP is sufficient and its cooldown passes a round-modulo check.
-2. Heal the most injured eligible ally if at or below 75% HP and a heal skill is available.
-3. Otherwise, with a 45% chance, choose a random non-heal skill and random enemy target.
-4. Otherwise attack a random opponent.
-
-Enemies pass only themselves as the allies list, so they do not currently heal other enemies through this policy. Non-heal includes buffs as well as attacks/debuffs; any replacement must validate the intended side for each skill instead of retaining that grouping. In practice, the generated-enemy MP omission below prevents those enemies from using their positive-cost skills, leaving random-target basic attacks. The first living player-side combatant receives the submitted player command; other allies act automatically. Changing enemy tactics must not silently change companion control or player identity.
-
-Generated mechanics are processed separately after normal actions. Only `round_interval` and `hp_threshold` currently execute; accepted `on_hit`, `on_attack` and `passive` triggers do not. HP-threshold mechanics repeat in later qualifying rounds, and `damage_one` selects the first opposing target. This is not a live GM choosing a boss move. Explicitly distinguish one-shot and recurring effects before adapting them.
-
-Classic also resolves non-heal skills through a damage-oriented path; buffs/debuffs are not equivalent to Tactical support operations, although a named status can accompany a hit. Real support/control semantics and per-use cooldown state are prerequisites to advertising those Classic behaviors. Automated defend/wait actions also need resolver support; current defend belongs to the controlled player's initiative slot, so faster enemies act before it applies. Difficulty currently scales both sides' attack damage through the common resolver, not decision quality. Preserve or change that separately from temperament tuning.
-
-A separate existing player-control mismatch deserves its own proof: the server transfers commands to the first living ally when slot zero is KO, while the UI's active player index stays at zero. An unavailable skill ID can then fall back to a basic attack. Record/fix that independently rather than coupling it to enemy temperament.
-
-### Tactical policy
-
-`packages/shared/src/features/tactical-combat/ai.ts` currently:
-
-1. Tries the first ready heal skill on the lowest-HP-fraction ally within two tiles, if that ally is at or below 60% HP. It does not move into healing range first.
-2. Evaluates reachable movement destinations against living opponents, considering basic attacks and ready attack skills.
-3. Scores attacks as `1000 * likelyKill + expectedDamage - 0.75 * counterRisk`. Here, likelyKill means forecast damage reaches current HP and hit chance is at least 50%; it is not a guaranteed kill.
-4. Occasionally replaces the best non-kill attack with another random legal attack. The probabilities are 60% casual, 30% normal, 10% hard, 0% brutal. Heal acceptance is 50%, 80%, 100%, 100%, respectively.
-5. If no attack is available, approaches the Manhattan-nearest opponent using the reachable tile closest in Manhattan distance. This is not whole-board shortest-path pursuit and can fail to progress around obstacles.
-
-Terrain influences movement and damage/hit forecasts, but the policy has no general assessment of where the unit will be exposed during the next player phase. It does not deliberately select buffs, debuffs, defend, or items. Skill range is simplified. Generated AoE descriptions do not constitute a complete spatial AoE resolver.
-
-Classes are Fighter, Knight, Rogue, Archer, Mage and Healer. Class derivation uses an explicit hint, healing skills, name/skill keywords, elemental attacks and stat heuristics. A role label alone does not create abilities.
-
-### Foundational gaps that would undermine a personality system
-
-These are source-inspection findings, not claims from an executed browser reproduction:
-
-| Gap                                                     | Evidence and consequence                                                                                                                                                                                                                           | Narrow next step                                                                                                                                                         |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Generated enemies have no MP                            | `generatedEnemyToCombatant` omits MP/maxMP; generated non-basic skills have positive MP costs. Both engines treat missing MP as zero. Such enemies cannot use those skills.                                                                        | Add a regression through actual blueprint hydration; preserve explicit resource data or apply a documented generated-enemy resource rule. Do not grant unlimited spells. |
-| Level is inferred from HP                               | Generated enemy level normally comes from rounded maxHP/20. A durable creature is not necessarily tactically trained.                                                                                                                              | Add a bounded proficiency hint; use level only as a declared fallback until rules profiles supply proper training data.                                                  |
-| Boss identity is heuristic                              | Tactical labels the strongest enemy in packs of two or more using maxHP + level\*10 + attack. A solo enemy is never marked by that heuristic.                                                                                                      | Add explicit per-enemy boss identity. Encounter music tier alone cannot identify which unit gets GM turns.                                                               |
-| Generated boss mechanics do not reach Tactical          | Classic gets mechanics props; Tactical does not consume the generated mechanics list.                                                                                                                                                              | Map supported mechanics into validated tactical operations, with saved phase/trigger state. Label unsupported mechanics rather than narrating them as executed.          |
-| Creature type and personality are not runtime contracts | Enemy description exists in the blueprint but is discarded in runtime hydration; Beast/Monstrosity are not typed categories.                                                                                                                       | Carry explicit category and bounded assignment inputs through all conversion and persistence boundaries.                                                                 |
-| Tactical sight and cover are shared (combat C6)         | A wall or a mountain blocks sight in native and ruleset fights alike, and cover is graded on the same test (half, three-quarters): previews, actions, counters, areas, reactions, threat overlays and the AI use `hasLineOfSight` and `coverTier`. | Keep one sight test and one cover test for every caller.                                                                                                                 |
-| AI candidate forecasts read the candidate tile          | Both AIs forecast an attack, and the counter it risks, from the tile they would strike from, so cover (combat C6a-2) is weighed as it will be rolled.                                                                                              | Keep forecasts and resolution on the one `hitChance`.                                                                                                                    |
-
-Another conversion gap affects both engines: generated attack kind is inferred from English keywords in its name/description, while encounter prose can be generated in other languages. The blueprint's `AoE`/`both` flag also does not survive as actual multi-target behavior. Explicit, validated capability fields should supply future role derivation; translated names must not determine whether a spell heals or attacks.
-
-Do not bundle a full combat rewrite into these prerequisites. Add the smallest proofs, fix the relevant flow, and reuse existing movement, forecast, skill-readiness and action-resolution helpers.
-
-## 3. Separate capability, temperament and control
+## Separate capability, temperament and control
 
 Each enemy needs answers to different questions:
 
@@ -129,13 +35,13 @@ Keep existing tactical classes as geometry/stat presets. A small policy-role map
 
 These are priors, not prohibitions. A Cowardly Fighter or Reckless Spellcaster must remain possible. A Cleric with armor and melee abilities may be a Bulwark; a healer may prefer the back line. Do not infer temperament from a class stereotype alone. Temporary MP exhaustion changes legal actions, not the saved role or adjective. Do not assign Supportive to a kit that never had support capabilities.
 
-## 4. Adjective catalog
+## Adjective catalog
 
 ### Initial eight
 
 | Adjective         | Target preference                                                             | Positioning and risk                                                                                    | Skill/resource behavior                                                                                      | What the player can learn                                   |
 | ----------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| **Mindless**      | Nearest living reachable party member, by the rule in section 6               | Shortest legal spatial route; ignores terrain utility, exposure and formation                           | Simple legal attack at that target; no healing triage, focus-fire or resource optimization                   | Bait it with proximity, terrain and chokepoints             |
+| **Mindless**      | Nearest living reachable party member, by the rule in [Mindless: an exact pursuit contract](#mindless-an-exact-pursuit-contract)               | Shortest legal spatial route; ignores terrain utility, exposure and formation                           | Simple legal attack at that target; no healing triage, focus-fire or resource optimization                   | Bait it with proximity, terrain and chokepoints             |
 | **Reckless**      | Immediate damage and reachable pressure; not automatically the weakest victim | Closes aggressively, tolerates counterattacks and exposed destinations                                  | Spends strong available attacks readily; rarely pauses to defend                                             | Punish overextension and lure it into bad trades            |
 | **Cautious**      | Targets it can threaten while limiting return damage                          | Values safe destinations, useful range and defensive terrain                                            | Preserves scarce resources when a basic attack is nearly as useful; heals/defends when needed                | Pressure its safe space; exploit its reluctance to commit   |
 | **Opportunistic** | Wounded, exposed or already compromised targets; reliable finishing chances   | Accepts some risk for a concrete opening                                                                | Values a skill when it creates or exploits that opening                                                      | Protect vulnerable allies and deny easy finishing attacks   |
@@ -144,7 +50,7 @@ These are priors, not prohibitions. A Cowardly Fighter or Reckless Spellcaster m
 | **Disciplined**   | Role-effective targets, sensible finishing opportunities                      | Balances damage, safety, positioning and resources; modest target commitment                            | Reliable role fundamentals without specializing in one extreme                                               | Disrupt its role and force unfavorable choices              |
 | **Cowardly**      | Safely reachable targets that do not invite retaliation                       | Self-preservation rises sharply when wounded or locally outnumbered; retreats toward safer allied space | Self-heals/defends more readily and avoids costly commitments                                                | Cut off safe retreat and apply sustained ranged pressure    |
 
-Protective does not magically redirect damage, taunt, intercept attacks or gain reactions. Current occupancy permits positional blocking; stronger protection needs actual abilities. Cowardly may withdraw and defend, but the existing Tactical `flee` action ends the entire battle. **Never use global flee as a single enemy's escape.** Per-unit retreat/surrender requires new explicit rules.
+Protective does not magically redirect damage, taunt, intercept attacks or gain reactions. Current occupancy permits positional blocking; stronger protection needs actual abilities. Cowardly may withdraw and defend, but the existing Tactical `flee` action ends the entire battle. **Never use global flee as a single enemy's escape.** A single opponent leaves a fight only through morale ("Losing heart in Classic and Tactical", under [Practical guardrails](#practical-guardrails)) or a ruleset getaway.
 
 Cautious and Cowardly should produce different outcomes: a healthy Cautious Marksman takes a good firing position; a wounded Cowardly Marksman may give up a good shot to preserve itself. Protective and Supportive differ similarly: one guards a person or position, the other maximizes useful support actions.
 
@@ -163,7 +69,7 @@ Cautious and Cowardly should produce different outcomes: a healthy Cautious Mark
 
 Avoid launching synonyms that score identically. Cruel is mostly Opportunistic unless the rules support a distinct goal. Strategic is better reserved for actual bounded planning, rather than a label meaning generally better at everything. Courage and intelligence need not be opposite ends of one scale.
 
-## 5. Assigning profiles: role, experience, personality, then seeded variety
+## Assigning profiles: role, experience, personality, then seeded variety
 
 ### Precedence
 
@@ -182,7 +88,7 @@ Prefer a rules-profile-provided training tier or reliable NPC sheet data. Then u
 
 For an initial rules-neutral implementation, tiers could map novice/trained/veteran/master to competence `c = 0, 0.35, 0.7, 1`. A concrete provisional Engine level fallback is level 1–2 novice, 3–7 trained, 8–14 veteran, 15+ master. This is a tunable game-design curve, not a tabletop rule; mark its source as `level-fallback`, particularly while levels are HP-derived. Pin that mapping to the assignment version and replace it with rules-profile mappings when those exist. Do not equate 5e challenge rating with character level or impose one level scale on V20-like games.
 
-Experience influences **both** the chance of a role-suitable temperament at first assignment and how consistently the unit follows that temperament. For ordinary local AI it does not reveal hidden player abilities or queued commands. GM bosses have the broader party-sheet awareness specified in section 16; neither controller sees future random rolls or knows an uncommitted player choice. The survivorship premise is a useful worldbuilding bias, not a factual law that all veteran wizards are cautious.
+Experience influences **both** the chance of a role-suitable temperament at first assignment and how consistently the unit follows that temperament. For ordinary local AI it does not reveal hidden player abilities or queued commands. GM bosses have the broader party-sheet awareness specified in [GM bosses, legendary actions and reactions](#gm-bosses-legendary-actions-and-reactions); neither controller sees future random rolls or knows an uncommitted player choice. The survivorship premise is a useful worldbuilding bias, not a factual law that all veteran wizards are cautious.
 
 ### A concrete weighting model
 
@@ -239,7 +145,7 @@ Persist the accepted hints/provenance needed to explain assignment, not model re
 - The fight log says what set off a morale check before its roll, a temperament turning and what turned it, whom a walk dragged along, a territorial creature keeping its ground, and a party surrender. A surrendered creature stays on the board where it gave up.
 - In ruleset fights a blow's damage score is its expected harm against its target side's mean health, whoever takes it, so a knight's greater health does not make a Multiattack on him worth less than the same harm on the wizard. A blow that would drop its target is weighed by the target's own health, never as frailer than three quarters of that mean.
 
-## 6. Mindless: an exact pursuit contract
+## Mindless: an exact pursuit contract
 
 This is a requested project rule for Beast/Monstrosity, not a claim that those labels imply this behavior in official tabletop rules or real animal behavior.
 
@@ -268,7 +174,7 @@ For a Mindless boss, restrict the GM's candidate menu to this chosen target and 
 
 Classic has no spatial distance. It cannot faithfully implement “nearest by shortest path.” A proposed adaptation is a saved, seeded encounter engagement order with no HP/terrain weighting, targeting the first living entry. **The revised non-spatial implementation uses this abstraction** and must be labeled as such; it does not satisfy the exact spatial requirement. Do not describe the non-spatial abstraction as distance; a real nearest-target rule would require a future formation/position model. Adding front/back formation later could supply a real nearest-target rule; array order must not silently become distance. Tactical's path rule remains the normative Mindless behavior in this proposal.
 
-## 7. Ordinary enemy decisions
+## Ordinary enemy decisions
 
 ### Reuse the resolver; vary priorities
 
@@ -331,13 +237,13 @@ Proposed initial tuning: normalize policy utility to a fixed scale; let novices 
 
 **Multiattack shots and open ground.** The shot-from-afar comparison counts each blow of a Multiattack as often as it is made, and sets the best usable melee against the best usable ranged attack, so a scout's two Longbow shots outweigh its two Shortswords. A creature larger than one cell picks open ground over a squeeze gap at the same distance; blows from a gap it would squeeze into are worth 0.6 of the same from open ground (`RULESET_SQUEEZED_BLOWS`), and once squeezed, blows from open ground are worth that much more, so it steps out to strike.
 
-## 8. Boss turns controlled by the GM
+## Boss turns controlled by the GM
 
 ### Identity and responsibility
 
 Add explicit per-unit boss identity in encounter data. Do not automatically turn the strongest member of every pack into a GM boss. Suggested tier values are ordinary, elite, boss; an elite remains engine-controlled unless explicitly designated a boss. The existing encounter-wide music classification can remain separate.
 
-The GM selects a legal action for that boss using its established personality, encounter intent, current board, party skills/resources/items and supported mechanics. This broader awareness supports anticipation, not knowledge of a player's uncommitted choice; section 16 defines the information and interruption contract. The engine owns range, movement, resources, rolls, damage, conditions and turn budgets. Ordinary adds remain engine-controlled, even when a boss is present.
+The GM selects a legal action for that boss using its established personality, encounter intent, current board, party skills/resources/items and supported mechanics. This broader awareness supports anticipation, not knowledge of a player's uncommitted choice; [GM bosses, legendary actions and reactions](#gm-bosses-legendary-actions-and-reactions) defines the information and interruption contract. The engine owns range, movement, resources, rolls, damage, conditions and turn budgets. Ordinary adds remain engine-controlled, even when a boss is present.
 
 **Named and brilliant opponents (combat AI P9).** A game may also have the GM play every named opponent (the encounter blueprint's `aiHints.named`, given only to named individuals of the story) and every opponent with a `genius` mind (by the story's `aiHints.mind`, else its own ruleset data). The story's `aiHints.mind` only ever takes thought away from what a creature's own data says (one dominated or maddened), or stands in where its data names no mind: a stray hint never makes a wolf a tactician. The setup option is `gmNamedControl`, offered under boss control and pinned with it when the fight starts; absent means bosses only. These opponents get the same one-id-from-the-menu contract, timeout and fallback as a boss, but no legendary budget they do not own. In a ruleset fight the prompt also carries the opponent's profile (mind, temperament, role, proficiency and its ruleset `behavior`), the other side ranked by threat, and the party's companion orders.
 
@@ -352,7 +258,7 @@ Keep provider calls in a server orchestration service, outside the pure shared e
 1. Accept a player action with encounter identity, action ID and expected revision. Validate against the accepted battle state.
 2. Advance to the next ordinary action or interruption decision in the existing order. Split declaration from effect resolution so a reaction can interrupt a pending cast; do not resolve an entire round and then rewrite it.
 3. Persist the pending activation/window: unit ID, revision, turn cursor, triggering/pending action, policy version and bounded legal candidate menu.
-4. Ask the GM connection for a structured candidate ID or pass. Include the current party-sheet snapshot, boss intent, supported mechanics and only the action information appropriate to this window, as specified in section 16. A short optional narration string cannot change state.
+4. Ask the GM connection for a structured candidate ID or pass. Include the current party-sheet snapshot, boss intent, supported mechanics and only the action information appropriate to this window, as specified in [GM bosses, legendary actions and reactions](#gm-bosses-legendary-actions-and-reactions). A short optional narration string cannot change state.
 5. Validate the response, current revision, unit, candidate membership and current legality. Atomically record the decision and apply the action once.
 6. Resume the suspended action/activation from the updated state, then the remaining participants. Revalidate after interruptions; tick each budget/effect at its rules-defined boundary exactly once, then return player control.
 
@@ -376,7 +282,7 @@ Telegraph large attacks in the UI/log before their resolution when the mechanic 
 
 If GM control is disabled or unavailable, show that engine fallback is in use rather than claiming the GM made that decision. Reproducibility with a GM means replaying saved choices and rolls, not expecting identical new model responses from the same seed.
 
-## 9. Data and integration contract
+## Data and integration contract
 
 Prefer one small shared metadata object carried through the existing combat pipeline. Illustrative resolved shape:
 
@@ -415,11 +321,11 @@ For legacy in-progress encounters, keep the legacy policy by default and apply t
 
 Every enemy creation path matters, including generated encounters, manual/fallback combat, restored saves and future summoned units. Do not add fields only to the TypeScript interface and lose them during explicit property copying.
 
-## 10. Fun, realism and replayability checks
+## Fun, realism and replayability checks
 
 **Fun:** enemies should have habits that the player can recognize and exploit. Winning because the player separated a Protective guard from a Supportive healer is more satisfying than winning because a universal scorer selected a random bad move. Avoid turning all enemies into perfect focus-fire machines.
 
-**Realism:** use believable goals, limited information and competence appropriate to the enemy. Cowardice, loyalty, aggression and training are different qualities. Mindless is the requested simplification for two creature categories. Future morale/objective systems can add surrender, territorial defense and escape without pretending these exist now.
+**Realism:** use believable goals, limited information and competence appropriate to the enemy. Cowardice, loyalty, aggression and training are different qualities. Mindless is the requested simplification for two creature categories. Morale (surrender and escape) and the territorial temperament exist now, under [Practical guardrails](#practical-guardrails); richer objectives do not.
 
 **Replayability:** vary profiles and encounter composition across seeds, while preserving identity within a battle and for recurring NPCs. Terrain, role combinations, enemy resources and objectives should create variation beyond a different critical-hit roll. Difficulty should change challenge predictably without making a Mindless Beast suddenly hunt healers.
 
@@ -433,85 +339,13 @@ Example encounter on the same map:
 
 A different seed can produce a Cowardly Bruiser and Opportunistic Marksman, changing the engagement. A refresh cannot do that. A later appearance of the same named boss should preserve its established habits unless the story or an explicit edit changes them.
 
-## 11. Suggested implementation slices
-
-This is a large feature: it changes persisted contracts, prompts, enemy decisions and asynchronous orchestration. Agree on the design, then implement small reviewable slices against current staging.
-
-| Slice                                  | Deliverable                                                                                                                    | Exit evidence                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| A. Capability and identity foundations | Prove/fix generated-enemy resource loss; explicit category/rank/proficiency hints; preserve fields through all creation paths  | A generated spellcaster can use and consume its real resources; solo boss identity survives restore |
-| B. Assignment and persistence          | Role priors, personality hints, seeded saved adjective, versioned legacy behavior                                              | Assignment trends, hard type precedence, stable refresh/import/checkpoint behavior                  |
-| C. Tactical ordinary enemies           | Shared legal candidates, exact Mindless pursuit, eight distinct profiles, inspection copy                                      | Behavioral scenario matrix, forecast parity, mobile/browser evidence, bounded performance           |
-| D. GM boss turns                       | Server revision/idempotence boundary, resumable enemy phase, validated candidate response, saved fallback, supported mechanics | Timeout/retry/concurrency/restore tests and real-provider/manual boss battle                        |
-| E. Classic adaptation                  | Non-spatial profile semantics, proper ally/support pools, seeded decision/roll state and boss initiative integration           | Classic round/resource regressions and restore/replay proof; no false claim of grid behavior        |
-
-Slices A–C are a useful first milestone, but **do not fulfill GM-controlled bosses by themselves**. For Classic, a boss decision must be requested at the correct initiative slot after prior actions, not from a stale beginning-of-round board. Reuse profile tables and assignment logic without forcing spatial and non-spatial engines into one giant resolver.
-
-Later, separately scoped work: common LOS/cover, actual AoE targeting, morale/per-unit escape, objectives, more adjectives, coordination, summoning AI, rules-profile-specific action economies. Tabletop rules should determine legality; enemy temperament should decide how to use those legal options.
-
-### Source map for the implementing agent
-
-| File / symbol                                                                                                                                                                                                                                    | Why it matters                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [shared combat types](../../packages/shared/src/types/game.ts), `Combatant`, `GameCombatStateSnapshot`                                                                                                                                           | Runtime metadata and Classic restore contract                                              |
-| [encounter types](../../packages/shared/src/types/combat-encounter.ts), `CombatEnemy`, `CombatInitState`                                                                                                                                         | Generated blueprint, mechanics and separate encounter-modal types                          |
-| [encounter routes](../../packages/server/src/routes/encounter.routes.ts)                                                                                                                                                                         | Generation prompts/schemas and existing character context; separate modal action route     |
-| [GM prompts](../../packages/server/src/services/game/gm-prompts.ts)                                                                                                                                                                              | Currently tells GM that combat mechanics are handled by the UI                             |
-| [GameSurface](../../packages/client/src/components/game/GameSurface.tsx), `generatedEnemyToCombatant`                                                                                                                                            | Drops description and omits enemy MP; explicit hydration and restore/creation paths        |
-| [Classic UI](../../packages/client/src/components/game/GameCombatUI.tsx) and [game hooks](../../packages/client/src/hooks/use-game.ts)                                                                                                           | Active Classic requests, round/animation behavior and player action flow                   |
-| [Classic service](../../packages/server/src/services/game/combat.service.ts), `chooseAutoSkill`, `resolveCombatRound`                                                                                                                            | Shared automatic policy, RNG, mechanics and initiative                                     |
-| [game routes](../../packages/server/src/routes/game.routes.ts), `/combat/round`, `/combat/tactical/start`, `/combat/tactical/action`                                                                                                             | Schemas and orchestration boundary; client state round-trip                                |
-| [Tactical AI](../../packages/shared/src/features/tactical-combat/ai.ts), `decide`, `runEnemyPhase`                                                                                                                                               | Current policy and all-enemies-at-once phase loop                                          |
-| [Tactical engine](../../packages/shared/src/features/tactical-combat/engine.ts)                                                                                                                                                                  | Unit conversion, boss heuristic, movement, legality, resolution, forecasts and round ticks |
-| [Tactical classes](../../packages/shared/src/features/tactical-combat/classes.ts)                                                                                                                                                                | Existing six classes and capability derivation                                             |
-| [Tactical types](../../packages/shared/src/features/tactical-combat/types.ts), [math](../../packages/shared/src/features/tactical-combat/math.ts), [RNG](../../packages/shared/src/features/tactical-combat/rng.ts)                              | Snapshot/action contracts, terrain forecasts and deterministic stream                      |
-| [Tactical UI](../../packages/client/src/components/game/TacticalCombatUI.tsx) and [chat metadata](../../packages/shared/src/types/chat.ts)                                                                                                       | Saved tactical snapshot, busy states and pending boss recovery                             |
-| [existing terrain regressions](../../scripts/regressions/hybrid-terrain.regression.ts), [route proof](../../scripts/regressions/hybrid-terrain-route.regression.ts), [setup proof](../../scripts/regressions/hybrid-terrain-setup.regression.ts) | Existing runnable proof patterns to extend where relevant                                  |
-
-Before implementation, search issues, open/draft PRs, linked branches and project items to avoid duplicate work. The earlier combat roadmap references closed/unmerged PR #4391 as prior art; recheck its status and ownership, and do not absorb that entire expansion as a prerequisite. Follow current `AGENTS.md`, `CONTRIBUTING.md`, package instructions and the Chai workflow overlay. Do not implement from stale line numbers alone.
-
-## 12. Acceptance and validation plan
-
-Use small runnable `*.regression.ts` proofs in the existing runner. Do not keep temporary `.test.ts` files. Assertions should demonstrate behavior, not merely mirror weight constants.
-
-| Scenario                                                                                        | Required result                                                                                                           |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Beast/Monstrosity with conflicting adjective, master competence, known personality or boss rank | Generated hints always resolve Mindless; conflicting authored/imported resolved profiles are rejected with a useful error |
-| Nearest healthy tank versus farther wounded caster                                              | Mindless pursues the tank; Opportunistic may select the caster                                                            |
-| Short forest route versus longer open route                                                     | Mindless selects fewer steps while paying actual movement cost; it gains incidental terrain bonuses normally              |
-| Wall requiring a temporary move away; unreachable opponent                                      | Pursuit finds the legal detour or another reachable target; no Manhattan deadlock                                         |
-| Flying/teleporting Mindless units                                                               | Respect distinct traversal/landing/occupancy and per-turn range; no impossible chained landing path                       |
-| Injured ally outside current healing range                                                      | Supportive can move and heal legally; depleted MP/cooldown blocks the skill                                               |
-| Protective unit with no taunt or interception ability                                           | Positioning only; no invented damage redirection                                                                          |
-| Wounded Cowardly enemy                                                                          | May retreat/defend; never triggers global party flee                                                                      |
-| High competence over a fixed large seed set                                                     | Role-suited profiles become more common, rare compatible profiles remain; seed-specific outputs are stable                |
-| Known personality, negated trait, contradictory hints, missing/invalid hints, non-English text  | Bounded documented adjustments; no arbitrary numeric control or accidental English-only claim                             |
-| Temporary MP exhaustion                                                                         | Role/adjective unchanged; only legal action choices change                                                                |
-| Two enemies target a wounded unit, first defeats it                                             | Second evaluates updated state; no attack against a dead target or duplicate reserved heal                                |
-| Destination terrain differs from original terrain                                               | Candidate forecasts and actual counters agree on positions, terrain and rules                                             |
-| GM invents coordinates, skills, free actions, target IDs or illegal resources                   | No mutation; saved legal fallback or valid candidate only                                                                 |
-| GM timeout followed by late success, refresh, duplicate request or simultaneous tabs            | Exactly one accepted boss action and one resource deduction; stale response discarded                                     |
-| Party victory/defeat while an enemy phase is suspended                                          | Correct terminal outcome; no remaining boss/add turn after battle end                                                     |
-| Checkpoint restore, branching, import/export, legacy save, recurring NPC                        | Preserve accepted profiles and correct battle identity; no unintended rerolls or duplicate external decisions             |
-| Classic Mindless and GM boss                                                                    | Explicit non-spatial targeting rule and correct initiative slot; no claim of grid/terrain behavior                        |
-
-Benchmark decision cost with the supported 40-unit / 64-by-64 request bounds, mixed movement modes, many skills and dense obstacles. Cache per-decision movement/threat calculations where justified; invalidate after state changes. Set a measurable ordinary-phase time budget after profiling the current engine on desktop and a representative mobile device. Do not claim a specific millisecond budget without measurement or add deep lookahead before profiling.
-
-For implementation: start with `pnpm install`; run `pnpm check`, focused combat/route regressions, `pnpm regression:prompt` when changing prompts, and `pnpm localization:check` for UI copy. Use the browser regression lane for actual battle flow, refresh, boss waiting/failure, keyboard access, small screens and light/dark themes. Add the appropriate `[Unreleased]` changelog entries. Read `packages/client/.instructions.md` before client edits. Log provider prompts/results through the existing debug facilities and Pino without exposing unrelated secrets.
-
-Before requesting PR review, run CodeRabbit locally, address substantive findings and rerun. Document code-grounded dismissals for false positives or purely pedantic suggestions; do not loop indefinitely. Keep PR test-plan boxes unchecked for the human contributor. When this document is published in a PR, include the required `[docs-i18n]` follow-up or matching translated documentation updates.
-
-### What the original exploration verified
-
-The current behavior descriptions come from source tracing of the active client, routes and resolvers, with separate Classic/Tactical audits. The probability example was calculated directly. No combat AI code was changed, no new policies were simulated, and no browser or real-provider boss flow was exercised. Those are acceptance requirements for implementation, not proof supplied by this design.
-
-## 13. Current ordinary-AI implementation boundary
+## Current ordinary-AI implementation boundary
 
 Implemented policy vocabulary: Mindless, Reckless, Cautious, Opportunistic, Protective, Supportive, Disciplined, Cowardly, **Patient, Methodical and Coordinated**. Other adjectives below are brainstorms, not hidden runtime settings.
 
 The shared `features/combat-ai.ts` contract separates saved role, adjective, training tier and seed from control. New battles receive saved assignments; restored battles with no profile retain the prior automatic policy. Changing a companion's controller does not reroll its adjective. Generated finite MP pools and explicit skill kinds/costs are carried into the runtime; omitted enemy MP uses the same provisional `20 + 3 × level` pool as unstatted allies, preserving explicit zero. This is a generic Engine fallback, not a tabletop resource rule.
 
-The v1 assignment is intentionally smaller than section 5's proposed formula: compatible profiles start with positive weight, role-favored profiles gain a training-dependent bonus, and an optional closed-enum personality hint adds a bounded preference. Category precedence forces Mindless; an explicit Mindless hint also selects that behavior for other creature categories. The existing encounter-generation call provides hints in either language; the engine does not parse prose personality itself. Other temperament hints are preferences rather than guarantees, and model understanding of negation/multilingual characterization still needs provider evaluation. Full provenance and identity-backed personality across recurring NPC encounters remain follow-up work. HP-derived fallback level remains a weak training proxy when no hint exists.
+The v1 assignment is intentionally smaller than [Assigning profiles: role, experience, personality, then seeded variety](#assigning-profiles-role-experience-personality-then-seeded-variety)'s proposed formula: compatible profiles start with positive weight, role-favored profiles gain a training-dependent bonus, and an optional closed-enum personality hint adds a bounded preference. Category precedence forces Mindless; an explicit Mindless hint also selects that behavior for other creature categories. The existing encounter-generation call provides hints in either language; the engine does not parse prose personality itself. Other temperament hints are preferences rather than guarantees, and model understanding of negation/multilingual characterization still needs provider evaluation. Full provenance and identity-backed personality across recurring NPC encounters remain follow-up work. HP-derived fallback level remains a weak training proxy when no hint exists.
 
 Each mode enumerates executable basic attacks, skills and defensive options, then scores damage, finishing, effective healing, support, cost and relevant tactical factors. No ordinary-turn model call is added. Profiles never grant an unavailable ability, unlimited MP, an extra activation or nonexistent terrain mechanics.
 
@@ -523,9 +357,9 @@ Each mode enumerates executable basic attacks, skills and defensive options, the
 - **Companions:** localized per-member Player/AI selection inside the battle, with the active leader kept manual. Tactical companions act after remaining manual commands or when End Turn is selected. Manual override remains possible before a companion acts. Controller changes, profiles and memory persist with combatants/tactical snapshots.
 - **Classic persistence:** accepted round results and the next round number are sent to the existing snapshot callback before cosmetic animation. Real per-use cooldowns survive that round-trip. Classic still uses its existing random combat rolls; this is not exact roll replay or a server-owned idempotent action ledger. Simultaneous-tab guarantees belong to the future authoritative boss work.
 
-The first milestone stopped before boss provider calls and reactions; section 16 records their subsequent implementation. Remaining ceilings include per-unit escape, taunt, richer objectives, per-ruleset initiative, full sheet resource normalization, and a recurring-NPC profile registry. Unimplemented pieces of the original proposal remain acceptance work, not implied shipped functionality. Desktop synthetic benchmarks do not constitute real-device mobile performance calibration.
+The first milestone stopped before boss provider calls and reactions; [GM bosses, legendary actions and reactions](#gm-bosses-legendary-actions-and-reactions) records their subsequent implementation. Remaining ceilings include taunt, richer objectives, per-ruleset initiative, full sheet resource normalization, and a recurring-NPC profile registry. Unimplemented pieces of the original proposal remain acceptance work, not implied shipped functionality. Desktop synthetic benchmarks do not constitute real-device mobile performance calibration.
 
-## 14. More adjectives, with class-sensitive behavior
+## More adjectives, with class-sensitive behavior
 
 Keep one visible adjective plus a capability-derived role. These are distinct priorities, not synonyms for “smart.” Allow unusual but mechanically valid combinations.
 
@@ -556,7 +390,7 @@ The three requested additions also vary by class:
 
 These descriptions are tuning goals. The first implementation uses the generic supported defense buff/debuff model; richer class-specific combinations require corresponding abilities and regression scenarios.
 
-## 15. Summoning design extension
+## Summoning design extension
 
 Start without a grid. A summon is an actual combatant with a stable encounter ID, owner reference, side, profile, controller, duration, resource cost and explicit activation budget. Class changes its legal kit; adjective changes priorities as in Classic.
 
@@ -566,7 +400,7 @@ The ruleset decides whether commands consume the owner's action, whether a summo
 
 Owner KO, charm/allegiance changes, dismissal, duration expiry, party defeat and encounter end each need explicit cleanup rules. Save ownership and remaining duration across refresh/import. A defeated summon is not an inventory item or a permanent party member. Spell/MP cost is debited once for accepted creation. Summon actions must not manufacture legendary-action windows beyond the pinned boss modifier's eligibility rules.
 
-## 16. GM bosses, legendary actions and reactions
+## GM bosses, legendary actions and reactions
 
 ### Implemented generic Engine adapter
 
@@ -620,7 +454,7 @@ Proposed generic modifier defaults:
 - Offer `pass` and only legal candidates within budget. No legendary action opens another legendary window or grants speed doubling. A spell cast as a legendary action may trigger Counterspell only when the selected rules adapter supports that reaction; budgets remain separate.
 - Recheck boss alive/able-to-act, target legality and battle outcome before requesting and before accepting a decision. A defeated boss cannot spend a late response. Mindless category constraints still apply to its targeting/pursuit, including legendary options.
 - Distinguish ordinary action, reaction, legendary action and lair/phase event. They are separate budgets/triggers; do not let a description create new damage or free activations.
-- Ordinary adds stay local AI. GM calls occur only for boss windows with meaningful choice. Reuse the configured GM connection, debug logging, saved fallback and aggregate latency limit from section 8.
+- Ordinary adds stay local AI. GM calls occur only for boss windows with meaningful choice. Reuse the configured GM connection, debug logging, saved fallback and aggregate latency limit from [Boss turns controlled by the GM](#boss-turns-controlled-by-the-gm).
 
 ### Counterspell and other optional reactions
 
@@ -649,13 +483,13 @@ Represent an ordinary action as a saved declaration, pending effects and a resol
 
 Multiple eligible reactors use a rules-defined stable priority, reevaluating legality after each accepted response. Support nested reactions such as countering Counterspell only through an explicit ruleset capability and bounded pending-action stack. Each entry carries its parent/trigger ID; a unit may respond once to a given trigger and needs a remaining reaction allowance. Close exhausted, cancelled or already-resolved triggers. No unbounded recursion, repeat-pass prompts, repeated resource spending or legendary-to-legendary chains. A deliberately limited first adapter must disclose any unsupported reaction chain rather than claim full 5e behavior.
 
-Minimal saved contract: encounter ID, revision, activation ID/cursor, committed actor, window kind/ID, triggering event and pending-action/parent IDs, controller context revision, candidate revision, eligible/resolved reactor order, legendary and reaction budgets, reserved/committed/refunded resource deltas, accepted choice/pass, resolution status, provider request/fallback outcome and remaining effects. Atomically accept decisions with their costs/results. A late or duplicate answer must not spend again. Restore resumes the pending window or replays its accepted result; branch/rewind isolates the whole combat ledger, not just narration. There is no text-only Restore that refunds an accepted reaction. The server-owned ledger described below supplies the initial implementation; section 8 retains the longer-term contract.
+Minimal saved contract: encounter ID, revision, activation ID/cursor, committed actor, window kind/ID, triggering event and pending-action/parent IDs, controller context revision, candidate revision, eligible/resolved reactor order, legendary and reaction budgets, reserved/committed/refunded resource deltas, accepted choice/pass, resolution status, provider request/fallback outcome and remaining effects. Atomically accept decisions with their costs/results. A late or duplicate answer must not spend again. Restore resumes the pending window or replays its accepted result; branch/rewind isolates the whole combat ledger, not just narration. There is no text-only Restore that refunds an accepted reaction. The server-owned ledger described in [Implemented generic Engine adapter](#implemented-generic-engine-adapter) supplies the initial implementation; [Boss turns controlled by the GM](#boss-turns-controlled-by-the-gm) retains the longer-term contract.
 
 UI: show remaining legendary points, reaction availability and the offered ability's cost; label anticipation versus a triggered reaction. Show why an action was interrupted and whether the original spell resolves, fails or needs a new choice. Expose thinking/waiting, retry/fallback and cancellation accessibly. Telegraph charge attacks where required. Never claim the GM chose a local fallback. Keep internal scores/prompts out of the player's action menu.
 
 Required proofs: correct party spells/resources/items in GM context; depleted-resource forecast; plausible but incorrect Fireball prediction; no draft/queued-command leakage; no raw-click/reselection farming; player changes legal action after anticipation; native 5e timing versus enabled house rule; Counterspell only after a legal cast trigger; weak spell passed versus lethal spell contested; no MP/slot/reaction remaining; cost once on failed counter; rules-specific original-spell refund; forbidden visibility/range; multiple reactors and countered counters; no extra legendary window on movement/follow-up/reaction; correct Classic initiative slot; invalidated queued manual action; tactical skipped units/summon eligibility; exhausted legendary budget; refresh exactly once; death/outcome while waiting; duplicate requests; timeout then late success; refresh, simultaneous tabs, branch/rewind and settings changes. Add real-provider behavior and representative mobile pacing validation after deterministic route tests.
 
-## 17. Encounter environment Agent handoff
+## Encounter environment Agent handoff
 
 The game-creation **Terrain guidance** textarea and summary row are removed. Old setup files may still contain the field for compatibility, but encounter generation no longer injects it into every fight. Battlefield Size remains a reusable setup preference. New battles receive individual internal seeds; saved maps and restarts preserve accepted seeds. The Tactical label describes movement, terrain and forecasts without another game's name.
 
@@ -672,70 +506,36 @@ Inputs must carry encounter/location revision and distinguish observed facts fro
 
 The GM receives the accepted context and still produces the encounter; the Engine validates the final terrain. Cache by encounter/location revision, discard stale replies after travel or scene changes, and avoid repeated paid calls on retry. If disabled, missing or timed out, use current encounter-generation context with ordinary procedural terrain fallback. Persist accepted terrain rather than regenerating on reload. Add debug prompt logging and schema/timeout/stale-location tests. This Agent is documented here, not implemented inside Engine or silently installed.
 
-### Validation recorded for the first implementation
+## Difficulty and weather
 
-The local baseline `pnpm check` passes, as do the focused combat AI regression, existing hybrid-terrain route/setup/engine regressions, and `pnpm regression:prompt`. Focused browser tests run through the actual Classic/Tactical routes cover companion selection, queued manual commands, automatic companion actions, accepted round persistence and reload. Setup/hydration checks cover removal of terrain guidance, seed zero, explicit non-English spell kinds and explicit zero MP. Desktop light-theme and Android-sized dark-theme Chromium passed; WebKit could not launch because its required system libraries are missing. Screenshots are local test artifacts, not committed documentation assets.
+### Setup and difficulty
 
-A synthetic 40-unit, 64×64 open board with mixed walking/flying/teleporting units and support skills took roughly 400–440 ms for one ordinary enemy phase on this host. This is not a dense-obstacle worst-case budget or a physical-phone measurement. Balance and full encounter pacing still need playtesting. Those measurements cover the first milestone only; they do not establish boss-window latency or a future ruleset.
+Remove the Battlefield Seed field and summary, while retaining Battlefield Size. New encounters receive internal random seeds. Ignore obsolete campaign seed preferences when starting future battles; retain accepted battle seeds, grids and restart behavior. Change Classic's description to “Cinematic menu battles.”
 
-### Validation recorded for the boss/reaction implementation
+Normalize difficulty through one shared helper, including title-case older setups. Keep enemy damage multipliers Casual 0.6, Normal 1, Hard 1.3 and Brutal 1.6. Classic must scale only enemy damage, like Tactical. Audit encounters and loot for the same casing bug. Pin difficulty at encounter creation, rather than changing it when settings change during combat.
 
-`pnpm check` and `pnpm regression:prompt` pass. The existing unrelated `GameNarration` hook warning remains. Focused ordinary-AI, director, route and provider regressions cover activation commitment, normal-turn preservation, nested counters, passing, failed-counter payment, empty MP/slots, area guards, wall-blocked reactions, disabled turns, inventory transactions, duplicate/stale commands, actual hard timeout, per-round call limits and checkpoint/branch identity. The provider adapter was exercised against a local HTTP fixture, including its actual outbound context and malformed/unknown choice rejection. This proves integration, not strategic quality on a paid model.
+These damage multipliers belong only to Traditional (the current legacy Engine mechanics). When implementing 5e, V20, or any alternative ruleset, revisit difficulty through that ruleset's own policy. Do not inherit the Traditional multipliers by default. AI decision tuning is a separate concern from damage scaling.
 
-Sixteen desktop/mobile Chromium browser checks pass across legacy and directed Classic/Tactical companion controls, real menu actions, ordinary-round completion, pending reaction reload, consuming the last spell slot exactly once, generated skill hydration, and setup cleanup. Screenshots were inspected in desktop light and mobile dark themes; the reaction panel is visible, focused and operable. Physical-device performance, current WebKit coverage, and real-provider decision quality/pacing remain unverified. The expanded route proof also runs the actual ten-second timeout and rejects later replies. This validation used no live gameplay-model call. The maintainer subsequently authorized external CodeRabbit review as part of the expected project workflow; the initial local review completed with 15 findings.
+### Weather
 
-### Local CodeRabbit follow-up
+Use existing campaign weather and grounded encounter exposure. Save accepted weather with the encounter; an absent field in an old combat save means neutral mechanics. Unknown exposure is neutral. Enclosed environments are sheltered. Current weather aliases must normalize to the existing weather types, and setting a type must generate compatible wind and visibility.
 
-The first pass led to fixes for accepted Classic item consumption after retries/skipped turns, Tactical skill-power forecasts, a legacy-safe public AI entry point, enemy-only boss metadata, malformed state queries and imported decision costs, missing automatic enemy-phase events, missing maximum-MP normalization, invalid controlled-unit IDs, reaction-only skill menus, provider-fixture cleanup, and sharing connection resolution at the service layer. The item report assumed multiple party item menus; only the leader currently has that menu, but removing the stale item ref fixes a real abandoned-retry issue. Consumption now follows the accepted orders and actual action results.
+Initial rules apply equally to both sides: rain modestly reduces fire damage and increases lightning damage; strong wind penalizes explicitly tagged projectile attacks; poor visibility penalizes explicitly sight-dependent attacks; snow increases walking costs in Tactical. Flying and teleportation retain their movement semantics. Untagged abilities receive no inferred projectile/sight trait based on names. Clear/cloudy weather is normally neutral. Shared helpers must drive forecasts, resolution and AI estimates without consuming future combat rolls.
 
-Reviewed suggestions retained with code-based reasons:
+Show accepted conditions and effects in both combat interfaces. Cosmetic weather settings cannot disable mechanics. Weather stays fixed during an encounter; weather-changing abilities, periodic weather transitions, random lightning strikes and heat attrition are deferred. Summoning and future rulesets can reuse the shared weather contract without adding an unfinished UI mode.
 
-- Spell slots intentionally accept only levels 1–9. Silently dropping unsupported keys from generated blueprints could hide an invalid authored kit; the existing schema rejects it. Cantrips and named ruleset behavior belong to the separate ruleset contract.
-- Ordinary AI costs now fall back from maximum MP to current MP when no maximum is supplied. Reaction scarcity deliberately divides by **remaining** MP: a Counterspell spending the last few points must be treated as expensive even on a large original pool.
-- Boss candidate enumeration already builds its reachable tile list once. Each candidate still passes the authoritative action validator. Removing repeated legality checks or adding a separate validation cache needs performance evidence and must preserve that boundary; this was a performance suggestion, not an observed illegal-action bug.
-- `CombatAttackResult` has no existing failed-action reason marker. The new profiled resolver rejects unavailable skills before executing, and the director validates before payment. Adding a new result/UI protocol solely for the legacy zero-effect fallback is deferred as a presentation improvement; the fallback applies no effect and spends no resources.
+### Enemy decisions
 
-The second full local pass completed with six findings. Fixed accepted spell-slot merges and stale prop resets in the standalone Classic screen, assigned profiles directly during unit construction, extracted GM characterization from card fields instead of serialized metadata, blocked reaction skills in both legacy ordinary-command paths and automatic selection, and returned a recoverable error for malformed saved-state reads.
+Preserve role, adjective, proficiency, legality and resource accounting. Difficulty changes bounded seeded decision variation: Casual allows more plausible mistakes, Normal stays near the current baseline, Hard is more consistent and Brutal minimizes mistakes while retaining proficiency differences. Companion decision tuning uses a fixed Normal baseline at every difficulty; companions still respond to real weather and danger. Mindless restrictions remain intact.
 
-The remaining blueprint suggestion is not applicable: `CombatAttack[]` in the shared encounter types, the generated encounter prompt, and `combatSkillsFromGeneratedAttacks` all require attack objects with a name. String-only entries have no supported hydration behavior. The object schema remains strict rather than accepting data the combat screen cannot use.
+Use weather-aware scores for attacks, support, positioning and reactions. Counterspell and guard compete with passing according to threat, cost and personality. No difficulty grants hidden commands, future rolls, free resources or additional actions. The GM boss prompt receives accepted difficulty/weather and guidance on pressure and opportunity selection; the engine still enforces the offered legal choices and budgets. Provider failure retains the local fallback.
 
-After those fixes, `pnpm check` and `pnpm regression:prompt` pass. Four combat regressions and the hybrid-terrain route regression pass, including actual provider context extraction with card comments/editing notes excluded. Sixteen desktop/mobile combat checks passed after the first fixes; the final eight Classic browser checks also pass with explicit item retry, skipped item and last-slot exhaustion coverage. A build-refresh collision interrupted one earlier browser run; the successful rerun was performed after the build completed. The third review identified the Classic reaction-only empty skill-panel condition, now fixed on both layouts. The corresponding legacy Tactical healing/resolution path also rejects reaction-only skills. Final review verification is recorded below.
+### Implementation details
 
-Additional review dispositions:
+Shared conditions live in `packages/shared/src/features/combat-conditions.ts`. Difficulty is normalized at setup import/create and at encounter, loot, Classic and Tactical consumers. Enemy decision variation is multiplied by 2.5 / 1 / 0.4 / 0.15 for Casual / Normal / Hard / Brutal; saved proficiency and personality remain in force. Classic estimates use the same opposed-d20 hit probability as resolution, while Tactical estimates use the shared attack forecast. Tactical pursuit uses terrain and weather costs to rank routes for ordinary profiles. Mindless units instead rank legal routes by the fewest spatial steps; both policies pay actual terrain and weather costs during movement. Reactions consider expected threat and resource scarcity, with the same enemy-only variation policy.
 
-- The Tactical action endpoint already routes control changes through `applyTacticalTurn` and `applyAction`; `applyAction` rejects assigning AI to the first living party unit. The route regression now exercises that request and verifies HTTP 400 with the manual-leader error. Duplicating the same rule in the route would create a second source of truth.
-- AI hints and interrupt fields may be omitted. When supplied, they must satisfy their explicit schemas. Silently catching and dropping malformed capabilities would turn a generated Counterspell, cost or boss kit into different rules without explanation. The proposal to make every optional capability tolerate invalid values is an intentional behavior change, not a missing guard.
-- A narrower exported `TacticalUnitAction` alias is a type-cleanup suggestion. Runtime control handling already returns in `applyAction` before ordinary validation/execution, and director action schemas exclude control. This does not block the feature; a future API cleanup may narrow that internal union without changing behavior.
+Exposed rain, heavy rain and storms multiply fire damage by 0.85 and lightning damage by 1.15. Explicit projectiles lose 10 accuracy points in strong wind and 15 in gales. Explicit sight-dependent attacks lose 5 points in reduced visibility and 15 in poor visibility. Combined penalties cap at 25 points. Classic converts these to opposed attack-roll modifiers (one point per five accuracy points), and its conditions display names those roll penalties. Tactical exposed snow/blizzards add one walking point per entered tile; flight and teleportation are unaffected. Elemental damage items also receive rain modifiers; healing and status durations do not.
 
-Legacy inventory persistence remains a separate follow-up. The review noted that `GameCombatUI` detaches the inventory callback after a legacy round result. This is pre-existing in the base revision, which also uses `void onInventoryItemUsed?.(usedItemName)`. Simply awaiting it is not an idempotent fix: `handleUseCombatInventoryItem` handles failures internally and legacy rounds have no authoritative saved request/result transaction to retry. New directed battles bypass this callback and use the server ledger's atomic inventory deduction plus accepted-state save. Existing legacy battles retain the old boundary; migrating their round and inventory persistence together requires an explicit compatibility migration. This limitation is documented, not claimed fixed by the item retry/queued-order changes.
+Encounter generation authors basic-attack and skill `projectile` / `requiresSight` booleans and `battlefield.terrainBrief.exposure`. Missing attack traits are neutral. Explicit exposure wins; recognized enclosed environments are sheltered, recognized outdoor environments exposed, and ambiguous environments unknown. Campaign weather comes from the persisted weather system, falling back to a committed scene weather value when absent. Combat-start message tags suppress background weather progression before the rendered mode catches up. Accepted conditions are saved on the director and Tactical state; contradictory or malformed imports are refused. Existing saves lacking weather remain neutral. Legacy Tactical restarts pass accepted conditions (including neutral absence) rather than sampling changed campaign weather.
 
-The reaction-availability label now uses the localization catalog's singular/plural variants. Final focused combat regressions, client types, workspace lint and the leader-control route proof pass after the small reaction guards; the pre-existing `GameNarration` hook warning remains.
-
-The final verification also prompted deterministic basic-action/defend fallbacks for Classic units without a saved profile or remaining enemies, plus bounded party-order identifiers that must name living party combatants. Their focused regressions and server type checks pass; localization validation passes for reaction-count plurals.
-
-Remaining non-behavioral suggestions are deferred: deduplicating identical spell-slot schemas, returning a pending-action ID instead of using the newest record immediately after synchronous declaration, narrowing internal action types, and replacing the teleport frontier sort with a minimum scan. The current code has explicit bounds, preserves per-action validation, and no interleaved declaration occurs between insertion and selecting that pending record. These suggestions do not establish a changed combat result. Likewise, legacy cooldown 0/omitted is temporarily stored as 1 and decremented at the end of the same whole-round resolver; it is available the next activation. The director uses a separate per-activation payment path with 0 directly. Equalizing those intermediate values is not required for the same availability behavior.
-
-The review's proposed cache change assumes `/director/start` is non-idempotent. It is idempotent for an accepted chat/anchor: the serialized route loads and returns the existing ledger before any creation or payment, and the route regression checks that replaying start with stale client combatants returns exactly the accepted session. Keeping remount/reconnect refreshes allows the client to see restored or updated server state. Disabling them would retain stale cached battles; explicit refresh remains available and retries are disabled.
-
-The fourth local pass completed with 15 findings, including repeats and optional cleanup. Its remaining behavior fix honors explicit Mindless hints for other/unknown creature categories; the focused regression reproduced the ignored hint before the fix. Saved profiles still retain their established behavior. The suggested pending-map cap of 40 would reject a valid terminal stack entry: declaration inserts first, then suppresses further reaction tasks when the count exceeds 40, so the saved bound is 41. Area radius 0 intentionally denotes no area expansion, consistent with both resolvers. Changing the connection helper's inherited dynamic provider import to a static import is optional cleanup. No claim of zero review findings is made; the pre-existing legacy inventory persistence follow-up above remains open.
-
-Final verification after all review fixes: `pnpm check` passes, including localization, formatting, types, lint and production builds; the focused combat AI regression passes after demonstrating the Mindless-hint failure before the fix. Earlier prompt, director/route/provider and desktop/mobile browser results remain as recorded above. The last small review fixes were verified locally, followed by a further external review when preparing the PR.
-
-### PR preparation review
-
-Implementation ownership and scope are tracked in [#6299](https://github.com/Pasta-Devs/Marinara-Engine/issues/6299); translation parity for these two development handoffs is tracked in [#6300](https://github.com/Pasta-Devs/Marinara-Engine/issues/6300). The shared skill symlink resolves, and all 52 skill files were compared byte-for-byte with their previous Git contents. `pnpm check` passes after moving them. `AGENTS.md` is a separate Codex adaptation of `CLAUDE.md`, with an explicit transition from draft to ready when implementation, required local validation and local review are complete.
-
-Publication-round review dispositions:
-
-- The Impeccable skill lives in `.agents/skills/impeccable`. The `.claude/skills` copy and its `.agents/skills` alias were removed on 2026-10-07; the Impeccable project guard reads the skill from `.agents/skills`.
-- Findings about Impeccable examples, wording, vendored bundle provenance and existing live-tool internals concern files moved without content changes. They are not regressions from this PR. This migration preserves the installed skill, rather than incorporating a separate upstream skill-maintenance project.
-- Tactical item scope `any` is explicitly supported by `CombatItemEffect`, route validation and the director's target checks. Replacing every non-self/non-enemy scope with `ally` would break that supported behavior. The existing default applies only to missing scope.
-- Eager pursuit computation is bounded and does not change which legal action wins. Making it lazy is an optional performance refinement; the recorded mixed-movement phase measurement remains the current evidence, not a claim that further optimization is impossible.
-- Generated attack capabilities are validated by the encounter schema and again by the director's start/action schemas. Substituting defaults for malformed explicit costs or abilities during hydration would silently change an authored kit. Keep absent fields compatible and supplied fields validated, as documented above.
-- The repeated request to disable start-query refreshes is rejected for the idempotency and stale-state reasons above; the real route replay proof remains the evidence.
-
-The publication review completed with 34 findings: 30 in the unchanged relocated skill and four in combat code. The four combat suggestions are all covered by the dispositions above (pursuit laziness, supported `any` item targeting, idempotent start refetches, and explicit capability validation). No further implementation change was required from this round. Earlier accepted findings remain fixed and tested. This is a reviewed-with-dispositions result, not a zero-findings claim.
-
-## Difficulty and weather follow-up
-
-See [Combat difficulty and weather](game-combat-difficulty-weather.md) for the #6305 implementation: normalized difficulty, enemy-only Traditional damage modifiers, seeded decision consistency, accepted weather in both modes, explicit attack traits, sheltered/unknown neutrality and fixed conditions across reloads. Alternative rulesets must define their own difficulty policy before inheriting damage scaling.
+The setup still validates obsolete fields on imports for compatibility and safety, but removes them from normalized setup exports. The engine retains explicit encounter seeds for restore/restart and regression reproduction. This does not remove Experience world seeds, which serve a different purpose.

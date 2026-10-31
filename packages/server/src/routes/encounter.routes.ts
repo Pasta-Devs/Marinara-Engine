@@ -14,6 +14,7 @@ import {
   rulesetBestiaryReactionNames,
   type RulesetCatalogEntriesById,
   type CombatItemEffect,
+  type CombatAiHints,
   type RulesetDefinition,
   type WorldElementSet,
   gameWorldElementSet,
@@ -34,6 +35,7 @@ import {
   RULESET_INVENTED_CASTER_MOST,
 } from "@marinara-engine/shared";
 import { loadGameFightItems } from "../services/game/game-inventory.service.js";
+import { cardsWithFreshTemperaments, keepPartyTemperaments } from "../services/game/party-temperament.service.js";
 import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
 import {
   latestStoryFight,
@@ -1521,6 +1523,18 @@ export async function encounterRoutes(app: FastifyInstance) {
         const guessed = Array.isArray(combatState.itemEffects) ? (combatState.itemEffects as CombatItemEffect[]) : [];
         combatState = { ...combatState, itemEffects: (await loadGameFightItems(app.db, chatMeta, guessed)).effects };
       }
+      // Each party member fights with their own temperament, kept from fight to fight (Alyssa
+      // 2026-10-31); one whose card has none yet keeps the one this fight read for them from now on.
+      const keptTemperaments = keepPartyTemperaments(
+        Array.isArray(combatState.party)
+          ? (combatState.party as Array<{ name?: unknown; aiHints?: CombatAiHints }>)
+          : [],
+        Array.isArray(chatMeta?.gameCharacterCards)
+          ? (chatMeta.gameCharacterCards as Array<Record<string, unknown>>)
+          : [],
+        chatId,
+      );
+      combatState = { ...combatState, party: keptTemperaments.party };
       debugLog("[debug/game/combat:init] parsed response:\n%s", JSON.stringify(combatState, null, 2));
       logger.info(
         "[game/combat:init] chatId=%s ready: party=%d enemies=%d",
@@ -1529,7 +1543,19 @@ export async function encounterRoutes(app: FastifyInstance) {
         Array.isArray(combatState.enemies) ? combatState.enemies.length : 0,
       );
 
-      await chats.patchMetadata(chatId, { encounterActive: true }, { touchUpdatedAt: false });
+      await chats.patchMetadata(
+        chatId,
+        (current) => {
+          const cards = Array.isArray(current.gameCharacterCards)
+            ? (current.gameCharacterCards as Array<Record<string, unknown>>)
+            : [];
+          const written = cardsWithFreshTemperaments(cards, keptTemperaments.fresh);
+          return written.changed
+            ? { encounterActive: true, gameCharacterCards: written.cards }
+            : { encounterActive: true };
+        },
+        { touchUpdatedAt: false },
+      );
 
       return { combatState };
     } catch (err) {

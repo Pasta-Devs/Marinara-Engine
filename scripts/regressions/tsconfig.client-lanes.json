@@ -37,6 +37,7 @@
     "package-audio-player.regression.ts",
     "onboarding-preview-highlight.regression.ts",
     "state-editor.regression.ts",
+    "preset-section-tokens.regression.ts",
     "marinara-host-namespace.regression.ts"
   ]
 }
