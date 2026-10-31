@@ -46,7 +46,7 @@ export function ListSearch({
         className,
       )}
     >
-      <label className="flex min-w-0 flex-1 items-center gap-2 self-stretch ps-2.5 pe-2.5">
+      <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 self-stretch ps-2.5 pe-2.5 md:min-h-0 [@media(pointer:coarse)]:min-h-11">
         <Search size="0.875rem" className="shrink-0" aria-hidden />
         <span className="sr-only">{label}</span>
         <input
