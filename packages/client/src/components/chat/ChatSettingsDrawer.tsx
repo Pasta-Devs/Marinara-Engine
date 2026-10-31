@@ -8651,12 +8651,6 @@ export function ChatSettingsDrawer({
                   </button>
                   {isGame && metadata.enableAgents && (
                     <div className="mt-1.5 px-3">
-                      {import.meta.env.VITE_MARINARA_LITE === "true" &&
-                        metadata.gameSceneConnectionId === LOCAL_SIDECAR_CONNECTION_ID && (
-                          <p className="mb-1 text-xs text-[var(--muted-foreground)]">
-                            {t("connections.select.localModel")}
-                          </p>
-                        )}
                       <ConnectionSelect
                         job={t("connections.picker.job.sceneEffects")}
                         value={(metadata.gameSceneConnectionId as string) || null}
