@@ -183,21 +183,57 @@ function refusedGatewayEffortKey(baseUrl: string, model: string) {
   return `${baseUrl}\n${model}`;
 }
 
-function gatewayRefusedEffort(baseUrl: string, model: string): boolean {
-  const key = refusedGatewayEffortKey(baseUrl, model);
-  const at = refusedGatewayEfforts.get(key);
+/** The refusal stores below, read and written the same way: an hour on the monotonic clock so a clock change cannot
+ *  stretch it, bounded so a long-lived process cannot grow them without limit. */
+function recentlyRefused(store: Map<string, number>, key: string, ttlMs: number): boolean {
+  const at = store.get(key);
   if (at === undefined) return false;
-  if (performance.now() - at < REFUSED_GATEWAY_EFFORT_TTL_MS) return true;
-  refusedGatewayEfforts.delete(key);
+  if (performance.now() - at < ttlMs) return true;
+  store.delete(key);
   return false;
 }
 
-function rememberGatewayRefusedEffort(baseUrl: string, model: string) {
-  if (refusedGatewayEfforts.size >= REFUSED_GATEWAY_EFFORT_MAX) {
-    const oldest = refusedGatewayEfforts.keys().next().value;
-    if (oldest !== undefined) refusedGatewayEfforts.delete(oldest);
+function rememberRefusal(store: Map<string, number>, key: string, max: number): void {
+  if (store.size >= max) {
+    const oldest = store.keys().next().value;
+    if (oldest !== undefined) store.delete(oldest);
   }
-  refusedGatewayEfforts.set(refusedGatewayEffortKey(baseUrl, model), performance.now());
+  store.set(key, performance.now());
+}
+
+function gatewayRefusedEffort(baseUrl: string, model: string): boolean {
+  return recentlyRefused(refusedGatewayEfforts, refusedGatewayEffortKey(baseUrl, model), REFUSED_GATEWAY_EFFORT_TTL_MS);
+}
+
+function rememberGatewayRefusedEffort(baseUrl: string, model: string) {
+  rememberRefusal(refusedGatewayEfforts, refusedGatewayEffortKey(baseUrl, model), REFUSED_GATEWAY_EFFORT_MAX);
+}
+
+/**
+ * The `tool` role is a Chat Completions invention: an endpoint that hands the request to Anthropic's Messages API
+ * refuses one, and only a user or assistant turn can carry the results. LinkAPI words it `messages: Unexpected role
+ * "tool". Allowed roles are "user", "assistant" or "system"`; Anthropic itself says `Input tag 'tool' found using
+ * 'role'`. Matched on the role/tool pairing only, so a plain refusal that never mentions either is left alone.
+ */
+const TOOL_ROLE_REJECTION =
+  /\brole\b[^\n]{0,48}?["'`]?tool\b|["'`]tool["'`]?[^\n]{0,48}?\brole\b|\brole[^\n]{0,24}?tool[^\n]{0,24}?(?:not\s+(?:a\s+)?(?:valid|allowed|supported)|unsupported)/i;
+
+function isToolRoleRejection(errorText: string): boolean {
+  return TOOL_ROLE_REJECTION.test(errorText);
+}
+
+/** Gateway and model pairs that refused the `tool` role, so later requests retell their tool rounds up front instead
+ *  of losing one request to the refusal on every round. */
+const refusedToolHistories = new Map<string, number>();
+const REFUSED_TOOL_HISTORY_TTL_MS = 60 * 60 * 1000;
+const REFUSED_TOOL_HISTORY_MAX = 256;
+
+function endpointRefusedToolHistory(baseUrl: string, model: string): boolean {
+  return recentlyRefused(refusedToolHistories, `${baseUrl}\n${model}`, REFUSED_TOOL_HISTORY_TTL_MS);
+}
+
+function rememberEndpointRefusedToolHistory(baseUrl: string, model: string): void {
+  rememberRefusal(refusedToolHistories, `${baseUrl}\n${model}`, REFUSED_TOOL_HISTORY_MAX);
 }
 
 /** Variants that are served without reasoning even when their family reasons. */
@@ -280,9 +316,13 @@ function looksLikeClaudeModel(model: string | undefined): boolean {
  * thinking block back only with the signature it was issued with, so unsigned reasoning is dropped; and it refuses an
  * assistant tool-call turn that keeps neither text nor signed thinking, so such a round is retold as text: its calls
  * go, and its results become one user message. Other empty unsigned assistant rows are omitted. Rounds with text or
- * signed thinking stay native.
+ * signed thinking stay native, unless `retellToolRounds` is set: an endpoint that refuses the `tool` role cannot take
+ * a native tool round at all, so every one is retold and its words stay as a plain assistant turn.
  */
-function anthropicSafeWireMessages(messages: ChatCompletionsWireMessage[]): ChatCompletionsWireMessage[] {
+function anthropicSafeWireMessages(
+  messages: ChatCompletionsWireMessage[],
+  retellToolRounds = false,
+): ChatCompletionsWireMessage[] {
   const signed = (detail: unknown) =>
     typeof detail === "object" &&
     detail !== null &&
@@ -317,7 +357,7 @@ function anthropicSafeWireMessages(messages: ChatCompletionsWireMessage[]): Chat
     const kept = Array.isArray(details) ? details.filter(signed) : [];
     const hasText =
       typeof rest.content === "string" ? !!rest.content.trim() : Array.isArray(rest.content) && rest.content.length > 0;
-    if (Array.isArray(rest.tool_calls) && rest.tool_calls.length && !hasText && !kept.length) {
+    if (Array.isArray(rest.tool_calls) && rest.tool_calls.length && (retellToolRounds || (!hasText && !kept.length))) {
       retold = new Map();
       for (const call of rest.tool_calls as Array<{
         id?: unknown;
@@ -332,6 +372,8 @@ function anthropicSafeWireMessages(messages: ChatCompletionsWireMessage[]): Chat
             : `${name}(${args.length > RETOLD_ARGUMENTS_MAX ? `${args.slice(0, RETOLD_ARGUMENTS_MAX)}…` : args})`,
         );
       }
+      // A forced retell of a round that had words keeps them: the endpoint refuses the calls, not the sentence.
+      if (hasText) result.push({ role: "assistant", content: rest.content });
       continue;
     }
     if (!hasText && !kept.length) continue;
@@ -339,6 +381,11 @@ function anthropicSafeWireMessages(messages: ChatCompletionsWireMessage[]): Chat
   }
   tell();
   return result;
+}
+
+/** The wire messages for an endpoint that refuses the `tool` role in history: every tool round is retold as text. */
+function toolRoleSafeWireMessages(messages: ChatCompletionsWireMessage[]): ChatCompletionsWireMessage[] {
+  return anthropicSafeWireMessages(messages, true);
 }
 
 type ResponsesUsagePayload = {
@@ -966,7 +1013,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   /**
    * POST a Chat Completions body and throw on an HTTP error. A strict chat template's rejection of consecutive
    * same-role messages is retried once with them merged, so endpoints that accept the original request never see a
-   * change.
+   * change; so is a gateway's refusal of the `tool` role, which gets the tool rounds retold as text.
    */
   private async postChatCompletions(
     url: string,
@@ -1020,6 +1067,34 @@ export class OpenAIProvider extends BaseLLMProvider {
         body.messages = messages;
         response = await send();
         if (response.ok) return response;
+        errorText = await response.text();
+      }
+    }
+    if (
+      Array.isArray(body.messages) &&
+      body.messages.some((message: Record<string, unknown>) => message?.role === "tool") &&
+      isToolRoleRejection(errorText)
+    ) {
+      // Anthropic's Messages API has no `tool` role, so a gateway in front of it refuses the replayed history. The
+      // calls cannot go as calls at all; the rounds are retold as text once, and remembered so later rounds skip the
+      // refusal. Native `tools` stay requested, so the model keeps calling them.
+      const messages = toolRoleSafeWireMessages(body.messages as ChatCompletionsWireMessage[]);
+      if (JSON.stringify(messages) !== JSON.stringify(body.messages)) {
+        logger.warn(
+          "[OpenAI] %s refused the tool role in history; retrying once with the tool rounds retold as text",
+          this.chatCompletionsErrorLabel(),
+        );
+        logDebugOverride(
+          options.debugMode === true || isDebugAgentsEnabled(),
+          "[debug/openai] tool-role retry messages:\n%j",
+          messages,
+        );
+        body.messages = messages;
+        response = await send();
+        if (response.ok) {
+          rememberEndpointRefusedToolHistory(this.baseUrl, options.model);
+          return response;
+        }
         errorText = await response.text();
       }
     }
@@ -1793,10 +1868,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     ];
   }
 
-  /** The Chat Completions messages for a request: Claude gets them in the shape Anthropic takes. */
+  /** The Chat Completions messages for a request: Claude gets them in the shape Anthropic takes, and a gateway that
+   *  refused the `tool` role gets its tool rounds retold as text from then on. */
   private chatCompletionsMessages(messages: ChatMessage[], model?: string): ChatCompletionsWireMessage[] {
     const formatted: ChatCompletionsWireMessage[] = this.formatMessages(messages, model);
-    return looksLikeClaudeModel(model) ? anthropicSafeWireMessages(formatted) : formatted;
+    const shaped = looksLikeClaudeModel(model) ? anthropicSafeWireMessages(formatted) : formatted;
+    return model && endpointRefusedToolHistory(this.baseUrl, model) ? toolRoleSafeWireMessages(shaped) : shaped;
   }
 
   private formatMessages(messages: ChatMessage[], model?: string) {
