@@ -1,6 +1,6 @@
 {
   "language": "zh-hans",
-  "sourceCommit": "aac35cba82215c33c23584684b1b1f3a2ecf5617",
+  "sourceCommit": "c47365635bda57b28c384971f8d541ac981f3971",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "894757505f3bd570835ef9687bad2447d591f1b8d5b415b661752d88899c8ef0",
-      "bytes": 36106
+      "sha256": "d81a93b0b914bb3d8e58eb16fc844a15fbf7f0baa831f1922cfa70476b6660dd",
+      "bytes": 36321
     },
     {
       "path": "agents/custom-agents.md",
@@ -129,8 +129,8 @@
     },
     {
       "path": "characters/interactive-onboarding.md",
-      "sha256": "bfe256fa0952d852eb3bf25d497f96706813fe5c9fb3516e7e4c4cb203278eee",
-      "bytes": 10430
+      "sha256": "0f95dd7e0f6bd07a40871e62a03696ae71e5c0ea2f665eb1501c0b4e42d164e1",
+      "bytes": 11237
     },
     {
       "path": "characters/library-organization.md",
@@ -149,8 +149,8 @@
     },
     {
       "path": "chats/branches.md",
-      "sha256": "312bbefae0e5cfe4fde58a7482aefa0e01925099e52b85f3e6f85cf7cb888248",
-      "bytes": 8947
+      "sha256": "a92789be3434cf0ab8115f234cf2b8056a394578ea9b40ee21e535067d4ab1cb",
+      "bytes": 9022
     },
     {
       "path": "chats/chat-settings.md",
@@ -169,8 +169,8 @@
     },
     {
       "path": "chats/group-chats.md",
-      "sha256": "4331df46de7b935d3f28348f648effee2548271610c4acd3667f0d643ca61d6c",
-      "bytes": 12709
+      "sha256": "3cd5f5158c22c77cb880e3c7505512f6b8481a150137fd0aa687dd6c281c3733",
+      "bytes": 16413
     },
     {
       "path": "chats/guided-and-impersonate.md",
@@ -219,8 +219,8 @@
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "5dc4934bc2687d50448f51e8778ca342c9e44b6584e1c748c174a6cfad255151",
-      "bytes": 25518
+      "sha256": "109e8298b3dd33c290ed5605d749ddde5a2c1bbc73153fe9ec286841ea7b5a2b",
+      "bytes": 26789
     },
     {
       "path": "connections/local-model.md",
@@ -499,8 +499,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "80c26e3562a2988ba5ae3b3d5d11b44d5d7461fda45f738adbbe476bc736c133",
-      "bytes": 35852
+      "sha256": "27b2b36957167f36b61baf5bb6ef3da6c75fb4c935530231cddd3113281a5edb",
+      "bytes": 39176
     },
     {
       "path": "home/tutorial.md",

@@ -16,6 +16,7 @@ As respostas controlam o comportamento do Marinara; elas não são publicadas co
 - **[Declarações em prompts](../prompts/conditional-prompts.md#asking-the-decision-model)** escolhem texto ao preparar um prompt de chat ou agente. Sem resposta, a decisão vale não; portanto, um bloco de decisão simples usa seu ramo `{{else}}`, se houver.
 - **[Campos Decision de lorebooks](../lorebooks/entries.md#decision-activation)** verificam Require ou Trigger durante a análise dos lorebooks do chat. Sem resposta, Require não pode admitir uma nova entrada e Trigger não acrescenta uma via de ativação. Retenções Sticky existentes e vias normais de ativação de entradas Trigger continuam valendo.
 - **[Ordem de resposta Smart](../chats/group-chats.md#response-order-individual-only)** pontua quem deve falar em seguida em um chat em grupo, se ativada. Sem resposta, a ordem Smart faz sua chamada normal à IA.
+- **[Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only)** pergunta quem está na cena antes de cada resposta em um grupo de Roleplay no modo Merged, se estiver em **Decision model**. Sem resposta para todos os personagens, usa a última cena do Character Tracker ou mantém a lista como está.
 - **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)** pode usar um modelo local ou uma conexão de decisão escolhidos separadamente para limites de cena e seleção de memórias em Roleplay. Ative **Use Decision model** nas configurações de Advanced Memory desse chat. Os resumos continuam com o modelo auxiliar. Decisões que falham recorrem à recuperação ou verificação de cenas normal.
 
 Uma pergunta de ativação controla se um agente roda; uma declaração de decisão dentro do prompt controla as instruções que esse agente recebe ao rodar. Use `{{#if decision:"..."}}` para condições de prompt de sim/não e `{{#if decision_choice:"..." == "..."}}` para escolher entre respostas.
@@ -28,7 +29,9 @@ Nas perguntas de ativação e declarações de prompts/lorebooks, o modelo receb
 
 **A ordem de resposta Smart também envia uma lista de personagens.** Ela inclui nome, status, atividade e sociabilidade de cada candidato quando disponíveis, além de até 300 caracteres da personalidade ou, se estiver vazia, da descrição. Um provedor Decision hospedado recebe essa lista junto com as mensagens recentes.
 
-- As declarações de decisão em prompts e entradas de lorebook e a ordem de resposta Smart leem as últimas 5 mensagens. Esse número é fixo.
+**Automate active characters também envia uma lista de personagens.** Ela inclui o nome de cada personagem e até 300 caracteres da descrição ou, se estiver vazia, da personalidade, reduzidos a 100 caracteres ou só aos nomes quando um elenco grande não caberia, além dos nomes que o Character Tracker viu por último na cena. Se mesmo só com os nomes sobrar pouco espaço para as mensagens recentes, o modelo não é consultado e o Character Tracker assume. Um provedor Decision hospedado recebe essa lista junto com as mensagens recentes. As respostas em um grupo Merged são rotuladas como "the narrator", já que uma única resposta dá voz a todos.
+
+- As declarações de decisão em prompts e entradas de lorebook, a ordem de resposta Smart e Automate active characters leem as últimas 5 mensagens. Esse número é fixo.
 - As perguntas de ativação leem a **Scan Depth** (profundidade de análise) do agente, 5 por padrão.
 - Cada mensagem é identificada pelo nome de quem fala. Mensagens ocultas da IA ficam de fora.
 - Tudo que é verificado depois da resposta, como a pergunta de ativação de um agente de pós-processamento ou uma declaração no seu prompt, também vê a resposta recém-escrita.
@@ -220,6 +223,7 @@ Para exemplos concretos de redação e uma forma de testá-los nos seus chats, v
 - **Um agente com pergunta de ativação roda em todo turno.** Nenhum Decision model está definido, ou ele não responde; portanto, o agente roda como se não tivesse pergunta. Confira **Test**.
 - **Um ramo de decisão em um prompt nunca aparece.** Veja [Quando um ramo de decisão nunca aparece](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
 - **A ordem de resposta Smart continua fazendo sua chamada normal à IA.** O controle está desligado ou o Decision model não respondeu naquele turno.
+- **Automate active characters segue o Character Tracker em vez disso.** O Decision model não respondeu para todos os personagens naquele turno, ele pensa primeiro e **Also gate agents that run before the reply** está desligada, ou o elenco é grande demais para caber na entrada do modelo, mesmo só com os nomes, então ele não foi consultado.
 - **Para ver pontuações e saídas de decisões durante a geração**, ative Debug Mode ou o nível de log debug. Logs de decisões de prompt incluem limites, resultados e se as respostas foram reutilizadas ou mantidas por regras temporais. Veja [Níveis de log](../CONFIGURATION.md#logging-levels).
 - **Para testar suas afirmações sem gerar uma resposta**, abra **Peek Prompt → Decision diagnostics → Test decisions** (Peek Prompt → diagnóstico de decisões → testar decisões). Prévias das entradas são passivas; testes explícitos chamam o modelo selecionado e podem gerar cobranças de hospedagem. Veja [Testar afirmações de decisão](../chats/peek-prompt.md#testing-decision-statements).
 

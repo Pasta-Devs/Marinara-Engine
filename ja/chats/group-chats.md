@@ -64,7 +64,7 @@ Chat Settingsの中には**Characters**セクションがあります。ここ�
 
 安全策が1つあります。チャット内のキャラクターを全員無効にすると、Marinaraは全員を有効なものとして扱います。キャラクターが1人もいない返信を防ぐためです。
 
-このオンとオフの状態はチャットごとに保存します。アプリのほかの場所にあるキャラクターには影響しません。
+このオンとオフの状態はチャットごとに保存します。アプリのほかの場所にあるキャラクターには影響しません。MergedモードのRoleplayグループでは、[アクティブなキャラクターの自動化](#automate-active-characters-merged-only)でこの状態を自動で切り替えられます。
 
 ## 発言者の決め方: Roleplayモード
 
@@ -80,6 +80,30 @@ Roleplayモードでは、グループチャットの**Chat Settings**に**Group
 ### Color Dialogues(Merged時のみ)
 
 **Mode**が**Merged (Narrator)**のときは、**Color Dialogues**をオンにできます。デフォルトはオフです。オンにすると、各キャラクターのセリフがそのキャラクター専用の色で表示されます。色はCharacter Editorの**Colors**タブで決まります。このタブでは名前の色、セリフの色、メッセージボックスの色を設定します。設定方法はキャラクター編集のガイドを参照してください。
+
+<a id="automate-active-characters-merged-only"></a>
+
+### Automate active characters(Merged時のみ)
+
+Mergedモードでは、アクティブなキャラクター全員のカードが返信のたびにプロンプトへ入ります。そのため、出演者が多いとコンテキストがいっぱいになり、キャラクターの出入りに合わせて目のトグルを手作業で切り替えることになります。**Mode**が**Merged (Narrator)**のときは、**Automate active characters**(アクティブなキャラクターを自動化)がその切り替えを代行できます。選択肢は3つで、デフォルトは**Off**(オフ)です。
+
+- **Off**: 目のトグルで、誰をアクティブにするかを自分で選びます。
+- **Decision model**(判断モデル): 返信のたびに、[Decisionモデル](../connections/decision-models.md)に、キャラクターごとに「はい/いいえ」の質問を1つ投げます。そのキャラクターは、返信が続くシーンにいるか、またはこれから登場するか、という質問です。話題に出ただけ、思い出されただけでは対象にならないため、話に出るだけのキャラクターはオフのままです。シーンにいると判断されたキャラクターはオンになり、それ以外はオフになります。
+- **Character Tracker**: [Character Tracker](../agents/built-in-agents.md#character-tracker)が直近の返信で記録した登場キャラクターが、誰をアクティブにするかを決めます。追加のモデル呼び出しは不要ですが、1ターン遅れて反映されます。そのターンに登場したキャラクターは、次のターンでオンになります。
+
+設定の下のヒントは、足りないものがあるときにそれを知らせます。Decisionモデルが未選択の場合、このチャットでCharacter Trackerがオフの場合、またはCharacter Trackerが手動で実行される設定で、実行したあとにだけ一覧が変わる場合です。
+
+チャットが問題なく動くように、いくつかのルールがあります。
+
+- **ピン留め。** 自動化がオンの間、**Characters**一覧の各行で、目の左にピンが表示されます。クリックすると、そのキャラクターを現在の状態(オンまたはオフ)のままピン留めし、以後、自動化はそのキャラクターに触れません。目のトグルを手動で切り替えたキャラクターもピン留めされるので、次の返信で選択が元に戻されることはありません。ピン留めされた行のピンはAccent Colorで表示され、もう一度クリックすると解除できます。自動化を**Off**にすると、すべてのピン留めが解除されます。
+- **ナレーターは常にアクティブです。** **Roleplay Commands**(Roleplayコマンド)で指定した**Narrator**(ナレーター)がオフになることはありません。
+- **回答がなければ一覧は維持されます。** **Decision model**モードで、モデルが一部または全部のキャラクターについて回答しなかった場合は、あればCharacter Trackerの直近のシーンが代わりに使われます。先に思考するモデルは、**Also gate agents that run before the reply**(返信前に実行するエージェントも判定)がオンでない限り返信の前には回答しないため、トラッカーが代わりを務めます。名前だけでもDecisionモデルの入力に収まらないほど出演者が多い場合も同様で、その場合はモデルにまったく質問しません。どちらにも回答がなければ、一覧はそのままです。
+- **全員がオフになる結果は認められません。** 全員をオフにしてしまう結果は無視されます。
+- **Character Activityエージェントが優先されます。** 結果の種類に**Character Activity**を使うカスタムエージェントがあるチャットでは、そのエージェントが引き続き管理し、自動化は何もしません。
+
+Character Trackerは、見つけたキャラクターごとに独自の名前を書き込みます。キャラクターとカードの照合は、カードのID、名前、Character Editorの**Colors**タブにあるカードの名前の別名の順に行われるため、オフの間に登場したカードも見つかります。チャットのキャラクターが1人も含まれないトラッカーの一覧、たとえばエキストラだけのシーンの場合は、現在の一覧が維持されます。
+
+自動化は、返信、スワイプ、再生成のたびにその前に実行されます。**Continue**とimpersonateでは実行されません。この設定は設定プロファイルに保存され、ピン留めは1つのチャットに属します。
 
 <a id="response-order-individual-only"></a>
 
@@ -119,12 +143,13 @@ Roleplayの**Individual**モードで順序を**Smart**または**Manual**にす
 |---|---|---|
 | **Mode**(**Merged (Narrator)** / **Individual**) | Group Chatセクション | Merged (Narrator) |
 | **Color Dialogues** | Group Chatセクション、Mergedモード | Off |
+| **Automate active characters**(Off / Decision model / Character Tracker) | Group Chatセクション、Mergedモード | Off |
 | **Response Order**(Sequential / Smart / Manual) | Group Chatセクション、Individualモード | Sequential |
 | **Add Turn To Prompt** | Group Chatセクション、Individualモード | On |
 | **Name Prefix History** | Group Chatセクション、Individualモード | Off |
 | **Scenario Override** | Group Chatセクション | 空(オフ) |
 
-これらの設定はほとんどが設定プロファイルに保存されるので、繰り返し使えます。例外は**Scenario Override**だけで、こちらはそのチャットに残ります。
+これらの設定はほとんどが設定プロファイルに保存されるので、繰り返し使えます。例外は**Scenario Override**だけで、こちらはそのチャットに残ります。自動化のピン留めも、そのチャットに残ります。
 
 ## 発言者の決め方: Conversationモード
 

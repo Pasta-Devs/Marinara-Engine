@@ -16,6 +16,7 @@ Odpowiedzi sterują zachowaniem aplikacji Marinara; nie są publikowane jako odp
 - **[Stwierdzenia w promptach](../prompts/conditional-prompts.md#asking-the-decision-model)** wybierają tekst podczas przygotowywania promptu czatu lub agenta. Przy braku odpowiedzi decyzja oznacza nie, więc prosty blok decyzyjny używa gałęzi `{{else}}`, jeśli istnieje.
 - **[Pola Decision w lorebooku](../lorebooks/entries.md#decision-activation)** sprawdzają Require lub Trigger podczas skanowania lorebooka czatu. Bez odpowiedzi Require nie może dopuścić nowego wpisu, a Trigger nie dodaje drogi aktywacji. Nadal obowiązują istniejące okresy Sticky i zwykłe drogi aktywacji wpisu Trigger.
 - **[Smart response order](../chats/group-chats.md#response-order-individual-only)** ocenia, kto powinien odezwać się następny w czacie grupowym, jeśli opcja jest włączona. Bez odpowiedzi kolejność Smart korzysta ze zwykłego wywołania AI.
+- **[Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only)** pyta, kto jest w scenie, przed każdą odpowiedzią w grupie Roleplay w trybie Merged, jeśli jest ustawione na **Decision model**. Bez odpowiedzi dla każdej postaci używa ostatniej sceny Character Tracker albo zostawia listę bez zmian.
 - **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)** może używać osobno wybranego modelu lokalnego lub połączenia decyzyjnego do wykrywania granic scen i wybierania pamięci w Roleplay. Włącz **Use Decision model** w ustawieniach tego czatu. Podsumowania nadal pisze model pomocniczy. Nieudane decyzje uruchamiają zwykłe przywoływanie lub kontrolę scen.
 
 Pytanie aktywacyjne steruje uruchomieniem agenta; stwierdzenie decyzyjne w jego prompcie steruje instrukcjami otrzymywanymi przez uruchomionego agenta. Używaj `{{#if decision:"..."}}` do warunków tak/nie i `{{#if decision_choice:"..." == "..."}}` do wyboru odpowiedzi.
@@ -28,7 +29,9 @@ Przy pytaniach aktywacyjnych i stwierdzeniach w promptach lub lorebookach model 
 
 **Smart response order wysyła również listę postaci.** Zawiera imię, status, aktywność i rozmowność każdego kandydata, jeśli są dostępne, oraz do 300 znaków osobowości albo opisu, jeśli osobowość jest pusta. Zdalny dostawca Decision otrzymuje tę listę wraz z ostatnimi wiadomościami.
 
-- Stwierdzenia decyzyjne w promptach i wpisach lorebooka oraz Smart response order czytają ostatnie 5 wiadomości. Ta liczba jest stała.
+**Automate active characters wysyła również listę postaci.** Zawiera imię każdej postaci oraz do 300 znaków opisu albo osobowości, jeśli opis jest pusty, skrócone do 100 znaków albo do samych imion, gdy duża obsada by się nie zmieściła, a do tego imiona, które Character Tracker ostatnio widział w scenie. Jeśli nawet same imiona zostawiają za mało miejsca na ostatnie wiadomości, model nie jest pytany, a jego miejsce zajmuje Character Tracker. Zdalny dostawca Decision otrzymuje tę listę wraz z ostatnimi wiadomościami. Odpowiedzi w grupie Merged są oznaczane jako "the narrator", ponieważ jedna odpowiedź mówi głosem wszystkich.
+
+- Stwierdzenia decyzyjne w promptach i wpisach lorebooka, Smart response order oraz Automate active characters czytają ostatnie 5 wiadomości. Ta liczba jest stała.
 - Pytania aktywacyjne czytają liczbę wiadomości ustawioną przez **Scan Depth** (głębokość skanowania) agenta, domyślnie 5.
 - Każda wiadomość ma etykietę z imieniem autora. Wiadomości ukryte przed AI są pomijane.
 - Każde sprawdzenie po odpowiedzi, na przykład pytanie aktywacyjne agenta przetwarzania końcowego lub stwierdzenie w jego prompcie, widzi także właśnie napisaną odpowiedź.
@@ -220,6 +223,7 @@ Przykłady sformułowań i sposób sprawdzania ich na własnych czatach znajdzie
 - **Agent z pytaniem aktywacyjnym działa w każdej turze.** Model decyzyjny nie jest wybrany albo nie odpowiada, więc agent działa tak, jakby nie miał pytania. Sprawdź **Test**.
 - **Gałąź decyzyjna promptu nigdy się nie pojawia.** Zobacz [Gdy gałąź decyzyjna nigdy się nie pojawia](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
 - **Smart response order nadal wykonuje zwykłe wywołanie AI.** Przełącznik jest wyłączony albo model decyzyjny nie odpowiedział w tej turze.
+- **Automate active characters zamiast tego idzie za Character Tracker.** Model decyzyjny nie odpowiedział dla każdej postaci w tej turze, najpierw myśli, a **Also gate agents that run before the reply** jest wyłączone, albo obsada jest zbyt duża, by zmieścić się w danych wejściowych modelu nawet po samych imionach, więc nie został zapytany.
 - **Aby zobaczyć wyniki i dane wyjściowe decyzji podczas generowania**, włącz Debug Mode lub poziom logowania debug. Logi decyzji promptu zawierają progi, wyniki i informację o ponownym użyciu lub podtrzymaniu odpowiedzi przez reguły czasowe. Zobacz [Poziomy logowania](../CONFIGURATION.md#logging-levels).
 - **Aby przetestować własne stwierdzenia bez generowania odpowiedzi**, otwórz **Peek Prompt → Decision diagnostics → Test decisions** (Peek Prompt → diagnostyka decyzji → testuj decyzje). Podglądy wejścia są pasywne; jawne testy wywołują wybrany model i mogą powodować opłaty u dostawcy hostowanego. Zobacz [Testowanie stwierdzeń decyzyjnych](../chats/peek-prompt.md#testing-decision-statements).
 

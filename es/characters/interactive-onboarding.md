@@ -50,7 +50,9 @@ Más abajo, en la misma pestaña, hay una segunda lista: **Character Questions**
 {{char}} treats {{relationshipToUser}} with open warmth.
 ```
 
-Esos cinco campos son los que lee el modelo, así que son los únicos a los que puede llegar una respuesta de personaje.
+Esos cinco campos son los que lee el modelo, así que son los únicos a los que puede llegar una respuesta de personaje. Un saludo también puede usar el `{{name}}` de una pregunta de personaje, y muestra la respuesta del jugador.
+
+Un saludo también puede usar el `{{name}}` de una pregunta de persona, como `Ah, so you are a {{class}}`. Solo se rellena cuando el jugador crea esa persona en el asistente de chat nuevo, en el primer mensaje y en sus saludos alternativos. Con una persona existente o con Quick Start, la etiqueta se muestra tal como está escrita, y el Character Editor te avisa de ello. Haz clic en un saludo y su lista **Available variables** (Variables disponibles) muestra ambos tipos de preguntas, con su etiqueta.
 
 Las respuestas se guardan como variables del chat, de modo que la tarjeta lee un valor distinto en cada chat y nunca hace falta editarla. Una pregunta de la tarjeta se hace siempre que la tarjeta está en el chat, tanto si el jugador crea una persona como si no. La ventana muestra una sección **About you** (Sobre ti) solo cuando se está creando una.
 
@@ -70,7 +72,7 @@ Class: {{class}}
 Role: {{player}} is a {{class}} sworn to {{faction}}.
 ```
 
-Cuando haces clic en un campo, aparecen debajo sus **Available variables** (Variables disponibles). Haz clic en una para insertarla donde está el cursor.
+Cuando haces clic en un campo, aparecen debajo sus **Available variables**. Haz clic en una para insertarla donde está el cursor.
 
 Usa `{{#if}}` para mostrar texto solo con algunas respuestas:
 
@@ -99,6 +101,8 @@ Ambas vías también funcionan después de la configuración, desde **Chat Setti
 
 - El selector **Persona** de un chat de Roleplay muestra **Create your persona** para cada tarjeta del chat que lo ofrezca. Úsalo si te saltaste el asistente o quieres una persona nueva más adelante.
 - El marcador de onboarding junto a un personaje en **Characters** (Personajes) vuelve a abrir las preguntas de personaje de esa tarjeta por sí solas. Se abre con las respuestas que el chat ya tiene, así que guardar un cambio deja las demás como estaban; volver a guardar también restaura una respuesta que borraste de la sección Chat Variables. Las respuestas de otras tarjetas no se tocan — salvo un nombre que comparten dos tarjetas, que es un solo valor, así que ambas tarjetas leen la nueva respuesta.
+
+Al añadir una tarjeta con preguntas de personaje a un chat de Roleplay en curso, desde **Chat Settings** o soltándola sobre el chat, se hacen primero sus preguntas. Después se ofrece su saludo, con tus respuestas rellenadas y marcadas.
 
 ## Compartir tarjetas con onboarding
 

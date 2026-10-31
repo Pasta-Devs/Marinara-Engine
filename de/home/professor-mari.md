@@ -10,7 +10,7 @@ Professor Mari wohnt auf dem Home-Bildschirm. Der Home-Bildschirm ist das, was d
 
 Halte Ausschau nach dem Widget **Professor Mari** mit ihrer Pixel-Grafik und klick dann auf **Ask Professor Mari** (Professor Mari fragen), um ihr komplettes Chatfenster zu öffnen. Auch der Tab **Professor** oben auf Home öffnet es. Ihr Fenster öffnet sich innerhalb der Suche, du erreichst sie also von jedem Bildschirm aus: Tipp etwas in das Suchfeld und wähl **Ask Prof. Mari** (Prof. Mari fragen), drück Strg+J (Cmd+J auf dem Mac) oder zieh auf dem Handy von der oberen Leiste nach unten. Eine Statuszeile im Kopf ihres Fensters zeigt **Ready to help** („bereit zu helfen“), wenn sie nichts zu tun hat, und **Working on it...**, während sie arbeitet.
 
-Mit ihr sprichst du in ganz normaler Sprache. Tipp eine Nachricht in das Feld und drück Enter zum Abschicken. Shift und Enter zusammen fügen stattdessen eine neue Zeile ein. Schaltest du in ihren Einstellungen **Enter sends to Professor Mari** (Enter sendet an Professor Mari) aus, fügt Enter eine neue Zeile ein, und Strg+Enter (Cmd+Enter auf dem Mac) sendet.
+Mit ihr sprichst du in ganz normaler Sprache. Tipp eine Nachricht in das Feld und drück Enter zum Abschicken. Shift und Enter zusammen fügen stattdessen eine neue Zeile ein. Schaltest du in ihren Einstellungen **Enter sends to Professor Mari** (Enter sendet an Professor Mari) aus, fügt Enter eine neue Zeile ein, und Strg+Enter (Cmd+Enter auf dem Mac) sendet. Während sie arbeitet, können die Tasten etwas mehr, wie unter [Nachrichten senden, während sie arbeitet](#sending-messages-while-she-works) beschrieben.
 
 Die allererste Nachricht an sie schaltet die Errungenschaft **Hello World** frei.
 
@@ -66,7 +66,7 @@ In einem leeren Chat mit Professor Mari erleichtern Start-Chips wie **Create a C
 
 Geführte Abläufe stellen eine gezielte Frage nach der anderen, statt dir gleich ein langes Formular vorzusetzen.
 
-Bei einer vollständigen Anfrage zum Erstellen oder Bearbeiten kann Professor Mari einen begrenzten geführten Plan liefern. Jeder Schritt bietet eine kleine Auswahl an Vorschlägen. Wählst du einen davon, füllt er den aktuellen Entwurf, und der Plan rückt lokal einen Schritt weiter. Wechselst du zu einem anderen Vorschlag, bleibt dein Text im Entwurf erhalten. Der Plan gehört zum aktuellen Professor-Mari-Chat; ein Chatwechsel, ein Restart, das Stoppen eines Durchlaufs oder der Abschluss des Plans räumt veraltete Schritte deshalb ab. Fehlerhafte oder überzählige Vorschläge werden verworfen, und solange Professor Mari arbeitet, sind die Chips deaktiviert.
+Lässt eine Anfrage echte Entscheidungen offen, kann Professor Mari anhalten und auf einer Fragekarte unter ihrer Antwort nachfragen: bis zu vier Fragen, eine nach der anderen, jeweils mit einigen Optionen, wobei die von ihr empfohlene markiert ist. Bei manchen Fragen sind mehrere Antworten möglich. Wähl eine Option oder tipp eine eigene Antwort und drück dann **Submit** (absenden): Deine Antworten gehen als deine nächste Nachricht raus, sodass nichts verborgen bleibt und du siehst, was ihr gesagt wurde. Ihr Zug endet, sobald sie fragt, und nichts, was sie zusammen mit der Frage vorgeschlagen hat, wird ausgeführt, bevor du antwortest. Du kannst die Karte auch ignorieren und ins Nachrichtenfeld tippen; deine nächste Nachricht beantwortet sie dann.
 
 Vorschläge gibt es nur in Chats mit Professor Mari. Andere Charaktere bekommen die Chips von Professor Mari nicht.
 
@@ -126,7 +126,7 @@ Dieselben Befehle kannst du auch mit `/` tippen, wie unter [Befehle mit /](#comm
 
 Wähl im Büroklammer-Menü **Attach files or photos** oder tipp `/attach`, um deiner Nachricht eine Datei beizulegen.
 
-Sie nimmt Bilder, PDF-Dateien und gängige Textdateien wie `.txt`, `.md`, `.json`, `.csv` und `.log` an. Jede Datei darf bis zu 20 MB groß sein. Angehängte Dateien erscheinen vor dem Absenden als entfernbare Chips über dem Nachrichtenfeld.
+Sie nimmt Bilder, PDF-Dateien und gängige Textdateien wie `.txt`, `.md`, `.json`, `.csv` und `.log` an. Jede Datei darf bis zu 20 MB groß sein. Angehängte Dateien erscheinen vor dem Absenden als entfernbare Chips über dem Nachrichtenfeld. Einen Screenshot oder eine kopierte Datei kannst du auch direkt in das Nachrichtenfeld einfügen, mit **Strg+V** oder der Einfügen-Funktion deines Handys.
 
 Damit sie ein Bild lesen kann, muss das Modell der gewählten Verbindung Bilder als Eingabe unterstützen.
 
@@ -268,7 +268,43 @@ Klick auf die Schaltfläche **Chats** in ihrer Kopfzeile, um die gespeicherten C
 
 Klick auf die Schaltfläche **New chat**, um einen frischen Chat mit ihr zu beginnen. Sie speichert den aktuellen Chat zuerst in der Liste **Chats**. Dasselbe erreichst du mit `/new` (oder `/restart`) im Nachrichtenfeld. Du siehst die Meldung „Professor Mari's previous chat was saved.“
 
-Während sie arbeitet, wird die Senden-Schaltfläche zu einer Schaltfläche **Stop**. Ein Klick darauf bricht die laufende Aufgabe ab.
+Während sie arbeitet, steht neben der Senden-Schaltfläche eine Schaltfläche **Stop**. Ein Klick darauf bricht die laufende Aufgabe ab.
+
+<a id="sending-messages-while-she-works"></a>
+
+### Nachrichten senden, während sie arbeitet
+
+Das Nachrichtenfeld bleibt offen, während sie arbeitet, und du bestimmst, wann deine Nachricht sie erreicht:
+
+- **Send now** (jetzt senden) geht bei ihrem nächsten Schritt ein, ohne sie zu stoppen. Ihre bisherige Antwort wird gespeichert, deine Nachricht erscheint darunter, und sie macht weiter und berücksichtigt dabei, was du gesagt hast. So korrigierst du sie mitten in der Aufgabe und behältst die Arbeit, die sie schon geleistet hat.
+- **Queue for later** (für später einreihen) wartet in einer Liste über dem Feld, markiert mit **Sends when she finishes**. Schließt sie sauber ab, nimmt sie die wartenden Nachrichten der Reihe nach einzeln auf.
+
+| | Send now | Queue for later |
+|---|---|---|
+| **Enter sends** an (Standard) | Enter | Strg+Enter |
+| **Enter sends** aus | Strg+Enter | Strg+Shift+Enter |
+
+Auf dem Mac nimmst du Cmd statt Strg. Shift+Enter fügt immer eine neue Zeile ein. Der kleine Pfeil neben der Senden-Schaltfläche bietet beide Möglichkeiten an, was auf dem Handy hilft.
+
+Send now ist nur für reinen Text gedacht, innerhalb des Durchlaufs, den sie schon macht. Eine Nachricht mit Dateien, `@`-Verknüpfungen oder einem Feld, das du ihr übergeben hast, wird stattdessen eingereiht, ebenso eine zu einem anderen Thema oder eine, die du nach einer Änderung des Berechtigungsmodus abschickst. Ein kurzer Hinweis sagt dir das. Eine wartende Nachricht ohne diese Merkmale hat eine eigene Schaltfläche **Send now**. Klick auf das **X** an einer Nachricht, um sie zu entfernen. Ein Chat kann bis zu 20 wartende Nachrichten aufnehmen.
+
+Hat sie schon einige Schritte erledigt, aber noch nichts gesagt, wenn deine Nachricht eintrifft, bleiben ihre Schritte erhalten, mit einer abgeblendeten Zeile **Still working**. Send now kann ihr nicht mehr Schritte geben, als ein Durchlauf erlaubt. Hat sie die Grenze erreicht oder ist sie stehen geblieben, um dich etwas zu fragen, bleibt deine Nachricht in der Liste.
+
+Wartende Nachrichten werden in diesen Fällen nicht von selbst gesendet:
+
+- **Du drückst Stop.** Sie kommen zurück ins Nachrichtenfeld, sodass du sie bearbeiten oder erneut senden kannst.
+- **Sie wartet auf dich**, auf eine Freigabe oder die Antwort auf eine Frage. Sie zeigen **Held** mit einer Schaltfläche **Send** (Senden).
+- **Der Durchlauf ist fehlgeschlagen, oder die App wurde neu gestartet.** Sie zeigen ebenfalls **Held**. Nichts geht verloren.
+
+Eine zurückgehaltene Nachricht bleibt zurückgehalten, bis du sie sendest oder entfernst. **Send** sendet nur diese eine, und das Tippen einer neuen Nachricht gibt die anderen nicht frei.
+
+`/restart` und `/title` tun nichts, während sie arbeitet, und bleiben im Feld stehen, bis sie fertig ist.
+
+<a id="her-to-do-list"></a>
+
+### Ihre To-do-Liste
+
+Bei einer längeren Aufgabe führt sie für sich selbst eine kurze Liste mit Schritten. Sie steht unter ihrer neuesten Nachricht mit einer Zählung wie **2 of 5**; der Schritt, an dem sie gerade arbeitet, dreht sich, solange sie arbeitet, und erledigte Schritte sind durchgestrichen. Du kannst die Liste nicht bearbeiten. Sie soll dir zeigen, wo Professor Mari gerade steht, und wird von ihr laufend aktualisiert. Sobald du nach der Antwort schreibst, die die Liste gespeichert hat, wird sie abgeblendet und trägt die Aufschrift **Plan from before your last message**. Sie verschwindet nach ihrer nächsten Antwort, die die Liste nicht anfasst.
 
 ## Ihr Fenster verlassen
 
@@ -298,7 +334,7 @@ Professor Mari ist eine Helferin, nicht die vollständige Dokumentation. Behalte
 - Neue Inhalte anzulegen ist meist unbedenklich, weil dabei nichts überschrieben wird. Bestehende Inhalte zu bearbeiten verlangt mehr Sorgfalt.
 - Eine freigegebene Abhängigkeit ist fremder Code mit denselben Laufzeitrechten wie der Marinara-Code, der ihn importiert. Prüfe Paketname, exakte Version, Zweck und Integrität in der Freigabekarte.
 - Nenne bei Bearbeitungen genau das Objekt und genau das Feld, das sich ändern soll. „Schreib diesen Charakter komplett neu“ ist riskanter als „mach Lunas Begrüßung kürzer, lass ihre Persönlichkeit gleich“.
-- Nutze bei mehrstufigen Erstellungen die Vorschlags-Chips und beantworte eine gezielte Frage nach der anderen, statt alle Felder auf einmal liefern zu wollen.
+- Beantworte bei mehrstufigen Erstellungen ihre Fragekarte oder nutze die Vorschlags-Chips, statt alle Felder auf einmal liefern zu wollen.
 - Behauptet sie, eine Aufgabe erledigt zu haben, die App zeigt sie aber nicht – dann glaub der App. Erledige die Aufgabe selbst im passenden Panel.
 - Erreichst du Marinara von einem anderen Gerät statt vom selben Rechner, brauchen ihre Bearbeitungs-Aktionen einen eingerichteten Fernzugriff. Siehe die Anleitung zum Fernzugriff.
 

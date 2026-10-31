@@ -169,6 +169,8 @@ Jedna karta opisująca kilka osób, na przykład karta scenariusza z obsadą, mo
 
 Kiedy powracająca postać znów pojawia się w scenie, Character Tracker używa jej ostatnich zapisanych statystyk i pól własnych, aby zachować ciągłość. Postacie oparte na kartach otrzymują też skonfigurowane pule i atrybuty RPG jako punkt odniesienia. Wpisy kart opisujących jedną postać zachowują awatar i kadrowanie karty. Osoby z karty wielopostaciowej używają własnych portretów przez tę samą bibliotekę, zapisany awatar lub opcjonalne generowanie portretów co postacie NPC; nie dziedziczą wspólnego portretu karty.
 
+W grupie Roleplay w trybie Merged jego obecne postacie mogą też ustawiać, które karty postaci są aktywne przy następnej odpowiedzi. Zobacz [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only).
+
 - **Faza**: Post-Processing.
 - **Gdzie działa**: Roleplay.
 - **Najważniejsze ustawienia**: **Add as Prompt Section** (domyślnie włączone) oraz opcjonalne ustawienie **Auto-Generate NPC Avatars** z własną listą wyboru połączenia do obrazów. Pod nim przełącznik **Include the outfit in portraits** (uwzględnianie stroju na portretach) jest domyślnie włączony, więc nowe portrety pokazują oprócz wyglądu także strój zapisany przez tracker. Wyłącz go, żeby portrety powstawały na podstawie samego wyglądu.

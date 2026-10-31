@@ -169,6 +169,8 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 已离开场景的常驻角色再次出现时，Character Tracker会复用其最近保存的数值和自定义字段，保持连贯性。有角色卡的角色还会获得已配置的RPG资源池和属性作为依据。单角色卡条目保留卡片的头像和裁剪设置。多角色卡的成员使用各自的头像，来源与NPC相同，可以是图库、已保存的头像或可选的头像生成流程；他们不会继承卡片的共用头像。
 
+在 Merged 模式的 Roleplay 群聊里，它记录的在场角色还能决定下一条回复启用哪些角色卡。见[自动管理活跃角色](../chats/group-chats.md#automate-active-characters-merged-only)。
+
 - **阶段**：Post-Processing。
 - **适用范围**：Roleplay。
 - **主要设置**：**Add as Prompt Section**(默认开启)，以及可选的 **Auto-Generate NPC Avatars**(自动生成 NPC 头像) 设置，它有自己的图像连接选择器。它下方的 **Include the outfit in portraits**(在肖像中包含服装) 默认开启，新肖像除了外貌，还会画出追踪器记下的服装。关闭后，肖像只按外貌来画。

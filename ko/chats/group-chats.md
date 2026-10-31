@@ -64,7 +64,7 @@ Chat Settings 안에서 **Characters** 섹션을 찾으세요. 인원수와 함�
 
 안전장치가 하나 있습니다. 채팅의 모든 캐릭터를 비활성화하면 Marinara는 전원을 다시 활성 상태로 간주합니다. 캐릭터가 한 명도 없는 답변이 나오지 않도록 하기 위해서입니다.
 
-이 켜고 끈 상태는 채팅별로 저장됩니다. 앱의 다른 곳에 있는 캐릭터에는 영향을 주지 않습니다.
+이 켜고 끈 상태는 채팅별로 저장됩니다. 앱의 다른 곳에 있는 캐릭터에는 영향을 주지 않습니다. Merged 모드의 Roleplay 그룹에서는 [활성 캐릭터 자동화](#automate-active-characters-merged-only)가 이 상태를 대신 정해 줄 수 있습니다.
 
 ## 누가 말하는가: Roleplay 모드
 
@@ -81,6 +81,30 @@ Roleplay 모드에서는 그룹 채팅의 **Chat Settings**에 **Group Chat** �
 
 **Mode**가 **Merged (Narrator)**일 때는 **Color Dialogues**(색상 대사)를 켤 수 있습니다. 기본값은 꺼짐입니다. 켜면 각 캐릭터의 대사가 그 캐릭터에 지정된 색으로 표시됩니다. 이 색은 캐릭터 편집기의 **Colors** 탭에서 가져옵니다. 이 탭에서 이름 색, 대사 색, 상자 색을 정합니다. 색을 지정하는 방법은 캐릭터 편집 가이드를 참고하세요.
 
+<a id="automate-active-characters-merged-only"></a>
+
+### Automate active characters(Merged 모드 전용)
+
+Merged 모드에서는 활성 캐릭터의 카드가 모두 답변마다 프롬프트에 들어갑니다. 그래서 출연진이 많으면 컨텍스트가 가득 차거나, 캐릭터가 오갈 때마다 눈 아이콘을 직접 껐다 켜야 합니다. **Mode**가 **Merged (Narrator)**일 때는 **Automate active characters**(활성 캐릭터 자동화)가 이를 대신 전환해 줄 수 있습니다. 옵션은 세 가지이며 기본값은 **Off**(끔)입니다.
+
+- **Off**: 눈 아이콘 토글로 누가 활성인지 직접 고릅니다.
+- **Decision model**(결정 모델): 각 답변 전에 [Decision 모델](../connections/decision-models.md)에 캐릭터마다 예/아니요 질문을 하나씩 합니다. 이 캐릭터가 답변이 이어 가는 장면에 있는가, 아니면 그 장면에 들어오는가? 언급되거나 기억되는 것은 해당하지 않으므로, 이야기에서 말로만 나오는 캐릭터는 꺼진 채로 남습니다. 장면에 있다고 판단된 캐릭터는 켜지고 나머지는 꺼집니다.
+- **Character Tracker**: [Character Tracker](../agents/built-in-agents.md#character-tracker)가 지난 답변에서 파악한 등장 캐릭터로 누가 활성인지 정합니다. 추가 모델 호출이 필요 없지만 한 턴 늦게 실행됩니다. 이번 턴에 들어온 캐릭터는 다음 턴에 켜집니다.
+
+설정 아래의 안내문은 빠진 것이 있을 때 알려 줍니다. Decision 모델을 고르지 않았거나, 이 채팅에서 Character Tracker가 꺼져 있거나, 트래커가 수동으로 실행되도록 되어 있어 직접 실행한 뒤에야 목록이 바뀌는 경우입니다.
+
+채팅이 계속 정상적으로 동작하도록 몇 가지 규칙이 있습니다.
+
+- **고정.** 자동화가 켜져 있는 동안 **Characters** 목록의 각 행에서 눈 아이콘 왼쪽에 고정 아이콘이 표시됩니다. 이 아이콘을 클릭하면 그 캐릭터를 지금 상태 그대로(켜짐이든 꺼짐이든) 고정하며, 이후 자동화는 그 캐릭터를 건드리지 않습니다. 눈 아이콘을 직접 전환해도 그 캐릭터가 고정되므로 다음 답변이 내 선택을 되돌리지 않습니다. 고정된 행의 아이콘은 강조 색으로 표시되며, 다시 클릭하면 고정이 해제됩니다. 자동화를 **Off**로 바꾸면 모든 고정이 해제됩니다.
+- **내레이터는 계속 활성 상태로 남습니다.** **Roleplay Commands**(Roleplay 명령)에서 지정한 **Narrator**(내레이터)는 절대 꺼지지 않습니다.
+- **답이 없으면 목록을 유지합니다.** **Decision model** 모드에서 모델이 일부 또는 모든 캐릭터에 대해 답을 내지 않으면, 가능한 경우 Character Tracker의 마지막 장면을 대신 사용합니다. 먼저 추론하는 모델은 **Also gate agents that run before the reply**(답글 전에 실행되는 에이전트도 판정)가 켜져 있지 않으면 답변 전에 답하지 않으므로, 트래커가 그 자리를 대신합니다. 이름만으로도 Decision 모델의 입력에 들어가지 않을 만큼 큰 출연진도 마찬가지이며, 이 경우에는 모델에 아예 묻지 않습니다. 둘 다 답이 없으면 목록은 그대로 유지됩니다.
+- **아무도 활성이 아닌 상태는 허용되지 않습니다.** 모두를 끄게 되는 결과는 무시됩니다.
+- **Character Activity 에이전트가 우선합니다.** **Character Activity** 결과 유형을 쓰는 사용자 지정 에이전트가 있는 채팅에서는 그 에이전트가 계속 담당하며, 자동화는 아무 일도 하지 않습니다.
+
+Character Tracker는 보이는 캐릭터마다 자기만의 이름을 적습니다. 캐릭터는 카드 id로 먼저 찾고, 그다음 이름으로, 그다음 캐릭터 편집기 **Colors** 탭에 있는 카드의 이름 별칭으로 찾으므로, 꺼진 채로 들어온 카드도 찾을 수 있습니다. 트래커 목록에 이 채팅의 캐릭터가 한 명도 없는 경우(예를 들어 엑스트라만 나오는 장면)에는 현재 목록을 유지합니다.
+
+자동화는 모든 답변, 스와이프, 재생성 전에 실행됩니다. **Continue**와 Impersonate에서는 건너뜁니다. 이 설정은 설정 프로필에 저장되며, 고정은 해당 채팅 하나에 속합니다.
+
 <a id="response-order-individual-only"></a>
 
 ### Response Order(Individual 모드 전용)
@@ -90,7 +114,7 @@ Roleplay 모드에서는 그룹 채팅의 **Chat Settings**에 **Group Chat** �
 - **Sequential**이 기본값입니다. **Characters** 목록에 표시된 순서대로 모든 캐릭터가 차례로 답변합니다. 턴 순서를 바꾸려면 멤버 순서를 바꾸세요.
 - **Smart**는 짧은 숨은 AI 호출로 다음에 답변할 캐릭터를 정합니다. 최근 메시지와 각 캐릭터의 정보를 읽고 보통 한 명을 고릅니다. 메시지에 `@Alice`처럼 멘션을 적으면 그 선택을 덮어씁니다.
 
-  **Decision model**(판정 모델)을 선택했다면([Decision 모델](../connections/decision-models.md) 참고), 그 아래의 **Also use it to pick who speaks in Smart response order**(Smart 응답 순서의 발언자 선택에도 사용)를 켤 수 있습니다. Smart 순서는 후보마다 별도의 예/아니요 점수를 요청합니다. 질문은 최근 메시지 5개와 후보의 이름, 상태, 활동, 발언 빈도, 짧은 성격 또는 설명이 담긴 명단을 공유합니다. 호스팅 제공자에게는 명단도 전달합니다. [모델에 전달되는 정보](../connections/decision-models.md#what-the-model-sees)를 참고하세요.
+  **Decision model**을 선택했다면([Decision 모델](../connections/decision-models.md) 참고), 그 아래의 **Also use it to pick who speaks in Smart response order**(Smart 응답 순서의 발언자 선택에도 사용)를 켤 수 있습니다. Smart 순서는 후보마다 별도의 예/아니요 점수를 요청합니다. 질문은 최근 메시지 5개와 후보의 이름, 상태, 활동, 발언 빈도, 짧은 성격 또는 설명이 담긴 명단을 공유합니다. 호스팅 제공자에게는 명단도 전달합니다. [모델에 전달되는 정보](../connections/decision-models.md#what-the-model-sees)를 참고하세요.
 
   전체 AI 답글보다 점수를 빠르게 얻을 수 있지만 속도와 비용은 모델과 후보 수에 따라 달라집니다. Roleplay에서는 가능성이 가장 높은 발언자를 고릅니다. Conversation에서는 답할 이유가 있는 모두가 가능성이 높은 순서로 답합니다. 방금 말한 캐릭터는 다른 후보에게 답할 이유가 있으면 기다립니다. Decision 모델이 답하지 않으면 기존 AI 호출을 사용합니다.
 
@@ -119,12 +143,13 @@ Roleplay의 **Individual** 모드에서 순서가 **Smart** 또는 **Manual**이
 |---|---|---|
 | **Mode** (**Merged (Narrator)** / **Individual**) | Group Chat 섹션 | Merged (Narrator) |
 | **Color Dialogues** | Group Chat 섹션, Merged 모드 | Off |
+| **Automate active characters** (Off / Decision model / Character Tracker) | Group Chat 섹션, Merged 모드 | Off |
 | **Response Order** (Sequential / Smart / Manual) | Group Chat 섹션, Individual 모드 | Sequential |
 | **Add Turn To Prompt** | Group Chat 섹션, Individual 모드 | On |
 | **Name Prefix History** | Group Chat 섹션, Individual 모드 | Off |
 | **Scenario Override** | Group Chat 섹션 | 비어 있음(꺼짐) |
 
-이 설정들은 대부분 설정 프로필에 저장되므로 다시 쓸 수 있습니다. 예외는 **Scenario Override** 하나뿐이며, 이 값은 해당 채팅에만 남습니다.
+이 설정들은 대부분 설정 프로필에 저장되므로 다시 쓸 수 있습니다. 예외는 **Scenario Override** 하나뿐이며, 이 값은 해당 채팅에만 남습니다. 자동화의 고정도 해당 채팅에만 남습니다.
 
 ## 누가 말하는가: Conversation 모드
 
