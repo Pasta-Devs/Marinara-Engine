@@ -370,7 +370,7 @@ if (result && (result.answers.danger ?? 0) >= result.threshold) {
 
 ### Game Mode Experience 개발자를 위한 참고
 
-Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보스가 아닌 모든 적은 기술과 클래스에 따른 역할(bruiser, bulwark, skirmisher, marksman, spellcaster, supporter, controller), 직접 지정하지 않으면 레벨에 따른 숙련도(novice, trained, veteran, master), reckless, cautious, opportunistic, protective 같은 기질을 받습니다. beasts와 monstrosities는 항상 mindless입니다. Engine 코드는 모델 호출 없이 시드로 이를 선택하고 게임 난이도는 성향대로 행동하는 일관성을 바꿉니다. 작성된 보스만 GM이 모델 호출로 지휘합니다. [Game Mode 전투 AI](game-combat-ai-design.md)를 참고하세요.
+Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보스가 아닌 모든 적은 기술과 클래스에 따른 역할(bruiser, bulwark, skirmisher, marksman, spellcaster, supporter, controller), 직접 지정하지 않으면 레벨에 따른 숙련도(novice, trained, veteran, master), reckless, cautious, opportunistic, protective 같은 기질을 받습니다. beasts와 monstrosities는 항상 mindless입니다. Engine 코드는 모델 호출 없이 시드로 이를 선택하고 게임 난이도는 성향대로 행동하는 일관성을 바꿉니다. 작성된 보스만 GM이 모델 호출로 지휘합니다. [Game Mode 전투 AI](game-combat-ai.md)를 참고하세요.
 
 전투 개선은 계속될 예정입니다. 전투 처리에 Decision 모델을 넣기 전에 기본 Engine 전투가 이미 필요한 동작을 하는지 확인하세요. 특정 성격이 필요한 적은 우선 맞는 숙련도와 기질을 주세요. 적의 매 턴마다 Decision을 수행하면 모델 작업과 시간 제한이 추가되고, 호스팅 백엔드는 네트워크 요청과 비용도 추가합니다. 사용자가 설정하지 않았을 수 있는 모델의 답에 전투가 의존하므로, 답이 없을 때의 합리적인 대체 동작도 필요합니다.
 
@@ -656,7 +656,7 @@ difficulty?, onSuccess: "none" | "half" } }`입니다. 각각 따로 굴리고 �
 
 예시는 규칙 집합에 중요한 키만 보여 줍니다. 일반 매니페스트 필드(`name`, `version`, `description`, `engine`, `builtAgainst`)는 여전히 필수입니다.
 
-규칙 집합 패키지에는 권한, 서버나 클라이언트 진입점, 에이전트가 필요 없습니다. 종류와 자산은 함께 갑니다. `ruleset` 종류의 패키지는 `ruleset.json`을 나열해야 하고, `ruleset.json`을 나열한 패키지는 그 종류를 선언해야 하므로, 규칙 집합이 다른 종류에 섞여 들어올 수 없습니다. 파일 안의 어떤 것도 실행되지 않습니다. 표현식 문자열이 없으며, 어떤 판정 방식으로도 표현할 수 없는 메커니즘은 규칙 집합이 할 수 있는 일이 아니라 새 판정 방식을 추가하는 Engine 변경입니다. 형식, 공식 5e 파일, 그 구조를 택한 이유는 [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)에 있습니다.
+규칙 집합 패키지에는 권한, 서버나 클라이언트 진입점, 에이전트가 필요 없습니다. 종류와 자산은 함께 갑니다. `ruleset` 종류의 패키지는 `ruleset.json`을 나열해야 하고, `ruleset.json`을 나열한 패키지는 그 종류를 선언해야 하므로, 규칙 집합이 다른 종류에 섞여 들어올 수 없습니다. 파일 안의 어떤 것도 실행되지 않습니다. 표현식 문자열이 없으며, 어떤 판정 방식으로도 표현할 수 없는 메커니즘은 규칙 집합이 할 수 있는 일이 아니라 새 판정 방식을 추가하는 Engine 변경입니다. 형식은 작성자 가이드인 [`writing-rulesets.md`](../extending/writing-rulesets.md)에, 이를 읽는 코드는 [Game Mode 아키텍처](game-mode-architecture.md)에 문서화되어 있습니다.
 
 유연한 인터페이스가 아닙니다. 규칙 집합 패키지는 그것을 읽지 못하는 Engine에서 아무 일도 하지 않으므로, `ruleset.json`을 나열한 매니페스트는 Capability API 1.20을 선언해야 하며 오래된 Engine은 설치를 명확하게 거부합니다.
 
@@ -1154,7 +1154,7 @@ export async function activate({ api }) {
 }
 ```
 
-주요 규칙:
+알아 둘 규칙은 다음과 같습니다.
 
 - 키는 등록 패키지의 `mari-actions:<package-id>`여야 합니다. 권한이 없거나 다른 패키지 ID로 등록하면 예외가 발생하므로 Mari가 실행하는 동작은 항상 명시된 패키지 소유입니다.
 - `list()`는 `{ name, summary?, inputs? }` 항목을 반환합니다. 이름은 문자, 숫자, `.`, `_`, `-`로 된 1~80자이며 다른 항목은 표시하지 않습니다. Mari가 읽는 `summary`와 `inputs`는 쉬운 말로 작성하세요. 처음 50개 동작만 보거나 실행할 수 있습니다. Mari는 동작당 입력을 최대 40개 보고 입력 이름은 80자, 각 텍스트는 300자로 자릅니다. `list()`가 5초 내 응답하지 않으면 패키지 동작을 생략합니다.
@@ -1186,7 +1186,7 @@ export async function activate({ api }) {
 }
 ```
 
-알아 두어야 할 규칙은 다음과 같습니다.
+알아 둘 규칙은 다음과 같습니다.
 
 - ID에는 `<packageId>.<id>` 네임스페이스가 붙습니다. 기본 제공 ID에는 점이 없으므로 서로 충돌하지 않습니다. 호스트는 로컬 ID와 네임스페이스가 붙은 ID를 모두 받으며, 패키지가 직접 등록하지 않은 ID는 거부합니다.
 - `unlock(id)`는 배지를 실제로 연 호출에만 `true`를 반환합니다. `isUnlocked(id)`와 `list()`는 상태를 읽으며, `list()`는 패키지 자체 배지를 진행 상황과 함께 반환합니다.

@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "ff236573fb214351cf83c4548a057ba409818a0f",
+  "sourceCommit": "0a53d4275d4de84e67d6ae77a135deab3b38ef5c",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -338,29 +338,14 @@
       "bytes": 50414
     },
     {
-      "path": "development/game-combat-ai-design.md",
-      "sha256": "63c360692ffde896800bda47aa10a77f5785a9369ca40fa72fc779a19aad1525",
-      "bytes": 145192
+      "path": "development/game-combat-ai.md",
+      "sha256": "4582d0799ce5b476235d97cc88e97dd1062ef7d8ba95252536b4b7fd90f7f9c0",
+      "bytes": 106005
     },
     {
-      "path": "development/game-combat-difficulty-weather.md",
-      "sha256": "a1ea3116b0cf164cf5b5a16bb8d9acd41ed215e5beb6f2a18017671071096f7a",
-      "bytes": 9336
-    },
-    {
-      "path": "development/game-combat-roadmap.md",
-      "sha256": "ec4c5deec38ec71ec992b61599dd50b6b660b42248f4a1a04e9a24a8290f358a",
-      "bytes": 8889
-    },
-    {
-      "path": "development/game-combat-rulesets-implementation.md",
-      "sha256": "c42740762ce4c26e50f60bc341f056af6d0e997b24cecc1723a8cc26aac7445d",
-      "bytes": 26276
-    },
-    {
-      "path": "development/game-rulesets-and-sheets-implementation.md",
-      "sha256": "012550a229bdca51132cff12a8188d472202abdb0ff0525f5eadf95b0bf071cf",
-      "bytes": 241077
+      "path": "development/game-mode-architecture.md",
+      "sha256": "c53d2c90dc22f947f8f271c7fa888ea4eb68d822b2c6ee51075f19a8aa0b3a1e",
+      "bytes": 12152
     },
     {
       "path": "development/hierarchical-locations-prd-v3.md",
@@ -399,8 +384,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "7941aa148eb7c1fa9c1f5b9c8d65d439a08c7d50f0445066e73288f07445cb2e",
-      "bytes": 166392
+      "sha256": "2d394d3289453f9d1667674d98a742bdd62f9ea15b69158716fcd11e01ced348",
+      "bytes": 166436
     },
     {
       "path": "development/personal-extensions.md",

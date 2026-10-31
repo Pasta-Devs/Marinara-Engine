@@ -378,7 +378,7 @@ Diseña cada uso para quien no tenga modelo de decisión. Una declaración sin r
 
 ### Nota para desarrolladores de Experiences de Game Mode
 
-El combate del motor decide por sí solo qué hacen los enemigos ordinarios. Cada enemigo no jefe del GM recibe un rol por sus habilidades y clase (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter o controller), competencia por su nivel salvo que la declare (novice, trained, veteran o master) y temperamento, como reckless, cautious, opportunistic o protective. Las bestias y monstruosidades siempre son mindless. El código los elige a partir de una semilla sin llamar al modelo; la dificultad cambia la constancia con que actúan según su tipo. Solo los jefes creados expresamente reciben órdenes del GM mediante una llamada al modelo. Consulta [IA de combate de Game Mode](game-combat-ai-design.md).
+El combate del motor decide por sí solo qué hacen los enemigos ordinarios. Cada enemigo no jefe del GM recibe un rol por sus habilidades y clase (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter o controller), competencia por su nivel salvo que la declare (novice, trained, veteran o master) y temperamento, como reckless, cautious, opportunistic o protective. Las bestias y monstruosidades siempre son mindless. El código los elige a partir de una semilla sin llamar al modelo; la dificultad cambia la constancia con que actúan según su tipo. Solo los jefes creados expresamente reciben órdenes del GM mediante una llamada al modelo. Consulta [IA de combate de Game Mode](game-combat-ai.md).
 
 Se preparan más mejoras de combate. Antes de introducir decisiones, comprueba si el combate normal del motor ya cubre lo necesario. Para una personalidad concreta, asigna primero competencia y temperamento adecuados. Una decisión por turno enemigo añadiría trabajo del modelo y un plazo; un backend alojado añadiría solicitudes de red y cargos. La lucha dependería de un modelo que el usuario quizá no haya configurado y necesitaría un comportamiento sensato sin respuesta.
 
@@ -664,7 +664,7 @@ Un conjunto de reglas son las reglas de una partida como datos validados: un tip
 
 El fragmento solo muestra las claves que importan para un conjunto de reglas; los campos habituales del manifiesto (`name`, `version`, `description`, `engine`, `builtAgainst`) siguen siendo obligatorios.
 
-Un paquete de conjunto de reglas no necesita permisos, ni puntos de entrada de servidor o de cliente, ni agente. El tipo y el recurso van juntos: un paquete de tipo `ruleset` debe incluir `ruleset.json`, y un paquete que incluye `ruleset.json` debe declarar el tipo, así que un conjunto de reglas no puede colarse bajo otro tipo. Nada del archivo se ejecuta: no hay cadenas de expresión, y una mecánica que ningún tipo de resolución expresa es un cambio en Engine que añade un tipo, no algo que pueda hacer un conjunto de reglas. El formato, el archivo 5e oficial y los motivos de su forma están en [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
+Un paquete de conjunto de reglas no necesita permisos, ni puntos de entrada de servidor o de cliente, ni agente. El tipo y el recurso van juntos: un paquete de tipo `ruleset` debe incluir `ruleset.json`, y un paquete que incluye `ruleset.json` debe declarar el tipo, así que un conjunto de reglas no puede colarse bajo otro tipo. Nada del archivo se ejecuta: no hay cadenas de expresión, y una mecánica que ningún tipo de resolución expresa es un cambio en Engine que añade un tipo, no algo que pueda hacer un conjunto de reglas. El formato está documentado en la guía para autores, [`writing-rulesets.md`](../extending/writing-rulesets.md), y el código que lo lee en [Arquitectura de Game Mode](game-mode-architecture.md).
 
 No es una integración opcional. Un paquete de conjunto de reglas no hace nada en un Engine que no puede leerlo, así que un manifiesto que incluye `ruleset.json` debe declarar Capability API 1.20, y un Engine más antiguo rechaza la instalación limpiamente.
 
@@ -1290,7 +1290,7 @@ export async function activate({ api }) {
 }
 ```
 
-Reglas importantes:
+Reglas que conviene conocer:
 
 - La clave debe ser `mari-actions:<package-id>` del paquete que registra el servicio. Registrar sin permiso o bajo el ID de otro paquete lanza un error, así que la acción siempre pertenece al paquete que Mari nombra.
 - `list()` devuelve entradas `{ name, summary?, inputs? }`. Los nombres tienen de 1 a 80 letras, dígitos, `.`, `_` o `-`; las demás entradas no se muestran. Mari lee `summary` e `inputs`, así que usa lenguaje claro. Solo las primeras 50 acciones son visibles o ejecutables. Mari ve hasta 40 entradas por acción; los nombres se cortan a 80 caracteres y cada texto a 300. `list()` debe responder en 5 segundos o se omiten las acciones del paquete.

@@ -347,7 +347,7 @@ if (result && (result.answers.danger ?? 0) >= result.threshold) {
 
 ### 给 Game Mode Experience 开发者的说明
 
-Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人都会根据技能与职业获得角色定位（bruiser、bulwark、skirmisher、marksman、spellcaster、supporter 或 controller），未自行指定时按等级获得熟练程度（novice、trained、veteran 或 master），以及 reckless、cautious、opportunistic、protective 等性格。beasts 和 monstrosities 总是 mindless。Engine 代码不调用模型，直接从种子选择这些值，游戏难度决定敌人按类型行事的一致程度。只有专门编写的首领由 GM 通过模型调用指挥。参见 [Game Mode 战斗 AI](game-combat-ai-design.md)。
+Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人都会根据技能与职业获得角色定位（bruiser、bulwark、skirmisher、marksman、spellcaster、supporter 或 controller），未自行指定时按等级获得熟练程度（novice、trained、veteran 或 master），以及 reckless、cautious、opportunistic、protective 等性格。beasts 和 monstrosities 总是 mindless。Engine 代码不调用模型，直接从种子选择这些值，游戏难度决定敌人按类型行事的一致程度。只有专门编写的首领由 GM 通过模型调用指挥。参见 [Game Mode 战斗 AI](game-combat-ai.md)。
 
 后续还会继续改进战斗。在战斗流程中引入 Decision 模型前，请确认原生 Engine 战斗是否已满足需求。如果敌人需要特定性格，先赋予匹配的熟练程度和性格。每个敌人回合做一次 Decision 会增加模型工作和时限；托管后端还会增加网络请求与费用。战斗也将依赖用户可能尚未配置的模型答案，因此需要无答案时的合理回退。
 
@@ -633,7 +633,7 @@ difficulty?, onSuccess: "none" | "half" } }`：独立掷骰、拥有自身类型
 
 示例只列出与规则集相关的键；常规的清单字段（`name`、`version`、`description`、`engine`、`builtAgainst`）仍然必填。
 
-规则集包不需要权限、服务器或客户端入口，也不需要智能体。类型和资源必须同时存在：类型为 `ruleset` 的包必须列出 `ruleset.json`，列出 `ruleset.json` 的包也必须声明这个类型，所以规则集无法借其他类型混进来。文件中的任何内容都不会被执行：没有表达式字符串；任何结算类型都表达不了的机制，需要修改 Engine 来增加一种结算类型，不是规则集能做到的事。格式、第一方 5e 文件以及它采用这种结构的原因，见 [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)。
+规则集包不需要权限、服务器或客户端入口，也不需要智能体。类型和资源必须同时存在：类型为 `ruleset` 的包必须列出 `ruleset.json`，列出 `ruleset.json` 的包也必须声明这个类型，所以规则集无法借其他类型混进来。文件中的任何内容都不会被执行：没有表达式字符串；任何结算类型都表达不了的机制，需要修改 Engine 来增加一种结算类型，不是规则集能做到的事。格式见作者指南 [`writing-rulesets.md`](../extending/writing-rulesets.md)，读取该格式的代码见 [Game Mode 架构](game-mode-architecture.md)。
 
 这不是软接口。规则集包在读不了它的 Engine 上什么也做不了，所以列出 `ruleset.json` 的清单必须声明 Capability API 1.20，旧 Engine 会明确拒绝安装。
 
@@ -1163,7 +1163,7 @@ export async function activate({ api }) {
 }
 ```
 
-需要了解的规则：
+重要规则：
 
 - ID 使用 `<packageId>.<id>` 命名空间。内置 ID 没有点号，因此两者不会冲突。宿主接受本地 ID 或带命名空间的 ID，并拒绝该包未亲自注册的任何 ID。
 - `unlock(id)` 只有在本次调用实际解锁了徽章时才返回 `true`。`isUnlocked(id)` 和 `list()` 读取状态；`list()` 返回该包自身的徽章及进度。

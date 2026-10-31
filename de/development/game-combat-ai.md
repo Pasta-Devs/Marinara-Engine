@@ -1,104 +1,10 @@
-# Kampf-KI in Game Mode: Gegner, Begleiter und GM-Bosse
+# Kampf-KI im Game Mode
 
-**Status: Gewöhnliche KI und die erste Implementierung von GM-Bossen/Reaktionen sind lokal vorhanden; Summoning und benannte Regelsätze bleiben Vorschläge.** Erstellt am 17. September 2026 anhand des durch [PR #6266](https://github.com/Pasta-Devs/Marinara-Engine/pull/6266) nach staging übernommenen Kampfcodes. Ursprünglich geprüfter staging-Stand: `1f2e965c34f77b19a1457439f61e291300e163c7`; Checkout `025442b1722b090b4640e0f078d1e08a4435f965` hatte dieselbe relevante Kampfimplementierung. Die aktuelle lokale Implementierung zweigt von staging `abe61d30a` ab. Prüfe staging vor Folgeimplementierungen erneut; die Zeilennummern der ursprünglichen Prüfung beziehen sich auf den früheren Stand.
+Wie die Engine entscheidet, was Gegner und KI-gesteuerte Begleiter in Classic, Tactical und Regelsatz-Kämpfen tun, und wie der Game Master Bosse spielt. Der Code steht in `packages/shared/src/features/combat-ai.ts`, `combat-minds.ts`, `tactical-combat/ai.ts` und `tactical-combat/profile-ai.ts`; die Serverseite steht in `packages/server/src/services/game/combat-director.service.ts`, `combat-ai.service.ts`, `combat-boss.service.ts` und `ruleset-combat-director.service.ts`. Wie der Kampf in Game Mode als Ganzes eingebettet ist, erfährst du unter [Architektur von Game Mode](game-mode-architecture.md).
 
-Dieses eigenständige Dokument ermöglicht die Fortsetzung durch eine andere Entwicklungsaufgabe ohne das ursprüngliche Gespräch. Es hält Anforderungen des Maintainers, Quellcodeprüfung, empfohlene Standardwerte, Implementierungsgrenzen und Akzeptanzszenarien fest. Vorgeschlagene Zahlen und Felder außerhalb des implementierten Umfangs in Abschnitt 13 sind keine bestehenden Verträge oder durch Spieltests belegten Gleichgewichtsangaben. Implementierung und Übergaben sind lokale Arbeit; es wurde kein Issue oder PR eingereicht.
+Zahlen in den Implementierungsabschnitten ([Aktueller Umfang der gewöhnlichen KI-Implementierung](#current-ordinary-ai-implementation-boundary) und den Abschnitten zu benannten Konstanten) geben die aktuelle Abstimmung der Engine wieder. Als Beispiel, Vorschlag, vorläufig oder Designziel gekennzeichnete Zahlen tun das nicht; keine dieser Zahlen stellt eine durch Spieltests belegte Aussage zur Spielbalance dar. Beschwörungen in Marinaras eigenem Classic- und Tactical-Kampf sind weiterhin ein Vorschlag ([Designerweiterung Summoning](#summoning-design-extension)); Regelsatz-Kämpfe beschwören über ihre eigenen `summons`-Regeln.
 
-## Umfangsaktualisierung vom 17. September
-
-Der Maintainer genehmigte gewöhnliche KI in Classic und Tactical sowie optionale KI-Begleitersteuerung und anschließend die Implementierung der GM-Boss-/Reaktionsfolgearbeit. Verfasste Bosse dürfen legendäre Aktionen unabhängig von der Wahl eines 5e-Regelsatzes nutzen. Der GM erhält Kampfbögen/Ressourcen der Gruppe und kann wahrscheinliche Aktionen vorwegnehmen, wenn eine Einheit ihre Aktivierung beginnt. Ressourcenverbrauchende Reaktionen wie Counterspell erfordern eine Entscheidung der Steuerung und werden nicht bedingungslos bei jeder Verfügbarkeit eingesetzt. Summoning bleibt eine Designerweiterung. Die ursprüngliche Quellcodeprüfung und das ausführlichere Design bleiben unten erhalten; Abschnitte 13–17 legen die aktuellen Entscheidungen fest und ersetzen die Beschränkung der Reihenfolge auf Tactical, den Vorschlag von acht Adjektiven zum Start, frühere Aussagen zur reinen Erkundungsphase und den ursprünglichen Boss-Prompt mit ausschließlich beobachtetem Zustand.
-
-Die Laufzeitarbeit ist eine erste nutzwertbasierte Entscheidungsimplementierung, nicht die Erfüllung aller Akzeptanzszenarien dieses Dokuments. Ihre Grenzen stehen in Abschnitten 13 und 16. Die getrennte [Implementierungsübergabe für Regelsätze](game-combat-rulesets-implementation.md) behandelt Traditional-Folgeangriffe durch Geschwindigkeit, Zug-/Bewegungsreihenfolge, Ressourcenvorräte und künftige ausgabenspezifische Profile.
-
-## 1. Anforderungen des Maintainers
-
-- Gewöhnliche Gegner nutzen Engine-gesteuertes Verhalten, beschrieben durch **ein Adjektiv plus Kampfrolle**, etwa Reckless Bruiser oder Cautious Spellcaster.
-- **Nur Bosse erhalten GM-Steuerung für einzelne Züge.** Die Engine bestimmt weiterhin zulässige Aktionen und löst deren Ergebnisse auf. Boss-Steuerung bedeutet Aktionswahl während des Kampfes, nicht bloß ein zuvor generiertes Skript.
-- Die Adjektivzuweisung gewichtet Erfahrung/Stufe, Rolle und bekannte Persönlichkeit mit etwas Zufall. Erfahrene Gegner sollen häufiger rollengerechte Gewohnheiten haben, ohne alle Veteranen gleichzumachen.
-- **Jede Beast und Monstrosity ist Mindless.** Sie verfolgt das nächste Gruppenmitglied über den kürzesten zulässigen Weg und ignoriert Zielgesundheit sowie Geländevor-/-nachteile. Nimm Bosse oder benannte Kreaturen nicht stillschweigend aus.
-- Optimiere für strategischen Spielspaß, plausibles Verhalten und Wiederspielwert, besonders im taktischen und künftigen Tabletop-ähnlichen Spiel. Die KI-Änderung muss dafür weder 5e- noch V20-Regeln implementieren.
-- Bewahre ein ausführliches Design für die spätere Implementierung. Der ursprüngliche Erkundungsumfang wurde inzwischen um gewöhnliche KI und Begleitersteuerung erweitert; siehe die Umfangsaktualisierung oben.
-
-Verwandte Vorgaben stehen im [Kampfplan](game-combat-roadmap.md): Schlachtfeldregeln, Gruppen-/Summoning-Teilnahme und Tabletop-Regelprofile sind unabhängige Entscheidungen. Auch Gegnertaktik soll unabhängig bleiben. Summoning bleibt nachrangig.
-
-### Empfohlene Standardwerte, die noch Designannahme benötigen
-
-1. Beginne mit acht Adjektiven: Mindless, Reckless, Cautious, Opportunistic, Protective, Supportive, Disciplined, Cowardly.
-2. Zeige Adjektiv und Rolle mit einer kurzen Erklärung in der Gegnerinspektion. Halte Wahrscheinlichkeiten, Nutzwertgewichte und rohe Persönlichkeitsanalyse aus der normalen UI heraus.
-3. Interpretiere den kürzesten Mindless-Weg als **wenigste zulässige räumliche Schritte**, nicht als geringste Geländebewegungskosten. Die Kreatur darf einen kürzeren Waldweg nehmen, obwohl ein längerer offener Weg schneller wäre. Bewegung verbraucht dennoch die tatsächlichen Geländekosten.
-4. Ein Beast-/Monstrosity-Boss bleibt Mindless. Der GM wählt nur Aktionen, die dessen zwingendem Ziel- und Verfolgungsverhalten entsprechen.
-5. Gewöhnliche Profile werden einmal gezogen und gespeichert. Ein wiederkehrender benannter NPC behält sein festgelegtes Temperament; ein Stufenaufstieg allein würfelt die Persönlichkeit nicht neu aus.
-6. Implementiere gewöhnliche KI im revidierten Umfang gemeinsam in Tactical und Classic. Zum vollständigen gewünschten System gehören tatsächliche GM-Boss-Züge; ein reiner Engine-Meilenstein darf nicht als ganze Funktion beschrieben werden.
-
-## 2. Quellcodeprüfung vor der Überarbeitung
-
-Die zweite Vermutung des Maintainers trifft am ehesten zu: Jede aktive Kampf-Engine hat eine gemeinsame automatische Strategie. Der GM verfasst die Begegnung, wählt aber keine einzelnen Züge in den aktiven Kampfoberflächen von Game Mode.
-
-| Bereich                    | Classic Game Mode                                                         | Tactical Game Mode                                                            |
-| ----------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Zugreihenfolge              | Initiativewürfe plus Geschwindigkeit; alle Kämpfenden nehmen teil                   | In neuen Spielen nach Initiative (eine Einheit nach der anderen, Reihenfolge einmal ausgewürfelt, combat C6c); in älteren nach Seite (Spielerphase, dann Gegner nach Geschwindigkeit) |
-| Gegnerstrategie            | Gemeinsame Fähigkeitsheuristik, sonst zufälliges lebendes gegnerisches Ziel           | Gemeinsame Strategie: zuerst heilen, bewerteter Angriff, dann Annäherung                        |
-| Klassenunterschiede       | Keine klassenspezifische Entscheidungsstrategie                                         | Sechs Klassen ändern Reichweite, Bewegung und kritische Treffer; alle nutzen dieselbe Entscheidungsstrategie |
-| Persönlichkeit/Erfahrung | Kein gespeichertes Modell für taktische Persönlichkeit oder Ausbildung                          | Kein gespeichertes Modell für taktische Persönlichkeit oder Ausbildung                              |
-| Boss-Entscheidungen          | Gleiche gewöhnliche Strategie plus unterstützte geskriptete Mechaniken                   | Gleiche gewöhnliche Strategie; Boss-Kennzeichnung beeinflusst Platzierung/UI                         |
-| GM während jedes Zugs     | Nicht im aktiven Auflöser                                                | Nicht im aktiven Auflöser                                                    |
-| Reproduzierbarkeit         | Entscheidungen/Würfe mit nicht durch Seed bestimmtem Zufall                                      | Seed plus Aktionszähler bestimmen Entscheidungen und Kampfwürfe                   |
-| Speicherung             | Client stellt Kampf-Snapshot wieder her; Runden-/Animationszustand nicht vollständig gespeichert | Client speichert vollständigen Tactical-Snapshot in Chat-Metadaten               |
-
-Daneben gibt es ein getrenntes Begegnungsdialogsystem mit modellgesteuerter Route `/encounter/action` und Kampfaktionstypen. Es wird vom allgemeinen Chat-`EncounterModal` über `useEncounter` genutzt, nicht von der aktuellen `GameCombatUI` in Game Mode. Dieses Modell darf umgeschriebenen Kampfzustand zurückgeben; nutze es nicht unverändert für die vorgeschlagene Engine-validierte Boss-Steuerung. Verfolge tatsächliche Aufrufer vor Wiederverwendung oder Löschung.
-
-Classics ausdrückliches Manöver **Special** (Spezialaktion) bittet ebenfalls den GM, eine erzählerische Aktion zu beurteilen, und erlaubt unterstützte Status-/Element-Tags. Es löst keine gewöhnliche Runde auf und wählt keine routinemäßigen Gegnerzüge. Bewahre diesen Unterschied bei GM-Prompt-Änderungen; „Zugsteuerung nur für Bosse“ verbietet weder Begegnungsgenerierung noch erzählerische Beurteilung oder Nachkampferzählung.
-
-### Classic-Strategie
-
-In `combat.service.ts` ruft `resolveCombatRound` für automatische Verbündete und Gegner `chooseAutoSkill` auf:
-
-1. Eine Fähigkeit gilt als nutzbar, wenn MP reichen und ihre Abklingzeit eine Prüfung per Rundenmodulo besteht.
-2. Heile den am stärksten verletzten berechtigten Verbündeten bei höchstens 75 % HP, sofern eine Heilfähigkeit verfügbar ist.
-3. Wähle andernfalls mit 45 % Wahrscheinlichkeit eine zufällige Nichtheilfähigkeit und ein zufälliges gegnerisches Ziel.
-4. Greife andernfalls einen zufälligen Gegner an.
-
-Gegner übergeben nur sich selbst als Verbündetenliste und heilen über diese Strategie derzeit keine anderen Gegner. Nichtheilfähigkeiten umfassen Verstärkungen ebenso wie Angriffe/Schwächungen; jeder Ersatz muss die Zielseite pro Fähigkeit validieren, statt diese Gruppierung beizubehalten. Praktisch verhindert die unten beschriebene MP-Auslassung bei generierten Gegnern deren kostenpflichtige Fähigkeiten, sodass Standardangriffe gegen zufällige Ziele bleiben. Die erste lebende Figur auf Spielerseite erhält den eingereichten Spielerbefehl; andere Verbündete handeln automatisch. Geänderte Gegnertaktik darf Begleitersteuerung oder Spieleridentität nicht stillschweigend verändern.
-
-Generierte Mechaniken werden getrennt nach normalen Aktionen verarbeitet. Derzeit werden nur `round_interval` und `hp_threshold` ausgeführt; akzeptierte Auslöser `on_hit`, `on_attack` und `passive` nicht. HP-Schwellenmechaniken wiederholen sich in späteren passenden Runden, und `damage_one` wählt das erste gegnerische Ziel. Das ist kein live vom GM gewählter Boss-Zug. Unterscheide einmalige und wiederkehrende Wirkungen ausdrücklich, bevor du sie anpasst.
-
-Classic löst Nichtheilfähigkeiten zudem über einen schadensorientierten Pfad auf; Verstärkungen/Schwächungen entsprechen nicht den Tactical-Unterstützungsoperationen, obwohl ein benannter Status einen Treffer begleiten kann. Echte Unterstützungs-/Kontrollsemantik und ein Abklingzustand pro Nutzung sind Voraussetzungen, um dieses Classic-Verhalten anzubieten. Automatische Abwehr-/Warteaktionen brauchen ebenfalls Auflöserunterstützung; derzeit gehört Abwehr zum Initiativeplatz des gesteuerten Spielers, sodass schnellere Gegner vorher handeln. Die Schwierigkeit skaliert im gemeinsamen Auflöser derzeit den Angriffsschaden beider Seiten, nicht die Entscheidungsqualität. Bewahre oder ändere das getrennt von der Temperamentabstimmung.
-
-Eine weitere bestehende Abweichung bei der Spielersteuerung braucht einen eigenen Nachweis: Ist Platz null KO, überträgt der Server Befehle auf den ersten lebenden Verbündeten, während der aktive Spielerindex der UI null bleibt. Eine unverfügbare Fähigkeits-ID kann dann auf einen Standardangriff zurückfallen. Erfasse/behebe das unabhängig vom Gegnertemperament.
-
-### Tactical-Strategie
-
-`packages/shared/src/features/tactical-combat/ai.ts` arbeitet derzeit so:
-
-1. Versucht die erste bereite Heilfähigkeit auf den Verbündeten mit dem niedrigsten HP-Anteil innerhalb von zwei Feldern, sofern er höchstens 60 % HP hat. Bewegt sich vorher nicht in Heilreichweite.
-2. Bewertet erreichbare Bewegungsziele gegenüber lebenden Gegnern und berücksichtigt Standardangriffe sowie bereite Angriffsfähigkeiten.
-3. Bewertet Angriffe als `1000 * likelyKill + expectedDamage - 0.75 * counterRisk`. Dabei bedeutet likelyKill, dass der prognostizierte Schaden die aktuellen HP erreicht und die Trefferchance mindestens 50 % beträgt; es ist kein sicherer Kill.
-4. Ersetzt gelegentlich den besten nicht tödlichen Angriff durch einen anderen zufälligen zulässigen Angriff. Die Wahrscheinlichkeiten sind 60 % casual, 30 % normal, 10 % hard, 0 % brutal. Heilungsannahme beträgt entsprechend 50 %, 80 %, 100 %, 100 %.
-5. Nähert sich, wenn kein Angriff verfügbar ist, dem nach Manhattan-Distanz nächsten Gegner über das erreichbare Feld mit kleinster Manhattan-Distanz. Das ist keine kürzeste Verfolgung über das gesamte Brett und kann an Hindernissen ohne Fortschritt bleiben.
-
-Gelände beeinflusst Bewegung und Schadens-/Treffervorschauen, aber die Strategie bewertet nicht allgemein, wo die Einheit in der nächsten Spielerphase gefährdet sein wird. Sie wählt nicht gezielt Verstärkungen, Schwächungen, Abwehr oder Gegenstände. Fähigkeitsreichweite ist vereinfacht. Generierte AoE-Beschreibungen bilden keinen vollständigen räumlichen Flächenwirkungsauflöser.
-
-Die Klassen sind Fighter, Knight, Rogue, Archer, Mage und Healer. Die Ableitung nutzt einen ausdrücklichen Hinweis, Heilfähigkeiten, Namens-/Fähigkeitsschlüsselwörter, Elementarangriffe und Werteheuristiken. Eine Rollenbezeichnung allein schafft keine Fähigkeiten.
-
-### Grundlegende Lücken, die ein Persönlichkeitssystem untergraben würden
-
-Dies sind Befunde aus der Quellcodeprüfung, keine Aussagen aus einer ausgeführten Browser-Reproduktion:
-
-| Lücke                                                     | Nachweis und Folge                                                                                                                                                    | Eng begrenzter nächster Schritt                                                                                                                                                         |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Generierte Gegner haben keine MP                            | `generatedEnemyToCombatant` lässt MP/maxMP aus; generierte Nichtstandardfähigkeiten kosten MP. Beide Engines behandeln fehlende MP als null. Solche Gegner können diese Fähigkeiten nicht nutzen. | Ergänze eine Regression über die tatsächliche Bauplanüberführung; bewahre explizite Ressourcendaten oder wende eine dokumentierte Ressourcenregel für generierte Gegner an. Gewähre keine unbegrenzten Zauber. |
-| Stufe wird aus HP abgeleitet                               | Die Stufe generierter Gegner stammt normalerweise aus gerundeten maxHP/20. Eine widerstandsfähige Kreatur ist nicht zwangsläufig taktisch ausgebildet.                                                       | Ergänze einen begrenzten Erfahrungshinweis; nutze die Stufe nur als erklärten Rückfall, bis Regelprofile richtige Ausbildungsdaten liefern.                                                  |
-| Boss-Identität ist heuristisch                              | Tactical kennzeichnet den stärksten Gegner in Gruppen ab zwei anhand von maxHP + level\*10 + attack. Ein Einzelgegner wird dadurch nie markiert.                               | Ergänze ausdrückliche Boss-Identität pro Gegner. Die Musikstufe einer Begegnung identifiziert nicht, welche Einheit GM-Züge erhält.                                                               |
-| Generierte Boss-Mechaniken erreichen Tactical nicht          | Classic erhält Mechanik-Props; Tactical verarbeitet die generierte Mechanikliste nicht.                                                                                       | Ordne unterstützte Mechaniken validierten taktischen Operationen mit gespeichertem Phasen-/Auslösezustand zu. Kennzeichne nicht unterstützte Mechaniken, statt sie als ausgeführt zu erzählen.          |
-| Kreaturentyp und Persönlichkeit sind keine Laufzeitverträge | Die Gegnerbeschreibung steht im Bauplan, geht bei der Laufzeitüberführung aber verloren; Beast/Monstrosity sind keine typisierten Kategorien.                                                | Führe ausdrückliche Kategorie und begrenzte Zuweisungseingaben durch alle Umwandlungs- und Speichergrenzen.                                                                 |
-| Sicht und Deckung sind in Tactical gemeinsam (combat C6)        | Eine Wand oder ein Berg blockiert die Sicht in nativen Kämpfen und Regelsatz-Kämpfen gleichermaßen, und Deckung wird mit demselben Test abgestuft (halb, drei Viertel): Vorschauen, Aktionen, Konter, Flächen, Reaktionen, Bedrohungsanzeigen und die KI nutzen `hasLineOfSight` und `coverTier`. | Behalte einen Sichttest und einen Deckungstest für alle Aufrufer.                                                                                                                 |
-| KI-Kandidatenprognosen lesen das Kandidatenfeld        | Beide KIs prognostizieren einen Angriff und den Konter, den er riskiert, von dem Feld aus, von dem sie zuschlagen würden. So wird Deckung (combat C6a-2) so gewichtet, wie sie gewürfelt wird. | Halte Prognosen und Auflösung auf demselben `hitChance`.                                                                                                                      |
-
-Eine weitere Umwandlungslücke betrifft beide Engines: Der generierte Angriffstyp wird aus englischen Schlüsselwörtern in Name/Beschreibung abgeleitet, obwohl Begegnungsprosa andere Sprachen nutzen kann. Auch das Bauplan-Kennzeichen `AoE`/`both` bleibt nicht als tatsächliches Mehrzielverhalten erhalten. Explizite validierte Fähigkeitsfelder sollen künftige Rollenableitung versorgen; übersetzte Namen dürfen nicht entscheiden, ob ein Zauber heilt oder angreift.
-
-Bündele keine vollständige Kampfneufassung in diese Voraussetzungen. Ergänze kleinste Nachweise, korrigiere den betroffenen Ablauf und nutze vorhandene Hilfen für Bewegung, Vorschau, Fähigkeitsbereitschaft und Aktionsauflösung wieder.
-
-## 3. Fähigkeit, Temperament und Steuerung trennen
+## Fähigkeit, Temperament und Steuerung trennen
 
 Jeder Gegner benötigt Antworten auf unterschiedliche Fragen:
 
@@ -129,13 +35,13 @@ Behalte vorhandene taktische Klassen als Geometrie-/Wertevorgaben. Eine kleine Z
 
 Dies sind Vorwahrscheinlichkeiten, keine Verbote. Ein Cowardly Fighter oder Reckless Spellcaster muss möglich bleiben. Ein Cleric mit Rüstung und Nahkampffähigkeiten kann Bulwark sein; ein Heiler mag die hintere Reihe bevorzugen. Leite Temperament nicht allein aus Klassenstereotypen ab. Vorübergehende MP-Erschöpfung verändert zulässige Aktionen, nicht gespeicherte Rolle oder Adjektiv. Weise Supportive keiner Ausstattung zu, die niemals Unterstützungsfähigkeiten hatte.
 
-## 4. Adjektivkatalog
+## Adjektivkatalog
 
 ### Die anfänglichen acht
 
 | Adjektiv         | Zielvorliebe                                                             | Positionierung und Risiko                                                                                    | Fähigkeiten-/Ressourcenverhalten                                                                                      | Was der Spieler lernen kann                                   |
 | ----------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| **Mindless**      | Nächstes lebendes erreichbares Gruppenmitglied gemäß Abschnitt 6               | Kürzester zulässiger räumlicher Weg; ignoriert Geländenutzen, Gefährdung und Formation                           | Einfacher zulässiger Angriff auf dieses Ziel; keine Heilpriorisierung, Feuerkonzentration oder Ressourcenoptimierung                   | Mit Nähe, Gelände und Engpässen ködern             |
+| **Mindless**      | Nächstes lebendes erreichbares Gruppenmitglied gemäß der Regel in [Mindless: genauer Verfolgungsvertrag](#mindless-an-exact-pursuit-contract)               | Kürzester zulässiger räumlicher Weg; ignoriert Geländenutzen, Gefährdung und Formation                           | Einfacher zulässiger Angriff auf dieses Ziel; keine Heilpriorisierung, Feuerkonzentration oder Ressourcenoptimierung                   | Mit Nähe, Gelände und Engpässen ködern             |
 | **Reckless**      | Sofortiger Schaden und erreichbarer Druck; nicht automatisch das schwächste Opfer | Schließt aggressiv auf, nimmt Konter und ungeschützte Ziele in Kauf                                  | Nutzt starke verfügbare Angriffe bereitwillig; hält selten zur Abwehr inne                                             | Überdehnung bestrafen und in ungünstige Schlagabtausche locken            |
 | **Cautious**      | Ziele, die bei begrenztem Gegenschaden bedroht werden können                          | Schätzt sichere Ziele, nützliche Reichweite und defensives Gelände                                            | Schont knappe Ressourcen, wenn ein Standardangriff fast ebenso nützlich ist; heilt/wehrt bei Bedarf ab                | Sicheren Raum unter Druck setzen; Zurückhaltung beim Festlegen ausnutzen   |
 | **Opportunistic** | Verwundete, ungeschützte oder bereits beeinträchtigte Ziele; verlässliche Abschlusschancen   | Akzeptiert etwas Risiko für eine konkrete Gelegenheit                                                                | Schätzt Fähigkeiten, die solche Gelegenheiten schaffen oder nutzen                                                      | Verletzliche Verbündete schützen und einfache abschließende Angriffe verhindern   |
@@ -144,7 +50,7 @@ Dies sind Vorwahrscheinlichkeiten, keine Verbote. Ein Cowardly Fighter oder Reck
 | **Disciplined**   | Rollengerechte Ziele, vernünftige Abschlussgelegenheiten                      | Wägt Schaden, Sicherheit, Positionierung und Ressourcen ab; mäßige Zielbindung                            | Verlässliche Rollengrundlagen ohne extremes Spezialverhalten                                               | Rolle stören und ungünstige Entscheidungen erzwingen              |
 | **Cowardly**      | Sicher erreichbare Ziele, die keinen Gegenschlag einladen                       | Selbsterhaltung steigt bei Verwundung oder lokaler Unterzahl stark; zieht sich in sichereren verbündeten Raum zurück | Heilt sich/wehrt eher ab und vermeidet kostspielige Bindungen                                                | Sicheren Rückzug abschneiden und anhaltenden Fernkampfdruck ausüben    |
 
-Protective leitet Schaden nicht magisch um, provoziert keine Ziele, fängt keine Angriffe ab und erhält keine Reaktionen. Aktuelle Belegung erlaubt Positionsblockaden; stärkerer Schutz braucht tatsächliche Fähigkeiten. Cowardly darf zurückweichen und abwehren, doch die vorhandene Tactical-Aktion `flee` beendet den gesamten Kampf. **Nutze globale Flucht niemals als Flucht eines einzelnen Gegners.** Rückzug/Aufgabe je Einheit erfordert neue ausdrückliche Regeln.
+Protective leitet Schaden nicht magisch um, provoziert keine Ziele, fängt keine Angriffe ab und erhält keine Reaktionen. Aktuelle Belegung erlaubt Positionsblockaden; stärkerer Schutz braucht tatsächliche Fähigkeiten. Cowardly darf zurückweichen und abwehren, doch die vorhandene Tactical-Aktion `flee` beendet den gesamten Kampf. **Nutze globale Flucht niemals als Flucht eines einzelnen Gegners.** Ein einzelner Gegner verlässt einen Kampf nur durch Moral („Den Mut verlieren in Classic und Tactical“ unter [Praktische Leitplanken](#practical-guardrails)) oder durch eine Flucht nach den Regeln des Regelsatzes.
 
 Cautious und Cowardly sollen unterschiedliche Ergebnisse liefern: Ein gesunder Cautious Marksman nimmt eine gute Schussposition ein; ein verwundeter Cowardly Marksman kann zum Selbstschutz auf einen guten Schuss verzichten. Protective und Supportive unterscheiden sich ähnlich: Einer bewacht eine Person oder Position, der andere maximiert nützliche Unterstützungsaktionen.
 
@@ -163,7 +69,9 @@ Cautious und Cowardly sollen unterschiedliche Ergebnisse liefern: Ein gesunder C
 
 Vermeide Synonyme mit identischer Bewertung. Cruel ist überwiegend Opportunistic, solange die Regeln kein eigenes Ziel unterstützen. Strategic sollte tatsächlicher begrenzter Planung vorbehalten bleiben, statt allgemein bessere Leistung zu bedeuten. Mut und Intelligenz müssen keine Gegenpole derselben Skala sein.
 
-## 5. Profilzuweisung: Rolle, Erfahrung, Persönlichkeit, dann Seed-bestimmte Vielfalt
+<a id="assigning-profiles-role-experience-personality-then-seeded-variety"></a>
+
+## Profilzuweisung: Rolle, Erfahrung, Persönlichkeit, dann Seed-bestimmte Vielfalt
 
 ### Vorrang
 
@@ -182,7 +90,7 @@ Bevorzuge eine Ausbildungsstufe aus dem Regelprofil oder zuverlässige NPC-Bogen
 
 Für eine erste regelneutrale Implementierung könnten novice/trained/veteran/master der Kompetenz `c = 0, 0.35, 0.7, 1` entsprechen. Ein konkreter vorläufiger Engine-Stufenrückfall wäre 1–2 novice, 3–7 trained, 8–14 veteran, 15+ master. Das ist eine abstimmbare Spieldesignkurve, keine Tabletop-Regel; kennzeichne die Quelle als `level-fallback`, besonders solange Stufen aus HP stammen. Binde die Zuordnung an die Zuweisungsversion und ersetze sie durch Regelprofilzuordnungen, sobald diese existieren. Setze den 5e-Herausforderungsgrad nicht mit Charakterstufe gleich und zwinge V20-ähnlichen Spielen keine einheitliche Stufenskala auf.
 
-Erfahrung beeinflusst **sowohl** die Chance auf rollengerechtes Temperament bei Erstzuweisung **als auch** dessen beständige Umsetzung. Für gewöhnliche lokale KI offenbart sie weder verborgene Spielerfähigkeiten noch vorgemerkte Befehle. GM-Bosse erhalten die breitere Kenntnis der Gruppenbögen aus Abschnitt 16; keine Steuerung sieht künftige Zufallswürfe oder unbestätigte Spielerentscheidungen. Die Überlebensannahme ist eine nützliche Weltbau-Tendenz, kein Tatsachengesetz, dass alle erfahrenen Zauberer vorsichtig seien.
+Erfahrung beeinflusst **sowohl** die Chance auf rollengerechtes Temperament bei Erstzuweisung als auch dessen beständige Umsetzung. Für gewöhnliche lokale KI offenbart sie weder verborgene Spielerfähigkeiten noch vorgemerkte Befehle. GM-Bosse erhalten die breitere Kenntnis der Gruppenbögen aus [GM-Bosse, legendäre Aktionen und Reaktionen](#gm-bosses-legendary-actions-and-reactions); keine Steuerung sieht künftige Zufallswürfe oder unbestätigte Spielerentscheidungen. Die Überlebensannahme ist eine nützliche Weltbau-Tendenz, kein Tatsachengesetz, dass alle erfahrenen Zauberer vorsichtig seien.
 
 ### Konkretes Gewichtungsmodell
 
@@ -239,7 +147,9 @@ Speichere angenommene Hinweise/Herkunft zur Erklärung der Zuweisung, keine Denk
 - Das Kampfprotokoll nennt vor dem Wurf, was eine Moralprüfung ausgelöst hat, einen Temperamentwechsel und dessen Auslöser, wen ein Gang mitgeschleift hat, eine territoriale Kreatur, die ihr Gebiet hält, und die Aufgabe einer Gruppe. Eine Kreatur, die sich ergeben hat, bleibt dort auf dem Brett, wo sie aufgegeben hat.
 - In Regelsatz-Kämpfen ist der Schadenswert eines Schlags sein erwarteter Schaden im Verhältnis zur mittleren Gesundheit der Zielseite, unabhängig davon, wen er trifft, sodass die höhere Gesundheit eines Ritters einen Multiattack gegen ihn nicht weniger wert macht als denselben Schaden gegen den Zauberer. Ein Schlag, der sein Ziel zu Boden bringen würde, wird nach der eigenen Gesundheit des Ziels gewichtet, wobei es nie als gebrechlicher als drei Viertel dieses Mittelwerts gilt.
 
-## 6. Mindless: genauer Verfolgungsvertrag
+<a id="mindless-an-exact-pursuit-contract"></a>
+
+## Mindless: genauer Verfolgungsvertrag
 
 Dies ist eine gewünschte Projektregel für Beast/Monstrosity, keine Behauptung über offizielle Tabletop-Regeln oder tatsächliches Tierverhalten hinter diesen Bezeichnungen.
 
@@ -268,7 +178,7 @@ Begrenze bei einem Mindless-Boss das GM-Auswahlmenü auf dieses gewählte Ziel u
 
 Classic hat keine räumliche Entfernung und kann „am nächsten über den kürzesten Weg“ nicht originalgetreu umsetzen. Eine vorgeschlagene Anpassung ist eine gespeicherte, Seed-bestimmte Gefechtsreihenfolge ohne HP-/Geländegewichtung mit dem ersten lebenden Eintrag als Ziel. **Die revidierte nicht räumliche Implementierung nutzt diese Abstraktion** und muss so bezeichnet werden; sie erfüllt die genaue räumliche Anforderung nicht. Beschreibe die Abstraktion nicht als Entfernung; eine echte Nächstes-Ziel-Regel bräuchte künftig ein Formations-/Positionsmodell. Eine spätere Vorder-/Hinterformation könnte das ermöglichen; Array-Reihenfolge darf nicht stillschweigend Entfernung werden. Die Tactical-Wegregel bleibt das maßgebliche Mindless-Verhalten dieses Vorschlags.
 
-## 7. Gewöhnliche Gegnerentscheidungen
+## Gewöhnliche Gegnerentscheidungen
 
 ### Auflöser wiederverwenden, Prioritäten variieren
 
@@ -285,6 +195,8 @@ Nimm nur tatsächlich vom Auflöser unterstützte Mechaniken auf. Gegnergegenst�
 Nutze normalisierte Faktoren für erwarteten Schaden, Abschlusswahrscheinlichkeit, nützliche Heilung/Unterstützung, sofortiges Konterrisiko, Gefährdung in der nächsten Phase, Fortschritt zur rollengerechten Gefechtsreichweite und Ressourcenkosten. Multipliziere sie mit einer kleinen Profiltabelle. Ein sehr großer universeller Kill-Bonus würde Temperamentunterschiede auslöschen; ersetze ihn für die neue Strategie durch einen begrenzten profilabhängigen Abschlusswert.
 
 Dies ist ein kleiner nutzwertbasierter Ansatz: Vergleiche zulässige Aktionen mit konsistenten Skalen und variiere Prioritäten nach Persönlichkeit. Den allgemeinen Ansatz und Entscheidungsträgheit beschreibt David „Rez“ Graham in [Einführung in die Nutzwerttheorie](https://www.gameaipro.com/GameAIPro/GameAIPro_Chapter09_An_Introduction_to_Utility_Theory.pdf). Konkrete Profile, Formel, Standardwerte und Anbindungsplan hier sind Marinara-spezifische Designempfehlungen.
+
+<a id="practical-guardrails"></a>
 
 ### Praktische Leitplanken
 
@@ -331,13 +243,15 @@ Vorgeschlagene Anfangsabstimmung: Normalisiere den Strategienutzen auf eine fest
 
 **Multiattack-Schüsse und offenes Gelände.** Der Vergleich für Schüsse aus der Ferne zählt jeden Schlag eines Multiattack so oft, wie er ausgeführt wird, und stellt den besten nutzbaren Nahkampfangriff dem besten nutzbaren Fernkampfangriff gegenüber, sodass die zwei Longbow-Schüsse eines Spähers seine zwei Shortswords überwiegen. Eine Kreatur, die größer als eine Zelle ist, wählt bei gleicher Entfernung offenes Gelände statt eines Durchgangs, durch den sie sich zwängen müsste; Schläge aus einem solchen Durchgang sind das 0.6-Fache derselben Schläge aus offenem Gelände wert (`RULESET_SQUEEZED_BLOWS`), und sobald sie eingeengt ist, sind Schläge aus offenem Gelände entsprechend mehr wert, sodass sie zum Zuschlagen heraustritt.
 
-## 8. Vom GM gesteuerte Boss-Züge
+<a id="boss-turns-controlled-by-the-gm"></a>
+
+## Vom GM gesteuerte Boss-Züge
 
 ### Identität und Verantwortung
 
 Ergänze ausdrückliche Boss-Identität pro Einheit in Begegnungsdaten. Mache nicht automatisch das stärkste Mitglied jeder Gruppe zum GM-Boss. Vorgeschlagene Ränge sind ordinary, elite, boss; elite bleibt Engine-gesteuert, solange nicht ausdrücklich als Boss ausgewiesen. Die vorhandene begegnungsweite Musikklassifikation kann getrennt bleiben.
 
-Der GM wählt eine zulässige Aktion anhand etablierter Persönlichkeit, Begegnungsabsicht, aktuellem Brett, Gruppenfähigkeiten/-ressourcen/-gegenständen und unterstützten Mechaniken. Diese breitere Kenntnis dient Vorhersage, nicht dem Wissen über eine unbestätigte Spielerwahl; Abschnitt 16 definiert den Informations- und Unterbrechungsvertrag. Reichweite, Bewegung, Ressourcen, Würfe, Schaden, Zustände und Zugbudgets gehören der Engine. Gewöhnliche Begleitgegner bleiben auch neben einem Boss Engine-gesteuert.
+Der GM wählt eine zulässige Aktion anhand etablierter Persönlichkeit, Begegnungsabsicht, aktuellem Brett, Gruppenfähigkeiten/-ressourcen/-gegenständen und unterstützten Mechaniken. Diese breitere Kenntnis dient Vorhersage, nicht dem Wissen über eine unbestätigte Spielerwahl; [GM-Bosse, legendäre Aktionen und Reaktionen](#gm-bosses-legendary-actions-and-reactions) definiert den Informations- und Unterbrechungsvertrag. Reichweite, Bewegung, Ressourcen, Würfe, Schaden, Zustände und Zugbudgets gehören der Engine. Gewöhnliche Begleitgegner bleiben auch neben einem Boss Engine-gesteuert.
 
 **Benannte und brillante Gegner (Kampf-KI P9).** In einem Spiel kann der GM auch jeden benannten Gegner (das `aiHints.named` des Begegnungsbauplans, nur an benannte Einzelpersonen der Geschichte vergeben) und jeden Gegner mit einem `genius`-Verstand spielen (nach `aiHints.mind` der Geschichte, sonst nach seinen eigenen Regelsatz-Daten). Das `aiHints.mind` der Geschichte kann gegenüber den eigenen Daten einer Kreatur nur Denkvermögen wegnehmen (bei einer beherrschten oder wahnsinnig gewordenen Kreatur) oder einspringen, wenn ihre Daten keinen Verstand angeben: Ein beiläufiger Hinweis macht aus einem Wolf nie einen Taktiker. Die Einrichtungsoption ist `gmNamedControl`, wird unter der Boss-Steuerung angeboten und zusammen mit ihr beim Kampfbeginn festgeschrieben; fehlt sie, gilt die Steuerung nur für Bosse. Diese Gegner erhalten denselben Vertrag zur Auswahl genau einer ID aus dem Menü, dasselbe Zeitlimit und dieselbe Rückfalllösung wie ein Boss, aber kein legendäres Budget, das sie nicht besitzen. In einem Regelsatz-Kampf enthält der Prompt außerdem das Profil des Gegners (Verstand, Temperament, Rolle, Ausbildung und sein Regelsatz-`behavior`), die nach Bedrohung geordnete andere Seite und die Begleiterbefehle der Gruppe.
 
@@ -352,7 +266,7 @@ Halte Anbieteraufrufe in einem serverseitigen Orchestrierungsdienst außerhalb d
 1. Nimm eine Spieleraktion mit Begegnungsidentität, Aktions-ID und erwarteter Revision an. Validiere gegen den angenommenen Kampfzustand.
 2. Gehe in bestehender Reihenfolge zur nächsten gewöhnlichen Aktion oder Unterbrechungsentscheidung weiter. Trenne Erklärung von Wirkungsauflösung, damit eine Reaktion einen ausstehenden Zauber unterbrechen kann; löse nicht erst eine ganze Runde auf, um sie danach umzuschreiben.
 3. Speichere ausstehende Aktivierung/Fenster: Einheiten-ID, Revision, Zugzeiger, auslösende/ausstehende Aktion, Strategieversion und begrenztes Menü zulässiger Kandidaten.
-4. Fordere von der GM-Verbindung eine strukturierte Kandidaten-ID oder Passen an. Füge aktuellen Gruppenbogen-Snapshot, Boss-Absicht, unterstützte Mechaniken und nur die für dieses Fenster vorgesehenen Aktionsinformationen gemäß Abschnitt 16 hinzu. Eine kurze optionale Erzählung darf keinen Zustand verändern.
+4. Fordere von der GM-Verbindung eine strukturierte Kandidaten-ID oder Passen an. Füge aktuellen Gruppenbogen-Snapshot, Boss-Absicht, unterstützte Mechaniken und nur die für dieses Fenster vorgesehenen Aktionsinformationen gemäß [GM-Bosse, legendäre Aktionen und Reaktionen](#gm-bosses-legendary-actions-and-reactions) hinzu. Eine kurze optionale Erzählung darf keinen Zustand verändern.
 5. Validiere Antwort, aktuelle Revision, Einheit, Kandidatenzugehörigkeit und aktuelle Zulässigkeit. Erfasse die Entscheidung atomar und wende die Aktion einmal an.
 6. Setze unterbrochene Aktion/Aktivierung aus dem aktualisierten Zustand fort, dann die übrigen Teilnehmer. Validiere nach Unterbrechungen erneut; schreibe jedes Budget/jede Wirkung genau einmal an ihrer regeldefinierten Grenze fort und gib dann die Kontrolle zurück.
 
@@ -376,7 +290,7 @@ Kündige große Angriffe in UI/Log vor der Auflösung an, wenn die Mechanik eine
 
 Zeige bei deaktivierter oder unverfügbarer GM-Steuerung den Engine-Rückfall an, statt die Entscheidung dem GM zuzuschreiben. Reproduzierbarkeit mit GM bedeutet Wiedergabe gespeicherter Entscheidungen und Würfe, nicht identische neue Modellantworten aus demselben Seed.
 
-## 9. Daten- und Anbindungsvertrag
+## Daten- und Anbindungsvertrag
 
 Bevorzuge ein kleines gemeinsames Metadatenobjekt, das durch den vorhandenen Kampfablauf geführt wird. Beispiel einer aufgelösten Form:
 
@@ -415,11 +329,11 @@ Behalte für ältere laufende Begegnungen standardmäßig die alte Strategie und
 
 Jeder Gegnererstellungspfad zählt: generierte Begegnungen, manueller/Rückfallkampf, wiederhergestellte Spielstände und künftige Beschwörungen. Ergänze Felder nicht nur in der TypeScript-Schnittstelle, um sie beim ausdrücklichen Eigenschaftskopieren wieder zu verlieren.
 
-## 10. Spielspaß, Realismus und Wiederspielwert prüfen
+## Spielspaß, Realismus und Wiederspielwert prüfen
 
 **Spielspaß:** Gegner sollen erkennbare und ausnutzbare Gewohnheiten haben. Ein Sieg durch Trennung eines Protective-Wächters von einem Supportive-Heiler ist befriedigender als einer durch den zufälligen Fehlzug einer Universalbewertung. Mache nicht alle Gegner zu perfekten Maschinen für konzentriertes Feuer.
 
-**Realismus:** Nutze glaubwürdige Ziele, begrenztes Wissen und gegnergerechte Kompetenz. Feigheit, Loyalität, Aggression und Ausbildung sind verschiedene Eigenschaften. Mindless ist die gewünschte Vereinfachung für zwei Kreaturenkategorien. Künftige Moral-/Zielsysteme dürfen Aufgabe, Gebietsverteidigung und Flucht ergänzen, ohne deren heutige Existenz vorzutäuschen.
+**Realismus:** Nutze glaubwürdige Ziele, begrenztes Wissen und gegnergerechte Kompetenz. Feigheit, Loyalität, Aggression und Ausbildung sind verschiedene Eigenschaften. Mindless ist die gewünschte Vereinfachung für zwei Kreaturenkategorien. Moral (Aufgabe und Flucht) und das territoriale Temperament gibt es inzwischen unter [Praktische Leitplanken](#practical-guardrails); weitergehende Ziele noch nicht.
 
 **Wiederspielwert:** Variiere Profile und Begegnungszusammensetzung zwischen Seeds und bewahre Identität innerhalb eines Kampfes und für wiederkehrende NPCs. Gelände, Rollenkombinationen, Gegnerressourcen und Ziele sollen mehr Variation als andere kritische Treffer schaffen. Schwierigkeit soll die Herausforderung vorhersehbar verändern, ohne eine Mindless Beast plötzlich Heiler jagen zu lassen.
 
@@ -433,85 +347,15 @@ Beispielbegegnung auf derselben Karte:
 
 Ein anderer Seed kann Cowardly Bruiser und Opportunistic Marksman erzeugen und damit das Gefecht verändern. Neuladen darf das nicht. Ein späteres Auftreten desselben benannten Bosses soll etablierte Gewohnheiten bewahren, solange Geschichte oder ausdrückliche Bearbeitung sie nicht ändern.
 
-## 11. Vorgeschlagene Implementierungsschritte
+<a id="current-ordinary-ai-implementation-boundary"></a>
 
-Diese große Funktion verändert gespeicherte Verträge, Prompts, Gegnerentscheidungen und asynchrone Orchestrierung. Stimme das Design ab und implementiere dann kleine überprüfbare Schritte auf aktuellem staging.
-
-| Schritt                                  | Ergebnis                                                                                                                    | Abschlussnachweis                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| A. Grundlagen für Fähigkeiten und Identität | Ressourcenverlust generierter Gegner belegen/beheben; ausdrückliche Kategorie-/Rang-/Erfahrungshinweise; Felder durch alle Erstellungspfade bewahren  | Generierter Zaubernder nutzt und verbraucht echte Ressourcen; Einzelboss-Identität übersteht Wiederherstellung |
-| B. Zuweisung und Speicherung          | Rollenvorwahrscheinlichkeiten, Persönlichkeitshinweise, Seed-bestimmtes gespeichertes Adjektiv, versioniertes Altverhalten                                              | Zuweisungstendenzen, harter Typvorrang, stabiles Neulade-/Import-/Checkpoint-Verhalten                  |
-| C. Gewöhnliche Tactical-Gegner           | Gemeinsame zulässige Kandidaten, genaue Mindless-Verfolgung, acht unterschiedliche Profile, Inspektionstexte                                      | Verhaltensmatrix, Vorschaugleichheit, Mobil-/Browsernachweise, begrenzter Aufwand           |
-| D. GM-Boss-Züge                       | Serverseitige Revisions-/Idempotenzgrenze, fortsetzbare Gegnerphase, validierte Kandidatenantwort, gespeicherter Rückfall, unterstützte Mechaniken | Zeitlimit-/Wiederholungs-/Parallelitäts-/Wiederherstellungstests und manueller Boss-Kampf mit echtem Anbieter                        |
-| E. Classic-Anpassung                  | Nicht räumliche Profilsemantik, richtige Verbündeten-/Unterstützungsvorräte, Seed-bestimmter Entscheidungs-/Wurfzustand und Boss-Initiativeanbindung           | Classic-Runden-/Ressourcenregressionen und Wiederherstellungs-/Wiedergabenachweis; keine falsche Behauptung über Rasterverhalten        |
-
-Schritte A–C sind ein nützlicher erster Meilenstein, **erfüllen für sich aber keine GM-gesteuerten Bosse**. In Classic muss die Boss-Entscheidung nach vorherigen Aktionen am richtigen Initiativeplatz angefragt werden, nicht anhand eines veralteten Bretts vom Rundenbeginn. Nutze Profiltabellen und Zuweisungslogik wieder, ohne räumliche und nicht räumliche Engines in einen riesigen Auflöser zu pressen.
-
-Spätere getrennte Arbeiten: gemeinsame Sichtlinie/Deckung, echte AoE-Zielwahl, Moral/Flucht je Einheit, Ziele, weitere Adjektive, Koordination, Summoning-KI und regelprofilspezifische Aktionsökonomie. Tabletop-Regeln bestimmen Zulässigkeit; Gegnertemperament entscheidet über die Nutzung zulässiger Optionen.
-
-### Quellcodeübersicht für die Implementierung
-
-| Datei / Symbol                                                                                                                                                                                                                                    | Bedeutung                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [Gemeinsame Kampftypen](../../packages/shared/src/types/game.ts), `Combatant`, `GameCombatStateSnapshot`                                                                                                                                           | Laufzeitmetadaten und Classic-Wiederherstellungsvertrag                                              |
-| [Begegnungstypen](../../packages/shared/src/types/combat-encounter.ts), `CombatEnemy`, `CombatInitState`                                                                                                                                         | Generierter Bauplan, Mechaniken und getrennte Begegnungsdialogtypen                          |
-| [Begegnungsrouten](../../packages/server/src/routes/encounter.routes.ts)                                                                                                                                                                         | Generierungs-Prompts/-Schemas und bestehender Charakterkontext; getrennte Dialogaktionsroute     |
-| [GM-Prompts](../../packages/server/src/services/game/gm-prompts.ts)                                                                                                                                                                              | Sagen dem GM derzeit, dass die UI Kampfmechaniken behandelt                             |
-| [GameSurface](../../packages/client/src/components/game/GameSurface.tsx), `generatedEnemyToCombatant`                                                                                                                                            | Verwirft Beschreibung und lässt Gegner-MP aus; ausdrückliche Überführungs- und Wiederherstellungs-/Erstellungspfade        |
-| [Classic-UI](../../packages/client/src/components/game/GameCombatUI.tsx) und [Spiel-Hooks](../../packages/client/src/hooks/use-game.ts)                                                                                                           | Aktive Classic-Anfragen, Runden-/Animationsverhalten und Spieleraktionsablauf                   |
-| [Classic-Dienst](../../packages/server/src/services/game/combat.service.ts), `chooseAutoSkill`, `resolveCombatRound`                                                                                                                            | Gemeinsame automatische Strategie, RNG, Mechaniken und Initiative                                     |
-| [Spielrouten](../../packages/server/src/routes/game.routes.ts), `/combat/round`, `/combat/tactical/start`, `/combat/tactical/action`                                                                                                             | Schemas und Orchestrierungsgrenze; Zustand hin/zurück über den Client                                |
-| [Tactical-KI](../../packages/shared/src/features/tactical-combat/ai.ts), `decide`, `runEnemyPhase`                                                                                                                                               | Aktuelle Strategie und Phasenschleife über alle Gegner zugleich                                          |
-| [Tactical-Engine](../../packages/shared/src/features/tactical-combat/engine.ts)                                                                                                                                                                  | Einheitenumwandlung, Boss-Heuristik, Bewegung, Zulässigkeit, Auflösung, Vorschauen und Rundenfortschreibung |
-| [Tactical-Klassen](../../packages/shared/src/features/tactical-combat/classes.ts)                                                                                                                                                                | Vorhandene sechs Klassen und Fähigkeitsableitung                                             |
-| [Tactical-Typen](../../packages/shared/src/features/tactical-combat/types.ts), [Mathematik](../../packages/shared/src/features/tactical-combat/math.ts), [RNG](../../packages/shared/src/features/tactical-combat/rng.ts)                              | Snapshot-/Aktionsverträge, Geländevorschauen und deterministischer Strom                      |
-| [Tactical-UI](../../packages/client/src/components/game/TacticalCombatUI.tsx) und [Chat-Metadaten](../../packages/shared/src/types/chat.ts)                                                                                                       | Gespeicherter Tactical-Snapshot, Beschäftigtzustände und Wiederaufnahme ausstehender Boss-Entscheidungen                             |
-| [Vorhandene Geländeregressionen](../../scripts/regressions/hybrid-terrain.regression.ts), [Routennachweis](../../scripts/regressions/hybrid-terrain-route.regression.ts), [Einrichtungsnachweis](../../scripts/regressions/hybrid-terrain-setup.regression.ts) | Bestehende ausführbare Nachweismuster zur passenden Erweiterung                                  |
-
-Suche vor der Implementierung Issues, offene/Entwurfs-PRs, verknüpfte Branches und Projekteinträge gegen Doppelarbeit. Der frühere Kampfplan nennt den geschlossenen/nicht gemergten PR #4391 als Vorarbeit; prüfe Status und Zuständigkeit erneut und mache nicht die gesamte Erweiterung zur Voraussetzung. Befolge aktuelle `AGENTS.md`, `CONTRIBUTING.md`, Paketanweisungen und die Chai-Ablaufergänzung. Implementiere nicht allein anhand veralteter Zeilennummern.
-
-## 12. Akzeptanz- und Validierungsplan
-
-Nutze kleine ausführbare `*.regression.ts`-Nachweise im vorhandenen Runner. Behalte keine temporären `.test.ts`-Dateien. Zusicherungen sollen Verhalten belegen, nicht bloß Gewichtskonstanten spiegeln.
-
-| Szenario                                                                                        | Erforderliches Ergebnis                                                                                                           |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Beast/Monstrosity mit widersprüchlichem Adjektiv, Meisterkompetenz, bekannter Persönlichkeit oder Boss-Rang | Generierte Hinweise ergeben immer Mindless; widersprüchliche verfasste/importierte aufgelöste Profile erhalten hilfreichen Fehler |
-| Nächster gesunder Tank gegenüber weiter entferntem verwundetem Zaubernden                                              | Mindless verfolgt den Tank; Opportunistic darf den Zaubernden wählen                                                            |
-| Kurzer Waldweg gegenüber längerem offenen Weg                                                     | Mindless wählt weniger Schritte bei tatsächlichen Bewegungskosten und erhält beiläufige Geländeboni normal              |
-| Wand mit vorübergehendem Wegführen; unerreichbarer Gegner                                      | Verfolgung findet zulässigen Umweg oder anderes erreichbares Ziel; kein Manhattan-Stillstand                                         |
-| Fliegende/teleportierende Mindless-Einheiten                                                               | Eigene Durchquerungs-/Lande-/Belegungsregeln und Zugreichweite; keine unmögliche verkettete Landefolge                       |
-| Verwundeter Verbündeter außerhalb aktueller Heilreichweite                                                      | Supportive bewegt sich und heilt zulässig; fehlende MP/Abklingzeit blockieren die Fähigkeit                                               |
-| Protective-Einheit ohne Provokations-/Abfangfähigkeit                                           | Nur Positionierung; keine erfundene Schadensumleitung                                                                          |
-| Verwundeter Cowardly-Gegner                                                                          | Darf zurückweichen/abwehren; löst niemals globale Gruppenflucht aus                                                                      |
-| Hohe Kompetenz über große feste Seed-Menge                                                     | Rollengerechte Profile häufiger, seltene kompatible Profile bleiben; Seed-spezifische Ergebnisse stabil                |
-| Bekannte Persönlichkeit, verneinte Eigenschaft, widersprüchliche, fehlende/ungültige Hinweise, nicht englischer Text  | Begrenzte dokumentierte Anpassungen; keine beliebige Zahlensteuerung oder versehentliche Beschränkung auf Englisch                             |
-| Vorübergehende MP-Erschöpfung                                                                         | Rolle/Adjektiv unverändert; nur zulässige Aktionswahl ändert sich                                                                |
-| Zwei Gegner zielen auf verletzte Einheit, der erste besiegt sie                                             | Zweiter bewertet aktualisierten Zustand; kein Angriff auf tote Ziele oder doppelt reservierte Heilung                                |
-| Zielgelände unterscheidet sich vom Ausgangsgelände                                               | Kandidatenvorschauen und tatsächliche Konter stimmen bei Positionen, Gelände und Regeln überein                                             |
-| GM erfindet Koordinaten, Fähigkeiten, kostenlose Aktionen, Ziel-IDs oder unzulässige Ressourcen                   | Keine Zustandsänderung; nur gespeicherter zulässiger Rückfall oder gültiger Kandidat                                                                 |
-| GM-Zeitlimit mit späterem Erfolg, Neuladen, doppelter Anfrage oder parallelen Tabs            | Genau eine angenommene Boss-Aktion und ein Ressourcenabzug; veraltete Antwort verworfen                                     |
-| Gruppensieg/-niederlage während angehaltener Gegnerphase                                          | Richtiges Endergebnis; kein weiterer Boss-/Begleitgegnerzug nach Kampfende                                                     |
-| Checkpoint-Wiederherstellung, Verzweigung, Import/Export, alter Spielstand, wiederkehrender NPC                        | Angenommene Profile und richtige Kampfidentität bleiben; keine unbeabsichtigten Neuziehungen oder doppelten externen Entscheidungen             |
-| Classic Mindless und GM-Boss                                                                    | Ausdrückliche nicht räumliche Zielregel und richtiger Initiativeplatz; keine Behauptung über Raster-/Geländeverhalten                        |
-
-Messe Entscheidungskosten mit den unterstützten Anfragegrenzen von 40 Einheiten / 64 mal 64 Feldern, gemischten Bewegungsarten, vielen Fähigkeiten und dichten Hindernissen. Zwischenspeichere begründet Bewegungs-/Bedrohungsberechnungen je Entscheidung und verwerfe sie nach Zustandsänderungen. Lege erst nach Profilierung der aktuellen Engine auf Desktop und repräsentativem Mobilgerät ein messbares Zeitbudget für gewöhnliche Phasen fest. Behaupte kein Millisekundenbudget ohne Messung und ergänze vor der Profilierung keine tiefe Voraussuche.
-
-Für die Implementierung: Beginne mit `pnpm install`; führe `pnpm check`, gezielte Kampf-/Routenregressionen, bei Prompt-Änderungen `pnpm regression:prompt` und für UI-Texte `pnpm localization:check` aus. Nutze Browserregressionen für tatsächlichen Kampfablauf, Neuladen, Boss-Warten/-Ausfall, Tastaturzugang, kleine Bildschirme und helles/dunkles Design. Ergänze passende `[Unreleased]`-Changelog-Einträge. Lies vor Client-Änderungen `packages/client/.instructions.md`. Protokolliere Anbieter-Prompts/-Ergebnisse über vorhandene Debug-Funktionen und Pino, ohne fremde Geheimnisse offenzulegen.
-
-Führe vor angefordertem PR-Review CodeRabbit lokal aus, behebe wesentliche Befunde und wiederhole die Prüfung. Dokumentiere codegestützte Ablehnungen falscher oder rein pedantischer Vorschläge; laufe nicht endlos im Kreis. Lasse PR-Testplankästchen für den menschlichen Beitragenden unangekreuzt. Wenn dieses Dokument in einem PR veröffentlicht wird, füge die erforderliche `[docs-i18n]`-Folgearbeit oder passende Übersetzungen hinzu.
-
-### Was die ursprüngliche Erkundung geprüft hat
-
-Die Beschreibungen des damaligen Verhaltens stammen aus Quellcodeverfolgung von aktivem Client, Routen und Auflösern mit getrennten Classic-/Tactical-Prüfungen. Das Wahrscheinlichkeitsbeispiel wurde direkt berechnet. Es wurde kein Kampf-KI-Code geändert, keine neue Strategie simuliert und kein Browser- oder Boss-Ablauf mit echtem Anbieter ausgeführt. Das sind Akzeptanzanforderungen der Implementierung, keine durch dieses Design gelieferten Nachweise.
-
-## 13. Aktueller Umfang der gewöhnlichen KI-Implementierung
+## Aktueller Umfang der gewöhnlichen KI-Implementierung
 
 Implementiertes Strategievokabular: Mindless, Reckless, Cautious, Opportunistic, Protective, Supportive, Disciplined, Cowardly, **Patient, Methodical und Coordinated**. Weitere Adjektive unten sind Ideen, keine verborgenen Laufzeiteinstellungen.
 
 Der gemeinsame Vertrag `features/combat-ai.ts` trennt gespeicherte Rolle, Adjektiv, Ausbildungsstufe und Seed von der Steuerung. Neue Kämpfe erhalten gespeicherte Zuweisungen; wiederhergestellte Kämpfe ohne Profil behalten die bisherige automatische Strategie. Ein Steuerungswechsel für einen Begleiter würfelt sein Adjektiv nicht neu. Generierte endliche MP-Vorräte sowie ausdrückliche Fähigkeitstypen/-kosten erreichen die Laufzeit; ausgelassene Gegner-MP nutzen denselben vorläufigen Vorrat `20 + 3 × level` wie Verbündete ohne Werte, unter Wahrung ausdrücklicher null. Das ist ein allgemeiner Engine-Rückfall, keine Tabletop-Ressourcenregel.
 
-Die v1-Zuweisung ist bewusst kleiner als die Formel in Abschnitt 5: Kompatible Profile beginnen mit positivem Gewicht, rollengünstige erhalten einen ausbildungsabhängigen Bonus, ein optionaler Persönlichkeitshinweis aus geschlossener Aufzählung eine begrenzte Vorliebe. Kategorievorrang erzwingt Mindless; ein ausdrücklicher Mindless-Hinweis wählt es auch für andere Kategorien. Der bestehende Begegnungsgenerierungsaufruf liefert Hinweise in beiden Sprachen; die Engine liest Persönlichkeit nicht selbst aus Prosa. Andere Temperamenthinweise sind Vorlieben, keine Garantien; das Modellverständnis von Verneinung/mehrsprachiger Charakterisierung braucht weiterhin Anbieterbewertung. Vollständige Herkunft und identitätsgestützte Persönlichkeit wiederkehrender NPCs über Begegnungen hinweg bleiben Folgearbeit. Aus HP abgeleitete Stufe bleibt ohne Hinweis ein schwacher Ausbildungsersatz.
+Die v1-Zuweisung ist bewusst kleiner als die in [Profilzuweisung: Rolle, Erfahrung, Persönlichkeit, dann Seed-bestimmte Vielfalt](#assigning-profiles-role-experience-personality-then-seeded-variety) vorgeschlagene Formel: Kompatible Profile beginnen mit positivem Gewicht, rollengünstige erhalten einen ausbildungsabhängigen Bonus, ein optionaler Persönlichkeitshinweis aus geschlossener Aufzählung eine begrenzte Vorliebe. Kategorievorrang erzwingt Mindless; ein ausdrücklicher Mindless-Hinweis wählt es auch für andere Kategorien. Der bestehende Begegnungsgenerierungsaufruf liefert Hinweise in beiden Sprachen; die Engine liest Persönlichkeit nicht selbst aus Prosa. Andere Temperamenthinweise sind Vorlieben, keine Garantien; das Modellverständnis von Verneinung/mehrsprachiger Charakterisierung braucht weiterhin Anbieterbewertung. Vollständige Herkunft und identitätsgestützte Persönlichkeit wiederkehrender NPCs über Begegnungen hinweg bleiben Folgearbeit. Aus HP abgeleitete Stufe bleibt ohne Hinweis ein schwacher Ausbildungsersatz.
 
 Jeder Modus zählt ausführbare Standardangriffe, Fähigkeiten und Abwehroptionen auf und bewertet Schaden, Abschluss, wirksame Heilung, Unterstützung, Kosten und relevante taktische Faktoren. Es kommt kein Modellaufruf je gewöhnlichem Zug hinzu. Profile gewähren niemals unverfügbare Fähigkeiten, unbegrenzte MP, zusätzliche Aktivierungen oder nicht vorhandene Geländemechaniken.
 
@@ -523,9 +367,9 @@ Jeder Modus zählt ausführbare Standardangriffe, Fähigkeiten und Abwehroptione
 - **Begleiter:** lokalisierte Player-/AI-Auswahl pro Mitglied im Kampf; der aktive Anführer bleibt manuell. Tactical-Begleiter handeln nach verbleibenden manuellen Befehlen oder bei **End Turn** (Zug beenden). Manuelle Übersteuerung bleibt bis zu ihrer Aktion möglich. Steuerungswechsel, Profile und Gedächtnis bleiben in Kämpfenden-/Tactical-Snapshots gespeichert.
 - **Classic-Speicherung:** Angenommene Rundenergebnisse und nächste Rundennummer gehen vor kosmetischer Animation an den bestehenden Snapshot-Callback. Echte Abklingzeiten pro Nutzung überstehen diesen Umlauf. Classic nutzt weiterhin seine bestehenden zufälligen Kampfwürfe; das ist keine exakte Wurfwiedergabe oder serverseitiges idempotentes Aktionsprotokoll. Garantien für parallele Tabs gehören zur künftigen maßgeblichen Boss-Arbeit.
 
-Der erste Meilenstein endete vor Boss-Anbieteraufrufen und Reaktionen; Abschnitt 16 hält deren folgende Implementierung fest. Verbleibende Grenzen umfassen Flucht je Einheit, Provokation, reichere Ziele, regelsatzspezifische Initiative, vollständige Bogenressourcennormalisierung und eine wiederkehrende NPC-Profilregistrierung. Nicht implementierte Teile des ursprünglichen Vorschlags bleiben Akzeptanzarbeit und gelten nicht implizit als ausgeliefert. Synthetische Desktop-Messungen sind keine Kalibrierung realer Mobilgeräte.
+Der erste Meilenstein endete vor Boss-Anbieteraufrufen und Reaktionen; [GM-Bosse, legendäre Aktionen und Reaktionen](#gm-bosses-legendary-actions-and-reactions) hält deren folgende Implementierung fest. Verbleibende Grenzen umfassen Provokation, reichere Ziele, regelsatzspezifische Initiative, vollständige Bogenressourcennormalisierung und eine wiederkehrende NPC-Profilregistrierung. Nicht implementierte Teile des ursprünglichen Vorschlags bleiben Akzeptanzarbeit und gelten nicht implizit als ausgeliefert. Synthetische Desktop-Messungen sind keine Kalibrierung realer Mobilgeräte.
 
-## 14. Weitere Adjektive mit klassenabhängigem Verhalten
+## Weitere Adjektive mit klassenabhängigem Verhalten
 
 Behalte ein sichtbares Adjektiv plus fähigkeitsabgeleitete Rolle. Das sind unterschiedliche Prioritäten, keine Synonyme für „klug“. Erlaube ungewöhnliche, aber mechanisch gültige Kombinationen.
 
@@ -556,7 +400,9 @@ Auch die drei gewünschten Ergänzungen unterscheiden sich je Klasse:
 
 Diese Beschreibungen sind Abstimmungsziele. Die erste Implementierung nutzt das allgemeine unterstützte Verteidigungsverstärkungs-/-schwächungsmodell; reichere Klassenkombinationen brauchen entsprechende Fähigkeiten und Regressionsszenarien.
 
-## 15. Designerweiterung Summoning
+<a id="summoning-design-extension"></a>
+
+## Designerweiterung Summoning
 
 Beginne ohne Raster. Eine Beschwörung ist eine tatsächliche kämpfende Einheit mit stabiler Begegnungs-ID, Besitzerreferenz, Seite, Profil, Steuerung, Dauer, Ressourcenkosten und ausdrücklichem Aktivierungsbudget. Die Klasse verändert zulässige Ausstattung, das Adjektiv Prioritäten wie in Classic.
 
@@ -566,7 +412,11 @@ Der Regelsatz bestimmt, ob Befehle die Aktion des Besitzers verbrauchen, ob eine
 
 Besitzer-KO, Bezauberungs-/Seitenwechsel, Entlassung, Ablauf der Dauer, Gruppenniederlage und Begegnungsende brauchen jeweils ausdrückliche Aufräumregeln. Speichere Besitz und Restdauer über Neuladen/Import hinweg. Eine besiegte Beschwörung ist weder Inventargegenstand noch dauerhaftes Gruppenmitglied. Zauber-/MP-Kosten werden einmal für angenommene Erstellung abgebucht. Beschwörungsaktionen dürfen keine legendären Fenster außerhalb der Berechtigungsregeln des festgeschriebenen Boss-Modifikators erzeugen.
 
-## 16. GM-Bosse, legendäre Aktionen und Reaktionen
+<a id="gm-bosses-legendary-actions-and-reactions"></a>
+
+## GM-Bosse, legendäre Aktionen und Reaktionen
+
+<a id="implemented-generic-engine-adapter"></a>
 
 ### Implementierter allgemeiner Engine-Adapter
 
@@ -620,7 +470,7 @@ Vorgeschlagene allgemeine Modifikatorstandards:
 - Biete `pass` und ausschließlich zulässige Kandidaten im Budget an. Keine legendäre Aktion öffnet ein weiteres legendäres Fenster oder gewährt Geschwindigkeitsverdoppelung. Ein legendär gewirkter Zauber darf Counterspell nur bei Unterstützung durch den gewählten Regeladapter auslösen; Budgets bleiben getrennt.
 - Prüfe vor Anfrage und Annahme erneut Lebend-/Handlungsstatus des Bosses, Zielzulässigkeit und Kampfende. Ein besiegter Boss darf keine späte Antwort ausgeben. Mindless-Kategoriegrenzen gelten weiterhin für Zielwahl/Verfolgung einschließlich legendärer Optionen.
 - Unterscheide gewöhnliche Aktion, Reaktion, legendäre Aktion und Hort-/Phasenereignis. Sie haben getrennte Budgets/Auslöser; eine Beschreibung darf keinen neuen Schaden oder kostenlose Aktivierung schaffen.
-- Gewöhnliche Begleitgegner bleiben lokale KI. GM-Aufrufe erfolgen nur in Boss-Fenstern mit sinnvoller Wahl. Nutze konfigurierte GM-Verbindung, Debug-Protokollierung, gespeicherten Rückfall und Gesamtlatenzlimit aus Abschnitt 8 wieder.
+- Gewöhnliche Begleitgegner bleiben lokale KI. GM-Aufrufe erfolgen nur in Boss-Fenstern mit sinnvoller Wahl. Nutze konfigurierte GM-Verbindung, Debug-Protokollierung, gespeicherten Rückfall und Gesamtlatenzlimit aus [Vom GM gesteuerte Boss-Züge](#boss-turns-controlled-by-the-gm) wieder.
 
 ### Counterspell und weitere optionale Reaktionen
 
@@ -649,13 +499,15 @@ Stelle eine gewöhnliche Aktion als gespeicherte Erklärung, ausstehende Wirkung
 
 Mehrere berechtigte Reagierende nutzen eine regeldefinierte stabile Priorität und prüfen nach jeder angenommenen Antwort erneut Zulässigkeit. Unterstütze verschachtelte Reaktionen wie Counterspell auf Counterspell nur durch ausdrückliche Regelsatzfähigkeit und begrenzten Stapel ausstehender Aktionen. Jeder Eintrag trägt Eltern-/Auslöser-ID; eine Einheit darf pro Auslöser einmal antworten und braucht verbleibendes Reaktionsbudget. Schließe erschöpfte, abgebrochene oder schon aufgelöste Auslöser. Keine unbegrenzte Rekursion, wiederholten Passen-Abfragen, doppelten Ausgaben oder legendären Ketten. Ein bewusst begrenzter erster Adapter muss nicht unterstützte Reaktionsketten offenlegen, statt vollständiges 5e-Verhalten zu behaupten.
 
-Minimaler Speichervertrag: Begegnungs-ID, Revision, Aktivierungs-ID/-zeiger, bestätigte Figur, Fenstertyp/-ID, Auslöseereignis und ausstehende Aktions-/Eltern-IDs, Kontextrevision der Steuerung, Kandidatenrevision, Reihenfolge berechtigter/abgearbeiteter Reagierender, legendäre/Reaktionsbudgets, reservierte/gebuchte/erstattete Ressourcenänderungen, angenommene Wahl/Passen, Auflösungsstatus, Anbieteranfrage-/Rückfallergebnis und Restwirkungen. Nimm Entscheidungen samt Kosten/Ergebnissen atomar an. Späte oder doppelte Antworten dürfen nicht erneut zahlen. Wiederherstellung setzt ausstehendes Fenster fort oder spielt angenommenes Ergebnis ab; Verzweigung/Rückspulen isoliert das gesamte Kampfprotokoll, nicht nur Erzählung. Kein reines Text-Restore erstattet angenommene Reaktionen. Das unten beschriebene Serverprotokoll liefert die erste Implementierung; Abschnitt 8 behält den längerfristigen Vertrag.
+Minimaler Speichervertrag: Begegnungs-ID, Revision, Aktivierungs-ID/-zeiger, bestätigte Figur, Fenstertyp/-ID, Auslöseereignis und ausstehende Aktions-/Eltern-IDs, Kontextrevision der Steuerung, Kandidatenrevision, Reihenfolge berechtigter/abgearbeiteter Reagierender, legendäre/Reaktionsbudgets, reservierte/gebuchte/erstattete Ressourcenänderungen, angenommene Wahl/Passen, Auflösungsstatus, Anbieteranfrage-/Rückfallergebnis und Restwirkungen. Nimm Entscheidungen samt Kosten/Ergebnissen atomar an. Späte oder doppelte Antworten dürfen nicht erneut zahlen. Wiederherstellung setzt ausstehendes Fenster fort oder spielt angenommenes Ergebnis ab; Verzweigung/Rückspulen isoliert das gesamte Kampfprotokoll, nicht nur Erzählung. Kein reines Text-Restore erstattet angenommene Reaktionen. Das in [Implementierter allgemeiner Engine-Adapter](#implemented-generic-engine-adapter) beschriebene Serverprotokoll liefert die erste Implementierung; [Vom GM gesteuerte Boss-Züge](#boss-turns-controlled-by-the-gm) behält den längerfristigen Vertrag.
 
 UI: Zeige verbleibende legendäre Punkte, Reaktionsverfügbarkeit und angebotene Fähigkeitskosten; unterscheide Vorhersage und ausgelöste Reaktion. Zeige Unterbrechungsgrund und ob der ursprüngliche Zauber aufgelöst wird, scheitert oder neue Auswahl braucht. Mache Denken/Warten, Wiederholung/Rückfall und Abbruch barrierefrei zugänglich. Kündige aufgeladene Angriffe an, wo nötig. Behaupte niemals, der GM habe einen lokalen Rückfall gewählt. Halte interne Bewertungen/Prompts aus dem Spieleraktionsmenü heraus.
 
 Erforderliche Nachweise: richtige Gruppenzauber/-ressourcen/-gegenstände im GM-Kontext; Vorschau bei erschöpften Ressourcen; plausible, aber falsche Fireball-Vorhersage; keine Entwurfs-/Befehlslecks; keine Ausbeutung bloßer Klicks/Neuauswahl; Spieler ändert zulässige Aktion nach Vorhersage; nativer 5e-Zeitpunkt gegenüber aktivierter Hausregel; Counterspell erst nach zulässigem Zauberauslöser; schwacher Zauber passiert, tödlicher wird angefochten; keine MP/Zauberplätze/Reaktion übrig; Kosten einmal bei gescheitertem Konter; regelspezifische Erstattung des Ursprungszaubers; unzulässige Sichtbarkeit/Reichweite; mehrere Reagierende und gekonterte Konter; kein zusätzliches legendäres Fenster bei Bewegung/Folgeangriff/Reaktion; richtiger Classic-Initiativeplatz; ungültig gewordene vorgemerkte manuelle Aktion; übersprungene Tactical-Einheiten/Beschwörungsberechtigung; erschöpftes legendäres Budget; genau einmalige Auffrischung; Tod/Ergebnis während Wartezeit; doppelte Anfragen; Zeitlimit mit spätem Erfolg; Neuladen, parallele Tabs, Verzweigung/Rückspulen und Einstellungsänderungen. Ergänze nach deterministischen Routentests echtes Anbieterverhalten und repräsentative Prüfung des Mobilspieltempos.
 
-## 17. Übergabe für einen Begegnungsumgebungs-Agenten
+<a id="encounter-environment-agent-handoff"></a>
+
+## Übergabe für einen Begegnungsumgebungs-Agenten
 
 Das Textfeld **Terrain guidance** (Geländehinweise) und seine Zusammenfassungszeile werden aus der Spielerstellung entfernt. Alte Einrichtungsdateien dürfen das Feld aus Kompatibilitätsgründen behalten, doch die Begegnungsgenerierung fügt es nicht mehr jedem Kampf hinzu. Battlefield Size bleibt eine wiederverwendbare Einrichtungsvorliebe. Neue Kämpfe erhalten eigene interne Seeds; gespeicherte Karten und Neustarts bewahren angenommene Seeds. Die Tactical-Bezeichnung beschreibt Bewegung, Gelände und Vorschauen ohne den Namen eines anderen Spiels.
 
@@ -672,77 +524,36 @@ Eingaben müssen Begegnungs-/Ortsrevision tragen und beobachtete Fakten von unsi
 
 Der GM erhält angenommenen Kontext und erzeugt weiterhin die Begegnung; die Engine validiert das endgültige Gelände. Zwischenspeichere nach Begegnungs-/Ortsrevision, verwirf veraltete Antworten nach Reise/Szenenänderung und vermeide wiederholte kostenpflichtige Aufrufe bei Wiederholung. Bei Deaktivierung, Fehlen oder Zeitüberschreitung nutze aktuellen Generierungskontext mit gewöhnlichem prozeduralem Gelände-Rückfall. Speichere angenommenes Gelände, statt beim Neuladen neu zu generieren. Ergänze Debug-Prompt-Protokollierung und Schema-/Zeitlimit-/Veralteter-Ort-Tests. Dieser Agent wird hier dokumentiert, nicht innerhalb der Engine implementiert oder stillschweigend installiert.
 
-### Prüfprotokoll der ersten Implementierung
+## Schwierigkeit und Wetter
 
-Die lokale Basisprüfung `pnpm check` besteht, ebenso gezielte Kampf-KI-Regression, vorhandene Hybridgelände-Routen-/Einrichtungs-/Engine-Regressionen und `pnpm regression:prompt`. Gezielte Browsertests über tatsächliche Classic-/Tactical-Routen prüfen Begleiterauswahl, vorgemerkte manuelle Befehle, automatische Begleiteraktionen, angenommene Rundenspeicherung und Neuladen. Einrichtungs-/Überführungsprüfungen decken Entfernung der Geländehinweise, Seed null, ausdrückliche nicht englische Zaubertypen und ausdrücklich null MP ab. Desktop-Chromium im hellen und Chromium in Android-Größe im dunklen Design bestanden; WebKit konnte wegen fehlender Systembibliotheken nicht starten. Screenshots sind lokale Testartefakte, keine eingecheckten Dokumentationsassets.
+### Einrichtung und Schwierigkeit
 
-Ein synthetisches offenes Brett mit 40 Einheiten und 64×64 Feldern, gemischtem Gehen/Fliegen/Teleportieren und Unterstützungsfähigkeiten benötigte auf diesem Host etwa 400–440 ms für eine gewöhnliche Gegnerphase. Das ist weder ein Worst-Case-Budget mit dichten Hindernissen noch eine Messung auf einem echten Telefon. Gleichgewicht und vollständiges Begegnungstempo brauchen weiter Spieltests. Diese Messungen betreffen nur den ersten Meilenstein; sie belegen keine Boss-Fensterlatenz oder künftigen Regelsatz.
+Entferne das Feld **Battlefield Seed** (Seed des Schlachtfelds) und dessen Zusammenfassung, behalte **Battlefield Size** (Größe des Schlachtfelds) aber bei. Neue Begegnungen erhalten interne Zufalls-Seeds. Ignoriere veraltete Kampagnen-Seed-Einstellungen beim Start künftiger Kämpfe; behalte angenommene Kampf-Seeds, Raster und das Neustartverhalten bei. Ändere die Classic-Beschreibung zu „Cinematic menu battles.“.
 
+Normalisiere die Schwierigkeit mit einer gemeinsamen Hilfsfunktion, auch bei älteren Einrichtungen mit großgeschriebenem Anfangsbuchstaben. Behalte die gegnerischen Schadensmultiplikatoren Casual 0,6, Normal 1, Hard 1,3 und Brutal 1,6 bei. Classic darf wie Tactical nur gegnerischen Schaden skalieren. Prüfe Begegnungen und Beute auf denselben Groß-/Kleinschreibungsfehler. Schreibe die Schwierigkeit beim Erstellen der Begegnung fest, statt sie bei geänderten Einstellungen während des Kampfes anzupassen.
 
-### Prüfprotokoll der Boss-/Reaktionsimplementierung
+Diese Schadensmultiplikatoren gehören ausschließlich zu Traditional, den derzeitigen älteren Engine-Mechaniken. Prüfe die Schwierigkeit bei der Implementierung von 5e, V20 oder anderen Regelsätzen anhand der jeweiligen eigenen Regeln neu. Übernimm die Traditional-Multiplikatoren nicht standardmäßig. Die Abstimmung der KI-Entscheidungen ist von der Schadensskalierung unabhängig.
 
-`pnpm check` und `pnpm regression:prompt` bestehen. Die bestehende unabhängige Hook-Warnung in `GameNarration` bleibt. Gezielte Regressionen für gewöhnliche KI, Kampfsteuerung, Routen und Anbieter prüfen verbindliche Aktivierung, Erhalt normaler Züge, verschachtelte Konter, Passen, Zahlung gescheiterter Konter, leere MP/Zauberplätze, Flächenschutz, wandblockierte Reaktionen, gesperrte Züge, Inventartransaktionen, doppelte/veraltete Befehle, tatsächliches hartes Zeitlimit, Rundenaufruflimits und Checkpoint-/Zweigidentität. Der Anbieteradapter wurde gegen einen lokalen HTTP-Testaufbau ausgeführt, einschließlich tatsächlichem ausgehenden Kontext und Ablehnung fehlerhafter/unbekannter Auswahl. Das belegt Anbindung, keine strategische Qualität eines kostenpflichtigen Modells.
+### Wetter
 
-Sechzehn Desktop-/Mobil-Chromium-Prüfungen bestehen für alte und gesteuerte Classic-/Tactical-Begleitersteuerungen, echte Menüaktionen, Abschluss gewöhnlicher Runden, Neuladen ausstehender Reaktionen, genau einmaligen Verbrauch des letzten Zauberplatzes, Überführung generierter Fähigkeiten und Einrichtungsbereinigung. Screenshots wurden im hellen Desktop- und dunklen Mobildesign geprüft; das Reaktionspanel ist sichtbar, fokussiert und bedienbar. Leistung echter Geräte, aktuelle WebKit-Abdeckung und Qualität/Tempo realer Anbieter bleiben ungeprüft. Der erweiterte Routennachweis führt auch das tatsächliche Zehnsekundenlimit aus und verwirft spätere Antworten. Diese Validierung nutzte keinen Live-Spielmodellaufruf. Der Maintainer genehmigte anschließend externes CodeRabbit-Review als Teil des erwarteten Projektablaufs; das erste lokale Review endete mit 15 Befunden.
+Nutze das vorhandene Kampagnenwetter und die anhand der Umgebung bestimmte Wetterexposition der Begegnung. Speichere das angenommene Wetter mit der Begegnung; ein fehlendes Feld in einem alten Kampfspielstand bedeutet neutrale Mechaniken. Unbekannte Exposition ist neutral. Geschlossene Umgebungen sind geschützt. Aktuelle Wetter-Aliase müssen auf die vorhandenen Wettertypen normalisiert werden; beim Setzen eines Typs müssen passende Wind- und Sichtverhältnisse entstehen.
 
+Die anfänglichen Regeln gelten gleichermaßen für beide Seiten: Regen senkt Feuerschaden leicht und erhöht Blitzschaden; starker Wind beeinträchtigt ausdrücklich als Projektil markierte Angriffe; schlechte Sicht beeinträchtigt ausdrücklich sichtabhängige Angriffe; Schnee erhöht die Bewegungskosten beim Gehen in Tactical. Fliegen und Teleportation behalten ihre Bewegungssemantik. Fähigkeiten ohne Kennzeichnung erhalten keine aus ihrem Namen abgeleitete Projektil- oder Sichteigenschaft. Klares/bewölktes Wetter ist normalerweise neutral. Gemeinsame Hilfsfunktionen müssen Vorschauen, Auflösung und KI-Schätzungen steuern, ohne künftige Kampfwürfe zu verbrauchen.
 
-### Lokale CodeRabbit-Nacharbeit
+Zeige die angenommenen Bedingungen und Auswirkungen in beiden Kampfoberflächen. Kosmetische Wettereinstellungen dürfen die Mechaniken nicht abschalten. Das Wetter bleibt während einer Begegnung unverändert; wetterändernde Fähigkeiten, regelmäßige Wetterwechsel, zufällige Blitzeinschläge und Hitzeerschöpfung sind zurückgestellt. Summoning und künftige Regelsätze können den gemeinsamen Wettervertrag wiederverwenden, ohne einen unfertigen UI-Modus einzuführen.
 
-Der erste Durchlauf führte zu Korrekturen bei angenommenem Classic-Gegenstandsverbrauch nach Wiederholungen/übersprungenen Zügen, Tactical-Fähigkeitsstärkenvorschauen, einem abwärtskompatiblen öffentlichen KI-Einstieg, reinen Gegner-Boss-Metadaten, fehlerhaften Zustandsabfragen und importierten Entscheidungskosten, fehlenden automatischen Gegnerphasenereignissen, fehlender Maximum-MP-Normalisierung, ungültigen gesteuerten Einheiten-IDs, Menüs reiner Reaktionsfähigkeiten, Anbieter-Testaufbau-Bereinigung und gemeinsamer Verbindungsauflösung auf Dienstebene. Der Gegenstandsbericht nahm mehrere Gruppen-Gegenstandsmenüs an; derzeit hat nur der Anführer eines. Das Entfernen der veralteten Gegenstandsreferenz behebt dennoch ein echtes Problem abgebrochener Wiederholungen. Verbrauch folgt nun angenommenen Befehlen und tatsächlichen Aktionsergebnissen.
+### Gegnerische Entscheidungen
 
-Geprüfte, mit codegestützter Begründung beibehaltene Entscheidungen:
+Behalte Rolle, Adjektiv, Erfahrung, Regelkonformität und Ressourcenabrechnung bei. Die Schwierigkeit verändert begrenzte, durch einen Seed bestimmte Entscheidungsabweichungen: Casual erlaubt mehr plausible Fehler, Normal bleibt nahe dem bisherigen Ausgangswert, Hard entscheidet beständiger und Brutal minimiert Fehler unter Wahrung der Erfahrungsunterschiede. Die Entscheidungsabstimmung der Begleiter nutzt bei jeder Schwierigkeit einen festen Normal-Ausgangswert; Begleiter reagieren weiterhin auf tatsächliches Wetter und Gefahren. Die Mindless-Einschränkungen bleiben bestehen.
 
-- Zauberplätze nehmen absichtlich nur Grade 1–9 an. Nicht unterstützte Schlüssel aus generierten Bauplänen stillschweigend zu verwerfen könnte ungültige verfasste Ausstattung verbergen; das bestehende Schema lehnt sie ab. Zaubertricks und benanntes Regelsatzverhalten gehören zum getrennten Regelsatzvertrag.
-- Gewöhnliche KI-Kosten fallen jetzt bei fehlendem Maximum von maximalen auf aktuelle MP zurück. Reaktionsknappheit dividiert absichtlich durch **verbleibende** MP: Ein Counterspell, der die letzten Punkte verbraucht, muss auch bei ursprünglich großem Vorrat als teuer gelten.
-- Boss-Kandidatenzählung erstellt ihre Liste erreichbarer Felder bereits einmal. Jeder Kandidat passiert weiterhin die maßgebliche Aktionsvalidierung. Wiederholte Zulässigkeitsprüfungen zu entfernen oder getrennt zu cachen braucht Leistungsnachweise und muss diese Grenze bewahren; das war ein Leistungsvorschlag, kein beobachteter Fehler unzulässiger Aktionen.
-- `CombatAttackResult` hat keine bestehende Kennzeichnung des Grundes einer gescheiterten Aktion. Der neue profilgestützte Auflöser lehnt unverfügbare Fähigkeiten vor Ausführung ab, die Kampfsteuerung validiert vor Zahlung. Ein neues Ergebnis-/UI-Protokoll allein für den älteren wirkungslosen Rückfall bleibt eine Darstellungsverbesserung für später; der Rückfall wirkt nicht und verbraucht keine Ressourcen.
+Nutze wetterabhängige Bewertungen für Angriffe, Unterstützung, Positionierung und Reaktionen. Counterspell und Abwehr konkurrieren je nach Bedrohung, Kosten und Persönlichkeit mit dem Passen. Keine Schwierigkeit gewährt verborgene Befehle, künftige Würfe, kostenlose Ressourcen oder zusätzliche Aktionen. Der GM-Boss-Prompt erhält angenommene Schwierigkeit und Wetter sowie Hinweise zu Druck und Gelegenheitsauswahl; die Engine erzwingt weiterhin die angebotenen zulässigen Optionen und Budgets. Bei Anbieterausfall bleibt der lokale Rückfall erhalten.
 
-Der zweite vollständige lokale Durchlauf endete mit sechs Befunden. Korrigiert wurden Zusammenführung angenommener Zauberplätze und Zurücksetzen veralteter Props im eigenständigen Classic-Bildschirm, direkte Profilzuweisung bei Einheitenerstellung, GM-Charakterisierung aus Kartenfeldern statt serialisierten Metadaten, Blockierung von Reaktionsfähigkeiten in beiden älteren gewöhnlichen Befehlspfaden und automatischer Auswahl sowie wiederherstellbare Fehlermeldung bei fehlerhaften gespeicherten Zustandslesevorgängen.
+### Implementierungsdetails
 
-Der übrige Bauplanvorschlag ist nicht anwendbar: `CombatAttack[]` in gemeinsamen Begegnungstypen, der generierte Begegnungs-Prompt und `combatSkillsFromGeneratedAttacks` verlangen Angriffsobjekte mit Namen. Reine Zeichenketteneinträge besitzen keine unterstützte Laufzeitüberführung. Das Objektschema bleibt streng, statt Daten anzunehmen, die der Kampfbildschirm nicht nutzen kann.
+Gemeinsame Bedingungen liegen in `packages/shared/src/features/combat-conditions.ts`. Die Schwierigkeit wird beim Import/Erstellen der Einrichtung und bei den Verbrauchern für Begegnungen, Beute, Classic und Tactical normalisiert. Gegnerische Entscheidungsabweichungen werden für Casual / Normal / Hard / Brutal mit 2,5 / 1 / 0,4 / 0,15 multipliziert; gespeicherte Erfahrung und Persönlichkeit bleiben wirksam. Classic-Schätzungen nutzen dieselbe Trefferwahrscheinlichkeit gegeneinander gewürfelter d20 wie die Auflösung, Tactical-Schätzungen die gemeinsame Angriffsvorschau. Die Tactical-Verfolgung bewertet Wege für gewöhnliche Profile nach Gelände- und Wetterkosten. Mindless-Einheiten wählen dagegen den zulässigen Weg mit den wenigsten räumlichen Schritten; beide Strategien zahlen bei der Bewegung die tatsächlichen Gelände- und Wetterkosten. Reaktionen berücksichtigen erwartete Bedrohung und Ressourcenknappheit mit derselben ausschließlich gegnerischen Abweichungsregel.
 
-Nach den Korrekturen bestehen `pnpm check` und `pnpm regression:prompt`. Vier Kampfregressionen und die Hybridgelände-Routenregression bestehen, einschließlich tatsächlicher Anbieterkontextextraktion ohne Kartenkommentare/Bearbeitungsnotizen. Sechzehn Desktop-/Mobil-Kampfprüfungen bestanden nach den ersten Korrekturen; die letzten acht Classic-Browserprüfungen bestehen ebenfalls mit ausdrücklicher Abdeckung von Gegenstandswiederholung, übersprungenem Gegenstand und Erschöpfung des letzten Platzes. Ein Build-/Neuladezusammenstoß unterbrach einen früheren Browserlauf; der erfolgreiche Wiederholungslauf fand nach Build-Ende statt. Das dritte Review fand die leere Classic-Fähigkeitsanzeige bei ausschließlich Reaktionsfähigkeiten, nun in beiden Layouts korrigiert. Der entsprechende ältere Tactical-Heil-/Auflösungspfad lehnt reine Reaktionsfähigkeiten ebenfalls ab. Die abschließende Review-Prüfung steht unten.
+Bei ungeschützter Exposition multiplizieren Regen, starker Regen und Stürme Feuerschaden mit 0,85 und Blitzschaden mit 1,15. Explizite Projektile verlieren bei starkem Wind 10 Genauigkeitspunkte, bei Sturmwind 15. Explizit sichtabhängige Angriffe verlieren bei eingeschränkter Sicht 5 Punkte, bei schlechter Sicht 15. Kombinierte Abzüge sind auf 25 Punkte begrenzt. Classic wandelt diese in Modifikatoren für vergleichende Angriffswürfe um, einen Punkt pro fünf Genauigkeitspunkte, und benennt diese Wurfabzüge in der Bedingungsanzeige. Ungeschützter Schnee/Schneesturm in Tactical kostet beim Gehen einen zusätzlichen Bewegungspunkt je betretenem Feld; Flug und Teleportation bleiben unberührt. Gegenstände mit Elementarschaden erhalten ebenfalls Regenmodifikatoren; Heilung und Statusdauer nicht.
 
+Die Begegnungsgenerierung erstellt die booleschen Werte `projectile` / `requiresSight` für Standardangriffe und Fähigkeiten sowie `battlefield.terrainBrief.exposure`. Fehlende Angriffseigenschaften sind neutral. Explizite Exposition hat Vorrang; erkannte geschlossene Umgebungen sind geschützt, erkannte Außenumgebungen ungeschützt und mehrdeutige Umgebungen unbekannt. Kampagnenwetter stammt aus dem gespeicherten Wettersystem; fehlt es, dient ein festgeschriebener Szenenwetterwert als Rückfall. Kampfstart-Tags in Nachrichten unterdrücken den Wetterfortschritt im Hintergrund, bevor der angezeigte Modus nachzieht. Angenommene Bedingungen werden in Kampfsteuerung und Tactical-Zustand gespeichert; widersprüchliche oder fehlerhafte Importe werden abgelehnt. Vorhandene Spielstände ohne Wetter bleiben neutral. Ältere Tactical-Neustarts übergeben angenommene Bedingungen einschließlich neutraler Abwesenheit, statt geändertes Kampagnenwetter neu abzufragen.
 
-Weitere Review-Entscheidungen:
-
-- Der Tactical-Aktionsendpunkt führt Steuerungswechsel bereits über `applyTacticalTurn` und `applyAction`; `applyAction` verbietet KI-Zuweisung zur ersten lebenden Gruppeneinheit. Die Routenregression führt diese Anfrage nun aus und prüft HTTP 400 mit dem Fehler für den manuellen Anführer. Eine doppelte Regel in der Route würde eine zweite Wahrheitsquelle schaffen.
-- KI-Hinweise und Unterbrechungsfelder dürfen fehlen. Wenn angegeben, müssen sie ihre ausdrücklichen Schemas erfüllen. Fehlerhafte Fähigkeiten still abzufangen und zu verwerfen würde generierten Counterspell, Kosten oder Boss-Ausstattung ohne Erklärung in andere Regeln verwandeln. Der Vorschlag, jede optionale Fähigkeit gegenüber ungültigen Werten tolerant zu machen, ist eine bewusste Verhaltensänderung, keine fehlende Schutzprüfung.
-- Ein engerer exportierter Alias `TacticalUnitAction` ist eine Typbereinigung. Die Laufzeitsteuerung kehrt in `applyAction` bereits vor gewöhnlicher Validierung/Ausführung zurück, und die Aktionsschemas der Kampfsteuerung schließen Steuerungsänderungen aus. Das blockiert die Funktion nicht; eine spätere API-Bereinigung darf die interne Union ohne Verhaltensänderung verengen.
-
-
-Die Inventarspeicherung älterer Kämpfe bleibt eine getrennte Folgearbeit. Das Review stellte fest, dass `GameCombatUI` den Inventar-Callback nach einem alten Rundenergebnis entkoppelt. Das besteht bereits in der Basisrevision, die ebenfalls `void onInventoryItemUsed?.(usedItemName)` nutzt. Bloßes Warten darauf ist keine idempotente Korrektur: `handleUseCombatInventoryItem` behandelt Fehler intern, und alten Runden fehlt eine maßgebliche gespeicherte Anfrage-/Ergebnistransaktion zur Wiederholung. Neue gesteuerte Kämpfe umgehen diesen Callback und nutzen atomaren Inventarabzug plus Speicherung angenommenen Zustands im Serverprotokoll. Bestehende ältere Kämpfe behalten die alte Grenze; gemeinsame Migration ihrer Runden- und Inventarspeicherung braucht eine ausdrückliche Kompatibilitätsmigration. Diese Grenze ist dokumentiert und wird nicht durch Gegenstandswiederholungs-/Befehlsvormerkungsänderungen als behoben behauptet.
-
-Die Reaktionsverfügbarkeitsanzeige nutzt nun Singular-/Pluralvarianten des Lokalisierungskatalogs. Abschließende gezielte Kampfregressionen, Client-Typen, Workspace-Lint und der Anführersteuerungs-Routennachweis bestehen nach den kleinen Reaktionsschutzprüfungen; die bestehende Hook-Warnung in `GameNarration` bleibt.
-
-
-Die Abschlussprüfung führte außerdem zu deterministischen Standardaktions-/Abwehrrückfällen für Classic-Einheiten ohne gespeichertes Profil oder verbleibende Gegner sowie begrenzten Gruppenbefehlskennungen, die lebende Gruppenfiguren benennen müssen. Die gezielten Regressionen und Server-Typprüfungen bestehen; Lokalisierungsvalidierung für Reaktionszahlplurale besteht.
-
-Verbleibende Vorschläge ohne Verhaltenswirkung sind zurückgestellt: identische Zauberplatzschemas deduplizieren, eine ID ausstehender Aktionen zurückgeben statt unmittelbar nach synchroner Erklärung den neuesten Eintrag zu nutzen, interne Aktionstypen verengen und die Sortierung der Teleport-Suchfront durch Minimumsuche ersetzen. Der aktuelle Code hat ausdrückliche Grenzen, bewahrt Einzelaktionsvalidierung, und zwischen Einfügen und Auswahl des ausstehenden Eintrags liegt keine andere Erklärung. Die Vorschläge belegen kein geändertes Kampfergebnis. Ebenso wird ältere Abklingzeit 0/fehlend vorübergehend als 1 gespeichert und am Ende desselben Ganzrundenauflösers gesenkt; die Fähigkeit ist bei nächster Aktivierung verfügbar. Die Kampfsteuerung nutzt einen getrennten Zahlungspfad je Aktivierung direkt mit 0. Gleiche Zwischenwerte sind für identisches Verfügbarkeitsverhalten nicht nötig.
-
-
-Die vorgeschlagene Cache-Änderung nimmt an, `/director/start` sei nicht idempotent. Für angenommenen Chat/Anker ist die Route idempotent: Die serialisierte Route lädt und liefert das vorhandene Protokoll vor Erstellung/Zahlung, und die Routenregression prüft, dass Startwiederholung mit veralteten Client-Kämpfenden genau die angenommene Sitzung zurückgibt. Auffrischung bei erneutem Einhängen/Verbinden lässt den Client wiederhergestellten oder aktualisierten Serverzustand sehen. Deaktivierung würde veraltete Kämpfe im Cache halten; ausdrückliche Aktualisierung bleibt verfügbar, Wiederholungen sind deaktiviert.
-
-Der vierte lokale Durchlauf endete mit 15 Befunden einschließlich Wiederholungen und optionaler Bereinigung. Seine verbleibende Verhaltenskorrektur beachtet ausdrückliche Mindless-Hinweise für andere/unbekannte Kategorien; die gezielte Regression reproduzierte den ignorierten Hinweis vor der Korrektur. Gespeicherte Profile behalten ihr etabliertes Verhalten. Die vorgeschlagene Obergrenze 40 für die Map ausstehender Aktionen würde einen gültigen letzten Stapeleintrag ablehnen: Die Erklärung fügt zuerst ein und unterdrückt weitere Reaktionsaufgaben erst bei mehr als 40, daher ist die Speichergrenze 41. Flächenradius 0 bedeutet bewusst keine Flächenerweiterung und entspricht beiden Auflösern. Den geerbten dynamischen Anbieterimport der Verbindungshilfe in einen statischen zu ändern ist optionale Bereinigung. Es wird kein Review ohne Befunde behauptet; die bestehende Folgearbeit zur alten Inventarspeicherung oben bleibt offen.
-
-Abschließende Validierung nach allen Review-Korrekturen: `pnpm check` besteht einschließlich Lokalisierung, Formatierung, Typen, Lint und Produktions-Builds; die gezielte Kampf-KI-Regression besteht nach vorherigem Nachweis des Mindless-Hinweisfehlers. Frühere Prompt-, Kampfsteuerungs-/Routen-/Anbieter- und Desktop-/Mobil-Browserergebnisse gelten wie oben festgehalten. Die letzten kleinen Review-Korrekturen wurden lokal geprüft, gefolgt von einem weiteren externen Review bei der PR-Vorbereitung.
-
-
-### Review zur PR-Vorbereitung
-
-Implementierungszuständigkeit und Umfang werden in [#6299](https://github.com/Pasta-Devs/Marinara-Engine/issues/6299) verfolgt; Übersetzungsparität dieser beiden Entwicklungsübergaben in [#6300](https://github.com/Pasta-Devs/Marinara-Engine/issues/6300). Der gemeinsame Skill-Symlink löst auf, und alle 52 Skill-Dateien wurden bytegenau mit ihren vorherigen Git-Inhalten verglichen. `pnpm check` besteht nach dem Verschieben. `AGENTS.md` ist eine getrennte Codex-Anpassung von `CLAUDE.md` mit ausdrücklichem Übergang von Entwurf zu bereit, sobald Implementierung, erforderliche lokale Validierung und lokales Review abgeschlossen sind.
-
-Entscheidungen der Veröffentlichungsreviewrunde:
-
-- Der Impeccable-Skill liegt in `.agents/skills/impeccable`. Die Kopie unter `.claude/skills` und ihr Alias `.agents/skills` wurden am 2026-10-07 entfernt; die Impeccable-Projektprüfung liest den Skill aus `.agents/skills`.
-- Befunde zu Impeccable-Beispielen, Wortwahl, Herkunft des übernommenen Bundles und bestehenden Live-Werkzeuginterna betreffen ohne Inhaltsänderung verschobene Dateien. Sie sind keine Regressionen dieses PR. Die Migration bewahrt den installierten Skill, statt ein getrenntes vorgelagertes Skill-Wartungsprojekt einzubeziehen.
-- Tactical-Gegenstandsumfang `any` wird von `CombatItemEffect`, Routenvalidierung und Zielprüfungen der Kampfsteuerung ausdrücklich unterstützt. Jeden Nicht-selbst-/Nicht-gegnerisch-Umfang durch `ally` zu ersetzen würde unterstütztes Verhalten brechen. Der bestehende Standard gilt nur bei fehlendem Umfang.
-- Vorzeitige Verfolgungsberechnung ist begrenzt und verändert nicht, welche zulässige Aktion gewinnt. Sie erst bei Bedarf auszuführen ist optionale Leistungsoptimierung; die protokollierte Phasenmessung mit gemischter Bewegung bleibt aktueller Nachweis, keine Behauptung, weitere Optimierung sei unmöglich.
-- Generierte Angriffsfähigkeiten werden durch das Begegnungsschema und erneut durch Start-/Aktionsschemas der Kampfsteuerung validiert. Fehlerhafte ausdrückliche Kosten/Fähigkeiten bei Laufzeitüberführung durch Standardwerte zu ersetzen würde verfasste Ausstattung still ändern. Halte fehlende Felder kompatibel und angegebene validiert, wie oben beschrieben.
-- Die wiederholte Forderung, Startabfrage-Aktualisierungen zu deaktivieren, wird aus den genannten Idempotenz-/Veralteter-Zustand-Gründen abgelehnt; der tatsächliche Routenwiederholungsnachweis bleibt maßgeblich.
-
-Das Veröffentlichungsreview endete mit 34 Befunden: 30 im unverändert verschobenen Skill und vier im Kampfcode. Alle vier Kampfvorschläge sind durch obige Entscheidungen abgedeckt: bedarfsabhängige Verfolgung, unterstützte `any`-Gegenstandszielwahl, idempotente Start-Neuabfragen und ausdrückliche Fähigkeitsvalidierung. Diese Runde erforderte keine weitere Implementierungsänderung. Frühere angenommene Befunde bleiben behoben und getestet. Dies ist ein geprüftes Ergebnis mit begründeten Entscheidungen, keine Behauptung von null Befunden.
-
-## Folgearbeit zu Schwierigkeit und Wetter
-
-Siehe [Kampfschwierigkeit und Wetter](game-combat-difficulty-weather.md) zur Implementierung von #6305: normalisierte Schwierigkeit, ausschließlich gegnerische Traditional-Schadensmodifikatoren, Seed-bestimmte Entscheidungsbeständigkeit, angenommenes Wetter in beiden Modi, ausdrückliche Angriffseigenschaften, Neutralität geschützter/unbekannter Exposition und feste Bedingungen über Neuladen hinweg. Alternative Regelsätze müssen vor Übernahme der Schadensskalierung ihre eigene Schwierigkeitsregel festlegen.
+Die Einrichtung validiert veraltete Felder beim Import weiterhin aus Kompatibilitäts- und Sicherheitsgründen, entfernt sie aber aus normalisierten Einrichtungsexporten. Die Engine behält explizite Begegnungs-Seeds für Wiederherstellung/Neustart und die Reproduktion von Regressionen. Experience-Welt-Seeds werden dadurch nicht entfernt; sie erfüllen einen anderen Zweck.

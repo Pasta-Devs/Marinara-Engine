@@ -369,7 +369,7 @@ Conçois chaque usage pour quelqu'un sans modèle de décision. Un énoncé sans
 
 ### Note aux développeurs d'Experiences Game Mode
 
-Le combat du moteur décide lui-même des actions des ennemis ordinaires. Chaque ennemi non-boss du GM reçoit un rôle selon ses compétences et sa classe (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter ou controller), une maîtrise selon son niveau sauf s'il la définit (novice, trained, veteran ou master), et un tempérament comme reckless, cautious, opportunistic ou protective. Les bêtes et monstruosités sont toujours mindless. Le code choisit ces valeurs depuis une graine sans appel au modèle ; la difficulté modifie la régularité avec laquelle ils suivent leur type. Seuls les boss écrits expressément sont dirigés par le GM via un appel au modèle. Consulte [IA de combat de Game Mode](game-combat-ai-design.md).
+Le combat du moteur décide lui-même des actions des ennemis ordinaires. Chaque ennemi non-boss du GM reçoit un rôle selon ses compétences et sa classe (bruiser, bulwark, skirmisher, marksman, spellcaster, supporter ou controller), une maîtrise selon son niveau sauf s'il la définit (novice, trained, veteran ou master), et un tempérament comme reckless, cautious, opportunistic ou protective. Les bêtes et monstruosités sont toujours mindless. Le code choisit ces valeurs depuis une graine sans appel au modèle ; la difficulté modifie la régularité avec laquelle ils suivent leur type. Seuls les boss écrits expressément sont dirigés par le GM via un appel au modèle. Consulte [IA de combat de Game Mode](game-combat-ai.md).
 
 D'autres améliorations du combat sont en préparation. Avant d'impliquer un modèle de décision où que ce soit dans le pipeline de combat, vérifie que le combat standard d'Engine ne fait pas déjà ce dont tu as besoin. Si un ennemi a besoin d'une personnalité particulière, donne-lui d'abord la maîtrise et le tempérament correspondants. Une décision par tour ennemi ajouterait du travail au modèle et un délai ; un backend hébergé ajouterait aussi des requêtes réseau et des frais. Le combat dépendrait alors des réponses d'un modèle que l'utilisateur n'a peut-être pas configuré, et il lui faudrait un repli raisonnable en l'absence de réponse.
 
@@ -660,8 +660,7 @@ Un ensemble de règles, ce sont les règles d'une partie sous forme de données 
 L'extrait ne montre que les clés qui comptent pour un ensemble de règles ; les champs habituels du manifeste (`name`,
 `version`, `description`, `engine`, `builtAgainst`) restent obligatoires.
 
-Un package d'ensemble de règles n'a besoin d'aucune permission, d'aucun point d'entrée serveur ou client ni d'aucun agent. Le type et la ressource vont ensemble : un package de type `ruleset` doit lister `ruleset.json`, et un package qui liste `ruleset.json` doit déclarer ce type, si bien qu'un ensemble de règles ne peut pas se glisser sous un autre type. Rien dans le fichier n'est exécuté : il n'y a pas de chaînes d'expression, et une mécanique qu'aucun type de résolution n'exprime demande une modification du moteur qui ajoute un type, pas quelque chose qu'un ensemble de règles peut faire. Le format, le fichier 5e officiel et les raisons de sa forme se trouvent dans
-[`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
+Un package d'ensemble de règles n'a besoin d'aucune permission, d'aucun point d'entrée serveur ou client ni d'aucun agent. Le type et la ressource vont ensemble : un package de type `ruleset` doit lister `ruleset.json`, et un package qui liste `ruleset.json` doit déclarer ce type, si bien qu'un ensemble de règles ne peut pas se glisser sous un autre type. Rien dans le fichier n'est exécuté : il n'y a pas de chaînes d'expression, et une mécanique qu'aucun type de résolution n'exprime demande une modification du moteur qui ajoute un type, pas quelque chose qu'un ensemble de règles peut faire. Le format est documenté dans le guide de l'auteur, [`writing-rulesets.md`](../extending/writing-rulesets.md), et le code qui le lit dans [Architecture de Game Mode](game-mode-architecture.md).
 
 Ce n'est pas une intégration facultative. Un package d'ensemble de règles ne fait rien sur un moteur qui ne sait pas le lire : un manifeste qui liste `ruleset.json` doit donc déclarer Capability API 1.20, et un moteur plus ancien refuse proprement l'installation.
 
@@ -1348,7 +1347,7 @@ export async function activate({ api }) {
 }
 ```
 
-Règles importantes :
+Règles à connaître :
 
 - La clé doit être `mari-actions:<package-id>` pour le package qui s'enregistre. Sans permission ou sous l'identifiant d'un autre package, l'enregistrement lève une erreur : l'action exécutée par Mari appartient donc toujours au package nommé.
 - `list()` renvoie des entrées `{ name, summary?, inputs? }`. Les noms comptent de 1 à 80 lettres, chiffres, `.`, `_` ou `-` ; les autres entrées sont masquées. Mari lit `summary` et `inputs` : écris-les clairement. Seules les 50 premières actions sont visibles ou exécutables. Mari voit au plus 40 entrées par action ; les noms sont tronqués à 80 caractères et chaque texte à 300. `list()` doit répondre sous 5 secondes, sinon les actions du package sont omises.
@@ -1380,7 +1379,7 @@ export async function activate({ api }) {
 }
 ```
 
-Quelques règles à connaître :
+Règles à connaître :
 
 - Les identifiants utilisent l'espace de noms `<packageId>.<id>`. Un identifiant intégré ne contient aucun point : les deux ne peuvent donc pas entrer en conflit. L'hôte accepte l'identifiant local ou celui qui inclut l'espace de noms et refuse tout identifiant que le package n'a pas enregistré lui-même.
 - `unlock(id)` se résout avec `true` uniquement pour l'appel qui a débloqué le badge. `isUnlocked(id)` et `list()` lisent l'état ; `list()` renvoie les badges propres au package avec leur progression.

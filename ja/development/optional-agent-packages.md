@@ -369,7 +369,7 @@ Decisionモデルを持たないユーザーでも動くよう、すべての利
 
 ### Game Mode Experience開発者への補足
 
-通常の敵の行動はEngineの戦闘自身が決めます。GM側のボス以外の全敵には、スキルとクラスに基づく役割(bruiser、bulwark、skirmisher、marksman、spellcaster、supporter、controller)、明示指定がなければレベルに基づく熟練度(novice、trained、veteran、master)、reckless、cautious、opportunistic、protectiveなどの気質が割り当てられます。beastsとmonstrositiesは常にmindlessです。Engineはモデルを呼ばずシードから選び、ゲームの難易度がその類型どおりに動く一貫性を変えます。GMがモデル呼び出しで指揮するのは、作り込まれたボスだけです。[Game Modeの戦闘AI](game-combat-ai-design.md)を参照してください。
+通常の敵の行動はEngineの戦闘自身が決めます。GM側のボス以外の全敵には、スキルとクラスに基づく役割(bruiser、bulwark、skirmisher、marksman、spellcaster、supporter、controller)、明示指定がなければレベルに基づく熟練度(novice、trained、veteran、master)、reckless、cautious、opportunistic、protectiveなどの気質が割り当てられます。beastsとmonstrositiesは常にmindlessです。Engineはモデルを呼ばずシードから選び、ゲームの難易度がその類型どおりに動く一貫性を変えます。GMがモデル呼び出しで指揮するのは、作り込まれたボスだけです。[Game Modeの戦闘AI](game-combat-ai.md)を参照してください。
 
 戦闘は今後も改善予定です。戦闘処理にDecisionモデルを組み込む前に、標準Engineの戦闘が必要な動作をすでに備えていないか確認してください。敵に特定の性格が必要なら、まず対応する熟練度と気質を与えます。敵の各ターンでDecisionを行うとモデル処理と制限時間が増え、ホスト型バックエンドならネットワーク要求と料金も増えます。ユーザーが設定していないかもしれないモデルの答えに戦闘が依存するため、答えがない場合の妥当なフォールバックも必要になります。
 
@@ -655,7 +655,7 @@ difficulty?, onSuccess: "none" | "half" } }`です。独立してロールし種
 
 この例は、ルールセットに関係するキーだけを示しています。マニフェストの通常のフィールド(`name`、`version`、`description`、`engine`、`builtAgainst`)は引き続き必須です。
 
-ルールセットのパッケージには、権限も、サーバーやクライアントのエントリーポイントも、エージェントも必要ありません。種類とアセットは一対です。種類が`ruleset`のパッケージは`ruleset.json`を記載する必要があり、`ruleset.json`を記載するパッケージはその種類を宣言する必要があります。そのため、ルールセットがほかの種類に紛れて入り込むことはありません。ファイルの中で実行されるものは何もありません。式の文字列はなく、どの判定方式でも表せない仕組みは、ルールセットでできることではなく、判定方式を追加するEngineの変更になります。形式、ファーストパーティーの5eのファイル、その形になった理由は[`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)にあります。
+ルールセットのパッケージには、権限も、サーバーやクライアントのエントリーポイントも、エージェントも必要ありません。種類とアセットは一対です。種類が`ruleset`のパッケージは`ruleset.json`を記載する必要があり、`ruleset.json`を記載するパッケージはその種類を宣言する必要があります。そのため、ルールセットがほかの種類に紛れて入り込むことはありません。ファイルの中で実行されるものは何もありません。式の文字列はなく、どの判定方式でも表せない仕組みは、ルールセットでできることではなく、判定方式を追加するEngineの変更になります。形式は作者向けガイドの[`writing-rulesets.md`](../extending/writing-rulesets.md)に、それを読み取るコードは[Game Modeのアーキテクチャー](game-mode-architecture.md)に記載されています。
 
 これはソフトなインターフェースではありません。ルールセットのパッケージは、それを読めないEngineでは何もしないため、`ruleset.json`を記載するマニフェストはCapability API 1.20を宣言する必要があり、古いEngineはインストールをきれいに拒否します。
 
@@ -1153,7 +1153,7 @@ export async function activate({ api }) {
 }
 ```
 
-主な規則:
+知っておくべきルールは次のとおりです。
 
 - キーは登録するパッケージの`mari-actions:<package-id>`でなければなりません。権限がない場合や別パッケージのIDでの登録は例外になるため、Mariの実行対象は常に名指しされたパッケージに属します。
 - `list()`は`{ name, summary?, inputs? }`の項目を返します。名前は1～80文字の英字、数字、`.`、`_`、`-`で、それ以外の項目は表示しません。Mariが読む`summary`と`inputs`は分かりやすく書いてください。表示・実行できるのは先頭50アクションだけです。Mariが読む入力は各アクション最大40個で、入力名は80文字、各本文は300文字で切り詰めます。`list()`が5秒以内に応答しなければ、そのパッケージのアクションを省略します。

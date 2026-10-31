@@ -1,104 +1,10 @@
-# IA de combate de Game Mode: enemigos, compañeros y jefes GM
+# IA de combate de Game Mode
 
-**Estado: la IA ordinaria y la primera implementación de jefes GM/reacciones están presentes localmente; Summoning y los sistemas de reglas con nombre siguen siendo propuestas.** Preparado el 17 de septiembre de 2026 a partir del combate incorporado a staging por [PR #6266](https://github.com/Pasta-Devs/Marinara-Engine/pull/6266). Base original auditada: `1f2e965c34f77b19a1457439f61e291300e163c7`; el checkout `025442b1722b090b4640e0f078d1e08a4435f965` tenía la misma implementación pertinente. La implementación local actual parte de staging `abe61d30a`. Revisa staging antes de continuar; los números de línea de la auditoría corresponden a la base anterior.
+Cómo decide Engine qué hacen los oponentes y los compañeros controlados por IA en las peleas de Classic, Tactical y los conjuntos de reglas, y cómo controla el Game Master a los jefes. El código está en `packages/shared/src/features/combat-ai.ts`, `combat-minds.ts`, `tactical-combat/ai.ts` y `tactical-combat/profile-ai.ts`, con la parte del servidor en `packages/server/src/services/game/combat-director.service.ts`, `combat-ai.service.ts`, `combat-boss.service.ts` y `ruleset-combat-director.service.ts`. Para saber dónde encaja el combate en Game Mode en su conjunto, consulta [Arquitectura de Game Mode](game-mode-architecture.md).
 
-Este documento permite continuar el desarrollo sin la conversación original. Registra requisitos de la mantenedora, auditoría del código, valores recomendados, límites y escenarios de aceptación. Las cifras y campos propuestos fuera del alcance implementado de la sección 13 no son contratos existentes ni equilibrio demostrado en partidas. La implementación y las guías son trabajo local; no se ha enviado ningún issue ni PR.
+Los números de las secciones de implementación ([Límite actual de IA ordinaria](#current-ordinary-ai-implementation-boundary) y las vinculadas a constantes con nombre) corresponden al ajuste actual de Engine. Los números marcados como ejemplo, propuestos, provisionales u objetivos de diseño no corresponden a ese ajuste, y ninguno constituye una afirmación de equilibrio probada en partidas. La invocación en el combate propio de Marinara en Classic y Tactical sigue siendo una propuesta ([Extensión Summoning](#summoning-design-extension)); las peleas de los conjuntos de reglas invocan mediante sus propias reglas de `summons`.
 
-## Actualización del alcance del 17 de septiembre
-
-La mantenedora aprobó IA ordinaria en Classic y Tactical con control opcional de compañeros por IA, y luego autorizó el trabajo de jefes GM/reacciones. Los jefes creados explícitamente pueden usar acciones legendarias sin depender de elegir reglas 5e. El GM recibe hojas y recursos de combate del grupo y puede prever acciones probables al comenzar una activación. Reacciones que consumen recursos, como Counterspell, exigen una decisión del controlador, no uso incondicional. Summoning sigue siendo una extensión de diseño. Se conservan la auditoría original y el diseño completo; las secciones 13–17 contienen las decisiones actuales y sustituyen la secuencia exclusiva de Tactical, la propuesta inicial de ocho adjetivos, las declaraciones de alcance solo exploratorio y el prompt (las instrucciones enviadas a la IA) original del jefe limitado al estado observado.
-
-El trabajo ejecutable es una primera política de utilidad, no todos los escenarios de aceptación. Sus límites están en las secciones 13 y 16. La [guía de implementación de reglas](game-combat-rulesets-implementation.md) trata ataques adicionales por velocidad Traditional, orden de turnos/movimiento, reservas de recursos y futuros perfiles específicos por edición.
-
-## 1. Lo que pidió la mantenedora
-
-- Enemigos ordinarios con comportamiento del motor descrito por **un adjetivo y un rol de combate**, como Reckless Bruiser o Cautious Spellcaster.
-- **Solo los enemigos de nivel jefe reciben control del GM por turno.** El motor sigue determinando acciones legales y resultados. Se eligen acciones durante la lucha, no solo un guion previo.
-- La asignación pondera competencia/nivel, rol y personalidad conocida, con algo de azar. Los experimentados deben tener más frecuentemente hábitos adecuados al rol, sin volver idénticos a todos los veteranos.
-- **Todo Beast y Monstrosity es Mindless.** Persigue al miembro más cercano del grupo por la ruta legal más corta, ignorando salud del objetivo y ventajas/desventajas del terreno. No excluyas silenciosamente a jefes o criaturas con nombre.
-- Prioriza diversión estratégica, comportamiento plausible y variedad entre partidas, sobre todo en juego táctico y futuro juego similar al de mesa. El cambio de IA no exige implementar 5e o V20.
-- Conserva un diseño detallado para después. El alcance exploratorio original se amplió a IA ordinaria y control de compañeros; consulta la actualización anterior.
-
-El [plan de combate](game-combat-roadmap.md) separa reglas del campo, participación del grupo/invocaciones y perfiles de reglas de mesa. La táctica enemiga también debe ser independiente. Summoning queda para más adelante.
-
-### Valores recomendados aún pendientes de aceptación
-
-1. Empieza con ocho adjetivos: Mindless, Reckless, Cautious, Opportunistic, Protective, Supportive, Disciplined, Cowardly.
-2. Muestra adjetivo y rol al inspeccionar enemigos, con explicación breve. No muestres probabilidades, pesos de utilidad ni análisis bruto de personalidad en la interfaz normal.
-3. La ruta más corta de Mindless significa **menos pasos espaciales legales**, no menor costo de terreno. Puede cruzar un bosque corto aunque una ruta abierta más larga sea más rápida. El movimiento sigue pagando su costo real.
-4. Un jefe Beast/Monstrosity sigue siendo Mindless. El GM solo elige acciones compatibles con su objetivo y persecución obligatorios.
-5. Sortea y guarda el perfil ordinario una vez. Un NPC recurrente conserva su temperamento; subir de nivel no vuelve a sortear personalidad.
-6. Implementa IA ordinaria en Tactical y Classic conjuntamente según el alcance revisado. El sistema completo incluye turnos reales de jefes GM; un hito solo del motor no es toda la función.
-
-## 2. Auditoría previa a la renovación
-
-La segunda hipótesis de la mantenedora se aproxima más: cada motor activo tiene una política automática común. El GM crea el encuentro, pero no elige turnos individuales en las interfaces de combate activas de Game Mode.
-
-| Área                    | Classic Game Mode                                                         | Tactical Game Mode                                                            |
-| ----------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Orden              | Tiradas de iniciativa más velocidad; participan todos                   | Por iniciativa en juegos nuevos (una unidad cada vez, un orden tirado una sola vez, combat C6c); por bandos en los antiguos (fase del jugador, luego enemigos por velocidad) |
-| Política enemiga            | Heurística común de habilidades; si no, rival vivo aleatorio           | Curar primero, ataque puntuado y acercamiento                        |
-| Clases       | Sin política específica de clase                                         | Seis clases cambian alcance, movimiento y crítico; comparten política |
-| Personalidad/competencia | Sin modelo táctico o de entrenamiento guardado                          | Sin modelo táctico o de entrenamiento guardado                              |
-| Jefes          | Política ordinaria más mecánicas de guion admitidas                   | Política ordinaria; etiqueta afecta colocación/interfaz                         |
-| GM en cada turno     | Fuera del resolutor activo                                                | Fuera del resolutor activo                                                    |
-| Reproducibilidad         | Decisiones/tiradas aleatorias sin semilla                                      | Semilla y contador de acciones rigen decisiones y tiradas                   |
-| Persistencia             | Cliente restaura instantánea; ronda/animación no se guardan por completo | Cliente guarda instantánea táctica completa en metadatos del chat               |
-
-Existe otro sistema de ventana de encuentro con la ruta `/encounter/action` dirigida por modelo y tipos de acciones de combate. Lo usa el `EncounterModal` del chat general mediante `useEncounter`, no el `GameCombatUI` actual. El modelo puede devolver estado reescrito; no lo reutilices sin cambios para controlar jefes con validación del motor. Rastrea consumidores reales antes de reutilizar o eliminar.
-
-La maniobra explícita **Special** (Especial) de Classic pide al GM resolver una acción narrativa y admite etiquetas compatibles de estado/elemento. No resuelve una ronda ordinaria ni elige turnos rutinarios enemigos. Conserva la distinción al cambiar prompts: controlar solo turnos de jefes no prohíbe generar encuentros, arbitrar narrativa ni narrar después del combate.
-
-### Política Classic
-
-En `combat.service.ts`, `resolveCombatRound` llama `chooseAutoSkill` para aliados automáticos y enemigos:
-
-1. La habilidad es usable si hay MP suficiente y la recarga pasa una comprobación de módulo de ronda.
-2. Cura al aliado elegible más herido si tiene como máximo 75% HP y hay curación disponible.
-3. De lo contrario, con 45% de probabilidad elige una habilidad no curativa y un enemigo aleatorios.
-4. Si no, ataca a un rival aleatorio.
-
-Los enemigos solo pasan a sí mismos como lista aliada, así que esta política no cura a otros enemigos. Las habilidades no curativas incluyen mejoras además de ataques/debilitaciones; cualquier sustitución debe validar el bando objetivo de cada habilidad. En la práctica, la omisión de MP descrita abajo impide usar habilidades con costo positivo y deja ataques básicos aleatorios. La orden del jugador llega al primer combatiente vivo de su bando; los demás aliados actúan automáticamente. Cambiar táctica enemiga no debe cambiar silenciosamente control de compañeros o identidad del jugador.
-
-Las mecánicas generadas se procesan por separado tras las acciones normales. Solo se ejecutan `round_interval` y `hp_threshold`; los disparadores aceptados `on_hit`, `on_attack` y `passive` no. Los umbrales HP se repiten en rondas posteriores válidas y `damage_one` elige al primer objetivo contrario. No es un GM eligiendo en vivo. Distingue efectos únicos y recurrentes antes de adaptarlos.
-
-Classic también resuelve habilidades no curativas por una ruta orientada a daño; mejoras/debilitaciones no equivalen al apoyo Tactical, aunque un impacto puede aplicar un estado. Semántica real de apoyo/control y recargas por uso son requisitos para anunciar ese comportamiento. Defender/esperar automáticamente también requiere soporte; defender pertenece ahora a la posición de iniciativa del jugador, por lo que enemigos más rápidos actúan antes. La dificultad escala daño de ambos bandos mediante el resolutor común, no calidad de decisión. Conserva o cambia eso aparte del temperamento.
-
-Otra discrepancia merece prueba propia: si la posición cero está KO, el servidor transfiere órdenes al primer aliado vivo, pero la interfaz conserva el índice activo cero. Una habilidad no disponible puede convertirse en ataque básico. Regístralo/corrígelo aparte del temperamento enemigo.
-
-### Política Tactical
-
-Actualmente `packages/shared/src/features/tactical-combat/ai.ts`:
-
-1. Intenta la primera curación lista sobre el aliado con menor fracción HP a dos casillas o menos, si está en 60% HP o menos. No se mueve antes al alcance.
-2. Evalúa destinos alcanzables frente a rivales vivos, considerando ataques básicos y habilidades listas.
-3. Puntúa ataques con `1000 * likelyKill + expectedDamage - 0.75 * counterRisk`. likelyKill significa daño previsto suficiente para el HP actual y al menos 50% de impacto, no muerte garantizada.
-4. A veces cambia el mejor ataque no letal por otro legal aleatorio: 60% casual, 30% normal, 10% hard, 0% brutal. La aceptación de curar es 50%, 80%, 100%, 100% respectivamente.
-5. Sin ataque disponible, se acerca al rival más próximo por Manhattan mediante la casilla alcanzable más próxima según esa distancia. No busca la ruta más corta de toda la cuadrícula y puede atascarse ante obstáculos.
-
-El terreno afecta movimiento y previsiones de daño/impacto, pero no hay valoración general de exposición durante la siguiente fase del jugador. No selecciona deliberadamente mejoras, debilitaciones, defensa ni objetos. El alcance de habilidades está simplificado. Las descripciones AoE generadas no constituyen un resolutor espacial completo.
-
-Las clases son Fighter, Knight, Rogue, Archer, Mage y Healer. Se derivan de una indicación explícita, curaciones, palabras clave de nombres/habilidades, ataques elementales y heurísticas de estadísticas. Una etiqueta de rol no crea capacidades.
-
-### Carencias que debilitarían un sistema de personalidad
-
-Son hallazgos de inspección, no reproducciones ejecutadas en navegador:
-
-| Carencia                                                     | Evidencia y consecuencia                                                                                                                                                    | Siguiente paso acotado                                                                                                                                                         |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Enemigos generados sin MP                            | `generatedEnemyToCombatant` omite MP/maxMP; las habilidades no básicas generadas cuestan MP positivo. Ambos motores tratan ausencia como cero y no pueden usarlas. | Prueba de hidratación real del esquema; conserva recursos explícitos o aplica una regla documentada. No concedas hechizos ilimitados. |
-| Nivel inferido del HP                               | Suele derivarse de maxHP/20 redondeado. Resistencia no significa entrenamiento táctico.                                                       | Indicación acotada de competencia; nivel solo como alternativa declarada hasta disponer de perfiles.                                                  |
-| Identidad heurística de jefe                              | Tactical etiqueta al más fuerte de grupos de al menos dos por maxHP + level\*10 + attack. Nunca etiqueta a uno solitario.                               | Identidad explícita por enemigo. La categoría musical no identifica quién recibe turnos GM.                                                               |
-| Mecánicas generadas de jefe no llegan a Tactical          | Classic recibe propiedades de mecánicas; Tactical no consume la lista.                                                                                       | Operaciones tácticas validadas con fases/disparadores guardados. Identifica lo no admitido sin narrarlo como ejecutado.          |
-| Tipo y personalidad sin contrato ejecutable | La descripción está en el esquema, pero se pierde al hidratar; Beast/Monstrosity no son categorías tipadas.                                                | Lleva categoría y entradas acotadas por todas las conversiones y límites de persistencia.                                                                 |
-| Visión y cobertura Tactical compartidas (combat C6)        | Un muro o una montaña bloquea la visión tanto en combates nativos como de conjunto de reglas, y la cobertura se gradúa con la misma prueba (media, tres cuartos): previsiones, acciones, contraataques, áreas, reacciones, superposiciones de amenaza y la IA usan `hasLineOfSight` y `coverTier`. | Mantén una sola prueba de visión y una sola prueba de cobertura para todos los llamadores.                                                                                                                 |
-| Previsiones de candidatos de la IA leen la casilla candidata        | Ambas IA prevén un ataque, y el contraataque que arriesgan, desde la casilla desde la que golpearían, así que la cobertura (combat C6a-2) se pondera tal como se tirará. | Mantén previsiones y resolución sobre el mismo `hitChance`.                                                                                                                      |
-
-Otra pérdida afecta a ambos motores: el tipo de ataque se infiere de palabras inglesas en nombre/descripción, aunque el encuentro puede generarse en otro idioma. La bandera `AoE`/`both` tampoco se convierte en múltiples objetivos reales. Campos explícitos validados deben alimentar futuros roles; una traducción no debe decidir si un hechizo cura o ataca.
-
-No añadas una reescritura completa a estos requisitos. Aporta pruebas mínimas, corrige el flujo pertinente y reutiliza movimiento, previsiones, disponibilidad y resolución.
-
-## 3. Separa capacidad, temperamento y control
+## Separa capacidad, temperamento y control
 
 Cada enemigo necesita respuestas distintas:
 
@@ -129,13 +35,13 @@ Conserva las clases tácticas como presets (ajustes guardados) de geometría/est
 
 Son tendencias previas, no prohibiciones. Deben ser posibles Cowardly Fighter o Reckless Spellcaster. Un Cleric blindado con combate cercano puede ser Bulwark; un sanador puede preferir retaguardia. No derives temperamento solo del estereotipo de clase. Agotar MP temporalmente cambia acciones legales, no rol/adjetivo guardados. No asignes Supportive a quien nunca tuvo apoyo.
 
-## 4. Catálogo de adjetivos
+## Catálogo de adjetivos
 
 ### Los ocho iniciales
 
 | Adjetivo         | Objetivo preferido                                                             | Posición y riesgo                                                                                    | Habilidades/recursos                                                                                      | Qué puede aprender el jugador                                   |
 | ----------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| **Mindless**      | Miembro vivo alcanzable más cercano según sección 6               | Ruta espacial legal más corta; ignora utilidad del terreno, exposición y formación                           | Ataque simple legal al objetivo; sin priorizar curaciones, fuego concentrado ni recursos                   | Atráelo con cercanía, terreno y pasos estrechos             |
+| **Mindless**      | Miembro vivo alcanzable más cercano según [Mindless: contrato exacto de persecución](#mindless-an-exact-pursuit-contract)               | Ruta espacial legal más corta; ignora utilidad del terreno, exposición y formación                           | Ataque simple legal al objetivo; sin priorizar curaciones, fuego concentrado ni recursos                   | Atráelo con cercanía, terreno y pasos estrechos             |
 | **Reckless**      | Daño inmediato y presión alcanzable; no siempre el más débil | Se acerca agresivamente; tolera contraataques y exposición                                  | Gasta ataques fuertes disponibles; rara vez se detiene a defender                                             | Castiga su avance excesivo y provoca intercambios desfavorables            |
 | **Cautious**      | Amenazas alcanzables limitando daño recibido                          | Destinos seguros, alcance útil, terreno defensivo                                            | Conserva recursos escasos si el básico sirve casi igual; cura/defiende si hace falta                | Presiona el espacio seguro y su reticencia a comprometerse   |
 | **Opportunistic** | Heridos, expuestos o debilitados; remates fiables   | Acepta cierto riesgo por una apertura concreta                                                                | Valora habilidades que crean o explotan la apertura                                                      | Protege vulnerables y niega remates fáciles   |
@@ -144,7 +50,7 @@ Son tendencias previas, no prohibiciones. Deben ser posibles Cowardly Fighter o 
 | **Disciplined**   | Objetivos eficaces para el rol y remates sensatos                      | Equilibra daño, seguridad, posición y recursos; compromiso moderado                            | Fundamentos fiables sin especializarse en extremos                                               | Interrumpe su rol y fuerza elecciones malas              |
 | **Cowardly**      | Objetivos seguros sin represalias                       | Se preserva más al estar herido o superado localmente; retrocede hacia aliados seguros | Se cura/defiende antes y evita compromisos costosos                                                | Corta retirada segura y mantén presión a distancia    |
 
-Protective no redirige daño, provoca, intercepta ni obtiene reacciones por magia. La ocupación actual permite bloquear posiciones; mayor protección exige habilidades reales. Cowardly puede retroceder/defender, pero `flee` de Tactical termina toda la batalla. **Nunca uses la huida global como escape de un enemigo.** Retirada/rendición individual requiere reglas explícitas nuevas.
+Protective no redirige daño, provoca, intercepta ni obtiene reacciones por magia. La ocupación actual permite bloquear posiciones; mayor protección exige habilidades reales. Cowardly puede retroceder/defender, pero `flee` de Tactical termina toda la batalla. **Nunca uses la huida global como escape de un enemigo.** Un oponente individual solo abandona una pelea mediante la moral ("Perder el ánimo en Classic y Tactical", en [Protecciones prácticas](#practical-guardrails)) o una huida del conjunto de reglas.
 
 Cautious y Cowardly deben divergir: un Cautious Marksman sano toma buena posición; uno Cowardly herido puede renunciar al tiro para sobrevivir. Protective protege una persona/posición; Supportive maximiza acciones de apoyo útiles.
 
@@ -163,7 +69,9 @@ Cautious y Cowardly deben divergir: un Cautious Marksman sano toma buena posici�
 
 Evita sinónimos con idéntica puntuación. Cruel equivale sobre todo a Opportunistic salvo objetivos distintos admitidos. Reserva Strategic para planificación acotada real, no para "mejor en todo". Valentía e inteligencia no son extremos opuestos obligatorios.
 
-## 5. Asignación: rol, experiencia, personalidad y variedad con semilla
+<a id="assigning-profiles-role-experience-personality-then-seeded-variety"></a>
+
+## Asignación: rol, experiencia, personalidad y variedad con semilla
 
 ### Prioridad
 
@@ -182,7 +90,7 @@ Prefiere entrenamiento del perfil de reglas o datos fiables de la hoja NPC; desp
 
 Inicialmente, novice/trained/veteran/master podría corresponder a `c = 0, 0.35, 0.7, 1`. Propuesta provisional por nivel Engine: 1–2 novice, 3–7 trained, 8–14 veteran, 15+ master. Es una curva ajustable de diseño, no regla de mesa; marca `level-fallback`, sobre todo si procede de HP. Fija el mapeo a la versión y sustitúyelo por perfiles cuando existan. No equipares challenge rating 5e a nivel de personaje ni impongas una sola escala a juegos tipo V20.
 
-La experiencia influye **tanto** en la probabilidad inicial de temperamento adecuado como en su ejecución consistente. La IA local ordinaria no descubre habilidades ocultas ni órdenes en cola. Los jefes GM tienen conocimiento más amplio según sección 16; ninguno ve tiradas futuras o elecciones sin confirmar. La supervivencia del veterano es un sesgo útil para construir mundo, no una ley de que todos los magos veteranos sean cautelosos.
+La experiencia influye **tanto** en la probabilidad inicial de temperamento adecuado como en su ejecución consistente. La IA local ordinaria no descubre habilidades ocultas ni órdenes en cola. Los jefes GM tienen conocimiento más amplio según [Jefes GM, acciones legendarias y reacciones](#gm-bosses-legendary-actions-and-reactions); ninguno ve tiradas futuras o elecciones sin confirmar. La supervivencia del veterano es un sesgo útil para construir mundo, no una ley de que todos los magos veteranos sean cautelosos.
 
 ### Modelo concreto de ponderación
 
@@ -239,7 +147,9 @@ Guarda indicaciones/procedencia aceptadas para explicar la asignación, no trans
 - El registro de la pelea indica qué activó una prueba de moral antes de su tirada, un cambio de temperamento y qué lo causó, a quién arrastró un desplazamiento, una criatura Territorial que mantiene su terreno y una rendición del grupo. Una criatura que se rinde permanece en el tablero donde se rindió.
 - En las peleas de conjunto de reglas, la puntuación de daño de un golpe es su daño esperado con respecto a la salud media del bando de su objetivo, sea quien sea quien lo reciba, de modo que la mayor salud de un caballero no hace que un Multiattack contra él valga menos que el mismo daño contra el mago. Un golpe que haría caer a su objetivo se pondera según la salud del propio objetivo, sin considerarlo nunca más frágil que tres cuartos de esa media.
 
-## 6. Mindless: contrato exacto de persecución
+<a id="mindless-an-exact-pursuit-contract"></a>
+
+## Mindless: contrato exacto de persecución
 
 Es una regla solicitada del proyecto para Beast/Monstrosity, no una afirmación sobre reglas oficiales de mesa o conducta animal real.
 
@@ -268,7 +178,7 @@ Para un jefe Mindless, limita candidatos GM al objetivo y persecución elegidos,
 
 Classic no tiene distancia espacial y no puede cumplir literalmente "más cercano por ruta mínima". La adaptación propuesta usa un orden de enfrentamiento guardado con semilla, sin pesos de HP/terreno, y el primer objetivo vivo. **La implementación no espacial revisada usa esta abstracción** y debe decirlo; no satisface el requisito espacial exacto. No la llames distancia: una regla real de proximidad requiere formación/posiciones futuras. Una formación delantera/trasera podría aportar eso; el orden del arreglo no se convierte silenciosamente en distancia. La ruta Tactical sigue siendo la conducta normativa propuesta.
 
-## 7. Decisiones ordinarias
+## Decisiones ordinarias
 
 ### Reutiliza la resolución; cambia prioridades
 
@@ -285,6 +195,8 @@ Incluye solo mecánicas realmente resueltas. Objetos enemigos necesitan inventar
 Normaliza daño esperado, probabilidad de remate, curación/apoyo útil, riesgo inmediato de contraataque, exposición siguiente, progreso hacia alcance del rol y costo. Multiplícalos por una tabla pequeña. Una bonificación universal enorme por matar borraría temperamentos; usa valor de remate acotado según perfil.
 
 Es una puntuación de utilidad pequeña: compara acciones legales con escalas coherentes y prioridades de personalidad. David "Rez" Graham describe el enfoque y la inercia de decisión en [Introducción a la teoría de utilidad](https://www.gameaipro.com/GameAIPro/GameAIPro_Chapter09_An_Introduction_to_Utility_Theory.pdf). Perfiles, fórmula, valores e integración concretos aquí son recomendaciones propias de Marinara.
+
+<a id="practical-guardrails"></a>
 
 ### Protecciones prácticas
 
@@ -331,13 +243,15 @@ Ajuste propuesto: utilidad en escala fija; novice elige dentro de 0,15 del mejor
 
 **Disparos de Multiattack y terreno abierto.** La comparación de disparos desde lejos cuenta cada golpe de un Multiattack tantas veces como se ejecuta, y compara el mejor ataque cuerpo a cuerpo utilizable con el mejor ataque a distancia utilizable, de modo que los dos disparos de Longbow de un explorador pesan más que sus dos Shortswords. Una criatura de más de una casilla prefiere el terreno abierto a un paso donde deba apretarse a la misma distancia; los golpes desde un paso en el que tendría que apretarse valen 0.6 de lo que valen los mismos desde terreno abierto (`RULESET_SQUEEZED_BLOWS`), y una vez apretada, los golpes desde terreno abierto valen esa misma proporción más, por lo que sale para golpear.
 
-## 8. Turnos de jefes controlados por GM
+<a id="boss-turns-controlled-by-the-gm"></a>
+
+## Turnos de jefes controlados por GM
 
 ### Identidad y responsabilidad
 
 Añade identidad explícita de jefe por unidad. No conviertas automáticamente al más fuerte de cada grupo. Rangos sugeridos: ordinary, elite, boss; elite sigue local salvo designación de jefe. La clasificación musical del encuentro queda separada.
 
-El GM elige una acción legal según personalidad, intención del encuentro, cuadrícula, habilidades/recursos/objetos del grupo y mecánicas admitidas. La información amplia permite anticipar, no conocer elecciones sin confirmar; la sección 16 define el contrato. El motor controla alcance, movimiento, recursos, tiradas, daño, estados y presupuestos. Los ayudantes ordinarios siguen locales incluso con jefe.
+El GM elige una acción legal según personalidad, intención del encuentro, cuadrícula, habilidades/recursos/objetos del grupo y mecánicas admitidas. La información amplia permite anticipar, no conocer elecciones sin confirmar; [Jefes GM, acciones legendarias y reacciones](#gm-bosses-legendary-actions-and-reactions) define el contrato. El motor controla alcance, movimiento, recursos, tiradas, daño, estados y presupuestos. Los ayudantes ordinarios siguen locales incluso con jefe.
 
 **Oponentes con nombre y brillantes (IA de combate P9).** Un juego también puede hacer que el GM controle a cada oponente con nombre (el `aiHints.named` del esquema del encuentro, dado solo a individuos con nombre de la historia) y a cada oponente con una mente `genius` (según el `aiHints.mind` de la historia o, en su defecto, sus propios datos de conjunto de reglas). El `aiHints.mind` de la historia solo puede reducir el raciocinio que indican los datos propios de una criatura (una dominada o enloquecida), o suplirlos cuando sus datos no especifican ninguna mente: una indicación suelta nunca convierte a un lobo en un táctico. La opción de configuración es `gmNamedControl`, que se ofrece bajo el control de jefes y queda fijada junto con él cuando comienza la pelea; su ausencia significa solo jefes. Estos oponentes reciben el mismo contrato de un identificador del menú, tiempo de espera y respaldo que un jefe, pero ningún presupuesto legendario que no posean. En una pelea de conjunto de reglas, el prompt también lleva el perfil del oponente (mente, temperamento, rol, competencia y el `behavior` de su conjunto de reglas), el otro bando ordenado por amenaza y las órdenes de compañeros del grupo.
 
@@ -352,7 +266,7 @@ Deja llamadas al proveedor en un servicio del servidor, fuera del motor comparti
 1. Acepta acción del jugador con identidad de encuentro, ID de acción y revisión esperada; valida contra estado aceptado.
 2. Avanza a la próxima acción o decisión de interrupción en orden existente. Separa declaración de efectos para interrumpir un lanzamiento pendiente; no resuelvas una ronda y luego la reescribas.
 3. Guarda activación/ventana pendiente: unidad, revisión, cursor, acción disparadora/pendiente, versión y menú legal acotado.
-4. Pide ID de candidato estructurado o pasar a la conexión GM. Incluye hojas actuales, intención, mecánicas e información adecuada de ventana según sección 16. Una narración opcional breve no cambia estado.
+4. Pide ID de candidato estructurado o pasar a la conexión GM. Incluye hojas actuales, intención, mecánicas e información adecuada de ventana según [Jefes GM, acciones legendarias y reacciones](#gm-bosses-legendary-actions-and-reactions). Una narración opcional breve no cambia estado.
 5. Valida respuesta, revisión, unidad, pertenencia al menú y legalidad actual. Registra atómicamente y aplica una vez.
 6. Reanuda acción/activación suspendida con estado actualizado y luego participantes restantes. Revalida tras interrupciones; actualiza cada presupuesto/efecto una vez en su límite reglado y devuelve control al jugador.
 
@@ -376,7 +290,7 @@ Anuncia ataques grandes en interfaz/registro antes del efecto cuando la mecánic
 
 Si GM está desactivado o indisponible, muestra la alternativa local sin atribuirle esa decisión. Reproducibilidad significa repetir elecciones/tiradas guardadas, no esperar respuestas nuevas idénticas con la misma semilla.
 
-## 9. Contrato de datos e integración
+## Contrato de datos e integración
 
 Prefiere un objeto pequeño compartido por el flujo existente. Ejemplo resuelto:
 
@@ -415,11 +329,11 @@ Conserva política heredada inicialmente para encuentros en curso y aplica la nu
 
 Importan todas las creaciones: generación, combate manual/alternativo, restauración y futuras invocaciones. No añadas campos solo al tipo TypeScript para perderlos al copiar propiedades.
 
-## 10. Diversión, realismo y variedad
+## Diversión, realismo y variedad
 
 **Diversión:** hábitos reconocibles y explotables. Ganar separando un guardia Protective del sanador Supportive satisface más que una mala jugada aleatoria de un evaluador universal. No hagas de todos máquinas perfectas de fuego concentrado.
 
-**Realismo:** objetivos plausibles, información limitada y competencia apropiada. Cobardía, lealtad, agresión y entrenamiento son cualidades diferentes. Mindless simplifica dos categorías por petición. Sistemas futuros de moral/objetivos pueden añadir rendición, defensa territorial y escape sin fingir que existen.
+**Realismo:** objetivos plausibles, información limitada y competencia apropiada. Cobardía, lealtad, agresión y entrenamiento son cualidades diferentes. Mindless simplifica dos categorías por petición. La moral (rendición y escape) y el temperamento territorial ya existen, en [Protecciones prácticas](#practical-guardrails); los objetivos más complejos no.
 
 **Variedad:** cambia perfiles y composición entre semillas, conservando identidad dentro de batalla y NPC recurrentes. Terreno, roles, recursos y objetivos deben variar más que la tirada crítica. La dificultad cambia desafío previsiblemente sin hacer que un Mindless Beast cace sanadores de pronto.
 
@@ -433,85 +347,15 @@ Ejemplo en el mismo mapa:
 
 Otra semilla puede dar Cowardly Bruiser y Opportunistic Marksman y cambiar el combate. Una recarga no. El mismo jefe debe conservar hábitos al reaparecer salvo cambio narrativo o edición explícita.
 
-## 11. Etapas sugeridas
+<a id="current-ordinary-ai-implementation-boundary"></a>
 
-Es una función grande: cambia contratos persistidos, prompts, decisiones y orquestación asíncrona. Acuerda el diseño y luego implementa partes pequeñas revisables sobre staging actual.
-
-| Etapa                                  | Entrega                                                                                                                    | Evidencia de salida                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| A. Capacidad e identidad | Probar/corregir recursos enemigos; indicaciones de categoría/rango/competencia; conservar campos en todas las creaciones  | Mago generado usa recursos finitos reales; jefe solitario conserva identidad al restaurar |
-| B. Asignación/persistencia          | Tendencias de rol, personalidad, adjetivo guardado con semilla y legado versionado                                              | Tendencias, prioridad dura de tipo, estabilidad de recarga/importación/puntos de control                  |
-| C. Ordinarios Tactical           | Candidatos comunes, persecución Mindless exacta, ocho perfiles distintos, textos de inspección                                      | Matriz de conducta, previsiones coherentes, pruebas móvil/navegador y rendimiento acotado           |
-| D. Jefes GM                       | Revisión/idempotencia servidor, fase reanudable, respuesta validada, alternativa guardada, mecánicas admitidas | Timeout/reintento/concurrencia/restauración y batalla manual con proveedor real                        |
-| E. Adaptación Classic                  | Semántica no espacial, grupos aliados/apoyo correctos, decisiones/tiradas con semilla e iniciativa de jefe           | Regresiones de ronda/recursos y restauración; sin afirmar conducta de cuadrícula        |
-
-A–C son un buen hito, pero **no cumplen por sí solos el control GM de jefes**. En Classic pide la decisión en su posición de iniciativa después de acciones previas, no sobre el estado viejo de principio de ronda. Reutiliza perfiles/asignación sin forzar ambos motores en un resolutor gigante.
-
-Trabajo posterior separado: LOS/cobertura, objetivos AoE reales, moral/escape individual, objetivos, más adjetivos, coordinación, IA de invocaciones y economías por reglas. Las reglas determinan legalidad; el temperamento decide entre opciones legales.
-
-### Mapa de código para implementar
-
-| Archivo / símbolo                                                                                                                                                                                                                                    | Importancia                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [tipos compartidos de combate](../../packages/shared/src/types/game.ts), `Combatant`, `GameCombatStateSnapshot`                                                                                                                                           | Metadatos ejecutables y restauración Classic                                              |
-| [tipos de encuentro](../../packages/shared/src/types/combat-encounter.ts), `CombatEnemy`, `CombatInitState`                                                                                                                                         | Esquema generado, mecánicas y tipos de la ventana separada                          |
-| [rutas de encuentro](../../packages/server/src/routes/encounter.routes.ts)                                                                                                                                                                         | Prompts/esquemas de generación y contexto de personajes; ruta de acción de la ventana     |
-| [prompts GM](../../packages/server/src/services/game/gm-prompts.ts)                                                                                                                                                                              | Actualmente dicen al GM que la interfaz gestiona mecánicas                             |
-| [GameSurface](../../packages/client/src/components/game/GameSurface.tsx), `generatedEnemyToCombatant`                                                                                                                                            | Pierde descripción y MP enemigo; hidratación y creación/restauración explícitas        |
-| [interfaz Classic](../../packages/client/src/components/game/GameCombatUI.tsx) y [hooks de juego](../../packages/client/src/hooks/use-game.ts)                                                                                                           | Solicitudes activas, ronda/animación y acciones del jugador                   |
-| [servicio Classic](../../packages/server/src/services/game/combat.service.ts), `chooseAutoSkill`, `resolveCombatRound`                                                                                                                            | Política común, RNG, mecánicas e iniciativa                                     |
-| [rutas de juego](../../packages/server/src/routes/game.routes.ts), `/combat/round`, `/combat/tactical/start`, `/combat/tactical/action`                                                                                                             | Esquemas y orquestación; intercambio de estado cliente                                |
-| [IA Tactical](../../packages/shared/src/features/tactical-combat/ai.ts), `decide`, `runEnemyPhase`                                                                                                                                               | Política y bucle de todos los enemigos a la vez                                          |
-| [motor Tactical](../../packages/shared/src/features/tactical-combat/engine.ts)                                                                                                                                                                  | Conversión, heurística de jefe, movimiento, legalidad, resolución, previsiones y rondas |
-| [clases Tactical](../../packages/shared/src/features/tactical-combat/classes.ts)                                                                                                                                                                | Seis clases existentes y derivación de capacidades                                             |
-| [tipos Tactical](../../packages/shared/src/features/tactical-combat/types.ts), [matemáticas](../../packages/shared/src/features/tactical-combat/math.ts), [RNG](../../packages/shared/src/features/tactical-combat/rng.ts)                              | Instantáneas/acciones, terreno y flujo determinista                      |
-| [interfaz Tactical](../../packages/client/src/components/game/TacticalCombatUI.tsx) y [metadatos del chat](../../packages/shared/src/types/chat.ts)                                                                                                       | Instantánea guardada, estados ocupados y recuperación del jefe pendiente                             |
-| [regresiones de terreno](../../scripts/regressions/hybrid-terrain.regression.ts), [prueba de ruta](../../scripts/regressions/hybrid-terrain-route.regression.ts), [prueba de configuración](../../scripts/regressions/hybrid-terrain-setup.regression.ts) | Patrones ejecutables para ampliar donde corresponda                                  |
-
-Antes de implementar, busca issues, PR abiertos/borradores, ramas vinculadas y elementos del proyecto para evitar duplicación. El plan anterior cita PR #4391 cerrado/no integrado como precedente; revisa estado y responsable sin convertir toda esa ampliación en requisito. Sigue `AGENTS.md`, `CONTRIBUTING.md`, instrucciones de paquetes y flujo Chai actuales. No implementes solo desde líneas antiguas.
-
-## 12. Aceptación y validación
-
-Usa pruebas pequeñas ejecutables `*.regression.ts` en el runner existente. No conserves `.test.ts` temporales. Las aserciones demuestran conducta, no replican constantes de pesos.
-
-| Escenario                                                                                        | Resultado requerido                                                                                                           |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Beast/Monstrosity con adjetivo conflictivo, master, personalidad o rango jefe | Indicaciones generadas siempre Mindless; perfil resuelto explícito/importado contradictorio rechazado con error útil |
-| Tanque sano cercano frente a mago herido lejano                                              | Mindless persigue tanque; Opportunistic puede elegir mago                                                            |
-| Ruta corta de bosque frente a abierta larga                                                     | Mindless elige menos pasos pagando costo real y recibe bonificaciones incidentales              |
-| Muro obliga a alejarse; rival inalcanzable                                      | Rodeo legal u otro objetivo; sin bloqueo Manhattan                                         |
-| Mindless volador/teletransportador                                                               | Traversía, aterrizaje, ocupación y alcance correctos; sin cadenas imposibles                       |
-| Aliado herido fuera de alcance actual                                                      | Supportive se mueve y cura legalmente; MP/recarga bloquean                                               |
-| Protective sin provocar/interceptar                                           | Solo posición; no redirección de daño inventada                                                                          |
-| Cowardly herido                                                                          | Puede retirarse/defender; nunca huida global del grupo                                                                      |
-| Gran competencia sobre conjunto amplio fijo de semillas                                                     | Más perfiles adecuados, conservando raros compatibles y resultados estables por semilla                |
-| Personalidad conocida, negación, conflicto, datos ausentes/erróneos, texto no inglés  | Ajustes acotados documentados; sin control numérico arbitrario o supuesto de inglés exclusivo                             |
-| MP temporalmente agotado                                                                         | Rol/adjetivo iguales; cambian solo opciones legales                                                                |
-| Dos enemigos apuntan a herido; primero lo derrota                                             | Segundo evalúa estado nuevo; sin atacar muerto o reservar curación duplicada                                |
-| Terreno del destino distinto al original                                               | Previsión y contraataque real coinciden en posiciones, terreno y reglas                                             |
-| GM inventa coordenadas, habilidades, acciones gratis, IDs o recursos                   | Sin mutación; solo alternativa legal guardada o candidato válido                                                                 |
-| Timeout y éxito tardío, recarga, duplicado o pestañas simultáneas            | Una acción aceptada y un descuento; respuesta vieja descartada                                     |
-| Victoria/derrota durante fase suspendida                                          | Final correcto; sin turno posterior de jefe/ayudante                                                     |
-| Punto de control, ramas, importación/exportación, legado, NPC recurrente                        | Perfiles e identidad correctos; sin sorteos accidentales ni decisiones externas duplicadas             |
-| Mindless y jefe GM Classic                                                                    | Regla no espacial explícita y posición de iniciativa correcta; sin afirmación de cuadrícula/terreno                        |
-
-Mide costo con límites admitidos de 40 unidades / 64 por 64, movimiento mixto, muchas habilidades y obstáculos densos. Cachea cálculos por decisión si se justifica, invalidando tras cambios. Fija presupuesto medible de fase tras perfilar computadora y móvil representativo. No declares milisegundos sin medir ni añadas búsqueda profunda antes de perfilar.
-
-Empieza con `pnpm install`; ejecuta `pnpm check`, regresiones focalizadas de combate/rutas, `pnpm regression:prompt` al cambiar prompts y `pnpm localization:check` para textos. Prueba flujo real, recarga, espera/falla de jefe, teclado, pantallas pequeñas y temas claro/oscuro. Añade entradas `[Unreleased]`. Lee `packages/client/.instructions.md` antes de editar cliente. Registra prompts/resultados con herramientas de depuración existentes y Pino, sin secretos ajenos.
-
-Antes de pedir revisión de PR, ejecuta CodeRabbit local, corrige hallazgos sustanciales y repite. Documenta descartes de falsos positivos o pedantería con evidencia del código, sin bucle indefinido. Deja casillas del plan sin marcar para la persona colaboradora. Publica con seguimiento `[docs-i18n]` obligatorio o traducciones equivalentes.
-
-### Qué verificó la exploración original
-
-La descripción procede de rastrear cliente, rutas y resolutores activos con auditorías Classic/Tactical separadas. El ejemplo de probabilidades se calculó directamente. No se cambió IA, simularon políticas ni ejercitaron jefes en navegador/proveedor real. Son requisitos de implementación, no pruebas aportadas por este diseño.
-
-## 13. Límite actual de IA ordinaria
+## Límite actual de IA ordinaria
 
 Vocabulario implementado: Mindless, Reckless, Cautious, Opportunistic, Protective, Supportive, Disciplined, Cowardly, **Patient, Methodical y Coordinated**. Otros adjetivos siguientes son ideas, no ajustes ocultos.
 
 `features/combat-ai.ts` separa rol, adjetivo, entrenamiento y semilla guardados del control. Nuevas batallas reciben asignaciones; restauradas sin perfil conservan política previa. Cambiar controlador de compañero no vuelve a sortear. Recursos MP finitos y tipos/costos explícitos pasan a ejecución; MP enemigo omitido usa la reserva provisional `20 + 3 × level` igual que aliados sin estadísticas, conservando cero explícito. Es una alternativa genérica Engine, no regla de recursos de mesa.
 
-La asignación v1 es menor que la fórmula de sección 5: pesos positivos para compatibles, bonificación de entrenamiento a favorecidos por rol y preferencia acotada de una indicación cerrada opcional. La categoría fuerza Mindless; una indicación explícita Mindless también lo elige en otras categorías. La generación existente aporta indicaciones en cualquiera de los idiomas; el motor no interpreta prosa por sí mismo. Otras indicaciones son preferencias, no garantías; negación y caracterización multilingüe aún requieren evaluación del proveedor. Procedencia completa y personalidad ligada a NPC recurrentes entre encuentros quedan pendientes. Nivel basado en HP sigue siendo indicador débil sin indicación.
+La asignación v1 es menor que la fórmula de [Asignación: rol, experiencia, personalidad y variedad con semilla](#assigning-profiles-role-experience-personality-then-seeded-variety): pesos positivos para compatibles, bonificación de entrenamiento a favorecidos por rol y preferencia acotada de una indicación cerrada opcional. La categoría fuerza Mindless; una indicación explícita Mindless también lo elige en otras categorías. La generación existente aporta indicaciones en cualquiera de los idiomas; el motor no interpreta prosa por sí mismo. Otras indicaciones son preferencias, no garantías; negación y caracterización multilingüe aún requieren evaluación del proveedor. Procedencia completa y personalidad ligada a NPC recurrentes entre encuentros quedan pendientes. Nivel basado en HP sigue siendo indicador débil sin indicación.
 
 Cada modo enumera ataques básicos, habilidades y defensas ejecutables; puntúa daño, remate, curación efectiva, apoyo, costo y táctica pertinente. No añade llamadas ordinarias al modelo. Los perfiles no conceden habilidades inexistentes, MP ilimitado, activaciones extra ni terreno ficticio.
 
@@ -523,9 +367,9 @@ Cada modo enumera ataques básicos, habilidades y defensas ejecutables; puntúa 
 - **Compañeros:** selección Player/AI localizada por miembro dentro de batalla, manteniendo líder manual. Tactical actúa tras órdenes manuales restantes o End Turn. Se puede cambiar a manual antes de actuar. Controladores, perfiles y memoria persisten con combatientes/instantáneas.
 - **Persistencia Classic:** resultados aceptados y siguiente número de ronda llegan al callback de instantánea antes de animación. Las recargas reales sobreviven. Classic conserva dados aleatorios existentes; no es repetición exacta ni registro idempotente del servidor. Garantías multipestaña corresponden al futuro trabajo autorizado de jefes.
 
-El primer hito terminó antes de proveedores de jefe/reacciones; sección 16 registra la implementación posterior. Siguen pendientes escape individual, provocación, objetivos ricos, iniciativa específica, normalización completa de hojas y registro de NPC recurrentes. Lo no implementado sigue siendo trabajo de aceptación, no funcionalidad implícitamente publicada. Benchmarks sintéticos de computadora no calibran teléfonos físicos.
+El primer hito terminó antes de proveedores de jefe/reacciones; [Jefes GM, acciones legendarias y reacciones](#gm-bosses-legendary-actions-and-reactions) registra la implementación posterior. Siguen pendientes provocación, objetivos ricos, iniciativa específica, normalización completa de hojas y registro de NPC recurrentes. Lo no implementado sigue siendo trabajo de aceptación, no funcionalidad implícitamente publicada. Benchmarks sintéticos de computadora no calibran teléfonos físicos.
 
-## 14. Más adjetivos según clase
+## Más adjetivos según clase
 
 Conserva un adjetivo visible y rol derivado de capacidades. Son prioridades distintas, no sinónimos de "inteligente". Admite combinaciones inusuales pero válidas.
 
@@ -556,7 +400,9 @@ Los tres añadidos solicitados también varían por clase:
 
 Son metas de ajuste. La primera implementación usa defensa mejorada/debilitada genérica; combinaciones de clase más ricas necesitan habilidades y regresiones correspondientes.
 
-## 15. Extensión Summoning
+<a id="summoning-design-extension"></a>
+
+## Extensión Summoning
 
 Empieza sin cuadrícula. Una invocación es combatiente real con ID estable, propietario, bando, perfil, controlador, duración, costo y presupuesto de activación explícitos. Clase modifica capacidades legales; adjetivo prioridades como Classic.
 
@@ -566,7 +412,11 @@ Las reglas deciden si ordenar consume acción del dueño, si actúa inmediatamen
 
 KO del dueño, encanto/cambio de bando, retirada, expiración, derrota grupal y fin del encuentro requieren limpieza explícita. Guarda propietario/duración restante ante recarga/importación. Una invocación derrotada no es objeto ni miembro permanente. Cobra hechizo/MP una vez al aceptar creación. Sus acciones no fabrican ventanas legendarias fuera de la elegibilidad del modificador fijo.
 
-## 16. Jefes GM, acciones legendarias y reacciones
+<a id="gm-bosses-legendary-actions-and-reactions"></a>
+
+## Jefes GM, acciones legendarias y reacciones
+
+<a id="implemented-generic-engine-adapter"></a>
 
 ### Adaptador genérico Engine implementado
 
@@ -620,7 +470,7 @@ Valores genéricos propuestos:
 - Ofrece `pass` y solo candidatos legales asequibles. Legendaria no abre otra legendaria ni duplica velocidad. Un hechizo legendario dispara Counterspell solo si el adaptador admite esa reacción; presupuestos separados.
 - Revalida vida/capacidad del jefe, objetivo y resultado antes de pedir/aceptar. Un jefe muerto no gasta respuesta tardía. Mindless sigue restringido también en opciones legendarias.
 - Separa acción ordinaria, reacción, legendaria y evento de guarida/fase. Presupuestos/disparadores distintos; descripciones no dan daño o activaciones gratis.
-- Ayudantes quedan locales. GM solo en ventanas con elección significativa. Reutiliza conexión, depuración, alternativa guardada y límite agregado de sección 8.
+- Ayudantes quedan locales. GM solo en ventanas con elección significativa. Reutiliza conexión, depuración, alternativa guardada y límite agregado de [Turnos de jefes controlados por GM](#boss-turns-controlled-by-the-gm).
 
 ### Counterspell y reacciones opcionales
 
@@ -649,13 +499,15 @@ Representa acción como declaración guardada, efectos pendientes y resultado. S
 
 Varios reactores usan prioridad estable reglada y revalidan tras cada respuesta. Reacciones anidadas, como contrarrestar Counterspell, solo mediante capacidad explícita y pila acotada. Cada entrada lleva padre/disparador; una unidad responde una vez al mismo disparador y necesita reacción restante. Cierra agotados, cancelados y resueltos. Sin recursión ilimitada, prompts repetidos tras pasar, cobros múltiples ni cadenas legendarias. Un primer adaptador limitado declara cadenas no admitidas, sin prometer 5e completo.
 
-Contrato mínimo guardado: ID/revisión del encuentro; ID/cursor de activación; actor confirmado; tipo/ID de ventana; evento e IDs de acción pendiente/padre; revisiones de contexto y candidatos; orden de reactores elegibles/resueltos; presupuestos; deltas reservados/comprometidos/reembolsados; elección/paso aceptado; estado de resolución; resultado del proveedor/alternativa y efectos restantes. Acepta decisiones y costos/resultados atómicamente. Respuestas tardías/duplicadas no gastan otra vez. Restaurar reanuda ventana o reproduce resultado; rama/rebobinado aísla todo el registro, no solo narración. Restaurar texto no reembolsa reacción aceptada. El registro del servidor siguiente aporta la implementación inicial; sección 8 conserva contrato futuro.
+Contrato mínimo guardado: ID/revisión del encuentro; ID/cursor de activación; actor confirmado; tipo/ID de ventana; evento e IDs de acción pendiente/padre; revisiones de contexto y candidatos; orden de reactores elegibles/resueltos; presupuestos; deltas reservados/comprometidos/reembolsados; elección/paso aceptado; estado de resolución; resultado del proveedor/alternativa y efectos restantes. Acepta decisiones y costos/resultados atómicamente. Respuestas tardías/duplicadas no gastan otra vez. Restaurar reanuda ventana o reproduce resultado; rama/rebobinado aísla todo el registro, no solo narración. Restaurar texto no reembolsa reacción aceptada. El registro del servidor descrito en [Adaptador genérico Engine implementado](#implemented-generic-engine-adapter) aporta la implementación inicial; [Turnos de jefes controlados por GM](#boss-turns-controlled-by-the-gm) conserva contrato futuro.
 
 Interfaz: muestra puntos legendarios, reacción disponible y costo; distingue anticipación de reacción disparada. Explica interrupción y si el hechizo se resuelve, falla o necesita nueva elección. Pensamiento/espera, reintento/alternativa y cancelación accesibles. Anuncia cargas cuando corresponda. No atribuyas alternativas locales al GM. No muestres puntuaciones/prompts internos en menú del jugador.
 
 Pruebas requeridas: hechizos/recursos/objetos correctos en contexto; previsión con reservas agotadas; predicción Fireball plausible pero errónea; sin filtración de borradores/órdenes; sin explotar clics/reselección; jugador cambia acción legal tras anticipación; tiempo 5e nativo frente a regla casera; Counterspell solo tras lanzamiento legal; pasar hechizo débil frente a responder al letal; sin MP/slot/reacción; costo único al fallar; reembolso original según reglas; visibilidad/alcance prohibidos; múltiples reactores y contras anidadas; sin ventana legendaria extra por movimiento/golpe adicional/reacción; posición Classic correcta; orden manual invalidada; unidades omitidas Tactical/elegibilidad de invocación; presupuesto agotado; renovación una vez; muerte/final mientras espera; duplicados; timeout y éxito tardío; recarga, multipestaña, rama/rebobinado y cambios de ajustes. Después de rutas deterministas, valida proveedor real y ritmo móvil representativo.
 
-## 17. Guía del agente de entorno del encuentro
+<a id="encounter-environment-agent-handoff"></a>
+
+## Guía del agente de entorno del encuentro
 
 Se eliminan el área **Terrain guidance** (Orientación del terreno) y su resumen en creación. Archivos antiguos pueden conservar campo por compatibilidad, pero generación no lo inyecta en cada batalla. Battlefield Size sigue reutilizable. Batallas nuevas reciben semillas internas individuales; mapas/reinicios guardados conservan aceptadas. La etiqueta Tactical describe movimiento, terreno y previsiones sin nombre de otro juego.
 
@@ -672,77 +524,36 @@ Entradas con revisión de encuentro/ubicación y distinción entre observaciones
 
 GM recibe contexto aceptado y sigue creando encuentro; Engine valida terreno final. Cachea por revisión, descarta respuestas obsoletas tras viaje/cambio de escena y evita cobros repetidos al reintentar. Si está desactivado, falta o vence tiempo, usa contexto actual y terreno procedural alternativo normal. Guarda terreno aceptado, no lo regeneres al recargar. Añade logs de prompts y pruebas de esquema/timeout/ubicación vieja. El agente se documenta aquí; no se implementa en Engine ni instala silenciosamente.
 
-### Validación registrada de la primera implementación
+## Dificultad y clima
 
-Pasan `pnpm check`, regresión focalizada de IA, regresiones existentes de rutas/configuración/motor de terreno híbrido y `pnpm regression:prompt`. Navegador a través de rutas reales Classic/Tactical cubre elección de compañeros, cola manual, acciones automáticas, persistencia de ronda aceptada y recarga. Configuración/hidratación cubre quitar orientación, semilla cero, tipos explícitos no ingleses de hechizo y MP cero. Pasó Chromium de computadora claro y tamaño Android oscuro; WebKit no arrancó por bibliotecas del sistema ausentes. Capturas son artefactos locales, no recursos documentales incluidos.
+### Configuración y dificultad
 
-Una cuadrícula abierta sintética de 40 unidades, 64×64, con caminar/volar/teletransportar y apoyo tardó unos 400–440 ms por fase enemiga ordinaria en este host. No es peor caso con obstáculos ni teléfono físico. Equilibrio y ritmo completo requieren partidas. Las medidas cubren el primer hito, no latencia de ventanas de jefe ni reglas futuras.
+Elimina el campo **Battlefield Seed** (semilla del campo de batalla) y su resumen, y conserva **Battlefield Size** (tamaño del campo de batalla). Los encuentros nuevos reciben semillas aleatorias internas. Ignora las preferencias obsoletas de semilla de campaña al iniciar futuras batallas; conserva las semillas, cuadrículas y reinicios de las batallas aceptadas. Cambia la descripción de Classic a "Cinematic menu battles." (Batallas cinematográficas con menús).
 
+Normaliza la dificultad mediante una función compartida, incluidas las configuraciones antiguas con inicial mayúscula. Conserva los multiplicadores de daño enemigo Casual 0,6, Normal 1, Hard 1,3 y Brutal 1,6. Classic debe escalar solo el daño enemigo, como Tactical. Revisa encuentros y botín para detectar el mismo error de mayúsculas. Fija la dificultad al crear el encuentro; no la cambies al modificar ajustes durante el combate.
 
-### Validación registrada de jefes/reacciones
+Los multiplicadores actuales pertenecen únicamente a Traditional (la mecánica heredada actual de Engine). Al implementar 5e, V20 u otro conjunto de reglas, revisa la dificultad según la política propia de esas reglas. No heredes los multiplicadores de Traditional de forma predeterminada. Ajustar las decisiones de la IA es independiente de escalar el daño.
 
-Pasan `pnpm check` y `pnpm regression:prompt`. Persiste advertencia previa ajena de hook `GameNarration`. Regresiones de IA, director, rutas y proveedor cubren compromiso de activación, turno normal, contras anidadas, pasar, pago fallido, MP/slots vacíos, guardias de área, muros, turnos deshabilitados, transacciones de inventario, duplicados/obsoletos, timeout duro real, límites por ronda e identidad de puntos de control/ramas. El adaptador se ejercitó contra servidor HTTP local, con contexto saliente real y rechazo de elecciones malformadas/desconocidas. Demuestra integración, no estrategia de modelo pagado.
+### Clima
 
-Pasan dieciséis pruebas Chromium de computadora/móvil de controles heredados/dirigidos Classic/Tactical, acciones reales, ronda completa, recarga con reacción, último slot cobrado una vez, habilidades generadas y limpieza de configuración. Capturas inspeccionadas en claro de computadora y oscuro móvil: panel visible, enfocado y operable. Rendimiento físico, cobertura actual WebKit y calidad/ritmo del proveedor siguen sin verificar. La prueba ampliada ejecuta timeout real de diez segundos y rechaza respuestas posteriores. No hubo llamadas a modelos vivos de juego. La mantenedora autorizó después CodeRabbit externo como flujo previsto; la revisión local inicial terminó con 15 hallazgos.
+Usa el clima de campaña existente y la exposición fundamentada del encuentro. Guarda el clima aceptado con el encuentro; la ausencia del campo en un combate antiguo significa mecánica neutral. La exposición desconocida es neutral. Los entornos cerrados están protegidos. Normaliza los alias actuales a los tipos de clima existentes; al establecer un tipo, genera viento y visibilidad compatibles.
 
+Las reglas iniciales se aplican por igual a ambos bandos: la lluvia reduce moderadamente el daño de fuego y aumenta el de rayo; el viento fuerte penaliza los ataques marcados explícitamente como proyectiles; la mala visibilidad penaliza los ataques que requieren vista explícitamente; la nieve aumenta el costo de caminar en Tactical. El vuelo y la teletransportación conservan su semántica. No deduzcas los rasgos de proyectil/vista de los nombres de habilidades sin etiquetas. El clima despejado/nublado suele ser neutral. Las funciones compartidas deben gobernar previsiones, resolución y estimaciones de IA sin consumir futuras tiradas de combate.
 
-### Seguimiento de CodeRabbit local
+Muestra las condiciones aceptadas y sus efectos en ambas interfaces. Los ajustes visuales del clima no pueden desactivar la mecánica. El clima permanece fijo durante el encuentro; se posponen las habilidades que lo cambian, las transiciones periódicas, los rayos aleatorios y el desgaste por calor. Summoning y futuras reglas pueden reutilizar el contrato compartido sin añadir un modo de interfaz incompleto.
 
-La primera revisión corrigió consumo aceptado de objetos Classic tras reintentos/turnos omitidos, previsiones de potencia Tactical, entrada IA compatible con legado, metadatos de jefe solo enemigos, consultas malformadas/costos importados, eventos ausentes de fase automática, normalización de MP máximo, IDs inválidos de unidad controlada, menús de solo reacciones, limpieza del proveedor de prueba y resolución de conexión compartida en servicio. La observación de objetos suponía varios menús de grupo; solo el líder tiene uno, pero quitar referencia vieja arregla un reintento abandonado real. El consumo sigue órdenes aceptadas y resultados efectivos.
+### Decisiones de los enemigos
 
-Sugerencias descartadas con fundamentos de código:
+Conserva rol, adjetivo, competencia, legalidad y contabilidad de recursos. La dificultad modifica una variación de decisiones acotada y con semilla: Casual admite más errores plausibles, Normal queda cerca de la base actual, Hard es más consistente y Brutal minimiza errores sin eliminar las diferencias de competencia. Los compañeros usan una base fija Normal en cualquier dificultad; siguen respondiendo al clima y al peligro reales. Las restricciones de Mindless permanecen intactas.
 
-- Slots admiten solo niveles 1–9 deliberadamente. Quitar claves no admitidas silenciosamente ocultaría capacidades inválidas creadas; el esquema las rechaza. Cantrips y reglas nombradas pertenecen al contrato separado.
-- Costos IA ordinaria usan MP actual si falta máximo. Escasez de reacción divide deliberadamente por MP **restante**: Counterspell que agota últimos puntos es caro aunque la reserva original fuera grande.
-- Enumerar candidatos ya crea lista alcanzable una vez. Cada uno sigue pasando validación autorizada. Quitar comprobaciones o añadir caché requiere evidencia de rendimiento y conservar el límite; no se observó acción ilegal.
-- `CombatAttackResult` no tiene marcador de motivo de falla. El resolutor perfilado rechaza habilidades indisponibles antes de ejecutar, y director valida antes de cobrar. Un protocolo resultado/UI nuevo solo para la alternativa heredada sin efecto se pospone como presentación; no aplica efecto ni gasta.
+Usa puntuaciones sensibles al clima para ataques, apoyo, posicionamiento y reacciones. Counterspell y guard compiten con pasar según amenaza, costo y personalidad. Ninguna dificultad concede órdenes ocultas, tiradas futuras, recursos gratuitos ni acciones adicionales. El prompt (las instrucciones enviadas a la IA) del jefe GM recibe la dificultad/clima aceptados y orientación sobre presión y oportunidades; el motor sigue imponiendo las opciones legales y los presupuestos ofrecidos. Si falla el proveedor, se conserva la alternativa local.
 
-La segunda revisión completa tuvo seis hallazgos. Se corrigieron merges de slots aceptados y resets de propiedades viejas en Classic independiente; se asignaron perfiles al construir unidades; se extrajo caracterización GM de campos de tarjeta y no metadatos serializados; se bloquearon reacciones en ambas rutas ordinarias heredadas/selección automática; y se devolvió error recuperable al leer estado malformado.
+### Detalles de implementación
 
-La sugerencia restante del esquema no aplica: `CombatAttack[]`, el prompt generador y `combatSkillsFromGeneratedAttacks` requieren objetos con nombre. Entradas solo texto no tienen hidratación admitida. Se mantiene esquema estricto en vez de aceptar datos que la pantalla no puede usar.
+Las condiciones compartidas están en `packages/shared/src/features/combat-conditions.ts`. La dificultad se normaliza al importar/crear configuraciones y en los consumidores de encuentros, botín, Classic y Tactical. La variación de decisiones enemigas se multiplica por 2,5 / 1 / 0,4 / 0,15 para Casual / Normal / Hard / Brutal; la competencia y personalidad guardadas siguen vigentes. Classic estima con la misma probabilidad de impacto de d20 enfrentados que la resolución; Tactical usa la previsión de ataque compartida. La persecución Tactical ordena las rutas por costo de terreno y clima para los perfiles ordinarios. Las unidades Mindless eligen la ruta legal con menos pasos espaciales; ambas políticas pagan los costos reales de terreno y clima al moverse. Las reacciones valoran amenaza esperada y escasez, con la misma variación exclusiva de enemigos.
 
-Después pasan `pnpm check` y `pnpm regression:prompt`. Pasan cuatro regresiones de combate y ruta de terreno, incluido contexto real sin comentarios/notas de edición de tarjeta. Dieciséis pruebas de combate pasaron tras primeras correcciones; las ocho finales Classic pasan con reintento de objeto, objeto omitido y último slot. Una colisión compilación/recarga interrumpió una ejecución anterior; el reintento exitoso fue después de compilar. La tercera revisión detectó panel vacío Classic con solo reacciones, corregido en ambos diseños. La ruta heredada Tactical de curación/resolución también las rechaza. La verificación final se registra abajo.
+Con exposición a lluvia, lluvia intensa o tormentas, el daño de fuego se multiplica por 0,85 y el de rayo por 1,15. Los proyectiles explícitos pierden 10 puntos de precisión con viento fuerte y 15 con vendavales. Los ataques que requieren vista explícitamente pierden 5 con visibilidad reducida y 15 con mala visibilidad. La penalización combinada tiene un máximo de 25. Classic la convierte en modificadores de tiradas enfrentadas (un punto por cada cinco de precisión); su panel de condiciones identifica esas penalizaciones de tirada. En Tactical, la nieve/ventisca con exposición añade un punto de caminata por casilla; vuelo y teletransporte no cambian. Los objetos de daño elemental también reciben modificadores de lluvia; la curación y la duración de estados no.
 
+El generador crea booleanos `projectile` / `requiresSight` para ataques básicos y habilidades, y `battlefield.terrainBrief.exposure`. Los rasgos ausentes son neutrales. Gana la exposición explícita; los entornos cerrados reconocidos están protegidos, los exteriores reconocidos expuestos y los ambiguos son desconocidos. El clima de campaña procede del sistema persistido, con el valor meteorológico de la escena confirmada como alternativa si falta. Las etiquetas de mensaje de inicio de combate detienen la progresión meteorológica de fondo antes de que el modo renderizado se actualice. Las condiciones aceptadas se guardan en el director y en el estado Tactical; se rechazan importaciones contradictorias o malformadas. Los guardados sin clima siguen neutrales. Los reinicios de Tactical heredado transmiten las condiciones aceptadas (incluida la ausencia neutral) en lugar de muestrear el clima de campaña cambiado.
 
-Otras decisiones de revisión:
-
-- El endpoint Tactical ya pasa control por `applyTacticalTurn` y `applyAction`; `applyAction` rechaza IA para el primer miembro vivo. La prueba de ruta ahora comprueba esa solicitud y HTTP 400 con error de líder manual. Duplicarlo en ruta crearía otra fuente de verdad.
-- Indicaciones IA e interrupciones pueden omitirse; presentes, deben cumplir esquemas. Capturar y eliminar capacidades inválidas convertiría Counterspell, costo o jefe generado en reglas distintas sin explicar. Tolerar toda capacidad opcional inválida es cambio de conducta intencional, no guardia ausente.
-- Exportar alias `TacticalUnitAction` más estrecho es limpieza. El control ya retorna en `applyAction` antes de validación/ejecución ordinaria, y los esquemas del director lo excluyen. No bloquea; una futura limpieza puede estrechar la unión sin cambiar conducta.
-
-
-Persistencia del inventario heredado queda aparte. `GameCombatUI` separa el callback de inventario tras resultado de ronda, ya existente en la base que usa `void onInventoryItemUsed?.(usedItemName)`. Esperarlo no garantiza idempotencia: `handleUseCombatInventoryItem` trata fallas internamente y rondas heredadas carecen de transacción autorizada guardada para reintentar. Batallas dirigidas omiten callback y usan descuento atómico del registro más estado aceptado. El legado conserva límite viejo; migrar ronda/inventario juntos requiere compatibilidad explícita. Se documenta, sin afirmar que lo corrigen reintentos/órdenes en cola.
-
-La etiqueta de reacción usa variantes singular/plural del catálogo. Pasan regresiones focalizadas, tipos cliente, lint y prueba de líder tras guardias pequeñas; persiste advertencia previa `GameNarration`.
-
-
-La verificación final añadió alternativas deterministas de acción básica/defensa para Classic sin perfil o rivales restantes, y IDs acotados de órdenes que deben nombrar miembros vivos. Pasan regresiones y tipos servidor; localización valida plurales.
-
-Se posponen sugerencias sin efecto conductual: deduplicar esquemas de slots, retornar ID pendiente en vez del último registro tras declaración síncrona, estrechar tipos y sustituir ordenación de frontera teleport por búsqueda mínima. Hay límites explícitos, validación por acción y ninguna declaración intercalada entre insertar y elegir. No demuestran resultado distinto. Recarga heredada 0/ausente se guarda temporalmente como 1 y decrementa al terminar la misma ronda; está lista en próxima activación. Director usa pago por activación con 0 directo. No hace falta igualar valores intermedios para la misma disponibilidad.
-
-
-La propuesta de caché supone `/director/start` no idempotente. Sí lo es para chat/ancla aceptados: la ruta serializada devuelve registro existente antes de crear/cobrar; la regresión repite inicio con combatientes viejos y obtiene exactamente sesión aceptada. Refrescar al remontar/reconectar permite ver estado restaurado/actualizado. Desactivarlo conservaría batallas obsoletas; refresco explícito sigue disponible y reintentos desactivados.
-
-La cuarta revisión tuvo 15 hallazgos, con repeticiones/limpieza opcional. La corrección restante respeta Mindless explícito en categorías other/unknown; la regresión reprodujo indicación ignorada antes. Perfiles guardados conservan conducta. Un límite pendiente de 40 rechazaría entrada terminal válida: primero declara, luego suprime nuevas tareas al superar 40, así que el límite guardado es 41. Radio 0 significa sin expansión en ambos resolutores. Convertir importación dinámica heredada del proveedor en estática es opcional. No se afirma cero hallazgos; sigue abierto el seguimiento del inventario heredado.
-
-Verificación tras todas las correcciones: pasa `pnpm check` con localización, formato, tipos, lint y producción; pasa IA tras demostrar falla Mindless previa. Resultados anteriores de prompts, director/rutas/proveedor y navegadores se mantienen como registrados. Últimas correcciones pequeñas verificadas localmente, luego otra revisión externa al preparar PR.
-
-
-### Revisión de preparación del PR
-
-Propiedad y alcance están en [#6299](https://github.com/Pasta-Devs/Marinara-Engine/issues/6299); traducciones de estas dos guías en [#6300](https://github.com/Pasta-Devs/Marinara-Engine/issues/6300). El enlace compartido de skills funciona; se compararon los 52 archivos byte a byte con Git anterior. `pnpm check` pasa tras moverlos. `AGENTS.md` adapta por separado `CLAUDE.md` para Codex, con transición explícita de borrador a listo tras implementación, validación y revisión locales.
-
-Decisiones de la ronda de publicación:
-
-- La skill Impeccable está en `.agents/skills/impeccable`. La copia de `.claude/skills` y su alias `.agents/skills` se eliminaron el 2026-10-07; el guardián Impeccable lee la skill desde `.agents/skills`.
-- Ejemplos, redacción, procedencia del paquete Impeccable e interiores de herramientas vivas son archivos trasladados sin cambios. No son regresiones. Se preserva la skill instalada, sin incorporar mantenimiento upstream separado.
-- Ámbito de objeto Tactical `any` está admitido por `CombatItemEffect`, ruta y objetivos del director. Cambiar todo ámbito no self/enemy a `ally` lo rompería. El predeterminado solo cubre ausencia.
-- Calcular persecución anticipadamente está acotado y no cambia la acción ganadora. Hacerlo perezoso es rendimiento opcional; la medición mixta registrada sigue siendo evidencia actual, no afirmación de que no pueda optimizarse.
-- Capacidades generadas se validan en esquema de encuentro y luego inicio/acción del director. Sustituir costos/capacidades explícitos inválidos por predeterminados al hidratar cambia silenciosamente el conjunto creado. Conserva compatibilidad de ausencias y valida lo proporcionado.
-- Se rechaza de nuevo desactivar refrescos de inicio por idempotencia/estado obsoleto; la prueba real de repetición sigue siendo evidencia.
-
-La revisión de publicación terminó con 34 hallazgos: 30 en la skill trasladada sin cambios y cuatro de combate. Los cuatro quedan cubiertos arriba (persecución perezosa, objetivos `any`, refrescos idempotentes y validación explícita). No requirió más implementación. Los aceptados anteriores siguen corregidos/probados. Es revisión con decisiones fundamentadas, no cero hallazgos.
-
-## Seguimiento de dificultad y clima
-
-Consulta [Dificultad del combate y clima](game-combat-difficulty-weather.md) para #6305: dificultad normalizada, daño Traditional solo enemigo, consistencia con semilla, clima aceptado en ambos modos, rasgos explícitos, neutralidad de protegido/desconocido y condiciones fijas tras recarga. Otras reglas deben definir su política de dificultad antes de heredar escalado.
+La configuración sigue validando campos obsoletos de importación por compatibilidad y seguridad, pero los elimina de las exportaciones normalizadas. El motor conserva semillas explícitas de encuentro para restauración/reinicio y reproducción de regresiones. Esto no elimina las semillas de mundo de Experience, que tienen otra finalidad.

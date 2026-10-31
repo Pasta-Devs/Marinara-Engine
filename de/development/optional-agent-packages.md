@@ -380,7 +380,7 @@ Plane jede Verwendung auch für Nutzer ohne Decision-Modell. Ohne Antwort gilt e
 
 ### Hinweis für Entwickler von Game-Mode-Experiences
 
-Die Engine entscheidet selbst über gewöhnliche Gegner im Kampf. Jeder Nicht-Boss auf der GM-Seite erhält aus Fertigkeiten und Klasse eine Rolle: bruiser, bulwark, skirmisher, marksman, spellcaster, supporter oder controller. Die Kompetenz folgt ohne eigene Angabe seiner Stufe: novice, trained, veteran oder master. Dazu kommt ein Temperament wie reckless, cautious, opportunistic oder protective. Tiere und Monstrositäten sind immer mindless. Engine-Code wählt das aus einem Seed ohne Modellaufruf. Die Spielschwierigkeit steuert, wie konsequent Gegner ihrem Typ folgen. Nur ausdrücklich erstellte Bosse lenkt der GM über einen Modellaufruf. Siehe [Kampf-KI im Game Mode](game-combat-ai-design.md).
+Die Engine entscheidet selbst über gewöhnliche Gegner im Kampf. Jeder Nicht-Boss auf der GM-Seite erhält aus Fertigkeiten und Klasse eine Rolle: bruiser, bulwark, skirmisher, marksman, spellcaster, supporter oder controller. Die Kompetenz folgt ohne eigene Angabe seiner Stufe: novice, trained, veteran oder master. Dazu kommt ein Temperament wie reckless, cautious, opportunistic oder protective. Tiere und Monstrositäten sind immer mindless. Engine-Code wählt das aus einem Seed ohne Modellaufruf. Die Spielschwierigkeit steuert, wie konsequent Gegner ihrem Typ folgen. Nur ausdrücklich erstellte Bosse lenkt der GM über einen Modellaufruf. Siehe [Kampf-KI im Game Mode](game-combat-ai.md).
 
 Weitere Kampfverbesserungen folgen. Prüfe vor jeder Decision-Integration in die Kampfpipeline, ob die unveränderte Engine das Gewünschte bereits erledigt. Gib einem Gegner zuerst die passende Kompetenz und das passende Temperament. Eine Decision pro Gegnerzug würde Modellarbeit und ein Zeitlimit hinzufügen, gehostet auch Netzwerkanfragen und Kosten. Der Kampf hinge dann von einem womöglich nicht eingerichteten Modell ab und bräuchte ein sinnvolles Ersatzverhalten ohne Antwort.
 
@@ -666,7 +666,7 @@ Ein Regelsatz sind die Regeln eines Spiels als validierte Daten: ein Auflösungs
 
 Das Beispiel zeigt nur die Schlüssel, die für einen Regelsatz wichtig sind; die üblichen Manifestfelder (`name`, `version`, `description`, `engine`, `builtAgainst`) sind weiterhin Pflicht.
 
-Ein Regelsatz-Paket braucht keine Berechtigung, keinen Server- oder Client-Einstiegspunkt und keinen Agenten. Typ und Asset gehören zusammen: Ein Paket vom Typ `ruleset` muss `ruleset.json` aufführen, und ein Paket, das `ruleset.json` aufführt, muss den Typ deklarieren, damit ein Regelsatz nicht unter einem anderen Typ hineingelangt. Nichts in der Datei wird ausgeführt: Es gibt keine Ausdruckszeichenfolgen, und eine Mechanik, die kein Auflösungstyp ausdrückt, ist eine Engine-Änderung, die einen Typ hinzufügt, nichts, was ein Regelsatz tun kann. Das Format, die 5e-Datei aus erster Hand und die Gründe für ihre Form stehen in [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
+Ein Regelsatz-Paket braucht keine Berechtigung, keinen Server- oder Client-Einstiegspunkt und keinen Agenten. Typ und Asset gehören zusammen: Ein Paket vom Typ `ruleset` muss `ruleset.json` aufführen, und ein Paket, das `ruleset.json` aufführt, muss den Typ deklarieren, damit ein Regelsatz nicht unter einem anderen Typ hineingelangt. Nichts in der Datei wird ausgeführt: Es gibt keine Ausdruckszeichenfolgen, und eine Mechanik, die kein Auflösungstyp ausdrückt, ist eine Engine-Änderung, die einen Typ hinzufügt, nichts, was ein Regelsatz tun kann. Das Format ist in der Anleitung für Autoren dokumentiert, [`writing-rulesets.md`](../extending/writing-rulesets.md), und der Code, der es liest, unter [Architektur von Game Mode](game-mode-architecture.md).
 
 Das ist keine weiche Schnittstelle. Ein Regelsatz-Paket bewirkt auf einer Engine, die es nicht lesen kann, nichts. Deshalb muss ein Manifest, das `ruleset.json` aufführt, Capability API 1.20 deklarieren, und eine ältere Engine verweigert die Installation sauber.
 
@@ -1185,7 +1185,7 @@ export async function activate({ api }) {
 }
 ```
 
-Wichtige Regeln:
+Wissenswerte Regeln:
 
 - Der Schlüssel muss `mari-actions:<package-id>` des registrierenden Pakets sein. Ohne Berechtigung oder unter einer fremden Paket-ID schlägt die Registrierung mit einem Fehler fehl. Eine von Mari ausgeführte Aktion gehört damit immer zum genannten Paket.
 - `list()` liefert Einträge `{ name, summary?, inputs? }`. Namen bestehen aus 1 bis 80 Buchstaben, Ziffern, `.`, `_` oder `-`; andere Einträge werden nicht angezeigt. Mari liest `summary` und `inputs`, also formuliere sie verständlich. Nur die ersten 50 Aktionen sind sichtbar und ausführbar. Mari sieht höchstens 40 Eingaben pro Aktion; Eingabenamen werden bei 80 und Texte bei 300 Zeichen gekürzt. `list()` muss innerhalb von 5 Sekunden antworten, sonst werden die Aktionen des Pakets ausgelassen.
@@ -1217,7 +1217,7 @@ export async function activate({ api }) {
 }
 ```
 
-Diese Regeln solltest du kennen:
+Wissenswerte Regeln:
 
 - IDs erhalten den Namensraum `<packageId>.<id>`. Eine mitgelieferte ID enthält keinen Punkt, sodass die beiden nicht kollidieren können. Der Host akzeptiert die lokale ID oder die ID mit Namensraum und lehnt jede ID ab, die das Paket nicht selbst registriert hat.
 - `unlock(id)` liefert nur bei dem Aufruf `true`, der das Abzeichen freigeschaltet hat. `isUnlocked(id)` und `list()` lesen den Zustand; `list()` liefert die eigenen Abzeichen des Pakets samt Fortschritt.
