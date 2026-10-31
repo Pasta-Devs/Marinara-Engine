@@ -14,7 +14,7 @@ import { ChevronDown, Eye, EyeOff, LockKeyhole, Pencil, RotateCcw, Trash2 } from
 import { useTranslation } from "react-i18next";
 import { getRoleplayCommandActivity, type RoleplayCommandActivity } from "@marinara-engine/shared";
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
-import { useRestoreRoleplayInterrupt } from "../../hooks/use-roleplay-commands";
+import { useRestoreRoleplayInterrupt, useRoleplayHtmlArtifactRunning } from "../../hooks/use-roleplay-commands";
 import { useChatStore } from "../../stores/chat.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { ExpandedTextarea } from "../ui/ExpandedTextarea";
@@ -60,7 +60,8 @@ export function RoleplayWhisper({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const visible = knownToUser || revealed;
-  const pending = isStreaming || chatGenerating || mutation.isPending;
+  const artifactRunning = useRoleplayHtmlArtifactRunning(chatId);
+  const pending = isStreaming || chatGenerating || artifactRunning || mutation.isPending;
   const limit = 16000;
   const closeEditor = () => {
     if (!mutation.isPending) setEditing(false);
@@ -546,6 +547,7 @@ export function RoleplayCommandResults({
   const chatGenerating = useChatStore(
     (state) => state.abortControllers.has(chatId) || (state.isStreaming && state.streamingChatId === chatId),
   );
+  const artifactRunning = useRoleplayHtmlArtifactRunning(chatId);
   const activity = getRoleplayCommandActivity(extra);
   const sounds = Array.isArray(extra.attachments)
     ? extra.attachments.filter(
@@ -565,7 +567,7 @@ export function RoleplayCommandResults({
             key={`${messageId}:${swipeIndex}:${index}`}
             item={item}
             characterName={characterName}
-            pending={isStreaming || chatGenerating || mutation.isPending || restore.isPending}
+            pending={isStreaming || chatGenerating || artifactRunning || mutation.isPending || restore.isPending}
             restore={() => restore.mutateAsync({ messageId, swipeIndex, activityIndex: index })}
             soundUrl={
               item.command.type === "sound"

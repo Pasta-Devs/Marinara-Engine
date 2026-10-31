@@ -293,7 +293,14 @@ export async function runHtmlArtifactCommand(args: {
     );
     const artifact = parseHtmlArtifactOutput(raw, args.request);
     if (!artifact) throw new Error("The model did not finish the artifact. A higher max tokens setting may help.");
-    await save({ artifact, error: undefined });
+    if (!(await save({ artifact, error: undefined }))) {
+      const swipes = await chats.getSwipes(args.messageId);
+      const latest = swipes.find((row) => row.index === args.swipeIndex);
+      const current = getRoleplayCommandActivity(parseExtra(latest?.extra))[args.activityIndex];
+      // A player deleting this marker meant to drop the result. Anything else lost it, so the caller has to hear.
+      if (current?.command.type === "html" && current.command.prompt === args.request && current.deleted) return null;
+      throw new Error("The message's commands changed while the artifact was being made, so it was not saved.");
+    }
     return null;
   } catch (error) {
     const message = error instanceof Error ? error.message : "The artifact could not be made.";
