@@ -99,11 +99,11 @@ Kilka reguł sprawia, że czat działa poprawnie:
 - **Narrator pozostaje aktywny.** Wyznaczony **Narrator** (narrator) z **Roleplay Commands** (komendy Roleplay) nigdy nie jest wyłączany.
 - **Brak odpowiedzi zostawia listę.** W trybie **Decision model**, jeśli model nie odpowie dla każdej postaci, używana jest zamiast tego ostatnia scena Character Tracker, o ile istnieje. Model, który najpierw myśli, nie odpowiada przed odpowiedzią, chyba że włączone jest **Also gate agents that run before the reply** (sprawdzaj także agentów działających przed odpowiedzią), więc zastępuje go tracker. Tak samo jest przy obsadzie zbyt dużej, by zmieściła się w danych wejściowych Decision model nawet po samych imionach – wtedy model nie jest w ogóle pytany. Jeśli żadne z nich nie ma odpowiedzi, lista zostaje taka, jaka jest.
 - **Nikt aktywny to nie opcja.** Wynik, który wyłączyłby wszystkich, jest ignorowany.
-- **Agent Character Activity ma pierwszeństwo.** Czat z własnym agentem używającym typu wyniku **Character Activity** zostawia ten agent za sterami, a automatyzacja nic nie robi.
+- **Agent Character Activity ma pierwszeństwo.** Czat z własnym agentem używającym typu wyniku **Character Activity** zostawia tego agenta za sterami, a automatyzacja nic nie robi.
 
 Character Tracker zapisuje własną nazwę każdej postaci, którą widzi. Postać jest dopasowywana do swojej karty najpierw po identyfikatorze karty, potem po imieniu, a potem po aliasach imienia karty z zakładki **Colors** w edytorze postaci, więc karta, która weszła, będąc wyłączoną, i tak zostaje znaleziona. Lista trackera, która nie wymienia żadnej postaci z czatu, na przykład scena z samymi statystami, zachowuje bieżącą listę.
 
-Automatyzacja działa przed każdą odpowiedzią, swipe'em i regeneracją. Pomija **Continue** i impersonację. Ustawienie zapisuje się w profilach ustawień; przypięcia należą do jednego czatu.
+Automatyzacja działa przed każdą odpowiedzią, swipe'em i regeneracją. Pomija **Continue** i funkcję Impersonate. Ustawienie zapisuje się w profilach ustawień; przypięcia należą do jednego czatu.
 
 <a id="response-order-individual-only"></a>
 

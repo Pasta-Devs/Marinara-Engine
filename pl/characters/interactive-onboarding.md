@@ -50,7 +50,7 @@ Niżej na tej samej zakładce jest druga lista, **Character Questions** (pytania
 {{char}} treats {{relationshipToUser}} with open warmth.
 ```
 
-Te pięć pól czyta model, więc tylko do nich może dotrzeć odpowiedź na pytanie o postać.
+Te pięć pól czyta model, więc tylko do nich może dotrzeć odpowiedź na pytanie o postać. Powitanie może też użyć `{{name}}` pytania o postać i pokazuje odpowiedź gracza.
 
 Powitanie może też użyć `{{name}}` pytania o personę, na przykład `Ah, so you are a {{class}}`. Wypełnia się ono tylko wtedy, gdy gracz tworzy tę personę w kreatorze nowego czatu, w pierwszej wiadomości i jej alternatywnych powitaniach. Przy istniejącej personie albo w Quick Start tag pokazuje się tak, jak został napisany, a edytor postaci ostrzega o tym. Kliknij powitanie, a jego lista **Available variables** (dostępne zmienne) pokaże oba rodzaje pytań, z etykietami.
 

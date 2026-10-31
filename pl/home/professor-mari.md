@@ -277,7 +277,7 @@ Kiedy asystentka pracuje, obok przycisku wysyłania pojawia się przycisk **Stop
 Pole wiadomości zostaje otwarte, kiedy asystentka pracuje, a ty decydujesz, kiedy twoja wiadomość do niej dotrze:
 
 - **Send now** (wyślij teraz) trafia do niej przy następnym kroku, bez jej zatrzymywania. Dotychczasowa odpowiedź zostaje zapisana, twoja wiadomość pojawia się pod nią, a asystentka pracuje dalej, mając na uwadze twoją wiadomość. Tak poprawiasz ją w trakcie zadania i zachowujesz pracę, którą już wykonała.
-- **Queue for later** (dodaj do kolejki na później) czeka na liście nad polem, z oznaczeniem **Sends when she finishes** (zostanie wysłana, gdy skończy). Kiedy asystentka skończy bez błędów, bierze oczekujące wiadomości po jednej, po kolei.
+- **Queue for later** (dodaj do kolejki na później) czeka na liście nad polem, z oznaczeniem **Sends when she finishes**. Kiedy asystentka skończy bez błędów, bierze oczekujące wiadomości po jednej, po kolei.
 
 | | Send now | Queue for later |
 |---|---|---|
@@ -293,7 +293,7 @@ Jeśli asystentka wykonała już kilka kroków, ale jeszcze nic nie powiedziała
 Oczekujące wiadomości nie wysyłają się same w tych przypadkach:
 
 - **Naciskasz Stop.** Wracają do pola wiadomości, więc możesz je edytować albo wysłać ponownie.
-- **Asystentka czeka na ciebie**, na zatwierdzenie albo odpowiedź na pytanie. Pokazują **Held** (wstrzymana) z przyciskiem **Send** (wyślij).
+- **Asystentka czeka na ciebie**, na zatwierdzenie albo odpowiedź na pytanie. Pokazują **Held** z przyciskiem **Send** (wyślij).
 - **Zadanie się nie powiodło albo aplikacja została uruchomiona ponownie.** Też pokazują **Held**. Nic nie przepada.
 
 Wstrzymana wiadomość zostaje wstrzymana, dopóki jej nie wyślesz albo nie usuniesz. **Send** wysyła tylko tę jedną, a wpisanie nowej wiadomości nie zwalnia pozostałych.
@@ -304,7 +304,7 @@ Wstrzymana wiadomość zostaje wstrzymana, dopóki jej nie wyślesz albo nie usu
 
 ### Jej lista zadań
 
-Przy dłuższej pracy asystentka prowadzi dla siebie krótką listę kroków. Stoi ona pod jej najnowszą wiadomością z licznikiem, takim jak **2 of 5** (2 z 5); krok, nad którym pracuje, się kręci, dopóki trwa praca, a ukończone kroki są przekreślone. Nie możesz jej edytować. Dzięki niej widać, na jakim etapie jest asystentka, a ona aktualizuje ją na bieżąco. Gdy napiszesz coś po odpowiedzi, która zapisała listę, lista robi się przygaszona i nosi napis **Plan from before your last message** (plan sprzed twojej ostatniej wiadomości). Znika po jej następnej odpowiedzi, która jej nie rusza.
+Przy dłuższej pracy asystentka prowadzi dla siebie krótką listę kroków. Znajduje się ona pod jej najnowszą wiadomością z licznikiem, takim jak **2 of 5**; krok, nad którym pracuje, się kręci, dopóki trwa praca, a ukończone kroki są przekreślone. Nie możesz jej edytować. Dzięki niej widać, na jakim etapie jest asystentka, a ona aktualizuje ją na bieżąco. Gdy napiszesz coś po odpowiedzi, która zapisała listę, lista robi się przygaszona i nosi napis **Plan from before your last message**. Znika po jej następnej odpowiedzi, która jej nie rusza.
 
 ## Wychodzenie z jej okna
 
