@@ -1000,7 +1000,10 @@ import {
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
 import {
   explicitlyRequestsTextRewrite,
+  buildGuidedHtmlRequest,
   getTextRewritePendingState,
+  readGuidedHtmlRequest,
+  selectGuidedRewriteAgents,
   isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
   PROSE_GUARDIAN_PENDING_MESSAGE,
@@ -7215,8 +7218,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const allTextRewriteAgents = resolvedAgents.filter(
           (a) => a.phase === "post_processing" && resolveAgentResultType(a) === "text_rewrite",
         );
+        // "Only when asked" keeps Immersive HTML out of the automatic pass; a narrator's [html: …]
+        // request still runs it through selectGuidedRewriteAgents (#8586).
+        const automaticRewriteAgents =
+          definedIntro?.mode === "defined"
+            ? []
+            : chatMeta.htmlManualOnly === true
+              ? allTextRewriteAgents.filter((agent) => agent.type !== "html")
+              : allTextRewriteAgents;
         // A defined intro (1.339) stays exactly as set: no agent rewrites it; its Game tags still run.
-        const textRewriteAgents = definedIntro?.mode === "defined" ? [] : allTextRewriteAgents;
+        const textRewriteAgents = automaticRewriteAgents;
         const textRewriteRunAgents = mergePairedBuiltInRewriteAgents(textRewriteAgents);
         const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
         const holdForTextRewrite = shouldHoldForTextRewrite(textRewriteAgents);
@@ -9717,12 +9728,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const requiredAgent =
                 command.type === "illustrate" || command.type === "video"
                   ? "illustrator"
-                  : command.type === "combat"
-                    ? "combat"
-                    : command.type === "music"
-                      ? "spotify"
-                      : null;
+                  : command.type === "html"
+                    ? "html"
+                    : command.type === "combat"
+                      ? "combat"
+                      : command.type === "music"
+                        ? "spotify"
+                        : null;
               if (requiredAgent && !resolvedAgents.some((agent) => agent.type === requiredAgent)) continue;
+              if (command.type === "html") {
+                // The rewrite stage below applies the artifact to this reply; nothing renders here.
+                const htmlAgent = resolvedAgents.find((agent) => agent.type === "html");
+                if (htmlAgent) htmlAgent.settings = { ...htmlAgent.settings, _guidedHtmlRequest: command.prompt };
+                continue;
+              }
               if (command.type === "illustrate" && chatMeta.roleplayIllustrateInline === true) {
                 // Saved like a whisper's place, so edits keep the images next to the same text.
                 activity.contentOffset = parsed.positions.get(activity) ?? parsed.content.length;
@@ -12245,9 +12264,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             if (inactivePostProcessingAgentIds.has(pipelineAgents[index]!.id)) pipelineAgents.splice(index, 1);
           }
         }
-        const activatedTextRewriteRunAgents = textRewriteRunAgents.filter(
+        let activatedTextRewriteRunAgents = textRewriteRunAgents.filter(
           (agent) => !inactivePostProcessingAgentIds.has(agent.id),
         );
+        // A reply that asked Immersive HTML for one artifact runs that agent alone, unmerged (#8586).
+        const guidedRewriteAgents = selectGuidedRewriteAgents(allTextRewriteAgents, inactivePostProcessingAgentIds);
+        if (guidedRewriteAgents) activatedTextRewriteRunAgents = guidedRewriteAgents;
         await persistChatMacroVariables();
 
         // Speech uses only the assistant message. Do not hold it behind
@@ -15130,12 +15152,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     memory: { ...agentContext.memory, _agentResults: agentSummary },
                   };
 
-                  const editorResult = await executeAgent(
-                    textRewriteAgent,
-                    editorContext,
-                    textRewriteAgent.provider,
-                    textRewriteAgent.model,
-                  );
+                  const guidedHtmlRequest = readGuidedHtmlRequest(textRewriteAgent);
+                  const runAgent = guidedHtmlRequest
+                    ? {
+                        ...textRewriteAgent,
+                        promptTemplate: `${textRewriteAgent.promptTemplate}\n\n${buildGuidedHtmlRequest(guidedHtmlRequest)}`,
+                      }
+                    : textRewriteAgent;
+                  const editorResult = await executeAgent(runAgent, editorContext, runAgent.provider, runAgent.model);
                   sendAgentEvent(editorResult);
 
                   try {

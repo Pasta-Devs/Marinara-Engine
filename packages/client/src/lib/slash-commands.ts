@@ -91,6 +91,8 @@ export interface SlashCommandContext {
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
   /** Trigger the same image illustration action exposed in the chat Gallery. */
   illustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
+  /** Ask Immersive HTML for one artifact on the latest reply, without adding the agent. */
+  html?: (prompt: string) => void | Promise<void>;
   /** Trigger the same Conversation selfie action exposed in the chat Gallery. */
   selfie?: (characterId?: string) => void | Promise<void>;
   /** Have a Conversation character send a video message, as the chat Gallery's Video button does. */
@@ -1316,6 +1318,21 @@ const COMMANDS: SlashCommand[] = [
         return { handled: true, feedback: "Usage: /goto <positive message number> (e.g. /goto 27)" };
       }
       useChatStore.getState().requestGotoMessage(ctx.chatId, n);
+      return { handled: true };
+    },
+  },
+  {
+    name: "html",
+    description: "Ask Immersive HTML for one in-world artifact on the latest reply",
+    usage: "/html <what you want, e.g. a spellbook page>",
+    requiredCapabilityId: "html",
+    modes: ["roleplay"],
+    local: true,
+    async execute(args, ctx) {
+      const prompt = args.trim();
+      if (!prompt) return { handled: true, feedback: "Usage: /html <what you want, e.g. a spellbook page>" };
+      if (!ctx.html) return { handled: true, feedback: "Immersive HTML is not available in this chat." };
+      await ctx.html(prompt);
       return { handled: true };
     },
   },

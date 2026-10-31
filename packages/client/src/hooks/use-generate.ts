@@ -90,6 +90,8 @@ type RetryAgentsOptions = {
     negativePrompt?: string;
   };
   illustratorRetryTargets?: IllustratorRetryTarget[];
+  /** Immersive HTML asked by hand: one artifact for the latest reply, without adding the agent. */
+  manualHtmlPrompt?: string;
   /** Draw the picture only, never a clip: the caller animates it. A run paused for prompt review returns false. */
   illustratorStillOnly?: boolean;
   /** Told the Gallery id of each picture the Illustrator draws in this run. */
@@ -3943,6 +3945,7 @@ export function useGenerate() {
               ? { illustratorPromptReviewOverride: options.illustratorPromptReviewOverride }
               : {}),
             ...(options?.illustratorRetryTargets ? { illustratorRetryTargets: options.illustratorRetryTargets } : {}),
+            ...(options?.manualHtmlPrompt ? { manualHtmlPrompt: options.manualHtmlPrompt } : {}),
             ...(options?.illustratorStillOnly ? { illustratorStillOnly: true } : {}),
             ...(options?.illustratorMessageRange ? { illustratorMessageRange: options.illustratorMessageRange } : {}),
             ...(options?.forceImageGeneration ? { forceImageGeneration: true } : {}),

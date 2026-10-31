@@ -25,6 +25,11 @@ import {
   resolveRoleplayWhisperRecipient,
 } from "../../packages/server/src/services/generation/roleplay-commands.js";
 import { collectPastReasoningMetadata } from "../../packages/server/src/services/generation/generation-parameters.js";
+import {
+  buildGuidedHtmlRequest,
+  readGuidedHtmlRequest,
+  selectGuidedRewriteAgents,
+} from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import { conversationPromptHistoryContent } from "../../packages/server/src/routes/generate/conversation-prompt-formatting.js";
 import { generateRoleplaySoundEffect } from "../../packages/server/src/routes/tts.routes.js";
 import { prepareRoleplayRoll } from "../../packages/server/src/services/generation/roleplay-rolls.js";
@@ -973,3 +978,66 @@ assert.equal(placeAfterPrefix("Maukie reads.\nMaukie reads.", "Maukie Whiskers: 
   ]);
 }
 process.stdout.write("Roleplay commands regression passed.\n");
+
+// Immersive HTML command: one free-form artifact request, gated on the agent (#8586).
+assert.deepEqual(parseRoleplayCommands('[html: prompt="SVG: a magic book"]').commands, [
+  { type: "html", prompt: "SVG: a magic book" },
+]);
+assert.doesNotMatch(parseRoleplayCommands('Open [html: prompt="a sign"] now').content, /\[html:/u);
+assert.equal(parseRoleplayCommands('[html: prompt=""]').invalid, 1);
+assert.equal(parseRoleplayCommands('[html: prompt="' + "x".repeat(2_001) + '"]').invalid, 1);
+const htmlCommandMetadata = {
+  ...metadata,
+  roleplayCommandsEnabled: true,
+  activeAgentIds: ["illustrator", "html"],
+  roleplayCommandToggles: { ...metadata.roleplayCommandToggles, html: true },
+};
+assert.equal(isRoleplayCommandAllowed(htmlCommandMetadata, "html", "alice"), true);
+assert.equal(
+  isRoleplayCommandAllowed({ ...htmlCommandMetadata, activeAgentIds: ["illustrator"] }, "html", "alice"),
+  false,
+  "the command needs Immersive HTML added to the chat",
+);
+for (const format of ["xml", "markdown", "none"] as const) {
+  const htmlReminder = (availableAgentIds: Set<string>) =>
+    buildRoleplayCommandsReminder({
+      metadata: htmlCommandMetadata,
+      characterId: "alice",
+      privateAvailable: true,
+      availableAgentIds,
+      format,
+      characterNames: ["Alice", "Narrator"],
+    });
+  assert.match(htmlReminder(new Set(["illustrator", "html"])), /\[html: prompt=/u);
+  assert.doesNotMatch(htmlReminder(new Set(["illustrator"])), /\[html:/u);
+}
+
+// Guided artifact run: the request reaches the agent, and it runs alone (#8586).
+const guidedBlock = buildGuidedHtmlRequest("SVG: a magic book page");
+assert.match(guidedBlock, /<guided_request>/u);
+assert.match(guidedBlock, /SVG: a magic book page/u);
+assert.match(guidedBlock, /Keep it diegetic/u);
+assert.match(guidedBlock, /Return the full rewritten message/u);
+const agent = (type: string, guided?: string) =>
+  ({
+    id: `agent-${type}`,
+    type,
+    settings: guided ? { _guidedHtmlRequest: guided } : {},
+  }) as never;
+assert.equal(readGuidedHtmlRequest(agent("html", "a sign")), "a sign");
+assert.equal(readGuidedHtmlRequest(agent("prose-guardian", "a sign")), null);
+assert.equal(readGuidedHtmlRequest(agent("html", "   ")), null);
+const inactive = new Set<string>();
+assert.deepEqual(
+  selectGuidedRewriteAgents([agent("prose-guardian"), agent("html", "a sign")], inactive)?.map(
+    (entry: { type: string }) => entry.type,
+  ),
+  ["html"],
+  "a guided run is never merged with another editor",
+);
+assert.equal(selectGuidedRewriteAgents([agent("html")], inactive), null, "no request, no guided run");
+assert.equal(
+  selectGuidedRewriteAgents([agent("html", "a sign")], new Set(["agent-html"])),
+  null,
+  "an inactive agent cannot run",
+);

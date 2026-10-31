@@ -1085,6 +1085,14 @@ const LocalChatArea = memo(function LocalChatArea({
     setIllustratorPromptReview(null);
   }, [illustratorPromptReviewSubmitting]);
 
+  const handleHtml = useCallback(
+    (prompt?: string) => {
+      if (!activeChatId) return;
+      return retryAgents(activeChatId, ["html"], { manualHtmlPrompt: prompt }).then(() => undefined);
+    },
+    [activeChatId, retryAgents],
+  );
+
   const handleIllustrateWithAgent = useCallback(
     async (agentType: string) => {
       if (activeChatId) await retryAgents(activeChatId, [agentType], { forceImageGeneration: true });
@@ -4266,6 +4274,7 @@ const LocalChatArea = memo(function LocalChatArea({
           onOpenScheduleEditor={handleOpenScheduleEditor}
           onIllustrate={handleIllustrate}
           onIllustrateWithAgent={handleIllustrateWithAgent}
+          onHtml={handleHtml}
           onGenerateBackground={handleGenerateRoleplayBackground}
           // The Gallery's Video button makes a clip of the latest reply, like /video. The Gallery waits for it (its
           // busy state blocks a second click) and shows any error.
