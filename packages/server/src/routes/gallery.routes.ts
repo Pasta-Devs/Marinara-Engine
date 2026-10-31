@@ -961,21 +961,26 @@ export async function galleryRoutes(app: FastifyInstance) {
   ) {
     const { characterIds, personaIds } = await collectChatAssetParticipants(chat);
     const ownerIds = [...characterIds, ...personaIds];
+    let labelMatch: { ownerId: string; filename: string } | null = null;
     for (const ownerId of ownerIds) {
       if (!isSafeAssetSegment(ownerId)) continue;
       const dir = join(SPRITES_DIR, ownerId);
       if (!existsSync(dir)) continue;
       try {
         const sprites = listSpriteCatalog(ownerId).sprites;
-        const match =
-          sprites.find((sprite) => spriteMatchesTarget(sprite.filename, category, target)) ??
-          sprites.find((sprite) => spriteMatchesTarget(sprite.filename, category, target, sprite.label));
+        const match = sprites.find((sprite) => spriteMatchesTarget(sprite.filename, category, target));
         if (match) return { ownerId, filename: match.filename };
+        if (!labelMatch) {
+          const labeled = sprites.find((sprite) =>
+            spriteMatchesTarget(sprite.filename, category, target, sprite.label),
+          );
+          if (labeled) labelMatch = { ownerId, filename: labeled.filename };
+        }
       } catch {
         // Ignore unreadable sprite folders and continue to the next participant.
       }
     }
-    return null;
+    return labelMatch;
   }
 
   // Resolve short chat-scoped card:// links such as card://gallery/foo.png or card://sprites/facial/happy.png.

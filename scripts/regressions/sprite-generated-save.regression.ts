@@ -175,14 +175,14 @@ try {
   const beforeAmbiguous = listSpriteCatalog(mariOwner.id);
   await assert.rejects(assign("joy"), /More than one sprite/);
   assert.deepEqual(listSpriteCatalog(mariOwner.id), beforeAmbiguous);
-  const removeByLabel = () =>
-    mari.execute(["delete", "--target", "sprite", "--owner", mariOwner.id, "--expression", "joy", "--apply"], {
+  const removeSprite = (expression: string) =>
+    mari.execute(["delete", "--target", "sprite", "--owner", mariOwner.id, "--expression", expression, "--apply"], {
       command: "mari images delete",
       sessionId: "fixture",
     });
-  await assert.rejects(removeByLabel(), /More than one sprite/);
+  await assert.rejects(() => removeSprite("joy"), /More than one sprite/);
   await request("PATCH", `${mariBase}/happy`, { expression: "joyful" });
-  await removeByLabel();
+  await removeSprite("joy");
   assert.deepEqual(
     listSpriteCatalog(mariOwner.id).sprites.map((sprite) => sprite.expression),
     ["happy"],
@@ -213,6 +213,55 @@ try {
     });
     assert.equal(linkedImage.statusCode, 200, linkedImage.body);
     assert.deepEqual(linkedImage.rawPayload, jpeg);
+  }
+  const filenameOwner = (await createCharactersStorage(db).create(
+    characterDataSchema.parse({ name: "Filename proof" }),
+  ))!;
+  const persona = (await createCharactersStorage(db).createPersona("Sprite persona proof", ""))!;
+  const partyChat = await createChatsStorage(db).create(
+    createChatSchema.parse({
+      name: "Cross-owner sprite proof",
+      mode: "roleplay",
+      characterIds: [mariOwner.id, filenameOwner.id],
+      personaId: persona.id,
+    }),
+  );
+  assert(partyChat);
+  for (const [category, prefix] of [
+    ["facial", ""],
+    ["fullbody", "full_"],
+  ] as const) {
+    for (const [handle, label] of [
+      ["smile", "grin"],
+      ["greet", "wave"],
+    ]) {
+      await request("POST", mariBase, { expression: prefix + handle, image, folderId: null });
+      await request("PATCH", `${mariBase}/${prefix}${handle}`, { expression: prefix + label });
+    }
+    await request("POST", `/api/sprites/${filenameOwner.id}`, { expression: prefix + "grin", image: nextImage });
+    await request("POST", `/api/sprites/${persona.id}`, { expression: prefix + "wave", image: nextImage });
+    for (const target of ["grin", "grin.png", "wave", "wave.png"]) {
+      const linked = await app.inject({
+        method: "GET",
+        url: `/api/gallery/asset/${partyChat.id}/sprites/${category}/${target}`,
+      });
+      assert.equal(linked.statusCode, 200, linked.body);
+      assert.deepEqual(linked.rawPayload, nextBytes, "filenames on later characters/personas precede earlier labels");
+    }
+    const deleted = await app.inject({ method: "DELETE", url: `/api/sprites/${filenameOwner.id}/${prefix}grin` });
+    assert.equal(deleted.statusCode, 204, deleted.body);
+    for (const target of ["grin", "grin.png"]) {
+      const linked = await app.inject({
+        method: "GET",
+        url: `/api/gallery/asset/${partyChat.id}/sprites/${category}/${target}`,
+      });
+      assert.equal(linked.statusCode, 200, linked.body);
+      assert.deepEqual(
+        linked.rawPayload,
+        originalBytes,
+        "labels remain a fallback when no participant has the filename",
+      );
+    }
   }
   const catalogSprite = await request("POST", base, { expression: "catalog", image, folderId: first });
   const removed = await app.inject({ method: "DELETE", url: `${base}/catalog` });
@@ -251,6 +300,29 @@ try {
   const replacement = await request("POST", mixedBase, { expression: "Happy", image: nextImage });
   assert.equal(replacement.filename, "Happy.PNG", "case-only filename differences must not unlink the replacement");
   assert.deepEqual(readFileSync(mixedFile), nextBytes);
+  const mariCatalog = join(directory, "sprites", mariOwner.id, "catalog.json");
+  const beforeSvg = readFileSync(mariCatalog);
+  const svg = Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="blue"/></svg>',
+  );
+  const drawing = await request("POST", mariBase, {
+    expression: "drawing",
+    image: `data:image/svg+xml;base64,${svg.toString("base64")}`,
+    folderId: folder,
+  });
+  await request("PATCH", `${mariBase}/drawing`, { expression: "sketch" });
+  await removeSprite("sketch");
+  assert(!existsSync(join(directory, "sprites", mariOwner.id, drawing.filename)), "Mari deletes SVG files by label");
+  assert.deepEqual(readFileSync(mariCatalog), beforeSvg, "other sprite metadata and folders are preserved");
+  const layered = await request("POST", mariBase, { expression: "layered", image, folderId: folder });
+  const companion = join(directory, "sprites", mariOwner.id, "layered.svg");
+  writeFileSync(companion, svg);
+  await removeSprite(layered.expression);
+  assert(!existsSync(join(directory, "sprites", mariOwner.id, layered.filename)));
+  assert(!existsSync(companion), "all listed files for the same handle are removed");
+  assert.deepEqual(readFileSync(mariCatalog), beforeSvg);
+  await removeSprite("not_uploaded");
+  assert.deepEqual(readFileSync(mariCatalog), beforeSvg, "a no-op delete must not rewrite the catalog");
 } finally {
   await app.close();
   await closeDB();

@@ -1344,10 +1344,10 @@ export class MariImagesService {
       if (!sprite) return { deleted: 0, files: [] };
       const catalog = readSpriteCatalog(ownerId);
       const dir = join(SPRITES_DIR, ownerId);
-      const files = (await readdir(dir)).filter(
-        (entry) =>
-          entry.slice(0, -extname(entry).length) === sprite.expression && IMAGE_EXTS.has(extname(entry).toLowerCase()),
-      );
+      const files = listSpriteCatalog(ownerId)
+        .sprites.filter((entry) => entry.expression === sprite.expression)
+        .map((entry) => entry.filename);
+      if (!files.length) return { deleted: 0, files };
       for (const file of files) await unlink(assertInsideDir(dir, join(dir, file)));
       delete catalog.sprites[sprite.expression];
       await writeSpriteCatalog(ownerId, catalog);
