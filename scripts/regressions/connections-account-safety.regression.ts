@@ -33,7 +33,10 @@ assert.match(presence, /This chat has no character\. Add a character before send
 
 // Run the actual modal handler with mutation doubles: failed results and thrown tests
 // remove only the fresh account; retry and Continue anyway create a usable target again.
-const handler = modal.slice(modal.indexOf("const saveAndTest ="), modal.indexOf("  const showModelsOf ="));
+const handlerStart = modal.indexOf("const saveAndTest =");
+const handlerEnd = modal.indexOf("  const showModelsOf =", handlerStart);
+assert.ok(handlerStart >= 0 && handlerEnd > handlerStart, "The complete save handlers must exist");
+const handler = modal.slice(handlerStart, handlerEnd);
 const javascript = ts.transpile(handler + "\nreturn saveAndTest;", { target: ts.ScriptTarget.ES2022 });
 const calls: string[] = [];
 type Target = { accountId: string; connectionId: string; fresh: boolean; accountBaseUrl?: string };

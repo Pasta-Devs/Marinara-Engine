@@ -334,8 +334,14 @@ function storageFixture(manifestVersion) {
   const formatTwoData = storageFixture(2);
   const freshData = storageFixture(null);
   const formatEightData = storageFixture(8);
+  const formatNineData = storageFixture(9);
   const envFor = (dir) => ({ FILE_STORAGE_DIR: dir });
   try {
+    assert.deepEqual(
+      await checkTargetStorageFormat({ root: repo, env: envFor(formatNineData), targetRef: formatEightRef }),
+      { compatible: false, verified: true, onDiskFormat: 9, targetFormat: 8 },
+      "account-backed model data must refuse a format-8 build that would discard account links",
+    );
     assert.deepEqual(
       await checkTargetStorageFormat({ root: repo, env: envFor(formatEightData), targetRef: formatSevenRef }),
       { compatible: false, verified: true, onDiskFormat: 8, targetFormat: 7 },
@@ -426,7 +432,7 @@ function storageFixture(manifestVersion) {
       "a listed-but-unreadable storage-format.json is unverified, not misread as absent",
     );
   } finally {
-    for (const dir of [repo, formatThreeData, formatTwoData, freshData, formatEightData])
+    for (const dir of [repo, formatThreeData, formatTwoData, freshData, formatEightData, formatNineData])
       rmSync(dir, { recursive: true, force: true });
   }
 }

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { addAbortListener } from "node:events";
 import { access, mkdir, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -33,6 +33,9 @@ type ResolvedConfig = GenerativeAudioProviderConfig & {
   legacyId: string | null;
 };
 const warnedOptionalMigrationFailures = new WeakSet<DB>();
+// The in-memory request identity includes credentials so edits cannot reuse an old job.
+// A process-local HMAC keeps that identity opaque; it is not a stored password verifier.
+const testRequestIdentityKey = randomBytes(32);
 
 export class AudioGenerationConfigurationError extends Error {
   constructor(
@@ -299,7 +302,7 @@ export async function generateAudioAsset(
     : `${cacheIdentity(config, request.kind)}${request.kind}\0${prompt.toLowerCase()}`;
   const isConnectionTest = context && "scope" in context && context.scope === "connection-test";
   const key = isConnectionTest
-    ? `${directoryKey}\0${createHash("sha256")
+    ? `${directoryKey}\0${createHmac("sha256", testRequestIdentityKey)
         .update(JSON.stringify([config, request.kind, prompt, context.lengthMs ?? 120_000]))
         .digest("hex")}`
     : directoryKey;

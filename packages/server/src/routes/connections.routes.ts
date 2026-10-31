@@ -15,6 +15,8 @@ import {
 // Routes: Connections
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
+import { randomUUID } from "node:crypto";
+import { CONNECTION_TEST_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { validationDetails } from "../middleware/error-handler.js";
 import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
@@ -140,7 +142,7 @@ const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
 
 /** Store an uploaded picture (`{ image: dataUrl }`) of a Model or Connection; returns its served path. */
 export async function saveConnectionImage(
-  id: string,
+  _id: string,
   body: unknown,
 ): Promise<{ imagePath: string } | { error: string }> {
   const image = (body as { image?: unknown } | null)?.image;
@@ -152,9 +154,7 @@ export async function saveConnectionImage(
 
   const ext = extensionFromImageMime(imageInfo.mimeType);
   await mkdir(CONNECTION_IMAGES_DIR, { recursive: true });
-  const filename = `connection-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}.${ext}`;
+  const filename = `connection-${randomUUID()}.${ext}`;
   const filepath = assertInsideDir(CONNECTION_IMAGES_DIR, join(CONNECTION_IMAGES_DIR, filename));
   await writeFile(filepath, buffer);
   return { imagePath: `/api/connections/images/file/${filename}` };
@@ -751,333 +751,337 @@ export async function connectionsRoutes(app: FastifyInstance) {
   });
 
   // Test connection (sends a tiny ping to the API)
-  app.post<{ Params: { id: string } }>("/:id/test", async (req, reply) => {
-    const stored = await storage.getWithKey(req.params.id);
-    if (!stored) return unusableConnection(req.params.id, reply);
-    const draft = readTestDraft(req.body);
-    if (!draft) return reply.status(400).send({ error: "Invalid key or address" });
-    const conn = { ...stored, ...draft };
-    if (conn.provider === "audio_generation") {
-      return reply.status(400).send({
-        error: "Test this connection by generating audio in a mode. No chat or model-list test is supported.",
-      });
-    }
+  app.post<{ Params: { id: string } }>(
+    "/:id/test",
+    { config: { rateLimit: CONNECTION_TEST_RATE_LIMIT } },
+    async (req, reply) => {
+      const stored = await storage.getWithKey(req.params.id);
+      if (!stored) return unusableConnection(req.params.id, reply);
+      const draft = readTestDraft(req.body);
+      if (!draft) return reply.status(400).send({ error: "Invalid key or address" });
+      const conn = { ...stored, ...draft };
+      if (conn.provider === "audio_generation") {
+        return reply.status(400).send({
+          error: "Test this connection by generating audio in a mode. No chat or model-list test is supported.",
+        });
+      }
 
-    const requestDebug = readDebugMode(req.body);
-    const debugLog = (message: string, ...args: any[]) => logDebugOverride(requestDebug, message, ...args);
-    const start = Date.now();
-    try {
-      if (conn.provider === "decision") {
-        const resolved = await resolveDecisionConnection(conn, (id) => storage.getWithKey(id));
-        if (!resolved.connection)
+      const requestDebug = readDebugMode(req.body);
+      const debugLog = (message: string, ...args: any[]) => logDebugOverride(requestDebug, message, ...args);
+      const start = Date.now();
+      try {
+        if (conn.provider === "decision") {
+          const resolved = await resolveDecisionConnection(conn, (id) => storage.getWithKey(id));
+          if (!resolved.connection)
+            return {
+              success: false,
+              message: resolved.error,
+              errorCode: resolved.error,
+              latencyMs: Date.now() - start,
+              modelName: null,
+            };
+          // Waits past the connection's own limit so a slow answer comes back with its
+          // real time. The client compares that time with `timeLimitMs`, the limit chats use.
+          const timeLimitMs = resolved.connection.timeoutMs;
+          const testTimeoutMs = decisionTestTimeoutMs(timeLimitMs ?? 0);
+          if (resolved.connection.protocol === "chat_logprobs") {
+            // The same probe as a local model's Test, so it also reports whether the
+            // server returned log-probabilities and whether the model had to think.
+            const probe = await probeDecisionSlot(
+              connectionChatTarget(conn.id, conn.name, { ...resolved.connection, timeoutMs: testTimeoutMs }),
+            );
+            return {
+              success: probe.probability !== null,
+              message: probe.error ?? "Decision model answered.",
+              errorCode:
+                probe.probability === null
+                  ? probe.error === "http_401" || probe.error === "http_403"
+                    ? "AUTH_REJECTED"
+                    : (probe.error ?? "no_answer")
+                  : undefined,
+              decisionProbability: probe.probability ?? undefined,
+              latencyMs: probe.latencyMs,
+              timeLimitMs,
+              testTimeoutMs,
+              logprobs: probe.logprobs,
+              answersDirectly: probe.answersDirectly,
+              modelName: resolved.connection.model,
+            };
+          }
+          const result = await askNoulQuestions({
+            connection: resolved.connection,
+            state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },
+            questions: [{ id: "test", instructions: "The door is open." }],
+            timeoutMs: testTimeoutMs,
+            debugMode: requestDebug,
+          });
+          const probability = result.answers.get("test");
           return {
-            success: false,
-            message: resolved.error,
-            errorCode: resolved.error,
-            latencyMs: Date.now() - start,
-            modelName: null,
-          };
-        // Waits past the connection's own limit so a slow answer comes back with its
-        // real time. The client compares that time with `timeLimitMs`, the limit chats use.
-        const timeLimitMs = resolved.connection.timeoutMs;
-        const testTimeoutMs = decisionTestTimeoutMs(timeLimitMs ?? 0);
-        if (resolved.connection.protocol === "chat_logprobs") {
-          // The same probe as a local model's Test, so it also reports whether the
-          // server returned log-probabilities and whether the model had to think.
-          const probe = await probeDecisionSlot(
-            connectionChatTarget(conn.id, conn.name, { ...resolved.connection, timeoutMs: testTimeoutMs }),
-          );
-          return {
-            success: probe.probability !== null,
-            message: probe.error ?? "Decision model answered.",
-            errorCode:
-              probe.probability === null
-                ? probe.error === "http_401" || probe.error === "http_403"
-                  ? "AUTH_REJECTED"
-                  : (probe.error ?? "no_answer")
-                : undefined,
-            decisionProbability: probe.probability ?? undefined,
-            latencyMs: probe.latencyMs,
+            success: probability !== undefined,
+            message: result.error ?? "Decision model answered.",
+            errorCode: result.error === "http_401" || result.error === "http_403" ? "AUTH_REJECTED" : result.error,
+            decisionProbability: probability,
+            latencyMs: result.latencyMs,
             timeLimitMs,
             testTimeoutMs,
-            logprobs: probe.logprobs,
-            answersDirectly: probe.answersDirectly,
             modelName: resolved.connection.model,
           };
         }
-        const result = await askNoulQuestions({
-          connection: resolved.connection,
-          state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },
-          questions: [{ id: "test", instructions: "The door is open." }],
-          timeoutMs: testTimeoutMs,
-          debugMode: requestDebug,
-        });
-        const probability = result.answers.get("test");
-        return {
-          success: probability !== undefined,
-          message: result.error ?? "Decision model answered.",
-          errorCode: result.error === "http_401" || result.error === "http_403" ? "AUTH_REJECTED" : result.error,
-          decisionProbability: probability,
-          latencyMs: result.latencyMs,
-          timeLimitMs,
-          testTimeoutMs,
-          modelName: resolved.connection.model,
-        };
-      }
-      if (conn.provider === "claude_subscription") {
-        if (!conn.model) {
+        if (conn.provider === "claude_subscription") {
+          if (!conn.model) {
+            return {
+              success: false,
+              message: "No model configured. Set a Claude subscription model first.",
+              latencyMs: Date.now() - start,
+              modelName: null,
+            };
+          }
+          const provider = createLLMProvider(
+            conn.provider,
+            "",
+            conn.apiKey,
+            conn.maxContext,
+            conn.openrouterProvider,
+            conn.maxTokensOverride,
+            conn.claudeFastMode === "true",
+            conn.treatAsLocalEndpoint === "true",
+            conn.defaultParameters,
+            conn.id,
+          );
+          let responseText = "";
+          for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
+            model: conn.model,
+            maxTokens: 32,
+            stream: false,
+          })) {
+            responseText += chunk;
+          }
+          return {
+            success: true,
+            message: `Claude Agent SDK completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        }
+
+        if (conn.provider === "openai_chatgpt") {
+          const auth = await getOpenAIChatGPTAuth();
+          const detail = auth.planType ? ` (${auth.planType})` : "";
+          return {
+            success: true,
+            message: `ChatGPT login found via Codex auth${detail}. Requests will use the local ChatGPT session.`,
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        }
+
+        if (conn.provider === "grok_subscription") {
+          const provider = createLLMProvider(
+            conn.provider,
+            // Grok CLI subscription auth is local-only: the CLI reads the
+            // cached `grok login` session, so API key/base URL are intentionally
+            // unused here and in normal generation.
+            "",
+            "",
+            conn.maxContext,
+            conn.openrouterProvider,
+            conn.maxTokensOverride,
+            conn.claudeFastMode === "true",
+            conn.treatAsLocalEndpoint === "true",
+            conn.defaultParameters,
+            conn.id,
+          );
+          let responseText = "";
+          for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
+            model: conn.model ?? "",
+            maxTokens: 32,
+            stream: false,
+          })) {
+            responseText += chunk;
+          }
+          return {
+            success: true,
+            message: `Grok CLI completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
+            latencyMs: Date.now() - start,
+            modelName: conn.model || "Grok CLI default",
+          };
+        }
+
+        // Simple models list fetch to verify the key works
+        const { PROVIDERS } = await import("@marinara-engine/shared");
+        const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
+        let baseUrl = conn.baseUrl || provider?.defaultBaseUrl || "";
+
+        if (!baseUrl) {
           return {
             success: false,
-            message: "No model configured. Set a Claude subscription model first.",
-            latencyMs: Date.now() - start,
+            message: "No base URL configured for this provider",
+            latencyMs: 0,
             modelName: null,
           };
         }
-        const provider = createLLMProvider(
-          conn.provider,
-          "",
-          conn.apiKey,
-          conn.maxContext,
-          conn.openrouterProvider,
-          conn.maxTokensOverride,
-          conn.claudeFastMode === "true",
-          conn.treatAsLocalEndpoint === "true",
-          conn.defaultParameters,
-          conn.id,
-        );
-        let responseText = "";
-        for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
-          model: conn.model,
-          maxTokens: 32,
-          stream: false,
-        })) {
-          responseText += chunk;
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+        };
+        if (provider?.usesAuthHeader) {
+          headers["Authorization"] = `Bearer ${conn.apiKey}`;
         }
-        return {
-          success: true,
-          message: `Claude Agent SDK completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      }
-
-      if (conn.provider === "openai_chatgpt") {
-        const auth = await getOpenAIChatGPTAuth();
-        const detail = auth.planType ? ` (${auth.planType})` : "";
-        return {
-          success: true,
-          message: `ChatGPT login found via Codex auth${detail}. Requests will use the local ChatGPT session.`,
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      }
-
-      if (conn.provider === "grok_subscription") {
-        const provider = createLLMProvider(
-          conn.provider,
-          // Grok CLI subscription auth is local-only: the CLI reads the
-          // cached `grok login` session, so API key/base URL are intentionally
-          // unused here and in normal generation.
-          "",
-          "",
-          conn.maxContext,
-          conn.openrouterProvider,
-          conn.maxTokensOverride,
-          conn.claudeFastMode === "true",
-          conn.treatAsLocalEndpoint === "true",
-          conn.defaultParameters,
-          conn.id,
-        );
-        let responseText = "";
-        for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
-          model: conn.model ?? "",
-          maxTokens: 32,
-          stream: false,
-        })) {
-          responseText += chunk;
+        if (provider?.apiKeyHeader) {
+          headers[provider.apiKeyHeader] = conn.apiKey;
         }
-        return {
-          success: true,
-          message: `Grok CLI completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
-          latencyMs: Date.now() - start,
-          modelName: conn.model || "Grok CLI default",
-        };
-      }
+        if (conn.provider === "google_vertex") {
+          Object.assign(headers, await googleAuthHeadersForVertex(conn.apiKey));
+        }
+        if (conn.provider === "anthropic") {
+          headers["anthropic-version"] = "2023-06-01";
+        }
 
-      // Simple models list fetch to verify the key works
-      const { PROVIDERS } = await import("@marinara-engine/shared");
-      const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
-      let baseUrl = conn.baseUrl || provider?.defaultBaseUrl || "";
+        const imageSource =
+          conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
+        if (conn.provider === "video_generation") {
+          return {
+            success: true,
+            message: "Video generation connection configured. Use Test Video to verify MP4 generation.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        }
+        baseUrl = normalizeConnectionTestBaseUrl(baseUrl, conn.provider);
+        // image_generation has no standard modelsEndpoint — use provider-specific checks
+        let testUrl: string;
+        if (conn.provider === "image_generation" && imageSource === "novelai") {
+          return {
+            success: true,
+            message: "NovelAI connection configured. Use 'Test Image' to verify generation works.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "zai") {
+          return {
+            success: true,
+            message: "Z.AI connection configured. Use 'Test Image' to verify generation works.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "fal") {
+          if (!conn.apiKey?.trim()) throw new Error("fal.ai requires an API key");
+          buildFalImageUrl(baseUrl, conn.model);
+          return {
+            success: true,
+            message:
+              "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "codex_chatgpt") {
+          // Only reads the local login, so checking never uses the ChatGPT image allowance.
+          const auth = await getOpenAIChatGPTAuth();
+          const detail = auth.planType ? ` (${auth.planType})` : "";
+          return {
+            success: true,
+            message: `ChatGPT login found via Codex auth${detail}. Use Test Image to generate one image with your ChatGPT plan.`,
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "horde") {
+          // Horde: heartbeat is the lightweight health endpoint for the public API.
+          testUrl = buildHordeUrl(baseUrl, "status/heartbeat");
+        } else if (conn.provider === "image_generation" && imageSource === "spicyapi") {
+          // Listing image models checks the key without starting a paid task.
+          testUrl = buildSpicyApiUrl(baseUrl, "models", { modality: "image" });
+        } else if (conn.provider === "image_generation" && imageSource === "stability") {
+          // Stability's generation endpoints live under v2beta, but account/key checks are v1.
+          testUrl = buildStabilityUrl(baseUrl, "v1/user/account");
+        } else if (conn.provider === "image_generation" && imageSource === "comfyui") {
+          // ComfyUI: ping the system stats endpoint
+          testUrl = `${baseUrl}/system_stats`;
+        } else if (conn.provider === "image_generation" && imageSource === "swarmui") {
+          await createSwarmUiSession(baseUrl, conn.apiKey || "");
+          return {
+            success: true,
+            message: "Connection successful",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "image_generation" && imageSource === "automatic1111") {
+          // AUTOMATIC1111 / SD Web UI: ping the internal ping endpoint
+          testUrl = `${baseUrl}/sdapi/v1/options`;
+        } else if (conn.provider === "image_generation" && imageSource === "runpod_comfyui") {
+          // RunPod: use Test Image to verify — no cheap endpoint test available
+          return {
+            success: true,
+            message: "RunPod endpoint configured. Use 'Test Image' to verify generation works.",
+            latencyMs: Date.now() - start,
+            modelName: conn.model,
+          };
+        } else if (conn.provider === "google_vertex") {
+          testUrl = buildGoogleVertexModelUrl(baseUrl, conn.model, "models");
+        } else {
+          testUrl = buildConnectionTestCatalogUrl(
+            baseUrl,
+            conn.provider,
+            provider?.modelsEndpoint || "/models",
+            conn.audioSource,
+          );
+        }
 
-      if (!baseUrl) {
-        return {
-          success: false,
-          message: "No base URL configured for this provider",
-          latencyMs: 0,
-          modelName: null,
-        };
-      }
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
-      };
-      if (provider?.usesAuthHeader) {
-        headers["Authorization"] = `Bearer ${conn.apiKey}`;
-      }
-      if (provider?.apiKeyHeader) {
-        headers[provider.apiKeyHeader] = conn.apiKey;
-      }
-      if (conn.provider === "google_vertex") {
-        Object.assign(headers, await googleAuthHeadersForVertex(conn.apiKey));
-      }
-      if (conn.provider === "anthropic") {
-        headers["anthropic-version"] = "2023-06-01";
-      }
+        const testHeaders =
+          conn.provider === "image_generation" && imageSource === "horde"
+            ? hordeHeaders(conn.apiKey)
+            : conn.provider === "audio"
+              ? ttsCatalogHeaders(conn.audioSource ?? "elevenlabs", conn.apiKey)
+              : headers;
+        debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
+        const keyCheck = buildKeyCheck(conn.provider, baseUrl);
+        const res = await safeFetch(keyCheck?.url ?? testUrl, {
+          method: keyCheck?.method,
+          headers: requestHeadersWithDefaultUserAgent(
+            keyCheck ? { ...testHeaders, "x-api-key": conn.apiKey ?? "" } : testHeaders,
+          ),
+          policy: localUrlPolicyForProvider(conn.provider, imageSource),
+          maxResponseBytes: 2 * 1024 * 1024,
+          decodeCompressedResponse: true,
+        });
+        const latencyMs = Date.now() - start;
 
-      const imageSource =
-        conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
-      if (conn.provider === "video_generation") {
-        return {
-          success: true,
-          message: "Video generation connection configured. Use Test Video to verify MP4 generation.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      }
-      baseUrl = normalizeConnectionTestBaseUrl(baseUrl, conn.provider);
-      // image_generation has no standard modelsEndpoint — use provider-specific checks
-      let testUrl: string;
-      if (conn.provider === "image_generation" && imageSource === "novelai") {
-        return {
-          success: true,
-          message: "NovelAI connection configured. Use 'Test Image' to verify generation works.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "zai") {
-        return {
-          success: true,
-          message: "Z.AI connection configured. Use 'Test Image' to verify generation works.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "fal") {
-        if (!conn.apiKey?.trim()) throw new Error("fal.ai requires an API key");
-        buildFalImageUrl(baseUrl, conn.model);
-        return {
-          success: true,
-          message:
-            "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "codex_chatgpt") {
-        // Only reads the local login, so checking never uses the ChatGPT image allowance.
-        const auth = await getOpenAIChatGPTAuth();
-        const detail = auth.planType ? ` (${auth.planType})` : "";
-        return {
-          success: true,
-          message: `ChatGPT login found via Codex auth${detail}. Use Test Image to generate one image with your ChatGPT plan.`,
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "horde") {
-        // Horde: heartbeat is the lightweight health endpoint for the public API.
-        testUrl = buildHordeUrl(baseUrl, "status/heartbeat");
-      } else if (conn.provider === "image_generation" && imageSource === "spicyapi") {
-        // Listing image models checks the key without starting a paid task.
-        testUrl = buildSpicyApiUrl(baseUrl, "models", { modality: "image" });
-      } else if (conn.provider === "image_generation" && imageSource === "stability") {
-        // Stability's generation endpoints live under v2beta, but account/key checks are v1.
-        testUrl = buildStabilityUrl(baseUrl, "v1/user/account");
-      } else if (conn.provider === "image_generation" && imageSource === "comfyui") {
-        // ComfyUI: ping the system stats endpoint
-        testUrl = `${baseUrl}/system_stats`;
-      } else if (conn.provider === "image_generation" && imageSource === "swarmui") {
-        await createSwarmUiSession(baseUrl, conn.apiKey || "");
-        return {
-          success: true,
-          message: "Connection successful",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "image_generation" && imageSource === "automatic1111") {
-        // AUTOMATIC1111 / SD Web UI: ping the internal ping endpoint
-        testUrl = `${baseUrl}/sdapi/v1/options`;
-      } else if (conn.provider === "image_generation" && imageSource === "runpod_comfyui") {
-        // RunPod: use Test Image to verify — no cheap endpoint test available
-        return {
-          success: true,
-          message: "RunPod endpoint configured. Use 'Test Image' to verify generation works.",
-          latencyMs: Date.now() - start,
-          modelName: conn.model,
-        };
-      } else if (conn.provider === "google_vertex") {
-        testUrl = buildGoogleVertexModelUrl(baseUrl, conn.model, "models");
-      } else {
-        testUrl = buildConnectionTestCatalogUrl(
-          baseUrl,
-          conn.provider,
-          provider?.modelsEndpoint || "/models",
-          conn.audioSource,
-        );
-      }
-
-      const testHeaders =
-        conn.provider === "image_generation" && imageSource === "horde"
-          ? hordeHeaders(conn.apiKey)
-          : conn.provider === "audio"
-            ? ttsCatalogHeaders(conn.audioSource ?? "elevenlabs", conn.apiKey)
-            : headers;
-      debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
-      const keyCheck = buildKeyCheck(conn.provider, baseUrl);
-      const res = await safeFetch(keyCheck?.url ?? testUrl, {
-        method: keyCheck?.method,
-        headers: requestHeadersWithDefaultUserAgent(
-          keyCheck ? { ...testHeaders, "x-api-key": conn.apiKey ?? "" } : testHeaders,
-        ),
-        policy: localUrlPolicyForProvider(conn.provider, imageSource),
-        maxResponseBytes: 2 * 1024 * 1024,
-        decodeCompressedResponse: true,
-      });
-      const latencyMs = Date.now() - start;
-
-      if (res.ok) {
-        return { success: true, message: "Connection successful", latencyMs, modelName: conn.model };
-      } else {
-        const body = await res.text();
-        const detail = formatProviderErrorBody(body);
+        if (res.ok) {
+          return { success: true, message: "Connection successful", latencyMs, modelName: conn.model };
+        } else {
+          const body = await res.text();
+          const detail = formatProviderErrorBody(body);
+          debugLog(
+            "[connections/test] provider=%s catalogUrl=%s returned %d: %s",
+            conn.provider,
+            testUrl,
+            res.status,
+            detail,
+          );
+          return {
+            success: false,
+            message: `API returned ${res.status}: ${detail}`,
+            errorCode: connectionTestAuthError(res.status),
+            latencyMs,
+            modelName: null,
+          };
+        }
+      } catch (err) {
         debugLog(
-          "[connections/test] provider=%s catalogUrl=%s returned %d: %s",
+          "[connections/test] provider=%s failed: %s",
           conn.provider,
-          testUrl,
-          res.status,
-          detail,
+          err instanceof Error ? err.message : "Unknown error",
         );
         return {
           success: false,
-          message: `API returned ${res.status}: ${detail}`,
-          errorCode: connectionTestAuthError(res.status),
-          latencyMs,
+          message: `Connection failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+          // Provider SDK errors carry the HTTP status; transport and local errors do not.
+          errorCode: isRecord(err) && typeof err.status === "number" ? connectionTestAuthError(err.status) : undefined,
+          latencyMs: Date.now() - start,
           modelName: null,
         };
       }
-    } catch (err) {
-      debugLog(
-        "[connections/test] provider=%s failed: %s",
-        conn.provider,
-        err instanceof Error ? err.message : "Unknown error",
-      );
-      return {
-        success: false,
-        message: `Connection failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-        // Provider SDK errors carry the HTTP status; transport and local errors do not.
-        errorCode: isRecord(err) && typeof err.status === "number" ? connectionTestAuthError(err.status) : undefined,
-        latencyMs: Date.now() - start,
-        modelName: null,
-      };
-    }
-  });
+    },
+  );
 
   // ── Atlas Cloud: the selected video model's own inputs, for the connection editor ──
   app.get<{ Querystring: { model?: string } }>("/atlas-cloud/video-model-schema", async (req, reply) => {
