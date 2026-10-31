@@ -10,7 +10,7 @@ Professor Mari vit sur l'écran d'accueil. L'écran d'accueil, c'est ce que tu v
 
 Repère le widget **Professor Mari** avec son pixel art, puis clique sur **Ask Professor Mari** (demander à Professor Mari) pour ouvrir sa fenêtre de chat complète. L'onglet **Professor** en haut de l'accueil l'ouvre aussi. Sa fenêtre s'ouvre dans Search (la recherche de l'application) : tu peux donc aussi la joindre depuis n'importe quel écran. Saisis du texte dans le champ de Search et choisis **Ask Prof. Mari** (demander à Prof. Mari), appuie sur Ctrl+J (Cmd+J sur Mac), ou tire vers le bas depuis la barre supérieure sur téléphone. Une ligne d'état dans l'en-tête de sa fenêtre affiche **Ready to help** quand elle est disponible, ou **Working on it...** quand elle travaille.
 
-Tu lui parles en langage courant. Saisis un message dans le champ, puis appuie sur Enter pour l'envoyer. Appuie sur Shift et Enter ensemble pour aller à la ligne. Si tu désactives **Enter sends to Professor Mari** (Enter envoie à Professor Mari) dans ses réglages, Enter va à la ligne et Ctrl+Enter (Cmd+Enter sur Mac) envoie le message. Les touches font un peu plus pendant qu'elle travaille, comme décrit dans [Envoyer des messages pendant qu'elle travaille](#sending-messages-while-she-works).
+Tu lui parles en langage courant. Saisis un message dans le champ, puis appuie sur Enter pour l'envoyer. Appuie sur Shift et Enter ensemble pour aller à la ligne. Si tu désactives **Enter sends to Professor Mari** (Enter envoie à Professor Mari) dans ses réglages, Enter va à la ligne et Ctrl+Enter (Cmd+Enter sur Mac) envoie le message. Les touches offrent un peu plus de possibilités pendant qu'elle travaille, comme décrit dans [Envoyer des messages pendant qu'elle travaille](#sending-messages-while-she-works).
 
 Le tout premier message que tu lui envoies débloque le succès **Hello World**.
 
@@ -66,7 +66,7 @@ Dans un chat Professor Mari vide, des pastilles de démarrage comme **Create a C
 
 Les parcours guidés posent une seule question à la fois, au lieu d'afficher un long formulaire d'un coup.
 
-Quand une demande laisse de vraies décisions ouvertes, Professor Mari peut s'arrêter et poser ses questions sur une carte de questions sous sa réponse : jusqu'à quatre questions, une à la fois, chacune avec quelques options dont celle qu'elle recommande est repérée. Certaines questions acceptent plusieurs réponses. Choisis une option ou écris la tienne, puis appuie sur **Submit** (valider) : tes réponses partent comme ton message suivant, donc rien n'est caché et tu vois ce qu'on lui a dit. Son tour se termine quand elle pose sa question, et rien de ce qu'elle a proposé en même temps ne s'exécute avant que tu aies répondu. Tu peux aussi ignorer la carte et écrire dans le champ de message ; ton message suivant y répond.
+Quand une demande laisse de vraies décisions ouvertes, Professor Mari peut s'arrêter et poser ses questions sur une carte de questions sous sa réponse : jusqu'à quatre questions, une à la fois, chacune avec quelques options, celle qu'elle recommande étant signalée. Certaines questions acceptent plusieurs réponses. Choisis une option ou écris la tienne, puis appuie sur **Submit** (valider) : tes réponses partent comme ton message suivant, donc rien n'est caché et tu vois ce qu'on lui a dit. Son tour se termine quand elle pose sa question, et rien de ce qu'elle a proposé en même temps ne s'exécute avant que tu aies répondu. Tu peux aussi ignorer la carte et écrire dans le champ de message ; ton message suivant y répond.
 
 Les suggestions ne sont disponibles que dans les chats Professor Mari. Les autres personnages ne reçoivent pas les pastilles de Professor Mari.
 
@@ -277,7 +277,7 @@ Pendant qu'elle travaille, un bouton **Stop** (arrêter) se trouve à côté du 
 Le champ de message reste ouvert pendant qu'elle travaille, et c'est toi qui choisis quand ton message lui parvient :
 
 - **Send now** (envoyer maintenant) arrive à sa prochaine étape, sans l'arrêter. Sa réponse jusque-là est enregistrée, ton message apparaît en dessous, et elle continue en tenant compte de ce que tu as dit. C'est ainsi que tu la corriges en pleine tâche sans perdre le travail déjà fait.
-- **Queue for later** (mettre en file pour plus tard) attend dans une liste au-dessus du champ, repérée par **Sends when she finishes** (envoyé quand elle a terminé). Quand elle termine proprement, elle prend les messages en attente un par un, dans l'ordre.
+- **Queue for later** (mettre en file pour plus tard) attend dans une liste au-dessus du champ, avec la mention **Sends when she finishes**. Quand elle termine proprement, elle prend les messages en attente un par un, dans l'ordre.
 
 | | Send now | Queue for later |
 |---|---|---|
@@ -293,7 +293,7 @@ Si elle a déjà fait quelques étapes mais n'a encore rien dit quand ton messag
 Les messages en attente ne partent pas d'eux-mêmes dans ces cas :
 
 - **Tu appuies sur Stop.** Ils reviennent dans le champ de message, pour que tu puisses les modifier ou les renvoyer.
-- **Elle t'attend**, pour une approbation ou la réponse à une question. Ils affichent **Held** (retenu), avec un bouton **Send** (envoyer).
+- **Elle t'attend**, pour une approbation ou la réponse à une question. Ils affichent **Held**, avec un bouton **Send** (envoyer).
 - **L'exécution a échoué, ou l'application a redémarré.** Ils affichent aussi **Held**. Rien n'est perdu.
 
 Un message retenu le reste jusqu'à ce que tu l'envoies ou le retires. **Send** n'envoie que celui-là, et écrire un nouveau message ne libère pas les autres.
@@ -304,7 +304,7 @@ Un message retenu le reste jusqu'à ce que tu l'envoies ou le retires. **Send** 
 
 ### Sa liste de tâches
 
-Sur un travail plus long, elle tient pour elle-même une courte liste d'étapes. Elle se trouve sous son dernier message, avec un compteur comme **2 of 5** (2 sur 5) ; l'étape en cours tourne pendant qu'elle travaille, et les étapes terminées sont barrées. Tu ne peux pas la modifier. Elle est là pour que tu voies où elle en est, et elle la met à jour au fur et à mesure. Dès que tu écris après la réponse qui l'a enregistrée, la liste est estompée et affiche **Plan from before your last message** (plan antérieur à ton dernier message). Elle disparaît après sa prochaine réponse qui n'y touche pas.
+Sur un travail plus long, elle tient pour elle-même une courte liste d'étapes. Elle se trouve sous son dernier message, avec un compteur comme **2 of 5** ; l'étape en cours tourne pendant qu'elle travaille, et les étapes terminées sont barrées. Tu ne peux pas la modifier. Elle est là pour que tu voies où elle en est, et elle la met à jour au fur et à mesure. Dès que tu écris après la réponse qui l'a enregistrée, la liste est estompée et affiche **Plan from before your last message**. Elle disparaît après sa prochaine réponse qui n'y touche pas.
 
 ## Quitter sa fenêtre
 

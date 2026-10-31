@@ -52,7 +52,7 @@ Plus bas dans le même onglet, une seconde liste s'appelle **Character Questions
 {{char}} treats {{relationshipToUser}} with open warmth.
 ```
 
-Ces cinq champs sont ceux que lit le modèle : ce sont donc les seuls qu'une réponse sur le personnage peut atteindre.
+Ces cinq champs sont ceux que lit le modèle : ce sont donc les seuls qu'une réponse sur le personnage peut atteindre. Un message d'accueil peut aussi utiliser le `{{name}}` d'une question sur le personnage, et il affiche la réponse du joueur.
 
 Un message d'accueil peut aussi utiliser le `{{name}}` d'une question de persona, comme `Ah, so you are a {{class}}`. Il n'est rempli que lorsque le joueur crée ce persona dans l'assistant de nouveau chat, dans le premier message et ses messages d'accueil alternatifs. Avec un persona existant ou avec Quick Start, la balise s'affiche telle qu'elle est écrite, et le Character Editor t'en avertit. Clique dans un message d'accueil et sa liste **Available variables** (variables disponibles) présente les deux types de questions, avec leur étiquette.
 

@@ -98,12 +98,12 @@ Quelques règles gardent le chat fonctionnel :
 - **Épingles.** Tant que l'automatisation est active, chaque ligne de la liste **Characters** affiche une épingle à gauche de son œil. Clique dessus pour épingler le personnage tel qu'il est maintenant, activé ou désactivé : l'automatisation le laisse alors tranquille. Basculer un œil à la main épingle aussi ce personnage, pour que la réponse suivante n'annule pas ton choix. L'épingle d'une ligne épinglée s'affiche dans ta couleur d'accent ; clique de nouveau dessus pour la retirer. Passer l'automatisation sur **Off** retire toutes les épingles.
 - **Le narrateur reste actif.** Le **Narrator** (narrateur) désigné sous **Roleplay Commands** (commandes Roleplay) n'est jamais désactivé.
 - **Sans réponse, la liste reste.** En mode **Decision model**, si le modèle ne répond pas pour chaque personnage, la dernière scène de Character Tracker est utilisée à la place, quand il y en a une. Un modèle qui raisonne d'abord ne répond pas avant la réponse, sauf si **Also gate agents that run before the reply** (évaluer aussi les agents exécutés avant la réponse) est activé : le tracker prend donc le relais. C'est aussi le cas d'un casting trop grand pour tenir dans l'entrée du Decision model, même avec les seuls noms : il n'est alors pas interrogé du tout. Si aucun des deux n'a de réponse, la liste reste telle quelle.
-- **Personne d'actif n'est pas une option.** Un résultat qui désactiverait tout le monde est ignoré.
+- **Personne d'actif, ce n'est pas une option.** Un résultat qui désactiverait tout le monde est ignoré.
 - **Un agent Character Activity prime.** Un chat avec un agent personnalisé utilisant le type de résultat **Character Activity** laisse cet agent aux commandes, et l'automatisation ne fait rien.
 
 Character Tracker écrit son propre nom pour chaque personnage qu'il voit. Un personnage est associé à sa fiche d'abord par l'identifiant de la fiche, puis par le nom, puis par les alias de nom de la fiche, définis dans l'onglet **Colors** de l'éditeur de personnage : une fiche entrée alors qu'elle était désactivée est donc quand même retrouvée. Une liste du tracker qui ne nomme aucun des personnages du chat, par exemple une scène de figurants seulement, conserve la liste actuelle.
 
-L'automatisation s'exécute avant chaque réponse, chaque swipe et chaque régénération. Elle ignore **Continue** et l'usurpation (impersonation). Le réglage est enregistré dans les profils de réglages ; les épingles appartiennent à un seul chat.
+L'automatisation s'exécute avant chaque réponse, chaque swipe et chaque régénération. Elle ignore **Continue** et Impersonate. Le réglage est enregistré dans les profils de réglages ; les épingles appartiennent à un seul chat.
 
 <a id="response-order-individual-only"></a>
 
