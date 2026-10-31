@@ -215,14 +215,15 @@ function rememberGatewayRefusedEffort(baseUrl: string, model: string) {
  * "tool". Allowed roles are "user", "assistant" or "system"`; Anthropic itself says `Input tag 'tool' found using
  * 'role'`. Anchored on refusal wording, not on the two words standing near each other: OpenAI's own `messages with
  * role 'tool' must be a response to a preceeding message with 'tool_calls'` names the role without refusing it, and
- * matching that would retell a healthy endpoint's history and remember it as broken. That is also why the verdict has
- * to be a refusal (`is not a valid/known/…`, `is invalid|unsupported`) and has to follow the quoted role directly: a
- * gap would let it be borrowed from a neighbouring JSON field such as `"type":"invalid_request_error"`, and an
- * optional `not` would read `role 'tool' is allowed only after …` as its opposite. The body is raw JSON, so quotes
- * arrive escaped (`\"tool\"`).
+ * matching that would retell a healthy endpoint's history and remember it as broken. The verdict must be stated as a
+ * refusal (`is not a valid/known/…`) and must follow the quoted role directly: a gap would let it be borrowed from a
+ * neighbouring JSON field such as `"type":"invalid_request_error"`, an optional `not` would read `role 'tool' is
+ * allowed only after …` as its opposite, and a bare `is invalid` can be conditional (`is invalid without a preceding
+ * …`), which is a complaint about the pairing, not a refusal of the role. The body is raw JSON, so quotes arrive
+ * escaped (`\"tool\"`).
  */
 const TOOL_ROLE_REJECTION =
-  /(?:unexpected|invalid|unknown|unsupported|disallowed)\s+role[\s:=]*\\?["'\u0060]?\s*tool\b|input\s+tag\s*\\?["'\u0060]\s*tool\s*\\?["'\u0060]\s*found\s+using\s*\\?["'\u0060]?\s*role\b|role\s*\\?["'\u0060]?\s*tool\\?["'\u0060]?\s+(?:(?:is|are)\s+not\s+(?:a\s+|an\s+)?(?:valid|known|allowed|supported|recognized|permitted)\b|(?:is|are)\s+(?:invalid|unsupported)\b)|\\?["'\u0060]?tool\\?["'\u0060]?\s+role\b\s+(?:(?:is|are)\s+not\s+(?:a\s+|an\s+)?(?:valid|known|allowed|supported|recognized|permitted)\b|(?:is|are)\s+(?:invalid|unsupported)\b)/i;
+  /(?:unexpected|invalid|unknown|unsupported|disallowed)\s+role[\s:=]*\\?["'\u0060]?\s*tool\b|input\s+tag\s*\\?["'\u0060]\s*tool\s*\\?["'\u0060]\s*found\s+using\s*\\?["'\u0060]?\s*role\b|role\s*\\?["'\u0060]?\s*tool\\?["'\u0060]?\s+(?:is|are)\s+not\s+(?:a\s+|an\s+)?(?:valid|known|allowed|supported|recognized|permitted)\b|\\?["'\u0060]?tool\\?["'\u0060]?\s+role\b\s+(?:is|are)\s+not\s+(?:a\s+|an\s+)?(?:valid|known|allowed|supported|recognized|permitted)\b/i;
 
 function isToolRoleRejection(errorText: string): boolean {
   return TOOL_ROLE_REJECTION.test(errorText);

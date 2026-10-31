@@ -19,7 +19,14 @@ type WireRequest = { model?: string; messages: WireMessage[]; tools: unknown[] }
 const requests: WireRequest[] = [];
 
 /** How the fixture answers. `role-order` is OpenAI's own complaint about a tool row, which is not a refusal of it. */
-type Mode = "refuse-tool-role" | "rate-limit" | "role-order" | "role-order-typed" | "role-allowed" | "accept";
+type Mode =
+  | "refuse-tool-role"
+  | "rate-limit"
+  | "role-order"
+  | "role-order-typed"
+  | "role-allowed"
+  | "role-invalid-conditional"
+  | "accept";
 let mode: Mode = "refuse-tool-role";
 
 const LINKAPI_WORDING =
@@ -37,6 +44,9 @@ const TYPED_ROLE_ORDER_PAYLOAD = {
 };
 /** Permission, not prohibition: the same vocabulary with the verdict missing. */
 const ROLE_ALLOWED_WORDING = "messages: role 'tool' is allowed only after an assistant message with tool_calls";
+/** A conditional complaint about the pairing, which does not say the role itself is refused. */
+const ROLE_INVALID_CONDITIONAL_WORDING =
+  "messages: role 'tool' is invalid without a preceding assistant message with tool_calls";
 
 const server = createServer(async (request, response) => {
   let raw = "";
@@ -64,7 +74,9 @@ const server = createServer(async (request, response) => {
           ? TYPED_ROLE_ORDER_PAYLOAD
           : mode === "role-allowed"
             ? { error: { message: ROLE_ALLOWED_WORDING } }
-            : { error: { message } },
+            : mode === "role-invalid-conditional"
+              ? { error: { message: ROLE_INVALID_CONDITIONAL_WORDING } }
+              : { error: { message } },
       ),
     );
     return;
@@ -221,6 +233,22 @@ try {
   await allowed.chatComplete(history, { model: "claude-allowed-role-opus", tools, stream: false });
   assert.equal(requests.length - beforeAllowedAccept, 1, "the accepted call is one request");
   assert.ok(roles(requests.at(-1)!).includes("tool"), "an allowance must not be remembered");
+
+  // 9. A conditional complaint about the pairing ("… is invalid without a preceding assistant message") does not say
+  //    the role itself is refused, so it must not be remembered as a refusal either.
+  mode = "role-invalid-conditional";
+  const conditional = new OpenAIProvider(base, "");
+  const beforeConditional = requests.length;
+  await assert.rejects(
+    conditional.chatComplete(history, { model: "claude-conditional-opus", tools, stream: false }),
+    /OpenAI API error 429/,
+  );
+  assert.equal(requests.length - beforeConditional, 1, "a conditional complaint must not be reshaped and resent");
+  mode = "accept";
+  const beforeConditionalAccept = requests.length;
+  await conditional.chatComplete(history, { model: "claude-conditional-opus", tools, stream: false });
+  assert.equal(requests.length - beforeConditionalAccept, 1, "the accepted call is one request");
+  assert.ok(roles(requests.at(-1)!).includes("tool"), "a conditional complaint must not be remembered");
 } finally {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
