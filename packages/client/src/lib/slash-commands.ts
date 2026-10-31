@@ -1332,6 +1332,9 @@ const COMMANDS: SlashCommand[] = [
       const prompt = args.trim();
       if (!prompt) return { handled: true, feedback: "Usage: /html <what you want, e.g. a spellbook page>" };
       if (!ctx.html) return { handled: true, feedback: "Immersive HTML is not available in this chat." };
+      if (useChatStore.getState().abortControllers.has(ctx.chatId)) {
+        return { handled: true, feedback: "Immersive HTML is already running for this chat." };
+      }
       await ctx.html(prompt);
       return { handled: true };
     },

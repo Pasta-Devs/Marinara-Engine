@@ -4315,7 +4315,8 @@ export function useGenerate() {
               break;
             }
             case "done": {
-              if (spriteChangeReceived) {
+              // A hand-run artifact rewrote a message that is already on screen.
+              if (spriteChangeReceived || options?.manualHtmlPrompt) {
                 qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
               }
               break;

@@ -15152,7 +15152,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     memory: { ...agentContext.memory, _agentResults: agentSummary },
                   };
 
-                  const guidedHtmlRequest = readGuidedHtmlRequest(textRewriteAgent);
+                  // ponytail: a reply split at scene breaks runs the artifact on its last part only;
+                  // map the command offset to its part if placement in an earlier part ever matters.
+                  const guidedHtmlRequest =
+                    messageId === rewriteParts.at(-1)?.messageId ? readGuidedHtmlRequest(textRewriteAgent) : null;
                   const runAgent = guidedHtmlRequest
                     ? {
                         ...textRewriteAgent,
