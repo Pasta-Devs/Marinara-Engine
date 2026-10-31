@@ -135,6 +135,43 @@ try {
     large < small * 1.2,
     `four times the scenes must not mean more reads per message: ${small.toFixed(1)} at 20 scenes, ${large.toFixed(1)} at 80`,
   );
+  const cachedExtrasChat = await chats.create({ name: "Cached extras", mode: "roleplay", characterIds: [] });
+  assert(cachedExtrasChat);
+  await chats.createMessagesBatch(cachedExtrasChat.id, [
+    { role: "user", content: "Cache this parsed message extra.", extra: { cacheProbe: "initial" } },
+  ]);
+  const [cachedExtraMessage] = await chats.listMessages(cachedExtrasChat.id);
+  assert(cachedExtraMessage);
+  const cachedExtrasMemory = createAdvancedMemoryService(db);
+  const rawInitialExtra = (await chats.getMessage(cachedExtraMessage.id))?.extra;
+  assert.equal(typeof rawInitialExtra, "string", "file-backed messages keep extras as JSON strings");
+  const originalParse = JSON.parse;
+  let initialParses = 0;
+  JSON.parse = ((text: string, ...args: Parameters<typeof JSON.parse> extends [unknown, ...infer Rest] ? Rest : never) => {
+    if (text === rawInitialExtra) initialParses++;
+    return originalParse(text, ...args);
+  }) as typeof JSON.parse;
+  try {
+    await cachedExtrasMemory.status(cachedExtrasChat.id);
+    await cachedExtrasMemory.status(cachedExtrasChat.id);
+  } finally {
+    JSON.parse = originalParse;
+  }
+  assert.equal(initialParses, 1, "unchanged message extras are parsed once across Advanced Memory contexts");
+  await chats.updateMessageExtra(cachedExtraMessage.id, { cacheProbe: "updated" });
+  const rawUpdatedExtra = (await chats.getMessage(cachedExtraMessage.id))?.extra;
+  assert.equal(typeof rawUpdatedExtra, "string", "updating the extra preserves its serialized storage shape");
+  let updatedParses = 0;
+  JSON.parse = ((text: string, ...args: Parameters<typeof JSON.parse> extends [unknown, ...infer Rest] ? Rest : never) => {
+    if (text === rawUpdatedExtra) updatedParses++;
+    return originalParse(text, ...args);
+  }) as typeof JSON.parse;
+  try {
+    await cachedExtrasMemory.status(cachedExtrasChat.id);
+  } finally {
+    JSON.parse = originalParse;
+  }
+  assert.equal(updatedParses, 1, "editing an extra invalidates only that message's parsed cache entry");
   console.log("advanced memory prepare scale regression passed");
 } finally {
   provider.close();
