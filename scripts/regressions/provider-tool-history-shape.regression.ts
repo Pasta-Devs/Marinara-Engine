@@ -26,14 +26,19 @@ const server = createServer(async (request, response) => {
   requests.push(body);
   response.setHeader("content-type", "application/json");
   if (rateLimitOnly || (body.messages ?? []).some((message) => message.role === "tool")) {
+    // The proxy reports a schema rejection with the same status it uses for throttling, which is half of why this is
+    // hard to read from a screenshot; the other half is that only the body says it is about a role. Anthropic's own
+    // wording is covered too, since the same endpoint can pass it through unaltered.
     response.statusCode = 429;
+    const anthropicWording = /anthropic-wording/u.test(String(body.model ?? ""));
     response.end(
       JSON.stringify({
         error: rateLimitOnly
           ? { message: "Rate limit exceeded, please retry later." }
           : {
-              message:
-                'messages: Unexpected role "tool". Allowed roles are "user", "assistant" or "system" (request id: 202610302337086847479988268d9d6Omw023bE)',
+              message: anthropicWording
+                ? "messages.1.role: Input tag 'tool' found using 'role' does not match any of the expected tags: 'user', 'assistant'"
+                : 'messages: Unexpected role "tool". Allowed roles are "user", "assistant" or "system" (request id: 202610302337086847479988268d9d6Omw023bE)',
             },
       }),
     );
@@ -62,7 +67,10 @@ const textOf = (message: WireMessage) =>
     : String(message.content ?? "");
 
 try {
-  for (const model of ["claude-opus-4-5-20251101", "proxy-alias-sonnet"]) {
+  // Both wordings the refusal comes in: LinkAPI's own, and Anthropic's tag mismatch, which a proxy that passes the
+  // upstream error through hands back unchanged. Neither model id is catalogued on the OpenAI type, so both also
+  // exercise the uncatalogued-model path from #8576.
+  for (const model of ["claude-opus-4-5-20251101", "proxy-alias-sonnet", "claude-anthropic-wording-opus"]) {
     const provider = new OpenAIProvider(base, "");
 
     // 1. The refusing round recovers: one refusal, then a retold request that the endpoint accepts.

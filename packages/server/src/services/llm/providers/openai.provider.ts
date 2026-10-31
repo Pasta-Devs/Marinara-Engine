@@ -1021,6 +1021,13 @@ export class OpenAIProvider extends BaseLLMProvider {
     stream: boolean,
     options: ChatOptions,
   ): Promise<Response> {
+    // The messages here are the ones about to go out: shaped for Claude, and retold when this endpoint refused the
+    // `tool` role before. Debug mode shows what the model actually reads, not the transcript it came from.
+    logDebugOverride(
+      options.debugMode === true || isDebugAgentsEnabled(),
+      "[debug/openai] chat request messages:\n%j",
+      body.messages,
+    );
     const send = () =>
       llmFetch(url, {
         method: "POST",
