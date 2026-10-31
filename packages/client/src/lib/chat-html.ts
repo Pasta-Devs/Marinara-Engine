@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { ARTIFACT_SVG_ATTR, ARTIFACT_SVG_TAGS, scopeArtifactSvgAttribute } from "./artifact-svg";
 import { protectMarkdownCode } from "./markdown-code";
 import { sanitizeChatMessageCss } from "./chat-message-css";
 import { currentRemoteImagePolicy, holdRemoteImages } from "./remote-image-policy";
@@ -125,6 +126,8 @@ export type SanitizeChatHtmlOptions = {
    * sanitized again before display.
    */
   remoteImages?: RemoteImagePolicy | "keep";
+  /** Keep the drawing subset of SVG, with its ids under this prefix. Only for [html] artifacts; messages never set it. */
+  artifactSvgIdPrefix?: string;
 };
 
 export function sanitizeChatHtml(html: string, options: SanitizeChatHtmlOptions = {}): string {
@@ -134,17 +137,31 @@ export function sanitizeChatHtml(html: string, options: SanitizeChatHtmlOptions 
       (options.allowStyle || attr !== "style") &&
       (options.allowLinks !== false || (attr !== "href" && attr !== "target")),
   );
+  const svgIdPrefix = options.artifactSvgIdPrefix;
+  const allowSvg = svgIdPrefix !== undefined;
   const clean = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [...CHAT_HTML_ALLOWED_TAGS],
-    ALLOWED_ATTR: allowedAttr,
+    ALLOWED_TAGS: [...CHAT_HTML_ALLOWED_TAGS, ...(allowSvg ? ARTIFACT_SVG_TAGS : [])],
+    ALLOWED_ATTR: [...allowedAttr, ...(allowSvg ? ARTIFACT_SVG_ATTR : [])],
     ALLOW_DATA_ATTR: false,
     ALLOW_UNKNOWN_PROTOCOLS: false,
-    FORBID_TAGS: ["animate", "embed", "foreignObject", "iframe", "math", "object", "script", "svg", "style"],
+    FORBID_TAGS: ["animate", "embed", "foreignObject", "iframe", "math", "object", "script", "style"].concat(
+      allowSvg ? [] : ["svg"],
+    ),
     FORBID_ATTR: ["onerror", "onload", "onclick", "srcdoc"],
     RETURN_DOM_FRAGMENT: true,
   }) as DocumentFragment;
   for (const anchor of clean.querySelectorAll<HTMLAnchorElement>("a[href]")) {
     anchor.setAttribute("rel", "noopener noreferrer");
+  }
+  if (allowSvg) {
+    for (const anchor of clean.querySelectorAll("svg a")) anchor.replaceWith(...anchor.childNodes);
+    for (const element of clean.querySelectorAll("svg, svg *")) {
+      for (const { name, value } of [...element.attributes]) {
+        const scoped = scopeArtifactSvgAttribute(name, value, svgIdPrefix);
+        if (scoped === null) element.removeAttribute(name);
+        else if (scoped !== value) element.setAttribute(name, scoped);
+      }
+    }
   }
   if (options.allowStyle) {
     for (const element of clean.querySelectorAll<HTMLElement>("[style]")) {

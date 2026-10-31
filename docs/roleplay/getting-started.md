@@ -113,7 +113,7 @@ In **Chat Settings → Agents → Roleplay Commands**, enable **HTML Artifacts**
 
 The artifact appears where the narrator placed the command, after the reply has finished. In the Visual Novel layout you see only the marker. The message's own text stays as it was written.
 
-Each artifact is a separate request, at most 3 per reply. It uses the **Immersive HTML** agent's connection if that agent has one, otherwise your default agent connection, otherwise the chat's connection. It follows its own instructions, so edits to the Immersive HTML agent's prompt do not change it. For a plain styled page, the six prebuilt **Documents** kinds are free and instant.
+Each artifact is a separate request, at most 3 per reply. It uses the **Immersive HTML** agent's connection if that agent has one, otherwise your default agent connection, otherwise the chat's connection. That connection's **Max Parallel Agent Jobs** sets how many run at once. The request includes the speaking character's description and the last few messages. It follows its own instructions, so edits to the Immersive HTML agent's prompt do not change it. For a plain styled page, the six prebuilt **Documents** kinds are free and instant.
 
 The narrator does not see the artifact's HTML. In later turns it sees a short plain-text version: the artifact's readable text and one line on how it looks. Open the "used html command" marker under the message to read or edit that text, or to delete the artifact, which also removes it from the narrator's memory. If a run fails, the marker says why.
 

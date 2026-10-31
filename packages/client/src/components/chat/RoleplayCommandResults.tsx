@@ -184,18 +184,18 @@ export function RoleplayWhisper({
   );
 }
 
-/** An html command's artifact, sanitized and scoped like HTML in a message, without the message's dialogue styling. */
+/** An html command's artifact, sanitized and scoped like HTML in a message, plus drawing SVG and no dialogue styling. */
 export function RoleplayArtifact({ html, scopeClass }: { html: string; scopeClass: string }) {
   const remoteImages = useRemoteImagePolicy();
   const markup = useMemo(() => {
     const { html: body, css } = extractChatStyleBlocks(html);
-    const clean = sanitizeChatHtml(body, { allowStyle: true, remoteImages });
+    const clean = sanitizeChatHtml(body, { allowStyle: true, remoteImages, artifactSvgIdPrefix: `${scopeClass}-` });
     const scoped = scopeChatMessageCss(css, `.${scopeClass}`, { remoteUrls: remoteImages.loadAll });
     return scoped ? `<style>${scoped}</style>${clean}` : clean;
   }, [html, scopeClass, remoteImages]);
   return (
     <div
-      className={`mari-html-content relative mb-4 max-w-full whitespace-normal !overflow-hidden !contain-paint ${scopeClass}`}
+      className={`mari-html-content relative mb-4 max-w-full whitespace-normal !overflow-hidden !contain-paint [&_svg]:max-w-full ${scopeClass}`}
       data-roleplay-artifact
       onClick={handleRemoteImageClick}
       dangerouslySetInnerHTML={{ __html: markup }}

@@ -26,6 +26,11 @@ import {
 } from "../../packages/server/src/services/generation/roleplay-commands.js";
 import { collectPastReasoningMetadata } from "../../packages/server/src/services/generation/generation-parameters.js";
 import {
+  ARTIFACT_SVG_ATTR,
+  ARTIFACT_SVG_TAGS,
+  scopeArtifactSvgAttribute,
+} from "../../packages/client/src/lib/artifact-svg.js";
+import {
   buildHtmlArtifactMessages,
   parseHtmlArtifactOutput,
 } from "../../packages/server/src/services/generation/html-artifact.js";
@@ -1034,7 +1039,36 @@ assert.equal(
   parseHtmlArtifactOutput(`<artifact>x</artifact><memory>${"m".repeat(1_500)}</memory>`, "a sign")?.memory.length,
   1_000,
 );
+// Models copy the narrator's label; the prompt adds its own, so it must not appear twice.
+assert.equal(
+  parseHtmlArtifactOutput("<artifact>x</artifact><memory>Artifact: a worn book</memory>", "a sign")?.memory,
+  "a worn book",
+);
+assert.equal(parseHtmlArtifactOutput("<artifact>x</artifact><memory>Artifact:</memory>", "a sign")?.memory, "a sign");
+// The drawing subset of SVG: what can load or run stays out, and references stay inside the artifact.
+for (const tag of ["use", "image", "foreignObject", "filter", "feImage", "animate", "set", "script", "style", "a"]) {
+  assert.ok(!(ARTIFACT_SVG_TAGS as readonly string[]).includes(tag), tag);
+}
+for (const attribute of ["href", "xlink:href", "src", "onload", "begin", "filter", "mask", "cursor"]) {
+  assert.ok(!(ARTIFACT_SVG_ATTR as readonly string[]).includes(attribute), attribute);
+}
+assert.equal(scopeArtifactSvgAttribute("id", "table", "a1-"), "a1-table");
+assert.equal(scopeArtifactSvgAttribute("fill", "url(#table)", "a1-"), "url(#a1-table)");
+assert.equal(scopeArtifactSvgAttribute("clip-path", ' URL( "#clip" ) ', "a1-"), "url(#a1-clip)");
+assert.equal(scopeArtifactSvgAttribute("href", "#table", "a1-"), "#a1-table");
+assert.equal(scopeArtifactSvgAttribute("fill", "#112233", "a1-"), "#112233");
+assert.equal(scopeArtifactSvgAttribute("d", "M0 0 L1 1", "a1-"), "M0 0 L1 1");
+assert.equal(scopeArtifactSvgAttribute("fill", "url(https://example.com/x.svg#g)", "a1-"), null);
+assert.equal(scopeArtifactSvgAttribute("fill", "\\75rl(https://example.com/x.svg)", "a1-"), null);
+assert.equal(scopeArtifactSvgAttribute("href", "https://example.com/x.svg", "a1-"), null);
+const artifactChatHtml = readFileSync(new URL("../../packages/client/src/lib/chat-html.ts", import.meta.url), "utf8");
+assert.match(artifactChatHtml, /concat\(\s*allowSvg \? \[\] : \["svg"\],?\s*\)/u, "messages keep the SVG ban");
 const artifactPrompt = buildHtmlArtifactMessages({ reply: "One. Two.", offset: 4, request: "a sign" });
+assert.ok(
+  (buildHtmlArtifactMessages({ reply: "One.", offset: 4, request: "a sign", scene: "<speaker>Raven</speaker>" }).at(-1)!
+    .content as string).startsWith("<speaker>Raven</speaker>\n\n<reply>"),
+  "the scene comes before the reply",
+);
 assert.match(artifactPrompt.at(-1)!.content as string, /One\.\n\[ARTIFACT GOES HERE\]\n Two\./u);
 assert.match(artifactPrompt.at(-1)!.content as string, /<request>\na sign\n<\/request>/u);
 // The narrator keeps the memory, never the markup; a deleted or failed artifact is gone from it.
@@ -1065,4 +1099,5 @@ const htmlRouteSource = readFileSync(
 );
 assert.match(htmlRouteSource, /command\.type === "html" && definedIntro\?\.mode === "defined"\) continue;/u);
 assert.match(htmlRouteSource, /\+\+replyHtmlArtifacts > HTML_ARTIFACT_LIMIT_PER_REPLY/u);
+assert.match(htmlRouteSource, /createAgentConcurrencyLimiter\(\s*await resolveHtmlArtifactMaxParallelJobs\(/u);
 process.stdout.write("Roleplay commands regression passed.\n");

@@ -216,6 +216,7 @@ import { updateInterruptedPromptHistory } from "../services/generation/roleplay-
 import {
   HTML_ARTIFACT_LIMIT_ERROR,
   HTML_ARTIFACT_LIMIT_PER_REPLY,
+  resolveHtmlArtifactMaxParallelJobs,
   runHtmlArtifactCommand,
 } from "../services/generation/html-artifact.js";
 import {
@@ -420,6 +421,7 @@ import { resolveGalleryImagePath } from "../services/image/gallery-image-path.js
 import { isSentSelfieAttachment } from "../services/generation/prompt-attachments.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { gameTtsEmotionIndicatorsEnabled } from "../services/tts-emotion-guidance.js";
+import { createAgentConcurrencyLimiter } from "../services/agents/agent-concurrency.js";
 import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-import-policy.service.js";
 import { buildLorebookSemanticEmbeddingsById, warmLorebookEntryEmbeddings } from "../services/lorebook/embeddings.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
@@ -12959,15 +12961,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // Persist agent runs to DB + handle game state updates
           const roleplayMediaTargets = new Map<AgentResult, (typeof roleplayMediaRequests)[number]>();
           let combatRequested = chatMeta.encounterActive === true;
-          // One at a time: a local model may serve only one request, and each artifact needs no other's result.
-          let htmlArtifactQueue: Promise<void> = Promise.resolve();
+          // Each artifact needs no other's result, so they share the connection's Max Parallel Agent Jobs, which is 1
+          // on a local model that serves one request at a time.
+          let limitHtmlArtifact: ReturnType<typeof createAgentConcurrencyLimiter> | undefined;
           for (const request of roleplayMediaRequests) {
             if (agentSignal.aborted) break;
             const { command } = request;
             if (command.type === "html") {
               const { activityIndex } = request;
               if (activityIndex === undefined) continue;
-              htmlArtifactQueue = htmlArtifactQueue.then(async () => {
+              limitHtmlArtifact ??= createAgentConcurrencyLimiter(
+                await resolveHtmlArtifactMaxParallelJobs(app.db, conn.id),
+              );
+              const artifactRun = limitHtmlArtifact(async () => {
                 const error = await runHtmlArtifactCommand({
                   db: app.db,
                   messageId: request.messageId,
@@ -12983,7 +12989,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 if (error && !agentSignal.aborted)
                   sendSseEvent(reply, { type: "roleplay_command_error", data: { error } });
               });
-              pendingRoleplayMedia.push(htmlArtifactQueue);
+              pendingRoleplayMedia.push(artifactRun);
               continue;
             }
             if (command.type === "sound") {
