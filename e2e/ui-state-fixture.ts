@@ -38,6 +38,7 @@ function keepAudioSilent() {
   for (const type of ["loadstart", "play"]) {
     window.addEventListener(type, (event) => event.target instanceof HTMLMediaElement && silence(event.target), true);
   }
+  if (typeof AudioNode === "undefined") return;
   const connect = AudioNode.prototype.connect as (this: AudioNode, ...args: unknown[]) => unknown;
   const zeroGains = new WeakMap<BaseAudioContext, GainNode>();
   AudioNode.prototype.connect = function (this: AudioNode, target: unknown, ...rest: unknown[]) {
