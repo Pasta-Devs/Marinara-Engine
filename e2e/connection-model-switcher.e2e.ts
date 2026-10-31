@@ -10,6 +10,7 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { closeChatSettings, openChatSettings } from "./chat-settings-tools.js";
+import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -67,7 +68,7 @@ async function setup(
         provider: "custom",
         baseUrl,
         apiKey,
-        model,
+        ...(model ? { model } : {}),
         maxContext: 8_000,
         embeddingModel: "fixture-embedding",
       },
@@ -199,6 +200,99 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({ path, animations: "disabled" });
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
+
+test("quick picker lists scroll in chat and Professor Mari", async ({ page, request }, testInfo) => {
+  await acquireMariThreadLock();
+  let fixture: Awaited<ReturnType<typeof setup>> | undefined;
+  const personas: string[] = [];
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    fixture = await setup(page, request, testInfo, "dark");
+    fixture.provider.state.catalog = Array.from({ length: 40 }, (_, index) => ({
+      id: `scroll/model-${index}`,
+      name: `Scroll model ${index}`,
+    }));
+    const accountId = (await connectionRow(request, fixture.main.id))!.accountId as string;
+    const scrollRows: string[] = [];
+    for (let index = 0; index < 18; index++) {
+      const response = await request.post(`/api/connections/${fixture.main.id}/duplicate`);
+      expect(response.ok()).toBeTruthy();
+      const duplicate = (await response.json()) as { id: string; accountId: string };
+      scrollRows.push(duplicate.id);
+      expect(duplicate.accountId).toBe(accountId);
+      const model = `scroll/model-${index}`;
+      expect((await request.patch(`/api/connections/${duplicate.id}`, { data: { model } })).ok()).toBeTruthy();
+      expect((await connectionRow(request, duplicate.id))?.model).toBe(model);
+      const persona = await request.post("/api/characters/personas", { data: { name: `Scroll persona ${index}` } });
+      expect(persona.ok()).toBeTruthy();
+      personas.push((await persona.json()).id);
+    }
+    const mariConnectionId = fixture.main.id;
+    await page.route("**/api/app-settings/feature-model-connections", (route) =>
+      route.fulfill({ json: { mariConnectionId } }),
+    );
+    await page.goto("/");
+    await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
+    const assertScroll = async (list: Locator, name: string) => {
+      await expect(list).toBeVisible();
+      await expect(list).toHaveCSS("overflow-y", "auto");
+      const dimensions = await list.evaluate((element) => ({
+        height: element.clientHeight,
+        content: element.scrollHeight,
+      }));
+      expect(dimensions.height).toBeGreaterThan(40);
+      expect(dimensions.content).toBeGreaterThan(dimensions.height);
+      await list.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+      await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      const bounds = (await list.boundingBox())!;
+      expect(bounds.y).toBeGreaterThanOrEqual(0);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(page.viewportSize()!.height + 1);
+      await capture(page, testInfo, name);
+    };
+    const menu = await openMenu(page, testInfo);
+    const scrollRowSelector = scrollRows.map((id) => `[data-switcher-entry="${id}"]`).join(", ");
+    await menu.getByRole("button", { name: /Show \d+ more/ }).click();
+    await expect(menu.locator(scrollRowSelector)).toHaveCount(18);
+    await assertScroll(menu.locator("[data-connection-switcher-scroll]"), "chat-list-scrolled");
+    const catalog = await showModels(menu, testInfo, accountId);
+    await expect(catalog.locator("[data-model-row]").first()).toBeVisible();
+    await assertScroll(catalog.locator("[data-model-list]"), "chat-catalog-scrolled");
+    await closeMenu(page);
+    if (isPhone(testInfo)) {
+      const phoneMenu = await openMenu(page, testInfo);
+      await phoneMenu.getByRole("button", { name: "Personas", exact: true }).click();
+      await assertScroll(phoneMenu.locator("div.overflow-y-auto:visible"), "chat-personas-scrolled");
+      await closeMenu(page);
+    }
+    const mariShortcut = await page.evaluate(async () => {
+      const { isApplePlatform } = await import("/src/lib/command-center.ts" as string);
+      return isApplePlatform() ? "Meta+j" : "Control+j";
+    });
+    await page.keyboard.press(mariShortcut);
+    const mariPane = page.locator('[data-component="GlobalOmnibar.Mari"]');
+    await expect(mariPane).toBeVisible();
+    await mariPane.locator(".mari-workspace-composer__connection").click();
+    // Phone mode renders the picker in Modal's body portal, outside the Mari pane.
+    const mari = page.locator(".mari-connection-picker").last();
+    await expect(mari).toBeVisible();
+    await mari.getByRole("button", { name: /Show \d+ more/ }).click();
+    await expect(mari.locator(scrollRowSelector)).toHaveCount(18);
+    await assertScroll(mari.locator("[data-connection-switcher-scroll]"), "mari-list-scrolled");
+    await mari.locator(`[data-switcher-browse="${accountId}"]`).click();
+    const mariCatalog = page.locator("[data-connection-model-picker]:visible").last();
+    await expect(mariCatalog).toBeVisible();
+    await assertScroll(mariCatalog.locator("[data-model-list]"), "mari-catalog-scrolled");
+    expect(errors).toEqual([]);
+  } finally {
+    try {
+      for (const id of personas) await request.delete(`/api/characters/personas/${id}`).catch(() => undefined);
+      await fixture?.cleanup().catch(() => undefined);
+    } finally {
+      releaseMariThreadLock();
+    }
+  }
+});
 
 test("the Connections menu lists, stars, picks, refreshes and types models without refetching (#7098)", async ({
   page,

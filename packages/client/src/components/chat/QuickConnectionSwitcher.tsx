@@ -97,21 +97,43 @@ export function QuickConnectionSwitcher({
   }, [open]);
 
   const hasContextBudget = Boolean(contextBudget);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
   useEffect(() => {
     if (!open || !btnRef.current) return;
-    const rect = btnRef.current.getBoundingClientRect();
-    const inputBox = btnRef.current.closest(".marinara-chat-input-shell") as HTMLElement | null;
-    const anchorTop = inputBox ? inputBox.getBoundingClientRect().top : rect.top;
-    requestAnimationFrame(() => {
+    const updatePosition = () => {
+      const rect = btnRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const inputBox = btnRef.current?.closest(".marinara-chat-input-shell") as HTMLElement | null;
+      const anchorTop = inputBox ? inputBox.getBoundingClientRect().top : rect.top;
       const menuEl = menuRef.current;
-      const menuHeight = menuEl?.offsetHeight || 360;
       const menuWidth = menuEl?.offsetWidth || 300;
       let left = rect.left;
       if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 8;
       if (left < 8) left = 8;
-      setPos({ left, top: Math.max(8, anchorTop - menuHeight - 4) });
-    });
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const previousMaxHeight = menuEl?.style.maxHeight;
+      if (menuEl) menuEl.style.removeProperty("max-height");
+      const preferredHeight = menuEl?.offsetHeight || 544;
+      if (menuEl && previousMaxHeight) menuEl.style.maxHeight = previousMaxHeight;
+      const maxHeight = Math.max(0, Math.min(preferredHeight, viewportHeight - 16));
+      const top = Math.max(
+        viewportTop + 8,
+        Math.min(anchorTop - maxHeight - 4, viewportTop + viewportHeight - maxHeight - 8),
+      );
+      setPos({ left, top, maxHeight });
+    };
+    const frame = requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+    window.visualViewport?.addEventListener("resize", updatePosition);
+    window.visualViewport?.addEventListener("scroll", updatePosition);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updatePosition);
+      window.visualViewport?.removeEventListener("resize", updatePosition);
+      window.visualViewport?.removeEventListener("scroll", updatePosition);
+    };
   }, [open, hasContextBudget]);
 
   // Focus once the menu is placed: a hidden menu cannot take focus.
@@ -161,7 +183,7 @@ export function QuickConnectionSwitcher({
                 ? "bg-[var(--card)] [--mari-chat-existing-bg:var(--card)]"
                 : "bg-[var(--background)] [--mari-chat-existing-bg:var(--background)]",
             )}
-            style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
+            style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxHeight } : { visibility: "hidden" as const }}
           >
             <div className="flex shrink-0 items-center gap-2 py-1 pl-4 pr-1">
               <h2 id="quick-connection-menu-title" className="min-w-0 flex-1 truncate text-sm font-semibold">

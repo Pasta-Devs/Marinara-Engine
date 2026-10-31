@@ -265,7 +265,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
           opaque
           chatFloatingPanel
           restoreFocusRef={btnRef}
-          panelClassName="max-sm:h-[calc(100dvh-1.5rem)]"
+          panelClassName="max-sm:h-[calc(100dvh-1.5rem)] max-sm:min-h-0"
           contentClassName="flex flex-col overflow-hidden !p-0"
         >
           <div data-quick-switcher-mobile-menu className="flex min-h-0 flex-1 flex-col">
@@ -295,7 +295,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                 {localizeUi("navigation.topbar.personas")}
               </button>
             </div>
-            {tab === "connections" && <div className="flex justify-end border-b border-foreground/10 px-2 py-1"></div>}
             {tab === "personas" && (
               <label className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 py-2 text-foreground/55">
                 <Search size="0.875rem" className="shrink-0" />
@@ -310,24 +309,26 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
             )}
 
             {tab === "connections" && (
-              <ConnectionSwitcherBody
-                onAdd={() => openAddConnection()}
-                layout="steps"
-                current={chatPick.current}
-                recent={chatPick.recent}
-                onApply={chatPick.apply}
-                onDone={closeMenu}
-                showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}
-                shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
-                followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
-                listHeader={
-                  contextBudget && (
-                    <div className="px-2 pt-1">
-                      <ContextBudgetIndicator budget={contextBudget} useAccentColor />
-                    </div>
-                  )
-                }
-              />
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <ConnectionSwitcherBody
+                  onAdd={() => openAddConnection()}
+                  layout="steps"
+                  current={chatPick.current}
+                  recent={chatPick.recent}
+                  onApply={chatPick.apply}
+                  onDone={closeMenu}
+                  showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}
+                  shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
+                  followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
+                  listHeader={
+                    contextBudget && (
+                      <div className="px-2 pt-1">
+                        <ContextBudgetIndicator budget={contextBudget} useAccentColor />
+                      </div>
+                    )
+                  }
+                />
+              </div>
             )}
             <div
               className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain p-1", tab !== "personas" && "hidden")}

@@ -1400,12 +1400,16 @@ export function ConnectionSwitcherBody({
       />
     </div>
   ) : (
-    <div data-switcher-list className={cn("flex min-h-0 flex-col", layout === "steps" && "flex-1", listClassName)}>
+    <div
+      data-switcher-list
+      className={cn("flex min-h-0 flex-col overflow-hidden", layout === "steps" && "flex-1", listClassName)}
+    >
       {listHeader}
       <ListFrame
+        data-connection-switcher-scroll
         className="min-h-0 flex-1"
         search={!shuffle?.active && !nothing && searchBox}
-        listClassName="relative px-1 pb-1"
+        listClassName="relative min-h-0 px-1 pb-1"
       >
         {shuffle?.active ? (
           poolList
@@ -1503,7 +1507,7 @@ export function ConnectionSwitcherBody({
             backFromCatalog();
           }
         }}
-        className={cn("mari-connection-scope flex min-h-0 min-w-0 flex-1 flex-col", className)}
+        className={cn("mari-connection-scope flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", className)}
       >
         {list}
       </div>

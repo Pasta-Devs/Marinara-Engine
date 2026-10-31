@@ -223,28 +223,38 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
       const anchor = inputBox?.getBoundingClientRect() ?? rect;
       const menuEl = menuRef.current;
       const width = Math.min(Math.max(menuEl?.offsetWidth || 300, 280), window.innerWidth - 16);
-      const spaceAbove = Math.max(0, anchor.top - 12);
-      const spaceBelow = Math.max(0, window.innerHeight - anchor.bottom - 12);
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
+      const spaceAbove = Math.max(0, anchor.top - viewportTop - 12);
+      const spaceBelow = Math.max(0, viewportBottom - anchor.bottom - 12);
       const openAbove = spaceAbove >= Math.min(320, spaceBelow) || spaceAbove >= spaceBelow;
-      const maxHeight = Math.max(160, Math.min(400, openAbove ? spaceAbove : spaceBelow));
-      const useViewportFallback = Math.max(spaceAbove, spaceBelow) < 160;
+      const maxHeight = Math.max(
+        0,
+        Math.min(viewportBottom - viewportTop - 16, Math.max(120, Math.min(400, openAbove ? spaceAbove : spaceBelow))),
+      );
+      const useViewportFallback = Math.max(spaceAbove, spaceBelow) < 120;
       const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
       setPos({
         left,
         ...(useViewportFallback
-          ? { top: 8 }
+          ? { top: viewportTop + 8 }
           : openAbove
             ? { bottom: Math.max(8, window.innerHeight - anchor.top + 4) }
-            : { top: Math.max(8, anchor.bottom + 4) }),
+            : { top: Math.max(viewportTop + 8, anchor.bottom + 4) }),
         width,
         maxHeight,
       });
     };
     const frame = requestAnimationFrame(update);
     window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("scroll", update);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("scroll", update);
     };
   }, [open, expandedGroups, expandedCharacterGroups, showCharacterGroups]);
 

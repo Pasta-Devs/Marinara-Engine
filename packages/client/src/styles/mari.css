@@ -5367,7 +5367,9 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
 }
 
 .mari-connection-picker-sheet .mari-connection-picker {
-  height: 100%;
+  display: flex;
+  flex: 1;
+  min-height: 0;
   width: 100%;
 }
 
