@@ -50,7 +50,7 @@ Mais abaixo, na mesma aba, há uma segunda lista, **Character Questions** (pergu
 {{char}} treats {{relationshipToUser}} with open warmth.
 ```
 
-Esses cinco campos são os que o modelo lê, então são os únicos que uma resposta de personagem consegue alcançar.
+Esses cinco campos são os que o modelo lê, então são os únicos que uma resposta de personagem consegue alcançar. Uma saudação também pode usar o `{{name}}` de uma pergunta de personagem e mostra a resposta do jogador.
 
 Uma saudação também pode usar o `{{name}}` de uma pergunta de persona, como `Ah, so you are a {{class}}`. Ele só é preenchido quando o jogador cria essa persona no assistente de configuração de novo chat, na primeira mensagem e nas saudações alternativas dela. Com uma persona existente ou com o Quick Start, a tag aparece como foi escrita, e o Character Editor avisa disso. Clique em uma saudação e a lista **Available variables** (variáveis disponíveis) dela mostra os dois tipos de pergunta, com rótulo.
 

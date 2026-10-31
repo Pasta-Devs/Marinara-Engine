@@ -85,7 +85,7 @@ Com **Mode** em **Merged (Narrator)**, você pode ativar a opção **Color Dialo
 
 ### Automate active characters (só no modo Merged)
 
-No modo Merged, o card de todo personagem ativo está no prompt a cada resposta, então um elenco grande ou enche o contexto ou obriga você a alternar os olhos na mão conforme os personagens entram e saem. Com **Mode** em **Merged (Narrator)**, **Automate active characters** (automatizar personagens ativos) pode alternar isso por você. Ela tem três opções e vem em **Off** por padrão.
+No modo Merged, o card de todo personagem ativo está no prompt a cada resposta, então um elenco grande ou enche o contexto ou obriga você a alternar os olhos à mão conforme os personagens entram e saem. Com **Mode** em **Merged (Narrator)**, **Automate active characters** (automatizar personagens ativos) pode alternar isso por você. Ela tem três opções e vem em **Off** por padrão.
 
 - **Off**: você escolhe quem está ativo com os botões de olho.
 - **Decision model** (modelo de decisão): antes de cada resposta, o seu [Decision model](../connections/decision-models.md) recebe uma pergunta de sim/não por personagem: esse personagem está na cena que a resposta continua, ou está entrando nela? Ser mencionado ou lembrado não conta, então um personagem de quem só se fala continua desativado. Os personagens considerados presentes são ativados e os demais são desativados.
@@ -95,7 +95,7 @@ A dica abaixo da opção avisa quando algo está faltando: nenhum Decision model
 
 Algumas regras mantêm o chat funcionando:
 
-- **Alfinetes.** Com a automação ligada, cada linha da lista **Characters** mostra um alfinete à esquerda do olho. Clique nele para fixar o personagem como ele está agora, ativo ou desativado; a automação passa a deixá-lo em paz. Alternar um olho na mão também fixa esse personagem, para que a próxima resposta não desfaça a sua escolha. O alfinete de uma linha fixada aparece na sua cor de destaque; clique nele de novo para soltar. Passar a automação para **Off** limpa todos os alfinetes.
+- **Alfinetes.** Com a automação ligada, cada linha da lista **Characters** mostra um alfinete à esquerda do olho. Clique nele para fixar o personagem como ele está agora, ativo ou desativado; a automação passa a deixá-lo em paz. Alternar um olho à mão também fixa esse personagem, para que a próxima resposta não desfaça a sua escolha. O alfinete de uma linha fixada aparece na sua cor de destaque; clique nele de novo para soltar. Passar a automação para **Off** limpa todos os alfinetes.
 - **O narrador continua ativo.** O **Narrator** (narrador) designado em **Roleplay Commands** (comandos de Roleplay) nunca é desativado.
 - **Sem resposta, a lista fica como está.** No modo **Decision model**, se o modelo não responder para todos os personagens, usa-se no lugar a última cena do Character Tracker, quando houver. Um modelo que pensa primeiro não responde antes da resposta, a menos que **Also gate agents that run before the reply** (avaliar também os agentes que rodam antes da resposta) esteja ligada, então o tracker assume. O mesmo vale para um elenco grande demais para caber na entrada do Decision model, mesmo só com os nomes: ele nem é consultado. Se nenhum dos dois tiver resposta, a lista continua como está.
 - **Ninguém ativo não é uma opção.** Um resultado que desativaria todo mundo é ignorado.
@@ -103,7 +103,7 @@ Algumas regras mantêm o chat funcionando:
 
 O Character Tracker escreve o próprio nome para cada personagem que vê. Um personagem é associado ao card dele primeiro pelo ID do card, depois pelo nome e depois pelos apelidos do nome do card, na aba **Colors** do editor de personagem, então um card que entrou enquanto estava desativado ainda é encontrado. Uma lista do tracker que não cita nenhum dos personagens do chat, como uma cena só com figurantes, mantém a lista atual.
 
-A automação roda antes de toda resposta, swipe e regeneração. Ela pula **Continue** e a personificação. A configuração é salva nos perfis de configurações; os alfinetes pertencem a um único chat.
+A automação roda antes de toda resposta, swipe e regeneração. Ela pula **Continue** e o Impersonate. A configuração é salva nos perfis de configurações; os alfinetes pertencem a um único chat.
 
 <a id="response-order-individual-only"></a>
 

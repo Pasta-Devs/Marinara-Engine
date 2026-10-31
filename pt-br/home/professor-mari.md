@@ -126,7 +126,7 @@ Os mesmos comandos podem ser digitados com `/`, como descrito em [Comandos com /
 
 Escolha **Attach files or photos** no menu do clipe de papel, ou digite `/attach`, para adicionar um arquivo à mensagem.
 
-Ela aceita imagens, arquivos PDF e arquivos de texto comuns, como `.txt`, `.md`, `.json`, `.csv` e `.log`. Cada arquivo pode ter até 20 MB. Os arquivos anexados aparecem acima da caixa de mensagem antes do envio e podem ser removidos. Você também pode colar uma captura de tela ou um arquivo copiado direto na caixa de mensagem, com **Ctrl+V** ou com o colar do celular.
+Ela aceita imagens, arquivos PDF e arquivos de texto comuns, como `.txt`, `.md`, `.json`, `.csv` e `.log`. Cada arquivo pode ter até 20 MB. Os arquivos anexados aparecem acima da caixa de mensagem antes do envio e podem ser removidos. Você também pode colar uma captura de tela ou um arquivo copiado direto na caixa de mensagem, com **Ctrl+V** ou com a função de colar do celular.
 
 Para ela conseguir ler uma imagem, o modelo da conexão escolhida precisa aceitar imagens na entrada.
 
@@ -279,7 +279,7 @@ Enquanto ela trabalha, um botão **Stop** (parar) aparece ao lado do botão de e
 A caixa de mensagem continua aberta enquanto ela trabalha, e você escolhe quando a sua mensagem chega até ela:
 
 - **Send now** (enviar agora) entra no próximo passo dela, sem interrompê-la. A resposta dela até ali é salva, a sua mensagem aparece abaixo dela, e ela segue em frente tendo em mente o que você disse. É assim que você a corrige no meio da tarefa e mantém o trabalho que ela já fez.
-- **Queue for later** (colocar na fila para depois) espera em uma lista acima da caixa, marcada com **Sends when she finishes** (enviada quando ela terminar). Quando ela termina sem problemas, pega as mensagens em espera uma de cada vez, em ordem.
+- **Queue for later** (colocar na fila para depois) espera em uma lista acima da caixa, marcada com **Sends when she finishes**. Quando ela termina sem problemas, pega as mensagens em espera uma de cada vez, em ordem.
 
 | | Send now | Queue for later |
 |---|---|---|
@@ -295,7 +295,7 @@ Se ela já deu alguns passos mas ainda não disse nada quando a sua mensagem che
 As mensagens em espera não são enviadas sozinhas nestes casos:
 
 - **Você pressiona Stop.** Elas voltam para a caixa de mensagem, e você pode editá-las ou reenviá-las.
-- **Ela está esperando por você**, por uma aprovação ou pela resposta a uma pergunta. Elas mostram **Held** (retida), com um botão **Send** (enviar).
+- **Ela está esperando por você**, por uma aprovação ou pela resposta a uma pergunta. Elas mostram **Held**, com um botão **Send** (enviar).
 - **A execução falhou, ou o aplicativo foi reiniciado.** Elas também mostram **Held**. Nada se perde.
 
 Uma mensagem retida continua retida até você enviá-la ou removê-la. **Send** envia só essa, e digitar uma mensagem nova não libera as outras.
@@ -306,7 +306,7 @@ Uma mensagem retida continua retida até você enviá-la ou removê-la. **Send**
 
 ### A lista de tarefas dela
 
-Em um trabalho mais longo, ela mantém para si uma lista curta de passos. Ela fica abaixo da última mensagem dela, com uma contagem como **2 of 5** (2 de 5); o passo em andamento gira enquanto ela trabalha, e os passos concluídos aparecem riscados. Você não pode editá-la. Ela está ali para você ver em que ponto a assistente está, e a assistente a atualiza conforme avança. Quando você escreve depois da resposta que salvou a lista, ela fica esmaecida e mostra **Plan from before your last message** (plano de antes da sua última mensagem). Ela some depois da próxima resposta dela que não mexer na lista.
+Em um trabalho mais longo, ela mantém para si uma lista curta de passos. Ela fica abaixo da última mensagem dela, com uma contagem como **2 of 5**; o passo em andamento gira enquanto ela trabalha, e os passos concluídos aparecem riscados. Você não pode editá-la. Ela está ali para você ver em que ponto a assistente está, e a assistente a atualiza conforme avança. Quando você escreve depois da resposta que salvou a lista, ela fica esmaecida e mostra **Plan from before your last message**. Ela some depois da próxima resposta dela que não mexer na lista.
 
 ## Sair da janela dela
 
