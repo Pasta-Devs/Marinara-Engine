@@ -122,10 +122,18 @@ async function resolveHtmlArtifactConnections(db: DB, chatConnectionId: string |
 
 type HtmlArtifactDebugLog = (message: string, ...args: unknown[]) => void;
 
-/** How many artifacts one connection makes at once: its Max Parallel Agent Jobs, as for agent batches. */
+/**
+ * How many artifacts one connection makes at once: its Max Parallel Agent Jobs, as for agent batches. A failed lookup
+ * means one at a time, so the reply's other commands still run and the artifact's own run reports the failure.
+ */
 export async function resolveHtmlArtifactMaxParallelJobs(db: DB, chatConnectionId: string | null): Promise<number> {
-  const { primary } = await resolveHtmlArtifactConnections(db, chatConnectionId);
-  return normalizeAgentMaxParallelJobs(primary?.maxParallelJobs);
+  try {
+    const { primary } = await resolveHtmlArtifactConnections(db, chatConnectionId);
+    return normalizeAgentMaxParallelJobs(primary?.maxParallelJobs);
+  } catch (error) {
+    logger.warn(error, "[roleplay/commands] Could not read the artifact connection's parallel job limit");
+    return 1;
+  }
 }
 
 /**
@@ -153,7 +161,7 @@ async function buildHtmlArtifactScene(db: DB, messageId: string): Promise<string
   const cards = new Map<string, { name: string; description: string }>();
   for (const id of new Set([message.characterId, ...recent.map((row) => row.characterId)])) {
     if (!id) continue;
-    const row = await characters.getById(id);
+    const row = await characters.getById(id, message.chatId);
     if (!row) continue;
     const data = parseExtra(row.data);
     const extensions = parseExtra(data.extensions);
