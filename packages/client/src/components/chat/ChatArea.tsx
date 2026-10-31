@@ -726,12 +726,17 @@ const LocalChatArea = memo(function LocalChatArea({
   // Delete dialog & multi-select state
   const [deleteDialogMessageId, setDeleteDialogMessageId] = useState<string | null>(null);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
-  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [selectedMessageIds, setSelectedMessageIdsState] = useState<Set<string>>(new Set());
   const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
   // A selection started from "Export a range" (#8547): it offers export only, never delete.
   const [exportSelection, setExportSelection] = useState(false);
   // The selection an export was submitted for, so its result clears only that one and not a newer selection.
   const submittedSelectionRef = useRef<Set<string> | null>(null);
+  // Every change to the selection, whatever sets it, ends the run an in-flight export was submitted for.
+  const setSelectedMessageIds = useCallback<typeof setSelectedMessageIdsState>((update) => {
+    submittedSelectionRef.current = null;
+    setSelectedMessageIdsState(update);
+  }, []);
 
   const {
     data: chatDetail,
@@ -875,7 +880,6 @@ const LocalChatArea = memo(function LocalChatArea({
       if (!chatId || chatId !== useChatStore.getState().activeChatId) return;
       handleCloseSettingsPanel();
       setDeleteDialogMessageId(null);
-      submittedSelectionRef.current = null;
       setSelectedMessageIds(new Set());
       setSelectionAnchorIndex(null);
       setExportSelection(true);
@@ -2576,7 +2580,6 @@ const LocalChatArea = memo(function LocalChatArea({
       }
     }
     setDeleteDialogMessageId(null);
-    submittedSelectionRef.current = null;
     setExportSelection(false);
     setMultiSelectMode(true);
   }, [deleteDialogMessageId, messages]);
@@ -2614,7 +2617,6 @@ const LocalChatArea = memo(function LocalChatArea({
     }
     setMultiSelectMode(false);
     setExportSelection(false);
-    submittedSelectionRef.current = null;
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
   }, [selectedMessageIds, deleteMessages]);
@@ -2622,7 +2624,6 @@ const LocalChatArea = memo(function LocalChatArea({
   const handleCancelMultiSelect = useCallback(() => {
     setMultiSelectMode(false);
     setExportSelection(false);
-    submittedSelectionRef.current = null;
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
   }, []);
@@ -2704,7 +2705,6 @@ const LocalChatArea = memo(function LocalChatArea({
   useEffect(() => {
     setMultiSelectMode(false);
     setExportSelection(false);
-    submittedSelectionRef.current = null;
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
     setScheduleModalCharacterId(null);
