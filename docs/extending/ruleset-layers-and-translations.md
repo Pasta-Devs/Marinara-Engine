@@ -54,9 +54,26 @@ exactly like the ruleset itself.
   and the purse line leaves it out. A price named in it is said in the largest coin left that pays
   it exactly, at the same worth: Gravewatch's long night takes the crown out, so a watch pistol at 3
   crowns costs 15 shillings. An item whose whole family is gone has no price.
+- `items` changes where things are sold and what drops, never what exists. `market.removeSellers`
+  takes sellers out of your market (at least one is always left: a market with no sellers lets
+  anybody sell everything, so a removal that would empty it, even by two layers together, is not
+  made). `market.unsold` takes wares off every seller, with filters like the market's own (it is
+  added to the market's `unsold`). `lootTables` replaces loot tables you already have, by id, with
+  tables of the same shape, so every creature, threat tier and seller's `stock` that names one
+  rolls the replacement; when several active layers replace one table, the last of them wins. An
+  unsold item is still an item: it can be carried, used, found in loot and handed out by the Game
+  Master, and a seller's `stock` table may still roll it.
+
+```json
+"items": {
+  "market": { "removeSellers": ["magic_dealer", "scribe"], "unsold": [{ "tag": "magical" }] },
+  "lootTables": [{ "id": "treasure_low", "label": "Pocket treasure", "entries": [{ "coins": "sp", "weight": 1, "count": "4d6" }] }]
+}
+```
 
 **What a layer cannot do.** It cannot add an enum value, add a field, a skill, a pool or a rest,
-change the resolution kind, touch live state or combat numbers, or add a model call. A value a
+add a seller or a loot table, change the resolution kind, touch live state or combat numbers, or add
+a model call. A value a
 layer _added_ would be unknown to every other reader of the sheet, so values only ever go away.
 Anything beyond this list is a change to the ruleset itself, or a second ruleset.
 
@@ -72,7 +89,8 @@ layer takes out that somebody already carries stay in their bag.
 
 **Limits.** 12 layers per ruleset, and 4000 characters of guidance per layer counting both strings
 together. A packaged ruleset that declares `layers`, or a base `gm.worldGuidance`, needs Capability
-API 1.25, and one whose layers take coins out needs 1.64. A ruleset you import is validated by the Engine that reads it, so it needs nothing.
+API 1.25, one whose layers take coins out needs 1.64, and one whose layers change its `items` needs
+1.813. A ruleset you import is validated by the Engine that reads it, so it needs nothing.
 
 **Layers written by somebody else** (a Low Magic layer for a ruleset you did not write, shipped in
 its own file) are a later addition. Today a layer ships inside the ruleset it belongs to.

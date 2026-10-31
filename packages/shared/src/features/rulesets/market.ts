@@ -71,9 +71,17 @@ export function rulesetItemMatchesFilter(item: RulesetCatalogItem, filter: ItemF
   );
 }
 
+/** Whether no seller has an item among their wares (Capability API 1.813): one of the market's
+ *  `unsold` filters picks it. A seller's stock table may still roll it. */
+export function rulesetItemUnsold(market: RulesetMarket, item: RulesetCatalogItem): boolean {
+  return market.unsold?.some((filter) => rulesetItemMatchesFilter(item, filter)) ?? false;
+}
+
 /** The rank of the smallest place that sells an item: its own `sold` place, else the first rule that
- *  matches it and names a place, else anywhere. */
+ *  matches it and names a place, else anywhere. An unsold item (1.813) is sold at no place, so its rank
+ *  is past every place's. */
 export function rulesetItemSoldRank(market: RulesetMarket, item: RulesetCatalogItem): number {
+  if (rulesetItemUnsold(market, item)) return Number.POSITIVE_INFINITY;
   const place =
     item.sold?.place ??
     market.sold?.find((rule) => rule.place !== undefined && rulesetItemMatchesFilter(item, rule.filter))?.place;

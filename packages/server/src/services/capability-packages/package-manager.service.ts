@@ -4270,6 +4270,17 @@ function carriesAmmoRider641(value: unknown, depth = 0): boolean {
   return featureValues(record).some((one) => carriesAmmoRider641(one, depth + 1));
 }
 
+/** A layer's `items` (its market and loot changes), or a market's own `unsold`, which are 1.813: new
+ *  keys on the strict layer and market. */
+function rulesetCarriesLayerItems813(ruleset: unknown): boolean {
+  const record = plainRecord(ruleset);
+  const layers = Array.isArray(record?.layers) ? record.layers : [];
+  return (
+    layers.some((layer) => plainRecord(layer)?.items !== undefined) ||
+    plainRecord(plainRecord(record?.items)?.market)?.unsold !== undefined
+  );
+}
+
 /** Ammunition that adds to the attack roll of the shot it rides (1.812): 5e's Arrow +1. */
 function carriesAmmoToHit804(value: unknown, depth = 0): boolean {
   if (!value || depth > 40) return false;
@@ -12773,6 +12784,10 @@ function capabilityPackageInstallIssueFor(
     })()
   ) {
     return "A ruleset whose list rows may be used as rituals (a list's ritual) requires schemaVersion 2 and capabilityApi 1.807 or newer";
+  }
+  // A layer that changes where items are sold or what drops, or a market's own unsold wares, 1.813.
+  if (!declaresApi(813) && rulesetCarriesLayerItems813(ruleset)) {
+    return "A ruleset whose layers change its market or loot tables (a layer's items), or whose market leaves wares unsold, requires schemaVersion 2 and capabilityApi 1.813 or newer";
   }
   // Ammunition that adds to the attack roll of its shot, 1.812.
   if (

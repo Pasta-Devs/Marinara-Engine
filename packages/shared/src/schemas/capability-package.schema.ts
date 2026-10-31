@@ -1552,7 +1552,13 @@ const capabilityPackageManifestBaseSchema = z
 //        carry `locales/<lang>.json`, of which an import keeps the Engine's language alone.
 // 1.812: an `ammoRider`'s `toHit`: what magic ammunition adds to the attack roll of the shot it rides
 //        (5e's Arrow +1).
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 812 } as const);
+// 1.813: a ruleset layer's `items`: sellers taken out of the market (`market.removeSellers`), wares
+//        no seller sells (`market.unsold`, appended to the market's own new `unsold`), and loot tables
+//        replaced by id (`lootTables`). Nothing is added to the catalogs, so an item stays known and
+//        only where it is sold and how often it drops changes (a low-magic layer). Not a soft seam: an
+//        Engine that cannot read these refuses the whole ruleset file, so a package that ships either
+//        declares 1.813. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 813 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
