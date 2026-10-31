@@ -214,6 +214,8 @@ La génération du monde est la partie la plus difficile de Game Mode. Elle dema
 
 Pour la génération du monde, prends un modèle récent et performant, du haut du panier, sur une connexion payante. En 2026, les joueurs rapportent de bons résultats avec les gammes phares des grands fournisseurs. Par exemple Anthropic Claude, OpenAI GPT et Google Gemini. Les noms de modèles changent souvent : vois-y des exemples, pas une liste figée.
 
+Les modèles les moins chers que nous recommandons, tous deux testés en jeu au 31/10/2026, sont DeepSeek V4 Flash et Claude Haiku 5.5.
+
 Pour les tours de jeu courants, il est parfois possible de descendre vers un modèle moins cher, car un tour demande de la narration, pas du JSON strict. Si le GM se met à oublier des PNJ ou à contredire des détails passés, remonte vers un modèle plus solide.
 
 Évite les modèles gratuits ou à routage automatique pour la génération du monde. Ils peuvent basculer vers un modèle plus petit, incapable de produire un JSON de génération du monde valide. Les petits modèles à poids ouverts échouent en général aussi à cette étape.

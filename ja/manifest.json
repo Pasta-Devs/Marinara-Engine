@@ -1,6 +1,6 @@
 {
   "language": "ja",
-  "sourceCommit": "0a53d4275d4de84e67d6ae77a135deab3b38ef5c",
+  "sourceCommit": "2e0dadf0cc63f55905ca0382646fb928bbcd5fc5",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -489,8 +489,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "4c20d3c649d1c174974052151d5aac65fd229a2a7d31c7281f4558d2557eeaee",
-      "bytes": 49714
+      "sha256": "829580f16bd61417ba080ec5e3193dbf0d6004c68809c121e57d6952cc5d180c",
+      "bytes": 49895
     },
     {
       "path": "game/hud-widgets.md",

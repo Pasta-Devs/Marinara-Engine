@@ -211,6 +211,8 @@ La generación del mundo es la parte más difícil de Game Mode. Le pide al mode
 
 Para la generación del mundo, usa un modelo de primer nivel, actual y capaz, en una conexión de pago. A partir de 2026, los jugadores reportan buenos resultados con los niveles insignia de los grandes proveedores. Algunos ejemplos son Anthropic Claude, OpenAI GPT y Google Gemini. Los nombres específicos de los modelos cambian a menudo, así que trata estos como ejemplos, no como una lista fija.
 
+Los modelos más baratos que recomendamos, ambos probados en partidas al 31 de octubre de 2026, son DeepSeek V4 Flash y Claude Haiku 5.5.
+
 Para los turnos de juego en curso, a veces puedes bajar a un modelo más barato, porque los turnos piden narración en lugar de JSON estricto. Si el GM empieza a olvidar NPC o a contradecir detalles anteriores, vuelve a subir a un modelo más fuerte.
 
 Evita los modelos gratuitos o de enrutamiento automático para la generación del mundo. Pueden enrutar a un modelo más pequeño que no puede producir un JSON de generación de mundo válido. Los modelos pequeños de pesos abiertos también suelen fallar en este paso.
