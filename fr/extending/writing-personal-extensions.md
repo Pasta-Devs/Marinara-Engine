@@ -121,10 +121,11 @@ Les Browser Extensions exécutées dans le bac à sable reçoivent un seul objet
 | `context.subscribe(listener)` | Recevoir les changements de contexte ; renvoie une fonction de désabonnement |
 | `ui.registerContribution(options)` | Ajouter un bouton sûr, un élément du menu Extensions ou un panneau rendu par Marinara |
 | `ui.showWindow(options)` | Ouvrir une fenêtre iframe restreinte |
+| `dice.registerFormat(options)` | Apprendre une notation à `/roll` ; Marinara lance les dés qu'elle désigne |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | Minuteurs gérés et supprimés à l'arrêt de l'extension |
 | `onCleanup(callback)` | Enregistrer une logique de nettoyage supplémentaire |
 
-Utilise les [panneaux rendus par Marinara](personal-extensions.md#add-a-marinara-rendered-panel) pour l'interface normale et le [contexte du chat actif](personal-extensions.md#use-active-chat-context) pour les comportements qui dépendent du chat. L'état de l'extension doit rester dans `marinara.storage`, pas dans le stockage du navigateur.
+Utilise les [panneaux rendus par Marinara](personal-extensions.md#add-a-marinara-rendered-panel) pour l'interface normale, le [contexte du chat actif](personal-extensions.md#use-active-chat-context) pour les comportements qui dépendent du chat et les [formats de dés](personal-extensions.md#add-a-dice-format) pour une notation `/roll` personnalisée. L'état de l'extension doit rester dans `marinara.storage`, pas dans le stockage du navigateur.
 
 `showWindow({ title, elements, onEvent, onClose })` renvoie un descripteur doté de `update({ title?, elements? })` et `close()`. Le CSS du paquet met en forme ces fenêtres iframe isolées ; les contributions rendues par l'hôte utilisent toujours le thème et les contrôles propres à Marinara.
 

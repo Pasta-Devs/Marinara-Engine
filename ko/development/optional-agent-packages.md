@@ -392,7 +392,7 @@ Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보�
 
 공식 카탈로그는 스키마로 검증하고 버전을 매긴 JSON 문서이며 HTTPS로 다운로드합니다. 릴리스 항목마다 변하지 않는 아티팩트 URL, SHA-256 다이제스트, 바이트 크기, 엔진 호환 정보, 권한, 실행에 다시 시작이 필요한지 여부가 들어 있습니다.
 
-업데이트에는 사용자의 동의가 필요합니다. 업그레이드한 설치의 예전 내장 기능을 유지하는 일회성 마이그레이션([호환성 마이그레이션](#compatibility-migration) 참고)을 제외하면, 시작할 때 패키지를 다운로드하거나 설치하는 일은 없습니다. `GET /api/capability-packages/updates/pending`은 카탈로그 버전이 더 새롭고 실행 중인 엔진 및 Capability API와 호환되는 설치된 공식 패키지를 나열하되, 사용자가 이미 거절한 버전은 뺍니다. 클라이언트는 이를 **Agent updates available**(에이전트 업데이트 있음) 안내 하나로 보여 줍니다. **Update all**(모두 업데이트)은 각 패키지를 제시된 버전과 아티팩트 SHA-256에 고정해 일반 설치 파이프라인으로 설치합니다. **Not now**(나중에)는 거절한 버전을 `DATA_DIR/capability-packages/update-decisions-v1.json`에 기록하므로(`POST /api/capability-packages/updates/decline`) 그 버전은 다시 제시되지 않지만, 더 새 버전은 제시됩니다. 어느 쪽이든 **Agent Organizer (에이전트 관리)**의 **Update**는 계속 쓸 수 있습니다. 실패는 패키지 단위로 격리합니다. 카탈로그에 연결하지 못하거나 검증에 실패해도 이미 있는 파일과 레지스트리 상태는 그대로 쓸 수 있고, 서버 런타임 준비에 실패하면 이전 버전으로 되돌리는 경로를 탑니다.
+업데이트에는 사용자의 동의가 필요합니다. 업그레이드한 설치의 예전 내장 기능을 유지하는 일회성 마이그레이션([호환성 마이그레이션](#compatibility-migration) 참고)을 제외하면, 시작할 때 패키지를 다운로드하거나 설치하는 일은 없습니다. `GET /api/capability-packages/updates/pending`은 카탈로그 버전이 더 새롭고 실행 중인 엔진 및 Capability API와 호환되는 설치된 공식 패키지를 나열하되, 사용자가 이미 거절한 버전은 뺍니다. 클라이언트는 이를 **Agent updates available**(에이전트 업데이트 있음) 안내 하나로 보여 줍니다. 이 안내 창은 선택한 각 업데이트를 제시된 버전과 아티팩트 SHA-256에 고정해 일반 설치 파이프라인으로 설치합니다. 선택하지 않은 업데이트는 **Not now**와 같은 방식으로 거절됩니다. **Not now**(나중에)는 거절한 버전을 `DATA_DIR/capability-packages/update-decisions-v1.json`에 기록하므로(`POST /api/capability-packages/updates/decline`) 그 버전은 다시 제시되지 않지만, 더 새 버전은 제시됩니다. 어느 쪽이든 **Agent Organizer (에이전트 관리)**의 **Update**는 계속 쓸 수 있습니다. 실패는 패키지 단위로 격리합니다. 카탈로그에 연결하지 못하거나 검증에 실패해도 이미 있는 파일과 레지스트리 상태는 그대로 쓸 수 있고, 서버 런타임 준비에 실패하면 이전 버전으로 되돌리는 경로를 탑니다.
 
 릴리스 노트는 설명 대상인 `catalog.json` 옆에 `notes.json`으로 게시하며, 카탈로그 항목이나 매니페스트 안에는 절대 넣지 않습니다. 오래된 엔진은 모르는 키가 있는 카탈로그 항목을 버리기 때문입니다. 대기 중인 각 업데이트에는 설치된 버전 다음부터 제시된 버전까지 모든 버전의 노트가 최신순으로 `releaseNotes`에 담기며, 그중 하나라도 사용자가 알아챌 변경으로 표시되어 있으면 `releaseHighlight`가 true입니다. 노트는 일반 텍스트이며 Markdown이나 HTML로 렌더링하지 않습니다.
 
@@ -452,7 +452,7 @@ Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보�
 
 **Agents**(에이전트) 패널에는 Characters 패널과 Personas 패널에서 Card Browser를 여는 `Download` 버튼에 대응하는 `Agent Organizer` 컨트롤이 있습니다. 이 컨트롤을 누르면 전체 화면 라이브러리가 열리고, 검색, 패키지 종류, 호환 정보, 설치/업데이트 상태, 권한, 저장 공간 사용량, 문서, 제거 컨트롤을 화면 크기에 맞춰 보여 줍니다.
 
-데스크톱에서는 목록과 그 옆의 상세 영역을 함께 보여 줍니다. 모바일에서는 한 화면씩 보여 주고, 뒤로 가기와 손가락으로 누르기 쉬운 크기의 조작 버튼을 제공합니다. 비어 있음, 오프라인, 호환되지 않음, 다운로드 손상, 설치 중단, 업데이트, 롤백, 다시 시작 필요 상태도 모두 정식 상태로 처리합니다.
+데스크톱에서는 스토어 페이지 옆의 사이드바에 검색, 모드 필터, 섹션을 보여 줍니다. 모바일에서는 페이지 위에 검색, 모드 필터, 섹션 칩을 보여 줍니다. 에이전트 페이지가 목록을 대신하며, 명확한 뒤로 가기와 손가락으로 누르기 쉬운 크기의 조작 버튼을 제공합니다. 비어 있음, 오프라인, 호환되지 않음, 다운로드 손상, 설치 중단, 업데이트, 롤백, 다시 시작 필요 상태도 모두 정식 상태로 처리합니다.
 
 ## 분리 완료 기준
 
@@ -1047,6 +1047,34 @@ export async function activate({ api }) {
 
 `contributions.agentDetail`이 있는 패키지는 `"header": "engine"`을 설정할 수 있습니다. 그러면 Engine이 다른 모든 에이전트 페이지와 같은 헤더를 그립니다. 뒤로 가기, 스토어 배너와 로고, 이름, 열린 채팅의 Active 토글, 패키지 관리가 포함됩니다. `detail` 뷰는 두 가지 추가 프롭을 받습니다. `engineHeader: true`와 헤더 작업 영역의 요소인 `headerSlot`입니다. `engineHeader`가 설정되면 자체 헤더를 숨기고, 헤더의 추가 버튼(예: “기억 추가” 또는 도움말)은 React 포털이나 `appendChild`로 `headerSlot`에 렌더링하세요. 첫 렌더링에서 `headerSlot`은 `null`이므로 다음 프롭 업데이트를 기다리세요. 이 플래그가 없으면 패키지는 이전처럼 전체 페이지를 유지합니다. 설정할 때 Capability API 1.390을 선언하세요.
 
+<a id="capability-api-1389-hide-or-show-messages-from-the-ai"></a>
+
+### Capability API 1.389: AI에게서 메시지 숨기기와 다시 보이게 하기
+
+`persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)`은 Engine의 요약 기능이 **Hide summarised messages**(요약된 메시지 숨기기)로 처리하는 것처럼, 한 채팅의 메시지를 AI에게서 숨기거나 다시 보이게 합니다. `chat-write` 권한이 필요하며 메시지와 모든 스와이프를 변경합니다. 채팅을 찾을 수 없으면 요청을 거부합니다.
+
+- 이 채팅의 메시지가 아닌 ID는 무시합니다.
+- 사용자가 표시 여부를 직접 설정한 메시지는 절대 변경하지 않습니다.
+- 이 호출로 플래그가 바뀐 메시지의 ID를 반환합니다. 이미 숨겨진 메시지(예를 들어 요약 기능이 숨긴 메시지)는 반환하지 않으므로, 반환된 ID를 기록하고 나중에 그 메시지만 다시 보이게 하세요.
+
+이전 Engine에는 이 메서드가 없으므로 존재 여부를 확인하거나 1.389를 선언하세요.
+
+```ts
+const hidden = (await api.runtime.persistence.setMessagesHiddenFromAI?.(chatId, messageIds, true)) ?? [];
+```
+
+<a id="capability-api-1388-a-service-only-the-engine-can-read"></a>
+
+### Capability API 1.388: Engine만 읽을 수 있는 서비스
+
+패키지가 등록한 모든 서비스는 다른 모든 패키지가 `runtime.services.get(key)`로 읽을 수 있습니다. 생성 중에 Engine이 호출하는 런타임처럼 Engine만 사용할 서비스는 세 번째 인자를 받습니다.
+
+```ts
+api.registerService("my-package:runtime", service, { hostOnly: true });
+```
+
+Engine 자체의 조회는 이 서비스를 계속 반환합니다. `runtime.services.get`은 소유자를 포함한 모든 패키지에 이 서비스 대신 `null`을 반환합니다. 서비스를 해제하면 플래그도 지워지므로 같은 키를 플래그 없이 다시 등록할 수 있습니다. 1.388보다 오래된 Engine은 이 인자를 무시하므로 서비스를 계속 읽을 수 있습니다. 이전 Engine에서 기밀성을 지키기 위해 `hostOnly`에 의존하지 마세요.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: 채팅 요약 읽기
@@ -1303,7 +1331,7 @@ Engine이 반환한 생성 결과 `{ tag, path }`는
 
 패키지 서버가 Engine 서비스의 사본을 번들에 넣으면, 그 서비스의 두 번째 인스턴스가 실행되며 자체 상태를 갖습니다. Intiface 연결, 연결 요청 수용, 채팅 메타데이터 큐, 서비스 레지스트리가 각각 별개가 됩니다. Capability API 1.341은 대신 Engine에서 실행 중인 인스턴스에 접근하는 `api.runtime` 멤버를 추가하고, 패키지 서버가 일부 라이브러리를 번들에 넣지 않고 Engine에서 가져다 쓸 수 있게 합니다. 새 멤버는 모두 `CapabilityRuntimeHost`에서 선택적이므로 사용하기 전에 존재하는지 확인하세요.
 
-- `runtime.services.get(key)`는 패키지가 `api.registerService`로 등록한 서비스를 반환하고, 서비스가 없거나 공유방에서 생성하는 동안에는 `null`을 반환합니다. Engine 자체 레지스트리를 읽으므로 모든 패키지에서 같은 서비스를 봅니다. `agent-runtime:`과 `mari-actions:` 키는 항상 `null`을 반환합니다. 이 키는 Engine만 읽습니다.
+- `runtime.services.get(key)`는 패키지가 `api.registerService`로 등록한 서비스를 반환하고, 서비스가 없거나 공유방에서 생성하는 동안에는 `null`을 반환합니다. Engine 자체 레지스트리를 읽으므로 모든 패키지에서 같은 서비스를 봅니다. `agent-runtime:`과 `mari-actions:` 키는 항상 `null`을 반환합니다. 이 키는 Engine만 읽습니다. `hostOnly`로 등록한 서비스(Capability API 1.388)도 소유자를 포함한 모든 패키지에 `null`을 반환합니다.
 - `runtime.commands.parse(content)`, `strip(content)`, `instructions()`는 Engine의 문법과 모든 패키지가 등록한 태그로 Conversation 명령을 읽습니다.
 - `runtime.logger.isLevelEnabled(level)`은 Engine 로거가 현재 그 수준의 로그를 기록하는지 알려 줍니다.
 - `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })`는 Engine의 큐를 거치는 메타데이터 패치입니다. 채팅마다 큐가 하나씩 있으며 Engine 자체 쓰기 작업과 공유하고, 공유방 가드와 쓰기 순번을 사용합니다. 패치에 포함된 키는 해당 키를 바꾸고 다른 키는 모두 유지합니다. `patch`는 현재 메타데이터를 인자로 받는 함수일 수도 있습니다. 같은 채팅의 `withChatLock` 안에서는 그 잠금 안에서 실행됩니다. `updateChatMetadata`처럼, 더는 존재하지 않는 Global Gallery 이미지에 대한 새 참조를 거부합니다.
@@ -1326,6 +1354,8 @@ Engine이 반환한 생성 결과 `{ tag, path }`는
 
 **번들 사본은 사용하지 않습니다.** 이 멤버 중 하나가 없으면 패키지는 그 기능에 더 새로운 Marinara Engine이 필요하다고 알립니다. 제공자 레지스트리, 로컬 사이드카, 연결 요청 수용, 햅틱, Spotify, 로거, 레지스트리, 저장 큐처럼 상태를 가진 Engine 서비스의 번들 사본으로 대체하지 않습니다. 두 번째 사본은 Engine이 한곳에서 관리하는 상태를 나누기 때문입니다. 순수 헬퍼와 타입은 여전히 번들에 포함할 수 있습니다.
 
-**공유 서버 라이브러리.** 패키지 서버는 `zod`, `adm-zip`, `dotenv`, `nanoid`, `jsonrepair`를 번들에서 빼고 이름으로 가져올 수 있습니다. 기존에 가능한 `@huggingface/transformers`, `onnxruntime-node`, `onnxruntime-web`, `sharp`, `pino`, `pino-pretty`, `undici`와 같습니다. Node는 패키지의 런타임 사본에 있는 관리형 링크를 통해 `DATA_DIR/capability-packages/node_modules`에서 모듈을 찾으며, 이 경로는 Engine의 `packages/server/node_modules`를 가리킵니다. Zod는 호환성을 위한 예외입니다. 패키지의 `zod` 가져오기는 기본 내보내기, 이름 있는 내보내기, CommonJS 및 하위 경로 내보내기를 모두 포함하는 전체 `zod-v3` 의존성으로 연결됩니다. 다른 라이브러리는 Engine과 정확히 같은 모듈 인스턴스를 사용합니다. Engine 자체의 `zod` 가져오기는 계속 네이티브 Zod 4로 연결됩니다. pnpm은 서버의 직접 의존성만 그곳에 두므로 그 이름만 찾을 수 있습니다. `ws` 같은 의존성의 의존성은 찾지 못합니다. Engine은 위 이름들을 `packages/server`의 직접 프로덕션 의존성으로 유지하며, 모든 설치가 이 구조를 유지합니다. 소스 및 런처 설치, Windows(데이터 링크는 정션), Android와 Termux, 두 Docker 이미지가 모두 해당합니다. 시작하거나 패키지를 활성화할 때 Engine은 다른 위치를 가리키는 데이터 링크를 다시 만듭니다. 다른 설치 경로에서 데이터 폴더를 옮겨 대상이 사라진 링크도 포함됩니다. 링크가 아닌 항목은 그대로 둡니다.
+**공유 서버 라이브러리.** 패키지 서버는 `zod`, `adm-zip`, `dotenv`, `nanoid`, `jsonrepair`를 번들에서 빼고 이름으로 가져올 수 있습니다. 기존에 가능한 `@huggingface/transformers`, `onnxruntime-node`, `onnxruntime-web`, `sharp`, `pino`, `pino-pretty`, `undici`와 같습니다. Engine은 Node의 패키지 해석기로 Engine 서버가 선언한 의존성을 찾아, 호스트가 관리하는 각 패키지의 런타임 사본에 관리형 링크를 만듭니다. 직접 의존성, 호이스팅된 의존성, 부분적으로 호이스팅된 의존성에 모두 적용되며, `DATA_DIR`이 Engine 체크아웃 밖에 있어도 작동합니다. Zod는 호환성을 위한 예외입니다. 패키지의 `zod` 가져오기는 기본 내보내기, 이름 있는 내보내기, CommonJS 및 하위 경로 내보내기를 모두 포함하는 전체 `zod-v3` 의존성으로 연결됩니다. 다른 라이브러리는 Engine과 정확히 같은 모듈 인스턴스를 사용합니다. Engine 자체의 `zod` 가져오기는 계속 네이티브 Zod 4로 연결됩니다. 위 이름들은 `packages/server`의 직접 프로덕션 의존성으로 유지됩니다. 관리형 스냅샷은 선언된 의존성을 연결하며, `ws`처럼 선언하지 않은 전이 의존성은 공유 라이브러리 계약에 포함되지 않습니다. 없는 선택적 라이브러리는 건너뛰고, 설치된 개발 도구는 계속 사용할 수 있습니다. Zod 3 별칭이 없거나 호환되지 않으면 패키지가 알림 없이 네이티브 Zod 4를 읽는 대신 명시적으로 활성화에 실패합니다. 호스트 의존성 설정에 실패해도 요청한 패키지 버전과 롤백 메타데이터는 보존됩니다. Engine 의존성을 복구한 뒤 패키지를 다시 설치하지 않고 활성화를 재시도할 수 있습니다. Windows는 이 링크에 정션을 사용합니다. 소스 및 런처 설치, Android와 Termux, 두 Docker 이미지도 같은 의존성 해석 계약을 사용합니다. 실제 서버 의존성 디렉터리를 사용할 수 있으면 구형 공유 데이터 링크를 새로 고칩니다. 기존의 실제 디렉터리는 그대로 두고, 새 런타임 사본은 그 구형 데이터 링크와 별개로 의존성을 찾습니다. 패키지가 자체 선언한 번들 의존성 트리는 그대로 유지됩니다.
+
+시작할 때 알려진 Zod 마이그레이션 오류로 비활성화된 구형 API-1 패키지는 일반 호환성 검사와 파일 무결성 검사를 거쳐 활성화를 다시 시도합니다. 따라서 Engine을 복구하면 지도나 다른 패키지 데이터를 삭제하지 않고도 이미 실패한 설치를 복구할 수 있습니다. 다른 오류 메시지로 비활성화된 패키지는 그대로 유지됩니다. 과거 레지스트리 항목에는 오류 메시지만 기록되어 있으므로, 복구 대상을 식별할 때는 구형 `innerType` 오류와 중첩된 `curve` 오류의 정확한 메시지를 사용합니다.
 
 **선언.** 이 기능 중 하나라도 사용하는 패키지는 `schemaVersion: 2`, `capabilityApi: { major: 1, minor: 341 }`, `builtAgainst`를 선언하고 `engine` 범위를 유지합니다. `schemaVersion: 1` 매니페스트는 Capability API를 기준으로 검사하지 않으므로 버전 2로 옮깁니다. 기준은 Engine 버전이 아니라 Capability API입니다. 이 멤버가 없는 Engine은 설치나 업데이트를 거부하고("Package requires capability API 1.341; this Engine supports ..."), 그 패키지를 업데이트 목록에서 빼며 설치된 버전을 계속 실행합니다.

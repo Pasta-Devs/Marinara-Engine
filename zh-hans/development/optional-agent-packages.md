@@ -369,7 +369,7 @@ Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人�
 
 官方目录是一份带版本号、经过结构校验的 JSON 文档，通过 HTTPS 获取。每个发布条目都包含不可变的产物 URL、SHA-256 摘要、字节大小、引擎兼容性、权限，以及该包的运行时是否需要重启。
 
-更新需要用户同意：除了为升级上来的安装保留原有内置功能的一次性迁移（见[兼容性迁移](#compatibility-migration)）之外，启动时绝不会下载或安装任何包。`GET /api/capability-packages/updates/pending` 会列出每个已安装、目录版本更新且与当前 Engine 和能力 API 兼容的官方包，用户已经拒绝过的版本不在其中。客户端会在一个 **Agent updates available**(有智能体更新可用) 提示里一并显示它们。**Update all**(全部更新) 会走常规安装流程逐个安装，并固定为所提供的版本和产物 SHA-256。**Not now**(暂不更新) 会把被拒绝的版本记录到 `DATA_DIR/capability-packages/update-decisions-v1.json`(`POST /api/capability-packages/updates/decline`)，这样该版本不会再被提供，更新的版本则仍会提供。无论哪种情况，**Agent Organizer(智能体管理器)** 里的 **Update**(更新) 都一直可用。失败按包隔离，互不影响。目录离线或校验失败时，已有的文件和注册表状态照常可用；服务器运行时就绪失败则走回退到上一版本的路径。
+更新需要用户同意：除了为升级上来的安装保留原有内置功能的一次性迁移（见[兼容性迁移](#compatibility-migration)）之外，启动时绝不会下载或安装任何包。`GET /api/capability-packages/updates/pending` 会列出每个已安装、目录版本更新且与当前 Engine 和能力 API 兼容的官方包，用户已经拒绝过的版本不在其中。客户端会在一个 **Agent updates available**(有智能体更新可用) 提示里一并显示它们。提示窗口会通过常规安装流程逐个安装选中的更新，并固定为所提供的版本和产物 SHA-256。用户未勾选的更新会像选择 **Not now**(暂不更新) 一样被拒绝。**Not now** 会把被拒绝的版本记录到 `DATA_DIR/capability-packages/update-decisions-v1.json`(`POST /api/capability-packages/updates/decline`)，这样该版本不会再被提供，更新的版本则仍会提供。无论哪种情况，**Agent Organizer(智能体管理器)** 里的 **Update**(更新) 都一直可用。失败按包隔离，互不影响。目录离线或校验失败时，已有的文件和注册表状态照常可用；服务器运行时就绪失败则走回退到上一版本的路径。
 
 发行说明以 `notes.json` 的形式发布在它所描述的 `catalog.json` 旁边，绝不放进目录条目或清单：旧版 Engine 会丢弃带有未知键的目录条目。每个待处理的更新都带有 `releaseNotes`，内容是已安装版本之后、直到所提供版本为止每个版本的说明，最新的在前；只要其中任何一条被标记为用户会注意到的变化，`releaseHighlight` 就为 true。说明是纯文本，绝不会按 Markdown 或 HTML 渲染。
 
@@ -429,7 +429,7 @@ Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人�
 
 Agents(智能体) 面板里有一个 `Agent Organizer(智能体管理器)` 控件，与 Characters 和 Personas 面板里打开 Card Browser 的 `Download` 按钮相对应。点开是一个全屏的自适应库页面，提供搜索、包类型、兼容性信息、安装/更新状态、权限、占用空间、文档和卸载控件。
 
-桌面端用一份浏览列表加旁边的详情区。移动端只用一栏，配明确的返回导航和适合触摸的按钮。空列表、离线、不兼容、下载损坏、安装中断、有更新、已回滚、需重启这些状态都是一等公民，各有对应界面。
+桌面端在商店页面旁显示侧边栏，里面有搜索、模式筛选和分区。移动端在页面上方显示搜索、模式筛选和分区标签；打开智能体页面后会替换列表，配明确的返回导航和适合触摸的按钮。空列表、离线、不兼容、下载损坏、安装中断、有更新、已回滚、需重启这些状态都是一等公民，各有对应界面。
 
 ## 抽离验收标准
 
@@ -1024,6 +1024,34 @@ export async function activate({ api }) {
 
 带有 `contributions.agentDetail` 的安装包可以设置 `"header": "engine"`。此时，Engine 会绘制与其他智能体页面相同的标题栏：返回按钮、商店横幅和徽标、名称、当前打开聊天的 Active 开关，以及管理安装包的操作。`detail` 视图会收到两个额外属性：`engineHeader: true` 和 `headerSlot`，后者是标题栏操作区域中的一个元素。设置了 `engineHeader` 时，请隐藏自己的标题栏，并通过 React portal 或 `appendChild` 将额外的标题栏按钮（例如“添加记忆”或帮助）渲染到 `headerSlot` 中。首次渲染时，`headerSlot` 为 `null`，因此请等待下一次属性更新。没有此标记时，安装包仍像以前一样保留整个页面。设置此项时，请声明 Capability API 1.390。
 
+<a id="capability-api-1389-hide-or-show-messages-from-the-ai"></a>
+
+### Capability API 1.389：对 AI 隐藏或显示消息
+
+`persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` 会对 AI 隐藏某个聊天的消息，或重新显示它们，作用与 Engine 摘要功能中的 **Hide summarised messages**(隐藏已摘要消息) 相同。它需要 `chat-write` 权限，会修改消息及其所有备选回复。找不到聊天时会拒绝调用。
+
+- 不属于这个聊天的消息 ID 会被忽略。
+- 用户手动设置过可见性的消息绝不会被修改。
+- 返回本次调用实际改变了标志的消息 ID。已经隐藏的消息（例如被摘要功能隐藏的消息）不会返回，所以要记录返回的 ID，之后只重新显示这些消息。
+
+旧版 Engine 没有这个方法：先检查它是否存在，或声明版本 1.389。
+
+```ts
+const hidden = (await api.runtime.persistence.setMessagesHiddenFromAI?.(chatId, messageIds, true)) ?? [];
+```
+
+<a id="capability-api-1388-a-service-only-the-engine-can-read"></a>
+
+### Capability API 1.388：只有 Engine 能读取的服务
+
+包注册的每个服务，其他所有包都能通过 `runtime.services.get(key)` 读取。如果服务只供 Engine 使用，例如由 Engine 在生成期间调用的运行时，就传入第三个参数：
+
+```ts
+api.registerService("my-package:runtime", service, { hostOnly: true });
+```
+
+Engine 自己查询时仍会返回该服务。任何包通过 `runtime.services.get` 查询它都会得到 `null`，包括注册它的包。释放服务会清除这个标志，因此可以重新注册同一个键而不设置它。早于 1.388 的 Engine 会忽略这个参数，服务在那里仍可读取；不要依赖 `hostOnly` 在旧版 Engine 上保密。
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387：读取聊天摘要
@@ -1255,7 +1283,7 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 
 如果服务端包把 Engine 服务的副本打进自己的包里，就会运行第二个实例，并维护独立的状态：独立的 Intiface 连接、连接准入、聊天元数据队列和服务注册表。Capability API 1.341 新增了能直接使用 Engine 当前运行实例的 `api.runtime` 成员，还允许服务端包直接使用 Engine 的一些库，不必自行打包。所有新成员在 `CapabilityRuntimeHost` 中都是可选的，使用前要检查是否存在。
 
-- `runtime.services.get(key)` 返回某个包通过 `api.registerService` 注册的服务；服务不存在或共享房间正在生成时，返回 `null`。它读取 Engine 自己的注册表，因此每个包都能看到同一个服务。`agent-runtime:` 和 `mari-actions:` 键始终返回 `null`；这些键只有 Engine 自己读取。
+- `runtime.services.get(key)` 返回某个包通过 `api.registerService` 注册的服务；服务不存在或共享房间正在生成时，返回 `null`。它读取 Engine 自己的注册表，因此每个包都能看到同一个服务。`agent-runtime:` 和 `mari-actions:` 键始终返回 `null`；这些键只有 Engine 自己读取。以 `hostOnly` 注册的服务（Capability API 1.388）也会对所有包返回 `null`，包括注册它的包。
 - `runtime.commands.parse(content)`、`strip(content)` 和 `instructions()` 使用 Engine 的语法和所有包注册的标签读取 Conversation 命令。
 - `runtime.logger.isLevelEnabled(level)` 表示 Engine 的日志器当前是否会记录该级别。
 - `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })` 使用 Engine 的队列修补元数据，每个聊天只有一个队列，与 Engine 自己的写入方共享，并保留共享房间保护和写入序号。补丁中的键会替换对应的键，其他键全部保留。`patch` 也可以是接收当前元数据的函数。在同一聊天的 `withChatLock` 内调用时，会在该锁内执行。与 `updateChatMetadata` 一样，它会拒绝新增对 Global Gallery 中已不存在图片的引用。
@@ -1277,6 +1305,8 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 
 **绝不使用打包的副本。** 缺少这些成员时，包会提示该功能需要更新的 Marinara Engine。它绝不会回退到自行打包的有状态 Engine 服务副本，例如服务商注册表、本地侧车、连接准入、触觉、Spotify、日志器、注册表或存储队列，因为第二个副本会拆散 Engine 集中维护的状态。纯辅助函数和类型仍可打包。
 
-**共享服务端库。** 服务端包可以不把 `zod`、`adm-zip`、`dotenv`、`nanoid` 和 `jsonrepair` 打进包里，而是按名称导入，就像已有的 `@huggingface/transformers`、`onnxruntime-node`、`onnxruntime-web`、`sharp`、`pino`、`pino-pretty` 和 `undici` 一样。Node 通过包运行时副本中的托管链接，从 `DATA_DIR/capability-packages/node_modules` 解析模块，该路径指向 Engine 的 `packages/server/node_modules`。Zod 是兼容性例外：包的 `zod` 导入解析为完整的 `zod-v3` 依赖，包括默认、具名、CommonJS 和子路径导出。其他库仍与 Engine 使用完全相同的模块实例。Engine 自身的 `zod` 导入仍解析为原生 Zod 4。pnpm 只把服务端的直接依赖放在那里，所以只有这些名称能解析；像 `ws` 这样的间接依赖无法解析。Engine 把上述名称保留为 `packages/server` 的直接生产依赖，所有安装方式都维持这套布局：源码和启动器安装、Windows（数据链接为目录联接）、Android 和 Termux，以及两种 Docker 镜像。Engine 启动或激活包时，会重建任何指向别处的数据链接，也包括从另一安装路径移动数据文件夹后留下的悬空链接。不是链接的内容会原样保留。
+**共享服务端库。** 服务端包可以不把 `zod`、`adm-zip`、`dotenv`、`nanoid` 和 `jsonrepair` 打进包里，而是按名称导入，就像已有的 `@huggingface/transformers`、`onnxruntime-node`、`onnxruntime-web`、`sharp`、`pino`、`pino-pretty` 和 `undici` 一样。Engine 使用 Node 的包解析器解析其服务端声明的依赖，在每个包由宿主管理的运行时副本里建立托管链接。这适用于直接依赖、已提升和部分提升的依赖，`DATA_DIR` 位于 Engine 仓库之外时也一样。Zod 是兼容性例外：包的 `zod` 导入解析为完整的 `zod-v3` 依赖，包括默认、具名、CommonJS 和子路径导出。其他库仍与 Engine 使用完全相同的模块实例。Engine 自身的 `zod` 导入仍解析为原生 Zod 4。上述名称仍是 `packages/server` 的直接生产依赖。托管快照会链接已声明的依赖；像 `ws` 这样的未声明间接依赖不属于共享库契约。缺失的可选库会被跳过，已安装的开发工具仍然可用。Zod 3 别名缺失或不兼容时，激活会明确失败，而不会让包悄悄加载原生 Zod 4。宿主依赖设置失败时，会保留所请求的包版本和回滚元数据；修复 Engine 依赖后，无需重新安装包即可重试激活。Windows 使用目录联接建立这些链接；源码和启动器安装、Android 和 Termux，以及两种 Docker 镜像，都使用同一套依赖解析契约。实际的服务端依赖目录可用时，会刷新旧版共享数据链接。已有的真实目录会原样保留，新建的运行时副本会独立解析依赖，不依赖那个旧版数据链接。包自己声明并随包提供的依赖树保持完整。
+
+启动时，因已知 Zod 迁移错误而被禁用的旧版 API-1 包，会经过正常的兼容性和文件完整性检查后重试。这样，修复后的 Engine 就能恢复已失败的安装，无需删除地图或其他包数据。因其他错误被禁用的包仍保持禁用。历史注册表条目只记录错误消息，因此恢复过程只识别确切的旧版 `innerType` 和嵌套 `curve` 错误。
 
 **声明方式。** 使用这些功能的包需要声明 `schemaVersion: 2`、`capabilityApi: { major: 1, minor: 341 }` 和 `builtAgainst`，并保留 `engine` 版本范围。`schemaVersion: 1` 清单从不按能力 API 检查，因此需要改为版本 2。门槛是能力 API，而不是 Engine 版本：缺少这些成员的 Engine 会拒绝安装或更新（“Package requires capability API 1.341; this Engine supports ...”），将包排除在更新列表之外，并继续运行已安装的版本。

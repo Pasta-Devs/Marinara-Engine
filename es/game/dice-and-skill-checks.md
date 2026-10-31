@@ -67,6 +67,14 @@ Algunos ejemplos más que puedes escribir:
 
 Hay dos límites estrictos. Puedes tirar como máximo 100 dados a la vez y cada dado puede tener hasta 1000 caras. Si pides más, la aplicación reduce tu solicitud a esos límites en lugar de rechazarla, y la tarjeta de resultado muestra la notación reducida: escribir `500d6` genera una tarjeta `100d6` para los cien dados que realmente tiró. Si el texto no es una notación de dados válida, es decir, `NdM` o un simple `dM` como `d20`, la tirada falla y aparece un error que indica el formato esperado.
 
+<a id="symbol-dice-by-name"></a>
+
+### Dados de símbolos por nombre
+
+En una partida cuyo conjunto de reglas tira dados de símbolos (un conjunto `symbol-pool`, como un sistema de estilo Genesys), el campo personalizado también acepta esos dados por nombre. Indica una cantidad y el nombre del dado para cada tipo, por ejemplo `2 ability 1 proficiency vs 2 difficulty`. Los nombres pueden ser el ID del dado o su etiqueta, sin distinguir mayúsculas de minúsculas, y puedes separarlos con espacios, comas, `+` o `vs`.
+
+La tarjeta muestra cada dado con los símbolos de su cara, después los símbolos que quedan tras cancelarse y si el resultado es un éxito. La etiqueta añadida a tu mensaje lleva lo mismo, por ejemplo `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Una tirada puede nombrar hasta 40 dados. Cuando el Game Master tira con su herramienta de dados, también puede usar estos nombres. La notación normal `NdM` sigue tirándose como se describe arriba en todas las partidas.
+
 ## Pruebas de habilidad
 
 Una prueba de habilidad comprueba si tienes éxito en algo arriesgado, como escabullirte, detectar una pista o convencer a un NPC (personaje no jugador). Tú no inicias una prueba de habilidad por tu cuenta. El Game Master la solicita dentro de su narración. La app la convierte entonces en una tirada de d20 animada con un banner de resultado.

@@ -156,7 +156,7 @@ Si `data/capability-runtime-snapshots` o `data/capability-packages/versions` ocu
 
 Las descargas de paquetes se rechazan cuando su checksum, su lista declarada de archivos, su rango de versiones del Engine o las rutas del archivo comprimido no coinciden con el catálogo oficial. Actualiza primero Marinara Engine, refresca el catálogo y vuelve a intentarlo. No extraigas manualmente un artefacto dentro de la carpeta de datos.
 
-Las actualizaciones de agentes nunca se aplican en el arranque. Cuando hay una versión compatible más reciente, Marinara pregunta si quieres aplicarla. Elige **No** para conservar la versión instalada; el botón **Update** sigue disponible en **Agents → Agent Organizer (Organizador de agentes)**. Una actualización fallida también deja registrada la versión instalada, y un runtime del servidor recién actualizado que falle su autocomprobación de arranque vuelve a la versión anterior.
+Las actualizaciones de agentes nunca se aplican en el arranque. Cuando hay una versión compatible más reciente, Marinara pregunta si quieres aplicarla. Elige **Not now** (Ahora no) para conservar la versión instalada; el botón **Update** sigue disponible en **Agents → Agent Organizer (Organizador de agentes)**. Una actualización fallida también deja registrada la versión instalada, y un runtime del servidor recién actualizado que falle su autocomprobación de arranque vuelve a la versión anterior.
 
 ## Acceder a Marinara desde otro dispositivo
 

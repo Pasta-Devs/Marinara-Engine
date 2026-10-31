@@ -190,7 +190,7 @@ Ces macros ajoutent du hasard dans tes prompts. Utilise la macro aléatoire (`{{
 | `{{random:X:Y}}` | Un nombre entier au hasard entre X et Y, bornes comprises. |
 | `{{random::A::B::C}}` | Tire une option au hasard, puis résout les macros à l'intérieur de la seule option retenue. |
 | `{{random::A@2::B@0.5}}` | Un tirage aléatoire pondéré. Voir les règles de pondération ci-dessous. |
-| `{{roll:XdY}}` | Le total d'un jet de dés. Par exemple, `{{roll:2d6}}` lance deux dés à six faces et additionne le résultat. |
+| `{{roll:XdY}}` | Le total d'un jet de dés. Par exemple, `{{roll:2d6}}` lance deux dés à six faces et additionne le résultat. `{{roll:d20}}` lance un seul dé, et `{{roll:1d8+3}}` ajoute 3 au jet. |
 
 Voici un tirage aléatoire simple que tu peux copier :
 

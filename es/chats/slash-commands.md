@@ -115,6 +115,8 @@ El comando `/roll` lee la notación de dados. Esto tira dos dados de seis caras:
 
 Puedes añadir un modificador, como `/roll 1d20+5`. Si escribes `/roll` sin nada después, Marinara tira `1d20`.
 
+Para conservar solo algunos dados, añade `kh` (conservar los más altos) o `kl` (conservar los más bajos) y un número: `/roll 4d6kh3` tira cuatro dados y suma los tres más altos, y `/roll 2d20kl1` conserva el menor de los dos. En cambio, `dl` y `dh` eliminan los más bajos o los más altos, como en `/roll 4d6dl1`. Los dados que no cuentan se siguen mostrando, atenuados.
+
 Un sprite es una pieza de arte del personaje que muestra una expresión. El comando `/emote` cambia cuál se muestra. Escribe `/emote` solo para ver las expresiones disponibles, o nombra una para cambiar a ella:
 
 ```

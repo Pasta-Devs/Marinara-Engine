@@ -115,6 +115,8 @@ O comando `/roll` entende a notação de dados. Este exemplo rola dois dados de 
 
 Você pode acrescentar um modificador, como `/roll 1d20+5`. Se digitar `/roll` sem mais nada, Marinara rola `1d20`.
 
+Para manter apenas alguns dos dados, acrescente `kh` (manter os maiores) ou `kl` (manter os menores) e um número: `/roll 4d6kh3` rola quatro dados e soma os três maiores, e `/roll 2d20kl1` mantém o menor de dois. Já `dl` e `dh` descartam os menores ou os maiores, como em `/roll 4d6dl1`. Os dados que não contam continuam aparecendo, esmaecidos.
+
 O sprite é uma imagem do personagem que mostra uma expressão. O comando `/emote` troca qual delas aparece. Digite `/emote` sozinho para ver as expressões disponíveis, ou escreva o nome de uma para trocar:
 
 ```

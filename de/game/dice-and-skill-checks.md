@@ -67,6 +67,14 @@ Weitere Beispiele zum Ausprobieren:
 
 Es gelten zwei feste Grenzen. Du kannst höchstens 100 Würfel gleichzeitig werfen, und jeder Würfel darf maximal 1000 Seiten haben. Forderst du mehr an, begrenzt die App die Anfrage, statt sie abzulehnen. Die Ergebniskarte zeigt die begrenzte Notation: Aus `500d6` wird eine `100d6`-Karte für die hundert tatsächlich geworfenen Würfel. Ist dein Text keine gültige Würfelnotation, also `NdM` oder ein einzelnes `dM` wie `d20`, schlägt der Wurf fehl und eine Fehlermeldung nennt das erwartete Format.
 
+<a id="symbol-dice-by-name"></a>
+
+### Symbolwürfel nach Namen
+
+In einem Spiel, dessen Regelsatz Symbolwürfel wirft (ein `symbol-pool`-Regelsatz, etwa ein System im Stil von Genesys), nimmt das Feld für eigene Würfe diese Würfel auch nach Namen an. Gib für jede Art die Anzahl und den Würfelnamen an, zum Beispiel `2 ability 1 proficiency vs 2 difficulty`. Als Name dient die ID oder die Beschriftung des Würfels; Groß- und Kleinschreibung spielen keine Rolle. Du kannst die Angaben mit Leerzeichen, Kommas, `+` oder `vs` trennen.
+
+Die Karte zeigt jeden Würfel mit den Symbolen auf seiner Seite, dann die Symbole, die nach dem gegenseitigen Aufheben übrig bleiben, und ob das Ergebnis ein Erfolg ist. Das Tag in deiner Nachricht enthält dasselbe, zum Beispiel `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Ein Wurf kann bis zu 40 Würfel benennen. Auch der Game Master kann diese Namen mit seinem Würfel-Tool verwenden. Die übliche `NdM`-Notation würfelt weiterhin in jedem Spiel wie oben beschrieben.
+
 ## Fertigkeitsproben
 
 Eine Fertigkeitsprobe entscheidet, ob dir etwas Riskantes gelingt – anschleichen, einen Hinweis entdecken oder einen NPC (Nicht-Spieler-Charakter) überzeugen. Du startest eine Probe nicht selbst. Der Game Master fordert sie mitten in seiner Erzählung ein. Die App macht daraus einen animierten d20-Wurf mit einem Ergebnis-Banner.

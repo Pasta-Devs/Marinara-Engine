@@ -156,7 +156,7 @@ Ist `data/capability-runtime-snapshots` oder `data/capability-packages/versions`
 
 Marinara weist Paket-Downloads ab, wenn Prüfsumme, angegebene Dateiliste, unterstützter Engine-Versionsbereich oder Archivpfade nicht zum offiziellen Katalog passen. Aktualisiere zuerst Marinara Engine, lade den Katalog neu und versuch es erneut. Entpack ein Artefakt niemals von Hand in das Datenverzeichnis.
 
-Agent-Updates werden nie beim Start eingespielt. Sobald eine neuere, kompatible Version bereitsteht, fragt Marinara nach, ob sie eingespielt werden soll. Mit **No** behältst du die installierte Version; die Schaltfläche **Update** bleibt in **Agents → Agent Organizer (Agentenverwaltung)** verfügbar. Auch nach einem fehlgeschlagenen Update bleibt die installierte Version registriert, und eine frisch aktualisierte Server-Laufzeit, die ihre Selbstprüfung beim Start nicht besteht, fällt auf die vorherige Version zurück.
+Agent-Updates werden nie beim Start eingespielt. Sobald eine neuere, kompatible Version bereitsteht, fragt Marinara nach, ob sie eingespielt werden soll. Mit **Not now** (Jetzt nicht) behältst du die installierte Version; die Schaltfläche **Update** bleibt in **Agents → Agent Organizer (Agentenverwaltung)** verfügbar. Auch nach einem fehlgeschlagenen Update bleibt die installierte Version registriert, und eine frisch aktualisierte Server-Laufzeit, die ihre Selbstprüfung beim Start nicht besteht, fällt auf die vorherige Version zurück.
 
 ## Zugriff auf Marinara von einem anderen Gerät
 

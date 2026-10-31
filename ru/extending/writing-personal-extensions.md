@@ -121,10 +121,11 @@ marinara.onCleanup(() => panel.remove());
 | `context.subscribe(listener)` | Получение изменений контекста; возвращает функцию отмены подписки |
 | `ui.registerContribution(options)` | Добавление безопасной кнопки, пункта меню Extensions или панели, которую отрисовывает Marinara |
 | `ui.showWindow(options)` | Открытие ограниченного окна iframe |
+| `dice.registerFormat(options)` | Обучение `/roll` новой записи; Marinara бросает указанные в ней кости |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | Управляемые таймеры, которые удаляются при остановке расширения |
 | `onCleanup(callback)` | Регистрация дополнительной логики очистки |
 
-Для обычного интерфейса используйте [панели, которые отрисовывает Marinara](personal-extensions.md#add-a-marinara-rendered-panel), а для поведения с учетом чата – [контекст активного чата](personal-extensions.md#use-active-chat-context). Состояние расширения должно находиться в `marinara.storage`, а не в хранилище браузера.
+Для обычного интерфейса используйте [панели, которые отрисовывает Marinara](personal-extensions.md#add-a-marinara-rendered-panel), для поведения с учетом чата – [контекст активного чата](personal-extensions.md#use-active-chat-context), а для собственной записи `/roll` – [форматы бросков кубиков](personal-extensions.md#add-a-dice-format). Состояние расширения должно находиться в `marinara.storage`, а не в хранилище браузера.
 
 `showWindow({ title, elements, onEvent, onClose })` возвращает дескриптор с методами `update({ title?, elements? })` и `close()`. CSS пакета оформляет эти окна iframe в песочнице; элементы, которые отрисовывает хост, всегда используют тему и элементы управления самого приложения Marinara.
 

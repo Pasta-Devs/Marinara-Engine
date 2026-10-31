@@ -121,10 +121,11 @@ marinara.onCleanup(() => panel.remove());
 | `context.subscribe(listener)` | 接收上下文变化；返回取消订阅函数 |
 | `ui.registerContribution(options)` | 添加安全按钮、Extensions 菜单项或由 Marinara 渲染的面板 |
 | `ui.showWindow(options)` | 打开受限的 iframe 窗口 |
+| `dice.registerFormat(options)` | 为 `/roll` 添加一种写法；Marinara 负责掷出它指定的骰子 |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | 扩展停止时会移除的托管计时器 |
 | `onCleanup(callback)` | 注册额外的清理逻辑 |
 
-普通 UI 请使用[由 Marinara 渲染的面板](personal-extensions.md#add-a-marinara-rendered-panel)，需要感知聊天的行为请使用[当前聊天上下文](personal-extensions.md#use-active-chat-context)。扩展状态应保存在 `marinara.storage` 中，而不是浏览器存储中。
+普通 UI 请使用[由 Marinara 渲染的面板](personal-extensions.md#add-a-marinara-rendered-panel)，需要感知聊天的行为请使用[当前聊天上下文](personal-extensions.md#use-active-chat-context)，自定义 `/roll` 写法则使用[骰子格式](personal-extensions.md#add-a-dice-format)。扩展状态应保存在 `marinara.storage` 中，而不是浏览器存储中。
 
 `showWindow({ title, elements, onEvent, onClose })` 会返回带有 `update({ title?, elements? })` 和 `close()` 的句柄。包内 CSS 会为这些沙箱 iframe 窗口设置样式；由主机渲染的内容始终使用 Marinara 自己的主题和控件。
 

@@ -156,7 +156,7 @@ Si `data/capability-runtime-snapshots` ou `data/capability-packages/versions` a 
 
 Les téléchargements de paquets sont refusés quand leur somme de contrôle, la liste de fichiers déclarée, la plage de versions du moteur ou les chemins de l'archive ne correspondent pas au catalogue officiel. Mets d'abord Marinara Engine à jour, actualise le catalogue et réessaie. N'extrais jamais un artefact à la main dans le dossier de données.
 
-Les mises à jour d'agents ne sont jamais appliquées au démarrage. Quand une version plus récente et compatible existe, Marinara te demande si tu veux l'appliquer. Choisis **No** pour conserver la version installée ; le bouton **Update** reste disponible dans **Agents → Agent Organizer (organisateur d’agents)**. Une mise à jour échouée laisse elle aussi la version installée enregistrée, et un environnement d'exécution serveur fraîchement mis à jour qui rate son autodiagnostic de démarrage revient à la version précédente.
+Les mises à jour d'agents ne sont jamais appliquées au démarrage. Quand une version plus récente et compatible existe, Marinara te demande si tu veux l'appliquer. Choisis **Not now** (pas maintenant) pour conserver la version installée ; le bouton **Update** reste disponible dans **Agents → Agent Organizer (organisateur d’agents)**. Une mise à jour échouée laisse elle aussi la version installée enregistrée, et un environnement d'exécution serveur fraîchement mis à jour qui rate son autodiagnostic de démarrage revient à la version précédente.
 
 ## Accéder à Marinara depuis un autre appareil
 

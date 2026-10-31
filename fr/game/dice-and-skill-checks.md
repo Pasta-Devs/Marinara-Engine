@@ -67,6 +67,14 @@ Voici d'autres exemples que tu peux saisir :
 
 Deux limites strictes s'appliquent. Tu peux lancer au maximum 100 dés à la fois, et chaque dé peut avoir au plus 1000 faces. Si tu en demandes davantage, l'application réduit la demande à ces limites au lieu de la refuser. La carte de résultat affiche la notation réduite : saisir `500d6` donne donc une carte `100d6` pour les cent dés réellement lancés. Si ton texte n'est pas une notation de dés valide – `NdM`, ou un simple `dM` comme `d20` –, le jet échoue et une erreur indique le format attendu.
 
+<a id="symbol-dice-by-name"></a>
+
+### Dés à symboles par leur nom
+
+Dans une partie dont l'ensemble de règles lance des dés à symboles (un ensemble `symbol-pool`, comme un système de type Genesys), le champ personnalisé accepte aussi ces dés par leur nom. Indique un nombre et le nom du dé pour chaque type, par exemple `2 ability 1 proficiency vs 2 difficulty`. Tu peux utiliser l'identifiant du dé ou son libellé, sans distinction de casse, et les séparer par des espaces, des virgules, `+` ou `vs`.
+
+La carte affiche chaque dé avec les symboles de sa face, puis les symboles qui restent après annulation et indique si le jet est une réussite. Le tag ajouté à ton message reprend ces informations, par exemple `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Un jet peut désigner jusqu'à 40 dés. Quand le Game Master lance les dés avec son outil, il peut aussi utiliser ces noms. La notation simple `NdM` continue de fonctionner comme ci-dessus dans toutes les parties.
+
 ## Jets de compétence
 
 Un jet de compétence détermine si tu réussis une action risquée : te faufiler sans être vu, repérer un indice, convaincre un PNJ (personnage non-joueur). Tu ne déclenches pas un jet de compétence toi-même. C'est le Game Master qui en demande un dans sa narration. L'application le transforme alors en un jet de d20 animé, accompagné d'un bandeau de résultat.

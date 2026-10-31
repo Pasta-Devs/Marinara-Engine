@@ -156,7 +156,7 @@ Se a pasta `data/capability-runtime-snapshots` ou `data/capability-packages/vers
 
 Marinara recusa o download de um pacote quando a soma de verificação, a lista de arquivos declarada, a faixa de versões do Engine ou os caminhos do arquivo compactado não batem com o catálogo oficial. Atualize Marinara Engine primeiro, atualize o catálogo e tente de novo. Nunca extraia um pacote manualmente dentro da pasta de dados.
 
-Atualizações de agentes nunca são aplicadas na inicialização. Quando existe uma versão mais nova e compatível, Marinara pergunta se você quer aplicá-la. Escolha **No** para ficar com a versão instalada; o botão **Update** continua disponível em **Agents → Agent Organizer (organizador de agentes)**. Uma atualização que falha também mantém a versão instalada registrada, e um servidor recém-atualizado que não passa na autoverificação de inicialização volta para a versão anterior.
+Atualizações de agentes nunca são aplicadas na inicialização. Quando existe uma versão mais nova e compatível, Marinara pergunta se você quer aplicá-la. Escolha **Not now** (agora não) para ficar com a versão instalada; o botão **Update** continua disponível em **Agents → Agent Organizer (organizador de agentes)**. Uma atualização que falha também mantém a versão instalada registrada, e um servidor recém-atualizado que não passa na autoverificação de inicialização volta para a versão anterior.
 
 ## Acessar o Marinara a partir de outro dispositivo
 

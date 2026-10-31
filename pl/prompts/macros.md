@@ -190,7 +190,7 @@ Te makra wprowadzają do promptów element przypadku. Makro `{{random}}` służy
 | `{{random:X:Y}}` | Losowa liczba całkowita z przedziału od X do Y, razem z krańcami. |
 | `{{random::A::B::C}}` | Losuje jedną opcję, a potem rozwija makra tylko w wybranej opcji. |
 | `{{random::A@2::B@0.5}}` | Losowanie z wagami. Zasady opisuje sekcja niżej. |
-| `{{roll:XdY}}` | Suma rzutu kością. Na przykład `{{roll:2d6}}` rzuca dwiema sześciościennymi kośćmi i dodaje wyniki. |
+| `{{roll:XdY}}` | Suma rzutu kością. Na przykład `{{roll:2d6}}` rzuca dwiema sześciościennymi kośćmi i dodaje wyniki. `{{roll:d20}}` rzuca jedną kością, a `{{roll:1d8+3}}` dodaje 3 do wyniku rzutu. |
 
 Oto prosty przykład losowego wyboru do skopiowania:
 

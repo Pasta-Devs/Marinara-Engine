@@ -156,7 +156,7 @@ Jeśli folder `data/capability-runtime-snapshots` albo `data/capability-packages
 
 Marinara odrzuca pobierane pakiety, gdy ich suma kontrolna, zadeklarowana lista plików, zakres wersji aplikacji lub ścieżki w archiwum nie zgadzają się z oficjalnym katalogiem. Najpierw zaktualizuj aplikację Marinara Engine, odśwież katalog i spróbuj ponownie. Nie wypakowuj plików ręcznie do folderu z danymi.
 
-Aktualizacje agentów nigdy nie instalują się przy starcie. Kiedy pojawia się nowsza zgodna wersja, Marinara pyta, czy ją zainstalować. Wybierz **No**, żeby zostać przy wersji zainstalowanej; przycisk **Update** pozostaje dostępny w sekcji **Agents → Agent Organizer (organizowanie agentów)**. Nieudana aktualizacja także zostawia zarejestrowaną wersję zainstalowaną, a świeżo zaktualizowane środowisko serwera, które nie przejdzie testu przy starcie, wraca do wersji poprzedniej.
+Aktualizacje agentów nigdy nie instalują się przy starcie. Kiedy pojawia się nowsza zgodna wersja, Marinara pyta, czy ją zainstalować. Wybierz **Not now** (nie teraz), żeby zostać przy wersji zainstalowanej; przycisk **Update** pozostaje dostępny w sekcji **Agents → Agent Organizer (organizowanie agentów)**. Nieudana aktualizacja także zostawia zarejestrowaną wersję zainstalowaną, a świeżo zaktualizowane środowisko serwera, które nie przejdzie testu przy starcie, wraca do wersji poprzedniej.
 
 ## Dostęp do aplikacji Marinara Engine z innego urządzenia
 

@@ -121,10 +121,11 @@ Las Browser Extensions aisladas reciben un único objeto global inmutable llamad
 | `context.subscribe(listener)` | Recibir cambios de contexto; devuelve una función para cancelar la suscripción |
 | `ui.registerContribution(options)` | Añadir un botón seguro, una entrada del menú Extensions o un panel renderizado por Marinara |
 | `ui.showWindow(options)` | Abrir una ventana iframe limitada |
+| `dice.registerFormat(options)` | Enseñar a `/roll` una notación; Marinara tira los dados que indica |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | Temporizadores administrados que se eliminan cuando se detiene la extensión |
 | `onCleanup(callback)` | Registrar lógica adicional de limpieza |
 
-Usa los [paneles renderizados por Marinara](personal-extensions.md#add-a-marinara-rendered-panel) para la interfaz normal y el [contexto del chat activo](personal-extensions.md#use-active-chat-context) para un comportamiento que conozca el chat. El estado de la extensión debe guardarse en `marinara.storage`, no en el almacenamiento del navegador.
+Usa los [paneles renderizados por Marinara](personal-extensions.md#add-a-marinara-rendered-panel) para la interfaz normal, el [contexto del chat activo](personal-extensions.md#use-active-chat-context) para un comportamiento que conozca el chat y los [formatos de dados](personal-extensions.md#add-a-dice-format) para una notación de `/roll` personalizada. El estado de la extensión debe guardarse en `marinara.storage`, no en el almacenamiento del navegador.
 
 `showWindow({ title, elements, onEvent, onClose })` devuelve un controlador con `update({ title?, elements? })` y `close()`. El CSS del paquete aplica estilos a estas ventanas iframe aisladas; las contribuciones renderizadas por el host siempre usan el tema y los controles propios de Marinara.
 

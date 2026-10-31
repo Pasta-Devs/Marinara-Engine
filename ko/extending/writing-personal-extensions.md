@@ -121,10 +121,11 @@ marinara.onCleanup(() => panel.remove());
 | `context.subscribe(listener)` | 컨텍스트 변경 수신. 구독 해제 함수 반환 |
 | `ui.registerContribution(options)` | 안전한 버튼, Extensions 메뉴 항목 또는 Marinara가 렌더링하는 패널 추가 |
 | `ui.showWindow(options)` | 제한된 iframe 창 열기 |
+| `dice.registerFormat(options)` | `/roll`에 표기법 추가. 지정된 주사위는 Marinara가 굴립니다. |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | 확장 기능이 멈출 때 제거되는 관리형 타이머 |
 | `onCleanup(callback)` | 추가 정리 로직 등록 |
 
-일반 UI에는 [Marinara가 렌더링하는 패널](personal-extensions.md#add-a-marinara-rendered-panel)을 사용하고, 채팅을 인식하는 동작에는 [활성 채팅 컨텍스트](personal-extensions.md#use-active-chat-context)를 사용하세요. 확장 기능 상태는 브라우저 저장소가 아니라 `marinara.storage`에 저장해야 합니다.
+일반 UI에는 [Marinara가 렌더링하는 패널](personal-extensions.md#add-a-marinara-rendered-panel)을, 채팅을 인식하는 동작에는 [활성 채팅 컨텍스트](personal-extensions.md#use-active-chat-context)를, 사용자 지정 `/roll` 표기법에는 [주사위 형식](personal-extensions.md#add-a-dice-format)을 사용하세요. 확장 기능 상태는 브라우저 저장소가 아니라 `marinara.storage`에 저장해야 합니다.
 
 `showWindow({ title, elements, onEvent, onClose })`는 `update({ title?, elements? })`와 `close()`가 있는 핸들을 반환합니다. 패키지 CSS는 샌드박스 iframe 창에 스타일을 적용합니다. 호스트가 렌더링하는 기여 요소에는 항상 Marinara의 테마와 컨트롤이 사용됩니다.
 

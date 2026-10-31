@@ -121,10 +121,11 @@ As Browser Extensions em sandbox recebem um único objeto global congelado chama
 | `context.subscribe(listener)` | Receber mudanças de contexto; retorna uma função para cancelar a inscrição |
 | `ui.registerContribution(options)` | Adicionar um botão seguro, um item do menu Extensions ou um painel renderizado pelo Marinara |
 | `ui.showWindow(options)` | Abrir uma janela iframe restrita |
+| `dice.registerFormat(options)` | Ensinar uma notação ao `/roll`; Marinara rola os dados que ela indica |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | Temporizadores gerenciados que são removidos quando a extensão para |
 | `onCleanup(callback)` | Registrar outra lógica de limpeza |
 
-Use os [painéis renderizados pelo Marinara](personal-extensions.md#add-a-marinara-rendered-panel) para a interface normal e o [contexto do chat ativo](personal-extensions.md#use-active-chat-context) para um comportamento que leve o chat em conta. O estado da extensão deve ficar em `marinara.storage`, não no armazenamento do navegador.
+Use os [painéis renderizados pelo Marinara](personal-extensions.md#add-a-marinara-rendered-panel) para a interface normal, o [contexto do chat ativo](personal-extensions.md#use-active-chat-context) para um comportamento que leve o chat em conta e os [formatos de dados](personal-extensions.md#add-a-dice-format) para uma notação personalizada do `/roll`. O estado da extensão deve ficar em `marinara.storage`, não no armazenamento do navegador.
 
 `showWindow({ title, elements, onEvent, onClose })` retorna um identificador com `update({ title?, elements? })` e `close()`. O CSS do pacote estiliza essas janelas iframe em sandbox; as contribuições renderizadas pelo host sempre usam o tema e os controles do próprio Marinara.
 

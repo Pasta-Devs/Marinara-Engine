@@ -67,6 +67,14 @@ Outros exemplos que você pode digitar:
 
 Há dois limites fixos. Você pode rolar no máximo 100 dados de uma vez, e cada dado pode ter até 1000 lados. Se pedir mais, o aplicativo reduz a solicitação a esses limites em vez de recusá-la, e o cartão de resultado mostra a notação reduzida: digitar `500d6` gera um cartão `100d6` para os cem dados que realmente foram rolados. Se o texto não estiver em uma notação de dados válida, que é `NdM` ou um simples `dM` como `d20`, a rolagem falha e aparece um erro que informa o formato esperado.
 
+<a id="symbol-dice-by-name"></a>
+
+### Dados de símbolos por nome
+
+Em uma partida cujo conjunto de regras rola dados de símbolos (um conjunto `symbol-pool`, como um sistema no estilo de Genesys), o campo personalizado também aceita esses dados por nome. Informe uma quantidade e o nome do dado de cada tipo, por exemplo `2 ability 1 proficiency vs 2 difficulty`. Os nomes podem ser o ID ou o rótulo do dado, sem diferenciar maiúsculas de minúsculas, e você pode separá-los com espaços, vírgulas, `+` ou `vs`.
+
+O cartão mostra cada dado com os símbolos da face, depois os símbolos que sobram após a anulação e se isso é um sucesso. A marcação acrescentada à mensagem traz o mesmo, por exemplo `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Uma rolagem pode indicar até 40 dados. Quando o Game Master rola com a ferramenta de dados, também pode usar esses nomes. A notação comum `NdM` continua rolando como acima em qualquer partida.
+
 ## Testes de perícia
 
 Um teste de perícia decide se você tem sucesso em algo arriscado, como se esgueirar, notar uma pista ou convencer um NPC (personagem não jogável). Quem começa o teste não é você: o Game Master pede o teste dentro da narração. Marinara transforma o pedido em uma rolagem animada de d20, com uma faixa de resultado.

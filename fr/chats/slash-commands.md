@@ -115,6 +115,8 @@ La commande `/roll` comprend la notation des dés. Ceci lance deux dés à six f
 
 Tu peux ajouter un modificateur, par exemple `/roll 1d20+5`. Si tu tapes `/roll` sans rien derrière, Marinara lance `1d20`.
 
+Pour ne garder qu'une partie des dés, ajoute `kh` (garder les plus hauts) ou `kl` (garder les plus bas) et un nombre : `/roll 4d6kh3` lance quatre dés et additionne les trois plus hauts, et `/roll 2d20kl1` garde le plus bas des deux. `dl` et `dh` écartent plutôt les plus bas ou les plus hauts, comme dans `/roll 4d6dl1`. Les dés qui ne comptent pas restent affichés, en grisé.
+
 Un sprite est une image du personnage qui montre une expression. La commande `/emote` change celle qui est affichée. Tape `/emote` seul pour voir les expressions disponibles, ou nomme-en une pour l'afficher :
 
 ```

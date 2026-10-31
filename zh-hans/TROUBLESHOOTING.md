@@ -156,7 +156,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 只要包的校验和、声明的文件列表、Engine 版本范围或压缩包内路径与官方目录对不上，下载就会被拒绝。先更新 Marinara Engine，刷新目录，再重试。不要手动把产物解压进数据目录。
 
-智能体更新绝不会在启动时自动应用。有更新的兼容版本时，Marinara 会先问要不要应用。选 **No** 就保持已安装的版本，**Update** 按钮会一直留在 **Agents → Agent Organizer(智能体管理器)** 里。更新失败同样会保留已注册的已安装版本；如果新更新的服务器运行时启动自检没通过，会自动回滚到上一个版本。
+智能体更新绝不会在启动时自动应用。有更新的兼容版本时，Marinara 会先问要不要应用。选 **Not now**(暂不更新) 就保持已安装的版本，**Update** 按钮会一直留在 **Agents → Agent Organizer(智能体管理器)** 里。更新失败同样会保留已注册的已安装版本；如果新更新的服务器运行时启动自检没通过，会自动回滚到上一个版本。
 
 ## 从其他设备访问 Marinara
 

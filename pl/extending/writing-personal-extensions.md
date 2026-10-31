@@ -121,10 +121,11 @@ Browser Extensions działające w piaskownicy otrzymują jeden zamrożony obiekt
 | `context.subscribe(listener)` | Odbieranie zmian kontekstu; zwraca funkcję anulującą subskrypcję |
 | `ui.registerContribution(options)` | Dodanie bezpiecznego przycisku, pozycji menu Extensions albo panelu renderowanego przez aplikację Marinara |
 | `ui.showWindow(options)` | Otwarcie ograniczonego okna iframe |
+| `dice.registerFormat(options)` | Nauczenie `/roll` notacji; Marinara rzuca wskazanymi w niej kośćmi |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | Zarządzane timery usuwane po zatrzymaniu rozszerzenia |
 | `onCleanup(callback)` | Zarejestrowanie dodatkowej logiki sprzątającej |
 
-Do zwykłego interfejsu używaj [paneli renderowanych przez aplikację Marinara](personal-extensions.md#add-a-marinara-rendered-panel), a do zachowania zależnego od czatu - [kontekstu aktywnego czatu](personal-extensions.md#use-active-chat-context). Stan rozszerzenia należy do `marinara.storage`, a nie do pamięci przeglądarki.
+Do zwykłego interfejsu używaj [paneli renderowanych przez aplikację Marinara](personal-extensions.md#add-a-marinara-rendered-panel), do zachowania zależnego od czatu – [kontekstu aktywnego czatu](personal-extensions.md#use-active-chat-context), a do własnej notacji `/roll` – [formatów kości](personal-extensions.md#add-a-dice-format). Stan rozszerzenia należy do `marinara.storage`, a nie do pamięci przeglądarki.
 
 `showWindow({ title, elements, onEvent, onClose })` zwraca uchwyt z metodami `update({ title?, elements? })` oraz `close()`. Kod CSS pakietu nadaje styl oknom iframe działającym w piaskownicy; elementy renderowane przez hosta zawsze używają motywu i kontrolek aplikacji Marinara.
 
