@@ -370,6 +370,46 @@ try {
       false,
       "the over-long tool is not stored",
     );
+
+    // A description already past the limit (an import, an older write) blocks only a change that sets it, never an
+    // unrelated edit, which the Tool editor saves too.
+    const storedLong = await mari.executeCli({
+      argv: [
+        "db",
+        "insert",
+        "custom_tools",
+        "--json",
+        JSON.stringify({ name: "stored_long", description: "Short", sortOrder: 22 }),
+        "--apply",
+      ],
+    });
+    assert.equal(storedLong.ok, true, `a valid tool is stored: ${JSON.stringify(storedLong)}`);
+    const storedLongId = (await db.select().from(customTools)).find((entry) => entry.name === "stored_long")!.id;
+    await db
+      .update(customTools)
+      .set({ description: "punch -> strength ".repeat(40) })
+      .where(eq(customTools.id, storedLongId));
+    const untouched = await mari.executeCli({
+      argv: ["db", "patch", "custom_tools", storedLongId, "--json", JSON.stringify({ sortOrder: 23 }), "--apply"],
+    });
+    assert.equal(
+      untouched.ok,
+      true,
+      `an edit that leaves the long description alone applies: ${JSON.stringify(untouched)}`,
+    );
+    const longer = await mari.executeCli({
+      argv: [
+        "db",
+        "patch",
+        "custom_tools",
+        storedLongId,
+        "--json",
+        JSON.stringify({ description: "kick -> agility ".repeat(40) }),
+        "--apply",
+      ],
+    });
+    assert.equal(longer.ok, false, "setting a new over-long description is still refused");
+    assert.match(JSON.stringify(longer), /Tool description must be at most 500 characters/u);
   } finally {
     await db._fileStore.close();
   }
