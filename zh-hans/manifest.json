@@ -129,8 +129,8 @@
     },
     {
       "path": "characters/interactive-onboarding.md",
-      "sha256": "4f07ae37ad060da6481b2b361c9415d7af7a262e901d96d270d2aa09fe2a0b4a",
-      "bytes": 11157
+      "sha256": "0f95dd7e0f6bd07a40871e62a03696ae71e5c0ea2f665eb1501c0b4e42d164e1",
+      "bytes": 11237
     },
     {
       "path": "characters/library-organization.md",
@@ -169,8 +169,8 @@
     },
     {
       "path": "chats/group-chats.md",
-      "sha256": "1e144872544ad8629f8c5ffcf8da4bf23bd9292bd73851e4de0cd0e11e22bc9b",
-      "bytes": 16404
+      "sha256": "3cd5f5158c22c77cb880e3c7505512f6b8481a150137fd0aa687dd6c281c3733",
+      "bytes": 16413
     },
     {
       "path": "chats/guided-and-impersonate.md",
@@ -219,8 +219,8 @@
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "e3786bd6cddbe557ddb61f4ce66eb2fbc0194d843b21c2dc1ec5959e8c80809c",
-      "bytes": 26771
+      "sha256": "109e8298b3dd33c290ed5605d749ddde5a2c1bbc73153fe9ec286841ea7b5a2b",
+      "bytes": 26789
     },
     {
       "path": "connections/local-model.md",
@@ -499,8 +499,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "844b93ffcfdedcafe7eed3f090be1dd75187168925bc4a8d62242a8511156111",
-      "bytes": 39164
+      "sha256": "27b2b36957167f36b61baf5bb6ef3da6c75fb4c935530231cddd3113281a5edb",
+      "bytes": 39176
     },
     {
       "path": "home/tutorial.md",

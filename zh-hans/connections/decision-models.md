@@ -16,7 +16,7 @@ Decision 模型回答一种特定问题。它接收聊天的最近消息及一�
 - **[提示词陈述](../prompts/conditional-prompts.md#asking-the-decision-model)**在准备聊天或智能体提示词时选择文本。没有答案时，判定按否处理，因此简单判定块会使用 `{{else}}` 分支（如果有）。
 - **[世界书 Decision 字段](../lorebooks/entries.md#decision-activation)**在聊天的世界书扫描期间检查 Require 或 Trigger。没有答案时，Require 无法放行新条目，Trigger 不会增加激活路径。已有 Sticky 保持和 Trigger 条目的普通激活路径仍然适用。
 - **[Smart 回复顺序](../chats/group-chats.md#response-order-individual-only)**启用后，会为群聊的下一位发言者打分。没有答案时，Smart 顺序会执行原有的 AI 调用。
-- **[自动管理活跃角色](../chats/group-chats.md#automate-active-characters-merged-only)**设为 **Decision model** 时，会在 Merged 模式 Roleplay 群聊的每次回复前，询问谁在场景中。没有给出每个角色的答案时，会使用 Character Tracker 的最近一个场景，或保留原有列表。
+- **[自动管理活跃角色](../chats/group-chats.md#automate-active-characters-merged-only)**设为 **Decision model** 时，会在 Merged 模式 Roleplay 群聊的每次回复前，询问谁在场景中。没有给出部分或全部角色的答案时，会使用 Character Tracker 的最近一个场景，或保留原有列表。
 - **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)**可使用单独选定的本地模型或决策连接处理Roleplay场景边界和记忆选择。在该聊天的Advanced Memory设置中启用**Use Decision model**。摘要仍由辅助模型生成。决策失败时回退到普通回忆或场景检查。
 
 激活问题控制是否运行智能体；智能体提示词内的判定陈述控制运行时告诉它什么。是/否提示词条件使用 `{{#if decision:"..."}}`，多选一使用 `{{#if decision_choice:"..." == "..."}}`。
@@ -223,7 +223,7 @@ Marinara 也可以代为下载和运行专用判定模型。无论是否同时�
 - **有激活问题的智能体每回合都运行。** 没有设置 Decision 模型，或模型没有回答，因此智能体按没有问题的情况运行。检查 **Test**。
 - **提示词判定分支从不出现。** 见[判定分支始终不出现时](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears)。
 - **Smart 回复顺序仍执行原有 AI 调用。** 开关关闭，或 Decision 模型在该回合没有回答。
-- **自动管理活跃角色改为跟随 Character Tracker。** Decision 模型在该回合没有给出每个角色的答案；或者它先思考，而 **Also gate agents that run before the reply** 处于关闭；或者角色阵容大到连只放姓名也塞不进模型的输入，所以没有去问它。
+- **自动管理活跃角色改为跟随 Character Tracker。** Decision 模型在该回合没有给出部分或全部角色的答案；或者它先思考，而 **Also gate agents that run before the reply** 处于关闭；或者角色阵容大到连只放姓名也塞不进模型的输入，所以没有去问它。
 - **要查看生成时的判定评分和输出，**启用 Debug Mode 或把日志级别设为 debug。提示词判定日志包含阈值、结果，以及答案是否被复用或因时序规则而保持。见[日志级别](../CONFIGURATION.md#logging-levels)。
 - **要在不生成回复的情况下测试自己的陈述，**打开 **Peek Prompt → Decision diagnostics → Test decisions**(Peek Prompt → 判定诊断 → 测试判定)。输入预览是被动的；显式测试会调用选定模型，并可能产生托管费用。见[测试判定陈述](../chats/peek-prompt.md#testing-decision-statements)。
 
