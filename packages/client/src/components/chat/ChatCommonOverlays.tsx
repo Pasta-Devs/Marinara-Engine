@@ -137,7 +137,7 @@ function DeleteConfirmationDialog({
 type MultiSelectBarProps = {
   open: boolean;
   selectedCount: number;
-  /** Left out in a range-export selection, which never changes the chat. */
+  /** A delete selection passes onDelete; a range-export selection passes onExport and never changes the chat. */
   onDelete?: () => void;
   onExport?: () => void;
   /** Shown instead of the count until a message is picked, in a range-export selection. */
@@ -173,7 +173,7 @@ function MultiSelectBar({
       <span className="text-center text-xs font-medium text-[var(--marinara-chat-chrome-panel-muted)]">
         {hint && selectedCount === 0 ? hint : t("chat.delete.selection.count", { count: selectedCount })}
       </span>
-      <div className={cn("grid gap-2", onDelete && onExport ? "grid-cols-3" : "grid-cols-2")}>
+      <div className="grid grid-cols-2 gap-2">
         {onExport && (
           <button
             type="button"

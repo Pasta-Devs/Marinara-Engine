@@ -4129,7 +4129,7 @@ const LocalChatArea = memo(function LocalChatArea({
             onDeleteMore={handleDeleteMore}
             onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
             onBulkDelete={exportSelection ? undefined : handleBulkDelete}
-            onExportSelected={() => void handleExportSelection()}
+            onExportSelected={exportSelection ? () => void handleExportSelection() : undefined}
             multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
             onCancelMultiSelect={handleCancelMultiSelect}
             onUnselectAllMessages={handleUnselectAllMessages}
@@ -4221,7 +4221,7 @@ const LocalChatArea = memo(function LocalChatArea({
             onDeleteMore={handleDeleteMore}
             onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
             onBulkDelete={exportSelection ? undefined : handleBulkDelete}
-            onExportSelected={() => void handleExportSelection()}
+            onExportSelected={exportSelection ? () => void handleExportSelection() : undefined}
             multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
             onCancelMultiSelect={handleCancelMultiSelect}
             onUnselectAllMessages={handleUnselectAllMessages}
@@ -4389,7 +4389,7 @@ const LocalChatArea = memo(function LocalChatArea({
           onDeleteMore={handleDeleteMore}
           onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
           onBulkDelete={exportSelection ? undefined : handleBulkDelete}
-          onExportSelected={() => void handleExportSelection()}
+          onExportSelected={exportSelection ? () => void handleExportSelection() : undefined}
           multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
           onCancelMultiSelect={handleCancelMultiSelect}
           onUnselectAllMessages={handleUnselectAllMessages}
