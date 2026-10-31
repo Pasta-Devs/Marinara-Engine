@@ -215,11 +215,13 @@ function rememberGatewayRefusedEffort(baseUrl: string, model: string) {
  * "tool". Allowed roles are "user", "assistant" or "system"`; Anthropic itself says `Input tag 'tool' found using
  * 'role'`. Anchored on refusal wording, not on the two words standing near each other: OpenAI's own `messages with
  * role 'tool' must be a response to a preceeding message with 'tool_calls'` names the role without refusing it, and
- * matching that would retell a healthy endpoint's history and remember it as broken. The body is raw JSON, so a quote
- * around the role arrives escaped (`\"tool\"`).
+ * matching that would retell a healthy endpoint's history and remember it as broken. That is also why the refusal
+ * phrase has to follow the quoted role directly (`is`/`are` plus the verdict): a gap would let it cross a closing
+ * quote into a neighbouring JSON field such as `"type":"invalid_request_error"`. The body is raw JSON, so quotes
+ * arrive escaped (`\"tool\"`).
  */
 const TOOL_ROLE_REJECTION =
-  /(?:unexpected|invalid|unknown|unsupported|disallowed)\s+role[\s:=]*\\?["'\u0060]?\s*tool\b|input\s+tag\s*\\?["'\u0060]\s*tool\s*\\?["'\u0060]\s*found\s+using\s*\\?["'\u0060]?\s*role\b|role\s*\\?["'\u0060]?\s*tool\\?["'\u0060]?[^\n]{0,40}?(?:not\s+(?:a\s+)?(?:valid|known|allowed|supported|recognized)|unsupported|invalid)|\\?["'\u0060]?tool\\?["'\u0060]?\s+role\b[^\n]{0,40}?(?:not\s+(?:a\s+)?(?:valid|known|allowed|supported|recognized)|unsupported|invalid)/i;
+  /(?:unexpected|invalid|unknown|unsupported|disallowed)\s+role[\s:=]*\\?["'\u0060]?\s*tool\b|input\s+tag\s*\\?["'\u0060]\s*tool\s*\\?["'\u0060]\s*found\s+using\s*\\?["'\u0060]?\s*role\b|role\s*\\?["'\u0060]?\s*tool\\?["'\u0060]?\s+(?:is|are)\s+(?:(?:not\s+)?(?:a\s+|an\s+)?(?:valid|known|allowed|supported|recognized|permitted))\b|\\?["'\u0060]?tool\\?["'\u0060]?\s+role\b\s+(?:is|are)\s+(?:(?:not\s+)?(?:a\s+|an\s+)?(?:valid|known|allowed|supported|recognized|permitted))\b/i;
 
 function isToolRoleRejection(errorText: string): boolean {
   return TOOL_ROLE_REJECTION.test(errorText);

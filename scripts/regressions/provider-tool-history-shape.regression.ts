@@ -19,7 +19,7 @@ type WireRequest = { model?: string; messages: WireMessage[]; tools: unknown[] }
 const requests: WireRequest[] = [];
 
 /** How the fixture answers. `role-order` is OpenAI's own complaint about a tool row, which is not a refusal of it. */
-type Mode = "refuse-tool-role" | "rate-limit" | "role-order" | "accept";
+type Mode = "refuse-tool-role" | "rate-limit" | "role-order" | "role-order-typed" | "accept";
 let mode: Mode = "refuse-tool-role";
 
 const LINKAPI_WORDING =
@@ -27,6 +27,14 @@ const LINKAPI_WORDING =
 const ANTHROPIC_WORDING =
   "messages.1.role: Input tag 'tool' found using 'role' does not match any of the expected tags: 'user', 'assistant'";
 const ROLE_ORDER_WORDING = "messages with role 'tool' must be a response to a preceeding message with 'tool_calls'";
+/** The same complaint with the `type` field beside it, so the message ends against a quote and a neighbouring field. */
+const TYPED_ROLE_ORDER_PAYLOAD = {
+  error: {
+    message: "Unexpected role 'user' after role 'tool'",
+    type: "invalid_request_error",
+    param: "messages",
+  },
+};
 
 const server = createServer(async (request, response) => {
   let raw = "";
@@ -48,7 +56,7 @@ const server = createServer(async (request, response) => {
           : anthropicWording
             ? ANTHROPIC_WORDING
             : LINKAPI_WORDING;
-    response.end(JSON.stringify({ error: { message } }));
+    response.end(JSON.stringify(mode === "role-order-typed" ? TYPED_ROLE_ORDER_PAYLOAD : { error: { message } }));
     return;
   }
   response.end(JSON.stringify({ choices: [{ message: { content: "Found the entry." }, finish_reason: "stop" }] }));
@@ -171,6 +179,22 @@ try {
   for (let index = 1; index < rememberedRoles.length; index += 1) {
     assert.notEqual(rememberedRoles[index], rememberedRoles[index - 1], "the remembered shape must alternate too");
   }
+
+  // 7. The same complaint carrying `"type":"invalid_request_error"` must not read as a refusal either: the verdict
+  //    phrase has to follow the quoted role, and must not be borrowed from the neighbouring JSON field.
+  mode = "role-order-typed";
+  const typedOrder = new OpenAIProvider(base, "");
+  const beforeTyped = requests.length;
+  await assert.rejects(
+    typedOrder.chatComplete(history, { model: "claude-typed-order-opus", tools, stream: false }),
+    /OpenAI API error 429/,
+  );
+  assert.equal(requests.length - beforeTyped, 1, "a typed role-order error must not be reshaped and resent");
+  mode = "accept";
+  const beforeTypedAccept = requests.length;
+  await typedOrder.chatComplete(history, { model: "claude-typed-order-opus", tools, stream: false });
+  assert.equal(requests.length - beforeTypedAccept, 1, "the accepted call is one request");
+  assert.ok(roles(requests.at(-1)!).includes("tool"), "a typed role-order error must not be remembered");
 } finally {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
