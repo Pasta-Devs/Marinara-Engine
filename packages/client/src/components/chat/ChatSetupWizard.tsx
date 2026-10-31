@@ -1195,7 +1195,7 @@ function ConversationQuickSetup({
   const { data: connections } = useConnections();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
-  const sidecarUseAsMainDefault = useSidecarStore((state) => state.config.useAsMainDefault);
+  const sidecarUseAsMainDefault = useSidecarStore((state) => state.config.useAsMainDefault && state.modelDownloaded);
   const { data: presets } = usePresets();
   const { data: defaultPreset } = useDefaultPreset();
   const [selectedPromptPresetId, setSelectedPromptPresetId] = useState<string | null>(chat.promptPresetId ?? null);
@@ -2324,6 +2324,7 @@ function RoleplaySetupWizard({
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const { data: presets } = usePresets();
+  const sidecarUseAsMainDefault = useSidecarStore((state) => state.config.useAsMainDefault && state.modelDownloaded);
   const { data: defaultPreset } = useDefaultPreset();
   const { data: allPersonas } = usePersonas();
   const { data: allCharacters } = useCharacters();
@@ -3245,7 +3246,7 @@ function RoleplaySetupWizard({
             value={chat.connectionId || null}
             aria-label={localizeUi("ui.chat.conversationquicksetup.connection")}
             onChange={setConnection}
-            defaultLabel={followMainLabel(connectionOptions, localizeUi)}
+            defaultLabel={followMainLabel(connectionOptions, localizeUi, sidecarUseAsMainDefault)}
             extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
           />
         </div>

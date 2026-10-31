@@ -65,6 +65,17 @@ try {
     payload: { chatId: chat.id, userMessage: "Hi" },
   });
   assert.match(response.body, /"type":"error"/, "A chat nobody can answer must say so, not end silently");
+  content = '[scene: scenario="A quiet laboratory"]';
+  const sceneResponse = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: chat.id, userMessage: "Start a scene" },
+  });
+  assert.doesNotMatch(sceneResponse.body, /"type":"error"/, "Scene commands do not need a character");
+  assert.match(sceneResponse.body, /"type":"message_saved"/, "Keep the enabled scene invitation");
+  const invitation = (await chats.listMessages(chat.id)).find((message) => message.role === "assistant");
+  assert.ok(invitation, "Save the assistant's scene invitation, not just the user's request");
+  assert.ok(JSON.parse(invitation.extra as string).sceneRequest, "The invitation must keep its scene request");
   console.log("A character-less conversation reply ends with a visible error.");
 } finally {
   provider.closeAllConnections();

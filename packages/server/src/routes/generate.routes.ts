@@ -10907,8 +10907,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               shouldSaveHiddenGenerationAnchor({
                 impersonate: input.impersonate,
                 hasActionableOutput:
-                  parsedCommands.length > 0 ||
-                  parsedRawCommandCount > 0 ||
+                  (chatMode === "conversation"
+                    ? parsedCommands.some(
+                        (command) => command.type !== "react" || Boolean(targetCharId || input.regenerateMessageId),
+                      )
+                    : parsedCommands.length > 0 || parsedRawCommandCount > 0) ||
                   collectedGmVerbCalls.length > 0 ||
                   (pendingGameStateToolCalls.length > 0 && !generationSignal.aborted),
                 spatialDirectiveDetected: assistantSpatialDirectiveDetected,

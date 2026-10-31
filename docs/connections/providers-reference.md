@@ -97,8 +97,8 @@ Marinara reads NanoGPT's detailed model catalog, so the dropdown marks which mod
 If you have a NanoGPT subscription, this connection can show your live quota:
 
 1. Click **⋯** on the account's row, choose **Edit account**, and open **Usage and balance**.
-2. Optionally paste a **Management token** first.
-3. Turn on **Show usage meter** and save.
+2. If outside reads are off, click **Turn on** to permit usage reads. To add a NanoGPT management token, click **Add a usage-only key**, paste it, and click **Show usage**.
+3. Turn on **Show the usage meter on the card** and save.
 
 The widget reads NanoGPT's usage endpoint and shows your weekly and daily input-token quotas. Two credentials can read it:
 
@@ -109,7 +109,7 @@ Under each bar the widget says what is left and when the window resets, for exam
 
 A quota NanoGPT cannot report right now shows as **unknown** rather than as unused, and an inactive subscription is called out instead of being drawn as full quota. The widget refreshes on demand with its refresh button.
 
-The same meter appears under the context indicator in a chat's connection picker and in the chat's **Connection** settings, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show usage meter** turned on, and it does not appear for **Shuffle**, which has no single connection to read. In the picker it is drawn to match the context bar above it, and it reads the same way — used against the weekly allowance, for example `8.9M / 60M tokens`, with the reset time beside the percentage.
+The same meter appears under the context indicator in a chat's connection picker and in the chat's **Connection** settings, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show the usage meter on the card** turned on, and it does not appear for **Shuffle**, which has no single connection to read. In the picker it is drawn to match the context bar above it, and it reads the same way — used against the weekly allowance, for example `8.9M / 60M tokens`, with the reset time beside the percentage.
 
 ## xAI / Grok
 
@@ -158,7 +158,7 @@ Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connectio
 This connection can show how much of your Claude plan's rate limits is used:
 
 1. Click **⋯** on the account's row, choose **Edit account**, and open **Usage and balance**.
-2. Turn on **Show usage meter**. Leave **Show 5-hour usage** and **Show weekly usage** on, or turn off the one you do not want to see.
+2. If outside reads are off, click **Turn on**. Turn on **Show the usage meter on the card**. The account editor shows the available usage windows; it has no separate switches for the 5-hour and weekly bars.
 3. Save the connection.
 
 Each window gets a bar with the percentage used and when the window resets, for example `58% · resets in 2h`. The same bars appear under the context indicator in a chat's connection picker and in the chat's **Connection** settings while this connection is active. They do not appear for **Shuffle**, which has no single connection to read.
@@ -181,7 +181,7 @@ Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connectio
 
 ### Plan usage
 
-This connection can show how much of your ChatGPT plan's Codex limits is used. It works like the Claude (Subscription) one above: turn on **Show usage meter**, keep or turn off **Show 5-hour usage** and **Show weekly usage**, and save. The bars appear in the connection editor, in a chat's connection picker and in the chat's **Connection** settings.
+This connection can show how much of your ChatGPT plan's Codex limits is used. It works like the Claude (Subscription) one above: open **Usage and balance** in **Edit account**, permit outside reads with **Turn on** if needed, turn on **Show the usage meter on the card**, and save. The account editor shows the available usage windows without separate 5-hour or weekly switches. The bars appear in the account editor, in a chat's connection picker and in the chat's **Connection** settings.
 
 Things to know:
 

@@ -6,7 +6,7 @@ This guide covers how to keep your accounts and models tidy in Marinara Engine. 
 
 Below the **Jobs** box, the **Connections** panel lists your accounts. Each account shows its picture, its name, how many models it has, and its address. A model row shows the model's picture, its name, and badges such as the job it does (**Main**, **Agents**, **Images**), **Custom settings**, its price, or **Plan** for models included in a subscription.
 
-Click an account's row to fold its models away, and click again to show them. Marinara remembers which accounts you folded. **More actions** at the top of the panel has **Fold all accounts** and **Open all accounts**, the sort order, **Show only Off or Needs key**, and **Show cost badges**.
+Click an account's row to fold its models away, and click again to show them. Marinara remembers which accounts you folded. **More actions** at the top of the panel has **Fold all accounts** and **Open all accounts**, **Show only Off or Needs key**, and **Show cost badges**. In a wide panel, the sort dropdown is beside **Search models and accounts**. In a narrow panel, the sort order is in **More actions**.
 
 A gateway account that reaches several model makers, for example a proxy or LinkAPI, groups its models under **via** headings, such as **via NanoGPT**, with that maker's icon.
 

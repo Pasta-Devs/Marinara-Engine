@@ -292,6 +292,7 @@ export const ChatInput = memo(function ChatInput({
   const activeChat = useChatStore((s) => s.activeChat);
   const { data: contextConnections = [] } = useConnections();
   const sidecarMaxContext = useSidecarStore((state) => state.config.contextSize);
+  const sidecarUseAsMainDefault = useSidecarStore((state) => state.config.useAsMainDefault && state.modelDownloaded);
   const showContextUsage = useUIStore((s) => s.showContextUsage);
   const chatMetadata = useMemo(() => parseChatMetadata(activeChat?.metadata), [activeChat?.metadata]);
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
@@ -1041,6 +1042,7 @@ export const ChatInput = memo(function ChatInput({
     if (
       chat &&
       !chat.connectionId &&
+      !sidecarUseAsMainDefault &&
       !(contextConnections as Array<{ isDefault?: unknown }>).some((connection) =>
         isConnectionFlagTrue(connection.isDefault),
       )
@@ -1152,6 +1154,7 @@ export const ChatInput = memo(function ChatInput({
     }
   }, [
     contextConnections,
+    sidecarUseAsMainDefault,
     activeChatId,
     mode,
     isInputBusy,

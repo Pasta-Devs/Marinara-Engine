@@ -17,7 +17,7 @@ Marinara Engine does not come with a ready-made account or a free starter key. Y
 You manage accounts in the **Connections** panel on the right side of the app. From top to bottom it shows:
 
 - **Search models and accounts**, which filters the list as you type.
-- **Add**, which opens the **Add account** window, and **More actions** (three dots), which has **Import account**, **Export all accounts**, sorting, folding, and grouping.
+- **Add**, which opens the **Add account** window, and **More actions** (three dots), which has **Import account**, **Export all accounts**, folding, and grouping. In a wide panel, the sort dropdown is beside **Search models and accounts**. In a narrow panel, sorting is in **More actions**.
 - The **Jobs** box. It says which model does each job, such as **Main** for chat replies or **Images** for pictures. See [Choosing the model for each job](#choosing-the-model-for-each-job).
 - Your accounts, each with its saved models under it. See [Organizing Connections](organizing-connections.md).
 
@@ -26,9 +26,10 @@ You manage accounts in the **Connections** panel on the right side of the app. F
 1. In the **Connections** panel, click **Add**. The **Add account** window lists providers under **Popular**, **Subscriptions**, **On your computer**, and **All providers**. Type in **Search providers** to find one.
 2. Click a provider, such as **OpenAI**, **Anthropic**, or **OpenRouter**.
 3. Paste the key into **API key**. **Where do I find my key?** opens the provider's key page. The eye button shows or hides the key. **More options** has the optional **Name**, the **Address**, **Requests per minute**, and **Parallel jobs**.
-4. Click **Connect**. Marinara tests the key. When it works, the window closes, a message says how many models the account offers, and the panel scrolls to the new account. When it fails, the window shows why and **Try again**. Servers on your computer also offer **Continue anyway**.
+4. Click **Connect**. Marinara tests the key. When it fails, the window shows why and **Try again**. Servers on your computer also offer **Continue anyway**.
+5. When you add your first account without a Main model, or add an account while starting a chat, the window continues to model selection. Pick a model. **Make … my Main** sets it as Main when that choice is shown. Click **Done** to finish, or **Start chatting** when you started from a new chat. If you already have Main and add an account from the panel, the window closes after Connect and the panel shows the new account. Image, video, and voice services use their own setup controls; the built-in model uses its local setup screen.
 
-Adding an account does not choose a model. Pick the model for each job in the **Jobs** box next.
+You can change the model for each job later in the **Jobs** box.
 
 If you leave **Name** empty, Marinara names the account after the provider. A second account for the same provider without a typed name gets the last 4 characters of its key, for example `OpenAI · …a1b2`. A name you type is never changed.
 
