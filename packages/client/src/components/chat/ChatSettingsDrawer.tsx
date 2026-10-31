@@ -9214,9 +9214,12 @@ export function ChatSettingsDrawer({
                           <AgentSettingsToggle
                             label={localizeUi("roleplay.commands.html.manualOnly.label")}
                             description={localizeUi("roleplay.commands.html.manualOnly.description")}
-                            enabled={metadata.htmlManualOnly === true}
+                            enabled={metadata.roleplayHtmlManualOnly === true}
                             onToggle={() =>
-                              updateMeta.mutate({ id: chat.id, htmlManualOnly: metadata.htmlManualOnly !== true })
+                              updateMeta.mutate({
+                                id: chat.id,
+                                roleplayHtmlManualOnly: metadata.roleplayHtmlManualOnly !== true,
+                              })
                             }
                           />
                           <AgentSettingsToggle

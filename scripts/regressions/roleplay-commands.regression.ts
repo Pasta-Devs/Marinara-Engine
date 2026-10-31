@@ -27,8 +27,8 @@ import {
 import { collectPastReasoningMetadata } from "../../packages/server/src/services/generation/generation-parameters.js";
 import {
   buildGuidedHtmlRequest,
-  readGuidedHtmlRequest,
-  selectGuidedRewriteAgents,
+  mergePairedBuiltInRewriteAgents,
+  selectRewriteAgentsForMessage,
 } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import { conversationPromptHistoryContent } from "../../packages/server/src/routes/generate/conversation-prompt-formatting.js";
 import { generateRoleplaySoundEffect } from "../../packages/server/src/routes/tts.routes.js";
@@ -977,8 +977,6 @@ assert.equal(placeAfterPrefix("Maukie reads.\nMaukie reads.", "Maukie Whiskers: 
     unplaced,
   ]);
 }
-process.stdout.write("Roleplay commands regression passed.\n");
-
 // Immersive HTML command: one free-form artifact request, gated on the agent (#8586).
 assert.deepEqual(parseRoleplayCommands('[html: prompt="SVG: a magic book"]').commands, [
   { type: "html", prompt: "SVG: a magic book" },
@@ -1012,32 +1010,97 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.doesNotMatch(htmlReminder(new Set(["illustrator"])), /\[html:/u);
 }
 
-// Guided artifact run: the request reaches the agent, and it runs alone (#8586).
+// Guided artifact run: the request reaches only its own message, as a call of its own (#8586).
 const guidedBlock = buildGuidedHtmlRequest("SVG: a magic book page");
 assert.match(guidedBlock, /<guided_request>/u);
 assert.match(guidedBlock, /SVG: a magic book page/u);
 assert.match(guidedBlock, /Keep it diegetic/u);
 assert.match(guidedBlock, /Return the full rewritten message/u);
-const agent = (type: string, guided?: string) =>
+type RewriteAgent = Parameters<typeof selectRewriteAgentsForMessage>[0]["automaticAgents"][number];
+const rewriteAgent = (type: string) =>
   ({
     id: `agent-${type}`,
     type,
-    settings: guided ? { _guidedHtmlRequest: guided } : {},
-  }) as never;
-assert.equal(readGuidedHtmlRequest(agent("html", "a sign")), "a sign");
-assert.equal(readGuidedHtmlRequest(agent("prose-guardian", "a sign")), null);
-assert.equal(readGuidedHtmlRequest(agent("html", "   ")), null);
-const inactive = new Set<string>();
+    name: type,
+    promptTemplate: `${type} prompt`,
+    settings: {},
+  }) as unknown as RewriteAgent;
+const guardian = rewriteAgent("prose-guardian");
+const continuity = rewriteAgent("continuity");
+const htmlAgent = rewriteAgent("html");
+const rewriteRun = (args: {
+  automaticAgents: RewriteAgent[];
+  htmlAgent?: RewriteAgent | null;
+  guidedPrompt?: string;
+  lastReply?: boolean;
+}) =>
+  selectRewriteAgentsForMessage({
+    automaticAgents: args.automaticAgents,
+    automaticRunAgents: mergePairedBuiltInRewriteAgents(args.automaticAgents),
+    htmlAgent: args.htmlAgent === undefined ? htmlAgent : args.htmlAgent,
+    guidedPrompt: args.guidedPrompt,
+    lastReply: args.lastReply ?? true,
+  });
+// One responder, or the responder that asked.
+const guidedOnly = rewriteRun({ automaticAgents: [], guidedPrompt: "a sign" });
 assert.deepEqual(
-  selectGuidedRewriteAgents([agent("prose-guardian"), agent("html", "a sign")], inactive)?.map(
-    (entry: { type: string }) => entry.type,
-  ),
+  guidedOnly.map((entry) => entry.type),
   ["html"],
-  "a guided run is never merged with another editor",
 );
-assert.equal(selectGuidedRewriteAgents([agent("html")], inactive), null, "no request, no guided run");
+assert.match(guidedOnly[0]!.promptTemplate, /^html prompt\n\n<guided_request>[\s\S]*a sign/u);
+assert.equal(htmlAgent.promptTemplate, "html prompt", "the shared agent keeps its own prompt");
+// Two responders in "Only when asked": the first asked, the last did not.
+const firstResponderRun = rewriteRun({ automaticAgents: [guardian], guidedPrompt: "a sign", lastReply: false });
+assert.deepEqual(
+  firstResponderRun.map((entry) => entry.type),
+  ["html"],
+  "an earlier responder's message gets its request and no other rewrite",
+);
+assert.match(firstResponderRun[0]!.promptTemplate, /a sign/u);
+assert.deepEqual(rewriteRun({ automaticAgents: [] }), [], "the last responder never asked, so nothing runs on it");
+const lastResponderRun = rewriteRun({ automaticAgents: [guardian] });
+assert.deepEqual(
+  lastResponderRun.map((entry) => entry.type),
+  ["prose-guardian"],
+);
+assert.doesNotMatch(lastResponderRun[0]!.promptTemplate, /<guided_request>/u);
+assert.deepEqual(
+  rewriteRun({ automaticAgents: [guardian], lastReply: false }),
+  [],
+  "an earlier responder that never asked",
+);
+// An earlier part of a split reply has no request of its own.
+assert.deepEqual(rewriteRun({ automaticAgents: [] }), [], "manual-only: the earlier part makes no call");
+assert.deepEqual(
+  rewriteRun({ automaticAgents: [guardian, htmlAgent] }).map((entry) => entry.name),
+  ["prose-guardian + html"],
+  "automatic: the earlier part keeps its ordinary merged pass",
+);
+// The request never joins the merged editor, and it runs last so no editor rewrites the artifact away.
+const guidedWithEditors = rewriteRun({ automaticAgents: [guardian, continuity, htmlAgent], guidedPrompt: "a sign" });
+assert.deepEqual(
+  guidedWithEditors.map((entry) => entry.type),
+  ["prose-guardian", "html"],
+);
+assert.equal(guidedWithEditors[0]!.name, "prose-guardian + continuity");
+assert.doesNotMatch(guidedWithEditors[0]!.promptTemplate, /<guided_request>/u);
+assert.match(guidedWithEditors[1]!.promptTemplate, /<guided_request>/u);
+// An inactive agent cannot run the request.
+assert.deepEqual(
+  rewriteRun({ automaticAgents: [guardian], htmlAgent: null, guidedPrompt: "a sign" }).map((entry) => entry.type),
+  ["prose-guardian"],
+);
+assert.deepEqual(rewriteRun({ automaticAgents: [], htmlAgent: null, guidedPrompt: "a sign", lastReply: false }), []);
+// The prompt lives per reply, and a defined intro stays exactly as set.
+const htmlRouteSource = readFileSync(
+  new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+  "utf8",
+);
+assert.doesNotMatch(htmlRouteSource, /_guidedHtmlRequest/u);
+assert.match(htmlRouteSource, /if \(definedIntro\?\.mode !== "defined"\) \{\s*guidedHtmlPrompt =/u);
 assert.equal(
-  selectGuidedRewriteAgents([agent("html", "a sign")], new Set(["agent-html"])),
-  null,
-  "an inactive agent cannot run",
+  isRoleplayCommandAllowed({ ...htmlCommandMetadata, roleplayHtmlManualOnly: true }, "html", "alice"),
+  true,
+  "Only when asked keeps the command available",
 );
+process.stdout.write("Roleplay commands regression passed.\n");

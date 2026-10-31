@@ -4823,7 +4823,7 @@
   "roleplay.commands.html.agentRequired": "Add Immersive HTML to this chat to use this command.",
   "roleplay.commands.html.description": "Let the narrator ask Immersive HTML for one specific in-world artifact, such as a spellbook page, a sign, or a terminal readout.",
   "roleplay.commands.html.label": "Immersive HTML",
-  "roleplay.commands.html.manualOnly.description": "Stop adding visuals after every reply. Immersive HTML then runs only when the narrator asks for one.",
+  "roleplay.commands.html.manualOnly.description": "Immersive HTML runs only when the narrator asks for a visual or you use /html.",
   "roleplay.commands.html.manualOnly.label": "Only when asked",
   "roleplay.commands.illustrate.description": "Let characters request extra Illustrator images. Automatic runs still follow the agent's Run Interval.",
   "roleplay.commands.illustrate.inline.description": "Show each image inside the message, where the character placed the command, instead of below it.",

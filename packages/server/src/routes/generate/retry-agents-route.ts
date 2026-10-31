@@ -275,10 +275,10 @@ import {
   resolveIllustratorCharacterReferences,
 } from "./illustrator-references.js";
 import {
-  buildGuidedHtmlRequest,
   explicitlyRequestsTextRewrite,
   isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
+  withGuidedHtmlRequest,
   normalizeProseGuardianPromptTemplate,
   sharesBuiltInRewriteRequest,
 } from "../../services/generation/prose-guardian-settings.js";
@@ -4877,7 +4877,11 @@ export async function registerRetryAgentsRoute(
       ? parseIllustratorPromptReviewOverride(rawIllustratorPromptReviewOverride)
       : null;
     const illustratorRetryTargets = parseIllustratorRetryTargets(rawIllustratorRetryTargets);
-    const manualHtmlPrompt = typeof rawManualHtmlPrompt === "string" ? rawManualHtmlPrompt.trim().slice(0, 2_000) : "";
+    // The request is for Immersive HTML alone; with other agents it would blend into a merged editor's prompt.
+    const manualHtmlPrompt =
+      typeof rawManualHtmlPrompt === "string" && agentTypes?.length === 1 && agentTypes[0] === "html"
+        ? rawManualHtmlPrompt.trim().slice(0, 2_000)
+        : "";
     if (!chatId || !agentTypes?.length) {
       return reply.status(400).send({ error: "chatId and agentTypes are required" });
     }
@@ -5062,7 +5066,7 @@ export async function registerRetryAgentsRoute(
       const { conn, enabledConfigs, resolvedAgents, warnings } = await runRetrySetupPhase(abortController.signal, () =>
         resolveRetryAgents({
           agentTypes,
-          manualHtml: !!manualHtmlPrompt && agentTypes.length === 1 && agentTypes[0] === "html",
+          manualHtml: !!manualHtmlPrompt,
           // Gallery Illustrate and Background are one-off runs, so neither needs Illustrator added to the chat.
           manualIllustration:
             (isManualIllustratorImageRequest || isManualIllustratorBackgroundRequest) &&
@@ -5080,11 +5084,7 @@ export async function registerRetryAgentsRoute(
       );
       if (manualHtmlPrompt) {
         for (const entry of resolvedAgents) {
-          if (entry.resolved.type === "html") {
-            entry.resolved.promptTemplate = `${entry.resolved.promptTemplate}
-
-${buildGuidedHtmlRequest(manualHtmlPrompt)}`;
-          }
+          if (entry.resolved.type === "html") entry.resolved = withGuidedHtmlRequest(entry.resolved, manualHtmlPrompt);
         }
       }
       if (illustratorMessageRange) {

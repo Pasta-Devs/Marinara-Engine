@@ -76,7 +76,7 @@ assert.match(
 );
 assert.match(
   generateRouteSource,
-  /if \(activatedTextRewriteRunAgents\.length > 0[\s\S]{0,7500}\n\s*\}\n\s*if \(holdForTextRewrite && !textRewriteApplied/u,
+  /if \(partRewriteAgents\.length > 0[\s\S]{0,7500}\n\s*\}\n\s*if \(holdForTextRewrite && !textRewriteApplied/u,
   "The held-response release must remain outside the active rewrite-agent branch",
 );
 

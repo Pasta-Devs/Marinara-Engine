@@ -1000,10 +1000,8 @@ import {
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
 import {
   explicitlyRequestsTextRewrite,
-  buildGuidedHtmlRequest,
   getTextRewritePendingState,
-  readGuidedHtmlRequest,
-  selectGuidedRewriteAgents,
+  selectRewriteAgentsForMessage,
   isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
   PROSE_GUARDIAN_PENDING_MESSAGE,
@@ -7218,16 +7216,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const allTextRewriteAgents = resolvedAgents.filter(
           (a) => a.phase === "post_processing" && resolveAgentResultType(a) === "text_rewrite",
         );
-        // "Only when asked" keeps Immersive HTML out of the automatic pass; a narrator's [html: …]
-        // request still runs it through selectGuidedRewriteAgents (#8586).
-        const automaticRewriteAgents =
+        // A defined intro (1.339) stays exactly as set: no agent rewrites it; its Game tags still run.
+        // "Only when asked" keeps Immersive HTML out of the automatic pass; an [html: …] request still runs it (#8586).
+        const textRewriteAgents =
           definedIntro?.mode === "defined"
             ? []
-            : chatMeta.htmlManualOnly === true
+            : chatMeta.roleplayHtmlManualOnly === true
               ? allTextRewriteAgents.filter((agent) => agent.type !== "html")
               : allTextRewriteAgents;
-        // A defined intro (1.339) stays exactly as set: no agent rewrites it; its Game tags still run.
-        const textRewriteAgents = automaticRewriteAgents;
         const textRewriteRunAgents = mergePairedBuiltInRewriteAgents(textRewriteAgents);
         const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
         const holdForTextRewrite = shouldHoldForTextRewrite(textRewriteAgents);
@@ -8075,6 +8071,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // final reply's, so only this may stand in for an empty Game Mode reply.
         let replyThinking = "";
         let allResponses: string[] = [];
+        // Each reply's own [html: …] request, by its saved message (the last part of a split reply). Every responder
+        // in an individual group shares this request's agents, so the prompt cannot live on them (#8586).
+        const guidedHtmlReplies = new Map<string, { prompt: string; split: boolean }>();
         // The scenes a game reply shows as written (worldgen W10): a rewrite of the reply must keep them.
         let turnShownScenes: readonly string[] = [];
         // The earlier parts of the last reply, when it was split at scene breaks; its last part is the last response.
@@ -9674,6 +9673,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // ── Parse and strip hidden character commands ──
           let roleplayHadCommands = false;
           const currentRoleplayMedia: RoleplayCommand[] = [];
+          let guidedHtmlPrompt = "";
           if (chatMode === "roleplay" && !input.impersonate) {
             const parsed = parseRoleplayCommands(fullResponse);
             roleplayHadCommands = parsed.content !== fullResponse;
@@ -9738,8 +9738,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               if (requiredAgent && !resolvedAgents.some((agent) => agent.type === requiredAgent)) continue;
               if (command.type === "html") {
                 // The rewrite stage below applies the artifact to this reply; nothing renders here.
-                const htmlAgent = resolvedAgents.find((agent) => agent.type === "html");
-                if (htmlAgent) htmlAgent.settings = { ...htmlAgent.settings, _guidedHtmlRequest: command.prompt };
+                if (definedIntro?.mode !== "defined") {
+                  guidedHtmlPrompt = guidedHtmlPrompt ? `${guidedHtmlPrompt}\n${command.prompt}` : command.prompt;
+                }
                 continue;
               }
               if (command.type === "illustrate" && chatMeta.roleplayIllustrateInline === true) {
@@ -11781,6 +11782,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             postToDiscordWebhook(discordWebhookUrl, { content: fullResponse, username: charName });
           }
 
+          if (guidedHtmlPrompt && savedMsg?.id) {
+            guidedHtmlReplies.set(savedMsg.id, { prompt: guidedHtmlPrompt, split: (replyParts?.length ?? 0) > 1 });
+          }
+
           // The reply this turn goes on with is a split reply's last part; the caller records the earlier ones.
           if (replyParts) fullResponse = replyParts.at(-1)!.content;
           return {
@@ -12212,7 +12217,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         // No enabled editor can change this text. Speaker/emotion extraction may start now, without
         // waiting for activation decisions for trackers or any other non-rewriting agent (#8026).
-        if (chatMode === "roleplay" && textRewriteRunAgents.length === 0) {
+        if (chatMode === "roleplay" && textRewriteRunAgents.length === 0 && guidedHtmlReplies.size === 0) {
           // Readiness also unlocks the next turn: commit this prompt's variable changes first.
           await persistChatMacroVariables();
           await sendAssistantMessageReady(currentIterationSavedMsg);
@@ -12264,17 +12269,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             if (inactivePostProcessingAgentIds.has(pipelineAgents[index]!.id)) pipelineAgents.splice(index, 1);
           }
         }
-        let activatedTextRewriteRunAgents = textRewriteRunAgents.filter(
+        const activatedTextRewriteRunAgents = textRewriteRunAgents.filter(
           (agent) => !inactivePostProcessingAgentIds.has(agent.id),
         );
-        // A reply that asked Immersive HTML for one artifact runs that agent alone, unmerged (#8586).
-        const guidedRewriteAgents = selectGuidedRewriteAgents(allTextRewriteAgents, inactivePostProcessingAgentIds);
-        if (guidedRewriteAgents) activatedTextRewriteRunAgents = guidedRewriteAgents;
+        // An [html: …] request runs Immersive HTML even in "Only when asked"; activation still has the last word (#8586).
+        const guidedHtmlAgent = guidedHtmlReplies.size
+          ? (allTextRewriteAgents.find(
+              (agent) => agent.type === "html" && !inactivePostProcessingAgentIds.has(agent.id),
+            ) ?? null)
+          : null;
         await persistChatMacroVariables();
 
         // Speech uses only the assistant message. Do not hold it behind
         // Illustrator, trackers, summaries, or other non-rewriting agents.
-        if (activatedTextRewriteRunAgents.length === 0) {
+        if (activatedTextRewriteRunAgents.length === 0 && !guidedHtmlAgent) {
           await sendAssistantMessageReady(currentIterationSavedMsg);
         }
 
@@ -12694,6 +12702,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             [
               ...pipelineAgents.filter((agent) => agent.phase === "post_processing"),
               ...activatedTextRewriteRunAgents,
+              ...(guidedHtmlAgent ? [guidedHtmlAgent] : []),
               ...(lorebookKeeperAgent ? [lorebookKeeperAgent] : []),
             ].map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
           );
@@ -15117,12 +15126,26 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // Each part of a reply split at scene breaks is a message of its own, so the agents rewrite every part on
           // its own, in order. A part's break line stays on top of it, and a failed rewrite leaves its part as written.
           // They rewrite only the last reply's own text, never the replies of earlier responders in an individual group.
-          const rewriteParts = lastReplyEarlierParts.length
-            ? [...lastReplyEarlierParts, { message: lastSavedMsg, content: allResponses.at(-1)! }].map((part) => ({
-                messageId: (part.message?.id as string | undefined) ?? "",
-                content: part.content,
-              }))
-            : [{ messageId, content: continuedMessageRewriteSource ?? allResponses.at(-1) ?? "" }];
+          const rewriteParts: Array<{ messageId: string; content: string; split: boolean }> =
+            lastReplyEarlierParts.length
+              ? [...lastReplyEarlierParts, { message: lastSavedMsg, content: allResponses.at(-1)! }].map((part) => ({
+                  messageId: (part.message?.id as string | undefined) ?? "",
+                  content: part.content,
+                  split: true,
+                }))
+              : [{ messageId, content: continuedMessageRewriteSource ?? allResponses.at(-1) ?? "", split: false }];
+          const lastReplyMessageIds = new Set(rewriteParts.map((part) => part.messageId));
+          // The one exception: an earlier responder's own [html: …] request goes on that responder's message (#8586).
+          if (guidedHtmlAgent) {
+            for (const [id, { split }] of guidedHtmlReplies) {
+              const responseIndex = roleplayResponseIndexes.get(id);
+              const content = responseIndex === undefined ? undefined : allResponses[responseIndex];
+              if (content && !lastReplyMessageIds.has(id)) rewriteParts.unshift({ messageId: id, content, split });
+            }
+          }
+          const activatedTextRewriteAgents = textRewriteAgents.filter(
+            (agent) => !inactivePostProcessingAgentIds.has(agent.id),
+          );
           // Every successful agent output, as a summary for rewrite agents; it is the same for every part.
           const agentSummary: Record<string, unknown> = {};
           for (const result of postResults) {
@@ -15130,15 +15153,24 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               agentSummary[result.agentType ?? result.type] = result.data;
             }
           }
-          for (const { messageId, content: originalResponseBeforeRewrite } of rewriteParts) {
-            const sceneBreak = lastReplyEarlierParts.length ? leadingSceneBreak(originalResponseBeforeRewrite) : "";
+          for (const { messageId, content: originalResponseBeforeRewrite, split } of rewriteParts) {
+            const sceneBreak = split ? leadingSceneBreak(originalResponseBeforeRewrite) : "";
             let textRewriteApplied = false;
+            // ponytail: a reply split at scene breaks carries its artifact on its last part;
+            // map the command offset to its part if placement in an earlier part ever matters.
+            const partRewriteAgents = selectRewriteAgentsForMessage({
+              automaticAgents: activatedTextRewriteAgents,
+              automaticRunAgents: activatedTextRewriteRunAgents,
+              htmlAgent: guidedHtmlAgent,
+              guidedPrompt: guidedHtmlReplies.get(messageId)?.prompt,
+              lastReply: lastReplyMessageIds.has(messageId),
+            });
             // Rewrite agents edit the public text, so a reply without any is left alone.
             const hasPublicReply = !!originalResponseBeforeRewrite.slice(sceneBreak.length).trim();
-            if (activatedTextRewriteRunAgents.length > 0 && messageId && hasPublicReply && !generationSignal.aborted) {
+            if (partRewriteAgents.length > 0 && messageId && hasPublicReply && !generationSignal.aborted) {
               let currentResponseForRewrite = originalResponseBeforeRewrite.slice(sceneBreak.length);
 
-              for (const textRewriteAgent of activatedTextRewriteRunAgents) {
+              for (const textRewriteAgent of partRewriteAgents) {
                 if (generationSignal.aborted) break;
                 try {
                   const editorContext: AgentContext = {
@@ -15152,17 +15184,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     memory: { ...agentContext.memory, _agentResults: agentSummary },
                   };
 
-                  // ponytail: a reply split at scene breaks runs the artifact on its last part only;
-                  // map the command offset to its part if placement in an earlier part ever matters.
-                  const guidedHtmlRequest =
-                    messageId === rewriteParts.at(-1)?.messageId ? readGuidedHtmlRequest(textRewriteAgent) : null;
-                  const runAgent = guidedHtmlRequest
-                    ? {
-                        ...textRewriteAgent,
-                        promptTemplate: `${textRewriteAgent.promptTemplate}\n\n${buildGuidedHtmlRequest(guidedHtmlRequest)}`,
-                      }
-                    : textRewriteAgent;
-                  const editorResult = await executeAgent(runAgent, editorContext, runAgent.provider, runAgent.model);
+                  const editorResult = await executeAgent(
+                    textRewriteAgent,
+                    editorContext,
+                    textRewriteAgent.provider,
+                    textRewriteAgent.model,
+                  );
                   sendAgentEvent(editorResult);
 
                   try {
@@ -15333,7 +15360,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         // Rewriting agents own the final spoken text, so wait for their
         // persisted edit (or no-op result) before releasing TTS.
-        if (activatedTextRewriteRunAgents.length > 0) {
+        if (activatedTextRewriteRunAgents.length > 0 || guidedHtmlAgent) {
           await sendAssistantMessageReady();
         }
 

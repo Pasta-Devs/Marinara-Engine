@@ -1,3 +1,4 @@
+import { effectiveAgentPromptTemplate } from "../agents/agent-executor.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 
 export const PROSE_GUARDIAN_PENDING_MESSAGE = "Prose Guardian is working!";
@@ -186,7 +187,6 @@ function buildMergedRewritePrompt(agents: ResolvedAgent[]): string {
   ].join("\n");
 }
 
-/** Built-in rewrite agents share one editor request unless the user turned sharing off for one (#6977). */
 /**
  * A narrator's own request for one artifact (#8586): the HTML agent runs on its own, so the block
  * speaks to it alone and keeps the story in charge of what may appear.
@@ -194,7 +194,7 @@ function buildMergedRewritePrompt(agents: ResolvedAgent[]): string {
 export function buildGuidedHtmlRequest(prompt: string): string {
   return [
     "<guided_request>",
-    "This reply asked Immersive HTML for one specific in-world artifact. Produce it now, as the requested HTML/CSS for this reply.",
+    "This reply asked Immersive HTML for a specific in-world artifact. Produce it now, as the requested HTML/CSS for this reply.",
     `The request: ${prompt}`,
     "Keep it diegetic: something the characters or the scene could actually see. Do not introduce new plot, characters, or facts, and do not describe the artifact in the narration.",
     "Return the full rewritten message with the artifact placed where it belongs in the text.",
@@ -202,25 +202,39 @@ export function buildGuidedHtmlRequest(prompt: string): string {
   ].join("\n");
 }
 
-/** The narrator's request this agent was selected for, or null when it runs its ordinary pass. */
-export function readGuidedHtmlRequest(agent: Pick<ResolvedAgent, "type" | "settings">): string | null {
-  if (agent.type !== "html") return null;
-  const value = agent.settings._guidedHtmlRequest;
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+/** The agent with the request appended to its real prompt: an unedited built-in has an empty template (#8586). */
+export function withGuidedHtmlRequest(agent: ResolvedAgent, prompt: string): ResolvedAgent {
+  return {
+    ...agent,
+    promptTemplate: `${effectiveAgentPromptTemplate(agent)}\n\n${buildGuidedHtmlRequest(prompt)}`,
+  };
 }
 
 /**
- * A reply that asked for an artifact runs Immersive HTML alone, unmerged, so the request is not
- * blended into another editor's pass (#8586).
+ * The rewrite agents for one saved message. The last reply keeps its automatic pass, and the request
+ * runs as its own call after it, so it is not blended into another editor's prompt and that editor
+ * cannot rewrite the artifact away. A message with no request of its own gets no guided run (#8586).
  */
-export function selectGuidedRewriteAgents(
-  agents: readonly ResolvedAgent[],
-  inactiveIds: ReadonlySet<string>,
-): ResolvedAgent[] | null {
-  const htmlAgent = agents.find((agent) => readGuidedHtmlRequest(agent) !== null && !inactiveIds.has(agent.id));
-  return htmlAgent ? [htmlAgent] : null;
+export function selectRewriteAgentsForMessage(args: {
+  /** The active automatic agents, unmerged. */
+  automaticAgents: ResolvedAgent[];
+  /** The same agents as they run with no request: merged. */
+  automaticRunAgents: ResolvedAgent[];
+  /** Immersive HTML, when a request can run this turn. */
+  htmlAgent: ResolvedAgent | null;
+  guidedPrompt?: string;
+  /** Rewrite agents edit only the last reply; an earlier responder's message gets its own request and nothing else. */
+  lastReply: boolean;
+}): ResolvedAgent[] {
+  const { automaticAgents, automaticRunAgents, htmlAgent, guidedPrompt, lastReply } = args;
+  if (!htmlAgent || !guidedPrompt) return lastReply ? automaticRunAgents : [];
+  return [
+    ...(lastReply ? mergePairedBuiltInRewriteAgents(automaticAgents.filter((agent) => agent.type !== "html")) : []),
+    withGuidedHtmlRequest(htmlAgent, guidedPrompt),
+  ];
 }
 
+/** Built-in rewrite agents share one editor request unless the user turned sharing off for one (#6977). */
 export function sharesBuiltInRewriteRequest(agent: Pick<ResolvedAgent, "type" | "settings">): boolean {
   return REWRITE_AGENT_TYPES.has(agent.type) && agent.settings.batchWithOtherAgents !== false;
 }
