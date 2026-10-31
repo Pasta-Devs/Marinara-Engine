@@ -57,8 +57,10 @@ try {
     assert.equal(response.statusCode, 200, response.body);
     return response.body;
   };
-  const assertOnlyRange = (body: string, format: string) => {
-    const positions = ["msg 1", "msg 2", "msg 3 second take"].map((text) => body.indexOf(text));
+  // Message 3 exports its selected swipe, so that is its text everywhere it legitimately appears.
+  const rangeText = (row: number) => (row === 3 ? "msg 3 second take" : `msg ${row}`);
+  const assertRange = (body: string, format: string, rows: number[]) => {
+    const positions = rows.map((row) => body.indexOf(rangeText(row)));
     assert.ok(
       positions.every((position) => position >= 0),
       `${format} range is missing a message:\n${body}`,
@@ -68,18 +70,17 @@ try {
       [...positions].sort((left, right) => left - right),
       `${format} range keeps chat order`,
     );
-    for (const outside of ["msg 0", "msg 4", "msg 5"]) {
-      assert.ok(!body.includes(outside), `${format} range leaked "${outside}":\n${body}`);
-    }
-    assert.ok(!/^msg 3$/mu.test(body), `${format} range exported the hidden alternate swipe`);
+    let rest = body;
+    for (const row of rows) rest = rest.split(rangeText(row)).join("");
+    assert.ok(!/msg \d/u.test(rest), `${format} range exported a message outside it, or an alternate swipe:\n${body}`);
   };
 
   // Boundaries picked last-to-first still export first-to-last.
-  const text = await exportOk("text", range(ids[3]!, ids[1]!));
-  assertOnlyRange(text, "text");
-  assertOnlyRange(await exportOk("markdown", range(ids[1]!, ids[3]!)), "markdown");
-  assertOnlyRange(await exportOk("html", range(ids[1]!, ids[3]!)), "html");
-  assert.match(await exportOk("text", range(ids[2]!, ids[2]!)), /msg 2/u);
+  assertRange(await exportOk("text", range(ids[3]!, ids[1]!)), "text", [1, 2, 3]);
+  assertRange(await exportOk("markdown", range(ids[1]!, ids[3]!)), "markdown", [1, 2, 3]);
+  assertRange(await exportOk("html", range(ids[1]!, ids[3]!)), "html", [1, 2, 3]);
+  // One boundary on both ends exports that one message only.
+  assertRange(await exportOk("text", range(ids[2]!, ids[2]!)), "text", [2]);
 
   const [headerLine, ...messageLines] = (await exportOk("jsonl", range(ids[1]!, ids[3]!))).split("\n");
   const header = JSON.parse(headerLine!);

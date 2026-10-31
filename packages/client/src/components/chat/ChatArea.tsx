@@ -730,6 +730,8 @@ const LocalChatArea = memo(function LocalChatArea({
   const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
   // A selection started from "Export a range" (#8547): it offers export only, never delete.
   const [exportSelection, setExportSelection] = useState(false);
+  // The selection an export was submitted for, so its result clears only that one and not a newer selection.
+  const submittedSelectionRef = useRef<Set<string> | null>(null);
 
   const {
     data: chatDetail,
@@ -2655,6 +2657,7 @@ const LocalChatArea = memo(function LocalChatArea({
       endName: speaker(end),
       endText: snippet(end.content),
     });
+    const submitted = selectedMessageIds;
     const format = await showChoiceDialog({
       title: localizeUi("chat.rangeExport.title"),
       message: `${summary}\n\n${localizeUi("chat.rangeExport.storyFilterNote")}`,
@@ -2667,16 +2670,19 @@ const LocalChatArea = memo(function LocalChatArea({
       cancelLabel: localizeUi("chat.delete.selection.cancel"),
     });
     if (!format) return;
+    submittedSelectionRef.current = submitted;
     exportChat(
       {
         chatId: activeChatId,
         format: format as ChatExportFormat,
         range: { startMessageId: start.id, endMessageId: end.id },
       },
-      // A slow export must not clear a selection the user started after switching chats.
+      // A slow export must not clear a selection the user started since submitting it, in this chat or another.
       {
         onSuccess: () => {
-          if (useChatStore.getState().activeChatId === activeChatId) handleCancelMultiSelect();
+          if (useChatStore.getState().activeChatId === activeChatId && submittedSelectionRef.current === submitted) {
+            handleCancelMultiSelect();
+          }
         },
       },
     );
