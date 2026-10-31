@@ -132,6 +132,8 @@ try {
   const echoOnly = await exportOk("text", range(echoed.id, echoed.id));
   assert.match(echoOnly, /^echo: $/mu, echoOnly);
   assert.ok(!echoOnly.includes("Outside msg 7"), echoOnly);
+  // The whole chat still fills {{input}} from its latest user message.
+  assert.match(await exportOk("text"), /echo: Outside msg 7/u);
 
   // A boundary outside this chat, or a missing one, is refused instead of exporting the whole chat.
   for (const [query, status] of [
