@@ -19,7 +19,7 @@ type WireRequest = { model?: string; messages: WireMessage[]; tools: unknown[] }
 const requests: WireRequest[] = [];
 
 /** How the fixture answers. `role-order` is OpenAI's own complaint about a tool row, which is not a refusal of it. */
-type Mode = "refuse-tool-role" | "rate-limit" | "role-order" | "role-order-typed" | "accept";
+type Mode = "refuse-tool-role" | "rate-limit" | "role-order" | "role-order-typed" | "role-allowed" | "accept";
 let mode: Mode = "refuse-tool-role";
 
 const LINKAPI_WORDING =
@@ -35,6 +35,8 @@ const TYPED_ROLE_ORDER_PAYLOAD = {
     param: "messages",
   },
 };
+/** Permission, not prohibition: the same vocabulary with the verdict missing. */
+const ROLE_ALLOWED_WORDING = "messages: role 'tool' is allowed only after an assistant message with tool_calls";
 
 const server = createServer(async (request, response) => {
   let raw = "";
@@ -56,7 +58,15 @@ const server = createServer(async (request, response) => {
           : anthropicWording
             ? ANTHROPIC_WORDING
             : LINKAPI_WORDING;
-    response.end(JSON.stringify(mode === "role-order-typed" ? TYPED_ROLE_ORDER_PAYLOAD : { error: { message } }));
+    response.end(
+      JSON.stringify(
+        mode === "role-order-typed"
+          ? TYPED_ROLE_ORDER_PAYLOAD
+          : mode === "role-allowed"
+            ? { error: { message: ROLE_ALLOWED_WORDING } }
+            : { error: { message } },
+      ),
+    );
     return;
   }
   response.end(JSON.stringify({ choices: [{ message: { content: "Found the entry." }, finish_reason: "stop" }] }));
@@ -195,6 +205,22 @@ try {
   await typedOrder.chatComplete(history, { model: "claude-typed-order-opus", tools, stream: false });
   assert.equal(requests.length - beforeTypedAccept, 1, "the accepted call is one request");
   assert.ok(roles(requests.at(-1)!).includes("tool"), "a typed role-order error must not be remembered");
+
+  // 8. Permission is not prohibition: `role 'tool' is allowed only after …` uses the same vocabulary and must not be
+  //    read as a refusal of the role.
+  mode = "role-allowed";
+  const allowed = new OpenAIProvider(base, "");
+  const beforeAllowed = requests.length;
+  await assert.rejects(
+    allowed.chatComplete(history, { model: "claude-allowed-role-opus", tools, stream: false }),
+    /OpenAI API error 429/,
+  );
+  assert.equal(requests.length - beforeAllowed, 1, "an allowance must not be reshaped and resent");
+  mode = "accept";
+  const beforeAllowedAccept = requests.length;
+  await allowed.chatComplete(history, { model: "claude-allowed-role-opus", tools, stream: false });
+  assert.equal(requests.length - beforeAllowedAccept, 1, "the accepted call is one request");
+  assert.ok(roles(requests.at(-1)!).includes("tool"), "an allowance must not be remembered");
 } finally {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
