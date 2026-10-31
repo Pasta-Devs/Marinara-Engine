@@ -211,6 +211,8 @@ Generowanie świata to najtrudniejsza część trybu Game Mode. Wymaga od modelu
 
 Do generowania świata użyj mocnego, aktualnego modelu z najwyższej półki na płatnym połączeniu. W 2026 roku gracze zgłaszają dobre wyniki z flagowych modeli największych dostawców. Przykłady to Anthropic Claude, OpenAI GPT i Google Gemini. Konkretne nazwy modeli zmieniają się często, więc traktuj je jako przykłady, a nie stałą listę.
 
+Najtańsze polecane przez nas modele to DeepSeek V4 Flash i Claude Haiku 5.5, oba przetestowane w rozgrywce na dzień 31 października 2026 roku.
+
 Do bieżących tur rozgrywki czasem wystarcza tańszy model, bo tury wymagają narracji, a nie ścisłego formatu JSON. Jeśli postać GM zaczyna zapominać o postaciach NPC albo przeczyć wcześniejszym faktom, wróć do mocniejszego modelu.
 
 Unikaj darmowych modeli i automatycznego doboru modelu przy generowaniu świata. Zapytanie może trafić do mniejszego modelu, który nie utworzy poprawnego formatu JSON dla świata. Małe modele z otwartymi wagami zwykle też nie dają rady na tym kroku.

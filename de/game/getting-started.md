@@ -211,6 +211,8 @@ Die Weltgenerierung ist der schwierigste Teil von Game Mode. Sie verlangt vom Mo
 
 Nimm für die Weltgenerierung ein leistungsfähiges, aktuelles Spitzenmodell über eine kostenpflichtige Verbindung. Stand 2026 berichten Spielende von guten Ergebnissen mit den Flaggschiff-Stufen der großen Anbieter, etwa Anthropic Claude, OpenAI GPT und Google Gemini. Konkrete Modellnamen ändern sich häufig – versteh das also als Beispiele, nicht als feste Liste.
 
+Die günstigsten Modelle, die wir empfehlen, sind DeepSeek V4 Flash und Claude Haiku 5.5; beide wurden mit Stand vom 31. Oktober 2026 im Spiel getestet.
+
 Für die laufenden Spielzüge reicht manchmal ein günstigeres Modell, denn hier geht es um Erzählung statt um striktes JSON. Vergisst der GM plötzlich NPCs oder widerspricht früheren Details, dann wechsle wieder auf ein stärkeres Modell.
 
 Finger weg von kostenlosen oder automatisch weiterleitenden Modellen für die Weltgenerierung. Sie landen womöglich bei einem kleineren Modell, das kein gültiges Weltgenerierungs-JSON liefert. Kleine Open-Weight-Modelle scheitern an diesem Schritt meist ebenfalls.
