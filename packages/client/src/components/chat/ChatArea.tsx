@@ -2630,7 +2630,8 @@ const LocalChatArea = memo(function LocalChatArea({
     if (first < 0 || last < 0) return;
     const speaker = (message: MessageWithSwipes) => {
       if (message.role === "user") {
-        const snapshotName = message.extra?.personaSnapshot?.name?.trim();
+        const rawSnapshotName = message.extra?.personaSnapshot?.name;
+        const snapshotName = typeof rawSnapshotName === "string" ? rawSnapshotName.trim() : "";
         return snapshotName || personaInfo?.name || localizeUi("ui.chat.messagemarks.you");
       }
       if (message.role === "narrator") return localizeUi("ui.chat.chatmessage.narrator");
@@ -2672,7 +2673,12 @@ const LocalChatArea = memo(function LocalChatArea({
         format: format as ChatExportFormat,
         range: { startMessageId: start.id, endMessageId: end.id },
       },
-      { onSuccess: handleCancelMultiSelect },
+      // A slow export must not clear a selection the user started after switching chats.
+      {
+        onSuccess: () => {
+          if (useChatStore.getState().activeChatId === activeChatId) handleCancelMultiSelect();
+        },
+      },
     );
   }, [
     activeChatId,
