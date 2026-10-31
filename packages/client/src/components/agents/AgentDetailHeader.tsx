@@ -46,22 +46,19 @@ export function AgentDetailHeader({
     >
       {hasBanner && storeEntry && (
         <>
-          {tall ? (
-            // Centred at the header's aspect; past 260px tall (832px / 595px wide) it is narrower than the header, so fade its sides.
-            <div className="@container absolute inset-0 -z-10">
-              <StoreBanner
-                entry={storeEntry}
-                sizes="100vw"
-                className="mx-auto aspect-[16/7] h-full max-w-full rounded-none! shadow-none! max-sm:@min-[595px]:[mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)] sm:aspect-[16/5] @min-[833px]:[mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]"
-              />
-            </div>
-          ) : (
+          <div className="@container absolute inset-0 -z-10">
+            {/* The tall header's max-h-[260px] at aspect 16/5 (16/7 below sm) caps it at 832px (594px) wide; past that, centre the
+                artwork at that width and fade its sides, the fade growing from 0 with the spare width (100cqw - 100%) up to 15%. */}
             <StoreBanner
               entry={storeEntry}
               sizes="100vw"
-              className="absolute inset-0 -z-10 h-full w-full rounded-none! shadow-none!"
+              className={cn(
+                "mx-auto h-full w-full rounded-none! shadow-none!",
+                tall &&
+                  "max-w-[832px] [--fade:clamp(0px,100cqw_-_100%,15%)] [mask-image:linear-gradient(to_right,transparent,black_var(--fade),black_calc(100%_-_var(--fade)),transparent)] max-sm:max-w-[594px]",
+              )}
             />
-          )}
+          </div>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-2/3 bg-gradient-to-t from-[var(--marinara-editor-bg,var(--background))] to-transparent" />
         </>
       )}
