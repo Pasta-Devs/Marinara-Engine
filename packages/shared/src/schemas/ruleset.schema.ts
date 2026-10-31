@@ -11043,6 +11043,9 @@ const marketSoldShape = { place: sheetId.optional(), limited: marketCountSchema.
 const soldNamesSomething = (sold: { place?: string; limited?: unknown }) =>
   sold.place !== undefined || sold.limited !== undefined;
 
+/** How many `unsold` filters a market holds (1.813), its own and every layer's together. */
+export const RULESET_MARKET_UNSOLD_MAX = 24;
+
 /** What a place sells and at what price (#6917, Capability API 1.65). Buying is the Game Master's
  *  `buy`, answered with the price the Engine works out. A market day (#6934, 1.69) adds rare stock,
  *  limited items, and selling back up to a place's purse. */
@@ -11137,7 +11140,7 @@ const marketSchema = z
      *  never sold as one of a place's wares, wherever its `sold` rule or a seller's `sells` would put
      *  it. A seller's `stock` table still rolls it, so a rare odd lot is the only way to buy one.
      *  Sellers still buy it back. A low-magic layer's "no magic in the shops": `[{ "tag": "magical" }]`. */
-    unsold: z.array(itemFilterSchema).min(1).max(24).optional(),
+    unsold: z.array(itemFilterSchema).min(1).max(RULESET_MARKET_UNSOLD_MAX).optional(),
   })
   .strict();
 
@@ -21268,6 +21271,20 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   const layers = def.layers ?? [];
   const layerIds = unique(layers, ["layers"], "layer");
   const catalogById = new Map(catalogs.map((catalog) => [catalog.id, catalog]));
+  // Every layer's unsold wares are appended to the market's own (1.813), and the layered market is
+  // held to the same 24 as the file's, so the sum is checked here: otherwise the layers that pushed it
+  // over would be skipped whole in play, guidance and all, with nobody told.
+  if (!layersApplied) {
+    const unsold =
+      (def.items?.market?.unsold?.length ?? 0) +
+      layers.reduce((sum, layer) => sum + (layer.items?.market?.unsold?.length ?? 0), 0);
+    if (unsold > RULESET_MARKET_UNSOLD_MAX) {
+      issue(
+        ["layers"],
+        `The market's unsold wares and every layer's come to ${unsold}, over the ${RULESET_MARKET_UNSOLD_MAX} a market holds`,
+      );
+    }
+  }
   layers.forEach((layer, index) => {
     const path = ["layers", index];
     layer.conflicts?.forEach((other, conflictIndex) => {

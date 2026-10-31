@@ -235,6 +235,31 @@ const quiet = { "layer.quiet_roads": true };
     "every seller",
   );
   refused(layer({ market: { unsold: [{ rarity: "mythic" }] } }), /Unknown item rarity "mythic"/, "a rarity");
+  // The market's own unsold and every layer's are held to one market's 24 together, at import, so no
+  // layer is skipped in play for pushing the merged list over.
+  const filters = (count: number) => Array.from({ length: count }, () => ({ rarity: "rare" }));
+  refused(
+    (doc) => {
+      doc.items.market.unsold = filters(13);
+      layer({ market: { unsold: filters(12) } })(doc);
+    },
+    /The market's unsold wares and every layer's come to 25, over the 24 a market holds/,
+    "the base and a layer together",
+  );
+  refused(
+    (doc) => {
+      for (const id of ["a", "b", "c"]) doc.layers.push({ id, label: id, items: { market: { unsold: filters(10) } } });
+    },
+    /come to 30, over the 24/,
+    "three layers together",
+  );
+  parsedOrThrow(
+    variant((doc) => {
+      doc.items.market.unsold = filters(12);
+      layer({ market: { unsold: filters(12) } })(doc);
+    }),
+    "exactly 24",
+  );
   refused(
     layer({ lootTables: [{ id: "hoard", label: "Hoard", entries: [{ coins: "shilling", weight: 1 }] }] }),
     /A layer replaces loot tables the ruleset has: no "hoard"/,
