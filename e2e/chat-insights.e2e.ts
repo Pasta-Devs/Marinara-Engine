@@ -237,6 +237,7 @@ test("exporting a range of messages downloads only that span and leaves the chat
   const cleanupRequest = await playwright.request.newContext({ baseURL });
   let chatId: string | null = null;
   let testFailure: unknown;
+  let cleanupFailure: unknown;
 
   try {
     const created = await request.post("/api/chats", {
@@ -320,7 +321,6 @@ test("exporting a range of messages downloads only that span and leaves the chat
     testFailure = error;
     throw error;
   } finally {
-    let cleanupFailure: unknown;
     try {
       if (chatId) {
         const deleted = await cleanupRequest.delete(`/api/chats/${chatId}?force=true`);
@@ -328,9 +328,14 @@ test("exporting a range of messages downloads only that span and leaves the chat
       }
     } catch (error) {
       cleanupFailure = error;
-    } finally {
-      await cleanupRequest.dispose();
     }
-    if (cleanupFailure && !testFailure) throw cleanupFailure;
+    try {
+      await cleanupRequest.dispose();
+    } catch (error) {
+      cleanupFailure ??= error;
+    }
   }
+  // Cleanup never hides the test's own failure.
+  if (testFailure) throw testFailure;
+  if (cleanupFailure) throw cleanupFailure;
 });

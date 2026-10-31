@@ -128,6 +128,10 @@ try {
   const beforeExcerpt = await snapshot();
   const excerpt = await exportOk("text", range(asked.id, echoed.id));
   assert.match(excerpt, /echo: msg 6/u, excerpt);
+  // On its own, the echo has no user message inside the range to fill in, and takes none from outside it.
+  const echoOnly = await exportOk("text", range(echoed.id, echoed.id));
+  assert.match(echoOnly, /^echo: $/mu, echoOnly);
+  assert.ok(!echoOnly.includes("Outside msg 7"), echoOnly);
 
   // A boundary outside this chat, or a missing one, is refused instead of exporting the whole chat.
   for (const [query, status] of [

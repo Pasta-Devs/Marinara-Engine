@@ -2636,8 +2636,7 @@ const LocalChatArea = memo(function LocalChatArea({
     if (first < 0 || last < 0) return;
     const speaker = (message: MessageWithSwipes) => {
       if (message.role === "user") {
-        const rawSnapshotName = message.extra?.personaSnapshot?.name;
-        const snapshotName = typeof rawSnapshotName === "string" ? rawSnapshotName.trim() : "";
+        const snapshotName = getPersonaSnapshotName(parseMessageExtraRecord(message.extra));
         return snapshotName || personaInfo?.name || localizeUi("ui.chat.messagemarks.you");
       }
       if (message.role === "narrator") return localizeUi("ui.chat.chatmessage.narrator");
