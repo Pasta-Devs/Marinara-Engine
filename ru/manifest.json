@@ -1,6 +1,6 @@
 {
   "language": "ru",
-  "sourceCommit": "2e0dadf0cc63f55905ca0382646fb928bbcd5fc5",
+  "sourceCommit": "04e328e06f97b42e1c6b05cbc8019309760ec17b",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -429,13 +429,13 @@
     },
     {
       "path": "extending/ruleset-items.md",
-      "sha256": "0cccd5c4887ff81f3d236d6baad8c53417ca2e0f53b4c8e218ad2a36b047c7d7",
-      "bytes": 130480
+      "sha256": "a7b64c31b4f16bf7f0a635963e7c43444059046dcaee90c5bbb95c02b794165d",
+      "bytes": 131288
     },
     {
       "path": "extending/ruleset-layers-and-translations.md",
-      "sha256": "160986767c9fcfde9600fe57662e93fc033cc379dc337844ecd824e2cecb3a87",
-      "bytes": 22747
+      "sha256": "f8e9864cf257e2e922d080b90dc8406f8bf6f05fdea4c604362f5fff722c8706",
+      "bytes": 24750
     },
     {
       "path": "extending/ruleset-mechanics.md",
@@ -514,8 +514,8 @@
     },
     {
       "path": "game/rulesets.md",
-      "sha256": "6161f6a328be9cc5b6724b74776f817f893b921d41a026701e1f7ddaf25f25fa",
-      "bytes": 41852
+      "sha256": "5421d87893ba84abce418a3c0ee2ccca948292be808e44726701d8cb4dc3549f",
+      "bytes": 41966
     },
     {
       "path": "game/sessions-and-saves.md",
