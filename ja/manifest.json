@@ -1,6 +1,6 @@
 {
   "language": "ja",
-  "sourceCommit": "c47365635bda57b28c384971f8d541ac981f3971",
+  "sourceCommit": "1ed80e8809afd536f32eb295d9aecbaabbdfe09d",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "509660fcef1ad656d0a402a085c2d6e57f811b115fc50d1019fc7073d12b5787",
-      "bytes": 76544
+      "sha256": "7bdd54741cbcb1b510afd2f334218e7091b1394f4cccf43c7ebe1ed53206878b",
+      "bytes": 76566
     },
     {
       "path": "UPGRADING.md",
@@ -34,8 +34,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "9adb130fd9ba8c7a4d1e3bdb33c7e9f616deb5fb39563a6c30c1b3bff7fce10a",
-      "bytes": 20137
+      "sha256": "0f895bad25977fae6245452ec540f17c0827fe2c256a854be234d24a72b1d279",
+      "bytes": 21642
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -204,8 +204,8 @@
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "84f4b6db986b4cd7992293e4f11a2f3e1d6a4d46f3014c47f21b24979261c836",
-      "bytes": 14841
+      "sha256": "d9fefb449411d732d0652796702170f0bfb9e461d8e1ef8d9b1504b01e0de304",
+      "bytes": 15302
     },
     {
       "path": "configuration/features.md",
@@ -399,8 +399,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "78ac14703735d5ba364f99b7a7c7fd528704bf173367e6cd4027a38505528785",
-      "bytes": 194632
+      "sha256": "a41b0ecf6f1668af002a977b60ba04a114a28f6e9198755261abf18b727d0783",
+      "bytes": 199106
     },
     {
       "path": "development/personal-extensions.md",
@@ -414,8 +414,8 @@
     },
     {
       "path": "extending/personal-extensions.md",
-      "sha256": "d36f6a333550b3541fdf5b336c8a447a54cff6e7621c5155c1e469083f3c8bca",
-      "bytes": 24919
+      "sha256": "89537be0ad5db26edc89702db1a2a282a926dc781c18c72f5933afa8716ef78d",
+      "bytes": 27923
     },
     {
       "path": "extending/regex-scripts.md",
@@ -429,13 +429,13 @@
     },
     {
       "path": "extending/writing-personal-extensions.md",
-      "sha256": "d156d2dc34d3bc1fa91ceb9770a03782b69a1c90401945717906c3cab66557d6",
-      "bytes": 15587
+      "sha256": "971ec79506b2b907a4168a6beb5ef1fd96c7f7357a3faea10187a4d5d5c90579",
+      "bytes": 15790
     },
     {
       "path": "extending/writing-rulesets.md",
-      "sha256": "583b9f24d2d2d5ac7c1b5ac467df0f5d6a656a34339b8a366d5ad72a86350499",
-      "bytes": 633254
+      "sha256": "4354a8cd30ce150ef0f528fd6d10afaca6aa58e7939ba03ac0701db2e9990ad7",
+      "bytes": 633795
     },
     {
       "path": "extending/writing-story-scripts.md",
@@ -449,8 +449,8 @@
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "59e5e582e7e861aca6b91a47a7f7f12f820728a9071d41470cf2afc3a077ee02",
-      "bytes": 31142
+      "sha256": "d4cff1f35381229eeee0187e7a78af6dd37d784fe3b860302fa97d0b9d1c8482",
+      "bytes": 32316
     },
     {
       "path": "game/game-assets.md",
@@ -654,8 +654,8 @@
     },
     {
       "path": "prompts/macros.md",
-      "sha256": "95a64a7c17e1761804ac1361108ee631d6479ec1a95486cc3b1d74516cfd10c3",
-      "bytes": 32134
+      "sha256": "08f150605951d7217638c955a1aa5f08cb252bf65b8f98bdc69f38fb206bc606",
+      "bytes": 32226
     },
     {
       "path": "prompts/preset-variables.md",

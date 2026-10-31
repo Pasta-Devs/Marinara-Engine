@@ -297,6 +297,7 @@ Genesys 先用一项特征值和一项技能等级组建骰池，再加入对立
 - `allowOwnUpgrade`：可选，缺省时为 false。设为 `true` 时，`upgradeOwn="N"` 在人物卡升级和购买的骰子之后，再把 N 颗角色骰升级为 `pool.upgrade`(必须已声明)。现有骰子全部升级后，每次额外升级会增加一颗升级骰，仍受 `pool.max` 约束。这也适用于 `pool.build: "sum"`。声明这个键，即使值为 `false`，也要求 capabilityApi **1.150**。标签参数名使用驼峰式，如 `zeroDice`；`upgradeOwn` 影响掷骰者，`upgrade` 仍只影响难度骰。`setback` 和 `upgradeOwn` 都接受非负整数，在符号骰池之外会被忽略；未启用时 `upgradeOwn` 也会被忽略。
 - `success`：抵消后需要多少个该符号，默认为一个。大成功和大失败标记会在其指定符号出现时标出，即使它额外计入的成功或失败被抵消了也一样。两种标记可以同时出现，且都不改变净成功数是否通过检定。
 - `outcomes` 可以读取净成功数（`total`），或 `net successes - needed + 1`(`margin`)。结果档仍按通常方式决定成败；原本的大成功和大失败符号仍会被标记。`spend` 只能在 `pool.max` 之内购买额外的基础角色骰。它的战斗使用 `symbol-pool` 类型（Capability API 1.382，见下文“以符号骰进行的战斗”）；不能搭配任何其他战斗类型。
+- 检定之外，使用这个规则集的游戏也可以按名称掷骰：消息输入栏的自定义骰子输入框和 Game Master 的 `roll_dice` 工具都接受 `2 ability 1 proficiency vs 2 difficulty`(每颗骰子的 `id` 或 `label`，不区分大小写)，并像检定一样计数和抵消符号，但不使用人物卡、升级或难度梯度。无需设置任何键来启用。
 - 记录保留 `resolution="sum"`，并带有 `symbols="2s 1a 1t"`、标识每颗骰子的 `thrown=`，以及保存其从 1 开始的骰面序号的 `rolls=`。编码后的 `symbolDetails` 保留标签、骰面符号以及大成功和大失败两种标记。`setback` 记录在共用挫折骰上限之后实际加入的独立挫折骰，`upgradeOwn` 记录实际应用的额外升级；被忽略或为零的增量不记录。骰子卡和摘要会写出净符号（包括空结果），而不是把骰面数字相加。覆盖可以改变这一类型的规则，但不能替换 `symbols` 或 `dice`。
 
 #### 范围之外的机制及原因

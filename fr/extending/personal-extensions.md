@@ -158,6 +158,43 @@ Un instantané de personnage ne contient que `id`, `name`, `description`, `perso
 
 Marinara n'envoie jamais les messages, les notes du créateur, les prompts système, les instructions post-historique, les commentaires, les chemins des avatars, les bibliothèques complètes de personnages ou de personas, les champs non déclarés, les métadonnées du chat, les descripteurs de base de données, un accès réseau ni des opérations de modification. Les mises à jour du contexte restent liées à l'empreinte approuvée du code ; elles arrivent quand le chat actif, sa liste de personnages ou son persona sélectionné change.
 
+<a id="add-a-dice-format"></a>
+
+### Ajouter un format de dés
+
+La version 6 de la Browser Extension API permet à une extension d'apprendre à `/roll` une notation qui lui est propre, comme une réserve de dés narratifs. L'extension lit la notation et désigne les dés à lancer ; Marinara les lance avec son propre générateur sécurisé et lui renvoie les faces. Une extension peut interpréter un jet, jamais décider du résultat des dés.
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+`/roll 2 boost 1 setback` publie alors les faces, le total et le texte de l'extension, avec le nom du format comme libellé. Une notation simple comme `2d6` ou `4d6kh3` lance toujours les dés comme avant et n'est jamais transmise à une extension. Les autres notations sont transmises à chaque format enregistré à tour de rôle ; le premier dont `parse` renvoie des dés effectue le jet.
+
+- `parse(notation)` renvoie `null` ou `{ dice: [sides, ...] }` avec 1 à 100 dés de 2 à 1 000 faces. Les autres propriétés de l'objet restent dans le bac à sable et sont renvoyées à `read` sous le nom `plan`.
+- `read(...)` renvoie `{ total, text?, kept? }` : un nombre fini, au plus 200 caractères de texte brut et, facultativement, les positions des dés qui ont compté, par ordre croissant. `/roll` barre les autres.
+- Chaque extension peut enregistrer 4 formats. La notation est limitée à 100 caractères. `parse` et `read` peuvent être asynchrones, mais chacune doit répondre en moins de 2 secondes.
+- Le texte est affiché comme texte brut : les liens, les images, la mise en forme et le HTML sont échappés.
+
+Les formats de dés s'appliquent à `/roll` dans le navigateur. L'outil `roll_dice` du Game Master et les autres jets côté serveur conservent la notation intégrée et les dés de l'ensemble de règles. Vérifie `typeof marinara.dice?.registerFormat === "function"` avant de l'appeler sur les anciennes versions du moteur.
+
 ### Anciennes extensions et extensions pleine page
 
 Contrôleurs météo, éditeurs de prompts et autres flux de travail conséquents sont des cas d'usage tout à fait valables pour les contributions. Leur portage sûr peut s'appuyer sur un lanceur dans le menu ou la barre supérieure, complété par des panneaux mis à jour au fil des étapes. En revanche, les paquets existants qui superposent des éléments au DOM, interrogent les sélecteurs CSS de Marinara, parcourent les entrailles de React ou appellent les routes `/api` de même origine ne peuvent pas être importés tels quels dans le runtime sûr.

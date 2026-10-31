@@ -190,7 +190,7 @@ Estas macros añaden azar a tus prompts. Usa la macro aleatoria (`{{random}}`) p
 | `{{random:X:Y}}` | Un número entero aleatorio entre X e Y, ambos incluidos. |
 | `{{random::A::B::C}}` | Elige una opción al azar y luego resuelve las macros solo dentro de la opción elegida. |
 | `{{random::A@2::B@0.5}}` | Una elección aleatoria ponderada. Consulta las reglas de ponderación más abajo. |
-| `{{roll:XdY}}` | El total de una tirada de dados. Por ejemplo, `{{roll:2d6}}` tira dos dados de seis caras y los suma. |
+| `{{roll:XdY}}` | El total de una tirada de dados. Por ejemplo, `{{roll:2d6}}` tira dos dados de seis caras y los suma. `{{roll:d20}}` tira un solo dado, y `{{roll:1d8+3}}` suma 3 a la tirada. |
 
 Aquí tienes una elección aleatoria simple que puedes copiar:
 

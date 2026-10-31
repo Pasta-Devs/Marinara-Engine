@@ -121,10 +121,11 @@ Browser Extensions in der Sandbox erhalten ein einziges unveränderliches global
 | `context.subscribe(listener)` | Kontextänderungen empfangen; gibt eine Funktion zum Abbestellen zurück |
 | `ui.registerContribution(options)` | Sichere Schaltfläche, Extensions-Menüeintrag oder von Marinara gerendertes Panel hinzufügen |
 | `ui.showWindow(options)` | Eingeschränktes iframe-Fenster öffnen |
+| `dice.registerFormat(options)` | `/roll` eine Notation beibringen; Marinara wirft die darin benannten Würfel |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | Verwaltete Timer, die beim Stoppen der Erweiterung entfernt werden |
 | `onCleanup(callback)` | Zusätzliche Bereinigungslogik registrieren |
 
-Verwende [von Marinara gerenderte Panels](personal-extensions.md#add-a-marinara-rendered-panel) für normale Oberflächen und den [Kontext des aktiven Chats](personal-extensions.md#use-active-chat-context) für chatabhängiges Verhalten. Der Erweiterungszustand gehört in `marinara.storage`, nicht in den Browser-Speicher.
+Verwende [von Marinara gerenderte Panels](personal-extensions.md#add-a-marinara-rendered-panel) für normale Oberflächen, den [Kontext des aktiven Chats](personal-extensions.md#use-active-chat-context) für chatabhängiges Verhalten und [Würfelformate](personal-extensions.md#add-a-dice-format) für eine eigene `/roll`-Notation. Der Erweiterungszustand gehört in `marinara.storage`, nicht in den Browser-Speicher.
 
 `showWindow({ title, elements, onEvent, onClose })` gibt ein Handle mit `update({ title?, elements? })` und `close()` zurück. Paket-CSS gestaltet diese iframe-Fenster in der Sandbox; vom Host gerenderte Beiträge verwenden immer Marinaras eigenes Theme und seine Bedienelemente.
 

@@ -158,6 +158,43 @@ marinara.onCleanup(unsubscribe);
 
 Marinaraは、メッセージ、作成者ノート、システムプロンプト、履歴の後ろに置く指示、コメント、アバターの画像パス、キャラクターやペルソナのライブラリー全体、宣言されていない項目、チャットのメタデータ、データベースのハンドル、ネットワークアクセス、書き換えの操作を、いっさい渡しません。コンテキストの更新は承認済みのコードハッシュに結び付いたままで、現在のチャット、参加キャラクターの一覧、選択中のペルソナが変わったときに届きます。
 
+<a id="add-a-dice-format"></a>
+
+### ダイス形式の追加
+
+ブラウザー拡張機能APIのバージョン6では、ナラティブダイスのプールなど、独自の記法を`/roll`に追加できます。拡張機能が記法を読み取り、振るダイスを指定すると、Marinaraが自身の安全なダイスローラーで振り、出目を返します。拡張機能が決められるのはロールの意味であって、出目そのものではありません。
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+これで`/roll 2 boost 1 setback`を使うと、出目、合計、拡張機能のテキストが、その形式の名前を添えて投稿されます。`2d6`や`4d6kh3`などの通常の記法は、常にこれまでどおりに振られ、拡張機能には渡されません。それ以外の記法は登録された各形式に順番に渡され、`parse`が最初にダイスを返した形式で振ります。
+
+- `parse(notation)`は`null`、または2～1000面のダイス1～100個を指定する`{ dice: [sides, ...] }`を返します。オブジェクトのそれ以外の内容はサンドボックス内にとどまり、`plan`として`read`に渡されます。
+- `read(...)`は`{ total, text?, kept? }`を返します。有限の数値、最大200文字のプレーンテキスト、任意で採用したダイスの位置を昇順に指定します。`/roll`は、それ以外のダイスに取り消し線を引きます。
+- 拡張機能ごとに4つの形式を登録できます。記法は最大100文字です。`parse`と`read`は非同期でもかまいませんが、それぞれ2秒以内に応答する必要があります。
+- テキストはプレーンテキストとして表示され、リンク、画像、書式、HTMLはエスケープされます。
+
+ダイス形式が対応するのは、ブラウザーの`/roll`です。ゲームマスターの`roll_dice`ツールと、それ以外のサーバー側のロールでは、引き続き組み込みの記法とルールセットのダイスを使います。古いEngineで呼び出す前に、`typeof marinara.dice?.registerFormat === "function"`を確認してください。
+
 ### 旧形式と全ページアクセスの拡張機能
 
 天気を操作するツール、プロンプトのエディター、その他の本格的なワークフローは、コントリビューションの用途として妥当です。安全な形に移植する場合は、メニューや上部バーのランチャーに、順次更新していくパネルを組み合わせられます。DOMのオーバーレイを挿入する、MarinaraのCSSセレクターを参照する、Reactの内部構造をたどる、同一オリジンの`/api`ルートを呼び出す、といった既存のパッケージは、そのままでは安全な実行環境にインポートできません。

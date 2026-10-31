@@ -402,7 +402,7 @@ In der Basis bleiben nur der Paketmanager, der Katalog-Client, die generischen V
 
 Der offizielle Katalog ist ein schemavalidiertes, versioniertes JSON-Dokument und wird über HTTPS geladen. Jeder Release-Eintrag nennt unveränderliche Artefakt-URLs, SHA-256-Prüfsummen, Dateigrößen in Byte, die Engine-Kompatibilität, die Berechtigungen und ob die Laufzeit einen Neustart braucht.
 
-Updates brauchen die Zustimmung des Nutzers: Abgesehen von einmaligen Migrationen, die die früheren eingebauten Funktionen einer aktualisierten Installation erhalten (siehe [Kompatibilitäts-Migration](#compatibility-migration)), lädt oder installiert der Start nie ein Paket. `GET /api/capability-packages/updates/pending` listet jedes installierte offizielle Paket auf, dessen Katalogversion neuer ist und zur laufenden Engine und zur Capability-API passt; eine Version, die der Nutzer bereits abgelehnt hat, fehlt darin. Der Client zeigt sie gesammelt in einer Abfrage **Agent updates available** an. **Update all** installiert jedes über die normale Installationsstrecke, festgelegt auf die angebotene Version und die SHA-256-Prüfsumme des Artefakts. **Not now** speichert die abgelehnten Versionen in `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), sodass diese Version nicht erneut angeboten wird, eine neuere aber schon. **Update** bleibt in **Agent Organizer (Agentenverwaltung)** so oder so verfügbar. Fehler bleiben auf das jeweilige Paket beschränkt. Ist der Katalog offline oder schlägt eine Prüfung fehl, bleiben vorhandene Dateien und der Registry-Stand nutzbar; scheitert die Bereitschaft einer Server-Laufzeit, greift der Rollback auf die Vorgängerversion.
+Updates brauchen die Zustimmung des Nutzers: Abgesehen von einmaligen Migrationen, die die früheren eingebauten Funktionen einer aktualisierten Installation erhalten (siehe [Kompatibilitäts-Migration](#compatibility-migration)), lädt oder installiert der Start nie ein Paket. `GET /api/capability-packages/updates/pending` listet jedes installierte offizielle Paket auf, dessen Katalogversion neuer ist und zur laufenden Engine und zur Capability-API passt; eine Version, die der Nutzer bereits abgelehnt hat, fehlt darin. Der Client zeigt sie gesammelt in einer Abfrage **Agent updates available** an. Das Fenster installiert jedes ausgewählte Update über die normale Installationsstrecke, festgelegt auf die angebotene Version und die SHA-256-Prüfsumme des Artefakts. Nicht ausgewählte Updates werden genauso abgelehnt wie mit **Not now**. **Not now** speichert die abgelehnten Versionen in `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), sodass diese Version nicht erneut angeboten wird, eine neuere aber schon. **Update** bleibt in **Agent Organizer (Agentenverwaltung)** so oder so verfügbar. Fehler bleiben auf das jeweilige Paket beschränkt. Ist der Katalog offline oder schlägt eine Prüfung fehl, bleiben vorhandene Dateien und der Registry-Stand nutzbar; scheitert die Bereitschaft einer Server-Laufzeit, greift der Rollback auf die Vorgängerversion.
 
 Release Notes werden als `notes.json` neben der `catalog.json` veröffentlicht, die sie beschreiben, nie in einem Katalogeintrag oder einem Manifest: Eine ältere Engine verwirft einen Katalogeintrag mit einem Schlüssel, den sie nicht kennt. Jedes ausstehende Update trägt als `releaseNotes` die Notes jeder Version nach der installierten bis zur angebotenen, die neueste zuerst, und `releaseHighlight` ist wahr, wenn eine davon als Änderung markiert ist, die dem Nutzer auffallen wird. Notes sind reiner Text und werden nie als Markdown oder HTML gerendert.
 
@@ -462,7 +462,7 @@ Jede Deinstallation muss bestätigt werden. Betroffene Chats fallen auf ihre gew
 
 Im **Agents**-Panel gibt es die Schaltfläche `Agent Organizer`. Sie entspricht der Schaltfläche `Download` in den Panels Characters und Personas, die den **Card Browser** (Kartenbrowser) öffnet, und öffnet selbst eine bildschirmfüllende, responsive Bibliothek mit Suche, Paketarten, Kompatibilitätsangaben, Installations- und Update-Status, Berechtigungen, Speicherbedarf, Dokumentation und Schaltflächen zum Deinstallieren.
 
-Am Desktop steht neben der Übersichtsliste ein Detailbereich. Auf dem Handy gibt es nur ein Panel, dafür eine ausdrückliche Zurück-Navigation und fingerfreundliche Aktionen. Leere, offline, inkompatibel, beschädigter Download, abgebrochene Installation, Update, Rollback und „Neustart nötig“ sind vollwertige Zustände der Oberfläche.
+Am Desktop stehen Suche, Modusfilter und Bereiche in einer Seitenleiste neben den Store-Seiten. Auf dem Handy stehen Suche, Modusfilter und Bereichs-Chips oberhalb der Seite; eine Agentenseite ersetzt die Liste und bietet eine ausdrückliche Zurück-Navigation und fingerfreundliche Aktionen. Leere, offline, inkompatibel, beschädigter Download, abgebrochene Installation, Update, Rollback und „Neustart nötig“ sind vollwertige Zustände der Oberfläche.
 
 ## Kriterium für eine abgeschlossene Auslagerung
 
@@ -1057,6 +1057,40 @@ Das ist Vollbild innerhalb der App: Tabs, Adressleiste und Lesezeichen von Home 
 
 Ein Paket mit `contributions.agentDetail` kann `"header": "engine"` festlegen. Die Engine zeichnet dann denselben Kopfbereich wie auf allen anderen Agentenseiten: Zurück, das Store-Banner und Logo, den Namen, den Aktiv-Schalter für den geöffneten Chat und „Paket verwalten“. Die `detail`-Ansicht erhält zwei zusätzliche Props: `engineHeader: true` und `headerSlot`, ein Element im Aktionsbereich des Kopfbereichs. Blende deinen eigenen Kopfbereich aus, wenn `engineHeader` gesetzt ist, und rendere zusätzliche Schaltflächen im Kopfbereich (zum Beispiel „Erinnerungen hinzufügen“ oder Hilfe) mit einem React-Portal oder `appendChild` in `headerSlot`. `headerSlot` ist beim ersten Rendern `null`; warte daher auf die nächste Aktualisierung der Props. Ohne das Flag behält das Paket wie bisher die ganze Seite. Deklariere Capability API 1.390, wenn du es festlegst.
 
+<a id="capability-api-1389-hide-or-show-messages-from-the-ai"></a>
+
+### Capability API 1.389: Nachrichten vor der KI verbergen oder wieder einblenden
+
+`persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` verbirgt Nachrichten eines Chats vor der KI
+oder macht sie wieder sichtbar, so wie die Zusammenfassung der Engine mit **Hide summarised messages** (zusammengefasste Nachrichten ausblenden).
+Die Methode braucht die Berechtigung `chat-write` und ändert die Nachricht und jeden Swipe. Wird der Chat nicht gefunden, wird der Aufruf abgelehnt.
+
+- IDs, die nicht zu Nachrichten dieses Chats gehören, werden ignoriert.
+- Eine Nachricht, deren Sichtbarkeit der Nutzer von Hand gesetzt hat, wird nie geändert.
+- Die Methode liefert die IDs zurück, deren Markierung dieser Aufruf geändert hat. Eine bereits verborgene Nachricht (etwa durch die Zusammenfassung)
+  wird nicht zurückgegeben. Speichere deshalb die zurückgegebenen IDs und blende später nur diese wieder ein.
+
+Ältere Engines haben diese Methode nicht: Prüfe, ob sie existiert, oder deklariere 1.389.
+
+```ts
+const hidden = (await api.runtime.persistence.setMessagesHiddenFromAI?.(chatId, messageIds, true)) ?? [];
+```
+
+<a id="capability-api-1388-a-service-only-the-engine-can-read"></a>
+
+### Capability API 1.388: Ein Dienst, den nur die Engine lesen kann
+
+Jeder Dienst, den ein Paket registriert, kann von jedem anderen Paket über `runtime.services.get(key)` gelesen werden.
+Ein Dienst, der nur für die Engine gedacht ist, etwa eine Laufzeit, die die Engine während der Generierung aufruft, erhält ein drittes Argument:
+
+```ts
+api.registerService("my-package:runtime", service, { hostOnly: true });
+```
+
+Die eigene Dienstabfrage der Engine gibt ihn weiterhin zurück. `runtime.services.get` liefert dafür jedem Paket `null`, auch dem Besitzer.
+Beim Freigeben des Dienstes wird das Flag gelöscht, sodass der Schlüssel ohne dieses Flag erneut registriert werden kann. Eine Engine älter als
+1.388 ignoriert das Argument, der Dienst bleibt dort also lesbar. Verlass dich bei älteren Engines nicht auf `hostOnly`, um Daten geheim zu halten.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: Zusammenfassungen eines Chats lesen
@@ -1319,7 +1353,8 @@ Paketserver einige Bibliotheken aus der Engine verwenden, statt sie selbst zu b�
 
 - `runtime.services.get(key)` liefert einen Dienst, den ein Paket mit `api.registerService` registriert hat, oder `null`, solange er
   fehlt oder während einer Generierung in einem gemeinsamen Raum. Die Methode liest die Dienstregistrierung der Engine, auf die jedes Paket zugreift.
-  Schlüssel mit `agent-runtime:` und `mari-actions:` liefern immer `null`; nur die Engine liest diese.
+  Schlüssel mit `agent-runtime:` und `mari-actions:` liefern immer `null`; nur die Engine liest diese. Dasselbe gilt für einen mit
+  `hostOnly` registrierten Dienst (Capability API 1.388), für jedes Paket einschließlich seines Besitzers.
 - `runtime.commands.parse(content)`, `strip(content)` und `instructions()` lesen Conversation-Befehle mit der
   Grammatik der Engine und den registrierten Tags aller Pakete.
 - `runtime.logger.isLevelEnabled(level)` gibt an, ob der Logger der Engine diese Stufe gerade schreibt.
@@ -1364,17 +1399,26 @@ Kopie würde den Zustand aufteilen, den die Engine an einem Ort hält. Reine Hel
 
 **Gemeinsame Server-Bibliotheken.** Ein Paketserver darf `zod`, `adm-zip`, `dotenv`, `nanoid` und `jsonrepair` aus
 seinem Bundle weglassen und per Namen importieren, wie schon bei `@huggingface/transformers`, `onnxruntime-node`,
-`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` und `undici`. Node löst sie über verwaltete Links in der
-Laufzeitkopie des Pakets zu `DATA_DIR/capability-packages/node_modules` auf, das auf `packages/server/node_modules` der Engine zeigt.
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` und `undici`. Die Engine erstellt verwaltete Links in der
+vom Host verwalteten Laufzeitkopie jedes Pakets, indem sie die deklarierten Abhängigkeiten ihres Servers mit der Paketauflösung von Node auflöst.
+Das funktioniert mit direkt installierten Abhängigkeiten und solchen, die ganz oder teilweise in übergeordnete Verzeichnisse verlagert wurden, auch wenn `DATA_DIR` außerhalb der Entwicklungs-Installation der Engine liegt.
 Zod ist die Kompatibilitätsausnahme: Ein `zod`-Import eines Pakets löst die vollständige Abhängigkeit `zod-v3` auf, einschließlich
 ihrer Default-, benannten, CommonJS- und Subpfad-Exporte. Andere Bibliotheken behalten dieselbe Modulinstanz wie die Engine.
-Die eigenen `zod`-Importe der Engine lösen weiterhin natives Zod 4 auf. pnpm hält dort nur die
-direkten Abhängigkeiten des Servers. Deshalb lassen sich nur diese Namen auflösen, nicht aber eine Abhängigkeit einer Abhängigkeit wie `ws`.
-Die Engine hält die oben genannten Namen als direkte Produktionsabhängigkeiten von `packages/server`, und jede Installation behält diesen
-Aufbau bei: Quellcode- und Launcher-Installationen, Windows (wo der Datenlink eine Junction ist), Android und Termux sowie beide
-Docker-Images. Beim Starten oder Aktivieren eines Pakets erstellt die Engine einen Datenlink neu, der auf einen anderen Ort zeigt.
-Das gilt auch für einen verwaisten Link, wenn ein Datenordner von einem anderen Installationspfad verschoben wurde. Alles, was dort kein Link ist,
-bleibt unangetastet.
+Die eigenen `zod`-Importe der Engine lösen weiterhin natives Zod 4 auf. Die oben genannten Namen bleiben direkte Produktionsabhängigkeiten
+von `packages/server`. Verwaltete Snapshots verlinken deklarierte Abhängigkeiten; nicht deklarierte transitive Abhängigkeiten wie `ws` gehören nicht
+zum Vertrag für gemeinsame Bibliotheken. Fehlende optionale Bibliotheken werden übersprungen, und installierte Entwicklungswerkzeuge bleiben
+verfügbar. Ein fehlender oder inkompatibler Zod-3-Alias lässt die Aktivierung ausdrücklich scheitern, statt ein Paket unbemerkt
+natives Zod 4 laden zu lassen. Bei Fehlern beim Einrichten der Host-Abhängigkeiten bleiben die angeforderte Paketversion und die Rollback-Metadaten erhalten;
+nachdem die Abhängigkeit der Engine repariert wurde, kann die Aktivierung ohne erneute Installation des Pakets wiederholt werden.
+Windows verwendet Junctions für diese Links; Quellcode- und Launcher-Installationen, Android und Termux sowie beide Docker-Images verwenden
+denselben Vertrag zur Auflösung von Abhängigkeiten. Ältere gemeinsame Datenlinks werden erneuert, wenn das physische Abhängigkeitsverzeichnis
+des Servers verfügbar ist. Vorhandene echte Verzeichnisse bleiben unangetastet, und frische Laufzeitkopien lösen ihre Abhängigkeiten
+unabhängig von diesem älteren Datenlink auf. Der eigene deklarierte und mitgebündelte Abhängigkeitsbaum eines Pakets bleibt erhalten.
+
+Beim Start werden ältere API-1-Pakete, die wegen der bekannten Zod-Migrationsfehler deaktiviert wurden, erneut durch die normalen
+Kompatibilitäts- und Dateiintegritätsprüfungen geschickt. So kann eine reparierte Engine eine bereits fehlgeschlagene Installation wiederherstellen,
+ohne ihre Karten oder andere Paketdaten zu löschen. Pakete mit anderen Fehlermeldungen bleiben deaktiviert. Historische Registry-Einträge
+speichern nur Fehlermeldungen; die Wiederherstellung erkennt deshalb die exakten älteren `innerType`-Fehler und Fehler mit verschachteltem `curve`.
 
 **Deklaration.** Ein Paket, das etwas davon nutzt, deklariert `schemaVersion: 2`, `capabilityApi: { major: 1, minor: 341 }`
 und `builtAgainst` und behält seinen `engine`-Versionsbereich. Ein Manifest mit `schemaVersion: 1` wird nie gegen die

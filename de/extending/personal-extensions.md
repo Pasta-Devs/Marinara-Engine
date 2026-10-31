@@ -158,6 +158,43 @@ Ein Charakter-Abbild enthält ausschließlich `id`, `name`, `description`, `pers
 
 Niemals übergibt Marinara Nachrichten, Creator Notes, System-Prompts, Post-History-Anweisungen, Kommentare, Avatar-Pfade, vollständige Charakter- oder Persona-Bibliotheken, nicht deklarierte Felder, Chat-Metadaten, Datenbank-Handles, Netzwerkzugriff oder schreibende Operationen. Auch Kontext-Aktualisierungen hängen am freigegebenen Code-Hash; sie kommen an, sobald sich der aktive Chat, seine Charakterliste oder die gewählte Persona ändert.
 
+<a id="add-a-dice-format"></a>
+
+### Ein Würfelformat hinzufügen
+
+Version 6 der Browser-Extension-API lässt eine Erweiterung `/roll` eine eigene Notation beibringen, etwa für einen Erzählwürfelpool. Die Erweiterung liest die Notation und benennt die zu werfenden Würfel; Marinara wirft sie mit seinem eigenen sicheren Würfelgenerator und gibt die gewürfelten Seiten zurück. Eine Erweiterung darf sagen, was ein Wurf bedeutet, aber nie bestimmen, was gewürfelt wurde.
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+`/roll 2 boost 1 setback` postet dann die gewürfelten Seiten, die Summe und den Text der Erweiterung, gekennzeichnet mit dem Namen des Formats. Übliche Notation wie `2d6` oder `4d6kh3` würfelt immer wie bisher und wird nie an eine Erweiterung weitergegeben. Andere Notation geht nacheinander an jedes registrierte Format; das erste, dessen `parse` Würfel zurückgibt, übernimmt den Wurf.
+
+- `parse(notation)` gibt `null` oder `{ dice: [sides, ...] }` mit 1–100 Würfeln mit je 2–1.000 Seiten zurück. Alle weiteren Angaben im Objekt bleiben in der Sandbox und werden als `plan` an `read` zurückgegeben.
+- `read(...)` gibt `{ total, text?, kept? }` zurück: eine endliche Zahl, höchstens 200 Zeichen Klartext und optional die Positionen der gewerteten Würfel in aufsteigender Reihenfolge. `/roll` streicht die übrigen durch.
+- Jede Erweiterung kann 4 Formate registrieren. Die Notation darf höchstens 100 Zeichen lang sein. `parse` und `read` dürfen asynchron sein, müssen aber jeweils innerhalb von 2 Sekunden antworten.
+- Der Text wird als Klartext angezeigt: Links, Bilder, Formatierung und HTML werden maskiert.
+
+Würfelformate gelten für `/roll` im Browser. Das Tool `roll_dice` des Game Masters und andere serverseitige Würfe behalten die eingebaute Notation und die Würfel des Regelsatzes. Prüfe bei älteren Engines vor dem Aufruf, ob `typeof marinara.dice?.registerFormat === "function"` gilt.
+
 ### Ältere Erweiterungen und Erweiterungen mit Vollzugriff
 
 Wetter-Steuerungen, Prompt-Editoren und andere umfangreiche Abläufe sind völlig legitime Einsatzzwecke für Contributions. Sichere Portierungen kombinieren einen Starter im Menü oder in der oberen Leiste mit Panels, die sich Schritt für Schritt aktualisieren. Bestehende Pakete, die DOM-Overlays einfügen, Marinaras CSS-Selektoren abfragen, React-Interna durchsuchen oder `/api`-Routen derselben Origin aufrufen, lassen sich nicht unverändert in die sichere Laufzeitumgebung importieren.

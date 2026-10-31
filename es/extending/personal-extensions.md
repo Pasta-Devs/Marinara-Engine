@@ -158,6 +158,43 @@ Las instantáneas de personaje contienen únicamente `id`, `name`, `description`
 
 Marinara nunca envía mensajes, notas del creador, prompts de sistema, instrucciones posteriores al historial, comentarios, rutas de avatar, bibliotecas completas de personajes o personas, campos no declarados, metadatos del chat, identificadores de base de datos, acceso a la red ni operaciones de modificación. Las actualizaciones de contexto siguen ligadas al hash de código aprobado y se entregan cuando cambian el chat activo, su lista de personajes o la persona seleccionada.
 
+<a id="add-a-dice-format"></a>
+
+### Añadir un formato de dados
+
+La versión 6 de la Browser Extension API permite que una extensión enseñe a `/roll` una notación propia, como una reserva de dados narrativos. La extensión lee la notación e indica qué dados tirar; Marinara los tira con su propio generador seguro y devuelve las caras. Una extensión puede decir qué significa una tirada, nunca qué resultado sacó.
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+Entonces `/roll 2 boost 1 setback` publica las caras, el total y el texto de la extensión, con el nombre del formato como etiqueta. La notación normal, como `2d6` o `4d6kh3`, siempre se tira como antes y nunca llega a una extensión. Las demás notaciones se pasan a cada formato registrado por turno, y el primero cuyo `parse` devuelve dados realiza la tirada.
+
+- `parse(notation)` devuelve `null` o `{ dice: [sides, ...] }` con 1-100 dados de 2-1000 caras. Cualquier otro dato del objeto permanece en el sandbox y se devuelve a `read` como `plan`.
+- `read(...)` devuelve `{ total, text?, kept? }`: un número finito, como máximo 200 caracteres de texto sin formato y, de forma opcional, las posiciones de los dados que contaron, en orden ascendente. `/roll` tacha el resto.
+- Cada extensión puede registrar 4 formatos. La notación tiene como máximo 100 caracteres. `parse` y `read` pueden ser asíncronos, pero cada uno debe responder en 2 segundos.
+- El texto se muestra sin formato: los enlaces, las imágenes, el formato y el HTML se escapan.
+
+Los formatos de dados se aplican a `/roll` en el navegador. La herramienta `roll_dice` del Game Master y las demás tiradas del servidor conservan la notación integrada y los dados del conjunto de reglas. Comprueba `typeof marinara.dice?.registerFormat === "function"` antes de llamarlo en Engines anteriores.
+
 ### Extensiones antiguas y de página completa
 
 Los controladores de clima, los editores de prompt y otros flujos de trabajo sustanciales son casos de uso válidos de contribución. Sus adaptaciones seguras pueden usar un lanzador de menú o de barra superior más paneles que se actualizan de forma progresiva. Los paquetes existentes que inyectan superposiciones en el DOM, consultan selectores CSS de Marinara, recorren los internos de React o llaman a rutas `/api` del mismo origen no se pueden importar sin cambios al entorno de ejecución seguro.

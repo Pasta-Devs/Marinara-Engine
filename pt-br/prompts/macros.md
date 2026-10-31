@@ -190,7 +190,7 @@ Estas macros trazem acaso para os prompts. Use a macro de sorteio (`{{random}}`)
 | `{{random:X:Y}}` | Um número inteiro sorteado entre X e Y, incluindo os dois. |
 | `{{random::A::B::C}}` | Sorteia uma das opções e resolve as macros apenas dentro da opção escolhida. |
 | `{{random::A@2::B@0.5}}` | Um sorteio com peso. Veja as regras de peso abaixo. |
-| `{{roll:XdY}}` | O total de uma rolagem de dados. Por exemplo, `{{roll:2d6}}` rola dois dados de seis faces e soma os resultados. |
+| `{{roll:XdY}}` | O total de uma rolagem de dados. Por exemplo, `{{roll:2d6}}` rola dois dados de seis faces e soma os resultados. `{{roll:d20}}` rola um dado, e `{{roll:1d8+3}}` soma 3 à rolagem. |
 
 Um sorteio simples que você pode copiar:
 

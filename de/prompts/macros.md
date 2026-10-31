@@ -190,7 +190,7 @@ Diese Makros bringen Zufall in den Prompt. Für Zahlen und Auswahlmöglichkeiten
 | `{{random:X:Y}}` | Eine zufällige ganze Zahl zwischen X und Y, beide eingeschlossen. |
 | `{{random::A::B::C}}` | Wählt zufällig eine Option und löst Makros nur innerhalb der gewählten Option auf. |
 | `{{random::A@2::B@0.5}}` | Eine gewichtete Zufallsauswahl. Die Regeln dazu stehen weiter unten. |
-| `{{roll:XdY}}` | Die Summe eines Würfelwurfs. `{{roll:2d6}}` würfelt zum Beispiel zwei sechsseitige Würfel und addiert sie. |
+| `{{roll:XdY}}` | Die Summe eines Würfelwurfs. `{{roll:2d6}}` würfelt zum Beispiel zwei sechsseitige Würfel und addiert sie. `{{roll:d20}}` würfelt einen Würfel, und `{{roll:1d8+3}}` addiert 3 zum Wurf. |
 
 Hier eine einfache Zufallsauswahl zum Kopieren:
 

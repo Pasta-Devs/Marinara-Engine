@@ -158,6 +158,43 @@ Kopia danych postaci zawiera wyłącznie pola `id`, `name`, `description`, `pers
 
 Marinara nigdy nie przekazuje wiadomości, notatek twórcy, promptów systemowych, instrukcji dopisywanych po historii, komentarzy, ścieżek do awatarów, całych bibliotek postaci ani person, pól niezadeklarowanych, metadanych czatu, uchwytów bazy danych, dostępu do sieci ani operacji zmieniających dane. Aktualizacje kontekstu pozostają związane z zatwierdzonym odciskiem kodu i przychodzą przy zmianie aktywnego czatu, jego listy postaci albo wybranej persony.
 
+<a id="add-a-dice-format"></a>
+
+### Dodanie formatu kości
+
+Interfejs rozszerzeń przeglądarkowych w wersji 6 pozwala rozszerzeniu nauczyć `/roll` własnej notacji, na przykład puli kości narracyjnych. Rozszerzenie odczytuje notację i wskazuje kości do rzutu; Marinara rzuca nimi za pomocą własnego bezpiecznego mechanizmu losowania i zwraca wyniki na ściankach. Rozszerzenie może określić znaczenie rzutu, ale nigdy jego wylosowany wynik.
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+`/roll 2 boost 1 setback` publikuje wtedy wyniki na ściankach, sumę i tekst rozszerzenia, oznaczone nazwą formatu. Zwykła notacja, taka jak `2d6` lub `4d6kh3`, zawsze działa jak dotychczas i nigdy nie trafia do rozszerzenia. Inna notacja trafia kolejno do każdego zarejestrowanego formatu, a rzut obsługuje pierwszy, którego `parse` zwróci kości.
+
+- `parse(notation)` zwraca `null` albo `{ dice: [sides, ...] }` z 1-100 kośćmi o 2-1000 ściankach. Wszystko inne w obiekcie pozostaje w piaskownicy i jest przekazywane do `read` jako `plan`.
+- `read(...)` zwraca `{ total, text?, kept? }`: skończoną liczbę, najwyżej 200 znaków zwykłego tekstu oraz opcjonalnie pozycje kości, które się liczyły, w kolejności rosnącej. `/roll` przekreśla pozostałe.
+- Każde rozszerzenie może zarejestrować 4 formaty. Notacja ma najwyżej 100 znaków. `parse` i `read` mogą być asynchroniczne, ale każde musi odpowiedzieć w ciągu 2 sekund.
+- Tekst jest pokazywany jako zwykły tekst: linki, obrazy, formatowanie i HTML są zamieniane na zapis dosłowny.
+
+Formaty kości obsługują `/roll` w przeglądarce. Narzędzie `roll_dice` postaci Game Master i inne rzuty po stronie serwera zachowują wbudowaną notację oraz kości zestawu zasad. Przed wywołaniem w starszych wersjach silnika sprawdź `typeof marinara.dice?.registerFormat === "function"`.
+
 ### Rozszerzenia starsze i z pełnym dostępem do strony
 
 Sterowniki pogody, edytory promptów i inne rozbudowane procesy to dobre zastosowania dla wkładu w interfejs. Ich bezpieczne wersje mogą korzystać z uruchamiania z menu lub górnego paska oraz z paneli aktualizowanych krok po kroku. Istniejące paczki, które wstawiają nakładki do drzewa DOM, odpytują selektory CSS aplikacji Marinara Engine, przeszukują wnętrze biblioteki React albo wywołują trasy `/api` z tego samego pochodzenia, nie zaimportują się do bezpiecznego środowiska bez zmian.

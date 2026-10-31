@@ -121,10 +121,11 @@ marinara.onCleanup(() => panel.remove());
 | `context.subscribe(listener)` | コンテキスト変更を受信。購読解除関数を返却 |
 | `ui.registerContribution(options)` | 安全なボタン、Extensionsメニュー項目、Marinaraが描画するパネルを追加 |
 | `ui.showWindow(options)` | 制限付きiframeウィンドウを開く |
+| `dice.registerFormat(options)` | `/roll`に独自の記法を追加し、指定したダイスをMarinaraが振る |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | 拡張機能の停止時に削除される管理対象タイマー |
 | `onCleanup(callback)` | 追加のクリーンアップ処理を登録 |
 
-通常のUIには[Marinaraが描画するパネル](personal-extensions.md#add-a-marinara-rendered-panel)を使用し、チャットに応じた動作には[アクティブチャットのコンテキスト](personal-extensions.md#use-active-chat-context)を使用してください。拡張機能の状態はブラウザーストレージではなく`marinara.storage`に保存します。
+通常のUIには[Marinaraが描画するパネル](personal-extensions.md#add-a-marinara-rendered-panel)を、チャットに応じた動作には[アクティブチャットのコンテキスト](personal-extensions.md#use-active-chat-context)を、独自の`/roll`記法には[ダイス形式](personal-extensions.md#add-a-dice-format)を使用してください。拡張機能の状態はブラウザーストレージではなく`marinara.storage`に保存します。
 
 `showWindow({ title, elements, onEvent, onClose })`は、`update({ title?, elements? })`と`close()`を持つハンドルを返します。パッケージCSSはサンドボックス化されたiframeウィンドウを装飾します。ホストが描画するコントリビューションは、常にMarinara独自のテーマとコントロールを使用します。
 

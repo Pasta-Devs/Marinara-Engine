@@ -390,7 +390,7 @@ W podstawie zostaje menedżer pakietów, klient katalogu, ogólne kontrakty poto
 
 Oficjalny katalog to wersjonowany dokument JSON o sprawdzanym schemacie, pobierany przez HTTPS. Każdy wpis wydania zawiera niezmienne adresy URL artefaktów, skróty SHA-256, rozmiary w bajtach, informacje o zgodności z silnikiem, uprawnienia oraz to, czy dane środowisko uruchomieniowe wymaga restartu.
 
-Aktualizacje wymagają zgody użytkownika: poza jednorazowymi migracjami, które zachowują dawne wbudowane elementy zaktualizowanej instalacji (zobacz [Migracja zgodności](#compatibility-migration)), start serwera nigdy nie pobiera ani nie instaluje pakietu. `GET /api/capability-packages/updates/pending` wymienia każdy zainstalowany oficjalny pakiet, którego wersja w katalogu jest nowsza i zgodna z działającym silnikiem i z API możliwości, z pominięciem wersji, którą użytkownik już odrzucił. Klient pokazuje je w jednym oknie **Agent updates available** (dostępne aktualizacje agentów). **Update all** (aktualizacja wszystkich) instaluje każdy z nich zwykłym potokiem instalacyjnym, z przypięciem do oferowanej wersji i skrótu SHA-256 artefaktu. **Not now** (nie teraz) zapisuje odrzucone wersje w `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), więc ta wersja nie jest proponowana ponownie, a nowsza już tak. Przycisk **Update** (aktualizacja) w obu przypadkach pozostaje dostępny w **Agent Organizer (organizowanie agentów)**. Awarie są izolowane osobno dla każdego pakietu. Gdy katalog jest niedostępny albo weryfikacja się nie powiedzie, dotychczasowe pliki i stan rejestru nadal działają, a niepowodzenie gotowości środowiska serwerowego korzysta ze ścieżki wycofania do poprzedniej wersji.
+Aktualizacje wymagają zgody użytkownika: poza jednorazowymi migracjami, które zachowują dawne wbudowane elementy zaktualizowanej instalacji (zobacz [Migracja zgodności](#compatibility-migration)), start serwera nigdy nie pobiera ani nie instaluje pakietu. `GET /api/capability-packages/updates/pending` wymienia każdy zainstalowany oficjalny pakiet, którego wersja w katalogu jest nowsza i zgodna z działającym silnikiem i z API możliwości, z pominięciem wersji, którą użytkownik już odrzucił. Klient pokazuje je w jednym oknie **Agent updates available** (dostępne aktualizacje agentów). Okno instaluje każdą wybraną aktualizację zwykłym potokiem instalacyjnym, z przypięciem do oferowanej wersji i skrótu SHA-256 artefaktu. Aktualizacje pozostawione bez zaznaczenia są odrzucane tak samo jak po wybraniu **Not now** (nie teraz). **Not now** zapisuje odrzucone wersje w `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), więc ta wersja nie jest proponowana ponownie, a nowsza już tak. Przycisk **Update** (aktualizacja) w obu przypadkach pozostaje dostępny w **Agent Organizer (organizowanie agentów)**. Awarie są izolowane osobno dla każdego pakietu. Gdy katalog jest niedostępny albo weryfikacja się nie powiedzie, dotychczasowe pliki i stan rejestru nadal działają, a niepowodzenie gotowości środowiska serwerowego korzysta ze ścieżki wycofania do poprzedniej wersji.
 
 Informacje o wydaniu są publikowane jako `notes.json` obok opisywanego przez nie pliku `catalog.json`, nigdy wewnątrz wpisu katalogu ani manifestu: starszy Engine pomija wpis katalogu z kluczem, którego nie zna. Każda oczekująca aktualizacja zawiera w `releaseNotes` informacje o każdej wersji od wersji po zainstalowanej aż do oferowanej, od najnowszej, a `releaseHighlight` ma wartość true, gdy którakolwiek z nich jest oznaczona jako zmiana zauważalna dla użytkownika. Informacje są zwykłym tekstem i nigdy nie są renderowane jako Markdown ani HTML.
 
@@ -450,7 +450,7 @@ Każde odinstalowanie wymaga potwierdzenia. Objęte nim czaty wracają do zwykł
 
 Panel **Agents** (Agenci) zawiera przycisk `Agent Organizer`, odpowiadający przyciskowi `Download` w panelach Characters i Personas, który otwiera Card Browser. Przycisk agentów otwiera pełnoekranową, responsywną bibliotekę z wyszukiwaniem, rodzajami pakietów, informacją o zgodności, stanem instalacji i aktualizacji, uprawnieniami, kosztem miejsca na dysku, dokumentacją oraz przyciskami odinstalowania.
 
-Na komputerze widać listę do przeglądania i sąsiadujący z nią obszar szczegółów. Na telefonie jest jeden panel, z jawną nawigacją wstecz i akcjami wygodnymi pod palec. Stany pusty, offline, niezgodny, uszkodzone pobieranie, przerwana instalacja, aktualizacja, wycofanie i wymagany restart są obsłużone pełnoprawnie.
+Na komputerze obok stron katalogu widać pasek boczny z wyszukiwaniem, filtrem trybu i sekcjami. Na telefonie wyszukiwanie, filtr trybu i kafelki sekcji znajdują się nad stroną; strona agenta zastępuje listę, z jawną nawigacją wstecz i akcjami wygodnymi pod palec. Stany pusty, offline, niezgodny, uszkodzone pobieranie, przerwana instalacja, aktualizacja, wycofanie i wymagany restart są obsłużone pełnoprawnie.
 
 ## Warunek zakończenia wydzielenia
 
@@ -1045,6 +1045,41 @@ To pełny ekran wewnątrz aplikacji: karty, pasek adresu i zakładki Home są uk
 
 Pakiet z `contributions.agentDetail` może ustawić `"header": "engine"`. Engine rysuje wtedy taki sam nagłówek jak na pozostałych stronach agentów: przycisk Wstecz, baner sklepu i logo, nazwę, przełącznik Active dla otwartego czatu oraz opcję zarządzania pakietem. Widok `detail` otrzymuje dwa dodatkowe propsy: `engineHeader: true` i `headerSlot`, element w sekcji akcji nagłówka. Ukryj własny nagłówek, gdy ustawiono `engineHeader`, a dodatkowe przyciski nagłówka (na przykład „Dodaj wspomnienia” lub pomoc) renderuj w `headerSlot` za pomocą portalu React albo `appendChild`. Przy pierwszym renderowaniu `headerSlot` ma wartość `null`, więc poczekaj na następną aktualizację propsów. Bez tej flagi pakiet zachowuje całą stronę jak dotychczas. Po ustawieniu flagi zadeklaruj Capability API 1.390.
 
+<a id="capability-api-1389-hide-or-show-messages-from-the-ai"></a>
+
+### Capability API 1.389: ukrywanie wiadomości przed AI i ich ponowne pokazywanie
+
+`persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` ukrywa wiadomości jednego czatu przed AI
+albo ponownie je pokazuje, tak jak podsumowanie silnika z opcją **Hide summarised messages** (ukrywanie podsumowanych wiadomości). Wymaga
+uprawnienia `chat-write` i zmienia wiadomość oraz każdy jej swipe. Wywołanie dla nieznalezionego czatu jest odrzucane.
+
+- Identyfikatory, które nie należą do wiadomości tego czatu, są ignorowane.
+- Wiadomość, której widoczność użytkownik ustawił ręcznie, nigdy nie jest zmieniana.
+- Metoda zwraca identyfikatory wiadomości, których flagę zmieniło to wywołanie. Wiadomość już ukryta (na przykład przez
+  podsumowanie) nie jest zwracana, więc zapisz zwrócone identyfikatory i później pokaż ponownie tylko te wiadomości.
+
+Starsze wersje silnika nie mają tej metody: sprawdź, czy istnieje, albo zadeklaruj wersję 1.389.
+
+```ts
+const hidden = (await api.runtime.persistence.setMessagesHiddenFromAI?.(chatId, messageIds, true)) ?? [];
+```
+
+<a id="capability-api-1388-a-service-only-the-engine-can-read"></a>
+
+### Capability API 1.388: usługa, którą może odczytać tylko silnik
+
+Każdą usługę zarejestrowaną przez pakiet mogą odczytać wszystkie pozostałe pakiety przez `runtime.services.get(key)`.
+Usługa przeznaczona wyłącznie dla silnika, na przykład środowisko uruchomieniowe wywoływane przez silnik podczas generowania, przyjmuje trzeci argument:
+
+```ts
+api.registerService("my-package:runtime", service, { hostOnly: true });
+```
+
+Własna funkcja wyszukiwania silnika nadal ją zwraca. `runtime.services.get` zwraca dla niej `null` każdemu pakietowi,
+także jej właścicielowi. Zwolnienie usługi usuwa flagę, więc klucz można zarejestrować ponownie bez niej. Silnik starszy niż
+1.388 ignoruje ten argument, więc usługa pozostaje w nim dostępna do odczytu; nie polegaj na `hostOnly`, jeśli chodzi o poufność
+w starszych wersjach silnika.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: odczyt podsumowań czatu
@@ -1317,6 +1352,7 @@ serwerom pakietów korzystać z kilku bibliotek silnika zamiast dołączać ich 
 - `runtime.services.get(key)` zwraca usługę zarejestrowaną przez pakiet za pomocą `api.registerService` albo `null`,
   gdy jej nie ma lub trwa generowanie we współdzielonym pokoju. Czyta rejestr silnika, więc każdy pakiet widzi tę samą usługę.
   Klucze `agent-runtime:` i `mari-actions:` zawsze zwracają `null`; odczytuje je tylko silnik.
+  To samo dotyczy usługi zarejestrowanej z `hostOnly` (Capability API 1.388), dla każdego pakietu, także jej właściciela.
 - `runtime.commands.parse(content)`, `strip(content)` i `instructions()` odczytują komendy rozmowy zgodnie ze
   składnią silnika i zarejestrowanymi znacznikami wszystkich pakietów.
 - `runtime.logger.isLevelEnabled(level)` informuje, czy logger silnika zapisuje obecnie dany poziom.
@@ -1361,18 +1397,30 @@ bo druga kopia rozdziela stan, który silnik utrzymuje w jednym miejscu. Czyste 
 
 **Współdzielone biblioteki serwera.** Serwer pakietu może nie dołączać `zod`, `adm-zip`, `dotenv`, `nanoid` i
 `jsonrepair`, a zamiast tego importować je po nazwie, tak jak już może robić z `@huggingface/transformers`,
-`onnxruntime-node`, `onnxruntime-web`, `sharp`, `pino`, `pino-pretty` i `undici`. Node rozwiązuje je przez zarządzane
-dowiązania w uruchomieniowej kopii pakietu do `DATA_DIR/capability-packages/node_modules`, który wskazuje na
-`packages/server/node_modules` silnika. Zod jest wyjątkiem zgodności: import `zod` w pakiecie rozwiązuje się na pełną
-zależność `zod-v3`, z eksportami domyślnymi, nazwanymi, CommonJS oraz eksportami podścieżek. Inne biblioteki zachowują dokładnie
+`onnxruntime-node`, `onnxruntime-web`, `sharp`, `pino`, `pino-pretty` i `undici`. Silnik tworzy zarządzane dowiązania
+w zarządzanej przez hosta kopii uruchomieniowej każdego pakietu, rozwiązując zadeklarowane zależności swojego serwera
+za pomocą mechanizmu rozwiązywania pakietów Node. Działa to z zależnościami bezpośrednimi, przeniesionymi wyżej w drzewie
+oraz częściowo przeniesionymi wyżej, także gdy `DATA_DIR` znajduje się poza kopią repozytorium silnika.
+Zod jest wyjątkiem zgodności: import `zod` w pakiecie rozwiązuje się na pełną zależność `zod-v3`,
+z eksportami domyślnymi, nazwanymi, CommonJS oraz eksportami podścieżek. Inne biblioteki zachowują dokładnie
 tę samą instancję modułu, której używa silnik. Własne importy `zod` silnika nadal wskazują na natywny Zod 4.
-pnpm trzyma tam tylko bezpośrednie zależności serwera, więc rozpoznawane są tylko te nazwy; zależność zależności,
-na przykład `ws`, nie jest dostępna. Silnik zachowuje wymienione nazwy jako bezpośrednie zależności produkcyjne
-`packages/server`, a każda instalacja zachowuje ten układ: instalacja ze źródeł i przez program uruchamiający,
-system Windows (gdzie dowiązanie danych jest połączeniem katalogów), Android i Termux oraz oba obrazy Docker.
-Przy uruchamianiu lub aktywacji pakietu silnik odbudowuje dowiązanie danych prowadzące gdzie indziej, w tym zerwane
-dowiązanie pozostałe po przeniesieniu folderu danych z innej ścieżki instalacji. Elementy, które nie są dowiązaniami,
-pozostają nietknięte.
+Wymienione nazwy pozostają bezpośrednimi zależnościami produkcyjnymi `packages/server`. Zarządzane migawki dowiązują
+zadeklarowane zależności; niezadeklarowane zależności pośrednie, takie jak `ws`, nie należą do kontraktu bibliotek
+współdzielonych. Brakujące biblioteki opcjonalne są pomijane, a zainstalowane narzędzia deweloperskie pozostają dostępne.
+Brakujący lub niezgodny alias Zod 3 powoduje jawne niepowodzenie aktywacji, zamiast pozwolić pakietowi po cichu
+wczytać natywny Zod 4. Niepowodzenia konfiguracji zależności hosta zachowują żądaną wersję pakietu i metadane wycofania;
+po naprawieniu zależności silnika można ponowić aktywację bez ponownej instalacji pakietu.
+System Windows używa dla tych dowiązań połączeń katalogów; instalacje ze źródeł i przez program uruchamiający,
+Android i Termux oraz oba obrazy Docker używają tego samego kontraktu rozwiązywania zależności. Starsze współdzielone
+dowiązania danych są odświeżane, gdy fizyczny folder zależności serwera jest dostępny. Istniejące rzeczywiste foldery
+pozostają nietknięte, a nowe kopie uruchomieniowe rozwiązują swoje zależności niezależnie od tego starszego dowiązania
+danych. Własne zadeklarowane drzewo zależności dołączonych do pakietu pozostaje nienaruszone.
+
+Przy uruchamianiu starsze pakiety API-1 wyłączone przez znane błędy migracji Zod są ponownie sprawdzane przez zwykłe
+mechanizmy kontroli zgodności i integralności plików. Dzięki temu naprawiony silnik może przywrócić działanie instalacji,
+która wcześniej uległa awarii, bez usuwania jej map ani innych danych pakietu. Pakiety z innymi komunikatami błędów
+pozostają wyłączone. Historyczne wpisy rejestru zapisują tylko komunikaty błędów, więc odzyskiwanie rozpoznaje dokładne
+starsze błędy `innerType` i zagnieżdżonego `curve`.
 
 **Deklarowanie.** Pakiet korzystający z któregokolwiek z tych elementów deklaruje `schemaVersion: 2`,
 `capabilityApi: { major: 1, minor: 341 }` i `builtAgainst` oraz zachowuje swój zakres `engine`. Manifest

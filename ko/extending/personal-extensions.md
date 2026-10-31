@@ -158,6 +158,43 @@ marinara.onCleanup(unsubscribe);
 
 Marinara는 메시지, 제작자 노트, 시스템 프롬프트, 후행 지시문, 주석, 아바타 경로, 캐릭터나 페르소나 라이브러리 전체, 선언하지 않은 필드, 채팅 메타데이터, 데이터베이스 핸들, 네트워크 접근, 변경 작업을 절대 넘기지 않습니다. 컨텍스트 갱신도 승인된 코드 해시에 묶여 있으며, 현재 채팅이나 그 캐릭터 목록, 선택된 페르소나가 바뀔 때 전달됩니다.
 
+<a id="add-a-dice-format"></a>
+
+### 주사위 형식 추가하기
+
+Browser Extension API 버전 6에서는 확장이 서사 주사위 풀 같은 자체 표기법을 `/roll`에 추가할 수 있습니다. 확장이 표기법을 읽고 굴릴 주사위를 지정하면, Marinara가 자체 보안 주사위 굴림 기능으로 굴리고 나온 눈을 돌려줍니다. 확장은 굴림의 의미를 정할 수 있지만, 나온 눈을 정할 수는 없습니다.
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+이제 `/roll 2 boost 1 setback`은 주사위 눈, 합계, 확장의 텍스트를 형식 이름과 함께 게시합니다. `2d6`이나 `4d6kh3` 같은 일반 표기법은 항상 기존 방식으로 굴리며 확장으로 전달되지 않습니다. 그 밖의 표기법은 등록된 형식에 차례로 전달되며, `parse`가 처음으로 주사위를 반환하는 형식으로 굴립니다.
+
+- `parse(notation)`은 `null`이나 `{ dice: [sides, ...] }`를 반환합니다. 주사위는 1~100개이며 각각 2~1000면입니다. 객체의 다른 값은 샌드박스 안에 남아 `plan`으로 `read`에 다시 전달됩니다.
+- `read(...)`는 `{ total, text?, kept? }`를 반환합니다. 유한한 숫자, 최대 200자의 일반 텍스트, 그리고 선택적으로 계산에 넣은 주사위의 위치를 오름차순으로 담습니다. `/roll`은 나머지 주사위에 취소선을 긋습니다.
+- 확장마다 형식 4개를 등록할 수 있습니다. 표기법은 최대 100자입니다. `parse`와 `read`는 비동기 함수여도 되지만 각각 2초 안에 응답해야 합니다.
+- 텍스트는 일반 텍스트로 표시됩니다. 링크, 이미지, 서식, HTML은 이스케이프 처리됩니다.
+
+주사위 형식은 브라우저의 `/roll`에 적용됩니다. 게임 마스터의 `roll_dice` 도구와 다른 서버 측 굴림은 내장 표기법과 규칙 집합의 주사위를 계속 사용합니다. 이전 Engine에서는 호출하기 전에 `typeof marinara.dice?.registerFormat === "function"`을 확인하세요.
+
 ### 구형 확장과 전체 페이지 확장
 
 날씨 조절기, 프롬프트 편집기를 비롯한 묵직한 워크플로도 기여 기능으로 만들기에 알맞은 사례입니다. 이런 도구를 안전하게 옮길 때는 메뉴나 상단 막대의 실행 버튼에 단계별로 갱신되는 패널을 붙이면 됩니다. 다만 DOM 오버레이를 끼워 넣거나, Marinara의 CSS 선택자를 조회하거나, React 내부 구조를 훑거나, 동일 출처 `/api` 경로를 호출하는 기존 패키지는 그대로는 안전한 런타임으로 가져올 수 없습니다.

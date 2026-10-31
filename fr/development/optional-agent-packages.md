@@ -391,7 +391,7 @@ La base conserve le gestionnaire de packages, le client de catalogue, les contra
 
 Le catalogue officiel est un document JSON versionné, validé par schéma et récupéré en HTTPS. Chaque entrée de version contient des URL d'artefacts immuables, des empreintes SHA-256, des tailles en octets, la compatibilité moteur, les permissions et l'indication d'un redémarrage nécessaire à son exécution.
 
-Les mises à jour exigent le consentement de l'utilisateur : à part les migrations ponctuelles qui conservent les anciens éléments intégrés d'une installation mise à jour (voir [Migration de compatibilité](#compatibility-migration)), le démarrage ne télécharge ni n'installe jamais de package. `GET /api/capability-packages/updates/pending` liste chaque package officiel installé dont la version du catalogue est plus récente et compatible avec le moteur et l'API de capacités en cours d'exécution, en laissant de côté une version que l'utilisateur a déjà refusée. Le client les affiche dans une seule invite **Agent updates available** (mises à jour d'agents disponibles). **Update all** (tout mettre à jour) installe chacun par le pipeline d'installation habituel, épinglé à la version proposée et au SHA-256 de l'artefact. **Not now** (pas maintenant) enregistre les versions refusées dans `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`) : cette version n'est plus proposée, mais une version plus récente le sera. **Update** reste disponible dans **Agent Organizer (organisateur d’agents)** dans tous les cas. Les échecs sont isolés package par package. Les fichiers existants et l'état du registre restent utilisables lorsque le catalogue est hors ligne ou que la vérification échoue, et les échecs de disponibilité du runtime serveur empruntent le chemin de rollback vers la version précédente.
+Les mises à jour exigent le consentement de l'utilisateur : à part les migrations ponctuelles qui conservent les anciens éléments intégrés d'une installation mise à jour (voir [Migration de compatibilité](#compatibility-migration)), le démarrage ne télécharge ni n'installe jamais de package. `GET /api/capability-packages/updates/pending` liste chaque package officiel installé dont la version du catalogue est plus récente et compatible avec le moteur et l'API de capacités en cours d'exécution, en laissant de côté une version que l'utilisateur a déjà refusée. Le client les affiche dans une seule invite **Agent updates available** (mises à jour d'agents disponibles). Cette invite installe chaque mise à jour sélectionnée par le pipeline d'installation habituel, épinglée à la version proposée et au SHA-256 de l'artefact. Les mises à jour que l'utilisateur laisse désélectionnées sont refusées comme avec **Not now**. **Not now** (pas maintenant) enregistre les versions refusées dans `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`) : cette version n'est plus proposée, mais une version plus récente le sera. **Update** reste disponible dans **Agent Organizer (organisateur d’agents)** dans tous les cas. Les échecs sont isolés package par package. Les fichiers existants et l'état du registre restent utilisables lorsque le catalogue est hors ligne ou que la vérification échoue, et les échecs de disponibilité du runtime serveur empruntent le chemin de rollback vers la version précédente.
 
 Les notes de version sont publiées dans un fichier `notes.json` à côté du `catalog.json` qu'elles décrivent, jamais dans une entrée de catalogue ni dans un manifeste : un moteur plus ancien écarte une entrée de catalogue qui contient une clé qu'il ne connaît pas. Chaque mise à jour en attente transporte, dans `releaseNotes`, les notes de chaque version postérieure à celle installée jusqu'à celle proposée, de la plus récente à la plus ancienne, et `releaseHighlight` vaut true quand l'une d'elles est marquée comme un changement que l'utilisateur remarquera. Les notes sont du texte brut et ne sont jamais affichées comme du Markdown ou du HTML.
 
@@ -451,7 +451,7 @@ Chaque désinstallation demande une confirmation. Les chats concernés reviennen
 
 Le panneau **Agents** contient un contrôle `Agent Organizer` qui reprend le bouton `Download` des panneaux Characters et Personas, lequel ouvre le Card Browser. Il ouvre une bibliothèque plein écran et responsive, avec recherche, types de packages, informations de compatibilité, état d'installation ou de mise à jour, permissions, coût de stockage, documentation et contrôles de désinstallation.
 
-Sur ordinateur, une liste de navigation s'accompagne d'une zone de détail voisine. Sur mobile, un seul panneau est affiché, avec un retour explicite et des actions dimensionnées pour le tactile. Les états vide, hors ligne, incompatible, téléchargement corrompu, installation interrompue, mise à jour, rollback et redémarrage requis sont traités comme des cas de premier plan.
+Sur ordinateur, une barre latérale avec la recherche, le filtre de mode et les sections s'affiche à côté des pages de la boutique. Sur mobile, la recherche, le filtre de mode et les pastilles de section s'affichent au-dessus de la page ; la page d'un agent remplace la liste, avec un retour explicite et des actions dimensionnées pour le tactile. Les états vide, hors ligne, incompatible, téléchargement corrompu, installation interrompue, mise à jour, rollback et redémarrage requis sont traités comme des cas de premier plan.
 
 ## Critère d'extraction
 
@@ -1219,6 +1219,41 @@ Il s'agit d'un plein écran dans l'application : les onglets, la barre d'adresse
 
 Un package avec `contributions.agentDetail` peut définir `"header": "engine"`. Le moteur dessine alors le même en-tête que sur toutes les autres pages d'agent : Retour, la bannière et le logo de la boutique, le nom, le bouton Active pour le chat ouvert et Gérer le package. La vue `detail` reçoit deux props supplémentaires : `engineHeader: true` et `headerSlot`, un élément dans les actions de l'en-tête. Masque ton propre en-tête lorsque `engineHeader` est défini et affiche les boutons supplémentaires de l'en-tête (par exemple « Ajouter des souvenirs » ou l'aide) dans `headerSlot`, avec un portail React ou `appendChild`. `headerSlot` vaut `null` au premier rendu ; attends donc la prochaine mise à jour des props. Sans le flag, le package conserve la page complète comme avant. Déclare Capability API 1.390 lorsque tu le définis.
 
+<a id="capability-api-1389-hide-or-show-messages-from-the-ai"></a>
+
+### Capability API 1.389 : masquer ou montrer des messages à l'IA
+
+`persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` masque les messages d'un chat à l'IA,
+ou les lui montre à nouveau, comme le fait le résumé du moteur avec **Hide summarised messages** (masquer les messages résumés). Cette méthode nécessite la
+permission `chat-write` et modifie le message et chacun de ses swipes. Si le chat est introuvable, l'appel est rejeté.
+
+- Les identifiants qui ne correspondent pas à des messages de ce chat sont ignorés.
+- Un message dont l'utilisateur a défini la visibilité à la main n'est jamais modifié.
+- La méthode renvoie les identifiants dont cet appel a changé l'indicateur. Un message déjà masqué (par le résumé,
+  par exemple) n'est pas renvoyé : conserve donc les identifiants renvoyés et ne montre à nouveau que ces messages par la suite.
+
+Les anciennes versions du moteur n'ont pas cette méthode : vérifie qu'elle existe ou déclare la version 1.389.
+
+```ts
+const hidden = (await api.runtime.persistence.setMessagesHiddenFromAI?.(chatId, messageIds, true)) ?? [];
+```
+
+<a id="capability-api-1388-a-service-only-the-engine-can-read"></a>
+
+### Capability API 1.388 : un service que seul le moteur peut lire
+
+Chaque service enregistré par un package peut être lu par tous les autres packages via `runtime.services.get(key)`. Un
+service destiné au seul moteur, comme un runtime que le moteur appelle pendant la génération, prend un troisième argument :
+
+```ts
+api.registerService("my-package:runtime", service, { hostOnly: true });
+```
+
+La recherche interne du moteur continue de le renvoyer. `runtime.services.get` renvoie `null` pour ce service à tous les packages,
+y compris son propriétaire. Libérer le service efface l'indicateur : la clé peut donc être enregistrée à nouveau sans lui. Un moteur antérieur à
+1.388 ignore cet argument ; le service y reste donc lisible. Ne compte pas sur `hostOnly` pour garder un service secret sur les anciennes
+versions du moteur.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387 : lire les résumés d'un chat
@@ -1481,7 +1516,8 @@ packages d'utiliser certaines bibliothèques du moteur au lieu de les embarquer.
 
 - `runtime.services.get(key)` renvoie un service qu'un package a enregistré avec `api.registerService`, ou `null` tant qu'il est
   absent ou pendant une génération dans un salon partagé. Il lit le registre propre au moteur, que tous les packages peuvent donc consulter.
-  Les clés `agent-runtime:` et `mari-actions:` renvoient toujours `null` ; seul le moteur les lit.
+  Les clés `agent-runtime:` et `mari-actions:` renvoient toujours `null` ; seul le moteur les lit. Il en va de même pour un service
+  enregistré avec `hostOnly` (Capability API 1.388), pour tous les packages, y compris son propriétaire.
 - `runtime.commands.parse(content)`, `strip(content)` et `instructions()` lisent les commandes de Conversation avec la
   grammaire du moteur et les balises enregistrées de chaque package.
 - `runtime.logger.isLevelEnabled(level)` indique si le système de logs du moteur écrit actuellement ce niveau.
@@ -1526,17 +1562,26 @@ copie sépare un état que le moteur conserve en un seul endroit. Les types et a
 
 **Bibliothèques serveur partagées.** Le serveur d'un package peut laisser `zod`, `adm-zip`, `dotenv`, `nanoid` et `jsonrepair` hors de
 son bundle et les importer par leur nom, comme il peut déjà le faire pour `@huggingface/transformers`, `onnxruntime-node`,
-`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` et `undici`. Node les résout par des liens gérés dans la
-copie d'exécution du package vers `DATA_DIR/capability-packages/node_modules`, qui pointe vers `packages/server/node_modules` du moteur.
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` et `undici`. Le moteur crée des liens gérés dans la
+copie d'exécution de chaque package qu'il gère, en résolvant les dépendances déclarées du serveur du moteur avec le résolveur de paquets de Node. Cela fonctionne
+avec les dépendances directes, remontées ou partiellement remontées, y compris lorsque `DATA_DIR` se trouve hors de la copie installée du moteur.
 Zod constitue l'exception de compatibilité : l'import `zod` d'un package résout la dépendance `zod-v3` complète, y compris ses exports
 par défaut, nommés, CommonJS et par sous-chemin. Les autres bibliothèques conservent l'instance même du module qu'utilise le moteur.
-Les imports `zod` du moteur continuent de résoudre Zod 4 natif. pnpm n'y garde que les
-dépendances directes du serveur : seuls ces noms peuvent donc être résolus, et non une dépendance d'une dépendance, telle que `ws`.
-Le moteur conserve les noms ci-dessus comme dépendances directes de production de `packages/server`, et chaque installation garde cette
-structure : les installations depuis les sources ou par le lanceur, Windows (où le lien de données est une jonction), Android et Termux, ainsi que les deux
-images Docker. Lorsqu'il démarre ou active un package, le moteur recrée un lien de données qui pointe ailleurs,
-y compris un lien devenu sans cible après le déplacement d'un dossier de données depuis un autre chemin d'installation. Tout ce qui se trouve à cet emplacement sans être un lien
-reste intact.
+Les imports `zod` du moteur continuent de résoudre Zod 4 natif. Les noms ci-dessus restent des dépendances directes de production
+de `packages/server`. Les instantanés gérés lient les dépendances déclarées ; les dépendances transitives non déclarées, comme `ws`, ne font pas partie
+du contrat des bibliothèques partagées. Les bibliothèques facultatives absentes sont ignorées, et les outils de développement installés restent
+disponibles. Un alias Zod 3 absent ou incompatible fait explicitement échouer l'activation au lieu de laisser un package
+charger silencieusement Zod 4 natif. Les échecs de configuration des dépendances de l'hôte conservent la version demandée du package et les métadonnées de rollback ;
+une fois la dépendance du moteur réparée, l'activation peut être retentée sans réinstaller le package.
+Windows utilise des jonctions pour ces liens ; les installations depuis les sources et par le lanceur, Android et Termux, ainsi que les deux images Docker suivent
+le même contrat de résolution des dépendances. Les anciens liens de données partagés sont actualisés lorsque le répertoire physique des dépendances
+du serveur est disponible. Les répertoires réels existants restent intacts, et les nouvelles copies d'exécution résolvent leurs dépendances
+indépendamment de cet ancien lien de données. L'arbre de dépendances embarquées déclaré par un package reste intact.
+
+Au démarrage, les anciens packages API-1 désactivés à cause des erreurs connues de migration Zod sont retentés avec les vérifications habituelles
+de compatibilité et d'intégrité des fichiers. Un moteur réparé peut ainsi rétablir une installation déjà en échec sans
+supprimer ses cartes ni les autres données du package. Les packages associés à d'autres messages d'erreur restent désactivés. Les anciennes entrées du registre
+ne conservent que les messages d'erreur : la récupération reconnaît donc les erreurs précises liées à `innerType` et à `curve` imbriqué.
 
 **Déclaration.** Un package qui utilise l'un de ces éléments déclare `schemaVersion: 2`, `capabilityApi: { major: 1, minor: 341 }`
 et `builtAgainst`, et conserve sa plage `engine`. Un manifeste `schemaVersion: 1` n'est jamais vérifié par rapport à

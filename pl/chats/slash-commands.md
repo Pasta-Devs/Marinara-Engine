@@ -115,6 +115,8 @@ Komenda `/roll` rozumie notację kostkową. Ten zapis rzuca dwiema sześcioście
 
 Można dodać modyfikator, na przykład `/roll 1d20+5`. Samo `/roll` bez niczego dalej oznacza dla aplikacji rzut `1d20`.
 
+Żeby zachować tylko część kości, dopisz `kh` (zachowaj najwyższe) albo `kl` (zachowaj najniższe) i liczbę: `/roll 4d6kh3` rzuca czterema kośćmi i dodaje trzy najwyższe wyniki, a `/roll 2d20kl1` zachowuje niższy z dwóch. `dl` i `dh` zamiast tego odrzucają odpowiednio najniższe lub najwyższe wyniki, jak w `/roll 4d6dl1`. Kości, które się nie liczą, nadal są widoczne, ale przyciemnione.
+
 Sprite to obrazek postaci pokazujący wyraz twarzy. Komenda `/emote` przełącza, który z nich jest widoczny. Wpisz samo `/emote`, żeby zobaczyć dostępne wyrazy twarzy, albo podaj nazwę jednego z nich, żeby go włączyć:
 
 ```

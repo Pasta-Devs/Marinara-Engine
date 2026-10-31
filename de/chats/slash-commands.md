@@ -115,6 +115,8 @@ Der Befehl `/roll` versteht Würfelnotation. So würfelst du zwei sechsseitige W
 
 Ein Modifikator ist ebenfalls möglich, etwa `/roll 1d20+5`. Steht nach `/roll` nichts, würfelt Marinara `1d20`.
 
+Um nur einen Teil der Würfel zu zählen, hänge `kh` (höchste behalten) oder `kl` (niedrigste behalten) und eine Zahl an: `/roll 4d6kh3` würfelt vier Würfel und addiert die drei höchsten, und `/roll 2d20kl1` behält den niedrigeren von zwei Würfeln. `dl` und `dh` entfernen stattdessen die niedrigsten oder höchsten, etwa bei `/roll 4d6dl1`. Würfel, die nicht zählen, werden weiterhin angezeigt, aber abgeblendet.
+
 Ein Sprite ist ein Charakterbild auf der Bühne, das einen Gesichtsausdruck zeigt. Mit `/emote` wechselst du, welches davon zu sehen ist. Tipp `/emote` allein ein, um die verfügbaren Gesichtsausdrücke zu sehen, oder nenne einen davon direkt:
 
 ```

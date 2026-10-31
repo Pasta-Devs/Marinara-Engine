@@ -121,10 +121,11 @@ marinara.onCleanup(() => panel.remove());
 | `context.subscribe(listener)` | कॉन्टेक्स्ट के बदलाव पाना; अनसब्सक्राइब फ़ंक्शन लौटाता है |
 | `ui.registerContribution(options)` | सुरक्षित बटन, Extensions मेन्यू आइटम या Marinara के रेंडर किए पैनल जोड़ना |
 | `ui.showWindow(options)` | सीमित iframe विंडो खोलना |
+| `dice.registerFormat(options)` | `/roll` को नोटेशन सिखाना; Marinara उसमें बताए गए डाइस रोल करता है |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | एक्सटेंशन रुकने पर हटने वाले मैनेज किए गए टाइमर |
 | `onCleanup(callback)` | अतिरिक्त क्लीनअप लॉजिक रजिस्टर करना |
 
-सामान्य UI के लिए [Marinara के रेंडर किए पैनल](personal-extensions.md#add-a-marinara-rendered-panel) और चैट के हिसाब से काम करने के लिए [सक्रिय चैट कॉन्टेक्स्ट](personal-extensions.md#use-active-chat-context) इस्तेमाल करें। एक्सटेंशन का स्टेट ब्राउज़र स्टोरेज में नहीं, `marinara.storage` में होना चाहिए।
+सामान्य UI के लिए [Marinara के रेंडर किए पैनल](personal-extensions.md#add-a-marinara-rendered-panel), चैट के हिसाब से काम करने के लिए [सक्रिय चैट कॉन्टेक्स्ट](personal-extensions.md#use-active-chat-context), और कस्टम `/roll` नोटेशन के लिए [डाइस फ़ॉर्मैट](personal-extensions.md#add-a-dice-format) इस्तेमाल करें। एक्सटेंशन का स्टेट ब्राउज़र स्टोरेज में नहीं, `marinara.storage` में होना चाहिए।
 
 `showWindow({ title, elements, onEvent, onClose })` ऐसा हैंडल लौटाता है जिसमें `update({ title?, elements? })` और `close()` होते हैं। पैकेज का CSS इन सैंडबॉक्स iframe विंडो को स्टाइल देता है; होस्ट के रेंडर किए कॉन्ट्रिब्यूशन हमेशा Marinara की अपनी थीम और कंट्रोल इस्तेमाल करते हैं।
 

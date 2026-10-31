@@ -67,6 +67,14 @@ Kilka innych przykładów do wpisania:
 
 Obowiązują dwa sztywne limity. Możesz rzucić najwyżej 100 kośćmi naraz, a każda kość może mieć najwyżej 1000 ścianek. Jeśli poprosisz o więcej, aplikacja ograniczy żądanie do tych limitów zamiast je odrzucać, a karta wyniku pokaże ograniczoną notację: wpisanie `500d6` daje więc kartę `100d6` dla stu kości, którymi faktycznie rzucono. Jeśli tekst nie jest poprawną notacją kości, czyli `NdM` lub samym `dM`, takim jak `d20`, rzut nie powiedzie się i pojawi się błąd wskazujący wymagany format.
 
+<a id="symbol-dice-by-name"></a>
+
+### Kości symboliczne po nazwie
+
+W grze, której zestaw zasad rzuca kośćmi symbolicznymi (zestaw `symbol-pool`, na przykład system w stylu Genesys), pole własnego rzutu przyjmuje też nazwy tych kości. Dla każdego rodzaju podaj liczbę i nazwę kości, na przykład `2 ability 1 proficiency vs 2 difficulty`. Nazwą może być identyfikator kości lub jej etykieta, bez rozróżniania wielkości liter, a poszczególne rodzaje możesz oddzielać spacjami, przecinkami, `+` lub `vs`.
+
+Karta pokazuje każdą kość z symbolami na jej ściance, następnie symbole pozostałe po anulowaniu oraz informację, czy oznacza to sukces. Znacznik dodany do wiadomości zawiera to samo, na przykład `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Rzut może wskazywać najwyżej 40 kości. Gdy postać Game Master rzuca za pomocą swojego narzędzia kości, też może korzystać z tych nazw. Zwykła notacja `NdM` nadal działa w każdej grze tak, jak opisano powyżej.
+
 ## Testy umiejętności
 
 Test umiejętności sprawdza, czy ryzykowne działanie się powiedzie – skradanie, dostrzeżenie poszlaki albo przekonanie postaci NPC (postaci niezależnej). Testu umiejętności nie zaczyna się samodzielnie. Wywołuje go postać Game Master w swojej narracji. Aplikacja zamienia to na animowany rzut kością 20-ścienną z banerem wyniku.

@@ -158,6 +158,43 @@ marinara.onCleanup(unsubscribe);
 
 Marinara 绝不会发送消息、创作者备注、系统提示词、历史后指令、注释、头像路径、完整的角色库或用户角色库、未声明的字段、聊天元数据、数据库句柄、网络访问权限，也不会开放任何写操作。上下文更新同样绑定在已批准的代码哈希上，只在当前聊天、它的角色列表或所选用户角色发生变化时下发。
 
+<a id="add-a-dice-format"></a>
+
+### 添加骰子格式
+
+浏览器扩展 API 第 6 版允许扩展为 `/roll` 添加自己的写法，例如叙事骰池。扩展解析写法，指定要掷哪些骰子；Marinara 用自身安全的掷骰器掷出骰子，再把骰面交回扩展。扩展可以解释掷骰结果的含义，但不能决定掷出了什么。
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+这样，`/roll 2 boost 1 setback` 就会发布骰面、总值和扩展的文字，并标注格式名称。`2d6` 或 `4d6kh3` 这样的普通写法始终按原来的方式掷骰，不会交给扩展。其他写法会依次交给各个已注册的格式，由第一个通过 `parse` 返回骰子的格式处理。
+
+- `parse(notation)` 返回 `null` 或 `{ dice: [sides, ...] }`，包含 1 到 100 颗骰子，每颗有 2 到 1000 面。对象上的其他内容留在沙箱中，以 `plan` 传回 `read`。
+- `read(...)` 返回 `{ total, text?, kept? }`：一个有限数值、最多 200 个字符的纯文本，以及可选的、按升序排列的计入结果的骰子位置。`/roll` 会给其余骰子加上删除线。
+- 每个扩展可以注册 4 种格式。写法最多 100 个字符。`parse` 和 `read` 可以异步执行，但各自都必须在 2 秒内返回。
+- 文字以纯文本显示：链接、图片、格式和 HTML 都会被转义。
+
+骰子格式适用于浏览器中的 `/roll`。游戏主持人的 `roll_dice` 工具和其他服务端掷骰仍使用内置写法和规则集骰子。在旧版 Engine 上调用前，先检查 `typeof marinara.dice?.registerFormat === "function"`。
+
 ### 旧版扩展与整页扩展
 
 天气控制器、提示词编辑器这类比较完整的工作流，都是合适的贡献用例。它们的安全移植版可以用一个菜单入口或顶栏入口，配合逐步更新的面板来实现。已有的扩展包如果会注入 DOM 浮层、查询 Marinara 的 CSS 选择器、遍历 React 内部结构或调用同源 `/api` 路由，就无法原样导入安全运行时。

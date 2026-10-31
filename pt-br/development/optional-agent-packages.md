@@ -458,7 +458,7 @@ Toda desinstalação pede confirmação. Os chats afetados voltam às telas comu
 
 O painel **Agents** (agentes) tem um controle `Agent Organizer` equivalente ao botão `Download` dos painéis Characters e Personas, que abre o Card Browser. Ele abre uma biblioteca responsiva em tela cheia com busca, tipos de pacote, informações de compatibilidade, estado de instalação e atualização, permissões, espaço ocupado, documentação e controles de desinstalação.
 
-No computador, aparece uma lista de navegação com uma área de detalhes ao lado. No celular, aparece um painel só, com navegação explícita para voltar e ações grandes o bastante para o toque. Os estados de lista vazia, sem conexão, incompatível, download corrompido, instalação interrompida, atualização, rollback e reinício necessário são tratados como estados de primeira classe.
+No computador, aparece uma barra lateral com busca, filtro de modo e seções ao lado das páginas da loja. No celular, a busca, o filtro de modo e os chips de seção aparecem acima da página; a página de um agente substitui a lista, com navegação explícita para voltar e ações grandes o bastante para o toque. Os estados de lista vazia, sem conexão, incompatível, download corrompido, instalação interrompida, atualização, rollback e reinício necessário são tratados como estados de primeira classe.
 
 ## Critério de extração
 
@@ -1055,6 +1055,34 @@ Uma visualização `home-browser-tab` recebe `capabilityProps.browserFullscreen`
 
 Um pacote com `contributions.agentDetail` pode definir `"header": "engine"`. Então, o Engine desenha o mesmo cabeçalho que aparece em todas as outras páginas de agentes: Voltar, o banner e o logotipo da loja, o nome, a alternância Active do chat aberto e Gerenciar pacote. A visualização `detail` recebe duas propriedades extras: `engineHeader: true` e `headerSlot`, um elemento nas ações do cabeçalho. Oculte seu próprio cabeçalho quando `engineHeader` estiver definido e renderize os botões extras do cabeçalho (por exemplo, “Adicionar memórias” ou ajuda) em `headerSlot` com um portal React ou `appendChild`. `headerSlot` é `null` na primeira renderização, então aguarde a próxima atualização das propriedades. Sem a flag, o pacote mantém a página inteira como antes. Declare Capability API 1.390 ao defini-la.
 
+<a id="capability-api-1389-hide-or-show-messages-from-the-ai"></a>
+
+### Capability API 1.389: ocultar ou mostrar mensagens para a IA
+
+`persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` oculta da IA mensagens de um chat ou volta a mostrá-las, como o resumo do Engine faz com **Hide summarised messages** (ocultar mensagens resumidas). Exige a permissão `chat-write` e altera a mensagem e todos os swipes dela. Se o chat não for encontrado, a chamada é rejeitada.
+
+- IDs que não sejam de mensagens desse chat são ignorados.
+- Uma mensagem cuja visibilidade o usuário definiu na mão nunca é alterada.
+- Retorna os IDs cujo sinalizador esta chamada alterou. Uma mensagem que já estava oculta (pelo resumo, por exemplo) não é retornada, então guarde os IDs retornados e volte a mostrar apenas essas mensagens depois.
+
+Engines anteriores não têm o método: confira se ele existe ou declare 1.389.
+
+```ts
+const hidden = (await api.runtime.persistence.setMessagesHiddenFromAI?.(chatId, messageIds, true)) ?? [];
+```
+
+<a id="capability-api-1388-a-service-only-the-engine-can-read"></a>
+
+### Capability API 1.388: um serviço que só o Engine pode ler
+
+Todo serviço que um pacote registra pode ser lido por todos os outros pacotes por meio de `runtime.services.get(key)`. Um serviço destinado apenas ao Engine, como um runtime que o Engine chama durante a geração, recebe um terceiro argumento:
+
+```ts
+api.registerService("my-package:runtime", service, { hostOnly: true });
+```
+
+A consulta do próprio Engine continua retornando o serviço. `runtime.services.get` retorna `null` para ele a todos os pacotes, inclusive ao proprietário. Liberar o serviço remove o sinalizador, então a chave pode ser registrada de novo sem ele. Um Engine anterior à 1.388 ignora o argumento, então o serviço continua podendo ser lido ali; não dependa de `hostOnly` para manter o sigilo em Engines anteriores.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: ler os resumos de um chat
@@ -1292,7 +1320,8 @@ pacotes usem algumas bibliotecas do Engine em vez de incluí-las no bundle. Cada
 
 - `runtime.services.get(key)` retorna um serviço que um pacote registrou com `api.registerService`, ou `null` enquanto ele estiver
   ausente ou durante uma geração em uma sala compartilhada. Lê o registro do próprio Engine, então todos os pacotes o veem.
-  As chaves `agent-runtime:` e `mari-actions:` sempre retornam `null`; só o Engine as lê.
+  As chaves `agent-runtime:` e `mari-actions:` sempre retornam `null`; só o Engine as lê. O mesmo vale para um serviço
+  registrado com `hostOnly` (Capability API 1.388), para todos os pacotes, inclusive o proprietário.
 - `runtime.commands.parse(content)`, `strip(content)` e `instructions()` leem comandos de Conversation com a
   gramática do Engine e as marcações registradas de todos os pacotes.
 - `runtime.logger.isLevelEnabled(level)` informa se o sistema de logs do Engine está gravando esse nível no momento.
@@ -1337,17 +1366,27 @@ cópia divide o estado que o Engine mantém em um só lugar. Tipos e auxiliares 
 
 **Bibliotecas compartilhadas do servidor.** O servidor de um pacote pode deixar `zod`, `adm-zip`, `dotenv`, `nanoid` e `jsonrepair` fora do
 bundle e importá-los pelo nome, como já pode fazer com `@huggingface/transformers`, `onnxruntime-node`,
-`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` e `undici`. O Node os resolve por links gerenciados na
-cópia de execução do pacote para `DATA_DIR/capability-packages/node_modules`, que aponta para `packages/server/node_modules` do Engine.
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` e `undici`. O Engine cria links gerenciados na cópia de execução de cada pacote,
+gerenciada pelo host, resolvendo as dependências declaradas do servidor do Engine com o resolvedor de pacotes do Node. Isso funciona
+com dependências diretas, com hoisting e com hoisting parcial, inclusive quando `DATA_DIR` fica fora do checkout do Engine.
 O Zod é a exceção de compatibilidade: a importação de `zod` de um pacote resolve a dependência completa `zod-v3`, incluindo suas
 exportações padrão, nomeadas, CommonJS e de subcaminhos. As outras bibliotecas mantêm a mesma instância do módulo que o Engine usa.
-As importações de `zod` do próprio Engine continuam resolvendo o Zod 4 nativo. O pnpm mantém ali só as
-dependências diretas do servidor, então só esses nomes são resolvidos; uma dependência de uma dependência, como `ws`, não é resolvida.
-O Engine mantém os nomes acima como dependências diretas de produção de `packages/server`, e toda instalação mantém essa
-estrutura: instalações pelo código-fonte e pelo inicializador, Windows (onde o link de dados é uma junção), Android e Termux, e as duas
-imagens Docker. Quando inicia ou ativa um pacote, o Engine recria um link de dados que aponte para qualquer outro lugar,
-incluindo um que tenha ficado sem destino após uma pasta de dados ser movida de outro caminho de instalação. Qualquer coisa ali que não seja um link
-permanece intacta.
+As importações de `zod` do próprio Engine continuam resolvendo o Zod 4 nativo. Os nomes acima continuam sendo dependências diretas
+de produção de `packages/server`. Os snapshots gerenciados vinculam as dependências declaradas; dependências transitivas não declaradas,
+como `ws`, não fazem parte do contrato de bibliotecas compartilhadas. Bibliotecas opcionais ausentes são ignoradas, e as ferramentas
+de desenvolvimento instaladas continuam disponíveis. Um alias do Zod 3 ausente ou incompatível faz a ativação falhar explicitamente,
+em vez de deixar um pacote carregar o Zod 4 nativo em silêncio. Falhas na configuração de dependências do host preservam a versão
+solicitada do pacote e os metadados de rollback; depois que a dependência do Engine é corrigida, a ativação pode tentar de novo
+sem reinstalar o pacote.
+O Windows usa junções para esses links; instalações pelo código-fonte e pelo inicializador, Android e Termux e as duas imagens Docker
+usam o mesmo contrato de resolução de dependências. Os links antigos de dados compartilhados são atualizados quando a pasta física
+de dependências do servidor está disponível. As pastas reais existentes permanecem intactas, e as novas cópias de execução resolvem
+suas dependências independentemente desse link antigo de dados. A árvore de dependências declarada e incluída no bundle do próprio pacote permanece intacta.
+
+Na inicialização, os pacotes antigos da API-1 desativados pelos erros conhecidos de migração do Zod passam por uma nova tentativa,
+com as verificações normais de compatibilidade e integridade dos arquivos. Isso permite que um Engine corrigido recupere uma instalação
+que já falhou sem excluir seus mapas nem outros dados de pacote. Pacotes com outras mensagens de erro continuam desativados. As entradas
+antigas do registro guardam apenas mensagens de erro, então a recuperação reconhece as falhas antigas exatas de `innerType` e de `curve` aninhado.
 
 **Como declarar.** Um pacote que use qualquer um desses recursos declara `schemaVersion: 2`, `capabilityApi: { major: 1, minor: 341 }`
 e `builtAgainst`, e mantém seu intervalo `engine`. Um manifesto `schemaVersion: 1` nunca é verificado em relação à
