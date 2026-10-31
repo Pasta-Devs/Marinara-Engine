@@ -390,10 +390,11 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
           >
             {displayTitle}
           </p>
-          {nowPlaying?.mood ? (
+          {!error && nowPlaying?.mood ? (
             // #8590: the scene-mood line stays one line; its full text opens as a small panel on hover, focus or a tap,
-            // and stays reachable by keyboard, since the compact player clips it.
-            <MoodDisclosure text={displaySubtitle} />
+            // and stays reachable by keyboard, since the compact player clips it. A playback failure is not a mood: it
+            // stays a plain line below, so it is never announced as "Scene mood: Playback needs attention".
+            <MoodDisclosure text={nowPlaying.mood} />
           ) : (
             <p className={cn("truncate text-[0.5625rem] leading-tight", MUSIC_NEUTRAL_MUTED_CLASS)}>
               {displaySubtitle}
@@ -549,7 +550,8 @@ function MoodDisclosure({ text }: { text: string }) {
     setOpen(false);
     setPinned(false);
   };
-  // Placed before paint so the panel never flickers, clamped to the viewport like HelpTooltip's.
+  // Placed before paint so the panel never flickers, clamped to the viewport like HelpTooltip's. The panel exists as
+  // soon as it is open (hidden until measured): it cannot measure itself into existence.
   useLayoutEffect(() => {
     if (!open || !wrapRef.current || !tipRef.current) {
       setPos({ top: 0, left: 0, ready: false });
@@ -561,7 +563,7 @@ function MoodDisclosure({ text }: { text: string }) {
     const top = Math.max(pad, rect.top - 6 - tip.height);
     const left = Math.max(pad, Math.min(rect.left, window.innerWidth - pad - tip.width));
     setPos({ top, left, ready: true });
-  }, [open]);
+  }, [open, text]);
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
@@ -607,18 +609,21 @@ function MoodDisclosure({ text }: { text: string }) {
       >
         {text}
       </button>
-      {open && pos.ready
+      {open
         ? createPortal(
             <div
               ref={tipRef}
               role="status"
+              aria-hidden={!pos.ready}
               className={cn(
                 "fixed z-[60] max-w-[min(22rem,calc(100vw-1rem))] rounded-lg border px-2 py-1.5 text-[0.6875rem] leading-snug shadow-xl backdrop-blur-xl",
                 MUSIC_NEUTRAL_SHELL_BORDER_CLASS,
                 MUSIC_NEUTRAL_SHELL_BG_CLASS,
                 MUSIC_NEUTRAL_TEXT_CLASS,
               )}
-              style={{ top: pos.top, left: pos.left }}
+              // Measured on the frame it mounts, then placed; `visibility` keeps the one unmeasured frame unseen rather
+              // than gating the mount on a measurement of the element that has not mounted yet.
+              style={{ top: pos.top, left: pos.left, visibility: pos.ready ? "visible" : "hidden" }}
             >
               {text}
             </div>,
