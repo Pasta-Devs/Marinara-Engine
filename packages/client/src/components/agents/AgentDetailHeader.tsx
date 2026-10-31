@@ -53,9 +53,8 @@ export function AgentDetailHeader({
               entry={storeEntry}
               sizes="100vw"
               className={cn(
-                "mx-auto h-full w-full rounded-none! shadow-none!",
-                tall &&
-                  "max-w-[832px] [--fade:clamp(0px,100cqw_-_100%,15%)] [mask-image:linear-gradient(to_right,transparent,black_var(--fade),black_calc(100%_-_var(--fade)),transparent)] max-sm:max-w-[594px]",
+                "mx-auto h-full w-full rounded-none! shadow-none! [--fade:clamp(0px,100cqw_-_100%,15%)] [mask-image:linear-gradient(to_right,transparent,black_var(--fade),black_calc(100%_-_var(--fade)),transparent)] transition-[max-width] duration-300 motion-reduce:transition-none",
+                tall ? "max-w-[832px] max-sm:max-w-[594px]" : "max-w-full",
               )}
             />
           </div>
