@@ -2,15 +2,23 @@
 
 Esta guía explica el combate del Game Mode de Marinara Engine. En el paso **World** (Mundo) del asistente, elige **Classic** (Combate con menús) o **Tactical** (Combate en cuadrícula) en **Combat Preference** (Preferencia de combate). El Game Master de IA (GM) plantea el encuentro y narra los resultados; el motor resuelve las acciones.
 
+## Iniciar un encuentro
+
+Tú no inicias el combate por tu cuenta. El GM inicia una pelea cuando la historia lo pide, por ejemplo cuando provocas a un enemigo o caes en una emboscada. Cuando eso pasa, se abre una pantalla de batalla completa sobre la narración. El motor arma la pelea (tu grupo, los enemigos, sus estadísticas y cualquier regla especial) a partir de lo que está ocurriendo en la historia.
+
+La pantalla de batalla muestra tu grupo en un lado y los enemigos en el otro. Cada luchador tiene una barra de salud (HP, puntos de vida) y, si usa habilidades, una barra de magia (MP, puntos de magia). El orden de turnos se muestra arriba como **Next:** seguido del nombre de quien actúa a continuación. Un contador de rondas muestra **Round** y el número de ronda actual.
+
+En una partida cuyo conjunto de reglas resuelve sus propias peleas, como 5e (SRD 5.1), la pelea es la del conjunto de reglas, no la que describe esta página. Consulta [Peleas con un conjunto de reglas](fighting-on-a-ruleset.md). Un conjunto de reglas que presta su ficha a las batallas conserva el combate de esta página; consulta [Qué ocurre en las batallas](rulesets.md#what-happens-in-battles).
+
 <a id="tactical-battles-and-terrain"></a>
 
 ## Batallas tácticas y terreno
 
 El combate táctico sitúa al grupo y a los enemigos en un campo de batalla. Selecciona una unidad del grupo, consulta su alcance de movimiento, elige destino y acción y confirma. Quién actúa y cuándo depende del **Turn order** (Orden de turnos) de la batalla (consulta [Orden de turnos](#turn-order)). Las previsiones de ataque muestran las consecuencias esperadas antes de confirmar.
 
-Al crear una partida Tactical, puedes elegir opcionalmente una semilla, un tamaño e indicaciones de terreno para el GM. Deja la semilla vacía para generarla. Es un entero entre 0 y 4294967295, incluido cero. Reproduce el tablero cuando los combatientes, la descripción del terreno y las demás entradas del generador son iguales; no obliga al GM a crear la misma historia ni los mismos enemigos.
+No hay ajustes del campo de batalla que completar al crear una partida. Cada pelea recibe su propio tablero, generado a partir de una semilla nueva y de la descripción breve del GM para esa escena.
 
-El GM proporciona el entorno, la formación y una descripción breve del terreno. El motor crea las casillas y posiciones iniciales exactas. La descripción puede pedir áreas de terreno y barreras cerca del centro o de un borde. Las indicaciones son una petición al GM, no una garantía de convertir cada palabra en una casilla. El campo aceptado se guarda, por lo que recargar restaura ese tablero.
+El GM proporciona el entorno, la formación y una descripción breve del terreno. El motor crea las casillas y posiciones iniciales exactas. La descripción puede pedir áreas de terreno y barreras cerca del centro o de un borde. El campo aceptado se guarda, por lo que recargar restaura ese tablero.
 
 El motor comprueba la descripción y la distribución resultante. Conserva el terreno solicitado y garantiza que el encuentro sea accesible. Si las restricciones son incompatibles, el combate informa del problema. **Use generated terrain** (Usar terreno generado) comienza explícitamente sin los elementos rechazados; no los elimina en silencio.
 
@@ -50,45 +58,11 @@ Para cambiarlo, abre **Chat Settings** (Ajustes del chat), expande **Combat Styl
 - **Cobertura.** Algo entre el atacante y el objetivo protege al objetivo. Una casilla de bosque o de ruinas en medio, o un muro o una montaña que tapa parte de la vista, da media cobertura. Un muro o una montaña que tapa la mayor parte de la vista da cobertura de tres cuartos. La media cobertura resta 15 puntos porcentuales a la probabilidad de acierto, y la de tres cuartos, 30. La bonificación de la casilla del propio objetivo y su cobertura no se suman: cuenta la mejor.
 - **Altura.** En un tablero con montañas, una montaña tiene dos niveles de altura y el terreno que la rodea, uno. Subir un nivel caminando cuesta un punto de movimiento más, y bajar no cuesta nada. Un escalón de dos niveles o más es un acantilado, por el que nadie puede caminar. El terreno elevado también bloquea la visión entre dos casillas más bajas. Atacar hacia abajo desde un terreno elevado suma 10 a la probabilidad de acierto, un ataque a distancia desde un terreno elevado llega una casilla más lejos, y una cobertura baja, como un bosque, no oculta a un objetivo visto desde arriba. Los campos de batalla hechos a mano pueden tener sus propios acantilados.
 
-El combate completo con invocaciones es un trabajo futuro separado.
+Las invocaciones todavía no forman parte del combate propio de Marinara.
 
 ## Batallas clásicas
 
-Las siguientes secciones sobre menús y cálculos de dados describen el combate Classic. Participa todo el grupo, pero la orden elegida controla al primer combatiente vivo del grupo; los demás compañeros actúan automáticamente.
-
-## Iniciar un encuentro
-
-Tú no inicias el combate por tu cuenta. El GM inicia una pelea cuando la historia lo pide, por ejemplo cuando provocas a un enemigo o caes en una emboscada. Cuando eso pasa, se abre una pantalla de batalla completa sobre la narración. El motor arma la pelea (tu grupo, los enemigos, sus estadísticas y cualquier regla especial) a partir de lo que está ocurriendo en la historia.
-
-La pantalla de batalla muestra tu grupo en un lado y los enemigos en el otro. Cada luchador tiene una barra de salud (HP, puntos de vida) y, si usa habilidades, una barra de magia (MP, puntos de magia). El orden de turnos se muestra arriba como **Next:** seguido del nombre de quien actúa a continuación. Un contador de rondas muestra **Round** y el número de ronda actual.
-
-<a id="games-whose-ruleset-resolves-its-own-fights"></a>
-
-### Partidas cuyo conjunto de reglas resuelve sus propios combates
-
-Un conjunto puede resolver una pelea completa con sus propias reglas, en vez de prestar unas cifras al combate de Marinara. En ese caso, la pantalla de batalla le pertenece: el menú ofrece los ataques y habilidades del personaje, su propia economía de acciones, sus estados y un registro con los cálculos reales. Todo se guarda en la ficha en el momento en que ocurre.
-
-El conjunto también define qué cabe en un turno. Un golpe puede causar varios tipos de daño: cada parte se tira, se resiste y se somete a salvación por separado, pero el conjunto sigue siendo un solo golpe. Gastar una acción puede comprar varios ataques; mientras queden, el menú los ofrece gratis e indica cuántos tienes, para que puedas cambiar de arma o caminar entre ellos. Una habilidad puede ser gratuita, devolver una segunda acción solo para este turno o permitir correr, retirarte u ocultarte gastando una parte menor de tu turno. Algo que tu personaje hace siempre, como daño adicional en el primer golpe que cumple las condiciones de un turno, se añade automáticamente y aparece en el registro. Un estado puede dificultar o facilitar tus propias salvaciones, reducir a la mitad todo tipo de daño, impedirte atacar a quien te lo aplicó o acercarte a él, o terminar cuando caiga. Un estado también puede cambiar un número: sumar a tu defensa, añadir o quitar dados a tus tiradas de ataque, salvaciones y enfrentamientos, o hacerte más lento. El registro muestra cada uno junto a la tirada que cambió, y las probabilidades del menú lo tienen en cuenta. Algunos estados duran hasta el inicio de tu siguiente turno, o solo hasta el siguiente ataque o salvación al que se refieren. Y un conjunto puede contar algo, como el agotamiento, en un contador de tu ficha, de modo que cada nivel que alcanzas empeora un poco las cosas mientras dura.
-
-Un conjunto cuyas pruebas tiran un puñado de dados y cuentan los que alcanzan un objetivo puede combatir de la misma forma. Entonces un ataque tira tu reserva y necesita cierto número de éxitos para acertar, nunca menos de uno, y cada éxito por encima de esos añade un dado al daño. El daño también se tira como dados, y quien lo recibe puede absorber parte según el tipo de daño, ya sea tirando dados de absorción que restan uno cada uno o quitando dados antes de tirar el daño; lo que queda marca sus heridas. Tu penalización por heridas quita dados de tus reservas igual que de tus pruebas, y un estado añade o quita dados. Las salvaciones y los enfrentamientos también son reservas. El registro indica cuántos dados se tiraron, qué tenían que alcanzar, cuántos éxitos sacaron y cuánto restó la absorción. Un conjunto así también puede volver a tirar la iniciativa al inicio de cada ronda, y puede limitar cuánto de un recurso puedes gastar en un turno, así que algo que superaría el límite simplemente no aparece en el menú hasta tu siguiente turno. Un conjunto de reservas también puede mantener la iniciativa como un número para todo el combate que los ataques mueven: eliges cómo hacer cada ataque, ya sea quitándole parte de su número a tu objetivo para ti en vez de herirlo, o gastando tu propio número como dados de daño. Un ataque de gasto que acierta reinicia tu número; uno que falla te cuesta tanto como indique el conjunto. Quien cae hasta la línea de derrumbe del conjunto se ha derrumbado y no puede gastar hasta recuperarse. El orden sigue los números en cada ronda, y el número de cada uno aparece junto a su salud.
-
-Un conjunto también puede permitir que cualquiera en una pelea inicie un enfrentamiento: agarrar a alguien, derribarlo o apartarlo de un empujón, o liberarse de un agarre. Ambos lados tiran y suman su propio número, gana el total más alto, y el menú muestra tu probabilidad de ganar antes de elegir. Ganar un agarre retiene a tu oponente en su sitio hasta que se libere o caigas; perder no hace nada. Liberarse solo aparece en el menú mientras algo te retiene, y solo contra quien te sujeta. Un empujón solo mueve a alguien en un campo de batalla, y se detiene ante los muros y ante cualquiera que esté en medio.
-
-Algunas habilidades responden al movimiento de otro en vez de usarse en tu propio turno. Cuando un oponente está a punto de usar algo, cuando algo te apunta, cuando un ataque acaba de alcanzarte o cuando algo acaba de hacerte daño, y tienes una respuesta para ese momento, la pelea se detiene y el menú la ofrece junto a **Pass** (Pasar). Después de un impacto, el registro indica qué sacó el ataque y contra qué se hizo, para que veas si una respuesta como Shield lo convertiría en un fallo; si la usas, se vuelve a comprobar la misma tirada y el registro indica si sigue acertando. Los oponentes también pueden responder así, con una parada propia. Un contraataque puede detener la habilidad de un oponente antes de que ocurra, sea cual sea su objetivo, siempre que el oponente esté dentro del alcance del contraataque; un conjunto puede indicar que solo responde a algunos tipos de habilidad, como los conjuros. Lo que costaba la habilidad detenida se gasta igualmente, y nada puede responder a un contraataque.
-
-El conjunto también puede definir cuánto representa una casilla en su propia distancia, en pies, pasos o la unidad que use. Si lo hace y **Combat Preference** (Preferencia de combate) está en **Tactical** (Táctico), la pelea se libra en un campo de batalla: los mismos tableros, generados o hechos a mano para el lugar, el mismo terreno y el mismo despliegue que usan las batallas Tactical anteriores. La preferencia vuelve a tener efecto en estas partidas. Un conjunto sin distancia, o una partida **Classic** (Clásica), combate como antes: cualquiera puede apuntar a cualquiera.
-
-En ese campo, las cifras del conjunto lo determinan todo. La distancia que recorres por turno procede de su regla de movimiento o de la velocidad de la criatura; el alcance de un arma, de sus filas; el área de una habilidad se convierte en una explosión, un cono o una línea reales; los muros bloquean disparos; la cobertura añade lo que indique el conjunto; y salir del alcance de alguien le permite golpearte cuando las reglas definen el coste de ese ataque. El movimiento usa ocho direcciones a una casilla cada una, como las cuadrículas de mesa para las que se escribieron estas reglas, en vez de las cuatro direcciones del combate Tactical propio de Marinara descrito arriba.
-
-El campo aparece en pantalla. Cada casilla es un botón: puedes recorrerlo con el puntero o las flechas, y cada uno anuncia qué es, quién lo ocupa y cuánto cuesta llegar. **Move** (Mover) ilumina las casillas alcanzables con su coste en la unidad del conjunto, dibuja el camino al pasar el puntero o enfocarlas y marca en ámbar las casillas cuyo camino provoca ataques, indicando quién los haría debajo del tablero. Una acción que requiere objetivo ilumina los válidos y permite seleccionarlos en el tablero o la lista. Si no alcanza a nadie, aparece **Nobody is in reach. Move closer.** (Nadie está al alcance. Acércate.) en vez de ofrecer un golpe al vacío. Un área se apunta a una casilla: se iluminan los orígenes válidos y la casilla bajo el puntero indica a quién alcanzaría, incluidos los aliados. Puedes gastar movimiento antes y después de una acción; el menú vuelve con lo que queda y el panel inferior lo muestra como **Movement** (Movimiento) en la unidad del conjunto. Escape abandona una selección incompleta y devuelve el foco del teclado al menú.
-
-Un conjunto también puede aprovechar más el campo de batalla: cobertura por grados, hasta la de tres cuartos; terreno elevado que cambia los ataques y las caídas; criaturas que vuelan, nadan, trepan o excavan; **Hide** (Ocultarse) y **Search** (Buscar) en el menú; y, cuando alguien se aparta de un oponente, una pausa que le pregunta al oponente si quiere golpear. Cuáles de estas cosas usa una pelea depende del conjunto. Volar sobre obstáculos, pasar por espacios estrechos, las monturas y arrastrar a alguien que sujetas son trabajos futuros separados.
-
-<a id="games-that-use-a-ruleset"></a>
-
-### Partidas con un conjunto de reglas
-
-Si el conjunto permite usar su [ficha](party-and-npcs.md#the-ruleset-sheet) en combate, la batalla empieza con sus recursos y espacios actuales. Las capacidades de catálogo pasan a ser habilidades solo si el combate de Marinara Engine puede ejecutarlas. Se omiten entradas no destinadas al combate, reacciones y costes incompatibles. La salud se transfiere como proporción del máximo: media salud en la ficha equivale a media barra en batalla, porque las cifras de la batalla son las de Marinara. Una ficha con 9 de salud no entra en una pelea en la que un golpe hace 12. Al terminar se devuelve esa proporción; los recursos y espacios se transfieren directamente. Se conserva el cálculo de combate integrado, sin tiradas de ataque, salvación o concentración del sistema de mesa. Borrar el mensaje que inició el combate no devuelve cambios a la ficha. Sin declaración de combate, las reglas descritas aquí siguen iguales.
+Una batalla Classic no tiene tablero. Participa todo el grupo, pero la acción que elijas controla al primer miembro vivo del grupo; los demás compañeros actúan por su cuenta. El menú de acciones y los cálculos de combate que se describen a continuación determinan cómo se juegan las batallas Classic.
 
 ## El menú de acciones
 
@@ -102,6 +76,8 @@ En tu turno, eliges una acción del menú. Las seis acciones son:
 - **Flee** (Huir): abandona la pelea de inmediato. Huir termina el combate al instante.
 
 Después de elegir, la ronda se resuelve. Los resultados aparecen como números de daño flotantes, barras de salud que cambian y líneas en el registro de combate.
+
+<a id="how-combat-math-works"></a>
 
 ## Cómo funcionan las matemáticas del combate
 
@@ -188,6 +164,7 @@ Toca una pestaña para abrir su panel. Para cerrarlo, toca fuera del panel o toc
 
 ## Guías relacionadas
 
+- [Game Mode: peleas con un conjunto de reglas](fighting-on-a-ruleset.md)
 - [Game Mode: Dados y pruebas de habilidad](dice-and-skill-checks.md)
 - [Game Mode: Grupo y NPCs](party-and-npcs.md)
 - [Game Mode: Primeros pasos](getting-started.md)

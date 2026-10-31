@@ -38,6 +38,8 @@ Em um personagem novo, pode aparecer a mensagem "Character data will populate as
 
 Clique em **Regenerate Sheet** (regenerar a ficha) para a IA reescrever a ficha daquele personagem. Ela usa o personagem e o contexto atual do jogo. Isso ajuda quando a história mudou muito um personagem.
 
+<a id="edit-a-sheet-by-hand"></a>
+
 ### Editar a ficha à mão
 
 Clique em **Edit Sheet** (editar a ficha) para alterar a ficha você mesmo. No modo de edição, estes itens ficam disponíveis:
@@ -53,38 +55,7 @@ Ao terminar, clique em **Save Sheet** (salvar a ficha). Clique em **Cancel** par
 
 ### A ficha do conjunto
 
-Em uma partida que usa um conjunto de regras (veja [Partidas com um conjunto de regras](dice-and-skill-checks.md#games-that-use-a-ruleset)), cada ficha de personagem começa com um bloco **Ruleset sheet** (ficha do conjunto). A disposição dele vem do conjunto, então uma ficha de 5e e a ficha de outro sistema têm aparências diferentes. Uma partida sem conjunto de regras não tem esse bloco.
-
-- **Recursos**, como pontos de vida, espaços de magia ou um recurso de classe, mostram quanto resta do máximo. Use os botões de menos e de mais, ou digite um número. Um recurso que tem uma reserva temporária também mostra uma caixa **Temp** (temporário).
-- **Trilhas**, como exaustão, sobem e descem dentro do intervalo delas.
-- **Trilhas de ferimentos** são uma fileira de caixas em vez de um número, para sistemas que marcam o dano em vez de contá-lo. Cada caixa diz como se chama aquele nível de ferimento e quanto ele tira das suas rolagens. Escolha primeiro o tipo de dano quando o conjunto tiver mais de um e depois use **Mark** (marcar) ou **Clear one** (limpar uma). Você também pode clicar na próxima caixa vazia para acrescentar uma marca ou na última caixa marcada para limpar uma; as outras caixas não respondem a cliques. Uma marca mais grave ocupa a caixa mais alta e empurra as mais leves para baixo, e a linha de baixo diz qual penalidade está valendo, junto com o que não coube na trilha. Alguns conjuntos numeram as caixas em vez de dar nome a elas, às vezes tantas quanto o próprio valor de um personagem, e alguns põem cada marca na caixa a que ela se destina: nesses, você pode clicar em qualquer caixa livre, a marca mais leve na caixa mais alta é a que **Clear one** tira, e uma trilha cheia recusa outra marca em vez de piorar uma antiga. Um conjunto também pode acrescentar caixas a uma trilha a partir de uma lista da sua ficha, e fazer um descanso ou uma cura limpar só um tipo de dano. Se o conjunto disser, essa penalidade sai das suas rolagens: ela tira dados de uma parada ou entra em uma rolagem somada, e o cartão de dados diz quanto foi aplicado.
-- **Notas**, como aquilo em que um personagem está concentrado, são caixas de texto curtas.
-- **Condições** são botões que você liga e desliga.
-- **Estados**, como uma forma ou uma postura, assumem um valor de uma lista por vez. Escolha o valor na lista. Um estado pode mudar os números que vêm depois dele, como os dados que uma postura acrescenta às suas rolagens, e um descanso pode devolvê-lo ao ponto de partida.
-- **Botões de descanso** aplicam um dos descansos do conjunto. O que um descanso recupera é definido pelo conjunto, e um descanso também pode devolver as cargas dos itens que o personagem carrega, como as de uma varinha; a linha abaixo dos botões diz então o que voltou. Em 5e (SRD 5.1), um descanso longo recupera os pontos de vida e os espaços de magia e devolve metade dos dados de vida do personagem, no mínimo um.
-- Abaixo disso há um resumo curto da configuração do personagem: modificadores de atributo, perícias e salvaguardas treinadas e alguns valores escolhidos pelo conjunto, como a classe de armadura.
-
-O Game Master mantém a mesma ficha atualizada enquanto narra. Quando um personagem gasta um recurso, sofre dano, se cura, ganha ou perde uma condição, muda de estado ou descansa, o GM registra a mudança, e o motor a confere com a ficha. Uma mudança que não é possível, como uma magia lançada sem nenhum espaço sobrando, é recusada: nada muda e um aviso informa você.
-
-Quando um personagem usa algo que escolheu nos catálogos do conjunto, como uma magia ou uma característica de classe, o Game Master nomeia o que foi usado e o motor paga o preço inteiro: o custo que o conjunto define, mais um uso de cada contador que veio junto. Uma magia que custa um espaço é paga com o nível de espaço que o conjunto indica para ela, e o Game Master pode pedir um nível mais alto em vez disso. O motor nunca sobe para um espaço mais alto por conta própria. Se qualquer parte do preço não puder ser paga, tudo é recusado e nada é gasto. Algo que não custa nada, como um truque, é apenas narrado.
-
-Alguns números da ficha pertencem ao conjunto, e não a você. Um recurso de classe cujo máximo acompanha o seu nível, ou usos que acompanham um valor de atributo, são definidos pelo conjunto e mantidos corretos quando você edita a ficha.
-
-Alguns valores calculados acompanham o próprio jogo: um conjunto pode calcular um número a partir de um recurso ou de uma trilha como estão no momento, dar um número para cada valor de um estado ou somar uma coluna de uma lista, como o peso do equipamento que você guardou na mochila. Ele também pode limitar uma perícia a um número assim, de modo que uma perícia pode diminuir enquanto um recurso está baixo. Esses valores mostram o valor atual na ficha da partida, e os valores que um teste ou uma luta usa são os do momento em que eles acontecem. O editor de ficha de um card de personagem, que não tem uma partida para ler, mostra esses valores como estariam no início do jogo.
-
-Esses valores ao vivo pertencem à mensagem em que aconteceram. Se você der swipe para outra versão de um turno, ou regenerá-lo, a ficha volta a ser como era antes daquele turno, então nada é gasto duas vezes.
-
-Clique em **Edit sheet** (editar ficha) para mudar a própria configuração do personagem, por exemplo depois de subir de nível: valores, campos, listas como as magias, e o treinamento de perícias e salvaguardas. Os valores calculados se atualizam enquanto você digita. É o mesmo editor do card de personagem, então aqui também dá para acrescentar linhas a partir dos catálogos do conjunto, as células que o conjunto controla aparecem mas não aceitam digitação, e uma lista cujo texto no conjunto mudou oferece um botão **Review** (revisar). Quando o conjunto tem um construtor passo a passo, o editor oferece **Guided** (guiado) ao lado de **All fields** (todos os campos). **Guided** conduz você por cada escolha, como valores, perícias e equipamento inicial, e diz o que cada etapa ainda espera. **All fields** mostra tudo de uma vez. Clique em **Save sheet** (salvar ficha) quando terminar. Isso muda só a cópia da ficha desta partida. A ficha guardada no personagem ou na persona nunca é alterada por uma partida.
-
-O botão separado **Edit Sheet** descrito acima continua editando a ficha geral (classe, habilidades, pontos fortes e assim por diante) e não mexe na ficha do conjunto.
-
-Se o pacote do conjunto foi removido, ou se a cópia instalada é mais antiga que aquela com que a partida foi criada, o bloco mostra um aviso no lugar, e os testes não podem ser rolados até o pacote ser instalado de novo.
-
-### A ficha da equipe e os relógios de progresso
-
-Alguns conjuntos mantêm uma ficha para a equipe inteira, como uma tripulação ou uma companhia. Ela aparece na tela do jogo perto do mapa, com o nome que o próprio conjunto dá a ela. Clique no nome para abri-la. O Game Master a mantém atualizada como faz com a ficha de cada personagem e, onde o conjunto permite, você também pode editá-la. Se outra pessoa salvou a ficha da equipe enquanto você editava, ela mostra a versão dessa pessoa: **Save** (salvar) a substitui pela sua, e **Cancel** mantém a dela.
-
-Um conjunto também pode usar **Progress clocks** (relógios de progresso): círculos divididos em segmentos que o Game Master preenche conforme algo avança, como um alarme sendo dado. Eles aparecem perto do mapa, cada um com quantos segmentos estão preenchidos, e mostram **Done** (concluído) quando ficam cheios.
+Em uma partida com um conjunto de regras, cada ficha de personagem começa com um bloco **Ruleset sheet** (ficha do conjunto) organizado pelo conjunto de regras: seus recursos, trilhas, condições, descansos e um resumo da criação do personagem, mantidos atualizados pelo Game Master enquanto narra. Alguns conjuntos de regras também mantêm uma ficha para toda a equipe e relógios de progresso perto do mapa. Veja [A ficha do conjunto](rulesets.md#the-ruleset-sheet).
 
 ## O inventário
 
@@ -205,5 +176,6 @@ Se este é o seu primeiro jogo, use **Standalone GM**. O modo é definido na cri
 
 ## Guias relacionados
 
+- [Game Mode: jogar com um conjunto de regras](rulesets.md)
 - [Game Mode: primeiros passos](getting-started.md)
 - [Game Mode: sessões e saves](sessions-and-saves.md)

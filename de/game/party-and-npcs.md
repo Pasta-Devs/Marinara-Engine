@@ -38,6 +38,8 @@ Bei einem neuen Charakter steht dort womöglich „Character data will populate 
 
 Klick auf **Regenerate Sheet** (Blatt neu generieren), damit die KI das Charakterblatt neu schreibt. Grundlage sind der Charakter und der aktuelle Spielkontext. Das lohnt sich, wenn die Geschichte einen Charakter stark verändert hat.
 
+<a id="edit-a-sheet-by-hand"></a>
+
 ### Ein Blatt von Hand bearbeiten
 
 Klick auf **Edit Sheet** (Blatt bearbeiten), um selbst Hand anzulegen. Im Bearbeitungsmodus stellst du Folgendes ein:
@@ -53,38 +55,7 @@ Zum Schluss klickst du auf **Save Sheet** (Blatt speichern). **Cancel** (Abbrech
 
 ### Der Regelsatzbogen
 
-In einem Spiel mit Regelsatz (siehe [Spiele mit einem Regelsatz](dice-and-skill-checks.md#games-that-use-a-ruleset)) beginnt jedes Charakterblatt mit einem Block **Ruleset sheet** (Regelsatzbogen). Sein Aufbau kommt aus dem Regelsatz, deshalb sieht ein 5e-Bogen anders aus als der Bogen eines anderen Systems. Ein Spiel ohne Regelsatz hat diesen Block nicht.
-
-- **Resources** (Ressourcen) wie Trefferpunkte, Zauberplätze oder eine Klassenressource zeigen, was vom Maximum übrig ist. Nutze die Schaltflächen Minus und Plus oder gib eine Zahl ein. Eine Ressource mit temporärem Puffer zeigt außerdem ein Feld **Temp**.
-- **Tracks** (Leisten), etwa für Erschöpfung, steigen und fallen innerhalb ihres Bereichs.
-- **Wound tracks** (Wundleisten) sind eine Reihe von Kästchen statt einer Zahl, für Systeme, die Schaden markieren statt zählen. Jedes Kästchen nennt, wie diese Verletzungsstufe heißt und was sie von deinen Würfen abzieht. Wähle zuerst die Schadensart, wenn der Regelsatz mehr als eine hat, und dann **Mark** (markieren) oder **Clear one** (eine Markierung entfernen). Du kannst auch auf das nächste leere Kästchen klicken, um eine Markierung hinzuzufügen, oder auf das letzte markierte, um eine zu entfernen; andere Kästchen reagieren nicht auf Klicks. Eine schwerere Markierung nimmt das höhere Kästchen und schiebt leichtere nach unten, und die Zeile darunter nennt den wirksamen Abzug sowie alles, was gar nicht mehr auf die Leiste passte. Manche Regelsätze nummerieren ihre Kästchen, statt sie zu benennen, manchmal so viele, wie der eigene Wert eines Charakters beträgt, und manche setzen jede Markierung auf das Kästchen, auf das sie zielt. Dort kannst du auf jedes freie Kästchen klicken, **Clear one** nimmt die leichteste Markierung auf dem höchsten Kästchen, und eine volle Leiste lehnt eine weitere Markierung ab, statt eine alte zu verschlimmern. Ein Regelsatz kann einer Leiste auch Kästchen aus einer Liste auf deinem Bogen hinzufügen und eine Rast oder Heilung nur eine Schadensart entfernen lassen. Wenn der Regelsatz es vorsieht, gilt dieser Abzug für deine Würfe: Er nimmt Würfel aus einem Pool oder wird auf eine Würfelsumme angerechnet, und die Würfelkarte nennt, wie viel angewendet wurde.
-- **Notes** (Notizen), etwa worauf sich ein Charakter gerade konzentriert, sind kurze Textfelder.
-- **Conditions** (Zustände) sind Schaltflächen, die du ein- und ausschaltest.
-- **States** (Live-Zustände), etwa eine Gestalt oder eine Haltung, haben jeweils genau einen Wert aus einer Liste. Wähl den Wert aus der Liste. Ein Live-Zustand kann die Zahlen ändern, die auf ihn folgen, etwa die Würfel, die eine Haltung deinen Würfen hinzufügt, und eine Rast kann ihn auf den Ausgangswert zurücksetzen.
-- **Rastschaltflächen** wenden eine der Rasten des Regelsatzes an. Was eine Rast wiederherstellt, legt der Regelsatz fest. Eine Rast kann auch die Ladungen von Gegenständen zurückbringen, die der Charakter trägt, etwa die eines Zauberstabs; die Zeile unter den Schaltflächen nennt dann, was zurückgekommen ist. Unter 5e (SRD 5.1) stellt eine lange Rast Trefferpunkte und Zauberplätze wieder her und bringt die Hälfte der Trefferwürfel des Charakters zurück, mindestens einen.
-- Darunter steht eine kurze Zusammenfassung des Charakteraufbaus: Attributsmodifikatoren, ausgebildete Fertigkeiten und Rettungswürfe sowie einige Werte, die der Regelsatz auswählt, etwa die Rüstungsklasse.
-
-Der Game Master hält denselben Bogen beim Erzählen aktuell. Wenn ein Charakter eine Ressource ausgibt, Schaden nimmt, geheilt wird, einen Zustand bekommt oder verliert, einen Live-Zustand wechselt oder rastet, trägt er die Änderung ein, und die Engine prüft sie gegen den Bogen. Eine Änderung, die nicht möglich ist, etwa ein Zauber ohne freien Zauberplatz, wird abgelehnt: Nichts ändert sich, und ein Hinweis sagt es dir.
-
-Setzt ein Charakter etwas ein, das er aus den Katalogen des Regelsatzes gewählt hat, etwa einen Zauber oder ein Klassenmerkmal, nennt der Game Master es, und die Engine bezahlt den ganzen Preis: was der Regelsatz als Kosten angibt, plus eine Nutzung jedes Zählers, der dazugehört. Ein Zauber, der einen Zauberplatz kostet, wird von der Platzstufe bezahlt, die der Regelsatz dafür nennt, und der Game Master kann stattdessen eine höhere verlangen. Die Engine steigt nie von selbst auf einen höheren Platz. Lässt sich ein Teil des Preises nicht bezahlen, wird das Ganze abgelehnt, und nichts wird ausgegeben. Etwas, das nichts kostet, etwa ein Zaubertrick, wird einfach erzählt.
-
-Manche Zahlen auf dem Bogen gehören dem Regelsatz, nicht dir. Eine Klassenressource, deren Maximum deiner Stufe folgt, oder Nutzungen, die einem Attributswert folgen, legt der Regelsatz fest und hält sie richtig, wenn du den Bogen bearbeitest.
-
-Manche berechneten Werte folgen dem Spiel selbst: Ein Regelsatz kann eine Zahl aus dem aktuellen Stand einer Ressource oder Leiste errechnen, für jeden Wert eines Live-Zustands eine Zahl angeben oder eine Spalte einer Liste aufsummieren, etwa das Gewicht der Ausrüstung, die du eingepackt hast. Er kann eine Fertigkeit auch auf so eine Zahl begrenzen, sodass eine Fertigkeit schrumpfen kann, solange eine Ressource niedrig ist. Diese Werte zeigen im Bogen des Spiels ihren aktuellen Stand, und eine Probe oder ein Kampf nutzt die Werte, die in dem Moment gelten, in dem sie stattfinden. Der Bogeneditor auf einer Charakterkarte hat kein Spiel, aus dem er lesen kann, und zeigt sie deshalb so, wie sie zu Spielbeginn wären.
-
-Diese Live-Werte gehören zu der Nachricht, in der sie entstanden sind. Wechselst du per Swipe (alternative Antwort) zu einer anderen Version eines Zuges oder generierst ihn neu, kehrt der Bogen auf den Stand vor diesem Zug zurück, damit nie etwas doppelt ausgegeben wird.
-
-Klick auf **Edit sheet** (Bogen bearbeiten), um den Charakteraufbau selbst zu ändern, etwa nach einem Stufenaufstieg: Werte, Felder, Listen wie Zauber sowie die Ausbildung in Fertigkeiten und Rettungswürfen. Berechnete Werte aktualisieren sich beim Tippen. Es ist derselbe Editor wie auf der Charakterkarte: Auch hier lassen sich Zeilen aus den Katalogen des Regelsatzes hinzufügen, Zellen, die der Regelsatz pflegt, werden angezeigt, lassen sich aber nicht bearbeiten, und eine Liste, deren Regelsatztext sich geändert hat, bietet eine Schaltfläche **Review** (prüfen) an. Hat der Regelsatz einen Assistenten für Schritt-für-Schritt-Aufbau, bietet der Editor **Guided** (geführt) neben **All fields** (alle Felder) an. **Guided** führt dich durch jede Entscheidung, etwa Werte, Fertigkeiten und Startausrüstung, und nennt, worauf jeder Schritt noch wartet. **All fields** zeigt alles auf einmal. Klick auf **Save sheet** (Bogen speichern), wenn du fertig bist. Das ändert nur die Kopie des Bogens in diesem Spiel. Der Bogen, der am Charakter oder an der Persona gespeichert ist, wird von einem Spiel nie verändert.
-
-Die oben beschriebene separate Schaltfläche **Edit Sheet** bearbeitet weiterhin das allgemeine Blatt (Klasse, Fähigkeiten, Stärken und so weiter) und lässt den Regelsatzbogen in Ruhe.
-
-Wurde das Paket des Regelsatzes entfernt oder ist die installierte Kopie älter als die, mit der das Spiel erstellt wurde, zeigt der Block stattdessen einen Hinweis. Proben lassen sich dann erst wieder würfeln, wenn das Paket erneut installiert ist.
-
-### Der Party-Bogen und Fortschrittsuhren
-
-Manche Regelsätze führen einen Bogen für die ganze Party, etwa für eine Crew oder eine Kompanie. Er erscheint auf dem Spielbildschirm nahe der Karte, unter dem Namen, den der Regelsatz ihm gibt. Klick auf den Namen, um ihn zu öffnen. Der Game Master hält ihn aktuell wie die Bögen der einzelnen Charaktere, und wo der Regelsatz es erlaubt, kannst du ihn auch selbst bearbeiten. Hat jemand anderes den Party-Bogen gespeichert, während du bearbeitet hast, zeigt er dessen Fassung: **Save** (Speichern) ersetzt sie durch deine, **Cancel** behält die andere.
-
-Ein Regelsatz kann außerdem **Progress clocks** (Fortschrittsuhren) nutzen: Kreise, die in Segmente geteilt sind und die der Game Master füllt, während sich etwas aufbaut, etwa ein Alarm, der ausgelöst wird. Sie erscheinen nahe der Karte, jeweils mit der Zahl der gefüllten Segmente, und zeigen **Done** (fertig), sobald sie voll sind.
+In einem Spiel mit Regelsatz beginnt jeder Charakterbogen mit einem Block **Ruleset sheet** (Regelsatzbogen), dessen Aufbau der Regelsatz vorgibt: seine Ressourcen, Leisten, Zustände, Rasten und eine Zusammenfassung des Charakteraufbaus. Der Game Master hält diesen Block beim Erzählen aktuell. Manche Regelsätze führen außerdem einen Charakterbogen für die ganze Party und Fortschrittsuhren nahe der Karte. Siehe [Der Regelsatzbogen](rulesets.md#the-ruleset-sheet).
 
 ## Das Inventar
 
@@ -205,5 +176,6 @@ Für das erste Spiel ist **Standalone GM** die richtige Wahl. Den Modus legst du
 
 ## Verwandte Anleitungen
 
+- [Game Mode: Mit einem Regelsatz spielen](rulesets.md)
 - [Game Mode: Erste Schritte](getting-started.md)
 - [Game Mode: Sitzungen und Spielstände](sessions-and-saves.md)

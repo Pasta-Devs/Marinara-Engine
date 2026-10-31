@@ -64,8 +64,9 @@ Weitere Beispiele zum Ausprobieren:
 - `d20` wirft einen 20-seitigen Würfel.
 - `4d8-1` wirft vier 8-seitige Würfel und zieht 1 ab.
 - `2d6+3` wirft zwei 6-seitige Würfel und addiert 3.
+- `4d6kh3` wirft vier 6-seitige Würfel und behält die höchsten drei. `kl` behält die niedrigsten, während `dh` und `dl` stattdessen die höchsten oder niedrigsten verwerfen. Damit ist `2d20kl1` ein Wurf mit Nachteil, und `4d6dl1+2` verwirft den niedrigsten Würfel und addiert 2. Jeder geworfene Würfel wird aufgezeichnet, und nur die behaltenen werden addiert.
 
-Es gelten zwei feste Grenzen. Du kannst höchstens 100 Würfel gleichzeitig werfen, und jeder Würfel darf maximal 1000 Seiten haben. Forderst du mehr an, begrenzt die App die Anfrage, statt sie abzulehnen. Die Ergebniskarte zeigt die begrenzte Notation: Aus `500d6` wird eine `100d6`-Karte für die hundert tatsächlich geworfenen Würfel. Ist dein Text keine gültige Würfelnotation, also `NdM` oder ein einzelnes `dM` wie `d20`, schlägt der Wurf fehl und eine Fehlermeldung nennt das erwartete Format.
+Es gelten zwei feste Grenzen. Du kannst höchstens 100 Würfel gleichzeitig werfen, und jeder Würfel darf maximal 1000 Seiten haben. Fordert ein einfacher Wurf mehr an, begrenzt die App die Anfrage, statt sie abzulehnen. Die Ergebniskarte zeigt die begrenzte Notation: Aus `500d6` wird eine `100d6`-Karte für die hundert tatsächlich geworfenen Würfel. Ein Wurf, der Würfel behält oder verwirft und die Grenzen überschreitet, etwa `101d6kh3`, wird stattdessen mit einer Fehlermeldung wegen der Bereichsüberschreitung abgelehnt, weil eine Begrenzung der Würfelanzahl ändern würde, welche Würfel behalten werden. Ist dein Text keine gültige Würfelnotation, also `NdM` oder ein einzelnes `dM` wie `d20`, optional gefolgt von `kh`, `kl`, `dh` oder `dl` und einer Zahl, schlägt der Wurf fehl und eine Fehlermeldung nennt das erwartete Format.
 
 <a id="symbol-dice-by-name"></a>
 
@@ -74,6 +75,8 @@ Es gelten zwei feste Grenzen. Du kannst höchstens 100 Würfel gleichzeitig werf
 In einem Spiel, dessen Regelsatz Symbolwürfel wirft (ein `symbol-pool`-Regelsatz, etwa ein System im Stil von Genesys), nimmt das Feld für eigene Würfe diese Würfel auch nach Namen an. Gib für jede Art die Anzahl und den Würfelnamen an, zum Beispiel `2 ability 1 proficiency vs 2 difficulty`. Als Name dient die ID oder die Beschriftung des Würfels; Groß- und Kleinschreibung spielen keine Rolle. Du kannst die Angaben mit Leerzeichen, Kommas, `+` oder `vs` trennen.
 
 Die Karte zeigt jeden Würfel mit den Symbolen auf seiner Seite, dann die Symbole, die nach dem gegenseitigen Aufheben übrig bleiben, und ob das Ergebnis ein Erfolg ist. Das Tag in deiner Nachricht enthält dasselbe, zum Beispiel `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Ein Wurf kann bis zu 40 Würfel benennen. Auch der Game Master kann diese Namen mit seinem Würfel-Tool verwenden. Die übliche `NdM`-Notation würfelt weiterhin in jedem Spiel wie oben beschrieben.
+
+<a id="skill-checks"></a>
 
 ## Fertigkeitsproben
 
@@ -113,9 +116,9 @@ Der Game Master kann eine andere Notation angeben, etwa `[skill_check: skill="En
 
 Erfolgspools müssen sowohl den Schwellenwert pro Würfel als auch die benötigte Anzahl an Erfolgen angeben: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` würfelt sechs d10, zählt jeden Würfel mit mindestens 6 einmal und gelingt ab vier Erfolgen. Die Engine errät keinen fehlenden Schwellenwert und setzt weder explodierende Würfel noch Patzer oder andere besondere Poolregeln um. Ein Pool ohne gültigen Schwellenwert bleibt unaufgelöst; vom Modell erfundene Zahlen werden entfernt.
 
-Dieser Pool gilt unverändert für Spiele **ohne Regelsatz**. Ein Spiel mit einem Würfelpool-Regelsatz folgt dagegen den Regeln, die die Engine tatsächlich umsetzt; siehe unten [Spiele mit einem Regelsatz](#games-that-use-a-ruleset).
+Dieser Pool gilt unverändert für Spiele **ohne Regelsatz**. Ein Spiel mit einem Würfelpool-Regelsatz folgt dagegen den Regeln, die die Engine tatsächlich umsetzt; siehe [Proben mit einem Regelsatz](rulesets.md#checks-on-a-ruleset).
 
-Nicht unterstützte Anfragen wie `4d6kh3`, `3d6!` oder `4dF` werden nicht gewürfelt. Die Engine protokolliert die nicht unterstützte Notation und entfernt erfundene Zahlen aus Probenaufzeichnungen. Diese Ausgänge bleiben offen; die Engine ersetzt nicht stillschweigend das Würfelsystem.
+Das Attribut `dice=` einer Probe akzeptiert nur einfaches `NdM`. Dort werden Anfragen wie `4d6kh3`, `3d6!` oder `4dF` nicht gewürfelt. Die Engine protokolliert die nicht unterstützte Notation und entfernt erfundene Zahlen aus Probenaufzeichnungen. Diese Ausgänge bleiben offen; die Engine ersetzt nicht stillschweigend das Würfelsystem.
 
 ### Vorteil und Nachteil
 
@@ -136,50 +139,7 @@ Du kannst vor der Probe einen eigenen `d20` über das Würfelmenü in die Wartes
 
 ## Spiele mit einem Regelsatz
 
-Ein Spiel kann statt Marinaras eigener Regeln einen Regelsatz verwenden, etwa 5e (SRD 5.1). Der Regelsatz gehört zu diesem einen Spiel und bleibt bei ihm. Du wählst ihn beim Anlegen des Spiels im Einrichtungsassistenten unter **Rules** (Regeln) aus (siehe [Regeln auswählen](getting-started.md#choosing-rules)). Ein Spiel ohne Regelsatz verhält sich genau wie oben beschrieben.
-
-Hat ein Spiel einen Regelsatz, gilt Folgendes:
-
-- Der Game Master nennt weiterhin nur die Fertigkeit oder den Rettungswurf und legt eine Schwierigkeit fest. Statt der eingebauten Skala bekommt er die Schwierigkeitsskala des Regelsatzes mitgeteilt. Eine Schwierigkeit darf so weit reichen wie diese Skala, auch über die 1 bis 40 hinaus, die Marinaras eigene Regeln erlauben. Ein Weg bleibt auch in einem Regelsatz-Spiel bei 1 bis 40: der Ersatzweg, der eine Probe würfelt, die eine gespeicherte Runde noch schuldet.
-- Die Engine würfelt mit den Würfeln des Regelsatzes und addiert den Modifikator aus dem **Regelsatzbogen** des Charakters. Er besteht aus den Teilen, die der Regelsatz deklariert: dem Attributsmodifikator, wenn die Fertigkeit oder der Rettungswurf ein Attribut nennt, dem Bonus für die Ausbildungsstufe (ein Vielfaches eines Übungsbonus, ein fester Wert oder beides) und einem Zusatzbonus, der auf dem Bogen eingetragen ist. Die eingebauten Fertigkeitsboni und Attribute werden nicht verwendet.
-- Eine Probe kann einem Partymitglied gelten. Der Game Master ergänzt das Tag um `who="Name"`, und die Engine nimmt den Bogen dieses Charakters. Ohne `who` würfelt der Spieler. Ein Partymitglied, das noch keinen Bogen hat, würfelt auf einem leeren Bogen, auf dem jeder Wert dem Standard des Regelsatzes entspricht. Ein Name, der zu niemandem in der Party passt oder den zwei Partymitglieder teilen, würfelt ganz ohne Modifikator. Die einzige Ausnahme ist der Name deines eigenen Charakters: Trägt ein Partymitglied denselben Namen, meint dieser Name trotzdem dich und nutzt deinen Bogen. Die Engine leiht sich nie den Bogen eines anderen.
-- Natürliche Ergebnisse folgen dem Regelsatz. Unter 5e (SRD 5.1) hat eine natürliche 20 oder 1 bei Proben und Rettungswürfen keine besondere Wirkung. Eine natürliche 20, die die Schwierigkeit verfehlt, scheitert also. Das weicht absichtlich von Marinaras eigenen Regeln ab.
-- Zahlen, die der Game Master selbst schreibt, gelten nicht als verlässlich. Ein Tag, das fertig aussieht, wird neu gewürfelt und ersetzt, wenn sein Modifikator nicht der vom Bogen ist, wenn es eine andere Anzahl oder Größe von Würfeln geworfen hat als der Regelsatz, wenn der gezählte Würfel nicht der ist, den sein Wurfmodus behält, oder wenn es ein natürliches Ergebnis behauptet, das der Regelsatz nicht kennt.
-- Einen Würfel, den du vor der Probe selbst geworfen hast, nutzt die Engine nur, wenn der Regelsatz einen einzelnen d20 würfelt. Ein Regelsatz mit anderen Würfeln, etwa 2d6 oder einem Pool, ignoriert ihn und würfelt normal.
-- Der Game Master kann eine Fertigkeit oder einen Rettungswurf mit einem anderen Attribut als dem üblichen würfeln lassen, indem er dem Tag `with="Ability"` hinzufügt. Es zählt nur ein Attribut, das dein Regelsatz deklariert. Alles andere wird ignoriert, und die Fertigkeit behält ihr eigenes.
-- Der Game Master kann statt einer Zahl eine Stufe der Schwierigkeitsskala nennen, etwa `difficulty="Hard"`. Die Engine würfelt gegen die Zahl dieser Stufe, und die gespeicherte Probe zeigt die Zahl. Ein Name, den die Skala nicht kennt, wird ignoriert.
-- Würfelplatzhalter können die Attribute, Fertigkeiten und Rettungswürfe des Regelsatzes nennen, und `PROF` für den Übungsbonus, wenn der Regelsatz einen hat.
-- Fehlt das Paket des Regelsatzes oder ist es älter als das, mit dem das Spiel erstellt wurde, werden Proben ohne Zahlen gespeichert und bleiben ausstehend. Sie werden nie mit den Regeln eines anderen Systems gewürfelt.
-- Verändert etwas auf deinem Bogen einen Wurf, etwa ein Talisman, der misslungene Würfel neu wirft, nennt der Game Master es an der Probe, und die Engine erledigt den Rest: Sie zieht die Kosten des Talismans ab, wendet seine Wirkung an und würfelt. Ein Talisman, den du nicht gewählt hast oder nicht bezahlen kannst, wirkt nicht und kostet nichts.
-- Erlaubt der Regelsatz, eine Ressource auszugeben, um einen Wurf abzusichern, sagt der Game Master das direkt an der Probe, und die Engine erledigt beides auf einmal: Sie zieht die Punkte ab, ergänzt, was damit gekauft wurde, und würfelt. Reicht der Pool nicht, wird nichts ausgegeben, und der Wurf bleibt so, wie er ohnehin gewesen wäre. Das Protokoll zeigt, was tatsächlich bezahlt wurde, nicht, was angefordert war. Wie viel eine Probe kaufen darf, legt der Regelsatz fest: eine feste Zahl, eine Zahl auf deinem Bogen oder so viel, wie die Probe Würfel hat.
-- Sagt der Regelsatz, dass eine Zahl auf deinem Bogen bei bestimmten Würfen mitläuft, etwa schweres Gepäck bei jedem Brawn-Wurf, addiert die Engine sie zu jeder Probe, für die sie gilt. Die Würfelkarte nennt, was der Bogen hinzugefügt hat.
-- Ein Regelsatz kann festlegen, was bei einer Probe passiert, wenn du in der Fertigkeit keine Ausbildung hast: Sie kann dich Würfel oder Punkte kosten, eine Stufe schwerer sein oder gar nicht möglich sein. Eine Probe, die du ohne Ausbildung nicht versuchen kannst, wird nicht gewürfelt, und die Erzählung sagt das, statt ein Ergebnis zu zeigen. Dein Bogen zeigt für eine solche Fertigkeit keine Zahl, bis du sie erlernst.
-- Hat der Regelsatz eine Wundleiste und sagt, dass ihr Abzug für Würfe gilt, erschweren Verletzungen jede Probe. Unter einem Pool-Regelsatz nimmt der Abzug entsprechend viele Würfel aus dem Pool, aber nie unter den kleinsten Pool, den dieser Regelsatz erlaubt; manche Systeme setzen ihn auf null. Unter einem Regelsatz, der Würfel addiert, ist er ein fester Abzug auf den Wurf. In beiden Fällen nennt die Probe, wie viel abgezogen wurde, damit du siehst, warum du weniger Würfel geworfen hast. Siehe [Der Regelsatzbogen](party-and-npcs.md#the-ruleset-sheet).
-- Der Game Master hält außerdem Ressourcen, Zustände und Rasten jedes Charakters auf dem Bogen aktuell, und die Engine lehnt eine Änderung ab, die der Bogen nicht erlaubt. Siehe [Der Regelsatzbogen](party-and-npcs.md#the-ruleset-sheet).
-
-### Regelsätze mit Würfelpools
-
-Manche Systeme addieren keinen Bonus zum Wurf. Stattdessen gibt die Zahl auf dem Bogen an, wie viele Würfel du wirfst, und du zählst die, die hoch genug ausfallen. Ein Regelsatz kann so geschrieben sein, und ein Spiel damit verhält sich etwas anders:
-
-- **Die Zahl auf dem Bogen steht für Würfel.** Ein Wert von 3 und ein Beruf mit 2 ergeben fünf Würfel. Dein Bogen zeigt das als „5 dice“ statt „+5“, im Editor und in dem, was der Game Master liest.
-- **Die Schwierigkeit ist eine Anzahl von Erfolgen.** Eine schwere Aufgabe verlangt drei Erfolge, nicht eine Summe von 15. Die Schwierigkeitsskala des Regelsatzes sagt, wie viele jede Stufe braucht.
-- **Die Engine wirft die Würfel und zählt sie.** Welche Augenzahlen zählen, ob eine hohe Augenzahl einen weiteren Würfel wirft oder doppelt zählt, ob niedrige Augenzahlen Erfolge aufheben und was als Patzer oder als herausragender Erfolg gilt, all das kommt aus dem Regelsatz. Die Würfelkarte zeigt jeden geworfenen Würfel, hebt die, die das Ziel erreicht haben, von den übrigen ab und nennt, wie viele Erfolge gefallen sind und wie viele die Probe brauchte. Ein großer Pool bricht in weitere Zeilen um, statt zu schrumpfen, und die Karte zeigt nie eine Summe, zu der die Würfel gar nicht addiert wurden.
-- **Der Game Master kann eine einzelne Probe anpassen**, wenn der Regelsatz es erlaubt: ein höheres oder niedrigeres Ziel pro Würfel, Würfel, die je nach Umständen hinzukommen oder wegfallen, und eine niedrigere Augenzahl, ab der Würfel neu geworfen werden oder doppelt zählen. Alles bleibt in dem Bereich, den der Regelsatz deklariert. Eine Stufe der Schwierigkeitsskala kann ihr eigenes Ziel pro Würfel haben, das gilt, wenn der Game Master diese Stufe wählt. Die Würfelkarte sagt es, wenn eine Probe bei einer anderen als der üblichen Augenzahl des Regelsatzes neu geworfen oder doppelt gezählt hat.
-- **Würfel können neu geworfen werden**, wenn der Regelsatz eine Regel dafür hat: Der Game Master nennt sie an der Probe, wenn die Lage es verlangt, und die niedrig gefallenen Würfel werden neu geworfen, einmal oder so lange, bis sie höher ausfallen. Eine Ressource, die du ausgibst, kann dasselbe kaufen. Ein Wurf wird nur auf eine Art neu geworfen; würden zwei gelten, zählt die, die mehr Würfel erfasst.
-- **Zwei Attribute können zusammen gewürfelt werden**, wenn der Regelsatz es vorsieht: Eine Attributsprobe kann die Würfel eines zweiten Attributs hinzunehmen, sodass zwei Werte als ein Pool geworfen werden.
-- **Bei manchen Regelsätzen kann neben dem Ergebnis etwas schiefgehen.** In einem Regelsatz, der niedrige Augenzahlen auf mindestens der Hälfte der Würfel als Patzer zählt, behält eine Probe, die trotzdem ihre Erfolge erreicht hat, ihr Ergebnis, und die Würfelkarte ergänzt, dass daneben etwas schiefgegangen ist. Ganz ohne Erfolge ist es ein kritischer Fehlschlag.
-- **Der Game Master liefert nie die Zahlen.** Ein Poolergebnis, das in der Erzählung steht, wird immer durch den eigenen Wurf der Engine ersetzt. Vorteil gilt nicht, ebenso wenig ein Würfel, den du vor der Probe selbst geworfen hast.
-- **Dem Game Master einen Würfel jeder Größe zu zeigen, gilt für diese Proben nicht.** Die Würfel, die er sieht, sind zwanzigseitig. Eine Poolprobe würfelt die Engine blind, und sie wird wie jeder andere blinde Wurf erzählt.
-
-### Weitere Würfelarten eines Regelsatzes
-
-Ein Regelsatz kann seine Proben auch auf andere Arten würfeln. Die Engine wirft weiterhin die Würfel, und die Würfelkarte folgt dem Regelsatz:
-
-- **Die höchsten Würfel behalten.** Wirf eine Handvoll Würfel und lies den höchsten, die zwei höchsten oder die drei höchsten ab, je nachdem, was der Regelsatz vorgibt.
-- **Gegen deinen Bogen würfeln.** Würfle gleich oder unter einer Zahl auf deinem Bogen, etwa einem Fertigkeitswert in Prozent, statt einen Bonus zu den Würfeln zu addieren.
-- **Würfel mit eigenen Seiten.** Seiten können etwas anderes wert sein als ihre Zahl, etwa Minus, leer und Plus. Manche Würfel tragen statt Zahlen Symbole, etwa Erfolg, Vorteil und ihre Gegenteile.
-- **Ergebnisse in Bereichen.** Eine Probe kann in einem von mehreren Ergebnissen landen, etwa einem kritischen Erfolg oder einem Erfolg mit Preis, statt einfach zu gelingen oder zu scheitern. Die Würfelkarte nennt den Bereich, und der Game Master erzählt ihn.
-- **Einige Proben anders gewürfelt.** Ein Regelsatz kann die meisten Proben auf eine Art würfeln und einige nennen, die anders gewürfelt werden.
+In einem Spiel mit Regelsatz, etwa 5e (SRD 5.1), werden Proben nach den Regeln des Regelsatzes gewürfelt: mit seinen eigenen Würfeln, seiner Schwierigkeitsskala und seinen Modifikatoren aus dem Charakterbogen sowie bei manchen Regelsätzen mit einem Würfelpool oder Symbolwürfeln. Siehe [Proben mit einem Regelsatz](rulesets.md#checks-on-a-ruleset).
 
 <a id="finishing-a-rolled-turn-in-one-request"></a>
 
@@ -227,6 +187,7 @@ Folgendes erzwingt die Engine unabhängig von der Mitarbeit des Game Masters:
 
 ## Verwandte Anleitungen
 
+- [Game Mode: Mit einem Regelsatz spielen](rulesets.md)
 - [Game Mode: Kampf](combat.md)
 - [Game Mode: Erste Schritte](getting-started.md)
 - [Game Mode: Party und NPCs](party-and-npcs.md)

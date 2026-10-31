@@ -26,7 +26,7 @@
 
 应用内的目录背后是公开的 [Marinara-Agents 仓库](https://github.com/Pasta-Devs/Marinara-Agents)。每个包和产物都可以在那里查看，但一般情况下还是通过 **Agent Organizer(智能体管理器)** 安装，这样 Marinara 才能校验兼容性、权限、哈希、压缩包内容和重启要求。
 
-目录里收录了官方聊天智能体、World Maps、Conversation 的音视频通话，以及全部可选的 Conversation 游戏。已安装的智能体会分成 **Apps**(应用)、**Writer Agents**(写作智能体)、**Tracker Agents**(追踪器智能体) 和 **Misc Agents**(其他智能体) 四组，自己做的则放在 **Custom Agents**(自定义智能体) 分区。**Apps** 是有自己 Home 标签页、单独使用而不是添加到聊天里的包，比如 Noodle 和 Slurp。标为 **Rules**(规则) 的包不是智能体，而是添加一个 Game Mode 规则集，例如 5e (SRD 5.1)，创建新游戏时在 **Rules** 下选择它（见[选择规则](../game/getting-started.md#choosing-rules)）。它在聊天里没有需要开启的开关。5e 包仍是预览版，所以目前只有 `staging` 分支上的 Engine 会列出它。卸载目录里的包，会从 Engine 中删掉它的代码和设置，聊天消息和历史记录仍然保留。删除自定义智能体则是彻底删除。
+目录里收录了官方聊天智能体、World Maps、Conversation 的音视频通话，以及全部可选的 Conversation 游戏。已安装的智能体会分成 **Apps**(应用)、**Writer Agents**(写作智能体)、**Tracker Agents**(追踪器智能体) 和 **Misc Agents**(其他智能体) 四组，自己做的则放在 **Custom Agents**(自定义智能体) 分区。**Apps** 是有自己 Home 标签页、单独使用而不是添加到聊天里的包，比如 Noodle 和 Slurp。标为 **Rules**(规则) 的包不是智能体，而是添加一个 Game Mode 规则集，例如 5e (SRD 5.1)，创建新游戏时在 **Rules** 下选择它（见[使用规则集游玩](../game/rulesets.md)）。它在聊天里没有需要开启的开关。5e 包仍是预览版，所以目前只有 `staging` 分支上的 Engine 会列出它。卸载目录里的包，会从 Engine 中删掉它的代码和设置，聊天消息和历史记录仍然保留。删除自定义智能体则是彻底删除。
 
 从内置这些功能的旧版 Engine 升级上来时，Marinara 会把对应的包下载一次，并保留已有的聊天选择、智能体设置、存储的运行时数据和历史记录。如果这次迁移连不上目录，它会在下次启动时重试，不会丢弃任何东西。
 

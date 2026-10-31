@@ -62,10 +62,11 @@ Pour utiliser un jet personnalisé, procède ainsi :
 Voici d'autres exemples que tu peux saisir :
 
 - `d20` lance un dé à 20 faces.
-- `4d8-1` lance quatre dés à 8 faces et retire 1.
+- `4d8-1` lance quatre dés à 8 faces et soustrait 1.
 - `2d6+3` lance deux dés à 6 faces et ajoute 3.
+- `4d6kh3` lance quatre dés à 6 faces et garde les trois plus hauts. `kl` garde les plus bas, tandis que `dh` et `dl` écartent respectivement les plus hauts ou les plus bas : `2d20kl1` est donc un lancer avec désavantage et `4d6dl1+2` écarte le dé le plus bas et ajoute 2. Chaque dé lancé est enregistré, et seuls les dés gardés sont additionnés.
 
-Deux limites strictes s'appliquent. Tu peux lancer au maximum 100 dés à la fois, et chaque dé peut avoir au plus 1000 faces. Si tu en demandes davantage, l'application réduit la demande à ces limites au lieu de la refuser. La carte de résultat affiche la notation réduite : saisir `500d6` donne donc une carte `100d6` pour les cent dés réellement lancés. Si ton texte n'est pas une notation de dés valide – `NdM`, ou un simple `dM` comme `d20` –, le jet échoue et une erreur indique le format attendu.
+Deux limites strictes s'appliquent. Tu peux lancer au maximum 100 dés à la fois, et chaque dé peut avoir au plus 1000 faces. Si un lancer simple en demande davantage, l'application le réduit à ces limites au lieu de le refuser. La carte de résultat affiche la notation réduite : saisir `500d6` donne donc une carte `100d6` pour les cent dés réellement lancés. Un lancer qui garde ou écarte des dés et dépasse les limites, comme `101d6kh3`, est en revanche refusé avec une erreur de dépassement des limites, car réduire le nombre de dés changerait ceux qui sont gardés. Si ton texte n'est pas une notation de dés valide – `NdM`, ou un simple `dM` comme `d20`, éventuellement suivi de `kh`, `kl`, `dh` ou `dl` et d'un nombre –, le jet échoue et une erreur indique le format attendu.
 
 <a id="symbol-dice-by-name"></a>
 
@@ -74,6 +75,8 @@ Deux limites strictes s'appliquent. Tu peux lancer au maximum 100 dés à la foi
 Dans une partie dont l'ensemble de règles lance des dés à symboles (un ensemble `symbol-pool`, comme un système de type Genesys), le champ personnalisé accepte aussi ces dés par leur nom. Indique un nombre et le nom du dé pour chaque type, par exemple `2 ability 1 proficiency vs 2 difficulty`. Tu peux utiliser l'identifiant du dé ou son libellé, sans distinction de casse, et les séparer par des espaces, des virgules, `+` ou `vs`.
 
 La carte affiche chaque dé avec les symboles de sa face, puis les symboles qui restent après annulation et indique si le jet est une réussite. Le tag ajouté à ton message reprend ces informations, par exemple `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Un jet peut désigner jusqu'à 40 dés. Quand le Game Master lance les dés avec son outil, il peut aussi utiliser ces noms. La notation simple `NdM` continue de fonctionner comme ci-dessus dans toutes les parties.
+
+<a id="skill-checks"></a>
 
 ## Jets de compétence
 
@@ -113,9 +116,9 @@ Le Game Master peut indiquer une autre notation, par exemple `[skill_check: skil
 
 Les réserves de succès doivent préciser le seuil de chaque dé et le nombre de succès nécessaires : `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` lance six d10, compte une fois chaque dé affichant au moins 6 et réussit avec au moins quatre succès. Le moteur ne devine pas un seuil absent et ne gère ni dés explosifs, ni échecs catastrophiques, ni autres règles particulières de réserve. Une réserve sans seuil valide reste non résolue, et les nombres inventés par le modèle sont supprimés.
 
-C'est la réserve d'une partie **sans ensemble de règles**, et elle ne change pas. Une partie utilisant un ensemble de règles à réserves est différente : le moteur détient ses règles. Consulte [Parties avec un ensemble de règles](#games-that-use-a-ruleset).
+C'est la réserve d'une partie **sans ensemble de règles**, et elle ne change pas. Une partie utilisant un ensemble de règles à réserves est différente : le moteur détient ses règles. Consulte [Les tests avec un ensemble de règles](rulesets.md#checks-on-a-ruleset).
 
-Les demandes non prises en charge, comme `4d6kh3`, `3d6!` ou `4dF`, ne sont pas lancées. Le moteur consigne la notation non prise en charge et retire les nombres inventés des enregistrements de tests. Ces résultats restent ouverts ; le moteur ne remplace pas silencieusement le système de dés.
+L'attribut `dice=` d'un test n'accepte que la notation simple `NdM`. Les demandes qui y figurent, comme `4d6kh3`, `3d6!` ou `4dF`, ne sont pas lancées. Le moteur consigne la notation non prise en charge et retire les nombres inventés des enregistrements de tests. Ces résultats restent ouverts ; le moteur ne remplace pas silencieusement le système de dés.
 
 ### Avantage et désavantage
 
@@ -136,50 +139,7 @@ Rien ne t'empêche de mettre ton propre `d20` en attente depuis le menu des dés
 
 ## Parties utilisant un ensemble de règles
 
-Une partie peut utiliser un ensemble de règles, comme 5e (SRD 5.1), à la place des règles propres à Marinara. L'ensemble de règles appartient à cette seule partie et reste avec elle. Tu le choisis sous **Rules** (règles) dans l'assistant de configuration, quand tu crées la partie (voir [Choisir les règles](getting-started.md#choosing-rules)). Une partie sans ensemble de règles se comporte exactement comme décrit plus haut.
-
-Quand une partie a un ensemble de règles :
-
-- Le Game Master se contente toujours de nommer la compétence ou le jet de sauvegarde et de fixer une difficulté. Il reçoit l'échelle de difficulté de l'ensemble de règles au lieu de l'échelle intégrée. Une difficulté peut aller aussi loin que cette échelle, même au-delà des 1 à 40 que permettent les règles de Marinara. Un seul chemin reste limité à 1 à 40, même dans une partie avec ensemble de règles : le traitement de secours qui lance un test encore dû par un tour enregistré.
-- Le moteur lance les dés de l'ensemble de règles et ajoute le modificateur tiré de la **ruleset sheet** (fiche de l'ensemble de règles) du personnage, composé des éléments que déclare l'ensemble : le modificateur de caractéristique quand la compétence ou la sauvegarde nomme une caractéristique, le bonus de son niveau d'entraînement (un multiple d'un bonus de maîtrise, un nombre fixe, ou les deux), et tout bonus supplémentaire saisi sur la fiche. Les bonus de compétence et les attributs intégrés ne sont pas utilisés.
-- Un test peut concerner un membre de l'équipe. Le Game Master ajoute `who="Name"` à la balise, et le moteur utilise la fiche de ce personnage. Sans `who`, c'est le joueur qui fait le test. Un membre de l'équipe qui n'a pas encore de fiche lance sur une fiche vierge, où chaque valeur est à la valeur par défaut de l'ensemble de règles. Un nom qui ne correspond à personne dans l'équipe, ou que deux membres de l'équipe partagent, lance les dés sans aucun modificateur. La seule exception est le nom de ton propre personnage : si un membre de l'équipe le partage, ce nom te désigne quand même et utilise ta fiche. Le moteur n'emprunte jamais la fiche de quelqu'un d'autre.
-- Les résultats naturels suivent l'ensemble de règles. En 5e (SRD 5.1), un 20 naturel ou un 1 naturel n'a pas d'effet spécial sur les tests et les sauvegardes : un 20 naturel qui n'atteint pas la difficulté échoue donc. C'est volontairement différent des règles de Marinara.
-- Le moteur ne fait pas confiance aux nombres que le Game Master écrit lui-même. Une balise qui semble terminée est relancée et remplacée quand son modificateur n'est pas celui de la fiche, quand elle a lancé un autre nombre ou une autre taille de dés que l'ensemble de règles, quand le dé compté n'est pas celui que garde son mode de jet, ou quand elle annonce un résultat naturel que l'ensemble de règles n'a pas.
-- Un dé que tu as lancé toi-même avant le test n'est utilisé que si l'ensemble de règles lance un seul d20. Un ensemble qui lance d'autres dés, comme 2d6 ou une réserve, l'ignore et lance normalement.
-- Le Game Master peut faire jouer une compétence ou une sauvegarde avec une autre caractéristique que celle qu'elle utilise d'habitude, en ajoutant `with="Ability"` à la balise. Seule une caractéristique déclarée par ton ensemble de règles compte ; tout le reste est ignoré et la compétence garde la sienne.
-- Le Game Master peut nommer une difficulté de l'échelle au lieu d'écrire son nombre, par exemple `difficulty="Hard"`. Le moteur lance contre le nombre de ce palier, et le test enregistré affiche le nombre. Un nom absent de l'échelle est ignoré.
-- Les marqueurs de jet peuvent nommer les caractéristiques, compétences et sauvegardes de l'ensemble de règles, ainsi que `PROF` pour le bonus de maîtrise quand l'ensemble en a un.
-- Si le package de l'ensemble de règles est absent, ou plus ancien que celui avec lequel la partie a été créée, les tests sont enregistrés sans nombres et restent dus. Ils ne sont jamais lancés avec les règles d'un autre système.
-- Si un élément choisi sur ta fiche modifie un jet, par exemple un charme qui relance les dés ratés, le GM le nomme sur le test et le moteur paie son coût, applique son effet et lance les dés. Un charme non choisi ou impossible à payer ne fait rien et ne coûte rien.
-- Si l'ensemble de règles permet de dépenser une ressource pour améliorer un jet, le GM l'indique sur le test et le moteur prélève les points, ajoute ce qu'ils achètent et lance les dés ensemble. Si la réserve ne suffit pas, rien n'est dépensé et le jet reste celui d'origine. Le registre montre ce qui a vraiment été payé, pas ce qui était demandé. La quantité qu'un test peut acheter est fixée par l'ensemble de règles : un nombre fixe, un nombre de ta fiche, ou autant que le test a de dés.
-- Si l'ensemble de règles indique qu'un nombre de ta fiche s'ajoute à certains jets, comme un sac lourd à chaque jet de Brawn, le moteur l'ajoute à chaque test concerné, et la carte de dés indique ce que la fiche a ajouté.
-- Un ensemble de règles peut indiquer ce que fait un test quand tu n'as aucun entraînement dans la compétence : il peut te coûter des dés ou des points, être d'un palier plus difficile, ou être tout simplement impossible. Un test impossible sans entraînement n'est pas lancé, et la narration le dit au lieu d'afficher un résultat. Ta fiche n'affiche aucun nombre pour une telle compétence tant que tu ne l'as pas entraînée.
-- Si une piste de blessures de l'ensemble de règles applique sa pénalité aux jets, être blessé rend chaque test plus difficile. Pour une réserve, elle retire des dés sans descendre sous le minimum autorisé, que certains systèmes fixent à zéro. Pour des dés additionnés, c'est une pénalité fixe. Le test indique la valeur appliquée pour expliquer pourquoi tu as lancé moins de dés. Consulte [La fiche de l'ensemble de règles](party-and-npcs.md#the-ruleset-sheet).
-- Le Game Master tient aussi à jour sur la fiche les ressources, les états et les repos de chaque personnage, et le moteur refuse un changement que la fiche ne permet pas. Voir [La fiche de l'ensemble de règles](party-and-npcs.md#the-ruleset-sheet).
-
-### Ensembles avec réserves de dés
-
-Certains systèmes n'ajoutent pas de bonus à un jet. Le nombre de la fiche indique plutôt combien de dés tu lances, et tu comptes ceux qui font assez haut. Un ensemble de règles peut être écrit ainsi, et une partie qui l'utilise se comporte un peu différemment :
-
-- **Le nombre de la fiche est un nombre de dés.** Une valeur de 3 et un métier qui vaut 2 lancent cinq dés. Ta fiche l'affiche comme "5 dice" plutôt que "+5", dans l'éditeur comme dans ce que lit le Game Master.
-- **La difficulté est un nombre de succès.** Une tâche difficile demande trois succès, pas un total de 15. L'échelle de difficulté de l'ensemble de règles indique combien en demande chaque palier.
-- **Le moteur lance les dés et les compte.** Quelles faces comptent, si une face haute fait lancer un dé de plus ou compte double, si des faces basses annulent des succès, et ce qui compte comme une maladresse ou comme un succès exceptionnel : tout cela vient de l'ensemble de règles. La carte de dés montre chaque dé lancé, en distinguant ceux qui ont atteint la cible des autres, et indique combien de succès sont sortis par rapport au nombre qu'exigeait le test. Une grande réserve passe sur plusieurs lignes plutôt que de rétrécir, et la carte n'affiche jamais un total que les dés n'ont pas formé.
-- **Le Game Master peut ajuster un test**, si l'ensemble de règles le permet : une cible par dé plus dure ou plus facile, des dés ajoutés ou retirés selon les circonstances, et une face plus basse à partir de laquelle les dés sont relancés ou comptent double. Chaque ajustement reste dans la plage que déclare l'ensemble de règles. Un palier de l'échelle de difficulté peut avoir sa propre cible par dé, qui s'applique quand le Game Master choisit ce palier. La carte de dés indique quand un test a relancé ou compté double sur une autre face que la face habituelle de l'ensemble de règles.
-- **Les dés peuvent être relancés**, si l'ensemble de règles a une règle pour cela : le Game Master la nomme sur le test quand la situation l'exige, et les dés tombés bas sont relancés, une fois ou jusqu'à ce qu'ils fassent mieux. Une ressource que tu dépenses peut acheter la même chose. Un jet n'est relancé que d'une seule façon ; quand deux façons s'appliqueraient, c'est celle qui touche le plus de dés qui est utilisée.
-- **Deux caractéristiques peuvent être lancées ensemble**, si l'ensemble de règles le prévoit : un test de caractéristique peut ajouter les dés d'une seconde caractéristique, si bien que deux valeurs sont lancées comme une seule réserve.
-- **Certains ensembles de règles peuvent mal tourner en plus du résultat.** Dans un ensemble qui compte comme une maladresse des faces basses sur la moitié des dés ou plus, un test qui a quand même obtenu ses succès garde son résultat, et la carte de dés ajoute que quelque chose a mal tourné en même temps. Sans aucun succès, c'est un échec critique.
-- **Le Game Master ne fournit jamais les nombres.** Un résultat de réserve écrit dans la narration est toujours remplacé par le vrai jet du moteur. L'avantage ne s'applique pas, pas plus qu'un dé que tu as lancé toi-même avant le test.
-- **Laisser le Game Master voir un dé de chaque taille ne s'applique pas à ces tests.** Les dés qu'on lui montre sont des d20 ; un test de réserve est lancé à l'aveugle par le moteur et raconté comme n'importe quel autre jet à l'aveugle.
-
-### Autres façons de lancer les dés dans un ensemble de règles
-
-Un ensemble de règles peut aussi lancer ses tests d'autres façons. Le moteur lance toujours les dés, et la carte de dés suit l'ensemble de règles :
-
-- **Garder les dés les plus hauts.** Lance une poignée de dés et lis le plus haut, les deux ou les trois plus hauts, selon ce que précise l'ensemble de règles.
-- **Lancer contre ta fiche.** Fais un jet égal ou inférieur à un nombre de ta fiche, comme un pourcentage de compétence, au lieu d'ajouter un bonus aux dés.
-- **Des dés avec leurs propres faces.** Les faces peuvent valoir autre chose que leur nombre, comme moins, vide et plus. Certains dés portent des symboles au lieu de nombres, comme succès, avantage et leurs contraires.
-- **Des résultats par paliers.** Un test peut aboutir à l'un de plusieurs résultats, comme une réussite critique ou une réussite à un prix, plutôt qu'à une simple réussite ou un simple échec. La carte de dés nomme le palier, et le Game Master le raconte.
-- **Quelques tests lancés autrement.** Un ensemble de règles peut lancer la plupart des tests d'une façon et en nommer quelques-uns qui se lancent différemment.
+Dans une partie utilisant un ensemble de règles, comme 5e (SRD 5.1), les tests sont lancés selon cet ensemble de règles : ses propres dés, son échelle de difficulté et ses modificateurs lus sur la fiche, et, pour certains ensembles de règles, une réserve de dés ou des dés à symboles. Consulte [Les tests avec un ensemble de règles](rulesets.md#checks-on-a-ruleset).
 
 <a id="finishing-a-rolled-turn-in-one-request"></a>
 
@@ -227,6 +187,7 @@ Le moteur impose bien les règles suivantes, sans demander au GM de coopérer :
 
 ## Guides associés
 
+- [Game Mode : jouer avec un ensemble de règles](rulesets.md)
 - [Game Mode : le combat](combat.md)
 - [Game Mode : premiers pas](getting-started.md)
 - [Game Mode : équipe et PNJ](party-and-npcs.md)

@@ -61,11 +61,12 @@ Własny rzut wykonuje się tak:
 
 Kilka innych przykładów do wpisania:
 
-- `d20` to rzut jedną kością 20-ścienną.
-- `4d8-1` to rzut czterema kośćmi 8-ściennymi i odjęcie 1.
-- `2d6+3` to rzut dwiema kośćmi 6-ściennymi i dodanie 3.
+- `d20` oznacza rzut jedną kością o 20 ściankach.
+- `4d8-1` oznacza rzut czterema kośćmi o 8 ściankach i odjęcie 1.
+- `2d6+3` oznacza rzut dwiema kośćmi o 6 ściankach i dodanie 3.
+- `4d6kh3` oznacza rzut czterema kośćmi o 6 ściankach i zachowanie trzech najwyższych wyników. `kl` zachowuje najniższe wyniki, a `dh` i `dl` zamiast tego odrzucają najwyższe lub najniższe, więc `2d20kl1` to rzut z utrudnieniem, a `4d6dl1+2` odrzuca najniższy wynik kości i dodaje 2. Zapisuje się wynik każdej rzuconej kości, a sumuje się tylko zachowane wyniki.
 
-Obowiązują dwa sztywne limity. Możesz rzucić najwyżej 100 kośćmi naraz, a każda kość może mieć najwyżej 1000 ścianek. Jeśli poprosisz o więcej, aplikacja ograniczy żądanie do tych limitów zamiast je odrzucać, a karta wyniku pokaże ograniczoną notację: wpisanie `500d6` daje więc kartę `100d6` dla stu kości, którymi faktycznie rzucono. Jeśli tekst nie jest poprawną notacją kości, czyli `NdM` lub samym `dM`, takim jak `d20`, rzut nie powiedzie się i pojawi się błąd wskazujący wymagany format.
+Obowiązują dwa sztywne limity. Możesz rzucić najwyżej 100 kośćmi naraz, a każda kość może mieć najwyżej 1000 ścianek. Jeśli zwykły rzut wymaga większej liczby kości lub ścianek, aplikacja ograniczy go do tych limitów zamiast je odrzucać, a karta wyniku pokaże ograniczoną notację: wpisanie `500d6` daje więc kartę `100d6` dla stu kości, którymi faktycznie rzucono. Rzut z zachowywaniem lub odrzucaniem kości, który przekracza limity, taki jak `101d6kh3`, zostaje natomiast odrzucony z błędem przekroczenia zakresu, ponieważ ograniczenie liczby kości zmieniłoby to, które z nich zostają zachowane. Jeśli tekst nie jest poprawną notacją kości, czyli `NdM` lub samym `dM`, takim jak `d20`, opcjonalnie z następującym po nim `kh`, `kl`, `dh` lub `dl` i liczbą, rzut nie powiedzie się i pojawi się błąd wskazujący wymagany format.
 
 <a id="symbol-dice-by-name"></a>
 
@@ -74,6 +75,8 @@ Obowiązują dwa sztywne limity. Możesz rzucić najwyżej 100 kośćmi naraz, a
 W grze, której zestaw zasad rzuca kośćmi symbolicznymi (zestaw `symbol-pool`, na przykład system w stylu Genesys), pole własnego rzutu przyjmuje też nazwy tych kości. Dla każdego rodzaju podaj liczbę i nazwę kości, na przykład `2 ability 1 proficiency vs 2 difficulty`. Nazwą może być identyfikator kości lub jej etykieta, bez rozróżniania wielkości liter, a poszczególne rodzaje możesz oddzielać spacjami, przecinkami, `+` lub `vs`.
 
 Karta pokazuje każdą kość z symbolami na jej ściance, następnie symbole pozostałe po anulowaniu oraz informację, czy oznacza to sukces. Znacznik dodany do wiadomości zawiera to samo, na przykład `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. Rzut może wskazywać najwyżej 40 kości. Gdy postać Game Master rzuca za pomocą swojego narzędzia kości, też może korzystać z tych nazw. Zwykła notacja `NdM` nadal działa w każdej grze tak, jak opisano powyżej.
+
+<a id="skill-checks"></a>
 
 ## Testy umiejętności
 
@@ -113,9 +116,9 @@ Postać Game Master może podać inny zapis, na przykład `[skill_check: skill="
 
 Pula sukcesów wymaga podania zarówno progu dla pojedynczej kości, jak i wymaganej liczby sukcesów: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` rzuca sześcioma kośćmi d10, liczy każdą kość z wynikiem co najmniej 6 jako jeden sukces i zdaje test przy co najmniej czterech sukcesach. Silnik nie zgaduje brakującego progu ani nie implementuje eksplodujących kości, pechów czy innych specjalnych zasad puli. Pula bez poprawnego progu pozostaje nierozstrzygnięta, a liczby wymyślone przez model są usuwane.
 
-Ta pula pozostaje bez zmian w grach **bez zestawu zasad**. Gra korzystająca z zestawu z pulą kości przestrzega natomiast zasad wykonywanych przez silnik; zobacz niżej [Gry z zestawem zasad](#games-that-use-a-ruleset).
+Ta pula pozostaje bez zmian w grach **bez zestawu zasad**. Gra korzystająca z zestawu z pulą kości przestrzega natomiast zasad wykonywanych przez silnik; zobacz [Testy według zestawu zasad](rulesets.md#checks-on-a-ruleset).
 
-Nieobsługiwane żądania, takie jak `4d6kh3`, `3d6!` lub `4dF`, nie powodują rzutu. Silnik zapisuje nieobsługiwaną notację w logu i usuwa wymyślone liczby z rekordów testów. Te wyniki pozostają nierozstrzygnięte; silnik nie podmienia po cichu systemu kości.
+Atrybut `dice=` testu przyjmuje tylko zwykłe `NdM`. Podane w nim żądania, takie jak `4d6kh3`, `3d6!` lub `4dF`, nie powodują rzutu. Silnik zapisuje nieobsługiwaną notację w logu i usuwa wymyślone liczby z rekordów testów. Te wyniki pozostają nierozstrzygnięte; silnik nie podmienia po cichu systemu kości.
 
 ### Ułatwienie i utrudnienie
 
@@ -136,50 +139,7 @@ Własny rzut `d20` można wstawić do kolejki z menu kości jeszcze przed testem
 
 ## Gry z zestawem zasad
 
-Gra może korzystać z zestawu zasad, takiego jak 5e (SRD 5.1), zamiast z własnych zasad aplikacji Marinara Engine. Zestaw należy do tej jednej gry i zostaje przy niej. Wybierasz go w polu **Rules** (zasady) w kreatorze konfiguracji podczas tworzenia gry (zobacz [Wybór zasad](getting-started.md#choosing-rules)). Gra bez zestawu zasad działa dokładnie tak, jak opisano wyżej.
-
-Gdy gra ma zestaw zasad:
-
-- Game Master nadal tylko wskazuje umiejętność albo rzut obronny i ustala trudność. Dostaje przy tym skalę trudności zestawu zamiast wbudowanej. Trudność może sięgać tak daleko jak ta skala, nawet poza zakres od 1 do 40 dozwolony przez własne zasady aplikacji Marinara Engine. Jedna ścieżka nawet w grze z zestawem zasad zostaje przy zakresie od 1 do 40: mechanizm awaryjny, który rzuca za test wciąż zaległy w zapisanej turze.
-- Silnik rzuca kośćmi zestawu i dodaje modyfikator z **arkusza zestawu zasad** postaci, złożony z tych części, które deklaruje zestaw: modyfikatora cechy, gdy umiejętność albo rzut obronny wskazuje cechę, premii za poziom wyszkolenia (wielokrotność premii biegłości, stała liczba albo jedno i drugie) oraz dodatkowej premii wpisanej w arkuszu. Wbudowane premie umiejętności i atrybuty nie są używane.
-- Test może dotyczyć członka drużyny. Game Master dodaje do znacznika `who="Name"`, a silnik używa arkusza tej postaci. Bez `who` test dotyczy gracza. Członek drużyny, który nie ma jeszcze arkusza, rzuca na pustym arkuszu, z każdą wartością ustawioną na domyślną wartość zestawu. Nazwa, która nie pasuje do nikogo w drużynie albo którą nosi dwóch członków drużyny, daje rzut bez żadnego modyfikatora. Jedynym wyjątkiem jest imię twojej postaci: jeśli nosi je też członek drużyny, to imię nadal oznacza ciebie i korzysta z twojego arkusza. Silnik nigdy nie pożycza cudzego arkusza.
-- Wyniki naturalne zależą od zestawu. W 5e (SRD 5.1) naturalna 20 i naturalna 1 nie mają specjalnego skutku w testach i rzutach obronnych, więc naturalna 20, która nie osiąga trudności, oznacza porażkę. To celowo różni się od własnych zasad aplikacji Marinara Engine.
-- Liczby, które Game Master wpisze sam, nie są uznawane za wiarygodne. Znacznik wyglądający na gotowy zostaje rzucony ponownie i zastąpiony, gdy jego modyfikator nie jest tym z arkusza, gdy rzucono w nim inną liczbą albo innym rozmiarem kości niż w zestawie, gdy policzona kość nie jest tą, którą zachowuje tryb rzutu, albo gdy deklaruje wynik naturalny, którego zestaw nie ma.
-- Kość rzucona przez ciebie przed testem jest używana tylko wtedy, gdy zestaw rzuca pojedynczą d20. Zestaw, który rzuca innymi kośćmi, na przykład 2d6 albo pulą, pomija ją i rzuca normalnie.
-- Game Master może wykonać test umiejętności albo rzut obronny z inną cechą niż zwykle, dodając do znacznika `with="Ability"`. Liczy się tylko cecha zadeklarowana przez twój zestaw; każda inna jest ignorowana, a umiejętność zachowuje własną.
-- Game Master może podać nazwę stopnia ze skali trudności zamiast liczby, na przykład `difficulty="Hard"`. Silnik rzuca przeciwko liczbie tego stopnia, a zapisany test pokazuje tę liczbę. Nazwa, której skala nie zawiera, jest ignorowana.
-- Znaczniki rzutów mogą wskazywać cechy, umiejętności i rzuty obronne zestawu oraz `PROF` dla premii biegłości, jeśli zestaw ją ma.
-- Jeśli pakietu zestawu brakuje albo jest starszy niż ten, z którym utworzono grę, testy są zapisywane bez liczb i pozostają zaległe. Nigdy nie są rzucane według zasad innego systemu.
-- Jeśli coś w twoim arkuszu zmienia rzut, na przykład talizman, który pozwala ponownie rzucić kośćmi, które wypadły źle, Game Master wskazuje to przy teście, a resztą zajmuje się silnik: pobiera koszt talizmanu, stosuje jego działanie i rzuca. Talizman, którego nie wybrano, albo taki, za który nie da się zapłacić, nic nie robi i nic nie kosztuje.
-- Jeśli zestaw pozwala wydać zasób, żeby poprawić rzut, Game Master zaznacza to przy samym teście, a silnik robi obie rzeczy naraz: pobiera punkty, dodaje to, co za nie kupiono, i rzuca. Jeśli zasobu nie wystarcza, nic nie zostaje wydane, a rzut jest taki, jaki byłby bez tego. Zapis pokazuje to, co naprawdę zapłacono, a nie to, o co poproszono. Ile można kupić w jednym teście, ustala zestaw: stałą liczbę, liczbę z twojego arkusza albo tyle, ile kości ma test.
-- Jeśli zestaw mówi, że jakaś liczba z twojego arkusza dolicza się do określonych rzutów, na przykład ciężki plecak przy każdym rzucie na Brawn, silnik dodaje ją do każdego testu, którego dotyczy, a karta rzutu podaje, co dodał arkusz.
-- Zestaw może określić, co się dzieje przy teście umiejętności, w której nie masz wyszkolenia: test może kosztować kości albo punkty, być o jeden stopień trudniejszy albo w ogóle niemożliwy. Test, którego nie da się podjąć bez wyszkolenia, nie jest rzucany, a narracja mówi o tym zamiast pokazywać wynik. Arkusz nie pokazuje żadnej liczby dla takiej umiejętności, dopóki jej nie wyszkolisz.
-- Jeśli zestaw ma tor ran i mówi, że jego kara dotyczy rzutów, rany utrudniają każdy test. W zestawie z pulą kości kara odbiera tyle kości z puli, nigdy nie schodząc poniżej najmniejszej puli dozwolonej przez zestaw, którą niektóre systemy ustawiają na zero. W zestawie, który sumuje kości, jest to stała kara do rzutu. W obu przypadkach test podaje, ile zastosowano, więc widać, dlaczego kości było mniej. Zobacz [Arkusz zestawu zasad](party-and-npcs.md#the-ruleset-sheet).
-- Game Master na bieżąco aktualizuje też w arkuszu zasoby, stany i odpoczynki każdej postaci, a silnik odrzuca zmianę, na którą arkusz nie pozwala. Zobacz [Arkusz zestawu zasad](party-and-npcs.md#the-ruleset-sheet).
-
-### Zestawy z pulą kości
-
-Niektóre systemy nie dodają premii do rzutu. Zamiast tego liczba w arkuszu określa, iloma kośćmi rzucasz, a liczą się te, które wypadły wystarczająco wysoko. Zestaw zasad może działać właśnie tak, a gra z takim zestawem zachowuje się trochę inaczej:
-
-- **Liczba w arkuszu to kości.** Cecha 3 i fach wart 2 dają rzut pięcioma kośćmi. Arkusz pokazuje to jako "5 dice" zamiast "+5", zarówno w edytorze, jak i w tekście, który czyta Game Master.
-- **Trudność to liczba sukcesów.** Trudne zadanie wymaga trzech sukcesów, a nie sumy 15. Skala trudności zestawu mówi, ilu sukcesów potrzebuje każdy stopień.
-- **Silnik rzuca kośćmi i je liczy.** To, które ścianki się liczą, czy wysoki wynik daje rzut dodatkową kością albo liczy się podwójnie, czy niskie wyniki znoszą sukcesy i co uznaje się za pecha albo wyjątkowy sukces – wszystko to pochodzi z zestawu. Karta rzutu pokazuje każdą rzuconą kość, odróżniając te, które osiągnęły próg, od tych, które go nie osiągnęły, i podaje, ile sukcesów wypadło wobec liczby wymaganej przez test. Duża pula przechodzi do kolejnych wierszy zamiast się zmniejszać, a karta nigdy nie pokazuje sumy, jeśli kości nie były sumowane.
-- **Game Master może dostosować pojedynczy test**, jeśli zestaw na to pozwala: ustawić trudniejszy albo łatwiejszy próg dla pojedynczej kości, dodać albo odjąć kości za okoliczności i obniżyć ściankę, od której kość rzuca się ponownie albo liczy podwójnie. Każda z tych zmian mieści się w zakresie zadeklarowanym przez zestaw. Stopień skali trudności może mieć własny próg dla pojedynczej kości, który obowiązuje, gdy Game Master wybierze ten stopień. Karta rzutu informuje, gdy test rzucał ponownie albo liczył podwójnie od innej ścianki niż zwykła ścianka zestawu.
-- **Kośćmi można rzucić ponownie**, jeśli zestaw ma na to zasadę: Game Master wskazuje ją przy teście, gdy sytuacja tego wymaga, a kości, które wypadły nisko, są rzucane ponownie raz albo do skutku, aż wypadną wyżej. To samo może kupić wydany zasób. Jeden rzut jest powtarzany tylko w jeden sposób; gdy pasowałyby dwa, używany jest ten, który obejmuje więcej kości.
-- **Dwie cechy mogą być rzucane razem**, jeśli zestaw tak stanowi: test cechy może dodać kości drugiej cechy, więc dwie wartości są rzucane jako jedna pula.
-- **W niektórych zestawach obok wyniku coś może pójść nie tak.** W zestawie, który traktuje niskie wyniki na co najmniej połowie kości jako pecha, test, który mimo to zdobył swoje sukcesy, zachowuje wynik, a karta rzutu dodaje, że coś przy tym poszło nie tak. Bez żadnego sukcesu jest to porażka krytyczna.
-- **Game Master nigdy nie podaje liczb.** Wynik puli wpisany w narrację zawsze zostaje zastąpiony własnym rzutem silnika. Ułatwienie nie ma tu zastosowania, podobnie jak kość rzucona przez ciebie przed testem.
-- **Pokazywanie GM jednej kości każdego rozmiaru nie dotyczy tych testów.** Kości, które GM widzi, są 20-ścienne; test z pulą silnik rzuca w ciemno, a jego wynik jest opisywany tak jak każdy inny rzut w ciemno.
-
-### Inne sposoby rzucania w zestawach zasad
-
-Zestaw zasad może też rozstrzygać testy na inne sposoby. Kośćmi nadal rzuca silnik, a karta rzutu dostosowuje się do zestawu:
-
-- **Zachowanie najwyższych kości.** Rzut garścią kości i odczyt najwyższej jednej, dwóch albo trzech, zależnie od zestawu.
-- **Rzut przeciwko arkuszowi.** Rzut na wynik równy liczbie z arkusza albo niższy, na przykład procentowi umiejętności, zamiast dodawania premii do kości.
-- **Kości z własnymi ściankami.** Ścianki mogą mieć inną wartość niż ich liczba, na przykład minus, puste pole i plus. Niektóre kości mają zamiast liczb symbole, na przykład sukces, przewagę i ich przeciwieństwa.
-- **Wyniki w przedziałach.** Test może trafić w jeden z kilku wyników, na przykład sukces krytyczny albo sukces za cenę, zamiast zwykłego sukcesu lub porażki. Karta rzutu nazywa przedział, a Game Master go opisuje.
-- **Kilka testów rzucanych inaczej.** Zestaw może rozstrzygać większość testów w jeden sposób i wskazać kilka, w których rzuca się inaczej.
+W grze z zestawem zasad, na przykład 5e (SRD 5.1), testy wykonuje się zgodnie z zestawem zasad: z użyciem jego kości, skali trudności i modyfikatorów z arkusza postaci, a w niektórych zestawach zasad – puli kości lub kości z symbolami. Zobacz [Testy według zestawu zasad](rulesets.md#checks-on-a-ruleset).
 
 <a id="finishing-a-rolled-turn-in-one-request"></a>
 
@@ -227,6 +187,7 @@ Niezależnie od współpracy GM silnik wymusza:
 
 ## Powiązane przewodniki
 
+- [Game Mode: gra z zestawem zasad](rulesets.md)
 - [Game Mode: walka](combat.md)
 - [Game Mode: pierwsze kroki](getting-started.md)
 - [Game Mode: drużyna i postacie NPC](party-and-npcs.md)
