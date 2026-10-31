@@ -124,7 +124,6 @@ import type { AutoActiveCharactersMode, AvatarCrop, MultiplayerHostAction } from
 import {
   AVATAR_AGENT_IDS,
   BUILT_IN_AGENT_IDS,
-  LOCAL_SIDECAR_CONNECTION_ID,
   audioConnectionSupportsGeneration,
   BUILT_IN_AGENTS,
   VIDEO_FIRST_FRAMES,
