@@ -4,6 +4,7 @@ export const ROLEPLAY_COMMAND_KEYS = [
   "illustrate",
   "video",
   "document",
+  "html",
   "sound",
   "music",
   "notes",
@@ -36,6 +37,7 @@ export type RoleplayCommand =
   | { type: "illustrate"; subject: string; characters?: string[] }
   | { type: "video"; subject: string; motion?: string; characters?: string[] }
   | { type: "document"; documentType: string; title: string; content: string }
+  | { type: "html"; prompt: string }
   | { type: "sound"; description: string }
   | { type: "music"; mood: string }
   | {
@@ -284,10 +286,12 @@ export function isRoleplayCommandAllowed(
     if (!characterId || characterId !== metadata.roleplayCommandNarratorId) return false;
   }
   if (key === "music" && metadata.enableAgents !== true) return false;
-  if (key === "illustrate" || key === "combat" || key === "music") {
+  if (key === "illustrate" || key === "combat" || key === "music" || key === "html") {
     return (
       Array.isArray(metadata.activeAgentIds) &&
-      metadata.activeAgentIds.includes(key === "illustrate" ? "illustrator" : key === "music" ? "spotify" : "combat")
+      metadata.activeAgentIds.includes(
+        key === "illustrate" ? "illustrator" : key === "music" ? "spotify" : key === "html" ? "html" : "combat",
+      )
     );
   }
   return true;
