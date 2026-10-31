@@ -624,6 +624,9 @@ function MoodDisclosure({ text }: { text: string }) {
               // Measured on the frame it mounts, then placed; `visibility` keeps the one unmeasured frame unseen rather
               // than gating the mount on a measurement of the element that has not mounted yet.
               style={{ top: pos.top, left: pos.left, visibility: pos.ready ? "visible" : "hidden" }}
+              // The panel lives in the body, outside the mobile widget that drags: pressing it must not move the
+              // widget out from under it, as the trigger button already stops it.
+              onPointerDown={(event) => event.stopPropagation()}
             >
               {text}
             </div>,
