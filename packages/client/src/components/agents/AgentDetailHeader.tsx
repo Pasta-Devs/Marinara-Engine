@@ -40,17 +40,28 @@ export function AgentDetailHeader({
       className={cn(
         "mari-editor-header",
         hasBanner &&
-          "relative isolate aspect-[16/7] h-auto! max-h-[260px] content-between! border-b-0! bg-transparent! p-4! transition-[max-height] duration-300 motion-reduce:transition-none sm:aspect-[16/5]",
+          "relative isolate aspect-[16/7] w-full h-auto! max-h-[260px] content-between! border-b-0! bg-transparent! p-4! transition-[max-height] duration-300 motion-reduce:transition-none sm:aspect-[16/5]",
         compact && hasBanner && "max-h-[4.5rem] flex-nowrap! py-3!",
       )}
     >
       {hasBanner && storeEntry && (
         <>
-          <StoreBanner
-            entry={storeEntry}
-            sizes="100vw"
-            className="absolute inset-0 -z-10 h-full w-full rounded-none! shadow-none!"
-          />
+          {tall ? (
+            // Centred at the header's aspect; past 260px tall (832px / 595px wide) it is narrower than the header, so fade its sides.
+            <div className="@container absolute inset-0 -z-10">
+              <StoreBanner
+                entry={storeEntry}
+                sizes="100vw"
+                className="mx-auto aspect-[16/7] h-full max-w-full rounded-none! shadow-none! max-sm:@min-[595px]:[mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)] sm:aspect-[16/5] @min-[833px]:[mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]"
+              />
+            </div>
+          ) : (
+            <StoreBanner
+              entry={storeEntry}
+              sizes="100vw"
+              className="absolute inset-0 -z-10 h-full w-full rounded-none! shadow-none!"
+            />
+          )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-2/3 bg-gradient-to-t from-[var(--marinara-editor-bg,var(--background))] to-transparent" />
         </>
       )}
