@@ -982,6 +982,11 @@ assert.match(
 );
 assert.match(
   generateRouteSource,
+  /earlierGuidedParts\.push\(\{ messageId: id, content, split \}\);\s*\}\s*rewriteParts\.unshift\(\.\.\.earlierGuidedParts\);/u,
+  "Earlier responders' guided [html] rewrites should run in turn order, ahead of the last reply",
+);
+assert.match(
+  generateRouteSource,
   /while \(true\) \{[\s\S]{0,700}let currentIterationSavedMsg: typeof lastSavedMsg = null/u,
   "Each Mari follow-up iteration must reset the assistant message eligible for TTS",
 );

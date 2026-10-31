@@ -15137,11 +15137,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           const lastReplyMessageIds = new Set(rewriteParts.map((part) => part.messageId));
           // The one exception: an earlier responder's own [html: …] request goes on that responder's message (#8586).
           if (guidedHtmlAgent) {
+            const earlierGuidedParts: typeof rewriteParts = [];
             for (const [id, { split }] of guidedHtmlReplies) {
               const responseIndex = roleplayResponseIndexes.get(id);
               const content = responseIndex === undefined ? undefined : allResponses[responseIndex];
-              if (content && !lastReplyMessageIds.has(id)) rewriteParts.unshift({ messageId: id, content, split });
+              if (content && !lastReplyMessageIds.has(id)) earlierGuidedParts.push({ messageId: id, content, split });
             }
+            rewriteParts.unshift(...earlierGuidedParts);
           }
           const activatedTextRewriteAgents = textRewriteAgents.filter(
             (agent) => !inactivePostProcessingAgentIds.has(agent.id),
