@@ -2,6 +2,7 @@ import { normalizeSpriteExpressionKey as normalizeUnicodeSpriteExpressionKey } f
 
 export type SpriteExpressionLike = {
   expression: string;
+  label?: string;
 };
 
 const EXPRESSION_FALLBACKS: Record<string, string[]> = {
@@ -55,7 +56,7 @@ export function normalizeSpriteExpressionKey(value: string): string {
   return normalizeUnicodeSpriteExpressionKey(value);
 }
 
-function hasUsefulContainmentMatch(requested: string, candidate: string): boolean {
+export function hasUsefulContainmentMatch(requested: string, candidate: string): boolean {
   if (requested.length < 3 || candidate.length < 3) return false;
   const requestedTokens = requested.split("_").filter(Boolean);
   const candidateTokens = candidate.split("_").filter(Boolean);
@@ -93,9 +94,11 @@ export function resolveSpriteExpression<T extends SpriteExpressionLike>(
   if (available.length === 0) return null;
 
   const requested = normalizeSpriteExpressionKey(expression ?? "");
+  const exactHandle = available.find((sprite) => sprite.expression === expression);
+  if (exactHandle) return exactHandle;
   const keyed = available.map((sprite) => ({
     sprite,
-    key: normalizeSpriteExpressionKey(sprite.expression),
+    key: normalizeSpriteExpressionKey(sprite.label ?? sprite.expression),
   }));
 
   if (requested) {

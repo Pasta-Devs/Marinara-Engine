@@ -29,7 +29,7 @@ export function normalizeSpriteExpressionLabel(raw: string, options?: { fullBody
 }
 
 export function normalizeSpriteExpressionKey(raw: string): string {
-  return normalizeForSpriteLabel(raw)
+  return normalizeForSpriteLabel(raw.replace(/_sprite_[a-f0-9]{12}$/iu, ""))
     .normalize("NFKD")
     .replace(COMBINING_MARK_RE, "")
     .replace(FULL_BODY_PREFIX_RE, "")

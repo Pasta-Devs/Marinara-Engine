@@ -1,3 +1,10 @@
+import {
+  useSpriteLibrary,
+  SpriteLibraryShell,
+  SpriteSelection,
+  SpriteFolderGrid,
+  SpriteFolderSelect,
+} from "./SpriteLibrary";
 // ──────────────────────────────────────────────
 // Character Editor — Full-page detail view
 // Replaces the chat area when editing a character.
@@ -30,6 +37,7 @@ import {
   useCreatePersona,
   useUploadPersonaAvatar,
   useCharacterSprites,
+  useImportSpriteFolder,
   useCharacterGalleryImages,
   useCharacterGalleryClips,
   useUploadCharacterGalleryImage,
@@ -172,6 +180,7 @@ import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
 import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
+import { ContextMenu } from "../ui/ContextMenu";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { useEditorSections } from "../../hooks/use-editor-sections";
@@ -4226,6 +4235,8 @@ function CharacterSheetSection({
   const { t: localizeUi } = useUiTranslation();
   const { data: images, isLoading } = useCharacterGalleryImages(characterId);
   const upload = useUploadCharacterGalleryImage(characterId);
+  const [expanded, setExpanded] = useState(false);
+  const referenceId = useId();
   const selectedImage = images?.find((image) => image.id === characterSheetImageId) ?? null;
   const selectionMissing = Boolean(characterSheetImageId && !isLoading && !selectedImage);
 
@@ -4257,87 +4268,104 @@ function CharacterSheetSection({
   }, [updateExtension]);
 
   return (
-    <section className="space-y-6 border-t border-[var(--border)] pt-5">
-      <SectionHeader
-        title={localizeUi("ui.characters.charactersheet.title")}
-        subtitle={localizeUi("ui.characters.charactersheet.subtitle")}
-      />
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-        <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]">
-          {selectedImage ? (
-            <img
-              src={selectedImage.url}
-              alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
-              className="max-h-[32rem] w-full bg-[var(--secondary)] object-contain"
-            />
-          ) : (
-            <div className="flex min-h-64 flex-col items-center justify-center gap-3 bg-[var(--secondary)] px-6 text-center">
-              <Image size="2rem" className="text-[var(--muted-foreground)]/50" aria-hidden="true" />
-              <div>
-                <p className="text-sm font-semibold">{localizeUi("ui.characters.charactersheet.emptyTitle")}</p>
-                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                  {localizeUi("ui.characters.charactersheet.emptyDescription")}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          <button
-            type="button"
-            onClick={onCreateCharacterSheet}
-            disabled={upload.isPending}
-            className="mari-editor-action mari-editor-action--primary inline-flex w-full justify-center disabled:cursor-wait disabled:opacity-60"
-          >
-            <Wand2 size="0.875rem" />
-            {localizeUi("ui.characters.charactersheet.createWithAi")}
-          </button>
-
-          <ImageUploadDropzone
-            multiple={false}
-            label={
-              selectedImage
-                ? localizeUi("ui.characters.charactersheet.replace")
-                : localizeUi("ui.characters.charactersheet.upload")
-            }
-            pending={upload.isPending}
-            pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
-            dragLabel={localizeUi("ui.characters.charactersheet.dropImage")}
-            onFilesSelected={(files) => void handleUpload(files)}
-            icon={<Upload size="1rem" />}
-            className="w-full"
-          />
-
-          <SettingsSwitch
-            label={<span className="font-medium">{localizeUi("ui.characters.charactersheet.useAsReference")}</span>}
-            description={localizeUi("ui.characters.charactersheet.useAsReferenceDescription")}
-            checked={Boolean(selectedImage) && useAsReference}
-            disabled={!selectedImage}
-            onChange={(checked) => updateExtension("useCharacterSheetAsReference", checked)}
-            labelPosition="start"
-            className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-          />
-
-          <p className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-            {selectedImage && useAsReference
-              ? localizeUi("ui.characters.charactersheet.activeStatus")
-              : localizeUi("ui.characters.charactersheet.avatarFallbackStatus")}
+    <section className="space-y-4 border-y border-[var(--border)] py-3">
+      <div className="flex items-center gap-3">
+        {selectedImage ? (
+          <img src={selectedImage.url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-contain" />
+        ) : (
+          <Image size={20} className="shrink-0 text-[var(--muted-foreground)]" />
+        )}
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold">{localizeUi("ui.characters.charactersheet.title")}</h3>
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {localizeUi("ui.characters.charactersheet.description")}
           </p>
+        </div>
+        <button
+          type="button"
+          className="mari-editor-action min-h-[44px]! shrink-0 px-3 md:min-h-9!"
+          aria-expanded={expanded}
+          aria-controls={referenceId}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? <X size={14} /> : <Pencil size={14} />}
+          {localizeUi(expanded ? "sprites.library.close" : "sprites.library.manage")}
+        </button>
+      </div>
+      {expanded && (
+        <div
+          id={referenceId}
+          className="grid gap-5 border-t border-[var(--border)] pt-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]"
+        >
+          <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]">
+            {selectedImage ? (
+              <img
+                src={selectedImage.url}
+                alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
+                className="max-h-[32rem] w-full bg-[var(--secondary)] object-contain"
+              />
+            ) : (
+              <div className="flex min-h-64 flex-col items-center justify-center gap-3 bg-[var(--secondary)] px-6 text-center">
+                <Image size="2rem" className="text-[var(--muted-foreground)]/50" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-semibold">{localizeUi("ui.characters.charactersheet.emptyTitle")}</p>
+                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    {localizeUi("ui.characters.charactersheet.emptyDescription")}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
 
-          {(selectedImage || selectionMissing) && (
+          <div className="space-y-4">
             <button
               type="button"
-              onClick={clearSelection}
-              className="mari-editor-action inline-flex w-full justify-center text-[var(--marinara-app-accent-static)]"
+              onClick={onCreateCharacterSheet}
+              disabled={upload.isPending}
+              className="mari-editor-action mari-editor-action--primary inline-flex w-full justify-center disabled:cursor-wait disabled:opacity-60"
             >
-              <X size="0.875rem" />
-              {localizeUi("ui.characters.charactersheet.remove")}
+              <Wand2 size="0.875rem" />
+              {localizeUi("ui.characters.charactersheet.createWithAi")}
             </button>
-          )}
+
+            <ImageUploadDropzone
+              multiple={false}
+              label={
+                selectedImage
+                  ? localizeUi("ui.characters.charactersheet.replace")
+                  : localizeUi("ui.characters.charactersheet.upload")
+              }
+              pending={upload.isPending}
+              pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
+              dragLabel={localizeUi("ui.characters.charactersheet.dropImage")}
+              onFilesSelected={(files) => void handleUpload(files)}
+              icon={<Upload size="1rem" />}
+              className="w-full"
+            />
+
+            <SettingsSwitch
+              label={<span className="font-medium">{localizeUi("ui.characters.charactersheet.useAsReference")}</span>}
+              description={localizeUi("ui.characters.charactersheet.useAsReferenceDescription")}
+              checked={Boolean(selectedImage) && useAsReference}
+              disabled={!selectedImage}
+              onChange={(checked) => updateExtension("useCharacterSheetAsReference", checked)}
+              labelPosition="start"
+              className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+            />
+
+            {(selectedImage || selectionMissing) && (
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="mari-editor-action inline-flex w-full justify-center text-[var(--marinara-app-accent-static)]"
+              >
+                <X size="0.875rem" />
+                {localizeUi("ui.characters.charactersheet.remove")}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
@@ -5699,6 +5727,7 @@ function SpritesTab({
     (item) => item.status === "active" && item.manifest.kind.includes("conversation-calls"),
   );
   const uploadSprite = useUploadSprite();
+  const importFolder = useImportSpriteFolder();
   const deleteSprite = useDeleteSprite();
   const renameSprite = useRenameSprite();
   const exportSprites = useExportSprites();
@@ -5706,37 +5735,60 @@ function SpritesTab({
   const restoreSpriteCleanupBackup = useRestoreSpriteCleanupBackup();
   const queryClient = useQueryClient();
   const [category, setCategory] = useState<SpriteCategory>("expressions");
-  const [newExpression, setNewExpression] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+  const [detailsExpression, setDetailsExpression] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [cleaningSprites, setCleaningSprites] = useState(false);
   const [savedCleanupStrength, setSavedCleanupStrength] = useState(35);
   const [restoringCleanup, setRestoringCleanup] = useState(false);
   const [lastCleanupBackupId, setLastCleanupBackupId] = useState<string | null>(null);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportAnchor, setExportAnchor] = useState<{ x: number; y: number } | null>(null);
   const [framingSprite, setFramingSprite] = useState<SpriteInfo | null>(null);
   const [savingFrame, setSavingFrame] = useState(false);
   const [wandCleanupSprite, setWandCleanupSprite] = useState<SpriteInfo | null>(null);
   const [savingWandCleanup, setSavingWandCleanup] = useState(false);
   const [deleteSpriteRequest, setDeleteSpriteRequest] = useState<SpriteInfo | null>(null);
-  const [deletingSprites, setDeletingSprites] = useState<"single" | "all" | null>(null);
+  const [deletingSprites, setDeletingSprites] = useState<"single" | "selected" | null>(null);
   const [folderProgress, setFolderProgress] = useState<{ done: number; total: number } | null>(null);
   const [spriteGenOpen, setSpriteGenOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const pendingExpressionRef = useRef("");
+  const pendingReplaceRef = useRef(false);
 
-  const allSprites = (sprites as SpriteInfo[] | undefined) ?? [];
-  const portraitExpressionSprites = allSprites.filter((s) => !s.expression.toLowerCase().startsWith("full_"));
-  const visibleSprites = allSprites.filter((s) =>
+  const allSprites = useMemo(() => sprites ?? [], [sprites]);
+  const categorySprites = allSprites.filter((s) =>
     category === "clips"
       ? false
       : category === "full-body"
         ? s.expression.startsWith("full_")
         : !s.expression.startsWith("full_"),
   );
+  const library = useSpriteLibrary(
+    characterId,
+    categorySprites,
+    category === "full-body" ? "full-body" : "expressions",
+  );
+  const visibleSprites = library.visible;
+  const selectedSprites = visibleSprites.filter((sprite) => library.selected.includes(sprite.expression));
+  const detailSprite = allSprites.find((sprite) => sprite.expression === detailsExpression) ?? null;
+  const spriteBusy =
+    uploading || !!folderProgress || cleaningSprites || !!deletingSprites || savingFrame || savingWandCleanup;
+  const spriteActionClass = "mari-editor-action min-h-[44px]! px-3 md:min-h-9!";
+  const addPanelId = useId();
+  const cleanupPanelId = useId();
+  useEffect(() => {
+    if (library.selected.length === 0) setCleanupOpen(false);
+  }, [library.selected.length]);
+  const portraitExpressionSprites = allSprites.filter((sprite) => !sprite.expression.toLowerCase().startsWith("full_"));
   const existingExpressions = new Set(
-    visibleSprites.map((s) => (category === "full-body" ? s.expression.replace(/^full_/, "") : s.expression)),
+    categorySprites.map((sprite) =>
+      category === "full-body"
+        ? (sprite.label ?? sprite.expression).replace(/^full_/, "")
+        : (sprite.label ?? sprite.expression),
+    ),
   );
   const suggestedExpressions = DEFAULT_EXPRESSIONS.filter((e) => !existingExpressions.has(e));
   const spriteGenerationUnavailable = spriteCapabilities?.spriteGenerationAvailable === false;
@@ -5745,19 +5797,24 @@ function SpritesTab({
   const backgroundCleanupReason = spriteCapabilities?.reason ?? "Background cleanup is unavailable on this platform.";
 
   const categoryTabs = (
-    <div className="inline-flex rounded-xl bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
+    <div className="inline-flex rounded-xl bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)] max-md:w-full max-md:[&>button]:min-w-0 max-md:[&>button]:flex-1">
       {[
-        { id: "expressions" as const, label: "Facial Expressions" },
-        { id: "full-body" as const, label: "Full-body" },
-        ...(conversationCallsInstalled ? [{ id: "clips" as const, label: "Clips" }] : []),
+        { id: "expressions" as const, label: localizeUi("sprites.library.expressions") },
+        { id: "full-body" as const, label: localizeUi("sprites.library.fullBody") },
+        ...(conversationCallsInstalled ? [{ id: "clips" as const, label: localizeUi("sprites.library.clips") }] : []),
       ].map((tab) => (
         <button
           key={tab.id}
           type="button"
-          onClick={() => setCategory(tab.id)}
+          disabled={spriteBusy}
+          onClick={() => {
+            setCategory(tab.id);
+            library.setSelected([]);
+            setCleanupOpen(false);
+          }}
           aria-pressed={category === tab.id}
           className={cn(
-            "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+            "min-h-[44px] rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 md:min-h-9",
             category === tab.id
               ? "bg-[var(--primary)]/15 text-[var(--primary)]"
               : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
@@ -5775,14 +5832,17 @@ function SpritesTab({
   );
 
   const displayExpression = useCallback(
-    (stored: string) => (category === "full-body" ? stored.replace(/^full_/, "") : stored),
-    [category],
+    (stored: string) => {
+      const label = allSprites.find((sprite) => sprite.expression === stored)?.label ?? stored;
+      return category === "full-body" ? label.replace(/^full_/, "") : label;
+    },
+    [allSprites, category],
   );
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const expression = pendingExpressionRef.current || normalizeExpressionForCategory(newExpression);
+    const expression = pendingExpressionRef.current;
     if (!expression) return;
 
     setUploading(true);
@@ -5793,12 +5853,18 @@ function SpritesTab({
           characterId,
           expression,
           image: reader.result as string,
+          ...(!pendingReplaceRef.current ? { folderId: null } : {}),
         });
-        setNewExpression("");
         pendingExpressionRef.current = "";
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error));
       } finally {
         setUploading(false);
       }
+    };
+    reader.onerror = () => {
+      toast.error(localizeUi("sprites.library.readFailed"));
+      setUploading(false);
     };
     reader.readAsDataURL(file);
     // Reset input so same file can be re-selected
@@ -5806,45 +5872,64 @@ function SpritesTab({
   };
 
   /** Open the sprite picker unless another single-file upload is already running. */
-  const startUpload = (expression: string) => {
+  const startUpload = (expression: string, replace = false) => {
     if (uploading || !expression) return;
     pendingExpressionRef.current = expression;
+    pendingReplaceRef.current = replace;
     fileInputRef.current?.click();
   };
 
-  /** Upload an entire folder of images — each filename becomes the expression name. */
-  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    // Filter to image files only
-    const imageFiles = Array.from(files).filter((f) => /\.(png|jpg|jpeg|gif|webp|avif)$/i.test(f.name));
-    if (imageFiles.length === 0) return;
-
-    setFolderProgress({ done: 0, total: imageFiles.length });
-
-    for (let i = 0; i < imageFiles.length; i++) {
-      const file = imageFiles[i]!;
-      // Derive expression name from filename (strip extension, lowercase, sanitize)
-      const expression = file.name.replace(/\.[^.]+$/, "").trim();
-      const normalized = normalizeExpressionForCategory(expression);
-      if (!normalized) continue;
-
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
+  const handleImageFiles = async (files: File[], preserveFolders = false) => {
+    if (!files.length || spriteBusy) return;
+    setFolderProgress({ done: 0, total: files.length });
+    try {
+      const result = await importFolder.mutateAsync({
+        characterId,
+        files,
+        folderId: null,
+        preserveFolders,
+        fullBody: category === "full-body",
+        onProgress: setFolderProgress,
       });
-
-      try {
-        await uploadSprite.mutateAsync({ characterId, expression: normalized, image: dataUrl });
-      } catch {
-        // Skip failed uploads, continue with the rest
-      }
-      setFolderProgress({ done: i + 1, total: imageFiles.length });
+      const notify =
+        result.imported === 0
+          ? result.failed
+            ? toast.error
+            : toast.warning
+          : result.failed || result.catalogIgnored
+            ? toast.warning
+            : toast.success;
+      notify(
+        localizeUi(
+          result.imported
+            ? "sprites.library.importResult"
+            : result.failed
+              ? "sprites.library.importFailed"
+              : "sprites.library.noImages",
+          { count: result.imported || result.failed },
+        ),
+        {
+          description:
+            [
+              result.imported > 0 &&
+                result.failed > 0 &&
+                localizeUi("sprites.library.importFailed", { count: result.failed }),
+              result.firstError,
+              result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined,
+        },
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setFolderProgress(null);
     }
+  };
 
-    setFolderProgress(null);
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await handleImageFiles(Array.from(e.target.files ?? []), true);
     e.target.value = "";
   };
 
@@ -5854,6 +5939,9 @@ function SpritesTab({
     try {
       await deleteSprite.mutateAsync({ characterId, expression: deleteSpriteRequest.expression });
       setDeleteSpriteRequest(null);
+      setDetailsExpression(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       setDeletingSprites(null);
     }
@@ -5872,7 +5960,7 @@ function SpritesTab({
         tone: "accent",
       });
       const normalized = nextExpression ? normalizeExpressionForCategory(nextExpression) : "";
-      if (!normalized || normalized === sprite.expression) return;
+      if (!normalized || normalized === (sprite.label ?? sprite.expression)) return;
       try {
         await renameSprite.mutateAsync({
           characterId,
@@ -5889,18 +5977,30 @@ function SpritesTab({
     [characterId, displayExpression, localizeUi, normalizeExpressionForCategory, renameSprite],
   );
 
-  const handleDeleteVisibleSprites = useCallback(async () => {
-    if (visibleSprites.length === 0) return;
-    setDeletingSprites("all");
+  const handleDeleteSelectedSprites = async () => {
+    const targets = selectedSprites;
+    if (!targets.length || spriteBusy) return;
+    if (
+      !(await showConfirmDialog({
+        title: localizeUi("sprites.library.deleteSelectedTitle", { count: targets.length }),
+        message: localizeUi("sprites.library.deleteSelectedMessage", { count: targets.length }),
+        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+        tone: "destructive",
+      }))
+    )
+      return;
+    setDeletingSprites("selected");
     try {
-      for (const sprite of visibleSprites) {
+      for (const sprite of targets) {
         await deleteSprite.mutateAsync({ characterId, expression: sprite.expression });
       }
-      setDeleteSpriteRequest(null);
+      library.setSelected([]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       setDeletingSprites(null);
     }
-  }, [characterId, deleteSprite, visibleSprites]);
+  };
 
   const handleExportSprites = useCallback(
     async (spritesToExport: SpriteInfo[], modeLabel: "visible" | "all") => {
@@ -5947,16 +6047,17 @@ function SpritesTab({
   );
 
   const handleCleanVisibleSprites = useCallback(async () => {
-    if (visibleSprites.length === 0) return;
+    const cleanupSprites = visibleSprites.filter((sprite) => library.selected.includes(sprite.expression));
+    if (cleanupSprites.length === 0) return;
 
     const modeLabel = category === "full-body" ? "full-body" : "expression";
     if (
       !(await showConfirmDialog({
         title: localizeUi("ui.characters.spritestab.cleanSpriteBackgrounds"),
         message: localizeUi("ui.characters.spritestab.cleanBackgroundsOnValue1SavedValue2SpriteValue3At", {
-          value1: visibleSprites.length,
+          value1: cleanupSprites.length,
           value2: modeLabel,
-          value3: visibleSprites.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+          value3: cleanupSprites.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
           value4: savedCleanupStrength,
         }),
         confirmLabel: localizeUi("ui.characters.spritestab.clean"),
@@ -5969,7 +6070,7 @@ function SpritesTab({
     try {
       const result = await cleanupSavedSprites.mutateAsync({
         characterId,
-        expressions: visibleSprites.map((sprite) => sprite.expression),
+        expressions: cleanupSprites.map((sprite) => sprite.expression),
         cleanupStrength: savedCleanupStrength,
         engine: "auto",
       });
@@ -6002,8 +6103,9 @@ function SpritesTab({
       toast.error(err?.message || localizeUi("ui.characters.spritestab.failedToCleanSavedSprites"));
     } finally {
       setCleaningSprites(false);
+      setCleanupOpen(false);
     }
-  }, [category, characterId, cleanupSavedSprites, savedCleanupStrength, visibleSprites, localizeUi]);
+  }, [library.selected, category, characterId, cleanupSavedSprites, savedCleanupStrength, visibleSprites, localizeUi]);
 
   const handleRestoreLastCleanup = useCallback(async () => {
     if (!lastCleanupBackupId) return;
@@ -6116,420 +6218,502 @@ function SpritesTab({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <SectionHeader
         title={localizeUi("ui.characters.spritestab.characterSprites")}
-        subtitle={localizeUi("ui.characters.spritestab.uploadVnStyleSpritesForDifferentExpressionsTheExpression")}
+        subtitle={localizeUi("sprites.library.intro")}
         helpText={CHARACTER_SPRITES_HELP}
       />
-
       {characterSheetSection}
-
-      {categoryTabs}
-
-      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-      <input
-        ref={folderInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute
-        webkitdirectory=""
-        className="hidden"
-        onChange={handleFolderUpload}
-      />
-
-      {/* Upload new expression */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h4 className="text-xs font-semibold flex items-center gap-1.5">
-            <Upload size="0.8125rem" className="text-[var(--primary)]" />
-            {localizeUi("ui.characters.spritestab.addSprite")}
-          </h4>
-          <div className="flex flex-wrap items-center gap-2 md:justify-end">
-            <button
-              type="button"
-              onClick={() => setSpriteGenOpen(true)}
-              disabled={spriteGenerationUnavailable}
-              className="mari-chrome-accent-surface mari-accent-animated flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-[0.6875rem] font-medium leading-tight transition-all disabled:cursor-not-allowed disabled:opacity-40 max-md:flex-1 max-md:basis-[calc(50%-0.25rem)] max-md:px-2.5"
-              title={
-                spriteGenerationUnavailable
-                  ? spriteGenerationReason
-                  : localizeUi("ui.characters.spritestab.generateSpritesUsingAiImageGeneration")
-              }
-            >
-              <Wand2 size="0.8125rem" />
-              {localizeUi("ui.characters.spritestab.generateSprite")}
-            </button>
-            <button
-              type="button"
-              onClick={() => folderInputRef.current?.click()}
-              disabled={!!folderProgress}
-              className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-center text-[0.6875rem] font-medium leading-tight text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40 max-md:flex-1 max-md:basis-[calc(50%-0.25rem)] max-md:px-2.5"
-              title={localizeUi("ui.characters.spritestab.selectAFolderOfPngsEachFilenameBecomesThe")}
-            >
-              <FolderOpen size="0.8125rem" />
-              {localizeUi("ui.characters.spritestab.uploadFolder")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleCleanVisibleSprites()}
-              disabled={cleaningSprites || backgroundCleanupUnavailable || visibleSprites.length === 0}
-              className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-center text-[0.6875rem] font-medium leading-tight text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40 max-md:flex-1 max-md:basis-[calc(50%-0.25rem)] max-md:px-2.5"
-              title={
-                backgroundCleanupUnavailable
-                  ? backgroundCleanupReason
-                  : localizeUi("ui.characters.spritestab.cleanBackgroundsOnTheCurrentlyVisibleSavedSprites")
-              }
-            >
-              {cleaningSprites ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Eraser size="0.8125rem" />}
-              {cleaningSprites
-                ? localizeUi("ui.characters.spritestab.cleaning")
-                : localizeUi("ui.characters.spritestab.cleanBackgrounds")}
-            </button>
-            <div className="relative max-md:flex-1 max-md:basis-[calc(50%-0.25rem)]">
+      <SpriteLibraryShell
+        library={library}
+        busy={spriteBusy}
+        toolbar={
+          <>
+            {categoryTabs}
+            <div className="flex flex-wrap items-center gap-2 max-md:grid max-md:w-full max-md:grid-cols-2">
               <button
                 type="button"
-                onClick={() => setExportMenuOpen((open) => !open)}
-                disabled={exporting || allSprites.length === 0}
-                className="flex w-full min-w-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-center text-[0.6875rem] font-medium leading-tight text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40 max-md:px-2.5"
-                title={localizeUi("ui.characters.spritestab.chooseWhichSavedSpritesToExport")}
+                className={spriteActionClass}
+                disabled={exporting || !allSprites.length || spriteBusy}
+                aria-haspopup="menu"
+                aria-expanded={!!exportAnchor}
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  setExportAnchor({ x: rect.right - 192, y: rect.bottom + 4 });
+                }}
               >
-                <ImageDown size="0.8125rem" />
-                {exporting
-                  ? localizeUi("ui.characters.spritestab.exporting")
-                  : localizeUi("ui.characters.spritestab.export")}
+                <ImageDown size={14} />
+                {localizeUi(exporting ? "ui.characters.spritestab.exporting" : "ui.characters.spritestab.export")}
               </button>
-              {exportMenuOpen && !exporting && (
-                <div className="absolute right-0 top-[calc(100%+0.35rem)] z-30 min-w-44 rounded-lg border border-[var(--border)] bg-[var(--card)] p-1 text-xs shadow-xl">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      void handleExportSprites(visibleSprites, "visible");
-                    }}
-                    disabled={visibleSprites.length === 0}
-                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ImageDown size="0.75rem" />
-                    {category === "full-body"
-                      ? localizeUi("ui.characters.spritestab.fullBodyOnly")
-                      : localizeUi("ui.characters.spritestab.expressionsOnly")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      void handleExportSprites(allSprites, "all");
-                    }}
-                    disabled={allSprites.length === 0}
-                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ImageDown size="0.75rem" />
-                    {localizeUi("ui.characters.spritestab.allSprites")}
-                  </button>
-                </div>
-              )}
+              <button
+                type="button"
+                className={cn(spriteActionClass, "mari-editor-action--primary mari-editor-action--accent")}
+                disabled={spriteBusy}
+                aria-expanded={addOpen}
+                aria-controls={addPanelId}
+                onClick={() => setAddOpen(!addOpen)}
+              >
+                {addOpen ? <X size={14} /> : <Plus size={14} />}
+                {localizeUi(addOpen ? "sprites.library.close" : "sprites.library.addSprites")}
+              </button>
             </div>
-          </div>
-        </div>
+          </>
+        }
+        selectionActions={
+          <>
+            <button
+              type="button"
+              className={spriteActionClass}
+              disabled={spriteBusy || backgroundCleanupUnavailable || selectedSprites.length === 0}
+              title={backgroundCleanupUnavailable ? backgroundCleanupReason : undefined}
+              aria-expanded={cleanupOpen}
+              aria-controls={cleanupPanelId}
+              onClick={() => setCleanupOpen(!cleanupOpen)}
+            >
+              <Eraser size={14} />
+              {localizeUi("ui.characters.spritestab.cleanBackgrounds")}
+            </button>
+            <button
+              type="button"
+              className={cn(spriteActionClass, "mari-editor-action--danger")}
+              disabled={spriteBusy || selectedSprites.length === 0}
+              onClick={() => void handleDeleteSelectedSprites()}
+            >
+              <Trash2 size={14} />
+              {localizeUi("sprites.library.deleteSelected")}
+            </button>
+          </>
+        }
+      >
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+        <input
+          ref={folderInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute
+          webkitdirectory=""
+          className="hidden"
+          onChange={handleFolderUpload}
+        />
 
-        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[var(--secondary)]/60 px-3 py-2">
-          <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
-            {localizeUi("ui.characters.spritestab.cleanupStrength")}
-          </span>
-          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.characters.spritestab.soft")}
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={savedCleanupStrength}
-            onChange={(e) => setSavedCleanupStrength(Number(e.target.value))}
-            disabled={cleaningSprites}
-            className="min-w-40 flex-1 accent-[var(--primary)] disabled:opacity-50"
+        {exportAnchor && (
+          <ContextMenu
+            x={exportAnchor.x}
+            y={exportAnchor.y}
+            autoFocus
+            onClose={() => setExportAnchor(null)}
+            items={[
+              {
+                label: localizeUi(
+                  category === "full-body"
+                    ? "ui.characters.spritestab.fullBodyOnly"
+                    : "ui.characters.spritestab.expressionsOnly",
+                ),
+                icon: <ImageDown size={14} />,
+                disabled: !categorySprites.length,
+                onSelect: () => void handleExportSprites(categorySprites, "visible"),
+              },
+              {
+                label: localizeUi("ui.characters.spritestab.allSprites"),
+                icon: <ImageDown size={14} />,
+                onSelect: () => void handleExportSprites(allSprites, "all"),
+              },
+            ]}
           />
-          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.characters.spritestab.aggressive")}
-          </span>
-          <span className="w-8 text-right text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
-            {savedCleanupStrength}
-          </span>
-        </div>
+        )}
 
-        {/* Folder upload progress */}
+        {addOpen && (
+          <section
+            id={addPanelId}
+            className="space-y-3 rounded-xl border border-[var(--border)] p-4"
+            aria-label={localizeUi("sprites.library.addSprites")}
+          >
+            <div className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center">
+              <ImageUploadDropzone
+                multiple
+                className="col-span-2 min-h-11 py-2 md:min-h-9"
+                disabled={spriteBusy}
+                label={localizeUi("sprites.library.uploadImages")}
+                pending={!!folderProgress || uploading}
+                pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}
+                dragLabel={localizeUi("sprites.library.dropImages")}
+                onFilesSelected={(files) => void handleImageFiles(files)}
+                icon={<Upload size={16} />}
+              />
+              <button
+                type="button"
+                className={cn(spriteActionClass, "md:ml-auto")}
+                disabled={spriteBusy}
+                onClick={() => folderInputRef.current?.click()}
+              >
+                <FolderOpen size={14} />
+                {localizeUi("sprites.library.importFolder")}
+              </button>
+              <button
+                type="button"
+                className={spriteActionClass}
+                disabled={spriteGenerationUnavailable || spriteBusy}
+                title={spriteGenerationUnavailable ? spriteGenerationReason : undefined}
+                onClick={() => setSpriteGenOpen(true)}
+              >
+                <Wand2 size={14} />
+                {localizeUi("ui.characters.spritestab.generateSprite")}
+              </button>
+            </div>
+            {spriteGenerationUnavailable && (
+              <p className="text-xs text-[var(--muted-foreground)]">{spriteGenerationReason}</p>
+            )}
+            {category === "expressions" && suggestedExpressions.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs text-[var(--muted-foreground)]">
+                  {localizeUi("ui.characters.spritestab.quickAdd")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedExpressions.slice(0, 12).map((expression) => (
+                    <button
+                      type="button"
+                      key={expression}
+                      className={spriteActionClass}
+                      disabled={spriteBusy}
+                      onClick={() => startUpload(expression)}
+                    >
+                      {expression}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         {folderProgress && (
-          <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size="0.75rem" className="animate-spin text-[var(--primary)]" />
+          <p role="status" className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+            <Loader2 size={14} className="animate-spin" />
             {localizeUi("ui.noodle.noodleprofilesurface.uploading_de27240")} {folderProgress.done}/
-            {folderProgress.total} {localizeUi("ui.characters.spritestab.sprites")}
-          </div>
+            {folderProgress.total}
+          </p>
+        )}
+        {cleanupOpen && selectedSprites.length > 0 && (
+          <section
+            id={cleanupPanelId}
+            className="space-y-3 rounded-xl border border-[var(--border)] p-4"
+            aria-label={localizeUi("ui.characters.spritestab.cleanBackgrounds")}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold">{localizeUi("ui.characters.spritestab.cleanBackgrounds")}</h4>
+              <span className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi("sprites.library.selected", { count: selectedSprites.length })}
+              </span>
+            </div>
+            <label htmlFor={cleanupPanelId + "-strength"} className="block text-xs font-medium">
+              {localizeUi("ui.characters.spritestab.cleanupStrength")}
+            </label>
+            <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)]">
+              <span>{localizeUi("ui.characters.spritestab.soft")}</span>
+              <input
+                id={cleanupPanelId + "-strength"}
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={savedCleanupStrength}
+                disabled={cleaningSprites}
+                onChange={(event) => setSavedCleanupStrength(Number(event.target.value))}
+                className="min-w-0 flex-1 accent-[var(--primary)]"
+              />
+              <span>{localizeUi("ui.characters.spritestab.aggressive")}</span>
+              <output htmlFor={cleanupPanelId + "-strength"} className="tabular-nums">
+                {savedCleanupStrength}
+              </output>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={cn(spriteActionClass, "mari-editor-action--primary")}
+                disabled={spriteBusy}
+                onClick={() => void handleCleanVisibleSprites()}
+              >
+                <Eraser size={14} />
+                {localizeUi("sprites.library.cleanSelected", { count: selectedSprites.length })}
+              </button>
+              <button
+                type="button"
+                className={spriteActionClass}
+                disabled={cleaningSprites}
+                onClick={() => setCleanupOpen(false)}
+              >
+                {localizeUi("sprites.library.cancel")}
+              </button>
+            </div>
+          </section>
         )}
         {cleaningSprites && (
-          <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size="0.75rem" className="animate-spin text-[var(--primary)]" />
+          <p role="status" className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+            <Loader2 size={14} className="animate-spin" />
             {localizeUi("ui.characters.spritestab.applyingAutomaticMatteCleanupToSavedSprites")}
-          </div>
+          </p>
         )}
         {lastCleanupBackupId && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted-foreground)]">
             <span>{localizeUi("ui.characters.spritestab.lastCleanupHasARestorePoint")}</span>
             <button
               type="button"
+              className={spriteActionClass}
+              disabled={restoringCleanup || spriteBusy}
               onClick={() => void handleRestoreLastCleanup()}
-              disabled={restoringCleanup}
-              className="flex items-center gap-1.5 rounded-md bg-[var(--card)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
             >
-              {restoringCleanup ? <Loader2 size="0.75rem" className="animate-spin" /> : <RotateCcw size="0.75rem" />}
+              <RotateCcw size={14} />
               {localizeUi("ui.characters.spritestab.undoCleanup")}
             </button>
           </div>
         )}
-        {spriteGenerationUnavailable && (
-          <div className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-            {spriteGenerationReason}
-          </div>
-        )}
-        {backgroundCleanupUnavailable && !spriteGenerationUnavailable && (
-          <div className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-            {backgroundCleanupReason}
-          </div>
-        )}
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            value={newExpression}
-            onChange={(e) => setNewExpression(e.target.value)}
-            placeholder={
-              category === "full-body"
-                ? localizeUi("ui.characters.spritestab.poseNameEGIdleWalkBattleStance")
-                : localizeUi("ui.characters.spritestab.expressionNameEGHappySadAngry")
-            }
-            className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && newExpression.trim()) {
-                startUpload(normalizeExpressionForCategory(newExpression));
-              }
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => newExpression.trim() && startUpload(normalizeExpressionForCategory(newExpression))}
-            disabled={!newExpression.trim() || uploading}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:shadow-md disabled:opacity-40 sm:w-auto"
-          >
-            <Plus size="0.8125rem" />
-            {localizeUi("ui.characters.characterclipcard.upload")}
-          </button>
-        </div>
 
-        {/* Quick expression buttons */}
-        {category === "expressions" && suggestedExpressions.length > 0 && (
-          <div>
-            <p className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">
-              {localizeUi("ui.characters.spritestab.quickAdd")}
-            </p>
-            <div className="flex flex-wrap gap-1">
-              {suggestedExpressions.slice(0, 12).map((expr) => (
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-3 @md:grid-cols-3 @xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="shimmer aspect-[3/4] rounded-xl" />
+            ))}
+          </div>
+        ) : visibleSprites.length || library.folders.length ? (
+          <SpriteFolderGrid
+            key={category}
+            library={library}
+            busy={spriteBusy}
+            renderSprite={(sprite) => (
+              <div
+                key={sprite.expression}
+                data-sprite-card
+                className={cn(
+                  "group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-colors hover:border-[var(--primary)]/30",
+                  library.selected.includes(sprite.expression) &&
+                    "border-[var(--primary)] ring-1 ring-[var(--primary)]/20",
+                )}
+              >
+                <SpriteSelection library={library} sprite={sprite} disabled={spriteBusy} />
                 <button
                   type="button"
-                  key={expr}
-                  onClick={() => startUpload(expr)}
-                  className="rounded-lg bg-[var(--secondary)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  className="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)]"
+                  disabled={spriteBusy}
+                  aria-label={localizeUi("sprites.library.previewSprite", {
+                    name: displayExpression(sprite.expression),
+                  })}
+                  data-drag-surface
+                  onClick={() => setDetailsExpression(sprite.expression)}
                 >
-                  {expr}
+                  <div className="aspect-[3/4] w-full bg-[var(--secondary)]">
+                    <img
+                      src={sprite.url}
+                      alt={sprite.label ?? sprite.expression}
+                      loading="lazy"
+                      draggable={false}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <span className="block break-words p-3 text-xs font-medium capitalize">
+                    {displayExpression(sprite.expression)}
+                  </span>
                 </button>
-              ))}
+              </div>
+            )}
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
+            <Image size="1.75rem" className="text-[var(--muted-foreground)]/40" />
+            <div>
+              <p className="text-sm font-medium text-[var(--muted-foreground)]">
+                {localizeUi(library.search ? "sprites.library.noMatches" : "sprites.library.emptyType")}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
+                {localizeUi(library.search ? "sprites.library.tryAnotherSearch" : "sprites.library.emptyHint")}
+              </p>
             </div>
           </div>
         )}
-      </div>
 
-      {/* Sprite grid */}
-      {framingSprite && (
-        <SpriteFrameEditor
-          imageUrl={framingSprite.url}
-          label={displayExpression(framingSprite.expression)}
-          applying={savingFrame}
-          onApply={handleApplySpriteFrame}
-          onClose={() => setFramingSprite(null)}
-        />
-      )}
+        <Modal
+          open={!!detailSprite}
+          onClose={() => {
+            setDetailsExpression(null);
+            setFramingSprite(null);
+            setWandCleanupSprite(null);
+          }}
+          title={
+            framingSprite
+              ? localizeUi("ui.characters.spritestab.frame")
+              : detailSprite
+                ? displayExpression(detailSprite.expression)
+                : localizeUi("sprites.library.preview")
+          }
+          width={framingSprite ? "max-w-4xl" : "max-w-3xl"}
+          closeDisabled={savingFrame || savingWandCleanup || uploading}
+          panelClassName="mari-editor-shell mari-editor-legacy-bridge [overflow-wrap:anywhere]"
+        >
+          {detailSprite &&
+            (framingSprite ? (
+              <SpriteFrameEditor
+                imageUrl={framingSprite.url}
+                label={displayExpression(framingSprite.expression)}
+                applying={savingFrame}
+                onApply={handleApplySpriteFrame}
+                onClose={() => {
+                  if (!savingFrame) setFramingSprite(null);
+                }}
+              />
+            ) : (
+              <div className="grid gap-5 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                <div className="flex min-h-0 items-center justify-center rounded-xl bg-[var(--secondary)]">
+                  <img
+                    src={detailSprite.url}
+                    alt={displayExpression(detailSprite.expression)}
+                    className="max-h-[55vh] w-full object-contain"
+                  />
+                </div>
+                <div className="min-w-0 space-y-4">
+                  <div>
+                    <p className="text-sm font-semibold capitalize">{displayExpression(detailSprite.expression)}</p>
+                    <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                      {localizeUi(
+                        category === "full-body" ? "sprites.library.fullBody" : "sprites.library.expressions",
+                      )}
+                    </p>
+                  </div>
+                  <SpriteFolderSelect library={library} sprite={detailSprite} busy={spriteBusy} />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={spriteActionClass}
+                      disabled={spriteBusy || library.mutation.isPending}
+                      onClick={() => void handleRenameSprite(detailSprite)}
+                    >
+                      <Pencil size={14} />
+                      {localizeUi("ui.characters.spritestab.rename")}
+                    </button>
+                    <button
+                      type="button"
+                      className={spriteActionClass}
+                      disabled={spriteBusy || library.mutation.isPending}
+                      onClick={() => startUpload(detailSprite.expression, true)}
+                    >
+                      <Upload size={14} />
+                      {localizeUi("settings.notifications.customSound.actions.replace")}
+                    </button>
+                    <button
+                      type="button"
+                      className={spriteActionClass}
+                      disabled={spriteBusy || library.mutation.isPending}
+                      onClick={() => setFramingSprite(detailSprite)}
+                    >
+                      <Crop size={14} />
+                      {localizeUi("ui.characters.spritestab.frame")}
+                    </button>
+                    <button
+                      type="button"
+                      className={spriteActionClass}
+                      disabled={spriteBusy || library.mutation.isPending}
+                      onClick={() => {
+                        setWandCleanupSprite(detailSprite);
+                        setDetailsExpression(null);
+                      }}
+                    >
+                      <Eraser size={14} />
+                      {localizeUi("ui.characters.spritestab.cleanBackgrounds")}
+                    </button>
+                    <button
+                      type="button"
+                      className={spriteActionClass}
+                      disabled={spriteBusy || library.mutation.isPending}
+                      onClick={() => void downloadSpriteFile(detailSprite)}
+                    >
+                      <ImageDown size={14} />
+                      {localizeUi("ui.characters.charactergallerytab.download")}
+                    </button>
+                  </div>
+                  <div className="border-t border-[var(--border)] pt-3">
+                    <button
+                      type="button"
+                      className={cn(spriteActionClass, "mari-editor-action--danger")}
+                      disabled={spriteBusy || library.mutation.isPending}
+                      onClick={() => {
+                        setDetailsExpression(null);
+                        setDeleteSpriteRequest(detailSprite);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      {localizeUi("ui.characters.spritestab.deleteSprite")}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+        </Modal>
 
-      {wandCleanupSprite && (
-        <SpriteWandCleanupEditor
-          imageUrl={wandCleanupSprite.url}
-          label={displayExpression(wandCleanupSprite.expression)}
-          applying={savingWandCleanup}
-          onApply={handleApplyWandCleanup}
-          onClose={() => setWandCleanupSprite(null)}
-        />
-      )}
+        {wandCleanupSprite && (
+          <SpriteWandCleanupEditor
+            imageUrl={wandCleanupSprite.url}
+            label={displayExpression(wandCleanupSprite.expression)}
+            applying={savingWandCleanup}
+            onApply={handleApplyWandCleanup}
+            onClose={() => {
+              if (!savingWandCleanup) setWandCleanupSprite(null);
+            }}
+          />
+        )}
 
-      {isLoading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="shimmer aspect-[3/4] rounded-xl" />
-          ))}
-        </div>
-      ) : visibleSprites.length ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {visibleSprites.map((sprite) => (
-            <div
-              key={sprite.expression}
-              className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md"
-            >
-              <button
-                type="button"
-                onClick={() => setWandCleanupSprite(sprite)}
-                className="group/preview relative block aspect-[3/4] w-full bg-[var(--secondary)]"
-                title={localizeUi("ui.characters.spritestab.openWandCleanup")}
-              >
-                <img src={sprite.url} alt={sprite.expression} loading="lazy" className="h-full w-full object-contain" />
-                <span className="pointer-events-none absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--card)]/90 text-[var(--primary)] opacity-0 shadow-lg ring-1 ring-[var(--border)] transition-opacity group-hover/preview:opacity-100 max-md:opacity-100">
-                  <Wand2 size="0.875rem" />
-                </span>
-              </button>
-              <div className="flex items-center justify-between p-2">
-                <span
-                  className="max-w-[10rem] truncate text-[0.6875rem] font-medium capitalize"
-                  title={displayExpression(sprite.expression)}
-                >
-                  {displayExpression(sprite.expression)}
-                </span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity">
+        {deleteSpriteRequest && (
+          <Modal
+            open
+            onClose={() => {
+              if (!deletingSprites) setDeleteSpriteRequest(null);
+            }}
+            title={localizeUi("ui.characters.spritestab.deleteSprite")}
+            width="max-w-sm"
+          >
+            <div className="space-y-4">
+              <p className="text-sm leading-relaxed text-[var(--foreground)]">
+                {localizeUi("ui.characters.spritestab.deleteSpriteFor")}
+                {displayExpression(deleteSpriteRequest.expression)}"?
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="ml-auto flex shrink-0 items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setFramingSprite(sprite)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    title={localizeUi("ui.characters.spritestab.frame")}
+                    onClick={() => setDeleteSpriteRequest(null)}
+                    disabled={!!deletingSprites}
+                    className="rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
                   >
-                    <Crop size="0.6875rem" />
+                    {localizeUi("chat.delete.dialog.cancel")}
                   </button>
                   <button
                     type="button"
-                    onClick={() => void downloadSpriteFile(sprite)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    title={localizeUi("ui.characters.charactergallerytab.download")}
+                    onClick={() => void handleDeleteSingleSprite()}
+                    disabled={!!deletingSprites}
+                    className="mari-chrome-accent-surface mari-accent-animated inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 sm:px-3 sm:text-sm"
                   >
-                    <ImageDown size="0.6875rem" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleRenameSprite(sprite)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    title={localizeUi("ui.characters.spritestab.renameSprite")}
-                  >
-                    <Pencil size="0.6875rem" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => startUpload(sprite.expression)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    title={localizeUi("settings.notifications.customSound.actions.replace")}
-                  >
-                    <Upload size="0.6875rem" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleteSpriteRequest(sprite)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    title={localizeUi("lorebook.editor.batch.delete")}
-                  >
-                    <Trash2 size="0.6875rem" />
+                    {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
+                    {localizeUi("lorebook.editor.batch.delete")}
                   </button>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
-          <Image size="1.75rem" className="text-[var(--muted-foreground)]/40" />
-          <div>
-            <p className="text-sm font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.characters.spritestab.noSpritesYet")}
-            </p>
-            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
-              {category === "full-body"
-                ? localizeUi("ui.characters.spritestab.uploadFullBodySpritesAboveUseTransparentPngsFor")
-                : localizeUi("ui.characters.spritestab.uploadExpressionSpritesAboveUseTransparentPngsForBest")}
-            </p>
-          </div>
-        </div>
-      )}
+          </Modal>
+        )}
 
-      {deleteSpriteRequest && (
-        <Modal
-          open
-          onClose={() => {
-            if (!deletingSprites) setDeleteSpriteRequest(null);
+        {/* Sprite Generation Modal */}
+        <SpriteGenerationModal
+          open={spriteGenOpen}
+          onClose={() => setSpriteGenOpen(false)}
+          entityId={characterId}
+          initialSpriteType={category === "full-body" ? "full-body" : "expressions"}
+          existingExpressionSprites={portraitExpressionSprites}
+          defaultAppearance={defaultAppearance}
+          defaultAvatarUrl={defaultAvatarUrl}
+          onSpritesGenerated={() => {
+            queryClient.invalidateQueries({ queryKey: spriteKeys.list(characterId) });
           }}
-          title={localizeUi("ui.characters.spritestab.deleteSprite")}
-          width="max-w-sm"
-        >
-          <div className="space-y-4">
-            <p className="text-sm leading-relaxed text-[var(--foreground)]">
-              {localizeUi("ui.characters.spritestab.deleteSpriteFor")}
-              {displayExpression(deleteSpriteRequest.expression)}"?
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {visibleSprites.length > 1 ? (
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteVisibleSprites()}
-                  disabled={!!deletingSprites}
-                  className="mr-auto inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
-                >
-                  {deletingSprites === "all" ? (
-                    <Loader2 size="0.875rem" className="animate-spin" />
-                  ) : (
-                    <Trash2 size="0.875rem" />
-                  )}
-                  {localizeUi("ui.characters.spritestab.deleteAll")}{" "}
-                  {category === "full-body"
-                    ? localizeUi("ui.characters.spritestab.fullBody")
-                    : localizeUi("ui.characters.spritestab.expressions")}
-                </button>
-              ) : null}
-              <div className="ml-auto flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteSpriteRequest(null)}
-                  disabled={!!deletingSprites}
-                  className="rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
-                >
-                  {localizeUi("chat.delete.dialog.cancel")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteSingleSprite()}
-                  disabled={!!deletingSprites}
-                  className="mari-chrome-accent-surface mari-accent-animated inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 sm:px-3 sm:text-sm"
-                >
-                  {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
-                  {localizeUi("lorebook.editor.batch.delete")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Sprite Generation Modal */}
-      <SpriteGenerationModal
-        open={spriteGenOpen}
-        onClose={() => setSpriteGenOpen(false)}
-        entityId={characterId}
-        initialSpriteType={category === "full-body" ? "full-body" : "expressions"}
-        existingExpressionSprites={portraitExpressionSprites}
-        defaultAppearance={defaultAppearance}
-        defaultAvatarUrl={defaultAvatarUrl}
-        onSpritesGenerated={() => {
-          queryClient.invalidateQueries({ queryKey: spriteKeys.list(characterId) });
-        }}
-      />
+        />
+      </SpriteLibraryShell>
     </div>
   );
 }

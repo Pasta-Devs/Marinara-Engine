@@ -44,14 +44,17 @@ export const IMPORT_BODY_LIMIT_BYTES = 256 * 1024 * 1024;
 const IMPORT_METADATA_KEY = "importMetadata";
 
 /** Remove Marinara sprite binaries from card metadata before the normalized card is stored. */
-export function takeEmbeddedMarinaraSprites(raw: Record<string, unknown>): unknown {
+export function takeEmbeddedMarinaraSprites(
+  raw: Record<string, unknown>,
+  key: "sprites" | "spriteCatalog" = "sprites",
+): unknown {
   const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
   if (!cardData.extensions || typeof cardData.extensions !== "object") return undefined;
   const extensions = cardData.extensions as Record<string, unknown>;
   if (!extensions.marinara || typeof extensions.marinara !== "object") return undefined;
   const marinara = extensions.marinara as Record<string, unknown>;
-  const sprites = marinara.sprites;
-  delete marinara.sprites;
+  const sprites = marinara[key];
+  delete marinara[key];
   return sprites;
 }
 
@@ -218,6 +221,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   const shouldImportEmbeddedLorebook = options?.importEmbeddedLorebook ?? true;
   const tagImportMode = options?.tagImportMode ?? "all";
   const embeddedMarinaraSprites = takeEmbeddedMarinaraSprites(raw);
+  const embeddedSpriteCatalog = takeEmbeddedMarinaraSprites(raw, "spriteCatalog");
 
   // Extract avatar data URL if present (from PNG import)
   const avatarDataUrl = raw._avatarDataUrl as string | null;
@@ -387,7 +391,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
 
   if (charId && embeddedMarinaraSprites !== undefined) {
     try {
-      await restoreSprites(embeddedMarinaraSprites, charId);
+      await restoreSprites(embeddedMarinaraSprites, charId, embeddedSpriteCatalog);
     } catch (err) {
       logger.warn(err, "Skipped optional embedded sprite restore for %s", charId);
     }

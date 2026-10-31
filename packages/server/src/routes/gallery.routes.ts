@@ -2,7 +2,7 @@
 // Routes: Chat Gallery (upload, list, delete, serve)
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
 import { writeFile } from "fs/promises";
 import { basename, extname, join } from "path";
 import { z } from "zod";
@@ -17,6 +17,7 @@ import {
   normalizeVideoGenerationUserSettings,
 } from "@marinara-engine/shared";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
+import { listSpriteCatalog } from "../services/sprites/sprite-catalog.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
@@ -128,7 +129,6 @@ const SPRITES_DIR = join(DATA_DIR, "sprites");
 const GAME_SCENE_VIDEOS_ROOT = join(DATA_DIR, "game-scene-videos");
 const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const GALLERY_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
-const SPRITE_FILE_RE = /\.(png|jpg|jpeg|gif|webp|avif|svg)$/i;
 const SCENE_VIDEO_FILENAME_RE = /^[A-Za-z0-9_-]+\.mp4$/;
 const SCENE_VIDEO_GENERATION_TIMEOUT_MS = 31 * 60 * 1000;
 
@@ -497,35 +497,34 @@ function buildSpriteAssets(
   if (!existsSync(dir)) return [];
 
   try {
-    return readdirSync(dir)
-      .filter((filename) => SPRITE_FILE_RE.test(filename))
-      .sort((a, b) => a.localeCompare(b))
-      .map((filename) => {
-        const ext = extname(filename);
-        const expression = filename.slice(0, -ext.length);
-        const cleanExpression = expression.replace(/^full[_-]/i, "");
-        const mtime = statSync(join(dir, filename)).mtimeMs;
-        return {
-          id: `sprite:${ownerType}:${ownerId}:${filename}`,
-          kind: "sprite" as const,
-          ownerType,
-          ownerId,
-          ownerName,
-          name: cleanExpression || filename,
-          prompt: "",
-          width: null,
-          height: null,
-          createdAt: null,
-          url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Math.floor(mtime)}`,
-          cardUrl: cardUrl("sprites", ownerId, filename),
-        };
-      });
+    return listSpriteCatalog(ownerId).sprites.map(({ filename, expression, label, url }) => {
+      const cleanExpression = (label ?? expression).replace(/^full[_-]/i, "");
+      return {
+        id: `sprite:${ownerType}:${ownerId}:${filename}`,
+        kind: "sprite" as const,
+        ownerType,
+        ownerId,
+        ownerName,
+        name: cleanExpression || filename,
+        prompt: "",
+        width: null,
+        height: null,
+        createdAt: null,
+        url,
+        cardUrl: cardUrl("sprites", ownerId, filename),
+      };
+    });
   } catch {
     return [];
   }
 }
 
-function spriteMatchesTarget(filename: string, category: "facial" | "fullbody", target: string): boolean {
+function spriteMatchesTarget(
+  filename: string,
+  category: "facial" | "fullbody",
+  target: string,
+  label?: string,
+): boolean {
   const ext = extname(filename);
   const expression = filename.slice(0, -ext.length).toLowerCase();
   const targetExt = extname(target);
@@ -536,13 +535,14 @@ function spriteMatchesTarget(filename: string, category: "facial" | "fullbody", 
 
   if (category === "facial") {
     if (/^full[_-]/i.test(expression)) return false;
-    return expression === targetBase;
+    return expression === targetBase || label?.toLowerCase() === targetBase;
   }
 
   return (
     expression === targetBase ||
     expression === `full_${targetBase}` ||
-    expression.replace(/^full[_-]/, "") === targetBase
+    expression.replace(/^full[_-]/, "") === targetBase ||
+    label?.toLowerCase().replace(/^full[_-]/, "") === targetBase
   );
 }
 
@@ -961,21 +961,26 @@ export async function galleryRoutes(app: FastifyInstance) {
   ) {
     const { characterIds, personaIds } = await collectChatAssetParticipants(chat);
     const ownerIds = [...characterIds, ...personaIds];
+    let labelMatch: { ownerId: string; filename: string } | null = null;
     for (const ownerId of ownerIds) {
       if (!isSafeAssetSegment(ownerId)) continue;
       const dir = join(SPRITES_DIR, ownerId);
       if (!existsSync(dir)) continue;
       try {
-        const filename = readdirSync(dir)
-          .filter((candidate) => SPRITE_FILE_RE.test(candidate))
-          .sort((a, b) => a.localeCompare(b))
-          .find((candidate) => spriteMatchesTarget(candidate, category, target));
-        if (filename) return { ownerId, filename };
+        const sprites = listSpriteCatalog(ownerId).sprites;
+        const match = sprites.find((sprite) => spriteMatchesTarget(sprite.filename, category, target));
+        if (match) return { ownerId, filename: match.filename };
+        if (!labelMatch) {
+          const labeled = sprites.find((sprite) =>
+            spriteMatchesTarget(sprite.filename, category, target, sprite.label),
+          );
+          if (labeled) labelMatch = { ownerId, filename: labeled.filename };
+        }
       } catch {
         // Ignore unreadable sprite folders and continue to the next participant.
       }
     }
-    return null;
+    return labelMatch;
   }
 
   // Resolve short chat-scoped card:// links such as card://gallery/foo.png or card://sprites/facial/happy.png.

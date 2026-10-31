@@ -308,3 +308,4 @@ export * from "./utils/game-tag-parser.js";
 export * from "./utils/game-widget-update.js";
 
 export * from "./utils/zod-input.js";
+export * from "./schemas/sprite-catalog.js";

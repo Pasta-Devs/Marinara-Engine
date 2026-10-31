@@ -37,6 +37,7 @@ import {
   type PngtuberLayerSet,
 } from "@marinara-engine/shared";
 import type { DB } from "../../../db/connection.js";
+import { listSpriteCatalog } from "../../sprites/sprite-catalog.js";
 import { drawTalkingHeadSet, talkingHeadSetPrompt } from "../../../routes/sprites.routes.js";
 import { isAllowedImageBuffer } from "../../../utils/security.js";
 import { resolveReviewedImagePromptSubmission } from "../../image/image-prompt-review.js";
@@ -141,11 +142,14 @@ export function pngtuberSpriteFamily(labels: readonly string[]): string[] {
  *  ponytail: a copy of buildPngtuberLayersFromSprites in the 2D lane's
  *  packages/client/src/features/avatars/renderers/pngtuber/pngtuber-layers.ts; the two must change together.
  *  Upgrade: move one copy into @marinara-engine/shared with a contract PR. */
-export function spriteBuiltPngtuber(labels: readonly string[]): PngtuberAvatarData | undefined {
+export function spriteBuiltPngtuber(
+  labels: readonly string[],
+  aliases: ReadonlyMap<string, string> = new Map(),
+): PngtuberAvatarData | undefined {
   const layers = new Map<string, PngtuberLayerSet>();
   const variants: Array<{ base: string; key: string; mouthOpen: boolean; eyesClosed: boolean }> = [];
   for (const label of pngtuberSpriteFamily(labels)) {
-    const key = normalizeSpriteExpressionKey(label);
+    const key = normalizeSpriteExpressionKey(aliases.get(label) ?? label);
     if (!LAYER_KEY.test(key)) continue;
     let base = key;
     let mouthOpen = false;
@@ -313,6 +317,10 @@ function familySourceSprites(ownerId: string): string[] {
   return listAvatarSourceSprites(ownerId).filter((label) => family.has(label));
 }
 
+function spriteLabelAliases(ownerId: string): Map<string, string> {
+  return new Map(listSpriteCatalog(ownerId).sprites.map((sprite) => [sprite.expression, sprite.label]));
+}
+
 /** The sprites to draw: the requested ones, which must be in the avatar's family, else the ones the saved
  *  setup uses, else all of them. Refused before any picture is paid for. */
 async function requestedLabels(request: AvatarPngtuberVariantsRequest): Promise<string[]> {
@@ -331,7 +339,14 @@ async function requestedLabels(request: AvatarPngtuberVariantsRequest): Promise<
   }
   const config = await readAvatarConfig(request.owner).catch(() => null);
   const keys = Object.keys(config?.kinds.pngtuber?.layers ?? {});
-  return keys.length ? sprites.filter((label) => keys.includes(normalizeSpriteExpressionKey(label))) : sprites;
+  const aliases = spriteLabelAliases(request.owner.ownerId);
+  return keys.length
+    ? sprites.filter(
+        (label) =>
+          keys.includes(normalizeSpriteExpressionKey(aliases.get(label) ?? label)) ||
+          keys.includes(normalizeSpriteExpressionKey(label)),
+      )
+    : sprites;
 }
 
 /** The exact prompts the variants would send, for the image prompt review dialog. */
@@ -346,24 +361,26 @@ export async function previewPngtuberVariantPrompts(
     resolveAvatarImageConnection(db, request.connectionId),
   ]);
   const items: AvatarPromptReviewItem[] = [];
+  const aliases = spriteLabelAliases(request.owner.ownerId);
   for (const label of labels) {
+    const displayLabel = aliases.get(label) ?? label;
     if (!image.canEdit) {
       items.push({
         id: setPromptId(label),
         kind: "sprite",
-        title: `${label.replace(/_/gu, " ")}: new face, eyes closed and mouth open`,
-        ...(await pngtuberSetPrompt(db, image, owner, label)),
+        title: `${displayLabel.replace(/_/gu, " ")}: new face, eyes closed and mouth open`,
+        ...(await pngtuberSetPrompt(db, image, owner, displayLabel)),
       });
       continue;
     }
     const source = await readAvatarSourceSprite(request.owner.ownerId, label);
     const size = avatarImageRequestSize(source.width, source.height, image.conn.model || "");
     for (const variant of request.variants) {
-      const prompt = avatarVariantPrompt({ template: agent.template, ...owner }, label, variant);
+      const prompt = avatarVariantPrompt({ template: agent.template, ...owner }, displayLabel, variant);
       items.push({
         id: variantPromptId(label, variant),
         kind: "sprite",
-        title: `${label.replace(/_/gu, " ")}: ${variant.replace("-", " ")}`,
+        title: `${displayLabel.replace(/_/gu, " ")}: ${variant.replace("-", " ")}`,
         ...prompt,
         ...size,
       });
@@ -448,13 +465,15 @@ export async function generatePngtuberVariants(
     const overrides = new Map((request.promptOverrides ?? []).map((entry) => [entry.id, entry]));
     const debug = avatarGenerationDebug(request.debugMode);
     const response: PngtuberVariantsDraftResponse = { drafts: [], failed: [] };
+    const aliases = spriteLabelAliases(request.owner.ownerId);
     for (const label of labels) {
-      pngtuberLayerKey(label); // refuse a label that can't be stored before paying for a picture
+      const displayLabel = aliases.get(label) ?? label;
+      pngtuberLayerKey(displayLabel); // refuse a label that can't be stored before paying for a picture
       const source = await readAvatarSourceSprite(request.owner.ownerId, label);
       if (!image.canEdit) {
         if (signal.aborted) throw signal.reason ?? new Error("Cancelled");
         try {
-          const prompt = await pngtuberSetPrompt(db, image, owner, label, overrides.get(setPromptId(label)));
+          const prompt = await pngtuberSetPrompt(db, image, owner, displayLabel, overrides.get(setPromptId(label)));
           response.drafts.push(...(await drawPngtuberSet(image, prompt, label, source, signal, debug)));
         } catch (error) {
           if (signal.aborted || error instanceof AvatarGenerationError) throw error;
@@ -468,7 +487,7 @@ export async function generatePngtuberVariants(
         try {
           const prompt = avatarVariantPrompt(
             { template: agent.template, ...owner },
-            label,
+            displayLabel,
             variant,
             overrides.get(variantPromptId(label, variant)),
           );
@@ -555,8 +574,9 @@ export async function savePngtuberVariants(request: PngtuberVariantsSaveRequest)
     }
   >();
   const family = familySourceSprites(request.owner.ownerId);
+  const aliases = spriteLabelAliases(request.owner.ownerId);
   for (const entry of request.images) {
-    const key = pngtuberLayerKey(entry.label);
+    const key = pngtuberLayerKey(aliases.get(entry.label) ?? entry.label);
     let set = sets.get(key);
     if (set && set.label !== entry.label) {
       throw new AvatarGenerationError(400, `Keep pictures from one sprite per expression ("${key}").`);
@@ -606,7 +626,7 @@ export async function savePngtuberVariants(request: PngtuberVariantsSaveRequest)
   );
   const config = await updateAvatarConfig(request.owner, (current) => {
     // An owner without a saved setup shows the one built from the sprites; start from it.
-    const built = spriteBuiltPngtuber(allSprites);
+    const built = spriteBuiltPngtuber(allSprites, aliases);
     const saved = current?.kinds.pngtuber ?? built;
     // Each face being saved starts from its sprite-built set under its saved one, so a `_blink` or `_talk`
     // sprite added since (or a face added since) stays next to the new picture; a saved picture wins over a

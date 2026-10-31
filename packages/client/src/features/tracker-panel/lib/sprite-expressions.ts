@@ -37,16 +37,17 @@ export function resolveSpriteUrl(sprites: SpriteInfo[] | undefined, expression: 
   const spriteList = (sprites ?? []).filter((sprite) => !sprite.expression.toLowerCase().startsWith("full_"));
   if (spriteList.length === 0) return null;
   const exprLower = expression.toLowerCase();
-  const exact = spriteList.find((sprite) => sprite.expression.toLowerCase() === exprLower);
+  const exact =
+    spriteList.find((sprite) => sprite.expression.toLowerCase() === exprLower) ??
+    spriteList.find((sprite) => (sprite.label ?? sprite.expression).toLowerCase() === exprLower);
   if (exact) return exact.url;
   const partial = spriteList.find((sprite) => {
-    const stored = sprite.expression.trim().toLowerCase();
-    if (!stored) return false;
-    return stored.includes(exprLower) || exprLower.includes(stored);
+    const stored = (sprite.label ?? sprite.expression).trim().toLowerCase();
+    return stored && (stored.includes(exprLower) || exprLower.includes(stored));
   });
   if (partial) return partial.url;
   const neutral = spriteList.find((sprite) => {
-    const stored = sprite.expression.toLowerCase();
+    const stored = (sprite.label ?? sprite.expression).toLowerCase();
     return stored === "neutral" || stored === "default" || stored === "idle";
   });
   return neutral?.url ?? spriteList[0]?.url ?? null;

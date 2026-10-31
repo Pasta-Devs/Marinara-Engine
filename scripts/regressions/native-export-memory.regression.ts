@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -80,6 +80,7 @@ const { createCharacterGalleryStorage } =
   await import("../../packages/server/src/services/storage/character-gallery.storage.js");
 const { createPersonaGalleryStorage } =
   await import("../../packages/server/src/services/storage/persona-gallery.storage.js");
+const { readSpriteCatalog } = await import("../../packages/server/src/services/sprites/sprite-catalog.js");
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const sha = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
@@ -164,6 +165,13 @@ try {
   const spriteDir = join(dataDir, "sprites", character.id);
   await mkdir(spriteDir, { recursive: true });
   await writeFile(join(spriteDir, "happy.png"), avatarBytes);
+  const spriteFolderId = randomUUID();
+  const spriteCatalog = {
+    version: 1,
+    folders: [{ id: spriteFolderId, name: "Faces", category: "expressions" }],
+    sprites: { happy: { label: "joyful", folderId: spriteFolderId } },
+  };
+  await writeFile(join(spriteDir, "catalog.json"), JSON.stringify(spriteCatalog));
 
   const persona = (await characters.createPersona("Big Persona", "Large persona gallery"))!;
   const personaImages = await writeGallery("personas", persona.id);
@@ -231,7 +239,7 @@ try {
     mb(memory.peakRss!),
   );
 
-  // ── The streamed files keep today's exact format and import back with every image. ──
+  // ── The streamed files include sprite metadata and import back with every image. ──
   db = await getDB();
   const characterText = exports.character!.toString("utf8");
   const characterExport = JSON.parse(characterText);
@@ -241,12 +249,14 @@ try {
     "spec",
     "spec_version",
     "data",
+    "spriteCatalog",
     "avatar",
     "sprites",
     "gallery",
     "metadata",
   ]);
   assert.equal(characterExport.data.data.name, "Big Export");
+  assert.deepEqual(characterExport.data.spriteCatalog, spriteCatalog);
   assert.equal(characterExport.data.data.extensions.characterSheetImageId, undefined);
   assert.deepEqual(decodeDataUrl(characterExport.data.avatar), avatarBytes);
   assert.deepEqual(
@@ -265,6 +275,7 @@ try {
   const personaExport = JSON.parse(personaText);
   assert.equal(JSON.stringify(personaExport), personaText);
   assert.equal(personaExport.type, "marinara_persona");
+  assert.deepEqual(personaExport.data.spriteCatalog, { version: 1, folders: [], sprites: {} });
   assert.deepEqual(Object.keys(personaExport.data).slice(-2), ["gallery", "metadata"]);
   assertGallery(personaExport.data.gallery);
 
@@ -292,6 +303,12 @@ try {
   for (const exported of [characterExport, personaExport]) {
     const imported = await importMarinara(exported, db);
     assert.equal(imported.success, true, imported.error);
+    if (exported.type === "marinara_character") {
+      const restoredCatalog = readSpriteCatalog(imported.id!);
+      assert.deepEqual(restoredCatalog.folders, spriteCatalog.folders);
+      assert.equal(restoredCatalog.sprites.happy?.label, "joyful");
+      assert.equal(restoredCatalog.sprites.happy?.folderId, spriteFolderId);
+    }
     const galleryRows =
       exported.type === "marinara_character"
         ? await createCharacterGalleryStorage(db).listByCharacterId(imported.id!)
