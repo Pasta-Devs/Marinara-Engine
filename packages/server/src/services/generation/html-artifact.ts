@@ -53,7 +53,7 @@ Rules for the artifact:
 - No <script>, no event handlers, no external images, fonts or links.
 - Draw pictures with inline SVG. Give each <svg> a viewBox and use only these elements: g, path, rect, circle, ellipse, line, polyline, polygon, text, tspan, defs, linearGradient, radialGradient, stop, clipPath. Anything else is removed, including use, image, filter, mask, pattern, foreignObject and animation.
 - Set gradients and clip paths with attributes, such as fill="url(#paper)". They do not work from CSS.
-- It is shown at most 448px wide, and narrower on phones, so it must fit the available width: no fixed widths wider than 100%, no fixed or sticky positioning. Keep it compact: about 340px tall at most, unless the request needs a long page.
+- It is shown at most about 450px wide, and narrower on phones, so it must fit the available width: no fixed widths wider than 100%, no fixed or sticky positioning. Keep it compact: about 340px tall at most, unless the request needs a long page.
 - Set its own background and text colours, so it reads on both light and dark themes.`;
 
 export interface HtmlArtifact {
@@ -273,8 +273,12 @@ export async function runHtmlArtifactCommand(args: {
   signal?: AbortSignal;
 }): Promise<string | null> {
   const chats = createChatsStorage(args.db);
-  const isThisCommand = (item: RoleplayCommandActivity | undefined) =>
-    item?.command.type === "html" && item.command.prompt === args.request && !item.deleted;
+  const isThisRequest = (item: RoleplayCommandActivity | undefined) =>
+    item?.command.type === "html" && item.command.prompt === args.request;
+  const isThisCommand = (item: RoleplayCommandActivity | undefined) => isThisRequest(item) && !item?.deleted;
+  const readSwipe = async () => (await chats.getSwipes(args.messageId)).find((row) => row.index === args.swipeIndex);
+  const activityOf = (swipe: Awaited<ReturnType<typeof readSwipe>>) =>
+    getRoleplayCommandActivity(parseExtra(swipe?.extra));
   const save = (patch: Partial<RoleplayCommandActivity>) =>
     chats.patchRoleplayCommandActivity(args.messageId, args.swipeIndex, (activity) =>
       isThisCommand(activity[args.activityIndex])
@@ -282,9 +286,8 @@ export async function runHtmlArtifactCommand(args: {
         : null,
     );
   try {
-    const swipe = (await chats.getSwipes(args.messageId)).find((row) => row.index === args.swipeIndex);
-    const activity = getRoleplayCommandActivity(parseExtra(swipe?.extra));
-    const item = activity[args.activityIndex];
+    const swipe = await readSwipe();
+    const item = activityOf(swipe)[args.activityIndex];
     if (!swipe || !item || !isThisCommand(item)) return null;
     const raw = await writeHtmlArtifact(
       args.db,
@@ -302,11 +305,9 @@ export async function runHtmlArtifactCommand(args: {
     const artifact = parseHtmlArtifactOutput(raw, args.request);
     if (!artifact) throw new Error("The model did not finish the artifact. A higher max tokens setting may help.");
     if (!(await save({ artifact, error: undefined }))) {
-      const swipes = await chats.getSwipes(args.messageId);
-      const latest = swipes.find((row) => row.index === args.swipeIndex);
-      const current = getRoleplayCommandActivity(parseExtra(latest?.extra))[args.activityIndex];
+      const current = activityOf(await readSwipe())[args.activityIndex];
       // A player deleting this marker meant to drop the result. Anything else lost it, so the caller has to hear.
-      if (current?.command.type === "html" && current.command.prompt === args.request && current.deleted) return null;
+      if (isThisRequest(current) && current?.deleted) return null;
       throw new Error("The message's commands changed while the artifact was being made, so it was not saved.");
     }
     return null;
