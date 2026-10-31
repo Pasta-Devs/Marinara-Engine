@@ -351,6 +351,25 @@ try {
       false,
       "a failed validation cannot persist an invalid tool",
     );
+
+    // #8516: Mari keeps the editor's own limits, so a tool it writes can still be saved from the Tool editor.
+    const longDescription = await mari.executeCli({
+      argv: [
+        "db",
+        "insert",
+        "custom_tools",
+        "--json",
+        JSON.stringify({ name: "long_description", description: "punch -> strength ".repeat(40), sortOrder: 21 }),
+        "--apply",
+      ],
+    });
+    assert.equal(longDescription.ok, false, "a description over 500 characters is refused");
+    assert.match(JSON.stringify(longDescription), /Tool description must be at most 500 characters/u);
+    assert.equal(
+      (await db.select().from(customTools)).some((entry) => entry.name === "long_description"),
+      false,
+      "the over-long tool is not stored",
+    );
   } finally {
     await db._fileStore.close();
   }

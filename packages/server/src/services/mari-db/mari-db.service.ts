@@ -93,6 +93,7 @@ import {
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
+  createCustomToolSchema,
   createLorebookEntrySchema,
   lorebookDecisionModeSchema,
   parseLorebookDecisionActivation,
@@ -6781,6 +6782,9 @@ export class MariDbService {
     const id = idValue == null ? null : String(idValue);
     if (typeof row.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(row.name)) {
       issues.push({ level: "error", table: "custom_tools", id, message: "Tool name must be lowercase snake_case" });
+    } else if (!createCustomToolSchema.shape.name.safeParse(row.name).success) {
+      // The editor's own limits (#8516): a row Mari writes past them could not be saved again from the editor.
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool name must be at most 100 characters" });
     }
     if (typeof row.description !== "string" || row.description.trim().length === 0) {
       issues.push({
@@ -6788,6 +6792,13 @@ export class MariDbService {
         table: "custom_tools",
         id,
         message: "Tool description must be a non-empty string",
+      });
+    } else if (!createCustomToolSchema.shape.description.safeParse(row.description).success) {
+      issues.push({
+        level: "error",
+        table: "custom_tools",
+        id,
+        message: "Tool description must be at most 500 characters",
       });
     }
     if (typeof row.executionType !== "string" || !TOOL_EXECUTION_TYPES.has(row.executionType)) {
