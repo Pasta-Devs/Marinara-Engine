@@ -78,6 +78,7 @@ import {
 import { decodeEncodedSpeakerTags, formatTextQuotes, type Message, type QuoteFormat } from "@marinara-engine/shared";
 import type { GameTurnStoryboard, GameTurnStoryboardKeyframe } from "@marinara-engine/shared";
 import {
+  Fragment,
   memo,
   useState,
   useMemo,
@@ -1192,9 +1193,11 @@ function renderWithSpeakerTags(
   let key = 0;
 
   while ((match = SPEAKER_TAG_RE.exec(text)) !== null) {
-    // Text before the speaker tag — use default color
+    // Keep each narration chunk's Markdown keys local to that chunk.
     if (match.index > lastIndex) {
-      nodes.push(...renderLine(text.slice(lastIndex, match.index), defaultDialogueColor));
+      nodes.push(
+        <Fragment key={`n${key++}`}>{renderLine(text.slice(lastIndex, match.index), defaultDialogueColor)}</Fragment>,
+      );
     }
     const speakerName = match[1]!;
     const dialogue = match[2]!;
@@ -1208,7 +1211,7 @@ function renderWithSpeakerTags(
 
   // Remaining text after last speaker tag
   if (lastIndex < text.length) {
-    nodes.push(...renderLine(text.slice(lastIndex), defaultDialogueColor));
+    nodes.push(<Fragment key={`n${key}`}>{renderLine(text.slice(lastIndex), defaultDialogueColor)}</Fragment>);
   }
 
   return nodes;

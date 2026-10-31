@@ -190,6 +190,65 @@ async function setPreset(page: Page, preset: "default" | "mari" | "dottore", app
 }
 
 for (const theme of ["dark", "light"] as const) {
+  test(`Roleplay speaker-tagged swipes replace narration (${theme})`, async ({ page, request }, info) => {
+    const fixture = await createFixture(request, "roleplay");
+    const messageId = fixture.messages.speaker!;
+    const messagePath = `/api/chats/${fixture.chatId}/messages/${messageId}`;
+    const plain = "Only the plain alternate swipe belongs here.";
+    const tagged = [
+      "*Opening narration.*",
+      `<speaker="${BRAM.name}">"Bram takes the first turn."</speaker> *Middle narration.* <speaker="${ADA.name}">"Ada answers."</speaker>`,
+      "*Closing narration.*",
+    ].join("\n\n");
+    const expected =
+      'Opening narration. "Bram takes the first turn." Middle narration. "Ada answers." Closing narration.';
+    try {
+      expect(
+        (
+          await request.patch(`/api/chats/${fixture.chatId}/metadata`, {
+            data: { groupChatMode: "merged", groupSpeakerColors: true },
+          })
+        ).ok(),
+      ).toBeTruthy();
+      expect((await request.patch(messagePath, { data: { content: plain } })).ok()).toBeTruthy();
+      expect(
+        (await request.post(`${messagePath}/swipes`, { data: { content: tagged, silent: true } })).ok(),
+      ).toBeTruthy();
+      await open(page, fixture.chatId, theme);
+      const message = page.locator(`[data-message-id="${messageId}"]`);
+      const content = message.locator(".mari-message-content");
+      await expect(content).toHaveText(plain);
+      for (let cycle = 0; cycle < 3; cycle++) {
+        await message.getByRole("button", { name: "Next swipe", exact: true }).click();
+        await expect(content).toHaveText(expected);
+        await expect(content.locator("em")).toHaveCount(3);
+        await expectOwnColor(content.locator("strong").filter({ hasText: "Bram takes" }), BRAM.rgb, "Bram's dialogue");
+        await expectOwnColor(content.locator("strong").filter({ hasText: "Ada answers" }), ADA.rgb, "Ada's dialogue");
+        await message.getByRole("button", { name: "Previous swipe", exact: true }).click();
+        await expect(content).toHaveText(plain);
+        await expect(content.locator("em, strong")).toHaveCount(0);
+      }
+      await expect
+        .poll(async () => {
+          const messages = (await (await request.get(`/api/chats/${fixture.chatId}/messages`)).json()) as Array<{
+            id: string;
+            content: string;
+            activeSwipeIndex: number;
+          }>;
+          const saved = messages.find((entry) => entry.id === messageId);
+          return { content: saved?.content, index: saved?.activeSwipeIndex };
+        })
+        .toEqual({ content: plain, index: 0 });
+      const swipes = (await (await request.get(`${messagePath}/swipes`)).json()) as Array<{ content: string }>;
+      expect(swipes.map((swipe) => swipe.content)).toEqual([plain, tagged]);
+      await page.screenshot({ path: info.outputPath(`speaker-tag-swipes-${theme}.png`) });
+      await page.reload();
+      await expect(content).toHaveText(plain);
+    } finally {
+      await fixture.remove();
+    }
+  });
+
   test(`Roleplay dialogue keeps each character's color under Apply preset colors (${theme})`, async ({
     page,
     request,
