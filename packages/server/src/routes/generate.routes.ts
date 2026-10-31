@@ -12976,6 +12976,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   request: command.prompt,
                   chatConnectionId: conn.id,
                   referenceContext: buildAgentReferenceContextBlock(postAgentContext),
+                  debugLog,
                   signal: agentSignal,
                 });
                 sendSseEvent(reply, { type: "roleplay_artifact", data: { messageId: request.messageId } });

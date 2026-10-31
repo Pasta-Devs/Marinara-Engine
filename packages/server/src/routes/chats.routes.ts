@@ -2969,6 +2969,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!target) return reply.status(400).send({ error: "Send a message before making an artifact." });
     const { prompt } = body.data;
     const swipeIndex = target.activeSwipeIndex ?? 0;
+    const controller = new AbortController();
+    reply.raw.once("close", () => {
+      if (!reply.raw.writableEnded) controller.abort();
+    });
     let activityIndex = -1;
     const saved = await storage.patchRoleplayCommandActivity(target.id, swipeIndex, (activity) => {
       activityIndex = activity.length;
@@ -2984,10 +2988,6 @@ export async function chatsRoutes(app: FastifyInstance) {
     });
     if (!saved) return reply.status(404).send({ error: "Message not found" });
     const summary = parseExtra(chat.metadata).summary;
-    const controller = new AbortController();
-    reply.raw.once("close", () => {
-      if (!reply.raw.writableEnded) controller.abort();
-    });
     const error = await runHtmlArtifactCommand({
       db: app.db,
       messageId: target.id,

@@ -7,9 +7,9 @@ import {
   getRoleplayCommandContentOffset,
   type RoleplayCommandActivity,
 } from "@marinara-engine/shared";
-import { getChatGenerationTimeoutMs } from "../../config/runtime-config.js";
+import { getChatGenerationTimeoutMs, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { DB } from "../../db/connection.js";
-import { logger } from "../../lib/logger.js";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 import { withLlmRequestTimeout, type ChatMessage } from "../llm/base-provider.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
@@ -60,7 +60,7 @@ export function parseHtmlArtifactOutput(raw: string, request: string): HtmlArtif
   const open = /<artifact\b[^>]*>/iu.exec(raw);
   if (!open) return null;
   const start = open.index + open[0].length;
-  const close = raw.toLowerCase().lastIndexOf("</artifact>");
+  const close = [...raw.matchAll(/<\/artifact>/giu)].at(-1)?.index ?? -1;
   if (close < start) return null;
   const html = raw
     .slice(start, close)
@@ -107,10 +107,13 @@ async function resolveHtmlArtifactConnections(db: DB, chatConnectionId: string |
   return { primary, fallback: await connections.getFallbackForAgents() };
 }
 
+type HtmlArtifactDebugLog = (message: string, ...args: unknown[]) => void;
+
 async function writeHtmlArtifact(
   db: DB,
   chatConnectionId: string | null,
   messages: ChatMessage[],
+  debugLog: HtmlArtifactDebugLog,
   signal?: AbortSignal,
 ): Promise<string> {
   const { primary: connection, fallback } = await resolveHtmlArtifactConnections(db, chatConnectionId);
@@ -140,6 +143,11 @@ async function writeHtmlArtifact(
     maxContext: connection.maxContext,
   });
   const defaults = resolveStoredChatOptions(connection.defaultParameters, connection.provider, connection.model);
+  debugLog(
+    "[html-artifact] request (%s):\n%s",
+    connection.model,
+    messages.map((message) => `[${message.role}] ${message.content}`).join("\n\n"),
+  );
   const result = await withLlmRequestTimeout(getChatGenerationTimeoutMs(), () =>
     provider.chatComplete(messages, {
       model: connection.model,
@@ -160,6 +168,7 @@ async function writeHtmlArtifact(
       signal,
     }),
   );
+  debugLog("[html-artifact] response (%d chars):\n%s", result.content?.length ?? 0, result.content ?? "");
   return result.content ?? "";
 }
 
@@ -176,6 +185,7 @@ export async function runHtmlArtifactCommand(args: {
   request: string;
   chatConnectionId: string | null;
   referenceContext?: string;
+  debugLog?: HtmlArtifactDebugLog;
   signal?: AbortSignal;
 }): Promise<string | null> {
   const chats = createChatsStorage(args.db);
@@ -201,6 +211,7 @@ export async function runHtmlArtifactCommand(args: {
         request: args.request,
         referenceContext: args.referenceContext,
       }),
+      args.debugLog ?? ((message, ...rest) => logDebugOverride(isDebugAgentsEnabled(), message, ...rest)),
       args.signal,
     );
     const artifact = parseHtmlArtifactOutput(raw, args.request);

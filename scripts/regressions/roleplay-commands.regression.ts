@@ -1023,6 +1023,11 @@ assert.equal(
   "the request stands in",
 );
 assert.equal(parseHtmlArtifactOutput("<artifact><b>Cut off", "a sign"), null, "a cut-off artifact is a failed run");
+assert.equal(
+  parseHtmlArtifactOutput("İİİ<artifact>x</artifact></ARTIFACT>", "a sign")?.html,
+  "x</artifact>",
+  "the last closing tag, whatever its case, at its place in the raw text",
+);
 assert.equal(parseHtmlArtifactOutput("<artifact>  </artifact>", "a sign"), null);
 assert.equal(parseHtmlArtifactOutput("no blocks", "a sign"), null);
 assert.equal(
