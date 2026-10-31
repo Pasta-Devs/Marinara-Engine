@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { spriteCatalogSchema, type SpriteCatalog, type CharacterSpriteCatalog } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { logger } from "../../lib/logger.js";
+import { logRateLimited } from "../../lib/log-rate-limit.js";
 
 const IMAGE = /\.(png|jpg|jpeg|gif|webp|avif|svg)$/iu;
 const queues = new Map<string, Promise<unknown>>();
@@ -67,7 +67,13 @@ export function readOptionalSpriteCatalog(ownerId: string): SpriteCatalog {
   try {
     return readSpriteCatalog(ownerId);
   } catch (err) {
-    logger.warn(err, "Unreadable sprite catalog for %s; listing images without folder metadata", ownerId);
+    logRateLimited(
+      "warn",
+      `sprite-catalog:${ownerId}`,
+      err,
+      "Unreadable sprite catalog for %s; listing images without folder metadata",
+      ownerId,
+    );
     return { version: 1, folders: [], sprites: {} };
   }
 }
@@ -94,28 +100,44 @@ export async function withSpriteCatalogLock<T>(ownerId: string, action: () => Pr
 }
 
 export function listSpriteCatalog(ownerId: string): CharacterSpriteCatalog {
-  const directory = spriteDirectory(ownerId);
-  const catalog = readOptionalSpriteCatalog(ownerId);
-  const sprites = existsSync(directory)
-    ? readdirSync(directory)
-        .filter((filename) => IMAGE.test(filename) && lstatSync(join(directory, filename)).isFile())
-        .sort((a, b) => a.localeCompare(b))
-        .map((filename) => {
-          const expression = filename.slice(0, -extname(filename).length);
-          const metadata = (Object.hasOwn(catalog.sprites, expression) ? catalog.sprites[expression] : undefined) ?? {
-            label: expression,
-            folderId: null,
-          };
-          return {
-            ...metadata,
-            expression,
-            filename,
-            url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Math.floor(statSync(join(directory, filename)).mtimeMs)}`,
-            folderName: catalog.folders.find((folder) => folder.id === metadata.folderId)?.name ?? null,
-          };
-        })
-    : [];
-  return { folders: catalog.folders, sprites };
+  try {
+    const directory = spriteDirectory(ownerId);
+    const catalog = readOptionalSpriteCatalog(ownerId);
+    const sprites: CharacterSpriteCatalog["sprites"] = [];
+    for (const filename of existsSync(directory)
+      ? readdirSync(directory)
+          .filter((file) => IMAGE.test(file))
+          .sort((a, b) => a.localeCompare(b))
+      : []) {
+      try {
+        const file = lstatSync(join(directory, filename));
+        if (file.isSymbolicLink()) {
+          logRateLimited("warn", `sprite-links:${ownerId}`, undefined, "Skipping linked sprite files for %s", ownerId);
+          continue;
+        }
+        if (!file.isFile()) continue;
+        const expression = filename.slice(0, -extname(filename).length);
+        const metadata = (Object.hasOwn(catalog.sprites, expression) ? catalog.sprites[expression] : undefined) ?? {
+          label: expression.slice(0, 160),
+          folderId: null,
+        };
+        sprites.push({
+          ...metadata,
+          expression,
+          filename,
+          url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Math.floor(file.mtimeMs)}`,
+          folderName: catalog.folders.find((folder) => folder.id === metadata.folderId)?.name ?? null,
+        });
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT")
+          logRateLimited("warn", `sprite-files:${ownerId}`, err, "Skipping unreadable sprite files for %s", ownerId);
+      }
+    }
+    return { folders: catalog.folders, sprites };
+  } catch (err) {
+    logRateLimited("warn", `sprite-list:${ownerId}`, err, "Unable to list sprites for %s", ownerId);
+    return { folders: [], sprites: [] };
+  }
 }
 
 /** Import only memberships whose image was successfully restored; never accept filesystem paths from metadata. */

@@ -250,3 +250,26 @@ assert.ok(
 );
 assert.ok(help.feedback?.includes(english["ui.chat.slash.help.arguments"]));
 assert.ok(help.feedback?.includes(english["ui.chat.slash.help.ranges"]));
+
+const emote = matchSlashCommand("/emote", { mode: "roleplay" })!.command;
+const switched: Array<[string, string]> = [];
+try {
+  api.get = (async () => [{ expression: "happy", label: "joy" }, { expression: "neutral" }]) as typeof api.get;
+  const emoteContext = {
+    ...context,
+    setSpriteExpression: async (id: string, handle: string) => {
+      switched.push([id, handle]);
+    },
+  };
+  const listing = await emote.execute("", emoteContext);
+  assert.match(listing.feedback ?? "", /joy, neutral/);
+  assert.doesNotMatch(listing.feedback ?? "", /happy/);
+  await emote.execute('"Lady Maria" joy', emoteContext);
+  assert.deepEqual(switched, [["maria", "happy"]], "a renamed emote resolves to the concrete file handle");
+  await emote.execute('"all" joy', emoteContext);
+  assert.equal(switched.length, 5);
+  assert((await emote.execute('"Lady Maria" unavailable', emoteContext)).feedback?.includes("not found"));
+  assert.equal(switched.length, 5, "an unknown emote must not fall back to another picture");
+} finally {
+  api.get = originalGet;
+}

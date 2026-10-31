@@ -7,7 +7,7 @@ import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/u
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
+import { TOUCH_DRAG_PREVIEW_Z_INDEX, useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { insertLibraryItems } from "../../lib/library-order";
 
@@ -27,11 +27,15 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], categor
     setSelecting(false);
     setSearch("");
   }, [category]);
+  const folderIds = new Set(folders.map((folder) => folder.id));
+  const available = sprites.map((sprite) =>
+    sprite.folderId && !folderIds.has(sprite.folderId) ? { ...sprite, folderId: null } : sprite,
+  );
   const counts = new Map<string, number>();
-  for (const sprite of sprites) {
+  for (const sprite of available) {
     if (sprite.folderId) counts.set(sprite.folderId, (counts.get(sprite.folderId) ?? 0) + 1);
   }
-  const visible = sprites.filter((sprite) =>
+  const visible = available.filter((sprite) =>
     `${sprite.label ?? sprite.expression} ${sprite.folderName ?? ""}`
       .toLowerCase()
       .includes(search.trim().toLowerCase()),
@@ -77,6 +81,41 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], categor
 }
 
 type Library = ReturnType<typeof useSpriteLibrary>;
+
+export function SpriteFolderSelect({
+  library,
+  sprite,
+  busy = false,
+}: {
+  library: Library;
+  sprite: SpriteInfo;
+  busy?: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <label className="block space-y-1 text-xs font-medium">
+      <span>{t("sprites.library.folder")}</span>
+      <select
+        className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm"
+        value={library.folders.some((folder) => folder.id === sprite.folderId) ? sprite.folderId! : "unfiled"}
+        disabled={busy || library.mutation.isPending || !library.query.data}
+        onChange={(event) =>
+          void library.mutate("post", "move", {
+            expressions: [sprite.expression],
+            folderId: event.target.value === "unfiled" ? null : event.target.value,
+          })
+        }
+      >
+        <option value="unfiled">{t("sprites.library.unfiled")}</option>
+        {library.folders.map((folder) => (
+          <option key={folder.id} value={folder.id}>
+            {folder.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export function SpriteLibraryShell({
   library,
@@ -385,7 +424,7 @@ export function SpriteFolderGrid({
               width: `${bounds.width}px`,
               height: `${bounds.height}px`,
               pointerEvents: "none",
-              zIndex: "2147483647",
+              zIndex: TOUCH_DRAG_PREVIEW_Z_INDEX,
               opacity: "1",
               margin: "0",
               backgroundColor: sourceStyle.getPropertyValue("--background").trim(),

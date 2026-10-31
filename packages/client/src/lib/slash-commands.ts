@@ -545,13 +545,14 @@ function resolveAsCommandTarget(
   return { target: null, requestedName: fallbackName, message: "" };
 }
 
-async function listSpriteExpressions(characterId: string): Promise<string[]> {
+async function listSpriteExpressions(characterId: string): Promise<Array<{ expression: string; label?: string }>> {
   try {
-    const sprites = await api.get<Array<{ expression?: string }>>(`/sprites/${encodeURIComponent(characterId)}`);
-    const expressions = sprites
-      .map((sprite) => sprite.expression?.trim())
-      .filter((expression): expression is string => !!expression);
-    return Array.from(new Set(expressions)).sort((a, b) => a.localeCompare(b));
+    const sprites = await api.get<Array<{ expression: string; label?: string }>>(
+      `/sprites/${encodeURIComponent(characterId)}`,
+    );
+    return sprites
+      .filter((sprite) => sprite.expression?.trim())
+      .sort((a, b) => (a.label ?? a.expression).localeCompare(b.label ?? b.expression));
   } catch {
     return [];
   }
@@ -561,7 +562,7 @@ async function buildEmoteListFeedback(characters: Array<{ id: string; name: stri
   const rows = await Promise.all(
     characters.map(async (character) => {
       const expressions = await listSpriteExpressions(character.id);
-      return `${character.name}: ${expressions.length > 0 ? expressions.join(", ") : "no uploaded expression sprites"}`;
+      return `${character.name}: ${expressions.length > 0 ? [...new Set(expressions.map((sprite) => sprite.label ?? sprite.expression))].join(", ") : "no uploaded expression sprites"}`;
     }),
   );
 
@@ -574,13 +575,18 @@ async function buildEmoteListFeedback(characters: Array<{ id: string; name: stri
   ].join("\n");
 }
 
-function matchSpriteExpression(expressions: string[], requested: string): string | null {
+function matchSpriteExpression(
+  expressions: Array<{ expression: string; label?: string }>,
+  requested: string,
+): string | null {
   const normalized = normalizeLookup(requested);
   if (!normalized) return null;
   return (
-    expressions.find((expression) => normalizeLookup(expression) === normalized) ??
-    expressions.find((expression) => normalizeLookup(expression).includes(normalized)) ??
-    null
+    (
+      expressions.find((sprite) => normalizeLookup(sprite.label ?? sprite.expression) === normalized) ??
+      expressions.find((sprite) => normalizeLookup(sprite.expression) === normalized) ??
+      expressions.find((sprite) => normalizeLookup(sprite.label ?? sprite.expression).includes(normalized))
+    )?.expression ?? null
   );
 }
 
@@ -1020,7 +1026,9 @@ const COMMANDS: SlashCommand[] = [
           feedback: [
             `Available Emotes for ${target.name}:`,
             "",
-            availableExpressions.length > 0 ? availableExpressions.join(", ") : "No uploaded expression sprites.",
+            availableExpressions.length > 0
+              ? [...new Set(availableExpressions.map((sprite) => sprite.label ?? sprite.expression))].join(", ")
+              : "No uploaded expression sprites.",
             "",
             `Use /emote "${target.name}" expression to switch one manually.`,
           ].join("\n"),
@@ -1033,7 +1041,7 @@ const COMMANDS: SlashCommand[] = [
           handled: true,
           feedback:
             availableExpressions.length > 0
-              ? `Expression "${requestedExpression}" not found for ${target.name}. Available: ${availableExpressions.join(", ")}`
+              ? `Expression "${requestedExpression}" not found for ${target.name}. Available: ${[...new Set(availableExpressions.map((sprite) => sprite.label ?? sprite.expression))].join(", ")}`
               : `No uploaded expression sprites found for ${target.name}.`,
         };
       }

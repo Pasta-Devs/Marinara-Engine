@@ -1149,6 +1149,7 @@ export class MariImagesService {
   }
 
   private async assignSprite(source: ResolvedImage, ownerId: string, expression: string) {
+    if (expression.length > 160) throw new Error("Expression label must be at most 160 characters");
     const characters = createCharactersStorage(this.db);
     const owner = (await characters.getById(ownerId)) ?? (await characters.getPersona(ownerId));
     if (!owner) throw new Error(`Character/persona not found for sprite owner: ${ownerId}`);
@@ -1335,13 +1336,20 @@ export class MariImagesService {
   }
 
   private async deleteSprite(ownerId: string, expression: string) {
-    const dir = join(SPRITES_DIR, ownerId);
-    if (!existsSync(dir)) return { deleted: 0, files: [] };
-    const files = (await readdir(dir)).filter(
-      (entry) => entry.slice(0, -extname(entry).length) === expression && IMAGE_EXTS.has(extname(entry).toLowerCase()),
-    );
-    for (const file of files) await unlink(assertInsideDir(dir, join(dir, file)));
-    return { deleted: files.length, files };
+    return withSpriteCatalogLock(ownerId, async () => {
+      const sprite = this.findSprite(ownerId, expression);
+      if (!sprite) return { deleted: 0, files: [] };
+      const catalog = readSpriteCatalog(ownerId);
+      const dir = join(SPRITES_DIR, ownerId);
+      const files = (await readdir(dir)).filter(
+        (entry) =>
+          entry.slice(0, -extname(entry).length) === sprite.expression && IMAGE_EXTS.has(extname(entry).toLowerCase()),
+      );
+      for (const file of files) await unlink(assertInsideDir(dir, join(dir, file)));
+      delete catalog.sprites[sprite.expression];
+      await writeSpriteCatalog(ownerId, catalog);
+      return { deleted: files.length, files };
+    });
   }
 
   private async deleteBackground(identifier: string | null) {

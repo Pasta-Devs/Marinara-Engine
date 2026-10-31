@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import AdmZip from "adm-zip";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import multipart from "../../packages/server/node_modules/@fastify/multipart/index.js";
@@ -515,6 +515,38 @@ try {
     assert.equal(importedLore.sourceAgentId, null, "legacy imports cannot retain foreign message attribution");
     assert.deepEqual(JSON.parse(importedLore.sourceMessageRefs), []);
     assert.equal(importedLore.content, "Preserve this fact");
+
+    const { writeSpriteCatalog, listSpriteCatalog } =
+      await import("../../packages/server/src/services/sprites/sprite-catalog.js");
+    const ownerId = "profile-sprite-roundtrip";
+    await writeSpriteCatalog(ownerId, {
+      version: 1,
+      folders: [{ id: "00000000-0000-4000-8000-000000000001", name: "Front", category: "expressions" }],
+      sprites: { happy: { label: "joy", folderId: "00000000-0000-4000-8000-000000000001" } },
+    });
+    const spriteDirectory = join(storageRoot, "sprites", ownerId);
+    await writeFile(join(spriteDirectory, "happy.png"), validPng);
+    const beforeTransfer = listSpriteCatalog(ownerId);
+    const exportedProfile = await app.inject({ method: "GET", url: "/api/backup/export-profile?format=zip" });
+    assert.equal(exportedProfile.statusCode, 200, exportedProfile.body);
+    assert(
+      new AdmZip(exportedProfile.rawPayload)
+        .getEntries()
+        .some((entry) => entry.entryName.endsWith(`sprites/${ownerId}/catalog.json`)),
+    );
+    await rm(spriteDirectory, { recursive: true });
+    const transferred = await app.inject({
+      method: "POST",
+      url: "/api/backup/import-profile",
+      ...multipartUpload("sprites.zip", exportedProfile.rawPayload),
+    });
+    assert.equal(transferred.statusCode, 200, transferred.body);
+    const restoredCatalog = listSpriteCatalog(ownerId);
+    assert.deepEqual(restoredCatalog.folders, beforeTransfer.folders);
+    assert.equal(restoredCatalog.sprites[0]?.expression, "happy");
+    assert.equal(restoredCatalog.sprites[0]?.label, "joy");
+    assert.equal(restoredCatalog.sprites[0]?.folderId, beforeTransfer.folders[0]!.id);
+    assert.deepEqual(await readFile(join(spriteDirectory, "happy.png")), validPng);
   } finally {
     await app.close();
     await dbModule.closeDB();

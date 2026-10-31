@@ -638,6 +638,7 @@ export function useImportSpriteFolder() {
       const images = files.filter((file) => /\.(png|jpg|jpeg|gif|webp|avif|svg)$/iu.test(file.name));
       let imported = 0,
         failed = 0;
+      let firstError: string | undefined;
       onProgress({ done: 0, total: images.length });
       for (const [index, file] of images.entries()) {
         try {
@@ -667,12 +668,13 @@ export function useImportSpriteFolder() {
             folderId: destination,
           });
           imported++;
-        } catch {
+        } catch (error) {
           failed++;
+          firstError ??= error instanceof Error ? error.message : String(error);
         }
         onProgress({ done: index + 1, total: images.length });
       }
-      return { imported, failed, catalogIgnored: Boolean(manifestFile && !manifest) };
+      return { imported, failed, firstError, catalogIgnored: Boolean(manifestFile && !manifest) };
     },
     onSuccess: (_result, input) => qc.invalidateQueries({ queryKey: spriteKeys.list(input.characterId) }),
     onError: (_error, input) => qc.invalidateQueries({ queryKey: spriteKeys.list(input.characterId) }),

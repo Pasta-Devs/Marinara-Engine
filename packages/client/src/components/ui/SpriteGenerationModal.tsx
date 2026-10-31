@@ -8,7 +8,7 @@ import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Fil
 import { Modal } from "./Modal";
 import { cn } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
-import { useSpriteCapabilities } from "../../hooks/use-characters";
+import { useSpriteCapabilities, type SpriteInfo } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
@@ -1949,15 +1949,21 @@ export function SpriteGenerationModal({
     setError(null);
 
     try {
+      const existing = await api.get<SpriteInfo[]>(`/sprites/${entityId}`);
       const results = await Promise.allSettled(
-        saveTargets.map(({ cell, expression }) =>
-          api.post(`/sprites/${entityId}`, {
-            expression,
+        saveTargets.map(({ cell, expression }) => {
+          const matches = existing.filter(
+            (sprite) =>
+              normalizeSpriteExpressionLabel(sprite.label ?? sprite.expression, {
+                fullBody: sprite.expression.startsWith("full_"),
+              }) === expression,
+          );
+          return api.post(`/sprites/${entityId}`, {
+            expression: matches.length === 1 ? matches[0]!.expression : expression,
             image: cell.dataUrl,
-            folderId: null,
-            replaceExisting: true,
-          }),
-        ),
+            ...(matches.length === 1 ? {} : { folderId: null, replaceExisting: true }),
+          });
+        }),
       );
       const failed = results
         .map((result, index) => ({ result, target: saveTargets[index]! }))

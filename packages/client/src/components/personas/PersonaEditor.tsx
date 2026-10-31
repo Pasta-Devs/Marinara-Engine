@@ -1,4 +1,10 @@
-import { useSpriteLibrary, SpriteLibraryShell, SpriteSelection, SpriteFolderGrid } from "../characters/SpriteLibrary";
+import {
+  useSpriteLibrary,
+  SpriteLibraryShell,
+  SpriteSelection,
+  SpriteFolderGrid,
+  SpriteFolderSelect,
+} from "../characters/SpriteLibrary";
 // ──────────────────────────────────────────────
 // Persona Editor — Full-page detail view
 // Replaces the chat area when editing a persona.
@@ -114,7 +120,6 @@ import {
 import { estimateTextTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import {
   useCharacterSprites,
-  useSpriteCatalog,
   useImportSpriteFolder,
   useUploadSprite,
   useDeleteSprite,
@@ -2325,8 +2330,7 @@ function PersonaSpritesTab({
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
 
-  const { data: catalog, isLoading } = useSpriteCatalog(personaId);
-  const sprites = catalog?.sprites;
+  const { data: sprites, isLoading } = useCharacterSprites(personaId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const uploadSprite = useUploadSprite();
   const importFolder = useImportSpriteFolder();
@@ -2349,6 +2353,7 @@ function PersonaSpritesTab({
   const [wandCleanupSprite, setWandCleanupSprite] = useState<SpriteInfo | null>(null);
   const [savingWandCleanup, setSavingWandCleanup] = useState(false);
   const [deleteSpriteRequest, setDeleteSpriteRequest] = useState<SpriteInfo | null>(null);
+  const [movingExpression, setMovingExpression] = useState<string | null>(null);
   const [deletingSprites, setDeletingSprites] = useState<"single" | "all" | null>(null);
   const [folderProgress, setFolderProgress] = useState<{ done: number; total: number } | null>(null);
   const [spriteGenOpen, setSpriteGenOpen] = useState(false);
@@ -2367,6 +2372,7 @@ function PersonaSpritesTab({
   );
   const library = useSpriteLibrary(personaId, categorySprites, category === "full-body" ? "full-body" : "expressions");
   const visibleSprites = library.visible;
+  const movingSprite = categorySprites.find((sprite) => sprite.expression === movingExpression);
   const portraitExpressionSprites = allSprites.filter((sprite) => !sprite.expression.toLowerCase().startsWith("full_"));
   const existingExpressions = new Set(
     categorySprites.map((sprite) =>
@@ -2466,15 +2472,36 @@ function PersonaSpritesTab({
         fullBody: category === "full-body",
         onProgress: setFolderProgress,
       });
-      toast.success(localizeUi("sprites.library.importResult", { count: result.imported }), {
-        description:
-          [
-            result.failed && localizeUi("sprites.library.importFailed", { count: result.failed }),
-            result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
-          ]
-            .filter(Boolean)
-            .join(" ") || undefined,
-      });
+      const notify =
+        result.imported === 0
+          ? result.failed
+            ? toast.error
+            : toast.warning
+          : result.failed || result.catalogIgnored
+            ? toast.warning
+            : toast.success;
+      notify(
+        localizeUi(
+          result.imported
+            ? "sprites.library.importResult"
+            : result.failed
+              ? "sprites.library.importFailed"
+              : "sprites.library.noImages",
+          { count: result.imported || result.failed },
+        ),
+        {
+          description:
+            [
+              result.imported > 0 &&
+                result.failed > 0 &&
+                localizeUi("sprites.library.importFailed", { count: result.failed }),
+              result.firstError,
+              result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined,
+        },
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -2495,17 +2522,17 @@ function PersonaSpritesTab({
   }, [deleteSprite, deleteSpriteRequest, personaId]);
 
   const handleDeleteVisibleSprites = useCallback(async () => {
-    if (visibleSprites.length === 0) return;
+    if (categorySprites.length === 0) return;
     setDeletingSprites("all");
     try {
-      for (const sprite of visibleSprites) {
+      for (const sprite of categorySprites) {
         await deleteSprite.mutateAsync({ characterId: personaId, expression: sprite.expression });
       }
       setDeleteSpriteRequest(null);
     } finally {
       setDeletingSprites(null);
     }
-  }, [deleteSprite, personaId, visibleSprites]);
+  }, [deleteSprite, personaId, categorySprites]);
 
   const handleExportSprites = useCallback(
     async (spritesToExport: SpriteInfo[], modeLabel: "visible" | "all") => {
@@ -3021,6 +3048,16 @@ function PersonaSpritesTab({
                     {displayExpression(sprite.expression)}
                   </span>
                   <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 rounded-lg bg-[var(--card)] p-1 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:static max-md:opacity-100 pointer-coarse:static pointer-coarse:opacity-100">
+                    {library.folders.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setMovingExpression(sprite.expression)}
+                        className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                        title={localizeUi("sprites.library.moveSprite")}
+                      >
+                        <FolderOpen size="0.6875rem" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setFramingSprite(sprite)}
@@ -3063,17 +3100,33 @@ function PersonaSpritesTab({
             <Image size="1.75rem" className="text-[var(--muted-foreground)]/40" />
             <div>
               <p className="text-sm font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.personas.personaspritestab.noSpritesYet")}
+                {localizeUi(
+                  categorySprites.length && library.search
+                    ? "sprites.library.noMatches"
+                    : "ui.personas.personaspritestab.noSpritesYet",
+                )}
               </p>
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
-                {category === "full-body"
-                  ? localizeUi("ui.personas.personaspritestab.uploadFullBodySpritesAboveUseTransparentPngsFor")
-                  : localizeUi("ui.personas.personaspritestab.uploadExpressionSpritesAboveUseTransparentPngsForBest")}
+                {categorySprites.length && library.search
+                  ? localizeUi("sprites.library.tryAnotherSearch")
+                  : category === "full-body"
+                    ? localizeUi("ui.personas.personaspritestab.uploadFullBodySpritesAboveUseTransparentPngsFor")
+                    : localizeUi("ui.personas.personaspritestab.uploadExpressionSpritesAboveUseTransparentPngsForBest")}
               </p>
             </div>
           </div>
         )}
 
+        {movingSprite && (
+          <Modal
+            open
+            onClose={() => setMovingExpression(null)}
+            title={localizeUi("sprites.library.moveSprite")}
+            width="max-w-sm"
+          >
+            <SpriteFolderSelect library={library} sprite={movingSprite} busy={uploading || !!deletingSprites} />
+          </Modal>
+        )}
         {deleteSpriteRequest && (
           <Modal
             open
@@ -3089,7 +3142,7 @@ function PersonaSpritesTab({
                 {displayExpression(deleteSpriteRequest.expression)}"?
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                {visibleSprites.length > 1 ? (
+                {categorySprites.length > 1 ? (
                   <button
                     type="button"
                     onClick={() => void handleDeleteVisibleSprites()}

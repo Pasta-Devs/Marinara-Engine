@@ -107,7 +107,11 @@ import {
   type ImageStyleProfileSettings,
 } from "@marinara-engine/shared";
 import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
-import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
+import {
+  sendValidatedMediaFile,
+  validateImageAssetBuffer,
+  validateImageAssetFile,
+} from "../utils/media-file-security.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -1607,10 +1611,10 @@ export async function spritesRoutes(app: FastifyInstance) {
         replaceExisting?: boolean;
       };
 
-      if (!body.expression?.trim()) {
+      if (!body || typeof body.expression !== "string" || !body.expression.trim()) {
         return reply.status(400).send({ error: "Expression label is required" });
       }
-      if (!body.image) {
+      if (typeof body.image !== "string" || !body.image) {
         return reply.status(400).send({ error: "No image data provided" });
       }
 
@@ -1618,6 +1622,8 @@ export async function spritesRoutes(app: FastifyInstance) {
       if (!expression) {
         return reply.status(400).send({ error: "Expression label must include at least one letter or number" });
       }
+      if (expression.length > 160)
+        return reply.code(400).send({ error: "Expression label must be at most 160 characters" });
 
       // Parse base64
       let base64 = body.image;
@@ -1625,12 +1631,16 @@ export async function spritesRoutes(app: FastifyInstance) {
       if (base64.startsWith("data:")) {
         const match = base64.match(/^data:image\/([\w+]+);base64,/);
         if (match?.[1]) {
-          ext = match[1].replace("+xml", "");
+          ext = match[1].replace("+xml", "").toLowerCase();
           base64 = base64.slice(base64.indexOf(",") + 1);
         }
       }
 
-      const dir = join(SPRITES_ROOT, characterId);
+      const image = Buffer.from(base64, "base64");
+      if (!SPRITE_FILE_RE.test(`.${ext}`) || !validateImageAssetBuffer(image, `sprite.${ext}`, { allowSvg: true }))
+        return reply.code(400).send({ error: "Unsupported sprite image" });
+
+      const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
       await mkdir(dir, { recursive: true });
 
       const catalog = readSpriteCatalog(characterId);
@@ -1642,7 +1652,9 @@ export async function spritesRoutes(app: FastifyInstance) {
         const destination = catalog.folders.find((folder) => folder.id === body.folderId);
         if (destination && destination.category !== (label.startsWith("full_") ? "full-body" : "expressions"))
           return reply.code(400).send({ error: "Sprite and destination folder must have the same type" });
-        const matches = current.filter((sprite) => sprite.label === label && sprite.folderId === body.folderId);
+        const matches = current.filter(
+          (sprite) => sprite.label.toLowerCase() === label.toLowerCase() && sprite.folderId === body.folderId,
+        );
         if (matches.length > 0) {
           if (body.replaceExisting !== true)
             return reply.code(409).send({ error: "An expression with that name already exists in this folder" });
@@ -1651,14 +1663,16 @@ export async function spritesRoutes(app: FastifyInstance) {
               error: "More than one sprite has that name in this folder. Replace a specific sprite instead.",
             });
           expression = matches[0]!.expression;
-        } else if (current.some((sprite) => sprite.expression === expression))
+        } else if (current.some((sprite) => sprite.expression.toLowerCase() === expression.toLowerCase()))
           expression = `${expression}_sprite_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
       }
-      const filename = `${expression}.${ext}`;
-      const filepath = join(dir, filename);
-      const previous = current.find((sprite) => sprite.expression === expression);
-      await writeFile(filepath, Buffer.from(base64, "base64"));
-      if (previous && previous.filename !== filename) await unlink(join(dir, previous.filename));
+      const previous = current.find((sprite) => sprite.expression.toLowerCase() === expression.toLowerCase());
+      if (previous) expression = previous.expression;
+      const filename =
+        previous && extname(previous.filename).toLowerCase() === `.${ext}` ? previous.filename : `${expression}.${ext}`;
+      const filepath = assertInsideDir(dir, join(dir, filename));
+      await writeFile(filepath, image);
+      if (previous && previous.filename !== filename) await unlink(assertInsideDir(dir, join(dir, previous.filename)));
       catalog.sprites[expression] = {
         label: previous?.label ?? label,
         folderId: previous ? previous.folderId : (body.folderId ?? null),
@@ -1941,6 +1955,8 @@ export async function spritesRoutes(app: FastifyInstance) {
         if (!nextExpression) {
           return reply.status(400).send({ error: "Expression label must include at least one letter or number" });
         }
+        if (nextExpression.length > 160)
+          return reply.code(400).send({ error: "Expression label must be at most 160 characters" });
 
         const dir = join(SPRITES_ROOT, characterId);
         if (!existsSync(dir)) return reply.status(404).send({ error: "No sprites found" });
@@ -1982,30 +1998,22 @@ export async function spritesRoutes(app: FastifyInstance) {
     "/:characterId/:expression",
     async (req, reply) => {
       const { characterId, expression } = req.params;
-
-      // Prevent path traversal
-      if (characterId.includes("..") || characterId.includes("/") || characterId.includes("\\")) {
+      if (!ownerParams.safeParse(req.params).success) {
         return reply.status(400).send({ error: "Invalid character ID" });
       }
-
-      const dir = join(SPRITES_ROOT, characterId);
-
-      if (!existsSync(dir)) {
-        return reply.status(404).send({ error: "No sprites found" });
-      }
-
-      const files = readdirSync(dir);
-      const match = files.find((f) => {
-        const ext = extname(f);
-        return f.slice(0, -ext.length) === expression;
+      return withSpriteCatalogLock(characterId, async () => {
+        const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
+        if (!existsSync(dir)) return reply.status(404).send({ error: "No sprites found" });
+        const match = readdirSync(dir).find(
+          (file) => SPRITE_FILE_RE.test(file) && file.slice(0, -extname(file).length) === expression,
+        );
+        if (!match) return reply.status(404).send({ error: "Expression not found" });
+        const catalog = readSpriteCatalog(characterId);
+        delete catalog.sprites[expression];
+        await unlink(assertInsideDir(dir, join(dir, match)));
+        await writeSpriteCatalog(characterId, catalog);
+        return reply.status(204).send();
       });
-
-      if (!match) {
-        return reply.status(404).send({ error: "Expression not found" });
-      }
-
-      unlinkSync(join(dir, match));
-      return reply.status(204).send();
     },
   );
 

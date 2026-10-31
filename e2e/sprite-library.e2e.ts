@@ -16,6 +16,146 @@ const png = Buffer.from(
   "base64",
 );
 
+test("sprite metadata stays optional and folder moves work without dragging", async ({ page, request }, info) => {
+  test.setTimeout(90_000);
+  await isolateSyncedUISettings(page);
+  await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
+  await page.addInitScript(
+    (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
+    version,
+  );
+  const rejectedDirectory = info.outputPath("rejected-import");
+  const emptyDirectory = info.outputPath("empty-import");
+  mkdirSync(rejectedDirectory, { recursive: true });
+  mkdirSync(emptyDirectory, { recursive: true });
+  writeFileSync(`${rejectedDirectory}/rejected.png`, png);
+  writeFileSync(`${emptyDirectory}/notes.txt`, "No images");
+  for (const persona of [false, true]) {
+    const ownersPath = persona ? "/api/characters/personas" : "/api/characters";
+    const created = await request.post(ownersPath, {
+      data: persona ? { name: "Persona folder proof" } : { data: { name: "Character folder proof" } },
+    });
+    expect(created.ok()).toBeTruthy();
+    const owner = await created.json();
+    const path = `/api/sprites/${owner.id}`;
+    try {
+      const folderResponse = await request.post(path + "/folders", {
+        data: { name: "Front", category: "expressions" },
+      });
+      expect(folderResponse.ok()).toBeTruthy();
+      const folderId = (await folderResponse.json()).folders[0].id;
+      for (const expression of ["happy", "sad"])
+        expect(
+          (
+            await request.post(path, {
+              data: {
+                expression,
+                image: `data:image/png;base64,${png.toString("base64")}`,
+                folderId: expression === "happy" ? folderId : null,
+              },
+            })
+          ).ok(),
+        ).toBeTruthy();
+      let metadata: "failed" | "orphan" | "ok" = "failed";
+      await page.route(`**${path}/catalog`, async (route) => {
+        if (route.request().method() !== "GET" || metadata === "ok") return route.continue();
+        if (metadata === "failed")
+          return route.fulfill({ status: 503, json: { error: "Folder information unavailable" } });
+        const catalog = await (await request.get(path + "/catalog")).json();
+        return route.fulfill({ json: { ...catalog, folders: [] } });
+      });
+      await seedUIState(page, {
+        hasCompletedOnboarding: true,
+        characterDetailId: persona ? null : owner.id,
+        personaDetailId: persona ? owner.id : null,
+        sidebarOpen: false,
+        rightPanelOpen: false,
+      });
+      const openSprites = async () => {
+        await page.goto("/");
+        const sections = page.getByRole("button", { name: "Editor sections", exact: true });
+        await expect(sections.or(page.getByRole("button", { name: "Sprites", exact: true })).first()).toBeVisible({
+          timeout: 45000,
+        });
+        if (await sections.isVisible()) {
+          await sections.click();
+          await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
+        } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+      };
+      const library = page.locator("[data-sprite-library]");
+      for (const unavailable of ["failed", "orphan"] as const) {
+        metadata = unavailable;
+        await openSprites();
+        await expect(library.locator("[data-sprite-expression]")).toHaveCount(2);
+        await library.getByRole("button", { name: "Select", exact: true }).click();
+        await library.getByRole("button", { name: "Select all sprites", exact: true }).click();
+        await expect(library.getByRole("checkbox", { checked: true })).toHaveCount(2);
+      }
+      metadata = "ok";
+      await openSprites();
+      const moving = persona
+        ? library.getByRole("button", { name: "Move sprite", exact: true })
+        : library.getByRole("button", { name: "Preview sad", exact: true });
+      await moving.press("Enter");
+      const dialog = page.getByRole("dialog").last();
+      const folder = dialog.getByRole("combobox", { name: "Folder", exact: true });
+      await expect(folder).toBeEnabled();
+      await folder.selectOption({ label: "Front" }, { timeout: 10000 });
+      await expect
+        .poll(
+          async () =>
+            (await (await request.get(path)).json()).find(
+              (sprite: { expression: string }) => sprite.expression === "sad",
+            ).folderId,
+        )
+        .toBe(folderId);
+      await folder.selectOption("unfiled");
+      await expect
+        .poll(
+          async () =>
+            (await (await request.get(path)).json()).find(
+              (sprite: { expression: string }) => sprite.expression === "sad",
+            ).folderId,
+        )
+        .toBeNull();
+      await page.keyboard.press("Escape");
+      await expect(dialog).not.toBeVisible();
+      await library.getByRole("searchbox").fill("missing");
+      await expect(library.getByText("No sprites match this search.", { exact: true })).toBeVisible();
+      await library.getByRole("searchbox").fill("sad");
+      if (persona) {
+        await library.getByRole("button", { name: "Delete", exact: true }).press("Enter");
+        await page
+          .getByRole("dialog")
+          .last()
+          .getByRole("button", { name: /^Delete All Expressions$/iu })
+          .click();
+        await expect.poll(async () => (await (await request.get(path)).json()).length).toBe(0);
+      }
+      await page.route(`**${path}`, (route) =>
+        route.request().method() === "POST"
+          ? route.fulfill({ status: 409, json: { error: "The label already exists" } })
+          : route.continue(),
+      );
+      await library.locator("input[webkitdirectory]").setInputFiles(rejectedDirectory);
+      await expect(
+        page.locator('[data-sonner-toast][data-type="error"]').filter({ hasText: "The label already exists" }),
+      ).toBeVisible();
+      await library.locator("input[webkitdirectory]").setInputFiles(emptyDirectory);
+      await expect(
+        page
+          .locator('[data-sonner-toast][data-type="warning"]')
+          .filter({ hasText: "No supported sprite images were found." }),
+      ).toBeVisible();
+    } finally {
+      await page.unroute(`**${path}/catalog`).catch(() => undefined);
+      await page.unroute(`**${path}`).catch(() => undefined);
+      const deleted = await request.delete(`${ownersPath}/${owner.id}`).catch(() => null);
+      expect.soft(deleted?.ok()).toBeTruthy();
+    }
+  }
+});
+
 test("sprite details, folders and bulk tools keep their intended scope", async ({
   page,
   request,
@@ -832,7 +972,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     );
     await library.locator("input[webkitdirectory]").setInputFiles(importDirectory);
     await expect(
-      page.getByText("1 sprite could not be imported. Folder information could not be read.", { exact: true }),
+      page.getByText("1 sprite could not be imported. Fixture import failure Folder information could not be read.", {
+        exact: true,
+      }),
     ).toBeVisible();
     await page.unroute(`**${path}`);
     expect((await catalog()).sprites.some((sprite: { label: string }) => sprite.label === "grin")).toBeTruthy();

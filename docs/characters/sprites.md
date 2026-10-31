@@ -25,48 +25,62 @@ This guide covers the **Facial Expressions** and **Full-body** categories. The *
 
 ## Uploading your own sprites
 
-You can upload art you already have. Marinara accepts common image files. Transparent PNG files give the best result, because the empty area around the character stays see-through over the scene.
+You can upload PNG, JPEG, GIF, WebP, AVIF, and passive SVG images. Transparent PNG files give the best result, because the empty area around the character stays see-through over the scene. Unsupported or invalid replacement images are rejected without removing the saved sprite.
 
 ### Upload one sprite
 
 1. Open the **Sprites** tab and pick **Facial Expressions** or **Full-body**.
-2. In the **Add Sprite** box, type a name in the text field. For expressions the placeholder shows "Expression name (e.g. happy, sad, angry)". For poses it shows "Pose name (e.g. idle, walk, battle_stance)".
-3. Click **Upload** and choose one image file.
+2. Click **Add sprites**, then **Upload images**. You can select several images together.
+3. Each filename becomes the initial sprite label. Open a sprite to rename it later.
 
-The new sprite appears in the grid below with the name you gave it.
-
-### Quick add common expressions
-
-On the **Facial Expressions** category, a **Quick add** row shows suggested expression names you have not used yet, such as happy or angry. Click one to open the file picker with that name already filled in. This saves you from typing the name yourself.
+The new sprites appear loose in the normal grid. In the persona editor, use the existing **Add Sprite** name field and **Upload** button for a single sprite.
 
 ### Upload a whole folder at once
 
 If you have many sprites in a folder, you can import them all in one step.
 
 1. Name your image files after the expression or pose. For example, name a file `admiration.png` to create an expression called admiration.
-2. In the **Add Sprite** box, click **Upload Folder**.
+2. Open **Add sprites**, then click **Import folder**. In the persona editor, click **Upload Folder** in **Add Sprite**.
 3. Choose the folder that holds your images.
 
 Each file name (without its suffix) becomes the sprite name. A progress line reads "Uploading X/Y sprites" while it runs.
+
+Subfolders become optional sprite folders. An exported `catalog.json` also restores folder membership and edited labels. Invalid folder information is reported while usable images still import. Failed or partial imports report the failure rather than a success for zero images.
 
 To make several versions of the same expression, share a name before an underscore. For example, `happy_01.png` and `happy_blush.png` both count as variants of happy.
 
 ### Manage a sprite
 
-Move your mouse over a sprite card in the grid to see its actions:
+Open a character sprite to preview it and see its actions. Persona sprites keep their actions on the tile:
 
 - **Frame**: crop the image so the character sits where you want.
 - **Download**: save the sprite file to your computer.
 - **Replace**: upload a new image over the same name.
+- **Rename** (character preview): change its label, up to 160 characters, while retaining its file handle and URL. Existing concrete image references keep working.
+- **Folder** (character preview) or **Move sprite** (persona tile): choose a folder, or **No folder**, without dragging.
 - **Delete**: remove that sprite.
 
-Deleting asks you to confirm with the message "Delete sprite for" and the name. When more than one sprite is showing, the same dialog also offers **Delete All Expressions** or **Delete All Full-Body**.
+Deleting asks you to confirm. In the persona editor, **Delete All Expressions** or **Delete All Full-Body** removes the whole category even when a search is active.
+
+### Optional folders and selection
+
+Click **New folder** to create a collapsed folder named **unnamed**. Double-click or double-tap its name to rename it; use the chevron to expand it. Expressions and full-body sprites have separate folders. Folders appear above loose sprites and can be dragged to reorder them.
+
+Drag individual sprites into expanded or collapsed folders. On phones, hold a tile to start dragging; a normal swipe still scrolls. Drag a filed sprite to the loose area to remove its folder assignment. The highlighted area shows the destination. The preview's **Folder** control and the persona tile's **Move sprite** button provide a keyboard alternative.
+
+Click **Select** to reveal checkboxes and **Select all sprites**, then drag the selected sprites together or use the available cleanup and deletion tools. **Cancel** leaves selection mode. Search filters the visible sprites; a search with no matches does not mean the library is empty.
+
+Folders organize sprites; they never choose an active set or hide images from chats or agents. Deleting a folder keeps its sprites loose.
+
+### Character Sheet
+
+The character editor's compact **Character Sheet** row opens with **Manage**. Create or upload a sheet there and enable **Use as reference image** when you want it preferred for character likeness. Reference selection and avatar fallback work as before.
 
 ## Generating sprites with AI
 
 If you have an image connection set up, Marinara can draw sprites for you. A connection is the link between Marinara and an AI service. To generate sprites you need an image connection, and for animated sprites you need a video connection. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) to set one up.
 
-To start, click **Generate Sprite** in the **Add Sprite** box. This opens the **Generate Sprites** window. At the top you choose a source: **Expressions (Portrait)** or **Full-body**.
+To start, open **Add sprites** and click **Generate Sprite**. In the persona editor, this button remains in **Add Sprite**. This opens the **Generate Sprites** window. At the top you choose a source: **Expressions (Portrait)** or **Full-body**.
 
 Fill in the window:
 
@@ -78,6 +92,8 @@ Fill in the window:
 6. Click the **Generate** button.
 
 When the images arrive, you review them. You can turn each one on or off, rename it, and crop it before saving. When you are happy, save the selected images into the character's sprite set.
+
+When exactly one saved sprite in that category has the generated label, saving replaces its image and keeps its folder and handle. A sprite renamed away from that label is preserved. Duplicate labels in different folders need an explicit sprite replacement to choose one reliably.
 
 On the **Full-body** source, if the character already has portrait expressions, you can tick **Match existing expression sprites**. This creates full-body poses that match each expression name you already have.
 
@@ -96,11 +112,11 @@ A sprite looks best when only the character shows and the background is see-thro
 
 ### Clean one sprite by hand
 
-Click a sprite's picture in the grid to open a cleanup editor. There you can erase the background, paint areas back, and check the result against dark, light, and checkerboard backdrops. You can undo, reset to the original, and apply your changes when done.
+Open the character sprite preview and its wand cleanup action, or click a persona sprite's picture to open the cleanup editor. There you can erase the background, paint areas back, and check the result against dark, light, and checkerboard backdrops. You can undo, reset to the original, and apply your changes when done.
 
 ### Clean many sprites at once
 
-The **Clean Backgrounds** button removes the background from every sprite currently showing in the grid.
+In the character editor, click **Select**, choose sprites, and click **Clean Backgrounds**. In the persona editor, the cleanup button applies to the selected sprites, or the visible category when nothing is selected.
 
 1. Set the **Cleanup strength** slider. It runs from Soft to Aggressive, from 0 to 100, and starts at 35. A higher value removes more of the background but can bite into the character.
 2. Click **Clean Backgrounds** and confirm.
@@ -116,10 +132,18 @@ Automatic cleanup examines the image before choosing an engine. The fast built-i
 You can save a character's sprites to your computer as a zip file. A zip is a single file that holds many files together.
 
 1. Open the **Sprites** tab.
-2. Click **Export** in the **Add Sprite** box.
+2. Click **Export** above the character grid, or in the persona's **Add Sprite** box.
 3. Choose **Expressions only** or **Full-body only** to export the current category, or **All sprites** to export everything.
 
-The download is one folder named after the character, holding the sprite image files.
+The download contains the sprite image files and a `catalog.json` for labels and folder organization. Supported native character/persona transfers and profile backups retain that metadata too.
+
+### Folder-aware integrations
+
+`GET /api/sprites/:ownerId` continues to return every sprite, filed or loose. `GET /api/sprites/:ownerId/catalog` adds folders and membership for integrations that want to discover or import one folder at a time. Each sprite includes its stable `expression` handle, editable `label`, `folderId`, and URL. Use folder IDs for membership; the `folders` array is stored order, which the editor displays in reverse so new folders appear first. Folder order does not set agent priority or availability.
+
+The chat asset browser shows edited labels but inserts concrete `card://sprites/<ownerId>/<filename>` links, which keep working after a rename. Chat-scoped links such as `card://sprites/facial/joy.png` can also resolve the edited label; an existing matching filename takes precedence.
+
+Missing or unreadable optional metadata does not hide usable images. Edits refuse damaged metadata rather than silently replacing it. Read-only lists skip inaccessible libraries; export and write paths continue to refuse linked owner directories.
 
 ## How sprites show up in your chat
 

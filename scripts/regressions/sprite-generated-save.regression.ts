@@ -18,6 +18,7 @@ async function request(method: "POST" | "PATCH", url: string, payload: unknown, 
 }
 try {
   const { spritesRoutes } = await import("../../packages/server/src/routes/sprites.routes.js");
+  const { galleryRoutes } = await import("../../packages/server/src/routes/gallery.routes.js");
   const { listSpriteCatalog } = await import("../../packages/server/src/services/sprites/sprite-catalog.js");
   const { getSharp } = await import("../../packages/server/src/services/image/sharp-runtime.js");
   const sharp = await getSharp();
@@ -30,7 +31,9 @@ try {
   const image = `data:image/png;base64,${originalBytes.toString("base64")}`;
   const nextImage = `data:image/png;base64,${nextBytes.toString("base64")}`;
   const files = join(directory, "sprites", owner);
+  app.decorate("db", await getDB());
   await app.register(spritesRoutes, { prefix: "/api/sprites" });
+  await app.register(galleryRoutes, { prefix: "/api/gallery" });
   const loose = await request("POST", base, { expression: "neutral", image, folderId: null });
   const regenerated = await request("POST", base, {
     expression: "neutral",
@@ -129,7 +132,7 @@ try {
   );
 
   const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
-  const { characterDataSchema } = await import("../../packages/shared/dist/index.js");
+  const { characterDataSchema, createChatSchema } = await import("../../packages/shared/dist/index.js");
   const { MariImagesService } = await import("../../packages/server/src/services/mari-db/mari-images.service.js");
   const db = await getDB();
   const mariOwner = (await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Sprite proof" })))!;
@@ -167,6 +170,82 @@ try {
   const beforeAmbiguous = listSpriteCatalog(mariOwner.id);
   await assert.rejects(assign("joy"), /More than one sprite/);
   assert.deepEqual(listSpriteCatalog(mariOwner.id), beforeAmbiguous);
+  const removeByLabel = () =>
+    mari.execute(["delete", "--target", "sprite", "--owner", mariOwner.id, "--expression", "joy", "--apply"], {
+      command: "mari images delete",
+      sessionId: "fixture",
+    });
+  await assert.rejects(removeByLabel(), /More than one sprite/);
+  await request("PATCH", `${mariBase}/happy`, { expression: "joyful" });
+  await removeByLabel();
+  assert.deepEqual(
+    listSpriteCatalog(mariOwner.id).sprites.map((sprite) => sprite.expression),
+    ["happy"],
+  );
+  assert(
+    !Object.hasOwn(
+      JSON.parse(readFileSync(join(directory, "sprites", mariOwner.id, "catalog.json"), "utf8")).sprites,
+      "delighted",
+    ),
+  );
+
+  const beforeCatalogSprite = listSpriteCatalog(owner);
+  const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+  const chat = await createChatsStorage(db).create(
+    createChatSchema.parse({ name: "Sprite asset proof", mode: "roleplay", characterIds: [mariOwner.id] }),
+  );
+  assert(chat);
+  const browserAssets = await app.inject({ method: "GET", url: `/api/gallery/assets/${chat.id}` });
+  assert.equal(browserAssets.statusCode, 200, browserAssets.body);
+  const asset = browserAssets.json().find((entry: { kind: string }) => entry.kind === "sprite");
+  assert.equal(asset.name, "joyful", "the asset browser shows the edited label");
+  const remaining = listSpriteCatalog(mariOwner.id).sprites[0]!;
+  assert(asset.cardUrl.endsWith(remaining.filename), "portable concrete URLs retain the file handle");
+  for (const target of [remaining.filename, "joyful.png"]) {
+    const linkedImage = await app.inject({
+      method: "GET",
+      url: `/api/gallery/asset/${chat.id}/sprites/facial/${target}`,
+    });
+    assert.equal(linkedImage.statusCode, 200, linkedImage.body);
+    assert.deepEqual(linkedImage.rawPayload, jpeg);
+  }
+  const catalogSprite = await request("POST", base, { expression: "catalog", image, folderId: first });
+  const removed = await app.inject({ method: "DELETE", url: `${base}/catalog` });
+  assert.equal(removed.statusCode, 204, removed.body);
+  assert(existsSync(join(files, "catalog.json")), "deleting catalog.png must preserve folder metadata");
+  assert(!existsSync(join(files, catalogSprite.filename)));
+  assert.deepEqual(listSpriteCatalog(owner), beforeCatalogSprite);
+  assert(!Object.hasOwn(JSON.parse(readFileSync(join(files, "catalog.json"), "utf8")).sprites, "catalog"));
+
+  for (const mime of ["bmp", "tiff", "heic", "png"]) {
+    await request(
+      "POST",
+      base,
+      {
+        expression: original.expression,
+        image: `data:image/${mime};base64,${(mime === "png" ? Buffer.from("invalid") : nextBytes).toString("base64")}`,
+      },
+      400,
+    );
+    assert.deepEqual(readFileSync(join(files, original.filename)), originalBytes);
+  }
+  await request("POST", base, { expression: "a".repeat(161), image }, 400);
+  await request("PATCH", `${base}/${original.expression}`, { expression: "a".repeat(161) }, 400);
+  const longHandle = "b".repeat(161);
+  writeFileSync(join(files, `${longHandle}.png`), originalBytes);
+  await request("POST", base + "/move", { expressions: [longHandle], folderId: first });
+  assert.equal(listSpriteCatalog(owner).sprites.find((sprite) => sprite.expression === longHandle)?.label.length, 160);
+
+  const mixedBase = "/api/sprites/mixed-case";
+  const mixedFolder = (await request("POST", mixedBase + "/folders", { name: "Other" })).folders[0].id;
+  const mixedFile = join(directory, "sprites", "mixed-case", "Happy.PNG");
+  writeFileSync(mixedFile, originalBytes);
+  const mixed = await request("POST", mixedBase, { expression: "happy", image: nextImage, folderId: mixedFolder });
+  assert.notEqual(mixed.expression.toLowerCase(), "happy", "case-insensitive collisions get a separate file handle");
+  assert.deepEqual(readFileSync(mixedFile), originalBytes);
+  const replacement = await request("POST", mixedBase, { expression: "Happy", image: nextImage });
+  assert.equal(replacement.filename, "Happy.PNG", "case-only filename differences must not unlink the replacement");
+  assert.deepEqual(readFileSync(mixedFile), nextBytes);
 } finally {
   await app.close();
   await closeDB();

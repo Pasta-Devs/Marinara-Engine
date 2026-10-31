@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -85,6 +85,57 @@ try {
   for (const suffix of ["export?format=native", "export-png"]) {
     const response = await app.inject({ method: "GET", url: `/api/characters/${linkedOwner}/${suffix}` });
     assert.equal(response.statusCode, 500, "export must refuse a linked owner directory");
+  }
+  const { listCharacterSprites, listPartySprites } =
+    await import("../../packages/server/src/services/game/sprite.service.js");
+  const { listSpriteCatalog } = await import("../../packages/server/src/services/sprites/sprite-catalog.js");
+  assert.equal(listCharacterSprites("../outside"), null);
+  assert.deepEqual((await app.inject({ method: "GET", url: `/api/sprites/${linkedOwner}` })).json(), []);
+  assert.deepEqual(
+    listPartySprites([
+      { id: linkedOwner, name: "Unavailable" },
+      { id: "valid-character", name: "Available" },
+    ]).map((owner) => owner.name),
+    ["Available"],
+  );
+  const { logger } = await import("../../packages/server/src/lib/logger.js");
+  const { resetRateLimitedLogs } = await import("../../packages/server/src/lib/log-rate-limit.js");
+  const originalWarn = logger.warn;
+  const warnings: unknown[] = [];
+  logger.warn = ((...args: unknown[]) => {
+    warnings.push(args);
+  }) as typeof logger.warn;
+  try {
+    resetRateLimitedLogs();
+    assert.equal(listSpriteCatalog("valid-character").sprites.length, 1);
+    assert.equal(listSpriteCatalog("valid-character").sprites.length, 1);
+    const another = join(process.env.DATA_DIR, "sprites", "another");
+    mkdirSync(another);
+    writeFileSync(join(another, "catalog.json"), "{broken");
+    listSpriteCatalog("another");
+    assert.equal(warnings.length, 2, "each damaged owner logs once per window");
+  } finally {
+    logger.warn = originalWarn;
+    resetRateLimitedLogs();
+  }
+  const fs = requireFromServer("node:fs");
+  const originalStat = fs.lstatSync;
+  writeFileSync(join(spriteDir, "survivor.png"), "fixture");
+  fs.lstatSync = (path: string, ...options: unknown[]) => {
+    if (path === join(spriteDir, "happy.png"))
+      throw Object.assign(new Error("Sprite deleted during scan"), { code: "ENOENT" });
+    return originalStat(path, ...options);
+  };
+  syncBuiltinESMExports();
+  try {
+    assert.deepEqual(
+      listSpriteCatalog("valid-character").sprites.map((sprite) => sprite.expression),
+      ["survivor"],
+      "a disappearing file must not abort the other files",
+    );
+  } finally {
+    fs.lstatSync = originalStat;
+    syncBuiltinESMExports();
   }
 } finally {
   await app.close();

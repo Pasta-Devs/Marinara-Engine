@@ -1,4 +1,10 @@
-import { useSpriteLibrary, SpriteLibraryShell, SpriteSelection, SpriteFolderGrid } from "./SpriteLibrary";
+import {
+  useSpriteLibrary,
+  SpriteLibraryShell,
+  SpriteSelection,
+  SpriteFolderGrid,
+  SpriteFolderSelect,
+} from "./SpriteLibrary";
 // ──────────────────────────────────────────────
 // Character Editor — Full-page detail view
 // Replaces the chat area when editing a character.
@@ -31,7 +37,6 @@ import {
   useCreatePersona,
   useUploadPersonaAvatar,
   useCharacterSprites,
-  useSpriteCatalog,
   useImportSpriteFolder,
   useCharacterGalleryImages,
   useCharacterGalleryClips,
@@ -5616,8 +5621,7 @@ function SpritesTab({
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
 
-  const { data: catalog, isLoading } = useSpriteCatalog(characterId);
-  const sprites = catalog?.sprites;
+  const { data: sprites, isLoading } = useCharacterSprites(characterId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages(true);
   const conversationCallsInstalled = installedCapabilities.some(
@@ -5788,15 +5792,36 @@ function SpritesTab({
         fullBody: category === "full-body",
         onProgress: setFolderProgress,
       });
-      toast.success(localizeUi("sprites.library.importResult", { count: result.imported }), {
-        description:
-          [
-            result.failed && localizeUi("sprites.library.importFailed", { count: result.failed }),
-            result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
-          ]
-            .filter(Boolean)
-            .join(" ") || undefined,
-      });
+      const notify =
+        result.imported === 0
+          ? result.failed
+            ? toast.error
+            : toast.warning
+          : result.failed || result.catalogIgnored
+            ? toast.warning
+            : toast.success;
+      notify(
+        localizeUi(
+          result.imported
+            ? "sprites.library.importResult"
+            : result.failed
+              ? "sprites.library.importFailed"
+              : "sprites.library.noImages",
+          { count: result.imported || result.failed },
+        ),
+        {
+          description:
+            [
+              result.imported > 0 &&
+                result.failed > 0 &&
+                localizeUi("sprites.library.importFailed", { count: result.failed }),
+              result.firstError,
+              result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined,
+        },
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -6455,27 +6480,7 @@ function SpritesTab({
                       )}
                     </p>
                   </div>
-                  <label className="block space-y-1 text-xs font-medium">
-                    <span>{localizeUi("sprites.library.folder")}</span>
-                    <select
-                      className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm"
-                      value={detailSprite.folderId ?? "unfiled"}
-                      disabled={library.mutation.isPending || spriteBusy}
-                      onChange={(event) =>
-                        void library.mutate("post", "move", {
-                          expressions: [detailSprite.expression],
-                          folderId: event.target.value === "unfiled" ? null : event.target.value,
-                        })
-                      }
-                    >
-                      <option value="unfiled">{localizeUi("sprites.library.unfiled")}</option>
-                      {library.folders.map((folder) => (
-                        <option key={folder.id} value={folder.id}>
-                          {folder.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <SpriteFolderSelect library={library} sprite={detailSprite} busy={spriteBusy} />
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
