@@ -109,11 +109,13 @@ Turn on **Render in-line** under **Illustrations** to show each image inside the
 
 ## Artifacts on demand
 
-In **Chat Settings → Agents → Roleplay Commands**, enable **Immersive HTML** to let the narrator ask the agent for one specific in-world artifact with `[html: prompt="..."]`: a spellbook page, a sign, a sketch on a letter, a terminal readout. The agent runs once for that reply with the request in hand and adds the artifact to the message, so you do not pay for a rewrite on every turn.
+In **Chat Settings → Agents → Roleplay Commands**, enable **HTML Artifacts** to let the narrator make one specific in-world artifact with `[html: prompt="..."]`: a spellbook page, a sign, a sketch on a letter, a terminal readout. It starts off, and needs no agent. You can also ask for one yourself with `/html <what you want>`.
 
-The command needs the **Immersive HTML** agent added to the chat, the way **Illustrations** needs the Illustrator. The six prebuilt **Documents** kinds stay the free, instant option when a plain styled page is enough.
+The artifact appears where the narrator placed the command, after the reply has finished. In the Visual Novel layout you see only the marker. The message's own text stays as it was written.
 
-On the Immersive HTML card in **Chat Settings → Agents**, turn on **Only when asked** to stop automatic runs in this chat. The narrator's command, or `/html <what you want>`, then becomes the only trigger.
+Each artifact is a separate request, at most 3 per reply. It uses the **Immersive HTML** agent's connection if that agent has one, otherwise your default agent connection, otherwise the chat's connection. It follows its own instructions, so edits to the Immersive HTML agent's prompt do not change it. For a plain styled page, the six prebuilt **Documents** kinds are free and instant.
+
+The narrator does not see the artifact's HTML. In later turns it sees a short plain-text version: the artifact's readable text and one line on how it looks. Open the "used html command" marker under the message to read or edit that text, or to delete the artifact, which also removes it from the narrator's memory. If a run fails, the marker says why.
 
 ## Whispers and secrets
 

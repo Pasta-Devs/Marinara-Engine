@@ -304,8 +304,7 @@ Adds in-world visual elements to the latest reply, such as a styled note or scre
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay only.
-- **Key settings**: **Hold Message Until Rewrite**, and **Only when asked**.
-  - **Only when asked** stops automatic runs in that chat. Immersive HTML then runs only when the narrator asks for one visual with `[html: prompt="..."]`, or when you use `/html` with what you want.
+- **Key settings**: **Hold Message Until Rewrite** toggle.
 
 ### Music DJ
 

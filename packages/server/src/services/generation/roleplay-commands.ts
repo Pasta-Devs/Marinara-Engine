@@ -837,9 +837,9 @@ export function buildRoleplayCommandsReminder(args: {
     lines.push(
       '- [document: kind="note|letter|journal|report|poster|terminal" title="title" content="full text"] creates an in-world document. Supply plain text only; the Engine applies the built-in style for that kind. Do not generate HTML or CSS or repeat the document contents in narration.',
     );
-  if (enabled("html") && args.availableAgentIds.has("html"))
+  if (enabled("html"))
     lines.push(
-      '- [html: prompt="the artifact you want, in your own words"] asks Immersive HTML for one bespoke in-world artifact for this reply: a spellbook page, a sign, a letter with a sketch, a terminal readout. Use it only when a specific prop matters to the scene, never as decoration or on every reply. The Engine runs the agent once for this message, so do not write HTML or CSS yourself and do not describe the artifact in your narration.',
+      '- [html: prompt="the artifact you want, in your own words"] creates one bespoke in-world artifact where you place the command: a spellbook page, a sign, a letter with a sketch, a terminal readout. Use it only when a specific prop matters to the scene, never as decoration or on every reply, and at most 3 times in a reply. The Engine makes it after your reply and you will see its text next turn as an "Artifact:" line. Do not write HTML or CSS, do not write that line yourself, and do not repeat the artifact in your narration.',
     );
   if (enabled("sound")) lines.push('- [sound: description="a brief sound effect"] plays a sound cue. Use sparingly.');
   if (enabled("music") && args.availableAgentIds.has("spotify"))

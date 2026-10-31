@@ -3007,6 +3007,31 @@ export function createChatsStorage(db: DB) {
       return opts.messageQueueHeld ? apply() : withPatchQueue(messageExtraPatchQueues, id, apply);
     },
 
+    /**
+     * Change one swipe's command activity against what is saved right now, in the message's extra queue. The array
+     * is written whole, so a read taken before a slow call would undo any change made during it. `update` returns
+     * the new array, or null to leave it as it is.
+     */
+    async patchRoleplayCommandActivity(
+      id: string,
+      swipeIndex: number,
+      update: (activity: RoleplayCommandActivity[]) => RoleplayCommandActivity[] | null,
+    ) {
+      return withPatchQueue(messageExtraPatchQueues, id, async () => {
+        const swipe = (await this.getSwipes(id)).find((row: any) => row.index === swipeIndex);
+        if (!swipe) return null;
+        const next = update(getRoleplayCommandActivity(parseExtraRecord(swipe.extra)));
+        if (!next) return null;
+        return this.updateMessageExtraForSwipe(
+          id,
+          swipeIndex,
+          { roleplayCommandActivity: next, roleplayPrivateCommands: null, roleplayDocuments: null },
+          undefined,
+          { messageQueueHeld: true },
+        );
+      });
+    },
+
     /** Atomically claim a marker in one swipe's extra data. */
     async claimMessageExtraForSwipe(id: string, swipeIndex: number, key: string, value: unknown) {
       return withMessageExtraPatchQueue(id, async () => {

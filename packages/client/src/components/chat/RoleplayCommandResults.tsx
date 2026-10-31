@@ -22,6 +22,9 @@ import { RoleplayDocument } from "./RoleplayDocument";
 import { AnimatedDiceRoll, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
 import { isDiceRollResult } from "../../lib/dice-roll-result";
 import { rollTone, type RollOutcomeToneMode } from "../dice/dice-tone";
+import { extractChatStyleBlocks, sanitizeChatHtml } from "../../lib/chat-html";
+import { scopeChatMessageCss } from "../../lib/chat-message-css";
+import { handleRemoteImageClick, useRemoteImagePolicy } from "../../lib/remote-image-policy";
 
 const loadedAt = Date.now();
 
@@ -181,6 +184,25 @@ export function RoleplayWhisper({
   );
 }
 
+/** An html command's artifact, sanitized and scoped like HTML in a message, without the message's dialogue styling. */
+export function RoleplayArtifact({ html, scopeClass }: { html: string; scopeClass: string }) {
+  const remoteImages = useRemoteImagePolicy();
+  const markup = useMemo(() => {
+    const { html: body, css } = extractChatStyleBlocks(html);
+    const clean = sanitizeChatHtml(body, { allowStyle: true, remoteImages });
+    const scoped = scopeChatMessageCss(css, `.${scopeClass}`, { remoteUrls: remoteImages.loadAll });
+    return scoped ? `<style>${scoped}</style>${clean}` : clean;
+  }, [html, scopeClass, remoteImages]);
+  return (
+    <div
+      className={`mari-html-content relative mb-4 max-w-full whitespace-normal !overflow-hidden !contain-paint ${scopeClass}`}
+      data-roleplay-artifact
+      onClick={handleRemoteImageClick}
+      dangerouslySetInnerHTML={{ __html: markup }}
+    />
+  );
+}
+
 export function RoleplayDiceRoll({
   result,
   createdAt,
@@ -308,12 +330,15 @@ function CommandNotice({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const { command } = item;
+  // An artifact's editable part is what the narrator remembers; its markup is not hand-edited.
   const content =
-    (command.type === "notes" || command.type === "memory" || command.type === "document") &&
-    typeof command.content === "string"
-      ? command.content
-      : null;
-  const limit = command.type === "memory" ? 1000 : command.type === "notes" ? 8000 : 16000;
+    command.type === "html"
+      ? (item.artifact?.memory ?? null)
+      : (command.type === "notes" || command.type === "memory" || command.type === "document") &&
+          typeof command.content === "string"
+        ? command.content
+        : null;
+  const limit = command.type === "memory" || command.type === "html" ? 1000 : command.type === "notes" ? 8000 : 16000;
   const save = async (next: RoleplayCommandActivity) => {
     setError("");
     try {
@@ -483,7 +508,11 @@ function CommandNotice({
                 disabled={pending || !draft.trim() || draft.length > limit}
                 onClick={() => {
                   if (content !== null)
-                    void save({ ...item, command: { ...command, content: draft } as typeof command });
+                    void save(
+                      command.type === "html" && item.artifact
+                        ? { ...item, artifact: { ...item.artifact, memory: draft } }
+                        : { ...item, command: { ...command, content: draft } as typeof command },
+                    );
                 }}
               >
                 {t("roleplay.commands.activity.save")}

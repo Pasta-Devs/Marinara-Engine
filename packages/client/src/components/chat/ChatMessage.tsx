@@ -8,6 +8,7 @@ import {
   normalizeAvatarCrop,
   getRoleplayWhispers,
   getRoleplayCommandActivity,
+  getRoleplayArtifacts,
   getRoleplayCommandContentOffset,
   type AvatarCrop,
 } from "@marinara-engine/shared";
@@ -18,6 +19,7 @@ import { MessageReplyPreview, ReplyToMessageButton } from "./MessageReplyPreview
 import {
   RoleplayCommandResults,
   RoleplayDiceRoll,
+  RoleplayArtifact,
   RoleplayWhisper,
   replaceRoleplayCommandMarkers,
 } from "./RoleplayCommandResults";
@@ -3160,6 +3162,14 @@ export const ChatMessage = memo(function ChatMessage({
             while (fullText[offset] === "\n" || fullText[offset] === "\r") offset++;
             return [{ kind: "illustration" as const, index, images, offset }];
           }),
+          // Visual Novel keeps only the marker for now: its paragraphs have no room for a free-form block.
+          ...(visualNovel || isUser
+            ? []
+            : getRoleplayArtifacts(extra).map(({ activity, index, artifact }) => {
+                let offset = getRoleplayCommandContentOffset(fullText, activity);
+                while (fullText[offset] === "\n" || fullText[offset] === "\r") offset++;
+                return { kind: "artifact" as const, index, html: artifact.html, offset };
+              })),
         ].sort((a, b) => a.offset - b.offset || a.index - b.index)
       : [];
     let paragraphStart = 0;
@@ -3262,6 +3272,12 @@ export const ChatMessage = memo(function ChatMessage({
         >
           {command.images.map(({ attachment, index }) => renderRoleplayImageAttachment(attachment, index, false))}
         </div>
+      ) : command.kind === "artifact" ? (
+        <RoleplayArtifact
+          key={`artifact-${message.id}-${message.activeSwipeIndex}-${command.index}`}
+          html={command.html}
+          scopeClass={`${htmlScopeClass}-artifact-${message.activeSwipeIndex}-${command.index}`}
+        />
       ) : command.kind === "whisper" ? (
         <RoleplayWhisper
           // The original command text identifies the whisper, so an open editor never saves over a replacement.
@@ -3288,6 +3304,7 @@ export const ChatMessage = memo(function ChatMessage({
       ),
     [
       rollToneMode,
+      htmlScopeClass,
       message.chatId,
       message.id,
       message.activeSwipeIndex,

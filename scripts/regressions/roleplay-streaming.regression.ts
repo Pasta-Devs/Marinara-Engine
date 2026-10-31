@@ -944,20 +944,16 @@ assert.match(
   /isStreaming=\{isTextStreaming\}[\s\S]{0,120}generationVisualsPaused=\{isStreaming \|\| agentProcessing\}/u,
   "Roleplay messages should remain editable while ambient rendering stays suspended for background work",
 );
-const earlyTTSReadyIndex = generateRouteSource.indexOf(
-  "if (activatedTextRewriteRunAgents.length === 0 && !guidedHtmlAgent)",
-);
+const earlyTTSReadyIndex = generateRouteSource.indexOf("if (activatedTextRewriteRunAgents.length === 0)");
 const immediateRoleplayTTSReadyIndex = generateRouteSource.indexOf(
-  'if (chatMode === "roleplay" && textRewriteRunAgents.length === 0 && guidedHtmlReplies.size === 0)',
+  'if (chatMode === "roleplay" && textRewriteRunAgents.length === 0)',
 );
 const postActivationWaitIndex = generateRouteSource.indexOf(
   "const inactivePostQuestionIds = await gateActivationQuestions",
 );
 const parallelAgentWaitIndex = generateRouteSource.indexOf("const completedParallelResults = await parallelPromise");
 const textRewritePhaseIndex = generateRouteSource.indexOf("// ── Text rewrite/editing agents:");
-const rewrittenTTSReadyIndex = generateRouteSource.indexOf(
-  "if (activatedTextRewriteRunAgents.length > 0 || guidedHtmlAgent)",
-);
+const rewrittenTTSReadyIndex = generateRouteSource.indexOf("if (activatedTextRewriteRunAgents.length > 0)");
 assert.ok(
   immediateRoleplayTTSReadyIndex > 0 && immediateRoleplayTTSReadyIndex < postActivationWaitIndex,
   "Roleplay speech without an enabled rewrite agent must also precede unrelated activation model calls",
@@ -972,18 +968,13 @@ assert.ok(
 );
 assert.match(
   generateRouteSource,
-  /activatedTextRewriteRunAgents\.length === 0 && !guidedHtmlAgent\) \{\s*await sendAssistantMessageReady\(currentIterationSavedMsg\)/u,
+  /activatedTextRewriteRunAgents\.length === 0\) \{\s*await sendAssistantMessageReady\(currentIterationSavedMsg\)/u,
   "TTS-ready text without a rewrite agent should use the saved row without another storage lookup",
 );
 assert.match(
   generateRouteSource,
-  /activatedTextRewriteRunAgents\.length > 0 \|\| guidedHtmlAgent\) \{\s*await sendAssistantMessageReady\(\)/u,
+  /activatedTextRewriteRunAgents\.length > 0\) \{\s*await sendAssistantMessageReady\(\)/u,
   "TTS-ready text after rewrite agents must reload the persisted edited row",
-);
-assert.match(
-  generateRouteSource,
-  /earlierGuidedParts\.push\(\{ messageId: id, content, split \}\);\s*\}\s*rewriteParts\.unshift\(\.\.\.earlierGuidedParts\);/u,
-  "Earlier responders' guided [html] rewrites should run in turn order, ahead of the last reply",
 );
 assert.match(
   generateRouteSource,

@@ -26,10 +26,9 @@ import {
 } from "../../packages/server/src/services/generation/roleplay-commands.js";
 import { collectPastReasoningMetadata } from "../../packages/server/src/services/generation/generation-parameters.js";
 import {
-  buildGuidedHtmlRequest,
-  mergePairedBuiltInRewriteAgents,
-  selectRewriteAgentsForMessage,
-} from "../../packages/server/src/services/generation/prose-guardian-settings.js";
+  buildHtmlArtifactMessages,
+  parseHtmlArtifactOutput,
+} from "../../packages/server/src/services/generation/html-artifact.js";
 import { conversationPromptHistoryContent } from "../../packages/server/src/routes/generate/conversation-prompt-formatting.js";
 import { generateRoleplaySoundEffect } from "../../packages/server/src/routes/tts.routes.js";
 import { prepareRoleplayRoll } from "../../packages/server/src/services/generation/roleplay-rolls.js";
@@ -977,7 +976,7 @@ assert.equal(placeAfterPrefix("Maukie reads.\nMaukie reads.", "Maukie Whiskers: 
     unplaced,
   ]);
 }
-// Immersive HTML command: one free-form artifact request, gated on the agent (#8586).
+// HTML artifacts: a command result of their own, never message text (#8586).
 assert.deepEqual(parseRoleplayCommands('[html: prompt="SVG: a magic book"]').commands, [
   { type: "html", prompt: "SVG: a magic book" },
 ]);
@@ -987,120 +986,78 @@ assert.equal(parseRoleplayCommands('[html: prompt="' + "x".repeat(2_001) + '"]')
 const htmlCommandMetadata = {
   ...metadata,
   roleplayCommandsEnabled: true,
-  activeAgentIds: ["illustrator", "html"],
+  activeAgentIds: [],
   roleplayCommandToggles: { ...metadata.roleplayCommandToggles, html: true },
 };
-assert.equal(isRoleplayCommandAllowed(htmlCommandMetadata, "html", "alice"), true);
+assert.equal(isRoleplayCommandAllowed(htmlCommandMetadata, "html", "alice"), true, "no agent is needed");
 assert.equal(
-  isRoleplayCommandAllowed({ ...htmlCommandMetadata, activeAgentIds: ["illustrator"] }, "html", "alice"),
+  isRoleplayCommandAllowed({ ...metadata, roleplayCommandsEnabled: true, roleplayCommandToggles: {} }, "html", "alice"),
   false,
-  "the command needs Immersive HTML added to the chat",
+  "the command starts off",
 );
 for (const format of ["xml", "markdown", "none"] as const) {
-  const htmlReminder = (availableAgentIds: Set<string>) =>
+  assert.match(
     buildRoleplayCommandsReminder({
       metadata: htmlCommandMetadata,
       characterId: "alice",
       privateAvailable: true,
-      availableAgentIds,
+      availableAgentIds: new Set(),
       format,
       characterNames: ["Alice", "Narrator"],
-    });
-  assert.match(htmlReminder(new Set(["illustrator", "html"])), /\[html: prompt=/u);
-  assert.doesNotMatch(htmlReminder(new Set(["illustrator"])), /\[html:/u);
+    }),
+    /\[html: prompt=/u,
+  );
 }
-
-// Guided artifact run: the request reaches only its own message, as a call of its own (#8586).
-const guidedBlock = buildGuidedHtmlRequest("SVG: a magic book page");
-assert.match(guidedBlock, /<guided_request>/u);
-assert.match(guidedBlock, /SVG: a magic book page/u);
-assert.match(guidedBlock, /Keep it diegetic/u);
-assert.match(guidedBlock, /Return the full rewritten message/u);
-type RewriteAgent = Parameters<typeof selectRewriteAgentsForMessage>[0]["automaticAgents"][number];
-const rewriteAgent = (type: string) =>
-  ({
-    id: `agent-${type}`,
-    type,
-    name: type,
-    promptTemplate: `${type} prompt`,
-    settings: {},
-  }) as unknown as RewriteAgent;
-const guardian = rewriteAgent("prose-guardian");
-const continuity = rewriteAgent("continuity");
-const htmlAgent = rewriteAgent("html");
-const rewriteRun = (args: {
-  automaticAgents: RewriteAgent[];
-  htmlAgent?: RewriteAgent | null;
-  guidedPrompt?: string;
-  lastReply?: boolean;
-}) =>
-  selectRewriteAgentsForMessage({
-    automaticAgents: args.automaticAgents,
-    automaticRunAgents: mergePairedBuiltInRewriteAgents(args.automaticAgents),
-    htmlAgent: args.htmlAgent === undefined ? htmlAgent : args.htmlAgent,
-    guidedPrompt: args.guidedPrompt,
-    lastReply: args.lastReply ?? true,
-  });
-// One responder, or the responder that asked.
-const guidedOnly = rewriteRun({ automaticAgents: [], guidedPrompt: "a sign" });
+// The model's two blocks.
 assert.deepEqual(
-  guidedOnly.map((entry) => entry.type),
-  ["html"],
+  parseHtmlArtifactOutput("<artifact><b>Hi</b></artifact>\n<memory>Reads: Hi. Bold.</memory>", "a sign"),
+  {
+    html: "<b>Hi</b>",
+    memory: "Reads: Hi. Bold.",
+  },
 );
-assert.match(guidedOnly[0]!.promptTemplate, /^html prompt\n\n<guided_request>[\s\S]*a sign/u);
-assert.equal(htmlAgent.promptTemplate, "html prompt", "the shared agent keeps its own prompt");
-// Two responders in "Only when asked": the first asked, the last did not.
-const firstResponderRun = rewriteRun({ automaticAgents: [guardian], guidedPrompt: "a sign", lastReply: false });
-assert.deepEqual(
-  firstResponderRun.map((entry) => entry.type),
-  ["html"],
-  "an earlier responder's message gets its request and no other rewrite",
+assert.equal(parseHtmlArtifactOutput("<artifact>```html\n<b>Hi</b>\n```</artifact>", "a sign")?.html, "<b>Hi</b>");
+assert.equal(
+  parseHtmlArtifactOutput("<artifact><b>Hi</b></artifact>", "a sign")?.memory,
+  "a sign",
+  "the request stands in",
 );
-assert.match(firstResponderRun[0]!.promptTemplate, /a sign/u);
-assert.deepEqual(rewriteRun({ automaticAgents: [] }), [], "the last responder never asked, so nothing runs on it");
-const lastResponderRun = rewriteRun({ automaticAgents: [guardian] });
-assert.deepEqual(
-  lastResponderRun.map((entry) => entry.type),
-  ["prose-guardian"],
+assert.equal(parseHtmlArtifactOutput("<artifact><b>Cut off", "a sign"), null, "a cut-off artifact is a failed run");
+assert.equal(parseHtmlArtifactOutput("<artifact>  </artifact>", "a sign"), null);
+assert.equal(parseHtmlArtifactOutput("no blocks", "a sign"), null);
+assert.equal(
+  parseHtmlArtifactOutput(`<artifact>x</artifact><memory>${"m".repeat(1_500)}</memory>`, "a sign")?.memory.length,
+  1_000,
 );
-assert.doesNotMatch(lastResponderRun[0]!.promptTemplate, /<guided_request>/u);
-assert.deepEqual(
-  rewriteRun({ automaticAgents: [guardian], lastReply: false }),
-  [],
-  "an earlier responder that never asked",
-);
-// An earlier part of a split reply has no request of its own.
-assert.deepEqual(rewriteRun({ automaticAgents: [] }), [], "manual-only: the earlier part makes no call");
-assert.deepEqual(
-  rewriteRun({ automaticAgents: [guardian, htmlAgent] }).map((entry) => entry.name),
-  ["prose-guardian + html"],
-  "automatic: the earlier part keeps its ordinary merged pass",
-);
-// The request never joins the merged editor, and it runs last so no editor rewrites the artifact away.
-const guidedWithEditors = rewriteRun({ automaticAgents: [guardian, continuity, htmlAgent], guidedPrompt: "a sign" });
-assert.deepEqual(
-  guidedWithEditors.map((entry) => entry.type),
-  ["prose-guardian", "html"],
-);
-assert.equal(guidedWithEditors[0]!.name, "prose-guardian + continuity");
-assert.doesNotMatch(guidedWithEditors[0]!.promptTemplate, /<guided_request>/u);
-assert.match(guidedWithEditors[1]!.promptTemplate, /<guided_request>/u);
-// An inactive agent cannot run the request.
-assert.deepEqual(
-  rewriteRun({ automaticAgents: [guardian], htmlAgent: null, guidedPrompt: "a sign" }).map((entry) => entry.type),
-  ["prose-guardian"],
-);
-assert.deepEqual(rewriteRun({ automaticAgents: [], htmlAgent: null, guidedPrompt: "a sign", lastReply: false }), []);
-// The prompt lives per reply, and a defined intro stays exactly as set.
+const artifactPrompt = buildHtmlArtifactMessages({ reply: "One. Two.", offset: 4, request: "a sign" });
+assert.match(artifactPrompt.at(-1)!.content as string, /One\.\n\[ARTIFACT GOES HERE\]\n Two\./u);
+assert.match(artifactPrompt.at(-1)!.content as string, /<request>\na sign\n<\/request>/u);
+// The narrator keeps the memory, never the markup; a deleted or failed artifact is gone from it.
+const artifactMessage = (patch: Record<string, unknown>) => ({
+  role: "assistant",
+  content: "Prose.",
+  extra: {
+    roleplayCommandActivity: [
+      {
+        command: { type: "html", prompt: "a sign" },
+        raw: '[html: prompt="a sign"]',
+        artifact: { html: "<b>OPEN</b>", memory: "Reads: OPEN." },
+        ...patch,
+      },
+    ],
+  },
+});
+const artifactHistory = (patch: Record<string, unknown>) =>
+  conversationPromptHistoryContent(artifactMessage(patch) as never, "roleplay");
+assert.equal(artifactHistory({}), "Prose.\n\nArtifact: Reads: OPEN.");
+assert.equal(artifactHistory({ deleted: true }), "Prose.");
+assert.equal(artifactHistory({ error: "failed" }), "Prose.");
+assert.equal(artifactHistory({ artifact: undefined }), "Prose.", "a run still going adds nothing");
+// A reply's limit, and a defined intro staying as the card set it.
 const htmlRouteSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
 );
-assert.doesNotMatch(htmlRouteSource, /_guidedHtmlRequest/u);
-assert.match(htmlRouteSource, /if \(definedIntro\?\.mode !== "defined"\) \{\s*guidedHtmlPrompt =/u);
-assert.equal(
-  isRoleplayCommandAllowed({ ...htmlCommandMetadata, roleplayHtmlManualOnly: true }, "html", "alice"),
-  true,
-  "Only when asked keeps the command available",
-);
+assert.match(htmlRouteSource, /command\.type === "html" && definedIntro\?\.mode === "defined"\) continue;/u);
+assert.match(htmlRouteSource, /\+\+replyHtmlArtifacts > HTML_ARTIFACT_LIMIT_PER_REPLY/u);
 process.stdout.write("Roleplay commands regression passed.\n");

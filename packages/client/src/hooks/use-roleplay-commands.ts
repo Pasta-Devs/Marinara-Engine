@@ -6,6 +6,16 @@ import { chatKeys, forgetUnchangedMessageContentEdit } from "./use-chats";
 import { advancedMemoryKeys } from "./use-advanced-memory";
 import { lorebookKeys } from "./use-lorebooks";
 
+export function useRoleplayHtmlArtifact() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ chatId, prompt }: { chatId: string; prompt: string }) =>
+      api.post<{ messageId: string }>(`/chats/${chatId}/roleplay-html`, { prompt }),
+    // A failed run is saved on its marker too, so the message refreshes either way.
+    onSettled: (_data, _error, { chatId }) => qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) }),
+  });
+}
+
 export function useRestoreRoleplayInterrupt(chatId: string) {
   const qc = useQueryClient();
   return useMutation({

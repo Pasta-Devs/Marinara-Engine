@@ -167,6 +167,7 @@ import { forwardPromptPreview } from "./generate/prompt-preview.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
 import { newId } from "../utils/id-generator.js";
+import { runHtmlArtifactCommand } from "../services/generation/html-artifact.js";
 import { readChatBranchGraph } from "../services/chat-branch-graph.js";
 import {
   isStoryTranscriptMessage,
@@ -2953,6 +2954,54 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
     },
   );
+
+  // /html: make one artifact on the latest reply, through the same path as the narrator's [html] command.
+  app.post<{ Params: { chatId: string } }>("/:chatId/roleplay-html", async (req, reply) => {
+    const body = z.object({ prompt: z.string().trim().min(1).max(2_000) }).safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: "Say what the artifact should be." });
+    const chat = await storage.getById(req.params.chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chat.mode !== "roleplay") return reply.status(400).send({ error: "This command is for Roleplay chats." });
+    const active = (app as unknown as { activeGenerations?: Map<string, unknown> }).activeGenerations;
+    if (active?.has(chat.id))
+      return reply.status(409).send({ error: "Wait for the current generation to finish before making an artifact." });
+    const target = (await storage.listMessages(chat.id)).filter((message) => message.role === "assistant").at(-1);
+    if (!target) return reply.status(400).send({ error: "Send a message before making an artifact." });
+    const { prompt } = body.data;
+    const swipeIndex = target.activeSwipeIndex ?? 0;
+    let activityIndex = -1;
+    const saved = await storage.patchRoleplayCommandActivity(target.id, swipeIndex, (activity) => {
+      activityIndex = activity.length;
+      return [
+        ...activity,
+        {
+          command: { type: "html", prompt },
+          raw: `[html: prompt="${prompt}"]`,
+          contentOffset: target.content.length,
+          contentAnchor: target.content.slice(-80),
+        },
+      ];
+    });
+    if (!saved) return reply.status(404).send({ error: "Message not found" });
+    const summary = parseExtra(chat.metadata).summary;
+    const controller = new AbortController();
+    reply.raw.once("close", () => {
+      if (!reply.raw.writableEnded) controller.abort();
+    });
+    const error = await runHtmlArtifactCommand({
+      db: app.db,
+      messageId: target.id,
+      swipeIndex,
+      activityIndex,
+      request: prompt,
+      chatConnectionId: typeof chat.connectionId === "string" ? chat.connectionId : null,
+      referenceContext:
+        typeof summary === "string" && summary.trim() ? `<chat_summary>\n${summary}\n</chat_summary>` : "",
+      signal: controller.signal,
+    });
+    if (error) return reply.status(502).send({ error });
+    return { messageId: target.id };
+  });
 
   // Update message extra (partial merge) — also syncs to the active swipe
   app.patch<{ Params: { chatId: string; messageId: string }; Querystring: { swipeIndex?: string } }>(

@@ -90,8 +90,6 @@ type RetryAgentsOptions = {
     negativePrompt?: string;
   };
   illustratorRetryTargets?: IllustratorRetryTarget[];
-  /** Immersive HTML asked by hand: one artifact for the latest reply, without adding the agent. */
-  manualHtmlPrompt?: string;
   /** Draw the picture only, never a clip: the caller animates it. A run paused for prompt review returns false. */
   illustratorStillOnly?: boolean;
   /** Told the Gallery id of each picture the Illustrator draws in this run. */
@@ -3070,6 +3068,10 @@ export function useGenerate() {
               }
               break;
             }
+            case "roleplay_artifact": {
+              qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
+              break;
+            }
             case "spotify_command": {
               const spotifyData = event.data as {
                 track?: { name?: string; artist?: string };
@@ -3945,7 +3947,6 @@ export function useGenerate() {
               ? { illustratorPromptReviewOverride: options.illustratorPromptReviewOverride }
               : {}),
             ...(options?.illustratorRetryTargets ? { illustratorRetryTargets: options.illustratorRetryTargets } : {}),
-            ...(options?.manualHtmlPrompt ? { manualHtmlPrompt: options.manualHtmlPrompt } : {}),
             ...(options?.illustratorStillOnly ? { illustratorStillOnly: true } : {}),
             ...(options?.illustratorMessageRange ? { illustratorMessageRange: options.illustratorMessageRange } : {}),
             ...(options?.forceImageGeneration ? { forceImageGeneration: true } : {}),
@@ -4315,8 +4316,7 @@ export function useGenerate() {
               break;
             }
             case "done": {
-              // A hand-run artifact rewrote a message that is already on screen.
-              if (spriteChangeReceived || options?.manualHtmlPrompt) {
+              if (spriteChangeReceived) {
                 qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
               }
               break;

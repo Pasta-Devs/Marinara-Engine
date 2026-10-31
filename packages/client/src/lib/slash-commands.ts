@@ -91,7 +91,7 @@ export interface SlashCommandContext {
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
   /** Trigger the same image illustration action exposed in the chat Gallery. */
   illustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
-  /** Ask Immersive HTML for one artifact on the latest reply, without adding the agent. */
+  /** Make one in-world HTML artifact on the latest reply. */
   html?: (prompt: string) => void | Promise<void>;
   /** Trigger the same Conversation selfie action exposed in the chat Gallery. */
   selfie?: (characterId?: string) => void | Promise<void>;
@@ -1323,17 +1323,16 @@ const COMMANDS: SlashCommand[] = [
   },
   {
     name: "html",
-    description: "Ask Immersive HTML for one in-world artifact on the latest reply",
+    description: "Make one in-world HTML artifact on the latest reply",
     usage: "/html <what you want, e.g. a spellbook page>",
-    requiredCapabilityId: "html",
     modes: ["roleplay"],
     local: true,
     async execute(args, ctx) {
       const prompt = args.trim();
       if (!prompt) return { handled: true, feedback: "Usage: /html <what you want, e.g. a spellbook page>" };
-      if (!ctx.html) return { handled: true, feedback: "Immersive HTML is not available in this chat." };
+      if (!ctx.html) return { handled: true, feedback: "HTML artifacts are not available in this chat." };
       if (useChatStore.getState().abortControllers.has(ctx.chatId)) {
-        return { handled: true, feedback: "Immersive HTML is already running for this chat." };
+        return { handled: true, feedback: "Wait for the current generation to finish." };
       }
       await ctx.html(prompt);
       return { handled: true };

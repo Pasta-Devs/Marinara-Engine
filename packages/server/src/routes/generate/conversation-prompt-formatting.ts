@@ -1,4 +1,9 @@
-import { getRoleplayDocuments, getRoleplayWhispers, type WrapFormat } from "@marinara-engine/shared";
+import {
+  getRoleplayArtifacts,
+  getRoleplayDocuments,
+  getRoleplayWhispers,
+  type WrapFormat,
+} from "@marinara-engine/shared";
 
 import { isSentSelfieAttachment, type PromptAttachment } from "../../services/generation/prompt-attachments.js";
 import { parseRoleplayUserCommands } from "../../services/generation/roleplay-commands.js";
@@ -106,6 +111,7 @@ export function conversationPromptHistoryContent(
         ...documents
           .filter((document) => document && typeof document.title === "string" && typeof document.content === "string")
           .map((document) => `Document: ${document.title}\n${document.content}`),
+        ...getRoleplayArtifacts(extra).map(({ artifact }) => `Artifact: ${artifact.memory}`),
       ].join("\n\n");
   }
   if (chatMode === "conversation" && message.role === "assistant") {

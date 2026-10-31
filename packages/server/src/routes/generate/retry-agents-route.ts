@@ -278,7 +278,6 @@ import {
   explicitlyRequestsTextRewrite,
   isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
-  withGuidedHtmlRequest,
   normalizeProseGuardianPromptTemplate,
   sharesBuiltInRewriteRequest,
 } from "../../services/generation/prose-guardian-settings.js";
@@ -1818,7 +1817,6 @@ function resolveRetryAgentConnectionRequest(args: {
 export async function resolveRetryAgents(args: {
   agentTypes: string[];
   manualIllustration?: boolean;
-  manualHtml?: boolean;
   chat: any;
   conns: ReturnType<typeof createConnectionsStorage>;
   agentsStore: ReturnType<typeof createAgentsStorage>;
@@ -1843,10 +1841,6 @@ export async function resolveRetryAgents(args: {
     BUILT_IN_AGENTS.some((agent) => agent.id === "illustrator")
   ) {
     activeAgentTypeSet.add("illustrator");
-  }
-  // A one-shot /html request does not opt the chat into automatic Immersive HTML runs.
-  if (args.manualHtml && chatMode === "roleplay" && BUILT_IN_AGENTS.some((agent) => agent.id === "html")) {
-    activeAgentTypeSet.add("html");
   }
   const normalizedAgentTypes = agentTypes.map(normalizeRetryAgentTypeId);
   const agentTypeSet = new Set(
@@ -4827,8 +4821,6 @@ export async function registerRetryAgentsRoute(
       illustratorStillOnly?: boolean;
       /** Inclusive stored-message IDs selected by /illustrate range=N-M. */
       illustratorMessageRange?: unknown;
-      /** Immersive HTML asked by hand: one artifact for the latest reply, without adding the agent. */
-      manualHtmlPrompt?: string;
       /** Force image generation for retried custom image agents' results (snapshot button, #4682). */
       forceImageGeneration?: boolean;
       lorebookKeeperBackfill?: boolean;
@@ -4863,7 +4855,6 @@ export async function registerRetryAgentsRoute(
       illustratorRetryTargets: rawIllustratorRetryTargets,
       illustratorStillOnly = false,
       illustratorMessageRange,
-      manualHtmlPrompt: rawManualHtmlPrompt,
       forceImageGeneration = false,
       lorebookKeeperBackfill = false,
       customLorebookBackfill = false,
@@ -4877,11 +4868,6 @@ export async function registerRetryAgentsRoute(
       ? parseIllustratorPromptReviewOverride(rawIllustratorPromptReviewOverride)
       : null;
     const illustratorRetryTargets = parseIllustratorRetryTargets(rawIllustratorRetryTargets);
-    // The request is for Immersive HTML alone; with other agents it would blend into a merged editor's prompt.
-    const manualHtmlPrompt =
-      typeof rawManualHtmlPrompt === "string" && agentTypes?.length === 1 && agentTypes[0] === "html"
-        ? rawManualHtmlPrompt.trim().slice(0, 2_000)
-        : "";
     if (!chatId || !agentTypes?.length) {
       return reply.status(400).send({ error: "chatId and agentTypes are required" });
     }
@@ -5066,7 +5052,6 @@ export async function registerRetryAgentsRoute(
       const { conn, enabledConfigs, resolvedAgents, warnings } = await runRetrySetupPhase(abortController.signal, () =>
         resolveRetryAgents({
           agentTypes,
-          manualHtml: !!manualHtmlPrompt,
           // Gallery Illustrate and Background are one-off runs, so neither needs Illustrator added to the chat.
           manualIllustration:
             (isManualIllustratorImageRequest || isManualIllustratorBackgroundRequest) &&
@@ -5082,11 +5067,6 @@ export async function registerRetryAgentsRoute(
           onFallback,
         }),
       );
-      if (manualHtmlPrompt) {
-        for (const entry of resolvedAgents) {
-          if (entry.resolved.type === "html") entry.resolved = withGuidedHtmlRequest(entry.resolved, manualHtmlPrompt);
-        }
-      }
       if (illustratorMessageRange) {
         for (const entry of resolvedAgents) {
           entry.resolved.settings = { ...entry.resolved.settings, contextSize: recentMessages.length };

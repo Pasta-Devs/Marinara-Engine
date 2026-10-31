@@ -9212,17 +9212,6 @@ export function ChatSettingsDrawer({
                         >
                           {renderAgentLorebookAttachment("html")}
                           <AgentSettingsToggle
-                            label={localizeUi("roleplay.commands.html.manualOnly.label")}
-                            description={localizeUi("roleplay.commands.html.manualOnly.description")}
-                            enabled={metadata.roleplayHtmlManualOnly === true}
-                            onToggle={() =>
-                              updateMeta.mutate({
-                                id: chat.id,
-                                roleplayHtmlManualOnly: metadata.roleplayHtmlManualOnly !== true,
-                              })
-                            }
-                          />
-                          <AgentSettingsToggle
                             label={localizeUi("ui.chat.agentaddsetupfields.holdMessageUntilRewrite")}
                             description={
                               proseGuardianHoldForRewrite

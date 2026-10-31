@@ -619,8 +619,6 @@ export interface ChatMetadata {
   roleplaySoundConnectionId?: string | null;
   /** Show each illustrate command's images inside the message, where the command was written. */
   roleplayIllustrateInline?: boolean;
-  /** Immersive HTML runs only on an [html: …] request or /html, never after every reply. */
-  roleplayHtmlManualOnly?: boolean;
   /** Chat-scoped Intiface Central WebSocket URL for haptic manual and auto-connect. */
   hapticIntifaceUrl?: string | null;
   /** Haptic response style for any chat mode. Missing = standard. */

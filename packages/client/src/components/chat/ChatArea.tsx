@@ -91,6 +91,7 @@ import { useAgentStore, EMPTY_AGENT_TYPES } from "../../stores/agent.store";
 import { isBuiltInTrackerAgentType, resolveTrackerRerunTypes } from "../../lib/tracker-agents";
 import { Modal } from "../ui/Modal";
 import { useEncounter } from "../../hooks/use-encounter";
+import { useRoleplayHtmlArtifact } from "../../hooks/use-roleplay-commands";
 import { useScene } from "../../hooks/use-scene";
 import { useEncounterStore } from "../../stores/encounter.store";
 import { useTranslationStore } from "../../stores/translation.store";
@@ -1085,12 +1086,18 @@ const LocalChatArea = memo(function LocalChatArea({
     setIllustratorPromptReview(null);
   }, [illustratorPromptReviewSubmitting]);
 
+  const makeHtmlArtifact = useRoleplayHtmlArtifact().mutateAsync;
   const handleHtml = useCallback(
-    (prompt?: string) => {
-      if (!activeChatId) return;
-      return retryAgents(activeChatId, ["html"], { manualHtmlPrompt: prompt }).then(() => undefined);
+    async (prompt?: string) => {
+      if (!activeChatId || !prompt) return;
+      const toastId = toast.loading(localizeUi("ui.chat.chatarea.makingHtmlArtifact"));
+      try {
+        await makeHtmlArtifact({ chatId: activeChatId, prompt });
+      } finally {
+        toast.dismiss(toastId);
+      }
     },
-    [activeChatId, retryAgents],
+    [activeChatId, makeHtmlArtifact, localizeUi],
   );
 
   const handleIllustrateWithAgent = useCallback(

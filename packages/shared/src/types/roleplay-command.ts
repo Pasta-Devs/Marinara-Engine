@@ -76,6 +76,8 @@ export interface RoleplayCommandActivity {
   originalContentAnchor?: string;
   /** Resolve once so a rename cannot redirect a saved secret. */
   whisperRecipient?: RoleplayWhisperRecipient;
+  /** What an html command made: the markup for the player, and the plain text the narrator keeps in later turns. */
+  artifact?: { html: string; memory: string };
   /** Exact before/after text makes interruption reversible without overwriting later edits. */
   interruption?: {
     targetMessageId: string;
@@ -138,6 +140,18 @@ export function getRoleplayDocuments(extra: Record<string, unknown>): RoleplayDo
     typeof command.title === "string" &&
     typeof command.content === "string"
       ? [{ type: command.documentType, title: command.title, content: command.content }]
+      : [],
+  );
+}
+
+export function getRoleplayArtifacts(extra: Record<string, unknown>) {
+  return getRoleplayCommandActivity(extra).flatMap((activity, index) =>
+    !activity.deleted &&
+    !activity.error &&
+    activity.command.type === "html" &&
+    typeof activity.artifact?.html === "string" &&
+    typeof activity.artifact.memory === "string"
+      ? [{ activity, index, artifact: activity.artifact }]
       : [],
   );
 }
@@ -286,12 +300,10 @@ export function isRoleplayCommandAllowed(
     if (!characterId || characterId !== metadata.roleplayCommandNarratorId) return false;
   }
   if (key === "music" && metadata.enableAgents !== true) return false;
-  if (key === "illustrate" || key === "combat" || key === "music" || key === "html") {
+  if (key === "illustrate" || key === "combat" || key === "music") {
     return (
       Array.isArray(metadata.activeAgentIds) &&
-      metadata.activeAgentIds.includes(
-        key === "illustrate" ? "illustrator" : key === "music" ? "spotify" : key === "html" ? "html" : "combat",
-      )
+      metadata.activeAgentIds.includes(key === "illustrate" ? "illustrator" : key === "music" ? "spotify" : "combat")
     );
   }
   return true;

@@ -214,6 +214,11 @@ import {
 } from "../services/storage/chats.storage.js";
 import { updateInterruptedPromptHistory } from "../services/generation/roleplay-interrupt-context.js";
 import {
+  HTML_ARTIFACT_LIMIT_ERROR,
+  HTML_ARTIFACT_LIMIT_PER_REPLY,
+  runHtmlArtifactCommand,
+} from "../services/generation/html-artifact.js";
+import {
   commitSpatialOwnerTurn,
   findAppliedSpatialOwnerTurn,
   SpatialOwnerTurnError,
@@ -502,6 +507,7 @@ import { executeToolCalls } from "../services/tools/tool-executor.js";
 import { createAgentPipeline, type ResolvedAgent, type AgentInjection } from "../services/agents/agent-pipeline.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
+  buildAgentReferenceContextBlock,
   effectiveAgentPromptTemplate,
   executeAgent,
   normalizeAgentContextSize,
@@ -1001,7 +1007,6 @@ import { findLastUserMessageIdBefore } from "../services/generation/message-hist
 import {
   explicitlyRequestsTextRewrite,
   getTextRewritePendingState,
-  selectRewriteAgentsForMessage,
   isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
   PROSE_GUARDIAN_PENDING_MESSAGE,
@@ -7217,13 +7222,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           (a) => a.phase === "post_processing" && resolveAgentResultType(a) === "text_rewrite",
         );
         // A defined intro (1.339) stays exactly as set: no agent rewrites it; its Game tags still run.
-        // "Only when asked" keeps Immersive HTML out of the automatic pass; an [html: …] request still runs it (#8586).
-        const textRewriteAgents =
-          definedIntro?.mode === "defined"
-            ? []
-            : chatMeta.roleplayHtmlManualOnly === true
-              ? allTextRewriteAgents.filter((agent) => agent.type !== "html")
-              : allTextRewriteAgents;
+        const textRewriteAgents = definedIntro?.mode === "defined" ? [] : allTextRewriteAgents;
         const textRewriteRunAgents = mergePairedBuiltInRewriteAgents(textRewriteAgents);
         const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
         const holdForTextRewrite = shouldHoldForTextRewrite(textRewriteAgents);
@@ -8071,9 +8070,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // final reply's, so only this may stand in for an empty Game Mode reply.
         let replyThinking = "";
         let allResponses: string[] = [];
-        // Each reply's own [html: …] request, by its saved message (the last part of a split reply). Every responder
-        // in an individual group shares this request's agents, so the prompt cannot live on them (#8586).
-        const guidedHtmlReplies = new Map<string, { prompt: string; split: boolean }>();
         // The scenes a game reply shows as written (worldgen W10): a rewrite of the reply must keep them.
         let turnShownScenes: readonly string[] = [];
         // The earlier parts of the last reply, when it was split at scene breaks; its last part is the last response.
@@ -9672,8 +9668,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           // ── Parse and strip hidden character commands ──
           let roleplayHadCommands = false;
+          let replyHtmlArtifacts = 0;
           const currentRoleplayMedia: RoleplayCommand[] = [];
-          let guidedHtmlPrompt = "";
           if (chatMode === "roleplay" && !input.impersonate) {
             const parsed = parseRoleplayCommands(fullResponse);
             roleplayHadCommands = parsed.content !== fullResponse;
@@ -9728,23 +9724,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const requiredAgent =
                 command.type === "illustrate" || command.type === "video"
                   ? "illustrator"
-                  : command.type === "html"
-                    ? "html"
-                    : command.type === "combat"
-                      ? "combat"
-                      : command.type === "music"
-                        ? "spotify"
-                        : null;
+                  : command.type === "combat"
+                    ? "combat"
+                    : command.type === "music"
+                      ? "spotify"
+                      : null;
               if (requiredAgent && !resolvedAgents.some((agent) => agent.type === requiredAgent)) continue;
-              if (command.type === "html") {
-                // The rewrite stage below applies the artifact to this reply; nothing renders here.
-                if (definedIntro?.mode !== "defined") {
-                  guidedHtmlPrompt = guidedHtmlPrompt ? `${guidedHtmlPrompt}\n${command.prompt}` : command.prompt;
-                }
-                continue;
-              }
-              if (command.type === "illustrate" && chatMeta.roleplayIllustrateInline === true) {
-                // Saved like a whisper's place, so edits keep the images next to the same text.
+              // A defined intro stays exactly as the card set it.
+              if (command.type === "html" && definedIntro?.mode === "defined") continue;
+              if (command.type === "html" && ++replyHtmlArtifacts > HTML_ARTIFACT_LIMIT_PER_REPLY)
+                activity.error = HTML_ARTIFACT_LIMIT_ERROR;
+              if (
+                command.type === "html" ||
+                (command.type === "illustrate" && chatMeta.roleplayIllustrateInline === true)
+              ) {
+                // Saved like a whisper's place, so edits keep the result next to the same text.
                 activity.contentOffset = parsed.positions.get(activity) ?? parsed.content.length;
                 roleplayInlinePrefixes.set(activity, parsed.content.slice(0, activity.contentOffset));
               }
@@ -9755,7 +9749,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 command.type === "video" ||
                 command.type === "combat" ||
                 command.type === "music" ||
-                command.type === "sound"
+                command.type === "sound" ||
+                (command.type === "html" && !activity.error)
               )
                 currentRoleplayMedia.push(command);
             }
@@ -11782,10 +11777,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             postToDiscordWebhook(discordWebhookUrl, { content: fullResponse, username: charName });
           }
 
-          if (guidedHtmlPrompt && savedMsg?.id) {
-            guidedHtmlReplies.set(savedMsg.id, { prompt: guidedHtmlPrompt, split: (replyParts?.length ?? 0) > 1 });
-          }
-
           // The reply this turn goes on with is a split reply's last part; the caller records the earlier ones.
           if (replyParts) fullResponse = replyParts.at(-1)!.content;
           return {
@@ -12217,7 +12208,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         // No enabled editor can change this text. Speaker/emotion extraction may start now, without
         // waiting for activation decisions for trackers or any other non-rewriting agent (#8026).
-        if (chatMode === "roleplay" && textRewriteRunAgents.length === 0 && guidedHtmlReplies.size === 0) {
+        if (chatMode === "roleplay" && textRewriteRunAgents.length === 0) {
           // Readiness also unlocks the next turn: commit this prompt's variable changes first.
           await persistChatMacroVariables();
           await sendAssistantMessageReady(currentIterationSavedMsg);
@@ -12272,17 +12263,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const activatedTextRewriteRunAgents = textRewriteRunAgents.filter(
           (agent) => !inactivePostProcessingAgentIds.has(agent.id),
         );
-        // An [html: …] request runs Immersive HTML even in "Only when asked"; activation still has the last word (#8586).
-        const guidedHtmlAgent = guidedHtmlReplies.size
-          ? (allTextRewriteAgents.find(
-              (agent) => agent.type === "html" && !inactivePostProcessingAgentIds.has(agent.id),
-            ) ?? null)
-          : null;
         await persistChatMacroVariables();
 
         // Speech uses only the assistant message. Do not hold it behind
         // Illustrator, trackers, summaries, or other non-rewriting agents.
-        if (activatedTextRewriteRunAgents.length === 0 && !guidedHtmlAgent) {
+        if (activatedTextRewriteRunAgents.length === 0) {
           await sendAssistantMessageReady(currentIterationSavedMsg);
         }
 
@@ -12680,7 +12665,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             }
             agentContext.memory._expressionTargetIds = [...generatedExpressionTargetIds];
           }
-          if (hasPostProcessingAgents) {
+          if (hasPostProcessingAgents || roleplayMediaRequests.some(({ command }) => command.type === "html")) {
             sendSseEvent(reply, { type: "agent_start", data: { phase: "post_generation" } });
           }
 
@@ -12702,7 +12687,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             [
               ...pipelineAgents.filter((agent) => agent.phase === "post_processing"),
               ...activatedTextRewriteRunAgents,
-              ...(guidedHtmlAgent ? [guidedHtmlAgent] : []),
               ...(lorebookKeeperAgent ? [lorebookKeeperAgent] : []),
             ].map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
           );
@@ -12975,9 +12959,32 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // Persist agent runs to DB + handle game state updates
           const roleplayMediaTargets = new Map<AgentResult, (typeof roleplayMediaRequests)[number]>();
           let combatRequested = chatMeta.encounterActive === true;
+          // One at a time: a local model may serve only one request, and each artifact needs no other's result.
+          let htmlArtifactQueue: Promise<void> = Promise.resolve();
           for (const request of roleplayMediaRequests) {
             if (agentSignal.aborted) break;
             const { command } = request;
+            if (command.type === "html") {
+              const { activityIndex } = request;
+              if (activityIndex === undefined) continue;
+              htmlArtifactQueue = htmlArtifactQueue.then(async () => {
+                const error = await runHtmlArtifactCommand({
+                  db: app.db,
+                  messageId: request.messageId,
+                  swipeIndex: request.swipeIndex,
+                  activityIndex,
+                  request: command.prompt,
+                  chatConnectionId: conn.id,
+                  referenceContext: buildAgentReferenceContextBlock(postAgentContext),
+                  signal: agentSignal,
+                });
+                sendSseEvent(reply, { type: "roleplay_artifact", data: { messageId: request.messageId } });
+                if (error && !agentSignal.aborted)
+                  sendSseEvent(reply, { type: "roleplay_command_error", data: { error } });
+              });
+              pendingRoleplayMedia.push(htmlArtifactQueue);
+              continue;
+            }
             if (command.type === "sound") {
               pendingRoleplayMedia.push(
                 (async () => {
@@ -15126,28 +15133,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // Each part of a reply split at scene breaks is a message of its own, so the agents rewrite every part on
           // its own, in order. A part's break line stays on top of it, and a failed rewrite leaves its part as written.
           // They rewrite only the last reply's own text, never the replies of earlier responders in an individual group.
-          const rewriteParts: Array<{ messageId: string; content: string; split: boolean }> =
-            lastReplyEarlierParts.length
-              ? [...lastReplyEarlierParts, { message: lastSavedMsg, content: allResponses.at(-1)! }].map((part) => ({
-                  messageId: (part.message?.id as string | undefined) ?? "",
-                  content: part.content,
-                  split: true,
-                }))
-              : [{ messageId, content: continuedMessageRewriteSource ?? allResponses.at(-1) ?? "", split: false }];
-          const lastReplyMessageIds = new Set(rewriteParts.map((part) => part.messageId));
-          // The one exception: an earlier responder's own [html: …] request goes on that responder's message (#8586).
-          if (guidedHtmlAgent) {
-            const earlierGuidedParts: typeof rewriteParts = [];
-            for (const [id, { split }] of guidedHtmlReplies) {
-              const responseIndex = roleplayResponseIndexes.get(id);
-              const content = responseIndex === undefined ? undefined : allResponses[responseIndex];
-              if (content && !lastReplyMessageIds.has(id)) earlierGuidedParts.push({ messageId: id, content, split });
-            }
-            rewriteParts.unshift(...earlierGuidedParts);
-          }
-          const activatedTextRewriteAgents = textRewriteAgents.filter(
-            (agent) => !inactivePostProcessingAgentIds.has(agent.id),
-          );
+          const rewriteParts = lastReplyEarlierParts.length
+            ? [...lastReplyEarlierParts, { message: lastSavedMsg, content: allResponses.at(-1)! }].map((part) => ({
+                messageId: (part.message?.id as string | undefined) ?? "",
+                content: part.content,
+              }))
+            : [{ messageId, content: continuedMessageRewriteSource ?? allResponses.at(-1) ?? "" }];
           // Every successful agent output, as a summary for rewrite agents; it is the same for every part.
           const agentSummary: Record<string, unknown> = {};
           for (const result of postResults) {
@@ -15155,24 +15146,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               agentSummary[result.agentType ?? result.type] = result.data;
             }
           }
-          for (const { messageId, content: originalResponseBeforeRewrite, split } of rewriteParts) {
-            const sceneBreak = split ? leadingSceneBreak(originalResponseBeforeRewrite) : "";
+          for (const { messageId, content: originalResponseBeforeRewrite } of rewriteParts) {
+            const sceneBreak = lastReplyEarlierParts.length ? leadingSceneBreak(originalResponseBeforeRewrite) : "";
             let textRewriteApplied = false;
-            // ponytail: a reply split at scene breaks carries its artifact on its last part;
-            // map the command offset to its part if placement in an earlier part ever matters.
-            const partRewriteAgents = selectRewriteAgentsForMessage({
-              automaticAgents: activatedTextRewriteAgents,
-              automaticRunAgents: activatedTextRewriteRunAgents,
-              htmlAgent: guidedHtmlAgent,
-              guidedPrompt: guidedHtmlReplies.get(messageId)?.prompt,
-              lastReply: lastReplyMessageIds.has(messageId),
-            });
             // Rewrite agents edit the public text, so a reply without any is left alone.
             const hasPublicReply = !!originalResponseBeforeRewrite.slice(sceneBreak.length).trim();
-            if (partRewriteAgents.length > 0 && messageId && hasPublicReply && !generationSignal.aborted) {
+            if (activatedTextRewriteRunAgents.length > 0 && messageId && hasPublicReply && !generationSignal.aborted) {
               let currentResponseForRewrite = originalResponseBeforeRewrite.slice(sceneBreak.length);
 
-              for (const textRewriteAgent of partRewriteAgents) {
+              for (const textRewriteAgent of activatedTextRewriteRunAgents) {
                 if (generationSignal.aborted) break;
                 try {
                   const editorContext: AgentContext = {
@@ -15362,7 +15344,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         // Rewriting agents own the final spoken text, so wait for their
         // persisted edit (or no-op result) before releasing TTS.
-        if (activatedTextRewriteRunAgents.length > 0 || guidedHtmlAgent) {
+        if (activatedTextRewriteRunAgents.length > 0) {
           await sendAssistantMessageReady();
         }
 
