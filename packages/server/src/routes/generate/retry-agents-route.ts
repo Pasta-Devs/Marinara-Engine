@@ -1051,7 +1051,6 @@ async function buildRetryAgentContext(args: {
       description: cardPromptText(charData.description),
       personality: cardPromptText(charData.personality) || undefined,
       scenario: cardPromptText(charData.scenario) || undefined,
-      creatorNotes: cardPromptText(charData.creator_notes) || undefined,
       systemPrompt: cardPromptText(charData.system_prompt) || undefined,
       backstory: cardPromptText(extensions.backstory ?? charData.backstory) || undefined,
       appearance: cardPromptText(extensions.appearance ?? charData.appearance) || undefined,
@@ -1125,7 +1124,6 @@ async function buildRetryAgentContext(args: {
     character.description = resolveCharacterPromptText(character.description) ?? "";
     character.personality = resolveCharacterPromptText(character.personality);
     character.scenario = resolveCharacterPromptText(character.scenario);
-    character.creatorNotes = resolveCharacterPromptText(character.creatorNotes);
     character.systemPrompt = resolveCharacterPromptText(character.systemPrompt);
     character.backstory = resolveCharacterPromptText(character.backstory);
     character.appearance = resolveCharacterPromptText(character.appearance);

@@ -9627,7 +9627,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           scenario: "CHARACTER_SCENARIO",
           first_mes: "",
           mes_example: "CHARACTER_EXAMPLE_DIALOGUE",
-          creator_notes: "",
+          creator_notes: "CREATOR_NOTES_NEVER_SENT",
           system_prompt: "CHARACTER_SYSTEM_PROMPT",
           post_history_instructions: "",
           tags: [],
@@ -9723,6 +9723,20 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       const explicitCharacterFieldText = explicitCharacterField.messages.map((message) => message.content).join("\n");
       assert.equal(explicitCharacterFieldText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
       assert.match(explicitCharacterFieldText, /<mes_example>/);
+
+      // #8582: creator notes are never sent, even by a marker (an imported preset) that names the field, in any format.
+      for (const wrapFormat of ["xml", "markdown", "none"] as const) {
+        const named = await assemble(wrapFormat, "absent", ["description", "creator_notes", "scenario"]);
+        const namedText = named.messages.map((message) => message.content).join("\n");
+        assert.equal(namedText.includes("CREATOR_NOTES_NEVER_SENT"), false, `${wrapFormat}: no creator notes`);
+        assert.equal(namedText.includes("creator_notes"), false, `${wrapFormat}: no creator notes section`);
+        assert.match(namedText, /CHARACTER_SCENARIO/, `${wrapFormat}: the other named fields still are`);
+        const defaults = await assemble(wrapFormat, "absent");
+        assert.equal(
+          defaults.messages.some((message) => message.content.includes("CREATOR_NOTES_NEVER_SENT")),
+          false,
+        );
+      }
 
       const explicitMarker = await assemble("xml", "enabled");
       const explicitPromptText = explicitMarker.messages.map((message) => message.content).join("\n");

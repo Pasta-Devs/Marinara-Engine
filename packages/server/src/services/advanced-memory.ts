@@ -2282,7 +2282,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       exampleDialogue: card.mesExample,
       systemPrompt: card.systemPrompt,
       postHistoryInstructions: card.postHistoryInstructions,
-      creatorNotes: card.creatorNotes,
     });
     // The same macros a reply's prompt resolves, each card for its own character.
     const macros = await buildPromptMacroContext({

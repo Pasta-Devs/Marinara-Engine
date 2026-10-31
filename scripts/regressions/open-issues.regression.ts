@@ -1671,6 +1671,7 @@ try {
       description: "A trusted friend from the western district.",
       first_mes: "REFERENCED_GREETING_MUST_STAY_OUT",
       mes_example: "REFERENCED_EXAMPLE_SHOULD_APPEAR",
+      creator_notes: "REFERENCED_CREATOR_NOTES_MUST_STAY_OUT",
       extensions: {
         appearance: "Blonde hair and a blue summer dress.",
       },
@@ -1702,6 +1703,7 @@ try {
       backstory: "She designed the laboratory's most reliable systems.",
       appearance: "Pink hair, a lab coat, and a knowing smile.",
       scenario: `She is visiting the cafe after a long experiment with {{persona-${knownPersonaReferenceId}}}.`,
+      creatorNotes: "PERSONA_CREATOR_NOTES_MUST_STAY_OUT",
     },
   );
   assert.ok(referencedPersona);
@@ -1864,6 +1866,8 @@ try {
   assert.match(referencedContext.content, /Blonde hair and a blue summer dress\./u);
   assert.match(referencedContext.content, /REFERENCED_LOREBOOK_MEMORY/u);
   assert.doesNotMatch(referencedContext.content, /REFERENCED_GREETING_MUST_STAY_OUT/u);
+  // #8582: a referenced card's creator notes are never sent.
+  assert.doesNotMatch(referencedContext.content, /REFERENCED_CREATOR_NOTES_MUST_STAY_OUT|creator_notes/u);
   assert.match(referencedContext.content, /REFERENCED_EXAMPLE_SHOULD_APPEAR/u);
 
   const referencedPersonaContext = await buildReferencedPersonaContext({
@@ -1891,6 +1895,7 @@ try {
   assert.match(referencedPersonaContext.content, /Warm, incisive, and knowingly amused\./u);
   assert.match(referencedPersonaContext.content, /with Ada\./u);
   assert.match(referencedPersonaContext.content, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
+  assert.doesNotMatch(referencedPersonaContext.content, /PERSONA_CREATOR_NOTES_MUST_STAY_OUT|creator_notes/u);
 
   const activePersonaReferenceContext = await buildReferencedPersonaContext({
     db,

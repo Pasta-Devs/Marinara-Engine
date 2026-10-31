@@ -343,8 +343,6 @@ function getCharacterField(data: CharacterData, field: string): string {
       return data.system_prompt;
     case "post_history_instructions":
       return data.post_history_instructions;
-    case "creator_notes":
-      return data.creator_notes;
     case "mes_example":
     case "example_dialogue":
       return data.mes_example;

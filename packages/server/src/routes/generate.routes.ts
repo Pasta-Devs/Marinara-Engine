@@ -5054,7 +5054,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           character.description = resolveCharacterPromptText(character.description);
           character.personality = resolveCharacterPromptText(character.personality);
           character.scenario = resolveCharacterPromptText(character.scenario);
-          character.creatorNotes = resolveCharacterPromptText(character.creatorNotes);
           character.systemPrompt = resolveCharacterPromptText(character.systemPrompt);
           character.backstory = resolveCharacterPromptText(character.backstory);
           character.appearance = resolveCharacterPromptText(character.appearance);
