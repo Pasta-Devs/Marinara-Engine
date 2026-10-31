@@ -21,10 +21,10 @@ try {
   mkdirSync(outside);
   writeFileSync(join(outside, "private-name.png"), "outside fixture");
   for (const characterId of ["../../created-by-list", "../../outside", "..\\outside", "valid/child"]) {
-    for (const method of ["GET", "POST", "PATCH"] as const) {
+    for (const method of ["GET", "POST", "PATCH", "DELETE"] as const) {
       const response = await app.inject({
         method,
-        url: `/api/sprites/${encodeURIComponent(characterId)}${method === "PATCH" ? "/happy" : ""}`,
+        url: `/api/sprites/${encodeURIComponent(characterId)}${method === "PATCH" || method === "DELETE" ? "/happy" : ""}`,
         ...(method !== "GET" ? { payload: { expression: "happy", image: "fixture" } } : {}),
       });
       assert.equal(response.statusCode, 400, `invalid character ID must be rejected: ${method} ${characterId}`);

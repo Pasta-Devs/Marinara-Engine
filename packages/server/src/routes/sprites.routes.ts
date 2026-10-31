@@ -12,11 +12,11 @@ import {
 } from "@marinara-engine/shared";
 import AdmZip from "adm-zip";
 import { execFile } from "child_process";
-import { existsSync, readdirSync, unlinkSync, statSync, readFileSync } from "fs";
+import { existsSync, readdirSync, unlinkSync, statSync, readFileSync, lstatSync } from "fs";
 import { randomUUID } from "crypto";
 import { writeFile, mkdir, unlink, copyFile, rm, readFile, mkdtemp } from "fs/promises";
 import { tmpdir } from "os";
-import { delimiter, dirname, extname, isAbsolute, join, relative, resolve } from "path";
+import { basename, delimiter, dirname, extname, isAbsolute, join, relative, resolve } from "path";
 import { fileURLToPath } from "url";
 import { promisify } from "util";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -1601,9 +1601,8 @@ export async function spritesRoutes(app: FastifyInstance) {
    */
   app.post<{ Params: { characterId: string } }>("/:characterId", async (req, reply) => {
     if (!ownerParams.safeParse(req.params).success) return reply.status(400).send({ error: "Invalid character ID" });
-    return withSpriteCatalogLock(req.params.characterId, async () => {
-      const { characterId } = req.params;
-
+    const characterId = basename(req.params.characterId);
+    return withSpriteCatalogLock(characterId, async () => {
       const body = req.body as {
         expression?: string;
         image?: string;
@@ -1668,11 +1667,15 @@ export async function spritesRoutes(app: FastifyInstance) {
       }
       const previous = current.find((sprite) => sprite.expression.toLowerCase() === expression.toLowerCase());
       if (previous) expression = previous.expression;
-      const filename =
-        previous && extname(previous.filename).toLowerCase() === `.${ext}` ? previous.filename : `${expression}.${ext}`;
+      const filename = basename(
+        previous && extname(previous.filename).toLowerCase() === `.${ext}` ? previous.filename : `${expression}.${ext}`,
+      );
       const filepath = assertInsideDir(dir, join(dir, filename));
+      if (lstatSync(filepath, { throwIfNoEntry: false })?.isSymbolicLink())
+        return reply.code(400).send({ error: "Linked sprite file refused" });
       await writeFile(filepath, image);
-      if (previous && previous.filename !== filename) await unlink(assertInsideDir(dir, join(dir, previous.filename)));
+      if (previous && previous.filename !== filename)
+        await unlink(assertInsideDir(dir, join(dir, basename(previous.filename))));
       catalog.sprites[expression] = {
         label: previous?.label ?? label,
         folderId: previous ? previous.folderId : (body.folderId ?? null),
@@ -1997,10 +2000,11 @@ export async function spritesRoutes(app: FastifyInstance) {
   app.delete<{ Params: { characterId: string; expression: string } }>(
     "/:characterId/:expression",
     async (req, reply) => {
-      const { characterId, expression } = req.params;
+      const { expression } = req.params;
       if (!ownerParams.safeParse(req.params).success) {
         return reply.status(400).send({ error: "Invalid character ID" });
       }
+      const characterId = basename(req.params.characterId);
       return withSpriteCatalogLock(characterId, async () => {
         const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
         if (!existsSync(dir)) return reply.status(404).send({ error: "No sprites found" });
@@ -2010,7 +2014,7 @@ export async function spritesRoutes(app: FastifyInstance) {
         if (!match) return reply.status(404).send({ error: "Expression not found" });
         const catalog = readSpriteCatalog(characterId);
         delete catalog.sprites[expression];
-        await unlink(assertInsideDir(dir, join(dir, match)));
+        await unlink(assertInsideDir(dir, join(dir, basename(match))));
         await writeSpriteCatalog(characterId, catalog);
         return reply.status(204).send();
       });

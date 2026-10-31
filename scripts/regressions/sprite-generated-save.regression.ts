@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -323,6 +332,25 @@ try {
   assert.deepEqual(readFileSync(mariCatalog), beforeSvg);
   await removeSprite("not_uploaded");
   assert.deepEqual(readFileSync(mariCatalog), beforeSvg, "a no-op delete must not rewrite the catalog");
+  const outside = join(directory, "outside");
+  mkdirSync(outside);
+  const outsideImage = join(outside, "image.png");
+  writeFileSync(outsideImage, originalBytes);
+  const catalogBeforeLink = readFileSync(join(files, "catalog.json"));
+  symlinkSync(
+    process.platform === "win32" ? outside : outsideImage,
+    join(files, "linked.png"),
+    process.platform === "win32" ? "junction" : "file",
+  );
+  await request("POST", base, { expression: "linked", image: nextImage, folderId: null }, 400);
+  assert.deepEqual(readFileSync(outsideImage), originalBytes, "uploads must not follow sprite links");
+  assert.deepEqual(readFileSync(join(files, "catalog.json")), catalogBeforeLink);
+  if (process.platform !== "win32") {
+    const missing = join(outside, "missing.png");
+    symlinkSync(missing, join(files, "dangling.png"));
+    await request("POST", base, { expression: "dangling", image: nextImage, folderId: null }, 400);
+    assert(!existsSync(missing), "uploads must not create files through dangling links");
+  }
 } finally {
   await app.close();
   await closeDB();
