@@ -31,7 +31,7 @@ Game Mode 是 Marinara 的聊天模式之一，另外两种是 Conversation(对�
 七步分别是：
 
 1. **Connection。** 选择 **Game Mode**(游戏玩法)：**Overworld RPG**(大地图 RPG) 或 **Classic**(经典)。Overworld RPG 还没有完成，所以目前新游戏都以 **Classic** 开始。参见 [Classic 还是 Overworld RPG](#classic-or-overworld-rpg)。设置游戏名称，选择 GM 连接，可以再选一个跑场景效果的连接。场景效果默认用 **Local Model (Gemma)**。
-2. **World。** 设置类型、背景、基调、难度、内容分级和语言。背景下方以及之后目标下方给出的点子，来自不同类型的背景设定，每次打开向导都会重新组合。在 **Combat Preference**(战斗偏好) 中选择 **Classic**(菜单战斗) 或 **Tactical**(网格战斗)。Tactical 游戏还提供可选的战场种子、尺寸和地形指引。安装了 Game Mode 规则集后，下方会出现 **Rules**(规则)：保留 **Marinara's own rules**(Marinara 自身规则)，或选择规则集。参见[选择规则](#choosing-rules)。在 Overworld RPG 中，再往下是 **Setting kit**(设定包) 和 **Your world**(你的世界)。参见[选择设定包](#choosing-a-setting-kit)和[创建世界](#making-a-world)。
+2. **World。** 设置类型、背景、基调、难度、内容分级和语言。背景下方以及之后目标下方给出的点子，来自不同类型的背景设定，每次打开向导都会重新组合。在 **Combat Preference**(战斗偏好) 中选择 **Classic**(菜单战斗) 或 **Tactical**(网格战斗)。安装了 Game Mode 规则集后，下方会出现 **Rules**(规则)：保留 **Marinara's own rules**(Marinara 自身规则)，或选择规则集。参见[选择规则](#choosing-rules)。在 Overworld RPG 中，再往下是 **Setting kit**(设定包) 和 **Your world**(你的世界)。参见[选择设定包](#choosing-a-setting-kit)和[创建世界](#making-a-world)。
 3. **Party。** 选择你的用户角色（也就是你扮演的角色）、**Game Master Mode**(游戏主持人模式)，以及队伍成员。**GM intro message**(GM 开场消息) 设置游戏的第一条消息。参见 [GM 开场消息](#the-gm-intro-message)。
 4. **Goals。** 告诉 GM 你想从这场冒险里得到什么。
 5. **Lorebooks。** 挂上世界书，里面的设定 GM 会当作正典。世界书就是一组世界背景设定条目。见[世界书](../lorebooks/overview.md)。
@@ -40,7 +40,7 @@ Game Mode 是 Marinara 的聊天模式之一，另外两种是 Conversation(对�
 
 填完之后点击 **Start Game**(开始游戏)。
 
-在 Tactical 游戏中留空战场选项，GM 会选择符合场景的简述，引擎据此生成棋盘。固定种子可在遭遇输入相同时复现生成结果；地形指引则向 GM 请求残墙或林间空地等要素。移动规则、地形加成和生成失败说明见 [Game Mode：战斗](combat.md#tactical-battles-and-terrain)。
+在 Tactical 游戏中，GM 会为每场战斗的场景撰写简述，引擎据此生成棋盘。移动规则、地形加成和生成失败说明见 [Game Mode：战斗](combat.md#tactical-battles-and-terrain)。
 
 <a id="classic-or-overworld-rpg"></a>
 
@@ -59,22 +59,9 @@ Overworld RPG 仍在完善中。在它准备好之前，它的卡片是灰色的
 
 ### 选择规则
 
-**Rules**(规则) 只在安装了至少一个规则集、且正在创建新游戏时出现。它与 **Combat Preference** 分开设置：前者决定检定和人物卡如何运作，后者决定战斗如何呈现。
+**Rules**(规则) 仅在至少安装了一个规则集时出现，而且只在创建新游戏时出现。默认选项是 **Marinara's own rules**(Marinara 自身规则)：内置的 d20 检定和六属性人物卡。规则集（例如 **5e (SRD 5.1)**）会用桌面系统自身的检定和人物卡替换它们，也可能按自身规则进行战斗。向导会显示每个规则集涵盖的内容，以及它的战斗方式。游戏创建后，规则集就固定下来。
 
-- 默认的 **Marinara's own rules**(Marinara 自身规则) 使用内置 d20 检定和六属性人物卡。
-- **5e (SRD 5.1)** 等规则集会显示覆盖范围的简述，以及一行战斗方式说明。自行结算战斗的规则集会明确说明。只提供人物卡的规则集会说明：战斗采用 Marinara 的战斗系统，使用人物卡自身的生命、能量和能力。两者都不提供的规则集会说明战斗采用 Marinara 的战斗系统，并标出你选择的 **Combat Preference**。
-
-规则集自行结算战斗时，战斗界面也属于该规则集：菜单是角色自己的攻击和能力，每项都说明消耗规则集自身行动额度和资源池中的哪些部分；下方显示行动顺序、轮次、以规则集名称标示的所有人状态，以及各项额度的余量；日志打印真实算式，例如“Juno attacks Rust jackal with Road axe: 8 (5 + 3) + 3 = 11 against Guard 6, a hit.”每个行动生效时立即写入人物卡，因此中途关闭标签页也不会丢失结果，之后 Game Master 会获知数值已经结算。如果规则集还规定了战场一格相当于它自身单位的多少距离，**Combat Preference** 就决定战斗的显示方式：**Classic** 不使用位置，**Tactical** 则在棋盘上进行，你可以在上面行走、按规则集自己的单位测量触及范围和射程，并把范围形状瞄准某一格。参见[战斗](combat.md#games-whose-ruleset-resolves-its-own-fights)。未提及距离的规则集会保留这一偏好，但不使用它。
-
-规则集在创建游戏时确定，并一直随该游戏保留。之后不能更换或添加。
-
-有些规则集提供 **layers**(层)：Low magic 或 Hard winter 这类具名变体，以开关形式显示在规则集下方，每个都附一行说明其作用。一个层可以让难度更严苛、缩小人物卡上的某项选择、把一些现成条目从人物卡编辑器的选择列表中去掉，并给 Game Master 额外的指令，包括它在设置阶段构建世界时的指令。有些层彼此排斥，向导会禁用你不能再选的那个。游戏开始后层就固定下来，和规则集本身完全一样；人物卡上已经在用、但被某个层去掉的内容会保留。
-
-规则集有两个来源。官方规则集从 **Agent Organizer(智能体管理器)** 安装，在那里标为 **Rules**。社区规则集从文件或作者的 GitHub 仓库导入，并按来源归档，例如 `local/ember-roads` 或 `alice/v20`。导入使用的开关和导入智能体相同，即 **Allow custom Agent imports**(允许导入自定义智能体)。这个开关关闭时，导入的规则集不会出现在新游戏中，已经在用的游戏照常运行。使用导入规则集的游戏始终按创建时的确切版本来玩。想自己编写，见[编写 Game Mode 规则集](../extending/writing-rulesets.md)。
-
-选好规则集之后，**Party** 步骤会在选择器下方列出你的用户角色和队伍成员，并标明谁 **Has a sheet**(已有人物卡)、谁 **Starts on a blank sheet**(从空白人物卡开始)。人物卡在角色或用户角色编辑器的 **Stats**(属性) 下添加（见[规则集人物卡](../characters/colors-and-stats.md#ruleset-sheets)）。生成世界时，游戏会复制每张人物卡。你在游戏里做的任何改动都不会写回角色或用户角色。没有人物卡的成员会得到一张空白人物卡，所有数值都是规则集的默认值；世界生成绝不会编造数值。
-
-共享的设置文件会记住它的规则集。如果你导入的设置文件用的规则集你没有，或者你的版本更旧，向导会告诉你它用的是哪个规则集，游戏会使用 Marinara 自身规则，除非你安装并选中那个规则集。
+有关规则集的获取方式、各层、队伍人物卡和游玩中的变化，见[使用规则集游玩](rulesets.md)。
 
 <a id="choosing-a-setting-kit"></a>
 

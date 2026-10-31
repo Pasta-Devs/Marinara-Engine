@@ -2,15 +2,23 @@
 
 Ten przewodnik wyjaśnia walkę w trybie Game Mode aplikacji Marinara Engine. W kroku **World** (świat) kreatora wybierz **Classic** (walka z menu) lub **Tactical** (walka na siatce) w polu **Combat Preference** (preferowany rodzaj walki). Game Master sterowany przez AI (GM, mistrz gry) ustala starcie i opisuje wyniki, a silnik rozstrzyga akcje bojowe.
 
+## Początek starcia
+
+Walki nie zaczynasz samodzielnie. Robi to GM, kiedy wymaga tego fabuła – na przykład po sprowokowaniu wroga albo po wejściu w zasadzkę. Wtedy nad narracją otwiera się pełny ekran bitwy. Silnik buduje starcie na podstawie tego, co dzieje się w fabule: dobiera drużynę, przeciwników, ich statystyki i ewentualne zasady specjalne.
+
+Ekran bitwy pokazuje drużynę po jednej stronie, a przeciwników po drugiej. Każdy walczący ma pasek zdrowia (HP, punkty życia), a jeśli korzysta z umiejętności – także pasek many (MP, punkty magii). Kolejność tur widać na górze jako **Next:** i imię tego, kto działa jako następny. Licznik rund pokazuje **Round** oraz numer bieżącej rundy.
+
+W grze, której zestaw zasad rozstrzyga własne walki, na przykład 5e (SRD 5.1), walka przebiega według zestawu zasad, a nie według opisu na tej stronie. Zobacz [Walki według zestawu zasad](fighting-on-a-ruleset.md). Zestaw zasad, który udostępnia walkom swój arkusz postaci, zachowuje opisany tutaj system walki; zobacz [Co dzieje się w walkach](rulesets.md#what-happens-in-battles).
+
 <a id="tactical-battles-and-terrain"></a>
 
 ## Walka taktyczna i teren
 
 W walce taktycznej drużyna i wrogowie zajmują pola planszy. Wybierz jednostkę drużyny, sprawdź jej zasięg ruchu, wybierz cel ruchu i akcję, a następnie potwierdź. To, kto i kiedy działa, zależy od ustawienia **Turn order** (kolejność tur) bitwy (zobacz [Kolejność tur](#turn-order)). Prognoza ataku pokazuje przewidywane skutki przed zatwierdzeniem.
 
-Przy tworzeniu gry Tactical opcjonalne ustawienia pola bitwy pozwalają wybrać ziarno, rozmiar oraz wskazówki dotyczące terenu dla postaci GM. Puste pole ziarna oznacza wygenerowanie go automatycznie. Ziarno to liczba całkowita od 0 do 4294967295, włącznie z zerem. Odtwarza planszę przy tych samych uczestnikach starcia, opisie terenu i pozostałych danych generatora; nie wymusza tej samej historii ani tych samych wrogów u postaci GM.
+Przy tworzeniu gry nie ma ustawień pola bitwy do wypełnienia. Każda walka otrzymuje własną planszę, wygenerowaną na podstawie nowego ziarna i krótkiego opisu tej sceny przygotowanego przez postać GM.
 
-GM podaje środowisko sceny, formację i krótki opis terenu. Silnik tworzy dokładny układ pól i pozycje początkowe. Opis może wskazywać obszary terenu i bariery przy środku lub krawędzi mapy. Wskazówki to prośba do postaci GM, a nie gwarancja przełożenia każdego słowa na pole. Zaakceptowane pole bitwy jest zapisywane, więc odświeżenie przywraca tę samą planszę.
+GM podaje środowisko sceny, formację i krótki opis terenu. Silnik tworzy dokładny układ pól i pozycje początkowe. Opis może wskazywać obszary terenu i bariery przy środku lub krawędzi mapy. Zaakceptowane pole bitwy jest zapisywane, więc odświeżenie przywraca tę samą planszę.
 
 Silnik sprawdza opis i wynikowy układ. Zachowuje żądany teren, zapewniając możliwość dotarcia do uczestników starcia. Jeśli ograniczeń nie da się pogodzić, walka zgłasza problem. Przycisk **Use generated terrain** (użycie wygenerowanego terenu) jawnie rozpoczyna walkę bez odrzuconych elementów; nie usuwa ich po cichu.
 
@@ -50,45 +58,11 @@ Aby to zmienić, otwórz **Chat Settings** (ustawienia czatu), rozwiń sekcję *
 - **Osłona.** Coś między atakującym a celem chroni cel. Osłonę połowiczną daje pole lasu lub ruin na linii ataku oraz ściana lub góra, która zasłania część widoku. Ściana lub góra, która zasłania większość widoku, daje osłonę w trzech czwartych. Osłona połowiczna odejmuje od szansy trafienia 15 punktów procentowych, a osłona w trzech czwartych 30. Premia z pola, na którym stoi cel, i jego osłona się nie sumują: liczy się lepsza z nich.
 - **Wysokość.** Na planszy z górami góra ma dwa poziomy wysokości, a teren wokół niej jeden. Wejście o jeden poziom wyżej kosztuje jeden dodatkowy punkt ruchu, a zejście nic nie kosztuje. Różnica dwóch poziomów lub więcej to urwisko, którego nikt nie pokona pieszo. Wyższy teren blokuje też widzenie między dwoma niższymi polami. Atak z wyższego terenu w dół dodaje 10 do szansy trafienia, atak dystansowy z wyższego terenu sięga o jedno pole dalej, a niska osłona, taka jak las, nie ukrywa celu przed atakiem z góry. Ręcznie wykonane pola bitwy mogą mieć własne urwiska.
 
-Pełny system walki przywoływanych stworzeń to osobna przyszła praca.
+Przywoływanie nie jest jeszcze częścią własnego systemu walki aplikacji Marinara.
 
 ## Walka klasyczna
 
-Dalsze sekcje o menu akcji i matematyce rzutów opisują walkę Classic. Uczestniczy w niej cała drużyna, ale wybrane polecenie steruje pierwszym żyjącym członkiem drużyny; pozostali towarzysze działają automatycznie.
-
-## Początek starcia
-
-Walki nie zaczynasz samodzielnie. Robi to GM, kiedy wymaga tego fabuła – na przykład po sprowokowaniu wroga albo po wejściu w zasadzkę. Wtedy nad narracją otwiera się pełny ekran bitwy. Silnik buduje starcie na podstawie tego, co dzieje się w fabule: dobiera drużynę, przeciwników, ich statystyki i ewentualne zasady specjalne.
-
-Ekran bitwy pokazuje drużynę po jednej stronie, a przeciwników po drugiej. Każdy walczący ma pasek zdrowia (HP, punkty życia), a jeśli korzysta z umiejętności – także pasek many (MP, punkty magii). Kolejność tur widać na górze jako **Next:** i imię tego, kto działa jako następny. Licznik rund pokazuje **Round** oraz numer bieżącej rundy.
-
-<a id="games-whose-ruleset-resolves-its-own-fights"></a>
-
-### Gry, w których zestaw zasad sam rozstrzyga walkę
-
-Zestaw zasad może rozstrzygać całą walkę, zamiast tylko przekazywać kilka liczb systemowi walki aplikacji Marinara Engine. Wtedy ekran bitwy należy do zestawu: menu zawiera ataki i zdolności twojej postaci, obowiązują jego budżety akcji i stany, a dziennik pokazuje rzeczywiste obliczenia. Wszystko zapisuje się w arkuszu postaci od razu po rozstrzygnięciu.
-
-Zestaw określa także, co mieści się w jednej turze. Cios może zadawać kilka rodzajów obrażeń jednocześnie; każda część ma własny rzut, odporność i rzut obronny, ale razem nadal stanowią jeden cios. Jeden wydatek akcji może dać kilka uderzeń. Dopóki zostają, menu oferuje je bez dodatkowego kosztu i podaje ich liczbę, więc możesz zmienić broń albo przejść między uderzeniami. Zdolność może nic nie kosztować, dać drugą akcję tylko na tę turę albo pozwolić na sprint, wycofanie lub ukrycie mniejszym kosztem. Stały efekt postaci, np. dodatkowe obrażenia przy pierwszym trafieniu spełniającym warunki w turze, dodaje się sam i pojawia w dzienniku. Stan może utrudniać lub ułatwiać własne rzuty obronne, zmniejszać o połowę wszystkie obrażenia, zabraniać atakowania albo zbliżania się do tego, kto go nałożył, lub znikać, gdy tamten padnie. Stan może też zmieniać liczbę: dodawać do obrony, dodawać albo odejmować kości w rzutach ataku, rzutach obronnych i testach przeciwstawnych albo cię spowalniać. Dziennik pokazuje każdy taki stan obok rzutu, który zmienił, a szanse w menu go uwzględniają. Niektóre stany trwają do początku twojej następnej tury albo tylko do najbliższego ataku lub rzutu obronnego, którego dotyczą. Zestaw może też liczyć coś takiego jak wyczerpanie na torze w twoim arkuszu, tak że każdy osiągnięty poziom nieco pogarsza sytuację, dopóki trwa.
-
-Zestaw, którego testy polegają na rzucie garścią kości i liczeniu tych, które osiągnęły próg, może walczyć w ten sam sposób. Wtedy atak rzuca twoją pulą i do trafienia potrzebuje określonej liczby sukcesów, nigdy mniej niż jednego, a każdy sukces ponad tę liczbę dodaje kość do obrażeń. Obrażenia też rzuca się kośćmi, a trafiona postać może część z nich pochłonąć zależnie od rodzaju obrażeń: albo rzuca kośćmi pochłaniania, z których każda odejmuje jeden punkt, albo odejmuje kości przed rzutem na obrażenia; to, co zostanie, zaznacza jej rany. Twoja kara za rany odejmuje kości z twoich pul tak samo jak z testów, a stan dodaje albo odejmuje kości. Rzuty obronne i testy przeciwstawne też są pulami. Dziennik podaje, ile kości weszło do rzutu, jaki próg miały osiągnąć, ile sukcesów dały i ile odjęło pochłanianie. Taki zestaw może też rzucać na inicjatywę od nowa na początku każdej rundy i ograniczać, ile zasobu można wydać w jednej turze, tak że coś, co przekroczyłoby limit, po prostu nie pojawia się w menu aż do twojej następnej tury. Zestaw z pulą może też prowadzić inicjatywę jako liczbę na całą walkę, którą przesuwają ataki: przy każdym ataku wybierasz, czy zamiast zadawać obrażenia, zabierasz dla siebie część liczby celu, czy wydajesz własną liczbę jako kości obrażeń. Atak z wydaniem, który trafi, resetuje twoją liczbę; chybiony kosztuje cię jej tyle, ile określa zestaw. Kto spadnie do progu załamania zestawu, ulega załamaniu i nie może wydawać, dopóki nie dojdzie do siebie. Kolejność w każdej rundzie wynika z tych liczb, a liczba każdej postaci jest widoczna obok jej zdrowia.
-
-Zestaw może też pozwolić każdemu uczestnikowi walki rozpocząć test przeciwstawny: chwycić kogoś, przewrócić go albo odepchnąć lub wyrwać się z chwytu. Obie strony rzucają i dodają własną wartość, wygrywa wyższa suma, a menu przed wyborem pokazuje twoją szansę na wygraną. Wygrany chwyt unieruchamia przeciwnika, dopóki się nie wyrwie albo ty nie padniesz; przegrany nic nie zmienia. Wyrwanie się pojawia się w menu tylko wtedy, gdy coś cię trzyma, i tylko wobec tego, kto trzyma. Odepchnięcie przesuwa kogoś tylko na polu bitwy i zatrzymuje się na ścianach oraz na każdym, kto stoi na drodze.
-
-Niektóre zdolności są odpowiedzią na ruch kogoś innego, zamiast być używane we własnej turze. Gdy przeciwnik zamierza czegoś użyć, gdy coś jest wymierzone w ciebie, gdy atak właśnie cię trafił albo gdy coś właśnie zadało ci obrażenia, a masz odpowiedź na ten moment, walka zatrzymuje się, a menu oferuje ją obok przycisku **Pass** (pominięcie). Po trafieniu dziennik podaje wynik rzutu ataku i wartość, przeciwko której go wykonano, więc widać, czy odpowiedź taka jak Shield zamieniłaby go w chybienie; jeśli jej użyjesz, ten sam rzut jest sprawdzany ponownie, a dziennik podaje, czy nadal trafia. Przeciwnicy też mogą tak odpowiadać, na przykład własną paradą. Kontra może powstrzymać zdolność przeciwnika, zanim zadziała, niezależnie od tego, w kogo była wymierzona, o ile przeciwnik jest w zasięgu kontry; zestaw może określić, że kontra odpowiada tylko na niektóre rodzaje zdolności, na przykład zaklęcia. Koszt powstrzymanej zdolności i tak zostaje wydany, a na kontrę nic nie może odpowiedzieć.
-
-Zestaw może też określać długość pola planszy we własnych jednostkach: stopach, krokach lub innych. Jeżeli tak jest, a **Combat Preference** twojej gry to **Tactical**, walka odbywa się na polu bitwy: z tymi samymi planszami, wygenerowanymi albo ręcznie wykonanymi dla danego miejsca, z tym samym terenem i rozstawieniem co opisane wyżej walki Tactical. Preferencja znów ma znaczenie. Zestaw bez odległości lub gra z **Classic** działa jak wcześniej, bez ograniczeń wyboru celu wynikających z pozycji.
-
-Na tym polu wszystko zależy od liczb zestawu. Zasięg ruchu wynika z jego reguły ruchu lub szybkości stworzenia, zasięg broni z jej wpisów, a obszar zdolności staje się rzeczywistą eksplozją, stożkiem lub linią. Ściana zatrzymuje strzał, osłona daje premię określoną w zasadach, a opuszczenie czyjegoś zasięgu pozwala mu uderzyć, gdy zestaw przypisuje takiemu atakowi koszt. Ruch odbywa się w ośmiu kierunkach po jednym polu, tak jak na planszach stołowych, dla których napisano te zasady; nie używa czterech kierunków własnych walk Tactical aplikacji.
-
-Plansza jest widoczna na ekranie. Każde pole to przycisk: poruszasz się wskaźnikiem lub klawiszami strzałek, a pole opisuje teren, stojącą tam postać i koszt dojścia. **Move** (ruch) podświetla dostępne pola i koszt w jednostkach zestawu, pokazuje drogę po najechaniu lub ustawieniu fokusu oraz oznacza bursztynowo pola, których droga sprowokuje atak; pod planszą podaje napastników. Akcja wymagająca celu podświetla dozwolone postacie i pozwala wybrać je na planszy lub liście. Atak bez celu w zasięgu pokazuje **Nobody is in reach. Move closer.** (nikt nie jest w zasięgu; podejdź bliżej). Obszar celuje w pole: dozwolone pola są podświetlone, a pole pod wskaźnikiem wskazuje wszystkich trafionych, także sojuszników. Ruch można dzielić przed akcją i po niej; menu wraca z pozostałymi możliwościami, a panel **Movement** pokazuje resztę ruchu w jednostce zestawu. Escape porzuca niedokończony wybór i przenosi obsługę klawiatury do menu.
-
-Zestaw może też korzystać z większej części pola bitwy: stopniowanej osłony, aż do osłony w trzech czwartych; wyższego terenu, który zmienia ataki i upadki; stworzeń, które latają, pływają, wspinają się albo ryją w ziemi; akcji **Hide** (ukrycie) i **Search** (szukanie) w menu; a gdy ktoś odrywa się od przeciwnika – pauzy, w której przeciwnik decyduje, czy uderzyć. To, z których z tych możliwości korzysta walka, zależy od zestawu. Przelatywanie nad przeszkodami, przeciskanie się przez ciasne przejścia, wierzchowce i ciągnięcie trzymanej postaci to osobne przyszłe prace.
-
-<a id="games-that-use-a-ruleset"></a>
-
-### Gry z zestawem zasad
-
-Jeżeli gra korzysta z zestawu zasad (zobacz [Arkusz zestawu zasad](party-and-npcs.md#the-ruleset-sheet)), a zestaw pozwala bitwom odczytywać arkusz, każdy członek drużyny zaczyna walkę z tą pulą zasobu i tymi komórkami zaklęć, które zestaw przygotował na bitwy, w takim stanie, w jakim ma je teraz w arkuszu. Zdolności wybrane z katalogów zestawu stają się umiejętnościami, gdy walka aplikacji Marinara Engine potrafi ich użyć: pomijany jest wpis, który opisuje tylko coś poza walką, reakcja oraz zdolność, której kosztu bitwa nie umie pobrać. Punkty życia są przenoszone jako część maksimum, a nie jako liczba z arkusza: postać, która ma w arkuszu połowę zdrowia, zaczyna walkę z połową paska zdrowia, jaki daje jej ekran bitwy, bo liczby w bitwie należą do aplikacji Marinara Engine. Arkusz z 9 punktami zdrowia nie trafia do walki, w której jeden cios zadaje 12. Po walce utracone lub odzyskane zdrowie wraca do arkusza w ten sam sposób, a wydane komórki i zasoby zapisują się bez zmian. Reszta bitwy działa jak dotąd: matematyka rzutów z tej strony nadal należy do aplikacji Marinara Engine, a rzuty ataku, rzuty obronne i koncentracja z systemu stołowego nie są stosowane. Walka opuszczona przez usunięcie wiadomości, w której się zaczęła, niczego nie zapisuje z powrotem, bo się nie wydarzyła. Zestaw, który nic nie mówi o bitwach, pozostawia walkę dokładnie taką, jak opisano ją tutaj.
+Walka Classic nie ma planszy. Uczestniczą w niej wszyscy członkowie drużyny, ale wybrana akcja steruje pierwszym żyjącym członkiem drużyny; pozostali towarzysze działają samodzielnie. Opisane niżej menu akcji i obliczenia walki określają przebieg walk Classic.
 
 ## Menu akcji
 
@@ -102,6 +76,8 @@ W swojej turze wybierasz z menu jedną akcję. Do dyspozycji jest sześć:
 - **Flee**: natychmiastowa ucieczka. Ucieczka od razu kończy walkę.
 
 Po wyborze rozgrywa się cała runda. Wyniki widać jako unoszące się liczby obrażeń, zmieniające się paski zdrowia i wpisy w dzienniku walki.
+
+<a id="how-combat-math-works"></a>
 
 ## Jak liczona jest walka
 
@@ -188,6 +164,7 @@ Dotknij zakładki, żeby otworzyć jej panel. Aby go zamknąć, dotknij poza pan
 
 ## Powiązane przewodniki
 
+- [Game Mode: walki według zestawu zasad](fighting-on-a-ruleset.md)
 - [Game Mode: rzuty kośćmi i testy umiejętności](dice-and-skill-checks.md)
 - [Game Mode: drużyna i postacie NPC](party-and-npcs.md)
 - [Game Mode: pierwsze kroki](getting-started.md)

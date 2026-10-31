@@ -38,6 +38,8 @@ Si un personnage vient d'apparaître, tu peux voir "Character data will populate
 
 Clique sur le bouton **Regenerate Sheet** (régénérer la feuille) pour que l'IA réécrive la feuille du personnage. Elle s'appuie sur le personnage et sur le contexte de jeu en cours. Pratique quand l'histoire a beaucoup fait évoluer un personnage.
 
+<a id="edit-a-sheet-by-hand"></a>
+
 ### Modifier une feuille à la main
 
 Clique sur le bouton **Edit Sheet** (modifier la feuille) pour retoucher la feuille toi-même. En mode édition, tu règles ceci :
@@ -53,38 +55,7 @@ Une fois terminé, clique sur le bouton **Save Sheet** (enregistrer la feuille).
 
 ### Fiche de l'ensemble de règles
 
-Dans une [partie avec ensemble de règles](dice-and-skill-checks.md#games-that-use-a-ruleset), chaque fiche commence par **Ruleset sheet**. Sa disposition dépend de l'ensemble : une fiche 5e et celle d'un autre système ne se ressemblent donc pas. Sans ensemble, ce bloc n'apparaît pas.
-
-- **Resources** présente valeur actuelle et maximum de santé, emplacements de sorts ou ressources de classe. Utilise plus, moins ou la saisie directe. Une ressource qui a une réserve temporaire affiche aussi une case **Temp**.
-- **Tracks** contient des compteurs bornés, comme l'épuisement.
-- **Wound tracks** (Pistes de blessures) affichent une rangée de cases plutôt qu'un nombre, pour les systèmes qui marquent les dégâts au lieu de les compter. Chaque case indique le nom de ce degré de blessure et ce qu'il retire à tes jets. Choisis d'abord le type de dégâts si l'ensemble de règles en propose plusieurs, puis utilise **Mark** (Marquer) ou **Clear one** (Effacer une marque). Tu peux aussi cliquer sur la prochaine case vide pour ajouter une marque, ou sur la dernière case marquée pour l'effacer ; les autres cases ne répondent pas aux clics. Une marque plus grave prend la case supérieure et pousse les plus légères vers le bas ; la ligne dessous indique la pénalité active et ce qui n'a pas tenu sur la piste. Certains ensembles de règles numérotent leurs cases au lieu de les nommer, parfois autant qu'en donne une valeur du personnage, et certains placent chaque marque sur la case qu'elle vise : sur ceux-là, tu peux cliquer sur n'importe quelle case vide, **Clear one** retire la marque la plus légère de la case la plus haute, et une piste pleine refuse une nouvelle marque au lieu d'en aggraver une ancienne. Un ensemble de règles peut aussi ajouter des cases à une piste à partir d'une liste de ta fiche, et faire qu'un repos ou un soin n'efface qu'un seul type de dégâts. Si l'ensemble de règles le prévoit, cette pénalité s'applique à tes jets : elle retire des dés d'une réserve ou s'ajoute à un jet additionné, et la carte de dés indique la valeur appliquée.
-- **Notes** contient de courtes notes, comme la concentration.
-- **Conditions** active et désactive les états.
-- **States** (états vivants), comme une forme ou une posture, prennent une seule valeur à la fois parmi une liste. Choisis la valeur dans la liste. Un état vivant peut modifier les nombres qui en dépendent, comme les dés qu'une posture ajoute à tes jets, et un repos peut le ramener à sa valeur de départ.
-- Les **boutons de repos** appliquent l'un des repos de l'ensemble de règles. Ce qu'un repos restaure est défini par l'ensemble, et un repos peut aussi rendre les charges des objets que porte le personnage, comme celles d'une baguette ; la ligne sous les boutons indique alors ce qui est revenu. En 5e (SRD 5.1), un repos long restaure santé, emplacements de sorts et moitié des dés de vie, au minimum un.
-- Un résumé présente ensuite caractéristiques, compétences et sauvegardes maîtrisées, ainsi que les valeurs choisies, comme la classe d'armure.
-
-Le Game Master tient cette même fiche à jour pendant qu'il raconte. Quand un personnage dépense une ressource, subit des dégâts, se soigne, gagne ou perd un état, change d'état vivant ou se repose, il enregistre le changement, et le moteur le vérifie par rapport à la fiche. Un changement impossible, comme un sort lancé sans emplacement restant, est refusé : rien ne change et un message te le signale.
-
-Quand un personnage utilise quelque chose qu'il a choisi dans les catalogues de l'ensemble de règles, comme un sort ou une aptitude de classe, le Game Master le nomme et le moteur en paie le prix complet : le coût indiqué par l'ensemble de règles, plus une utilisation de chaque compteur qui l'accompagne. Un sort qui coûte un emplacement est payé au niveau d'emplacement que l'ensemble de règles lui attribue, et le Game Master peut demander un niveau supérieur à la place. Le moteur ne passe jamais de lui-même à un emplacement supérieur. Si une partie du prix ne peut pas être payée, tout est refusé et rien n'est dépensé. Ce qui ne coûte rien, comme un tour de magie, est simplement raconté.
-
-Certains nombres de la fiche appartiennent à l'ensemble de règles plutôt qu'à toi. Les maxima liés au niveau et les utilisations liées aux caractéristiques sont fixés par l'ensemble de règles et restent justes quand tu modifies la fiche.
-
-Certaines valeurs calculées suivent le jeu lui-même : un ensemble de règles peut calculer un nombre à partir d'une ressource ou d'une piste telle qu'elle est, donner un nombre pour chaque valeur d'un état vivant, ou additionner une colonne d'une liste, comme le poids de l'équipement que tu emportes. Il peut aussi plafonner une compétence à un tel nombre : une compétence peut alors baisser tant qu'une ressource est faible. Ces valeurs affichent leur valeur actuelle dans la fiche de la partie, et un test ou un combat utilise les valeurs du moment où il a lieu. Sur une fiche de personnage, l'éditeur de fiche, qui n'a aucune partie à lire, les montre telles qu'elles seraient au début du jeu.
-
-Ces valeurs vivantes appartiennent au message dans lequel elles ont changé. Si tu passes à un autre swipe d'un tour, ou si tu le régénères, la fiche revient à son état d'avant ce tour : rien n'est jamais dépensé deux fois.
-
-Clique sur **Edit sheet** (modifier la fiche) pour changer la configuration du personnage elle-même, par exemple après une montée de niveau : scores, champs, listes comme les sorts, et maîtrise des compétences et des sauvegardes. Les valeurs calculées se mettent à jour pendant la saisie. C'est le même éditeur que celui de la fiche de personnage : tu peux donc aussi y ajouter des lignes depuis les catalogues de l'ensemble de règles, les cellules gérées par l'ensemble sont affichées mais ne peuvent pas être saisies, et une liste dont le texte d'origine a changé dans l'ensemble de règles propose un bouton **Review** (examiner). Quand l'ensemble de règles a un assistant pas à pas, l'éditeur propose **Guided** (guidé) à côté de **All fields** (tous les champs). **Guided** te guide à travers chaque choix, comme les scores, les compétences et l'équipement de départ, et indique ce que chaque étape attend encore. **All fields** affiche tout d'un coup. Clique sur **Save sheet** (enregistrer la fiche) quand tu as terminé. Cela ne change que la copie de la fiche propre à cette partie. La fiche enregistrée sur le personnage ou le persona n'est jamais modifiée par une partie.
-
-Le bouton distinct **Edit Sheet** décrit plus haut modifie toujours la feuille générale (classe, capacités, forces, etc.) et laisse la fiche de l'ensemble de règles telle quelle.
-
-Si le package de l'ensemble de règles a été supprimé, ou si la copie installée est plus ancienne que celle avec laquelle la partie a été créée, le bloc affiche un avertissement à la place, et aucun test ne peut être lancé tant que le package n'est pas réinstallé.
-
-### La fiche d'équipe et les horloges de progression
-
-Certains ensembles de règles tiennent une fiche pour toute l'équipe, comme un équipage ou une compagnie. Elle s'affiche sur l'écran de jeu près de la carte, sous le nom que lui donne l'ensemble de règles. Clique sur ce nom pour l'ouvrir. Le Game Master la tient à jour comme la fiche de chaque personnage et, quand l'ensemble de règles le permet, tu peux la modifier aussi. Si quelqu'un d'autre a enregistré la fiche d'équipe pendant que tu la modifiais, elle affiche sa version : **Save** (enregistrer) la remplace par la tienne, et **Cancel** (annuler) garde la sienne.
-
-Un ensemble de règles peut aussi utiliser des **Progress clocks** (horloges de progression) : des cercles divisés en segments que le Game Master remplit à mesure que quelque chose monte, comme une alarme qui se déclenche. Elles s'affichent près de la carte, chacune avec son nombre de segments remplis, et indiquent **Done** une fois pleines.
+Dans une partie utilisant un ensemble de règles, chaque fiche de personnage commence par un bloc **Ruleset sheet** (fiche de l'ensemble de règles) dont la disposition est définie par l'ensemble de règles : ses ressources, ses pistes, ses états, ses repos et un résumé de la construction du personnage, que le GM tient à jour au fil de sa narration. Certains ensembles de règles tiennent aussi une fiche pour toute l'équipe et des décomptes de progression près de la carte. Consulte [La fiche de l'ensemble de règles](rulesets.md#the-ruleset-sheet).
 
 ## L'inventaire
 
@@ -118,7 +89,7 @@ La feuille de personnage d'un membre de l'équipe liste ce qu'il porte.
 
 Le Game Master ajoute, retire et remet des objets au fil de l'histoire, et indique qui les porte. Un objet qu'il nomme et qui fait partie des objets de l'ensemble de règles est bien cet objet, et il sait ce qu'est chacun des objets de l'ensemble que tu possèdes. Il utilise les objets de l'ensemble de la même façon que le bouton **Use**. Avec un ensemble de règles qui indique comment les objets se portent et se transportent, il équipe et retire aussi des objets, les lie et les délie, et voit la charge, les emplacements et les objets liés de chaque personnage ; un objet qu'il ajoute sans dire qui le reçoit est réparti de la même façon que les tiens. Chaque changement est appliqué quand la réponse est enregistrée, et sa notification apparaît quand tu atteins ce moment de l'histoire. Quand le Game Master prend un objet sans dire à qui, il le prend d'abord dans ton sac, puis dans celui du reste de l'équipe. Un changement impossible, comme prendre quelque chose que personne n'a, est refusé, et le Game Master en est informé. Quand tu régénères une réponse, ses changements repartent de l'état du début de ce tour, et revenir par swipe à une version précédente montre ce que cette version avait laissé. Supprimer la version affichée montre ce que la suivante avait laissé, et une branche du chat emporte l'inventaire de chaque version. Cela ne se produit que tant que l'inventaire est exactement tel que la réponse l'a laissé : dès que tu changes quelque chose toi-même, une nouvelle réponse ajoute ses changements par-dessus et rien de ce que tu as fait n'est annulé. Un combat utilise les objets via l'action **Items** (objets) et compte ensemble toutes les piles d'un objet, quels que soient leur porteur et leur nom. Chaque sac, divisions et surnoms compris, est conservé à la session suivante.
 
-### L'argent
+### Argent
 
 Un ensemble de règles peut avoir sa propre monnaie : une ou plusieurs familles de pièces, comme les pennies, les shillings et les couronnes, où chaque pièce plus grande vaut un certain nombre des plus petites. Les pièces sont des piles comme n'importe quel objet. Elles pèsent ce qu'indique l'ensemble de règles et comptent dans la charge de la personne qui les porte, et tu peux les diviser, les donner et les fusionner comme le reste. **From the ruleset** a une liste **Coins** (pièces) pour les ajouter à la main.
 
@@ -205,5 +176,6 @@ Pour une première partie, prends **Standalone GM**. Le mode se règle au moment
 
 ## Guides associés
 
+- [Game Mode : jouer avec un ensemble de règles](rulesets.md)
 - [Game Mode : premiers pas](getting-started.md)
 - [Game Mode : sessions et sauvegardes](sessions-and-saves.md)

@@ -38,6 +38,8 @@ Przy zupełnie nowej postaci może pojawić się napis "Character data will popu
 
 Kliknij przycisk **Regenerate Sheet** (ponowne wygenerowanie arkusza), żeby AI napisała arkusz tej postaci od nowa. Korzysta przy tym z opisu postaci i z bieżącego kontekstu gry. Przydaje się to wtedy, gdy historia mocno odmieniła postać.
 
+<a id="edit-a-sheet-by-hand"></a>
+
 ### Ręczna edycja arkusza
 
 Kliknij przycisk **Edit Sheet** (edycja arkusza), żeby poprawić arkusz samodzielnie. W trybie edycji ustawisz następujące rzeczy:
@@ -53,38 +55,7 @@ Na koniec kliknij przycisk **Save Sheet** (zapisanie arkusza). Przycisk **Cancel
 
 ### Arkusz zestawu zasad
 
-W grze z zestawem zasad (zobacz [Gry z zestawem zasad](dice-and-skill-checks.md#games-that-use-a-ruleset)) każdy arkusz postaci zaczyna się od bloku **Ruleset sheet** (arkusz zestawu zasad). Jego układ pochodzi z zestawu, więc arkusz 5e i arkusz innego systemu wyglądają inaczej. Gra bez zestawu zasad nie ma tego bloku.
-
-- **Resources** (zasoby), takie jak punkty życia, komórki zaklęć albo zasób klasy, pokazują, ile zostało z maksimum. Użyj przycisków minus i plus albo wpisz liczbę. Zasób z tymczasowym buforem pokazuje też pole **Temp**.
-- **Tracks** (liczniki), takie jak wyczerpanie, przesuwają się w górę i w dół w swoim zakresie.
-- **Wound tracks** (tory ran) to rząd pól zamiast liczby, dla systemów, które zaznaczają obrażenia, zamiast je liczyć. Każde pole podaje nazwę danego stopnia zranienia i to, ile odejmuje od twoich rzutów. Jeśli zestaw ma więcej niż jeden rodzaj obrażeń, najpierw wybierz rodzaj, a potem użyj **Mark** (zaznacz) albo **Clear one** (usuń jedno). Możesz też kliknąć następne puste pole, żeby dodać znacznik, albo ostatnie zaznaczone pole, żeby jeden usunąć; inne pola nie reagują na kliknięcia. Cięższy znacznik zajmuje wyższe pole i przesuwa lżejsze niżej, a wiersz pod torem podaje, która kara obowiązuje, oraz wszystko, co w ogóle nie zmieściło się na torze. Niektóre zestawy numerują pola zamiast je nazywać, czasem tyle, ile wynosi wartość cechy postaci, a niektóre umieszczają każdy znacznik na polu, w które jest wymierzony: w takich zestawach możesz kliknąć dowolne puste pole, **Clear one** usuwa najlżejszy znacznik z najwyższego pola, a pełny tor odrzuca kolejny znacznik, zamiast pogarszać dawny. Zestaw może też dodawać pola do toru z listy w twoim arkuszu, a odpoczynek albo leczenie może usuwać tylko jeden rodzaj obrażeń. Jeśli zestaw tak stanowi, ta kara odejmuje się od twoich rzutów: zabiera kości z puli albo dolicza się do sumowanego rzutu, a karta rzutu podaje, ile zastosowano.
-- **Notes** (notatki), na przykład to, na czym postać się koncentruje, to krótkie pola tekstowe.
-- **Conditions** (stany) to przyciski, które włącza się i wyłącza.
-- **States** (stany z listy), takie jak forma albo postawa, przyjmują naraz jedną wartość z listy. Wybierz wartość z listy. Stan z listy może zmieniać liczby, które od niego zależą, na przykład kości, które postawa dodaje do twoich rzutów, a odpoczynek może przywrócić jego początkową wartość.
-- **Przyciski odpoczynku** stosują jeden z odpoczynków zestawu. To, co przywraca odpoczynek, określa zestaw, a odpoczynek może też przywrócić ładunki przedmiotów noszonych przez postać, na przykład różdżki; wiersz pod przyciskami podaje wtedy, co wróciło. W 5e (SRD 5.1) długi odpoczynek przywraca punkty życia i komórki zaklęć oraz połowę kości wytrzymałości postaci, co najmniej jedną.
-- Niżej znajduje się krótkie podsumowanie konfiguracji postaci: modyfikatory cech, wyszkolone umiejętności i rzuty obronne oraz kilka wartości wybranych przez zestaw, na przykład klasa pancerza.
-
-Game Master na bieżąco aktualizuje ten sam arkusz podczas narracji. Gdy postać wydaje zasób, otrzymuje obrażenia, leczy się, zyskuje lub traci stan, zmienia stan z listy albo odpoczywa, GM zapisuje zmianę, a silnik sprawdza ją względem arkusza. Zmiana niemożliwa, na przykład zaklęcie rzucone bez wolnej komórki, zostaje odrzucona: nic się nie zmienia, a komunikat cię o tym informuje.
-
-Gdy postać używa czegoś wybranego z katalogów zestawu, na przykład zaklęcia albo cechy klasy, Game Master to nazywa, a silnik pobiera całą cenę: to, ile według zestawu to kosztuje, oraz po jednym użyciu każdego licznika, który się z tym wiąże. Zaklęcie wymagające komórki jest opłacane z komórki poziomu, który wskazuje dla niego zestaw, a Game Master może zamiast tego poprosić o wyższy. Silnik nigdy sam nie sięga po wyższą komórkę. Jeśli którejś części ceny nie da się zapłacić, cała operacja zostaje odrzucona i nic nie jest wydawane. Coś, co nic nie kosztuje, na przykład sztuczka, jest po prostu opisywane w narracji.
-
-Niektóre liczby w arkuszu należą do zestawu, a nie do ciebie. Zestaw ustala maksimum zasobu klasy, które zależy od poziomu, albo liczbę użyć zależną od wartości cechy i pilnuje, żeby pozostały poprawne, gdy edytujesz arkusz.
-
-Niektóre wyliczane wartości zależą od samej gry: zestaw może wyliczać liczbę z bieżącego stanu zasobu albo licznika, podawać liczbę dla każdej wartości stanu z listy albo sumować kolumnę listy, na przykład wagę spakowanego wyposażenia. Może też ograniczać umiejętność do takiej liczby, więc umiejętność może się zmniejszać, gdy zasób jest niski. Arkusz gry pokazuje ich bieżącą wartość, a test albo walka korzysta z wartości z chwili, w której się odbywa. Edytor arkusza na karcie postaci, który nie ma gry do odczytu, pokazuje je tak, jak wyglądałyby na początku gry.
-
-Te bieżące wartości należą do wiadomości, w której powstały. Jeśli przełączysz się swipe'em na inną wersję tury albo wygenerujesz ją ponownie, arkusz wraca do stanu sprzed tej tury, więc nic nie zostaje wydane dwa razy.
-
-Kliknij **Edit sheet** (edytuj arkusz), żeby zmienić samą konfigurację postaci, na przykład po awansie: wartości, pola, listy takie jak zaklęcia oraz wyszkolenie umiejętności i rzutów obronnych. Wyliczane wartości aktualizują się w trakcie pisania. To ten sam edytor co na karcie postaci, więc i tu można dodawać wiersze z katalogów zestawu, pola, którymi zarządza zestaw, są widoczne, ale nie da się w nich pisać, a lista, której tekst w zestawie się zmienił, oferuje przycisk **Review** (przejrzyj). Gdy zestaw ma kreator krok po kroku, edytor oferuje **Guided** (z przewodnikiem) obok **All fields** (wszystkie pola). **Guided** prowadzi przez każdy wybór, na przykład wartości, umiejętności i wyposażenie początkowe, i podaje, na co dany krok jeszcze czeka. **All fields** pokazuje wszystko naraz. Na koniec kliknij **Save sheet** (zapisz arkusz). Zmienia to tylko kopię arkusza w tej grze. Arkusz zapisany przy postaci albo personie nigdy nie jest zmieniany przez grę.
-
-Opisany wyżej osobny przycisk **Edit Sheet** nadal edytuje ogólny arkusz (klasę, zdolności, mocne strony i tak dalej) i nie zmienia arkusza zestawu zasad.
-
-Jeśli pakiet zestawu został usunięty albo zainstalowana kopia jest starsza niż ta, z którą utworzono grę, blok pokazuje zamiast tego komunikat, a testów nie da się rzucać, dopóki pakiet nie zostanie ponownie zainstalowany.
-
-### Arkusz drużyny i zegary postępu
-
-Niektóre zestawy prowadzą arkusz całej drużyny, na przykład załogi albo kompanii. Jest widoczny na ekranie gry w pobliżu mapy, pod nazwą, jaką nadaje mu zestaw. Kliknij nazwę, żeby go otworzyć. Game Master aktualizuje go tak samo jak arkusz każdej postaci, a gdy zestaw na to pozwala, możesz go też edytować. Jeśli ktoś inny zapisał arkusz drużyny w trakcie twojej edycji, widzisz jego wersję: **Save** (zapisz) zastępuje ją twoją, a **Cancel** (anuluj) zachowuje tamtą.
-
-Zestaw może też używać **Progress clocks** (zegary postępu): kół podzielonych na segmenty, które Game Master wypełnia, gdy coś narasta, na przykład gdy ktoś podnosi alarm. Są widoczne w pobliżu mapy, każdy z liczbą wypełnionych segmentów, a po wypełnieniu pokazują **Done** (gotowe).
+W grze z zestawem zasad każdy arkusz postaci zaczyna się od bloku **Ruleset sheet** (arkusz zestawu zasad) o układzie określonym przez zestaw zasad, zawierającego jego zasoby, tory, stany, odpoczynki i podsumowanie budowy postaci; mistrz gry aktualizuje ten blok na bieżąco podczas narracji. Niektóre zestawy zasad utrzymują też arkusz postaci dla całej drużyny i zegary postępu obok mapy. Zobacz [Arkusz zestawu zasad](rulesets.md#the-ruleset-sheet).
 
 ## Ekwipunek
 
@@ -205,5 +176,6 @@ Przy pierwszej grze najlepiej sprawdzi się **Standalone GM**. Tryb ustawia się
 
 ## Powiązane przewodniki
 
+- [Game Mode: gra z zestawem zasad](rulesets.md)
 - [Game Mode: pierwsze kroki](getting-started.md)
 - [Game Mode: sesje i zapisy gry](sessions-and-saves.md)

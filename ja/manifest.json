@@ -1,6 +1,6 @@
 {
   "language": "ja",
-  "sourceCommit": "262ef5d131553ae5b64ad66a9f6800f83526f27f",
+  "sourceCommit": "ff236573fb214351cf83c4548a057ba409818a0f",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -34,8 +34,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "0f895bad25977fae6245452ec540f17c0827fe2c256a854be234d24a72b1d279",
-      "bytes": 21642
+      "sha256": "bc704c4a9dab40bd66534533efb00cd001baac1e9f718974a54dedb873a4d02e",
+      "bytes": 21629
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -423,6 +423,46 @@
       "bytes": 19018
     },
     {
+      "path": "extending/ruleset-catalogs.md",
+      "sha256": "b8cb80c6876351a45479bfb3271d1f0e6d028f3b18e76f0b976edf68e6e27b1a",
+      "bytes": 19477
+    },
+    {
+      "path": "extending/ruleset-character-builder.md",
+      "sha256": "79377fa915d59b891e56e863e5f3215c8b97a654bcf2d92fbca090b76f71c0e4",
+      "bytes": 68695
+    },
+    {
+      "path": "extending/ruleset-checks.md",
+      "sha256": "ca7d29bfe8475ff954ebfbcaf23816e526d36e8ff024c7801c1e89c2657eb231",
+      "bytes": 43001
+    },
+    {
+      "path": "extending/ruleset-combat.md",
+      "sha256": "3834e387404a3f52a2ac668ea65d9b89d722aa9afab2ccf0a57a7e17e140192b",
+      "bytes": 163660
+    },
+    {
+      "path": "extending/ruleset-items.md",
+      "sha256": "e6beb8d05b9d0090ebdfe668c6c8031ba58f90ef2cdf9f4bd0b17e08679398de",
+      "bytes": 97718
+    },
+    {
+      "path": "extending/ruleset-layers-and-translations.md",
+      "sha256": "7581152193ff4fdbd077c255ba9dd9a5f30627028dbf46989ef3298bfa506977",
+      "bytes": 17453
+    },
+    {
+      "path": "extending/ruleset-mechanics.md",
+      "sha256": "a4b54ef495e4beb31e3cc1ef3fbc8572213883b27149ab7047433e3de563c2fe",
+      "bytes": 625354
+    },
+    {
+      "path": "extending/ruleset-sheets.md",
+      "sha256": "ea9a2d3779fe83ac01bab95b1d67f21cee3896e5e2bf1da454e4e289f377fead",
+      "bytes": 45867
+    },
+    {
       "path": "extending/writing-creature-packs.md",
       "sha256": "4ee644da22672cd369146e4e5f4b18a8c689a240eee6633e385e68b4f20aa61d",
       "bytes": 8652
@@ -434,8 +474,8 @@
     },
     {
       "path": "extending/writing-rulesets.md",
-      "sha256": "4354a8cd30ce150ef0f528fd6d10afaca6aa58e7939ba03ac0701db2e9990ad7",
-      "bytes": 633795
+      "sha256": "e32b224ccf30f17a5bf1cb1afb52ba4430e56098aa3fcd8dcf3e49c799b90750",
+      "bytes": 19563
     },
     {
       "path": "extending/writing-story-scripts.md",
@@ -444,13 +484,18 @@
     },
     {
       "path": "game/combat.md",
-      "sha256": "1daf761078a332cf5aee539a8013cb4549ecd586e5d005303c2926de4f78b3ad",
-      "bytes": 33667
+      "sha256": "79c5c067d6d0814d5058a6363ecdf80a0add3eb0f7ab4d7756a8b8a0f3eb9795",
+      "bytes": 21978
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "d4cff1f35381229eeee0187e7a78af6dd37d784fe3b860302fa97d0b9d1c8482",
-      "bytes": 32316
+      "sha256": "8f6391c16068d49ee94cbc0e20e489e244b30c84c66fb5e2d4eb6ebfc388ac1b",
+      "bytes": 22166
+    },
+    {
+      "path": "game/fighting-on-a-ruleset.md",
+      "sha256": "c63337da3670434cf49b1107dfaff16e68aa34cec2db1e1a7e95cafbe5234473",
+      "bytes": 12328
     },
     {
       "path": "game/game-assets.md",
@@ -459,8 +504,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "2c7e224caeb55726bc674f692c50047a6b910637836051bd320caa69fcbbc500",
-      "bytes": 55085
+      "sha256": "4c20d3c649d1c174974052151d5aac65fd229a2a7d31c7281f4558d2557eeaee",
+      "bytes": 49714
     },
     {
       "path": "game/hud-widgets.md",
@@ -479,8 +524,13 @@
     },
     {
       "path": "game/party-and-npcs.md",
-      "sha256": "8da1b95a6d5944654202c03d0360f040788bd7185e3be17a4fb7c0ade8d438c7",
-      "bytes": 37327
+      "sha256": "672a2f93ae7e6d3f55ab0d4396bbac0e3ed71b4044a457226172fae7a31efc6b",
+      "bytes": 28500
+    },
+    {
+      "path": "game/rulesets.md",
+      "sha256": "092fbb6fb989542d5936b00e6b2842b07bd35814dfe2fe95412dce4e402c8f34",
+      "bytes": 30214
     },
     {
       "path": "game/sessions-and-saves.md",

@@ -2,15 +2,23 @@
 
 Ce guide explique les combats du Game Mode de Marinara Engine. Dans l'étape **World** (monde) de l'assistant, choisis **Classic** (combat par menus) ou **Tactical** (combat sur grille) sous **Combat Preference** (préférence de combat). Le Game Master (GM) piloté par l'IA établit la rencontre et raconte les résultats ; le moteur résout les actions de combat.
 
+## Le début d'une rencontre
+
+Tu ne déclenches pas le combat toi-même. Le GM lance un combat quand l'histoire l'exige, par exemple quand tu provoques un ennemi ou que tu tombes dans une embuscade. À ce moment-là, un écran de combat complet s'ouvre par-dessus la narration. Le moteur construit le combat (ton équipe, les ennemis, leurs caractéristiques et les règles spéciales éventuelles) à partir de ce qui se passe dans l'histoire.
+
+L'écran de combat affiche ton équipe d'un côté et les ennemis de l'autre. Chaque combattant a une barre de vie (HP, points de vie) et, s'il utilise des compétences, une barre de magie (MP, points de magie). L'ordre des tours apparaît en haut sous la forme **Next:** suivi du nom de celui qui agit ensuite. Un compteur affiche **Round** et le numéro du round en cours.
+
+Dans une partie dont l'ensemble de règles résout ses propres combats, comme 5e (SRD 5.1), le combat est celui de l'ensemble de règles, pas celui que décrit cette page. Consulte [Les combats avec un ensemble de règles](fighting-on-a-ruleset.md). Un ensemble de règles qui prête sa fiche aux combats conserve le combat décrit ici ; consulte [Ce qui se passe dans les combats](rulesets.md#what-happens-in-battles).
+
 <a id="tactical-battles-and-terrain"></a>
 
 ## Combats tactiques et terrain
 
 Le combat tactique place ton groupe et les ennemis sur un champ de bataille. Sélectionne une unité, examine sa portée de déplacement, choisis une destination et une action, puis confirme. L'ordre dans lequel chacun agit dépend du **Turn order** (ordre des tours) de la bataille (voir [Ordre des tours](#turn-order)). Les prévisions d'attaque montrent les conséquences attendues avant la validation.
 
-À la création d'une partie Tactical, les réglages facultatifs du champ de bataille permettent de choisir une graine, une taille et des indications de terrain pour le GM. Laisse la graine vide pour en générer une. C'est un entier compris entre 0 et 4294967295, zéro inclus. Elle reproduit le plateau lorsque les combattants, la description du terrain et les autres données de génération sont identiques ; elle n'impose pas la même histoire ni les mêmes ennemis au GM.
+Il n'y a aucun réglage de champ de bataille à remplir à la création d'une partie. Chaque combat reçoit son propre plateau, généré à partir d'une nouvelle graine et de la courte description que le GM (maître du jeu) fournit pour cette scène.
 
-Le GM fournit l'environnement, la formation et une courte description du terrain. Le moteur crée les cases et les positions de départ exactes. La description peut demander des zones de terrain et des obstacles près du centre ou d'un bord. Les indications sont une demande au GM, pas la garantie que chaque mot devienne une case. Le champ de bataille accepté est enregistré : actualiser restaure ce plateau.
+Le GM fournit l'environnement, la formation et une courte description du terrain. Le moteur crée les cases et les positions de départ exactes. La description peut demander des zones de terrain et des obstacles près du centre ou d'un bord. Le champ de bataille accepté est enregistré : actualiser restaure ce plateau.
 
 Le moteur vérifie la description et la disposition obtenue. Il préserve le terrain demandé tout en assurant l'accessibilité de la rencontre. Si les contraintes sont incompatibles, le combat signale le problème. **Use generated terrain** (utiliser un terrain généré) démarre explicitement sans les éléments refusés ; il ne les efface pas en silence.
 
@@ -50,45 +58,11 @@ Pour le changer, ouvre **Chat Settings** (réglages du chat), déplie **Combat S
 - **Couvert.** Ce qui se trouve entre l'attaquant et la cible protège la cible. Une case de forêt ou de ruines sur le trajet, ou un mur ou une montagne qui bloque une partie de la vue, donne un demi-couvert. Un mur ou une montagne qui bloque la plus grande partie de la vue donne un couvert aux trois quarts. Un demi-couvert retire 15 points de pourcentage aux chances de toucher, et un couvert aux trois quarts en retire 30. Le bonus de la case de la cible et son couvert ne s'additionnent pas : seul le meilleur compte.
 - **Hauteur.** Sur un plateau avec des montagnes, une montagne s'élève sur deux niveaux et le sol qui l'entoure sur un niveau. Monter d'un niveau coûte un point de déplacement de plus, et descendre ne coûte rien. Une différence de deux niveaux ou plus est une falaise, que personne ne peut franchir à pied. Les hauteurs bloquent aussi la ligne de vue entre deux cases plus basses. Attaquer vers le bas depuis une hauteur ajoute 10 aux chances de toucher, une attaque à distance depuis une hauteur porte une case plus loin, et un couvert bas comme une forêt ne cache pas une cible vue d'en haut. Les champs de bataille faits à la main peuvent avoir leurs propres falaises.
 
-Les combats complets avec invocations feront l'objet de travaux distincts.
+L'invocation ne fait pas encore partie du combat propre à Marinara.
 
 ## Combats classiques
 
-Les sections suivantes sur le menu d'actions et les calculs des dés décrivent le combat Classic. Tout le groupe participe, mais la commande choisie contrôle son premier combattant vivant ; les autres compagnons agissent automatiquement.
-
-## Le début d'une rencontre
-
-Tu ne déclenches pas le combat toi-même. Le GM lance un combat quand l'histoire l'exige, par exemple quand tu provoques un ennemi ou que tu tombes dans une embuscade. À ce moment-là, un écran de combat complet s'ouvre par-dessus la narration. Le moteur construit le combat (ton équipe, les ennemis, leurs caractéristiques et les règles spéciales éventuelles) à partir de ce qui se passe dans l'histoire.
-
-L'écran de combat affiche ton équipe d'un côté et les ennemis de l'autre. Chaque combattant a une barre de vie (HP, points de vie) et, s'il utilise des compétences, une barre de magie (MP, points de magie). L'ordre des tours apparaît en haut sous la forme **Next:** suivi du nom de celui qui agit ensuite. Un compteur affiche **Round** et le numéro du round en cours.
-
-<a id="games-whose-ruleset-resolves-its-own-fights"></a>
-
-### Parties dont l'ensemble de règles résout ses propres combats
-
-Un ensemble de règles peut résoudre tout un combat selon ses propres règles, au lieu de prêter quelques nombres au combat de Marinara. L'écran de bataille lui appartient alors : les attaques et capacités du personnage dans le menu, sa propre économie d'actions, ses états et un journal avec les vrais calculs. Tout est enregistré dans la fiche dès que cela se produit.
-
-L'ensemble de règles décide aussi de ce qu'un tour peut contenir. Un coup peut infliger plusieurs types de dégâts : chaque partie est lancée, résistée et soumise à un jet de sauvegarde séparément, mais l'ensemble reste un seul coup. Dépenser une action peut acheter plusieurs attaques ; tant qu'il en reste, le menu les propose gratuitement et indique leur nombre, pour te permettre de changer d'arme ou de marcher entre elles. Une capacité peut ne rien coûter, te rendre une seconde action pour ce tour seulement, ou permettre de sprinter, de te désengager ou de te cacher en dépensant une plus petite part de ton tour. Ce que ton personnage fait toujours, comme des dégâts supplémentaires au premier coup admissible d'un tour, s'ajoute automatiquement et apparaît dans le journal. Un état peut rendre tes propres sauvegardes plus difficiles ou plus faciles, réduire de moitié tous les dégâts, t'empêcher d'attaquer celui qui l'a appliqué ou de t'en approcher, ou disparaître dès qu'il tombe. Un état peut aussi modifier un nombre : s'ajouter à ta défense, ajouter des dés à tes jets d'attaque, de sauvegarde et d'opposition ou leur en retirer, ou te ralentir. Le journal montre chacun à côté du jet qu'il a modifié, et les chances affichées dans le menu en tiennent compte. Certains états durent jusqu'au début de ton prochain tour, ou seulement jusqu'à la prochaine attaque ou sauvegarde qu'ils concernent. Enfin, un ensemble de règles peut compter quelque chose comme l'épuisement sur une piste de ta fiche, de sorte que chaque niveau atteint aggrave un peu les choses tant qu'il dure.
-
-Un ensemble de règles dont les tests lancent une poignée de dés et comptent ceux qui atteignent une cible peut combattre de la même façon. Une attaque lance alors ta réserve et doit obtenir un certain nombre de succès pour porter, jamais moins d'un, et chaque succès au-delà ajoute un dé aux dégâts. Les dégâts sont aussi lancés sous forme de dés, et celui qui est touché peut en absorber une partie selon le type de dégâts, soit en lançant des dés d'absorption qui en retirent chacun un, soit en retirant des dés avant que les dégâts soient lancés ; ce qui reste marque ses blessures. Ta pénalité de blessures retire des dés de tes réserves comme de tes tests, et un état ajoute ou retire des dés. Les jets de sauvegarde et d'opposition sont aussi des réserves. Le journal indique combien de dés ont été lancés, ce qu'ils devaient atteindre, combien de succès ils ont obtenus et ce que l'absorption a retiré. Un tel ensemble de règles peut aussi relancer l'initiative au début de chaque round, et limiter la quantité d'une ressource que tu peux dépenser en un tour : ce qui dépasserait la limite n'apparaît tout simplement pas dans le menu avant ton prochain tour. Un ensemble à réserves peut aussi garder l'initiative comme un nombre valable pour tout le combat, que les attaques font bouger : tu choisis comment mener chaque attaque, soit en prenant pour toi une partie du nombre de ta cible au lieu de la blesser, soit en dépensant ton propre nombre comme dés de dégâts. Une attaque qui dépense et qui touche réinitialise ton nombre ; une attaque qui rate t'en coûte autant que le prévoit l'ensemble de règles. Celui qui tombe sous le seuil d'effondrement de l'ensemble de règles s'est effondré et ne peut plus dépenser tant qu'il n'a pas récupéré. L'ordre suit les nombres à chaque round, et le nombre de chacun s'affiche à côté de sa santé.
-
-Un ensemble de règles peut aussi permettre à n'importe qui dans un combat de lancer une opposition : saisir quelqu'un, le renverser ou le repousser, ou se libérer d'une prise. Les deux camps lancent les dés et ajoutent leur propre nombre, le total le plus élevé l'emporte, et le menu affiche tes chances de gagner avant que tu choisisses. Réussir une saisie immobilise ton adversaire jusqu'à ce qu'il se libère ou que tu tombes ; échouer n'a aucun effet. Se libérer n'apparaît dans le menu que tant que quelque chose te retient, et seulement contre celui qui te tient. Une poussée ne déplace quelqu'un que sur un champ de bataille, et s'arrête aux murs et à quiconque se trouve sur le chemin.
-
-Certaines capacités répondent à l'action de quelqu'un d'autre au lieu d'être utilisées pendant ton propre tour. Quand un adversaire s'apprête à utiliser quelque chose, quand quelque chose te vise, quand une attaque vient de te toucher ou quand quelque chose vient de te blesser, et que tu disposes d'une réponse pour ce moment, le combat se met en pause et le menu la propose à côté de **Pass** (passer). Après un coup, le journal indique ce que l'attaque a obtenu et contre quelle valeur, pour que tu voies si une réponse comme Shield la transformerait en échec ; si tu la prends, le même jet est vérifié de nouveau et le journal indique s'il porte toujours. Les adversaires peuvent répondre de la même façon, avec leur propre parade. Un contre peut arrêter la capacité d'un adversaire avant qu'elle ait lieu, quelle que soit sa cible, tant que l'adversaire est à portée du contre ; un ensemble de règles peut préciser qu'il ne répond qu'à certains types de capacités, comme les sorts. Ce que coûtait la capacité arrêtée est quand même dépensé, et rien ne peut répondre à un contre.
-
-L'ensemble de règles peut aussi définir la distance que représente une case, en pieds, en pas ou dans sa propre unité. S'il le fait et que **Combat Preference** (Préférence de combat) est sur **Tactical** (Tactique), le combat se déroule sur un champ de bataille : les mêmes plateaux, générés ou faits à la main pour le lieu, les mêmes terrains et les mêmes déploiements que les batailles Tactical ci-dessus. La préférence a de nouveau un effet. Un ensemble de règles sans distance, ou une partie **Classic** (Classique), combat comme avant : chacun peut cibler n'importe qui.
-
-Sur ce champ, les nombres de l'ensemble de règles déterminent tout. Le déplacement par tour vient de sa règle de mouvement ou de la vitesse de la créature ; la portée d'une arme, de ses propres lignes ; la zone d'une capacité devient une véritable explosion, un cône ou une ligne ; les murs bloquent les tirs ; le couvert ajoute ce que prévoient les règles ; sortir de la portée de quelqu'un lui permet de te frapper quand les règles définissent le coût d'une telle attaque. Le mouvement suit huit directions à une case chacune, comme les grilles de jeu de rôle sur table visées par ces règles, au lieu des quatre directions des batailles Tactical propres à Marinara décrites plus haut.
-
-Le champ est affiché à l'écran. Chaque case est un bouton : tu peux parcourir le plateau au pointeur ou aux flèches, et chaque case annonce sa nature, son occupant et le coût pour y aller. **Move** (Déplacer) éclaire les cases accessibles avec leur coût dans l'unité des règles, dessine le chemin au survol ou au focus et marque en ambre celles dont le chemin provoque une attaque, en nommant les attaquants sous le plateau. Une action nécessitant une cible éclaire les choix valides et permet de les sélectionner sur le plateau ou dans la liste. Si personne n'est à portée, **Nobody is in reach. Move closer.** (Personne n'est à portée. Rapproche-toi.) remplace une attaque dans le vide. Une zone vise une case : les origines valides sont éclairées et la case sous le pointeur indique qui serait touché, alliés compris. Le déplacement peut être dépensé avant et après une action ; le menu revient avec ce qu'il reste et le panneau inférieur l'affiche sous **Movement** (Déplacement) dans l'unité des règles. Échap abandonne un choix inachevé et ramène le focus du clavier au menu.
-
-Un ensemble de règles peut aussi exploiter davantage le champ de bataille : un couvert gradué, jusqu'au couvert aux trois quarts ; des hauteurs qui modifient les attaques et les chutes ; des créatures qui volent, nagent, grimpent ou creusent ; **Hide** (se cacher) et **Search** (fouiller) dans le menu ; et, quand quelqu'un se dégage d'un adversaire, une pause qui demande à cet adversaire s'il veut frapper. Ce qu'un combat utilise parmi ces éléments dépend de l'ensemble de règles. Le vol au-dessus des obstacles, le passage par des espaces étroits, les montures et le fait de traîner quelqu'un que tu tiens sont des travaux futurs distincts.
-
-<a id="games-that-use-a-ruleset"></a>
-
-### Parties utilisant un ensemble de règles
-
-Si ta partie utilise un ensemble de règles (voir [La fiche de l'ensemble de règles](party-and-npcs.md#the-ruleset-sheet)) et que cet ensemble autorise les batailles à lire la fiche, chaque membre de l'équipe commence le combat avec la réserve de ressources et les emplacements de sorts que l'ensemble de règles a prévus pour les batailles, tels que sa fiche les indique à ce moment-là. Les capacités qu'il a choisies dans les catalogues de l'ensemble de règles deviennent des compétences quand le combat de Marinara peut les utiliser : une entrée qui ne décrit que quelque chose hors combat, une réaction, ou une entrée dont la bataille ne peut pas faire payer le coût est laissée de côté. Les points de vie sont transférés comme une part du maximum plutôt que comme le nombre de la fiche : un personnage à la moitié de sa santé sur la fiche commence le combat avec la moitié de la barre de vie que lui donne l'écran de bataille, parce que les nombres de la bataille sont ceux de Marinara. Une fiche à 9 points de vie n'entre pas dans un combat où un seul coup en inflige 12. À la fin du combat, la santé perdue ou regagnée est reportée de la même façon, et les emplacements et ressources dépensés sont reportés tels quels. Le reste de la bataille est inchangé : les calculs de dés de cette page restent ceux de Marinara, et les jets d'attaque, les jets de sauvegarde et la concentration du système sur table ne s'appliquent pas. Un combat que tu quittes en supprimant le message dans lequel il a commencé ne reporte rien, puisqu'il n'a pas eu lieu. Un ensemble de règles qui ne dit rien des batailles laisse le combat exactement tel qu'il est décrit ici.
+Une bataille Classic n'a pas de plateau. Tous les membres de l'équipe participent, mais l'action que tu choisis contrôle le premier membre vivant de l'équipe ; les autres compagnons agissent de leur propre initiative. Le menu d'actions et les calculs de combat ci-dessous décrivent le déroulement des batailles Classic.
 
 ## Le menu d'actions
 
@@ -102,6 +76,8 @@ Si ta partie utilise un ensemble de règles (voir [La fiche de l'ensemble de rè
 - **Flee** (fuir) : quitte le combat sur-le-champ. La fuite met fin au combat immédiatement.
 
 Une fois ton choix fait, le round se déroule. Les résultats s'affichent sous forme de nombres de dégâts flottants, de barres de vie qui bougent et de lignes dans le journal de combat.
+
+<a id="how-combat-math-works"></a>
 
 ## Comment les combats se calculent
 
@@ -188,6 +164,7 @@ Touche un onglet pour ouvrir son panneau latéral. Pour le refermer, touche en d
 
 ## Guides associés
 
+- [Game Mode : les combats avec un ensemble de règles](fighting-on-a-ruleset.md)
 - [Game Mode : les dés et les jets de compétence](dice-and-skill-checks.md)
 - [Game Mode : l'équipe et les PNJ](party-and-npcs.md)
 - [Game Mode : premiers pas](getting-started.md)
