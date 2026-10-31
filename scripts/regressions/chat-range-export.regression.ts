@@ -47,7 +47,6 @@ try {
         swipes: (await chats.getSwipes(message.id)).map((swipe) => swipe.content),
       })),
     );
-  const before = await snapshot();
 
   const exportChat = (format: string, query = "") =>
     app.inject({ method: "GET", url: `/api/chats/${chat.id}/export?format=${format}${query}` });
@@ -118,6 +117,18 @@ try {
   assert.equal(wholeSwiped.swipe_id, 1);
   assert.match(await exportOk("text"), /msg 0[\s\S]*msg 5/u);
 
+  // {{input}} resolves inside the range, so an excerpt's echo never fills in a user message it leaves out.
+  const asked = (await chats.createMessage({ chatId: chat.id, role: "user", content: "msg 6" }))!;
+  const echoed = (await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    content: "echo: {{input}}",
+  }))!;
+  (await chats.createMessage({ chatId: chat.id, role: "user", content: "Outside msg 7" }))!;
+  const beforeExcerpt = await snapshot();
+  const excerpt = await exportOk("text", range(asked.id, echoed.id));
+  assert.match(excerpt, /echo: msg 6/u, excerpt);
+
   // A boundary outside this chat, or a missing one, is refused instead of exporting the whole chat.
   for (const [query, status] of [
     [range(ids[1]!, foreignId), 404],
@@ -129,7 +140,7 @@ try {
     assert.equal(response.statusCode, status, `${query}: ${response.body}`);
   }
 
-  assert.deepEqual(await snapshot(), before, "exporting a range leaves the chat unchanged");
+  assert.deepEqual(await snapshot(), beforeExcerpt, "exporting a range leaves the chat unchanged");
 
   console.info("Chat range export regression passed");
 } finally {

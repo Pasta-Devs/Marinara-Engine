@@ -875,6 +875,7 @@ const LocalChatArea = memo(function LocalChatArea({
       if (!chatId || chatId !== useChatStore.getState().activeChatId) return;
       handleCloseSettingsPanel();
       setDeleteDialogMessageId(null);
+      submittedSelectionRef.current = null;
       setSelectedMessageIds(new Set());
       setSelectionAnchorIndex(null);
       setExportSelection(true);
@@ -2575,6 +2576,7 @@ const LocalChatArea = memo(function LocalChatArea({
       }
     }
     setDeleteDialogMessageId(null);
+    submittedSelectionRef.current = null;
     setExportSelection(false);
     setMultiSelectMode(true);
   }, [deleteDialogMessageId, messages]);
@@ -2612,6 +2614,7 @@ const LocalChatArea = memo(function LocalChatArea({
     }
     setMultiSelectMode(false);
     setExportSelection(false);
+    submittedSelectionRef.current = null;
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
   }, [selectedMessageIds, deleteMessages]);
@@ -2619,12 +2622,13 @@ const LocalChatArea = memo(function LocalChatArea({
   const handleCancelMultiSelect = useCallback(() => {
     setMultiSelectMode(false);
     setExportSelection(false);
+    submittedSelectionRef.current = null;
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
   }, []);
 
   // Exports every message from the first to the last selected one, after a summary of the range and a format pick.
-  // The loaded messages are one contiguous window of the chat, so the count here matches what the server exports.
+  // The count is the span between the picked boundaries, which is what the server exports.
   const handleExportSelection = useCallback(async () => {
     if (!activeChatId || !messages) return;
     const first = messages.findIndex((message) => selectedMessageIds.has(message.id));
@@ -2701,6 +2705,7 @@ const LocalChatArea = memo(function LocalChatArea({
   useEffect(() => {
     setMultiSelectMode(false);
     setExportSelection(false);
+    submittedSelectionRef.current = null;
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
     setScheduleModalCharacterId(null);

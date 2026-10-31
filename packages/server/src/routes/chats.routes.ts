@@ -4970,7 +4970,9 @@ export async function chatsRoutes(app: FastifyInstance) {
         typeof metadata.groupScenarioText === "string" && metadata.groupScenarioText.trim()
           ? metadata.groupScenarioText.trim()
           : null,
-      lastInput: [...allMsgs].reverse().find((msg) => msg.role === "user")?.content,
+      // From the exported messages, so a message with {{input}} in an excerpt never resolves to an
+      // unexported one. A whole-chat export passes every message, so its result is unchanged.
+      lastInput: [...msgs].reverse().find((msg) => msg.role === "user")?.content,
       chatId: chat.id,
       // Without the chat's own variables an exported transcript would print a
       // raw {{char1}} where the model was sent "Mary".
