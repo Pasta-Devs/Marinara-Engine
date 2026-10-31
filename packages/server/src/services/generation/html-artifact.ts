@@ -12,7 +12,7 @@ import { getChatGenerationTimeoutMs, isDebugAgentsEnabled } from "../../config/r
 import type { DB } from "../../db/connection.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { conversationPromptHistoryContent } from "../../routes/generate/conversation-prompt-formatting.js";
-import { isMessageHiddenFromAI } from "../../routes/generate/generate-route-utils.js";
+import { isMessageHiddenFromAIForCharacter } from "../../routes/generate/generate-route-utils.js";
 import { normalizeAgentContextSize } from "../agents/agent-executor.js";
 import { normalizeAgentMaxParallelJobs } from "../agents/agent-pipeline.js";
 import { withLlmRequestTimeout, type ChatMessage } from "../llm/base-provider.js";
@@ -146,7 +146,7 @@ async function buildHtmlArtifactScene(db: DB, messageId: string): Promise<string
   const agent = await createAgentsStorage(db).getByType("html");
   const recent = rows
     .slice(start, Math.max(index, 0))
-    .filter((row) => !isMessageHiddenFromAI(row))
+    .filter((row) => !isMessageHiddenFromAIForCharacter(row, message.characterId))
     .slice(-normalizeAgentContextSize(parseAgentSettingsRecord(agent?.settings).contextSize));
 
   const characters = createCharactersStorage(db);
