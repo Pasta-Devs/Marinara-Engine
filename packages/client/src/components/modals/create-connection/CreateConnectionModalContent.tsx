@@ -102,7 +102,8 @@ export function CreateConnectionModalContent({
 }: CreateConnectionModalProps) {
   const { t } = useTranslation();
   const { data: accounts } = useConnectionAccounts();
-  const { data: rows } = useConnections();
+  const connectionsQuery = useConnections();
+  const rows = connectionsQuery.data;
   const createAccount = useCreateConnectionAccount();
   const updateAccount = useUpdateConnectionAccount();
   const deleteAccount = useDeleteConnectionAccount();
@@ -114,6 +115,7 @@ export function CreateConnectionModalContent({
   const activeChatId = useChatStore((s) => s.activeChatId);
   const countModels = useCountConnectionModels();
   const builtInReady = useSidecarStore((state) => state.modelDownloaded && state.inferenceReady);
+  const builtInMain = useSidecarStore((state) => state.config.useAsMainDefault);
 
   // Old image/video deep links now land on real backend discovery instead of a generic credential form.
   const startingService =
@@ -178,7 +180,8 @@ export function CreateConnectionModalContent({
 
   const allRows = (rows ?? []) as ConnectionRowLite[];
   const chatRows = allRows.filter((row) => isChatProvider(row.provider ?? ""));
-  const hasMain = chatRows.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).isDefault));
+  const hasMain =
+    builtInMain || chatRows.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).isDefault));
   const hasAgents = chatRows.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).defaultForAgents));
 
   const selectedMedia = mediaBackendOf(service);
@@ -468,13 +471,69 @@ export function CreateConnectionModalContent({
     let current = target;
     const discardFreshAccount = async () => {
       if (!current?.fresh) return;
-      await deleteRow.mutateAsync(current.connectionId).catch(() => undefined);
-      await deleteAccount.mutateAsync(current.accountId).catch(() => undefined);
-      setTarget(null);
+      let rowDeleted = false;
+      let accountDeleted = false;
+      if (current.connectionId) {
+        try {
+          await deleteRow.mutateAsync(current.connectionId);
+          rowDeleted = true;
+        } catch {
+          // Keep the row so the user can retry without creating another account.
+        }
+      }
+      try {
+        await deleteAccount.mutateAsync(current.accountId);
+        accountDeleted = true;
+      } catch {
+        // The account remains the retry target. Recreate its row below if needed.
+      }
+      if (accountDeleted) {
+        setTarget(null);
+        return;
+      }
+      if (rowDeleted) {
+        // Keep the missing row recoverable on the next save. Account deletion is refused
+        // while rows exist, so the retained account ID cannot become a duplicate account.
+        current = { ...current, connectionId: "", placeholderId: undefined, ownedPlaceholderIds: [] };
+      }
+      setTarget(current);
+      toast.error(t("connections.add.error.other"));
     };
     try {
       if (current) {
         await updateAccount.mutateAsync({ id: current.accountId, ...accountFields() });
+        // Cleanup can delete the placeholder before its account deletion fails. Reuse an
+        // existing row if one remains; otherwise create one under the retained account.
+        const refreshed = await connectionsQuery.refetch({ throwOnError: true });
+        const existingRow = ((refreshed.data ?? []) as ConnectionRowLite[]).find(
+          (row) => row.accountId === current!.accountId,
+        );
+        if (!existingRow) {
+          const recreated = (await createRow.mutateAsync({
+            name: current.autoName || name.trim() || serviceName(service ?? provider ?? "custom"),
+            provider,
+            apiKey: "",
+            baseUrl: current.accountBaseUrl || withHttpScheme(baseUrl.trim()),
+            accountId: current.accountId,
+          })) as { id?: string };
+          if (!recreated.id) throw new Error("Could not restore the account model");
+          current = {
+            ...current,
+            connectionId: recreated.id,
+            placeholderId: recreated.id,
+            ownedPlaceholderIds: [recreated.id],
+          };
+          setTarget(current);
+        } else if (existingRow.id !== current.connectionId) {
+          current = {
+            ...current,
+            connectionId: existingRow.id,
+            placeholderId: existingRow.id,
+            ownedPlaceholderIds: [existingRow.id],
+          };
+          setTarget(current);
+        }
+        if (!current.connectionId) throw new Error(t("connections.add.error.other"));
       } else {
         const created = await createAccount.mutateAsync({
           provider,
@@ -531,8 +590,9 @@ export function CreateConnectionModalContent({
       const available: AddableKind[] = service
         ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local")
         : ["chat"];
-      if (newChatMode) {
+      if (newChatMode || (!target && !hasMain && !modelsFor && !job)) {
         setSetupKind(startKind(available));
+        if (!newChatMode && !hasMain && !modelsFor && !job) setMakeMain(true);
         setStep(3);
         return;
       }
@@ -688,9 +748,11 @@ export function CreateConnectionModalContent({
   // ── Step 1: the service list ──
   // ── Step 2: access for the chosen service ──
   // Already connected: the user picks one of those connections or makes a new one before any field shows.
-  const failure = tested && !tested.success && provider ? failureReason(provider, tested.message ?? "") : null;
+  const failure =
+    tested && !tested.success && provider ? failureReason(provider, tested.message ?? "", tested.errorCode) : null;
   const requiresAccessKey = !keyless && !isLocal && (!isMedia || !!selectedMedia);
   const connectDisabled = busy || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim());
+  const canContinueAnyway = !!failure && (!requiresAccessKey || !!apiKey.trim()) && (!isLocal || !!baseUrl.trim());
   const resetTest = () => setTested(null);
 
   // ── Step 3: star models ──
@@ -771,7 +833,7 @@ export function CreateConnectionModalContent({
         )
       ) : (
         <div className="flex items-center gap-3">
-          {failure && isLocal && (
+          {canContinueAnyway && (
             <button
               type="button"
               onClick={() => void saveAndTest(true)}

@@ -57,6 +57,7 @@ import {
   updateConnectionAccountSchema,
   speaksOpenAIChat,
   type AtlasCloudVideoModelSchemaResponse,
+  type ConnectionTestAuthErrorCode,
 } from "@marinara-engine/shared";
 import {
   connectionSavesModelList,
@@ -213,6 +214,10 @@ function readTestDraft(body: unknown) {
   if (parsed.data.apiKey) draft.apiKey = parsed.data.apiKey.trim();
   if (parsed.data.baseUrl !== undefined) draft.baseUrl = parsed.data.baseUrl.trim();
   return draft;
+}
+
+function connectionTestAuthError(status: number): ConnectionTestAuthErrorCode | undefined {
+  return status === 401 || status === 403 ? "AUTH_REJECTED" : undefined;
 }
 
 function trimProviderError(value: string, maxLen = CONNECTION_TEST_ERROR_PREVIEW_CHARS): string {
@@ -785,7 +790,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
           return {
             success: probe.probability !== null,
             message: probe.error ?? "Decision model answered.",
-            errorCode: probe.probability === null ? (probe.error ?? "no_answer") : undefined,
+            errorCode:
+              probe.probability === null
+                ? probe.error === "http_401" || probe.error === "http_403"
+                  ? "AUTH_REJECTED"
+                  : (probe.error ?? "no_answer")
+                : undefined,
             decisionProbability: probe.probability ?? undefined,
             latencyMs: probe.latencyMs,
             timeLimitMs,
@@ -806,7 +816,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return {
           success: probability !== undefined,
           message: result.error ?? "Decision model answered.",
-          errorCode: result.error,
+          errorCode: result.error === "http_401" || result.error === "http_403" ? "AUTH_REJECTED" : result.error,
           decisionProbability: probability,
           latencyMs: result.latencyMs,
           timeLimitMs,
@@ -1047,6 +1057,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return {
           success: false,
           message: `API returned ${res.status}: ${detail}`,
+          errorCode: connectionTestAuthError(res.status),
           latencyMs,
           modelName: null,
         };
@@ -1060,6 +1071,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
       return {
         success: false,
         message: `Connection failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        // Provider SDK errors carry the HTTP status; transport and local errors do not.
+        errorCode: isRecord(err) && typeof err.status === "number" ? connectionTestAuthError(err.status) : undefined,
         latencyMs: Date.now() - start,
         modelName: null,
       };

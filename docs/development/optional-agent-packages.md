@@ -28,7 +28,7 @@ existing `marinara-capability-props` event so an installed interface can rerende
 
 Client capability elements also receive `capabilityProps.ui.pickConnection(options)`. It opens the
 Engine's searchable saved-model picker, filtered by `chat`, `image`, `video`, `audio`, `decision`, or
-`all`. Models stay grouped by their Connection, and unavailable choices explain their state.
+`all`. Models stay grouped by their account, and unavailable choices explain their state.
 
 The result distinguishes an explicit selection (`{ status: "selected", value }`, where `null` means
 the caller's inherited/default choice) from cancellation (`{ status: "cancelled" }`). Opening or using

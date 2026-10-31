@@ -90,6 +90,10 @@ export function useConnectionChoices({
       const accountId = lender ? lender.accountId : row.accountId;
       return accountId ? accountById.get(accountId) : undefined;
     };
+    const accountIdOf = (row: ConnectionChoiceRow) => {
+      const lender = row.credentialsFromConnectionId ? rowById.get(row.credentialsFromConnectionId) : undefined;
+      return lender ? lender.accountId : row.accountId;
+    };
     const all = groupModelsByAccount(allRows, accounts ?? []);
     const groups = all.groups.map((group) => ({ ...group, rows: group.rows.filter(offered) }));
     const standalone = all.standalone.filter(offered);
@@ -97,7 +101,7 @@ export function useConnectionChoices({
     const defaultFlag = FLAG_JOBS.find((job) => job.kind === kind)?.flag ?? "isDefault";
     const resolved = rows.find((row) => isConnectionFlagTrue(row[defaultFlag])) ?? null;
     const resolvedAccount = resolved ? accountOf(resolved) : undefined;
-    return { rows, groups, standalone, resolved, resolvedAccount, accountOf };
+    return { rows, groups, standalone, resolved, resolvedAccount, accountOf, accountIdOf };
   }, [accounts, kind, rawRows, rowFilter, value]);
 
   const inheritedRow =
@@ -124,8 +128,13 @@ export function useConnectionChoices({
   // the option stays visible but cannot be picked.
   const stateOf = (row: ConnectionChoiceRow) => {
     const account = view.accountOf(row);
+    const accountId = view.accountIdOf(row);
     const suffix = !accountsKnown
-      ? t(accountsQuery.isError ? "connections.select.unavailable" : "connections.select.checking")
+      ? isConnectionFlagTrue(row.profileImportReviewRequired)
+        ? t("connections.select.review")
+        : accountId
+          ? t(accountsQuery.isError ? "connections.select.unavailable" : "connections.select.checking")
+          : ""
       : isConnectionFlagTrue(row.profileImportReviewRequired)
         ? t("connections.select.review")
         : account && account.state !== "ok"

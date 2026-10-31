@@ -12,6 +12,8 @@ import { cn } from "../../lib/utils";
 import { StateWord, type EngineTone } from "./DeviceDetail";
 import { FOCUS, menuAt, type MenuAt } from "./ModelRow";
 import { ProviderIcon } from "./ProviderIcon";
+import { ConnectionHeading } from "./ConnectionHeading";
+import { SERVICE_HINT_INSET } from "./connection-row-layout";
 
 const STATE_TONE: Record<ConnectionAccountState, EngineTone> = { ok: "ok", off: "off", needs_key: "error" };
 
@@ -93,15 +95,12 @@ export function ServiceRow({
   const body = (
     <>
       {!onPictureClick && tileNode}
-      <span className="min-w-0 flex-1">
+      <ConnectionHeading
+        title={identity.title}
+        tooltip={[...new Set([identity.name, identity.accountLabel])].filter(Boolean).join(" · ")}
+      >
         {/* Line 1 is the Connection's own name alone (up to two lines before it cuts); the service
             shows in the tile and the tooltip. */}
-        <strong
-          className="line-clamp-2 min-w-0 break-words text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]"
-          title={[...new Set([identity.name, identity.accountLabel])].filter(Boolean).join(" · ")}
-        >
-          {identity.title}
-        </strong>
         {(hasCount || balance || billingWord || details.length > 0 || problem) && (
           <span
             data-connection-identity-meta
@@ -119,7 +118,7 @@ export function ServiceRow({
             {problem && <StateWord tone={STATE_TONE[problem.state]} label={problem.label} />}
           </span>
         )}
-      </span>
+      </ConnectionHeading>
       {trailing}
     </>
   );
@@ -165,7 +164,10 @@ export function ServiceRow({
         {end}
       </div>
       {hint && (
-        <p id={hintId} className="mb-1 ms-[3.25rem] text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
+        <p
+          id={hintId}
+          className={cn("mb-1 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]", SERVICE_HINT_INSET)}
+        >
           {hint}
         </p>
       )}

@@ -418,6 +418,7 @@ function DataBlock({
           <div className="flex flex-wrap items-center gap-1.5">
             <ConnectionSelect
               job={localizeUi("connections.picker.job.agents")}
+              required
               value={rewriteConnectionId || null}
               onChange={(id) => onRewriteConnectionChange(id ?? "")}
               defaultLabel={

@@ -66,7 +66,7 @@ export function AccessStep(props: AccessStepProps) {
   const { t } = useTranslation();
   const failure =
     props.tested && !props.tested.success && props.provider
-      ? failureReason(props.provider, props.tested.message ?? "")
+      ? failureReason(props.provider, props.tested.message ?? "", props.tested.errorCode)
       : null;
   const keyUrl = props.selectedMedia
     ? MEDIA_KEY_URLS[props.selectedMedia.source]

@@ -3,7 +3,7 @@
 // its "If it fails" Model when set. A row opens the job's one picker (Model and If it fails). A job with a
 // problem shows it as a chip on its row. Agents and Decision keep their other settings behind a gear.
 // ──────────────────────────────────────────────
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Loader2, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -53,7 +53,6 @@ import { DecisionDefaultControl } from "./DecisionDefaultControl";
 import { SMALL_ACTION } from "./DeviceDetail";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { JobRow } from "./JobRow";
-import { Modal } from "../ui/Modal";
 
 function JobIcon({ job }: { job: JobKey }) {
   const Icon = JOB[job].icon;
@@ -590,6 +589,7 @@ function DefaultsJobRow({
   const mayReadImages = useMayReadImages();
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsId = useId();
   const embeddings = job.key === "embeddings";
   const decision = job.key === "decision";
   const hasSettings = job.key === "agents" || decision;
@@ -602,32 +602,39 @@ function DefaultsJobRow({
   };
   return (
     <div className="relative" data-defaults-role={job.key}>
-      <JobRow
-        tile={tile}
-        data-defaults-tile={job.key}
-        onClick={onClick}
-        aria-haspopup={tile.device ? undefined : "dialog"}
-        aria-label={t("connections.defaults.jobLabel", {
-          role: tile.title,
-          value: [tile.follows, tile.value].filter(Boolean).join(" · "),
-        })}
-        trailing={
-          <>
-            {hasSettings && <span aria-hidden className="w-8 shrink-0" />}
-            <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-          </>
-        }
-      />
-      {hasSettings && (
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          aria-label={t("connections.defaults.settingsFor", { role: title })}
-          className="absolute right-9 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)] max-md:right-7"
-        >
-          <SlidersHorizontal size="0.875rem" />
-        </button>
-      )}
+      <div className="relative">
+        <JobRow
+          tile={tile}
+          data-defaults-tile={job.key}
+          onClick={onClick}
+          aria-haspopup={tile.device ? undefined : "dialog"}
+          aria-label={t("connections.defaults.jobLabel", {
+            role: tile.title,
+            value: [tile.follows, tile.value].filter(Boolean).join(" · "),
+          })}
+          trailing={
+            <>
+              {hasSettings && <span aria-hidden className="w-11 shrink-0" />}
+              <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+            </>
+          }
+        />
+        {hasSettings && (
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((value) => !value)}
+            aria-expanded={settingsOpen}
+            aria-controls={settingsId}
+            aria-label={t("connections.defaults.settingsFor", { role: title })}
+            className={cn(
+              "absolute right-8 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)] max-md:right-6",
+              FOCUS,
+            )}
+          >
+            <SlidersHorizontal size="0.875rem" aria-hidden />
+          </button>
+        )}
+      </div>
       {model && (
         <ConnectionSelect
           variant="controlled"
@@ -641,9 +648,15 @@ function DefaultsJobRow({
       {embeddings && <EmbeddingDefaultControl open={open} onOpenChange={setOpen} />}
       {decision && <DecisionDefaultControl open={open} onOpenChange={setOpen} />}
       {hasSettings && (
-        <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title={title} width="max-w-md">
-          {decision ? <DecisionDefaultControl settings /> : <AgentsSettings />}
-        </Modal>
+        <div
+          id={settingsId}
+          role="region"
+          aria-label={t("connections.defaults.settingsFor", { role: title })}
+          hidden={!settingsOpen}
+          className="border-t border-[var(--border)] px-3"
+        >
+          {settingsOpen && (decision ? <DecisionDefaultControl settings /> : <AgentsSettings />)}
+        </div>
       )}
     </div>
   );

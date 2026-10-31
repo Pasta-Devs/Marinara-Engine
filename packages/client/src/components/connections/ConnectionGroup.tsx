@@ -50,10 +50,12 @@ import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
-import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import { Modal } from "../ui/Modal";
 import { CompactUsageMeter } from "./SubscriptionUsageWidget";
 import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
+import { MODEL_TEXT_INSET } from "./connection-row-layout";
 import { balanceWord } from "./ConnectionBalance";
 import { useFolderChooser } from "./ConnectionFolderGroup";
 import {
@@ -150,9 +152,11 @@ export function ConnectionGroup({
   /** Select mode: the ids of the checked Models; null while the card shows its normal rows. */
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const chooseFolder = useFolderChooser();
   const test = useTestConnection(account.id);
   const testFailure = useUIStore((state) => state.connectionTestFailures[account.id]);
+  const testErrorCode = useUIStore((state) => state.connectionTestErrorCodes[account.id]);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   // Cost badges read this Connection's saved model list (one request per card, answered from the server's copy).
   const [catalog] = useCachedCatalogFacts([rows.map((row) => row.id)]);
@@ -198,25 +202,24 @@ export function ConnectionGroup({
       sameServiceTargets(row, account, accounts ?? [], allRows ?? rows).includes(item),
     ),
   );
-  const runBulk = async (each: (row: ConnectionRowData) => Promise<unknown>) => {
+  const runBulk = async (each: (row: ConnectionRowData) => Promise<unknown>): Promise<boolean> => {
     setBulkBusy(true);
     try {
       for (const row of pickedRows) await each(row);
       setPicked(null);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
+      return false;
     } finally {
       setBulkBusy(false);
     }
   };
   const moveSelected = async () => {
-    const target = await showChoiceDialog({
-      title: t("connections.accounts.select.moveTitle", { count: pickedRows.length }),
-      message: t("connections.accounts.select.moveMessage"),
-      choices: moveTargets.map((item) => ({ key: item.id, label: item.name })),
-      cancelLabel: t("connections.accounts.editor.cancel"),
-    });
-    if (target) await runBulk((row) => moveModel.mutateAsync({ id: row.id, accountId: target }));
+    setMoveDialogOpen(true);
+  };
+  const moveToAccount = async (target: ConnectionAccountListItem) => {
+    if (await runBulk((row) => moveModel.mutateAsync({ id: row.id, accountId: target.id }))) setMoveDialogOpen(false);
   };
   const deleteSelected = async () => {
     const ok = await showConfirmDialog({
@@ -240,7 +243,7 @@ export function ConnectionGroup({
   const count = visibleRows.length ? t("connections.list.starred", { count: visibleRows.length }) : undefined;
   const modelsId = `connection-models-${account.id}`;
   // One status word: Ready is plain text; Needs key and Off are the word itself as the fix.
-  const keyRejected = /\b401\b|invalid.*key|key.*invalid|unauthori[sz]ed/i.test(testFailure ?? "");
+  const keyRejected = testErrorCode === "AUTH_REJECTED";
   const testLabel = keyRejected ? t("connections.accounts.lastTestFailedLabel") : t("connections.accounts.testFailed");
   const fix =
     account.state === "off"
@@ -413,13 +416,49 @@ export function ConnectionGroup({
         />
       )}
 
+      {moveDialogOpen && (
+        <Modal
+          open
+          onClose={() => setMoveDialogOpen(false)}
+          closeDisabled={bulkBusy}
+          title={t("connections.accounts.select.moveTitle", { count: pickedRows.length })}
+          width="max-w-md"
+          opaque
+          panelClassName="mari-connection-scope"
+        >
+          <div className="flex flex-col gap-3" data-bulk-move-targets>
+            <ul className="flex flex-col gap-2">
+              {moveTargets.map((target) => (
+                <li key={target.id} className="mari-connection-group">
+                  <ServiceRow
+                    account={target}
+                    rows={(allRows ?? []).filter((row) => row.accountId === target.id)}
+                    count={t("connections.list.models", {
+                      count: (allRows ?? []).filter((row) => row.accountId === target.id).length,
+                    })}
+                    state={target.state}
+                    stateLabel={t(`connections.accounts.state.${target.state}`)}
+                    billing={target.billing}
+                    data-move-target={target.id}
+                    onClick={() => void moveToAccount(target)}
+                    disabled={bulkBusy}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Modal>
+      )}
+
+      {chooseFolder.dialog}
+
       {/* The meter stays when the card folds: it is the card's live state, not part of its model list. */}
       {usage && firstRow && (
         <CompactUsageMeter
           connectionId={firstRow.id}
           showFiveHour={usage.showUsageFiveHour}
           showWeekly={usage.showUsageWeekly}
-          className="ps-[3.625rem] pe-2 max-md:ps-[2.75rem] pb-1.5"
+          className={`${MODEL_TEXT_INSET} pe-2 pb-1.5`}
         />
       )}
       {picked && (

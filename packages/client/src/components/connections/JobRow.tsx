@@ -13,6 +13,7 @@ import type { DefaultsTile } from "./ConnectionDefaults";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { viaName } from "../../lib/connection-groups";
 import { ModelRow, ModelTile } from "./ModelRow";
+import { JOB_HINT_INSET } from "./connection-row-layout";
 
 /** The amber warning chip. NeedsModelChip draws it too. */
 export function WarningChip({ children, className }: { children: ReactNode; className?: string }) {
@@ -143,10 +144,7 @@ export function JobRow({
         }
       />
       {hint && (
-        <p
-          id={hintId}
-          className="mb-1 ml-[3.375rem] max-md:ml-[2.75rem] text-[0.6875rem] leading-4 text-[var(--muted-foreground)]"
-        >
+        <p id={hintId} className={cn("mb-1 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]", JOB_HINT_INSET)}>
           {hint}
         </p>
       )}

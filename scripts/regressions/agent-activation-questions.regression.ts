@@ -306,7 +306,7 @@ try {
   for (const [nextMode, expected] of [
     ["invalid", "invalid_response"],
     ["422", "http_422"],
-    ["redirect", "network"],
+    ["redirect", "private_address"],
   ]) {
     mode = nextMode!;
     const result = await askNoulQuestions(request);

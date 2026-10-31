@@ -286,20 +286,21 @@ const testId = (input: TestInput) => (typeof input === "string" ? input : input.
 
 export function useTestConnection(accountId?: string) {
   const qc = useQueryClient();
-  const recordTest = (input: TestInput, message: string | null) => {
+  const recordTest = (input: TestInput, message: string | null, errorCode: "AUTH_REJECTED" | null = null) => {
     if (typeof input !== "string" && (input.apiKey !== undefined || input.baseUrl !== undefined)) return;
     const id = testId(input);
     const row = qc
       .getQueryData<Array<{ id: string; accountId?: string | null }>>(connectionKeys.list())
       ?.find((row) => row.id === id);
     const target = row?.accountId ?? accountId;
-    if (target)
-      useUIStore
-        .getState()
-        .setConnectionTestFailure(
-          target,
-          message === null ? null : message.trim() || translate("connections.accounts.testFailed"),
-        );
+    if (target) {
+      const ui = useUIStore.getState();
+      ui.setConnectionTestFailure(
+        target,
+        message === null ? null : message.trim() || translate("connections.accounts.testFailed"),
+      );
+      ui.setConnectionTestErrorCode(target, errorCode);
+    }
   };
   return useMutation({
     mutationFn: (input: TestInput) => {
@@ -315,7 +316,11 @@ export function useTestConnection(accountId?: string) {
     },
     // A failed check still answers 200 with `success: false`.
     onSuccess: (result, input) => {
-      recordTest(input, result.success ? null : result.message);
+      recordTest(
+        input,
+        result.success ? null : result.message,
+        !result.success && result.errorCode === "AUTH_REJECTED" ? result.errorCode : null,
+      );
       if (result.success) useUIStore.getState().setLastAppError(null);
       else recordConnectionFailure(testId(input), "Test connection", result.message);
     },

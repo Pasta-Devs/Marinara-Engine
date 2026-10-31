@@ -796,6 +796,9 @@ interface UIState {
   /** Last failed account Test in this browser; only a successful Test clears it. */
   connectionTestFailures: Record<string, string>;
   setConnectionTestFailure: (accountId: string, message: string | null) => void;
+  /** Typed reason from the latest completed saved-account Test. Transient, never persisted or synced. */
+  connectionTestErrorCodes: Record<string, "AUTH_REJECTED">;
+  setConnectionTestErrorCode: (accountId: string, code: "AUTH_REJECTED" | null) => void;
   /** Current text of the field that had focus when the omnibar opened. Transient, never persisted. */
   mariFieldDraft: { fieldId: string; value: string; selection?: string } | null;
   /** Prof. Mari asks the open editor to show this field: scroll to it and pulse it once. Transient. */
@@ -2157,12 +2160,22 @@ export const useUIStore = create<UIState>()(
         settingsTab: "general",
         activeEditorField: null,
         connectionTestFailures: {},
+        connectionTestErrorCodes: {},
         setConnectionTestFailure: (accountId, message) =>
           set((state) => {
             const failures = { ...state.connectionTestFailures };
+            const errorCodes = { ...state.connectionTestErrorCodes };
             if (message === null) delete failures[accountId];
             else failures[accountId] = message;
-            return { connectionTestFailures: failures };
+            if (message === null) delete errorCodes[accountId];
+            return { connectionTestFailures: failures, connectionTestErrorCodes: errorCodes };
+          }),
+        setConnectionTestErrorCode: (accountId, code) =>
+          set((state) => {
+            const codes = { ...state.connectionTestErrorCodes };
+            if (code === null) delete codes[accountId];
+            else codes[accountId] = code;
+            return { connectionTestErrorCodes: codes };
           }),
         mariFieldDraft: null,
         mariRevealField: null,

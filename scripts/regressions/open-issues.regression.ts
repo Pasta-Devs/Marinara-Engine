@@ -6930,8 +6930,13 @@ assert.match(deviceDetailSource, /connections\.device\.unloadModel/u);
 assert.match(deviceDetailSource, /connections\.device\.loadModel/u);
 assert.match(
   connectionsPanelSource,
-  /className="grid min-w-0 grid-cols-2 gap-2"/u,
-  "LinkAPI actions must share the available banner width instead of overflowing it",
+  /className="grid grid-cols-\[repeat\(auto-fill,minmax\(8\.5rem,1fr\)\)\] gap-2"/u,
+  "First-run provider actions must share the panel width in an adaptive grid",
+);
+assert.match(
+  connectionsPanelSource,
+  /FIRST_RUN_SERVICES\.map\([\s\S]*?data-add-connection-service=\{service\}[\s\S]*?className="[^"]*min-w-0[^"]*"/u,
+  "First-run provider buttons must shrink within their grid cells",
 );
 assert.equal(
   resolvePresetArtwork({ name: "Marinara's Universal Preset", author: "Marinara" }),
@@ -9932,12 +9937,17 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   for (const source of [connectionRowSource, modelRowSource]) {
     assert.doesNotMatch(source, /opacity-0|group-hover:/u, "Connection rows must not hide actions behind hover");
   }
-  // Row buttons use the shared mari-connection-btn icon class, which grows to 44 px on phones and touch screens.
-  assert.match(connectionRowSource, /ROW_BUTTON = "mari-connection-btn[^"]*mari-connection-btn--icon"/u);
+  // Row buttons use the shared chrome icon class, which grows to 44 px on phones and touch screens.
+  assert.match(connectionRowSource, /ROW_BUTTON = "mari-chrome-control[^"]*mari-chrome-control--icon[^"]*"/u);
   const connectionStyles = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/styles/globals.css"), "utf8");
   assert.match(
     connectionStyles,
-    /@media \(max-width: 47\.9375rem\), \(pointer: coarse\) \{[^}]*\.mari-connection-btn[^}]*min-height: 2\.75rem/u,
+    /@media \(max-width: 47\.9375rem\), \(pointer: coarse\) \{[^}]*\.mari-connection-scope \.mari-chrome-control[^}]*min-height: 2\.75rem/u,
+  );
+  assert.match(
+    connectionStyles,
+    /@media \(max-width: 47\.9375rem\), \(pointer: coarse\) \{[\s\S]*?\.mari-connection-scope \.mari-chrome-control--icon \{[^}]*width: 2\.75rem/u,
+    "Connection icon buttons must retain a 44 px touch width",
   );
 
   const personasPanelSource = sidebarPanelSources.get("Personas")!;

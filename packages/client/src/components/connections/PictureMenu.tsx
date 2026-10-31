@@ -2,14 +2,14 @@
 // PictureMenu — the picture tile's menu of a Connection or Model:
 // Upload image · Choose provider logo · Use letters · Reset to default
 // ──────────────────────────────────────────────
-import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { ImageUp, LayoutGrid, RotateCcw, Type } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { parseConnectionIcon } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
+import { Modal } from "../ui/Modal";
 import { ListSearch } from "./ListFrame";
 import { BRAND_MARKS, brandMarkProps } from "./ProviderIcon";
 import {
@@ -145,79 +145,38 @@ export function PictureMenu({ target, name, icon, imagePath, at, onClose }: Pict
         />
       )}
       {mode === "brands" && (
-        <Panel at={at} onClose={() => setMode("closed")}>
-          <BrandGrid
-            selected={current?.kind === "brand" ? current.key : null}
-            onPick={(key) => setIcon(`brand:${key}`)}
-          />
-        </Panel>
+        <Modal
+          open
+          title={t("connections.picture.chooseLogo")}
+          onClose={() => setMode("closed")}
+          width="max-w-sm"
+          opaque
+        >
+          <div data-picture-menu-panel onClick={(event) => event.stopPropagation()}>
+            <BrandGrid
+              selected={current?.kind === "brand" ? current.key : null}
+              onPick={(key) => setIcon(`brand:${key}`)}
+            />
+          </div>
+        </Modal>
       )}
       {mode === "letters" && (
-        <Panel at={at} onClose={() => setMode("closed")}>
-          <LettersForm
-            initial={current?.kind === "letters" ? current.text : defaultLetters(name)}
-            onSave={(text) => setIcon(`letters:${text}`)}
-          />
-        </Panel>
+        <Modal
+          open
+          title={t("connections.picture.useLetters")}
+          onClose={() => setMode("closed")}
+          width="max-w-sm"
+          opaque
+        >
+          <div data-picture-menu-panel onClick={(event) => event.stopPropagation()}>
+            <LettersForm
+              initial={current?.kind === "letters" ? current.text : defaultLetters(name)}
+              onSave={(text) => setIcon(`letters:${text}`)}
+            />
+          </div>
+        </Modal>
       )}
     </>
-  );
-}
-
-/** A small portalled panel at (x, y), kept inside the viewport; closes on outside click and Escape. */
-function Panel({ at, onClose, children }: { at: PictureMenuProps["at"]; onClose: () => void; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  const [pos, setPos] = useState({ left: at.x, top: at.y });
-
-  useLayoutEffect(() => {
-    const rect = ref.current?.getBoundingClientRect();
-    if (!rect) return;
-    setPos({
-      left: Math.max(4, Math.min(at.x, window.innerWidth - rect.width - 4)),
-      top: Math.max(4, Math.min(at.y, window.innerHeight - rect.height - 4)),
-    });
-  }, [at.x, at.y]);
-
-  useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const onDown = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) closeRef.current();
-    };
-    // Captured before React's listeners, so Escape closes only this menu, not the panel under it.
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      // A logo search with text clears first; ListSearch takes that Escape.
-      if (event.target instanceof HTMLInputElement && event.target.type === "search" && event.target.value) return;
-      event.preventDefault();
-      event.stopPropagation();
-      closeRef.current();
-    };
-    const raf = requestAnimationFrame(() => document.addEventListener("mousedown", onDown));
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      cancelAnimationFrame(raf);
-      document.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey, true);
-      previous?.focus({ preventScroll: true });
-    };
-  }, []);
-
-  return createPortal(
-    <div
-      ref={ref}
-      role="dialog"
-      data-picture-menu-panel
-      // Above a modal (z 10000): the menu also opens from the connection editor.
-      style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 10001 }}
-      className="w-[min(16rem,calc(100vw-0.5rem))] rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 shadow-xl animate-fade-in-up"
-      // The panel is portalled, but React events still bubble to the row under it.
-      onClick={(event) => event.stopPropagation()}
-    >
-      {children}
-    </div>,
-    document.body,
   );
 }
 

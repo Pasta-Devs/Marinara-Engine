@@ -264,9 +264,14 @@ type ConnectionSetupOption = {
 function followMainLabel(
   options: Array<{ name: string; isDefault?: unknown }>,
   t: (key: string, values?: Record<string, unknown>) => string,
+  builtInMain = false,
 ) {
   const main = options.find((option) => isConnectionFlagTrue(option.isDefault));
-  return main ? t("connections.switcher.followMainWith", { model: main.name }) : t("ui.game.gamesurfacecomponent.none");
+  return main
+    ? t("connections.switcher.followMainWith", { model: main.name })
+    : builtInMain
+      ? t("connections.switcher.followMainWith", { model: t("connections.select.localModel") })
+      : t("ui.game.gamesurfacecomponent.none");
 }
 
 function parseCharacterFolderIds(value: unknown): string[] {
@@ -491,6 +496,7 @@ function SetupWizardShell({
   primaryDisabled,
   secondaryAction,
   busyContent,
+  validationContent,
 }: {
   title: string;
   steps: WizardStep[];
@@ -507,6 +513,7 @@ function SetupWizardShell({
   primaryDisabled?: boolean;
   secondaryAction?: React.ReactNode;
   busyContent?: React.ReactNode;
+  validationContent?: React.ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
@@ -566,32 +573,35 @@ function SetupWizardShell({
             {busyContent ? (
               busyContent
             ) : (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  {onBack && (
-                    <button type="button" onClick={onBack} className={WIZARD_GHOST_BUTTON_CLASS}>
-                      {localizeUi("ui.noodle.noodlerframe.back")}
+              <>
+                {validationContent}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {onBack && (
+                      <button type="button" onClick={onBack} className={WIZARD_GHOST_BUTTON_CLASS}>
+                        {localizeUi("ui.noodle.noodlerframe.back")}
+                      </button>
+                    )}
+                    {onSkip && (
+                      <button type="button" onClick={onSkip} className={WIZARD_GHOST_BUTTON_CLASS}>
+                        {localizeUi("onboarding.actions.skip")}
+                      </button>
+                    )}
+                  </div>
+                  <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+                    {secondaryAction}
+                    <button
+                      type="button"
+                      onClick={onPrimary}
+                      disabled={primaryDisabled}
+                      className={WIZARD_PRIMARY_BUTTON_CLASS}
+                    >
+                      {primaryLabel}
+                      {primaryIcon}
                     </button>
-                  )}
-                  {onSkip && (
-                    <button type="button" onClick={onSkip} className={WIZARD_GHOST_BUTTON_CLASS}>
-                      {localizeUi("onboarding.actions.skip")}
-                    </button>
-                  )}
+                  </div>
                 </div>
-                <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
-                  {secondaryAction}
-                  <button
-                    type="button"
-                    onClick={onPrimary}
-                    disabled={primaryDisabled}
-                    className={WIZARD_PRIMARY_BUTTON_CLASS}
-                  >
-                    {primaryLabel}
-                    {primaryIcon}
-                  </button>
-                </div>
-              </div>
+              </>
             )}
           </div>
         </motion.div>
@@ -1185,6 +1195,7 @@ function ConversationQuickSetup({
   const { data: connections } = useConnections();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
+  const sidecarUseAsMainDefault = useSidecarStore((state) => state.config.useAsMainDefault);
   const { data: presets } = usePresets();
   const { data: defaultPreset } = useDefaultPreset();
   const [selectedPromptPresetId, setSelectedPromptPresetId] = useState<string | null>(chat.promptPresetId ?? null);
@@ -1568,8 +1579,13 @@ function ConversationQuickSetup({
   // A chat without its own Model follows Main, so it can start whenever a Main exists.
   const hasConnection =
     !!chat.connectionId ||
+    sidecarUseAsMainDefault ||
     connectionOptions.some((option) => isConnectionFlagTrue((option as { isDefault?: unknown }).isDefault));
   const hasCharacters = chatCharIds.length > 0;
+  const missingSetup = useMemo(
+    () => ({ connection: !hasConnection, characters: !hasCharacters }),
+    [hasCharacters, hasConnection],
+  );
   const goBack = useCallback(() => {
     setStep((value) => Math.max(0, value - 1));
   }, []);
@@ -1655,6 +1671,27 @@ function ConversationQuickSetup({
     metadata.multiplayerSetup,
   ]);
 
+  const validationContent =
+    isLast && metadata.multiplayerSetup !== true && (missingSetup.connection || missingSetup.characters) ? (
+      <div className="mb-3 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/55 px-3 py-2.5">
+        <p className="text-xs font-medium text-[var(--foreground)]">
+          {localizeUi("ui.chat.conversationquicksetup.completeRequiredSetup")}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {missingSetup.connection && (
+            <button type="button" onClick={() => setStep(0)} className={WIZARD_SECONDARY_BUTTON_CLASS}>
+              {localizeUi("ui.chat.conversationquicksetup.setUpConnection")}
+            </button>
+          )}
+          {missingSetup.characters && (
+            <button type="button" onClick={() => setStep(2)} className={WIZARD_SECONDARY_BUTTON_CLASS}>
+              {localizeUi("ui.chat.conversationquicksetup.addCharacter")}
+            </button>
+          )}
+        </div>
+      </div>
+    ) : undefined;
+
   const renderConnectionStep = () => (
     <div className="space-y-4">
       <MultiplayerPrepareButton chatId={chat.id} prepared={metadata.multiplayerSetup === true} />
@@ -1683,7 +1720,7 @@ function ConversationQuickSetup({
           value={selectedConnectionId || null}
           aria-label={localizeUi("ui.chat.conversationquicksetup.connection")}
           onChange={setConnection}
-          defaultLabel={followMainLabel(connectionOptions, localizeUi)}
+          defaultLabel={followMainLabel(connectionOptions, localizeUi, sidecarUseAsMainDefault)}
           extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
         />
         {connectionOptions.length === 0 && (
@@ -2224,6 +2261,7 @@ function ConversationQuickSetup({
               })
             : undefined
         }
+        validationContent={validationContent}
         busyContent={busyContent}
       >
         {content}

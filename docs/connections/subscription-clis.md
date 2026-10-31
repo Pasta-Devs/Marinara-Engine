@@ -42,9 +42,9 @@ npm i -g @anthropic-ai/claude-code
 claude auth login
 ```
 
-3. In Marinara, open the **Connections** panel and click **Add connection**.
+3. In Marinara, open the **Connections** panel and click **Add**. The **Add account** window opens.
 4. In step 1, choose the **Claude (Subscription)** service.
-5. In step 2, notice there is no key field. The step says **No key needed. Marinara uses the login on this computer.** Click **Save and test**. **The connection works.** means the login works.
+5. In step 2, notice there is no key field. The step says **No key needed. Marinara uses the login on this computer.** Click **Connect**. **Connected** means the login works.
 6. In step 3, pick a Claude model, such as an Opus or Sonnet model, then click **Done**. The list shows the models your Claude Code login offers when Claude Code has a list for it, otherwise a built-in list.
 
 Claude subscription connections support text chat only. This connection has two extra controls, **Fast Mode** and **Diagnose Model Routing**, described below.
@@ -65,9 +65,9 @@ npm i -g @openai/codex
 codex login
 ```
 
-3. In Marinara, open the **Connections** panel and click **Add connection**.
+3. In Marinara, open the **Connections** panel and click **Add**. The **Add account** window opens.
 4. In step 1, choose the **OpenAI (ChatGPT)** service.
-5. In step 2, click **Save and test** to confirm the login works.
+5. In step 2, click **Connect** to confirm the login works.
 6. In step 3, pick a model. The list comes from your ChatGPT session when available, otherwise a built-in list. Click **Done**.
 
 Marinara reads your local Codex login file and refreshes the session when it can.
@@ -90,9 +90,9 @@ curl -fsSL https://x.ai/cli/install.sh | bash
 grok login
 ```
 
-3. In Marinara, open the **Connections** panel and click **Add connection**.
+3. In Marinara, open the **Connections** panel and click **Add**. The **Add account** window opens.
 4. In step 1, choose the **Grok CLI (Subscription)** service.
-5. In step 2, click **Save and test** to confirm the login works.
+5. In step 2, click **Connect** to confirm the login works.
 6. In step 3, pick a model, or leave the **Model** field blank on the saved model to use the CLI default. The safest model for roleplay is usually `grok-composer-2.5-fast`.
 
 Two things are special about Grok CLI. It does not stream, so a reply appears all at once instead of word by word. Its context window defaults to 32000 tokens, lower than other providers, because very large prompts can hit the CLI's own turn limit.
@@ -109,7 +109,7 @@ Debug logs separate five-minute and one-hour cache writes using the SDK's report
 
 ## Why there is no API key field
 
-For all three subscription services, the key and **Endpoint** fields are hidden. That is on purpose. Your login lives inside the CLI on the server machine, so there is nothing for you to type into Marinara.
+For all three subscription services, the key and **Address** fields are hidden. That is on purpose. Your login lives inside the CLI on the server machine, so there is nothing for you to type into Marinara.
 
 If you chose the wrong service by mistake and see no key field, go back to step 1 and choose the service you meant. The key field returns for API-based services.
 

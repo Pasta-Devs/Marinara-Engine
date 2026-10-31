@@ -80,7 +80,7 @@ A manual status override also belongs to the character. If you set a character t
 
 Almost always, yes. A **connection** is one API key, account, or endpoint for an AI service. The models you save are grouped under it. An **API key** is a secret code, a bit like a password. You get it from an AI provider so Marinara can talk to that provider for you.
 
-You need at least one connection before you can start any chat. To make one, open the **Connections** panel, click **Add connection**, choose the service, paste your **API key**, and choose models. For the full walkthrough, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
+You need at least one connection before you can start any chat. To make one, open the **Connections** panel and click **Add**. Choose a service in the **Add account** window, paste your **API key**, and click **Connect**. The window then opens model selection. Choose a model, use the **Make ... my Main** option if you want it to answer new chats, and click **Start chatting** when the window offers it. For a normal account setup, click **Done** instead. For the full walkthrough, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
 A few providers do not use an API key at all. The subscription options (Claude, ChatGPT, and Grok) log in through a command-line tool instead, and the built-in Local Model runs on your own machine with no key.
 

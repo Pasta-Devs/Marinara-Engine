@@ -124,6 +124,7 @@ import type { AutoActiveCharactersMode, AvatarCrop, MultiplayerHostAction } from
 import {
   AVATAR_AGENT_IDS,
   BUILT_IN_AGENT_IDS,
+  LOCAL_SIDECAR_CONNECTION_ID,
   audioConnectionSupportsGeneration,
   BUILT_IN_AGENTS,
   VIDEO_FIRST_FRAMES,
@@ -8650,20 +8651,30 @@ export function ChatSettingsDrawer({
                   </button>
                   {isGame && metadata.enableAgents && (
                     <div className="mt-1.5 px-3">
+                      {import.meta.env.VITE_MARINARA_LITE === "true" &&
+                        metadata.gameSceneConnectionId === LOCAL_SIDECAR_CONNECTION_ID && (
+                          <p className="mb-1 text-xs text-[var(--muted-foreground)]">
+                            {t("connections.select.localModel")}
+                          </p>
+                        )}
                       <ConnectionSelect
                         job={t("connections.picker.job.sceneEffects")}
                         value={(metadata.gameSceneConnectionId as string) || null}
                         onChange={(connectionId) =>
                           updateMeta.mutate({ id: chat.id, gameSceneConnectionId: connectionId })
                         }
-                        inherits={{ connectionId: chat.connectionId ?? null }}
+                        inherits={
+                          import.meta.env.VITE_MARINARA_LITE === "true"
+                            ? { connectionId: chat.connectionId ?? null }
+                            : undefined
+                        }
                         // Lite has no sidecar; an empty scene connection falls back to the chat's own.
                         defaultLabel={
                           import.meta.env.VITE_MARINARA_LITE === "true"
                             ? t("connections.select.default")
                             : localizeUi("ui.chat.chatsettingsdrawer.localSidecarGemma")
                         }
-                        includeLocalSidecar
+                        includeLocalSidecar={import.meta.env.VITE_MARINARA_LITE !== "true"}
                       />
                     </div>
                   )}

@@ -36,26 +36,37 @@ assert.match(presence, /This chat has no character\. Add a character before send
 const handler = modal.slice(modal.indexOf("const saveAndTest ="), modal.indexOf("  const showModelsOf ="));
 const javascript = ts.transpile(handler + "\nreturn saveAndTest;", { target: ts.ScriptTarget.ES2022 });
 const calls: string[] = [];
-let target: unknown = null;
+type Target = { accountId: string; connectionId: string; fresh: boolean; accountBaseUrl?: string };
+let target: Target | null = null;
 let result: unknown = { success: false, message: "API returned 401" };
+let rows: Array<{ id: string; accountId: string }> = [];
+const createResult = {
+  account: { id: "account", baseUrl: "http://localhost/v1" },
+  connectionId: "row",
+};
 const mutation = (name: string, value?: unknown) => ({
   mutateAsync: async () => {
     calls.push(name);
+    if (name === "create-row") return { id: "restored-row" };
     return value;
   },
 });
 const createHandler = new Function("context", `with(context) { ${javascript} }`);
 const context = {
+  savingRef: { current: false },
   provider: "custom",
-  target: null,
   accountFields: () => ({}),
   name: "",
   isMedia: false,
-  createAccount: mutation("create", {
-    account: { id: "account", baseUrl: "http://localhost/v1" },
-    connectionId: "row",
-  }),
+  createAccount: {
+    mutateAsync: async () => {
+      calls.push("create");
+      return createResult;
+    },
+  },
   updateAccount: mutation("update"),
+  connectionsQuery: { refetch: async () => ({ data: rows }) },
+  createRow: mutation("create-row"),
   deleteRow: mutation("delete-row"),
   deleteAccount: mutation("delete-account"),
   testConnection: {
@@ -65,10 +76,16 @@ const context = {
       return result;
     },
   },
-  setTarget: (value: unknown) => {
+  setTarget: (value: Target | null) => {
     target = value;
   },
   setTested: () => {},
+  hasMain: true,
+  modelsFor: undefined,
+  job: undefined,
+  baseUrl: "http://localhost/v1",
+  serviceName: () => "Custom",
+  withHttpScheme: (value: string) => value,
   kindsOf: () => ["chat", "image"],
   service: "custom",
   startKind: () => "chat",
@@ -80,26 +97,44 @@ const context = {
   setStep: () => {
     calls.push("models");
   },
-  errorText: String,
+  errorText: (error: unknown) => {
+    if (error instanceof ReferenceError || error instanceof TypeError) throw error;
+    return String(error);
+  },
   toast: { error: () => {} },
   t: () => "error",
 };
+const runHandler = (continueAnyway = false) => createHandler({ ...context, target })(continueAnyway);
 for (const testResult of [{ success: false }, new Error("network")]) {
   calls.length = 0;
   result = testResult;
-  await createHandler(context)();
+  await runHandler();
   assert.deepEqual(calls, ["create", "test", "delete-row", "delete-account"]);
   assert.equal(target, null);
 }
 calls.length = 0;
-await createHandler(context)(true);
+result = { success: true };
+target = null;
+rows = [];
+await runHandler(true);
 assert.deepEqual(calls, ["create", "done"]);
 calls.length = 0;
+target = { accountId: "account", connectionId: "", fresh: true };
+await runHandler(true);
+assert.deepEqual(calls, ["update", "create-row", "done"]);
+assert.equal(target?.connectionId, "restored-row");
+calls.length = 0;
+rows = [{ id: "restored-row", accountId: "account" }];
+await runHandler(true);
+assert.deepEqual(calls, ["update", "done"]);
+calls.length = 0;
 result = { success: true };
-await createHandler(context)();
+target = null;
+await runHandler();
 assert.deepEqual(calls, ["create", "test", "done"]);
 calls.length = 0;
 result = { success: false };
+rows = [{ id: "row", accountId: "existing" }];
 await createHandler({ ...context, target: { accountId: "existing", connectionId: "row", fresh: false } })();
 assert.deepEqual(calls, ["update", "test"]);
 

@@ -271,7 +271,7 @@ assert.match(
 );
 assert.match(
   sidecarCardSource,
-  /\{trackerLocalCount\}\/\{trackerAgents\.length\}/u,
+  /localizeUi\("connections\.device\.trackersUsingLocal", \{\s*count: trackerLocalCount,\s*total: trackerAgents\.length,\s*\}\)/u,
   "the rendered Sidecar count must use the reactive assigned and total tracker values",
 );
 

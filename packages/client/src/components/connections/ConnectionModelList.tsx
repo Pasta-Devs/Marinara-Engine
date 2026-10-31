@@ -8,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { useOutsideReads } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import { BrandMark } from "./ProviderIcon";
+import { MODEL_TEXT_INSET } from "./connection-row-layout";
 
 /** A list longer than this starts folded: each upstream shows only its role (or starred) Models. */
 const FOLD_AT = 12;
@@ -168,7 +169,9 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
             )}
             {/* NanoGPT plan badges need the user's yes once: the server then reads NanoGPT's public list. */}
             {upstream === "nanogpt" && outsideReads.value === null && showCostBadges && (
-              <div className="mari-connection-model-slot flex min-h-9 min-w-0 items-center ps-[3.625rem] pe-2 max-md:ps-[2.75rem]">
+              <div
+                className={cn("mari-connection-model-slot flex min-h-9 min-w-0 items-center pe-2", MODEL_TEXT_INSET)}
+              >
                 <button type="button" onClick={() => void outsideReads.ask()} className="mari-chrome-control px-3">
                   {t("connections.nanogptPlan.show")}
                 </button>

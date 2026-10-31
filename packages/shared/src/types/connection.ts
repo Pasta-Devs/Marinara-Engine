@@ -322,6 +322,25 @@ export interface ModelCapabilities {
   reasoning: boolean;
 }
 
+/** A provider's HTTP 401/403 refusal, independent of its human-readable message. */
+export type ConnectionTestAuthErrorCode = "AUTH_REJECTED";
+
+export type ConnectionTestErrorCode =
+  | ConnectionTestAuthErrorCode
+  | "invalid_source"
+  | "invalid_url"
+  | "needs_relinking"
+  | "missing_key"
+  | "missing_model"
+  | "no_answer"
+  | "timeout"
+  | "cancelled"
+  | "network"
+  | "invalid_response"
+  | "partial_response"
+  | "private_address"
+  | `http_${number}`;
+
 /** Test result for a connection. */
 export interface ConnectionTestResult {
   success: boolean;
@@ -329,7 +348,8 @@ export interface ConnectionTestResult {
   latencyMs: number;
   modelName: string | null;
   decisionProbability?: number;
-  errorCode?: string;
+  /** AUTH_REJECTED for provider HTTP 401/403; Decision tests also return their existing diagnostic codes. */
+  errorCode?: ConnectionTestErrorCode;
   /** A Decision connection's limit during chats, to compare `latencyMs` with. */
   timeLimitMs?: number;
   /** How long this Decision test waited before giving up. */

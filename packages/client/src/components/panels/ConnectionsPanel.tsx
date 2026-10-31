@@ -75,6 +75,7 @@ import { ModelRow, mediaService } from "../connections/ModelRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf, sameServiceTargets } from "../connections/ConnectionGroup";
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
+import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
 import { BuiltInModelCard } from "../connections/BuiltInModelCard";
 import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
@@ -663,17 +664,14 @@ export function ConnectionsPanel() {
           <span aria-hidden className="mari-provider-icon flex shrink-0 items-center justify-center">
             <HardDrive size="1.125rem" />
           </span>
-          <span className="min-w-0 flex-1">
-            <strong className="line-clamp-2 min-w-0 break-words text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]">
-              {deviceTitle}
-            </strong>
-            <span className="mt-0.5 block min-w-0 truncate text-xs text-[var(--muted-foreground)]">
+          <ConnectionHeading title={deviceTitle}>
+            <ConnectionHeadingMeta>
               {(deviceEngines.length === 1
                 ? [onlyEngine.name, onlyEngine.state]
                 : deviceEngines.map((engine) => engine.name)
               ).join(" · ")}
-            </span>
-          </span>
+            </ConnectionHeadingMeta>
+          </ConnectionHeading>
         </button>
         <button
           type="button"
@@ -1123,6 +1121,7 @@ export function ConnectionsPanel() {
       data-connections-panel={wide ? "wide" : "narrow"}
     >
       {body}
+      {chooseFolder.dialog}
       {pictureMenu && (
         <PictureMenu
           key={`${pictureMenu.target.kind}:${pictureMenu.target.id}`}

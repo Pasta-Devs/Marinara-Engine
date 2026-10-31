@@ -3,7 +3,7 @@
 // as a Connection's card (icon in the folder's colour, name, count, ⋯, fold), and "Not in a folder" last. Also the one folder
 // chooser the row ⋯ menu and multi-select share.
 // ──────────────────────────────────────────────
-import { useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import {
   BookOpen,
   Briefcase,
@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Palette,
   Pencil,
+  Plus,
   Shapes,
   Sparkles,
   Star,
@@ -39,8 +40,10 @@ import { useCachedCatalogFacts, type CachedCatalogFacts } from "../../hooks/use-
 import { showChoiceDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
+import { Modal } from "../ui/Modal";
 import { ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
 import { menuAt, type MenuAt } from "./ModelRow";
+import { ConnectionHeading, ConnectionHeadingMeta } from "./ConnectionHeading";
 
 /** Dot colours a folder can wear; "" is the neutral dot. */
 const FOLDER_COLOURS = {
@@ -77,25 +80,20 @@ export function useFolderChooser() {
   const { data: folders } = useConnectionFolders();
   const createFolder = useCreateConnectionFolder();
   const moveToFolder = useMoveConnectionToFolder();
-  return async (rows: ConnectionRowData[]): Promise<boolean> => {
-    const shared = rows.every((row) => row.folderId === rows[0]?.folderId) ? (rows[0]?.folderId ?? null) : undefined;
-    const key = await showChoiceDialog({
-      title: t("connections.folders.chooseTitle", { count: rows.length }),
-      message: t("connections.folders.chooseMessage"),
-      choices: [
-        ...(folders ?? []).map((folder) => ({
-          key: folder.id,
-          label: folder.name,
-          description: shared === folder.id ? t("connections.folders.current") : null,
-        })),
-        {
-          key: NO_FOLDER,
-          label: t("connections.folders.noFolder"),
-          description: shared === null ? t("connections.folders.current") : null,
-        },
-        { key: NEW_FOLDER, label: t("connections.folders.newFolder") },
-      ],
-      cancelLabel: t("connections.accounts.editor.cancel"),
+  const [pendingRows, setPendingRows] = useState<ConnectionRowData[] | null>(null);
+  const resolveChoice = useRef<((key: string | null) => void) | null>(null);
+  useEffect(() => () => resolveChoice.current?.(null), []);
+  const pick = (key: string | null) => {
+    resolveChoice.current?.(key);
+    resolveChoice.current = null;
+    setPendingRows(null);
+  };
+  const choose = async (rows: ConnectionRowData[]): Promise<boolean> => {
+    if (!rows.length) return false;
+    resolveChoice.current?.(null);
+    setPendingRows(rows);
+    const key = await new Promise<string | null>((resolve) => {
+      resolveChoice.current = resolve;
     });
     if (key === null) return false;
     try {
@@ -120,6 +118,55 @@ export function useFolderChooser() {
       return false;
     }
   };
+  const shared = pendingRows?.every((row) => row.folderId === pendingRows[0]?.folderId)
+    ? (pendingRows[0]?.folderId ?? null)
+    : undefined;
+  return Object.assign(choose, {
+    dialog: (
+      <Modal
+        open={!!pendingRows}
+        onClose={() => pick(null)}
+        title={t("connections.folders.chooseTitle", { count: pendingRows?.length ?? 0 })}
+        opaque
+      >
+        <p className="mb-3 text-sm text-[var(--muted-foreground)]">{t("connections.folders.chooseMessage")}</p>
+        <div className="flex flex-col gap-1">
+          {[...(folders ?? []), null].map((folder) => {
+            const Icon = folder ? (FOLDER_ICONS[folder.icon ?? "folder"] ?? Folder) : Shapes;
+            const name = folder?.name ?? t("connections.folders.noFolder");
+            return (
+              <button
+                key={folder?.id ?? NO_FOLDER}
+                type="button"
+                onClick={() => pick(folder?.id ?? NO_FOLDER)}
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              >
+                <Icon
+                  aria-hidden
+                  size="1.125rem"
+                  className="shrink-0"
+                  style={folder?.color ? { color: folder.color } : undefined}
+                />
+                <ConnectionHeading title={name}>
+                  {shared === (folder?.id ?? null) && (
+                    <ConnectionHeadingMeta>{t("connections.folders.current")}</ConnectionHeadingMeta>
+                  )}
+                </ConnectionHeading>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => pick(NEW_FOLDER)}
+            className="mari-chrome-control flex min-h-11 items-center gap-3 px-2"
+          >
+            <Plus aria-hidden size="1.125rem" />
+            {t("connections.folders.newFolder")}
+          </button>
+        </div>
+      </Modal>
+    ),
+  });
 }
 
 export function ConnectionFolderGroup({
@@ -233,14 +280,9 @@ export function ConnectionFolderGroup({
           ) : (
             <Shapes aria-hidden size="1.125rem" className="shrink-0 text-[var(--muted-foreground)]/70" />
           )}
-          <span className="min-w-0 flex-1">
-            <strong className="line-clamp-2 min-w-0 break-words text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]">
-              {name}
-            </strong>
-            <span className="mt-0.5 block text-xs text-[var(--muted-foreground)]">
-              {t("connections.list.models", { count: rows.length })}
-            </span>
-          </span>
+          <ConnectionHeading title={name}>
+            <ConnectionHeadingMeta>{t("connections.list.models", { count: rows.length })}</ConnectionHeadingMeta>
+          </ConnectionHeading>
         </button>
         {folder && (
           <button

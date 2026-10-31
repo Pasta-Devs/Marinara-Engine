@@ -716,6 +716,10 @@ export function ConnectionSwitcherBody({
     (!!followDefault?.active && !followDefault.own && choice.connectionId === mainRow?.id && !choice.model) ||
     (!!choice.model && !!nowRuns && runsKey(choice, rows) === nowRuns);
   const isNow = (entry: Entry) => matchesNow(entry.choice);
+  // The followed model stays visible in its original group. Selecting it keeps the follow state.
+  const isInheritedMain = (entry: Entry) =>
+    !!followDefault?.active && !followDefault.own && entry.choice.connectionId === mainRow?.id;
+  const showInGroup = (entry: Entry) => !isNow(entry) || isInheritedMain(entry);
 
   const recent = useMemo(() => {
     if (recentChoices) {
@@ -824,10 +828,10 @@ export function ConnectionSwitcherBody({
     () =>
       listed.flatMap((item) => {
         const stars = item.group.account ? starsOfRows(item.group.rows) : new Set<string>();
-        return item.entries.filter((entry) => !!entry.model && stars.has(entry.model) && !isNow(entry));
+        return item.entries.filter((entry) => !!entry.model && stars.has(entry.model) && showInGroup(entry));
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isNow reads the host's current pick, which `nowRow` and `current` already track
-    [listed, current, nowRow],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showInGroup reads the host's current pick and follow state, tracked below
+    [listed, current, nowRow, mainRow, followDefault?.active, followDefault?.own],
   );
   const starredKeys = useMemo(() => new Set(starredEntries.map((entry) => entry.key)), [starredEntries]);
 
@@ -1039,7 +1043,7 @@ export function ConnectionSwitcherBody({
   };
 
   const renderGroup = ({ group, entries }: { group: SwitcherGroup; entries: Entry[] }) => {
-    const shown = entries.filter((entry) => !isNow(entry) && !starredKeys.has(entry.key));
+    const shown = entries.filter((entry) => showInGroup(entry) && !starredKeys.has(entry.key));
     // A standalone Model has no Connection to browse: it is its own line.
     if (!group.account) {
       return shown.length > 0 ? (
@@ -1134,7 +1138,7 @@ export function ConnectionSwitcherBody({
       const entries = rows
         .filter((row) => (folder ? row.folderId === folder.id : !row.folderId || !known.has(row.folderId)))
         .map((row) => entryOfRow(row, groupOfRow.get(row.id)))
-        .filter((entry) => !isNow(entry));
+        .filter(showInGroup);
       if (entries.length === 0) return null;
       const name = folder?.name ?? t("connections.folders.none");
       return (

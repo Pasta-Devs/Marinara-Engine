@@ -9,6 +9,7 @@ import {
   isLocalAuthProvider,
   speaksOpenAIChat,
   type APIProvider,
+  type ConnectionTestErrorCode,
 } from "@marinara-engine/shared";
 import { ProviderIcon } from "../../connections/ProviderIcon";
 import { JOB } from "../../../lib/connection-jobs";
@@ -289,7 +290,7 @@ export const jobSourceOf = (row: ConnectionRowLite) =>
       ? row.decisionSource || "typesafe"
       : null;
 
-export type TestResult = { success: boolean; message?: string };
+export type TestResult = { success: boolean; message?: string; errorCode?: ConnectionTestErrorCode | null };
 
 export const inputClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
 export const labelClass = "text-xs font-medium text-[var(--muted-foreground)]";
@@ -330,9 +331,11 @@ export const MEDIA_KEY_URLS: Record<string, string> = {
 export function failureReason(
   provider: APIProvider,
   message: string,
+  errorCode?: TestResult["errorCode"],
 ): "plan" | "key" | "busy" | "unreachable" | "other" {
   if (isLocalAuthProvider(provider)) return "plan";
-  const status = /API returned (\d{3})/u.exec(message)?.[1];
+  if (errorCode === "AUTH_REJECTED") return "key";
+  const status = /^http_(\d{3})$/u.exec(errorCode ?? "")?.[1] ?? /API returned (\d{3})/u.exec(message)?.[1];
   if (status === "401" || status === "403") return "key";
   if (status === "429") return "busy";
   if (!status && NETWORK_ERROR.test(message)) return "unreachable";
