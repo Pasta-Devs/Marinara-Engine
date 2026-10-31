@@ -33,6 +33,7 @@ import {
   MessageCircle,
   NotebookPen,
   PackagePlus,
+  Plug,
   RefreshCw,
   Sparkles,
   Star,
@@ -56,6 +57,9 @@ import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
 import { MariHold } from "./mari/MariHold";
+import { useConnections } from "../../hooks/use-connections";
+import { openAddConnection } from "../../lib/add-connection";
+import { isChatProvider } from "@marinara-engine/shared";
 import { useAllCharacterCatalog } from "../../hooks/use-characters";
 import {
   selectHomeBrowserPackages,
@@ -924,6 +928,13 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     portraits: mariPortraits,
   } = useMariAppearancePack();
   const { t, i18n } = useTranslation();
+  const connectionsQuery = useConnections();
+  // Hidden while loading, so a returning user never sees it flash.
+  const noChatModel =
+    connectionsQuery.data !== undefined &&
+    !(connectionsQuery.data as Array<{ provider: string; model?: string | null }>).some(
+      (c) => isChatProvider(c.provider) && !!c.model,
+    );
   const installedChannel = useQuery<{ channel: "stable" | "staging" }>({
     queryKey: ["update-channel"],
     queryFn: () => api.get("/updates/channel"),
@@ -2396,6 +2407,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                       </span>
                     </HomeNewChatLauncher>
                   </div>
+                  {noChatModel && (
+                    <button
+                      type="button"
+                      onClick={() => openAddConnection()}
+                      className="mari-chrome-control mx-auto mt-2 flex min-h-11 max-w-md items-center justify-center gap-2 rounded-xl border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-4 py-2 text-xs font-semibold text-[var(--foreground)] sm:min-h-9"
+                    >
+                      <Plug size="0.875rem" aria-hidden="true" />
+                      {t("home.connectModel.cta")}
+                    </button>
+                  )}
                 </section>
                 <div ref={feedShellRef} className="mari-home-feed-shell">
                   <div

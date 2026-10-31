@@ -41,6 +41,9 @@ interface ModalProps {
   /** Optional feature-local style variables applied to the full panel. */
   panelStyle?: CSSProperties;
   closeDisabled?: boolean;
+  closeButtonClassName?: string;
+  /** Solid panel surface and no backdrop blur (Connections windows); other modals keep the translucent chrome. */
+  opaque?: boolean;
   /** Let drag hit-testing reach content behind the modal while keeping the panel interactive. */
   dragThrough?: boolean;
   /** Always open on the omnibar's layer, above every other app overlay (app dialogs, even over a package screen). */
@@ -63,6 +66,8 @@ export function Modal({
   contentClassName,
   panelStyle,
   closeDisabled = false,
+  closeButtonClassName,
+  opaque = false,
   dragThrough = false,
   topLayer = false,
 }: ModalProps) {
@@ -155,9 +160,10 @@ export function Modal({
     return () => document.removeEventListener("keydown", handler);
   }, [open, onClose, closeDisabled]);
 
-  // Remove from DOM after exit animation completes
+  // Remove from DOM after exit animation completes. A reopen during the exit (focus is already back on the opener)
+  // keeps it: the late transitionend or the fallback below must not unmount an open dialog.
   const handleAnimationEnd = () => {
-    if (animating === "exit") {
+    if (animating === "exit" && !open) {
       setMounted(false);
       setAnimating(null);
     }
@@ -168,13 +174,13 @@ export function Modal({
   // backgrounded (e.g. a game starting auto-closes its setup). Without this
   // the overlay stays mounted forever and blocks clicks.
   useEffect(() => {
-    if (animating !== "exit") return;
+    if (animating !== "exit" || open) return;
     const timer = setTimeout(() => {
       setMounted(false);
       setAnimating(null);
     }, 400);
     return () => clearTimeout(timer);
-  }, [animating]);
+  }, [animating, open]);
 
   if (!mounted) return null;
 
@@ -188,7 +194,7 @@ export function Modal({
       aria-label={localizedTitle}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className={`mari-modal fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
+      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
@@ -235,7 +241,7 @@ export function Modal({
             onClick={onClose}
             disabled={closeDisabled}
             aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
-            className="flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40"
+            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${closeButtonClassName ?? ""}`}
           >
             <X size="1rem" />
           </button>

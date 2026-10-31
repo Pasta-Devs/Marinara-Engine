@@ -52,10 +52,13 @@ export const apiConnections = fileTable("api_connections", {
   /**
    * The model list last fetched from the provider, as JSON `{ fetchedAt, models }`. A re-fetchable cache:
    * never holds credentials, is left out of API responses and profile exports, and is cleared when the
-   * provider, base URL or API key changes.
+   * provider, base URL or API key changes. Only a Model without a Connection (account) keeps it here; a linked
+   * Model reads its Connection's `modelCatalogs` entry instead.
    */
   savedModels: text("saved_models"),
   imagePath: text("image_path"),
+  /** Picture: null = service logo (or `imagePath` when uploaded), "brand:<key>", "letters:<XY>". */
+  icon: text("icon"),
   maxContext: integer("max_context").notNull().default(128000),
   isDefault: text("is_default").notNull().default("false"),
   /** Whether this language connection is the fallback for main generations (only one allowed). */
@@ -106,9 +109,13 @@ export const apiConnections = fileTable("api_connections", {
   audioGenerationLegacyConnectionId: text("audio_generation_legacy_connection_id"),
   decisionSource: text("decision_source"),
   credentialsFromConnectionId: text("credentials_from_connection_id"),
+  /** Connection account this row belongs to (null = standalone). Deliberately not named *ConnectionId. */
+  accountId: text("account_id"),
   maxStateTokens: integer("max_state_tokens"),
   /** A Decision connection's time limit in milliseconds; null uses the default. */
   decisionTimeoutMs: integer("decision_timeout_ms"),
+  /** Whether this chat Model reads images: "reads", "text", or null (Automatic: its catalog decides). */
+  imageInput: text("image_input"),
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: text("audio_voice"),
   /** How long a speech request on this audio connection may take, in milliseconds; null uses the default. */

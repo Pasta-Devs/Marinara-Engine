@@ -1,6 +1,7 @@
 import {
   audioConnectionSupportsGeneration,
   compileGameWorld,
+  LOCAL_SIDECAR_CONNECTION_ID,
   gameWorldFromSnapshot,
   normalizeGameDifficulty,
   parseWorldKit,
@@ -94,6 +95,8 @@ import {
   normalizeGameHudWidgets,
 } from "./GameWidgetSetupEditor";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
+import { NeedsModelChip } from "../connections/NeedsModelChip";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useDefaultPreset, usePresets } from "../../hooks/use-presets";
 import { useCharacterGroups, usePersonas } from "../../hooks/use-characters";
 import { GameRulesetUpdate } from "./GameRulesetUpdate";
@@ -2050,19 +2053,13 @@ export function GameSetupWizard({
                         <Plug size={12} className="mr-1 inline" />
                         {localizeUi("ui.game.gamesetupwizard.connection")}
                       </label>
-                      <select
-                        value={gmConnectionId ?? ""}
-                        onChange={(e) => setGmConnectionId(e.target.value || null)}
+                      <ConnectionSelect
+                        job={localizeUi("connections.picker.job.gameMaster")}
+                        value={gmConnectionId}
+                        onChange={setGmConnectionId}
+                        defaultLabel={localizeUi("ui.game.gamesetupwizard.selectAConnection")}
                         className={GAME_SETUP_INPUT_CLASS}
-                      >
-                        <option value="">{localizeUi("ui.game.gamesetupwizard.selectAConnection")}</option>
-                        {languageConnections.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.model ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model }) : ""}
-                          </option>
-                        ))}
-                      </select>
+                      />
                       <p className="mt-2 rounded-lg border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]">
                         {localizeUi("ui.game.gamesetupwizard.useAStrongModelForTheInitialWorldGeneration")}
                       </p>
@@ -2108,11 +2105,7 @@ export function GameSetupWizard({
                           </div>
                         )}
                       </div>
-                      {languageConnections.length === 0 && (
-                        <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                          {localizeUi("ui.game.gamesetupwizard.noConnectionsConfiguredAddOneInSettingsConnections")}
-                        </p>
-                      )}
+                      {languageConnections.length === 0 && <NeedsModelChip kind="chat" className="mt-1" />}
                     </div>
 
                     <div>
@@ -2122,31 +2115,22 @@ export function GameSetupWizard({
                           {localizeUi("ui.game.gamesetupwizard.optional")}
                         </span>
                       </label>
-                      <select
-                        value={sceneModelValue ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v === "local") {
+                      <ConnectionSelect
+                        job={localizeUi("connections.picker.job.sceneEffects")}
+                        value={sceneModelValue === "local" ? LOCAL_SIDECAR_CONNECTION_ID : sceneConnectionId}
+                        onChange={(id) => {
+                          if (id === LOCAL_SIDECAR_CONNECTION_ID) {
                             setUseLocalScene(true);
                             setSceneConnectionId(null);
                           } else {
                             setUseLocalScene(false);
-                            setSceneConnectionId(v || null);
+                            setSceneConnectionId(id);
                           }
                         }}
+                        defaultLabel={localizeUi("ui.game.gamesetupwizard.skipUseInlineTagsFromGm")}
+                        includeLocalSidecar={sidecarAvailable}
                         className={GAME_SETUP_INPUT_CLASS}
-                      >
-                        <option value="">{localizeUi("ui.game.gamesetupwizard.skipUseInlineTagsFromGm")}</option>
-                        {sidecarAvailable && (
-                          <option value="local">{localizeUi("ui.game.gamesetupwizard.localModelGemma")}</option>
-                        )}
-                        {languageConnections.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.model ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model }) : ""}
-                          </option>
-                        ))}
-                      </select>
+                      />
                       <p className="mt-1 text-[0.575rem] text-[var(--muted-foreground)]">
                         {localizeUi(
                           "ui.game.gamesetupwizard.handlesBackgroundsMusicWeatherAndCinematicEffectsAfterEach",
@@ -3308,30 +3292,15 @@ export function GameSetupWizard({
                                 <label className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                                   {localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
                                 </label>
-                                <select
-                                  value={imageConnectionId ?? ""}
-                                  onChange={(e) => setImageConnectionId(e.target.value || null)}
-                                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                                >
-                                  <option value="">
-                                    {localizeUi("ui.game.gamesetupwizard.selectImageConnection")}
-                                  </option>
-                                  {imageConnections.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.name}
-                                      {c.model
-                                        ? localizeUi("ui.game.gamesetupwizard.value1_4cb807e", { value1: c.model })
-                                        : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                                {imageConnections.length === 0 && (
-                                  <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
-                                    {localizeUi(
-                                      "ui.game.gamesetupwizard.noImageGenerationConnectionsFoundAddOneInSettings",
-                                    )}
-                                  </p>
-                                )}
+                                <ConnectionSelect
+                                  job={localizeUi("connections.picker.job.gameImages")}
+                                  kind="image"
+                                  value={imageConnectionId}
+                                  onChange={setImageConnectionId}
+                                  defaultLabel={localizeUi("ui.game.gamesetupwizard.selectImageConnection")}
+                                  inherits="main"
+                                />
+                                {imageConnections.length === 0 && <NeedsModelChip kind="image" className="mt-1" />}
                                 <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">
                                   {localizeUi(
                                     "ui.game.gamesetupwizard.powersAutomaticPortraitsBackgroundsAndSceneIllustrations",
@@ -3362,30 +3331,15 @@ export function GameSetupWizard({
                                     <Film size={11} />
                                     {localizeUi("ui.game.gamesetupwizard.videoGenerationConnection")}
                                   </label>
-                                  <select
-                                    value={videoConnectionId ?? ""}
-                                    onChange={(e) => setVideoConnectionId(e.target.value || null)}
-                                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                                  >
-                                    <option value="">
-                                      {localizeUi("ui.game.gamesetupwizard.noSceneVideoConnection")}
-                                    </option>
-                                    {videoConnections.map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name}
-                                        {c.model
-                                          ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model })
-                                          : ""}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  {videoConnections.length === 0 && (
-                                    <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
-                                      {localizeUi(
-                                        "ui.game.gamesetupwizard.noVideoGenerationConnectionsFoundAddOneInSettings",
-                                      )}
-                                    </p>
-                                  )}
+                                  <ConnectionSelect
+                                    job={localizeUi("connections.picker.job.gameVideo")}
+                                    kind="video"
+                                    value={videoConnectionId}
+                                    onChange={setVideoConnectionId}
+                                    defaultLabel={localizeUi("ui.game.gamesetupwizard.noSceneVideoConnection")}
+                                    inherits="main"
+                                  />
+                                  {videoConnections.length === 0 && <NeedsModelChip kind="video" className="mt-1" />}
                                   <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">
                                     {localizeUi("ui.game.gamesetupwizard.usedForManualSceneVideos")}
                                   </p>
@@ -3417,25 +3371,15 @@ export function GameSetupWizard({
                         >
                           {localizeUi("connections.audioGeneration.connection")}
                         </label>
-                        <select
+                        <ConnectionSelect
+                          job={localizeUi("connections.picker.job.gameAudio")}
                           id={`${activeChatId}:game-audio-connection`}
-                          value={audioConnectionId ? (resolvedAudioConnection?.id ?? audioConnectionId) : ""}
-                          onChange={(e) => setAudioConnectionId(e.target.value || null)}
+                          value={audioConnectionId ? (resolvedAudioConnection?.id ?? audioConnectionId) : null}
+                          onChange={setAudioConnectionId}
+                          kind="audio"
+                          defaultLabel={localizeUi("connections.audioGeneration.defaultChoice")}
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                        >
-                          <option value="">{localizeUi("connections.audioGeneration.defaultChoice")}</option>
-                          {audioConnectionId && !resolvedAudioConnection && (
-                            <option value={audioConnectionId}>
-                              {localizeUi("connections.audioGeneration.unavailableSelection")}
-                            </option>
-                          )}
-                          {audioConnections.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                              {c.model ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model }) : ""}
-                            </option>
-                          ))}
-                        </select>
+                        />
                         {audioConnections.length === 0 && (
                           <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
                             {localizeUi("connections.audioGeneration.setupEmpty")}

@@ -44,6 +44,7 @@ import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createThemesStorage } from "../services/storage/themes.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { linkConnectionAccounts, withoutUsageKeyTokens } from "../services/storage/connection-accounts.storage.js";
 import { loadFeatureSettings } from "../services/features/feature-settings.js";
 import { TRIPO_API_KEY_SETTING } from "../services/avatars/generation/tripo-key.js";
 import {
@@ -762,6 +763,17 @@ export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<s
     // it stays out of portable profiles. Pinned models are settings and travel with the row.
     return rows.map((row) => ({ ...row, apiKeyEncrypted: "", managementTokenEncrypted: "", savedModels: null }));
   }
+  if (tableName === "connection_accounts") {
+    // Accounts hold the shared key and management token, so they stay on this install like the rows above.
+    // Their saved model lists are a cache too, like the rows' lists above. Pasted usage keys stay too; links travel.
+    return rows.map((row) => ({
+      ...row,
+      apiKeyEncrypted: "",
+      managementTokenEncrypted: "",
+      modelCatalogs: null,
+      usageKeys: withoutUsageKeyTokens(row.usageKeys),
+    }));
+  }
   if (tableName === "app_settings") {
     // The Tripo API key stays on this install too, like the connection keys blanked above.
     return rows.filter((row) => row.key !== TRIPO_API_KEY_SETTING);
@@ -893,6 +905,15 @@ export function quarantineProfileApiConnectionRow(
     // Like the key: the local saved model list still applies only to the same endpoint.
     savedModels: trustedIdentity ? (existing?.savedModels ?? null) : null,
     profileImportReviewRequired: trustedIdentity ? "false" : "true",
+    // A trusted row keeps its local account. Any other row keeps its exported account id: linkConnectionAccounts
+    // keeps it there only while that account is the imported one with the same blank key and origin, and
+    // otherwise regroups it with the rows of the same exported account (two keys on one endpoint stay apart).
+    // The review flag keeps it out of every trusted account that has a key.
+    accountId: trustedIdentity
+      ? (existing?.accountId ?? null)
+      : typeof row.accountId === "string"
+        ? row.accountId
+        : null,
     // Migration aliases are host provenance, never a binding a profile may invent.
     audioGenerationLegacyConnectionId: trustedIdentity ? (existing?.audioGenerationLegacyConnectionId ?? null) : null,
   };
@@ -908,6 +929,35 @@ async function planProfileApiConnectionImports(
   const existingRows = (await db.select().from(schema.apiConnections)) as Array<Record<string, unknown>>;
   const existingById = new Map<unknown, Record<string, unknown>>(existingRows.map((row) => [row.id, row]));
   return rows.map((row) => quarantineProfileApiConnectionRow(row, existingById.get(row.id)));
+}
+
+export function quarantineProfileConnectionAccountRow(
+  row: Record<string, unknown>,
+  existing?: Record<string, unknown>,
+): Record<string, unknown> {
+  const trusted =
+    !!existing &&
+    existing.profileImportReviewRequired !== "true" &&
+    existing.id === row.id &&
+    profileConnectionIdentityValue(existing.provider) === profileConnectionIdentityValue(row.provider) &&
+    profileConnectionIdentityValue(existing.baseUrl) === profileConnectionIdentityValue(row.baseUrl);
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  return {
+    ...row,
+    apiKeyEncrypted: trusted ? text(existing?.apiKeyEncrypted) : "",
+    managementTokenEncrypted: trusted ? text(existing?.managementTokenEncrypted) : "",
+    // Like the key: the local saved model lists still apply only to the same endpoint.
+    modelCatalogs: trusted ? (existing?.modelCatalogs ?? null) : null,
+    // Like the key: a pasted usage key never comes from a file; an untrusted row keeps only its links.
+    usageKeys: trusted ? (existing?.usageKeys ?? null) : withoutUsageKeyTokens(row.usageKeys),
+    profileImportReviewRequired: trusted ? "false" : "true",
+  };
+}
+
+async function planProfileConnectionAccountImports(db: DB, rows: Array<Record<string, unknown>>) {
+  const existingRows = (await db.select().from(schema.connectionAccounts)) as Array<Record<string, unknown>>;
+  const existingById = new Map<unknown, Record<string, unknown>>(existingRows.map((row) => [row.id, row]));
+  return rows.map((row) => quarantineProfileConnectionAccountRow(row, existingById.get(row.id)));
 }
 
 export function quarantineProfileMariInstructionRow(row: Record<string, unknown>) {
@@ -1431,6 +1481,10 @@ async function importProfileStorageSnapshot(
         );
         const connectionPlans = await planProfileApiConnectionImports(tx, plannedSnapshot.tables.api_connections ?? []);
         addProfileImportSecurityWarnings(warnings, buildProfileImportSecuritySummary(plannedSnapshot, connectionPlans));
+        const accountPlans = await planProfileConnectionAccountImports(
+          tx,
+          plannedSnapshot.tables.connection_accounts ?? [],
+        );
         for (const tableName of FILE_BACKED_TABLES) {
           const table = profileTableObjects.get(tableName);
           const rows = plannedSnapshot.tables[tableName];
@@ -1470,6 +1524,13 @@ async function importProfileStorageSnapshot(
               }
               cleanRow = connectionPlan.row;
             }
+            if (tableName === "connection_accounts") {
+              const accountPlan = accountPlans[rowIndex];
+              if (!accountPlan) {
+                throw new ProfileImportRequestError("Profile import could not plan an imported connection account.");
+              }
+              cleanRow = accountPlan;
+            }
             if (tableName === "installed_extensions") cleanRow = quarantineProfilePersonalExtensionRow(cleanRow);
             if (tableName === "custom_tools") cleanRow = quarantineProfileCustomToolRow(cleanRow);
             if (tableName === "mari_instructions") cleanRow = quarantineProfileMariInstructionRow(cleanRow);
@@ -1495,6 +1556,9 @@ async function importProfileStorageSnapshot(
             emit("tables", `Importing ${tableName.replace(/_/g, " ")}`);
           }
         }
+
+        // Imported rows arrive without a trusted account; group them by credential identity.
+        await linkConnectionAccounts(tx);
 
         await promoteStagedProfileAssets(stagedAssets);
         for (const asset of stagedAssets.assets) {

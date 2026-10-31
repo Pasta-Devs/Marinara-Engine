@@ -2231,6 +2231,8 @@ export const packagedAgentDefinitionSchema = z
     runInterval: z.number().int().positive().optional(),
     defaultPromptTemplate: z.string(),
     execution: z.enum(["pipeline", "feature", "host"]).optional(),
+    /** The kind of Model the agent cannot run without; the Engine shows a "Needs a … model" chip until one is set. */
+    requiresConnection: z.enum(["image", "video", "audio", "decision"]).optional(),
   })
   .strict();
 

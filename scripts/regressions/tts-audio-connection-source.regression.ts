@@ -32,6 +32,7 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { decryptApiKey } = await import("../../packages/server/src/utils/crypto.js");
 const { errorHandler } = await import("../../packages/server/src/middleware/error-handler.js");
 const { ttsRoutes } = await import("../../packages/server/src/routes/tts.routes.js");
+const { connectionAccountsRoutes } = await import("../../packages/server/src/routes/connection-accounts.routes.js");
 
 // A voice server with three addresses: the card's own source, and two OpenAI-compatible services.
 type ProviderRequest = { path: string; authorization: string; body: Record<string, unknown> | null };
@@ -71,6 +72,7 @@ const app = Fastify();
 app.decorate("db", db);
 app.setErrorHandler(errorHandler);
 await app.register(ttsRoutes, { prefix: "/api/tts" });
+await app.register(connectionAccountsRoutes, { prefix: "/accounts" });
 
 const stored = async () => JSON.parse((await settings.get(TTS_SETTINGS_KEY)) ?? "null") as TTSConfig;
 const readConfig = async () => (await app.inject({ method: "GET", url: "/api/tts/config" })).json<TTSConfig>();
@@ -198,7 +200,13 @@ try {
   assertNoKeys(voicesA.body, "GET /api/tts/voices");
 
   // A new key on the connection is used at once: nothing was copied.
-  await connections.update(connectionA.id, { apiKey: "key-a-rotated" });
+  // The key lives on the Connection (account): rotating it there reaches every linked row.
+  const rotated = await app.inject({
+    method: "PATCH",
+    url: `/accounts/${(await connections.getById(connectionA.id))!.accountId}`,
+    payload: { apiKey: "key-a-rotated" },
+  });
+  assert.equal(rotated.statusCode, 200, rotated.body);
   assert.equal((await speak()).sent[0]!.authorization, "Bearer key-a-rotated");
 
   // The master switch still holds while a connection is chosen.

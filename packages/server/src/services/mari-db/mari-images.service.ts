@@ -629,9 +629,7 @@ export class MariImagesService {
   private async getConnection(selector: string | undefined, requireEdit: boolean): Promise<ImageConnection> {
     const connections = await this.imageConnections();
     if (connections.length === 0)
-      throw new Error(
-        "No image_generation connections are configured. Add an image model in Settings → Connections first.",
-      );
+      throw new Error("No image model is set up yet. Add one from the Connections sidebar first.");
 
     const normalized = selector?.trim();
     const candidates = requireEdit ? connections.filter((conn) => capabilityForConnection(conn).canEdit) : connections;

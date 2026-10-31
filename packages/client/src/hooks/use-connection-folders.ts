@@ -1,15 +1,17 @@
 // ──────────────────────────────────────────────
-// React Query: Connection Folder hooks
+// React Query: Connection Folder hooks — the user's own folders for Models, shown when the Connections list and
+// quick picker group by folder. A Model sits in one folder (its `folderId`) or in none.
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api-client";
 import type {
   ConnectionFolder,
   CreateConnectionFolderInput,
+  MoveConnectionToFolderInput,
   ReorderConnectionsInFolderInput,
   ReorderFoldersInput,
   UpdateFolderInput,
 } from "@marinara-engine/shared";
+import { api } from "../lib/api-client";
 import { connectionKeys } from "./use-connections";
 
 export const connectionFolderKeys = {
@@ -42,6 +44,7 @@ export function useUpdateConnectionFolder() {
   });
 }
 
+/** The server moves the folder's Models out (no folder) before it deletes the folder. */
 export function useDeleteConnectionFolder() {
   const qc = useQueryClient();
   return useMutation({
@@ -50,6 +53,14 @@ export function useDeleteConnectionFolder() {
       qc.invalidateQueries({ queryKey: connectionFolderKeys.list() });
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
     },
+  });
+}
+
+export function useMoveConnectionToFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: MoveConnectionToFolderInput) => api.post("/connection-folders/move-connection", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }
 

@@ -16,13 +16,13 @@ import {
   AVATAR_EMOTIONS,
   AVATAR_EXTRA_FEELINGS,
   AVATAR_FACE_GROUPS,
-  isChatProvider,
   readImageAppearanceOverride,
   type AvatarConfig,
   type Persona,
 } from "@marinara-engine/shared";
 import { useAvatarModelActions } from "../../../hooks/use-avatar-models";
 import { useConnections } from "../../../hooks/use-connections";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import {
   spriteKeys,
   useCharacter,
@@ -30,7 +30,7 @@ import {
   usePersona,
   useSpriteCapabilities,
 } from "../../../hooks/use-characters";
-import { useUIStore } from "../../../stores/ui.store";
+import { openAddConnection } from "../../../lib/add-connection";
 import {
   ImagePromptReviewModal,
   type ImagePromptOverride,
@@ -110,13 +110,10 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
     [spriteList],
   );
   const seed = useMemo(() => spriteGeneratorSeed(character.data, persona.data), [character.data, persona.data]);
-  const { imageConnections, languageConnections } = useMemo(() => {
-    const rows = (connectionList ?? []) as ConnectionRow[];
-    return {
-      imageConnections: rows.filter((row) => row.provider === "image_generation"),
-      languageConnections: rows.filter((row) => isChatProvider(row.provider)),
-    };
-  }, [connectionList]);
+  const imageConnections = useMemo(
+    () => ((connectionList ?? []) as ConnectionRow[]).filter((row) => row.provider === "image_generation"),
+    [connectionList],
+  );
   const defaultImageConnection = imageConnections.find(
     (row) => row.defaultForAgents === true || row.defaultForAgents === "true",
   );
@@ -198,19 +195,13 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
           {imageConnections.length > 0 ? (
             <label className="flex flex-col gap-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] md:max-w-sm">
               {t("avatars.generation.imageConnection")}
-              <select
-                value={imageConnectionId ?? ""}
-                onChange={(event) => setChosenImageConnectionId(event.target.value)}
+              <ConnectionSelect
+                job={t("connections.picker.job.avatarImages")}
+                kind="image"
+                value={imageConnectionId}
+                onChange={setChosenImageConnectionId}
                 className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              >
-                {imageConnections.map((connection) => (
-                  <option key={connection.id} value={connection.id}>
-                    {connection.id === defaultImageConnection?.id
-                      ? t("avatars.generation.imageConnectionDefault", { name: connection.name })
-                      : connection.name}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
           ) : (
             <p className="text-xs text-[var(--muted-foreground)]">
@@ -218,9 +209,9 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
               <button
                 type="button"
                 className="text-[var(--primary)] underline"
-                onClick={() => useUIStore.getState().openRightPanel("connections")}
+                onClick={() => openAddConnection({ job: "images" })}
               >
-                {t("avatars.generation.openConnections")}
+                {t("avatars.generation.addImageModel")}
               </button>
             </p>
           )}
@@ -233,12 +224,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
             onChanged={onChanged}
           />
           <div className="border-t border-[var(--border)]" />
-          <MeshAvatarSection
-            owner={owner}
-            sprites={sprites}
-            languageConnections={languageConnections}
-            onChanged={onChanged}
-          />
+          <MeshAvatarSection owner={owner} sprites={sprites} onChanged={onChanged} />
         </>
       )}
 

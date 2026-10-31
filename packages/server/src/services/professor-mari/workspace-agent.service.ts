@@ -17,13 +17,13 @@ import { resolveStoredChatOptions } from "../generation/generation-parameters.js
 import { parseTextualToolCalls, textualCallMarkerIndex } from "../llm/textual-tool-call-parser.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { GeminiNoContentError } from "../llm/providers/google.provider.js";
-import { setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createPromptsStorage } from "../storage/prompts.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
+import { readFeatureModelConnections } from "../storage/feature-model-connections.js";
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { createMariInstructionsStorage } from "../storage/mari-instructions.storage.js";
 import { mariDecisionContext } from "./decision-authoring.js";
@@ -33,18 +33,19 @@ import { createMariWorkspaceContextStorage } from "../storage/mari-workspace-con
 import { renderMariWorkspaceContextPrompt } from "./mari-workspace-context-prompt.js";
 import { isMemoryRecallVectorizerAvailable } from "../memory-recall-embedding.js";
 import { mergeCustomParameters, normalizeServiceTier } from "../../routes/generate/generate-route-utils.js";
+import { getAttachmentFilename, type PromptAttachment } from "../generation/prompt-attachments.js";
 import {
-  appendReadableAttachmentsToContent,
-  extractFileAttachmentInputs,
-  extractImageAttachmentDataUrls,
-  getAttachmentFilename,
-  type PromptAttachment,
-} from "../generation/prompt-attachments.js";
+  DISABLED_IMAGE_CAPTIONING,
+  resolveImageCaptioningRuntime,
+  resolvePromptAttachmentInputs,
+  resolveVisionCaptioningRuntime,
+  withImageCaptionFallback,
+  type ImageCaptioningRuntime,
+} from "../generation/image-captioning-runtime.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
 import { MARI_ASK_SEQUENCES } from "./guided-sequences.js";
 import { getFileStorageDir, getPort, getServerProtocol, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { apiConnections } from "../../db/schema/index.js";
-import { decryptApiKey } from "../../utils/crypto.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
   hasPendingSteers,
@@ -54,6 +55,9 @@ import {
   type MariPromptOutcome,
 } from "./workspace-pending-store.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
+import { notifyGenerationFallback } from "../generation/fallback-notification.js";
+import { readJobFallback, visionCaptionSettings } from "../generation/job-fallback.js";
+import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
 import { tryParseJsonRecord } from "../../lib/json-repair.js";
 import {
   formatCapabilityAgentGroundingLines,
@@ -170,7 +174,7 @@ export type WorkspaceConnection = Pick<
   | "enableCaching"
   | "anthropicExtendedCacheTtl"
   | "cachingAtDepth"
-> & { provider: string; isLocalSidecar?: boolean };
+> & { provider: string; isLocalSidecar?: boolean; jobFallback?: WorkspaceConnection | null };
 export type PromptEventSink = (event: MariWorkspacePromptEvent) => void;
 type ProfessorMariPromptAttachment = PromptAttachment;
 export type WorkspaceCommandCall = {
@@ -1148,8 +1152,9 @@ function normalizeProfessorMariAttachments(value: unknown): ProfessorMariPromptA
     .filter((attachment): attachment is ProfessorMariPromptAttachment => attachment !== null);
 }
 
+/** `content` already carries the readable files and image captions; this adds one name line per attachment. */
 function appendProfessorMariAttachmentNames(content: string, attachments: ProfessorMariPromptAttachment[]): string {
-  const withReadableFiles = appendReadableAttachmentsToContent(content, attachments);
+  const withReadableFiles = content;
   if (attachments.length === 0) return withReadableFiles;
   const names = attachments
     .map((attachment) => {
@@ -1488,6 +1493,21 @@ function connectionSummary(connection: WorkspaceConnection | null): MariWorkspac
 
 function createProviderForConnection(connection: WorkspaceConnection): BaseLLMProvider {
   if (isLocalSidecarConnection(connection)) return getLocalSidecarProvider();
+  const primary = createBaseProviderForConnection(connection);
+  const fallback = connection.jobFallback;
+  if (!fallback) return primary;
+  return withConnectionFallbackProvider({
+    primary,
+    primaryConnectionId: connection.id,
+    primaryConnectionName: connection.name,
+    fallbackConnection: fallback,
+    fallbackBaseUrl: resolveBaseUrl(fallback),
+    category: "feature",
+    onFallback: notifyGenerationFallback,
+  });
+}
+
+function createBaseProviderForConnection(connection: WorkspaceConnection): BaseLLMProvider {
   return createLLMProvider(
     connection.provider,
     resolveBaseUrl(connection),
@@ -3530,7 +3550,7 @@ export class ProfessorMariWorkspaceService {
     },
   ) {
     if (!this.enabled) throw new Error("Professor Mari workspace mode is disabled.");
-    const connection = await this.resolveConnection(args.connectionId);
+    const connection = await this.resolveConnection(args.connectionId, args.unasked === true ? "aside" : "mari");
     if (!connection) throw new Error("Set up a language connection before using Quick Prof. Mari.");
 
     // The omnibar aside fires without being asked, so its payload is built from
@@ -4054,7 +4074,17 @@ export class ProfessorMariWorkspaceService {
       this.activeRunPermissionsMode = permissionsMode;
       this.activeDecisionContext = { db: this.app.db, chatId: args.chatId, userMessageId: userMessage.id };
       this.activeSteerRun = { chatId: args.chatId, mode: permissionsMode, context: args.context ?? null };
-      const provider = createProviderForConnection(connection);
+      const provider = withImageCaptionFallback(
+        createProviderForConnection(connection),
+        async () =>
+          resolveVisionCaptioningRuntime({
+            chatMeta: {},
+            fallbackConnectionId: connection.id,
+            connections: createConnectionsStorage(this.app.db),
+            ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
+          }),
+        args.debugMode === true,
+      );
       const runtime = await this.readRuntime(connection);
       runRuntime = runtime.active;
       const usePi = runtime.active === "pi";
@@ -4075,6 +4105,8 @@ export class ProfessorMariWorkspaceService {
         handoffContextPrompt,
         runtime.active,
         args.seasonalPackId,
+        controller.signal,
+        args.debugMode === true,
       );
       linkedHandbookIds = linkedIds;
       const baseOptions: ChatOptions = {
@@ -4888,6 +4920,8 @@ export class ProfessorMariWorkspaceService {
     handoffContextPrompt: string | null,
     runtime: MariRuntime = "classic",
     seasonalPackId?: string,
+    signal: AbortSignal = new AbortController().signal,
+    debugMode = false,
   ): Promise<{
     messages: ChatMessage[];
     manualApprovalArmed: boolean;
@@ -5016,6 +5050,8 @@ export class ProfessorMariWorkspaceService {
     // is re-sent uncached on every turn and every new chat; everything before it stays a stable cached prefix.
     messages.push({ role: "system", content: workspaceInfo, contextKind: "prompt" });
 
+    // Same captioning as chats: the Model's own switch, else Automatic with the Image reading default.
+    let imageCaptioning: ImageCaptioningRuntime | null = null;
     let latestUserEntry: ChatMessage | null = null;
     for (const row of history) {
       const extra = parseExtra(row.extra);
@@ -5024,17 +5060,35 @@ export class ProfessorMariWorkspaceService {
       if (!content.trim()) continue;
       const role = roleForMessage(row);
       const attachments = role === "user" ? normalizeProfessorMariAttachments(extra.attachments) : [];
-      const images = extractImageAttachmentDataUrls(attachments);
-      const files = extractFileAttachmentInputs(attachments);
+      if (attachments.some((attachment) => attachment.type?.startsWith("image/"))) {
+        imageCaptioning ??= await resolveImageCaptioningRuntime({
+          chatMeta: {},
+          fallbackConnectionId: connection.id,
+          connections: createConnectionsStorage(this.app.db),
+          ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
+        });
+      }
+      const resolved = await resolvePromptAttachmentInputs({
+        content,
+        attachments,
+        imageCaptioning: imageCaptioning ?? DISABLED_IMAGE_CAPTIONING,
+        signal,
+        debugMode,
+      });
+      if (resolved.updatedAttachments) {
+        await chatStorage.updateMessageExtra(row.id, { attachments: resolved.updatedAttachments }).catch((error) => {
+          logger.warn(error, "[image-captioning] Failed to cache image captions for message %s", row.id);
+        });
+      }
       const entry: ChatMessage = {
         role,
         content:
           role === "assistant" && runtime === "classic"
             ? assistantHistoryContentFromVisibleText(content)
-            : appendProfessorMariAttachmentNames(content, attachments),
+            : appendProfessorMariAttachmentNames(resolved.content, attachments),
         contextKind: "history",
-        ...(role === "user" && images.length > 0 ? { images } : {}),
-        ...(role === "user" && files.length > 0 ? { files } : {}),
+        ...(role === "user" && resolved.images.length > 0 ? { images: resolved.images } : {}),
+        ...(role === "user" && resolved.files.length > 0 ? { files: resolved.files } : {}),
       };
       messages.push(entry);
       if (role === "user") latestUserEntry = entry;
@@ -5363,7 +5417,7 @@ export class ProfessorMariWorkspaceService {
     const status = sidecarModelService.getStatus();
     return {
       id: LOCAL_SIDECAR_CONNECTION_ID,
-      name: "Local Model (sidecar)",
+      name: "Built-in model",
       provider: "local_sidecar",
       model: status.modelDisplayName ?? LOCAL_SIDECAR_MODEL,
       baseUrl: "local-sidecar://runtime",
@@ -5381,27 +5435,92 @@ export class ProfessorMariWorkspaceService {
     };
   }
 
-  private async resolveConnection(connectionId?: string | null): Promise<WorkspaceConnection | null> {
-    if (connectionId === LOCAL_SIDECAR_CONNECTION_ID) {
-      return this.buildLocalSidecarConnection();
-    }
+  /**
+   * Request id → global feature setting (`mariConnectionId`, or the aside's for an unasked quick
+   * answer) → agents default → default Model → local sidecar. Goes through connections storage
+   * so a Model blocked by its account is skipped and the throttle registry stays in sync; a skipped
+   * chosen Model is reported, so the user sees which Model answers instead.
+   */
+  /** The Model that answers, with the feature's "If it fails" Model attached when one is set. */
+  private async resolveConnection(
+    connectionId?: string | null,
+    feature: "mari" | "aside" = "mari",
+  ): Promise<WorkspaceConnection | null> {
+    const connection = await this.resolvePrimaryConnection(connectionId, feature);
+    if (!connection || isLocalSidecarConnection(connection)) return connection;
+    const jobFallback = await readJobFallback(
+      createConnectionsStorage(this.app.db),
+      await readFeatureModelConnections(this.app.db),
+      feature === "aside" ? "omnibarAsideFallbackConnectionId" : "mariFallbackConnectionId",
+      connection.id,
+    );
+    return jobFallback ? { ...connection, jobFallback } : connection;
+  }
 
-    const rows = (await this.app.db.select().from(apiConnections)) as Array<typeof apiConnections.$inferSelect>;
-    const languageRows = rows.filter((row) => isChatProvider(row.provider));
-    const selected = connectionId ? languageRows.find((row) => row.id === connectionId) : null;
-    const fallback =
-      selected ??
-      languageRows.find((row) => bool(row.defaultForAgents)) ??
-      languageRows.find((row) => bool(row.isDefault)) ??
-      languageRows[0] ??
-      null;
-    if (!fallback) {
-      return sidecarModelService.getConfiguredModelRef() ? this.buildLocalSidecarConnection() : null;
+  private async resolvePrimaryConnection(
+    connectionId?: string | null,
+    feature: "mari" | "aside" = "mari",
+  ): Promise<WorkspaceConnection | null> {
+    const featureModels = await readFeatureModelConnections(this.app.db);
+    const featureConnectionId =
+      feature === "aside" ? featureModels.omnibarAsideConnectionId : featureModels.mariConnectionId;
+    const connections = createConnectionsStorage(this.app.db);
+    const candidates = [connectionId, featureConnectionId];
+    // The first chosen Model that could not run: the user is told which Model answers instead.
+    let skipped: string | null = null;
+    for (const id of candidates) {
+      if (!id) continue;
+      if (id === LOCAL_SIDECAR_CONNECTION_ID) return this.buildLocalSidecarConnection();
+      const row = await connections.getWithKey(id);
+      if (row && isChatProvider(row.provider)) return row;
+      skipped ??= id;
     }
-    // This raw decrypt bypasses the storage layer's read-path sync, so refresh the throttle
-    // registry here — otherwise Mari's proactive per-connection pacing no-ops on a cold registry.
-    setConnectionRateLimit(fallback.id, fallback.maxRequestsPerMinute ?? null);
-    return { ...fallback, apiKey: decryptApiKey(fallback.apiKeyEncrypted) };
+    const used = async <T extends WorkspaceConnection>(fallback: T, category: "main" | "agents"): Promise<T> => {
+      if (skipped) await this.reportConnectionFallback(connections, skipped, fallback, category);
+      return fallback;
+    };
+    const agentsRow = await connections.getDefaultForAgents();
+    if (agentsRow && isChatProvider(agentsRow.provider)) return used(agentsRow, "agents");
+    const defaultRow = await connections.getDefault();
+    const mainRow = defaultRow && (await connections.getWithKey(defaultRow.id));
+    if (mainRow && isChatProvider(mainRow.provider)) return used(mainRow, "main");
+    // No default yet (e.g. right after an import): any usable chat Model, as before.
+    for (const row of await connections.list()) {
+      if (!isChatProvider(row.provider)) continue;
+      const usable = await connections.getWithKey(row.id);
+      if (usable) return used(usable, "main");
+    }
+    return sidecarModelService.getConfiguredModelRef() ? used(this.buildLocalSidecarConnection(), "main") : null;
+  }
+
+  /** Report a blocked Model and the one that answers instead, through the request's fallback channel. */
+  private async reportConnectionFallback(
+    connections: ReturnType<typeof createConnectionsStorage>,
+    skippedId: string,
+    fallback: WorkspaceConnection,
+    category: "main" | "agents",
+  ): Promise<void> {
+    const unavailable = await connections.unavailableReason(skippedId);
+    if (!unavailable) return;
+    logger.warn("[professor-mari] Model %s is unavailable (%s); using %s", skippedId, unavailable.reason, fallback.id);
+    try {
+      await notifyGenerationFallback({
+        category,
+        connectionId: fallback.id,
+        connectionName: fallback.name?.trim() || fallback.id,
+        model: fallback.model,
+        reason: unavailable.reason,
+        unavailableConnectionId: skippedId,
+        ...(unavailable.row
+          ? {
+              unavailableName: unavailable.row.name?.trim() || unavailable.row.model,
+              ...(unavailable.row.accountId ? { unavailableAccountId: unavailable.row.accountId } : {}),
+            }
+          : {}),
+      });
+    } catch (error) {
+      logger.warn(error, "[professor-mari] Failed to report the model fallback");
+    }
   }
 }
 

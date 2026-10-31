@@ -36,6 +36,7 @@ export function createConnectionFoldersStorage(db: DB) {
           id,
           name: input.name,
           color: input.color ?? "",
+          icon: input.icon ?? null,
           sortOrder: 0,
           collapsed: "false",
           createdAt: timestamp,
@@ -51,6 +52,7 @@ export function createConnectionFoldersStorage(db: DB) {
         .set({
           ...(data.name !== undefined && { name: data.name }),
           ...(data.color !== undefined && { color: data.color }),
+          ...(data.icon !== undefined && { icon: data.icon }),
           ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
           ...(data.collapsed !== undefined && { collapsed: data.collapsed ? "true" : "false" }),
           updatedAt: now(),

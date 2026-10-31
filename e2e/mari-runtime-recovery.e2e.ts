@@ -43,11 +43,21 @@ for (const width of [390, 768, 1440]) {
       await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } });
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
       await page.setViewportSize({ width, height: 900 });
+      // Her connection is a server setting now.
+      await page.route("**/api/app-settings/feature-model-connections", (route) =>
+        route.fulfill({
+          json: {
+            mariConnectionId: connectionId,
+            omnibarAsideConnectionId: null,
+            impersonateConnectionId: null,
+            visionConnectionId: null,
+          },
+        }),
+      );
       await seedUIState(page, {
         hasCompletedOnboarding: true,
         sidebarOpen: false,
         rightPanelOpen: false,
-        mariConnectionId: connectionId,
         theme: "dark",
       });
       await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);

@@ -19,6 +19,7 @@ import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { AdvancedMemoryProgress } from "./AdvancedMemoryProgress";
 import { useConnections } from "../../hooks/use-connections";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useChatMessageCount } from "../../hooks/use-chats";
 
 const fieldClass = "mari-chrome-field w-full rounded-lg px-3 py-2 text-xs disabled:opacity-50";
@@ -43,7 +44,6 @@ export function AdvancedMemorySettings({
   gameMode = false,
   individual,
   characters,
-  connections,
   hasHistory = false,
   variant = "drawer",
 }: {
@@ -53,7 +53,6 @@ export function AdvancedMemorySettings({
   gameMode?: boolean;
   individual: boolean;
   characters: MemoryCharacterOption[];
-  connections: Array<{ id: string; name: string; model?: string }>;
   hasHistory?: boolean;
   variant?: "drawer" | "wizard";
 }) {
@@ -436,23 +435,16 @@ export function AdvancedMemorySettings({
           )}
           <label className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.helperModel")}</span>
-            <select
-              value={settings.helperConnectionId ?? ""}
-              disabled={disabled}
-              className={fieldClass}
-              onChange={(event) => save({ helperConnectionId: event.target.value || null })}
-            >
-              <option value="">{t("chat.advancedMemory.defaultAgentConnection")}</option>
-              {settings.helperConnectionId && !connections.some((item) => item.id === settings.helperConnectionId) && (
-                <option value={settings.helperConnectionId}>{t("chat.advancedMemory.missingConnection")}</option>
-              )}
-              {connections.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                  {item.model ? <> · {item.model}</> : null}
-                </option>
-              ))}
-            </select>
+            <fieldset disabled={disabled} className="min-w-0">
+              <ConnectionSelect
+                job={t("connections.picker.job.memoryHelper")}
+                value={settings.helperConnectionId ?? null}
+                onChange={(helperConnectionId) => save({ helperConnectionId })}
+                defaultLabel={t("chat.advancedMemory.defaultAgentConnection")}
+                inherits="agents"
+                className={fieldClass}
+              />
+            </fieldset>
           </label>
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
             {t("chat.advancedMemory.summaryGenerationHelp")}

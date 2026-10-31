@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
+import { openAddConnection } from "../../../lib/add-connection";
 import { AlertTriangle, ChevronDown, Plug } from "lucide-react";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { ContextBudgetIndicator } from "../../../components/chat/ContextBudgetIndicator";
 import { SubscriptionUsageWidget } from "../../../components/connections/SubscriptionUsageWidget";
-import { ConnectionModelPicker } from "../../../components/connections/ConnectionModelPicker";
-import { resolveUsageConnection } from "../../../lib/connection-filters";
+import {
+  ConnectionSwitcherBody,
+  EffectiveModelIcon,
+  useChatModelPick,
+  useEffectiveChatModel,
+} from "../../../components/connections/ConnectionSwitcherBody";
+import { isConnectionFlagTrue, resolveUsageConnection } from "../../../lib/connection-filters";
 import { cn } from "../../../lib/utils";
 import type { ProfessorMariContextBudget } from "../../../lib/professor-mari-context-budget";
 
@@ -25,62 +32,12 @@ export interface ChatConnectionOption extends Record<string, unknown> {
   showUsageWidget?: boolean | string;
   /** Model IDs pinned in the model picker (JSON array). */
   pinnedModels?: unknown;
-}
-
-/** The chat connection's model, changed with the same picker as the input-box Connections menu. */
-function ConnectionModelField({ connection }: { connection: ChatConnectionOption }) {
-  const { t } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const toggleRef = useRef<HTMLButtonElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
-  // On a phone the field can sit near the bottom of the sheet; bring the opened list into view.
-  useEffect(() => {
-    if (open) pickerRef.current?.scrollIntoView({ block: "nearest" });
-  }, [open]);
-  const close = () => {
-    setOpen(false);
-    toggleRef.current?.focus();
-  };
-  return (
-    <div
-      data-chat-settings-model-field
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || !open || event.nativeEvent.isComposing || event.keyCode === 229) return;
-        event.stopPropagation();
-        close();
-      }}
-    >
-      <span className="mb-1 block text-[0.6875rem] font-medium text-foreground/50">
-        {t("chat.settings.connectionModel.label")}
-      </span>
-      <button
-        ref={toggleRef}
-        type="button"
-        aria-expanded={open}
-        aria-label={t("chat.settings.connectionModel.buttonLabel", {
-          model: connection.model || t("chat.settings.connectionModel.none"),
-        })}
-        onClick={() => setOpen((value) => !value)}
-        className="flex min-h-11 w-full items-center gap-2 rounded-lg sm:min-h-9 bg-foreground/5 px-3 py-2 text-left text-xs outline-none ring-1 ring-foreground/10 transition-shadow focus-visible:ring-foreground/25"
-      >
-        <span className={cn("min-w-0 flex-1 truncate", !connection.model && "text-foreground/45")}>
-          {connection.model || t("chat.settings.connectionModel.none")}
-        </span>
-        <ChevronDown size="0.875rem" className={cn("shrink-0 transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div
-          ref={pickerRef}
-          className="mt-2 flex h-[min(24rem,60dvh)] flex-col overflow-hidden rounded-lg ring-1 ring-foreground/10"
-        >
-          <ConnectionModelPicker connection={connection} autoFocusSearch onPicked={close} />
-        </div>
-      )}
-    </div>
-  );
+  /** The Connection the Model belongs to; a starred catalog model is saved under it. */
+  accountId?: string | null;
 }
 
 interface ConnectionSectionProps {
+  chatId: string;
   connectionId: string | null;
   connections: ChatConnectionOption[];
   contextBudget?: ProfessorMariContextBudget | null;
@@ -89,6 +46,7 @@ interface ConnectionSectionProps {
 }
 
 export function ConnectionSection({
+  chatId,
   connectionId,
   connections,
   contextBudget,
@@ -96,15 +54,51 @@ export function ConnectionSection({
   onConnectionChange,
 }: ConnectionSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const [open, setOpen] = useState(false);
+  const fieldRef = useRef<HTMLButtonElement>(null);
+  const chooserRef = useRef<HTMLDivElement>(null);
   const selectedLocalSidecar = connectionId === LOCAL_SIDECAR_CONNECTION_ID;
+  const isRandom = connectionId === "random";
   // The usage meter follows the active connection: only a NanoGPT connection that
   // opted in from its editor shows it, and a random pick has no single quota.
   const usageConnection = resolveUsageConnection(connections, connectionId);
-  // Random has no single connection and the Local Model has no model list, so neither gets a model field.
-  const modelConnection =
-    connectionId && connectionId !== "random" && !selectedLocalSidecar
-      ? connections.find((connection) => connection.id === connectionId)
-      : undefined;
+  // The same chooser and pick as the chat's composer chip (decisions 26/27), aimed at this chat.
+  const chatPick = useChatModelPick(chatId);
+  const effective = useEffectiveChatModel(chatId);
+  const mainConnection = connections.find((connection) => isConnectionFlagTrue(connection.isDefault));
+  // The game generates with remote models only, as in the composer.
+  const offersLocalModel = !isGame && connections.some((connection) => connection.id === LOCAL_SIDECAR_CONNECTION_ID);
+  // On a phone the field can sit near the bottom of the sheet; bring the opened chooser into view.
+  useEffect(() => {
+    if (open) chooserRef.current?.scrollIntoView({ block: "nearest" });
+  }, [open]);
+  const close = () => {
+    setOpen(false);
+    fieldRef.current?.focus();
+  };
+  const followMain = () =>
+    void chatPick.useDefault().catch((error) =>
+      toast.error(
+        localizeUi("connections.switcher.pickFailed", {
+          error: error instanceof Error ? error.message : String(error ?? ""),
+        }),
+      ),
+    );
+
+  const name =
+    !effective || effective.kind === "none" ? localizeUi("chat.settings.connectionModel.none") : effective.title;
+  const detail =
+    effective?.kind === "model"
+      ? localizeUi(
+          effective.followsMain
+            ? "chat.settings.connectionModel.followsMain"
+            : "chat.settings.connectionModel.chosenForChat",
+          { connection: effective.connectionName },
+        )
+      : effective?.kind === "random"
+        ? localizeUi("chat.settings.connectionModel.shuffleDetail")
+        : localizeUi("connections.switcher.noMain");
+  const unavailable = effective?.unavailable ? localizeUi(`connections.accounts.state.${effective.unavailable}`) : null;
 
   return (
     <ChatSettingsSection
@@ -117,67 +111,99 @@ export function ConnectionSection({
           : localizeUi("ui.chatSettings.connectionsection.whichAiProviderAndModelToUseForThis")
       }
     >
-      {isGame ? (
-        <div className="space-y-2">
-          <div>
-            <label className="mb-1 block text-[0.6875rem] font-medium text-foreground/50">
-              {localizeUi("ui.game.gamesurfacecomponent.gmPartyModel")}
-            </label>
-            <select
-              value={connectionId ?? ""}
-              onChange={(e) => onConnectionChange(e.target.value || null)}
-              className="w-full rounded-lg bg-foreground/5 px-3 py-2 text-xs outline-none ring-1 ring-foreground/10 transition-shadow focus:ring-foreground/20"
-            >
-              <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-              <option value="random">{localizeUi("ui.chatSettings.connectionsection.random")}</option>
-              {connections.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {connection.name}
-                  {connection.model
-                    ? localizeUi("ui.chatSettings.connectionsection.value1", { value1: connection.model })
-                    : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          {modelConnection && <ConnectionModelField key={modelConnection.id} connection={modelConnection} />}
-          {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
-          {usageConnection && <SubscriptionUsageWidget connectionId={usageConnection.id} variant="panel" />}
-        </div>
-      ) : (
-        // space-y-2 matches the game branch above and the other settings
-        // sections; a bare fragment leaves the meter flush against the select.
-        <div className="space-y-2">
-          <select
-            value={connectionId ?? ""}
-            onChange={(e) => onConnectionChange(e.target.value || null)}
-            className="w-full rounded-lg bg-foreground/5 px-3 py-2 text-xs outline-none ring-1 ring-foreground/10 transition-shadow focus:ring-foreground/20"
+      <div className="space-y-2">
+        <div
+          data-chat-settings-model-field
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" || !open || event.nativeEvent.isComposing || event.keyCode === 229) return;
+            event.stopPropagation();
+            const back = chooserRef.current?.querySelector<HTMLButtonElement>("[data-switcher-back]");
+            if (back) back.click();
+            else close();
+          }}
+        >
+          <span className="mb-1 block text-[0.6875rem] font-medium text-foreground/50">
+            {isGame
+              ? localizeUi("ui.game.gamesurfacecomponent.gmPartyModel")
+              : localizeUi("chat.settings.connectionModel.label")}
+          </span>
+          {/* One field for the effective model; it opens the chooser the chat's composer chip opens. */}
+          <button
+            ref={fieldRef}
+            type="button"
+            aria-expanded={open}
+            aria-label={localizeUi("chat.settings.connectionModel.buttonLabel", { model: name })}
+            onClick={() => setOpen((value) => !value)}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded-lg bg-foreground/5 px-2.5 py-2 text-left outline-none ring-1 ring-foreground/10 transition-shadow focus-visible:ring-foreground/25"
           >
-            <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-            <option value="random">{localizeUi("ui.chatSettings.connectionsection.random")}</option>
-            {connections.map((connection) => (
-              <option key={connection.id} value={connection.id}>
-                {connection.name}
-              </option>
-            ))}
-          </select>
-          {modelConnection && <ConnectionModelField key={modelConnection.id} connection={modelConnection} />}
-          {connectionId === "random" && (
-            <p className="text-[0.625rem] text-foreground/50">
-              {localizeUi("ui.chatSettings.connectionsection.eachGenerationWillRandomlyPickFromConnectionsMarkedFor")}
+            <EffectiveModelIcon effective={effective} size="md" />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span
+                className={cn("truncate text-xs font-semibold", effective?.kind === "none" && "text-foreground/45")}
+              >
+                {name}
+              </span>
+              <span className="truncate text-[0.625rem] text-foreground/50">{detail}</span>
+            </span>
+            {unavailable && (
+              <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-px text-[0.5625rem] leading-4">
+                {unavailable}
+              </span>
+            )}
+            <ChevronDown size="0.875rem" className={cn("shrink-0 transition-transform", open && "rotate-180")} />
+          </button>
+          {effective?.kind === "model" && (
+            <p className="mt-1 text-[0.625rem] leading-relaxed text-foreground/50">
+              {effective.followsMain
+                ? localizeUi("chat.settings.connectionModel.helpFollows")
+                : localizeUi("chat.settings.connectionModel.helpChosen", {
+                    model: mainConnection?.name || mainConnection?.model || localizeUi("connections.switcher.noMain"),
+                  })}
+              {!effective.followsMain && (
+                <button
+                  type="button"
+                  onClick={followMain}
+                  className="ml-1 inline-flex min-h-11 items-center font-medium text-foreground/75 underline-offset-2 hover:underline sm:min-h-0"
+                >
+                  {localizeUi("chat.settings.connectionModel.followAgain")}
+                </button>
+              )}
             </p>
           )}
-          {selectedLocalSidecar && (
-            <div className="flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-              <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
-              <span>
-                {localizeUi("ui.chatSettings.connectionsection.localModelIsTinyAndIntendedForTrackersHelpers")}
-              </span>
+          {open && (
+            <div
+              ref={chooserRef}
+              className="mt-2 flex h-[min(28rem,65dvh)] flex-col overflow-hidden rounded-lg bg-[var(--card)] ring-1 ring-foreground/10 [--mari-chat-existing-bg:var(--card)]"
+            >
+              <ConnectionSwitcherBody
+                onAdd={() => openAddConnection()}
+                layout="steps"
+                current={chatPick.current}
+                recent={chatPick.recent}
+                onApply={chatPick.apply}
+                onDone={close}
+                autoFocusSearch
+                showLocalModel={offersLocalModel}
+                shuffle={{ active: isRandom, onToggle: () => onConnectionChange(isRandom ? null : "random") }}
+                followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
+              />
             </div>
           )}
-          {usageConnection && <SubscriptionUsageWidget connectionId={usageConnection.id} variant="panel" />}
         </div>
-      )}
+        {isRandom && (
+          <p className="text-[0.625rem] text-foreground/50">
+            {localizeUi("ui.chatSettings.connectionsection.eachGenerationWillRandomlyPickFromConnectionsMarkedFor")}
+          </p>
+        )}
+        {selectedLocalSidecar && (
+          <div className="flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+            <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
+            <span>{localizeUi("ui.chatSettings.connectionsection.localModelIsTinyAndIntendedForTrackersHelpers")}</span>
+          </div>
+        )}
+        {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
+        {usageConnection && <SubscriptionUsageWidget connectionId={usageConnection.id} variant="panel" />}
+      </div>
     </ChatSettingsSection>
   );
 }

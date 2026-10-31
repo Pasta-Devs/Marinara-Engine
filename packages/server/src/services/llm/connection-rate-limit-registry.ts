@@ -27,6 +27,41 @@ export function clearConnectionRateLimit(connectionId: string): void {
   limits.delete(connectionId);
 }
 
+// Optional shared (account-level) budget. Row limits above stay keyed by row id; the account scope
+// `account:<id>` is an additional limit. The storage layer (`withDecryptedKey`) calls
+// `setConnectionBudgetScope(rowId, accountId)` when a row belongs to an account, and
+// `setAccountRateLimit` / `setAccountParallelLimit` (account-budget.ts) for the account caps.
+const budgetScopes = new Map<string, string>();
+const accountLimits = new Map<string, number>();
+
+/** Attach a row to an account's shared budget (null/empty detaches it). */
+export function setConnectionBudgetScope(connectionId: string, accountId: string | null | undefined): void {
+  if (accountId) budgetScopes.set(connectionId, `account:${accountId}`);
+  else budgetScopes.delete(connectionId);
+}
+
+/** The row's shared scope (`account:<id>`), or null when it has none. */
+export function getConnectionBudgetScope(connectionId: string): string | null {
+  return budgetScopes.get(connectionId) ?? null;
+}
+
+/** Record (or clear) an account's shared requests-per-minute cap. */
+export function setAccountRateLimit(accountId: string, maxRequestsPerMinute: number | null | undefined): void {
+  const scope = `account:${accountId}`;
+  if (typeof maxRequestsPerMinute === "number" && Number.isFinite(maxRequestsPerMinute) && maxRequestsPerMinute > 0) {
+    accountLimits.set(scope, Math.floor(maxRequestsPerMinute));
+  } else {
+    accountLimits.delete(scope);
+  }
+}
+
+/** The shared requests-per-minute cap of an `account:<id>` scope, or null. */
+export function getAccountScopeRateLimit(scope: string): number | null {
+  return accountLimits.get(scope) ?? null;
+}
+
 export function resetConnectionRateLimitsForTests(): void {
   limits.clear();
+  budgetScopes.clear();
+  accountLimits.clear();
 }

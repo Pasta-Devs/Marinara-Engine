@@ -12,6 +12,9 @@ import type {
   TTSSource,
 } from "@marinara-engine/shared";
 import { TTS_API_KEY_MASK } from "@marinara-engine/shared";
+import type { ConnectionModelRow } from "../lib/connection-groups";
+import { voiceRowOf } from "../lib/connection-jobs";
+import { useConnections } from "./use-connections";
 
 const KEYS = {
   config: ["tts", "config"] as const,
@@ -44,6 +47,28 @@ export function useUpdateTTSConfig() {
     mutationFn: (config: TTSConfig) => api.put<void>("/tts/config", config),
     onSuccess: () => invalidateTTSSettings(qc),
   });
+}
+
+/**
+ * Text to speech uses the TTS card's chosen Audio connection before the audio default (tts.routes.ts), so setting
+ * the Voice job moves a card choice along. Returns an undo, or null when the card follows the default already.
+ */
+export function useFollowVoiceJob() {
+  const { data: config } = useTTSConfig();
+  const update = useUpdateTTSConfig();
+  return async (connectionId: string | null) => {
+    const previous = config?.connectionId;
+    if (!config || !previous || previous === connectionId) return null;
+    await update.mutateAsync({ ...config, connectionId: connectionId ?? "" });
+    return () => void update.mutateAsync({ ...config, connectionId: previous }).catch(() => {});
+  };
+}
+
+/** The id of the audio row Text to speech really uses (`voiceRowOf`), for the Voice badge. */
+export function useVoiceRowId() {
+  const { data: tts } = useTTSConfig();
+  const { data: rows } = useConnections();
+  return voiceRowOf((rows ?? []) as ConnectionModelRow[], tts?.connectionId).row?.id ?? null;
 }
 
 /** Sets or clears one character's voice on the server, leaving every other TTS setting as stored. */

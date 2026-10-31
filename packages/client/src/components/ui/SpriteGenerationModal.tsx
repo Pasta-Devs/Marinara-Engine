@@ -6,6 +6,8 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film } from "lucide-react";
 import { Modal } from "./Modal";
+import { NeedsModelChip } from "../connections/NeedsModelChip";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { cn } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
 import { useSpriteCapabilities } from "../../hooks/use-characters";
@@ -2129,29 +2131,15 @@ export function SpriteGenerationModal({
                   : localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
               </label>
               {activeGenerationConnections.length === 0 ? (
-                <p className="text-xs text-[var(--destructive)]">
-                  {animatedExpressionMode
-                    ? localizeUi("ui.ui.spritegenerationmodal.noVideoGenerationConnectionsFound")
-                    : localizeUi("ui.ui.spritegenerationmodal.noImageGenerationConnectionsFound")}
-                </p>
+                <NeedsModelChip kind={animatedExpressionMode ? "video" : "image"} />
               ) : (
-                <select
-                  value={effectiveConnectionId ?? ""}
-                  onChange={(e) =>
-                    animatedExpressionMode
-                      ? setVideoConnectionId(e.target.value || null)
-                      : setConnectionId(e.target.value || null)
-                  }
-                  className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
-                >
-                  {activeGenerationConnections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {c.model ? localizeUi("ui.ui.spritegenerationmodal.value1", { value1: c.model }) : ""}
-                      {isDefaultGenerationConnection(c) ? localizeUi("ui.ui.avatargenerationmodal.default") : ""}
-                    </option>
-                  ))}
-                </select>
+                <ConnectionSelect
+                  job={localizeUi("connections.picker.job.sprites")}
+                  kind={animatedExpressionMode ? "video" : "image"}
+                  value={effectiveConnectionId}
+                  onChange={animatedExpressionMode ? setVideoConnectionId : setConnectionId}
+                  className="rounded-lg px-3 py-2 text-xs"
+                />
               )}
             </div>
 

@@ -6,39 +6,43 @@
 // sidecar runtime.
 // ──────────────────────────────────────────────
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
-  BrainCircuit,
   Check,
   ChevronDown,
-  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Cpu,
   Download,
-  HardDrive,
+  Info,
   Loader2,
   MessageSquare,
+  RotateCw,
   Search,
-  Server,
-  Settings2,
-  X,
-  Zap,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   SIDECAR_EMBEDDING_POOLING_TYPES,
-  type SidecarBackend,
   type SidecarEmbeddingPooling,
   type SidecarQuantization,
   type SidecarRuntimePreference,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal.js";
-import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store.js";
+import { GEMMA_RESTART_MESSAGE, useSidecarStore, type SidecarTestMessageResult } from "../../stores/sidecar.store.js";
+import { cn } from "../../lib/utils";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { PRIMARY_CLASS as PRIMARY, SECONDARY_CLASS } from "./create-connection/shared";
+import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client.js";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Render the content in place (inside the Add window) instead of in its own dialog. */
+  embedded?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -52,57 +56,52 @@ function formatSpeed(bytesPerSec: number): string {
   return `${formatBytes(bytesPerSec)}/s`;
 }
 
-function formatQuantizationLabel(quantization: SidecarQuantization | null, backend: SidecarBackend): string {
-  if (backend === "mlx") {
-    return quantization === "q4_k_m" ? "4-bit" : "8-bit";
-  }
-  return quantization?.toUpperCase() ?? "Curated";
-}
-
 function formatRuntimeVariantLabel(variant: string | null): string | null {
   if (!variant) return null;
   return variant.replace(/-/g, " ");
 }
 
-function formatRuntimePreferenceLabel(preference: SidecarRuntimePreference, platform?: string): string {
+function formatRuntimePreferenceLabel(preference: SidecarRuntimePreference, t: TFunction, platform?: string): string {
   switch (preference) {
     case "auto":
-      return "Auto detect";
+      return t("connections.device.runtime.auto");
     case "nvidia":
-      return platform === "linux" ? "NVIDIA GPU (Vulkan fallback)" : "NVIDIA GPU (CUDA)";
+      return platform === "linux"
+        ? t("connections.device.runtime.nvidiaVulkan")
+        : t("connections.device.runtime.nvidiaCuda");
     case "amd":
-      return "AMD GPU";
+      return t("connections.device.runtime.amd");
     case "intel":
-      return "Intel GPU";
+      return t("connections.device.runtime.intel");
     case "vulkan":
-      return "Vulkan GPU";
+      return t("connections.device.runtime.vulkan");
     case "cpu":
-      return "CPU only";
+      return t("connections.device.runtime.cpu");
     case "system":
-      return "System llama-server";
+      return t("connections.device.runtime.system");
     default:
       return preference;
   }
 }
 
-function describeGpuLayers(gpuLayers: number): string {
-  if (gpuLayers === -1) return "Auto offload";
-  if (gpuLayers === 0) return "CPU only";
-  return `${gpuLayers} GPU layers`;
+function describeGpuLayers(gpuLayers: number, t: TFunction): string {
+  if (gpuLayers === -1) return t("connections.device.runtime.autoOffload");
+  if (gpuLayers === 0) return t("connections.device.runtime.cpu");
+  return t("connections.device.runtime.gpuLayers", { count: gpuLayers });
 }
 
-function formatEmbeddingPoolingLabel(pooling: SidecarEmbeddingPooling): string {
+function formatEmbeddingPoolingLabel(pooling: SidecarEmbeddingPooling, t: TFunction): string {
   switch (pooling) {
     case "none":
-      return "None";
+      return t("connections.device.pooling.none");
     case "mean":
-      return "Mean";
+      return t("connections.device.pooling.mean");
     case "cls":
-      return "CLS";
+      return t("connections.device.pooling.cls");
     case "last":
-      return "Last token";
+      return t("connections.device.pooling.last");
     case "rank":
-      return "Rank";
+      return t("connections.device.pooling.rank");
     default:
       return pooling;
   }
@@ -147,9 +146,7 @@ function getRuntimePreferenceOptions(platform: string, arch: string): SidecarRun
 function ResponseBlock({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="mb-1 text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-        {label}
-      </div>
+      <div className="mb-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]/60">{label}</div>
       <div className="rounded-lg bg-[var(--secondary)] p-3 text-sm leading-relaxed text-[var(--foreground)]">
         {value}
       </div>
@@ -157,7 +154,125 @@ function ResponseBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ModelDownloadModal({ open, onClose }: Props) {
+type SettingsScreen = "settings" | "speed" | "memory" | "replies" | "expert";
+
+const LABEL = "text-xs font-medium text-[var(--muted-foreground)]";
+const HINT = "text-xs text-[var(--muted-foreground)]";
+const LIST =
+  "flex flex-col divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]";
+const ROW =
+  "flex min-h-12 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-foreground/[0.04]";
+const OPTION =
+  "flex min-h-14 w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3.5 py-3 text-left transition-colors hover:border-foreground/20";
+const OPTION_ON =
+  "border-[var(--mari-panel-gradient-start)] bg-[var(--mari-connection-tint)] hover:border-[var(--mari-panel-gradient-start)]";
+const RADIO =
+  "h-4 w-4 shrink-0 rounded-full shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--foreground)_30%,transparent)]";
+const RADIO_ON = "shadow-[inset_0_0_0_4.5px_var(--mari-panel-gradient-start)]";
+const GOOD = "shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[0.6875rem] font-medium text-emerald-400";
+const DISCLOSE =
+  "flex min-h-11 items-center gap-2 rounded-lg px-1 text-left text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]";
+const SECONDARY = `${SECONDARY_CLASS} px-3`;
+const QUIET = "mari-chrome-control mari-chrome-control--quiet text-sm px-3";
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-medium text-[var(--foreground)]">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function TestResult({ result: testMessageResult }: { result: SidecarTestMessageResult }) {
+  const localizeUi = useUiTranslation().t;
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        testMessageResult.success ? "border-emerald-500/25 bg-emerald-500/5" : "border-red-500/25 bg-red-500/5"
+      }`}
+    >
+      <div className={`text-sm font-medium ${testMessageResult.success ? "text-emerald-300" : "text-red-300"}`}>
+        {localizeUi("ui.modals.modeldownloadmodal.localTestMessage")}{" "}
+        {testMessageResult.success
+          ? localizeUi("ui.modals.modeldownloadmodal.succeeded")
+          : localizeUi("ui.connections.testresultcard.failed")}
+      </div>
+      <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">
+        {testMessageResult.latencyMs}
+        {localizeUi("ui.connections.testresultcard.ms")}
+      </div>
+      {testMessageResult.success ? (
+        <div className="mt-3 flex flex-col gap-3">
+          {testMessageResult.nonce && (
+            <div className="text-xs text-[var(--muted-foreground)]/75">
+              {localizeUi("ui.modals.modeldownloadmodal.verificationToken")}{" "}
+              <span className="font-mono text-[var(--foreground)]">{testMessageResult.nonce}</span>
+              {testMessageResult.nonceVerified
+                ? localizeUi("ui.modals.modeldownloadmodal.echoedByModel")
+                : localizeUi("ui.modals.modeldownloadmodal.notEchoed")}
+            </div>
+          )}
+          {(testMessageResult.usage || testMessageResult.timings) && (
+            <div className="text-xs text-[var(--muted-foreground)]/75">
+              {testMessageResult.usage && (
+                <span>
+                  {localizeUi("ui.modals.modeldownloadmodal.usagePrompt")} {testMessageResult.usage.promptTokens ?? "?"}
+                  {localizeUi("ui.modals.modeldownloadmodal.completion")}{" "}
+                  {testMessageResult.usage.completionTokens ?? "?"}
+                  {localizeUi("ui.modals.modeldownloadmodal.total")} {testMessageResult.usage.totalTokens ?? "?"}
+                </span>
+              )}
+              {testMessageResult.usage && testMessageResult.timings && <span> • </span>}
+              {testMessageResult.timings && (
+                <span>
+                  {localizeUi("ui.modals.modeldownloadmodal.timingsPrompt")} {testMessageResult.timings.promptMs ?? "?"}
+                  {localizeUi("ui.modals.modeldownloadmodal.msGen")} {testMessageResult.timings.predictedMs ?? "?"}
+                  {localizeUi("ui.connections.testresultcard.ms")}
+                </span>
+              )}
+            </div>
+          )}
+          {!!testMessageResult.messageContent && (
+            <ResponseBlock
+              label={localizeUi("ui.modals.modeldownloadmodal.messageContent")}
+              value={testMessageResult.messageContent}
+            />
+          )}
+          {!!testMessageResult.reasoningContent && (
+            <ResponseBlock
+              label={localizeUi("ui.modals.modeldownloadmodal.reasoningContent")}
+              value={testMessageResult.reasoningContent}
+            />
+          )}
+          {!testMessageResult.messageContent && !testMessageResult.reasoningContent && (
+            <ResponseBlock
+              label={localizeUi("ui.modals.modeldownloadmodal.response")}
+              value={testMessageResult.response}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-col gap-1 text-xs text-red-200/90">
+          <span>{testMessageResult.error || "No response received from the local runtime."}</span>
+          {testMessageResult.failedRuntimeVariant && (
+            <span>
+              {localizeUi("connections.device.runtimeVariant", {
+                variant: formatRuntimeVariantLabel(testMessageResult.failedRuntimeVariant),
+              })}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmbeddedShell({ children }: ComponentProps<typeof Modal>) {
+  return <div className="flex flex-1 flex-col">{children}</div>;
+}
+
+export function ModelDownloadModal({ open, onClose, embedded }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const {
     status,
@@ -202,7 +317,13 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const localModelPath = localModelPathDraft ?? config.externalModelPath ?? "";
   const [selectingLocalModel, setSelectingLocalModel] = useState(false);
   const [selectedCustomPath, setSelectedCustomPath] = useState("");
-  const [showRuntimeSettings, setShowRuntimeSettings] = useState(false);
+  const [screen, setScreen] = useState<"main" | SettingsScreen>("main");
+  const [changing, setChanging] = useState(false);
+  const [choice, setChoice] = useState<"preset" | "own">(
+    config.externalModelPath || config.customModelRepo ? "own" : "preset",
+  );
+  const [ownTab, setOwnTab] = useState<"hf" | "file">(config.externalModelPath ? "file" : "hf");
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [gpuLayersInput, setGpuLayersInput] = useState(config.gpuLayers > 0 ? String(config.gpuLayers) : "");
   const [gpuLayersModeDraft, setGpuLayersModeDraft] = useState<"auto" | "cpu" | "custom">(
     config.gpuLayers === -1 ? "auto" : config.gpuLayers === 0 ? "cpu" : "custom",
@@ -214,9 +335,8 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const [topKInput, setTopKInput] = useState(String(config.topK));
   const [maxParallelJobsInput, setMaxParallelJobsInput] = useState(String(config.maxParallelJobs));
   const [embeddingBatchSizeInput, setEmbeddingBatchSizeInput] = useState(String(config.embeddingBatchSize));
+  const Shell = embedded ? EmbeddedShell : Modal;
   const modalScrollRef = useRef<HTMLDivElement>(null);
-  const previousScrollLayoutRef = useRef({ showSetupProgress: false, showRuntimeSettings: false });
-
   const activeBackend = runtime.backend ?? config.backend;
   const isSystemRuntime = runtime.source === "system";
   const canReinstallRuntime = !isSystemRuntime;
@@ -238,14 +358,21 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const gpuLayersMode = gpuLayersModeDraft;
   const quickRuntimeSummary =
     activeBackend === "mlx"
-      ? `MLX runtime • ${formatCompactTokens(config.contextSize)} ctx • ${formatCompactTokens(config.maxTokens)} max`
+      ? localizeUi("connections.device.runtime.mlxSummary", {
+          context: formatCompactTokens(config.contextSize),
+          max: formatCompactTokens(config.maxTokens),
+        })
       : [
-          formatRuntimePreferenceLabel(config.runtimePreference, platform),
-          describeGpuLayers(config.gpuLayers),
-          config.enableNativeToolCalls ? "native tools on" : "native tools off",
-          `${formatEmbeddingPoolingLabel(config.embeddingPooling)} pooling`,
-          `${formatCompactTokens(config.contextSize)} ctx`,
-          `${formatCompactTokens(config.maxTokens)} max`,
+          formatRuntimePreferenceLabel(config.runtimePreference, localizeUi, platform),
+          describeGpuLayers(config.gpuLayers, localizeUi),
+          config.enableNativeToolCalls
+            ? localizeUi("connections.device.runtime.nativeToolsOn")
+            : localizeUi("connections.device.runtime.nativeToolsOff"),
+          localizeUi("connections.device.pooling.summary", {
+            pooling: formatEmbeddingPoolingLabel(config.embeddingPooling, localizeUi),
+          }),
+          localizeUi("connections.device.runtime.context", { value: formatCompactTokens(config.contextSize) }),
+          localizeUi("connections.device.runtime.maxTokens", { value: formatCompactTokens(config.maxTokens) }),
         ].join(" • ");
 
   useEffect(() => {
@@ -297,83 +424,64 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     config.embeddingBatchSize,
   ]);
 
-  useEffect(() => {
-    if (status === "server_error" || testMessageResult) {
-      setShowRuntimeSettings(true);
-    }
-  }, [status, testMessageResult]);
-
   const progress = downloadProgress;
   const progressPercent = progress && progress.total > 0 ? Math.round((progress.downloaded / progress.total) * 100) : 0;
+  const progressDetail = progress?.label ? ` (${progress.label})` : "";
   const setupLabel =
     progress?.phase === "runtime"
       ? activeBackend === "mlx"
-        ? `Preparing MLX runtime${progress.label ? ` (${progress.label})` : ""}...`
-        : `Downloading local runtime${progress.label ? ` (${progress.label})` : ""}...`
+        ? localizeUi("connections.device.setup.preparingMlx", { detail: progressDetail })
+        : localizeUi("connections.device.setup.downloadingRuntime", { detail: progressDetail })
       : progress?.phase === "model"
-        ? `Downloading model${progress.label ? ` (${progress.label})` : ""}...`
+        ? localizeUi("connections.device.setup.downloadingModel", { detail: progressDetail })
         : isPreparingServer
-          ? "Starting local runtime..."
-          : "Setting up local runtime...";
+          ? localizeUi("connections.device.setup.startingRuntime")
+          : localizeUi("connections.device.setup.settingUp");
   const setupDescription =
     progress?.phase === "model"
       ? isAppleSilicon
-        ? "Saving your selected MLX repo and preparing it for local use."
-        : "Downloading your selected GGUF and preparing it for local use."
+        ? localizeUi("connections.device.setup.savingMlxRepo")
+        : localizeUi("connections.device.setup.savingGguf")
       : progress?.phase === "runtime"
         ? activeBackend === "mlx"
-          ? "Downloading a private uv bootstrap and creating an isolated MLX environment inside Marinara's sidecar runtime folder."
-          : "Downloading the official local runtime for this device."
+          ? localizeUi("connections.device.setup.mlxRuntimeHelp")
+          : localizeUi("connections.device.setup.runtimeHelp")
         : activeBackend === "mlx"
-          ? "Starting the MLX server in the background. You can close this window while Marinara finishes booting it."
-          : "Starting the local sidecar server in the background. You can close this window while Marinara finishes booting it.";
+          ? localizeUi("connections.device.setup.startingMlxHelp")
+          : localizeUi("connections.device.setup.startingServerHelp");
   const runtimeStatusLabel = canFinish
-    ? "Ready"
+    ? localizeUi("connections.device.setup.ready")
     : isBlockingSetup
-      ? "Setting up now"
+      ? localizeUi("connections.device.setup.settingUpNow")
       : isPreparingServer
-        ? "Starting runtime"
+        ? localizeUi("connections.device.setup.startingRuntimeShort")
         : status === "server_error"
-          ? "Setup error"
+          ? localizeUi("connections.device.setup.error")
           : runtime.installed
             ? isSystemRuntime
-              ? "Using system runtime"
-              : "Installed"
-            : "Not downloaded yet";
+              ? localizeUi("connections.device.setup.systemRuntime")
+              : localizeUi("connections.device.setup.installed")
+            : localizeUi("connections.device.state.notDownloaded");
 
   useEffect(() => {
-    const previous = previousScrollLayoutRef.current;
-    previousScrollLayoutRef.current = { showSetupProgress, showRuntimeSettings };
-
-    if (!open) return;
-
-    const runtimeSettingsOpened = showRuntimeSettings && !previous.showRuntimeSettings;
-    const setupVisibilityChanged = showSetupProgress !== previous.showSetupProgress;
-    if (!runtimeSettingsOpened && !setupVisibilityChanged) return;
-
     modalScrollRef.current?.scrollTo({ top: 0 });
-  }, [open, showRuntimeSettings, showSetupProgress]);
-
-  const handleSkip = () => {
-    markPrompted();
-    onClose();
-  };
+  }, [screen, changing, showSetupProgress]);
 
   const handleCuratedDownload = async () => {
     markPrompted();
-    if (await startDownload(selectedQuant)) {
-      toast.success(GEMMA_RESTART_MESSAGE);
-    }
+    if (!(await startDownload(selectedQuant))) return false;
+    toast.success(GEMMA_RESTART_MESSAGE);
+    return true;
   };
 
   const handleCustomDownload = async () => {
-    if (!repoInput.trim()) return;
+    if (!repoInput.trim()) return false;
     markPrompted();
-    if (await startCustomDownload(repoInput.trim(), isAppleSilicon ? undefined : selectedCustomPath)) {
-      toast.success(
-        localizeUi("ui.modals.modeldownloadmodal.localModelDownloadedCompletelyRestartMarinaraEngineBeforeUsing"),
-      );
-    }
+    if (!(await startCustomDownload(repoInput.trim(), isAppleSilicon ? undefined : selectedCustomPath))) return false;
+    toast.success(
+      localizeUi("ui.modals.modeldownloadmodal.localModelDownloadedCompletelyRestartMarinaraEngineBeforeUsing"),
+    );
+    return true;
   };
 
   const handleLocalModel = async () => {
@@ -384,8 +492,10 @@ export function ModelDownloadModal({ open, onClose }: Props) {
       await fetchStatus();
       setLocalModelPath(null);
       toast.success(localizeUi("ui.modals.modeldownloadmodal.localGgufSelected"));
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.modeldownloadmodal.localGgufFailed"));
+      return false;
     } finally {
       setSelectingLocalModel(false);
     }
@@ -393,11 +503,6 @@ export function ModelDownloadModal({ open, onClose }: Props) {
 
   const handleListModels = async () => {
     await listHuggingFaceModels(repoInput.trim());
-  };
-
-  const handleDone = () => {
-    markPrompted();
-    onClose();
   };
 
   const handleRuntimePreferenceChange = (preference: SidecarRuntimePreference) => {
@@ -525,1044 +630,951 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     void cancelDownload();
   };
 
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={localizeUi("ui.modals.modeldownloadmodal.localAiModel")}
-      width="max-w-2xl"
-      contentRef={modalScrollRef}
-    >
-      <div className="flex flex-col gap-5">
-        <div className="flex items-start gap-3">
-          <div className="mari-chrome-accent-soft-tile mari-accent-animated flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
-            <BrainCircuit size="1.25rem" />
-          </div>
-          <div className="text-sm text-[var(--muted-foreground)]">
-            <p>{localizeUi("ui.modals.modeldownloadmodal.marinaraEngineCanRunALocalSidecarForTrackers")}</p>
-            <p className="mt-1.5 text-xs text-[var(--muted-foreground)]/70">
-              {isAppleSilicon
-                ? localizeUi("ui.modals.modeldownloadmodal.setUpTheMlxRuntimeFirstIfYouWant")
-                : localizeUi("ui.modals.modeldownloadmodal.setUpTheRuntimeFirstThenChooseEitherA")}
+  const close = () => {
+    markPrompted();
+    onClose();
+  };
+  const gb = (bytes?: number | null) => (bytes ? (bytes / 1024 ** 3).toFixed(1) : null);
+  const ownFile = choice === "own" && ownTab === "file";
+  const ownRepo = choice === "own" && ownTab === "hf";
+  const downloadBytes =
+    choice === "preset"
+      ? selectedPreset?.sizeBytes
+      : ownRepo && !isAppleSilicon
+        ? selectedCustomEntry?.sizeBytes
+        : null;
+  const primaryLabel = ownFile
+    ? localizeUi("connections.builtin.useFile")
+    : gb(downloadBytes)
+      ? localizeUi("connections.builtin.downloadSize", { size: gb(downloadBytes) })
+      : localizeUi("connections.builtin.downloadPlain");
+  const primaryDisabled =
+    isBlockingSetup ||
+    selectingLocalModel ||
+    (choice === "preset"
+      ? !selectedPreset
+      : ownFile
+        ? !localModelPath.trim()
+        : isAppleSilicon
+          ? !repoInput.trim() || customModelsLoading || !isCustomRepoValidated
+          : !selectedCustomPath);
+  // Change model opens on what is in use now.
+  const startChange = () => {
+    setChoice(config.externalModelPath || config.customModelRepo ? "own" : "preset");
+    setOwnTab(config.externalModelPath ? "file" : "hf");
+    setChanging(true);
+  };
+  // One button: the runtime installs first when it is missing, then the model.
+  const startSetup = async () => {
+    if (!useSidecarStore.getState().runtime.installed) await installRuntime();
+    if (!useSidecarStore.getState().runtime.installed) return;
+    const started =
+      choice === "preset"
+        ? await handleCuratedDownload()
+        : ownFile
+          ? await handleLocalModel()
+          : await handleCustomDownload();
+    if (started) setChanging(false);
+  };
+  const gpuHint =
+    runtimeDiagnostics && runtimeDiagnostics.gpuVendors.length > 0
+      ? localizeUi("connections.builtin.gpuFound", { vendors: runtimeDiagnostics.gpuVendors.join(", ") })
+      : null;
+  const progressText = progress
+    ? [
+        `${formatBytes(progress.downloaded)}${progress.total > 0 ? ` / ${formatBytes(progress.total)}` : ""}`,
+        progress.speed > 0 ? formatSpeed(progress.speed) : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+  const runtimeDone = runtime.installed && status !== "downloading_runtime";
+  const steps: { key: string; label: string; state: "ok" | "run" | "wait"; detail?: string | null }[] = [
+    {
+      key: "runtime",
+      label: localizeUi("connections.builtin.step.runtime"),
+      state: status === "downloading_runtime" ? "run" : runtimeDone ? "ok" : "wait",
+      detail: status === "downloading_runtime" ? progressText : formatRuntimeVariantLabel(runtime.variant),
+    },
+    {
+      key: "model",
+      label: localizeUi("connections.builtin.step.model"),
+      state: status === "downloading_model" ? "run" : hasModel ? "ok" : "wait",
+      detail: status === "downloading_model" ? progressText : null,
+    },
+    {
+      key: "start",
+      label: localizeUi("connections.builtin.step.start"),
+      state: isPreparingServer || status === "starting_server" ? "run" : inferenceReady ? "ok" : "wait",
+    },
+  ];
+  const view = showSetupProgress ? "busy" : screen !== "main" ? screen : hasModel && !changing ? "ready" : "pick";
+  const groups: { key: SettingsScreen; value: string }[] = [
+    {
+      key: "speed",
+      value:
+        activeBackend === "mlx" ? "MLX" : formatRuntimePreferenceLabel(config.runtimePreference, localizeUi, platform),
+    },
+    { key: "memory", value: `${formatCompactTokens(config.contextSize)} · ${config.kvCacheType ?? "f16"}` },
+    {
+      key: "replies",
+      value: localizeUi("connections.device.runtime.maxTokens", { value: formatCompactTokens(config.maxTokens) }),
+    },
+    {
+      key: "expert",
+      value: config.enableNativeToolCalls
+        ? localizeUi("connections.device.runtime.nativeToolsOn")
+        : localizeUi("connections.device.runtime.nativeToolsOff"),
+    },
+  ];
+  const settingsList = (
+    <div className={LIST}>
+      {groups.map((group) => (
+        <button key={group.key} type="button" onClick={() => setScreen(group.key)} className={ROW}>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm text-[var(--foreground)]">
+              {localizeUi(`connections.builtin.group.${group.key}`)}
+            </span>
+            <span className="block text-xs text-[var(--muted-foreground)]">
+              {localizeUi(`connections.builtin.group.${group.key}Hint`)}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5 text-xs tabular-nums text-[var(--muted-foreground)]">
+            {group.value}
+            <ChevronRight size="0.875rem" aria-hidden />
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+  const numberInput = (
+    label: string,
+    value: string,
+    set: (value: string) => void,
+    placeholder: string,
+    decimal = false,
+    onEnter?: () => void,
+  ) => (
+    <input
+      value={value}
+      onChange={(event) => set(event.target.value.replace(decimal ? /[^0-9.]/g : /[^\d]/g, ""))}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") onEnter?.();
+      }}
+      inputMode={decimal ? "decimal" : "numeric"}
+      placeholder={placeholder}
+      aria-label={label}
+      className="mari-editor-field w-full px-3 py-2 text-sm tabular-nums"
+    />
+  );
+  const isGroup = view === "speed" || view === "memory" || view === "replies" || view === "expert";
+
+  let body: ReactNode;
+  let footerLeft: ReactNode = null;
+  let footerRight: ReactNode = null;
+
+  if (view === "busy") {
+    body = (
+      <div className="flex flex-col gap-4" role="status">
+        <p className="text-sm font-medium text-[var(--foreground)]">{setupLabel}</p>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/[0.08]">
+          {progress && progress.total > 0 ? (
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,var(--mari-panel-gradient-start),var(--mari-panel-gradient-end))] transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          ) : (
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-[var(--mari-panel-gradient-start)]" />
+          )}
+        </div>
+        <ol className="flex flex-col gap-2.5 text-sm">
+          {steps.map((step) => (
+            <li key={step.key} className="flex items-center gap-2.5">
+              <span
+                className={cn(
+                  "flex h-[1.125rem] w-[1.125rem] shrink-0 items-center justify-center rounded-full",
+                  step.state === "ok" && "bg-emerald-500/15 text-emerald-400",
+                  step.state === "run" && "text-[var(--mari-panel-gradient-start)]",
+                  step.state === "wait" &&
+                    "shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--foreground)_20%,transparent)]",
+                )}
+                aria-hidden
+              >
+                {step.state === "ok" && <Check size="0.6875rem" />}
+                {step.state === "run" && <Loader2 size="1.125rem" className="animate-spin" />}
+              </span>
+              <span className={step.state === "wait" ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]"}>
+                {step.label}
+              </span>
+              {step.detail && (
+                <span className="ms-auto min-w-0 truncate text-xs tabular-nums text-[var(--muted-foreground)]">
+                  {step.detail}
+                </span>
+              )}
+            </li>
+          ))}
+        </ol>
+        <p className="text-xs text-[var(--muted-foreground)]">{setupDescription}</p>
+      </div>
+    );
+    footerLeft = (
+      <button type="button" onClick={handleCancelSetup} className={QUIET}>
+        {localizeUi("ui.modals.modeldownloadmodal.cancelSetup")}
+      </button>
+    );
+    footerRight = (
+      <button type="button" onClick={close} className={SECONDARY}>
+        {localizeUi("capabilities.actions.close")}
+      </button>
+    );
+  } else if (view === "pick") {
+    body = (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("connections.builtin.tagline")}</p>
+          <div className="flex items-start gap-2 text-[0.8125rem] text-[var(--muted-foreground)]">
+            <Info size="0.9375rem" className="mt-0.5 shrink-0" aria-hidden />
+            <p>
+              <span className="font-medium text-[var(--foreground)]">{localizeUi("connections.builtin.fitTitle")}</span>{" "}
+              {localizeUi("connections.builtin.fitBody")}{" "}
+              <button
+                type="button"
+                aria-expanded={aboutOpen}
+                onClick={() => setAboutOpen((value) => !value)}
+                className="underline underline-offset-2 hover:text-[var(--foreground)]"
+              >
+                {localizeUi("connections.builtin.whatCanItDo")}
+              </button>
             </p>
           </div>
+          {aboutOpen && (
+            <div className="flex flex-col gap-2 rounded-xl bg-foreground/[0.04] p-3.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
+              <p className="text-[var(--foreground)]">
+                {localizeUi("ui.modals.modeldownloadmodal.marinaraEngineCanRunALocalSidecarForTrackers")}
+              </p>
+              <p className="font-medium text-[var(--foreground)]">
+                {localizeUi("ui.modals.modeldownloadmodal.whatTheLocalModelHandles")}
+              </p>
+              <ul className="flex list-disc flex-col gap-1 ps-4">
+                <li>{localizeUi("ui.modals.modeldownloadmodal.trackerAgentsInRoleplayMode")}</li>
+                <li>{localizeUi("ui.modals.modeldownloadmodal.sceneEffectsInGameModeBackgroundsMusicSfxAmbient")}</li>
+                <li>{localizeUi("ui.modals.modeldownloadmodal.widgetUpdatesWeatherAndTimeOfDayChanges")}</li>
+                <li>{localizeUi("ui.modals.modeldownloadmodal.npcReputationTrackingAndExpressionSelection")}</li>
+              </ul>
+              <p>{localizeUi("ui.modals.modeldownloadmodal.theBundledModelIsDeliberatelySmallSoItCan")}</p>
+            </div>
+          )}
         </div>
 
-        <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--warning)]">
-            <AlertTriangle size="0.95rem" className="shrink-0" />
-            {localizeUi("ui.modals.modeldownloadmodal.localModelIsForHelpersNotMainRoleplay")}
-          </div>
-          <p className="mt-1.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
-            {localizeUi("ui.modals.modeldownloadmodal.theBundledModelIsDeliberatelySmallSoItCan")}
+        <div role="radiogroup" aria-labelledby="builtin-which-model" className="flex flex-col gap-2">
+          <h3 id="builtin-which-model" className={LABEL}>
+            {localizeUi("connections.builtin.whichModel")}
+          </h3>
+          {curatedModels.map((model) => {
+            const on = choice === "preset" && selectedQuant === model.quantization;
+            return (
+              <button
+                key={`${model.backend}-${model.quantization}`}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => {
+                  setChoice("preset");
+                  setSelectedQuant(model.quantization);
+                }}
+                className={cn(OPTION, on && OPTION_ON)}
+              >
+                <span className={cn(RADIO, on && RADIO_ON)} aria-hidden />
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-[0.9375rem] font-semibold text-[var(--foreground)]">{model.label}</span>
+                  <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
+                    {localizeUi("connections.builtin.size", { size: gb(model.sizeBytes), ram: gb(model.ramBytes) })}
+                  </span>
+                </span>
+                {model.quantization === "q8_0" && (
+                  <span className={GOOD}>{localizeUi("ui.modals.modeldownloadmodal.recommended")}</span>
+                )}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={choice === "own"}
+            onClick={() => setChoice("own")}
+            className={cn(OPTION, choice === "own" && OPTION_ON)}
+          >
+            <span className={cn(RADIO, choice === "own" && RADIO_ON)} aria-hidden />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[0.9375rem] font-semibold text-[var(--foreground)]">
+                {localizeUi("connections.builtin.ownModel")}
+              </span>
+              <span className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi("connections.builtin.ownModelHint")}
+              </span>
+            </span>
+            <ChevronDown
+              size="1rem"
+              className={cn(
+                "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                choice === "own" && "rotate-180",
+              )}
+              aria-hidden
+            />
+          </button>
+          {choice === "own" && (
+            <div className="flex flex-col gap-3 rounded-xl bg-foreground/[0.04] p-3.5">
+              <div className="mari-editor-navigation-tabs flex self-start" role="tablist">
+                {(["hf", "file"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={ownTab === tab}
+                    data-active={ownTab === tab}
+                    className="mari-editor-tab"
+                    onClick={() => setOwnTab(tab)}
+                  >
+                    {localizeUi(`connections.builtin.tab.${tab}`)}
+                  </button>
+                ))}
+              </div>
+              {ownTab === "file" ? (
+                <>
+                  <input
+                    value={localModelPath}
+                    onChange={(event) => setLocalModelPath(event.target.value)}
+                    placeholder={localizeUi("ui.modals.modeldownloadmodal.localGgufPathPlaceholder")}
+                    aria-label={localizeUi("ui.modals.modeldownloadmodal.localGgufPath")}
+                    className="mari-editor-field w-full px-3 py-2 font-mono text-sm"
+                    disabled={selectingLocalModel || isBlockingSetup}
+                  />
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    {localizeUi("ui.modals.modeldownloadmodal.localGgufPathHint")}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      value={repoInput}
+                      onChange={(event) => {
+                        setRepoInput(event.target.value);
+                        if (customModels.length > 0 || customModelsError) {
+                          clearCustomModels();
+                          setSelectedCustomPath("");
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && repoInput.trim()) void handleListModels();
+                      }}
+                      placeholder={localizeUi("ui.modals.modeldownloadmodal.ownerRepo")}
+                      aria-label={localizeUi("ui.modals.modeldownloadmodal.ownerRepo")}
+                      className="mari-editor-field min-w-0 flex-1 px-3 py-2 font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleListModels()}
+                      disabled={!repoInput.trim() || customModelsLoading}
+                      className={SECONDARY}
+                    >
+                      {customModelsLoading ? (
+                        <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
+                      ) : (
+                        <Search size="0.875rem" aria-hidden />
+                      )}
+                      {isAppleSilicon
+                        ? localizeUi("ui.modals.modeldownloadmodal.validateRepo")
+                        : localizeUi("connections.builtin.findFiles")}
+                    </button>
+                  </div>
+                  {customModelsError && <p className="text-xs text-[var(--destructive)]">{customModelsError}</p>}
+                  {isAppleSilicon && selectedCustomEntry && (
+                    <p className="text-xs text-emerald-400">
+                      {selectedCustomEntry.filename} · {localizeUi("ui.modals.modeldownloadmodal.mlxRepoValidated")}
+                    </p>
+                  )}
+                  {!isAppleSilicon && customModels.length > 0 && (
+                    <div
+                      role="radiogroup"
+                      aria-label={localizeUi("connections.builtin.findFiles")}
+                      className="flex flex-col gap-0.5"
+                    >
+                      {customModels.map((entry) => {
+                        const on = selectedCustomPath === entry.path;
+                        return (
+                          <button
+                            key={entry.path}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            onClick={() => setSelectedCustomPath(entry.path)}
+                            className={cn(
+                              "flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[0.8125rem] transition-colors hover:bg-foreground/[0.05]",
+                              on && "bg-[var(--mari-connection-tint)] hover:bg-[var(--mari-connection-tint)]",
+                            )}
+                          >
+                            <span className={cn(RADIO, on && RADIO_ON)} aria-hidden />
+                            <span className="min-w-0 flex-1 font-mono [overflow-wrap:anywhere]">
+                              {entry.quantizationLabel ?? entry.filename}
+                            </span>
+                            {entry.sizeBytes ? (
+                              <span className="shrink-0 tabular-nums text-[var(--muted-foreground)]">
+                                {formatBytes(entry.sizeBytes)}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    {isAppleSilicon
+                      ? localizeUi("ui.modals.modeldownloadmodal.enterAnMlxNativeHuggingfaceRepoMarinaraWillValidate")
+                      : localizeUi("connections.builtin.ownHint")}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {progress?.status === "error" && (
+          <p className="rounded-lg bg-[var(--destructive)]/10 p-3 text-sm text-[var(--destructive)]">
+            {progress.error || localizeUi("connections.builtin.failed")}
           </p>
+        )}
+
+        <button type="button" onClick={() => setScreen("settings")} className={DISCLOSE}>
+          <SlidersHorizontal size="0.9375rem" aria-hidden />
+          <span className="font-medium text-[var(--foreground)]">{localizeUi("connections.builtin.settings")}</span>
+          <span className="min-w-0 truncate">{groups[0].value}</span>
+          <ChevronRight size="0.875rem" className="ms-auto shrink-0" aria-hidden />
+        </button>
+      </div>
+    );
+    footerLeft = changing ? (
+      <button type="button" onClick={() => setChanging(false)} className={QUIET}>
+        {localizeUi("connections.builtin.cancel")}
+      </button>
+    ) : gpuHint ? (
+      <span className="truncate text-xs text-[var(--muted-foreground)]">{gpuHint}</span>
+    ) : null;
+    footerRight = (
+      <button type="button" onClick={() => void startSetup()} disabled={primaryDisabled} className={PRIMARY}>
+        {selectingLocalModel ? (
+          <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
+        ) : (
+          <Download size="0.875rem" aria-hidden />
+        )}
+        {primaryLabel}
+      </button>
+    );
+  } else if (view === "ready") {
+    body = (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3.5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.625rem] bg-foreground/[0.06] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--foreground)_10%,transparent)]">
+            <Cpu size="1.25rem" aria-hidden />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="text-sm font-semibold text-[var(--foreground)] [overflow-wrap:anywhere]">
+              {activeModelName ?? localizeUi("connections.device.setup.modelInstalled")}
+            </span>
+            <span
+              className={cn(
+                "flex items-center gap-1.5 text-xs",
+                canFinish
+                  ? "text-emerald-400"
+                  : status === "server_error"
+                    ? "text-amber-300"
+                    : "text-[var(--muted-foreground)]",
+              )}
+            >
+              {canFinish && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />}
+              {[runtimeStatusLabel, formatRuntimeVariantLabel(runtime.variant)].filter(Boolean).join(" · ")}
+            </span>
+          </div>
+          {inferenceReady ? (
+            <button
+              type="button"
+              onClick={() => void sendTestMessage()}
+              disabled={testMessagePending}
+              className={SECONDARY}
+            >
+              {testMessagePending ? (
+                <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
+              ) : (
+                <MessageSquare size="0.875rem" aria-hidden />
+              )}
+              {localizeUi("connections.builtin.test")}
+            </button>
+          ) : runtime.installed && status !== "server_error" ? (
+            <button type="button" onClick={() => void restartRuntime()} className={SECONDARY}>
+              {localizeUi("ui.modals.modeldownloadmodal.startRuntime")}
+            </button>
+          ) : !runtime.installed ? (
+            <button type="button" onClick={() => void installRuntime()} className={SECONDARY}>
+              <Download size="0.875rem" aria-hidden />
+              {localizeUi("ui.modals.modeldownloadmodal.installRuntime")}
+            </button>
+          ) : null}
         </div>
 
-        {hasModel && (
-          <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/15">
-                <Check size="1rem" className="text-green-400" />
+        {status === "server_error" && (
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3.5">
+            <div className="flex items-center gap-2 text-sm font-medium text-amber-200">
+              <AlertTriangle size="0.9375rem" aria-hidden />
+              {localizeUi("ui.modals.modeldownloadmodal.localRuntimeFailedToStart")}
+            </div>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {localizeUi("ui.modals.modeldownloadmodal.marinaraWillKeepWorkingWithoutTheLocalModelUntil")}
+            </p>
+            {(failedRuntimeVariant || startupError || logPath) && (
+              <div className="mt-2 flex flex-col gap-1 text-xs text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
+                {failedRuntimeVariant && (
+                  <span>
+                    {localizeUi("connections.device.runtimeVariant", {
+                      variant: formatRuntimeVariantLabel(failedRuntimeVariant),
+                    })}
+                  </span>
+                )}
+                {startupError && (
+                  <span>
+                    {localizeUi("ui.modals.modeldownloadmodal.error")} {startupError}
+                  </span>
+                )}
+                {logPath && (
+                  <span>
+                    {localizeUi("ui.modals.modeldownloadmodal.log")} {logPath}
+                  </span>
+                )}
               </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-green-300">{activeModelName ?? "Model Installed"}</div>
-                <div className="text-xs text-[var(--muted-foreground)]/70">
-                  {config.externalModelPath
-                    ? localizeUi("ui.modals.modeldownloadmodal.localGgufPath")
-                    : config.customModelRepo
-                      ? config.backend === "mlx"
-                        ? localizeUi("ui.modals.modeldownloadmodal.customMlxRepoValue1", {
-                            value1: config.customModelRepo,
-                          })
-                        : localizeUi("ui.modals.modeldownloadmodal.customGgufFromValue1", {
-                            value1: config.customModelRepo,
-                          })
-                      : localizeUi("ui.modals.modeldownloadmodal.value1Gemma4Value2Preset", {
-                          value1: formatQuantizationLabel(config.quantization, config.backend),
-                          value2:
-                            config.backend === "mlx"
-                              ? localizeUi("ui.modals.modeldownloadmodal.mlx")
-                              : localizeUi("ui.modals.modeldownloadmodal.gguf"),
-                        })}
-                </div>
-              </div>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => void restartRuntime()} className={SECONDARY}>
+                <RotateCw size="0.875rem" aria-hidden />
+                {localizeUi("ui.modals.modeldownloadmodal.retryStartup")}
+              </button>
+              {canReinstallRuntime && (
+                <button type="button" onClick={() => void reinstallRuntime()} className={SECONDARY}>
+                  {localizeUi("ui.modals.modeldownloadmodal.reinstallRuntime")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void updateConfig({ useForTrackers: false, useForGameScene: false })}
+                className={QUIET}
+              >
+                {localizeUi("ui.modals.modeldownloadmodal.continueWithoutLocalAi")}
+              </button>
             </div>
           </div>
         )}
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-          <div className="flex items-start justify-between gap-3 max-sm:flex-col">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Server size="0.95rem" className="mari-chrome-accent-icon mari-accent-animated" />
-                {localizeUi("ui.panels.extensionsettings.runtime")}
-              </div>
-              <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-                <span>
-                  {localizeUi("ui.modals.modeldownloadmodal.status")} {runtimeStatusLabel}
-                </span>
-                <span> • </span>
-                <span>{quickRuntimeSummary}</span>
-              </div>
-              <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">
-                {runtime.installed
-                  ? isSystemRuntime
-                    ? localizeUi("ui.modals.modeldownloadmodal.usingSystemLlamaServerValue1", {
-                        value1: runtime.systemPath
-                          ? localizeUi("ui.modals.modeldownloadmodal.value1", { value1: runtime.systemPath })
-                          : "",
-                      })
-                    : runtime.variant
-                      ? localizeUi("ui.modals.modeldownloadmodal.installedRuntimeValue1", {
-                          value1: formatRuntimeVariantLabel(runtime.variant),
-                        })
-                      : localizeUi("ui.modals.modeldownloadmodal.runtimeInstalledAndReadyToUse")
-                  : hasModel
-                    ? localizeUi("ui.modals.modeldownloadmodal.yourModelIsReadyButTheRuntimeHasNot")
-                    : localizeUi("ui.modals.modeldownloadmodal.installAndConfigureTheRuntimeHereThenChooseA")}
-              </div>
-              {status === "server_error" && (
-                <div className="mt-2 text-xs text-amber-200">
-                  {localizeUi("ui.modals.modeldownloadmodal.runtimeStartupFailedOpenRuntimeSettingsForDetails")}
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => setShowRuntimeSettings((current) => !current)}
-              className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)]"
-            >
-              <Settings2 size="0.875rem" />
-              {localizeUi("ui.modals.modeldownloadmodal.runtimeSettings")}
-              {showRuntimeSettings ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
-            </button>
-          </div>
+        {testMessageResult && <TestResult result={testMessageResult} />}
 
-          {!showSetupProgress && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {!runtime.installed ? (
-                <button
-                  onClick={() => void installRuntime()}
-                  className="mari-chrome-accent-surface mari-accent-animated flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
-                >
-                  <Download size="0.875rem" />
-                  {activeBackend === "mlx"
-                    ? localizeUi("ui.modals.modeldownloadmodal.installMlxRuntime")
-                    : localizeUi("ui.modals.modeldownloadmodal.installRuntime")}
-                </button>
+        <div className="flex flex-col gap-2">
+          <h3 className={LABEL}>{localizeUi("connections.builtin.usedFor")}</h3>
+          <div className={LIST}>
+            {(
+              [
+                [
+                  "useForTrackers",
+                  "connections.builtin.card.trackers",
+                  "ui.modals.modeldownloadmodal.trackerAgentsInRoleplayMode",
+                ],
+                [
+                  "useForGameScene",
+                  "connections.builtin.sceneEffects",
+                  "ui.modals.modeldownloadmodal.sceneEffectsInGameModeBackgroundsMusicSfxAmbient",
+                ],
+              ] as const
+            ).map(([field, title, hint]) => (
+              <SettingsSwitch
+                key={field}
+                label={localizeUi(title)}
+                description={localizeUi(hint)}
+                checked={config[field]}
+                onChange={(value) => void updateConfig({ [field]: value })}
+                labelPosition="start"
+                className="justify-between px-3.5 py-2.5"
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h3 className={LABEL}>{localizeUi("connections.builtin.settings")}</h3>
+          {settingsList}
+        </div>
+      </div>
+    );
+    footerLeft = (
+      <button type="button" onClick={startChange} className={QUIET}>
+        {localizeUi("connections.builtin.changeModel")}
+      </button>
+    );
+    footerRight = (
+      <button type="button" onClick={close} className={PRIMARY}>
+        {localizeUi("connections.add.done")}
+      </button>
+    );
+  } else if (view === "settings") {
+    body = settingsList;
+  } else {
+    body = (
+      <div className="flex flex-col gap-5">
+        {view === "speed" && (
+          <>
+            <Field label={localizeUi("ui.modals.modeldownloadmodal.runtimeTarget")}>
+              {activeBackend === "mlx" ? (
+                <p className={HINT}>
+                  {localizeUi("ui.modals.modeldownloadmodal.mlxChoosesTheAppleSiliconAcceleratorPathAutomatically")}
+                </p>
               ) : (
                 <>
-                  {hasModel && (
-                    <button
-                      onClick={() => void restartRuntime()}
-                      className="mari-chrome-accent-surface mari-accent-animated flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
-                    >
-                      <Loader2 size="0.875rem" />
-                      {status === "server_error"
-                        ? localizeUi("ui.modals.modeldownloadmodal.retryStartup")
-                        : inferenceReady
-                          ? localizeUi("ui.modals.modeldownloadmodal.restartRuntime")
-                          : localizeUi("ui.modals.modeldownloadmodal.startRuntime")}
-                    </button>
-                  )}
-                  {canReinstallRuntime && (
-                    <button
-                      onClick={() => void reinstallRuntime()}
-                      className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)]"
-                    >
-                      <Download size="0.875rem" />
-                      {localizeUi("ui.modals.modeldownloadmodal.reinstallRuntime")}
-                    </button>
-                  )}
-                </>
-              )}
-              <button
-                onClick={() => {
-                  setShowRuntimeSettings(true);
-                  void sendTestMessage();
-                }}
-                disabled={!hasModel || !runtime.installed || testMessagePending}
-                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {testMessagePending ? (
-                  <Loader2 size="0.875rem" className="animate-spin" />
-                ) : (
-                  <MessageSquare size="0.875rem" />
-                )}
-                {localizeUi("ui.connections.connectioneditor.sendTestMessage")}
-              </button>
-            </div>
-          )}
-
-          {inferenceReady && activeBackend !== "mlx" && (
-            <div className="mt-4 rounded-xl border border-[var(--border)] p-3 text-xs">
-              <p className="font-medium">{localizeUi("ui.modals.modeldownloadmodal.gpuAllocations")}</p>
-              {gpuMemory ? (
-                <dl className="mt-2 grid grid-cols-2 gap-2">
-                  {(["weightsBytes", "kvCacheBytes", "buffersBytes"] as const).map((field) => (
-                    <div key={field}>
-                      <dt className="text-[var(--muted-foreground)]">
-                        {localizeUi(`ui.modals.modeldownloadmodal.${field}`)}
-                      </dt>
-                      <dd>
-                        {gpuMemory[field] === null
-                          ? localizeUi("ui.modals.modeldownloadmodal.gpuMemoryUnavailable")
-                          : formatBytes(gpuMemory[field])}
-                      </dd>
-                    </div>
-                  ))}
-                  {gpuMemory.weightsBytes !== null &&
-                    gpuMemory.kvCacheBytes !== null &&
-                    gpuMemory.buffersBytes !== null && (
-                      <div>
-                        <dt className="text-[var(--muted-foreground)]">
-                          {localizeUi("ui.modals.modeldownloadmodal.totalGpuAllocations")}
-                        </dt>
-                        <dd>{formatBytes(gpuMemory.weightsBytes + gpuMemory.kvCacheBytes + gpuMemory.buffersBytes)}</dd>
-                      </div>
-                    )}
-                </dl>
-              ) : (
-                <p className="mt-2">{localizeUi("ui.modals.modeldownloadmodal.gpuMemoryUnavailable")}</p>
-              )}
-              <p className="mt-2 text-[var(--muted-foreground)]">
-                {localizeUi("ui.modals.modeldownloadmodal.gpuAllocationsHint")}
-              </p>
-            </div>
-          )}
-
-          {showRuntimeSettings && (
-            <div className="mt-4 flex flex-col gap-4 rounded-xl border border-[var(--border)]/80 bg-[var(--secondary)]/40 p-4">
-              {activeBackend !== "mlx" && (
-                <label className="flex flex-col gap-2 text-xs">
-                  <span className="font-medium">{localizeUi("ui.modals.modeldownloadmodal.kvCacheType")}</span>
                   <select
-                    value={config.kvCacheType ?? "f16"}
-                    onChange={(event) =>
-                      void updateConfig({ kvCacheType: event.target.value as "f16" | "q8_0" | "q4_0" })
-                    }
-                    disabled={isBlockingSetup}
-                    className="mari-editor-field px-3 py-2 text-sm"
+                    value={config.runtimePreference}
+                    aria-label={localizeUi("ui.modals.modeldownloadmodal.runtimeTarget")}
+                    onChange={(event) => handleRuntimePreferenceChange(event.target.value as SidecarRuntimePreference)}
+                    className="mari-editor-field w-full px-3 py-2 text-sm"
                   >
-                    {(["f16", "q8_0", "q4_0"] as const).map((type) => (
-                      <option key={type} value={type}>
-                        {type}
+                    {runtimePreferenceOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {formatRuntimePreferenceLabel(option, localizeUi, platform)}
                       </option>
                     ))}
                   </select>
-                  <span className="text-[var(--muted-foreground)]">
-                    {localizeUi("ui.modals.modeldownloadmodal.kvCacheTypeHint")}
-                  </span>
-                </label>
+                  <p className={HINT}>
+                    {localizeUi("ui.modals.modeldownloadmodal.pickTheGpuFamilyYouActuallyWantMarinaraTo")}
+                  </p>
+                  {platform === "linux" && config.runtimePreference === "nvidia" && (
+                    <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                      {localizeUi("ui.modals.modeldownloadmodal.linuxCudaBinariesAreNotCurrentlyPublishedByLlama")}
+                    </p>
+                  )}
+                </>
               )}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                    {localizeUi("ui.modals.modeldownloadmodal.runtimeTarget")}
-                  </div>
-                  {activeBackend === "mlx" ? (
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-sm text-[var(--muted-foreground)]/75">
-                      {localizeUi("ui.modals.modeldownloadmodal.mlxChoosesTheAppleSiliconAcceleratorPathAutomatically")}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <select
-                          value={config.runtimePreference}
-                          onChange={(event) =>
-                            handleRuntimePreferenceChange(event.target.value as SidecarRuntimePreference)
-                          }
-                          className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                        >
-                          {runtimePreferenceOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {formatRuntimePreferenceLabel(option, platform)}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          size="0.95rem"
-                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]/70"
-                        />
-                      </div>
-                      <div className="text-xs text-[var(--muted-foreground)]/70">
-                        {localizeUi("ui.modals.modeldownloadmodal.pickTheGpuFamilyYouActuallyWantMarinaraTo")}
-                      </div>
-                      {platform === "linux" && config.runtimePreference === "nvidia" && (
-                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
-                          {localizeUi("ui.modals.modeldownloadmodal.linuxCudaBinariesAreNotCurrentlyPublishedByLlama")}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                    {localizeUi("ui.modals.modeldownloadmodal.gpuOffload")}
-                  </div>
-                  {activeBackend === "mlx" ? (
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-sm text-[var(--muted-foreground)]/75">
-                      {localizeUi("ui.modals.modeldownloadmodal.mlxManagesGpuOffloadAutomatically")}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <select
-                          value={gpuLayersMode}
-                          onChange={(event) =>
-                            handleGpuLayersModeChange(event.target.value as "auto" | "cpu" | "custom")
-                          }
-                          className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                        >
-                          <option value="auto">{localizeUi("ui.modals.modeldownloadmodal.autoOffload")}</option>
-                          <option value="cpu">{localizeUi("ui.modals.modeldownloadmodal.cpuOnly")}</option>
-                          <option value="custom">{localizeUi("ui.modals.modeldownloadmodal.customGpuLayers")}</option>
-                        </select>
-                        <ChevronDown
-                          size="0.95rem"
-                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]/70"
-                        />
-                      </div>
-                      {gpuLayersMode === "custom" && (
-                        <div className="flex items-center justify-end gap-2">
-                          <input
-                            value={gpuLayersInput}
-                            onChange={(event) => setGpuLayersInput(event.target.value.replace(/[^\d]/g, ""))}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                handleApplyCustomGpuLayers();
-                              }
-                            }}
-                            placeholder="1-1024"
-                            inputMode="numeric"
-                            className="w-24 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-center text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                          />
-                          <button
-                            onClick={handleApplyCustomGpuLayers}
-                            className="flex shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card)]"
-                          >
-                            {localizeUi("ui.modals.modeldownloadmodal.apply")}
-                          </button>
-                        </div>
-                      )}
-                      <div className="text-xs text-[var(--muted-foreground)]/70">
-                        {localizeUi("ui.modals.modeldownloadmodal.autoTriesMaxOffloadFirstCpuOnlyDisablesGpu")}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-4">
-                <div className="flex items-start justify-between gap-3 max-sm:flex-col">
-                  <div>
-                    <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                      {localizeUi("ui.modals.modeldownloadmodal.nativeToolCalls")}
-                    </div>
-                    <div className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]/75">
-                      {activeBackend === "mlx"
-                        ? localizeUi("ui.modals.modeldownloadmodal.thisLlamaCppJinjaOptionDoesNotApplyTo")
-                        : localizeUi("ui.modals.modeldownloadmodal.startsLlamaServerWithJinjaSoOpenaiCompatibleTool")}
-                    </div>
-                  </div>
-                  {activeBackend === "mlx" ? (
-                    <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted-foreground)]">
-                      {localizeUi("ui.modals.modeldownloadmodal.llamaCppOnly")}
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleNativeToolCallsToggle}
-                      className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card)]"
-                    >
-                      <span
-                        className={`relative h-4 w-7 rounded-full transition-colors ${
-                          config.enableNativeToolCalls ? "bg-emerald-400/70" : "bg-[var(--border)]"
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
-                            config.enableNativeToolCalls ? "translate-x-3" : ""
-                          }`}
-                        />
-                      </span>
-                      {config.enableNativeToolCalls
-                        ? localizeUi("ui.noodle.noodlehome.enabled")
-                        : localizeUi("ui.agents.agenteditor.disabled")}
-                    </button>
-                  )}
-                </div>
-                {!config.enableNativeToolCalls && activeBackend !== "mlx" && (
-                  <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
-                    {localizeUi("ui.modals.modeldownloadmodal.professorMariAndCustomAgentsNeedThisEnabledBefore")}
-                  </div>
-                )}
-              </div>
-
-              {activeBackend !== "mlx" && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-4">
-                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                    {localizeUi("ui.modals.modeldownloadmodal.embeddingEndpoint")}
-                  </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <label className="flex flex-col gap-1.5">
-                      <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                        {localizeUi("ui.modals.modeldownloadmodal.poolingType")}
-                      </span>
-                      <div className="relative">
-                        <select
-                          value={config.embeddingPooling}
-                          onChange={(event) =>
-                            handleEmbeddingPoolingChange(event.target.value as SidecarEmbeddingPooling)
-                          }
-                          className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                        >
-                          {SIDECAR_EMBEDDING_POOLING_TYPES.map((pooling) => (
-                            <option key={pooling} value={pooling}>
-                              {formatEmbeddingPoolingLabel(pooling)}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          size="0.95rem"
-                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]/70"
-                        />
-                      </div>
-                    </label>
-
-                    <label className="flex flex-col gap-1.5">
-                      <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                        {localizeUi("ui.modals.modeldownloadmodal.physicalBatchSize")}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          value={embeddingBatchSizeInput}
-                          onChange={(event) => setEmbeddingBatchSizeInput(event.target.value.replace(/[^\d]/g, ""))}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              handleApplyEmbeddingBatchSize();
-                            }
-                          }}
-                          inputMode="numeric"
-                          placeholder="512"
-                          className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                        />
-                        <button
-                          onClick={handleApplyEmbeddingBatchSize}
-                          disabled={!embeddingBatchSizeValid || !embeddingBatchSizeDirty}
-                          className="flex shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card)] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {localizeUi("ui.modals.modeldownloadmodal.apply")}
-                        </button>
-                      </div>
-                    </label>
-                  </div>
-                  <div className="mt-3 text-xs leading-relaxed text-[var(--muted-foreground)]/70">
-                    {localizeUi(
-                      "ui.modals.modeldownloadmodal.useMeanPoolingForOpenaiCompatibleLorebookEmbeddingsRaise",
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                  {localizeUi("ui.modals.modeldownloadmodal.inferenceSettings")}
-                </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                      {localizeUi("ui.modals.modeldownloadmodal.contextWindow")}
-                    </span>
-                    <input
-                      value={contextSizeInput}
-                      onChange={(event) => setContextSizeInput(event.target.value.replace(/[^\d]/g, ""))}
-                      inputMode="numeric"
-                      placeholder="8192"
-                      className="rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                      {localizeUi("ui.modals.modeldownloadmodal.maxResponseTokens")}
-                    </span>
-                    <input
-                      value={maxTokensInput}
-                      onChange={(event) => setMaxTokensInput(event.target.value.replace(/[^\d]/g, ""))}
-                      inputMode="numeric"
-                      placeholder="4096"
-                      className="rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                      {localizeUi("ui.modals.modeldownloadmodal.temperature")}
-                    </span>
-                    <input
-                      value={temperatureInput}
-                      onChange={(event) => setTemperatureInput(event.target.value.replace(/[^0-9.]/g, ""))}
-                      inputMode="decimal"
-                      placeholder="0.3"
-                      className="rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                      {localizeUi("ui.modals.modeldownloadmodal.topP")}
-                    </span>
-                    <input
-                      value={topPInput}
-                      onChange={(event) => setTopPInput(event.target.value.replace(/[^0-9.]/g, ""))}
-                      inputMode="decimal"
-                      placeholder="0.95"
-                      className="rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1.5 md:max-w-[12rem]">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                      {localizeUi("ui.modals.modeldownloadmodal.topK")}
-                    </span>
-                    <input
-                      value={topKInput}
-                      onChange={(event) => setTopKInput(event.target.value.replace(/[^\d]/g, ""))}
-                      inputMode="numeric"
-                      placeholder="64"
-                      className="rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                      {localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}
-                    </span>
-                    <input
-                      value={maxParallelJobsInput}
-                      onChange={(event) => setMaxParallelJobsInput(event.target.value.replace(/[^\d]/g, ""))}
-                      inputMode="numeric"
-                      min={1}
-                      max={16}
-                      placeholder="2"
-                      className="rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                    />
-                  </label>
-                </div>
-                <div className="mt-3 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
-                  <div className="text-xs text-[var(--muted-foreground)]/70">
-                    {localizeUi("ui.modals.modeldownloadmodal.maxResponseTokensCapsHowMuchTheLocalRuntime")}
-                  </div>
-                  <button
-                    onClick={handleApplyGenerationSettings}
-                    disabled={!generationSettingsValid || !generationSettingsDirty}
-                    className="flex shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {localizeUi("ui.modals.modeldownloadmodal.applySettings")}
-                  </button>
-                </div>
-              </div>
-
-              {runtime.installed && (
-                <div className="flex flex-col gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3 text-xs text-[var(--muted-foreground)]/75">
-                  <span>
-                    {localizeUi("ui.modals.modeldownloadmodal.status")} {runtimeStatusLabel}
-                  </span>
-                  {runtime.build && runtime.variant && (
-                    <span>
-                      {localizeUi("ui.modals.modeldownloadmodal.runtimeBuild")} {runtime.build} • {runtime.variant}
-                    </span>
-                  )}
-                  {isSystemRuntime && runtime.systemPath && (
-                    <span>
-                      {localizeUi("ui.modals.modeldownloadmodal.usingSystemLlamaServer")} {runtime.systemPath}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {status === "server_error" && (
-                <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
-                  <div className="text-sm font-medium text-amber-200">
-                    {localizeUi("ui.modals.modeldownloadmodal.localRuntimeFailedToStart")}
-                  </div>
-                  <div className="mt-1 text-xs text-[var(--muted-foreground)]/85">
-                    {localizeUi("ui.modals.modeldownloadmodal.marinaraWillKeepWorkingWithoutTheLocalModelUntil")}
-                  </div>
-                  <div className="mt-3 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
-                    {failedRuntimeVariant && (
-                      <span>
-                        {localizeUi("ui.panels.sidecarcard.runtime")} {formatRuntimeVariantLabel(failedRuntimeVariant)}
-                      </span>
-                    )}
-                    {startupError && (
-                      <span>
-                        {localizeUi("ui.modals.modeldownloadmodal.error")} {startupError}
-                      </span>
-                    )}
-                    {logPath && (
-                      <span>
-                        {localizeUi("ui.modals.modeldownloadmodal.log")} {logPath}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-3 flex gap-2 max-sm:flex-col">
-                    <button
-                      onClick={() => void restartRuntime()}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-[var(--marinara-app-accent-static)]/15 px-4 py-2.5 text-sm font-medium text-[var(--marinara-app-accent-static)] transition-colors hover:bg-[var(--marinara-app-accent-static)]/25"
-                    >
-                      <Loader2 size="0.875rem" />
-                      {localizeUi("ui.modals.modeldownloadmodal.retryStartup")}
-                    </button>
-                    {canReinstallRuntime && (
+            </Field>
+            <Field label={localizeUi("ui.modals.modeldownloadmodal.gpuOffload")}>
+              {activeBackend === "mlx" ? (
+                <p className={HINT}>{localizeUi("ui.modals.modeldownloadmodal.mlxManagesGpuOffloadAutomatically")}</p>
+              ) : (
+                <>
+                  <div className="mari-editor-navigation-tabs flex self-start" role="radiogroup">
+                    {(
+                      [
+                        ["auto", "autoOffload"],
+                        ["cpu", "cpuOnly"],
+                        ["custom", "customGpuLayers"],
+                      ] as const
+                    ).map(([mode, key]) => (
                       <button
-                        onClick={() => void reinstallRuntime()}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-[var(--marinara-app-accent-static)]/20 px-4 py-2.5 text-sm text-[var(--marinara-app-accent-static)] transition-colors hover:bg-[var(--marinara-app-accent-static)]/10"
+                        key={mode}
+                        type="button"
+                        role="radio"
+                        aria-checked={gpuLayersMode === mode}
+                        data-active={gpuLayersMode === mode}
+                        className="mari-editor-tab"
+                        onClick={() => handleGpuLayersModeChange(mode)}
                       >
-                        <Download size="0.875rem" />
-                        {localizeUi("ui.modals.modeldownloadmodal.reinstallRuntime")}
+                        {localizeUi(`ui.modals.modeldownloadmodal.${key}`)}
                       </button>
-                    )}
-                    <button
-                      onClick={() => void updateConfig({ useForTrackers: false, useForGameScene: false })}
-                      className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
-                    >
-                      {localizeUi("ui.modals.modeldownloadmodal.continueWithoutLocalAi")}
-                    </button>
+                    ))}
                   </div>
-                </div>
-              )}
-
-              {testMessageResult && (
-                <div
-                  className={`rounded-xl border p-4 ${
-                    testMessageResult.success
-                      ? "border-emerald-500/25 bg-emerald-500/5"
-                      : "border-red-500/25 bg-red-500/5"
-                  }`}
-                >
-                  <div
-                    className={`text-sm font-medium ${testMessageResult.success ? "text-emerald-300" : "text-red-300"}`}
-                  >
-                    {localizeUi("ui.modals.modeldownloadmodal.localTestMessage")}{" "}
-                    {testMessageResult.success
-                      ? localizeUi("ui.modals.modeldownloadmodal.succeeded")
-                      : localizeUi("ui.connections.testresultcard.failed")}
-                  </div>
-                  <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">
-                    {testMessageResult.latencyMs}
-                    {localizeUi("ui.connections.testresultcard.ms")}
-                  </div>
-                  {testMessageResult.success ? (
-                    <div className="mt-3 flex flex-col gap-3">
-                      {testMessageResult.nonce && (
-                        <div className="text-xs text-[var(--muted-foreground)]/75">
-                          {localizeUi("ui.modals.modeldownloadmodal.verificationToken")}{" "}
-                          <span className="font-mono text-[var(--foreground)]">{testMessageResult.nonce}</span>
-                          {testMessageResult.nonceVerified
-                            ? localizeUi("ui.modals.modeldownloadmodal.echoedByModel")
-                            : localizeUi("ui.modals.modeldownloadmodal.notEchoed")}
-                        </div>
-                      )}
-                      {(testMessageResult.usage || testMessageResult.timings) && (
-                        <div className="text-xs text-[var(--muted-foreground)]/75">
-                          {testMessageResult.usage && (
-                            <span>
-                              {localizeUi("ui.modals.modeldownloadmodal.usagePrompt")}{" "}
-                              {testMessageResult.usage.promptTokens ?? "?"}
-                              {localizeUi("ui.modals.modeldownloadmodal.completion")}{" "}
-                              {testMessageResult.usage.completionTokens ?? "?"}
-                              {localizeUi("ui.modals.modeldownloadmodal.total")}{" "}
-                              {testMessageResult.usage.totalTokens ?? "?"}
-                            </span>
-                          )}
-                          {testMessageResult.usage && testMessageResult.timings && <span> • </span>}
-                          {testMessageResult.timings && (
-                            <span>
-                              {localizeUi("ui.modals.modeldownloadmodal.timingsPrompt")}{" "}
-                              {testMessageResult.timings.promptMs ?? "?"}
-                              {localizeUi("ui.modals.modeldownloadmodal.msGen")}{" "}
-                              {testMessageResult.timings.predictedMs ?? "?"}
-                              {localizeUi("ui.connections.testresultcard.ms")}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {!!testMessageResult.messageContent && (
-                        <ResponseBlock
-                          label={localizeUi("ui.modals.modeldownloadmodal.messageContent")}
-                          value={testMessageResult.messageContent}
-                        />
-                      )}
-                      {!!testMessageResult.reasoningContent && (
-                        <ResponseBlock
-                          label={localizeUi("ui.modals.modeldownloadmodal.reasoningContent")}
-                          value={testMessageResult.reasoningContent}
-                        />
-                      )}
-                      {!testMessageResult.messageContent && !testMessageResult.reasoningContent && (
-                        <ResponseBlock
-                          label={localizeUi("ui.modals.modeldownloadmodal.response")}
-                          value={testMessageResult.response}
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex flex-col gap-1 text-xs text-red-200/90">
-                      <span>{testMessageResult.error || "No response received from the local runtime."}</span>
-                      {testMessageResult.failedRuntimeVariant && (
-                        <span>
-                          {localizeUi("ui.panels.sidecarcard.runtime")}{" "}
-                          {formatRuntimeVariantLabel(testMessageResult.failedRuntimeVariant)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {runtimeDiagnostics && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                    {localizeUi("ui.modals.modeldownloadmodal.diagnostics")}
-                  </div>
-                  <div className="mt-2 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
-                    {runtimeDiagnostics.gpuVendors.length > 0 && (
-                      <span>
-                        {localizeUi("ui.modals.modeldownloadmodal.detectedGpuVendors")}{" "}
-                        {runtimeDiagnostics.gpuVendors.join(", ")}
-                      </span>
-                    )}
-                    <span>
-                      {localizeUi("ui.modals.modeldownloadmodal.backendHints")}
-                      {runtimeDiagnostics.preferCuda ? localizeUi("ui.modals.modeldownloadmodal.cuda") : ""}
-                      {runtimeDiagnostics.preferHip ? localizeUi("ui.modals.modeldownloadmodal.hip") : ""}
-                      {runtimeDiagnostics.preferRocm ? localizeUi("ui.modals.modeldownloadmodal.rocm") : ""}
-                      {runtimeDiagnostics.preferSycl ? localizeUi("ui.modals.modeldownloadmodal.sycl") : ""}
-                      {runtimeDiagnostics.preferVulkan ? localizeUi("ui.modals.modeldownloadmodal.vulkan") : ""}
-                      {!runtimeDiagnostics.preferCuda &&
-                      !runtimeDiagnostics.preferHip &&
-                      !runtimeDiagnostics.preferRocm &&
-                      !runtimeDiagnostics.preferSycl &&
-                      !runtimeDiagnostics.preferVulkan
-                        ? localizeUi("ui.modals.modeldownloadmodal.none")
-                        : ""}
-                    </span>
-                    {runtimeDiagnostics.systemLlamaPath && (
-                      <span>
-                        {localizeUi("ui.modals.modeldownloadmodal.systemLlamaServer")}{" "}
-                        {runtimeDiagnostics.systemLlamaPath}
-                      </span>
-                    )}
-                    {runtimeDiagnostics.launchCommand && (
-                      <span>
-                        {localizeUi("ui.modals.modeldownloadmodal.lastLaunchCommand")}{" "}
-                        {runtimeDiagnostics.launchCommand}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {showSetupProgress && (
-          <div className="rounded-xl border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-4">
-            <div className="flex items-start gap-3">
-              <div className="mari-chrome-accent-soft-tile mari-accent-animated mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
-                <Loader2 size="1rem" className="animate-spin" />
-              </div>
-              <div className="flex-1">
-                <div className="mari-chrome-text-strong text-sm font-medium">{setupLabel}</div>
-                <div className="mt-1 text-xs text-[var(--muted-foreground)]/80">{setupDescription}</div>
-              </div>
-            </div>
-
-            {progress ? (
-              <div className="mt-4 flex flex-col gap-2">
-                <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
-                  <span>{setupLabel}</span>
-                  <span>
-                    {formatBytes(progress.downloaded)}
-                    {progress.total > 0 && ` / ${formatBytes(progress.total)}`}
-                  </span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--border)]">
-                  <div
-                    className="mari-chrome-accent-progress mari-accent-animated h-full rounded-full transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]/60">
-                  <span>{progressPercent}%</span>
-                  {progress.speed > 0 && <span>{formatSpeed(progress.speed)}</span>}
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[var(--border)]">
-                <div className="mari-chrome-accent-progress mari-accent-animated h-full w-1/3 animate-pulse rounded-full" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {!showSetupProgress && (
-          <>
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                {isAppleSilicon
-                  ? localizeUi("ui.modals.modeldownloadmodal.curatedGemma4PresetsForAppleSilicon")
-                  : localizeUi("ui.modals.modeldownloadmodal.curatedGemma4Presets")}
-              </span>
-              {curatedModels.map((model) => (
-                <label
-                  key={`${model.backend}-${model.quantization}`}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
-                    selectedQuant === model.quantization
-                      ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)]"
-                      : "border-[var(--border)] hover:bg-[var(--secondary)]/50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="quantization"
-                    value={model.quantization}
-                    checked={selectedQuant === model.quantization}
-                    onChange={() => setSelectedQuant(model.quantization)}
-                    className="sr-only"
-                  />
-                  <div
-                    className={`h-4 w-4 shrink-0 rounded-full border-2 transition-colors ${
-                      selectedQuant === model.quantization
-                        ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-accent)]"
-                        : "border-[var(--border)]"
-                    }`}
-                  >
-                    {selectedQuant === model.quantization && (
-                      <div className="flex h-full items-center justify-center">
-                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                  {gpuLayersMode === "custom" && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-28">
+                        {numberInput(
+                          localizeUi("ui.modals.modeldownloadmodal.customGpuLayers"),
+                          gpuLayersInput,
+                          setGpuLayersInput,
+                          "1-1024",
+                          false,
+                          handleApplyCustomGpuLayers,
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{model.label}</div>
-                    <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)]/70">
-                      <span className="flex items-center gap-1">
-                        <Download size="0.75rem" />
-                        {formatBytes(model.sizeBytes)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <HardDrive size="0.75rem" />~{formatBytes(model.ramBytes)}{" "}
-                        {localizeUi("ui.modals.modeldownloadmodal.ram")}
-                      </span>
+                      <button type="button" onClick={handleApplyCustomGpuLayers} className={SECONDARY}>
+                        {localizeUi("ui.modals.modeldownloadmodal.apply")}
+                      </button>
                     </div>
-                  </div>
-                  {model.quantization === "q8_0" && (
-                    <span className="mari-chrome-accent-surface mari-accent-animated rounded-full px-2 py-0.5 text-[0.625rem] font-medium">
-                      {localizeUi("ui.modals.modeldownloadmodal.recommended")}
-                    </span>
                   )}
-                </label>
-              ))}
-              <button
-                onClick={handleCuratedDownload}
-                disabled={!selectedPreset}
-                className="mari-chrome-accent-surface mari-accent-animated mt-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                <Zap size="0.875rem" />
-                {hasModel
-                  ? localizeUi("ui.modals.modeldownloadmodal.switchToCuratedPreset")
-                  : localizeUi("ui.modals.modeldownloadmodal.useCuratedPreset")}
-              </button>
-            </div>
-
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-              <label className="flex flex-col gap-2 text-sm">
-                <span className="font-medium">{localizeUi("ui.modals.modeldownloadmodal.localGgufPath")}</span>
-                <input
-                  value={localModelPath}
-                  onChange={(event) => setLocalModelPath(event.target.value)}
-                  placeholder={localizeUi("ui.modals.modeldownloadmodal.localGgufPathPlaceholder")}
-                  className="mari-editor-field w-full px-3 py-2 text-sm"
-                  disabled={selectingLocalModel || isBlockingSetup}
-                />
-              </label>
-              <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.modals.modeldownloadmodal.localGgufPathHint")}
-              </p>
-              <button
-                onClick={() => void handleLocalModel()}
-                disabled={!localModelPath.trim() || selectingLocalModel || isBlockingSetup}
-                className="mari-chrome-accent-surface mt-3 flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm disabled:opacity-50"
-              >
-                {selectingLocalModel && <Loader2 size="0.875rem" className="animate-spin" />}
-                {localizeUi("ui.modals.modeldownloadmodal.useLocalGguf")}
-              </button>
-            </div>
-
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-              <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                {isAppleSilicon
-                  ? localizeUi("ui.modals.modeldownloadmodal.useYourOwnMlxModelFromHuggingface")
-                  : localizeUi("ui.modals.modeldownloadmodal.useYourOwnModelFromHuggingface")}
-              </div>
-              <div className="mt-2 text-xs text-[var(--muted-foreground)]/70">
-                {isAppleSilicon
-                  ? localizeUi("ui.modals.modeldownloadmodal.enterAnMlxNativeHuggingfaceRepoMarinaraWillValidate")
-                  : localizeUi("ui.modals.modeldownloadmodal.enterAGgufRepoOnHuggingfaceListTheAvailable")}
-              </div>
-              <div className="mt-3 flex flex-col gap-2">
-                <div className="flex gap-2 max-sm:flex-col">
-                  <input
-                    value={repoInput}
-                    onChange={(event) => {
-                      setRepoInput(event.target.value);
-                      if (customModels.length > 0 || customModelsError) {
-                        clearCustomModels();
-                        setSelectedCustomPath("");
-                      }
-                    }}
-                    placeholder={localizeUi("ui.modals.modeldownloadmodal.ownerRepo")}
-                    className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)]"
-                  />
-                  <button
-                    onClick={() => void handleListModels()}
-                    disabled={!repoInput.trim() || customModelsLoading}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)] disabled:opacity-50"
-                  >
-                    {customModelsLoading ? (
-                      <Loader2 size="0.875rem" className="animate-spin" />
-                    ) : (
-                      <Search size="0.875rem" />
-                    )}
-                    {isAppleSilicon
-                      ? localizeUi("ui.modals.modeldownloadmodal.validateRepo")
-                      : localizeUi("ui.modals.modeldownloadmodal.listModels")}
-                  </button>
-                </div>
-
-                {customModelsError && (
-                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-400">
-                    {customModelsError}
-                  </div>
-                )}
-
-                {isAppleSilicon && selectedCustomEntry && (
-                  <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3">
-                    <div className="text-sm font-medium text-emerald-300">{selectedCustomEntry.filename}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-[var(--muted-foreground)]/75">
-                      {selectedCustomEntry.quantizationLabel && <span>{selectedCustomEntry.quantizationLabel}</span>}
-                      {selectedCustomEntry.sizeBytes && <span>{formatBytes(selectedCustomEntry.sizeBytes)}</span>}
-                      <span>{localizeUi("ui.modals.modeldownloadmodal.mlxRepoValidated")}</span>
-                    </div>
-                  </div>
-                )}
-
-                {!isAppleSilicon && customModels.length > 0 && (
-                  <>
-                    <select
-                      value={selectedCustomPath}
-                      onChange={(event) => setSelectedCustomPath(event.target.value)}
-                      className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)]"
-                    >
-                      {customModels.map((entry) => (
-                        <option key={entry.path} value={entry.path}>
-                          {entry.filename}
-                          {entry.quantizationLabel
-                            ? localizeUi("ui.modals.modeldownloadmodal.value1_8a04cf4", {
-                                value1: entry.quantizationLabel,
-                              })
-                            : ""}
-                          {entry.sizeBytes
-                            ? localizeUi("ui.modals.modeldownloadmodal.value1_8a04cf4", {
-                                value1: formatBytes(entry.sizeBytes),
-                              })
-                            : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={handleCustomDownload}
-                      disabled={!selectedCustomPath}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-sky-500/15 px-4 py-2.5 text-sm font-medium text-sky-300 transition-colors hover:bg-sky-500/25 disabled:opacity-50"
-                    >
-                      <Download size="0.875rem" />
-                      {hasModel
-                        ? localizeUi("ui.modals.modeldownloadmodal.switchToSelectedGguf")
-                        : localizeUi("ui.modals.modeldownloadmodal.downloadSelectedGguf")}
-                    </button>
-                  </>
-                )}
-
-                {isAppleSilicon && (
-                  <button
-                    onClick={handleCustomDownload}
-                    disabled={!repoInput.trim() || customModelsLoading || !isCustomRepoValidated}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-sky-500/15 px-4 py-2.5 text-sm font-medium text-sky-300 transition-colors hover:bg-sky-500/25 disabled:opacity-50"
-                  >
-                    <Download size="0.875rem" />
-                    {hasModel
-                      ? localizeUi("ui.modals.modeldownloadmodal.switchToValidatedMlxRepo")
-                      : localizeUi("ui.modals.modeldownloadmodal.useValidatedMlxRepo")}
-                  </button>
-                )}
-              </div>
-            </div>
+                  <p className={HINT}>
+                    {localizeUi("ui.modals.modeldownloadmodal.autoTriesMaxOffloadFirstCpuOnlyDisablesGpu")}
+                  </p>
+                </>
+              )}
+            </Field>
           </>
         )}
-
-        {progress?.status === "error" && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-400">
-            {progress.error || "Download failed. Please try again."}
-          </div>
+        {view === "memory" && (
+          <>
+            <Field label={localizeUi("ui.modals.modeldownloadmodal.contextWindow")}>
+              {numberInput(
+                localizeUi("ui.modals.modeldownloadmodal.contextWindow"),
+                contextSizeInput,
+                setContextSizeInput,
+                "8192",
+              )}
+            </Field>
+            {activeBackend !== "mlx" && (
+              <Field label={localizeUi("ui.modals.modeldownloadmodal.kvCacheType")}>
+                <select
+                  value={config.kvCacheType ?? "f16"}
+                  aria-label={localizeUi("ui.modals.modeldownloadmodal.kvCacheType")}
+                  onChange={(event) =>
+                    void updateConfig({ kvCacheType: event.target.value as "f16" | "q8_0" | "q4_0" })
+                  }
+                  disabled={isBlockingSetup}
+                  className="mari-editor-field w-full px-3 py-2 text-sm"
+                >
+                  {(["f16", "q8_0", "q4_0"] as const).map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+                <p className={HINT}>{localizeUi("ui.modals.modeldownloadmodal.kvCacheTypeHint")}</p>
+              </Field>
+            )}
+            {inferenceReady && activeBackend !== "mlx" && (
+              <Field label={localizeUi("ui.modals.modeldownloadmodal.gpuAllocations")}>
+                {gpuMemory ? (
+                  <dl className="grid grid-cols-2 gap-2 text-xs">
+                    {(["weightsBytes", "kvCacheBytes", "buffersBytes"] as const).map((field) => (
+                      <div key={field}>
+                        <dt className="text-[var(--muted-foreground)]">
+                          {localizeUi(`ui.modals.modeldownloadmodal.${field}`)}
+                        </dt>
+                        <dd className="tabular-nums">
+                          {gpuMemory[field] === null
+                            ? localizeUi("ui.modals.modeldownloadmodal.gpuMemoryUnavailable")
+                            : formatBytes(gpuMemory[field])}
+                        </dd>
+                      </div>
+                    ))}
+                    {gpuMemory.weightsBytes !== null &&
+                      gpuMemory.kvCacheBytes !== null &&
+                      gpuMemory.buffersBytes !== null && (
+                        <div>
+                          <dt className="text-[var(--muted-foreground)]">
+                            {localizeUi("ui.modals.modeldownloadmodal.totalGpuAllocations")}
+                          </dt>
+                          <dd className="tabular-nums">
+                            {formatBytes(gpuMemory.weightsBytes + gpuMemory.kvCacheBytes + gpuMemory.buffersBytes)}
+                          </dd>
+                        </div>
+                      )}
+                  </dl>
+                ) : (
+                  <p className={HINT}>{localizeUi("ui.modals.modeldownloadmodal.gpuMemoryUnavailable")}</p>
+                )}
+                <p className={HINT}>{localizeUi("ui.modals.modeldownloadmodal.gpuAllocationsHint")}</p>
+              </Field>
+            )}
+          </>
         )}
+        {view === "replies" && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={localizeUi("ui.modals.modeldownloadmodal.maxResponseTokens")}>
+                {numberInput(
+                  localizeUi("ui.modals.modeldownloadmodal.maxResponseTokens"),
+                  maxTokensInput,
+                  setMaxTokensInput,
+                  "4096",
+                )}
+              </Field>
+              <Field label={localizeUi("ui.modals.modeldownloadmodal.temperature")}>
+                {numberInput(
+                  localizeUi("ui.modals.modeldownloadmodal.temperature"),
+                  temperatureInput,
+                  setTemperatureInput,
+                  "0.3",
+                  true,
+                )}
+              </Field>
+              <Field label={localizeUi("ui.modals.modeldownloadmodal.topP")}>
+                {numberInput(localizeUi("ui.modals.modeldownloadmodal.topP"), topPInput, setTopPInput, "0.95", true)}
+              </Field>
+              <Field label={localizeUi("ui.modals.modeldownloadmodal.topK")}>
+                {numberInput(localizeUi("ui.modals.modeldownloadmodal.topK"), topKInput, setTopKInput, "64")}
+              </Field>
+            </div>
+            <p className={HINT}>
+              {localizeUi("ui.modals.modeldownloadmodal.maxResponseTokensCapsHowMuchTheLocalRuntime")}
+            </p>
+          </>
+        )}
+        {view === "expert" && (
+          <>
+            <div className="flex flex-col gap-2">
+              {activeBackend === "mlx" ? (
+                <p className={HINT}>
+                  {localizeUi("ui.modals.modeldownloadmodal.thisLlamaCppJinjaOptionDoesNotApplyTo")}
+                </p>
+              ) : (
+                <SettingsSwitch
+                  label={localizeUi("ui.modals.modeldownloadmodal.nativeToolCalls")}
+                  description={localizeUi(
+                    "ui.modals.modeldownloadmodal.startsLlamaServerWithJinjaSoOpenaiCompatibleTool",
+                  )}
+                  checked={config.enableNativeToolCalls}
+                  onChange={handleNativeToolCallsToggle}
+                  labelPosition="start"
+                  className="justify-between px-0"
+                />
+              )}
+              {!config.enableNativeToolCalls && activeBackend !== "mlx" && (
+                <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                  {localizeUi("ui.modals.modeldownloadmodal.professorMariAndCustomAgentsNeedThisEnabledBefore")}
+                </p>
+              )}
+            </div>
+            <Field label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
+              <div className="w-28">
+                {numberInput(
+                  localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs"),
+                  maxParallelJobsInput,
+                  setMaxParallelJobsInput,
+                  "2",
+                )}
+              </div>
+            </Field>
+            {activeBackend !== "mlx" && (
+              <Field label={localizeUi("ui.modals.modeldownloadmodal.embeddingEndpoint")}>
+                <select
+                  value={config.embeddingPooling}
+                  onChange={(event) => handleEmbeddingPoolingChange(event.target.value as SidecarEmbeddingPooling)}
+                  aria-label={localizeUi("ui.modals.modeldownloadmodal.poolingType")}
+                  className="mari-editor-field w-full px-3 py-2 text-sm"
+                >
+                  {SIDECAR_EMBEDDING_POOLING_TYPES.map((pooling) => (
+                    <option key={pooling} value={pooling}>
+                      {formatEmbeddingPoolingLabel(pooling, localizeUi)}
+                    </option>
+                  ))}
+                </select>
+                <p className={HINT}>
+                  {localizeUi("ui.modals.modeldownloadmodal.useMeanPoolingForOpenaiCompatibleLorebookEmbeddingsRaise")}
+                </p>
+              </Field>
+            )}
+            {activeBackend !== "mlx" && (
+              <Field label={localizeUi("ui.modals.modeldownloadmodal.physicalBatchSize")}>
+                <div className="flex gap-2">
+                  {numberInput(
+                    localizeUi("ui.modals.modeldownloadmodal.physicalBatchSize"),
+                    embeddingBatchSizeInput,
+                    setEmbeddingBatchSizeInput,
+                    "512",
+                    false,
+                    handleApplyEmbeddingBatchSize,
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleApplyEmbeddingBatchSize}
+                    disabled={!embeddingBatchSizeValid || !embeddingBatchSizeDirty}
+                    className={SECONDARY}
+                  >
+                    {localizeUi("ui.modals.modeldownloadmodal.apply")}
+                  </button>
+                </div>
+              </Field>
+            )}
+            <Field label={localizeUi("ui.modals.modeldownloadmodal.diagnostics")}>
+              <div className="flex flex-col gap-1 text-xs text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
+                <span>
+                  {localizeUi("ui.modals.modeldownloadmodal.status")} {runtimeStatusLabel} · {quickRuntimeSummary}
+                </span>
+                {runtime.build && runtime.variant && (
+                  <span>
+                    {localizeUi("ui.modals.modeldownloadmodal.runtimeBuild")} {runtime.build} · {runtime.variant}
+                  </span>
+                )}
+                {runtimeDiagnostics?.gpuVendors.length ? (
+                  <span>
+                    {localizeUi("ui.modals.modeldownloadmodal.detectedGpuVendors")}{" "}
+                    {runtimeDiagnostics.gpuVendors.join(", ")}
+                  </span>
+                ) : null}
+                {isSystemRuntime && runtime.systemPath && (
+                  <span>
+                    {localizeUi("ui.modals.modeldownloadmodal.usingSystemLlamaServer")} {runtime.systemPath}
+                  </span>
+                )}
+                {runtimeDiagnostics?.launchCommand && (
+                  <span className="font-mono">
+                    {localizeUi("ui.modals.modeldownloadmodal.lastLaunchCommand")} {runtimeDiagnostics.launchCommand}
+                  </span>
+                )}
+              </div>
+              {canReinstallRuntime && runtime.installed && (
+                <button type="button" onClick={() => void reinstallRuntime()} className={cn(SECONDARY, "self-start")}>
+                  <Download size="0.875rem" aria-hidden />
+                  {localizeUi("ui.modals.modeldownloadmodal.reinstallRuntime")}
+                </button>
+              )}
+            </Field>
+          </>
+        )}
+      </div>
+    );
+    if (view !== "speed")
+      footerRight = (
+        <button
+          type="button"
+          onClick={handleApplyGenerationSettings}
+          disabled={!generationSettingsValid || !generationSettingsDirty}
+          className={PRIMARY}
+        >
+          {localizeUi("ui.modals.modeldownloadmodal.applySettings")}
+        </button>
+      );
+  }
 
-        <div className="flex items-center gap-2">
-          {showSetupProgress ? (
-            <button
-              onClick={handleCancelSetup}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
-            >
-              <X size="0.875rem" />
-              {localizeUi("ui.modals.modeldownloadmodal.cancelSetup")}
-            </button>
-          ) : (
-            <>
+  const subTitle =
+    view === "settings"
+      ? localizeUi("connections.builtin.settings")
+      : isGroup
+        ? localizeUi(`connections.builtin.group.${view}`)
+        : null;
+
+  return (
+    <Shell
+      open={open}
+      onClose={onClose}
+      title={localizeUi("ui.modals.modeldownloadmodal.localAiModel")}
+      opaque
+      width="max-w-xl"
+      contentRef={modalScrollRef}
+      contentClassName="p-0"
+    >
+      <div className="mari-connection-scope flex min-h-full flex-1 flex-col" data-builtin-model={view}>
+        <div className="flex flex-1 flex-col gap-4 px-4 py-4 sm:px-5">
+          {subTitle && (
+            <div className="-ms-1.5 flex items-center gap-1.5">
               <button
-                onClick={handleSkip}
-                className="flex-1 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
+                type="button"
+                onClick={() => setScreen(isGroup && (!hasModel || changing) ? "settings" : "main")}
+                aria-label={localizeUi("connections.add.back")}
+                className="mari-chrome-control mari-chrome-control--icon mari-chrome-control--quiet"
               >
-                {hasModel
-                  ? localizeUi("capabilities.actions.close")
-                  : localizeUi("ui.modals.modeldownloadmodal.skipForNow")}
+                <ChevronLeft size="1.125rem" aria-hidden />
               </button>
-              <button
-                onClick={handleDone}
-                disabled={!canFinish}
-                className="mari-chrome-accent-surface mari-accent-animated flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {localizeUi("lorebook.editor.batch.done")}
-              </button>
-            </>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">{subTitle}</h3>
+            </div>
           )}
+          {body}
         </div>
-
-        {!hasModel && !showSetupProgress && (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-            <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-              {localizeUi("ui.modals.modeldownloadmodal.whatTheLocalModelHandles")}
-            </span>
-            <ul className="mt-2 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/80">
-              <li>{localizeUi("ui.modals.modeldownloadmodal.trackerAgentsInRoleplayMode")}</li>
-              <li>{localizeUi("ui.modals.modeldownloadmodal.sceneEffectsInGameModeBackgroundsMusicSfxAmbient")}</li>
-              <li>{localizeUi("ui.modals.modeldownloadmodal.widgetUpdatesWeatherAndTimeOfDayChanges")}</li>
-              <li>{localizeUi("ui.modals.modeldownloadmodal.npcReputationTrackingAndExpressionSelection")}</li>
-            </ul>
+        {(footerLeft || footerRight) && (
+          <div className="sticky bottom-0 z-10 mt-auto flex items-center justify-between gap-3 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--mari-modal-opaque-bg)] px-4 py-3 [background-image:linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] sm:px-5">
+            <div className="flex min-w-0 items-center">{footerLeft}</div>
+            {footerRight}
           </div>
         )}
       </div>
-    </Modal>
+    </Shell>
   );
 }

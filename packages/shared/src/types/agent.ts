@@ -573,6 +573,7 @@ export interface BuiltInAgentMeta {
   modeAllowlist?: readonly ChatMode[];
   promptTemplates?: AgentPromptTemplateOption[];
   execution?: "pipeline" | "feature" | "host";
+  requiresConnection?: BuiltInAgentManifest["requiresConnection"];
 }
 
 function toBuiltInAgentMeta(agent: BuiltInAgentManifest): BuiltInAgentMeta {
@@ -590,6 +591,7 @@ function toBuiltInAgentMeta(agent: BuiltInAgentManifest): BuiltInAgentMeta {
     ...(agent.modeAllowlist !== undefined ? { modeAllowlist: [...agent.modeAllowlist] } : {}),
     ...(agent.promptTemplates !== undefined ? { promptTemplates: [...agent.promptTemplates] } : {}),
     ...(agent.execution !== undefined ? { execution: agent.execution } : {}),
+    ...(agent.requiresConnection !== undefined ? { requiresConnection: agent.requiresConnection } : {}),
   };
 }
 
@@ -770,6 +772,22 @@ export function customAgentHasCapability(
   capability: CustomAgentCapability,
 ): boolean {
   return normalizeCustomAgentCapabilities(settings)[capability] === true;
+}
+
+/**
+ * The kind of Model an agent cannot run without, or null. A package manifest declares it; agents
+ * that predate the field are inferred: Illustrator and custom agents allowed to trigger image generation draw.
+ */
+export function agentRequiredConnection(
+  agentType: string,
+  settings?: Record<string, unknown> | null,
+): BuiltInAgentManifest["requiresConnection"] | null {
+  const declared = BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.id === agentType)?.requiresConnection;
+  if (declared) return declared;
+  // ponytail: Illustrator is named here until its package manifest declares requiresConnection: "image"
+  // (Pasta-Devs/Marinara-Agents); then this line goes.
+  if (agentType === "illustrator") return "image";
+  return customAgentHasCapability(settings, "trigger_image_generation") ? "image" : null;
 }
 
 export function getCustomAgentResultCapability(resultType: AgentResultType): CustomAgentCapability | null {

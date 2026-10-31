@@ -1,28 +1,59 @@
 // ──────────────────────────────────────────────
-// Connection Model Picker — search, type, pin and pick a connection's
-// model. Shared by the input-box Connections menu (desktop and phone) and
-// Chat Settings → Connection. A pick is saved to the connection itself.
+// Connection Model Picker — search, type, star and pick a connection's
+// model. Shared by the input-box Connections menu (desktop and phone),
+// Chat Settings → Connection (a pick applies to the chat only), the panel's
+// Add model and the setup flow (a pick saves a Model).
 // ──────────────────────────────────────────────
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, Loader2, RefreshCw, Search, Star } from "lucide-react";
+import {
+  Fragment,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import { Check, Loader2, Plus, RefreshCw, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { MODEL_LISTS, PROVIDERS, parsePinnedModels, type APIProvider } from "@marinara-engine/shared";
+import {
+  MODEL_LISTS,
+  PROVIDERS,
+  catalogModelId,
+  parsePinnedModels,
+  type APIProvider,
+  type KnownModel,
+  type ChatModelChoice,
+  type ConnectionModelCost,
+  type ModelCatalogPricing,
+  type ModelParameterCapabilities,
+} from "@marinara-engine/shared";
 import {
   useConnectionModels,
   useRefreshConnectionModels,
   useSetConnectionModelPinned,
   useUpdateConnection,
 } from "../../hooks/use-connections";
-import { useUpdateChat } from "../../hooks/use-chats";
+import { usePickModel } from "../../hooks/use-connection-accounts";
+import { useModelStar } from "../../hooks/use-model-star";
 import {
   connectionFieldsForModelPick,
   filterConnectionModelOptions,
   mergeConnectionModelOptions,
 } from "../../lib/connection-model-selection";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
-import { SubscriptionCostPill } from "./SubscriptionCostPill";
+import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
+import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
+import { BrandMark, ProviderIcon } from "./ProviderIcon";
+import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
+import { ModelRow } from "./ModelRow";
+import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
+import { formatRelativeContact } from "../../lib/relative-time";
+import { useUIStore } from "../../stores/ui.store";
+import { ApiError } from "../../lib/api-client";
 
 /** The connection row fields the picker reads. */
 export type ModelPickerConnection = {
@@ -31,17 +62,15 @@ export type ModelPickerConnection = {
   provider?: string | null;
   model?: string | null;
   pinnedModels?: unknown;
+  /** The Connection this Model belongs to; `applyPick` and saving a starred model need it. */
+  accountId?: string | null;
   profileImportReviewRequired?: unknown;
-  /**
-   * NanoGPT: the connection's own "Show subscription usage" toggle. The cost
-   * pills ride on it so a pay-as-you-go user is not shown subscription costs.
-   * Stored as a "true"/"false" string, so it needs the shared flag helper.
-   */
-  showUsageWidget?: unknown;
 };
 
-/** Rows drawn at once in "All models"; searching narrows a longer list. */
+/** Rows drawn at most in "All models"; searching narrows a longer list. */
 const MAX_LISTED_MODELS = 300;
+/** Rows drawn first; scrolling to the end draws the next batch, so a big catalog opens fast. */
+const ROW_BATCH = 60;
 
 type PickerRow = {
   id: string;
@@ -51,44 +80,128 @@ type PickerRow = {
   isRemote?: boolean;
   subscriptionIncluded?: boolean;
   inputTokenMultiplier?: number;
+  capabilities?: ModelParameterCapabilities;
+  cost?: ConnectionModelCost;
+  pricing?: ModelCatalogPricing;
+  deprecated?: boolean;
+  retiresAt?: string;
 };
 
+type CostFilter = "free" | "included" | "paid";
+type ModelSort = "list" | "price" | "context";
+
+/** The cost chip a row falls under; a multiplier is still in the plan. */
+const costKind = (row: PickerRow): CostFilter | null =>
+  row.cost === "free" || row.cost === "paid"
+    ? row.cost
+    : row.cost === "included" || row.cost?.startsWith("multiplier:")
+      ? "included"
+      : null;
+
+/** Cheapest first: free, in the plan (by multiplier), then listed prices; no price last. */
+function priceKey(row: PickerRow): [number, number] {
+  if (row.cost === "free") return [0, 0];
+  if (row.cost === "included") return [1, 1];
+  if (row.cost?.startsWith("multiplier:")) return [1, Number(row.cost.slice("multiplier:".length)) || 1];
+  const price = (row.pricing?.prompt ?? 0) + (row.pricing?.completion ?? 0);
+  return price > 0 ? [2, price] : [3, 0];
+}
+
+function sortRows(rows: readonly PickerRow[], sort: ModelSort): readonly PickerRow[] {
+  if (sort === "context") return [...rows].sort((a, b) => (b.context ?? 0) - (a.context ?? 0));
+  if (sort === "price")
+    return [...rows].sort((a, b) => {
+      const [ra, pa] = priceKey(a);
+      const [rb, pb] = priceKey(b);
+      return ra - rb || pa - pb;
+    });
+  return rows;
+}
+
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error ?? ""));
+const modelListErrorMessage = (error: unknown, t: (key: string) => string) =>
+  error instanceof ApiError && (error.status === 401 || error.status === 403)
+    ? t("connections.add.error.key")
+    : errorMessage(error);
 
 export function ConnectionModelPicker({
   connection,
-  chatId,
-  chatConnectionId,
-  leading,
   showConnectionName = false,
   autoFocusSearch = false,
   onPicked,
+  applyPick,
+  onChoose,
+  accountName,
   className,
+  recommended,
+  addMode = false,
+  onUnstar,
+  addedIds,
+  mainModelId,
+  preselect,
+  only,
+  builtInModels,
 }: {
   connection: ModelPickerConnection;
-  /** The chat to switch to this connection when a model is picked, if it uses another one. */
-  chatId?: string | null;
-  chatConnectionId?: string | null;
-  /** Shown before the title, such as the phone menu's back control. */
-  leading?: ReactNode;
   /** Name the connection beside its provider, where the connection list is out of sight. */
   showConnectionName?: boolean;
   /** Focus the search box on devices with a mouse (a phone keyboard would cover the list). */
   autoFocusSearch?: boolean;
-  onPicked?: () => void;
+  onPicked?: (modelId: string) => void;
+  /**
+   * Add model: a pick finds or saves the Model for that id under the Connection, then hands its id here.
+   * Without it (and without `onChoose`) a pick edits `connection` in place.
+   */
+  applyPick?: (connectionId: string, modelId: string) => Promise<void>;
+  /** Per-chat pick (decision 26): hands the model with its catalog limits to the host; nothing is saved. */
+  onChoose?: (choice: ChatModelChoice) => Promise<void | false>;
+  /** The Connection's name, shown in the header with `applyPick` or `onChoose`. */
+  accountName?: string | null;
   className?: string;
+  /** Good first picks shown above Starred (Add connection, vendors with a known list). */
+  recommended?: readonly PickerRow[];
+  /**
+   * The big Add model screen (decision 30/32): a pick also stars the model and a star adds it; rows show their
+   * context size and group by upstream; the host's heading replaces the title row.
+   */
+  addMode?: boolean;
+  /** Add mode: a star was taken off, so the host can stop counting it. The star hook removes the Model. */
+  onUnstar?: (modelId: string) => void;
+  /** Models already added in this session; they get the same check as the current model. */
+  addedIds?: readonly string[];
+  /** The model that became the Main model, marked with a badge. */
+  mainModelId?: string | null;
+  /**
+   * A model chosen before this screen (the Add window's model search): once the list loads, the one row with that
+   * id or catalog id is picked; with none or several the search shows them instead.
+   */
+  preselect?: string;
+  /** Lists only the rows a job can use (the Add window's voice step lists speech models). */
+  only?: (row: PickerRow) => boolean;
+  /** Replaces the provider's built-in list (an image service such as NovelAI lists only its own models). */
+  builtInModels?: readonly KnownModel[];
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
+  const [upstream, setUpstream] = useState<string | null>(null);
+  const [costFilter, setCostFilter] = useState<CostFilter | null>(null);
+  const [sort, setSort] = useState<ModelSort>("list");
   const deferredSearch = useDeferredValue(search);
+  const [shownRows, setShownRows] = useState(ROW_BATCH);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => entry?.isIntersecting && setShownRows((count) => count + ROW_BATCH),
+      { root: listRef.current, rootMargin: "400px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const provider = (connection.provider ?? "") as APIProvider;
   const providerName = PROVIDERS[provider]?.name ?? connection.provider ?? "";
   const reviewRequired = isConnectionFlagTrue(connection.profileImportReviewRequired);
-  // The cost pills are quoted against a subscription, so they follow the same
-  // per-connection toggle as the usage meter itself.
-  const showSubscriptionCost = isConnectionFlagTrue(connection.showUsageWidget);
   const currentModel = connection.model?.trim() ?? "";
   const pinnedIds = useMemo(() => parsePinnedModels(connection.pinnedModels), [connection.pinnedModels]);
 
@@ -96,12 +209,18 @@ export function ConnectionModelPicker({
   const refresh = useRefreshConnectionModels();
   const setPinned = useSetConnectionModelPinned();
   const updateConnection = useUpdateConnection();
-  const updateChat = useUpdateChat();
-  const saving = updateConnection.isPending || updateChat.isPending;
+  const pickModel = usePickModel();
+  // Add mode on a wide screen: the row under the pointer or focus shows its facts in a side column.
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const modelStar = useModelStar();
+  const saving = updateConnection.isPending || pickModel.isPending;
 
   useEffect(() => {
     // A new connection starts with an empty search.
     setSearch("");
+    setUpstream(null);
+    setCostFilter(null);
+    setSort("list");
   }, [connection.id]);
 
   useEffect(() => {
@@ -114,186 +233,406 @@ export function ConnectionModelPicker({
   // provider's own list they are noise. A custom endpoint never gets them: its built-in list is the OpenAI
   // and Z.AI catalog, which says nothing about what that server runs.
   const remoteModels = modelList.data?.models;
+  const fetchedAt = modelList.data?.fetchedAt;
+  const updated = fetchedAt ? formatRelativeContact(fetchedAt) : null;
   const options = useMemo(
     () =>
       mergeConnectionModelOptions(
         remoteModels ?? [],
-        remoteModels?.length || modelList.isLoading || provider === "custom" ? [] : (MODEL_LISTS[provider] ?? []),
+        remoteModels?.length || modelList.isLoading || provider === "custom"
+          ? []
+          : (builtInModels ?? MODEL_LISTS[provider] ?? []),
       ),
-    [modelList.isLoading, provider, remoteModels],
+    [builtInModels, modelList.isLoading, provider, remoteModels],
   );
+  // "Paid" only says something where the catalog also has models in the plan (NanoGPT).
+  const showCostBadges = useUIStore((s) => s.showCostBadges);
+  const showPaid = useMemo(
+    () => options.some((option) => option.cost === "included" || option.cost?.startsWith("multiplier:")),
+    [options],
+  );
+  // Add mode explains the cost words its catalog uses, so a badge never needs a hover to read.
+  const costLegend = showCostBadges
+    ? (["included", "multiplier", "free", "paid"] as const)
+        .filter((kind) =>
+          options.some((option) =>
+            kind === "multiplier"
+              ? option.cost?.startsWith("multiplier:")
+              : option.cost === kind && (kind !== "paid" || showPaid),
+          ),
+        )
+        .map((kind) => t(`connections.cost.legend.${kind}`))
+        .join(" · ")
+    : "";
   const optionsById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
+  const upstreams = useMemo(
+    () =>
+      subgroupByUpstream(options.map((row) => ({ model: row.id }))).flatMap((group) =>
+        group.upstream ? [group.upstream] : [],
+      ),
+    [options],
+  );
+  useEffect(() => {
+    if (upstream && !upstreams.includes(upstream)) setUpstream(null);
+  }, [upstream, upstreams]);
+  // Cost chips only where the list has more than one kind of cost to tell apart.
+  const costKinds = useMemo(() => {
+    const kinds = new Set(options.map(costKind));
+    return (["free", "included", "paid"] as const).filter(
+      (kind) => kinds.has(kind) && (kind !== "paid" || showPaid || kinds.has("free")),
+    );
+  }, [options, showPaid]);
+  useEffect(() => {
+    if (costFilter && !costKinds.includes(costFilter)) setCostFilter(null);
+  }, [costFilter, costKinds]);
+  const inFilter = (row: PickerRow) =>
+    (!only || only(row)) &&
+    (!upstream || upstreamOf(row.id) === upstream) &&
+    (!costFilter || costKind(row) === costFilter);
+  const filtering = !!upstream || !!costFilter;
 
-  const { pinnedAll, othersAll } = useMemo(() => {
+  const { pinnedAll, othersAll, recommendedAll } = useMemo(() => {
     const pinnedSet = new Set(pinnedIds);
+    const recommendedRows = (recommended ?? [])
+      .filter((row) => !pinnedSet.has(row.id))
+      .map((row) => optionsById.get(row.id) ?? row);
+    const recommendedSet = new Set(recommendedRows.map((row) => row.id));
     // The current model stays visible even when the provider does not list it (a typed ID).
     const others: PickerRow[] =
       currentModel && !pinnedSet.has(currentModel) && !optionsById.has(currentModel)
         ? [{ id: currentModel, name: currentModel }]
         : [];
-    for (const option of options) if (!pinnedSet.has(option.id)) others.push(option);
-    return { pinnedAll: pinnedIds.map((id): PickerRow => optionsById.get(id) ?? { id, name: id }), othersAll: others };
-  }, [currentModel, options, optionsById, pinnedIds]);
-
-  const { pinnedRows, otherRows, totalOther } = useMemo(() => {
-    const filteredOthers = filterConnectionModelOptions(othersAll, deferredSearch);
+    // The saved model leads the list (and so its upstream group), past the row cap of a long catalog.
+    for (const option of options)
+      if (!pinnedSet.has(option.id) && !recommendedSet.has(option.id))
+        others[option.id === currentModel ? "unshift" : "push"](option);
     return {
-      pinnedRows: filterConnectionModelOptions(pinnedAll, deferredSearch),
-      otherRows: filteredOthers.slice(0, MAX_LISTED_MODELS),
+      pinnedAll: pinnedIds.map((id): PickerRow => optionsById.get(id) ?? { id, name: id }),
+      othersAll: others,
+      recommendedAll: recommendedRows,
+    };
+  }, [currentModel, options, optionsById, pinnedIds, recommended]);
+
+  const { recommendedRows, pinnedRows, otherRows, totalOther } = useMemo(() => {
+    const filteredOthers = sortRows(filterConnectionModelOptions(othersAll.filter(inFilter), deferredSearch), sort);
+    return {
+      recommendedRows: filterConnectionModelOptions(recommendedAll.filter(inFilter), deferredSearch),
+      pinnedRows: filterConnectionModelOptions(pinnedAll.filter(inFilter), deferredSearch),
+      otherRows: filteredOthers.slice(0, Math.min(shownRows, MAX_LISTED_MODELS)),
       totalOther: filteredOthers.length,
     };
-  }, [deferredSearch, othersAll, pinnedAll]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only `only`, upstream and costFilter
+  }, [costFilter, deferredSearch, only, othersAll, pinnedAll, recommendedAll, shownRows, sort, upstream]);
+  // A new search or filter starts again from the first batch.
+  useEffect(() => setShownRows(ROW_BATCH), [costFilter, deferredSearch, sort, upstream, connection.id]);
 
   // What Enter does with the search text: an exact ID or name picks that model, a search with a single match
   // picks it, and only text that matches nothing is used as a model ID. Several matches wait for a choice.
   const typedId = search.trim();
-  const { exactId, enterTarget, enterUsesTyped } = useMemo(() => {
+  const { exactId, enterTarget } = useMemo(() => {
     const typed = typedId.toLowerCase();
-    if (!typed) return { exactId: null, enterTarget: null, enterUsesTyped: false };
-    const rows = [...pinnedAll, ...othersAll];
-    const byId = rows.find((row) => row.id.toLowerCase() === typed) ?? null;
+    if (!typed) return { exactId: null, enterTarget: null };
+    const allRows = [...recommendedAll, ...pinnedAll, ...othersAll];
+    const rows = allRows.filter(inFilter);
+    const byId = allRows.find((row) => row.id.toLowerCase() === typed) ?? null;
     const byName = rows.filter((row) => row.name.toLowerCase() === typed);
     const matches = filterConnectionModelOptions(rows, typedId);
     const target: PickerRow | null =
-      byId ??
+      (byId && inFilter(byId) ? byId : null) ??
       (byName.length === 1 ? byName[0]! : null) ??
       (matches.length === 1 ? matches[0]! : null) ??
-      (matches.length === 0 ? { id: typedId, name: typedId } : null);
-    return { exactId: byId, enterTarget: target, enterUsesTyped: matches.length === 0 };
-  }, [othersAll, pinnedAll, typedId]);
+      (matches.length === 0 && !filtering ? { id: typedId, name: typedId } : null);
+    return { exactId: byId, enterTarget: target };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only `only`, upstream and costFilter
+  }, [costFilter, only, othersAll, pinnedAll, recommendedAll, typedId, upstream]);
   // The typed text can always be used as it is from its own row; Enter uses it only when nothing matches.
-  const showTypedRow = !!typedId && !exactId;
+  const showTypedRow = !!typedId && (!exactId || (filtering && !inFilter(exactId)));
 
-  const pick = async (row: PickerRow) => {
+  // Add mode: what is picked is starred, so it stays in the Connection (decision 30).
+  const starPicked = (row: PickerRow) => {
+    if (!addMode || pinnedIds.includes(row.id)) return;
+    setPinned.mutate(
+      { id: connection.id, model: row.id, pinned: true },
+      { onError: (error) => toast.error(t("connections.star.failed", { error: errorMessage(error) })) },
+    );
+  };
+
+  const pick = async (row: PickerRow, viaStar = false) => {
     if (saving) return;
     try {
+      // In add mode a star adds the model even where a tap only chooses it for the chat.
+      if (onChoose && !viaStar) {
+        const fields = connectionFieldsForModelPick(provider, row);
+        if (
+          (await onChoose({
+            connectionId: connection.id,
+            ...fields,
+            ...(row.name && row.name !== row.id ? { name: row.name } : {}),
+          })) === false
+        )
+          return;
+        setSearch("");
+        onPicked?.(row.id);
+        return;
+      }
+      if (applyPick && connection.accountId) {
+        // A new Model takes the listed context size and output limit, as an in-place pick does.
+        const { connectionId } = await pickModel.mutateAsync({
+          accountId: connection.accountId,
+          ...connectionFieldsForModelPick(provider, row),
+          name: row.name || undefined,
+        });
+        await applyPick(connectionId, row.id);
+        starPicked(row);
+        setSearch("");
+        onPicked?.(row.id);
+        return;
+      }
       if (row.id !== currentModel) {
-        await updateConnection.mutateAsync({ id: connection.id, ...connectionFieldsForModelPick(provider, row) });
+        await updateConnection.mutateAsync({
+          id: connection.id,
+          ...connectionFieldsForModelPick(provider, row),
+          // A new account's empty placeholder is named for its service; the first Model takes its catalog name.
+          ...(addMode && !currentModel ? { name: row.name || row.id } : {}),
+        });
       }
-      if (chatId && chatConnectionId !== connection.id) {
-        await updateChat.mutateAsync({ id: chatId, connectionId: connection.id });
-      }
+      if (applyPick) await applyPick(connection.id, row.id);
+      starPicked(row);
       setSearch("");
-      onPicked?.();
+      onPicked?.(row.id);
     } catch (error) {
       toast.error(t("connections.modelPicker.saveFailed", { error: errorMessage(error) }));
     }
   };
 
-  const togglePin = (id: string, pinned: boolean) =>
-    setPinned.mutate(
-      { id: connection.id, model: id, pinned },
-      { onError: (error) => toast.error(t("connections.modelPicker.pinFailed", { error: errorMessage(error) })) },
-    );
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (!preselect || preselected.current || modelList.isLoading) return;
+    preselected.current = true;
+    const key = catalogModelId(preselect).toLowerCase();
+    const matches = options.filter((option) => catalogModelId(option.id).toLowerCase() === key);
+    const row = options.find((option) => option.id === preselect) ?? (matches.length === 1 ? matches[0] : undefined);
+    if (row) void pick(row);
+    else setSearch(key);
+    // Runs once, when the list is there; pick reads the latest state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselect, modelList.isLoading, options]);
 
-  const focusOption = (from: HTMLElement | null, step: 1 | -1) => {
-    const buttons = [...(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-model-option]") ?? [])];
-    if (!from) return buttons[0]?.focus();
-    const index = buttons.indexOf(from as HTMLButtonElement);
-    const next = buttons[index + step];
-    if (next) next.focus();
-    else if (step === -1) searchRef.current?.focus();
-  };
-
-  const onListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-model-row]");
-    const option = target?.querySelector<HTMLElement>("[data-model-option]") ?? null;
-    if (!option) return;
-    event.preventDefault();
-    focusOption(option, event.key === "ArrowDown" ? 1 : -1);
+  // The star (decision 30): a star saves the model; taking it off removes the saved Model unless something keeps it.
+  const toggleStar = (row: PickerRow, starred: boolean) => {
+    // Add mode: a star is a pick, so the host counts it (and the first one can become Main).
+    if (addMode && starred) return void pick(row, true);
+    if (addMode) onUnstar?.(row.id);
+    if (!connection.accountId) {
+      setPinned.mutate(
+        { id: connection.id, model: row.id, pinned: starred },
+        { onError: (error) => toast.error(t("connections.star.failed", { error: errorMessage(error) })) },
+      );
+      return;
+    }
+    const target = {
+      accountId: connection.accountId,
+      ...connectionFieldsForModelPick(provider, row),
+      ...(row.name && row.name !== row.id ? { name: row.name } : {}),
+      anchorId: connection.id,
+    };
+    void (starred ? modelStar.star(target) : modelStar.unstar(target));
   };
 
   const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     // Keys pressed while an input method is composing belong to the composition.
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      focusOption(null, 1);
-    } else if (event.key === "Enter" && typedId) {
+    if (event.key === "Enter" && typedId) {
       event.preventDefault();
       if (enterTarget) void pick(enterTarget);
     }
   };
 
-  const renderRow = (row: PickerRow, pinned: boolean) => {
-    const current = row.id === currentModel;
+  const renderRow = (row: PickerRow, pinned: boolean, section = pinned ? "starred" : "all") => {
+    const current = row.id === currentModel || !!addedIds?.includes(row.id);
+    // Adding: a model added here shows a filled star, even before its star is saved.
+    const starred = pinned || (addMode && !onChoose && !!addedIds?.includes(row.id));
     const label = row.name || row.id;
+    const reasoning = row.capabilities?.adaptiveThinking || !!row.capabilities?.effortLevels?.length;
+    const meta = [
+      row.context ? t("connections.add.context", { size: formatCompactTokenCount(row.context) }) : null,
+      row.maxOutput ? t("connections.modelPicker.maxOutput", { size: formatCompactTokenCount(row.maxOutput) }) : null,
+      reasoning ? t("connections.modelPicker.reasoning") : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    // Adding: the end button says "Added" (a check), never ★ or "starred"; one word for one thing. An image or
+    // video row being set up has no account here, but its pick is still an add.
+    const adding = addMode && (!!connection.accountId || !!onPicked);
+    // A badge on a narrow row leaves the id no room: the facts move to the tooltip there.
+    const badged = showCostBadges && costBadgeShows(row.cost, showPaid, row.pricing);
+    // The one model row; its end holds the 44px star beside the row button, never inside it.
     return (
-      <div
-        key={`${pinned ? "pinned" : "all"}:${row.id}`}
-        data-model-row
-        data-model-id={row.id}
-        className={cn("relative flex rounded-lg", current && "bg-foreground/[0.07]")}
-      >
-        {current && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--marinara-chat-chrome-accent)]"
+      <ModelRow
+        key={`${section}:${row.id}`}
+        rowProps={{
+          "data-model-row": true,
+          "data-model-id": row.id,
+          className: cn("rounded-lg", addMode && "-mx-2"),
+          ...(addMode ? { onMouseEnter: () => setDetailId(row.id), onFocus: () => setDetailId(row.id) } : {}),
+        }}
+        data-model-option
+        aria-current={current ? "true" : undefined}
+        disabled={saving}
+        onClick={() => void pick(row)}
+        className={cn("rounded-lg disabled:cursor-wait", addMode && "max-md:ps-2 max-md:gap-3")}
+        tile={
+          <ProviderIcon
+            provider={provider || "custom"}
+            model={row.id}
+            name={connection.name ?? undefined}
+            size="model"
           />
-        )}
-        <button
-          type="button"
-          data-model-option
-          aria-current={current ? "true" : undefined}
-          disabled={saving}
-          onClick={() => void pick(row)}
-          className={cn(
-            "flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pl-3 pr-1 text-left outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait",
-          )}
-        >
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-xs font-medium text-foreground/90">{label}</span>
-              {showSubscriptionCost && <SubscriptionCostPill model={row} />}
+        }
+        title={label}
+        tooltip={[label, row.id, meta].filter(Boolean).join("\n")}
+        subtitle={row.id}
+        roles={row.id === mainModelId ? [t("connections.add.mainBadge")] : []}
+        details={
+          meta && (
+            <span data-model-metadata className={cn("min-w-0 shrink truncate", badged && "max-sm:hidden")}>
+              {meta}
             </span>
-            {label !== row.id && <span className="truncate text-[0.625rem] text-foreground/50">{row.id}</span>}
-          </span>
-          {current && (
+          )
+        }
+        facts={row}
+        showPaid={showPaid}
+        current={current}
+        trailing={
+          // Adding: the filled star is the one sign that a model is in the connection.
+          current &&
+          !(addMode && !onChoose) && (
             <Check
               size="0.875rem"
-              className="shrink-0 text-foreground/80"
+              className="mari-panel-gradient--connections shrink-0 text-[var(--mari-connection-ink)]"
               aria-label={t("connections.modelPicker.current")}
             />
-          )}
-        </button>
-        <button
-          type="button"
-          data-model-pin
-          aria-pressed={pinned}
-          // A toggle keeps one name; aria-pressed says whether it is pinned.
-          aria-label={t("connections.modelPicker.pin", { model: label })}
-          title={t(pinned ? "connections.modelPicker.unpin" : "connections.modelPicker.pin", { model: label })}
-          onClick={() => togglePin(row.id, !pinned)}
-          className={cn(
-            "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
-            pinned ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
-          )}
-        >
-          <Star size="0.875rem" fill={pinned ? "currentColor" : "none"} />
-        </button>
-      </div>
+          )
+        }
+        end={
+          <>
+            {/* A Model outside a Connection has nowhere to save a star; an old star there can still be removed. */}
+            {adding ? (
+              <button
+                type="button"
+                data-model-star
+                aria-pressed={starred}
+                aria-label={t("connections.modelPicker.addToggle", { model: label })}
+                title={t(starred ? "connections.modelPicker.removeAdded" : "connections.modelPicker.addToggle", {
+                  model: label,
+                })}
+                onClick={() => toggleStar(row, !starred)}
+                className={cn(
+                  "flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-[0.6875rem] font-medium outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
+                  starred
+                    ? "mari-panel-gradient--connections text-[var(--mari-connection-ink)]"
+                    : "text-foreground/45 hover:text-foreground/80",
+                )}
+              >
+                {starred ? <Check size="0.875rem" aria-hidden /> : <Plus size="0.875rem" aria-hidden />}
+                {starred && <span>{t("connections.modelPicker.added")}</span>}
+              </button>
+            ) : (
+              (connection.accountId || starred) && (
+                <button
+                  type="button"
+                  data-model-star
+                  aria-pressed={starred}
+                  // A toggle keeps one name; aria-pressed says whether it is starred.
+                  aria-label={t("connections.star.toggle", { model: label })}
+                  title={t(starred ? "connections.star.remove" : "connections.star.add", { model: label })}
+                  onClick={() => toggleStar(row, !starred)}
+                  className={cn(
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
+                    starred
+                      ? "mari-panel-gradient--connections text-[var(--mari-connection-ink)]"
+                      : "text-foreground/35 hover:text-foreground/70",
+                  )}
+                >
+                  <Star size="0.875rem" fill={starred ? "currentColor" : "none"} />
+                </button>
+              )
+            )}
+          </>
+        }
+      />
     );
   };
 
-  const sectionLabel = (label: string) => (
-    <p className="px-3 pb-0.5 pt-2 text-[0.625rem] font-medium text-foreground/45">{label}</p>
-  );
+  const detailRow: PickerRow | undefined =
+    (detailId ? optionsById.get(detailId) : undefined) ?? recommendedRows[0] ?? pinnedRows[0] ?? otherRows[0];
+  const usd = (value: number) => `$${value < 1 ? value.toFixed(3).replace(/0+$/, "") : value.toFixed(2)}`;
+  type Fact = [string, ReactNode];
+  const detailFacts: Fact[] = detailRow
+    ? [
+        ...(detailRow.context
+          ? [[t("connections.modelPicker.detail.context"), formatCompactTokenCount(detailRow.context)] as Fact]
+          : []),
+        ...(detailRow.maxOutput
+          ? [[t("connections.modelPicker.detail.maxOutput"), formatCompactTokenCount(detailRow.maxOutput)] as Fact]
+          : []),
+        ...(detailRow.pricing?.prompt !== undefined || detailRow.pricing?.completion !== undefined
+          ? [
+              [
+                t("connections.modelPicker.detail.price"),
+                t("connections.modelPicker.detail.priceValue", {
+                  input: usd(detailRow.pricing?.prompt ?? 0),
+                  output: usd(detailRow.pricing?.completion ?? 0),
+                }),
+              ] as Fact,
+            ]
+          : []),
+        ...(showCostBadges && detailRow.cost && (detailRow.cost !== "paid" || showPaid)
+          ? [
+              [
+                t("connections.modelPicker.detail.cost"),
+                <CostBadge cost={detailRow.cost} showPaid={showPaid} />,
+              ] as Fact,
+            ]
+          : []),
+        ...(detailRow.capabilities?.adaptiveThinking || detailRow.capabilities?.effortLevels?.length
+          ? [[t("connections.modelPicker.detail.reasoning"), t("connections.modelPicker.detail.yes")] as Fact]
+          : []),
+      ]
+    : [];
+
+  const status = modelList.isLoading ? (
+    <ListStatus className="flex items-center justify-center gap-2 py-2">
+      <Loader2 size="0.75rem" className="animate-spin" aria-hidden />
+      {t("connections.modelPicker.loading")}
+    </ListStatus>
+  ) : !modelList.isError &&
+    !typedId &&
+    recommendedRows.length === 0 &&
+    pinnedRows.length === 0 &&
+    otherRows.length === 0 ? (
+    t("connections.modelPicker.empty")
+  ) : null;
 
   return (
     <div data-connection-model-picker className={cn("flex min-h-0 min-w-0 flex-1 flex-col", className)}>
-      <div className="flex min-w-0 items-center gap-2 px-3 pb-2 pt-2.5">
-        {leading}
+      <div className={cn("flex min-w-0 items-center gap-2 px-3 pb-2 pt-2.5", addMode && "hidden")}>
         <span className="shrink-0 text-xs font-semibold">{t("connections.modelPicker.title")}</span>
-        {(providerName || showConnectionName) && (
+        {(applyPick || onChoose) && accountName ? (
           <span data-model-picker-provider className="min-w-0 truncate text-[0.6875rem] text-foreground/55">
-            {showConnectionName && connection.name && connection.name !== providerName
-              ? t("connections.modelPicker.connectionAndProvider", {
-                  connection: connection.name,
-                  provider: providerName,
-                })
-              : providerName}
+            {accountName}
           </span>
+        ) : (
+          (providerName || showConnectionName) && (
+            <span data-model-picker-provider className="min-w-0 truncate text-[0.6875rem] text-foreground/55">
+              {showConnectionName && connection.name && connection.name !== providerName
+                ? t("connections.modelPicker.connectionAndProvider", {
+                    connection: connection.name,
+                    provider: providerName,
+                  })
+                : providerName}
+            </span>
+          )
         )}
       </div>
 
@@ -301,58 +640,160 @@ export function ConnectionModelPicker({
         <p className="px-3 pb-3 text-[0.6875rem] text-foreground/60">{t("connections.modelPicker.reviewFirst")}</p>
       ) : (
         <>
-          <div className="flex min-w-0 items-center gap-1.5 px-3 pb-1.5">
-            <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border sm:min-h-9 border-foreground/10 bg-foreground/[0.04] px-2.5 text-foreground/55 focus-within:border-foreground/25">
-              <Search size="0.875rem" className="shrink-0" aria-hidden />
-              <span className="sr-only">{t("connections.modelPicker.searchLabel")}</span>
-              <input
-                ref={searchRef}
-                data-model-search
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                onKeyDown={onSearchKeyDown}
-                placeholder={t("connections.modelPicker.searchPlaceholder")}
-                spellCheck={false}
-                autoCapitalize="off"
-                autoCorrect="off"
-                enterKeyHint="go"
-                className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-foreground outline-none placeholder:text-foreground/40"
-              />
-            </label>
-            <button
-              type="button"
-              data-model-refresh
-              onClick={() =>
-                refresh.mutate(connection.id, {
-                  onError: (error) =>
-                    toast.error(t("connections.modelPicker.refreshFailed", { error: errorMessage(error) })),
-                })
-              }
-              disabled={refresh.isPending || modelList.isFetching}
-              aria-label={t("connections.modelPicker.refresh")}
-              title={t("connections.modelPicker.refresh")}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-foreground/10 sm:h-9 sm:w-9 text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:opacity-60"
-            >
-              <RefreshCw
-                size="0.875rem"
-                className={cn((refresh.isPending || modelList.isFetching) && "animate-spin")}
-                aria-hidden
-              />
-            </button>
-          </div>
+          {/* The Add window's step title sits at its header edge (px-3, the modal title's edge); the search lines up with it. */}
+          <ListFrame
+            className="flex-1"
+            search={
+              <div className="flex min-w-0 items-center gap-1.5 px-3 pb-2.5">
+                <ListSearch
+                  className="flex-1"
+                  inputRef={searchRef}
+                  data-model-search
+                  value={search}
+                  onChange={setSearch}
+                  onKeyDown={onSearchKeyDown}
+                  label={t("connections.modelPicker.searchLabel")}
+                  placeholder={t("connections.modelPicker.searchPlaceholder")}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+                <button
+                  type="button"
+                  data-model-refresh
+                  onClick={() =>
+                    refresh.mutate(connection.id, {
+                      onError: (error) =>
+                        toast.error(t("connections.modelPicker.refreshFailed", { error: errorMessage(error) })),
+                    })
+                  }
+                  disabled={refresh.isPending || modelList.isFetching}
+                  aria-label={t("connections.modelPicker.refresh")}
+                  title={t("connections.modelPicker.refresh")}
+                  className="mari-chrome-control mari-chrome-control--icon"
+                >
+                  <RefreshCw
+                    size="0.875rem"
+                    className={cn((refresh.isPending || modelList.isFetching) && "animate-spin")}
+                    aria-hidden
+                  />
+                </button>
+              </div>
+            }
+            header={
+              <>
+                {addMode && (updated || costLegend) && (
+                  <p className="flex flex-wrap gap-x-3 px-3 pb-2 text-[0.625rem] text-foreground/50">
+                    {updated && (
+                      <span data-model-updated>{t("connections.modelPicker.updated", { when: updated })}</span>
+                    )}
+                    {costLegend && <span data-model-cost-legend>{costLegend}</span>}
+                  </p>
+                )}
 
-          {modelList.isError && !refresh.isPending && (
-            <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
-              <p>{t("connections.modelPicker.loadFailed")}</p>
-              <p className="mt-0.5 break-words text-[0.625rem] text-foreground/45">{errorMessage(modelList.error)}</p>
-            </div>
-          )}
+                {upstreams.length > 1 && (
+                  <div
+                    role="group"
+                    aria-label={t("connections.modelPicker.filterUpstream")}
+                    className="flex shrink-0 gap-1 overflow-x-auto px-3 pb-2"
+                  >
+                    {[null, ...upstreams].map((value) => (
+                      <button
+                        key={value ?? "all"}
+                        type="button"
+                        data-model-upstream-filter={value ?? "all"}
+                        aria-pressed={upstream === value}
+                        onClick={() => setUpstream(value)}
+                        className="mari-connection-chip mari-panel-gradient--connections gap-1"
+                      >
+                        {value && <BrandMark of={value} className="h-3 w-3" />}
+                        {value ? (knownPrefixName(value) ?? value) : t("connections.modelPicker.allUpstreams")}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-          <div
-            ref={listRef}
+                {addMode && options.length > 1 && (
+                  <div className="flex shrink-0 items-center gap-1 overflow-x-auto px-3 pb-2">
+                    {costKinds.length > 1 && (
+                      <div role="group" aria-label={t("connections.modelPicker.filterCost")} className="flex gap-1">
+                        {costKinds.map((kind) => (
+                          <button
+                            key={kind}
+                            type="button"
+                            data-model-cost-filter={kind}
+                            aria-pressed={costFilter === kind}
+                            onClick={() => setCostFilter(costFilter === kind ? null : kind)}
+                            className="mari-connection-chip mari-panel-gradient--connections"
+                          >
+                            {t(`connections.cost.${kind}`)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <select
+                      data-model-sort
+                      aria-label={t("connections.modelPicker.sort")}
+                      value={sort}
+                      onChange={(event) => setSort(event.target.value as ModelSort)}
+                      className="ml-auto h-7 shrink-0 rounded-md bg-foreground/5 px-1.5 text-[0.6875rem] text-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-foreground/25"
+                    >
+                      <option value="list">{t("connections.modelPicker.sortList")}</option>
+                      <option value="price">{t("connections.modelPicker.sortPrice")}</option>
+                      <option value="context">{t("connections.modelPicker.sortContext")}</option>
+                    </select>
+                  </div>
+                )}
+
+                {modelList.isError && !refresh.isPending && (
+                  <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
+                    <p>{t("connections.modelPicker.loadFailed")}</p>
+                    <p className="mt-0.5 break-words text-[0.625rem] text-foreground/45">
+                      {modelListErrorMessage(modelList.error, t)}
+                    </p>
+                  </div>
+                )}
+              </>
+            }
+            option="[data-model-option]"
+            listRef={listRef}
+            listClassName={addMode ? "px-3 pb-1.5" : "px-1.5 pb-1.5"}
             data-model-list
-            onKeyDown={onListKeyDown}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-1.5"
+            status={status}
+            aside={
+              addMode &&
+              detailRow && (
+                <aside
+                  data-model-detail
+                  aria-live="polite"
+                  className="hidden w-64 shrink-0 flex-col gap-3 overflow-y-auto border-l border-foreground/10 px-4 py-3 lg:flex"
+                >
+                  <div className="flex min-w-0 items-start gap-2">
+                    <ProviderIcon
+                      provider={provider || "custom"}
+                      model={detailRow.id}
+                      name={connection.name ?? undefined}
+                      size="model"
+                    />
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold text-foreground">
+                        {detailRow.name || detailRow.id}
+                      </p>
+                      {detailRow.name && detailRow.name !== detailRow.id && (
+                        <p className="break-all text-[0.6875rem] text-foreground/50">{detailRow.id}</p>
+                      )}
+                    </div>
+                  </div>
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[0.6875rem]">
+                    {detailFacts.map(([label, value]) => (
+                      <Fragment key={label}>
+                        <dt className="text-foreground/50">{label}</dt>
+                        <dd className="text-foreground/85 tabular-nums">{value}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                </aside>
+              )
+            }
           >
             {showTypedRow && (
               <div data-model-row className="flex">
@@ -361,24 +802,32 @@ export function ConnectionModelPicker({
                   data-model-option
                   data-model-use-typed
                   disabled={saving}
-                  onClick={() => void pick({ id: typedId, name: typedId })}
+                  onClick={() => void pick(exactId ?? { id: typedId, name: typedId })}
                   className="flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-lg px-3 py-1.5 text-left outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25"
                 >
                   <span className="truncate text-xs font-medium text-foreground/90">
                     {t("connections.modelPicker.useTyped", { model: typedId })}
                   </span>
-                  <span className="text-[0.625rem] text-foreground/50">
-                    {t(
-                      enterUsesTyped ? "connections.modelPicker.useTypedHint" : "connections.modelPicker.useTypedAsIs",
-                    )}
-                  </span>
                 </button>
               </div>
             )}
 
+            {recommendedRows.length > 0 && (
+              <section aria-label={t("connections.add.recommended")} data-model-section="recommended">
+                <ListHeading className={addMode ? "px-0" : undefined}>{t("connections.add.recommended")}</ListHeading>
+                {recommendedRows.map((row) => renderRow(row, false, "recommended"))}
+              </section>
+            )}
+
             {pinnedRows.length > 0 && (
-              <section aria-label={t("connections.modelPicker.pinned")} data-model-section="pinned">
-                {sectionLabel(t("connections.modelPicker.pinned"))}
+              <section
+                aria-label={t(addMode ? "connections.modelPicker.added" : "connections.switcher.starred")}
+                data-model-section="starred"
+                className={cn(recommendedRows.length > 0 && "mt-2")}
+              >
+                <ListHeading className={addMode ? "px-0" : undefined}>
+                  {t(addMode ? "connections.modelPicker.added" : "connections.switcher.starred")}
+                </ListHeading>
                 {pinnedRows.map((row) => renderRow(row, true))}
               </section>
             )}
@@ -387,38 +836,39 @@ export function ConnectionModelPicker({
               <section
                 aria-label={t("connections.modelPicker.allModels")}
                 data-model-section="all"
-                className={cn(pinnedRows.length > 0 && "mt-1 border-t border-foreground/10")}
+                className={cn((pinnedRows.length > 0 || recommendedRows.length > 0) && "mt-2")}
               >
-                {sectionLabel(t("connections.modelPicker.allModels"))}
-                {otherRows.map((row) => renderRow(row, false))}
+                <ListHeading className={addMode ? "px-0" : undefined}>
+                  {t("connections.modelPicker.allModels")}
+                </ListHeading>
+                {/* A sorted list stays in one run; maker groups would break the order. */}
+                {(sort === "list"
+                  ? subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id })))
+                  : [{ upstream: null, rows: otherRows }]
+                ).map((group) => (
+                  <div key={group.upstream ?? ""} data-model-upstream={group.upstream ?? undefined}>
+                    {group.upstream && (
+                      <p className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">
+                        <BrandMark of={group.upstream} className="h-3 w-3" />
+                        {knownPrefixName(group.upstream) ?? group.upstream}
+                      </p>
+                    )}
+                    {group.rows.map((row) => renderRow(row, false))}
+                  </div>
+                ))}
               </section>
             )}
 
-            {totalOther > otherRows.length && (
+            {otherRows.length < Math.min(totalOther, MAX_LISTED_MODELS) && (
+              // Remounts per batch, so a sentinel that is still in view loads the next one too.
+              <div key={otherRows.length} ref={loadMoreRef} aria-hidden className="h-px" />
+            )}
+            {otherRows.length >= MAX_LISTED_MODELS && totalOther > otherRows.length && (
               <p className="px-3 py-2 text-[0.625rem] text-foreground/45">
                 {t("connections.modelPicker.truncated", { shown: otherRows.length, total: totalOther })}
               </p>
             )}
-
-            {modelList.isLoading && (
-              <p className="flex items-center gap-2 px-3 py-2 text-[0.6875rem] text-foreground/50">
-                <Loader2 size="0.75rem" className="animate-spin" aria-hidden />
-                {t("connections.modelPicker.loading")}
-              </p>
-            )}
-
-            {!modelList.isLoading &&
-              !modelList.isError &&
-              !typedId &&
-              pinnedRows.length === 0 &&
-              otherRows.length === 0 && (
-                <p className="px-3 py-3 text-[0.6875rem] text-foreground/50">{t("connections.modelPicker.empty")}</p>
-              )}
-          </div>
-
-          <p className="border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-            {t("connections.modelPicker.footer")}
-          </p>
+          </ListFrame>
         </>
       )}
     </div>

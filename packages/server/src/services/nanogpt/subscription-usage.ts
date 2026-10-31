@@ -159,6 +159,8 @@ export interface FetchNanoGptUsageOptions {
   managementToken?: string | null;
   /** Fallback: the connection's inference API key. */
   apiKey?: string | null;
+  /** Overrides the default read timeout, for callers that must not wait long. */
+  timeoutMs?: number;
 }
 
 /**
@@ -191,7 +193,7 @@ export async function fetchNanoGptSubscriptionUsage(
     },
     // A stalled response would otherwise hold the usage handler pending forever;
     // safeFetch sets no timeout of its own.
-    signal: AbortSignal.timeout(NANOGPT_USAGE_TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? NANOGPT_USAGE_TIMEOUT_MS),
   });
 
   const text = await response.text();
@@ -210,6 +212,76 @@ export async function fetchNanoGptSubscriptionUsage(
   }
 
   return normalizeSubscriptionUsage(parsed, credential, NANOGPT_PROVIDER_ID);
+}
+
+const NANOGPT_PUBLIC_MODELS_URL = "https://nano-gpt.com/api/v1/models?detailed=true";
+const NANOGPT_PLAN_TTL_MS = 6 * 60 * 60_000;
+/** After a failed read, wait this long before asking NanoGPT again. */
+const NANOGPT_PLAN_RETRY_MS = 10 * 60_000;
+type NanoGptPlan = Map<string, NanoGptModelSubscriptionMetadata>;
+let planCache: { until: number; plan: NanoGptPlan } | null = null;
+let planLoading: Promise<NanoGptPlan> | null = null;
+
+/**
+ * Which models NanoGPT's plan covers, from its public model list (no key is sent). Kept six hours; a failed read
+ * keeps the last list (or none) and asks again ten minutes later, so a NanoGPT outage only hides the badges.
+ */
+export async function readNanoGptPlan(): Promise<NanoGptPlan> {
+  if (planCache && Date.now() < planCache.until) return planCache.plan;
+  planLoading ??= (async () => {
+    try {
+      const response = await safeFetch(NANOGPT_PUBLIC_MODELS_URL, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(NANOGPT_USAGE_TIMEOUT_MS),
+      });
+      if (!response.ok) throw new Error(`NanoGPT model list answered ${response.status}`);
+      const parsed = JSON.parse(await response.text()) as unknown;
+      const plan: NanoGptPlan = new Map();
+      for (const model of isRecord(parsed) && Array.isArray(parsed.data) ? parsed.data : []) {
+        if (isRecord(model) && typeof model.id === "string") {
+          plan.set(model.id, readNanoGptModelSubscriptionMetadata(model));
+        }
+      }
+      planCache = { until: Date.now() + NANOGPT_PLAN_TTL_MS, plan };
+    } catch (err) {
+      logger.warn(err, "[nanogpt/plan] Could not read NanoGPT's public model list; plan badges wait");
+      planCache = { until: Date.now() + NANOGPT_PLAN_RETRY_MS, plan: planCache?.plan ?? new Map() };
+    } finally {
+      planLoading = null;
+    }
+    return planCache.plan;
+  })();
+  return planLoading;
+}
+
+const lastSegment = (id: string) => id.slice(id.lastIndexOf("/") + 1);
+const planByName = new WeakMap<NanoGptPlan, Map<string, NanoGptModelSubscriptionMetadata | null>>();
+
+/** The plan facts by a model's last id part (`glm-5.2`, `glm-5.3:thinking`); null when several models share it. */
+function planNames(plan: NanoGptPlan) {
+  let names = planByName.get(plan);
+  if (names) return names;
+  names = new Map();
+  for (const [id, facts] of plan) {
+    const name = lastSegment(id);
+    names.set(name, names.has(name) ? null : facts);
+  }
+  planByName.set(plan, names);
+  return names;
+}
+
+/**
+ * Proxy models named `nanogpt/<id>` take the plan facts NanoGPT gives `<id>`; the rest stay as they are. An id
+ * NanoGPT does not list (`zai-org/glm-5.2` where it lists `z-ai/glm-5.2`) matches by its last part, but only when
+ * exactly one plan model has that name, so a guess never gives a wrong badge.
+ */
+export function withNanoGptPlan<T extends { id?: unknown }>(models: T[], plan: NanoGptPlan): T[] {
+  return models.map((model) => {
+    const id = typeof model.id === "string" && model.id.startsWith("nanogpt/") ? model.id.slice("nanogpt/".length) : "";
+    const facts = id ? (plan.get(id) ?? planNames(plan).get(lastSegment(id))) : undefined;
+    return facts ? { ...model, ...facts } : model;
+  });
 }
 
 /** Turn a status code into an actionable, non-secret-bearing message. */
@@ -231,4 +303,28 @@ export function describeUsageError(status: number, body: string, usedManagementT
 
   const trimmed = body.trim().slice(0, 200);
   return `NanoGPT returned ${status}${trimmed ? `: ${trimmed}` : ""}`;
+}
+
+const PLAN_ACTIVE_TTL_MS = 5 * 60_000;
+/** A failed read retries soon. */
+const PLAN_ACTIVE_UNKNOWN_TTL_MS = 60_000;
+const planActiveCache = new Map<string, { until: number; active: boolean | null }>();
+
+/**
+ * Whether an account's plan is active, cached per account so model lists do not wait on NanoGPT.
+ * `read` returns null when unknown. ponytail: TTL only, no drop on key change; add an invalidate hook if stale badges matter.
+ */
+export async function cachedPlanActive(
+  accountId: string,
+  read: () => Promise<boolean | null>,
+  now: () => number = Date.now,
+): Promise<boolean | null> {
+  const hit = planActiveCache.get(accountId);
+  if (hit && now() < hit.until) return hit.active;
+  const active = await read();
+  planActiveCache.set(accountId, {
+    until: now() + (active === null ? PLAN_ACTIVE_UNKNOWN_TTL_MS : PLAN_ACTIVE_TTL_MS),
+    active,
+  });
+  return active;
 }

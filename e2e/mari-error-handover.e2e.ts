@@ -128,12 +128,18 @@ async function openMariWithProvider(
   });
   // Other workers create newer connections on the shared server; this page must use its own provider.
   await isolateSyncedUISettings(page);
-  await seedUIState(page, {
-    hasCompletedOnboarding: true,
-    rightPanelOpen: false,
-    sidebarOpen: false,
-    mariConnectionId: connectionId,
-  });
+  // Her connection is a server setting now.
+  await page.route("**/api/app-settings/feature-model-connections", (route) =>
+    route.fulfill({
+      json: {
+        mariConnectionId: connectionId,
+        omnibarAsideConnectionId: null,
+        impersonateConnectionId: null,
+        visionConnectionId: null,
+      },
+    }),
+  );
+  await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false });
   await page.goto("/");
   await page
     .locator("main")

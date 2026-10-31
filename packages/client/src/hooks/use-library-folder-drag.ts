@@ -12,7 +12,10 @@ export function useLibraryFolderDrag(kind: string, onReorder?: ReturnType<typeof
   const bind = (id: string) => {
     const start = (event: MouseEvent<HTMLElement> | TouchEvent<HTMLElement>) => {
       // An item inside an expanded folder owns its own gesture.
-      if (!(event.target instanceof Element) || event.target.closest("[data-drag-kind]") !== event.currentTarget)
+      if (
+        !(event.target instanceof Element) ||
+        event.target.closest(`[data-drag-kind="${kind}-folder"]`) !== event.currentTarget
+      )
         return;
       startTouchDrag(event, id);
     };

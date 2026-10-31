@@ -17,6 +17,8 @@ const { createFileNativeDB } = await import("../../packages/server/src/db/file-b
 const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionAccountsStorage } =
+  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
 const { resolveMemoryRecallEmbeddingSource } =
   await import("../../packages/server/src/services/memory-recall-embedding.js");
 const { embedSummaryDocuments } =
@@ -132,7 +134,10 @@ try {
   assert.equal(requests[1]!.authorization, "Bearer fixture-key-one");
   assert.equal(requests[1]!.tenant, "tenant-two");
 
-  await connections.update(connection.id, { apiKey: "fixture-key-two" });
+  // The Model is linked to a Connection, which holds its key.
+  await createConnectionAccountsStorage(db).update((await connections.getById(connection.id))!.accountId!, {
+    apiKey: "fixture-key-two",
+  });
   const thirdSource = await resolveSource();
   assert.ok(thirdSource);
   assert.equal(thirdSource.spaceId, secondSource.spaceId);

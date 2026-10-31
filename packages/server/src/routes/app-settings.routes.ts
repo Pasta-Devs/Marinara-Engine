@@ -14,13 +14,20 @@ import {
   homeCustomWidgetCatalogSchema,
   STORAGE_MIGRATION_NOTICE_SETTINGS_KEY,
   VIDEO_GENERATION_SETTINGS_KEY,
+  NANOGPT_PLAN_BADGES_SETTINGS_KEY,
+  OUTSIDE_READS_SETTINGS_KEY,
+  PRICE_CATALOG_SETTINGS_KEY,
   appSettingsUpdateSchema,
   FEATURE_SETTINGS_KEY,
   featureSettingsSchema,
+  FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
+  featureModelConnectionsSchema,
+  type FeatureModelConnections,
   type FeatureSettingsResponse,
   impersonatePromptTemplateCatalogSchema,
   getChatWindowDefaultSettingsKey,
   LOCAL_SIDECAR_CONNECTION_ID,
+  isChatProvider,
   parseChatWindowDefault,
 } from "@marinara-engine/shared";
 import { z } from "zod";
@@ -38,6 +45,7 @@ import {
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { initializeChatWindowDefaults } from "../services/storage/chat-window-defaults.js";
+import { readFeatureModelConnections } from "../services/storage/feature-model-connections.js";
 import { featureSettingsResponse, loadFeatureSettings } from "../services/features/feature-settings.js";
 import { loadMediaQueueUiSettings } from "../services/image/image-generation-queue.js";
 import { loadGeneratedImageFormatUiSettings } from "../services/image/generated-image-format.js";
@@ -49,16 +57,32 @@ const ALLOWED_KEYS = new Set([
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   STORAGE_MIGRATION_NOTICE_SETTINGS_KEY,
   VIDEO_GENERATION_SETTINGS_KEY,
+  OUTSIDE_READS_SETTINGS_KEY,
   getChatWindowDefaultSettingsKey("conversation"),
   getChatWindowDefaultSettingsKey("roleplay"),
   getChatWindowDefaultSettingsKey("game"),
 ]);
+
+/**
+ * Once: the NanoGPT plan badge and price list choices become the one outside-reads switch. Either old "on" turns
+ * it on (balance reads join it); either old "off" keeps it off without asking again; unset stays unset.
+ */
+export async function migrateOutsideReadsSetting(storage: {
+  get: (key: string) => Promise<string | null>;
+  set: (key: string, value: string) => Promise<void>;
+}): Promise<void> {
+  if ((await storage.get(OUTSIDE_READS_SETTINGS_KEY)) !== null) return;
+  const old = [await storage.get(NANOGPT_PLAN_BADGES_SETTINGS_KEY), await storage.get(PRICE_CATALOG_SETTINGS_KEY)];
+  if (old.includes("on")) await storage.set(OUTSIDE_READS_SETTINGS_KEY, "on");
+  else if (old.includes("off")) await storage.set(OUTSIDE_READS_SETTINGS_KEY, "off");
+}
 
 const isAllowedSettingsKey = (key: string) => ALLOWED_KEYS.has(key) || isProfessorMariSeenRunSettingsKey(key);
 
 export async function appSettingsRoutes(app: FastifyInstance) {
   await initializeChatWindowDefaults(app.db);
   const storage = createAppSettingsStorage(app.db);
+  await migrateOutsideReadsSetting(storage);
   // Prime the in-memory feature switches; storage writes keep them current from here on.
   await loadFeatureSettings(storage);
   await loadMediaQueueUiSettings(storage);
@@ -71,6 +95,40 @@ export async function appSettingsRoutes(app: FastifyInstance) {
     const settings = featureSettingsSchema.parse(req.body ?? {});
     await storage.set(FEATURE_SETTINGS_KEY, JSON.stringify(settings));
     return featureSettingsResponse();
+  });
+
+  app.get(`/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`, (): Promise<FeatureModelConnections> =>
+    readFeatureModelConnections(app.db),
+  );
+
+  // Merges the sent fields into the stored choices. An id that is not a chat Model or a choice of that
+  // field (local sidecar, "mari" = same as Prof. Mari, "random") is stored as null, so a stale browser value
+  // cannot block the other fields.
+  app.put(`/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`, async (req): Promise<FeatureModelConnections> => {
+    const input = featureModelConnectionsSchema.partial().parse(req.body);
+    const connections = createConnectionsStorage(app.db);
+    const choices: Record<keyof FeatureModelConnections, string[]> = {
+      mariConnectionId: [LOCAL_SIDECAR_CONNECTION_ID],
+      omnibarAsideConnectionId: [LOCAL_SIDECAR_CONNECTION_ID, "mari"],
+      impersonateConnectionId: [LOCAL_SIDECAR_CONNECTION_ID, "random"],
+      // The local model cannot read images.
+      visionConnectionId: [],
+      mariFallbackConnectionId: [],
+      omnibarAsideFallbackConnectionId: [],
+      impersonateFallbackConnectionId: [],
+      visionFallbackConnectionId: [],
+    };
+    const changes: Partial<FeatureModelConnections> = {};
+    for (const [key, id] of Object.entries(input) as Array<[keyof FeatureModelConnections, string | null]>) {
+      const row = id && !choices[key].includes(id) ? await connections.getById(id) : null;
+      changes[key] = id && (choices[key].includes(id) || (row && isChatProvider(row.provider))) ? id : null;
+    }
+    // Transactions run one at a time, so an overlapping save of another field is not lost.
+    await app.db.transaction(async () => {
+      const settings = { ...(await readFeatureModelConnections(app.db)), ...changes };
+      await storage.set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, JSON.stringify(settings));
+    });
+    return readFeatureModelConnections(app.db);
   });
 
   app.get(`/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`, () => readHomeWidgetCatalog(app.db));

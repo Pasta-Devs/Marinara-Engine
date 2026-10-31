@@ -43,6 +43,14 @@ const { errorHandler } = await import("../../packages/server/src/middleware/erro
 const { encryptApiKey } = await import("../../packages/server/src/utils/crypto.js");
 const db = await createFileNativeDB();
 const connections = createConnectionsStorage(db);
+const { createConnectionAccountsStorage } =
+  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
+// A linked row's key belongs to its account, so a key change goes through the account.
+const setKey = async (id: string, apiKey: string) => {
+  const row = await connections.getById(id);
+  if (row?.accountId) await createConnectionAccountsStorage(db).update(row.accountId, { apiKey });
+  else await connections.update(id, { apiKey });
+};
 const settings = createAppSettingsStorage(db);
 const app = Fastify();
 app.decorate("db", db);
@@ -229,7 +237,7 @@ try {
   );
   await db
     .update(apiConnections)
-    .set({ profileImportReviewRequired: "true" })
+    .set({ profileImportReviewRequired: "true", accountId: null })
     .where(eq(apiConnections.id, quarantine.id));
   await migrateGenerativeAudioConnections(db);
   assert.equal(await connections.getAudioGenerationForLegacyConnection(quarantine.id), null);
@@ -384,8 +392,7 @@ try {
     const firstHold = held as { release: () => void } | undefined;
     assert(firstHold, "the first paid request is in flight");
     if (changedInput === "model") await connections.update(queuedConnection.id, { model: "sample-model-b" });
-    if (changedInput === "apiKey")
-      await connections.update(queuedConnection.id, { apiKey: "changed-fixture-audio-key" });
+    if (changedInput === "apiKey") await setKey(queuedConnection.id, "changed-fixture-audio-key");
     const later = generate(queuedConnection.id, {
       ...sampleInput,
       ...(changedInput === "prompt" ? { prompt: "a different test instrumental" } : {}),
@@ -593,7 +600,7 @@ try {
   );
   await db
     .update(apiConnections)
-    .set({ profileImportReviewRequired: "true" })
+    .set({ profileImportReviewRequired: "true", accountId: null })
     .where(eq(apiConnections.id, importedDefault.id));
   await settings.set(
     TTS_SETTINGS_KEY,

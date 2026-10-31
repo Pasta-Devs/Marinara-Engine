@@ -6470,6 +6470,10 @@ const connectionsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/ConnectionsPanel.tsx", import.meta.url),
   "utf8",
 );
+const deviceDetailSource = readFileSync(
+  new URL("../../packages/client/src/components/connections/DeviceDetail.tsx", import.meta.url),
+  "utf8",
+);
 const presetsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/PresetsPanel.tsx", import.meta.url),
   "utf8",
@@ -6921,13 +6925,18 @@ assert.match(sidecarStoreSource, /loadModel: async \(\) =>/u);
 assert.match(sidecarProcessSource, /private manuallyUnloaded = false/u);
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
 assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.failedToDeleteTheLocalWhisperModel/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.unloadLocalModel/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.loadLocalModel/u);
+assert.match(deviceDetailSource, /connections\.device\.whisper\.deleteFailed/u);
+assert.match(deviceDetailSource, /connections\.device\.unloadModel/u);
+assert.match(deviceDetailSource, /connections\.device\.loadModel/u);
 assert.match(
   connectionsPanelSource,
-  /className="grid min-w-0 grid-cols-2 gap-2"/u,
-  "LinkAPI actions must share the available banner width instead of overflowing it",
+  /className="grid grid-cols-\[repeat\(auto-fill,minmax\(8\.5rem,1fr\)\)\] gap-2"/u,
+  "First-run provider actions must share the panel width in an adaptive grid",
+);
+assert.match(
+  connectionsPanelSource,
+  /FIRST_RUN_SERVICES\.map\([\s\S]*?data-add-connection-service=\{service\}[\s\S]*?className="[^"]*min-w-0[^"]*"/u,
+  "First-run provider buttons must shrink within their grid cells",
 );
 assert.equal(
   resolvePresetArtwork({ name: "Marinara's Universal Preset", author: "Marinara" }),
@@ -9548,8 +9557,8 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(
     connectionEditorSource,
-    /setRemoteModels\(\[\]\);[\s\S]{0,120}setRemoteLoras\(\[\]\);[\s\S]{0,120}setFetchError\(null\);/u,
-    "Changing media providers must clear stale remote LoRA choices",
+    /remoteLoras = useMemo\(\(\) => modelList\.data\?\.loras \?\? \[\], \[modelList\.data\]\)/u,
+    "Remote LoRA choices must come from the current model list, so a provider change cannot leave stale ones",
   );
   assert.match(
     connectionEditorSource,
@@ -9873,7 +9882,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 // actions and Conversation Call duration rows size from their panel width.
 {
   const sidebarPanelSources = new Map(
-    ["Characters", "Personas", "Lorebooks", "Agents", "Presets", "Connections"].map((panelName) => [
+    ["Characters", "Personas", "Lorebooks", "Agents", "Presets"].map((panelName) => [
       panelName,
       readFileSync(join(REPOSITORY_ROOT, `packages/client/src/components/panels/${panelName}Panel.tsx`), "utf8"),
     ]),
@@ -9914,6 +9923,32 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
       `${panelName} must keep every focused fine-pointer action overlay interactive`,
     );
   }
+
+  // Connection Model rows (variant D): the star and "…" stay visible, so nothing overlays the row, and touch
+  // layouts get 44 px targets.
+  const connectionRowSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/connections/ConnectionRow.tsx"),
+    "utf8",
+  );
+  const modelRowSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/connections/ModelRow.tsx"),
+    "utf8",
+  );
+  for (const source of [connectionRowSource, modelRowSource]) {
+    assert.doesNotMatch(source, /opacity-0|group-hover:/u, "Connection rows must not hide actions behind hover");
+  }
+  // Row buttons use the shared chrome icon class, which grows to 44 px on phones and touch screens.
+  assert.match(connectionRowSource, /ROW_BUTTON = "mari-chrome-control[^"]*mari-chrome-control--icon[^"]*"/u);
+  const connectionStyles = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/styles/globals.css"), "utf8");
+  assert.match(
+    connectionStyles,
+    /@media \(max-width: 47\.9375rem\), \(pointer: coarse\) \{[^}]*\.mari-connection-scope \.mari-chrome-control[^}]*min-height: 2\.75rem/u,
+  );
+  assert.match(
+    connectionStyles,
+    /@media \(max-width: 47\.9375rem\), \(pointer: coarse\) \{[\s\S]*?\.mari-connection-scope \.mari-chrome-control--icon \{[^}]*width: 2\.75rem/u,
+    "Connection icon buttons must retain a 44 px touch width",
+  );
 
   const personasPanelSource = sidebarPanelSources.get("Personas")!;
   const charactersPanelSource = sidebarPanelSources.get("Characters")!;

@@ -2,17 +2,17 @@
 
 This guide lists every AI provider Marinara Engine can connect to. For each one it tells you where to get an API key, the default base URL, and any quirks to know. An API key is a secret password from a provider that lets Marinara talk to their AI service.
 
-To learn the general steps for adding a connection, read [Connecting to an AI Provider](connecting-to-a-provider.md) first. This page is a reference you can search when you want details on one specific provider.
+To learn the general steps for adding an account, read [Connecting to an AI Provider](connecting-to-a-provider.md) first. This page is a reference you can search when you want details on one specific provider.
 
 ## How to read this page
 
-You choose a provider when you create a connection in the **Connections** panel. Each provider has a **Provider** button in the **Create Connection** modal, labelled with the exact name shown below.
+You choose a service in the **Add account** window. Each service has a button in step 1, labelled with the exact name shown below.
 
-Most providers on this page are cloud services that host the AI for you. You make an account with the provider, copy an API key, and paste it into the **API Key** field. Three subscription providers use a local sign-in instead of a key. Their sections say so.
+Most providers on this page are cloud services that host the AI for you. You make an account with the provider, copy an API key, and paste it into the **API key** field. Three subscription providers use a local sign-in instead of a key. Their sections say so.
 
 You will see two terms often:
 
-- Base URL: the web address Marinara sends requests to. Most providers fill this in for you. You only change it for local or custom servers.
+- Base URL: the web address Marinara sends requests to. The connection's editor calls it **Address**. Most providers fill this in for you. You only change it for local or custom servers.
 - Model: the specific AI model you pick after choosing a provider. Available models change often, so this page does not list them. Use the **Model** dropdown or the **Fetch Models from API** button in the connection editor to see the current list.
 
 ## OpenAI
@@ -96,26 +96,27 @@ Marinara reads NanoGPT's detailed model catalog, so the dropdown marks which mod
 
 If you have a NanoGPT subscription, this connection can show your live quota:
 
-1. Turn on **Show subscription usage** in the connection editor and save.
-2. Optionally paste a **Management Token** first.
+1. Click **⋯** on the account's row, choose **Edit account**, and open **Usage and balance**.
+2. If outside reads are off, click **Turn on** to permit usage reads. To add a NanoGPT management token, click **Add a usage-only key**, paste it, and click **Show usage**.
+3. Turn on **Show the usage meter on the card** and save.
 
 The widget reads NanoGPT's usage endpoint and shows your weekly and daily input-token quotas. Two credentials can read it:
 
-- **Management Token** (recommended): create one at `https://nano-gpt.com/settings#management-api-tokens` with the **Usage only** scope. It can read your quotas but cannot run models or spend your balance, so it is the safer choice for a quota display. Marinara stores it encrypted and sends it only to NanoGPT's management endpoint.
+- **Management token** (recommended): create one at `https://nano-gpt.com/settings#management-api-tokens` with the **Usage only** scope. It can read your quotas but cannot run models or spend your balance, so it is the safer choice for a quota display. Marinara stores it encrypted and sends it only to NanoGPT's management endpoint.
 - **Your API key**: used automatically when no management token is saved. This works, but it means quota reads use the same credential that can spend your balance.
 
 Under each bar the widget says what is left and when the window resets, for example `42M remaining · resets in 4d`.
 
 A quota NanoGPT cannot report right now shows as **unknown** rather than as unused, and an inactive subscription is called out instead of being drawn as full quota. The widget refreshes on demand with its refresh button.
 
-The same meter appears under the context indicator in a chat's connection picker and in the chat's **Connection** settings, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show subscription usage** turned on, and it does not appear for **Random**, which has no single connection to read. In the picker it is drawn to match the context bar above it, and it reads the same way — used against the weekly allowance, for example `8.9M / 60M tokens`, with the reset time beside the percentage.
+The same meter appears under the context indicator in a chat's connection picker and in the chat's **Connection** settings, so you can watch your quota without leaving a chat. It follows the active connection: it shows only when that connection is a NanoGPT one with **Show the usage meter on the card** turned on, and it does not appear for **Shuffle**, which has no single connection to read. In the picker it is drawn to match the context bar above it, and it reads the same way — used against the weekly allowance, for example `8.9M / 60M tokens`, with the reset time beside the percentage.
 
 ## xAI / Grok
 
 - Where to get a key: `https://console.x.ai`
 - Default base URL: `https://api.x.ai/v1`
 
-**xAI / Grok** runs the Grok models. When you pick this provider in the **Create Connection** modal, Marinara prefills the model with Grok 4.5. You can change the model afterward. Grok 4.6 and 4.7 are available with a 500,000-token context window and reasoning up to **Extra high** (`xhigh`). They support the existing chat tools, including **Web Search**, so search results can feed the completed reply.
+**xAI / Grok** runs the Grok models. When you pick this service in the **Add account** window, Marinara prefills the model with Grok 4.5. You can change the model afterward. Grok 4.6 and 4.7 are available with a 500,000-token context window and reasoning up to **Extra high** (`xhigh`). They support the existing chat tools, including **Web Search**, so search results can feed the completed reply.
 
 ## Arli AI
 
@@ -156,11 +157,11 @@ Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connectio
 
 This connection can show how much of your Claude plan's rate limits is used:
 
-1. Turn on **Show subscription usage** in the connection editor.
-2. Leave **5-hour window** and **Weekly window** checked, or uncheck the one you do not want to see.
+1. Click **⋯** on the account's row, choose **Edit account**, and open **Usage and balance**.
+2. If outside reads are off, click **Turn on**. Turn on **Show the usage meter on the card**. The account editor shows the available usage windows; it has no separate switches for the 5-hour and weekly bars.
 3. Save the connection.
 
-Each window gets a bar with the percentage used and when the window resets, for example `58% · resets in 2h`. The same bars appear under the context indicator in a chat's connection picker and in the chat's **Connection** settings while this connection is active. They do not appear for **Random**, which has no single connection to read.
+Each window gets a bar with the percentage used and when the window resets, for example `58% · resets in 2h`. The same bars appear under the context indicator in a chat's connection picker and in the chat's **Connection** settings while this connection is active. They do not appear for **Shuffle**, which has no single connection to read.
 
 Things to know:
 
@@ -180,7 +181,7 @@ Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connectio
 
 ### Plan usage
 
-This connection can show how much of your ChatGPT plan's Codex limits is used. It works like the Claude (Subscription) one above: turn on **Show subscription usage**, keep or uncheck **5-hour window** and **Weekly window**, and save. The bars appear in the connection editor, in a chat's connection picker and in the chat's **Connection** settings.
+This connection can show how much of your ChatGPT plan's Codex limits is used. It works like the Claude (Subscription) one above: open **Usage and balance** in **Edit account**, permit outside reads with **Turn on** if needed, turn on **Show the usage meter on the card**, and save. The account editor shows the available usage windows without separate 5-hour or weekly switches. The bars appear in the account editor, in a chat's connection picker and in the chat's **Connection** settings.
 
 Things to know:
 

@@ -1,4 +1,5 @@
 import { useRefreshLocalContext } from "./hooks/use-connections";
+import { useMigrateFeatureModels } from "./hooks/use-connection-accounts";
 // ──────────────────────────────────────────────
 // App: Root component with layout
 // ──────────────────────────────────────────────
@@ -529,6 +530,7 @@ export function App() {
   );
   useLegacyThemeMigration();
   useSettingsSync();
+  useMigrateFeatureModels();
   const showDownloadModal = useSidecarStore((s) => s.showDownloadModal);
   const setShowDownloadModal = useSidecarStore((s) => s.setShowDownloadModal);
   const fetchSidecarStatus = useSidecarStore((s) => s.fetchStatus);
@@ -1372,6 +1374,7 @@ export function App() {
           visibleToasts={TOAST_VISIBLE_LIMIT}
           toastOptions={{
             style: {
+              fontFamily: "var(--font-y2k)",
               background: "var(--card)",
               border: "1px solid var(--marinara-chat-chrome-panel-border)",
               color: "var(--foreground)",

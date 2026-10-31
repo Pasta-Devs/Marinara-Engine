@@ -11,10 +11,63 @@ import {
   parsePinnedModels,
   resolveOpenAIImageQuality,
   PROVIDERS,
+  isChatProvider,
   type APIProvider,
   type ImageGenerationQuality,
+  createConnectionAccountSchema,
+  type CreateConnectionAccountInput,
 } from "@marinara-engine/shared";
 import type { CreateConnectionPayload } from "../hooks/use-connections";
+import { FLAG_JOBS, matchesKind } from "./connection-jobs";
+import { isConnectionFlagTrue } from "./connection-filters";
+
+const JOB_FLAGS = ["isDefault", "defaultForAgents", "fallbackForMain", "fallbackForAgents"] as const;
+type JobFlag = (typeof JOB_FLAGS)[number];
+
+/** The feature settings that hold a Model id; they travel as a list on the Model's own row. */
+export const FEATURE_KEYS = [
+  "impersonateConnectionId",
+  "mariConnectionId",
+  "omnibarAsideConnectionId",
+  "visionConnectionId",
+] as const;
+export type FeatureKey = (typeof FEATURE_KEYS)[number];
+type FeatureSettings = Partial<Record<FeatureKey, string | null>>;
+
+/** Imported Models that take over a feature setting, only where it is unset. */
+export function featuresToApply(
+  imported: ReadonlyArray<{ id: string; features: readonly FeatureKey[] }>,
+  current: FeatureSettings | null | undefined,
+) {
+  const picks: Partial<Record<FeatureKey, string>> = {};
+  for (const key of FEATURE_KEYS) {
+    const pick = imported.find((i) => i.features.includes(key));
+    if (pick && !current?.[key]) picks[key] = pick.id;
+  }
+  return picks;
+}
+
+/**
+ * Imported Models that should take over a job, only where no existing Model holds it yet:
+ * an import never silently replaces a Main or Agents pick the user already made.
+ */
+export function defaultsToApply(
+  imported: ReadonlyArray<{ id: string; provider: string; flags: readonly JobFlag[] }>,
+  rows: ReadonlyArray<Record<string, unknown> & { id: string; provider: string }>,
+) {
+  const picks = new Map<string, { id: string; flag: JobFlag; job: string }>();
+  for (const job of FLAG_JOBS) {
+    for (const flag of [job.flag, job.fallback]) {
+      const taken = rows.some(
+        (row) =>
+          matchesKind(row, job.kind) && isConnectionFlagTrue(row[flag]) && !imported.some((i) => i.id === row.id),
+      );
+      const pick = imported.find((i) => matchesKind(i, job.kind) && i.flags.includes(flag));
+      if (!taken && pick) picks.set(`${pick.id}:${flag}`, { id: pick.id, flag, job: job.key });
+    }
+  }
+  return [...picks.values()];
+}
 
 export type ConnectionTransferRow = {
   name?: unknown;
@@ -66,6 +119,7 @@ export type ConnectionTransferRow = {
   comfyuiWorkflow?: unknown;
   treatAsLocalEndpoint?: unknown;
   claudeFastMode?: unknown;
+  accountId?: unknown;
 };
 
 export type SafeConnectionExport = {
@@ -89,6 +143,7 @@ export type SafeConnectionExport = {
   useForRandom: boolean;
   defaultForAgents: boolean;
   fallbackForAgents: boolean;
+  features?: FeatureKey[];
   embeddingModel: string;
   embeddingBaseUrl: string;
   embeddingConnectionId: string | null;
@@ -124,19 +179,88 @@ export type ConnectionImportPayload = {
   connection: CreateConnectionPayload;
   defaultParameters: Record<string, unknown> | null;
   hasDefaultParameters: boolean;
+  /** Defaults the file's Model held (Main, Agents, their fallbacks); not applied on create. */
+  flags: JobFlag[];
+  /** Feature settings (Impersonate, Professor Mari, quick chat, Vision) the file's Model held. */
+  features: FeatureKey[];
 };
 
 export const CONNECTION_EXPORT_WARNING =
   "This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others!";
 const MAX_PARALLEL_JOBS = 16;
 
-export function createConnectionExportEnvelope(connections: ConnectionTransferRow[]) {
+/** Version 2 adds `accounts` (Connections with their Models); Models without a Connection stay in `connections`. */
+export function createConnectionExportEnvelope(
+  connections: ConnectionTransferRow[],
+  accounts: readonly ConnectionTransferAccount[] = [],
+  features: FeatureSettings = {},
+) {
+  const accountIds = new Set(accounts.map((account) => account.id));
+  const serialize = (row: ConnectionTransferRow) => {
+    const id = (row as { id?: unknown }).id;
+    const held = FEATURE_KEYS.filter((key) => typeof id === "string" && features[key] === id);
+    return { ...serializeConnectionForExport(row), ...(held.length > 0 && { features: held }) };
+  };
   return {
     kind: "marinara.connections",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     notice: "API keys are intentionally not included.",
-    connections: connections.map(serializeConnectionForExport),
+    ...(accounts.length > 0 && {
+      accounts: accounts.map((account) => ({
+        ...serializeAccountForExport(account),
+        models: connections
+          .filter((row) => typeof row.accountId === "string" && row.accountId === account.id)
+          .map(serialize),
+      })),
+    }),
+    connections: connections
+      .filter((row) => typeof row.accountId !== "string" || !accountIds.has(row.accountId))
+      .map(serialize),
+  };
+}
+
+/** Only these Connection fields travel. The API key, management token, balance user id and usage keys never do. */
+const ACCOUNT_EXPORT_FIELDS = [
+  "name",
+  "provider",
+  "baseUrl",
+  "icon",
+  "enabled",
+  "treatAsLocalEndpoint",
+  "showUsageWidget",
+  "showUsageFiveHour",
+  "showUsageWeekly",
+  "maxRequestsPerMinute",
+  "maxParallelJobs",
+] as const;
+
+export type ConnectionTransferAccount = Partial<Record<(typeof ACCOUNT_EXPORT_FIELDS)[number] | "id", unknown>>;
+
+function serializeAccountForExport(account: ConnectionTransferAccount) {
+  return Object.fromEntries(ACCOUNT_EXPORT_FIELDS.map((key) => [key, account[key]]));
+}
+
+export type ConnectionImportPlan = {
+  /** `account` or a Model is null when the entry is not valid; the import skips it. */
+  accounts: Array<{ account: CreateConnectionAccountInput | null; models: Array<ConnectionImportPayload | null> }>;
+  /** Models without a Connection, as every file version had them. */
+  models: Array<ConnectionImportPayload | null>;
+};
+
+export function getConnectionImportPlan(value: unknown): ConnectionImportPlan {
+  const accounts = isRecord(value) && Array.isArray(value.accounts) ? value.accounts : [];
+  return {
+    accounts: accounts.map((entry) => {
+      const parsed = isRecord(entry) ? createConnectionAccountSchema.safeParse(serializeAccountForExport(entry)) : null;
+      return {
+        account: parsed?.success ? parsed.data : null,
+        models: (isRecord(entry) && Array.isArray(entry.models) ? entry.models : []).map(
+          normalizeImportedConnectionEntry,
+        ),
+      };
+    }),
+    models: getConnectionImportEntries(value).map(normalizeImportedConnectionEntry),
   };
 }
 
@@ -146,6 +270,7 @@ export function getConnectionImportEntries(value: unknown): unknown[] {
 
   if (Array.isArray(value.connections)) return value.connections;
   if (Array.isArray(value.items)) return value.items;
+  if (Array.isArray(value.accounts)) return [];
   if (isRecord(value.connection)) return [value.connection];
   return [value];
 }
@@ -156,6 +281,8 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
   const provider = asProvider(value.provider);
   const name = asString(value.name).trim();
   if (!provider || !name) return null;
+  const model = asString(value.model).trim();
+  if (isChatProvider(provider) && !model) return null;
 
   const decisionSource =
     provider === "decision" && DECISION_SOURCES.includes(value.decisionSource as DecisionSource)
@@ -173,7 +300,7 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
       provider,
       apiKey: "",
       baseUrl: asString(value.baseUrl),
-      model: asString(value.model),
+      model,
       pinnedModels: parsePinnedModels(value.pinnedModels),
       maxContext: asPositiveInteger(value.maxContext, 128000),
       isDefault: false,
@@ -237,6 +364,8 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
     },
     defaultParameters,
     hasDefaultParameters: Object.prototype.hasOwnProperty.call(value, "defaultParameters"),
+    flags: JOB_FLAGS.filter((flag) => asBoolean(value[flag])),
+    features: FEATURE_KEYS.filter((key) => Array.isArray(value.features) && value.features.includes(key)),
   };
 }
 

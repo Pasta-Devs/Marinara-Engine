@@ -24,7 +24,7 @@ for (const provider of ["anthropic", "claude_subscription"] as const) {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
         useUIStore.getState().openConnectionDetail(id);
       }, id);
-      await expect(page.getByPlaceholder("Connection name")).toHaveValue("Opus 5.5 fixture");
+      await expect(page.getByPlaceholder("Model name", { exact: true })).toHaveValue("Opus 5.5 fixture");
     };
     try {
       await page.goto("/");

@@ -1,4 +1,4 @@
-export const UI_PERSISTENCE = { name: "marinara-engine-ui", version: 103 } as const;
+export const UI_PERSISTENCE = { name: "marinara-engine-ui", version: 104 } as const;
 
 // ponytail: package clients built before the host namespace (lib/marinara-host.ts) bundle their own copy of this
 // store at v74 and save over this key with only the settings that copy knows. The Engine cannot stop that write, so

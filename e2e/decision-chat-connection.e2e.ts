@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { openConnectionsPanel } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -69,8 +70,17 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
       await testInfo.attach(label, { path, contentType: "image/png" });
     };
 
-    const shortcut = editor.getByRole("button", { name: "Use this model for decisions", exact: true });
-    await shortcut.scrollIntoViewIfNeeded();
+    // The shortcut lives in the Model's row menu; variant D lists the Model in the panel search.
+    await openConnectionsPanel(page);
+    await page
+      .locator("[data-connections-panel]")
+      .filter({ visible: true })
+      .getByRole("searchbox", { name: "Search models and connections" })
+      .fill(name);
+    const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
+    await actions.scrollIntoViewIfNeeded();
+    await actions.click();
+    const shortcut = page.getByRole("menuitem", { name: "Use this model for decisions", exact: true });
     await capture("decision-chat-shortcut");
     await shortcut.click();
 
@@ -91,7 +101,7 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
       })
       .toEqual({ source: "openai_compatible", baseUrl, model: "gemma4:e2b" });
 
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     const result = editor.getByText(/Probability of yes: 0\.800 · answered in .* \(time limit 4 s\)/u);
     await expect(result).toBeVisible();
     await result.scrollIntoViewIfNeeded();

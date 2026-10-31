@@ -20,17 +20,21 @@
 @keyframes dice-glyph-tumble {
   0% {
     opacity: 0;
-    transform: translate3d(calc(var(--dice-rest-x) - 0.38rem), calc(var(--dice-rest-y) + 0.9rem), 0) rotate(-28deg) scale(0.78);
+    transform: translate3d(calc(var(--dice-rest-x) - 0.38rem), calc(var(--dice-rest-y) + 0.9rem), 0) rotate(-28deg)
+      scale(0.78);
   }
   20% {
     opacity: 1;
-    transform: translate3d(calc(var(--dice-rest-x) + 0.22rem), calc(var(--dice-rest-y) - 1.6rem), 0) rotate(68deg) scaleX(0.94) scaleY(1.08);
+    transform: translate3d(calc(var(--dice-rest-x) + 0.22rem), calc(var(--dice-rest-y) - 1.6rem), 0) rotate(68deg)
+      scaleX(0.94) scaleY(1.08);
   }
   55% {
-    transform: translate3d(calc(var(--dice-rest-x) + 0.32rem), calc(var(--dice-rest-y) - 0.38rem), 0) rotate(198deg) scale(1.02);
+    transform: translate3d(calc(var(--dice-rest-x) + 0.32rem), calc(var(--dice-rest-y) - 0.38rem), 0) rotate(198deg)
+      scale(1.02);
   }
   82% {
-    transform: translate3d(calc(var(--dice-rest-x) - 0.1rem), calc(var(--dice-rest-y) + 0.03rem), 0) rotate(302deg) scale(0.97);
+    transform: translate3d(calc(var(--dice-rest-x) - 0.1rem), calc(var(--dice-rest-y) + 0.03rem), 0) rotate(302deg)
+      scale(0.97);
   }
   100% {
     opacity: 1;
@@ -40,16 +44,19 @@
 
 @keyframes dice-glyph-impact {
   0% {
-    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.24rem), 0) rotate(var(--dice-rest-rot)) scale(1.07);
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.24rem), 0) rotate(var(--dice-rest-rot))
+      scale(1.07);
     filter: brightness(1.25);
   }
   42% {
-    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) + 0.08rem), 0) rotate(var(--dice-rest-rot)) scaleX(1.14) scaleY(0.88);
-    filter: brightness(1.60);
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) + 0.08rem), 0) rotate(var(--dice-rest-rot))
+      scaleX(1.14) scaleY(0.88);
+    filter: brightness(1.6);
   }
   70% {
-    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.04rem), 0) rotate(var(--dice-rest-rot)) scale(1.03);
-    filter: brightness(1.10);
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.04rem), 0) rotate(var(--dice-rest-rot))
+      scale(1.03);
+    filter: brightness(1.1);
   }
   100% {
     transform: translate3d(var(--dice-rest-x), var(--dice-rest-y), 0) rotate(var(--dice-rest-rot)) scale(1);
@@ -88,31 +95,59 @@
 }
 
 @keyframes dice-coin-roll-profile {
-  0%  { opacity: 0;  transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) + 0.8rem), 0) rotate(0deg) scaleX(1)    scaleY(0.84); }
-  8%  { opacity: 1; }
-  14% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.5rem), 0) rotate(0deg) scaleX(0.04) scaleY(1.08); }
-  28% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.3rem), 0) rotate(0deg) scaleX(1)    scaleY(1.06); }
-  42% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.6rem), 0) rotate(0deg) scaleX(0.04) scaleY(1.06); }
-  56% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.1rem), 0) rotate(0deg) scaleX(1)    scaleY(1.04); }
-  70% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.4rem), 0) rotate(0deg) scaleX(0.04) scaleY(1.02); }
-  84% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) + 0.06rem), 0) rotate(0deg) scaleX(1.06) scaleY(0.9); }
-  100% { opacity: 1; transform: translate3d(var(--dice-rest-x), var(--dice-rest-y), 0) rotate(var(--dice-rest-rot)) scaleX(1) scaleY(1); }
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) + 0.8rem), 0) rotate(0deg) scaleX(1) scaleY(0.84);
+  }
+  8% {
+    opacity: 1;
+  }
+  14% {
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.5rem), 0) rotate(0deg) scaleX(0.04)
+      scaleY(1.08);
+  }
+  28% {
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.3rem), 0) rotate(0deg) scaleX(1) scaleY(1.06);
+  }
+  42% {
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.6rem), 0) rotate(0deg) scaleX(0.04)
+      scaleY(1.06);
+  }
+  56% {
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.1rem), 0) rotate(0deg) scaleX(1) scaleY(1.04);
+  }
+  70% {
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.4rem), 0) rotate(0deg) scaleX(0.04)
+      scaleY(1.02);
+  }
+  84% {
+    transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) + 0.06rem), 0) rotate(0deg) scaleX(1.06)
+      scaleY(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(var(--dice-rest-x), var(--dice-rest-y), 0) rotate(var(--dice-rest-rot)) scaleX(1) scaleY(1);
+  }
 }
 
 @keyframes dice-cube-roll-profile {
   0% {
     opacity: 0;
-    transform: translate3d(calc(var(--dice-rest-x) - 0.42rem), calc(var(--dice-rest-y) + 0.7rem), 0) rotate(-38deg) scale(0.82);
+    transform: translate3d(calc(var(--dice-rest-x) - 0.42rem), calc(var(--dice-rest-y) + 0.7rem), 0) rotate(-38deg)
+      scale(0.82);
   }
   18% {
     opacity: 1;
-    transform: translate3d(calc(var(--dice-rest-x) + 0.28rem), calc(var(--dice-rest-y) - 1.4rem), 0) rotate(46deg) scale(1.08);
+    transform: translate3d(calc(var(--dice-rest-x) + 0.28rem), calc(var(--dice-rest-y) - 1.4rem), 0) rotate(46deg)
+      scale(1.08);
   }
   50% {
-    transform: translate3d(calc(var(--dice-rest-x) + 0.38rem), calc(var(--dice-rest-y) - 0.3rem), 0) rotate(136deg) scale(1.02);
+    transform: translate3d(calc(var(--dice-rest-x) + 0.38rem), calc(var(--dice-rest-y) - 0.3rem), 0) rotate(136deg)
+      scale(1.02);
   }
   78% {
-    transform: translate3d(calc(var(--dice-rest-x) - 0.12rem), calc(var(--dice-rest-y) + 0.04rem), 0) rotate(226deg) scale(0.97);
+    transform: translate3d(calc(var(--dice-rest-x) - 0.12rem), calc(var(--dice-rest-y) + 0.04rem), 0) rotate(226deg)
+      scale(0.97);
   }
   100% {
     opacity: 1;
@@ -123,17 +158,21 @@
 @keyframes dice-long-roll-profile {
   0% {
     opacity: 0;
-    transform: translate3d(calc(var(--dice-rest-x) - 0.38rem), calc(var(--dice-rest-y) + 0.8rem), 0) rotate(-18deg) scale(0.80);
+    transform: translate3d(calc(var(--dice-rest-x) - 0.38rem), calc(var(--dice-rest-y) + 0.8rem), 0) rotate(-18deg)
+      scale(0.8);
   }
   20% {
     opacity: 1;
-    transform: translate3d(calc(var(--dice-rest-x) + 0.28rem), calc(var(--dice-rest-y) - 1.5rem), 0) rotate(58deg) scaleX(0.92) scaleY(1.1);
+    transform: translate3d(calc(var(--dice-rest-x) + 0.28rem), calc(var(--dice-rest-y) - 1.5rem), 0) rotate(58deg)
+      scaleX(0.92) scaleY(1.1);
   }
   48% {
-    transform: translate3d(calc(var(--dice-rest-x) + 0.22rem), calc(var(--dice-rest-y) - 0.3rem), 0) rotate(168deg) scale(1.04);
+    transform: translate3d(calc(var(--dice-rest-x) + 0.22rem), calc(var(--dice-rest-y) - 0.3rem), 0) rotate(168deg)
+      scale(1.04);
   }
   76% {
-    transform: translate3d(calc(var(--dice-rest-x) - 0.1rem), calc(var(--dice-rest-y) + 0.03rem), 0) rotate(252deg) scale(0.97);
+    transform: translate3d(calc(var(--dice-rest-x) - 0.1rem), calc(var(--dice-rest-y) + 0.03rem), 0) rotate(252deg)
+      scale(0.97);
   }
   100% {
     opacity: 1;
@@ -144,17 +183,21 @@
 @keyframes dice-sharp-roll-profile {
   0% {
     opacity: 0;
-    transform: translate3d(calc(var(--dice-rest-x) - 0.44rem), calc(var(--dice-rest-y) + 1rem), 0) rotate(-52deg) scale(0.76);
+    transform: translate3d(calc(var(--dice-rest-x) - 0.44rem), calc(var(--dice-rest-y) + 1rem), 0) rotate(-52deg)
+      scale(0.76);
   }
   18% {
     opacity: 1;
-    transform: translate3d(calc(var(--dice-rest-x) + 0.36rem), calc(var(--dice-rest-y) - 1.8rem), 0) rotate(82deg) scaleX(0.9) scaleY(1.12);
+    transform: translate3d(calc(var(--dice-rest-x) + 0.36rem), calc(var(--dice-rest-y) - 1.8rem), 0) rotate(82deg)
+      scaleX(0.9) scaleY(1.12);
   }
   52% {
-    transform: translate3d(calc(var(--dice-rest-x) + 0.42rem), calc(var(--dice-rest-y) - 0.42rem), 0) rotate(218deg) scale(1.05);
+    transform: translate3d(calc(var(--dice-rest-x) + 0.42rem), calc(var(--dice-rest-y) - 0.42rem), 0) rotate(218deg)
+      scale(1.05);
   }
   80% {
-    transform: translate3d(calc(var(--dice-rest-x) - 0.16rem), calc(var(--dice-rest-y) + 0.05rem), 0) rotate(318deg) scale(0.96);
+    transform: translate3d(calc(var(--dice-rest-x) - 0.16rem), calc(var(--dice-rest-y) + 0.05rem), 0) rotate(318deg)
+      scale(0.96);
   }
   100% {
     opacity: 1;
@@ -236,7 +279,12 @@
   position: absolute;
   inset: auto 0 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--dice-accent) 55%, transparent), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--dice-accent) 55%, transparent),
+    transparent
+  );
   opacity: 0.75;
   pointer-events: none;
 }
@@ -390,11 +438,14 @@
 }
 
 .dice-impact--hero.dice-glyph--impact .dice-glyph-svg {
-  filter: drop-shadow(0 0.6rem 1rem rgba(0, 0, 0, 0.3)) drop-shadow(0 0 1.35rem color-mix(in oklch, var(--dice-accent) 42%, transparent)) drop-shadow(0 0 2.4rem color-mix(in oklch, var(--dice-accent) 70%, transparent));
+  filter: drop-shadow(0 0.6rem 1rem rgba(0, 0, 0, 0.3))
+    drop-shadow(0 0 1.35rem color-mix(in oklch, var(--dice-accent) 42%, transparent))
+    drop-shadow(0 0 2.4rem color-mix(in oklch, var(--dice-accent) 70%, transparent));
 }
 
 .dice-glyph--hero.dice-glyph--settled .dice-glyph-svg {
-  filter: drop-shadow(0 0.4rem 0.7rem rgba(0, 0, 0, 0.24)) drop-shadow(0 0 1.4rem color-mix(in oklch, var(--dice-accent) 28%, transparent));
+  filter: drop-shadow(0 0.4rem 0.7rem rgba(0, 0, 0, 0.24))
+    drop-shadow(0 0 1.4rem color-mix(in oklch, var(--dice-accent) 28%, transparent));
 }
 
 .dice-glyph--tumble .dice-glyph-shadow,
@@ -412,7 +463,8 @@
   width: 100%;
   height: 100%;
   overflow: visible;
-  filter: drop-shadow(0 0.5rem 0.8rem rgba(0, 0, 0, 0.28)) drop-shadow(0 0 0.9rem color-mix(in oklch, var(--dice-accent) 20%, transparent));
+  filter: drop-shadow(0 0.5rem 0.8rem rgba(0, 0, 0, 0.28))
+    drop-shadow(0 0 0.9rem color-mix(in oklch, var(--dice-accent) 20%, transparent));
 }
 
 .dice-glyph[data-emphasized="false"] {
@@ -471,11 +523,11 @@
 }
 
 .dice-glyph-highlight {
-  fill: rgba(255, 255, 255, 0.40);
+  fill: rgba(255, 255, 255, 0.4);
 }
 
 .dice-glyph-shadow-facet {
-  fill: rgba(0, 0, 0, 0.30);
+  fill: rgba(0, 0, 0, 0.3);
 }
 
 .dice-glyph-facet {
@@ -483,14 +535,20 @@
   stroke: color-mix(in oklch, var(--dice-accent) 42%, rgba(255, 255, 255, 0.24));
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.0;
+  stroke-width: 1;
   opacity: 0.9;
 }
 
 .dice-glyph-label,
 .dice-glyph-value {
   fill: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   font-weight: 800;
   paint-order: stroke;
   stroke: rgba(0, 0, 0, 0.24);
@@ -564,7 +622,9 @@
   font-weight: 800;
   opacity: 0;
   transform: translateY(0.15rem);
-  transition: opacity 180ms ease-out, transform 180ms ease-out;
+  transition:
+    opacity 180ms ease-out,
+    transform 180ms ease-out;
 }
 
 .dice-roll-total.is-visible {
@@ -584,7 +644,9 @@
   border-radius: 0.4rem;
   padding: 0.22rem;
   color: var(--muted-foreground);
-  transition: background-color 160ms ease-out, color 160ms ease-out;
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out;
 }
 
 .dice-roll-dismiss:hover {

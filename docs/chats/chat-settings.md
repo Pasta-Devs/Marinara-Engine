@@ -122,11 +122,11 @@ The **Chat Name** section holds the name shown in your chat list. This name is o
 
 ## Connection
 
-The **Connection** section picks which AI provider and model answers in this chat. A connection is a saved link to an AI provider, including its API key and chosen model. An API key is a secret code that lets Marinara Engine use your account with that provider.
+The **Connection** section picks which AI model answers in this chat. A connection is one API key, account, or endpoint for an AI service. The models you save are grouped under it. An API key is a secret code that lets Marinara Engine use your account with that service.
 
-Pick a saved connection from the dropdown. You can also pick **Random**. It chooses a different connection each time from the connections you marked for your random pool.
+The **Model** field shows the effective model and whether this chat follows **Main** or has its own choice. Click it to open the same chooser as the model button in the chat input. The current model stays at the top, with recent and starred models below, grouped by account. Search across models and accounts, or use **Browse** to open one account's catalog. A pick changes only this chat.
 
-Below the dropdown, the **Model** field shows the model the selected connection uses. Click it to open the same model list as the Quick Connection Switcher: search or type a model ID, pin models with the star, refresh the list, and click a model to use it. The model is saved to the connection, so every chat, agent and helper that uses this connection switches to it too. The field is hidden for **Random** and for the built-in Local Model. See [The random pool and Quick Connection Switcher](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) for details.
+**Follow Main** clears the chat's own choice. **Shuffle** chooses a different model for each reply from your pool. If a connection needs a key or is off, its model leads to the repair action. Stars save models to your list without changing the chat. See [Shuffle](../connections/organizing-connections.md#shuffle) for details.
 
 To learn how to create a connection in the first place, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 

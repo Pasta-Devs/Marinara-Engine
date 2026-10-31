@@ -194,7 +194,7 @@ async function generateSelfie(
   const selfiePromptTemplate = typeof args.chatMeta.selfiePrompt === "string" ? args.chatMeta.selfiePrompt.trim() : "";
 
   const reportFallback = (notice: {
-    category: "main" | "agents" | "illustrator" | "video";
+    category: "main" | "agents" | "illustrator" | "video" | "feature";
     connectionId: string;
     connectionName: string;
     model: string;

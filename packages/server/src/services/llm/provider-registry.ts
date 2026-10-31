@@ -8,6 +8,7 @@ import { ClaudeSubscriptionProvider } from "./providers/claude-subscription.prov
 import { GrokSubscriptionProvider } from "./providers/grok-subscription.provider.js";
 import { GoogleProvider } from "./providers/google.provider.js";
 import type { BaseLLMProvider } from "./base-provider.js";
+import { getLocalSidecarProvider } from "./local-sidecar.js";
 import { withConnectionDefaultParameters } from "./connection-default-provider.js";
 import { withConnectionAdmissionProvider } from "../generation/connection-admission.js";
 import { withRateLimitAwareProvider } from "./rate-limit-aware-provider.js";
@@ -60,6 +61,8 @@ export function createLLMProvider(
       ? Math.floor(maxTokensOverride)
       : undefined;
 
+  // The on-device model is not an HTTP endpoint: it has its own provider and no key, gate or throttle.
+  if (provider === "local_sidecar") return getLocalSidecarProvider();
   let resolved: BaseLLMProvider;
   switch (provider) {
     case "decision":

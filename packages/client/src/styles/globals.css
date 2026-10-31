@@ -202,6 +202,7 @@
   --accent: #2a1a3e;
   --accent-foreground: #f0e8ff;
   --destructive: #ff6b9d;
+  --warning: #eeaa37;
   --destructive-foreground: #0a0a0a;
   --border: color-mix(in srgb, var(--primary) 20%, transparent);
   --input: var(--border);
@@ -467,6 +468,7 @@
   --accent: #ede4f7;
   --accent-foreground: #1a1025;
   --destructive: #c44040;
+  --warning: #b45309;
   --destructive-foreground: #ffffff;
   --border: color-mix(in srgb, var(--primary) 27%, transparent);
   --input: var(--border);
@@ -1310,6 +1312,12 @@
   padding: 0;
 }
 
+/* Row and card-heading buttons: no fill until hover or focus, so lists stay calm. */
+.mari-chrome-control--quiet:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
+  background: transparent;
+  border-color: transparent;
+}
+
 /* One-of-N choice card: title, description and optional preview stacked on the left.
    Idle titles keep the body text colour so they stay readable; hover and aria-pressed tint them. */
 .mari-chrome-control--card {
@@ -1511,6 +1519,113 @@
   box-shadow: 0 0.25rem 0.75rem color-mix(in srgb, var(--mari-panel-gradient-end) 18%, transparent);
 }
 
+/* Connection accounts share one quiet surface across the sidebar and model pickers. */
+.mari-connection-group {
+  border-radius: 1rem;
+  padding: 0.5rem;
+  /* One grey box for the Defaults and every connection; rows sit in neutral wells inside it. */
+  background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+
+/* Phones: a thin card edge, so the rows get the width. */
+@media (width < 48rem) {
+  .mari-connection-group {
+    padding: 0.25rem;
+  }
+}
+
+/* Bundled marks use the theme's foreground; uploaded model pictures keep their own colours. */
+.mari-provider-icon {
+  background: color-mix(in srgb, var(--sidebar) 94%, var(--foreground));
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+/* Tiles: header 2.5rem, row 2rem, upstream mark 1rem. Text columns: header text, upstream headings and row text all
+   start 3.75rem in from the card edge (card padding 0.5rem + tile column + 0.75rem gap). */
+.mari-connection-card-head .mari-provider-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.625rem;
+  /* The Connection's own tile wears the "+ Add" blue; Model and provider marks stay on grey tiles. */
+  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
+  color: var(--mari-panel-gradient-text);
+  box-shadow: none;
+}
+.mari-connection-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-block-start: 0.25rem;
+}
+/* Models sit in an inset well; a proxy gets one per upstream, its heading as the well's tinted top strip. */
+.mari-connection-model-well {
+  overflow: hidden;
+  /* Concentric with the card: 1rem card radius - 0.5rem padding. */
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--background) 45%, transparent);
+}
+
+@media (width < 48rem) {
+  .mari-connection-model-well {
+    border-radius: 0.75rem;
+  }
+}
+/* The "+ Add" blue (#38bdf8 → #3b82f6) tints the Defaults box and the "via" headings. */
+:root {
+  --mari-connection-blue: #38bdf8;
+}
+/* Proxy wells keep the plain well background; only the "via" heading is tinted. */
+.mari-connection-model-section-head {
+  background: color-mix(in srgb, var(--mari-connection-blue) 14%, transparent);
+}
+.mari-connection-model-section-head:hover {
+  background: color-mix(in srgb, var(--mari-connection-blue) 20%, transparent);
+}
+.mari-connection-model-slot + .mari-connection-model-slot,
+.mari-connection-model-section-head + .mari-connection-model-slot {
+  border-block-start: 1px solid color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+/* The Defaults box is the one blue box: the same box as a card, in a flat connection-blue tint. */
+.mari-connection-group.mari-connection-defaults-box {
+  background-color: color-mix(in srgb, var(--mari-connection-blue) 10%, transparent);
+}
+/* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */
+.mari-connection-empty {
+  border-radius: 0.875rem;
+  /* Flat: one even connection-blue tint, no gradient. */
+  background: color-mix(in srgb, var(--mari-panel-gradient-start) 7%, var(--card));
+}
+.mari-connection-defaults-job {
+  transition: background-color 150ms ease;
+}
+/* "All jobs" sections: a small muted caps label above each group. */
+.mari-connection-defaults-group {
+  padding: 0.625rem 0.5rem 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mari-connection-defaults-job {
+    transition: none;
+  }
+}
+
+/* A bundled provider icon (decision 34c) drawn in the text colour; the size comes from the caller. */
+.brand-mark {
+  background-color: currentColor;
+  -webkit-mask: var(--brand-mark) center / contain no-repeat;
+  mask: var(--brand-mark) center / contain no-repeat;
+}
+.brand-mark[data-shaded] {
+  background: var(--brand-mark) center / contain no-repeat;
+  -webkit-mask: none;
+  mask: none;
+}
+
 .mari-panel-gradient-button {
   display: inline-flex;
   min-height: 2.5rem;
@@ -1563,12 +1678,189 @@
   --mari-panel-gradient-text: #fbf7ff;
 }
 
-.mari-panel-gradient--connections {
+.mari-panel-gradient--connections,
+.mari-connection-scope {
   --mari-panel-gradient-start: #38bdf8;
   --mari-panel-gradient-end: #3b82f6;
   --mari-panel-gradient-text: #f0f9ff;
+  /* Connection blue for text, rails and selected chips; leaning on the foreground keeps it legible in light and dark. */
+  --mari-connection-ink: color-mix(in srgb, var(--mari-panel-gradient-end) 80%, var(--foreground) 20%);
+  --mari-connection-tint: color-mix(in srgb, var(--mari-panel-gradient-start) 14%, transparent);
+  --mari-connection-ring: color-mix(in srgb, var(--mari-panel-gradient-start) 55%, transparent);
 }
 
+/*
+ * Every connection surface (panel, Add window, editors, picker, switcher) carries .mari-connection-scope. It points the
+ * shared chrome tokens at connection blue and quiet neutrals, so no app accent (pink) leaks in: focus rings, the step
+ * bar, checks and selected cards turn blue; buttons and cards lose their accent outlines.
+ * The second selector outranks the accent-animation rule that pins .mari-editor-shell to the app accent.
+ */
+.mari-connection-scope,
+[data-marinara-accent-animation] .mari-connection-scope {
+  --marinara-chat-chrome-accent: var(--mari-panel-gradient-start);
+  --marinara-chat-chrome-focus-ring: var(--mari-connection-ring);
+  --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --marinara-chat-chrome-button-bg-active: var(--mari-connection-tint);
+  --marinara-chat-chrome-button-border: color-mix(in srgb, var(--foreground) 16%, transparent);
+  --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--foreground) 28%, transparent);
+  --marinara-chat-chrome-button-border-active: transparent;
+  --marinara-chat-chrome-button-text: var(--foreground);
+  --marinara-chat-chrome-button-text-hover: var(--foreground);
+  --marinara-chat-chrome-button-text-active: var(--mari-connection-ink);
+  --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
+  --marinara-chat-chrome-highlight-bg-hover: var(--mari-connection-tint);
+  --marinara-chat-chrome-highlight-text: var(--mari-connection-ink);
+  --marinara-chat-chrome-input-border: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--mari-panel-gradient-start) 70%, transparent);
+  --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --marinara-editor-accent: var(--mari-panel-gradient-start);
+  --marinara-editor-focus-ring: var(--mari-connection-ring);
+  --marinara-editor-border: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --marinara-editor-border-strong: color-mix(in srgb, var(--foreground) 16%, transparent);
+  --ring: var(--mari-connection-ring);
+}
+/* The editor's main action (Save) wears the connection-blue gradient, like every primary here. */
+.mari-connection-scope .mari-editor-action--primary,
+[data-marinara-chat-chrome-accent-mode="gradient"] .mari-connection-scope .mari-editor-action--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
+  color: var(--mari-panel-gradient-text);
+}
+.mari-connection-scope .mari-editor-action--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+/* Selection is a light blue tint, never a ring. */
+.mari-connection-scope .mari-chrome-control[aria-pressed="true"],
+.mari-connection-scope .mari-chrome-control--card[aria-pressed="true"] {
+  box-shadow: none;
+}
+
+/* The one primary per screen wears the connection-blue gradient; touch gets the 44px target.
+ * Tokens, not properties: the shared gradient-mode rules read these. */
+.mari-connection-scope .mari-chrome-control--primary {
+  --marinara-chat-chrome-button-bg: linear-gradient(
+    135deg,
+    var(--mari-panel-gradient-start),
+    var(--mari-panel-gradient-end)
+  );
+  --marinara-chat-chrome-button-bg-hover: var(--marinara-chat-chrome-button-bg);
+  --marinara-chat-chrome-button-bg-active: var(--marinara-chat-chrome-button-bg);
+  --marinara-chat-chrome-button-border: transparent;
+  --marinara-chat-chrome-button-border-hover: transparent;
+  --marinara-chat-chrome-button-text: var(--mari-panel-gradient-text);
+  --marinara-chat-chrome-button-text-hover: var(--mari-panel-gradient-text);
+  --marinara-chat-chrome-button-text-active: var(--mari-panel-gradient-text);
+}
+.mari-connection-scope .mari-chrome-control--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.mari-connection-scope .mari-chrome-control {
+  font-size: 0.875rem;
+}
+@media (max-width: 47.9375rem), (pointer: coarse) {
+  .mari-connection-scope .mari-chrome-control {
+    min-height: 2.75rem;
+  }
+  .mari-connection-scope .mari-chrome-control--icon {
+    width: 2.75rem;
+  }
+}
+
+/* Badges (role, kind, cost, status): one shape, no outline. */
+.mari-connection-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 0.375rem;
+  padding-inline: 0.375rem;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.125rem;
+  white-space: nowrap;
+}
+.mari-connection-pill svg {
+  width: 0.6875rem;
+  height: 0.6875rem;
+}
+.mari-connection-pill--strong {
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+  color: var(--foreground);
+}
+.mari-connection-pill--blue {
+  background: color-mix(in srgb, #38bdf8 14%, transparent);
+  color: color-mix(in srgb, #3b82f6 80%, var(--foreground) 20%);
+}
+.mari-connection-pill--good {
+  background: color-mix(in srgb, var(--color-emerald-500) 13%, transparent);
+  color: color-mix(in srgb, var(--color-emerald-500) 70%, var(--foreground) 30%);
+}
+.mari-connection-pill--warn {
+  background: color-mix(in srgb, var(--color-amber-500) 14%, transparent);
+  color: color-mix(in srgb, var(--color-amber-500) 72%, var(--foreground) 28%);
+}
+
+/* Filter chip (the catalog's provider filter); selected = a soft blue tint, no outline. */
+/* Connection editor tabs (Model / Generation): one calm segmented control, not separate small pills. */
+.mari-connection-scope .mari-editor-navigation-tabs {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+.mari-connection-scope .mari-editor-navigation-tabs .mari-editor-tab {
+  min-height: 1.875rem;
+  padding-inline: 0.875rem;
+  font-size: 0.8125rem;
+  border-radius: 0.5rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted-foreground);
+}
+.mari-connection-scope .mari-editor-navigation-tabs .mari-editor-tab[data-active="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+@media (pointer: coarse) {
+  .mari-connection-scope .mari-editor-navigation-tabs .mari-editor-tab {
+    min-height: 2.5rem;
+  }
+}
+
+.mari-connection-chip {
+  display: inline-flex;
+  height: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  padding-inline: 0.625rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  transition:
+    background-color 120ms,
+    color 120ms;
+}
+.mari-connection-chip:hover {
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  color: var(--foreground);
+}
+.mari-connection-chip[aria-pressed="true"] {
+  background: var(--mari-connection-tint);
+  color: var(--mari-connection-ink);
+}
+@media (max-width: 47.9375rem), (pointer: coarse) {
+  .mari-connection-chip {
+    height: 2.75rem;
+  }
+}
 .mari-panel-gradient--agents {
   --mari-panel-gradient-start: #a78bfa;
   --mari-panel-gradient-end: #a855f7;
@@ -2836,6 +3128,18 @@ html[data-mari-ios-webkit] .mari-modal .mari-modal-panel {
   background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
 }
 
+/* Opt-in solid window (Connections): the chrome panel colour is translucent, so back it with the app background. */
+.mari-modal--opaque {
+  --mari-modal-opaque-bg: var(--background);
+}
+
+.mari-modal--opaque .mari-modal-panel.marinara-chat-popover:not(.mari-window) {
+  background-color: var(--mari-modal-opaque-bg);
+  background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 /* Full-screen mobile navigation needs no translucent copy of the covered chat. */
 html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-component="ChatSidebarPanel"]) {
   background-color: var(--sidebar) !important;
@@ -3242,8 +3546,8 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   }
 
   .mari-editor-action {
-    min-height: 2rem;
-    min-width: 2rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
     border-radius: 0.625rem;
     padding: 0.375rem;
   }

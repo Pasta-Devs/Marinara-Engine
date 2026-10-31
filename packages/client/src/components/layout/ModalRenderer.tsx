@@ -3,9 +3,10 @@
 // ──────────────────────────────────────────────
 import { lazy, Suspense } from "react";
 import { useUIStore } from "../../stores/ui.store";
+import type { ServiceId } from "../modals/CreateConnectionModal";
+import type { AddFor, ModelsFor } from "../../lib/add-connection";
 import {
   normalizeAvatarCrop,
-  type APIProvider,
   type LorebookCategory,
   type LorebookScope,
   type ScenePromptPreferences,
@@ -38,6 +39,9 @@ const ImportPersonaModal = lazy(() =>
 );
 const CreateConnectionModal = lazy(() =>
   import("../modals/CreateConnectionModal").then((module) => ({ default: module.CreateConnectionModal })),
+);
+const ConnectionAccountEditor = lazy(() =>
+  import("../connections/ConnectionAccountEditor").then((module) => ({ default: module.ConnectionAccountEditor })),
 );
 const ImportConnectionModal = lazy(() =>
   import("../modals/ImportConnectionModal").then((module) => ({ default: module.ImportConnectionModal })),
@@ -155,12 +159,23 @@ export function ModalRenderer() {
         <CreateConnectionModal
           open
           onClose={closeModal}
-          initialProvider={(modal?.props?.provider as APIProvider | undefined) ?? undefined}
+          initialService={(modal?.props?.service ?? modal?.props?.provider) as ServiceId | undefined}
+          modelsFor={modal?.props?.modelsFor as ModelsFor | undefined}
+          forJob={modal?.props?.forJob as AddFor | undefined}
         />
       );
       break;
     case "import-connection":
       content = <ImportConnectionModal open onClose={closeModal} />;
+      break;
+    case "connection-account":
+      content = (
+        <ConnectionAccountEditor
+          accountId={(modal?.props?.accountId as string) ?? ""}
+          replaceKey={modal?.props?.replaceKey === true}
+          onClose={closeModal}
+        />
+      );
       break;
     case "create-persona":
       content = (

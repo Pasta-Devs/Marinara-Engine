@@ -130,7 +130,7 @@ The **Message Tools** section is at **Settings** > **Advanced** > **Message Tool
 | **Show characters in Persona pickers** | Lists your characters in the persona pickers, so you can play as one of them. | [Personas](../characters/personas.md) |
 | **Show model name on messages** | Shows which AI model wrote each reply. | [Message Actions](../chats/messages.md) |
 | **Show token usage on messages** | Shows prompt and completion token counts per message. | [Message Actions](../chats/messages.md) |
-| **Show context usage** | Shows how full the model's context was on the last measured request, in the connection switchers and Game chat settings. | [Organizing Connections](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
+| **Show context usage** | Shows how full the model's context was on the last measured request, in the connection switchers and Game chat settings. | [Choosing a model for one chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat) |
 | **Show message numbers** | Shows a number on each message in the chat. | [Message Actions](../chats/messages.md) |
 | **Show "older messages not sent" note** | Shows a note under the newest reply when older messages did not fit the prompt. Turn it off to hide that note in long chats. A cut-off or empty reply still shows its own note. | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | Uses your current draft as direction when you regenerate. | [Guided Generation and Impersonate](../chats/guided-and-impersonate.md) |

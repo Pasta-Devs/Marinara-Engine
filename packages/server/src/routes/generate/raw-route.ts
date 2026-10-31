@@ -27,6 +27,12 @@ import {
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
 import { resolveMemoryRecallEmbeddingSource } from "../../services/memory-recall-embedding.js";
+import {
+  resolveVisionCaptioningRuntime,
+  withImageCaptionFallback,
+} from "../../services/generation/image-captioning-runtime.js";
+import { visionCaptionSettings } from "../../services/generation/job-fallback.js";
+import { readFeatureModelConnections } from "../../services/storage/feature-model-connections.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logDebugOverride, logger } from "../../lib/logger.js";
 import { sendSseEvent, startSseKeepalive, startSseReply } from "./sse.js";
@@ -251,14 +257,23 @@ export async function registerRawRoute(app: FastifyInstance) {
             conn.defaultParameters,
           );
     const fallbackConnection = await connections.getFallbackForMain();
-    const provider = withConnectionFallbackProvider({
-      primary: primaryProvider,
-      primaryConnectionId: body.connectionId,
-      fallbackConnection,
-      fallbackBaseUrl: fallbackConnection ? resolveBaseUrl(fallbackConnection) : "",
-      category: "main",
-      onFallback: createReplyFallbackNotifier(reply),
-    });
+    const provider = withImageCaptionFallback(
+      withConnectionFallbackProvider({
+        primary: primaryProvider,
+        primaryConnectionId: body.connectionId,
+        fallbackConnection,
+        fallbackBaseUrl: fallbackConnection ? resolveBaseUrl(fallbackConnection) : "",
+        category: "main",
+        onFallback: createReplyFallbackNotifier(reply),
+      }),
+      async () =>
+        resolveVisionCaptioningRuntime({
+          chatMeta: {},
+          fallbackConnectionId: body.connectionId,
+          connections,
+          ...visionCaptionSettings(await readFeatureModelConnections(app.db)),
+        }),
+    );
 
     const normalizedMessages: ChatMLMessage[] = body.messages.map((message) => ({
       role: message.role,

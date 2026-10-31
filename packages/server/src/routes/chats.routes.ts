@@ -69,6 +69,15 @@ import {
   agentLorebookAttachmentPatchesSchema,
   mergeAgentLorebookAttachments,
   DEFAULT_GENERATION_PARAMS,
+  CHAT_MODEL_OVERRIDE_KEY,
+  CHAT_RECENT_MODELS_KEY,
+  CHAT_RECENT_MODELS_LIMIT,
+  CHAT_FOLLOWS_MAIN_KEY,
+  LOCAL_SIDECAR_CONNECTION_ID,
+  chatModelChoiceSchema,
+  chatModelPickSchema,
+  isChatProvider,
+  type ChatModelChoice,
   isStockMarinaraUniversalPreset,
   omitChatMetadataLocalDestinations,
   rulesetAllowsCombatStyle,
@@ -112,6 +121,8 @@ import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { withAvatarFileLifecycleLock } from "../services/image/avatar-file-lifecycle.js";
 import { isFeatureEnabled } from "../services/features/feature-settings.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createConnectionAccountsStorage, pickLimits } from "../services/storage/connection-accounts.storage.js";
+import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import {
@@ -1419,13 +1430,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
     }
     const body = req.body as Record<string, unknown>;
-    // No connection picked (no starred preset): seed the user's default so the
-    // setup wizard shows what generation would fall back to anyway.
-    if (!input.connectionId) {
-      const defaultConnectionId = (await createConnectionsStorage(app.db).getDefault())?.id;
-      if (defaultConnectionId) input.connectionId = defaultConnectionId;
-    }
-    const chat = await storage.create(
+    let chat = await storage.create(
       input,
       normalizeTimestampOverrides({
         createdAt: body.createdAt,
@@ -1433,6 +1438,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       }),
     );
     if (!chat) return chat;
+    // No Model picked: the chat follows Main. Without this flag generation treats the empty id as a deleted Model.
+    if (!input.connectionId) {
+      await storage.patchMetadata(chat.id, { [CHAT_FOLLOWS_MAIN_KEY]: true });
+      chat = (await storage.getById(chat.id)) ?? chat;
+    }
 
     try {
       await seedNewRoleplayChatTrackerDefaults(app, chat, input.characterIds);
@@ -1610,6 +1620,10 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
     }
     let updated = await storage.update(req.params.id, data);
+    // Setting the Model this way picks the saved Model itself, so a per-chat catalog pick on it ends.
+    if (updated && data.connectionId !== undefined && readChatModelOverride(existing)) {
+      updated = (await storage.patchMetadata(req.params.id, { [CHAT_MODEL_OVERRIDE_KEY]: null })) ?? updated;
+    }
     if (updated && roleplayTrackerCharacterIdsToSeed.length > 0) {
       try {
         await seedNewRoleplayChatTrackerDefaults(app, updated, roleplayTrackerCharacterIdsToSeed);
@@ -1684,6 +1698,78 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
     }
     return updated ? normalizeChatForResponse(updated) : updated;
+  });
+
+  // The quick switch and Chat Settings pick (decision 26): it applies to this chat only. A catalog model is stored
+  // as an override on one of the Connection's Models (its key and endpoint); a model the library already holds
+  // points the chat at that saved Model instead. The previous choices are kept for "Recent" and Undo.
+  app.put<{ Params: { id: string } }>("/:id/model", async (req, reply) => {
+    const pick = chatModelPickSchema.parse(req.body);
+    const existing = await storage.getById(req.params.id);
+    if (!existing || isHomeProfessorMariChat(existing)) return reply.status(404).send({ error: "Chat not found" });
+    // "Use default" (decision 27): no Model of its own, so the chat answers through Main (as an unset chat did).
+    let choice: ChatModelChoice | null = pick.connectionId === null ? null : (pick as ChatModelChoice);
+    const special =
+      !!choice && (choice.connectionId === "random" || choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID);
+    const row = special || !choice ? null : await createConnectionsStorage(app.db).getById(choice.connectionId);
+    if (choice && !special && !row) return reply.status(404).send({ error: "Model not found" });
+    if (row ? !isChatProvider(row.provider) : choice?.model) {
+      return reply.status(400).send({ error: "A chat needs a chat Model to run on." });
+    }
+    if (choice?.model && row) {
+      if (row.model === choice.model) choice = { connectionId: row.id };
+      else if (row.accountId) {
+        const found = await createConnectionAccountsStorage(app.db).findChatModel(row.accountId, choice.model);
+        if (typeof found === "object") {
+          choice = found.existing
+            ? { connectionId: found.existing.id }
+            : {
+                connectionId: row.id,
+                model: choice.model,
+                ...((choice.name ?? found.catalog.name) ? { name: choice.name ?? found.catalog.name } : {}),
+                ...pickLimits(choice, found.catalog),
+              };
+        }
+      }
+    }
+
+    const sameChoice = (a: ChatModelChoice, b: ChatModelChoice) =>
+      a.connectionId === b.connectionId && (a.model ?? "") === (b.model ?? "");
+    // One queue per chat holds the Model and the override together, so two quick picks cannot mix.
+    const updated = await withChatMetadataPatchQueue(req.params.id, async () => {
+      const latest = await storage.getById(req.params.id);
+      if (!latest) return null;
+      const previous: ChatModelChoice | null =
+        latest.connectionId && latest.connectionId !== "random"
+          ? (readChatModelOverride(latest) ?? { connectionId: latest.connectionId })
+          : null;
+      await storage.update(req.params.id, { connectionId: choice?.connectionId ?? null });
+      return storage.patchMetadata(
+        req.params.id,
+        (current) => {
+          const stored = Array.isArray(current[CHAT_RECENT_MODELS_KEY]) ? current[CHAT_RECENT_MODELS_KEY] : [];
+          const recent: ChatModelChoice[] = [];
+          for (const candidate of [previous, ...stored]) {
+            const parsed = chatModelChoiceSchema.safeParse(candidate);
+            if (
+              !parsed.success ||
+              (choice && sameChoice(parsed.data, choice)) ||
+              recent.some((r) => sameChoice(r, parsed.data))
+            ) {
+              continue;
+            }
+            recent.push(parsed.data);
+          }
+          return {
+            [CHAT_MODEL_OVERRIDE_KEY]: choice?.model ? choice : null,
+            [CHAT_RECENT_MODELS_KEY]: recent.slice(0, CHAT_RECENT_MODELS_LIMIT),
+            [CHAT_FOLLOWS_MAIN_KEY]: !choice,
+          };
+        },
+        { metadataQueueHeld: true },
+      );
+    });
+    return updated ? normalizeChatForResponse(updated) : reply.status(404).send({ error: "Chat not found" });
   });
 
   app.post<{ Params: { id: string } }>("/:id/touch", async (req, reply) => {
@@ -3881,9 +3967,10 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           const chatChoices = (chatMeta.presetChoices ?? {}) as Record<string, string | string[]>;
           const connections = createConnectionsStorage(app.db);
-          const connection = chat.connectionId
+          const stored = chat.connectionId
             ? await connections.getById(chat.connectionId)
             : await connections.getDefault();
+          const connection = stored ? applyChatModelOverride(stored, readChatModelOverride(chat)) : null;
           // Generation counts the preset's level only where the preset assembles the prompt.
           const chatMacroVariables = normalizeChatMacroVariables(chatMeta.macroVariables);
           const promptReasoning = connection

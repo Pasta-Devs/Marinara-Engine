@@ -59,6 +59,43 @@ export function defaultDecisionStateTokens(source: string | null | undefined): n
 export const AUDIO_GENERATION_SOURCES = ["openai", "elevenlabs", "pockettts", "xai"] as const;
 export type AudioGenerationSource = (typeof AUDIO_GENERATION_SOURCES)[number];
 
+/** Each audio source's name and the base URL / model / voice a new audio connection starts with. */
+export const AUDIO_SOURCE_OPTIONS: Array<{
+  id: AudioGenerationSource;
+  name: string;
+  defaultBaseUrl: string;
+  defaultModel: string;
+  defaultVoice: string;
+}> = [
+  {
+    id: "elevenlabs",
+    name: "ElevenLabs",
+    defaultBaseUrl: "https://api.elevenlabs.io",
+    defaultModel: "eleven_multilingual_v2",
+    defaultVoice: "",
+  },
+  {
+    id: "openai",
+    name: "OpenAI-compatible",
+    defaultBaseUrl: "https://api.openai.com/v1",
+    defaultModel: "tts-1",
+    defaultVoice: "alloy",
+  },
+  {
+    id: "pockettts",
+    name: "PocketTTS",
+    defaultBaseUrl: "http://localhost:8000",
+    defaultModel: "pocket-tts",
+    defaultVoice: "alba",
+  },
+  {
+    id: "xai",
+    name: "xAI Voice",
+    defaultBaseUrl: "https://api.x.ai/v1",
+    defaultModel: "grok-tts",
+    defaultVoice: "eve",
+  },
+];
 /** Music and sound effects are independent of the character's speech connection. */
 export const GENERATIVE_AUDIO_SOURCES = ["elevenlabs", "sunoapi", "custom"] as const;
 export type GenerativeAudioSource = (typeof GENERATIVE_AUDIO_SOURCES)[number];
@@ -119,6 +156,25 @@ export function parsePinnedModels(value: unknown): string[] {
     .map((id) => id.trim())
     .filter((id) => id && id.length <= MAX_MODEL_ID_LENGTH);
   return [...new Set(ids)].slice(0, MAX_PINNED_MODELS);
+}
+
+/**
+ * Search rank of a model (decision 27): 0 starred, 1 saved, 2 the query starts the id, the name or one of their
+ * words ("sonnet" in "anthropic/claude-sonnet-4"), 3 the query is anywhere in them. -1: no match. Lower first.
+ */
+export function rankModelMatch(
+  query: string,
+  model: { id: string; name?: string | null },
+  flags: { starred?: boolean; saved?: boolean } = {},
+): number {
+  const q = query.trim().toLowerCase();
+  const id = model.id.toLowerCase();
+  const name = (model.name ?? "").toLowerCase();
+  if (q && !id.includes(q) && !name.includes(q)) return -1;
+  if (flags.starred) return 0;
+  if (flags.saved) return 1;
+  const words = [id, id.slice(id.lastIndexOf("/") + 1), name, ...`${id} ${name}`.split(/[\s/:._-]+/u)];
+  return !q || words.some((word) => word.startsWith(q)) ? 2 : 3;
 }
 
 /** An API connection configuration. */
@@ -191,9 +247,13 @@ export interface APIConnection {
   /** System One backend; absent on older connections. */
   decisionSource?: DecisionSource | null;
   credentialsFromConnectionId?: string | null;
+  /** Connection (account) this Model belongs to; null = standalone. */
+  accountId?: string | null;
   maxStateTokens?: number | null;
   /** How long a Decision connection may take to answer, in milliseconds; null is the default. */
   decisionTimeoutMs?: number | null;
+  /** Whether this chat Model reads images; null (Automatic) lets its catalog decide. */
+  imageInput?: "reads" | "text" | null;
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: string | null;
   /** How long a speech request on this audio connection may take, in milliseconds; null is the default. */
@@ -237,6 +297,8 @@ export interface ConnectionFolder {
   id: string;
   name: string;
   color: string;
+  /** A lucide icon name; null shows the plain folder icon. */
+  icon?: string | null;
   sortOrder: number;
   collapsed: boolean;
   createdAt: string;
@@ -260,6 +322,25 @@ export interface ModelCapabilities {
   reasoning: boolean;
 }
 
+/** A provider's HTTP 401/403 refusal, independent of its human-readable message. */
+export type ConnectionTestAuthErrorCode = "AUTH_REJECTED";
+
+export type ConnectionTestErrorCode =
+  | ConnectionTestAuthErrorCode
+  | "invalid_source"
+  | "invalid_url"
+  | "needs_relinking"
+  | "missing_key"
+  | "missing_model"
+  | "no_answer"
+  | "timeout"
+  | "cancelled"
+  | "network"
+  | "invalid_response"
+  | "partial_response"
+  | "private_address"
+  | `http_${number}`;
+
 /** Test result for a connection. */
 export interface ConnectionTestResult {
   success: boolean;
@@ -267,7 +348,8 @@ export interface ConnectionTestResult {
   latencyMs: number;
   modelName: string | null;
   decisionProbability?: number;
-  errorCode?: string;
+  /** AUTH_REJECTED for provider HTTP 401/403; Decision tests also return their existing diagnostic codes. */
+  errorCode?: ConnectionTestErrorCode;
   /** A Decision connection's limit during chats, to compare `latencyMs` with. */
   timeLimitMs?: number;
   /** How long this Decision test waited before giving up. */

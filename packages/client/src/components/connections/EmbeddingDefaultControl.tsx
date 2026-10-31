@@ -1,102 +1,46 @@
-import { useState } from "react";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { useDefaultEmbeddingConnection, useSetDefaultEmbeddingConnection } from "../../hooks/use-connections";
-import { createLocalSidecarConnectionOption } from "../../lib/connection-filters";
 import { useSidecarStore } from "../../stores/sidecar.store";
-
-type EmbeddingConnectionRow = {
-  id: string;
-  name: string;
-  embeddingModel?: string | null;
-  embeddingConnectionId?: string | null;
-};
-
-const trimmed = (value: string | null | undefined) => value?.trim() || null;
+import { ConnectionSelect } from "./ConnectionSelect";
 
 /**
- * Connections whose own embedding settings win over the default, so it never reaches them.
- * One that borrows the default connection ends up on the same source and is not counted.
+ * The Embeddings job's Model picker: the embedding source for Models that set none of their own. Offers the
+ * catalog's embedding models and the local sidecar once its model is downloaded.
  */
-function countOwnEmbeddingSettings(connections: EmbeddingConnectionRow[], defaultId: string) {
-  return connections.filter((connection) => {
-    if (connection.id === defaultId) return false;
-    const borrowed = trimmed(connection.embeddingConnectionId);
-    return borrowed ? borrowed !== defaultId : trimmed(connection.embeddingModel) !== null;
-  }).length;
-}
-
-/**
- * Connection defaults > Embeddings: the embedding source for connections that set none of
- * their own. Offers what can embed on its own: connections with an embedding model, and the
- * local sidecar once its model is downloaded.
- */
-export function EmbeddingDefaultControl({ connections }: { connections: EmbeddingConnectionRow[] }) {
+export function EmbeddingDefaultControl({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { t } = useTranslation();
   const current = useDefaultEmbeddingConnection();
   const select = useSetDefaultEmbeddingConnection();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
-  const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
-  const [failed, setFailed] = useState(false);
-
   const selectedId = current.data?.connectionId ?? "";
-  const embedders = connections.filter((connection) => trimmed(connection.embeddingModel));
-  // Kept in the list while selected, so a source that stopped qualifying still shows its name.
-  const selectedRow =
-    selectedId && selectedId !== LOCAL_SIDECAR_CONNECTION_ID && !embedders.some((c) => c.id === selectedId)
-      ? connections.find((connection) => connection.id === selectedId)
-      : undefined;
   const showSidecar =
     import.meta.env.VITE_MARINARA_LITE !== "true" &&
     (sidecarModelDownloaded || selectedId === LOCAL_SIDECAR_CONNECTION_ID);
-  const ownCount = selectedId ? countOwnEmbeddingSettings(connections, selectedId) : 0;
-
-  const change = async (id: string) => {
-    setFailed(false);
-    try {
-      await select.mutateAsync(id || null);
-    } catch {
-      setFailed(true);
-    }
-  };
 
   return (
-    <div className="space-y-2 py-3">
-      <label htmlFor="embedding-default" className="block text-xs font-medium">
-        {t("connections.embeddingDefault.label")}
-      </label>
-      <select
-        id="embedding-default"
-        value={selectedId}
-        disabled={select.isPending || current.isPending}
-        onChange={(event) => void change(event.target.value)}
-        className="w-full min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
-      >
-        <option value="">{t("connections.embeddingDefault.none")}</option>
-        {showSidecar && (
-          <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-            {createLocalSidecarConnectionOption(sidecarModelDisplayName).name}
-          </option>
-        )}
-        {selectedRow && <option value={selectedRow.id}>{selectedRow.name}</option>}
-        {embedders.map((connection) => (
-          <option key={connection.id} value={connection.id}>
-            {connection.name} ({trimmed(connection.embeddingModel)})
-          </option>
-        ))}
-      </select>
-      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.embeddingDefault.help")}</p>
-      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.embeddingDefault.revectorize")}</p>
-      {ownCount > 0 && (
-        <p className="text-xs text-[var(--muted-foreground)]">
-          {t("connections.embeddingDefault.ownSettings", { count: ownCount })}
-        </p>
-      )}
-      {failed && (
-        <p role="status" className="text-xs">
-          {t("connections.embeddingDefault.saveFailed")}
-        </p>
-      )}
-    </div>
+    <ConnectionSelect
+      variant="controlled"
+      open={open}
+      onOpenChange={onOpenChange}
+      job={t("connections.picker.job.embeddings")}
+      kind="chat"
+      embedding
+      value={selectedId || null}
+      onChange={(id) =>
+        void select.mutateAsync(id ?? null).catch(() => toast.error(t("connections.embeddingDefault.saveFailed")))
+      }
+      defaultLabel={t("connections.embeddingDefault.none")}
+      includeLocalSidecar={showSidecar}
+      disabled={select.isPending || current.isPending}
+      aria-label={t("connections.embeddingDefault.label")}
+    />
   );
 }

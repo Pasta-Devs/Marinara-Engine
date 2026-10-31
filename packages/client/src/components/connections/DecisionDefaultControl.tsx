@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Download } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { DecisionLocalSlot, DecisionModelOption, DecisionThinkingMode } from "@marinara-engine/shared";
@@ -18,7 +18,9 @@ import {
 } from "../../hooks/use-decision-model";
 import { useTestConnection } from "../../hooks/use-connections";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
+import { openAddConnection } from "../../lib/add-connection";
 import { useUIStore } from "../../stores/ui.store";
+import { ConnectionSelect } from "./ConnectionSelect";
 
 /** Why an entry cannot serve, in the user's language, with the detail the server gave. */
 function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {
@@ -58,7 +60,16 @@ export function decisionModelOption(t: TFunction, entry: DecisionModelOption) {
  * who read that activation questions work with their own local model needs to see why
  * the entry is not selectable, not to wonder where it went.
  */
-export function DecisionDefaultControl() {
+/** `settings` = the rest of the Decision job (test, thinking, order); without it, only the Model picker. */
+export function DecisionDefaultControl({
+  open = false,
+  onOpenChange,
+  settings = false,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  settings?: boolean;
+}) {
   const { t } = useTranslation();
   const options = useDecisionOptions();
   const select = useSelectDecisionModel();
@@ -94,7 +105,7 @@ export function DecisionDefaultControl() {
   const entries = options.data?.options ?? [];
   const selected = entries.find((entry) => entry.selected) ?? null;
   const locals = entries.filter((entry) => entry.group === "local");
-  const connections = entries.filter((entry) => entry.group === "connection");
+  const needsBuiltIn = entries.some((entry) => entry.slot === "primary" && entry.unavailable === "no_model");
   const busy = select.isPending || testSlot.isPending || testConnection.isPending;
 
   const reasonFor = (entry: DecisionModelOption) => decisionUnavailableReason(t, entry);
@@ -147,41 +158,53 @@ export function DecisionDefaultControl() {
     });
   };
 
-  const option = (entry: DecisionModelOption) => decisionModelOption(t, entry);
-
+  if (!settings) {
+    return (
+      <ConnectionSelect
+        variant="controlled"
+        open={open}
+        onOpenChange={onOpenChange}
+        job={t("connections.picker.job.decision")}
+        kind="decision"
+        value={selected?.id ?? null}
+        onChange={(id) => void change(id ?? "")}
+        defaultLabel={t("connections.decision.none")}
+        extraOptions={locals
+          .filter((entry) => !entry.unavailable)
+          .map((entry) => ({ value: entry.id, label: entry.label }))}
+        disabled={busy || options.isPending}
+        title={t("connections.decision.defaultLabel")}
+      />
+    );
+  }
   return (
     <div className="space-y-2 py-3">
-      <label htmlFor="decision-default" className="block text-xs font-medium">
-        {t("connections.decision.defaultLabel")}
-      </label>
       <div className="flex gap-2">
-        <select
-          id="decision-default"
-          value={selected?.id ?? ""}
-          disabled={busy || options.isPending}
-          onChange={(event) => void change(event.target.value)}
-          className="min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
-        >
-          <option value="">{t("connections.decision.none")}</option>
-          <optgroup label={t("connections.decision.localGroup")}>{locals.map(option)}</optgroup>
-          {connections.length > 0 && (
-            <optgroup label={t("connections.decision.connectionGroup")}>{connections.map(option)}</optgroup>
-          )}
-        </select>
+        {selected?.slot && (
+          <button
+            type="button"
+            disabled={!selected || busy}
+            onClick={runTest}
+            className="rounded-lg px-3 py-2 text-xs ring-1 ring-[var(--border)] disabled:opacity-50"
+          >
+            {t(
+              testSlot.isPending || testConnection.isPending
+                ? "connections.decision.testing"
+                : "connections.decision.test",
+            )}
+          </button>
+        )}
+      </div>
+      {needsBuiltIn && (
         <button
           type="button"
-          disabled={!selected || busy}
-          onClick={runTest}
-          className="rounded-lg px-3 py-2 text-xs ring-1 ring-[var(--border)] disabled:opacity-50"
+          onClick={() => openAddConnection({ category: "device", item: "local-model" })}
+          className="mari-chrome-control self-start"
         >
-          {t(
-            testSlot.isPending || testConnection.isPending
-              ? "connections.decision.testing"
-              : "connections.decision.test",
-          )}
+          <Download size="0.75rem" aria-hidden />
+          {t("connections.builtin.setUp")}
         </button>
-      </div>
-      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.decision.defaultHelp")}</p>
+      )}
 
       {/* Only with a model chosen: with None there is nothing to ask, and the chat
           model already picks who speaks. */}
@@ -198,12 +221,7 @@ export function DecisionDefaultControl() {
             }}
             className="mt-0.5 accent-[var(--primary)]"
           />
-          <span>
-            {t("connections.decision.smartOrder")}
-            <span className="mt-0.5 block text-[0.625rem] text-[var(--muted-foreground)]">
-              {t("connections.decision.smartOrderHelp")}
-            </span>
-          </span>
+          <span>{t("connections.decision.smartOrder")}</span>
         </label>
       )}
 
@@ -227,9 +245,6 @@ export function DecisionDefaultControl() {
             }}
             className="w-24 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-sm ring-1 ring-[var(--border)]"
           />
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {t("connections.decision.questionLimitHelp", { defaultLimit: questionLimit.data?.defaultLimit ?? 32 })}
-          </p>
         </div>
       )}
 
@@ -316,7 +331,6 @@ function LocalSlotControls({
           </option>
         ))}
       </select>
-      <p className="text-[0.625rem] text-[var(--muted-foreground)]">{t("connections.decision.thinkingHelp")}</p>
 
       {entry.answerStyle !== "unknown" && (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">

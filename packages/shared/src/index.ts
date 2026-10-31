@@ -20,6 +20,7 @@ export * from "./types/character-catalog.js";
 export * from "./types/lorebook.js";
 export * from "./types/prompt.js";
 export * from "./types/connection.js";
+export * from "./types/connection-picker.js";
 export * from "./utils/openai-image.js";
 export * from "./types/agent.js";
 export * from "./types/game-state.js";
@@ -65,6 +66,7 @@ export * from "./schemas/persona.schema.js";
 export * from "./schemas/lorebook.schema.js";
 export * from "./schemas/prompt.schema.js";
 export * from "./schemas/connection.schema.js";
+export * from "./schemas/connection-account.schema.js";
 export * from "./schemas/agent.schema.js";
 export * from "./schemas/custom-tool.schema.js";
 export * from "./schemas/regex.schema.js";
@@ -131,6 +133,7 @@ export * from "./constants/providers.js";
 export * from "./constants/defaults.js";
 export * from "./constants/chat-mode-agent-policy.js";
 export * from "./constants/model-lists.js"; // also exports IMAGE_GENERATION_SOURCES
+export * from "./constants/connection-balance.js";
 export * from "./constants/generation-parameter-relevance.js";
 export * from "./constants/agent-prompts.js";
 export * from "./constants/agent-activation.js";
@@ -154,6 +157,7 @@ export * from "./constants/stat-icons.js";
 export * from "./constants/docs-languages.js";
 export * from "./constants/mari-permissions-mode.js";
 export * from "./constants/mari-runtime.js";
+export * from "./constants/feature-model-connections.js";
 export * from "./constants/settings-registry.js";
 
 // Feature registries

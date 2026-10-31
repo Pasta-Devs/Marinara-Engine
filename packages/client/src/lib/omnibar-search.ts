@@ -1,3 +1,4 @@
+import type { AddJob } from "./add-connection";
 import {
   normalizeProfessorMariNavigationQuery,
   type ProfessorMariBrowserTab,
@@ -33,6 +34,8 @@ export type OmnibarCategory =
  */
 export type OmnibarAction =
   | { kind: "open-mari-chat"; chatId: string }
+  /** The Add window, filtered to a job; Done sets the new Model for it. */
+  | { kind: "add-connection"; job: AddJob }
   | { kind: "slash"; command: string }
   | { kind: "goto-message"; chatId: string; messageNumber: number }
   | { kind: "detach-from-chat"; resource: ChatResourceDragKind; resourceId: string; label: string }

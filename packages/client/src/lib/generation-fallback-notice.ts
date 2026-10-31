@@ -1,5 +1,7 @@
 import { toast } from "sonner";
+import type { GenerationFallbackUnavailableReason } from "@marinara-engine/shared";
 import { translate } from "../localization/i18n";
+import { useUIStore } from "../stores/ui.store";
 
 export const GENERATION_FALLBACK_HEADER = "X-Marinara-Fallback-Used";
 
@@ -8,6 +10,10 @@ type GenerationFallbackNotice = {
   connectionName?: unknown;
   connectionId?: unknown;
   model?: unknown;
+  reason?: unknown;
+  unavailableConnectionId?: unknown;
+  unavailableName?: unknown;
+  unavailableAccountId?: unknown;
   failed?: unknown;
 };
 
@@ -19,8 +25,22 @@ type FailedConnection = {
   status?: unknown;
 };
 
+const UNAVAILABLE_REASONS = new Set<GenerationFallbackUnavailableReason>(["off", "needs_key", "review", "deleted"]);
+
 function readNoticeText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/** "Fix" opens where the reason is fixed: the Connection (on/off, key, review), else the Model, else the panel. */
+function openFix(
+  reason: GenerationFallbackUnavailableReason | null,
+  accountId: string | null,
+  connectionId: string | null,
+): void {
+  const ui = useUIStore.getState();
+  if (reason && reason !== "deleted" && accountId) ui.openModal("connection-account", { accountId });
+  else if (reason && reason !== "deleted" && connectionId) ui.openConnectionDetail(connectionId);
+  else ui.openRightPanel("connections");
 }
 
 function readNotice<T>(raw: unknown): T | null {
@@ -50,6 +70,8 @@ function categoryLabel(category: unknown): string {
       return translate("generation.fallback.category.illustrator");
     case "video":
       return translate("generation.fallback.category.video");
+    case "feature":
+      return translate("generation.fallback.category.feature");
     default:
       return translate("generation.fallback.category.main");
   }
@@ -101,17 +123,34 @@ export function describeGenerationFallback(raw: unknown): string | null {
 export function showGenerationFallbackToast(raw: unknown): void {
   const notice = readNotice<GenerationFallbackNotice>(raw) ?? {};
   // The toast comes before the fallback has answered, so it says only what failed; the title names the switch.
+  const unavailable = UNAVAILABLE_REASONS.has(notice.reason as GenerationFallbackUnavailableReason)
+    ? (notice.reason as GenerationFallbackUnavailableReason)
+    : null;
   const parts = failedParts(notice);
+  const description = unavailable
+    ? translate(`generation.fallback.reason.${unavailable}`, {
+        model: readNoticeText(notice.unavailableName) ?? translate("generation.fallback.thisModel"),
+      })
+    : parts
+      ? translate("generation.fallback.failed", parts)
+      : translate("generation.fallback.reason.failed");
   toast.info(
     translate("generation.fallback.switched", {
       category: categoryLabel(notice.category),
       connection: fallbackLabel(notice),
     }),
     {
-      description: parts
-        ? translate("generation.fallback.failed", parts)
-        : translate("generation.fallback.description"),
+      description,
       duration: 10_000,
+      action: {
+        label: translate("generation.fallback.fix"),
+        onClick: () =>
+          openFix(
+            unavailable,
+            readNoticeText(notice.unavailableAccountId),
+            readNoticeText(notice.unavailableConnectionId),
+          ),
+      },
     },
   );
 }

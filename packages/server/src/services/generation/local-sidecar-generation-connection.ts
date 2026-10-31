@@ -46,7 +46,7 @@ export function createLocalSidecarGenerationConnection(): LocalSidecarGeneration
   const config = sidecarModelService.getConfig();
   return {
     id: LOCAL_SIDECAR_CONNECTION_ID,
-    name: "Local Model (sidecar)",
+    name: "Built-in model",
     provider: "local_sidecar",
     baseUrl: "local-sidecar://runtime",
     apiKey: "",
