@@ -232,7 +232,13 @@ try {
     const untouched = (
       await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, preserved.id))
     )[0];
-    assert.deepEqual(untouched, { ...preserved, embedding: null, embeddingSpaceId: null, summaryWork: null });
+    assert.deepEqual(untouched, {
+      ...preserved,
+      embedding: null,
+      embeddingSpaceId: null,
+      summaryWork: null,
+      structuredMemory: null,
+    });
     await memory.initialize(chat.id, { sceneId });
     assert.equal(summaryRequests.length, afterFailure + 1, "a repeated recovery is free");
     await memory.deleteRecord(chat.id, recap.id);

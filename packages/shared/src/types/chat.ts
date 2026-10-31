@@ -1047,11 +1047,17 @@ export interface MessageExtra {
   mariHeldCalls?: unknown;
   /** Slice 70: the quick-reply chips this Mari turn offered (raw; the client sanitizes), so a reload keeps them. */
   mariSuggestions?: unknown;
+  /** The question card this Mari turn ended on (raw; the client sanitizes). */
+  mariQuestions?: unknown;
+  /** Her to-do list as of this Mari reply, saved only when the run called `todo` (raw; `[]` means cleared). */
+  mariTodos?: unknown;
   /**
    * R14: why this Mari turn failed, on the turn's last saved message (her partial reply, or your message
    * when she saved nothing), so a reload still shows it failed. `dismissed` once you close its card.
    */
   mariRunError?: { message: string; dismissed?: boolean } | null;
+  /** Send now reached her after steps but before any words: the text is a placeholder, shown muted. */
+  mariCheckpointFiller?: boolean;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Presentation-only ID-macro card references for merged Roleplay narrator avatars; never chat members. */

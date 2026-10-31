@@ -96,6 +96,10 @@ function manualChunks(id: string) {
   // with every part of a sheet a ruleset can describe.
   if (/\/shared\/(?:dist|src)\/features\/rulesets\/(?:sheet-builder|sheet-math)\.(?:js|ts)$/u.test(id))
     return "ruleset-sheet-rules";
+  // So is the description splitter, whose label vocabulary is large and only needed on import and in the
+  // character editor, rather than weight on the game tag parser's chunk.
+  if (/\/shared\/(?:dist|src)\/utils\/character-description-split\.(?:js|ts)$/u.test(id))
+    return "character-description-split";
   // The ruleset sheet grows with every part of a sheet a ruleset can describe, and the art the game draws
   // from board, icon and portrait packs is shared by several screens: each is its own chunk rather than
   // weight on GameSurface's budget.

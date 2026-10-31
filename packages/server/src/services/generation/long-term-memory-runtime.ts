@@ -11,10 +11,18 @@ import { createConnectionsStorage } from "../storage/connections.storage.js";
 
 const SERVICE_KEY = "long-term-memory:runtime";
 const MAX_RECALL_CHARACTERS = 100_000;
+// ponytail: a fixed cap keeps a long package instruction from crowding out the scene; size it from the summary
+// request's input budget if packages need more.
+const MAX_SUMMARY_INSTRUCTION_CHARACTERS = 4_000;
 
 export type LongTermMemoryRecallReceipt = unknown;
 
 export interface LongTermMemoryRuntimeService {
+  /**
+   * Optional (Capability API 1.391). One paragraph the Engine appends to Advanced Memory's scene summary request;
+   * the reply's "memory" string is stored untouched. No method or `null` leaves the request unchanged.
+   */
+  summaryMemoryInstruction?(): string | null;
   /** Optional for older packages. The package owns freshness checks, locking and rebuilding. */
   refresh?(input: { signal: AbortSignal }): Promise<{ status: "refreshed" | "deferred" }>;
   recall(input: {
@@ -39,6 +47,17 @@ function runtimeService() {
 /** A chat can still list the package after it is uninstalled; built-in recall then stays in charge. */
 export function longTermMemoryRuntimeAvailable(): boolean {
   return runtimeService() !== null;
+}
+
+/** The package's instruction for Advanced Memory's scene summary block, or null when it offers none. */
+export function longTermMemorySummaryInstruction(): string | null {
+  try {
+    const text = runtimeService()?.summaryMemoryInstruction?.();
+    return typeof text === "string" && text.trim() ? text.trim().slice(0, MAX_SUMMARY_INSTRUCTION_CHARACTERS) : null;
+  } catch (error) {
+    logger.warn(error, "Long-term memory summary instruction failed; Advanced Memory summarizes without it");
+    return null;
+  }
 }
 
 async function embeddingConfiguration(db: DB): Promise<string | null> {

@@ -60,12 +60,12 @@ assert.equal(
 );
 assert.doesNotMatch(mariChatAll, /mari-workspace-focusbar/u, "The omnibar must not mount a second Mari header");
 assert.doesNotMatch(mariChatAll, /OmnibarIntro/u, "The empty omnibar must not mount the long first-open intro");
-// Like other agents, the composer's Send button turns into Stop while Mari works, and it is the one Stop
-// control: the header and the live work line no longer carry their own.
+// While Mari works the composer stays open for a message to queue, so a labelled Stop sits beside Send. It is the
+// one Stop control: the header and the live work line no longer carry their own.
 assert.match(
   mariComposerSource,
-  /data-mode=\{workspaceTimelineActive \? "stop" : "send"\}[\s\S]{0,900}stopProfessorMariWorkspaceAgent/u,
-  "The composer's Send button must turn into a labelled Stop while Mari works",
+  /\{workspaceTimelineActive \? \([\s\S]{0,300}stopProfessorMariWorkspaceAgent[\s\S]{0,700}type="submit"/u,
+  "The composer must show a labelled Stop beside Send while Mari works",
 );
 assert.doesNotMatch(mariChatAll, /mari-omnibar-header-stop|mari-live-work__stop/u, "Stop lives only in the composer");
 assert.match(

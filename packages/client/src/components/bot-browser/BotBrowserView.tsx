@@ -32,7 +32,15 @@ import {
   Unplug,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { unassignCardFieldAlternatives } from "@marinara-engine/shared";
+import {
+  DESCRIPTION_SPLIT_VERSION,
+  splitCharacterDescription,
+  unassignCardFieldAlternatives,
+  type DescriptionSplitResult,
+} from "@marinara-engine/shared";
+import { HelpTooltip } from "../ui/HelpTooltip";
+import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
+import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api } from "../../lib/api-client";
@@ -303,6 +311,9 @@ function readCardTags(value: unknown): string[] {
       .filter(Boolean);
   return [];
 }
+
+/** A finished import's split outcome; the character is set when Professor Mari can be asked to sort it. */
+type ImportSplitSummary = { result: DescriptionSplitResult; character?: { id: string; name: string } };
 
 function optionalString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -1693,6 +1704,10 @@ export function BotBrowserView() {
   const [importing, setImporting] = useState(false);
   const [pendingImport, setPendingImport] = useState<PendingBrowserCardImport | null>(null);
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
+  const [splitDescription, setSplitDescription] = useState(false);
+  // Kept after closing so the summary dialog does not empty out while it fades.
+  const [splitSummary, setSplitSummary] = useState<ImportSplitSummary | null>(null);
+  const [splitSummaryOpen, setSplitSummaryOpen] = useState(false);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
   const resultsScrollTopRef = useRef(0);
   const restoreResultsScrollRef = useRef(false);
@@ -2027,6 +2042,12 @@ export function BotBrowserView() {
     return { card, payload, embeddedLorebook: cardDetail?.embeddedLorebook };
   };
 
+  // The same summary dialog as the editor's split button, shown once the import has finished.
+  const showSplitSummary = (summary: ImportSplitSummary) => {
+    setSplitSummary(summary);
+    setSplitSummaryOpen(true);
+  };
+
   const importPreparedCard = async (
     prepared: PreparedBrowserCardImport,
     target: BrowserCardImportTarget,
@@ -2040,9 +2061,17 @@ export function BotBrowserView() {
           ...prepared.payload,
           importEmbeddedLorebook,
           tagImportMode,
+          splitDescription,
         }),
       });
-      const data = (await response.json()) as { success?: boolean; name?: string; error?: string; lorebook?: unknown };
+      const data = (await response.json()) as {
+        success?: boolean;
+        characterId?: string;
+        name?: string;
+        error?: string;
+        lorebook?: unknown;
+        descriptionSplit?: DescriptionSplitResult;
+      };
       if (!response.ok || !data.success)
         throw new Error(data.error ?? localizeUi("ui.botBrowser.botbrowserview.importFailed"));
 
@@ -2051,12 +2080,23 @@ export function BotBrowserView() {
           value1: data.name ?? prepared.card.name,
         }),
       );
+      if (data.descriptionSplit) {
+        showSplitSummary({
+          result: data.descriptionSplit,
+          character: data.characterId ? { id: data.characterId, name: data.name ?? prepared.card.name } : undefined,
+        });
+      }
       void qc.invalidateQueries({ queryKey: characterKeys.list() });
       if (data.lorebook) void qc.invalidateQueries({ queryKey: lorebookKeys.all });
       return;
     }
 
     const cardData = readCharacterCardData(prepared.payload);
+    // Personas are created from explicit fields, so the split runs here instead of on the server. The
+    // persona is created as it came and the split is saved afterwards as a new persona version. Personas
+    // have no system prompt, so instruction lines stay in the description.
+    const split = splitDescription ? splitCharacterDescription(cardData, { instructions: false }) : null;
+    let summary = split;
     const extensions = optionalRecord(cardData.extensions) ?? {};
     const personaName = optionalString(cardData.name) ?? prepared.card.name;
     const sourceTags = readCardTags(cardData.tags);
@@ -2083,6 +2123,28 @@ export function BotBrowserView() {
     const persona = (await personaResponse.json()) as { id?: string; error?: string };
     if (!personaResponse.ok || !persona.id) {
       throw new Error(persona.error ?? localizeUi("ui.botBrowser.botbrowserview.importFailed"));
+    }
+
+    if (split?.status === "changed") {
+      const { description, personality, scenario, backstory, appearance, mes_example } = split.after;
+      const splitResponse = await fetch(`/api/characters/personas/${persona.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description,
+          personality,
+          scenario,
+          backstory,
+          appearance,
+          mes_example,
+          versionSource: DESCRIPTION_SPLIT_VERSION.source,
+          versionReason: DESCRIPTION_SPLIT_VERSION.reason,
+        }),
+      });
+      if (!splitResponse.ok) {
+        toast.warning(localizeUi("ui.botBrowser.importDialog.personaImportedWithoutSplit"));
+        summary = null;
+      }
     }
 
     const avatarDataUrl = optionalString(prepared.payload._avatarDataUrl);
@@ -2122,6 +2184,8 @@ export function BotBrowserView() {
     }
 
     toast.success(localizeUi("ui.characters.charactereditor.importedValue1AsAPersona", { value1: personaName }));
+    // Professor Mari's split request targets characters, so a persona summary has no Ask Mari button.
+    if (summary) showSplitSummary({ result: summary });
     void qc.invalidateQueries({ queryKey: characterKeys.personas });
   };
 
@@ -2999,6 +3063,22 @@ export function BotBrowserView() {
                     </span>
                   </button>
                 </div>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
+                  <input
+                    type="checkbox"
+                    checked={splitDescription}
+                    onChange={(e) => setSplitDescription(e.target.checked)}
+                    className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+                  />
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--foreground)]">
+                    {localizeUi("ui.botBrowser.importDialog.splitDescriptionIntoFields")}
+                    <HelpTooltip
+                      text={localizeUi("ui.botBrowser.importDialog.splitDescriptionHelp")}
+                      ariaLabel={localizeUi("ui.botBrowser.importDialog.aboutSplitDescription")}
+                      wide
+                    />
+                  </span>
+                </label>
               </>
             ) : !pendingImport.prepared ? (
               <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
@@ -3057,6 +3137,25 @@ export function BotBrowserView() {
           </div>
         )}
       </Modal>
+
+      <DescriptionSplitDialog
+        open={splitSummaryOpen}
+        result={splitSummary?.result ?? null}
+        applied
+        hasUnsavedChanges={false}
+        onAskMari={
+          splitSummary?.character
+            ? () => {
+                setSplitSummaryOpen(false);
+                requestMariDescriptionSplit(
+                  splitSummary.character!,
+                  localizeUi("ui.characters.descriptionsplitdialog.mariDraft", { name: splitSummary.character!.name }),
+                );
+              }
+            : undefined
+        }
+        onClose={() => setSplitSummaryOpen(false)}
+      />
 
       {/* ═══ Login Modal ═══ */}
       {showLoginModal && (

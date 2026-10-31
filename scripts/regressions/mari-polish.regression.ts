@@ -50,6 +50,12 @@ const workspaceAgent =
   readSource("packages/server/src/services/professor-mari/workspace-round-review.ts");
 assert.match(workspaceAgent, /include the confirmatory read in the SAME response whenever you can/u);
 assert.match(workspaceAgent, /never present it with an apology \("Oops", "my bad"\)/u);
+const seasonalFlavors = readSource("packages/server/src/services/professor-mari/workspace-agent.service.ts");
+assert.match(seasonalFlavors, /new Map<string, string>\(\[/u, "dated pack flavors use a Map");
+assert.match(seasonalFlavors, /MARI_SEASON_FLAVORS\.get\(seasonalPackId \?\? ""\)/u);
+assert.match(seasonalFlavors, /\["raccoon", MARI_RACCOON_SEASON_FLAVOR\]/u, "raccoon flavor text remains registered");
+assert.match(seasonalFlavors, /\[\s*"party",\s*`Seasonal flavor:/u);
+assert.match(seasonalFlavors, /\[\s*"hungover",\s*`Seasonal flavor:/u);
 // app_data writes verify themselves via the store read-back (see the
 // mari-write-readback lane); the same-frame read guidance remains for the
 // write/edit/copy/move/bash mutations that have no read-back.
@@ -211,7 +217,7 @@ assert.ok("home.browser.tabMenu" in enJson);
 // Slice 71: the held change is now a "Needs you" card (no chip row, no caption) whose words say
 // plainly that nothing is applied yet, and whose buttons send the same Accept / decline replies.
 assert.ok(
-  mariChatFlat.includes("const heldChangeCard = chipRowAwaitsApproval && !guidedPlanStep;"),
+  mariChatFlat.includes("const heldChangeCard = chipRowAwaitsApproval;"),
   "a held change renders as its card, not as a suggestions row",
 );
 assert.ok(

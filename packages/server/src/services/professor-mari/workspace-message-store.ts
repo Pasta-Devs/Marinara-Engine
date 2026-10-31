@@ -6,7 +6,9 @@ import { MARI_AUTHORIZATION_ACCEPT_CHIP, mergeMariActionResults, PROFESSOR_MARI_
 import type {
   MariComposerReference,
   MariHeldChange,
+  MariQuestion,
   MariSuggestionChip,
+  MariTodoItem,
   MariWorkspaceActionResult,
   MariWorkspaceTraceItem,
   ProfessorMariAskContext,
@@ -65,6 +67,8 @@ export type AssistantRunRecord = {
   trace: MariWorkspaceTraceItem[];
   actionResults: MariWorkspaceActionResult[];
   commandResults: WorkspaceCommandResult[];
+  /** Send now split this run into replies: each row's continuity keeps its own results, or a few would fill the window. */
+  continuityResultsFrom?: number;
   /** #5725 Manual mode: the run ended by deferring mutating commands behind the Accept action. */
   endedWithDeferral: boolean;
   heldChanges: MariHeldChange[];
@@ -72,7 +76,13 @@ export type AssistantRunRecord = {
   heldCalls: WorkspaceCommandCall[];
   runError: { message: string } | null;
   runStartedAt: number;
+  /** Send now reached her after steps but before any words: the text is a placeholder, shown muted. */
+  checkpointFiller?: boolean;
   suggestions: MariSuggestionChip[];
+  /** The question card this run ended on, when it asked one. */
+  questions?: MariQuestion[];
+  /** Her to-do list, saved only when the run called `todo` (`[]` = cleared). */
+  todos?: MariTodoItem[];
   connection: { provider: string; model: string };
   latestUsage: LLMUsage | undefined;
   latestFinishReason: string | null;
@@ -80,6 +90,11 @@ export type AssistantRunRecord = {
   /** Built-in skills the user linked with `@` this turn; they count as handbook reads. */
   linkedHandbookIds?: string[];
 };
+
+function describeQuestion(question: MariQuestion) {
+  const options = question.options.map((option) => option.label + (option.recommended ? " (recommended)" : ""));
+  return `${question.question} Options: ${options.join("; ")}`;
+}
 
 export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<string, unknown> {
   const extraUpdate: Record<string, unknown> = {};
@@ -93,15 +108,26 @@ export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<stri
     extraUpdate.mariWorkspaceActionResults = mergeMariActionResults(run.actionResults);
   }
   if (run.runError) extraUpdate.mariRunError = run.runError;
+  if (run.checkpointFiller) extraUpdate.mariCheckpointFiller = true;
   extraUpdate.mariRunStartedAt = run.runStartedAt;
   extraUpdate.mariRunFinishedAt = Date.now();
-  const savedChips = run.suggestions.filter((chip) => chip.id !== MARI_AUTHORIZATION_ACCEPT_CHIP.id);
+  const questions = run.questions ?? [];
+  // The card replaces chips, including ones an earlier round of this run offered.
+  const savedChips =
+    questions.length > 0 ? [] : run.suggestions.filter((chip) => chip.id !== MARI_AUTHORIZATION_ACCEPT_CHIP.id);
   if (savedChips.length > 0) extraUpdate.mariSuggestions = savedChips;
+  if (questions.length > 0) extraUpdate.mariQuestions = questions;
+  if (run.todos) extraUpdate.mariTodos = run.todos;
   extraUpdate.professorMariContext = run.context ?? null;
   const continuity = buildWorkspaceContinuitySnapshot({
     userText: run.promptText,
-    assistantText: run.assistantText,
-    commandResults: run.commandResults,
+    // History keeps only her words, so the card goes here, first because this text is cut to length: she can still
+    // read a typed "the second one".
+    assistantText:
+      questions.length > 0
+        ? `Asked the user on a question card:\n${questions.map(describeQuestion).join("\n")}\n\n${run.assistantText}`
+        : run.assistantText,
+    commandResults: run.commandResults.slice(run.continuityResultsFrom ?? 0),
   });
   if (continuity) extraUpdate.mariWorkspaceContinuity = continuity;
   // #8391: what this turn did with handbooks, so the next turn knows which ones to keep in context.

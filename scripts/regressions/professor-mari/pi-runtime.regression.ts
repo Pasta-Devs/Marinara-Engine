@@ -199,7 +199,8 @@ try {
       "suggestions",
       offered.find((tool) => tool.function.name === "suggestions")?.function.description ?? "",
     );
-    allowed.set("plan", offered.find((tool) => tool.function.name === "plan")?.function.description ?? "");
+    allowed.set("ask", offered.find((tool) => tool.function.name === "ask")?.function.description ?? "");
+    allowed.set("todo", offered.find((tool) => tool.function.name === "todo")?.function.description ?? "");
     assert.deepEqual(offered.map((tool) => tool.function.name).sort(), [...allowed.keys()].sort());
     for (const tool of offered) assert.equal(tool.function.description, allowed.get(tool.function.name));
     assert.equal(requests[0]!.options.responseFormat, undefined);
@@ -1483,6 +1484,238 @@ try {
     );
     assert.ok(textualSystem.includes(quoted), "the quoted tag in the injection is left whole");
     assert.equal(textualSystem.split("<text_tool_calls>").length, 2, "one text tool block");
+  }
+
+  // `ask` ends the turn and saves its card, on both runtimes.
+  {
+    const askService = makeService(false);
+    const question = {
+      question: "Which tone?",
+      options: [
+        { label: "Dark", recommended: true },
+        { label: "Light", recommended: true },
+      ],
+    };
+    const chip = { label: "More", prompt: "Tell me more." };
+    const asks = (runtime: "pi" | "classic", words: string, calls: Call[] = [], chips = false) =>
+      runtime === "pi"
+        ? reply(words, [
+            { id: "ask-1", name: "ask", args: { questions: [question] } },
+            ...(chips ? [{ id: "ask-chips", name: "suggestions", args: { chips: [chip] } }] : []),
+            ...calls,
+          ])
+        : reply(
+            JSON.stringify({
+              say: words,
+              ask: [question],
+              commands: calls.map((call) => ({ name: call.name, arguments: call.args })),
+              ...(chips ? { suggestions: [chip] } : {}),
+              stop: false,
+            }),
+          );
+    const write = (file: string): Call => ({
+      id: "ask-write",
+      name: "write",
+      args: { path: file, content: "x", reason: "test" },
+    });
+    for (const runtime of ["pi", "classic"] as const) {
+      mode = "auto";
+      // Wordless: the run ends after one request and the saved row carries the question, not the empty fallback.
+      const wordless = await start(`ask wordless ${runtime}`, [asks(runtime, "")], runtime, askService);
+      await wordless.done;
+      assert.equal(requests.length, 1, `${runtime}: a wordless question ends the run`);
+      const wordlessRow = await lastAssistant(wordless.chat.id);
+      assert.equal(wordlessRow?.content, "Which tone?", `${runtime}: a wordless question saves its text`);
+      const saved = wordlessRow?.extra.mariQuestions as Array<{ options: Array<{ recommended?: boolean }> }>;
+      assert.equal(saved.length, 1, `${runtime}: the card is saved on the row`);
+      assert.equal(
+        saved[0]!.options.filter((option) => option.recommended).length,
+        1,
+        "a second recommended is dropped",
+      );
+      assert.match(
+        String(wordlessRow?.extra.mariWorkspaceContinuity),
+        /Asked the user on a question card:\nWhich tone\? Options: Dark \(recommended\); Light/u,
+      );
+
+      // With words, the card wins over chips, and no chips-only repair follows a question.
+      const worded = await start(
+        `ask words ${runtime}`,
+        [asks(runtime, "Before I build: which tone?", [], true)],
+        runtime,
+        askService,
+      );
+      await worded.done;
+      assert.equal(requests.length, 1, `${runtime}: no chips-only round after a card`);
+      const wordedRow = await lastAssistant(worded.chat.id);
+      assert.equal(wordedRow?.content, "Before I build: which tone?");
+      assert.equal(wordedRow?.extra.mariSuggestions, undefined, `${runtime}: the card replaces chips`);
+      assert.ok(!worded.events.some((event) => event.type === "suggestions"), `${runtime}: no chips are shown`);
+
+      // A change beside a question neither runs nor waits behind Accept, in any mode that could hold it.
+      for (const permission of ["auto", "manual"] as const) {
+        mode = permission;
+        const file = `ask-beside-${runtime}-${permission}.txt`;
+        const beside = await start(
+          `ask beside ${runtime}`,
+          [asks(runtime, "Which tone first?", [write(file)])],
+          runtime,
+          askService,
+        );
+        await beside.done;
+        assert.equal(requests.length, 1, `${runtime}/${permission}: the run ends at the question`);
+        assert.equal(existsSync(join(workspaceDir, file)), false, `${runtime}/${permission}: the change did not run`);
+        const row = await lastAssistant(beside.chat.id);
+        assert.equal(row?.extra.mariDeferredMutations, undefined, `${runtime}/${permission}: nothing is held`);
+        assert.equal(row?.extra.mariHeldCalls, undefined);
+        assert.ok(row?.extra.mariQuestions, `${runtime}/${permission}: the card is saved`);
+      }
+      mode = "auto";
+
+      // A read beside a question runs, and the run still ends.
+      const read = await start(
+        `ask read ${runtime}`,
+        [asks(runtime, "Which tone suits this?", [{ id: "ask-ls", name: "ls", args: { path: "." } }])],
+        runtime,
+        askService,
+      );
+      await read.done;
+      assert.equal(requests.length, 1, `${runtime}: a read beside a question ends the run too`);
+      const readRow = await lastAssistant(read.chat.id);
+      assert.ok(readRow?.extra.mariQuestions, `${runtime}: the card survives a read beside it`);
+      assert.ok(
+        (readRow?.extra.mariWorkspaceTimeline as Array<{ type: string }>).some((item) => item.type === "tool"),
+        `${runtime}: the read ran`,
+      );
+
+      // A false claim beside a question is repaired, and the discarded round's card is never saved.
+      const falseClaim = await start(
+        `ask claim ${runtime}`,
+        [
+          asks(runtime, "Done, I created the file and saved it. Which tone?", [write(`ask-claim-${runtime}.txt`)]),
+          reply(
+            runtime === "pi"
+              ? "I have not changed anything."
+              : JSON.stringify({ say: "I have not changed anything.", commands: [], stop: true }),
+          ),
+        ],
+        runtime,
+        askService,
+      );
+      await falseClaim.done;
+      assert.equal(requests.length, 2, `${runtime}: the false claim is repaired`);
+      const claimRow = await lastAssistant(falseClaim.chat.id);
+      assert.equal(claimRow?.content, "I have not changed anything.");
+      assert.equal(claimRow?.extra.mariQuestions, undefined, `${runtime}: the repaired round's card is gone`);
+    }
+
+    // A change beside an invalid card stays back too, on both runtimes.
+    mode = "auto";
+    const badQuestion = { question: "Which one?", options: [{ label: "Only" }] };
+    const badPi = await start(
+      "ask invalid beside pi",
+      [
+        reply("Which one?", [
+          { id: "ask-bad-beside", name: "ask", args: { questions: [badQuestion] } },
+          write("ask-invalid-pi.txt"),
+        ]),
+        reply("The dark one suits this best."),
+      ],
+      "pi",
+      askService,
+    );
+    await badPi.done;
+    // Held back is not failed, so the next turn must not read it as a write that failed.
+    assert.doesNotMatch(
+      String((await lastAssistant(badPi.chat.id))?.extra.mariWorkspaceContinuity),
+      /ask-invalid-pi\.txt/u,
+      "pi: a change held back beside an invalid card is not recorded",
+    );
+    assert.equal(
+      existsSync(join(workspaceDir, "ask-invalid-pi.txt")),
+      false,
+      "pi: nothing runs beside an invalid card",
+    );
+    const badClassic = await start(
+      "ask invalid beside classic",
+      [
+        reply(
+          JSON.stringify({
+            say: "Which one?",
+            ask: [badQuestion],
+            commands: [{ name: "write", arguments: write("ask-invalid-classic.txt").args }],
+            stop: false,
+          }),
+        ),
+        reply(JSON.stringify({ say: "The dark one suits this best.", commands: [], stop: true })),
+      ],
+      "classic",
+      askService,
+    );
+    await badClassic.done;
+    assert.equal(
+      existsSync(join(workspaceDir, "ask-invalid-classic.txt")),
+      false,
+      "classic: nothing runs beside an invalid card",
+    );
+
+    // Chips from an earlier round of the run don't sit beside the card.
+    const chipsThenPi = await start(
+      "ask after chips pi",
+      [
+        reply("Let me look first.", [
+          { id: "chips-ls", name: "ls", args: { path: "." } },
+          { id: "chips-first", name: "suggestions", args: { chips: [chip] } },
+        ]),
+        asks("pi", "Which tone suits this?"),
+      ],
+      "pi",
+      askService,
+    );
+    await chipsThenPi.done;
+    const chipsThenRow = await lastAssistant(chipsThenPi.chat.id);
+    assert.ok(chipsThenRow?.extra.mariQuestions, "the later card is saved");
+    assert.equal(chipsThenRow?.extra.mariSuggestions, undefined, "the earlier chips are not");
+
+    // Classic: a frame with only a card, and no `say` at all, is still a frame.
+    const noSay = await start(
+      "ask no say",
+      [reply(JSON.stringify({ ask: [question], stop: true }))],
+      "classic",
+      askService,
+    );
+    await noSay.done;
+    assert.equal(requests.length, 1, "a card-only frame needs no protocol repair");
+    assert.equal((await lastAssistant(noSay.chat.id))?.extra.mariQuestions !== undefined, true);
+
+    // pi: a card she keeps getting wrong stops after three tries instead of paying for rounds up to the limit.
+    const stuck = () => reply("Which one?", [{ id: "ask-stuck", name: "ask", args: { questions: [badQuestion] } }]);
+    const stuckRun = await start("ask stuck", [stuck(), stuck(), stuck()], "pi", askService);
+    await stuckRun.done;
+    assert.equal(requests.length, 3, "three invalid cards end the run");
+    // Same when the schema rejects the call before the tool runs.
+    const rejected = () => reply("Which one?", [{ id: "ask-rejected", name: "ask", args: {} }]);
+    const rejectedRun = await start("ask rejected", [rejected(), rejected(), rejected()], "pi", askService);
+    await rejectedRun.done;
+    assert.equal(requests.length, 3, "three schema-rejected cards end the run");
+
+    // pi: an invalid `ask` is an error she can fix, not a silent end of the run.
+    mode = "auto";
+    const invalid = await start(
+      "ask invalid",
+      [
+        reply("Which one?", [
+          { id: "ask-bad", name: "ask", args: { questions: [{ question: "Which one?", options: [] }] } },
+        ]),
+        reply("The dark one suits this best."),
+      ],
+      "pi",
+      askService,
+    );
+    await invalid.done;
+    assert.equal(requests.length, 2, "an invalid ask gets another round");
+    assert.match(toolMessages(requests[1]!.messages)[0]?.content ?? "", /No valid questions/u);
+    assert.equal((await lastAssistant(invalid.chat.id))?.extra.mariQuestions, undefined);
   }
 
   console.log("Professor Mari pi runtime regression passed.");

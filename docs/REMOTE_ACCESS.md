@@ -142,6 +142,8 @@ A few flags drop the lockdown for a trusted private network. They are for specia
 
 By default, Marinara trusts a device that connects straight over your Tailscale network. It also trusts a Docker container's own host. A login, an IP allowlist, or `TRUSTED_AUTH_PROXY` stops the automatic Docker trust, so every device then needs its login or its place on the allowlist. For the flags that change this, see [Access Control](CONFIGURATION.md#access-control).
 
+Docker Desktop, OrbStack and rootless Docker show every device that uses a published port at the Docker gateway address. If you publish the port on all interfaces (`-p 7860:7860`) and set no login, anyone on your network gets in. Keep the port on `127.0.0.1` or set a login first. The server log warns about this at startup.
+
 ## Reverse proxies and tunnels on the same computer
 
 A reverse proxy or tunnel on the machine running Marinara, such as nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve or Funnel, or ngrok, connects to Marinara from loopback. Marinara recognizes this from the forwarding headers the proxy adds: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, the Tailscale identity headers, or `Via`. Marinara also recognizes a request that arrives over HTTP/1.0, because browsers never use it but a default nginx `proxy_pass` does. Marinara also recognizes a request whose Host names another computer, such as a domain or a LAN address, even when the proxy adds no headers. It then treats each request as the remote visitor it is:

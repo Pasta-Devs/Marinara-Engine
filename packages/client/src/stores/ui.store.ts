@@ -176,14 +176,15 @@ export function normalizeMariWindowWidthRem(value: unknown): number {
     : MARI_WINDOW_WIDTH_DEFAULT_REM;
 }
 
-/** Companion panel width: never narrower than the phone view, so her tabs fit. */
-export const MARI_COMPANION_WIDTH_MIN_REM = 24;
+/** Companion panel width. The minimum lets her dock at 1440px with both sidebars open; her tabs still fit. */
+export const MARI_COMPANION_WIDTH_MIN_REM = 20;
+export const MARI_COMPANION_WIDTH_DEFAULT_REM = 24;
 export const MARI_COMPANION_WIDTH_MAX_REM = 32;
 
 export function normalizeMariCompanionWidthRem(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(MARI_COMPANION_WIDTH_MIN_REM, Math.min(MARI_COMPANION_WIDTH_MAX_REM, Math.round(value * 2) / 2))
-    : MARI_COMPANION_WIDTH_MIN_REM;
+    : MARI_COMPANION_WIDTH_DEFAULT_REM;
 }
 
 export function normalizeConversationBackgroundImageOpacity(value: unknown): number {
@@ -799,12 +800,20 @@ interface UIState {
   mariFieldDraft: { fieldId: string; value: string; selection?: string } | null;
   /** Prof. Mari asks the open editor to show this field: scroll to it and pulse it once. Transient. */
   /** `scroll: false` pulses the field in place (companion hover). */
-  mariRevealField: { characterId: string; path: string; scroll?: boolean } | null;
+  mariRevealField: { entityId: string; path: string; scroll?: boolean } | null;
   /** The editor field a running Prof. Mari step is writing, for its working glow. Transient. */
-  mariWorkingField: { characterId: string; path: string } | null;
+  mariWorkingField: { entityId: string; path: string } | null;
+  /** Her text so far while she writes character fields: character id → editor field id → text. Transient. */
+  mariFieldStream: Record<string, Record<string, string>> | null;
   /** Her change to a character as the editor shows it in the fields: waiting for Keep, or kept
    * with Undo. Published by her open chat, which owns the replies. Transient. */
   mariFieldReview: MariFieldReview | null;
+  /** The open editor's plain save, which her chat runs before a send whose writes skip review. Transient. */
+  mariEditorSave: (() => Promise<"saved" | "clean" | "failed">) | null;
+  /** Fields of her held change that wait in the open character editor. Transient. */
+  mariFieldWaitingCount: number;
+  /** Fields of the held change (by its message id) the user declined; every Accept sends them. Transient. */
+  mariFieldDeclined: { key: string; fields: Array<{ entityId: string; fieldId: string }> };
   /**
    * The most recent recoverable app failure, so the omnibar can answer "fix this".
    * `retry` is a serializable target the omnibar maps to a real action, never a
@@ -1272,10 +1281,14 @@ interface UIState {
   setSettingsTab: (tab: string) => void;
   setActiveEditorField: (field: { id: string; label: string } | null) => void;
   setMariFieldDraft: (draft: UIState["mariFieldDraft"]) => void;
-  revealMariField: (characterId: string, path: string, options?: { scroll?: boolean }) => void;
+  revealMariField: (entityId: string, path: string, options?: { scroll?: boolean }) => void;
   clearMariRevealField: () => void;
-  setMariWorkingField: (field: { characterId: string; path: string } | null) => void;
+  setMariWorkingField: (field: { entityId: string; path: string } | null) => void;
+  setMariFieldStream: (fields: Record<string, Record<string, string>> | null) => void;
   setMariFieldReview: (review: MariFieldReview | null) => void;
+  setMariEditorSave: (save: (() => Promise<"saved" | "clean" | "failed">) | null) => void;
+  setMariFieldWaitingCount: (count: number) => void;
+  setMariFieldDeclined: (declined: { key: string; fields: Array<{ entityId: string; fieldId: string }> }) => void;
   setLastAppError: (error: UIState["lastAppError"]) => void;
   setSettingsTargetControlId: (controlId: string | null) => void;
   requestHome: (request: HomeRequest) => void;
@@ -2154,7 +2167,11 @@ export const useUIStore = create<UIState>()(
         mariFieldDraft: null,
         mariRevealField: null,
         mariWorkingField: null,
+        mariFieldStream: null,
         mariFieldReview: null,
+        mariEditorSave: null,
+        mariFieldWaitingCount: 0,
+        mariFieldDeclined: { key: "", fields: [] },
         lastAppError: null,
         settingsTargetControlId: null,
         homeRequest: null,
@@ -2179,7 +2196,7 @@ export const useUIStore = create<UIState>()(
         mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
         mariWindowWidthRem: MARI_WINDOW_WIDTH_DEFAULT_REM,
         mariCompanionDocked: true,
-        mariCompanionWidthRem: MARI_COMPANION_WIDTH_MIN_REM,
+        mariCompanionWidthRem: MARI_COMPANION_WIDTH_DEFAULT_REM,
         mariCompanionRoot: null,
         omnibarWindowWidthRem: OMNIBAR_WINDOW_WIDTH_DEFAULT_REM,
         omnibarWindowHeightRem: null,
@@ -2544,10 +2561,14 @@ export const useUIStore = create<UIState>()(
         setSettingsTab: (tab) => set({ settingsTab: tab }),
         setActiveEditorField: (field) => set({ activeEditorField: field }),
         setMariFieldDraft: (draft) => set({ mariFieldDraft: draft }),
-        revealMariField: (characterId, path, options) => set({ mariRevealField: { characterId, path, ...options } }),
+        revealMariField: (entityId, path, options) => set({ mariRevealField: { entityId, path, ...options } }),
         clearMariRevealField: () => set({ mariRevealField: null }),
         setMariWorkingField: (field) => set({ mariWorkingField: field }),
+        setMariFieldStream: (fields) => set({ mariFieldStream: fields }),
         setMariFieldReview: (review) => set({ mariFieldReview: review }),
+        setMariEditorSave: (save) => set({ mariEditorSave: save }),
+        setMariFieldWaitingCount: (count) => set({ mariFieldWaitingCount: count }),
+        setMariFieldDeclined: (declined) => set({ mariFieldDeclined: declined }),
         setLastAppError: (error) => set({ lastAppError: error }),
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
         requestHome: (homeRequest) => set({ homeRequest }),
@@ -2632,7 +2653,7 @@ export const useUIStore = create<UIState>()(
               characterDetailId: id,
               characterDetailInitialTab: options?.initialTab ?? null,
               // In the same patch as the navigation, so a refused editor leave drops it too.
-              mariRevealField: options?.revealField ? { characterId: id, path: options.revealField } : null,
+              mariRevealField: options?.revealField ? { entityId: id, path: options.revealField } : null,
               lorebookDetailId: null,
               presetDetailId: null,
               connectionDetailId: null,

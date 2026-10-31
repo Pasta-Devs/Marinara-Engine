@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import type { NetworkInterfaceInfo } from "node:os";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
-import { getPasswordlessPeers } from "../../packages/server/src/middleware/ip-allowlist.js";
+import { dockerTrustWarning, getPasswordlessPeers } from "../../packages/server/src/middleware/ip-allowlist.js";
 import { accessStatusRoutes } from "../../packages/server/src/routes/access-status.routes.js";
 
 const ENV_KEYS = [
@@ -154,7 +154,20 @@ try {
   // A default Docker install trusts gateway peers until a login or allowlist is set.
   assert.deepEqual(networkPeers({ MARINARA_DOCKER: "true" }), ["docker"]);
   assert.deepEqual(networkPeers({ MARINARA_DOCKER: "true", ...LOGIN }), []);
+  // The startup log names the Docker gateway risk only while that trust is active.
+  assert.match(dockerTrustWarning(networkPeers({ MARINARA_DOCKER: "true" }))!, /127\.0\.0\.1/);
+  assert.equal(dockerTrustWarning(networkPeers({ MARINARA_DOCKER: "true", ...LOGIN })), null);
   assert.deepEqual(networkPeers({ BYPASS_AUTH_DOCKER: "true" }), ["docker"]);
+  // The forced bypass survives a login, so its warning must not advise setting one.
+  assert.match(
+    dockerTrustWarning(networkPeers({ BYPASS_AUTH_DOCKER: "true", ...LOGIN }))!,
+    /or remove BYPASS_AUTH_DOCKER=true before/,
+  );
+  // Without a login, auto mode would keep the trust after the flag is removed.
+  assert.match(
+    dockerTrustWarning(networkPeers({ BYPASS_AUTH_DOCKER: "true" }))!,
+    /remove BYPASS_AUTH_DOCKER=true and set a login before/,
+  );
   // A password wins over the unauthenticated opt-ins; an allowlist keeps everyone else out,
   // but its own devices always skip the password.
   assert.deepEqual(networkPeers({ ALLOW_UNAUTHENTICATED_REMOTE: "true", ...LOGIN }), []);

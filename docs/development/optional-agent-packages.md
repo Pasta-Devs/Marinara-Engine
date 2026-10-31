@@ -1802,6 +1802,48 @@ exit button available on every package screen and use `aria-pressed` to reflect 
 must update the button without replacing unfinished forms. Packages depending on this control
 declare capability API 1.376 or newer; older packages can keep their existing layouts.
 
+### Capability API 1.391: Advanced Memory scene summaries and the memory block
+
+`persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed
+Advanced Memory scene summaries, in the order they were written; a scene summarized again moves to the end,
+so use `startMessageId` for story order. Each one has its `id`, `sceneId`, `kind` (`"scene"`), `title`,
+`content`, `timeline`, `startMessageId`, `endMessageId`, `audienceCharacterIds`, `sourceFingerprint`,
+`updatedAt` and `memory`. Older chats can hold several copies of one scene with the same `sceneId`.
+Constant, temporary, excerpt and recollection records are not listed.
+
+The `long-term-memory:runtime` service can add an optional `summaryMemoryInstruction()` method that
+returns one paragraph, or `null`. When the chat lists Long-Term Memory as an active agent, the Engine
+appends that paragraph to each first-pass request of a scene summary (every part of a scene split into
+several) and asks for a `"memory"` string in the same JSON reply. It stores that string untouched and returns it as `memory`; the Engine never parses
+it, so the package owns its format. A scene summarized in several parts gets each part's block, joined
+by a blank line; the combining requests never see the blocks. The paragraph is capped at 4,000
+characters.
+
+`memory` is `null` when the reply had no block, after the user edits the summary by hand, and on records
+written before 1.391. Without the method, or in a chat that does not list Long-Term Memory, the summary
+request is unchanged.
+
+The block is one flat string written from the whole scene, including messages some participants never
+saw; unlike the recap, it has no per-reader sections. A package that shows memories to a character must
+scope the record by `audienceCharacterIds` itself.
+
+Older Engines do not return `advancedMemory`: check that it exists, or declare 1.391.
+
+```ts
+const scenes = (await api.runtime.persistence.listChatSummaries?.(chatId))?.advancedMemory ?? [];
+```
+
+### Capability API 1.390: the Engine draws an agent page header
+
+A package with `contributions.agentDetail` can set `"header": "engine"`. The Engine then draws the
+same header as on every other agent page: Back, the store banner and logo, the name, the Active
+toggle for the open chat and Manage package. The `detail` view gets two extra props:
+`engineHeader: true` and `headerSlot`, an element in the header actions. Hide your own header when
+`engineHeader` is set, and render extra header buttons (for example "Add memories" or help) into
+`headerSlot`, with a React portal or `appendChild`. `headerSlot` is `null` on the first render, so
+wait for the next props update. Without the flag, the package keeps the full page as before.
+Declare capability API 1.390 when you set it.
+
 ### Capability API 1.389: hide or show messages from the AI
 
 `persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` hides messages of one chat from the AI,

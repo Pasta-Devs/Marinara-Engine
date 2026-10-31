@@ -1,5 +1,6 @@
 import type { MariPermissionsMode } from "../constants/mari-permissions-mode.js";
 import type { MariRuntime } from "../constants/mari-runtime.js";
+import type { MariComposerReference } from "./chat.js";
 // ──────────────────────────────────────────────
 // Professor Mari Workspace Agent Contracts
 // ──────────────────────────────────────────────
@@ -102,6 +103,8 @@ export interface ProfessorMariAskContext {
   fieldId?: string;
   /** Current focused-field text, including unsaved edits and an optional selection. */
   fieldDraft?: { value: string; selection?: string };
+  /** Accept only: fields of a held change the user declined; Accept applies the rest. */
+  declinedFields?: Array<{ entityId: string; fieldId: string }>;
   error?: { message: string; code?: string };
   action?: string;
   commandCenterResultId?: string;
@@ -109,6 +112,14 @@ export interface ProfessorMariAskContext {
   settingsLocation?: { tab?: string; controlId?: string };
   /** The omnibar aside's answer, carried along when `⌘↵` escalates it into Mari (R25). */
   asideAnswer?: { query: string; answer: string; tier: "local" | "remote"; sources?: ProfessorMariQuickSource[] };
+}
+
+/** A context that only names the subject, as the composer keeps it between sends. Anything more needs a full send. */
+export function isSubjectOnlyMariContext(context: ProfessorMariAskContext): boolean {
+  return (
+    context.capability === "explain" &&
+    Object.keys(context).every((key) => key === "source" || key === "capability" || key === "resource")
+  );
 }
 
 // "floating-assistant" is gone: the floating window was replaced by a presence
@@ -240,7 +251,7 @@ export type ProfessorMariQuickPromptEvent =
 
 export type MariWorkspaceActionResourceKind = Extract<
   ProfessorMariContextResourceKind,
-  "character" | "persona" | "lorebook" | "preset"
+  "character" | "persona" | "lorebook" | "preset" | "agent"
 >;
 
 export interface MariWorkspaceActionResult {
@@ -656,6 +667,167 @@ export function sanitizeMariGuidedPlan(
   return steps;
 }
 
+/** One choice on a question card. At most one option per question is `recommended`. */
+export interface MariQuestionOption {
+  label: string;
+  detail?: string;
+  recommended?: boolean;
+}
+
+/** One question on the card Mari's `ask` tool shows. The user can always type their own answer instead. */
+export interface MariQuestion {
+  id: string;
+  question: string;
+  options: MariQuestionOption[];
+  multiple?: boolean;
+}
+
+const MARI_QUESTION_MAX = 4;
+const MARI_QUESTION_OPTION_MIN = 2;
+const MARI_QUESTION_OPTION_MAX = 4;
+const QUESTION_TEXT_KEYS = ["question", "text", "prompt", "header"];
+const QUESTION_OPTION_LABEL_KEYS = ["label", "title", "text", "value", "name"];
+
+function sanitizeMariQuestionOptions(raw: unknown): MariQuestionOption[] {
+  if (!Array.isArray(raw)) return [];
+  const options: MariQuestionOption[] = [];
+  const labels = new Set<string>();
+  let recommendedTaken = false;
+  for (const entry of raw) {
+    const record: Record<string, unknown> =
+      typeof entry === "string"
+        ? { label: entry }
+        : entry && typeof entry === "object" && !Array.isArray(entry)
+          ? (entry as Record<string, unknown>)
+          : {};
+    const rawLabel = firstStringField(record, QUESTION_OPTION_LABEL_KEYS);
+    const label = rawLabel ? truncateMariChipText(rawLabel, 60) : "";
+    if (!label || labels.has(label)) continue;
+    labels.add(label);
+    const option: MariQuestionOption = { label };
+    const rawDetail = firstStringField(record, CHIP_DETAIL_KEYS);
+    if (rawDetail) {
+      const detail = rawDetail.replace(/\s+/g, " ").trim();
+      option.detail =
+        detail.length > MARI_CHIP_DETAIL_MAX ? `${detail.slice(0, MARI_CHIP_DETAIL_MAX - 1).trimEnd()}…` : detail;
+    }
+    if (record.recommended === true && !recommendedTaken) {
+      option.recommended = true;
+      recommendedTaken = true;
+    }
+    options.push(option);
+    if (options.length >= MARI_QUESTION_OPTION_MAX) break;
+  }
+  return options;
+}
+
+/** Same tolerant-parsing philosophy as sanitizeMariSuggestionChips. Takes the list, or `{ questions: [...] }`. */
+export function sanitizeMariQuestions(raw: unknown): MariQuestion[] {
+  const list = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>).questions : raw;
+  if (!Array.isArray(list)) return [];
+  const questions: MariQuestion[] = [];
+  const texts = new Set<string>();
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const record = entry as Record<string, unknown>;
+    const rawText = firstStringField(record, QUESTION_TEXT_KEYS);
+    const question = rawText ? truncateMariChipText(rawText, 200) : "";
+    if (!question || texts.has(question)) continue;
+    const options = sanitizeMariQuestionOptions(record.options ?? record.choices ?? record.answers);
+    if (options.length < MARI_QUESTION_OPTION_MIN) continue;
+    texts.add(question);
+    questions.push({
+      id: `question-${questions.length + 1}`,
+      question,
+      options,
+      ...(record.multiple === true || record.multiSelect === true ? { multiple: true } : {}),
+    });
+    if (questions.length >= MARI_QUESTION_MAX) break;
+  }
+  return questions;
+}
+
+/** The questions as plain lines: a wordless card's saved text, and what she remembers having asked. */
+export function mariQuestionsAsText(questions: readonly MariQuestion[]): string {
+  return questions.map((question) => question.question).join("\n");
+}
+
+export type MariTodoStatus = "pending" | "in_progress" | "completed";
+
+export interface MariTodoItem {
+  content: string;
+  status: MariTodoStatus;
+}
+
+export const MARI_TODO_MAX_ITEMS = 12;
+/** An unfinished list goes into her prompt on every run, so one long step can't grow it without limit. */
+export const MARI_TODO_MAX_CONTENT_CHARS = 200;
+
+/** Tolerant like the chip sanitizers: junk entries drop, an unknown status is pending, and only the first in_progress stays. */
+export function sanitizeMariTodos(raw: unknown): MariTodoItem[] {
+  if (!Array.isArray(raw)) return [];
+  const todos: MariTodoItem[] = [];
+  let activeTaken = false;
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const record = entry as Record<string, unknown>;
+    const content =
+      typeof record.content === "string" ? record.content.trim().slice(0, MARI_TODO_MAX_CONTENT_CHARS).trim() : "";
+    if (!content) continue;
+    let status: MariTodoStatus =
+      record.status === "in_progress" || record.status === "completed" ? record.status : "pending";
+    if (status === "in_progress") {
+      if (activeTaken) status = "pending";
+      else activeTaken = true;
+    }
+    todos.push({ content, status });
+    if (todos.length >= MARI_TODO_MAX_ITEMS) break;
+  }
+  return todos;
+}
+
+/**
+ * The list that counts right now, from her rows newest first. Only her last 2 replies are looked at; the
+ * first one that saved a list decides, and a saved `[]` ends the search. `stale` means you wrote after it,
+ * and a stale list with everything done says nothing any more.
+ */
+export function latestMariTodos(
+  rowsNewestFirst: ReadonlyArray<{ role: string; extra: { mariTodos?: unknown } | null | undefined }>,
+): { todos: MariTodoItem[]; stale: boolean } | null {
+  let assistantSeen = 0;
+  let userNewer = false;
+  for (const row of rowsNewestFirst) {
+    if (row.role === "user") {
+      userNewer = true;
+      continue;
+    }
+    if (row.role !== "assistant") continue;
+    if (assistantSeen >= 2) break;
+    assistantSeen++;
+    const saved = row.extra?.mariTodos;
+    if (!Array.isArray(saved)) continue;
+    const todos = sanitizeMariTodos(saved);
+    if (todos.length === 0) return null;
+    if (userNewer && todos.every((todo) => todo.status === "completed")) return null;
+    return { todos, stale: userNewer };
+  }
+  return null;
+}
+
+/** The answer message a submitted card sends. It repeats each question, because history keeps only her words. */
+export function formatMariQuestionAnswers(
+  questions: readonly MariQuestion[],
+  answers: Readonly<Record<string, readonly string[]>>,
+): string {
+  return questions
+    .map((question) => {
+      const picked = (answers[question.id] ?? []).map((answer) => answer.trim()).filter(Boolean);
+      return picked.length > 0 ? `${question.question} → ${picked.join(", ")}` : null;
+    })
+    .filter((line): line is string => line !== null)
+    .join("\n");
+}
+
 export interface MariWorkspaceToolTrace {
   id: string;
   name: string;
@@ -961,6 +1133,8 @@ export interface MariWorkspaceLatestRun {
   outcome: "running" | "finished" | "failed";
   /** Manual mode: the run ended with a change held behind Accept. Any answer starts a new run, which replaces this. */
   heldChange?: boolean;
+  /** Her to-do list as of now, so a reloaded page sees the live one. */
+  todos?: MariTodoItem[];
 }
 
 export interface MariWorkspaceStatus {
@@ -999,8 +1173,42 @@ export interface MariWorkspaceStatus {
   history: MariDbHistoryEntry[];
   /** The newest run, or null before any run in this server process. */
   latestRun: MariWorkspaceLatestRun | null;
+  /** Messages the user queued for this chat while she works (or left held). Summaries only: this is polled. */
+  pendingMessages?: MariPendingMessageSummary[];
+  /** Whose list that is: a poll can outlive a switch to another chat. */
+  pendingMessagesChatId?: string;
   error?: string | null;
 }
+
+/** A file the user attached in Professor Mari's composer, as the prompt route receives it. */
+export interface ProfessorMariPromptAttachment {
+  type: string;
+  data: string;
+  name?: string;
+  filename?: string;
+}
+
+/**
+ * A message typed while she works, waiting its turn. Not stored as "held": with no run going, a pending
+ * message is held by definition.
+ */
+export interface MariPendingMessage {
+  /** Was still waiting when a later send began. It now goes only on its own Send. */
+  held?: boolean;
+  /** Send now: goes in at her next step instead of when she finishes. Text only. */
+  steer?: boolean;
+  id: string;
+  text: string;
+  createdAt: string;
+  attachments: ProfessorMariPromptAttachment[];
+  references: MariComposerReference[];
+  context?: ProfessorMariAskContext;
+}
+
+/** What /status and the pending routes return: attachments reduced to name and type, never their data. */
+export type MariPendingMessageSummary = Omit<MariPendingMessage, "attachments"> & {
+  attachments: Array<{ name: string; type: string }>;
+};
 
 export type MariWorkspacePromptEvent =
   | { type: "token"; data: string }
@@ -1008,6 +1216,10 @@ export type MariWorkspacePromptEvent =
   // Her words as the model writes them, before the round is parsed and audited. Provisional: never
   // saved, never the answer; `data` is the full visible text so far (replace, not append); `null` ends the round's draft. The audited text still arrives as `token`.
   | { type: "draft"; data: string | null }
+  // A character field's text while she writes an `app_data` `character.update` (classic runtime
+  // only). `field` is the patch key as written; `text` is appended, or replaces with `restart`.
+  // `null` ends the round's text once its command was applied or held.
+  | { type: "edit_delta"; data: { characterId: string; field: string; text: string; restart?: true } | null }
   | {
       type: "status";
       data:
@@ -1035,6 +1247,10 @@ export type MariWorkspacePromptEvent =
       data: Record<string, unknown> & { actionResult?: MariWorkspaceActionResult; narration?: boolean };
     }
   | { type: "suggestions"; data: MariSuggestionChip[] }
-  | { type: "plan"; data: MariGuidedPlanStep[] }
+  | { type: "todos"; data: MariTodoItem[] }
+  // A queued message is about to run on this same reply; the client moves it from the pending list into the transcript.
+  | { type: "queue_next"; data: { id: string; text: string } }
+  // Send now reached her: her reply so far and your message(s) are saved, and the same run carries on with a new reply.
+  | { type: "checkpoint"; data: { ids: string[]; userMessageId: string } }
   | { type: "done"; data?: unknown }
   | { type: "error"; data: string };

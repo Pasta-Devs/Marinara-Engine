@@ -166,3 +166,70 @@ test("standalone apps get their own group and appear only under All in Agents", 
   await expect(detail.getByRole("heading", { name: "Pocket Town" })).toBeVisible();
   await expect(detail.getByText("Apps", { exact: true })).toBeVisible();
 });
+
+test("organizer and agent pages fit the viewport with long content", async ({ page }, info) => {
+  await page.route("**/api/app-settings/ui", (route) =>
+    route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+  );
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+  await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), APP_VERSION);
+  await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/capability-packages/catalog", (route) =>
+    route.fulfill({
+      json: {
+        schemaVersion: 1,
+        generatedAt: "2026-10-01T00:00:00.000Z",
+        packages: PACKAGES.map(({ id, manifest }, index) => ({
+          manifest: { ...manifest, description: `Long description ${"unbroken".repeat(60)}` },
+          category: "misc",
+          store: {
+            section: "apps",
+            featured: index + 1,
+            tagline: "A mobile layout fixture",
+            previewUrls: ["https://example.com/layout-preview.svg"],
+          },
+          artifact: { url: `https://example.com/${id}.zip`, sha256: "a".repeat(64), bytes: 2048 },
+        })),
+      },
+    }),
+  );
+  await page.route("https://example.com/layout-preview.svg", (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="640" height="400" fill="teal"/></svg>',
+    }),
+  );
+  await page.goto("/");
+  await clickTopbarPanel(page, "agents");
+  await page
+    .getByLabel("Agents", { exact: true })
+    .getByRole("button", { name: "Agent Organizer", exact: true })
+    .click();
+  const organizer = page.locator('[data-component="AgentCatalogView"]');
+  const main = organizer.locator("main");
+  async function fits() {
+    await expect
+      .poll(() => main.evaluate((element) => element.scrollWidth - element.clientWidth))
+      .toBeLessThanOrEqual(1);
+    await expect
+      .poll(() => organizer.evaluate((element) => element.getBoundingClientRect().right - window.innerWidth))
+      .toBeLessThanOrEqual(1);
+  }
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(main.getByRole("heading", { name: "Apps", exact: true })).toBeVisible();
+    await fits();
+    await page.screenshot({ path: info.outputPath(`organizer-${width}.png`) });
+  }
+  await main
+    .getByRole("button", { name: /Pocket Town/ })
+    .first()
+    .click();
+  await expect(main.getByRole("heading", { name: "Pocket Town", exact: true })).toBeVisible();
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await fits();
+    await page.screenshot({ path: info.outputPath(`agent-${width}.png`), fullPage: true });
+  }
+});

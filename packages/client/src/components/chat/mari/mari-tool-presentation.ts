@@ -1,14 +1,50 @@
 // How one of Mari's tool calls reads in her timeline: its title, detail and tone, from the raw call.
 import {
   isDryRunOutput,
+  latestMariTodos,
   mergeMariActionResults,
+  type MariTodoItem,
   type MariWorkspaceActionResult,
   type MariWorkspaceTraceItem,
   type Message,
 } from "@marinara-engine/shared";
 
 import { isWorkspaceTraceItem } from "../../../lib/mari-referenced-resources";
+import { isLookStep } from "../../../lib/mari-work-timeline";
 import { toMessageExtra } from "./mari-chat-helpers";
+
+/**
+ * Slice 72: a failed step she did not work around (a write, a command) fails the run; a missed read does not.
+ * A failed write she retried and finished later in the run (`later`: same call on the same record) is worked around too.
+ */
+export function isHardStepFailure(tool: WorkspaceToolCall, later: readonly WorkspaceToolCall[] = []) {
+  if (tool.status !== "error" || isLookStep(inferToolPresentation(tool).title)) return false;
+  const key = writeKey(tool);
+  return !later.some((step) => step.status === "done" && writeKey(step) === key);
+}
+
+/** One write on one record: app_data by action and target ids, any other tool by its title and detail. */
+function writeKey(tool: WorkspaceToolCall) {
+  const input = asRecord(tool.input);
+  if (typeof input?.action === "string") {
+    const ids = Object.entries(input)
+      .filter(([key, value]) => /^(id|.+Id)$/.test(key) && typeof value === "string")
+      .sort(([a], [b]) => a.localeCompare(b));
+    return JSON.stringify([tool.name, input.action.trim().toLowerCase(), ids]);
+  }
+  const { title, detail } = inferToolPresentation(tool);
+  return JSON.stringify([tool.name, title, detail, mariDbRowTokens(tool)]);
+}
+
+/** The positional tokens of a `mari db` command before its first flag (table, row id), so two rows of one table differ. */
+function mariDbRowTokens(tool: WorkspaceToolCall) {
+  const command = getBashCommand(tool);
+  const tokens = command ? getMariTokens(command) : null;
+  if (!tokens || tokens[1] !== "db") return null;
+  const rest = tokens.slice(3);
+  const flag = rest.findIndex((token) => token.startsWith("-"));
+  return flag >= 0 ? rest.slice(0, flag) : rest;
+}
 
 export type WorkspaceToolCall = {
   id: string;
@@ -137,7 +173,7 @@ export function isMariWorkspaceActionResult(value: unknown): value is MariWorksp
       (result?.status === "failed" && typeof result.error === "string")) &&
     typeof result.summary === "string" &&
     !!resource &&
-    ["character", "persona", "lorebook", "preset"].includes(String(resource.kind)) &&
+    ["character", "persona", "lorebook", "preset", "agent"].includes(String(resource.kind)) &&
     typeof resource.id === "string" &&
     resource.id.length > 0 &&
     Array.isArray(result.changedFields) &&
@@ -903,4 +939,26 @@ export function inferToolPresentation(tool: WorkspaceToolCall): ToolPresentation
     return { eyebrow: "Files", title: "Listing folder", detail, tone: "file" };
   }
   return { eyebrow: "Tool", title: name, detail, tone: "generic" };
+}
+
+export interface ShownMariTodos {
+  todos: MariTodoItem[];
+  stale: boolean;
+}
+
+/**
+ * Which to-do list the transcript pins: the live one from this run (`[]` means she cleared it, so nothing falls
+ * through to the saved one), else the run status's (a reloaded page or a late window), else the newest saved row.
+ */
+export function chooseMariTodos(
+  live: readonly MariTodoItem[] | null,
+  server: readonly MariTodoItem[] | null | undefined,
+  messagesOldestFirst: readonly Message[],
+): ShownMariTodos | null {
+  const fresh = live ?? server;
+  if (fresh) return fresh.length > 0 ? { todos: [...fresh], stale: false } : null;
+  const newestFirst = messagesOldestFirst
+    .map((message) => ({ role: message.role, extra: toMessageExtra(message) as { mariTodos?: unknown } | null }))
+    .reverse();
+  return latestMariTodos(newestFirst);
 }

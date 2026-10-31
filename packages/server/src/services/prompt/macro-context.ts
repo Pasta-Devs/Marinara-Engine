@@ -243,7 +243,6 @@ function referencedCharacterSourceFields(data: CharacterData): string[] {
     data.description,
     data.personality,
     data.scenario,
-    data.creator_notes,
     data.system_prompt,
     data.post_history_instructions,
     data.extensions?.backstory,
@@ -322,7 +321,6 @@ function buildReferencedCharacterFields(
     { label: "example_dialogue", value: data.mes_example },
     { label: "creator", value: data.creator },
     { label: "character_version", value: data.character_version },
-    { label: "creator_notes", value: data.creator_notes },
     { label: "system_prompt", value: data.system_prompt },
     { label: "post_history_instructions", value: data.post_history_instructions },
     { label: "depth_prompt", value: data.extensions?.depth_prompt?.prompt },
@@ -378,7 +376,6 @@ function buildReferencedPersonaFields(
     { label: "example_dialogue", value: persona.mes_example },
     { label: "creator", value: persona.creator },
     { label: "persona_version", value: persona.personaVersion },
-    { label: "creator_notes", value: persona.creatorNotes },
     { label: "about_me", value: persona.aboutMe },
   ].flatMap(({ label, value }) => {
     if (typeof value !== "string" || !value.trim()) return [];

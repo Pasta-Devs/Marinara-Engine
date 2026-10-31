@@ -446,6 +446,7 @@ async function importCharacterBuffer(
   tagImportMode?: STCharacterTagImportMode,
   existingTagKeys?: ReadonlySet<string>,
   regexScriptScope?: "character" | "global",
+  splitDescription?: boolean,
 ) {
   if (fileName.toLowerCase().endsWith(".png")) {
     const charData = extractCharaFromPng(buffer);
@@ -466,6 +467,7 @@ async function importCharacterBuffer(
           tagImportMode,
           existingTagKeys,
           regexScriptScope,
+          splitDescription,
         }),
         charData,
       );
@@ -481,6 +483,7 @@ async function importCharacterBuffer(
       tagImportMode,
       existingTagKeys,
       regexScriptScope,
+      splitDescription,
     });
   }
 
@@ -502,6 +505,7 @@ async function importCharacterBuffer(
         tagImportMode,
         existingTagKeys,
         regexScriptScope,
+        splitDescription,
       }),
       json,
     );
@@ -831,6 +835,7 @@ export async function importRoutes(app: FastifyInstance) {
         : rawRegexScriptScopeField?.value;
       const regexScriptScope = readMultipartRegexScriptScope(file as any);
       if (rawRegexScriptScope !== undefined && regexScriptScope === undefined) return invalidRegexScriptScopeResponse();
+      const splitDescription = readMultipartBooleanField(file as any, "splitDescription");
       return importCharacterBuffer(
         file.filename ?? "",
         await file.toBuffer(),
@@ -840,6 +845,7 @@ export async function importRoutes(app: FastifyInstance) {
         tagImportMode,
         undefined,
         regexScriptScope,
+        splitDescription,
       );
     }
 
@@ -852,15 +858,18 @@ export async function importRoutes(app: FastifyInstance) {
     const rawRegexScriptScope = body.regexScriptScope;
     const regexScriptScope = readRegexScriptScope(rawRegexScriptScope);
     if (rawRegexScriptScope !== undefined && regexScriptScope === undefined) return invalidRegexScriptScopeResponse();
+    const splitDescription = readBooleanOption(body.splitDescription);
     delete body.importEmbeddedLorebook;
     delete body.tagImportMode;
     delete body.regexScriptScope;
+    delete body.splitDescription;
     try {
       return await importSTCharacter(body, app.db, {
         timestampOverrides: readTimestampOverridesFromBody(body),
         importEmbeddedLorebook,
         tagImportMode,
         regexScriptScope,
+        splitDescription,
       });
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -919,6 +928,7 @@ export async function importRoutes(app: FastifyInstance) {
     let invalidTagImportMode = false;
     let regexScriptScope: "character" | "global" | undefined;
     let invalidRegexScriptScope = false;
+    let splitDescription: boolean | undefined;
 
     for await (const part of parts) {
       if (part.type === "file") {
@@ -962,6 +972,10 @@ export async function importRoutes(app: FastifyInstance) {
         regexScriptScope = readRegexScriptScope(part.value);
         invalidRegexScriptScope ||= part.value !== undefined && regexScriptScope === undefined;
       }
+
+      if (part.fieldname === "splitDescription") {
+        splitDescription = readBooleanOption(part.value);
+      }
     }
 
     if (invalidTagImportMode) return { ...invalidTagImportModeResponse(), results: [] };
@@ -998,6 +1012,7 @@ export async function importRoutes(app: FastifyInstance) {
           tagImportMode,
           existingTagKeys,
           regexScriptScope,
+          splitDescription,
         );
         results.push({ filename: file.filename, ...result });
       } catch (error) {

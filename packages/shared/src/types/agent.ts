@@ -410,7 +410,6 @@ export interface AgentContext {
     description: string;
     personality?: string;
     scenario?: string;
-    creatorNotes?: string;
     systemPrompt?: string;
     backstory?: string;
     appearance?: string;
@@ -963,7 +962,6 @@ export const EDITABLE_CHARACTER_CARD_FIELDS = [
   "scenario",
   "first_mes",
   "mes_example",
-  "creator_notes",
   "system_prompt",
   "post_history_instructions",
   "backstory",

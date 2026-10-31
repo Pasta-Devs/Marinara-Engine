@@ -67,7 +67,7 @@ export function advanceStarredProfileDraft(
   })) {
     if (!(key in settings)) metadata[key] = initial.metadata[key] ?? fallback;
   }
-  for (const key of ["windowLayout", ...sceneSettings]) {
+  for (const key of ["windowLayout", "background", ...sceneSettings]) {
     if (!(key in settings) && key in initial.metadata) metadata[key] = initial.metadata[key];
   }
   const memoryKeys = new Set(["knowledgeStarts", "knowledgeConfirmed", "narratorCharacterId"]);
@@ -77,10 +77,13 @@ export function advanceStarredProfileDraft(
   if (Object.keys(ownMemory).length) {
     metadata.advancedMemory = { ...settings.advancedMemory, ...ownMemory };
   }
+  // Starting picks the server just copied in (persona, lorebooks).
+  if (profile.settings.lorebookIds?.length) metadata.activeLorebookIds = response.metadata.activeLorebookIds;
   return {
     ...initial,
     connectionId: connectionId !== undefined ? connectionId : (profile.settings.connectionId ?? null),
     promptPresetId: profile.settings.promptPresetId ?? null,
+    ...(profile.settings.personaId ? { personaId: response.personaId } : {}),
     metadata: metadata as Chat["metadata"],
   };
 }

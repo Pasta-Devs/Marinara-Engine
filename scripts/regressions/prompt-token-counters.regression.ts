@@ -8,9 +8,8 @@ function source(path: string): string {
 const fields: Record<string, string[]> = {
   "components/characters/CharacterEditor.tsx": [
     "formData.description",
-    "formData.first_mes",
     "value",
-    "formData.mes_example",
+    "g",
     "formData.system_prompt",
     "formData.post_history_instructions",
     "depthPrompt.prompt",
@@ -32,6 +31,15 @@ for (const [path, values] of Object.entries(fields)) {
       `${path}: ${value} must opt in to the shared token counter`,
     );
   }
+}
+
+// These two count through TextareaTab, whose `value` is checked above.
+for (const field of ["first_mes", "mes_example"]) {
+  assert.match(
+    source("components/characters/CharacterEditor.tsx"),
+    new RegExp(`mariField="${field}"\\s+value=\\{formData\\.${field}\\}`),
+    `${field} must render through TextareaTab to keep the shared token counter`,
+  );
 }
 
 const macroTextarea = source("components/ui/MacroTextarea.tsx");

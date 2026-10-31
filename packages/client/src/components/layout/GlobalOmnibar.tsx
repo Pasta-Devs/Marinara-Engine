@@ -121,7 +121,8 @@ import { executeStateNavigation } from "../../lib/state-navigation";
 import { isPullHandoffPending, takePullHandoff } from "../../lib/pull-to-open";
 import { measureOmnibarFirstResultPaint } from "../../lib/omnibar-open-timing";
 import { confirmEditorLeave } from "../../lib/editor-leave";
-import { captureMariFieldDraft, openCharacterAtField } from "../../hooks/use-mari-editor-fields";
+import { captureMariFieldDraft, openEditorAtField } from "../../hooks/use-mari-editor-fields";
+import { isMariEditorKind } from "../../lib/mari-editor-fields";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useChatStore } from "../../stores/chat.store";
@@ -1717,12 +1718,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     // Open the resource through the existing result path so dirty-editor and
-    // navigation rules still apply. Characters can deep-link to the edited field.
+    // navigation rules still apply. Characters and personas can deep-link to the edited field.
     const resource = action.resource;
     if (!resource) return;
-    if (resource.kind === "character") {
+    if (isMariEditorKind(resource.kind)) {
       const fieldId = action.kind === "open-field" ? action.fieldId : undefined;
-      if (!openCharacterAtField(resource.id, fieldId, leavePrompt())) return;
+      if (!openEditorAtField(resource.kind, resource.id, fieldId, leavePrompt())) return;
       onClose();
       return;
     }
@@ -2300,6 +2301,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 { fix: true },
               )}
               editorResource={editorResource}
+              editorCompanion={companion}
             />
           </Suspense>
         ) : null}

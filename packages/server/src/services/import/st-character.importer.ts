@@ -10,12 +10,15 @@ import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
 import {
+  DESCRIPTION_SPLIT_VERSION,
   unassignCardFieldAlternatives,
   capImportedRulesetSheets,
   containsDecisionStatements,
   dropUnreadableOnboarding,
   isPatternSafe,
   ONBOARDING_MAX_QUESTIONS,
+  splitCharacterDescription,
+  type DescriptionSplitResult,
 } from "@marinara-engine/shared";
 import type {
   CharacterBookEntryPosition,
@@ -121,6 +124,8 @@ export interface STCharacterImportOptions {
   existingTagKeys?: ReadonlySet<string>;
   /** Where embedded regex scripts land: scoped to the character (default) or global. */
   regexScriptScope?: "character" | "global";
+  /** Split a labelled description into personality, appearance, backstory and the other card fields. */
+  splitDescription?: boolean;
 }
 
 // SillyTavern regex placement ids → our placement strings (1 = user input, 2 = AI output).
@@ -229,6 +234,13 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     data.character_book = normalizeCharacterBook(rawEmbeddedLorebook);
   }
   data.tags = await filterImportedTags(data.tags, db, tagImportMode, options?.existingTagKeys);
+
+  // Cards that keep everything in the description are split into Marinara's fields when asked.
+  // The card is imported as it came and the split is saved afterwards as a new card version, so
+  // the unsplit card stays in the version history. The outcome is reported for every card, so the
+  // import list can show the same summary as the editor's split dialog.
+  const split = options?.splitDescription ? splitCharacterDescription(data) : null;
+  let descriptionSplit: DescriptionSplitResult | null = split;
 
   // Tag with browser source if imported from browser
   if (botBrowserSource) {
@@ -381,6 +393,27 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     }
   }
 
+  if (charId && split?.status === "changed") {
+    const { appearance, backstory, ...fields } = split.after;
+    try {
+      await storage.update(charId, { ...fields, extensions: { appearance, backstory } }, undefined, {
+        versionSource: DESCRIPTION_SPLIT_VERSION.source,
+        versionReason: DESCRIPTION_SPLIT_VERSION.reason,
+        updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
+      });
+    } catch (err) {
+      logger.warn(err, "Imported %s without splitting its description", charId);
+      descriptionSplit = {
+        ...split,
+        status: "skipped",
+        reason: "the split could not be saved",
+        after: { ...split.before },
+        changed: [],
+        keywordSorted: false,
+      };
+    }
+  }
+
   return {
     success: true,
     characterId: charId,
@@ -392,6 +425,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
       skipped: hasEmbeddedLorebook && !shouldImportEmbeddedLorebook,
     },
     ...(lorebookResult ? { lorebook: lorebookResult } : {}),
+    ...(descriptionSplit ? { descriptionSplit } : {}),
   };
 }
 

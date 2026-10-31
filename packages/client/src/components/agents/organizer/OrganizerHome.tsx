@@ -92,11 +92,11 @@ export function OrganizerHome({
       {featured.length > 0 && (
         <section
           aria-label={localizeUi("ui.agents.organizer.featured")}
-          className="grid gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]"
+          className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]"
         >
           <FeaturedCard entry={featured[0]!} large priority />
           {featured.length > 1 && (
-            <div className="grid gap-3 lg:grid-rows-2">
+            <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-rows-2">
               {featured.slice(1).map((entry) => (
                 <FeaturedCard key={entry.manifest.id} entry={entry} large={false} priority={false} />
               ))}

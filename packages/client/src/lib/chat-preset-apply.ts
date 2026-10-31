@@ -1,4 +1,5 @@
 import type { MutationFilters } from "@tanstack/react-query";
+import type { ChatPresetSettings } from "@marinara-engine/shared";
 
 export const CHAT_PRESET_APPLY_MUTATION_KEY = ["chat-presets", "apply"] as const;
 
@@ -24,4 +25,19 @@ export function nextWizardApplyHold(
 ): WizardApplyHold {
   if (!previous || previous.chatId !== chatId) return { chatId, waiting: applying };
   return previous.waiting && !applying ? { chatId, waiting: false } : previous;
+}
+
+/**
+ * "Save into profile": the chat's current settings, but the profile keeps its own persona and
+ * lorebooks. It keeps its own background too; a profile without one takes the chat's.
+ */
+export function saveIntoProfileSettings(snapshot: ChatPresetSettings, own: ChatPresetSettings): ChatPresetSettings {
+  const metadata = { ...snapshot.metadata } as Record<string, unknown>;
+  if (own.metadata?.background !== undefined) metadata.background = own.metadata.background;
+  return {
+    ...snapshot,
+    metadata: metadata as ChatPresetSettings["metadata"],
+    ...(own.personaId ? { personaId: own.personaId } : {}),
+    ...(own.lorebookIds?.length ? { lorebookIds: own.lorebookIds } : {}),
+  };
 }

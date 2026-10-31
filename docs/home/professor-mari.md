@@ -8,7 +8,7 @@ Professor Mari lives on the Home screen. The Home screen is what you see when no
 
 Look for the **Professor Mari** widget with her pixel art, then click **Ask Professor Mari** to open her full chat window. The **Professor** tab at the top of Home opens it too. Her window opens inside Search, so you can also reach her from any screen: type in the Search field and pick **Ask Prof. Mari**, press Ctrl+J (Cmd+J on a Mac), or pull down from the top bar on a phone. A status line in her window's header reads **Ready to help** when she is idle, or **Working on it...** while she is busy.
 
-You talk to her in plain language. Type a message in the box, then press Enter to send. Press Shift and Enter together to add a new line instead. If you turn off **Enter sends to Professor Mari** in her settings, Enter adds a new line and Ctrl+Enter (Cmd+Enter on a Mac) sends.
+You talk to her in plain language. Type a message in the box, then press Enter to send. Press Shift and Enter together to add a new line instead. If you turn off **Enter sends to Professor Mari** in her settings, Enter adds a new line and Ctrl+Enter (Cmd+Enter on a Mac) sends. The keys do a little more while she works, as described in [Sending messages while she works](#sending-messages-while-she-works).
 
 Sending your very first message to her unlocks the **Hello World** achievement.
 
@@ -64,7 +64,7 @@ On an empty Professor Mari chat, starter chips such as **Create a Character**, *
 
 Guided flows ask one focused question at a time instead of presenting a long form all at once.
 
-For a complete create or edit request, Professor Mari can return a bounded guided plan. Each step has a small set of suggestions. Selecting one fills the current draft and advances the plan locally. Your text remains in the draft when you change a suggestion. The plan belongs to the current Professor Mari chat, so switching chats, restarting, stopping a run, or completing the plan clears stale steps. Malformed or excessive suggestions are discarded, and the chips are disabled while Professor Mari is working.
+When a request leaves real decisions open, Professor Mari can stop and ask on a question card under her reply: up to four questions, one at a time, each with a few options, her recommended one marked. Some questions take several answers. Pick an option or type your own, then press **Submit**: your answers go as your next message, so nothing is hidden and you can see what she was told. Her turn ends when she asks, and nothing she proposed alongside the question runs until you answer. You can also ignore the card and type in the message box; your next message answers it.
 
 Suggestions are available only in Professor Mari chats. Other characters do not receive Professor Mari's chips.
 
@@ -124,7 +124,7 @@ The same commands can be typed with `/`, as described in [Commands with /](#comm
 
 Choose **Attach files or photos** in the paperclip menu, or type `/attach`, to add a file to your message.
 
-She accepts images, PDF files, and common text files such as `.txt`, `.md`, `.json`, `.csv`, and `.log`. Each file can be up to 20 MB. Attached files show as removable chips above the message box before you send.
+She accepts images, PDF files, and common text files such as `.txt`, `.md`, `.json`, `.csv`, and `.log`. Each file can be up to 20 MB. Attached files show as removable chips above the message box before you send. You can also paste a screenshot or a copied file straight into the message box, with **Ctrl+V** or your phone's paste.
 
 To have her read an image, your selected connection's model must support image input.
 
@@ -264,7 +264,39 @@ Click the **Chats** button in her header to open your saved Professor Mari chats
 
 Click the **New chat** button to start a fresh conversation with her. It first saves your current chat into the **Chats** list. You can also type `/new` (or `/restart`) in the message box to do the same thing. You see the message "Professor Mari's previous chat was saved."
 
-While she is working, the send button turns into a **Stop** button. Click it to cancel the current task.
+While she is working, a **Stop** button sits beside the send button. Click it to cancel the current task.
+
+### Sending messages while she works
+
+The message box stays open while she works, and you choose when your message reaches her:
+
+- **Send now** goes in at her next step, without stopping her. Her reply so far is saved, your message appears below it, and she carries on with what you said in mind. This is how you correct her mid-task and keep the work she has done.
+- **Queue for later** waits in a list above the box, marked **Sends when she finishes**. When she finishes cleanly, she takes the waiting messages one at a time, in order.
+
+| | Send now | Queue for later |
+|---|---|---|
+| **Enter sends** on (the default) | Enter | Ctrl+Enter |
+| **Enter sends** off | Ctrl+Enter | Ctrl+Shift+Enter |
+
+On a Mac, use Cmd in place of Ctrl. Shift+Enter always adds a new line. The small arrow beside the send button offers both choices, which helps on a phone.
+
+Send now is for words alone, inside the run she is already doing. A message with files, `@` links or a field you handed her is queued instead, and so is one about a different subject, or one sent after you changed the permissions mode. A short notice says so. A waiting message without those has its own **Send now** button. Click the **X** on a message to remove it. A chat can hold up to 20 waiting messages.
+
+If she has done some steps but said nothing yet when your message arrives, her steps are kept with a muted **Still working** line. Send now cannot give her more steps than a run allows. If she has reached the limit, or she has stopped to ask you something, your message stays in the list.
+
+Waiting messages do not send by themselves in these cases:
+
+- **You press Stop.** They come back into the message box, so you can edit or resend them.
+- **She is waiting for you**, for an approval or an answer to a question. They show **Held**, with a **Send** button.
+- **The run failed, or the app restarted.** They also show **Held**. Nothing is lost.
+
+A held message stays held until you send or remove it. **Send** sends only that one, and typing a new message does not release the others.
+
+`/restart` and `/title` do nothing while she works, and they stay in the box until she is done.
+
+### Her to-do list
+
+On a longer job she keeps a short list of steps for herself. It sits under her latest message with a count such as **2 of 5**, the step she is on spins while she works, and finished steps are crossed out. You cannot edit it. It is there so you can see where she is, and she updates it as she goes. Once you write after the reply that saved it, the list is muted and reads **Plan from before your last message**. It goes away after her next reply that doesn't touch it.
 
 ## Leaving her window
 
@@ -294,7 +326,7 @@ Professor Mari is a helper, not the full documentation. Keep these limits in min
 - Creating new content is usually safe, since nothing gets overwritten. Editing existing content deserves more care.
 - A reviewed dependency is third-party code with the same runtime access as the Marinara code that imports it. Check the package name, exact version, purpose, and integrity shown in the approval card.
 - For edits, name the exact item and the exact field you want changed. A request like "rewrite this whole character" is riskier than "make Luna's greeting shorter, keep her personality the same."
-- For multi-step creation, use the suggestion chips to answer one focused question at a time instead of trying to provide every field at once.
+- For multi-step creation, answer her question card or use the suggestion chips instead of trying to provide every field at once.
 - If she says she finished a task but the app does not show it, trust the app. Finish the task yourself from the matching panel.
 - If you reach Marinara from another device instead of the same computer, her editing actions need remote access set up. See the remote access guide.
 

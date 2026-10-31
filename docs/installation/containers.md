@@ -82,6 +82,8 @@ By default, Compose only lets you reach Marinara from the same computer. This is
 
 Other devices need a login before they can use Marinara. Never expose Marinara to your network without one.
 
+Docker trusts the container gateway. On Docker Desktop, OrbStack and rootless Docker, every device that reaches a published port arrives from that gateway, so without a login a port published on all interfaces lets them in. Set the login before you remove `127.0.0.1:`. See [Tailscale and Docker bypass](../REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+
 1. Open `docker-compose.yml` in a text editor.
 
 2. Find the port line. It looks like this:

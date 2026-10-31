@@ -2755,6 +2755,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!parsed.success)
       return reply.status(400).send({ error: "Invalid persona update", issues: parsed.error.issues });
     const body = parsed.data;
+    // Labels the version snapshot this update creates, like the character PATCH route.
+    const versionOptions = {
+      versionSource: typeof rawBody.versionSource === "string" ? rawBody.versionSource : undefined,
+      versionReason: typeof rawBody.versionReason === "string" ? rawBody.versionReason : undefined,
+    };
     if (Object.keys(body).length === 0 && !hasCharacterSheetImageId && !hasUseCharacterSheetAsReference) {
       const current = await storage.getPersona(req.params.id);
       if (!current) return reply.status(404).send({ error: "Persona not found" });
@@ -2775,17 +2780,18 @@ export async function charactersRoutes(app: FastifyInstance) {
             : { characterSheetImageId: null, useCharacterSheetAsReference: "false" };
       }
       if (!Object.hasOwn(body, "trackerCardColors") || completeReset) {
-        return storage.updatePersona(req.params.id, { ...encodePersonaUpdate(body), ...galleryFields });
+        return storage.updatePersona(req.params.id, { ...encodePersonaUpdate(body), ...galleryFields }, versionOptions);
       }
       const current = await storage.getPersona(req.params.id);
       if (!current) return null;
       const trackerCardColors = isTrackerCardClear(body.trackerCardColors)
         ? buildTrackerCardPortraitClear(current.trackerCardColors)
         : mergePersonaTrackerCardColors(current.trackerCardColors, body.trackerCardColors as Record<string, unknown>);
-      return storage.updatePersona(req.params.id, {
-        ...encodePersonaUpdate({ ...body, trackerCardColors }),
-        ...galleryFields,
-      });
+      return storage.updatePersona(
+        req.params.id,
+        { ...encodePersonaUpdate({ ...body, trackerCardColors }), ...galleryFields },
+        versionOptions,
+      );
     });
     if (!updated) return reply.status(404).send({ error: "Persona not found" });
     return projectPersona(updated);

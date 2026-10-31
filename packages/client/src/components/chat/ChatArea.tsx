@@ -843,10 +843,19 @@ const LocalChatArea = memo(function LocalChatArea({
   // UX-13: an omnibar row that names a setting inside Chat Settings opens the drawer at that section.
   useEffect(() => {
     const openSection = (event: Event) => {
-      const detail = (event as CustomEvent<{ chatId?: string; section?: "advanced-parameters" | "memory-recall" }>)
-        .detail;
+      const detail = (
+        event as CustomEvent<{ chatId?: string; section?: "advanced-parameters" | "memory-recall" | `agent:${string}` }>
+      ).detail;
       if (detail?.chatId !== useChatStore.getState().activeChatId || !detail.section) return;
-      handleOpenSettingsPanel(undefined, { initialSection: detail.section });
+      const section = detail.section;
+      // Drawer already open: a repeat request for the same section must still scroll,
+      // so reset the section and set it again on the next frame.
+      if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
+        setSettingsInitialSection(null);
+        window.requestAnimationFrame(() => setSettingsInitialSection(section));
+        return;
+      }
+      handleOpenSettingsPanel(undefined, { initialSection: section });
     };
     window.addEventListener(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, openSection);
     return () => window.removeEventListener(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, openSection);

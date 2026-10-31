@@ -171,10 +171,15 @@ export function getApiErrorMessage(value: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Format the first usable Zod validation issue in an API error payload. */
+/**
+ * Format the first usable Zod validation issue in an API error payload: `issues`, or the server error handler's
+ * `details` (packages/server/src/middleware/error-handler.ts), so the message names the field that failed.
+ */
 export function formatFirstApiValidationIssue(error: unknown, fallback: string): string {
-  if (error instanceof ApiError && isRecord(error.payload) && Array.isArray(error.payload.issues)) {
-    for (const issue of error.payload.issues) {
+  const issues =
+    error instanceof ApiError && isRecord(error.payload) ? (error.payload.issues ?? error.payload.details) : undefined;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
       if (!isRecord(issue) || typeof issue.message !== "string" || !issue.message.trim()) continue;
       const path = Array.isArray(issue.path)
         ? issue.path.filter((segment) => typeof segment === "string" || typeof segment === "number").join(".")

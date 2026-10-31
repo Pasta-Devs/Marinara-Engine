@@ -1671,6 +1671,7 @@ try {
       description: "A trusted friend from the western district.",
       first_mes: "REFERENCED_GREETING_MUST_STAY_OUT",
       mes_example: "REFERENCED_EXAMPLE_SHOULD_APPEAR",
+      creator_notes: "REFERENCED_CREATOR_NOTES_MUST_STAY_OUT",
       extensions: {
         appearance: "Blonde hair and a blue summer dress.",
       },
@@ -1702,6 +1703,7 @@ try {
       backstory: "She designed the laboratory's most reliable systems.",
       appearance: "Pink hair, a lab coat, and a knowing smile.",
       scenario: `She is visiting the cafe after a long experiment with {{persona-${knownPersonaReferenceId}}}.`,
+      creatorNotes: "PERSONA_CREATOR_NOTES_MUST_STAY_OUT",
     },
   );
   assert.ok(referencedPersona);
@@ -1864,6 +1866,8 @@ try {
   assert.match(referencedContext.content, /Blonde hair and a blue summer dress\./u);
   assert.match(referencedContext.content, /REFERENCED_LOREBOOK_MEMORY/u);
   assert.doesNotMatch(referencedContext.content, /REFERENCED_GREETING_MUST_STAY_OUT/u);
+  // #8582: a referenced card's creator notes are never sent.
+  assert.doesNotMatch(referencedContext.content, /REFERENCED_CREATOR_NOTES_MUST_STAY_OUT|creator_notes/u);
   assert.match(referencedContext.content, /REFERENCED_EXAMPLE_SHOULD_APPEAR/u);
 
   const referencedPersonaContext = await buildReferencedPersonaContext({
@@ -1891,6 +1895,7 @@ try {
   assert.match(referencedPersonaContext.content, /Warm, incisive, and knowingly amused\./u);
   assert.match(referencedPersonaContext.content, /with Ada\./u);
   assert.match(referencedPersonaContext.content, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
+  assert.doesNotMatch(referencedPersonaContext.content, /PERSONA_CREATOR_NOTES_MUST_STAY_OUT|creator_notes/u);
 
   const activePersonaReferenceContext = await buildReferencedPersonaContext({
     db,
@@ -5656,7 +5661,7 @@ assert.equal(
 );
 assert.match(
   readFileSync(new URL("../../packages/client/src/lib/composer-triggers.ts", import.meta.url), "utf8"),
-  /input\.key === "Enter" &&\s*!input\.shiftKey &&\s*\(input\.enterToSend \|\| input\.metaKey \|\| input\.ctrlKey\)/u,
+  /if \(input\.enterToSend\) \{\s*if \(!input\.shiftKey\) return modifier \? "queue" : "send";\s*\} else if \(modifier\) \{\s*return input\.shiftKey \? "queue" : "send";/u,
   "Professor Mari's composer must preserve Shift+Enter and require the configured send shortcut",
 );
 assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);
@@ -5733,7 +5738,7 @@ assert.match(
   professorMariHomeSource,
   // #5725 strengthened this guard: it also rejects responses requested for a
   // previous chat and holds mode fields across pending mode writes.
-  /const refreshWorkspaceStatus = useCallback\(\s*async \(shouldApply\?: \(\) => boolean\)[\s\S]{0,700}if \(shouldApply\?\.\(\) === false \|\| activeChatIdRef\.current !== chatIdAtStart\) return status;[\s\S]{0,900}setWorkspaceStatus\(/u,
+  /const refreshWorkspaceStatus = useCallback\(\s*async \(shouldApply\?: \(\) => boolean\)[\s\S]{0,800}if \(shouldApply\?\.\(\) === false \|\| activeChatIdRef\.current !== chatIdAtStart\) return status;[\s\S]{0,900}setWorkspaceStatus\(/u,
   "Professor Mari workspace status loads must recheck an operation guard before applying a response",
 );
 assert.match(
@@ -5876,8 +5881,7 @@ assert.match(
   /resolveFeatureAgentPackage\(selectedFeatureAgent, installedCapabilities\.data \?\? \[\]\)/u,
 );
 assert.match(featureAgentDetailHostSource, /mari-editor-shell mari-editor-legacy-bridge/u);
-assert.match(featureAgentDetailHostSource, /<header className="mari-editor-header">/u);
-assert.match(featureAgentDetailHostSource, /<Sparkles size="1\.125rem"/u);
+assert.match(featureAgentDetailHostSource, /<AgentDetailHeader\b/u);
 assert.doesNotMatch(featureAgentDetailHostSource, /\bPuzzle\b/u);
 assert.doesNotMatch(featureAgentDetailHostSource, /featureagentdetailhost\.feature"/u);
 assert.match(

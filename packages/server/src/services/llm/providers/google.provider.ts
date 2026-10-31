@@ -670,8 +670,8 @@ export class GoogleProvider extends BaseLLMProvider {
   }
 
   async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
-    if (this.shouldSuppressModelParameters(options) || !options.tools?.length)
-      return super.chatComplete(messages, options);
+    if (!options.tools?.length || options.forceTextualToolCalls) return super.chatComplete(messages, options);
+    const suppressModelParameters = this.shouldSuppressModelParameters(options);
 
     const configuredMaxTokens = this.applyMaxTokensCap(options.maxTokens ?? 4096);
     const contextFit = this.fitMessagesToContext(messages, { ...options, maxTokens: configuredMaxTokens });
@@ -680,7 +680,9 @@ export class GoogleProvider extends BaseLLMProvider {
     const maxTokens = this.applyMaxTokensCap(contextFit.maxTokens ?? configuredMaxTokens);
     const model = options.model || "gemini-2.0-flash";
 
-    const supportsThinking = isGeminiThinkingLevelModel(model) || /gemini-2\.5|gemini-2\.0-flash-thinking/i.test(model);
+    const supportsThinking =
+      !suppressModelParameters &&
+      (isGeminiThinkingLevelModel(model) || /gemini-2\.5|gemini-2\.0-flash-thinking/i.test(model));
     const thinkingConfig =
       this.shouldSendParameter(options, "reasoningEffort") && supportsThinking
         ? resolveGeminiThinkingConfig(model, options, maxTokens ?? 4096)
@@ -705,23 +707,29 @@ export class GoogleProvider extends BaseLLMProvider {
     const body: Record<string, unknown> = {
       contents: withGeminiContinuation(model, formatGoogleContents(messages)),
       generationConfig: {
-        ...(this.shouldSendParameter(options, "temperature") ? { temperature: options.temperature ?? 1 } : {}),
+        ...(!suppressModelParameters && this.shouldSendParameter(options, "temperature")
+          ? { temperature: options.temperature ?? 1 }
+          : {}),
         ...(this.shouldSendParameter(options, "maxTokens") ? { maxOutputTokens: maxTokens } : {}),
-        ...(this.shouldSendParameter(options, "topP") ? { topP: options.topP ?? 1 } : {}),
-        ...(this.shouldSendParameter(options, "topK") &&
-        typeof options.topK === "number" &&
-        Number.isFinite(options.topK)
-          ? { topK: Math.max(0, Math.trunc(options.topK)) }
+        ...(!suppressModelParameters
+          ? {
+              ...(this.shouldSendParameter(options, "topP") ? { topP: options.topP ?? 1 } : {}),
+              ...(this.shouldSendParameter(options, "topK") &&
+              typeof options.topK === "number" &&
+              Number.isFinite(options.topK)
+                ? { topK: Math.max(0, Math.trunc(options.topK)) }
+                : {}),
+              ...(this.shouldSendParameter(options, "frequencyPenalty") && options.frequencyPenalty
+                ? { frequencyPenalty: options.frequencyPenalty }
+                : {}),
+              ...(this.shouldSendParameter(options, "presencePenalty") && options.presencePenalty
+                ? { presencePenalty: options.presencePenalty }
+                : {}),
+              ...(thinkingConfig ? { thinkingConfig } : {}),
+            }
           : {}),
-        ...(this.shouldSendParameter(options, "frequencyPenalty") && options.frequencyPenalty
-          ? { frequencyPenalty: options.frequencyPenalty }
-          : {}),
-        ...(this.shouldSendParameter(options, "presencePenalty") && options.presencePenalty
-          ? { presencePenalty: options.presencePenalty }
-          : {}),
-        ...(thinkingConfig ? { thinkingConfig } : {}),
         ...googleResponseFormatConfig(options.responseFormat),
-        ...(options.stop?.length ? { stopSequences: options.stop } : {}),
+        ...(!suppressModelParameters && options.stop?.length ? { stopSequences: options.stop } : {}),
       },
       tools: formatGoogleTools(options.tools),
     };

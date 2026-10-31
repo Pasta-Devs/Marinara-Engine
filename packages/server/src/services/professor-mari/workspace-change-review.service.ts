@@ -12,6 +12,7 @@ import type {
   MariWorkspacePendingApproval,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
+import { getMariPendingDir } from "./workspace-pending-store.js";
 
 const APPROVAL_TIMEOUT_MS = 10 * 60_000;
 const INSTALL_TIMEOUT_MS = 10 * 60_000;
@@ -153,6 +154,22 @@ function isServerSecretName(normalized: string) {
   return normalized === ".env" || normalized.startsWith(".env.") || normalized === ".encryption-key";
 }
 
+// Messages the user queued for her sit under DATA_DIR/storage, which she may read; these she may not, and may not write.
+// Compared case-folded, and through the real path when the folder exists, so a link or another spelling still counts.
+function isInsideMariPendingDir(absolutePath: string): boolean {
+  const folded = (path: string) => resolve(path).toLowerCase();
+  // The policy runs for every file the sandbox walk visits, so skip the real-path lookup unless the name is there.
+  if (!folded(absolutePath).split(sep).includes("mari-pending")) return false;
+  const roots = [getMariPendingDir()];
+  try {
+    roots.push(realpathSync(roots[0]!));
+  } catch {
+    // The folder does not exist yet; its configured path is the only one to guard.
+  }
+  const target = folded(absolutePath);
+  return roots.some((root) => target === folded(root) || target.startsWith(folded(root) + sep));
+}
+
 export function workspacePathAccessPolicy(
   workspaceRoot: string,
   absolutePath: string,
@@ -167,6 +184,7 @@ export function workspacePathAccessPolicy(
   const fileSystemParts = parts.map(fileSystemName);
 
   if (fileSystemParts.includes(".git") || isServerSecretName(fileSystemParts.at(-1) ?? "")) return "forbidden";
+  if (isInsideMariPendingDir(absolute)) return "forbidden";
   // The sensitive checks use the same folded names, so "package.json." or "start.sh::$DATA" still count.
   const folded = fileSystemParts.join("/");
   const foldedName = fileSystemParts.at(-1) ?? "";

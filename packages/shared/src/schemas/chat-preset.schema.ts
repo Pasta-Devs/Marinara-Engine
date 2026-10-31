@@ -8,6 +8,8 @@ export const chatPresetSettingsSchema = z
   .object({
     connectionId: z.string().nullable().optional(),
     promptPresetId: z.string().nullable().optional(),
+    personaId: z.string().nullable().optional(),
+    lorebookIds: z.array(z.string()).max(200).optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();

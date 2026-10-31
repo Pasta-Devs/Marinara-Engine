@@ -94,6 +94,7 @@ import {
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
+  createCustomToolSchema,
   createLorebookEntrySchema,
   lorebookDecisionModeSchema,
   parseLorebookDecisionActivation,
@@ -1791,6 +1792,7 @@ function normalizeAgentActionData(input: Row, existing?: Row | null): Row {
   delete row.resultType;
   delete row.result_type;
   delete row.prompt;
+  delete row.prompt_template;
   return row;
 }
 
@@ -5531,6 +5533,7 @@ export class MariDbService {
               "imagePath",
               "promptTemplate",
               "prompt",
+              "prompt_template",
               "settings",
               "resultType",
             ],
@@ -5663,6 +5666,8 @@ export class MariDbService {
             "wrapFormat",
             "scopedRegexMode",
             "scoped_regex_mode",
+            "conversation_prompt",
+            "game_prompt",
             "defaultChoices",
             "isDefault",
             "author",
@@ -6636,7 +6641,8 @@ export class MariDbService {
           this.validateAgentConfigRow(row, id, issues, change?.beforeRaw);
         }
         if (tableName === "custom_tools") {
-          this.validateCustomToolRow(row, id, issues);
+          const change = changes?.find((entry) => entry.table === tableName && entry.id === id);
+          this.validateCustomToolRow(row, id, issues, change?.beforeRaw);
         }
       }
     }
@@ -6774,10 +6780,16 @@ export class MariDbService {
     }
   }
 
-  private validateCustomToolRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[]) {
+  private validateCustomToolRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[], previousRow?: Row | null) {
     const id = idValue == null ? null : String(idValue);
+    // The editor's own limits (#8516) apply to values this change sets: a row Mari writes past them could not be saved
+    // again from the editor, but a stored value already past them (an import, an older write) must not block an
+    // unrelated edit such as `enabled`, which the editor itself now saves.
+    const sets = (field: string) => !previousRow || row[field] !== previousRow[field];
     if (typeof row.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(row.name)) {
       issues.push({ level: "error", table: "custom_tools", id, message: "Tool name must be lowercase snake_case" });
+    } else if (sets("name") && !createCustomToolSchema.shape.name.safeParse(row.name).success) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool name must be at most 100 characters" });
     }
     if (typeof row.description !== "string" || row.description.trim().length === 0) {
       issues.push({
@@ -6785,6 +6797,13 @@ export class MariDbService {
         table: "custom_tools",
         id,
         message: "Tool description must be a non-empty string",
+      });
+    } else if (sets("description") && !createCustomToolSchema.shape.description.safeParse(row.description).success) {
+      issues.push({
+        level: "error",
+        table: "custom_tools",
+        id,
+        message: "Tool description must be at most 500 characters",
       });
     }
     if (typeof row.executionType !== "string" || !TOOL_EXECUTION_TYPES.has(row.executionType)) {
@@ -9886,7 +9905,7 @@ export class MariDbService {
       }
       addCharacterDataShapeIssues(change.table, row, change.id, issues);
       if (change.table === "agent_configs") this.validateAgentConfigRow(row, change.id, issues, change.beforeRaw);
-      if (change.table === "custom_tools") this.validateCustomToolRow(row, change.id, issues);
+      if (change.table === "custom_tools") this.validateCustomToolRow(row, change.id, issues, change.beforeRaw);
     }
 
     for (const change of changes) {

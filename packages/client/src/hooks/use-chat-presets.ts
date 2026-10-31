@@ -22,6 +22,15 @@ export function useChatPresets(mode?: ChatMode | null) {
   });
 }
 
+export function useCreateChatPreset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; mode: ChatMode; settings: ChatPresetSettings }) =>
+      api.post<ChatPreset>("/chat-presets", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: chatPresetKeys.all }),
+  });
+}
+
 export function useUpdateChatPreset() {
   const qc = useQueryClient();
   return useMutation({

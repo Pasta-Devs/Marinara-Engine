@@ -8,6 +8,7 @@ import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
 import { prepareJsonResponse } from "../middleware/compress-json.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
+import { deletePendingForChat } from "../services/professor-mari/workspace-pending-store.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
 import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
@@ -1358,6 +1359,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     await storage.remove(target.id);
     // #6842: the chat's Keep/Restore cards go with it. Its changes stay applied.
     await getMariDbService(app.db).keepReviewsForChat(target.id);
+    // Messages queued for her in this chat go too. Best effort: a leftover file never fails the delete.
+    await deletePendingForChat(target.id).catch((err) =>
+      logger.warn(err, "[professor-mari] Could not delete the queued messages for chat %s", target.id),
+    );
     if (wasActive) {
       const remaining = sortProfessorMariChats((await storage.list()).filter(isHomeProfessorMariChat));
       const next = remaining[0];
@@ -2610,6 +2615,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     // Disconnect from partner chat before deleting
     await storage.disconnectChat(req.params.id);
     await storage.remove(req.params.id);
+    // A Mari chat can be deleted here too (the chat list). Best effort, like her own delete route.
+    await deletePendingForChat(req.params.id).catch((err) =>
+      logger.warn(err, "[professor-mari] Could not delete the queued messages for chat %s", req.params.id),
+    );
     if (scenePackageOrigin)
       await releaseScenePackageOrigin(scenePackageOrigin, {
         kind: "deleted",

@@ -466,6 +466,8 @@ export type ProfessorMariRecovery = {
   localMessageId?: string;
   /** The server never saved the message, so it went back to the composer: Retry sends the composer. */
   inComposer?: boolean;
+  /** The server put this queued message back in the queue, so a retry takes it from there. */
+  pendingMessageId?: string;
 };
 
 export function classifyProfessorMariFailure(error: unknown): ProfessorMariRecovery["kind"] {

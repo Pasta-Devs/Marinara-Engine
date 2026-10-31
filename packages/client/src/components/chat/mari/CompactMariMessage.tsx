@@ -661,11 +661,15 @@ export const CompactMariMessage = memo(function CompactMariMessage({
         <MariResourceSubject character={characterSubject} lorebook={lorebookSubject} className="mb-2" />
         {goal}
         <MariAnswer restStory={restStory} pullTarget={pullTarget}>
-          <CompactMarkdown
-            content={splitMariAnswerWhy(stripProfessorMariSpeakerPrefix(content)).answer}
-            links={buildMariReplyLinks(content, [], actionResults, characterPreviews, lorebookPreviews)}
-            onOpenLink={onOpenResource}
-          />
+          {toMessageExtra(message)?.mariCheckpointFiller === true ? (
+            <p className="mari-reply-filler">{content}</p>
+          ) : (
+            <CompactMarkdown
+              content={splitMariAnswerWhy(stripProfessorMariSpeakerPrefix(content)).answer}
+              links={buildMariReplyLinks(content, [], actionResults, characterPreviews, lorebookPreviews)}
+              onOpenLink={onOpenResource}
+            />
+          )}
           <MariWorkTimelineOutcome
             content={content}
             actionResults={actionResults}

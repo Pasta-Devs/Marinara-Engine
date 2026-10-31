@@ -385,6 +385,29 @@ export interface CapabilityGameStateRecord {
   presentCharacterIds: string[];
 }
 
+/** Capability API 1.391: one enabled, completed Advanced Memory scene summary. Read-only copy. */
+export interface CapabilityAdvancedMemorySummary {
+  id: string;
+  /** Older chats can hold several copies of one scene; they share this id. */
+  sceneId: string;
+  kind: "scene";
+  title: string;
+  /** The recap as stored, hand edits included. */
+  content: string;
+  timeline: string | null;
+  startMessageId: string;
+  endMessageId: string;
+  /** Characters with access to the scene; the narrator is not listed. */
+  audienceCharacterIds: string[];
+  sourceFingerprint: string;
+  updatedAt: string;
+  /**
+   * The "memory" string the summary reply returned for `long-term-memory:runtime.summaryMemoryInstruction()`,
+   * untouched; the Engine never parses it. Null without a block, after a hand edit, and on older records.
+   */
+  memory: string | null;
+}
+
 /** Capability API 1.387: a chat's stored summaries, as the Engine reads them from the chat. Read-only copies. */
 export interface CapabilityChatSummaries {
   /** Conversation day summaries by day ("DD.MM.YYYY"). */
@@ -395,6 +418,8 @@ export interface CapabilityChatSummaries {
   rolling: ChatSummaryEntry[];
   /** Game: the summary of each previous session. */
   gameSessions: SessionSummary[];
+  /** Capability API 1.391: Advanced Memory's enabled, completed scene summaries, in the order they were written. */
+  advancedMemory: CapabilityAdvancedMemorySummary[];
 }
 
 export type CapabilityRoleplayEventAudience = "public" | "user-only" | { characterIds: string[] };

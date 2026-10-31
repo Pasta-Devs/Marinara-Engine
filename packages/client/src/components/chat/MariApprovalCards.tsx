@@ -31,8 +31,8 @@ import { MariCard, MariRow } from "./mari-primitives";
 import { MariPromptPreviewModal, type MariPromptRenderSide } from "./MariPromptPreviewModal";
 import { TranscriptRow } from "./MariTranscriptRow";
 import { Field } from "./MariChangeReceipt";
-import { appDataAction, characterPatchFieldId } from "../../lib/mari-editor-fields";
-import { openCharacterAtField } from "../../hooks/use-mari-editor-fields";
+import { mariEditorKindForAction, mariPatchFieldId } from "../../lib/mari-editor-fields";
+import { openEditorAtField } from "../../hooks/use-mari-editor-fields";
 
 /**
  * Professor Mari's approval gates and the summaries they are built from.
@@ -360,12 +360,15 @@ export function MariHeldChangeCard({
   disabled,
   onAccept,
   onDecline,
+  settled = false,
 }: {
   held: readonly MariHeldChange[] | null | undefined;
   nameOf: (id: string) => string | undefined;
   disabled: boolean;
   onAccept: () => void;
   onDecline: () => void;
+  /** The user saved their own text in every field, so the change is answered. */
+  settled?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
@@ -381,9 +384,14 @@ export function MariHeldChangeCard({
           : localizeUi("mari.needsYou.held.generic");
   const labels = fields.map(({ key }) => fieldLabel(key));
   const only = held?.length === 1 ? held[0] : null;
-  const characterId = only?.id && appDataAction(only.action) === "character.update" ? only.id : null;
+  const editorKind = only?.id ? mariEditorKindForAction(only.action) : null;
   const openAtField = (path: string) => {
-    if (!characterId || !openCharacterAtField(characterId, path, localizeUi("commandCenter.dirtyEditor"))) return;
+    if (
+      !editorKind ||
+      !only?.id ||
+      !openEditorAtField(editorKind, only.id, path, localizeUi("commandCenter.dirtyEditor"))
+    )
+      return;
     useUIStore.getState().setOmnibarOpen(false);
   };
   // Folded: one key field. A new record's name is already the title, so its first other field shows.
@@ -419,17 +427,17 @@ export function MariHeldChangeCard({
             {fact ? <span className="mari-receipt__what">{fact}</span> : null}
           </span>
         </div>
-        {fields.length > 0 ? (
+        {!settled && fields.length > 0 ? (
           <div className={open ? "mari-receipt__body" : "mari-receipt__folded"}>
             {fields.map(
               (field, index) =>
                 (open || index === peek) && (
                   <Field key={field.key} label={labels[index]!}>
                     <div className="mari-receipt__box">{field.value}</div>
-                    {characterId && characterPatchFieldId(field.key) ? (
+                    {editorKind && mariPatchFieldId(editorKind, field.key) ? (
                       <button
                         type="button"
-                        onClick={() => openAtField(characterPatchFieldId(field.key)!)}
+                        onClick={() => openAtField(mariPatchFieldId(editorKind, field.key)!)}
                         aria-label={localizeUi("ui.chat.mariediteasyviewer.openAtFieldNamed", {
                           field: labels[index]!,
                         })}
@@ -444,7 +452,7 @@ export function MariHeldChangeCard({
             )}
           </div>
         ) : null}
-        {fields.length > 1 ? (
+        {!settled && fields.length > 1 ? (
           <button type="button" className="mari-receipt__more" aria-expanded={open} onClick={() => setOpen(!open)}>
             {open
               ? localizeUi("ui.chat.marichangereceipt.showLess")
@@ -453,23 +461,34 @@ export function MariHeldChangeCard({
           </button>
         ) : null}
       </div>
-      <p className="mari-receipt__why">
-        <Trans i18nKey="mari.needsYou.then.held" components={{ b: <b /> }} />
-      </p>
-      <div className="mari-receipt__foot">
-        <span className="mari-receipt__state" data-tone="wait">
-          <Clock aria-hidden="true" />
-          {localizeUi("ui.chat.marichangereceipt.notAppliedYet")}
-        </span>
-        <span className="mari-receipt__actions">
-          <button type="button" onClick={onDecline} disabled={disabled} className="mari-link">
-            {localizeUi("mari.needsYou.decline")}
-          </button>
-          <button type="button" onClick={onAccept} disabled={disabled} className="mari-btn mari-btn--solid">
-            {localizeUi("mari.needsYou.accept")}
-          </button>
-        </span>
-      </div>
+      {settled ? (
+        <div className="mari-receipt__foot">
+          <span className="mari-receipt__state" data-tone="ok" role="status">
+            <Check aria-hidden="true" />
+            {localizeUi("mari.needsYou.held.ownText")}
+          </span>
+        </div>
+      ) : (
+        <>
+          <p className="mari-receipt__why">
+            <Trans i18nKey="mari.needsYou.then.held" components={{ b: <b /> }} />
+          </p>
+          <div className="mari-receipt__foot">
+            <span className="mari-receipt__state" data-tone="wait">
+              <Clock aria-hidden="true" />
+              {localizeUi("ui.chat.marichangereceipt.notAppliedYet")}
+            </span>
+            <span className="mari-receipt__actions">
+              <button type="button" onClick={onDecline} disabled={disabled} className="mari-link">
+                {localizeUi("mari.needsYou.decline")}
+              </button>
+              <button type="button" onClick={onAccept} disabled={disabled} className="mari-btn mari-btn--solid">
+                {localizeUi("mari.needsYou.accept")}
+              </button>
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -20,7 +20,6 @@ export type CharacterPromptInfo = {
   description: string;
   personality: string;
   scenario: string;
-  creatorNotes: string;
   systemPrompt: string;
   backstory: string;
   appearance: string;
@@ -156,7 +155,6 @@ export async function loadCharacterPromptInfo({
       description,
       personality: cardPromptText(charData.personality),
       scenario,
-      creatorNotes: cardPromptText(charData.creator_notes),
       systemPrompt: cardPromptText(charData.system_prompt),
       backstory: cardPromptText(charData.extensions?.backstory),
       appearance: cardPromptText(charData.extensions?.appearance),

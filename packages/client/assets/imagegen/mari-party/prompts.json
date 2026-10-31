@@ -1,0 +1,31 @@
+{
+  "tool": "Built-in image_gen",
+  "pack": "party",
+  "notes": "Dated Dec 31 pack. Concept 6's partygoer is the costume and identity reference; Basic Mari supplies only framing, scale, baseline, and pixel style. Each story was generated as its own four-beat transparent strip, then normalized into four 128 x 192 cells.",
+  "prompts": [
+    {
+      "asset": "portrait-idle gate",
+      "prompt": "Match the left figure from concept 6: adult feminine chibi Professor Mari with voluminous orange-blonde curls, bright blue eyes, black rectangular glasses, sparkly navy star-speck sweater, dark grey jeans, black-and-white sneakers, blue paper party hat with gold stars, and red party cup. Cheerful house-party energy, crisp Basic-Mari-family pixel art, full body, transparent background."
+    },
+    {
+      "asset": "thinking, research, planning, editing",
+      "prompt": "Four-beat transparent pixel-art strips, one action per strip: slowly chew a chip by the snack bowl and get an idea; browse a party playlist on her phone and find the song; arrange red cups into a pong triangle and nod; write her name and a heart on her red cup, cap the marker, and show it. Exact concept-6 party outfit and identity throughout."
+    },
+    {
+      "asset": "debugging, images, waiting, approval",
+      "prompt": "Four-beat transparent pixel-art strips, one action per strip: untangle fairy lights, find and replace the dead bulb, then glow; take a party selfie, flash, check it, and pose again; watch the midnight countdown on her phone while tapping her foot and readying a party horn; offer a second red cup toward the viewer and wait for a clink. Exact concept-6 party outfit and identity throughout."
+    },
+    {
+      "asset": "success, retry, cancelled, idle",
+      "prompt": "Four-beat transparent pixel-art strips, one action per strip: pull a party popper, explode confetti, jump and cheer; miss a pong shot, retrieve the ball, aim and retry; watch a popper fizzle, receive one sad confetti piece, shrug with a drooping hat; bop, sip from the red cup, dance-step and raise the cup. Exact concept-6 party outfit and identity throughout."
+    },
+    {
+      "asset": "portrait-idle, portrait-blink, portrait-shrug, portrait-hover, portrait-drag, pull-heads",
+      "prompt": "Production pixel-art portraits and interaction sprites of concept-6 party Mari. Cheerful with cup; blink; shrug with cup and chip; surprised mid-sip; dragged away as her drink sloshes; six party-hat head angles: neutral, down, down-left, down-right, peering and delighted. Transparent background, Basic Mari framing only."
+    },
+    {
+      "asset": "pose-wave, pose-greet, pose-point-up, pose-point-middle, pose-point-down, pose-explaining, pose-thinking, pose-profile, pose-chibi",
+      "prompt": "Nine transparent pixel-art poses of concept-6 party Mari: wave with cup, toast, point with a chip in three directions, explain with party horn as pointer, think with cup at chin, dancing profile, and tiny cheering chibi. Preserve outfit and identity exactly."
+    }
+  ]
+}
