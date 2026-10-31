@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -163,6 +163,11 @@ try {
   assert.equal(assigned.length, 1, "Mari replacement follows the stable handle, without making a second sprite");
   assert.equal(assigned[0]!.label, "delighted");
   assert(!existsSync(join(directory, "sprites", mariOwner.id, mariSprite.filename)));
+  const mixedCaseFile = join(directory, "sprites", mariOwner.id, "happy.JPG");
+  renameSync(join(directory, "sprites", mariOwner.id, assigned[0]!.filename), mixedCaseFile);
+  await assign("happy");
+  assert.equal(listSpriteCatalog(mariOwner.id).sprites[0]!.filename, "happy.JPG");
+  assert.deepEqual(readFileSync(mixedCaseFile), jpeg, "Mari preserves mixed-case replacement filenames");
   const folder = (await request("POST", mariBase + "/folders", { name: "Other" })).folders[0].id;
   await request("POST", mariBase, { expression: "delighted", image, folderId: folder });
   await request("PATCH", `${mariBase}/happy`, { expression: "joy" });

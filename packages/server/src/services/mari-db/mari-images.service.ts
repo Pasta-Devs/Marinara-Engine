@@ -1159,7 +1159,10 @@ export class MariImagesService {
       const handle = match?.expression ?? expression;
       const dir = join(SPRITES_DIR, ownerId);
       await mkdir(dir, { recursive: true });
-      const filename = `${handle}.${source.ext}`;
+      const filename =
+        match && extname(match.filename).toLowerCase() === `.${source.ext.toLowerCase()}`
+          ? match.filename
+          : `${handle}.${source.ext}`;
       await writeFile(assertInsideDir(dir, join(dir, filename)), source.buffer);
       if (match && match.filename !== filename) await unlink(assertInsideDir(dir, join(dir, match.filename)));
       catalog.sprites[handle] = { label: match?.label ?? expression, folderId: match?.folderId ?? null };
