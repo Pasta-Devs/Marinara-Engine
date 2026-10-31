@@ -53,7 +53,7 @@ Rules for the artifact:
 - No <script>, no event handlers, no external images, fonts or links.
 - Draw pictures with inline SVG. Give each <svg> a viewBox and use only these elements: g, path, rect, circle, ellipse, line, polyline, polygon, text, tspan, defs, linearGradient, radialGradient, stop, clipPath. Anything else is removed, including use, image, filter, mask, pattern, foreignObject and animation.
 - Set gradients and clip paths with attributes, such as fill="url(#paper)". They do not work from CSS.
-- It sits in a chat column that can be narrow, so it must fit the available width: no fixed widths wider than 100%, no fixed or sticky positioning.
+- It is shown at most 448px wide, and narrower on phones, so it must fit the available width: no fixed widths wider than 100%, no fixed or sticky positioning. Keep it compact: about 340px tall at most, unless the request needs a long page.
 - Set its own background and text colours, so it reads on both light and dark themes.`;
 
 export interface HtmlArtifact {

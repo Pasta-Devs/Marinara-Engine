@@ -195,7 +195,7 @@ export function RoleplayArtifact({ html, scopeClass }: { html: string; scopeClas
   }, [html, scopeClass, remoteImages]);
   return (
     <div
-      className={`mari-html-content relative mb-4 max-w-full whitespace-normal !overflow-hidden !contain-paint [&_svg]:max-w-full ${scopeClass}`}
+      className={`mari-html-content relative mx-auto mb-4 w-full max-w-[28rem] whitespace-normal !overflow-hidden !contain-paint [&_svg]:max-w-full ${scopeClass}`}
       data-roleplay-artifact
       onClick={handleRemoteImageClick}
       dangerouslySetInnerHTML={{ __html: markup }}
