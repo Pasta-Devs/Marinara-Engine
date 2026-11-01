@@ -2268,6 +2268,8 @@
   "connections.embeddingDefault.label": "Embeddings",
   "connections.embeddingDefault.none": "Marinara's own search",
   "connections.embeddingDefault.saveFailed": "Could not save the default embedding model.",
+  "connections.embeddingTest.button": "Test embedding",
+  "connections.embeddingTest.dimensions": "{{dimensions}} dimensions",
   "connections.folders.actions": "Actions for {{name}}",
   "connections.folders.chooseMessage": "A model sits in one folder.",
   "connections.folders.chooseTitle_one": "Put this model in a folder",

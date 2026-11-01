@@ -170,7 +170,7 @@ function isLocalSidecarEmbeddingSupported(): boolean {
   );
 }
 
-function createLocalSidecarEmbeddingSource(): MemoryRecallEmbeddingSource | null {
+function createLocalSidecarEmbeddingSource(throwErrors = false): MemoryRecallEmbeddingSource | null {
   if (!isLocalSidecarEmbeddingSupported()) {
     logger.warn(
       "[memory-recall] Local sidecar was selected for embeddings, but sidecar embeddings require an enabled llama.cpp local model",
@@ -188,6 +188,7 @@ function createLocalSidecarEmbeddingSource(): MemoryRecallEmbeddingSource | null
       sidecarModelService.getResolvedBackend(),
     ),
     label,
+    model: configuredModelRef,
     async embed(texts: string[], signal?: AbortSignal, inputType: MemoryRecallEmbeddingInputType = "document") {
       try {
         return await provider.embed(
@@ -196,6 +197,7 @@ function createLocalSidecarEmbeddingSource(): MemoryRecallEmbeddingSource | null
           signal,
         );
       } catch (err) {
+        if (throwErrors) throw err;
         logger.warn(err, "[memory-recall] Configured embedding source %s failed", label);
         return null;
       }
@@ -243,10 +245,23 @@ export async function resolveMemoryRecallEmbeddingSource(
   return resolveEmbeddingSource(db, options, true);
 }
 
+/**
+ * Connections > Test embedding: the source one connection's own settings resolve to, exactly as semantic search
+ * resolves them (Embedding Connection, Embedding endpoint URL, model), without the app-wide default filling in,
+ * and with the provider error thrown so the test can show it.
+ */
+export async function resolveConnectionTestEmbeddingSource(
+  db: DB,
+  connection: EmbeddingConnectionLike,
+): Promise<MemoryRecallEmbeddingSource | null> {
+  return resolveEmbeddingSource(db, { activeConnection: connection }, false, true);
+}
+
 async function resolveEmbeddingSource(
   db: DB,
   options: EmbeddingSourceOptions,
   useDefault: boolean,
+  throwErrors = false,
 ): Promise<MemoryRecallEmbeddingSource | null> {
   const connections = createConnectionsStorage(db);
   if (options.connectionId === "random") {
@@ -287,7 +302,7 @@ async function resolveEmbeddingSource(
     return resolveDefaultEmbeddingSource(db);
   }
 
-  if (embeddingConnId === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarEmbeddingSource();
+  if (embeddingConnId === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarEmbeddingSource(throwErrors);
 
   let embeddingConnection = activeConnection;
   let embeddingBaseUrl = options.activeBaseUrl ?? null;
@@ -340,6 +355,8 @@ async function resolveEmbeddingSource(
       canonicalCustomHeaders(embeddingConnection.defaultParameters),
     ),
     label,
+    model: embeddingModel,
+    endpoint: embeddingBaseUrl,
     async embed(texts: string[], signal?: AbortSignal, inputType: MemoryRecallEmbeddingInputType = "document") {
       try {
         return await provider.embed(
@@ -348,6 +365,7 @@ async function resolveEmbeddingSource(
           signal,
         );
       } catch (err) {
+        if (throwErrors) throw err;
         logger.warn(err, "[memory-recall] Configured embedding source %s failed", label);
         return null;
       }
