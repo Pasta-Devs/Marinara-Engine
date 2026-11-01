@@ -641,9 +641,11 @@ function ScenarioSetupStep({
   value,
   onChange,
   nameOf,
+  openingLocked,
 }: {
   chatId: string;
   value: ScenarioStepState;
+  openingLocked: boolean;
   onChange: React.Dispatch<React.SetStateAction<ScenarioStepState>>;
   nameOf: (characterId: string) => string;
 }) {
@@ -789,73 +791,88 @@ function ScenarioSetupStep({
 
   return (
     <div className="space-y-4">
-      {parts.map(({ part, label, text, rows }) => (
-        <div key={part} className="space-y-1.5">
-          <label htmlFor={`${fieldId}-${part}`} className={WIZARD_FIELD_LABEL}>
-            {label}
-          </label>
-          {part === "premise" && (
-            <p id={`${fieldId}-premise-hint`} className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {t("chat.wizard.scenario.premiseHint")}
-            </p>
-          )}
-          <textarea
-            ref={part === "premise" ? mainFieldRef : undefined}
-            aria-describedby={part === "premise" ? `${fieldId}-premise-hint` : undefined}
-            id={`${fieldId}-${part}`}
-            value={text}
-            onChange={(event) => {
-              const edited = event.target.value;
-              onChange((s) =>
-                s.draft
-                  ? {
-                      ...s,
-                      draft:
-                        part === "premise"
-                          ? { ...s.draft, premise: edited }
-                          : { ...s.draft, opening: { ...s.draft.opening, content: edited } },
-                    }
-                  : s,
-              );
-            }}
-            rows={rows}
-            maxLength={8000}
-            disabled={busy}
-            className={SCENARIO_TEXTAREA_CLASS}
-          />
-          <div className="flex flex-wrap gap-2">
-            <input
-              value={notes[part]}
+      {parts.map(({ part, label, text, rows }) => {
+        // After a failed start the opening is already a chat message; editing it here would do nothing.
+        const locked = part === "opening" && openingLocked;
+        const hint =
+          part === "premise"
+            ? t("chat.wizard.scenario.premiseHint")
+            : locked
+              ? t("chat.wizard.scenario.openingSent")
+              : null;
+        return (
+          <div key={part} className="space-y-1.5">
+            <label htmlFor={`${fieldId}-${part}`} className={WIZARD_FIELD_LABEL}>
+              {label}
+            </label>
+            {hint && (
+              <p id={`${fieldId}-${part}-hint`} className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {hint}
+              </p>
+            )}
+            <textarea
+              ref={part === "premise" ? mainFieldRef : undefined}
+              aria-describedby={hint ? `${fieldId}-${part}-hint` : undefined}
+              readOnly={locked}
+              id={`${fieldId}-${part}`}
+              value={text}
               onChange={(event) => {
-                const note = event.target.value;
-                setNotes((n) => ({ ...n, [part]: note }));
+                const edited = event.target.value;
+                onChange((s) =>
+                  s.draft
+                    ? {
+                        ...s,
+                        draft:
+                          part === "premise"
+                            ? { ...s.draft, premise: edited }
+                            : { ...s.draft, opening: { ...s.draft.opening, content: edited } },
+                      }
+                    : s,
+                );
               }}
-              maxLength={4000}
+              rows={rows}
+              maxLength={8000}
               disabled={busy}
-              aria-label={t(`chat.wizard.scenario.${part}Note`)}
-              placeholder={t("chat.wizard.scenario.notePlaceholder")}
-              className={cn(WIZARD_INPUT_CLASS, "min-w-[10rem] flex-1 pr-3")}
+              className={SCENARIO_TEXTAREA_CLASS}
             />
-            <button
-              type="button"
-              onClick={() => void run(part)}
-              disabled={busy}
-              className={WIZARD_SECONDARY_BUTTON_CLASS}
-            >
-              <RotateCcw size="0.75rem" aria-hidden="true" />
-              {t(`chat.wizard.scenario.${part}Regenerate`)}
-            </button>
+            {!locked && (
+              <div className="flex flex-wrap gap-2">
+                <input
+                  value={notes[part]}
+                  onChange={(event) => {
+                    const note = event.target.value;
+                    setNotes((n) => ({ ...n, [part]: note }));
+                  }}
+                  maxLength={4000}
+                  disabled={busy}
+                  aria-label={t(`chat.wizard.scenario.${part}Note`)}
+                  placeholder={t("chat.wizard.scenario.notePlaceholder")}
+                  className={cn(WIZARD_INPUT_CLASS, "min-w-[10rem] flex-1 pr-3")}
+                />
+                <button
+                  type="button"
+                  onClick={() => void run(part)}
+                  disabled={busy}
+                  className={WIZARD_SECONDARY_BUTTON_CLASS}
+                >
+                  <RotateCcw size="0.75rem" aria-hidden="true" />
+                  {t(`chat.wizard.scenario.${part}Regenerate`)}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => onChange((s) => ({ ...s, preview: false }))}
-        disabled={busy}
-        className={WIZARD_GHOST_BUTTON_CLASS}
-      >
-        {t("chat.wizard.scenario.changeIdea")}
-      </button>
+        );
+      })}
+      {!openingLocked && (
+        <button
+          type="button"
+          onClick={() => onChange((s) => ({ ...s, preview: false }))}
+          disabled={busy}
+          className={WIZARD_GHOST_BUTTON_CLASS}
+        >
+          {t("chat.wizard.scenario.changeIdea")}
+        </button>
+      )}
       {status}
     </div>
   );
@@ -1446,7 +1463,7 @@ function ConversationQuickSetup({
   const isLast = step === STEPS.length - 1;
   const [scenario, setScenario] = useState(EMPTY_SCENARIO);
   const [scenarioStarting, setScenarioStarting] = useState(false);
-  const openingWritten = useRef(false);
+  const [openingWritten, setOpeningWritten] = useState(false);
   const acceptedDraft = acceptedScenario(scenario, STEPS);
   const createMessage = useCreateMessage(chat.id);
   const { data: connections } = useConnections();
@@ -1874,13 +1891,13 @@ function ConversationQuickSetup({
     });
     // Opening first, premise last in the one metadata write that also finishes setup, so a failed Start
     // saves no premise and no "setup complete". The ref keeps a retry from writing the opening twice.
-    if (acceptedDraft && !openingWritten.current) {
+    if (acceptedDraft && !openingWritten) {
       await createMessage.mutateAsync({
         role: "assistant",
         content: acceptedDraft.opening.content,
         characterId: acceptedDraft.opening.characterId,
       });
-      openingWritten.current = true;
+      setOpeningWritten(true);
     }
     await updateMeta.mutateAsync({
       id: chat.id,
@@ -1940,6 +1957,7 @@ function ConversationQuickSetup({
     metadata.multiplayerSetup,
     createMessage,
     acceptedDraft,
+    openingWritten,
   ]);
 
   const startWithScenario = async () => {
@@ -2508,6 +2526,7 @@ function ConversationQuickSetup({
       <ScenarioSetupStep
         chatId={chat.id}
         value={scenario}
+        openingLocked={openingWritten}
         onChange={setScenario}
         nameOf={(id) => {
           const character = characters.find((entry) => entry.id === id);
@@ -2543,8 +2562,8 @@ function ConversationQuickSetup({
         currentStep={currentStep}
         animationKey={`conversation-${currentStep.key}`}
         onClose={onDismiss}
-        onBack={step > 0 ? goBack : undefined}
-        onSkip={onDismiss}
+        onBack={step > 0 && !openingWritten ? goBack : undefined}
+        onSkip={openingWritten ? undefined : onDismiss}
         onPrimary={
           acceptedDraft && currentStep.key === "scenario"
             ? () => void startWithScenario()
@@ -2554,14 +2573,16 @@ function ConversationQuickSetup({
         }
         primaryLabel={
           currentStep.key === "scenario"
-            ? localizeUi(acceptedDraft ? "chat.wizard.scenario.start" : "chat.wizard.scenario.skip")
+            ? localizeUi(acceptedDraft || openingWritten ? "chat.wizard.scenario.start" : "chat.wizard.scenario.skip")
             : isLast
               ? "Start Chatting"
               : "Next"
         }
         primaryIcon={isLast ? <MessageCircle size="0.75rem" /> : <ChevronRight size="0.75rem" />}
         primaryDisabled={
-          scenarioStarting || (metadata.multiplayerSetup !== true && isLast && (!hasConnection || !hasCharacters))
+          scenarioStarting ||
+          (openingWritten && !acceptedDraft) ||
+          (metadata.multiplayerSetup !== true && isLast && (!hasConnection || !hasCharacters))
         }
         secondaryAction={
           isLast
@@ -2602,7 +2623,7 @@ function RoleplaySetupWizard({
   const STEPS = useMemo(() => withScenarioStep(ROLEPLAY_STEPS, chat, localizeUi), [chat, localizeUi]);
   const [scenario, setScenario] = useState(EMPTY_SCENARIO);
   const [scenarioStarting, setScenarioStarting] = useState(false);
-  const openingWritten = useRef(false);
+  const [openingWritten, setOpeningWritten] = useState(false);
   const acceptedDraft = acceptedScenario(scenario, STEPS);
   const roleplayConnectionSelectId = useId();
 
@@ -3103,13 +3124,13 @@ function RoleplaySetupWizard({
   const finishWizard = useCallback(async () => {
     // Opening first, premise last in the one metadata write that also finishes setup, so a failed Start
     // saves no premise and no "setup complete". The ref keeps a retry from writing the opening twice.
-    if (acceptedDraft && !openingWritten.current) {
+    if (acceptedDraft && !openingWritten) {
       await createMessage.mutateAsync({
         role: "assistant",
         content: acceptedDraft.opening.content,
         characterId: acceptedDraft.opening.characterId,
       });
-      openingWritten.current = true;
+      setOpeningWritten(true);
     }
     await updateMeta.mutateAsync({
       id: chat.id,
@@ -3131,6 +3152,7 @@ function RoleplaySetupWizard({
     updateMeta,
     createMessage,
     acceptedDraft,
+    openingWritten,
     metadata.multiplayerSetup,
   ]);
 
@@ -4312,6 +4334,7 @@ function RoleplaySetupWizard({
       <ScenarioSetupStep
         chatId={chat.id}
         value={scenario}
+        openingLocked={openingWritten}
         onChange={setScenario}
         nameOf={(id) => {
           const character = characters.find((entry) => entry.id === id);
@@ -4499,30 +4522,36 @@ function RoleplaySetupWizard({
             currentStep={currentStep}
             animationKey={`roleplay-${currentStep.key}`}
             onClose={onDismiss}
-            onBack={step > 0 ? previous : undefined}
-            onSkip={onDismiss}
+            onBack={step > 0 && !openingWritten ? previous : undefined}
+            onSkip={openingWritten ? undefined : onDismiss}
             onPrimary={acceptedDraft && currentStep.key === "scenario" ? () => void startWithScenario() : next}
             primaryLabel={
               currentStep.key === "scenario"
-                ? localizeUi(acceptedDraft ? "chat.wizard.scenario.start" : "chat.wizard.scenario.skip")
+                ? localizeUi(
+                    acceptedDraft || openingWritten ? "chat.wizard.scenario.start" : "chat.wizard.scenario.skip",
+                  )
                 : isLast
                   ? "Start"
                   : "Next"
             }
             primaryIcon={isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-            primaryDisabled={nextDisabled || scenarioStarting}
+            primaryDisabled={nextDisabled || scenarioStarting || (openingWritten && !acceptedDraft)}
             secondaryAction={
               <>
                 {isLast && defaultsAction({ chatParameters: customizeParameters ? generationParameters : null })}
-                <button
-                  type="button"
-                  onClick={() => setShortcutMode(true)}
-                  title={localizeUi("chat.settingsProfile.wizard.applyDescription")}
-                  className={WIZARD_SECONDARY_BUTTON_CLASS}
-                >
-                  <span className="hidden xs:inline sm:inline">{localizeUi("chat.settingsProfile.wizard.action")}</span>
-                  <span className="inline xs:hidden sm:hidden">{localizeUi("chat.settingsProfile.label")}</span>
-                </button>
+                {!openingWritten && (
+                  <button
+                    type="button"
+                    onClick={() => setShortcutMode(true)}
+                    title={localizeUi("chat.settingsProfile.wizard.applyDescription")}
+                    className={WIZARD_SECONDARY_BUTTON_CLASS}
+                  >
+                    <span className="hidden xs:inline sm:inline">
+                      {localizeUi("chat.settingsProfile.wizard.action")}
+                    </span>
+                    <span className="inline xs:hidden sm:hidden">{localizeUi("chat.settingsProfile.label")}</span>
+                  </button>
+                )}
               </>
             }
           >
