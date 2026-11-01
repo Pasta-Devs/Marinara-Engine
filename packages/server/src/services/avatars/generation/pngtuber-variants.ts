@@ -19,6 +19,8 @@ import {
   AVATAR_PROMPT_TEMPLATE_IDS,
   PNGTUBER_DEFAULT_MOTION,
   SPRITE_EXPRESSION_LABELS,
+  SPRITE_EYES_CLOSED_SUFFIXES,
+  SPRITE_MOUTH_OPEN_SUFFIXES,
   avatarKindDataSchema,
   createAvatarConfig,
   detectSpriteEmotionBindings,
@@ -126,8 +128,6 @@ const VARIANT_LAYER_KEYS = { "eyes-closed": "eyesClosed", "mouth-open": "mouthOp
 const FULL_BODY_LABEL = /^full[_\s-]+/iu;
 const LAYER_KEY = /^[\p{L}\p{N}_]{1,64}$/u;
 const MAX_LAYER_SETS = 64;
-const MOUTH_OPEN_SUFFIXES = ["mouth_open", "open_mouth", "talking", "talk", "speaking", "speak"];
-const EYES_CLOSED_SUFFIXES = ["eyes_closed", "closed_eyes", "eyes_shut", "blinking", "blink"];
 
 /** The sprites a PNGTuber avatar uses: portraits when there are any, otherwise full-body ones, so its faces
  *  never mix the two framings (and `full_happy` never lands in the portrait `happy` slot). */
@@ -157,8 +157,8 @@ export function spriteBuiltPngtuber(
     for (let changed = true; changed;) {
       changed = false;
       for (const [suffixes, isMouth] of [
-        [MOUTH_OPEN_SUFFIXES, true],
-        [EYES_CLOSED_SUFFIXES, false],
+        [SPRITE_MOUTH_OPEN_SUFFIXES, true],
+        [SPRITE_EYES_CLOSED_SUFFIXES, false],
       ] as const) {
         const suffix = suffixes.find((entry) => base.length > entry.length + 1 && base.endsWith(`_${entry}`));
         if (!suffix) continue;

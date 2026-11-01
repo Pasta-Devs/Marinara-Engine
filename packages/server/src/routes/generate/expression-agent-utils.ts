@@ -1,7 +1,9 @@
 import {
+  findSpriteExpressionFacetMatches,
   inferExpressionCandidates,
   normalizeSpriteExpressionKey as normalizeUnicodeSpriteExpressionKey,
   normalizeSpriteLookupToken,
+  spriteExpressionFacetKey,
 } from "@marinara-engine/shared";
 import { buildSpriteExpressionChoices } from "../../services/game/sprite.service.js";
 import { parseExtra } from "../../services/generation/prompt-attachments.js";
@@ -259,9 +261,24 @@ function resolveExpression(
   }
 
   const lower = trimmed.toLowerCase();
+  const exact = availableExpressions.find((entry) => entry.toLowerCase() === lower);
+
+  // A faceted name (#8637) picks among the variants of its own facets, dropping its lowest-priority facets
+  // when none exist; see findSpriteExpressionFacetMatches. A plain group key keeps the prefix grouping below,
+  // and the group key is everything before the first underscore, so half-smile stays a group key.
+  const facetKey = spriteExpressionFacetKey(trimmed);
+  const groupKey = trimmed.replace(/^full_/iu, "").split("_")[0]!;
+  const faceted = facetKey !== spriteExpressionFacetKey(groupKey);
+  if (faceted) {
+    // A concrete numbered handle such as happy_pajamas_02 is never rerolled to a sibling variant.
+    if (exact && facetKey !== lower) return exact;
+    const facetMatch = pickRandomExpression(
+      findSpriteExpressionFacetMatches(availableExpressions, trimmed, (entry) => entry),
+    );
+    if (facetMatch) return facetMatch;
+  }
 
   const prefixMatches = availableExpressions.filter((entry) => getExpressionPrefixVariant(entry, trimmed));
-  const exact = availableExpressions.find((entry) => entry.toLowerCase() === lower);
   if (prefixMatches.length > 1) {
     const groupPool = exact ? [exact, ...prefixMatches] : prefixMatches;
     const randomGroupMatch = pickRandomExpression(groupPool);
@@ -278,7 +295,9 @@ function resolveExpression(
     availableExpressions.find((entry) => {
       const option = normalizeExpressionToken(entry);
       return hasUsefulContainmentMatch(normalized, option);
-    }) ?? null
+    }) ??
+    // With no facet left to match, a faceted name falls back to its group key's variants.
+    (faceted ? resolveExpression(groupKey, availableExpressions) : null)
   );
 }
 
