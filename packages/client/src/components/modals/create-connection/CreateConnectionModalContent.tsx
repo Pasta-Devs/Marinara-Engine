@@ -714,6 +714,8 @@ export function CreateConnectionModalContent({
     const supportedKinds = resolvedService
       ? kindsOf(resolvedService).filter((kind): kind is AddableKind => kind !== "local")
       : [];
+    // Rows with no setup tile (music, for example) have no models step to show.
+    if (!supportedKinds.length && !modelsFor?.kind) return editInstead(accountId, row.id);
     setSetupKind(kind ?? modelsFor?.kind ?? (modelsFor?.chat ? "chat" : startKind(supportedKinds)));
     setStep(3);
   };
