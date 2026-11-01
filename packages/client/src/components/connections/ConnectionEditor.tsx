@@ -502,8 +502,6 @@ export function ConnectionEditor({
 
   // Test results
   const testScopeRef = useRef(0);
-  // An embedding result describes the settings it ran with; editing them drops it, even mid-test.
-  const embeddingTestScopeRef = useRef(0);
   const audioTestControllerRef = useRef<AbortController | null>(null);
   const [audioTestPending, setAudioTestPending] = useState(false);
   const [audioTestUrl, setAudioTestUrl] = useState<string | null>(null);
@@ -1498,16 +1496,9 @@ export function ConnectionEditor({
     });
   }, [connectionDetailId, dirty, handleSave, testConnection, selectedImageService, localProvider, t]);
 
-  const clearEmbeddingTest = useCallback(() => {
-    embeddingTestScopeRef.current++;
-    setEmbeddingTestResult(null);
-  }, []);
-
   const handleTestEmbedding = useCallback(async () => {
     if (!connectionDetailId) return;
     const requestScope = testScopeRef.current;
-    const embeddingScope = embeddingTestScopeRef.current;
-    const stale = () => testScopeRef.current !== requestScope || embeddingTestScopeRef.current !== embeddingScope;
     if (dirty) {
       try {
         await handleSave();
@@ -1515,15 +1506,15 @@ export function ConnectionEditor({
         return;
       }
     }
-    if (stale()) return;
+    if (testScopeRef.current !== requestScope) return;
     setEmbeddingTestResult(null);
     testEmbedding.mutate(connectionDetailId, {
       onSuccess: (data) => {
-        if (stale()) return;
+        if (testScopeRef.current !== requestScope) return;
         setEmbeddingTestResult(data);
       },
       onError: (err) => {
-        if (stale()) return;
+        if (testScopeRef.current !== requestScope) return;
         setEmbeddingTestResult({
           success: false,
           message: err instanceof Error ? err.message : "Failed",
@@ -1767,6 +1758,8 @@ export function ConnectionEditor({
     // A manual configuration edit invalidates in-flight tests; save hydration does not.
     testScopeRef.current++;
     clearAudioTest();
+    // An embedding result describes the key, address and model it ran with, so any edit drops it.
+    setEmbeddingTestResult(null);
     setDirty(true);
   }, [clearAudioTest]);
 
@@ -4001,7 +3994,6 @@ export function ConnectionEditor({
                           value={localEmbeddingModel}
                           onChange={(e) => {
                             setLocalEmbeddingModel(e.target.value);
-                            clearEmbeddingTest();
                             markDirty();
                           }}
                           className="mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9"
@@ -4017,7 +4009,6 @@ export function ConnectionEditor({
                             value={localEmbeddingBaseUrl}
                             onChange={(e) => {
                               setLocalEmbeddingBaseUrl(e.target.value);
-                              clearEmbeddingTest();
                               markDirty();
                             }}
                             className={cn(
@@ -4051,7 +4042,6 @@ export function ConnectionEditor({
                         value={localEmbeddingConnectionId}
                         onChange={(e) => {
                           setLocalEmbeddingConnectionId(e.target.value);
-                          clearEmbeddingTest();
                           markDirty();
                         }}
                         className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
