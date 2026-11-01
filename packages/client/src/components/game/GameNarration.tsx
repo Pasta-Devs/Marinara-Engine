@@ -81,6 +81,7 @@ import { TTS_AUTOPLAY_VOICE_EVENT, type TTSAutoplayVoiceDetail } from "../../lib
 import { getOrCreateCachedTTSAudioBlob } from "../../lib/tts-audio-cache";
 import {
   findTTSCharacterIdBySpeakerName,
+  isTTSSpeakerAmbiguous,
   getTTSPersonaVoice,
   resolveTTSNarratorVoice,
   resolveTTSVoiceForSpeaker,
@@ -820,6 +821,8 @@ function findNpcVoiceHint(speaker: string | null | undefined, gameNpcs: GameNpc[
 type GameSegmentVoiceOptions = {
   playerSpeakerNames?: ReadonlySet<string>;
   persona?: TTSVoicePersona | null;
+  /** The speaker fits several active cards, so no card outside the game may voice them (#8638). */
+  isAmbiguousSpeaker?: (speaker?: string | null) => boolean;
 };
 
 function normalizeGameVoiceSpeakerName(value: string | null | undefined): string {
@@ -882,7 +885,13 @@ function getGameSegmentVoiceRequest(
     const tone = resolveGameSegmentTtsEmotion(segment);
     const voice = playerSpeaker
       ? getTTSPersonaVoice(config, options.persona)
-      : resolveTTSVoiceForSpeaker(config, segment.speaker, undefined, findNpcVoiceHint(segment.speaker, gameNpcs));
+      : resolveTTSVoiceForSpeaker(
+          config,
+          segment.speaker,
+          undefined,
+          findNpcVoiceHint(segment.speaker, gameNpcs),
+          Boolean(options.isAmbiguousSpeaker?.(segment.speaker)),
+        );
     if (config.source === "elevenlabs" && !voice) return null;
     return {
       chunks,
@@ -2614,6 +2623,11 @@ export function GameNarration({
     [queueLogScrollTopRestore, stopGameVoicePlayback],
   );
 
+  const isAmbiguousGameSpeaker = useCallback(
+    (speaker?: string | null) => isTTSSpeakerAmbiguous(speaker, activeCharacterEntries, personaInfo),
+    [activeCharacterEntries, personaInfo],
+  );
+
   const getVoiceRequestsForSegment = useCallback(
     (segment: NarrationSegment): GameSegmentVoiceRequest[] => {
       if (!ttsConfig) return [];
@@ -2622,12 +2636,13 @@ export function GameNarration({
       const baseRequest = getGameSegmentVoiceRequest(segment, ttsConfig, gameNpcs, {
         playerSpeakerNames: playerVoiceSpeakerNames,
         persona: personaInfo,
+        isAmbiguousSpeaker: isAmbiguousGameSpeaker,
       });
       if (baseRequest) requests.push(baseRequest);
 
       return requests;
     },
-    [gameNpcs, personaInfo, playerVoiceSpeakerNames, ttsConfig],
+    [gameNpcs, isAmbiguousGameSpeaker, personaInfo, playerVoiceSpeakerNames, ttsConfig],
   );
 
   const getVoiceRequestForSideLine = useCallback(
@@ -2648,10 +2663,11 @@ export function GameNarration({
       const request = getGameSegmentVoiceRequest(sideSegment, ttsConfig, gameNpcs, {
         playerSpeakerNames: playerVoiceSpeakerNames,
         persona: personaInfo,
+        isAmbiguousSpeaker: isAmbiguousGameSpeaker,
       });
       return request ? [request] : [];
     },
-    [gameNpcs, personaInfo, playerVoiceSpeakerNames, ttsConfig],
+    [gameNpcs, isAmbiguousGameSpeaker, personaInfo, playerVoiceSpeakerNames, ttsConfig],
   );
 
   const getVoiceKeyForSegment = useCallback(

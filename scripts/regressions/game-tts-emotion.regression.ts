@@ -101,7 +101,11 @@ const game = new Function(
     segment: NarrationSegment,
     config: TTSConfig,
     npcs?: GameNpc[],
-    options?: { playerSpeakerNames?: ReadonlySet<string>; persona?: { id?: string; name: string } | null },
+    options?: {
+      playerSpeakerNames?: ReadonlySet<string>;
+      persona?: { id?: string; name: string } | null;
+      isAmbiguousSpeaker?: (speaker?: string | null) => boolean;
+    },
   ) => VoiceRequest | null;
   jobs: (key: string, requests: VoiceRequest[], config: TTSConfig) => VoiceJob[];
   generate: (job: VoiceJob, controller: AbortController) => Promise<Blob>;
@@ -470,3 +474,23 @@ for (const [expression, tone] of [
   await generateCombat(ttsService, "Hold the line.", { ...line, expression }, config, new AbortController());
   assert.equal(generated.at(-1)!.options.tone, tone, `combat expression ${expression} speaks as ${tone ?? "no tone"}`);
 }
+
+// #8638: Game narration, like chat, never gives a speaker who fits several active cards the voice of a card outside
+// the game; a speaker who fits none still takes the one voiced card whose name contains theirs.
+const junpeiLibrary = ttsConfigSchema.parse({
+  source: "openai",
+  voice: "fixture-voice",
+  voiceMode: "per-character",
+  voiceAssignments: [{ characterId: "sato-id", characterName: "Junpei Sato", voice: "sato-voice" }],
+});
+const junpeiLine: NarrationSegment = { ...main, id: "junpei", speaker: "Junpei", content: "Yo!" };
+assert.equal(
+  game.request(junpeiLine, junpeiLibrary, [], { isAmbiguousSpeaker: () => true })?.voice,
+  "fixture-voice",
+  "a speaker two active cards fit never takes an outside card's voice",
+);
+assert.equal(
+  game.request(junpeiLine, junpeiLibrary, [], { isAmbiguousSpeaker: () => false })?.voice,
+  "sato-voice",
+  "a speaker no active card fits still takes the outside card's voice",
+);

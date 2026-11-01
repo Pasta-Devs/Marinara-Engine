@@ -2252,6 +2252,7 @@ export const ChatMessage = memo(function ChatMessage({
   }, [
     message.content,
     message.id,
+    ambiguousTTSSpeaker,
     resolveTTSCharacterId,
     ttsConfig,
     ttsSpeakerName,
