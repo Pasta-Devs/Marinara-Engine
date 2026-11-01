@@ -160,15 +160,19 @@ export function Modal({
     const handler = (e: KeyboardEvent) => {
       // Escape while an IME is composing cancels the composition first.
       if (e.isComposing) return;
+      if (!modeless) {
+        if (e.key !== "Escape" || closeDisabled) return;
+        if (!overlayRegistrationRef.current?.isTopmost()) return;
+        onClose();
+        return;
+      }
       if (e.key !== "Escape" || closeDisabled) return;
       if (!overlayRegistrationRef.current?.isTopmost()) return;
-      if (modeless) {
-        // Sidebar keys belong to the sidebar; drag/menu cancellation may also consume Escape.
-        if (e.defaultPrevented) return;
-        const panel = panelRef.current;
-        const targetInside = e.target instanceof Node && panel?.contains(e.target);
-        if (!targetInside && !panel?.contains(document.activeElement)) return;
-      }
+      // Sidebar keys belong to the sidebar; drag/menu cancellation may also consume Escape.
+      if (e.defaultPrevented) return;
+      const panel = panelRef.current;
+      const targetInside = e.target instanceof Node && panel?.contains(e.target);
+      if (!targetInside && !panel?.contains(document.activeElement)) return;
       onClose();
     };
     document.addEventListener("keydown", handler);
