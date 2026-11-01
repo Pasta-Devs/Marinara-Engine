@@ -15,7 +15,7 @@ import {
   type PackagedAchievementDefinition,
   type SceneOriginProvider,
 } from "@marinara-engine/shared";
-import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { getEnvFilePath, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { parseGameJsonish } from "../game/jsonish.js";
@@ -183,11 +183,14 @@ type CapabilityModule = {
   selfCheck?: (context: CapabilityActivationContext) => void | Promise<void>;
 };
 
-export function prepareCapabilityRuntimeEnvironment(dataDir = DATA_DIR): void {
+export function prepareCapabilityRuntimeEnvironment(dataDir = DATA_DIR, envFile = getEnvFilePath()): void {
   // Downloaded runtimes bundle Engine utilities and evaluate them before
-  // activate(context). Give those bundles the host's absolute resolved path;
-  // preserving a relative DATA_DIR would resolve beside the nested server.mjs.
+  // activate(context). Give those bundles the host's absolute resolved paths:
+  // a relative DATA_DIR would resolve beside the nested server.mjs, and without
+  // MARINARA_ENV_FILE their runtime-config looks for (and creates) .env two
+  // folders above the data folder, "/" for a short DATA_DIR (Pasta-Devs/Marinara-Agents#2036).
   process.env.DATA_DIR = dataDir;
+  process.env.MARINARA_ENV_FILE = envFile;
 }
 
 async function runCleanups(cleanups: Cleanup[]): Promise<void> {
