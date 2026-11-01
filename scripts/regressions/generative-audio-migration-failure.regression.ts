@@ -71,10 +71,10 @@ const failTransaction = (position: number) => {
 };
 try {
   await check("POST retains its committed speech write when only its optional split fails", async () => {
-    const count = failTransaction(2);
+    const count = failTransaction(3);
     const created = await app.inject({ method: "POST", url: "/api/connections", payload: input });
     db.transaction = originalTransaction;
-    assert.equal(count(), 2, "the row write and migration are separate actual transactions");
+    assert.equal(count(), 3, "the row write, its account link and the migration are separate actual transactions");
     const rows = (await connections.list()).filter((row) => row.provider === "audio");
     assert.equal(rows.length, 1, "the speech write committed even if splitting rolled back");
     const id = rows[0]!.id;

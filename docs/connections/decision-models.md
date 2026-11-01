@@ -39,13 +39,13 @@ For activation questions and prompt/lorebook statements, the model receives the 
 
 ## Choosing a Decision model
 
-Open **Connections**, then **Defaults**, and pick from **Decision model**. The list has three groups:
+Open **Connections**, expand the **Jobs** box, and find the **Decision** row under **Behind the scenes**. Click the row to open the **Model for** picker. The list has three groups:
 
 - **None**, the default. Nothing is asked, and the activation question fields in the agent editor stay disabled.
 - **Local models**: the **Primary local model** or **Utility local model** you already run. Nothing is downloaded and nothing leaves your machine. The **Decision sidecar**, if you installed one, is listed here too.
 - **Connections**: any Decision connection you created: hosted, a System One server you run, or a chat model on a server you already run, such as Ollama or LM Studio.
 
-Entries that cannot answer right now stay in the list, greyed out with the reason, so you can see what to fix. Click **Test** after choosing. The test sends a fixed sample, not your chat.
+Entries that cannot answer right now stay in the list, greyed out with the reason, so you can see what to fix. To test the selected model, click the gear on the **Decision** row and use the settings that open below the row. The inline settings contain **Test**, **Thinking**, and order controls. The test sends a fixed sample, not your chat.
 
 ### Which one to pick
 
@@ -53,12 +53,12 @@ If you already run a local model, try it first. In a small wording test from one
 
 **Jev and Open-Jev are different models.** Jev is TypeSafe's hosted model, available directly or through OpenRouter. [Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B) is a separately published model built on Qwen, which Marinara can run locally. The Open-Jev wording tests do not measure hosted Jev's accuracy.
 
-| Option | Costs | Needs | Good for |
-| --- | --- | --- | --- |
-| A model you already run | Nothing extra | A local model in **Local Model** | Most people who run a local model |
-| A chat model on your own server | Nothing extra | Ollama, LM Studio, llama.cpp or another OpenAI-compatible server you already run | People whose model runs outside Marinara, so it is not loaded twice |
-| A hosted Decision connection | Billed requests; one turn can make several | An API key (TypeSafe or OpenRouter) | Phones, and PCs that do not run a local model |
-| The installable decision model | Separate disk and GPU memory; see [model sizes](#let-marinara-install-a-decision-model) | Linux x86-64 and a supported NVIDIA GPU | A separate decision model beside your chat model |
+| Option                          | Costs                                                                                   | Needs                                                                            | Good for                                                            |
+| ------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| A model you already run         | Nothing extra                                                                           | A local model in **Local Model**                                                 | Most people who run a local model                                   |
+| A chat model on your own server | Nothing extra                                                                           | Ollama, LM Studio, llama.cpp or another OpenAI-compatible server you already run | People whose model runs outside Marinara, so it is not loaded twice |
+| A hosted Decision connection    | Billed requests; one turn can make several                                              | An API key (TypeSafe or OpenRouter)                                              | Phones, and PCs that do not run a local model                       |
+| The installable decision model  | Separate disk and GPU memory; see [model sizes](#let-marinara-install-a-decision-model) | Linux x86-64 and a supported NVIDIA GPU                                          | A separate decision model beside your chat model                    |
 
 **On Android (Termux),** the installable decision model cannot run, because it needs a PC with an NVIDIA GPU. A small local model on a phone's processor may also be too slow for the time limit. A hosted Decision connection is the practical choice on a phone, for example Jev through OpenRouter. See [Set up a Decision connection](#set-up-a-decision-connection).
 
@@ -70,12 +70,12 @@ When someone imports content that uses decisions, Marinara shows a notice with a
 
 If you have a local model in **Local Model**, you can use it for decisions and never create a connection or pay for a request.
 
-1. In **Connections**, open **Defaults** and set **Decision model** to **Primary local model**, or to **Utility local model** if you have one set up.
-2. Click **Test**. A successful result shows the probability and request time, plus two things that are specific to a local model: whether log-probabilities were available, and whether the model answers directly.
+1. In **Connections**, expand **Jobs**, find the **Decision** row under **Behind the scenes**, and click it. In the **Model for** picker, set the model to **Primary local model**, or to **Utility local model** if you have one set up.
+2. Click the gear on the **Decision** row, then click **Test** in the settings that open below the row. A successful result shows the probability and request time, plus two things that are specific to a local model: whether log-probabilities were available, and whether the model answers directly.
 
 Marinara asks the model a single yes/no question, lets it produce one token, and reads the answer from that token's probabilities. No reply is written, so the request is short. A choice between several answers is asked as one yes/no question per answer. How many recent messages fit is worked out from the slot's own context size.
 
-**Thinking.** Most models answer in one word. Some always reason first, whatever they are asked. The **Thinking** setting below the dropdown controls this:
+**Thinking.** Most models answer in one word. Some always reason first, whatever they are asked. The **Thinking** setting in the expanded **Decision** row controls this:
 
 - **Auto** (default) tries the fast one-word method and, if the model cannot answer that way twice in a row, lets that model think first and tells you.
 - **Off** always uses the one-word method. A model that cannot answer that way gives no answer.
@@ -90,16 +90,16 @@ A model that thinks first takes seconds, so by default it only answers for thing
 If your chat model already runs in Ollama, LM Studio, llama.cpp or another OpenAI-compatible server, it can answer decisions without Marinara loading a second copy.
 
 1. Open the **Custom** connection you use for that server and click **Use this model for decisions**. This creates a Decision connection with the source **OpenAI-compatible chat model** that uses the same base URL, model and key. Or create one yourself: a Decision connection, that source, the same base URL as your chat connection (for example `http://localhost:11434/v1` for Ollama), and the model name the server serves.
-2. Select it under **Decision model** and click **Test**. The result also says whether the server returned log-probabilities and whether the model had to think first.
+2. Select it in the **Model for** picker on the **Decision** row. Open the row's gear and click **Test**. The result also says whether the server returned log-probabilities and whether the model had to think first.
 
 It is asked the same way as a local model: one yes/no word per statement, read from its probabilities. Statements are sent one at a time, because Marinara cannot know how many requests your server works on at once. **Thinking** is always **Auto** for a connection, so a model that has to think first switches over after two failed answers, and then only answers for gates after the reply unless **Also gate agents that run before the reply** is on. A server on another machine on your network also needs `PROVIDER_LOCAL_URLS_ENABLED`, as any local provider does; see [Connecting a Local or Self-Hosted Model](local-self-hosted.md).
 
 ## Set up a Decision connection
 
-1. In **Connections**, create a connection with provider **Decision**.
+1. In **Connections**, click **Add**. In the **Add account** window, choose the **Decision** service.
 2. Choose **TypeSafe**, **OpenRouter**, **Custom System One endpoint**, or **OpenAI-compatible chat model**. Hosted sources need an API key. TypeSafe sends to `https://api.typesafe.ai` unless you replace its **Base URL** with another server that runs TypeSafe's API, without `/v1/systemone`; it still needs your TypeSafe key, which is sent to that server. A server elsewhere on your local network needs `PROVIDER_LOCAL_URLS_ENABLED`, as any local provider does; Android turns it on by default. Custom accepts a System One server you already run, including Open-Jev or [Strands decider](#run-strands-decider-yourself); enter its base URL without `/v1/systemone` and use the model name it supports. A chat model server such as Ollama or LM Studio does not speak System One: use **OpenAI-compatible chat model** for it, as described in [On a server you already run](#on-a-server-you-already-run).
 3. For OpenRouter, choose a saved OpenRouter connection under **API key source**, or enter a separate key. Its editor also offers **Use this key for decisions**, which sets up Jev through OpenRouter. Linked keys follow later key changes automatically. Custom System One and OpenAI-compatible chat model connections may borrow a custom chat connection's key only when both URLs have the same origin (scheme, host, and port).
-4. Save, then select it under **Decision model** and click **Test**. A successful result shows the probability, how long the answer took, and the connection's time limit. Test waits at least 10 seconds, and 5 seconds past a longer limit, so a slow answer is reported with its real time. If it took longer than the time limit, the result says so: during chats that answer would count as no answer.
+4. Click **Connect**. After the account connects, click **Done** to choose its model. Open the **Decision** row under **Behind the scenes** in **Jobs**, click the row, and select the new model in **Model for**. Click the row's gear to open the settings below the row, then click **Test**. A successful result shows the probability, how long the answer took, and the connection's time limit. Test waits at least 10 seconds, and 5 seconds past a longer limit, so a slow answer is reported with its real time. If it took longer than the time limit, the result says so: during chats that answer would count as no answer.
 
 The Decision default is separate from your chat, agent, image, video, and audio defaults. Choosing **None** turns decisions off without deleting any activation questions or decision statements.
 
@@ -121,12 +121,13 @@ Deleting a connection used for a linked key warns you and leaves the Decision co
    ```
 
    It uses an NVIDIA GPU or Apple silicon when it finds one, and the processor otherwise, more slowly. The first start downloads the model and about 4.6 GB of base weights, and its Python packages take about 5.5 GB. The server has no password, so keep it on `127.0.0.1`.
+
 2. Create a Decision connection with the source **Custom System One endpoint** and the base URL `http://127.0.0.1:8000`. Any model name works.
-3. Select it under **Decision model** and click **Test**. Its first answer after it starts takes about 2 seconds, longer than the default **Time limit**, so test it once before you chat.
+3. Select it in the **Model for** picker on the **Decision** row. Open the row's gear and click **Test**. Its first answer after it starts takes about 2 seconds, longer than the default **Time limit**, so test it once before you chat.
 
 Its probabilities are calibrated, so the default 0.5 threshold for a custom connection suits it, unlike a self-hosted Open-Jev (see [Thresholds](#thresholds)). In a small roleplay test of 80 statements on an RTX 5090, it answered 73 correctly against Open-Jev 2B's 74 and used about 5.1 GB (4.7 GiB) of GPU memory. One to eight statements took it 0.04 to 0.1 seconds, against 0.1 to 0.14 for Open-Jev 2B; on a long chat both took about 0.3 seconds. Its answers depend more on wording, so follow [Writing statements](../prompts/conditional-prompts.md#writing-statements) and test turns from your own chats.
 
-To switch between it and the Decision sidecar, pick either one under **Decision model**. Both stay set up.
+To switch between it and the Decision sidecar, pick either one in the **Model for** picker on the **Decision** row. Both stay set up.
 
 ## Let Marinara install a decision model
 
@@ -134,17 +135,17 @@ Marinara can also download and run a purpose-built decision model for you. It ru
 
 The built-in Open-Jev models need Linux **x86-64**, an NVIDIA GPU of compute capability 7.5 or newer (Turing, the RTX 20 series, or later), and driver 580 or newer. Linux ARM devices and Pascal cards or older are not supported by these packages. Where a model cannot run, the option stays visible, says why, and offers to set up a Decision connection instead.
 
-| Built-in model | Model download | Disk including runtime | GPU memory |
-| --- | --- | --- | --- |
-| Open-Jev 2B | About 4.6 GB | About 10 GB | About 4.8 GB (4.5 GiB) |
-| Open-Jev 9B | About 19.4 GB | About 25.3 GB | About 23.6 GB (22 GiB) |
+| Built-in model | Model download | Disk including runtime | GPU memory             |
+| -------------- | -------------- | ---------------------- | ---------------------- |
+| Open-Jev 2B    | About 4.6 GB   | About 10 GB            | About 4.8 GB (4.5 GiB) |
+| Open-Jev 9B    | About 19.4 GB  | About 25.3 GB          | About 23.6 GB (22 GiB) |
 
 These are the catalog's estimates, based on the pinned model versions and measured workloads. GPU use and speed vary with the workload. The 9B model leaves little headroom on a 24 GB GPU; check the installer's verdict for your selected card and other running models.
 
 1. Open **Connections**, expand **Local Model**, and choose **Decision sidecar (experimental)**.
 2. Read the warning, then turn on **Enable decision sidecar**. Confirming shows the verdict for your machine, and the button reads **Enable anyway** when that verdict is a warning.
 3. Pick a model and confirm its size, hardware verdict and licenses. Nothing downloads before that point. **Open-Jev 2B** needs much less memory than **Open-Jev 9B**; neither guarantees correct answers for your chat.
-4. Select **Decision sidecar** under **Decision model**.
+4. Select **Decision sidecar** in the **Model for** picker on the **Decision** row.
 
 **Speed.** A model's first answer after it starts is slower, so Marinara asks it one warm-up question while it loads. When the warm-up succeeds, **Test** and the first turn show its normal speed. If it fails, the model still starts, and the first question pays the delay instead. Every statement reads the recent chat again, so a turn with many statements on a long chat takes longer: on a long chat, Open-Jev 2B takes about a quarter of a second per statement.
 
@@ -158,11 +159,11 @@ Turning the sidecar off stops the process and keeps the files. **Remove files** 
 
 Probabilities are not directly comparable between models. The same positive example might score 0.99 on one model and 0.2 on another. Marinara's default threshold depends on how the model is connected:
 
-| Selected backend | Default yes/no threshold |
-| --- | --- |
-| Primary or Utility local chat model, or an OpenAI-compatible chat model connection | 0.5 |
-| TypeSafe, OpenRouter or Custom System One Decision connection | 0.5 |
-| Managed Decision sidecar | Its model manifest's recommendation; 0.1 for the built-in Open-Jev 2B and 9B |
+| Selected backend                                                                   | Default yes/no threshold                                                     |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Primary or Utility local chat model, or an OpenAI-compatible chat model connection | 0.5                                                                          |
+| TypeSafe, OpenRouter or Custom System One Decision connection                      | 0.5                                                                          |
+| Managed Decision sidecar                                                           | Its model manifest's recommendation; 0.1 for the built-in Open-Jev 2B and 9B |
 
 An agent's **Run when probability is at least** can override this default. The editor offers to restore the backend's recommendation when the saved value differs. Check the setting whenever you switch models.
 

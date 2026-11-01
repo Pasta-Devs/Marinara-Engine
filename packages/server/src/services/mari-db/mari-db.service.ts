@@ -2,6 +2,7 @@ import { partialInput } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Professor Mari DB service
 // ──────────────────────────────────────────────
+import { applyChatModelOverride, readChatModelOverride } from "../generation/connection-resolution.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -8373,7 +8374,11 @@ export class MariDbService {
         "Token Budget": (row as unknown as Lorebook).tokenBudget,
       }));
 
-    const connection = chat.connectionId ? await createConnectionsStorage(this.db).getById(chat.connectionId) : null;
+    const connectionsStorage = createConnectionsStorage(this.db);
+    const storedConnection = chat.connectionId
+      ? await connectionsStorage.getById(chat.connectionId)
+      : await connectionsStorage.getDefault();
+    const connection = storedConnection ? applyChatModelOverride(storedConnection, readChatModelOverride(chat)) : null;
     const presetCandidates = buildGenerationPromptPresetCandidates({
       chatMode: chat.mode,
       chatPromptPresetId: chat.promptPresetId,

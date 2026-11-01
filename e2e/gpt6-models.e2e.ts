@@ -24,7 +24,7 @@ for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"]) {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
         useUIStore.getState().openConnectionDetail(id);
       }, id);
-      await expect(page.getByPlaceholder("Connection name")).toHaveValue(`${model} fixture`);
+      await expect(page.getByPlaceholder("Model name", { exact: true })).toHaveValue(`${model} fixture`);
     };
     try {
       await page.goto("/");

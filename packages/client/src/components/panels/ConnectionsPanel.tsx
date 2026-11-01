@@ -1,788 +1,122 @@
-import { insertLibraryItems } from "../../lib/library-order";
-import { useLibraryOrder } from "../../hooks/use-library-order";
+// ──────────────────────────────────────────────
+// Panel: Connections (concept A, the library). One header row (Search, Add, ⋯ with Import and Export); then the
+// Defaults box, one folding block per Connection with its Models of every kind, and the engines set up on this
+// device. A device or the other Models open as a second column on a wide panel; a narrow one drills in. Search
+// narrows the blocks in place: a Connection that matches shows all its Models, and its fold still works. With no
+// Connection yet the panel teaches the first step and shows the Jobs controls.
+// ──────────────────────────────────────────────
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  CloudOff,
+  Download,
+  HardDrive,
+  Link,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Upload,
+  BadgeDollarSign,
+  ListFilter,
+  Folder,
+  Layers,
+  ArrowUpDown,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import {
+  IMAGE_GENERATION_SOURCES,
+  VIDEO_GENERATION_SOURCES,
+  IMAGE_SOURCE_VENDOR,
+  PROVIDERS,
+  isChatProvider,
+  isLocalAuthProvider,
+  parsePinnedModels,
+  type APIProvider,
+} from "@marinara-engine/shared";
+import { useConnections, useOutsideReads, type CachedCatalogFacts } from "../../hooks/use-connections";
+import { useConnectionAccounts, useFeatureModels } from "../../hooks/use-connection-accounts";
+import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
+import type { DeviceItem } from "../../hooks/use-device-setup";
+import { useChatStore } from "../../stores/chat.store";
+import { useUIStore } from "../../stores/ui.store";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import { cn } from "../../lib/utils";
+import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
+import { downloadZipFile } from "../../lib/download-zip";
+import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../../lib/connection-transfer";
+import {
+  connectionGroupFolder,
+  groupModelsByAccount,
+  orderAccountGroups,
+  knownPrefixName,
+  reorderConnectionGroups,
+  sortByModelId,
+  sortConnectionGroups,
+  upstreamOf,
+} from "../../lib/connection-groups";
+import { sortPanelFolders } from "../../lib/panel-sort";
+import { insertLibraryItems, type InsertEdge } from "../../lib/library-order";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
-import { type InsertEdge } from "../../lib/library-order";
-import { DecisionDefaultControl } from "../connections/DecisionDefaultControl";
-import { EmbeddingDefaultControl } from "../connections/EmbeddingDefaultControl";
-import { DecisionModelModal } from "../modals/DecisionModelModal";
-// ──────────────────────────────────────────────
-// Panel: API Connections (polished, with folders)
-// ──────────────────────────────────────────────
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-  type ChangeEvent,
-  type DragEvent,
-  type ReactNode,
-  type TouchEvent,
-} from "react";
-import { Reorder } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  connectionKeys,
-  useConnections,
-  useDuplicateConnection,
-  useDeleteConnection,
-  useUpdateConnection,
-  useUploadConnectionImage,
-} from "../../hooks/use-connections";
+import { useLibraryOrder } from "../../hooks/use-library-order";
+import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
+import { modelSubtitle } from "../../lib/connection-identity";
 import {
   useConnectionFolders,
-  useCreateConnectionFolder,
-  useUpdateConnectionFolder,
-  useDeleteConnectionFolder,
   useReorderConnectionFolders,
   useReorderConnections,
 } from "../../hooks/use-connection-folders";
-import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
-import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { useAgentConfigs, useCreateAgent, useUpdateAgent, useUpdateAgentByType } from "../../hooks/use-agents";
-import {
-  selectVisibleTrackerCapabilityAgents,
-  useCapabilityAgentRegistry,
-  useInstalledCapabilityPackages,
-} from "../../hooks/use-capability-packages";
-import { useChatStore } from "../../stores/chat.store";
-import { useUIStore, type ConnectionPanelSort } from "../../stores/ui.store";
-import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store";
-import {
-  LOCAL_SIDECAR_CONNECTION_ID,
-  BUILT_IN_AGENTS,
-  getDefaultAgentPrompt,
-  isAgentConfigDeleted,
-  isRetiredBuiltInAgentId,
-  type ConnectionFolder,
-  type SidecarSpeechModelId,
-  type SidecarSpeechRuntimeDiagnostics,
-  isChatProvider,
-} from "@marinara-engine/shared";
-import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
-import {
-  Plus,
-  Trash2,
-  Link,
-  Check,
-  Download,
-  Search,
-  ArrowUpDown,
-  AlertTriangle,
-  Shuffle,
-  ExternalLink,
-  X,
-  Copy,
-  BrainCircuit,
-  Settings2,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
-  FolderPlus,
-  Camera,
-  Sparkles,
-  ImageIcon,
-  Film,
-  Music,
-  Mic,
-  Loader2,
-  HardDriveDownload,
-  MessageSquareText,
-  Power,
-  PowerOff,
-} from "lucide-react";
-import { cn } from "../../lib/utils";
-import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
-import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
-import { downloadZipFile } from "../../lib/download-zip";
-import {
-  CONNECTION_EXPORT_WARNING,
-  createConnectionExportEnvelope,
-  type ConnectionTransferRow,
-} from "../../lib/connection-transfer";
-import { toast } from "sonner";
-import { TTSConfigCard } from "./settings/TTSConfigCard";
-import { SpeechToTextCard } from "./settings/SpeechToTextCard";
-import { SettingsSwitch, ToggleSetting } from "./settings/SettingControls";
-import { SelectionActionBar } from "../ui/SelectionActionBar";
-import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
-import { useTranslation as useUiTranslation } from "react-i18next";
-import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
-import { createLocalSidecarConnectionOption, isLanguageGenerationConnection } from "../../lib/connection-filters";
-import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
+import { ConnectionRow, ROW_BUTTON, type ConnectionRowData } from "../connections/ConnectionRow";
+import { ModelRow, mediaService } from "../connections/ModelRow";
+import { ConnectionGroup, GROUP_SURFACE, hostOf, sameServiceTargets } from "../connections/ConnectionGroup";
+import { ListSearch } from "../connections/ListFrame";
+import { ServiceRow } from "../connections/ServiceRow";
+import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
+import { BuiltInModelCard } from "../connections/BuiltInModelCard";
+import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
+import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
+import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
+import { ProviderIcon } from "../connections/ProviderIcon";
+import { ServiceTile, type ServiceId } from "../modals/create-connection/shared";
+import { openAddConnection } from "../../lib/add-connection";
+import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
+import { PanelSection } from "../ui/PanelSection";
+import { ContextMenu } from "../ui/ContextMenu";
+import { PictureMenu } from "../connections/PictureMenu";
+import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
+import type { ConnectionPanelSort } from "../../stores/ui.store";
 
-const CONNECTION_ICON_COLORS = {
-  from: "from-sky-400",
-  to: "to-blue-500",
-  ring: "ring-sky-400/40",
-  badge: "bg-sky-400",
+type ConnectionGroupData = {
+  account: ComponentProps<typeof ConnectionGroup>["account"];
+  rows: ConnectionRowData[];
+  visibleRows?: ConnectionRowData[];
 };
-const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; badge: string }> = {
-  openai: CONNECTION_ICON_COLORS,
-  openai_chatgpt: CONNECTION_ICON_COLORS,
-  anthropic: CONNECTION_ICON_COLORS,
-  claude_subscription: CONNECTION_ICON_COLORS,
-  grok_subscription: CONNECTION_ICON_COLORS,
-  google: CONNECTION_ICON_COLORS,
-  google_vertex: CONNECTION_ICON_COLORS,
-  mistral: CONNECTION_ICON_COLORS,
-  cohere: CONNECTION_ICON_COLORS,
-  openrouter: CONNECTION_ICON_COLORS,
-  nanogpt: CONNECTION_ICON_COLORS,
-  xai: CONNECTION_ICON_COLORS,
-  arli: CONNECTION_ICON_COLORS,
-  zai: CONNECTION_ICON_COLORS,
-  deepseek: CONNECTION_ICON_COLORS,
-  custom: CONNECTION_ICON_COLORS,
-  image_generation: CONNECTION_ICON_COLORS,
-  video_generation: CONNECTION_ICON_COLORS,
-  audio: CONNECTION_ICON_COLORS,
-  audio_generation: CONNECTION_ICON_COLORS,
-  decision: CONNECTION_ICON_COLORS,
+
+const SORT_OPTIONS = [
+  ["custom", "connections.list.sortCustom"],
+  ["name-asc", "connections.list.sortNameAsc"],
+  ["name-desc", "connections.list.sortNameDesc"],
+  ["newest", "connections.list.sortNewest"],
+  ["oldest", "connections.list.sortOldest"],
+] as const satisfies readonly (readonly [ConnectionPanelSort, string])[];
+
+/** Two columns from this panel width; below it a row drills in. */
+const WIDE_PANEL_PX = 768;
+/** First run: the providers a new user is most likely to know, each one tap from its key step. */
+const FIRST_RUN_SERVICES = ["nanogpt", "openrouter", "openai", "anthropic", "google", "local_model"] as const;
+const FIRST_RUN_TAGS: Partial<Record<ServiceId, string>> = {
+  openrouter: "connections.add.tag.free",
+  local_model: "connections.add.tag.offline",
 };
-const DEFAULT_COLOR = CONNECTION_ICON_COLORS;
+/** The fold id the On this device card keeps among the folded Connections. */
+const DEVICE_FOLD_ID = "device";
 
-function getConnectionFallbackIcon(provider: string) {
-  if (provider === "image_generation") return <ImageIcon size="1rem" />;
-  if (provider === "video_generation") return <Film size="1rem" />;
-  if (provider === "audio" || provider === "audio_generation") return <Music size="1rem" />;
-  return <Link size="1rem" />;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function describeSpeechRuntimeUnavailable(runtime: SidecarSpeechRuntimeDiagnostics | null): string {
-  if (!runtime) {
-    return "Local Whisper needs the native ONNX runtime for this platform. Reinstall dependencies with the same Node architecture used to run Marinara.";
-  }
-
-  const runtimeTuple = `${runtime.platform}/${runtime.arch}`;
-  const installed =
-    runtime.installedBindingArchs.length > 0
-      ? runtime.installedBindingArchs.map((arch) => `${runtime.platform}/${arch}`).join(", ")
-      : "";
-
-  if (runtime.liteMode) {
-    return "Local Whisper is disabled in Lite mode. Use a full Marinara install to download and run the local speech model.";
-  }
-
-  if (!runtime.packageFound) {
-    return `Local Whisper needs onnxruntime-node. Run pnpm install with Node ${runtime.nodeVersion} (${runtimeTuple}), then restart Marinara.`;
-  }
-
-  if (installed && !runtime.installedBindingArchs.includes(runtime.arch)) {
-    return `Marinara is running with ${runtimeTuple} Node, but this install has ONNX runtime for ${installed}. Restart Marinara with the matching Node architecture, or reinstall dependencies using the same Node architecture you use to run Marinara.`;
-  }
-
-  return `Local Whisper cannot find the ONNX runtime for ${runtimeTuple}. Run pnpm install --force --frozen-lockfile with the same Node architecture used to run Marinara, then restart.`;
-}
-
-function formatRuntimeVariantLabel(variant: string | null): string | null {
-  if (!variant) return null;
-  return variant.replace(/-/g, " ");
-}
-
-function getNextUnnamedFolderName(existingFolders: Array<{ name: string }>): string {
-  const names = new Set(existingFolders.map((folder) => folder.name.trim().toLowerCase()).filter(Boolean));
-  if (!names.has("unnamed")) return "unnamed";
-  let index = 2;
-  while (names.has(`unnamed ${index}`)) index += 1;
-  return `unnamed ${index}`;
-}
-
-function getDroppedConnectionIds(event: DragEvent<HTMLElement>, fallbackId: string | null): string[] {
-  const payload = event.dataTransfer.getData("application/x-marinara-connection-ids");
-  if (payload) {
-    try {
-      const parsed = JSON.parse(payload);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((id): id is string => typeof id === "string" && id.length > 0);
-      }
-    } catch {
-      // Fall through to single-id payloads. Some desktop drag providers can
-      // expose partial data while moving between native drop targets.
-    }
-  }
-
-  const singleId =
-    event.dataTransfer.getData("application/x-marinara-connection-id") ||
-    event.dataTransfer.getData("text/plain") ||
-    fallbackId ||
-    "";
-  return singleId ? [singleId] : [];
-}
-
-function SidecarCard() {
-  const { t: localizeUi } = useUiTranslation();
-  /** The managed decision model installer, opened from inside this card. */
-  const [decisionModalOpen, setDecisionModalOpen] = useState(false);
-  const { data: agentConfigs } = useAgentConfigs();
-  const { data: capabilityAgents } = useCapabilityAgentRegistry();
-  const { data: installedCapabilityPackages } = useInstalledCapabilityPackages();
-  const createAgent = useCreateAgent();
-  const updateAgentConnection = useUpdateAgent();
-  const {
-    status,
-    config,
-    inferenceReady,
-    modelDownloaded,
-    modelDisplayName,
-    modelSize,
-    startupError,
-    failedRuntimeVariant,
-    curatedModels,
-    downloadProgress,
-    speechStatus,
-    speechAvailable,
-    speechModelDownloaded,
-    speechModelDisplayName,
-    speechModelSize,
-    speechModels,
-    speechRuntime,
-    speechDownloadProgress,
-    speechError,
-    setShowDownloadModal,
-    startDownload,
-    startSpeechDownload,
-    deleteSpeechModel,
-    loadModel,
-    unloadModel,
-    updateConfig,
-    fetchStatus,
-    fetchSpeechStatus,
-  } = useSidecarStore();
-  const isDownloaded = modelDownloaded;
-  const [assigningTrackers, setAssigningTrackers] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [speechModelChoice, setSpeechModelChoice] = useState<SidecarSpeechModelId>("whisper_tiny");
-  const [deletingSpeechModel, setDeletingSpeechModel] = useState(false);
-  const [changingModelLoadState, setChangingModelLoadState] = useState(false);
-  const activeModelName = isDownloaded ? modelDisplayName : null;
-  const callsPackageInstalled = useMemo(
-    () =>
-      (installedCapabilityPackages ?? []).some(
-        (item) => item.status !== "error" && item.manifest.kind.includes("conversation-calls"),
-      ),
-    [installedCapabilityPackages],
-  );
-  const backendLabel = config.backend === "mlx" ? "MLX" : "GGUF";
-  const nativeToolLabel =
-    config.backend === "llama_cpp" ? ` • Native tools ${config.enableNativeToolCalls ? "on" : "off"}` : "";
-  const trackerAgents = useMemo(() => selectVisibleTrackerCapabilityAgents(capabilityAgents), [capabilityAgents]);
-  const trackerLocalCount = useMemo(() => {
-    const configs = (agentConfigs ?? []) as Array<{ type: string; connectionId: string | null }>;
-    const byType = new Map(configs.map((cfg) => [cfg.type, cfg.connectionId]));
-    return trackerAgents.filter((agent) => byType.get(agent.id) === LOCAL_SIDECAR_CONNECTION_ID).length;
-  }, [agentConfigs, trackerAgents]);
-
-  // Fetch status on mount (handles HMR store resets and initial load)
-  useEffect(() => {
-    fetchStatus();
-    if (callsPackageInstalled) fetchSpeechStatus();
-  }, [callsPackageInstalled, fetchSpeechStatus, fetchStatus]);
-
-  useEffect(() => {
-    const firstModel = speechModels[0]?.id;
-    if (firstModel && !speechModels.some((model) => model.id === speechModelChoice)) {
-      setSpeechModelChoice(firstModel);
-    }
-  }, [speechModelChoice, speechModels]);
-
-  const handleDeleteSpeechModel = async () => {
-    if (deletingSpeechModel) return;
-    setDeletingSpeechModel(true);
-    try {
-      await deleteSpeechModel();
-      toast.success(localizeUi("ui.panels.sidecarcard.localWhisperModelDeleted"));
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : localizeUi("ui.panels.sidecarcard.failedToDeleteTheLocalWhisperModel"),
-      );
-    } finally {
-      setDeletingSpeechModel(false);
-    }
-  };
-
-  const handleAssignTrackersToLocal = async () => {
-    if (!isDownloaded || assigningTrackers) return;
-
-    setAssigningTrackers(true);
-    try {
-      const configs = (agentConfigs ?? []) as Array<{
-        id: string;
-        type: string;
-        connectionId: string | null;
-      }>;
-      const configByType = new Map(configs.map((cfg) => [cfg.type, cfg]));
-
-      await Promise.all(
-        trackerAgents.map(async (agent) => {
-          const existing = configByType.get(agent.id);
-          if (existing) {
-            if (existing.connectionId === LOCAL_SIDECAR_CONNECTION_ID) return;
-            await updateAgentConnection.mutateAsync({ id: existing.id, connectionId: LOCAL_SIDECAR_CONNECTION_ID });
-            return;
-          }
-
-          await createAgent.mutateAsync({
-            type: agent.id,
-            name: agent.name,
-            description: agent.description,
-            phase: agent.phase,
-            enabled: true,
-            connectionId: LOCAL_SIDECAR_CONNECTION_ID,
-            promptTemplate: getDefaultAgentPrompt(agent.id),
-            settings: {},
-          });
-        }),
-      );
-
-      toast.success(localizeUi("ui.panels.sidecarcard.allBuiltInTrackerAgentsNowPointToThe"));
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : localizeUi("ui.panels.sidecarcard.failedToUpdateTrackerAgentConnections"),
-      );
-    } finally {
-      setAssigningTrackers(false);
-    }
-  };
-
-  const handleModelLoadToggle = async () => {
-    if (changingModelLoadState) return;
-    setChangingModelLoadState(true);
-    try {
-      if (inferenceReady) {
-        await unloadModel();
-        toast.success(localizeUi("ui.panels.sidecarcard.localModelUnloaded"));
-      } else {
-        await loadModel();
-        toast.success(localizeUi("ui.panels.sidecarcard.localModelLoaded"));
-      }
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : localizeUi("ui.panels.sidecarcard.failedToChangeLocalModelLoadState"),
-      );
-    } finally {
-      setChangingModelLoadState(false);
-    }
-  };
-
-  const openLocalModelSettings = () => {
-    void fetchStatus();
-    setShowDownloadModal(true);
-  };
-
-  const handleDownloadNow = async () => {
-    const quantization =
-      curatedModels.find((model) => model.quantization === "q4_k_m")?.quantization ??
-      curatedModels[0]?.quantization ??
-      "q4_k_m";
-    if (await startDownload(quantization)) {
-      toast.success(GEMMA_RESTART_MESSAGE);
-    }
-  };
-
-  const isDownloading = downloadProgress?.status === "downloading";
-  const speechDownloading = speechDownloadProgress?.status === "downloading" || speechStatus === "downloading_model";
-  const activeSpeechModel = speechModels.find((model) => model.id === speechModelChoice) ?? speechModels[0];
-  const speechStatusLabel = speechModelDownloaded
-    ? `${speechModelDisplayName ?? "Whisper"}${
-        speechStatus === "ready" ? " • Ready" : speechStatus === "loading" ? " • Loading" : " • Downloaded"
-      }${speechModelSize ? ` • ${formatBytes(speechModelSize)}` : ""}`
-    : speechAvailable
-      ? "Not downloaded"
-      : "Unavailable on this install";
-  const localModelStatusLabel = isDownloaded
-    ? `${activeModelName ?? "Model"} • ${backendLabel}${nativeToolLabel}${modelSize ? ` • ${formatBytes(modelSize)}` : ""}${
-        status === "starting_server"
-          ? " • Starting"
-          : status === "server_error"
-            ? " • Error"
-            : status === "ready"
-              ? " • Ready"
-              : ""
-      }`
-    : callsPackageInstalled && speechModelDownloaded
-      ? speechStatusLabel
-      : callsPackageInstalled && speechDownloading
-        ? "Downloading Whisper..."
-        : "Not downloaded";
-  const speechUnavailableMessage = describeSpeechRuntimeUnavailable(speechRuntime);
-
-  const handleDownloadWhisper = async () => {
-    if (!activeSpeechModel || speechDownloading) return;
-    if (await startSpeechDownload(activeSpeechModel.id)) {
-      toast.success(
-        localizeUi("ui.panels.sidecarcard.whisperDownloadedCompletelyRestartMarinaraEngineBeforeUsingCalls"),
-      );
-    }
-  };
-
-  return (
-    <div
-      className={cn(
-        "rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3 transition-all",
-        expanded && "border-sky-400/30",
-      )}
-    >
-      <div
-        className="flex cursor-pointer items-center gap-2.5"
-        onClick={() => {
-          // Header click toggles in every state. Gating this on the model not
-          // being downloaded left the card body — including the tracker
-          // assignment button — reachable only through the small chevron for
-          // exactly the users who have the model installed (#5538).
-          setExpanded((current) => !current);
-        }}
-      >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
-          <BrainCircuit size="1rem" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium">{localizeUi("ui.panels.sidecarcard.localModel")}</div>
-          <div className="text-[0.6875rem] text-[var(--muted-foreground)]">{localModelStatusLabel}</div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              openLocalModelSettings();
-            }}
-            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0"
-            title={localizeUi("ui.panels.sidecarcard.openLocalModelSettings")}
-          >
-            <Settings2 size="0.8125rem" />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setExpanded((v) => !v);
-            }}
-            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0"
-            title={
-              expanded ? localizeUi("ui.panels.ttsconfigcard.collapse") : localizeUi("ui.panels.ttsconfigcard.expand")
-            }
-            aria-label={
-              expanded ? localizeUi("ui.panels.ttsconfigcard.collapse") : localizeUi("ui.panels.ttsconfigcard.expand")
-            }
-            aria-expanded={expanded}
-            aria-controls={
-              // The body is conditionally rendered, so the IDREF resolves only
-              // while expanded; a dangling aria-controls is an authoring error.
-              expanded ? "local-model-card-content" : undefined
-            }
-          >
-            {expanded ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
-          </button>
-        </div>
-      </div>
-      {/* Local model actions (only when model is downloaded) */}
-      {expanded && (
-        <div id="local-model-card-content">
-          <div className="mt-2.5 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--warning)]">
-              <AlertTriangle size="0.875rem" className="shrink-0" />
-              {localizeUi("ui.panels.sidecarcard.localModelIsNotForRoleplay")}
-            </div>
-            <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.sidecarcard.theBundledLocalModelIsIntentionallySmallUseIt")}
-            </p>
-          </div>
-          {callsPackageInstalled && (
-            <div className="mt-2.5 rounded-lg border border-sky-400/15 bg-sky-400/5 p-2.5">
-              <div className="flex items-start gap-2">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
-                  <Mic size="0.875rem" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs font-semibold text-[var(--foreground)]">
-                      {localizeUi("ui.panels.sidecarcard.localSpeechModel")}
-                    </div>
-                    {speechModelDownloaded && (
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteSpeechModel()}
-                        disabled={deletingSpeechModel}
-                        className="mari-chrome-control mari-chrome-control--small p-1"
-                        title={localizeUi("ui.panels.sidecarcard.deleteLocalWhisper")}
-                      >
-                        {deletingSpeechModel ? (
-                          <Loader2 size="0.75rem" className="animate-spin" />
-                        ) : (
-                          <Trash2 size="0.75rem" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">{speechStatusLabel}</div>
-                  {!speechAvailable && (
-                    <div className="mt-1 space-y-1">
-                      <p className="text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-                        {speechUnavailableMessage}
-                      </p>
-                      {speechRuntime && (
-                        <p className="text-[0.59375rem] leading-relaxed text-[var(--muted-foreground)]/80">
-                          {localizeUi("ui.panels.sidecarcard.node")} {speechRuntime.nodeVersion}{" "}
-                          {localizeUi("ui.panels.sidecarcard.at")} {speechRuntime.nodeExecPath}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {!speechModelDownloaded && speechAvailable && (
-                    <div className="mt-2 flex flex-col gap-2">
-                      <div className="max-md:relative md:contents">
-                        <select
-                          value={speechModelChoice}
-                          onChange={(event) => setSpeechModelChoice(event.target.value as SidecarSpeechModelId)}
-                          className="mari-chrome-field h-8 text-xs max-md:w-full max-md:min-w-0 max-md:appearance-none max-md:pl-2.5 max-md:pr-8"
-                          aria-label={localizeUi("ui.panels.sidecarcard.localSpeechModel")}
-                          disabled={speechDownloading || speechModels.length === 0}
-                        >
-                          {speechModels.map((model) => (
-                            <option key={model.id} value={model.id}>
-                              {model.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          size="0.875rem"
-                          aria-hidden="true"
-                          className="mari-chrome-field-icon pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 md:hidden"
-                        />
-                      </div>
-                      {activeSpeechModel && (
-                        <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                          {activeSpeechModel.description} {localizeUi("ui.noodle.stageprofileview.about")}{" "}
-                          {formatBytes(activeSpeechModel.sizeBytes)} {localizeUi("ui.panels.sidecarcard.download")}{" "}
-                          {formatBytes(activeSpeechModel.ramBytes)}{" "}
-                          {localizeUi("ui.panels.sidecarcard.ramWhileRunning")}
-                        </p>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleDownloadWhisper}
-                        disabled={speechDownloading || !activeSpeechModel}
-                        className="mari-chrome-control w-full justify-center px-3 py-2 text-xs"
-                      >
-                        {speechDownloading ? (
-                          <>
-                            <HardDriveDownload size="0.8125rem" className="animate-pulse" />
-                            {localizeUi("ui.panels.sidecarcard.downloadingWhisper")}
-                          </>
-                        ) : (
-                          <>
-                            <HardDriveDownload size="0.8125rem" />
-                            {localizeUi("ui.panels.sidecarcard.downloadWhisper")}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                  {speechDownloading && speechDownloadProgress && (
-                    <div className="mt-2">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-sky-400/10">
-                        <div
-                          className="h-full rounded-full bg-sky-300 transition-[width]"
-                          style={{
-                            width: `${
-                              speechDownloadProgress.total > 0
-                                ? Math.min(
-                                    100,
-                                    Math.round(
-                                      (speechDownloadProgress.downloaded / speechDownloadProgress.total) * 100,
-                                    ),
-                                  )
-                                : 12
-                            }%`,
-                          }}
-                        />
-                      </div>
-                      <div className="mt-1 truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                        {speechDownloadProgress.label ?? "Downloading Local Whisper"}
-                      </div>
-                    </div>
-                  )}
-                  {speechError && (
-                    <div className="mt-2 rounded-md border border-[var(--destructive)]/20 bg-[var(--destructive)]/10 px-2 py-1.5 text-[0.625rem] text-[var(--destructive)]">
-                      {speechError}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          {isDownloaded && (
-            <div className="mt-2.5 flex flex-col gap-1.5 border-t border-sky-400/10 pt-2.5">
-              <button
-                type="button"
-                onClick={() => void handleModelLoadToggle()}
-                disabled={changingModelLoadState || status === "starting_server"}
-                className="mari-chrome-control w-full justify-center gap-2 px-3 py-2 text-xs"
-              >
-                {changingModelLoadState || status === "starting_server" ? (
-                  <Loader2 size="0.875rem" className="animate-spin" />
-                ) : inferenceReady ? (
-                  <PowerOff size="0.875rem" />
-                ) : (
-                  <Power size="0.875rem" />
-                )}
-                {changingModelLoadState || status === "starting_server"
-                  ? localizeUi("ui.panels.sidecarcard.changingLocalModelState")
-                  : inferenceReady
-                    ? localizeUi("ui.panels.sidecarcard.unloadLocalModel")
-                    : localizeUi("ui.panels.sidecarcard.loadLocalModel")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleAssignTrackersToLocal()}
-                disabled={assigningTrackers}
-                className="mari-chrome-control w-full justify-between gap-3 px-3 py-2 text-left"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium">
-                    {localizeUi("ui.panels.sidecarcard.useLocalModelForAllTrackerAgents")}
-                  </div>
-                  <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.sidecarcard.assignsTheBuiltInLocalModelAsTheConnection")}
-                  </div>
-                </div>
-                {assigningTrackers ? (
-                  <BrainCircuit size="0.875rem" className="animate-pulse text-sky-300" />
-                ) : (
-                  <Link size="0.875rem" className="text-sky-300" />
-                )}
-              </button>
-              <p className="px-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                {trackerLocalCount}/{trackerAgents.length}{" "}
-                {localizeUi("ui.panels.sidecarcard.builtInTrackerAgentsCurrentlyPointAtTheLocal")}
-              </p>
-              <SettingsSwitch
-                label={localizeUi("ui.panels.sidecarcard.useForTrackerAgentsRoleplay")}
-                checked={config.useForTrackers}
-                onChange={(checked) => updateConfig({ useForTrackers: checked })}
-                className="p-0 hover:bg-transparent"
-                labelClassName="text-xs text-[var(--muted-foreground)]"
-              />
-              <SettingsSwitch
-                label={localizeUi("ui.panels.sidecarcard.useForGameSceneAnalysis")}
-                checked={config.useForGameScene}
-                onChange={(checked) => updateConfig({ useForGameScene: checked })}
-                className="p-0 hover:bg-transparent"
-                labelClassName="text-xs text-[var(--muted-foreground)]"
-              />
-            </div>
-          )}
-          {/* Outside the downloaded-model branch on purpose: the decision sidecar is
-              its own model and its own process, so it must not be reachable only by
-              people who already have a chat model installed. */}
-          <button
-            type="button"
-            onClick={() => setDecisionModalOpen(true)}
-            className="mari-chrome-control mari-chrome-control--compact mt-2 w-full text-center"
-          >
-            {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
-          </button>
-          {!isDownloaded && (
-            <div className="mt-2.5 flex flex-col gap-2 border-t border-sky-400/10 pt-2.5">
-              <button
-                type="button"
-                onClick={handleDownloadNow}
-                disabled={isDownloading}
-                className="mari-chrome-control w-full px-3 py-2 text-xs"
-              >
-                {isDownloading
-                  ? localizeUi("ui.panels.sidecarcard.downloading")
-                  : localizeUi("ui.panels.sidecarcard.downloadNow")}
-              </button>
-              <button
-                type="button"
-                onClick={openLocalModelSettings}
-                className="mari-chrome-control mari-chrome-control--compact w-full text-center"
-              >
-                {localizeUi("ui.panels.sidecarcard.chooseModelOptions")}
-              </button>
-            </div>
-          )}
-          <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />
-          {status === "server_error" && (
-            <div className="mt-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
-              <div className="text-[0.6875rem] font-medium text-amber-200">
-                {localizeUi("ui.panels.sidecarcard.localRuntimeUnavailable")}
-              </div>
-              <div className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]/75">
-                {startupError ?? "Marinara will keep running without the local model until you retry."}
-              </div>
-              {failedRuntimeVariant && (
-                <div className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]/60">
-                  {localizeUi("ui.panels.sidecarcard.runtime")} {formatRuntimeVariantLabel(failedRuntimeVariant)}
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  openLocalModelSettings();
-                }}
-                className="mari-chrome-control mari-chrome-control--small mt-2 text-[0.6875rem]"
-              >
-                {localizeUi("ui.game.gamesurfacecomponent.openLocalAiModel")}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-type ConnectionRowData = {
-  credentialsFromConnectionId?: string | null;
-  profileImportReviewRequired?: boolean | string;
-  id: string;
-  name: string;
-  provider: string;
-  baseUrl?: string;
-  model: string;
-  imagePath?: string | null;
-  useForRandom?: string;
-  isDefault?: boolean | string;
-  fallbackForMain?: boolean | string;
-  defaultForAgents?: boolean | string;
-  fallbackForAgents?: boolean | string;
-  enableCaching?: boolean | string;
-  anthropicExtendedCacheTtl?: boolean | string;
-  cachingAtDepth?: number;
-  embeddingModel?: string | null;
-  embeddingBaseUrl?: string | null;
-  embeddingConnectionId?: string | null;
-  openrouterProvider?: string | null;
-  imageGenerationSource?: string | null;
-  comfyuiWorkflow?: string | null;
-  imageService?: string | null;
-  imageEndpointId?: string | null;
-  videoGenerationSource?: string | null;
-  videoService?: string | null;
-  audioSource?: string | null;
-  audioGenerationSource?: string | null;
-  audioSoundEffectsModel?: string | null;
-  defaultParameters?: string | null;
-  promptPresetId?: string | null;
-  maxContext?: number;
-  maxTokensOverride?: number | null;
-  maxParallelJobs?: number;
-  claudeFastMode?: boolean | string;
-  folderId?: string | null;
-  sortOrder?: number;
-  createdAt?: string;
-  updatedAt?: string;
-};
+const FOCUS =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
 function connectionMatchesSearch(conn: ConnectionRowData, query: string, categoryLabel?: string) {
   if (!query) return true;
@@ -808,1554 +142,998 @@ function connectionMatchesSearch(conn: ConnectionRowData, query: string, categor
   return haystack.includes(query);
 }
 
-function sortConnections(connections: readonly ConnectionRowData[], sort: ConnectionPanelSort): ConnectionRowData[] {
-  if (sort === "custom") {
-    return [...connections].sort((a, b) => {
-      const aOrder =
-        typeof a.sortOrder === "number" && Number.isFinite(a.sortOrder) ? a.sortOrder : Number.MAX_SAFE_INTEGER;
-      const bOrder =
-        typeof b.sortOrder === "number" && Number.isFinite(b.sortOrder) ? b.sortOrder : Number.MAX_SAFE_INTEGER;
-      const orderDiff = aOrder - bOrder;
-      if (orderDiff !== 0) return orderDiff;
-      return (a.name ?? "").localeCompare(b.name ?? "");
-    });
-  }
-
-  return sortBasicPanelItems(
-    connections,
-    sort,
-    (connection) => connection.name,
-    (connection) => connection.createdAt || connection.updatedAt,
-  );
-}
-
-function formatDefaultConnectionOption(connection: ConnectionRowData, fallbackModelLabel: string): string {
-  const model = connection.model?.trim() || fallbackModelLabel;
-  return `${connection.name} - ${model}`;
-}
-
-type ConnectionDefaultField = "isDefault" | "defaultForAgents" | "fallbackForMain" | "fallbackForAgents";
-
-function isEnabledConnectionRole(value: boolean | string | undefined): boolean {
-  return value === true || value === "true";
-}
-
-/** Renders one connection default and fallback pair with optional agent controls. */
-function ConnectionDefaultPair({
-  title,
-  icon,
-  connections,
-  primaryField,
-  fallbackField,
-  primaryEmptyLabel,
-  fallbackModelLabel,
-  includeLocalSidecar,
-  showPaidConnectionWarningToggle = false,
-  onApplyToAllAgents,
-  applyingToAllAgents = false,
-  canApplyToAllAgents = true,
-}: {
-  title: string;
-  icon: ReactNode;
-  connections: ConnectionRowData[];
-  primaryField: ConnectionDefaultField;
-  fallbackField: ConnectionDefaultField;
-  primaryEmptyLabel: string;
-  fallbackModelLabel: string;
-  /** Offer the local sidecar pseudo-connection as the primary default (#5539).
-   *  The sidecar has no connection row to carry the role flag, so selecting it
-   *  writes the sidecar config's useAsAgentsDefault instead. */
-  includeLocalSidecar?: boolean;
-  showPaidConnectionWarningToggle?: boolean;
-  onApplyToAllAgents?: () => void;
-  applyingToAllAgents?: boolean;
-  canApplyToAllAgents?: boolean;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const openConnectionDetail = useUIStore((state) => state.openConnectionDetail);
-  const updateConnection = useUpdateConnection();
-  const queryClient = useQueryClient();
-  const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
-  const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
-  const sidecarAsAgentsDefault = useSidecarStore((state) => state.config.useAsAgentsDefault);
-  const updateSidecarConfig = useSidecarStore((state) => state.updateConfig);
-  const showPaidAgentConnectionWarning = useUIStore((state) => state.showPaidAgentConnectionWarning);
-  const setShowPaidAgentConnectionWarning = useUIStore((state) => state.setShowPaidAgentConnectionWarning);
-  const primaryConnection = connections.find((connection) => isEnabledConnectionRole(connection[primaryField])) ?? null;
-  const fallbackConnection =
-    connections.find((connection) => isEnabledConnectionRole(connection[fallbackField])) ?? null;
-  const hasConnections = connections.length > 0;
-  // Keep the option visible while the flag is set even if the model was
-  // deleted, so the stale default can still be seen and cleared here.
-  const offerLocalSidecar =
-    includeLocalSidecar === true &&
-    import.meta.env.VITE_MARINARA_LITE !== "true" &&
-    (sidecarModelDownloaded || sidecarAsAgentsDefault);
-  const localSidecarSelected = includeLocalSidecar === true && sidecarAsAgentsDefault;
-
-  const handleRoleChange = (
-    field: ConnectionDefaultField,
-    currentConnection: ConnectionRowData | null,
-    event: ChangeEvent<HTMLSelectElement>,
-  ) => {
-    const nextConnectionId = event.target.value;
-    if (field === primaryField && includeLocalSidecar) {
-      if (nextConnectionId === LOCAL_SIDECAR_CONNECTION_ID) {
-        if (localSidecarSelected) return;
-        void updateSidecarConfig({ useAsAgentsDefault: true });
-        // The sidecar default replaces any row-flag default; keep one source.
-        if (currentConnection) updateConnection.mutate({ id: currentConnection.id, [field]: false });
-        return;
-      }
-      if (localSidecarSelected) void updateSidecarConfig({ useAsAgentsDefault: false });
-    }
-    if (nextConnectionId === currentConnection?.id) return;
-    if (!nextConnectionId) {
-      if (currentConnection) updateConnection.mutate({ id: currentConnection.id, [field]: false });
-      return;
-    }
-    updateConnection.mutate({ id: nextConnectionId, [field]: true });
-  };
-  const openFreshConnectionDetail = (id: string) => {
-    queryClient.removeQueries({ queryKey: connectionKeys.detail(id) });
-    openConnectionDetail(id);
-  };
-
-  return (
-    <div className="grid gap-2 px-3 py-3 sm:grid-cols-[2.25rem_minmax(0,1fr)]">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
-        {icon}
-      </div>
-      <div className="min-w-0 space-y-2">
-        <div className="text-xs font-semibold text-[var(--foreground)]">{title}</div>
-        <div className="flex flex-col gap-2">
-          <label className="min-w-0">
-            <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.noodle.noodlehome.default")}
-            </span>
-            <div className="flex items-center gap-1">
-              <select
-                value={localSidecarSelected ? LOCAL_SIDECAR_CONNECTION_ID : (primaryConnection?.id ?? "")}
-                onChange={(event) => handleRoleChange(primaryField, primaryConnection, event)}
-                disabled={updateConnection.isPending || (!hasConnections && !primaryConnection && !offerLocalSidecar)}
-                className="mari-chrome-field h-9 min-w-0 flex-1 px-2 py-0 text-[0.6875rem]"
-                aria-label={localizeUi("ui.panels.connectiondefaultpair.defaultConnectionForValue1", { value1: title })}
-              >
-                <option value="">
-                  {hasConnections || offerLocalSidecar
-                    ? primaryEmptyLabel
-                    : localizeUi("ui.panels.connectiondefaultpair.noCompatibleConnections")}
-                </option>
-                {offerLocalSidecar && (
-                  <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-                    {createLocalSidecarConnectionOption(sidecarModelDisplayName).name}
-                  </option>
-                )}
-                {connections
-                  .filter((connection) => connection.id !== fallbackConnection?.id)
-                  .map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {formatDefaultConnectionOption(connection, fallbackModelLabel)}
-                    </option>
-                  ))}
-              </select>
-              {primaryConnection && (
-                <button
-                  type="button"
-                  onClick={() => openFreshConnectionDetail(primaryConnection.id)}
-                  className="mari-chrome-control h-9 min-h-9 w-9 shrink-0 p-0"
-                  title={localizeUi("ui.panels.connectiondefaultpair.openDefaultConnectionForValue1", {
-                    value1: title,
-                  })}
-                  aria-label={localizeUi("ui.panels.connectiondefaultpair.openDefaultConnectionForValue1", {
-                    value1: title,
-                  })}
-                >
-                  <Settings2 size="0.75rem" />
-                </button>
-              )}
-            </div>
-          </label>
-          <label className="min-w-0">
-            <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.connectiondefaultpair.fallback")}
-            </span>
-            <div className="flex items-center gap-1">
-              <select
-                value={fallbackConnection?.id ?? ""}
-                onChange={(event) => handleRoleChange(fallbackField, fallbackConnection, event)}
-                disabled={updateConnection.isPending || (!hasConnections && !fallbackConnection)}
-                className="mari-chrome-field h-9 min-w-0 flex-1 px-2 py-0 text-[0.6875rem]"
-                aria-label={localizeUi("ui.panels.connectiondefaultpair.fallbackConnectionForValue1", {
-                  value1: title,
-                })}
-              >
-                <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-                {connections
-                  .filter((connection) => connection.id !== primaryConnection?.id)
-                  .map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {formatDefaultConnectionOption(connection, fallbackModelLabel)}
-                    </option>
-                  ))}
-              </select>
-              {fallbackConnection && (
-                <button
-                  type="button"
-                  onClick={() => openFreshConnectionDetail(fallbackConnection.id)}
-                  className="mari-chrome-control h-9 min-h-9 w-9 shrink-0 p-0"
-                  title={localizeUi("ui.panels.connectiondefaultpair.openFallbackConnectionForValue1", {
-                    value1: title,
-                  })}
-                  aria-label={localizeUi("ui.panels.connectiondefaultpair.openFallbackConnectionForValue1", {
-                    value1: title,
-                  })}
-                >
-                  <Settings2 size="0.75rem" />
-                </button>
-              )}
-            </div>
-          </label>
-          {showPaidConnectionWarningToggle && (
-            <ToggleSetting
-              label={localizeUi("ui.panels.connectiondefaultssection.showPaidConnectionWarning")}
-              checked={showPaidAgentConnectionWarning}
-              onChange={setShowPaidAgentConnectionWarning}
-              help={localizeUi("ui.panels.connectiondefaultssection.showPaidConnectionWarningHelp")}
-            />
-          )}
-          {onApplyToAllAgents && (
-            <button
-              type="button"
-              onClick={onApplyToAllAgents}
-              disabled={applyingToAllAgents || updateConnection.isPending || !canApplyToAllAgents}
-              className="mari-chrome-control mari-chrome-control--small w-fit text-[0.6875rem]"
-              title={localizeUi("ui.panels.agentspanel.bulkConnectionLabel")}
-            >
-              {applyingToAllAgents ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
-              ) : (
-                localizeUi("ui.panels.agentspanel.bulkConnectionApply")
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Renders the expandable connection defaults section. */
-function ConnectionDefaultsSection({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
-  const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const languageConnections = useMemo(
-    () => connectionsList.filter((connection) => isChatProvider(connection.provider)),
-    [connectionsList],
-  );
-  const imageConnections = useMemo(
-    () => connectionsList.filter((connection) => connection.provider === "image_generation"),
-    [connectionsList],
-  );
-  const videoConnections = useMemo(
-    () => connectionsList.filter((connection) => connection.provider === "video_generation"),
-    [connectionsList],
-  );
-  const audioConnections = useMemo(
-    () => connectionsList.filter((connection) => connection.provider === "audio"),
-    [connectionsList],
-  );
-  const generativeAudioConnections = useMemo(
-    () => connectionsList.filter((connection) => connection.provider === "audio_generation"),
-    [connectionsList],
-  );
-  const { data: agentConfigs, isLoading: agentConfigsLoading, isError: agentConfigsError } = useAgentConfigs();
-  const {
-    data: capabilityAgents,
-    isLoading: capabilityAgentsLoading,
-    isError: capabilityAgentsError,
-  } = useCapabilityAgentRegistry();
-  const updateAgent = useUpdateAgent();
-  const updateAgentByType = useUpdateAgentByType();
-  const sidecarAsAgentsDefault = useSidecarStore((state) => state.config.useAsAgentsDefault);
-  const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
-  const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
-  const [applyingToAllAgents, setApplyingToAllAgents] = useState(false);
-  const capabilityAgentRegistryReady =
-    !capabilityAgentsLoading && !capabilityAgentsError && capabilityAgents !== undefined;
-  const agentConfigsReady = !agentConfigsLoading && !agentConfigsError && agentConfigs !== undefined;
-  const agentConnection =
-    languageConnections.find((connection) => isEnabledConnectionRole(connection.defaultForAgents)) ?? null;
-  const effectiveAgentConnectionId = sidecarAsAgentsDefault
-    ? LOCAL_SIDECAR_CONNECTION_ID
-    : (agentConnection?.id ?? null);
-  const agentAssignmentReady =
-    capabilityAgentRegistryReady &&
-    agentConfigsReady &&
-    effectiveAgentConnectionId !== null &&
-    (!sidecarAsAgentsDefault || sidecarModelDownloaded);
-  const agentConnectionName = sidecarAsAgentsDefault
-    ? createLocalSidecarConnectionOption(sidecarModelDisplayName).name
-    : (agentConnection?.name ?? localizeUi("ui.panels.agentspanel.bulkConnectionAgentDefault"));
-  const builtInAgentIds = useMemo(() => new Set((capabilityAgents ?? []).map((agent) => agent.id)), [capabilityAgents]);
-  const visibleBuiltInAgents = useMemo(
-    () =>
-      BUILT_IN_AGENTS.filter((agent) => builtInAgentIds.has(agent.id)).filter(
-        (agent) => !isAgentConfigDeleted((agentConfigs ?? []).find((config) => config.type === agent.id)?.settings),
-      ),
-    [agentConfigs, builtInAgentIds],
-  );
-  const customAgentConfigs = useMemo(
-    () =>
-      (agentConfigs ?? []).filter(
-        (config) =>
-          !builtInAgentIds.has(config.type) &&
-          !isRetiredBuiltInAgentId(config.type) &&
-          !isAgentConfigDeleted(config.settings),
-      ),
-    [agentConfigs, builtInAgentIds],
-  );
-  const handleApplyToAllAgents = async () => {
-    const targetCount = visibleBuiltInAgents.length + customAgentConfigs.length;
-    if (applyingToAllAgents || !agentAssignmentReady || effectiveAgentConnectionId === null || targetCount === 0)
-      return;
-    const confirmed = await showConfirmDialog({
-      title: localizeUi("ui.panels.agentspanel.bulkConnectionApply"),
-      message: localizeUi("ui.panels.agentspanel.bulkConnectionConfirm", {
-        value1: String(targetCount),
-        value2: agentConnectionName,
-      }),
-    });
-    if (!confirmed) return;
-    setApplyingToAllAgents(true);
-    try {
-      const results = await Promise.allSettled([
-        ...visibleBuiltInAgents.map((agent) =>
-          updateAgentByType.mutateAsync({ agentType: agent.id, connectionId: effectiveAgentConnectionId }),
-        ),
-        ...customAgentConfigs.map((config) =>
-          updateAgent.mutateAsync({ id: config.id, connectionId: effectiveAgentConnectionId }),
-        ),
-      ]);
-      const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
-      if (rejected) throw rejected.reason;
-      toast.success(
-        localizeUi("ui.panels.agentspanel.bulkConnectionDone", {
-          value1: String(targetCount),
-          value2: agentConnectionName,
-        }),
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.agentspanel.bulkConnectionFailed"));
-    } finally {
-      setApplyingToAllAgents(false);
-    }
-  };
-
-  return (
-    <section
-      className={cn(
-        "overflow-hidden rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3 transition-all",
-        open && "border-sky-400/30",
-      )}
-    >
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
-          <Settings2 size="1rem" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-[var(--foreground)]">
-            {localizeUi("ui.panels.connectiondefaultssection.defaults")}
-          </div>
-          <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.connectiondefaultssection.mainAgentsImagesAndVideosDefaultsAndFallbacks")}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0"
-          title={open ? localizeUi("ui.panels.ttsconfigcard.collapse") : localizeUi("ui.panels.ttsconfigcard.expand")}
-          aria-label={
-            open
-              ? localizeUi("ui.panels.connectiondefaultssection.collapseConnectionDefaults")
-              : localizeUi("ui.panels.connectiondefaultssection.expandConnectionDefaults")
-          }
-          aria-expanded={open}
-          aria-controls="connection-defaults-content"
-        >
-          {open ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
-        </button>
-      </div>
-      <SmoothFolderContent open={open}>
-        <div id="connection-defaults-content" className="mt-3 divide-y divide-sky-400/10 border-t border-sky-400/10">
-          <ConnectionDefaultPair
-            title={localizeUi("ui.panels.connectiondefaultssection.main")}
-            icon={<MessageSquareText size="0.875rem" />}
-            connections={languageConnections}
-            primaryField="isDefault"
-            fallbackField="fallbackForMain"
-            primaryEmptyLabel="No default main connection"
-            fallbackModelLabel="No model set"
-          />
-          <ConnectionDefaultPair
-            title={localizeUi("navigation.topbar.agents")}
-            icon={<Sparkles size="0.875rem" />}
-            connections={languageConnections}
-            primaryField="defaultForAgents"
-            fallbackField="fallbackForAgents"
-            primaryEmptyLabel="Use the active chat connection"
-            fallbackModelLabel="No model set"
-            includeLocalSidecar
-            showPaidConnectionWarningToggle
-            onApplyToAllAgents={() => void handleApplyToAllAgents()}
-            applyingToAllAgents={applyingToAllAgents}
-            canApplyToAllAgents={agentAssignmentReady && visibleBuiltInAgents.length + customAgentConfigs.length > 0}
-          />
-          <ConnectionDefaultPair
-            title={localizeUi("ui.panels.connectiondefaultssection.images")}
-            icon={<ImageIcon size="0.875rem" />}
-            connections={imageConnections}
-            primaryField="defaultForAgents"
-            fallbackField="fallbackForAgents"
-            primaryEmptyLabel="No default image connection"
-            fallbackModelLabel="Image generation"
-          />
-          <ConnectionDefaultPair
-            title={localizeUi("ui.panels.connectiondefaultssection.videos")}
-            icon={<Film size="0.875rem" />}
-            connections={videoConnections}
-            primaryField="defaultForAgents"
-            fallbackField="fallbackForAgents"
-            primaryEmptyLabel="No default video connection"
-            fallbackModelLabel="Video generation"
-          />
-          <ConnectionDefaultPair
-            title={localizeUi("connections.audioGeneration.category")}
-            icon={<Music size="0.875rem" />}
-            connections={generativeAudioConnections}
-            primaryField="defaultForAgents"
-            fallbackField="fallbackForAgents"
-            primaryEmptyLabel={localizeUi("connections.audioGeneration.noDefault")}
-            fallbackModelLabel={localizeUi("connections.audioGeneration.category")}
-          />
-          <ConnectionDefaultPair
-            title={localizeUi("connections.tts.category")}
-            icon={<Music size="0.875rem" />}
-            connections={audioConnections}
-            primaryField="defaultForAgents"
-            fallbackField="fallbackForAgents"
-            primaryEmptyLabel={localizeUi("connections.tts.noDefault")}
-            fallbackModelLabel={localizeUi("connections.tts.category")}
-          />
-          <EmbeddingDefaultControl connections={languageConnections} />
-          <DecisionDefaultControl />
-        </div>
-      </SmoothFolderContent>
-    </section>
-  );
-}
-
-function ConnectionRow({
-  conn,
-  isSelected,
-  isBulkSelected,
-  selectionMode,
-  onClickRow,
-  isDragging,
-  onDragStart,
-  onDragEnd,
-  onDropOnRow,
-  onTouchStart,
-  suppressClickRef,
-  onImagePick,
-}: {
-  conn: ConnectionRowData;
-  isSelected: boolean;
-  isBulkSelected: boolean;
-  selectionMode: boolean;
-  onClickRow: () => void;
-  isDragging: boolean;
-  onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd: () => void;
-  onDropOnRow: (event: React.DragEvent<HTMLDivElement>) => void;
-  onTouchStart?: (event: TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => void;
-  suppressClickRef?: { current: boolean };
-  onImagePick: () => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const duplicateConnection = useDuplicateConnection();
-  const deleteConnection = useDeleteConnection();
-  const updateConnection = useUpdateConnection();
-  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
-
-  const inRandomPool = conn.useForRandom === "true";
-  const colors = PROVIDER_COLORS[conn.provider] ?? DEFAULT_COLOR;
-  const iconContent = conn.imagePath ? (
-    <img src={conn.imagePath} alt="" className="h-full w-full object-cover" draggable={false} />
-  ) : (
-    getConnectionFallbackIcon(conn.provider)
-  );
-  const iconFrameClasses = cn(
-    "relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br text-white shadow-sm",
-    conn.imagePath ? "bg-[var(--muted)]" : `${colors.from} ${colors.to}`,
-  );
-
-  return (
-    <div
-      data-connection-id={conn.id}
-      data-touch-drag-card="connection"
-      data-drag-id={conn.id}
-      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-      data-drag-kind="connection"
-      data-drag-payload={JSON.stringify({
-        version: 1,
-        kind: "connection",
-        ids: [conn.id],
-        label: conn.name,
-        ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" }),
-      })}
-      onMouseDown={onTouchStart}
-      onTouchStart={(event) => {
-        onTouchStart?.(event);
-      }}
-      onClick={() => {
-        if (suppressClickRef?.current) return;
-        onClickRow();
-      }}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragOver={(event) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={onDropOnRow}
-      className={cn(
-        "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
-        isSelected && `ring-1 ${colors.ring} bg-[var(--sidebar-accent)]/50`,
-        selectionMode && isBulkSelected && "ring-1 ring-[var(--border)] bg-[var(--sidebar-accent)]/70",
-        isDragging && "opacity-50",
-      )}
-    >
-      {selectionMode && (
-        <div
-          className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-            isBulkSelected
-              ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]"
-              : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
-          )}
-          aria-hidden="true"
-        >
-          {isBulkSelected && <Check size="0.75rem" />}
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          if (suppressClickRef?.current) return;
-          onImagePick();
-        }}
-        className={cn(
-          "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-xl text-white",
-          "transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]",
-        )}
-        title={
-          conn.imagePath
-            ? localizeUi("ui.panels.connectionrow.replaceConnectionPicture")
-            : localizeUi("ui.panels.connectionrow.uploadConnectionPicture")
-        }
-        aria-label={
-          conn.imagePath
-            ? localizeUi("ui.panels.connectionrow.replaceConnectionPicture")
-            : localizeUi("ui.panels.connectionrow.uploadConnectionPicture")
-        }
-      >
-        <span className={iconFrameClasses}>
-          {iconContent}
-          <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
-            <Camera size="0.875rem" />
-          </span>
-        </span>
-        {!selectionMode && isSelected && (
-          <div
-            className={cn(
-              "pointer-events-none absolute -right-1 -top-1 z-10 flex h-4 w-4 items-center justify-center rounded-md shadow-sm ring-1 ring-[var(--sidebar)]",
-              colors.badge,
-            )}
-          >
-            <Check size="0.625rem" className="text-white" />
-          </div>
-        )}
-      </button>
-      <div className="min-w-0 flex-1 pr-0 max-md:pr-32 [@media(pointer:coarse)]:pr-32">
-        <div className="truncate text-sm font-medium leading-5" title={conn.name}>
-          {conn.name}
-        </div>
-        <div className="truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
-          {conn.provider === "audio_generation"
-            ? localizeUi("connections.audioGeneration.category")
-            : conn.provider === "audio"
-              ? localizeUi("connections.tts.category")
-              : conn.provider}{" "}
-          • {conn.model || "No model set"}
-        </div>
-      </div>
-      <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-foreground/10 transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto">
-        <ChatResourceActionButton
-          payload={{
-            version: 1,
-            kind: "connection",
-            ids: [conn.id],
-            label: conn.name,
-            ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
-          }}
-        />
-        {conn.provider !== "audio" && conn.provider !== "audio_generation" && conn.provider !== "decision" && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              updateConnection.mutate({ id: conn.id, useForRandom: !inRandomPool });
-            }}
-            className={cn(
-              "rounded-lg p-1.5 transition-all active:scale-90",
-              inRandomPool
-                ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
-                : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/75",
-            )}
-            title={
-              inRandomPool
-                ? localizeUi("ui.panels.connectionrow.inRandomPoolClickToRemove")
-                : localizeUi("ui.panels.connectionrow.addToRandomPool")
-            }
-          >
-            <Shuffle size="0.75rem" />
-          </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            duplicateConnection.mutate(conn.id, {
-              onSuccess: (data: any) => {
-                if (data?.id) openConnectionDetail(data.id);
-              },
-            });
-          }}
-          className="mari-chrome-control mari-chrome-control--small p-1.5"
-          title={localizeUi("ui.presets.sectionstab.duplicate")}
-        >
-          <Copy size="0.75rem" />
-        </button>
-        <button
-          onClick={async (e) => {
-            e.stopPropagation();
-            if (
-              !(await showConfirmDialog({
-                title: localizeUi("ui.panels.connectionrow.deleteConnection"),
-                message: localizeUi("ui.panels.characterspanel.deleteValue1ThisCannotBeUndone", { value1: conn.name }),
-                confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                tone: "destructive",
-              }))
-            ) {
-              return;
-            }
-            deleteConnection.mutate(conn.id);
-          }}
-          className="mari-chrome-control mari-chrome-control--small p-1.5"
-          title={localizeUi("lorebook.editor.batch.delete")}
-        >
-          <Trash2 size="0.75rem" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ConnectionFolderRow({
-  folderDragBindings,
-  folder,
-  entries,
-  forceExpanded = false,
-  renderConnectionRow,
-  onToggleCollapse,
-  onRename,
-  onDelete,
-  draggedConnectionId,
-  onDropConnection,
-}: {
-  folderDragBindings: ReturnType<ReturnType<typeof useLibraryFolderDrag>["bind"]>;
-  folder: ConnectionFolder;
-  entries: ConnectionRowData[];
-  forceExpanded?: boolean;
-  renderConnectionRow: (conn: ConnectionRowData) => React.ReactNode;
-  onToggleCollapse: (folder: ConnectionFolder) => void;
-  onRename: (id: string, name: string) => void;
-  onDelete: (folder: ConnectionFolder) => void;
-  draggedConnectionId: string | null;
-  onDropConnection: (connectionIds: string[], folderId: string | null) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(folder.name);
-  const [isDropTarget, setIsDropTarget] = useState(false);
-  const handleFolderRenameGesture = useFolderRenameGesture();
-  const isExpanded = forceExpanded || !folder.collapsed;
-
-  useEffect(() => {
-    if (!renaming) setRenameValue(folder.name);
-  }, [folder.name, renaming]);
-
-  const beginRename = () => {
-    setRenameValue(folder.name);
-    setRenaming(true);
-  };
-
-  return (
-    <Reorder.Item
-      {...folderDragBindings}
-      data-connection-folder-id={folder.id}
-      value={folder.id}
-      layout="position"
-      dragListener={false}
-      as="div"
-      onDragEnter={(event) => {
-        if (!draggedConnectionId) return;
-        event.preventDefault();
-        setIsDropTarget(true);
-      }}
-      onDragOver={(event) => {
-        if (!draggedConnectionId) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setIsDropTarget(false);
-        }
-      }}
-      onDrop={(event) => {
-        if (!draggedConnectionId) return;
-        event.preventDefault();
-        const connectionIds = getDroppedConnectionIds(event, draggedConnectionId);
-        if (connectionIds.length > 0) onDropConnection(connectionIds, folder.id);
-        setIsDropTarget(false);
-      }}
-      className={cn(
-        "flex flex-col rounded-lg transition-colors",
-        isDropTarget &&
-          "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
-      )}
-    >
-      {/* Folder header */}
-      <div
-        data-drag-surface
-        role="button"
-        tabIndex={0}
-        aria-expanded={isExpanded}
-        aria-label={localizeUi("ui.panels.agentspanel.value1FolderValue2DoubleTapOrPressF2To", {
-          value1: isExpanded
-            ? localizeUi("ui.panels.ttsconfigcard.collapse")
-            : localizeUi("ui.panels.ttsconfigcard.expand"),
-          value2: folder.name,
-        })}
-        title={localizeUi("ui.panels.backgroundpicker.doubleClickDoubleTapOrPressF2ToRename")}
-        onClick={(event) =>
-          handleFolderRenameGesture(folder.id, event, {
-            onSingleClick: () => onToggleCollapse(folder),
-            onRename: beginRename,
-          })
-        }
-        onKeyDown={(event) => {
-          if (event.target !== event.currentTarget) return;
-          handleFolderRenameKeyDown(event, {
-            onSingleClick: () => onToggleCollapse(folder),
-            onRename: beginRename,
-          });
-        }}
-        className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40"
-      >
-        <ChevronRight
-          size="0.75rem"
-          className={cn(
-            "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
-            isExpanded && "rotate-90",
-          )}
-        />
-        {renaming ? (
-          <input
-            autoFocus
-            value={renameValue}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                onRename(folder.id, renameValue);
-                setRenaming(false);
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setRenaming(false);
-                setRenameValue(folder.name);
-              }
-            }}
-            onBlur={() => {
-              onRename(folder.id, renameValue);
-              setRenaming(false);
-            }}
-            className="flex-1 bg-transparent text-xs font-medium text-[var(--foreground)] outline-none"
-          />
-        ) : (
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--muted-foreground)]">
-            {folder.name}
-          </span>
-        )}
-        <div
-          data-folder-actions
-          className="flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 ring-1 ring-transparent transition-[opacity,box-shadow] group-hover:ring-[var(--border)] max-md:ring-[var(--border)] [@media(pointer:coarse)]:ring-[var(--border)]"
-        >
-          {entries.length > 0 && (
-            <span data-folder-item-count="actions" className="px-1 text-[0.5625rem] text-[var(--muted-foreground)]">
-              {entries.length}
-            </span>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(folder);
-            }}
-            className="mari-chrome-control mari-chrome-control--small pointer-events-none shrink-0 p-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:pointer-events-auto [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:pointer-events-auto max-md:opacity-100 [@media(pointer:coarse)]:pointer-events-auto [@media(pointer:coarse)]:opacity-100"
-            title={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
-          >
-            <Trash2 size="0.75rem" />
-          </button>
-        </div>
-      </div>
-      {/* Folder contents */}
-      <SmoothFolderContent
-        open={isExpanded && entries.length > 0}
-        className="ml-4 border-l border-[var(--border)]/20 pl-1"
-        innerClassName="flex flex-col gap-0.5"
-      >
-        {entries.map((c) => (
-          <div key={c.id}>{renderConnectionRow(c)}</div>
-        ))}
-      </SmoothFolderContent>
-    </Reorder.Item>
-  );
+/**
+ * The Connections a search and the attention filter keep, each with the Models it shows: a Connection that matches
+ * by its own name, service or host shows all its Models, and an empty one shows only while it matches (or with no
+ * search). Both views, by Connection and by folder, read it.
+ */
+function narrowGroups<G extends { account: ConnectionGroupData["account"]; rows: ConnectionRowData[] }>(
+  groups: G[],
+  query: string,
+  needsAttention: boolean,
+): (G & { visibleRows: ConnectionRowData[] })[] {
+  return groups.flatMap((group) => {
+    const { account, rows } = group;
+    if (needsAttention && account.state === "ok") return [];
+    const accountHit =
+      !!query &&
+      [account.name, PROVIDERS[account.provider as APIProvider]?.name ?? account.provider, hostOf(account.baseUrl)]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    const visibleRows = accountHit ? rows : rows.filter((row) => connectionMatchesSearch(row, query));
+    const showEmpty = rows.length === 0 && (!query || accountHit);
+    return visibleRows.length > 0 || showEmpty ? [{ ...group, visibleRows }] : [];
+  });
 }
 
 export function ConnectionsPanel() {
-  const { t: localizeUi } = useUiTranslation();
-  const localize = useLocalizedUiText();
-  const { data: connections, isLoading } = useConnections();
-  const uploadConnectionImage = useUploadConnectionImage();
-  const deleteConnection = useDeleteConnection();
+  const { t } = useTranslation();
+  const connectionsQuery = useConnections();
+  const accountsQuery = useConnectionAccounts();
+  const { data: featureModels } = useFeatureModels();
+  const { data: connections, isLoading } = connectionsQuery;
+  const { data: accounts } = accountsQuery;
+  const loadFailed = connectionsQuery.isError || accountsQuery.isError;
   const activeChat = useChatStore((s) => s.activeChat);
-
-  const activeConnectionId = activeChat?.connectionId ?? null;
-  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const chatPick = useChatModelPick(activeChat?.id ?? null);
+  const modelStar = useModelStar();
+  const hiddenIds = useHiddenModelIds();
   const openModal = useUIStore((s) => s.openModal);
-  const linkApiBannerDismissed = useUIStore((s) => s.linkApiBannerDismissed);
-  const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
+  const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
+  const accountManualOrder = useUIStore((s) => s.libraryManualOrders?.connection);
+  const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
+  const showCostBadges = useUIStore((s) => s.showCostBadges);
+  const setShowCostBadges = useUIStore((s) => s.setShowCostBadges);
+  const outsideReads = useOutsideReads();
+  const byFolder = useUIStore((s) => s.connectionsGroupBy) === "folder";
+  const setGroupBy = useUIStore((s) => s.setConnectionsGroupBy);
+  const { data: folders } = useConnectionFolders();
+  const chooseFolder = useFolderChooser();
   const sort = useUIStore((s) => s.connectionPanelSort);
   const setSort = useUIStore((s) => s.setConnectionPanelSort);
+  const reorderFolders = useReorderConnectionFolders();
+  const reorderConnections = useReorderConnections();
 
-  // Folder hooks
-  const { data: folders } = useConnectionFolders();
-  const createFolderMut = useCreateConnectionFolder();
-  const updateFolderMut = useUpdateConnectionFolder();
-  const deleteFolderMut = useDeleteConnectionFolder();
-  const reorderFoldersMut = useReorderConnectionFolders();
-  const reorderConnectionsMut = useReorderConnections();
-
-  const [draggedConnectionId, setDraggedConnectionId] = useState<string | null>(null);
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [exportingSelected, setExportingSelected] = useState(false);
-  const connectionImageInputRef = useRef<HTMLInputElement>(null);
-  const imageTargetConnectionIdRef = useRef<string | null>(null);
-  const suppressConnectionClickRef = useRef(false);
+  /** Connections folded while a search runs; a new query unfolds every match again. */
+  const [searchFolded, setSearchFolded] = useState<string[]>([]);
+  /** Only Connections that are Off or need a key (panel ⋯ menu). */
+  const [needsAttention, setNeedsAttention] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
+  const [wide, setWide] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
+  /** The row a narrow panel's "‹ Connections" returns focus to. */
+  const returnKeyRef = useRef<string | null>(null);
+  const [moving, setMoving] = useState<Omit<ComponentProps<typeof MoveConnectionDialog>, "onClose" | "rowsOf"> | null>(
+    null,
+  );
+  const [pictureMenu, setPictureMenu] = useState<Omit<ComponentProps<typeof PictureMenu>, "onClose"> | null>(null);
+  const closePictureMenu = useCallback(() => setPictureMenu(null), []);
 
-  const connectionsList = useMemo(() => (connections as ConnectionRowData[] | undefined) ?? [], [connections]);
-  const filteredConnections = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return connectionsList.filter((connection) =>
-      connectionMatchesSearch(
-        connection,
-        query,
-        connection.provider === "audio_generation"
-          ? localizeUi("connections.audioGeneration.category")
-          : connection.provider === "audio"
-            ? localizeUi("connections.tts.category")
-            : undefined,
-      ),
-    );
-  }, [connectionsList, search, localizeUi]);
-  const sortedConnections = useMemo(() => sortConnections(filteredConnections, sort), [filteredConnections, sort]);
-  const sortedConnectionsForReorder = useMemo(() => sortConnections(connectionsList, sort), [connectionsList, sort]);
-  const searchActive = search.trim().length > 0;
-
-  // Sorted folder list + local order for optimistic drag-to-reorder
-  const sortedFolders = useMemo(() => {
-    if (!folders) return [] as ConnectionFolder[];
-    return sortPanelFolders(folders, sort);
-  }, [folders, sort]);
-
-  const [localFolderOrder, setLocalFolderOrder] = useState<string[]>([]);
   useEffect(() => {
-    setLocalFolderOrder(sortPanelFolders(folders ?? [], "custom").map((f) => f.id));
-  }, [folders]);
-  const folderOrder = sort === "custom" ? localFolderOrder : sortedFolders.map((folder) => folder.id);
-
-  // Split connections into per-folder + unfiled buckets
-  const { unfiledConnections, folderConnectionsMap } = useMemo(() => {
-    const unfiled: ConnectionRowData[] = [];
-    const map = new Map<string, ConnectionRowData[]>();
-    for (const c of sortedConnections) {
-      const fid = c.folderId ?? null;
-      if (fid && sortedFolders.some((f) => f.id === fid)) {
-        const arr = map.get(fid) ?? [];
-        arr.push(c);
-        map.set(fid, arr);
-      } else {
-        unfiled.push(c);
-      }
-    }
-    return { unfiledConnections: unfiled, folderConnectionsMap: map };
-  }, [sortedConnections, sortedFolders]);
-
-  const handleCreateFolder = () => {
-    createFolderMut.mutate({ name: getNextUnnamedFolderName(sortedFolders) });
-  };
-
-  const handleFolderReorder = (newOrder: string[]) => {
-    if (sort !== "custom") setSort("custom");
-    setLocalFolderOrder(newOrder);
-    reorderFoldersMut.mutate(newOrder);
-  };
-  const folderDrag = useLibraryFolderDrag("connection", (ids, target, edge) => {
-    handleFolderReorder(insertLibraryItems(folderOrder, ids, target, edge));
-  });
-
-  const handleToggleCollapse = (folder: ConnectionFolder) => {
-    updateFolderMut.mutate({ id: folder.id, collapsed: !folder.collapsed });
-  };
-
-  const handleRenameFolder = (id: string, name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    updateFolderMut.mutate({ id, name: trimmed });
-  };
-
-  const handleDeleteFolder = async (folder: ConnectionFolder) => {
-    const connectionCount = connectionsList.filter((connection) => connection.folderId === folder.id).length;
-    const ok = await confirmNonEmptyFolderDelete(connectionCount, {
-      title: "Delete Folder",
-      message: `Delete "${folder.name}"? Its ${connectionCount} connection${
-        connectionCount === 1 ? "" : "s"
-      } will move back to Unfiled.`,
-      confirmLabel: "Delete",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteFolderMut.mutate(folder.id);
-  };
-
-  const getDraggedConnectionIds = useCallback(
-    (connectionId: string) =>
-      selectionMode && selectedConnectionIds.has(connectionId) ? Array.from(selectedConnectionIds) : [connectionId],
-    [selectedConnectionIds, selectionMode],
-  );
-
-  const toggleConnectionSelection = useCallback((connectionId: string) => {
-    setSelectedConnectionIds((current) => {
-      const next = new Set(current);
-      if (next.has(connectionId)) next.delete(connectionId);
-      else next.add(connectionId);
-      return next;
-    });
+    const element = rootRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setWide((entry?.contentRect.width ?? 0) >= WIDE_PANEL_PX));
+    observer.observe(element);
+    return () => observer.disconnect();
   }, []);
 
-  const exitSelectionMode = useCallback(() => {
-    setSelectionMode(false);
-    setSelectedConnectionIds(new Set());
-  }, []);
-
-  const getConnectionsInFolder = useCallback(
-    (folderId: string | null) =>
-      sortedConnectionsForReorder.filter((connection) => {
-        if (folderId) return connection.folderId === folderId;
-        return !(connection.folderId && sortedFolders.some((folder) => folder.id === connection.folderId));
-      }),
-    [sortedConnectionsForReorder, sortedFolders],
+  // Rows wait for their Undo while hidden (decision 30).
+  const connectionsList = useMemo(
+    () => ((connections as ConnectionRowData[] | undefined) ?? []).filter((row) => !hiddenIds.has(row.id)),
+    [connections, hiddenIds],
   );
+  const engines = useDeviceEngines();
+  const localModelUsedBy = useLocalModelUsedBy();
+  const grouped = useMemo(() => {
+    const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
+    const sorted = sortConnectionGroups(groups, sort);
+    return {
+      all: sorted,
+      // Until the Connections load, every Model would look standalone.
+      standalone: accounts ? standalone : [],
+    };
+  }, [accounts, connectionsList, sort]);
+  const accountById = useMemo(() => new Map((accounts ?? []).map((account) => [account.id, account])), [accounts]);
 
-  const reorderConnectionsInFolder = useCallback(
-    (connectionIds: string[], folderId: string | null, targetConnectionId?: string, edge: InsertEdge = "before") => {
-      const draggedIds = Array.from(new Set(connectionIds.filter(Boolean)));
-      if (draggedIds.length === 0) return;
-      if (targetConnectionId && draggedIds.includes(targetConnectionId)) return;
+  const query = search.trim().toLowerCase();
+  const visible = useMemo(() => {
+    const groups = narrowGroups(grouped.all, query, needsAttention);
+    return {
+      groups,
+      // Models without a Connection and on-device engines have no key to miss.
+      standalone: needsAttention ? [] : grouped.standalone.filter((row) => connectionMatchesSearch(row, query)),
+      engines: needsAttention
+        ? []
+        : query
+          ? engines.filter((engine) => engine.name.toLowerCase().includes(query))
+          : engines,
+    };
+  }, [engines, grouped, needsAttention, query]);
 
-      const bucketIds = getConnectionsInFolder(folderId).map((connection) => connection.id);
-      const withoutDragged = bucketIds.filter((id) => !draggedIds.includes(id));
-      const insertIndex = targetConnectionId ? withoutDragged.indexOf(targetConnectionId) : withoutDragged.length;
-      const safeInsertIndex =
-        insertIndex >= 0 ? insertIndex + (targetConnectionId && edge === "after" ? 1 : 0) : withoutDragged.length;
-      const orderedConnectionIds = [
-        ...withoutDragged.slice(0, safeInsertIndex),
-        ...draggedIds,
-        ...withoutDragged.slice(safeInsertIndex),
+  // Group by folder: the user's folders in their order, then the Models in none. A search or the attention filter
+  // narrows the rows; an empty folder shows only without them.
+  const sortedFolders = useMemo(() => sortPanelFolders(folders ?? [], sort), [folders, sort]);
+  const folderGroups = useMemo(() => {
+    if (!byFolder) return [];
+    const known = new Set(sortedFolders.map((folder) => folder.id));
+    return [...sortedFolders, null].flatMap((folder) => {
+      const rowsWithoutAccount = sortByModelId(
+        connectionsList.filter(
+          (row) => !row.accountId && (folder ? row.folderId === folder.id : !row.folderId || !known.has(row.folderId)),
+        ),
+      );
+      const groups = sortConnectionGroups(
+        grouped.all.filter((group) => {
+          const groupFolder = connectionGroupFolder(group);
+          return folder ? groupFolder === folder.id : !groupFolder || !known.has(groupFolder);
+        }),
+        sort,
+        accountManualOrder?.ids,
+      );
+      const visibleGroups = narrowGroups(groups, query, needsAttention);
+      const visibleStandalone = needsAttention
+        ? []
+        : rowsWithoutAccount.filter((row) => connectionMatchesSearch(row, query));
+      if (visibleGroups.length === 0 && visibleStandalone.length === 0 && (query || needsAttention || !folder))
+        return [];
+      return [
+        { folder, key: `folder:${folder?.id ?? "none"}`, groups, visibleGroups, rowsWithoutAccount, visibleStandalone },
       ];
+    });
+  }, [accountManualOrder?.ids, byFolder, connectionsList, grouped.all, needsAttention, query, sort, sortedFolders]);
 
-      if (orderedConnectionIds.length === 0) return;
-      if (sort !== "custom") setSort("custom");
-      reorderConnectionsMut.mutate({ orderedConnectionIds, folderId });
-      setDraggedConnectionId(null);
-    },
-    [getConnectionsInFolder, reorderConnectionsMut, setSort, sort],
-  );
-
-  const handleDropConnectionsToFolder = useCallback(
-    (connectionIds: string[], folderId: string | null) => {
-      reorderConnectionsInFolder(connectionIds, folderId);
-    },
-    [reorderConnectionsInFolder],
-  );
-
-  const handleRootConnectionDragOver = useCallback(
-    (event: DragEvent<HTMLElement>) => {
-      if (!draggedConnectionId) return;
-      const target = event.target instanceof Element ? event.target.closest("[data-connection-id]") : null;
-      if (target) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-    },
-    [draggedConnectionId],
-  );
-
-  const handleRootConnectionDrop = useCallback(
-    (event: DragEvent<HTMLElement>) => {
-      if (!draggedConnectionId) return;
-      const target = event.target instanceof Element ? event.target.closest("[data-connection-id]") : null;
-      if (target) return;
-      event.preventDefault();
-      event.stopPropagation();
-      handleDropConnectionsToFolder(getDroppedConnectionIds(event, draggedConnectionId), null);
-    },
-    [draggedConnectionId, handleDropConnectionsToFolder],
-  );
-
-  const handleDropConnectionsOnRow = useCallback(
-    (connectionIds: string[], targetConnectionId: string, edge: InsertEdge = "before") => {
-      const targetConnection = connectionsList.find((connection) => connection.id === targetConnectionId);
-      if (!targetConnection) return;
-      const folderId =
-        targetConnection.folderId && sortedFolders.some((folder) => folder.id === targetConnection.folderId)
-          ? targetConnection.folderId
-          : null;
-      reorderConnectionsInFolder(connectionIds, folderId, targetConnectionId, edge);
-    },
-    [connectionsList, reorderConnectionsInFolder, sortedFolders],
-  );
-
-  const finishConnectionTouchDrag = useCallback(
-    (connectionId: string, x: number, y: number, dragIds?: string[]) => {
-      const target = document.elementFromPoint(x, y);
-      const connectionElement = target?.closest("[data-connection-id]") as HTMLElement | null;
-      const targetConnectionId = connectionElement?.dataset.connectionId ?? null;
-      if (targetConnectionId && !(dragIds ?? getDraggedConnectionIds(connectionId)).includes(targetConnectionId)) {
-        handleDropConnectionsOnRow(dragIds ?? getDraggedConnectionIds(connectionId), targetConnectionId);
-        window.setTimeout(() => {
-          suppressConnectionClickRef.current = false;
-        }, 0);
-        return;
-      }
-      const folderElement = target?.closest("[data-connection-folder-id]") as HTMLElement | null;
-      const rootElement = target?.closest("[data-connection-folder-root]") as HTMLElement | null;
-      const folderId = folderElement?.dataset.connectionFolderId ?? null;
-      if (folderId || rootElement) {
-        handleDropConnectionsToFolder(dragIds ?? getDraggedConnectionIds(connectionId), folderId);
-      }
-      setDraggedConnectionId(null);
-      window.setTimeout(() => {
-        suppressConnectionClickRef.current = false;
-      }, 0);
-    },
-    [getDraggedConnectionIds, handleDropConnectionsOnRow, handleDropConnectionsToFolder],
-  );
-
-  const cancelConnectionTouchDrag = useCallback((_connectionId: string, wasActive: boolean) => {
-    setDraggedConnectionId(null);
-    if (wasActive) {
-      window.setTimeout(() => {
-        suppressConnectionClickRef.current = false;
-      }, 0);
-    } else {
-      suppressConnectionClickRef.current = false;
+  // Provider families are visual only: separate endpoints and keys keep their account actions and rows.
+  const providerGroups = useMemo(() => {
+    const families = new Map<string, { key: string; name: string; groups: typeof visible.groups }>();
+    for (const group of visible.groups) {
+      const service = isChatProvider(group.account.provider) ? null : group.rows.map(mediaService).find(Boolean);
+      const vendor = service ? (IMAGE_SOURCE_VENDOR[service] ?? service) : group.account.provider;
+      const custom = vendor === "custom";
+      const unknownMedia = !service && !isChatProvider(group.account.provider);
+      const key = unknownMedia
+        ? `account:${group.account.id}`
+        : custom
+          ? `custom:${group.account.baseUrl || group.account.id}`
+          : vendor;
+      const name = unknownMedia
+        ? group.account.name
+        : custom
+          ? hostOf(group.account.baseUrl) || group.account.name
+          : (PROVIDERS[vendor as APIProvider]?.name ??
+            [...IMAGE_GENERATION_SOURCES, ...VIDEO_GENERATION_SOURCES].find((source) => source.id === vendor)?.name ??
+            ({ elevenlabs: "ElevenLabs", pockettts: "PocketTTS" } as Record<string, string>)[vendor] ??
+            vendor);
+      const family = families.get(key) ?? { key, name, groups: [] };
+      family.groups.push(group);
+      families.set(key, family);
     }
-  }, []);
+    return [...families.values()]
+      .map((family) => ({
+        ...family,
+        name:
+          family.key.startsWith("custom:") && family.groups.length === 1 ? family.groups[0].account.name : family.name,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [visible]);
+  const providerNameByAccount = useMemo(
+    () =>
+      new Map(
+        providerGroups.flatMap((provider) =>
+          provider.groups.map((group) => [group.account.id, provider.name] as const),
+        ),
+      ),
+    [providerGroups],
+  );
 
-  useLibraryOrder("connection", handleDropConnectionsOnRow);
-  const { startTouchDrag: startConnectionTouchDrag } = useTouchFolderDrag({
-    getDragIds: getDraggedConnectionIds,
-    reorderHandlesDrop: true,
-    onReorder: (ids, target, edge) => {
-      handleDropConnectionsOnRow(ids, target, edge);
+  const reorderAccountCards = useCallback(
+    (ids: string[], target: string, edge: InsertEdge, _visibleIds: string[]) => {
+      const sourceGroup = grouped.all.find((group) => group.account.id === ids[0]);
+      const targetGroup = grouped.all.find((group) => group.account.id === target);
+      if (!sourceGroup || !targetGroup || connectionGroupFolder(sourceGroup) !== connectionGroupFolder(targetGroup))
+        return;
+      const folderId = connectionGroupFolder(sourceGroup);
+      const bucket = sortConnectionGroups(
+        grouped.all.filter((group) => connectionGroupFolder(group) === folderId),
+        sort,
+        accountManualOrder?.ids,
+      );
+      const orderedIds = insertLibraryItems(
+        bucket.map((group) => group.account.id),
+        ids,
+        target,
+        edge,
+      );
+      const orderedConnectionIds = reorderConnectionGroups(
+        grouped.all.filter((group) => connectionGroupFolder(group) === folderId),
+        orderedIds,
+        orderedIds,
+      ).map((row) => row.id);
+      setSort("custom");
+      if (orderedConnectionIds.length) reorderConnections.mutate({ orderedConnectionIds, folderId });
     },
-    onActivate: (connectionId) => {
-      suppressConnectionClickRef.current = true;
-      setDraggedConnectionId(connectionId);
+    [accountManualOrder?.ids, grouped.all, reorderConnections, setSort, sort],
+  );
+  /** A computed sort becomes Custom, starting from the order on screen. */
+  const seedCustomOrder = () => {
+    const state = useUIStore.getState();
+    if (state.connectionPanelSort === "custom") return;
+    state.setLibraryManualOrder("connection", {
+      active: true,
+      ids: sortConnectionGroups(grouped.all, state.connectionPanelSort).map((group) => group.account.id),
+    });
+  };
+  const accountOrder = useLibraryOrder("connection", (ids, target, edge, visibleIds) => {
+    seedCustomOrder();
+    const state = useUIStore.getState();
+    const raw = state.libraryManualOrders?.connection;
+    const base = raw?.active
+      ? Array.from(new Set([...raw.ids, ...visibleIds]))
+      : Array.from(new Set([...visibleIds, ...(raw?.ids ?? [])]));
+    state.setLibraryManualOrder("connection", { active: true, ids: insertLibraryItems(base, ids, target, edge) });
+    reorderAccountCards(ids, target, edge, visibleIds);
+  });
+  const orderedAllGroups = useMemo(
+    () => orderAccountGroups(grouped.all, sort, accountManualOrder),
+    [accountManualOrder, grouped.all, sort],
+  );
+  const visibleAccountGroups = useMemo(() => {
+    const visibleIds = new Set(visible.groups.map((group) => group.account.id));
+    return orderedAllGroups.filter((group) => visibleIds.has(group.account.id));
+  }, [orderedAllGroups, visible.groups]);
+  const moveAccountToFolder = useCallback(
+    (accountId: string, folderId: string | null) => {
+      const group = grouped.all.find((item) => item.account.id === accountId);
+      if (!group?.rows.length) return;
+      const targetGroups = sortConnectionGroups(
+        grouped.all.filter((item) => connectionGroupFolder(item) === folderId && item.account.id !== accountId),
+        sort,
+        accountManualOrder?.ids,
+      );
+      const insertedAccountIds = [
+        ...targetGroups.filter((item) => item.account.id !== accountId).map((item) => item.account.id),
+        accountId,
+      ];
+      const orderedRows = reorderConnectionGroups([...targetGroups, group], insertedAccountIds, insertedAccountIds);
+      setSort("custom");
+      reorderConnections.mutate({ orderedConnectionIds: orderedRows.map((row) => row.id), folderId });
     },
-    onDrop: finishConnectionTouchDrag,
-    onCancel: cancelConnectionTouchDrag,
+    [accountManualOrder?.ids, grouped.all, reorderConnections, setSort, sort],
+  );
+  const dragAccount = useTouchFolderDrag({
+    getDragIds: (id) => [id],
+    onReorder: (ids, target, edge, visibleIds) => {
+      seedCustomOrder();
+      accountOrder.reorder(ids, target, edge, visibleIds);
+      reorderAccountCards(ids, target, edge, visibleIds);
+    },
+    onActivate: () => {},
+    onDrop: (accountId, x, y) => {
+      const hit = document.elementFromPoint(x, y);
+      const folder = hit?.closest<HTMLElement>("[data-connection-folder-id]");
+      const root = hit?.closest("[data-connection-folder-root]");
+      const folderId = folder?.dataset.connectionFolderId || null;
+      const group = grouped.all.find((item) => item.account.id === accountId);
+      if ((folder || root) && group && connectionGroupFolder(group) !== folderId)
+        moveAccountToFolder(accountId, folderId);
+    },
+  });
+  const startAccountDrag = (event: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>, id: string) =>
+    dragAccount.startTouchDrag(event, id);
+  const folderDrag = useLibraryFolderDrag("connection", (ids, target, edge) => {
+    setSort("custom");
+    const orderedIds = insertLibraryItems(
+      sortedFolders.map((folder) => folder.id),
+      ids,
+      target,
+      edge,
+    );
+    reorderFolders.mutate(orderedIds);
   });
 
-  const handlePickConnectionImage = useCallback((connectionId: string) => {
-    imageTargetConnectionIdRef.current = connectionId;
-    if (connectionImageInputRef.current) {
-      connectionImageInputRef.current.value = "";
-      connectionImageInputRef.current.click();
+  const validKey = (key: string | null) => {
+    if (!key) return false;
+    if (key === "other") return grouped.standalone.length > 0;
+    if (key.startsWith("device:")) return engines.some((engine) => `device:${engine.item}` === key);
+    return false;
+  };
+  const current = validKey(selected) ? selected : null;
+
+  const select = useCallback(
+    (key: string | null) => {
+      setSelected(key);
+      if (!wide && key) rootRef.current?.scrollIntoView({ block: "start" });
+    },
+    [wide],
+  );
+  // Drill-in moves focus to "‹ Connections", so a keyboard user lands on the new page; going back focuses its row.
+  useEffect(() => {
+    if (wide) return;
+    if (current) backRef.current?.focus({ preventScroll: true });
+    else if (returnKeyRef.current) {
+      rootRef.current
+        ?.querySelector<HTMLElement>(`[data-connections-row="${CSS.escape(returnKeyRef.current)}"]`)
+        ?.focus();
+      returnKeyRef.current = null;
     }
-  }, []);
+  }, [current, wide]);
 
-  const handleConnectionImageSelected = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      const connectionId = imageTargetConnectionIdRef.current;
-      if (!file || !connectionId) return;
+  const exportConnections = async (connectionsToExport: ConnectionRowData[]) => {
+    if (connectionsToExport.length === 0) return;
 
-      if (!file.type.startsWith("image/")) {
-        imageTargetConnectionIdRef.current = null;
-        toast.error(localizeUi("ui.panels.connectionspanel.chooseAnImageFileForTheConnectionPicture"));
-        return;
-      }
+    const confirmed = await showConfirmDialog({
+      title: t("ui.panels.connectionspanel.exportConnectionData"),
+      message: t("connections.transfer.exportWarning"),
+      confirmLabel: t("ui.characters.spritestab.export"),
+      cancelLabel: t("common.close"),
+    });
+    if (!confirmed) return;
 
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const image = typeof reader.result === "string" ? reader.result : "";
-        if (!image) {
-          toast.error(localizeUi("ui.panels.agentspanel.couldNotReadThatImage"));
-          return;
-        }
-
-        try {
-          await uploadConnectionImage.mutateAsync({ id: connectionId, image });
-          toast.success(localizeUi("ui.panels.connectionspanel.connectionPictureUpdated"));
-        } catch (error) {
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : localizeUi("ui.panels.connectionspanel.failedToUploadConnectionPicture"),
+    const envelope = createConnectionExportEnvelope(
+      connectionsToExport as ConnectionTransferRow[],
+      accounts ?? [],
+      featureModels ?? {},
+    );
+    const saveStatus =
+      connectionsToExport.length > 1
+        ? await downloadZipFile(
+            [{ path: "marinara-connections.json", content: JSON.stringify(envelope, null, 2) }],
+            "marinara-connections.zip",
+          )
+        : await downloadJsonFile(
+            envelope,
+            `${sanitizeExportFilenamePart(connectionsToExport[0]?.name, "connection")}.connection.json`,
           );
-        } finally {
-          imageTargetConnectionIdRef.current = null;
-        }
-      };
-      reader.onerror = () => {
-        imageTargetConnectionIdRef.current = null;
-        toast.error(localizeUi("ui.panels.agentspanel.couldNotReadThatImage"));
-      };
-      reader.readAsDataURL(file);
-    },
-    [uploadConnectionImage, localizeUi],
-  );
+    if (saveStatus === "saved")
+      toast.success(t("connections.transfer.exported", { count: connectionsToExport.length }));
+  };
 
-  const exportConnections = useCallback(
-    async (connectionsToExport: ConnectionRowData[]) => {
-      if (connectionsToExport.length === 0) return;
-
-      const confirmed = await showConfirmDialog({
-        title: localizeUi("ui.panels.connectionspanel.exportConnectionData"),
-        message: CONNECTION_EXPORT_WARNING,
-        confirmLabel: localizeUi("ui.characters.spritestab.export"),
-        cancelLabel: "Close",
-      });
-      if (!confirmed) return;
-
-      const envelope = createConnectionExportEnvelope(connectionsToExport as ConnectionTransferRow[]);
-      const saveStatus =
-        connectionsToExport.length > 1
-          ? await downloadZipFile(
-              [{ path: "marinara-connections.json", content: JSON.stringify(envelope, null, 2) }],
-              "marinara-connections.zip",
-            )
-          : await downloadJsonFile(
-              envelope,
-              `${sanitizeExportFilenamePart(connectionsToExport[0]?.name, "connection")}.connection.json`,
-            );
-      if (saveStatus === "saved")
-        toast.success(
-          localizeUi("ui.panels.connectionspanel.exportedValue1ConnectionValue2", {
-            value1: connectionsToExport.length,
-            value2: connectionsToExport.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-          }),
-        );
-    },
-    [localizeUi],
-  );
-
-  const handleExportSelected = useCallback(async () => {
-    if (selectedConnectionIds.size === 0) return;
-    setExportingSelected(true);
-    try {
-      await exportConnections(connectionsList.filter((connection) => selectedConnectionIds.has(connection.id)));
-    } finally {
-      setExportingSelected(false);
-    }
-  }, [connectionsList, exportConnections, selectedConnectionIds]);
-
-  const handleDeleteSelected = useCallback(async () => {
-    const ids = [...selectedConnectionIds];
-    if (ids.length === 0) return;
-
-    if (
-      !(await showConfirmDialog({
-        title: localizeUi("ui.panels.connectionspanel.deleteConnections"),
-        message: localizeUi("ui.panels.connectionspanel.deleteValue1ConnectionValue2ThisCannotBeUndone", {
-          value1: ids.length,
-          value2: ids.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-        }),
-        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-        tone: "destructive",
-      }))
-    ) {
-      return;
-    }
-
-    const results = await Promise.allSettled(ids.map((id) => deleteConnection.mutateAsync(id)));
-    const failedIds = ids.filter((_, index) => results[index]?.status === "rejected");
-    const deletedCount = ids.length - failedIds.length;
-
-    if (deletedCount > 0) {
-      toast.success(
-        localizeUi("ui.panels.connectionspanel.deletedValue1ConnectionValue2", {
-          value1: deletedCount,
-          value2: deletedCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-        }),
-      );
-    }
-
-    if (failedIds.length > 0) {
-      setSelectedConnectionIds(new Set(failedIds));
-      toast.error(
-        localizeUi("ui.panels.connectionspanel.failedToDeleteValue1ConnectionValue2", {
-          value1: failedIds.length,
-          value2: failedIds.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-        }),
-      );
-      return;
-    }
-
-    exitSelectionMode();
-  }, [deleteConnection, exitSelectionMode, selectedConnectionIds, localizeUi]);
-
-  const renderConnectionRow = (conn: ConnectionRowData) => {
-    const isSelected = activeConnectionId === conn.id;
-    const isBulkSelected = selectedConnectionIds.has(conn.id);
+  const renderRow = (
+    row: ConnectionRowData,
+    subtitle?: string,
+    connectionName?: string,
+    catalog?: CachedCatalogFacts,
+  ) => {
+    const account = row.accountId ? accountById.get(row.accountId) : undefined;
+    const chatModel = isChatProvider(row.provider);
+    // A Connection's stars live on its anchor Model; a standalone Model keeps its own.
+    const anchor =
+      (row.accountId && starAnchorOf(connectionsList.filter((other) => other.accountId === row.accountId))) || row;
+    const starred = !!row.model && parsePinnedModels(anchor.pinnedModels).includes(row.model);
+    const sameTargets = account ? sameServiceTargets(row, account, accounts ?? [], connectionsList) : [];
+    // Mirrors the server: chat Models move to chat Connections of other services; media, decision and local-login
+    // (subscription) Models and Connections never change service.
+    const portable = (provider: string) => isChatProvider(provider) && !isLocalAuthProvider(provider);
+    const otherTargets =
+      account && !row.credentialsFromConnectionId && portable(row.provider) && portable(account.provider)
+        ? (accounts ?? []).filter(
+            (item) => item.id !== account.id && portable(item.provider) && !sameTargets.includes(item),
+          )
+        : [];
+    // A Connection with more than one Model can give one to a copy of itself (same key), to split a grouping.
+    const splitFrom =
+      account &&
+      !row.credentialsFromConnectionId &&
+      connectionsList.filter((candidate) => candidate.accountId === account.id).length > 1
+        ? account
+        : null;
+    const moveTargets = [...sameTargets, ...otherTargets];
     return (
       <ConnectionRow
-        key={conn.id}
-        conn={conn}
-        isSelected={isSelected}
-        isBulkSelected={isBulkSelected}
-        selectionMode={selectionMode}
-        onClickRow={() => {
-          if (selectionMode) toggleConnectionSelection(conn.id);
-          else openConnectionDetail(conn.id);
-        }}
-        isDragging={draggedConnectionId === conn.id}
-        onDragStart={(event) => {
-          const ids = getDraggedConnectionIds(conn.id);
-          setDraggedConnectionId(conn.id);
-          event.dataTransfer.effectAllowed = "copyMove";
-          event.dataTransfer.setData("application/x-marinara-connection-ids", JSON.stringify(ids));
-          event.dataTransfer.setData("application/x-marinara-connection-id", conn.id);
-          event.dataTransfer.setData("text/plain", conn.id);
-          writeChatResourceDragPayload(event.dataTransfer, {
-            version: 1,
-            kind: "connection",
-            ids: [conn.id],
-            label: conn.name,
-            ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
-          });
-        }}
-        onDragEnd={() => {
-          setDraggedConnectionId(null);
-          clearActiveChatResourceDrag();
-        }}
-        onDropOnRow={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          handleDropConnectionsOnRow(getDroppedConnectionIds(event, draggedConnectionId), conn.id);
-        }}
-        onTouchStart={(event) => {
-          startConnectionTouchDrag(event, conn.id, {
-            chatResourcePayload: {
-              version: 1,
-              kind: "connection",
-              ids: [conn.id],
-              label: conn.name,
-              ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
-            },
-            sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="connection"]'),
-          });
-        }}
-        suppressClickRef={suppressConnectionClickRef}
-        onImagePick={() => handlePickConnectionImage(conn.id)}
+        key={row.id}
+        row={row}
+        account={account}
+        subtitle={subtitle}
+        connectionName={connectionName}
+        catalog={catalog}
+        current={activeChat?.connectionId === row.id}
+        starred={starred}
+        onToggleStar={
+          chatModel && row.model && row.accountId
+            ? () =>
+                void modelStar.toggle(
+                  { accountId: row.accountId!, model: row.model, name: row.name, anchorId: anchor.id },
+                  starred,
+                )
+            : undefined
+        }
+        onUseInChat={
+          activeChat && chatModel
+            ? () =>
+                void chatPick
+                  .apply({ connectionId: row.id })
+                  .catch((error: unknown) =>
+                    toast.error(error instanceof Error ? error.message : t("connections.row.useInChatFailed")),
+                  )
+            : undefined
+        }
+        moveTargets={[
+          ...moveTargets.map((item) => item.name),
+          ...(splitFrom ? [t("connections.move.newConnection")] : []),
+        ]}
+        onMove={() => setMoving({ row, same: sameTargets, other: otherTargets, splitFrom })}
+        folderName={
+          (folders ?? []).find((folder) => folder.id === row.folderId)?.name ?? t("connections.folders.noFolder")
+        }
+        onChooseFolder={() => void chooseFolder([row])}
+        onPictureClick={(at) =>
+          setPictureMenu({
+            target: { kind: "model", id: row.id },
+            name: row.name,
+            icon: row.icon,
+            imagePath: row.imagePath,
+            at,
+          })
+        }
       />
     );
   };
 
-  return (
-    <div className="flex min-h-full flex-col gap-2 p-3">
-      <input
-        ref={connectionImageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleConnectionImageSelected}
-      />
+  // ── List rows ──
+  // In a folder a row names where it runs: its Connection, then the gateway route for a proxy Model.
+  const folderRow = (row: ConnectionRowData, catalog?: CachedCatalogFacts) => {
+    const account = row.accountId ? accountById.get(row.accountId) : undefined;
+    const upstream = account?.provider === "custom" ? upstreamOf(row.model) : null;
+    const where = [
+      account?.name,
+      upstream && t("connections.accounts.section.via", { service: knownPrefixName(upstream) ?? upstream }),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return renderRow(row, modelSubtitle(row, upstream), where || undefined, catalog);
+  };
+  const accountRow = ({ account, rows, visibleRows = rows }: ConnectionGroupData, providerName: string) => (
+    <ConnectionGroup
+      key={account.id}
+      account={account}
+      rows={rows}
+      visibleRows={visibleRows}
+      providerName={providerName}
+      dragBindings={{
+        "data-drag-id": account.id,
+        "data-drag-order-id": account.id,
+        "data-drag-kind": "connection",
+        "aria-keyshortcuts": "Alt+ArrowUp Alt+ArrowDown",
+        onMouseDown: (event) => startAccountDrag(event, account.id),
+        onTouchStart: (event) => startAccountDrag(event, account.id),
+      }}
+      open={query ? !searchFolded.includes(account.id) : !collapsedConnections.includes(account.id)}
+      onToggle={() =>
+        query
+          ? setSearchFolded((ids) =>
+              ids.includes(account.id) ? ids.filter((id) => id !== account.id) : [...ids, account.id],
+            )
+          : toggleConnectionCollapsed(account.id)
+      }
+      renderRow={(row, subtitle, catalog) => renderRow(row, subtitle, undefined, catalog)}
+      onPictureClick={(at) =>
+        setPictureMenu({
+          target: { kind: "account", id: account.id },
+          name: account.name,
+          icon: account.icon,
+          imagePath: account.imagePath,
+          at,
+        })
+      }
+      tile={
+        <ProviderIcon
+          size="sm"
+          provider={account.provider}
+          baseUrl={account.baseUrl}
+          service={rows[0] && mediaService(rows[0])}
+          name={account.name}
+          icon={account.icon}
+          imagePath={account.imagePath}
+          dim={account.state === "off"}
+        />
+      }
+    />
+  );
 
-      {/* Action buttons */}
-      <div className="flex gap-2">
+  // An engine without its page yet (its state still loading) opens its set-up screen instead.
+  const openDevice = (item: DeviceItem) =>
+    engines.some((engine) => engine.item === item)
+      ? select(`device:${item}`)
+      : openAddConnection({ category: "device", item });
+  const defaultsBox = !isLoading && !loadFailed && (
+    <ConnectionDefaultsBox key="defaults" connectionsList={connectionsList} onOpenDevice={openDevice} />
+  );
+  // On this device: one card like a Connection's, its engines as rows, a Local Model's jobs as role badges.
+  const deviceOpen = !collapsedConnections.includes(DEVICE_FOLD_ID);
+  const deviceTitle = t("connections.accounts.section.device");
+  const deviceEngines = visible.engines.filter((engine) => engine.item !== "local-model");
+  const [onlyEngine] = deviceEngines;
+  const deviceGroup = deviceEngines.length > 0 && (
+    <div
+      role="group"
+      aria-label={deviceTitle}
+      data-connection-device-card
+      className="mari-connection-group flex min-w-0 flex-col"
+    >
+      <div className="mari-connection-card-head flex min-w-0 items-center rounded-lg">
         <button
           type="button"
-          onClick={() => openModal("create-connection")}
-          className="mari-panel-gradient-button mari-panel-gradient--connections flex-1 text-xs"
-          aria-label={localizeUi("ui.panels.connectionspanel.createConnection")}
-          title={localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
+          onClick={() => toggleConnectionCollapsed(DEVICE_FOLD_ID)}
+          aria-expanded={deviceOpen}
+          aria-controls="connection-device-engines"
+          className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg py-1 pe-1 text-left", FOCUS)}
         >
-          <Plus size="0.8125rem" />
+          <span aria-hidden className="mari-provider-icon flex shrink-0 items-center justify-center">
+            <HardDrive size="1.125rem" />
+          </span>
+          <ConnectionHeading title={deviceTitle}>
+            <ConnectionHeadingMeta>
+              {(deviceEngines.length === 1
+                ? [onlyEngine.name, onlyEngine.state]
+                : deviceEngines.map((engine) => engine.name)
+              ).join(" · ")}
+            </ConnectionHeadingMeta>
+          </ConnectionHeading>
         </button>
         <button
           type="button"
-          onClick={() => openModal("import-connection")}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-          aria-label={localizeUi("ui.panels.connectionspanel.importConnection")}
-          title={localizeUi("ui.chat.chatbranchselector.import")}
+          tabIndex={-1}
+          aria-hidden
+          onClick={() => toggleConnectionCollapsed(DEVICE_FOLD_ID)}
+          className={ROW_BUTTON}
         >
-          <Download size="0.8125rem" />
-        </button>
-        <button
-          type="button"
-          onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
-          disabled={connectionsList.length === 0}
-          className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
-            selectionMode && "mari-chrome-control--selected",
-          )}
-          aria-label={
-            selectionMode
-              ? localizeUi("ui.panels.connectionspanel.exitConnectionSelectionMode")
-              : localizeUi("ui.panels.connectionspanel.selectConnections")
-          }
-          title={localizeUi("settings.common.select")}
-        >
-          <Check size="0.8125rem" />
+          <ChevronDown
+            size="0.875rem"
+            className={cn(
+              "text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+              !deviceOpen && "-rotate-90",
+            )}
+          />
         </button>
       </div>
-
-      {/* Search + Sort */}
-      <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Search
-            size="0.8125rem"
-            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-          />
-          <input
-            type="text"
-            placeholder={localize("Search connections")}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-          />
+      {deviceOpen && (
+        <div id="connection-device-engines" className="mari-connection-model-well min-w-0">
+          {deviceEngines.map((engine) => {
+            const key = `device:${engine.item}`;
+            return (
+              <div key={key} className="mari-connection-model-slot min-w-0">
+                <ModelRow
+                  data-connections-row={key}
+                  tile={<ProviderIcon provider={engine.item} size="model" />}
+                  title={engine.name}
+                  subtitle={engine.detail}
+                  roles={engine.item === "local-model" ? localModelUsedBy : []}
+                  // Its own name needs the room: one job shows, the rest fold into "+N".
+                  roleSlots={1}
+                  status={engine.tone === "ok" ? null : { label: engine.state }}
+                  current={wide && current === key}
+                  aria-label={t("connections.list.rowLabel", { name: engine.name, state: engine.state })}
+                  onClick={() => select(key)}
+                  end={
+                    engine.fix && (
+                      <button
+                        type="button"
+                        onClick={engine.fix.run}
+                        aria-label={t("connections.list.fixFor", { action: engine.fix.label, name: engine.name })}
+                        className={cn(SMALL_ACTION, "shrink-0")}
+                      >
+                        {engine.fix.label}
+                      </button>
+                    )
+                  }
+                />
+              </div>
+            );
+          })}
         </div>
-        <div className="relative">
-          <select
-            value={sort}
-            onChange={(event) => {
-              setSort(event.target.value as ConnectionPanelSort);
-            }}
-            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-            title={localizeUi("ui.panels.agentspanel.sortOrder")}
-            aria-label={localizeUi("ui.panels.connectionspanel.sortConnections")}
-          >
-            <option value="custom">{localizeUi("settings.notifications.customSound.status.custom")}</option>
-            <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-            <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-            <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-          </select>
-          <ArrowUpDown
-            size="0.625rem"
-            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-          />
-        </div>
-      </div>
+      )}
+    </div>
+  );
 
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-1">
+  const noConnections = !isLoading && !loadFailed && connectionsList.length === 0 && (accounts?.length ?? 0) === 0;
+  // Only a search can hide everything; the full list is never "no match".
+  const foldIds = byFolder ? folderGroups.map((group) => group.key) : grouped.all.map((group) => group.account.id);
+  const nothingShown =
+    (!!query || needsAttention) &&
+    visible.engines.length === 0 &&
+    (byFolder ? folderGroups.length === 0 : visible.groups.length === 0 && visible.standalone.length === 0);
+  const list = (
+    <div className="flex flex-col gap-2">
+      {loadFailed ? (
+        // ERR-1: a failed load never looks like an empty list.
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3" role="alert">
+          <div className="flex items-start gap-2.5">
+            <CloudOff size="1rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-[var(--foreground)]">{t("connections.list.loadFailed")}</p>
+            </div>
+          </div>
           <button
-            onClick={handleCreateFolder}
-            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
+            type="button"
+            onClick={() => {
+              void connectionsQuery.refetch();
+              void accountsQuery.refetch();
+            }}
+            className={cn(SMALL_ACTION, "mt-2.5")}
           >
-            <FolderPlus size="0.75rem" />
-            {localizeUi("ui.panels.backgroundpicker.newFolder")}
+            <RefreshCw size="0.75rem" />
+            {t("connections.list.tryAgain")}
           </button>
         </div>
-
-        {sortedFolders.length > 0 && (
-          <p className="mari-folder-helper">
-            {localizeUi("ui.panels.connectionspanel.dragAndDropConnectionsToFoldersDoubleClickOr")}
-          </p>
-        )}
-      </div>
-
-      <ConnectionDefaultsSection connectionsList={connectionsList} />
-
-      {/* ── Local Model (Sidecar) ── */}
-      {import.meta.env.VITE_MARINARA_LITE !== "true" && <SidecarCard />}
-
-      {/* ── Text to Speech ── */}
-      <TTSConfigCard />
-
-      {/* ── Speech to Text (Calls only) ── */}
-      <SpeechToTextCard />
-
-      {isLoading && (
+      ) : isLoading ? (
         <div className="flex flex-col gap-2 py-2">
           {[1, 2].map((i) => (
-            <div key={i} className="shimmer h-14 rounded-xl" />
+            <div key={i} className="shimmer h-12 rounded-xl" />
           ))}
         </div>
-      )}
-
-      {!isLoading && (!connections || (connections as unknown[]).length === 0) && (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400/20 to-blue-500/20">
-            <Link size="1.25rem" className="text-sky-400" />
-          </div>
-          <p className="mari-chrome-text-muted text-xs">{localizeUi("ui.panels.connectionspanel.noConnectionsYet")}</p>
-        </div>
-      )}
-
-      {!isLoading && connectionsList.length > 0 && filteredConnections.length === 0 && (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-            <Search size="1.25rem" />
-          </div>
-          <p className="mari-chrome-text-muted text-xs">
-            {localizeUi("ui.panels.connectionspanel.noConnectionsMatchYourSearch")}
+      ) : noConnections ? (
+        <>
+          {/* First run: one question, the providers people already know, one tap to the key step. */}
+          <section aria-labelledby="connections-empty-title" className="mari-connection-empty flex flex-col gap-3 p-4">
+            <h3 id="connections-empty-title" className="text-[0.9375rem] font-semibold text-[var(--foreground)]">
+              {t("connections.list.emptyTitle")}
+            </h3>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+              {FIRST_RUN_SERVICES.map((service) => (
+                <button
+                  key={service}
+                  type="button"
+                  data-add-connection-service={service}
+                  onClick={() => openModal("create-connection", { service })}
+                  className="flex min-h-[3.25rem] min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)]"
+                >
+                  <ServiceTile service={service} />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-[0.8125rem] font-medium [overflow-wrap:anywhere]">
+                      {service === "local_model" ? t("connections.add.device.local_model") : PROVIDERS[service].name}
+                    </span>
+                    {FIRST_RUN_TAGS[service] && (
+                      <span className="text-[0.6875rem] text-[color-mix(in_srgb,var(--color-emerald-500)_80%,var(--foreground)_20%)]">
+                        {t(FIRST_RUN_TAGS[service])}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => openModal("create-connection")}
+                className="flex min-h-9 items-center gap-1 text-[0.8125rem] font-medium text-[var(--foreground)] underline-offset-2 hover:underline max-md:min-h-11"
+              >
+                {t("connections.list.allProviders")}
+                <ChevronRight size="0.875rem" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => openModal("import-connection")}
+                className="min-h-9 text-xs text-[var(--muted-foreground)] underline underline-offset-2 hover:text-[var(--foreground)] max-md:min-h-11"
+              >
+                {t("connections.list.importConnections")}
+              </button>
+            </div>
+          </section>
+          {defaultsBox}
+        </>
+      ) : (
+        <>
+          {defaultsBox}
+          <BuiltInModelCard onOpenDevice={openDevice} />
+          {deviceGroup}
+          <p
+            className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
+            role="status"
+          >
+            {nothingShown
+              ? query
+                ? t("connections.list.noMatch", { query: search.trim() })
+                : t("connections.list.allReady")
+              : null}
           </p>
-        </div>
-      )}
-
-      {/* LinkAPI recommendation banner */}
-      {!isLoading && (!connections || (connections as unknown[]).length === 0) && !linkApiBannerDismissed && (
-        <div className="rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3 flex flex-col gap-2">
-          <p className="text-xs text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.connectionspanel.lookingToTryNewModelsFromATrustedProvider")}{" "}
-            <a
-              href="https://linkapi.ai/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-sky-400 underline decoration-sky-400/30 hover:text-sky-300 transition-colors"
+          {needsAttention && (
+            <p
+              data-connections-attention-filter
+              className="flex items-center gap-2 px-1 text-[0.6875rem] text-[var(--muted-foreground)]"
             >
-              {localizeUi("ui.panels.connectionspanel.linkapi")}
-            </a>
-            !
-          </p>
-          <div className="grid min-w-0 grid-cols-2 gap-2">
-            <a
-              href="https://linkapi.ai/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mari-chrome-control mari-chrome-control--small w-full px-2 text-xs"
-            >
-              <ExternalLink size="0.75rem" className="shrink-0" />
-              <span>{localizeUi("ui.panels.connectionspanel.visitLinkapi")}</span>
-            </a>
-            <button
-              onClick={dismissLinkApiBanner}
-              className="mari-chrome-control mari-chrome-control--small w-full px-2 text-xs"
-            >
-              <X size="0.75rem" className="shrink-0" />
-              <span>{localizeUi("ui.panels.connectionspanel.dismissPermanently")}</span>
-            </button>
-          </div>
-        </div>
+              {t("connections.list.attentionOnly")}
+              <button
+                type="button"
+                onClick={() => setNeedsAttention(false)}
+                className={cn("underline underline-offset-2 hover:text-[var(--foreground)]", FOCUS)}
+              >
+                {t("connections.list.showAll")}
+              </button>
+            </p>
+          )}
+          {byFolder &&
+            folderGroups.map(({ folder, key, groups, visibleGroups, rowsWithoutAccount, visibleStandalone }) => (
+              <ConnectionFolderGroup
+                key={key}
+                folder={folder}
+                rows={[...groups.flatMap((group) => group.rows), ...rowsWithoutAccount]}
+                visibleRows={[...visibleGroups.flatMap((group) => group.visibleRows), ...visibleStandalone]}
+                open={query ? !searchFolded.includes(key) : !collapsedConnections.includes(key)}
+                dragBindings={folder ? folderDrag.bind(folder.id) : undefined}
+                onToggle={() =>
+                  query
+                    ? setSearchFolded((ids) => (ids.includes(key) ? ids.filter((id) => id !== key) : [...ids, key]))
+                    : toggleConnectionCollapsed(key)
+                }
+                renderRow={folderRow}
+              >
+                <div className="flex min-w-0 flex-col gap-2">
+                  {visibleGroups.map((group) =>
+                    accountRow(group, PROVIDERS[group.account.provider as APIProvider]?.name ?? group.account.provider),
+                  )}
+                  {visibleStandalone.map((row) => renderRow(row))}
+                </div>
+              </ConnectionFolderGroup>
+            ))}
+          {!byFolder && (
+            <div className="flex min-w-0 flex-col gap-3">
+              {visibleAccountGroups.map((group) =>
+                accountRow(group, providerNameByAccount.get(group.account.id) ?? group.account.provider),
+              )}
+            </div>
+          )}
+          {!byFolder && visible.standalone.length > 0 && (
+            <PanelSection title={t("connections.accounts.section.other")} icon={<Link size="0.75rem" />}>
+              {query ? (
+                // A search lists the matching Models here; otherwise they wait on their own page.
+                <div className={cn(GROUP_SURFACE, "flex flex-col gap-0.5 p-1")}>
+                  {visible.standalone.map((row) => renderRow(row))}
+                </div>
+              ) : (
+                <div className="mari-connection-group">
+                  <ServiceRow
+                    account={{ name: t("connections.accounts.section.other"), provider: "custom" }}
+                    rows={[]}
+                    count={t("connections.list.models", { count: grouped.standalone.length })}
+                    tile={<ProviderIcon provider="custom" />}
+                    current={wide && current === "other"}
+                    data-connections-row="other"
+                    aria-current={(wide && current === "other") || undefined}
+                    aria-label={t("connections.accounts.section.other")}
+                    onClick={() => select("other")}
+                    trailing={
+                      <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
+                    }
+                  />
+                </div>
+              )}
+            </PanelSection>
+          )}
+        </>
       )}
+    </div>
+  );
 
-      {/* Folders (drag-to-reorder) */}
-      {folderOrder.length > 0 && (
-        <Reorder.Group
-          axis="y"
-          values={folderDrag.orderItems(folderOrder, (id) => id)}
-          onReorder={handleFolderReorder}
-          as="div"
-          className="flex flex-col gap-0.5 mt-1"
-        >
-          {folderDrag
-            .orderItems(folderOrder, (id) => id)
-            .map((folderId) => {
-              const folder = sortedFolders.find((f) => f.id === folderId);
-              if (!folder) return null;
-              const folderEntries = folderConnectionsMap.get(folderId) ?? [];
-              if (searchActive && folderEntries.length === 0) return null;
-              return (
-                <ConnectionFolderRow
-                  folderDragBindings={folderDrag.bind(folderId)}
-                  key={folderId}
-                  folder={folder}
-                  entries={folderEntries}
-                  forceExpanded={searchActive && folderEntries.length > 0}
-                  renderConnectionRow={renderConnectionRow}
-                  onToggleCollapse={handleToggleCollapse}
-                  onRename={handleRenameFolder}
-                  onDelete={handleDeleteFolder}
-                  draggedConnectionId={draggedConnectionId}
-                  onDropConnection={handleDropConnectionsToFolder}
-                />
-              );
-            })}
-        </Reorder.Group>
-      )}
-
-      {/* Unfiled connections */}
-      <div
-        data-connection-folder-root
-        onDragOver={handleRootConnectionDragOver}
-        onDrop={handleRootConnectionDrop}
-        className={cn(
-          "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
-          draggedConnectionId &&
-            "min-h-16 border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-1",
-        )}
-      >
-        {draggedConnectionId && (
-          <div className="pointer-events-none px-2 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-button-text-active)]">
-            {localizeUi("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
-          </div>
-        )}
-        {unfiledConnections.map(renderConnectionRow)}
-      </div>
-
-      {activeChat && (
-        <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]/60">
-          {localizeUi("ui.panels.connectionspanel.clickToEditSetActiveConnectionInChatSettings")}
+  let detail: ReactNode = null;
+  if (current?.startsWith("device:")) {
+    detail = (
+      <DeviceDetail
+        key={current}
+        item={current.slice("device:".length) as DeviceItem}
+        onOpenDefaults={() => {
+          // Back to the list, with the Defaults box unfolded.
+          if (collapsedConnections.includes(DEFAULTS_FOLD_ID)) toggleConnectionCollapsed(DEFAULTS_FOLD_ID);
+          returnKeyRef.current = "defaults";
+          setSelected(null);
+        }}
+      />
+    );
+  } else if (current === "other") {
+    detail = (
+      <div className="flex flex-col gap-0.5">
+        <p className="px-1.5 pb-1 text-xs font-semibold text-[var(--muted-foreground)]">
+          {t("connections.accounts.section.other")}
         </p>
-      )}
+        {grouped.standalone.map((row) => renderRow(row))}
+      </div>
+    );
+  }
 
-      {selectionMode && (
-        <SelectionActionBar
-          placement="panel"
-          selectedCount={selectedConnectionIds.size}
-          onExport={() => void handleExportSelected()}
-          onDelete={handleDeleteSelected}
-          exporting={exportingSelected}
+  // One row: Search, Add and ⋯ (Import, Export). An empty panel has nothing to search or export yet.
+  const header = !isLoading && !noConnections && (
+    <div className="flex gap-2">
+      <ListSearch
+        className="flex-1"
+        value={search}
+        onChange={(value) => {
+          setSearch(value);
+          setSearchFolded([]);
+        }}
+        label={t("connections.list.search")}
+        placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
+      />
+      {wide && (
+        <label className="relative flex min-h-9 items-center">
+          <span className="sr-only">{t("ui.panels.connectionspanel.sortConnections")}</span>
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ConnectionPanelSort)}
+            aria-label={t("ui.panels.connectionspanel.sortConnections")}
+            className="mari-chrome-field mari-chrome-sort-field h-full appearance-none py-0 ps-2 pe-7 text-xs"
+          >
+            {SORT_OPTIONS.map(([value, key]) => (
+              <option key={value} value={value}>
+                {t(key)}
+              </option>
+            ))}
+          </select>
+          <ArrowUpDown
+            aria-hidden
+            size="0.625rem"
+            className="pointer-events-none absolute right-2 text-muted-foreground"
+          />
+        </label>
+      )}
+      <button
+        type="button"
+        onClick={() => openModal("create-connection")}
+        className="mari-chrome-control mari-chrome-control--primary"
+        aria-label={t("connections.list.addConnection")}
+      >
+        <Plus size="0.8125rem" aria-hidden />
+        {t("connections.list.add")}
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          setHeaderMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
+        }}
+        className="mari-chrome-control mari-chrome-control--icon mari-chrome-control--quiet"
+        title={t("connections.accounts.header.more")}
+        aria-label={t("connections.accounts.header.more")}
+        aria-haspopup="menu"
+        aria-expanded={!!headerMenu}
+      >
+        <MoreHorizontal size="0.875rem" />
+      </button>
+      {headerMenu && (
+        <ContextMenu
+          x={headerMenu.x}
+          y={headerMenu.y}
+          autoFocus={headerMenu.keyboard}
+          onClose={() => setHeaderMenu(null)}
+          items={[
+            {
+              label: t("ui.panels.connectionspanel.importConnection"),
+              icon: <Download size="0.75rem" />,
+              onSelect: () => openModal("import-connection"),
+            },
+            {
+              label: t("connections.list.exportAll"),
+              icon: <Upload size="0.75rem" />,
+              disabled: connectionsList.length === 0,
+              onSelect: () => void exportConnections(connectionsList),
+            },
+            ...(!wide
+              ? SORT_OPTIONS.map(([value, key]) => ({
+                  label: t(key),
+                  icon: <ArrowUpDown size="0.75rem" />,
+                  checked: sort === value,
+                  onSelect: () => setSort(value),
+                }))
+              : []),
+            {
+              label: t("connections.list.foldAll"),
+              icon: <ChevronsDownUp size="0.75rem" />,
+              disabled: foldIds.every((id) => collapsedConnections.includes(id)),
+              onSelect: () => {
+                for (const id of foldIds) if (!collapsedConnections.includes(id)) toggleConnectionCollapsed(id);
+              },
+            },
+            {
+              label: t("connections.list.openAll"),
+              icon: <ChevronsUpDown size="0.75rem" />,
+              disabled: !foldIds.some((id) => collapsedConnections.includes(id)),
+              onSelect: () => {
+                for (const id of foldIds) if (collapsedConnections.includes(id)) toggleConnectionCollapsed(id);
+              },
+            },
+            {
+              label: t("connections.folders.groupByConnection"),
+              icon: <Layers size="0.75rem" />,
+              toggle: true,
+              checked: !byFolder,
+              onSelect: () => setGroupBy("connection"),
+            },
+            {
+              label: t("connections.folders.groupByFolder"),
+              icon: <Folder size="0.75rem" />,
+              toggle: true,
+              checked: byFolder,
+              onSelect: () => setGroupBy("folder"),
+            },
+            {
+              label: t("connections.list.attentionFilter"),
+              icon: <ListFilter size="0.75rem" />,
+              toggle: true,
+              checked: needsAttention,
+              onSelect: () => setNeedsAttention(!needsAttention),
+            },
+            {
+              label: t("connections.list.showCostBadges"),
+              icon: <BadgeDollarSign size="0.75rem" />,
+              toggle: true,
+              checked: showCostBadges,
+              onSelect: () => setShowCostBadges(!showCostBadges),
+            },
+            // One switch for NanoGPT plan badges, prices and balances; turning it on asks first.
+            ...(outsideReads.value !== undefined
+              ? [
+                  {
+                    label: t("connections.outsideReads.toggle"),
+                    icon: <BadgeDollarSign size="0.75rem" />,
+                    toggle: true,
+                    checked: outsideReads.value === "on",
+                    onSelect: () => (outsideReads.value === "on" ? outsideReads.turnOff() : void outsideReads.ask()),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
+    </div>
+  );
+
+  const body =
+    wide && detail ? (
+      <>
+        {header}
+        <div className="flex min-h-0 gap-3">
+          <div className="w-80 shrink-0">{list}</div>
+          <div className="min-w-0 flex-1 border-l border-[var(--border)]/50 pl-3">{detail}</div>
+        </div>
+      </>
+    ) : !wide && current && detail ? (
+      <>
+        <button
+          ref={backRef}
+          type="button"
+          data-connections-back
+          onClick={() => {
+            returnKeyRef.current = current;
+            setSelected(null);
+          }}
+          className={cn(
+            "-ml-1 flex min-h-9 w-fit items-center gap-1 rounded-lg px-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] max-md:min-h-11",
+            FOCUS,
+          )}
+        >
+          <ChevronLeft size="0.875rem" />
+          {t("connections.list.back")}
+        </button>
+        {detail}
+      </>
+    ) : (
+      <>
+        {header}
+        {list}
+      </>
+    );
+
+  return (
+    <div
+      ref={rootRef}
+      className="mari-connection-scope flex min-h-full flex-col gap-2 p-3 max-md:p-1.5"
+      data-connections-panel={wide ? "wide" : "narrow"}
+    >
+      {body}
+      {chooseFolder.dialog}
+      {pictureMenu && (
+        <PictureMenu
+          key={`${pictureMenu.target.kind}:${pictureMenu.target.id}`}
+          {...pictureMenu}
+          onClose={closePictureMenu}
+        />
+      )}
+      {moving && (
+        <MoveConnectionDialog
+          {...moving}
+          rowsOf={(accountId) => connectionsList.filter((candidate) => candidate.accountId === accountId)}
+          onClose={() => setMoving(null)}
         />
       )}
     </div>

@@ -382,9 +382,7 @@ async function resolveIllustratorImageConnection(
   }
   connection ??= await connections.getDefaultForImageGeneration();
   if (!connection) {
-    throw new Error(
-      "No image generation connection is set on Illustrator or under Settings -> Connections -> Defaults -> Images.",
-    );
+    throw new Error("No image model is set for Illustrator or as the Images default in the Connections sidebar.");
   }
   return connection;
 }

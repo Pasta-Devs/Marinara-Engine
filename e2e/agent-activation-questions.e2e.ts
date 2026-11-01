@@ -73,9 +73,15 @@ test("Decision settings, test errors and custom-agent questions survive reload",
       useUIStore.getState().closeAllDetails();
       useUIStore.getState().openRightPanel("connections");
     });
-    const expand = page.getByRole("button", { name: "Expand connection defaults" });
-    await expect(expand.or(page.getByRole("button", { name: "Collapse connection defaults" }))).toBeVisible();
-    if (await expand.isVisible()) await expand.click();
+    const defaults = page.locator('[data-connections-row="defaults"]');
+    await expect(defaults).toBeVisible();
+    if ((await defaults.getAttribute("aria-expanded")) !== "true") await defaults.click();
+    // Each default is one line that opens in place; the Decision line holds the model select. An unused job sits
+    // in the folded "more roles" list.
+    const decisionLine = page.locator('[data-defaults-tile="decision"]');
+    if (!(await decisionLine.isVisible())) await page.locator("[data-defaults-unused]").click();
+    if ((await decisionLine.getAttribute("aria-expanded")) !== "true") await decisionLine.click();
+    await expect(decisionLine).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByLabel("Decision model", { exact: true })).toBeVisible();
   };
   const screenshot = async (name: string) => {
@@ -355,12 +361,21 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openConnectionDetail(id);
     }, id);
-    await expect(page.getByPlaceholder("Connection name")).toBeVisible();
+    await expect(page.getByPlaceholder("Model name")).toBeVisible();
   };
   try {
     await page.goto("/");
-    await open(source.id);
-    await page.getByRole("button", { name: "Use this key for decisions", exact: true }).click();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openRightPanel("connections");
+    });
+    const actions = page.getByRole("button", {
+      name: `Actions for Borrowed key ${testInfo.project.name}`,
+      exact: true,
+    });
+    await actions.scrollIntoViewIfNeeded();
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Use this key for decisions", exact: true }).click();
     await expect(page.getByLabel("Decision source", { exact: true })).toHaveValue("openrouter");
     await expect(page.getByLabel("API key source", { exact: true })).toHaveValue(source.id);
     const rows = await (await request.get("/api/connections")).json();
@@ -370,7 +385,7 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     expect(linked).toMatchObject({ provider: "decision", defaultForAgents: "true", apiKeyEncrypted: "" });
     linkedId = linked.id;
     await open(source.id);
-    await page.getByRole("button", { name: "Delete connection", exact: true }).click();
+    await page.getByRole("button", { name: "Delete model", exact: true }).click();
     const firstDialog = page.getByRole("dialog");
     await firstDialog.getByRole("button", { name: "Delete", exact: true }).click();
     const linkedDialog = page.getByRole("dialog");
@@ -381,7 +396,7 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     await expect(page.getByLabel("API key source", { exact: true }).locator("option:checked")).toContainText(
       "missing or incompatible",
     );
-    await page.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await page.getByRole("button", { name: "Test connection", exact: true }).click();
     await expect(
       page.getByText(
         "Decision test failed: Linked connection is missing or incompatible. Choose another or enter a key.",

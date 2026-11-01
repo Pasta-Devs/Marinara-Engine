@@ -38,6 +38,7 @@ function keepAudioSilent() {
   for (const type of ["loadstart", "play"]) {
     window.addEventListener(type, (event) => event.target instanceof HTMLMediaElement && silence(event.target), true);
   }
+  // Some WebKit test runtimes have no Web Audio API; media elements are already muted above.
   if (typeof AudioNode === "undefined") return;
   const connect = AudioNode.prototype.connect as (this: AudioNode, ...args: unknown[]) => unknown;
   const zeroGains = new WeakMap<BaseAudioContext, GainNode>();

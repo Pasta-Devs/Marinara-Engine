@@ -19,6 +19,8 @@ import { compressJsonHook } from "./middleware/compress-json.js";
 import { seedDefaultPreset } from "./db/seed.js";
 import { seedProfessorMari } from "./db/seed-mari.js";
 import { seedDefaultConnection } from "./db/seed-connection.js";
+import { linkConnectionAccounts } from "./services/storage/connection-accounts.storage.js";
+import { starSavedModels } from "./services/connections/model-stars.js";
 import { seedDefaultBackgrounds } from "./db/seed-backgrounds.js";
 import { seedDefaultGameAssets } from "./db/seed-game-assets.js";
 import { seedDefaultRegexScripts } from "./db/seed-regex.js";
@@ -230,6 +232,17 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     app.log.info("Skipping default OpenRouter Free connection seed because AUTO_CREATE_DEFAULT_CONNECTION is disabled");
   } else {
     await startup.phase("seed.connection", () => seedDefaultConnection(db));
+  }
+  try {
+    // Unlinked Models still work on their own copied credentials, so a failed link must not stop the boot.
+    await startup.phase("migrate.connection-accounts", () => linkConnectionAccounts(db));
+  } catch (error) {
+    app.log.warn(error, "Connection account linking did not complete; it will retry next startup");
+  }
+  try {
+    await startup.phase("migrate.model-stars", () => starSavedModels(db));
+  } catch (error) {
+    app.log.warn(error, "Starring saved models did not complete; it will retry next startup");
   }
   await startup.phase("seed.regex", () => seedDefaultRegexScripts(db));
   await startup.phase("migrate.agent-prompts", () => migrateLegacyDefaultAgentPrompts(db));

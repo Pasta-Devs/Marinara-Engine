@@ -30,11 +30,21 @@ for (const theme of ["dark", "light"] as const) {
       route.request().method() === "GET" ? route.fulfill({ json: availableConnections }) : route.continue(),
     );
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    // Her connection is a server setting now.
+    await page.route("**/api/app-settings/feature-model-connections", (route) =>
+      route.fulfill({
+        json: {
+          mariConnectionId: null,
+          omnibarAsideConnectionId: null,
+          impersonateConnectionId: null,
+          visionConnectionId: null,
+        },
+      }),
+    );
     await seedUIState(page, {
       hasCompletedOnboarding: true,
       sidebarOpen: false,
       rightPanelOpen: false,
-      mariConnectionId: null,
       theme,
     });
     await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);

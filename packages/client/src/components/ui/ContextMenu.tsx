@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Check } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 export interface ContextMenuItem {
@@ -11,6 +12,12 @@ export interface ContextMenuItem {
   onSelect: () => void;
   disabled?: boolean;
   destructive?: boolean;
+  /** Muted second line, such as the Connection a Model belongs to. */
+  hint?: string;
+  /** Marks the current choice when the menu picks one value. */
+  checked?: boolean;
+  /** An on/off setting: `checked` is its state, not the menu's one choice. */
+  toggle?: boolean;
 }
 
 interface ContextMenuProps {
@@ -55,7 +62,11 @@ export function ContextMenu({
   useEffect(() => {
     if (!autoFocus) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    ref.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
+    const menu = ref.current;
+    (
+      menu?.querySelector<HTMLButtonElement>('button[aria-checked="true"]:not(:disabled)') ??
+      menu?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+    )?.focus({ preventScroll: true });
     return () => previous?.focus({ preventScroll: true });
   }, [autoFocus]);
 
@@ -64,23 +75,57 @@ export function ContextMenu({
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
+    // Escape is the menu's alone: captured before React's own listeners, so the panel or dialog under the
+    // menu does not close with it.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") {
+        // Arrow keys, Home and End move between enabled items (wrapping). Enter and Space are the buttons' own.
+        const move = { ArrowDown: 1, ArrowUp: -1, Home: 0, End: 0 }[e.key];
+        const menu = ref.current;
+        const active = document.activeElement;
+        if (move === undefined || !menu || e.altKey || e.ctrlKey || e.metaKey) return;
+        // Never take keys from a text field outside the menu.
+        const typing =
+          active instanceof HTMLElement &&
+          !menu.contains(active) &&
+          active.matches("input, textarea, select, [contenteditable]");
+        if (typing) return;
+        const buttons = Array.from(menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
+        if (buttons.length === 0) return;
+        const at = buttons.findIndex((button) => button === active);
+        const next =
+          e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? buttons.length - 1
+              : at < 0
+                ? move > 0
+                  ? 0
+                  : buttons.length - 1
+                : (at + move + buttons.length) % buttons.length;
+        e.preventDefault();
+        e.stopPropagation();
+        buttons[next].focus({ preventScroll: true });
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
     };
     // A long menu scrolls itself; only scrolling the page behind it closes it.
     const onScroll = (e: Event) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
+    window.addEventListener("keydown", onKey, true);
     const raf = requestAnimationFrame(() => {
       document.addEventListener("mousedown", onDown);
-      document.addEventListener("keydown", onKey);
       window.addEventListener("scroll", onScroll, true);
       window.addEventListener("resize", onClose);
     });
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onClose);
     };
@@ -90,15 +135,17 @@ export function ContextMenu({
     <div
       ref={ref}
       role="menu"
-      style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 }}
-      className="max-h-[calc(100dvh-0.5rem)] min-w-[12rem] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
+      // Above a modal (z 10000), so a menu opened inside a dialog shows.
+      style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 10001 }}
+      className="max-h-[calc(100dvh-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
       onContextMenu={(e) => e.preventDefault()}
     >
       {items.map((item, i) => (
         <button
           key={`${item.label}-${i}`}
           type="button"
-          role="menuitem"
+          role={item.toggle ? "menuitemcheckbox" : item.checked === undefined ? "menuitem" : "menuitemradio"}
+          aria-checked={item.checked}
           disabled={item.disabled}
           onClick={() => {
             if (item.disabled) return;
@@ -117,7 +164,13 @@ export function ContextMenu({
           )}
         >
           {item.icon && <span className="shrink-0 text-[var(--muted-foreground)]">{item.icon}</span>}
-          <span className="flex-1 truncate">{item.label}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{item.label}</span>
+            {item.hint && (
+              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{item.hint}</span>
+            )}
+          </span>
+          {item.checked && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
         </button>
       ))}
     </div>,

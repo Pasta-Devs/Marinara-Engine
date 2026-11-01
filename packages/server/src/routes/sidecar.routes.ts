@@ -118,6 +118,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
   const configSchema = z.object({
     useForTrackers: z.boolean().optional(),
     useAsAgentsDefault: z.boolean().optional(),
+    useAsMainDefault: z.boolean().optional(),
     useForGameScene: z.boolean().optional(),
     contextSize: z.number().int().min(512).optional(),
     maxTokens: z.number().int().min(64).optional(),

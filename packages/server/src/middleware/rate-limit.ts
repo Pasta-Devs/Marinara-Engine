@@ -26,6 +26,12 @@ type RateLimitRule = {
 
 const DEFAULT_RULE: RateLimitRule = { key: "default", limit: 600, windowMs: 60_000 };
 
+/** Connection probes can submit credentials and call a paid provider. */
+export const CONNECTION_TEST_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /** Quick answers call a model per request; a person asks a few per minute, never in a loop. */
 export const PROFESSOR_MARI_QUICK_RATE_LIMIT = {
   max: 30,
@@ -210,6 +216,14 @@ export const HEALTH_RATE_LIMIT = {
 } as const satisfies MarinaraRouteRateLimit;
 
 const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
+  {
+    pattern: /^\/api\/connections\/[^/]+\/test(?:\?|$)/,
+    rule: {
+      key: "connection-test",
+      limit: CONNECTION_TEST_RATE_LIMIT.max,
+      windowMs: CONNECTION_TEST_RATE_LIMIT.timeWindow,
+    },
+  },
   {
     pattern: /^\/api\/access\/login(?:\?|$)/,
     rule: { key: "access-login", limit: ACCESS_LOGIN_RATE_LIMIT.max, windowMs: ACCESS_LOGIN_RATE_LIMIT.timeWindow },

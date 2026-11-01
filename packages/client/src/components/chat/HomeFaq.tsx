@@ -64,7 +64,7 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
       "Open Connections from the top bar, create a new connection, choose your provider, then fill in the API key, base URL if needed, and model name.",
       "Use Test Connection before saving. If the test fails, check the key, provider route, base URL, and model spelling before changing chat settings.",
       "After saving, pick that connection from the chains icon on the left side of the chat input, or set it in Chat Settings for that chat.",
-      "For local models, make sure the local server or Marinara Local Model sidecar is running first. The bundled Local Model is best for helpers and trackers, not main roleplay generation.",
+      "For local models, make sure the local server or the Marinara built-in model is running first. The built-in model is best for helpers and trackers, not main roleplay generation.",
     ],
   },
   {
@@ -521,7 +521,7 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     answer: "Enable TTS first, then turn on Calls for the chat and pick how your microphone should be transcribed.",
     bullets: [
       "Open Connections > Text to Speech, enable a TTS provider, save it, and confirm the preview plays.",
-      "After installing Calls, open Connections > Local Model, expand the card, choose Whisper Tiny (Multilingual) or Whisper Base (Multilingual) under Local Speech Model, then click Download Whisper. Uninstalling Calls removes the downloaded model.",
+      "After installing Calls, open Connections > Built-in model, expand the card, choose Whisper Tiny (Multilingual) or Whisper Base (Multilingual) under Local Speech Model, then click Download Whisper. Uninstalling Calls removes the downloaded model.",
       "In the Conversation chat, open Chat Settings > Commands > Calls, enable Audio/Video Calls, then enable Call Audio Pipeline.",
       "Use Mic recording + Local Whisper for Firefox or reliable local speech capture. Browser speech recognition depends on browser support.",
       "The Calls command toggle only controls whether characters can ring you first; you can still call them when Audio/Video Calls is enabled.",

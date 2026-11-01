@@ -1,3 +1,4 @@
+import { openAddConnection } from "../../lib/add-connection";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import {
   lazy,
@@ -33,6 +34,7 @@ import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { chatKeys, useChats, useProfessorMariChats, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { requestChatRetryWithConnection } from "../../lib/chat-floating-ui-events";
 import { useConnections } from "../../hooks/use-connections";
+import { useFeatureModels, useSetFeatureModels } from "../../hooks/use-connection-accounts";
 import { useStartNewChatMode } from "../../hooks/use-start-new-chat-mode";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { HOME_FAQ_ITEMS, getFaqSearchText } from "../chat/HomeFaq";
@@ -366,12 +368,16 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // Her run keeps going on the server when her pane is closed; the status poll is how the omnibar knows.
   const mariWorkingInBackground = mariWorkspaceStatus.data?.active === true;
   const asideDisclosed = useUIStore((state) => state.omnibarAsideDisclosed);
-  const asideConnectionId = useUIStore((state) => state.omnibarAsideConnectionId);
-  const mariConnectionId = useUIStore((state) => state.mariConnectionId);
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  const asideConnectionId = featureModels?.omnibarAsideConnectionId ?? LOCAL_SIDECAR_CONNECTION_ID;
+  const mariConnectionId = featureModels?.mariConnectionId ?? null;
   const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const setAsideDisclosed = useUIStore((state) => state.setOmnibarAsideDisclosed);
   const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
-  const setAsideConnectionId = useUIStore((state) => state.setOmnibarAsideConnectionId);
+  const setAsideConnectionId = (id: string) => {
+    setFeatureModels.mutate({ omnibarAsideConnectionId: id });
+  };
   const openRightPanel = useUIStore((state) => state.openRightPanel);
   const openAgentCatalog = useUIStore((state) => state.openAgentCatalog);
   const activeChat = useChatStore((state) => state.activeChat);
@@ -1296,7 +1302,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       !(
         definition.availability.status === "requires-capability" &&
         definition.availability.setupTarget &&
-        definition.action.kind === "navigate"
+        (definition.action.kind === "navigate" || definition.action.kind === "modal")
       )
     )
       return false;
@@ -1518,6 +1524,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     if (action.kind === "undo-setting") {
       lastSettingFlip?.undo();
       setSettingUndoVersion((current) => current + 1);
+    } else if (action.kind === "add-connection") {
+      openAddConnection({ job: action.job });
+      onClose();
     } else if (action.kind === "find-setting") {
       setMariChatOpen(false);
       setPane("results");
@@ -2340,7 +2349,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           <OmnibarSettingsSheet
             focusControlId={settingsTarget.controlId}
             onClose={closeSettings}
-            connections={languageConnections}
             marisConnectionName={asideConnectionOffer?.name ?? null}
             onClearSearchHistory={() => {
               clearOmnibarFrecencyHistory();

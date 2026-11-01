@@ -13,7 +13,17 @@ export interface ProviderDefinition {
   usesAuthHeader: boolean;
   /** Custom header name for API key (e.g. "x-api-key" for Anthropic) */
   apiKeyHeader: string | null;
+  /** Where a user gets a key for this service (Add connection and the connection editor link to it). */
+  keyUrl?: string;
+  /** How the service is paid for, shown as a badge when adding a connection. No prices: they change. */
+  billing?: ProviderBilling;
+  /** Set when it serves OpenAI-style `/chat/completions`; a decision Model on it reads log-probabilities there. */
+  protocol?: "openai_chat";
+  /** Set when the service reports subscription usage that the usage meter can show. */
+  subscriptionUsage?: boolean;
 }
+
+export type ProviderBilling = "pay_per_use" | "plan" | "local" | "free_tier";
 
 /** Connections that can't answer a chat request: pictures, video, audio and decisions. */
 export const NON_CHAT_PROVIDERS: readonly APIProvider[] = [
@@ -27,6 +37,16 @@ export const NON_CHAT_PROVIDERS: readonly APIProvider[] = [
 /** Whether a connection of this provider can answer a chat or agent request. */
 export function isChatProvider(provider: unknown): boolean {
   return !(NON_CHAT_PROVIDERS as readonly unknown[]).includes(provider);
+}
+
+/** Whether a connection keeps its fetched model list. Claude (Subscription) answers from a built-in list. */
+export function connectionSavesModelList(provider: string): boolean {
+  return isChatProvider(provider) && provider !== "claude_subscription";
+}
+
+/** Whether a Connection of this provider answers OpenAI-style `/chat/completions` requests. */
+export function speaksOpenAIChat(provider: string | null | undefined): boolean {
+  return PROVIDERS[provider as APIProvider]?.protocol === "openai_chat";
 }
 
 export const LOCAL_AUTH_PROVIDERS = ["openai_chatgpt", "claude_subscription", "grok_subscription"] as const;
@@ -46,7 +66,7 @@ export function hasPlanUsageWindows(provider: string | null | undefined): boolea
 
 /** Providers whose connections can show a subscription usage meter. */
 export function supportsSubscriptionUsageWidget(provider: string | null | undefined): boolean {
-  return provider === "nanogpt" || hasPlanUsageWindows(provider);
+  return !!PROVIDERS[provider as APIProvider]?.subscriptionUsage || hasPlanUsageWindows(provider);
 }
 
 export function isLocalAuthProvider(provider: string | null | undefined): boolean {
@@ -78,12 +98,15 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   openai: {
     id: "openai",
+    protocol: "openai_chat",
     name: "OpenAI",
     defaultBaseUrl: "https://api.openai.com/v1",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://platform.openai.com/api-keys",
+    billing: "pay_per_use",
   },
   openai_chatgpt: {
     id: "openai_chatgpt",
@@ -95,6 +118,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: null,
+    billing: "plan",
   },
   anthropic: {
     id: "anthropic",
@@ -104,6 +128,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: "x-api-key",
+    keyUrl: "https://console.anthropic.com/settings/keys",
+    billing: "pay_per_use",
   },
   claude_subscription: {
     id: "claude_subscription",
@@ -116,6 +142,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: null,
+    billing: "plan",
   },
   grok_subscription: {
     id: "grok_subscription",
@@ -127,6 +154,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: false,
     usesAuthHeader: false,
     apiKeyHeader: null,
+    billing: "plan",
   },
   google: {
     id: "google",
@@ -136,6 +164,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: "x-goog-api-key",
+    keyUrl: "https://aistudio.google.com/apikey",
+    billing: "free_tier",
   },
   google_vertex: {
     id: "google_vertex",
@@ -145,36 +175,48 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: null,
+    keyUrl: "https://cloud.google.com/vertex-ai/docs/authentication",
+    billing: "pay_per_use",
   },
   mistral: {
     id: "mistral",
+    protocol: "openai_chat",
     name: "Mistral",
     defaultBaseUrl: "https://api.mistral.ai/v1",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://console.mistral.ai/api-keys",
+    billing: "pay_per_use",
   },
   cohere: {
     id: "cohere",
+    protocol: "openai_chat",
     name: "Cohere",
     defaultBaseUrl: "https://api.cohere.ai/compatibility/v1",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://dashboard.cohere.com/api-keys",
+    billing: "pay_per_use",
   },
   openrouter: {
     id: "openrouter",
+    protocol: "openai_chat",
     name: "OpenRouter",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://openrouter.ai/keys",
+    billing: "free_tier",
   },
   nanogpt: {
     id: "nanogpt",
+    protocol: "openai_chat",
     name: "NanoGPT",
     defaultBaseUrl: "https://nano-gpt.com/api/v1",
     // Detailed catalog: the plain one omits context_length and max_output_tokens.
@@ -182,27 +224,38 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://nano-gpt.com/api",
+    billing: "pay_per_use",
+    subscriptionUsage: true,
   },
   xai: {
     id: "xai",
+    protocol: "openai_chat",
     name: "xAI / Grok",
     defaultBaseUrl: "https://api.x.ai/v1",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://console.x.ai",
+    billing: "pay_per_use",
   },
   arli: {
     id: "arli",
+    protocol: "openai_chat",
     name: "Arli AI",
     defaultBaseUrl: "https://api.arliai.com/v1",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://www.arliai.com/account",
+    // Flat monthly plans: every model is in the plan, the tier limits size and speed.
+    billing: "plan",
   },
   zai: {
     id: "zai",
+    protocol: "openai_chat",
     name: "Z.AI",
     // Pay-as-you-go endpoint. The Coding Plan endpoint (/api/coding/paas/v4)
     // is licensed for Z.AI's listed tools only, so it is not the default here.
@@ -211,9 +264,12 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://z.ai/manage-apikey/apikey-list",
+    billing: "pay_per_use",
   },
   deepseek: {
     id: "deepseek",
+    protocol: "openai_chat",
     name: "DeepSeek",
     // The OpenAI-format endpoint. DeepSeek also serves an Anthropic-format
     // endpoint at /anthropic, which this provider does not use.
@@ -222,15 +278,19 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://platform.deepseek.com/api_keys",
+    billing: "pay_per_use",
   },
   custom: {
     id: "custom",
-    name: "Custom (OAI-Compatible)",
+    protocol: "openai_chat",
+    name: "OpenAI-compatible",
     defaultBaseUrl: "",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    // No billing word: the address can be a free local server or a paid online service.
   },
   image_generation: {
     id: "image_generation",

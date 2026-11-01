@@ -1,0 +1,153 @@
+// ──────────────────────────────────────────────
+// JobRow — one job as one row. With a Model: the Model's own brand tile, the job as a small grey label,
+// the Model's name with its provider (and "via" upstream) in grey, and a quiet "If it fails" line.
+// Without one: the job tile, its name, and what still needs doing. The Defaults box and the Add
+// window's "For a job" list both draw it, so the status text lives only here.
+// ──────────────────────────────────────────────
+import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useCachedCatalogFacts, useConnections } from "../../hooks/use-connections";
+import { cn } from "../../lib/utils";
+import type { DefaultsTile } from "./ConnectionDefaults";
+import type { ConnectionRowData } from "./ConnectionRow";
+import { viaName } from "../../lib/connection-groups";
+import { ModelRow, ModelTile } from "./ModelRow";
+import { JOB_HINT_INSET } from "./connection-row-layout";
+
+/** The amber warning chip. NeedsModelChip draws it too. */
+export function WarningChip({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[0.625rem] text-amber-500",
+        className,
+      )}
+    >
+      <AlertTriangle size="0.625rem" aria-hidden className="shrink-0" />
+      <span className="whitespace-nowrap">{children}</span>
+    </span>
+  );
+}
+
+/** A job with no Model chosen, or whose engine is not set up: a dashed tile and a warning-tone line. */
+export const isUnset = (tile: DefaultsTile, notSet: string) =>
+  !!tile.setup || (tile.muted && !tile.source && tile.value === notSet);
+
+/** A job's tile: dashed while it has no Model, a tinted well once it has one. The Add window draws it too. */
+export function JobTile({ unset, className, children }: { unset: boolean; className?: string; children: ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      data-defaults-empty-tile={unset || undefined}
+      className={cn(
+        "flex h-[2.375rem] w-[2.375rem] shrink-0 items-center justify-center rounded-lg max-md:h-8 max-md:w-8 [&_svg]:size-[1.125rem] max-md:[&_svg]:size-4",
+        unset
+          ? "border border-dashed border-foreground/25 text-[var(--muted-foreground)]"
+          : "mari-panel-gradient--connections bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function JobRow({
+  tile,
+  hint,
+  trailing,
+  className,
+  ...button
+}: {
+  tile: DefaultsTile;
+  /** One plain line under the row that says what the job does. */
+  hint?: string;
+  /** Shown at the row end inside the row button, such as a chevron: non-interactive content only. */
+  trailing?: ReactNode;
+  /** Goes on the row's outer element, such as an open state. */
+  className?: string;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title" | "className"> & {
+    [key: `data-${string}`]: string | undefined;
+  }) {
+  const { t } = useTranslation();
+  const connections = (useConnections().data ?? []) as ConnectionRowData[];
+  const source = tile.source;
+  // A Model in an account can come from any of that account's Connections' catalogs.
+  const [catalog] = useCachedCatalogFacts([
+    !source
+      ? []
+      : source.accountId
+        ? connections.filter((row) => row.accountId === source.accountId).map((row) => row.id)
+        : [source.id],
+  ]);
+  const facts = catalog?.of(source?.model);
+  const unset = isUnset(tile, t("connections.defaults.notSet"));
+  // A real Model of its own (not "Follows Main", not a device engine): the row shows that Model.
+  const chosen = !unset && !tile.muted && !tile.device && source ? source : null;
+  // "account · via X", the same after the name in the row and in its "If it fails" line.
+  const noteOf = (account: string | undefined, model: ConnectionRowData | undefined) => {
+    const via = model ? viaName(model.provider, model.model) : null;
+    return [account, via && t("connections.accounts.section.via", { service: via })].filter(Boolean).join(" · ");
+  };
+  const provider = chosen ? noteOf(tile.hint, chosen) : "";
+  const fallbackNote = noteOf(tile.fallbackHint, tile.fallbackSource);
+  // What the row is: the job, and the job it follows when it has no Model of its own.
+  const label = [tile.title, tile.follows].filter(Boolean).join(" · ");
+  const hintId = useId();
+  return (
+    <>
+      <ModelRow
+        {...button}
+        aria-describedby={hint ? hintId : undefined}
+        rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
+        className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1"
+        tile={chosen ? <ModelTile row={chosen} model={chosen.model} /> : <JobTile unset={!!unset}>{tile.icon}</JobTile>}
+        label={chosen ? label : undefined}
+        title={chosen ? tile.value : tile.title}
+        titleNote={chosen ? provider : undefined}
+        tooltip={chosen ? `${label}: ${tile.value}` : undefined}
+        wrapTitle
+        details={
+          chosen ? (
+            tile.fallback && (
+              <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                <span className="whitespace-nowrap">{t("connections.defaults.ifItFailsLabel")}</span>
+                {tile.fallbackSource && (
+                  <ModelTile row={tile.fallbackSource} model={tile.fallbackSource.model} size="xs" />
+                )}
+                <span className="min-w-0 truncate">
+                  <span className="font-medium">{tile.fallback}</span>
+                  {fallbackNote && <> {fallbackNote}</>}
+                </span>
+              </span>
+            )
+          ) : (
+            <span
+              className={cn(
+                "min-w-0 truncate text-xs",
+                unset ? "font-medium text-[var(--warning)]" : "text-[var(--muted-foreground)]",
+              )}
+            >
+              {tile.setup?.text ??
+                (unset ? t("connections.defaults.chooseModel") : [tile.value, tile.hint].filter(Boolean).join(" · "))}
+            </span>
+          )
+        }
+        facts={facts}
+        showPaid={catalog?.showPaid}
+        trailing={
+          <>
+            {tile.warning && <WarningChip>{tile.warning.short ?? tile.warning.text}</WarningChip>}
+            {trailing}
+          </>
+        }
+      />
+      {hint && (
+        <p id={hintId} className={cn("mb-1 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]", JOB_HINT_INSET)}>
+          {hint}
+        </p>
+      )}
+    </>
+  );
+}

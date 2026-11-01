@@ -10,7 +10,7 @@ async function openConnection(page: Page, id: string) {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
     useUIStore.getState().openConnectionDetail(connectionId);
   }, id);
-  await expect(page.getByPlaceholder("Connection name")).toBeVisible();
+  await expect(page.getByPlaceholder("Model name", { exact: true })).toBeVisible();
 }
 
 test("GPT Image 2.5 quality persists and sprite previews retain transparent expression sheets", async ({
@@ -36,7 +36,9 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
   });
   expect(created.ok()).toBeTruthy();
   const { id } = (await created.json()) as { id: string };
-  const editor = page.locator(".mari-editor-shell").filter({ has: page.getByPlaceholder("Connection name") });
+  const editor = page
+    .locator(".mari-editor-shell")
+    .filter({ has: page.getByPlaceholder("Model name", { exact: true }) });
   const qualityPanel = editor
     .locator(".mari-editor-panel")
     .filter({ has: page.getByRole("heading", { name: "Image quality", exact: true }) });

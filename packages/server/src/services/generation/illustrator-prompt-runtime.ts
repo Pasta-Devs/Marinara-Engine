@@ -21,6 +21,7 @@ export type IllustratorPromptConnection = FallbackConnection & {
 export type IllustratorPromptConnectionsStore = {
   getWithKey(id: string): Promise<IllustratorPromptConnection | null>;
   getFallbackForAgents(): Promise<FallbackConnection | null>;
+  getDefault?(): Promise<{ id: string } | null>;
 };
 
 export type IllustratorPromptRuntime = {
@@ -55,7 +56,9 @@ export async function resolveIllustratorPromptRuntime(args: {
 }): Promise<IllustratorPromptRuntime> {
   const overrideConnectionId = readConnectionId(args.chatMetadata.illustratorPromptConnectionId);
   const defaultConnectionId = readConnectionId(args.defaultConnectionId);
-  const connectionId = overrideConnectionId ?? defaultConnectionId;
+  // A chat that follows Main has no connection of its own: Main writes the prompt.
+  const connectionId =
+    overrideConnectionId ?? defaultConnectionId ?? (await args.connections.getDefault?.())?.id ?? null;
   if (!connectionId) {
     throw new Error("No text connection is configured for selfie prompt generation.");
   }

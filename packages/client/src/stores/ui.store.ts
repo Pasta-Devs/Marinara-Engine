@@ -12,7 +12,6 @@ import {
 } from "../lib/mari-work-animations";
 import {
   IMAGE_STYLE_PROFILES_STORAGE_KEY,
-  LOCAL_SIDECAR_CONNECTION_ID,
   normalizeImageStyleProfileSettings,
   normalizeQuoteFormat,
   type ImageStyleProfileSettings,
@@ -26,10 +25,11 @@ import type { LegacyNoodleNavigationState as NoodleNavigationState } from "../li
 import { isCssGradient, MARINARA_GRADIENT_PRESET, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
 import { announceChatFloatingUiDismiss } from "../lib/chat-floating-ui-events";
 import { detectConversationTimeZone, normalizeConversationTimeZone } from "../lib/conversation-time-zone";
-import { BASIC_PANEL_SORT_OPTIONS, normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
+import { normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
 import { DEFAULT_APP_LANGUAGE, type AppLanguage } from "../localization/locale-types";
 import { deferEditorLeave } from "../lib/editor-leave";
-import { OMNIBAR_ASIDE_DELAY_MS, readLegacyMariConnectionId } from "../lib/omnibar-aside-text";
+import { OMNIBAR_ASIDE_DELAY_MS } from "../lib/omnibar-aside-text";
+import { stageLegacyFeatureModels } from "../lib/legacy-feature-models";
 import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
 import { readUIPersistence, UI_PERSISTENCE, UI_PERSISTENCE_HOST_COPY } from "../lib/ui-persistence";
 import { addApprovedRemoteImageUrl, normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
@@ -80,14 +80,7 @@ export type LorebookPanelCategory = (typeof LOREBOOK_PANEL_CATEGORY_OPTIONS)[num
 export const LOREBOOK_PANEL_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "tokens"] as const;
 export type LorebookPanelSort = (typeof LOREBOOK_PANEL_SORT_OPTIONS)[number];
 export type ResourcePanelSort = BasicPanelSort;
-export const CONNECTION_PANEL_SORT_OPTIONS = [...BASIC_PANEL_SORT_OPTIONS, "custom"] as const;
-export type ConnectionPanelSort = (typeof CONNECTION_PANEL_SORT_OPTIONS)[number];
-
-function normalizeConnectionPanelSort(value: unknown): ConnectionPanelSort {
-  return CONNECTION_PANEL_SORT_OPTIONS.includes(value as ConnectionPanelSort)
-    ? (value as ConnectionPanelSort)
-    : "name-asc";
-}
+export type ConnectionPanelSort = BasicPanelSort | "custom";
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22 | 26 | 30 | 34;
 export type VisualTheme = "default" | "sillytavern";
 export type ChatWidgetPreset = "default" | "dottore" | "mari";
@@ -340,6 +333,7 @@ function shouldFlushUiStorageImmediately(previousValue: string | null, nextValue
   const previous = readImmediateUiStorageSnapshot(previousValue);
   const next = readImmediateUiStorageSnapshot(nextValue);
   return (
+    previousValue === null ||
     previous.customCursorEnabled !== next.customCursorEnabled ||
     previous.chatSettingsMoveTipDismissed !== next.chatSettingsMoveTipDismissed ||
     previous.chatWindowIntroDismissed !== next.chatWindowIntroDismissed ||
@@ -744,8 +738,6 @@ interface UIState {
   mariPanelSortMode: MariPanelSortMode;
   /** The omnibar aside may answer a dead-end query without being asked (R3/R10). */
   omnibarAsideEnabled: boolean;
-  /** Connection the aside answers with. Defaults to the local sidecar, so nothing is spent unasked. */
-  omnibarAsideConnectionId: string;
   /** False until the aside has answered once and explained itself in place (R19). */
   omnibarAsideDisclosed: boolean;
   /** Idle time after a dead-end query before the aside calls a model (R23). */
@@ -772,8 +764,6 @@ interface UIState {
   mariSeasonOptOut: string;
   /** The same for a `?seasonalPreview=` page: this page load only, never saved or synced. */
   mariSeasonPreviewOptOut: string;
-  /** Connection Professor Mari's window answers with. Null until she is first given one. */
-  mariConnectionId: string | null;
   chatBackground: string | null;
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
@@ -803,6 +793,12 @@ interface UIState {
   regexDetailId: string | null;
   /** The primary field currently focused in an open editor, for Mari omnibar handoff. Transient, never persisted. */
   activeEditorField: { id: string; label: string } | null;
+  /** Last failed account Test in this browser; only a successful Test clears it. */
+  connectionTestFailures: Record<string, string>;
+  setConnectionTestFailure: (accountId: string, message: string | null) => void;
+  /** Typed reason from the latest completed saved-account Test. Transient, never persisted or synced. */
+  connectionTestErrorCodes: Record<string, "AUTH_REJECTED">;
+  setConnectionTestErrorCode: (accountId: string, code: "AUTH_REJECTED" | null) => void;
   /** Current text of the field that had focus when the omnibar opened. Transient, never persisted. */
   mariFieldDraft: { fieldId: string; value: string; selection?: string } | null;
   /** Prof. Mari asks the open editor to show this field: scroll to it and pulse it once. Transient. */
@@ -913,7 +909,6 @@ interface UIState {
   /** Sort order for the compact Presets panel */
   presetPanelSort: ResourcePanelSort;
   /** Sort order for the compact Connections panel */
-  connectionPanelSort: ConnectionPanelSort;
   /** Sort order for the compact Agents panel */
   agentPanelSort: ResourcePanelSort;
   libraryManualOrders: Record<string, { active: boolean; ids: string[] }>;
@@ -1000,7 +995,6 @@ interface UIState {
   showTimestamps: boolean;
   showModelName: boolean;
   showTokenUsage: boolean;
-  quickSwitcherShowModels: boolean;
   showContextUsage: boolean;
   showMessageNumbers: boolean;
   /** When false, the "older messages not sent" note is left out of the reply line (the checkup still lists it). */
@@ -1208,6 +1202,16 @@ interface UIState {
 
   // ── Dismissals ──
   linkApiBannerDismissed: boolean;
+  /** The one-time Connections upgrade note (accounts, per-chat picks, stars) was dismissed. */
+  connectionsUpgradeNoteDismissed: boolean;
+  /** Ids of Connections folded shut in the Connections panel list; every other Connection shows its Models. */
+  connectionsCollapsed: string[];
+  /** Model rows show what a model costs ("Included", "2x", "Free"). */
+  showCostBadges: boolean;
+  /** The Connections list and quick picker group Models by Connection or by the user's folders. */
+  connectionsGroupBy: "connection" | "folder";
+  connectionPanelSort: ConnectionPanelSort;
+  setConnectionPanelSort: (sort: ConnectionPanelSort) => void;
   /** The Chat Settings "drag to place it" tip was dismissed on this device. */
   chatSettingsMoveTipDismissed: boolean;
   /** The once-only chat window introduction was dismissed across chats and devices. */
@@ -1240,8 +1244,6 @@ interface UIState {
   addCyoaChoicesToMessage: boolean;
   /** Override preset used when impersonating (null = use chat default). Persisted. */
   impersonatePresetId: string | null;
-  /** Override connection used when impersonating (null = use chat default). Persisted. */
-  impersonateConnectionId: string | null;
   /** When true, suppress agent pipeline during impersonate. Persisted. */
   impersonateBlockAgents: boolean;
 
@@ -1313,8 +1315,6 @@ interface UIState {
   setReduceAmbientEffects: (enabled: boolean) => void;
   setMariPanelSortMode: (mode: MariPanelSortMode) => void;
   setOmnibarAsideEnabled: (enabled: boolean) => void;
-  setOmnibarAsideConnectionId: (id: string) => void;
-  setMariConnectionId: (id: string | null) => void;
   setOmnibarAsideDisclosed: (disclosed: boolean) => void;
   setOmnibarAsideDelayMs: (delayMs: number) => void;
   setMariEditViewMode: (mode: MariEditViewMode) => void;
@@ -1350,7 +1350,6 @@ interface UIState {
   setLorebookPanelTagsExpanded: (expanded: boolean) => void;
   setBotBrowserPanelSort: (sort: ResourcePanelSort) => void;
   setPresetPanelSort: (sort: ResourcePanelSort) => void;
-  setConnectionPanelSort: (sort: ConnectionPanelSort) => void;
   setAgentPanelSort: (sort: ResourcePanelSort) => void;
   setLibraryManualOrder: (kind: string, order: { active: boolean; ids: string[] }) => void;
   openCharacterDetail: (
@@ -1451,7 +1450,6 @@ interface UIState {
   setShowTimestamps: (v: boolean) => void;
   setShowModelName: (v: boolean) => void;
   setShowTokenUsage: (v: boolean) => void;
-  setQuickSwitcherShowModels: (v: boolean) => void;
   setShowContextUsage: (v: boolean) => void;
   setShowMessageNumbers: (v: boolean) => void;
   setShowHistoryTrimNotice: (v: boolean) => void;
@@ -1565,7 +1563,6 @@ interface UIState {
   setImpersonateCyoaChoices: (v: boolean) => void;
   setAddCyoaChoicesToMessage: (v: boolean) => void;
   setImpersonatePresetId: (id: string | null) => void;
-  setImpersonateConnectionId: (id: string | null) => void;
   setImpersonateBlockAgents: (v: boolean) => void;
 
   /** Legacy migration helpers for browser-local custom themes. */
@@ -1575,6 +1572,10 @@ interface UIState {
   markChatHelpSeen: (mode: ChatModeShortcut) => void;
   setChatHelpButtonHidden: (v: boolean) => void;
   dismissLinkApiBanner: () => void;
+  dismissConnectionsUpgradeNote: () => void;
+  toggleConnectionCollapsed: (id: string) => void;
+  setShowCostBadges: (v: boolean) => void;
+  setConnectionsGroupBy: (v: "connection" | "folder") => void;
   dismissChatSettingsMoveTip: () => void;
   dismissChatWindowIntro: () => void;
   toggleEchoChamber: () => void;
@@ -1733,7 +1734,6 @@ export function pickSyncedSettings(state: UIState) {
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
-    quickSwitcherShowModels: state.quickSwitcherShowModels,
     showContextUsage: state.showContextUsage,
     showMessageNumbers: state.showMessageNumbers,
     showHistoryTrimNotice: state.showHistoryTrimNotice,
@@ -1766,7 +1766,6 @@ export function pickSyncedSettings(state: UIState) {
     omnibarSuggestionsEnabled: state.omnibarSuggestionsEnabled,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
-    omnibarAsideConnectionId: state.omnibarAsideConnectionId,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
     omnibarAsideDelayMs: state.omnibarAsideDelayMs,
     mariEditViewMode: state.mariEditViewMode,
@@ -1779,7 +1778,6 @@ export function pickSyncedSettings(state: UIState) {
     mariAppearancePackId: getMariAppearancePack(state.mariAppearancePackId).id,
     mariUnlockedPackIds: state.mariUnlockedPackIds,
     mariSeasonOptOut: state.mariSeasonOptOut,
-    mariConnectionId: state.mariConnectionId,
     achievementsEnabled: state.achievementsEnabled,
     seasonalThemesDisabled: state.seasonalThemesDisabled,
     seasonalGreetingYears: state.seasonalGreetingYears,
@@ -1832,6 +1830,11 @@ export function pickSyncedSettings(state: UIState) {
     chatHelpSeenModes: state.chatHelpSeenModes,
     chatHelpButtonHidden: state.chatHelpButtonHidden,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
+    connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
+    connectionsCollapsed: state.connectionsCollapsed,
+    showCostBadges: state.showCostBadges,
+    connectionsGroupBy: state.connectionsGroupBy,
+    connectionPanelSort: state.connectionPanelSort,
     chatSettingsMoveTipDismissed: state.chatSettingsMoveTipDismissed,
     chatWindowIntroDismissed: state.chatWindowIntroDismissed,
     echoChamberOpen: state.echoChamberOpen,
@@ -1855,7 +1858,6 @@ export function pickSyncedSettings(state: UIState) {
     impersonateCyoaChoices: state.impersonateCyoaChoices,
     addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
-    impersonateConnectionId: state.impersonateConnectionId,
     impersonateBlockAgents: state.impersonateBlockAgents,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
   };
@@ -1868,6 +1870,7 @@ export function selectSidebarShown(state: Pick<UIState, "sidebarOpen" | "sidebar
 
 export function pickPersistedUIState(state: UIState) {
   return {
+    connectionTestFailures: state.connectionTestFailures,
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
     sidebarOpen: state.sidebarOpen,
     sidebarWidth: state.sidebarWidth,
@@ -1905,7 +1908,6 @@ export function pickPersistedUIState(state: UIState) {
     lorebookPanelTagsExpanded: state.lorebookPanelTagsExpanded,
     botBrowserPanelSort: state.botBrowserPanelSort,
     presetPanelSort: state.presetPanelSort,
-    connectionPanelSort: state.connectionPanelSort,
     agentPanelSort: state.agentPanelSort,
     libraryManualOrders: state.libraryManualOrders,
     trackerPanelEnabled: state.trackerPanelEnabled,
@@ -1931,7 +1933,6 @@ export function pickPersistedUIState(state: UIState) {
     reduceAmbientEffects: state.reduceAmbientEffects,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
-    omnibarAsideConnectionId: state.omnibarAsideConnectionId,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
     omnibarAsideDelayMs: state.omnibarAsideDelayMs,
     mariEditViewMode: state.mariEditViewMode,
@@ -1944,7 +1945,6 @@ export function pickPersistedUIState(state: UIState) {
     mariAppearancePackId: getMariAppearancePack(state.mariAppearancePackId).id,
     mariUnlockedPackIds: state.mariUnlockedPackIds,
     mariSeasonOptOut: state.mariSeasonOptOut,
-    mariConnectionId: state.mariConnectionId,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -2000,7 +2000,6 @@ export function pickPersistedUIState(state: UIState) {
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
-    quickSwitcherShowModels: state.quickSwitcherShowModels,
     showContextUsage: state.showContextUsage,
     showMessageNumbers: state.showMessageNumbers,
     showHistoryTrimNotice: state.showHistoryTrimNotice,
@@ -2087,6 +2086,11 @@ export function pickPersistedUIState(state: UIState) {
     chatHelpSeenModes: state.chatHelpSeenModes,
     chatHelpButtonHidden: state.chatHelpButtonHidden,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
+    connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
+    connectionsCollapsed: state.connectionsCollapsed,
+    showCostBadges: state.showCostBadges,
+    connectionsGroupBy: state.connectionsGroupBy,
+    connectionPanelSort: state.connectionPanelSort,
     chatSettingsMoveTipDismissed: state.chatSettingsMoveTipDismissed,
     chatWindowIntroDismissed: state.chatWindowIntroDismissed,
     echoChamberOpen: state.echoChamberOpen,
@@ -2115,7 +2119,6 @@ export function pickPersistedUIState(state: UIState) {
     impersonateCyoaChoices: state.impersonateCyoaChoices,
     addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
-    impersonateConnectionId: state.impersonateConnectionId,
     impersonateBlockAgents: state.impersonateBlockAgents,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
     rememberedGameSetupText: state.rememberedGameSetupText,
@@ -2159,6 +2162,24 @@ export const useUIStore = create<UIState>()(
         trackerPanelSectionOrder: [...TRACKER_DATA_PANEL_SECTIONS],
         settingsTab: "general",
         activeEditorField: null,
+        connectionTestFailures: {},
+        connectionTestErrorCodes: {},
+        setConnectionTestFailure: (accountId, message) =>
+          set((state) => {
+            const failures = { ...state.connectionTestFailures };
+            const errorCodes = { ...state.connectionTestErrorCodes };
+            if (message === null) delete failures[accountId];
+            else failures[accountId] = message;
+            if (message === null) delete errorCodes[accountId];
+            return { connectionTestFailures: failures, connectionTestErrorCodes: errorCodes };
+          }),
+        setConnectionTestErrorCode: (accountId, code) =>
+          set((state) => {
+            const codes = { ...state.connectionTestErrorCodes };
+            if (code === null) delete codes[accountId];
+            else codes[accountId] = code;
+            return { connectionTestErrorCodes: codes };
+          }),
         mariFieldDraft: null,
         mariRevealField: null,
         mariWorkingField: null,
@@ -2185,7 +2206,6 @@ export const useUIStore = create<UIState>()(
         mariPanelSortMode: "az",
         // Quick answers send a model request from Search, so they are opt-in.
         omnibarAsideEnabled: false,
-        omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
         omnibarAsideDisclosed: false,
         omnibarAsideDelayMs: OMNIBAR_ASIDE_DELAY_MS,
         mariEditViewMode: "easy",
@@ -2200,7 +2220,6 @@ export const useUIStore = create<UIState>()(
         mariUnlockedPackIds: [],
         mariSeasonOptOut: "",
         mariSeasonPreviewOptOut: "",
-        mariConnectionId: null,
         chatBackground: null,
         defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
         chatBackgroundBlur: 0,
@@ -2254,7 +2273,6 @@ export const useUIStore = create<UIState>()(
         lorebookPanelTagsExpanded: false,
         botBrowserPanelSort: "name-asc" as ResourcePanelSort,
         presetPanelSort: "name-asc" as ResourcePanelSort,
-        connectionPanelSort: "name-asc" as ConnectionPanelSort,
         agentPanelSort: "name-asc" as ResourcePanelSort,
         libraryManualOrders: {},
         editorDirty: false,
@@ -2312,7 +2330,6 @@ export const useUIStore = create<UIState>()(
         showTimestamps: false,
         showModelName: false,
         showTokenUsage: false,
-        quickSwitcherShowModels: true,
         showContextUsage: true,
         showMessageNumbers: false,
         showHistoryTrimNotice: true,
@@ -2419,6 +2436,11 @@ export const useUIStore = create<UIState>()(
         chatHelpSeenModes: [],
         chatHelpButtonHidden: false,
         linkApiBannerDismissed: false,
+        connectionsUpgradeNoteDismissed: false,
+        connectionsCollapsed: [],
+        showCostBadges: true,
+        connectionsGroupBy: "connection",
+        connectionPanelSort: "name-asc",
         chatSettingsMoveTipDismissed: false,
         chatWindowIntroDismissed: false,
         echoChamberOpen: true,
@@ -2441,7 +2463,6 @@ export const useUIStore = create<UIState>()(
         impersonateCyoaChoices: false,
         addCyoaChoicesToMessage: false,
         impersonatePresetId: null,
-        impersonateConnectionId: null,
         impersonateBlockAgents: false,
 
         toggleSidebar: () =>
@@ -2583,10 +2604,8 @@ export const useUIStore = create<UIState>()(
         setReduceAmbientEffects: (enabled) => set({ reduceAmbientEffects: enabled }),
         setMariPanelSortMode: (mode) => set({ mariPanelSortMode: mode }),
         setOmnibarAsideEnabled: (enabled) => set({ omnibarAsideEnabled: enabled }),
-        setOmnibarAsideConnectionId: (id) => set({ omnibarAsideConnectionId: id }),
         setOmnibarAsideDisclosed: (disclosed) => set({ omnibarAsideDisclosed: disclosed }),
         setOmnibarAsideDelayMs: (delayMs) => set({ omnibarAsideDelayMs: delayMs }),
-        setMariConnectionId: (id) => set({ mariConnectionId: id }),
         setMariEditViewMode: (mode) => set({ mariEditViewMode: mode }),
         setMariWindowHeightRem: (height) => set({ mariWindowHeightRem: normalizeMariWindowHeightRem(height) }),
         setMariWindowWidthRem: (width) => set({ mariWindowWidthRem: normalizeMariWindowWidthRem(width) }),
@@ -2639,7 +2658,6 @@ export const useUIStore = create<UIState>()(
         setLorebookPanelTagsExpanded: (expanded) => set({ lorebookPanelTagsExpanded: expanded }),
         setBotBrowserPanelSort: (sort) => set({ botBrowserPanelSort: normalizeBasicPanelSort(sort) }),
         setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeBasicPanelSort(sort) }),
-        setConnectionPanelSort: (sort) => set({ connectionPanelSort: normalizeConnectionPanelSort(sort) }),
         setAgentPanelSort: (sort) => set({ agentPanelSort: normalizeBasicPanelSort(sort) }),
         setLibraryManualOrder: (kind, order) =>
           set((state) => ({ libraryManualOrders: { ...state.libraryManualOrders, [kind]: order } })),
@@ -3223,7 +3241,6 @@ export const useUIStore = create<UIState>()(
         setShowTimestamps: (v) => set({ showTimestamps: v }),
         setShowModelName: (v) => set({ showModelName: v }),
         setShowTokenUsage: (v) => set({ showTokenUsage: v }),
-        setQuickSwitcherShowModels: (v) => set({ quickSwitcherShowModels: v }),
         setShowContextUsage: (v) => set({ showContextUsage: v }),
         setShowMessageNumbers: (v) => set({ showMessageNumbers: v }),
         setShowHistoryTrimNotice: (v) => set({ showHistoryTrimNotice: v }),
@@ -3532,7 +3549,6 @@ export const useUIStore = create<UIState>()(
         setImpersonateCyoaChoices: (v) => set({ impersonateCyoaChoices: v }),
         setAddCyoaChoicesToMessage: (v) => set({ addCyoaChoicesToMessage: v }),
         setImpersonatePresetId: (id) => set({ impersonatePresetId: id }),
-        setImpersonateConnectionId: (id) => set({ impersonateConnectionId: id }),
         setImpersonateBlockAgents: (v) => set({ impersonateBlockAgents: v }),
         setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
         clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
@@ -3548,6 +3564,17 @@ export const useUIStore = create<UIState>()(
             chatHelpSeenModes: v ? ["conversation", "roleplay", "game"] : state.chatHelpSeenModes,
           })),
         dismissLinkApiBanner: () => set({ linkApiBannerDismissed: true }),
+        dismissConnectionsUpgradeNote: () => set({ connectionsUpgradeNoteDismissed: true }),
+        toggleConnectionCollapsed: (id) =>
+          set((state) => ({
+            connectionsCollapsed: state.connectionsCollapsed.includes(id)
+              ? state.connectionsCollapsed.filter((other) => other !== id)
+              : [...state.connectionsCollapsed, id],
+          })),
+        setShowCostBadges: (v) => set({ showCostBadges: v }),
+        setConnectionsGroupBy: (v) => set({ connectionsGroupBy: v }),
+        setConnectionPanelSort: (sort) =>
+          set({ connectionPanelSort: sort === "custom" ? sort : normalizeBasicPanelSort(sort) }),
         dismissChatSettingsMoveTip: () => set({ chatSettingsMoveTipDismissed: true }),
         dismissChatWindowIntro: () => set({ chatWindowIntroDismissed: true }),
         toggleEchoChamber: () => set((s) => ({ echoChamberOpen: !s.echoChamberOpen })),
@@ -3807,7 +3834,6 @@ export const useUIStore = create<UIState>()(
         if (version <= 15) {
           if (persisted.impersonatePromptTemplate === undefined) persisted.impersonatePromptTemplate = "";
           if (persisted.impersonatePresetId === undefined) persisted.impersonatePresetId = null;
-          if (persisted.impersonateConnectionId === undefined) persisted.impersonateConnectionId = null;
           if (persisted.impersonateBlockAgents === undefined) persisted.impersonateBlockAgents = false;
           if (persisted.trimIncompleteModelOutput === undefined) {
             persisted.trimIncompleteModelOutput = false;
@@ -4082,8 +4108,11 @@ export const useUIStore = create<UIState>()(
         persisted.lorebookPanelTagsExpanded = persisted.lorebookPanelTagsExpanded === true;
         persisted.botBrowserPanelSort = normalizeBasicPanelSort(persisted.botBrowserPanelSort);
         persisted.presetPanelSort = normalizeBasicPanelSort(persisted.presetPanelSort);
-        persisted.connectionPanelSort = normalizeConnectionPanelSort(persisted.connectionPanelSort);
         persisted.agentPanelSort = normalizeBasicPanelSort(persisted.agentPanelSort);
+        persisted.connectionPanelSort =
+          persisted.connectionPanelSort === "custom"
+            ? "custom"
+            : normalizeBasicPanelSort(persisted.connectionPanelSort);
         normalizePersistedMainSurface(persisted);
         if (Array.isArray(persisted.recentUserActivities)) {
           persisted.recentUserActivities = persisted.recentUserActivities
@@ -4239,10 +4268,8 @@ export const useUIStore = create<UIState>()(
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
-        // v102 -> v103: Mari's window connection moved from its own browser key into the store, so it syncs.
-        if (version <= 102 && persisted.mariConnectionId === undefined) {
-          persisted.mariConnectionId = readLegacyMariConnectionId();
-        }
+        // v103 -> v104: the three feature Model picks moved to the server; stage them for useMigrateFeatureModels.
+        if (version <= 103) stageLegacyFeatureModels(persisted, version);
         return persisted;
       },
       merge: (persistedState: unknown, currentState) => {
@@ -4261,6 +4288,14 @@ export const useUIStore = create<UIState>()(
           mariUnlockedPackIds: Array.isArray(persisted.mariUnlockedPackIds)
             ? persisted.mariUnlockedPackIds.filter((id): id is string => typeof id === "string")
             : [],
+          connectionTestFailures:
+            persisted.connectionTestFailures && typeof persisted.connectionTestFailures === "object"
+              ? Object.fromEntries(
+                  Object.entries(persisted.connectionTestFailures).filter(
+                    (entry): entry is [string, string] => typeof entry[1] === "string",
+                  ),
+                )
+              : {},
           mariSeasonOptOut: typeof persisted.mariSeasonOptOut === "string" ? persisted.mariSeasonOptOut : "",
           loadRemoteMessageImages: persisted.loadRemoteMessageImages === true,
           approvedRemoteImageUrls: normalizeApprovedRemoteImageUrls(persisted.approvedRemoteImageUrls),

@@ -1,3 +1,4 @@
+import { openAddConnection } from "../../../lib/add-connection";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import type { Chat } from "@marinara-engine/shared";
@@ -196,6 +197,11 @@ export function createOmnibarResultActions({
       case "open-mari-chat":
         setMariOpenChatId(action.chatId);
         openProfessorMari();
+        return;
+      case "add-connection":
+        openAddConnection({ job: action.job });
+        recordUse(result.id);
+        onClose();
         return;
       case "slash": {
         const chatId = activeChatId;

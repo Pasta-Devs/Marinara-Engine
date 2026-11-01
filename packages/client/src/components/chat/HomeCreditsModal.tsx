@@ -4,6 +4,8 @@ import { Trans, useTranslation } from "react-i18next";
 
 const FONT_AWESOME_D20_SOURCE_URL = "https://github.com/FortAwesome/Font-Awesome/blob/5.15.4/svgs/solid/dice-d20.svg";
 const CC_BY_4_0_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
+const LOBE_ICONS_URL = "https://github.com/lobehub/lobe-icons";
+const LOBE_ICONS_LICENSE_URL = "https://github.com/lobehub/lobe-icons/blob/master/LICENSE";
 
 const CONTRIBUTORS = [
   { login: "SpicyMarinara", url: "https://github.com/SpicyMarinara", contributions: 4567 },
@@ -188,6 +190,26 @@ export function HomeCreditsModal({ open, onClose }: { open: boolean; onClose: ()
               ]}
             />
           </p>
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+            <Trans
+              i18nKey="home.credits.providerIcons"
+              components={[
+                <a
+                  href={LOBE_ICONS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+                />,
+                <a
+                  href={LOBE_ICONS_LICENSE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+                />,
+              ]}
+            />
+          </p>
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{t("home.credits.trademarks")}</p>
         </section>
       </div>
     </Modal>

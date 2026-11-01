@@ -12,7 +12,8 @@ import {
   type InstalledRuleset,
 } from "@marinara-engine/shared";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
-import { rulesetLayerChoices } from "../../lib/ruleset-layers";
+import { useRulesetDefinitionText } from "../../hooks/use-ruleset-text";
+import { rulesetLayerChoices, type RulesetLayerChoice } from "../../lib/ruleset-layers";
 import { rulesetRulesSummary } from "../../lib/ruleset-resolution";
 import { rulesetRepositoryLabel } from "../../lib/ruleset-source";
 import { cn } from "../../lib/utils";
@@ -213,40 +214,61 @@ export function GameSetupRulesChooser({
 
       {/* The variants this ruleset ships. They narrow its own rules, so they belong under it rather
           than beside the ruleset cards, and a ruleset that ships none shows nothing here. */}
-      {layerChoices.length > 0 && (
-        <div className="mt-2 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs">
-          <span className="block font-medium text-[var(--foreground)]">{t("game.ruleset.setup.layersHeading")}</span>
-          <ul className="space-y-1.5">
-            {layerChoices.map((choice) => (
-              <li key={choice.layer.id}>
-                <label className={cn("flex items-start gap-2", choice.blockedBy && "opacity-60")}>
-                  <input
-                    type="checkbox"
-                    checked={choice.checked}
-                    disabled={Boolean(choice.blockedBy)}
-                    onChange={() => onToggleLayer(choice.layer.id)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium text-[var(--foreground)]">{choice.layer.label}</span>
-                    {choice.layer.summary && (
-                      <span className="block text-[var(--muted-foreground)]">{choice.layer.summary}</span>
-                    )}
-                    {/* Named, not just greyed out: the box is disabled because another checked layer
-                        rules it out, and the only way to reach it is to turn that one off. */}
-                    {choice.blockedBy && (
-                      <span className="block text-[var(--muted-foreground)]">
-                        {t("game.ruleset.setup.layerBlocked", { layer: choice.blockedBy.label })}
-                      </span>
-                    )}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-          <p className="text-[var(--muted-foreground)]">{t("game.ruleset.setup.layersPinned")}</p>
-        </div>
+      {active && layerChoices.length > 0 && (
+        <GameSetupRulesetLayers ruleset={active} choices={layerChoices} onToggleLayer={onToggleLayer} />
       )}
+    </div>
+  );
+}
+
+/**
+ * The layer toggles of the chosen ruleset. Their names and summaries are the ruleset's own words, so
+ * they read through its translation for the language on screen (1.811), as they do on the game's
+ * sheet; the ids the toggles send stay the ruleset's own.
+ */
+function GameSetupRulesetLayers({
+  ruleset,
+  choices,
+  onToggleLayer,
+}: {
+  ruleset: InstalledRuleset;
+  choices: RulesetLayerChoice[];
+  onToggleLayer: (layerId: string) => void;
+}) {
+  const { t } = useUiTranslation();
+  const text = useRulesetDefinitionText(ruleset.definition);
+  return (
+    <div className="mt-2 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs">
+      <span className="block font-medium text-[var(--foreground)]">{t("game.ruleset.setup.layersHeading")}</span>
+      <ul className="space-y-1.5">
+        {choices.map((choice) => (
+          <li key={choice.layer.id}>
+            <label className={cn("flex items-start gap-2", choice.blockedBy && "opacity-60")}>
+              <input
+                type="checkbox"
+                checked={choice.checked}
+                disabled={Boolean(choice.blockedBy)}
+                onChange={() => onToggleLayer(choice.layer.id)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium text-[var(--foreground)]">{text(choice.layer.label)}</span>
+                {choice.layer.summary && (
+                  <span className="block text-[var(--muted-foreground)]">{text(choice.layer.summary)}</span>
+                )}
+                {/* Named, not just greyed out: the box is disabled because another checked layer
+                    rules it out, and the only way to reach it is to turn that one off. */}
+                {choice.blockedBy && (
+                  <span className="block text-[var(--muted-foreground)]">
+                    {t("game.ruleset.setup.layerBlocked", { layer: text(choice.blockedBy.label) })}
+                  </span>
+                )}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[var(--muted-foreground)]">{t("game.ruleset.setup.layersPinned")}</p>
     </div>
   );
 }

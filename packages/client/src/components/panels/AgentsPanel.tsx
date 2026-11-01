@@ -36,6 +36,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
+import { NeedsModelChip, agentModelNeed } from "../connections/NeedsModelChip";
 import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import {
   useAgentConfigs,
@@ -1272,6 +1273,7 @@ export function AgentsPanel() {
       const builtInMeta = availableBuiltInAgents.find((entry) => entry.id === agent.type);
       const custom = !builtInMeta;
       return renderAgentCard({
+        needs: agentModelNeed(agent.type, agent.settings),
         localizeUi,
         id: agent.id,
         type: agent.type,
@@ -1778,6 +1780,7 @@ export function AgentsPanel() {
               {visibleAgents.map((agent) => {
                 const sourceAgent = createBuiltInAgentConfigRow(agent, configByType.get(agent.id));
                 return renderAgentCard({
+                  needs: agentModelNeed(agent.id, sourceAgent.settings),
                   localizeUi,
                   id: agent.id,
                   type: agent.id,
@@ -1848,6 +1851,7 @@ export function AgentsPanel() {
           ) : (
             visibleCustomAgents.map((agent) =>
               renderAgentCard({
+                needs: agentModelNeed(agent.type, agent.settings),
                 localizeUi,
                 id: agent.id,
                 type: agent.type,
@@ -2166,6 +2170,7 @@ function renderAgentCard({
   nativeDragEnabled = true,
   touchSafeDragMode = false,
   suppressClickRef,
+  needs,
   inChat,
   onRemoveFromChat,
 }: {
@@ -2192,6 +2197,8 @@ function renderAgentCard({
   nativeDragEnabled?: boolean;
   touchSafeDragMode?: boolean;
   suppressClickRef?: { current: boolean };
+  /** A model the agent cannot run without; the card shows the chip while none is set. */
+  needs?: ReturnType<typeof agentModelNeed>;
   /** Set only while a chat is open: whether this agent is on in it. */
   inChat?: boolean;
   onRemoveFromChat?: () => void;
@@ -2315,6 +2322,7 @@ function renderAgentCard({
         <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)] truncate">
           {description || localizeUi("ui.panels.agentcard.noDescription")}
         </div>
+        {needs && !selectionMode && <NeedsModelChip kind={needs.kind} own={needs.own} className="mt-1" />}
       </button>
       {!selectionMode && inChat && chatSettingsChatId && (
         <button

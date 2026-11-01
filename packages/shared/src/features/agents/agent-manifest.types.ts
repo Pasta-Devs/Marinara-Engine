@@ -1,5 +1,6 @@
 import type { AgentCategory, AgentPhase, AgentPromptTemplateOption } from "../../types/agent.js";
 import type { ChatMode } from "../../types/chat.js";
+import type { ConnectionPickerKind } from "../../types/connection-picker.js";
 
 export interface BuiltInAgentManifest {
   id: string;
@@ -29,4 +30,6 @@ export interface BuiltInAgentManifest {
    * instead of the generic LLM pipeline.
    */
   execution?: "pipeline" | "feature" | "host";
+  /** The kind of Model the agent cannot run without, such as "image" for an agent that draws. */
+  requiresConnection?: Exclude<ConnectionPickerKind, "chat" | "all">;
 }
