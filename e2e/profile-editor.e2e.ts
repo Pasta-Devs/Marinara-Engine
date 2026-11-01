@@ -74,6 +74,35 @@ test("profile editor keeps library navigation accessible and saves native select
       await expect(editor).toBeVisible();
       const source = page.locator("[draggable=true]").filter({ hasText: personaName }).first();
       await expect(source).toBeVisible();
+      await editor.getByLabel("Profile name", { exact: true }).fill("Escape-safe draft");
+      await page.getByPlaceholder("Search personas/tags", { exact: true }).focus();
+      await page.keyboard.press("Escape");
+      await expect(editor).toBeVisible();
+      await expect(editor.getByLabel("Profile name", { exact: true })).toHaveValue("Escape-safe draft");
+      if (!(await source.isVisible())) await clickTopbarPanel(page, "personas");
+      await expect(source).toBeVisible();
+      // Mouse drags keep the prior focus; Escape must cancel the drag, not that focused editor.
+      await editor.getByLabel("Profile name", { exact: true }).focus();
+      const sourceBox = await source.boundingBox();
+      const targetBox = await editor.getByLabel("Persona", { exact: true }).boundingBox();
+      if (!sourceBox || !targetBox) throw new Error("Expected visible drag endpoints");
+      await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 8 });
+      await expect
+        .poll(() =>
+          page.evaluate(async () => {
+            const drag = (await import("/src/lib/chat-resource-drag.ts" as string)) as {
+              getActiveChatResourceMouseDrag: () => { kind: string } | null;
+            };
+            return drag.getActiveChatResourceMouseDrag()?.kind;
+          }),
+        )
+        .toBe("persona");
+      await page.keyboard.press("Escape");
+      await page.mouse.up();
+      await expect(editor).toBeVisible();
+      await expect(editor.getByLabel("Profile name", { exact: true })).toHaveValue("Escape-safe draft");
       // Clear first, then exercise the real sidebar drag path.
       await editor.getByLabel("Persona", { exact: true }).selectOption("");
       await source.dragTo(editor.getByLabel("Persona", { exact: true }), { timeout: 10_000 });
@@ -121,7 +150,18 @@ test("profile editor keeps library navigation accessible and saves native select
       await reopenedSettings.getByLabel("Profile", { exact: true }).selectOption(defaultProfile.id);
       await expect(reopenedSettings.getByLabel("Profile", { exact: true })).toHaveValue(defaultProfile.id);
       await expect(editDialog.getByLabel("Profile name", { exact: true })).toHaveValue("Pinned draft");
-      await editDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await editDialog.getByLabel("Profile name", { exact: true }).press("Escape");
+      await expect(editDialog).toBeHidden();
+      await reopenedSettings.getByLabel("Profile", { exact: true }).selectOption(saved.id);
+      await reopenedSettings.getByTitle("Edit this profile's slots").click();
+      await editDialog.getByLabel("Profile name", { exact: true }).fill("Deleted profile draft");
+      await reopenedSettings.getByTitle("Delete profile", { exact: true }).click({ timeout: 10_000 });
+      const deleteDialog = page.getByRole("dialog", { name: "Delete profile", exact: true });
+      await deleteDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(editDialog.getByLabel("Profile name", { exact: true })).toHaveValue("Deleted profile draft");
+      await reopenedSettings.getByTitle("Delete profile", { exact: true }).click({ timeout: 10_000 });
+      await deleteDialog.getByRole("button", { name: "Delete", exact: true }).click();
+      await expect(editDialog).toBeHidden();
       await reopenedSettings.getByTitle("New profile from this chat's settings").click();
       await expect(editor).toBeVisible();
       await page.evaluate(async (id) => {

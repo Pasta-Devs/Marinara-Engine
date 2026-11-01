@@ -5005,6 +5005,9 @@ export function ChatSettingsDrawer({
     const defaultPreset = presetList.find((p) => p.isDefault);
     deleteChatPreset.mutate(selectedChatPreset.id, {
       onSuccess: () => {
+        setProfileBuilder((current) =>
+          current && current !== "new" && current.id === selectedChatPreset.id ? null : current,
+        );
         // If the chat was using the profile we just deleted, fall back to the
         // Default profile's settings: without this, the chat would visually
         // show "Default" but keep the deleted profile's actual values.

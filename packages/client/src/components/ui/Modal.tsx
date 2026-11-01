@@ -74,10 +74,10 @@ export function Modal({
   modeless = false,
   topLayer = false,
 }: ModalProps) {
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
-  const sidebarWidth = useUIStore((s) => s.sidebarWidth);
-  const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
-  const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
+  const sidebarOpen = useUIStore((s) => modeless && s.sidebarOpen);
+  const sidebarWidth = useUIStore((s) => (modeless ? s.sidebarWidth : 0));
+  const rightPanelOpen = useUIStore((s) => modeless && s.rightPanelOpen);
+  const rightPanelWidth = useUIStore((s) => (modeless ? s.rightPanelWidth : 0));
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const localizedTitle = localize(title);
@@ -162,11 +162,18 @@ export function Modal({
       if (e.isComposing) return;
       if (e.key !== "Escape" || closeDisabled) return;
       if (!overlayRegistrationRef.current?.isTopmost()) return;
+      if (modeless) {
+        // Sidebar keys belong to the sidebar; drag/menu cancellation may also consume Escape.
+        if (e.defaultPrevented) return;
+        const panel = panelRef.current;
+        const targetInside = e.target instanceof Node && panel?.contains(e.target);
+        if (!targetInside && !panel?.contains(document.activeElement)) return;
+      }
       onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose, closeDisabled]);
+  }, [open, onClose, closeDisabled, modeless]);
 
   // Remove from DOM after exit animation completes. A reopen during the exit (focus is already back on the opener)
   // keeps it: the late transitionend or the fallback below must not unmount an open dialog.
