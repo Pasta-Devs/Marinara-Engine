@@ -1,4 +1,5 @@
 import { allowsDefaultChatModel } from "../../services/llm/local-context-limit.js";
+import { applyChatModelOverride, readChatModelOverride } from "../../services/generation/connection-resolution.js";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
 import { logger, logDebugOverride } from "../../lib/logger.js";
@@ -1985,7 +1986,11 @@ export async function resolveRetryAgents(args: {
     let connId =
       typeof chat.connectionId === "string" && chat.connectionId.trim()
         ? chat.connectionId.trim()
-        : gameSceneConnectionId || setupSceneConnectionId || defaultAgentConn?.id || null;
+        : gameSceneConnectionId ||
+          setupSceneConnectionId ||
+          defaultAgentConn?.id ||
+          (await conns.getDefault())?.id ||
+          null;
 
     if (!connId) {
       return {
@@ -2011,7 +2016,11 @@ export async function resolveRetryAgents(args: {
       return { entry: null, unavailableReason: "the configured fallback connection was deleted" };
     }
 
-    return resolveStoredRetryConnection(null, fallbackConn);
+    // Agents on the chat's own Model use the chat's catalog pick, as in generation.
+    return resolveStoredRetryConnection(
+      null,
+      connId === chat.connectionId ? applyChatModelOverride(fallbackConn, readChatModelOverride(chat)) : fallbackConn,
+    );
   };
   const fallbackConnection = await resolveFallbackRetryConnection();
   const retryAgentConnectionCache = new Map<string, RetryAgentConnectionResolution>();
@@ -4475,8 +4484,9 @@ async function applyRetryResultEffects(args: {
                 agentType: result.agentType,
                 agentName: illustratorFailureName,
                 retryTarget: "illustration",
+                code: "image_connection_missing",
                 error:
-                  "No image generation connection is set on this agent or under Settings -> Connections -> Defaults -> Images. Choose one there, or assign one in the agent's settings.",
+                  "No image model is set for this agent or as the Images default in the Connections sidebar. Pick one there or in the agent's settings.",
               },
             });
           }

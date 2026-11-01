@@ -197,6 +197,8 @@ import { useCharacters, usePersonas, useCharacterGroups, type SpriteInfo } from 
 import { lorebookKeys, useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
 import { useDefaultPreset, usePresetFull, usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
+import { NeedsModelChip, agentModelNeed } from "../connections/NeedsModelChip";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useKnowledgeSources, useUploadKnowledgeSource } from "../../hooks/use-knowledge-sources";
 import { useGenerate } from "../../hooks/use-generate";
 import {
@@ -1218,10 +1220,6 @@ export function ChatSettingsDrawer({
   // The chat Connection section reads `showUsageWidget` to gate the NanoGPT
   // usage meter, so keep these rows typed instead of casting fields away.
   const connectionRows = useMemo(() => (connections as ChatConnectionOption[] | undefined) ?? [], [connections]);
-  const imageConnectionsList = useMemo(
-    () => connectionRows.filter((c) => c.provider === "image_generation"),
-    [connectionRows],
-  );
   const videoConnectionsList = useMemo(
     () => connectionRows.filter((c) => c.provider === "video_generation"),
     [connectionRows],
@@ -1254,22 +1252,6 @@ export function ChatSettingsDrawer({
   );
   const conversationSummaryConnectionId =
     typeof metadata.summaryConnectionId === "string" ? metadata.summaryConnectionId : "";
-  const conversationSummaryConnectionMissing =
-    conversationSummaryConnectionId.length > 0 &&
-    !chatGenerationConnectionsList.some((connection) => connection.id === conversationSummaryConnectionId);
-  const illustratorPromptConnectionsList = useMemo(() => {
-    const options: Array<{ id: string; name: string; model?: string | null }> = [];
-    for (const connection of chatGenerationConnectionsList) {
-      const id = typeof connection.id === "string" ? connection.id.trim() : "";
-      if (!id) continue;
-      options.push({
-        id,
-        name: connection.name || "Connection",
-        model: connection.model ?? null,
-      });
-    }
-    return options;
-  }, [chatGenerationConnectionsList]);
   const { data: allPersonas } = usePersonas();
   const { data: agentConfigs } = useAgentConfigs();
   const { data: customTools } = useCustomTools();
@@ -2177,12 +2159,6 @@ export function ChatSettingsDrawer({
   const illustratorVideoRunInterval =
     illustratorChatVideoRunInterval ?? normalizeIllustratorRunInterval(illustratorDefaults.videoRunInterval) ?? 5;
   const illustratorAutoBackgroundsEnabled = metadata.illustratorAutoBackgroundsEnabled === true;
-  const selectedIllustratorPromptConnectionMissing =
-    illustratorPromptConnectionId.length > 0 &&
-    !illustratorPromptConnectionsList.some((connection) => connection.id === illustratorPromptConnectionId);
-  const selectedIllustratorImageConnectionMissing =
-    illustratorImageConnectionId.length > 0 &&
-    !imageConnectionsList.some((connection) => connection.id === illustratorImageConnectionId);
   const selfieUseAvatarReferences = metadata.selfieUseAvatarReferences === true;
   const selfieIncludeCharacterAppearance = metadata.selfieIncludeCharacterAppearance === true;
   const gameImageUseAvatarReferences = metadata.gameImageUseAvatarReferences !== false;
@@ -2274,24 +2250,14 @@ export function ChatSettingsDrawer({
       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
         {localizeUi("ui.chat.chatsettingsdrawer.promptModel")}
       </span>
-      <select
-        value={illustratorPromptConnectionId}
-        onChange={(event) => updateIllustratorPromptConnection(event.target.value)}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-      >
-        <option value="">{localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}</option>
-        {selectedIllustratorPromptConnectionMissing && (
-          <option value={illustratorPromptConnectionId}>
-            {localizeUi("ui.chat.chatsettingsdrawer.missingConnection")}
-          </option>
-        )}
-        {illustratorPromptConnectionsList.map((connection) => (
-          <option key={connection.id} value={connection.id}>
-            {connection.name ?? "Connection"}
-            {connection.model ? localizeUi("ui.chat.datablock.value1", { value1: connection.model }) : ""}
-          </option>
-        ))}
-      </select>
+      <ConnectionSelect
+        job={t("connections.picker.job.illustratorPrompts")}
+        value={illustratorPromptConnectionId || null}
+        onChange={(connectionId) => updateIllustratorPromptConnection(connectionId ?? "")}
+        includeLocalSidecar={!isGame && sidecarModelDownloaded}
+        defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
+        inherits="agents"
+      />
       <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
         {localizeUi("ui.chat.chatsettingsdrawer.choosesTheTextModelThatWritesIllustratorSelfiePrompts")}
       </span>
@@ -2312,27 +2278,21 @@ export function ChatSettingsDrawer({
       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
         {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
       </span>
-      <select
-        value={illustratorImageConnectionId}
-        onChange={(event) => updateIllustratorImageConnection(event.target.value)}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-      >
-        <option value="">{localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}</option>
-        {selectedIllustratorImageConnectionMissing && (
-          <option value={illustratorImageConnectionId}>
-            {localizeUi("ui.chat.chatsettingsdrawer.missingConnection")}
-          </option>
-        )}
-        {imageConnectionsList.map((connection) => (
-          <option key={connection.id} value={connection.id}>
-            {connection.name}
-            {connection.model ? localizeUi("ui.chat.datablock.value1", { value1: connection.model }) : ""}
-          </option>
-        ))}
-      </select>
+      <ConnectionSelect
+        job={t("connections.picker.job.images")}
+        value={illustratorImageConnectionId || null}
+        onChange={(connectionId) => updateIllustratorImageConnection(connectionId ?? "")}
+        kind="image"
+        defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
+        inherits="agents"
+      />
       <AgentDefaultStatus
         overridden={illustratorImageConnectionId.length > 0}
         onReset={() => updateIllustratorImageConnection("")}
+      />
+      <NeedsModelChip
+        kind="image"
+        own={illustratorImageConnectionId || agentModelNeed("illustrator", illustratorConfig?.settings)?.own}
       />
     </div>
   );
@@ -5119,7 +5079,6 @@ export function ChatSettingsDrawer({
             gameMode={isGame}
             individual={!isGame && groupChatMode === "individual"}
             characters={chatCharIds.map((id) => ({ id, name: charNameMap.get(id) ?? id }))}
-            connections={textConnectionsList}
             hasHistory={!!chat.lastMessageAt}
           />
         )}
@@ -5240,9 +5199,6 @@ export function ChatSettingsDrawer({
             const imageCapable = isImageCapableCustomAgent(agent.id);
             const agentImageConnectionId = customAgentImageSelections[agent.id]?.imageConnectionId ?? "";
             const agentImageStyleProfileId = customAgentImageSelections[agent.id]?.styleProfileId ?? "";
-            const agentImageConnectionMissing =
-              agentImageConnectionId.length > 0 &&
-              !imageConnectionsList.some((connection) => connection.id === agentImageConnectionId);
             const agentImageStyleProfileMissing =
               agentImageStyleProfileId.length > 0 &&
               !imageStyleProfiles.profiles.some((profile) => profile.id === agentImageStyleProfileId);
@@ -5270,6 +5226,11 @@ export function ChatSettingsDrawer({
                     <span className="mt-0.5 block text-[0.625rem] leading-tight text-[var(--muted-foreground)] line-clamp-2">
                       {agent.description}
                     </span>
+                    <NeedsModelChip
+                      kind={imageCapable ? "image" : null}
+                      own={agentImageConnectionId || agentModelNeed(agent.id, agentConfig?.settings)?.own}
+                      className="mt-1"
+                    />
                   </div>
                   <button
                     onClick={() => {
@@ -5378,25 +5339,15 @@ export function ChatSettingsDrawer({
                     <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                       {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
                     </span>
-                    <select
+                    <ConnectionSelect
+                      job={t("connections.picker.job.images")}
                       aria-label={localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
-                      value={agentImageConnectionId}
-                      onChange={(event) => updateCustomAgentImageConnection(agent.id, event.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                    >
-                      <option value="">{localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}</option>
-                      {agentImageConnectionMissing && (
-                        <option value={agentImageConnectionId}>
-                          {localizeUi("ui.chat.chatsettingsdrawer.missingConnection")}
-                        </option>
-                      )}
-                      {imageConnectionsList.map((connection) => (
-                        <option key={connection.id} value={connection.id}>
-                          {connection.name}
-                          {connection.model ? localizeUi("ui.chat.datablock.value1", { value1: connection.model }) : ""}
-                        </option>
-                      ))}
-                    </select>
+                      value={agentImageConnectionId || null}
+                      onChange={(connectionId) => updateCustomAgentImageConnection(agent.id, connectionId ?? "")}
+                      kind="image"
+                      defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
+                      inherits="agents"
+                    />
                     <AgentDefaultStatus
                       overridden={agentImageConnectionId.length > 0}
                       onReset={() => updateCustomAgentImageConnection(agent.id, "")}
@@ -5929,6 +5880,7 @@ export function ChatSettingsDrawer({
 
           <div style={{ order: CHAT_SETTINGS_ORDER.connection }}>
             <ConnectionSection
+              chatId={chat.id}
               connectionId={chat.connectionId ?? null}
               connections={chatGenerationConnectionsList}
               contextBudget={gameContextBudget}
@@ -7719,20 +7671,15 @@ export function ChatSettingsDrawer({
                               <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                                 {localizeUi("ui.chat.chatsettingsdrawer.selfieConnection")}
                               </span>
-                              <select
-                                value={selfieConnectionId}
-                                onChange={(e) =>
-                                  updateMeta.mutate({ id: chat.id, imageGenConnectionId: e.target.value || null })
+                              <ConnectionSelect
+                                job={t("connections.picker.job.selfies")}
+                                value={selfieConnectionId || null}
+                                onChange={(connectionId) =>
+                                  updateMeta.mutate({ id: chat.id, imageGenConnectionId: connectionId })
                                 }
-                                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                              >
-                                <option value="">{localizeUi("ui.chat.chatsettingsdrawer.noneSelfiesDisabled")}</option>
-                                {imageConnectionsList.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name} ({c.provider})
-                                  </option>
-                                ))}
-                              </select>
+                                kind="image"
+                                defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.noneSelfiesDisabled")}
+                              />
                             </label>
                             {renderIllustratorPromptConnectionSelect()}
                             {renderIllustratorImageStyleSelect()}
@@ -7820,23 +7767,16 @@ export function ChatSettingsDrawer({
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                               {localizeUi("ui.chat.chatsettingsdrawer.videoConnection")}
                             </span>
-                            <select
-                              value={(metadata.sceneVideoConnectionId as string) ?? ""}
-                              onChange={(e) =>
-                                updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: e.target.value || null })
+                            <ConnectionSelect
+                              job={t("connections.picker.job.video")}
+                              value={(metadata.sceneVideoConnectionId as string) || null}
+                              onChange={(connectionId) =>
+                                updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: connectionId })
                               }
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                            >
-                              <option value="">
-                                {localizeUi("ui.chat.chatsettingsdrawer.defaultVideoConnection")}
-                              </option>
-                              {videoConnectionsList.map((c: { id: string; name: string; model?: string }) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                  {c.model ? localizeUi("ui.chat.chatsettingsdrawer.value1", { value1: c.model }) : ""}
-                                </option>
-                              ))}
-                            </select>
+                              kind="video"
+                              defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.defaultVideoConnection")}
+                              inherits="main"
+                            />
                           </label>
                           <label className="flex flex-col gap-1">
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
@@ -7864,13 +7804,7 @@ export function ChatSettingsDrawer({
                               ))}
                             </select>
                           </label>
-                          {videoConnectionsList.length === 0 && (
-                            <p className="text-[0.625rem] text-[var(--marinara-app-accent-static)]">
-                              {localizeUi(
-                                "ui.chat.chatsettingsdrawer.noVideoGenerationConnectionsFoundAddOneInSettings",
-                              )}
-                            </p>
-                          )}
+                          {videoConnectionsList.length === 0 && <NeedsModelChip kind="video" />}
                           <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                             {localizeUi("ui.chat.chatsettingsdrawer.videoMessagesHelp")}
                           </p>
@@ -8721,23 +8655,25 @@ export function ChatSettingsDrawer({
                   </button>
                   {isGame && metadata.enableAgents && (
                     <div className="mt-1.5 px-3">
-                      <select
-                        value={(metadata.gameSceneConnectionId as string) ?? ""}
-                        onChange={(e) =>
-                          updateMeta.mutate({ id: chat.id, gameSceneConnectionId: e.target.value || null })
+                      <ConnectionSelect
+                        job={t("connections.picker.job.sceneEffects")}
+                        value={(metadata.gameSceneConnectionId as string) || null}
+                        onChange={(connectionId) =>
+                          updateMeta.mutate({ id: chat.id, gameSceneConnectionId: connectionId })
                         }
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                      >
-                        {import.meta.env.VITE_MARINARA_LITE !== "true" && (
-                          <option value="">{localizeUi("ui.chat.chatsettingsdrawer.localSidecarGemma")}</option>
-                        )}
-                        {(textConnectionsList as Array<{ id: string; name: string; model?: string }>).map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                            {c.model ? localizeUi("ui.chat.datablock.value1", { value1: c.model }) : ""}
-                          </option>
-                        ))}
-                      </select>
+                        inherits={
+                          import.meta.env.VITE_MARINARA_LITE === "true"
+                            ? { connectionId: chat.connectionId ?? null }
+                            : undefined
+                        }
+                        // Lite has no sidecar; an empty scene connection falls back to the chat's own.
+                        defaultLabel={
+                          import.meta.env.VITE_MARINARA_LITE === "true"
+                            ? t("connections.select.default")
+                            : localizeUi("ui.chat.chatsettingsdrawer.localSidecarGemma")
+                        }
+                        includeLocalSidecar={import.meta.env.VITE_MARINARA_LITE !== "true"}
+                      />
                     </div>
                   )}
 
@@ -9573,35 +9509,18 @@ export function ChatSettingsDrawer({
                                 <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                                   {localizeUi("ui.chat.chatsettingsdrawer.videoConnection")}
                                 </span>
-                                <select
-                                  value={(metadata.sceneVideoConnectionId as string) ?? ""}
-                                  onChange={(e) =>
-                                    updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: e.target.value || null })
+                                <ConnectionSelect
+                                  job={t("connections.picker.job.video")}
+                                  value={(metadata.sceneVideoConnectionId as string) || null}
+                                  onChange={(connectionId) =>
+                                    updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: connectionId })
                                   }
-                                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                                >
-                                  <option value="">
-                                    {localizeUi("ui.chat.chatsettingsdrawer.selectVideoConnection")}
-                                  </option>
-                                  {(videoConnectionsList ?? []).map(
-                                    (c: { id: string; name: string; model?: string }) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name}
-                                        {c.model
-                                          ? localizeUi("ui.chat.chatsettingsdrawer.value1", { value1: c.model })
-                                          : ""}
-                                      </option>
-                                    ),
-                                  )}
-                                </select>
+                                  kind="video"
+                                  defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectVideoConnection")}
+                                  inherits="main"
+                                />
                               </label>
-                              {videoConnectionsList.length === 0 && (
-                                <p className="text-[0.625rem] text-amber-700 dark:text-amber-400/80">
-                                  {localizeUi(
-                                    "ui.chat.chatsettingsdrawer.noVideoGenerationConnectionsFoundAddOneInSettings",
-                                  )}
-                                </p>
-                              )}
+                              {videoConnectionsList.length === 0 && <NeedsModelChip kind="video" />}
                               <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                                 {localizeUi(
                                   "ui.chat.chatsettingsdrawer.galleryVideoAndImageAnimateUseThisConnectionWith",
@@ -9846,21 +9765,16 @@ export function ChatSettingsDrawer({
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                               {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
                             </span>
-                            <select
-                              value={(metadata.gameImageConnectionId as string) ?? ""}
-                              onChange={(e) =>
-                                updateMeta.mutate({ id: chat.id, gameImageConnectionId: e.target.value || null })
+                            <ConnectionSelect
+                              job={t("connections.picker.job.images")}
+                              value={(metadata.gameImageConnectionId as string) || null}
+                              onChange={(connectionId) =>
+                                updateMeta.mutate({ id: chat.id, gameImageConnectionId: connectionId })
                               }
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                            >
-                              <option value="">{localizeUi("ui.chat.chatsettingsdrawer.selectImageConnection")}</option>
-                              {(imageConnectionsList ?? []).map((c: { id: string; name: string; model?: string }) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                  {c.model ? localizeUi("ui.chat.datablock.value1", { value1: c.model }) : ""}
-                                </option>
-                              ))}
-                            </select>
+                              kind="image"
+                              defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectImageConnection")}
+                              inherits="main"
+                            />
                           </label>
                           {renderIllustratorImageStyleSelect({
                             emptyOptionLabel: "Use global or connection default",
@@ -10012,29 +9926,18 @@ export function ChatSettingsDrawer({
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                               {localizeUi("ui.chat.chatsettingsdrawer.videoConnection")}
                             </span>
-                            <select
-                              value={(metadata.gameVideoConnectionId as string) ?? ""}
-                              onChange={(e) =>
-                                updateMeta.mutate({ id: chat.id, gameVideoConnectionId: e.target.value || null })
+                            <ConnectionSelect
+                              job={t("connections.picker.job.video")}
+                              value={(metadata.gameVideoConnectionId as string) || null}
+                              onChange={(connectionId) =>
+                                updateMeta.mutate({ id: chat.id, gameVideoConnectionId: connectionId })
                               }
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                            >
-                              <option value="">{localizeUi("ui.chat.chatsettingsdrawer.selectVideoConnection")}</option>
-                              {(videoConnectionsList ?? []).map((c: { id: string; name: string; model?: string }) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                  {c.model ? localizeUi("ui.chat.chatsettingsdrawer.value1", { value1: c.model }) : ""}
-                                </option>
-                              ))}
-                            </select>
+                              kind="video"
+                              defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectVideoConnection")}
+                              inherits="main"
+                            />
                           </label>
-                          {videoConnectionsList.length === 0 && (
-                            <p className="text-[0.625rem] text-amber-700 dark:text-amber-400/80">
-                              {localizeUi(
-                                "ui.chat.chatsettingsdrawer.noVideoGenerationConnectionsFoundAddOneInSettings",
-                              )}
-                            </p>
-                          )}
+                          {videoConnectionsList.length === 0 && <NeedsModelChip kind="video" />}
                           <GamePromptTemplateSelect
                             label={localizeUi("ui.chat.chatsettingsdrawer.gameVideoPrompt")}
                             description={localizeUi("ui.chat.chatsettingsdrawer.usedForGameSceneVideos")}
@@ -10600,32 +10503,15 @@ export function ChatSettingsDrawer({
                     <span className="text-xs font-medium">
                       {localizeUi("ui.chat.summarypopover.summaryConnection_febe5c4")}
                     </span>
-                    <select
-                      value={conversationSummaryConnectionId}
-                      onChange={(event) =>
-                        updateMeta.mutate({
-                          id: chat.id,
-                          summaryConnectionId: event.target.value || null,
-                        })
-                      }
-                      className="mari-chrome-field w-full !rounded-md px-3 py-2 text-xs"
+                    <ConnectionSelect
+                      job={t("connections.picker.job.summary")}
+                      value={conversationSummaryConnectionId || null}
+                      onChange={(connectionId) => updateMeta.mutate({ id: chat.id, summaryConnectionId: connectionId })}
+                      includeLocalSidecar={!isGame && sidecarModelDownloaded}
+                      defaultLabel={localizeUi("chat.summary.connection.agentDefaultFallback")}
+                      inherits="agents"
                       aria-label={localizeUi("ui.chat.summarypopover.summaryConnection_febe5c4")}
-                    >
-                      <option value="">{localizeUi("chat.summary.connection.agentDefaultFallback")}</option>
-                      {conversationSummaryConnectionMissing && (
-                        <option value={conversationSummaryConnectionId}>
-                          {localizeUi("chat.summary.connection.missing", {
-                            id: conversationSummaryConnectionId,
-                          })}
-                        </option>
-                      )}
-                      {chatGenerationConnectionsList.map((connection) => (
-                        <option key={connection.id} value={connection.id}>
-                          {connection.name}
-                          {connection.model ? localizeUi("ui.chat.datablock.value1", { value1: connection.model }) : ""}
-                        </option>
-                      ))}
-                    </select>
+                    />
                     <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                       {localizeUi("ui.chat.summarypopover.chooseTheModelConnectionUsedForManualAndAutomatic")}
                     </p>
@@ -10724,6 +10610,7 @@ export function ChatSettingsDrawer({
 
           <div style={{ order: CHAT_SETTINGS_ORDER.functionCalling }}>
             <FunctionCallingSection
+              chatConnectionId={chat.connectionId}
               isGameMode={isGame}
               narratorProvider={
                 (
@@ -10814,7 +10701,6 @@ export function ChatSettingsDrawer({
             <TranslationSection
               chatId={chat.id}
               metadata={metadata}
-              textConnections={textConnectionsList}
               onMetadataChange={(patch) => updateTranslationMeta.mutate({ id: chat.id, ...patch })}
             />
           </div>
@@ -10854,10 +10740,7 @@ export function ChatSettingsDrawer({
 
           {!isConversation && !isGame && (
             <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
-              <ImpersonateSection
-                presets={(presets ?? []) as Array<{ id: string; name: string }>}
-                connections={chatGenerationConnectionsList}
-              />
+              <ImpersonateSection presets={(presets ?? []) as Array<{ id: string; name: string }>} />
             </div>
           )}
         </div>
@@ -10976,6 +10859,10 @@ export function ChatSettingsDrawer({
                   <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[var(--muted-foreground)]">
                     {agentAddPreview.agent.description || "No description available."}
                   </p>
+                  {(() => {
+                    const need = agentModelNeed(agentAddPreview.agent.id, agentAddPreview.config?.settings);
+                    return need && <NeedsModelChip kind={need.kind} own={need.own} className="mt-2" />;
+                  })()}
                 </div>
               </div>
             </div>

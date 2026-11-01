@@ -101,7 +101,7 @@ export function worldDraftFromWorld(
 }
 
 export interface WorldWriteRequest {
-  connectionId: string;
+  connectionId?: string;
   genre: string;
   setting: string;
   tone: string;

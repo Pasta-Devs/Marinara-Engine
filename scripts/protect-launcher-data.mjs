@@ -188,6 +188,7 @@ const SHARDED_TABLES = [
   "prompt_sections",
   "choice_blocks",
   "api_connections",
+  "connection_accounts",
   "assets",
   "agent_configs",
   "agent_runs",

@@ -198,7 +198,10 @@ export interface ContextFitSummary {
   replyBudgetTo: number;
 }
 
-export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video";
+export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video" | "feature";
+
+/** Why the chat's own Model did not answer, so the fallback did. */
+export type GenerationFallbackUnavailableReason = "off" | "needs_key" | "review" | "deleted";
 
 /** Why the chosen connection failed before the fallback answered. */
 export type GenerationFallbackReason =
@@ -206,9 +209,16 @@ export type GenerationFallbackReason =
 
 export type GenerationFallbackNotice = {
   category: GenerationFallbackCategory;
+  /** The fallback Model that answered. */
   connectionId: string;
   connectionName: string;
   model: string;
+  /** Set when the chat's own Model was unavailable and never tried; absent after a failed request. */
+  reason?: GenerationFallbackUnavailableReason;
+  /** The Model that could not answer, and its Connection (where "Fix" goes). */
+  unavailableConnectionId?: string;
+  unavailableName?: string;
+  unavailableAccountId?: string;
   /** The connection that failed first, such as the random pool's pick (#7697). */
   failed?: {
     connectionId: string;
@@ -451,7 +461,7 @@ export interface CapabilityConnectionFallbackOptions {
   primaryConnectionName?: string | null;
   fallbackConnection: FallbackConnection | null | undefined;
   fallbackBaseUrl: string;
-  category: "main" | "agents";
+  category: "main" | "agents" | "feature";
   onFallback?: GenerationFallbackNotifier;
   onProviderUsed?: (origin: GenerationProviderOrigin) => void;
   admissionMode?: ConnectionAdmissionMode;

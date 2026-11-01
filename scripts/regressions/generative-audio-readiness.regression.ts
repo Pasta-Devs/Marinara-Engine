@@ -25,6 +25,14 @@ const { connectionsRoutes } = await import("../../packages/server/src/routes/con
 const { errorHandler } = await import("../../packages/server/src/middleware/error-handler.js");
 const db = await createFileNativeDB();
 const connections = createConnectionsStorage(db);
+const { createConnectionAccountsStorage } =
+  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
+// A linked row's key belongs to its account, so a key change goes through the account.
+const setKey = async (id: string, apiKey: string) => {
+  const row = await connections.getById(id);
+  if (row?.accountId) await createConnectionAccountsStorage(db).update(row.accountId, { apiKey });
+  else await connections.update(id, { apiKey });
+};
 const app = require("fastify")();
 app.decorate("db", db);
 app.setErrorHandler(errorHandler);
@@ -122,7 +130,7 @@ try {
   }
   await connections.update(row.id, { audioGenerationCallbackUrl: "https://8.8.8.8/audio" });
   assert.equal((await probe()).music, true, "a public HTTPS callback satisfies the music prerequisite");
-  await connections.update(row.id, { apiKey: "" });
+  await setKey(row.id, "");
   assert.deepEqual(
     await probe(),
     {

@@ -367,7 +367,9 @@ type InsertValuesBuilder = Executable<void> & {
 // (the launcher-format-guard regression pins the pairing).
 // Format 8 protects MMD avatar configurations: released format-7 builds reject the new kind and
 // could overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
-export const STORAGE_VERSION = 8;
+// Format 9 protects connection account links and their credentials. Older builds discard
+// accountId, icon and imageInput when rewriting model rows; no row conversion is needed.
+export const STORAGE_VERSION = 9;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
@@ -422,6 +424,7 @@ const BUILT_IN_FILE_BACKED_TABLES = [
   "prompt_sections",
   "choice_blocks",
   "api_connections",
+  "connection_accounts",
   "assets",
   "agent_configs",
   "agent_runs",

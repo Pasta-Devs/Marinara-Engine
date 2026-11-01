@@ -18,7 +18,12 @@
 // Mirrors the ConnectionAdmissionProvider decorator shape and installs alongside it.
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "./base-provider.js";
 import { BaseLLMProvider, LLMHttpError, isRateLimitError } from "./base-provider.js";
-import { getConnectionRateLimit } from "./connection-rate-limit-registry.js";
+import { acquireAccountSlot } from "./account-budget.js";
+import {
+  getAccountScopeRateLimit,
+  getConnectionBudgetScope,
+  getConnectionRateLimit,
+} from "./connection-rate-limit-registry.js";
 import { isFeatureEnabled } from "../features/feature-settings.js";
 import { logger } from "../../lib/logger.js";
 
@@ -151,8 +156,11 @@ function retryAfterOf(error: unknown): number | undefined {
  * provider in the SAME microtask, so the inner admission slot is still acquired synchronously —
  * awaiting an already-resolved value here would yield a tick and briefly open the concurrency gate.
  */
-function reserveThrottleSlot(connectionId: string, context: RetryContext): Promise<void> | undefined {
-  const maxRpm = getConnectionRateLimit(connectionId);
+function reserveThrottleSlot(
+  connectionId: string,
+  maxRpm: number | null,
+  context: RetryContext,
+): Promise<void> | undefined {
   if (!maxRpm || maxRpm <= 0) return undefined;
   const minIntervalMs = Math.ceil(60_000 / maxRpm);
   const now = Date.now();
@@ -170,6 +178,15 @@ function reserveThrottleSlot(connectionId: string, context: RetryContext): Promi
     }
     throw error;
   });
+}
+
+/** Row RPM pacing (keyed by row id), plus the account's shared RPM pacing when the row has one. */
+function reservePacing(connectionId: string, context: RetryContext): Promise<void> | undefined {
+  const rowWait = reserveThrottleSlot(connectionId, getConnectionRateLimit(connectionId), context);
+  const scope = getConnectionBudgetScope(connectionId);
+  const accountWait = scope ? reserveThrottleSlot(scope, getAccountScopeRateLimit(scope), context) : undefined;
+  if (rowWait && accountWait) return Promise.all([rowWait, accountWait]).then(() => undefined);
+  return rowWait ?? accountWait;
 }
 
 /**
@@ -294,35 +311,45 @@ export class RateLimitAwareProvider extends BaseLLMProvider {
   async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
     const counts: RetryCounts = { rate_limit: 0, transient: 0 };
     for (;;) {
-      // Reserve a throttle slot per attempt, since each retry is a fresh outbound request. When
-      // unthrottled this returns undefined synchronously, so the first attempt still starts the
-      // wrapped provider in the same microtask (keeping admission-slot acquisition synchronous).
-      const throttleWait = reserveThrottleSlot(this.connectionId, options);
-      if (throttleWait) await throttleWait;
-      let yieldedAny = false;
-      const transient = this.transientRetryActive();
-      const tracked = transient ? trackStreamedOutput(options) : { options, emitted: () => false };
-      const iterator = this.provider.chat(messages, tracked.options);
+      // Per attempt (each retry is a fresh outbound request): account slot, then row / account
+      // pacing. Unthrottled and uncapped, both return synchronously, so the first attempt still
+      // starts the wrapped provider in the same microtask (keeping admission-slot acquisition
+      // synchronous).
+      let release = acquireAccountSlot(this.connectionId, options.signal);
+      if (typeof release !== "function") release = await release;
       try {
-        let step = await iterator.next();
-        while (!step.done) {
-          yieldedAny = true;
-          yield step.value;
-          step = await iterator.next();
+        const throttleWait = reservePacing(this.connectionId, options);
+        if (throttleWait) await throttleWait;
+        let yieldedAny = false;
+        const transient = this.transientRetryActive();
+        const tracked = transient ? trackStreamedOutput(options) : { options, emitted: () => false };
+        const iterator = this.provider.chat(messages, tracked.options);
+        try {
+          let step = await iterator.next();
+          while (!step.done) {
+            yieldedAny = true;
+            yield step.value;
+            step = await iterator.next();
+          }
+          return step.value;
+        } catch (error) {
+          // Once tokens have reached the consumer the stream cannot be replayed, so only a
+          // pre-first-token failure is retryable; anything else propagates. A transient retry also
+          // requires that no reasoning was streamed through onThinking.
+          const kind = yieldedAny
+            ? null
+            : this.nextRetry(error, counts, options.signal, transient && !tracked.emitted());
+          if (!kind) throw error;
+          release();
+          await this.pauseForRetry(options, kind, counts, error);
+        } finally {
+          // Close the wrapped generator so its slot-releasing finally runs even when the consumer
+          // abandons this stream early (break/return/abort) while we are suspended at a yield, or
+          // before we retry with a fresh iterator. Mirrors the gen.return() guards elsewhere.
+          await iterator.return(undefined).catch(() => {});
         }
-        return step.value;
-      } catch (error) {
-        // Once tokens have reached the consumer the stream cannot be replayed, so only a
-        // pre-first-token failure is retryable; anything else propagates. A transient retry also
-        // requires that no reasoning was streamed through onThinking.
-        const kind = yieldedAny ? null : this.nextRetry(error, counts, options.signal, transient && !tracked.emitted());
-        if (!kind) throw error;
-        await this.pauseForRetry(options, kind, counts, error);
       } finally {
-        // Close the wrapped generator so its slot-releasing finally runs even when the consumer
-        // abandons this stream early (break/return/abort) while we are suspended at a yield, or
-        // before we retry with a fresh iterator. Mirrors the gen.return() guards elsewhere.
-        await iterator.return(undefined).catch(() => {});
+        release();
       }
     }
   }
@@ -330,18 +357,25 @@ export class RateLimitAwareProvider extends BaseLLMProvider {
   async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
     const counts: RetryCounts = { rate_limit: 0, transient: 0 };
     for (;;) {
-      const throttleWait = reserveThrottleSlot(this.connectionId, options);
-      if (throttleWait) await throttleWait;
-      const transient = this.transientRetryActive();
-      const tracked = transient ? trackStreamedOutput(options) : { options, emitted: () => false };
+      let release = acquireAccountSlot(this.connectionId, options.signal);
+      if (typeof release !== "function") release = await release;
       try {
-        return await this.provider.chatComplete(messages, tracked.options);
-      } catch (error) {
-        // Rate limits keep their existing rule. A transient retry never replays output that
-        // already streamed through onToken / onThinking.
-        const kind = this.nextRetry(error, counts, options.signal, transient && !tracked.emitted());
-        if (!kind) throw error;
-        await this.pauseForRetry(options, kind, counts, error);
+        const throttleWait = reservePacing(this.connectionId, options);
+        if (throttleWait) await throttleWait;
+        const transient = this.transientRetryActive();
+        const tracked = transient ? trackStreamedOutput(options) : { options, emitted: () => false };
+        try {
+          return await this.provider.chatComplete(messages, tracked.options);
+        } catch (error) {
+          // Rate limits keep their existing rule. A transient retry never replays output that
+          // already streamed through onToken / onThinking.
+          const kind = this.nextRetry(error, counts, options.signal, transient && !tracked.emitted());
+          if (!kind) throw error;
+          release();
+          await this.pauseForRetry(options, kind, counts, error);
+        }
+      } finally {
+        release();
       }
     }
   }
@@ -350,14 +384,21 @@ export class RateLimitAwareProvider extends BaseLLMProvider {
     const context: RetryContext = { signal };
     const counts: RetryCounts = { rate_limit: 0, transient: 0 };
     for (;;) {
-      const throttleWait = reserveThrottleSlot(this.connectionId, context);
-      if (throttleWait) await throttleWait;
+      let release = acquireAccountSlot(this.connectionId, signal);
+      if (typeof release !== "function") release = await release;
       try {
-        return await this.provider.embed(texts, model, signal);
-      } catch (error) {
-        const kind = this.nextRetry(error, counts, signal, this.transientRetryActive());
-        if (!kind) throw error;
-        await this.pauseForRetry(context, kind, counts, error);
+        const throttleWait = reservePacing(this.connectionId, context);
+        if (throttleWait) await throttleWait;
+        try {
+          return await this.provider.embed(texts, model, signal);
+        } catch (error) {
+          const kind = this.nextRetry(error, counts, signal, this.transientRetryActive());
+          if (!kind) throw error;
+          release();
+          await this.pauseForRetry(context, kind, counts, error);
+        }
+      } finally {
+        release();
       }
     }
   }

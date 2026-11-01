@@ -39,6 +39,7 @@ export {
   resolveTTSAudioResponseContentType,
 } from "../services/audio/audio-content-type.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
+import { isRefusedFetch } from "../services/decision/system-one.client.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
@@ -863,6 +864,12 @@ function optionalBearerHeaders(apiKey: string) {
   return headers;
 }
 
+/** Auth headers for a source's model list: the same key headers /tts/speak sends. */
+export function ttsCatalogHeaders(source: string, apiKey: string): Record<string, string> {
+  if (source === "elevenlabs") return elevenLabsHeaders(apiKey);
+  return source === "nanogpt" ? nanoGptHeaders(apiKey) : openAiHeaders(apiKey);
+}
+
 function openAiModelSupportsSpeechInstructions(model: string) {
   return /^gpt-4o/i.test(model.trim());
 }
@@ -1641,7 +1648,7 @@ export async function ttsRoutes(app: FastifyInstance) {
         });
       }
       req.log.error(err, "TTS provider request failed");
-      return reply.status(502).send({ error: "TTS provider unreachable" });
+      return reply.status(502).send({ error: isRefusedFetch(err) ? err.message : "TTS provider unreachable" });
     }
 
     if (!providerRes.ok) {

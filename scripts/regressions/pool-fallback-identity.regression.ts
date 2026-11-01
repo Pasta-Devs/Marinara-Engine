@@ -208,6 +208,6 @@ assert.equal(shown?.description, "Pool A (pool-model) failed (key rejected).");
 showGenerationFallbackToast({ category: "illustrator", connectionName: "Images", model: "img-1" });
 const older = toast.getToasts().at(-1) as { title?: unknown; description?: unknown } | undefined;
 assert.equal(older?.title, "Illustrator switched to Images (img-1).");
-assert.equal(older?.description, "The primary generation failed, so Marinara retried with your configured fallback.");
+assert.equal(older?.description, "The request failed, so Marinara tried again with your fallback.");
 
 console.log("pool fallback identity regression passed");

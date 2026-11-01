@@ -4,6 +4,8 @@
 // https://github.com/SillyTavern/SillyTavern/blob/release/public/index.html
 // ──────────────────────────────────────────────────────────────
 import type { APIProvider } from "../types/connection.js";
+import { PROVIDERS } from "./providers.js";
+import { LOCAL_SIDECAR_CONNECTION_ID } from "./defaults.js";
 
 export interface KnownModel {
   id: string;
@@ -897,6 +899,17 @@ export const VIDEO_GENERATION_SOURCES: VideoGenSource[] = [
 /** The image model Codex's own image tool uses through a ChatGPT login. */
 export const CODEX_IMAGE_MODEL = "gpt-image-2";
 
+/** Image sources that use the same vendor key as the chat provider of the given id (one Connection holds both). */
+export const IMAGE_SOURCE_VENDOR: Record<string, string> = {
+  openai: "openai",
+  openrouter: "openrouter",
+  xai: "xai",
+  nanogpt: "nanogpt",
+  arli: "arli",
+  zai: "zai",
+  gemini_image: "google",
+};
+
 export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
   {
     id: "openai",
@@ -1363,7 +1376,7 @@ const PROXY_MODEL_SUFFIX_RE =
  * `:thinking`), no Bedrock wrapper (`us.anthropic.…-v1:0`), Vertex date pins as Anthropic's (`@20250805` is
  * `-20250805`), and hyphenated Claude versions (Poe and OpenRouter `claude-opus-4.6`).
  */
-function catalogModelId(modelId: string): string {
+export function catalogModelId(modelId: string): string {
   return (
     capabilityModelId(modelId.trim().replace(/@(\d{8})$/u, "-$1"))
       .split("/")
@@ -1400,6 +1413,59 @@ export function findKnownModel(provider: APIProvider, modelId: string): KnownMod
   }
 }
 
+/** How a target catalog model matches a Model that moves to another service: same id, same id after the gateway path, same catalog model. */
+export type ModelMoveMatch = "exact" | "prefix" | "catalog";
+export interface ModelMoveCandidate<T> {
+  model: T;
+  match: ModelMoveMatch;
+  /** Another behaviour or billing variant (`:thinking`, `:free`, `[1m]`, `@thinking:on`): the user must confirm it. */
+  variant: boolean;
+}
+
+/** The behaviour/billing tail of an id: its `:variant` and bracket or `@` modifiers. Vertex date pins are not variants. */
+function modelVariantTag(modelId: string): string {
+  const last =
+    modelId
+      .trim()
+      .toLowerCase()
+      .replace(/@(\d{8})$/u, "-$1")
+      .split("/")
+      .pop() ?? "";
+  const base = stripModifierSuffix(last);
+  const colon = base.indexOf(":");
+  return `${colon >= 0 ? base.slice(colon) : ""}${last.slice(base.length).replace(/\s+/gu, "")}`;
+}
+
+/**
+ * Target catalog models that serve the same model as `sourceId`, best first: the exact id, the id without its gateway
+ * path (`nanogpt/…`, Bifrost `vendor/…`), then the same catalog model (`catalogModelId`). A match with another variant
+ * tail is never a suggestion on its own: it is flagged and ranked after the plain matches.
+ */
+export function rankModelMoveCandidates<T extends { id: string }>(
+  sourceId: string,
+  models: readonly T[],
+): Array<ModelMoveCandidate<T>> {
+  const source = sourceId.trim();
+  const sourceLast = source.toLowerCase().split("/").pop() ?? "";
+  const sourceCatalog = catalogModelId(source);
+  const sourceTag = modelVariantTag(source);
+  const rank = { exact: 0, prefix: 1, catalog: 2 } as const;
+  const hits: Array<ModelMoveCandidate<T>> = [];
+  for (const model of models) {
+    const match: ModelMoveMatch | null =
+      model.id === source
+        ? "exact"
+        : model.id.toLowerCase().split("/").pop() === sourceLast
+          ? "prefix"
+          : sourceCatalog && catalogModelId(model.id) === sourceCatalog
+            ? "catalog"
+            : null;
+    if (match) hits.push({ model, match, variant: modelVariantTag(model.id) !== sourceTag });
+  }
+  // Stable sort: within one rank the catalog order stays.
+  return hits.sort((a, b) => Number(a.variant) - Number(b.variant) || rank[a.match] - rank[b.match]);
+}
+
 function normalizeProviderForCatalog(provider: APIProvider | string): APIProvider | null {
   const normalized = provider.replace(/-/g, "_");
   return normalized in MODEL_LISTS ? (normalized as APIProvider) : null;
@@ -1419,4 +1485,131 @@ export function shouldSuppressUnknownModelParameters(
   const catalog = MODEL_LISTS[normalizedProvider];
   if (!catalog || catalog.length === 0) return false;
   return !findKnownModel(normalizedProvider, modelId.trim());
+}
+
+// ── Cost badges ──
+
+/** How a whole Connection is paid for, when one word says it: a plan, or a free community service. */
+export type ConnectionBilling = "plan" | "free" | null;
+
+/** What one model of a catalog costs: in the subscription (with an input-token multiplier), free, paid, or unknown. */
+export type ConnectionModelCost = "included" | `multiplier:${number}` | "free" | "paid" | null;
+
+/** Model prices per million tokens, as the provider's list or the price catalog gives them (USD unless `currency`). */
+export interface ModelCatalogPricing {
+  prompt?: number;
+  completion?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  /** A price per request instead of per token (LinkAPI per-call models). */
+  perCall?: number;
+  /** ISO code when not USD (LinkAPI prices in its display unit). */
+  currency?: string;
+  /** Where a catalog price came from, and when it was read; left out for the provider's own list. */
+  source?: "openrouter" | "linkapi" | "models.dev";
+  fetchedAt?: string;
+  /** LinkAPI: the base price, because the key's price group is not known. */
+  beforeGroupDiscount?: true;
+}
+
+/** One model of a saved catalog as `GET /connections/:id/models` serves it. */
+export interface ConnectionCatalogModel {
+  id: string;
+  name: string;
+  context?: number;
+  maxOutput?: number;
+  capabilities?: unknown;
+  /** NanoGPT subscription: whether the model is in the plan, and its input-token multiplier. */
+  subscriptionIncluded?: boolean;
+  inputTokenMultiplier?: number;
+  pricing?: ModelCatalogPricing;
+  inputModalities?: string[];
+  outputModalities?: string[];
+  free?: true;
+  deprecated?: true;
+  /** When the provider retires the model (ISO date as the provider gives it). */
+  retiresAt?: string;
+  /** Left out when unknown. */
+  cost?: Exclude<ConnectionModelCost, null>;
+}
+
+/** A Model's own answer to "can it read images?"; null (Automatic) lets its catalog decide. */
+export const MODEL_IMAGE_INPUTS = ["reads", "text"] as const;
+export type ModelImageInput = (typeof MODEL_IMAGE_INPUTS)[number];
+
+/**
+ * Whether a Model reads images: its own setting first, then the catalog's input modalities. null means unknown,
+ * and the images are then sent as they are. The on-device model never reads images.
+ */
+export function modelReadsImages(
+  row: { id?: string | null; imageInput?: string | null },
+  catalogModel?: { inputModalities?: readonly string[] } | null,
+): boolean | null {
+  if (row.id === LOCAL_SIDECAR_CONNECTION_ID) return false;
+  if (row.imageInput === "reads") return true;
+  if (row.imageInput === "text") return false;
+  const modalities = catalogModel?.inputModalities;
+  return modalities?.length ? modalities.includes("image") : null;
+}
+
+/** Old choice for NanoGPT plan badges; read once to set `OUTSIDE_READS_SETTINGS_KEY`. */
+export const NANOGPT_PLAN_BADGES_SETTINGS_KEY = "nanogpt-plan-badges";
+
+/** Old choice for public price lists; read once to set `OUTSIDE_READS_SETTINGS_KEY`. */
+export const PRICE_CATALOG_SETTINGS_KEY = "price-catalog";
+
+/**
+ * One switch for every outside read on Connections: NanoGPT plan badges, public price lists and balance reads.
+ * "on" allows them, "off" or unset does not. It replaces the two keys above; an old "on" carries over.
+ */
+export const OUTSIDE_READS_SETTINGS_KEY = "outside-reads";
+
+/** Image sources run by volunteers or free for everyone: the whole Connection is free. */
+const FREE_IMAGE_SOURCES = new Set(["horde", "pollinations"]);
+
+export function connectionBilling(row: {
+  provider: string;
+  baseUrl?: string | null;
+  model?: string | null;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+}): ConnectionBilling {
+  if (PROVIDERS[row.provider as APIProvider]?.billing === "plan") return "plan";
+  if (row.provider !== "image_generation") return null;
+  const source =
+    row.imageGenerationSource?.trim() ||
+    row.imageService?.trim() ||
+    inferImageSource(row.model ?? "", (row.baseUrl ?? "").trim());
+  return FREE_IMAGE_SOURCES.has(source) ? "free" : null;
+}
+
+/** The cost badge of one catalog model. Subscription coverage wins over price; a free Connection makes all free. */
+export function modelCost(
+  model: {
+    subscriptionIncluded?: unknown;
+    inputTokenMultiplier?: unknown;
+    free?: unknown;
+    pricing?: unknown;
+  },
+  billing: ConnectionBilling,
+  /** The account's own subscription reading: false drops the Plan badge, null/undefined keeps it. */
+  subscriptionActive?: boolean | null,
+): ConnectionModelCost {
+  if (model.subscriptionIncluded === true && subscriptionActive !== false) {
+    const multiplier = model.inputTokenMultiplier;
+    return typeof multiplier === "number" && Number.isFinite(multiplier) && multiplier > 1
+      ? `multiplier:${multiplier}`
+      : "included";
+  }
+  if (billing === "free" || model.free === true) return "free";
+  if (model.subscriptionIncluded === false) return "paid";
+  const pricing = model.pricing as ModelCatalogPricing | null | undefined;
+  if (
+    pricing &&
+    typeof pricing === "object" &&
+    ((pricing.prompt ?? 0) > 0 || (pricing.completion ?? 0) > 0 || (pricing.perCall ?? 0) > 0)
+  ) {
+    return "paid";
+  }
+  return null;
 }

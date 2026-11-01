@@ -50,7 +50,13 @@ export function useLibraryOrder(
         return;
       const siblings = Array.from(
         row.parentElement?.querySelectorAll<HTMLElement>(`[data-drag-kind="${kind}"]`) ?? [],
-      ).filter((element) => element.parentElement === row.parentElement && element.getClientRects().length > 0);
+      ).filter(
+        (element) =>
+          element.getClientRects().length > 0 &&
+          (element.parentElement === row.parentElement ||
+            ((kind === "connection" || kind === "connection-folder") &&
+              element.parentElement?.parentElement === row.parentElement)),
+      );
       const index = siblings.indexOf(row);
       const target = siblings[index + (event.key === "ArrowUp" ? -1 : 1)];
       if (!target) return;
