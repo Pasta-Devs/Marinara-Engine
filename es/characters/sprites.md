@@ -25,42 +25,56 @@ Esta guía cubre las categorías **Facial Expressions** y **Full-body**. La cate
 
 ## Subir tus propios sprites
 
-Puedes subir arte que ya tengas. Marinara acepta archivos de imagen comunes. Los archivos PNG transparentes dan el mejor resultado, porque el área vacía alrededor del personaje se ve a través sobre la escena.
+Puedes subir imágenes PNG, JPEG, GIF, WebP, AVIF y SVG pasivas. Los archivos PNG transparentes dan el mejor resultado, porque el área vacía alrededor del personaje se ve a través sobre la escena. Las imágenes de reemplazo no compatibles o no válidas se rechazan sin quitar el sprite guardado.
 
 ### Subir un sprite
 
 1. Abre la pestaña **Sprites** y elige **Facial Expressions** o **Full-body**.
-2. En el cuadro **Add Sprite** (añadir sprite), escribe un nombre en el campo de texto. Para las expresiones el marcador de posición muestra "Expression name (e.g. happy, sad, angry)". Para las poses muestra "Pose name (e.g. idle, walk, battle_stance)".
-3. Haz clic en **Upload** (subir) y elige un archivo de imagen.
+2. Haz clic en **Add sprites** (añadir sprites) y luego en **Upload images** (subir imágenes). Puedes seleccionar varias imágenes a la vez.
+3. El nombre de cada archivo se convierte en la etiqueta inicial del sprite. Abre un sprite para cambiarle el nombre más tarde.
 
-El nuevo sprite aparece en la cuadrícula de abajo con el nombre que le diste.
-
-### Añadir rápido expresiones comunes
-
-En la categoría **Facial Expressions**, una fila **Quick add** (añadir rápido) muestra nombres de expresión sugeridos que aún no has usado, como feliz o enojado. Haz clic en uno para abrir el selector de archivos con ese nombre ya rellenado. Esto te ahorra escribir el nombre tú mismo.
+Los sprites nuevos aparecen sueltos en la cuadrícula normal. En el editor de personas, usa el campo de nombre del cuadro **Add Sprite** (añadir sprite) y el botón **Upload** (subir) de siempre para un solo sprite.
 
 ### Subir una carpeta entera de una vez
 
 Si tienes muchos sprites en una carpeta, puedes importarlos todos en un solo paso.
 
 1. Nombra tus archivos de imagen según la expresión o la pose. Por ejemplo, nombra un archivo `admiration.png` para crear una expresión llamada admiration.
-2. En el cuadro **Add Sprite**, haz clic en **Upload Folder** (subir carpeta).
+2. Abre **Add sprites** y haz clic en **Import folder** (importar carpeta). En el editor de personas, haz clic en **Upload Folder** (subir carpeta) dentro de **Add Sprite**.
 3. Elige la carpeta que contiene tus imágenes.
 
 El nombre de cada archivo (sin su sufijo) se convierte en el nombre del sprite. Una línea de progreso indica "Uploading X/Y sprites" mientras se ejecuta.
+
+Las subcarpetas se convierten en carpetas de sprites opcionales. Un `catalog.json` exportado también restaura la pertenencia a carpetas y las etiquetas editadas. La información de carpetas no válida se informa mientras las imágenes utilizables se importan igualmente. Las importaciones fallidas o parciales informan del fallo en lugar de mostrar un éxito con cero imágenes.
 
 Para hacer varias versiones de la misma expresión, comparte un nombre antes de un guion bajo. Por ejemplo, `happy_01.png` y `happy_blush.png` cuentan ambos como variantes de happy.
 
 ### Gestionar un sprite
 
-Pasa el cursor sobre una tarjeta de sprite en la cuadrícula para ver sus acciones:
+Abre un sprite de personaje para previsualizarlo y ver sus acciones. Los sprites de persona mantienen sus acciones en la miniatura:
 
 - **Frame** (encuadrar): recorta la imagen para que el personaje quede donde quieres.
 - **Download** (descargar): guarda el archivo del sprite en tu computadora.
 - **Replace** (reemplazar): sube una nueva imagen sobre el mismo nombre.
+- **Rename** (renombrar; en la vista previa del personaje): cambia su etiqueta, de hasta 160 caracteres, conservando su identificador de archivo y su URL. Las referencias concretas a la imagen que ya existen siguen funcionando.
+- **Folder** (carpeta; en la vista previa del personaje) o **Move sprite** (mover sprite; en la miniatura de persona): elige una carpeta, o **No folder** (sin carpeta), sin arrastrar.
 - **Delete** (eliminar): quita ese sprite.
 
-Al eliminar se te pide confirmar con el mensaje "Delete sprite for" y el nombre. Cuando se muestra más de un sprite, la misma ventana también ofrece **Delete All Expressions** o **Delete All Full-Body**.
+Al eliminar se te pide confirmar. En el editor de personas, **Delete All Expressions** o **Delete All Full-Body** quita toda la categoría aunque haya una búsqueda activa.
+
+### Carpetas opcionales y selección
+
+Haz clic en **New folder** (nueva carpeta) para crear una carpeta contraída llamada **unnamed**. Haz doble clic o doble toque en su nombre para cambiarlo; usa la flecha para expandirla. Las expresiones y los sprites de cuerpo completo tienen carpetas separadas. Las carpetas aparecen encima de los sprites sueltos y se pueden arrastrar para reordenarlas.
+
+Arrastra sprites individuales a carpetas expandidas o contraídas. En el teléfono, mantén pulsada una miniatura para empezar a arrastrar; un deslizamiento normal sigue desplazando la vista. Arrastra un sprite archivado al área suelta para quitarle la carpeta. El área resaltada muestra el destino. El control **Folder** de la vista previa y el botón **Move sprite** de la miniatura de persona son la alternativa con teclado.
+
+Haz clic en **Select** (seleccionar) para mostrar las casillas y **Select all sprites** (seleccionar todos los sprites); luego arrastra juntos los sprites seleccionados o usa las herramientas de limpieza y eliminación disponibles. **Cancel** (cancelar) sale del modo de selección. La búsqueda filtra los sprites visibles; una búsqueda sin resultados no significa que la biblioteca esté vacía.
+
+Las carpetas organizan los sprites; nunca eligen un conjunto activo ni ocultan imágenes a los chats o agentes. Eliminar una carpeta deja sus sprites sueltos.
+
+### Character Sheet
+
+La fila compacta **Character Sheet** del editor de personajes se abre con **Manage** (gestionar). Crea o sube ahí una hoja y activa **Use as reference image** (usar como imagen de referencia) cuando quieras que se prefiera para el parecido del personaje. La selección de referencias y el respaldo del avatar funcionan como antes.
 
 ## Generar sprites con IA
 
@@ -79,6 +93,8 @@ Rellena la ventana:
 
 Cuando llegan las imágenes, las revisas. Puedes activar o desactivar cada una, cambiarle el nombre y recortarla antes de guardar. Cuando estés conforme, guarda las imágenes seleccionadas en el conjunto de sprites del personaje.
 
+Cuando exactamente un sprite guardado en esa categoría tiene la etiqueta generada, al guardar se reemplaza su imagen y se conservan su carpeta y su identificador. Un sprite al que se le cambió el nombre para apartarlo de esa etiqueta se conserva. Las etiquetas duplicadas en carpetas distintas necesitan que elijas un sprite de reemplazo explícito para acertar con seguridad.
+
 En la fuente **Full-body**, si el personaje ya tiene expresiones de retrato, puedes marcar **Match existing expression sprites** (coincidir con los sprites de expresión existentes). Esto crea poses de cuerpo completo que coinciden con cada nombre de expresión que ya tienes.
 
 Dos notas sobre la generación con IA:
@@ -96,11 +112,11 @@ Un sprite se ve mejor cuando solo se muestra el personaje y el fondo se ve a tra
 
 ### Limpiar un sprite a mano
 
-Haz clic en la imagen de un sprite en la cuadrícula para abrir un editor de limpieza. Ahí puedes borrar el fondo, volver a pintar áreas y comprobar el resultado sobre fondos oscuros, claros y de tablero de ajedrez. Puedes deshacer, restablecer al original y aplicar tus cambios cuando termines.
+Abre la vista previa del sprite de personaje y su acción de limpieza con la varita, o haz clic en la imagen de un sprite de persona para abrir el editor de limpieza. Ahí puedes borrar el fondo, volver a pintar áreas y comprobar el resultado sobre fondos oscuros, claros y de tablero de ajedrez. Puedes deshacer, restablecer al original y aplicar tus cambios cuando termines.
 
 ### Limpiar muchos sprites de una vez
 
-El botón **Clean Backgrounds** (limpiar fondos) quita el fondo de cada sprite que se muestra en ese momento en la cuadrícula.
+En el editor de personajes, haz clic en **Select**, elige sprites y haz clic en **Clean Backgrounds** (limpiar fondos). En el editor de personas, el botón de limpieza se aplica a los sprites seleccionados o, si no hay ninguno seleccionado, a la categoría visible.
 
 1. Ajusta el control deslizante **Cleanup strength** (intensidad de limpieza). Va de Soft a Aggressive, de 0 a 100, y empieza en 35. Un valor más alto quita más fondo pero puede recortar parte del personaje.
 2. Haz clic en **Clean Backgrounds** y confirma.
@@ -116,10 +132,18 @@ La limpieza automática examina la imagen antes de elegir un motor. La limpieza 
 Puedes guardar los sprites de un personaje en tu computadora como un archivo zip. Un zip es un solo archivo que contiene muchos archivos juntos.
 
 1. Abre la pestaña **Sprites**.
-2. Haz clic en **Export** (exportar) en el cuadro **Add Sprite**.
+2. Haz clic en **Export** (exportar) encima de la cuadrícula del personaje, o en el cuadro **Add Sprite** de la persona.
 3. Elige **Expressions only** o **Full-body only** para exportar la categoría actual, o **All sprites** para exportar todo.
 
-La descarga es una sola carpeta con el nombre del personaje, que contiene los archivos de imagen de los sprites.
+La descarga contiene los archivos de imagen de los sprites y un `catalog.json` con las etiquetas y la organización en carpetas. Las transferencias nativas compatibles de personajes y personas, y las copias de seguridad del perfil, también conservan esos metadatos.
+
+### Integraciones que conocen las carpetas
+
+`GET /api/sprites/:ownerId` sigue devolviendo todos los sprites, archivados o sueltos. `GET /api/sprites/:ownerId/catalog` añade las carpetas y la pertenencia para las integraciones que quieran descubrir o importar una carpeta cada vez. Cada sprite incluye su identificador estable `expression`, su `label` editable, `folderId` y su URL. Usa los ID de carpeta para la pertenencia; el arreglo `folders` es el orden guardado, que el editor muestra al revés para que las carpetas nuevas aparezcan primero. El orden de las carpetas no fija la prioridad ni la disponibilidad para los agentes.
+
+El explorador de recursos del chat muestra las etiquetas editadas, pero inserta enlaces concretos `card://sprites/<ownerId>/<filename>`, que siguen funcionando después de un cambio de nombre. Los enlaces del ámbito del chat como `card://sprites/facial/joy.png` también pueden resolver la etiqueta editada; un nombre de archivo coincidente existente tiene prioridad.
+
+Los metadatos opcionales que faltan o no se pueden leer no ocultan las imágenes utilizables. Las ediciones rechazan los metadatos dañados en lugar de reemplazarlos en silencio. Los listados de solo lectura omiten las bibliotecas inaccesibles; las rutas de exportación y escritura siguen rechazando los directorios de propietario enlazados.
 
 ## Cómo aparecen los sprites en tu chat
 

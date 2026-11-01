@@ -25,42 +25,56 @@ Este guia explica as categorias **Facial Expressions** e **Full-body**. A catego
 
 ## Upload dos seus próprios sprites
 
-Você pode fazer upload da arte que já tem. Marinara aceita os arquivos de imagem mais comuns. Arquivos PNG com transparência dão o melhor resultado, porque a área vazia em volta do personagem continua transparente sobre a cena.
+Você pode fazer upload de imagens PNG, JPEG, GIF, WebP, AVIF e SVG passivas. Arquivos PNG com transparência dão o melhor resultado, porque a área vazia em volta do personagem continua transparente sobre a cena. Imagens de substituição não compatíveis ou inválidas são recusadas sem remover o sprite salvo.
 
 ### Upload de um sprite
 
 1. Abra a aba **Sprites** e escolha **Facial Expressions** ou **Full-body**.
-2. Na caixa **Add Sprite** (adicionar sprite), digite um nome no campo de texto. Para expressões, o texto de exemplo mostra "Expression name (e.g. happy, sad, angry)". Para poses, mostra "Pose name (e.g. idle, walk, battle_stance)".
-3. Clique em **Upload** e escolha um arquivo de imagem.
+2. Clique em **Add sprites** (adicionar sprites) e depois em **Upload images** (fazer upload de imagens). Você pode selecionar várias imagens juntas.
+3. O nome de cada arquivo vira o rótulo inicial do sprite. Abra um sprite para renomeá-lo depois.
 
-O novo sprite aparece na grade abaixo, com o nome que você deu.
-
-### Adição rápida das expressões mais comuns
-
-Na categoria **Facial Expressions**, a linha **Quick add** (adição rápida) mostra nomes de expressão sugeridos que você ainda não usou, como feliz ou bravo. Clique em um deles para abrir o seletor de arquivos já com esse nome preenchido. Assim você não precisa digitar o nome.
+Os novos sprites aparecem soltos na grade normal. No editor de persona, use o campo de nome da caixa **Add Sprite** (adicionar sprite) e o botão **Upload** de sempre para um único sprite.
 
 ### Upload de uma pasta inteira de uma vez
 
 Se você tem muitos sprites em uma pasta, importe todos em uma única etapa.
 
 1. Dê aos arquivos de imagem o nome da expressão ou da pose. Por exemplo, um arquivo chamado `admiration.png` cria uma expressão chamada admiration.
-2. Na caixa **Add Sprite**, clique em **Upload Folder**.
+2. Abra **Add sprites** e clique em **Import folder** (importar pasta). No editor de persona, clique em **Upload Folder** dentro de **Add Sprite**.
 3. Escolha a pasta com as imagens.
 
 O nome de cada arquivo, sem a extensão, vira o nome do sprite. Enquanto o processo roda, aparece a linha de progresso "Uploading X/Y sprites".
+
+Subpastas viram pastas de sprites opcionais. Um `catalog.json` exportado também restaura a organização em pastas e os rótulos editados. Informações de pasta inválidas são informadas, e as imagens utilizáveis são importadas mesmo assim. Importações com falha ou parciais informam a falha, em vez de mostrar sucesso com zero imagens.
 
 Para criar várias versões da mesma expressão, use um nome comum antes do sublinhado. Por exemplo, `happy_01.png` e `happy_blush.png` contam como variantes de happy.
 
 ### Gerenciar um sprite
 
-Passe o mouse sobre um card de sprite na grade para ver as ações disponíveis:
+Abra um sprite de personagem para ver a prévia e as ações disponíveis. Sprites de persona mantêm as ações no próprio bloco:
 
 - **Frame** (enquadrar): corta a imagem para deixar o personagem na posição que você quiser.
 - **Download**: salva o arquivo do sprite no seu computador.
 - **Replace** (substituir): faz upload de uma nova imagem com o mesmo nome.
+- **Rename** (renomear; na prévia do personagem): muda o rótulo, com até 160 caracteres, mantendo o identificador do arquivo e a URL. Referências concretas à imagem que já existem continuam funcionando.
+- **Folder** (pasta; na prévia do personagem) ou **Move sprite** (mover sprite; no bloco da persona): escolhe uma pasta, ou **No folder** (sem pasta), sem arrastar.
 - **Delete** (excluir): remove aquele sprite.
 
-Ao excluir, Marinara pede confirmação com a mensagem "Delete sprite for" e o nome. Quando há mais de um sprite visível, a mesma janela também oferece **Delete All Expressions** ou **Delete All Full-Body**.
+Ao excluir, Marinara pede confirmação. No editor de persona, **Delete All Expressions** ou **Delete All Full-Body** remove a categoria inteira, mesmo com uma busca ativa.
+
+### Pastas opcionais e seleção
+
+Clique em **New folder** (nova pasta) para criar uma pasta recolhida chamada **unnamed**. Dê dois cliques ou dois toques no nome para renomeá-la; use a seta para expandi-la. Expressões e sprites de corpo inteiro têm pastas separadas. As pastas aparecem acima dos sprites soltos e podem ser arrastadas para mudar a ordem.
+
+Arraste sprites individuais para pastas expandidas ou recolhidas. No celular, mantenha um bloco pressionado para começar a arrastar; um deslize normal continua rolando a tela. Arraste um sprite que está numa pasta para a área solta para tirá-lo da pasta. A área destacada mostra o destino. O controle **Folder** da prévia e o botão **Move sprite** do bloco da persona são a alternativa pelo teclado.
+
+Clique em **Select** (selecionar) para mostrar as caixas de seleção e **Select all sprites** (selecionar todos os sprites); depois arraste juntos os sprites selecionados ou use as ferramentas de limpeza e exclusão disponíveis. **Cancel** (cancelar) sai do modo de seleção. A busca filtra os sprites visíveis; uma busca sem resultados não significa que a biblioteca está vazia.
+
+As pastas só organizam os sprites; nunca escolhem um conjunto ativo nem escondem imagens dos chats ou agentes. Excluir uma pasta deixa os sprites dela soltos.
+
+### Character Sheet
+
+A linha compacta **Character Sheet** do editor de personagem abre com **Manage** (gerenciar). Crie ou faça upload de uma ficha ali e ative **Use as reference image** (usar como imagem de referência) quando quiser que ela seja a preferida para a semelhança do personagem. A escolha de referências e o uso do avatar como alternativa funcionam como antes.
 
 ## Gerar sprites com IA
 
@@ -79,6 +93,8 @@ Preencha a janela:
 
 Quando as imagens ficam prontas, você faz a revisão. Cada uma pode ser ativada ou desativada, renomeada e cortada antes de salvar. Quando o resultado agradar, salve as imagens selecionadas no conjunto de sprites do personagem.
 
+Quando exatamente um sprite salvo naquela categoria tem o rótulo gerado, salvar substitui a imagem dele e mantém a pasta e o identificador. Um sprite renomeado para longe desse rótulo é preservado. Rótulos duplicados em pastas diferentes exigem que você escolha explicitamente o sprite a substituir para acertar o certo com segurança.
+
 Na origem **Full-body**, se o personagem já tiver expressões em retrato, marque **Match existing expression sprites**. Isso cria poses de corpo inteiro correspondentes a cada nome de expressão que você já tem.
 
 Duas observações sobre a geração com IA:
@@ -96,11 +112,11 @@ O sprite fica melhor quando só o personagem aparece e o plano de fundo é trans
 
 ### Limpar um sprite manualmente
 
-Clique na imagem de um sprite na grade para abrir o editor de limpeza. Lá você apaga o plano de fundo, pinta áreas de volta e confere o resultado sobre fundos escuro, claro e xadrez. Também é possível desfazer, voltar ao original e aplicar as alterações no fim.
+Abra a prévia do sprite de personagem e a ação de limpeza com a varinha, ou clique na imagem de um sprite de persona para abrir o editor de limpeza. Lá você apaga o plano de fundo, pinta áreas de volta e confere o resultado sobre fundos escuro, claro e xadrez. Também é possível desfazer, voltar ao original e aplicar as alterações no fim.
 
 ### Limpar vários sprites de uma vez
 
-O botão **Clean Backgrounds** remove o plano de fundo de todos os sprites visíveis na grade.
+No editor de personagem, clique em **Select**, escolha os sprites e clique em **Clean Backgrounds**. No editor de persona, o botão de limpeza vale para os sprites selecionados ou, se nada estiver selecionado, para a categoria visível.
 
 1. Ajuste o controle deslizante **Cleanup strength** (intensidade da limpeza). Ele vai de Soft a Aggressive, de 0 a 100, e começa em 35. Um valor maior remove mais do plano de fundo, mas pode comer parte do personagem.
 2. Clique em **Clean Backgrounds** e confirme.
@@ -116,10 +132,18 @@ A limpeza automática analisa a imagem antes de escolher o motor. A limpeza de f
 Os sprites de um personagem podem ser salvos no seu computador como um arquivo zip. O zip é um único arquivo que guarda vários arquivos juntos.
 
 1. Abra a aba **Sprites**.
-2. Clique em **Export** na caixa **Add Sprite**.
+2. Clique em **Export** acima da grade do personagem, ou na caixa **Add Sprite** da persona.
 3. Escolha **Expressions only** ou **Full-body only** para exportar a categoria atual, ou **All sprites** para exportar tudo.
 
-O download é uma pasta com o nome do personagem, contendo os arquivos de imagem dos sprites.
+O download contém os arquivos de imagem dos sprites e um `catalog.json` com os rótulos e a organização em pastas. As transferências nativas compatíveis de personagens e personas e os backups de perfil também mantêm esses metadados.
+
+### Integrações que entendem pastas
+
+`GET /api/sprites/:ownerId` continua retornando todos os sprites, em pastas ou soltos. `GET /api/sprites/:ownerId/catalog` acrescenta as pastas e a organização para integrações que querem descobrir ou importar uma pasta por vez. Cada sprite inclui seu identificador estável `expression`, o `label` editável, `folderId` e a URL. Use os IDs de pasta para a organização; o array `folders` é a ordem salva, que o editor mostra invertida para que as pastas novas apareçam primeiro. A ordem das pastas não define a prioridade nem a disponibilidade para os agentes.
+
+O navegador de recursos do chat mostra os rótulos editados, mas insere links concretos `card://sprites/<ownerId>/<filename>`, que continuam funcionando depois de uma renomeação. Links do escopo do chat como `card://sprites/facial/joy.png` também podem resolver o rótulo editado; um nome de arquivo correspondente que já existe tem prioridade.
+
+Metadados opcionais ausentes ou ilegíveis não escondem imagens utilizáveis. As edições recusam metadados danificados em vez de substituí-los em silêncio. Listagens só de leitura pulam bibliotecas inacessíveis; exportação e gravação continuam recusando diretórios de dono vinculados.
 
 ## Como os sprites aparecem no chat
 

@@ -126,6 +126,10 @@ Marinara 会把当前用户角色名称和其他角色卡字段作为参考，�
 
 **Sprites** 选项卡用来给用户角色上传立绘。立绘会在 Game Mode 和 Roleplay 中用到。它下面还有分类选项卡：**Facial Expressions**、**Full-body** 和 **Clips**。可以一次上传一张图，也可以用 **Upload Folder**(上传文件夹) 批量导入整个文件夹的 PNG 图片。立绘是共用的系统，完整说明见[角色立绘](sprites.md)。
 
+表情立绘和全身立绘在未归档网格的上方各有独立的可选文件夹。用 **New folder**(新建文件夹) 新建，再双击或双点名字来改名。可以把立绘拖进或拖出文件夹，也可以用键盘使用缩略图的 **Move sprite**(移动立绘) 操作和 **Folder**(文件夹) 选择器。删除文件夹会保留其中的立绘。所有立绘依然可供聊天和代理使用，受支持的导出、导入和个人资料迁移都会保留文件夹归属和标签。
+
+搜索会筛选网格。搜不到时会显示没有匹配结果的提示；这并不代表立绘集是空的。**Delete All Expressions** 和 **Delete All Full-Body** 仍然作用于整个分类，包括被搜索隐藏的立绘。
+
 ### Gallery 选项卡
 
 **Gallery** 选项卡保存挂在用户角色上的参考图和视频，下面分成 **Images** 和 **Videos** 两个子选项卡。用 **Upload Persona Images**(上传用户角色图片) 或 **Upload Persona Videos**(上传用户角色视频) 添加文件。**Videos** 子选项卡还负责管理 Conversation 模式通话功能用的视频片段。见[角色与用户角色图库](galleries.md)。

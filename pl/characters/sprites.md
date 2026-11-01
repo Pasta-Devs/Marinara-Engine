@@ -25,42 +25,56 @@ Ten przewodnik opisuje kategorie **Facial Expressions** i **Full-body**. Kategor
 
 ## Wgrywanie własnych sprite'ów
 
-Można wgrać grafiki, które już masz. Marinara przyjmuje popularne pliki graficzne. Najlepszy efekt dają pliki PNG z przezroczystością, bo puste miejsce wokół postaci pozostaje przezroczyste na tle sceny.
+Można wgrać obrazy PNG, JPEG, GIF, WebP, AVIF oraz pasywne obrazy SVG. Najlepszy efekt dają pliki PNG z przezroczystością, bo puste miejsce wokół postaci pozostaje przezroczyste na tle sceny. Nieobsługiwane lub nieprawidłowe obrazy zastępcze są odrzucane, a zapisany sprite zostaje na miejscu.
 
 ### Wgrywanie pojedynczego sprite'a
 
 1. Otwórz zakładkę **Sprites** i wybierz **Facial Expressions** albo **Full-body**.
-2. W sekcji **Add Sprite** (dodawanie sprite'a) wpisz nazwę w polu tekstowym. Przy wyrazach twarzy tekst zastępczy brzmi "Expression name (e.g. happy, sad, angry)". Przy pozach brzmi "Pose name (e.g. idle, walk, battle_stance)".
-3. Kliknij przycisk **Upload** i wskaż jeden plik graficzny.
+2. Kliknij **Add sprites** (dodawanie sprite'ów), a potem **Upload images** (wgrywanie obrazów). Można zaznaczyć kilka obrazów naraz.
+3. Nazwa każdego pliku staje się początkową etykietą sprite'a. Żeby później zmienić nazwę, otwórz sprite'a.
 
-Nowy sprite pojawia się w siatce poniżej pod nadaną mu nazwą.
-
-### Szybkie dodawanie popularnych wyrazów twarzy
-
-W kategorii **Facial Expressions** wiersz **Quick add** (szybkie dodawanie) pokazuje propozycje nazw wyrazów twarzy, których jeszcze nie ma – na przykład happy albo angry. Kliknij jedną z nich, a okno wyboru pliku otworzy się z już wpisaną nazwą. Dzięki temu nie trzeba wpisywać nazwy ręcznie.
+Nowe sprite'y pojawiają się luzem w zwykłej siatce. W edytorze persony pojedynczy sprite wgrywa się jak dotąd – przez pole nazwy w sekcji **Add Sprite** (dodawanie sprite'a) i przycisk **Upload**.
 
 ### Wgrywanie całego folderu naraz
 
 Jeśli w folderze czeka wiele sprite'ów, da się je zaimportować za jednym razem.
 
 1. Nazwij pliki graficzne tak jak wyraz twarzy albo pozę. Na przykład plik `admiration.png` tworzy wyraz twarzy o nazwie admiration.
-2. W sekcji **Add Sprite** kliknij przycisk **Upload Folder**.
+2. Otwórz **Add sprites** i kliknij **Import folder** (import folderu). W edytorze persony kliknij **Upload Folder** w sekcji **Add Sprite**.
 3. Wskaż folder z obrazami.
 
 Nazwa każdego pliku (bez rozszerzenia) staje się nazwą sprite'a. W trakcie pracy widać linię "Uploading X/Y sprites".
+
+Podfoldery stają się opcjonalnymi folderami sprite'ów. Wyeksportowany `catalog.json` przywraca też przypisanie do folderów i zmienione etykiety. Nieprawidłowe dane o folderach są zgłaszane, a nadające się obrazy i tak zostają zaimportowane. Nieudany lub częściowy import zgłasza błąd, zamiast pokazywać sukces z zerem obrazów.
 
 Żeby zrobić kilka wersji tego samego wyrazu twarzy, użyj wspólnej nazwy przed podkreśleniem. Na przykład `happy_01.png` i `happy_blush.png` liczą się jako warianty happy.
 
 ### Zarządzanie sprite'em
 
-Najedź myszą na kafelek sprite'a w siatce, żeby zobaczyć dostępne działania:
+Otwórz sprite'a postaci, żeby zobaczyć podgląd i dostępne działania. Sprite'y persony mają działania na samym kafelku:
 
 - **Frame** (kadrowanie): przytnij obraz tak, żeby postać stała tam, gdzie trzeba.
 - **Download** (pobranie): zapisz plik sprite'a na komputerze.
 - **Replace** (zamiana): wgraj nowy obraz pod tą samą nazwą.
+- **Rename** (zmiana nazwy; w podglądzie postaci): zmień etykietę, do 160 znaków, z zachowaniem uchwytu pliku i adresu URL. Istniejące konkretne odwołania do obrazu dalej działają.
+- **Folder** (folder; w podglądzie postaci) albo **Move sprite** (przeniesienie sprite'a; na kafelku persony): wybierz folder albo **No folder** (bez folderu) bez przeciągania.
 - **Delete** (usunięcie): skasuj ten sprite.
 
-Przy usuwaniu Marinara prosi o potwierdzenie komunikatem "Delete sprite for" i nazwą. Kiedy widoczny jest więcej niż jeden sprite, to samo okno oferuje też przyciski **Delete All Expressions** i **Delete All Full-Body**.
+Przy usuwaniu Marinara prosi o potwierdzenie. W edytorze persony **Delete All Expressions** albo **Delete All Full-Body** usuwa całą kategorię, nawet przy aktywnym wyszukiwaniu.
+
+### Opcjonalne foldery i zaznaczanie
+
+Kliknij **New folder** (nowy folder), żeby utworzyć zwinięty folder o nazwie **unnamed**. Dwukrotne kliknięcie lub dotknięcie nazwy pozwala ją zmienić, a strzałka rozwija folder. Wyrazy twarzy i sprite'y całej sylwetki mają osobne foldery. Foldery stoją nad sprite'ami luzem i można zmieniać ich kolejność przeciąganiem.
+
+Przeciągaj pojedyncze sprite'y do rozwiniętych albo zwiniętych folderów. Na telefonie przytrzymaj kafelek, żeby zacząć przeciąganie; zwykłe przesunięcie palcem dalej przewija widok. Przeciągnięcie sprite'a z folderu na obszar luzem zdejmuje go z folderu. Podświetlony obszar pokazuje miejsce docelowe. Kontrolka **Folder** w podglądzie i przycisk **Move sprite** na kafelku persony to zamiennik dla klawiatury.
+
+Kliknij **Select** (zaznaczanie), żeby pokazać pola wyboru i **Select all sprites** (zaznaczenie wszystkich sprite'ów), a potem przeciągnij zaznaczone sprite'y razem albo użyj dostępnych narzędzi czyszczenia i usuwania. **Cancel** (anulowanie) kończy tryb zaznaczania. Wyszukiwanie filtruje widoczne sprite'y; brak wyników nie oznacza, że biblioteka jest pusta.
+
+Foldery tylko porządkują sprite'y – nigdy nie wybierają aktywnego zestawu ani nie ukrywają obrazów przed czatami czy agentami. Usunięcie folderu zostawia jego sprite'y luzem.
+
+### Character Sheet
+
+Kompaktowy wiersz **Character Sheet** w edytorze postaci otwiera się przyciskiem **Manage** (zarządzanie). Tam utworzysz albo wgrasz arkusz i włączysz **Use as reference image** (użycie jako obrazu referencyjnego), jeśli ma być preferowany przy odwzorowaniu postaci. Wybór referencji i awaryjne użycie awatara działają jak wcześniej.
 
 ## Generowanie sprite'ów przy pomocy AI
 
@@ -79,6 +93,8 @@ Wypełnij okno:
 
 Gotowe obrazy trafiają do przeglądu. Każdy z nich można włączyć albo wyłączyć, zmienić mu nazwę i wykadrować przed zapisem. Kiedy wynik jest zadowalający, zapisz zaznaczone obrazy do zestawu sprite'ów postaci.
 
+Jeśli dokładnie jeden zapisany sprite w tej kategorii ma wygenerowaną etykietę, zapis zastępuje jego obraz i zachowuje jego folder oraz uchwyt. Sprite, któremu zmieniono nazwę na inną niż ta etykieta, zostaje zachowany. Przy powtarzających się etykietach w różnych folderach trzeba jawnie wskazać sprite'a do zastąpienia, żeby trafić we właściwy.
+
 W źródle **Full-body**, jeśli postać ma już portretowe wyrazy twarzy, można zaznaczyć **Match existing expression sprites**. Powstaną wtedy pozy całej sylwetki odpowiadające każdej istniejącej nazwie wyrazu twarzy.
 
 Dwie uwagi o generowaniu przez AI:
@@ -96,11 +112,11 @@ Sprite wygląda najlepiej, kiedy widać samą postać, a tło jest przezroczyste
 
 ### Ręczne czyszczenie jednego sprite'a
 
-Kliknij obrazek sprite'a w siatce, żeby otworzyć edytor czyszczenia. Można w nim wymazać tło, domalować fragmenty z powrotem i sprawdzić efekt na tle ciemnym, jasnym oraz w szachownicę. Zmiany da się cofać, przywrócić oryginał i na koniec zatwierdzić.
+Otwórz podgląd sprite'a postaci i jego działanie czyszczenia (różdżka) albo kliknij obrazek sprite'a persony, żeby otworzyć edytor czyszczenia. Można w nim wymazać tło, domalować fragmenty z powrotem i sprawdzić efekt na tle ciemnym, jasnym oraz w szachownicę. Zmiany da się cofać, przywrócić oryginał i na koniec zatwierdzić.
 
 ### Czyszczenie wielu sprite'ów naraz
 
-Przycisk **Clean Backgrounds** (czyszczenie teł) usuwa tło ze wszystkich sprite'ów widocznych w danej chwili w siatce.
+W edytorze postaci kliknij **Select**, wybierz sprite'y i kliknij **Clean Backgrounds** (czyszczenie teł). W edytorze persony przycisk czyszczenia działa na zaznaczone sprite'y albo, gdy nic nie zaznaczono, na widoczną kategorię.
 
 1. Ustaw suwak **Cleanup strength** (siła czyszczenia). Skala biegnie od Soft do Aggressive, od 0 do 100, i startuje na 35. Wyższa wartość usuwa więcej tła, ale potrafi podgryźć samą postać.
 2. Kliknij przycisk **Clean Backgrounds** i potwierdź.
@@ -116,10 +132,18 @@ Automatyczne czyszczenie najpierw bada obraz, a dopiero potem wybiera silnik. Sz
 Sprite'y postaci można zapisać na komputerze w pliku zip. Zip to jeden plik, który mieści w sobie wiele innych plików.
 
 1. Otwórz zakładkę **Sprites**.
-2. Kliknij przycisk **Export** w sekcji **Add Sprite**.
+2. Kliknij przycisk **Export** nad siatką postaci albo w sekcji **Add Sprite** persony.
 3. Wybierz **Expressions only** albo **Full-body only**, żeby wyeksportować bieżącą kategorię, albo **All sprites**, żeby wyeksportować wszystko.
 
-Pobrany plik zawiera jeden folder nazwany tak jak postać, a w nim pliki graficzne sprite'ów.
+Pobrany plik zawiera pliki graficzne sprite'ów oraz `catalog.json` z etykietami i podziałem na foldery. Obsługiwane natywne przenoszenie postaci i person oraz kopie zapasowe profilu również zachowują te metadane.
+
+### Integracje świadome folderów
+
+`GET /api/sprites/:ownerId` nadal zwraca wszystkie sprite'y, w folderach i luzem. `GET /api/sprites/:ownerId/catalog` dokłada foldery i przypisania dla integracji, które chcą wykrywać lub importować po jednym folderze. Każdy sprite zawiera stały uchwyt `expression`, edytowalny `label`, `folderId` i adres URL. Do przypisania używaj identyfikatorów folderów; tablica `folders` to zapisana kolejność, którą edytor pokazuje odwrotnie, żeby nowe foldery były na górze. Kolejność folderów nie ustala priorytetu ani dostępności dla agentów.
+
+Przeglądarka zasobów w czacie pokazuje zmienione etykiety, ale wstawia konkretne linki `card://sprites/<ownerId>/<filename>`, które działają także po zmianie nazwy. Linki w obrębie czatu, takie jak `card://sprites/facial/joy.png`, mogą też rozwiązać zmienioną etykietę; istniejąca pasująca nazwa pliku ma pierwszeństwo.
+
+Brakujące lub nieczytelne opcjonalne metadane nie ukrywają nadających się obrazów. Edycje odmawiają przy uszkodzonych metadanych, zamiast po cichu je zastępować. Listy tylko do odczytu pomijają niedostępne biblioteki; eksport i zapis nadal odmawiają w przypadku podlinkowanych katalogów właściciela.
 
 ## Jak sprite'y pokazują się na czacie
 

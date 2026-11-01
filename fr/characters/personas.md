@@ -126,6 +126,10 @@ L'onglet **Lorebook** permet de rattacher des entrées de lorebook à ton person
 
 L'onglet **Sprites** permet de téléverser des illustrations de personnage en pied pour ton persona. Un sprite est l'image du personnage affichée sur le plateau ; les sprites servent en Game Mode et en Roleplay. L'onglet propose des onglets de catégorie : **Facial Expressions**, **Full-body** et **Clips**. Téléverse une image à la fois, ou utilise **Upload Folder** (téléverser un dossier) pour importer en bloc un dossier d'images PNG. Comme les sprites forment un système partagé, consulte [Sprites de personnage](sprites.md) pour tous les détails.
 
+Les expressions et les sprites en pied ont des dossiers facultatifs séparés, au-dessus de la grille des sprites hors dossier. Utilise **New folder** (nouveau dossier), puis double-clique ou touche deux fois son nom pour le renommer. Glisse des sprites dans ou hors des dossiers, ou utilise au clavier l'action **Move sprite** (déplacer le sprite) d'une vignette et le sélecteur **Folder** (dossier). Supprimer un dossier conserve ses sprites. Tous les sprites restent disponibles pour les chats et les agents, et les exports, imports et transferts de profil pris en charge conservent l'appartenance aux dossiers et les libellés.
+
+La recherche filtre la grille. Une recherche sans résultat affiche un message indiquant qu'aucun élément ne correspond ; cela ne veut pas dire que la collection est vide. **Delete All Expressions** et **Delete All Full-Body** s'appliquent toujours à toute la catégorie, y compris aux sprites masqués par une recherche.
+
 ### Onglet Gallery
 
 L'onglet **Gallery** conserve les illustrations et vidéos de référence attachées à ton persona. Il comporte deux sous-onglets, **Images** et **Videos**. Utilise **Upload Persona Images** (téléverser des images de persona) ou **Upload Persona Videos** (téléverser des vidéos de persona) pour ajouter des fichiers. Le sous-onglet **Videos** gère aussi les clips d'appel vidéo de la fonction d'appel du mode Conversation. Consulte [Galeries de personnages et de personas](galleries.md).

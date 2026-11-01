@@ -25,42 +25,56 @@ Ce guide traite des catégories **Facial Expressions** et **Full-body**. La cat�
 
 ## Téléverser tes propres sprites
 
-Tu peux téléverser les illustrations que tu as déjà. Marinara accepte les formats d'image courants. Les fichiers PNG transparents donnent le meilleur résultat : la zone vide autour du personnage laisse voir la scène.
+Tu peux téléverser des images PNG, JPEG, GIF, WebP, AVIF et SVG passives. Les fichiers PNG transparents donnent le meilleur résultat : la zone vide autour du personnage laisse voir la scène. Une image de remplacement non prise en charge ou invalide est refusée sans retirer le sprite enregistré.
 
 ### Téléverser un sprite
 
 1. Ouvre l'onglet **Sprites** et choisis **Facial Expressions** ou **Full-body**.
-2. Dans l'encadré **Add Sprite** (ajouter un sprite), saisis un nom dans le champ de texte. Pour les expressions, le texte indicatif affiche "Expression name (e.g. happy, sad, angry)". Pour les poses, il affiche "Pose name (e.g. idle, walk, battle_stance)".
-3. Clique sur **Upload** (téléverser) et choisis un fichier image.
+2. Clique sur **Add sprites** (ajouter des sprites), puis sur **Upload images** (téléverser des images). Tu peux sélectionner plusieurs images à la fois.
+3. Chaque nom de fichier devient le libellé initial du sprite. Ouvre un sprite pour le renommer plus tard.
 
-Le nouveau sprite apparaît dans la grille en dessous, sous le nom que tu lui as donné.
-
-### Ajouter rapidement les expressions courantes
-
-Dans la catégorie **Facial Expressions**, une ligne **Quick add** (ajout rapide) propose des noms d'expression que tu n'utilises pas encore, par exemple happy ou angry. Clique sur l'un d'eux pour ouvrir le sélecteur de fichiers avec ce nom déjà rempli. Tu évites ainsi de saisir le nom toi-même.
+Les nouveaux sprites apparaissent hors dossier dans la grille habituelle. Dans l'éditeur de persona, utilise toujours le champ de nom de l'encadré **Add Sprite** (ajouter un sprite) et le bouton **Upload** (téléverser) pour un seul sprite.
 
 ### Téléverser un dossier entier d'un coup
 
 Si tes sprites sont déjà rassemblés dans un dossier, importe-les tous en une seule opération.
 
 1. Nomme chaque fichier image d'après l'expression ou la pose. Par exemple, un fichier nommé `admiration.png` crée une expression appelée admiration.
-2. Dans l'encadré **Add Sprite**, clique sur **Upload Folder** (téléverser un dossier).
+2. Ouvre **Add sprites**, puis clique sur **Import folder** (importer un dossier). Dans l'éditeur de persona, clique sur **Upload Folder** (téléverser un dossier) dans **Add Sprite**.
 3. Choisis le dossier qui contient les images.
 
 Chaque nom de fichier, extension mise à part, devient le nom du sprite. Pendant l'opération, une ligne de progression indique "Uploading X/Y sprites".
+
+Les sous-dossiers deviennent des dossiers de sprites facultatifs. Un `catalog.json` exporté restaure aussi l'appartenance aux dossiers et les libellés modifiés. Les informations de dossier invalides sont signalées, et les images utilisables sont tout de même importées. Un import échoué ou partiel signale l'échec au lieu d'annoncer une réussite avec zéro image.
 
 Pour créer plusieurs versions d'une même expression, donne-leur un nom commun avant un tiret bas. Par exemple, `happy_01.png` et `happy_blush.png` comptent tous deux comme des variantes de happy.
 
 ### Gérer un sprite
 
-Passe la souris sur une carte de sprite dans la grille pour faire apparaître ses actions :
+Ouvre un sprite de personnage pour l'afficher en aperçu avec ses actions. Les sprites de persona gardent leurs actions sur la vignette :
 
 - **Frame** (recadrer) : recadre l'image pour placer le personnage où tu le souhaites.
 - **Download** (télécharger) : enregistre le fichier du sprite sur ton ordinateur.
 - **Replace** (remplacer) : téléverse une nouvelle image sous le même nom.
+- **Rename** (renommer ; aperçu du personnage) : modifie son libellé, jusqu'à 160 caractères, en conservant son identifiant de fichier et son URL. Les références concrètes à l'image qui existent déjà continuent de fonctionner.
+- **Folder** (dossier ; aperçu du personnage) ou **Move sprite** (déplacer le sprite ; vignette de persona) : choisis un dossier, ou **No folder** (aucun dossier), sans glisser.
 - **Delete** (supprimer) : supprime ce sprite.
 
-La suppression demande une confirmation avec le message "Delete sprite for" suivi du nom. Quand plusieurs sprites sont affichés, la même fenêtre propose aussi **Delete All Expressions** ou **Delete All Full-Body**.
+La suppression demande une confirmation. Dans l'éditeur de persona, **Delete All Expressions** ou **Delete All Full-Body** supprime toute la catégorie, même quand une recherche est active.
+
+### Dossiers facultatifs et sélection
+
+Clique sur **New folder** (nouveau dossier) pour créer un dossier replié nommé **unnamed**. Double-clique ou touche deux fois son nom pour le renommer ; utilise le chevron pour le déplier. Les expressions et les sprites en pied ont des dossiers séparés. Les dossiers apparaissent au-dessus des sprites hors dossier et se réordonnent par glisser-déposer.
+
+Glisse des sprites un par un dans des dossiers dépliés ou repliés. Sur téléphone, maintiens le doigt sur une vignette pour commencer à la glisser ; un balayage normal fait toujours défiler la page. Glisse un sprite rangé vers la zone hors dossier pour le retirer de son dossier. La zone mise en évidence indique la destination. Le contrôle **Folder** de l'aperçu et le bouton **Move sprite** de la vignette de persona offrent une alternative au clavier.
+
+Clique sur **Select** (sélectionner) pour afficher les cases à cocher et **Select all sprites** (sélectionner tous les sprites), puis glisse ensemble les sprites sélectionnés ou utilise les outils de nettoyage et de suppression disponibles. **Cancel** (annuler) quitte le mode sélection. La recherche filtre les sprites visibles ; une recherche sans résultat ne signifie pas que la bibliothèque est vide.
+
+Les dossiers servent à ranger les sprites : ils ne choisissent jamais un ensemble actif et ne cachent aucune image aux chats ni aux agents. Supprimer un dossier laisse ses sprites hors dossier.
+
+### Character Sheet
+
+Dans l'éditeur de personnage, la ligne compacte **Character Sheet** s'ouvre avec **Manage** (gérer). Crée ou téléverse une fiche à cet endroit et active **Use as reference image** (utiliser comme image de référence) quand tu veux qu'elle soit privilégiée pour la ressemblance du personnage. Le choix des références et le repli sur l'avatar fonctionnent comme avant.
 
 ## Générer des sprites avec l'IA
 
@@ -79,6 +93,8 @@ Remplis la fenêtre :
 
 À l'arrivée des images, tu les passes en revue. Tu peux activer ou désactiver chacune d'elles, la renommer et la recadrer avant d'enregistrer. Quand le résultat te convient, enregistre les images retenues dans le jeu de sprites du personnage.
 
+Quand un seul sprite enregistré de cette catégorie porte le libellé généré, l'enregistrement remplace son image et conserve son dossier et son identifiant. Un sprite renommé pour ne plus porter ce libellé est préservé. Si le même libellé figure dans plusieurs dossiers, il faut choisir explicitement le sprite à remplacer pour viser le bon de façon fiable.
+
 Dans la source **Full-body**, si le personnage possède déjà des expressions en portrait, tu peux cocher **Match existing expression sprites**. Marinara crée alors des poses en pied qui correspondent à chaque nom d'expression déjà présent.
 
 Deux remarques sur la génération par IA :
@@ -96,11 +112,11 @@ Un sprite rend mieux quand seul le personnage apparaît et que l'arrière-plan l
 
 ### Nettoyer un sprite à la main
 
-Clique sur l'image d'un sprite dans la grille pour ouvrir un éditeur de nettoyage. Tu peux y effacer l'arrière-plan, repeindre certaines zones et vérifier le résultat sur des fonds sombre, clair et en damier. Tu peux annuler, revenir à l'original et appliquer tes modifications une fois terminé.
+Ouvre l'aperçu du sprite de personnage et son action de nettoyage (la baguette), ou clique sur l'image d'un sprite de persona pour ouvrir l'éditeur de nettoyage. Tu peux y effacer l'arrière-plan, repeindre certaines zones et vérifier le résultat sur des fonds sombre, clair et en damier. Tu peux annuler, revenir à l'original et appliquer tes modifications une fois terminé.
 
 ### Nettoyer plusieurs sprites d'un coup
 
-Le bouton **Clean Backgrounds** (nettoyer les arrière-plans) retire l'arrière-plan de tous les sprites affichés dans la grille.
+Dans l'éditeur de personnage, clique sur **Select**, choisis des sprites, puis clique sur **Clean Backgrounds** (nettoyer les arrière-plans). Dans l'éditeur de persona, le bouton de nettoyage s'applique aux sprites sélectionnés, ou à la catégorie affichée si rien n'est sélectionné.
 
 1. Règle le curseur **Cleanup strength** (intensité du nettoyage). Il va de Soft à Aggressive, sur une échelle de 0 à 100, et démarre à 35. Une valeur élevée retire davantage d'arrière-plan, mais risque de mordre sur le personnage.
 2. Clique sur **Clean Backgrounds** et confirme.
@@ -116,10 +132,18 @@ Le nettoyage automatique examine l'image avant de choisir un moteur. Le nettoyag
 Tu peux enregistrer les sprites d'un personnage sur ton ordinateur sous forme de fichier zip. Un zip est un fichier unique qui en rassemble plusieurs.
 
 1. Ouvre l'onglet **Sprites**.
-2. Clique sur **Export** (exporter) dans l'encadré **Add Sprite**.
+2. Clique sur **Export** (exporter) au-dessus de la grille du personnage, ou dans l'encadré **Add Sprite** du persona.
 3. Choisis **Expressions only** ou **Full-body only** pour exporter la catégorie en cours, ou **All sprites** pour tout exporter.
 
-Le téléchargement se compose d'un seul dossier, nommé d'après le personnage, qui contient les fichiers image des sprites.
+Le téléchargement contient les fichiers image des sprites et un `catalog.json` pour les libellés et l'organisation en dossiers. Les transferts natifs pris en charge de personnages et de personas, ainsi que les sauvegardes de profil, conservent aussi ces métadonnées.
+
+### Intégrations qui tiennent compte des dossiers
+
+`GET /api/sprites/:ownerId` renvoie toujours tous les sprites, rangés ou non. `GET /api/sprites/:ownerId/catalog` ajoute les dossiers et l'appartenance pour les intégrations qui veulent découvrir ou importer un dossier à la fois. Chaque sprite inclut son identifiant stable `expression`, son `label` modifiable, `folderId` et son URL. Utilise les identifiants de dossier pour l'appartenance ; le tableau `folders` est l'ordre enregistré, que l'éditeur affiche à l'envers pour que les nouveaux dossiers apparaissent en premier. L'ordre des dossiers ne fixe ni la priorité ni la disponibilité pour les agents.
+
+Le navigateur de ressources du chat affiche les libellés modifiés, mais insère des liens concrets `card://sprites/<ownerId>/<filename>`, qui fonctionnent toujours après un renommage. Les liens propres au chat comme `card://sprites/facial/joy.png` peuvent aussi résoudre le libellé modifié ; un nom de fichier correspondant existant est prioritaire.
+
+Des métadonnées facultatives absentes ou illisibles ne masquent pas les images utilisables. Les modifications refusent les métadonnées endommagées au lieu de les remplacer en silence. Les listes en lecture seule ignorent les bibliothèques inaccessibles ; l'export et les écritures refusent toujours les dossiers de propriétaire liés.
 
 ## Comment les sprites s'affichent dans le chat
 

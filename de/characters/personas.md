@@ -126,6 +126,10 @@ Im Tab **Lorebook** hängst du Lorebook-Einträge an die Persona. Ein Lorebook i
 
 Im Tab **Sprites** lädst du stehende Charakterbilder für die Persona hoch. Sprites – die Charakterbilder auf der Bühne – kommen in Game Mode und Roleplay zum Einsatz. Es gibt Kategorie-Tabs für **Facial Expressions**, **Full-body** und **Clips**. Du kannst Bilder einzeln hochladen oder mit **Upload Folder** (Ordner hochladen) einen ganzen Ordner voller PNG-Bilder auf einmal einlesen. Sprites sind ein gemeinsames System; alle Details stehen unter [Charakter-Sprites](sprites.md).
 
+Gesichtsausdrücke und Ganzkörper-Sprites haben getrennte, optionale Ordner über dem Raster ohne Ordner. Leg mit **New folder** (Neuer Ordner) einen an und benenne ihn mit Doppelklick oder Doppeltippen auf den Namen um. Ziehe Sprites in Ordner hinein oder heraus, oder nutze mit der Tastatur die Aktion **Move sprite** (Sprite verschieben) einer Kachel und die Auswahl **Folder** (Ordner). Wird ein Ordner entfernt, bleiben seine Sprites erhalten. Alle Sprites stehen Chats und Agenten weiterhin zur Verfügung, und unterstützte Exporte, Importe und Profilübertragungen behalten Ordnerzuordnung und Namen.
+
+Die Suche filtert das Raster. Eine Suche ohne Treffer zeigt einen entsprechenden Hinweis; sie bedeutet nicht, dass die Sammlung leer ist. **Delete All Expressions** und **Delete All Full-Body** gelten weiterhin für die ganze Kategorie, auch für Sprites, die eine Suche gerade ausblendet.
+
 ### Tab **Gallery**
 
 Im Tab **Gallery** sammelst du Referenzbilder und Videos zur Persona. Er hat die beiden Unter-Tabs **Images** und **Videos**. Über **Upload Persona Images** oder **Upload Persona Videos** fügst du Dateien hinzu. Der Unter-Tab **Videos** verwaltet außerdem die Videoclips für die Anruf-Funktion im Conversation Mode. Siehe [Galerien für Charaktere und Personas](galleries.md).

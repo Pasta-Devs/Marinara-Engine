@@ -126,6 +126,10 @@ A aba **Lorebook** permite anexar entradas de lorebook à persona. O lorebook é
 
 Na aba **Sprites** você faz upload das artes de corpo inteiro da persona. Os sprites, as imagens do personagem no palco, são usados no Game Mode e no Roleplay. A aba tem categorias próprias: **Facial Expressions**, **Full-body** e **Clips**. Faça upload de uma imagem por vez ou use **Upload Folder** para importar em massa uma pasta de imagens PNG. Como os sprites são um sistema compartilhado, veja [Sprites de personagem](sprites.md) para todos os detalhes.
 
+Expressões e sprites de corpo inteiro têm pastas opcionais separadas acima da grade de sprites soltos. Use **New folder** (nova pasta) e depois dê dois cliques ou dois toques no nome para renomeá-la. Arraste sprites para dentro ou para fora das pastas, ou use pelo teclado a ação **Move sprite** (mover sprite) de um bloco e o seletor **Folder** (pasta). Remover uma pasta mantém os sprites dela. Todos os sprites continuam disponíveis para chats e agentes, e exportações, importações e transferências de perfil compatíveis mantêm a organização em pastas e os rótulos.
+
+A busca filtra a grade. Uma busca sem resultados mostra uma mensagem de que nada corresponde; isso não significa que a coleção está vazia. **Delete All Expressions** e **Delete All Full-Body** continuam valendo para a categoria inteira, incluindo os sprites escondidos por uma busca.
+
 ### Aba Gallery
 
 A aba **Gallery** guarda artes de referência e vídeos anexados à persona. Ela tem duas subabas, **Images** e **Videos**. Use **Upload Persona Images** ou **Upload Persona Videos** para adicionar arquivos. A subaba **Videos** também cuida dos clipes de videochamada usados no recurso de chamada do Conversation Mode. Veja [Galerias de personagem e de persona](galleries.md).
