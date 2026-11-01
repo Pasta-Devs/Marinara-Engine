@@ -48,7 +48,11 @@ import type {
 import { resolveBaseUrl as resolveSceneConnectionBaseUrl } from "./generate/generate-route-utils.js";
 import { assemblePrompt } from "../services/prompt/assembler.js";
 import { parsePromptPresetChoices } from "../services/generation/conversation-context-utils.js";
-import { buildPromptMacroContext, normalizeChatMacroVariables, resolveMacrosForPreview } from "../services/prompt/macro-context.js";
+import {
+  buildPromptMacroContext,
+  normalizeChatMacroVariables,
+  resolveMacrosForPreview,
+} from "../services/prompt/macro-context.js";
 import { withDeadline } from "../services/capability-packages/capability-prompt-context.service.js";
 import {
   SCENE_ORIGIN_TIMEOUT_MS,
@@ -67,10 +71,14 @@ export function parseSceneScenarioDraft(
   openerId: string,
   revise?: SceneScenarioDraftRequest["revise"],
 ): { draft: SceneScenarioDraft; error?: never } | { draft: null; error: string } {
-  if (!raw.trim()) return { draft: null, error: "Model returned an empty response. Try again or check your connection." };
+  if (!raw.trim())
+    return { draft: null, error: "Model returned an empty response. Try again or check your connection." };
   let parsed: Record<string, unknown>;
   try {
-    const cleaned = raw.trim().replace(/```(?:json)?\s*/gi, "").replace(/```/g, "");
+    const cleaned = raw
+      .trim()
+      .replace(/```(?:json)?\s*/gi, "")
+      .replace(/```/g, "");
     const first = cleaned.indexOf("{");
     const last = cleaned.lastIndexOf("}");
     if (first < 0 || last < first) throw new Error("No JSON object found");
@@ -82,11 +90,14 @@ export function parseSceneScenarioDraft(
   }
   const premise = typeof parsed.premise === "string" ? parsed.premise : "";
   const openingValue = parsed.opening;
-  const openingContent: string = typeof openingValue === "string"
-    ? openingValue
-    : openingValue && typeof openingValue === "object" && typeof (openingValue as Record<string, unknown>).content === "string"
-      ? (openingValue as Record<string, string>).content!
-      : "";
+  const openingContent: string =
+    typeof openingValue === "string"
+      ? openingValue
+      : openingValue &&
+          typeof openingValue === "object" &&
+          typeof (openingValue as Record<string, unknown>).content === "string"
+        ? (openingValue as Record<string, string>).content!
+        : "";
   if (revise?.part === "opening") {
     if (!openingContent.trim()) return { draft: null, error: "Model did not return an opening. Try again." };
     return { draft: { premise: revise.current.premise, opening: { characterId: openerId, content: openingContent } } };
@@ -1449,27 +1460,44 @@ export async function sceneRoutes(app: FastifyInstance) {
     const { chatId, idea, connectionId, openerCharacterId, revise } = req.body;
     if (typeof idea !== "string" || idea.length > 4000)
       return reply.status(400).send({ draft: null, error: "Idea must be 4000 characters or fewer" });
-    if (revise && (typeof revise.note === "string" && revise.note.length > 4000))
+    if (revise && typeof revise.note === "string" && revise.note.length > 4000)
       return reply.status(400).send({ draft: null, error: "Revision note must be 4000 characters or fewer" });
-    if (revise && (!['premise', 'opening'].includes(revise.part) || !revise.current ||
-      typeof revise.current.premise !== "string" || !revise.current.opening ||
-      typeof revise.current.opening.characterId !== "string" || typeof revise.current.opening.content !== "string"))
+    if (
+      revise &&
+      (!["premise", "opening"].includes(revise.part) ||
+        !revise.current ||
+        typeof revise.current.premise !== "string" ||
+        !revise.current.opening ||
+        typeof revise.current.opening.characterId !== "string" ||
+        typeof revise.current.opening.content !== "string")
+    )
       return reply.status(400).send({ draft: null, error: "Invalid current draft" });
     const origin = await resolveSceneOrigin(chatId, undefined, "Chat not found");
     if ("error" in origin) return reply.status(origin.status).send({ draft: null, error: origin.error });
     const characterIds = origin.characterIds;
     if (!characterIds.length) return reply.status(400).send({ draft: null, error: "Chat has no characters" });
-    if (openerCharacterId != null && (typeof openerCharacterId !== "string" || !characterIds.includes(openerCharacterId)))
+    if (
+      openerCharacterId != null &&
+      (typeof openerCharacterId !== "string" || !characterIds.includes(openerCharacterId))
+    )
       return reply.status(400).send({ draft: null, error: "Opening character must be a member of this chat" });
     const openerId = openerCharacterId ?? characterIds[0]!;
     const { conn, baseUrl } = await resolveConnection(connections, connectionId, origin);
     const provider = await createSceneProvider(conn, baseUrl, createReplyFallbackNotifier(reply));
     const characterCtx = await buildCharacterContext(chars, characterIds, origin.chat?.id);
     const { personaName, personaCtx } = await buildPersonaContext(
-      chars, origin.personaId, origin.mode, origin.personaCharacterId, origin.chat?.id,
+      chars,
+      origin.personaId,
+      origin.mode,
+      origin.personaCharacterId,
+      origin.chat?.id,
     );
     const macroContext = await buildPromptMacroContext({
-      db: app.db, characterIds, chatId: origin.chat?.id, personaName, personaDescription: personaCtx,
+      db: app.db,
+      characterIds,
+      chatId: origin.chat?.id,
+      personaName,
+      personaDescription: personaCtx,
       localVariables: normalizeChatMacroVariables(parseMetadata(origin.chat ?? {}).macroVariables),
     });
     const resolvedCharacterCtx = resolveMacrosForPreview(characterCtx, macroContext, { trimResult: false });
@@ -1487,9 +1515,14 @@ export async function sceneRoutes(app: FastifyInstance) {
       premiseOnly ? `Generate only a new premise.` : "",
       revise?.note ? `Revision instruction: ${revise.note}` : "",
       !revise ? `User idea (may be empty): ${idea}` : "",
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
     const messages: [ChatMessage, ChatMessage] = [
-      { role: "system", content: `You draft scenarios. The opening is posted by the selected character only: ${openerId}.\n<Character context>\n${resolvedCharacterCtx}\n</Character context>\n<Persona>\n${personaCtx}\n</Persona>\nPersona name: ${personaName}` },
+      {
+        role: "system",
+        content: `You draft scenarios. The opening is posted by the selected character only: ${openerId}.\n<Character context>\n${resolvedCharacterCtx}\n</Character context>\n<Persona>\n${personaCtx}\n</Persona>\nPersona name: ${personaName}`,
+      },
       { role: "user", content: instruction },
     ];
     logDebugOverride(
@@ -1499,6 +1532,6 @@ export async function sceneRoutes(app: FastifyInstance) {
     );
     const result = await provider.chatComplete(messages, { model: conn.model, temperature: 0.9, maxTokens: 4096 });
     const parsed = parseSceneScenarioDraft(result.content ?? "", openerId, revise);
-    return parsed.draft ? parsed satisfies SceneScenarioDraftResponse : parsed satisfies SceneScenarioDraftResponse;
+    return parsed.draft ? (parsed satisfies SceneScenarioDraftResponse) : (parsed satisfies SceneScenarioDraftResponse);
   });
 }

@@ -283,6 +283,4 @@ export interface SceneScenarioDraftRequest {
   };
 }
 
-export type SceneScenarioDraftResponse =
-  | { draft: SceneScenarioDraft; error?: never }
-  | { draft: null; error: string };
+export type SceneScenarioDraftResponse = { draft: SceneScenarioDraft; error?: never } | { draft: null; error: string };

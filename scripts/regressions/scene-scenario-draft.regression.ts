@@ -16,17 +16,15 @@ assert.equal(parseSceneScenarioDraft("  ", "char-1").draft, null);
 assert.equal(parseSceneScenarioDraft("{broken", "char-1").draft, null);
 assert.match(parseSceneScenarioDraft(JSON.stringify({ premise: "Only premise" }), "char-1").error ?? "", /opening/i);
 
-const openingRevision = parseSceneScenarioDraft(
-  JSON.stringify({ opening: "A new opening." }),
-  "char-2",
-  { part: "opening", current: original },
-);
+const openingRevision = parseSceneScenarioDraft(JSON.stringify({ opening: "A new opening." }), "char-2", {
+  part: "opening",
+  current: original,
+});
 assert.equal(openingRevision.draft?.premise, original.premise);
 assert.equal(openingRevision.draft?.opening.characterId, "char-2");
 
-const premiseRevision = parseSceneScenarioDraft(
-  JSON.stringify({ premise: "A new premise." }),
-  "char-2",
-  { part: "premise", current: original },
-);
+const premiseRevision = parseSceneScenarioDraft(JSON.stringify({ premise: "A new premise." }), "char-2", {
+  part: "premise",
+  current: original,
+});
 assert.deepEqual(premiseRevision.draft?.opening, original.opening);
