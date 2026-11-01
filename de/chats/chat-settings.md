@@ -130,11 +130,11 @@ Im Abschnitt **Chat Name** (Chatname) steht der Name, der in der Chatliste ersch
 
 ## Connection
 
-Der Abschnitt **Connection** (Verbindung) legt fest, welcher KI-Anbieter und welches Modell in diesem Chat antworten. Eine Verbindung ist eine gespeicherte Verknüpfung zu einem KI-Anbieter, samt API-Key und ausgewähltem Modell. Ein API-Key ist ein geheimer Zugangscode, mit dem Marinara Engine dein Konto beim Anbieter nutzen darf.
+Der Abschnitt **Connection** (Verbindung) legt fest, welches KI-Modell in diesem Chat antwortet. Eine Verbindung ist ein API-Key, ein Konto oder ein Endpunkt für einen KI-Dienst. Die Modelle, die du speicherst, sind darunter gruppiert. Ein API-Key ist ein geheimer Zugangscode, mit dem Marinara Engine dein Konto bei diesem Dienst nutzen darf.
 
-Wähl im Dropdown-Menü eine gespeicherte Verbindung. Möglich ist außerdem **Random**: Dann kommt jedes Mal eine andere Verbindung aus dem Zufallspool zum Zug, den du selbst markiert hast.
+Das Feld **Model** (Modell) zeigt das tatsächlich verwendete Modell und ob dieser Chat **Main** folgt oder eine eigene Auswahl hat. Ein Klick darauf öffnet dieselbe Auswahl wie die Modell-Schaltfläche im Eingabebereich des Chats. Das aktuelle Modell bleibt oben, darunter stehen zuletzt genutzte und mit Stern markierte Modelle, nach Konto gruppiert. Du kannst Modelle und Konten durchsuchen oder mit **Browse** (Durchsuchen) den Katalog eines Kontos öffnen. Eine Auswahl ändert nur diesen Chat.
 
-Unter dem Dropdown-Menü zeigt das Feld **Model** (Modell) das Modell, das die gewählte Verbindung nutzt. Ein Klick darauf öffnet dieselbe Modellliste wie der Quick Connection Switcher: Du kannst suchen oder eine Modell-ID eingeben, Modelle mit dem Stern anheften, die Liste aktualisieren und per Klick ein Modell übernehmen. Das Modell wird in der Verbindung gespeichert, daher wechseln alle Chats, Agenten und Hilfsfunktionen, die diese Verbindung nutzen, ebenfalls darauf. Bei **Random** und beim eingebauten Local Model ist das Feld ausgeblendet. Details findest du unter [Zufallspool und Quick Connection Switcher](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher).
+**Follow Main** (Main folgen) hebt die eigene Auswahl des Chats auf. **Shuffle** (Zufallsauswahl) wählt für jede Antwort ein anderes Modell aus deinem Pool. Braucht eine Verbindung einen Key oder ist sie ausgeschaltet, führt ihr Modell zur passenden Reparaturaktion. Sterne speichern Modelle in deiner Liste, ohne den Chat zu ändern. Details findest du unter [Shuffle](../connections/organizing-connections.md#shuffle).
 
 Wie du überhaupt eine Verbindung anlegst, steht unter [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md).
 

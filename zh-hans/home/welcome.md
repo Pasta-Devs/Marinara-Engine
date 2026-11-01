@@ -52,7 +52,7 @@ Marinara Engine 是一个本地应用，用来和 AI 角色聊天、玩角色扮
 按顺序做完下面几步，就能开始第一次聊天。
 
 1. 安装 Marinara Engine，然后在浏览器里打开。到 [Marinara Engine 安装](../INSTALLATION.md)里选择自己的平台。
-2. 添加一个连接，应用才能接上 AI 服务。一个连接会保存服务商、API 密钥和模型。API 密钥是一串秘密字符，作用有点像密码，由 AI 服务商发放。参见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
+2. 添加一个连接，应用才能接上 AI 服务。一个连接就是一个 API 密钥、账号或端点。选好服务，粘贴密钥，再挑选模型。API 密钥是一串秘密字符，作用有点像密码，由 AI 服务商发放。参见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 3. 创建或导入一个用来聊天的角色。打开 **Characters**(角色) 面板，点击 **New**(新建) 打开 **Create Character**(创建角色) 窗口，或者点击 **Import**(导入) 从文件导入一张角色卡。参见[创建和编辑角色](../characters/creating-and-editing-characters.md)。
 4. 开始聊天。在聊天侧边栏里选一个模式选项卡，然后点击 **+** 按钮。这个按钮会随选项卡变成 **New Conversation**、**New Roleplay** 或 **New Game**。新聊天打开后会弹出一个设置窗口，带着走完剩下的步骤。如果还没有保存过任何连接，会先出现 **Set Up Conversation**、**Set Up Roleplay** 或 **Set Up Game** 窗口。在那里选好连接，再点击 **Create Chat**。
 

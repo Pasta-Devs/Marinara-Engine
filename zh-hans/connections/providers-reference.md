@@ -2,17 +2,17 @@
 
 本指南列出 Marinara Engine 能连接的所有 AI 服务商，逐个说明去哪里拿 API 密钥、默认的基础 URL 是什么、有哪些需要注意的特殊之处。API 密钥是服务商发放的一串秘密字符，作用类似密码，有了它 Marinara 才能调用对方的 AI 服务。
 
-添加连接的通用步骤请先看[连接 AI 服务商](connecting-to-a-provider.md)。本页是一份参考资料，想查某一家服务商的细节时来搜就行。
+添加账号的通用步骤请先看[连接 AI 服务商](connecting-to-a-provider.md)。本页是一份参考资料，想查某一家服务商的细节时来搜就行。
 
 ## 怎么看这一页
 
-服务商是在 **Connections**(连接) 面板里创建连接时选定的。每家服务商在 **Create Connection**(创建连接) 窗口里都有对应的 **Provider**(服务商) 按钮，按钮上的名称与下文完全一致。
+服务是在 **Add account**(添加账号) 窗口里选定的。每个服务在第 1 步里都有对应的按钮，按钮上的名称与下文完全一致。
 
-本页大多数服务商都是云服务，AI 跑在他们那边。在服务商那里注册账号，复制一个 API 密钥，粘贴到 **API Key**(API 密钥) 输入框即可。有三家订阅制服务商不用密钥，改为本地登录，对应小节里会写明。
+本页大多数服务商都是云服务，AI 跑在他们那边。在服务商那里注册账号，复制一个 API 密钥，粘贴到 **API key**(API 密钥) 输入框即可。有三家订阅制服务商不用密钥，改为本地登录，对应小节里会写明。
 
 有两个词会反复出现：
 
-- 基础 URL：Marinara 发送请求的网址。大多数服务商会自动填好，只有本地或自定义服务器才需要改。
+- 基础 URL：Marinara 发送请求的网址。连接编辑器里把它叫作 **Address**(地址)。大多数服务商会自动填好，只有本地或自定义服务器才需要改。
 - 模型：选好服务商之后再挑的那个具体 AI 模型。可用模型变动频繁，所以本页不逐一列出。在连接编辑器里用 **Model**(模型) 下拉菜单，或者点击 **Fetch Models from API**(从 API 获取模型) 按钮，就能看到当前的清单。
 
 ## OpenAI
@@ -47,7 +47,7 @@
 
 **Google Vertex AI** 通过一个 Google Cloud 项目提供 Gemini 系列模型，配置起来比 **Google Gemini** 麻烦。必须编辑 **Base URL**(基础 URL)，把 `YOUR_PROJECT_ID` 换成真实的项目 ID。如果地区不是 `us-central1`，也要一并改掉。
 
-**API Key** 输入框接受下面三种凭据中的任意一种，Marinara 会自动识别粘贴进去的是哪一种：
+**API Key**(API 密钥) 输入框接受下面三种凭据中的任意一种，Marinara 会自动识别粘贴进去的是哪一种：
 
 1. 服务账号 JSON 密钥。
 2. OAuth 访问 Token，例如 `gcloud auth print-access-token` 的输出。
@@ -96,26 +96,27 @@ Marinara 会读取 NanoGPT 的详细模型目录，因此下拉列表会标明�
 
 如果你订阅了 NanoGPT，此连接可以显示当前额度：
 
-1. 在连接编辑器中开启 **Show subscription usage**(显示订阅用量) 并保存。
-2. 也可以先粘贴 **Management Token**(管理令牌)。
+1. 点击账号行上的 **⋯**，选择 **Edit account**(编辑账号)，打开 **Usage and balance**(用量与余额)。
+2. 如果外部读取处于关闭状态，点击 **Turn on**(开启) 允许读取用量。要添加 NanoGPT 管理令牌，点击 **Add a usage-only key**(添加仅限用量的密钥)，粘贴进去，再点击 **Show usage**(显示用量)。
+3. 开启 **Show the usage meter on the card**(在卡片上显示用量条) 并保存。
 
 小组件读取 NanoGPT 的用量端点，显示每周和每日输入 token 额度。可以使用两种凭据读取：
 
-- **Management Token**(推荐)：在 `https://nano-gpt.com/settings#management-api-tokens` 创建令牌，并选择 **Usage only**(仅用量) 权限范围。它能读取额度，但不能运行模型或花费余额，因此更适合安全地显示用量。Marinara 会加密保存它，并仅发送到 NanoGPT 的管理端点。
+- **Management token**(管理令牌，推荐)：在 `https://nano-gpt.com/settings#management-api-tokens` 创建令牌，并选择 **Usage only**(仅用量) 权限范围。它能读取额度，但不能运行模型或花费余额，因此更适合安全地显示用量。Marinara 会加密保存它，并仅发送到 NanoGPT 的管理端点。
 - **你的 API 密钥**：未保存管理令牌时自动使用。这也能工作，但读取额度所用的凭据同时具有花费余额的权限。
 
 每个用量条下面，小组件会显示剩余多少，以及窗口何时重置，例如 `42M remaining · resets in 4d`。
 
 NanoGPT 暂时无法提供的额度会显示为**未知**，而非未使用。未激活的订阅会明确标出，不会显示为完整可用额度。点击刷新按钮即可按需更新小组件。
 
-同一用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection**(连接) 设置中，让你无需离开聊天就能查看额度。它跟随当前连接：仅在 NanoGPT 连接开启 **Show subscription usage** 时显示；**Random** 没有唯一可查询的连接，因此不显示。选择器中的样式与上方上下文条一致，读法也相同，即已用量相对于每周额度，例如 `8.9M / 60M tokens`，重置时间显示在百分比旁边。
+同一用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection**(连接) 设置中，让你无需离开聊天就能查看额度。它跟随当前连接：仅在 NanoGPT 连接开启 **Show the usage meter on the card** 时显示；**Shuffle**(随机轮换) 没有唯一可查询的连接，因此不显示。选择器中的样式与上方上下文条一致，读法也相同，即已用量相对于每周额度，例如 `8.9M / 60M tokens`，重置时间显示在百分比旁边。
 
 ## xAI / Grok
 
 - 密钥获取地址：`https://console.x.ai`
 - 默认基础 URL：`https://api.x.ai/v1`
 
-**xAI / Grok** 提供 Grok 系列模型。在 **Create Connection** 窗口里选中这家服务商时，Marinara 会把模型预填为 Grok 4.5，之后可以随时改。 Grok 4.6 和 4.7 提供 500,000 Token 的上下文窗口，推理最高支持 **Extra high**(超高，即 `xhigh`)。它们支持现有聊天工具，包括 **Web Search**(网络搜索)，让搜索结果能够用于最终回复。
+**xAI / Grok** 提供 Grok 系列模型。在 **Add account** 窗口里选中这个服务时，Marinara 会把模型预填为 Grok 4.5，之后可以随时改。 Grok 4.6 和 4.7 提供 500,000 Token 的上下文窗口，推理最高支持 **Extra high**(超高，即 `xhigh`)。它们支持现有聊天工具，包括 **Web Search**(网络搜索)，让搜索结果能够用于最终回复。
 
 ## Arli AI
 
@@ -156,11 +157,11 @@ DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的
 
 这个连接可以显示你的 Claude 套餐用掉了多少速率限制：
 
-1. 在连接编辑器中开启 **Show subscription usage**(显示订阅用量)。
-2. 保持勾选 **5-hour window**(5 小时窗口)和 **Weekly window**(每周窗口)，或取消勾选你不想看的那一个。
+1. 点击账号行上的 **⋯**，选择 **Edit account**，打开 **Usage and balance**。
+2. 如果外部读取处于关闭状态，点击 **Turn on**。开启 **Show the usage meter on the card**。账号编辑器会显示可用的用量窗口；5 小时和每周用量条没有单独的开关。
 3. 保存连接。
 
-每个窗口都有一条用量条，显示已用百分比和重置时间，例如 `58% · resets in 2h`。只要这个连接处于活动状态，同样的用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection** 设置中。**Random** 没有唯一可查询的连接，因此不会显示。
+每个窗口都有一条用量条，显示已用百分比和重置时间，例如 `58% · resets in 2h`。只要这个连接处于活动状态，同样的用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection** 设置中。**Shuffle** 没有唯一可查询的连接，因此不会显示。
 
 需要了解：
 
@@ -180,7 +181,7 @@ DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的
 
 ### 套餐用量
 
-这个连接可以显示你的 ChatGPT 套餐用掉了多少 Codex 限额。它的用法和上面的 Claude (Subscription) 一样：开启 **Show subscription usage**，保持勾选或取消勾选 **5-hour window** 和 **Weekly window**，然后保存。用量条会出现在连接编辑器、聊天的连接选择器，以及聊天的 **Connection** 设置中。
+这个连接可以显示你的 ChatGPT 套餐用掉了多少 Codex 限额。它的用法和上面的 Claude (Subscription) 一样：在 **Edit account** 里打开 **Usage and balance**，必要时用 **Turn on** 允许外部读取，开启 **Show the usage meter on the card**，然后保存。账号编辑器会显示可用的用量窗口，没有单独的 5 小时或每周开关。用量条会出现在账号编辑器、聊天的连接选择器，以及聊天的 **Connection** 设置中。
 
 需要了解：
 
@@ -234,7 +235,7 @@ DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的
 - **PocketTTS**：一个在自己电脑上运行的免费语音服务器。
 - **xAI Voice**：xAI 的语音服务。
 
-每个来源都会自动填好默认的基础 URL 和模型。**Default Voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长，默认 60 秒；语音服务器较慢时可以调高。要选择 Marinara 默认使用哪个语音连接，打开 **Connections** 面板，展开 **Defaults**(默认值)，在 **Text to Speech** 下选择。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见[使用音频连接](../media/tts-setup.md#use-an-audio-connection)。
+每个来源都会自动填好默认的基础 URL 和模型。**Default Voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长，默认 60 秒；语音服务器较慢时可以调高。要选择 Marinara 默认使用哪个语音连接，打开 **Connections**(连接) 面板，展开 **Defaults**(默认值)，在 **Text to Speech** 下选择。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见[使用音频连接](../media/tts-setup.md#use-an-audio-connection)。
 
 语音和朗读消息，见 [Text to Speech (TTS) 设置](../media/tts-setup.md)。生成音频在下面单独配置。
 

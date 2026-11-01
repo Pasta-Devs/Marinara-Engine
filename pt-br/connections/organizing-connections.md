@@ -1,93 +1,82 @@
 # Organizando as conexões
 
-Neste guia você aprende a manter as conexões salvas em ordem no Marinara Engine. Aqui estão as pastas de conexões, a busca e a ordenação, como duplicar e excluir, o conjunto aleatório, o **Quick Connection Switcher** (troca rápida de conexão) e como exportar ou importar conexões. Uma conexão é uma configuração salva que ensina Marinara a chegar até um serviço de IA.
+Neste guia você aprende a manter as contas e os modelos em ordem no Marinara Engine. Aqui estão a lista de contas, os modelos com estrela, como mover e remover modelos, as pastas, o Shuffle e como exportar ou importar. Uma conta é uma chave, um login ou um endereço de um provedor de IA; um modelo é um modelo de IA que você salvou a partir dela. Para adicionar uma conta, veja [Conectando a um provedor de IA](connecting-to-a-provider.md).
 
-Tudo isso acontece no painel **Connections** (Conexões). Ao abrir o painel, as conexões salvas aparecem em uma lista de linhas. Cada linha mostra o nome da conexão e, logo abaixo, o provedor e o modelo.
+## A lista de contas
 
-## Pastas de conexões
+Abaixo da caixa **Jobs** (tarefas), o painel **Connections** (Conexões) lista as suas contas. Cada conta mostra a imagem, o nome, quantos modelos tem e o endereço. Uma linha de modelo mostra a imagem do modelo, o nome dele e selos como a tarefa que ele faz (**Main**, **Agents**, **Images**), **Custom settings**, o preço ou **Plan**, para os modelos incluídos em uma assinatura.
 
-Use as pastas de conexões para juntar conexões parecidas. Por exemplo: todos os modelos locais em uma pasta e todos os provedores pagos em outra.
+Clique na linha de uma conta para recolher os modelos dela e clique de novo para mostrá-los. Marinara lembra quais contas você recolheu. **More actions** (mais ações), no topo do painel, tem **Fold all accounts** e **Open all accounts**, para recolher ou abrir todas as contas, além de **Show only Off or Needs key**, que mostra só as contas desligadas ou sem chave, e **Show cost badges**, que mostra os selos de custo. Num painel largo, o menu suspenso de ordenação fica ao lado de **Search models and accounts** (buscar modelos e contas). Num painel estreito, a ordem da lista fica em **More actions**.
 
-Para criar uma pasta, siga estes passos:
+Uma conta de gateway que alcança vários criadores de modelos, por exemplo um proxy ou o LinkAPI, agrupa os modelos dela em títulos **via**, como **via NanoGPT**, com o ícone daquele criador.
 
-1. Clique no botão **New Folder** (nova pasta), acima da lista de conexões.
-2. Aparece uma pasta nova chamada "unnamed".
-3. Renomeie a pasta na hora, para não confundir depois (veja abaixo).
+O card **Built-in model** (modelo embutido), abaixo da caixa Jobs, mostra o modelo que roda no seu computador e o estado dele. Veja [Como configurar o Local Model](local-model.md).
 
-Para renomear uma pasta, dê um duplo clique na linha dela ou um toque duplo, se a tela for sensível ao toque. Outra opção: selecione a linha da pasta e aperte a tecla **F2**. Digite o novo nome e aperte Enter.
+### Ações da conta
 
-Para guardar uma conexão dentro de uma pasta, arraste a linha da conexão e solte em cima da pasta. Para tirar a conexão de lá, arraste-a para a área abaixo das pastas. Durante o arraste aparece a indicação **Drop here to move out of folder**.
+Clique em **⋯** na linha de uma conta:
 
-Em uma tela sensível ao toque, mantenha uma linha pressionada para pegá-la e depois arraste. Um deslize normal continua rolando a lista.
+- **Edit account** (editar conta) abre as configurações dela: **Name**, **API key**, **Address**, **Usage and limits** e **Use this account**.
+- **Replace key** (substituir a chave) cola uma chave nova.
+- **Test** (testar) verifica a chave e mostra o resultado.
+- **Add model** (adicionar modelo) abre a lista de modelos da conta. **Add image model** (adicionar modelo de imagem) aparece nos provedores que também geram imagens.
+- **Select models** (selecionar modelos) permite mover ou excluir vários modelos de uma vez.
+- **Duplicate** (duplicar) adiciona uma cópia da conta, com cópias dos modelos dela.
+- **Turn off** (desligar) faz Marinara parar de usar a conta até você usar **Turn on** (ativar) de novo.
+- **Delete account** (excluir conta). Antes, Marinara lista as tarefas, os chats e os agentes que ainda usam os modelos dela.
 
-Para recolher ou expandir uma pasta, clique uma vez na linha dela. Um número pequeno na linha da pasta mostra quantas conexões estão lá dentro.
+### Ícones dos provedores
 
-Para excluir uma pasta, clique no ícone de lixeira na linha dela. Se ainda houver conexões dentro, Marinara pede uma confirmação na janela **Delete Folder**. Uma pasta vazia é excluída na hora, sem pedir confirmação. Excluir a pasta não exclui as conexões que estavam dentro dela. Essas conexões voltam para a área das conexões sem pasta.
+Cada conta mostra o ícone do provedor dela. Os ícones vêm com Marinara, então Marinara nunca os carrega da internet. Um endereço personalizado mostra o ícone de um servidor ou gateway conhecido quando o endereço ou o nome contém um deles, por exemplo Ollama, LM Studio, KoboldCpp, Bifrost ou LiteLLM. Caso contrário, mostra a primeira letra do nome. Clique na imagem de uma conta para escolher uma imagem sua.
 
-## Busca e ordenação
+## Modelos com estrela
 
-A caixa **Search connections** filtra a lista conforme você digita. A busca considera o nome da conexão, o provedor, o modelo, a URL base, o serviço de imagem ou vídeo e o modelo de embedding (representação numérica do texto). Quando nada corresponde, aparece "No connections match your search".
+A estrela marca os modelos que você quer ter à mão. Os modelos com estrela aparecem em **Starred** (com estrela), perto do topo de todo seletor de modelos. Isso vale para as janelas **Model for** (modelo para) da caixa **Jobs**, para o **Model for this chat** do chat e para os campos de modelo em **Chat Settings** (configurações do chat) e no editor de agente.
 
-O menu suspenso **Sort order** (ordem da lista), ao lado da caixa de busca, muda a ordem das conexões. São cinco opções:
+Para dar estrela a um modelo, clique na estrela dele na lista **Add model** da conta ou escolha **Star** (dar estrela) no menu **⋯** do modelo. Dar uma tarefa a um modelo também o salva.
 
-| Opção | O que faz |
-|---|---|
-| **Custom** | A ordem que você mesmo definiu arrastando as linhas. |
-| **A-Z** | Ordena pelo nome, de A a Z. |
-| **Z-A** | Ordena pelo nome, de Z a A. |
-| **Newest** | As conexões mais novas primeiro. |
-| **Oldest** | As conexões mais antigas primeiro. |
+Para tirar a estrela de um modelo, clique na estrela de novo. Marinara remove o modelo e mostra **Undo** (desfazer) por alguns segundos. O modelo fica, sem a estrela, quando ainda tem um papel em **Jobs**, tem configurações próprias ou é o último modelo da conta. A mensagem informa o motivo.
 
-Para definir uma ordem própria, arraste as linhas de conexão para cima ou para baixo. Ao arrastar uma conexão, Marinara já muda a ordenação para **Custom** sozinho. Você também pode mover uma linha selecionada com Alt+Up ou Alt+Down.
+## Ações do modelo
 
-## Duplicar e excluir
+Clique em **⋯** na linha de um modelo:
 
-Passe o mouse sobre a linha de uma conexão (ou olhe a linha, em tela sensível ao toque) para ver os botões de ação.
+- **Make default for…** (tornar padrão para) dá uma tarefa ao modelo, o mesmo que escolhê-lo na caixa **Jobs**.
+- **Edit model** (editar modelo) abre as configurações dele. Clicar na linha do modelo faz o mesmo.
+- **Move to account…** (mover para a conta) move o modelo para outra conta do mesmo provedor ou para uma conta nova. O modelo passa a usar a chave e o catálogo daquela conta. Os chats que usam o modelo continuam funcionando.
+- **Folder** (pasta) coloca o modelo em uma pasta. As pastas aparecem quando você escolhe **Group by folder** (agrupar por pasta) em **More actions**.
+- **Duplicate** faz uma cópia completa, com as mesmas configurações, sem perguntar.
+- **Add to Shuffle** (adicionar ao Shuffle) ou **Remove from Shuffle** (remover do Shuffle).
+- **Change picture** (trocar a imagem).
+- **Remove** (remover) exclui o modelo depois que você confirma.
 
-Para duplicar uma conexão, clique no botão **Duplicate** (duplicar), o ícone de cópia. Marinara faz uma cópia completa, inclusive da chave de API guardada. A cópia abre no editor para você renomear. Não existe etapa de confirmação.
+No computador, você pode arrastar a linha de um modelo para cima de um chat para usar aquele modelo no chat.
 
-Para excluir uma conexão só, clique no botão **Delete** (excluir) dela, o ícone de lixeira. Marinara mostra a janela **Delete Connection** com o texto Delete "your connection name"? This cannot be undone. Clique em **Delete** para confirmar.
+## Busca
 
-Para excluir ou exportar várias conexões de uma vez, clique no botão **Select** (selecionar), no topo do painel. Isso liga o modo de seleção. Toque nas conexões que quiser e use o botão **Export** (exportar) ou **Delete** na barra de ações, embaixo. A exclusão em lote mostra a janela **Delete Connections** antes de remover as conexões.
+**Search models and accounts**, no topo do painel, filtra a lista conforme você digita. Quando nada corresponde, o painel avisa.
 
-<a id="the-random-pool-and-quick-connection-switcher"></a>
+## Shuffle
 
-## O conjunto aleatório e o Quick Connection Switcher
+O Shuffle faz o chat escolher um modelo diferente a cada resposta que escreve. Isso ajuda quando você quer dividir as requisições entre vários provedores ou modelos.
 
-O conjunto aleatório faz o chat escolher uma conexão diferente a cada resposta gerada. Isso ajuda quando você quer dividir as requisições entre vários provedores ou modelos.
+Para colocar um modelo no Shuffle, escolha **Add to Shuffle** no menu **⋯** dele. Para o chat usar o Shuffle, abra **Model for this chat** pela caixa de mensagem ou por **Chat Settings → Connection → Model** e escolha **Shuffle** (sortear). A partir daí, cada resposta sorteia um modelo do seu Shuffle.
 
-Para colocar uma conexão no conjunto aleatório, clique no ícone de embaralhar na linha dela. A dica (o texto que aparece ao passar o mouse) diz **Add to random pool**. Com a conexão já no conjunto, a dica muda para **In random pool (click to remove)**. Clique no ícone de novo para tirar a conexão de lá.
+Se o modelo sorteado para uma resposta falhar e o **Main** (principal) tiver um modelo em **If it fails** (se falhar), esse modelo escreve a resposta no lugar dele. Um aviso mostra o modelo que falhou e um motivo curto, como "key rejected", "rate limited" ou "not found", para você saber qual deles precisa de conserto. A resposta fica com um pequeno rótulo **Fallback** (reserva); toque nele, ou aponte para ele, para ver a mesma linha de novo.
 
-Para o chat usar o conjunto aleatório, abra **Chat Settings** (configurações do chat), procure a seção **Connection** e escolha **🎲 Random** no menu suspenso. No Game Mode, esse menu suspenso se chama **GM / Party Model**. A partir daí, cada resposta sorteia uma conexão do conjunto.
+Uma escolha em **Model for this chat** muda só aquele chat. Para mudar o modelo dos chats novos, defina o **Main** na caixa **Jobs**.
 
-Se a conexão sorteada para uma resposta falhar e você tiver definido uma conexão de reserva para **Main** (principal), a reserva escreve a resposta no lugar dela. Um aviso mostra a conexão que falhou, o modelo dela e um motivo curto, como "key rejected", "rate limited" ou "not found", para você saber qual conexão do conjunto precisa de conserto. A resposta fica com um pequeno rótulo **Fallback** (reserva); toque nele, ou aponte para ele, para ver a mesma linha de novo.
+## Exportar e importar
 
-O **Quick Connection Switcher** é o jeito mais rápido de trocar a conexão do chat em que você está, e também o modelo dela. Clique no ícone de elo na área de digitação do chat para abrir. Ele mostra as conexões à esquerda e, à direita, os **Models** (modelos) da conexão escolhida:
+Exporte as contas para um arquivo, seja para fazer backup, seja para levá-las a outra instalação, e importe esse arquivo depois.
 
-- Clique em uma conexão para o chat atual passar a usá-la na hora. O menu continua aberto para você escolher em seguida um dos modelos dela.
-- Clique em um modelo para usá-lo. O modelo é salvo na conexão, a conexão passa a ser a do chat, se ainda não era, e o menu fecha. Um sinal de visto marca o modelo que a conexão usa agora. Assim como no editor de conexão, escolher um modelo da lista também atualiza a janela de contexto da conexão e o limite de saída dela, quando o provedor informa esses valores.
-- Digite na caixa **Search or enter model ID…** para filtrar a lista. Apertar Enter escolhe o modelo cujo ID ou nome você digitou, ou o único modelo que sobrou na lista. Para usar um modelo que não está na lista, digite o ID exato dele: aperte Enter quando nada na lista corresponder a esse ID, ou clique na linha **Use "…"**.
-- Clique na estrela ao lado de um modelo para fixá-lo. Os modelos fixados ficam no topo, em **Pinned** (fixados), inclusive os que você digitou à mão. Clique na estrela de novo para desafixar o modelo.
-- Na primeira vez que você abre os modelos de uma conexão, Marinara carrega a lista do provedor e salva essa lista com a conexão, então nas próximas vezes ela aparece na hora. Clique no botão de atualizar, ao lado da caixa de busca, para carregar a lista de novo, por exemplo depois que o provedor lançar modelos novos. Mudar a chave de API, a URL base ou o provedor da conexão também carrega uma lista nova.
-- Se o provedor não tem lista de modelos ou não responde, o menu avisa, e você ainda pode digitar o ID de um modelo.
-- Clique no botão de dado, no topo do menu, para ativar ou desativar o conjunto aleatório neste chat.
-- Com o conjunto aleatório ativo, clicar em uma conexão passa a colocá-la no conjunto ou tirá-la de lá. Um sinal de visto mostra quais conexões estão no conjunto. A coluna **Models** fica oculta, porque o conjunto não tem uma conexão única.
+**A exportação nunca inclui as chaves de API.** Depois de importar, abra cada conta e digite a chave de novo. As estrelas vão junto; o catálogo do provedor não vai, então ele é carregado de novo na primeira vez que você abrir os modelos da conta.
 
-No celular, toque na seta em forma de chevron ao lado da caixa de mensagem e abra a aba **Connections**. Toque em uma conexão para passar o chat para ela; o menu se fecha. Para escolher um modelo, toque na seta no fim da linha da conexão. Os modelos dela abrem no mesmo menu, e o chat só troca quando você escolhe um. Toque na seta de voltar para retornar à lista de conexões.
+Para exportar um modelo só, abra o modelo com **Edit model** e clique no botão **Export** (exportar) dele, o ícone de upload. Para exportar tudo, abra **More actions** e escolha **Export all accounts** (exportar todas as contas). Antes de o download começar, Marinara lembra que o arquivo não tem chaves.
 
-**A troca de modelo vale em todos os lugares em que a conexão é usada.** A nota no rodapé do menu, "Model changes are saved to this connection.", quer dizer que os agentes, os recursos auxiliares e os outros chats que usam a mesma conexão também passam para o modelo novo. As outras configurações de modelo da conexão, como o modelo de embedding ou a conexão de descrição de imagens, não mudam. Se você quer um modelo diferente só para uma finalidade, duplique a conexão e altere a cópia.
+Um modelo sozinho é baixado como um arquivo `.connection.json`. Vários vêm juntos em um arquivo `marinara-connections.zip`.
 
-## Exportar e importar conexões
-
-Exporte as conexões para um arquivo, seja para fazer backup, seja para levá-las a outra instalação, e importe esse arquivo depois.
-
-**A exportação nunca inclui as chaves de API.** Depois de importar as conexões, abra cada uma e digite a chave de API de novo. Os modelos fixados vão junto; a lista de modelos salva não vai, então ela é carregada de novo na primeira vez que você abrir os modelos da conexão.
-
-Para exportar uma conexão só, abra a conexão no editor e clique no botão **Export** dela, o ícone de upload. Para exportar várias de uma vez, use o modo **Select** no painel e clique em **Export** na barra de ações. Antes de o download começar, Marinara mostra a janela **Export Connection Data** com este aviso: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Clique em **Export** para seguir.
-
-Uma conexão sozinha é baixada como um arquivo `.connection.json`. Várias conexões vêm juntas em um arquivo `marinara-connections.zip`.
-
-Para importar conexões, clique no botão **Import** (importar), no topo do painel Connections. Abre a janela **Import Connections**. Solte um ou mais arquivos `.json` nela ou clique para procurar os arquivos. A janela lembra: Imported connections never include API keys. Add each key again after import. Depois da importação, cada conexão nova fica com a chave de API vazia até você preenchê-la.
+Para importar, abra **More actions** e escolha **Import account** (importar conta). Solte um ou mais arquivos `.json` na janela ou clique para procurar os arquivos. Cada conta importada fica com a chave vazia até você preenchê-la.
 
 ## Guias relacionados
 

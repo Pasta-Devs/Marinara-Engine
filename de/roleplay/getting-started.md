@@ -113,6 +113,18 @@ Aktiviere unter **Chat Settings → Agents → Roleplay Commands** die Option **
 
 Schalte unter **Illustrations** die Option **Render in-line** (in der Nachricht anzeigen) ein, damit jedes Bild stattdessen innerhalb der Nachricht erscheint, und zwar an der Stelle, an der der Charakter den Befehl geschrieben hat, zum Beispiel zwischen zwei Absätzen. Das Bild behält seine Bedienelemente: Wähl es aus, um seinen Prompt zu sehen, oder entferne es mit dem **X**. Der Charakter erfährt, dass er den Befehl überall dort platzieren kann, wo das Bild hingehört. Die Einstellung gilt für neue Bilder; Bilder, die schon im Chat sind, bleiben, wo sie sind. Automatische Bilder des Illustrators und das Visual-Novel-Layout zeigen Bilder weiterhin wie bisher.
 
+<a id="artifacts-on-demand"></a>
+
+## Artefakte auf Abruf
+
+Aktiviere unter **Chat Settings → Agents → Roleplay Commands** die Option **HTML Artifacts** (HTML-Artefakte), damit der Erzähler mit `[html: prompt="..."]` ein bestimmtes Artefakt aus der Spielwelt erstellen kann: eine Seite aus einem Zauberbuch, ein Schild, eine Skizze auf einem Brief, eine Terminalausgabe. Die Option ist anfangs aus und braucht keinen Agenten. Du kannst auch selbst eines mit `/html <what you want>` anfordern.
+
+Das Artefakt erscheint an der Stelle, an der der Erzähler den Befehl platziert hat, sobald die Antwort fertig ist. Im Visual-Novel-Layout siehst du nur die Markierung. Der eigentliche Text der Nachricht bleibt so, wie er geschrieben wurde.
+
+Jedes Artefakt ist eine eigene Anfrage, höchstens 3 pro Antwort. Sie nutzt die Verbindung des Agenten **Immersive HTML**, falls dieser eine hat, sonst deine Standardverbindung für Agenten, sonst die Verbindung des Chats. **Max Parallel Agent Jobs** (maximal parallele Agentenaufgaben) dieser Verbindung legt fest, wie viele gleichzeitig laufen. Die Anfrage enthält die Beschreibung des sprechenden Charakters und die letzten paar Nachrichten. Sie folgt eigenen Anweisungen; Änderungen am Prompt des Agenten Immersive HTML wirken sich also nicht darauf aus. Für eine schlicht gestaltete Seite sind die sechs vorgefertigten Arten unter **Documents** (Dokumente) kostenlos und sofort verfügbar.
+
+Der Erzähler sieht das HTML des Artefakts nicht. In späteren Zügen sieht er eine kurze Fassung als reinen Text: den lesbaren Text des Artefakts und eine Zeile dazu, wie es aussieht. Öffne die Markierung „used html command“ unter der Nachricht, um diesen Text zu lesen oder zu bearbeiten oder um das Artefakt zu löschen; das entfernt es auch aus dem Gedächtnis des Erzählers. Schlägt ein Durchlauf fehl, nennt die Markierung den Grund.
+
 <a id="whispers-and-secrets"></a>
 
 ## Flüstern und Geheimnisse

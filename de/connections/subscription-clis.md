@@ -42,11 +42,10 @@ npm i -g @anthropic-ai/claude-code
 claude auth login
 ```
 
-3. Öffne in Marinara das Panel **Connections** (Verbindungen) und klick auf **New** (Neu).
-4. Gib im Fenster **Create Connection** (Verbindung erstellen) einen Namen ein, wähle den Anbieter **Claude (Subscription)** und klick auf **Create** (Erstellen).
-5. Im Editor gibt es weder ein Feld **API Key** noch ein Feld **Base URL**. Ein Info-Panel bestätigt, dass beides nicht nötig ist.
-6. Wähle im Dropdown-Menü **Model** (Modell) ein Claude-Modell, etwa ein Opus- oder Sonnet-Modell. Die Liste zeigt die Modelle, die dein Claude-Code-Login anbietet, sofern Claude Code dafür eine Liste hat, sonst eine eingebaute Liste.
-7. Klick auf **Save** (Speichern) und danach auf **Send Test Message** (Testnachricht senden). Kommt eine kurze Antwort zurück, funktioniert die Anmeldung.
+3. Öffne in Marinara das Panel **Connections** (Verbindungen) und klick auf **Add** (Hinzufügen). Das Fenster **Add account** (Konto hinzufügen) geht auf.
+4. Wähle in Schritt 1 den Dienst **Claude (Subscription)**.
+5. In Schritt 2 gibt es kein Key-Feld. Dort steht **No key needed. Marinara uses the login on this computer.** Klick auf **Connect** (Verbinden). **Connected** bedeutet, dass die Anmeldung funktioniert.
+6. Wähle in Schritt 3 ein Claude-Modell, etwa ein Opus- oder Sonnet-Modell, und klick dann auf **Done** (Fertig). Die Liste zeigt die Modelle, die dein Claude-Code-Login anbietet, sofern Claude Code dafür eine Liste hat, sonst eine eingebaute Liste.
 
 Claude-Abo-Verbindungen unterstützen ausschließlich Text-Chat. Diese Verbindung hat zwei zusätzliche Bedienelemente, **Fast Mode** und **Diagnose Model Routing**, die weiter unten beschrieben sind.
 
@@ -66,10 +65,10 @@ npm i -g @openai/codex
 codex login
 ```
 
-3. Öffne in Marinara das Panel **Connections** und klick auf **New**.
-4. Gib im Fenster **Create Connection** einen Namen ein, wähle den Anbieter **OpenAI (ChatGPT)** und klick auf **Create**.
-5. Wähle im Dropdown-Menü **Model** ein Modell. Die Liste stammt aus der ChatGPT-Sitzung, sofern verfügbar, sonst aus einer eingebauten Liste.
-6. Klick auf **Save** und danach auf **Send Test Message**, um eine Antwort zu bestätigen.
+3. Öffne in Marinara das Panel **Connections** und klick auf **Add**. Das Fenster **Add account** geht auf.
+4. Wähle in Schritt 1 den Dienst **OpenAI (ChatGPT)**.
+5. Klick in Schritt 2 auf **Connect**, um zu bestätigen, dass die Anmeldung funktioniert.
+6. Wähle in Schritt 3 ein Modell. Die Liste stammt aus der ChatGPT-Sitzung, sofern verfügbar, sonst aus einer eingebauten Liste. Klick auf **Done**.
 
 Marinara liest die lokale Codex-Anmeldedatei und frischt die Sitzung auf, sobald das möglich ist.
 
@@ -91,10 +90,10 @@ curl -fsSL https://x.ai/cli/install.sh | bash
 grok login
 ```
 
-3. Öffne in Marinara das Panel **Connections** und klick auf **New**.
-4. Gib im Fenster **Create Connection** einen Namen ein, wähle den Anbieter **Grok CLI (Subscription)** und klick auf **Create**.
-5. Wähle ein Modell, oder lass das Feld **Model** leer, dann greift der Standard der CLI. Für Roleplay ist meist `grok-composer-2.5-fast` die sicherste Wahl.
-6. Klick auf **Save** und danach auf **Send Test Message**. Diese Verbindung führt den Test auch ohne gesetztes Modell aus.
+3. Öffne in Marinara das Panel **Connections** und klick auf **Add**. Das Fenster **Add account** geht auf.
+4. Wähle in Schritt 1 den Dienst **Grok CLI (Subscription)**.
+5. Klick in Schritt 2 auf **Connect**, um zu bestätigen, dass die Anmeldung funktioniert.
+6. Wähle in Schritt 3 ein Modell, oder lass das Feld **Model** (Modell) am gespeicherten Modell leer, dann greift der Standard der CLI. Für Roleplay ist meist `grok-composer-2.5-fast` die sicherste Wahl.
 
 Zwei Dinge sind bei der Grok CLI besonders. Sie beherrscht kein Streaming, die Antwort erscheint also am Stück statt Wort für Wort. Und das Kontextfenster liegt standardmäßig bei 32000 Tokens, also niedriger als bei anderen Anbietern, weil sehr große Prompts an das eigene Zug-Limit der CLI stoßen können.
 
@@ -112,9 +111,9 @@ Die Debug-Logs unterscheiden anhand der SDK-Nutzungsdaten zwischen Cache-Schreib
 
 ## Warum es kein Feld für den API-Key gibt
 
-Bei allen drei Abo-Anbietern sind die Felder **API Key** und **Base URL** ausgeblendet. Das ist Absicht. Die Anmeldung steckt in der CLI auf dem Server-Rechner, in Marinara gibt es also nichts einzutippen.
+Bei allen drei Abo-Diensten sind das Key-Feld und das Feld **Address** (Adresse) ausgeblendet. Das ist Absicht. Die Anmeldung steckt in der CLI auf dem Server-Rechner, in Marinara gibt es also nichts einzutippen.
 
-Hast du versehentlich den falschen Anbieter gewählt und siehst deshalb kein Key-Feld, wechsle im Anbieter-Raster zurück zum gewünschten Anbieter. Bei API-basierten Anbietern erscheint das Key-Feld wieder.
+Hast du versehentlich den falschen Dienst gewählt und siehst deshalb kein Key-Feld, geh zurück zu Schritt 1 und wähl den gewünschten Dienst. Bei API-basierten Diensten erscheint das Key-Feld wieder.
 
 ## Fast Mode (nur Claude)
 
@@ -128,7 +127,7 @@ Beim Versuch, ihn einzuschalten, erscheint ein Dialogfenster mit dem Titel **YOU
 
 Der Editor von **Claude (Subscription)** hat im Testbereich die Schaltfläche **Diagnose Model Routing** (Modell-Routing prüfen). Nutze sie, wenn du ein bestimmtes Claude-Modell angefragt hast, aber ein kleineres vermutest.
 
-1. Wähle ein Modell und klick auf **Save**. Die Schaltfläche bleibt gesperrt, solange kein Modell gewählt ist.
+1. Wähle ein Modell und klick auf **Save** (Speichern). Die Schaltfläche bleibt gesperrt, solange kein Modell gewählt ist.
 2. Klick auf **Diagnose Model Routing**.
 3. Lies das Ergebnis. Marinara schickt einen echten Prompt durch die Claude-Code-Anmeldung. Danach meldet es, welches Modell deinem Konto tatsächlich berechnet wurde.
 
@@ -140,7 +139,7 @@ So fällt eine stille Herabstufung auf: Du forderst ein größeres Modell wie Op
 - Embeddings gibt es bei keiner der drei. Die semantische Lorebook-Suche und Memory Recall brauchen dafür eine eigene Verbindung.
 - **Claude (Subscription)** unterstützt ausschließlich Text-Chat.
 - **Grok CLI (Subscription)** beherrscht kein Streaming und startet mit einem kleineren Kontextfenster.
-- **Send Test Message** braucht ein zuvor gewähltes Modell – außer bei der Grok CLI, die auch ohne testen kann.
+- **Send Test Message** (Testnachricht senden) braucht ein zuvor gewähltes Modell – außer bei der Grok CLI, die auch ohne testen kann.
 
 ## Verwandte Anleitungen
 

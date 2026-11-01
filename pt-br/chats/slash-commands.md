@@ -82,11 +82,14 @@ Estes comandos ajudam a conduzir a história, interpretar um personagem e acresc
 | `/random` | `/rand`, `/event` | Pede que a IA acrescente um evento surpresa à história. |
 | `/scene [description (optional)]` | `/rp` | Executado a partir de um chat de Conversation. Começa uma cena nova de Roleplay, criando uma ramificação a partir daquela conversa. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Gera uma imagem de galeria para o chat atual. |
+| `/html [what you want]` | | Roleplay: cria um artefato do mundo da história no fim da resposta mais recente, por exemplo `a spellbook page`. |
 | `/video [description (optional)]` | | Roleplay: cria um clipe curto da resposta mais recente, ou do que você descrever, abaixo dessa resposta. Segue a configuração **First frame** (primeiro quadro) de Illustrator. Em Conversation, `/video` envia uma mensagem de vídeo (veja abaixo). |
 | `/impersonate [direction (optional)]` | `/imp` | Escreve uma resposta no papel da persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Define a instrução que `/impersonate` usa neste chat. |
 
 Em **Roleplay**, `/illustrate range=12` ilustra a mensagem 12, e `/illustrate range=12-18` envia as mensagens de 12 a 18 ao Illustrator. Use os mesmos números de `/goto`, em ordem crescente, com no máximo 200 mensagens. Mensagens ocultas continuam excluídas. A imagem é anexada à última mensagem visível do intervalo; a revisão do prompt mantém essa seleção mesmo se chegarem mensagens novas. Mensagens anteriores continuam disponíveis com Advanced Memory ativado. Sem `range=`, o comando mantém o comportamento normal para a cena atual. Um prompt digitado opcional é usado diretamente, como antes.
+
+`/html a terminal readout` cria um artefato no fim da resposta mais recente. Ele não precisa de agente e funciona com **HTML Artifacts** (artefatos HTML) ativado ou não. O próprio narrador pode fazer o mesmo pedido com `[html: prompt="..."]` quando **HTML Artifacts** está ativado em **Roleplay Commands**. Veja [Artefatos sob demanda](../roleplay/getting-started.md#artifacts-on-demand).
 
 Para conduzir a próxima resposta, escreva a direção depois de `/guided`:
 

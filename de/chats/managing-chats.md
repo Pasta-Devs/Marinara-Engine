@@ -24,7 +24,7 @@ Manche Zeilen tragen ein kleines Verzweigungssymbol mit einer Zahl. Das heißt: 
 
 Der neue Chat heißt **New Conversation**, **New Roleplay** oder **New Game**. Umbenennen lässt er sich später jederzeit (siehe „Einen Chat umbenennen“ weiter unten).
 
-Ohne mindestens eine Verbindung öffnet sich kein Chat. Eine Verbindung koppelt Marinara an einen KI-Anbieter. Fehlt sie noch, erscheint statt des Chats das Fenster **Set Up** (Einrichten) und bittet dich, zuerst eine Verbindung zu wählen. Gibt es überhaupt keine, zeigt es **No connections found** (Keine Verbindungen gefunden) und eine Schaltfläche **Open Connections**. Wie du eine einrichtest, steht in [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md).
+Ohne mindestens eine Verbindung öffnet sich kein Chat. Eine Verbindung koppelt Marinara an einen KI-Anbieter. Fehlt sie noch, öffnet sich statt des Chats das Fenster **Add account** (Konto hinzufügen). Wähle einen Dienst und klick auf **Connect** (Verbinden). Danach öffnet das Fenster die Modellauswahl. Wähle ein Modell, nutze bei Bedarf die Option **Make ... my Main** (… zu meinem Main machen) und klick auf **Start chatting** (Chat beginnen). Bei einer normalen Kontoeinrichtung klickst du stattdessen auf **Done** (Fertig). Die vollständige Anleitung steht in [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md).
 
 Hast du für diesen Modus ein Einstellungsprofil als Standard markiert, wendet Marinara es automatisch auf den neuen Chat an. Siehe [Chat Settings im Überblick](chat-settings.md).
 

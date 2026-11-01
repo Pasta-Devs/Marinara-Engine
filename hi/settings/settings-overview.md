@@ -130,7 +130,7 @@
 | **Show characters in Persona pickers** | पर्सोना पिकर में आपके कैरेक्टर भी दिखाता है, ताकि आप उनमें से किसी के रूप में खेल सकें। | [यूज़र पर्सोना: बनाना और बदलना](../characters/personas.md) |
 | **Show model name on messages** | दिखाता है कि हर जवाब कौन से AI मॉडल ने लिखा। | [संदेश की क्रियाएँ: एडिट, डिलीट, स्वाइप, दोबारा जेनरेट](../chats/messages.md) |
 | **Show token usage on messages** | हर संदेश के प्रॉम्प्ट और जवाब के टोकन की गिनती दिखाता है। | [संदेश की क्रियाएँ: एडिट, डिलीट, स्वाइप, दोबारा जेनरेट](../chats/messages.md) |
-| **Show context usage** | कनेक्शन स्विचर और Game चैट की सेटिंग्स में दिखाता है कि आखिरी मापी गई रिक्वेस्ट पर मॉडल का कॉन्टेक्स्ट कितना भरा था। | [कनेक्शन को व्यवस्थित रखना](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
+| **Show context usage** | कनेक्शन स्विचर और Game चैट की सेटिंग्स में दिखाता है कि आखिरी मापी गई रिक्वेस्ट पर मॉडल का कॉन्टेक्स्ट कितना भरा था। | [एक चैट के लिए मॉडल चुनना](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat) |
 | **Show message numbers** | चैट के हर संदेश पर एक नंबर दिखाता है। | [संदेश की क्रियाएँ: एडिट, डिलीट, स्वाइप, दोबारा जेनरेट](../chats/messages.md) |
 | **Show "older messages not sent" note** | जब पुराने संदेश प्रॉम्प्ट में नहीं समा पाते, तब सबसे नए जवाब के नीचे एक नोट दिखाता है। लंबी चैट में वह नोट छिपाने के लिए इसे बंद करें। कटा हुआ या खाली जवाब तब भी अपना अलग नोट दिखाता है। | [Peek Prompt: देखें कि AI को क्या मिला](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | दोबारा जेनरेट करते समय आपके मौजूदा ड्राफ़्ट को दिशा के तौर पर लेता है। | [गाइडेड जेनरेशन और Impersonate](../chats/guided-and-impersonate.md) |

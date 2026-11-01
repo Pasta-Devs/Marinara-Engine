@@ -82,11 +82,14 @@ Te komendy pomagają prowadzić fabułę, wcielać się w postać i dodawać gra
 | `/random` | `/rand`, `/event` | Prosi AI o dorzucenie do fabuły niespodziewanego wydarzenia. |
 | `/scene [description (optional)]` | `/rp` | Uruchamiana z czatu Conversation. Zaczyna nową scenę Roleplay, która odgałęzia się od tego czatu. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Generuje obraz do galerii bieżącego czatu. |
+| `/html [what you want]` | | Roleplay: tworzy jeden artefakt ze świata opowieści na końcu najnowszej odpowiedzi, na przykład `a spellbook page`. |
 | `/video [description (optional)]` | | Roleplay: tworzy krótki klip z najnowszej odpowiedzi lub na podstawie twojego opisu i umieszcza go pod tą odpowiedzią. Korzysta z ustawienia **First frame** (pierwsza klatka) agenta Illustrator. W trybie Conversation `/video` wysyła zamiast tego wiadomość wideo (zobacz niżej). |
 | `/impersonate [direction (optional)]` | `/imp` | Pisze odpowiedź w imieniu twojej persony. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Ustawia instrukcję, z której `/impersonate` korzysta w tym czacie. |
 
 W trybie **Roleplay** komenda `/illustrate range=12` ilustruje wiadomość 12, a `/illustrate range=12-18` wysyła do Illustrator wiadomości od 12 do 18. Używaj numerów takich jak w `/goto`, w kolejności rosnącej, maksymalnie 200 wiadomości. Ukryte wiadomości pozostają pominięte. Obraz jest dołączany do ostatniej widocznej wiadomości w wybranym zakresie; przegląd promptu zachowuje wybór także po pojawieniu się nowszych wiadomości. Starsze wiadomości są dostępne również przy włączonym Advanced Memory. Bez `range=` komenda działa jak dotychczas dla bieżącej sceny. Opcjonalny wpisany prompt jest używany bezpośrednio, tak jak wcześniej.
+
+`/html a terminal readout` tworzy jeden artefakt na końcu najnowszej odpowiedzi. Nie wymaga agenta i działa niezależnie od tego, czy opcja **HTML Artifacts** (artefakty HTML) jest włączona. Narrator może sam zgłosić tę samą prośbę komendą `[html: prompt="..."]`, gdy opcja **HTML Artifacts** jest włączona w sekcji **Roleplay Commands** (komendy Roleplay). Zobacz [Artefakty na żądanie](../roleplay/getting-started.md#artifacts-on-demand).
 
 Żeby pokierować kolejną odpowiedzią, dopisz wskazówkę po `/guided`:
 

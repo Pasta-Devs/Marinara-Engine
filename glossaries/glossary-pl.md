@@ -1057,3 +1057,144 @@ Translation choices for `media/tts-setup.md` in #7763, matching English source `
 ## Agent Organizer
 
 Use the English UI label **Agent Organizer** for the renamed official agent store.
+
+## Connections redesign and HTML artifacts (2026-11-01)
+
+Precedents from the #8464 and #8603 catch-up against Engine `staging` `6d96cf919`:
+
+- *Account* is **konto** (konta, kont, koncie, kontem): "**Konto** to jeden klucz,
+  jedno logowanie albo jeden adres u dostawcy AI"
+  (`connections/connecting-to-a-provider.md:7`). *Connection* stays **połączenie**
+  (R-35). Where English now defines it as "one API key, account, or endpoint", the
+  gloss is "jeden klucz API, jedno konto albo jeden endpoint (adres) usługi AI"
+  (`FAQ.md:83`, `chats/chat-settings.md:133`, `home/welcome.md:55`). R-35's
+  *zapisany skrót* gloss still applies in the five files whose English keeps "a
+  saved link to an AI provider" (`agents/memory.md:36`,
+  `chats/guided-and-impersonate.md:92`, `conversation/getting-started.md:31`,
+  `media/animated-expressions.md:17`, `media/illustrator-agent.md:15`). An AI
+  *service* is **usługa** ("Marinara obsługuje wiele usług", `FAQ.md:91`);
+  *provider* stays **dostawca** (R-36).
+- *Endpoint* in that definition is the loanword plus gloss, **endpoint (adres)**. It
+  does not replace **punkt końcowy** for API paths
+  (`connections/providers-reference.md:105`) or the bare loanword in
+  `connections/local-self-hosted.md:9`. The connection field is **Address**
+  *(adres)*. English names the field per file (**Address**, **Endpoint**, **Base
+  URL**; also **API key** beside the older **API Key**), so copy each file's label
+  (R-110): `local-self-hosted.md:35` mirrors English's own parenthesis as
+  **Address** *(nazywane też Base URL)*, and `media/image-providers.md:9` keeps
+  **Base URL** *(adres bazowy)* "w połączeniu widoczne jako **Endpoint**".
+- The **Jobs** box is **sekcja Jobs**, glossed once *(zadania)*; a job is
+  **zadanie** (zadania, zadań), the carrier already used for background tasks
+  (2026-10-14). Groups: **Chat** *(czat)*, **Omnibar** *(wyszukiwarka)*, reusing the
+  gloss of **Search** (2026-10-11), **Pictures & sound** *(obrazy i dźwięk)*,
+  **Behind the scenes** *(za kulisami)*. Rows: **Main** *(główny)*, **Agents**
+  *(agenci)*, **Impersonate** *(pisanie za ciebie)*, **Voice (Text to Speech)**
+  *(głos, synteza mowy)*, **Decision** *(decyzje)*, **Embeddings** *(embeddingi)*,
+  **Image reading** *(odczytywanie obrazów)*; also **Parallel jobs** *(zadania
+  równoległe)* and **Max Parallel Agent Jobs** *(maksymalna liczba równoległych
+  zadań agentów)*. The Decision row's gear is **ikona zębatki**, then **zębatka**
+  (`connections/decision-models.md:51`, `:100`), as in the pack's existing "ikona
+  zębatki" (§7 residual 3).
+- **Main** stays English in prose behind *model* (**model Main**, *nie masz modelu
+  Main*); in the connection docs *model główny* appears only inside glosses:
+  **Follow Main** *(podążanie za modelem głównym)*, **Make it my Main model**
+  *(ustaw jako mój model główny)*, **Make … my Main** *(ustaw jako mój główny)*.
+  English writes that last label with three ASCII dots in `FAQ.md` and
+  `chats/managing-chats.md` and with `…` in
+  `connections/connecting-to-a-provider.md`; copy each file's form. Status strings
+  stay bare and unglossed: **Follows Main**, **follows Main** (lowercase, as in
+  English), **Off**, **Needs key**, **Connected**, **This chat only**.
+- In the connection docs, **Shuffle** replaces **Random** / **🎲 Random** and *pula
+  losowa*. The feature stays English behind **funkcja Shuffle** (R-16), heading
+  `## Funkcja Shuffle`; the pool is **pula Shuffle** (*z twojej puli Shuffle*). A
+  bold **Shuffle** is glossed *(losowanie)*; **Add to Shuffle** *(dodanie do
+  losowania)*, **Remove from Shuffle** *(usunięcie z losowania)*. The **Quick
+  Connection Switcher** *(szybkie przełączanie połączeń)* is retired with it. *Puli
+  losowego wyboru* in `lorebooks/entries.md:345` is a different feature; leave it.
+- Pickers: the **Model for** picker is **okno wyboru Model for**
+  (`connections/decision-models.md:45`) or **okno Model for**
+  (`connections/connecting-to-a-provider.md:57`), glossed *(model dla)*; **Model for
+  this chat** *(model dla tego czatu)*. A generic model picker is **selektor
+  modeli** (`connections/organizing-connections.md:34`), the chat's connection
+  picker was already a **selektor** (`connections/providers-reference.md:112`), and
+  the developer heading *Shared connection picker* is
+  `### Wspólny selektor połączeń` (`development/optional-agent-packages.md:27`).
+  **Starred** *(oznaczone gwiazdką)*, **Star** *(oznaczenie gwiazdką)*; prose
+  **modele oznaczone gwiazdką**, heading `## Modele oznaczone gwiazdką`. This
+  retires the connection docs' **Pinned** *(przypięte)* and *przypięte modele*,
+  because English renamed them; other features' pinning keeps *przypiąć*.
+- Other new glosses. Add-account flow: **Add** *(dodaj)*, **Add account** *(dodanie
+  konta)*, **Connect** *(połącz)*, **Done** *(gotowe)*, **Start chatting**
+  *(rozpocznij czat)*, **Continue anyway** *(kontynuuj mimo to)*, **Where do I find
+  my key?** *(gdzie znajdę klucz?)*, **More options** *(więcej opcji)*, **On your
+  computer** *(na twoim komputerze)*, **All providers** *(wszyscy dostawcy)*,
+  **Search providers** *(wyszukiwanie dostawców)*, **Built-in model** *(model
+  wbudowany)*; image flow: **Add connection** *(dodanie połączenia)*, **Images,
+  video & voice** *(obrazy, wideo i głos)*, **Save and test** *(zapisanie i test)*.
+  Picker: **All models** *(wszystkie modele)*, **Browse** *(przeglądanie)*, **If it
+  fails** *(jeśli zawiedzie)*, **Search all models or paste a model ID**
+  *(przeszukiwanie wszystkich modeli lub wklejenie identyfikatora modelu)*, **Search
+  models or paste an ID…** *(wyszukiwanie modeli lub wklejenie identyfikatora)*,
+  **Needs an image model** *(potrzebny model obrazów)*, **Set up** *(konfiguracja)*.
+- Account and model menus: **More actions** *(więcej działań)*, with *trzy kropki*
+  (R-114) in `connecting-to-a-provider.md`; **Search models and accounts**
+  *(wyszukiwanie modeli i kont)*, **Import account** *(import konta)*, **Export all
+  accounts** *(eksport wszystkich kont)*, **Fold all accounts** *(zwinięcie
+  wszystkich kont)*, **Open all accounts** *(rozwinięcie wszystkich kont)*, **Show
+  only Off or Needs key** *(pokazanie tylko kont wyłączonych lub bez klucza)*,
+  **Show cost badges** *(pokazanie plakietek kosztów)*, **Custom settings** *(własne
+  ustawienia)*, **Edit account** *(edycja konta)*, **Test account** *(test konta)*,
+  **Use this account** *(używanie tego konta)*, **Replace key** *(zastąpienie
+  klucza)*, **Add model** *(dodanie modelu)*, **Add image model** *(dodanie modelu
+  obrazów)*, **Select models** *(zaznaczanie modeli)*, **Turn off** *(wyłączenie)*,
+  paired with **Turn on** *(włączenie)*, **Delete account** *(usunięcie konta)*,
+  **Make default for…** *(ustawienie jako domyślny)*, **Edit model** *(edycja
+  modelu)*, **Move to account…** *(przeniesienie do konta)*, **Group by folder**
+  *(grupowanie według folderów)*, **Change picture** *(zmiana obrazka)*. Usage:
+  **Usage and balance** *(zużycie i saldo)*, **Usage and limits** *(zużycie i
+  limity)*, **Show usage** *(pokazanie zużycia)*, **Show the usage meter on the
+  card** *(pokazywanie wskaźnika zużycia na karcie)*, **Add a usage-only key**
+  *(dodanie klucza tylko do odczytu zużycia)*, after the existing **Usage only**
+  *(tylko odczyt zużycia)*. **Management token** *(token zarządzania, zalecany)*
+  folds English's own "(recommended)" into the one parenthesis. **Show subscription
+  usage** *(pokaż zużycie subskrypcji)* and the **5-hour window** / **Weekly
+  window** checkboxes are retired.
+- An HTML artifact (#8603) is **artefakt** (artefakty, artefaktu), the word the
+  developer docs already use for release artifacts; context keeps the two apart.
+  **HTML Artifacts** is glossed *(artefakty HTML)* and **Documents** *(dokumenty)*:
+  the words of `ui/pl.json` `roleplay.commands.html.label` ("Artefakty HTML") and
+  `roleplay.commands.document.label` ("Dokumenty"), lowercase per R-112, although
+  RR-4 would allow the capital. The section is `## Artefakty na żądanie`
+  (`roleplay/getting-started.md:116`). The marker is a **znacznik**; its runtime
+  string "used html command" stays English in straight quotes (R-115), and
+  `/html [what you want]`, `/html <what you want>` and `[html: prompt="..."]` stay
+  byte-exact code spans.
+- New `<a id>` anchors follow the 2026-10-14 pattern:
+  `choosing-the-model-for-each-job` and `choosing-a-model-for-one-chat`
+  (`connections/connecting-to-a-provider.md`), `shuffle`
+  (`connections/organizing-connections.md`) and `artifacts-on-demand`
+  (`roleplay/getting-started.md`). The anchor
+  `the-random-pool-and-quick-connection-switcher` is retired with its English
+  heading; no pl link targets it.
+- Gloss moved to a new first use (R-113): where English deleted the sentence that
+  held a label's first mention, its one-time gloss moved, byte-identical, to the
+  next mention: **Connections** *(Połączenia)*
+  (`connections/providers-reference.md:238`), **Save** *(Zapisz)*
+  (`connections/subscription-clis.md:130`) and **Send Test Message** *(Wyślij
+  wiadomość testową)* (`:142`). Their capitals are verbatim shipped `ui/pl.json`
+  strings (RR-4), not a new ruling.
+- Coined glosses, to recheck when the UI pack ships the keys: `ui/pl.json` has no
+  Polish value for any key under `connections.add`, `connections.accounts`,
+  `connections.defaults`, `connections.switcher`, `connections.picker`,
+  `connections.usage`, `connections.list`, `connections.row` or
+  `connections.folders`, so the Connections glosses above were coined here. When the
+  keys ship, recheck them for RR-4 capitals and wording drift; R-119 still applies,
+  so a shipped string does not replace a gloss automatically. **Behind the scenes**,
+  **Pictures & sound**, **Connect** and **Done** reuse the words of "Za kulisami",
+  "Obrazy i dźwięk", "Połącz" and "Gotowe" from other keys; **Model for this chat**
+  matches `commandCenter.controls.chatModel` "Model dla tego czatu". The stale
+  `ui.panels.connectionspanel.importConnection` value "Importuj połączenie" (now
+  **Import account** in English) is not a gloss source.
+
+These are documented choices for this catch-up, not a claim of independent
+native-reader review.

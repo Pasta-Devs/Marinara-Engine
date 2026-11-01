@@ -24,7 +24,7 @@ Certaines lignes portent une petite icône de branche accompagnée d'un nombre. 
 
 Le nouveau chat s'appelle **New Conversation**, **New Roleplay** ou **New Game**. Rien n'empêche de le renommer plus tard (voir Renommer un chat, plus bas).
 
-Il faut au moins une connexion pour qu'un chat s'ouvre. Une connexion relie Marinara à un fournisseur d'IA. Sans connexion, la fenêtre **Set Up** (configuration) s'affiche à la place du chat. Elle te demande d'abord de choisir une connexion. Si tu n'en as aucune, elle affiche "No connections found" avec un bouton **Open Connections**. Pour en créer une, consulte [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
+Il faut au moins une connexion pour qu'un chat s'ouvre. Une connexion relie Marinara à un fournisseur d'IA. Sans connexion, la fenêtre **Add account** (ajouter un compte) s'ouvre à la place du chat. Choisis un service et clique sur **Connect** (connecter). La fenêtre passe ensuite au choix du modèle. Choisis un modèle, utilise si tu veux l'option **Make ... my Main** (faire de ... mon Main), puis clique sur **Start chatting** (commencer à discuter). Pour configurer un compte normalement, clique plutôt sur **Done** (terminé). Pour la marche à suivre complète, consulte [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 
 Si tu as enregistré un profil de réglages par défaut marqué d'une étoile pour ce mode, Marinara l'applique automatiquement au nouveau chat. Voir [Vue d'ensemble des Chat Settings](chat-settings.md).
 

@@ -130,11 +130,11 @@ La sección **Chat Name** (Nombre del chat) contiene el nombre que se muestra en
 
 ## Connection
 
-La sección **Connection** (Conexión) elige qué proveedor de IA y qué modelo responden en este chat. Una conexión es un enlace guardado a un proveedor de IA, incluida su API key (clave de API) y el modelo elegido. Una API key es un código secreto que permite a Marinara Engine usar tu cuenta con ese proveedor.
+La sección **Connection** (Conexión) elige qué modelo de IA responde en este chat. Una conexión es una API key (clave de API), una cuenta o un endpoint de un servicio de IA. Los modelos que guardas se agrupan bajo ella. Una API key es un código secreto que permite a Marinara Engine usar tu cuenta con ese servicio.
 
-Elige una conexión guardada del menú desplegable. También puedes elegir **Random** (Aleatorio). Elige una conexión distinta cada vez, entre las conexiones que marcaste para tu grupo aleatorio.
+El campo **Model** (Modelo) muestra el modelo efectivo y si este chat sigue a **Main** (Principal) o tiene su propia elección. Haz clic en él para abrir el mismo selector que el botón de modelo del área de entrada del chat. El modelo actual se queda arriba, con los modelos recientes y los marcados con estrella debajo, agrupados por cuenta. Busca entre modelos y cuentas, o usa **Browse** (Explorar) para abrir el catálogo de una cuenta. Una elección cambia solo este chat.
 
-Debajo del menú desplegable, el campo **Model** (Modelo) muestra el modelo que usa la conexión seleccionada. Haz clic en él para abrir la misma lista de modelos que el Quick Connection Switcher: busca o escribe un ID de modelo, fija modelos con la estrella, actualiza la lista y haz clic en un modelo para usarlo. El modelo se guarda en la conexión, así que todos los chats, agentes y funciones auxiliares que usan esta conexión también cambian a él. El campo se oculta con **Random** y con el Local Model integrado. Consulta [El grupo aleatorio y el Quick Connection Switcher](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) para más detalles.
+**Follow Main** (Seguir al principal) quita la elección propia del chat. **Shuffle** (Aleatorio) elige un modelo distinto de tu grupo para cada respuesta. Si una conexión necesita una clave o está desactivada, su modelo lleva a la acción para repararla. Las estrellas guardan modelos en tu lista sin cambiar el chat. Consulta [Shuffle](../connections/organizing-connections.md#shuffle) para más detalles.
 
 Para aprender a crear una conexión desde cero, consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md).
 

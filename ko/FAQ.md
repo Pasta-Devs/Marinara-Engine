@@ -80,15 +80,15 @@ Conversation을 열고 **Chat Settings**(채팅 설정)에서 **Schedule timezon
 
 ## Marinara를 쓰려면 API 키가 필요한가요?
 
-거의 항상 필요합니다. **연결**은 Marinara가 AI 서비스 한 곳에 접속하는 방법을 저장해 둔 것입니다. 어떤 제공자인지, 어떤 모델인지, 그리고 그곳에 접속할 로그인 정보가 함께 들어갑니다. **API 키**는 비밀번호와 비슷한 비밀 문자열입니다. AI 제공자에게서 받아 두면 Marinara가 대신 그 제공자와 통신할 수 있습니다.
+거의 항상 필요합니다. **연결**은 AI 서비스 하나에 쓰는 API 키, 계정 또는 엔드포인트 하나입니다. 저장한 모델은 그 연결 아래에 묶입니다. **API 키**는 비밀번호와 비슷한 비밀 문자열입니다. AI 제공자에게서 받아 두면 Marinara가 대신 그 제공자와 통신할 수 있습니다.
 
-채팅을 시작하려면 연결이 하나 이상 있어야 합니다. 연결을 만들려면 **Connections**(연결) 패널을 열고 **New**(새로 만들기)를 클릭한 뒤 제공자를 고르고 **API Key**(API 키)를 붙여넣은 다음 모델을 고르세요. 전체 과정은 [AI 제공자에 연결하기](connections/connecting-to-a-provider.md)에서 설명합니다.
+채팅을 시작하려면 연결이 하나 이상 있어야 합니다. 연결을 만들려면 **Connections**(연결) 패널을 열고 **Add**(추가)를 클릭하세요. **Add account**(계정 추가) 창에서 서비스를 고르고 **API key**(API 키)를 붙여넣은 다음 **Connect**(연결)를 클릭하세요. 그러면 창이 모델 선택으로 넘어갑니다. 모델을 고르고, 새 채팅에서 그 모델이 답하게 하려면 **Make ... my Main**(내 메인으로 설정) 옵션을 사용하세요. 창에 **Start chatting**(채팅 시작)이 나타나면 클릭하세요. 일반적인 계정 설정이라면 대신 **Done**(완료)을 클릭하세요. 전체 과정은 [AI 제공자에 연결하기](connections/connecting-to-a-provider.md)에서 설명합니다.
 
 API 키를 아예 쓰지 않는 제공자도 몇 곳 있습니다. 구독형 옵션(Claude, ChatGPT, Grok)은 대신 명령줄 도구로 로그인하고, 내장 Local Model은 키 없이 사용 중인 컴퓨터에서 바로 실행됩니다.
 
 ## 어떤 AI 제공자를 지원하나요?
 
-Marinara는 여러 제공자를 지원합니다. 연결마다 하나씩 고르면 됩니다.
+Marinara는 여러 서비스를 지원합니다. 연결마다 서비스를 하나씩 고르면 됩니다.
 
 채팅과 롤플레이 텍스트에는 **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek**, 그리고 Ollama, LM Studio, KoboldCpp처럼 로컬이나 직접 띄운 모델을 위한 **Custom (OAI-Compatible)**을 고를 수 있습니다.
 
@@ -96,7 +96,7 @@ Marinara는 여러 제공자를 지원합니다. 연결마다 하나씩 고르�
 
 동영상 생성에는 **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0**, 그리고 로컬 **ComfyUI**의 API 형식 워크플로가 있습니다.
 
-연결은 한 번에 여러 개 저장해 두고 채팅마다 다른 연결을 지정할 수 있습니다. [AI 제공자에 연결하기](connections/connecting-to-a-provider.md)를 참고하세요.
+연결은 한 번에 여러 개 저장해 둘 수 있습니다. 채팅 입력란 옆의 **Connections** 메뉴에서 채팅에 고른 모델은 그 채팅에만 적용됩니다. [AI 제공자에 연결하기](connections/connecting-to-a-provider.md)를 참고하세요.
 
 ## Marinara를 쓰려면 돈을 내야 하나요?
 

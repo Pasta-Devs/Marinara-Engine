@@ -19,24 +19,22 @@ Marinara 通过 **Custom (OAI-Compatible)**(自定义 OAI 兼容) 服务商连�
 按以下步骤创建连接。
 
 1. 从应用右侧打开 **Connections**(连接) 面板。
-2. 点击 **New**(新建) 按钮（加号图标）。**Create Connection**(创建连接) 窗口随即打开。
-3. 在 **Name**(名称) 输入框里填一个名字，比如 `Ollama Local`。
-4. 在服务商列表里选择 **Custom (OAI-Compatible)**。
-5. 点击 **Create**(创建)。新连接的编辑器随即打开。
-6. 找到 **Base URL** 输入框，填入本地服务端的地址（见下表）。
-7. **API Key** 输入框留空。多数本地服务端不需要密钥。
-8. 选一个模型。点击 **Fetch Models from API**(从 API 获取模型) 加载服务端上报的列表，然后从中选择，也可以手动输入模型 ID。
-9. 点击 **Save**(保存)。
+2. 点击 **Add**(添加)。**Add account**(添加账号) 窗口随即打开。
+3. 在第 1 步里选择 **Custom (OAI-Compatible)**。它列在 **On your computer**(在你的电脑上) 下面。
+4. 在第 2 步里，把本地服务端的地址填进 **Address**(地址) 输入框（见下表）。
+5. **API key**(API 密钥) 输入框留空。多数本地服务端不需要密钥。想给连接起个名字，比如 `Ollama Local`，就打开 **More options**(更多选项)，填在 **Name (optional)**(名称，可选) 下面。
+6. 点击 **Connect**(连接)。
+7. 在第 3 步里，从服务端上报的列表中选一个模型，也可以手动输入模型 ID。点击 **Done**(完成)。
 
-这时在 **Connections** 面板里就能看到刚保存的连接。正式用于聊天之前先测一下，见下面的“测试连接”一节。
+这时在 **Connections** 面板里就能看到这个连接，它的模型归在它下面。正式用于聊天之前先测一下，见下面的“测试连接”一节。
 
-对本地服务端来说，**API Key** 输入框是可选的。选用 **Custom (OAI-Compatible)** 服务商时，编辑器会在这个输入框下面给出提示：Ollama、LM Studio、KoboldCpp 这类本地模型可以把密钥留空，只填 Base URL 就行。
+对本地服务端来说，**API Key** 输入框是可选的。选用 **Custom (OAI-Compatible)** 服务商时，编辑器会在这个输入框下面给出提示：Ollama、LM Studio、KoboldCpp 这类本地模型可以把密钥留空，只填 **Address** 就行。
 
 ## 常见本地服务端的 Base URL
 
-**Base URL** 告诉 Marinara 本地服务端在哪里监听。每种服务端都有默认的地址和端口。端口是服务端在本机使用的带编号的通道。用哪种服务端，就填哪一行的地址。
+**Address** 也叫 Base URL，它告诉 Marinara 本地服务端在哪里监听。每种服务端都有默认的地址和端口。端口是服务端在本机使用的带编号的通道。用哪种服务端，就填哪一行的地址。
 
-| 本地服务端 | Base URL |
+| 本地服务端 | 端点 |
 |---|---|
 | Ollama | `http://localhost:11434/v1` |
 | LM Studio | `http://localhost:1234/v1` |
@@ -44,7 +42,7 @@ Marinara 通过 **Custom (OAI-Compatible)**(自定义 OAI 兼容) 服务商连�
 
 这里的 `localhost` 表示“同一台电脑”。只要 Marinara 和模型服务端在同一台电脑上，这些地址照抄就能用。
 
-**Base URL** 输入框会显示一条安全警告：“Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys.”只填自己搭建或完全信任的地址。
+**Address** 输入框会显示一条安全警告：“Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys.”只填自己搭建或完全信任的地址。
 
 ### Windows 防火墙提示
 
@@ -76,18 +74,18 @@ PROVIDER_LOCAL_URLS_ENABLED=true
 
 ## 测试连接
 
-连接编辑器底部有一张 **Connection Tests**(连接测试) 卡片。在聊天里正式依赖这个连接之前，先用它测一下。
+添加流程里的 **Connect** 已经检查过这个连接。模型编辑器底部还有一张 **Connection Tests**(连接测试) 卡片，可以再检查一遍。在聊天里正式依赖这个连接之前，先用它测一下。
 
-1. 在 **Connections** 面板里点击自己的连接，打开连接编辑器。
+1. 在 **Connections** 面板里点击自己的模型，打开模型编辑器。
 2. 点击 **Test Connection**(测试连接)。这一步检查 Base URL 和相关设置是否可达，并报告耗时。
 3. 还没选模型的话，先选一个。
 4. 点击 **Send Test Message**(发送测试消息)。这一步会向选定的模型发送一个“hi”，并显示回复。
 
-两项测试都通过，本地模型就可以在聊天里用了。打开一个聊天，进入它的设置，选中这个连接。
+两项测试都通过，本地模型就可以在聊天里用了。打开一个聊天，进入它的设置，选中这个连接，或者用聊天输入框里的 **Connections** 菜单。
 
 同一个模型也能回答决策问题，例如智能体激活问题，不需要 Marinara 再加载一份模型。在连接设置中点击 **Use this model for decisions**(使用此模型进行决策)，详见[决策模型](decision-models.md#on-a-server-you-already-run)。
 
-某项测试失败时，先确认本地服务端还在运行、模型也已加载。然后核对 **Base URL** 是否与服务端的地址和端口完全一致。服务端在另一台电脑上时，确认 `PROVIDER_LOCAL_URLS_ENABLED` 已设置，并且已经重启了 Marinara 服务器。
+某项测试失败时，先确认本地服务端还在运行、模型也已加载。然后核对 **Address** 是否与服务端的地址和端口完全一致。服务端在另一台电脑上时，确认 `PROVIDER_LOCAL_URLS_ENABLED` 已设置，并且已经重启了 Marinara 服务器。
 
 ## 相关指南
 

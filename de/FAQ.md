@@ -80,15 +80,15 @@ Auch eine manuelle Statusüberschreibung gehört zum Charakter. Setzt du einen C
 
 ## Brauche ich einen API-Key für Marinara?
 
-Fast immer ja. Eine **Verbindung** ist ein gespeicherter Eintrag, der Marinara den Weg zu genau einem KI-Dienst zeigt: welcher Anbieter, welches Modell und die Zugangsdaten dafür. Ein **API-Key** ist ein geheimer Zugangscode, ähnlich einem Passwort. Du bekommst ihn von einem KI-Anbieter, damit Marinara in deinem Namen mit diesem Anbieter sprechen kann.
+Fast immer ja. Eine **Verbindung** ist ein API-Key, ein Konto oder ein Endpunkt für einen KI-Dienst. Die Modelle, die du speicherst, sind darunter gruppiert. Ein **API-Key** ist ein geheimer Zugangscode, ähnlich einem Passwort. Du bekommst ihn von einem KI-Anbieter, damit Marinara in deinem Namen mit diesem Anbieter sprechen kann.
 
-Ohne mindestens eine Verbindung startet kein Chat. Öffne zum Anlegen das Panel **Connections** (Verbindungen), klick auf **New**, wähle einen Anbieter, füge den **API Key** ein und wähle ein Modell. Die vollständige Anleitung steht in [Mit einem KI-Anbieter verbinden](connections/connecting-to-a-provider.md).
+Ohne mindestens eine Verbindung startet kein Chat. Öffne zum Anlegen das Panel **Connections** (Verbindungen) und klick auf **Add** (Hinzufügen). Wähle im Fenster **Add account** (Konto hinzufügen) einen Dienst, füge deinen **API key** ein und klick auf **Connect** (Verbinden). Danach öffnet das Fenster die Modellauswahl. Wähle ein Modell, nutze die Option **Make ... my Main** (… zu meinem Main machen), wenn es neue Chats beantworten soll, und klick auf **Start chatting** (Chat beginnen), sobald das Fenster das anbietet. Bei einer normalen Kontoeinrichtung klickst du stattdessen auf **Done** (Fertig). Die vollständige Anleitung steht in [Mit einem KI-Anbieter verbinden](connections/connecting-to-a-provider.md).
 
 Ein paar Anbieter kommen ganz ohne API-Key aus. Die Abo-Optionen (Claude, ChatGPT und Grok) melden sich stattdessen über ein Kommandozeilenwerkzeug an, und das eingebaute Local Model läuft ohne Key auf dem eigenen Rechner.
 
 ## Welche KI-Anbieter werden unterstützt?
 
-Marinara unterstützt viele Anbieter. Pro Verbindung wählst du genau einen aus.
+Marinara unterstützt viele Dienste. Pro Verbindung wählst du genau einen Dienst aus.
 
 Für Chat- und Roleplay-Text stehen zur Wahl: **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek** sowie **Custom (OAI-Compatible)** für lokale oder selbst gehostete Modelle wie Ollama, LM Studio und KoboldCpp.
 
@@ -96,7 +96,7 @@ Für die Bildgenerierung stehen unter anderem zur Wahl: **OpenAI (DALL-E)**, **S
 
 Für die Videogenerierung stehen zur Wahl: **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0** und lokale **ComfyUI**-Workflows im API-Format.
 
-Du kannst beliebig viele Verbindungen gleichzeitig speichern und jedem Chat eine andere zuweisen. Siehe [Mit einem KI-Anbieter verbinden](connections/connecting-to-a-provider.md).
+Du kannst beliebig viele Verbindungen gleichzeitig speichern. Ein Modell, das du in einem Chat über das Menü **Connections** im Eingabebereich des Chats wählst, ändert nur diesen Chat. Siehe [Mit einem KI-Anbieter verbinden](connections/connecting-to-a-provider.md).
 
 ## Kostet die Nutzung von Marinara etwas?
 

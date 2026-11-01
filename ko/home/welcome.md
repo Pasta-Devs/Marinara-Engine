@@ -52,7 +52,7 @@ Marinara를 처음 열면 짧은 안내 투어가 주요 버튼과 채팅 모드
 첫 채팅까지 가는 과정입니다. 순서대로 따라 하세요.
 
 1. Marinara Engine을 설치하고 브라우저에서 여세요. [Marinara Engine 설치](../INSTALLATION.md)에서 사용 중인 플랫폼을 고르세요.
-2. 앱이 AI 서비스에 접속할 수 있도록 연결을 추가하세요. 연결에는 제공자, API 키, 모델이 함께 저장됩니다. API 키는 AI 제공자에게서 받는 비밀 문자열이며, 비밀번호와 비슷한 역할을 합니다. [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요.
+2. 앱이 AI 서비스에 접속할 수 있도록 연결을 추가하세요. 연결은 API 키, 계정 또는 엔드포인트 하나입니다. 서비스를 고르고, 키를 붙여넣고, 모델을 고르면 됩니다. API 키는 AI 제공자에게서 받는 비밀 문자열이며, 비밀번호와 비슷한 역할을 합니다. [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요.
 3. 대화할 캐릭터를 만들거나 가져오세요. **Characters**(캐릭터) 패널을 열고 **New**(새로 만들기)를 클릭하면 **Create Character**(캐릭터 만들기) 창이 열립니다. 파일로 된 캐릭터 카드를 불러오려면 **Import**(가져오기)를 클릭하세요. [캐릭터 만들기와 편집](../characters/creating-and-editing-characters.md)을 참고하세요.
 4. 채팅을 시작하세요. 채팅 사이드바에서 모드 탭을 고른 다음 **+** 버튼을 클릭하세요. 버튼 이름은 선택한 탭에 따라 **New Conversation**(새 대화), **New Roleplay**(새 롤플레이), **New Game**(새 게임)으로 바뀝니다. 새 채팅이 열리면서 나머지 과정을 안내하는 설정 창이 함께 뜹니다. 저장해 둔 연결이 아직 없으면 **Set Up Conversation**, **Set Up Roleplay**, **Set Up Game** 창이 먼저 나타납니다. 여기서 연결을 고르고 **Create Chat**(채팅 생성)을 클릭하세요.
 

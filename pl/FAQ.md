@@ -80,15 +80,15 @@ Ręczne nadpisanie statusu również należy do postaci. Jeśli w jednym czacie 
 
 ## Czy do korzystania z aplikacji Marinara Engine potrzebny jest klucz API?
 
-Prawie zawsze tak. **Połączenie** to zapisany skrót, który mówi aplikacji Marinara Engine, jak dotrzeć do jednej usługi AI: który dostawca, który model i jakie są dane logowania. **Klucz API** to tajny kod, trochę jak hasło. Wydaje go dostawca AI, żeby Marinara mogła w twoim imieniu rozmawiać z tym dostawcą.
+Prawie zawsze tak. **Połączenie** to jeden klucz API, jedno konto albo jeden endpoint (adres) usługi AI. Zapisane modele są zgrupowane pod nim. **Klucz API** to tajny kod, trochę jak hasło. Wydaje go dostawca AI, żeby Marinara mogła w twoim imieniu rozmawiać z tym dostawcą.
 
-Przed rozpoczęciem jakiegokolwiek czatu potrzebne jest co najmniej jedno połączenie. Żeby je utworzyć, otwórz panel **Connections** (połączenia), kliknij przycisk **New** (nowe), wybierz dostawcę, wklej klucz w pole **API Key** i wskaż model. Pełny opis krok po kroku znajdziesz w przewodniku [Łączenie z dostawcą AI](connections/connecting-to-a-provider.md).
+Przed rozpoczęciem jakiegokolwiek czatu potrzebne jest co najmniej jedno połączenie. Żeby je utworzyć, otwórz panel **Connections** (połączenia) i kliknij przycisk **Add** (dodaj). Wybierz usługę w oknie **Add account** (dodanie konta), wklej klucz w pole **API key** (klucz API) i kliknij **Connect** (połącz). Okno otwiera wtedy wybór modelu. Wybierz model, użyj opcji **Make ... my Main** (ustaw jako mój główny), jeśli ma on odpowiadać w nowych czatach, i kliknij **Start chatting** (rozpocznij czat), gdy okno to zaproponuje. Przy zwykłej konfiguracji konta kliknij zamiast tego **Done** (gotowe). Pełny opis krok po kroku znajdziesz w przewodniku [Łączenie z dostawcą AI](connections/connecting-to-a-provider.md).
 
 Kilku dostawców w ogóle nie używa klucza API. Opcje subskrypcyjne (Claude, ChatGPT i Grok) logują się przez narzędzie wiersza poleceń, a wbudowany model Local Model działa na twoim komputerze bez żadnego klucza.
 
 ## Których dostawców AI obsługuje Marinara?
 
-Marinara obsługuje wielu dostawców. Do każdego połączenia wybiera się jednego.
+Marinara obsługuje wiele usług. Do każdego połączenia wybiera się jedną usługę.
 
 Do tekstu w czacie i w trybie Roleplay dostępne są: **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek** oraz **Custom (OAI-Compatible)** dla modeli lokalnych i uruchamianych samodzielnie, takich jak Ollama, LM Studio i KoboldCpp.
 
@@ -96,7 +96,7 @@ Do generowania obrazów dostępne są między innymi: **OpenAI (DALL-E)**, **Sta
 
 Do generowania wideo dostępne są: **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0** oraz lokalne przepływy pracy **ComfyUI** w formacie API.
 
-Można zapisać wiele połączeń naraz i przypisać każdemu czatowi inne. Zobacz [Łączenie z dostawcą AI](connections/connecting-to-a-provider.md).
+Można zapisać wiele połączeń naraz. Model wybrany w czacie z menu **Connections** przy polu wiadomości zmienia tylko ten czat. Zobacz [Łączenie z dostawcą AI](connections/connecting-to-a-provider.md).
 
 ## Czy za korzystanie z aplikacji Marinara Engine trzeba płacić?
 

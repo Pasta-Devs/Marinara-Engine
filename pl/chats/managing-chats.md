@@ -24,7 +24,7 @@ Niektóre wiersze mają małą ikonę gałęzi z liczbą. Oznacza to, że czat m
 
 Nowy czat nosi nazwę **New Conversation**, **New Roleplay** albo **New Game**. Nazwę da się później zmienić (zobacz sekcję Zmiana nazwy czatu poniżej).
 
-Zanim czat się otworzy, potrzebne jest co najmniej jedno połączenie. Połączenie łączy aplikację Marinara Engine z dostawcą AI. Jeśli nie ma jeszcze żadnego połączenia, zamiast czatu pojawia się okno **Set Up** (konfiguracja). Prosi ono o wybranie połączenia. Gdy nie ma żadnego, pokazuje komunikat **No connections found** i przycisk **Open Connections**. Jak skonfigurować połączenie, opisuje [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+Zanim czat się otworzy, potrzebne jest co najmniej jedno połączenie. Połączenie łączy aplikację Marinara Engine z dostawcą AI. Jeśli nie ma jeszcze żadnego połączenia, zamiast czatu otwiera się okno **Add account** (dodanie konta). Wybierz usługę i kliknij **Connect** (połącz). Okno otwiera wtedy wybór modelu. Wybierz model, opcjonalnie użyj opcji **Make ... my Main** (ustaw jako mój główny) i kliknij **Start chatting** (rozpocznij czat). Przy zwykłej konfiguracji konta kliknij zamiast tego **Done** (gotowe). Pełny opis krok po kroku znajdziesz w przewodniku [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
 Jeśli dla danego trybu jest zapisany oznaczony gwiazdką domyślny profil ustawień, Marinara stosuje go do nowego czatu automatycznie. Zobacz [Panel **Chat Settings** – przegląd](chat-settings.md).
 

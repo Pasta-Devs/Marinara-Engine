@@ -24,7 +24,7 @@
 
 新聊天的名字是 **New Conversation**、**New Roleplay** 或 **New Game**，之后可以改名（见下面的“给聊天改名”）。
 
-聊天能打开的前提是至少有一个连接。连接就是把 Marinara 接到某个 AI 服务商的一套信息。还没有连接时，出现的不是聊天界面，而是一个 **Set Up**(设置) 窗口，要求先选一个连接。如果一个连接都没有，窗口会显示 **No connections found** 和一个 **Open Connections** 按钮。配置方法见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
+聊天能打开的前提是至少有一个连接。连接就是把 Marinara 接到某个 AI 服务商的一套信息。还没有连接时，打开的不是聊天界面，而是 **Add account**(添加账号) 窗口。选一个服务，点 **Connect**(连接)。窗口随后进入模型选择。选一个模型，可以顺手用 **Make ... my Main**(把……设为我的主模型) 选项，再点 **Start chatting**(开始聊天)。如果只是正常添加账号，就改点 **Done**(完成)。完整流程见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 
 如果为该模式保存过一个加星的默认设置方案，Marinara 会自动把它套用到新聊天上。见[聊天设置总览](chat-settings.md)。
 

@@ -18,7 +18,7 @@ Beim Anwenden der Eintrags- und Token-Budgets eines Lorebooks behandelt Marinara
 
 Die semantische Suche braucht ein Modell, das Embeddings erzeugen kann. Dafür gibt es zwei Wege.
 
-Du kannst die Quelle, für die du dich entscheidest, zum Standard für die ganze App machen: Öffne **Connections** (Verbindungen), dann **Defaults** (Standardwerte), und wähle sie unter **Embeddings**. Jede Verbindung, die kein eigenes Embedding-Modell und keine eigene **Embedding Connection** (Embedding-Verbindung) festlegt, verwendet sie dann. Die Einstellung einer Verbindung hat weiterhin Vorrang, und die Zeile zeigt dir, wie viele Verbindungen stattdessen ihre eigenen Einstellungen nutzen. Mit **None** bleibt das eingebaute lokale Modell als Rückfall erhalten.
+Du kannst die Quelle, für die du dich entscheidest, zum Standard für die ganze App machen: Öffne **Connections** (Verbindungen), dann **Defaults** (Standardwerte), und wähle sie im Abschnitt **Embeddings**. Jede Verbindung, die kein eigenes Embedding-Modell und keine eigene **Embedding Connection** (Embedding-Verbindung) festlegt, verwendet sie dann. Die Einstellung einer Verbindung hat weiterhin Vorrang, und die Zeile zeigt dir, wie viele Verbindungen stattdessen ihre eigenen Einstellungen nutzen. Mit **None** bleibt das eingebaute lokale Modell als Rückfall erhalten.
 
 Weg 1: eine Verbindung mit Embedding-Modell.
 

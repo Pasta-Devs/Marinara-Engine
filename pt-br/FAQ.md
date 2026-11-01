@@ -80,15 +80,15 @@ A substituição manual de status também pertence ao personagem. Se você defin
 
 ## Preciso de uma chave de API para usar Marinara?
 
-Quase sempre, sim. Uma **conexão** é um vínculo salvo que informa a Marinara como chegar a um serviço de IA: qual provedor, qual modelo e o seu login nele. Uma **chave de API** é um código secreto, parecido com uma senha. Você pega esse código com um provedor de IA para que Marinara converse com esse provedor em seu nome.
+Quase sempre, sim. Uma **conexão** é uma chave de API, uma conta ou um endpoint de um serviço de IA. Os modelos que você salva ficam agrupados nela. Uma **chave de API** é um código secreto, parecido com uma senha. Você pega esse código com um provedor de IA para que Marinara converse com esse provedor em seu nome.
 
-É preciso ter pelo menos uma conexão antes de iniciar qualquer chat. Para criar uma, abra o painel **Connections** (conexões), clique em **New**, escolha um provedor, cole a chave em **API Key** e selecione um modelo. O passo a passo completo está em [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
+É preciso ter pelo menos uma conexão antes de iniciar qualquer chat. Para criar uma, abra o painel **Connections** (conexões) e clique em **Add** (adicionar). Escolha um serviço na janela **Add account** (adicionar conta), cole a chave em **API key** e clique em **Connect** (conectar). Em seguida, a janela abre a seleção de modelo. Escolha um modelo, use a opção **Make ... my Main** (definir como o meu modelo principal) se quiser que ele responda aos novos chats e clique em **Start chatting** (começar a conversar) quando a janela oferecer essa opção. Numa configuração normal de conta, clique em **Done** (concluir) em vez disso. O passo a passo completo está em [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
 
 Alguns poucos provedores não usam chave de API. As opções por assinatura (Claude, ChatGPT e Grok) fazem login por uma ferramenta de linha de comando, e o Local Model embutido roda na sua própria máquina, sem chave nenhuma.
 
 ## Quais provedores de IA são compatíveis?
 
-Marinara é compatível com vários provedores. Você escolhe um por conexão.
+Marinara é compatível com vários serviços. Você escolhe um serviço por conexão.
 
 Para o texto de chat e de roleplay, as opções são **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek** e **Custom (OAI-Compatible)**, esta última para modelos locais ou hospedados por você, como Ollama, LM Studio e KoboldCpp.
 
@@ -96,7 +96,7 @@ Para a geração de imagens, as opções incluem **OpenAI (DALL-E)**, **Stabilit
 
 Para a geração de vídeos, as opções são **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0** e fluxos de trabalho locais no formato de API do **ComfyUI**.
 
-Você pode salvar várias conexões ao mesmo tempo e usar uma diferente em cada chat. Veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
+Você pode salvar várias conexões ao mesmo tempo. Um modelo que você escolhe em um chat pelo menu **Connections**, ao lado da caixa de mensagem, muda só aquele chat. Veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
 
 ## Preciso pagar para usar Marinara?
 

@@ -2,17 +2,17 @@
 
 Esta guía enumera todos los proveedores de IA a los que Marinara Engine puede conectarse. De cada uno te dice dónde conseguir una API key (clave de API), la URL base predeterminada y cualquier detalle particular que debas conocer. Una API key es una contraseña secreta de un proveedor que permite a Marinara comunicarse con su servicio de IA.
 
-Para conocer los pasos generales de cómo añadir una conexión, lee primero [Conectarse a un proveedor de IA](connecting-to-a-provider.md). Esta página es una referencia que puedes buscar cuando quieras detalles sobre un proveedor concreto.
+Para conocer los pasos generales de cómo añadir una cuenta, lee primero [Conectarse a un proveedor de IA](connecting-to-a-provider.md). Esta página es una referencia que puedes buscar cuando quieras detalles sobre un proveedor concreto.
 
 ## Cómo leer esta página
 
-Eliges un proveedor cuando creas una conexión en el panel **Connections** (Conexiones). Cada proveedor tiene un botón **Provider** (Proveedor) en la ventana **Create Connection** (Crear conexión), con el nombre exacto que se muestra abajo.
+Eliges un servicio en la ventana **Add account** (Añadir cuenta). Cada servicio tiene un botón en el paso 1, con el nombre exacto que se muestra abajo.
 
-La mayoría de los proveedores de esta página son servicios en la nube que alojan la IA por ti. Creas una cuenta con el proveedor, copias una API key y la pegas en el campo **API Key** (Clave de API). Tres proveedores de suscripción usan un inicio de sesión local en lugar de una clave. Sus secciones lo indican.
+La mayoría de los proveedores de esta página son servicios en la nube que alojan la IA por ti. Creas una cuenta con el proveedor, copias una API key y la pegas en el campo **API key** (Clave de API). Tres proveedores de suscripción usan un inicio de sesión local en lugar de una clave. Sus secciones lo indican.
 
 Verás dos términos a menudo:
 
-- Base URL: la dirección web a la que Marinara envía las solicitudes. La mayoría de los proveedores la rellenan por ti. Solo la cambias para servidores locales o personalizados.
+- Base URL: la dirección web a la que Marinara envía las solicitudes. El editor de la conexión la llama **Address** (Dirección). La mayoría de los proveedores la rellenan por ti. Solo la cambias para servidores locales o personalizados.
 - Model: el modelo de IA concreto que eliges después de escoger un proveedor. Los modelos disponibles cambian a menudo, así que esta página no los enumera. Usa el menú desplegable **Model** (Modelo) o el botón **Fetch Models from API** (Obtener modelos de la API) en el editor de conexión para ver la lista actual.
 
 ## OpenAI
@@ -96,26 +96,27 @@ Marinara lee el catálogo detallado de modelos de NanoGPT, por lo que la lista d
 
 Si tienes una suscripción a NanoGPT, esta conexión puede mostrar tu cuota actual:
 
-1. Activa **Show subscription usage** (mostrar uso de la suscripción) en el editor de conexiones y guarda.
-2. Si quieres, pega primero un **Management Token** (token de administración).
+1. Haz clic en **⋯** en la fila de la cuenta, elige **Edit account** (editar cuenta) y abre **Usage and balance** (uso y saldo).
+2. Si las lecturas externas están desactivadas, haz clic en **Turn on** (activar) para permitir las lecturas de uso. Para añadir un token de administración de NanoGPT, haz clic en **Add a usage-only key** (añadir una clave solo de uso), pégalo y haz clic en **Show usage** (mostrar uso).
+3. Activa **Show the usage meter on the card** (mostrar el medidor de uso en la tarjeta) y guarda.
 
 El widget consulta el endpoint de uso de NanoGPT y muestra tus cuotas semanales y diarias de tokens de entrada. Puedes consultarlo con dos credenciales:
 
-- **Management Token** (recomendado): créalo en `https://nano-gpt.com/settings#management-api-tokens` con el permiso **Usage only** (solo uso). Puede leer tus cuotas, pero no ejecutar modelos ni gastar tu saldo, por lo que es la opción más segura para mostrar el consumo. Marinara lo guarda cifrado y lo envía únicamente al endpoint de administración de NanoGPT.
+- **Management token** (token de administración; recomendado): créalo en `https://nano-gpt.com/settings#management-api-tokens` con el permiso **Usage only** (solo uso). Puede leer tus cuotas, pero no ejecutar modelos ni gastar tu saldo, por lo que es la opción más segura para mostrar el consumo. Marinara lo guarda cifrado y lo envía únicamente al endpoint de administración de NanoGPT.
 - **Tu clave de API**: se usa automáticamente si no hay un token de administración guardado. Funciona, pero las consultas usan la misma credencial que permite gastar tu saldo.
 
 Bajo cada barra, el widget indica lo que queda y cuándo se reinicia la ventana, por ejemplo `42M remaining · resets in 4d`.
 
 Una cuota que NanoGPT no puede informar en ese momento aparece como **desconocida**, no como sin usar. Una suscripción inactiva se indica expresamente, en lugar de mostrar toda la cuota como disponible. El botón de actualización del widget permite actualizarlo cuando quieras.
 
-El mismo indicador aparece debajo del indicador de contexto en el selector de conexión del chat y en sus ajustes de **Connection** (conexión), para que puedas consultar la cuota sin salir del chat. Sigue la conexión activa: solo aparece si es una conexión NanoGPT con **Show subscription usage** activado, y no aparece con **Random**, que no tiene una única conexión que consultar. En el selector tiene el mismo estilo que la barra de contexto superior y se lee igual: consumo frente al límite semanal, por ejemplo `8.9M / 60M tokens`, con la hora de reinicio junto al porcentaje.
+El mismo indicador aparece debajo del indicador de contexto en el selector de conexión del chat y en sus ajustes de **Connection** (conexión), para que puedas consultar la cuota sin salir del chat. Sigue la conexión activa: solo aparece si es una conexión NanoGPT con **Show the usage meter on the card** activado, y no aparece con **Shuffle** (aleatorio), que no tiene una única conexión que consultar. En el selector tiene el mismo estilo que la barra de contexto superior y se lee igual: consumo frente al límite semanal, por ejemplo `8.9M / 60M tokens`, con la hora de reinicio junto al porcentaje.
 
 ## xAI / Grok
 
 - Dónde conseguir una clave: `https://console.x.ai`
 - URL base predeterminada: `https://api.x.ai/v1`
 
-**xAI / Grok** ejecuta los modelos Grok. Cuando eliges este proveedor en la ventana **Create Connection**, Marinara rellena de antemano el modelo con Grok 4.5. Puedes cambiar el modelo después. Grok 4.6 y 4.7 ofrecen una ventana de contexto de 500 000 tokens y razonamiento hasta **Extra high** (`xhigh`). Admiten las herramientas existentes del chat, incluida **Web Search** (búsqueda web), para que los resultados de búsqueda puedan incorporarse a la respuesta final.
+**xAI / Grok** ejecuta los modelos Grok. Cuando eliges este servicio en la ventana **Add account**, Marinara rellena de antemano el modelo con Grok 4.5. Puedes cambiar el modelo después. Grok 4.6 y 4.7 ofrecen una ventana de contexto de 500 000 tokens y razonamiento hasta **Extra high** (`xhigh`). Admiten las herramientas existentes del chat, incluida **Web Search** (búsqueda web), para que los resultados de búsqueda puedan incorporarse a la respuesta final.
 
 ## Arli AI
 
@@ -156,11 +157,11 @@ Los pasos de instalación e inicio de sesión están en [Conexiones de suscripci
 
 Esta conexión puede mostrar cuánto de los límites de tu plan de Claude has usado:
 
-1. Activa **Show subscription usage** (mostrar el uso de la suscripción) en el editor de conexiones.
-2. Deja marcadas **5-hour window** (ventana de 5 horas) y **Weekly window** (ventana semanal), o desmarca la que no quieras ver.
+1. Haz clic en **⋯** en la fila de la cuenta, elige **Edit account** y abre **Usage and balance**.
+2. Si las lecturas externas están desactivadas, haz clic en **Turn on**. Activa **Show the usage meter on the card**. El editor de la cuenta muestra las ventanas de uso disponibles; no tiene interruptores separados para las barras de 5 horas y semanal.
 3. Guarda la conexión.
 
-Cada ventana tiene una barra con el porcentaje usado y cuándo se reinicia, por ejemplo `58% · resets in 2h`. Las mismas barras aparecen bajo el indicador de contexto en el selector de conexión de un chat y en los ajustes de **Connection** del chat mientras esta conexión está activa. No aparecen con **Random**, que no tiene una única conexión que consultar.
+Cada ventana tiene una barra con el porcentaje usado y cuándo se reinicia, por ejemplo `58% · resets in 2h`. Las mismas barras aparecen bajo el indicador de contexto en el selector de conexión de un chat y en los ajustes de **Connection** del chat mientras esta conexión está activa. No aparecen con **Shuffle**, que no tiene una única conexión que consultar.
 
 Conviene saber:
 
@@ -180,7 +181,7 @@ Los pasos de instalación e inicio de sesión están en [Conexiones de suscripci
 
 ### Uso del plan
 
-Esta conexión puede mostrar cuánto de los límites de Codex de tu plan de ChatGPT has usado. Funciona como la de Claude (Subscription) de arriba: activa **Show subscription usage**, deja marcadas o desmarca **5-hour window** y **Weekly window**, y guarda. Las barras aparecen en el editor de conexiones, en el selector de conexión de un chat y en los ajustes de **Connection** del chat.
+Esta conexión puede mostrar cuánto de los límites de Codex de tu plan de ChatGPT has usado. Funciona como la de Claude (Subscription) de arriba: abre **Usage and balance** en **Edit account**, permite las lecturas externas con **Turn on** si hace falta, activa **Show the usage meter on the card** y guarda. El editor de la cuenta muestra las ventanas de uso disponibles sin interruptores separados de 5 horas o semanal. Las barras aparecen en el editor de la cuenta, en el selector de conexión de un chat y en los ajustes de **Connection** del chat.
 
 Conviene saber:
 
@@ -234,7 +235,7 @@ Qué hace un modelo de decisión, cómo elegir uno y la configuración completa 
 - **PocketTTS**: un servidor de voz gratuito que ejecutas en tu propia computadora.
 - **xAI Voice**: el servicio de voz de xAI.
 
-Cada fuente rellena una URL base y un modelo predeterminados. **Default Voice** (Voz predeterminada) es la voz que se usa cuando no hay nada más específico configurado, como una voz por personaje. **Request timeout (seconds)** (Tiempo de espera de la solicitud, en segundos) es cuánto espera Marinara por una línea hablada, 60 segundos de forma predeterminada; súbelo si tu servidor de voz es lento. Para elegir qué conexión de voz usa Marinara de forma predeterminada, abre el panel **Connections**, expande **Defaults** (Predeterminados) y elígela en **Text to Speech** (Texto a voz). Para leer mensajes en voz alta con una de ellas, elígela como **Source** (Fuente) en la tarjeta **Text to Speech**. Consulta [Usar una conexión de Audio](../media/tts-setup.md#use-an-audio-connection).
+Cada fuente rellena una URL base y un modelo predeterminados. **Default Voice** (Voz predeterminada) es la voz que se usa cuando no hay nada más específico configurado, como una voz por personaje. **Request timeout (seconds)** (Tiempo de espera de la solicitud, en segundos) es cuánto espera Marinara por una línea hablada, 60 segundos de forma predeterminada; súbelo si tu servidor de voz es lento. Para elegir qué conexión de voz usa Marinara de forma predeterminada, abre el panel **Connections** (Conexiones), expande **Defaults** (Predeterminados) y elígela en **Text to Speech** (Texto a voz). Para leer mensajes en voz alta con una de ellas, elígela como **Source** (Fuente) en la tarjeta **Text to Speech**. Consulta [Usar una conexión de Audio](../media/tts-setup.md#use-an-audio-connection).
 
 Para las voces y la lectura de mensajes en voz alta, consulta [Configuración de Text to Speech (TTS)](../media/tts-setup.md). El audio generado se configura por separado, abajo.
 

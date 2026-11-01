@@ -130,11 +130,11 @@ Tracker Panel 隐藏时，电脑上的追踪器改用 [Trackers 窗口](../rolep
 
 ## Connection
 
-**Connection**(连接) 这一节决定这个聊天由哪家 AI 服务商的哪个模型来回复。连接就是保存下来的一套 AI 服务接入信息，包含 API 密钥和选好的模型。API 密钥是一串秘密字符，Marinara Engine 靠它来使用你在那家服务商的账号。
+**Connection**(连接) 这一节决定这个聊天由哪个 AI 模型来回复。连接就是某个 AI 服务的一个 API 密钥、账号或端点，保存的模型都归在它下面。API 密钥是一串秘密字符，Marinara Engine 靠它来使用你在那个服务的账号。
 
-从下拉菜单里选一个保存好的连接。也可以选 **Random**(随机)，它每次都会从标记进随机池的连接里换一个来用。
+**Model**(模型) 字段显示实际生效的模型，以及这个聊天是跟随 **Main**(主模型)，还是用自己单独的选择。点击它会打开和聊天输入框里模型按钮一样的选择器。当前模型固定在最上方，下面是最近用过和加了星标的模型，按账号分组。可以跨模型和账号搜索，也可以用 **Browse**(浏览) 打开某一个账号的模型目录。选中的模型只改变这个聊天。
 
-下拉菜单下方的 **Model**(模型) 字段显示所选连接当前用的模型。点击它会打开和 Quick Connection Switcher(快速连接切换器) 里一样的模型列表：可以搜索或输入模型 ID、点星标固定模型、刷新列表，点击某个模型就改用它。模型保存在连接上，所以用这个连接的每个聊天、智能体和辅助功能也都会跟着换成它。选的是 **Random** 或内置的 Local Model(本地模型) 时，不显示这个字段。详见[随机池与 Quick Connection Switcher](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher)。
+**Follow Main**(跟随主模型) 会清除这个聊天自己的选择。**Shuffle**(随机轮换) 每条回复都从你的池子里换一个模型。如果某个连接缺密钥或已关闭，点它的模型会引向修复操作。星标只把模型存进你的列表，不会改变当前聊天。详见 [Shuffle](../connections/organizing-connections.md#shuffle)。
 
 连接本身怎么创建，见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 

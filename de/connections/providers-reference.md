@@ -2,17 +2,17 @@
 
 Diese Anleitung listet jeden KI-Anbieter auf, mit dem sich Marinara Engine verbinden kann. Zu jedem steht hier, wo du einen API-Key bekommst, welche Base URL standardmäßig gilt und welche Besonderheiten es gibt. Ein API-Key ist ein geheimes Passwort vom Anbieter, mit dem Marinara dessen KI-Dienst ansprechen darf.
 
-Wie eine Verbindung grundsätzlich entsteht, erklärt [Mit einem KI-Anbieter verbinden](connecting-to-a-provider.md) – lies das zuerst. Diese Seite ist ein Nachschlagewerk für Details zu einzelnen Anbietern.
+Wie du grundsätzlich ein Konto hinzufügst, erklärt [Mit einem KI-Anbieter verbinden](connecting-to-a-provider.md) – lies das zuerst. Diese Seite ist ein Nachschlagewerk für Details zu einzelnen Anbietern.
 
 ## So liest du diese Seite
 
-Den Anbieter wählst du beim Anlegen einer Verbindung im Panel **Connections** (Verbindungen). Jeder Anbieter hat im Fenster **Create Connection** (Verbindung anlegen) eine eigene **Provider**-Schaltfläche (Anbieter), beschriftet genau mit dem Namen aus der Liste unten.
+Den Dienst wählst du im Fenster **Add account** (Konto hinzufügen). Jeder Dienst hat in Schritt 1 eine eigene Schaltfläche, beschriftet genau mit dem Namen aus der Liste unten.
 
-Die meisten Anbieter auf dieser Seite sind Cloud-Dienste und hosten die KI für dich. Du legst beim Anbieter ein Konto an, kopierst einen API-Key und fügst ihn in das Feld **API Key** ein. Drei Abo-Anbieter arbeiten statt mit einem Key mit einer lokalen Anmeldung. Ihre Abschnitte weisen darauf hin.
+Die meisten Anbieter auf dieser Seite sind Cloud-Dienste und hosten die KI für dich. Du legst beim Anbieter ein Konto an, kopierst einen API-Key und fügst ihn in das Feld **API key** ein. Drei Abo-Anbieter arbeiten statt mit einem Key mit einer lokalen Anmeldung. Ihre Abschnitte weisen darauf hin.
 
 Zwei Begriffe tauchen immer wieder auf:
 
-- Base URL: die Webadresse, an die Marinara die Anfragen schickt. Die meisten Anbieter tragen sie automatisch ein. Ändern musst du sie nur bei lokalen oder eigenen Servern.
+- Base URL: die Webadresse, an die Marinara die Anfragen schickt. Im Editor der Verbindung heißt sie **Address** (Adresse). Die meisten Anbieter tragen sie automatisch ein. Ändern musst du sie nur bei lokalen oder eigenen Servern.
 - Modell: das konkrete KI-Modell, das du nach der Anbieterwahl aussuchst. Weil sich das Angebot ständig ändert, listet diese Seite keine Modelle auf. Die aktuelle Auswahl zeigen das Dropdown-Menü **Model** und die Schaltfläche **Fetch Models from API** (Modelle über die API laden) im Verbindungs-Editor.
 
 ## OpenAI
@@ -96,26 +96,27 @@ Marinara liest den detaillierten Modellkatalog von NanoGPT. Die Auswahlliste zei
 
 Wenn du ein NanoGPT-Abonnement hast, kann diese Verbindung dein aktuelles Kontingent anzeigen:
 
-1. Aktiviere **Show subscription usage** (Abonnementverbrauch anzeigen) im Verbindungseditor und speichere.
-2. Füge optional vorher einen **Management Token** (Verwaltungstoken) ein.
+1. Klick in der Zeile des Kontos auf **⋯**, wähl **Edit account** (Konto bearbeiten) und öffne **Usage and balance** (Nutzung und Guthaben).
+2. Sind Abfragen von außen ausgeschaltet, klick auf **Turn on** (einschalten), um Nutzungsabfragen zu erlauben. Um einen NanoGPT-Verwaltungstoken hinzuzufügen, klick auf **Add a usage-only key** (Key nur für die Nutzung hinzufügen), füge ihn ein und klick auf **Show usage** (Nutzung anzeigen).
+3. Aktiviere **Show the usage meter on the card** (Nutzungsanzeige auf der Karte zeigen) und speichere.
 
 Das Widget liest den Nutzungsendpunkt von NanoGPT und zeigt deine wöchentlichen und täglichen Eingabetoken-Kontingente. Zwei Zugangsdaten können darauf zugreifen:
 
-- **Management Token** (empfohlen): Erstelle unter `https://nano-gpt.com/settings#management-api-tokens` einen Token mit dem Berechtigungsumfang **Usage only** (nur Nutzung). Er kann Kontingente lesen, aber keine Modelle ausführen oder dein Guthaben ausgeben und ist deshalb die sicherere Wahl für eine Verbrauchsanzeige. Marinara speichert ihn verschlüsselt und sendet ihn nur an den Verwaltungsendpunkt von NanoGPT.
+- **Management token** (empfohlen): Erstelle unter `https://nano-gpt.com/settings#management-api-tokens` einen Token mit dem Berechtigungsumfang **Usage only** (nur Nutzung). Er kann Kontingente lesen, aber keine Modelle ausführen oder dein Guthaben ausgeben und ist deshalb die sicherere Wahl für eine Verbrauchsanzeige. Marinara speichert ihn verschlüsselt und sendet ihn nur an den Verwaltungsendpunkt von NanoGPT.
 - **Dein API-Key**: Wird automatisch verwendet, wenn kein Verwaltungstoken gespeichert ist. Das funktioniert, aber die Abfrage verwendet dann dieselben Zugangsdaten, mit denen dein Guthaben ausgegeben werden kann.
 
 Unter jedem Balken steht, was noch übrig ist und wann das Zeitfenster zurückgesetzt wird, zum Beispiel `42M remaining · resets in 4d`.
 
 Ein Kontingent, das NanoGPT gerade nicht melden kann, erscheint als **unknown** statt als ungenutzt. Ein inaktives Abonnement wird ausdrücklich gekennzeichnet, statt ein vollständig verfügbares Kontingent anzuzeigen. Mit der Aktualisierungsschaltfläche aktualisierst du das Widget bei Bedarf.
 
-Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen (Verbindung). So kannst du dein Kontingent verfolgen, ohne den Chat zu verlassen. Sie folgt der aktiven Verbindung: Sie erscheint nur bei einer NanoGPT-Verbindung mit aktiviertem **Show subscription usage** und nicht bei **Random**, das keine einzelne Verbindung zum Abfragen hat. In der Auswahl passt sie optisch zum Kontextbalken darüber und wird genauso gelesen: Verbrauch im Verhältnis zum Wochenkontingent, etwa `8.9M / 60M tokens`, mit der Zurücksetzzeit neben dem Prozentwert.
+Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen (Verbindung). So kannst du dein Kontingent verfolgen, ohne den Chat zu verlassen. Sie folgt der aktiven Verbindung: Sie erscheint nur bei einer NanoGPT-Verbindung mit aktiviertem **Show the usage meter on the card** und nicht bei **Shuffle** (Zufallsauswahl), das keine einzelne Verbindung zum Abfragen hat. In der Auswahl passt sie optisch zum Kontextbalken darüber und wird genauso gelesen: Verbrauch im Verhältnis zum Wochenkontingent, etwa `8.9M / 60M tokens`, mit der Zurücksetzzeit neben dem Prozentwert.
 
 ## xAI / Grok
 
 - Key bekommst du hier: `https://console.x.ai`
 - Standard-Base-URL: `https://api.x.ai/v1`
 
-**xAI / Grok** betreibt die Grok-Modelle. Wählst du diesen Anbieter im Fenster **Create Connection**, trägt Marinara Grok 4.5 als Modell vor. Ändern lässt sich das jederzeit. Grok 4.6 und 4.7 bieten ein Kontextfenster von 500.000 Tokens und Reasoning bis **Extra high** (`xhigh`). Sie unterstützen die vorhandenen Chat-Tools einschließlich **Web Search** (Websuche), sodass Suchergebnisse in die fertige Antwort einfließen können.
+**xAI / Grok** betreibt die Grok-Modelle. Wählst du diesen Dienst im Fenster **Add account**, trägt Marinara Grok 4.5 als Modell vor. Ändern lässt sich das jederzeit. Grok 4.6 und 4.7 bieten ein Kontextfenster von 500.000 Tokens und Reasoning bis **Extra high** (`xhigh`). Sie unterstützen die vorhandenen Chat-Tools einschließlich **Web Search** (Websuche), sodass Suchergebnisse in die fertige Antwort einfließen können.
 
 ## Arli AI
 
@@ -156,11 +157,11 @@ Installation und Anmeldung beschreibt [Abo-Verbindungen für Claude, ChatGPT und
 
 Diese Verbindung kann anzeigen, wie viel der Ratenlimits deines Claude-Plans verbraucht ist:
 
-1. Aktiviere **Show subscription usage** (Abonnementverbrauch anzeigen) im Verbindungseditor.
-2. Lass **5-hour window** (5-Stunden-Fenster) und **Weekly window** (Wochenfenster) angehakt oder entferne den Haken bei dem, das du nicht sehen willst.
+1. Klick in der Zeile des Kontos auf **⋯**, wähl **Edit account** und öffne **Usage and balance**.
+2. Sind Abfragen von außen ausgeschaltet, klick auf **Turn on**. Aktiviere **Show the usage meter on the card**. Der Konto-Editor zeigt die verfügbaren Nutzungsfenster; eigene Schalter für die Balken des 5-Stunden- und des Wochenfensters hat er nicht.
 3. Speichere die Verbindung.
 
-Jedes Fenster bekommt einen Balken mit dem verbrauchten Prozentwert und dem Zeitpunkt der Zurücksetzung, zum Beispiel `58% · resets in 2h`. Dieselben Balken erscheinen unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen, solange diese Verbindung aktiv ist. Bei **Random**, das keine einzelne Verbindung zum Abfragen hat, erscheinen sie nicht.
+Jedes Fenster bekommt einen Balken mit dem verbrauchten Prozentwert und dem Zeitpunkt der Zurücksetzung, zum Beispiel `58% · resets in 2h`. Dieselben Balken erscheinen unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen, solange diese Verbindung aktiv ist. Bei **Shuffle**, das keine einzelne Verbindung zum Abfragen hat, erscheinen sie nicht.
 
 Gut zu wissen:
 
@@ -180,7 +181,7 @@ Installation und Anmeldung beschreibt [Abo-Verbindungen für Claude, ChatGPT und
 
 ### Planverbrauch
 
-Diese Verbindung kann anzeigen, wie viel der Codex-Limits deines ChatGPT-Plans verbraucht ist. Sie funktioniert wie die oben beschriebene bei Claude (Subscription): Aktiviere **Show subscription usage**, lass **5-hour window** und **Weekly window** angehakt oder entferne den Haken, und speichere. Die Balken erscheinen im Verbindungseditor, in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen.
+Diese Verbindung kann anzeigen, wie viel der Codex-Limits deines ChatGPT-Plans verbraucht ist. Sie funktioniert wie die oben beschriebene bei Claude (Subscription): Öffne in **Edit account** den Bereich **Usage and balance**, erlaube bei Bedarf mit **Turn on** Abfragen von außen, aktiviere **Show the usage meter on the card** und speichere. Der Konto-Editor zeigt die verfügbaren Nutzungsfenster ohne eigene Schalter für das 5-Stunden- oder Wochenfenster. Die Balken erscheinen im Konto-Editor, in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen.
 
 Gut zu wissen:
 

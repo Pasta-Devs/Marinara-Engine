@@ -130,7 +130,7 @@
 | **Show characters in Persona pickers** | ペルソナの選択画面に自分のキャラクターも並べるので、キャラクターになりきってプレイできます。 | [ペルソナ](../characters/personas.md) |
 | **Show model name on messages** | 返信を書いたAIモデルの名前を表示します。 | [メッセージの操作](../chats/messages.md) |
 | **Show token usage on messages** | メッセージごとに、プロンプトと返信のトークン数を表示します。 | [メッセージの操作](../chats/messages.md) |
-| **Show context usage** | 最後に計測したリクエストで、モデルのコンテキストがどれだけ埋まっていたかを、接続の切り替えメニューとGameのチャット設定に表示します。 | [接続の整理](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
+| **Show context usage** | 最後に計測したリクエストで、モデルのコンテキストがどれだけ埋まっていたかを、接続の切り替えメニューとGameのチャット設定に表示します。 | [1つのチャットで使うモデルを選ぶ](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat) |
 | **Show message numbers** | チャット内のメッセージに通し番号を表示します。 | [メッセージの操作](../chats/messages.md) |
 | **Show "older messages not sent" note** | 古いメッセージがプロンプトに収まらなかったときに、最新の返信の下に注記を表示します。長いチャットでこの注記を隠したいときはオフにします。途中で切れた返信や空の返信には、それぞれの注記が引き続き表示されます。 | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | 再生成のときに、入力欄の下書きを指示として使います。 | [ガイド付き生成とImpersonate](../chats/guided-and-impersonate.md) |

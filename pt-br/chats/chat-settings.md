@@ -130,11 +130,11 @@ A seção **Chat Name** (nome do chat) guarda o nome que aparece na lista de cha
 
 ## Connection
 
-A seção **Connection** (conexão) define qual provedor de IA e qual modelo respondem nesse chat. Uma conexão é um vínculo salvo com um provedor de IA, com a chave de API e o modelo escolhido. A chave de API é um código secreto, parecido com uma senha, que permite a Marinara Engine usar a sua conta naquele provedor.
+A seção **Connection** (conexão) define qual modelo de IA responde nesse chat. Uma conexão é uma chave de API, uma conta ou um endpoint de um serviço de IA. Os modelos que você salva ficam agrupados nela. A chave de API é um código secreto, parecido com uma senha, que permite a Marinara Engine usar a sua conta naquele serviço.
 
-Escolha uma conexão salva no menu suspenso. Outra opção: escolher **Random**. Assim, a cada vez uma conexão diferente é sorteada entre as que você marcou para o sorteio.
+O campo **Model** (modelo) mostra o modelo efetivo e se este chat segue o **Main** (principal) ou tem uma escolha própria. Clique nele para abrir o mesmo seletor do botão de modelo na caixa de mensagem. O modelo atual fica no topo, com os modelos recentes e os com estrela logo abaixo, agrupados por conta. Busque entre modelos e contas, ou use **Browse** (navegar) para abrir o catálogo de uma conta. Uma escolha muda só este chat.
 
-Abaixo do menu suspenso, o campo **Model** (modelo) mostra o modelo que a conexão selecionada usa. Clique nele para abrir a mesma lista de modelos do Quick Connection Switcher (troca rápida de conexão): busque ou digite o ID de um modelo, fixe modelos com a estrela, atualize a lista e clique em um modelo para usá-lo. O modelo é salvo na conexão, então todo chat, agente e recurso auxiliar que usa essa conexão também passa para ele. O campo fica oculto com **Random** e com o Local Model embutido. Veja os detalhes em [O conjunto aleatório e o Quick Connection Switcher](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher).
+**Follow Main** (seguir o principal) desfaz a escolha própria do chat. **Shuffle** (sortear) escolhe um modelo diferente do seu conjunto a cada resposta. Se uma conexão precisa de chave ou está desligada, o modelo dela leva à ação de reparo. As estrelas salvam modelos na sua lista sem mudar o chat. Veja os detalhes em [Shuffle](../connections/organizing-connections.md#shuffle).
 
 Para aprender a criar uma conexão do zero, veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 

@@ -24,6 +24,21 @@ das Objekt `capabilityProps.localization`. Paketeigene Oberflächen bringen eige
 Englisch des Pakets zurück; die Engine übersetzt weder Paket-Prompts noch maschinenlesbare Werte aus dem Paket. Ein Sprachwechsel
 nutzt weiterhin das bestehende Event `marinara-capability-props` – eine installierte Oberfläche rendert also ohne Neustart der Engine neu.
 
+### Gemeinsame Verbindungsauswahl
+
+Client-seitige Capability-Elemente erhalten außerdem `capabilityProps.ui.pickConnection(options)`. Die Methode öffnet die
+durchsuchbare Auswahl gespeicherter Modelle der Engine, gefiltert nach `chat`, `image`, `video`, `audio`, `decision` oder
+`all`. Die Modelle bleiben nach ihrem Konto gruppiert, und nicht verfügbare Einträge erklären ihren Zustand.
+
+Das Ergebnis unterscheidet eine ausdrückliche Auswahl (`{ status: "selected", value }`, wobei `null` die geerbte bzw.
+Standardauswahl des Aufrufers bedeutet) vom Abbruch (`{ status: "cancelled" }`). Öffnen oder Verwenden der Auswahl speichert
+weder Paketeinstellungen noch ändert es einen Chat oder globale Standardwerte. Diese Aktionen übernimmt das Paket nach der
+Auswahl selbst. Älteren Engines kann diese optionale UI-Methode fehlen: Prüfe, ob sie vorhanden ist.
+
+Die öffentlichen TypeScript-Typen, die Bedeutung der Filter, den Lebenszyklus und die Verwendung der Engine-Komponente
+beschreibt die [API der gemeinsamen Auswahl samt Paketbeispiel](../../packages/shared/CONNECTION_PICKER.md). Pakete dürfen
+keine privaten React-Komponenten der Engine importieren und keine eigene Auswahl bauen, nur um Verbindungen aufzulisten.
+
 ### Bereitstellung und Caching
 
 Installierte Paketdateien werden mit starken Validatoren ausgeliefert, die aus den SHA-256-Hashes pro Datei im Manifest abgeleitet sind – denselben Werten, mit denen die Engine die Bytes bei jedem Lesen erneut prüft. Das Client-Bundle (`/api/capability-packages/<id>/client`) und jedes Paket-Asset werden immer revalidiert (`no-cache` zusammen mit einem `ETag`). Eine unveränderte Datei antwortet deshalb mit `304 Not Modified`, statt erneut heruntergeladen zu werden, während eine neu veröffentlichte Datei sofort übernommen wird. Nichts wird als `immutable` ausgeliefert: Die Installationsrichtlinie erlaubt, dieselbe Version mit anderen Bytes erneut zu veröffentlichen, daher ist keine Paket-URL inhaltsadressiert.

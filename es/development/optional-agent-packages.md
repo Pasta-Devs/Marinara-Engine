@@ -23,6 +23,21 @@ Los elementos de capacidad del cliente reciben la configuración regional de la 
 `capabilityProps.localization`. Las interfaces propias del paquete conservan sus propios archivos de idioma y recurren al inglés del paquete; el Engine no traduce los prompts del paquete ni los valores de máquina escritos por el paquete. Los cambios de idioma reutilizan el evento
 `marinara-capability-props` existente, para que una interfaz instalada pueda volver a renderizarse sin reiniciar el Engine.
 
+### Selector de conexión compartido
+
+Los elementos de capacidad del cliente también reciben `capabilityProps.ui.pickConnection(options)`. Abre el
+selector de modelos guardados del Engine, con búsqueda y filtrado por `chat`, `image`, `video`, `audio`, `decision` o
+`all`. Los modelos siguen agrupados por su cuenta, y las opciones no disponibles explican su estado.
+
+El resultado distingue una selección explícita (`{ status: "selected", value }`, donde `null` significa
+la opción heredada o predeterminada de quien llama) de una cancelación (`{ status: "cancelled" }`). Abrir o usar
+el selector no guarda la configuración del paquete, no cambia un chat ni cambia los valores predeterminados globales. El paquete se encarga de
+esas acciones después de la selección. Los Engine más antiguos pueden no tener este método de interfaz opcional: detecta su disponibilidad.
+
+Consulta la [API del selector compartido y el ejemplo de paquete](../../packages/shared/CONNECTION_PICKER.md) para ver los
+tipos públicos de TypeScript, el significado de los filtros, el ciclo de vida y el uso del componente del Engine. Los paquetes no deben
+importar componentes privados de React del Engine ni crear otro selector solo para enumerar las conexiones.
+
 ### Entrega y caché
 
 Los archivos de paquetes instalados se sirven con validadores fuertes derivados de los hashes SHA-256 por archivo del manifiesto, los mismos valores con los que Engine vuelve a verificar los bytes en cada lectura. El paquete del cliente (`/api/capability-packages/<id>/client`) y todos los recursos del paquete siempre se revalidan (`no-cache` junto con un `ETag`), por lo que un archivo sin cambios responde `304 Not Modified` en vez de descargarse de nuevo, mientras que un archivo vuelto a publicar se recoge de inmediato. Nada se sirve como `immutable`: la política de instalación permite volver a publicar la misma versión con bytes diferentes, por lo que ninguna URL de paquete está direccionada por contenido.

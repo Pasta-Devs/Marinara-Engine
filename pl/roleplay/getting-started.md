@@ -111,6 +111,18 @@ W **Chat Settings → Agents → Roleplay Commands** (ustawienia czatu → agenc
 
 Włącz **Render in-line** (wyświetlanie w treści) pod **Illustrations**, aby każdy obraz pojawiał się zamiast tego wewnątrz wiadomości, w miejscu, w którym postać napisała komendę, na przykład między dwoma akapitami. Obraz zachowuje swoje kontrolki: zaznacz go, aby zobaczyć jego prompt, albo usuń go przyciskiem **X**. Postać dostaje informację, że może umieścić komendę tam, gdzie pasuje obraz. Ustawienie dotyczy nowych obrazów, więc obrazy, które już są w czacie, zostają na swoich miejscach. Automatyczne obrazy agenta Illustrator i układ visual novel wyświetlają obrazy tak jak wcześniej.
 
+<a id="artifacts-on-demand"></a>
+
+## Artefakty na żądanie
+
+W **Chat Settings → Agents → Roleplay Commands** włącz **HTML Artifacts** (artefakty HTML), aby narrator mógł utworzyć jeden konkretny artefakt ze świata opowieści komendą `[html: prompt="..."]`: stronę księgi zaklęć, szyld, szkic na kartce listu, odczyt z terminala. Domyślnie ta opcja jest wyłączona i nie wymaga agenta. O artefakt możesz też poprosić samodzielnie komendą `/html <what you want>`.
+
+Artefakt pojawia się w miejscu, w którym narrator umieścił komendę, gdy odpowiedź jest już ukończona. W układzie visual novel widać tylko znacznik. Własny tekst wiadomości pozostaje taki, jak został napisany.
+
+Każdy artefakt to osobne żądanie, najwyżej 3 na odpowiedź. Korzysta z połączenia agenta **Immersive HTML**, jeśli ten agent je ma, w przeciwnym razie z domyślnego połączenia agentów, a w ostatniej kolejności z połączenia czatu. Ustawienie **Max Parallel Agent Jobs** (maksymalna liczba równoległych zadań agentów) tego połączenia określa, ile żądań działa naraz. Żądanie zawiera opis mówiącej postaci i kilka ostatnich wiadomości. Kieruje się własnymi instrukcjami, więc zmiany promptu agenta Immersive HTML nie mają na nie wpływu. Do zwykłej ostylowanej strony wystarczy sześć gotowych rodzajów **Documents** (dokumenty), które są darmowe i działają natychmiast.
+
+Narrator nie widzi kodu HTML artefaktu. W kolejnych turach widzi jego krótką wersję w postaci zwykłego tekstu: czytelny tekst artefaktu i jedną linijkę o tym, jak wygląda. Otwórz znacznik "used html command" pod wiadomością, żeby przeczytać lub edytować ten tekst albo usunąć artefakt, co usuwa go też z pamięci narratora. Jeśli przebieg się nie uda, znacznik podaje przyczynę.
+
 <a id="whispers-and-secrets"></a>
 
 ## Szepty i sekrety

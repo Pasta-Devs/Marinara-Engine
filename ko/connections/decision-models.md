@@ -42,13 +42,13 @@ Decision 모델은 한 종류의 질문에 답합니다. 채팅의 최근 메시
 
 ## Decision 모델 선택하기
 
-**Connections**(연결)를 열고 **Defaults**(기본값)의 **Decision model**에서 선택하세요. 목록에는 3개 그룹이 있습니다.
+**Connections**(연결)를 열고 **Jobs**(작업) 상자를 펼친 다음 **Behind the scenes**(무대 뒤) 아래의 **Decision**(판단) 행을 찾으세요. 행을 클릭하면 **Model for**(용도별 모델) 선택 창이 열립니다. 목록에는 3개 그룹이 있습니다.
 
 - **None**(없음)이 기본값입니다. 아무것도 묻지 않고 에이전트 편집기의 활성화 질문 필드도 비활성 상태로 남습니다.
 - **Local models**(로컬 모델): 이미 실행 중인 **Primary local model**(주 로컬 모델)이나 **Utility local model**(보조 로컬 모델)입니다. 추가 다운로드가 없고 정보가 컴퓨터 밖으로 나가지 않습니다. **Decision sidecar**(판정 사이드카)를 설치했다면 여기도 표시됩니다.
 - **Connections**: 생성한 Decision 연결입니다. 호스팅 서비스, 직접 실행하는 System One 서버 또는 Ollama나 LM Studio처럼 이미 실행 중인 서버의 채팅 모델을 사용할 수 있습니다.
 
-현재 답할 수 없는 항목도 이유와 함께 회색으로 남으므로 무엇을 고쳐야 하는지 확인할 수 있습니다. 선택 후 **Test**(테스트)를 클릭하세요. 테스트는 채팅이 아닌 고정 샘플을 보냅니다.
+현재 답할 수 없는 항목도 이유와 함께 회색으로 남으므로 무엇을 고쳐야 하는지 확인할 수 있습니다. 선택한 모델을 테스트하려면 **Decision** 행의 톱니바퀴를 클릭하고 행 아래에 열리는 설정을 사용하세요. 이 인라인 설정에는 **Test**(테스트), **Thinking**(추론), 순서 컨트롤이 있습니다. 테스트는 채팅이 아닌 고정 샘플을 보냅니다.
 
 ### 선택 기준
 
@@ -75,12 +75,12 @@ Decision 모델은 한 종류의 질문에 답합니다. 채팅의 최근 메시
 
 **Local Model**에 로컬 모델이 있으면 연결을 만들거나 요청 비용을 지불하지 않고 판정에 사용할 수 있습니다.
 
-1. **Connections**에서 **Defaults**를 열고 **Decision model**을 **Primary local model**로 설정하거나, 보조 모델이 있으면 **Utility local model**로 설정하세요.
-2. **Test**를 클릭하세요. 성공하면 확률과 요청 시간에 더해 로컬 모델에만 해당하는 2가지, 로그 확률을 사용할 수 있었는지와 모델이 바로 답하는지를 보여 줍니다.
+1. **Connections**에서 **Jobs**를 펼치고 **Behind the scenes** 아래의 **Decision** 행을 찾아 클릭하세요. **Model for** 선택 창에서 모델을 **Primary local model**로 설정하거나, 보조 모델이 있으면 **Utility local model**로 설정하세요.
+2. **Decision** 행의 톱니바퀴를 클릭한 다음 행 아래에 열리는 설정에서 **Test**를 클릭하세요. 성공하면 확률과 요청 시간에 더해 로컬 모델에만 해당하는 2가지, 로그 확률을 사용할 수 있었는지와 모델이 바로 답하는지를 보여 줍니다.
 
 Marinara는 예/아니요 질문 하나를 보내 토큰 하나를 생성하게 하고 그 토큰의 확률로 답을 읽습니다. 답글은 작성하지 않으므로 요청이 짧습니다. 여러 답 중 선택은 선택지마다 예/아니요 질문 하나로 처리합니다. 최근 메시지가 얼마나 들어갈지는 해당 슬롯 자체의 컨텍스트 크기로 계산합니다.
 
-**추론.** 대부분의 모델은 한 단어로 답합니다. 무엇을 요청하든 먼저 추론하는 모델도 있습니다. 드롭다운 아래의 **Thinking**(추론) 설정으로 제어합니다.
+**추론.** 대부분의 모델은 한 단어로 답합니다. 무엇을 요청하든 먼저 추론하는 모델도 있습니다. 펼친 **Decision** 행의 **Thinking** 설정으로 제어합니다.
 
 - **Auto**(자동, 기본값)는 빠른 한 단어 방식을 시도하고 두 번 연속 답하지 못하면 해당 모델이 먼저 추론하도록 전환하고 알려 줍니다.
 - **Off**(꺼짐)는 항상 한 단어 방식을 사용합니다. 이 방식으로 답하지 못하는 모델은 답 없음이 됩니다.
@@ -97,7 +97,7 @@ Marinara는 예/아니요 질문 하나를 보내 토큰 하나를 생성하게 
 채팅 모델이 Ollama, LM Studio, llama.cpp 또는 다른 OpenAI 호환 서버에서 이미 실행 중이라면 Marinara에서 두 번째 사본을 로드하지 않고도 Decision에 응답할 수 있습니다.
 
 1. 해당 서버의 **Custom** 연결을 열고 **Use this model for decisions**(이 모델을 결정에 사용)를 클릭하세요. 같은 기본 URL, 모델, 키를 사용하는 **OpenAI-compatible chat model**(OpenAI 호환 채팅 모델) 소스의 Decision 연결이 생성됩니다. 직접 생성해도 됩니다. Decision 연결에서 이 소스를 선택하고 채팅 연결과 같은 기본 URL(Ollama의 경우 예: `http://localhost:11434/v1`)과 서버가 제공하는 모델 이름을 입력하세요.
-2. **Decision model**에서 선택한 뒤 **Test**를 클릭하세요. 서버가 로그 확률을 반환했는지, 모델이 먼저 추론해야 했는지도 결과에 표시됩니다.
+2. **Decision** 행의 **Model for** 선택 창에서 선택하세요. 행의 톱니바퀴를 열고 **Test**를 클릭하세요. 서버가 로그 확률을 반환했는지, 모델이 먼저 추론해야 했는지도 결과에 표시됩니다.
 
 로컬 모델처럼 문마다 예/아니요 한 단어를 요청하고 그 확률에서 답을 읽습니다. 서버가 동시에 처리하는 요청 수를 알 수 없으므로 문은 하나씩 전송됩니다. 연결의 **Thinking**은 항상 **Auto**입니다. 먼저 추론해야 하는 모델은 두 번 응답에 실패하면 추론 방식으로 전환하고, **Also gate agents that run before the reply**를 켜지 않는 한 이후에는 답변 후 조건만 평가합니다. 네트워크의 다른 컴퓨터에 있는 서버도 다른 로컬 제공자처럼 `PROVIDER_LOCAL_URLS_ENABLED`가 필요합니다. [로컬 또는 자체 호스팅 모델 연결하기](local-self-hosted.md)를 참고하세요.
 
@@ -105,10 +105,10 @@ Marinara는 예/아니요 질문 하나를 보내 토큰 하나를 생성하게 
 
 ## Decision 연결 설정하기
 
-1. **Connections**에서 제공자를 **Decision**으로 지정해 연결을 만드세요.
+1. **Connections**에서 **Add**(추가)를 클릭하세요. **Add account**(계정 추가) 창에서 **Decision** 서비스를 고르세요.
 2. **TypeSafe**, **OpenRouter**, **Custom System One endpoint**(사용자 지정 System One 엔드포인트) 또는 **OpenAI-compatible chat model**을 선택하세요. 호스팅 소스에는 API 키가 필요합니다. TypeSafe는 `https://api.typesafe.ai`로 요청을 보냅니다. TypeSafe의 API를 실행하는 다른 서버를 사용하려면 **Base URL**(기본 URL)을 `/v1/systemone` 없는 해당 서버 주소로 바꾸세요. 이 경우에도 TypeSafe 키가 필요하며 이 키는 해당 서버로 전송됩니다. 로컬 네트워크의 다른 컴퓨터에 있는 서버는 다른 로컬 제공자처럼 `PROVIDER_LOCAL_URLS_ENABLED`가 필요합니다. Android에서는 기본적으로 켜져 있습니다. Custom은 Open-Jev나 [Strands decider](#run-strands-decider-yourself)를 포함한 기존 System One 서버를 지원합니다. `/v1/systemone` 없는 기본 URL과 지원하는 모델 이름을 입력하세요. Ollama나 LM Studio 같은 채팅 모델 서버는 System One을 사용하지 않습니다. [이미 실행 중인 서버에서 사용하기](#on-a-server-you-already-run)에 따라 **OpenAI-compatible chat model**을 선택하세요.
 3. OpenRouter는 **API key source**(API 키 소스)에서 저장된 연결을 선택하거나 별도 키를 입력하세요. 편집기의 **Use this key for decisions**(이 키를 결정에 사용)도 이용할 수 있습니다. 이 옵션으로 OpenRouter를 통해 Jev를 설정합니다. 연결된 키는 이후 변경을 자동으로 반영합니다. Custom System One 및 OpenAI-compatible chat model 연결은 두 URL의 출처(스킴, 호스트, 포트)가 같을 때만 사용자 지정 채팅 연결의 키를 빌릴 수 있습니다.
-4. 저장하고 **Decision model**에서 선택한 뒤 **Test**를 클릭하세요. 성공하면 확률, 응답 시간과 연결의 시간 제한을 보여 줍니다. Test는 최소 10초를 기다리고 제한이 더 길면 그보다 5초 더 기다리므로 느린 답도 실제 시간으로 보고합니다. 제한을 넘겼다면 결과에 표시합니다. 채팅에서는 그 답을 답 없음으로 처리합니다.
+4. **Connect**(연결)를 클릭하세요. 계정이 연결되면 **Done**(완료)을 클릭해 모델을 고르세요. **Jobs**의 **Behind the scenes** 아래에서 **Decision** 행을 열고, 행을 클릭한 다음 **Model for**에서 새 모델을 선택하세요. 행의 톱니바퀴를 클릭해 행 아래의 설정을 연 다음 **Test**를 클릭하세요. 성공하면 확률, 응답 시간과 연결의 시간 제한을 보여 줍니다. Test는 최소 10초를 기다리고 제한이 더 길면 그보다 5초 더 기다리므로 느린 답도 실제 시간으로 보고합니다. 제한을 넘겼다면 결과에 표시합니다. 채팅에서는 그 답을 답 없음으로 처리합니다.
 
 Decision 기본값은 채팅, 에이전트, 이미지, 동영상, 오디오 기본값과 별개입니다. **None**을 선택하면 활성화 질문이나 판정문을 삭제하지 않고 판정을 끕니다.
 
@@ -132,12 +132,13 @@ Decision 기본값은 채팅, 에이전트, 이미지, 동영상, 오디오 기�
    ```
 
    NVIDIA GPU나 Apple silicon이 있으면 사용하고, 없으면 프로세서에서 더 느리게 실행됩니다. 처음 시작할 때 모델과 약 4.6 GB의 기본 가중치를 다운로드하며, Python 패키지는 약 5.5 GB를 차지합니다. 서버에 비밀번호가 없으므로 `127.0.0.1`에서만 실행하세요.
+
 2. 소스가 **Custom System One endpoint**이고 기본 URL이 `http://127.0.0.1:8000`인 Decision 연결을 만드세요. 모델 이름은 무엇이든 사용할 수 있습니다.
-3. **Decision model**에서 이 연결을 선택하고 **Test**를 클릭하세요. 시작 후 첫 응답은 약 2초로 기본 **Time limit**보다 오래 걸리므로, 채팅 전에 한 번 테스트하세요.
+3. **Decision** 행의 **Model for** 선택 창에서 이 연결을 선택하세요. 행의 톱니바퀴를 열고 **Test**를 클릭하세요. 시작 후 첫 응답은 약 2초로 기본 **Time limit**보다 오래 걸리므로, 채팅 전에 한 번 테스트하세요.
 
 확률이 보정되어 있으므로 자체 호스팅 Open-Jev와 달리 사용자 지정 연결의 기본 임계값 0.5가 적합합니다([임계값](#thresholds) 참고). RTX 5090에서 80개 문장을 사용한 소규모 Roleplay 테스트에서는 Open-Jev 2B의 74개에 비해 73개를 맞혔고, GPU 메모리를 약 5.1 GB(4.7 GiB) 사용했습니다. 문장 1~8개에 0.04~0.1초가 걸렸으며, Open-Jev 2B는 0.1~0.14초가 걸렸습니다. 긴 채팅에서는 둘 다 약 0.3초가 걸렸습니다. 답변이 문구에 더 크게 좌우되므로 [문장 작성하기](../prompts/conditional-prompts.md#writing-statements)를 따르고 자신의 채팅 턴으로 테스트하세요.
 
-이 모델과 Decision sidecar 사이를 전환하려면 **Decision model**에서 둘 중 하나를 선택하세요. 두 설정은 모두 유지됩니다.
+이 모델과 Decision sidecar 사이를 전환하려면 **Decision** 행의 **Model for** 선택 창에서 둘 중 하나를 선택하세요. 두 설정은 모두 유지됩니다.
 
 <a id="let-marinara-install-a-decision-model"></a>
 
@@ -157,7 +158,7 @@ Marinara가 판정 전용 모델을 다운로드하고 실행하게 할 수도 �
 1. **Connections**에서 **Local Model**을 펼치고 **Decision sidecar (experimental)**(판정 사이드카, 실험적)을 고르세요.
 2. 경고를 읽고 **Enable decision sidecar**(판정 사이드카 활성화)를 켜세요. 확인하면 기기 판정이 표시되며 경고 판정일 때 버튼은 **Enable anyway**(그래도 활성화)로 표시됩니다.
 3. 모델을 고르고 크기, 하드웨어 판정과 라이선스를 확인하세요. 이 단계 전에는 다운로드하지 않습니다. **Open-Jev 2B**는 **Open-Jev 9B**보다 메모리를 훨씬 적게 사용하지만 어느 모델도 채팅에서 정답을 보장하지 않습니다.
-4. **Decision model**에서 **Decision sidecar**를 고르세요.
+4. **Decision** 행의 **Model for** 선택 창에서 **Decision sidecar**를 고르세요.
 
 **속도.** 모델 시작 후 첫 응답은 느리므로 Marinara는 로드 중 준비 질문을 하나 보냅니다. 성공하면 **Test**와 첫 턴에서 정상 속도가 나옵니다. 실패해도 모델은 시작되며 지연은 첫 질문에서 발생합니다. 문마다 최근 채팅을 다시 읽으므로 긴 채팅에서 문이 많은 턴은 더 오래 걸립니다. 긴 채팅에서 Open-Jev 2B는 문당 약 0.25초가 걸립니다.
 

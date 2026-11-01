@@ -42,11 +42,10 @@ npm i -g @anthropic-ai/claude-code
 claude auth login
 ```
 
-3. No Marinara, abra o painel **Connections** (Conexões) e clique em **New** (novo).
-4. Na janela **Create Connection** (criar conexão), digite um nome, escolha o provedor **Claude (Subscription)** e clique em **Create**.
-5. No editor, repare que não existe o campo **API Key** nem o campo **Base URL**. Um painel informativo confirma que eles não são necessários.
-6. Escolha um modelo Claude, como um modelo Opus ou Sonnet, no menu suspenso **Model**. A lista mostra os modelos que o seu login do Claude Code oferece, quando o Claude Code tem uma lista para ele; caso contrário, mostra uma lista embutida.
-7. Clique em **Save** (salvar) e depois em **Send Test Message** (enviar mensagem de teste). Uma resposta curta significa que o login está funcionando.
+3. No Marinara, abra o painel **Connections** (Conexões) e clique em **Add** (adicionar). A janela **Add account** (adicionar conta) abre.
+4. Na etapa 1, escolha o serviço **Claude (Subscription)**.
+5. Na etapa 2, repare que não existe campo de chave. A etapa diz **No key needed. Marinara uses the login on this computer.** Clique em **Connect** (conectar). **Connected** significa que o login está funcionando.
+6. Na etapa 3, escolha um modelo Claude, como um modelo Opus ou Sonnet, e clique em **Done** (concluir). A lista mostra os modelos que o seu login do Claude Code oferece, quando o Claude Code tem uma lista para ele; caso contrário, mostra uma lista embutida.
 
 As conexões por assinatura do Claude só têm suporte a chat de texto. Esta conexão traz dois controles a mais, **Fast Mode** e **Diagnose Model Routing**, descritos abaixo.
 
@@ -66,10 +65,10 @@ npm i -g @openai/codex
 codex login
 ```
 
-3. No Marinara, abra o painel **Connections** e clique em **New**.
-4. Na janela **Create Connection**, digite um nome, escolha o provedor **OpenAI (ChatGPT)** e clique em **Create**.
-5. Escolha um modelo no menu suspenso **Model**. Quando possível, a lista vem da sua sessão do ChatGPT; caso contrário, vem de uma lista interna.
-6. Clique em **Save** e depois em **Send Test Message** para confirmar que chega uma resposta.
+3. No Marinara, abra o painel **Connections** e clique em **Add**. A janela **Add account** abre.
+4. Na etapa 1, escolha o serviço **OpenAI (ChatGPT)**.
+5. Na etapa 2, clique em **Connect** para confirmar que o login está funcionando.
+6. Na etapa 3, escolha um modelo. Quando possível, a lista vem da sua sessão do ChatGPT; caso contrário, vem de uma lista interna. Clique em **Done**.
 
 Marinara lê o arquivo de login local do Codex e renova a sessão sempre que consegue.
 
@@ -91,10 +90,10 @@ curl -fsSL https://x.ai/cli/install.sh | bash
 grok login
 ```
 
-3. No Marinara, abra o painel **Connections** e clique em **New**.
-4. Na janela **Create Connection**, digite um nome, escolha o provedor **Grok CLI (Subscription)** e clique em **Create**.
-5. Escolha um modelo ou deixe o campo **Model** em branco para usar o padrão do CLI. Para roleplay, o modelo mais seguro costuma ser `grok-composer-2.5-fast`.
-6. Clique em **Save** e depois em **Send Test Message**. Esta conexão consegue fazer o teste mesmo sem nenhum modelo definido.
+3. No Marinara, abra o painel **Connections** e clique em **Add**. A janela **Add account** abre.
+4. Na etapa 1, escolha o serviço **Grok CLI (Subscription)**.
+5. Na etapa 2, clique em **Connect** para confirmar que o login está funcionando.
+6. Na etapa 3, escolha um modelo ou, no modelo salvo, deixe o campo **Model** (modelo) em branco para usar o padrão do CLI. Para roleplay, o modelo mais seguro costuma ser `grok-composer-2.5-fast`.
 
 Duas coisas são especiais no Grok CLI. Ele não faz streaming, ou seja, a resposta aparece de uma vez só, e não palavra por palavra. E a janela de contexto vem com 32000 tokens por padrão, menos que a dos outros provedores, porque prompts muito grandes podem estourar o limite de turno do próprio CLI.
 
@@ -112,9 +111,9 @@ Os logs de depuração separam as gravações de cache de cinco minutos e de uma
 
 ## Por que não existe campo de chave de API
 
-Nos três provedores por assinatura, os campos **API Key** e **Base URL** ficam escondidos. Isso é de propósito. O login mora dentro do CLI, na máquina do servidor, então não há nada para você digitar no Marinara.
+Nos três serviços por assinatura, o campo de chave e o campo **Address** (endereço) ficam escondidos. Isso é de propósito. O login mora dentro do CLI, na máquina do servidor, então não há nada para você digitar no Marinara.
 
-Se você escolheu o provedor errado sem querer e não vê o campo da chave, volte ao provedor certo na grade de provedores. Nos provedores baseados em chave de API, o campo reaparece.
+Se você escolheu o serviço errado sem querer e não vê o campo da chave, volte à etapa 1 e escolha o serviço certo. Nos serviços baseados em chave de API, o campo reaparece.
 
 ## Fast Mode (só no Claude)
 
@@ -128,7 +127,7 @@ Se você tentar ativar, aparece uma caixa de diálogo de confirmação com o tí
 
 O editor do **Claude (Subscription)** tem um botão **Diagnose Model Routing** na área de testes. Use quando você pedir um modelo Claude e desconfiar de ter recebido um menor.
 
-1. Escolha um modelo e clique em **Save**. O botão fica desativado enquanto nenhum modelo estiver selecionado.
+1. Escolha um modelo e clique em **Save** (salvar). O botão fica desativado enquanto nenhum modelo estiver selecionado.
 2. Clique em **Diagnose Model Routing**.
 3. Leia o resultado. Marinara envia um prompt de verdade pelo login do Claude Code. Depois informa qual modelo foi realmente cobrado da sua conta.
 
@@ -140,7 +139,7 @@ Assim você descobre um rebaixamento silencioso, quando você pede um modelo mai
 - Nenhuma das três oferece embeddings. A busca semântica dos lorebooks e a memória precisam de uma conexão separada para os embeddings.
 - **Claude (Subscription)** só tem suporte a chat de texto.
 - **Grok CLI (Subscription)** não faz streaming e começa com uma janela de contexto menor.
-- **Send Test Message** exige um modelo escolhido antes, com exceção do Grok CLI, que testa sem nenhum.
+- **Send Test Message** (enviar mensagem de teste) exige um modelo escolhido antes, com exceção do Grok CLI, que testa sem nenhum.
 
 ## Guias relacionados
 

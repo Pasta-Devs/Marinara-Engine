@@ -111,6 +111,18 @@ Dans **Chat Settings → Agents → Roleplay Commands**, active **Illustrations*
 
 Active **Render in-line** (afficher dans le texte) sous **Illustrations** pour afficher plutôt chaque image à l'intérieur du message, à l'endroit où le personnage a écrit la commande, par exemple entre deux paragraphes. L'image garde ses contrôles : sélectionne-la pour voir son prompt, ou utilise le **X** pour la retirer. On indique au personnage qu'il peut placer la commande là où l'image a sa place. Le réglage s'applique aux nouvelles images : celles déjà présentes dans le chat restent où elles sont. Les images automatiques de l'agent Illustrator et la disposition Visual Novel continuent d'afficher les images comme avant.
 
+<a id="artifacts-on-demand"></a>
+
+## Artefacts à la demande
+
+Dans **Chat Settings → Agents → Roleplay Commands**, active **HTML Artifacts** (artefacts HTML) pour permettre au narrateur de créer un artefact précis, propre à l'univers de l'histoire, avec `[html: prompt="..."]` : une page de grimoire, un panneau, un croquis sur une lettre, l'affichage d'un terminal. L'option est désactivée au départ et ne nécessite aucun agent. Tu peux aussi en demander un toi-même avec `/html <what you want>`.
+
+L'artefact apparaît là où le narrateur a placé la commande, une fois la réponse terminée. Dans la disposition Visual Novel, tu ne vois que le marqueur. Le texte du message reste tel qu'il a été écrit.
+
+Chaque artefact fait l'objet d'une requête séparée, avec un maximum de 3 par réponse. Il utilise la connexion de l'agent **Immersive HTML** si cet agent en a une, sinon ta connexion d'agent par défaut, sinon la connexion du chat. Le réglage **Max Parallel Agent Jobs** (nombre maximal de tâches d'agent en parallèle) de cette connexion fixe combien de requêtes tournent en même temps. La requête inclut la description du personnage qui parle et les derniers messages. Elle suit ses propres instructions : modifier le prompt de l'agent Immersive HTML ne la change donc pas. Pour une simple page mise en forme, les six types de **Documents** tout prêts sont gratuits et instantanés.
+
+Le narrateur ne voit pas le HTML de l'artefact. Aux tours suivants, il en voit une courte version en texte brut : le texte lisible de l'artefact et une ligne sur son apparence. Ouvre le marqueur "used html command" sous le message pour lire ou modifier ce texte, ou pour supprimer l'artefact, ce qui le retire aussi de la mémoire du narrateur. Si une génération échoue, le marqueur en indique la raison.
+
 <a id="whispers-and-secrets"></a>
 
 ## Murmures et secrets

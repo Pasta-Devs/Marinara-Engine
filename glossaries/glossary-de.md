@@ -820,3 +820,84 @@ Precedents from the release catch-up against Engine `staging` `dcae41337`:
 ## Agent Organizer
 
 Use the English UI label **Agent Organizer** for the renamed official agent store.
+
+## Connections redesign and HTML artifacts (2026-11-01)
+
+Precedents from the #8464 and #8603 catch-up against Engine `staging` `6d96cf919`:
+
+- An *account* (a key, sign-in or address for a provider) is **das Konto**, pl.
+  **Konten**, with closed compounds **Kontoliste**, **Kontoaktionen**,
+  **Kontoeinrichtung** (§6). *Connection* stays **die Verbindung** (§4), now defined
+  as in English, „ein API-Key, ein Konto oder ein Endpunkt“ (`FAQ.md`,
+  `chats/chat-settings.md`, `home/welcome.md`). That drops residual 1's `Setup`
+  and `Verknüpfung` carriers from `connections/connecting-to-a-provider.md` and
+  `chats/chat-settings.md`. The *account editor* is **der Konto-Editor**, the
+  *model editor* **der Modell-Editor**; **Verbindungs-Editor**/**Verbindungseditor**
+  is not retired and stays where the English still says *connection editor*.
+- A *job* is **die Aufgabe**, in compounds too: **Parallel jobs** *(parallele
+  Aufgaben)*, **Max Parallel Agent Jobs** *(maximal parallele Agentenaufgaben)*.
+  The panel section **Jobs** is glossed *(Aufgaben)* („den Bereich **Jobs**“); its
+  picker **Model for** is glossed *(Modell für)*. A *picker* is **die Auswahl**
+  („die Auswahl **Model for**“, **Modellauswahl**); the *shared connection picker*
+  is „### Gemeinsame Verbindungsauswahl“ (`development/optional-agent-packages.md`).
+  Job groups: **Pictures & sound** *(Bild und Ton)*, **Behind the scenes** *(hinter
+  den Kulissen)*.
+- **Main**, the chat job, is a name and stays English: **Main-Modell** (§6),
+  **Follow Main** *(Main folgen)*, **Make … my Main** *(… zu meinem Main machen)*,
+  **Make it my Main model** *(zu meinem Main-Modell machen)*. Keep it apart from
+  the generic lowercase *main model*, „Hauptmodell“ (`agents/custom-agents.md`,
+  `connections/local-model.md`). The bold label copies its file's English
+  byte-exact (`...` in `FAQ.md` and `chats/managing-chats.md`, `…` in
+  `connections/connecting-to-a-provider.md`); the gloss always writes `…`.
+- **Shuffle** stays English, in prose too („Mit Shuffle …“, „zu Shuffle
+  hinzufügen“), neuter where a pronoun is needed („Bei **Shuffle**, das …“); the
+  bold option is glossed *(Zufallsauswahl)*. It retires the connection
+  *Zufallspool* in the redesigned guides. `prompts/generation-parameters.md` keeps
+  „Zufallspool an Verbindungen“ while its English still says *random connection
+  pool*; the `Zufallspool` in `lorebooks/entries.md` is a lorebook random pick and
+  stays.
+- *Starred* is „mit Stern markiert“: **Starred** *(mit Stern markiert)*, **Star**
+  *(mit Stern markieren)*. Other new glosses: **Add account** *(Konto
+  hinzufügen)*, **Connect** *(Verbinden)*, **Start chatting** *(Chat beginnen)*,
+  **Edit account** *(Konto bearbeiten)*, **Usage and balance** *(Nutzung und
+  Guthaben)*, **Model for this chat** *(Modell für diesen Chat)*, **Now**
+  *(jetzt)*, **Recent** *(zuletzt genutzt)*, **If it fails** *(falls es
+  fehlschlägt)*, **Image reading** *(Bilder lesen)*; in `media/image-providers.md`
+  **Add connection** *(Verbindung hinzufügen)*, **Images, video & voice** *(Bilder,
+  Video und Stimme)*, **Save and test** *(Speichern und testen)*. The remaining
+  panel and menu glosses are literal; copy them from
+  `connections/connecting-to-a-provider.md` and
+  `connections/organizing-connections.md`. Statuses such as **Follows Main**,
+  **Needs key**, **Off** and **This chat only** stay unglossed (§3.3).
+- The field **Address** is glossed *(Adresse)*, „die Adresse“ in prose; *Base URL*
+  survives as the concept's other name („Die **Address** (auch Base URL
+  genannt)“). The local-server table header *Endpoint* is **Endpunkt** (§4).
+  Residual 7 is untouched; its `connections/local-self-hosted.md` lines are now
+  9, 53 and 57.
+- An *artifact* from `/html` or **HTML Artifacts** is **das Artefakt**, the word
+  the pack already uses for package artifacts; context separates the senses, as in
+  English. **HTML Artifacts** is glossed *(HTML-Artefakte)*; *in-world* is „aus der
+  Spielwelt“, as in the Immersive HTML entry (`agents/built-in-agents.md`).
+- Translated headings carry the English slug as `<a id>` (as on 2026-10-14):
+  `choosing-the-model-for-each-job` and `choosing-a-model-for-one-chat`
+  (`connections/connecting-to-a-provider.md`), `artifacts-on-demand` above
+  „## Artefakte auf Abruf“ (`roleplay/getting-started.md`). „## Shuffle“
+  (`connections/organizing-connections.md`) keeps the feature name (§6), so
+  `#shuffle` resolves without one. The removed
+  `the-random-pool-and-quick-connection-switcher` anchor has no `de/` links left.
+- Where English dropped a label's old first use, its one-time gloss moved to the
+  new first use (rule of 2026-10-11): **Save**, **Send Test Message** and **Model**
+  in `connections/subscription-clis.md`, **Model** in `chats/chat-settings.md`,
+  **Thinking** in `connections/decision-models.md`. In `media/image-providers.md`
+  the first **Endpoint** sits in an English parenthesis, which became spaced en
+  dashes so the gloss stays at first use without nesting parentheses: „Die **Base
+  URL** – in der Verbindung als **Endpoint** (Endpunkt) angezeigt – ist …“.
+- `ui/de.json` has no value yet for the redesigned `connections.*` keys behind
+  **Jobs**, **Model for**, **Shuffle**, **Starred**, **Follow Main**, **Add
+  account**, **Start chatting**, **Usage and balance**, **Address**, the job groups
+  and the picker rows (**Now**, **Recent**, **If it fails**), so those glosses are
+  coined for the docs; recheck them when the UI pack ships those keys. Glosses that
+  match an existing `ui/de.json` string (case aside): *(Verbinden)*,
+  *(HTML-Artefakte)*, *(Modell für diesen Chat)*, *(Nachdenken)*, *(hinter den
+  Kulissen)*. The Agent Organizer's „Bild & Ton“ and the Command Center's
+  „Kürzlich“ are other keys; the docs keep *(Bild und Ton)* and *(zuletzt genutzt)*.

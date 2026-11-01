@@ -82,11 +82,14 @@
 | `/random` | `/rand`, `/event` | AI से कहानी में कोई अचानक घटना जुड़वाता है। |
 | `/scene [description (optional)]` | `/rp` | Conversation चैट से चलता है। उसी Conversation से अलग होकर नया Roleplay सीन शुरू करता है। |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | मौजूदा चैट के लिए गैलरी इमेज जेनरेट करता है। |
+| `/html [what you want]` | | Roleplay: सबसे नए जवाब के आखिर में कहानी की दुनिया का एक आर्टिफ़ैक्ट बनाता है, जैसे `a spellbook page`। |
 | `/video [description (optional)]` | | Roleplay: सबसे नए जवाब की, या आपके बताए सीन की छोटी क्लिप उसी जवाब के नीचे बनाता है। यह Illustrator की **First frame** सेटिंग के मुताबिक चलता है। Conversation में `/video` इसके बजाय वीडियो संदेश भेजता है (नीचे देखें)। |
 | `/impersonate [direction (optional)]` | `/imp` | आपके पर्सोना की तरफ़ से जवाब लिखता है। |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | तय करता है कि इस चैट में `/impersonate` किस निर्देश पर चले। |
 
 **Roleplay** में `/illustrate range=12` संदेश 12 का चित्र बनाता है, और `/illustrate range=12-18` संदेश 12 से 18 तक Illustrator को भेजता है। `/goto` वाले संदेश क्रमांक बढ़ते क्रम में दें; अधिकतम 200 संदेश चुन सकते हैं। छिपे हुए संदेश शामिल नहीं होते। चित्र चुने हुए दायरे के आखिरी दिखाई देने वाले संदेश से जुड़ता है। प्रॉम्प्ट की समीक्षा करते समय नए संदेश आने पर भी चयन नहीं बदलता। Advanced Memory चालू होने पर भी पुराने संदेश चुन सकते हैं। `range=` न देने पर कमांड पहले की तरह मौजूदा दृश्य के लिए काम करता है। वैकल्पिक रूप से लिखा गया प्रॉम्प्ट भी पहले की तरह सीधे इस्तेमाल होता है।
+
+`/html a terminal readout` सबसे नए जवाब के आखिर में एक आर्टिफ़ैक्ट बनाता है। इसके लिए किसी एजेंट की ज़रूरत नहीं है, और यह **HTML Artifacts** (HTML आर्टिफ़ैक्ट) चालू हो या न हो, दोनों हालत में चलता है। जब **Roleplay Commands** (Roleplay कमांड) के नीचे **HTML Artifacts** चालू हो, तो नैरेटर खुद भी `[html: prompt="..."]` से यही माँग सकता है। देखें [माँगने पर आर्टिफ़ैक्ट](../roleplay/getting-started.md#artifacts-on-demand)।
 
 अगले जवाब को दिशा देने के लिए `/guided` के बाद अपनी बात लिखें:
 

@@ -82,11 +82,14 @@
 | `/random` | `/rand`, `/event` | 이야기에 뜻밖의 사건을 넣도록 AI에 요청합니다. |
 | `/scene [description (optional)]` | `/rp` | Conversation 채팅에서 실행합니다. 그 대화에서 갈라져 나오는 새 Roleplay 장면을 시작합니다. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | 현재 채팅에 쓸 갤러리 이미지를 생성합니다. |
+| `/html [what you want]` | | Roleplay: 최근 답변 끝에 이야기 속 아티팩트를 하나 만듭니다. 예를 들면 `a spellbook page`입니다. |
 | `/video [description (optional)]` | | Roleplay: 최근 답변이나 직접 설명한 내용을 짧은 클립으로 만들어 해당 답변 아래에 표시합니다. Illustrator의 **First frame**(첫 프레임) 설정을 따릅니다. Conversation에서는 `/video`가 대신 동영상 메시지를 보냅니다(아래 참고). |
 | `/impersonate [direction (optional)]` | `/imp` | 페르소나를 대신해 답변을 씁니다. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | 이 채팅에서 `/impersonate`가 사용할 지시 내용을 설정합니다. |
 
 **Roleplay**에서 `/illustrate range=12`는 12번 메시지를 그림으로 만들고, `/illustrate range=12-18`은 12~18번 메시지를 Illustrator에 전달합니다. `/goto`와 같은 메시지 번호를 오름차순으로 지정하며, 최대 200개까지 선택할 수 있습니다. 숨긴 메시지는 제외됩니다. 이미지는 범위의 마지막으로 보이는 메시지에 첨부되며, 프롬프트를 검토하는 동안 새 메시지가 도착해도 선택 범위는 유지됩니다. Advanced Memory를 켠 상태에서도 이전 메시지를 사용할 수 있습니다. `range=`가 없으면 현재 장면을 대상으로 하는 기존 동작을 유지합니다. 선택적으로 입력한 프롬프트는 이전과 같이 직접 사용됩니다.
+
+`/html a terminal readout`은 최근 답변 끝에 아티팩트를 하나 만듭니다. 에이전트가 필요 없고, **HTML Artifacts**(HTML 아티팩트)를 켰든 안 켰든 작동합니다. **Roleplay Commands**(Roleplay 명령) 아래에서 **HTML Artifacts**를 켜 두면 내레이터도 `[html: prompt="..."]`로 같은 요청을 직접 할 수 있습니다. [요청형 아티팩트](../roleplay/getting-started.md#artifacts-on-demand)를 참고하세요.
 
 다음 답변을 이끌려면 `/guided` 뒤에 원하는 방향을 적으세요.
 

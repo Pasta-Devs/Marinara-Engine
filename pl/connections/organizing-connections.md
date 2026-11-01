@@ -1,93 +1,84 @@
 # Porządkowanie połączeń
 
-Z tego przewodnika dowiesz się, jak utrzymać porządek wśród zapisanych połączeń w aplikacji Marinara Engine. Opisuje foldery połączeń, wyszukiwanie i sortowanie, duplikowanie i usuwanie, pulę losową, panel **Quick Connection Switcher** (szybkie przełączanie połączeń) oraz eksport i import połączeń. Połączenie to zapisany zestaw ustawień, dzięki któremu Marinara wie, jak dotrzeć do jednej usługi AI.
+Z tego przewodnika dowiesz się, jak utrzymać porządek wśród kont i modeli w aplikacji Marinara Engine. Opisuje listę kont, modele oznaczone gwiazdką, przenoszenie i usuwanie modeli, foldery, funkcję Shuffle oraz eksport i import. Konto to jeden klucz, jedno logowanie albo jeden adres u dostawcy AI; model to jeden zapisany z niego model AI. Jak dodać konto, opisuje [Łączenie z dostawcą AI](connecting-to-a-provider.md).
 
-Wszystko to robi się w panelu **Connections** (Połączenia). Po jego otwarciu zapisane połączenia pokazują się jako lista wierszy. W każdym wierszu widać nazwę połączenia, a pod nią dostawcę i model.
+## Lista kont
 
-## Foldery połączeń
+Pod sekcją **Jobs** (zadania) panel **Connections** (Połączenia) wymienia twoje konta. Każde konto pokazuje swój obrazek, nazwę, liczbę modeli i adres. Wiersz modelu pokazuje obrazek modelu, jego nazwę i plakietki, takie jak zadanie, które model wykonuje (**Main**, **Agents**, **Images**), **Custom settings** (własne ustawienia), jego cenę albo **Plan** (plan) przy modelach wliczonych w subskrypcję.
 
-Grupuj powiązane ze sobą połączenia w folderach. Na przykład wszystkie modele lokalne trafiają do jednego folderu, a wszyscy płatni dostawcy do drugiego.
+Kliknij wiersz konta, żeby zwinąć jego modele, i kliknij ponownie, żeby je pokazać. Marinara pamięta, które konta są zwinięte. **More actions** (więcej działań) u góry panelu zawiera opcje **Fold all accounts** (zwinięcie wszystkich kont) i **Open all accounts** (rozwinięcie wszystkich kont), **Show only Off or Needs key** (pokazanie tylko kont wyłączonych lub bez klucza) oraz **Show cost badges** (pokazanie plakietek kosztów). W szerokim panelu lista rozwijana sortowania jest obok pola **Search models and accounts** (wyszukiwanie modeli i kont). W wąskim panelu kolejność sortowania znajduje się w **More actions**.
 
-Aby utworzyć folder, wykonaj kolejno te kroki:
+Konto pośredniczące, które sięga do modeli kilku twórców, na przykład proxy albo LinkAPI, grupuje swoje modele pod nagłówkami **via**, takimi jak **via NanoGPT**, z ikoną danego twórcy.
 
-1. Kliknij przycisk **New Folder** (nowy folder) nad listą połączeń.
-2. Pojawia się nowy folder o nazwie "unnamed".
-3. Zmień jego nazwę od razu, żeby dało się go odróżnić (opis poniżej).
+Blok **Built-in model** (model wbudowany) pod sekcją Jobs pokazuje model działający na twoim komputerze i jego stan. Zobacz [Konfiguracja modelu Local Model](local-model.md).
 
-Aby zmienić nazwę folderu, kliknij dwukrotnie wiersz folderu, a na ekranie dotykowym dotknij go dwa razy. Inna opcja: zaznacz wiersz folderu i naciśnij klawisz **F2**. Wpisz nową nazwę i naciśnij Enter.
+### Działania na koncie
 
-Aby wrzucić połączenie do folderu, przeciągnij wiersz połączenia i upuść go na folderze. Aby wyjąć połączenie z powrotem, przeciągnij je na obszar pod folderami. W trakcie przeciągania widać podpowiedź **Drop here to move out of folder**.
+Kliknij **⋯** w wierszu konta:
 
-Na ekranie dotykowym naciśnij i przytrzymaj wiersz, żeby go podnieść, a potem go przeciągnij. Zwykłe przesunięcie palcem nadal przewija listę.
+- **Edit account** (edycja konta) otwiera jego ustawienia: **Name** (nazwa), **API key** (klucz API), **Address** (adres), **Usage and limits** (zużycie i limity) oraz **Use this account** (używanie tego konta).
+- **Replace key** (zastąpienie klucza) pozwala wkleić nowy klucz.
+- **Test** (test) sprawdza klucz i pokazuje wynik.
+- **Add model** (dodanie modelu) otwiera listę modeli konta. **Add image model** (dodanie modelu obrazów) pojawia się przy dostawcach, którzy tworzą też obrazy.
+- **Select models** (zaznaczanie modeli) pozwala przenieść albo usunąć kilka modeli naraz.
+- **Duplicate** (duplikowanie) dodaje kopię konta razem z kopiami jego modeli.
+- **Turn off** (wyłączenie) sprawia, że Marinara nie używa konta, dopóki nie włączysz go ponownie przyciskiem **Turn on** (włączenie).
+- **Delete account** (usunięcie konta). Marinara najpierw wymienia zadania, czaty i agentów, którzy nadal używają jego modeli.
 
-Aby zwinąć lub rozwinąć folder, kliknij jego wiersz raz. Mała liczba w wierszu folderu pokazuje, ile połączeń jest w środku.
+### Ikony dostawców
 
-Aby usunąć folder, kliknij ikonę kosza w jego wierszu. Jeśli w folderze wciąż są połączenia, Marinara prosi o potwierdzenie w oknie **Delete Folder** (usunięcie folderu). Pusty folder znika od razu, bez pytania o potwierdzenie. Usunięcie folderu nie usuwa połączeń, które są w środku. Te połączenia wracają do obszaru poza folderami.
+Każde konto pokazuje ikonę swojego dostawcy. Ikony są dostarczane razem z aplikacją Marinara Engine, więc Marinara nigdy nie wczytuje ich z internetu. Konto z własnym adresem pokazuje ikonę znanego serwera lub pośrednika, gdy jego adres albo nazwa zawiera nazwę takiego serwera, na przykład Ollama, LM Studio, KoboldCpp, Bifrost albo LiteLLM. W przeciwnym razie pokazuje pierwszą literę swojej nazwy. Kliknij obrazek konta, żeby wybrać własny.
 
-## Wyszukiwanie i sortowanie
+## Modele oznaczone gwiazdką
 
-Pole **Search connections** filtruje listę w trakcie pisania. Dopasowanie obejmuje nazwę połączenia, dostawcę, model, bazowy adres URL, usługę obrazów lub wideo oraz model embeddingu. Gdy nic nie pasuje, widać komunikat "No connections match your search".
+Gwiazdka oznacza modele, które mają być pod ręką. Modele oznaczone gwiazdką są wymienione w grupie **Starred** (oznaczone gwiazdką) blisko góry każdego selektora modeli: w oknach **Model for** (model dla) w sekcji **Jobs**, w oknie czatu **Model for this chat** (model dla tego czatu) oraz w polach modelu w **Chat Settings** (ustawienia czatu) i w edytorze agenta.
 
-Lista rozwijana **Sort order** (kolejność sortowania) obok pola wyszukiwania zmienia kolejność listy. Ma pięć opcji:
+Aby oznaczyć model gwiazdką, kliknij jego gwiazdkę na liście **Add model** konta albo wybierz **Star** (oznaczenie gwiazdką) w menu **⋯** modelu. Przydzielenie modelowi zadania też go zapisuje.
 
-| Opcja | Co robi |
-|---|---|
-| **Custom** | Twoja własna kolejność ustawiona przeciąganiem. |
-| **A-Z** | Sortuje po nazwie, od A do Z. |
-| **Z-A** | Sortuje po nazwie, od Z do A. |
-| **Newest** | Najnowsze połączenia na górze. |
-| **Oldest** | Najstarsze połączenia na górze. |
+Aby usunąć gwiazdkę, kliknij ją ponownie. Marinara usuwa model i przez kilka sekund pokazuje **Undo** (cofnięcie). Model zostaje, bez gwiazdki, gdy nadal ma rolę w **Jobs**, ma własne ustawienia albo jest ostatnim modelem swojego konta. Komunikat podaje powód.
 
-Aby ustawić własną kolejność, przeciągaj wiersze połączeń w górę lub w dół. Przeciągnięcie połączenia automatycznie przełącza sortowanie na **Custom**. Wiersz, który ma fokus, możesz też przesunąć skrótem Alt+strzałka w górę albo Alt+strzałka w dół.
+## Działania na modelu
 
-## Duplikowanie i usuwanie
+Kliknij **⋯** w wierszu modelu:
 
-Najedź kursorem na wiersz połączenia, żeby zobaczyć jego przyciski akcji, a na ekranie dotykowym po prostu spójrz na wiersz.
+- **Make default for…** (ustawienie jako domyślny) przydziela modelowi zadanie, tak samo jak wybranie go w sekcji **Jobs**.
+- **Edit model** (edycja modelu) otwiera jego ustawienia. Kliknięcie wiersza modelu działa tak samo.
+- **Move to account…** (przeniesienie do konta) przenosi model do innego konta tego samego dostawcy albo do nowego konta. Model używa wtedy klucza i katalogu tamtego konta. Czaty używające modelu nadal działają.
+- **Folder** (folder) umieszcza model w folderze. Foldery są widoczne po wybraniu **Group by folder** (grupowanie według folderów) w **More actions**.
+- **Duplicate** tworzy pełną kopię z tymi samymi ustawieniami, bez pytania.
+- **Add to Shuffle** (dodanie do losowania) albo **Remove from Shuffle** (usunięcie z losowania).
+- **Change picture** (zmiana obrazka).
+- **Remove** (usunięcie) usuwa model po potwierdzeniu.
 
-Aby zduplikować połączenie, kliknij przycisk **Duplicate** (duplikowanie) z ikoną kopiowania. Powstaje pełna kopia razem z zapisanym kluczem API, czyli tajnym kodem, trochę jak hasło. Kopia otwiera się w edytorze, więc od razu da się zmienić jej nazwę. Nie ma kroku potwierdzenia.
+Na komputerze możesz przeciągnąć wiersz modelu na czat, żeby użyć tego modelu w czacie.
 
-Aby usunąć pojedyncze połączenie, kliknij jego przycisk **Delete** (usunięcie) z ikoną kosza. Marinara pokazuje okno **Delete Connection** z treścią Delete "your connection name"? This cannot be undone. Kliknij przycisk **Delete**, żeby potwierdzić.
+## Wyszukiwanie
 
-Aby usunąć lub wyeksportować kilka połączeń naraz, kliknij przycisk **Select** (wybieranie) u góry panelu. Włącza się tryb zaznaczania. Dotknij połączeń, które mają zostać objęte operacją, a potem użyj przycisku **Export** lub **Delete** na pasku akcji na dole. Przy usuwaniu zbiorczym pojawia się najpierw okno **Delete Connections**.
+Pole **Search models and accounts** u góry panelu filtruje listę w trakcie pisania. Gdy nic nie pasuje, panel o tym informuje.
 
-<a id="the-random-pool-and-quick-connection-switcher"></a>
+<a id="shuffle"></a>
 
-## Pula losowa i panel Quick Connection Switcher
+## Funkcja Shuffle
 
-Dzięki puli losowej czat przy każdej odpowiedzi wybiera inne połączenie. Przydaje się to wtedy, gdy zapytania mają się rozkładać na kilku dostawców lub kilka modeli.
+Dzięki funkcji Shuffle czat przy każdej odpowiedzi wybiera inny model. Przydaje się to wtedy, gdy zapytania mają się rozkładać na kilku dostawców lub kilka modeli.
 
-Aby dodać połączenie do puli losowej, kliknij ikonę tasowania w jego wierszu. Podpowiedź brzmi **Add to random pool**. Gdy połączenie jest już w puli, podpowiedź zmienia się na **In random pool (click to remove)**. Ponowne kliknięcie ikony wyjmuje połączenie z puli.
+Aby dodać model do funkcji Shuffle, wybierz **Add to Shuffle** w jego menu **⋯**. Aby czat korzystał z funkcji Shuffle, otwórz okno **Model for this chat** z pola wiadomości albo z **Chat Settings → Connection → Model** i wybierz **Shuffle** (losowanie). Każda odpowiedź losuje wtedy model z twojej puli Shuffle.
 
-Aby czat korzystał z puli losowej, otwórz **Chat Settings** (ustawienia czatu), znajdź sekcję **Connection** i wybierz z listy rozwijanej opcję **🎲 Random**. W trybie Game Mode ta lista rozwijana nosi nazwę **GM / Party Model**. Każda odpowiedź losuje wtedy połączenie z puli.
+Jeśli model wylosowany dla odpowiedzi zawiedzie, a **Main** ma model **If it fails** (jeśli zawiedzie), odpowiedź pisze ten model. Powiadomienie podaje model, który zawiódł, i krótki powód, na przykład "key rejected", "rate limited" albo "not found", dzięki czemu wiadomo, który z nich wymaga poprawy. Odpowiedź zachowuje małą etykietę **Fallback** (połączenie zapasowe); dotknij jej albo wskaż ją kursorem, żeby znów zobaczyć tę samą informację.
 
-Jeśli połączenie wylosowane dla odpowiedzi zawiedzie, a dla **Main** ustawiono połączenie zapasowe (fallback), odpowiedź pisze połączenie zapasowe. Powiadomienie podaje połączenie, które zawiodło, jego model i krótki powód, na przykład "key rejected", "rate limited" albo "not found", dzięki czemu wiadomo, które połączenie z puli wymaga poprawy. Odpowiedź zachowuje małą etykietę **Fallback** (połączenie zapasowe); dotknij jej albo wskaż ją kursorem, żeby znów zobaczyć tę samą informację.
+Wybór w oknie **Model for this chat** zmienia tylko ten czat. Aby zmienić model dla nowych czatów, ustaw **Main** w sekcji **Jobs**.
 
-Panel **Quick Connection Switcher** to szybszy sposób na zmianę połączenia w otwartym czacie, a także jego modelu. Kliknij ikonę ogniwa w polu wpisywania wiadomości, żeby go otworzyć. Po lewej stronie widać połączenia, a po prawej kolumnę **Models** (modele) wybranego połączenia:
+## Eksport i import
 
-- Kliknij połączenie, żeby od razu użyć go w bieżącym czacie. Menu zostaje otwarte, więc zaraz potem da się wybrać jeden z modeli tego połączenia.
-- Kliknij model, żeby go użyć. Model zapisuje się w tym połączeniu, połączenie zostaje wybrane dla czatu, jeśli nie było wybrane wcześniej, a menu się zamyka. Znacznik pokazuje model, którego połączenie używa w tej chwili. Tak jak w edytorze połączenia, wybranie modelu z listy aktualizuje też rozmiar kontekstu połączenia oraz jego limit odpowiedzi, jeśli dostawca je podaje.
-- Wpisz tekst w polu **Search or enter model ID…**, żeby zawęzić listę. Naciśnięcie Enter wybiera model o wpisanym identyfikatorze lub nazwie albo jedyny model, który został na liście. Aby użyć modelu spoza listy, wpisz jego dokładny identyfikator: naciśnij Enter, gdy nic na liście do niego nie pasuje, albo kliknij wiersz **Use "…"**.
-- Kliknij gwiazdkę obok modelu, żeby go przypiąć. Przypięte modele zostają na górze, w grupie **Pinned** (przypięte), także te wpisane ręcznie. Ponowne kliknięcie gwiazdki odpina model.
-- Przy pierwszym otwarciu modeli połączenia Marinara wczytuje listę od dostawcy i zapisuje ją razem z połączeniem, więc przy kolejnych otwarciach lista pojawia się od razu. Kliknij przycisk odświeżania obok pola wyszukiwania, żeby wczytać listę ponownie, na przykład gdy dostawca doda nowe modele. Zmiana klucza API, bazowego adresu URL lub dostawcy połączenia także wczytuje świeżą listę.
-- Jeśli dostawca nie udostępnia listy modeli albo jest nieosiągalny, menu o tym informuje, a identyfikator modelu nadal da się wpisać.
-- Kliknij przycisk z kością u góry menu, żeby włączyć lub wyłączyć pulę losową dla tego czatu.
-- Gdy pula losowa jest włączona, kliknięcie połączenia dodaje je do puli albo z niej usuwa. Znacznik pokazuje, które połączenia są w puli. Kolumna **Models** jest wtedy ukryta, bo pula nie ma jednego połączenia.
+Konta da się wyeksportować do pliku jako kopię zapasową albo po to, żeby przenieść je do innej instalacji, a później zaimportować.
 
-Na telefonie dotknij strzałki obok pola wiadomości i otwórz zakładkę **Connections**. Dotknij połączenia, żeby przełączyć na nie czat; menu się zamyka. Żeby wybrać model, dotknij zamiast tego strzałki na prawym końcu wiersza połączenia. Jego modele otwierają się w tym samym menu, a czat przełącza się dopiero po wybraniu jednego z nich. Strzałka wstecz wraca do listy połączeń.
+**Eksport nigdy nie zawiera kluczy API.** Po imporcie otwórz każde konto i wpisz jego klucz jeszcze raz. Gwiazdki trafiają do eksportu, ale katalog dostawcy już nie, więc wczytuje się ponownie przy pierwszym otwarciu modeli konta.
 
-**Zmiana modelu obowiązuje wszędzie, gdzie używane jest to połączenie.** Napis u dołu menu, "Model changes are saved to this connection.", oznacza, że agenci, funkcje pomocnicze i inne czaty korzystające z tego samego połączenia też przechodzą na nowy model. Pozostałe ustawienia modeli w połączeniu, takie jak model embeddingu czy połączenie do opisywania obrazów, się nie zmieniają. Jeśli inny model jest potrzebny tylko do jednego zadania, zduplikuj połączenie i zmień kopię.
+Aby wyeksportować jeden model, otwórz go przez **Edit model** i kliknij jego przycisk **Export** (eksport) z ikoną wgrywania. Aby wyeksportować wszystko, otwórz **More actions** i wybierz **Export all accounts** (eksport wszystkich kont). Zanim pobieranie ruszy, Marinara przypomina, że plik nie zawiera kluczy.
 
-## Eksport i import połączeń
+Jeden model pobiera się jako plik `.connection.json`. Kilka modeli pobiera się razem jako plik `marinara-connections.zip`.
 
-Połączenia da się wyeksportować do pliku jako kopię zapasową albo po to, żeby przenieść je do innej instalacji, a później zaimportować.
-
-**Eksport nigdy nie zawiera kluczy API.** Po zaimportowaniu połączeń trzeba otworzyć każde z nich i wpisać klucz API jeszcze raz. Przypięte modele trafiają do eksportu, ale zapisana lista modeli już nie, więc wczytuje się ponownie przy pierwszym otwarciu modeli połączenia.
-
-Aby wyeksportować pojedyncze połączenie, otwórz je w edytorze i kliknij przycisk **Export** (eksport) z ikoną wgrywania. Aby wyeksportować kilka naraz, włącz w panelu tryb **Select** i kliknij przycisk **Export** na pasku akcji. Zanim pobieranie ruszy, Marinara pokazuje okno **Export Connection Data** z takim ostrzeżeniem: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Kliknij przycisk **Export**, żeby kontynuować.
-
-Pojedyncze połączenie pobiera się jako plik `.connection.json`. Kilka połączeń pobiera się razem jako plik `marinara-connections.zip`.
-
-Aby zaimportować połączenia, kliknij przycisk **Import** (import) u góry panelu Connections. Otwiera się okno **Import Connections**. Upuść na nie jeden plik `.json` lub kilka takich plików albo kliknij, żeby je wskazać. Okno przypomina: Imported connections never include API keys. Add each key again after import. Po imporcie każde nowe połączenie ma puste pole klucza API, dopóki nie zostanie ono uzupełnione.
+Aby zaimportować, otwórz **More actions** i wybierz **Import account** (import konta). Upuść na okno jeden plik `.json` lub kilka takich plików albo kliknij, żeby je wskazać. Każde zaimportowane konto ma pusty klucz, dopóki go nie uzupełnisz.
 
 ## Powiązane przewodniki
 

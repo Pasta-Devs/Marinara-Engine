@@ -19,24 +19,22 @@ Marinara łączy się z serwerami lokalnymi przez dostawcę **Custom (OAI-Compat
 Wykonaj kolejno te kroki, aby utworzyć połączenie.
 
 1. Otwórz panel **Connections** (Połączenia) z prawej strony aplikacji.
-2. Kliknij przycisk **New** (Nowe) z ikoną plusa. Otwiera się okno **Create Connection** (tworzenie połączenia).
-3. Wpisz nazwę w polu **Name**, na przykład `Ollama Local`.
-4. Wybierz dostawcę **Custom (OAI-Compatible)** z siatki dostawców.
-5. Kliknij przycisk **Create**. Otwiera się edytor nowego połączenia.
-6. Znajdź pole **Base URL**. Wpisz adres lokalnego serwera (patrz tabela poniżej).
-7. Zostaw puste pole **API Key**. Większość serwerów lokalnych nie potrzebuje klucza.
-8. Wybierz model. Kliknij przycisk **Fetch Models from API**, aby wczytać listę zgłaszaną przez serwer, a potem wskaż jeden model. Identyfikator modelu da się też wpisać ręcznie.
-9. Kliknij przycisk **Save**.
+2. Kliknij przycisk **Add** (dodaj). Otwiera się okno **Add account** (dodanie konta).
+3. W kroku 1 wybierz **Custom (OAI-Compatible)**. Ta opcja znajduje się w grupie **On your computer** (na twoim komputerze).
+4. W kroku 2 wpisz adres lokalnego serwera (patrz tabela poniżej) w polu **Address** (adres).
+5. Zostaw puste pole **API key** (klucz API). Większość serwerów lokalnych nie potrzebuje klucza. Aby nadać połączeniu nazwę, na przykład `Ollama Local`, otwórz **More options** (więcej opcji) i wpisz ją w polu **Name (optional)** (nazwa, opcjonalnie).
+6. Kliknij przycisk **Connect** (połącz).
+7. W kroku 3 wybierz model z listy zgłaszanej przez serwer. Identyfikator modelu da się też wpisać ręcznie. Kliknij **Done** (gotowe).
 
-Zapisane połączenie widać teraz w panelu **Connections**. Przetestuj je, zanim użyjesz go w czacie. Zajrzyj do sekcji "Testowanie połączenia" poniżej.
+Połączenie widać teraz w panelu **Connections**, a jego model jest zgrupowany pod nim. Przetestuj je, zanim użyjesz go w czacie. Zajrzyj do sekcji "Testowanie połączenia" poniżej.
 
-Pole **API Key** jest opcjonalne przy serwerach lokalnych. W przypadku dostawcy **Custom (OAI-Compatible)** edytor wyświetla pod tym polem przypomnienie. Mówi ono, że przy modelach lokalnych, takich jak Ollama, LM Studio i KoboldCpp, klucz może zostać pusty. Zamiast tego wystarczy ustawić Base URL.
+Pole **API Key** jest opcjonalne przy serwerach lokalnych. W przypadku dostawcy **Custom (OAI-Compatible)** edytor wyświetla pod tym polem przypomnienie. Mówi ono, że przy modelach lokalnych, takich jak Ollama, LM Studio i KoboldCpp, klucz może zostać pusty. Zamiast tego wystarczy ustawić pole **Address**.
 
 ## Adresy Base URL popularnych serwerów lokalnych
 
-Pole **Base URL** wskazuje aplikacji Marinara, gdzie nasłuchuje lokalny serwer. Każdy serwer ma domyślny adres i port. Port to numerowany kanał, z którego serwer korzysta na twojej maszynie. Użyj adresu tego serwera, który uruchamiasz.
+Pole **Address** (nazywane też Base URL) wskazuje aplikacji Marinara, gdzie nasłuchuje lokalny serwer. Każdy serwer ma domyślny adres i port. Port to numerowany kanał, z którego serwer korzysta na twojej maszynie. Użyj adresu tego serwera, który uruchamiasz.
 
-| Serwer lokalny | Base URL |
+| Serwer lokalny | Endpoint |
 |---|---|
 | Ollama | `http://localhost:11434/v1` |
 | LM Studio | `http://localhost:1234/v1` |
@@ -44,7 +42,7 @@ Pole **Base URL** wskazuje aplikacji Marinara, gdzie nasłuchuje lokalny serwer.
 
 Nazwa `localhost` oznacza tutaj "ten sam komputer". Jeśli Marinara działa na tym samym komputerze co serwer modeli, te adresy zadziałają dokładnie w takiej postaci.
 
-Przy polu **Base URL** widać ostrzeżenie o bezpieczeństwie: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Wpisuj wyłącznie adres skonfigurowany samodzielnie albo taki, któremu w pełni ufasz.
+Przy polu **Address** widać ostrzeżenie o bezpieczeństwie: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Wpisuj wyłącznie adres skonfigurowany samodzielnie albo taki, któremu w pełni ufasz.
 
 ### Uwaga o zaporze systemu Windows
 
@@ -76,18 +74,18 @@ W systemie Android to ustawienie jest włączone domyślnie, kiedy nie zostanie 
 
 ## Testowanie połączenia
 
-Na dole edytora połączenia jest karta **Connection Tests** (testy połączenia). Skorzystaj z niej, zanim zaczniesz polegać na połączeniu w czacie.
+Przycisk **Connect** w oknie dodawania konta już sprawdził połączenie. Na dole edytora modelu jest karta **Connection Tests** (testy połączenia) do ponownego sprawdzenia. Skorzystaj z niej, zanim zaczniesz polegać na połączeniu w czacie.
 
-1. Kliknij swoje połączenie w panelu **Connections**. Otwiera się edytor połączenia.
+1. Kliknij swój model w panelu **Connections**. Otwiera się edytor modelu.
 2. Kliknij przycisk **Test Connection**. Sprawdza on, czy Base URL i konfiguracja są osiągalne, a także pokazuje czas odpowiedzi.
 3. Wybierz model, jeśli nie jest jeszcze wybrany.
 4. Kliknij przycisk **Send Test Message**. Wysyła on słowo "hi" do wybranego modelu i pokazuje odpowiedź.
 
-Kiedy oba testy się powiodą, model lokalny jest gotowy do użycia w czacie. Otwórz czat, otwórz jego ustawienia i wskaż to połączenie.
+Kiedy oba testy się powiodą, model lokalny jest gotowy do użycia w czacie. Otwórz czat, otwórz jego ustawienia i wskaż to połączenie albo użyj menu **Connections** w polu wiadomości.
 
 Ten sam model może też odpowiadać na decyzje, na przykład pytania aktywacyjne agentów, bez ładowania drugiej kopii przez aplikację Marinara. Kliknij **Use this model for decisions** (używaj tego modelu do decyzji) w ustawieniach połączenia; zobacz [Modele decyzyjne](decision-models.md#on-a-server-you-already-run).
 
-Jeśli test się nie powiedzie, sprawdź najpierw, czy lokalny serwer nadal działa i czy model jest wczytany. Potem sprawdź, czy pole **Base URL** dokładnie odpowiada adresowi i portowi serwera. Przy serwerze na innym komputerze upewnij się, że zmienna `PROVIDER_LOCAL_URLS_ENABLED` jest ustawiona, a serwer Marinara został ponownie uruchomiony.
+Jeśli test się nie powiedzie, sprawdź najpierw, czy lokalny serwer nadal działa i czy model jest wczytany. Potem sprawdź, czy pole **Address** dokładnie odpowiada adresowi i portowi serwera. Przy serwerze na innym komputerze upewnij się, że zmienna `PROVIDER_LOCAL_URLS_ENABLED` jest ustawiona, a serwer Marinara został ponownie uruchomiony.
 
 ## Powiązane przewodniki
 

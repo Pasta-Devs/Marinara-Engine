@@ -6,18 +6,20 @@ Generowanie obrazów konfiguruje się jako szczególny rodzaj połączenia. Kied
 
 ## Dodawanie połączenia do generowania obrazów
 
-**Klucz API** to tajny kod od dostawcy, trochę jak hasło, dzięki któremu Marinara korzysta z twojego konta. Pole **Base URL** (adres bazowy) zawiera adres internetowy interfejsu programistycznego danej usługi. Po wybraniu usługi Marinara sama wpisuje właściwy adres w polu **Base URL**.
+**Klucz API** to tajny kod od dostawcy, trochę jak hasło, dzięki któremu Marinara korzysta z twojego konta. Pole **Base URL** (adres bazowy), w połączeniu widoczne jako **Endpoint**, zawiera adres internetowy interfejsu programistycznego danej usługi. Po wybraniu usługi Marinara sama wpisuje właściwy adres.
 
 Wykonaj kolejno te kroki, żeby dodać połączenie do obrazów.
 
 1. Otwórz panel **Connections** (Połączenia).
-2. Kliknij przycisk **New** (Nowe), żeby otworzyć okno **Create Connection** (utworzenie połączenia).
-3. Wpisz nazwę, a potem wybierz dostawcę typu **Image Generation**.
-4. W edytorze połączenia wybierz usługę z siatki w polu **Service**.
-5. Wklej klucz API w polu **API Key**, jeśli usługa go wymaga. Usługi darmowe i lokalne nie potrzebują klucza.
+2. Kliknij przycisk **Add connection** (dodanie połączenia).
+3. W kroku 1 otwórz **Images, video & voice** (obrazy, wideo i głos) i wybierz **Image Generation** (generowanie obrazów).
+4. W kroku 2 wklej klucz w pole **API key** (klucz API), jeśli wymaga go usługa, której zamierzasz używać. Usługi darmowe i lokalne nie potrzebują klucza. Przy serwerze lokalnym ustaw tutaj jego adres w polu **Endpoint**. Kliknij **Save and test** (zapisanie i test). Otwiera się edytor modelu dla nowego modelu obrazów.
+5. W edytorze modelu wybierz usługę z siatki w polu **Service** (usługa).
 6. Wybierz model z listy **Model** albo wpisz identyfikator modelu. Część usług udostępnia przycisk **Fetch Models from API** (pobranie listy modeli), który wczytuje aktualną listę.
 7. Kliknij przycisk **Save** (Zapisz).
 8. Kliknij przycisk **Test Image** (test obrazu), żeby sprawdzić, czy wszystko działa. Marinara generuje wtedy mały obrazek testowy.
+
+Aby dodać kolejny model obrazów do istniejącego połączenia, otwórz jego stronę w panelu **Connections** i kliknij **Add image model** (dodanie modelu obrazów). Aby ustawić model obrazów, którego używa aplikacja, ustaw kafelek **Images** (obrazy) w sekcji **Defaults** (ustawienia domyślne) u góry panelu **Connections**.
 
 Jeśli po kliknięciu **Test Image** pojawi się obrazek, połączenie jest gotowe. Jeśli test się nie powiedzie, sprawdź klucz API i adres w polu **Base URL**.
 

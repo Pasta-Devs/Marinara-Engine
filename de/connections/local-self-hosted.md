@@ -19,24 +19,22 @@ Marinara verbindet sich mit lokalen Servern über den Anbieter **Custom (OAI-Com
 So legst du die Verbindung an:
 
 1. Öffne rechts in der App das Panel **Connections** (Verbindungen).
-2. Klick auf die Schaltfläche **New** (Neu, das Plus-Symbol). Das Fenster **Create Connection** (Verbindung erstellen) geht auf.
-3. Gib im Feld **Name** einen Namen ein, zum Beispiel `Ollama Local`.
-4. Wähle im Anbieter-Raster **Custom (OAI-Compatible)** aus.
-5. Klick auf **Create** (Erstellen). Der Verbindungs-Editor öffnet sich für die neue Verbindung.
-6. Suche das Feld **Base URL**. Trag dort die Adresse des lokalen Servers ein (siehe Tabelle unten).
-7. Lass das Feld **API Key** leer. Die meisten lokalen Server brauchen keinen API-Key – also keinen geheimen Zugangscode, ähnlich einem Passwort.
-8. Wähle ein Modell. Klick auf **Fetch Models from API** (Modelle über die API abrufen), um die Liste zu laden, die der Server meldet, und wähle dann eines aus. Möglich ist auch, eine Modell-ID von Hand einzutippen.
-9. Klick auf **Save** (Speichern).
+2. Klick auf **Add** (Hinzufügen). Das Fenster **Add account** (Konto hinzufügen) geht auf.
+3. Wähle in Schritt 1 **Custom (OAI-Compatible)**. Es steht unter **On your computer** (auf deinem Rechner).
+4. Trag in Schritt 2 im Feld **Address** (Adresse) die Adresse des lokalen Servers ein (siehe Tabelle unten).
+5. Lass das Feld **API key** leer. Die meisten lokalen Server brauchen keinen API-Key – also keinen geheimen Zugangscode, ähnlich einem Passwort. Willst du der Verbindung einen Namen wie `Ollama Local` geben, öffne **More options** (Weitere Optionen) und tipp ihn unter **Name (optional)** ein.
+6. Klick auf **Connect** (Verbinden).
+7. Wähle in Schritt 3 ein Modell aus der Liste, die der Server meldet. Möglich ist auch, eine Modell-ID von Hand einzutippen. Klick auf **Done** (Fertig).
 
-Die Verbindung erscheint jetzt gespeichert im Panel **Connections**. Prüfe sie, bevor du sie in einem Chat einsetzt. Wie das geht, steht unten im Abschnitt „Die Verbindung prüfen“.
+Die Verbindung erscheint jetzt im Panel **Connections**, ihr Modell darunter gruppiert. Prüfe sie, bevor du sie in einem Chat einsetzt. Wie das geht, steht unten im Abschnitt „Die Verbindung prüfen“.
 
-Das Feld **API Key** ist bei lokalen Servern optional. Beim Anbieter **Custom (OAI-Compatible)** blendet der Editor unter diesem Feld einen Hinweis ein: Für lokale Modelle wie Ollama, LM Studio und KoboldCpp darf der Key leer bleiben. Es genügt, stattdessen die Base URL zu setzen.
+Das Feld **API Key** ist bei lokalen Servern optional. Beim Anbieter **Custom (OAI-Compatible)** blendet der Editor unter diesem Feld einen Hinweis ein: Für lokale Modelle wie Ollama, LM Studio und KoboldCpp darf der Key leer bleiben. Es genügt, stattdessen die **Address** zu setzen.
 
 ## Base URLs verbreiteter lokaler Server
 
-Die **Base URL** sagt Marinara, wo der lokale Server lauscht. Jeder Server hat eine Standardadresse und einen Standardport. Ein Port ist der nummerierte Kanal, den ein Server auf dem Rechner belegt. Nimm die Adresse des Servers, den du betreibst.
+Die **Address** (auch Base URL genannt) sagt Marinara, wo der lokale Server lauscht. Jeder Server hat eine Standardadresse und einen Standardport. Ein Port ist der nummerierte Kanal, den ein Server auf dem Rechner belegt. Nimm die Adresse des Servers, den du betreibst.
 
-| Lokaler Server | Base URL |
+| Lokaler Server | Endpunkt |
 |---|---|
 | Ollama | `http://localhost:11434/v1` |
 | LM Studio | `http://localhost:1234/v1` |
@@ -44,7 +42,7 @@ Die **Base URL** sagt Marinara, wo der lokale Server lauscht. Jeder Server hat e
 
 `localhost` bedeutet hier „genau dieser Rechner“. Läuft Marinara auf demselben Rechner wie der Modellserver, funktionieren diese Adressen unverändert.
 
-Beim Feld **Base URL** steht ein Sicherheitshinweis: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Trag also nur eine Adresse ein, die du selbst eingerichtet hast oder der du voll vertraust.
+Beim Feld **Address** steht ein Sicherheitshinweis: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Trag also nur eine Adresse ein, die du selbst eingerichtet hast oder der du voll vertraust.
 
 ### Hinweis zur Windows-Firewall
 
@@ -76,18 +74,18 @@ Unter Android ist diese Einstellung standardmäßig aktiv, solange du sie nicht 
 
 ## Die Verbindung prüfen
 
-Ganz unten im Verbindungs-Editor sitzt die Karte **Connection Tests** (Verbindungstests). Nutze sie, bevor du dich im Chat auf die Verbindung verlässt.
+**Connect** hat die Verbindung beim Hinzufügen bereits geprüft. Für eine zweite Prüfung sitzt ganz unten im Modell-Editor die Karte **Connection Tests** (Verbindungstests). Nutze sie, bevor du dich im Chat auf die Verbindung verlässt.
 
-1. Klick im Panel **Connections** auf die Verbindung. Der Verbindungs-Editor öffnet sich.
+1. Klick im Panel **Connections** auf dein Modell. Der Modell-Editor öffnet sich.
 2. Klick auf **Test Connection** (Verbindung testen). Das prüft, ob Base URL und Einrichtung erreichbar sind, und meldet die benötigte Zeit.
 3. Wähle ein Modell, falls noch keines gesetzt ist.
 4. Klick auf **Send Test Message** (Testnachricht senden). Das schickt das Wort „hi“ an das gewählte Modell und zeigt die Antwort.
 
-Bestehen beide Tests, lässt sich das lokale Modell im Chat verwenden. Öffne einen Chat, öffne dessen Einstellungen und wähle diese Verbindung.
+Bestehen beide Tests, lässt sich das lokale Modell im Chat verwenden. Öffne einen Chat, öffne dessen Einstellungen und wähle diese Verbindung, oder nutze das Menü **Connections** im Eingabebereich des Chats.
 
 Dasselbe Modell kann auch Entscheidungen beantworten, etwa Aktivierungsfragen für Agenten, ohne dass Marinara eine zweite Kopie lädt. Klick in den Verbindungseinstellungen auf **Use this model for decisions** (dieses Modell für Entscheidungen verwenden); siehe [Entscheidungsmodelle](decision-models.md#on-a-server-you-already-run).
 
-Schlägt ein Test fehl, prüfe zuerst, ob der lokale Server noch läuft und das Modell geladen ist. Prüfe dann, ob die **Base URL** exakt zu Adresse und Port des Servers passt. Bei einem Server auf einem anderen Rechner gilt zusätzlich: Vergewissere dich, dass `PROVIDER_LOCAL_URLS_ENABLED` gesetzt ist und dass du den Marinara-Server neu gestartet hast.
+Schlägt ein Test fehl, prüfe zuerst, ob der lokale Server noch läuft und das Modell geladen ist. Prüfe dann, ob die **Address** exakt zu Adresse und Port des Servers passt. Bei einem Server auf einem anderen Rechner gilt zusätzlich: Vergewissere dich, dass `PROVIDER_LOCAL_URLS_ENABLED` gesetzt ist und dass du den Marinara-Server neu gestartet hast.
 
 ## Verwandte Anleitungen
 
