@@ -905,6 +905,7 @@
   "chat.reply.cancel": "Cancel reply",
   "chat.reply.sendFailed": "Failed to send message",
   "chat.reply.to": "Replying to {{name}}",
+  "chat.reply.trimmedIncompleteEnding": "Trimmed an unfinished sentence from the end of the reply. You can turn this off in Settings with \"Trim incomplete sentences from the response\".",
   "chat.replyCheckup.check": "Check",
   "chat.replyCheckup.fact.cardLarge": "The character card is about {{tokens}} tokens, {{percent}}% of the {{budget}}-token prompt budget.",
   "chat.replyCheckup.fact.cutOff": "The reply hit its {{limit}}-token limit and stopped mid-sentence.",

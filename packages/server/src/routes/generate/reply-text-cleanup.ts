@@ -10,7 +10,8 @@ type ReplyCharacter = { id: string; name: string };
 /**
  * Cleans a finished reply after its commands are parsed: OOC extraction, the individual-group
  * speaker prefix strip, the Conversation envelope strip, the incomplete-ending trim and the
- * roleplay whitespace trim. A reply that only holds other speakers' turns is dropped.
+ * roleplay whitespace trim. A reply that only holds other speakers' turns is dropped. `trimmedEnding` says the
+ * incomplete-ending trim removed text, so the caller can tell the user instead of shortening the reply silently.
  */
 export function cleanGeneratedReply(
   text: string,
@@ -26,9 +27,10 @@ export function cleanGeneratedReply(
     /** Trim a cut-off model ending (already false for impersonation and a defined intro). */
     trimIncompleteEnding: boolean;
   },
-): { text: string; changed: boolean; oocMessages: string[] } | { dropped: "wrong_speaker" } {
+): { text: string; changed: boolean; trimmedEnding: boolean; oocMessages: string[] } | { dropped: "wrong_speaker" } {
   let fullResponse = text;
   let changed = false;
+  let trimmedEnding = false;
   const { chatMode, targetCharId, charInfo } = o;
 
   // ── Extract <ooc> tags from roleplay responses and post to connected conversation ──
@@ -153,6 +155,7 @@ export function cleanGeneratedReply(
     fullResponse = trimIncompleteModelEnding(fullResponse);
     if (fullResponse !== beforeTrim) {
       changed = true;
+      trimmedEnding = true;
       logger.debug(
         "[generate] Trimmed incomplete model ending for chat %s (%d -> %d chars)",
         o.chatId,
@@ -177,6 +180,7 @@ export function cleanGeneratedReply(
     const recovered = cleanGeneratedReply(oocMessages.join("\n\n"), { ...o, connectedChatId: null });
     if ("dropped" in recovered || !recovered.text.trim()) return recovered;
     fullResponse = recovered.text;
+    trimmedEnding ||= recovered.trimmedEnding;
     logger.warn(
       { chatId: o.chatId, connectedChatId: o.connectedChatId, oocCount: oocMessages.length },
       "[generate] Kept OOC-only reply visible in roleplay after post-processing removed all prose",
@@ -187,5 +191,5 @@ export function cleanGeneratedReply(
     logger.info("[generate] Extracted %d OOC message(s) for conversation %s", oocMessages.length, o.connectedChatId);
   }
 
-  return { text: fullResponse, changed, oocMessages };
+  return { text: fullResponse, changed, trimmedEnding, oocMessages };
 }
