@@ -5032,23 +5032,7 @@ strong {
   :root[data-marinara-custom-cursor="enabled"] .cursor-zoom-out,
   :root[data-marinara-custom-cursor="enabled"] .cursor-wait,
   :root[data-marinara-custom-cursor="enabled"] .cursor-progress,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-not-allowed,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-col-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-ew-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-e-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-w-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-row-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-ns-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-n-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-s-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-nwse-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-nw-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-se-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-nesw-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-ne-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-sw-resize,
-  :root[data-marinara-custom-cursor="enabled"] .mari-resize-x,
-  :root[data-marinara-custom-cursor="enabled"] .mari-resize-y
+  :root[data-marinara-custom-cursor="enabled"] .cursor-not-allowed
 ) {
   cursor: var(--marinara-custom-cursor) !important;
 }
@@ -5070,37 +5054,57 @@ strong {
 :where(.mari-resize-y) {
   cursor: ns-resize !important;
 }
-:where(
-  :root[data-marinara-custom-cursor="enabled"] .cursor-col-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-ew-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-e-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-w-resize,
-  :root[data-marinara-custom-cursor="enabled"] .mari-resize-x
-) {
-  cursor: var(--marinara-custom-cursor) !important;
+/* Resize edges keep the system's resize cursors with the custom cursor on: the arrow cannot say that an edge can be
+   dragged, and the cursor is the only sign that it can (#8621). These carry real specificity so no `:where` rule above
+   can take them back. */
+:root[data-marinara-custom-cursor="enabled"] .cursor-col-resize {
+  cursor: col-resize !important;
 }
-:where(
-  :root[data-marinara-custom-cursor="enabled"] .cursor-row-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-ns-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-n-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-s-resize,
-  :root[data-marinara-custom-cursor="enabled"] .mari-resize-y
-) {
-  cursor: var(--marinara-custom-cursor) !important;
+:root[data-marinara-custom-cursor="enabled"] :is(.cursor-ew-resize, .mari-resize-x) {
+  cursor: ew-resize !important;
 }
-:where(
-  :root[data-marinara-custom-cursor="enabled"] .cursor-nwse-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-nw-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-se-resize
-) {
-  cursor: var(--marinara-custom-cursor) !important;
+:root[data-marinara-custom-cursor="enabled"] .cursor-e-resize {
+  cursor: e-resize !important;
 }
-:where(
-  :root[data-marinara-custom-cursor="enabled"] .cursor-nesw-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-ne-resize,
-  :root[data-marinara-custom-cursor="enabled"] .cursor-sw-resize
-) {
-  cursor: var(--marinara-custom-cursor) !important;
+:root[data-marinara-custom-cursor="enabled"] .cursor-w-resize {
+  cursor: w-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-row-resize {
+  cursor: row-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] :is(.cursor-ns-resize, .mari-resize-y) {
+  cursor: ns-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-n-resize {
+  cursor: n-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-s-resize {
+  cursor: s-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-nwse-resize {
+  cursor: nwse-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-nw-resize {
+  cursor: nw-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-se-resize {
+  cursor: se-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-nesw-resize {
+  cursor: nesw-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-ne-resize {
+  cursor: ne-resize !important;
+}
+:root[data-marinara-custom-cursor="enabled"] .cursor-sw-resize {
+  cursor: sw-resize !important;
+}
+/* While a sidebar edge is dragged the pointer leaves the thin handle, so the whole page shows the resize cursor until
+   the drag ends (AppShell sets and clears the attribute). The doubled :root outranks the resize-class rules above, so
+   crossing a window corner or a panel edge mid-drag does not swap in that element's own resize cursor. */
+:root[data-marinara-resizing="col"],
+:root:root[data-marinara-resizing="col"] * {
+  cursor: col-resize !important;
 }
 
 /* ─────────────────────────────────────────────

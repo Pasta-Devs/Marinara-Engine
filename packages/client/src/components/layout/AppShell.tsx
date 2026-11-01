@@ -741,9 +741,9 @@ export function AppShell({
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (shellOverlayMode) return;
       event.preventDefault();
-      const originalCursor = document.body.style.cursor;
       const originalUserSelect = document.body.style.userSelect;
-      document.body.style.cursor = "col-resize";
+      // The drag leaves the thin handle; the page keeps the resize cursor until it ends (globals.css, #8621).
+      document.documentElement.dataset.marinaraResizing = "col";
       document.body.style.userSelect = "none";
       sidebarDragWidthRef.current = sharedSidebarWidth;
       setSidebarDragWidth(sharedSidebarWidth);
@@ -762,7 +762,7 @@ export function AppShell({
         setRightPanelWidth(nextWidth);
         sidebarDragWidthRef.current = null;
         setSidebarDragWidth(null);
-        document.body.style.cursor = originalCursor;
+        delete document.documentElement.dataset.marinaraResizing;
         document.body.style.userSelect = originalUserSelect;
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mouseup", finishResize);
@@ -780,9 +780,9 @@ export function AppShell({
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (shellOverlayMode) return;
       event.preventDefault();
-      const originalCursor = document.body.style.cursor;
       const originalUserSelect = document.body.style.userSelect;
-      document.body.style.cursor = "col-resize";
+      // The drag leaves the thin handle; the page keeps the resize cursor until it ends (globals.css, #8621).
+      document.documentElement.dataset.marinaraResizing = "col";
       document.body.style.userSelect = "none";
       rightPanelDragWidthRef.current = sharedSidebarWidth;
       setRightPanelDragWidth(sharedSidebarWidth);
@@ -805,7 +805,7 @@ export function AppShell({
         setRightPanelWidth(nextWidth);
         rightPanelDragWidthRef.current = null;
         setRightPanelDragWidth(null);
-        document.body.style.cursor = originalCursor;
+        delete document.documentElement.dataset.marinaraResizing;
         document.body.style.userSelect = originalUserSelect;
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mouseup", finishResize);
