@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "6d96cf919532db15731147f47b74ebb8f6e15c96",
+  "sourceCommit": "7450d4e709ea799e93c90d11c7e4fbede6e8e726",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -44,13 +44,13 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "034d3c7ae56dc7a66449eff462d8cb15b22a1ffab813e09f79105045353f8484",
-      "bytes": 50941
+      "sha256": "9aa7f9ca67c2e12009f72dee0ec5f1729a7b143ce43c474855542d98b9fd0146",
+      "bytes": 53954
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "db6321dd5eb50691b3b71493316c47d399ac377bc5d7f64cec85c5ba1a557a14",
-      "bytes": 42193
+      "sha256": "6c1b5d88eb4279a644617f2fbfa680f0a760364468e762051d63747c2292043b",
+      "bytes": 42297
     },
     {
       "path": "agents/custom-agents.md",
@@ -144,8 +144,8 @@
     },
     {
       "path": "characters/sprites.md",
-      "sha256": "c65f6180d2983786ba9322332e4379102529a44cf16d3f4c5c2a4ac7d5f5a4f8",
-      "bytes": 18145
+      "sha256": "0f7e1e52c9de0fc6f5de44dbe6b2cecc318f8cabae799ac56302c41dd8a7e097",
+      "bytes": 18814
     },
     {
       "path": "chats/branches.md",
@@ -199,8 +199,8 @@
     },
     {
       "path": "chats/settings-profiles.md",
-      "sha256": "92a223967d65c5e932a55a78ec42e559995ec5249aa1d7ae27a6737a9eb32248",
-      "bytes": 11799
+      "sha256": "3f448dc2b558145dfabd24203e56865c22053131e1bdb061bc3a2d9ef5bc436b",
+      "bytes": 12276
     },
     {
       "path": "chats/slash-commands.md",

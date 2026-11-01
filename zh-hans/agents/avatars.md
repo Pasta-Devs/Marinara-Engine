@@ -1,6 +1,6 @@
 # 2D 和 3D 虚拟形象
 
-有两个可下载的智能体能给你的角色和用户角色配上会动的虚拟形象，回复流式输出时它会跟着做出反应。**2D Avatars**(2D 虚拟形象) 显示 PNGTuber 风格的立绘或网格虚拟形象，**3D Avatars**(3D 虚拟形象) 显示 VRM 和 MMD PMX 模型。表情跟着回复变化，嘴巴跟着文字或语音合成动。
+有两个可下载的智能体能给你的角色和用户角色配上会动的虚拟形象，回复流式输出时它会跟着做出反应。**2D Avatars**(2D 虚拟形象) 显示 PNGTuber 风格的立绘或网格虚拟形象，**3D Avatars**(3D 虚拟形象) 显示 VRM、MMD PMX、GLB 和 FBX 模型。表情跟着回复变化，嘴巴跟着文字或语音合成动。
 
 不支持 Live2D 模型。即使是免费的开源应用，Live2D 的许可也要求和 Live2D 另外签订协议，而且它的运行时不能随 Marinara Engine 一起分发。
 
@@ -23,7 +23,7 @@
 虚拟形象在各个智能体自己的页面上设置。打开 **Agents**，再打开 **2D Avatars** 或 **3D Avatars**，使用靠近顶部的 **Avatars**(虚拟形象) 区域。
 
 1. 在 **Character or persona**(角色或用户角色) 里选择给谁配虚拟形象。标有“(has an avatar)”的名字已经保存过一个。
-2. 在 **Avatar type**(虚拟形象类型) 里选择要设置的种类。2D Avatars 提供 **PNGTuber sprites**(PNGTuber 立绘) 和 **Mesh avatar**(网格虚拟形象)，3D Avatars 提供 **VRM model**(VRM 模型) 和 **MMD PMX model**(MMD PMX 模型)。
+2. 在 **Avatar type**(虚拟形象类型) 里选择要设置的种类。2D Avatars 提供 **PNGTuber sprites**(PNGTuber 立绘) 和 **Mesh avatar**(网格虚拟形象)，3D Avatars 提供 **VRM model**(VRM 模型)、**MMD PMX model**(MMD PMX 模型) 和 **GLB or FBX model**(GLB 或 FBX 模型)。
 3. 在开关下方该类型自己的区域里设置：使用你的立绘或导入文件，为每种情绪选择表情，或者把它移除。见 [2D 虚拟形象](#2d-avatars-pngtuber-sprites-and-mesh-avatars)和 [3D 虚拟形象](#3d-avatars-vrm-models)。
 4. 用 **Preview**(预览) 查看效果。**Try a face**(试试表情) 切换情绪，**Talk**(说话) 让嘴巴动起来。还没有内容可显示时，预览里会显示一个示例虚拟形象。
 
@@ -102,7 +102,7 @@
 有些文件无法使用，导入时会说明原因：
 
 - **压缩过的模型**：用 Draco 或 meshopt 压缩保存的文件，或者带 KTX2 纹理的文件，都无法加载。请关闭压缩后重新导出模型。
-- **普通 3D 模型**：没有 VRM 数据的 `.glb` 或 `.gltf` 模型没有面部表情，也没有人形骨骼。请先把它转换为 VRM，例如用 VRM add-on for Blender 转换（见[自己制作模型](#blender-with-the-vrm-add-on-for-blender)）。
+- **普通 3D 模型**：没有 VRM 数据的 `.glb` 或 `.gltf` 模型没有面部表情，也没有人形骨骼。已绑定骨骼的 `.glb` 可以改为作为 **GLB or FBX model** 导入（见 [GLB 和 FBX 虚拟形象](#glb-and-fbx-avatars-rigged-models)），也可以把它转换为 VRM，例如用 VRM add-on for Blender 转换（见[自己制作模型](#blender-with-the-vrm-add-on-for-blender)）。
 - **不完整的模型**：骨骼缺少 VRM 必需的骨骼、骨骼指向文件里不存在的部分，或者模型引用了自身以外的文件，这样的模型会被拒绝。
 
 除了应用通常的上传上限，没有别的大小限制，但大模型加载更慢，在手机上尤其明显。
@@ -120,6 +120,18 @@
 **支持的文件。** 支持 PMX 2.0 和兼容的 PMX 2.1 模型，以及 PNG、JPEG、BMP 和 TGA 图片，包括 `.sph` 和 `.spa` 文件。部分较新的 PMX 2.1 功能不受支持，导入时会说明原因。不支持 PMD 模型、VPD 姿势以及相机或灯光动作。不进行物理模拟，所以头发和衣服的效果可能与 MikuMikuDance 不同。图片路径超过 256 个、路径过长、图片占用内存过多或绑定结构过于复杂的模型会被拒绝。请用自己的模型检查效果，尤其是在手机上。
 
 浏览器必须支持 WebGL2。MMD 虚拟形象使用与其他虚拟形象相同的暂停、帧率和取景控制。模型和图片只会从你自己的 Marinara Engine 加载。使用或分享之前，请遵守模型和动作作者的许可协议及使用条款。导入或播放 MMD 虚拟形象不会向 AI 提供商发送任何内容。
+
+<a id="glb-and-fbx-avatars-rigged-models"></a>
+
+## GLB 和 FBX 虚拟形象：已绑定骨骼的模型
+
+在 **3D Avatars** 页面中，通过 **Avatar type** 选择 **GLB or FBX model**，选择 **Import GLB or FBX**(导入 GLB 或 FBX)，然后选一个 `.glb` 或 `.fbx` 文件，里面是一个已绑定骨骼的角色。普通模型没有说明哪根骨骼是哪根的 VRM 数据，所以导入时会按名称匹配它的骨骼。Mixamo、Unity、VRoid、Unreal、Blender、3ds Max、Maya HumanIK、Character Creator 和 DAZ 的骨骼绑定使用的名称都能被识别，所以和 VRM 一样的待机动作、等待姿势和说话时的点头都能用。这个区域会显示匹配上了多少根身体骨骼。
+
+模型至少需要髋部、脊柱、头部，以及左右两侧的上臂和前臂。导入时找不到其中任何一根，就会拒绝这个模型，并说明缺少哪些骨骼；请在你的 3D 软件里给这些骨骼改名，或者用 Mixamo 给模型绑定骨骼。以 A 字姿势站立、背对镜头或以厘米为单位制作的模型，会自动替你摆正、转过来并调整大小。
+
+表情来自模型的混合形状（也叫形态键或变形目标）。在 **Faces and mouth shapes** 下，常见名称会自动匹配：VRoid、VRChat 和 Oculus 的口型（`aa`、`A`、`viseme_aa`、`Fcl_MTH_A`）、张开下巴（`mouthOpen`、`jawOpen`）、情绪（`happy`、`Joy`、`mouthSmile`）以及眨眼（`blink`，或者左右成对的眨眼，比如 ARKit 的 `eyeBlinkLeft` 和 `eyeBlinkRight`，两者会一起动）。请检查预览并纠正错误的推测。没有混合形状的模型仍会活动身体，说话时也会点头。
+
+**支持的文件。** 支持所有内容都已嵌入的二进制 glTF(`.glb`)，以及 FBX 2014(7.4) 或更新版本，二进制或 ASCII 格式均可。导出 FBX 文件时请开启 **Embed Media**(或 **Embed Textures**)：留在文件外的纹理不会加载，模型就会显示成没有图片的样子。Draco、meshopt 和 KTX2 压缩无法加载，带有单独附属文件的 `.gltf` 也无法使用。保存成 `.glb` 的 VRM 应该在 **VRM model** 下导入，那里会读取它的表情和条款。不支持模型自带的动画、物理效果和姿势编辑。使用或分享之前，请遵守模型作者的条款。导入或播放 GLB 或 FBX 虚拟形象不会向 AI 服务商发送任何内容。
 
 <a id="get-a-3d-model"></a>
 
@@ -293,7 +305,7 @@ PNGTuber 虚拟形象如果有[更多情绪](#pngtuber-sprites)的表情，还�
 ### 导出时要避免的问题
 
 - **压缩**：Draco 或 meshopt 网格压缩以及 KTX2 纹理都无法加载。上面的 VRM 导出方式都不会用到它们，但 Blender 的普通 glTF 导出提供 Draco，模型优化工具也可能把这三种都加上。请关闭压缩后重新导出。
-- **普通 glTF**：普通的 `.glb` 或 `.gltf` 文件缺少为表情和骨骼命名的 VRM 数据。请改为导出 `.vrm`。
+- **普通 glTF**：普通的 `.glb` 文件缺少为表情和骨骼命名的 VRM 数据。可以改为作为 **GLB or FBX model** 导入（见 [GLB 和 FBX 虚拟形象](#glb-and-fbx-avatars-rigged-models)），或者导出 `.vrm`，保留 VRM 的表情和条款。
 - **分散的文件**：纹理或数据放在单独文件里的模型无法使用。请导出单个 `.vrm` 文件。
 - **PNGTuber Plus 的额外效果**：晃动、拖拽和动画不会带过来；每个图层都显示为静止状态，动画图层只显示第一帧。
 

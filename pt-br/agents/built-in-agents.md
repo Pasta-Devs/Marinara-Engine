@@ -185,6 +185,7 @@ Acompanha a roupa atual de cada personagem por parte do corpo, os itens que ele 
   - **Beholder local model — five passes** (modelo local Beholder – cinco passagens): cinco chamadas específicas, uma por categoria acompanhada, para o extrator [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) treinado para essa tarefa e servido localmente (por exemplo, `Beholder-Q8_0.gguf` por koboldcpp ou llama.cpp). Esse modelo foi treinado para responder uma categoria de cada vez; por isso, o modelo de prompt único foge do treinamento e retorna um estado parcial. Engine reúne os cinco resultados em uma atualização. Funciona totalmente offline e sem custo.
 
   Beholder não consegue detectar qual modelo está por trás de uma conexão, então a escolha continua manual. Uma incompatibilidade não é fatal, mas piora a extração: um modelo SOTA aceita qualquer um dos modelos de prompt, enquanto o modelo local precisa do de cinco passagens.
+
 - **Origem**: adaptado para o ambiente Agent nativo do Engine com base em [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), sob a licença AGPL-3.0-only. O pacote oficial não carrega o DOM, a sondagem nem o ambiente de armazenamento local da extensão legada.
 
 ### Persona Stats
@@ -353,7 +354,7 @@ Mostra os seus personagens e as suas personas como avatares 2D animados, que pis
 
 ### 3D Avatars
 
-Mostra os seus personagens e as suas personas como modelos 3D animados, que piscam, falam e mudam de rosto a cada resposta. Ele usa modelos VRM (`.vrm`, versões 0.x e 1.0), com uma animação de espera opcional (`.vrma`).
+Mostra os seus personagens e as suas personas como modelos 3D animados, que piscam, falam e mudam de rosto a cada resposta. Ele usa modelos VRM (`.vrm`, versões 0.x e 1.0) com uma animação de espera opcional (`.vrma`), modelos MMD PMX e modelos GLB e FBX com esqueleto, cujos ossos são associados pelo nome.
 
 - **Integração**: pacote de agente; o Engine roda o agente e desenha os avatares. Ele não envia nenhuma solicitação extra às suas conexões de IA durante o chat.
 - **Onde funciona**: Roleplay e Game, para personagens e personas.

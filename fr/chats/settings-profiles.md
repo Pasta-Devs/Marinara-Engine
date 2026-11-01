@@ -46,8 +46,9 @@ Le chat se met à jour aussitôt. Si le profil active ou désactive **Hide summa
 
 L'éditeur présente un profil sous forme d'emplacements regroupés dans Chat, Story, Pictures et Behind the scenes. Chaque emplacement accueille un type de réglage, comme une connexion, des agents, une persona ou des lorebooks.
 
-- Fais glisser un élément de **Your library**, en bas, vers un emplacement, ou clique sur un emplacement et choisis un élément dans la liste. Pendant le déplacement, les emplacements compatibles s'illuminent.
-- Un emplacement rempli affiche une pastille par élément. Retire un élément avec son bouton **×**.
+- Choisis les éléments dans les listes de chaque emplacement. Les agents, les outils et les lorebooks acceptent plusieurs choix. Dans **Tools** (outils), utilise les cases à cocher pour activer ou désactiver chaque outil.
+- Sur ordinateur, dans les listes d'agents et de lorebooks, maintiens Ctrl (Command sur macOS) pour choisir plusieurs éléments. Sur téléphone, utilise les contrôles de sélection. Choisis **Clear selection** (effacer la sélection) pour vider une liste.
+- Sur ordinateur, ouvre une barre latérale de bibliothèque pendant que l'éditeur reste ouvert, puis fais glisser un élément vers le champ correspondant. Les éléments déjà sélectionnés restent sélectionnés si tu les déposes de nouveau. Pour un champ qui n'accepte qu'un élément, choisis **None** (aucun) pour le vider.
 - Parameters, Memory & summary et Translation indiquent si le profil les contient. Modifie-les dans Chat Settings, puis enregistre-les dans le profil.
 
 Choisis **Save and choose chats…** pour enregistrer. L'étape suivante affiche **New roleplay chats** (ou les chats Conversation) et tes chats existants de ce mode. Coche **Make this the default** pour utiliser le profil dans les nouveaux chats. Coche les chats qui doivent le recevoir maintenant, puis choisis **Apply**.

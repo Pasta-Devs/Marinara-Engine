@@ -700,3 +700,17 @@ Cycle precedent for #8464 (the Connections panel redesign) and #8603 (`/html` an
 - **⋯을** (`connections/organizing-connections.md:17,42`, `connections/providers-reference.md:99,160`) is the pack's first particle after a bare symbol. No native reader has checked it, so confirm it before reusing it.
 
 §A-2 applies to the new labels: **Connect**(연결)를 (커넥트), **Done**(완료)을 (던), **Follow Main**(메인 따르기)은 (메인). These are translation choices, not a new native-reader review.
+
+## Faceted sprites, GLB/FBX avatars and profile pickers (2026-11-01)
+
+Cycle precedent for #8654 (`characters/sprites.md`), #8657 (`agents/avatars.md`, `agents/built-in-agents.md`) and the #8646 profile-builder bullets in `chats/settings-profiles.md`, caught up against Engine `staging` `7450d4e70`. `ko.json` has no `avatars.glbFbx.*`, `avatars.setup.kind.glbFbx`, `chat.settingsProfile.builder.clear` or `chat.settingsProfile.builder.none` value yet, so the coined glosses below follow the nearest shipped strings. Re-check them once `ko.json` ships the keys.
+
+- **Shipped glosses**, byte-exact `ko.json`: **Tools**(도구) (`chat.settingsProfile.builder.slot.tool`). **Clear selection**(선택 해제) and **None**(없음) come from sibling keys with the same English (`ui.*.clearSelection`, `avatars.vrm.expressions.none`); one `clearSelection` key says 선택 지우기, so check it first. This **None**(없음) clears a single-item field, a different control from **None**(없음, 익명 유지) (2026-10-11).
+- **Coined glosses**: **GLB or FBX model**(GLB 또는 FBX 모델), glossed once at its first mention (setup step 2) and bare after that, and **Import GLB or FBX**(GLB 또는 FBX 가져오기), after **Import PMX or ZIP**(PMX 또는 ZIP 가져오기) and `avatars.vrm.import` (VRM 가져오기). **Avatar type**, **VRM model** and **Faces and mouth shapes** stay bare, as everywhere else in `agents/avatars.md`. **Embed Media** and **Embed Textures** are FBX exporter options in other 3D apps, so they stay unglossed, like Blender's **Preferences**.
+- **Faceted sprite names.** The extra words after the expression are 옷차림이나 상태; a sprite's full name is 전체 이름; "the last word is dropped first" is 마지막 단어부터 뺍니다. A trailing `_01` is still a 변형, as in the existing variant sentence.
+- **Rigged models.** rigged / to rig is 리깅된 / 리깅하다, after 리깅 in the mesh-avatar sections; a rig is 리그. Heading `## GLB와 FBX 아바타: 리깅된 모델` with `<a id="glb-and-fbx-avatars-rigged-models">`; link text `[GLB와 FBX 아바타]`. A bone is 본, as in "VRM이 요구하는 본" in the same file; matched by name is 이름으로 연결. Waiting poses are 대기 자세, as in the performance section. Body parts: 엉덩이, 척추, 위팔, 아래팔. A-pose is A 포즈, spaced like the existing T 포즈.
+- **Blend shapes.** blend shape / shape key / morph target is 블렌드 셰이프 / 셰이프 키 / 모프 타깃. 타깃 is the standard spelling; the pack's only 타겟 is the `ko.json` gloss **Select Target**(타겟 선택) in `roleplay/combat-encounters.md`.
+- **Files.** binary / ASCII is 바이너리 / ASCII 형식; the model's own physics is 물리 시뮬레이션, as in the MMD section; the author's terms are 이용 조건.
+- **Profile builder.** multi-select is Ctrl(macOS에서는 Command)을 누른 채로 여러 항목을 고르다 (particle by the reading 컨트롤); the phone's selection controls are 선택 컨트롤; a library sidebar is 라이브러리 사이드바; a single-item field is 항목 하나만 받는 필드. 슬롯 stays the builder slot and 필드 is the drop target, after the shipped `chat.settingsProfile.builder.libraryHint` (항목을 필드로 끌어다 놓으세요).
+
+§A-2 applies to the new labels: **GLB or FBX model**이 / 을 / 로 (모델), **Import GLB or FBX**(GLB 또는 FBX 가져오기)를 (에프비엑스), **Clear selection**(선택 해제)을 (셀렉션), **None**(없음)을 (논). These are translation choices, not a new native-reader review.

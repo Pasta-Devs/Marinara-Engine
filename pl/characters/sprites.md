@@ -49,6 +49,8 @@ Podfoldery stają się opcjonalnymi folderami sprite'ów. Wyeksportowany `catalo
 
 Żeby zrobić kilka wersji tego samego wyrazu twarzy, użyj wspólnej nazwy przed podkreśleniem. Na przykład `happy_01.png` i `happy_blush.png` liczą się jako warianty happy.
 
+Żeby agent Expression Engine mógł wybierać także według stroju albo stanu postaci, dopisz po wyrazie twarzy kolejne słowa, od najważniejszego. Na przykład nazwij plik `happy_pajamas.png` albo `angry_formalwear_soaked_01.png`. Liczba na końcu, taka jak `_01`, oznacza tylko kolejną wersję tego samego obrazu. Gdy kilka sprite'ów ma ten sam wyraz twarzy, agent widzi zarówno wyraz twarzy (`happy`), jak i ich pełne nazwy (`happy_pajamas`). Gdy żaden sprite nie ma wszystkich wymaganych słów, najpierw pomijane jest ostatnie słowo. Jeśli nie ma sprite'a `happy_pajamas_wounded`, używany jest sprite `happy_pajamas`, a potem dowolny sprite happy.
+
 ### Zarządzanie sprite'em
 
 Otwórz sprite'a postaci, żeby zobaczyć podgląd i dostępne działania. Sprite'y persony mają działania na samym kafelku:

@@ -49,6 +49,8 @@ Subpastas viram pastas de sprites opcionais. Um `catalog.json` exportado também
 
 Para criar várias versões da mesma expressão, use um nome comum antes do sublinhado. Por exemplo, `happy_01.png` e `happy_blush.png` contam como variantes de happy.
 
+Para que o Expression Engine também escolha pela roupa ou pela condição, acrescente mais palavras depois da expressão, da mais importante para a menos importante. Por exemplo, use `happy_pajamas.png` ou `angry_formalwear_soaked_01.png`. Um número no final, como `_01`, só marca outra versão da mesma imagem. Quando vários sprites têm a mesma expressão, o agente vê tanto a expressão (`happy`) quanto os nomes completos deles (`happy_pajamas`). Quando nenhum sprite tem todas as palavras pedidas, a última palavra é descartada primeiro. Se não houver `happy_pajamas_wounded`, é usado um sprite `happy_pajamas` e, depois, qualquer sprite happy.
+
 ### Gerenciar um sprite
 
 Abra um sprite de personagem para ver a prévia e as ações disponíveis. Sprites de persona mantêm as ações no próprio bloco:

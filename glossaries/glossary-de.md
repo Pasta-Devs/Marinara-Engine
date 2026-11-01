@@ -901,3 +901,46 @@ Precedents from the #8464 and #8603 catch-up against Engine `staging` `6d96cf919
   *(HTML-Artefakte)*, *(Modell für diesen Chat)*, *(Nachdenken)*, *(hinter den
   Kulissen)*. The Agent Organizer's „Bild & Ton“ and the Command Center's
   „Kürzlich“ are other keys; the docs keep *(Bild und Ton)* and *(zuletzt genutzt)*.
+
+## Faceted sprites, GLB/FBX avatars and profile pickers (2026-11-01)
+
+Precedents from the #8654 / #8657 / chat-profiles (`10d6d34e08`) catch-up against Engine `staging` `7450d4e70`:
+
+- Faceted sprite names (`characters/sprites.md`): the extra name words are „weitere
+  Wörter“ after the **Gesichtsausdruck**; *outfit or condition* is „Outfit oder
+  Zustand“ (**der Zustand**, as on 2026-10-13). No noun was coined for *facet* or
+  *faceted name*. *A `happy_pajamas` sprite* is „ein Sprite `happy_pajamas`“, *any
+  happy sprite* „irgendein Sprite für happy“, like the file's „Varianten von happy“.
+- Rigged models (`agents/avatars.md`, `agents/built-in-agents.md`): *rigged* is
+  **geriggt** („ein geriggtes `.glb`“, „geriggte Modelle“), *rig* **das Rig** (pl.
+  **Rigs**, as the MMD paragraph already had it), *rig the model with Mixamo* „gib
+  dem Modell mit Mixamo ein Rig“ (cf. „Gib dem Modell ein humanoides Skelett“). *Bone* stays **der
+  Knochen**, *body bones* **Körperknochen**; bones are matched „über ihre Namen
+  zugeordnet“. *Blend shapes (shape keys or morph targets)* are the English loans
+  **Blend Shapes (Shape Keys oder Morph Targets)**, like the file's „einen Shape Key“.
+  *A-pose* is **A-Pose** (cf. „T-Pose“); *talking nods* „das Nicken beim Sprechen“;
+  *waiting poses* keep **Wartehaltungen**.
+- The new heading „## GLB- und FBX-Avatare: geriggte Modelle“ carries
+  `<a id="glb-and-fbx-avatars-rigged-models"></a>`, and its link text is „GLB- und
+  FBX-Avatare“ (as „3D-Avatare“ for `#3d-avatars-vrm-models`).
+- Glosses: **GLB or FBX model** *(GLB- oder FBX-Modell)*, at its new first use in the
+  setup step, after **MMD PMX model** *(MMD-PMX-Modell)*; **Import GLB or FBX** *(GLB
+  oder FBX importieren)*, after **Import PMX or ZIP**. **Faces and mouth shapes**,
+  **Avatar type** and **VRM model** were already glossed earlier in the file and stay
+  bare in the new section. The FBX exporter options **Embed Media** and **Embed
+  Textures** are another app's labels and stay unglossed, like the file's Blender
+  labels (**Get Extensions**, **Preferences**).
+- Profile builder (`chats/settings-profiles.md`): a *slot* stays **der Steckplatz**,
+  the drop target *field* is **das Feld** („ein Feld für nur einen Eintrag“).
+  *Multi-select* is described, not named („hältst du am Desktop Strg (unter macOS
+  Command) gedrückt, um mehrere Einträge zu wählen“); *selection controls* are
+  „Steuerelemente zur Auswahl“; *a library sidebar* is „die Seitenleiste einer
+  Bibliothek“, not a compound: §6 keeps native-only compounds closed, and
+  *Bibliotheksseitenleiste* does not read. **Tools** stays bare (its `ui/de.json`
+  value is „Tools“, §4 `das Tool`). **Clear selection** *(Auswahl aufheben)* and **None**
+  *(keine)* take the wording of other `ui/de.json` keys (`clearSelection`,
+  `avatars.vrm.expressions.none`, case aside).
+- `ui/de.json` has no value yet for `avatars.glbFbx.*`, `avatars.setup.kind.glbFbx`,
+  `chat.settingsProfile.builder.clear` or `chat.settingsProfile.builder.none`, so
+  *(GLB- oder FBX-Modell)*, *(GLB oder FBX importieren)*, *(Auswahl aufheben)* and
+  *(keine)* are docs glosses; recheck them when the UI pack ships those keys.

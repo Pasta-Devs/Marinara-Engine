@@ -49,6 +49,8 @@ Les sous-dossiers deviennent des dossiers de sprites facultatifs. Un `catalog.js
 
 Pour créer plusieurs versions d'une même expression, donne-leur un nom commun avant un tiret bas. Par exemple, `happy_01.png` et `happy_blush.png` comptent tous deux comme des variantes de happy.
 
+Pour que l'agent Expression Engine puisse aussi choisir selon la tenue ou l'état du personnage, ajoute d'autres mots après l'expression, le plus important en premier. Par exemple, utilise `happy_pajamas.png` ou `angry_formalwear_soaked_01.png`. Un nombre final comme `_01` indique seulement une autre version de la même image. Quand plusieurs sprites partagent une expression, l'agent voit à la fois l'expression (`happy`) et leurs noms complets (`happy_pajamas`). Quand aucun sprite ne porte tous les mots demandés, c'est le dernier mot qui est retiré en premier. S'il n'existe pas de `happy_pajamas_wounded`, un sprite `happy_pajamas` est utilisé, puis n'importe quel sprite happy.
+
 ### Gérer un sprite
 
 Ouvre un sprite de personnage pour l'afficher en aperçu avec ses actions. Les sprites de persona gardent leurs actions sur la vignette :

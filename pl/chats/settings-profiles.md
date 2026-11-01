@@ -46,8 +46,9 @@ Czat zmienia się od razu. Jeśli profil włącza albo wyłącza **Hide summaris
 
 Kreator przedstawia profil jako pola pogrupowane w Chat, Story, Pictures i Behind the scenes. Każde pole przyjmuje jeden rodzaj ustawienia, na przykład połączenie, agentów, personę albo lorebooki.
 
-- Przeciągnij element z **Your library** na dole do pola albo kliknij pole i wybierz element z listy. Podczas przeciągania podświetlają się pola, które mogą przyjąć dany element.
-- Wypełnione pole pokazuje osobny znacznik dla każdego elementu. Usuń element jego przyciskiem **×**.
+- Wybieraj elementy z list w poszczególnych polach. W polach agentów, narzędzi i lorebooków można wybrać więcej niż jeden element. W polu **Tools** (narzędzia) każde narzędzie włączasz albo wyłączasz jego polem wyboru.
+- Na komputerze w listach agentów i lorebooków przytrzymaj Ctrl (w systemie macOS Command), żeby wybrać kilka elementów. Na telefonie użyj kontrolek zaznaczania. Wybierz **Clear selection** (wyczyszczenie zaznaczenia), żeby opróżnić listę.
+- Na komputerze otwórz pasek boczny biblioteki, nie zamykając edytora, a potem przeciągnij element do pasującego pola. Elementy, które są już wybrane, po ponownym upuszczeniu pozostają wybrane. W polu na jeden element wybierz **None** (brak), żeby je wyczyścić.
 - Parameters, Memory & summary i Translation pokazują, czy profil je zawiera. Zmień je w Chat Settings, a następnie zapisz w profilu.
 
 Wybierz **Save and choose chats…**, aby zapisać profil. Następny krok pokazuje **New roleplay chats** (lub czaty Conversation) oraz istniejące czaty w tym trybie. Zaznacz **Make this the default**, aby używać profilu w nowych czatach. Zaznacz czaty, w których chcesz go teraz zastosować, a potem wybierz **Apply**.

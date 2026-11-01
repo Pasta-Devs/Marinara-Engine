@@ -609,3 +609,23 @@ Choices from the #8464 and #8603 sync (16 guides; `connections/connecting-to-a-p
 | Shared connection picker (heading) | 共有の接続ピッカー, after the pack's existing ピッカー. The user guides say **Model for**の選択画面 for the **Model for** picker |
 
 Two glosses differ from shipped strings; align them in a consistency pass, not in a mirror commit: **Documents**(ドキュメント) against 文書 (`roleplay.commands.document.label`), which would also keep it apart from **Documentation**(ドキュメント) in `FAQ.md`, and **Max Parallel Agent Jobs**(エージェントの最大並列ジョブ数) against エージェントの並列ジョブの最大数 (`ui.connections.connectioneditor.maxParallelAgentJobs`). Status strings and badges stay unglossed: **Follows Main**, **follows Main**, **This chat only**, **Off**, **Choose a model**, **Needs key**, **Needs an image model**, **Connected**, **Custom settings**, **Plan**, and **No key needed. Marinara uses the login on this computer.** The **Decision** row also stays unglossed, like **Decision model** (2026-09-24). In the two rewritten guides, some labels glossed earlier appear bare at their first mention in a later section (**Jobs**, **Main**, **Add account**, **More actions** and others); gloss them in a consistency pass. These are translation choices, not a new native-reader review.
+
+## Faceted sprites, GLB/FBX avatars and profile pickers (2026-11-01)
+
+Precedents from the #8654 / #8657 catch-up against Engine `staging` `7450d4e70` (`characters/sprites.md`, `agents/avatars.md`, `agents/built-in-agents.md`, and the #8646 profile-builder bullets in `chats/settings-profiles.md`). Shipped `ui/ja.json` glosses: **Avatar type**(アバターの種類), **Faces and mouth shapes**(表情と口の形), **VRM model**(VRMモデル), **Tools**(ツール). Coined here, so recheck them when `avatars.glbFbx.*`, `avatars.setup.kind.glbFbx`, `chat.settingsProfile.builder.clear` and `chat.settingsProfile.builder.none` ship: **GLB or FBX model**(GLBまたはFBXモデル), **Import GLB or FBX**(GLBまたはFBXをインポート) after the shipped `avatars.vrm.import` (VRMをインポート) and `avatars.mmd.import` (PMXまたはZIPをインポート), and **Clear selection**(選択をクリア) and **None**(なし), both taken from shipped sibling keys with the same English (`ui.*.clearSelection`, `avatars.vrm.expressions.none`). **Embed Media** and **Embed Textures** are FBX exporter options in other 3D apps, so they stay unglossed, like Blender's **Preferences**.
+
+| English | Translation |
+| --- | --- |
+| extra words after the expression (faceted sprite name) | 表情名の後に足す単語; outfit or condition is 衣装や状態, a sprite's full name is 完全な名前, and "the last word is dropped first" is 最後の単語から先に外されます. A trailing `_01` is still 別バージョン, as in the existing variant sentence |
+| rigged / to rig | リグ入りの / リグを入れる, after the mesh-avatar wording in `agents/avatars.md`. Heading GLBとFBXのアバター: リグ入りのモデル with `<a id="glb-and-fbx-avatars-rigged-models">`; link text GLBとFBXのアバター |
+| bone, matched by name | ボーン (as in 「VRMが必要とするボーン」 in the same file), 名前で対応付ける |
+| blend shape / shape key / morph target | ブレンドシェイプ / シェイプキー / モーフターゲット |
+| A-pose | Aポーズ, tight like the existing Tポーズ |
+| hips / spine / upper and lower arms | 腰 / 背骨 / 上腕と前腕 |
+| binary / ASCII (file format) | バイナリー形式 / ASCII形式; バイナリー keeps the trailing ー (§3) |
+| the model's own physics | 物理演算, as in the MMD section |
+| multi-select with Ctrl (Command) | Ctrl(macOSではCommand)を押したまま選ぶ; the phone's selection controls are 選択用のコントロール |
+| library sidebar | ライブラリーのサイドバー |
+| slot / field (profile builder) | スロット for a builder slot; フィールド for a drop target, after the shipped `chat.settingsProfile.builder.libraryHint` (項目をフィールドにドラッグ). A single-item field is 1つしか選べないフィールド |
+
+The new `##` section glosses its labels once, including **Avatar type**, **Faces and mouth shapes** and **VRM model**, which are glossed earlier in the file. Its run-in **対応ファイル。** takes a space (§6.1 B), although the MMD paragraph above it is tight. "Waiting poses" is 待機中のポーズ, as in the performance section. The MMD paragraph's older **Import PMX or ZIP**(PMXまたはZIPのインポート) differs from the shipped `avatars.mmd.import` (PMXまたはZIPをインポート); align it in a consistency pass, not in a mirror commit. These are translation choices, not a new native-reader review.

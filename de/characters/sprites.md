@@ -49,6 +49,8 @@ Unterordner werden zu optionalen Sprite-Ordnern. Eine exportierte `catalog.json`
 
 Mehrere Varianten desselben Gesichtsausdrucks entstehen über einen gemeinsamen Namensteil vor dem Unterstrich. `happy_01.png` und `happy_blush.png` gelten beide als Varianten von happy.
 
+Soll die Expression Engine auch nach Outfit oder Zustand wählen, häng weitere Wörter an den Gesichtsausdruck an, das wichtigste zuerst. Benenne eine Datei zum Beispiel `happy_pajamas.png` oder `angry_formalwear_soaked_01.png`. Eine Zahl am Ende wie `_01` markiert nur eine weitere Version desselben Bildes. Teilen sich mehrere Sprites einen Gesichtsausdruck, sieht der Agent sowohl den Gesichtsausdruck (`happy`) als auch ihre vollständigen Namen (`happy_pajamas`). Hat kein Sprite alle gewünschten Wörter, fällt zuerst das letzte Wort weg. Gibt es kein `happy_pajamas_wounded`, wird ein Sprite `happy_pajamas` verwendet und danach irgendein Sprite für happy.
+
 ### Ein Sprite verwalten
 
 Öffne ein Charakter-Sprite, um die Vorschau mit seinen Aktionen zu sehen. Bei Persona-Sprites bleiben die Aktionen auf der Kachel:

@@ -185,6 +185,7 @@ Registra la ropa actual de cada personaje por zona del cuerpo, los objetos que l
   - **Beholder local model — five passes** (modelo local Beholder — cinco pasadas): cinco llamadas acotadas, una por categoría registrada, para el extractor [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) entrenado específicamente para esta tarea y servido localmente (por ejemplo, `Beholder-Q8_0.gguf` mediante koboldcpp o llama.cpp). Ese modelo está entrenado para responder una categoría a la vez, por lo que la plantilla de un solo prompt se aparta de su entrenamiento y devuelve un estado parcial. Engine une los cinco resultados en una actualización. Funciona completamente sin conexión y sin costo.
 
   Beholder no puede detectar qué modelo hay detrás de una conexión, así que la elección sigue siendo manual. Una discrepancia no es fatal, pero empeora la extracción: un modelo SOTA puede usar ambas plantillas, mientras que el modelo local necesita la de cinco pasadas.
+
 - **Origen**: adaptado al entorno nativo de agentes de Engine a partir de [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), con licencia AGPL-3.0-only. El paquete oficial no carga el DOM, el sondeo ni el entorno de almacenamiento local de la extensión heredada.
 
 ### Persona Stats
@@ -353,7 +354,7 @@ Muestra a tus personajes y personas como avatares 2D animados que parpadean, hab
 
 ### 3D Avatars
 
-Muestra a tus personajes y personas como modelos 3D animados que parpadean, hablan y cambian de cara con cada respuesta. Usa modelos VRM (`.vrm`, versiones 0.x y 1.0), con una animación en reposo opcional (`.vrma`).
+Muestra a tus personajes y personas como modelos 3D animados que parpadean, hablan y cambian de cara con cada respuesta. Usa modelos VRM (`.vrm`, versiones 0.x y 1.0) con una animación en reposo opcional (`.vrma`), modelos MMD PMX y modelos GLB y FBX con rigging cuyos huesos se asignan por su nombre.
 
 - **Integración**: paquete de agente; el Engine lo ejecuta y dibuja los avatares. No envía solicitudes adicionales a tus conexiones de IA mientras chateas.
 - **Dónde funciona**: Roleplay y Game, para personajes y personas.
