@@ -5606,7 +5606,7 @@ export function ChatSettingsDrawer({
         closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
         {...windowProps}
         // Sidebar presses belong to the modeless profile editor while it is open.
-        ignoreOutsidePointer={() => profileBuilder !== null}
+        ignoreOutsidePointer={(target) => profileBuilder !== null || windowProps.ignoreOutsidePointer(target)}
         // A window the user has not moved opens beside a right-side Tracker Panel, not over it.
         defaultLayoutKey={`${trackerPanelSide}:${trackerPanelClearance}`}
         className={cn(windowProps.className, "mari-chat-settings-popover mari-chat-settings-drawer")}
