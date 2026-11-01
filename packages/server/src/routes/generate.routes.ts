@@ -5242,6 +5242,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             promptTemplateSources: identityFallbackPromptTemplateSources,
             resolvePromptMacros,
             isConversation: chatMode === "conversation",
+            groupScenarioOverrideText:
+              typeof chatMeta.groupScenarioText === "string" ? chatMeta.groupScenarioText : null,
           });
         }
 
