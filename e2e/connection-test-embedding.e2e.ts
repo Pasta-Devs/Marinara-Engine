@@ -84,6 +84,7 @@ test("Test embedding checks the typed embedding model and endpoint", async ({ pa
     await page.screenshot({ path: info.outputPath("embedding-test-success.png") });
 
     await endpoint.fill(`${stub.origin}/down/v1`);
+    await expect(result, "editing the embedding settings drops the old result").toHaveCount(0);
     await testButton.click();
     await expect(result).toContainText("Failed");
     await expect(result).toContainText("Embedding request failed (503)");
