@@ -130,6 +130,12 @@ export function isShortFormOfCharacterName(shortName: string, fullName: string):
   const shortTitles = titles(shortName);
   const fullTitles = titles(fullName);
   if (shortTitles && fullTitles && shortTitles !== fullTitles) return false;
+  // An initial must start one of the full name's words: "J. Smith" is John Smith, never Bob Smith.
+  const fullWords = normalizeCharacterName(fullName).split(/\s+/);
+  const initials = normalizeCharacterName(shortName)
+    .split(/\s+/)
+    .filter((token) => token.length === 1 && /\p{L}/u.test(token));
+  if (initials.some((initial) => !fullWords.some((word) => word.startsWith(initial)))) return false;
   const shortTokens = getShortFormNameTokens(shortName);
   const fullTokens = getShortFormNameTokens(fullName);
   return shortTokens.length <= fullTokens.length && isSubsetMatch(shortTokens, fullTokens);

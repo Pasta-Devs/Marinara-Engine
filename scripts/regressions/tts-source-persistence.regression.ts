@@ -929,6 +929,12 @@ assert.equal(
 assert.equal(findTTSCharacterIdBySpeakerName("Mr. Tanaka", [["t", { name: "Mrs. Tanaka" }]]), null);
 assert.equal(findTTSCharacterIdBySpeakerName("Tanaka Jr", [["t", { name: "Kenji Tanaka Sr" }]]), null);
 assert.equal(findTTSCharacterIdBySpeakerName("Tanaka", [["t", { name: "Mrs. Tanaka" }]]), "t");
+assert.equal(
+  findTTSCharacterIdBySpeakerName("J. Smith", [["bob", { name: "Bob Smith" }]]),
+  null,
+  "an initial must fit",
+);
+assert.equal(findTTSCharacterIdBySpeakerName("J. Smith", [["john", { name: "John Smith" }]]), "john");
 
 // A first name that fits two cards in the chat is one of them, so it never takes an outside card's voice.
 const twoJunpeiChat = [
