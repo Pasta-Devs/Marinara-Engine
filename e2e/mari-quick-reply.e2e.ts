@@ -58,8 +58,15 @@ async function startFixtureModel() {
   return { server, answers, bodies, baseUrl: `http://127.0.0.1:${address.port}/v1` };
 }
 
+const mariThreadIds = async (request: APIRequestContext) =>
+  ((await (await request.get("/api/chats/internal/professor-mari/chats")).json()) as Array<{ id: string }>).map(
+    (thread) => thread.id,
+  );
+
 /** Her connection, her thread and one ordinary chat the chips can point at. */
 async function setUp(page: Page, request: APIRequestContext, baseUrl: string) {
+  // Her GET can hand back a thread that was already there, so cleanup removes only threads this test made.
+  const knownThreads = new Set(await mariThreadIds(request));
   const connection = await request.post("/api/connections", {
     data: {
       name: `Quick reply fixture ${Date.now().toString(36)}`,
@@ -80,15 +87,17 @@ async function setUp(page: Page, request: APIRequestContext, baseUrl: string) {
   const chatId = ((await chat.json()) as { id: string }).id;
   await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), APP_VERSION);
   await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false });
-  return { connectionId, threadId: thread.id, chatId };
+  return { connectionId, threadId: thread.id, chatId, knownThreads };
 }
 
-async function cleanup(request: APIRequestContext, connectionId: string, chatId: string) {
-  const threads = (await (await request.get("/api/chats/internal/professor-mari/chats")).json()) as Array<{
-    id: string;
-  }>;
-  for (const thread of threads)
-    await request.delete(`/api/chats/internal/professor-mari/chats/${thread.id}`).catch(() => undefined);
+async function cleanup(
+  request: APIRequestContext,
+  { connectionId, chatId, knownThreads }: { connectionId: string; chatId: string; knownThreads: Set<string> },
+) {
+  for (const id of await mariThreadIds(request)) {
+    if (!knownThreads.has(id))
+      await request.delete(`/api/chats/internal/professor-mari/chats/${id}`).catch(() => undefined);
+  }
   await request.delete(`/api/chats/${chatId}`).catch(() => undefined);
   await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
 }
@@ -110,7 +119,8 @@ test("a quick reply whose chat cannot open asks Mari and keeps her window open, 
   request,
 }) => {
   const model = await startFixtureModel();
-  const { connectionId, threadId, chatId } = await setUp(page, request, model.baseUrl);
+  const fixture = await setUp(page, request, model.baseUrl);
+  const { threadId, chatId } = fixture;
   model.answers.push(
     {
       say: "How long should the story be?",
@@ -163,13 +173,14 @@ test("a quick reply whose chat cannot open asks Mari and keeps her window open, 
     expect(model.bodies[2]).toContain("Add a title");
   } finally {
     model.server.close();
-    await cleanup(request, connectionId, chatId);
+    await cleanup(request, fixture);
   }
 });
 
 test("a quick reply whose chat exists still opens that chat", async ({ page, request }) => {
   const model = await startFixtureModel();
-  const { connectionId, chatId } = await setUp(page, request, model.baseUrl);
+  const fixture = await setUp(page, request, model.baseUrl);
+  const { chatId } = fixture;
   model.answers.push({
     say: "Want to go back to it?",
     commands: [],
@@ -188,6 +199,6 @@ test("a quick reply whose chat exists still opens that chat", async ({ page, req
     expect(model.bodies).toHaveLength(1);
   } finally {
     model.server.close();
-    await cleanup(request, connectionId, chatId);
+    await cleanup(request, fixture);
   }
 });
