@@ -1491,7 +1491,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       (typeof openerCharacterId !== "string" || !characterIds.includes(openerCharacterId))
     )
       return reply.status(400).send({ draft: null, error: "Opening character must be a member of this chat" });
-    const openerId = openerCharacterId ?? characterIds[0]!;
+    const openerId = openerCharacterId ?? revise?.current.opening.characterId ?? characterIds[0]!;
     const { conn, baseUrl } = await resolveConnection(connections, connectionId, origin);
     const provider = await createSceneProvider(conn, baseUrl, createReplyFallbackNotifier(reply));
     const characterCtx = await buildCharacterContext(chars, characterIds, origin.chat?.id);
