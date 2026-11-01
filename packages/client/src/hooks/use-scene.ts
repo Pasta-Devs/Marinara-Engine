@@ -2,7 +2,7 @@
 // Hook: Scene API calls
 // ──────────────────────────────────────────────
 import { useCallback, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
 import { returnToSceneOrigin } from "../lib/scene-generation";
@@ -20,6 +20,8 @@ import type {
   ScenePlanRequest,
   ScenePlanResponse,
   SceneFullPlan,
+  SceneScenarioDraftRequest,
+  SceneScenarioDraftResponse,
 } from "@marinara-engine/shared";
 
 /** Provides scene lifecycle mutations and the scene-to-roleplay fork action. */
@@ -197,4 +199,12 @@ export function useScene() {
   );
 
   return { planScene, createScene, concludeScene, abandonScene, forkScene, isForking };
+}
+
+/** Draft a premise and opening for an empty chat. Writes nothing; the wizard saves an accepted draft. */
+export function useScenarioDraft() {
+  return useMutation({
+    mutationFn: ({ body, signal }: { body: SceneScenarioDraftRequest; signal: AbortSignal }) =>
+      api.post<SceneScenarioDraftResponse>("/scene/scenario-draft", body, { signal }),
+  });
 }
