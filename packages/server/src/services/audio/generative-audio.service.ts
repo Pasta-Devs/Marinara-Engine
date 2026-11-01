@@ -37,6 +37,30 @@ const warnedOptionalMigrationFailures = new WeakSet<DB>();
 // A process-local HMAC keeps that identity opaque; it is not a stored password verifier.
 const testRequestIdentityKey = randomBytes(32);
 
+function testRequestIdentity(config: ResolvedConfig) {
+  // Use the credential as the HMAC key. It changes the identity after a credential edit without putting the secret
+  // in the hashed message or using a password hash as a verifier.
+  const identityKey = config.apiKey || testRequestIdentityKey;
+  return createHmac("sha256", identityKey)
+    .update(
+      JSON.stringify([
+        config.id,
+        config.source,
+        config.baseUrl,
+        config.model,
+        config.soundEffectsModel,
+        config.callbackUrl,
+        config.musicEndpoint,
+        config.soundEffectsEndpoint,
+        config.requestFormat,
+        config.responseFormat,
+        config.music,
+        config.soundEffects,
+      ]),
+    )
+    .digest("hex");
+}
+
 export class AudioGenerationConfigurationError extends Error {
   constructor(
     message: string,
@@ -303,7 +327,7 @@ export async function generateAudioAsset(
   const isConnectionTest = context && "scope" in context && context.scope === "connection-test";
   const key = isConnectionTest
     ? `${directoryKey}\0${createHmac("sha256", testRequestIdentityKey)
-        .update(JSON.stringify([config, request.kind, prompt, context.lengthMs ?? 120_000]))
+        .update(JSON.stringify([testRequestIdentity(config), request.kind, prompt, context.lengthMs ?? 120_000]))
         .digest("hex")}`
     : directoryKey;
   let pending = locks.get(key);
