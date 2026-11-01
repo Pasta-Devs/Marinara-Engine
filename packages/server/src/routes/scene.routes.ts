@@ -1460,7 +1460,7 @@ export async function sceneRoutes(app: FastifyInstance) {
     const { chatId, idea, connectionId, openerCharacterId, revise } = req.body;
     if (typeof idea !== "string" || idea.length > 4000)
       return reply.status(400).send({ draft: null, error: "Idea must be 4000 characters or fewer" });
-    if (revise && typeof revise.note === "string" && revise.note.length > 4000)
+    if (revise && revise.note !== undefined && (typeof revise.note !== "string" || revise.note.length > 4000))
       return reply.status(400).send({ draft: null, error: "Revision note must be 4000 characters or fewer" });
     if (
       revise &&
@@ -1469,13 +1469,23 @@ export async function sceneRoutes(app: FastifyInstance) {
         typeof revise.current.premise !== "string" ||
         !revise.current.opening ||
         typeof revise.current.opening.characterId !== "string" ||
-        typeof revise.current.opening.content !== "string")
+        typeof revise.current.opening.content !== "string" ||
+        revise.current.premise.length > 8000 ||
+        revise.current.opening.content.length > 8000)
     )
       return reply.status(400).send({ draft: null, error: "Invalid current draft" });
     const origin = await resolveSceneOrigin(chatId, undefined, "Chat not found");
     if ("error" in origin) return reply.status(origin.status).send({ draft: null, error: origin.error });
     const characterIds = origin.characterIds;
     if (!characterIds.length) return reply.status(400).send({ draft: null, error: "Chat has no characters" });
+    if (origin.mode !== "roleplay" && origin.mode !== "conversation") {
+      return reply
+        .status(400)
+        .send({ draft: null, error: "Scenario drafts support roleplay and conversation chats only" });
+    }
+    if (revise && !characterIds.includes(revise.current.opening.characterId)) {
+      return reply.status(400).send({ draft: null, error: "Opening character must be a member of this chat" });
+    }
     if (
       openerCharacterId != null &&
       (typeof openerCharacterId !== "string" || !characterIds.includes(openerCharacterId))
@@ -1512,7 +1522,9 @@ export async function sceneRoutes(app: FastifyInstance) {
       `The premise must contain lasting facts only. Do not state user actions or feelings that the user has not supplied.`,
       `Return only JSON: {"premise":"...","opening":"..."}.`,
       openingOnly ? `Generate only a new opening that fits this premise: ${revise!.current.premise}.` : "",
-      premiseOnly ? `Generate only a new premise.` : "",
+      premiseOnly
+        ? `Generate only a new premise. Keep it consistent with this opening: ${revise!.current.opening.content}`
+        : "",
       revise?.note ? `Revision instruction: ${revise.note}` : "",
       !revise ? `User idea (may be empty): ${idea}` : "",
     ]
@@ -1530,7 +1542,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       "[scene/scenario-draft] Final scenario draft prompt:\n%s",
       JSON.stringify(messages, null, 2),
     );
-    const result = await provider.chatComplete(messages, { model: conn.model, temperature: 0.9, maxTokens: 4096 });
+    const result = await provider.chatComplete(messages, { model: conn.model, temperature: 0.9, maxTokens: 16384 });
     const parsed = parseSceneScenarioDraft(result.content ?? "", openerId, revise);
     return parsed.draft ? (parsed satisfies SceneScenarioDraftResponse) : (parsed satisfies SceneScenarioDraftResponse);
   });
