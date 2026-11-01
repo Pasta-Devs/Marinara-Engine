@@ -809,10 +809,11 @@ export function HomeProfessorMariChat({
   );
   // #8651: a chip's chat action can name a chat the app does not list (her own thread, an id she made up).
   // Running it closed her window and the chat view fell back to Home, every time; such a chip asks her instead.
+  // Until the chat list confirms the chat (still loading, or failed), the chip asks her too.
   const storeChipsForChat = (mariChipsChatId === chatId && mariChips.length > 0 ? mariChips : savedChips).map(
     (chip) => {
       const target = chip.action?.kind === "chat" || chip.action?.kind === "peek-prompt" ? chip.action.chatId : null;
-      return target && referenceChats.data?.some((chat) => chat.id === target) === false
+      return target && referenceChats.data?.some((chat) => chat.id === target) !== true
         ? { ...chip, action: undefined }
         : chip;
     },
