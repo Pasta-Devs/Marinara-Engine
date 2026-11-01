@@ -18,25 +18,27 @@ Keyword and semantic matches have equal priority when Marinara applies lorebook 
 
 Semantic search needs a model that can create embeddings. You have two options.
 
-Whichever you pick, you can make it the app-wide default: open **Connections**, then **Defaults**, and choose it in the **Embeddings** section. Every connection that does not set an embedding model or **Embedding Connection** of its own then uses it. A connection's own setting still wins, and the row tells you how many connections use their own settings instead. **None** keeps the built-in local model as the fallback.
+Whichever you pick, you can make it the app-wide default: open **Connections**, then **Defaults**, and choose it in the **Embeddings** section. Every connection that does not set an embedding model or **Embedding provider** of its own then uses it. A connection's own setting still wins, and the row tells you how many connections use their own settings instead. **None** keeps the built-in local model as the fallback.
 
 Option 1: a connection with an embedding model.
 
 1. Open the **Connections** panel.
 2. Open a connection for editing.
-3. Find the **Semantic Search (Embeddings)** section.
+3. Open **Advanced**, then **More**, and find the **Semantic search (embeddings)** section.
 4. Type an embedding model name in the model field. A common value is `text-embedding-3-small`.
 5. Save the connection.
 
-A connection can also send its embedding requests through another connection's API key and address. In the same section, pick that connection under **Embedding Connection**. The default is **Same as this connection**. If the chosen connection has its own embedding model, Marinara uses it; otherwise it uses the model name typed here. This applies both when you vectorize and during chat.
+To check the setup, click **Test embedding** below the embedding settings. Marinara saves your changes first, then embeds a short sample text with the same model, API key and address that semantic search uses, and shows the vector size it got back, such as "1536 dimensions", or the error the provider returned.
+
+A connection can also send its embedding requests through another connection's API key and address. In the same section, pick that connection under **Embedding provider**. The default is **Same as this provider**. If the chosen connection has its own embedding model, Marinara uses it; otherwise it uses the model name typed here. This applies both when you vectorize and during chat.
 
 Not every provider offers embeddings. If the provider cannot do embeddings, the editor tells you to choose a dedicated embedding connection instead.
 
 Option 2: the built-in local model.
 
-Marinara can run a small embedding model on your own machine with no API key. In the lorebook picker this option is named **Local Model (sidecar)**. It appears only after you download the local model. See [Local Model Setup](../connections/local-model.md) for how to install it.
+Marinara can run a small embedding model on your own machine with no API key. In the lorebook picker this option is named **Built-in model**. It appears only after you download the local model. See [Local Model Setup](../connections/local-model.md) for how to install it.
 
-If you are on a Marinara Lite build, the **Local Model (sidecar)** option is hidden. On Lite, semantic search needs a connection with an embedding model.
+If you are on a Marinara Lite build, the **Built-in model** option is hidden. On Lite, semantic search needs a connection with an embedding model.
 
 ## Turn on Vectors for a lorebook
 
@@ -50,9 +52,9 @@ The **Vectors** help text reads: "When on, entries in this lorebook may use sema
 
 While **Vectors** is off, the semantic panel shows this note: "Semantic search is disabled by the lorebook-level Vectors toggle."
 
-## The Semantic Search (Embeddings) panel
+## The Semantic search (embeddings) panel
 
-With **Vectors** on, the **Semantic Search (Embeddings)** panel appears on the **Overview** tab. A status chip shows how many entries are vectorized, for example "8/12 entries vectorized". It turns green with a check mark once every entry is done.
+With **Vectors** on, the **Semantic search (embeddings)** panel appears on the **Overview** tab. A status chip shows how many entries are vectorized, for example "8/12 entries vectorized". It turns green with a check mark once every entry is done.
 
 The panel has three number settings.
 
@@ -75,11 +77,11 @@ Marinara calibrates this score against several unrelated neutral passages from t
 Vectorizing means building and storing the embedding for each entry. You must do this before semantic matching can work.
 
 1. Turn on **Vectors** for the lorebook.
-2. In the **Semantic Search (Embeddings)** panel, pick an embedding source in the dropdown. The first option is **No semantic search**. **Local Model (sidecar)** comes next, when available. Your eligible connections come after it.
+2. In the **Semantic search (embeddings)** panel, pick an embedding source in the dropdown. The first option is **No semantic search**. **Built-in model** comes next, when available. Your eligible connections come after it.
 3. Click the vectorize button. When some entries are missing a vector, the button reads **Vectorize N missing**, for example "Vectorize 5 missing".
 4. Wait for the run to finish. The status chip updates to show all entries vectorized.
 
-If no connection has an embedding model or an **Embedding Connection**, the panel shows this note instead of the dropdown: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Set up an embedding source first, using the steps above.
+If no connection has an embedding model or an **Embedding provider**, the panel shows this note instead of the dropdown: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Set up an embedding source first, using the steps above.
 
 When every entry already has a vector, the main button changes to **Re-vectorize N entries**. This rebuilds all stored vectors. It asks you to confirm before it overwrites them.
 
@@ -99,7 +101,7 @@ Rebuild every vector after you change the embedding model. Use **Re-vectorize N 
 
 Do not run only a partial vectorize after a model change. If a "missing only" run returns a different vector size than the stored vectors, the server refuses it with this message: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-There is one quiet failure mode to know about. At chat time, Marinara embeds your recent messages with a query model. The query model is the active connection's own embedding model, or the model from its **Embedding Connection** if it sets one. If the connection sets neither, Marinara uses the **Embeddings** default under **Defaults** in **Connections**, or the built-in local model when that is **None**. The query model may produce a different vector size than the model that vectorized your entries. Marinara then skips those entries in semantic matching. You do not see an error. To avoid this, vectorize your entries with the same embedding source you use during chat. Setting an **Embeddings** default helps: the vectorize picker starts on it unless you picked something else before, and connections without embedding settings of their own query with it. Re-vectorize after any model change.
+There is one quiet failure mode to know about. At chat time, Marinara embeds your recent messages with a query model. The query model is the active connection's own embedding model, or the model from its **Embedding provider** if it sets one. If the connection sets neither, Marinara uses the **Embeddings** default under **Defaults** in **Connections**, or the built-in local model when that is **None**. The query model may produce a different vector size than the model that vectorized your entries. Marinara then skips those entries in semantic matching. You do not see an error. To avoid this, vectorize your entries with the same embedding source you use during chat. Setting an **Embeddings** default helps: the vectorize picker starts on it unless you picked something else before, and connections without embedding settings of their own query with it. Re-vectorize after any model change.
 
 ## How it feeds the Knowledge Router agent
 

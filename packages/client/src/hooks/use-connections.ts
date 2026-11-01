@@ -375,6 +375,21 @@ export function useTestImageGeneration() {
   });
 }
 
+/** One short text through the source semantic search uses; `dimensions` is the vector size it returned. */
+export function useTestEmbedding() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<{
+        success: boolean;
+        message: string;
+        latencyMs: number;
+        dimensions?: number;
+        model?: string;
+        endpoint?: string;
+      }>(`/connections/${id}/test-embedding`, {}),
+  });
+}
+
 export function useTestVideoGeneration() {
   return useMutation({
     mutationFn: (id: string) =>
