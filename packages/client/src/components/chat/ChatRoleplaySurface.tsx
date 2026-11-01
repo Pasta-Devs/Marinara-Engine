@@ -1983,7 +1983,7 @@ export function ChatRoleplaySurface({
 
                 <ScenarioSetupButton
                   chatId={activeChatId}
-                  empty={!isLoading && !hasNextPage && (messages?.length ?? 0) === 0}
+                  empty={!isLoading && !hasNextPage && messages?.length === 0}
                 />
                 {visibleMessages?.map((msg, i) => {
                   if (isMessageHiddenFromUser(msg)) return null;

@@ -1192,6 +1192,7 @@
   "chat.settingsProfile.saveFailed": "Could not save the profile.",
   "chat.settingsProfile.wizard.action": "Use a Profile",
   "chat.settingsProfile.wizard.applyDescription": "Apply a saved settings profile and pick a persona plus characters in one step",
+  "chat.settingsProfile.wizard.applyFailed": "Couldn't apply the profile. Try again.",
   "chat.settingsProfile.wizard.description": "Pick a saved settings profile, your persona, and any characters in one compact setup pass.",
   "chat.settingsProfile.wizard.title": "Use a Profile",
   "chat.setup.pickBackground": "Pick a background",

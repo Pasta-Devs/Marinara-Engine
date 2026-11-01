@@ -972,7 +972,7 @@ export function ScenarioSetupDialog({ chat, onClose }: { chat: Chat; onClose: ()
   const draft = acceptedScenario(scenario);
   const existing = readChatMetadata(chat).groupScenarioText;
   return (
-    <Modal open onClose={onClose} title={t("chat.wizard.scenario.title")} width="max-w-xl">
+    <Modal open onClose={onClose} title={t("chat.wizard.scenario.title")} width="max-w-xl" closeDisabled={starting}>
       <p className={cn(NEUTRAL_PANEL_SUBTITLE, "mb-1")}>{t("chat.wizard.scenario.body")}</p>
       {typeof existing === "string" && existing.trim() && (
         <p className={cn(NEUTRAL_PANEL_SUBTITLE, "mb-3")}>{t("chat.wizard.scenario.replacesExisting")}</p>
@@ -3274,7 +3274,6 @@ function RoleplaySetupWizard({
       if (!scenarioFromProfile) return finishWizard();
       // The profile already set up the chat; only the opening and premise are left.
       await saveScenario(draft);
-      useChatStore.getState().clearPendingNewChatSetup(chat.id);
       onFinish();
     });
   const closeScenario = () => {
@@ -3322,15 +3321,19 @@ function RoleplaySetupWizard({
       } catch {
         /* fall through — still close the wizard */
       } finally {
+        if (profileApplied) useChatStore.getState().clearPendingNewChatSetup(chat.id);
         if (withScenario && profileApplied) {
           setShortcutApplying(false);
           setShortcutMode(false);
           setStep(ROLEPLAY_STEPS.length - 1);
           setScenarioFromProfile(true);
           setScenarioOpen(true);
+        } else if (withScenario) {
+          // The user asked for a scenario; stay in the profile view instead of seeding greetings.
+          setShortcutApplying(false);
+          toast.error(localizeUi("chat.settingsProfile.wizard.applyFailed"));
         } else {
           await seedInitialGreetingsIfEmpty();
-          if (profileApplied) useChatStore.getState().clearPendingNewChatSetup(chat.id);
           setShortcutApplying(false);
           onFinish();
         }
@@ -3347,6 +3350,7 @@ function RoleplaySetupWizard({
       setPersonaCharacter,
       onFinish,
       seedInitialGreetingsIfEmpty,
+      localizeUi,
     ],
   );
 
