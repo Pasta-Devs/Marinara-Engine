@@ -98,13 +98,26 @@ export function characterNamesMatch(leftName: string, rightName: string): boolea
   return isSubsetMatch(getCharacterNameTokens(leftName), getCharacterNameTokens(rightName));
 }
 
+/** Titles a short form may carry that never name the person ("Ms. Kirijo" is Mitsuru Kirijo). */
+const NAME_TITLE_WORDS = new Set(["mr", "mrs", "ms", "dr", "sr", "jr", "st"]);
+
+/** Name words for short forms: unlike {@link getCharacterNameTokens}, two-letter names such as "Li" count. */
+function getShortFormNameTokens(name: string): string[] {
+  const normalized = normalizeCharacterName(name);
+  if (!normalized) return [];
+  return normalized
+    .split(/\s+/)
+    .filter((token) => token.length > 1 || /\d/.test(token))
+    .filter((token) => !NAME_STOP_WORDS.has(token) && !NAME_TITLE_WORDS.has(token));
+}
+
 /**
  * Whether `shortName` is a short form of `fullName`, such as its first name, its surname or the
  * name without a title. Unlike {@link characterNamesMatch}, sharing one word is not enough.
  */
 export function isShortFormOfCharacterName(shortName: string, fullName: string): boolean {
-  const shortTokens = getCharacterNameTokens(shortName);
-  const fullTokens = getCharacterNameTokens(fullName);
+  const shortTokens = getShortFormNameTokens(shortName);
+  const fullTokens = getShortFormNameTokens(fullName);
   return shortTokens.length <= fullTokens.length && isSubsetMatch(shortTokens, fullTokens);
 }
 

@@ -903,6 +903,21 @@ assert.equal(
   "sharing one word with a card's name is not enough to take its voice",
 );
 assert.equal(
+  npcCardVoice([{ characterId: "li-mei-id", characterName: "Li Mei", voice: "li-mei-voice" }], "Li"),
+  "li-mei-voice",
+  "a two-letter first name is a short form of the card's name",
+);
+assert.equal(
+  npcCardVoice([{ characterId: "kirijo-id", characterName: "Mitsuru Kirijo", voice: "kirijo-voice" }], "Ms. Kirijo"),
+  "kirijo-voice",
+  "a title in front of the surname still names the card",
+);
+assert.equal(
+  npcCardVoice([{ characterId: "kirijo-id", characterName: "Mitsuru Kirijo", voice: "kirijo-voice" }], "Mr"),
+  "default-voice",
+  "a title on its own names nobody",
+);
+assert.equal(
   npcCardVoice([{ characterId: "narrator-card-id", characterName: "The Narrator", voice: "card-voice" }], "Narrator"),
   "default-voice",
   "narration keeps the narrator setting instead of a card named after it",
