@@ -946,6 +946,7 @@
   "chat.roleplayVn.hideHistory": "Return to Visual Novel",
   "chat.roleplayVn.nextParagraph": "Next paragraph",
   "chat.roleplayVn.paragraphCounter": "{{current}} / {{total}}",
+  "chat.roleplayVn.paragraphCounterStreaming": "{{current}} / {{total}}+",
   "chat.roleplayVn.previousParagraph": "Previous paragraph",
   "chat.roleplayVn.showHistory": "Show chat history",
   "chat.roleplayVn.visualNovel": "Visual Novel",

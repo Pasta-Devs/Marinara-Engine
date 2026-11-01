@@ -3481,6 +3481,9 @@ export const ChatMessage = memo(function ChatMessage({
   // ─── Swipe navigation ───
   const swipeCount = message.swipeCount ?? 0;
   const hasSwipes = swipeCount > 1;
+  // A reply still being written shows its stream on every swipe, and a held rewrite would then save
+  // into the swipe picked meanwhile (#8636). Switch once it is done.
+  const showSwipeControls = !isStreaming && (hasSwipes || canCreateNextSwipe);
 
   const hideRoleplayAvatars = isRoleplay && roleplayAvatarStyle === "none";
   const useCompactRectangleAvatar = isRoleplay && roleplayAvatarStyle === "rectangles";
@@ -4354,7 +4357,7 @@ export const ChatMessage = memo(function ChatMessage({
             ) : null}
 
             {/* Swipes */}
-            {(hasSwipes || canCreateNextSwipe) && (
+            {showSwipeControls && (
               <SwipeJumpControl
                 alwaysShow={alwaysDisplaySwipeMenu && !isUser}
                 messageId={message.id}
@@ -4809,7 +4812,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           {/* Swipes */}
-          {(hasSwipes || canCreateNextSwipe) && (
+          {showSwipeControls && (
             <SwipeJumpControl
               alwaysShow={alwaysDisplaySwipeMenu && !isUser}
               messageId={message.id}
