@@ -1968,10 +1968,16 @@ export async function connectionsRoutes(app: FastifyInstance) {
     if (!conn) return unusableConnection(req.params.id, reply);
     const source = await resolveConnectionTestEmbeddingSource(app.db, conn);
     if (!source) {
+      const via = conn.embeddingConnectionId;
+      const lender = via && via !== LOCAL_SIDECAR_CONNECTION_ID ? await storage.getWithKey(via) : null;
+      // A model with no address to send it to is a missing endpoint, not a missing model.
+      const hasModel = !!(conn.embeddingModel?.trim() || lender?.embeddingModel?.trim());
       const message =
-        conn.embeddingConnectionId === LOCAL_SIDECAR_CONNECTION_ID
+        via === LOCAL_SIDECAR_CONNECTION_ID
           ? "The built-in model makes embeddings only with an enabled llama.cpp model."
-          : "No embedding model set.";
+          : hasModel
+            ? "No embedding endpoint set. Add an Embedding endpoint URL or a Base URL."
+            : "No embedding model set.";
       return { success: false, message, latencyMs: 0 };
     }
     const { model, endpoint } = source;

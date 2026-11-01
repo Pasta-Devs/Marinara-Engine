@@ -112,6 +112,12 @@ try {
   const unset = await testEmbedding(plain.id);
   assert.deepEqual(unset, { success: false, message: "No embedding model set.", latencyMs: 0 });
   assert.deepEqual(hits, [], "nothing is called without an embedding model");
+  // A model with no address says the endpoint is missing, not the model.
+  const nowhere = await create({ name: "Nowhere", provider: "custom", baseUrl: "", embeddingModel: "lost-embed" });
+  const noEndpoint = await testEmbedding(nowhere.id);
+  assert.equal(noEndpoint.success, false);
+  assert.match(noEndpoint.message, /No embedding endpoint set/u);
+  assert.deepEqual(hits, [], "nothing is called without an endpoint");
 
   // A failing endpoint reports the provider error, never the key.
   const failing = await create({
