@@ -10,6 +10,9 @@ test("profile editor keeps library navigation accessible and saves native select
   page,
   request,
 }, testInfo) => {
+  const fixtureSuffix = `${testInfo.project.name}-${Date.now()}`;
+  const profileName = `Sidebar proof profile ${fixtureSuffix}`;
+  const personaName = `Profile editor persona ${fixtureSuffix}`;
   const chatResponse = await request.post("/api/chats", {
     data: { name: "Profile editor proof", mode: "roleplay", characterIds: [] },
   });
@@ -20,7 +23,7 @@ test("profile editor keeps library navigation accessible and saves native select
   });
   expect(otherChatResponse.ok()).toBeTruthy();
   const otherChat = (await otherChatResponse.json()) as { id: string };
-  const personaResponse = await request.post("/api/characters/personas", { data: { name: "Profile editor persona" } });
+  const personaResponse = await request.post("/api/characters/personas", { data: { name: personaName } });
   expect(personaResponse.ok()).toBeTruthy();
   const persona = (await personaResponse.json()) as { id: string };
   await seedUIState(page, {
@@ -69,7 +72,7 @@ test("profile editor keeps library navigation accessible and saves native select
     if (testInfo.project.name.includes("desktop")) {
       await clickTopbarPanel(page, "personas");
       await expect(editor).toBeVisible();
-      const source = page.locator("[draggable=true]").filter({ hasText: "Profile editor persona" }).first();
+      const source = page.locator("[draggable=true]").filter({ hasText: personaName }).first();
       await expect(source).toBeVisible();
       // Clear first, then exercise the real sidebar drag path.
       await editor.getByLabel("Persona", { exact: true }).selectOption("");
@@ -86,16 +89,17 @@ test("profile editor keeps library navigation accessible and saves native select
     }
 
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await editor.getByLabel("Profile name", { exact: true }).fill("Sidebar proof profile");
+    await editor.getByLabel("Profile name", { exact: true }).fill(profileName);
     await editor.getByRole("button", { name: "Save and choose chats…", exact: true }).click();
     await expect(page.getByRole("dialog", { name: /Sidebar proof profile/ })).toBeVisible();
     const profilesResponse = await request.get("/api/chat-presets?mode=roleplay");
     const profiles = (await profilesResponse.json()) as Array<{
       id: string;
       name: string;
+      isDefault?: boolean;
       settings: { personaId?: string; metadata?: { activeToolIds?: string[] } };
     }>;
-    const saved = profiles.find((profile) => profile.name === "Sidebar proof profile");
+    const saved = profiles.find((profile) => profile.name === profileName);
     expect(saved?.settings.personaId).toBe(persona.id);
     expect(saved?.settings.metadata?.activeToolIds).toContain("set_expression");
     expect(saved?.settings.metadata?.activeToolIds).not.toContain("roll_dice");
@@ -106,6 +110,18 @@ test("profile editor keeps library navigation accessible and saves native select
         .getByRole("button", { name: /^Close/ })
         .click();
       const reopenedSettings = await openChatSettings(page);
+      if (!saved) throw new Error("Expected the saved profile");
+      const defaultProfile = profiles.find((profile) => profile.isDefault);
+      if (!defaultProfile) throw new Error("Expected the default profile");
+      await reopenedSettings.getByLabel("Profile", { exact: true }).selectOption(saved.id);
+      await expect(reopenedSettings.getByTitle("Edit this profile's slots")).toBeEnabled();
+      await reopenedSettings.getByTitle("Edit this profile's slots").click();
+      const editDialog = page.getByRole("dialog", { name: "Edit settings profile", exact: true });
+      await editDialog.getByLabel("Profile name", { exact: true }).fill("Pinned draft");
+      await reopenedSettings.getByLabel("Profile", { exact: true }).selectOption(defaultProfile.id);
+      await expect(reopenedSettings.getByLabel("Profile", { exact: true })).toHaveValue(defaultProfile.id);
+      await expect(editDialog.getByLabel("Profile name", { exact: true })).toHaveValue("Pinned draft");
+      await editDialog.getByRole("button", { name: "Cancel", exact: true }).click();
       await reopenedSettings.getByTitle("New profile from this chat's settings").click();
       await expect(editor).toBeVisible();
       await page.evaluate(async (id) => {
@@ -125,7 +141,7 @@ test("profile editor keeps library navigation accessible and saves native select
     const list = await request.get("/api/chat-presets?mode=roleplay");
     if (list.ok()) {
       const profiles = (await list.json()) as Array<{ id: string; name: string }>;
-      for (const profile of profiles.filter((profile) => profile.name === "Sidebar proof profile")) {
+      for (const profile of profiles.filter((profile) => profile.name === profileName)) {
         await request.delete(`/api/chat-presets/${profile.id}`);
       }
     }
