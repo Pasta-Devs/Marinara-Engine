@@ -198,7 +198,6 @@ import { ExperienceCreaturePacksContext } from "./CreatureArt";
 import {
   filterAudioGenerationConnections,
   matchesAudioGenerationConnectionId,
-  filterLanguageGenerationConnections,
   isConnectionFlagTrue,
 } from "../../lib/connection-filters";
 import { gameAssetFileUrl } from "../../lib/game-asset-urls";
@@ -1720,6 +1719,7 @@ import type {
 import type { CharacterMap, PersonaInfo } from "../chat/chat-area.types";
 import { chatAvatarParticipants } from "../../features/avatars/stage/avatar-stage-logic";
 import { useChatAvatarAgentIds } from "../../features/avatars/stage/use-chat-avatar-agents";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 
 /** Typewriter component for the intro screen — reveals text character-by-character. */
 /** Empty "New Game" chats about to be dropped because the player left them, by chat id. */
@@ -2529,9 +2529,8 @@ function GameSurfaceComponent({
     chatMeta.gameSessionStatus !== "concluded";
   const makeWorldRequest = useMemo(() => {
     const setup = chatMeta.gameSetupConfig as GameSetupConfig | undefined;
-    if (!chat.connectionId) return null;
     return {
-      connectionId: chat.connectionId,
+      connectionId: chat.connectionId ?? undefined,
       genre: setup?.genre || "Fantasy",
       setting: setup?.setting || "A world of its own",
       tone: setup?.tone || "Heroic",
@@ -2673,13 +2672,6 @@ function GameSurfaceComponent({
   const [replayBackgroundTag, setReplayBackgroundTag] = useState<string | null>(null);
   const [replaySpriteMessages, setReplaySpriteMessages] = useState<Message[]>([]);
   const replayActive = replaySessionNumber != null;
-  const languageConnections = useMemo(
-    () =>
-      filterLanguageGenerationConnections(
-        (connectionsList ?? []) as Array<{ id: string; name: string; model?: string; provider?: string }>,
-      ).sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [connectionsList],
-  );
   const handleStartScreenConnectionChange = useCallback(
     (connectionId: string) => {
       updateChat.mutate({ id: activeChatId, connectionId: connectionId || null });
@@ -13240,23 +13232,15 @@ function GameSurfaceComponent({
                   <Plug size={12} />
                   {localizeUi("ui.game.gamesurfacecomponent.gmPartyModel")}
                 </span>
-                <select
-                  value={chat.connectionId ?? ""}
-                  onChange={(e) => handleStartScreenConnectionChange(e.target.value)}
+                <ConnectionSelect
+                  job={t("connections.picker.job.gameMaster")}
+                  value={chat.connectionId || null}
                   disabled={isStreaming || startGame.isPending || updateChat.isPending}
-                  className="w-full rounded-lg bg-zinc-950/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-zinc-700/80 transition-all focus:ring-zinc-400/40 disabled:opacity-60 dark:bg-white/10"
-                >
-                  <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-                  <option value="random">{localizeUi("ui.game.gamesurfacecomponent.random")}</option>
-                  {languageConnections.map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {connection.name}
-                      {connection.model
-                        ? localizeUi("ui.game.gamesetupwizard.value1", { value1: connection.model })
-                        : ""}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(id) => handleStartScreenConnectionChange(id ?? "")}
+                  defaultLabel={localizeUi("ui.game.gamesurfacecomponent.none")}
+                  inherits="main"
+                  extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
+                />
               </label>
               {introPhase === "intro" ? (
                 <div className="flex flex-col items-center gap-3">

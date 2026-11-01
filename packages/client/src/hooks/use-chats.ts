@@ -32,6 +32,7 @@ import {
   agentLorebookAttachmentPatchesSchema,
   mergeAgentLorebookAttachments,
   normalizeAdvancedMemorySettings,
+  type ChatModelPick,
 } from "@marinara-engine/shared";
 import type {
   AdvancedMemoryStatus,
@@ -916,6 +917,25 @@ export function useDeleteChatGroup() {
       if (context?.groupId) {
         qc.invalidateQueries({ queryKey: chatKeys.group(context.groupId) });
       }
+    },
+  });
+}
+
+/**
+ * Point a chat at a saved Model, or (with `model`) run a catalog model on that Model's Connection for this chat
+ * only. The server keeps the chat's last two choices for "Recent" and Undo.
+ */
+export function useSetChatModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ chatId, ...choice }: ChatModelPick & { chatId: string }) =>
+      api.put<Chat>(`/chats/${chatId}/model`, choice),
+    onMutate: ({ chatId }) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
+    onSuccess: (updatedChat, vars, context) => {
+      const guardedChat = updatedChat ? guardServerChatSnapshot(qc, updatedChat, context?.metadataVersion ?? 0) : null;
+      if (guardedChat) syncCachedChat(qc, guardedChat);
+      qc.invalidateQueries({ queryKey: chatKeys.detail(vars.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
   });
 }

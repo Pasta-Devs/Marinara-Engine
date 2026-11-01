@@ -16,9 +16,12 @@ import {
   resolveTtsRequestTimeoutMs,
   TTS_SETTINGS_KEY,
   TTS_API_KEY_MASK,
+  ELEVENLABS_AUDIO_TAG_FOR_GAME_EMOTION,
+  elevenLabsModelSupportsAudioTags,
   elevenLabsModelSupportsSpeed,
   normalizeElevenLabsTtsModelId,
   ttsRoleplaySpeakerExtractorResponseSchema,
+  type GameTtsEmotion,
   type TTSSource,
   type TTSConfig,
   type TTSRoleplaySpeakerExtractorResponse,
@@ -39,6 +42,7 @@ export {
   resolveTTSAudioResponseContentType,
 } from "../services/audio/audio-content-type.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
+import { isRefusedFetch } from "../services/decision/system-one.client.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
@@ -863,6 +867,12 @@ function optionalBearerHeaders(apiKey: string) {
   return headers;
 }
 
+/** Auth headers for a source's model list: the same key headers /tts/speak sends. */
+export function ttsCatalogHeaders(source: string, apiKey: string): Record<string, string> {
+  if (source === "elevenlabs") return elevenLabsHeaders(apiKey);
+  return source === "nanogpt" ? nanoGptHeaders(apiKey) : openAiHeaders(apiKey);
+}
+
 function openAiModelSupportsSpeechInstructions(model: string) {
   return /^gpt-4o/i.test(model.trim());
 }
@@ -992,10 +1002,21 @@ function buildSpeechInstructions(input: { speaker?: string; tone?: string; inclu
   return parts.join(" ");
 }
 
-export function buildElevenLabsTextInput(text: string, tone?: string): string {
-  const normalizedTone = tone?.replace(/[\[\]\r\n]/g, "").trim();
-  if (!normalizedTone || text.trimStart().startsWith(`[${normalizedTone}]`)) return text;
-  return `[${normalizedTone}] ${text}`;
+/**
+ * The text ElevenLabs speaks: the line's tone as a leading audio tag, only for a model that acts on tags (any other
+ * reads the bracket aloud). A game expression becomes the documented tag that means it, or no tag; any other tone is a
+ * cue written to be performed (the Roleplay speaker extractor's) and is kept as written (#8619).
+ */
+export function buildElevenLabsTextInput(text: string, tone: string | undefined, model: string): string {
+  if (!elevenLabsModelSupportsAudioTags(model)) return text;
+  const cue = tone?.replace(/[\[\]\r\n]/g, "").trim();
+  if (!cue) return text;
+  const expression = cue.toLowerCase();
+  const tag = Object.hasOwn(ELEVENLABS_AUDIO_TAG_FOR_GAME_EMOTION, expression)
+    ? ELEVENLABS_AUDIO_TAG_FOR_GAME_EMOTION[expression as GameTtsEmotion]
+    : cue;
+  if (!tag || text.trimStart().startsWith(`[${tag}]`)) return text;
+  return `[${tag}] ${text}`;
 }
 
 export function resolveTTSRequestVoice(configuredVoice: string, requestedVoice?: string | null): string {
@@ -1548,7 +1569,7 @@ export async function ttsRoutes(app: FastifyInstance) {
             ? `${elevenLabsApiRoot(base)}/v1/text-to-speech/${encodeURIComponent(requestVoice)}?output_format=mp3_44100_128`
             : `${base}/audio/speech`;
     const providerText =
-      cfg.source === "elevenlabs" || nanoGptElevenLabsModel ? buildElevenLabsTextInput(text, tone) : text;
+      cfg.source === "elevenlabs" || nanoGptElevenLabsModel ? buildElevenLabsTextInput(text, tone, model) : text;
     const elevenLabsLanguageCode = cfg.elevenLabsLanguageCode?.trim();
     const includeSpeakerInstructions = cfg.source !== "elevenlabs";
     const speechInstructions = useNanoGptSpeech
@@ -1641,7 +1662,7 @@ export async function ttsRoutes(app: FastifyInstance) {
         });
       }
       req.log.error(err, "TTS provider request failed");
-      return reply.status(502).send({ error: "TTS provider unreachable" });
+      return reply.status(502).send({ error: isRefusedFetch(err) ? err.message : "TTS provider unreachable" });
     }
 
     if (!providerRes.ok) {

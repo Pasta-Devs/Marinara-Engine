@@ -30,6 +30,7 @@ export type AvailableSpriteCharacter = {
   characterName: string;
   expressions: string[];
   expressionChoices?: string[];
+  expressionAliases?: Record<string, string>;
 };
 
 export type SpriteExpressionEntry = {
@@ -90,20 +91,43 @@ export function normalizeSpriteDisplayModes(value: unknown): SpriteDisplayMode[]
 export function buildAvailableSpriteCharacter(
   characterId: string,
   characterName: string,
-  sprites: { expressions: string[]; fullBody: string[]; automaticFullBody: string[] },
+  sprites: {
+    expressions: string[];
+    fullBody: string[];
+    automaticFullBody: string[];
+    expressionAliases?: Record<string, string>;
+    fullBodyAliases?: Record<string, string>;
+  },
   displayModes: readonly SpriteDisplayMode[],
 ): AvailableSpriteCharacter | null {
-  const expressions = uniqueStrings([
-    ...(displayModes.includes("expressions") ? sprites.expressions : []),
-    ...(displayModes.includes("full-body") ? [...sprites.fullBody, ...sprites.automaticFullBody] : []),
-  ]);
+  const expressions = displayModes.includes("expressions") ? uniqueStrings(sprites.expressions) : [];
+  const portraits = new Map(expressions.map((expression) => [expression.toLowerCase(), expression]));
+  const expressionAliases: Record<string, string> = Object.create(null);
+  for (const expression of expressions) {
+    expressionAliases[expression] = sprites.expressionAliases?.[expression] ?? expression;
+  }
+  if (displayModes.includes("full-body")) {
+    for (const expression of uniqueStrings([...sprites.fullBody, ...sprites.automaticFullBody])) {
+      const label = sprites.fullBodyAliases?.[expression] ?? expression;
+      const portrait = portraits.get(expression.toLowerCase());
+      // Keep the legacy shared choice until the two file families have different labels.
+      if (portrait && expressionAliases[portrait]!.toLowerCase() === label.toLowerCase()) continue;
+      const baseLabel = expression.replace(/_sprite_[a-f0-9]{12}$/iu, "").toLowerCase();
+      const handle = portrait || label.toLowerCase() !== baseLabel ? `full_${expression}` : expression;
+      expressions.push(handle);
+      expressionAliases[handle] = label;
+    }
+  }
 
   if (expressions.length === 0) return null;
   return {
     characterId,
     characterName,
     expressions,
-    expressionChoices: buildSpriteExpressionChoices(expressions),
+    expressionChoices: buildSpriteExpressionChoices(
+      expressions.map((expression) => expressionAliases[expression] ?? expression),
+    ),
+    expressionAliases,
   };
 }
 
@@ -212,9 +236,27 @@ function resolveCharacter(
   return null;
 }
 
-function resolveExpression(expression: string, availableExpressions: string[]): string | null {
+function resolveExpression(
+  expression: string,
+  availableExpressions: string[],
+  aliases?: Record<string, string>,
+): string | null {
   const trimmed = expression.trim();
   if (!trimmed) return null;
+  if (aliases) {
+    const savedHandle = availableExpressions.find(
+      (entry) =>
+        entry.toLowerCase() === trimmed.toLowerCase() &&
+        (/^full_/iu.test(entry) || /_sprite_[a-f0-9]{12}$/iu.test(entry)),
+    );
+    if (savedHandle) return savedHandle;
+    const label = resolveExpression(
+      trimmed,
+      uniqueStrings(availableExpressions.map((entry) => aliases[entry] ?? entry)),
+    );
+    const choices = label ? availableExpressions.filter((entry) => (aliases[entry] ?? entry) === label) : [];
+    if (choices.length) return choices.length === 1 ? choices[0]! : pickRandomExpression(choices);
+  }
 
   const lower = trimmed.toLowerCase();
 
@@ -240,7 +282,19 @@ function resolveExpression(expression: string, availableExpressions: string[]): 
   );
 }
 
-function pickFallbackExpression(expressions: string[], sourceText: string): string | null {
+function pickFallbackExpression(
+  expressions: string[],
+  sourceText: string,
+  aliases?: Record<string, string>,
+): string | null {
+  if (aliases) {
+    const label = pickFallbackExpression(
+      uniqueStrings(expressions.map((expression) => aliases[expression] ?? expression)),
+      sourceText,
+    );
+    const matches = label ? expressions.filter((expression) => (aliases[expression] ?? expression) === label) : [];
+    return matches.length === 1 ? matches[0]! : pickRandomExpression(matches);
+  }
   for (const candidate of inferExpressionCandidates(sourceText)) {
     const resolved = resolveExpression(candidate, expressions);
     if (resolved) return resolved;
@@ -276,7 +330,7 @@ export function completeRequiredSpriteExpressionEntries<T extends SpriteExpressi
     if (!character) continue;
 
     const sourceText = options.sourceTextByCharacterId?.get(characterId) ?? options.defaultSourceText ?? "";
-    const expression = pickFallbackExpression(character.expressions, sourceText);
+    const expression = pickFallbackExpression(character.expressions, sourceText, character.expressionAliases);
     if (!expression) continue;
 
     completed.push({
@@ -297,6 +351,7 @@ export function completeRequiredSpriteExpressionEntries<T extends SpriteExpressi
 export function validateSpriteExpressionEntries<T extends SpriteExpressionEntry>(
   expressions: T[] | undefined,
   availableSprites: AvailableSpriteCharacter[] | undefined,
+  options: { resolvedHandles?: boolean } = {},
 ): ExpressionValidationResult<T> {
   const warnings: ExpressionValidationWarning[] = [];
   if (!Array.isArray(expressions) || !Array.isArray(availableSprites)) {
@@ -332,7 +387,10 @@ export function validateSpriteExpressionEntries<T extends SpriteExpressionEntry>
       });
     }
 
-    const expression = resolveExpression(entry.expression, character.expressions);
+    const requestedHandle = entry.expression.trim().toLowerCase();
+    const expression = options.resolvedHandles
+      ? (character.expressions.find((handle) => handle.toLowerCase() === requestedHandle) ?? null)
+      : resolveExpression(entry.expression, character.expressions, character.expressionAliases);
     if (!expression) {
       warnings.push({
         message: `Expression agent chose "${entry.expression}" for ${character.characterName} which doesn't exist — removing`,

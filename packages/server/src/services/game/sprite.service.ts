@@ -1,8 +1,8 @@
-import { readdirSync, existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join, extname } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
+import { listSpriteCatalog } from "../sprites/sprite-catalog.js";
 
-const SPRITE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg"]);
 const SPRITE_REFERENCE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"]);
 const FULL_BODY_REFERENCE_PRIORITY = ["full_neutral", "full_idle", "full_default"];
 const AUTOMATIC_FULL_BODY_POSES = new Set([
@@ -28,6 +28,8 @@ export interface CharacterSpriteInfo {
   name: string;
   expressions: string[];
   expressionChoices: string[];
+  expressionAliases?: Record<string, string>;
+  fullBodyAliases?: Record<string, string>;
   /** Custom full-body aliases the model may intentionally choose. */
   fullBody: string[];
   /** Engine-assigned standard full-body poses; not exposed to the model. */
@@ -89,41 +91,46 @@ export function buildSpriteExpressionChoices(expressions: string[]): string[] {
  * List available sprite expressions for a character by reading their sprites directory.
  * Returns expression names (without extension) split into portrait and full-body.
  */
-export function listCharacterSprites(
-  characterId: string,
-): { expressions: string[]; fullBody: string[]; automaticFullBody: string[] } | null {
-  const dir = join(DATA_DIR, "sprites", characterId);
-  if (!existsSync(dir)) return null;
+export function listCharacterSprites(characterId: string): {
+  expressions: string[];
+  fullBody: string[];
+  automaticFullBody: string[];
+  expressionAliases: Record<string, string>;
+  fullBodyAliases: Record<string, string>;
+} | null {
+  const files = listSpriteCatalog(characterId).sprites;
+  const expressions: string[] = [];
+  const fullBody: string[] = [];
+  const automaticFullBody: string[] = [];
+  const expressionAliases: Record<string, string> = Object.create(null);
+  const fullBodyAliases: Record<string, string> = Object.create(null);
 
-  try {
-    const files = readdirSync(dir)
-      .filter((f) => SPRITE_EXTS.has(extname(f).toLowerCase()))
-      .sort((a, b) => a.localeCompare(b));
-    const expressions: string[] = [];
-    const fullBody: string[] = [];
-    const automaticFullBody: string[] = [];
-
-    for (const f of files) {
-      const name = f.slice(0, -extname(f).length);
-      if (name.startsWith("full_")) {
-        const stripped = name.slice(5);
-        if (stripped) {
-          if (AUTOMATIC_FULL_BODY_POSES.has(stripped.toLowerCase())) {
-            automaticFullBody.push(stripped);
-          } else {
-            fullBody.push(stripped);
-          }
+  for (const f of files) {
+    const name = f.expression;
+    if (name.startsWith("full_")) fullBodyAliases[name.slice(5)] = f.label.replace(/^full_/iu, "");
+    else expressionAliases[name] = f.label;
+    if (name.startsWith("full_")) {
+      const stripped = name.slice(5);
+      if (stripped) {
+        if (AUTOMATIC_FULL_BODY_POSES.has(fullBodyAliases[stripped]!.toLowerCase())) {
+          automaticFullBody.push(stripped);
+        } else {
+          fullBody.push(stripped);
         }
-      } else {
-        expressions.push(name);
       }
+    } else {
+      expressions.push(name);
     }
-
-    if (expressions.length === 0 && fullBody.length === 0 && automaticFullBody.length === 0) return null;
-    return { expressions, fullBody, automaticFullBody };
-  } catch {
-    return null;
   }
+
+  if (expressions.length === 0 && fullBody.length === 0 && automaticFullBody.length === 0) return null;
+  return {
+    expressions,
+    fullBody,
+    automaticFullBody,
+    expressionAliases,
+    fullBodyAliases,
+  };
 }
 
 function isSafeSpriteOwnerId(characterId: string): boolean {
@@ -143,20 +150,16 @@ export function readPreferredFullBodySpriteBase64(
   if (!existsSync(dir)) return null;
 
   try {
-    const fullBodyFiles = readdirSync(dir)
-      .filter((filename) => SPRITE_REFERENCE_EXTS.has(extname(filename).toLowerCase()))
-      .map((filename) => ({
-        filename,
-        expression: filename.slice(0, -extname(filename).length),
-      }))
+    const fullBodyFiles = listSpriteCatalog(characterId)
+      .sprites.filter((sprite) => SPRITE_REFERENCE_EXTS.has(extname(sprite.filename).toLowerCase()))
       .filter((entry) => entry.expression.toLowerCase().startsWith("full_"));
 
     if (fullBodyFiles.length === 0) return null;
 
     const preferred =
       FULL_BODY_REFERENCE_PRIORITY.map((expression) =>
-        fullBodyFiles.find((entry) => entry.expression.toLowerCase() === expression),
-      ).find((entry): entry is { filename: string; expression: string } => Boolean(entry)) ??
+        fullBodyFiles.find((entry) => entry.label.replace(/^full_/iu, "").toLowerCase() === expression.slice(5)),
+      ).find((entry) => entry !== undefined) ??
       fullBodyFiles.sort((a, b) => a.expression.localeCompare(b.expression))[0];
 
     if (!preferred) return null;
@@ -180,7 +183,9 @@ export function listPartySprites(characters: Array<{ id: string; name: string }>
     if (sprites) {
       result.push({
         name: char.name,
-        expressionChoices: buildSpriteExpressionChoices(sprites.expressions),
+        expressionChoices: buildSpriteExpressionChoices(
+          sprites.expressions.map((expression) => sprites.expressionAliases[expression] ?? expression),
+        ),
         ...sprites,
       });
     }

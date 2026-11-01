@@ -49,16 +49,19 @@ test("local GGUF settings show runtime allocations and persist cache choices", a
     await useSidecarStore.getState().fetchStatus();
     useSidecarStore.getState().setShowDownloadModal(true);
   });
-  const dialog = page.getByRole("dialog", { name: "Local AI Model" });
+  const dialog = page.getByRole("dialog", { name: "Built-in model" });
+  await dialog.getByRole("button", { name: /^Memory/ }).click();
   await expect(dialog.getByText("GPU allocations reported by llama.cpp", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Reported total", { exact: true })).toBeVisible();
   await expect(dialog.getByText("1.3 GB", { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "Runtime Settings", exact: true }).click();
-  await dialog.getByRole("combobox", { name: /^KV cache type/ }).selectOption("q4_0");
+  await dialog.getByRole("combobox", { name: "KV cache type" }).selectOption("q4_0");
   await expect.poll(() => config.kvCacheType).toBe("q4_0");
-  await dialog.getByText("GPU allocations reported by llama.cpp", { exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("sidecar-memory.png") });
-  const input = dialog.getByRole("textbox", { name: "Existing GGUF file", exact: true });
+  await dialog.getByRole("button", { name: "Back" }).click();
+
+  // The model is a local file, so Change model opens on the file tab.
+  await dialog.getByRole("button", { name: "Change model" }).click();
+  const input = dialog.getByRole("textbox", { name: "Existing GGUF file" });
   config.externalModelPath = "/models/loaded-later.gguf";
   await page.evaluate(async () => {
     const { useSidecarStore } = await import("/src/stores/sidecar.store.ts" as string);
@@ -66,28 +69,26 @@ test("local GGUF settings show runtime allocations and persist cache choices", a
   });
   await expect(input).toHaveValue("/models/loaded-later.gguf");
   await input.fill("");
-  await page.evaluate(async () => {
-    const { useSidecarStore } = await import("/src/stores/sidecar.store.ts" as string);
-    await useSidecarStore.getState().fetchStatus();
-  });
-  await expect(input).toHaveValue("");
-  await expect(dialog.getByRole("button", { name: "Use existing GGUF", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Use this file" })).toBeDisabled();
   await input.fill("/models/custom.gguf");
-  await dialog.getByRole("button", { name: "Use existing GGUF", exact: true }).click();
+  await dialog.getByRole("button", { name: "Use this file" }).click();
   await expect(
     page.getByText("The selected file does not have a supported GGUF header.", { exact: true }),
   ).toBeVisible();
+  // A failed file keeps the picker open for another try.
   fail = false;
-  await dialog.getByRole("button", { name: "Use existing GGUF", exact: true }).click();
+  await dialog.getByRole("button", { name: "Use this file" }).click();
   await expect.poll(() => config.externalModelPath).toBe("/models/custom.gguf");
   expect(localPath).toBe("/models/custom.gguf");
   await expect(page.getByText("Local GGUF selected.", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Change model" })).toBeVisible();
+
   config.externalModelPath = "/models/updated-after-selection.gguf";
   await page.evaluate(async () => {
     const { useSidecarStore } = await import("/src/stores/sidecar.store.ts" as string);
     await useSidecarStore.getState().fetchStatus();
   });
+  await dialog.getByRole("button", { name: "Change model" }).click();
   await expect(input).toHaveValue(config.externalModelPath);
-  await input.scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("sidecar-local-file.png") });
 });

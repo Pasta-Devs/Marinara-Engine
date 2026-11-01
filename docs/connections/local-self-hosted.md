@@ -19,32 +19,30 @@ Marinara connects to local servers through the **Custom (OAI-Compatible)** provi
 Follow these steps to create the connection.
 
 1. Open the **Connections** panel from the right side of the app.
-2. Click the **New** button (the plus icon). The **Create Connection** modal opens.
-3. Type a name in the **Name** field, for example `Ollama Local`.
-4. Choose **Custom (OAI-Compatible)** from the provider grid.
-5. Click **Create**. The connection editor opens for your new connection.
-6. Find the **Base URL** field. Enter the address of your local server (see the table below).
-7. Leave the **API Key** field empty. Most local servers do not need a key.
-8. Choose a model. Click **Fetch Models from API** to load the list your server reports, then pick one. You can also type a model ID by hand.
-9. Click **Save**.
+2. Click **Add**. The **Add account** window opens.
+3. In step 1, choose **Custom (OAI-Compatible)**. It is listed under **On your computer**.
+4. In step 2, enter the address of your local server in the **Address** field (see the table below).
+5. Leave the **API key** field empty. Most local servers do not need a key. To give the connection a name such as `Ollama Local`, open **More options** and type it under **Name (optional)**.
+6. Click **Connect**.
+7. In step 3, pick a model from the list your server reports. You can also type a model ID by hand. Click **Done**.
 
-You should now see the connection saved in the **Connections** panel. Test it before you use it in a chat. See the "Test your connection" section below.
+You should now see the connection in the **Connections** panel, with its model grouped under it. Test it before you use it in a chat. See the "Test your connection" section below.
 
-The **API Key** field is optional for local servers. For the **Custom (OAI-Compatible)** provider, the editor shows a reminder under this field. It says you can leave the key empty for local models such as Ollama, LM Studio, and KoboldCpp. Just set the Base URL instead.
+The **API Key** field is optional for local servers. For the **Custom (OAI-Compatible)** provider, the editor shows a reminder under this field. It says you can leave the key empty for local models such as Ollama, LM Studio, and KoboldCpp. Just set the **Address** instead.
 
 ## Base URLs for common local servers
 
-The **Base URL** tells Marinara where your local server listens. Each server has a default address and port. A port is the numbered channel a server uses on your machine. Use the address for the server you run.
+The **Address** (also called the Base URL) tells Marinara where your local server listens. Each server has a default address and port. A port is the numbered channel a server uses on your machine. Use the address for the server you run.
 
-| Local server | Base URL |
-|---|---|
-| Ollama | `http://localhost:11434/v1` |
-| LM Studio | `http://localhost:1234/v1` |
-| KoboldCpp | `http://localhost:5001/v1` |
+| Local server | Endpoint                    |
+| ------------ | --------------------------- |
+| Ollama       | `http://localhost:11434/v1` |
+| LM Studio    | `http://localhost:1234/v1`  |
+| KoboldCpp    | `http://localhost:5001/v1`  |
 
 Here `localhost` means "this same computer." If Marinara runs on the same computer as your model server, these addresses work as written.
 
-The **Base URL** field shows a safety warning: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Only enter an address you set up yourself or fully trust.
+The **Address** field shows a safety warning: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Only enter an address you set up yourself or fully trust.
 
 ### Windows firewall note
 
@@ -76,18 +74,18 @@ On Android, this setting is turned on by default when you do not set it. For mor
 
 ## Test your connection
 
-The connection editor has a **Connection Tests** card at the bottom. Use it before you rely on the connection in a chat.
+**Connect** in the Add flow already checked the connection. The model editor has a **Connection Tests** card at the bottom for a second check. Use it before you rely on the connection in a chat.
 
-1. Click your connection in the **Connections** panel. The connection editor opens.
+1. Click your model in the **Connections** panel. The model editor opens.
 2. Click **Test Connection**. This checks that your Base URL and setup are reachable and reports how long it took.
 3. Pick a model if you have not yet.
 4. Click **Send Test Message**. This sends the word "hi" to your chosen model and shows the reply.
 
-If both tests succeed, your local model is ready to use in a chat. Open a chat, open its settings, and pick this connection.
+If both tests succeed, your local model is ready to use in a chat. Open a chat, open its settings, and pick this connection, or use the **Connections** menu in the chat input.
 
 The same model can also answer decisions, such as agent activation questions, without Marinara loading a second copy. Click **Use this model for decisions** in the connection's settings; see [Decision Models](decision-models.md#on-a-server-you-already-run).
 
-If a test fails, first check that your local server is still running and that the model is loaded. Then check that the **Base URL** matches the server's address and port exactly. For a server on another computer, confirm that `PROVIDER_LOCAL_URLS_ENABLED` is set and that you restarted the Marinara server.
+If a test fails, first check that your local server is still running and that the model is loaded. Then check that the **Address** matches the server's address and port exactly. For a server on another computer, confirm that `PROVIDER_LOCAL_URLS_ENABLED` is set and that you restarted the Marinara server.
 
 ## Related guides
 

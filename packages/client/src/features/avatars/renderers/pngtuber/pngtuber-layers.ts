@@ -64,6 +64,7 @@ export const AVATAR_FEELING_LABEL_KEYS: Readonly<Record<AvatarExtraFeeling, stri
 
 export interface SpriteLike {
   expression: string;
+  label?: string;
   url?: string;
 }
 
@@ -118,7 +119,7 @@ export function buildPngtuberLayersFromSprites(
   const layers = new Map<string, PngtuberLayerSet>();
   const variants: { base: string; key: string; mouthOpen: boolean; eyesClosed: boolean }[] = [];
   for (const sprite of pngtuberSpriteFamily(sprites)) {
-    const key = normalizeSpriteExpressionKey(sprite.expression);
+    const key = normalizeSpriteExpressionKey(sprite.label ?? sprite.expression);
     if (!LAYER_KEY.test(key)) continue;
     const split = splitSpriteVariant(key);
     if (split.mouthOpen || split.eyesClosed) variants.push({ ...split, key });

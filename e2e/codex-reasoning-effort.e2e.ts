@@ -36,7 +36,7 @@ test("Codex connections set their thinking level in connection settings", async 
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openConnectionDetail(id);
     }, id);
-    await expect(page.getByPlaceholder("Connection name")).toHaveValue("Codex effort fixture");
+    await expect(page.getByPlaceholder("Model name", { exact: true })).toHaveValue("Codex effort fixture");
   };
 
   try {

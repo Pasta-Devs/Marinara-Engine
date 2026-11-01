@@ -137,7 +137,7 @@ for (const mode of ["roleplay", "conversation", "game"] as const) {
           const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
           useUIStore.getState().openConnectionDetail(connectionId);
         }, connection.id);
-        await expect(page.getByPlaceholder("Connection name")).toBeVisible();
+        await expect(page.getByPlaceholder("Model name", { exact: true })).toBeVisible();
         await page.evaluate(async (chatId) => {
           const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
           useChatStore.getState().setActiveChatId(chatId);

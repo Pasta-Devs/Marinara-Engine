@@ -39,19 +39,20 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
     useUIStore.getState().openRightPanel("connections");
   });
 
-  // The Local Model card owns this, so the installer is reached from inside it.
-  const openCard = page.getByText("Local Model", { exact: true }).first();
-  await expect(openCard).toBeVisible();
-  await openCard.click();
+  // Add connection → Other: the installer has its own tile, reachable before anything is set up.
+  // With no accounts yet, the panel's empty state opens the same Add window.
+  await page.getByRole("button", { name: "All providers", exact: true }).click();
+  const addDialog = page.getByRole("dialog", { name: "Add account", exact: true });
   // Not conditional: the decision sidecar is its own model and its own process, so
   // this must be reachable whether or not a chat model has been downloaded. Skipping
   // here would hide exactly the regression that put it behind one.
-  const openInstaller = page.getByRole("button", { name: /Decision sidecar/ });
+  const openInstaller = addDialog.locator('[data-add-connection-service="decision_builtin"]');
   await expect(openInstaller).toBeVisible();
   await openInstaller.click();
 
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
+  // It opens as step 2 of the same window, not as a second window on top.
+  const dialog = addDialog;
+  await expect(page.getByRole("dialog")).toHaveCount(1);
   // The warning is always visible, above anything that could start a download.
   await expect(dialog.getByText("Experimental. Most people do not need this.")).toBeVisible();
   await screenshot("decision-installer-dark");
@@ -65,7 +66,7 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
   // Nothing downloadable is on screen until the sidecar is enabled.
   await expect(dialog.getByRole("button", { name: "Download and install" })).toHaveCount(0);
   await expect(dialog.getByPlaceholder("owner/model-name")).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: /Enable decision sidecar/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Use the built-in decision model/ })).toBeVisible();
 
   // A pasted repository is judged by what it declares, without installing anything.
   const refused = await (

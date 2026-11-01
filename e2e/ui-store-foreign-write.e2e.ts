@@ -21,13 +21,11 @@ const DROPPED_BY_V74_COPY = [
   "reduceAmbientEffects",
   "mariPanelSortMode",
   "omnibarAsideEnabled",
-  "omnibarAsideConnectionId",
   "omnibarAsideDisclosed",
   "omnibarAsideDelayMs",
   "mariEditViewMode",
   "mariUnlockedPackIds",
   "mariSeasonOptOut",
-  "mariConnectionId",
   "conversationBackgroundImageOpacity",
   "chatWidgetPreset",
   "chatWidgetFont",
@@ -186,8 +184,8 @@ ui?.getState().setRoleplayReducedPaintEffects(true);`,
 
   test("settings survive an old package client saving its v74 copy over them", async ({ page }) => {
     await prepare(page);
-    // From a v74 blob, migrations would size the sheet like this background and restore this old Mari connection;
-    // the user's saved sheet size and cleared connection must win instead.
+    // From a v74 blob, migrations would size the sheet like this background; the user's saved sheet size must win
+    // instead. (Professor Mari's connection is a server setting now, not part of this store.)
     await seedUIState(page, { hasCompletedOnboarding: true, imageBackgroundWidth: 1536 }, "if-missing");
     await page.addInitScript((key) => localStorage.setItem(key, "e2e-legacy-mari"), LEGACY_MARI_CONNECTION_KEY);
     await recordStorageWrites(page);
@@ -214,10 +212,9 @@ ui?.getState().setRoleplayReducedPaintEffects(true);`,
       .toEqual(LOCAL_SETTINGS);
     const saved = pick(await readPersisted(page), [...DROPPED_BY_V74_COPY, "sidebarWidth"]);
     expect(
-      pick(saved, ["imageCharacterSheetWidth", "mariConnectionId", "roleplayChatWidthPercent", "sidebarWidth"]),
+      pick(saved, ["imageCharacterSheetWidth", "roleplayChatWidthPercent", "sidebarWidth"]),
     ).toEqual({
       imageCharacterSheetWidth: 1280,
-      mariConnectionId: null,
       roleplayChatWidthPercent: 67,
       sidebarWidth: 400,
     });
@@ -264,14 +261,12 @@ ui?.getState().setRoleplayReducedPaintEffects(true);`,
         pick(await readPersisted(page), [
           "imageCharacterSheetWidth",
           "imageCharacterSheetHeight",
-          "mariConnectionId",
           "roleplayReducedPaintEffects",
           "activeImpersonatePromptTemplateId",
         ]),
       ).toEqual({
         imageCharacterSheetWidth: legacy.sheet[0],
         imageCharacterSheetHeight: legacy.sheet[1],
-        mariConnectionId: "e2e-legacy-mari",
         roleplayReducedPaintEffects: false,
         activeImpersonatePromptTemplateId: null,
       });

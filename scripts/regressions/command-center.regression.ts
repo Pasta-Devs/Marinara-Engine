@@ -17,6 +17,7 @@ import {
 import { createSystemCommandDefinitions } from "../../packages/client/src/lib/command-center-system-commands.js";
 import {
   formatShortcutKey,
+  isQuickPickerShortcut,
   isShortcutsHelpKey,
   isTypingTarget,
 } from "../../packages/client/src/lib/keyboard-shortcuts.js";
@@ -262,7 +263,12 @@ assert.deepEqual(systemCommands.find((command) => command.id === "spotify-settin
   setupTarget: true,
 });
 assert.equal(systemCommands.find((command) => command.id === "spotify-settings")?.action.kind, "navigate");
-assert.equal(systemCommands.find((command) => command.id === "tts-settings")?.action.kind, "navigate");
+// Text to speech opens its set-up screen in the Add window (a modal), which works before TTS is set up too.
+assert.deepEqual(systemCommands.find((command) => command.id === "tts-settings")?.action, {
+  kind: "modal",
+  modal: "create-connection",
+  props: { service: "tts" },
+});
 
 const presentationResults: CommandCenterPresentableResult[] = [
   { id: "chat:dup", category: "chat", metadata: [{ label: "rank", value: "first" }] },
@@ -1293,6 +1299,13 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.equal(isTypingTarget({ tagName: "BUTTON", closest: () => null }), false);
   assert.equal(formatShortcutKey("Mod", true), "⌘");
   assert.equal(formatShortcutKey("Mod", false), "Ctrl");
+  assert.equal(formatShortcutKey("Alt", true), "⌥");
+  // Alt+M opens the composer's model chooser, read from the key position (Option+M types "µ" on a Mac).
+  const keys = { key: "µ", code: "KeyM", altKey: true, ctrlKey: false, metaKey: false };
+  assert.equal(isQuickPickerShortcut(keys), true);
+  assert.equal(isQuickPickerShortcut({ ...keys, ctrlKey: true }), false);
+  assert.equal(isQuickPickerShortcut({ ...keys, shiftKey: true }), false, "Ctrl/Cmd+Shift+M stay with the browser");
+  assert.equal(isQuickPickerShortcut({ ...keys, altKey: false }), false);
 }
 
 {
@@ -3478,7 +3491,8 @@ assert.ok(!("mariDetailId" in mariSession));
     agent.cards.map((card) => card.id),
     ["arrival:pick-connection", "arrival:why-failed", "arrival:tighten-prompt", "arrival:agent-settings"],
   );
-  assert.deepEqual(agent.cards[0]?.action, { kind: "panel", panel: "connections" }, "L2's picker fix acts at once");
+  // The fix opens the Add window for the job the error names (here an image model), not the bare panel.
+  assert.deepEqual(agent.cards[0]?.action, { kind: "add-connection", job: "images" }, "L2's picker fix acts at once");
   assert.equal(agent.refs[0]?.state, "failed");
   assert.ok(agent.meta.includes("On for Neon Harbor"));
   const calmAgent = buildMariArrival(agentContext, {

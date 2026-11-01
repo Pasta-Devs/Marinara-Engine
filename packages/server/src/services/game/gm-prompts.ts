@@ -1893,11 +1893,28 @@ export function buildGmFormatReminder(
       : ""
   }`;
   const characterSprites = Array.isArray(ctx.characterSprites) ? ctx.characterSprites : [];
+  const spriteChoice = (handle: string, aliases?: Record<string, string>) => {
+    const label = aliases?.[handle];
+    return label && label !== handle ? `${label} (sprite: ${handle})` : handle;
+  };
+  const hasRenamedSprites = characterSprites.some(
+    (character) =>
+      character.expressions.some(
+        (handle) => character.expressionAliases?.[handle] && character.expressionAliases[handle] !== handle,
+      ) ||
+      character.fullBody.some(
+        (handle) => character.fullBodyAliases?.[handle] && character.fullBodyAliases[handle] !== handle,
+      ),
+  );
   const customSpriteLines = characterSprites
     .map((character) => ({
       name: normalizePromptText(character.name),
-      expressions: normalizePromptTextList(character.expressions),
-      fullBody: normalizePromptTextList(character.fullBody),
+      expressions: normalizePromptTextList(
+        character.expressions.map((handle) => spriteChoice(handle, character.expressionAliases)),
+      ),
+      fullBody: normalizePromptTextList(
+        character.fullBody.map((handle) => spriteChoice(handle, character.fullBodyAliases)),
+      ),
     }))
     .filter((character) => character.name && (character.expressions.length > 0 || character.fullBody.length > 0))
     .flatMap((character) => {
@@ -2039,6 +2056,11 @@ export function buildGmFormatReminder(
             ``,
             `- Available custom sprites per character (use these EXACT names when the character has any listed expression; only fall back to the defaults if the character has no listed sprites):`,
             ...customSpriteLines,
+            ...(hasRenamedSprites
+              ? [
+                  "For a renamed entry shown as LABEL (sprite: NAME), choose by LABEL and put NAME in the expression bracket.",
+                ]
+              : []),
           ]
         : []),
       `- Commands: [tag: params].`,
