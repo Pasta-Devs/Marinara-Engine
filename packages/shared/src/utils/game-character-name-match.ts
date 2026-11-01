@@ -98,6 +98,49 @@ export function characterNamesMatch(leftName: string, rightName: string): boolea
   return isSubsetMatch(getCharacterNameTokens(leftName), getCharacterNameTokens(rightName));
 }
 
+/** Titles a short form may carry that never name the person ("Ms. Kirijo" is Mitsuru Kirijo). */
+const NAME_TITLE_WORDS = new Set(["mr", "mrs", "ms", "dr", "sr", "jr", "st"]);
+
+/** Name words for short forms: unlike {@link getCharacterNameTokens}, two-letter names such as "Li" count. */
+function getShortFormNameTokens(name: string): string[] {
+  const normalized = normalizeCharacterName(name);
+  if (!normalized) return [];
+  return normalized
+    .split(/\s+/)
+    .filter((token) => token.length > 1 || /\d/.test(token))
+    .filter((token) => !NAME_STOP_WORDS.has(token) && !NAME_TITLE_WORDS.has(token));
+}
+
+/**
+ * Whether `shortName` is a short form of `fullName`, such as its first name, its surname or the
+ * name without a title. Unlike {@link characterNamesMatch}, sharing one word is not enough.
+ */
+export function isShortFormOfCharacterName(shortName: string, fullName: string): boolean {
+  // A title on one side only is ignored, but two different titles are two people: "Mr. Tanaka" is not "Mrs. Tanaka".
+  const titles = (name: string) =>
+    [
+      ...new Set(
+        normalizeCharacterName(name)
+          .split(/\s+/)
+          .filter((token) => NAME_TITLE_WORDS.has(token)),
+      ),
+    ]
+      .sort()
+      .join(" ");
+  const shortTitles = titles(shortName);
+  const fullTitles = titles(fullName);
+  if (shortTitles && fullTitles && shortTitles !== fullTitles) return false;
+  // An initial must start one of the full name's words: "J. Smith" is John Smith, never Bob Smith.
+  const fullWords = normalizeCharacterName(fullName).split(/\s+/);
+  const initials = normalizeCharacterName(shortName)
+    .split(/\s+/)
+    .filter((token) => token.length === 1 && /\p{L}/u.test(token));
+  if (initials.some((initial) => !fullWords.some((word) => word.startsWith(initial)))) return false;
+  const shortTokens = getShortFormNameTokens(shortName);
+  const fullTokens = getShortFormNameTokens(fullName);
+  return shortTokens.length <= fullTokens.length && isSubsetMatch(shortTokens, fullTokens);
+}
+
 export function findNamedEntry<T>(
   entries: Iterable<T>,
   targetName: string,
