@@ -163,6 +163,14 @@ try {
     "happy_pajamas_talk",
     "a frame asked for by name still resolves",
   );
+  const unrelated = library("outfit-unrelated", ["unhappy_pajamas", "happy_01", "happy_02"]);
+  for (const roll of [0, 0.999]) {
+    assert.match(
+      unrelated.validate("happy_pajamas", roll) ?? "",
+      /^happy_0[12]$/u,
+      `a faceted name falls back to its own group before an unrelated name that contains it (roll ${roll})`,
+    );
+  }
   assert.equal(
     resolveSpriteDisplayExpression(
       [

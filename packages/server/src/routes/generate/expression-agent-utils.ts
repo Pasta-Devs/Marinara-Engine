@@ -296,13 +296,16 @@ function resolveExpression(
   const normalizedExact = pool.find((entry) => normalizeExpressionToken(entry) === normalized);
   if (normalizedExact) return normalizedExact;
 
+  // With no facet left to match, a faceted name falls back to its own group key's variants before any loose
+  // substring match, which could land on an unrelated name (unhappy_pajamas for happy_pajamas).
+  const groupFallback = faceted ? resolveExpression(groupKey, pool) : null;
+  if (groupFallback) return groupFallback;
+
   return (
     pool.find((entry) => {
       const option = normalizeExpressionToken(entry);
       return hasUsefulContainmentMatch(normalized, option);
-    }) ??
-    // With no facet left to match, a faceted name falls back to its group key's variants.
-    (faceted ? resolveExpression(groupKey, pool) : null)
+    }) ?? null
   );
 }
 
