@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Fixed
+
+- Roleplay, Conversation, and Game setup now label the model selector **Model**, with matching text for its saved generation defaults.
+
 ## [2.5.1] - 2026-10-20
 
 ### Before you update
