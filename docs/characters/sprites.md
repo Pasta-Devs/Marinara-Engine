@@ -49,6 +49,8 @@ Subfolders become optional sprite folders. An exported `catalog.json` also resto
 
 To make several versions of the same expression, share a name before an underscore. For example, `happy_01.png` and `happy_blush.png` both count as variants of happy.
 
+To let the Expression Engine choose by outfit or condition as well, add more words after the expression, most important first. For example, use `happy_pajamas.png` or `angry_formalwear_soaked_01.png`. A trailing number such as `_01` only marks another version of the same picture. When several sprites share an expression, the agent sees both the expression (`happy`) and their full names (`happy_pajamas`). When no sprite has every word asked for, the last word is dropped first. If there is no `happy_pajamas_wounded`, a `happy_pajamas` sprite is used, and then any happy sprite.
+
 ### Manage a sprite
 
 Open a character sprite to preview it and see its actions. Persona sprites keep their actions on the tile:

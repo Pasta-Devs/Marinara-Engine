@@ -1,4 +1,9 @@
-import { normalizeSpriteExpressionKey as normalizeUnicodeSpriteExpressionKey } from "@marinara-engine/shared";
+import {
+  findSpriteExpressionFacetMatches,
+  isSpriteTalkOrBlinkFrame,
+  normalizeSpriteExpressionKey as normalizeUnicodeSpriteExpressionKey,
+  spriteExpressionFacetKey,
+} from "@marinara-engine/shared";
 
 export type SpriteExpressionLike = {
   expression: string;
@@ -63,6 +68,20 @@ export function hasUsefulContainmentMatch(requested: string, candidate: string):
   return requestedTokens.includes(candidate) || candidateTokens.includes(requested);
 }
 
+/**
+ * The first sprite carrying a faceted name's facets (#8637), such as happy_pajamas_01 for happy_pajamas or for
+ * happy_pajamas_wounded when no wounded pajamas sprite exists. Null for a plain group key or when no facet
+ * matches, which leaves the group key to the existing matching. Sprite order keeps the choice deterministic.
+ */
+export function resolveSpriteFacet<T extends SpriteExpressionLike>(
+  sprites: readonly T[],
+  expression: string,
+): T | null {
+  return (
+    findSpriteExpressionFacetMatches(sprites, expression, (sprite) => sprite.label ?? sprite.expression)[0] ?? null
+  );
+}
+
 function getFallbackKeys(expression: string): string[] {
   const normalized = normalizeSpriteExpressionKey(expression);
   if (!normalized) return [...NEUTRAL_FALLBACKS];
@@ -96,14 +115,23 @@ export function resolveSpriteExpression<T extends SpriteExpressionLike>(
   const requested = normalizeSpriteExpressionKey(expression ?? "");
   const exactHandle = available.find((sprite) => sprite.expression === expression);
   if (exactHandle) return exactHandle;
-  const keyed = available.map((sprite) => ({
+  const allKeyed = available.map((sprite) => ({
     sprite,
     key: normalizeSpriteExpressionKey(sprite.label ?? sprite.expression),
   }));
 
+  const exact = requested ? allKeyed.find((entry) => entry.key === requested) : undefined;
+  if (exact) return exact.sprite;
+  // A faceted name never falls back to a PNGTuber talk or blink frame: those are frames of another face (#8637).
+  const groupKey = requested.replace(/^full_/u, "").split("_")[0] ?? "";
+  const faceted = spriteExpressionFacetKey(requested) !== spriteExpressionFacetKey(groupKey);
+  const keyed = faceted
+    ? allKeyed.filter((entry) => !isSpriteTalkOrBlinkFrame(spriteExpressionFacetKey(entry.key)))
+    : allKeyed;
+
   if (requested) {
-    const exact = keyed.find((entry) => entry.key === requested);
-    if (exact) return exact.sprite;
+    const facet = resolveSpriteFacet(available, requested);
+    if (facet) return facet;
 
     const partial = keyed.find((entry) => hasUsefulContainmentMatch(requested, entry.key));
     if (partial) return partial.sprite;

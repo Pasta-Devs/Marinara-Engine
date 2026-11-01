@@ -2,6 +2,7 @@ import {
   hasUsefulContainmentMatch,
   normalizeSpriteExpressionKey,
   resolveSpriteExpression,
+  resolveSpriteFacet,
   type SpriteExpressionLike,
 } from "../../lib/sprite-expression-match";
 import { isFullBodySpriteExpression, type SpriteDisplayMode } from "./sprite-display-modes";
@@ -51,6 +52,9 @@ export function resolveSpriteDisplayExpression<T extends SpriteExpressionLike>(
   };
   const exact = find((value) => value === lower || withoutFullBodyPrefix(value) === lower);
   if (exact) return exact;
+  // One search over both families, bodies first, so the most specific facet wins and ties keep the body.
+  const facet = resolveSpriteFacet([...bodies, ...portraits], expression);
+  if (facet) return facet;
   const key = normalizeSpriteExpressionKey(expression);
   const partial = find((value) => {
     const spriteKey = normalizeSpriteExpressionKey(value);

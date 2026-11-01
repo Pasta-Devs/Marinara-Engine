@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 import { join, extname } from "path";
+import { isSpriteTalkOrBlinkFrame, spriteExpressionFacetKey } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { listSpriteCatalog } from "../sprites/sprite-catalog.js";
 
@@ -53,6 +54,10 @@ function getSpriteExpressionGroupKey(expression: string): string | null {
  * Collapse variant filenames like joy_01 / joy_blush into the simple group key
  * that the expression agent should see. The full concrete filenames stay in
  * expressions so validation can randomly resolve the group at runtime.
+ * A grouped name with facets after its group key is offered by its faceted name
+ * too (#8637), without its variant number: angry_formalwear_soaked_01 adds
+ * angry_formalwear_soaked, and joy_blush adds joy_blush. PNGTuber talk and blink
+ * frames stay inside their group.
  */
 export function buildSpriteExpressionChoices(expressions: string[]): string[] {
   const groupKeys = new Map<string, { key: string; count: number }>();
@@ -72,16 +77,23 @@ export function buildSpriteExpressionChoices(expressions: string[]): string[] {
 
   const choices: string[] = [];
   const emitted = new Set<string>();
+  const emit = (choice: string) => {
+    const choiceLookup = choice.toLowerCase();
+    if (emitted.has(choiceLookup)) return;
+    choices.push(choice);
+    emitted.add(choiceLookup);
+  };
 
   for (const expression of expressions) {
     const groupKey = getSpriteExpressionGroupKey(expression);
     const group = groupKey ? groupKeys.get(groupKey.toLowerCase()) : undefined;
-    const choice = group && group.count > 1 ? group.key : expression;
-    const choiceLookup = choice.toLowerCase();
-    if (emitted.has(choiceLookup)) continue;
-
-    choices.push(choice);
-    emitted.add(choiceLookup);
+    if (!group || group.count <= 1) {
+      emit(expression);
+      continue;
+    }
+    emit(group.key);
+    const facet = spriteExpressionFacetKey(expression);
+    if (facet !== spriteExpressionFacetKey(group.key) && !isSpriteTalkOrBlinkFrame(facet)) emit(facet);
   }
 
   return choices;
