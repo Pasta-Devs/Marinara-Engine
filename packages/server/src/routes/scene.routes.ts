@@ -1532,10 +1532,10 @@ export async function sceneRoutes(app: FastifyInstance) {
       `Direction: optional wishes for how the story may develop (tone, pacing, where it may go), written as preferences, not as facts. Use an empty string when the idea gives none.`,
       `Return only JSON: {"premise":"...","direction":"...","opening":"..."}.`,
       openingOnly
-        ? `Generate only a new opening that fits this premise: ${revise!.current.premise}.${revise!.current.direction ? ` Story direction: ${revise!.current.direction}` : ""}`
+        ? `Generate only a new opening that fits this premise:\n${revise!.current.premise}${revise!.current.direction ? `\nStory direction (a preference for later; do not act it out in the opening):\n${revise!.current.direction}` : ""}`
         : "",
       premiseOnly
-        ? `Generate only a new premise and direction. Keep them consistent with this opening: ${revise!.current.opening.content}`
+        ? `Generate only a new premise and direction. Keep them consistent with this opening:\n${revise!.current.opening.content}${revise!.current.direction ? `\nKeep this story direction unless the revision instruction asks to change it:\n${revise!.current.direction}` : ""}`
         : "",
       revise?.note ? `Revision instruction: ${revise.note}` : "",
       !revise ? `User idea (may be empty): ${idea}` : "",
