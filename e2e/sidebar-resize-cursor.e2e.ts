@@ -64,10 +64,31 @@ for (const customCursorEnabled of [true, false]) {
     expect(await cursorAt(page, far.x, far.y), "the whole page keeps the resize cursor during the drag").toBe(
       "col-resize",
     );
+    // Another resize edge on the way (a floating window's corner, a panel's edge) does not take the cursor over mid-drag.
+    // Probed with classes the shipped CSS has: Tailwind emits only the cursor utilities the app uses.
+    const edges = await page.evaluate(() =>
+      ["cursor-nwse-resize", "mari-resize-x", "mari-resize-y"].map((className) => {
+        const edge = document.body.appendChild(document.createElement("div"));
+        edge.className = `${className} sidebar-resize-cursor-probe`;
+        return className;
+      }),
+    );
+    const probeCursors = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll(".sidebar-resize-cursor-probe")].map((edge) => getComputedStyle(edge).cursor),
+      );
+    expect(await probeCursors(), `mid-drag, ${edges.join(", ")} show the drag's cursor`).toEqual(
+      edges.map(() => "col-resize"),
+    );
     await page.mouse.up();
     await expect(root).not.toHaveAttribute("data-marinara-resizing", /.*/);
     expect(await cursorAt(page, far.x, far.y), "released, the page shows its usual cursor again").not.toBe(
       "col-resize",
     );
+    expect(await probeCursors(), "released, each edge shows its own resize cursor again").toEqual([
+      "nwse-resize",
+      "ew-resize",
+      "ns-resize",
+    ]);
   });
 }

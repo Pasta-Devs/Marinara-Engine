@@ -4796,9 +4796,10 @@ strong {
   cursor: sw-resize !important;
 }
 /* While a sidebar edge is dragged the pointer leaves the thin handle, so the whole page shows the resize cursor until
-   the drag ends (AppShell sets and clears the attribute). */
+   the drag ends (AppShell sets and clears the attribute). The doubled :root outranks the resize-class rules above, so
+   crossing a window corner or a panel edge mid-drag does not swap in that element's own resize cursor. */
 :root[data-marinara-resizing="col"],
-:root[data-marinara-resizing="col"] * {
+:root:root[data-marinara-resizing="col"] * {
   cursor: col-resize !important;
 }
 
