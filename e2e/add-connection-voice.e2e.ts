@@ -48,3 +48,42 @@ test("Add models for ElevenLabs opens the audio editor instead of a blank modal"
     await request.delete(`/api/connection-accounts/${row.accountId}`);
   }
 });
+
+test("A voice job with Text to Speech off offers Turn on", async ({ page, request }) => {
+  const response = await request.post("/api/connections", {
+    data: {
+      name: "ElevenLabs off regression",
+      provider: "audio",
+      audioSource: "elevenlabs",
+      baseUrl: "https://api.elevenlabs.io",
+      apiKey: "",
+      model: "eleven_multilingual_v2",
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const row = (await response.json()) as { id: string; accountId: string };
+  const original = await (await request.get("/api/tts/config")).json();
+  try {
+    const off = await request.put("/api/tts/config", { data: { ...original, enabled: false, connectionId: row.id } });
+    expect(off.ok(), await off.text()).toBeTruthy();
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: true,
+      rightPanel: "connections",
+      connectionsCollapsed: [],
+    });
+    await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+    await page.goto("/");
+    const voice = page
+      .locator("[data-connections-panel]")
+      .filter({ visible: true })
+      .locator('[data-defaults-role="voice"]');
+    await voice.getByRole("button", { name: "Turn on", exact: true }).click();
+    await expect.poll(async () => (await (await request.get("/api/tts/config")).json()).enabled).toBe(true);
+  } finally {
+    await request.put("/api/tts/config", { data: original });
+    await request.delete(`/api/connections/${row.id}`);
+    await request.delete(`/api/connection-accounts/${row.accountId}`);
+  }
+});

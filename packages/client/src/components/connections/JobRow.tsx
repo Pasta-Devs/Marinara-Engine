@@ -14,6 +14,7 @@ import type { ConnectionRowData } from "./ConnectionRow";
 import { viaName } from "../../lib/connection-groups";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { JOB_HINT_INSET } from "./connection-row-layout";
+import { SMALL_ACTION } from "./DeviceDetail";
 
 /** The amber warning chip. NeedsModelChip draws it too. */
 export function WarningChip({ children, className }: { children: ReactNode; className?: string }) {
@@ -99,6 +100,13 @@ export function JobRow({
     <>
       <ModelRow
         {...button}
+        end={
+          tile.warning?.fix && (
+            <button type="button" onClick={tile.warning.fix.run} className={cn(SMALL_ACTION, "shrink-0")}>
+              {tile.warning.fix.label}
+            </button>
+          )
+        }
         aria-describedby={hint ? hintId : undefined}
         rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
         className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1"
