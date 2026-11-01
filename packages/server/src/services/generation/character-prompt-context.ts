@@ -239,6 +239,8 @@ export function injectIdentityFallbackMessages(args: {
   persona?: { personaStats?: unknown } | null;
   promptTemplateSources?: readonly string[];
   resolvePromptMacros(value: string): string;
+  /** The chat's scenario override (`groupScenarioText`); it replaces every card's own scenario. */
+  groupScenarioOverrideText?: string | null;
   /** Conversation mode only: enables the opt-in per-card convo display-name line.
    *  Gated so the field never reaches RP/VN/Game prompts. */
   isConversation?: boolean;
@@ -248,6 +250,8 @@ export function injectIdentityFallbackMessages(args: {
   const fallbackCharInfo = args.promptTargetCharacterId
     ? args.charInfo.filter((character) => character.id === args.promptTargetCharacterId)
     : args.charInfo;
+  // Same rule as the preset marker: a chat scenario override replaces every card's own scenario.
+  const scenarioOverride = cardPromptText(args.groupScenarioOverrideText ?? "");
 
   for (const character of fallbackCharInfo) {
     const characterMacroContext = {
@@ -291,6 +295,7 @@ export function injectIdentityFallbackMessages(args: {
       // omitting the card's Advanced System Prompt. Preserve the custom profile,
       // but never let its presence suppress character-authored instructions.
       if (namedProfilePresent && field.key !== "systemPrompt") return [];
+      if (field.key === "scenario" && scenarioOverride.trim()) return [];
       const value = resolvedFields[field.key];
       if (!value.trim()) return [];
       if (sourceReferencesAnyMacro(promptTemplateSources, field.macroAliases)) return [];
@@ -304,6 +309,19 @@ export function injectIdentityFallbackMessages(args: {
     const firstSysIdx = args.messages.findIndex((message) => message.role === "system");
     const insertAt = firstSysIdx >= 0 ? firstSysIdx + 1 : 0;
     args.messages.splice(insertAt, 0, { role: "system", content: block });
+  }
+
+  const scenarioValue = args.resolvePromptMacros(scenarioOverride);
+  if (
+    scenarioValue.trim() &&
+    !sourceReferencesAnyMacro(promptTemplateSources, ["scenario"]) &&
+    !contentIncludesResolvedField(allContent, scenarioValue)
+  ) {
+    const firstSysIdx = args.messages.findIndex((message) => message.role === "system");
+    args.messages.splice(firstSysIdx >= 0 ? firstSysIdx + 1 : 0, 0, {
+      role: "system",
+      content: wrapContent(sanitizePromptLeaf(scenarioValue, args.wrapFormat), "scenario", args.wrapFormat, 1),
+    });
   }
 
   const resolvedPersonaFields: Record<PersonaFallbackFieldKey, string> = {
