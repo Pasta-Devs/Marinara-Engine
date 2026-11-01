@@ -82,10 +82,10 @@ export function parseSceneScenarioDraft(
   }
   const premise = typeof parsed.premise === "string" ? parsed.premise : "";
   const openingValue = parsed.opening;
-  const openingContent = typeof openingValue === "string"
+  const openingContent: string = typeof openingValue === "string"
     ? openingValue
     : openingValue && typeof openingValue === "object" && typeof (openingValue as Record<string, unknown>).content === "string"
-      ? (openingValue as Record<string, string>).content
+      ? (openingValue as Record<string, string>).content!
       : "";
   if (revise?.part === "opening") {
     if (!openingContent.trim()) return { draft: null, error: "Model did not return an opening. Try again." };
