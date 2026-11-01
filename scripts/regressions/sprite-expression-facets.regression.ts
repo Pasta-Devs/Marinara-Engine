@@ -131,6 +131,20 @@ try {
     "happy",
     "a talk frame is never shown as an outfit's face",
   );
+  assert.equal(
+    resolveSpriteExpression(library("outfit-frames-only", ["happy_pajamas_talk", "neutral"]).sprites, "happy_pajamas")
+      ?.expression,
+    "neutral",
+    "with no face of its own, an outfit falls back past its talk frame",
+  );
+  assert.equal(
+    resolveSpriteExpression(
+      library("outfit-frames-only", ["happy_pajamas_talk", "neutral"]).sprites,
+      "happy_pajamas_talk",
+    )?.expression,
+    "happy_pajamas_talk",
+    "a frame asked for by name still shows",
+  );
   const serverFrames = library("outfit-frames-server", [
     "happy_pajamas_talk",
     "happy_pajamas_blink",

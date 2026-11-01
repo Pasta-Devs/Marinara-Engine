@@ -1,6 +1,8 @@
 import {
   findSpriteExpressionFacetMatches,
+  isSpriteTalkOrBlinkFrame,
   normalizeSpriteExpressionKey as normalizeUnicodeSpriteExpressionKey,
+  spriteExpressionFacetKey,
 } from "@marinara-engine/shared";
 
 export type SpriteExpressionLike = {
@@ -113,15 +115,21 @@ export function resolveSpriteExpression<T extends SpriteExpressionLike>(
   const requested = normalizeSpriteExpressionKey(expression ?? "");
   const exactHandle = available.find((sprite) => sprite.expression === expression);
   if (exactHandle) return exactHandle;
-  const keyed = available.map((sprite) => ({
+  const allKeyed = available.map((sprite) => ({
     sprite,
     key: normalizeSpriteExpressionKey(sprite.label ?? sprite.expression),
   }));
 
-  if (requested) {
-    const exact = keyed.find((entry) => entry.key === requested);
-    if (exact) return exact.sprite;
+  const exact = requested ? allKeyed.find((entry) => entry.key === requested) : undefined;
+  if (exact) return exact.sprite;
+  // A faceted name never falls back to a PNGTuber talk or blink frame: those are frames of another face (#8637).
+  const groupKey = requested.replace(/^full_/u, "").split("_")[0] ?? "";
+  const faceted = spriteExpressionFacetKey(requested) !== spriteExpressionFacetKey(groupKey);
+  const keyed = faceted
+    ? allKeyed.filter((entry) => !isSpriteTalkOrBlinkFrame(spriteExpressionFacetKey(entry.key)))
+    : allKeyed;
 
+  if (requested) {
     const facet = resolveSpriteFacet(available, requested);
     if (facet) return facet;
 
