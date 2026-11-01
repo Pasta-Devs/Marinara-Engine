@@ -46,6 +46,8 @@ interface ModalProps {
   opaque?: boolean;
   /** Let drag hit-testing reach content behind the modal while keeping the panel interactive. */
   dragThrough?: boolean;
+  /** Keep surrounding libraries interactive, without a backdrop or focus trap. */
+  modeless?: boolean;
   /** Always open on the omnibar's layer, above every other app overlay (app dialogs, even over a package screen). */
   topLayer?: boolean;
 }
@@ -69,8 +71,13 @@ export function Modal({
   closeButtonClassName,
   opaque = false,
   dragThrough = false,
+  modeless = false,
   topLayer = false,
 }: ModalProps) {
+  const sidebarOpen = useUIStore((s) => modeless && s.sidebarOpen);
+  const sidebarWidth = useUIStore((s) => (modeless ? s.sidebarWidth : 0));
+  const rightPanelOpen = useUIStore((s) => modeless && s.rightPanelOpen);
+  const rightPanelWidth = useUIStore((s) => (modeless ? s.rightPanelWidth : 0));
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const localizedTitle = localize(title);
@@ -92,6 +99,7 @@ export function Modal({
     restoreFocusRef,
     focusScopePortalSelector,
     () => overlayRegistrationRef.current?.isTopmost() ?? true,
+    !modeless,
   );
   // Hardware / gesture back closes the topmost modal. While closing is disabled
   // the press is absorbed rather than ignored, matching Escape: an in-flight
@@ -152,13 +160,24 @@ export function Modal({
     const handler = (e: KeyboardEvent) => {
       // Escape while an IME is composing cancels the composition first.
       if (e.isComposing) return;
+      if (!modeless) {
+        if (e.key !== "Escape" || closeDisabled) return;
+        if (!overlayRegistrationRef.current?.isTopmost()) return;
+        onClose();
+        return;
+      }
       if (e.key !== "Escape" || closeDisabled) return;
       if (!overlayRegistrationRef.current?.isTopmost()) return;
+      // Sidebar keys belong to the sidebar; drag/menu cancellation may also consume Escape.
+      if (e.defaultPrevented) return;
+      const panel = panelRef.current;
+      const targetInside = e.target instanceof Node && panel?.contains(e.target);
+      if (!targetInside && !panel?.contains(document.activeElement)) return;
       onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose, closeDisabled]);
+  }, [open, onClose, closeDisabled, modeless]);
 
   // Remove from DOM after exit animation completes. A reopen during the exit (focus is already back on the opener)
   // keeps it: the late transitionend or the fallback below must not unmount an open dialog.
@@ -190,37 +209,45 @@ export function Modal({
     <div
       ref={overlayRef}
       role="dialog"
-      aria-modal="true"
+      aria-modal={modeless ? undefined : true}
       aria-label={localizedTitle}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
+      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough || modeless ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
       }`}
       style={{
+        ...(modeless
+          ? ({
+              "--dialog-left": `${sidebarOpen ? sidebarWidth + 16 : 16}px`,
+              "--dialog-right": `${rightPanelOpen ? rightPanelWidth + 16 : 16}px`,
+            } as CSSProperties)
+          : {}),
         opacity: isEntering ? 1 : 0,
         transition: "opacity 150ms ease-out",
       }}
       onTransitionEnd={handleAnimationEnd}
-      {...backdropDismiss}
+      {...(modeless ? {} : backdropDismiss)}
     >
       {/* Backdrop */}
-      <div
-        data-backdrop-dismiss-surface="true"
-        className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
-        style={{
-          opacity: isEntering ? 1 : 0,
-          transition: "opacity 150ms ease-out",
-        }}
-      />
+      {!modeless && (
+        <div
+          data-backdrop-dismiss-surface="true"
+          className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+          style={{
+            opacity: isEntering ? 1 : 0,
+            transition: "opacity 150ms ease-out",
+          }}
+        />
+      )}
 
       {/* Panel */}
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough ? "pointer-events-auto" : ""} ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
+        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough || modeless ? "pointer-events-auto" : ""} ${modeless ? "max-h-[calc(100dvh-5rem)]!" : ""} ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
           mobileFullscreen
             ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]"
             : ""

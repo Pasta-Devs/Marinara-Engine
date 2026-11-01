@@ -2305,7 +2305,10 @@ function RoleplaySetupWizard({
   // The quick-setup picker only shows the profile's starting persona; nothing is written until
   // the user picks one here (their pick then wins) or Apply & Start applies the profile.
   const [shortcutPersonaPicked, setShortcutPersonaPicked] = useState(false);
-  const [profileBuilder, setProfileBuilder] = useState<"edit" | "new" | null>(null);
+  const [profileBuilder, setProfileBuilder] = useState<ChatPreset | "new" | null>(null);
+  useEffect(() => {
+    setProfileBuilder(null);
+  }, [chat.id]);
 
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
@@ -3997,7 +4000,7 @@ function RoleplaySetupWizard({
           {shortcutPreset && !shortcutPreset.isDefault && (
             <button
               type="button"
-              onClick={() => setProfileBuilder("edit")}
+              onClick={() => setProfileBuilder(shortcutPreset)}
               title={localizeUi("chat.settingsProfile.builder.editHint")}
               className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             >
@@ -4009,7 +4012,7 @@ function RoleplaySetupWizard({
           open={profileBuilder !== null}
           onClose={() => setProfileBuilder(null)}
           mode={chatPresetMode}
-          profile={profileBuilder === "edit" ? shortcutPreset : null}
+          profile={profileBuilder === "new" ? null : profileBuilder}
           saveOnly
           onSaved={(saved) => setShortcutPresetId(saved.id)}
         />

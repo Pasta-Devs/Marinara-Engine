@@ -4973,7 +4973,11 @@ export function ChatSettingsDrawer({
   };
 
   // "New" starts the builder from this chat's settings, persona and lorebooks (the old "Save as").
-  const [profileBuilder, setProfileBuilder] = useState<"edit" | "new" | null>(null);
+  const [profileBuilder, setProfileBuilder] = useState<ChatPreset | "new" | null>(null);
+  useEffect(() => {
+    // A modeless editor must not silently retarget another chat's profile.
+    setProfileBuilder(null);
+  }, [chat.id]);
   const newProfileSettings = useMemo(
     (): ChatPresetSettings =>
       profileBuilder === "new"
@@ -5001,6 +5005,9 @@ export function ChatSettingsDrawer({
     const defaultPreset = presetList.find((p) => p.isDefault);
     deleteChatPreset.mutate(selectedChatPreset.id, {
       onSuccess: () => {
+        setProfileBuilder((current) =>
+          current && current !== "new" && current.id === selectedChatPreset.id ? null : current,
+        );
         // If the chat was using the profile we just deleted, fall back to the
         // Default profile's settings: without this, the chat would visually
         // show "Default" but keep the deleted profile's actual values.
@@ -5601,6 +5608,8 @@ export function ChatSettingsDrawer({
         headerControls={headerControls}
         closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
         {...windowProps}
+        // Sidebar presses belong to the modeless profile editor while it is open.
+        ignoreOutsidePointer={(target) => profileBuilder !== null || windowProps.ignoreOutsidePointer(target)}
         // A window the user has not moved opens beside a right-side Tracker Panel, not over it.
         defaultLayoutKey={`${trackerPanelSide}:${trackerPanelClearance}`}
         className={cn(windowProps.className, "mari-chat-settings-popover mari-chat-settings-drawer")}
@@ -5667,7 +5676,7 @@ export function ChatSettingsDrawer({
                 open={profileBuilder !== null}
                 onClose={() => setProfileBuilder(null)}
                 mode={chatMode}
-                profile={profileBuilder === "edit" ? selectedChatPreset : null}
+                profile={profileBuilder === "new" ? null : profileBuilder}
                 initialSettings={newProfileSettings}
                 currentChatId={chat.id}
               />
@@ -5713,7 +5722,7 @@ export function ChatSettingsDrawer({
                 )}
                 <button
                   type="button"
-                  onClick={() => setProfileBuilder("edit")}
+                  onClick={() => setProfileBuilder(selectedChatPreset)}
                   disabled={!selectedChatPreset || selectedChatPreset.isDefault}
                   title={
                     selectedChatPreset?.isDefault

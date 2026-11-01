@@ -2,7 +2,7 @@
 // Settings profile builder: fill a profile's slots by drag or click,
 // then pick the chats that should use it.
 // ──────────────────────────────────────────────
-import { useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { useId, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -10,7 +10,6 @@ import {
   BookOpen,
   Bot,
   Brain,
-  ChevronDown,
   FileText,
   Image as ImageIcon,
   Languages,
@@ -19,7 +18,6 @@ import {
   SlidersHorizontal,
   VenetianMask,
   Wrench,
-  X,
 } from "lucide-react";
 import {
   BUILT_IN_TOOLS,
@@ -33,7 +31,12 @@ import {
   type ChatPresetSettings,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
-import { AgentArtwork } from "../agents/AgentArtwork";
+import {
+  getActiveChatResourceDrag,
+  getActiveChatResourceMouseDrag,
+  readChatResourceDragPayload,
+  type ChatResourceDragPayload,
+} from "../../lib/chat-resource-drag";
 import { iconOf } from "../agents/organizer/organizer-model";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
@@ -179,7 +182,9 @@ interface ChatProfileBuilderProps {
 
 export function ChatProfileBuilder(props: ChatProfileBuilderProps) {
   if (!props.open) return null;
-  return <ChatProfileBuilderBody {...props} />;
+  return (
+    <ChatProfileBuilderBody key={`${props.mode}:${props.currentChatId ?? ""}:${props.profile?.id ?? ""}`} {...props} />
+  );
 }
 
 function ChatProfileBuilderBody({
@@ -193,6 +198,8 @@ function ChatProfileBuilderBody({
   onSaved,
 }: ChatProfileBuilderProps) {
   const { t } = useTranslation();
+  const fieldId = useId();
+  const canDrag = !window.matchMedia("(pointer: coarse), (max-width: 639px)").matches;
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles.profiles);
   const { data: connections } = useConnections();
   const { data: presets } = usePresets();
@@ -216,12 +223,7 @@ function ChatProfileBuilderBody({
 
   const [name, setName] = useState(profile?.name ?? initialName ?? t("chat.settingsProfile.builder.defaultName"));
   const [settings, setSettings] = useState<ChatPresetSettings>(profile?.settings ?? initialSettings ?? {});
-  const [openSlot, setOpenSlot] = useState<SlotKey | null>(null);
-  const [dragKind, setDragKind] = useState<SlotKey | null>(null);
-  // Touch screens and phone widths (no library tray) cannot drag, so they only get the pick hint.
-  const canDrag = !window.matchMedia("(pointer: coarse), (max-width: 639px)").matches;
   const [overSlot, setOverSlot] = useState<SlotKey | null>(null);
-  const [query, setQuery] = useState("");
   const [saved, setSaved] = useState<ChatPreset | null>(null);
   const [makeDefault, setMakeDefault] = useState(profile?.isActive ?? false);
   const [checkedChats, setCheckedChats] = useState<Set<string>>(() => new Set(currentChatId ? [currentChatId] : []));
@@ -287,17 +289,33 @@ function ChatProfileBuilderBody({
   const slots = GROUPS.flatMap((group) => group.rows.flat()).filter((key) => key !== "preset" || mode === "roleplay");
   const filled = slots.filter((key) => slotIds(key, settings).length > 0).length;
   const label = (key: SlotKey) => t(`chat.settingsProfile.builder.slot.${key}`);
-  const findItem = (key: SlotKey, id: string): Item => library[key].find((item) => item.id === id) ?? { id, name: id };
-
-  const put = (key: SlotKey, id: string) => {
-    setSettings((prev) => {
-      const current = slotIds(key, prev);
-      if (!SLOT_META[key].multi) return withSlot(key, prev, current[0] === id ? [] : [id]);
-      return withSlot(key, prev, current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
-    });
+  const resourceIds = (key: SlotKey, payload: ChatResourceDragPayload | null) => {
+    const kinds: Partial<Record<SlotKey, ChatResourceDragPayload["kind"]>> = {
+      conn: "connection",
+      preset: "preset",
+      agent: "agent",
+      persona: "persona",
+      bg: "background",
+      lore: "lorebook",
+    };
+    if (!payload || payload.unsupported || kinds[key] !== payload.kind) return [];
+    return payload.ids
+      .map((id) => (key === "bg" ? (chatBackgroundUrlToMetadata(id) ?? id) : id))
+      .filter((id) => library[key].some((item) => item.id === id));
   };
-  const remove = (key: SlotKey, id: string) =>
-    setSettings((prev) => withSlot(key, prev, SUMMARY_KEYS[key] ? [] : slotIds(key, prev).filter((x) => x !== id)));
+
+  const dropResource = (key: SlotKey, payload: ChatResourceDragPayload | null) => {
+    const dropped = resourceIds(key, payload);
+    if (dropped.length)
+      setSettings((prev) =>
+        withSlot(
+          key,
+          prev,
+          SLOT_META[key].multi ? Array.from(new Set([...slotIds(key, prev), ...dropped])) : dropped.slice(0, 1),
+        ),
+      );
+    setOverSlot(null);
+  };
 
   const trimmedName = name.trim();
   const handleSave = async () => {
@@ -349,151 +367,155 @@ function ChatProfileBuilderBody({
     }
   };
 
-  const onDrop = (key: SlotKey) => (event: DragEvent) => {
-    event.preventDefault();
-    const id = event.dataTransfer.getData("text/plain");
-    if (dragKind === key && id && !slotIds(key, settings).includes(id)) put(key, id);
-    setDragKind(null);
-    setOverSlot(null);
-  };
-
-  const renderChipLogo = (key: SlotKey, item: Item) => {
-    if (key === "agent") {
-      return (
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[color-mix(in_srgb,var(--foreground)_12%,var(--card))] shadow-[0_1px_3px_rgb(0_0_0/0.3),inset_0_0_0_1px_color-mix(in_srgb,var(--foreground)_10%,transparent)] [&>img]:h-[68%]! [&>img]:w-[68%]! [&>img]:object-contain!">
-          <AgentArtwork imageUrl={item.image ?? undefined} alt="" iconSize="0.75rem" />
-        </span>
-      );
-    }
-    if (item.image) return <img src={item.image} alt="" className="h-5 w-5 shrink-0 rounded-md object-cover" />;
-    return <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--mari-panel-gradient-start)]" aria-hidden />;
-  };
-
   const renderSlot = (key: SlotKey) => {
     const meta = SLOT_META[key];
     const Icon = meta.icon;
     const ids = slotIds(key, settings);
     const isFilled = ids.length > 0;
-    const isOpen = openSlot === key;
-    const canDrop = dragKind === key;
     const summary = !!SUMMARY_KEYS[key];
     const items = library[key];
     return (
       <div
         key={key}
-        onDragOver={(event) => {
-          if (!canDrop) return;
+        onDragOver={(event: DragEvent) => {
+          if (!resourceIds(key, getActiveChatResourceDrag()).length) return;
           event.preventDefault();
+          event.stopPropagation();
+          event.dataTransfer.dropEffect = "copy";
           setOverSlot(key);
         }}
-        onDragLeave={() => setOverSlot((prev) => (prev === key ? null : prev))}
-        onDrop={onDrop(key)}
+        onDragLeave={() => setOverSlot(null)}
+        onDrop={(event: DragEvent) => {
+          event.preventDefault();
+          event.stopPropagation();
+          dropResource(key, readChatResourceDragPayload(event.dataTransfer));
+        }}
+        onMouseMove={() => {
+          if (resourceIds(key, getActiveChatResourceMouseDrag()).length) setOverSlot(key);
+        }}
+        onMouseLeave={() => setOverSlot(null)}
+        onMouseUp={(event) => {
+          if (event.button !== 0) return;
+          const payload = getActiveChatResourceMouseDrag();
+          if (!resourceIds(key, payload).length) return;
+          event.preventDefault();
+          // Let the library's window-level mouseup handler clean up its drag preview.
+          dropResource(key, payload);
+        }}
         className={cn(
           `mari-panel-gradient--${meta.type}`,
-          "flex min-w-0 flex-col rounded-xl border-[1.5px] transition-[opacity,border-color,background-color] duration-150",
+          "flex min-w-0 flex-col gap-2 rounded-xl border-[1.5px] p-3 transition-[border-color,background-color] duration-150",
           isFilled
             ? "border-solid border-[var(--border)] bg-[var(--card)]"
             : "border-dashed border-[color-mix(in_srgb,var(--mari-panel-gradient-start)_40%,var(--border))]",
-          canDrop &&
-            "border-dashed border-[var(--mari-panel-gradient-start)] bg-[color-mix(in_srgb,var(--mari-panel-gradient-start)_8%,var(--card))]",
-          overSlot === key && "bg-[color-mix(in_srgb,var(--mari-panel-gradient-start)_16%,var(--card))]",
-          dragKind && !canDrop && "opacity-30",
+          overSlot === key &&
+            "border-dashed border-[var(--mari-panel-gradient-start)] bg-[color-mix(in_srgb,var(--mari-panel-gradient-start)_16%,var(--card))]",
         )}
       >
-        <div className="flex min-h-[3.25rem] items-center gap-3 px-3 py-2">
-          <button
-            type="button"
-            aria-expanded={isOpen}
-            onClick={() => setOpenSlot(isOpen ? null : key)}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-          >
+        <div className="flex min-w-0 flex-col gap-2">
+          <span className="flex items-center gap-2 text-[0.8125rem] font-semibold text-[var(--foreground)]">
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--mari-panel-gradient-start)_16%,transparent)] text-[var(--mari-panel-gradient-start)]">
               <Icon size="0.875rem" aria-hidden />
             </span>
-            <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-              <span className="text-[0.8125rem] font-semibold text-[var(--foreground)]">{label(key)}</span>
-              {!isFilled && (
-                <span className="text-xs text-[var(--muted-foreground)]">
-                  {summary || !meta.library || !canDrag
-                    ? t(summary ? "chat.settingsProfile.builder.hintSummary" : "chat.settingsProfile.builder.hintPick")
-                    : t("chat.settingsProfile.builder.hintDrop")}
+            <span className="flex min-w-0 flex-col items-start gap-0.5">
+              <span id={`${fieldId}-${key}`}>{label(key)}</span>
+              {!isFilled && !summary && meta.library && (
+                <span className="text-xs font-normal text-[var(--muted-foreground)]">
+                  {t(canDrag ? "chat.settingsProfile.builder.hintDrop" : "chat.settingsProfile.builder.hintPick")}
                 </span>
               )}
             </span>
-            <ChevronDown
-              size="0.875rem"
-              aria-hidden
-              className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", isOpen && "rotate-180")}
-            />
-          </button>
-        </div>
-        {isFilled && (
-          <div className="flex flex-wrap gap-1 px-3 pb-2.5 pl-[3.25rem]">
-            {ids.map((id) => {
-              const item = summary ? { id, name: t("chat.settingsProfile.builder.savedSettings") } : findItem(key, id);
-              return (
-                <span
-                  key={id}
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-[color-mix(in_srgb,var(--mari-panel-gradient-start)_35%,transparent)] bg-[var(--secondary)] py-0.5 pr-0.5 pl-1 text-xs text-[var(--foreground)]"
-                >
-                  {!summary && renderChipLogo(key, item)}
-                  <span className="truncate">{item.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => remove(key, id)}
-                    aria-label={t("chat.settingsProfile.builder.remove", { name: item.name })}
-                    className="grid h-5 w-5 shrink-0 place-items-center rounded text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
-                  >
-                    <X size="0.75rem" aria-hidden />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        )}
-        {isOpen && (
-          <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto border-t border-[var(--border)] px-3 py-2">
-            {summary || items.length === 0 ? (
-              <span className="text-xs text-[var(--muted-foreground)]">
-                {t(summary ? "chat.settingsProfile.builder.summaryHelp" : "chat.settingsProfile.builder.noItems")}
-              </span>
-            ) : (
-              items.map((item) => (
-                <button
+          </span>
+          {summary ? (
+            <span className="text-xs font-normal text-[var(--muted-foreground)]">
+              {t(
+                ids.length ? "chat.settingsProfile.builder.savedSettings" : "chat.settingsProfile.builder.summaryHelp",
+              )}
+            </span>
+          ) : key === "tool" ? (
+            <div
+              role="group"
+              aria-labelledby={`${fieldId}-${key}`}
+              className="max-h-44 overflow-y-auto overscroll-contain rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1"
+            >
+              {[
+                ...items,
+                ...ids.filter((id) => !items.some((item) => item.id === id)).map((id) => ({ id, name: id })),
+              ].map((item) => (
+                <label
                   key={item.id}
-                  type="button"
-                  aria-pressed={ids.includes(item.id)}
-                  onClick={() => put(key, item.id)}
-                  className={cn(
-                    "inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-left text-xs transition-colors focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none",
-                    ids.includes(item.id)
-                      ? "border-[var(--mari-panel-gradient-start)] bg-[color-mix(in_srgb,var(--mari-panel-gradient-start)_14%,var(--secondary))] text-[var(--foreground)]"
-                      : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                  )}
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--ring)]"
                 >
-                  {renderChipLogo(key, item)}
-                  <span className="truncate">{item.name}</span>
-                </button>
-              ))
-            )}
-          </div>
+                  <input
+                    type="checkbox"
+                    checked={ids.includes(item.id)}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setSettings((prev) => {
+                        const current = slotIds(key, prev);
+                        return withSlot(
+                          key,
+                          prev,
+                          checked ? [...current, item.id] : current.filter((id) => id !== item.id),
+                        );
+                      });
+                    }}
+                    className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+                  />
+                  <span className="min-w-0 break-words">{item.name}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <select
+              aria-labelledby={`${fieldId}-${key}`}
+              multiple={!!meta.multi}
+              size={meta.multi ? Math.min(5, Math.max(2, items.length)) : undefined}
+              value={meta.multi ? ids : (ids[0] ?? "")}
+              onChange={(event) =>
+                setSettings((prev) =>
+                  withSlot(
+                    key,
+                    prev,
+                    Array.from(event.target.selectedOptions, (option) => option.value).filter(Boolean),
+                  ),
+                )
+              }
+              className="min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm font-normal text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            >
+              {!meta.multi && <option value="">{t("chat.settingsProfile.builder.none")}</option>}
+              {ids
+                .filter((id) => !items.some((item) => item.id === id))
+                .map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        {!summary && items.length === 0 && (
+          <span className="text-xs text-[var(--muted-foreground)]">{t("chat.settingsProfile.builder.noItems")}</span>
+        )}
+        {ids.length > 0 && (summary || meta.multi) && (
+          <button
+            type="button"
+            aria-describedby={`${fieldId}-${key}`}
+            onClick={() => setSettings((prev) => withSlot(key, prev, []))}
+            className="min-h-11 self-start rounded px-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          >
+            {t("chat.settingsProfile.builder.clear")}
+          </button>
         )}
       </div>
     );
   };
 
-  const needle = query.trim().toLowerCase();
-  const trayItems = (Object.keys(SLOT_META) as SlotKey[])
-    .filter((key) => SLOT_META[key].library && slots.includes(key))
-    .flatMap((key) =>
-      library[key]
-        .filter(
-          (item) => !needle || item.name.toLowerCase().includes(needle) || label(key).toLowerCase().includes(needle),
-        )
-        .map((item) => ({ key, item })),
-    );
-
-  // The fields scroll on their own; the library and the buttons stay below them.
   const bodyClass = "flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-5 py-4 text-left";
   const footer = (children: ReactNode) => (
     <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] px-5 py-3">{children}</div>
@@ -518,6 +540,7 @@ function ChatProfileBuilderBody({
           <label className="flex min-h-11 items-center gap-3 rounded-lg bg-[var(--secondary)] px-3 py-2">
             <input
               type="checkbox"
+              autoFocus
               className={checkClass}
               checked={makeDefault}
               onChange={(event) => setMakeDefault(event.target.checked)}
@@ -585,6 +608,7 @@ function ChatProfileBuilderBody({
       title={t(profile ? "chat.settingsProfile.builder.editTitle" : "chat.settingsProfile.builder.newTitle")}
       width="max-w-3xl"
       mobileFullscreen
+      modeless
       contentClassName={CONTENT_CLASS}
     >
       <div className={cn(bodyClass, "gap-4")}>
@@ -619,51 +643,6 @@ function ChatProfileBuilderBody({
         })}
       </div>
       <div className="flex flex-col border-t border-[var(--border)]">
-        <div className="grid gap-x-3 gap-y-2 px-5 pt-3 max-sm:hidden sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
-          <div className="flex flex-col">
-            <span className="text-[0.8125rem] font-semibold text-[var(--foreground)]">
-              {t("chat.settingsProfile.builder.library")}
-            </span>
-            <span className="text-xs text-[var(--muted-foreground)]">
-              {t("chat.settingsProfile.builder.libraryHint")}
-            </span>
-          </div>
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("chat.settingsProfile.builder.search")}
-            aria-label={t("chat.settingsProfile.builder.search")}
-            className="min-h-8 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs text-[var(--foreground)] outline-none focus:border-[var(--ring)]"
-          />
-          <div className="col-span-full flex gap-1 overflow-x-auto pb-1">
-            {trayItems.map(({ key, item }) => (
-              <button
-                key={`${key}:${item.id}`}
-                type="button"
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.setData("text/plain", item.id);
-                  event.dataTransfer.effectAllowed = "copy";
-                  setDragKind(key);
-                }}
-                onDragEnd={() => {
-                  setDragKind(null);
-                  setOverSlot(null);
-                }}
-                onClick={() => put(key, item.id)}
-                title={label(key)}
-                aria-pressed={slotIds(key, settings).includes(item.id)}
-                className={cn(
-                  `mari-panel-gradient--${SLOT_META[key].type}`,
-                  "inline-flex shrink-0 cursor-grab items-center gap-1.5 rounded-md border border-transparent bg-[var(--secondary)] px-2 py-1 text-xs text-[var(--foreground)] hover:border-[color-mix(in_srgb,var(--mari-panel-gradient-start)_45%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none aria-pressed:border-[var(--mari-panel-gradient-start)]",
-                )}
-              >
-                {renderChipLogo(key, item)}
-                <span className="max-w-40 truncate">{item.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
         <div className="flex flex-wrap items-center gap-2 px-5 py-3">
           <span className="min-w-40 flex-1 text-xs text-[var(--muted-foreground)]">
             {t("chat.settingsProfile.builder.filled", { filled, total: slots.length })}
