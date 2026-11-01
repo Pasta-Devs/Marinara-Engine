@@ -4974,6 +4974,10 @@ export function ChatSettingsDrawer({
 
   // "New" starts the builder from this chat's settings, persona and lorebooks (the old "Save as").
   const [profileBuilder, setProfileBuilder] = useState<"edit" | "new" | null>(null);
+  useEffect(() => {
+    // A modeless editor must not silently retarget another chat's profile.
+    setProfileBuilder(null);
+  }, [chat.id]);
   const newProfileSettings = useMemo(
     (): ChatPresetSettings =>
       profileBuilder === "new"

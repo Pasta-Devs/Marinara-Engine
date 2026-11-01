@@ -15,6 +15,11 @@ test("profile editor keeps library navigation accessible and saves native select
   });
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
+  const otherChatResponse = await request.post("/api/chats", {
+    data: { name: "Profile switch target", mode: "roleplay", characterIds: [] },
+  });
+  expect(otherChatResponse.ok()).toBeTruthy();
+  const otherChat = (await otherChatResponse.json()) as { id: string };
   const personaResponse = await request.post("/api/characters/personas", { data: { name: "Profile editor persona" } });
   expect(personaResponse.ok()).toBeTruthy();
   const persona = (await personaResponse.json()) as { id: string };
@@ -94,6 +99,23 @@ test("profile editor keeps library navigation accessible and saves native select
     expect(saved?.settings.personaId).toBe(persona.id);
     expect(saved?.settings.metadata?.activeToolIds).toContain("set_expression");
     expect(saved?.settings.metadata?.activeToolIds).not.toContain("roll_dice");
+    if (testInfo.project.name.includes("desktop")) {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page
+        .getByRole("dialog", { name: /Sidebar proof profile/ })
+        .getByRole("button", { name: /^Close/ })
+        .click();
+      const reopenedSettings = await openChatSettings(page);
+      await reopenedSettings.getByTitle("New profile from this chat's settings").click();
+      await expect(editor).toBeVisible();
+      await page.evaluate(async (id) => {
+        const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as {
+          useChatStore: { getState: () => { setActiveChatId: (id: string) => void } };
+        };
+        useChatStore.getState().setActiveChatId(id);
+      }, otherChat.id);
+      await expect(editor).toBeHidden();
+    }
     expect(errors).toEqual([]);
   } finally {
     await testInfo.attach("browser diagnostics", {
@@ -108,6 +130,7 @@ test("profile editor keeps library navigation accessible and saves native select
       }
     }
     await request.delete(`/api/chats/${chat.id}`);
+    await request.delete(`/api/chats/${otherChat.id}`);
     await request.delete(`/api/characters/personas/${persona.id}`);
   }
 });
