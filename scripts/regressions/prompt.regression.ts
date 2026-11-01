@@ -75,6 +75,8 @@ import {
   findInvalidInventoryTrackerRow,
   nameToXmlTag,
   getAgentContextSources,
+  ELEVENLABS_AUDIO_TAG_FOR_GAME_EMOTION,
+  GAME_TTS_EMOTIONS,
 } from "../../packages/shared/src/index.js";
 import { replaceBuiltInAgentDefinitions as replaceBuiltInAgentDefinitionsDist } from "../../packages/shared/dist/index.js";
 import { buildInventoryTrackerEditPatch } from "../../packages/client/src/features/tracker-panel/lib/inventory-tracker-edit.js";
@@ -2742,23 +2744,71 @@ const cases: RegressionCase[] = [
     },
   },
   {
-    name: "ElevenLabs TTS input prepends sanitized emotion cues",
+    name: "ElevenLabs TTS input speaks only audio tags the model performs (#8619)",
     run() {
+      // The audio tags ElevenLabs' v3/v4 prompting guide documents (voice-related, and the Enhance feature's directions).
+      const ELEVENLABS_DOCUMENTED_AUDIO_TAGS = new Set([
+        "laughs",
+        "whispers",
+        "sighs",
+        "sarcastic",
+        "curious",
+        "excited",
+        "crying",
+        "mischievously",
+        "happy",
+        "sad",
+        "angry",
+        "annoyed",
+        "appalled",
+        "thoughtful",
+        "surprised",
+      ]);
+      // A game expression is a sprite name: it becomes the documented audio tag that means it, or none. An undocumented
+      // word in brackets is read aloud before the line ("neutral. Four thirty-one…").
       assert.equal(
-        buildElevenLabsTextInput("Reserved. Tomorrow afternoon.", "neutral"),
-        "[neutral] Reserved. Tomorrow afternoon.",
+        buildElevenLabsTextInput("Reserved. Tomorrow afternoon.", "neutral", "eleven_v4"),
+        "Reserved. Tomorrow afternoon.",
       );
       assert.equal(
-        buildElevenLabsTextInput("Your ribs require rest.", "thinking"),
-        "[thinking] Your ribs require rest.",
+        buildElevenLabsTextInput("Your ribs require rest.", "thinking", "eleven_v4"),
+        "[thoughtful] Your ribs require rest.",
       );
-      assert.equal(buildElevenLabsTextInput("A bold strategy.", "smirk"), "[smirk] A bold strategy.");
-      assert.equal(buildElevenLabsTextInput("Stay close.", "[soft]\n"), "[soft] Stay close.");
-      assert.equal(buildElevenLabsTextInput("No cue needed.", " \n[] "), "No cue needed.");
       assert.equal(
-        buildElevenLabsTextInput("  [neutral] Already prepared.", "neutral"),
-        "  [neutral] Already prepared.",
+        buildElevenLabsTextInput("A bold strategy.", "smirk", "eleven_v4"),
+        "[mischievously] A bold strategy.",
       );
+      assert.equal(buildElevenLabsTextInput("Ha!", "laughing", "eleven_v3"), "[laughs] Ha!");
+      assert.equal(buildElevenLabsTextInput("Five more minutes.", "sleepy", "eleven_v4"), "Five more minutes.");
+      assert.equal(buildElevenLabsTextInput("Fine.", "Neutral", "eleven_v4"), "Fine.", "expressions match any case");
+      assert.equal(
+        buildElevenLabsTextInput("  [thoughtful] Already prepared.", "thinking", "eleven_v4"),
+        "  [thoughtful] Already prepared.",
+      );
+      for (const emotion of GAME_TTS_EMOTIONS) {
+        const tag = ELEVENLABS_AUDIO_TAG_FOR_GAME_EMOTION[emotion];
+        assert.ok(
+          tag === null || ELEVENLABS_DOCUMENTED_AUDIO_TAGS.has(tag),
+          `${emotion} maps to a documented ElevenLabs audio tag, or to none`,
+        );
+      }
+
+      // Any other tone is a cue written to be performed (the Roleplay speaker extractor's) and is kept as written.
+      assert.equal(buildElevenLabsTextInput("Stay close.", "[soft]\n", "eleven_v3"), "[soft] Stay close.");
+      assert.equal(buildElevenLabsTextInput("No cue needed.", " \n[] ", "eleven_v4"), "No cue needed.");
+
+      // A model without audio tags reads any bracket aloud, so it never gets one; NanoGPT's Eleven v3 does.
+      for (const model of [
+        "eleven_multilingual_v2",
+        "eleven_flash_v2_5",
+        "eleven_turbo_v2_5",
+        "Elevenlabs-Turbo-V2.5",
+      ]) {
+        assert.equal(buildElevenLabsTextInput("I'm happy.", "happy", model), "I'm happy.", `${model} gets no tag`);
+        assert.equal(buildElevenLabsTextInput("Stay close.", "soft", model), "Stay close.", `${model} gets no cue`);
+      }
+      assert.equal(buildElevenLabsTextInput("I'm happy.", "happy", "Elevenlabs-V3"), "[happy] I'm happy.");
+      assert.equal(buildElevenLabsTextInput("I'm happy.", "happy", "tts_v3"), "[happy] I'm happy.");
     },
   },
   {

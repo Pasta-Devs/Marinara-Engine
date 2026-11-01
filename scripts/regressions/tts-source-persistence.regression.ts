@@ -1124,8 +1124,8 @@ assert.equal(
   "old-persona-voice",
   "an explicitly identified persona named Narrator is not reassigned to the narrator voice",
 );
-assert.equal(buildElevenLabsTextInput('"Skill issue."', "chuckle"), '[chuckle] "Skill issue."');
-assert.equal(buildElevenLabsTextInput('[chuckle] "Skill issue."', "chuckle"), '[chuckle] "Skill issue."');
+assert.equal(buildElevenLabsTextInput('"Skill issue."', "chuckle", "eleven_v3"), '[chuckle] "Skill issue."');
+assert.equal(buildElevenLabsTextInput('[chuckle] "Skill issue."', "chuckle", "eleven_v3"), '[chuckle] "Skill issue."');
 
 const legacyOpenAiConfig = ttsConfigSchema.parse({
   enabled: true,
