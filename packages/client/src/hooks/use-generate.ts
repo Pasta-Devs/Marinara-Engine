@@ -2733,6 +2733,14 @@ export function useGenerate() {
               break;
             }
 
+            case "reply_trimmed": {
+              // "Trim incomplete sentences" shortened the reply; the content_replace that follows shows it (#8643).
+              if (!params.autonomous) {
+                toast.info(translate("chat.reply.trimmedIncompleteEnding"), { id: "reply-trimmed-incomplete-ending" });
+              }
+              break;
+            }
+
             case "generation_discarded": {
               const discarded = event.data as { characterId?: unknown } | null;
               const discardedCharacterId =

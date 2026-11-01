@@ -69,6 +69,7 @@ import { wrapContent } from "../prompt/format-engine.js";
 import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
 import { completeAgentCall } from "./agent-progress.js";
+import { replyUnfinished } from "../generation/empty-response-reason.js";
 import { normalizeCyoaChoiceOutput } from "./cyoa-choice-normalization.js";
 import { getAssetManifest } from "../game/asset-manifest.service.js";
 import { toolRoundsAsText } from "../tools/tool-executor.js";
@@ -976,6 +977,7 @@ export async function executeAgent(
     let parsed = parseAgentResponse(config, responseText);
     let invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
     let totalTokens = result.usage?.totalTokens ?? 0;
+    let finishReason = result.finishReason;
 
     if (invalidJson && shouldRetryInvalidJsonAgent(config) && !context.signal?.aborted) {
       logger.warn("[agent] %s returned invalid JSON; retrying once with strict JSON reminder", config.type);
@@ -1027,11 +1029,12 @@ export async function executeAgent(
       });
       parsed = parseAgentResponse(config, responseText);
       invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
+      finishReason = retryResult.finishReason;
     }
 
     const structured = invalidJson
       ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
-      : resolveStructuredAgentResult(config, context, parsed.data);
+      : resolveStructuredAgentResult(config, context, parsed.data, finishReason);
     return {
       agentId: config.id,
       agentType: config.type,
@@ -1316,7 +1319,7 @@ async function executeAgentWithTools(
       const invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
       const structured = invalidJson
         ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
-        : resolveStructuredAgentResult(config, context, parsed.data);
+        : resolveStructuredAgentResult(config, context, parsed.data, result.finishReason);
       return {
         agentId: config.id,
         agentType: config.type,
@@ -1408,7 +1411,7 @@ async function executeAgentWithTools(
   const invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
   const structured = invalidJson
     ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
-    : resolveStructuredAgentResult(config, context, parsed.data);
+    : resolveStructuredAgentResult(config, context, parsed.data, finalResult.finishReason);
   return {
     agentId: config.id,
     agentType: config.type,
@@ -2006,15 +2009,25 @@ function shouldFailInvalidJsonResult(config: Pick<AgentExecConfig, "type" | "set
   );
 }
 
+const CUT_OFF_TEXT_REWRITE_ERROR =
+  "The rewrite stopped before it finished (often the agent's max tokens), so the reply was kept as written. Raise this agent's max tokens and try again.";
+
 function invalidJsonAgentError(resultType: AgentResultType): string {
   return `Agent returned invalid JSON instead of the requested ${resultType} format. Check this agent's model/connection settings and try again.`;
 }
 
 function resolveStructuredAgentResult(
-  config: Pick<AgentExecConfig, "type">,
+  config: Pick<AgentExecConfig, "type" | "settings">,
   context: AgentContext,
   data: unknown,
+  finishReason?: string,
 ): { data: unknown; valid: boolean; error?: string } {
+  // A rewrite cut off at the output limit (a reasoning model can spend most of it thinking) holds only the start
+  // of the reply, and JSON repair closes its editedText as if it were whole: applied, it would silently cut the
+  // reply short (#8643). The reply is kept as written instead.
+  if (replyUnfinished(finishReason) && resolveAgentResultType(config) === "text_rewrite") {
+    return { data, valid: false, error: CUT_OFF_TEXT_REWRITE_ERROR };
+  }
   if (config.type !== "beholder") return { data, valid: true };
   const resolution = resolveBeholderStateResponse(data, context.memory._beholderState, context.persona?.name ?? "User");
   return { data: resolution.state, valid: resolution.valid, error: resolution.error };

@@ -10053,6 +10053,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           }
           fullResponse = cleanedReply.text;
           if (cleanedReply.changed) contentReplaced = true;
+          // The "Trim incomplete sentences" setting shortened the reply; say so rather than cut it silently (#8643).
+          if (cleanedReply.trimmedEnding) sendSseEvent(reply, { type: "reply_trimmed" });
           const oocMessages = cleanedReply.oocMessages;
 
           // The outcome rewrite must see the commands it is asked to retain or reject.
