@@ -46,8 +46,9 @@ The chat updates immediately. If the profile turns **Hide summarised messages** 
 
 The builder shows a profile as a set of slots, grouped into Chat, Story, Pictures, and Behind the scenes. Each slot holds one kind of setting, such as a connection, agents, a persona, or lorebooks.
 
-- Drag an item from **Your library** at the bottom onto a slot, or click a slot and pick from the list. While you drag, the slots that can take the item light up.
-- A filled slot shows one chip per item. Remove an item with its **×** button.
+- Pick items from the lists in each slot. Agents, tools, and lorebooks allow more than one pick. Use the checkboxes in **Tools** to turn each tool on or off.
+- In the agents and lorebooks lists on desktop, hold Ctrl (Command on macOS) to pick several items. On a phone, use the selection controls. Choose **Clear selection** to empty a list.
+- On desktop, open a library sidebar while the editor stays open, then drag an item onto its matching field. Existing selections stay selected when dropped again. For a single-item field, choose **None** to clear it.
 - Parameters, Memory & summary, and Translation show whether the profile holds them. Change them in Chat Settings, then save into the profile.
 
 Choose **Save and choose chats…** to save. The next step lists **New roleplay chats** (or conversation chats) and your existing chats of that mode. Tick **Make this the default** to use the profile for new chats, tick the chats that should get it now, then choose **Apply**.
