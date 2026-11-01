@@ -131,6 +131,24 @@ try {
     "happy",
     "a talk frame is never shown as an outfit's face",
   );
+  const serverFrames = library("outfit-frames-server", [
+    "happy_pajamas_talk",
+    "happy_pajamas_blink",
+    "happy_formalwear",
+    "happy_01",
+  ]);
+  for (const roll of [0, 0.5, 0.999]) {
+    const picked = serverFrames.validate("happy_pajamas", roll);
+    assert.ok(
+      picked === "happy_formalwear" || picked === "happy_01",
+      `a faceted name with no face of its own falls back to the group, never a talk or blink frame (roll ${roll}: ${picked})`,
+    );
+  }
+  assert.equal(
+    serverFrames.validate("happy_pajamas_talk"),
+    "happy_pajamas_talk",
+    "a frame asked for by name still resolves",
+  );
   assert.equal(
     resolveSpriteDisplayExpression(
       [

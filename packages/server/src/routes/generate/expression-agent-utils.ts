@@ -1,6 +1,7 @@
 import {
   findSpriteExpressionFacetMatches,
   inferExpressionCandidates,
+  isSpriteTalkOrBlinkFrame,
   normalizeSpriteExpressionKey as normalizeUnicodeSpriteExpressionKey,
   normalizeSpriteLookupToken,
   spriteExpressionFacetKey,
@@ -277,8 +278,12 @@ function resolveExpression(
     );
     if (facetMatch) return facetMatch;
   }
+  // A faceted name never falls back to a PNGTuber talk or blink frame: those are frames of another face.
+  const pool = faceted
+    ? availableExpressions.filter((entry) => !isSpriteTalkOrBlinkFrame(spriteExpressionFacetKey(entry)))
+    : availableExpressions;
 
-  const prefixMatches = availableExpressions.filter((entry) => getExpressionPrefixVariant(entry, trimmed));
+  const prefixMatches = pool.filter((entry) => getExpressionPrefixVariant(entry, trimmed));
   if (prefixMatches.length > 1) {
     const groupPool = exact ? [exact, ...prefixMatches] : prefixMatches;
     const randomGroupMatch = pickRandomExpression(groupPool);
@@ -288,16 +293,16 @@ function resolveExpression(
   if (exact) return exact;
 
   const normalized = normalizeExpressionToken(trimmed);
-  const normalizedExact = availableExpressions.find((entry) => normalizeExpressionToken(entry) === normalized);
+  const normalizedExact = pool.find((entry) => normalizeExpressionToken(entry) === normalized);
   if (normalizedExact) return normalizedExact;
 
   return (
-    availableExpressions.find((entry) => {
+    pool.find((entry) => {
       const option = normalizeExpressionToken(entry);
       return hasUsefulContainmentMatch(normalized, option);
     }) ??
     // With no facet left to match, a faceted name falls back to its group key's variants.
-    (faceted ? resolveExpression(groupKey, availableExpressions) : null)
+    (faceted ? resolveExpression(groupKey, pool) : null)
   );
 }
 
