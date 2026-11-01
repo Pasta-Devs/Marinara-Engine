@@ -110,6 +110,7 @@ import { useTTSConfig } from "../../hooks/use-tts";
 import {
   buildTTSVoiceRequests,
   findTTSCharacterIdBySpeakerName,
+  isTTSSpeakerAmbiguous,
   getTTSPersonaVoice,
   resolveTTSMessagePersona,
   withTTSVoiceRequestCacheKeys,
@@ -2226,6 +2227,10 @@ export const ChatMessage = memo(function ChatMessage({
     (speaker?: string | null) => findTTSCharacterIdBySpeakerName(speaker, characterMap ?? [], ttsPersona),
     [characterMap, ttsPersona],
   );
+  const ambiguousTTSSpeaker = useCallback(
+    (speaker?: string | null) => isTTSSpeakerAmbiguous(speaker, characterMap ?? [], ttsPersona),
+    [characterMap, ttsPersona],
+  );
   const ttsVoiceRequests = useMemo(() => {
     if (!ttsConfig) return [];
     const requests = buildTTSVoiceRequests(
@@ -2235,6 +2240,7 @@ export const ChatMessage = memo(function ChatMessage({
       ttsFallbackId,
       resolveTTSCharacterId,
       message.role === "user" && !mappedUserPersona ? undefined : ttsPersona,
+      ambiguousTTSSpeaker,
     );
     return withTTSVoiceRequestCacheKeys(
       visualNovel || followSpeechParagraphs

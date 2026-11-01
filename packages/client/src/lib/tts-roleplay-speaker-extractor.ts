@@ -40,6 +40,7 @@ export function buildExtractedRoleplayTTSVoiceRequests(
   fallbackCharacterId?: string | null,
   resolveCharacterIdForSpeaker?: (speaker?: string | null) => string | null | undefined,
   persona?: TTSVoicePersona | null,
+  isAmbiguousSpeaker?: (speaker?: string | null) => boolean,
 ): TTSVoiceRequest[] {
   const fallbackSpeakerKey = normalizeTTSCharacterName(fallbackSpeaker);
   const spokenSegments = config.dialogueOnly ? segments.filter((segment) => segment.kind === "dialogue") : segments;
@@ -79,6 +80,7 @@ export function buildExtractedRoleplayTTSVoiceRequests(
         speaker,
         characterId,
         npcFallbackHint,
+        !characterId && Boolean(isAmbiguousSpeaker?.(speaker)),
       );
     if (config.source === "elevenlabs" && !voice) return [];
 

@@ -82,22 +82,26 @@ export function normalizeTTSCharacterBaseName(value?: string | null): string {
   return base && base.length > 0 ? base : normalized;
 }
 
-export function findTTSCharacterIdBySpeakerName(
+/** The chat card a speaker name names, and whether it fitted more than one, so no single card can be meant. */
+function matchTTSSpeaker(
   speaker: string | null | undefined,
   characters: Iterable<readonly [string, { name: string }]>,
   persona?: TTSVoicePersona | null,
-): string | null {
+): { id: string | null; ambiguous: boolean } {
   const entries = [...characters];
   if (persona?.id && !isTTSNarratorSpeaker(speaker) && !entries.some(([id]) => id === persona.id))
     entries.push([persona.id, persona]);
   const normalizedSpeaker = normalizeTTSCharacterName(speaker);
-  if (!normalizedSpeaker) return null;
+  if (!normalizedSpeaker) return { id: null, ambiguous: false };
+  const pick = (matches: readonly (readonly [string, unknown])[]) => ({
+    id: matches.length === 1 ? matches[0]![0] : null,
+    ambiguous: matches.length > 1,
+  });
 
   const exactMatches = entries.filter(
     ([, character]) => normalizeTTSCharacterName(character.name) === normalizedSpeaker,
   );
-  if (exactMatches.length === 1) return exactMatches[0]![0];
-  if (exactMatches.length > 1) return null;
+  if (exactMatches.length > 0) return pick(exactMatches);
 
   if (
     persona?.id &&
@@ -105,17 +109,36 @@ export function findTTSCharacterIdBySpeakerName(
       normalizedSpeaker,
     )
   )
-    return persona.id;
+    return { id: persona.id, ambiguous: false };
 
   const speakerBase = normalizeTTSCharacterBaseName(speaker);
-  if (!speakerBase) return null;
+  if (!speakerBase) return { id: null, ambiguous: false };
   const baseMatches = entries.filter(([, character]) => normalizeTTSCharacterBaseName(character.name) === speakerBase);
-  if (baseMatches.length > 0) return baseMatches.length === 1 ? baseMatches[0]![0] : null;
+  if (baseMatches.length > 0) return pick(baseMatches);
 
   // "Junpei" is the chat card "Junpei Iori", so it never borrows another card's voice by that name (#8638).
-  if (isTTSNarratorSpeaker(speakerBase)) return null;
-  const shortFormMatches = entries.filter(([, character]) => isShortFormOfCharacterName(speakerBase, character.name));
-  return shortFormMatches.length === 1 ? shortFormMatches[0]![0] : null;
+  if (isTTSNarratorSpeaker(speakerBase)) return { id: null, ambiguous: false };
+  return pick(entries.filter(([, character]) => isShortFormOfCharacterName(speakerBase, character.name)));
+}
+
+export function findTTSCharacterIdBySpeakerName(
+  speaker: string | null | undefined,
+  characters: Iterable<readonly [string, { name: string }]>,
+  persona?: TTSVoicePersona | null,
+): string | null {
+  return matchTTSSpeaker(speaker, characters, persona).id;
+}
+
+/**
+ * Whether a speaker name fits more than one card in the chat (persona included), such as "Junpei" for "Junpei Iori"
+ * and "Junpei Kato". Such a speaker is one of them, so it never takes the voice of a card outside the chat (#8638).
+ */
+export function isTTSSpeakerAmbiguous(
+  speaker: string | null | undefined,
+  characters: Iterable<readonly [string, { name: string }]>,
+  persona?: TTSVoicePersona | null,
+): boolean {
+  return matchTTSSpeaker(speaker, characters, persona).ambiguous;
 }
 
 export function isTTSNarratorSpeaker(value?: string | null): boolean {
@@ -307,6 +330,8 @@ export function resolveTTSVoiceForSpeaker(
   speaker?: string | null,
   characterId?: string | null,
   npcHint?: TTSNpcVoiceHint | null,
+  /** The speaker fits several chat cards (see isTTSSpeakerAmbiguous), so no card outside the chat may voice it. */
+  ambiguousInChat = false,
 ): string {
   const fallbackVoice = config.voice ?? "";
   if (config.narratorVoiceEnabled && isTTSNarratorSpeaker(speaker)) return config.narratorVoice || fallbackVoice;
@@ -336,7 +361,7 @@ export function resolveTTSVoiceForSpeaker(
 
     // A speaker no chat card claims may be a voiced card called by part of its name, such as an NPC
     // card "Junpei Iori" named "Junpei" (#8638). Cards that would give it different voices use none.
-    if (!characterId && normalizedSpeakerBase && !isTTSNarratorSpeaker(normalizedSpeakerBase)) {
+    if (!characterId && !ambiguousInChat && normalizedSpeakerBase && !isTTSNarratorSpeaker(normalizedSpeakerBase)) {
       const shortFormVoices = new Set(
         assignments
           .filter((entry) => entry.voice && isShortFormOfCharacterName(normalizedSpeakerBase, entry.characterName))
@@ -537,6 +562,7 @@ export function buildTTSVoiceRequests(
   fallbackCharacterId?: string | null,
   resolveCharacterIdForSpeaker?: (speaker?: string | null) => string | null | undefined,
   persona?: TTSVoicePersona | null,
+  isAmbiguousSpeaker?: (speaker?: string | null) => boolean,
 ): TTSVoiceRequest[] {
   const normalized = filterTTSText(decodeEncodedSpeakerTags(text), config);
   const hasSpeakerTags = /<speaker="[^"]*">/i.test(normalized);
@@ -572,6 +598,8 @@ export function buildTTSVoiceRequests(
         personaSpeaker && resolvedCharacterId !== persona?.id ? { ...config, voiceMode: "single" } : config,
         speaker,
         resolvedCharacterId,
+        undefined,
+        !resolvedCharacterId && Boolean(isAmbiguousSpeaker?.(speaker)),
       );
     if (config.source === "elevenlabs" && !voice) return [];
 

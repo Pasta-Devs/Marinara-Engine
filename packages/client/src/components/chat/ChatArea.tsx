@@ -109,6 +109,7 @@ import {
   buildTTSVoiceRequests,
   filterTTSText,
   findTTSCharacterIdBySpeakerName,
+  isTTSSpeakerAmbiguous,
   getTTSPersonaVoice,
   resolveTTSMessagePersona,
   withTTSVoiceRequestCacheKeys,
@@ -3615,6 +3616,7 @@ const LocalChatArea = memo(function LocalChatArea({
           const fallbackId = ownUserMessage ? persona?.id : message.characterId;
           const resolveSpeakerId = (speaker?: string | null) =>
             findTTSCharacterIdBySpeakerName(speaker, characterMap, persona);
+          const ambiguousSpeaker = (speaker?: string | null) => isTTSSpeakerAmbiguous(speaker, characterMap, persona);
           let requests;
           if (mode === "roleplay" && cfg.roleplaySpeakerExtractorEnabled && !ownUserMessage) {
             try {
@@ -3633,6 +3635,7 @@ const LocalChatArea = memo(function LocalChatArea({
                 fallbackId,
                 resolveSpeakerId,
                 persona,
+                ambiguousSpeaker,
               );
             } catch (error) {
               console.warn("[TTS] Roleplay speaker extractor failed; using standard autoplay.", error);
@@ -3643,6 +3646,7 @@ const LocalChatArea = memo(function LocalChatArea({
                 fallbackId,
                 resolveSpeakerId,
                 persona,
+                ambiguousSpeaker,
               );
             }
           } else {
@@ -3653,6 +3657,7 @@ const LocalChatArea = memo(function LocalChatArea({
               fallbackId,
               resolveSpeakerId,
               persona,
+              ambiguousSpeaker,
             );
           }
           return visualNovel ? withRoleplayTTSParagraphs(requests, message.content, cfg) : requests;

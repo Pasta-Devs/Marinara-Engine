@@ -18,6 +18,7 @@ import {
   splitTTSChunks,
   filterTTSText,
   findTTSCharacterIdBySpeakerName,
+  isTTSSpeakerAmbiguous,
   getCharacterNameVoice,
   getCharacterVoiceAssignment,
   getTTSPersonaVoice,
@@ -916,6 +917,72 @@ assert.equal(
   npcCardVoice([{ characterId: "kirijo-id", characterName: "Mitsuru Kirijo", voice: "kirijo-voice" }], "Mr"),
   "default-voice",
   "a title on its own names nobody",
+);
+assert.equal(
+  npcCardVoice(
+    [{ characterId: "tanaka-mrs-id", characterName: "Mrs. Tanaka", voice: "mrs-tanaka-voice" }],
+    "Mr. Tanaka",
+  ),
+  "default-voice",
+  "two different titles on one surname are two people",
+);
+assert.equal(findTTSCharacterIdBySpeakerName("Mr. Tanaka", [["t", { name: "Mrs. Tanaka" }]]), null);
+assert.equal(findTTSCharacterIdBySpeakerName("Tanaka Jr", [["t", { name: "Kenji Tanaka Sr" }]]), null);
+assert.equal(findTTSCharacterIdBySpeakerName("Tanaka", [["t", { name: "Mrs. Tanaka" }]]), "t");
+
+// A first name that fits two cards in the chat is one of them, so it never takes an outside card's voice.
+const twoJunpeiChat = [
+  ["iori-chat-id", { name: "Junpei Iori" }],
+  ["kato-chat-id", { name: "Junpei Kato" }],
+] as const;
+assert.equal(isTTSSpeakerAmbiguous("Junpei", twoJunpeiChat), true);
+assert.equal(isTTSSpeakerAmbiguous("Junpei", unvoicedJunpeiChat), false);
+assert.equal(isTTSSpeakerAmbiguous("Kato", twoJunpeiChat), false);
+const satoLibrary = ttsConfigSchema.parse({
+  source: "openai",
+  voice: "default-voice",
+  voiceMode: "per-character",
+  voiceAssignments: [{ characterId: "sato-id", characterName: "Junpei Sato", voice: "sato-voice" }],
+});
+const chatSpeakerChecks = [
+  (speaker?: string | null) => findTTSCharacterIdBySpeakerName(speaker, twoJunpeiChat),
+  undefined,
+  (speaker?: string | null) => isTTSSpeakerAmbiguous(speaker, twoJunpeiChat),
+] as const;
+assert.deepEqual(
+  buildExtractedRoleplayTTSVoiceRequests(
+    [{ kind: "dialogue", speaker: "Junpei", text: '"Yo!"' }],
+    satoLibrary,
+    "Aigis",
+    "aigis-id",
+    ...chatSpeakerChecks,
+  ).map(({ speaker, voice }) => ({ speaker, voice })),
+  [{ speaker: "Junpei", voice: "default-voice" }],
+  "a first name that fits two chat cards never takes the voice of a card outside the chat",
+);
+assert.deepEqual(
+  buildTTSVoiceRequests(
+    '<speaker="Junpei">"Yo!"</speaker>',
+    satoLibrary,
+    "Aigis",
+    "aigis-id",
+    ...chatSpeakerChecks,
+  ).map(({ speaker, voice }) => ({ speaker, voice })),
+  [{ speaker: "Junpei", voice: "default-voice" }],
+  "the same holds for speaker-tagged replies",
+);
+assert.deepEqual(
+  buildExtractedRoleplayTTSVoiceRequests(
+    [{ kind: "dialogue", speaker: "Junpei", text: '"Yo!"' }],
+    satoLibrary,
+    "Aigis",
+    "aigis-id",
+    (speaker) => findTTSCharacterIdBySpeakerName(speaker, aigisOnlyChat),
+    undefined,
+    (speaker) => isTTSSpeakerAmbiguous(speaker, aigisOnlyChat),
+  ).map(({ speaker, voice }) => ({ speaker, voice })),
+  [{ speaker: "Junpei", voice: "sato-voice" }],
+  "with no chat card named Junpei, the card outside the chat still voices him (#8638)",
 );
 assert.equal(
   npcCardVoice([{ characterId: "narrator-card-id", characterName: "The Narrator", voice: "card-voice" }], "Narrator"),

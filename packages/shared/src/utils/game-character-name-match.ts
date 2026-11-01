@@ -116,6 +116,20 @@ function getShortFormNameTokens(name: string): string[] {
  * name without a title. Unlike {@link characterNamesMatch}, sharing one word is not enough.
  */
 export function isShortFormOfCharacterName(shortName: string, fullName: string): boolean {
+  // A title on one side only is ignored, but two different titles are two people: "Mr. Tanaka" is not "Mrs. Tanaka".
+  const titles = (name: string) =>
+    [
+      ...new Set(
+        normalizeCharacterName(name)
+          .split(/\s+/)
+          .filter((token) => NAME_TITLE_WORDS.has(token)),
+      ),
+    ]
+      .sort()
+      .join(" ");
+  const shortTitles = titles(shortName);
+  const fullTitles = titles(fullName);
+  if (shortTitles && fullTitles && shortTitles !== fullTitles) return false;
   const shortTokens = getShortFormNameTokens(shortName);
   const fullTokens = getShortFormNameTokens(fullName);
   return shortTokens.length <= fullTokens.length && isSubsetMatch(shortTokens, fullTokens);
