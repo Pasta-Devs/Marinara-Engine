@@ -90,7 +90,7 @@ const DEFAULT_AUTO_SCROLL_MAX_SPEED_PX = 18;
 const WEBKIT_TOUCH_CALLOUT_PROPERTY = "-webkit-touch-callout";
 const WEBKIT_USER_DRAG_PROPERTY = "-webkit-user-drag";
 const TOUCH_DRAG_ACTIVE_TOUCH_ACTION = "none";
-const TOUCH_DRAG_PREVIEW_Z_INDEX = "100000";
+export const TOUCH_DRAG_PREVIEW_Z_INDEX = "100000";
 
 function restoreStyleProperty(style: CSSStyleDeclaration, property: string, value: string) {
   if (value) {

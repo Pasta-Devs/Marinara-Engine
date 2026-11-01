@@ -169,6 +169,7 @@ export function applyAvatarFeatures(
 }
 
 export interface AvatarSpriteRef {
+  label?: string;
   expression: string;
   url: string;
 }
@@ -186,7 +187,11 @@ export function resolveAvatarImage(
   }
   const label = normalizeSpriteExpressionKey(ref.label);
   if (!label || !sprites?.length) return null;
-  const matches = sprites.filter((sprite) => normalizeSpriteExpressionKey(sprite.expression) === label);
+  const labeled = sprites.filter((sprite) => normalizeSpriteExpressionKey(sprite.label ?? sprite.expression) === label);
+  // Saved setups made before a rename may still refer to the unchanged file handle.
+  const matches = labeled.length
+    ? labeled
+    : sprites.filter((sprite) => normalizeSpriteExpressionKey(sprite.expression) === label);
   const expressionSprite = matches.find((sprite) => !/^full[_\s-]/iu.test(sprite.expression));
   return (expressionSprite ?? matches[0])?.url ?? null;
 }

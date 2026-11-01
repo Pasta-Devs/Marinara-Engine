@@ -4800,6 +4800,7 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     const editor = page.locator(".mari-editor-shell");
     await openEditorSection(editor, "Sprites");
     const create = editor.locator('[data-editor-section="sprites"]').getByRole("button", { name: "Create with AI" });
+    await editor.getByRole("button", { name: "Manage", exact: true }).click();
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet" });
     await dialog.getByRole("combobox").selectOption(connection.id);
@@ -4872,8 +4873,8 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     await page.unroute(`**${referenceUrl}`);
     await editor.getByRole("button", { name: "Full-body", exact: true }).click();
     const savedNeutral = editor.getByAltText("full_neutral", { exact: true }).locator("../..");
-    await savedNeutral.hover();
-    await savedNeutral.getByRole("button", { name: "Delete", exact: true }).click();
+    await savedNeutral.getByRole("img").click();
+    await page.getByRole("dialog").last().getByRole("button", { name: "Delete Sprite", exact: true }).click();
     const deletion = page.getByRole("dialog", { name: "Delete Sprite", exact: true });
     await deletion.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(deletion).not.toBeVisible();
@@ -5163,9 +5164,9 @@ test("Character and persona sheets persist an explicit reference choice and fall
     ).toHaveCount(0);
     await openEditorSection(editor, "Sprites");
     await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
+    await editor.getByRole("button", { name: "Manage", exact: true }).click();
     await expect(editor.getByAltText(`${characterName} character sheet`)).toBeVisible();
     await expect(editor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
-    await expect(editor.getByText(/Character sheet reference is active/u)).toBeVisible();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
     await editor
       .locator('[data-editor-section="sprites"]')
@@ -5436,6 +5437,7 @@ test("Matched full-body sprites approve a neutral anchor before sending each exp
     const editor = page.locator(".mari-editor-shell");
     await openEditorSection(editor, "Sprites");
     await editor.getByRole("button", { name: "Full-body", exact: true }).click();
+    await editor.getByRole("button", { name: "Add sprites", exact: true }).click();
     await editor.getByRole("button", { name: "Generate Sprite", exact: true }).click();
 
     const modal = page.getByRole("dialog", { name: "Generate Sprites" });
@@ -5487,6 +5489,31 @@ test("Matched full-body sprites approve a neutral anchor before sending each exp
     ]);
     await expect(modal.locator('input[value="happy"]')).toBeVisible();
     await expect(modal.locator('input[value="sad"]')).toBeVisible();
+    const folderResponse = await request.post(`/api/sprites/${character.id}/folders`, {
+      data: { name: "Outfit", category: "full-body" },
+    });
+    expect(folderResponse.ok()).toBeTruthy();
+    const folderId = (await folderResponse.json()).folders[0].id;
+    expect(
+      (
+        await request.post(`/api/sprites/${character.id}`, {
+          data: { expression: "full_original", image: `data:image/png;base64,${TRANSPARENT_PNG_BASE64}`, folderId },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    expect(
+      (await request.patch(`/api/sprites/${character.id}/full_original`, { data: { expression: "full_happy" } })).ok(),
+    ).toBeTruthy();
+    await modal.getByRole("button", { name: /^Save \d+ Sprites?$/iu }).click();
+    await expect(modal).not.toBeVisible();
+    const saved = (await (await request.get(`/api/sprites/${character.id}`)).json()) as Array<{
+      expression: string;
+      label: string;
+      folderId: string | null;
+    }>;
+    expect(saved.filter((sprite) => sprite.label === "full_happy")).toEqual([
+      expect.objectContaining({ expression: "full_original", folderId }),
+    ]);
   } finally {
     await page.unroute("**/api/sprites/generate-sheet");
     await request.delete(`/api/characters/${character.id}`).catch(() => undefined);

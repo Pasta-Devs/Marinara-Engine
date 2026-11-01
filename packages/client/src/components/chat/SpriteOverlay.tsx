@@ -11,8 +11,8 @@ import {
   type SpritePlacement,
   type SpriteSide,
 } from "@marinara-engine/shared";
-import { useCharacterSprites, type SpriteInfo } from "../../hooks/use-characters";
-import { normalizeSpriteExpressionKey, resolveSpriteExpression } from "../../lib/sprite-expression-match";
+import { useCharacterSprites } from "../../hooks/use-characters";
+import { resolveSpriteDisplayExpression } from "./sprite-display-expression";
 import {
   resolveSpriteTransition,
   type SpriteRenderMode,
@@ -24,7 +24,6 @@ import {
   SPRITE_DISPLAY_OPACITY_MIN,
   SPRITE_DISPLAY_SCALE_MAX,
   SPRITE_DISPLAY_SCALE_MIN,
-  isFullBodySpriteExpression,
   normalizeSpriteDisplayModes,
   type SpriteDisplayMode,
 } from "./sprite-display-modes";
@@ -92,13 +91,6 @@ interface VisibleSpriteEntry {
 
 function getSpritePlacementKey(characterId: string, renderMode: SpriteRenderMode) {
   return `${characterId}:${renderMode}`;
-}
-
-function hasTokenContainmentMatch(requested: string, candidate: string): boolean {
-  if (requested.length < 3 || candidate.length < 3) return false;
-  const requestedTokens = requested.split("_").filter(Boolean);
-  const candidateTokens = candidate.split("_").filter(Boolean);
-  return requestedTokens.includes(candidate) || candidateTokens.includes(requested);
 }
 
 function offsetPairedSpritePlacement(
@@ -443,52 +435,10 @@ function CharacterSprite({
   } = useSpritePlacementDrag({ placement, placementKey, editing, stageRef, onPlacementChange });
 
   const spriteUrl = useMemo(() => {
-    if (!sprites || !(sprites as SpriteInfo[]).length) return null;
-    const exprLower = expression.toLowerCase();
-    const exprKey = normalizeSpriteExpressionKey(expression);
-    const allSprites = sprites as SpriteInfo[];
-    const allowExpressions = !fullBodyOnly && spriteDisplayModes.includes("expressions");
-    const allowFullBody = fullBodyOnly || spriteDisplayModes.includes("full-body");
-    const expressionSprites = allowExpressions
-      ? allSprites.filter((sprite) => !isFullBodySpriteExpression(sprite.expression))
-      : [];
-    const fullBodySprites = allowFullBody
-      ? allSprites.filter((sprite) => isFullBodySpriteExpression(sprite.expression))
-      : [];
-    const spritePools = [fullBodySprites, expressionSprites];
-
-    const fullBodyBaseExpression = (value: string) => (value.startsWith("full_") ? value.slice(5) : value);
-    const findMatchingSprite = (predicate: (spriteExpression: string) => boolean) => {
-      for (const spriteList of spritePools) {
-        const match = spriteList.find((sprite) => predicate(sprite.expression.toLowerCase()));
-        if (match) return match.url;
-      }
-      return null;
-    };
-
-    const exact = findMatchingSprite((spriteExpression) => {
-      return spriteExpression === exprLower || fullBodyBaseExpression(spriteExpression) === exprLower;
-    });
-    if (exact) return exact;
-
-    const partial = findMatchingSprite((spriteExpression) => {
-      const spriteKey = normalizeSpriteExpressionKey(spriteExpression);
-      const baseExpression = fullBodyBaseExpression(spriteKey);
-      return hasTokenContainmentMatch(exprKey, spriteKey) || hasTokenContainmentMatch(exprKey, baseExpression);
-    });
-    if (partial) return partial;
-
-    for (const spriteList of spritePools) {
-      const semantic = resolveSpriteExpression(spriteList, expression);
-      if (semantic) return semantic.url;
-    }
-
-    for (const spriteList of spritePools) {
-      const first = spriteList[0];
-      if (first) return first.url;
-    }
-
-    return null;
+    return (
+      resolveSpriteDisplayExpression(sprites, expression, fullBodyOnly ? ["full-body"] : spriteDisplayModes)?.url ??
+      null
+    );
   }, [sprites, expression, fullBodyOnly, spriteDisplayModes]);
 
   const standardSizeClass =

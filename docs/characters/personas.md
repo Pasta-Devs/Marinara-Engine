@@ -126,6 +126,10 @@ The **Lorebook** tab lets you attach lorebook entries to your persona. A loreboo
 
 The **Sprites** tab lets you upload standing character art for your persona. Sprites are used in Game Mode and Roleplay. It has category tabs for **Facial Expressions**, **Full-body**, and **Clips**. You can upload one image at a time or use **Upload Folder** to bulk-import a folder of PNG images. Because sprites are a shared system, see [Character Sprites](sprites.md) for the full details.
 
+Expressions and full-body sprites have separate optional folders above the loose grid. Use **New folder**, then double-click or double-tap its name to rename it. Drag sprites into or out of folders, or use a tile's **Move sprite** action and **Folder** selector with the keyboard. Removing a folder keeps its sprites. All sprites remain available to chats and agents, and supported exports, imports and profile transfers retain folder membership and labels.
+
+Search filters the grid. A search with no results shows a no-matches message; it does not mean the collection is empty. **Delete All Expressions** and **Delete All Full-Body** still apply to the whole category, including sprites hidden by a search.
+
 ### Gallery tab
 
 The **Gallery** tab keeps reference art and videos attached to your persona. It has two sub-tabs, **Images** and **Videos**. Use **Upload Persona Images** or **Upload Persona Videos** to add files. The **Videos** sub-tab also manages video-call clips for the Conversation-mode call feature. See [Character and Persona Galleries](galleries.md).

@@ -8,6 +8,12 @@ import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
+import {
+  listSpriteCatalog,
+  readSpriteCatalog,
+  writeSpriteCatalog,
+  withSpriteCatalogLock,
+} from "../sprites/sprite-catalog.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../../utils/security.js";
 import { generateImage, type ImageGenResult } from "../image/image-generation.js";
@@ -938,6 +944,14 @@ export class MariImagesService {
     return null;
   }
 
+  private findSprite(ownerId: string, expression: string) {
+    const sprites = listSpriteCatalog(ownerId).sprites;
+    const exact = sprites.find((sprite) => sprite.expression === expression);
+    const matches = sprites.filter((sprite) => sprite.label === expression);
+    if (!exact && matches.length > 1) throw new Error("More than one sprite has that label; use its file handle.");
+    return exact ?? matches[0];
+  }
+
   private async currentImageReferenceForTarget(target: ImageTarget): Promise<string | null> {
     const characters = createCharactersStorage(this.db);
     switch (target.type) {
@@ -957,15 +971,7 @@ export class MariImagesService {
         return typeof row.imagePath === "string" ? row.imagePath : null;
       }
       case "sprite": {
-        const dir = join(SPRITES_DIR, target.ownerId);
-        if (!existsSync(dir)) return null;
-        const entries = await readdir(dir);
-        const match = entries.find(
-          (entry) =>
-            entry.slice(0, -extname(entry).length) === target.expression &&
-            IMAGE_EXTS.has(extname(entry).toLowerCase()),
-        );
-        return match ? `/api/sprites/${encodeURIComponent(target.ownerId)}/file/${encodeURIComponent(match)}` : null;
+        return this.findSprite(target.ownerId, target.expression)?.url ?? null;
       }
       case "background":
         return target.filename ? `/api/backgrounds/file/${encodeURIComponent(target.filename)}` : null;
@@ -1143,19 +1149,26 @@ export class MariImagesService {
   }
 
   private async assignSprite(source: ResolvedImage, ownerId: string, expression: string) {
+    if (expression.length > 160) throw new Error("Expression label must be at most 160 characters");
     const characters = createCharactersStorage(this.db);
     const owner = (await characters.getById(ownerId)) ?? (await characters.getPersona(ownerId));
     if (!owner) throw new Error(`Character/persona not found for sprite owner: ${ownerId}`);
-    const dir = join(SPRITES_DIR, ownerId);
-    await mkdir(dir, { recursive: true });
-    const filename = `${expression}.${source.ext}`;
-    const path = assertInsideDir(dir, join(dir, filename));
-    await writeFile(path, source.buffer);
-    return {
-      expression,
-      filename,
-      url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Date.now()}`,
-    };
+    return withSpriteCatalogLock(ownerId, async () => {
+      const catalog = readSpriteCatalog(ownerId);
+      const match = this.findSprite(ownerId, expression);
+      const handle = match?.expression ?? expression;
+      const dir = join(SPRITES_DIR, ownerId);
+      await mkdir(dir, { recursive: true });
+      const filename =
+        match && extname(match.filename).toLowerCase() === `.${source.ext.toLowerCase()}`
+          ? match.filename
+          : `${handle}.${source.ext}`;
+      await writeFile(assertInsideDir(dir, join(dir, filename)), source.buffer);
+      if (match && match.filename !== filename) await unlink(assertInsideDir(dir, join(dir, match.filename)));
+      catalog.sprites[handle] = { label: match?.label ?? expression, folderId: match?.folderId ?? null };
+      await writeSpriteCatalog(ownerId, catalog);
+      return listSpriteCatalog(ownerId).sprites.find((sprite) => sprite.expression === handle)!;
+    });
   }
 
   private async assignBackground(source: ResolvedImage, target: Extract<ImageTarget, { type: "background" }>) {
@@ -1326,13 +1339,20 @@ export class MariImagesService {
   }
 
   private async deleteSprite(ownerId: string, expression: string) {
-    const dir = join(SPRITES_DIR, ownerId);
-    if (!existsSync(dir)) return { deleted: 0, files: [] };
-    const files = (await readdir(dir)).filter(
-      (entry) => entry.slice(0, -extname(entry).length) === expression && IMAGE_EXTS.has(extname(entry).toLowerCase()),
-    );
-    for (const file of files) await unlink(assertInsideDir(dir, join(dir, file)));
-    return { deleted: files.length, files };
+    return withSpriteCatalogLock(ownerId, async () => {
+      const sprite = this.findSprite(ownerId, expression);
+      if (!sprite) return { deleted: 0, files: [] };
+      const catalog = readSpriteCatalog(ownerId);
+      const dir = join(SPRITES_DIR, ownerId);
+      const files = listSpriteCatalog(ownerId)
+        .sprites.filter((entry) => entry.expression === sprite.expression)
+        .map((entry) => entry.filename);
+      if (!files.length) return { deleted: 0, files };
+      for (const file of files) await unlink(assertInsideDir(dir, join(dir, file)));
+      delete catalog.sprites[sprite.expression];
+      await writeSpriteCatalog(ownerId, catalog);
+      return { deleted: files.length, files };
+    });
   }
 
   private async deleteBackground(identifier: string | null) {
@@ -1400,19 +1420,25 @@ export class MariImagesService {
           flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"),
         );
         if (!ownerId) throw new Error("sprite list requires --character <id>, --persona <id>, or --owner <id>");
-        const dir = join(SPRITES_DIR, ownerId);
-        const files = existsSync(dir)
-          ? (await readdir(dir)).filter((entry) => IMAGE_EXTS.has(extname(entry).toLowerCase()))
-          : [];
+        const catalog = listSpriteCatalog(ownerId);
         return {
           ok: true,
           mode: "read",
           command: context.command,
-          output: files.slice(0, limit).map((filename) => ({
-            expression: filename.slice(0, -extname(filename).length),
-            filename,
-            url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}`,
-          })),
+          output: catalog.sprites.slice(0, limit),
+        };
+      }
+      case "sprite-folders": {
+        const ownerId = normalizeId(
+          flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"),
+        );
+        if (!ownerId) throw new Error("sprite-folders requires an owner ID");
+        const catalog = listSpriteCatalog(ownerId);
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: { folders: catalog.folders },
         };
       }
       case "chat-gallery":

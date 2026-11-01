@@ -102,6 +102,7 @@ import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { cardFieldGenerationSchema, generateCardField } from "../services/generation/card-field-generation.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { embeddedSpriteSizesAreWithinLimits, MAX_EMBEDDED_SPRITE_COUNT } from "../services/import/marinara.importer.js";
+import { readOptionalSpriteCatalog, spriteDirectory } from "../services/sprites/sprite-catalog.js";
 import {
   clearEmbeddedLorebookFromCharacter,
   embedLorebookIntoCharacter,
@@ -652,7 +653,7 @@ async function readSpritesForId(
   id: string,
   enforcePortableLimits = false,
 ): Promise<Array<{ filename: string; data: string }> | null> {
-  const dir = join(DATA_DIR, "sprites", id);
+  const dir = spriteDirectory(id);
   if (!existsSync(dir)) return [];
   let entries: string[];
   try {
@@ -722,8 +723,9 @@ async function* galleryExportEntries(
 // Read each sprite in data/sprites/<id>/ as it is written; import restores the
 // same expression set under a new id.
 async function* spriteExportEntries(id: string): AsyncGenerator<{ filename: string; data: string }> {
-  const dir = join(DATA_DIR, "sprites", id);
-  if (!id || !existsSync(dir)) return;
+  if (!id) return;
+  const dir = spriteDirectory(id);
+  if (!existsSync(dir)) return;
   let entries: string[];
   try {
     entries = await readdir(dir);
@@ -792,6 +794,7 @@ async function buildNativeCharacterExport(
         spec: "chara_card_v2",
         spec_version: "2.0",
         data: portableData,
+        spriteCatalog: readOptionalSpriteCatalog(char.id),
         // avatar, sprites and gallery are streamed here, in that order.
         [slot]: 0,
         metadata: {
@@ -815,7 +818,7 @@ async function buildNativeCharacterExport(
 export function buildCompatibleCharacterExport(
   data: any,
   sprites: Array<{ filename: string; data: string }> = [],
-  { keepOnboarding = false }: { keepOnboarding?: boolean } = {},
+  { keepOnboarding = false, spriteCatalog }: { keepOnboarding?: boolean; spriteCatalog?: unknown } = {},
 ) {
   // Compatible cards carry no gallery, so baked greeting images go back to their web links.
   data = data ? restoreBakedGreetingImages(data) : data;
@@ -837,10 +840,11 @@ export function buildCompatibleCharacterExport(
   delete extensions.characterSheetImageId;
   if (!keepOnboarding) delete extensions.onboarding;
   extensions.useCharacterSheetAsReference = false;
-  if (sprites.length > 0) {
+  if (sprites.length > 0 || spriteCatalog !== undefined) {
     extensions.marinara = {
       ...parseCharacterDataRecord(extensions.marinara),
       sprites,
+      ...(spriteCatalog !== undefined ? { spriteCatalog } : {}),
     };
   }
   return {
@@ -874,6 +878,7 @@ async function buildNativePersonaExport(
       exportedAt: new Date().toISOString(),
       data: {
         ...personaData,
+        spriteCatalog: personaId ? readOptionalSpriteCatalog(personaId) : undefined,
         // avatar, sprites and gallery are streamed here, in that order.
         [slot]: 0,
         metadata: {
@@ -2542,7 +2547,10 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!sprites) {
       return reply.status(413).send({ error: "Sprite collection exceeds compatible PNG export limits" });
     }
-    const v2Envelope = buildCompatibleCharacterExport(charData, sprites, { keepOnboarding: true });
+    const v2Envelope = buildCompatibleCharacterExport(charData, sprites, {
+      keepOnboarding: true,
+      spriteCatalog: readOptionalSpriteCatalog(char.id),
+    });
     const charaBase64 = Buffer.from(JSON.stringify(v2Envelope), "utf-8").toString("base64");
 
     // Read avatar image or create a minimal 1x1 transparent PNG fallback
