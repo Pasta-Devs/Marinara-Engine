@@ -7,6 +7,7 @@ import { normalizeTextForMatch } from "../../packages/shared/src/utils/text-matc
 import type { GameNpc, PartyDialogueLine } from "../../packages/shared/src/types/game.js";
 import type { NarrationSegment } from "../../packages/client/src/components/game/GameNarration.js";
 import { normalizeSpriteExpressionKey } from "../../packages/client/src/lib/sprite-expression-match.js";
+import { normalizeGameTtsEmotion } from "../../packages/client/src/lib/game-tts-emotion.js";
 import {
   buildTTSVoiceRequests,
   extractDialogueUtterances,
@@ -56,6 +57,7 @@ const ttsService = {
 const dependencies = {
   normalizeTextForMatch,
   normalizeSpriteExpressionKey,
+  normalizeGameTtsEmotion,
   splitTTSChunks,
   getTTSPersonaVoice,
   resolveTTSNarratorVoice,
@@ -65,11 +67,7 @@ const dependencies = {
 };
 const narration = componentSource("GameNarration.tsx");
 const gameCode = declarations(narration, [
-  "GAME_TTS_EMOTIONS",
-  "GAME_TTS_EMOTION_SET",
-  "GAME_TTS_EMOTION_ALIASES",
   "GAME_TTS_CHUNK_ATTEMPTS",
-  "normalizeGameTtsEmotion",
   "resolveGameSegmentTtsEmotion",
   "hashVoiceKey",
   "buildVoiceConfigSignature",
@@ -430,12 +428,13 @@ function findCombatSynthesis(node: ts.Node): void {
 }
 findCombatSynthesis(combat);
 assert.equal(combatCalls.length, 1);
-const generateCombat = new Function(
+const generateCombatCall = new Function(
   "ttsService",
   "chunk",
   "line",
   "ttsConfig",
   "controller",
+  "normalizeGameTtsEmotion",
   `return ${combatCalls[0]!.getText(combat)};`,
 ) as (
   service: typeof ttsService,
@@ -443,7 +442,15 @@ const generateCombat = new Function(
   line: PartyDialogueLine,
   config: TTSConfig,
   controller: AbortController,
+  normalize: typeof normalizeGameTtsEmotion,
 ) => Promise<Blob>;
+const generateCombat = (
+  service: typeof ttsService,
+  chunk: string,
+  line: PartyDialogueLine,
+  config: TTSConfig,
+  controller: AbortController,
+) => generateCombatCall(service, chunk, line, config, controller, normalizeGameTtsEmotion);
 for (const current of [config, disabled]) {
   const chunks = splitTTSChunks(line.content, current);
   assert.deepEqual(chunks, [current.roleplaySpeakerExtractorEmotionsEnabled ? line.content : "As you wish."]);
@@ -452,4 +459,14 @@ for (const current of [config, disabled]) {
   assert.equal(spoken.text, chunks[0]);
   assert.equal(spoken.options.speaker, line.character);
   assert.equal(spoken.options.tone, line.expression);
+}
+// #8619: a combat line's expression is folded into the game's spoken expressions, as Game narration's are, so the
+// server can map it to a documented audio tag; one that names none is sent without a tone instead of as a word.
+for (const [expression, tone] of [
+  ["grin", "happy"],
+  ["Smirking", "smirk"],
+  ["victorious", undefined],
+] as const) {
+  await generateCombat(ttsService, "Hold the line.", { ...line, expression }, config, new AbortController());
+  assert.equal(generated.at(-1)!.options.tone, tone, `combat expression ${expression} speaks as ${tone ?? "no tone"}`);
 }

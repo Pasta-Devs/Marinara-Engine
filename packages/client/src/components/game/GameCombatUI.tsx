@@ -30,6 +30,7 @@ import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { audioManager } from "../../lib/game-audio";
 import { getOrCreateCachedTTSAudioBlob } from "../../lib/tts-audio-cache";
 import { normalizeTTSCharacterName, resolveTTSVoiceForSpeaker, splitTTSChunks } from "../../lib/tts-dialogue";
+import { normalizeGameTtsEmotion } from "../../lib/game-tts-emotion";
 import { ttsService } from "../../lib/tts-service";
 import { useGameAssetManifest } from "../../hooks/use-game-assets";
 import { useCombatRound } from "../../hooks/use-game";
@@ -1139,7 +1140,7 @@ export function GameCombatUI({
             const blob = await getOrCreateCachedTTSAudioBlob(chunkKey, () =>
               ttsService.generateAudio(chunk, {
                 speaker: line.character,
-                tone: line.expression,
+                tone: normalizeGameTtsEmotion(line.expression) ?? undefined,
                 voice: line.voice,
                 signal: controller.signal,
               }),
