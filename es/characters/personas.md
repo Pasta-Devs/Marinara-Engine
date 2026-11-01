@@ -126,6 +126,10 @@ La pestaña **Lorebook** (libro de trasfondo) te permite adjuntar entradas de lo
 
 La pestaña **Sprites** (imágenes del personaje) te permite subir arte de personaje de pie para tu persona. Los sprites se usan en Game Mode y Roleplay. Tiene pestañas de categoría para **Facial Expressions** (Expresiones faciales), **Full-body** (Cuerpo completo) y **Clips**. Puedes subir una imagen a la vez o usar **Upload Folder** (Subir carpeta) para importar en bloque una carpeta de imágenes PNG. Como los sprites son un sistema compartido, consulta [Sprites de personaje](sprites.md) para todos los detalles.
 
+Las expresiones y los sprites de cuerpo completo tienen carpetas opcionales separadas encima de la cuadrícula de sprites sueltos. Usa **New folder** (nueva carpeta) y luego haz doble clic o doble toque en su nombre para cambiarlo. Arrastra sprites dentro o fuera de las carpetas, o usa con el teclado la acción **Move sprite** (mover sprite) de una miniatura y el selector **Folder** (carpeta). Quitar una carpeta conserva sus sprites. Todos los sprites siguen disponibles para los chats y los agentes, y las exportaciones, importaciones y transferencias de perfil compatibles conservan la pertenencia a carpetas y las etiquetas.
+
+La búsqueda filtra la cuadrícula. Una búsqueda sin resultados muestra un mensaje de que no hay coincidencias; no significa que la colección esté vacía. **Delete All Expressions** y **Delete All Full-Body** siguen aplicándose a toda la categoría, incluidos los sprites ocultos por una búsqueda.
+
 ### Pestaña Gallery
 
 La pestaña **Gallery** (Galería) guarda arte de referencia y videos adjuntos a tu persona. Tiene dos subpestañas, **Images** (Imágenes) y **Videos**. Usa **Upload Persona Images** (Subir imágenes de la persona) o **Upload Persona Videos** (Subir videos de la persona) para añadir archivos. La subpestaña **Videos** también gestiona los clips de videollamada para la función de llamada del Conversation Mode. Consulta [Galerías de personajes y personas](galleries.md).

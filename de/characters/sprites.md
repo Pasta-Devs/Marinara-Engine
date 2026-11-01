@@ -25,42 +25,56 @@ Diese Anleitung behandelt die Kategorien **Facial Expressions** und **Full-body*
 
 ## Eigene Sprites hochladen
 
-Vorhandene Bilder lassen sich direkt hochladen. Marinara akzeptiert die gängigen Bildformate. Am besten funktionieren transparente PNG-Dateien: Die leere Fläche rund um den Charakter bleibt über der Szene durchsichtig.
+Hochladen lassen sich PNG-, JPEG-, GIF-, WebP- und AVIF-Bilder sowie passive SVG-Bilder. Am besten funktionieren transparente PNG-Dateien: Die leere Fläche rund um den Charakter bleibt über der Szene durchsichtig. Nicht unterstützte oder ungültige Ersatzbilder werden abgelehnt, ohne dass das gespeicherte Sprite verloren geht.
 
 ### Ein einzelnes Sprite hochladen
 
 1. Öffne den Tab **Sprites** und wähle **Facial Expressions** oder **Full-body**.
-2. Gib im Bereich **Add Sprite** (Sprite hinzufügen) einen Namen in das Textfeld ein. Bei Gesichtsausdrücken lautet der Platzhalter „Expression name (e.g. happy, sad, angry)“, bei Posen „Pose name (e.g. idle, walk, battle_stance)“.
-3. Klick auf **Upload** und wähle eine Bilddatei aus.
+2. Klick auf **Add sprites** (Sprites hinzufügen) und dann auf **Upload images** (Bilder hochladen). Du kannst mehrere Bilder auf einmal auswählen.
+3. Jeder Dateiname wird zum vorläufigen Namen des Sprites. Umbenennen kannst du ein Sprite später, indem du es öffnest.
 
-Das neue Sprite erscheint darunter im Raster – mit dem vergebenen Namen.
-
-### Häufige Gesichtsausdrücke schnell anlegen
-
-In der Kategorie **Facial Expressions** schlägt die Zeile **Quick add** (Schnell hinzufügen) Namen für Gesichtsausdrücke vor, die noch fehlen – etwa happy oder angry. Ein Klick darauf öffnet die Dateiauswahl, der Name steht dann schon fest. Das Tippen entfällt.
+Die neuen Sprites erscheinen ohne Ordner im normalen Raster. Im Persona-Editor lädst du ein einzelnes Sprite weiterhin über das Namensfeld im Bereich **Add Sprite** (Sprite hinzufügen) und die Schaltfläche **Upload** hoch.
 
 ### Einen ganzen Ordner auf einmal hochladen
 
 Liegen viele Sprites in einem Ordner, lassen sie sich in einem Schritt importieren.
 
 1. Benenne die Bilddateien nach dem Gesichtsausdruck oder der Pose. Eine Datei `admiration.png` ergibt zum Beispiel den Gesichtsausdruck admiration.
-2. Klick im Bereich **Add Sprite** auf **Upload Folder**.
+2. Öffne **Add sprites** und klick auf **Import folder** (Ordner importieren). Im Persona-Editor klickst du im Bereich **Add Sprite** auf **Upload Folder** (Ordner hochladen).
 3. Wähle den Ordner mit den Bildern aus.
 
 Jeder Dateiname wird ohne Endung zum Sprite-Namen. Währenddessen meldet eine Fortschrittszeile „Uploading X/Y sprites“.
+
+Unterordner werden zu optionalen Sprite-Ordnern. Eine exportierte `catalog.json` stellt außerdem die Ordnerzuordnung und bearbeitete Namen wieder her. Ungültige Ordnerangaben werden gemeldet, verwendbare Bilder aber trotzdem importiert. Schlägt ein Import ganz oder teilweise fehl, meldet Marinara den Fehler, statt einen Erfolg mit null Bildern anzuzeigen.
 
 Mehrere Varianten desselben Gesichtsausdrucks entstehen über einen gemeinsamen Namensteil vor dem Unterstrich. `happy_01.png` und `happy_blush.png` gelten beide als Varianten von happy.
 
 ### Ein Sprite verwalten
 
-Zeig mit der Maus auf eine Sprite-Karte im Raster, um die Aktionen einzublenden:
+Öffne ein Charakter-Sprite, um die Vorschau mit seinen Aktionen zu sehen. Bei Persona-Sprites bleiben die Aktionen auf der Kachel:
 
 - **Frame** (Ausschnitt): das Bild so zuschneiden, dass der Charakter an der gewünschten Stelle sitzt.
 - **Download**: die Sprite-Datei auf dem Computer speichern.
 - **Replace** (Ersetzen): ein neues Bild unter demselben Namen hochladen.
+- **Rename** (Umbenennen; in der Charakter-Vorschau): den Namen ändern, bis zu 160 Zeichen. Datei-Handle und URL bleiben erhalten, bestehende konkrete Bildverweise funktionieren also weiter.
+- **Folder** (Ordner; in der Charakter-Vorschau) oder **Move sprite** (Sprite verschieben; auf der Persona-Kachel): einen Ordner oder **No folder** (kein Ordner) wählen, ohne zu ziehen.
 - **Delete** (Löschen): dieses Sprite entfernen.
 
-Vor dem Löschen erscheint eine Rückfrage mit dem Text „Delete sprite for“ und dem Namen. Sind mehrere Sprites zu sehen, bietet dasselbe Fenster zusätzlich **Delete All Expressions** oder **Delete All Full-Body** an.
+Vor dem Löschen erscheint eine Rückfrage. Im Persona-Editor entfernen **Delete All Expressions** oder **Delete All Full-Body** die ganze Kategorie, auch wenn gerade eine Suche aktiv ist.
+
+### Optionale Ordner und Auswahl
+
+Klick auf **New folder** (Neuer Ordner), um einen eingeklappten Ordner namens **unnamed** anzulegen. Mit Doppelklick oder Doppeltippen auf den Namen benennst du ihn um, über den Pfeil klappst du ihn auf. Gesichtsausdrücke und Ganzkörper-Sprites haben getrennte Ordner. Ordner stehen über den Sprites ohne Ordner und lassen sich durch Ziehen umsortieren.
+
+Ziehe einzelne Sprites in auf- oder eingeklappte Ordner. Auf dem Smartphone hältst du eine Kachel gedrückt, um das Ziehen zu beginnen; normales Wischen scrollt weiterhin. Ziehst du ein einsortiertes Sprite in den Bereich ohne Ordner, wird es aus seinem Ordner genommen. Der hervorgehobene Bereich zeigt das Ziel. Die Steuerung **Folder** in der Vorschau und die Schaltfläche **Move sprite** auf der Persona-Kachel sind die Alternative für die Tastatur.
+
+Klick auf **Select** (Auswählen), um Kontrollkästchen und **Select all sprites** (alle Sprites auswählen) einzublenden. Danach ziehst du die ausgewählten Sprites gemeinsam oder nutzt die verfügbaren Bereinigungs- und Löschwerkzeuge. **Cancel** (Abbrechen) beendet den Auswahlmodus. Die Suche filtert die sichtbaren Sprites; eine Suche ohne Treffer bedeutet nicht, dass die Sammlung leer ist.
+
+Ordner sortieren Sprites nur. Sie legen nie einen aktiven Satz fest und verbergen keine Bilder vor Chats oder Agenten. Wird ein Ordner gelöscht, bleiben seine Sprites ohne Ordner erhalten.
+
+### Character Sheet
+
+Die kompakte Zeile **Character Sheet** im Charakter-Editor öffnest du über **Manage** (Verwalten). Dort erstellst oder lädst du ein Sheet hoch und aktivierst **Use as reference image** (als Referenzbild verwenden), wenn es für die Ähnlichkeit des Charakters bevorzugt werden soll. Referenzauswahl und Avatar-Rückfall funktionieren wie bisher.
 
 ## Sprites per KI generieren
 
@@ -79,6 +93,8 @@ Fülle das Fenster aus:
 
 Sind die Bilder fertig, prüfst du sie. Jedes Bild lässt sich vor dem Speichern ein- oder ausschalten, umbenennen und zuschneiden. Passt alles, speicherst du die ausgewählten Bilder in die Sprite-Sammlung des Charakters.
 
+Hat genau ein gespeichertes Sprite dieser Kategorie den generierten Namen, ersetzt das Speichern sein Bild und behält Ordner und Handle bei. Ein Sprite, das von diesem Namen weg umbenannt wurde, bleibt unangetastet. Kommt derselbe Name in verschiedenen Ordnern mehrfach vor, wähl das zu ersetzende Sprite ausdrücklich, damit zuverlässig das richtige getroffen wird.
+
 Hat der Charakter bereits Porträt-Gesichtsausdrücke, steht bei der Quelle **Full-body** das Kontrollkästchen **Match existing expression sprites** zur Verfügung. Damit entstehen Ganzkörperposen passend zu jedem vorhandenen Namen eines Gesichtsausdrucks.
 
 Zwei Hinweise zur KI-Generierung:
@@ -96,11 +112,11 @@ Am besten wirkt ein Sprite, wenn nur der Charakter zu sehen und der Hintergrund 
 
 ### Ein Sprite von Hand bereinigen
 
-Ein Klick auf das Bild eines Sprites im Raster öffnet den Bereinigungs-Editor. Dort radierst du den Hintergrund weg, malst Bereiche wieder zurück und prüfst das Ergebnis vor dunklem, hellem und kariertem Untergrund. Schritte lassen sich rückgängig machen, das Original wiederherstellen und die Änderungen zum Schluss übernehmen.
+Öffne die Vorschau eines Charakter-Sprites und dort die Bereinigung mit dem Zauberstab, oder klick auf das Bild eines Persona-Sprites, um den Bereinigungs-Editor zu öffnen. Dort radierst du den Hintergrund weg, malst Bereiche wieder zurück und prüfst das Ergebnis vor dunklem, hellem und kariertem Untergrund. Schritte lassen sich rückgängig machen, das Original wiederherstellen und die Änderungen zum Schluss übernehmen.
 
 ### Viele Sprites auf einmal bereinigen
 
-Die Schaltfläche **Clean Backgrounds** (Hintergründe bereinigen) entfernt den Hintergrund bei allen Sprites, die gerade im Raster zu sehen sind.
+Im Charakter-Editor klickst du auf **Select**, wählst Sprites aus und klickst auf **Clean Backgrounds** (Hintergründe bereinigen). Im Persona-Editor gilt die Bereinigungsschaltfläche für die ausgewählten Sprites oder, wenn nichts ausgewählt ist, für die sichtbare Kategorie.
 
 1. Stell den Regler **Cleanup strength** (Bereinigungsstärke) ein. Er reicht von Soft bis Aggressive, also von 0 bis 100, und steht anfangs auf 35. Ein höherer Wert entfernt mehr Hintergrund, greift dafür aber schneller den Charakter an.
 2. Klick auf **Clean Backgrounds** und bestätige.
@@ -116,10 +132,18 @@ Die automatische Bereinigung analysiert das Bild, bevor sie ein Verfahren wählt
 Die Sprites eines Charakters lassen sich als ZIP-Datei auf dem Computer speichern. Eine ZIP-Datei fasst viele Dateien zu einer einzigen zusammen.
 
 1. Öffne den Tab **Sprites**.
-2. Klick im Bereich **Add Sprite** auf **Export**.
+2. Klick über dem Raster des Charakters auf **Export** oder im Bereich **Add Sprite** der Persona.
 3. Wähle **Expressions only** oder **Full-body only** für die aktuelle Kategorie oder **All sprites** für alles zusammen.
 
-Der Download besteht aus einem Ordner, der nach dem Charakter benannt ist und die Sprite-Bilddateien enthält.
+Der Download enthält die Sprite-Bilddateien und eine `catalog.json` mit Namen und Ordnerstruktur. Unterstützte native Übertragungen von Charakteren und Personas sowie Profil-Backups behalten diese Metadaten ebenfalls.
+
+### Ordnerfähige Integrationen
+
+`GET /api/sprites/:ownerId` liefert weiterhin jedes Sprite, ob einem Ordner zugeordnet oder nicht. `GET /api/sprites/:ownerId/catalog` ergänzt Ordner und Zuordnung für Integrationen, die Ordner einzeln erkennen oder importieren wollen. Jedes Sprite enthält sein stabiles Handle `expression`, das bearbeitbare `label`, `folderId` und die URL. Für die Zuordnung zählen die Ordner-IDs; das Array `folders` ist die gespeicherte Reihenfolge, die der Editor umgekehrt anzeigt, damit neue Ordner oben stehen. Die Ordnerreihenfolge legt weder Priorität noch Verfügbarkeit für Agenten fest.
+
+Der Asset-Browser im Chat zeigt bearbeitete Namen an, fügt aber konkrete Links `card://sprites/<ownerId>/<filename>` ein, die auch nach einer Umbenennung funktionieren. Chatbezogene Links wie `card://sprites/facial/joy.png` können ebenfalls den bearbeiteten Namen auflösen; ein vorhandener passender Dateiname hat Vorrang.
+
+Fehlen optionale Metadaten oder sind sie unlesbar, bleiben verwendbare Bilder trotzdem sichtbar. Bearbeitungen verweigern beschädigte Metadaten, statt sie stillschweigend zu ersetzen. Reine Leselisten überspringen nicht zugängliche Sammlungen; Export- und Schreibvorgänge verweigern weiterhin verlinkte Besitzer-Ordner.
 
 ## Wie Sprites im Chat erscheinen
 

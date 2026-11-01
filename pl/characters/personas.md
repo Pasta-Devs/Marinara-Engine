@@ -126,6 +126,10 @@ W zakładce **Lorebook** przypisujesz do persony wpisy lorebooka (zbioru faktów
 
 W zakładce **Sprites** wgrywasz grafiki postaci w pozycji stojącej dla swojej persony. Sprite'y (obrazki postaci na obszarze sceny) działają w trybie Game Mode i Roleplay. Zakładka ma podział na kategorie: **Facial Expressions**, **Full-body** i **Clips**. Da się wgrywać obrazy pojedynczo albo skorzystać z **Upload Folder** i zaimportować zbiorczo cały folder plików PNG. Sprite'y to system wspólny dla wszystkich, więc pełne szczegóły znajdziesz w przewodniku [Sprite'y postaci](sprites.md).
 
+Wyrazy twarzy i sprite'y całej sylwetki mają osobne, opcjonalne foldery nad siatką sprite'ów luzem. Użyj **New folder** (nowy folder), a potem kliknij lub dotknij dwukrotnie nazwę, żeby ją zmienić. Przeciągaj sprite'y do folderów i z nich albo z klawiatury użyj działania **Move sprite** (przeniesienie sprite'a) na kafelku i selektora **Folder** (folder). Usunięcie folderu zachowuje jego sprite'y. Wszystkie sprite'y pozostają dostępne dla czatów i agentów, a obsługiwane eksporty, importy i przenoszenie profilu zachowują przypisanie do folderów i etykiety.
+
+Wyszukiwanie filtruje siatkę. Wyszukiwanie bez wyników pokazuje komunikat o braku dopasowań – nie znaczy to, że kolekcja jest pusta. **Delete All Expressions** i **Delete All Full-Body** nadal obejmują całą kategorię, łącznie ze sprite'ami ukrytymi przez wyszukiwanie.
+
 ### Zakładka Gallery
 
 W zakładce **Gallery** trzymasz grafiki referencyjne i filmy przypisane do persony. Ma dwie podzakładki: **Images** i **Videos**. Pliki dodajesz przyciskiem **Upload Persona Images** albo **Upload Persona Videos**. Podzakładka **Videos** zarządza dodatkowo klipami do rozmów wideo w trybie Conversation. Zobacz [Galerie postaci i person](galleries.md).

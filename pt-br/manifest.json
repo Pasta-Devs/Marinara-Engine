@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "04e328e06f97b42e1c6b05cbc8019309760ec17b",
+  "sourceCommit": "48f17da5ce9da16da0e71f64c8e2d32903e6878f",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -139,13 +139,13 @@
     },
     {
       "path": "characters/personas.md",
-      "sha256": "6e8f8c1eb5af246ececd297de218f6e8ffd5278bbde33e2d2b3890775ba8f301",
-      "bytes": 21214
+      "sha256": "13c4eacf3652b3bb8aee7127b1a00183191d84994f9a8deabb512c7a50519282",
+      "bytes": 22091
     },
     {
       "path": "characters/sprites.md",
-      "sha256": "7601ba0c3f12edfe34431942964f7c4104b5ddf88c9488fcae58451e90e8651d",
-      "bytes": 12779
+      "sha256": "1019df45ae7bc9bea4ea9c207aeb08ecb5fa3f204d39ba724b3a56f48287f2aa",
+      "bytes": 17146
     },
     {
       "path": "chats/branches.md",
