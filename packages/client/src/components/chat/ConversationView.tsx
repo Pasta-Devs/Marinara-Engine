@@ -28,6 +28,7 @@ import { PendingTypingDots } from "./PendingTypingDots";
 import { HISTORY_PAGER_BUTTON_CLASS, TranscriptWindowControls } from "./TranscriptWindowControls";
 import { PinnedImageOverlay } from "./PinnedImageOverlay";
 import { useChatStore } from "../../stores/chat.store";
+import { ScenarioSetupButton } from "./ScenarioSetupButton";
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useConversationGamesStore } from "../../stores/conversation-games.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -1341,6 +1342,7 @@ export function ConversationView({
             </p>
           </div>
         )}
+        <ScenarioSetupButton chatId={chatId} empty={!isLoading && !hasNextPage && messages?.length === 0} />
 
         {/* Messages with day separators */}
         {renderedItems.map((item) => {

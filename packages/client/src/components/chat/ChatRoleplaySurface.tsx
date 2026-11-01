@@ -78,6 +78,7 @@ import { CHAT_TOOLBAR_ICON_GAP_CLASS, getChatToolbarButtonClass } from "./ChatTo
 import { HISTORY_PAGER_BUTTON_CLASS, TranscriptWindowControls } from "./TranscriptWindowControls";
 import { EndSceneBar } from "./SceneBanner";
 import { ChatCommonOverlays, type ChatSettingsTools } from "./ChatCommonOverlays";
+import { ScenarioSetupButton } from "./ScenarioSetupButton";
 import { useProvideChatGalleryActions } from "../../hooks/use-chat-gallery-actions";
 import { PinnedImageOverlay } from "./PinnedImageOverlay";
 import type { SpriteDisplayMode } from "./sprite-display-modes";
@@ -1980,6 +1981,10 @@ export function ChatRoleplaySurface({
                   </div>
                 )}
 
+                <ScenarioSetupButton
+                  chatId={activeChatId}
+                  empty={!isLoading && !hasNextPage && messages?.length === 0}
+                />
                 {visibleMessages?.map((msg, i) => {
                   if (isMessageHiddenFromUser(msg)) return null;
                   if (

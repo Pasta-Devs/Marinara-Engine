@@ -133,6 +133,7 @@ import {
 import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
 import { AdvancedMemorySettings } from "./AdvancedMemorySettings";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Modal } from "../ui/Modal";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
 import { ChatProfileBuilder } from "./ChatProfileBuilder";
@@ -621,20 +622,75 @@ const EMPTY_SCENARIO: ScenarioStepState = { idea: "", draft: null, preview: fals
 const SCENARIO_TEXTAREA_CLASS =
   "w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-all placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]/40 disabled:opacity-60";
 
-/** Multiplayer setups never get a starting message, so they skip the scenario step too. */
-function withScenarioStep(steps: WizardStep[], chat: Chat, t: (key: string) => string): WizardStep[] {
-  if (readChatMetadata(chat).multiplayerSetup === true) return steps;
-  return [...steps, { key: "scenario", title: t("chat.wizard.scenario.title"), body: t("chat.wizard.scenario.body") }];
+/** Header for the scenario view, shown in place of the wizard's last step. */
+function scenarioWizardStep(t: (key: string) => string): WizardStep {
+  return { key: "scenario", title: t("chat.wizard.scenario.title"), body: t("chat.wizard.scenario.body") };
+}
+
+/** Start writes the draft only when the preview is open with text in both parts. */
+function acceptedScenario(state: ScenarioStepState): SceneScenarioDraft | null {
+  const { draft } = state;
+  return state.preview && draft && draft.premise.trim() && draft.opening.content.trim() ? draft : null;
 }
 
 /**
- * Start writes the draft only when the step is still in the wizard (multiplayer turned on later drops it)
- * and the preview is open with text in both parts.
+ * Start shared by every scenario entry point. The opening is written once, so a retry after a
+ * failed save never writes it twice; `finish` then saves the premise.
  */
-function acceptedScenario(state: ScenarioStepState, steps: WizardStep[]): SceneScenarioDraft | null {
-  const { draft } = state;
-  if (!steps.some((step) => step.key === "scenario")) return null;
-  return state.preview && draft && draft.premise.trim() && draft.opening.content.trim() ? draft : null;
+function useScenarioStart(chatId: string, chatCharIds: string[]) {
+  const { t } = useUiTranslation();
+  const [scenario, setScenario] = useState(EMPTY_SCENARIO);
+  const [starting, setStarting] = useState(false);
+  const [openingWritten, setOpeningWritten] = useState(false);
+  const createMessage = useCreateMessage(chatId);
+  const updateMeta = useUpdateChatMetadata();
+  const writeOpening = useCallback(
+    async (draft: SceneScenarioDraft) => {
+      if (openingWritten) return;
+      await createMessage.mutateAsync({
+        role: "assistant",
+        content: draft.opening.content,
+        characterId: draft.opening.characterId,
+      });
+      setOpeningWritten(true);
+    },
+    [createMessage, openingWritten],
+  );
+  /** Opening first, premise last, keeping the other metadata. */
+  const saveScenario = async (draft: SceneScenarioDraft) => {
+    await writeOpening(draft);
+    await updateMeta.mutateAsync({
+      id: chatId,
+      groupScenarioText: composeScenarioText(draft.premise, draft.direction),
+    });
+  };
+  const start = async (draft: SceneScenarioDraft | null, finish: (draft: SceneScenarioDraft) => Promise<void>) => {
+    if (!draft || starting) return;
+    // The opener may have been removed from the chat after the draft was written.
+    if (!chatCharIds.includes(draft.opening.characterId)) {
+      toast.error(t("chat.wizard.scenario.openerGone"));
+      return;
+    }
+    setStarting(true);
+    try {
+      await finish(draft);
+    } catch {
+      toast.error(t("chat.wizard.scenario.startFailed"));
+    } finally {
+      setStarting(false);
+    }
+  };
+  return { scenario, setScenario, starting, openingWritten, writeOpening, saveScenario, start };
+}
+
+function ScenarioOpenButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  const { t } = useUiTranslation();
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className={WIZARD_SECONDARY_BUTTON_CLASS}>
+      <Sparkles size="0.75rem" aria-hidden="true" />
+      {t("chat.wizard.scenario.title")}
+    </button>
+  );
 }
 
 function ScenarioSetupStep({
@@ -898,6 +954,58 @@ function ScenarioSetupStep({
       )}
       {status}
     </div>
+  );
+}
+
+/** The scenario view for a chat that has no messages yet, opened from the chat itself. */
+export function ScenarioSetupDialog({ chat, onClose }: { chat: Chat; onClose: () => void }) {
+  const { t } = useUiTranslation();
+  const { data: characters } = useCharacters();
+  const chatCharIds = useMemo<string[]>(
+    () => (typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? [])),
+    [chat.characterIds],
+  );
+  const { scenario, setScenario, starting, openingWritten, saveScenario, start } = useScenarioStart(
+    chat.id,
+    chatCharIds,
+  );
+  const draft = acceptedScenario(scenario);
+  const existing = readChatMetadata(chat).groupScenarioText;
+  return (
+    <Modal open onClose={onClose} title={t("chat.wizard.scenario.title")} width="max-w-xl" closeDisabled={starting}>
+      <p className={cn(NEUTRAL_PANEL_SUBTITLE, "mb-1")}>{t("chat.wizard.scenario.body")}</p>
+      {typeof existing === "string" && existing.trim() && (
+        <p className={cn(NEUTRAL_PANEL_SUBTITLE, "mb-3")}>{t("chat.wizard.scenario.replacesExisting")}</p>
+      )}
+      <ScenarioSetupStep
+        chatId={chat.id}
+        value={scenario}
+        openingLocked={openingWritten}
+        onChange={setScenario}
+        nameOf={(id) => {
+          const character = ((characters ?? []) as Array<{ id: string; data: string; comment?: string | null }>).find(
+            (entry) => entry.id === id,
+          );
+          return character ? parseCharacterDisplayData(character).name : "";
+        }}
+      />
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          disabled={!draft || starting}
+          onClick={() =>
+            void start(draft, async (accepted) => {
+              await saveScenario(accepted);
+              onClose();
+            })
+          }
+          className={WIZARD_PRIMARY_BUTTON_CLASS}
+        >
+          {t("chat.wizard.scenario.start")}
+          <Check size="0.75rem" aria-hidden="true" />
+        </button>
+      </div>
+    </Modal>
   );
 }
 
@@ -1480,15 +1588,10 @@ function ConversationQuickSetup({
 }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
-  const STEPS = useMemo(() => withScenarioStep(CONVERSATION_STEPS, chat, localizeUi), [chat, localizeUi]);
+  const STEPS = CONVERSATION_STEPS;
   const [step, setStep] = useState(0);
   const currentStep = STEPS[step]!;
   const isLast = step === STEPS.length - 1;
-  const [scenario, setScenario] = useState(EMPTY_SCENARIO);
-  const [scenarioStarting, setScenarioStarting] = useState(false);
-  const [openingWritten, setOpeningWritten] = useState(false);
-  const acceptedDraft = acceptedScenario(scenario, STEPS);
-  const createMessage = useCreateMessage(chat.id);
   const { data: connections } = useConnections();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
@@ -1667,6 +1770,17 @@ function ConversationQuickSetup({
     return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? []);
   }, [chat.characterIds]);
   const [chatCharIds, setChatCharIds] = useState<string[]>(persistedChatCharIds);
+  // The scenario view replaces the last step; a draft counts only while it is open.
+  const [scenarioOpen, setScenarioOpen] = useState(false);
+  const {
+    scenario,
+    setScenario,
+    starting: scenarioStarting,
+    openingWritten,
+    writeOpening,
+    start: startScenario,
+  } = useScenarioStart(chat.id, chatCharIds);
+  const acceptedDraft = scenarioOpen ? acceptedScenario(scenario) : null;
 
   useEffect(() => {
     setChatCharIds(persistedChatCharIds);
@@ -1914,14 +2028,7 @@ function ConversationQuickSetup({
     });
     // Opening first, premise last in the one metadata write that also finishes setup, so a failed Start
     // saves no premise and no "setup complete". The ref keeps a retry from writing the opening twice.
-    if (acceptedDraft && !openingWritten) {
-      await createMessage.mutateAsync({
-        role: "assistant",
-        content: acceptedDraft.opening.content,
-        characterId: acceptedDraft.opening.characterId,
-      });
-      setOpeningWritten(true);
-    }
+    if (acceptedDraft) await writeOpening(acceptedDraft);
     await updateMeta.mutateAsync({
       id: chat.id,
       autonomousMessages: autonomousEnabled,
@@ -1980,27 +2087,11 @@ function ConversationQuickSetup({
     connectionOptions,
     metadata.imageGenConnectionId,
     metadata.multiplayerSetup,
-    createMessage,
+    writeOpening,
     acceptedDraft,
-    openingWritten,
   ]);
 
-  const startWithScenario = async () => {
-    if (!acceptedDraft || scenarioStarting) return;
-    // The opener may have been removed on an earlier step after the draft was written.
-    if (!chatCharIds.includes(acceptedDraft.opening.characterId)) {
-      toast.error(localizeUi("chat.wizard.scenario.openerGone"));
-      return;
-    }
-    setScenarioStarting(true);
-    try {
-      await handleStartChatting();
-    } catch {
-      toast.error(localizeUi("chat.wizard.scenario.startFailed"));
-    } finally {
-      setScenarioStarting(false);
-    }
-  };
+  const startWithScenario = () => startScenario(acceptedDraft, handleStartChatting);
 
   const validationContent =
     isLast && metadata.multiplayerSetup !== true && (missingSetup.connection || missingSetup.characters) ? (
@@ -2538,27 +2629,26 @@ function ConversationQuickSetup({
     </div>
   );
 
-  const content =
-    currentStep.key === "connection" ? (
-      renderConnectionStep()
-    ) : currentStep.key === "prompt" ? (
-      renderPromptStep()
-    ) : currentStep.key === "participants" ? (
-      renderParticipantsStep()
-    ) : currentStep.key === "automation" ? (
-      renderAutomationStep()
-    ) : (
-      <ScenarioSetupStep
-        chatId={chat.id}
-        value={scenario}
-        openingLocked={openingWritten}
-        onChange={setScenario}
-        nameOf={(id) => {
-          const character = characters.find((entry) => entry.id === id);
-          return character ? charName(character) : "";
-        }}
-      />
-    );
+  const content = scenarioOpen ? (
+    <ScenarioSetupStep
+      chatId={chat.id}
+      value={scenario}
+      openingLocked={openingWritten}
+      onChange={setScenario}
+      nameOf={(id) => {
+        const character = characters.find((entry) => entry.id === id);
+        return character ? charName(character) : "";
+      }}
+    />
+  ) : currentStep.key === "connection" ? (
+    renderConnectionStep()
+  ) : currentStep.key === "prompt" ? (
+    renderPromptStep()
+  ) : currentStep.key === "participants" ? (
+    renderParticipantsStep()
+  ) : (
+    renderAutomationStep()
+  );
   const busyContent =
     scheduleState === "generating" ? (
       <div className="flex items-center justify-center gap-2 py-1">
@@ -2584,42 +2674,36 @@ function ConversationQuickSetup({
         title={localizeUi("navigation.chatSidebar.new.conversation")}
         steps={STEPS}
         step={step}
-        currentStep={currentStep}
-        animationKey={`conversation-${currentStep.key}`}
+        currentStep={scenarioOpen ? scenarioWizardStep(localizeUi) : currentStep}
+        animationKey={`conversation-${scenarioOpen ? "scenario" : currentStep.key}`}
         onClose={onDismiss}
-        onBack={step > 0 && !openingWritten ? goBack : undefined}
+        onBack={
+          scenarioOpen ? (openingWritten ? undefined : () => setScenarioOpen(false)) : step > 0 ? goBack : undefined
+        }
         onSkip={openingWritten ? undefined : onDismiss}
-        onPrimary={
-          acceptedDraft && currentStep.key === "scenario"
-            ? () => void startWithScenario()
-            : isLast
-              ? handleStartChatting
-              : goNext
-        }
-        primaryLabel={
-          currentStep.key === "scenario"
-            ? localizeUi(acceptedDraft || openingWritten ? "chat.wizard.scenario.start" : "chat.wizard.scenario.skip")
-            : isLast
-              ? "Start Chatting"
-              : "Next"
-        }
+        onPrimary={scenarioOpen ? () => void startWithScenario() : isLast ? handleStartChatting : goNext}
+        primaryLabel={scenarioOpen ? localizeUi("chat.wizard.scenario.start") : isLast ? "Start Chatting" : "Next"}
         primaryIcon={isLast ? <MessageCircle size="0.75rem" /> : <ChevronRight size="0.75rem" />}
         primaryDisabled={
-          scenarioStarting ||
-          (openingWritten && !acceptedDraft) ||
+          (scenarioOpen && (scenarioStarting || !acceptedDraft)) ||
           (metadata.multiplayerSetup !== true && isLast && (!hasConnection || !hasCharacters))
         }
         secondaryAction={
-          isLast
-            ? defaultsAction({
+          isLast ? (
+            <>
+              {defaultsAction({
                 autonomousMessages: autonomousEnabled,
                 conversationSchedulesEnabled: generateSchedule,
                 characterCommands: commandsEnabled,
                 conversationCommandToggles,
                 chatParameters: customizeParameters ? generationParameters : null,
                 customSystemPrompt: customConversationPromptEnabled ? conversationSystemPromptDraft : null,
-              })
-            : undefined
+              })}
+              {!scenarioOpen && metadata.multiplayerSetup !== true && (
+                <ScenarioOpenButton onClick={() => setScenarioOpen(true)} />
+              )}
+            </>
+          ) : undefined
         }
         validationContent={validationContent}
         busyContent={busyContent}
@@ -2645,11 +2729,7 @@ function RoleplaySetupWizard({
   const localizeText = useLocalizedUiText();
   const defaultDisplayStyle = useUIStore((state) => state.roleplayDisplayStyle);
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
-  const STEPS = useMemo(() => withScenarioStep(ROLEPLAY_STEPS, chat, localizeUi), [chat, localizeUi]);
-  const [scenario, setScenario] = useState(EMPTY_SCENARIO);
-  const [scenarioStarting, setScenarioStarting] = useState(false);
-  const [openingWritten, setOpeningWritten] = useState(false);
-  const acceptedDraft = acceptedScenario(scenario, STEPS);
+  const STEPS = ROLEPLAY_STEPS;
   const roleplayConnectionSelectId = useId();
 
   const [step, setStep] = useState(0);
@@ -2666,6 +2746,8 @@ function RoleplaySetupWizard({
     return flag;
   });
   const [shortcutPresetId, setShortcutPresetId] = useState<string>("");
+  // Set when "Set up a scenario" was picked in the profile view: the profile is applied, greetings are not.
+  const [scenarioFromProfile, setScenarioFromProfile] = useState(false);
   // The quick-setup picker only shows the profile's starting persona; nothing is written until
   // the user picks one here (their pick then wins) or Apply & Start applies the profile.
   const [shortcutPersonaPicked, setShortcutPersonaPicked] = useState(false);
@@ -2791,6 +2873,18 @@ function RoleplaySetupWizard({
     return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? []);
   }, [chat.characterIds]);
   const [chatCharIds, setChatCharIds] = useState<string[]>(persistedChatCharIds);
+  // The scenario view replaces the last step; a draft counts only while it is open.
+  const [scenarioOpen, setScenarioOpen] = useState(false);
+  const {
+    scenario,
+    setScenario,
+    starting: scenarioStarting,
+    openingWritten,
+    writeOpening,
+    saveScenario,
+    start: startScenario,
+  } = useScenarioStart(chat.id, chatCharIds);
+  const acceptedDraft = scenarioOpen ? acceptedScenario(scenario) : null;
 
   useEffect(() => {
     setChatCharIds(persistedChatCharIds);
@@ -3149,14 +3243,7 @@ function RoleplaySetupWizard({
   const finishWizard = useCallback(async () => {
     // Opening first, premise last in the one metadata write that also finishes setup, so a failed Start
     // saves no premise and no "setup complete". The ref keeps a retry from writing the opening twice.
-    if (acceptedDraft && !openingWritten) {
-      await createMessage.mutateAsync({
-        role: "assistant",
-        content: acceptedDraft.opening.content,
-        characterId: acceptedDraft.opening.characterId,
-      });
-      setOpeningWritten(true);
-    }
+    if (acceptedDraft) await writeOpening(acceptedDraft);
     await updateMeta.mutateAsync({
       id: chat.id,
       chatParameters: customizeParameters ? generationParameters : null,
@@ -3177,26 +3264,23 @@ function RoleplaySetupWizard({
     generationParameters,
     onFinish,
     updateMeta,
-    createMessage,
     acceptedDraft,
-    openingWritten,
+    writeOpening,
     metadata.multiplayerSetup,
   ]);
 
-  const startWithScenario = async () => {
-    if (!acceptedDraft || scenarioStarting) return;
-    // The opener may have been removed on an earlier step after the draft was written.
-    if (!chatCharIds.includes(acceptedDraft.opening.characterId)) {
-      toast.error(localizeUi("chat.wizard.scenario.openerGone"));
-      return;
-    }
-    setScenarioStarting(true);
-    try {
-      await finishWizard();
-    } catch {
-      toast.error(localizeUi("chat.wizard.scenario.startFailed"));
-    } finally {
-      setScenarioStarting(false);
+  const startWithScenario = () =>
+    startScenario(acceptedDraft, async (draft) => {
+      if (!scenarioFromProfile) return finishWizard();
+      // The profile already set up the chat; only the opening and premise are left.
+      await saveScenario(draft);
+      onFinish();
+    });
+  const closeScenario = () => {
+    setScenarioOpen(false);
+    if (scenarioFromProfile) {
+      setScenarioFromProfile(false);
+      setShortcutMode(true);
     }
   };
 
@@ -3215,44 +3299,60 @@ function RoleplaySetupWizard({
     }
   }, [chat.id, chatCharIds, createInitialGreetingForCharacter, metadata.multiplayerSetup]);
 
-  const handleShortcutApply = useCallback(async () => {
-    if (!shortcutPresetId) {
-      await seedInitialGreetingsIfEmpty();
-      onFinish();
-      return;
-    }
-    let profileApplied = false;
-    // The persona picked in this step wins over the profile's starting persona.
-    const pickedPersonaId = chat.personaId;
-    const pickedPersonaCharacterId = chat.personaCharacterId;
-    try {
-      setShortcutApplying(true);
-      const applied = await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
-      profileApplied = true;
-      if (shortcutPersonaPicked && applied && applied.personaId !== pickedPersonaId) {
-        if (pickedPersonaCharacterId) setPersonaCharacter(pickedPersonaCharacterId);
-        else if (pickedPersonaId) setPersona(pickedPersonaId);
+  const handleShortcutApply = useCallback(
+    async (withScenario = false) => {
+      if (!shortcutPresetId) {
+        await seedInitialGreetingsIfEmpty();
+        onFinish();
+        return;
       }
-    } catch {
-      /* fall through — still close the wizard */
-    } finally {
-      await seedInitialGreetingsIfEmpty();
-      if (profileApplied) useChatStore.getState().clearPendingNewChatSetup(chat.id);
-      setShortcutApplying(false);
-      onFinish();
-    }
-  }, [
-    shortcutPresetId,
-    shortcutPersonaPicked,
-    chat.id,
-    chat.personaId,
-    chat.personaCharacterId,
-    applyChatPreset,
-    setPersona,
-    setPersonaCharacter,
-    onFinish,
-    seedInitialGreetingsIfEmpty,
-  ]);
+      let profileApplied = false;
+      // The persona picked in this step wins over the profile's starting persona.
+      const pickedPersonaId = chat.personaId;
+      const pickedPersonaCharacterId = chat.personaCharacterId;
+      try {
+        setShortcutApplying(true);
+        const applied = await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
+        profileApplied = true;
+        if (shortcutPersonaPicked && applied && applied.personaId !== pickedPersonaId) {
+          if (pickedPersonaCharacterId) setPersonaCharacter(pickedPersonaCharacterId);
+          else if (pickedPersonaId) setPersona(pickedPersonaId);
+        }
+      } catch {
+        /* fall through — still close the wizard */
+      } finally {
+        if (profileApplied) useChatStore.getState().clearPendingNewChatSetup(chat.id);
+        if (withScenario && profileApplied) {
+          setShortcutApplying(false);
+          setShortcutMode(false);
+          setStep(ROLEPLAY_STEPS.length - 1);
+          setScenarioFromProfile(true);
+          setScenarioOpen(true);
+        } else if (withScenario) {
+          // The user asked for a scenario; stay in the profile view instead of seeding greetings.
+          setShortcutApplying(false);
+          toast.error(localizeUi("chat.settingsProfile.wizard.applyFailed"));
+        } else {
+          await seedInitialGreetingsIfEmpty();
+          setShortcutApplying(false);
+          onFinish();
+        }
+      }
+    },
+    [
+      shortcutPresetId,
+      shortcutPersonaPicked,
+      chat.id,
+      chat.personaId,
+      chat.personaCharacterId,
+      applyChatPreset,
+      setPersona,
+      setPersonaCharacter,
+      onFinish,
+      seedInitialGreetingsIfEmpty,
+      localizeUi,
+    ],
+  );
 
   // Search state for character & lorebook pickers
   const [charSearch, setCharSearch] = useState("");
@@ -4357,18 +4457,6 @@ function RoleplaySetupWizard({
   }
 
   const stepRenderers: Record<string, () => React.ReactNode> = {
-    scenario: () => (
-      <ScenarioSetupStep
-        chatId={chat.id}
-        value={scenario}
-        openingLocked={openingWritten}
-        onChange={setScenario}
-        nameOf={(id) => {
-          const character = characters.find((entry) => entry.id === id);
-          return character ? charName(character) : "";
-        }}
-      />
-    ),
     connection: renderConnection,
     preset: renderPreset,
     participants: renderParticipants,
@@ -4534,10 +4622,18 @@ function RoleplaySetupWizard({
             onClose={onDismiss}
             onBack={() => setShortcutMode(false)}
             onSkip={onDismiss}
-            onPrimary={handleShortcutApply}
+            onPrimary={() => void handleShortcutApply()}
             primaryLabel={shortcutApplying ? "Applying..." : "Apply & Start"}
             primaryIcon={shortcutApplying ? <Loader2 size="0.75rem" className="animate-spin" /> : undefined}
             primaryDisabled={shortcutApplying || !shortcutPresetId}
+            secondaryAction={
+              metadata.multiplayerSetup !== true ? (
+                <ScenarioOpenButton
+                  onClick={() => void handleShortcutApply(true)}
+                  disabled={shortcutApplying || !shortcutPresetId}
+                />
+              ) : undefined
+            }
           >
             {shortcutContent}
           </SetupWizardShell>
@@ -4546,27 +4642,22 @@ function RoleplaySetupWizard({
             title={localizeUi("navigation.chatSidebar.new.roleplay")}
             steps={STEPS}
             step={step}
-            currentStep={currentStep}
-            animationKey={`roleplay-${currentStep.key}`}
+            currentStep={scenarioOpen ? scenarioWizardStep(localizeUi) : currentStep}
+            animationKey={`roleplay-${scenarioOpen ? "scenario" : currentStep.key}`}
             onClose={onDismiss}
-            onBack={step > 0 && !openingWritten ? previous : undefined}
+            onBack={scenarioOpen ? (openingWritten ? undefined : closeScenario) : step > 0 ? previous : undefined}
             onSkip={openingWritten ? undefined : onDismiss}
-            onPrimary={acceptedDraft && currentStep.key === "scenario" ? () => void startWithScenario() : next}
-            primaryLabel={
-              currentStep.key === "scenario"
-                ? localizeUi(
-                    acceptedDraft || openingWritten ? "chat.wizard.scenario.start" : "chat.wizard.scenario.skip",
-                  )
-                : isLast
-                  ? "Start"
-                  : "Next"
-            }
+            onPrimary={scenarioOpen ? () => void startWithScenario() : next}
+            primaryLabel={scenarioOpen ? localizeUi("chat.wizard.scenario.start") : isLast ? "Start" : "Next"}
             primaryIcon={isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-            primaryDisabled={nextDisabled || scenarioStarting || (openingWritten && !acceptedDraft)}
+            primaryDisabled={(scenarioOpen && (scenarioStarting || !acceptedDraft)) || nextDisabled}
             secondaryAction={
               <>
                 {isLast && defaultsAction({ chatParameters: customizeParameters ? generationParameters : null })}
-                {!openingWritten && (
+                {isLast && !scenarioOpen && metadata.multiplayerSetup !== true && (
+                  <ScenarioOpenButton onClick={() => setScenarioOpen(true)} />
+                )}
+                {!scenarioOpen && (
                   <button
                     type="button"
                     onClick={() => setShortcutMode(true)}
@@ -4582,7 +4673,20 @@ function RoleplaySetupWizard({
               </>
             }
           >
-            {stepRenderers[currentStep.key]?.()}
+            {scenarioOpen ? (
+              <ScenarioSetupStep
+                chatId={chat.id}
+                value={scenario}
+                openingLocked={openingWritten}
+                onChange={setScenario}
+                nameOf={(id) => {
+                  const character = characters.find((entry) => entry.id === id);
+                  return character ? charName(character) : "";
+                }}
+              />
+            ) : (
+              stepRenderers[currentStep.key]?.()
+            )}
           </SetupWizardShell>
         ))}
     </>
