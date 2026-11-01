@@ -41,10 +41,18 @@ import type {
   ScenePromptPreferences,
   SceneFullPlan,
   ScenePackageOrigin,
+  SceneScenarioDraft,
+  SceneScenarioDraftRequest,
+  SceneScenarioDraftResponse,
 } from "@marinara-engine/shared";
 import { resolveBaseUrl as resolveSceneConnectionBaseUrl } from "./generate/generate-route-utils.js";
 import { assemblePrompt } from "../services/prompt/assembler.js";
 import { parsePromptPresetChoices } from "../services/generation/conversation-context-utils.js";
+import {
+  buildPromptMacroContext,
+  normalizeChatMacroVariables,
+  resolveMacrosForPreview,
+} from "../services/prompt/macro-context.js";
 import { withDeadline } from "../services/capability-packages/capability-prompt-context.service.js";
 import {
   SCENE_ORIGIN_TIMEOUT_MS,
@@ -57,6 +65,51 @@ import {
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const ALLOWED_BG_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
+
+export function parseSceneScenarioDraft(
+  raw: string,
+  openerId: string,
+  revise?: SceneScenarioDraftRequest["revise"],
+): { draft: SceneScenarioDraft; error?: never } | { draft: null; error: string } {
+  if (!raw.trim())
+    return { draft: null, error: "Model returned an empty response. Try again or check your connection." };
+  let parsed: Record<string, unknown>;
+  try {
+    const cleaned = raw
+      .trim()
+      .replace(/```(?:json)?\s*/gi, "")
+      .replace(/```/g, "");
+    const first = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+    if (first < 0 || last < first) throw new Error("No JSON object found");
+    const json = cleaned.slice(first, last + 1);
+    parsed = tryParseJsonRecord(json) ?? JSON.parse(json);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Invalid JSON";
+    return { draft: null, error: `Model didn't return valid JSON. Try again. (${detail})` };
+  }
+  const premise = typeof parsed.premise === "string" ? parsed.premise : "";
+  const openingValue = parsed.opening;
+  const openingContent: string =
+    typeof openingValue === "string"
+      ? openingValue
+      : openingValue &&
+          typeof openingValue === "object" &&
+          typeof (openingValue as Record<string, unknown>).content === "string"
+        ? (openingValue as Record<string, string>).content!
+        : "";
+  if (revise?.part === "opening") {
+    if (!openingContent.trim()) return { draft: null, error: "Model did not return an opening. Try again." };
+    return { draft: { premise: revise.current.premise, opening: { characterId: openerId, content: openingContent } } };
+  }
+  if (revise?.part === "premise") {
+    if (!premise.trim()) return { draft: null, error: "Model did not return a premise. Try again." };
+    return { draft: { premise, opening: revise.current.opening } };
+  }
+  if (!premise.trim()) return { draft: null, error: "Model did not return a premise. Try again." };
+  if (!openingContent.trim()) return { draft: null, error: "Model did not return an opening. Try again." };
+  return { draft: { premise, opening: { characterId: openerId, content: openingContent } } };
+}
 
 const SCENE_GUIDELINES = [
   `<guidelines>`,
@@ -1401,5 +1454,96 @@ export async function sceneRoutes(app: FastifyInstance) {
     };
 
     return { plan: fullPlan } satisfies ScenePlanResponse;
+  });
+
+  app.post<{ Body: SceneScenarioDraftRequest }>("/scenario-draft", async (req, reply) => {
+    const { chatId, idea, connectionId, openerCharacterId, revise } = req.body;
+    if (typeof idea !== "string" || idea.length > 4000)
+      return reply.status(400).send({ draft: null, error: "Idea must be 4000 characters or fewer" });
+    if (revise && revise.note !== undefined && (typeof revise.note !== "string" || revise.note.length > 4000))
+      return reply.status(400).send({ draft: null, error: "Revision note must be 4000 characters or fewer" });
+    if (
+      revise &&
+      (!["premise", "opening"].includes(revise.part) ||
+        !revise.current ||
+        typeof revise.current.premise !== "string" ||
+        !revise.current.opening ||
+        typeof revise.current.opening.characterId !== "string" ||
+        typeof revise.current.opening.content !== "string" ||
+        revise.current.premise.length > 8000 ||
+        revise.current.opening.content.length > 8000)
+    )
+      return reply.status(400).send({ draft: null, error: "Invalid current draft" });
+    const origin = await resolveSceneOrigin(chatId, undefined, "Chat not found");
+    if ("error" in origin) return reply.status(origin.status).send({ draft: null, error: origin.error });
+    const characterIds = origin.characterIds;
+    if (!characterIds.length) return reply.status(400).send({ draft: null, error: "Chat has no characters" });
+    if (origin.mode !== "roleplay" && origin.mode !== "conversation") {
+      return reply
+        .status(400)
+        .send({ draft: null, error: "Scenario drafts support roleplay and conversation chats only" });
+    }
+    if (revise && !characterIds.includes(revise.current.opening.characterId)) {
+      return reply.status(400).send({ draft: null, error: "Opening character must be a member of this chat" });
+    }
+    if (
+      openerCharacterId != null &&
+      (typeof openerCharacterId !== "string" || !characterIds.includes(openerCharacterId))
+    )
+      return reply.status(400).send({ draft: null, error: "Opening character must be a member of this chat" });
+    const openerId = openerCharacterId ?? revise?.current.opening.characterId ?? characterIds[0]!;
+    const { conn, baseUrl } = await resolveConnection(connections, connectionId, origin);
+    const provider = await createSceneProvider(conn, baseUrl, createReplyFallbackNotifier(reply));
+    const characterCtx = await buildCharacterContext(chars, characterIds, origin.chat?.id);
+    const { personaName, personaCtx } = await buildPersonaContext(
+      chars,
+      origin.personaId,
+      origin.mode,
+      origin.personaCharacterId,
+      origin.chat?.id,
+    );
+    const macroContext = await buildPromptMacroContext({
+      db: app.db,
+      characterIds,
+      chatId: origin.chat?.id,
+      personaName,
+      personaDescription: personaCtx,
+      localVariables: normalizeChatMacroVariables(parseMetadata(origin.chat ?? {}).macroVariables),
+    });
+    const resolvedCharacterCtx = resolveMacrosForPreview(characterCtx, macroContext, { trimResult: false });
+    const mode = origin.mode === "roleplay" ? "roleplay" : "conversation";
+    const openingOnly = revise?.part === "opening";
+    const premiseOnly = revise?.part === "premise";
+    const instruction = [
+      `Create a scenario draft for a new ${mode} chat.`,
+      mode === "roleplay"
+        ? `Premise: lasting setting, situation, and how the characters and persona know each other. Opening: an in-character narrated opening of 2-4 paragraphs. Put spoken words in double quotes.`
+        : `Premise: shared background and why the characters are texting now. Opening: one short, natural first text message. Do not narrate.`,
+      `The premise must contain lasting facts only. Do not state user actions or feelings that the user has not supplied.`,
+      `Return only JSON: {"premise":"...","opening":"..."}.`,
+      openingOnly ? `Generate only a new opening that fits this premise: ${revise!.current.premise}.` : "",
+      premiseOnly
+        ? `Generate only a new premise. Keep it consistent with this opening: ${revise!.current.opening.content}`
+        : "",
+      revise?.note ? `Revision instruction: ${revise.note}` : "",
+      !revise ? `User idea (may be empty): ${idea}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const messages: [ChatMessage, ChatMessage] = [
+      {
+        role: "system",
+        content: `You draft scenarios. The opening is posted by the selected character only: ${openerId}.\n<Character context>\n${resolvedCharacterCtx}\n</Character context>\n<Persona>\n${personaCtx}\n</Persona>\nPersona name: ${personaName}`,
+      },
+      { role: "user", content: instruction },
+    ];
+    logDebugOverride(
+      req.body.debugMode === true || isDebugAgentsEnabled(),
+      "[scene/scenario-draft] Final scenario draft prompt:\n%s",
+      JSON.stringify(messages, null, 2),
+    );
+    const result = await provider.chatComplete(messages, { model: conn.model, temperature: 0.9, maxTokens: 16384 });
+    const parsed = parseSceneScenarioDraft(result.content ?? "", openerId, revise);
+    return parsed.draft ? (parsed satisfies SceneScenarioDraftResponse) : (parsed satisfies SceneScenarioDraftResponse);
   });
 }

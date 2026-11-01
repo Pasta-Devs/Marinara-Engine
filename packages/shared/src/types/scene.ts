@@ -264,3 +264,23 @@ export interface ScenePlanResponse {
   /** Set when planning failed (e.g. model didn't return valid JSON). */
   error?: string;
 }
+
+export interface SceneScenarioDraft {
+  premise: string;
+  opening: { characterId: string; content: string };
+}
+
+export interface SceneScenarioDraftRequest {
+  chatId: string;
+  idea: string;
+  connectionId?: string | null;
+  openerCharacterId?: string | null;
+  debugMode?: boolean;
+  revise?: {
+    part: "premise" | "opening";
+    note?: string;
+    current: SceneScenarioDraft;
+  };
+}
+
+export type SceneScenarioDraftResponse = { draft: SceneScenarioDraft; error?: never } | { draft: null; error: string };
