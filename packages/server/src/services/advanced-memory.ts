@@ -1189,8 +1189,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
 
   async function context(chatId: string): Promise<Context> {
     const chat = await chats.getById(chatId);
-    if (!chat || (chat.mode !== "roleplay" && chat.mode !== "game"))
+    if (!chat || (chat.mode !== "roleplay" && chat.mode !== "game")) {
+      parsedMessageExtras.delete(chatId);
       throw new Error("Advanced Memory is available only for Roleplay and Game chats");
+    }
     const metadata = object(chat.metadata);
     const stored = await chats.listMessages(chatId);
     const source = chat.mode === "game" ? gameAdvancedMemorySource(stored, metadata) : stored;

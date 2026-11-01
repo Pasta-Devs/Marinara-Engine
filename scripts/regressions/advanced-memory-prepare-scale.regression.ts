@@ -172,6 +172,12 @@ try {
     JSON.parse = originalParse;
   }
   assert.equal(updatedParses, 1, "editing an extra invalidates only that message's parsed cache entry");
+  await chats.remove(cachedExtrasChat.id);
+  await assert.rejects(
+    cachedExtrasMemory.status(cachedExtrasChat.id),
+    /Advanced Memory is available only for Roleplay and Game chats/,
+    "a deleted chat clears its parsed-extra cache before context rejects it",
+  );
   console.log("advanced memory prepare scale regression passed");
 } finally {
   provider.close();
