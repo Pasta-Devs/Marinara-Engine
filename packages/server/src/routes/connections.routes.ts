@@ -1756,7 +1756,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     if (conn.provider === "audio") {
       const cfg = await resolveAudioConfig(appSettings, storage, conn.id);
       if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
-      return fetchProviderModels(cfg);
+      if (cfg.source === "elevenlabs") return fetchProviderModels(cfg);
     }
     const savesList = connectionSavesModelList(conn.provider);
     if (savesList && req.query.refresh !== "true") {

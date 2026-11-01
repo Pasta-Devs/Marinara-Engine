@@ -27,6 +27,24 @@ try {
     if (apiKey === "valid-key") assert.equal(result.json().models[0].id, "fixture-model");
     else assert.match(result.json().error, /401.*Invalid API key/);
   }
+  for (const audioSource of ["openai", "elevenlabs"] as const) {
+    const row = await storage.create({
+      name: `Audio ${audioSource}`,
+      provider: "audio",
+      audioSource,
+      baseUrl,
+      apiKey: audioSource === "openai" ? "valid-key" : "",
+      model: "",
+    });
+    const result = await app.inject({ method: "GET", url: `/api/connections/${row.id}/models` });
+    assert.equal(result.statusCode, 200, result.body);
+    const ids = result.json().models.map((model: { id: string }) => model.id);
+    if (audioSource === "openai") assert.deepEqual(ids, ["fixture-model"]);
+    else {
+      assert.ok(ids.includes("eleven_multilingual_v2"), "ElevenLabs uses the TTS fallback catalog without a key");
+      assert.ok(!ids.includes("fixture-model"));
+    }
+  }
   await new Promise<void>((resolve) => provider.close(() => resolve()));
   const row = await storage.create({ name: "Offline", provider: "custom", baseUrl, apiKey: "key", model: "" });
   const result = await app.inject({ method: "GET", url: `/api/connections/${row.id}/models` });
