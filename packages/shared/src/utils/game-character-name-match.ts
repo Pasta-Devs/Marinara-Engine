@@ -98,6 +98,16 @@ export function characterNamesMatch(leftName: string, rightName: string): boolea
   return isSubsetMatch(getCharacterNameTokens(leftName), getCharacterNameTokens(rightName));
 }
 
+/**
+ * Whether `shortName` is a short form of `fullName`, such as its first name, its surname or the
+ * name without a title. Unlike {@link characterNamesMatch}, sharing one word is not enough.
+ */
+export function isShortFormOfCharacterName(shortName: string, fullName: string): boolean {
+  const shortTokens = getCharacterNameTokens(shortName);
+  const fullTokens = getCharacterNameTokens(fullName);
+  return shortTokens.length <= fullTokens.length && isSubsetMatch(shortTokens, fullTokens);
+}
+
 export function findNamedEntry<T>(
   entries: Iterable<T>,
   targetName: string,

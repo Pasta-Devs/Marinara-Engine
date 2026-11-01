@@ -1,5 +1,6 @@
 import {
   decodeEncodedSpeakerTags,
+  isShortFormOfCharacterName,
   setCharacterVoiceAssignment,
   type TTSConfig,
   type TTSVoiceAssignment,
@@ -109,7 +110,12 @@ export function findTTSCharacterIdBySpeakerName(
   const speakerBase = normalizeTTSCharacterBaseName(speaker);
   if (!speakerBase) return null;
   const baseMatches = entries.filter(([, character]) => normalizeTTSCharacterBaseName(character.name) === speakerBase);
-  return baseMatches.length === 1 ? baseMatches[0]![0] : null;
+  if (baseMatches.length > 0) return baseMatches.length === 1 ? baseMatches[0]![0] : null;
+
+  // "Junpei" is the chat card "Junpei Iori", so it never borrows another card's voice by that name (#8638).
+  if (isTTSNarratorSpeaker(speakerBase)) return null;
+  const shortFormMatches = entries.filter(([, character]) => isShortFormOfCharacterName(speakerBase, character.name));
+  return shortFormMatches.length === 1 ? shortFormMatches[0]![0] : null;
 }
 
 export function isTTSNarratorSpeaker(value?: string | null): boolean {
@@ -326,6 +332,17 @@ export function resolveTTSVoiceForSpeaker(
         }
       }
       if (baseMatchedVoices.size === 1) return [...baseMatchedVoices][0] ?? "";
+    }
+
+    // A speaker no chat card claims may be a voiced card called by part of its name, such as an NPC
+    // card "Junpei Iori" named "Junpei" (#8638). Cards that would give it different voices use none.
+    if (!characterId && normalizedSpeakerBase && !isTTSNarratorSpeaker(normalizedSpeakerBase)) {
+      const shortFormVoices = new Set(
+        assignments
+          .filter((entry) => entry.voice && isShortFormOfCharacterName(normalizedSpeakerBase, entry.characterName))
+          .map((entry) => entry.voice),
+      );
+      if (shortFormVoices.size === 1) return [...shortFormVoices][0] ?? "";
     }
   }
 

@@ -801,6 +801,113 @@ assert.equal(
   "duplicate exact character names must not select an arbitrary voice assignment",
 );
 
+// The extractor names an NPC by a short form of a voiced card's name, such as "Junpei" for "Junpei Iori" (#8638).
+const npcCardVoiceRows = [
+  { characterId: "aigis-id", characterName: "Aigis", voice: "aigis-voice" },
+  { characterId: "junpei-id", characterName: "Junpei Iori", voice: "junpei-voice" },
+];
+const aigisOnlyChat = [["aigis-id", { name: "Aigis" }]] as const;
+assert.deepEqual(
+  buildExtractedRoleplayTTSVoiceRequests(
+    [
+      { kind: "dialogue", speaker: "Aigis", text: '"Understood."' },
+      { kind: "dialogue", speaker: "Junpei", text: '"Dude, seriously?"' },
+    ],
+    ttsConfigSchema.parse({
+      source: "elevenlabs",
+      voice: "",
+      voiceMode: "per-character",
+      voiceAssignments: npcCardVoiceRows,
+    }),
+    "Aigis",
+    "aigis-id",
+    (speaker) => findTTSCharacterIdBySpeakerName(speaker, aigisOnlyChat),
+  ).map(({ speaker, voice }) => ({ speaker, voice })),
+  [
+    { speaker: "Aigis", voice: "aigis-voice" },
+    { speaker: "Junpei", voice: "junpei-voice" },
+  ],
+  "a card outside the chat must voice a speaker named by a short form of its name",
+);
+const npcCardVoice = (
+  voiceAssignments: Array<{ characterId: string; characterName: string; voice: string }>,
+  speaker: string,
+  characterId: string | null = null,
+) =>
+  resolveTTSVoiceForSpeaker(
+    { source: "openai", voice: "default-voice", voiceMode: "per-character", voiceAssignments },
+    speaker,
+    characterId,
+  );
+assert.equal(npcCardVoice(npcCardVoiceRows, "Junpei"), "junpei-voice");
+assert.equal(npcCardVoice(npcCardVoiceRows, "Iori"), "junpei-voice");
+for (const decoratedSpeaker of ["**Junpei:** [chuckle]", "Junpei (drunk)", "Junpei — flustered"]) {
+  assert.equal(
+    npcCardVoice(npcCardVoiceRows, decoratedSpeaker),
+    "junpei-voice",
+    `extractor label formatting must not hide the card a short name belongs to: ${decoratedSpeaker}`,
+  );
+}
+const twoJunpeis = [
+  ...npcCardVoiceRows,
+  { characterId: "kurosawa-id", characterName: "Junpei Kurosawa", voice: "kurosawa-voice" },
+];
+assert.equal(
+  npcCardVoice(twoJunpeis, "Junpei"),
+  "default-voice",
+  "a first name shared by two voiced cards must not pick one of them",
+);
+assert.equal(
+  npcCardVoice(
+    [...twoJunpeis, { characterId: "junpei-plain-id", characterName: "Junpei", voice: "plain-voice" }],
+    "Junpei",
+  ),
+  "plain-voice",
+  "an exact name match wins over cards the name is only a short form of",
+);
+assert.equal(
+  npcCardVoice(npcCardVoiceRows, "Junpei", "junpei-chat-card-id"),
+  "default-voice",
+  "a speaker found as a card of its own keeps that card's voice, not another card's",
+);
+// A chat card claims its own short name first, so it never speaks with another card's voice.
+const unvoicedJunpeiChat = [...aigisOnlyChat, ["iori-chat-id", { name: "Junpei Iori" }]] as const;
+assert.equal(findTTSCharacterIdBySpeakerName("Junpei", unvoicedJunpeiChat), "iori-chat-id");
+assert.equal(
+  findTTSCharacterIdBySpeakerName("Junpei", [...unvoicedJunpeiChat, ["kurosawa-chat-id", { name: "Junpei Kurosawa" }]]),
+  null,
+  "a first name shared by two chat cards must not pick one of them",
+);
+assert.deepEqual(
+  buildExtractedRoleplayTTSVoiceRequests(
+    [{ kind: "dialogue", speaker: "Junpei", text: '"Yo!"' }],
+    ttsConfigSchema.parse({
+      source: "openai",
+      voice: "default-voice",
+      voiceMode: "per-character",
+      voiceAssignments: [{ characterId: "kurosawa-id", characterName: "Junpei Kurosawa", voice: "kurosawa-voice" }],
+    }),
+    "Aigis",
+    "aigis-id",
+    (speaker) => findTTSCharacterIdBySpeakerName(speaker, unvoicedJunpeiChat),
+  ).map(({ speaker, characterId, voice }) => ({ speaker, characterId, voice })),
+  [{ speaker: "Junpei", characterId: "iori-chat-id", voice: "default-voice" }],
+  "a chat card without a voice must not borrow the voice of a card outside the chat that shares its first name",
+);
+assert.equal(
+  npcCardVoice(
+    [{ characterId: "dottore-id", characterName: "Fatui Harbinger Dottore", voice: "dottore-voice" }],
+    "Fatui Guard",
+  ),
+  "default-voice",
+  "sharing one word with a card's name is not enough to take its voice",
+);
+assert.equal(
+  npcCardVoice([{ characterId: "narrator-card-id", characterName: "The Narrator", voice: "card-voice" }], "Narrator"),
+  "default-voice",
+  "narration keeps the narrator setting instead of a card named after it",
+);
+
 // The Character Editor's Voice section edits one character's row of the shared list (Agents#1176).
 const sharedVoiceRows = [
   { characterId: "alice-original", characterName: "Alice", voice: "original-voice" },
