@@ -266,7 +266,10 @@ export interface ScenePlanResponse {
 }
 
 export interface SceneScenarioDraft {
+  /** Lasting facts only (setting, relationships, shared history). Saved as the chat's scenario. */
   premise: string;
+  /** Optional wishes for how the story may develop. Not facts; may be empty. */
+  direction: string;
   opening: { characterId: string; content: string };
 }
 
