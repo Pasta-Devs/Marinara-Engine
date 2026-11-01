@@ -1,6 +1,6 @@
 # 2D and 3D Avatars
 
-Two downloadable agents give your characters and personas an animated avatar that reacts while a reply streams in. **2D Avatars** shows PNGTuber-style sprites or mesh avatars, and **3D Avatars** shows VRM and MMD PMX models. Faces follow the reply, and mouths move with the text or with text-to-speech.
+Two downloadable agents give your characters and personas an animated avatar that reacts while a reply streams in. **2D Avatars** shows PNGTuber-style sprites or mesh avatars, and **3D Avatars** shows VRM, MMD PMX, GLB and FBX models. Faces follow the reply, and mouths move with the text or with text-to-speech.
 
 Live2D models are not supported. Live2D's licence needs a separate agreement with Live2D even for free open-source apps, and its runtime cannot be shipped with Marinara Engine.
 
@@ -21,7 +21,7 @@ The agents send no extra requests to your AI connections while you chat. They ne
 Avatars are set up on each agent's own page. Open **Agents**, open **2D Avatars** or **3D Avatars**, and use the **Avatars** section near the top.
 
 1. In **Character or persona**, choose who gets the avatar. Names marked "(has an avatar)" already have one saved.
-2. In **Avatar type**, choose the kind to set up. 2D Avatars offers **PNGTuber sprites** and **Mesh avatar**. 3D Avatars offers **VRM model** and **MMD PMX model**.
+2. In **Avatar type**, choose the kind to set up. 2D Avatars offers **PNGTuber sprites** and **Mesh avatar**. 3D Avatars offers **VRM model**, **MMD PMX model** and **GLB or FBX model**.
 3. Set it up in that type's own section below the switches: use your sprites or import a file, choose the face for each feeling, or remove it. See [2D avatars](#2d-avatars-pngtuber-sprites-and-mesh-avatars) and [3D avatars](#3d-avatars-vrm-models).
 4. Use **Preview** to see it. **Try a face** switches feelings and **Talk** moves the mouth. When there is nothing to show yet, the preview shows an example avatar.
 
@@ -94,7 +94,7 @@ While a chat runs, the model looks at you, blinks on its own when it has a blink
 Some files can't be used, and the import says why:
 
 - **Compressed models.** Files saved with Draco or meshopt compression, or with KTX2 textures, don't load. Export the model again with compression turned off.
-- **Plain 3D models.** A `.glb` or `.gltf` model without VRM data has no face expressions or humanoid skeleton. Convert it to VRM first, for example with the VRM add-on for Blender (see [Make your own model](#blender-with-the-vrm-add-on-for-blender)).
+- **Plain 3D models.** A `.glb` or `.gltf` model without VRM data has no face expressions or humanoid skeleton. Import a rigged `.glb` as a **GLB or FBX model** instead (see [GLB and FBX avatars](#glb-and-fbx-avatars-rigged-models)), or convert it to VRM, for example with the VRM add-on for Blender (see [Make your own model](#blender-with-the-vrm-add-on-for-blender)).
 - **Incomplete models.** A model whose skeleton is missing bones VRM needs or points to parts that aren't in the file, or that points to files outside itself, is refused.
 
 There is no size limit beyond the app's usual upload limit, but large models take longer to load, especially on phones.
@@ -110,6 +110,16 @@ Under **VMD motion**, optionally add a `.vmd` made for that model. It plays whil
 **Supported files.** PMX 2.0 and compatible PMX 2.1 models work, with PNG, JPEG, BMP and TGA pictures, including `.sph` and `.spa` files. Some newer PMX 2.1 features are not supported, and the import says why. PMD models, VPD poses and camera or light motion are not supported. Physics is not simulated, so hair and clothes may look different from MikuMikuDance. Models with more than 256 picture paths, very long paths, pictures that need too much memory or overly complicated rigs are refused. Check the result with your own model, especially on a phone.
 
 Your browser must support WebGL2. MMD avatars use the same pause, frame-rate and framing controls as the other avatars. Models and pictures load only from your Engine. Follow the model and motion authors' licenses and usage terms before using or sharing them. Importing or playing an MMD avatar sends nothing to an AI provider.
+
+## GLB and FBX avatars: rigged models
+
+On the **3D Avatars** page, choose **GLB or FBX model** under **Avatar type**, select **Import GLB or FBX** and choose one `.glb` or `.fbx` file of a rigged character. A plain model has no VRM data saying which bone is which, so the import matches its bones by name. Rigs from Mixamo, Unity, VRoid, Unreal, Blender, 3ds Max, Maya HumanIK, Character Creator and DAZ use names it recognises, so the same idle motion, waiting poses and talking nods as a VRM work. The section shows how many body bones were matched.
+
+The model needs at least the hips, spine, head and both upper and lower arms. When the import can't find one of them, it refuses the model and says which bones are missing; rename those bones in your 3D app or rig the model with Mixamo. Models resting in an A-pose, facing away or made in centimetres are straightened, turned and sized for you.
+
+Faces come from the model's blend shapes (shape keys or morph targets). Under **Faces and mouth shapes**, common names are matched for you: VRoid, VRChat and Oculus mouth shapes (`aa`, `A`, `viseme_aa`, `Fcl_MTH_A`), an open jaw (`mouthOpen`, `jawOpen`), feelings (`happy`, `Joy`, `mouthSmile`) and blinking (`blink`, or a left and right pair such as ARKit's `eyeBlinkLeft` and `eyeBlinkRight`, which move together). Check the preview and correct the guesses. A model without blend shapes still moves its body and nods as it talks.
+
+**Supported files.** Binary glTF (`.glb`) with everything embedded, and FBX 2014 (7.4) or newer, binary or ASCII. Export FBX files with **Embed Media** (or **Embed Textures**) turned on: textures left outside the file aren't loaded, so the model shows without its pictures. Draco, meshopt and KTX2 compression don't load, and a separate `.gltf` with its own files can't be used. A VRM saved as `.glb` belongs under **VRM model**, which reads its faces and terms. The model's own animations, physics and pose editing are not supported. Follow the model author's terms before using or sharing it. Importing or playing a GLB or FBX avatar sends nothing to an AI provider.
 
 ## Get a 3D model
 
@@ -269,7 +279,7 @@ You don't have to draw anything to start. A character or persona can use its exp
 ### What to avoid when exporting
 
 - **Compression.** Draco or meshopt mesh compression and KTX2 textures don't load. The VRM exports above never use them, but Blender's plain glTF export offers Draco, and model optimizers can add all three. Export again with compression turned off.
-- **Plain glTF.** A plain `.glb` or `.gltf` file lacks the VRM data that names its faces and skeleton. Export a `.vrm` instead.
+- **Plain glTF.** A plain `.glb` lacks the VRM data that names its faces and skeleton. Import it as a **GLB or FBX model** instead (see [GLB and FBX avatars](#glb-and-fbx-avatars-rigged-models)), or export a `.vrm` to keep VRM faces and terms.
 - **Separate files.** A model whose textures or data sit in separate files can't be used. Export one `.vrm` file.
 - **PNGTuber Plus extras.** Wobble, drag and animation don't come across: each layer shows at rest, and an animated layer shows its first frame.
 

@@ -28,6 +28,7 @@ import {
   type AvatarMeshRigRequest,
   type AvatarPngtuberVariantsRequest,
 } from "../types/avatars.js";
+import { AVATAR_BONE_NAME_MAX_LENGTH, AVATAR_HUMANOID_BONES } from "../utils/avatar-humanoid-bones.js";
 
 /** Most layer sets one PNGTuber setup may hold; well above the 17 suggested sprite labels. */
 const MAX_PNGTUBER_LAYER_SETS = 64;
@@ -186,6 +187,20 @@ export const avatarKindDataSchema = z
           .optional(),
       })
       .strict()
+      .optional(),
+    "glb-fbx": z
+      .object({
+        file: avatarFilePathSchema.refine(
+          (path) => /^glb-fbx\/.+\.(?:glb|fbx)$/u.test(path),
+          "A GLB or FBX model lives in glb-fbx/.",
+        ),
+        format: z.enum(["glb", "fbx"]),
+        bones: z.partialRecord(z.enum(AVATAR_HUMANOID_BONES), z.string().min(1).max(AVATAR_BONE_NAME_MAX_LENGTH)),
+        expressionMap: avatarExpressionMapSchema,
+        expressionNames: z.array(z.string().min(1).max(128)).max(MAX_VRM_EXPRESSION_NAMES).optional(),
+      })
+      .strict()
+      .refine((data) => data.file.endsWith(`.${data.format}`), "The model file must match its format.")
       .optional(),
   })
   .strict();

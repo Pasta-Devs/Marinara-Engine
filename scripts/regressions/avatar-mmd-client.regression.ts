@@ -118,7 +118,7 @@ assert.ok(
   filtered.tracks.some((track) => track.name.includes(".bones[center]")),
   "bone motion stays intact",
 );
-assert.deepEqual(avatarAgentKinds("3d-avatars"), ["vrm", "mmd"]);
+assert.deepEqual(avatarAgentKinds("3d-avatars"), ["vrm", "mmd", "glb-fbx"]);
 assert.equal(pickAvatarKind({ activeKind: "mmd", kinds: ["vrm", "mmd"] }, ["3d-avatars"]), "mmd");
 assert.equal(
   pickAvatarKind({ activeKind: "mmd", kinds: ["mmd"] }, ["2d-avatars"]),

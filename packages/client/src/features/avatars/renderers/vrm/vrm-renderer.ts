@@ -8,7 +8,8 @@
 // Each avatar keeps its own scene and camera and draws into the stage's canvas through a 2D context: the
 // shared renderer draws the avatar into the corner of its own offscreen canvas, and the avatar copies that
 // corner out in the same task, so every VRM on screen shares one WebGL context. The stage drives update();
-// nothing here runs a loop or a timer.
+// nothing here runs a loop or a timer. GLB and FBX models (renderers/glb-fbx) draw through the same renderer:
+// their loader builds three-vrm's humanoid and expressions for them, so they move and talk like a VRM.
 import {
   AmbientLight,
   AnimationMixer,
@@ -22,7 +23,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
-import { GLTFLoader, type GLTF, type GLTFParser } from "three/addons/loaders/GLTFLoader.js";
+import { GLTFLoader, type GLTF, type GLTFLoaderPlugin, type GLTFParser } from "three/addons/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMMetaLoaderPlugin, VRMUtils, type VRM, type VRMCore } from "@pixiv/three-vrm";
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip, type VRMAnimation } from "@pixiv/three-vrm-animation";
 import {
@@ -34,6 +35,7 @@ import {
   type AvatarFeatureFlags,
   type AvatarFilePath,
   type AvatarFrameInput,
+  type AvatarKind,
   type AvatarOwnerRef,
 } from "@marinara-engine/shared";
 import { api } from "../../../../lib/api-client";
@@ -108,27 +110,43 @@ function abortError(): DOMException {
   return new DOMException("The avatar stopped loading.", "AbortError");
 }
 
-/** Loads a stored GLB through the API. Only the file's own embedded data may load: a model that points to
- *  outside addresses fails instead of making requests (the importer refuses such files too). */
-async function loadStoredGltf(
+/** A stored model file's bytes, through the API. */
+export async function fetchStoredModel(
   owner: AvatarOwnerRef,
   path: AvatarFilePath,
   signal: AbortSignal,
-  plugin: (parser: GLTFParser) => VRMLoaderPlugin | VRMAnimationLoaderPlugin,
-): Promise<GLTF> {
+): Promise<ArrayBuffer> {
   const response = await api.raw(avatarModelFilePath(owner, path), { signal });
   if (!response.ok) throw new Error(`The avatar file could not be loaded (${response.status}).`);
   const bytes = await response.arrayBuffer();
   if (signal.aborted) throw abortError();
+  return bytes;
+}
+
+/** A loading manager that lets only a file's own embedded data load: any other address becomes `blocked`, so
+ *  a model never makes requests while loading (the importers refuse GLB files that point elsewhere too). */
+export function embeddedOnlyLoadingManager(blocked = "data:,"): LoadingManager {
   const manager = new LoadingManager();
-  manager.setURLModifier((url) => (/^(?:blob|data):/iu.test(url) ? url : "data:,"));
+  manager.setURLModifier((url) => (/^(?:blob|data):/iu.test(url) ? url : blocked));
+  return manager;
+}
+
+/** Loads a stored GLB through the API, with only its own embedded data. */
+export async function loadStoredGltf(
+  owner: AvatarOwnerRef,
+  path: AvatarFilePath,
+  signal: AbortSignal,
+  plugin?: (parser: GLTFParser) => GLTFLoaderPlugin,
+): Promise<GLTF> {
+  const bytes = await fetchStoredModel(owner, path, signal);
+  const manager = embeddedOnlyLoadingManager();
   const loader = new GLTFLoader(manager);
   loader.register((parser) => {
     // The model's pictures load as images, which the Engine's img-src allows from blob: and data: URLs.
     // GLTFLoader's default ImageBitmapLoader reads them with fetch, which connect-src refuses for those URLs,
     // so every texture failed quietly and the model drew plain white.
     parser.textureLoader = new TextureLoader(manager);
-    return plugin(parser);
+    return plugin?.(parser) ?? { name: "marinara-embedded-textures" };
   });
   return loader.parseAsync(bytes, "");
 }
@@ -164,11 +182,53 @@ const REST_FRAME: AvatarFrameInput = {
   state: "idle",
 };
 
+/** A model with three-vrm's humanoid (and expressions, when it has faces). A VRM also has spring bones. */
+export type HumanoidModel = VRMCore & { springBoneManager?: VRM["springBoneManager"] };
+
+export interface LoadedHumanoidModel {
+  model: HumanoidModel;
+  /** -1 when the model faces -Z in its normalized bone space (VRM 0.x), else 1: x and z rotations flip. */
+  mirror: 1 | -1;
+  /** Targets are names in the model's expression manager. */
+  expressionMap: AvatarExpressionMap;
+  idleAnimation: AvatarFilePath | null;
+}
+
+/** How a 3D kind loads its stored model for the shared renderer. It throws a plain Error when the config has
+ *  no model of its kind or the file can't be used. */
+export interface HumanoidModelSource {
+  readonly kind: AvatarKind;
+  load(options: AvatarRendererMountOptions, signal: AbortSignal): Promise<LoadedHumanoidModel>;
+}
+
+const VRM_SOURCE: HumanoidModelSource = {
+  kind: "vrm",
+  async load(options, signal) {
+    const data = options.config.kinds.vrm;
+    if (!data) throw new Error("This avatar has no VRM model set up.");
+    const gltf = await loadStoredVrm(options.owner, data.file, signal);
+    const vrm = gltf.userData.vrm as VRM | undefined;
+    if (!vrm) {
+      VRMUtils.deepDispose(gltf.scene);
+      throw new Error("This file has no VRM model in it.");
+    }
+    VRMUtils.removeUnnecessaryVertices(gltf.scene);
+    VRMUtils.combineSkeletons(gltf.scene);
+    VRMUtils.rotateVRM0(vrm);
+    return {
+      model: vrm,
+      mirror: vrm0Mirror(vrm.meta?.metaVersion),
+      expressionMap: data.expressionMap,
+      idleAnimation: data.idleAnimation ?? null,
+    };
+  },
+};
+
 class VrmAvatarRenderer implements AvatarRenderer {
-  readonly kind = "vrm" as const;
+  readonly kind: AvatarKind;
   private gl: SharedRenderer | null = null;
   private context2d: CanvasRenderingContext2D | null = null;
-  private vrm: VRM | null = null;
+  private vrm: HumanoidModel | null = null;
   private mixer: AnimationMixer | null = null;
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(FIELD_OF_VIEW, 1, 0.05, 50);
@@ -195,6 +255,10 @@ class VrmAvatarRenderer implements AvatarRenderer {
   private readonly blink = createBlinkTimer();
   private readonly idle = createIdleMotionState();
 
+  constructor(private readonly source: HumanoidModelSource) {
+    this.kind = source.kind;
+  }
+
   async mount(options: AvatarRendererMountOptions): Promise<void> {
     try {
       await this.load(options);
@@ -207,8 +271,7 @@ class VrmAvatarRenderer implements AvatarRenderer {
 
   private async load(options: AvatarRendererMountOptions): Promise<void> {
     if (this.disposed) throw abortError();
-    const data = options.config.kinds.vrm;
-    if (!data) throw new Error("This avatar has no VRM model set up.");
+    if (!options.config.kinds[this.kind]) throw new Error(`This avatar has no ${this.kind} model set up.`);
     const context2d = options.canvas.getContext("2d");
     if (!context2d) throw new Error("This browser cannot draw the avatar.");
     if (options.signal.aborted) throw abortError();
@@ -223,28 +286,25 @@ class VrmAvatarRenderer implements AvatarRenderer {
     light.position.set(1, 1, 1).normalize();
     this.scene.add(light, new AmbientLight(0xffffff, 0.4), this.lookTarget);
 
-    const gltf = await loadStoredVrm(options.owner, data.file, signal);
-    const vrm = gltf.userData.vrm as VRM | undefined;
-    if (this.disposed || signal.aborted || !vrm) {
-      VRMUtils.deepDispose(gltf.scene);
-      throw this.disposed || signal.aborted ? abortError() : new Error("This file has no VRM model in it.");
+    const loaded = await this.source.load(options, signal);
+    const vrm = loaded.model;
+    if (this.disposed || signal.aborted) {
+      VRMUtils.deepDispose(vrm.scene);
+      throw abortError();
     }
-    VRMUtils.removeUnnecessaryVertices(gltf.scene);
-    VRMUtils.combineSkeletons(gltf.scene);
-    VRMUtils.rotateVRM0(vrm);
     // Skinned meshes keep their bind-pose bounds, so culling would hide parts of a posed model.
     vrm.scene.traverse((object) => {
       object.frustumCulled = false;
     });
     this.vrm = vrm;
-    this.mirror = vrm0Mirror(vrm.meta?.metaVersion);
+    this.mirror = loaded.mirror;
     this.scene.add(vrm.scene);
     if (vrm.lookAt) {
       vrm.lookAt.target = this.lookTarget;
       vrm.lookAt.autoUpdate = true;
     }
     for (const slot of AVATAR_EXPRESSION_SLOTS) {
-      const binding = data.expressionMap[slot];
+      const binding = loaded.expressionMap[slot];
       if (binding?.target && vrm.expressionManager?.getExpression(binding.target)) this.bindings[slot] = binding;
     }
     this.mouthHolders = softenMouthOverrides(this.bindings, (name) => vrm.expressionManager?.getExpression(name));
@@ -257,8 +317,8 @@ class VrmAvatarRenderer implements AvatarRenderer {
     this.body = measureBody(vrm);
     this.updateCamera();
 
-    if (data.idleAnimation && this.features.idleMotion && !this.reducedMotion) {
-      await this.loadIdleAnimation(options.owner, data.idleAnimation, signal);
+    if (loaded.idleAnimation && this.features.idleMotion && !this.reducedMotion) {
+      await this.loadIdleAnimation(options.owner, loaded.idleAnimation, signal);
     }
     if (this.disposed || signal.aborted) throw abortError();
     // three-vrm records where hair and clothes rest while loading, before the model is turned (VRM 0.x) and
@@ -422,13 +482,14 @@ class VrmAvatarRenderer implements AvatarRenderer {
 
 const boneWorld = new Vector3();
 
-/** Bone heights and the top and bottom of the posed model (skinned meshes measure where their bones put them). */
-function measureBody(vrm: VRM): BodyHeights {
-  const height = (bone: "head" | "hips" | "leftFoot" | "rightFoot") =>
-    vrm.humanoid.getRawBoneNode(bone)?.getWorldPosition(boneWorld).y ?? 0;
+/** Bone heights and the top and bottom of the posed model (skinned meshes measure where their bones put them).
+ *  A GLB or FBX rig without feet bones stands on the bottom of the model. */
+function measureBody(vrm: HumanoidModel): BodyHeights {
   const bounds = new Box3().setFromObject(vrm.scene);
   const topY = bounds.max.y;
   const bottomY = bounds.min.y;
+  const height = (bone: "head" | "hips" | "leftFoot" | "rightFoot") =>
+    vrm.humanoid.getRawBoneNode(bone)?.getWorldPosition(boneWorld).y ?? (Number.isFinite(bottomY) ? bottomY : 0);
   return {
     headY: height("head"),
     hipsY: height("hips"),
@@ -438,6 +499,11 @@ function measureBody(vrm: VRM): BodyHeights {
   };
 }
 
+/** The shared 3D renderer for a kind whose loader builds a humanoid model. */
+export function createHumanoidAvatarRenderer(source: HumanoidModelSource): AvatarRenderer {
+  return new VrmAvatarRenderer(source);
+}
+
 export function createAvatarRenderer(): AvatarRenderer {
-  return new VrmAvatarRenderer();
+  return createHumanoidAvatarRenderer(VRM_SOURCE);
 }

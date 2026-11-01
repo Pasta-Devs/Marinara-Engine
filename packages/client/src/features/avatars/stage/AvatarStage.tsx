@@ -13,6 +13,7 @@ import { useQueries, type QueryObserverResult } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   AVATAR_2D_AGENT_ID,
+  isAvatar3dKind,
   type AvatarConfig,
   type AvatarFeatureFlags,
   type AvatarImageRef,
@@ -250,7 +251,7 @@ export function AvatarStage({
             avatar={avatar}
             savedConfig={configQueries[position]?.data}
             spriteSetup={spriteSetupFor(sprites)}
-            sprites={avatar.kind === "vrm" || avatar.kind === "mmd" ? undefined : (sprites ?? null)}
+            sprites={isAvatar3dKind(avatar.kind) ? undefined : (sprites ?? null)}
             placementKey={key}
             placement={placement}
             count={shown.length}
