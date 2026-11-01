@@ -189,6 +189,50 @@ async function setPreset(page: Page, preset: "default" | "mari" | "dottore", app
   else await expect(page.locator("html")).not.toHaveAttribute("data-chat-widget-apply-colors");
 }
 
+// An agent that moves only the speaker-tag boundaries must not leave stale or doubled words (#8661).
+test("Roleplay speaker-tag boundary changes rerender the same words", async ({ page, request }) => {
+  const fixture = await createFixture(request, "roleplay");
+  const messageId = fixture.messages.speaker!;
+  const messagePath = `/api/chats/${fixture.chatId}/messages/${messageId}`;
+  const before = `Alpha "One" <speaker="${BRAM.name}">*Beta*</speaker> "Two" Gamma`;
+  const after = `<speaker="${BRAM.name}">Alpha "One"</speaker> *Beta* <speaker="${ADA.name}">"Two" Gamma</speaker>`;
+  const expected = 'Alpha "One" Beta "Two" Gamma';
+  const keyWarnings: string[] = [];
+  page.on("console", (message) => {
+    if (/same key/i.test(message.text())) keyWarnings.push(message.text());
+  });
+  try {
+    expect(
+      (
+        await request.patch(`/api/chats/${fixture.chatId}/metadata`, {
+          data: { groupChatMode: "merged", groupSpeakerColors: true },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    expect((await request.patch(messagePath, { data: { content: before } })).ok()).toBeTruthy();
+    expect((await request.post(`${messagePath}/swipes`, { data: { content: after, silent: true } })).ok()).toBeTruthy();
+    await open(page, fixture.chatId, "dark");
+    const message = page.locator(`[data-message-id="${messageId}"]`);
+    const content = message.locator(".mari-message-content");
+    const dialogue = (text: string) => content.locator("strong").filter({ hasText: text });
+    await expect(content).toHaveText(expected);
+    // Both versions read the same, so wait on Ada's color to know which one is shown.
+    for (let cycle = 0; cycle < 3; cycle++) {
+      await message.getByRole("button", { name: "Next swipe", exact: true }).click();
+      await expect(dialogue("Two")).toHaveCSS("color", ADA.rgb);
+      await expect(content).toHaveText(expected);
+      await expect(dialogue("One")).toHaveCSS("color", BRAM.rgb);
+      await message.getByRole("button", { name: "Previous swipe", exact: true }).click();
+      await expect(dialogue("Two")).not.toHaveClass(/mari-character-color/);
+      await expect(content).toHaveText(expected);
+      await expect(dialogue("One")).not.toHaveClass(/mari-character-color/);
+    }
+    expect(keyWarnings).toEqual([]);
+  } finally {
+    await fixture.remove();
+  }
+});
+
 for (const theme of ["dark", "light"] as const) {
   test(`Roleplay speaker-tagged swipes replace narration (${theme})`, async ({ page, request }, info) => {
     const fixture = await createFixture(request, "roleplay");
