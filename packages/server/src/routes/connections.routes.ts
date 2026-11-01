@@ -1,5 +1,10 @@
 import { resolveDecisionConnection, type DecisionConnectionRow } from "../services/decision/decision-connection.js";
-import { ttsCatalogHeaders } from "./tts.routes.js";
+import {
+  fetchProviderModels,
+  resolveAudioConfig,
+  TTS_CONNECTION_UNAVAILABLE,
+  ttsCatalogHeaders,
+} from "./tts.routes.js";
 import { partialInput } from "@marinara-engine/shared";
 import { migrateGenerativeAudioConnections } from "../services/connections/generative-audio-connection-migration.js";
 import { validateSunoMusicCallback } from "../services/audio/generative-audio-providers.js";
@@ -1747,6 +1752,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const conn = await storage.getWithKey(req.params.id);
     if (!conn) return unusableConnection(req.params.id, reply);
     if (conn.provider === "audio_generation") return { models: [] };
+    // Voice catalogs are not at `${baseUrl}/models` (ElevenLabs answers 404), so reuse the TTS lookup.
+    if (conn.provider === "audio") {
+      const cfg = await resolveAudioConfig(appSettings, storage, conn.id);
+      if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
+      if (cfg.source === "elevenlabs") return fetchProviderModels(cfg);
+    }
     const savesList = connectionSavesModelList(conn.provider);
     if (savesList && req.query.refresh !== "true") {
       const saved = await storage.readCatalog(conn);

@@ -612,28 +612,25 @@ function DefaultsJobRow({
             role: tile.title,
             value: [tile.follows, tile.value].filter(Boolean).join(" · "),
           })}
-          trailing={
-            <>
-              {hasSettings && <span aria-hidden className="w-11 shrink-0" />}
-              <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            </>
+          trailing={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
+          end={
+            hasSettings && (
+              <button
+                type="button"
+                onClick={() => setSettingsOpen((value) => !value)}
+                aria-expanded={settingsOpen}
+                aria-controls={settingsId}
+                aria-label={t("connections.defaults.settingsFor", { role: title })}
+                className={cn(
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
+                  FOCUS,
+                )}
+              >
+                <SlidersHorizontal size="0.875rem" aria-hidden />
+              </button>
+            )
           }
         />
-        {hasSettings && (
-          <button
-            type="button"
-            onClick={() => setSettingsOpen((value) => !value)}
-            aria-expanded={settingsOpen}
-            aria-controls={settingsId}
-            aria-label={t("connections.defaults.settingsFor", { role: title })}
-            className={cn(
-              "absolute right-8 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)] max-md:right-6",
-              FOCUS,
-            )}
-          >
-            <SlidersHorizontal size="0.875rem" aria-hidden />
-          </button>
-        )}
       </div>
       {model && (
         <ConnectionSelect

@@ -77,6 +77,14 @@ test("Jobs remain available without accounts and show inherited account warnings
         await expect(row(key)).toContainText("Warning model");
         await expect(row(key).getByText(current === "key" ? "Needs key" : "Off", { exact: true })).toBeVisible();
       }
+      if (current === "agents") {
+        // The warning's fix and the settings gear sit side by side, never on top of each other.
+        const fix = await row("agents").getByRole("button", { name: "Turn on", exact: true }).boundingBox();
+        const gear = await row("agents")
+          .getByRole("button", { name: /settings$/ })
+          .boundingBox();
+        expect(fix && gear && fix.x + fix.width <= gear.x).toBeTruthy();
+      }
     }
     await expect(row("quick")).not.toContainText("Follows");
     if (info.project.name === "desktop-chromium") {
