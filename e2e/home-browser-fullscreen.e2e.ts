@@ -147,3 +147,52 @@ test("a package can request fullscreen during its first prop delivery", async ({
   await surface.getByRole("button", { name: "Exit fullscreen" }).click();
   await expect(page.locator(".mari-home-browser-chrome")).toBeVisible();
 });
+
+// Both phone bars are opaque, so a blur behind them shows nothing and only costs GPU work; Samsung Internet
+// flickers under it (Marinara-Agents#1997). Desktop keeps its translucent, blurred bars.
+test("phone bars over a package tab stay opaque without a backdrop blur", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name.includes("mobile");
+  await page.goto("/");
+  await page.getByRole("tab", { name: "fullscreen-one" }).click();
+  await expect(page.locator("marinara-capability-fullscreen-one").getByRole("button")).toHaveCount(3);
+  const topbar = page.locator('[data-component="TopBar"]');
+  for (const theme of ["dark", "light"] as const) {
+    await page.evaluate(async (theme) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setTheme(theme);
+    }, theme);
+    for (const bar of [topbar, page.locator(".mari-home-browser-chrome")]) {
+      await expect
+        .poll(() =>
+          bar.evaluate((element) => {
+            const style = getComputedStyle(element);
+            const context = Object.assign(document.createElement("canvas"), { width: 1, height: 1 }).getContext("2d")!;
+            context.fillStyle = style.backgroundColor;
+            context.fillRect(0, 0, 1, 1);
+            return {
+              blur: [style.backdropFilter, style.getPropertyValue("-webkit-backdrop-filter")].some((filter) =>
+                filter?.includes("blur"),
+              ),
+              opaque: context.getImageData(0, 0, 1, 1).data[3] === 255,
+            };
+          }),
+        )
+        .toMatchObject(mobile ? { blur: false, opaque: true } : { blur: true });
+    }
+  }
+  // The TopBar's YouTube video panel and floating Spotify player (768px and wider: touch tablets, sideways
+  // phones) are fixed children placed from the bar, as the blur placed them.
+  // A side inset moves the bar off the viewport edge, so a fixed probe shows which box it is placed from.
+  await page.addStyleTag({ content: ":root { --mari-safe-area-inset-left: 31px; }" });
+  await expect
+    .poll(() =>
+      topbar.evaluate((element) => {
+        const probe = element.appendChild(document.createElement("i"));
+        probe.style.cssText = "position: fixed; left: 0; top: 0";
+        const offset = probe.getBoundingClientRect().left - element.getBoundingClientRect().left;
+        probe.remove();
+        return offset;
+      }),
+    )
+    .toBe(0);
+});

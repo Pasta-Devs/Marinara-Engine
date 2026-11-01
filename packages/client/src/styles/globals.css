@@ -7241,11 +7241,21 @@ strong {
   .mari-topbar {
     /* Match native page backing even over gradients; also override Gecko's card fallback. */
     background-color: var(--marinara-page-backing, var(--marinara-topbar-surface)) !important;
+    /* Its music players' fixed panels are placed from the bar; without the blur below, this keeps that. */
+    contain: layout;
   }
 
   /* Home's browser chrome continues the TopBar, so it and its address row shade the same backing. */
   .mari-home-browser-chrome {
     --marinara-topbar-surface: var(--marinara-page-backing, var(--card));
+  }
+
+  /* Both bars are opaque here, so their blur shows nothing and only costs GPU work; Samsung Internet
+     flickers under it (Marinara-Agents#1997). */
+  .mari-topbar,
+  .mari-home-browser-chrome {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 
   /*
