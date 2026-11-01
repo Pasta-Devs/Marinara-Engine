@@ -1,93 +1,82 @@
 # Verbindungen organisieren
 
-In dieser Anleitung erfährst du, wie du die gespeicherten Verbindungen in Marinara Engine aufgeräumt hältst. Es geht um Verbindungs-Ordner, Suche und Sortierung, Duplizieren und Löschen, den Zufallspool, den Quick Connection Switcher sowie den Export und Import von Verbindungen. Eine Verbindung ist eine gespeicherte Konfiguration, die Marinara sagt, wie es einen KI-Dienst erreicht.
+In dieser Anleitung erfährst du, wie du Konten und Modelle in Marinara Engine aufgeräumt hältst. Es geht um die Kontoliste, mit Stern markierte Modelle, das Verschieben und Entfernen von Modellen, Ordner, Shuffle sowie Export und Import. Ein Konto ist ein Key, eine Anmeldung oder eine Adresse für einen KI-Anbieter; ein Modell ist ein einzelnes KI-Modell, das du daraus gespeichert hast. Wie du ein Konto hinzufügst, steht unter [Verbindung zu einem KI-Anbieter herstellen](connecting-to-a-provider.md).
 
-Das alles erledigst du im **Connections**-Panel (Verbindungen). Öffne es, dann erscheinen die gespeicherten Verbindungen als Liste von Zeilen. Jede Zeile zeigt den Namen der Verbindung, darunter Anbieter und Modell.
+## Die Kontoliste
 
-## Verbindungs-Ordner
+Unter dem Bereich **Jobs** (Aufgaben) listet das Panel **Connections** (Verbindungen) deine Konten. Jedes Konto zeigt sein Bild, seinen Namen, die Zahl seiner Modelle und seine Adresse. Eine Modellzeile zeigt das Bild des Modells, seinen Namen und Badges, etwa die Aufgabe, die es übernimmt (**Main**, **Agents**, **Images**), **Custom settings**, seinen Preis oder **Plan** für Modelle, die in einem Abo enthalten sind.
 
-Mit Verbindungs-Ordnern gruppierst du zusammengehörende Verbindungen. Leg zum Beispiel alle lokalen Modelle in einen Ordner und alle kostenpflichtigen Anbieter in einen anderen.
+Ein Klick auf die Zeile eines Kontos klappt seine Modelle ein, ein weiterer Klick zeigt sie wieder. Marinara merkt sich, welche Konten du eingeklappt hast. **More actions** (Weitere Aktionen) oben im Panel enthält **Fold all accounts** (alle Konten einklappen) und **Open all accounts** (alle Konten aufklappen), **Show only Off or Needs key** (nur Off oder Needs key anzeigen) und **Show cost badges** (Kosten-Badges anzeigen). In einem breiten Panel steht das Dropdown-Menü für die Sortierung neben **Search models and accounts** (Modelle und Konten durchsuchen). In einem schmalen Panel liegt die Sortierung unter **More actions**.
 
-So legst du einen Ordner an:
+Ein Gateway-Konto, das mehrere Modellhersteller erreicht, etwa ein Proxy oder LinkAPI, gruppiert seine Modelle unter **via**-Überschriften wie **via NanoGPT**, jeweils mit dem Symbol des Herstellers.
 
-1. Klick auf die Schaltfläche **New Folder** (Neuer Ordner) über der Verbindungsliste.
-2. Ein neuer Ordner namens „unnamed“ erscheint.
-3. Benenn ihn gleich um, damit du ihn auseinanderhalten kannst (siehe unten).
+Die Karte **Built-in model** (eingebautes Modell) unter dem Bereich Jobs zeigt das Modell, das auf deinem Rechner läuft, und seinen Zustand. Siehe [Local Model einrichten](local-model.md).
 
-Zum Umbenennen doppelklickst du auf die Ordnerzeile – auf dem Touchscreen genügt ein Doppeltipp. Alternativ markierst du die Ordnerzeile und drückst **F2**. Tipp den neuen Namen ein und drück Enter.
+### Kontoaktionen
 
-Um eine Verbindung in einen Ordner einzusortieren, zieh die Verbindungszeile auf den Ordner. Zieh sie auf die Fläche unterhalb der Ordner, um sie wieder herauszuholen. Beim Ziehen erscheint der Hinweis **Drop here to move out of folder** (hier ablegen, um sie aus dem Ordner zu holen).
+Klick in der Zeile eines Kontos auf **⋯**:
 
-Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen, und ziehst sie dann. Eine normale Wischbewegung scrollt weiterhin die Liste.
+- **Edit account** (Konto bearbeiten) öffnet seine Einstellungen: **Name**, **API key**, **Address** (Adresse), **Usage and limits** (Nutzung und Limits) und **Use this account** (dieses Konto verwenden).
+- **Replace key** (Key ersetzen) fügt einen neuen Key ein.
+- **Test** prüft den Key und zeigt das Ergebnis.
+- **Add model** (Modell hinzufügen) öffnet die Modellliste des Kontos. **Add image model** (Bildmodell hinzufügen) erscheint bei Anbietern, die auch Bilder erzeugen.
+- **Select models** (Modelle auswählen) lässt dich mehrere Modelle auf einmal verschieben oder löschen.
+- **Duplicate** (Duplizieren) legt eine Kopie des Kontos mit Kopien seiner Modelle an.
+- **Turn off** (ausschalten) sorgt dafür, dass Marinara das Konto nicht nutzt, bis du es mit **Turn on** (einschalten) wieder einschaltest.
+- **Delete account** (Konto löschen). Marinara listet vorher die Aufgaben, Chats und Agenten auf, die seine Modelle noch nutzen.
 
-Ein Klick auf die Ordnerzeile klappt den Ordner zu oder wieder auf. Eine kleine Zahl in der Ordnerzeile zeigt, wie viele Verbindungen darin liegen.
+### Anbietersymbole
 
-Zum Löschen klickst du auf das Papierkorb-Symbol in der Ordnerzeile. Liegen noch Verbindungen darin, fragt Marinara im Dialogfenster **Delete Folder** (Ordner löschen) nach. Einen leeren Ordner löscht Marinara sofort, ganz ohne Rückfrage. Das Löschen eines Ordners löscht die enthaltenen Verbindungen nicht. Sie wandern stattdessen zurück in den Bereich der nicht einsortierten Verbindungen.
+Jedes Konto zeigt das Symbol seines Anbieters. Die Symbole werden mit Marinara ausgeliefert, daher lädt Marinara sie nie aus dem Internet. Ein Konto mit eigener Adresse zeigt das Symbol eines bekannten Servers oder Gateways, wenn seine Adresse oder sein Name einen solchen enthält, zum Beispiel Ollama, LM Studio, KoboldCpp, Bifrost oder LiteLLM. Andernfalls zeigt es den ersten Buchstaben seines Namens. Klick auf das Bild eines Kontos, um ein eigenes zu wählen.
 
-## Suche und Sortierung
+## Mit Stern markierte Modelle
 
-Das Feld **Search connections** (Verbindungen durchsuchen) filtert die Liste beim Tippen. Gesucht wird in Name, Anbieter, Modell, Basis-URL, Bild- oder Video-Dienst und Embedding-Modell der Verbindung. Passt nichts, erscheint „No connections match your search“.
+Ein Stern markiert die Modelle, die du griffbereit haben willst. Mit Stern markierte Modelle stehen unter **Starred** (mit Stern markiert) weit oben in jeder Modellauswahl: in den Fenstern **Model for** (Modell für) des Bereichs **Jobs**, in **Model for this chat** (Modell für diesen Chat) des Chats und in den Modellfeldern der **Chat Settings** (Chat-Einstellungen) und des Agenten-Editors.
 
-Das Dropdown-Menü **Sort order** (Sortierung) neben dem Suchfeld ändert die Reihenfolge der Liste. Es hat fünf Optionen:
+Um ein Modell mit einem Stern zu markieren, klick in der Liste **Add model** des Kontos auf seinen Stern oder wähl **Star** (mit Stern markieren) im Menü **⋯** des Modells. Auch wenn du einem Modell eine Aufgabe gibst, wird es gespeichert.
 
-| Option | Wirkung |
-|---|---|
-| **Custom** | Deine eigene Reihenfolge per Drag-and-drop. |
-| **A-Z** | Sortiert nach Namen, A bis Z. |
-| **Z-A** | Sortiert nach Namen, Z bis A. |
-| **Newest** | Neueste Verbindungen zuerst. |
-| **Oldest** | Älteste Verbindungen zuerst. |
+Um den Stern zu entfernen, klick erneut darauf. Marinara entfernt das Modell und zeigt einige Sekunden lang **Undo** (rückgängig). Ohne Stern bleibt ein Modell erhalten, wenn es im Bereich **Jobs** noch eine Rolle hat, eigene Einstellungen besitzt oder das letzte Modell seines Kontos ist. Die Meldung nennt den Grund.
 
-Für eine eigene Reihenfolge ziehst du die Verbindungszeilen nach oben oder unten. Sobald du eine Verbindung ziehst, stellt Marinara die Sortierung automatisch auf **Custom** um. Eine fokussierte Zeile kannst du auch mit Alt+Pfeil nach oben oder Alt+Pfeil nach unten verschieben.
+## Modellaktionen
 
-## Duplizieren und Löschen
+Klick in einer Modellzeile auf **⋯**:
 
-Zeig mit der Maus auf eine Verbindungszeile – auf dem Touchscreen schau einfach auf die Zeile –, dann erscheinen die Schaltflächen für Aktionen.
+- **Make default for…** (Standard für … machen) gibt dem Modell eine Aufgabe, genau wie die Auswahl im Bereich **Jobs**.
+- **Edit model** (Modell bearbeiten) öffnet seine Einstellungen. Ein Klick auf die Modellzeile bewirkt dasselbe.
+- **Move to account…** (in ein Konto verschieben) verschiebt das Modell in ein anderes Konto desselben Anbieters oder in ein neues Konto. Danach nutzt das Modell den Key und den Katalog dieses Kontos. Chats, die das Modell nutzen, funktionieren weiter.
+- **Folder** (Ordner) legt das Modell in einen Ordner. Ordner erscheinen, wenn du unter **More actions** die Option **Group by folder** (nach Ordner gruppieren) wählst.
+- **Duplicate** legt ohne Rückfrage eine vollständige Kopie mit denselben Einstellungen an.
+- **Add to Shuffle** (zu Shuffle hinzufügen) oder **Remove from Shuffle** (aus Shuffle entfernen).
+- **Change picture** (Bild ändern).
+- **Remove** (Entfernen) löscht das Modell nach einer Bestätigung.
 
-Zum Duplizieren einer Verbindung klickst du auf die Schaltfläche **Duplicate** (Duplizieren, das Kopier-Symbol). Marinara legt eine vollständige Kopie an, inklusive gespeichertem API-Key. Die Kopie öffnet sich direkt im Editor, sodass du sie umbenennen kannst. Eine Rückfrage gibt es nicht.
+Am Computer kannst du eine Modellzeile auf einen Chat ziehen, um das Modell in diesem Chat zu verwenden.
 
-Um eine einzelne Verbindung zu löschen, klick auf ihre Schaltfläche **Delete** (Löschen, das Papierkorb-Symbol). Marinara zeigt das Dialogfenster **Delete Connection** (Verbindung löschen) mit dem Text Delete "your connection name"? This cannot be undone. Klick zur Bestätigung auf **Delete**.
+## Suche
 
-Um mehrere Verbindungen auf einmal zu löschen oder zu exportieren, klick oben im Panel auf **Select** (Auswählen). Damit schaltet der Auswahlmodus ein. Tipp die gewünschten Verbindungen an und nutz dann in der Aktionsleiste unten **Export** (Exportieren) oder **Delete**. Beim Sammellöschen erscheint vorher das Dialogfenster **Delete Connections** (Verbindungen löschen).
+**Search models and accounts** oben im Panel filtert die Liste beim Tippen. Passt nichts, weist das Panel darauf hin.
 
-<a id="the-random-pool-and-quick-connection-switcher"></a>
+## Shuffle
 
-## Zufallspool und Quick Connection Switcher
+Mit Shuffle wählt ein Chat jedes Mal ein anderes Modell, wenn er eine Antwort schreibt. Praktisch, wenn du die Anfragen über mehrere Anbieter oder Modelle verteilen willst.
 
-Mit dem Zufallspool wählt ein Chat für jede Antwort eine andere Verbindung. Praktisch, wenn du die Anfragen über mehrere Anbieter oder Modelle verteilen willst.
+Um ein Modell zu Shuffle hinzuzufügen, wähl in seinem Menü **⋯** die Option **Add to Shuffle**. Damit ein Chat Shuffle nutzt, öffne **Model for this chat** im Eingabebereich des Chats oder über **Chat Settings → Connection → Model** (Chat-Einstellungen → Verbindung → Modell) und wähl **Shuffle** (Zufallsauswahl). Jede Antwort greift dann auf ein zufälliges Modell aus deinem Shuffle zurück.
 
-Um eine Verbindung in den Zufallspool aufzunehmen, klick auf das Mischen-Symbol in ihrer Zeile. Der Tooltip (Kurzhinweis beim Draufzeigen) lautet **Add to random pool**. Sobald die Verbindung im Pool liegt, ändert er sich zu **In random pool (click to remove)**. Ein weiterer Klick auf das Symbol nimmt die Verbindung wieder heraus.
+Scheitert das Modell, das für eine Antwort gezogen wurde, und hat **Main** ein Modell unter **If it fails** (falls es fehlschlägt), schreibt stattdessen dieses Modell die Antwort. Ein Hinweis nennt das gescheiterte Modell und einen kurzen Grund wie „key rejected“, „rate limited“ oder „not found“, damit du erkennst, welches Modell repariert werden muss. Die Antwort behält eine kleine Markierung **Fallback**; tipp darauf oder zeig darauf, um dieselbe Zeile erneut zu sehen.
 
-Damit ein Chat den Zufallspool nutzt, öffne **Chat Settings** (Chat-Einstellungen), geh zum Abschnitt **Connection** und wähl im Dropdown-Menü **🎲 Random**. Im Game Mode heißt dieses Dropdown-Menü **GM / Party Model**. Jede Antwort greift dann auf eine zufällige Verbindung aus dem Pool zurück.
+Eine Auswahl in **Model for this chat** ändert nur diesen Chat. Um das Modell für neue Chats zu ändern, leg **Main** im Bereich **Jobs** fest.
 
-Scheitert die Verbindung, die für eine Antwort gezogen wurde, und hast du für **Main** eine Fallback-Verbindung festgelegt, schreibt stattdessen der Fallback die Antwort. Ein Hinweis nennt die gescheiterte Verbindung, ihr Modell und einen kurzen Grund wie „key rejected“, „rate limited“ oder „not found“, damit du erkennst, welche Verbindung im Pool repariert werden muss. Die Antwort behält eine kleine Markierung **Fallback**; tipp darauf oder zeig darauf, um dieselbe Zeile erneut zu sehen.
+## Exportieren und importieren
 
-Noch schneller wechselst du die Verbindung für den aktuellen Chat – und ihr Modell – mit dem **Quick Connection Switcher** (schneller Verbindungswechsel). Klick dafür auf das Link-Symbol im Eingabebereich des Chats. Links zeigt er deine Verbindungen, rechts die **Models** (Modelle) der gewählten Verbindung:
+Konten lassen sich in eine Datei exportieren – als Backup oder für den Umzug auf eine andere Installation. Später importierst du sie einfach wieder.
 
-- Klick auf eine Verbindung, um sie sofort für den aktuellen Chat zu verwenden. Das Menü bleibt offen, damit du als Nächstes eines ihrer Modelle wählen kannst.
-- Klick auf ein Modell, um es zu verwenden. Marinara speichert das Modell in dieser Verbindung, wählt die Verbindung für den Chat aus, falls sie es noch nicht war, und schließt das Menü. Ein Häkchen markiert das Modell, das die Verbindung gerade nutzt. Wie im Verbindungs-Editor aktualisiert die Wahl eines gelisteten Modells auch das Kontextfenster der Verbindung und ihr Ausgabelimit, sofern der Anbieter diese Werte meldet.
-- Tipp in das Feld **Search or enter model ID…** (suchen oder Modell-ID eingeben), um die Liste zu filtern. Enter wählt das Modell, dessen ID oder Namen du eingegeben hast, oder das einzige Modell, das noch in der Liste steht. Für ein Modell, das nicht in der Liste steht, gibst du seine exakte ID ein: Drück Enter, wenn nichts in der Liste dazu passt, oder klick auf die Zeile **Use "…"**.
-- Klick auf den Stern neben einem Modell, um es anzuheften. Angeheftete Modelle bleiben oben unter **Pinned** (Angeheftet), auch die, die du von Hand eingegeben hast. Ein weiterer Klick auf den Stern hebt das Anheften wieder auf.
-- Wenn du die Modelle einer Verbindung zum ersten Mal öffnest, lädt Marinara die Liste vom Anbieter und speichert sie in der Verbindung. Bei späteren Besuchen erscheint sie dann sofort. Mit der Aktualisieren-Schaltfläche neben dem Suchfeld lädst du die Liste neu, etwa wenn der Anbieter neue Modelle hinzugefügt hat. Auch wenn du API-Key, Basis-URL oder Anbieter der Verbindung änderst, lädt Marinara eine frische Liste.
-- Hat der Anbieter keine Modellliste oder ist er nicht erreichbar, weist das Menü darauf hin. Eine Modell-ID kannst du trotzdem eingeben.
-- Die Würfel-Schaltfläche oben im Menü schaltet den Zufallspool für diesen Chat ein oder aus.
-- Ist der Zufallspool aktiv, nimmt ein Klick auf eine Verbindung sie stattdessen in den Pool auf oder entfernt sie daraus. Ein Häkchen zeigt, welche Verbindungen im Pool liegen. Die Spalte **Models** ist dann ausgeblendet, weil der Pool keine einzelne Verbindung hat.
+**Ein Export enthält niemals die API-Keys.** Öffne nach dem Import jedes Konto und trag seinen Key erneut ein. Sterne sind enthalten, der Katalog des Anbieters dagegen nicht. Er wird neu geladen, wenn du die Modelle des Kontos zum ersten Mal öffnest.
 
-Auf dem Handy tippst du neben dem Nachrichtenfeld auf den Pfeil und öffnest den Tab **Connections**. Ein Tipp auf eine Verbindung stellt den Chat auf sie um, und das Menü schließt sich. Willst du ein Modell wählen, tipp stattdessen auf den Pfeil am rechten Ende der Verbindungszeile. Ihre Modelle öffnen sich im selben Menü, und der Chat wechselt erst, wenn du eines auswählst. Mit dem Zurück-Pfeil kehrst du zur Verbindungsliste zurück.
+Um ein einzelnes Modell zu exportieren, öffne es mit **Edit model** und klick auf seine Schaltfläche **Export** (das Upload-Symbol). Um alles zu exportieren, öffne **More actions** und wähl **Export all accounts** (alle Konten exportieren). Vor dem Download erinnert dich Marinara daran, dass die Datei keine Keys enthält.
 
-**Ein Modellwechsel gilt überall, wo die Verbindung genutzt wird.** Der Hinweis unten im Menü, „Model changes are saved to this connection.“, bedeutet: Agenten, Hilfsfunktionen und andere Chats, die dieselbe Verbindung nutzen, wechseln ebenfalls auf das neue Modell. Andere Modell-Einstellungen der Verbindung, etwa ihr Embedding-Modell oder die Verbindung für die Bildbeschreibung, bleiben unverändert. Willst du nur für einen bestimmten Zweck ein anderes Modell, dupliziere die Verbindung und ändere die Kopie.
+Ein einzelnes Modell wird als `.connection.json`-Datei heruntergeladen. Mehrere kommen gemeinsam als `marinara-connections.zip`-Datei.
 
-## Verbindungen exportieren und importieren
-
-Verbindungen lassen sich in eine Datei exportieren – als Backup oder für den Umzug auf eine andere Installation. Später importierst du sie einfach wieder.
-
-**Ein Export enthält niemals die API-Keys.** Nach dem Import musst du jede Verbindung öffnen und den API-Key erneut eintragen. Angeheftete Modelle sind enthalten, die gespeicherte Modellliste dagegen nicht. Sie wird neu geladen, wenn du die Modelle der Verbindung zum ersten Mal öffnest.
-
-Um eine einzelne Verbindung zu exportieren, öffne sie im Editor und klick auf ihre Schaltfläche **Export** (das Upload-Symbol). Für mehrere auf einmal nutzt du den **Select**-Modus im Panel und klickst in der Aktionsleiste auf **Export**. Vor dem Download zeigt Marinara das Dialogfenster **Export Connection Data** (Verbindungsdaten exportieren) mit dieser Warnung: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Klick auf **Export**, um fortzufahren.
-
-Eine einzelne Verbindung wird als `.connection.json`-Datei heruntergeladen. Mehrere Verbindungen kommen gemeinsam als `marinara-connections.zip`-Datei.
-
-Zum Importieren klickst du oben im Connections-Panel auf **Import** (Importieren). Das Fenster **Import Connections** (Verbindungen importieren) öffnet sich. Zieh eine oder mehrere `.json`-Dateien hinein oder klick, um sie auszuwählen. Das Fenster erinnert dich: Imported connections never include API keys. Add each key again after import. Nach dem Import hat jede neue Verbindung einen leeren API-Key, bis du ihn ausfüllst.
+Zum Importieren öffnest du **More actions** und wählst **Import account** (Konto importieren). Zieh eine oder mehrere `.json`-Dateien in das Fenster oder klick, um sie auszuwählen. Jedes importierte Konto hat einen leeren Key, bis du ihn ausfüllst.
 
 ## Verwandte Anleitungen
 

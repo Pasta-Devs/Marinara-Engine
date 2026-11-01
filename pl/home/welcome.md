@@ -52,7 +52,7 @@ Na dole okna **Home Widgets** sekcja **Browser chrome** (wygląd przeglądarki) 
 Wykonaj kolejno te kroki, żeby dojść do pierwszego czatu.
 
 1. Zainstaluj aplikację Marinara Engine i otwórz ją w przeglądarce. Wybierz swoją platformę w przewodniku [Instalacja aplikacji Marinara Engine](../INSTALLATION.md).
-2. Dodaj połączenie, żeby aplikacja mogła dotrzeć do usługi AI. Połączenie przechowuje dostawcę, klucz API i model. Klucz API to tajny kod, trochę jak hasło, który dostajesz od dostawcy AI. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+2. Dodaj połączenie, żeby aplikacja mogła dotrzeć do usługi AI. Połączenie to jeden klucz API, jedno konto albo jeden endpoint (adres). Wybierasz usługę, wklejasz klucz i wybierasz swoje modele. Klucz API to tajny kod, trochę jak hasło, który dostajesz od dostawcy AI. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 3. Utwórz albo zaimportuj postać do rozmowy. Otwórz panel **Characters** (postacie), a potem kliknij przycisk **New** (nowa), żeby otworzyć okno **Create Character** (tworzenie postaci), albo kliknij przycisk **Import** (import), żeby wczytać kartę postaci z pliku. Zobacz [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md).
 4. Rozpocznij czat. Na pasku bocznym czatów wybierz zakładkę trybu, a potem kliknij przycisk **+**. Przycisk nazywa się **New Conversation**, **New Roleplay** albo **New Game**, zgodnie z wybraną zakładką. Nowy czat otwiera się razem z oknem konfiguracji, które prowadzi przez resztę. Jeśli nie ma jeszcze zapisanego połączenia, najpierw pojawia się okno **Set Up Conversation**, **Set Up Roleplay** albo **Set Up Game**. Wybierz w nim połączenie, a potem kliknij przycisk **Create Chat**.
 

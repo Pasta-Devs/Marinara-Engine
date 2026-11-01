@@ -6,18 +6,20 @@ La generación de imágenes se configura como un tipo especial de conexión. Una
 
 ## Cómo añadir una conexión de generación de imágenes
 
-Una **API Key** (clave de API) es una contraseña secreta de un proveedor que permite a Marinara usar tu cuenta. Una **Base URL** es la dirección web de la interfaz de aplicación del servicio. Marinara rellena por ti la Base URL correcta cuando eliges un servicio.
+Una **API key** (clave de API) es una contraseña secreta de un proveedor que permite a Marinara usar tu cuenta. Una **Base URL** (que aparece como **Endpoint** en la conexión) es la dirección web de la interfaz de aplicación del servicio. Marinara rellena por ti la correcta cuando eliges un servicio.
 
 Sigue estos pasos para añadir una conexión de imagen.
 
 1. Abre el panel **Connections** (Conexiones).
-2. Haz clic en **New** (Nuevo) para abrir la ventana **Create Connection** (Crear conexión).
-3. Escribe un nombre y luego elige el proveedor **Image Generation** (Generación de imágenes).
-4. En el editor de conexión, elige un **Service** (Servicio) de la cuadrícula.
-5. Pega tu **API Key** si ese servicio necesita una. Los servicios gratuitos y locales no la necesitan.
+2. Haz clic en **Add connection** (Añadir conexión).
+3. En el paso 1, abre **Images, video & voice** (Imágenes, video y voz) y elige **Image Generation** (Generación de imágenes).
+4. En el paso 2, pega tu clave en el campo **API key** si el servicio que piensas usar necesita una. Los servicios gratuitos y locales no la necesitan. Para un servidor local, establece aquí su **Endpoint**. Haz clic en **Save and test** (Guardar y probar). Se abre el editor de modelo de tu nuevo modelo de imagen.
+5. En el editor de modelo, elige un **Service** (Servicio) de la cuadrícula.
 6. Elige un **Model** (Modelo) de la lista, o escribe un ID de modelo. Algunos servicios ofrecen **Fetch Models from API** (Obtener modelos desde la API) para cargar la lista actual.
 7. Haz clic en **Save** (Guardar).
 8. Haz clic en **Test Image** (Probar imagen) para confirmar que funciona. Marinara genera una pequeña imagen de prueba.
+
+Para añadir otro modelo de imagen a una conexión que ya tienes, abre su página en el panel **Connections** y haz clic en **Add image model** (Añadir modelo de imagen). Para que un modelo de imagen sea el que usa la app, configura la ficha **Images** (Imágenes) en **Defaults** (Valores predeterminados), en la parte superior del panel **Connections**.
 
 Si **Test Image** devuelve una imagen, tu conexión está lista. Si falla, revisa la API key y la Base URL.
 

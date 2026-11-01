@@ -130,7 +130,7 @@
 | **Show characters in Persona pickers**(페르소나 선택기에서 캐릭터 표시) | 페르소나 선택기에 캐릭터를 나열하므로, 캐릭터 중 하나로 플레이할 수 있습니다. | [사용자 페르소나](../characters/personas.md) |
 | **Show model name on messages**(메시지에 모델 이름 표시) | 각 응답을 쓴 AI 모델을 표시합니다. | [메시지 조작](../chats/messages.md) |
 | **Show token usage on messages**(메시지에 토큰 사용량 표시) | 메시지별 프롬프트 토큰 수와 응답 토큰 수를 표시합니다. | [메시지 조작](../chats/messages.md) |
-| **Show context usage** | 마지막으로 측정한 요청에서 모델의 컨텍스트가 얼마나 찼는지를 연결 전환기와 Game 채팅 설정에 표시합니다. | [연결 정리하기](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
+| **Show context usage** | 마지막으로 측정한 요청에서 모델의 컨텍스트가 얼마나 찼는지를 연결 전환기와 Game 채팅 설정에 표시합니다. | [한 채팅에 쓸 모델 고르기](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat) |
 | **Show message numbers**(메시지 번호 표시) | 채팅의 메시지마다 번호를 표시합니다. | [메시지 조작](../chats/messages.md) |
 | **Show "older messages not sent" note** | 이전 메시지가 프롬프트에 다 들어가지 못했을 때 최신 응답 아래에 안내를 표시합니다. 긴 채팅에서 이 안내를 숨기려면 끄세요. 잘리거나 비어 있는 응답에는 여전히 그 응답의 안내가 표시됩니다. | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input**(채팅 입력으로 스와이프/재생성 안내) | 재생성할 때 현재 입력해 둔 초안을 지침으로 씁니다. | [지침 기반 생성과 Impersonate](../chats/guided-and-impersonate.md) |

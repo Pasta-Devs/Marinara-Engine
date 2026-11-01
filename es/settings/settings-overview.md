@@ -130,7 +130,7 @@ La sección **Message Tools** (Herramientas de mensajes) está en **Settings** >
 | **Show characters in Persona pickers** (Mostrar personajes en los selectores de persona) | Muestra tus personajes en los selectores de persona, para que puedas jugar como uno de ellos. | [Personas](../characters/personas.md) |
 | **Show model name on messages** | Muestra qué modelo de IA escribió cada respuesta. | [Acciones de mensaje](../chats/messages.md) |
 | **Show token usage on messages** | Muestra el conteo de tokens de prompt y de respuesta por mensaje. | [Acciones de mensaje](../chats/messages.md) |
-| **Show context usage** | Muestra cuánto se llenó el contexto del modelo en la última solicitud medida, en los selectores de conexión y en los ajustes del chat de Game. | [Organizar conexiones](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
+| **Show context usage** | Muestra cuánto se llenó el contexto del modelo en la última solicitud medida, en los selectores de conexión y en los ajustes del chat de Game. | [Elegir un modelo para un chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat) |
 | **Show message numbers** | Muestra un número en cada mensaje del chat. | [Acciones de mensaje](../chats/messages.md) |
 | **Show "older messages not sent" note** | Muestra una nota debajo de la respuesta más reciente cuando los mensajes antiguos no cupieron en el prompt. Desactívalo para ocultar esa nota en chats largos. Una respuesta cortada o vacía sigue mostrando su propia nota. | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | Usa tu borrador actual como dirección cuando regeneras. | [Generación guiada e Impersonate](../chats/guided-and-impersonate.md) |

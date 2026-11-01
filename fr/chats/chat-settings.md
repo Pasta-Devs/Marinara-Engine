@@ -130,11 +130,11 @@ La section **Chat Name** (nom du chat) contient le nom affiché dans ta liste de
 
 ## Connection
 
-La section **Connection** (connexion) détermine quel fournisseur d'IA et quel modèle répondent dans ce chat. Une connexion est un lien enregistré vers un fournisseur d'IA, avec sa clé API et le modèle choisi. Une clé API est un code secret, un peu comme un mot de passe, qui autorise Marinara Engine à utiliser ton compte chez ce fournisseur.
+La section **Connection** (connexion) détermine quel modèle d'IA répond dans ce chat. Une connexion, c'est une clé API, un compte ou un point d'accès pour un service d'IA. Les modèles que tu enregistres sont regroupés sous elle. Une clé API est un code secret, un peu comme un mot de passe, qui autorise Marinara Engine à utiliser ton compte chez ce service.
 
-Choisis une connexion enregistrée dans le menu déroulant. Autre option : **Random**. Marinara pioche alors une connexion différente à chaque fois parmi celles que tu as ajoutées à ton tirage aléatoire.
+Le champ **Model** (modèle) affiche le modèle effectif et indique si ce chat suit **Main** (principal) ou a son propre choix. Clique dessus pour ouvrir le même sélecteur que le bouton de modèle de la zone de saisie du chat. Le modèle actuel reste en haut, avec les modèles récents et favoris en dessous, classés par compte. Cherche parmi les modèles et les comptes, ou utilise **Browse** (parcourir) pour ouvrir le catalogue d'un compte. Un choix ne change que ce chat.
 
-Sous le menu déroulant, le champ **Model** (modèle) affiche le modèle qu'utilise la connexion sélectionnée. Clique dessus pour ouvrir la même liste de modèles que dans le Quick Connection Switcher : recherche ou saisis un ID de modèle, épingle des modèles avec l'étoile, actualise la liste et clique sur un modèle pour l'utiliser. Le modèle est enregistré dans la connexion, donc tous les chats, agents et fonctions auxiliaires qui utilisent cette connexion passent eux aussi à ce modèle. Le champ est masqué pour **Random** et pour le Local Model intégré. Pour en savoir plus, consulte [Le pool aléatoire et le Quick Connection Switcher](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher).
+**Follow Main** (suivre Main) efface le choix propre au chat. **Shuffle** (mélange) choisit pour chaque réponse un modèle différent parmi ceux de ton pool. Si une connexion a besoin d'une clé ou est désactivée, son modèle mène à l'action de réparation. Les étoiles enregistrent des modèles dans ta liste sans changer le chat. Pour en savoir plus, consulte [Shuffle](../connections/organizing-connections.md#shuffle).
 
 Pour apprendre à créer une connexion, va voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 

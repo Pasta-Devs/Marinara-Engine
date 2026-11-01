@@ -24,6 +24,21 @@ l'objet `capabilityProps.localization`. Les interfaces détenues par un package 
 l'anglais du package ; le moteur ne traduit ni les prompts du package ni les valeurs machine qu'il définit. Un changement de langue réutilise
 l'événement `marinara-capability-props` existant : une interface installée se réaffiche donc sans redémarrer le moteur.
 
+### Sélecteur de connexion partagé
+
+Les éléments d'interface de capacité reçoivent aussi `capabilityProps.ui.pickConnection(options)`. Cette méthode ouvre le
+sélecteur de modèles enregistrés du moteur, avec recherche, filtré par `chat`, `image`, `video`, `audio`, `decision` ou
+`all`. Les modèles restent regroupés par compte, et les choix indisponibles expliquent leur état.
+
+Le résultat distingue une sélection explicite (`{ status: "selected", value }`, où `null` désigne le choix hérité ou par
+défaut de l'appelant) d'une annulation (`{ status: "cancelled" }`). Ouvrir ou utiliser le sélecteur n'enregistre pas les
+réglages du package, ne modifie pas de chat et ne change pas les valeurs par défaut globales. Ces actions reviennent au package
+après la sélection. Les anciennes versions du moteur peuvent ne pas avoir cette méthode d'interface facultative : détecte sa présence.
+
+Consulte l'[API du sélecteur partagé et l'exemple de package](../../packages/shared/CONNECTION_PICKER.md) pour les types
+TypeScript publics, la signification des filtres, le cycle de vie et l'utilisation du composant du moteur. Les packages ne doivent
+pas importer de composants React privés du moteur ni construire un autre sélecteur uniquement pour lister les connexions.
+
 ### Distribution et mise en cache
 
 Les fichiers des packages installés sont servis avec des validateurs forts dérivés des empreintes SHA-256 de chaque fichier du manifeste, les mêmes valeurs que le moteur utilise pour revérifier les octets à chaque lecture. Le bundle client (`/api/capability-packages/<id>/client`) et chaque ressource du package sont toujours revalidés (`no-cache` avec un `ETag`) : un fichier inchangé répond `304 Not Modified` au lieu d'être téléchargé à nouveau, tandis qu'un fichier republié est pris en compte immédiatement. Rien n'est servi avec `immutable` : la politique d'installation autorise la republication d'une même version avec des octets différents, aucune URL de package n'est donc adressée par contenu.

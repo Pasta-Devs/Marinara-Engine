@@ -24,6 +24,21 @@ obiekt `capabilityProps.localization`. Interfejsy należące do pakietu mają w�
 z pakietu; Marinara Engine nie tłumaczy promptów pakietu ani wartości maszynowych zapisanych w pakiecie. Zmiana języka
 nadal korzysta z istniejącego zdarzenia `marinara-capability-props`, więc zainstalowany interfejs odświeża się bez restartu aplikacji.
 
+### Wspólny selektor połączeń
+
+Klienckie elementy możliwości dostają też `capabilityProps.ui.pickConnection(options)`. Ta metoda otwiera
+przeszukiwalny selektor zapisanych modeli dostarczany przez Engine, filtrowany według `chat`, `image`, `video`, `audio`, `decision`
+albo `all`. Modele pozostają zgrupowane według swoich kont, a niedostępne opcje wyjaśniają swój stan.
+
+Wynik odróżnia jawny wybór (`{ status: "selected", value }`, gdzie `null` oznacza odziedziczony lub domyślny
+wybór wywołującego) od anulowania (`{ status: "cancelled" }`). Otwarcie selektora ani korzystanie z niego nie zapisuje
+ustawień pakietu, nie zmienia czatu ani globalnych ustawień domyślnych. Za te działania po wyborze odpowiada pakiet.
+Starsze wersje Engine mogą nie mieć tej opcjonalnej metody interfejsu: wykrywaj jej obecność przed użyciem.
+
+Publiczne typy TypeScript, znaczenie filtrów, cykl życia i sposób użycia komponentu w Engine opisuje dokument
+[API wspólnego selektora i przykład pakietu](../../packages/shared/CONNECTION_PICKER.md). Pakiety nie mogą
+importować prywatnych komponentów React silnika ani budować kolejnego selektora tylko po to, żeby wypisać połączenia.
+
 ### Dostarczanie i pamięć podręczna
 
 Zainstalowane pliki pakietu są udostępniane z silnymi walidatorami wyprowadzonymi ze skrótów SHA-256 poszczególnych plików w manifeście. Tych samych wartości Engine używa do ponownego sprawdzenia bajtów przy każdym odczycie. Pakiet klienta (`/api/capability-packages/<id>/client`) i każdy zasób pakietu są zawsze ponownie walidowane (`no-cache` wraz z `ETag`). Niezmieniony plik odpowiada więc kodem `304 Not Modified`, zamiast pobierać się ponownie, a ponownie opublikowany plik jest natychmiast wykrywany. Nic nie jest udostępniane jako `immutable`: zasady instalacji pozwalają ponownie opublikować tę samą wersję z innymi bajtami, dlatego adresy URL pakietów nie są adresowane zawartością.

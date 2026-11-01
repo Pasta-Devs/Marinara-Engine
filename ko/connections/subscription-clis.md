@@ -42,11 +42,10 @@ npm i -g @anthropic-ai/claude-code
 claude auth login
 ```
 
-3. Marinara에서 **Connections**(연결) 패널을 열고 **New**(새로 만들기)를 클릭하세요.
-4. **Create Connection**(연결 만들기) 창에서 이름을 입력하고 제공자로 **Claude (Subscription)**을 고른 다음 **Create**(만들기)를 클릭하세요.
-5. 편집기에 **API Key**(API 키) 입력란과 **Base URL**(기본 URL) 입력란이 없는 것을 확인하세요. 필요 없다는 안내 패널이 함께 표시됩니다.
-6. **Model**(모델) 드롭다운에서 Opus나 Sonnet 계열 같은 Claude 모델을 고르세요. Claude Code 로그인에 맞는 목록이 Claude Code에 있으면 그 로그인에서 쓸 수 있는 모델이 표시되고, 없으면 내장 목록이 표시됩니다.
-7. **Save**(저장)를 클릭한 다음 **Send Test Message**(테스트 메시지 전송)를 클릭하세요. 짧은 답변이 돌아오면 로그인이 정상입니다.
+3. Marinara에서 **Connections**(연결) 패널을 열고 **Add**(추가)를 클릭하세요. **Add account**(계정 추가) 창이 열립니다.
+4. 1단계에서 **Claude (Subscription)** 서비스를 고르세요.
+5. 2단계에 키 입력란이 없는 것을 확인하세요. 이 단계에는 **No key needed. Marinara uses the login on this computer.**라고 표시됩니다. **Connect**(연결)를 클릭하세요. **Connected**가 표시되면 로그인이 정상입니다.
+6. 3단계에서 Opus나 Sonnet 계열 같은 Claude 모델을 고른 다음 **Done**(완료)을 클릭하세요. Claude Code 로그인에 맞는 목록이 Claude Code에 있으면 그 로그인에서 쓸 수 있는 모델이 표시되고, 없으면 내장 목록이 표시됩니다.
 
 Claude 구독 연결은 텍스트 채팅만 지원합니다. 이 연결에는 **Fast Mode**(빠른 모드)와 **Diagnose Model Routing**(모델 라우팅 진단)이라는 두 가지 추가 컨트롤이 있으며, 아래에서 설명합니다.
 
@@ -66,10 +65,10 @@ npm i -g @openai/codex
 codex login
 ```
 
-3. Marinara에서 **Connections** 패널을 열고 **New**를 클릭하세요.
-4. **Create Connection** 창에서 이름을 입력하고 제공자로 **OpenAI (ChatGPT)**를 고른 다음 **Create**를 클릭하세요.
-5. **Model** 드롭다운에서 모델을 고르세요. 목록은 가능하면 ChatGPT 세션에서 가져오고, 그렇지 못하면 내장 목록을 씁니다.
-6. **Save**를 클릭한 다음 **Send Test Message**를 클릭해 답변이 오는지 확인하세요.
+3. Marinara에서 **Connections** 패널을 열고 **Add**를 클릭하세요. **Add account** 창이 열립니다.
+4. 1단계에서 **OpenAI (ChatGPT)** 서비스를 고르세요.
+5. 2단계에서 **Connect**를 클릭해 로그인이 정상인지 확인하세요.
+6. 3단계에서 모델을 고르세요. 목록은 가능하면 ChatGPT 세션에서 가져오고, 그렇지 못하면 내장 목록을 씁니다. **Done**을 클릭하세요.
 
 Marinara는 로컬에 저장된 Codex 로그인 파일을 읽고, 가능한 경우 세션을 자동으로 갱신합니다.
 
@@ -91,10 +90,10 @@ curl -fsSL https://x.ai/cli/install.sh | bash
 grok login
 ```
 
-3. Marinara에서 **Connections** 패널을 열고 **New**를 클릭하세요.
-4. **Create Connection** 창에서 이름을 입력하고 제공자로 **Grok CLI (Subscription)**을 고른 다음 **Create**를 클릭하세요.
-5. 모델을 고르거나, **Model** 입력란을 비워 두어 CLI 기본값을 쓰세요. 롤플레이에는 보통 `grok-composer-2.5-fast`가 가장 무난합니다.
-6. **Save**를 클릭한 다음 **Send Test Message**를 클릭하세요. 이 연결은 모델을 고르지 않아도 테스트할 수 있습니다.
+3. Marinara에서 **Connections** 패널을 열고 **Add**를 클릭하세요. **Add account** 창이 열립니다.
+4. 1단계에서 **Grok CLI (Subscription)** 서비스를 고르세요.
+5. 2단계에서 **Connect**를 클릭해 로그인이 정상인지 확인하세요.
+6. 3단계에서 모델을 고르거나, 저장된 모델의 **Model**(모델) 입력란을 비워 두어 CLI 기본값을 쓰세요. 롤플레이에는 보통 `grok-composer-2.5-fast`가 가장 무난합니다.
 
 Grok CLI에는 특이한 점이 두 가지 있습니다. 스트리밍을 지원하지 않아 답변이 한 단어씩 나타나지 않고 한꺼번에 표시됩니다. 그리고 컨텍스트 창 기본값이 32000 토큰으로 다른 제공자보다 작은데, 프롬프트가 너무 크면 CLI 자체의 턴 제한에 걸리기 때문입니다.
 
@@ -112,9 +111,9 @@ Claude 연결 편집기의 **Prompt Caching → Extended token caching (1 hour)*
 
 ## API 키 입력란이 없는 이유
 
-세 구독 제공자 모두 **API Key** 입력란과 **Base URL** 입력란이 숨겨져 있습니다. 의도된 동작입니다. 로그인 정보는 서버 컴퓨터의 CLI 안에 있으므로 Marinara에 입력할 것이 없습니다.
+세 구독 서비스 모두 키 입력란과 **Address**(주소) 입력란이 숨겨져 있습니다. 의도된 동작입니다. 로그인 정보는 서버 컴퓨터의 CLI 안에 있으므로 Marinara에 입력할 것이 없습니다.
 
-제공자를 잘못 골라서 키 입력란이 보이지 않는 것이라면, 제공자 목록에서 원래 쓰려던 제공자로 다시 바꾸세요. API 기반 제공자에서는 키 입력란이 다시 나타납니다.
+서비스를 잘못 골라서 키 입력란이 보이지 않는 것이라면, 1단계로 돌아가 원래 쓰려던 서비스를 고르세요. API 기반 서비스에서는 키 입력란이 다시 나타납니다.
 
 ## Fast Mode(Claude 전용)
 
@@ -128,7 +127,7 @@ Claude 연결 편집기의 **Prompt Caching → Extended token caching (1 hour)*
 
 **Claude (Subscription)** 편집기의 테스트 영역에는 **Diagnose Model Routing** 버튼이 있습니다. Claude 모델을 하나 요청했는데 더 작은 모델이 응답한 것 같을 때 쓰세요.
 
-1. 모델을 고르고 **Save**를 클릭하세요. 모델을 고르기 전까지 이 버튼은 비활성 상태입니다.
+1. 모델을 고르고 **Save**(저장)를 클릭하세요. 모델을 고르기 전까지 이 버튼은 비활성 상태입니다.
 2. **Diagnose Model Routing**을 클릭하세요.
 3. 결과를 확인하세요. Marinara가 Claude Code 로그인을 통해 실제 프롬프트를 한 번 보내고, 계정에 실제로 청구된 모델이 무엇인지 알려 줍니다.
 
@@ -140,7 +139,7 @@ Opus 같은 큰 모델을 요청했는데 조용히 Sonnet이나 Haiku로 내려
 - 세 연결 모두 임베딩을 지원하지 않습니다. 로어북 시맨틱 검색과 기억 기능에는 임베딩용 연결이 따로 필요합니다.
 - **Claude (Subscription)** 연결은 텍스트 채팅만 지원합니다.
 - **Grok CLI (Subscription)** 연결은 스트리밍을 지원하지 않고, 컨텍스트 창도 작게 시작합니다.
-- **Send Test Message**는 모델을 먼저 골라야 쓸 수 있습니다. 다만 Grok CLI는 모델 없이도 테스트할 수 있습니다.
+- **Send Test Message**(테스트 메시지 전송)는 모델을 먼저 골라야 쓸 수 있습니다. 다만 Grok CLI는 모델 없이도 테스트할 수 있습니다.
 
 ## 관련 가이드
 

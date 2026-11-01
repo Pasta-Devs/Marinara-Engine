@@ -80,15 +80,15 @@ Conversationを開き、**Chat Settings**(チャット設定)で**Schedule timez
 
 ## Marinaraを使うにはAPIキーが必要ですか?
 
-ほとんどの場合は必要です。**接続**とは、1つのAIサービスへ到達する方法をまとめて保存したものです。どのプロバイダーか、どのモデルか、そのサービスへのログイン情報が含まれます。**APIキー**は、パスワードのような秘密の文字列です。AIプロバイダーから受け取ると、Marinaraがそのプロバイダーに接続できるようになります。
+ほとんどの場合は必要です。**接続**とは、AIサービスの1つのAPIキー、アカウント、またはエンドポイントのことです。保存したモデルは、その接続の下にまとめられます。**APIキー**は、パスワードのような秘密の文字列です。AIプロバイダーから受け取ると、Marinaraがそのプロバイダーに接続できるようになります。
 
-チャットを始めるには接続が1つ以上必要です。作成するには、**Connections**(接続)パネルを開き、**New**(新規)をクリックし、プロバイダーを選び、**API Key**欄にAPIキーを貼り付けて、モデルを選びます。手順の詳細は[AIプロバイダーへの接続](connections/connecting-to-a-provider.md)を参照してください。
+チャットを始めるには接続が1つ以上必要です。作成するには、**Connections**(接続)パネルを開き、**Add**(追加)をクリックします。**Add account**(アカウントの追加)ウィンドウでサービスを選び、**API key**(APIキー)欄にキーを貼り付けて、**Connect**(接続)をクリックします。続いて、ウィンドウがモデルの選択画面を開きます。モデルを選び、新しいチャットでそのモデルに返信させたい場合は**Make ... my Main**(…をメインにする)の選択肢を使います。ウィンドウに**Start chatting**(チャットを始める)が表示されたら、それをクリックします。通常のアカウント設定では、代わりに**Done**(完了)をクリックします。手順の詳細は[AIプロバイダーへの接続](connections/connecting-to-a-provider.md)を参照してください。
 
 APIキーをまったく使わないプロバイダーもいくつかあります。サブスクリプション方式の選択肢(Claude、ChatGPT、Grok)はコマンドラインツールでログインします。組み込みのLocal Modelは、キーなしで自分のコンピューター上で動きます。
 
 ## 対応しているAIプロバイダーは?
 
-Marinaraは多くのプロバイダーに対応しています。1つの接続につき1つのプロバイダーを選びます。
+Marinaraは多くのサービスに対応しています。1つの接続につき1つのサービスを選びます。
 
 チャットとロールプレイの文章生成では、**OpenAI**、**OpenAI (ChatGPT)**、**Anthropic**、**Claude (Subscription)**、**Grok CLI (Subscription)**、**Google Gemini**、**Google Vertex AI**、**Mistral**、**Cohere**、**OpenRouter**、**NanoGPT**、**xAI / Grok**、**Arli AI**、**Z.AI**、**DeepSeek**、そしてOllama、LM Studio、KoboldCppなどローカルや自前のサーバーで動かすモデル向けの**Custom (OAI-Compatible)**から選べます。
 
@@ -96,7 +96,7 @@ Marinaraは多くのプロバイダーに対応しています。1つの接続�
 
 動画生成では、**Google AI Studio**、**xAI Imagine**、**OpenRouter Video**、**NanoGPT**、**Atlas Cloud**、**Seedance 2.0**、そしてローカルの**ComfyUI**のAPI形式ワークフローから選べます。
 
-接続はいくつでも保存でき、チャットごとに別の接続を割り当てられます。[AIプロバイダーへの接続](connections/connecting-to-a-provider.md)を参照してください。
+接続はいくつでも保存できます。チャット入力欄の横にある**Connections**(接続)メニューでチャットのモデルを選んだ場合、変わるのはそのチャットだけです。[AIプロバイダーへの接続](connections/connecting-to-a-provider.md)を参照してください。
 
 ## Marinaraの利用にお金はかかりますか?
 

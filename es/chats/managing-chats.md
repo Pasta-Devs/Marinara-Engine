@@ -24,7 +24,7 @@ Algunas filas muestran un pequeño icono de rama con un número. Esto significa 
 
 El nuevo chat se llama **New Conversation**, **New Roleplay** o **New Game**. Puedes renombrarlo más tarde (consulta Cómo renombrar un chat más abajo).
 
-Necesitas al menos una conexión antes de que se abra un chat. Una conexión enlaza Marinara con un proveedor de IA. Si aún no tienes ninguna conexión, aparece una ventana **Set Up** (Configurar) en lugar del chat. Te pide que elijas primero una conexión. Si no tienes ninguna en absoluto, muestra **No connections found** (No se encontraron conexiones) con un botón **Open Connections** (Abrir conexiones). Para configurar una, consulta [Cómo conectarte a un proveedor de IA](../connections/connecting-to-a-provider.md).
+Necesitas al menos una conexión antes de que se abra un chat. Una conexión enlaza Marinara con un proveedor de IA. Si aún no tienes ninguna conexión, se abre la ventana **Add account** (Añadir cuenta) en lugar del chat. Elige un servicio y haz clic en **Connect** (Conectar). Después, la ventana abre la selección de modelo. Elige un modelo, usa si quieres la opción **Make ... my Main** (Convertir ... en mi Principal) y haz clic en **Start chatting** (Empezar a chatear). Para configurar una cuenta normal, haz clic en **Done** (Listo) en su lugar. Para el recorrido completo, consulta [Cómo conectarte a un proveedor de IA](../connections/connecting-to-a-provider.md).
 
 Si guardaste un perfil de ajustes predeterminado con estrella para ese modo, Marinara lo aplica al chat nuevo automáticamente. Consulta [Descripción general de Chat Settings](chat-settings.md).
 

@@ -19,24 +19,22 @@ Marinara se conecta a servidores locais pelo provedor **Custom (OAI-Compatible)*
 Siga estes passos para criar a conexão:
 
 1. Abra o painel **Connections** (conexões) no lado direito do aplicativo.
-2. Clique no botão **New** (o ícone de mais). A janela **Create Connection** (criar conexão) abre.
-3. Digite um nome no campo **Name**, por exemplo `Ollama Local`.
-4. Escolha **Custom (OAI-Compatible)** na grade de provedores.
-5. Clique em **Create**. O editor de conexão abre com a nova conexão.
-6. Localize o campo **Base URL**. Informe o endereço do servidor local (veja a tabela abaixo).
-7. Deixe o campo **API Key** vazio. A maioria dos servidores locais não precisa de chave.
-8. Escolha um modelo. Clique em **Fetch Models from API** (buscar modelos pela API) para carregar a lista que o servidor informa e escolha um. Também é possível digitar o ID do modelo à mão.
-9. Clique em **Save**.
+2. Clique em **Add** (adicionar). A janela **Add account** (adicionar conta) abre.
+3. Na etapa 1, escolha **Custom (OAI-Compatible)**. Ele aparece em **On your computer** (no seu computador).
+4. Na etapa 2, preencha o campo **Address** (endereço) com o endereço do servidor local, conforme a tabela abaixo.
+5. Deixe o campo **API key** vazio. A maioria dos servidores locais não precisa de chave. Para dar à conexão um nome como `Ollama Local`, abra **More options** (mais opções) e digite o nome em **Name (optional)**.
+6. Clique em **Connect** (conectar).
+7. Na etapa 3, escolha um modelo da lista que o servidor informa. Também é possível digitar o ID do modelo à mão. Clique em **Done** (concluir).
 
-A conexão agora aparece salva no painel **Connections**. Teste antes de usar em um chat. Veja a seção "Teste a conexão", mais abaixo.
+A conexão agora aparece no painel **Connections**, com o modelo agrupado abaixo dela. Teste antes de usar em um chat. Veja a seção "Teste a conexão", mais abaixo.
 
-O campo **API Key** é opcional para servidores locais. No provedor **Custom (OAI-Compatible)**, o editor mostra um lembrete embaixo desse campo. Ele avisa que a chave pode ficar vazia em modelos locais como Ollama, LM Studio e KoboldCpp. Basta preencher a Base URL.
+O campo **API Key** é opcional para servidores locais. No provedor **Custom (OAI-Compatible)**, o editor mostra um lembrete embaixo desse campo. Ele avisa que a chave pode ficar vazia em modelos locais como Ollama, LM Studio e KoboldCpp. Basta preencher o **Address**.
 
 ## Base URLs dos servidores locais mais comuns
 
-O campo **Base URL** diz a Marinara onde o servidor local está escutando. Cada servidor tem um endereço e uma porta padrão. A porta é o canal numerado que o servidor usa na sua máquina. Use o endereço do servidor que você roda.
+O campo **Address** (também chamado de Base URL) diz a Marinara onde o servidor local está escutando. Cada servidor tem um endereço e uma porta padrão. A porta é o canal numerado que o servidor usa na sua máquina. Use o endereço do servidor que você roda.
 
-| Servidor local | Base URL |
+| Servidor local | Endpoint |
 |---|---|
 | Ollama | `http://localhost:11434/v1` |
 | LM Studio | `http://localhost:1234/v1` |
@@ -44,7 +42,7 @@ O campo **Base URL** diz a Marinara onde o servidor local está escutando. Cada 
 
 Aqui, `localhost` significa "este mesmo computador". Se Marinara roda no mesmo computador que o servidor de modelo, esses endereços funcionam do jeito que estão.
 
-O campo **Base URL** mostra um aviso de segurança: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Informe apenas um endereço que você mesmo configurou ou em que confia plenamente.
+O campo **Address** mostra um aviso de segurança: "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys." Informe apenas um endereço que você mesmo configurou ou em que confia plenamente.
 
 ### Observação sobre o firewall do Windows
 
@@ -76,18 +74,18 @@ No Android, essa configuração já vem ativada quando você não define nada. P
 
 ## Teste a conexão
 
-O editor de conexão tem o cartão **Connection Tests** (testes de conexão) na parte de baixo. Use antes de depender da conexão em um chat.
+O **Connect** do fluxo de adição já verificou a conexão. O editor de modelo tem o cartão **Connection Tests** (testes de conexão) na parte de baixo, para uma segunda verificação. Use antes de depender da conexão em um chat.
 
-1. Clique na conexão dentro do painel **Connections**. O editor de conexão abre.
+1. Clique no modelo dentro do painel **Connections**. O editor de modelo abre.
 2. Clique em **Test Connection**. Isso verifica se a Base URL e a configuração estão acessíveis e informa quanto tempo levou.
 3. Escolha um modelo, caso ainda não tenha escolhido.
 4. Clique em **Send Test Message**. Isso envia a palavra "hi" ao modelo escolhido e mostra a resposta.
 
-Se os dois testes passarem, o modelo local está pronto para uso em um chat. Abra um chat, abra as configurações dele e escolha esta conexão.
+Se os dois testes passarem, o modelo local está pronto para uso em um chat. Abra um chat, abra as configurações dele e escolha esta conexão, ou use o menu **Connections** na caixa de mensagem.
 
 O mesmo modelo também pode responder decisões, como perguntas de ativação de agentes, sem que Marinara carregue uma segunda cópia. Clique em **Use this model for decisions** (usar este modelo para decisões) nas configurações da conexão; veja [Modelos de decisão](decision-models.md#on-a-server-you-already-run).
 
-Se um teste falhar, confira primeiro se o servidor local continua rodando e se o modelo está carregado. Depois, confira se o campo **Base URL** bate exatamente com o endereço e a porta do servidor. No caso de um servidor em outro computador, confirme se a variável `PROVIDER_LOCAL_URLS_ENABLED` está definida e se você reiniciou o servidor Marinara.
+Se um teste falhar, confira primeiro se o servidor local continua rodando e se o modelo está carregado. Depois, confira se o campo **Address** bate exatamente com o endereço e a porta do servidor. No caso de um servidor em outro computador, confirme se a variável `PROVIDER_LOCAL_URLS_ENABLED` está definida e se você reiniciou o servidor Marinara.
 
 ## Guias relacionados
 

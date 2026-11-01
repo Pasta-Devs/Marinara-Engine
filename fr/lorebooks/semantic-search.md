@@ -18,7 +18,7 @@ Les correspondances par mot-clé et les correspondances sémantiques ont la mêm
 
 La recherche sémantique a besoin d'un modèle capable de créer des embeddings. Tu as deux options.
 
-Quel que soit ton choix, tu peux en faire la source par défaut de toute l'application : ouvre **Connections** (connexions), puis **Defaults** (valeurs par défaut) et choisis-la sous **Embeddings**. Toute connexion sans modèle d'embedding ni **Embedding Connection** (connexion d'embeddings) propre l'utilise alors. Le réglage propre à une connexion garde la priorité, et la ligne indique combien de connexions utilisent leurs propres réglages. **None** conserve le modèle local intégré comme solution de repli.
+Quel que soit ton choix, tu peux en faire la source par défaut de toute l'application : ouvre **Connections** (connexions), puis **Defaults** (valeurs par défaut) et choisis-la dans la section **Embeddings**. Toute connexion sans modèle d'embedding ni **Embedding Connection** (connexion d'embeddings) propre l'utilise alors. Le réglage propre à une connexion garde la priorité, et la ligne indique combien de connexions utilisent leurs propres réglages. **None** conserve le modèle local intégré comme solution de repli.
 
 Option 1 : une connexion dotée d'un modèle d'embedding.
 

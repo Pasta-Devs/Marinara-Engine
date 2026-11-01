@@ -130,11 +130,11 @@ Sekcja **Chat Name** (nazwa czatu) trzyma nazwę widoczną na liście czatów. T
 
 ## Sekcja **Connection**
 
-Sekcja **Connection** (połączenie) decyduje o tym, który dostawca AI i model odpowiada w tym czacie. Połączenie to zapisany skrót do dostawcy AI, razem z kluczem API i wybranym modelem. Klucz API to tajny kod, trochę jak hasło, dzięki któremu Marinara Engine korzysta z twojego konta u danego dostawcy.
+Sekcja **Connection** (połączenie) decyduje o tym, który model AI odpowiada w tym czacie. Połączenie to jeden klucz API, jedno konto albo jeden endpoint (adres) usługi AI. Zapisane modele są zgrupowane pod nim. Klucz API to tajny kod, trochę jak hasło, dzięki któremu Marinara Engine korzysta z twojego konta w danej usłudze.
 
-Wybierz zapisane połączenie z listy rozwijanej. Inna opcja to **Random**: za każdym razem losuje inne połączenie spośród tych oznaczonych do puli losowania.
+Pole **Model** pokazuje model, który jest faktycznie używany, oraz to, czy ten czat podąża za modelem **Main** (główny), czy ma własny wybór. Kliknij je, żeby otworzyć to samo okno wyboru co przycisk modelu w polu wiadomości. Bieżący model zostaje na górze, a pod nim są ostatnio używane modele i modele oznaczone gwiazdką, zgrupowane według kont. Przeszukuj modele i konta albo użyj przycisku **Browse** (przeglądanie), żeby otworzyć katalog jednego konta. Wybór zmienia tylko ten czat.
 
-Pod listą rozwijaną pole **Model** pokazuje model, którego używa wybrane połączenie. Kliknij je, żeby otworzyć tę samą listę modeli co w panelu Quick Connection Switcher (szybkie przełączanie połączeń): wyszukaj model lub wpisz jego identyfikator, przypnij modele gwiazdką, odśwież listę i kliknij model, żeby go użyć. Model zapisuje się w połączeniu, więc każdy czat, agent i funkcja pomocnicza korzystające z tego połączenia też na niego przechodzą. Pole jest ukryte przy opcji **Random** i przy wbudowanym modelu Local Model. Szczegóły znajdziesz w sekcji [Pula losowa i panel Quick Connection Switcher](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher).
+**Follow Main** (podążanie za modelem głównym) usuwa własny wybór czatu. **Shuffle** (losowanie) wybiera inny model z twojej puli przy każdej odpowiedzi. Jeśli połączenie wymaga klucza albo jest wyłączone, jego model prowadzi do działania naprawczego. Gwiazdki zapisują modele na twojej liście bez zmiany czatu. Szczegóły znajdziesz w sekcji [Funkcja Shuffle](../connections/organizing-connections.md#shuffle).
 
 O tym, jak w ogóle utworzyć połączenie, przeczytasz w przewodniku [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 

@@ -2,17 +2,17 @@
 
 이 가이드에서는 Marinara Engine이 연결할 수 있는 AI 제공자를 모두 소개합니다. 제공자마다 API 키를 받는 곳, 기본 Base URL, 알아 두면 좋은 특이점을 정리했습니다. API 키는 제공자가 발급하는 비밀번호 같은 비밀 문자열이며, 이 키가 있어야 Marinara가 해당 AI 서비스와 통신할 수 있습니다.
 
-연결을 추가하는 일반적인 절차는 [AI 제공자에 연결하기](connecting-to-a-provider.md)에서 먼저 확인하세요. 이 페이지는 특정 제공자의 세부 사항이 궁금할 때 찾아보는 참고 자료입니다.
+계정을 추가하는 일반적인 절차는 [AI 제공자에 연결하기](connecting-to-a-provider.md)에서 먼저 확인하세요. 이 페이지는 특정 제공자의 세부 사항이 궁금할 때 찾아보는 참고 자료입니다.
 
 ## 이 페이지를 읽는 법
 
-제공자는 **Connections**(연결) 패널에서 연결을 만들 때 고릅니다. **Create Connection**(연결 만들기) 창의 **Provider**(제공자) 버튼에는 아래에 적힌 이름이 그대로 표시됩니다.
+서비스는 **Add account**(계정 추가) 창에서 고릅니다. 1단계의 서비스 버튼에는 아래에 적힌 이름이 그대로 표시됩니다.
 
-이 페이지의 제공자는 대부분 AI를 대신 실행해 주는 클라우드 서비스입니다. 제공자에 계정을 만들고 API 키를 복사한 다음 **API Key**(API 키) 입력란에 붙여넣으면 됩니다. 구독형 제공자 3곳은 키 대신 로컬 도구 로그인을 사용하며, 해당 항목에 그 내용을 적어 두었습니다.
+이 페이지의 제공자는 대부분 AI를 대신 실행해 주는 클라우드 서비스입니다. 제공자에 계정을 만들고 API 키를 복사한 다음 **API key**(API 키) 입력란에 붙여넣으면 됩니다. 구독형 제공자 3곳은 키 대신 로컬 도구 로그인을 사용하며, 해당 항목에 그 내용을 적어 두었습니다.
 
 다음 두 용어는 이 페이지에 자주 나옵니다.
 
-- Base URL: Marinara가 요청을 보내는 웹 주소입니다. 대부분의 제공자는 이 값을 자동으로 채워 줍니다. 로컬 서버나 사용자 지정 서버를 쓸 때만 직접 바꿉니다.
+- Base URL: Marinara가 요청을 보내는 웹 주소입니다. 연결 편집기에서는 이를 **Address**(주소)라고 부릅니다. 대부분의 제공자는 이 값을 자동으로 채워 줍니다. 로컬 서버나 사용자 지정 서버를 쓸 때만 직접 바꿉니다.
 - Model: 제공자를 고른 뒤 선택하는 구체적인 AI 모델입니다. 쓸 수 있는 모델은 자주 바뀌기 때문에 이 페이지에는 목록을 싣지 않았습니다. 현재 목록은 연결 편집기의 **Model**(모델) 드롭다운이나 **Fetch Models from API**(API에서 모델 가져오기) 버튼으로 확인하세요.
 
 ## OpenAI
@@ -47,7 +47,7 @@ Marinara는 Google 계열 두 선택지 모두에서 Google의 조정 가능한 
 
 **Google Vertex AI**는 Google Cloud 프로젝트를 통해 Gemini 모델을 제공합니다. **Google Gemini**보다 설정할 것이 많습니다. **Base URL**(기본 URL)을 직접 수정해서 `YOUR_PROJECT_ID`를 실제 프로젝트 ID로 바꿔야 합니다. 리전이 `us-central1`이 아니라면 리전도 함께 바꾸세요.
 
-**API Key** 입력란에는 다음 세 가지 자격 증명 중 아무것이나 넣을 수 있고, 어떤 것을 붙여넣었는지는 Marinara가 알아서 판별합니다.
+**API Key**(API 키) 입력란에는 다음 세 가지 자격 증명 중 아무것이나 넣을 수 있고, 어떤 것을 붙여넣었는지는 Marinara가 알아서 판별합니다.
 
 1. 서비스 계정 JSON 키.
 2. OAuth 접근 토큰. 예를 들어 `gcloud auth print-access-token`으로 얻은 토큰입니다.
@@ -96,26 +96,27 @@ Marinara는 NanoGPT의 상세 모델 카탈로그를 읽으므로 드롭다운�
 
 NanoGPT 구독이 있다면 이 연결에서 현재 할당량을 확인할 수 있습니다.
 
-1. 연결 편집기에서 **Show subscription usage**(구독 사용량 표시)를 켜고 저장하세요.
-2. 원한다면 먼저 **Management Token**(관리 토큰)을 붙여넣으세요.
+1. 계정 행의 **⋯**을 클릭하고 **Edit account**(계정 편집)를 고른 다음 **Usage and balance**(사용량 및 잔액)를 여세요.
+2. 외부 조회가 꺼져 있으면 **Turn on**(켜기)을 클릭해 사용량 조회를 허용하세요. NanoGPT 관리 토큰을 추가하려면 **Add a usage-only key**(사용량 전용 키 추가)를 클릭하고 토큰을 붙여넣은 다음 **Show usage**(사용량 표시)를 클릭하세요.
+3. **Show the usage meter on the card**(카드에 사용량 미터 표시)를 켜고 저장하세요.
 
 위젯은 NanoGPT 사용량 엔드포인트를 읽고 주간 및 일일 입력 토큰 할당량을 표시합니다. 두 가지 인증 정보로 읽을 수 있습니다.
 
-- **Management Token**(권장): `https://nano-gpt.com/settings#management-api-tokens`에서 **Usage only**(사용량 전용) 범위로 생성하세요. 할당량을 읽을 수 있지만 모델을 실행하거나 잔액을 사용할 수는 없으므로 사용량 표시에는 더 안전한 선택입니다. Marinara는 암호화해 저장하고 NanoGPT 관리 엔드포인트에만 보냅니다.
+- **Management token**(관리 토큰, 권장): `https://nano-gpt.com/settings#management-api-tokens`에서 **Usage only**(사용량 전용) 범위로 생성하세요. 할당량을 읽을 수 있지만 모델을 실행하거나 잔액을 사용할 수는 없으므로 사용량 표시에는 더 안전한 선택입니다. Marinara는 암호화해 저장하고 NanoGPT 관리 엔드포인트에만 보냅니다.
 - **API 키**: 관리 토큰이 저장되지 않았으면 자동으로 사용합니다. 이 방법도 작동하지만 할당량을 읽을 때 잔액을 사용할 수 있는 것과 같은 인증 정보를 사용합니다.
 
 각 막대 아래에는 남은 양과 창이 초기화되는 시점이 표시됩니다. 예를 들어 `42M remaining · resets in 4d`입니다.
 
 NanoGPT가 현재 보고할 수 없는 할당량은 미사용이 아닌 **알 수 없음**으로 표시합니다. 비활성 구독은 전체 할당량이 남은 것처럼 표시하지 않고 비활성 상태임을 알립니다. 새로고침 버튼으로 필요할 때 위젯을 갱신할 수 있습니다.
 
-같은 미터가 채팅 연결 선택기의 컨텍스트 표시 아래와 채팅의 **Connection**(연결) 설정에도 나타나므로 채팅을 떠나지 않고 할당량을 확인할 수 있습니다. 활성 연결을 따르며 **Show subscription usage**가 켜진 NanoGPT 연결에서만 표시됩니다. **Random**은 조회할 단일 연결이 없으므로 표시되지 않습니다. 선택기에서는 위의 컨텍스트 막대와 같은 스타일이며 읽는 방식도 같습니다. 주간 허용량 대비 사용량을 `8.9M / 60M tokens`처럼 표시하며, 퍼센트 옆에 초기화 시각이 함께 나옵니다.
+같은 미터가 채팅 연결 선택기의 컨텍스트 표시 아래와 채팅의 **Connection**(연결) 설정에도 나타나므로 채팅을 떠나지 않고 할당량을 확인할 수 있습니다. 활성 연결을 따르며 **Show the usage meter on the card**가 켜진 NanoGPT 연결에서만 표시됩니다. **Shuffle**(셔플)은 조회할 단일 연결이 없으므로 표시되지 않습니다. 선택기에서는 위의 컨텍스트 막대와 같은 스타일이며 읽는 방식도 같습니다. 주간 허용량 대비 사용량을 `8.9M / 60M tokens`처럼 표시하며, 퍼센트 옆에 초기화 시각이 함께 나옵니다.
 
 ## xAI / Grok
 
 - 키를 받는 곳: `https://console.x.ai`
 - 기본 Base URL: `https://api.x.ai/v1`
 
-**xAI / Grok**은 Grok 모델을 운영합니다. **Create Connection** 창에서 이 제공자를 고르면 Marinara가 모델을 Grok 4.5로 미리 채웁니다. 모델은 나중에 바꿀 수 있습니다. Grok 4.6과 4.7은 500,000토큰 컨텍스트 창과 **Extra high** (`xhigh`)까지의 추론을 제공합니다. **Web Search**(웹 검색)를 비롯한 기존 채팅 도구를 지원하므로 검색 결과를 최종 답변에 반영할 수 있습니다.
+**xAI / Grok**은 Grok 모델을 운영합니다. **Add account** 창에서 이 서비스를 고르면 Marinara가 모델을 Grok 4.5로 미리 채웁니다. 모델은 나중에 바꿀 수 있습니다. Grok 4.6과 4.7은 500,000토큰 컨텍스트 창과 **Extra high** (`xhigh`)까지의 추론을 제공합니다. **Web Search**(웹 검색)를 비롯한 기존 채팅 도구를 지원하므로 검색 결과를 최종 답변에 반영할 수 있습니다.
 
 ## Arli AI
 
@@ -156,11 +157,11 @@ DeepSeek에 연결할 때는 **OpenAI** 제공자에 DeepSeek의 URL을 지정�
 
 이 연결은 Claude 플랜의 사용 한도를 얼마나 썼는지 보여 줄 수 있습니다.
 
-1. 연결 편집기에서 **Show subscription usage**(구독 사용량 표시)를 켭니다.
-2. **5-hour window**(5시간 창)와 **Weekly window**(주간 창)는 체크된 채로 두거나, 보고 싶지 않은 쪽의 체크를 해제하세요.
+1. 계정 행의 **⋯**을 클릭하고 **Edit account**를 고른 다음 **Usage and balance**를 여세요.
+2. 외부 조회가 꺼져 있으면 **Turn on**을 클릭하세요. **Show the usage meter on the card**를 켜세요. 계정 편집기에는 사용할 수 있는 사용량 창이 표시되며, 5시간 막대와 주간 막대를 따로 켜고 끄는 스위치는 없습니다.
 3. 연결을 저장합니다.
 
-각 창에는 사용한 퍼센트와 초기화 시점을 보여 주는 막대가 생깁니다. 예를 들어 `58% · resets in 2h`입니다. 이 연결이 활성인 동안에는 같은 막대가 채팅의 연결 선택기에 있는 컨텍스트 표시 아래와 채팅의 **Connection** 설정에도 나타납니다. 조회할 단일 연결이 없는 **Random**에는 나타나지 않습니다.
+각 창에는 사용한 퍼센트와 초기화 시점을 보여 주는 막대가 생깁니다. 예를 들어 `58% · resets in 2h`입니다. 이 연결이 활성인 동안에는 같은 막대가 채팅의 연결 선택기에 있는 컨텍스트 표시 아래와 채팅의 **Connection** 설정에도 나타납니다. 조회할 단일 연결이 없는 **Shuffle**에는 나타나지 않습니다.
 
 알아 둘 점:
 
@@ -180,7 +181,7 @@ DeepSeek에 연결할 때는 **OpenAI** 제공자에 DeepSeek의 URL을 지정�
 
 ### 플랜 사용량
 
-이 연결은 ChatGPT 플랜의 Codex 한도를 얼마나 썼는지 보여 줄 수 있습니다. 위의 Claude (Subscription)와 같은 방식으로 작동합니다. **Show subscription usage**를 켜고, **5-hour window**와 **Weekly window**는 체크된 채로 두거나 해제한 다음 저장하세요. 막대는 연결 편집기, 채팅의 연결 선택기, 채팅의 **Connection** 설정에 나타납니다.
+이 연결은 ChatGPT 플랜의 Codex 한도를 얼마나 썼는지 보여 줄 수 있습니다. 위의 Claude (Subscription)와 같은 방식으로 작동합니다. **Edit account**에서 **Usage and balance**를 열고, 필요하면 **Turn on**으로 외부 조회를 허용한 다음, **Show the usage meter on the card**를 켜고 저장하세요. 계정 편집기에는 사용할 수 있는 사용량 창이 따로 5시간이나 주간 스위치 없이 표시됩니다. 막대는 계정 편집기, 채팅의 연결 선택기, 채팅의 **Connection** 설정에 나타납니다.
 
 알아 둘 점:
 
@@ -234,7 +235,7 @@ Decision 모델의 역할과 고르는 방법, 전체 설정은 [Decision 모델
 - **PocketTTS**: 직접 컴퓨터에서 돌리는 무료 음성 서버입니다.
 - **xAI Voice**: xAI의 음성 서비스입니다.
 
-소스마다 기본 Base URL과 모델이 채워집니다. **Default Voice**(기본 음성)는 캐릭터별 음성처럼 더 구체적인 설정이 없을 때 쓰는 음성입니다. **Request timeout (seconds)**(요청 타임아웃, 초 단위)는 Marinara가 음성 대사 한 줄을 기다리는 시간으로, 기본값은 60초입니다. 음성 서버가 느리다면 값을 올리세요. Marinara가 기본으로 쓸 음성 연결을 고르려면 **Connections** 패널을 열고 **Defaults**(기본값)를 펼친 다음 **Text to Speech** 아래에서 고르세요. 오디오 연결로 메시지를 소리 내어 읽으려면 **Text to Speech**(TTS) 카드에서 그 연결을 **Source**(연결 소스)로 고르세요. [오디오 연결 사용하기](../media/tts-setup.md#use-an-audio-connection)를 참고하세요.
+소스마다 기본 Base URL과 모델이 채워집니다. **Default Voice**(기본 음성)는 캐릭터별 음성처럼 더 구체적인 설정이 없을 때 쓰는 음성입니다. **Request timeout (seconds)**(요청 타임아웃, 초 단위)는 Marinara가 음성 대사 한 줄을 기다리는 시간으로, 기본값은 60초입니다. 음성 서버가 느리다면 값을 올리세요. Marinara가 기본으로 쓸 음성 연결을 고르려면 **Connections**(연결) 패널을 열고 **Defaults**(기본값)를 펼친 다음 **Text to Speech** 아래에서 고르세요. 오디오 연결로 메시지를 소리 내어 읽으려면 **Text to Speech**(TTS) 카드에서 그 연결을 **Source**(연결 소스)로 고르세요. [오디오 연결 사용하기](../media/tts-setup.md#use-an-audio-connection)를 참고하세요.
 
 음성과 메시지 소리 내어 읽기는 [Text to Speech(TTS) 설정](../media/tts-setup.md)을 참고하세요. 오디오 생성은 아래와 같이 별도로 설정합니다.
 

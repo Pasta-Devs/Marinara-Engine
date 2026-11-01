@@ -42,13 +42,13 @@ Decision 模型回答一种特定问题。它接收聊天的最近消息及一�
 
 ## 选择 Decision 模型
 
-打开 **Connections**(连接)，再打开 **Defaults**(默认值)，从 **Decision model** 中选择。列表分三组：
+打开 **Connections**(连接)，展开 **Jobs**(分工) 框，在 **Behind the scenes**(幕后) 下找到 **Decision**(判定) 这一行。点击这一行，打开 **Model for**(用于……的模型) 选择器。列表分三组：
 
 - **None**(无)，默认选项。不发出询问，智能体编辑器里的激活问题字段保持禁用。
 - **Local models**(本地模型)：已经运行的 **Primary local model**(主本地模型) 或 **Utility local model**(辅助本地模型)。不会额外下载，信息也不会离开电脑。安装了 **Decision sidecar**(判定辅助进程) 后，它也会列在这里。
 - **Connections**：创建的 Decision 连接，包括托管服务、自行运行的 System One 服务器，或 Ollama、LM Studio 等现有服务器上的聊天模型。
 
-当前无法回答的条目仍会保留在列表里，以灰色显示并说明原因，方便查看需要修复什么。选择后点击 **Test**(测试)。测试发送固定样本，不会发送聊天。
+当前无法回答的条目仍会保留在列表里，以灰色显示并说明原因，方便查看需要修复什么。要测试选中的模型，点击 **Decision** 行上的齿轮，使用在这一行下方展开的设置。这些行内设置包含 **Test**(测试)、**Thinking**(推理) 和排序控件。测试发送固定样本，不会发送聊天。
 
 ### 如何选择
 
@@ -75,12 +75,12 @@ Decision 模型回答一种特定问题。它接收聊天的最近消息及一�
 
 如果 **Local Model** 里有本地模型，就能用它判定，无须创建连接或支付请求费用。
 
-1. 在 **Connections** 中打开 **Defaults**，将 **Decision model** 设为 **Primary local model**，或在已配置辅助模型时设为 **Utility local model**。
-2. 点击 **Test**。成功后会显示概率和请求耗时，以及本地模型特有的两个信息：是否提供对数概率，以及模型是否直接回答。
+1. 在 **Connections** 中展开 **Jobs**，在 **Behind the scenes** 下找到 **Decision** 行并点击它。在 **Model for** 选择器中，将模型设为 **Primary local model**，或在已配置辅助模型时设为 **Utility local model**。
+2. 点击 **Decision** 行上的齿轮，然后在这一行下方展开的设置中点击 **Test**。成功后会显示概率和请求耗时，以及本地模型特有的两个信息：是否提供对数概率，以及模型是否直接回答。
 
 Marinara 向模型提出一个是/否问题，让它生成一个 Token，再从该 Token 的概率读取答案。不会撰写回复，所以请求很短。多选一会拆成每个选项一个是/否问题。能容纳多少最近消息，按该槽位自身的上下文大小计算。
 
-**推理。** 大多数模型用一个词作答。部分模型无论收到什么要求都会先推理。下拉框下面的 **Thinking**(推理) 设置控制这一点：
+**推理。** 大多数模型用一个词作答。部分模型无论收到什么要求都会先推理。展开的 **Decision** 行里的 **Thinking** 设置控制这一点：
 
 - **Auto**(自动，默认) 先尝试快速的单词回答方式；连续两次无法按此方式回答，就允许该模型先推理并通知你。
 - **Off**(关闭) 始终使用单词回答方式。无法按此方式作答的模型按没有答案处理。
@@ -97,7 +97,7 @@ Marinara 向模型提出一个是/否问题，让它生成一个 Token，再从�
 如果聊天模型已在 Ollama、LM Studio、llama.cpp 或其他 OpenAI 兼容服务器上运行，就能回答判定问题，无需让 Marinara 加载第二份模型。
 
 1. 打开该服务器的 **Custom** 连接，点击 **Use this model for decisions**(将此模型用于判定)。这会创建来源为 **OpenAI-compatible chat model**(OpenAI 兼容聊天模型) 的 Decision 连接，使用相同的基础 URL、模型和密钥。也可以手动创建：新建 Decision 连接，选择该来源，填写聊天连接的基础 URL（例如 Ollama 的 `http://localhost:11434/v1`）和服务器提供的模型名称。
-2. 在 **Decision model** 中选中它并点击 **Test**。结果还会显示服务器是否返回对数概率，以及模型是否必须先思考。
+2. 在 **Decision** 行的 **Model for** 选择器中选中它。打开这一行的齿轮，点击 **Test**。结果还会显示服务器是否返回对数概率，以及模型是否必须先思考。
 
 询问方式与本地模型相同：每条陈述要求一个是/否词元，并从其概率读取答案。由于 Marinara 不知道服务器能同时处理多少请求，陈述会逐条发送。连接的 **Thinking** 始终为 **Auto**，因此必须先思考的模型在两次回答失败后会切换方式，之后只回答回复后的条件判断，除非开启 **Also gate agents that run before the reply**。网络中另一台机器上的服务器也和其他本地服务商一样，需要 `PROVIDER_LOCAL_URLS_ENABLED`；见[连接本地或自托管模型](local-self-hosted.md)。
 
@@ -105,10 +105,10 @@ Marinara 向模型提出一个是/否问题，让它生成一个 Token，再从�
 
 ## 设置 Decision 连接
 
-1. 在 **Connections** 中创建连接，将服务商设为 **Decision**。
+1. 在 **Connections** 中点击 **Add**(添加)。在 **Add account**(添加账号) 窗口里选择 **Decision** 服务。
 2. 选择 **TypeSafe**、**OpenRouter**、**Custom System One endpoint**(自定义 System One 端点) 或 **OpenAI-compatible chat model**。托管来源需要 API 密钥。TypeSafe 默认发送到 `https://api.typesafe.ai`；如果把它的 **Base URL**(基础 URL) 换成另一台运行 TypeSafe API 的服务器地址（不含 `/v1/systemone`），仍需要你的 TypeSafe 密钥，该密钥会发送到那台服务器。如果那台服务器在局域网内的另一台机器上，也和其他本地服务商一样需要 `PROVIDER_LOCAL_URLS_ENABLED`；Android 上默认开启。Custom 接受已有的 System One 服务器，包括 Open-Jev 或 [Strands decider](#run-strands-decider-yourself)；输入不含 `/v1/systemone` 的基础 URL 和受支持的模型名称。Ollama、LM Studio 等聊天模型服务器不使用 System One：请按[使用已运行的服务器](#on-a-server-you-already-run)选择 **OpenAI-compatible chat model**。
 3. 对于 OpenRouter，在 **API key source**(API 密钥来源) 下选择已保存的连接，或输入单独的密钥。其编辑器也提供 **Use this key for decisions**(将此密钥用于判定)，用于通过 OpenRouter 配置 Jev。关联的密钥会自动跟随后续更改。Custom System One 和 OpenAI-compatible chat model 连接只有在两个 URL 同源（协议、主机和端口相同）时，才能借用自定义聊天连接的密钥。
-4. 保存后在 **Decision model** 下选择它，再点击 **Test**。成功后显示概率、回答耗时和连接的时限。Test 至少等待 10 秒；时限更长时，等待时限再加 5 秒，因此慢回答也会按实际耗时报告。如果超过时限，结果会注明：在聊天中，这样的回答会视为没有答案。
+4. 点击 **Connect**(连接)。账号连接成功后，点击 **Done**(完成) 选择它的模型。打开 **Jobs** 里 **Behind the scenes** 下的 **Decision** 行，点击这一行，在 **Model for** 中选中新模型。点击这一行的齿轮，打开它下方的设置，然后点击 **Test**。成功后显示概率、回答耗时和连接的时限。Test 至少等待 10 秒；时限更长时，等待时限再加 5 秒，因此慢回答也会按实际耗时报告。如果超过时限，结果会注明：在聊天中，这样的回答会视为没有答案。
 
 Decision 默认值独立于聊天、智能体、图像、视频和音频默认值。选择 **None** 会关闭判定，不会删除激活问题或判定陈述。
 
@@ -132,12 +132,13 @@ Decision 默认值独立于聊天、智能体、图像、视频和音频默认�
    ```
 
    检测到 NVIDIA GPU 或 Apple silicon 时会使用对应硬件，否则在处理器上运行，速度较慢。首次启动会下载模型和约 4.6 GB 的基础权重，Python 包约占 5.5 GB。服务器没有密码，因此应保持在 `127.0.0.1` 上运行。
+
 2. 创建一个 Decision 连接，来源选择 **Custom System One endpoint**，基础 URL 填写 `http://127.0.0.1:8000`。模型名称可以任意填写。
-3. 在 **Decision model** 中选择该连接并点击 **Test**。启动后的第一次回答约需 2 秒，超过默认的 **Time limit**，因此开始聊天前先测试一次。
+3. 在 **Decision** 行的 **Model for** 选择器中选择该连接。打开这一行的齿轮，点击 **Test**。启动后的第一次回答约需 2 秒，超过默认的 **Time limit**，因此开始聊天前先测试一次。
 
 它的概率经过校准，因此自定义连接的默认阈值 0.5 适合它，这点与自行托管的 Open-Jev 不同（参见[阈值](#thresholds)）。在 RTX 5090 上进行的一次小型 Roleplay 测试中，80 条语句里它答对了 73 条，Open-Jev 2B 答对了 74 条；它使用了约 5.1 GB（4.7 GiB）GPU 显存。处理 1 到 8 条语句耗时 0.04 到 0.1 秒，Open-Jev 2B 为 0.1 到 0.14 秒；在较长的聊天中，两者都约需 0.3 秒。它的回答更受措辞影响，因此请遵循[编写语句](../prompts/conditional-prompts.md#writing-statements)的建议，并用自己的聊天轮次测试。
 
-要在它和 Decision sidecar 之间切换，只需在 **Decision model** 中选择其中一个。两者的配置都会保留。
+要在它和 Decision sidecar 之间切换，只需在 **Decision** 行的 **Model for** 选择器中选择其中一个。两者的配置都会保留。
 
 <a id="let-marinara-install-a-decision-model"></a>
 
@@ -157,7 +158,7 @@ Marinara 也可以代为下载和运行专用判定模型。无论是否同时�
 1. 打开 **Connections**，展开 **Local Model**，选择 **Decision sidecar (experimental)**(判定辅助进程，实验性)。
 2. 阅读警告，然后开启 **Enable decision sidecar**(启用判定辅助进程)。确认后会显示对机器的判断；如果结果是警告，按钮会显示 **Enable anyway**(仍然启用)。
 3. 选择模型，确认大小、硬件判断和许可证。在此之前不会开始下载。**Open-Jev 2B** 比 **Open-Jev 9B** 需要的内存少得多，但两者都不保证对聊天作出正确回答。
-4. 在 **Decision model** 下选择 **Decision sidecar**。
+4. 在 **Decision** 行的 **Model for** 选择器中选择 **Decision sidecar**。
 
 **速度。** 模型启动后的首次回答较慢，因此 Marinara 在加载时会发送一个预热问题。预热成功后，**Test** 和第一回合呈现正常速度；失败也不妨碍启动，只是延迟会落在第一个问题上。每条陈述都重新读取近期聊天，因此长聊天中包含大量陈述的回合耗时更长：Open-Jev 2B 在长聊天中每条陈述约需四分之一秒。
 

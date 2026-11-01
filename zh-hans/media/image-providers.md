@@ -6,18 +6,20 @@
 
 ## 如何添加图像生成连接
 
-**API Key**(API 密钥) 是服务商给的一串秘密字符，类似密码，Marinara 靠它使用你的账号。**Base URL**(基础 URL) 是这个服务的应用接口地址。选好服务之后，Marinara 会自动填好正确的 Base URL。
+**API Key**(API 密钥) 是服务商给的一串秘密字符，类似密码，Marinara 靠它使用你的账号。**Base URL**(基础 URL) 在连接上显示为 **Endpoint**(端点)，是这个服务的应用接口地址。选好服务之后，Marinara 会自动填好正确的地址。
 
 按下面的步骤添加图像连接。
 
 1. 打开 **Connections**(连接) 面板。
-2. 点击 **New**，打开 **Create Connection**(创建连接) 窗口。
-3. 输入名称，然后选择 **Image Generation**(图像生成) 服务商。
-4. 在连接编辑器里，从网格中选择一个 **Service**(服务)。
-5. 如果这个服务需要密钥，粘贴 **API Key**。免费服务和本地服务不需要。
+2. 点击 **Add connection**(添加连接)。
+3. 在第 1 步里打开 **Images, video & voice**(图像、视频与声音)，选择 **Image Generation**(图像生成)。
+4. 在第 2 步里，如果打算用的服务需要密钥，就把密钥粘贴到 **API key** 输入框。免费服务和本地服务不需要。本地服务器要在这里设置它的 **Endpoint**。点击 **Save and test**(保存并测试)。新图像模型的模型编辑器随即打开。
+5. 在模型编辑器里，从网格中选择一个 **Service**(服务)。
 6. 从列表里选择 **Model**(模型)，或者直接输入模型 ID。部分服务提供 **Fetch Models from API**(从 API 获取模型)，可以加载当前的模型列表。
 7. 点击 **Save**。
 8. 点击 **Test Image**(测试图像) 确认是否可用。Marinara 会生成一张小尺寸的测试图。
+
+要给已有的连接再添加一个图像模型，在 **Connections** 面板里打开它的页面，点击 **Add image model**(添加图像模型)。要让应用使用某个图像模型，在 **Connections** 面板顶部的 **Defaults**(默认值) 里设置 **Images**(图像) 卡片。
 
 **Test Image** 返回了图片，说明连接已经可以用了。失败的话，检查 API 密钥和 Base URL。
 

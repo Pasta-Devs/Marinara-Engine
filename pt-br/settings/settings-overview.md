@@ -130,7 +130,7 @@ A seção **Message Tools** fica em **Settings** > **Advanced** > **Message Tool
 | **Show characters in Persona pickers** | Lista os seus personagens nos seletores de persona, para você poder jogar como um deles. | [Personas](../characters/personas.md) |
 | **Show model name on messages** | Mostra qual modelo de IA escreveu cada resposta. | [Ações de mensagem](../chats/messages.md) |
 | **Show token usage on messages** | Mostra a contagem de tokens de prompt e de resposta por mensagem. | [Ações de mensagem](../chats/messages.md) |
-| **Show context usage** | Mostra o quanto o contexto do modelo estava cheio na última requisição medida, nos seletores de conexão e nas configurações do chat de Game. | [Organizando as conexões](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
+| **Show context usage** | Mostra o quanto o contexto do modelo estava cheio na última requisição medida, nos seletores de conexão e nas configurações do chat de Game. | [Como escolher um modelo para um chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat) |
 | **Show message numbers** | Mostra um número em cada mensagem do chat. | [Ações de mensagem](../chats/messages.md) |
 | **Show "older messages not sent" note** | Mostra um aviso abaixo da resposta mais recente quando as mensagens mais antigas não couberam no prompt. Desative para esconder esse aviso em chats longos. Uma resposta cortada ou vazia continua mostrando o próprio aviso. | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | Usa o rascunho atual como direção quando você regenera. | [Geração guiada e Impersonate](../chats/guided-and-impersonate.md) |

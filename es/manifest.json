@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "48f17da5ce9da16da0e71f64c8e2d32903e6878f",
+  "sourceCommit": "6d96cf919532db15731147f47b74ebb8f6e15c96",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -9,8 +9,8 @@
     },
     {
       "path": "FAQ.md",
-      "sha256": "476c5197dda6eb76dc07881a97b61c34a267ca022553b92bb2ec7901c60387ba",
-      "bytes": 27949
+      "sha256": "cd5e35ef6289d62ea63764b12dd20f52b70fee1abb2c5501f90302b5422cb583",
+      "bytes": 28433
     },
     {
       "path": "INSTALLATION.md",
@@ -154,8 +154,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "934ca7fdce22180da8d0253fc9545a5fc786663666b70591768d4e80ef483f16",
-      "bytes": 25449
+      "sha256": "25fb202be1a34fd6fdbfed502dab65b521662a5a6433817847077879ba8029f4",
+      "bytes": 25454
     },
     {
       "path": "chats/connected-chats.md",
@@ -179,8 +179,8 @@
     },
     {
       "path": "chats/managing-chats.md",
-      "sha256": "8efe918150eb6ff17cb9b866abd764202e94574f1a0e3cbe13ccbb8ff340333f",
-      "bytes": 10108
+      "sha256": "36b7ccc4f5c154cdfa83529f9252346c66d3b6b766bd8cb3f90d2360487dbe79",
+      "bytes": 10262
     },
     {
       "path": "chats/messages.md",
@@ -204,8 +204,8 @@
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "cd9ae26ac3ebf6e742c1b30b147c304e737e8b88485b065f5f5406133bdb7855",
-      "bytes": 12624
+      "sha256": "51b5ecd014e89a020910bcd8f8c30d405775b8bf24f702c640c0f9a210ef1786",
+      "bytes": 13232
     },
     {
       "path": "configuration/features.md",
@@ -214,13 +214,13 @@
     },
     {
       "path": "connections/connecting-to-a-provider.md",
-      "sha256": "631203c8d4883d96d96bc3849c8814cb16964ab11f577c6bfdfca7fcbd96fe76",
-      "bytes": 6953
+      "sha256": "c07c60bc0579d27826ab386b5126fccf749a498354a71d5ec82135f6edfad695",
+      "bytes": 10282
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "c8730cc9996c9a9aa0d5159d465d983b2a85b0f7424a394b388f969624bf1f91",
-      "bytes": 33137
+      "sha256": "94414cefa22a27a60b8865302d9b1ed3b00722c696123fd401ceab4909a0b5ab",
+      "bytes": 34140
     },
     {
       "path": "connections/local-model.md",
@@ -229,23 +229,23 @@
     },
     {
       "path": "connections/local-self-hosted.md",
-      "sha256": "cc2e5d51547e8d9b17cf3dd93b7c3c72e48a2624517fa3bb1a01a15a493f1da3",
-      "bytes": 8732
+      "sha256": "e0222b39a65311aafc212032f02665a3f998805fd442801ae658f1083c0ab858",
+      "bytes": 8891
     },
     {
       "path": "connections/organizing-connections.md",
-      "sha256": "3efbb9d2b96a77c9dcc8067c3efc6657a37c92b2fb815424d80850e2fe65fb88",
-      "bytes": 11191
+      "sha256": "16149c1c0bd16befef35900322da345d25d28acd1b9576f79cf6f8b7ead5a5d3",
+      "bytes": 8035
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "6371557c8529328cf1100d9d5e8bea7e2c1ffeb2e70ec3c2d3231366055c03f7",
-      "bytes": 26978
+      "sha256": "fe78bb86885e19cc5e55c1c148277977b6c3d39f96f7880a80552fe254567d46",
+      "bytes": 27626
     },
     {
       "path": "connections/subscription-clis.md",
-      "sha256": "b759171f65441f666563583f000b0c25c9b16086323e28c1b693fd2c559c09a5",
-      "bytes": 10928
+      "sha256": "b37d8acc2a3ed428f56502252b35915157641c07365edc198b907f3168162aa3",
+      "bytes": 10739
     },
     {
       "path": "contrib/engine-foundations-overview.md",
@@ -384,8 +384,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "6dbf8d5ee76df698790feab94a07e764a03ceb9af2ad4125cb06b76e98661bbe",
-      "bytes": 180644
+      "sha256": "878913859fa6ed78e8dd3c723134e22366f7e2e5cdb9d4c6428ee08fb779c2dc",
+      "bytes": 181892
     },
     {
       "path": "development/personal-extensions.md",
@@ -544,8 +544,8 @@
     },
     {
       "path": "home/welcome.md",
-      "sha256": "926ec99d419ce2d80b85a058611f2962e3c9bc59f8b1dee3cfec1d044afb1c41",
-      "bytes": 9201
+      "sha256": "110a1f410d0097d651bf67ca8ae941e66f62749916dafa03455f0076a3f6a979",
+      "bytes": 9255
     },
     {
       "path": "installation/android-termux.md",
@@ -614,8 +614,8 @@
     },
     {
       "path": "lorebooks/semantic-search.md",
-      "sha256": "08d11f998255699c7d8b76f6d01a667bd1ee68e11e041a8c68471aab64153262",
-      "bytes": 12685
+      "sha256": "ee277169fe140cc689c83bf10e87312d8c980d512b1ac5e03c8775f8ba607aa9",
+      "bytes": 12697
     },
     {
       "path": "lorebooks/token-budgets.md",
@@ -639,8 +639,8 @@
     },
     {
       "path": "media/image-providers.md",
-      "sha256": "b6975dbb2688f2c82125dda00b440134296c0c559f7e3639a14842ebc7555c31",
-      "bytes": 23741
+      "sha256": "43aab98cf8bf582a750b34dfea3439ae27bb7c38f2997684f9daccbe9b934755",
+      "bytes": 24342
     },
     {
       "path": "media/music.md",
@@ -719,8 +719,8 @@
     },
     {
       "path": "roleplay/getting-started.md",
-      "sha256": "54cea3a08cefcf8f764aed46bd9e6b168e567f9e5f448729ea0348ab171e2d5c",
-      "bytes": 24051
+      "sha256": "3d556d08a9a0e7776162d7c4f5b46f1717de1d3ff0cfc7360e70bdb884759e14",
+      "bytes": 25807
     },
     {
       "path": "roleplay/hud-and-trackers.md",
@@ -739,8 +739,8 @@
     },
     {
       "path": "settings/settings-overview.md",
-      "sha256": "e0e2df2e823c46eb344883e05cdc15d53bdd01a4f947bb3ec079f6939ad43ae2",
-      "bytes": 18143
+      "sha256": "61fd9240a0bd7416468e201c0c9c9ff59379caa754d6f1c5f73342ae05290c73",
+      "bytes": 18138
     }
   ]
 }

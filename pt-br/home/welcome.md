@@ -52,7 +52,7 @@ Na parte de baixo da janela **Home Widgets**, **Browser chrome** (moldura do nav
 Siga estes passos na ordem para chegar ao primeiro chat.
 
 1. Instale Marinara Engine e abra o aplicativo no navegador. Escolha a sua plataforma em [Instalação do Marinara Engine](../INSTALLATION.md).
-2. Adicione uma conexão para que o aplicativo alcance um serviço de IA. A conexão guarda o provedor, a chave de API e o modelo. A chave de API é um código secreto, parecido com uma senha, que o provedor de IA fornece. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
+2. Adicione uma conexão para que o aplicativo alcance um serviço de IA. A conexão é uma chave de API, uma conta ou um endpoint. Você escolhe o serviço, cola a chave e escolhe os seus modelos. A chave de API é um código secreto, parecido com uma senha, que o provedor de IA fornece. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 3. Crie ou importe um personagem para conversar. Abra o painel **Characters** (personagens) e clique em **New** para abrir a janela **Create Character**, ou clique em **Import** para trazer um card de personagem de um arquivo. Veja [Criando e editando personagens](../characters/creating-and-editing-characters.md).
 4. Comece um chat. Na barra lateral de chats, escolha a aba de um modo e clique no botão **+**. O botão se chama **New Conversation**, **New Roleplay** ou **New Game**, de acordo com a aba. O chat novo abre com uma janela de configuração que conduz você pelo resto. Se ainda não houver nenhuma conexão salva, aparece antes uma janela **Set Up Conversation**, **Set Up Roleplay** ou **Set Up Game**. Escolha a conexão ali e clique em **Create Chat**.
 

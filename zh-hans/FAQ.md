@@ -80,15 +80,15 @@ Marinara 有三种聊天模式，打开聊天列表时显示为三个选项卡�
 
 ## 用 Marinara 一定要有 API 密钥吗？
 
-绝大多数情况下都要。**connection**(连接) 就是保存下来的一套 AI 服务接入信息，告诉 Marinara 该怎么连上某个 AI 服务：哪家服务商、哪个模型、用什么身份登录。**API key**(API 密钥) 则是一串秘密字符，作用类似密码，从 AI 服务商那里申请，Marinara 拿它替你跟那家服务商通信。
+绝大多数情况下都要。**connection**(连接) 就是某个 AI 服务的一个 API 密钥、账号或端点，保存的模型都归在它下面。**API key**(API 密钥) 则是一串秘密字符，作用类似密码，从 AI 服务商那里申请，Marinara 拿它替你跟那家服务商通信。
 
-开始聊天前至少要有一个连接。新建方法：打开 **Connections**(连接) 面板，点 **New**(新建)，选一家服务商，粘贴 **API Key**，再选一个模型。完整流程见[连接 AI 服务商](connections/connecting-to-a-provider.md)。
+开始聊天前至少要有一个连接。新建方法：打开 **Connections**(连接) 面板，点 **Add**(添加)。在 **Add account**(添加账号) 窗口里选一个服务，粘贴 **API key**，再点 **Connect**(连接)。窗口随后进入模型选择。选一个模型；想让它回答新聊天，就用 **Make ... my Main**(把……设为我的主模型) 选项；窗口给出 **Start chatting**(开始聊天) 时点它。如果只是正常添加账号，就改点 **Done**(完成)。完整流程见[连接 AI 服务商](connections/connecting-to-a-provider.md)。
 
 也有少数几家服务商完全不用 API 密钥。订阅类选项（Claude、ChatGPT 和 Grok）改用命令行工具登录，内置的 Local Model 则直接跑在自己的机器上，同样不需要密钥。
 
 ## 支持哪些 AI 服务商？
 
-Marinara 支持的服务商很多，每个连接选一家。
+Marinara 支持的服务很多，每个连接选一个服务。
 
 聊天和角色扮演的文本生成可以选 **OpenAI**、**OpenAI (ChatGPT)**、**Anthropic**、**Claude (Subscription)**、**Grok CLI (Subscription)**、**Google Gemini**、**Google Vertex AI**、**Mistral**、**Cohere**、**OpenRouter**、**NanoGPT**、**xAI / Grok**、**Arli AI**、**Z.AI**、**DeepSeek**，以及给 Ollama、LM Studio、KoboldCpp 这类本地或自建模型用的 **Custom (OAI-Compatible)**。
 
@@ -96,7 +96,7 @@ Marinara 支持的服务商很多，每个连接选一家。
 
 视频生成可以选 **Google AI Studio**、**xAI Imagine**、**OpenRouter Video**、**NanoGPT**、**Atlas Cloud**、**Seedance 2.0**，以及本地 **ComfyUI** 的 API 格式工作流。
 
-多个连接可以同时保存下来，每个聊天分配不同的连接。见[连接 AI 服务商](connections/connecting-to-a-provider.md)。
+多个连接可以同时保存下来。在聊天里通过输入框旁的 **Connections** 菜单选的模型，只改变这一个聊天。见[连接 AI 服务商](connections/connecting-to-a-provider.md)。
 
 ## 用 Marinara 要花钱吗？
 

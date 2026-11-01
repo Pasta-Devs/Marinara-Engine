@@ -82,11 +82,14 @@ Mit diesen Befehlen lenkst du die Geschichte, spielst einen Charakter und ergän
 | `/random` | `/rand`, `/event` | Bittet die KI, ein überraschendes Ereignis in die Geschichte einzubauen. |
 | `/scene [description (optional)]` | `/rp` | Wird aus einem Conversation-Chat heraus ausgeführt. Startet eine neue Roleplay-Szene, die sich von diesem Chat verzweigt. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Generiert ein Galeriebild für den aktuellen Chat. |
+| `/html [what you want]` | | Roleplay: Erstellt am Ende der neuesten Antwort ein Artefakt aus der Spielwelt, zum Beispiel `a spellbook page`. |
 | `/video [description (optional)]` | | Roleplay: Erstellt unter der neuesten Antwort einen kurzen Clip dieser Antwort oder deiner Beschreibung. Folgt Illustrators Einstellung **First frame** (Startbild). In Conversation verschickt `/video` stattdessen eine Videonachricht (siehe unten). |
 | `/impersonate [direction (optional)]` | `/imp` | Schreibt eine Antwort im Namen deiner Persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Legt die Anweisung fest, die `/impersonate` in diesem Chat verwendet. |
 
 In **Roleplay** illustriert `/illustrate range=12` Nachricht 12; `/illustrate range=12-18` übergibt die Nachrichten 12 bis 18 an Illustrator. Verwende dieselben Nachrichtennummern wie bei `/goto`, aufsteigend und mit höchstens 200 Nachrichten. Ausgeblendete Nachrichten bleiben ausgeschlossen. Das Bild wird an die letzte sichtbare Nachricht im Bereich angehängt; die Prompt-Prüfung behält diese Auswahl auch bei neu eintreffenden Nachrichten. Frühere Nachrichten bleiben mit aktiviertem Advanced Memory verfügbar. Ohne `range=` bleibt das gewohnte Verhalten für die aktuelle Szene erhalten. Ein optional eingegebener Prompt wird wie bisher direkt verwendet.
+
+`/html a terminal readout` erstellt am Ende der neuesten Antwort ein Artefakt. Der Befehl braucht keinen Agenten und funktioniert unabhängig davon, ob **HTML Artifacts** (HTML-Artefakte) aktiviert ist. Der Erzähler kann dieselbe Anfrage selbst mit `[html: prompt="..."]` stellen, wenn **HTML Artifacts** unter **Roleplay Commands** aktiviert ist. Siehe [Artefakte auf Abruf](../roleplay/getting-started.md#artifacts-on-demand).
 
 Um die nächste Antwort zu lenken, hängst du deine Vorgabe hinter `/guided`:
 

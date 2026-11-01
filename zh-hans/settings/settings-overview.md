@@ -130,7 +130,7 @@
 | **Show characters in Persona pickers** | 在用户角色选择器里列出你的角色，这样你就可以扮演其中一个。 | [用户角色](../characters/personas.md) |
 | **Show model name on messages** | 显示每条回复由哪个 AI 模型写成。 | [消息操作](../chats/messages.md) |
 | **Show token usage on messages** | 显示每条消息的提示词和补全 Token 数。 | [消息操作](../chats/messages.md) |
-| **Show context usage** | 在连接切换器和 Game 聊天设置里，显示最近一次测量的请求占用了模型上下文的多少。 | [整理连接](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
+| **Show context usage** | 在连接切换器和 Game 聊天设置里，显示最近一次测量的请求占用了模型上下文的多少。 | [为单个聊天选择模型](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat) |
 | **Show message numbers** | 在聊天里的每条消息上显示编号。 | [消息操作](../chats/messages.md) |
 | **Show "older messages not sent" note** | 较早的消息放不进提示词时，在最新一条回复下方显示一条提示。关闭它，就能在长聊天里隐藏这条提示。回复被截断或为空时，仍会显示它自己的提示。 | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | 重新生成时，把输入框里的草稿当作方向指引。 | [引导生成与 Impersonate](../chats/guided-and-impersonate.md) |

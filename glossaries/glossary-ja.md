@@ -588,3 +588,24 @@ Glosses follow the shipped `ui/ja.json` strings: **Send now**(今すぐ送信), 
 | link text for the setting | アクティブなキャラクターの自動化 (the noun form of the shipped label) |
 
 The new `###` sections gloss their labels once each, per the once-per-section rule. These are translation choices, not a new native-reader review.
+
+## Connections redesign and HTML artifacts (2026-11-01)
+
+Choices from the #8464 and #8603 sync (16 guides; `connections/connecting-to-a-provider.md` and `connections/organizing-connections.md` were rewritten) against `staging` `6d96cf919`. These glosses follow shipped `ui/ja.json` strings for the same English text: **Main**(メイン), **Model for this chat**(このチャットのモデル), **Pictures & sound**(画像と音声), **HTML Artifacts**(HTMLアーティファクト), **Connect**(接続), **Done**(完了). The rest have no shipped Japanese string, so they are coined here; recheck them when `ui/ja.json` gains the `connections.*` keys: **Jobs**(役割), **Model for**(役割に使うモデル), **Shuffle**(シャッフル), **Address**(アドレス), **Starred**(星付き), **Star**(星を付ける), **Add account**(アカウントの追加), **Edit account**(アカウントの編集), **Start chatting**(チャットを始める), **Follow Main**(メインに従う), **Make it my Main model**(これをメインのモデルにする), **If it fails**(失敗したとき), **Usage and balance**(使用量と残高), **Show the usage meter on the card**(カードに使用量メーターを表示).
+
+| English | Translation |
+| --- | --- |
+| account (one key, sign-in or address) | アカウント. 接続 still renders *connection* where EN keeps that word (`FAQ.md`, `chats/chat-settings.md`, `home/welcome.md`) and in the panel name **Connections**(接続); *service* is サービス |
+| job (a role in the **Jobs** box) | 役割; heading 役割ごとのモデルを選ぶ with `<a id="choosing-the-model-for-each-job">`. Concurrency is not a role: **Parallel jobs**(同時に実行する処理の数), **Max Parallel Agent Jobs**(エージェントの最大並列ジョブ数) |
+| Main, Shuffle, Jobs in prose | Latin: Mainのモデル, Shuffleに追加, Jobsボックス. `## Shuffle` stays English (the UI-surface heading rule), so `#shuffle` resolves with no `<a id>` |
+| random pool, Quick Connection Switcher | Retired with the EN features. Shuffle replaces them; `<a id="the-random-pool-and-quick-connection-switcher">` is removed and its links now point at `#shuffle` or `connecting-to-a-provider.md#choosing-a-model-for-one-chat`. ランダム stays for unrelated senses and in guides EN did not change |
+| choosing a model for one chat (heading) | 1つのチャットで使うモデルを選ぶ, with `<a id="choosing-a-model-for-one-chat">` |
+| Address, Endpoint, Base URL | **Address**(アドレス) is the account field; `connections/local-self-hosted.md` glosses it **Address**(Base URLとも呼びます) after EN "also called the Base URL". **Endpoint**(エンドポイント) is the image-generation connection's field (`media/image-providers.md`); the local-self-hosted table header is plain エンドポイント. Base URL stays Latin for the concept, bold only where EN bolds it |
+| step 1/2/3 (**Add account** window) | ステップ1/2/3, tight, as in the existing ステップ1 headings |
+| **Make … my Main** / **Make ... my Main** | The label keeps its source ellipsis (U+2026 in `connections/connecting-to-a-provider.md`, ASCII in `FAQ.md` and `chats/managing-chats.md`); the gloss is (…をメインにする) in all three |
+| **Behind the scenes** | **Behind the scenes**(裏方の処理), after 裏方の処理 in `agents/custom-agents.md`. `ui/ja.json` ships 裏方 for the same EN string in the settings-profile builder; recheck when `connections.defaults.group.background` ships |
+| **Import account** | **Import account**(アカウントのインポート). `ui.panels.connectionspanel.importConnection` still ships 接続をインポート, which does not match the current EN label |
+| artifact (in-world HTML) | アーティファクト; heading オンデマンドのアーティファクト with `<a id="artifacts-on-demand">`. `development/optional-agent-packages.md` already uses the word for a package artifact; keep both senses. The marker is 「used html command」のマーカー, byte-exact in 「」 |
+| Shared connection picker (heading) | 共有の接続ピッカー, after the pack's existing ピッカー. The user guides say **Model for**の選択画面 for the **Model for** picker |
+
+Two glosses differ from shipped strings; align them in a consistency pass, not in a mirror commit: **Documents**(ドキュメント) against 文書 (`roleplay.commands.document.label`), which would also keep it apart from **Documentation**(ドキュメント) in `FAQ.md`, and **Max Parallel Agent Jobs**(エージェントの最大並列ジョブ数) against エージェントの並列ジョブの最大数 (`ui.connections.connectioneditor.maxParallelAgentJobs`). Status strings and badges stay unglossed: **Follows Main**, **follows Main**, **This chat only**, **Off**, **Choose a model**, **Needs key**, **Needs an image model**, **Connected**, **Custom settings**, **Plan**, and **No key needed. Marinara uses the login on this computer.** The **Decision** row also stays unglossed, like **Decision model** (2026-09-24). In the two rewritten guides, some labels glossed earlier appear bare at their first mention in a later section (**Jobs**, **Main**, **Add account**, **More actions** and others); gloss them in a consistency pass. These are translation choices, not a new native-reader review.

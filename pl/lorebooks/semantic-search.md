@@ -18,7 +18,7 @@ Dopasowania po słowach kluczowych i dopasowania semantyczne mają równy priory
 
 Wyszukiwanie semantyczne potrzebuje modelu, który potrafi tworzyć embeddingi. Są dwie możliwości.
 
-Niezależnie od wyboru możesz ustawić to źródło jako domyślne w całej aplikacji: otwórz **Connections** (połączenia), potem **Defaults** (ustawienia domyślne) i wybierz je w polu **Embeddings**. Każde połączenie, które nie ma własnego modelu embeddingów ani własnego pola **Embedding Connection** (połączenie embeddingów), korzysta wtedy z tego ustawienia. Własne ustawienie połączenia nadal ma pierwszeństwo, a wiersz pokazuje, ile połączeń używa własnych ustawień. **None** zostawia wbudowany model lokalny jako rozwiązanie zapasowe.
+Niezależnie od wyboru możesz ustawić to źródło jako domyślne w całej aplikacji: otwórz **Connections** (połączenia), potem **Defaults** (ustawienia domyślne) i wybierz je w sekcji **Embeddings**. Każde połączenie, które nie ma własnego modelu embeddingów ani własnego pola **Embedding Connection** (połączenie embeddingów), korzysta wtedy z tego ustawienia. Własne ustawienie połączenia nadal ma pierwszeństwo, a wiersz pokazuje, ile połączeń używa własnych ustawień. **None** zostawia wbudowany model lokalny jako rozwiązanie zapasowe.
 
 Opcja 1: połączenie z modelem embeddingów.
 

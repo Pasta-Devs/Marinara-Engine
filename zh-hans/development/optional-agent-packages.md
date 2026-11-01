@@ -21,6 +21,14 @@ Marinara Engine 的基础发行版不编译、也不附带任何可选的智能�
 
 客户端的能力组件通过自身的 `lang`、`dir` 属性和 `capabilityProps.localization` 对象拿到 Engine 当前选中的界面语言。包自带的界面维护自己的语言文件，缺失时回退到包内的英文；Engine 不翻译包的提示词，也不翻译包自己写死的机器可读值。切换语言时复用现有的 `marinara-capability-props` 事件，已安装的界面无需重启 Engine 就能重新渲染。
 
+### 共享的连接选择器
+
+客户端的能力组件还会收到 `capabilityProps.ui.pickConnection(options)`。它会打开 Engine 自带的可搜索的已保存模型选择器，可按 `chat`、`image`、`video`、`audio`、`decision` 或 `all` 筛选。模型仍按所属账号分组，不可用的选项会说明其状态。
+
+返回结果会区分明确的选择（`{ status: "selected", value }`，其中 `null` 表示调用方继承的或默认的选择）和取消（`{ status: "cancelled" }`）。打开或使用选择器不会保存包设置，不会更改聊天，也不会更改全局默认值。选定之后，这些操作由包自己负责。旧版 Engine 可能没有这个可选的界面方法，要先做特性检测。
+
+公开的 TypeScript 类型、各个筛选值的含义、生命周期以及 Engine 组件的用法，见[共享选择器 API 与包示例](../../packages/shared/CONNECTION_PICKER.md)。包不得导入 Engine 私有的 React 组件，也不得只为了列出连接就另做一个选择器。
+
 ### 交付和缓存
 
 已安装的包文件会带上强验证器，它们来自清单中每个文件的 SHA-256 哈希；Engine 每次读取时也会用这些值重新验证字节。客户端包(`/api/capability-packages/<id>/client`)和每个包资源都会始终重新验证(`no-cache` 加 `ETag`)。未变化的文件会返回 `304 Not Modified`，不会重新下载；重新发布的文件则会立即被取用。任何内容都不会以 `immutable` 方式提供：安装政策允许使用不同字节重新发布同一版本，因此包 URL 并不是内容寻址 URL。

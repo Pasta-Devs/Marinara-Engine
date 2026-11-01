@@ -82,15 +82,15 @@ Un forçage manuel du statut appartient lui aussi au personnage. Si tu règles u
 
 ## Ai-je besoin d'une clé API pour utiliser Marinara ?
 
-Presque toujours, oui. Une **connexion** est un lien enregistré qui indique à Marinara comment joindre un service d'IA : quel fournisseur, quel modèle et tes identifiants. Une **clé API** est un code secret, un peu comme un mot de passe. Un fournisseur d'IA te la fournit pour que Marinara puisse dialoguer avec lui à ta place.
+Presque toujours, oui. Une **connexion** est une clé API, un compte ou un point d'accès pour un service d'IA. Les modèles que tu enregistres sont regroupés sous elle. Une **clé API** est un code secret, un peu comme un mot de passe. Un fournisseur d'IA te la fournit pour que Marinara puisse dialoguer avec lui à ta place.
 
-Il faut au moins une connexion avant de pouvoir démarrer un chat. Pour en créer une, ouvre le panneau **Connections** (connexions), clique sur le bouton **New** (nouveau), choisis un fournisseur, colle la clé dans le champ **API Key**, puis sélectionne un modèle. Pour la marche à suivre complète, voir [Se connecter à un fournisseur d'IA](connections/connecting-to-a-provider.md).
+Il faut au moins une connexion avant de pouvoir démarrer un chat. Pour en créer une, ouvre le panneau **Connections** (connexions) et clique sur **Add** (ajouter). Choisis un service dans la fenêtre **Add account** (ajouter un compte), colle ta clé dans le champ **API key**, puis clique sur **Connect** (connecter). La fenêtre passe ensuite au choix du modèle. Choisis un modèle, utilise l'option **Make ... my Main** (faire de ... mon Main) si tu veux qu'il réponde dans les nouveaux chats, puis clique sur **Start chatting** (commencer à discuter) quand la fenêtre le propose. Pour configurer un compte normalement, clique plutôt sur **Done** (terminé). Pour la marche à suivre complète, voir [Se connecter à un fournisseur d'IA](connections/connecting-to-a-provider.md).
 
 Quelques fournisseurs n'utilisent pas de clé API du tout. Les options par abonnement (Claude, ChatGPT et Grok) passent par un outil en ligne de commande, et le Local Model intégré tourne sur ta propre machine sans aucune clé.
 
 ## Quels fournisseurs d'IA sont pris en charge ?
 
-Marinara prend en charge de nombreux fournisseurs. Tu en choisis un par connexion.
+Marinara prend en charge de nombreux services. Tu choisis un service par connexion.
 
 Pour le texte des chats et du roleplay, les choix sont **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek**, ainsi que **Custom (OAI-Compatible)** pour les modèles locaux ou auto-hébergés comme Ollama, LM Studio et KoboldCpp.
 
@@ -98,7 +98,7 @@ Pour la génération d'images, les choix comprennent **OpenAI (DALL-E)**, **Stab
 
 Pour la génération de vidéos, les choix sont **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0**, ainsi que les workflows locaux au format API de **ComfyUI**.
 
-Tu peux enregistrer plusieurs connexions à la fois et en attribuer une différente à chaque chat. Voir [Se connecter à un fournisseur d'IA](connections/connecting-to-a-provider.md).
+Tu peux enregistrer plusieurs connexions à la fois. Un modèle que tu choisis dans un chat depuis le menu **Connections** à côté de la zone de saisie ne change que ce chat. Voir [Se connecter à un fournisseur d'IA](connections/connecting-to-a-provider.md).
 
 ## Faut-il payer pour utiliser Marinara ?
 

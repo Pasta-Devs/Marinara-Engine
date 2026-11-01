@@ -24,7 +24,7 @@
 
 새 채팅의 이름은 **New Conversation**, **New Roleplay**, **New Game** 중 하나입니다. 이름은 나중에 바꿀 수 있습니다(아래 채팅 이름 바꾸기 참고).
 
-채팅을 열려면 연결이 하나 이상 필요합니다. 연결은 Marinara를 AI 제공자에 이어 주는 정보입니다. 아직 연결이 없으면 채팅 대신 **Set Up**(설정) 창이 나타나 먼저 연결을 고르라고 안내합니다. 연결이 하나도 없으면 **No connections found**와 함께 **Open Connections**(연결 열기) 버튼이 표시됩니다. 연결을 만드는 방법은 [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)에서 확인하세요.
+채팅을 열려면 연결이 하나 이상 필요합니다. 연결은 Marinara를 AI 제공자에 이어 주는 정보입니다. 아직 연결이 없으면 채팅 대신 **Add account**(계정 추가) 창이 열립니다. 서비스를 고르고 **Connect**(연결)를 클릭하세요. 그러면 창이 모델 선택으로 넘어갑니다. 모델을 고르고, 원하면 **Make ... my Main**(내 메인으로 설정) 옵션을 사용한 다음 **Start chatting**(채팅 시작)을 클릭하세요. 일반적인 계정 설정이라면 대신 **Done**(완료)을 클릭하세요. 전체 과정은 [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)에서 확인하세요.
 
 그 모드의 기본 설정 프로필을 별표로 지정해 두었다면 Marinara가 새 채팅에 자동으로 적용합니다. [채팅 설정 개요](chat-settings.md)를 참고하세요.
 

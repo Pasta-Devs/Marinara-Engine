@@ -42,13 +42,13 @@ Nas perguntas de ativação e declarações de prompts/lorebooks, o modelo receb
 
 ## Escolher um modelo de decisão
 
-Abra **Connections** (conexões), depois **Defaults** (padrões), e escolha em **Decision model**. A lista tem três grupos:
+Abra **Connections** (conexões) e expanda a caixa **Jobs** (tarefas). Encontre a linha **Decision** (decisão), em **Behind the scenes** (nos bastidores). Clique na linha para abrir o seletor **Model for** (modelo para). A lista tem três grupos:
 
 - **None** (nenhum), o padrão. Nada é perguntado e os campos de perguntas de ativação ficam desativados no editor de agentes.
 - **Local models** (modelos locais): o **Primary local model** (modelo local principal) ou **Utility local model** (modelo local auxiliar) que você já roda. Nada é baixado e nada sai da máquina. O **Decision sidecar** (processo auxiliar de decisão), se instalado, também aparece aqui.
 - **Connections**: conexões Decision criadas: hospedadas, um servidor System One que você executa ou um modelo de chat em um servidor já em uso, como Ollama ou LM Studio.
 
-Opções que não podem responder agora continuam na lista, acinzentadas com o motivo, para você saber o que corrigir. Clique em **Test** (testar) depois de escolher. O teste envia uma amostra fixa, não o seu chat.
+Opções que não podem responder agora continuam na lista, acinzentadas com o motivo, para você saber o que corrigir. Para testar o modelo selecionado, clique na engrenagem da linha **Decision** e use as configurações que abrem abaixo da linha. Essas configurações têm **Test** (testar), **Thinking** (raciocínio) e os controles de ordem. O teste envia uma amostra fixa, não o seu chat.
 
 ### Qual escolher
 
@@ -75,12 +75,12 @@ Quando alguém importa conteúdo que usa decisões, Marinara mostra um aviso com
 
 Se você tem um modelo local em **Local Model**, pode usá-lo para decisões sem criar uma conexão nem pagar por uma solicitação.
 
-1. Em **Connections**, abra **Defaults** e defina **Decision model** como **Primary local model**, ou **Utility local model** se houver um configurado.
-2. Clique em **Test**. Um resultado bem-sucedido mostra a probabilidade e a duração da solicitação, além de duas informações específicas de modelos locais: se havia log-probabilidades disponíveis e se o modelo responde diretamente.
+1. Em **Connections**, expanda **Jobs**, encontre a linha **Decision** em **Behind the scenes** e clique nela. No seletor **Model for**, defina o modelo como **Primary local model**, ou **Utility local model** se houver um configurado.
+2. Clique na engrenagem da linha **Decision** e depois em **Test**, nas configurações que abrem abaixo da linha. Um resultado bem-sucedido mostra a probabilidade e a duração da solicitação, além de duas informações específicas de modelos locais: se havia log-probabilidades disponíveis e se o modelo responde diretamente.
 
 Marinara faz uma única pergunta de sim/não ao modelo, permite a produção de um token e lê a resposta nas probabilidades desse token. Nenhuma resposta de chat é escrita, então a solicitação é curta. Uma escolha entre várias respostas vira uma pergunta de sim/não por resposta. Quantas mensagens recentes cabem é calculado a partir do tamanho de contexto do próprio slot.
 
-**Raciocínio.** A maioria dos modelos responde em uma palavra. Alguns sempre raciocinam antes, independentemente do pedido. A configuração **Thinking** (raciocínio), abaixo do menu suspenso, controla isso:
+**Raciocínio.** A maioria dos modelos responde em uma palavra. Alguns sempre raciocinam antes, independentemente do pedido. A configuração **Thinking**, na linha **Decision** expandida, controla isso:
 
 - **Auto** (padrão) tenta o método rápido de uma palavra e, se o modelo não conseguir responder assim duas vezes seguidas, permite que ele raciocine antes e avisa você.
 - **Off** (desativado) sempre usa o método de uma palavra. Um modelo que não consegue responder assim não fornece resposta.
@@ -97,7 +97,7 @@ Um modelo que raciocina antes leva segundos; por padrão, ele só responde para 
 Se seu modelo de chat já roda no Ollama, LM Studio, llama.cpp ou outro servidor compatível com OpenAI, ele pode responder decisões sem o Marinara carregar outra cópia.
 
 1. Abra a conexão **Custom** desse servidor e clique em **Use this model for decisions** (usar este modelo para decisões). Isso cria uma conexão Decision com a fonte **OpenAI-compatible chat model** (modelo de chat compatível com OpenAI), usando a mesma URL base, modelo e chave. Você também pode criá-la: conexão Decision, essa fonte, URL base da conexão de chat (por exemplo, `http://localhost:11434/v1` para Ollama) e nome do modelo disponibilizado.
-2. Selecione-a em **Decision model** e clique em **Test**. O resultado também informa se o servidor retornou log-probabilidades e se o modelo precisou raciocinar primeiro.
+2. Selecione-a no seletor **Model for** da linha **Decision**. Abra a engrenagem da linha e clique em **Test**. O resultado também informa se o servidor retornou log-probabilidades e se o modelo precisou raciocinar primeiro.
 
 A consulta funciona como em um modelo local: uma palavra sim/não por afirmação, lida das probabilidades. As afirmações são enviadas uma por vez, pois Marinara não sabe quantas solicitações seu servidor processa simultaneamente. **Thinking** é sempre **Auto** para conexões: após duas respostas malsucedidas, um modelo que precisa raciocinar passa a fazê-lo e só avalia condições após a resposta, a menos que **Also gate agents that run before the reply** esteja ativado. Um servidor em outra máquina da rede também precisa de `PROVIDER_LOCAL_URLS_ENABLED`, como qualquer provedor local; veja [Conectar um modelo local ou auto-hospedado](local-self-hosted.md).
 
@@ -105,10 +105,10 @@ A consulta funciona como em um modelo local: uma palavra sim/não por afirmaçã
 
 ## Configurar uma conexão Decision
 
-1. Em **Connections**, crie uma conexão com o provedor **Decision** (decisão).
+1. Em **Connections**, clique em **Add** (adicionar). Na janela **Add account** (adicionar conta), escolha o serviço **Decision**.
 2. Escolha **TypeSafe**, **OpenRouter**, **Custom System One endpoint** (endpoint System One personalizado) ou **OpenAI-compatible chat model**. Fontes hospedadas precisam de chave de API. TypeSafe envia as solicitações para `https://api.typesafe.ai`, a menos que você troque a **Base URL** (URL base) pelo endereço de outro servidor que execute a API da TypeSafe, sem `/v1/systemone`; a chave da TypeSafe continua necessária e é enviada a esse servidor. Um servidor em outra máquina da rede local precisa de `PROVIDER_LOCAL_URLS_ENABLED`, como qualquer provedor local; ele vem ativado no Android. Custom aceita um servidor System One existente, inclusive Open-Jev ou [Strands decider](#run-strands-decider-yourself): informe a URL base sem `/v1/systemone` e um modelo compatível. Servidores de chat como Ollama ou LM Studio não usam System One: escolha **OpenAI-compatible chat model**, conforme [Em um servidor que você já executa](#on-a-server-you-already-run).
 3. Para OpenRouter, escolha uma conexão salva em **API key source** (origem da chave de API) ou informe uma chave separada. O editor também oferece **Use this key for decisions** (usar esta chave para decisões), que configura Jev pelo OpenRouter. Chaves vinculadas acompanham alterações posteriores automaticamente. Conexões Custom System One e OpenAI-compatible chat model só podem usar a chave de uma conexão de chat personalizada quando as URLs têm a mesma origem (esquema, host e porta).
-4. Salve, selecione em **Decision model** e clique em **Test**. Um resultado bem-sucedido mostra a probabilidade, quanto a resposta demorou e o tempo limite da conexão. Test espera pelo menos 10 segundos e 5 segundos além de um limite maior, para informar o tempo real de uma resposta lenta. Se ela ultrapassar o limite, o resultado informa: durante um chat, ela contaria como ausência de resposta.
+4. Clique em **Connect** (conectar). Depois que a conta se conectar, clique em **Done** (concluir) para escolher o modelo dela. Abra a linha **Decision** em **Behind the scenes**, na caixa **Jobs**, clique na linha e selecione o modelo novo em **Model for**. Clique na engrenagem da linha para abrir as configurações abaixo dela e depois em **Test**. Um resultado bem-sucedido mostra a probabilidade, quanto a resposta demorou e o tempo limite da conexão. Test espera pelo menos 10 segundos e 5 segundos além de um limite maior, para informar o tempo real de uma resposta lenta. Se ela ultrapassar o limite, o resultado informa: durante um chat, ela contaria como ausência de resposta.
 
 O padrão de Decision é separado dos padrões de chat, agentes, imagem, vídeo e áudio. Escolher **None** desativa as decisões sem excluir perguntas de ativação ou declarações de decisão.
 
@@ -132,12 +132,13 @@ Excluir uma conexão usada para uma chave vinculada mostra um aviso e deixa a co
    ```
 
    Ele usa uma GPU NVIDIA ou Apple silicon quando encontra um deles; caso contrário, usa o processador, com menor velocidade. A primeira inicialização baixa o modelo e cerca de 4,6 GB de pesos base, e seus pacotes Python ocupam cerca de 5,5 GB. O servidor não tem senha, então mantenha-o em `127.0.0.1`.
+
 2. Crie uma conexão de decisão com a fonte **Custom System One endpoint** e a URL base `http://127.0.0.1:8000`. Qualquer nome de modelo funciona.
-3. Selecione a conexão em **Decision model** e clique em **Test**. A primeira resposta após a inicialização leva cerca de 2 segundos, mais que o **Time limit** padrão, então teste uma vez antes de conversar.
+3. Selecione a conexão no seletor **Model for** da linha **Decision**. Abra a engrenagem da linha e clique em **Test**. A primeira resposta após a inicialização leva cerca de 2 segundos, mais que o **Time limit** padrão, então teste uma vez antes de conversar.
 
 As probabilidades são calibradas, então o limiar padrão de 0,5 de uma conexão personalizada é adequado, ao contrário de um Open-Jev auto-hospedado (veja [Limiares](#thresholds)). Em um pequeno teste de Roleplay com 80 declarações em uma RTX 5090, ele acertou 73, contra 74 do Open-Jev 2B, e usou cerca de 5,1 GB (4,7 GiB) de memória da GPU. De uma a oito declarações levaram de 0,04 a 0,1 segundo, contra 0,1 a 0,14 do Open-Jev 2B; em um chat longo, ambos levaram cerca de 0,3 segundo. As respostas dependem mais da redação, então siga [Como escrever declarações](../prompts/conditional-prompts.md#writing-statements) e teste turnos dos seus próprios chats.
 
-Para alternar entre ele e o Decision sidecar, escolha um dos dois em **Decision model**. Ambos continuam configurados.
+Para alternar entre ele e o Decision sidecar, escolha um dos dois no seletor **Model for** da linha **Decision**. Ambos continuam configurados.
 
 <a id="let-marinara-install-a-decision-model"></a>
 
@@ -157,7 +158,7 @@ São estimativas do catálogo baseadas nas versões fixadas dos modelos e em car
 1. Abra **Connections**, expanda **Local Model** e escolha **Decision sidecar (experimental)** (processo auxiliar de decisão experimental).
 2. Leia o aviso e ative **Enable decision sidecar** (ativar processo auxiliar de decisão). A confirmação mostra o parecer para sua máquina, e o botão diz **Enable anyway** (ativar mesmo assim) quando o parecer é um aviso.
 3. Escolha um modelo e confirme tamanho, parecer do hardware e licenças. Nada é baixado antes desse ponto. **Open-Jev 2B** precisa de muito menos memória que **Open-Jev 9B**; nenhum garante respostas corretas para seu chat.
-4. Selecione **Decision sidecar** em **Decision model**.
+4. Selecione **Decision sidecar** no seletor **Model for** da linha **Decision**.
 
 **Velocidade.** A primeira resposta após iniciar um modelo é mais lenta; por isso, Marinara faz uma pergunta de aquecimento durante o carregamento. Se funcionar, **Test** e o primeiro turno mostram a velocidade normal. Se falhar, o modelo inicia mesmo assim e a primeira pergunta absorve o atraso. Cada afirmação relê o chat recente, então turnos com muitas afirmações demoram mais em chats longos: neles, Open-Jev 2B leva cerca de um quarto de segundo por afirmação.
 

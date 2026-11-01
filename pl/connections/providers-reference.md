@@ -2,17 +2,17 @@
 
 Ten przewodnik zbiera wszystkich dostawców AI, z którymi Marinara Engine potrafi się połączyć. Przy każdym znajdziesz miejsce, skąd wziąć klucz API, domyślny adres bazowy oraz ewentualne haczyki. Klucz API to tajny kod od dostawcy, trochę jak hasło, dzięki któremu Marinara może korzystać z jego usługi AI.
 
-Ogólne kroki dodawania połączenia opisuje przewodnik [Łączenie z dostawcą AI](connecting-to-a-provider.md) – zajrzyj tam najpierw. Ta strona jest materiałem źródłowym, po którym wyszukuje się szczegóły dotyczące jednego konkretnego dostawcy.
+Ogólne kroki dodawania konta opisuje przewodnik [Łączenie z dostawcą AI](connecting-to-a-provider.md) – zajrzyj tam najpierw. Ta strona jest materiałem źródłowym, po którym wyszukuje się szczegóły dotyczące jednego konkretnego dostawcy.
 
 ## Jak czytać tę stronę
 
-Dostawcę wybiera się przy tworzeniu połączenia w panelu **Connections** (Połączenia). Każdy dostawca ma swój przycisk **Provider** w oknie **Create Connection** (tworzenie połączenia), podpisany dokładnie tak, jak niżej.
+Usługę wybiera się w oknie **Add account** (dodanie konta). Każda usługa ma w kroku 1 swój przycisk, podpisany dokładnie tak, jak niżej.
 
-Większość dostawców z tej strony to usługi chmurowe, które hostują AI za ciebie. Zakładasz konto u dostawcy, kopiujesz klucz API i wklejasz go w pole **API Key**. Trzej dostawcy subskrypcyjni zamiast klucza korzystają z lokalnego logowania. Ich sekcje wyraźnie o tym mówią.
+Większość dostawców z tej strony to usługi chmurowe, które hostują AI za ciebie. Zakładasz konto u dostawcy, kopiujesz klucz API i wklejasz go w pole **API key** (klucz API). Trzej dostawcy subskrypcyjni zamiast klucza korzystają z lokalnego logowania. Ich sekcje wyraźnie o tym mówią.
 
 Dwa pojęcia będą się powtarzać:
 
-- Adres bazowy (Base URL): adres internetowy, pod który Marinara wysyła zapytania. Większość dostawców wypełnia go automatycznie. Zmieniasz go tylko przy serwerach lokalnych lub własnych.
+- Adres bazowy (Base URL): adres internetowy, pod który Marinara wysyła zapytania. Edytor połączenia nazywa go **Address** (adres). Większość dostawców wypełnia go automatycznie. Zmieniasz go tylko przy serwerach lokalnych lub własnych.
 - Model: konkretny model AI, który wybierasz po wskazaniu dostawcy. Dostępne modele często się zmieniają, więc ta strona ich nie wymienia. Aktualną listę pokaże lista rozwijana **Model** albo przycisk **Fetch Models from API** (pobranie modeli z API) w edytorze połączenia.
 
 ## OpenAI
@@ -96,26 +96,27 @@ Marinara odczytuje szczegółowy katalog modeli NanoGPT, więc lista rozwijana p
 
 Jeśli masz subskrypcję NanoGPT, połączenie może pokazywać jej bieżące zużycie:
 
-1. Włącz **Show subscription usage** (pokaż zużycie subskrypcji) w edytorze połączenia i zapisz.
-2. Opcjonalnie najpierw wklej **Management Token** (token zarządzania).
+1. Kliknij **⋯** w wierszu konta, wybierz **Edit account** (edycja konta) i otwórz **Usage and balance** (zużycie i saldo).
+2. Jeśli odczyty zewnętrzne są wyłączone, kliknij **Turn on** (włączenie), żeby zezwolić na odczyt zużycia. Aby dodać token zarządzania NanoGPT, kliknij **Add a usage-only key** (dodanie klucza tylko do odczytu zużycia), wklej go i kliknij **Show usage** (pokazanie zużycia).
+3. Włącz **Show the usage meter on the card** (pokazywanie wskaźnika zużycia na karcie) i zapisz.
 
 Widget odczytuje punkt końcowy zużycia NanoGPT i pokazuje tygodniowy oraz dzienny limit tokenów wejściowych. Dostęp można uwierzytelnić na dwa sposoby:
 
-- **Management Token** (zalecany): utwórz go pod adresem `https://nano-gpt.com/settings#management-api-tokens` z zakresem **Usage only** (tylko odczyt zużycia). Pozwala odczytywać limity, ale nie uruchamia modeli ani nie wydaje środków z salda, więc jest bezpieczniejszym wyborem do wyświetlania zużycia. Marinara zapisuje go w postaci zaszyfrowanej i wysyła tylko do punktu końcowego zarządzania NanoGPT.
+- **Management token** (token zarządzania, zalecany): utwórz go pod adresem `https://nano-gpt.com/settings#management-api-tokens` z zakresem **Usage only** (tylko odczyt zużycia). Pozwala odczytywać limity, ale nie uruchamia modeli ani nie wydaje środków z salda, więc jest bezpieczniejszym wyborem do wyświetlania zużycia. Marinara zapisuje go w postaci zaszyfrowanej i wysyła tylko do punktu końcowego zarządzania NanoGPT.
 - **Twój klucz API**: używany automatycznie, gdy nie zapisano tokenu zarządzania. To działa, ale odczyt zużycia korzysta wtedy z tych samych danych uwierzytelniających, które pozwalają wydawać środki z salda.
 
 Pod każdym paskiem widget podaje, ile zostało i kiedy okno się resetuje, na przykład `42M remaining · resets in 4d`.
 
 Limit, którego NanoGPT nie może obecnie podać, jest oznaczony jako **nieznany**, a nie jako niewykorzystany. Nieaktywna subskrypcja jest wyraźnie oznaczona, zamiast pokazywać pełny dostępny limit. Przycisk odświeżania aktualizuje widget na żądanie.
 
-Ten sam wskaźnik znajduje się pod wskaźnikiem kontekstu w selektorze połączenia czatu oraz w ustawieniach **Connection** (połączenie), więc możesz śledzić zużycie bez opuszczania czatu. Dotyczy aktywnego połączenia: pojawia się tylko dla połączenia NanoGPT z włączonym **Show subscription usage** i nie pojawia się przy **Random**, które nie wskazuje jednego połączenia do odczytu. W selektorze wygląda podobnie do paska kontekstu powyżej i odczytuje się go tak samo: zużycie względem tygodniowego limitu, np. `8.9M / 60M tokens`, a obok wartości procentowej widać czas resetu.
+Ten sam wskaźnik znajduje się pod wskaźnikiem kontekstu w selektorze połączenia czatu oraz w ustawieniach **Connection** (połączenie), więc możesz śledzić zużycie bez opuszczania czatu. Dotyczy aktywnego połączenia: pojawia się tylko dla połączenia NanoGPT z włączonym **Show the usage meter on the card** i nie pojawia się przy **Shuffle** (losowanie), które nie wskazuje jednego połączenia do odczytu. W selektorze wygląda podobnie do paska kontekstu powyżej i odczytuje się go tak samo: zużycie względem tygodniowego limitu, np. `8.9M / 60M tokens`, a obok wartości procentowej widać czas resetu.
 
 ## xAI / Grok
 
 - Skąd wziąć klucz: `https://console.x.ai`
 - Domyślny adres bazowy: `https://api.x.ai/v1`
 
-**xAI / Grok** udostępnia modele Grok. Po wybraniu tego dostawcy w oknie **Create Connection** Marinara od razu wpisuje model Grok 4.5. Model można potem zmienić. Modele Grok 4.6 i 4.7 mają okno kontekstu wynoszące 500 000 tokenów i obsługują rozumowanie do poziomu **Extra high** (bardzo wysoki, `xhigh`). Obsługują istniejące narzędzia czatu, w tym **Web Search** (wyszukiwanie w internecie), więc wyniki wyszukiwania mogą zostać wykorzystane w końcowej odpowiedzi.
+**xAI / Grok** udostępnia modele Grok. Po wybraniu tej usługi w oknie **Add account** Marinara od razu wpisuje model Grok 4.5. Model można potem zmienić. Modele Grok 4.6 i 4.7 mają okno kontekstu wynoszące 500 000 tokenów i obsługują rozumowanie do poziomu **Extra high** (bardzo wysoki, `xhigh`). Obsługują istniejące narzędzia czatu, w tym **Web Search** (wyszukiwanie w internecie), więc wyniki wyszukiwania mogą zostać wykorzystane w końcowej odpowiedzi.
 
 ## Arli AI
 
@@ -156,11 +157,11 @@ Instalację i logowanie opisuje przewodnik [Połączenia abonamentowe z Claude, 
 
 To połączenie może pokazać, jaka część limitów twojego planu Claude została zużyta:
 
-1. Włącz **Show subscription usage** (pokaż zużycie subskrypcji) w edytorze połączenia.
-2. Zostaw zaznaczone **5-hour window** (okno 5-godzinne) i **Weekly window** (okno tygodniowe) albo odznacz to, którego nie chcesz widzieć.
+1. Kliknij **⋯** w wierszu konta, wybierz **Edit account** i otwórz **Usage and balance**.
+2. Jeśli odczyty zewnętrzne są wyłączone, kliknij **Turn on**. Włącz **Show the usage meter on the card**. Edytor konta pokazuje dostępne okna zużycia; nie ma osobnych przełączników dla paska 5-godzinnego i tygodniowego.
 3. Zapisz połączenie.
 
-Każde okno ma pasek z procentem zużycia i czasem resetu, na przykład `58% · resets in 2h`. Te same paski pojawiają się pod wskaźnikiem kontekstu w selektorze połączeń czatu i w ustawieniach **Connection** czatu, gdy to połączenie jest aktywne. Nie pojawiają się przy **Random**, które nie wskazuje jednego połączenia do odczytu.
+Każde okno ma pasek z procentem zużycia i czasem resetu, na przykład `58% · resets in 2h`. Te same paski pojawiają się pod wskaźnikiem kontekstu w selektorze połączeń czatu i w ustawieniach **Connection** czatu, gdy to połączenie jest aktywne. Nie pojawiają się przy **Shuffle**, które nie wskazuje jednego połączenia do odczytu.
 
 Warto wiedzieć:
 
@@ -180,7 +181,7 @@ Instalację i logowanie opisuje przewodnik [Połączenia abonamentowe z Claude, 
 
 ### Zużycie planu
 
-To połączenie może pokazać, jaka część limitów Codex twojego planu ChatGPT została zużyta. Działa jak opisane wyżej połączenie Claude (Subscription): włącz **Show subscription usage**, zostaw zaznaczone **5-hour window** i **Weekly window** albo je odznacz, i zapisz. Paski pojawiają się w edytorze połączenia, w selektorze połączeń czatu i w ustawieniach **Connection** czatu.
+To połączenie może pokazać, jaka część limitów Codex twojego planu ChatGPT została zużyta. Działa jak opisane wyżej połączenie Claude (Subscription): otwórz **Usage and balance** w **Edit account**, w razie potrzeby zezwól na odczyty zewnętrzne przyciskiem **Turn on**, włącz **Show the usage meter on the card** i zapisz. Edytor konta pokazuje dostępne okna zużycia bez osobnych przełączników okna 5-godzinnego i tygodniowego. Paski pojawiają się w edytorze konta, w selektorze połączeń czatu i w ustawieniach **Connection** czatu.
 
 Warto wiedzieć:
 
@@ -234,7 +235,7 @@ Czym jest model decyzyjny, jak go wybrać i jak go w pełni skonfigurować, wyja
 - **PocketTTS**: darmowy serwer głosowy uruchamiany na własnym komputerze.
 - **xAI Voice**: usługa głosowa xAI.
 
-Każde źródło wpisuje domyślny adres bazowy i model. **Default Voice** (domyślny głos) to głos używany wtedy, gdy nie ustawiono nic bardziej szczegółowego, na przykład głosu dla konkretnej postaci. **Request timeout (seconds)** (limit czasu żądania w sekundach) to czas, przez jaki Marinara czeka na jedną wypowiadaną kwestię; domyślnie 60 sekund. Przy wolnym serwerze głosu zwiększ tę wartość. Żeby wybrać połączenie do syntezy mowy, którego Marinara używa domyślnie, otwórz panel **Connections**, rozwiń sekcję **Defaults** (ustawienia domyślne) i wybierz je w polu **Text to Speech** (synteza mowy). Żeby czytać nim wiadomości na głos, wybierz je jako **Source** (źródło) w sekcji **Text to Speech**. Zobacz [Korzystanie z połączenia Audio](../media/tts-setup.md#use-an-audio-connection).
+Każde źródło wpisuje domyślny adres bazowy i model. **Default Voice** (domyślny głos) to głos używany wtedy, gdy nie ustawiono nic bardziej szczegółowego, na przykład głosu dla konkretnej postaci. **Request timeout (seconds)** (limit czasu żądania w sekundach) to czas, przez jaki Marinara czeka na jedną wypowiadaną kwestię; domyślnie 60 sekund. Przy wolnym serwerze głosu zwiększ tę wartość. Żeby wybrać połączenie do syntezy mowy, którego Marinara używa domyślnie, otwórz panel **Connections** (Połączenia), rozwiń sekcję **Defaults** (ustawienia domyślne) i wybierz je w polu **Text to Speech** (synteza mowy). Żeby czytać nim wiadomości na głos, wybierz je jako **Source** (źródło) w sekcji **Text to Speech**. Zobacz [Korzystanie z połączenia Audio](../media/tts-setup.md#use-an-audio-connection).
 
 Głosy i czytanie wiadomości na głos opisuje przewodnik [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). Generowany dźwięk konfiguruje się osobno, poniżej.
 

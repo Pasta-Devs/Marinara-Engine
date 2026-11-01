@@ -42,11 +42,10 @@ npm i -g @anthropic-ai/claude-code
 claude auth login
 ```
 
-3. 在 Marinara 里打开 **Connections**(连接) 面板，点击 **New**(新建)。
-4. 在 **Create Connection**(创建连接) 窗口里填一个名称，选择 **Claude (Subscription)** 服务商，然后点击 **Create**(创建)。
-5. 进入编辑器后会发现没有 **API Key** 和 **Base URL** 输入框。一个信息面板会说明这两项并不需要。
-6. 从 **Model**(模型) 下拉菜单里挑一个 Claude 模型，比如 Opus 或 Sonnet 系列。如果 Claude Code 能为你的登录提供模型列表，列表里显示的就是你的 Claude Code 登录可用的模型；否则显示内置列表。
-7. 点击 **Save**(保存)，再点击 **Send Test Message**(发送测试消息)。收到一句简短回复就说明登录可用。
+3. 在 Marinara 里打开 **Connections**(连接) 面板，点击 **Add**(添加)。**Add account**(添加账号) 窗口随即打开。
+4. 在第 1 步里选择 **Claude (Subscription)** 服务。
+5. 在第 2 步里会发现没有密钥输入框。这一步会显示 **No key needed. Marinara uses the login on this computer.** 点击 **Connect**(连接)。显示 **Connected** 就说明登录可用。
+6. 在第 3 步里挑一个 Claude 模型，比如 Opus 或 Sonnet 系列，然后点击 **Done**(完成)。如果 Claude Code 能为你的登录提供模型列表，列表里显示的就是你的 Claude Code 登录可用的模型；否则显示内置列表。
 
 Claude 订阅连接只支持文字聊天。这个连接还多出两项控件，**Fast Mode** 和 **Diagnose Model Routing**(诊断模型路由)，下文分别说明。
 
@@ -66,10 +65,10 @@ npm i -g @openai/codex
 codex login
 ```
 
-3. 在 Marinara 里打开 **Connections** 面板，点击 **New**。
-4. 在 **Create Connection** 窗口里填一个名称，选择 **OpenAI (ChatGPT)** 服务商，然后点击 **Create**。
-5. 从 **Model** 下拉菜单里选一个模型。能读到 ChatGPT 会话时，列表就来自会话；读不到时用内置列表。
-6. 点击 **Save**，再点击 **Send Test Message** 确认能收到回复。
+3. 在 Marinara 里打开 **Connections** 面板，点击 **Add**。**Add account** 窗口随即打开。
+4. 在第 1 步里选择 **OpenAI (ChatGPT)** 服务。
+5. 在第 2 步里点击 **Connect**，确认登录可用。
+6. 在第 3 步里选一个模型。能读到 ChatGPT 会话时，列表就来自会话；读不到时用内置列表。点击 **Done**。
 
 Marinara 会读取本机的 Codex 登录文件，并在条件允许时刷新会话。
 
@@ -91,10 +90,10 @@ curl -fsSL https://x.ai/cli/install.sh | bash
 grok login
 ```
 
-3. 在 Marinara 里打开 **Connections** 面板，点击 **New**。
-4. 在 **Create Connection** 窗口里填一个名称，选择 **Grok CLI (Subscription)** 服务商，然后点击 **Create**。
-5. 挑一个模型，或者把 **Model** 输入框留空，直接用 CLI 的默认模型。角色扮演场景下最稳妥的模型通常是 `grok-composer-2.5-fast`。
-6. 点击 **Save**，再点击 **Send Test Message**。这个连接即使没设模型也能测试。
+3. 在 Marinara 里打开 **Connections** 面板，点击 **Add**。**Add account** 窗口随即打开。
+4. 在第 1 步里选择 **Grok CLI (Subscription)** 服务。
+5. 在第 2 步里点击 **Connect**，确认登录可用。
+6. 在第 3 步里挑一个模型，或者把已保存模型的 **Model**(模型) 输入框留空，直接用 CLI 的默认模型。角色扮演场景下最稳妥的模型通常是 `grok-composer-2.5-fast`。
 
 Grok CLI 有两点比较特别。一是它不支持流式输出，回复会一次性整段出现，而不是逐字冒出来。二是它的上下文窗口默认只有 32000 Token(模型切分文本的最小单位)，比其他服务商都低，因为提示词太长会撞上 CLI 自身的单轮上限。
 
@@ -112,9 +111,9 @@ Claude 连接编辑器中的 **Prompt Caching → Extended token caching (1 hour
 
 ## 为什么没有 API 密钥输入框
 
-这 3 个订阅服务商都会隐藏 **API Key** 和 **Base URL** 输入框，这是有意为之。登录信息保存在服务器那台机器的 CLI 里，所以没有什么需要往 Marinara 里填。
+这 3 个订阅服务都会隐藏密钥和 **Address**(地址) 输入框，这是有意为之。登录信息保存在服务器那台机器的 CLI 里，所以没有什么需要往 Marinara 里填。
 
-如果是选错了服务商才看不到密钥输入框，回到服务商网格里改选原本想要的那个。基于 API 的服务商会重新显示密钥输入框。
+如果是选错了服务才看不到密钥输入框，回到第 1 步改选原本想要的那个。基于 API 的服务会重新显示密钥输入框。
 
 ## Fast Mode(仅 Claude)
 
@@ -128,7 +127,7 @@ Claude 连接编辑器中的 **Prompt Caching → Extended token caching (1 hour
 
 **Claude (Subscription)** 编辑器的测试区域里有一个 **Diagnose Model Routing** 按钮。当你指定了某个 Claude 模型、却怀疑实际用的是更小的模型时，就用它。
 
-1. 选好模型并点击 **Save**。没选模型之前这个按钮是禁用的。
+1. 选好模型并点击 **Save**(保存)。没选模型之前这个按钮是禁用的。
 2. 点击 **Diagnose Model Routing**。
 3. 看结果。Marinara 会通过 Claude Code 登录真实发一次提示词，然后告诉你账号实际是按哪个模型计费的。
 
@@ -140,7 +139,7 @@ Claude 连接编辑器中的 **Prompt Caching → Extended token caching (1 hour
 - 3 个都不支持嵌入。世界书语义搜索和记忆功能需要另配一个连接来做嵌入。
 - **Claude (Subscription)** 只支持文字聊天。
 - **Grok CLI (Subscription)** 不支持流式输出，上下文窗口起点也更小。
-- **Send Test Message** 需要先选好模型，只有 Grok CLI 例外，没选模型也能测。
+- **Send Test Message**(发送测试消息) 需要先选好模型，只有 Grok CLI 例外，没选模型也能测。
 
 ## 相关指南
 

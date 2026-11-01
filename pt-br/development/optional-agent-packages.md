@@ -24,6 +24,21 @@ objeto `capabilityProps.localization`. As interfaces do pacote mantêm os própr
 do pacote quando falta uma tradução; o Engine não traduz os prompts do pacote nem os valores de máquina definidos por ele. A troca de idioma reaproveita
 o evento `marinara-capability-props` que já existe, então a interface instalada é redesenhada sem reiniciar o Engine.
 
+### Seletor de conexão compartilhado
+
+Os elementos de capacidade do cliente também recebem `capabilityProps.ui.pickConnection(options)`. Ele abre o
+seletor pesquisável de modelos salvos do Engine, filtrado por `chat`, `image`, `video`, `audio`, `decision` ou
+`all`. Os modelos continuam agrupados pela conta deles, e as opções indisponíveis explicam o próprio estado.
+
+O resultado distingue uma seleção explícita (`{ status: "selected", value }`, em que `null` significa
+a escolha herdada ou padrão de quem chamou) de um cancelamento (`{ status: "cancelled" }`). Abrir ou usar
+o seletor não salva as configurações do pacote, não muda um chat e não muda os padrões globais. Essas ações
+cabem ao pacote depois da seleção. Engines mais antigos podem não ter esse método opcional de interface: verifique se ele existe antes de usá-lo.
+
+Veja a [API do seletor compartilhado e o exemplo de pacote](../../packages/shared/CONNECTION_PICKER.md) para os
+tipos públicos em TypeScript, o significado dos filtros, o ciclo de vida e o uso do componente do Engine. Os pacotes não podem
+importar componentes React internos do Engine nem criar outro seletor só para listar as conexões.
+
 ### Entrega e cache
 
 Os arquivos de pacotes instalados são servidos com validadores fortes derivados dos hashes SHA-256 de cada arquivo no manifesto, os mesmos valores que o Engine usa para verificar os bytes outra vez a cada leitura. O pacote do cliente (`/api/capability-packages/<id>/client`) e todos os recursos do pacote são sempre revalidados (`no-cache` junto com um `ETag`), então um arquivo sem mudanças responde `304 Not Modified` em vez de ser baixado novamente, enquanto um arquivo republicado é detectado de imediato. Nada é servido como `immutable`: a política de instalação permite republicar a mesma versão com bytes diferentes, por isso nenhuma URL de pacote é endereçada pelo conteúdo.

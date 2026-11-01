@@ -1,83 +1,98 @@
 # Conectando a um provedor de IA
 
-Neste guia você aprende a conectar Marinara Engine a um provedor de IA para que os personagens consigam responder. Você vai criar uma conexão, colar a chave de API, escolher um modelo e testar se tudo funciona.
+Neste guia você aprende a conectar Marinara Engine a um provedor de IA para que os personagens consigam responder. Você adiciona uma conta, cola a chave dela e escolhe o modelo que responde aos seus chats.
 
-## O que é uma conexão
+## Contas e modelos
 
-A conexão é uma configuração salva que ensina Marinara Engine a chegar até um serviço de IA. Cada conexão guarda quatro informações: o provedor, a chave de API ou o login, a URL base (o endereço do serviço na web) e o modelo.
+Uma **conta** é uma chave, um login ou um endereço de um provedor de IA. Ela guarda o provedor, a chave, o endereço e os limites dela. Se você usa duas chaves do mesmo provedor, tem duas contas.
 
-A chave de API é um código secreto fornecido pelo provedor de IA. Ela funciona como uma senha. É o que permite Marinara conversar com o serviço de IA usando a sua conta lá. Marinara criptografa a chave antes de salvar, e ela nunca entra na exportação de uma conexão.
+Um **modelo** é um modelo de IA que você salvou a partir de uma conta, como o GPT ou o Claude. Cada modelo salvo guarda as próprias configurações. No painel **Connections** (Conexões), os modelos ficam abaixo da conta deles.
 
-Marinara Engine não vem com uma conexão pronta nem com uma chave gratuita de teste. Uma instalação nova tem zero conexões. Crie pelo menos uma conexão antes de começar um chat.
+A chave de API é um código secreto fornecido pelo provedor de IA. Ela funciona como uma senha. Marinara guarda a chave no computador em que Marinara roda, e ela nunca entra em uma exportação.
 
-## Como abrir o painel Connections
+Marinara Engine não vem com uma conta pronta nem com uma chave gratuita de teste. Adicione pelo menos uma conta antes de começar um chat. A única exceção é o **Built-in model** (modelo embutido), em **On your computer** (no seu computador): ele roda no seu próprio computador, sem conta (veja [Como configurar o Local Model](local-model.md)).
 
-As conexões ficam no painel **Connections** (Conexões), no lado direito do aplicativo.
+## O painel Connections
 
-Se você ainda não tem nenhuma conexão e tenta começar um chat, Marinara mostra a janela **Set Up** (configuração inicial). Nela existe o botão **Open Connections**. Clique nele para ir direto ao painel **Connections**.
+As contas ficam no painel **Connections**, no lado direito do aplicativo. De cima para baixo, ele mostra:
 
-No topo do painel aparecem três botões. Eles mostram apenas ícones, sem texto.
+- **Search models and accounts** (buscar modelos e contas), que filtra a lista conforme você digita.
+- **Add** (adicionar), que abre a janela **Add account** (adicionar conta), e **More actions** (mais ações, o botão de três pontos), com **Import account**, **Export all accounts** e as opções de recolher e de agrupar. Num painel largo, o menu suspenso de ordenação fica ao lado de **Search models and accounts**. Num painel estreito, a ordenação fica em **More actions**.
+- A caixa **Jobs** (tarefas). Ela diz qual modelo faz cada tarefa, como **Main** (principal) para as respostas do chat ou **Images** (imagens) para as figuras. Veja [Como escolher o modelo de cada tarefa](#choosing-the-model-for-each-job).
+- As suas contas, cada uma com os modelos salvos abaixo dela. Veja [Organizando as conexões](organizing-connections.md).
 
-- O botão **New** (um ícone de mais) abre a janela **Create Connection**.
-- O botão **Import** (um ícone de seta para baixo) carrega conexões de um arquivo.
-- O botão **Select** (um ícone de visto) liga a seleção múltipla, para exportar ou excluir várias conexões de uma vez.
+## Como adicionar uma conta
 
-## Como criar uma conexão
+1. No painel **Connections**, clique em **Add**. A janela **Add account** lista os provedores em **Popular**, **Subscriptions** (assinaturas), **On your computer** e **All providers**. Digite em **Search providers** (buscar provedores) para encontrar um.
+2. Clique em um provedor, como **OpenAI**, **Anthropic** ou **OpenRouter**.
+3. Cole a chave em **API key**. **Where do I find my key?** (onde encontro a minha chave?) abre a página de chaves do provedor. O botão de olho mostra ou esconde a chave. Em **More options** (mais opções) ficam o campo opcional **Name** (nome) e os campos **Address** (endereço), **Requests per minute** e **Parallel jobs**.
+4. Clique em **Connect** (conectar). Marinara testa a chave. Se falhar, a janela mostra o motivo e **Try again** (tentar de novo). Servidores no seu computador também oferecem **Continue anyway** (continuar mesmo assim).
+5. Quando você adiciona a primeira conta sem ter um modelo Main, ou adiciona uma conta ao começar um chat, a janela segue para a seleção de modelo. Escolha um modelo. **Make … my Main** (definir como o meu modelo principal) torna esse modelo o Main quando essa opção aparece. Clique em **Done** (concluir) para terminar, ou em **Start chatting** (começar a conversar) se você começou por um chat novo. Se você já tem um Main e adiciona uma conta pelo painel, a janela fecha depois do Connect e o painel mostra a conta nova. Os serviços de imagem, vídeo e voz usam os próprios controles de configuração; o modelo embutido usa a tela de configuração local dele.
 
-Siga estes passos para adicionar o primeiro provedor:
+Depois, você pode trocar o modelo de cada tarefa na caixa **Jobs**.
 
-1. No painel **Connections**, clique no botão **New** (o ícone de mais).
-2. Na janela **Create Connection**, digite um nome no campo **Name**. Escolha algo fácil de reconhecer depois, por exemplo `GPT-4o Main`.
-3. Em **Provider**, clique no botão do serviço que você quer, por exemplo **OpenAI**, **Anthropic** ou **OpenRouter**.
-4. Clique em **Create**. Marinara cria a conexão e abre o **Connection Editor** completo para ela.
-5. Localize o campo **API Key**. Cole aqui a chave do provedor. Se você ainda não tem uma chave, clique no link **Get your {Provider} API key**, logo abaixo do campo. Esse link abre a página de chaves do provedor no navegador.
-6. Abra o menu suspenso **Model** e escolha um modelo. Digite na caixa **Search models…** para filtrar a lista. Se a lista estiver vazia, clique em **Fetch Models from API** para carregar os modelos que a sua conta pode usar. Marinara salva a lista buscada junto com a conexão, então o menu de modelos da área de digitação do chat pode mostrá-la depois sem buscar tudo de novo.
-7. Clique em **Save**. O texto de status perto do topo muda para **Saved**.
+Se você deixar **Name** vazio, Marinara dá à conta o nome do provedor. Uma segunda conta do mesmo provedor sem nome digitado recebe os 4 últimos caracteres da chave, por exemplo `OpenAI · …a1b2`. Um nome que você digita nunca é alterado.
 
-Depois, você pode trocar o modelo sem abrir o editor: use o Quick Connection Switcher (o ícone de elo na área de digitação do chat) ou o campo **Model** em **Chat Settings → Connection**. Veja [O conjunto aleatório e o Quick Connection Switcher](organizing-connections.md#the-random-pool-and-quick-connection-switcher).
+Em geral não é preciso mexer em **Address**. Marinara preenche esse campo sozinho para os provedores conhecidos. Só altere se você usa um proxy ou um servidor no seu computador.
 
-Em geral não é preciso mexer no campo **Base URL**. Marinara preenche esse campo sozinho para os provedores conhecidos. Só altere se você usa um proxy ou um servidor local.
+Alguns provedores usam um login no seu computador no lugar da chave. Eles ficam em **Subscriptions** e não têm campo de chave. Veja [Conexões por assinatura do Claude, do ChatGPT e do Grok](subscription-clis.md). Para conectar um modelo que roda no seu próprio computador, veja [Conectar um modelo local ou auto-hospedado](local-self-hosted.md). Para ver todos os provedores compatíveis e onde conseguir cada chave, veja [Provedores de IA compatíveis](providers-reference.md).
 
-Para ver a lista completa de provedores compatíveis, as configurações padrão de cada um e onde conseguir cada chave, veja [Provedores de IA compatíveis](providers-reference.md).
+### Como começar um chat sem conta
 
-Alguns provedores usam um login local no lugar da chave de API. Nesses casos, o campo **API Key** não aparece. Veja [Conexões por assinatura do Claude, do ChatGPT e do Grok](subscription-clis.md).
+Se você começar um chat antes de ter um modelo, Marinara abre primeiro a janela **Add account**. Depois do **Connect**, ela mostra os modelos do provedor. Clique em um e depois em **Start chatting**. O rodapé também pode tornar esse modelo o seu modelo **Main**.
 
-Para conectar um modelo que roda no seu próprio computador, veja [Conectar um modelo local ou auto-hospedado](local-self-hosted.md).
+<a id="choosing-the-model-for-each-job"></a>
 
-## Como testar a conexão
+## Como escolher o modelo de cada tarefa
 
-Na parte de baixo do **Connection Editor** fica o card **Connection Tests**. Use esses testes para confirmar que tudo está certo antes de conversar.
+A caixa **Jobs** lista todas as tarefas que um modelo pode fazer, em quatro grupos:
 
-1. Clique em **Test Connection**. Marinara verifica a chave de API junto ao provedor. Se der certo, aparece a linha verde **Connection Test: Success** com o tempo de resposta.
-2. Clique em **Send Test Message**. Marinara envia a palavra "hi" para o modelo escolhido e mostra a resposta. Se der certo, aparece a linha verde **Test Message: Success** com a resposta do modelo logo abaixo.
+- **Chat**: **Main** escreve as respostas dos seus chats. **Agents** (agentes) roda os agentes auxiliares. **Impersonate** escreve como você.
+- **Omnibar**: **Professor Mari** e **Quick answers** (respostas rápidas).
+- **Pictures & sound** (imagens e som): **Images**, **Video** e **Voice (Text to Speech)** (voz: texto para fala).
+- **Behind the scenes** (nos bastidores): **Decision**, **Embeddings** e **Image reading** (leitura de imagens).
 
-O botão **Send Test Message** fica desativado até você escolher um modelo. Quando um teste falha, a linha fica vermelha e mostra o erro. Essa mensagem normalmente já indica o que corrigir, como uma chave errada ou um modelo desconhecido.
+Cada linha mostra o modelo que faz aquela tarefa e o provedor dele, ou o que a tarefa faz sem um modelo, como **Follows Main** ou **Off**. Uma tarefa que precisa de um modelo mostra **Choose a model**.
 
-## Como escolher a conexão de um chat
+Clique em uma linha para abrir **Model for** (modelo para) aquela tarefa. A janela mostra o modelo que faz a tarefa em **Now** (agora), os seus modelos em **Starred** (com estrela) e, depois, os modelos salvos de cada conta. **All models** (todos os modelos), abaixo de uma conta, abre o catálogo completo dela. Digite em **Search all models or paste a model ID** (buscar em todos os modelos ou colar o ID de um modelo) para buscar em todos os catálogos ao mesmo tempo. Clique em qualquer modelo para dar a tarefa a ele; não é preciso salvá-lo antes. **If it fails** (se falhar), no topo da janela, escolhe um segundo modelo, que responde quando o primeiro falha. **Add account**, embaixo, abre a janela Add.
 
-Sozinha, a conexão não faz nada. Cada chat escolhe qual conexão vai usar.
+Clique em **Jobs** para recolher a caixa até o cabeçalho.
 
-1. Abra um chat e depois abra a seção **Chat Settings** (configurações do chat).
-2. Localize a seção **Connection**.
-3. Escolha a conexão no menu suspenso.
+### Quando um recurso precisa de um modelo
 
-O menu suspenso traz ainda duas opções especiais. **None** significa que nenhuma conexão foi escolhida. **🎲 Random** (um ícone de dado antes da palavra Random) sorteia uma conexão diferente a cada vez, dentro do grupo aleatório. No Game Mode, a seção continua se chamando **Connection**, mas o menu suspenso dentro dela aparece como **GM / Party Model**.
+Um agente ou recurso que não funciona sem um certo tipo de modelo avisa com o rótulo **Needs an image model** (ou o equivalente para vídeo, áudio, decisão ou chat). O rótulo aparece no card do agente no painel **Agents**, em **Chat Settings** (configurações do chat), no editor de agente e nas janelas de imagem e de vídeo. Clique em **Set up** (configurar) ao lado dele para abrir **Model for** daquela tarefa, onde você pode escolher um modelo ou clicar em **Add account**. O rótulo some quando a tarefa ganha um modelo. Quando uma resposta falha porque nenhum modelo de imagem foi definido, o **Set up** da mensagem abre o painel **Connections**.
 
-Ao criar um chat novo, a janela **Set Up** pede que você escolha uma conexão antes de tudo. Escolha uma e clique em **Create Chat**.
+## Como testar uma conta
+
+O **Connect** já testa a chave. Para testar de novo depois, abra o menu **⋯** da conta no painel e clique em **Test** (testar). O editor da conta, **Edit account** (editar conta), tem **Test account** (testar conta), que verifica a chave e o endereço do jeito que você digitou, antes de salvar.
+
+<a id="choosing-a-model-for-one-chat"></a>
+
+## Como escolher um modelo para um chat
+
+Um chat novo usa o seu modelo **Main**. Para dar a um chat um modelo diferente, abra o menu **Connections** na caixa de mensagem ou o campo **Model** (modelo) em **Chat Settings → Connection**. Os dois abrem **Model for this chat** (modelo para este chat):
+
+- **Now** mostra o modelo que o chat usa. **This chat only** quer dizer que o chat tem uma escolha própria; **follows Main** quer dizer que ele usa o Main.
+- **Recent** (recentes) e **Starred** listam os seus modelos por conta.
+- **Search models or paste an ID…** (buscar modelos ou colar um ID) busca em todos os catálogos. **Browse** (navegar) abre a lista completa de uma conta.
+- **Follow Main** (seguir o principal) desfaz a escolha própria do chat. **Shuffle** (sortear) escolhe um modelo diferente a cada vez.
+
+Uma escolha muda só aquele chat. A mensagem que aparece depois de uma escolha oferece **Make it my Main model** (tornar este o meu modelo principal) e **Undo** (desfazer). No Game Mode, o campo aparece como **GM / Party Model**.
 
 ## Erros comuns
 
 Se um teste ou uma mensagem falhar, comece verificando estes pontos:
 
-- Uma chave errada ou vencida no campo **API Key**. Abra a conexão, cole a chave de novo e clique em **Save**.
-- Nenhum modelo escolhido. O botão **Send Test Message** fica desativado até você selecionar um modelo em **Model**.
-- Uma chave do provedor errado. Cada provedor precisa da própria chave. Trocar o **Provider** limpa o campo **API Key** de propósito.
-- Um endereço **Base URL** bloqueado ou fora do ar. Deixe o campo em branco para usar o padrão do provedor, a não ser que você use um servidor local ou um proxy.
+- Uma chave errada ou vencida. Abra o menu **⋯** da conta, clique em **Replace key** (substituir a chave) e cole a chave de novo. Uma conta sem chave mostra **Needs key**.
+- Uma conta desligada. Ela mostra **Off**; clique em **Turn on** (ativar) no menu **⋯** dela.
+- Uma chave do provedor errado. Cada provedor precisa da própria chave.
+- Um **Address** bloqueado ou fora do ar. Deixe o campo vazio para usar o endereço do próprio provedor, a não ser que você use um proxy ou um servidor no seu computador.
 
-Para mais soluções de erros de conexão e de geração, veja [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md).
+Para mais soluções, veja [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Guias relacionados
 
+- [Organizando as conexões](organizing-connections.md)
 - [Provedores de IA compatíveis](providers-reference.md)
 - [Conexões por assinatura do Claude, do ChatGPT e do Grok](subscription-clis.md)
 - [Conectar um modelo local ou auto-hospedado](local-self-hosted.md)

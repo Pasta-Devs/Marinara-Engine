@@ -109,6 +109,18 @@ Em **Chat Settings → Agents → Roleplay Commands**, ative **Illustrations** (
 
 Ative **Render in-line** (exibir no meio do texto) em **Illustrations** para mostrar cada imagem dentro da mensagem, no ponto em que o personagem escreveu o comando, por exemplo entre dois parágrafos. A imagem mantém os controles: selecione-a para ver o prompt dela ou use o **X** para removê-la. O personagem é avisado de que pode colocar o comando onde a imagem fizer sentido. A configuração vale para imagens novas, então as imagens que já estão no chat continuam onde estão. As imagens automáticas do Illustrator e o layout Visual Novel continuam mostrando as imagens como antes.
 
+<a id="artifacts-on-demand"></a>
+
+## Artefatos sob demanda
+
+Em **Chat Settings → Agents → Roleplay Commands**, ative **HTML Artifacts** (artefatos HTML) para permitir que o narrador crie um artefato específico do mundo da história com `[html: prompt="..."]`: uma página de grimório, uma placa, um esboço em uma carta, a leitura de um terminal. Começa desativado e não precisa de agente. Você também pode pedir um por conta própria com `/html <what you want>`.
+
+O artefato aparece no ponto em que o narrador colocou o comando, depois que a resposta termina. No layout Visual Novel, você vê só o marcador. O texto da própria mensagem continua como foi escrito.
+
+Cada artefato é uma requisição separada, com no máximo 3 por resposta. Ele usa a conexão do agente **Immersive HTML**, se esse agente tiver uma; senão, a sua conexão padrão de agentes; senão, a conexão do chat. O **Max Parallel Agent Jobs** (máximo de tarefas de agente em paralelo) dessa conexão define quantos rodam ao mesmo tempo. A requisição inclui a descrição do personagem que está falando e as últimas mensagens. Ela segue as próprias instruções, então editar o prompt do agente Immersive HTML não a altera. Para uma página estilizada simples, os seis tipos prontos de **Documents** (documentos) são gratuitos e instantâneos.
+
+O narrador não vê o HTML do artefato. Nos turnos seguintes, ele vê uma versão curta em texto simples: o texto legível do artefato e uma linha sobre a aparência dele. Abra o marcador "used html command" abaixo da mensagem para ler ou editar esse texto, ou para excluir o artefato, o que também o remove da memória do narrador. Se uma execução falhar, o marcador diz por quê.
+
 <a id="whispers-and-secrets"></a>
 
 ## Sussurros e segredos

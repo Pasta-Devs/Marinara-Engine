@@ -1,83 +1,98 @@
 # 连接 AI 服务商
 
-本指南介绍如何把 Marinara Engine 连到 AI 服务商，让角色能够回复。整个流程是：新建一个连接，粘贴 API 密钥，选好模型，再测试能不能用。
+本指南介绍如何把 Marinara Engine 连到 AI 服务商，让角色能够回复。整个流程是：添加一个账号，粘贴它的密钥，再选好回答聊天的模型。
 
-## 什么是连接
+## 账号与模型
 
-连接就是保存下来的一套接入信息，告诉 Marinara Engine 怎么访问某个 AI 服务。每个连接保存四样东西：服务商、API 密钥或登录信息、基础 URL(服务的网址)，以及模型。
+**account**(账号) 是某个 AI 服务商的一个密钥、一次登录或一个地址。它保存服务商、密钥、地址和各项限制。同一个服务商用了两个密钥，就是两个账号。
 
-API 密钥是 AI 服务商给的一串秘密字符，作用和密码一样。Marinara 靠它访问 AI 服务、使用你在那边的账号。Marinara 会加密保存密钥，导出连接时也绝不会带上它。
+**model**(模型) 是从某个账号里保存下来的一个 AI 模型，比如 GPT 或 Claude。每个保存的模型都有自己的设置。在 **Connections**(连接) 面板里，模型排在所属账号下面。
 
-Marinara Engine 不自带现成的连接，也不送免费的入门密钥。全新安装后连接数量为零，开始聊天前至少要创建一个连接。
+API 密钥是 AI 服务商给的一串秘密字符，作用和密码一样。Marinara 会把密钥保存在运行 Marinara 的那台电脑上，导出时也绝不会带上它。
 
-## 打开 Connections 面板
+Marinara Engine 不自带现成的账号，也不送免费的入门密钥。开始聊天前至少要添加一个账号。唯一的例外是 **On your computer**(在你的电脑上) 下面的 **Built-in model**(内置模型)：它直接跑在自己的电脑上，不需要账号（见[本地模型设置](local-model.md)）。
 
-连接在应用右侧的 **Connections**(连接) 面板里管理。
+## Connections 面板
 
-如果一个连接都还没有就去开始聊天，Marinara 会弹出 **Set Up**(开始设置) 窗口，里面有一个 **Open Connections** 按钮，点它可以直接跳到 **Connections** 面板。
+账号在应用右侧的 **Connections** 面板里管理。面板从上到下依次是：
 
-面板顶部有三个按钮，只有图标，没有文字标签。
+- **Search models and accounts**(搜索模型和账号)：边输入边筛选列表。
+- **Add**(添加)：打开 **Add account**(添加账号) 窗口；**More actions**(更多操作，三个点)：里面有 **Import account**(导入账号)、**Export all accounts**(导出全部账号)、折叠和分组。面板较宽时，排序下拉菜单在 **Search models and accounts** 旁边；面板较窄时，排序放在 **More actions** 里。
+- **Jobs**(分工) 框。它说明每项工作由哪个模型负责，比如 **Main**(主模型) 负责聊天回复，**Images**(图像) 负责生成图片。见[为每项工作选择模型](#choosing-the-model-for-each-job)。
+- 各个账号，每个账号下面是它保存的模型。见[整理连接](organizing-connections.md)。
 
-- **New**(新建，加号图标)：打开 **Create Connection**(创建连接) 窗口。
-- **Import**(导入，向下箭头图标)：从文件加载连接。
-- **Select**(选择，对勾图标)：开启批量选择，可以一次导出或删除多个连接。
+## 添加账号
 
-## 创建连接
+1. 在 **Connections** 面板里点击 **Add**。**Add account** 窗口会把服务商分在 **Popular**(热门)、**Subscriptions**(订阅)、**On your computer** 和 **All providers**(全部服务商) 下面。在 **Search providers**(搜索服务商) 里输入文字可以查找。
+2. 点击一个服务商，比如 **OpenAI**、**Anthropic** 或 **OpenRouter**。
+3. 把密钥粘贴到 **API key**(API 密钥) 里。**Where do I find my key?**(我的密钥在哪里找？) 会打开服务商的密钥页面。眼睛按钮用来显示或隐藏密钥。**More options**(更多选项) 里有可选的 **Name**(名称)、**Address**(地址)、**Requests per minute**(每分钟请求数) 和 **Parallel jobs**(并行任务数)。
+4. 点击 **Connect**(连接)。Marinara 会测试这个密钥。失败时，窗口会说明原因，并给出 **Try again**(再试一次)。自己电脑上的服务器还会多一个 **Continue anyway**(仍然继续)。
+5. 添加第一个账号而还没有 Main 模型时，或者在开始聊天的过程中添加账号时，窗口会接着进入模型选择。选一个模型。显示 **Make … my Main**(把……设为我的主模型) 这个选项时，用它就能把这个模型设为 Main。点击 **Done**(完成) 结束；如果是从新聊天进来的，就点 **Start chatting**(开始聊天)。如果已经有 Main，又是从面板添加账号，窗口会在 Connect 之后关闭，面板里会出现新账号。图像、视频和语音服务各有自己的设置控件；内置模型使用它自己的本地设置界面。
 
-按下面的步骤添加第一个服务商。
+之后可以在 **Jobs** 框里更改每项工作用的模型。
 
-1. 在 **Connections** 面板里点击 **New** 按钮（加号图标）。
-2. 在 **Create Connection** 窗口里给连接填一个 **Name**(名称)，取个以后一眼能认出来的名字，比如 `GPT-4o Main`。
-3. 在 **Provider**(服务商) 下面点击要用的服务，比如 **OpenAI**、**Anthropic** 或 **OpenRouter**。
-4. 点击 **Create**(创建)。Marinara 会创建这个连接，并打开它完整的 **Connection Editor**(连接编辑器)。
-5. 找到 **API Key**(API 密钥) 输入框，把服务商那边的密钥粘贴进去。还没有密钥的话，点击输入框下方的 **Get your {Provider} API key** 链接，浏览器会打开该服务商的密钥页面。
-6. 打开 **Model**(模型) 下拉菜单选一个模型。在 **Search models…** 搜索框里输入文字可以过滤列表。列表是空的，就点击 **Fetch Models from API**，加载账号能用的模型。Marinara 会把获取到的列表随连接一起保存，之后聊天输入框里的模型菜单不用重新获取就能直接显示。
-7. 点击 **Save**(保存)。顶部附近的状态文字会变成 **Saved**。
+**Name** 留空时，Marinara 会用服务商的名字给账号命名。同一个服务商的第二个账号如果没填名字，名字后面会带上密钥的最后 4 个字符，比如 `OpenAI · …a1b2`。自己填的名字永远不会被改动。
 
-之后想换模型，不必打开编辑器：用 Quick Connection Switcher(快速连接切换器)（聊天输入框里的链接图标），或者 **Chat Settings → Connection**(聊天设置 → 连接) 里的 **Model** 字段都可以。见[随机池与 Quick Connection Switcher](organizing-connections.md#the-random-pool-and-quick-connection-switcher)。
+**Address** 一般不用动，已知的服务商 Marinara 都会自动填好。只有使用代理或自己电脑上的服务器时才需要改。
 
-**Base URL**(基础 URL) 输入框一般不用动，已知的服务商 Marinara 都会自动填好。只有使用代理或本地服务器时才需要改。
+有些服务商用自己电脑上的登录代替密钥。它们在 **Subscriptions** 下面，没有密钥输入框。见 [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)。要连接跑在自己电脑上的模型，见[连接本地或自托管模型](local-self-hosted.md)。所有支持的服务商，以及每个密钥的获取地址，见[支持的 AI 服务商](providers-reference.md)。
 
-所有支持的服务商、各自的默认设置，以及每个密钥的获取地址，见[支持的 AI 服务商](providers-reference.md)。
+### 没有账号时开始聊天
 
-有些服务商用本地登录代替 API 密钥，这类连接没有 **API Key** 输入框。见 [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)。
+如果还没有模型就去开始聊天，Marinara 会先打开 **Add account** 窗口。点击 **Connect** 之后，窗口会列出这个服务商的模型。点一个，再点击 **Start chatting**。窗口底部也可以把这个模型设为你的 **Main** 模型。
 
-要连接跑在自己电脑上的模型，见[连接本地或自托管模型](local-self-hosted.md)。
+<a id="choosing-the-model-for-each-job"></a>
 
-## 测试连接
+## 为每项工作选择模型
 
-**Connection Editor** 底部有一张 **Connection Tests**(连接测试) 卡片。正式聊天之前，用它确认配置没问题。
+**Jobs** 框列出模型能做的每一项工作，分成四组：
 
-1. 点击 **Test Connection**(测试连接)。Marinara 会拿 API 密钥去服务商那边验证。成功时会出现一行绿色的 **Connection Test: Success**，后面带响应时间。
-2. 点击 **Send Test Message**(发送测试消息)。Marinara 会向选好的模型发送“hi”这个词，并显示回复。成功时会出现一行绿色的 **Test Message: Success**，下面是模型的回答。
+- **Chat**(聊天)：**Main** 在聊天里写回复。**Agents**(智能体) 运行辅助智能体。**Impersonate**(代写) 以你的身份写。
+- **Omnibar**(搜索栏)：**Professor Mari** 和 **Quick answers**(快速回答)。
+- **Pictures & sound**(画面与声音)：**Images**、**Video**(视频) 和 **Voice (Text to Speech)**(语音合成)。
+- **Behind the scenes**(幕后)：**Decision**(判定)、**Embeddings**(嵌入) 和 **Image reading**(读图)。
 
-没选模型之前，**Send Test Message** 按钮一直是禁用状态。测试失败时那一行会变红并显示错误信息，通常从中就能看出要改什么，比如密钥不对，或者模型不存在。
+每一行显示负责这项工作的模型及其服务商；没有模型时，则显示这项工作会怎么处理，比如 **Follows Main**(跟随主模型) 或 **Off**(关闭)。必须有模型才能做的工作会显示 **Choose a model**(选择模型)。
 
-## 给聊天选择连接
+点击某一行，会打开这项工作的 **Model for**(用于……的模型) 窗口。窗口里先在 **Now**(当前) 下显示正在负责这项工作的模型，然后是 **Starred**(星标) 模型，再往下是按账号分组的已保存模型。账号下面的 **All models**(全部模型) 会打开它完整的模型目录。在 **Search all models or paste a model ID**(搜索全部模型或粘贴模型 ID) 里输入文字，可以一次搜索所有目录。点击任意一个模型就把这项工作交给它，不必事先保存。窗口顶部的 **If it fails**(失败时) 用来选第二个模型，第一个模型失败时由它来回答。底部的 **Add account** 会打开添加窗口。
 
-连接本身不会做任何事，每个聊天各自选择要用哪个连接。
+点击 **Jobs** 可以把这个框折叠到只剩标题。
 
-1. 打开一个聊天，再打开它的 **Chat Settings**(聊天设置)。
-2. 找到 **Connection** 这一节。
-3. 从下拉菜单里选择自己的连接。
+### 功能需要模型时
 
-下拉菜单里还有两个特殊选项。**None** 表示还没有选连接。**🎲 Random**(Random 前面是一个骰子图标) 每次从随机池里挑一个不同的连接。在 Game Mode(游戏模式) 里这一节仍然叫 **Connection**，但里面的下拉菜单标签是 **GM / Party Model**。
+缺了某类模型就没法工作的智能体或功能，会用 **Needs an image model**(需要图像模型) 标签说明（也可能是视频、音频、判定或聊天模型）。这个标签会出现在 **Agents** 面板里的智能体卡片上、**Chat Settings**(聊天设置) 里、智能体编辑器里，以及图像和视频窗口里。点击旁边的 **Set up**(设置)，会打开这项工作的 **Model for** 窗口，可以在里面选模型，或者点击 **Add account**。这项工作有了模型，标签就会消失。如果某条回复因为没设图像模型而失败，消息里的 **Set up** 会打开 **Connections** 面板。
 
-新建聊天时，**Set Up** 窗口会先让你选一个连接。选好之后点击 **Create Chat**(创建聊天)。
+## 测试账号
+
+**Connect** 已经测试过密钥。之后想再测一次，打开面板里这个账号的 **⋯** 菜单，点击 **Test**(测试)。账号编辑器（**Edit account**(编辑账号)）里有 **Test account**(测试账号)，它在保存之前，按当前填写的内容检查密钥和地址。
+
+<a id="choosing-a-model-for-one-chat"></a>
+
+## 为单个聊天选择模型
+
+新聊天使用你的 **Main** 模型。要给某一个聊天换个模型，打开聊天输入框里的 **Connections** 菜单，或者 **Chat Settings → Connection**(聊天设置 → 连接) 里的 **Model**(模型) 字段。两者都会打开 **Model for this chat**(此聊天的模型)：
+
+- **Now** 显示这个聊天正在用的模型。**This chat only**(仅此聊天) 表示这个聊天有自己单独的选择；**follows Main**(跟随主模型) 表示它用的是 Main。
+- **Recent**(最近) 和 **Starred** 按账号列出你的模型。
+- **Search models or paste an ID…**(搜索模型或粘贴 ID…) 会搜索所有目录。**Browse**(浏览) 打开某一个账号的完整列表。
+- **Follow Main**(跟随主模型) 清除这个聊天自己的选择。**Shuffle**(随机轮换) 每次都换一个不同的模型。
+
+选中的模型只改变这个聊天。选完之后的提示消息里有 **Make it my Main model**(设为我的主模型) 和 **Undo**(撤销)。在 Game Mode(游戏模式) 里，这个字段的标签是 **GM / Party Model**。
 
 ## 常见错误
 
 测试或消息发送失败时，先检查这几项：
 
-- **API Key** 填错了或者已经过期。打开连接，重新粘贴密钥，然后点击 **Save**。
-- 没有选模型。选好 **Model** 之前，**Send Test Message** 一直不可点。
-- 用了别家服务商的密钥。每个服务商都要用自己的密钥。切换 **Provider** 时 **API Key** 输入框会被清空，这是有意为之。
-- **Base URL** 被拦截或者访问不通。除非自己跑本地服务器或代理服务器，否则留空、用服务商的默认地址就行。
+- 密钥填错了或者已经过期。打开这个账号的 **⋯** 菜单，点击 **Replace key**(更换密钥)，重新粘贴密钥。没有密钥的账号会显示 **Needs key**。
+- 账号处于关闭状态。它会显示 **Off**；在它的 **⋯** 菜单里点击 **Turn on**(开启)。
+- 用了别家服务商的密钥。每个服务商都要用自己的密钥。
+- **Address** 被拦截或者访问不通。除非使用代理或自己电脑上的服务器，否则留空、用服务商自己的地址就行。
 
-更多连接错误和生成错误的解决办法，见 [Marinara Engine 故障排查](../TROUBLESHOOTING.md)。
+更多解决办法，见 [Marinara Engine 故障排查](../TROUBLESHOOTING.md)。
 
 ## 相关指南
 
+- [整理连接](organizing-connections.md)
 - [支持的 AI 服务商](providers-reference.md)
 - [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)
 - [连接本地或自托管模型](local-self-hosted.md)

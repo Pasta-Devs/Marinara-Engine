@@ -6,18 +6,20 @@ A geração de imagens é configurada como um tipo especial de conexão. Depois 
 
 ## Como adicionar uma conexão de geração de imagens
 
-Uma **API key** (chave de API) é uma senha secreta do provedor que autoriza Marinara a usar a sua conta. A **Base URL** (endereço base) é o endereço web da interface de aplicação do serviço. Marinara preenche a Base URL correta assim que você escolhe um serviço.
+Uma **API key** (chave de API) é uma senha secreta do provedor que autoriza Marinara a usar a sua conta. A **Base URL** (endereço base), que aparece como **Endpoint** na conexão, é o endereço web da interface de aplicação do serviço. Marinara preenche o endereço correto assim que você escolhe um serviço.
 
 Siga estes passos para adicionar uma conexão de imagem:
 
 1. Abra o painel **Connections** (Conexões).
-2. Clique em **New** (novo) para abrir a janela **Create Connection**.
-3. Digite um nome e escolha o provedor **Image Generation**.
-4. No editor de conexão, escolha um **Service** na grade.
-5. Cole a chave de API no campo **API Key**, caso o serviço exija uma. Serviços gratuitos e locais não exigem.
+2. Clique em **Add connection** (adicionar conexão).
+3. Na etapa 1, abra **Images, video & voice** (imagens, vídeo e voz) e escolha **Image Generation**.
+4. Na etapa 2, cole a chave no campo **API key**, caso o serviço que você pretende usar exija uma. Serviços gratuitos e locais não exigem. Para um servidor local, defina o **Endpoint** dele aqui. Clique em **Save and test** (salvar e testar). O editor do seu novo modelo de imagem abre.
+5. No editor de modelo, escolha um **Service** na grade.
 6. Escolha um **Model** na lista ou digite o ID de um modelo. Alguns serviços oferecem **Fetch Models from API** (buscar modelos pela API) para carregar a lista atual.
 7. Clique em **Save** (salvar).
 8. Clique em **Test Image** (testar imagem) para confirmar que funciona. Marinara gera uma pequena imagem de teste.
+
+Para adicionar outro modelo de imagem a uma conexão que você já tem, abra a página dela no painel **Connections** e clique em **Add image model** (adicionar modelo de imagem). Para definir o modelo de imagem que o aplicativo usa, ajuste o bloco **Images** (imagens) em **Defaults** (padrões), no topo do painel **Connections**.
 
 Se o botão **Test Image** devolver uma figura, a conexão está pronta. Se falhar, confira a chave de API e a Base URL.
 
