@@ -6,8 +6,6 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
-- Adding models to ElevenLabs now opens its audio model and voice editor instead of a blank modal.
-
 - Roleplay, Conversation, and Game setup now label the model selector **Model**, with matching text for its saved generation defaults.
 
 ## [2.5.1] - 2026-10-20
