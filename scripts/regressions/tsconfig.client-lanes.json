@@ -38,6 +38,7 @@
     "onboarding-preview-highlight.regression.ts",
     "state-editor.regression.ts",
     "preset-section-tokens.regression.ts",
+    "local-music-playback-errors.regression.ts",
     "marinara-host-namespace.regression.ts"
   ]
 }

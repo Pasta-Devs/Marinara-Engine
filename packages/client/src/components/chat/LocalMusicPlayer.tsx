@@ -14,6 +14,7 @@ import { MusicSourceButton, MusicSourceGlyph } from "../music/MusicSourceButton"
 import { createPortal } from "react-dom";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
+import { playbackErrorMessage } from "../../lib/local-music-playback";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -196,7 +197,8 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
       .catch((err) => {
         if (sourceLoadId !== sourceLoadIdRef.current) return;
         setPaused(true);
-        setError(err instanceof Error ? err.message : "Local playback failed");
+        const message = playbackErrorMessage(err, sourceLoadId, sourceLoadIdRef.current);
+        if (message) setError(message);
       });
   }, [active, localMusicPlay, playerVolume, releaseObjectUrl]);
 
@@ -229,14 +231,25 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
     [releaseObjectUrl],
   );
 
+  // The element playing means the current track plays, so no earlier failure is current any more (#8618).
+  const clearPlaybackError = useCallback(() => setError(null), []);
+
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio || !nowPlaying) return;
     if (paused) {
+      // A new track can arrive before this resume settles; its pause() and load() then reject this play, which is not
+      // a failure, and a newer track's state is never overwritten by this one's outcome.
+      const attempt = sourceLoadIdRef.current;
       audio
         .play()
-        .then(() => setPaused(false))
-        .catch((err) => setError(err instanceof Error ? err.message : "Local playback failed"));
+        .then(() => {
+          if (attempt === sourceLoadIdRef.current) setPaused(false);
+        })
+        .catch((err) => {
+          const message = playbackErrorMessage(err, attempt, sourceLoadIdRef.current);
+          if (message) setError(message);
+        });
     } else {
       audio.pause();
       setPaused(true);
@@ -438,7 +451,7 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
   if (mobile) {
     return (
       <>
-        <audio ref={audioRef} className="hidden" />
+        <audio ref={audioRef} className="hidden" onPlaying={clearPlaybackError} />
         {showPlayer && (
           <div
             className="fixed z-[45] touch-none select-none md:hidden"
@@ -504,7 +517,7 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
 
   return (
     <>
-      <audio ref={audioRef} className="hidden" />
+      <audio ref={audioRef} className="hidden" onPlaying={clearPlaybackError} />
       {showPlayer && (
         <div
           className={cn(
