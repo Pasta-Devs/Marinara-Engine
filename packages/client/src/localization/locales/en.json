@@ -1272,6 +1272,8 @@
   "chat.wizard.defaults.saved": "Wizard defaults saved for this chat mode.",
   "chat.wizard.scenario.body": "Optional. Describe how this chat should begin, or ask for ideas. You can edit the result before you start.",
   "chat.wizard.scenario.changeIdea": "Change the idea",
+  "chat.wizard.scenario.direction": "Story direction (optional)",
+  "chat.wizard.scenario.directionHint": "A wish for where the story goes, not a fact.",
   "chat.wizard.scenario.failed": "Couldn't write a scenario. Try again.",
   "chat.wizard.scenario.generate": "Generate",
   "chat.wizard.scenario.ideaLabel": "Your idea",

@@ -68,6 +68,7 @@ import {
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import {
   type CardOnboarding,
+  composeScenarioText,
   hasOnboardingContent,
   canBuildPersona,
   getRelevantCardVariables,
@@ -685,11 +686,10 @@ function ScenarioSetupStep({
       if (!res.draft) return setError(res.error);
       const next = res.draft;
       // The route keeps the other part as sent; take only the revised part so nothing else moves.
-      onChange((s) => ({
-        ...s,
-        preview: true,
-        draft: part && current ? { ...current, [part]: next[part] } : next,
-      }));
+      // A new premise also brings a new direction.
+      const revised =
+        part === "premise" ? { premise: next.premise, direction: next.direction } : { opening: next.opening };
+      onChange((s) => ({ ...s, preview: true, draft: part && current ? { ...current, ...revised } : next }));
       if (part) setNotes((n) => ({ ...n, [part]: "" }));
     } catch (err) {
       if (!controller.signal.aborted) setError(err instanceof Error ? err.message : t("chat.wizard.scenario.failed"));
@@ -835,6 +835,29 @@ function ScenarioSetupStep({
               disabled={busy}
               className={SCENARIO_TEXTAREA_CLASS}
             />
+            {part === "premise" && (
+              <div className="space-y-1">
+                <label htmlFor={`${fieldId}-direction`} className={WIZARD_FIELD_LABEL}>
+                  {t("chat.wizard.scenario.direction")}
+                </label>
+                <p id={`${fieldId}-direction-hint`} className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {t("chat.wizard.scenario.directionHint")}
+                </p>
+                <textarea
+                  id={`${fieldId}-direction`}
+                  aria-describedby={`${fieldId}-direction-hint`}
+                  value={draft.direction}
+                  onChange={(event) => {
+                    const edited = event.target.value;
+                    onChange((s) => (s.draft ? { ...s, draft: { ...s.draft, direction: edited } } : s));
+                  }}
+                  rows={2}
+                  maxLength={8000}
+                  disabled={busy}
+                  className={SCENARIO_TEXTAREA_CLASS}
+                />
+              </div>
+            )}
             {!locked && (
               <div className="flex flex-wrap gap-2">
                 <input
@@ -1909,7 +1932,9 @@ function ConversationQuickSetup({
       chatParameters: customizeParameters ? generationParameters : null,
       customSystemPrompt,
       ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
-      ...(acceptedDraft ? { groupScenarioText: acceptedDraft.premise } : {}),
+      ...(acceptedDraft
+        ? { groupScenarioText: composeScenarioText(acceptedDraft.premise, acceptedDraft.direction) }
+        : {}),
     });
     useChatStore.getState().clearPendingNewChatSetup(chat.id);
     if (autonomousEnabled && generateSchedule && metadata.multiplayerSetup !== true) {
@@ -3135,7 +3160,9 @@ function RoleplaySetupWizard({
     await updateMeta.mutateAsync({
       id: chat.id,
       chatParameters: customizeParameters ? generationParameters : null,
-      ...(acceptedDraft ? { groupScenarioText: acceptedDraft.premise } : {}),
+      ...(acceptedDraft
+        ? { groupScenarioText: composeScenarioText(acceptedDraft.premise, acceptedDraft.direction) }
+        : {}),
     });
     if (!acceptedDraft && metadata.multiplayerSetup !== true) {
       for (const charId of chatCharIds) await createInitialGreetingForCharacter(charId);
