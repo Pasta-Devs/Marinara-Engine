@@ -89,6 +89,7 @@ export function parseSceneScenarioDraft(
     return { draft: null, error: `Model didn't return valid JSON. Try again. (${detail})` };
   }
   const premise = typeof parsed.premise === "string" ? parsed.premise : "";
+  const direction = typeof parsed.direction === "string" ? parsed.direction : "";
   const openingValue = parsed.opening;
   const openingContent: string =
     typeof openingValue === "string"
@@ -100,15 +101,21 @@ export function parseSceneScenarioDraft(
         : "";
   if (revise?.part === "opening") {
     if (!openingContent.trim()) return { draft: null, error: "Model did not return an opening. Try again." };
-    return { draft: { premise: revise.current.premise, opening: { characterId: openerId, content: openingContent } } };
+    return {
+      draft: {
+        premise: revise.current.premise,
+        direction: revise.current.direction ?? "",
+        opening: { characterId: openerId, content: openingContent },
+      },
+    };
   }
   if (revise?.part === "premise") {
     if (!premise.trim()) return { draft: null, error: "Model did not return a premise. Try again." };
-    return { draft: { premise, opening: revise.current.opening } };
+    return { draft: { premise, direction, opening: revise.current.opening } };
   }
   if (!premise.trim()) return { draft: null, error: "Model did not return a premise. Try again." };
   if (!openingContent.trim()) return { draft: null, error: "Model did not return an opening. Try again." };
-  return { draft: { premise, opening: { characterId: openerId, content: openingContent } } };
+  return { draft: { premise, direction, opening: { characterId: openerId, content: openingContent } } };
 }
 
 const SCENE_GUIDELINES = [
@@ -1471,6 +1478,8 @@ export async function sceneRoutes(app: FastifyInstance) {
         typeof revise.current.opening.characterId !== "string" ||
         typeof revise.current.opening.content !== "string" ||
         revise.current.premise.length > 8000 ||
+        (revise.current.direction !== undefined &&
+          (typeof revise.current.direction !== "string" || revise.current.direction.length > 8000)) ||
         revise.current.opening.content.length > 8000)
     )
       return reply.status(400).send({ draft: null, error: "Invalid current draft" });
@@ -1517,13 +1526,16 @@ export async function sceneRoutes(app: FastifyInstance) {
     const instruction = [
       `Create a scenario draft for a new ${mode} chat.`,
       mode === "roleplay"
-        ? `Premise: lasting setting, situation, and how the characters and persona know each other. Opening: an in-character narrated opening of 2-4 paragraphs. Put spoken words in double quotes.`
-        : `Premise: shared background and why the characters are texting now. Opening: one short, natural first text message. Do not narrate.`,
-      `The premise must contain lasting facts only. Do not state user actions or feelings that the user has not supplied.`,
-      `Return only JSON: {"premise":"...","opening":"..."}.`,
-      openingOnly ? `Generate only a new opening that fits this premise: ${revise!.current.premise}.` : "",
+        ? `Premise: the setting, who the characters and persona are to each other, and their shared history. Opening: an in-character narrated opening of 2-4 paragraphs that shows the starting moment. Put spoken words in double quotes.`
+        : `Premise: the shared background and who the characters are to each other. Opening: one short, natural first text message that starts the moment. Do not narrate.`,
+      `The premise must contain lasting facts only. It must not describe the current scene, event or situation; the starting moment belongs only in the opening. Do not state user actions or feelings that the user has not supplied.`,
+      `Direction: optional wishes for how the story may develop (tone, pacing, where it may go), written as preferences, not as facts. Use an empty string when the idea gives none.`,
+      `Return only JSON: {"premise":"...","direction":"...","opening":"..."}.`,
+      openingOnly
+        ? `Generate only a new opening that fits this premise:\n${revise!.current.premise}${revise!.current.direction ? `\nStory direction (a preference for later; do not act it out in the opening):\n${revise!.current.direction}` : ""}`
+        : "",
       premiseOnly
-        ? `Generate only a new premise. Keep it consistent with this opening: ${revise!.current.opening.content}`
+        ? `Generate only a new premise and direction. Keep them consistent with this opening:\n${revise!.current.opening.content}${revise!.current.direction ? `\nKeep this story direction unless the revision instruction asks to change it:\n${revise!.current.direction}` : ""}`
         : "",
       revise?.note ? `Revision instruction: ${revise.note}` : "",
       !revise ? `User idea (may be empty): ${idea}` : "",
