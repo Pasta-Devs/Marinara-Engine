@@ -1283,6 +1283,7 @@
   "chat.wizard.scenario.openingNote": "Note for the new opening",
   "chat.wizard.scenario.openingRegenerate": "New opening",
   "chat.wizard.scenario.premise": "Premise",
+  "chat.wizard.scenario.premiseHint": "Replaces the character's own scenario for this chat.",
   "chat.wizard.scenario.premiseNote": "Note for the new premise",
   "chat.wizard.scenario.premiseRegenerate": "New premise",
   "chat.wizard.scenario.showDraft": "Back to the draft",

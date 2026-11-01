@@ -626,9 +626,13 @@ function withScenarioStep(steps: WizardStep[], chat: Chat, t: (key: string) => s
   return [...steps, { key: "scenario", title: t("chat.wizard.scenario.title"), body: t("chat.wizard.scenario.body") }];
 }
 
-/** Start writes the draft only when the preview is open and both parts have text. */
-function acceptedScenario(state: ScenarioStepState): SceneScenarioDraft | null {
+/**
+ * Start writes the draft only when the step is still in the wizard (multiplayer turned on later drops it)
+ * and the preview is open with text in both parts.
+ */
+function acceptedScenario(state: ScenarioStepState, steps: WizardStep[]): SceneScenarioDraft | null {
   const { draft } = state;
+  if (!steps.some((step) => step.key === "scenario")) return null;
   return state.preview && draft && draft.premise.trim() && draft.opening.content.trim() ? draft : null;
 }
 
@@ -650,8 +654,16 @@ function ScenarioSetupStep({
   const [error, setError] = useState<string | null>(null);
   const fieldId = useId();
   const busy = draftScenario.isPending;
+  // The control that switched views unmounts, so move focus to the main field of the new view.
+  const mainFieldRef = useRef<HTMLTextAreaElement>(null);
+  const shownPreview = useRef(value.preview);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    if (shownPreview.current === value.preview) return;
+    shownPreview.current = value.preview;
+    mainFieldRef.current?.focus();
+  }, [value.preview]);
 
   const run = async (part?: "premise" | "opening", idea = value.idea) => {
     if (busy) return;
@@ -684,18 +696,25 @@ function ScenarioSetupStep({
 
   const status = (
     <>
-      {busy && (
-        <div
-          role="status"
-          className="flex items-center gap-2 rounded-lg bg-[var(--secondary)]/55 px-3 py-2 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/80"
-        >
+      {/* The live region stays mounted; only its text changes, so screen readers announce loading. */}
+      <div
+        className={cn(
+          busy &&
+            "flex items-center gap-2 rounded-lg bg-[var(--secondary)]/55 px-3 py-2 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/80",
+        )}
+      >
+        {busy && (
           <Loader2 size="0.875rem" className="motion-safe:animate-spin text-[var(--primary)]" aria-hidden="true" />
-          <span className="min-w-0 flex-1">{t("chat.wizard.scenario.writing")}</span>
+        )}
+        <span role="status" className={busy ? "min-w-0 flex-1" : "sr-only"}>
+          {busy ? t("chat.wizard.scenario.writing") : ""}
+        </span>
+        {busy && (
           <button type="button" onClick={() => abortRef.current?.abort()} className={WIZARD_GHOST_BUTTON_CLASS}>
             {t("chat.wizard.scenario.stop")}
           </button>
-        </div>
-      )}
+        )}
+      </div>
       {error && (
         <p role="alert" className="text-xs text-[var(--destructive)]">
           {error}
@@ -713,6 +732,7 @@ function ScenarioSetupStep({
             {t("chat.wizard.scenario.ideaLabel")}
           </label>
           <textarea
+            ref={mainFieldRef}
             id={`${fieldId}-idea`}
             value={value.idea}
             onChange={(event) => onChange((s) => ({ ...s, idea: event.target.value }))}
@@ -774,7 +794,14 @@ function ScenarioSetupStep({
           <label htmlFor={`${fieldId}-${part}`} className={WIZARD_FIELD_LABEL}>
             {label}
           </label>
+          {part === "premise" && (
+            <p id={`${fieldId}-premise-hint`} className="text-[0.625rem] text-[var(--muted-foreground)]">
+              {t("chat.wizard.scenario.premiseHint")}
+            </p>
+          )}
           <textarea
+            ref={part === "premise" ? mainFieldRef : undefined}
+            aria-describedby={part === "premise" ? `${fieldId}-premise-hint` : undefined}
             id={`${fieldId}-${part}`}
             value={text}
             onChange={(event) => {
@@ -1419,7 +1446,8 @@ function ConversationQuickSetup({
   const isLast = step === STEPS.length - 1;
   const [scenario, setScenario] = useState(EMPTY_SCENARIO);
   const [scenarioStarting, setScenarioStarting] = useState(false);
-  const acceptedDraft = acceptedScenario(scenario);
+  const openingWritten = useRef(false);
+  const acceptedDraft = acceptedScenario(scenario, STEPS);
   const createMessage = useCreateMessage(chat.id);
   const { data: connections } = useConnections();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
@@ -1844,6 +1872,16 @@ function ConversationQuickSetup({
       selfieCommandEnabled,
       connections: connectionOptions,
     });
+    // Opening first, premise last in the one metadata write that also finishes setup, so a failed Start
+    // saves no premise and no "setup complete". The ref keeps a retry from writing the opening twice.
+    if (acceptedDraft && !openingWritten.current) {
+      await createMessage.mutateAsync({
+        role: "assistant",
+        content: acceptedDraft.opening.content,
+        characterId: acceptedDraft.opening.characterId,
+      });
+      openingWritten.current = true;
+    }
     await updateMeta.mutateAsync({
       id: chat.id,
       autonomousMessages: autonomousEnabled,
@@ -1856,13 +1894,6 @@ function ConversationQuickSetup({
       ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
       ...(acceptedDraft ? { groupScenarioText: acceptedDraft.premise } : {}),
     });
-    if (acceptedDraft) {
-      await createMessage.mutateAsync({
-        role: "assistant",
-        content: acceptedDraft.opening.content,
-        characterId: acceptedDraft.opening.characterId,
-      });
-    }
     useChatStore.getState().clearPendingNewChatSetup(chat.id);
     if (autonomousEnabled && generateSchedule && metadata.multiplayerSetup !== true) {
       setScheduleState("generating");
@@ -2571,7 +2602,8 @@ function RoleplaySetupWizard({
   const STEPS = useMemo(() => withScenarioStep(ROLEPLAY_STEPS, chat, localizeUi), [chat, localizeUi]);
   const [scenario, setScenario] = useState(EMPTY_SCENARIO);
   const [scenarioStarting, setScenarioStarting] = useState(false);
-  const acceptedDraft = acceptedScenario(scenario);
+  const openingWritten = useRef(false);
+  const acceptedDraft = acceptedScenario(scenario, STEPS);
   const roleplayConnectionSelectId = useId();
 
   const [step, setStep] = useState(0);
@@ -3069,18 +3101,22 @@ function RoleplaySetupWizard({
 
   // A draft is accepted only on the scenario step; it replaces the stock greetings, written exactly as previewed.
   const finishWizard = useCallback(async () => {
-    await updateMeta.mutateAsync({
-      id: chat.id,
-      chatParameters: customizeParameters ? generationParameters : null,
-      ...(acceptedDraft ? { groupScenarioText: acceptedDraft.premise } : {}),
-    });
-    if (acceptedDraft) {
+    // Opening first, premise last in the one metadata write that also finishes setup, so a failed Start
+    // saves no premise and no "setup complete". The ref keeps a retry from writing the opening twice.
+    if (acceptedDraft && !openingWritten.current) {
       await createMessage.mutateAsync({
         role: "assistant",
         content: acceptedDraft.opening.content,
         characterId: acceptedDraft.opening.characterId,
       });
-    } else if (metadata.multiplayerSetup !== true) {
+      openingWritten.current = true;
+    }
+    await updateMeta.mutateAsync({
+      id: chat.id,
+      chatParameters: customizeParameters ? generationParameters : null,
+      ...(acceptedDraft ? { groupScenarioText: acceptedDraft.premise } : {}),
+    });
+    if (!acceptedDraft && metadata.multiplayerSetup !== true) {
       for (const charId of chatCharIds) await createInitialGreetingForCharacter(charId);
     }
     useChatStore.getState().clearPendingNewChatSetup(chat.id);
