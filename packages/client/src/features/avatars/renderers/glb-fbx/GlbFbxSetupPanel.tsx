@@ -44,6 +44,7 @@ export function GlbFbxSetupPanel({ owner, config, onChanged }: AvatarKindSetupPa
     remove: {
       onSuccess: () => {
         setWarnings([]);
+        setRefusal(null);
         toast.success(t("avatars.glbFbx.removed"));
       },
       onError: (error) => toast.error(modelErrorMessage(error, t("avatars.vrm.removeFailed"))),
