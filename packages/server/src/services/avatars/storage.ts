@@ -175,6 +175,7 @@ export function avatarKindFilePaths<K extends AvatarKind>(kind: K, data: AvatarK
       ...new Set([mmd.file, ...Object.values(mmd.texturePaths), ...(mmd.idleAnimation ? [mmd.idleAnimation] : [])]),
     ];
   }
+  if (kind === "glb-fbx") return [(data as AvatarKindDataMap["glb-fbx"]).file];
   const vrm = data as AvatarKindDataMap["vrm"];
   return vrm.idleAnimation ? [vrm.file, vrm.idleAnimation] : [vrm.file];
 }

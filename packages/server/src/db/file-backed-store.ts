@@ -369,7 +369,9 @@ type InsertValuesBuilder = Executable<void> & {
 // could overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
 // Format 9 protects connection account links and their credentials. Older builds discard
 // accountId, icon and imageInput when rewriting model rows; no row conversion is needed.
-export const STORAGE_VERSION = 9;
+// Format 10 protects GLB and FBX avatar configurations: format-9 builds reject the new kind and could
+// overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
+export const STORAGE_VERSION = 10;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
