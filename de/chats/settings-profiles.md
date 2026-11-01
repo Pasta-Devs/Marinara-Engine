@@ -46,8 +46,9 @@ Der Chat übernimmt die Werte sofort. Schaltet das Profil **Hide summarised mess
 
 Der Builder zeigt ein Profil als Steckplätze, gruppiert nach Chat, Story, Pictures und Behind the scenes. Jeder Steckplatz nimmt eine Art von Einstellung auf, etwa eine Verbindung, Agenten, eine Persona oder Lorebooks.
 
-- Ziehe einen Eintrag aus **Your library** unten auf einen Steckplatz, oder klicke auf einen Steckplatz und wähle ihn aus der Liste aus. Beim Ziehen leuchten passende Steckplätze auf.
-- Ein belegter Steckplatz zeigt für jeden Eintrag ein Element. Entferne einen Eintrag mit seiner **×**-Schaltfläche.
+- Wähle die Einträge aus den Listen in jedem Steckplatz aus. Bei Agenten, Tools und Lorebooks kannst du mehr als einen Eintrag wählen. Mit den Kontrollkästchen unter **Tools** schaltest du jedes Tool ein oder aus.
+- In den Listen für Agenten und Lorebooks hältst du am Desktop Strg (unter macOS Command) gedrückt, um mehrere Einträge zu wählen. Auf dem Smartphone nutzt du die Steuerelemente zur Auswahl. Mit **Clear selection** (Auswahl aufheben) leerst du eine Liste.
+- Öffne am Desktop die Seitenleiste einer Bibliothek, während der Editor offen bleibt, und zieh dann einen Eintrag auf das passende Feld. Bereits ausgewählte Einträge bleiben ausgewählt, wenn du sie erneut ablegst. Bei einem Feld für nur einen Eintrag wählst du **None** (keine), um es zu leeren.
 - Parameters, Memory & summary und Translation zeigen an, ob das Profil diese Einstellungen enthält. Ändere sie in Chat Settings und speichere sie dann im Profil.
 
 Wähle **Save and choose chats…**, um zu speichern. Im nächsten Schritt siehst du **New roleplay chats** (oder Conversation-Chats) und deine bestehenden Chats dieses Modus. Aktiviere **Make this the default**, um das Profil für neue Chats zu verwenden. Wähle die Chats aus, die es jetzt erhalten sollen, und klicke auf **Apply**.

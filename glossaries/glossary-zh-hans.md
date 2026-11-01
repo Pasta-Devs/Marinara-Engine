@@ -716,3 +716,25 @@ Cycle precedent for the #8464 and #8603 catch-up against Engine `staging` `6d96c
 - The NanoGPT **Management token** keeps the section's older 管理令牌 (**Management token**(管理令牌，推荐)) despite §3's ban on 令牌, so the file stays consistent (§7.5 P4). It is not a precedent; align it in a later cleanup.
 
 These are translation choices, not a new native-reader review.
+
+## Faceted sprites, GLB/FBX avatars and profile pickers (2026-11-01)
+
+Cycle precedent for the #8654 / #8657 catch-up and the profile-builder rewrite (#8646) against Engine `staging` `7450d4e70` (`characters/sprites.md`, `agents/avatars.md`, `agents/built-in-agents.md`, `chats/settings-profiles.md`).
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| extra words after the expression / full names (faceted sprite names) | 表情名后面再加几个词 / 完整名称 | "Outfit or condition" is 服装或状态; a trailing `_01` is 末尾的数字 and marks 另一个版本. English never says "facet", so no term is coined for it. |
+| rigged / rig (verb) / rigs | 已绑定骨骼的 / 给模型绑定骨骼 / 骨骼绑定 | Follows 绑定骨骼 in the mesh-avatar and Mesh Avatar Studio parts of `agents/avatars.md`. Heading `## GLB 和 FBX 虚拟形象：已绑定骨骼的模型` under `<a id="glb-and-fbx-avatars-rigged-models"></a>`; link text GLB 和 FBX 虚拟形象. |
+| bone / body bones | 骨骼 / 身体骨骼 | Counted with 根. Hips, spine, upper and lower arms are 髋部、脊柱、上臂和前臂. |
+| blend shape (shape key, morph target) | 混合形状（也叫形态键或变形目标） | 形态键 is the shape-key word already in the Blender steps. |
+| A-pose / centimetres / 3D app | A 字姿势 / 厘米 / 3D 软件 | A 字姿势 follows the file's T 字姿势. |
+| GLB or FBX model | **GLB or FBX model**(GLB 或 FBX 模型) | Coined after **VRM model**(VRM 模型): `avatars.setup.kind.glbFbx` has no zh-Hans string. Recheck. |
+| Import GLB or FBX | **Import GLB or FBX**(导入 GLB 或 FBX) | Coined after **Import PMX or ZIP**(导入 PMX 或 ZIP): `avatars.glbFbx.import` has no zh-Hans string. Recheck. |
+| Embed Media / Embed Textures | no gloss | FBX exporter options in a third-party app, bare like the file's Blender labels (**Preferences**, **Get Extensions**). Embedded is 嵌入. |
+| Tools (profile slot) | **Tools**(工具) | Matches `chat.settingsProfile.builder.slot.tool`. Its checkboxes are 复选框. |
+| Clear selection | **Clear selection**(清除选择) | `chat.settingsProfile.builder.clear` has no zh-Hans string; the gloss copies 清除选择 from the other **Clear selection** keys. Recheck. |
+| None (single-item profile field) | **None**(无) | `chat.settingsProfile.builder.none` has no zh-Hans string; the gloss matches `avatars.vrm.expressions.none`. Recheck. |
+| hold Ctrl (Command on macOS) to pick several | 按住 Ctrl(macOS 上是 Command)，就能选择多个项目 | Half-width paren as in `chats/messages.md` (Ctrl + Enter(Mac 上是 Cmd + Enter)). Phone selection controls are 选择控件. |
+| library sidebar / field / desktop | 资料库侧边栏 / 字段 / 桌面端 | 资料库 and 字段 match `chat.settingsProfile.builder.library` and `libraryHint`. Slots stay 槽位. |
+
+The new GLB/FBX section uses **服务商** for provider (§3); the MMD paragraph above it keeps its older 提供商 under §7.5 P4. **Faces and mouth shapes** keeps (表情和口型) and runs bare in the new section. These are translation choices, not a new native-reader review.

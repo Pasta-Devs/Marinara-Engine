@@ -1,6 +1,6 @@
 # 2D와 3D 아바타
 
-다운로드할 수 있는 두 에이전트가 캐릭터와 페르소나에게 움직이는 아바타를 붙여 줍니다. 아바타는 답변이 스트리밍되는 동안 반응합니다. **2D Avatars**(2D 아바타)는 PNGTuber 스타일 스프라이트나 메시 아바타를 보여 주고, **3D Avatars**(3D 아바타)는 VRM과 MMD PMX 모델을 보여 줍니다. 표정은 답변을 따라 바뀌고, 입은 텍스트나 Text to Speech(음성 합성)에 맞춰 움직입니다.
+다운로드할 수 있는 두 에이전트가 캐릭터와 페르소나에게 움직이는 아바타를 붙여 줍니다. 아바타는 답변이 스트리밍되는 동안 반응합니다. **2D Avatars**(2D 아바타)는 PNGTuber 스타일 스프라이트나 메시 아바타를 보여 주고, **3D Avatars**(3D 아바타)는 VRM, MMD PMX, GLB, FBX 모델을 보여 줍니다. 표정은 답변을 따라 바뀌고, 입은 텍스트나 Text to Speech(음성 합성)에 맞춰 움직입니다.
 
 Live2D 모델은 지원하지 않습니다. Live2D 라이선스는 무료 오픈 소스 앱이라도 Live2D와 별도 계약을 맺어야 하며, 그 런타임은 Marinara Engine과 함께 배포할 수 없습니다.
 
@@ -23,7 +23,7 @@ Live2D 모델은 지원하지 않습니다. Live2D 라이선스는 무료 오픈
 아바타는 각 에이전트의 페이지에서 설정합니다. **Agents**를 열고 **2D Avatars**나 **3D Avatars**를 연 다음, 위쪽에 있는 **Avatars** 섹션을 사용하세요.
 
 1. **Character or persona**에서 아바타를 줄 대상을 고르세요. "(has an avatar)" 표시가 붙은 이름에는 이미 저장된 아바타가 있습니다.
-2. **Avatar type**에서 설정할 종류를 고르세요. 2D Avatars에는 **PNGTuber sprites**와 **Mesh avatar**가 있고, 3D Avatars에는 **VRM model**과 **MMD PMX model**(MMD PMX 모델)이 있습니다.
+2. **Avatar type**에서 설정할 종류를 고르세요. 2D Avatars에는 **PNGTuber sprites**와 **Mesh avatar**가 있고, 3D Avatars에는 **VRM model**, **MMD PMX model**(MMD PMX 모델), **GLB or FBX model**(GLB 또는 FBX 모델)이 있습니다.
 3. 스위치 아래에 있는 그 종류의 섹션에서 설정하세요. 스프라이트를 쓰거나 파일을 가져오고, 감정마다 표정을 고르거나, 아바타를 제거할 수 있습니다. [2D 아바타](#2d-avatars-pngtuber-sprites-and-mesh-avatars)와 [3D 아바타](#3d-avatars-vrm-models)를 참고하세요.
 4. **Preview**에서 확인하세요. **Try a face**는 감정을 바꾸고 **Talk**는 입을 움직입니다. 아직 보여 줄 것이 없으면 미리보기에 예시 아바타가 표시됩니다.
 
@@ -102,7 +102,7 @@ Live2D 모델은 지원하지 않습니다. Live2D 라이선스는 무료 오픈
 일부 파일은 쓸 수 없으며, 가져오기에서 그 이유를 알려 줍니다.
 
 - **압축된 모델.** Draco나 meshopt 압축으로 저장했거나 KTX2 텍스처를 쓴 파일은 불러오지 못합니다. 압축을 끄고 모델을 다시 내보내세요.
-- **일반 3D 모델.** VRM 데이터가 없는 `.glb`나 `.gltf` 모델에는 얼굴 표정 항목도, 휴머노이드 골격도 없습니다. Blender용 VRM 애드온 등으로 먼저 VRM으로 변환하세요([직접 모델 만들기](#blender-with-the-vrm-add-on-for-blender) 참고).
+- **일반 3D 모델.** VRM 데이터가 없는 `.glb`나 `.gltf` 모델에는 얼굴 표정 항목도, 휴머노이드 골격도 없습니다. 리깅된 `.glb`라면 대신 **GLB or FBX model**로 가져오세요([GLB와 FBX 아바타](#glb-and-fbx-avatars-rigged-models) 참고). 또는 Blender용 VRM 애드온 등으로 VRM으로 변환하세요([직접 모델 만들기](#blender-with-the-vrm-add-on-for-blender) 참고).
 - **불완전한 모델.** 골격에 VRM이 요구하는 본이 빠져 있거나 파일에 없는 부분을 가리키는 모델, 또는 파일 바깥의 다른 파일을 가리키는 모델은 거부됩니다.
 
 앱의 일반 업로드 한도 외에 별도 크기 제한은 없지만, 큰 모델은 특히 휴대폰에서 불러오는 데 더 오래 걸립니다.
@@ -120,6 +120,18 @@ Live2D 모델은 지원하지 않습니다. Live2D 라이선스는 무료 오픈
 **지원 파일.** PMX 2.0 모델 및 호환되는 PMX 2.1 모델을 PNG, JPEG, BMP, TGA 이미지와 함께 사용할 수 있으며, `.sph`와 `.spa` 파일도 포함됩니다. 일부 최신 PMX 2.1 기능은 지원되지 않으며 가져오기에서 이유를 알려 줍니다. PMD 모델, VPD 포즈, 카메라나 조명 모션은 지원되지 않습니다. 물리 시뮬레이션은 하지 않으므로 머리카락과 옷이 MikuMikuDance에서와 다르게 보일 수 있습니다. 이미지 경로가 256개를 넘거나, 경로가 너무 길거나, 이미지에 메모리가 너무 많이 필요하거나, 리그가 지나치게 복잡한 모델은 거부됩니다. 특히 휴대폰에서는 직접 사용할 모델로 결과를 확인하세요.
 
 브라우저가 WebGL2를 지원해야 합니다. MMD 아바타는 다른 아바타와 같은 일시 정지, 프레임 속도, 프레이밍 설정을 사용합니다. 모델과 이미지는 사용 중인 Marinara Engine에서만 불러옵니다. 사용하거나 공유하기 전에 모델과 모션 제작자의 라이선스와 이용 약관을 따르세요. MMD 아바타를 가져오거나 재생해도 AI 제공자에게 아무것도 전송하지 않습니다.
+
+<a id="glb-and-fbx-avatars-rigged-models"></a>
+
+## GLB와 FBX 아바타: 리깅된 모델
+
+**3D Avatars** 페이지에서 **Avatar type**의 **GLB or FBX model**을 선택하고 **Import GLB or FBX**(GLB 또는 FBX 가져오기)를 선택한 다음, 리깅된 캐릭터의 `.glb` 또는 `.fbx` 파일 1개를 고르세요. 일반 모델에는 어느 본이 어느 부위인지 알려 주는 VRM 데이터가 없으므로, 가져오기에서 본을 이름으로 연결합니다. Mixamo, Unity, VRoid, Unreal, Blender, 3ds Max, Maya HumanIK, Character Creator, DAZ의 리그는 가져오기가 알아보는 이름을 쓰므로, VRM과 같은 대기 동작, 대기 자세, 말할 때의 끄덕임을 그대로 쓸 수 있습니다. 이 섹션에는 몸의 본이 몇 개 연결되었는지 표시됩니다.
+
+모델에는 적어도 엉덩이, 척추, 머리, 양쪽 위팔과 아래팔이 있어야 합니다. 가져오기에서 이 중 하나라도 찾지 못하면 모델을 거부하고 어떤 본이 빠졌는지 알려 줍니다. 3D 앱에서 그 본의 이름을 바꾸거나 Mixamo로 모델을 리깅하세요. A 포즈로 서 있거나, 뒤를 보고 있거나, 센티미터 단위로 만든 모델은 자동으로 자세를 펴고, 방향을 돌리고, 크기를 맞춥니다.
+
+표정은 모델의 블렌드 셰이프(셰이프 키 또는 모프 타깃)에서 가져옵니다. **Faces and mouth shapes**에서는 흔히 쓰는 이름이 자동으로 연결됩니다. VRoid, VRChat, Oculus의 입 모양(`aa`, `A`, `viseme_aa`, `Fcl_MTH_A`), 벌린 턱(`mouthOpen`, `jawOpen`), 감정(`happy`, `Joy`, `mouthSmile`), 눈 깜박임(`blink`, 또는 ARKit의 `eyeBlinkLeft`와 `eyeBlinkRight`처럼 함께 움직이는 왼쪽과 오른쪽 한 쌍)이 그 대상입니다. 미리보기를 확인하고 잘못 추측한 항목을 수정하세요. 블렌드 셰이프가 없는 모델도 몸은 움직이고, 말할 때 고개를 끄덕입니다.
+
+**지원 파일.** 모든 것이 파일 안에 포함된 바이너리 glTF(`.glb`)와, 바이너리 또는 ASCII 형식의 FBX 2014(7.4) 이상을 지원합니다. FBX 파일은 **Embed Media**(또는 **Embed Textures**)를 켜고 내보내세요. 파일 밖에 둔 텍스처는 불러오지 않으므로 모델이 그림 없이 표시됩니다. Draco, meshopt, KTX2 압축은 불러오지 못하며, 자체 파일이 따로 있는 `.gltf`는 쓸 수 없습니다. `.glb`로 저장한 VRM은 표정과 이용 조건을 읽어 들이는 **VRM model**에서 가져오세요. 모델 자체의 애니메이션, 물리 시뮬레이션, 포즈 편집은 지원되지 않습니다. 사용하거나 공유하기 전에 모델 제작자의 이용 조건을 따르세요. GLB나 FBX 아바타를 가져오거나 재생해도 AI 제공자에게 아무것도 전송하지 않습니다.
 
 <a id="get-a-3d-model"></a>
 
@@ -295,7 +307,7 @@ Pollinations, Together AI, Horde, DALL-E, 참조 이미지 슬롯이 없는 Comf
 ### 내보낼 때 피해야 할 것
 
 - **압축.** Draco나 meshopt 메시 압축, KTX2 텍스처는 불러오지 못합니다. 위의 VRM 내보내기는 이런 압축을 쓰지 않지만, Blender의 일반 glTF 내보내기는 Draco를 제공하고, 모델 최적화 도구는 세 가지를 모두 더할 수 있습니다. 압축을 끄고 다시 내보내세요.
-- **일반 glTF.** 일반 `.glb`나 `.gltf` 파일에는 표정과 골격의 이름을 정하는 VRM 데이터가 없습니다. 대신 `.vrm`으로 내보내세요.
+- **일반 glTF.** 일반 `.glb`에는 표정과 골격의 이름을 정하는 VRM 데이터가 없습니다. 대신 **GLB or FBX model**로 가져오세요([GLB와 FBX 아바타](#glb-and-fbx-avatars-rigged-models) 참고). VRM 표정과 이용 조건을 유지하려면 `.vrm`으로 내보내세요.
 - **분리된 파일.** 텍스처나 데이터가 별도 파일로 나뉜 모델은 쓸 수 없습니다. `.vrm` 파일 하나로 내보내세요.
 - **PNGTuber Plus 추가 효과.** 흔들림, 끌림, 애니메이션은 옮겨지지 않습니다. 각 레이어는 멈춘 상태로 보이고, 애니메이션 레이어는 첫 프레임만 보입니다.
 

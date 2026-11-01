@@ -46,8 +46,9 @@ El chat se actualiza de inmediato. Si el perfil activa o desactiva **Hide summar
 
 El creador muestra un perfil como un conjunto de espacios agrupados en Chat, Story, Pictures y Behind the scenes. Cada espacio admite un tipo de ajuste, como una conexión, agentes, una persona o lorebooks.
 
-- Arrastra un elemento de **Your library**, abajo, a un espacio, o haz clic en un espacio y elige un elemento de la lista. Mientras arrastras, se iluminan los espacios que admiten el elemento.
-- Un espacio ocupado muestra una ficha por elemento. Quita un elemento con su botón **×**.
+- Elige elementos de las listas de cada espacio. Los agentes, las herramientas y los lorebooks admiten más de una selección. Usa las casillas de **Tools** (Herramientas) para activar o desactivar cada herramienta.
+- En las listas de agentes y de lorebooks en computadora, mantén pulsada la tecla Ctrl (Command en macOS) para elegir varios elementos. En un teléfono, usa los controles de selección. Elige **Clear selection** (Borrar la selección) para vaciar una lista.
+- En computadora, abre una barra lateral de biblioteca mientras el creador sigue abierto y luego arrastra un elemento a su campo correspondiente. Los elementos ya seleccionados siguen seleccionados si los vuelves a soltar. En un campo de un solo elemento, elige **None** (Ninguno) para vaciarlo.
 - Parameters, Memory & summary y Translation indican si el perfil los incluye. Cámbialos en Chat Settings y luego guarda esos cambios en el perfil.
 
 Elige **Save and choose chats…** para guardar. El siguiente paso muestra **New roleplay chats** (o chats de conversación) y tus chats existentes de ese modo. Marca **Make this the default** para usar el perfil en chats nuevos. Marca los chats que deben recibirlo ahora y elige **Apply**.

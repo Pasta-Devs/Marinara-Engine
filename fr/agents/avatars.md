@@ -1,6 +1,6 @@
 # Avatars 2D et 3D
 
-Deux agents téléchargeables donnent à tes personnages et à tes personas (les personnages que tu incarnes) un avatar animé qui réagit pendant qu'une réponse s'affiche. **2D Avatars** (avatars 2D) affiche des sprites façon PNGTuber ou des avatars mesh, et **3D Avatars** (avatars 3D) affiche des modèles VRM et MMD PMX. Un sprite est l'image du personnage sur le plateau ; un avatar mesh est un modèle 2D souple, posé sur un maillage. Les visages suivent la réponse, et les bouches bougent avec le texte ou avec la synthèse vocale.
+Deux agents téléchargeables donnent à tes personnages et à tes personas (les personnages que tu incarnes) un avatar animé qui réagit pendant qu'une réponse s'affiche. **2D Avatars** (avatars 2D) affiche des sprites façon PNGTuber ou des avatars mesh, et **3D Avatars** (avatars 3D) affiche des modèles VRM, MMD PMX, GLB et FBX. Un sprite est l'image du personnage sur le plateau ; un avatar mesh est un modèle 2D souple, posé sur un maillage. Les visages suivent la réponse, et les bouches bougent avec le texte ou avec la synthèse vocale.
 
 Les modèles Live2D ne sont pas pris en charge. La licence de Live2D exige un accord séparé avec Live2D, même pour les applications open source gratuites, et son runtime ne peut pas être livré avec Marinara Engine.
 
@@ -23,7 +23,7 @@ Les agents n'envoient aucune requête supplémentaire à tes connexions d'IA pen
 Les avatars se configurent sur la page de chaque agent. Ouvre **Agents**, ouvre **2D Avatars** ou **3D Avatars**, puis utilise la section **Avatars** près du haut de la page.
 
 1. Dans **Character or persona** (personnage ou persona), choisis qui reçoit l'avatar. Les noms marqués "(has an avatar)" en ont déjà un enregistré.
-2. Dans **Avatar type** (type d'avatar), choisis le type à configurer. 2D Avatars propose **PNGTuber sprites** (sprites PNGTuber) et **Mesh avatar** (avatar mesh). 3D Avatars propose **VRM model** (modèle VRM) et **MMD PMX model** (modèle MMD PMX).
+2. Dans **Avatar type** (type d'avatar), choisis le type à configurer. 2D Avatars propose **PNGTuber sprites** (sprites PNGTuber) et **Mesh avatar** (avatar mesh). 3D Avatars propose **VRM model** (modèle VRM), **MMD PMX model** (modèle MMD PMX) et **GLB or FBX model** (modèle GLB ou FBX).
 3. Configure-le dans la section propre à ce type, sous les interrupteurs : utilise tes sprites ou importe un fichier, choisis le visage de chaque émotion, ou supprime-le. Voir [Avatars 2D](#2d-avatars-pngtuber-sprites-and-mesh-avatars) et [Avatars 3D](#3d-avatars-vrm-models).
 4. Utilise **Preview** (aperçu) pour le voir. **Try a face** (essayer un visage) change d'émotion et **Talk** (parler) fait bouger la bouche. Tant qu'il n'y a rien à montrer, l'aperçu affiche un avatar d'exemple.
 
@@ -102,7 +102,7 @@ Pendant un chat, le modèle te regarde, cligne des yeux tout seul quand il a une
 Certains fichiers ne sont pas utilisables, et l'import indique pourquoi :
 
 - **Modèles compressés.** Les fichiers enregistrés avec la compression Draco ou meshopt, ou avec des textures KTX2, ne se chargent pas. Exporte de nouveau le modèle avec la compression désactivée.
-- **Modèles 3D simples.** Un modèle `.glb` ou `.gltf` sans données VRM n'a ni expressions du visage ni squelette humanoïde. Convertis-le d'abord en VRM, par exemple avec le VRM Add-on for Blender (voir [Créer ton propre modèle](#blender-with-the-vrm-add-on-for-blender)).
+- **Modèles 3D simples.** Un modèle `.glb` ou `.gltf` sans données VRM n'a ni expressions du visage ni squelette humanoïde. Importe plutôt un `.glb` doté d'un squelette d'animation comme **GLB or FBX model** (voir [Avatars GLB et FBX](#glb-and-fbx-avatars-rigged-models)), ou convertis-le en VRM, par exemple avec le VRM Add-on for Blender (voir [Créer ton propre modèle](#blender-with-the-vrm-add-on-for-blender)).
 - **Modèles incomplets.** Un modèle est refusé si son squelette n'a pas tous les os dont VRM a besoin, s'il renvoie à des parties absentes du fichier, ou s'il renvoie à des fichiers extérieurs.
 
 Il n'y a pas d'autre limite de taille que la limite de téléversement habituelle de l'application, mais les gros modèles mettent plus de temps à charger, surtout sur téléphone.
@@ -120,6 +120,18 @@ Sous **VMD motion** (animation VMD), tu peux ajouter un fichier `.vmd` conçu po
 **Fichiers pris en charge.** Les modèles PMX 2.0 et les modèles PMX 2.1 compatibles fonctionnent avec des images PNG, JPEG, BMP et TGA, y compris les fichiers `.sph` et `.spa`. Certaines fonctions récentes de PMX 2.1 ne sont pas prises en charge, et l'import indique pourquoi. Les modèles PMD, les poses VPD et les animations de caméra ou d'éclairage ne sont pas pris en charge. La physique n'est pas simulée, donc les cheveux et les vêtements peuvent avoir un aspect différent de celui de MikuMikuDance. Les modèles ayant plus de 256 chemins d'image, des chemins très longs, des images trop gourmandes en mémoire ou des structures d'animation trop complexes sont refusés. Vérifie le résultat avec ton propre modèle, surtout sur téléphone.
 
 Ton navigateur doit prendre en charge WebGL2. Les avatars MMD utilisent les mêmes commandes de pause, de fréquence d'images et de cadrage que les autres avatars. Les modèles et les images sont chargés uniquement depuis ton instance de Marinara Engine. Respecte les licences et les conditions d'utilisation des auteurs du modèle et de l'animation avant de les utiliser ou de les partager. Importer ou lire un avatar MMD n'envoie rien à un fournisseur d'IA.
+
+<a id="glb-and-fbx-avatars-rigged-models"></a>
+
+## Avatars GLB et FBX : modèles avec squelette d'animation
+
+Sur la page **3D Avatars**, choisis **GLB or FBX model** dans **Avatar type**, sélectionne **Import GLB or FBX** (importer un fichier GLB ou FBX) et choisis un seul fichier `.glb` ou `.fbx` d'un personnage doté d'un squelette d'animation. Un modèle simple n'a pas de données VRM qui indiquent quel os est lequel : l'import reconnaît donc ses os d'après leur nom. Les squelettes de Mixamo, Unity, VRoid, Unreal, Blender, 3ds Max, Maya HumanIK, Character Creator et DAZ utilisent des noms qu'il reconnaît : le mouvement au repos, les poses d'attente et les hochements de tête pendant la parole fonctionnent donc comme avec un VRM. La section indique combien d'os du corps ont été reconnus.
+
+Le modèle doit avoir au moins les hanches, la colonne vertébrale, la tête, les deux bras et les deux avant-bras. Quand l'import ne trouve pas l'un d'eux, il refuse le modèle et indique quels os manquent ; renomme ces os dans ton logiciel 3D ou crée le squelette du modèle avec Mixamo. Les modèles au repos en A-pose (bras écartés en oblique vers le bas), vus de dos ou créés en centimètres sont redressés, retournés et mis à l'échelle pour toi.
+
+Les visages viennent des blend shapes du modèle (clés de forme ou morph targets). Sous **Faces and mouth shapes**, les noms courants sont reconnus automatiquement : les formes de bouche de VRoid, VRChat et Oculus (`aa`, `A`, `viseme_aa`, `Fcl_MTH_A`), une mâchoire ouverte (`mouthOpen`, `jawOpen`), les émotions (`happy`, `Joy`, `mouthSmile`) et le clignement (`blink`, ou une paire gauche et droite comme `eyeBlinkLeft` et `eyeBlinkRight` d'ARKit, qui bougent ensemble). Vérifie l'aperçu et corrige les mauvaises suppositions. Un modèle sans blend shapes bouge quand même le corps et hoche la tête quand il parle.
+
+**Fichiers pris en charge.** Le glTF binaire (`.glb`) avec tout son contenu intégré, et le FBX 2014 (7.4) ou plus récent, binaire ou ASCII. Exporte les fichiers FBX en activant **Embed Media** (intégrer les médias), ou **Embed Textures** (intégrer les textures) : les textures laissées hors du fichier ne sont pas chargées, et le modèle s'affiche alors sans ses images. Les compressions Draco, meshopt et KTX2 ne se chargent pas, et un fichier `.gltf` séparé accompagné de ses propres fichiers n'est pas utilisable. Un VRM enregistré en `.glb` se place sous **VRM model**, qui lit ses visages et ses conditions. Les animations propres au modèle, la physique et l'édition de pose ne sont pas prises en charge. Respecte les conditions de l'auteur du modèle avant de l'utiliser ou de le partager. Importer ou lire un avatar GLB ou FBX n'envoie rien à un fournisseur d'IA.
 
 <a id="get-a-3d-model"></a>
 
@@ -293,7 +305,7 @@ Tu n'as rien à dessiner pour commencer. Un personnage ou un persona peut utilis
 ### Ce qu'il faut éviter à l'export
 
 - **Compression.** La compression de maillage Draco ou meshopt et les textures KTX2 ne se chargent pas. Les exports VRM ci-dessus ne les utilisent jamais, mais l'export glTF simple de Blender propose Draco, et les optimiseurs de modèles peuvent ajouter les trois. Exporte de nouveau avec la compression désactivée.
-- **glTF simple.** Un fichier `.glb` ou `.gltf` simple n'a pas les données VRM qui nomment ses visages et son squelette. Exporte plutôt un fichier `.vrm`.
+- **glTF simple.** Un fichier `.glb` simple n'a pas les données VRM qui nomment ses visages et son squelette. Importe-le plutôt comme **GLB or FBX model** (voir [Avatars GLB et FBX](#glb-and-fbx-avatars-rigged-models)), ou exporte un fichier `.vrm` pour garder les visages et les conditions VRM.
 - **Fichiers séparés.** Un modèle dont les textures ou les données sont dans des fichiers séparés n'est pas utilisable. Exporte un seul fichier `.vrm`.
 - **Extras de PNGTuber Plus.** L'oscillation, le traînage et l'animation ne sont pas repris : chaque calque s'affiche au repos, et un calque animé affiche sa première image.
 

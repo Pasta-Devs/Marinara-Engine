@@ -838,3 +838,16 @@ Precedents from the #8464 and #8603 catch-up against Engine `staging` `6d96cf919
 - Status strings run unglossed (Pattern B): **Needs key**, **Off**, **Follows Main**, **Choose a model**, **Needs an image model**, **Connected**. **Choose a model** is a Jobs-row status here, so it stays bare even though the button of the same name is glossed (मॉडल चुनें) (2026-10-11). Put the verb after a quoted status, in Hindi order: `स्टेप में **No key needed. Marinara uses the login on this computer.** लिखा होता है।` (`connections/subscription-clis.md:47`).
 
 These are translation choices, not a new native-reader review.
+
+## Faceted sprites, GLB/FBX avatars and profile pickers (2026-11-01)
+
+Precedents from the #8654 / #8657 catch-up and the profile-builder rewrite (#8646) against Engine `staging` `7450d4e70`:
+
+- Extra words in a sprite name are **शब्द** added after the expression, most important first (`characters/sprites.md`). "Outfit or condition" is **आउटफ़िट या हालत**, a full sprite name is **पूरा नाम**, and a trailing `_01` is **आखिर में लगा नंबर** that marks **एक और रूप**. English never says "facet", so no term is coined for it.
+- Rigged is **रिग किया हुआ** (verb **रिग करना**, noun **रिग**), after the file's existing रिग in `agents/avatars.md`. The heading is `## GLB और FBX अवतार: रिग किए हुए मॉडल` under `<a id="glb-and-fbx-avatars-rigged-models">`, and link text is **GLB और FBX अवतार**. A bone is **हड्डी**, feminine (`हड्डियाँ होनी चाहिए`), glossed (बोन) at its first mention in the new section as the file already does for VRM bones. Hips, spine and arms are कूल्हे, रीढ़ and बाँहें.
+- A blend shape is **ब्लेंड शेप**; shape keys and morph targets are **शेप कुंजी** (the file's Blender word) and **मॉर्फ़ टारगेट**. An A-pose is **A-पोज़**, after the file's T-पोज़. A 3D app is **3D ऐप**, centimetres are **सेंटीमीटर** and an open jaw is **खुला जबड़ा**.
+- Coined glosses, recheck when `ui/hi.json` ships `avatars.setup.kind.glbFbx` and `avatars.glbFbx.import`: **GLB or FBX model** (GLB या FBX मॉडल) and **Import GLB or FBX** (GLB या FBX इंपोर्ट करें), after **VRM model** (VRM मॉडल) and **Import PMX or ZIP** (PMX या ZIP इंपोर्ट करें). **Faces and mouth shapes** keeps (चेहरे और मुँह के आकार) and runs bare in the new section.
+- **Embed Media** and **Embed Textures** are FBX exporter options in a third-party app and stay unglossed, like the file's Blender labels. Embedded is **एम्बेड**.
+- Profile builder (`chats/settings-profiles.md`): **Tools** (टूल) matches `chat.settingsProfile.builder.slot.tool`. **Clear selection** (चुनाव साफ़ करें) and **None** (कोई नहीं) copy the shipped strings of other keys with the same English (`ui.chat.summarypopover.clearSelection`, `avatars.vrm.expressions.none`). The builder's own `chat.settingsProfile.builder.clear` and `.none` have no Hindi value yet, so recheck them. Checkboxes are **चेकबॉक्स**, a library sidebar is **लाइब्रेरी साइडबार**, and desktop is **डेस्कटॉप**. "Hold Ctrl (Command on macOS)" is `Ctrl (macOS पर Command) दबाकर रखें`, and picking several items is `कई चीज़ें चुनना`. A field is **फ़ील्ड**, feminine per §6 (`मेल खाती फ़ील्ड`, `एक ही चीज़ वाली फ़ील्ड`), although the pack still split वाली/वाले फ़ील्ड 15/13 before this change.
+
+These are translation choices, not a new native-reader review.

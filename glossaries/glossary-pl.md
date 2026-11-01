@@ -1198,3 +1198,52 @@ Precedents from the #8464 and #8603 catch-up against Engine `staging` `6d96cf919
 
 These are documented choices for this catch-up, not a claim of independent
 native-reader review.
+
+## Faceted sprites, GLB/FBX avatars and profile pickers (2026-11-01)
+
+Precedents from the #8654 / #8657 / chat-profiles (`10d6d34e08`) catch-up against Engine `staging` `7450d4e70`:
+
+- Faceted sprite names (`characters/sprites.md`): the extra words are **kolejne
+  słowa** written after the **wyraz twarzy**; *outfit or condition* is "strój albo
+  stan postaci". No noun was coined for *facet* or *faceted name*. *A `happy_pajamas`
+  sprite* is "sprite `happy_pajamas`" and *any happy sprite* "dowolny sprite happy",
+  like the file's "warianty happy".
+- A *rig* is **układ kości**, as the MMD paragraph already had it ("nadmiernie
+  złożonym układem kości"); *rigged* is **z układem kości** ("model `.glb` z układem
+  kości", heading `## Awatary GLB i FBX: modele z układem kości`), and *rig the model
+  with Mixamo* is "nadaj modelowi układ kości w serwisie Mixamo" (cf. "Nadaj modelowi
+  humanoidalny szkielet"). *Bone* stays **kość** (kości), as in `agents/avatars.md`;
+  R-90's dice *kość* is a different sense, kept apart by context. Third-party rig
+  sources take carriers (R-13): "z programów i serwisów Mixamo, Unity, …", "w
+  konwencji VRoid, VRChat i Oculus", "w konwencji ARKit".
+- *Blend shapes* are **blend shape'y** (blend shape'ów, R-97/R-122), introduced as
+  "(nazywanych też shape keys albo morph targets)"; those two stay undeclined, like
+  the file's "poruszać shape key". *A-pose* is **poza A (A-pose)**, after "w pozie T
+  (T-pose)"; *waiting poses* keep **pozy oczekiwania**; *talking nods* are "kiwanie
+  głową przy mówieniu".
+- The new heading carries `<a id="glb-and-fbx-avatars-rigged-models"></a>` (2026-10-14
+  pattern); link text "Awatary GLB i FBX", like "Awatary 3D".
+- Glosses: **GLB or FBX model** *(model GLB lub FBX)*, after **MMD PMX model**
+  *(model MMD PMX)*; **Import GLB or FBX** *(import pliku GLB lub FBX)*, after
+  **Import PMX or ZIP**. **Faces and mouth shapes** and **Avatar type** were already
+  glossed earlier in the file and stay bare. The FBX exporter options **Embed Media**
+  and **Embed Textures** are another app's labels and stay unglossed, like
+  **Get Extensions** and **Preferences** (Blender).
+- Profile builder (`chats/settings-profiles.md`): a *slot* and the drop target
+  *field* are both **pole**, as the file already called slots; *a single-item field*
+  is "pole na jeden element". The **Tools** slot is glossed *(narzędzia)*;
+  *multi-select* is described ("przytrzymaj Ctrl (w systemie macOS Command), żeby
+  wybrać kilka elementów"); *selection controls* are **kontrolki zaznaczania**; a
+  *library sidebar* is **pasek boczny biblioteki**. **Clear selection** is glossed
+  *(wyczyszczenie zaznaczenia)*, a verbal noun (R-127) from "Wyczyść zaznaczenie"
+  of the other `clearSelection` keys; **None** keeps *(brak)*, as in
+  `agents/avatars.md`, the lowercase word of `avatars.vrm.expressions.none` "Brak".
+- Coined glosses, to recheck when the UI pack ships the keys: `ui/pl.json` has no
+  value for `avatars.glbFbx.*`, `avatars.setup.kind.glbFbx`,
+  `chat.settingsProfile.builder.clear` or `chat.settingsProfile.builder.none`, so
+  *(model GLB lub FBX)*, *(import pliku GLB lub FBX)* and *(wyczyszczenie
+  zaznaczenia)* were set here, and *(brak)* was carried over. *(narzędzia)* is the
+  lowercase word of `chat.settingsProfile.builder.slot.tool` "Narzędzia" (R-112).
+
+These are documented choices for this catch-up, not a claim of independent
+native-reader review.

@@ -49,6 +49,8 @@
 
 想给同一个表情做多个版本，就让下划线前面的名字保持一致。比如 `happy_01.png` 和 `happy_blush.png` 都算 happy 的变体。
 
+想让 Expression Engine 还能按服装或状态来挑，就在表情名后面再加几个词，最重要的放在最前面。比如用 `happy_pajamas.png` 或 `angry_formalwear_soaked_01.png`。末尾的数字，比如 `_01`，只表示同一张图的另一个版本。多张立绘共用一个表情时，智能体既能看到表情名（`happy`），也能看到它们的完整名称（`happy_pajamas`）。没有哪张立绘包含要求的每一个词时，先去掉最后一个词。没有 `happy_pajamas_wounded` 时，就用 `happy_pajamas` 立绘，再没有就用任意一张 happy 立绘。
+
 ### 管理一张立绘
 
 打开一张角色立绘，就能看到它的预览和操作按钮。用户角色立绘的操作按钮仍然在缩略图上：

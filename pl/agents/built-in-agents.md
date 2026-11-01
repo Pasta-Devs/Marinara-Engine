@@ -187,6 +187,7 @@ W grupie Roleplay w trybie Merged jego obecne postacie mogą też ustawiać, kt�
   - **Beholder local model — five passes** (lokalny model Beholder – pięć przebiegów): pięć wąskich wywołań, po jednym na obszar śledzenia, do specjalnie wytrenowanego ekstraktora [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) uruchomionego lokalnie (np. `Beholder-Q8_0.gguf` przez koboldcpp lub llama.cpp). Model wytrenowano do odpowiadania na jeden obszar naraz, więc szablon jednego promptu odbiega od treningu i zwraca częściowy stan. Engine łączy pięć wyników w jedną aktualizację. Działa całkowicie offline i bez opłat.
 
   Beholder nie wykrywa modelu za połączeniem, więc wybór pozostaje ręczny. Niedopasowanie nie powoduje awarii, ale pogarsza ekstrakcję: model SOTA obsługuje oba szablony, a model lokalny wymaga pięciu przebiegów.
+
 - **Pochodzenie**: dostosowano do natywnego środowiska Agent w Engine na podstawie projektu [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), objętego wyłącznie licencją AGPL-3.0. Oficjalny pakiet nie ładuje DOM, odpytywania ani środowiska pamięci lokalnej ze starszego rozszerzenia.
 
 ### Persona Stats
@@ -355,7 +356,7 @@ Pokazuje twoje postacie i persony jako animowane awatary 2D, które mrugają, m�
 
 ### 3D Avatars
 
-Pokazuje twoje postacie i persony jako animowane modele 3D, które mrugają, mówią i zmieniają minę przy każdej odpowiedzi. Korzysta z modeli VRM (`.vrm`, w wersjach 0.x i 1.0) z opcjonalną animacją spoczynkową (`.vrma`).
+Pokazuje twoje postacie i persony jako animowane modele 3D, które mrugają, mówią i zmieniają minę przy każdej odpowiedzi. Korzysta z modeli VRM (`.vrm`, w wersjach 0.x i 1.0) z opcjonalną animacją spoczynkową (`.vrma`), modeli MMD PMX oraz modeli GLB i FBX z układem kości, w których kości są dopasowywane po nazwach.
 
 - **Integracja**: pakiet agenta – silnik go uruchamia i rysuje awatary. Podczas czatu nie wysyła żadnych dodatkowych zapytań do twoich połączeń AI.
 - **Gdzie działa**: Roleplay i Game, dla postaci i person.

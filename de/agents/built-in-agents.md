@@ -185,6 +185,7 @@ Erfasst für jeden Charakter die aktuelle Kleidung nach Körperbereich, gehalten
   - **Beholder local model — five passes** (lokales Beholder-Modell, fünf Durchläufe): Fünf eng gefasste Aufrufe, je einer pro Erfassungsbereich, für den gezielt trainierten lokalen [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF)-Extraktor, etwa `Beholder-Q8_0.gguf` hinter koboldcpp oder llama.cpp. Das Modell wurde auf jeweils einen Bereich trainiert; die Einzel-Prompt-Vorlage liegt außerhalb dieser Trainingsaufgabe und liefert nur einen Teilzustand. Die Engine führt die fünf Bereichsergebnisse zu einem Update zusammen. Das läuft vollständig offline und kostenlos.
 
   Beholder erkennt das Modell hinter einer Verbindung nicht; die Auswahl bleibt manuell. Eine falsche Zuordnung ist nicht fatal, verschlechtert aber die Extraktion: Ein SOTA-Modell bewältigt beide Vorlagen, das lokale Modell braucht die fünf Durchläufe.
+
 - **Ursprung**: Für die native Agent-Laufzeit der Engine aus [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME) übernommen, lizenziert ausschließlich unter AGPL-3.0. Das offizielle Paket lädt weder DOM noch Polling- oder Local-Storage-Laufzeit der alten Erweiterung.
 
 ### Persona Stats
@@ -353,7 +354,7 @@ Zeigt deine Charaktere und Personas als animierte 2D-Avatare, die blinzeln, spre
 
 ### 3D Avatars
 
-Zeigt deine Charaktere und Personas als animierte 3D-Modelle, die blinzeln, sprechen und mit jeder Antwort das Gesicht wechseln. Dafür nutzt der Agent VRM-Modelle (`.vrm`, Versionen 0.x und 1.0) mit einer optionalen Idle-Animation (`.vrma`).
+Zeigt deine Charaktere und Personas als animierte 3D-Modelle, die blinzeln, sprechen und mit jeder Antwort das Gesicht wechseln. Dafür nutzt der Agent VRM-Modelle (`.vrm`, Versionen 0.x und 1.0) mit einer optionalen Idle-Animation (`.vrma`), MMD-PMX-Modelle sowie geriggte GLB- und FBX-Modelle, deren Knochen über ihre Namen zugeordnet werden.
 
 - **Integration**: Agent-Paket; die Engine führt es aus und zeichnet die Avatare. Während du chattest, schickt es keine zusätzlichen Anfragen an deine KI-Verbindungen.
 - **Wo es funktioniert**: Roleplay und Game, für Charaktere und Personas.

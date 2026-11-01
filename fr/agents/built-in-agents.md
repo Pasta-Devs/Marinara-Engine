@@ -185,6 +185,7 @@ Suit les vêtements actuels de chaque personnage, par zone du corps, ainsi que l
   - **Beholder local model — five passes** (modèle local Beholder – cinq passes) : cinq appels ciblés, un par catégorie suivie, pour l'extracteur [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF), spécialement entraîné et exécuté localement (par exemple `Beholder-Q8_0.gguf` derrière koboldcpp ou llama.cpp). Ce modèle est entraîné pour répondre à une catégorie à la fois ; le modèle de prompt unique sort donc de son cadre d'entraînement et renvoie un état partiel. Engine réunit les cinq résultats en une seule mise à jour. Il fonctionne entièrement hors ligne et sans frais.
 
   Beholder ne peut pas détecter le modèle derrière une connexion ; le choix reste donc manuel. Une discordance n'est pas fatale, mais dégrade l'extraction : un modèle SOTA accepte les deux modèles de prompt, tandis que le modèle local nécessite celui à cinq passes.
+
 - **Origine** : adapté à l'environnement Agent natif d'Engine à partir de [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), sous licence AGPL-3.0-only. Le package officiel ne charge ni le DOM, ni le polling, ni l'environnement de stockage local de l'ancienne extension.
 
 ### Persona Stats
@@ -353,7 +354,7 @@ Affiche tes personnages et tes personas sous forme d'avatars 2D animés qui clig
 
 ### 3D Avatars
 
-Affiche tes personnages et tes personas sous forme de modèles 3D animés qui clignent des yeux, parlent et changent de visage à chaque réponse. Il utilise des modèles VRM (`.vrm`, versions 0.x et 1.0), avec une animation au repos facultative (`.vrma`).
+Affiche tes personnages et tes personas sous forme de modèles 3D animés qui clignent des yeux, parlent et changent de visage à chaque réponse. Il utilise des modèles VRM (`.vrm`, versions 0.x et 1.0) avec une animation au repos facultative (`.vrma`), des modèles MMD PMX, et des modèles GLB et FBX dotés d'un squelette d'animation, dont les os sont reconnus d'après leur nom.
 
 - **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
 - **Où ça marche** : Roleplay et Game, pour les personnages et les personas.

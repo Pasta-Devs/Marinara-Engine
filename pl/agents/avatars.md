@@ -1,6 +1,6 @@
 # Awatary 2D i 3D
 
-Dwaj agenci do pobrania dają twoim postaciom i personom animowany awatar, który reaguje, gdy odpowiedź się streamuje. **2D Avatars** (awatary 2D) pokazuje sprite'y w stylu PNGTuber albo awatary mesh, a **3D Avatars** (awatary 3D) pokazuje modele VRM i MMD PMX. Miny podążają za odpowiedzią, a usta poruszają się zgodnie z tekstem albo z syntezą mowy.
+Dwaj agenci do pobrania dają twoim postaciom i personom animowany awatar, który reaguje, gdy odpowiedź się streamuje. **2D Avatars** (awatary 2D) pokazuje sprite'y w stylu PNGTuber albo awatary mesh, a **3D Avatars** (awatary 3D) pokazuje modele VRM, MMD PMX, GLB i FBX. Miny podążają za odpowiedzią, a usta poruszają się zgodnie z tekstem albo z syntezą mowy.
 
 Modele Live2D nie są obsługiwane. Licencja Live2D wymaga osobnej umowy z firmą Live2D nawet w przypadku darmowych aplikacji open source, a środowiska uruchomieniowego Live2D nie można dołączyć do aplikacji Marinara Engine.
 
@@ -23,7 +23,7 @@ Podczas czatu agenci nie wysyłają żadnych dodatkowych zapytań do twoich poł
 Awatary konfiguruje się na własnej stronie każdego agenta. Otwórz panel **Agents**, otwórz **2D Avatars** albo **3D Avatars** i skorzystaj z sekcji **Avatars** (awatary) u góry strony.
 
 1. W polu **Character or persona** (postać lub persona) wybierz, kto dostanie awatar. Nazwy oznaczone "(has an avatar)" mają już zapisany awatar.
-2. W polu **Avatar type** (typ awatara) wybierz rodzaj do skonfigurowania. 2D Avatars oferuje **PNGTuber sprites** (sprite'y PNGTuber) i **Mesh avatar** (awatar mesh). 3D Avatars oferuje **VRM model** (model VRM) i **MMD PMX model** (model MMD PMX).
+2. W polu **Avatar type** (typ awatara) wybierz rodzaj do skonfigurowania. 2D Avatars oferuje **PNGTuber sprites** (sprite'y PNGTuber) i **Mesh avatar** (awatar mesh). 3D Avatars oferuje **VRM model** (model VRM), **MMD PMX model** (model MMD PMX) i **GLB or FBX model** (model GLB lub FBX).
 3. Skonfiguruj go we własnej sekcji tego typu pod przełącznikami: użyj swoich sprite'ów albo zaimportuj plik, wybierz minę dla każdej emocji albo usuń awatar. Zobacz [Awatary 2D](#2d-avatars-pngtuber-sprites-and-mesh-avatars) i [Awatary 3D](#3d-avatars-vrm-models).
 4. Obejrzyj go w sekcji **Preview** (podgląd). **Try a face** (wypróbowanie miny) przełącza emocje, a **Talk** (mówienie) porusza ustami. Gdy nie ma jeszcze nic do pokazania, podgląd wyświetla przykładowy awatar.
 
@@ -102,7 +102,7 @@ W trakcie czatu model patrzy na ciebie, sam mruga, jeśli ma ekspresję mrugnię
 Niektórych plików nie da się użyć, a import podaje powód:
 
 - **Skompresowane modele.** Pliki zapisane z kompresją Draco lub meshopt albo z teksturami KTX2 się nie wczytują. Wyeksportuj model ponownie z wyłączoną kompresją.
-- **Zwykłe modele 3D.** Model `.glb` lub `.gltf` bez danych VRM nie ma ekspresji twarzy ani humanoidalnego szkieletu. Najpierw przekonwertuj go do formatu VRM, na przykład rozszerzeniem VRM dla programu Blender (zobacz [Tworzenie własnego modelu](#blender-with-the-vrm-add-on-for-blender)).
+- **Zwykłe modele 3D.** Model `.glb` lub `.gltf` bez danych VRM nie ma ekspresji twarzy ani humanoidalnego szkieletu. Model `.glb` z układem kości zaimportuj zamiast tego jako **GLB or FBX model** (zobacz [Awatary GLB i FBX](#glb-and-fbx-avatars-rigged-models)) albo przekonwertuj go do formatu VRM, na przykład rozszerzeniem VRM dla programu Blender (zobacz [Tworzenie własnego modelu](#blender-with-the-vrm-add-on-for-blender)).
 - **Niekompletne modele.** Model, którego szkielet nie ma kości wymaganych przez VRM albo wskazuje części, których nie ma w pliku, a także model wskazujący pliki poza sobą, zostaje odrzucony.
 
 Poza zwykłym limitem wgrywania w aplikacji nie ma limitu rozmiaru, ale duże modele wczytują się dłużej, zwłaszcza na telefonach.
@@ -120,6 +120,18 @@ W sekcji **VMD motion** (animacja VMD) możesz dodać plik `.vmd` przygotowany d
 **Obsługiwane pliki.** Działają modele PMX 2.0 i zgodne modele PMX 2.1 z obrazkami PNG, JPEG, BMP i TGA, także w plikach `.sph` i `.spa`. Niektóre nowsze funkcje PMX 2.1 nie są obsługiwane, a import podaje powód. Modele PMD, pozy VPD oraz animacje kamery i światła nie są obsługiwane. Fizyka nie jest symulowana, więc włosy i ubrania mogą wyglądać inaczej niż w programie MikuMikuDance. Modele z ponad 256 ścieżkami do obrazków, bardzo długimi ścieżkami, obrazkami wymagającymi zbyt wiele pamięci albo nadmiernie złożonym układem kości są odrzucane. Sprawdź wynik na własnym modelu, zwłaszcza na telefonie.
 
 Przeglądarka musi obsługiwać WebGL2. Awatary MMD korzystają z tych samych ustawień pauzy, liczby klatek i kadru co pozostałe awatary. Modele i obrazki wczytują się tylko z twojej aplikacji Marinara Engine. Przed użyciem lub udostępnieniem przestrzegaj licencji i warunków twórców modelu i animacji. Importowanie i odtwarzanie awatara MMD nie wysyła niczego do dostawcy AI.
+
+<a id="glb-and-fbx-avatars-rigged-models"></a>
+
+## Awatary GLB i FBX: modele z układem kości
+
+Na stronie **3D Avatars** wybierz **GLB or FBX model** w polu **Avatar type**, wybierz **Import GLB or FBX** (import pliku GLB lub FBX) i wskaż jeden plik `.glb` albo `.fbx` z postacią, która ma układ kości. Zwykły model nie ma danych VRM, które mówią, która kość jest która, więc import dopasowuje jego kości po nazwach. Układy kości z programów i serwisów Mixamo, Unity, VRoid, Unreal, Blender, 3ds Max, Maya HumanIK, Character Creator i DAZ używają nazw, które import rozpoznaje, więc działa ten sam ruch w spoczynku, te same pozy oczekiwania i to samo kiwanie głową przy mówieniu co w modelu VRM. Sekcja pokazuje, ile kości ciała udało się dopasować.
+
+Model musi mieć co najmniej biodra, kręgosłup, głowę oraz oba ramiona i przedramiona. Gdy import nie znajdzie którejś z tych kości, odrzuca model i podaje, których kości brakuje; zmień nazwy tych kości w swoim programie 3D albo nadaj modelowi układ kości w serwisie Mixamo. Modele stojące w pozie A (A-pose), zwrócone tyłem albo wykonane w centymetrach są automatycznie prostowane, obracane i skalowane.
+
+Miny pochodzą z blend shape'ów modelu (nazywanych też shape keys albo morph targets). W sekcji **Faces and mouth shapes** typowe nazwy są dopasowywane automatycznie: kształty ust w konwencji VRoid, VRChat i Oculus (`aa`, `A`, `viseme_aa`, `Fcl_MTH_A`), otwarta szczęka (`mouthOpen`, `jawOpen`), emocje (`happy`, `Joy`, `mouthSmile`) i mruganie (`blink` albo para dla lewego i prawego oka, na przykład `eyeBlinkLeft` i `eyeBlinkRight` w konwencji ARKit, które poruszają się razem). Sprawdź podgląd i popraw nietrafione dopasowania. Model bez blend shape'ów nadal porusza ciałem i kiwa głową, gdy mówi.
+
+**Obsługiwane pliki.** Binarny glTF (`.glb`) ze wszystkim osadzonym w pliku oraz FBX 2014 (7.4) lub nowszy, w wersji binarnej albo ASCII. Wyeksportuj pliki FBX z włączoną opcją **Embed Media** (albo **Embed Textures**): tekstury pozostawione poza plikiem się nie wczytują, więc model pokazuje się bez swoich obrazków. Pliki z kompresją Draco, meshopt lub KTX2 się nie wczytują, a osobnego pliku `.gltf` z własnymi plikami nie da się użyć. Model VRM zapisany jako `.glb` importuje się w sekcji **VRM model**, która odczytuje jego miny i warunki. Własne animacje modelu, fizyka i edycja pozy nie są obsługiwane. Przed użyciem lub udostępnieniem modelu przestrzegaj warunków jego autora. Importowanie i odtwarzanie awatara GLB lub FBX nie wysyła niczego do dostawcy AI.
 
 <a id="get-a-3d-model"></a>
 
@@ -293,7 +305,7 @@ Na początek nie musisz niczego rysować. Postać lub persona może używać swo
 ### Czego unikać przy eksporcie
 
 - **Kompresja.** Kompresja siatki Draco lub meshopt i tekstury KTX2 się nie wczytują. Opisane wyżej eksporty VRM nigdy ich nie używają, ale zwykły eksport glTF w programie Blender oferuje Draco, a optymalizatory modeli mogą dodać wszystkie trzy. Wyeksportuj model ponownie z wyłączoną kompresją.
-- **Zwykły glTF.** Zwykły plik `.glb` lub `.gltf` nie ma danych VRM, które nazywają jego miny i szkielet. Wyeksportuj zamiast tego plik `.vrm`.
+- **Zwykły glTF.** Zwykły plik `.glb` nie ma danych VRM, które nazywają jego miny i szkielet. Zaimportuj go zamiast tego jako **GLB or FBX model** (zobacz [Awatary GLB i FBX](#glb-and-fbx-avatars-rigged-models)) albo wyeksportuj plik `.vrm`, żeby zachować miny i warunki VRM.
 - **Osobne pliki.** Nie da się użyć modelu, którego tekstury lub dane leżą w osobnych plikach. Wyeksportuj jeden plik `.vrm`.
 - **Efekty PNGTuber Plus.** Kołysanie (wobble), opóźnienie (drag) i animacja nie są przenoszone: każda warstwa jest pokazywana w spoczynku, a warstwa animowana pokazuje pierwszą klatkę.
 

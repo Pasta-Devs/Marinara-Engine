@@ -49,6 +49,8 @@ Las subcarpetas se convierten en carpetas de sprites opcionales. Un `catalog.jso
 
 Para hacer varias versiones de la misma expresión, comparte un nombre antes de un guion bajo. Por ejemplo, `happy_01.png` y `happy_blush.png` cuentan ambos como variantes de happy.
 
+Para que el agente Expression Engine también pueda elegir según el atuendo o el estado, añade más palabras después de la expresión, de la más importante a la menos importante. Por ejemplo, usa `happy_pajamas.png` o `angry_formalwear_soaked_01.png`. Un número final como `_01` solo marca otra versión de la misma imagen. Cuando varios sprites comparten una expresión, el agente ve tanto la expresión (`happy`) como sus nombres completos (`happy_pajamas`). Cuando ningún sprite tiene todas las palabras pedidas, primero se quita la última palabra. Si no hay `happy_pajamas_wounded`, se usa un sprite `happy_pajamas` y, después, cualquier sprite happy.
+
 ### Gestionar un sprite
 
 Abre un sprite de personaje para previsualizarlo y ver sus acciones. Los sprites de persona mantienen sus acciones en la miniatura:

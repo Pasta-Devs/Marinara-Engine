@@ -187,6 +187,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
   - **Beholder local model — five passes**(Beholder 本地模型，五次处理)：为本地运行的专门训练的 [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) 提取模型，每个追踪类别执行一次范围较窄的调用，共五次，例如通过 koboldcpp 或 llama.cpp 运行的 `Beholder-Q8_0.gguf`。该模型训练时每次只回答一个类别，因此单提示词模板偏离其训练分布，只会返回部分状态。Engine 将五个类别的结果合并成一次更新。完全离线且免费。
 
   Beholder 无法检测连接后面是哪种模型，因此必须手动选择。选错不会造成致命错误，但会降低提取质量：高性能模型能处理两种模板，本地模型则需要五次处理版本。
+
 - **来源**：根据采用 AGPL-3.0-only 许可证的 [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME) 改编到 Engine 的原生 Agent 运行时。官方包不会加载旧扩展的 DOM、轮询或本地存储运行时。
 
 ### Persona Stats
@@ -355,7 +356,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 ### 3D Avatars
 
-把你的角色和用户角色显示为会动的 3D 模型，它们会眨眼、说话，并随每条回复变换表情。它使用 VRM 模型（`.vrm`，0.x 和 1.0 版本），还可以配一个待机动画（`.vrma`）。
+把你的角色和用户角色显示为会动的 3D 模型，它们会眨眼、说话，并随每条回复变换表情。它使用 VRM 模型（`.vrm`，0.x 和 1.0 版本），还可以配一个待机动画（`.vrma`）；也使用 MMD PMX 模型，以及已绑定骨骼、按名称匹配骨骼的 GLB 和 FBX 模型。
 
 - **集成方式**：智能体包；由 Engine 运行它并绘制虚拟形象。聊天时它不会向你的 AI 连接发送额外请求。
 - **适用范围**：Roleplay 和 Game，适用于角色和用户角色。
