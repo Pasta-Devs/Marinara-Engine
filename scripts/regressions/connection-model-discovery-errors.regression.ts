@@ -6,7 +6,8 @@ import { createConnectionsStorage } from "../../packages/server/src/services/sto
 import { createFileNativeDB } from "../../packages/server/src/db/file-backed-store.js";
 
 const provider = createServer((request, response) => {
-  const valid = request.headers.authorization === "Bearer valid-key";
+  const valid =
+    request.headers.authorization === "Bearer valid-key" || request.headers["xi-api-key"] === "valid-key";
   response.writeHead(valid ? 200 : 401, { "content-type": "application/json" });
   response.end(JSON.stringify(valid ? { data: [{ id: "fixture-model" }] } : { error: "Invalid API key" }));
 });
