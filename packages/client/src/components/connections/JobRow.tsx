@@ -58,6 +58,7 @@ export function JobRow({
   tile,
   hint,
   trailing,
+  end,
   className,
   ...button
 }: {
@@ -66,6 +67,8 @@ export function JobRow({
   hint?: string;
   /** Shown at the row end inside the row button, such as a chevron: non-interactive content only. */
   trailing?: ReactNode;
+  /** Sibling controls after the row button, such as a settings gear. */
+  end?: ReactNode;
   /** Goes on the row's outer element, such as an open state. */
   className?: string;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title" | "className"> & {
@@ -101,11 +104,14 @@ export function JobRow({
       <ModelRow
         {...button}
         end={
-          tile.warning?.fix && (
-            <button type="button" onClick={tile.warning.fix.run} className={cn(SMALL_ACTION, "shrink-0")}>
-              {tile.warning.fix.label}
-            </button>
-          )
+          <>
+            {tile.warning?.fix && (
+              <button type="button" onClick={tile.warning.fix.run} className={cn(SMALL_ACTION, "shrink-0")}>
+                {tile.warning.fix.label}
+              </button>
+            )}
+            {end}
+          </>
         }
         aria-describedby={hint ? hintId : undefined}
         rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
