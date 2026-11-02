@@ -2898,25 +2898,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           maxContext: conn.maxContext,
         });
         const routingKnownModel = findKnownModel(conn.provider as APIProvider, conn.model.trim());
-        const routingChatProvider = withConnectionFallbackProvider({
-          primary: createLLMProvider(
-            conn.provider,
-            baseUrl,
-            conn.apiKey,
-            conn.maxContext,
-            conn.openrouterProvider,
-            conn.maxTokensOverride,
-            conn.claudeFastMode === "true",
-            conn.treatAsLocalEndpoint === "true",
-            conn.defaultParameters,
-          ),
-          primaryConnectionId: connId ?? conn.id,
-          primaryConnectionName: conn.name,
-          fallbackConnection: mainFallbackConnection,
-          fallbackBaseUrl: mainFallbackBaseUrl,
-          category: "main",
-          onFallback,
-        });
+        // Unwrapped: agent resolution adds the reply's fallback (chatConnectionMainFallback) and the retry layer
+        // once. A wrapped provider got them twice, so a failed routing prompt reached the fallback twice and each
+        // 429 retry ran inside another one.
+        const routingChatProvider = createLLMProvider(
+          conn.provider,
+          baseUrl,
+          conn.apiKey,
+          conn.maxContext,
+          conn.openrouterProvider,
+          conn.maxTokensOverride,
+          conn.claudeFastMode === "true",
+          conn.treatAsLocalEndpoint === "true",
+          conn.defaultParameters,
+        );
         const routingAgentTypes = new Set(eligibleCharacterActivityConfigs.map((config) => config.type));
         const { resolvedAgents: characterActivityAgents, agentConnectionWarnings } = await resolveAgentPipelineAgents({
           connections,
@@ -2946,6 +2941,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatCachingAtDepth: conn.cachingAtDepth ?? 5,
           activeMusicPlayerSource,
           chatMetadata: chatMeta,
+          chatConnectionMainFallback: { connection: mainFallbackConnection, connectionName: conn.name },
           onFallback,
           resolveBaseUrl,
         });
