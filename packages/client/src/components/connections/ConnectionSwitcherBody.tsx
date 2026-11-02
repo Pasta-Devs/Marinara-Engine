@@ -1502,7 +1502,8 @@ export function ConnectionSwitcherBody({
       aria-label={nowLabel}
       className={cn(
         "mx-2 mt-2 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] p-1",
-        drilled && !searching && "@max-xl:hidden",
+        // In Shuffle the pool list has no Back, so the strip with the dice stays the way out.
+        drilled && !searching && !shuffle?.active && "@max-xl:hidden",
       )}
     >
       <div className="flex items-center gap-1">
