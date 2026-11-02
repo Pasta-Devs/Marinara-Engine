@@ -1043,8 +1043,10 @@ function WizardLoading({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ponytail: session-only and never pruned; a chat id per new chat is a few bytes.
-const autoDefaultsAppliedChatIds = new Set<string>();
+// Pre-defaults snapshot per chat whose saved defaults were auto-applied. A remounted wizard (back from an editor)
+// reuses it, so it neither re-applies defaults over newer picks nor resets to the already-defaulted chat.
+// ponytail: session-only and never pruned; one small entry per new chat.
+const autoDefaultsBaselines = new Map<string, ChatWizardDefaults>();
 
 function SavedChatSetupWizard({
   chat,
@@ -1055,8 +1057,10 @@ function SavedChatSetupWizard({
   const mode = chat.mode === "conversation" ? "conversation" : "roleplay";
   const queryClient = useQueryClient();
   // The cached chat already holds a just-applied profile even when this render's prop does not yet.
-  const [initial] = useState(() =>
-    captureChatWizardDefaults(queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat),
+  const [initial] = useState(
+    () =>
+      autoDefaultsBaselines.get(chat.id) ??
+      captureChatWizardDefaults(queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat),
   );
   const saved = useUIStore((state) => state.chatWizardDefaults[mode]);
   const settingsSyncReady = useUIStore((state) => state.settingsSyncReady);
@@ -1106,8 +1110,7 @@ function SavedChatSetupWizard({
 
   useEffect(() => {
     if (!settingsSyncReady || initialApplyDone.current) return;
-    if (!saved || autoDefaultsAppliedChatIds.has(chat.id)) {
-      // A remount (the wizard came back from an editor) must not apply saved defaults over picks made since.
+    if (!saved || autoDefaultsBaselines.has(chat.id)) {
       initialApplyDone.current = true;
       setDefaultsApplied(Boolean(saved));
       setReady(true);
@@ -1124,7 +1127,7 @@ function SavedChatSetupWizard({
     });
     void pendingApply.current
       .then(() => {
-        autoDefaultsAppliedChatIds.add(chat.id);
+        autoDefaultsBaselines.set(chat.id, initial);
         if (!active) return;
         initialApplyDone.current = true;
         setDefaultsApplied(true);
@@ -1140,7 +1143,7 @@ function SavedChatSetupWizard({
     return () => {
       active = false;
     };
-  }, [applyAutomaticDefaults, chat.id, initial.characterIds, saved, settingsSyncReady, t]);
+  }, [applyAutomaticDefaults, chat.id, initial, saved, settingsSyncReady, t]);
 
   const defaultsAction = (metadata: Record<string, unknown>) => (
     <button

@@ -14,7 +14,12 @@ assert.match(
   /setupWizardChatId !== activeChatId\) setWizardOpen\(false\)/,
   "A remount on the same chat must keep its wizard open",
 );
-assert.match(wizard, /autoDefaultsAppliedChatIds\.has\(chat\.id\)/, "A remounted wizard must skip saved defaults");
+assert.match(wizard, /autoDefaultsBaselines\.has\(chat\.id\)/, "A remounted wizard must skip saved defaults");
+assert.match(
+  wizard,
+  /autoDefaultsBaselines\.get\(chat\.id\) \?\?/,
+  "A remounted wizard must reset to the pre-defaults chat, not the defaulted one",
+);
 assert.equal(
   wizard.split("<WizardBackdrop onClose=").length - 1,
   1,
