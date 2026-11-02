@@ -39,6 +39,7 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
     connectionId: string,
     model: string,
     saved: SavedConnectionParameters | null = null,
+    extendedCacheTtl = false,
   ) =>
     Object.freeze({
       name: unwrapConnectionAdmissionProvider(provider).constructor.name,
@@ -61,12 +62,17 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         const requestOptions = saved
           ? resolveCapabilityChatOptions({ ...saved, model }, packageOptions)
           : packageOptions;
+        // A marked stable prefix (1.814) is cached whatever the connection's caching switch says, for its cache time.
+        const cacheOptions = messages.some((message) => message.cacheBreakpoint === true)
+          ? { anthropicExtendedCacheTtl: extendedCacheTtl }
+          : {};
         const result = await withLlmInactivityTimeout(
           timeoutMs,
           (signal) =>
             provider.chatComplete(messages as ChatMessage[], {
               model,
               ...requestOptions,
+              ...cacheOptions,
               // Keep upstream progress alive while the package receives only the completed response.
               stream: true,
               debugMode: options.debugMode,
@@ -127,6 +133,7 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
           await appSettings.get(CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY),
         ),
       },
+      connection.anthropicExtendedCacheTtl === "true",
     );
   };
   const defaultConnection = async (model?: string, preferAgentDefault = false) => {

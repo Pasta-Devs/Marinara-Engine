@@ -1558,7 +1558,11 @@ const capabilityPackageManifestBaseSchema = z
 //        only where it is sold and how often it drops changes (a low-magic layer). Not a soft seam: an
 //        Engine that cannot read these refuses the whole ruleset file, so a package that ships either
 //        declares 1.813. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 813 } as const);
+// 1.814: a language model message's `cacheBreakpoint`: the prompt up to and including it is cached on providers
+//        that take cache breakpoints (Anthropic), whatever the connection's caching switch says, for the connection's
+//        cache time; and a completion's usage reports `cachedPromptTokens` and `cacheWritePromptTokens`. A soft seam:
+//        older Engines ignore the field. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 814 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

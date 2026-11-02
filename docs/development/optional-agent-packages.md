@@ -1802,6 +1802,42 @@ exit button available on every package screen and use `aria-pressed` to reflect 
 must update the button without replacing unfinished forms. Packages depending on this control
 declare capability API 1.376 or newer; older packages can keep their existing layouts.
 
+### Capability API 1.814: cache the stable part of a package prompt
+
+A package that writes with `api.runtime.languageModels` can mark where the part of its prompt that is
+the same on every call ends: set `cacheBreakpoint: true` on a message passed to `chatComplete`. The
+prompt up to and including that message is cached, so later calls that start with the same text pay
+less for it. Put the instructions, character sheets and story so far first, keep them byte for byte
+the same from call to call, and put what changes after the marked message.
+
+- Anthropic: the Engine puts a cache breakpoint on each marked message, system messages included, even
+  when the connection's prompt caching is off, and adds none of its own. The cache lasts 5 minutes, or
+  1 hour when the connection asks for the longer cache time. A cache write costs 1.25 times the input
+  price (2 times for 1 hour), once; a read costs 0.1 times. Anthropic takes at most four breakpoints:
+  with more marked messages, the last four count. A prefix shorter than the model's minimum is not
+  cached and costs as usual.
+- OpenAI, Gemini, xAI and DeepSeek cache identical prefixes on their own: the marker changes nothing.
+- OpenRouter and custom OpenAI-compatible endpoints do not take the marker yet: the call goes out as
+  without it, so a Claude model reached that way is not cached.
+- Claude (Subscription): the Agent SDK caches on its own and the marker is not sent; the connection's
+  cache time applies.
+
+`usage` reports `cachedPromptTokens` (read from the cache) and `cacheWritePromptTokens` (written to it)
+when the provider reports them. A call without a marked message is unchanged.
+
+Older Engines ignore the field, so a package can always set it. Declare 1.814 when the package relies
+on the caching or on the cache usage.
+
+```ts
+const model = await api.runtime.languageModels.resolveForRequest({ connectionId });
+const result = await model.chatComplete([
+  { role: "system", content: instructions },
+  { role: "system", content: storySoFar, cacheBreakpoint: true },
+  { role: "user", content: nextTurn },
+]);
+const cacheRead = result.usage?.cachedPromptTokens ?? 0;
+```
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed
