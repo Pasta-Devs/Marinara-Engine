@@ -261,7 +261,7 @@ function ModelPickerSlot({
       open={open}
       onClose={onClose}
       title={title}
-      width="max-w-md"
+      width="max-w-2xl"
       opaque
       panelClassName="connection-picker-dialog mari-connection-scope h-[min(36rem,calc(100dvh-1.5rem))]"
       closeButtonClassName="!min-h-11 !min-w-11"
@@ -271,7 +271,6 @@ function ModelPickerSlot({
       {header}
       <ConnectionSwitcherBody
         ownRole={jobName}
-        layout="steps"
         kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
         catalogBrowse={decision || embedding || (kind === "chat" && !rowFilter)}
