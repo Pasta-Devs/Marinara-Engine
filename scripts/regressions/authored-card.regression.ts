@@ -107,3 +107,6 @@ assert.deepEqual(persona.cardFieldAlternatives?.[0].chatIds, ["chat-1"]);
 assert.equal(copy.characterSheetImageId, undefined);
 assert.equal(copy.personaStats?.combatIcon, undefined);
 assert.deepEqual(copy.personaStats?.bars, persona.personaStats?.bars);
+
+// A card saved without tags still converts to a persona that sends an array.
+assert.deepEqual(personaFromCard({ ...card, tags: undefined as unknown as string[] }).tags, []);

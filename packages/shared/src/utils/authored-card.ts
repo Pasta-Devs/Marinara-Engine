@@ -22,7 +22,17 @@ function commonFields({
   creator,
   tags,
 }: AuthoredPersona | CharacterData) {
-  return { name, description, personality, scenario, summary, mes_example: mes_example ?? "", creator, tags };
+  // Older or imported drafts can arrive without tags; the persona API expects an array.
+  return {
+    name,
+    description,
+    personality,
+    scenario,
+    summary,
+    mes_example: mes_example ?? "",
+    creator,
+    tags: tags ?? [],
+  };
 }
 
 function commonExtensions(source: AuthoredPersona | CharacterExtensions) {

@@ -7,6 +7,7 @@
  * through a field's `render`; variable chips stay at the callsite.
  */
 import type { ReactNode } from "react";
+import { CARD_FIELD_KEYS } from "@marinara-engine/shared";
 import type { CardFieldAlternative, CardFieldDraft, CardFieldKey } from "@marinara-engine/shared";
 
 import { CardFieldAlternatives } from "../characters/CardFieldAlternatives";
@@ -99,7 +100,10 @@ export function CardFieldsTab({
   onTextareaRef,
   onFieldFocus,
 }: CardFieldsTabProps) {
-  const card: CardFieldDraft = { name, ...values };
+  // Only the card fields: persona passes its whole form as `values`, and this
+  // draft is posted with every generation request.
+  const card = { name } as CardFieldDraft;
+  for (const key of CARD_FIELD_KEYS) card[key] = values[key];
   const generation = useCardFieldGeneration(variant, entityId, card, onFieldChange);
 
   const renderField = (field: CardFieldsTabField) => {

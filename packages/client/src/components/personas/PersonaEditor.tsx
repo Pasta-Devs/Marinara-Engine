@@ -1269,7 +1269,7 @@ function createCharacterDataFromPersona(formData: PersonaFormData): CharacterDat
       name: formData.name.trim(),
       phoneticName: formData.phoneticName.trim() || undefined,
       personaStats: formData.personaStats ?? undefined,
-      convoBehavior: formData.convoBehavior?.instruction.trim() ? formData.convoBehavior : undefined,
+      convoBehavior: formData.convoBehavior?.instruction?.trim() ? formData.convoBehavior : undefined,
     }),
   );
 }

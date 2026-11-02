@@ -426,3 +426,11 @@ assert.doesNotMatch(
 );
 
 process.stdout.write("Persona client contract regression passed.\n");
+
+// The generation draft carries only the card fields, never the rest of the persona form.
+assert.match(
+  source("components/cards/CardFieldsTab.tsx"),
+  /for \(const key of CARD_FIELD_KEYS\) card\[key\] = values\[key\];/u,
+  "the generation draft must be built from the card field keys only",
+);
+assert.doesNotMatch(source("components/cards/CardFieldsTab.tsx"), /\{ name, \.\.\.values \}/u);
