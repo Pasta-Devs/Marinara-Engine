@@ -134,6 +134,7 @@ import {
   type PersonaStorageRow,
   type StoredPersonaRow,
 } from "../personas/persona-card-storage.js";
+import { migrateLegacyPersonaRow, personaRowNeedsCardMigration } from "../../db/persona-card-migration.js";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -824,6 +825,25 @@ export function resolveTransformTables(table: string): string[] {
     return [table];
   }
   return FILE_BACKED_TABLES.filter((name) => name !== "messages" && name !== "message_swipes");
+}
+
+/**
+ * A pending review saved before storage format 11 holds flat persona snapshots. Restore writes
+ * `beforeRaw` through the current schema's columns and compares `afterRaw` the same way, so
+ * convert both to the stored shape, or Restore brings back an empty persona.
+ */
+function migrateLegacyPersonaSnapshots(changes: PlanChange[]): void {
+  for (const change of changes) {
+    if (change.table !== "personas") continue;
+    if (change.beforeRaw && personaRowNeedsCardMigration(change.beforeRaw)) {
+      change.beforeRaw = migrateLegacyPersonaRow(change.beforeRaw);
+      change.before = parseRow(change.table, change.beforeRaw);
+    }
+    if (change.afterRaw && personaRowNeedsCardMigration(change.afterRaw)) {
+      change.afterRaw = migrateLegacyPersonaRow(change.afterRaw);
+      change.after = parseRow(change.table, change.afterRaw);
+    }
+  }
 }
 
 function protectPromptPresetSystemKeys(changes: PlanChange[]): void {
@@ -10533,6 +10553,7 @@ export class MariDbService {
             stale.push(path);
             continue;
           }
+          migrateLegacyPersonaSnapshots(record.plan.changes);
           if (!this.pending.has(record.id)) loaded.push(record);
         } catch (err) {
           logger.warn(err, "[mari-db] discarding unreadable pending review %s", file);

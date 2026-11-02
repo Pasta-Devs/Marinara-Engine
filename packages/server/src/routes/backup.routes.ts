@@ -35,6 +35,7 @@ import { createInflateRaw, inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
 import { FILE_BACKED_TABLES, STORAGE_WRITER_LEASE_FILENAME } from "../db/file-backed-store.js";
 import { migrateLegacyNoodleAccountRow } from "../db/noodle-platform-migration.js";
+import { migrateLegacyPersonaRow } from "../db/persona-card-migration.js";
 import { migrateLegacyNoodlePostAccessRow } from "../db/noodle-access-migration.js";
 import { getFileTableConfig, isFileTable, type AnyFileTable } from "../db/file-schema.js";
 import * as schema from "../db/schema/index.js";
@@ -1516,6 +1517,7 @@ async function importProfileStorageSnapshot(
             // lets the column default fill `platform: "noodle"`, putting a restored NoodleR
             // account and its posts on the Noodle timeline.
             if (tableName === "noodle_accounts") cleanRow = migrateLegacyNoodleAccountRow(cleanRow);
+            if (tableName === "personas") cleanRow = migrateLegacyPersonaRow(cleanRow);
             if (tableName === "noodle_posts") cleanRow = migrateLegacyNoodlePostAccessRow(cleanRow);
             if (tableName === "api_connections") {
               const connectionPlan = connectionPlans[rowIndex];

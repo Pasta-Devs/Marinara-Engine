@@ -50,6 +50,7 @@ import { inArray, isFileCondition, isFileOrdering, type FileCondition, type File
 import { migrateLegacyNoodleAccountRow } from "./noodle-platform-migration.js";
 import { migrateLegacyNoodlePostAccessRow } from "./noodle-access-migration.js";
 import { migrateRetiredChatModeRow, RETIRED_CHAT_MODE_TABLES } from "./retired-chat-mode-migration.js";
+import { migrateLegacyPersonaRow, personaRowNeedsCardMigration } from "./persona-card-migration.js";
 import {
   getFileTableConfig,
   FileUniqueConstraintError,
@@ -371,7 +372,9 @@ type InsertValuesBuilder = Executable<void> & {
 // accountId, icon and imageInput when rewriting model rows; no row conversion is needed.
 // Format 10 protects GLB and FBX avatar configurations: format-9 builds reject the new kind and could
 // overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
-export const STORAGE_VERSION = 10;
+// Format 11 moves persona authored fields into a CharacterData card in `data` (like characters);
+// older builds would read personas as empty. Rows are converted on load; shards copied to .pre-v11.
+export const STORAGE_VERSION = 11;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
@@ -718,6 +721,7 @@ function migrateFileBackedRow(table: string, row: Row): Row {
   if (table === "noodle_accounts") return migrateLegacyNoodleAccountRow(row);
   if (table === "noodle_posts") return migrateLegacyNoodlePostAccessRow(row);
   if ((RETIRED_CHAT_MODE_TABLES as readonly string[]).includes(table)) return migrateRetiredChatModeRow(row);
+  if (table === "personas") return migrateLegacyPersonaRow(row);
   return row;
 }
 
@@ -727,6 +731,7 @@ function fileBackedRowNeedsMigration(table: string, row: Row): boolean {
   if (table === "noodle_posts") {
     return (row.access !== "public" && row.access !== "locked") || "ppvPrice" in row || "ppv_price" in row;
   }
+  if (table === "personas") return personaRowNeedsCardMigration(row);
   return false;
 }
 
@@ -1238,6 +1243,29 @@ async function unlinkIgnoringMissing(path: string) {
   } catch (err) {
     if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") throw err;
   }
+}
+
+/**
+ * Copy a shard's primary and .bak byte-for-byte to `.pre-v11` before the format-11 rewrite.
+ * Never clobbers: an identical copy (a crash before the first flush) is skipped, a different
+ * one gets a timestamped name. Returns the copies made.
+ */
+async function preservePreV11Copies(path: string): Promise<string[]> {
+  const preserved: string[] = [];
+  for (const source of [path, `${path}.bak`]) {
+    if (!existsSync(source)) continue;
+    const preferred = `${source}.pre-v11`;
+    let target = preferred;
+    if (existsSync(preferred)) {
+      if (readFileSync(preferred).equals(readFileSync(source))) continue;
+      target = `${preferred}-${corruptionTimestamp()}`;
+    }
+    await copyFile(source, target);
+    await chmod(target, PRIVATE_FILE_MODE).catch(() => undefined);
+    await flushFile(target);
+    preserved.push(target);
+  }
+  return preserved;
 }
 
 async function preserveMalformedRowSource(path: string, table: string): Promise<QuarantinedFile[]> {
@@ -5019,6 +5047,20 @@ class FileTableStore {
    * through to the existing recovery paths — loadFileSnapshots re-checks the
    * version with full .bak recovery.
    */
+  /**
+   * Format 11 rewrites persona shards that a format-10 build reads as empty. The manifest is
+   * written last in a flush, so a flush failing after the persona shards would leave format-11
+   * rows under a format-10 manifest that the downgrade guards approve. Raise the version first;
+   * every other manifest field is left for the flush to rewrite.
+   */
+  private async raiseManifestVersionBeforeRewrite() {
+    const path = manifestPath(this.rootDir);
+    if (!existsSync(path)) return;
+    const { value } = parseJsonFile<TableSnapshotManifest | null>(path, null);
+    if (!value || typeof value !== "object" || value.version === STORAGE_VERSION) return;
+    await atomicWriteFile(path, JSON.stringify({ ...value, version: STORAGE_VERSION }, null, 2));
+  }
+
   private assertStorageFormatSupported() {
     const path = manifestPath(this.rootDir);
     // A crash can leave only manifest.json.bak — parseJsonFile recovers the
@@ -5296,6 +5338,17 @@ class FileTableStore {
           this.backupRecoveredPaths.add(path);
         }
         const needsRowMigration = source.some((row) => fileBackedRowNeedsMigration(table, row));
+        if (needsRowMigration && table === "personas") {
+          // The rewrite is semantic, so keep the pre-format-11 bytes for manual recovery.
+          const copies = await preservePreV11Copies(path);
+          if (!this.migratedTables.includes(table)) {
+            this.migratedTables.push(table);
+            await this.raiseManifestVersionBeforeRewrite();
+          }
+          if (copies.length > 0) {
+            logger.info({ table, shard: encoded, copies }, "[file-storage] Preserved pre-format-11 persona shard");
+          }
+        }
         const normalized = source.map((row) => normalizeRow(meta, migrateFileBackedRow(table, row)));
         combined.push(...normalized);
         for (const row of normalized) rowSource.set(row, encoded);
