@@ -1,0 +1,94 @@
+import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { clickTopbarPanel } from "./topbar-navigation.js";
+import { seedUIState } from "./ui-state-fixture.js";
+
+const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
+
+for (const kind of ["characters", "personas"] as const) {
+  test(kind + " editor keeps typing during save and reopens the saved draft", async ({ page, request }, testInfo) => {
+    const character = kind === "characters";
+    const name = character ? "River Vale" : "June Vale";
+    const url = character ? "/api/characters" : "/api/characters/personas";
+    const card = { name, description: "A cartographer who keeps a field journal." };
+    const res = await request.post(url, { data: character ? { data: card } : card });
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const { id } = await res.json();
+    const path = url + "/" + id;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+      await page.route("**/api/app-settings/ui", (route) =>
+        route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+      );
+      await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
+      const open = async (label: string) => {
+        await page.goto("/");
+        await clickTopbarPanel(page, kind);
+        await page.getByText(label, { exact: true }).first().click();
+      };
+      // Desktop shows a tab strip; narrow layouts fold the tabs into a menu.
+      const openCardTab = async () => {
+        const tab = page.locator(".mari-editor-navigation-tabs").getByRole("button", { name: "Card", exact: true });
+        if (await tab.isVisible()) await tab.click();
+        else {
+          await page.locator(".mari-editor-navigation-select").click();
+          await page.getByRole("menuitemradio", { name: "Card", exact: true }).click();
+        }
+      };
+      await open(name);
+      const title = page.locator(".mari-editor-shell .mari-editor-title-input");
+      const save = page.locator(".mari-editor-header .mari-editor-action--save");
+      await expect(title).toHaveValue(name);
+      await page.screenshot({ path: testInfo.outputPath("editor.png"), animations: "disabled" });
+      // Both editors render the Card tab through the shared CardFieldsTab.
+      await openCardTab();
+      const sectionPrefix = (character ? "#character" : "#persona") + "-card-";
+      const description = page.locator(sectionPrefix + 'description [data-mari-field="description"] textarea');
+      await expect(description).toHaveValue(card.description);
+      for (const field of ["personality", "backstory", "appearance", "scenario"]) {
+        await expect(page.locator(sectionPrefix + field)).toBeAttached();
+      }
+      await page.screenshot({ path: testInfo.outputPath("card.png"), animations: "disabled" });
+      const finalDescription = "A cartographer who maps the tide caves.";
+      await page.route("**" + path, async (route) => {
+        if (route.request().method() === "PATCH") await gate;
+        await route.continue();
+      });
+      await title.fill(name + " first");
+      const started = page.waitForRequest((req) => new URL(req.url()).pathname === path && req.method() === "PATCH");
+      await save.click();
+      await started;
+      const finalName = name + " final";
+      await title.fill(finalName);
+      await description.fill(finalDescription);
+      const done = page.waitForResponse(
+        (res) => new URL(res.url()).pathname === path && res.request().method() === "PATCH",
+      );
+      release();
+      expect((await done).ok()).toBeTruthy();
+      await expect(save).toBeEnabled();
+      await expect(title).toHaveValue(finalName);
+      await expect(description).toHaveValue(finalDescription);
+      await save.click();
+      await expect(save).toBeDisabled();
+      await expect
+        .poll(async () => {
+          const row = await (await request.get(path)).json();
+          const saved = character ? (typeof row.data === "string" ? JSON.parse(row.data) : row.data) : row;
+          return [saved.name, saved.description];
+        })
+        .toEqual([finalName, finalDescription]);
+      await open(finalName);
+      await expect(title).toHaveValue(finalName);
+      await openCardTab();
+      await expect(description).toHaveValue(finalDescription);
+    } finally {
+      release();
+      await request.delete(path);
+    }
+  });
+}

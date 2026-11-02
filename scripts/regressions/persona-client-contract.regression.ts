@@ -210,11 +210,12 @@ const hooks = source("hooks/use-characters.ts");
 const saveScope = balanced(editor, "const handleSave = useCallback(", "Persona save", "=> {");
 const conversion = between(
   characterEditor,
-  "const rpgStats = formData.extensions.rpgStats",
+  "const authored = independentCardFields(personaFromCard(formData))",
   "})) as { id?: string };",
   "character conversion",
 );
-assert.match(conversion, /tags: formData\.tags \?\? \[\]/u);
+assert.match(conversion, /createPersona\.mutateAsync\(\{\s*\.\.\.authored,/u);
+assertDecoded(conversion, "character conversion must pass decoded fields from the shared adapter");
 assert.match(conversion, /trackerCardColors: parseTrackerCardColorConfig\(/u);
 assert.match(conversion, /personaStats,/u);
 assert.match(panel, /updatePersona\.mutateAsync\(\{ id: p\.id, tags: newTags \}\)/u);
@@ -420,7 +421,7 @@ assert.match(closeScope, /if \(mutationTokenRef\.current\) return;/u);
 assert.match(closeScope, /closeDetail\(\);/u);
 assert.match(editor, /useEditorLeaveSave\(`personaDetailId:\$\{personaId\}`, dirty, handleSave, mutationBusy\);/u);
 assert.doesNotMatch(
-  between(saveScope, "} catch (error) {", "} finally {", "save failure"),
+  balanced(saveScope, "(error) => {", "save failure"),
   /adoptAuthoritativePersona|commitBaseline|reconcileVersionedPersonaEditorSave/u,
 );
 

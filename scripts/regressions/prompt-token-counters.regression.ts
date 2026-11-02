@@ -7,8 +7,6 @@ function source(path: string): string {
 
 const fields: Record<string, string[]> = {
   "components/characters/CharacterEditor.tsx": [
-    "formData.description",
-    "value",
     "g",
     "formData.system_prompt",
     "formData.post_history_instructions",
@@ -33,7 +31,20 @@ for (const [path, values] of Object.entries(fields)) {
   }
 }
 
-// These two count through TextareaTab, whose `value` is checked above.
+// Card prose fields, including the description, count through the shared CardProse textarea.
+const cardProse = source("components/cards/CardProse.tsx");
+assert.match(
+  cardProse,
+  /showTokenCount=\{!persona\}\s+value=\{value\}/u,
+  "character card prose must keep the shared token counter",
+);
+assert.match(
+  source("components/cards/CardFieldsTab.tsx"),
+  /<CardProseDescription\b/u,
+  "the description must render through CardProse",
+);
+
+// These two count through TextareaTab, an alias of the CardProse textarea checked above.
 for (const field of ["first_mes", "mes_example"]) {
   assert.match(
     source("components/characters/CharacterEditor.tsx"),
