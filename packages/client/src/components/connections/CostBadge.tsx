@@ -100,11 +100,10 @@ export function CostBadge({
       className={cn(
         PILL,
         "tabular-nums",
-        cost === "paid"
+        // A multiplier is plan information, not a warning, so it stays neutral like "Paid".
+        cost === "paid" || multiplier
           ? "border-[var(--border)] text-[var(--muted-foreground)]"
-          : multiplier
-            ? "border-transparent bg-[color-mix(in_srgb,var(--color-amber-500)_14%,transparent)] text-[color-mix(in_srgb,var(--color-amber-500)_72%,var(--foreground)_28%)]"
-            : "border-transparent bg-[color-mix(in_srgb,var(--color-emerald-500)_13%,transparent)] text-[color-mix(in_srgb,var(--color-emerald-500)_70%,var(--foreground)_30%)]",
+          : "border-transparent bg-[color-mix(in_srgb,var(--color-emerald-500)_13%,transparent)] text-[color-mix(in_srgb,var(--color-emerald-500)_70%,var(--foreground)_30%)]",
       )}
     >
       {label}

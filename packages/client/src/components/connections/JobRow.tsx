@@ -64,7 +64,7 @@ export function JobRow({
   tile: DefaultsTile;
   /** One plain line under the row that says what the job does. */
   hint?: string;
-  /** Shown at the row end inside the row button, such as a chevron: non-interactive content only. */
+  /** The row's end mark, such as a chevron: drawn last, after the fix and `end`, and opens the row like the row itself. */
   trailing?: ReactNode;
   /** Sibling controls after the row button, such as a settings gear. */
   end?: ReactNode;
@@ -126,6 +126,18 @@ export function JobRow({
               </button>
             )}
             {end}
+            {trailing && (
+              // After the fix and the settings so every row's chevron sits in the same column; the row button stays the keyboard target.
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-hidden
+                onClick={button.onClick}
+                className="flex h-11 w-7 shrink-0 items-center justify-center"
+              >
+                {trailing}
+              </button>
+            )}
           </>
         }
         aria-describedby={hint ? hintId : undefined}
@@ -139,7 +151,7 @@ export function JobRow({
         wrapTitle
         details={
           chosen ? (
-            tile.fallback && (
+            tile.fallback ? (
               <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
                 <span className="whitespace-nowrap">{t("connections.defaults.ifItFailsLabel")}</span>
                 {tile.fallbackSource && (
@@ -150,26 +162,27 @@ export function JobRow({
                   {fallbackNote && <> {fallbackNote}</>}
                 </span>
               </span>
+            ) : (
+              tile.warning?.quiet && (
+                <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {tile.warning.short ?? tile.warning.text}
+                </span>
+              )
             )
           ) : (
-            <span
-              className={cn(
-                "min-w-0 truncate text-xs",
-                unset ? "font-medium text-[var(--warning)]" : "text-[var(--muted-foreground)]",
-              )}
-            >
+            // The state line stays grey; only a warning chip at the row end is amber.
+            <span className="min-w-0 truncate text-xs text-[var(--muted-foreground)]">
               {tile.setup?.text ??
-                (unset ? t("connections.defaults.chooseModel") : [tile.value, tile.hint].filter(Boolean).join(" · "))}
+                (unset
+                  ? t(tile.warning ? "connections.defaults.chooseModel" : "connections.defaults.notSetUp")
+                  : [tile.value, tile.hint].filter(Boolean).join(" · "))}
             </span>
           )
         }
         facts={facts}
         showPaid={catalog?.showPaid}
         trailing={
-          <>
-            {tile.warning && !tile.warning.fix && <WarningChip>{tile.warning.short ?? tile.warning.text}</WarningChip>}
-            {trailing}
-          </>
+          tile.warning && !tile.warning.fix && <WarningChip>{tile.warning.short ?? tile.warning.text}</WarningChip>
         }
       />
       {hint && (

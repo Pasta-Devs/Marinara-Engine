@@ -2485,8 +2485,9 @@ export const ChatMessage = memo(function ChatMessage({
     summaryUnavailable: reasoningSummaryUnavailable,
     hasReasoning,
   } = resolveMessageReasoningDisplay(extra);
-  const showInlineThinking = isRoleplay && showRoleplayThinkingInMessages && hasReasoning && !isUser;
-  const showThinkingAction = hasReasoning && !isUser && !showInlineThinking;
+  // A user turn has reasoning only when a model wrote it (impersonation or a rewrite), so it shows it like a reply (#8682).
+  const showInlineThinking = isRoleplay && showRoleplayThinkingInMessages && hasReasoning;
+  const showThinkingAction = hasReasoning && !showInlineThinking;
   const showStreamingThinkingAction = !!isStreaming && showThinkingAction;
   const reasoningDurationMs = readPositiveNumber(extra.generationInfo?.reasoningDurationMs);
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
