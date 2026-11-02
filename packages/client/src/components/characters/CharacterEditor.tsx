@@ -877,6 +877,9 @@ export function CharacterEditor() {
           ...(version && { versionSource: version.source, versionReason: version.reason }),
         }),
       () => {
+        // The server now holds `data`, so it is the merge base: this save's own
+        // refetch must not read as an edit made elsewhere.
+        loadedDataRef.current = data;
         const current = editRevisionRef.current === revision;
         if (current) setDirtyState(false);
         return current;

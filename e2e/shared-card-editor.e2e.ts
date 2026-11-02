@@ -8,7 +8,8 @@ const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.u
 for (const kind of ["characters", "personas"] as const) {
   test(kind + " editor keeps typing during save and reopens the saved draft", async ({ page, request }, testInfo) => {
     const character = kind === "characters";
-    const name = character ? "River Vale" : "June Vale";
+    // The mobile projects share one server, so each project gets its own card.
+    const name = (character ? "River Vale " : "June Vale ") + testInfo.project.name;
     const url = character ? "/api/characters" : "/api/characters/personas";
     const card = { name, description: "A cartographer who keeps a field journal." };
     const res = await request.post(url, { data: character ? { data: card } : card });
@@ -68,9 +69,16 @@ for (const kind of ["characters", "personas"] as const) {
       const done = page.waitForResponse(
         (res) => new URL(res.url()).pathname === path && res.request().method() === "PATCH",
       );
+      // The character editor refetches the card after a save.
+      const echo = character
+        ? page.waitForResponse((res) => new URL(res.url()).pathname === path && res.request().method() === "GET")
+        : null;
       release();
       expect((await done).ok()).toBeTruthy();
+      await echo;
       await expect(save).toBeEnabled();
+      // The save's own refetch is not an edit made elsewhere.
+      await expect(page.getByText("changed while you were editing", { exact: false })).toHaveCount(0);
       await expect(title).toHaveValue(finalName);
       await expect(description).toHaveValue(finalDescription);
       await save.click();
