@@ -625,7 +625,7 @@ export function ConnectionSwitcherBody({
         group.account?.state === "off" ? "connections.switcher.fixTurnOn" : "connections.switcher.fixAddKey",
         { connection: group.name },
       )}
-      className="mari-chrome-control px-3"
+      className="mari-chrome-control shrink-0 whitespace-nowrap px-3 text-xs"
     >
       {fixLabel(group)}
     </button>
