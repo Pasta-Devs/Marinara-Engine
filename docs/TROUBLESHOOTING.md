@@ -25,6 +25,18 @@ When reporting a connection error, include mode, platform, the visible error and
 
 ## Install and launch problems
 
+### Termux: CANNOT LINK EXECUTABLE "node"
+
+If Termux prints `CANNOT LINK EXECUTABLE "node"` followed by `cannot locate symbol` or `library ... not found`, Node.js was upgraded without the rest of Termux. Termux does not support upgrading only some packages, so a newer Node.js cannot start with older Termux libraries. The Android app may then stop with **Could not verify that this Marinara Android build can safely read your stored data**. Your data is not the cause, and installing the APK again does not fix it.
+
+Upgrade every Termux package, then start Marinara again:
+
+```bash
+pkg upgrade -y
+```
+
+Then tap **Install / Start Marinara** in the Android app, or for a manual install run `cd "$HOME/Marinara-Engine" && ./start-termux.sh`. If the upgrade asks whether to keep a configuration file, press Enter to keep your current one. The updated Termux launcher and newer Android app releases run this upgrade by themselves when Node.js cannot start.
+
 ### Termux: JavaScript heap out of memory while building the client
 
 If Vite stops with `Reached heap limit` or `JavaScript heap out of memory`, the client build ran out of Node.js heap. This is different from a missing native Rollup binary. Update and rerun `start-termux.sh`: client builds, including in-app updates, now run with their own 1536 MiB heap, capped at half of known device RAM but never below the 1280 MiB the build needs. The RAM cap is rounded down in 128 MiB steps. The running server keeps its smaller profile-based limit. An explicit heap limit in `NODE_OPTIONS` takes precedence for both processes, so check for a previously configured 1024 MiB override: the client no longer builds in 1024 MiB.
