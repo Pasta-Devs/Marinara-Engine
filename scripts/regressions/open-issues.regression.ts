@@ -6279,6 +6279,14 @@ const characterEditorSource = readFileSync(
   new URL("../../packages/client/src/components/characters/CharacterEditor.tsx", import.meta.url),
   "utf8",
 );
+const cardEditorSource = readFileSync(
+  new URL("../../packages/client/src/components/cards/CardEditor.tsx", import.meta.url),
+  "utf8",
+);
+const cardColorsSource = readFileSync(
+  new URL("../../packages/client/src/components/cards/CardColors.tsx", import.meta.url),
+  "utf8",
+);
 const personaEditorSource = readFileSync(
   new URL("../../packages/client/src/components/personas/PersonaEditor.tsx", import.meta.url),
   "utf8",
@@ -6572,6 +6580,8 @@ assert.match(recentChatsSource, /index === 3 && "hidden md:block"/u);
 assert.match(recentChatsSource, /index >= 4 && "hidden"/u);
 assert.match(globalStyles, /@container \(min-width: 36rem\)[\s\S]*data-component="RecentChats"/u);
 for (const editorSource of [characterEditorSource, personaEditorSource]) {
+  assert.match(editorSource, /<CardEditor\b/u);
+  assert.match(editorSource, /<CardColors\b/u);
   assert.match(editorSource, /grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4/u);
   assert.match(editorSource, /onClick=\{\(\) => void handleDelete\(lightbox\)\}/u);
   assert.match(editorSource, /loading="lazy"\s+decoding="async"/u);
@@ -6593,7 +6603,7 @@ assert.match(
   globalStyles,
   /\.mari-gallery-card \{\s*content-visibility: auto;\s*contain-intrinsic-size: auto 12rem;\s*\}/u,
 );
-assert.match(characterEditorSource, /ui\.characters\.colorstab\.value1AvatarPreview/u);
+assert.match(cardColorsSource, /ui\.characters\.colorstab\.value1AvatarPreview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
 assert.match(characterEditorSource, /downloadSpriteFile/u);
 assert.match(personaEditorSource, /downloadSpriteFile/u);
@@ -6680,7 +6690,7 @@ assert.match(
   "The New Chat parameter toggle must stay within its card when Android enlarges text",
 );
 assert.match(
-  characterEditorSource,
+  cardEditorSource,
   /"mari-editor-avatar-tile group relative"/u,
   "The Metadata avatar preview must contain absolutely positioned saved crops",
 );
@@ -6690,14 +6700,9 @@ assert.match(
   "The shared editor avatar upload target must contain absolutely positioned crops",
 );
 assert.equal(
-  characterEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
+  cardEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
   1,
-  "The Character header avatar inside its upload target must not intercept page clicks",
-);
-assert.equal(
-  personaEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
-  1,
-  "The Persona header avatar inside its upload target must not intercept page clicks",
+  "The shared header avatar inside its upload target must not intercept page clicks",
 );
 assert.match(gameJournalSource, /data-game-journal-scroll/u);
 assert.match(gameJournalSource, /\/game\/\$\{chatId\}\/journal\/entries\/\$\{editingEntry\.index\}/u);
