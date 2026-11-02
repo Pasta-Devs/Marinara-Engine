@@ -8592,6 +8592,7 @@
   "ui.characters.charactersheet.previewAlt": "{{name}} character sheet",
   "ui.characters.charactersheet.remove": "Remove character sheet selection",
   "ui.characters.charactersheet.replace": "Replace Character Sheet",
+  "ui.characters.charactersheet.saveFailed": "Failed to save the character sheet selection.",
   "ui.characters.charactersheet.subtitle": "Keep an optional visual identity sheet separate from the avatar.",
   "ui.characters.charactersheet.title": "Character Sheet",
   "ui.characters.charactersheet.upload": "Upload Character Sheet",

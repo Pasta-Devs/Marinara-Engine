@@ -4773,7 +4773,23 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     await expect(dialog.getByRole("button", { name: "Save as Character Sheet" })).toBeEnabled();
     expect(sent.at(-1)?.referenceImages).toEqual([sprite]);
 
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    const uploadedSheet = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/characters/${character.id}/gallery/upload`) &&
+        response.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "Save as Character Sheet", exact: true }).click();
+    expect((await uploadedSheet).ok()).toBeTruthy();
+    const savedSheet = (await (await uploadedSheet).json()) as { id: string };
+    await expect(dialog).toHaveCount(0);
+    await expect
+      .poll(
+        async () =>
+          JSON.parse((await (await request.get(`/api/characters/${character.id}`)).json()).data).extensions
+            .characterSheetImageId,
+      )
+      .toBe(savedSheet.id);
+    await expect(editor.locator(".mari-editor-action--save")).toBeDisabled();
     await create.click();
     await expect(neutral).not.toBeChecked();
     await neutral.check();
