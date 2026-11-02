@@ -4723,7 +4723,13 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     await editor.getByRole("button", { name: "Manage", exact: true }).click();
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet" });
-    await chooseConnection(page, dialog.locator("[data-connection-value]"), connection.id);
+    await dialog.locator("[data-connection-value]").click();
+    const modelPicker = page.getByRole("dialog", { name: "Model for Avatar images", exact: true });
+    await modelPicker
+      .getByRole("region", { name: "All models", exact: true })
+      .getByRole("button", { name: /^Sheet reference fixture,/ })
+      .click();
+    await expect(modelPicker).toBeHidden();
     const neutral = dialog.getByRole("checkbox", { name: "Use neutral full-body sprite as a reference" });
     const likeness = dialog.getByRole("checkbox", { name: /Use current avatar as a likeness reference/ });
     await expect(neutral).not.toBeChecked();
