@@ -3862,6 +3862,7 @@ function CharacterSheetSection({
   const { data: images, isLoading } = useCharacterGalleryImages(characterId);
   const upload = useUploadCharacterGalleryImage(characterId);
   const [expanded, setExpanded] = useState(false);
+  const [showFullView, setShowFullView] = useState(false);
   const referenceId = useId();
   const selectedImage = images?.find((image) => image.id === characterSheetImageId) ?? null;
   const selectionMissing = Boolean(characterSheetImageId && !isLoading && !selectedImage);
@@ -3897,7 +3898,15 @@ function CharacterSheetSection({
     <section className="space-y-4 border-y border-[var(--border)] py-3">
       <div className="flex items-center gap-3">
         {selectedImage ? (
-          <img src={selectedImage.url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-contain" />
+          <button
+            type="button"
+            onClick={() => setShowFullView(true)}
+            aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
+            aria-haspopup="dialog"
+            className="shrink-0 cursor-zoom-in rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          >
+            <img src={selectedImage.url} alt="" className="h-11 w-11 rounded-lg object-contain" />
+          </button>
         ) : (
           <Image size={20} className="shrink-0 text-[var(--muted-foreground)]" />
         )}
@@ -3925,11 +3934,19 @@ function CharacterSheetSection({
         >
           <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]">
             {selectedImage ? (
-              <img
-                src={selectedImage.url}
-                alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
-                className="max-h-[32rem] w-full bg-[var(--secondary)] object-contain"
-              />
+              <button
+                type="button"
+                onClick={() => setShowFullView(true)}
+                aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
+                aria-haspopup="dialog"
+                className="block w-full cursor-zoom-in focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--primary)]"
+              >
+                <img
+                  src={selectedImage.url}
+                  alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
+                  className="max-h-[32rem] w-full bg-[var(--secondary)] object-contain"
+                />
+              </button>
             ) : (
               <div className="flex min-h-64 flex-col items-center justify-center gap-3 bg-[var(--secondary)] px-6 text-center">
                 <Image size="2rem" className="text-[var(--muted-foreground)]/50" aria-hidden="true" />
@@ -3991,6 +4008,20 @@ function CharacterSheetSection({
             )}
           </div>
         </div>
+      )}
+      {selectedImage && (
+        <Modal
+          open={showFullView}
+          onClose={() => setShowFullView(false)}
+          title={localizeUi("ui.characters.charactersheet.title")}
+          width="max-w-6xl"
+        >
+          <img
+            src={selectedImage.url}
+            alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
+            className="mx-auto max-h-[75vh] max-w-full object-contain supports-[height:100dvh]:max-h-[75dvh]"
+          />
+        </Modal>
       )}
     </section>
   );
