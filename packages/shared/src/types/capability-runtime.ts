@@ -190,8 +190,10 @@ export interface CapabilityLanguageModelMessage {
    * Capability API 1.814: cache everything up to and including this message. Set it on the last message of the part
    * of the prompt that stays the same from call to call. Providers that take cache breakpoints (Anthropic) cache it
    * whatever the connection's prompt-caching switch says, for the connection's cache time (1 hour when it asks for
-   * that, else 5 minutes); others cache identical prefixes on their own and ignore it. At most four count: the last
-   * four. A marked message with no text marks the message before it. Older Engines ignore it.
+   * that, else 5 minutes). OpenAI, Gemini, xAI and DeepSeek cache identical prefixes on their own and ignore it.
+   * OpenRouter and custom OpenAI-compatible endpoints do not take it yet, so Claude reached through them is not
+   * cached. At most four count: the last four. A marked message with no text marks the message before it. Older
+   * Engines ignore it.
    */
   cacheBreakpoint?: boolean;
 }
