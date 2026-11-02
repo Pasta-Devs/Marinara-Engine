@@ -102,6 +102,19 @@ if ! command -v node &> /dev/null || ! node -v &> /dev/null; then
     pkg install -y -o Dpkg::Options::="--force-confold" nodejs-lts
 fi
 
+# Termux does not support partial upgrades: a nodejs-lts newer than the rest of
+# Termux (such as its libc++) cannot start ("CANNOT LINK EXECUTABLE"), and
+# reinstalling it does not help. Upgrading every package repairs it.
+if ! node -v &> /dev/null; then
+    echo "  [..] Node.js cannot start — upgrading all Termux packages..."
+    pkg upgrade -y -o Dpkg::Options::="--force-confold" || true
+    if ! node -v &> /dev/null; then
+        echo "  [ERR] Node.js could not start in Termux."
+        echo "        Try:  pkg upgrade && pkg install nodejs-lts"
+        exit 1
+    fi
+fi
+
 if ! NODE_VERSION=$(node -v 2>/dev/null | cut -d'.' -f1 | tr -d 'v'); then
     echo "  [ERR] Node.js is still not working after install."
     echo "        Try:  pkg upgrade && pkg install nodejs-lts"

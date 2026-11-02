@@ -30,12 +30,12 @@ If you prefer a home-screen icon that opens Marinara like a normal app, this sam
 If you would rather not use the app, you can install Marinara by hand. Open Termux and paste this one command:
 
 ```
-pkg update -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
+pkg upgrade -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
 ```
 
 This one command does five things:
 
-1. Updates the Termux packages.
+1. Upgrades all Termux packages. Termux does not support upgrading only some packages: a newer Node.js cannot start with older Termux libraries. If it asks whether to keep a configuration file, press Enter to keep your current one.
 2. Installs Git and Node.js. Marinara supports Node.js versions 24, 25, and 26.
 3. Downloads Marinara Engine, unless it is already installed.
 4. Makes the launcher (the `start-termux.sh` script) runnable.

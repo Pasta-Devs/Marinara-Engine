@@ -1149,6 +1149,16 @@ public class MainActivity extends Activity {
                 + "umask 077\n"
                 + "pkg update -y\n"
                 + "pkg install -y git nodejs-lts\n"
+                // Termux does not support partial upgrades: a nodejs-lts newer than the rest of
+                // Termux (such as its libc++) cannot start. Repair that before anything runs node.
+                + "if ! node --version >/dev/null 2>&1; then\n"
+                + "  echo 'Node.js cannot start in Termux. Upgrading all Termux packages to repair it...'\n"
+                + "  pkg upgrade -y -o Dpkg::Options::=--force-confold || true\n"
+                + "  if ! node --version >/dev/null 2>&1; then\n"
+                + "    echo 'Node.js could not start in Termux. Run pkg upgrade in Termux, then start Marinara again.'\n"
+                + "    exit 1\n"
+                + "  fi\n"
+                + "fi\n"
                 + "if [ ! -d \"$HOME/Marinara-Engine/.git\" ]; then\n"
                 + "  mkdir -p \"$HOME/Marinara-Engine\"\n"
                 + "  git -C \"$HOME/Marinara-Engine\" init\n"
