@@ -4,7 +4,9 @@ import { api } from "../lib/api-client";
 import { useChatStore } from "../stores/chat.store";
 import { chatKeys, useCreateChat } from "./use-chats";
 import { useApplyChatPreset, useChatPresets } from "./use-chat-presets";
+import { connectionListQuery } from "./use-connections";
 import { addSilentGreetingSwipes } from "../lib/message-swipes";
+import { readCardWithQuestions } from "../lib/onboarding-add-card";
 
 type ChatMode = "roleplay" | "conversation" | "game";
 
@@ -24,7 +26,7 @@ export function useStartChatFromCharacter() {
   const applyChatPreset = useApplyChatPreset();
 
   const startChatFromCharacter = useCallback(
-    ({
+    async ({
       characterId,
       characterName,
       mode,
@@ -32,6 +34,32 @@ export function useStartChatFromCharacter() {
       alternateGreetings,
       onSuccess,
     }: StartChatFromCharacterOptions) => {
+      // Same gate as the other new-chat paths: with no connection yet, the connection setup opens instead.
+      const connections = await queryClient.fetchQuery(connectionListQuery).catch(() => []);
+      if ((connections as Array<{ id?: string }>).filter((connection) => !!connection.id).length === 0) {
+        useChatStore.getState().setPendingNewChatMode(mode, "home");
+        return;
+      }
+
+      // Roleplay previews the card greeting on the setup stage. A card with character questions keeps the
+      // wizard, which asks them and fills the greeting with the answers, so its raw greeting is never posted.
+      let greeting = firstMessage;
+      let alternates = alternateGreetings;
+      let askQuestions = false;
+      if (mode === "roleplay") {
+        try {
+          const character = await api.get<{ data: unknown }>(`/characters/${characterId}`);
+          const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
+          askQuestions = readCardWithQuestions(data) !== null;
+          const card = data as { first_mes?: string; alternate_greetings?: string[] } | null;
+          greeting ??= card?.first_mes;
+          alternates ??= card?.alternate_greetings;
+        } catch {
+          /* non-fatal: the chat still opens, without a greeting preview */
+        }
+      }
+      const useWizard = mode === "game" || askQuestions;
+
       const label = mode === "conversation" ? "Conversation" : mode === "game" ? "Game" : "Roleplay";
       const presets = chatPresetsData ?? [];
       const presetMode = mode === "conversation" || mode === "roleplay" ? mode : null;
@@ -51,8 +79,8 @@ export function useStartChatFromCharacter() {
           onSuccess: (chat) => {
             const store = useChatStore.getState();
             store.setActiveChatId(chat.id);
-            // Roleplay and conversation open straight into the chat with its setup stage; game keeps the wizard.
-            if (mode !== "game") store.setSetupStageChatId(chat.id);
+            // Roleplay and conversation open straight into the chat with its setup stage.
+            if (!useWizard) store.setSetupStageChatId(chat.id);
             else {
               store.setShouldOpenSettings(true);
               store.setShouldOpenWizard(true);
@@ -68,31 +96,16 @@ export function useStartChatFromCharacter() {
                 }
               }
 
-              if (mode !== "roleplay") return;
+              if (mode !== "roleplay" || useWizard || !greeting?.trim()) return;
               try {
-                // The stage previews the greeting, so it must exist before the user begins.
-                let greeting = firstMessage;
-                let alternates = alternateGreetings;
-                if (greeting === undefined) {
-                  const character = await api.get<{ data: unknown }>(`/characters/${characterId}`);
-                  const data = (typeof character.data === "string" ? JSON.parse(character.data) : character.data) as {
-                    first_mes?: string;
-                    alternate_greetings?: string[];
-                  } | null;
-                  greeting = data?.first_mes;
-                  alternates = data?.alternate_greetings;
-                }
-                if (!greeting?.trim()) return;
                 const msg = await api.post<{ id: string }>(`/chats/${chat.id}/messages`, {
                   role: "assistant",
                   content: greeting,
                   characterId,
                 });
-
                 if (msg?.id && alternates?.length) {
                   await addSilentGreetingSwipes(chat.id, msg.id, alternates);
                 }
-
                 queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
               } catch {
                 /* non-fatal: don't block the new chat if greeting injection fails */
@@ -105,8 +118,5 @@ export function useStartChatFromCharacter() {
     [applyChatPreset, chatPresetsData, createChat, queryClient],
   );
 
-  return {
-    startChatFromCharacter,
-    isStartingChat: createChat.isPending,
-  };
+  return { startChatFromCharacter, isStartingChat: createChat.isPending };
 }

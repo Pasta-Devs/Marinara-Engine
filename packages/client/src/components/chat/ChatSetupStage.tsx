@@ -35,7 +35,7 @@ import {
   presetChoiceSummary,
   shouldShowSetupStage,
   stageTagline,
-  userMessageSent,
+  chatTurnTaken,
 } from "../../lib/chat-setup-stage";
 import { cn } from "../../lib/utils";
 import type { CharacterMap, MessageWithSwipes, PersonaInfo } from "./chat-area.types";
@@ -74,19 +74,29 @@ export function useChatSetupStage(input: {
       if (draft && chat.name === draft.name && characterNames.length) {
         updateChat.mutate({ id: chat.id, name: characterNames.join(", ") });
       }
-      updateMeta.mutate({
-        id: chat.id,
-        conversationSetupComplete: true,
-        ...(chat.mode === "conversation" ? { autonomousMessages: chatMeta.autonomousMessages !== false } : {}),
-      });
+      // Wizard parity: only conversation chats get the setup flag, with the defaults its finish wrote
+      // for a chat that has no starred preset. Roleplay needs no flag, the stage id alone shows the stage.
+      if (chat.mode === "conversation") {
+        updateMeta.mutate({
+          id: chat.id,
+          conversationSetupComplete: true,
+          autonomousMessages: chatMeta.autonomousMessages !== false,
+          ...(chatMeta.characterCommands === undefined
+            ? { characterCommands: typeof chatMeta.appliedChatPresetId === "string" }
+            : {}),
+          ...(chatMeta.conversationSchedulesEnabled === undefined ? { conversationSchedulesEnabled: false } : {}),
+        });
+      }
     },
-    [chat, chatMeta.autonomousMessages, characterNames, updateChat, updateMeta],
+    [chat, chatMeta, characterNames, updateChat, updateMeta],
   );
 
-  const hasUserMessage = userMessageSent(messages, chat?.id);
+  // Any turn or generation ends setup, so the untouched-draft discard never deletes a chat with replies.
+  const turnTaken = chatTurnTaken(messages, chat?.id, chat?.mode);
+  const generating = useChatStore((s) => !!chat?.id && s.streamingChatId === chat.id);
   useEffect(() => {
-    if (hasUserMessage && stageChatId === chat?.id) complete(false);
-  }, [hasUserMessage, stageChatId, chat?.id, complete]);
+    if ((turnTaken || generating) && stageChatId === chat?.id) complete(false);
+  }, [turnTaken, generating, stageChatId, chat?.id, complete]);
 
   return { visible, complete };
 }

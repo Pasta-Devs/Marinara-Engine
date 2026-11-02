@@ -1550,9 +1550,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (removedIds.length > 0 || addedIds.length > 0) {
         const existingMessages = await storage.listMessages(req.params.id);
         const existingMetadata = parseChatMetadata(existing.metadata);
+        // The opening greeting alone does not start a chat: cast changes before the first turn are setup.
         const hasStartedChat =
           existingMetadata.conversationSetupComplete === true ||
-          existingMessages.some((message) => message.role === "user" || message.role === "assistant");
+          existingMessages.some((message) => message.role === "user") ||
+          existingMessages.filter((message) => message.role === "assistant").length > 1;
         if (existing.mode === "roleplay") {
           await storage.patchMetadata(req.params.id, (current) => {
             const settings = normalizeAdvancedMemorySettings(current.advancedMemory);

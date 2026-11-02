@@ -12,16 +12,23 @@ export function shouldShowSetupStage(input: {
     input.chatId === input.stageChatId &&
     (input.mode === "roleplay" || input.mode === "conversation") &&
     input.setupComplete !== true &&
-    !userMessageSent(input.messages, input.chatId)
+    !chatTurnTaken(input.messages, input.chatId, input.mode)
   );
 }
 
-/** Right after a chat switch the list can still hold the previous chat's messages, so only this chat's count. */
-export function userMessageSent(
+/**
+ * Setup ends with the first turn: a user message, or any message beyond the roleplay opening greeting
+ * (conversation chats get no greeting, so an autonomous message counts too). Right after a chat switch the
+ * list can still hold the previous chat's messages, so only this chat's count.
+ */
+export function chatTurnTaken(
   messages: ReadonlyArray<{ role: string; chatId: string }> | undefined,
   chatId: string | null | undefined,
+  mode: string | null | undefined,
 ): boolean {
-  return !!chatId && (messages ?? []).some((message) => message.chatId === chatId && message.role === "user");
+  if (!chatId) return false;
+  const own = (messages ?? []).filter((message) => message.chatId === chatId);
+  return own.some((message) => message.role === "user") || own.length > (mode === "roleplay" ? 1 : 0);
 }
 
 /** One short line from the character card, or nothing when the description is long or templated. */
