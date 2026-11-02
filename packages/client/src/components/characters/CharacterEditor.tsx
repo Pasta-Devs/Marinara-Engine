@@ -3900,7 +3900,10 @@ function CharacterSheetSection({
         {selectedImage ? (
           <button
             type="button"
-            onClick={() => setShowFullView(true)}
+            onClick={(event) => {
+              event.currentTarget.focus();
+              setShowFullView(true);
+            }}
             aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
             aria-haspopup="dialog"
             className="shrink-0 cursor-zoom-in rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
@@ -3936,7 +3939,10 @@ function CharacterSheetSection({
             {selectedImage ? (
               <button
                 type="button"
-                onClick={() => setShowFullView(true)}
+                onClick={(event) => {
+                  event.currentTarget.focus();
+                  setShowFullView(true);
+                }}
                 aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
                 aria-haspopup="dialog"
                 className="block w-full cursor-zoom-in focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--primary)]"
