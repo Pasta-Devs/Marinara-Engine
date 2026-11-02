@@ -67,7 +67,8 @@ const FEATURE_EXTRA_OPTIONS: Partial<Record<JobKey, Array<{ value: string; key: 
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
-type Warning = { text: string; short?: string; fix?: { label: string; run: () => void } };
+/** `quiet`: an optional step, not a problem, so its fix shows without the amber warning look. */
+type Warning = { text: string; short?: string; quiet?: boolean; fix?: { label: string; run: () => void } };
 
 export type DefaultsTile = {
   key: JobKey;
@@ -124,6 +125,8 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     : {
         text: t("connections.defaults.warning.notDownloaded", { model: sidecarName }),
         short: t("connections.defaults.notDownloadedShort"),
+        // The built-in model is optional.
+        quiet: true,
         fix: {
           label: t("connections.defaults.setUp"),
           run: () => openAddConnection({ category: "device", item: "local-model" }),
