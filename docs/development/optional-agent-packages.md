@@ -1812,8 +1812,9 @@ the same from call to call, and put what changes after the marked message.
 
 - Anthropic: the Engine puts a cache breakpoint on each marked message, system messages included, even
   when the connection's prompt caching is off, and adds none of its own. The cache lasts 5 minutes, or
-  1 hour when the connection asks for the longer cache time. A cache write costs 1.25 times the input
-  price (2 times for 1 hour), once; a read costs 0.1 times. Anthropic takes at most four breakpoints:
+  1 hour when the connection asks for the longer cache time. A cache write costs more than the input
+  price, once, and a read costs a fraction of it; the exact rates depend on the model, so see
+  Anthropic's model pricing. Anthropic takes at most four breakpoints:
   with more marked messages, the last four count. A marked message with no text marks the message
   before it instead. A prefix shorter than the model's minimum is not cached and costs as usual.
 - OpenAI, Gemini, xAI and DeepSeek cache identical prefixes on their own: the marker changes nothing.
