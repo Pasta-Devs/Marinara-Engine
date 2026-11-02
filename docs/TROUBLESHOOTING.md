@@ -35,7 +35,7 @@ Upgrade every Termux package, then start Marinara again:
 pkg upgrade -y
 ```
 
-Then tap **Install / Start Marinara** in the Android app, or run `./start-termux.sh` for a manual install. If the upgrade asks whether to keep a configuration file, press Enter to keep your current one. The updated Termux launcher and newer Android app releases run this upgrade by themselves when Node.js cannot start.
+Then tap **Install / Start Marinara** in the Android app, or for a manual install run `cd "$HOME/Marinara-Engine" && ./start-termux.sh`. If the upgrade asks whether to keep a configuration file, press Enter to keep your current one. The updated Termux launcher and newer Android app releases run this upgrade by themselves when Node.js cannot start.
 
 ### Termux: JavaScript heap out of memory while building the client
 
