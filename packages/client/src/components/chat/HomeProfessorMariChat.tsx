@@ -284,6 +284,17 @@ function fetchMariThreadMessages(id: string, signal?: AbortSignal) {
   return api.get<Message[]>(`/chats/${id}/messages?limit=80`, { signal });
 }
 
+/**
+ * #8651: a chip's chat action can name a chat the app does not list (her own thread, an id she made up). Running it
+ * closed her window and the chat view fell back to Home, every time; such a chip asks her instead, and so does one
+ * whose chat the list has not confirmed yet (still loading, or failed).
+ */
+function withOpenableChatAction(chip: MariSuggestionChip, chats: readonly { id: string }[] | undefined) {
+  const action = chip.action;
+  if (action?.kind !== "chat" && action?.kind !== "peek-prompt") return chip;
+  return chats?.some((chat) => chat.id === action.chatId) ? chip : { ...chip, action: undefined };
+}
+
 /** Points her context at an editor field, with the field's current text as its draft. */
 function withCapturedEditorField(
   current: ProfessorMariAskContext | null,
@@ -807,7 +818,9 @@ export function HomeProfessorMariChat({
       ),
     [chatId, loadedMessagesChatId, mariTodos, mariTodosChatId, messages, serverTodos],
   );
-  const storeChipsForChat = mariChipsChatId === chatId && mariChips.length > 0 ? mariChips : savedChips;
+  const storeChipsForChat = (mariChipsChatId === chatId && mariChips.length > 0 ? mariChips : savedChips).map((chip) =>
+    withOpenableChatAction(chip, referenceChats.data),
+  );
   const visibleSuggestionChips =
     pendingDeferredMutations && !storeChipsForChat.some((chip) => chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id)
       ? withHeldChangeDeclineChip([
