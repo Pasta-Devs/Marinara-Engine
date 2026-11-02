@@ -221,7 +221,21 @@ function groupKeyOf(row: GroupableRow, plainKey: string, importedAccountId = "")
  * by itself (an account key change detaches it for the same reason), so it stays a standalone Model.
  */
 export function hasForeignEmbeddingHost(row: Pick<ConnectionRow, "embeddingBaseUrl"> & IdentityRow): boolean {
-  return !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== credentialOrigin(row);
+  return isForeignEmbeddingUrl(row.embeddingBaseUrl, credentialOrigin(row));
+}
+
+/** A subdomain of the key's own host (api.nano-gpt.com under nano-gpt.com) belongs to the same vendor. */
+export function isForeignEmbeddingUrl(embeddingBaseUrl: string | null | undefined, origin: string): boolean {
+  if (!embeddingBaseUrl?.trim()) return false;
+  const embedding = originOfUrl(trimUrl(embeddingBaseUrl));
+  if (embedding === origin) return false;
+  try {
+    const a = new URL(embedding);
+    const b = new URL(origin);
+    return !(a.protocol === b.protocol && a.port === b.port && a.hostname.endsWith(`.${b.hostname}`));
+  } catch {
+    return true;
+  }
 }
 
 // ── Gate ────────────────────────────────────────
@@ -707,8 +721,7 @@ export function createConnectionAccountsStorage(db: DB) {
             const takesBaseUrl =
               (sameType || sharesMediaEndpoint || followsDecisionAccount) && input.baseUrl !== undefined;
             // A second endpoint (embeddings) on another origin would also receive the row's key.
-            const foreignEndpoint =
-              !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== accountOrigin;
+            const foreignEndpoint = isForeignEmbeddingUrl(row.embeddingBaseUrl, accountOrigin);
             // A row whose own or embedding endpoint is on another origin must not receive the key: it leaves
             // the account and keeps its own key and review state.
             if (
