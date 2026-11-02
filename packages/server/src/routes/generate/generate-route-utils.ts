@@ -1265,8 +1265,9 @@ const HISTORY_REPLY_HEADER =
  * A model that refuses a request ending on an assistant message (`finalAssistantAccepted` false) reads the prefill at
  * the start of its last reply in the chat history instead, the turn it last opened: right before the reply's own text
  * (`ownText`, after any timestamp, speaker name or history wrapper), joined as a streamed reply joins it. With no reply
- * in the history there is no turn to show it in, so it is left out. A reasoning prefill still ends the prompt, as
- * before; the provider turns that into a continuation request.
+ * in the history there is no turn to show it in, so it is sent as a user message at the end instead (the maintainer's
+ * choice, #8692). A reasoning prefill still ends the prompt, as before; the provider turns that into a continuation
+ * request.
  *
  * `endsOnPrefill`: the prompt ends on the turn. `opensReply`: the reply starts with the visible prefill.
  */
@@ -1308,6 +1309,10 @@ export function endPromptOnAssistantPrefill<
         else delete prefixed.providerMetadata;
         messages[index] = prefixed;
       }
+    } else {
+      // No reply to open: the prefill goes in as a user message, which every model accepts last.
+      const { providerMetadata: _reasoning, ...turn } = prefill;
+      messages.push({ ...turn, role: "user", content: visible.trimEnd() } as T);
     }
     visible = "";
   }

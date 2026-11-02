@@ -250,8 +250,10 @@ try {
           assert.deepEqual(replies, [], request);
           assert(sent.includes("[ASSISTANT]\\nSure! Alice opens."), `${request}: ${sent}`);
         } else if (setup.mode === "roleplay" && index === 1) {
-          // Bob, the second responder, has no reply of his own in the history: the prefill is left out.
-          assert(!sent.includes("Sure!"), `${request} has no turn to show the prefill in: ${sent}`);
+          // Bob, the second responder, has no reply of his own in the history: the prefill goes as a user message.
+          assert.equal(turns.at(-1)?.role, "user", `${request} ends on the prefill as a user message: ${sent}`);
+          assert.match(turns.at(-1)!.text, /Sure!$/u, `${request}: ${sent}`);
+          assert.equal(sent.split("Sure!").length, 2, `${request} sends the prefill once`);
         } else {
           // The prefill opens the last reply in the history: inside its chat-history wrapper, after its timestamp
           // and speaker name.
@@ -385,7 +387,8 @@ try {
   }
 
   // The fallback's edges, on the helper itself. A saved reply's Gemini parts replace its text when sent, so a reply
-  // the prefill opens goes as text; with no reply in the history nothing is sent; a reasoning prefill still ends it.
+  // the prefill opens goes as text; with no reply in the history it goes as a user message; a reasoning prefill still
+  // ends it.
   const { endPromptOnAssistantPrefill } =
     await import("../../packages/server/src/routes/generate/generate-route-utils.js");
   type Message = { role: string; content: string; contextKind?: string; providerMetadata?: Record<string, unknown> };
@@ -406,8 +409,14 @@ try {
   assert.deepEqual(reasoned[1], { role: "assistant", content: "Sure! Alice opens.", contextKind: "history" });
   assert.equal(reasoned.length, 3);
   const noReply: Message[] = [{ role: "user", content: "Hello.", contextKind: "history" }];
-  endPromptOnAssistantPrefill(noReply, { role: "assistant", content: prefill }, false);
-  assert.deepEqual(noReply, [{ role: "user", content: "Hello.", contextKind: "history" }]);
+  assert.deepEqual(endPromptOnAssistantPrefill(noReply, { role: "assistant", content: prefill }, false), {
+    endsOnPrefill: false,
+    opensReply: false,
+  });
+  assert.deepEqual(noReply, [
+    { role: "user", content: "Hello.", contextKind: "history" },
+    { role: "user", content: prefill.trimEnd() },
+  ]);
   const both: Message[] = [{ role: "assistant", content: "Hi.", contextKind: "history" }];
   const thinking = { reasoning_content: "Plan.", partial: true };
   assert.deepEqual(
