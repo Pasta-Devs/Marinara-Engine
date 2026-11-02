@@ -14,7 +14,6 @@ import type { ConnectionRowData } from "./ConnectionRow";
 import { viaName } from "../../lib/connection-groups";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { JOB_HINT_INSET } from "./connection-row-layout";
-import { SMALL_ACTION } from "./DeviceDetail";
 
 /** The amber warning chip. NeedsModelChip draws it too. */
 export function WarningChip({ children, className }: { children: ReactNode; className?: string }) {
@@ -106,15 +105,24 @@ export function JobRow({
         end={
           <>
             {tile.warning?.fix && (
-              // The warning itself is the fix ("⚠ Turn on"): one control instead of a chip plus a button keeps the name readable.
+              // The warning itself is the fix ("⚠ Turn on"), chip-sized so the name keeps its room; the padding is the tap area.
               <button
                 type="button"
                 onClick={tile.warning.fix.run}
                 title={tile.warning.text}
-                className={cn(SMALL_ACTION, "shrink-0 gap-1 whitespace-nowrap text-amber-500")}
+                className="group -my-2 shrink-0 rounded-md py-2 outline-none focus-visible:[&>span]:ring-1 focus-visible:[&>span]:ring-[var(--ring)]"
               >
-                <AlertTriangle size="0.75rem" aria-hidden className="shrink-0" />
-                {tile.warning.fix.label}
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[0.625rem] transition-colors",
+                    tile.warning.quiet
+                      ? "bg-foreground/[0.06] text-[var(--muted-foreground)] group-hover:bg-foreground/10 group-hover:text-[var(--foreground)]"
+                      : "bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20",
+                  )}
+                >
+                  {!tile.warning.quiet && <AlertTriangle size="0.625rem" aria-hidden className="shrink-0" />}
+                  {tile.warning.fix.label}
+                </span>
               </button>
             )}
             {end}
