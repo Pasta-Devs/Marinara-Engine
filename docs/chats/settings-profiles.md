@@ -111,13 +111,13 @@ Its tooltips describe the current state:
 
 ## Favorite window layouts
 
-The star beside **Reset View** in the Chat Settings title bar saves a favorite window layout for new chats in the current mode. It also remembers whether you hid the layout tips. You can use this star in Conversation, Roleplay and Game. The star beside the **Profile** dropdown still chooses the default settings profile.
+The star beside **Reset View** in the Chat Settings title bar saves a favorite window layout for new chats in the current mode. It also remembers whether you hid the layout tips and the chat's Scoped Regex Scripts mode. You can use this star in Conversation, Roleplay and Game. The star beside the **Profile** dropdown still chooses the default settings profile.
 
 Upgrading an existing installation makes the familiar tool-button layout the favorite for new chats in all three modes. This happens once and keeps any favorite you already saved or cleared. The layout stays the default until you change it yourself. A fresh installation starts with the chat tools inside Chat Settings and no favorite layout selected.
 
-Arrange your windows and buttons, then click the title-bar star to save them. The star fills in while the current arrangement and tips match the favorite. If you move a window or change the arrangement, click the star again to replace the favorite. Click the filled star to clear it and use the standard layout for future chats. These changes leave existing chats as they are.
+Arrange your windows and buttons, then click the title-bar star to save them. The star fills in while the current arrangement, tips and Scoped Regex Scripts mode match the favorite. If you move a window or change the arrangement, click the star again to replace the favorite. Click the filled star to clear it and use the standard layout for future chats. These changes leave existing chats as they are.
 
-When a new chat uses a default settings profile, that profile's saved layout takes priority over the favorite layout. Profiles without a saved layout keep the chat's arrangement, including one supplied by a favorite. A profile still applies its own layout tips setting; older profiles without that setting show the tips.
+When a new chat uses a default settings profile, that profile's saved layout takes priority over the favorite layout. Profiles without a saved layout keep the chat's arrangement, including one supplied by a favorite. A profile still applies its own layout tips setting; older profiles without that setting show the tips. It also applies its own Scoped Regex Scripts mode, or the prompt preset's default when it has none.
 
 See [Choosing a layout for new chats](chat-settings.md#choosing-a-layout-for-new-chats) for the steps.
 

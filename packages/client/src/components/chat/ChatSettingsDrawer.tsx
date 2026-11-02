@@ -5502,7 +5502,11 @@ export function ChatSettingsDrawer({
       >
         <RotateCcw size="0.8125rem" />
       </button>
-      <ChatWindowFavoriteButton mode={chatMode} hintsDismissed={metadata.chatSettingsHintDismissed === true} />
+      <ChatWindowFavoriteButton
+        mode={chatMode}
+        hintsDismissed={metadata.chatSettingsHintDismissed === true}
+        scopedRegexMode={inheritsScopedRegexMode ? null : scopedRegexMode}
+      />
       {trackerPanelToggleAvailable && (
         <button
           type="button"

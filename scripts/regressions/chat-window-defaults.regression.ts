@@ -110,6 +110,16 @@ try {
     );
   }
 
+  // #8676: the star keeps the Scoped Regex Scripts choice for new chats of its mode; without one they follow the preset.
+  const scopedFavorite = { ...favorite("roleplay"), scopedRegexMode: "exclusive" };
+  assert.equal((await saveDefault("roleplay", scopedFavorite)).statusCode, 200);
+  assert.deepEqual(await readDefault("roleplay"), scopedFavorite);
+  assert.equal((await metadata(await createChat("roleplay"))).scopedRegexMode, "exclusive");
+  assert.equal((await metadata(await createChat("conversation"))).scopedRegexMode, undefined, "only its own mode");
+  assert.equal((await saveDefault("roleplay", { ...favorite("roleplay"), scopedRegexMode: null })).statusCode, 200);
+  assert.deepEqual(await readDefault("roleplay"), favorite("roleplay"), "a preset-following choice is not stored");
+  assert.equal((await metadata(await createChat("roleplay"))).scopedRegexMode, undefined);
+
   const profile = await app.inject({
     method: "POST",
     url: "/api/chat-presets",
@@ -163,6 +173,7 @@ try {
     JSON.stringify({ windowLayout: { version: 2, windows: {} }, chatSettingsHintDismissed: true }),
     JSON.stringify({ windowLayout: { version: 1, windows: [] }, chatSettingsHintDismissed: true }),
     JSON.stringify({ windowLayout: { version: 1, windows: {}, detached: [42] }, chatSettingsHintDismissed: true }),
+    JSON.stringify({ windowLayout: null, chatSettingsHintDismissed: true, scopedRegexMode: "always" }),
   ];
   for (const value of invalidValues) {
     assert.equal(parseChatWindowDefault(value), null);

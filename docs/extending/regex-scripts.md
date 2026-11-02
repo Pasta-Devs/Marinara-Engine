@@ -147,7 +147,9 @@ Character-scoped scripts do not automatically run in every chat. A per-chat sett
 - **Exclusive**: each scoped script only changes messages from the character it belongs to.
 - **Chat**: every scoped script changes every message in the chat.
 
-Below the mode buttons, the panel lists each character with scoped scripts and lets you switch each script on or off for that chat. This setting controls display-side scripts. Prompt scripts always follow the character that is actually generating the reply.
+**Use preset default** follows the prompt preset's **Scoped regex default**; choosing a mode overrides it for this chat. To start new chats with a mode, set it as the preset's default, save it in your [default settings profile](../chats/settings-profiles.md#choosing-the-default-profile), or choose it and then click the favorite layout star beside **Reset View** (see [Choosing a layout for new chats](../chats/chat-settings.md#choosing-a-layout-for-new-chats)).
+
+Below the mode buttons, the panel lists each character with scoped scripts and lets you switch each script on or off. That switch is the script's own, so it changes the script in every chat. The mode controls display-side scripts. Prompt scripts always follow the character that is actually generating the reply.
 
 ## Importing regex scripts from SillyTavern
 

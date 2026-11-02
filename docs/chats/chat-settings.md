@@ -103,13 +103,13 @@ After an upgrade, the familiar tool-button layout is already starred for all thr
 
 1. Arrange the windows and buttons the way you want them. Put tools inside Chat Settings or pop them out as needed.
 2. Hide the layout tips if you want new chats to hide them too.
-3. Click the star beside **Reset View**. It fills in when the current layout and tips match your saved favorite.
+3. Click the star beside **Reset View**. It fills in when the current layout, tips and Scoped Regex Scripts mode match your saved favorite.
 
-The favorite saves window and button positions, sizes, pins, locks, popped-out or docked tools, and the layout tips choice. Your characters, connection, AI settings and messages stay with the chat.
+The favorite saves window and button positions, sizes, pins, locks, popped-out or docked tools, the layout tips choice and the chat's [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) mode. A chat on **Use preset default** saves no mode, so new chats follow their prompt preset. Your characters, connection, AI settings and messages stay with the chat.
 
 To replace the favorite, change the arrangement and click the star again. To stop using it, click the filled star. New chats then use the standard layout. Saving, replacing or clearing a favorite only affects chats you create afterward; your existing chats keep their layouts.
 
-A settings profile with its own saved layout takes priority over the favorite when that profile is applied. A profile without a saved layout leaves the favorite arrangement in place. Profiles still apply their own layout tips setting.
+A settings profile with its own saved layout takes priority over the favorite when that profile is applied. A profile without a saved layout leaves the favorite arrangement in place. Profiles still apply their own layout tips setting and Scoped Regex Scripts mode; a profile without a mode uses the prompt preset's default.
 
 ## Chat Name
 
