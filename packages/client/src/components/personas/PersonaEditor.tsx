@@ -93,7 +93,7 @@ import {
   ArrowDown,
 } from "lucide-react";
 import type { AvatarCrop } from "@marinara-engine/shared";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { cardFromPersona, independentCardFields, normalizeAvatarCrop } from "@marinara-engine/shared";
 import { cn, generateClientId, getAvatarCropStyle } from "../../lib/utils";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
@@ -160,7 +160,6 @@ import {
   normalizeRpgStatPools,
   syncRpgHpFromPools,
   normalizeCardFieldAlternatives,
-  unassignCardFieldAlternatives,
   type CardFieldAlternative,
   type CardFieldKey,
   type CharacterData,
@@ -1293,46 +1292,15 @@ function PersonaClipCard({
 }
 
 function createCharacterDataFromPersona(formData: PersonaFormData): CharacterData {
-  const rpgStats = formData.personaStats?.rpgStats;
-
-  return {
-    name: formData.name.trim(),
-    summary: formData.summary,
-    description: formData.description ?? "",
-    personality: formData.personality ?? "",
-    scenario: formData.scenario ?? "",
-    first_mes: "",
-    mes_example: formData.mes_example,
-    creator_notes: formData.creatorNotes ?? "",
-    system_prompt: "",
-    post_history_instructions: "",
-    tags: formData.tags ?? [],
-    creator: formData.creator ?? "",
-    character_version: formData.personaVersion ?? "1.0",
-    alternate_greetings: [],
-    character_book: null,
-    extensions: {
-      cardFieldAlternatives: unassignCardFieldAlternatives(formData.cardFieldAlternatives),
-      talkativeness: 0.5,
-      fav: false,
-      world: "",
-      depth_prompt: { prompt: "", depth: 4, role: "system" },
-      backstory: formData.backstory ?? "",
-      appearance: formData.appearance ?? "",
-      imageAppearanceEnabled: formData.imageAppearanceEnabled,
-      imageAppearance: formData.imageAppearance || undefined,
-      versioningEnabled: formData.versioningEnabled,
+  return cardFromPersona(
+    independentCardFields({
+      ...formData,
+      name: formData.name.trim(),
       phoneticName: formData.phoneticName.trim() || undefined,
-      nameColor: formData.nameColor || undefined,
-      dialogueColor: formData.dialogueColor || undefined,
-      boxColor: formData.boxColor || undefined,
-      trackerCardColors: serializeTrackerCardColorConfig(formData.trackerCardColors),
-      convoDisplayName: formData.convoDisplayName || undefined,
-      aboutMe: formData.aboutMe || undefined,
-      ...(formData.convoBehavior?.instruction?.trim() ? { convoBehavior: formData.convoBehavior } : {}),
-      ...(rpgStats ? { rpgStats } : {}),
-    },
-  };
+      personaStats: formData.personaStats ?? undefined,
+      convoBehavior: formData.convoBehavior?.instruction.trim() ? formData.convoBehavior : undefined,
+    }),
+  );
 }
 
 export function PersonaEditor() {

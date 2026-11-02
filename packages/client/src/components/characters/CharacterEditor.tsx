@@ -210,9 +210,10 @@ import {
   validateOnboarding,
   type CharacterCardVersion,
   normalizeCardFieldAlternatives,
-  unassignCardFieldAlternatives,
   type CardFieldKey,
   type CardFieldDraft,
+  independentCardFields,
+  personaFromCard,
   type CharacterData,
   type CharacterOnboarding,
   type CharacterOnboardingVariable,
@@ -1129,42 +1130,29 @@ export function CharacterEditor() {
       return;
     }
 
-    const rpgStats = formData.extensions.rpgStats as RPGStatsConfig | undefined;
-    const personaStats = rpgStats
-      ? {
-          enabled: !!rpgStats.enabled,
-          bars: [
-            { name: "Satiety", value: 100, max: 100, color: "#f59e0b" },
-            { name: "Energy", value: 100, max: 100, color: "#22c55e" },
-            { name: "Hygiene", value: 100, max: 100, color: "#3b82f6" },
-            { name: "Mood", value: 100, max: 100, color: "#eab308" },
-          ],
-          rpgStats,
-        }
-      : null;
-
     try {
+      const authored = independentCardFields(personaFromCard(formData));
+      const rpgStats = authored.personaStats?.rpgStats;
+      const personaStats =
+        !formData.extensions.personaStats && rpgStats
+          ? {
+              ...authored.personaStats,
+              enabled: !!rpgStats.enabled,
+              bars: [
+                { name: "Satiety", value: 100, max: 100, color: "#f59e0b" },
+                { name: "Energy", value: 100, max: 100, color: "#22c55e" },
+                { name: "Hygiene", value: 100, max: 100, color: "#3b82f6" },
+                { name: "Mood", value: 100, max: 100, color: "#eab308" },
+              ],
+              rpgStats,
+            }
+          : authored.personaStats;
       const created = (await createPersona.mutateAsync({
+        ...authored,
         name: personaName,
         comment: formData.creator_notes ?? "",
-        creator: formData.creator ?? "",
-        personaVersion: formData.character_version ?? "1.0",
-        versioningEnabled: formData.extensions.versioningEnabled !== false,
-        creatorNotes: formData.creator_notes ?? "",
-        summary: formData.summary ?? "",
-        mes_example: formData.mes_example ?? "",
-        cardFieldAlternatives: unassignCardFieldAlternatives(formData.extensions.cardFieldAlternatives),
-        description: formData.description ?? "",
-        personality: formData.personality ?? "",
-        scenario: formData.scenario ?? "",
-        backstory: (formData.extensions.backstory as string) ?? "",
-        appearance: (formData.extensions.appearance as string) ?? "",
-        nameColor: (formData.extensions.nameColor as string) ?? "",
-        dialogueColor: (formData.extensions.dialogueColor as string) ?? "",
-        boxColor: (formData.extensions.boxColor as string) ?? "",
         trackerCardColors: parseTrackerCardColorConfig(formData.extensions.trackerCardColors),
         personaStats,
-        tags: formData.tags ?? [],
       })) as { id?: string };
 
       const personaId = created?.id;
