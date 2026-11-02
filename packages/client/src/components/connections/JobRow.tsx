@@ -106,7 +106,14 @@ export function JobRow({
         end={
           <>
             {tile.warning?.fix && (
-              <button type="button" onClick={tile.warning.fix.run} className={cn(SMALL_ACTION, "shrink-0")}>
+              // The warning itself is the fix ("⚠ Turn on"): one control instead of a chip plus a button keeps the name readable.
+              <button
+                type="button"
+                onClick={tile.warning.fix.run}
+                title={tile.warning.text}
+                className={cn(SMALL_ACTION, "shrink-0 gap-1 whitespace-nowrap text-amber-500")}
+              >
+                <AlertTriangle size="0.75rem" aria-hidden className="shrink-0" />
                 {tile.warning.fix.label}
               </button>
             )}
@@ -152,7 +159,7 @@ export function JobRow({
         showPaid={catalog?.showPaid}
         trailing={
           <>
-            {tile.warning && <WarningChip>{tile.warning.short ?? tile.warning.text}</WarningChip>}
+            {tile.warning && !tile.warning.fix && <WarningChip>{tile.warning.short ?? tile.warning.text}</WarningChip>}
             {trailing}
           </>
         }

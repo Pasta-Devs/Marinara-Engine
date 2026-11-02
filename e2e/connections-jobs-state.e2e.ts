@@ -75,7 +75,10 @@ test("Jobs remain available without accounts and show inherited account warnings
       const followers = current === "agents" ? ["mari"] : ["agents", "impersonate", "mari"];
       for (const key of followers) {
         await expect(row(key)).toContainText("Warning model");
-        await expect(row(key).getByText(current === "key" ? "Needs key" : "Off", { exact: true })).toBeVisible();
+        // The warning is its own fix button, so the row has no separate "Off" chip.
+        await expect(
+          row(key).getByRole("button", { name: current === "key" ? "Add key" : "Turn on", exact: true }),
+        ).toBeVisible();
       }
       if (current === "agents") {
         // The warning's fix and the settings gear sit side by side, never on top of each other.

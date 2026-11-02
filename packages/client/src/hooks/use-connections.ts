@@ -16,7 +16,7 @@ import {
   type PlanUsage,
 } from "@marinara-engine/shared";
 import type { RemoteConnectionModel } from "../lib/connection-model-selection";
-import { queryOptions, skipToken, useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
@@ -501,7 +501,12 @@ export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>):
             retry: false,
             retryOnMount: false,
           }
-        : { queryKey: connectionKeys.models(id), queryFn: skipToken },
+        : // Disabled, not skipToken: a refetch of this shared key (Refresh, invalidate) may read this observer's queryFn.
+          {
+            queryKey: connectionKeys.models(id),
+            queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+            enabled: false,
+          },
     ),
   });
   const indexById = new Map(
