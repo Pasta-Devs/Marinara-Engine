@@ -127,6 +127,13 @@ import { reloadFeatureSettingsIfTouched } from "../features/feature-settings.js"
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { encryptCustomToolWebhookUrl, ENCRYPTED_WEBHOOK_PREFIX } from "../../utils/custom-tool-webhook.js";
 import { getProfessorMariWorkspaceSkillsService } from "../professor-mari/workspace-skills.service.js";
+import {
+  completePersonaRow,
+  personaRowFromStored,
+  storedPersonaFromRow,
+  type PersonaStorageRow,
+  type StoredPersonaRow,
+} from "../personas/persona-card-storage.js";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -484,15 +491,7 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   characters: ["data"],
   character_card_versions: ["data"],
   persona_card_versions: ["data"],
-  personas: [
-    "avatarCrop",
-    "trackerCardColors",
-    "personaStats",
-    "tags",
-    "savedStatusOptions",
-    "convoBehavior",
-    "cardFieldAlternatives",
-  ],
+  personas: ["data"],
   character_groups: ["characterIds"],
   persona_groups: ["personaIds"],
   chats: ["characterIds", "metadata"],
@@ -647,6 +646,35 @@ function parseJsonMaybe(value: unknown): unknown {
 
 function jsonColumnSet(table: string) {
   return new Set(JSON_COLUMNS[table] ?? []);
+}
+
+// JSON columns of the flat persona view the persona actions read and write. On disk a persona
+// row keeps its authored card in `data` (storage format 11); the persona actions convert.
+const PERSONA_VIEW_JSON_COLUMNS = [
+  "avatarCrop",
+  "trackerCardColors",
+  "personaStats",
+  "tags",
+  "savedStatusOptions",
+  "convoBehavior",
+  "cardFieldAlternatives",
+] as const;
+
+/** Flat persona view with its JSON columns parsed, as the persona actions show it. */
+function parsePersonaView(row: PersonaStorageRow): Row {
+  const out: Row = { ...row };
+  for (const key of PERSONA_VIEW_JSON_COLUMNS) out[key] = parseJsonMaybe(out[key]);
+  return out;
+}
+
+/** Re-serialize the JSON columns a persona action set on the flat view. */
+function serializePersonaView(row: Row): Row {
+  const out: Row = { ...row };
+  for (const key of PERSONA_VIEW_JSON_COLUMNS) {
+    const value = out[key];
+    if (value !== undefined && value !== null && typeof value !== "string") out[key] = JSON.stringify(value);
+  }
+  return out;
 }
 
 function parseRow(table: string, row: Row): Row {
@@ -3579,7 +3607,7 @@ export class MariDbService {
     switch (sub) {
       case "list": {
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
-        const rows = (await this.rawRows("personas")).sort((a, b) =>
+        const rows = (await this.personaViewRows()).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
         );
         return {
@@ -3595,18 +3623,18 @@ export class MariDbService {
       }
       case "get": {
         const id = requiredString(args, ["id", "personaId"], "persona id");
-        const row = await this.getRawById(getMeta("personas"), id);
+        const row = await this.personaViewById(id);
         return {
           ok: Boolean(row),
           mode: "read",
           command: context.command,
-          output: row ? parseRow("personas", row) : null,
+          output: row ? parsePersonaView(row) : null,
         };
       }
       case "search": {
         const query = requiredString(args, ["query", "search"], "persona search query").toLowerCase();
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
-        const rows = (await this.rawRows("personas"))
+        const rows = (await this.personaViewRows())
           .filter((row) => matchesSearchQuery(row, query))
           .slice(0, limit)
           .map(summarizePersonaRow);
@@ -3647,7 +3675,7 @@ export class MariDbService {
         const timestamp = now();
         const id = firstString(args, ["id", "personaId"]) ?? newId();
         const row = buildPersonaCreateRow(data, id, timestamp);
-        return this.executeMutation(
+        return this.executePersonaMutation(
           {
             kind: "insert",
             table: "personas",
@@ -3735,7 +3763,7 @@ export class MariDbService {
             'persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
           );
         }
-        return this.executeMutation(
+        return this.executePersonaMutation(
           {
             kind: "patch",
             table: "personas",
@@ -3782,7 +3810,8 @@ export class MariDbService {
       owner === "character"
         ? requiredString(args, ["characterId", "id"], "character id")
         : requiredString(args, ["personaId", "id"], "persona id");
-    const existing = await this.getRawById(getMeta(table), id);
+    const existing: Row | null =
+      owner === "character" ? await this.getRawById(getMeta(table), id) : await this.personaViewById(id);
     if (!existing) throw new Error(`${owner === "character" ? "Character" : "Persona"} ${id} not found`);
     const column = owner === "character" ? "data" : "personaStats";
     const rawColumn = existing[column];
@@ -3849,11 +3878,15 @@ export class MariDbService {
     if (owner === "persona") {
       // A replace, not a patch: a patch deep-merges personaStats, so a cleared value would come back.
       const row: Row = {
-        ...parseRow("personas", existing),
+        ...existing,
         personaStats: { ...holder, rulesetSheets: next.sheets },
         updatedAt: now(),
       };
-      return this.executeMutation({ kind: "replace", table, id, row, ...mutation }, context.command, context.sessionId);
+      return this.executePersonaMutation(
+        { kind: "replace", table, id, row, ...mutation },
+        context.command,
+        context.sessionId,
+      );
     }
     const name = typeof holder.name === "string" ? holder.name : "";
     const row: Row = {
@@ -7406,7 +7439,7 @@ export class MariDbService {
     switch (sub) {
       case "list": {
         const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
-        const rows = (await this.rawRows("personas")).sort((a, b) =>
+        const rows = (await this.personaViewRows()).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
         );
         return {
@@ -7422,12 +7455,12 @@ export class MariDbService {
       case "get": {
         const id = parsed.positionals[0];
         if (!id) throw new Error("Usage: mari personas get <id>");
-        const row = await this.getRawById(getMeta("personas"), id);
+        const row = await this.personaViewById(id);
         return {
           ok: Boolean(row),
           mode: "read",
           command: context.command,
-          output: row ? parseRow("personas", row) : null,
+          output: row ? parsePersonaView(row) : null,
         };
       }
       case "search": {
@@ -7435,7 +7468,7 @@ export class MariDbService {
         if (!query) throw new Error("Usage: mari personas search <query>");
         const needle = query.toLowerCase();
         const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
-        const rows = (await this.rawRows("personas"))
+        const rows = (await this.personaViewRows())
           .filter((row) => matchesSearchQuery(row, needle))
           .slice(0, limit)
           .map(summarizePersonaRow);
@@ -7479,7 +7512,7 @@ export class MariDbService {
           reason: flagString(flags, "reason") ?? null,
           cwd: context.cwd,
         };
-        return this.executeMutation(request, context.command, context.sessionId);
+        return this.executePersonaMutation(request, context.command, context.sessionId);
       }
       case "update": {
         const id = parsed.positionals[0];
@@ -7532,7 +7565,7 @@ export class MariDbService {
           reason: flagString(flags, "reason") ?? null,
           cwd: context.cwd,
         };
-        return this.executeMutation(request, context.command, context.sessionId);
+        return this.executePersonaMutation(request, context.command, context.sessionId);
       }
       case "delete": {
         const id = parsed.positionals[0];
@@ -10781,6 +10814,43 @@ export class MariDbService {
       }
     }
     return page();
+  }
+
+  /** Every persona as its flat view (authored fields decoded from `data`). */
+  private async personaViewRows(): Promise<PersonaStorageRow[]> {
+    return (await this.rawRows("personas")).map((row) => personaRowFromStored(row as StoredPersonaRow));
+  }
+
+  private async personaViewById(id: string): Promise<PersonaStorageRow | null> {
+    const row = await this.getRawById(getMeta("personas"), id);
+    return row ? personaRowFromStored(row as StoredPersonaRow) : null;
+  }
+
+  /**
+   * Persona actions build flat-view rows and patches; the table stores the card in `data`. Fold the
+   * request into a stored row first. A patch becomes a replace: a deep-merged `data` patch would
+   * bring back fields the card leaves out when they are cleared.
+   */
+  private async executePersonaMutation(
+    request: ParsedMutationRequest,
+    command: string,
+    sessionId: string,
+  ): Promise<MariDbCommandResult> {
+    const id = request.id;
+    if (!id) throw new Error("persona mutation needs an id");
+    const base: PersonaStorageRow | null = request.kind === "insert" ? null : await this.personaViewById(id);
+    if (request.kind !== "insert" && !base) {
+      await this.requireRawById(getMeta("personas"), id);
+    }
+    const changes = serializePersonaView((request.kind === "patch" ? request.patch : request.row) ?? {});
+    const view = completePersonaRow({ ...(base ?? {}), ...changes, id } as PersonaStorageRow);
+    const { patch: _patch, ...rest } = request;
+    const stored: ParsedMutationRequest = {
+      ...rest,
+      kind: request.kind === "insert" ? "insert" : "replace",
+      row: storedPersonaFromRow(view) as unknown as Row,
+    };
+    return this.executeMutation(stored, command, sessionId);
   }
 
   private async rawRows(table: string): Promise<Row[]> {

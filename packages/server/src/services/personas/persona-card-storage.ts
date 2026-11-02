@@ -1,19 +1,52 @@
 import { cardFromPersona, personaFromCard, type CharacterData } from "@marinara-engine/shared";
-import type { PersonaStorageRow } from "../storage/characters.storage.js";
+import type { personas } from "../../db/schema/index.js";
 import { encodePersonaUpdate, projectPersona } from "./persona-projector.js";
 
-/** Serialized persona row whose authored fields live in one JSON CharacterData column. */
-export type StoredPersonaRow = {
+/** On-disk persona row: record metadata plus the authored card as CharacterData JSON in `data`. */
+export type StoredPersonaRow = typeof personas.$inferSelect;
+
+/**
+ * Flat serialized persona view every storage reader gets. JSON-backed fields and
+ * booleans stay serialized text; decode with `projectPersona()` for API output.
+ */
+export type PersonaStorageRow = {
   id: string;
-  data: string;
+  name: string;
   comment: string;
+  creator: string;
+  personaVersion: string;
+  versioningEnabled: string;
+  creatorNotes: string;
+  phoneticName: string;
+  cardFieldAlternatives: string;
+  summary: string;
+  mes_example: string;
+  description: string;
+  personality: string;
+  scenario: string;
+  backstory: string;
+  appearance: string;
+  imageAppearanceEnabled: string;
+  imageAppearance: string;
   avatarPath: string | null;
+  characterSheetImageId: string | null;
+  useCharacterSheetAsReference: string;
+  avatarCrop: string;
   isActive: string;
+  nameColor: string;
+  dialogueColor: string;
+  boxColor: string;
+  trackerCardColors: string;
+  personaStats: string;
+  tags: string;
+  savedStatusOptions: string;
+  convoDisplayName: string;
+  aboutMe: string;
+  convoBehavior: string;
   embedding: string | null;
   createdAt: string;
   updatedAt: string;
 };
-
 /** Schema defaults for the flat persona columns that are not record metadata. */
 const PERSONA_COLUMN_DEFAULTS = {
   // Required column with no schema default; every encoded card supplies a name.
@@ -51,6 +84,21 @@ const PERSONA_COLUMN_DEFAULTS = {
   "id" | "comment" | "avatarPath" | "isActive" | "embedding" | "createdAt" | "updatedAt"
 >;
 
+/** Fill every flat column a partial persona row leaves out with its schema default. */
+export function completePersonaRow(
+  row: Partial<PersonaStorageRow> & Pick<PersonaStorageRow, "id" | "createdAt" | "updatedAt">,
+): PersonaStorageRow {
+  const defined = Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined));
+  return {
+    ...PERSONA_COLUMN_DEFAULTS,
+    comment: "",
+    avatarPath: null,
+    isActive: "false",
+    embedding: null,
+    ...defined,
+  } as PersonaStorageRow;
+}
+
 /** Fold a flat persona row into record metadata plus one serialized CharacterData card. */
 export function storedPersonaFromRow(row: PersonaStorageRow): StoredPersonaRow {
   const {
@@ -74,9 +122,28 @@ export function storedPersonaFromRow(row: PersonaStorageRow): StoredPersonaRow {
   };
 }
 
+function parseStoredCard(data: string): CharacterData {
+  try {
+    const parsed: unknown = JSON.parse(data);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const card = parsed as CharacterData;
+      const extensions = card.extensions && typeof card.extensions === "object" ? card.extensions : {};
+      return { ...card, extensions } as CharacterData;
+    }
+  } catch {
+    // An unreadable card reads as an empty one, so one bad row cannot fail a whole list.
+  }
+  return { name: "", extensions: {} } as unknown as CharacterData;
+}
+
 /** Rebuild every flat persona column from record metadata and the serialized CharacterData card. */
 export function personaRowFromStored(stored: StoredPersonaRow): PersonaStorageRow {
-  const persona = personaFromCard(JSON.parse(stored.data) as CharacterData);
+  // A row without `data` is a pre-format-11 flat row the migration has not converted (a raw
+  // import, a hand edit). Read it through the same normalization instead of failing.
+  if (typeof stored.data !== "string") {
+    return personaRowFromStored(storedPersonaFromRow(stored as unknown as PersonaStorageRow));
+  }
+  const persona = personaFromCard(parseStoredCard(stored.data));
   const encoded = encodePersonaUpdate(persona);
   return {
     id: stored.id,

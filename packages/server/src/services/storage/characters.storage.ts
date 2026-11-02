@@ -2,6 +2,11 @@
 // Storage: Characters, Personas & Groups
 // ──────────────────────────────────────────────
 import { and, asc, desc, eq, inArray, jsonStringArrayContainsAll, like, ne, or } from "../../db/file-query.js";
+import {
+  personaRowFromStored,
+  storedPersonaFromRow,
+  type PersonaStorageRow,
+} from "../personas/persona-card-storage.js";
 import type { DB } from "../../db/connection.js";
 import {
   characters,
@@ -18,6 +23,7 @@ import { newId, now } from "../../utils/id-generator.js";
 import {
   PROFESSOR_MARI_ID,
   parseCardTagSearchTerms,
+  matchesAllCardSearchTags,
   applyCharacterCardFieldAlternatives,
   applyPersonaCardFieldAlternatives,
   cardEntityBelongsToChat,
@@ -167,8 +173,8 @@ type CharacterListRow = {
   name: string;
   favorite: boolean;
 };
-/** Serialized row shape used by the file-table persistence layer. */
-export type PersonaStorageRow = typeof personas.$inferSelect;
+/** Flat serialized persona view; on disk the authored fields live in `personas.data`. */
+export type { PersonaStorageRow };
 /** Serialized Persona fields accepted by the normal create and update paths. */
 export type PersonaStorageWriteFields = Pick<
   PersonaStorageRow,
@@ -264,18 +270,67 @@ function sortCharacterRows(rows: CharacterListRow[], sort: string | undefined) {
   }
 }
 
-function personaOrder(sort: string | undefined) {
+/** Flat columns the persona library search matches, as the column-level LIKE did before format 11. */
+const PERSONA_SEARCH_COLUMNS = [
+  "name",
+  "comment",
+  "creator",
+  "personaVersion",
+  "creatorNotes",
+  "summary",
+  "description",
+  "personality",
+  "scenario",
+  "backstory",
+  "appearance",
+  "mes_example",
+  "tags",
+] as const satisfies ReadonlyArray<keyof PersonaStorageRow>;
+
+function personaMatchesSearch(row: PersonaStorageRow, search: string | undefined) {
+  const needle = search?.trim().toLowerCase();
+  if (!needle) return true;
+  if (PERSONA_SEARCH_COLUMNS.some((column) => row[column].toLowerCase().includes(needle))) return true;
+  let tags: unknown;
+  try {
+    tags = JSON.parse(row.tags);
+  } catch {
+    return false;
+  }
+  return matchesAllCardSearchTags(tags, parseCardTagSearchTerms(search ?? ""));
+}
+
+function comparePersonaRows(sort: string | undefined) {
+  const byId = (a: PersonaStorageRow, b: PersonaStorageRow) => a.id.localeCompare(b.id);
   switch (sort) {
     case "name-desc":
-      return [desc(personas.name), asc(personas.id)];
+      return (a: PersonaStorageRow, b: PersonaStorageRow) => b.name.localeCompare(a.name) || byId(a, b);
     case "newest":
-      return [desc(personas.createdAt), asc(personas.id)];
+      return (a: PersonaStorageRow, b: PersonaStorageRow) => b.createdAt.localeCompare(a.createdAt) || byId(a, b);
     case "oldest":
-      return [asc(personas.createdAt), asc(personas.id)];
+      return (a: PersonaStorageRow, b: PersonaStorageRow) => a.createdAt.localeCompare(b.createdAt) || byId(a, b);
     case "name-asc":
     default:
-      return [asc(personas.name), asc(personas.id)];
+      return (a: PersonaStorageRow, b: PersonaStorageRow) => a.name.localeCompare(b.name) || byId(a, b);
   }
+}
+
+/** Read every persona as its flat view. */
+async function selectPersonaRows(database: DB) {
+  const rows = await database.select().from(personas).orderBy(desc(personas.updatedAt));
+  return rows.map(personaRowFromStored);
+}
+
+/** Read one persona as its flat view. */
+async function selectPersonaRow(database: DB, id: string) {
+  const rows = await database.select().from(personas).where(eq(personas.id, id));
+  return rows[0] ? personaRowFromStored(rows[0]) : null;
+}
+
+/** Write a full flat persona view back as its stored row. */
+async function writePersonaRow(database: DB, row: PersonaStorageRow) {
+  const { id: _id, createdAt: _createdAt, ...stored } = storedPersonaFromRow(row);
+  await database.update(personas).set(stored).where(eq(personas.id, row.id));
 }
 
 function getCharacterSummaryFromRow(row: typeof characters.$inferSelect) {
@@ -949,7 +1004,7 @@ export function createCharactersStorage(db: DB) {
     // ── Personas ──
 
     async listPersonas(chatId?: string) {
-      const rows = await db.select().from(personas).orderBy(desc(personas.updatedAt));
+      const rows = await selectPersonaRows(db);
       if (!chatId) return rows;
       const [chat] = await db.select().from(chats).where(eq(chats.id, chatId));
       if (!chat) return rows;
@@ -959,45 +1014,19 @@ export function createCharactersStorage(db: DB) {
     },
 
     async listPersonasPage(options: PersonaListPageOptions) {
-      const pattern = likePattern(options.search);
-      const whereClause = pattern
-        ? or(
-            like(personas.name, pattern),
-            like(personas.comment, pattern),
-            like(personas.creator, pattern),
-            like(personas.personaVersion, pattern),
-            like(personas.creatorNotes, pattern),
-            like(personas.summary, pattern),
-            like(personas.description, pattern),
-            like(personas.personality, pattern),
-            like(personas.scenario, pattern),
-            like(personas.backstory, pattern),
-            like(personas.appearance, pattern),
-            like(personas.mes_example, pattern),
-            like(personas.tags, pattern),
-            jsonStringArrayContainsAll(personas.tags, parseCardTagSearchTerms(options.search ?? "")),
-          )
-        : undefined;
-      const rows = await (whereClause
-        ? db
-            .select()
-            .from(personas)
-            .where(whereClause)
-            .orderBy(...personaOrder(options.sort))
-            .limit(options.limit + 1)
-            .offset(options.offset)
-        : db
-            .select()
-            .from(personas)
-            .orderBy(...personaOrder(options.sort))
-            .limit(options.limit + 1)
-            .offset(options.offset));
-      return toPaginatedList(rows, options.limit, options.offset);
+      // `name` and the other searched fields live inside `data`, so search and sort run on the flat view.
+      const rows = (await selectPersonaRows(db))
+        .filter((row) => personaMatchesSearch(row, options.search))
+        .sort(comparePersonaRows(options.sort));
+      return toPaginatedList(
+        rows.slice(options.offset, options.offset + options.limit + 1),
+        options.limit,
+        options.offset,
+      );
     },
 
     async getPersona(id: string, chatId?: string) {
-      const rows = await db.select().from(personas).where(eq(personas.id, id));
-      const row = rows[0];
+      const row = await selectPersonaRow(db, id);
       return row ? applyPersonaCardFieldAlternatives(row, await eligibleChat(chatId, "persona", id)) : null;
     },
 
@@ -1074,7 +1103,7 @@ export function createCharactersStorage(db: DB) {
       }
       const id = newId();
       const timestamp = resolveTimestamps(timestampOverrides);
-      await db.insert(personas).values({
+      const row: PersonaStorageRow = {
         id,
         name,
         comment: extra?.comment ?? "",
@@ -1108,9 +1137,11 @@ export function createCharactersStorage(db: DB) {
         convoDisplayName: extra?.convoDisplayName ?? "",
         aboutMe: extra?.aboutMe ?? "",
         convoBehavior: extra?.convoBehavior ?? "",
+        embedding: null,
         createdAt: timestamp.createdAt,
         updatedAt: timestamp.updatedAt,
-      });
+      };
+      await db.insert(personas).values(storedPersonaFromRow(row));
       return this.getPersona(id);
     },
 
@@ -1140,7 +1171,7 @@ export function createCharactersStorage(db: DB) {
         if (!source) return null;
         const newPId = newId();
         const timestamp = now();
-        await db.insert(personas).values({
+        const row: PersonaStorageRow = {
           id: newPId,
           name: `${source.name || "Persona"} (Copy)`,
           comment: source.comment ?? "",
@@ -1174,9 +1205,11 @@ export function createCharactersStorage(db: DB) {
           convoDisplayName: source.convoDisplayName ?? "",
           aboutMe: source.aboutMe ?? "",
           convoBehavior: source.convoBehavior ?? "",
+          embedding: null,
           createdAt: timestamp,
           updatedAt: timestamp,
-        });
+        };
+        await db.insert(personas).values(storedPersonaFromRow(row));
         return this.getPersona(newPId);
       });
     },
@@ -1232,8 +1265,7 @@ export function createCharactersStorage(db: DB) {
       if (updates.aboutMe !== undefined) sets.aboutMe = updates.aboutMe;
       if (updates.convoBehavior !== undefined) sets.convoBehavior = updates.convoBehavior;
       const persistUpdate = async (database: DB) => {
-        const currentRows = await database.select().from(personas).where(eq(personas.id, id));
-        const current = currentRows[0];
+        const current = await selectPersonaRow(database, id);
         if (!current) return null;
         const currentData = buildPersonaSnapshot(current);
         const nextData = mergePersonaSnapshot(currentData, {
@@ -1296,9 +1328,8 @@ export function createCharactersStorage(db: DB) {
             sets.personaVersion = bumpCardVersion(currentData.personaVersion);
           }
         }
-        await database.update(personas).set(sets).where(eq(personas.id, id));
-        const rows = await database.select().from(personas).where(eq(personas.id, id));
-        return rows[0] ?? null;
+        await writePersonaRow(database, { ...current, ...sets } as PersonaStorageRow);
+        return selectPersonaRow(database, id);
       };
       return updates.avatarPath !== undefined ? db.transaction(persistUpdate) : persistUpdate(db);
     },
@@ -1311,8 +1342,7 @@ export function createCharactersStorage(db: DB) {
       // an older version never discards the newer one and can't leave a
       // half-applied state (#4040). Skip the snapshot when they already match.
       const ok = await db.transaction(async (tx) => {
-        const rows = await tx.select().from(personas).where(eq(personas.id, personaId));
-        const existing = rows[0];
+        const existing = await selectPersonaRow(tx, personaId);
         if (!existing) return false;
         const currentSnapshot = buildPersonaSnapshot(existing);
         const alreadyMatches =
@@ -1332,43 +1362,41 @@ export function createCharactersStorage(db: DB) {
             createdAt: existing.updatedAt ?? now(),
           });
         }
-        await tx
-          .update(personas)
-          .set({
-            name: data.name,
-            comment: version.comment ?? "",
-            creator: data.creator,
-            personaVersion: data.personaVersion,
-            versioningEnabled: data.versioningEnabled,
-            creatorNotes: data.creatorNotes,
-            phoneticName: data.phoneticName ?? "",
-            cardFieldAlternatives: data.cardFieldAlternatives ?? "[]",
-            summary: data.summary ?? "",
-            mes_example: data.mes_example ?? "",
-            description: data.description,
-            personality: data.personality,
-            scenario: data.scenario,
-            backstory: data.backstory,
-            appearance: data.appearance,
-            imageAppearanceEnabled: data.imageAppearanceEnabled ?? "false",
-            imageAppearance: data.imageAppearance ?? "",
-            avatarPath: version.avatarPath ?? null,
-            characterSheetImageId: data.characterSheetImageId || null,
-            useCharacterSheetAsReference: data.useCharacterSheetAsReference,
-            avatarCrop: data.avatarCrop,
-            nameColor: data.nameColor,
-            dialogueColor: data.dialogueColor,
-            boxColor: data.boxColor,
-            trackerCardColors: data.trackerCardColors,
-            personaStats: data.personaStats,
-            tags: data.tags,
-            savedStatusOptions: data.savedStatusOptions,
-            convoDisplayName: data.convoDisplayName,
-            aboutMe: data.aboutMe,
-            convoBehavior: data.convoBehavior,
-            updatedAt: now(),
-          })
-          .where(eq(personas.id, personaId));
+        await writePersonaRow(tx, {
+          ...existing,
+          name: data.name,
+          comment: version.comment ?? "",
+          creator: data.creator,
+          personaVersion: data.personaVersion,
+          versioningEnabled: data.versioningEnabled,
+          creatorNotes: data.creatorNotes,
+          phoneticName: data.phoneticName ?? "",
+          cardFieldAlternatives: data.cardFieldAlternatives ?? "[]",
+          summary: data.summary ?? "",
+          mes_example: data.mes_example ?? "",
+          description: data.description,
+          personality: data.personality,
+          scenario: data.scenario,
+          backstory: data.backstory,
+          appearance: data.appearance,
+          imageAppearanceEnabled: data.imageAppearanceEnabled ?? "false",
+          imageAppearance: data.imageAppearance ?? "",
+          avatarPath: version.avatarPath ?? null,
+          characterSheetImageId: data.characterSheetImageId || null,
+          useCharacterSheetAsReference: data.useCharacterSheetAsReference,
+          avatarCrop: data.avatarCrop,
+          nameColor: data.nameColor,
+          dialogueColor: data.dialogueColor,
+          boxColor: data.boxColor,
+          trackerCardColors: data.trackerCardColors,
+          personaStats: data.personaStats,
+          tags: data.tags,
+          savedStatusOptions: data.savedStatusOptions,
+          convoDisplayName: data.convoDisplayName,
+          aboutMe: data.aboutMe,
+          convoBehavior: data.convoBehavior,
+          updatedAt: now(),
+        });
         return true;
       });
       if (!ok) return null;
@@ -1397,10 +1425,10 @@ export function createCharactersStorage(db: DB) {
 
     async resetPersonaVersions(personaId: string) {
       const reset = await db.transaction(async (tx) => {
-        const rows = await tx.select().from(personas).where(eq(personas.id, personaId));
-        if (!rows[0]) return false;
+        const existing = await selectPersonaRow(tx, personaId);
+        if (!existing) return false;
         await tx.delete(personaCardVersions).where(eq(personaCardVersions.personaId, personaId));
-        await tx.update(personas).set({ personaVersion: "1.0", updatedAt: now() }).where(eq(personas.id, personaId));
+        await writePersonaRow(tx, { ...existing, personaVersion: "1.0", updatedAt: now() });
         return true;
       });
       if (!reset) return null;

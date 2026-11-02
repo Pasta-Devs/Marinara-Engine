@@ -158,3 +158,15 @@ assert.deepEqual(projectPersona(legacyRow), projectPersona(personaRowFromStored(
 
 assert.deepEqual(personaRowChanges(canonicalRow), []);
 assert.deepEqual(personaRowFromStored(storedRows.canonical), canonicalRow);
+
+// A flat pre-format-11 row read as if stored reads as its own normalized view.
+assert.deepEqual(
+  personaRowFromStored(canonicalRow as unknown as Parameters<typeof personaRowFromStored>[0]),
+  canonicalRow,
+);
+// Unreadable card JSON keeps the record columns and reads as an empty card instead of throwing.
+const unreadable = personaRowFromStored({ ...storedRows.canonical, data: "{not json" });
+assert.equal(unreadable.id, canonicalRow.id);
+assert.equal(unreadable.avatarPath, canonicalRow.avatarPath);
+assert.equal(unreadable.name, "");
+assert.equal(personaRowFromStored({ ...storedRows.canonical, data: "[]" }).name, "");

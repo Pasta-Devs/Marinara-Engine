@@ -26,6 +26,8 @@ const { characters, personas } = await import("../../../packages/server/src/db/s
 const { createGameRulesetsStorage } =
   await import("../../../packages/server/src/services/storage/game-rulesets.storage.js");
 const { MariDbService } = await import("../../../packages/server/src/services/mari-db/mari-db.service.js");
+const { personaRowFromStored, storedPersonaFromRow } =
+  await import("../../../packages/server/src/services/personas/persona-card-storage.js");
 
 type Row = Record<string, unknown>;
 const EMBER = "local/ember-roads";
@@ -46,12 +48,18 @@ try {
   });
   assert.equal(created.ok, true, `persona.create: ${created.error ?? ""}`);
   const otherStats = { enabled: true, bars: [{ name: "Grit", value: 3, max: 5, color: "#ff0000" }] };
-  await db
-    .update(personas)
-    .set({ personaStats: JSON.stringify(otherStats) })
-    .where(eq(personas.id, "rook"));
-  const personaStats = async () => {
+  // The table stores card JSON: read the decoded flat view, merge the change, write the folded row back.
+  const readRook = async () => {
     const [row] = await db.select().from(personas).where(eq(personas.id, "rook"));
+    return personaRowFromStored(row!);
+  };
+  const setRookStats = async (stats: unknown) => {
+    const { id: _id, ...stored } = storedPersonaFromRow({ ...(await readRook()), personaStats: JSON.stringify(stats) });
+    await db.update(personas).set(stored).where(eq(personas.id, "rook"));
+  };
+  await setRookStats(otherStats);
+  const personaStats = async () => {
+    const row = await readRook();
     return JSON.parse(String(row!.personaStats)) as Row & { rulesetSheets?: Record<string, { v: number; build: Row }> };
   };
   const update = (patch: unknown, extra: Row = {}) =>
@@ -84,7 +92,7 @@ try {
   assert.equal(preview.ok, true, `preview: ${preview.error ?? ""}`);
   assert.equal((await personaStats()).rulesetSheets, undefined, "apply:false saves nothing");
 
-  const [rowBefore] = await db.select().from(personas).where(eq(personas.id, "rook"));
+  const rowBefore = await readRook();
   const first = await update({
     abilities: { brawn: 2, wits: -1 },
     skills: { scrap: "expert" },
@@ -93,9 +101,9 @@ try {
     lists: { gear: { add: [{ name: "Crowbar", swing: "brawn", damage: "1d6", bulk: 1, packed: true }] } },
   });
   assert.equal(first.ok, true, `first update: ${first.error ?? ""}`);
-  const [rowAfter] = await db.select().from(personas).where(eq(personas.id, "rook"));
-  const { personaStats: _a, updatedAt: _b, ...restBefore } = rowBefore!;
-  const { personaStats: _c, updatedAt: _d, ...restAfter } = rowAfter!;
+  const rowAfter = await readRook();
+  const { personaStats: _a, updatedAt: _b, ...restBefore } = rowBefore;
+  const { personaStats: _c, updatedAt: _d, ...restAfter } = rowAfter;
   assert.deepEqual(restAfter, restBefore, "no other persona column changes");
   let stats = await personaStats();
   assert.deepEqual(stats.bars, otherStats.bars, "bars beside the sheets are untouched");
@@ -214,10 +222,7 @@ try {
     ...(await personaStats()),
     rulesetSheets: { ...(await personaStats()).rulesetSheets, [GRAVE]: { v: "x" } },
   };
-  await db
-    .update(personas)
-    .set({ personaStats: JSON.stringify(broken) })
-    .where(eq(personas.id, "rook"));
+  await setRookStats(broken);
   const unreadable = await mari.executeAction({
     action: "persona.rulesetSheet.update",
     personaId: "rook",
