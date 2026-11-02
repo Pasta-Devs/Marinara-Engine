@@ -2898,8 +2898,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           maxContext: conn.maxContext,
         });
         const routingKnownModel = findKnownModel(conn.provider as APIProvider, conn.model.trim());
-        // Unwrapped, as for the reply's own agents: agent resolution adds the fallback and retry layers. A
-        // wrapped provider got them twice, so a failed routing prompt reached the fallback twice and each
+        // Unwrapped: agent resolution adds the reply's fallback (chatConnectionMainFallback) and the retry layer
+        // once. A wrapped provider got them twice, so a failed routing prompt reached the fallback twice and each
         // 429 retry ran inside another one.
         const routingChatProvider = createLLMProvider(
           conn.provider,
@@ -2941,6 +2941,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatCachingAtDepth: conn.cachingAtDepth ?? 5,
           activeMusicPlayerSource,
           chatMetadata: chatMeta,
+          chatConnectionMainFallback: { connection: mainFallbackConnection, connectionName: conn.name },
           onFallback,
           resolveBaseUrl,
         });

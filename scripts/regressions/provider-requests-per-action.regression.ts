@@ -8,8 +8,9 @@ import { join } from "node:path";
 
 // One user action sends each prompt once. Gemini and Anthropic get exactly one request for a send, a regenerate, a
 // continue and an impersonation, in a Roleplay group (streamed, reasoning on) and a Conversation (buffered, reasoning
-// off). A character-activity agent whose prompt fails reaches the fallback once, and a rate limit is retried once per
-// connection, not inside another retry: its provider used to get the fallback and retry layers twice.
+// off). A character-activity agent whose prompt fails reaches the reply's fallback once, and a rate limit is retried
+// once per connection, not inside another retry: its provider used to get the fallback and retry layers twice.
+// Routing keeps the reply's fallback when only that one is set.
 const dir = mkdtempSync(join(tmpdir(), "marinara-provider-requests-"));
 process.env.DATA_DIR = dir;
 process.env.FILE_STORAGE_DIR = join(dir, "storage");
@@ -100,6 +101,10 @@ try {
     const response = await app.inject({ method: "POST", url: "/api/generate/", payload });
     assert.equal(response.statusCode, 200, `${label}: ${response.body}`);
     assert(!response.body.includes('"type":"error"'), `${label}: ${response.body}`);
+    return response.body
+      .split("\n")
+      .filter((line) => line.startsWith("data: "))
+      .map((line) => JSON.parse(line.slice(6)) as { type: string; data?: any });
   };
 
   const providers = [
@@ -158,7 +163,7 @@ try {
     }
   }
 
-  // A character-activity agent on the chat's connection, with a fallback for the reply and for agents.
+  // A character-activity agent on the chat's connection, with a fallback for the reply and maybe for agents.
   await createAgentsStorage(db).create({
     type: "routing-fixture",
     name: "Routing fixture",
@@ -183,8 +188,6 @@ try {
       model,
       apiKey: "fixture",
       maxContext: 32768,
-      fallbackForMain: true,
-      fallbackForAgents: true,
     });
     assert(primary && fallback);
     const chat = await chats.create({
@@ -202,27 +205,45 @@ try {
       return counts;
     };
 
-    // The primary refuses everything and the fallback refuses the routing prompt: the reply still comes from the
-    // fallback, and each prompt reaches each connection once.
-    status = (requestPath, router) => (leg(requestPath) === "primary" || router ? 500 : 200);
-    await generate({ chatId: chat.id, userMessage: "Who answers?", streaming: true }, `${provider} routing refused`);
-    const sent = new Map<string, number>();
-    for (const request of requests) {
-      const key = `${leg(request.path)} ${request.hash}`;
-      sent.set(key, (sent.get(key) ?? 0) + 1);
-    }
-    assert.deepEqual(routingRequests(), { primary: 1, fallback: 1 }, `${provider}: the routing prompt goes once each`);
-    for (const [key, count] of sent) assert.equal(count, 1, `${provider}: ${key} was sent ${count} times`);
+    // The same connection as both fallbacks, and the reply's fallback alone (the common setup).
+    for (const fallbackForAgents of [true, false]) {
+      const setup = `${provider} ${fallbackForAgents ? "main and agents" : "main only"} fallback`;
+      await connections.update(fallback.id, { fallbackForMain: true, fallbackForAgents });
 
-    // A rate limit on both: one retry budget per connection, not one inside the other.
-    status = (_requestPath, router) => (router ? 429 : 200);
-    await generate({ chatId: chat.id, userMessage: "Who answers now?", streaming: true }, `${provider} routing 429`);
-    assert.deepEqual(
-      routingRequests(),
-      { primary: MAX_RATE_LIMIT_RETRIES + 1, fallback: MAX_RATE_LIMIT_RETRIES + 1 },
-      `${provider}: rate-limit retries are not multiplied`,
-    );
-    status = () => 200;
+      // The primary refuses everything: routing answers on the reply's fallback and says which connection failed.
+      status = (requestPath) => (leg(requestPath) === "primary" ? 500 : 200);
+      const events = await generate({ chatId: chat.id, userMessage: "Who?", streaming: true }, `${setup} answered`);
+      assert.deepEqual(routingRequests(), { primary: 1, fallback: 1 }, `${setup}: routing falls back once`);
+      const routed = events.find(
+        (event) => event.type === "agent_result" && event.data.agentType === "routing-fixture",
+      );
+      assert.equal(routed?.data.success, true, `${setup}: routing answers on the fallback: ${JSON.stringify(routed)}`);
+      const notice = events.find((event) => event.type === "fallback_used")?.data;
+      assert.equal(notice?.category, "main", `${setup}: routing uses the reply's fallback: ${JSON.stringify(notice)}`);
+      assert.equal(notice?.failed?.connectionName, primary.name, `${setup}: the notice names the failed connection`);
+
+      // The fallback refuses the routing prompt too: the reply still comes from the fallback, and each prompt
+      // reaches each connection once.
+      status = (requestPath, router) => (leg(requestPath) === "primary" || router ? 500 : 200);
+      await generate({ chatId: chat.id, userMessage: "Who answers?", streaming: true }, `${setup} refused`);
+      const sent = new Map<string, number>();
+      for (const request of requests) {
+        const key = `${leg(request.path)} ${request.hash}`;
+        sent.set(key, (sent.get(key) ?? 0) + 1);
+      }
+      assert.deepEqual(routingRequests(), { primary: 1, fallback: 1 }, `${setup}: the routing prompt goes once each`);
+      for (const [key, count] of sent) assert.equal(count, 1, `${setup}: ${key} was sent ${count} times`);
+
+      // A rate limit on both: one retry budget per connection, not one inside the other.
+      status = (_requestPath, router) => (router ? 429 : 200);
+      await generate({ chatId: chat.id, userMessage: "Who answers now?", streaming: true }, `${setup} 429`);
+      assert.deepEqual(
+        routingRequests(),
+        { primary: MAX_RATE_LIMIT_RETRIES + 1, fallback: MAX_RATE_LIMIT_RETRIES + 1 },
+        `${setup}: rate-limit retries are not multiplied`,
+      );
+      status = () => 200;
+    }
     await connections.update(fallback.id, { fallbackForMain: false, fallbackForAgents: false });
   }
   console.log("Provider requests per action regression passed.");
