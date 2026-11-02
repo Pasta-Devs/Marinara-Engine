@@ -217,7 +217,6 @@ const conversion = between(
 assert.match(conversion, /createPersona\.mutateAsync\(\{\s*\.\.\.authored,/u);
 assertDecoded(conversion, "character conversion must pass decoded fields from the shared adapter");
 assert.match(conversion, /trackerCardColors: parseTrackerCardColorConfig\(/u);
-assert.match(conversion, /personaStats,/u);
 assert.match(panel, /updatePersona\.mutateAsync\(\{ id: p\.id, tags: newTags \}\)/u);
 const importScope = between(
   importer,

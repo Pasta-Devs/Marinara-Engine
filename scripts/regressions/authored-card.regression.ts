@@ -110,3 +110,18 @@ assert.deepEqual(copy.personaStats?.bars, persona.personaStats?.bars);
 
 // A card saved without tags still converts to a persona that sends an array.
 assert.deepEqual(personaFromCard({ ...card, tags: undefined as unknown as string[] }).tags, []);
+
+// Game settings can exist before RPG stats are configured. Preserve explicitly empty bars.
+const iconOnly = { ...edited, extensions: { ...edited.extensions, combatIcon: { source: "initials" as const } } };
+const iconStats = independentCardFields(personaFromCard(iconOnly)).personaStats;
+assert.equal(iconStats?.enabled, false);
+assert.deepEqual(iconStats?.combatIcon, { source: "initials" });
+assert.deepEqual(
+  iconStats?.bars.map((bar) => bar.name),
+  ["Satiety", "Energy", "Hygiene", "Mood"],
+);
+assert.deepEqual(
+  personaFromCard({ ...iconOnly, extensions: { ...iconOnly.extensions, personaStats: { enabled: true, bars: [] } } })
+    .personaStats?.bars,
+  [],
+);

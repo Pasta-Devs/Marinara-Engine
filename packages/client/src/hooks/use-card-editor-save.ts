@@ -1,13 +1,15 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
+type SaveOutcome = "saved" | "edited" | "failed";
+
 /** Pair each response with the editor that submitted it, including a switch away and back. */
 export function useCardEditorSave(entityId: string | null) {
-  const owner = useRef<object | null>(null);
+  const pendingSave = useRef<Promise<SaveOutcome> | null>(null);
   const [saving, setSaving] = useState(false);
   useLayoutEffect(() => {
     setSaving(false);
     return () => {
-      owner.current = null;
+      pendingSave.current = null;
     };
   }, [entityId]);
 
@@ -17,24 +19,28 @@ export function useCardEditorSave(entityId: string | null) {
       accept: (reply: Reply) => boolean,
       reportFailure: (error: unknown) => void,
     ): Promise<boolean> => {
-      if (!entityId || owner.current) return false;
-      const ticket = {};
-      owner.current = ticket;
+      if (!entityId || pendingSave.current) return false;
       setSaving(true);
-      try {
-        const reply = await write();
-        return owner.current === ticket && accept(reply);
-      } catch (error) {
-        if (owner.current === ticket) reportFailure(error);
-        return false;
-      } finally {
-        if (owner.current === ticket) {
-          owner.current = null;
-          setSaving(false);
-        }
-      }
+      const pending: Promise<SaveOutcome> = Promise.resolve()
+        .then(write)
+        .then((reply): SaveOutcome => {
+          if (pendingSave.current !== pending) return "failed";
+          return accept(reply) ? "saved" : "edited";
+        })
+        .catch((error): SaveOutcome => {
+          if (pendingSave.current === pending) reportFailure(error);
+          return "failed";
+        })
+        .finally(() => {
+          if (pendingSave.current === pending) {
+            pendingSave.current = null;
+            setSaving(false);
+          }
+        });
+      pendingSave.current = pending;
+      return (await pending) === "saved";
     },
     [entityId],
   );
-  return { saving, runSave };
+  return { saving, runSave, pendingSave };
 }

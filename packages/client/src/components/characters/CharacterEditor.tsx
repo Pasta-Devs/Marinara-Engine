@@ -27,6 +27,7 @@ import {
   useId,
   useMemo,
   useEffectEvent,
+  useLayoutEffect,
   type ChangeEvent,
   type ReactNode,
   type SyntheticEvent,
@@ -399,6 +400,16 @@ const CHARACTER_QUOTE_FIELD_KEYS = new Set<string>([
 
 const CHARACTER_QUOTE_EXTENSION_KEYS = new Set(["appearance", "backstory"]);
 
+function readSavedCardData(row: unknown): CharacterData | undefined {
+  const raw = (row as { data?: unknown } | null)?.data;
+  try {
+    const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return data && typeof data === "object" && typeof data.name === "string" ? (data as CharacterData) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function formatCharacterFieldValue<K extends keyof CharacterData>(
   key: K,
   value: CharacterData[K],
@@ -503,7 +514,7 @@ export function CharacterEditor() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
-  const { saving, runSave } = useCardEditorSave(characterId);
+  const { saving, runSave, pendingSave } = useCardEditorSave(characterId);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
@@ -722,7 +733,11 @@ export function CharacterEditor() {
             }
           : null;
       if (!dirtyRef.current) return "clean";
-      if (await handleSave()) return "saved";
+      const pending = pendingSave.current;
+      const previous = pending && (await pending);
+      if (previous !== "failed" && (dirtyRef.current ? await latestSave.current?.() : previous === "saved")) {
+        return "saved";
+      }
       if (takenOver) takenOverRef.current = null;
       return "failed";
     },
@@ -849,7 +864,15 @@ export function CharacterEditor() {
     setAvatarUploading(false);
   }, []);
 
-  const handleSave = () => saveCard(formData);
+  const handleSave = () => saveCard(formDataRef.current);
+  // A Keep or pre-send can outlast a render while it waits for the first PATCH.
+  const latestSave = useRef<(() => Promise<boolean>) | null>(null);
+  useLayoutEffect(() => {
+    latestSave.current = handleSave;
+    return () => {
+      latestSave.current = null;
+    };
+  });
   // Saves `data` as the card. `version` labels the version snapshot (the default is a manual save).
   const saveCard = async (data: CharacterData | null, version?: { source: string; reason: string }) => {
     if (!characterId || !data) return false;
@@ -876,10 +899,9 @@ export function CharacterEditor() {
           comment: characterComment,
           ...(version && { versionSource: version.source, versionReason: version.reason }),
         }),
-      () => {
-        // The server now holds `data`, so it is the merge base: this save's own
-        // refetch must not read as an edit made elsewhere.
-        loadedDataRef.current = data;
+      (reply) => {
+        // Use the persisted values, including server normalization of name and summary.
+        loadedDataRef.current = readSavedCardData(reply) ?? data;
         const current = editRevisionRef.current === revision;
         if (current) setDirtyState(false);
         return current;
@@ -1139,27 +1161,11 @@ export function CharacterEditor() {
 
     try {
       const authored = independentCardFields(personaFromCard(formData));
-      const rpgStats = authored.personaStats?.rpgStats;
-      const personaStats =
-        !formData.extensions.personaStats && rpgStats
-          ? {
-              ...authored.personaStats,
-              enabled: !!rpgStats.enabled,
-              bars: [
-                { name: "Satiety", value: 100, max: 100, color: "#f59e0b" },
-                { name: "Energy", value: 100, max: 100, color: "#22c55e" },
-                { name: "Hygiene", value: 100, max: 100, color: "#3b82f6" },
-                { name: "Mood", value: 100, max: 100, color: "#eab308" },
-              ],
-              rpgStats,
-            }
-          : authored.personaStats;
       const created = (await createPersona.mutateAsync({
         ...authored,
         name: personaName,
         comment: formData.creator_notes ?? "",
         trackerCardColors: parseTrackerCardColorConfig(formData.extensions.trackerCardColors),
-        personaStats,
       })) as { id?: string };
 
       const personaId = created?.id;
@@ -2410,15 +2416,7 @@ function ConvoTab({
   // regenerated every week.
   const updateCharacter = useUpdateCharacter();
   const savedCharacter = useCharacter(characterId ?? null);
-  const savedData = (() => {
-    const rawData = (savedCharacter.data as { data?: unknown } | undefined)?.data;
-    if (!rawData) return undefined;
-    try {
-      return (typeof rawData === "string" ? JSON.parse(rawData) : rawData) as CharacterData;
-    } catch {
-      return undefined;
-    }
-  })();
+  const savedData = readSavedCardData(savedCharacter.data);
   const savedExtensions = savedData?.extensions;
   // Read the saved card, not the form: the schedule saves on its own, so the
   // in-progress form copy goes stale as soon as the editor writes one.

@@ -59,10 +59,20 @@ for (const kind of ["characters", "personas"] as const) {
         if (route.request().method() === "PATCH") await gate;
         await route.continue();
       });
+      const summary = page.locator('#character-card-summary [data-mari-field="summary"] textarea');
+      if (character) await summary.fill("A knight. Brave ");
       await title.fill(name + " first");
       const started = page.waitForRequest((req) => new URL(req.url()).pathname === path && req.method() === "PATCH");
       await save.click();
       await started;
+      if (character) {
+        // Keep and pre-send call the same registered editor save. Start it while the PATCH is held.
+        await page.evaluate(async () => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          Object.assign(window, { mariPresaveResult: useUIStore.getState().mariEditorSave() });
+        });
+        await summary.fill("A knight. Brave and kind");
+      }
       const finalName = name + " final";
       await title.fill(finalName);
       await description.fill(finalDescription);
@@ -76,20 +86,25 @@ for (const kind of ["characters", "personas"] as const) {
       release();
       expect((await done).ok()).toBeTruthy();
       await echo;
-      await expect(save).toBeEnabled();
+      if (character) {
+        const result = await page.evaluate(
+          () => (window as Window & { mariPresaveResult: Promise<string> }).mariPresaveResult,
+        );
+        expect(result).toBe("saved");
+      } else await expect(save).toBeEnabled();
       // The save's own refetch is not an edit made elsewhere.
       await expect(page.getByText("changed while you were editing", { exact: false })).toHaveCount(0);
       await expect(title).toHaveValue(finalName);
       await expect(description).toHaveValue(finalDescription);
-      await save.click();
+      if (!character) await save.click();
       await expect(save).toBeDisabled();
       await expect
         .poll(async () => {
           const row = await (await request.get(path)).json();
           const saved = character ? (typeof row.data === "string" ? JSON.parse(row.data) : row.data) : row;
-          return [saved.name, saved.description];
+          return [saved.name, saved.description, ...(character ? [saved.summary] : [])];
         })
-        .toEqual([finalName, finalDescription]);
+        .toEqual([finalName, finalDescription, ...(character ? ["A knight. Brave and kind"] : [])]);
       await open(finalName);
       await expect(title).toHaveValue(finalName);
       await openCardTab();

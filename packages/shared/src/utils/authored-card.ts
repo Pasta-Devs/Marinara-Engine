@@ -102,6 +102,15 @@ function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
 }
 
+export function defaultPersonaBars() {
+  return [
+    { name: "Satiety", value: 100, max: 100, color: "#f59e0b" },
+    { name: "Energy", value: 100, max: 100, color: "#22c55e" },
+    { name: "Hygiene", value: 100, max: 100, color: "#3b82f6" },
+    { name: "Mood", value: 100, max: 100, color: "#eab308" },
+  ];
+}
+
 /** Project a card into the legacy authored fields. Record metadata comes from its owner. */
 export function personaFromCard(card: CharacterData): AuthoredPersona {
   const ext = card.extensions;
@@ -122,7 +131,7 @@ export function personaFromCard(card: CharacterData): AuthoredPersona {
     personaStats:
       bars || hasGameSettings
         ? {
-            ...(bars ?? { enabled: ext.rpgStats?.enabled ?? false, bars: [] }),
+            ...(bars ?? { enabled: ext.rpgStats?.enabled ?? false, bars: defaultPersonaBars() }),
             rpgStats: ext.rpgStats,
             combatIcon: ext.combatIcon,
             rulesetSheets: ext.rulesetSheets,

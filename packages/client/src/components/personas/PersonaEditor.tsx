@@ -93,7 +93,12 @@ import {
   MessageCircleQuestion,
 } from "lucide-react";
 import type { AvatarCrop } from "@marinara-engine/shared";
-import { cardFromPersona, independentCardFields, normalizeAvatarCrop } from "@marinara-engine/shared";
+import {
+  cardFromPersona,
+  defaultPersonaBars,
+  independentCardFields,
+  normalizeAvatarCrop,
+} from "@marinara-engine/shared";
 import { cn, generateClientId, getAvatarCropStyle } from "../../lib/utils";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
@@ -3182,12 +3187,7 @@ function PersonaColorsTab({
 
 const DEFAULT_PERSONA_STATS: PersonaStatsConfig = {
   enabled: false,
-  bars: [
-    { name: "Satiety", value: 100, max: 100, color: "#f59e0b" },
-    { name: "Energy", value: 100, max: 100, color: "#22c55e" },
-    { name: "Hygiene", value: 100, max: 100, color: "#3b82f6" },
-    { name: "Mood", value: 100, max: 100, color: "#eab308" },
-  ],
+  bars: defaultPersonaBars(),
   rpgStats: DEFAULT_RPG_STATS,
 };
 
