@@ -18,25 +18,27 @@ Marinara가 로어북의 항목 수 예산과 토큰 예산을 적용할 때 키
 
 시맨틱 검색에는 임베딩을 만들 수 있는 모델이 필요합니다. 방법은 두 가지입니다.
 
-어느 쪽을 고르든 앱 전체의 기본값으로 지정할 수 있습니다. **Connections**(연결)를 열고 **Defaults**(기본값)의 **Embeddings** 섹션에서 선택하세요. 자체 임베딩 모델이나 **Embedding Connection**을 설정하지 않은 연결은 그 값을 사용합니다. 연결에 직접 설정한 값이 계속 우선하며, 그 행에는 자체 설정을 쓰는 연결이 몇 개인지 표시됩니다. **None**을 선택하면 내장 로컬 모델이 계속 대체 모델로 쓰입니다.
+어느 쪽을 고르든 앱 전체의 기본값으로 지정할 수 있습니다. **Connections**(연결)를 열고 **Defaults**(기본값)의 **Embeddings** 섹션에서 선택하세요. 자체 임베딩 모델이나 **Embedding provider**(임베딩 연결)를 설정하지 않은 연결은 그 값을 사용합니다. 연결에 직접 설정한 값이 계속 우선하며, 그 행에는 자체 설정을 쓰는 연결이 몇 개인지 표시됩니다. **None**을 선택하면 내장 로컬 모델이 계속 대체 모델로 쓰입니다.
 
 방법 1: 임베딩 모델이 설정된 연결.
 
 1. **Connections**(연결) 패널을 여세요.
 2. 편집할 연결을 여세요.
-3. **Semantic Search (Embeddings)**(시맨틱 검색) 섹션을 찾으세요.
+3. **Advanced**(고급)를 열고 **More**(더보기)를 연 다음 **Semantic search (embeddings)**(시맨틱 검색) 섹션을 찾으세요.
 4. 모델 입력란에 임베딩 모델 이름을 입력하세요. 흔히 쓰는 값은 `text-embedding-3-small`입니다.
 5. 연결을 저장하세요.
 
-연결은 임베딩 요청을 다른 연결의 API 키와 주소로 보낼 수도 있습니다. 같은 섹션의 **Embedding Connection**에서 그 연결을 고르세요. 기본값은 **Same as this connection**(이 연결과 동일)입니다. 고른 연결에 자체 임베딩 모델이 있으면 Marinara가 그 모델을 쓰고, 없으면 여기에 입력한 모델 이름을 씁니다. 벡터화할 때와 채팅 중 모두 이렇게 적용됩니다.
+설정을 확인하려면 임베딩 설정 아래의 **Test embedding**(임베딩 테스트)을 클릭하세요. Marinara는 먼저 변경 사항을 저장한 다음, 시맨틱 검색이 쓰는 것과 같은 모델, API 키, 주소로 짧은 샘플 텍스트를 임베딩합니다. 그리고 돌려받은 벡터 크기(예: "1536 dimensions")나 제공자가 반환한 오류를 보여 줍니다.
+
+연결은 임베딩 요청을 다른 연결의 API 키와 주소로 보낼 수도 있습니다. 같은 섹션의 **Embedding provider**에서 그 연결을 고르세요. 기본값은 **Same as this provider**(이 연결과 동일)입니다. 고른 연결에 자체 임베딩 모델이 있으면 Marinara가 그 모델을 쓰고, 없으면 여기에 입력한 모델 이름을 씁니다. 벡터화할 때와 채팅 중 모두 이렇게 적용됩니다.
 
 임베딩을 제공하지 않는 제공자도 있습니다. 제공자가 임베딩을 만들지 못하면, 편집기가 임베딩 전용 연결을 대신 고르라고 안내합니다.
 
 방법 2: 내장 로컬 모델.
 
-Marinara는 API 키 없이 작은 임베딩 모델을 컴퓨터에서 직접 실행할 수 있습니다. 로어북의 선택기에서 이 항목의 이름은 **Local Model (sidecar)**(로컬 모델(사이드카))입니다. 로컬 모델을 다운로드한 뒤에만 목록에 나타납니다. 설치 방법은 [Local Model 설정](../connections/local-model.md)을 참고하세요.
+Marinara는 API 키 없이 작은 임베딩 모델을 컴퓨터에서 직접 실행할 수 있습니다. 로어북의 선택기에서 이 항목의 이름은 **Built-in model**(내장 모델)입니다. 로컬 모델을 다운로드한 뒤에만 목록에 나타납니다. 설치 방법은 [Local Model 설정](../connections/local-model.md)을 참고하세요.
 
-Marinara Lite 빌드에서는 **Local Model (sidecar)** 항목이 보이지 않습니다. Lite에서 시맨틱 검색을 쓰려면 임베딩 모델이 설정된 연결이 필요합니다.
+Marinara Lite 빌드에서는 **Built-in model** 항목이 보이지 않습니다. Lite에서 시맨틱 검색을 쓰려면 임베딩 모델이 설정된 연결이 필요합니다.
 
 ## 로어북에서 Vectors 켜기
 
@@ -50,9 +52,9 @@ Marinara Lite 빌드에서는 **Local Model (sidecar)** 항목이 보이지 않�
 
 **Vectors**가 꺼져 있는 동안 시맨틱 패널에는 다음 안내가 표시됩니다: "Semantic search is disabled by the lorebook-level Vectors toggle."
 
-## Semantic Search (Embeddings) 패널
+## Semantic search (embeddings) 패널
 
-**Vectors**를 켜면 **Overview** 탭에 **Semantic Search (Embeddings)** 패널이 나타납니다. 상태 칩에는 벡터화가 끝난 항목 수가 표시됩니다. 예를 들면 "8/12 entries vectorized"입니다. 모든 항목이 끝나면 칩이 초록색으로 바뀌고 체크 표시가 붙습니다.
+**Vectors**를 켜면 **Overview** 탭에 **Semantic search (embeddings)** 패널이 나타납니다. 상태 칩에는 벡터화가 끝난 항목 수가 표시됩니다. 예를 들면 "8/12 entries vectorized"입니다. 모든 항목이 끝나면 칩이 초록색으로 바뀌고 체크 표시가 붙습니다.
 
 이 패널에는 숫자 설정이 세 가지 있습니다.
 
@@ -75,11 +77,11 @@ Marinara는 같은 임베딩 모델로 만든 서로 무관한 중립적인 글 
 벡터화는 항목마다 임베딩을 만들어 저장하는 작업입니다. 시맨틱 일치가 동작하려면 먼저 벡터화를 마쳐야 합니다.
 
 1. 로어북에서 **Vectors**를 켜세요.
-2. **Semantic Search (Embeddings)** 패널의 드롭다운에서 임베딩 소스를 고르세요. 첫 번째 항목은 **No semantic search**(시맨틱 검색 없음)입니다. 그다음이 **Local Model (sidecar)**이며, 사용할 수 있을 때만 나타납니다. 그 뒤로 조건을 만족하는 연결이 이어집니다.
+2. **Semantic search (embeddings)** 패널의 드롭다운에서 임베딩 소스를 고르세요. 첫 번째 항목은 **No semantic search**(시맨틱 검색 없음)입니다. 그다음이 **Built-in model**이며, 사용할 수 있을 때만 나타납니다. 그 뒤로 조건을 만족하는 연결이 이어집니다.
 3. 벡터화 버튼을 클릭하세요. 벡터가 없는 항목이 있으면 버튼에 **Vectorize N missing**이 표시됩니다. 예를 들면 "Vectorize 5 missing"입니다.
 4. 실행이 끝날 때까지 기다리세요. 상태 칩이 바뀌면서 모든 항목의 벡터화가 끝났다고 알려 줍니다.
 
-임베딩 모델이나 **Embedding Connection**이 설정된 연결이 하나도 없으면 패널에 드롭다운 대신 다음 안내가 표시됩니다: "No connections with an embedding model configured. Set an Embedding Model on a connection first." 위 단계를 따라 임베딩 소스를 먼저 설정하세요.
+임베딩 모델이나 **Embedding provider**가 설정된 연결이 하나도 없으면 패널에 드롭다운 대신 다음 안내가 표시됩니다: "No connections with an embedding model configured. Set an Embedding Model on a connection first." 위 단계를 따라 임베딩 소스를 먼저 설정하세요.
 
 모든 항목에 이미 벡터가 있으면 기본 버튼이 **Re-vectorize N entries**로 바뀝니다. 저장된 벡터를 전부 다시 만드는 버튼이며, 덮어쓰기 전에 확인을 요청합니다.
 
@@ -99,7 +101,7 @@ Marinara는 같은 임베딩 모델로 만든 서로 무관한 중립적인 글 
 
 모델을 바꾼 뒤에 일부만 벡터화하지 마세요. "누락된 항목만" 실행한 결과의 벡터 크기가 저장된 벡터와 다르면 서버가 다음 메시지와 함께 거부합니다: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-조용히 어긋나는 경우가 하나 있으니 알아 두세요. 채팅 중에 Marinara는 쿼리 모델로 최근 메시지를 임베딩합니다. 쿼리 모델은 지금 활성화된 연결에 설정된 임베딩 모델이며, 연결에 **Embedding Connection**이 있으면 그 연결의 모델입니다. 둘 다 없으면 Marinara는 **Connections**의 **Defaults**에 있는 **Embeddings** 기본값을 사용하고, 그 값이 **None**이면 내장 로컬 모델을 사용합니다. 이 쿼리 모델이 만드는 벡터 크기는 항목을 벡터화한 모델과 다를 수 있습니다. 그러면 Marinara는 시맨틱 일치에서 그 항목들을 건너뜁니다. 오류는 표시되지 않습니다. 이런 일을 막으려면 채팅에서 쓰는 임베딩 소스와 같은 소스로 항목을 벡터화하세요. **Embeddings** 기본값을 지정해 두면 도움이 됩니다. 벡터화 선택기는 이전에 다른 것을 고르지 않았다면 그 값에서 시작하고, 자체 임베딩 설정이 없는 연결도 그 값으로 쿼리합니다. 모델을 바꿨다면 반드시 다시 벡터화하세요.
+조용히 어긋나는 경우가 하나 있으니 알아 두세요. 채팅 중에 Marinara는 쿼리 모델로 최근 메시지를 임베딩합니다. 쿼리 모델은 지금 활성화된 연결에 설정된 임베딩 모델이며, 연결에 **Embedding provider**가 있으면 그 연결의 모델입니다. 둘 다 없으면 Marinara는 **Connections**의 **Defaults**에 있는 **Embeddings** 기본값을 사용하고, 그 값이 **None**이면 내장 로컬 모델을 사용합니다. 이 쿼리 모델이 만드는 벡터 크기는 항목을 벡터화한 모델과 다를 수 있습니다. 그러면 Marinara는 시맨틱 일치에서 그 항목들을 건너뜁니다. 오류는 표시되지 않습니다. 이런 일을 막으려면 채팅에서 쓰는 임베딩 소스와 같은 소스로 항목을 벡터화하세요. **Embeddings** 기본값을 지정해 두면 도움이 됩니다. 벡터화 선택기는 이전에 다른 것을 고르지 않았다면 그 값에서 시작하고, 자체 임베딩 설정이 없는 연결도 그 값으로 쿼리합니다. 모델을 바꿨다면 반드시 다시 벡터화하세요.
 
 ## Knowledge Router 에이전트에 쓰이는 방식
 

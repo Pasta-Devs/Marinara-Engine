@@ -111,13 +111,13 @@ Nach dem Update ist die vertraute Anordnung der Tool-Schaltflächen bereits in a
 
 1. Ordne Fenster und Schaltflächen nach deinen Wünschen an. Lass Tools in **Chat Settings** oder löse sie in eigene Fenster heraus.
 2. Blende die Hinweise zur Anordnung aus, wenn sie auch in neuen Chats verborgen bleiben sollen.
-3. Klick auf den Stern neben **Reset View**. Er ist ausgefüllt, wenn die aktuelle Anordnung und die Sichtbarkeit der Hinweise zum gespeicherten Favoriten passen.
+3. Klick auf den Stern neben **Reset View**. Er ist ausgefüllt, wenn die aktuelle Anordnung, die Sichtbarkeit der Hinweise und der Modus für Scoped Regex Scripts zum gespeicherten Favoriten passen.
 
-Die Lieblingsanordnung speichert Größen und Positionen von Fenstern und Schaltflächen, Anheftungen, Sperren, herausgelöste oder eingebettete Tools sowie die Auswahl für die Hinweise. Charaktere, Verbindung, KI-Einstellungen und Nachrichten bleiben beim jeweiligen Chat.
+Die Lieblingsanordnung speichert Größen und Positionen von Fenstern und Schaltflächen, Anheftungen, Sperren, herausgelöste oder eingebettete Tools, die Auswahl für die Hinweise sowie den Modus des Chats für [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). Steht der Chat auf **Use preset default** (Preset-Standard verwenden), wird kein Modus gespeichert; neue Chats folgen dann ihrem Prompt-Preset. Charaktere, Verbindung, KI-Einstellungen und Nachrichten bleiben beim jeweiligen Chat.
 
 Ändere die Anordnung und klick erneut auf den Stern, um den Favoriten zu ersetzen. Klick auf den ausgefüllten Stern, um ihn nicht mehr zu verwenden. Neue Chats nutzen dann wieder die Standardanordnung. Speichern, Ersetzen oder Entfernen des Favoriten gilt nur für später erstellte Chats. Bestehende Chats behalten ihre Anordnung.
 
-Wendest du ein Einstellungsprofil mit eigener gespeicherter Anordnung an, hat diese Vorrang vor dem Favoriten. Ein Profil ohne gespeicherte Anordnung lässt die vom Favoriten vorgegebene Anordnung bestehen. Profile übernehmen weiterhin ihre eigene Einstellung für die Hinweise.
+Wendest du ein Einstellungsprofil mit eigener gespeicherter Anordnung an, hat diese Vorrang vor dem Favoriten. Ein Profil ohne gespeicherte Anordnung lässt die vom Favoriten vorgegebene Anordnung bestehen. Profile übernehmen weiterhin ihre eigene Einstellung für die Hinweise und ihren eigenen Modus für Scoped Regex Scripts; ein Profil ohne Modus nutzt den Standard des Prompt-Presets.
 
 ## Chat Name
 

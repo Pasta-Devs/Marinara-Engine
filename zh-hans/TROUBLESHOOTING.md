@@ -27,6 +27,18 @@
 
 ## 安装和启动问题
 
+### Termux：报错 CANNOT LINK EXECUTABLE "node"
+
+如果 Termux 输出 `CANNOT LINK EXECUTABLE "node"`，后面跟着 `cannot locate symbol` 或 `library ... not found`，说明只有 Node.js 升级了，Termux 的其余部分没有一起升级。Termux 不支持只升级部分软件包，所以新版 Node.js 无法搭配旧版 Termux 库启动。这时 Android 应用可能会停下并显示 **Could not verify that this Marinara Android build can safely read your stored data**。问题不在你的数据，重新安装 APK 也解决不了。
+
+升级 Termux 的所有软件包，然后重新启动 Marinara：
+
+```bash
+pkg upgrade -y
+```
+
+接着在 Android 应用里点击 **Install / Start Marinara**；如果是手动安装，就运行 `cd "$HOME/Marinara-Engine" && ./start-termux.sh`。如果升级过程询问是否保留某个配置文件，按 Enter 保留当前的那份。更新后的 Termux 启动脚本和较新的 Android 应用版本会在 Node.js 无法启动时自动执行这次升级。
+
 ### Termux：构建客户端时 JavaScript 堆内存不足
 
 如果 Vite 报 `Reached heap limit` 或 `JavaScript heap out of memory` 后退出，说明客户端构建耗尽了 Node.js 堆内存，与缺少原生 Rollup 二进制文件不同。更新后重新运行 `start-termux.sh`：客户端构建（包括应用内更新）现在使用独立的 1536 MiB 堆上限，不超过已知设备 RAM 的一半，但不会低于构建所需的 1280 MiB。RAM 上限按 128 MiB 向下取整。服务器继续使用按配置文件大小确定的较小上限。`NODE_OPTIONS` 中明确设置的上限对两个进程都优先，因此请检查是否残留旧的 1024 MiB 设置：客户端已经无法在 1024 MiB 内完成构建。

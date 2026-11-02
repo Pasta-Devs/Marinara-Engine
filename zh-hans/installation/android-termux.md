@@ -30,12 +30,12 @@ F-Droid 是面向 Android 的免费开源应用商店。Marinara 的自动设置
 不想用应用的话，也可以手动安装 Marinara。打开 Termux，粘贴这一条命令：
 
 ```
-pkg update -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
+pkg upgrade -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
 ```
 
 这一条命令做了五件事：
 
-1. 更新 Termux 的软件包。
+1. 升级 Termux 的所有软件包。Termux 不支持只升级部分软件包：新版 Node.js 无法搭配旧版 Termux 库启动。如果它询问是否保留某个配置文件，按 Enter 保留当前的那份。
 2. 安装 Git 和 Node.js。Marinara 支持 Node.js 24、25、26 三个版本。
 3. 下载 Marinara Engine，已经装过就跳过。
 4. 给启动脚本（`start-termux.sh`）加上可执行权限。

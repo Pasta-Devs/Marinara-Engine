@@ -18,25 +18,27 @@
 
 语义搜索需要一个能生成嵌入的模型，有两种选择。
 
-无论选哪一种，你都可以把它设为整个应用的默认值：打开 **Connections**(连接)，再打开 **Defaults**(默认值)，在 **Embeddings** 一节里选择它。没有自己设置嵌入模型或 **Embedding Connection** 的连接就会使用它。连接自己的设置仍然优先，那一行还会告诉你有多少个连接在用自己的设置。选 **None** 则保留内置的本地模型作为后备。
+无论选哪一种，你都可以把它设为整个应用的默认值：打开 **Connections**(连接)，再打开 **Defaults**(默认值)，在 **Embeddings** 一节里选择它。没有自己设置嵌入模型或 **Embedding provider** 的连接就会使用它。连接自己的设置仍然优先，那一行还会告诉你有多少个连接在用自己的设置。选 **None** 则保留内置的本地模型作为后备。
 
 方案一：使用带嵌入模型的连接。
 
 1. 打开 **Connections**(连接) 面板。
 2. 打开某个连接进入编辑。
-3. 找到 **Semantic Search (Embeddings)**(语义搜索与嵌入) 一节。
+3. 打开 **Advanced**(高级)，再打开 **More**(更多)，找到 **Semantic search (embeddings)**(语义搜索与嵌入) 一节。
 4. 在模型输入框里填入嵌入模型的名称，常用的一个是 `text-embedding-3-small`。
 5. 保存这个连接。
 
-连接还可以借用另一个连接的 API 密钥和地址来发送嵌入请求。在同一节里，在 **Embedding Connection**(嵌入连接) 下选择那个连接。默认是 **Same as this connection**(与此连接相同)。如果所选连接有自己的嵌入模型，Marinara 就用它；否则使用这里填写的模型名称。向量化时和聊天时都是如此。
+想检查设置是否正确，就点击嵌入设置下方的 **Test embedding**(测试嵌入)。Marinara 会先保存你的改动，再用语义搜索所用的同一个模型、API 密钥和地址，把一小段示例文本转成嵌入，然后显示拿到的向量维度，比如“1536 dimensions”，或者服务商返回的错误。
+
+连接还可以借用另一个连接的 API 密钥和地址来发送嵌入请求。在同一节里，在 **Embedding provider**(嵌入服务商) 下选择那个连接。默认是 **Same as this provider**(与此服务商相同)。如果所选连接有自己的嵌入模型，Marinara 就用它；否则使用这里填写的模型名称。向量化时和聊天时都是如此。
 
 并不是所有 AI 服务商都提供嵌入。如果某个服务商做不了嵌入，编辑器会提示改用专门的嵌入连接。
 
 方案二：使用内置的本地模型。
 
-Marinara 可以在本机跑一个小型嵌入模型，不需要 API 密钥。在世界书的嵌入来源下拉菜单里，这个选项叫 **Local Model (sidecar)**，只有下载了本地模型之后它才会出现。安装方法见[本地模型设置](../connections/local-model.md)。
+Marinara 可以在本机跑一个小型嵌入模型，不需要 API 密钥。在世界书的嵌入来源下拉菜单里，这个选项叫 **Built-in model**(内置模型)，只有下载了本地模型之后它才会出现。安装方法见[本地模型设置](../connections/local-model.md)。
 
-如果用的是 Marinara Lite 版本，**Local Model (sidecar)** 选项不会显示。在 Lite 上，语义搜索必须依靠带嵌入模型的连接。
+如果用的是 Marinara Lite 版本，**Built-in model** 选项不会显示。在 Lite 上，语义搜索必须依靠带嵌入模型的连接。
 
 ## 为世界书打开 Vectors 开关
 
@@ -50,9 +52,9 @@ Marinara 可以在本机跑一个小型嵌入模型，不需要 API 密钥。在
 
 **Vectors** 关闭时，语义面板会显示这条提示：“Semantic search is disabled by the lorebook-level Vectors toggle.”
 
-## Semantic Search (Embeddings) 面板
+## Semantic search (embeddings) 面板
 
-打开 **Vectors** 之后，**Overview** 选项卡上会出现 **Semantic Search (Embeddings)** 面板。面板上的状态标记会显示有多少条目已向量化，比如“8/12 entries vectorized”。全部完成后它会变绿并打上勾。
+打开 **Vectors** 之后，**Overview** 选项卡上会出现 **Semantic search (embeddings)** 面板。面板上的状态标记会显示有多少条目已向量化，比如“8/12 entries vectorized”。全部完成后它会变绿并打上勾。
 
 面板里有三个数值设置。
 
@@ -75,11 +77,11 @@ Marinara 会拿同一个嵌入模型生成的若干段互不相关的中性文�
 向量化就是为每个条目生成并保存嵌入。语义匹配能工作的前提，就是先做完这一步。
 
 1. 为这个世界书打开 **Vectors**。
-2. 在 **Semantic Search (Embeddings)** 面板的下拉菜单里选择嵌入来源。第一个选项是 **No semantic search**，接下来是 **Local Model (sidecar)**(可用时才出现)，再往后是符合条件的连接。
+2. 在 **Semantic search (embeddings)** 面板的下拉菜单里选择嵌入来源。第一个选项是 **No semantic search**，接下来是 **Built-in model**(可用时才出现)，再往后是符合条件的连接。
 3. 点击向量化按钮。还有条目缺向量时，按钮上写的是 **Vectorize N missing**，比如“Vectorize 5 missing”。
 4. 等这一轮跑完。状态标记会更新成全部条目已向量化。
 
-如果没有任何连接配置了嵌入模型或 **Embedding Connection**，面板上不会出现下拉菜单，而是显示这条提示：“No connections with an embedding model configured. Set an Embedding Model on a connection first.”按上面的步骤先定好嵌入来源。
+如果没有任何连接配置了嵌入模型或 **Embedding provider**，面板上不会出现下拉菜单，而是显示这条提示：“No connections with an embedding model configured. Set an Embedding Model on a connection first.”按上面的步骤先定好嵌入来源。
 
 所有条目都已经有向量时，主按钮会变成 **Re-vectorize N entries**。它会重建全部已存向量，改写旧向量之前会先让你确认。
 
@@ -99,7 +101,7 @@ Marinara 会拿同一个嵌入模型生成的若干段互不相关的中性文�
 
 换模型之后不要只跑一次补缺的向量化。如果“只补缺失”的这一轮算出的向量维度和已存向量不同，服务器会拒绝，并给出这条提示：“Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models.”
 
-还有一种悄无声息的失败要留意。聊天时，Marinara 用查询模型把最近的消息转成嵌入。查询模型就是当前连接自己的嵌入模型，或者连接设了 **Embedding Connection** 时那边的模型；两者都没设的话，Marinara 会改用 **Connections** 中 **Defaults** 下的 **Embeddings** 默认值，默认值是 **None** 时则用内置的本地模型。查询模型产生的向量维度，可能和当初给条目做向量化的模型不一样，这时 Marinara 会在语义匹配里直接跳过这些条目，而且不会报错。想避开这个坑，就用聊天时实际使用的那个嵌入来源给条目做向量化。设一个 **Embeddings** 默认值会有帮助：向量化的选择框默认就停在它上面（除非你之前选过别的），没有自己嵌入设置的连接也用它来查询。换过模型就重新向量化一遍。
+还有一种悄无声息的失败要留意。聊天时，Marinara 用查询模型把最近的消息转成嵌入。查询模型就是当前连接自己的嵌入模型，或者连接设了 **Embedding provider** 时那边的模型；两者都没设的话，Marinara 会改用 **Connections** 中 **Defaults** 下的 **Embeddings** 默认值，默认值是 **None** 时则用内置的本地模型。查询模型产生的向量维度，可能和当初给条目做向量化的模型不一样，这时 Marinara 会在语义匹配里直接跳过这些条目，而且不会报错。想避开这个坑，就用聊天时实际使用的那个嵌入来源给条目做向量化。设一个 **Embeddings** 默认值会有帮助：向量化的选择框默认就停在它上面（除非你之前选过别的），没有自己嵌入设置的连接也用它来查询。换过模型就重新向量化一遍。
 
 ## 语义搜索如何服务 Knowledge Router 智能体
 

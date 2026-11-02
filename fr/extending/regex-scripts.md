@@ -139,6 +139,8 @@ La seconde passe par le personnage lui-même. Ouvre un personnage, va dans l'ong
 
 Ouvrir l'éditeur complet depuis cet encadré fait quitter l'éditeur de personnage. Si le personnage comporte des modifications non enregistrées, l'application t'avertit d'abord, pour éviter toute perte.
 
+<a id="the-per-chat-scoped-regex-scripts-setting"></a>
+
 ### Le réglage Scoped Regex Scripts, chat par chat
 
 Les scripts limités à un personnage ne s'exécutent pas automatiquement dans tous les chats. Un réglage propre à chaque chat les commande. Ouvre le panneau **Chat Settings** (réglages du chat) d'un chat. Une section intitulée **Scoped Regex Scripts** (scripts regex à portée limitée) n'apparaît que si au moins un personnage de ce chat possède des scripts limités. Elle propose trois modes :
@@ -147,7 +149,9 @@ Les scripts limités à un personnage ne s'exécutent pas automatiquement dans t
 - **Exclusive** : chaque script limité ne modifie que les messages du personnage auquel il appartient.
 - **Chat** : chaque script limité modifie tous les messages du chat.
 
-Sous les boutons de mode, le panneau liste chaque personnage possédant des scripts limités et permet d'activer ou de désactiver chaque script pour ce chat. Ce réglage commande les scripts côté affichage. Les scripts côté prompt suivent toujours le personnage qui génère réellement la réponse.
+**Use preset default** (utiliser la valeur par défaut du preset) suit le réglage **Scoped regex default** (mode par défaut des regex à portée limitée) du preset de prompt ; choisir un mode prend le pas sur ce réglage pour ce chat. Pour démarrer les nouveaux chats avec un mode, définis-le comme valeur par défaut du preset, enregistre-le dans ton [profil de réglages par défaut](../chats/settings-profiles.md#choosing-the-default-profile), ou choisis-le puis clique sur l'étoile de disposition favorite près de **Reset View** (réinitialiser la vue). Voir [Choisir une disposition pour les nouveaux chats](../chats/chat-settings.md#choosing-a-layout-for-new-chats).
+
+Sous les boutons de mode, le panneau liste chaque personnage possédant des scripts limités et permet d'activer ou de désactiver chaque script. Cet interrupteur appartient au script lui-même : il le modifie donc dans tous les chats. Le mode commande les scripts côté affichage. Les scripts côté prompt suivent toujours le personnage qui génère réellement la réponse.
 
 ## Importer des scripts regex depuis SillyTavern
 

@@ -99,6 +99,8 @@ Les réglages Advanced Parameters et la description automatique des images (acti
 
 Les salons multijoueurs ne sont jamais mis à jour de cette façon. Quand aucun autre chat n'utilise le profil, **Save** fonctionne sans rien demander.
 
+<a id="choosing-the-default-profile"></a>
+
 ## Choisir le profil par défaut
 
 L'étoile à côté du menu déroulant marque le profil utilisé automatiquement pour les nouveaux chats de ce mode. Un seul profil par mode peut être le profil par défaut.
@@ -111,13 +113,13 @@ Ses infobulles décrivent l'état en cours :
 
 ## Dispositions de fenêtres favorites
 
-L'étoile près de **Reset View** dans la barre de titre de Chat Settings enregistre une disposition favorite pour les nouveaux chats du mode actuel. Elle mémorise aussi si tu as masqué les conseils de disposition. Tu peux l'utiliser en Conversation, Roleplay et Game. L'étoile à côté du menu **Profile** choisit toujours le profil de réglages par défaut.
+L'étoile près de **Reset View** dans la barre de titre de Chat Settings enregistre une disposition favorite pour les nouveaux chats du mode actuel. Elle mémorise aussi si tu as masqué les conseils de disposition, ainsi que le mode Scoped Regex Scripts du chat. Tu peux l'utiliser en Conversation, Roleplay et Game. L'étoile à côté du menu **Profile** choisit toujours le profil de réglages par défaut.
 
 Lors de la mise à jour d'une installation existante, la disposition familière des boutons d'outils devient la favorite des nouveaux chats dans les trois modes. Cela ne se produit qu'une fois et respecte toute favorite déjà enregistrée ou effacée. Cette disposition reste le choix par défaut jusqu'à ce que tu la changes. Une installation neuve commence avec les outils dans Chat Settings et aucune favorite.
 
-Dispose les fenêtres et les boutons, puis clique sur l'étoile de la barre de titre pour les enregistrer. Elle se remplit quand la disposition et les conseils actuels correspondent à la favorite. Si tu déplaces une fenêtre ou changes la disposition, clique à nouveau sur l'étoile pour remplacer la favorite. Clique sur l'étoile remplie pour l'effacer et utiliser la disposition standard dans les futurs chats. Ces changements ne touchent pas les chats existants.
+Dispose les fenêtres et les boutons, puis clique sur l'étoile de la barre de titre pour les enregistrer. Elle se remplit quand la disposition, les conseils et le mode Scoped Regex Scripts actuels correspondent à la favorite. Si tu déplaces une fenêtre ou changes la disposition, clique à nouveau sur l'étoile pour remplacer la favorite. Clique sur l'étoile remplie pour l'effacer et utiliser la disposition standard dans les futurs chats. Ces changements ne touchent pas les chats existants.
 
-Quand un nouveau chat utilise un profil de réglages par défaut, la disposition enregistrée dans ce profil prend le pas sur la favorite. Les profils sans disposition enregistrée conservent celle du chat, y compris celle d'une favorite. Un profil applique toujours son propre réglage de conseils ; les anciens profils sans ce réglage affichent les conseils.
+Quand un nouveau chat utilise un profil de réglages par défaut, la disposition enregistrée dans ce profil prend le pas sur la favorite. Les profils sans disposition enregistrée conservent celle du chat, y compris celle d'une favorite. Un profil applique toujours son propre réglage de conseils ; les anciens profils sans ce réglage affichent les conseils. Le profil applique aussi son propre mode Scoped Regex Scripts, ou la valeur par défaut du preset de prompt s'il n'en a pas.
 
 Consulte les étapes dans [Choisir une disposition pour les nouveaux chats](chat-settings.md#choosing-a-layout-for-new-chats).
 

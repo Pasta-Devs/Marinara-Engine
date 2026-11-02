@@ -30,12 +30,12 @@ Jeśli wygodniejsza jest ikona na ekranie głównym, która otwiera Marinara jak
 Marinara da się też zainstalować ręcznie, bez tej aplikacji. Otwórz Termux i wklej to jedno polecenie:
 
 ```
-pkg update -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
+pkg upgrade -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
 ```
 
 To jedno polecenie robi pięć rzeczy:
 
-1. Aktualizuje pakiety środowiska Termux.
+1. Aktualizuje wszystkie pakiety środowiska Termux. Środowisko Termux nie obsługuje aktualizowania tylko części pakietów: nowsza wersja Node.js nie uruchomi się ze starszymi bibliotekami środowiska Termux. Jeśli polecenie zapyta, czy zachować plik konfiguracyjny, naciśnij Enter, żeby zachować obecny.
 2. Instaluje Git i Node.js. Marinara obsługuje Node.js w wersjach 24, 25 i 26.
 3. Pobiera Marinara Engine, o ile aplikacja nie jest już zainstalowana.
 4. Nadaje uprawnienia do uruchamiania programowi startowemu (skrypt `start-termux.sh`).

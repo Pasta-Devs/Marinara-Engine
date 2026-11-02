@@ -99,6 +99,8 @@ Ustawienia Advanced Parameters i opisywanie obrazów (włączenie lub wyłączen
 
 Pokoje gry wieloosobowej nigdy nie są aktualizowane w ten sposób. Gdy z profilu nie korzysta żaden inny czat, przycisk **Save** (zapis) działa bez pytania.
 
+<a id="choosing-the-default-profile"></a>
+
 ## Wybór profilu domyślnego
 
 Gwiazdka obok listy rozwijanej oznacza profil używany automatycznie w nowych czatach w danym trybie. Domyślny może być tylko jeden profil na tryb.
@@ -111,13 +113,13 @@ Podpowiedzi gwiazdki opisują bieżący stan:
 
 ## Ulubione układy okien
 
-Gwiazdka obok **Reset View** na pasku tytułu Chat Settings zapisuje ulubiony układ okien dla nowych czatów w bieżącym trybie. Zapamiętuje też, czy wskazówki dotyczące układu są ukryte. Możesz z niej korzystać w trybach Conversation, Roleplay i Game. Gwiazdka obok listy **Profile** nadal wybiera domyślny profil ustawień.
+Gwiazdka obok **Reset View** na pasku tytułu Chat Settings zapisuje ulubiony układ okien dla nowych czatów w bieżącym trybie. Zapamiętuje też, czy wskazówki dotyczące układu są ukryte, a także tryb Scoped Regex Scripts czatu. Możesz z niej korzystać w trybach Conversation, Roleplay i Game. Gwiazdka obok listy **Profile** nadal wybiera domyślny profil ustawień.
 
 Po aktualizacji istniejącej instalacji znajomy układ przycisków narzędzi staje się ulubionym układem dla nowych czatów we wszystkich trzech trybach. Dzieje się to raz i zachowuje wcześniejszy wybór lub wyczyszczenie ulubionego układu. Układ pozostaje domyślny, dopóki go nie zmienisz. Świeża instalacja zaczyna z narzędziami wewnątrz Chat Settings i bez wybranego ulubionego układu.
 
-Rozmieść okna i przyciski, a potem kliknij gwiazdkę na pasku tytułu, żeby zapisać układ. Gwiazdka jest wypełniona, gdy bieżący układ i widoczność wskazówek odpowiadają ulubionemu. Po przesunięciu okna lub zmianie układu kliknij ją ponownie, żeby zastąpić ulubiony układ. Kliknięcie wypełnionej gwiazdki usuwa ten wybór i przywraca standardowy układ dla przyszłych czatów. Istniejące czaty pozostają bez zmian.
+Rozmieść okna i przyciski, a potem kliknij gwiazdkę na pasku tytułu, żeby zapisać układ. Gwiazdka jest wypełniona, gdy bieżący układ, widoczność wskazówek i tryb Scoped Regex Scripts odpowiadają ulubionemu. Po przesunięciu okna lub zmianie układu kliknij ją ponownie, żeby zastąpić ulubiony układ. Kliknięcie wypełnionej gwiazdki usuwa ten wybór i przywraca standardowy układ dla przyszłych czatów. Istniejące czaty pozostają bez zmian.
 
-Jeśli nowy czat korzysta z domyślnego profilu ustawień, układ zapisany w profilu ma pierwszeństwo przed ulubionym układem. Profil bez zapisanego układu zachowuje rozmieszczenie czatu, także to pochodzące z ulubionego układu. Profil nadal stosuje własne ustawienie widoczności wskazówek; starsze profile bez tego ustawienia pokazują wskazówki.
+Jeśli nowy czat korzysta z domyślnego profilu ustawień, układ zapisany w profilu ma pierwszeństwo przed ulubionym układem. Profil bez zapisanego układu zachowuje rozmieszczenie czatu, także to pochodzące z ulubionego układu. Profil nadal stosuje własne ustawienie widoczności wskazówek; starsze profile bez tego ustawienia pokazują wskazówki. Profil stosuje też własny tryb Scoped Regex Scripts, a jeśli go nie ma, ustawienie domyślne presetu promptu.
 
 Instrukcję znajdziesz w sekcji [Wybór układu dla nowych czatów](chat-settings.md#choosing-a-layout-for-new-chats).
 

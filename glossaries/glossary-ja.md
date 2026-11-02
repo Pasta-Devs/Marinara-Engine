@@ -629,3 +629,24 @@ Precedents from the #8654 / #8657 catch-up against Engine `staging` `7450d4e70` 
 | slot / field (profile builder) | スロット for a builder slot; フィールド for a drop target, after the shipped `chat.settingsProfile.builder.libraryHint` (項目をフィールドにドラッグ). A single-item field is 1つしか選べないフィールド |
 
 The new `##` section glosses its labels once, including **Avatar type**, **Faces and mouth shapes** and **VRM model**, which are glossed earlier in the file. Its run-in **対応ファイル。** takes a space (§6.1 B), although the MMD paragraph above it is tight. "Waiting poses" is 待機中のポーズ, as in the performance section. The MMD paragraph's older **Import PMX or ZIP**(PMXまたはZIPのインポート) differs from the shipped `avatars.mmd.import` (PMXまたはZIPをインポート); align it in a consistency pass, not in a mirror commit. These are translation choices, not a new native-reader review.
+
+## Scoped regex in favorite layouts, embedding test and the Termux upgrade (2026-11-02, #8681)
+
+Precedents from the #8681 catch-up against Engine `staging` `db2d6ead7` (`lorebooks/semantic-search.md`, `chats/chat-settings.md`, `chats/settings-profiles.md`, `extending/regex-scripts.md`, `installation/android-termux.md`, `TROUBLESHOOTING.md`). Shipped `ui/ja.json` glosses for the same English: **Advanced**(詳細設定) (`settings.tabs.advanced.label`), **More**(その他) (`navigation.topbar.more`), **Use preset default**(プリセットのデフォルトを使用) (`chat.settings.regex.usePreset`), **Scoped regex default**(範囲限定の正規表現のデフォルト) (`presets.regex.defaultMode`) and **Reset View**(表示をリセット) (`chat.settings.resetView`). The connection editor's own `connections.editor.section.advanced` and `connections.editor.more` have no ja value yet, so recheck **Advanced** and **More** when they ship. **Built-in model**(内蔵モデル) reuses the 2026-11-01 gloss.
+
+Coined here: **Test embedding**(埋め込みをテスト), after **Test Video**(動画をテスト) and **Test decisions**(判断をテスト), because `connections.embeddingTest.*` has no ja value. **Embedding provider**(埋め込み用のプロバイダー) and **Same as this provider**(このプロバイダーと同じ) replace **Embedding Connection**(埋め込み用の接続) and **Same as this connection**(この接続と同じ) in `lorebooks/semantic-search.md`. `ui.connections.connectioneditor.embeddingConnection` and `sameAsThisConnection` still ship 埋め込みの接続 and この接続と同じ, which were written for the English before the rename, so they are not reused (as with **Import account**, 2026-11-01). Recheck both when those keys are retranslated.
+
+| English | Translation |
+| --- | --- |
+| **Semantic search (embeddings)** | Keeps the file's gloss (埋め込みによるセマンティック検索) at its one glossed mention; the shipped value is セマンティック検索(埋め込み). The heading `## Semantic search (embeddings)パネル` keeps the Latin label (UI-surface heading rule) |
+| a chat's Scoped Regex Scripts mode (prose) | Scoped Regex Scriptsのモード, Latin and unbolded as in the existing heading チャットごとのScoped Regex Scripts設定 |
+| the per-script switch is global | このスイッチはスクリプト自体のもの…すべてのチャットでそのスクリプトが変わります |
+| favorite layout star | お気に入りレイアウトの星, after **Favorite layout**(お気に入りレイアウト) in `chats/chat-settings.md` |
+| default settings profile (link text) | デフォルトの設定プロファイル |
+| upgrade all Termux packages | Termuxのすべてのパッケージをアップグレード; "upgrading only some packages" is 一部のパッケージだけをアップグレードする使い方. The `android-termux.md` colon ("…only some packages: a newer Node.js cannot start…") is joined as 対応しておらず、新しいNode.jsは…起動できません, not as a ためです reason clause, which would make the Node.js failure the cause of Termux's policy. 更新 stays for the updated launcher (更新されたTermuxのランチャー) |
+| configuration file / press Enter to keep it | 設定ファイル / Enterキーを押して今の設定ファイルを残してください |
+| Termux libraries | Termuxのライブラリー (trailing ー, §3) |
+
+New anchors: `<a id="the-per-chat-scoped-regex-scripts-setting">` above `### チャットごとのScoped Regex Scripts設定` and `<a id="choosing-the-default-profile">` above `## デフォルトのプロファイルを決める`, because new English links in `chats/chat-settings.md` and `extending/regex-scripts.md` target those fragments. The new `TROUBLESHOOTING.md` heading is `### Termux: 「CANNOT LINK EXECUTABLE "node"」と表示される`, a plain-form symptom clause like the 「Ignored build scripts: @google/genai」 heading; the error text keeps its ASCII quotes inside 「」. Nothing links to it, so it has no `<a id>`. **Could not verify that this Marinara Android build can safely read your stored data** is a status string and stays unglossed. **Install / Start Marinara**(Marinaraのインストール/起動) is glossed once in the new section.
+
+Two glosses now differ from older pack glosses; align them in a consistency pass, not in a mirror commit: **Scoped regex default** is (スコープ付き正規表現のデフォルト) in `prompts/presets.md`, and **Scoped Regex Scripts** stays (範囲を限定した正規表現スクリプト) in `extending/regex-scripts.md` against the shipped 範囲限定の正規表現スクリプト. These are translation choices, not a new native-reader review.

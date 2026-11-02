@@ -139,6 +139,8 @@ She smiles Hello there.
 
 从这张卡片打开完整编辑器会离开角色编辑器。角色有未保存的改动时，应用会先提示，以免改动丢失。
 
+<a id="the-per-chat-scoped-regex-scripts-setting"></a>
+
 ### 按聊天生效的 Scoped Regex Scripts 设置
 
 角色限定脚本不会自动在每个聊天里生效，得由一项按聊天的设置来控制。打开某个聊天的 **Chat Settings**(聊天设置) 面板，只有当这个聊天里至少有一个角色带限定脚本时，标题为 **Scoped Regex Scripts**(限定正则脚本) 的板块才会出现。它有三种模式：
@@ -147,7 +149,9 @@ She smiles Hello there.
 - **Exclusive**(独占)：每条限定脚本只改动它所属角色发出的消息。
 - **Chat**(全聊天)：每条限定脚本改动聊天里的每一条消息。
 
-模式按钮下方会逐个列出带限定脚本的角色，可以针对当前聊天单独开关每条脚本。这项设置管的是显示侧的脚本。提示词侧的脚本永远跟着实际生成回复的那个角色走。
+**Use preset default**(使用预设默认值) 沿用提示词预设的 **Scoped regex default**(限定正则默认模式)；选择某个模式，就会在这个聊天里覆盖它。想让新聊天一开始就用某个模式，可以把它设为预设的默认值，保存进你的[默认设置方案](../chats/settings-profiles.md#choosing-the-default-profile)，或者选好模式后点击 **Reset View** 旁的收藏布局星标（见[为新聊天选择布局](../chats/chat-settings.md#choosing-a-layout-for-new-chats)）。
+
+模式按钮下方会逐个列出带限定脚本的角色，可以单独开关每条脚本。这个开关属于脚本本身，所以会在所有聊天里改变这条脚本。模式管的是显示侧的脚本。提示词侧的脚本永远跟着实际生成回复的那个角色走。
 
 ## 从 SillyTavern 导入正则脚本
 

@@ -139,6 +139,8 @@ Der zweite Weg führt über den Charakter selbst. Öffne einen Charakter, wechse
 
 Öffnest du von dort aus den vollständigen Editor, verlässt du den Character Editor. Hat der Charakter ungespeicherte Änderungen, warnt die App vorher, damit nichts verloren geht.
 
+<a id="the-per-chat-scoped-regex-scripts-setting"></a>
+
 ### Die Chat-Einstellung Scoped Regex Scripts
 
 Charaktergebundene Skripte laufen nicht automatisch in jedem Chat, sondern werden pro Chat gesteuert. Öffne dazu das Panel **Chat Settings** (Chat-Einstellungen). Der Abschnitt **Scoped Regex Scripts** (gebundene Regex-Skripte) taucht nur auf, wenn mindestens ein Charakter im Chat gebundene Skripte hat. Er bietet drei Modi:
@@ -147,7 +149,9 @@ Charaktergebundene Skripte laufen nicht automatisch in jedem Chat, sondern werde
 - **Exclusive**: Jedes gebundene Skript ändert nur Nachrichten des Charakters, zu dem es gehört.
 - **Chat**: Jedes gebundene Skript ändert jede Nachricht im Chat.
 
-Unter den Modus-Schaltflächen listet das Panel jeden Charakter mit gebundenen Skripten auf, und du schaltest dort jedes Skript für diesen Chat einzeln ein oder aus. Gesteuert wird damit die Anzeigeseite. Prompt-Skripte richten sich immer nach dem Charakter, der die Antwort tatsächlich generiert.
+**Use preset default** (Preset-Standard verwenden) folgt dem **Scoped regex default** (Standard für bereichsbezogene Regex-Skripte) des Prompt-Presets; wählst du einen Modus, gilt stattdessen dieser für den Chat. Sollen neue Chats mit einem Modus starten, leg ihn als Standard des Presets fest, speichere ihn in deinem [Standard-Einstellungsprofil](../chats/settings-profiles.md#choosing-the-default-profile) oder wähl ihn und klick dann auf den Stern für die Lieblingsanordnung neben **Reset View** (Ansicht zurücksetzen). Die Schritte stehen unter [Eine Anordnung für neue Chats wählen](../chats/chat-settings.md#choosing-a-layout-for-new-chats).
+
+Unter den Modus-Schaltflächen listet das Panel jeden Charakter mit gebundenen Skripten auf, und du schaltest dort jedes Skript einzeln ein oder aus. Dieser Schalter gehört zum Skript selbst und ändert es deshalb in jedem Chat. Der Modus steuert die Skripte auf der Anzeigeseite. Prompt-Skripte richten sich immer nach dem Charakter, der die Antwort tatsächlich generiert.
 
 ## Regex-Skripte aus SillyTavern importieren
 

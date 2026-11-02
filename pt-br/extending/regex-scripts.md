@@ -139,6 +139,8 @@ A segunda maneira é pelo próprio personagem. Abra um personagem, vá até a ab
 
 Abrir o editor completo a partir desse cartão faz você sair do Character Editor. Se o personagem tiver alterações não salvas, o aplicativo avisa antes, para nada se perder.
 
+<a id="the-per-chat-scoped-regex-scripts-setting"></a>
+
 ### A configuração Scoped Regex Scripts, por chat
 
 Os scripts limitados a personagens não rodam automaticamente em todo chat. Quem controla isso é uma configuração de cada chat. Abra o painel **Chat Settings** (configurações do chat) de um chat. A seção chamada **Scoped Regex Scripts** só aparece quando pelo menos um personagem daquele chat tem scripts limitados a ele. São três modos:
@@ -147,7 +149,9 @@ Os scripts limitados a personagens não rodam automaticamente em todo chat. Quem
 - **Exclusive**: cada script limitado só muda as mensagens do personagem a que pertence.
 - **Chat**: todo script limitado muda todas as mensagens do chat.
 
-Abaixo dos botões de modo, o painel lista cada personagem com scripts limitados e permite ativar ou desativar cada script naquele chat. Essa configuração controla os scripts do lado da exibição. Os scripts de prompt sempre acompanham o personagem que está gerando a resposta.
+A opção **Use preset default** (usar o padrão do preset) segue o **Scoped regex default** (padrão de regex com escopo) do preset de prompt; escolher um modo substitui esse padrão neste chat. Para começar os novos chats com um modo, defina-o como padrão do preset, salve-o no seu [perfil de configurações padrão](../chats/settings-profiles.md#choosing-the-default-profile) ou escolha-o e depois clique na estrela do layout favorito ao lado de **Reset View** (veja [Escolher um layout para novos chats](../chats/chat-settings.md#choosing-a-layout-for-new-chats)).
+
+Abaixo dos botões de modo, o painel lista cada personagem com scripts limitados e permite ativar ou desativar cada script. Esse botão liga/desliga é do próprio script, então ele muda o script em todos os chats. O modo controla os scripts do lado da exibição. Os scripts de prompt sempre acompanham o personagem que está gerando a resposta.
 
 ## Como importar scripts de regex do SillyTavern
 

@@ -111,13 +111,13 @@ Après une mise à jour, la disposition familière avec les boutons d'outils est
 
 1. Dispose les fenêtres et les boutons comme tu le souhaites. Range les outils dans Chat Settings ou détache-les selon tes besoins.
 2. Masque les conseils de disposition si tu veux qu'ils restent aussi masqués dans les nouveaux chats.
-3. Clique sur l'étoile près de **Reset View**. Elle se remplit quand la disposition et les conseils correspondent à la favorite enregistrée.
+3. Clique sur l'étoile près de **Reset View**. Elle se remplit quand la disposition, les conseils et le mode Scoped Regex Scripts correspondent à la favorite enregistrée.
 
-La favorite garde les positions et tailles des fenêtres et boutons, les épinglages, les verrouillages, les outils détachés ou rangés et le choix des conseils. Les personnages, la connexion, les réglages d'IA et les messages restent propres au chat.
+La favorite garde les positions et tailles des fenêtres et boutons, les épinglages, les verrouillages, les outils détachés ou rangés, le choix des conseils et le mode [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) du chat. Un chat réglé sur **Use preset default** (utiliser la valeur par défaut du preset) n'enregistre aucun mode : les nouveaux chats suivent alors leur preset de prompt. Les personnages, la connexion, les réglages d'IA et les messages restent propres au chat.
 
 Pour remplacer la favorite, change la disposition et clique à nouveau sur l'étoile. Pour cesser de l'utiliser, clique sur l'étoile remplie. Les nouveaux chats utilisent alors la disposition standard. Enregistrer, remplacer ou effacer une favorite ne touche que les chats créés ensuite ; les chats existants gardent leur disposition.
 
-Un profil de réglages avec sa propre disposition enregistrée prend le pas sur la favorite quand il est appliqué. Un profil sans disposition enregistrée conserve la favorite en place. Les profils appliquent toujours leur propre réglage de conseils.
+Un profil de réglages avec sa propre disposition enregistrée prend le pas sur la favorite quand il est appliqué. Un profil sans disposition enregistrée conserve la favorite en place. Les profils appliquent toujours leur propre réglage de conseils et leur propre mode Scoped Regex Scripts ; un profil sans mode utilise la valeur par défaut du preset de prompt.
 
 ## Chat Name
 

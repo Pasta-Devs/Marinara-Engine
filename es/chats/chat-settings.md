@@ -111,13 +111,13 @@ Después de actualizar, el diseño conocido con botones de herramientas ya está
 
 1. Organiza las ventanas y los botones como quieras. Guarda las herramientas en Chat Settings o sácalas según necesites.
 2. Oculta los consejos de diseño si quieres que los chats nuevos también los oculten.
-3. Pulsa la estrella junto a **Reset View**. Se rellena cuando el diseño actual y los consejos coinciden con el favorito guardado.
+3. Pulsa la estrella junto a **Reset View**. Se rellena cuando el diseño actual, los consejos y el modo de Scoped Regex Scripts coinciden con el favorito guardado.
 
-El favorito guarda las posiciones y los tamaños de ventanas y botones, las fijaciones, los bloqueos, las herramientas separadas o guardadas dentro y la elección de los consejos de diseño. Los personajes, la conexión, los ajustes de IA y los mensajes siguen perteneciendo al chat.
+El favorito guarda las posiciones y los tamaños de ventanas y botones, las fijaciones, los bloqueos, las herramientas separadas o guardadas dentro, la elección de los consejos de diseño y el modo de [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) del chat. Un chat en **Use preset default** (Usar el valor predeterminado del preset) no guarda ningún modo, así que los chats nuevos siguen su preset de prompt. Los personajes, la conexión, los ajustes de IA y los mensajes siguen perteneciendo al chat.
 
 Para reemplazar el favorito, cambia la disposición y vuelve a pulsar la estrella. Para dejar de usarlo, pulsa la estrella rellena. Los chats nuevos usarán entonces el diseño estándar. Guardar, reemplazar o borrar un favorito solo afecta a los chats que crees después; los existentes conservan su diseño.
 
-Un perfil de ajustes con su propio diseño guardado tiene prioridad sobre el favorito al aplicarlo. Un perfil sin diseño guardado deja la disposición favorita en su sitio. Los perfiles siguen aplicando su propio ajuste de consejos de diseño.
+Un perfil de ajustes con su propio diseño guardado tiene prioridad sobre el favorito al aplicarlo. Un perfil sin diseño guardado deja la disposición favorita en su sitio. Los perfiles siguen aplicando su propio ajuste de consejos de diseño y su propio modo de Scoped Regex Scripts; un perfil sin modo usa el valor predeterminado del preset de prompt.
 
 ## Chat Name
 
