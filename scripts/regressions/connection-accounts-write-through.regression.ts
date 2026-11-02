@@ -14,6 +14,8 @@ const { apiConnections } = await import("../../packages/server/src/db/schema/ind
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 const { decryptApiKey } = await import("../../packages/server/src/utils/crypto.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { isForeignEmbeddingUrl } =
+  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.js");
 const { connectionAccountsRoutes } = await import("../../packages/server/src/routes/connection-accounts.routes.js");
 const { connectionsRoutes } = await import("../../packages/server/src/routes/connections.routes.js");
@@ -127,6 +129,29 @@ try {
   assert.equal((await rowOf(embedRow.id)).accountId, null);
   assert.equal(await plainKey(embedRow.id), "fixture-or-key-1111");
   assert.equal(await plainKey(embedAccount.data.connectionId), "fixture-or-key-2222");
+
+  // A vendor's own subdomain is not another host: NanoGPT embeds on api.nano-gpt.com and its rows stay linked.
+  assert.equal(isForeignEmbeddingUrl("https://api.nano-gpt.com/v1", "https://nano-gpt.com"), false);
+  assert.equal(isForeignEmbeddingUrl("https://nano-gpt.com.evil.example/v1", "https://nano-gpt.com"), true);
+  assert.equal(isForeignEmbeddingUrl("http://api.nano-gpt.com/v1", "https://nano-gpt.com"), true);
+  const nanoAccount = await json("POST", "/accounts", { provider: "nanogpt", apiKey: "fixture-nano-1111" });
+  assert.equal(nanoAccount.status, 201, nanoAccount.body);
+  const nanoRow = await connections.create(
+    createConnectionSchema.parse({
+      name: "Nano embeds",
+      provider: "nanogpt",
+      model: "some/model",
+      embeddingBaseUrl: "https://api.nano-gpt.com/v1",
+      accountId: nanoAccount.data.account.id,
+    }),
+  );
+  assert.equal(nanoRow!.accountId, nanoAccount.data.account.id);
+  assert.equal(
+    (await json("PATCH", `/accounts/${nanoAccount.data.account.id}`, { apiKey: "fixture-nano-2222" })).status,
+    200,
+  );
+  assert.equal((await rowOf(nanoRow!.id)).accountId, nanoAccount.data.account.id);
+  assert.equal(await plainKey(nanoRow!.id), "fixture-nano-2222");
 
   // A linked row ignores account-owned fields and keeps its own tuning.
   const patched = await json("PATCH", `/connections/${chatId}`, {

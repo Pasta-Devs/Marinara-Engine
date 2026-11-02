@@ -217,11 +217,32 @@ function groupKeyOf(row: GroupableRow, plainKey: string, importedAccountId = "")
 }
 
 /**
- * A row that sends its key to an embeddings host on another origin keeps its own key: it never joins an account
+ * A row that sends its key to a foreign embeddings host (see isForeignEmbeddingUrl) keeps its own key: it never joins an account
  * by itself (an account key change detaches it for the same reason), so it stays a standalone Model.
  */
 export function hasForeignEmbeddingHost(row: Pick<ConnectionRow, "embeddingBaseUrl"> & IdentityRow): boolean {
-  return !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== credentialOrigin(row);
+  return isForeignEmbeddingUrl(row.embeddingBaseUrl, credentialOrigin(row));
+}
+
+/**
+ * An embedding URL is foreign unless it is on the key's own origin or on a subdomain of the key's host with the same
+ * scheme and port (api.nano-gpt.com under nano-gpt.com belongs to the same vendor).
+ */
+export function isForeignEmbeddingUrl(embeddingBaseUrl: string | null | undefined, origin: string): boolean {
+  if (!embeddingBaseUrl?.trim()) return false;
+  const embedding = originOfUrl(trimUrl(embeddingBaseUrl));
+  if (embedding === origin) return false;
+  try {
+    const embeddingUrl = new URL(embedding);
+    const keyUrl = new URL(origin);
+    return !(
+      embeddingUrl.protocol === keyUrl.protocol &&
+      embeddingUrl.port === keyUrl.port &&
+      embeddingUrl.hostname.endsWith(`.${keyUrl.hostname}`)
+    );
+  } catch {
+    return true;
+  }
 }
 
 // ── Gate ────────────────────────────────────────
@@ -707,8 +728,7 @@ export function createConnectionAccountsStorage(db: DB) {
             const takesBaseUrl =
               (sameType || sharesMediaEndpoint || followsDecisionAccount) && input.baseUrl !== undefined;
             // A second endpoint (embeddings) on another origin would also receive the row's key.
-            const foreignEndpoint =
-              !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== accountOrigin;
+            const foreignEndpoint = isForeignEmbeddingUrl(row.embeddingBaseUrl, accountOrigin);
             // A row whose own or embedding endpoint is on another origin must not receive the key: it leaves
             // the account and keeps its own key and review state.
             if (
