@@ -263,6 +263,8 @@ interface ChatState {
   shouldOpenWizard: boolean;
   /** When true (and the wizard opens), it should land directly on the Quick Setup shortcut view. */
   shouldOpenWizardInShortcutMode: boolean;
+  /** Chat whose setup wizard is open; kept here so the wizard survives ChatArea unmounting behind an editor. */
+  setupWizardChatId: string | null;
   /** Pending new-chat mode for first-run connection setup gating. */
   pendingNewChatMode: ChatMode | null;
   /** Where the pending first-run chat was launched, for post-create navigation. */
@@ -324,6 +326,7 @@ interface ChatState {
   clearPerChatState: (chatId: string) => void;
   setShouldOpenSettings: (v: boolean) => void;
   setShouldOpenWizard: (v: boolean) => void;
+  setSetupWizardChatId: (chatId: string | null) => void;
   setShouldOpenWizardInShortcutMode: (v: boolean) => void;
   setPendingNewChatMode: (mode: ChatMode | null, origin?: "home" | "sidebar" | null) => void;
   setInputDraft: (chatId: string, text: string) => void;
@@ -416,6 +419,7 @@ export const useChatStore = create<ChatState>()(
     shouldOpenSettings: false,
     shouldOpenWizard: false,
     shouldOpenWizardInShortcutMode: false,
+    setupWizardChatId: null,
     pendingNewChatMode: null,
     pendingNewChatOrigin: null,
     inputDrafts: loadDrafts(),
@@ -792,6 +796,8 @@ export const useChatStore = create<ChatState>()(
 
     setShouldOpenWizard: (v) => set({ shouldOpenWizard: v }),
 
+    setSetupWizardChatId: (chatId) => set({ setupWizardChatId: chatId }),
+
     setShouldOpenWizardInShortcutMode: (v) => set({ shouldOpenWizardInShortcutMode: v }),
 
     setPendingNewChatMode: (mode, origin = null) =>
@@ -1083,6 +1089,7 @@ export const useChatStore = create<ChatState>()(
       set({
         mariDraftByChatId: new Map(),
         activeChatId: null,
+        setupWizardChatId: null,
         activeChat: null,
         pendingNewChatSetups: {},
         isStreaming: false,

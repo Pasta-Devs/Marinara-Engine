@@ -476,7 +476,8 @@ function normalizeAgentMaxTokensInputValue(value: unknown): number {
   return Math.max(MIN_AGENT_MAX_TOKENS, Math.trunc(value));
 }
 
-function WizardBackdrop({ onClose }: { onClose: () => void }) {
+// Only the loading screen closes on a click outside; a stray click must not drop a multi-step setup (the X closes it).
+function WizardBackdrop({ onClose }: { onClose?: () => void }) {
   return <div className="absolute inset-0 z-40 bg-black/45 backdrop-blur-[2px]" onClick={onClose} />;
 }
 
@@ -1042,6 +1043,11 @@ function WizardLoading({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Pre-defaults snapshot per chat whose saved defaults were auto-applied. A remounted wizard (back from an editor)
+// reuses it, so it neither re-applies defaults over newer picks nor resets to the already-defaulted chat.
+// ponytail: session-only and never pruned; one small entry per new chat.
+const autoDefaultsBaselines = new Map<string, ChatWizardDefaults>();
+
 function SavedChatSetupWizard({
   chat,
   onFinish,
@@ -1051,8 +1057,10 @@ function SavedChatSetupWizard({
   const mode = chat.mode === "conversation" ? "conversation" : "roleplay";
   const queryClient = useQueryClient();
   // The cached chat already holds a just-applied profile even when this render's prop does not yet.
-  const [initial] = useState(() =>
-    captureChatWizardDefaults(queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat),
+  const [initial] = useState(
+    () =>
+      autoDefaultsBaselines.get(chat.id) ??
+      captureChatWizardDefaults(queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat),
   );
   const saved = useUIStore((state) => state.chatWizardDefaults[mode]);
   const settingsSyncReady = useUIStore((state) => state.settingsSyncReady);
@@ -1102,8 +1110,9 @@ function SavedChatSetupWizard({
 
   useEffect(() => {
     if (!settingsSyncReady || initialApplyDone.current) return;
-    if (!saved) {
+    if (!saved || autoDefaultsBaselines.has(chat.id)) {
       initialApplyDone.current = true;
+      setDefaultsApplied(Boolean(saved));
       setReady(true);
       return;
     }
@@ -1118,6 +1127,7 @@ function SavedChatSetupWizard({
     });
     void pendingApply.current
       .then(() => {
+        autoDefaultsBaselines.set(chat.id, initial);
         if (!active) return;
         initialApplyDone.current = true;
         setDefaultsApplied(true);
@@ -1133,7 +1143,7 @@ function SavedChatSetupWizard({
     return () => {
       active = false;
     };
-  }, [applyAutomaticDefaults, chat.id, initial.characterIds, saved, settingsSyncReady, t]);
+  }, [applyAutomaticDefaults, chat.id, initial, saved, settingsSyncReady, t]);
 
   const defaultsAction = (metadata: Record<string, unknown>) => (
     <button
@@ -2235,7 +2245,7 @@ function ConversationQuickSetup({
 
   return (
     <>
-      <WizardBackdrop onClose={onDismiss} />
+      <WizardBackdrop />
       <SetupWizardShell
         title={localizeUi("navigation.chatSidebar.new.conversation")}
         steps={CONVERSATION_STEPS}
@@ -4059,7 +4069,7 @@ function RoleplaySetupWizard({
 
   return (
     <>
-      <WizardBackdrop onClose={onDismiss} />
+      <WizardBackdrop />
 
       <ChoiceSelectionModal
         open={showChoiceModal}
