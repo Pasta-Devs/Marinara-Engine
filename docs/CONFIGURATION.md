@@ -133,7 +133,7 @@ A small group of low-level settings are locked in when the server starts. Changi
 - `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH`
 - `TZ`
 - `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
-- `LOG_DISABLE_REQUEST_LOGGING`
+- `LOG_DISABLE_REQUEST_LOGGING`, `LOG_FORMAT`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
 - The image, video, sprite, and ComfyUI timeout and poll settings (`IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT`, and the four `*_VIDEO_POLL_INTERVAL_MS` settings)
 
@@ -233,6 +233,15 @@ That preset shows the same prompt and model detail as `debug`, but hides repeate
 ```
 LOG_DISABLE_REQUEST_LOGGING=true
 ```
+
+### Log format
+
+When you run Marinara in a terminal, including the launcher's console window, the server prints readable lines. Prompts and replies shown by **Debug mode** keep their line breaks there. When the output goes somewhere else, such as Docker logs, a file or another program, a production server prints one JSON object per line for log tools. The Android (Termux) launcher sends its output through a log file, so it asks for readable lines.
+
+To choose yourself, set `LOG_FORMAT` and restart:
+
+- `LOG_FORMAT=pretty` prints readable lines everywhere. Use it to read **Debug mode** prompts in `docker logs`.
+- `LOG_FORMAT=json` prints JSON lines everywhere.
 
 Browser logging is separate and is not controlled by `LOG_LEVEL`.
 

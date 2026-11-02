@@ -25,7 +25,7 @@ import {
   isClaudeStrictRequestModel,
   shouldSuppressUnknownModelParameters,
 } from "@marinara-engine/shared";
-import { logger, logDebugOverride } from "../../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { resolveThinkingHeadroom } from "../../generation/output-token-limits.js";
 
@@ -617,8 +617,8 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
-      "[debug/anthropic] final tool request:\n%j",
-      body,
+      "[debug/anthropic] final tool request:\n%s",
+      debugJson(body),
     );
     const response = await llmFetch(url, {
       method: "POST",
@@ -987,8 +987,8 @@ export class AnthropicProvider extends BaseLLMProvider {
     normalizeStrictClaudeParameters(body, options.model, this.maxTokensOverrideValue);
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
-      "[debug/anthropic] final request:\n%j",
-      body,
+      "[debug/anthropic] final request:\n%s",
+      debugJson(body),
     );
     const response = await llmFetch(url, {
       method: "POST",

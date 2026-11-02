@@ -16,7 +16,7 @@ import type { GenerationOutput } from "../../routes/generate/sse.js";
 // so it can never affect a normal conversation/roleplay generation.
 import { BUILT_IN_THINKING_TAG_PAIRS, extractLeadingThinkingBlocks } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
-import { logDebugOverride, logger } from "../../lib/logger.js";
+import { debugJson, logDebugOverride, logger } from "../../lib/logger.js";
 import { logSuppressed } from "../../lib/best-effort.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { BaseLLMProvider, ChatMessage, LLMToolDefinition } from "../llm/base-provider.js";
@@ -391,7 +391,7 @@ export async function runTurnGameBotTurns(args: RunBotTurnsArgs): Promise<void> 
         chatId,
         seatId,
         model,
-        JSON.stringify(moveMessages, null, 2),
+        debugJson(moveMessages),
       );
       const res = await provider.chatComplete(moveMessages, {
         model,

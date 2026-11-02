@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { logger } from "../../packages/server/src/lib/logger.js";
+import { debugJson, logger } from "../../packages/server/src/lib/logger.js";
 import {
   findKnownModel,
   isClaudeAdaptiveOnlyNoSamplingModel,
@@ -3905,7 +3905,11 @@ try {
         });
         assert.equal(promptLogs.length, debug === "off" ? 0 : 1);
         if (debug !== "off") {
-          assert.deepEqual(promptLogs[0]![1], sentBody, "debug logs include final parameter/tool shaping");
+          assert.equal(
+            String(promptLogs[0]![1]),
+            String(debugJson(sentBody)),
+            "debug logs include final parameter/tool shaping",
+          );
           assert.ok(!JSON.stringify(promptLogs).includes("synthetic-auth-marker"), "auth headers are not prompt data");
         }
       }
@@ -4691,7 +4695,7 @@ try {
       { role: "user", content: "Hello.\n\nWrite my next reply." },
     ]);
     assert.ok(
-      warnLogs.some((args) => JSON.stringify(args[1]) === JSON.stringify(strictTemplateBodies[1]!.messages)),
+      warnLogs.some((args) => String(args[1]) === String(debugJson(strictTemplateBodies[1]!.messages))),
       "debug mode logs the retried messages",
     );
 

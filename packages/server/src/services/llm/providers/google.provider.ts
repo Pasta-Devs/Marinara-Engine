@@ -25,7 +25,7 @@ import {
   type GenerationParameterSendKey,
 } from "@marinara-engine/shared";
 import { getEmbeddingRequestTimeoutMs, isDebugAgentsEnabled } from "../../../config/runtime-config.js";
-import { logDebugOverride } from "../../../lib/logger.js";
+import { debugJson, logDebugOverride } from "../../../lib/logger.js";
 import { decodePossiblyCompressedBody } from "../../../utils/security.js";
 
 /** A single Gemini response part (text, thought summary, or signature-only). */
@@ -743,8 +743,8 @@ export class GoogleProvider extends BaseLLMProvider {
     applyGoogleFunctionCallingMode(body, options.toolChoice);
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
-      "[debug/gemini] final tool request:\n%j",
-      body,
+      "[debug/gemini] final tool request:\n%s",
+      debugJson(body),
     );
     const authHeaders =
       this.providerKind === "google_vertex"

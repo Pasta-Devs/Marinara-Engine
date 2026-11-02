@@ -1,3 +1,4 @@
+import { debugJson } from "../../lib/logger.js";
 import type { ChatMessage, LLMToolDefinition } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
@@ -47,7 +48,7 @@ export async function planGameToolCalls(args: {
     maxTokens: Math.min(conn.maxTokensOverride ?? Infinity, resolveStoredMaxTokens(conn.defaultParameters, 2048)),
     tools: args.tools,
   });
-  args.debugLog("[game/tools] Planning prompt sent to %s (%s): %j", conn.name, conn.model, fit.messages);
+  args.debugLog("[game/tools] Planning prompt sent to %s (%s):\n%s", conn.name, conn.model, debugJson(fit.messages));
   const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
   return provider.chatComplete(fit.messages, {
     model: conn.model,

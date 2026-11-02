@@ -234,7 +234,7 @@ load_launcher_setting() {
 # Read only settings used by this launcher. The server loads every other .env
 # value itself. Node parses these as inert dotenv data; no shell code is sourced.
 if [ -f .env ]; then
-    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR MARINARA_MAX_RESIDENT_CHATS; do
+    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR MARINARA_MAX_RESIDENT_CHATS LOG_FORMAT; do
         load_launcher_setting "$setting_name"
     done
 fi
@@ -601,6 +601,9 @@ fi
 export NODE_ENV=production
 export PORT=${PORT:-7860}
 export HOST=${HOST:-0.0.0.0}
+# The server's output reaches Termux through tee, so it cannot see a terminal and would print
+# JSON lines. Ask for readable ones, so debug mode's prompts keep their line breaks.
+export LOG_FORMAT=${LOG_FORMAT:-pretty}
 
 if [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
   PROTOCOL=https

@@ -8,7 +8,7 @@ import {
 } from "@marinara-engine/shared";
 
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
-import { logger, logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
 import { applyProviderMaxTokensOverride } from "./generation-parameters.js";
 import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../llm/base-provider.js";
 import { isImageInputUnsupported } from "../llm/lorebook-image-provider.js";
@@ -359,7 +359,7 @@ export async function generateImageCaptionForDataUrl(
   logDebugOverride(
     debugMode || isDebugAgentsEnabled(),
     "[debug/image-captioning] Final provider messages:\n%s",
-    JSON.stringify(messagesForLog, null, 2),
+    debugJson(messagesForLog),
   );
   // Failures stop the turn: sending the raw image instead would quietly ignore the user's captioning setting.
   const result = await imageCaptioning.provider

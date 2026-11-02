@@ -60,7 +60,7 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import { mapSheetAttributesToRPG } from "../services/game/skill-check.service.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import type { ChatMessage } from "../services/llm/base-provider.js";
-import { logger, logDebugOverride } from "../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
 import { normalizeCharacterLookupName, normalizeRpgStatPools } from "@marinara-engine/shared";
 import { roomCharacterNames } from "../services/multiplayer/fight-players.js";
@@ -1389,7 +1389,7 @@ export async function encounterRoutes(app: FastifyInstance) {
         recentMsgs.length,
         JSON.stringify(settings),
       );
-      debugLog("[debug/game/combat:init] prompt messages:\n%s", JSON.stringify(prompt, null, 2));
+      debugLog("[debug/game/combat:init] prompt messages:\n%s", debugJson(prompt));
 
       const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
       // A connection's Max tokens is sized for story replies, and a whole battle's JSON cut off at
@@ -1535,7 +1535,7 @@ export async function encounterRoutes(app: FastifyInstance) {
         chatId,
       );
       combatState = { ...combatState, party: keptTemperaments.party };
-      debugLog("[debug/game/combat:init] parsed response:\n%s", JSON.stringify(combatState, null, 2));
+      debugLog("[debug/game/combat:init] parsed response:\n%s", debugJson(combatState));
       logger.info(
         "[game/combat:init] chatId=%s ready: party=%d enemies=%d",
         chatId,

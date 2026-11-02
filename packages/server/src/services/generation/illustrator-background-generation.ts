@@ -6,7 +6,7 @@ import {
   type ImageStyleProfileSettings,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
-import { logger } from "../../lib/logger.js";
+import { debugJson, logger } from "../../lib/logger.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import {
   agentRequestOptions,
@@ -276,7 +276,7 @@ async function writeIllustratorBackgroundPlan(args: {
     plan = parseIllustratorBackgroundPlan(raw);
   }
   if (!plan) throw new Error("Illustrator returned an invalid background prompt plan.");
-  args.debugLog?.("[debug/illustrator/background-prompt] plan:\n%s", JSON.stringify(plan, null, 2));
+  args.debugLog?.("[debug/illustrator/background-prompt] plan:\n%s", debugJson(plan));
   return plan;
 }
 

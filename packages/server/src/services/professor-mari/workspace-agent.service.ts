@@ -54,7 +54,7 @@ import {
   takePendingSteers,
   type MariPromptOutcome,
 } from "./workspace-pending-store.js";
-import { logger, logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import { readJobFallback, visionCaptionSettings } from "../generation/job-fallback.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
@@ -3666,11 +3666,7 @@ export class ProfessorMariWorkspaceService {
       memoryChars,
     );
     if (debugOverrideEnabled) {
-      logDebugOverride(
-        true,
-        "[debug/professor-mari-quick] Final prompt messages:\n%s",
-        JSON.stringify(messages, null, 2),
-      );
+      logDebugOverride(true, "[debug/professor-mari-quick] Final prompt messages:\n%s", debugJson(messages));
     }
 
     args.onEvent({ type: "status", data: { phase: "thinking" } });
@@ -4333,7 +4329,7 @@ export class ProfessorMariWorkspaceService {
               debugLog?.(
                 "[debug/professor-mari] Raw response:\n%s\nTool calls: %s",
                 result.content ?? "",
-                JSON.stringify(result.toolCalls),
+                debugJson(result.toolCalls),
               );
               latestUsage = result.usage;
               latestFinishReason = result.finishReason ?? null;
@@ -5396,7 +5392,7 @@ export class ProfessorMariWorkspaceService {
       options.enabledParameters?.verbosity === false ? "disabled" : (options.verbosity ?? "default"),
       Object.keys(options.customParameters ?? {}).join(",") || "none",
     );
-    debugLog?.("[debug/professor-mari] Final prompt messages:\n%s", JSON.stringify(messages, null, 2));
+    debugLog?.("[debug/professor-mari] Final prompt messages:\n%s", debugJson(messages));
     return provider.chatComplete(messages, options);
   }
 
