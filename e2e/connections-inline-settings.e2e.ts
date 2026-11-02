@@ -113,7 +113,13 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
   await agents.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  const main = dialog.locator('[data-switcher-section="connection"] [data-switcher-entry="inline-main"]');
+  // The chooser opens on the account of the current pick; a phone shows that pane alone.
+  const main = dialog.locator('[data-switcher-pane-models] [data-switcher-entry="inline-main"]');
+  const showList = async () => {
+    await expect(dialog.locator("[data-switcher-search]")).toBeVisible();
+    const back = dialog.locator("[data-switcher-back]");
+    if (await back.isVisible()) await back.click();
+  };
   await expect(main).toBeVisible();
   await expect(main).toHaveAttribute("aria-current", "true");
   await main.click();
@@ -125,7 +131,9 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
     useUIStore.setState({ connectionsGroupBy: "folder" });
   });
   await agents.click();
-  await expect(dialog.locator('[data-switcher-section="folder"] [data-switcher-entry="inline-main"]')).toBeVisible();
+  await showList();
+  await dialog.locator('[data-switcher-pane="folder:none"]').click();
+  await expect(dialog.locator('[data-switcher-pane-models] [data-switcher-entry="inline-main"]')).toBeVisible();
   await page.keyboard.press("Escape");
   starred = true;
   await page.evaluate(async () => {
@@ -138,6 +146,7 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
   await expect(dialog.locator('[data-switcher-section="starred"] [data-switcher-entry="inline-main"]')).toBeVisible();
   await page.keyboard.press("Escape");
   await agents.click();
+  await showList();
   await dialog.locator('[data-switcher-section="now"] [data-switcher-entry="inline-main"]').click();
   await expect(dialog).toBeHidden();
   expect(patches).toEqual([]);

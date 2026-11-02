@@ -156,8 +156,8 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
     const added = after.filter((row) => !hiddenRows.has(row.id));
     expect(added.map((row) => row.model)).toEqual(["local/alpha"]);
     // The first model became Main (its box was ticked), so the chat follows Main.
-      expect(isTrue(added[0]!.isDefault)).toBe(true);
-      expect(chat.connectionId).toBeNull();
+    expect(isTrue(added[0]!.isDefault)).toBe(true);
+    expect(chat.connectionId).toBeNull();
     // The OpenRouter try was thrown away when the user went back.
     const accountsAfter = (await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>;
     expect(accountsAfter.filter((account) => !hiddenAccounts.has(account.id))).toHaveLength(1);
@@ -407,7 +407,9 @@ test("a failed Set as Main keeps the model screen open, and the next try works",
     await dialog.getByRole("button", { name: "Done", exact: true }).click();
     await expect(dialog).toHaveCount(0);
 
-    const added = (await getRows(request)).filter((row) => !before.some((old) => old.id === row.id) && row.model === "local/alpha");
+    const added = (await getRows(request)).filter(
+      (row) => !before.some((old) => old.id === row.id) && row.model === "local/alpha",
+    );
     expect(added.map((row) => [row.model, isTrue(row.isDefault)])).toEqual([["local/alpha", true]]);
   } finally {
     await removeAdded(request, before);
@@ -483,7 +485,6 @@ test("unstarring the first model after starring a second keeps the model screen 
   }
 });
 
-
 /** Opens the app with the Add window closed and the panels shut. */
 async function openApp(page: Page) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
@@ -494,7 +495,9 @@ async function openApp(page: Page) {
   await page.goto("/");
 }
 
-test("the Add window lists providers by what they give; one search finds a provider by name or word, and no match offers a custom address", async ({ page }) => {
+test("the Add window lists providers by what they give; one search finds a provider by name or word, and no match offers a custom address", async ({
+  page,
+}) => {
   await openApp(page);
   await page.evaluate(async () => {
     const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
@@ -527,7 +530,10 @@ test("the Add window lists providers by what they give; one search finds a provi
   await expect(dialog).toHaveCount(0);
 });
 
-test("Defaults: a catalog model picked for Main is saved and becomes Main, and Undo gives Main back", async ({ page, request }) => {
+test("Defaults: a catalog model picked for Main is saved and becomes Main, and Undo gives Main back", async ({
+  page,
+  request,
+}) => {
   const provider = await startProvider();
   const dropMain = await ensureMain(request);
   const before = await getRows(request);
@@ -539,10 +545,14 @@ test("Defaults: a catalog model picked for Main is saved and becomes Main, and U
     await openApp(page);
     await showConnectionsList(page);
     const mainTile = page.locator('[data-defaults-tile="main"]').filter({ visible: true });
-    if (!(await mainTile.count())) await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
+    if (!(await mainTile.count()))
+      await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
     await mainTile.click();
     // The picker lists the account's catalog; a model nobody saved yet is saved under its account when picked.
     const dialog = page.getByRole("dialog", { name: "Model for Main" });
+    await expect(dialog.locator("[data-switcher-search]")).toBeVisible();
+    if (await dialog.locator("[data-switcher-back]").isVisible()) await dialog.locator("[data-switcher-back]").click();
+    await dialog.locator("[data-switcher-pane]").filter({ hasText: "E2E catalog" }).click();
     await dialog.locator('[data-switcher-entry="local/alpha"]').click();
     await expect(dialog).toHaveCount(0);
 

@@ -411,7 +411,6 @@ export function MariComposer({
   };
   const connectionBody = (
     <ConnectionSwitcherBody
-      layout="steps"
       current={effectiveConnectionId ? { connectionId: effectiveConnectionId } : null}
       onApply={applyMariPick}
       onDone={() => {
