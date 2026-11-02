@@ -4,7 +4,7 @@ import type { ChatMessage } from "../../packages/server/src/services/llm/base-pr
 
 const originalDebugAgents = process.env.DEBUG_AGENTS;
 process.env.DEBUG_AGENTS = "false";
-const { logger } = await import("../../packages/server/src/lib/logger.js");
+const { debugJson, logger } = await import("../../packages/server/src/lib/logger.js");
 const { OpenAIProvider } = await import("../../packages/server/src/services/llm/providers/openai.provider.js");
 type WireMessage = Record<string, unknown>;
 const unsigned: ChatMessage = {
@@ -98,7 +98,7 @@ async function exercise(
     );
     if (options.debug) {
       assert.equal(retryLogs.length, 1, "explicit debug logs the final reshaped retry exactly once");
-      assert.deepEqual(retryLogs[0]![1], requests.at(-1)!.messages);
+      assert.equal(String(retryLogs[0]![1]), String(debugJson(requests.at(-1)!.messages)));
     } else {
       assert.equal(retryLogs.length, 0, "ordinary warn-level logging contains no retry prompt");
     }

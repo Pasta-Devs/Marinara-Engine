@@ -40,7 +40,7 @@ import {
 import type { DB } from "../db/connection.js";
 import { and, eq } from "../db/file-query.js";
 import { advancedMemoryRecords } from "../db/schema/advanced-memory.js";
-import { logger, logDebugOverride } from "../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { tryParseJsonRecord } from "../lib/json-repair.js";
 import { newId, now } from "../utils/id-generator.js";
 import { createChatsStorage, withChatMetadataPatchQueue } from "./storage/chats.storage.js";
@@ -1582,11 +1582,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const { resolved, maxTokens, maxContext } = helper;
     logDebugOverride(
       options.debugMode === true || process.env.DEBUG_AGENTS === "true",
-      "[advanced-memory] %s for %s (%s): %s",
+      "[advanced-memory] %s for %s (%s):\n%s",
       label,
       ctx.chatId,
       resolved.model,
-      JSON.stringify(messages),
+      debugJson(messages),
     );
     const result = await completeAgentCall(
       { signal: options.signal, agentProgress: options.agentProgress },

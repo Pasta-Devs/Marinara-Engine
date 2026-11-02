@@ -7,7 +7,7 @@
 // roleplay chat, and returns a summary memory when concluded.
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
-import { logger, logDebugOverride } from "../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { tryParseJsonRecord } from "../lib/json-repair.js";
 import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import { readdirSync, existsSync } from "fs";
@@ -1321,7 +1321,7 @@ export async function sceneRoutes(app: FastifyInstance) {
     logDebugOverride(
       req.body.debugMode === true || isDebugAgentsEnabled(),
       "[scene/plan] Final scene planning prompt:\n%s",
-      JSON.stringify(planPrompt, null, 2),
+      debugJson(planPrompt),
     );
     const result = await provider.chatComplete(planPrompt, {
       model: conn.model,

@@ -122,7 +122,7 @@ import {
   validateImageAssetFile,
   validateVideoAssetFile,
 } from "../utils/media-file-security.js";
-import { logger, logDebugOverride } from "../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const SPRITES_DIR = join(DATA_DIR, "sprites");
@@ -2135,7 +2135,7 @@ export async function galleryRoutes(app: FastifyInstance) {
         logDebugOverride(
           debugOverrideEnabled,
           "[debug/gallery/regenerate] character prompts:\n%s",
-          JSON.stringify(characterPrompts, null, 2),
+          debugJson(characterPrompts),
         );
       }
 

@@ -70,7 +70,7 @@ import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 import { getLastFreeze } from "./lib/freeze-detector.js";
 import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
-import { followLogLevel, logger, protectTerminalLogger } from "./lib/logger.js";
+import { followLogLevel, logger, prettyLogs, protectTerminalLogger } from "./lib/logger.js";
 import { flushLorebookActivationStats } from "./services/lorebook/activation-stats.js";
 import { logRateLimited } from "./lib/log-rate-limit.js";
 import { genRequestId, registerRequestLogging, RequestLogController } from "./lib/request-logging.js";
@@ -124,7 +124,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   });
   // app.log shares the shared logger's stream, which logger.ts already protects; this
   // is a no-op then and only matters if Fastify is ever given its own stream again.
-  protectTerminalLogger(app.log, getNodeEnv() !== "production");
+  protectTerminalLogger(app.log, prettyLogs);
   // Hold internal inject() calls until every route, hook and package is registered (see fastify-inject-gate.ts).
   const releaseInjectGate = holdInjectUntilRegistered(app);
   const stopFollowingLogLevel = followLogLevel(app.log);

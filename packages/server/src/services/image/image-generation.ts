@@ -47,7 +47,7 @@ import {
 } from "./image-generation-queue.js";
 import { runSharedGpuTurn } from "../generation/shared-gpu-turns.js";
 import { generateRunPodComfyUI } from "./runpod-comfyui.service.js";
-import { logger, logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
 import {
   assertInsideDir,
   normalizeLoopbackUrl,
@@ -1286,32 +1286,28 @@ async function fetchImageWithSizeFallback(
 }
 
 /** Format only the log copy; provider payloads and prompt text remain untouched. */
-function imagePayloadForLog(payload: unknown): string {
-  return JSON.stringify(
-    payload,
-    (key, value: unknown) => {
-      const normalizedKey = key.replace(/[_-]/g, "");
-      // Keep diagnostic token limits/counts, while hiding actual token credentials.
-      if (/(secret|password|apikey|authorization|cookie|credential|token$)/i.test(normalizedKey)) {
-        return "[REDACTED]";
+function imagePayloadForLog(payload: unknown) {
+  return debugJson(payload, (key, value: unknown) => {
+    const normalizedKey = key.replace(/[_-]/g, "");
+    // Keep diagnostic token limits/counts, while hiding actual token credentials.
+    if (/(secret|password|apikey|authorization|cookie|credential|token$)/i.test(normalizedKey)) {
+      return "[REDACTED]";
+    }
+    if (value instanceof Blob) return `[file: ${value.type || "unknown"}, ${value.size} bytes]`;
+    if (typeof value !== "string" || /prompt|^(?:text|content)$/i.test(key)) return value;
+    const trimmed = value.trim();
+    const mediaType = /^data:([^;,]+)/i.exec(trimmed)?.[1] ?? detectImageMimeType(trimmed);
+    if (mediaType) return `[redacted ${mediaType}: ${trimmed.length} encoded characters]`;
+    // Form fields and ComfyUI workflows can contain serialized objects with the same secrets.
+    if (/^[{[]/.test(trimmed)) {
+      try {
+        return JSON.parse(trimmed) as unknown;
+      } catch {
+        // Ordinary non-JSON parameter text remains useful in diagnostics.
       }
-      if (value instanceof Blob) return `[file: ${value.type || "unknown"}, ${value.size} bytes]`;
-      if (typeof value !== "string" || /prompt|^(?:text|content)$/i.test(key)) return value;
-      const trimmed = value.trim();
-      const mediaType = /^data:([^;,]+)/i.exec(trimmed)?.[1] ?? detectImageMimeType(trimmed);
-      if (mediaType) return `[redacted ${mediaType}: ${trimmed.length} encoded characters]`;
-      // Form fields and ComfyUI workflows can contain serialized objects with the same secrets.
-      if (/^[{[]/.test(trimmed)) {
-        try {
-          return JSON.parse(trimmed) as unknown;
-        } catch {
-          // Ordinary non-JSON parameter text remains useful in diagnostics.
-        }
-      }
-      return value;
-    },
-    2,
-  );
+    }
+    return value;
+  });
 }
 
 function withImageCustomParameters(request: ImageGenRequest, body: Record<string, unknown>): Record<string, unknown> {

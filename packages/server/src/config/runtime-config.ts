@@ -346,6 +346,12 @@ export function getLogPreset() {
   return normalizeEnvValue(process.env.LOG_PRESET)?.toLowerCase() ?? "default";
 }
 
+/** `LOG_FORMAT=pretty` or `json`; null (unset or anything else) lets the logger choose by where its output goes. */
+export function getLogFormat(): "pretty" | "json" | null {
+  const format = normalizeEnvValue(process.env.LOG_FORMAT)?.toLowerCase();
+  return format === "pretty" || format === "json" ? format : null;
+}
+
 /**
  * Whether the `claude_subscription` provider may use the host's installed
  * Claude Code instead of the Agent SDK's bundled build. Default `true`; set

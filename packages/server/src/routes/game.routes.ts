@@ -98,7 +98,7 @@ import {
   worldTownForEditor,
   worldInteriorForEditor,
 } from "../services/game/world-editor.service.js";
-import { logger, logDebugOverride } from "../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import {
   buildWorldKitWritingPrompt,
   readWrittenWorldKit,
@@ -1484,7 +1484,7 @@ async function summarizeIllustrationFromNarration(args: {
       narration.length,
       args.illustration.prompt.length,
     );
-    args.debugLog?.("[debug/game/illustration-summarizer] prompt messages:\n%s", JSON.stringify(messages, null, 2));
+    args.debugLog?.("[debug/game/illustration-summarizer] prompt messages:\n%s", debugJson(messages));
 
     const result = await runGameChatComplete(
       provider,
@@ -1814,7 +1814,7 @@ async function createDynamicGameImagePromptGenerator(args: {
         request.sourcePrompt.length,
         request.maxCharacters,
       );
-      args.debugLog?.("[debug/game/dynamic-image-prompt] prompt messages:\n%s", JSON.stringify(messages, null, 2));
+      args.debugLog?.("[debug/game/dynamic-image-prompt] prompt messages:\n%s", debugJson(messages));
 
       const result = await runGameChatComplete(
         provider,
@@ -14487,7 +14487,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
 
       if (debugLogsEnabled) {
-        debugLog("[debug/game/scene-analysis:connection] final result:\n%s", JSON.stringify(parsed, null, 2));
+        debugLog("[debug/game/scene-analysis:connection] final result:\n%s", debugJson(parsed));
       }
 
       return { result: parsed };
@@ -14963,11 +14963,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           useNovelAiCharacterPrompts,
           providerSupportsStructuredCharacterPrompts,
         );
-        debugLog(
-          "[debug/%s/storyboard-planner] messages:\n%s",
-          ownerMode,
-          JSON.stringify(illustratorMessages.messages, null, 2),
-        );
+        debugLog("[debug/%s/storyboard-planner] messages:\n%s", ownerMode, debugJson(illustratorMessages.messages));
       }
 
       let illustratorErrorMessage: string | null = null;
@@ -15345,7 +15341,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
               "[debug/game/storyboard-image-assets] frame=%d nativeCharacterPrompts=%d prompts:\n%s",
               frame.index + 1,
               characterPrompts.length,
-              JSON.stringify(characterPrompts, null, 2),
+              debugJson(characterPrompts),
             );
           }
         }
@@ -15461,7 +15457,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
                       "[debug/%s/storyboard-animation-refinement] frame=%d messages:\n%s",
                       ownerMode,
                       frame.index + 1,
-                      JSON.stringify(redactStoryboardAnimationRefinementMessages(refinementMessages), null, 2),
+                      debugJson(redactStoryboardAnimationRefinementMessages(refinementMessages)),
                     );
                   }
                   const refinementResult = await runGameChatComplete(
@@ -16438,22 +16434,18 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       if (debugLogsEnabled) {
         debugLog(
           "[debug/game/generate-assets] request payload:\n%s",
-          JSON.stringify(
-            {
-              chatId: input.chatId,
-              backgroundTag: input.backgroundTag ?? null,
-              backgroundDescriptionChars: input.backgroundDescription?.length ?? 0,
-              forceBackground: input.forceBackground === true,
-              npcsNeedingAvatars: input.npcsNeedingAvatars ?? [],
-              illustration: input.illustration ?? null,
-              illustrationNarrationChars: input.illustrationNarration?.length ?? 0,
-              useAvatarReferences: input.useAvatarReferences ?? null,
-              includeCharacterAppearance: input.includeCharacterAppearance ?? null,
-              queueImageGenerationRequests: input.queueImageGenerationRequests,
-            },
-            null,
-            2,
-          ),
+          debugJson({
+            chatId: input.chatId,
+            backgroundTag: input.backgroundTag ?? null,
+            backgroundDescriptionChars: input.backgroundDescription?.length ?? 0,
+            forceBackground: input.forceBackground === true,
+            npcsNeedingAvatars: input.npcsNeedingAvatars ?? [],
+            illustration: input.illustration ?? null,
+            illustrationNarrationChars: input.illustrationNarration?.length ?? 0,
+            useAvatarReferences: input.useAvatarReferences ?? null,
+            includeCharacterAppearance: input.includeCharacterAppearance ?? null,
+            queueImageGenerationRequests: input.queueImageGenerationRequests,
+          }),
         );
       }
 

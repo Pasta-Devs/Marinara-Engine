@@ -38,7 +38,7 @@ import {
   shouldSuppressUnknownModelParameters,
   supportsXhighReasoningEffort,
 } from "@marinara-engine/shared";
-import { logger, logDebugOverride } from "../../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { getOpenCodeSessionId } from "../../../utils/opencode-session.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
@@ -1032,8 +1032,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     // `tool` role before. Debug mode shows what the model actually reads, not the transcript it came from.
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
-      "[debug/openai] chat request messages:\n%j",
-      body.messages,
+      "[debug/openai] chat request messages:\n%s",
+      debugJson(body.messages),
     );
     const send = () =>
       llmFetch(url, {
@@ -1055,8 +1055,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         );
         logDebugOverride(
           options.debugMode === true || isDebugAgentsEnabled(),
-          "[debug/openai] role-alternation retry messages:\n%j",
-          messages,
+          "[debug/openai] role-alternation retry messages:\n%s",
+          debugJson(messages),
         );
         body.messages = messages;
         response = await send();
@@ -1075,8 +1075,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         );
         logDebugOverride(
           options.debugMode === true || isDebugAgentsEnabled(),
-          "[debug/openai] Anthropic-compatible retry messages:\n%j",
-          messages,
+          "[debug/openai] Anthropic-compatible retry messages:\n%s",
+          debugJson(messages),
         );
         body.messages = messages;
         response = await send();
@@ -1104,8 +1104,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         );
         logDebugOverride(
           options.debugMode === true || isDebugAgentsEnabled(),
-          "[debug/openai] tool-role retry messages:\n%j",
-          messages,
+          "[debug/openai] tool-role retry messages:\n%s",
+          debugJson(messages),
         );
         body.messages = messages;
         response = await send();
@@ -3009,8 +3009,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     // provider caches is this body's prefix, so two turns' bodies are what to compare on a miss.
     logDebugOverride(
       options.debugMode === true || isDebugAgentsEnabled(),
-      "[debug/openai] responses request body: %j",
-      body,
+      "[debug/openai] responses request body:\n%s",
+      debugJson(body),
     );
     return body;
   }

@@ -4,7 +4,7 @@ import {
   type CardFieldGenerationDraft,
   type CardFieldGenerationKey,
 } from "@marinara-engine/shared";
-import { logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logDebugOverride } from "../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import {
   resolveChatSummaryTemperatureOptions,
@@ -89,7 +89,7 @@ export async function generateCardField(args: {
     args.kind,
     args.entityId,
     args.field,
-    JSON.stringify(messages),
+    debugJson(messages),
   );
   const result = await args.connection.provider.chatComplete(messages, {
     model: args.connection.model,

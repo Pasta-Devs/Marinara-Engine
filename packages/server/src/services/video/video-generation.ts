@@ -3,7 +3,7 @@ import { join } from "path";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { newId } from "../../utils/id-generator.js";
-import { logger, logDebugOverride } from "../../lib/logger.js";
+import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
 import { assertInsideDir, safeFetch } from "../../utils/security.js";
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import {
@@ -600,7 +600,7 @@ async function generateSwarmUiVideo(
   logDebugOverride(
     request.debugMode === true || isDebugAgentsEnabled(),
     "[video-gen/swarmui] final request payload:\n%s",
-    JSON.stringify(debugBody, null, 2),
+    debugJson(debugBody),
   );
 
   const response = await comfyUiVideoFetch(
@@ -1075,7 +1075,7 @@ async function generateOpenRouterVideo(
   logDebugOverride(
     request.debugMode === true || isDebugAgentsEnabled(),
     "[video-gen/openrouter] final request payload:\n%s",
-    JSON.stringify(body.frame_images ? { ...body, frame_images: "[redacted reference images]" } : body, null, 2),
+    debugJson(body.frame_images ? { ...body, frame_images: "[redacted reference images]" } : body),
   );
 
   const started = await safeFetch(startUrl, {
@@ -1238,7 +1238,7 @@ async function generateNanoGptVideo(
   logDebugOverride(
     request.debugMode === true || isDebugAgentsEnabled(),
     "[video-gen/nanogpt] final request payload:\n%s",
-    JSON.stringify(debugBody, null, 2),
+    debugJson(debugBody),
   );
 
   const started = await safeFetch(buildNanoGptVideoUrl(baseUrl, "generate-video"), {
@@ -1477,11 +1477,7 @@ async function generateAtlasCloudVideo(
       adapted.adjustments.join("; "),
     );
   }
-  logDebugOverride(
-    request.debugMode === true,
-    "[video-gen/atlas-cloud] final request payload:\n%s",
-    JSON.stringify(body, null, 2),
-  );
+  logDebugOverride(request.debugMode === true, "[video-gen/atlas-cloud] final request payload:\n%s", debugJson(body));
   const outputUrl = await runAtlasCloudPrediction({
     baseUrl,
     apiKey,
