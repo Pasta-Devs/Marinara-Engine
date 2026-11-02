@@ -18,6 +18,7 @@
 // docs/development/logging.md.
 // ──────────────────────────────────────────────
 import pino from "pino";
+import { readableJson } from "@marinara-engine/shared";
 import { randomBytes } from "node:crypto";
 import type { EventEmitter } from "node:events";
 import { writeSync } from "node:fs";
@@ -168,17 +169,15 @@ export function followLogLevel(child: { level: string }): () => void {
 }
 
 /**
- * A JSON value for a debug line (a prompt, a provider request body, a parsed reply): indented, with each line break
- * inside its strings printed as a real line break instead of "\n", so a multi-line prompt reads as it was written.
- * Meant for reading, so it is not valid JSON. Pass it to %s: it is rendered only when the line is printed, so a
- * large prompt costs nothing while debug output is off.
+ * A JSON value for a debug line (a prompt, a provider request body, a parsed reply), as readableJson prints it: each
+ * line break inside its strings is a real line break, so a multi-line prompt reads as it was written. Pass it to %s:
+ * it is rendered only when the line is printed, so a large prompt costs nothing while debug output is off.
  */
-export function debugJson(value: unknown): { toString(): string; toJSON(): string } {
-  const render = () =>
-    // An escaped "\n" (or "\r\n") becomes a line break; one preceded by an escaped backslash ("\\n") is text.
-    (JSON.stringify(value, null, 2) ?? String(value)).replace(/(?<!\\)((?:\\\\)*)(\\r)?\\n/g, (_match, slashes, cr) =>
-      cr ? `${slashes}\r\n` : `${slashes}\n`,
-    );
+export function debugJson(
+  value: unknown,
+  replacer?: Parameters<typeof readableJson>[1],
+): { toString(): string; toJSON(): string } {
+  const render = () => readableJson(value, replacer);
   return { toString: render, toJSON: render };
 }
 

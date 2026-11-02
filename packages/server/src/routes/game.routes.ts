@@ -16434,22 +16434,18 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       if (debugLogsEnabled) {
         debugLog(
           "[debug/game/generate-assets] request payload:\n%s",
-          JSON.stringify(
-            {
-              chatId: input.chatId,
-              backgroundTag: input.backgroundTag ?? null,
-              backgroundDescriptionChars: input.backgroundDescription?.length ?? 0,
-              forceBackground: input.forceBackground === true,
-              npcsNeedingAvatars: input.npcsNeedingAvatars ?? [],
-              illustration: input.illustration ?? null,
-              illustrationNarrationChars: input.illustrationNarration?.length ?? 0,
-              useAvatarReferences: input.useAvatarReferences ?? null,
-              includeCharacterAppearance: input.includeCharacterAppearance ?? null,
-              queueImageGenerationRequests: input.queueImageGenerationRequests,
-            },
-            null,
-            2,
-          ),
+          debugJson({
+            chatId: input.chatId,
+            backgroundTag: input.backgroundTag ?? null,
+            backgroundDescriptionChars: input.backgroundDescription?.length ?? 0,
+            forceBackground: input.forceBackground === true,
+            npcsNeedingAvatars: input.npcsNeedingAvatars ?? [],
+            illustration: input.illustration ?? null,
+            illustrationNarrationChars: input.illustrationNarration?.length ?? 0,
+            useAvatarReferences: input.useAvatarReferences ?? null,
+            includeCharacterAppearance: input.includeCharacterAppearance ?? null,
+            queueImageGenerationRequests: input.queueImageGenerationRequests,
+          }),
         );
       }
 

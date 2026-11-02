@@ -95,7 +95,7 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 The UI debug toggle keeps working through `logDebugOverride`. That is the intended way to see prompts when `LOG_LEVEL` hides debug.
 
-Print prompt text as it is, with `%s`. For a structured value (a message array, a provider request body, a parsed reply), pass `debugJson(value)` to `%s`, not `%j` or `JSON.stringify(value)`. It prints indented JSON whose line breaks inside strings are real line breaks, so a multi-line prompt stays readable, and it renders only when the line is printed. The `debug-log-line-breaks` regression covers this and the format choice.
+Print prompt text as it is, with `%s`. For a structured value (a message array, a provider request body, a parsed reply), pass `debugJson(value)` to `%s`, not `%j` or `JSON.stringify(value)`. It prints indented JSON whose line breaks inside strings are real line breaks, so a multi-line prompt stays readable, and it renders only when the line is printed. A redacting replacer goes in its second argument, as with `JSON.stringify`. An in-app debug view prints the same text with `readableJson` from `@marinara-engine/shared`. The `debug-log-line-breaks` regression covers this and the format choice.
 
 ## Checks
 
