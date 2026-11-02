@@ -444,6 +444,7 @@ export function CharacterEditor() {
   const closeDetail = useUIStore((s) => s.closeCharacterDetail);
   const { data: rawCharacter, isLoading, refetch: refetchCharacter } = useCharacter(characterId);
   const updateCharacter = useUpdateCharacter();
+  const updateSheet = useUpdateCharacter();
   const uploadAvatar = useUploadAvatar();
   const removeAvatar = useRemoveAvatar();
   const deleteCharacter = useDeleteCharacter();
@@ -832,9 +833,9 @@ export function CharacterEditor() {
     async (extensions: CharacterSheetUpdate) => {
       if (!characterId) return;
       await pendingSave.current;
-      await updateCharacter.mutateAsync({ id: characterId, data: { extensions } });
+      await updateSheet.mutateAsync({ id: characterId, data: { extensions } });
     },
-    [characterId, pendingSave, updateCharacter],
+    [characterId, pendingSave, updateSheet],
   );
 
   const handleGeneratedCharacterSheet = useCallback(
@@ -890,7 +891,7 @@ export function CharacterEditor() {
   // Saves `data` as the card. `version` labels the version snapshot (the default is a manual save).
   const saveCard = async (data: CharacterData | null, version?: { source: string; reason: string }) => {
     if (!characterId || !data) return false;
-    if (updateCharacter.isPending) return false;
+    if (updateSheet.isPending) return false;
     // The server would reject the whole card; say why instead (the Onboarding
     // tab offers Start over). Also covers the leave-page save, which stays put.
     if (unreadableOnboarding) {
@@ -936,7 +937,7 @@ export function CharacterEditor() {
     `characterDetailId:${characterId}`,
     dirty,
     handleSave,
-    saving || updateCharacter.isPending || avatarUploading || lorebookEmbedding,
+    saving || updateSheet.isPending || avatarUploading || lorebookEmbedding,
   );
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1270,7 +1271,7 @@ export function CharacterEditor() {
 
   const headerActionButtonClass = "mari-editor-action inline-flex";
   const saveDisabled =
-    !dirty || unreadableOnboarding || saving || updateCharacter.isPending || avatarUploading || lorebookEmbedding;
+    !dirty || unreadableOnboarding || saving || updateSheet.isPending || avatarUploading || lorebookEmbedding;
   const saveLabel = avatarUploading
     ? localizeUi("editor.save.uploading")
     : lorebookEmbedding
@@ -1559,7 +1560,7 @@ export function CharacterEditor() {
                 }
                 useCharacterSheetAsReference={formData.extensions.useCharacterSheetAsReference === true}
                 onUpdateCharacterSheet={updateCharacterSheet}
-                characterSheetSaving={saving || updateCharacter.isPending}
+                characterSheetSaving={saving || updateSheet.isPending}
                 onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
               />
             )}
