@@ -6,7 +6,8 @@ import { createConnectionsStorage } from "../../packages/server/src/services/sto
 import { createFileNativeDB } from "../../packages/server/src/db/file-backed-store.js";
 
 const provider = createServer((request, response) => {
-  const valid = request.headers.authorization === "Bearer valid-key";
+  const valid =
+    request.headers.authorization === "Bearer valid-key" || request.headers["xi-api-key"] === "valid-key";
   response.writeHead(valid ? 200 : 401, { "content-type": "application/json" });
   response.end(JSON.stringify(valid ? { data: [{ id: "fixture-model" }] } : { error: "Invalid API key" }));
 });
@@ -26,6 +27,24 @@ try {
     assert.equal(result.statusCode, apiKey === "valid-key" ? 200 : 401, result.body);
     if (apiKey === "valid-key") assert.equal(result.json().models[0].id, "fixture-model");
     else assert.match(result.json().error, /401.*Invalid API key/);
+  }
+  for (const audioSource of ["openai", "elevenlabs"] as const) {
+    const row = await storage.create({
+      name: `Audio ${audioSource}`,
+      provider: "audio",
+      audioSource,
+      baseUrl,
+      apiKey: audioSource === "openai" ? "valid-key" : "",
+      model: "",
+    });
+    const result = await app.inject({ method: "GET", url: `/api/connections/${row.id}/models` });
+    assert.equal(result.statusCode, 200, result.body);
+    const ids = result.json().models.map((model: { id: string }) => model.id);
+    if (audioSource === "openai") assert.deepEqual(ids, ["fixture-model"]);
+    else {
+      assert.ok(ids.includes("eleven_multilingual_v2"), "ElevenLabs uses the TTS fallback catalog without a key");
+      assert.ok(!ids.includes("fixture-model"));
+    }
   }
   await new Promise<void>((resolve) => provider.close(() => resolve()));
   const row = await storage.create({ name: "Offline", provider: "custom", baseUrl, apiKey: "key", model: "" });

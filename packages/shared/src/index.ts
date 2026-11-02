@@ -256,6 +256,7 @@ export * from "./utils/expression-keywords.js";
 export * from "./utils/managed-generation-parameters.js";
 export * from "./utils/conversation-presence.js";
 export * from "./utils/avatar-crop.js";
+export * from "./utils/avatar-humanoid-bones.js";
 export * from "./utils/persona-normalization.js";
 export * from "./utils/noodle-mentions.js";
 export * from "./utils/noodle-polls.js";

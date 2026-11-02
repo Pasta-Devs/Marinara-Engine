@@ -1,5 +1,10 @@
 import { resolveDecisionConnection, type DecisionConnectionRow } from "../services/decision/decision-connection.js";
-import { ttsCatalogHeaders } from "./tts.routes.js";
+import {
+  fetchProviderModels,
+  resolveAudioConfig,
+  TTS_CONNECTION_UNAVAILABLE,
+  ttsCatalogHeaders,
+} from "./tts.routes.js";
 import { partialInput } from "@marinara-engine/shared";
 import { migrateGenerativeAudioConnections } from "../services/connections/generative-audio-connection-migration.js";
 import { validateSunoMusicCallback } from "../services/audio/generative-audio-providers.js";
@@ -50,6 +55,7 @@ import {
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isOpenAIGpt6Model,
+  LOCAL_SIDECAR_CONNECTION_ID,
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
   modelCost,
@@ -79,7 +85,10 @@ import {
   canRefreshLocalContext,
   fetchLocalContextLimit,
 } from "../services/llm/local-context-limit.js";
-import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
+import {
+  resetMemoryRecallVectorizerCache,
+  resolveConnectionTestEmbeddingSource,
+} from "../services/memory-recall-embedding.js";
 import { withLongTermMemoryEmbeddingChange } from "../services/generation/long-term-memory-runtime.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
@@ -1747,6 +1756,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const conn = await storage.getWithKey(req.params.id);
     if (!conn) return unusableConnection(req.params.id, reply);
     if (conn.provider === "audio_generation") return { models: [] };
+    // Voice catalogs are not at `${baseUrl}/models` (ElevenLabs answers 404), so reuse the TTS lookup.
+    if (conn.provider === "audio") {
+      const cfg = await resolveAudioConfig(appSettings, storage, conn.id);
+      if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
+      if (cfg.source === "elevenlabs") return fetchProviderModels(cfg);
+    }
     const savesList = connectionSavesModelList(conn.provider);
     if (savesList && req.query.refresh !== "true") {
       const saved = await storage.readCatalog(conn);
@@ -1957,42 +1972,41 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
   });
 
-  // One tiny embedding call with the row's embedding model: the Embeddings picker runs it before it assigns a model.
+  // One tiny embedding call through the source semantic search uses (Embedding Connection, endpoint URL, model):
+  // the editor's Test embedding runs it, and the Embeddings picker runs it before it assigns a model.
   app.post<{ Params: { id: string } }>("/:id/test-embedding", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
     if (!conn) return unusableConnection(req.params.id, reply);
-    const model = typeof conn.embeddingModel === "string" ? conn.embeddingModel.trim() : "";
-    if (!model) return { success: false, message: "No embedding model set.", latencyMs: 0 };
-    const { PROVIDERS } = await import("@marinara-engine/shared");
-    const baseUrl = (conn.baseUrl || PROVIDERS[conn.provider as keyof typeof PROVIDERS]?.defaultBaseUrl || "").replace(
-      /\/+$/,
-      "",
-    );
-    const provider = createLLMProvider(
-      conn.provider,
-      baseUrl,
-      conn.apiKey,
-      conn.maxContext,
-      conn.openrouterProvider,
-      conn.maxTokensOverride,
-      conn.claudeFastMode === "true",
-      conn.treatAsLocalEndpoint === "true",
-      conn.defaultParameters,
-      conn.id,
-    );
+    const source = await resolveConnectionTestEmbeddingSource(app.db, conn);
+    if (!source) {
+      const via = conn.embeddingConnectionId;
+      const lender = via && via !== LOCAL_SIDECAR_CONNECTION_ID ? await storage.getWithKey(via) : null;
+      // A model with no address to send it to is a missing endpoint, not a missing model.
+      const hasModel = !!(conn.embeddingModel?.trim() || lender?.embeddingModel?.trim());
+      const message =
+        via === LOCAL_SIDECAR_CONNECTION_ID
+          ? "The built-in model makes embeddings only with an enabled llama.cpp model."
+          : hasModel
+            ? "No embedding endpoint set. Add an Embedding endpoint URL or a Base URL."
+            : "No embedding model set.";
+      return { success: false, message, latencyMs: 0 };
+    }
+    const { model, endpoint } = source;
     const start = Date.now();
     try {
-      const vectors = await provider.embed(["Marinara embedding test"], model);
-      const size = vectors[0]?.length ?? 0;
-      if (size === 0)
-        return { success: false, message: "The model returned no vector.", latencyMs: Date.now() - start };
-      return { success: true, message: `${size} dimensions`, latencyMs: Date.now() - start };
+      const dimensions = (await source.embed(["Marinara embedding test"]))?.[0]?.length ?? 0;
+      const latencyMs = Date.now() - start;
+      if (dimensions === 0)
+        return { success: false, message: "The model returned no vector.", latencyMs, model, endpoint };
+      return { success: true, message: `${dimensions} dimensions`, latencyMs, dimensions, model, endpoint };
     } catch (err) {
-      logger.warn(err, "[connections/test-embedding] failed for %s", conn.id);
+      logger.warn(err, "[connections/test-embedding] %s failed for %s", source.label, conn.id);
       return {
         success: false,
         message: err instanceof Error ? err.message : "Unknown error",
         latencyMs: Date.now() - start,
+        model,
+        endpoint,
       };
     }
   });

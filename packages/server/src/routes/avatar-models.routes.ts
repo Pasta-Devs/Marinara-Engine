@@ -32,6 +32,7 @@ import {
 import { logger } from "../lib/logger.js";
 import { validationDetails } from "../middleware/error-handler.js";
 import { AVATAR_FORMAT_IMPORTERS, findAvatarImporter } from "../services/avatars/formats/registry.js";
+import { glbFbxFileMime } from "../services/avatars/formats/glb-fbx.js";
 import { mmdTextureMime } from "../services/avatars/formats/mmd.js";
 import {
   AVATAR_IMPORT_MAX_BYTES,
@@ -61,7 +62,7 @@ const IMPORT_HEAD_BYTES = 64 * 1024;
 /** Model files keep their name when re-imported, so the browser revalidates instead of caching forever. */
 const MODEL_CACHE_CONTROL = "private, no-cache";
 const MODEL_MAGIC: Readonly<
-  Record<Exclude<AvatarKind, "pngtuber" | "mmd">, { mimeType: string; magic: readonly Buffer[] }>
+  Record<Exclude<AvatarKind, "pngtuber" | "mmd" | "glb-fbx">, { mimeType: string; magic: readonly Buffer[] }>
 > = {
   // A ZIP archive: a local file header, or the end record of an empty archive.
   "mesh-avatar": { mimeType: "application/zip", magic: [Buffer.from("PK\x03\x04"), Buffer.from("PK\x05\x06")] },
@@ -105,7 +106,8 @@ async function openModelFile(filePath: string, kind: Exclude<AvatarKind, "pngtub
     handle = await open(canonicalPath, "r");
     const info = await handle.stat();
     if (!info.isFile()) throw new Error("not a file");
-    const head = Buffer.alloc(kind === "mmd" ? 4096 : 4);
+    // An FBX names itself in its first 21 bytes.
+    const head = Buffer.alloc(kind === "mmd" ? 4096 : kind === "glb-fbx" ? 32 : 4);
     const { bytesRead } = await handle.read(head, 0, head.length, 0);
     if (kind === "mmd") {
       const extension = extname(filePath).toLowerCase();
@@ -115,6 +117,11 @@ async function openModelFile(filePath: string, kind: Exclude<AvatarKind, "pngtub
           : extension === ".vmd" && head.toString("ascii", 0, 4) === "Voca"
             ? "application/octet-stream"
             : mmdTextureMime(head.subarray(0, bytesRead), filePath, info.size);
+      if (!mimeType) throw new Error("unexpected content");
+      return { mimeType, handle, size: info.size };
+    }
+    if (kind === "glb-fbx") {
+      const mimeType = glbFbxFileMime(head.subarray(0, bytesRead), filePath);
       if (!mimeType) throw new Error("unexpected content");
       return { mimeType, handle, size: info.size };
     }

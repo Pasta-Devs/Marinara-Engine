@@ -29,6 +29,7 @@ import {
   useTestMessage,
   useTestImageGeneration,
   useTestVideoGeneration,
+  useTestEmbedding,
   useDiagnoseClaudeSubscription,
   useModelParameterCapabilities,
   useSaveConnectionDefaults,
@@ -55,6 +56,7 @@ import {
   Film,
   Music,
   RotateCcw,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -401,6 +403,7 @@ export function ConnectionEditor({
   const testMessage = useTestMessage();
   const testImageGeneration = useTestImageGeneration();
   const testVideoGeneration = useTestVideoGeneration();
+  const testEmbedding = useTestEmbedding();
   const diagnoseClaudeSubscription = useDiagnoseClaudeSubscription();
   const saveConnectionDefaults = useSaveConnectionDefaults();
   const { data: allConnections } = useConnections();
@@ -511,6 +514,12 @@ export function ConnectionEditor({
     setAudioTestError(null);
   }, []);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs: number } | null>(null);
+  const [embeddingTestResult, setEmbeddingTestResult] = useState<{
+    success: boolean;
+    message: string;
+    latencyMs: number;
+    dimensions?: number;
+  } | null>(null);
   const [msgResult, setMsgResult] = useState<{
     success: boolean;
     response: string;
@@ -681,6 +690,7 @@ export function ConnectionEditor({
     testScopeRef.current++;
     clearAudioTest();
     setTestResult(null);
+    setEmbeddingTestResult(null);
     setMsgResult(null);
     setImgTestResult(null);
     setVidTestResult(null);
@@ -1486,6 +1496,34 @@ export function ConnectionEditor({
     });
   }, [connectionDetailId, dirty, handleSave, testConnection, selectedImageService, localProvider, t]);
 
+  const handleTestEmbedding = useCallback(async () => {
+    if (!connectionDetailId) return;
+    const requestScope = testScopeRef.current;
+    if (dirty) {
+      try {
+        await handleSave();
+      } catch {
+        return;
+      }
+    }
+    if (testScopeRef.current !== requestScope) return;
+    setEmbeddingTestResult(null);
+    testEmbedding.mutate(connectionDetailId, {
+      onSuccess: (data) => {
+        if (testScopeRef.current !== requestScope) return;
+        setEmbeddingTestResult(data);
+      },
+      onError: (err) => {
+        if (testScopeRef.current !== requestScope) return;
+        setEmbeddingTestResult({
+          success: false,
+          message: err instanceof Error ? err.message : "Failed",
+          latencyMs: 0,
+        });
+      },
+    });
+  }, [connectionDetailId, dirty, handleSave, testEmbedding]);
+
   const handleTestMessage = useCallback(async () => {
     if (!connectionDetailId) return;
     const requestScope = testScopeRef.current;
@@ -1720,6 +1758,8 @@ export function ConnectionEditor({
     // A manual configuration edit invalidates in-flight tests; save hydration does not.
     testScopeRef.current++;
     clearAudioTest();
+    // An embedding result describes the key, address and model it ran with, so any edit drops it.
+    setEmbeddingTestResult(null);
     setDirty(true);
   }, [clearAudioTest]);
 
@@ -1759,6 +1799,13 @@ export function ConnectionEditor({
     ["image_generation", "video_generation", "audio", "audio_generation", "decision"].includes(localProvider);
   const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
+  // The server embeds with the Embedding Connection's own model when it has one, else with the one typed here.
+  const canTestEmbedding =
+    !!localEmbeddingModel.trim() ||
+    localEmbeddingConnectionId === LOCAL_SIDECAR_CONNECTION_ID ||
+    !!((allConnections ?? []) as Array<{ id: string; embeddingModel?: string | null }>)
+      .find((row) => row.id === localEmbeddingConnectionId)
+      ?.embeddingModel?.trim();
   // The usage switch, the plan window switches and the meter, shared by the
   // NanoGPT, Claude (Subscription) and OpenAI (ChatGPT) blocks below.
   const showsPlanUsageWindows = hasPlanUsageWindows(localProvider);
@@ -4016,6 +4063,35 @@ export function ConnectionEditor({
                             </option>
                           ))}
                       </select>
+                    </div>
+
+                    <div className="mt-3 space-y-3">
+                      <button
+                        type="button"
+                        onClick={handleTestEmbedding}
+                        disabled={testEmbedding.isPending || !canTestEmbedding}
+                        className="mari-chrome-control px-3"
+                      >
+                        {testEmbedding.isPending ? (
+                          <Loader2 size="0.8125rem" className="animate-spin" />
+                        ) : (
+                          <Search size="0.8125rem" />
+                        )}
+                        {t("connections.embeddingTest.button")}
+                      </button>
+                      {embeddingTestResult && (
+                        <TestResultCard
+                          label={t("connections.embeddingTest.button")}
+                          success={embeddingTestResult.success}
+                          latencyMs={embeddingTestResult.latencyMs}
+                        >
+                          {embeddingTestResult.success && embeddingTestResult.dimensions
+                            ? t("connections.embeddingTest.dimensions", {
+                                dimensions: embeddingTestResult.dimensions,
+                              })
+                            : embeddingTestResult.message}
+                        </TestResultCard>
+                      )}
                     </div>
                   </FieldGroup>
                 )}

@@ -12,9 +12,9 @@ import {
   useCreateConnection,
   useDeleteConnection,
   useTestConnection,
+  useTestEmbedding,
   useUpdateConnection,
 } from "../../hooks/use-connections";
-import { api } from "../../lib/api-client";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
@@ -80,6 +80,7 @@ function ModelPickerSlot({
   const updateRow = useUpdateConnection();
   const deleteRow = useDeleteConnection();
   const testRow = useTestConnection();
+  const testEmbedding = useTestEmbedding();
   const decisionOptions = useDecisionOptions(decision && open);
   // A Decision row exists only for a model that passed its test, so the saved rows are the memory.
   const decisionRows = new Set(
@@ -236,7 +237,7 @@ function ModelPickerSlot({
         before = all?.find((item) => item.id === id)?.embeddingModel ?? null;
       }
       await updateRow.mutateAsync({ id, embeddingModel: model });
-      const result = await api.post<{ success: boolean; message: string }>(`/connections/${id}/test-embedding`, {});
+      const result = await testEmbedding.mutateAsync(id);
       if (!result.success) {
         await updateRow.mutateAsync({ id, embeddingModel: before ?? "" });
         mark({ label: short(result.message) || t("connections.embeddingDefault.failed"), state: "needs_key" });

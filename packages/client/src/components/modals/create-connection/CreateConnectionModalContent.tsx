@@ -708,12 +708,14 @@ export function CreateConnectionModalContent({
       ownedPlaceholderIds: placeholderId ? [placeholderId] : [],
       accountBaseUrl: account?.baseUrl,
     });
-    // An older voice or decision row whose service has no tile of its own still opens its editor.
-    if ((row.provider === "audio" || row.provider === "decision") && !mediaBackendOf(resolvedService))
-      return editInstead(accountId, row.id);
+    // Dedicated voice and decision rows use their editor for model/source options.
+    // Their service tiles do not supply the chat model picker used by the job steps.
+    if (row.provider === "audio" || row.provider === "decision") return editInstead(accountId, row.id);
     const supportedKinds = resolvedService
       ? kindsOf(resolvedService).filter((kind): kind is AddableKind => kind !== "local")
       : [];
+    // Rows with no setup tile (music, for example) have no models step to show.
+    if (!supportedKinds.length && !modelsFor?.kind) return editInstead(accountId, row.id);
     setSetupKind(kind ?? modelsFor?.kind ?? (modelsFor?.chat ? "chat" : startKind(supportedKinds)));
     setStep(3);
   };

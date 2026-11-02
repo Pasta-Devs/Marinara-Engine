@@ -477,7 +477,7 @@ async function loadConfig(storage: ReturnType<typeof createAppSettingsStorage>) 
  */
 export const LEGACY_TTS_CONFIG_SENTINEL = "";
 
-const TTS_CONNECTION_UNAVAILABLE = "The Audio connection chosen for Text to Speech is missing or unavailable.";
+export const TTS_CONNECTION_UNAVAILABLE = "The Audio connection chosen for Text to Speech is missing or unavailable.";
 
 type ResolvedAudioConfig = TTSConfig & {
   connectionName?: string;
@@ -487,7 +487,7 @@ type ResolvedAudioConfig = TTSConfig & {
   audioGenerationFormat?: string;
 };
 
-async function resolveAudioConfig(
+export async function resolveAudioConfig(
   storage: ReturnType<typeof createAppSettingsStorage>,
   connections: ReturnType<typeof createConnectionsStorage>,
   requestedConnectionId?: string | null,
@@ -1128,7 +1128,7 @@ async function fetchElevenLabsModelOptions(baseUrl: string, apiKey: string): Pro
   return parseElevenLabsModelOptions(await res.json());
 }
 
-async function fetchProviderModels(cfg: TTSConfig): Promise<TTSModelsResponse> {
+export async function fetchProviderModels(cfg: TTSConfig): Promise<TTSModelsResponse> {
   if (cfg.source !== "elevenlabs" || !cfg.apiKey || isNanoGptBaseUrl(configuredBaseUrl(cfg))) {
     return {
       models: ELEVENLABS_FALLBACK_MODELS.map((id) => ({ id, name: id })),
