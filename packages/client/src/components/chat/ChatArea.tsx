@@ -712,7 +712,12 @@ const LocalChatArea = memo(function LocalChatArea({
   const [settingsInitialSection, setSettingsInitialSection] = useState<ChatSettingsInitialSection>(null);
   const advancedMemoryRequest = useUIStore((state) => state.advancedMemoryRequest);
   const [settingsAnchor, setSettingsAnchor] = useState<FloatingPanelAnchor>(null);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  // Held in the store: desktop editors (model settings, characters, agents) unmount ChatArea mid-setup.
+  const wizardOpen = useChatStore((s) => s.setupWizardChatId !== null && s.setupWizardChatId === activeChatId);
+  const setWizardOpen = useCallback((open: boolean) => {
+    const store = useChatStore.getState();
+    store.setSetupWizardChatId(open ? store.activeChatId : null);
+  }, []);
   const [spriteArrangeMode, setSpriteArrangeMode] = useState(false);
   const [agentInjectionReview, setAgentInjectionReview] = useState<AgentInjectionReviewRequest | null>(null);
   const [agentInjectionDrafts, setAgentInjectionDrafts] = useState<Record<string, string>>({});
@@ -3350,8 +3355,9 @@ const LocalChatArea = memo(function LocalChatArea({
   // Reset stagger animation flag when switching chats
   useEffect(() => {
     hasAnimatedRef.current = false;
-    setWizardOpen(false);
-  }, [activeChatId]);
+    // A remount on the same chat keeps its open wizard; switching chats closes it.
+    if (useChatStore.getState().setupWizardChatId !== activeChatId) setWizardOpen(false);
+  }, [activeChatId, setWizardOpen]);
 
   // Auto-open settings drawer for newly created chats
   const shouldOpenSettings = useChatStore((s) => s.shouldOpenSettings);
@@ -3366,7 +3372,7 @@ const LocalChatArea = memo(function LocalChatArea({
       }
       useChatStore.getState().setShouldOpenSettings(false);
     }
-  }, [shouldOpenSettings, shouldOpenWizard, activeChatId, handleOpenSettingsPanel]);
+  }, [shouldOpenSettings, shouldOpenWizard, activeChatId, handleOpenSettingsPanel, setWizardOpen]);
 
   // Auto-scroll on new messages / streaming (but not on "load more")
   // Only scroll if user is already near the bottom (within 150px).

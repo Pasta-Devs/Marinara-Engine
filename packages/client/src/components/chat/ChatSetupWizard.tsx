@@ -476,7 +476,8 @@ function normalizeAgentMaxTokensInputValue(value: unknown): number {
   return Math.max(MIN_AGENT_MAX_TOKENS, Math.trunc(value));
 }
 
-function WizardBackdrop({ onClose }: { onClose: () => void }) {
+// Only the loading screen closes on a click outside; a stray click must not drop a multi-step setup (the X closes it).
+function WizardBackdrop({ onClose }: { onClose?: () => void }) {
   return <div className="absolute inset-0 z-40 bg-black/45 backdrop-blur-[2px]" onClick={onClose} />;
 }
 
@@ -1042,6 +1043,9 @@ function WizardLoading({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ponytail: session-only and never pruned; a chat id per new chat is a few bytes.
+const autoDefaultsAppliedChatIds = new Set<string>();
+
 function SavedChatSetupWizard({
   chat,
   onFinish,
@@ -1102,8 +1106,10 @@ function SavedChatSetupWizard({
 
   useEffect(() => {
     if (!settingsSyncReady || initialApplyDone.current) return;
-    if (!saved) {
+    if (!saved || autoDefaultsAppliedChatIds.has(chat.id)) {
+      // A remount (the wizard came back from an editor) must not apply saved defaults over picks made since.
       initialApplyDone.current = true;
+      setDefaultsApplied(Boolean(saved));
       setReady(true);
       return;
     }
@@ -1118,6 +1124,7 @@ function SavedChatSetupWizard({
     });
     void pendingApply.current
       .then(() => {
+        autoDefaultsAppliedChatIds.add(chat.id);
         if (!active) return;
         initialApplyDone.current = true;
         setDefaultsApplied(true);
@@ -2235,7 +2242,7 @@ function ConversationQuickSetup({
 
   return (
     <>
-      <WizardBackdrop onClose={onDismiss} />
+      <WizardBackdrop />
       <SetupWizardShell
         title={localizeUi("navigation.chatSidebar.new.conversation")}
         steps={CONVERSATION_STEPS}
@@ -4059,7 +4066,7 @@ function RoleplaySetupWizard({
 
   return (
     <>
-      <WizardBackdrop onClose={onDismiss} />
+      <WizardBackdrop />
 
       <ChoiceSelectionModal
         open={showChoiceModal}
