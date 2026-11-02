@@ -84,8 +84,11 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
             setSidebarOpen(false);
           }
           store.setActiveChatId(chat.id);
-          store.setShouldOpenSettings(true);
-          store.setShouldOpenWizard(true);
+          if (mode !== "game") store.setSetupStageChatId(chat.id);
+          else {
+            store.setShouldOpenSettings(true);
+            store.setShouldOpenWizard(true);
+          }
           if (starred) {
             void applyChatPreset
               .mutateAsync({

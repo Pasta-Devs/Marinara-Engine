@@ -772,8 +772,11 @@ export function ChatSidebar() {
           onSuccess: (chat) => {
             setActiveChatId(chat.id);
             if (isMobileShellViewport()) setSidebarOpen(false);
-            useChatStore.getState().setShouldOpenSettings(true);
-            useChatStore.getState().setShouldOpenWizard(true);
+            if (mode !== "game") useChatStore.getState().setSetupStageChatId(chat.id);
+            else {
+              useChatStore.getState().setShouldOpenSettings(true);
+              useChatStore.getState().setShouldOpenWizard(true);
+            }
             if (starred) {
               void applyChatPreset
                 .mutateAsync({ presetId: starred.id, chatId: chat.id, initialSetupProfile: starred })

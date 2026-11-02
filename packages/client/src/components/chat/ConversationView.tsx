@@ -97,6 +97,8 @@ interface ConversationViewProps {
   replyCheckupMessageId?: string | null;
   replyCheckup?: ReactNode;
   onSetActiveSwipe: (messageId: string, index: number) => void;
+  /** A new chat's setup stage, shown above the first message in place of the welcome line. */
+  setupStage?: ReactNode;
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onPeekPrompt: (messageId?: string) => void;
   onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
@@ -390,6 +392,7 @@ export function ConversationView({
   replyCheckupMessageId,
   replyCheckup,
   onSetActiveSwipe,
+  setupStage,
   onToggleHiddenFromAI,
   onPeekPrompt,
   onIllustrate,
@@ -1325,7 +1328,8 @@ export function ConversationView({
         )}
 
         {/* Welcome message at the start of a conversation */}
-        {!isLoading && !hasNextPage && messages && messages.length === 0 && (
+        {!isLoading && setupStage}
+        {!isLoading && !setupStage && !hasNextPage && messages && messages.length === 0 && (
           <div className="px-4 pt-2">
             <p className="text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
               {localizeUi("ui.chat.conversationview.thisIsTheStartOfYourConversationWith")}{" "}

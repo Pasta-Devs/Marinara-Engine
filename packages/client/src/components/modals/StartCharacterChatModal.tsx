@@ -19,7 +19,6 @@ export function StartCharacterChatModal({ open, onClose, characterId, characterN
       characterId,
       characterName,
       mode,
-      shortcutMode: false,
       onSuccess: () => {
         closeAllDetails();
         if (isMobileShellViewport()) closeRightPanel();

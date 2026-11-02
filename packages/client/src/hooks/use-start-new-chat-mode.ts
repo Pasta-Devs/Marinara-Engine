@@ -61,8 +61,11 @@ export function useStartNewChatMode() {
       // already left it.
       useUIStore.getState().setSidebarOpen(!isMobileShellViewport());
       store.setActiveChatId(chat.id);
-      store.setShouldOpenSettings(true);
-      store.setShouldOpenWizard(true);
+      if (mode !== "game") store.setSetupStageChatId(chat.id);
+      else {
+        store.setShouldOpenSettings(true);
+        store.setShouldOpenWizard(true);
+      }
       if (starred) {
         void applyChatPreset
           .mutateAsync({ presetId: starred.id, chatId: chat.id, initialSetupProfile: starred })

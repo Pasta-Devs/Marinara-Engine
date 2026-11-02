@@ -14,10 +14,23 @@ export function announceChatFloatingUiDismiss() {
   window.dispatchEvent(new Event(CHAT_FLOATING_UI_DISMISS_EVENT));
 }
 
+/** Chat Settings sections the new roleplay chat's setup stage opens. */
+export const STAGE_SETTINGS_SECTIONS = new Set([
+  "persona",
+  "characters",
+  "connection",
+  "prompt-preset",
+  "lorebooks",
+  "agents",
+  "background",
+  "profile",
+] as const);
+export type StageSettingsSection = typeof STAGE_SETTINGS_SECTIONS extends Set<infer T> ? T : never;
+
 /** Opens Chat Settings at one section, for omnibar rows that name a setting inside it (UX-13). */
 export function requestChatSettingsSectionOpen(
   chatId: string,
-  section: "advanced-parameters" | "memory-recall" | `agent:${string}`,
+  section: "advanced-parameters" | "memory-recall" | `agent:${string}` | StageSettingsSection,
 ) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, { detail: { chatId, section } }));

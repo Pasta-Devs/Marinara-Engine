@@ -92,6 +92,7 @@ import type {
   PersonaInfo,
 } from "./chat-area.types";
 import type { ChatImage } from "../../hooks/use-gallery";
+import { ChatSetupStage, useChatSetupStage } from "./ChatSetupStage";
 import {
   gameStoryboardKeys,
   useGameChatStoryboards,
@@ -1532,6 +1533,11 @@ export function ChatRoleplaySurface({
   const showHistory = !visualNovel || vnHistoryOpen;
   const showTranscript = showHistory || vnHistoryHasDraft;
   const visibleMessages = showTranscript ? transcriptWindow.messages : [];
+  const stageCharacterNames = useMemo(
+    () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
+    [chatCharIds, characterMap],
+  );
+  const setupStage = useChatSetupStage({ chat, chatMeta, messages, characterNames: stageCharacterNames });
   const activeChatCharacterIds = useMemo(() => {
     const inactiveIds = new Set(readStringArray(chatMeta.inactiveCharacterIds));
     const activeIds = chatCharIds.filter((id) => !inactiveIds.has(id));
@@ -1980,6 +1986,20 @@ export function ChatRoleplaySurface({
                   </div>
                 )}
 
+                {setupStage.visible && chat && !isLoading && (
+                  <ChatSetupStage
+                    variant="roleplay"
+                    onBegin={() => setupStage.complete(true)}
+                    chat={chat}
+                    chatMeta={chatMeta}
+                    chatCharIds={chatCharIds}
+                    characterMap={characterMap}
+                    personaInfo={personaInfo}
+                    messages={messages}
+                    chatBackground={chatBackground}
+                    onSetActiveSwipe={onSetActiveSwipe}
+                  />
+                )}
                 {visibleMessages?.map((msg, i) => {
                   if (isMessageHiddenFromUser(msg)) return null;
                   if (

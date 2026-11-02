@@ -199,6 +199,9 @@ interface ChatState {
   /** Only a newly created untouched chat may be discarded by its setup wizard. */
   pendingNewChatSetups: Record<string, Chat>;
   setPendingNewChatSetup: (chat: Chat) => void;
+  /** The new roleplay or conversation chat that shows its setup stage (memory only, a reload ends it). */
+  setupStageChatId: string | null;
+  setSetupStageChatId: (chatId: string | null) => void;
   clearPendingNewChatSetup: (chatId: string) => void;
   isStreaming: boolean;
   /** The chatId that the current streaming generation belongs to. */
@@ -385,6 +388,8 @@ export const useChatStore = create<ChatState>()(
     pendingNewChatSetups: {},
     setPendingNewChatSetup: (chat) =>
       set((state) => ({ pendingNewChatSetups: { ...state.pendingNewChatSetups, [chat.id]: chat } })),
+    setupStageChatId: null,
+    setSetupStageChatId: (setupStageChatId) => set({ setupStageChatId }),
     clearPendingNewChatSetup: (chatId) =>
       set((state) => {
         const drafts = { ...state.pendingNewChatSetups };
@@ -1085,6 +1090,7 @@ export const useChatStore = create<ChatState>()(
         activeChatId: null,
         activeChat: null,
         pendingNewChatSetups: {},
+        setupStageChatId: null,
         isStreaming: false,
         streamingChatId: null,
         mariPhaseByChatId: new Map(),

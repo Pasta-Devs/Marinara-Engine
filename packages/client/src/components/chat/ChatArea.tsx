@@ -868,9 +868,7 @@ const LocalChatArea = memo(function LocalChatArea({
   // UX-13: an omnibar row that names a setting inside Chat Settings opens the drawer at that section.
   useEffect(() => {
     const openSection = (event: Event) => {
-      const detail = (
-        event as CustomEvent<{ chatId?: string; section?: "advanced-parameters" | "memory-recall" | `agent:${string}` }>
-      ).detail;
+      const detail = (event as CustomEvent<{ chatId?: string; section?: ChatSettingsInitialSection }>).detail;
       if (detail?.chatId !== useChatStore.getState().activeChatId || !detail.section) return;
       const section = detail.section;
       // Drawer already open: a repeat request for the same section must still scroll,

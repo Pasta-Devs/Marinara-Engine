@@ -264,7 +264,11 @@ import { isLorebookScopeActiveForChat } from "../../lib/lorebook-scope";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { useUIStore } from "../../stores/ui.store";
 import { abortGenerationForChat, useChatStore } from "../../stores/chat.store";
-import { blurActiveChatFloatingUiControl } from "../../lib/chat-floating-ui-events";
+import {
+  blurActiveChatFloatingUiControl,
+  STAGE_SETTINGS_SECTIONS,
+  type StageSettingsSection,
+} from "../../lib/chat-floating-ui-events";
 import { requestChatHelp } from "../../lib/chat-help-events";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps, useTrackerPanelClearance } from "./chat-settings-window";
@@ -464,6 +468,8 @@ interface ChatSettingsDrawerProps {
     | "lorebooks"
     // The agents panel's "In this chat" rows: opens Agents at that agent's menu.
     | `agent:${string}`
+    // The new roleplay chat's setup stage: each word or row opens its section.
+    | StageSettingsSection
     | null;
   /**
    * Chat Branches, Search, Active Context, Gallery and the drawers in `ChatSettingsTools`. Regular chats
@@ -1431,7 +1437,9 @@ export function ChatSettingsDrawer({
           ? "active-context"
           : initialSection === "message-search"
             ? "message-search"
-            : null;
+            : initialSection && (STAGE_SETTINGS_SECTIONS as Set<string>).has(initialSection)
+              ? initialSection
+              : null;
     if (!open || !sectionId) return;
     const frame = window.requestAnimationFrame(() => {
       const section = panelRef.current?.querySelector(`[data-chat-settings-section="${chatMode}-${sectionId}"]`);
@@ -5666,6 +5674,7 @@ export function ChatSettingsDrawer({
           )}
           {modeSettingsSurfaces.showSettingsProfiles && (
             <div
+              data-chat-settings-section={`${chatMode}-profile`}
               style={{ order: CHAT_SETTINGS_ORDER.settingsPresets }}
               className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3"
             >
@@ -5891,7 +5900,7 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.connection }}>
+          <div data-chat-settings-section={`${chatMode}-connection`} style={{ order: CHAT_SETTINGS_ORDER.connection }}>
             <ConnectionSection
               chatId={chat.id}
               connectionId={chat.connectionId ?? null}
@@ -5904,7 +5913,10 @@ export function ChatSettingsDrawer({
 
           {/* Roleplay prompt preset */}
           {modeSettingsSurfaces.promptSettingsSurface === "roleplay" && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}>
+            <div
+              data-chat-settings-section={`${chatMode}-prompt-preset`}
+              style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}
+            >
               <PromptPresetSection
                 promptPresetId={chat.promptPresetId ?? null}
                 presets={promptPresetOptions}
@@ -5937,7 +5949,10 @@ export function ChatSettingsDrawer({
 
           {/* Conversation/Game prompt preset */}
           {modeSettingsSurfaces.promptSettingsSurface === "conversation" && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}>
+            <div
+              data-chat-settings-section={`${chatMode}-prompt-preset`}
+              style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}
+            >
               <ConversationPromptSection
                 chatId={chat.id}
                 customPrompt={(metadata.customSystemPrompt as string) ?? ""}
@@ -6285,6 +6300,7 @@ export function ChatSettingsDrawer({
           {!isGame && (
             <Section
               id={`${chatMode}-persona`}
+              forceOpen={initialSection === "persona"}
               style={{ order: CHAT_SETTINGS_ORDER.persona }}
               label={localizeUi("ui.characters.cardlibrarydetailcard.persona")}
               icon={<VenetianMask size="0.875rem" />}
@@ -6640,6 +6656,7 @@ export function ChatSettingsDrawer({
           {!isGame && (
             <Section
               id={`${chatMode}-characters`}
+              forceOpen={initialSection === "characters"}
               style={{ order: CHAT_SETTINGS_ORDER.characters }}
               label={localizeUi("navigation.topbar.characters")}
               icon={<Users size="0.875rem" />}
@@ -8402,7 +8419,7 @@ export function ChatSettingsDrawer({
           {modeSettingsSurfaces.agentSettingsSurface === "generation" && (
             <Section
               id={`${chatMode}-agents`}
-              forceOpen={initialAgentId !== null}
+              forceOpen={initialAgentId !== null || initialSection === "agents"}
               style={{ order: CHAT_SETTINGS_ORDER.agents }}
               label={localizeUi("navigation.topbar.agents")}
               icon={<Sparkles size="0.875rem" />}
@@ -10379,6 +10396,7 @@ export function ChatSettingsDrawer({
           {(isRoleplayMode || isGame) && (
             <Section
               id={`${chatMode}-background`}
+              forceOpen={initialSection === "background"}
               style={{ order: CHAT_SETTINGS_ORDER.background }}
               label={localizeUi("chat.settings.background")}
               icon={<Wallpaper size="0.875rem" />}

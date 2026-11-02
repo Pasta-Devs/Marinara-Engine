@@ -2,6 +2,8 @@ import { useMemo, type ComponentProps, type ReactNode } from "react";
 import type { Message, SpriteSide } from "@marinara-engine/shared";
 import { ConversationPackageWindows, ConversationView } from "./ConversationView";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
+import { ChatSetupStage, useChatSetupStage } from "./ChatSetupStage";
+import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { ChatConnectedChatWindow } from "./ChatControlWindow";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { useProvideChatGalleryActions } from "../../hooks/use-chat-gallery-actions";
@@ -188,6 +190,12 @@ export function ChatConversationSurface({
     [characterMap, chatCharIds, onAnimateImage, onGenerateSelfie, onGenerateVideo, onIllustrate, onIllustrateWithAgent],
   );
   useProvideChatGalleryActions(activeChatId, galleryActions);
+  const stageCharacterNames = useMemo(
+    () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
+    [chatCharIds, characterMap],
+  );
+  const setupStage = useChatSetupStage({ chat, chatMeta, messages, characterNames: stageCharacterNames });
+
   return (
     <div data-component="ChatArea.Conversation" className="flex flex-1 overflow-hidden">
       <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -214,6 +222,22 @@ export function ChatConversationSurface({
           replyCheckupMessageId={replyCheckupMessageId}
           replyCheckup={replyCheckup}
           onSetActiveSwipe={onSetActiveSwipe}
+          setupStage={
+            setupStage.visible && chat ? (
+              <ChatSetupStage
+                variant="conversation"
+                onBegin={() => setupStage.complete(true)}
+                chat={chat}
+                chatMeta={chatMeta}
+                chatCharIds={chatCharIds}
+                characterMap={characterMap}
+                personaInfo={personaInfo}
+                messages={messages}
+                chatBackground={chatBackgroundMetadataToUrl(chatMeta.background)}
+                onSetActiveSwipe={onSetActiveSwipe}
+              />
+            ) : null
+          }
           onToggleHiddenFromAI={onToggleHiddenFromAI}
           onPeekPrompt={onPeekPrompt}
           onIllustrate={onIllustrate}
