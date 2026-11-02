@@ -3189,6 +3189,8 @@ export function ChatSettingsDrawer({
             syncGamePartyMetadata(current);
             // Skip auto-greeting for conversation mode
             if (isConversation) return;
+            // A new chat on its setup stage opens with one greeting: the first character's.
+            if (current.length > 1 && useChatStore.getState().setupStageChatId === chat.id) return;
             const char = characters.find((c) => c.id === charId);
             if (!char) return;
             const { greetings, dialogueColor } = readCharacterGreetings(char.data);

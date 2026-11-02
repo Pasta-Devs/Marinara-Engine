@@ -3381,6 +3381,12 @@ const LocalChatArea = memo(function LocalChatArea({
   const scrollToMessagesBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (hasActiveTextSelection()) return;
     const el = scrollRef.current;
+    // The setup stage sits above the greeting: keep its title in view until the chat begins.
+    const { setupStageChatId, activeChatId: stageActiveChatId } = useChatStore.getState();
+    if (setupStageChatId && setupStageChatId === stageActiveChatId) {
+      if (el) el.scrollTop = 0;
+      return;
+    }
     if (el) {
       el.scrollTo({ top: el.scrollHeight, behavior });
       return;
