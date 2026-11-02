@@ -42,7 +42,7 @@ function buildAnthropicCacheControl(options: ChatOptions): AnthropicCacheControl
   return options.anthropicExtendedCacheTtl ? { type: "ephemeral", ttl: "1h" } : { type: "ephemeral" };
 }
 
-/** Whether the caller marked any message as the end of a prefix to cache (Capability API 1.814). */
+/** Whether a message the request keeps marks the end of a prefix to cache (Capability API 1.814). */
 function hasCacheBreakpoints(messages: ChatMessage[]): boolean {
   return messages.some((message) => message.cacheBreakpoint === true);
 }
@@ -246,17 +246,27 @@ function formatAnthropicTools(tools: LLMToolDefinition[] | undefined): Array<Rec
 function splitAnthropicSystemMessages(messages: ChatMessage[], model: string) {
   const firstHistoryIndex = messages.findIndex((message) => message.role !== "system");
   const prefixEnd = firstHistoryIndex < 0 ? messages.length : firstHistoryIndex;
-  const systemMessages = messages.slice(0, prefixEnd).filter((message) => message.content?.trim());
-  const history = messages
-    .slice(prefixEnd)
-    .filter(
-      (message) =>
-        message.role === "tool" ||
-        message.content?.trim() ||
-        message.images?.length ||
-        message.files?.length ||
-        message.tool_calls?.length,
-    );
+  const kept: ChatMessage[] = [];
+  let systemCount = 0;
+  messages.forEach((message, index) => {
+    const keep =
+      index < prefixEnd
+        ? message.content?.trim()
+        : message.role === "tool" ||
+          message.content?.trim() ||
+          message.images?.length ||
+          message.files?.length ||
+          message.tool_calls?.length;
+    if (keep) {
+      kept.push(message);
+      if (index < prefixEnd) systemCount++;
+    } else if (message.cacheBreakpoint === true && kept.length > 0) {
+      // An empty message adds nothing to the prefix: its marker caches the same prefix on the message kept before it.
+      kept[kept.length - 1] = { ...kept[kept.length - 1]!, cacheBreakpoint: true };
+    }
+  });
+  const systemMessages = kept.slice(0, systemCount);
+  const history = kept.slice(systemCount);
   // Only these documented models accept history-level system text. Other models
   // retain its position as user context instead of moving it into the cache prefix.
   // https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages
@@ -524,7 +534,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     const useStream = options.stream ?? !!options.onToken;
     const { systemMessages, chatMessages } = splitAnthropicSystemMessages(messages, options.model);
     // Marked messages replace the connection's own breakpoints, and cache even with its switch off.
-    const marked = hasCacheBreakpoints(messages);
+    const marked = hasCacheBreakpoints([...systemMessages, ...chatMessages]);
     const enableCaching = (options.enableCaching ?? false) && !marked;
     const cacheControl = buildAnthropicCacheControl(options);
     const systemField = anthropicSystemField(systemMessages, options, marked);
@@ -864,7 +874,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     const mergedMessages = trimTrailingAssistantWhitespace(this.mergeConsecutiveMessages(chatMessages));
 
     // Marked messages replace the connection's own breakpoints, and cache even with its switch off.
-    const marked = hasCacheBreakpoints(messages);
+    const marked = hasCacheBreakpoints([...systemMessages, ...chatMessages]);
     const enableCaching = (options.enableCaching ?? false) && !marked;
     const cachingAtDepth = normalizeCachingAtDepth(options.cachingAtDepth);
     const cacheControl = buildAnthropicCacheControl(options);

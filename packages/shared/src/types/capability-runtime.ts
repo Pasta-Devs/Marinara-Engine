@@ -191,7 +191,7 @@ export interface CapabilityLanguageModelMessage {
    * of the prompt that stays the same from call to call. Providers that take cache breakpoints (Anthropic) cache it
    * whatever the connection's prompt-caching switch says, for the connection's cache time (1 hour when it asks for
    * that, else 5 minutes); others cache identical prefixes on their own and ignore it. At most four count: the last
-   * four. Older Engines ignore it.
+   * four. A marked message with no text marks the message before it. Older Engines ignore it.
    */
   cacheBreakpoint?: boolean;
 }
@@ -210,13 +210,18 @@ export interface CapabilityLanguageModelCompletion {
   content: string | null;
   finishReason: string;
   usage?: {
+    /**
+     * Prompt tokens as the provider counts them. Anthropic and Claude (Subscription) count only the input neither read
+     * from nor written to the cache, so their whole prompt is promptTokens + cachedPromptTokens +
+     * cacheWritePromptTokens. OpenAI-compatible routes (OpenRouter included) and Gemini already include both.
+     */
     promptTokens?: number;
     completionTokens?: number;
     completionReasoningTokens?: number;
     totalTokens?: number;
-    /** Prompt tokens read from the provider's cache, when it reports them. */
+    /** Capability API 1.814: prompt tokens read from the provider's cache, when it reports them. */
     cachedPromptTokens?: number;
-    /** Prompt tokens written to the provider's cache, when it reports them. */
+    /** Capability API 1.814: prompt tokens written to the provider's cache, when it reports them. */
     cacheWritePromptTokens?: number;
   };
 }

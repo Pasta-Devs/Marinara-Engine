@@ -166,6 +166,46 @@ try {
     ]);
   }
 
+  // ── An empty marked message (a story with nothing so far yet) caches the prefix before it ──
+  {
+    const emptyMarkers: PackageMessage[] = [
+      { role: "system", content: "Long stable instructions." },
+      { role: "system", content: "", cacheBreakpoint: true },
+      { role: "user", content: "Chapter one." },
+      { role: "assistant", content: "It began." },
+      { role: "user", content: "   ", cacheBreakpoint: true },
+      { role: "user", content: "What happens next?" },
+    ];
+    const expected = ["system:0 ephemeral/5m", "1.0 ephemeral/5m"];
+    const model = await host.resolve((await anthropic("Empty markers", {})).id);
+    await model.chatComplete(emptyMarkers);
+    assert.deepEqual(breakpoints(lastBody()), expected, "each empty marker moves to the message before it");
+
+    const provider = new AnthropicProvider(`${base}/v1`, "fixture-key");
+    const tools = [{ type: "function" as const, function: { name: "roll", description: "Roll", parameters: {} } }];
+    await provider.chatComplete(emptyMarkers, { model: "claude-sonnet-4-5", stream: true, tools });
+    assert.deepEqual(breakpoints(lastBody()), expected, "the tool-round path moves them the same way");
+
+    // With the connection's caching on, the moved marker still replaces its own breakpoints.
+    const onlyEmptySystemMarker = emptyMarkers.filter((message) => message.content !== "   ");
+    await provider.chatComplete(onlyEmptySystemMarker, {
+      model: "claude-sonnet-4-5",
+      stream: true,
+      enableCaching: true,
+    });
+    assert.deepEqual(breakpoints(lastBody()), ["system:0 ephemeral/5m"]);
+
+    // Nothing before an empty marker: the call is cached as an unmarked one, by the connection's own breakpoints.
+    await provider.chatComplete(
+      [
+        { role: "system", content: "", cacheBreakpoint: true },
+        { role: "user", content: "Hi." },
+      ],
+      { model: "claude-sonnet-4-5", stream: true, enableCaching: true },
+    );
+    assert.deepEqual(breakpoints(lastBody()), ["0.0 ephemeral/5m"]);
+  }
+
   // ── The tool-round path marks the same blocks ──
   {
     const tools = [{ type: "function" as const, function: { name: "roll", description: "Roll", parameters: {} } }];

@@ -1814,8 +1814,8 @@ the same from call to call, and put what changes after the marked message.
   when the connection's prompt caching is off, and adds none of its own. The cache lasts 5 minutes, or
   1 hour when the connection asks for the longer cache time. A cache write costs 1.25 times the input
   price (2 times for 1 hour), once; a read costs 0.1 times. Anthropic takes at most four breakpoints:
-  with more marked messages, the last four count. A prefix shorter than the model's minimum is not
-  cached and costs as usual.
+  with more marked messages, the last four count. A marked message with no text marks the message
+  before it instead. A prefix shorter than the model's minimum is not cached and costs as usual.
 - OpenAI, Gemini, xAI and DeepSeek cache identical prefixes on their own: the marker changes nothing.
 - OpenRouter and custom OpenAI-compatible endpoints do not take the marker yet: the call goes out as
   without it, so a Claude model reached that way is not cached.
@@ -1823,7 +1823,12 @@ the same from call to call, and put what changes after the marked message.
   cache time applies.
 
 `usage` reports `cachedPromptTokens` (read from the cache) and `cacheWritePromptTokens` (written to it)
-when the provider reports them. A call without a marked message is unchanged.
+when the provider reports them. `promptTokens` stays counted the provider's way. On Anthropic and Claude
+(Subscription) it is only the input neither read from nor written to the cache, so the whole prompt is
+`promptTokens + cachedPromptTokens + cacheWritePromptTokens`, and `promptTokens` drops to the uncached
+tail once a package marks a prefix. OpenAI-compatible routes (OpenRouter included) and Gemini already
+count the cached tokens in `promptTokens`, so adding them again counts them twice. A call without a
+marked message is unchanged.
 
 Older Engines ignore the field, so a package can always set it. Declare 1.814 when the package relies
 on the caching or on the cache usage.
@@ -1831,7 +1836,8 @@ on the caching or on the cache usage.
 ```ts
 const model = await api.runtime.languageModels.resolveForRequest({ connectionId });
 const result = await model.chatComplete([
-  { role: "system", content: instructions },
+  // Marking the instructions too keeps them read from the cache when the story so far changes.
+  { role: "system", content: instructions, cacheBreakpoint: true },
   { role: "system", content: storySoFar, cacheBreakpoint: true },
   { role: "user", content: nextTurn },
 ]);
