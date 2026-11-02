@@ -98,7 +98,7 @@ import { mergeEmbeddedCharacterCardFields } from "../../lib/character-import";
 import { parsePngCharacterCard } from "../../lib/png-parser";
 import { SpriteGenerationModal } from "../ui/SpriteGenerationModal";
 import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
-import { AvatarCropWidget } from "../ui/AvatarCropWidget";
+import { AvatarCropWidget, FullImageView } from "../ui/AvatarCropWidget";
 import { AvatarReplaceActions } from "../ui/AvatarReplaceActions";
 import { EditorAvatarTileActions } from "../ui/EditorAvatarTileActions";
 import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
@@ -4015,19 +4015,12 @@ function CharacterSheetSection({
           </div>
         </div>
       )}
-      {selectedImage && (
-        <Modal
-          open={showFullView}
+      {selectedImage && showFullView && (
+        <FullImageView
+          src={selectedImage.url}
+          alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
           onClose={() => setShowFullView(false)}
-          title={localizeUi("ui.characters.charactersheet.title")}
-          width="max-w-6xl"
-        >
-          <img
-            src={selectedImage.url}
-            alt={localizeUi("ui.characters.charactersheet.previewAlt", { name: characterName })}
-            className="mx-auto max-h-[75vh] max-w-full object-contain supports-[height:100dvh]:max-h-[75dvh]"
-          />
-        </Modal>
+        />
       )}
     </section>
   );

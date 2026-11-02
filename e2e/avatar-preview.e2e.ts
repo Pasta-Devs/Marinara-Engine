@@ -3,6 +3,90 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
+test("applied character sheets use the avatar Full image presentation", async ({ page, request }, testInfo) => {
+  await page.route("**/api/app-settings/ui", (route) =>
+    route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+  );
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+  await page.addInitScript(
+    (version: string) => localStorage.setItem("marinara:whats-new:seen-version", version),
+    JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version,
+  );
+  const avatarPath = "/api/avatars/file/full-image-presentation.png";
+  const characterResponse = await request.post("/api/characters", {
+    data: { avatarPath, data: { name: "Full image presentation" } },
+  });
+  expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string; data: string };
+  try {
+    const upload = await request.post(`/api/characters/${character.id}/gallery/upload`, {
+      multipart: {
+        file: {
+          name: "sheet.webp",
+          mimeType: "image/webp",
+          buffer: readFileSync(
+            new URL("../packages/client/public/sprites/mari/safari/pose-greet.webp", import.meta.url),
+          ),
+        },
+      },
+    });
+    expect(upload.ok(), await upload.text()).toBeTruthy();
+    const sheet = (await upload.json()) as { id: string; url: string };
+    const update = await request.patch(`/api/characters/${character.id}`, {
+      data: { data: { ...JSON.parse(character.data), extensions: { characterSheetImageId: sheet.id } } },
+    });
+    expect(update.ok(), await update.text()).toBeTruthy();
+    for (const url of [avatarPath, sheet.url]) {
+      await page.route(`**${url}`, (route) =>
+        route.fulfill({
+          contentType: "image/svg+xml",
+          body: '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1800"><rect width="1200" height="1800" fill="#526679"/><rect x="8" y="8" width="1184" height="1784" fill="none" stroke="#efdecc" stroke-width="16"/><circle cx="600" cy="900" r="400" fill="#b5c9c4"/></svg>',
+        }),
+      );
+    }
+    await page.goto("/");
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openCharacterDetail(id);
+    }, character.id);
+    const editor = page.locator(".mari-editor-shell");
+    await editor.getByRole("button", { name: "Full", exact: true }).click();
+    const preview = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect(preview).toBeVisible();
+    await expect
+      .poll(() => preview.locator("img").evaluate((image: HTMLImageElement) => image.naturalHeight))
+      .toBe(1800);
+    const avatarBounds = await preview.locator("img").boundingBox();
+    expect(avatarBounds).not.toBeNull();
+    const viewport = page.viewportSize()!;
+    expect(avatarBounds!.height).toBeCloseTo(Math.min(viewport.height * 0.85, viewport.width * 0.9 * 1.5), 0);
+    await page.keyboard.press("Escape");
+    const sections = editor.getByRole("button", { name: "Editor sections", exact: true });
+    if (await sections.isVisible()) {
+      await sections.click();
+      await editor.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
+    } else {
+      await editor
+        .getByRole("navigation", { name: "Editor sections" })
+        .getByRole("button", { name: "Sprites", exact: true })
+        .click();
+    }
+    await editor.getByRole("button", { name: "Open full image", exact: true }).click();
+    await expect(preview).toBeVisible();
+    await expect
+      .poll(() => preview.locator("img").evaluate((image: HTMLImageElement) => image.naturalHeight))
+      .toBe(1800);
+    expect(await preview.locator("img").boundingBox()).toEqual(avatarBounds);
+    await expect(preview.locator(".mari-modal-panel")).toHaveCount(0);
+    await expect(preview.getByRole("heading")).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("sheet-full-image.png"), animations: "disabled" });
+    await preview.getByRole("button", { name: "Close image", exact: true }).click();
+    await expect(preview).toBeHidden();
+  } finally {
+    await request.delete(`/api/characters/${character.id}`);
+  }
+});
+
 test("library portraits keep their proportions in compact and full layouts", async ({ page, request }, testInfo) => {
   await page.route("**/api/app-settings/ui", (route) =>
     route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),

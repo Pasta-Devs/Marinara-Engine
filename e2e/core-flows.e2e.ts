@@ -5085,10 +5085,12 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await openEditorSection(editor, "Sprites");
     await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     const sheetThumbnail = editor.getByRole("button", { name: "Open full image", exact: true });
-    const sheetPreview = page.getByRole("dialog", { name: "Character Sheet", exact: true });
+    const sheetPreview = page.getByRole("dialog", { name: "Image preview", exact: true });
     await sheetThumbnail.focus();
     await sheetThumbnail.press("Enter");
     await expect(sheetPreview).toBeVisible();
+    await expect(sheetPreview.locator(".mari-modal-panel")).toHaveCount(0);
+    await expect(sheetPreview.getByRole("heading")).toHaveCount(0);
     await expect(sheetPreview.getByAltText(`${characterName} character sheet`, { exact: true })).toHaveJSProperty(
       "src",
       await sheetThumbnail.locator("img").evaluate((image: HTMLImageElement) => image.src),
@@ -5101,11 +5103,11 @@ test("Character and persona sheets persist an explicit reference choice and fall
     const expandedSheet = editor.getByAltText(`${characterName} character sheet`).locator("..");
     await expandedSheet.click();
     await expect(sheetPreview).toBeVisible();
-    await sheetPreview.getByRole("button", { name: "Close Character Sheet", exact: true }).click();
+    await sheetPreview.getByRole("button", { name: "Close image", exact: true }).click();
     await expect(sheetPreview).toBeHidden();
     await expect(expandedSheet).toBeFocused();
     await expandedSheet.click();
-    await sheetPreview.locator("[data-backdrop-dismiss-surface]").click({ position: { x: 2, y: 2 } });
+    await sheetPreview.click({ position: { x: 2, y: 2 } });
     await expect(sheetPreview).toBeHidden();
     await expect(editor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
