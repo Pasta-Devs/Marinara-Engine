@@ -7,9 +7,10 @@ import { join } from "node:path";
 
 // The Assistant Prefill is the last message each provider actually sends, through the real route: after a depth-0
 // section, a post-history section and a generation guide, under every Post-Processing mode, after Conversation's group
-// reply format and after an earlier in-turn reply in an individual group. A model that refuses a request ending on an
-// assistant message (Claude Opus 5.5, strict Gemini) reads it at the start of its last reply in the history instead,
-// and the request gains no trailing assistant message or continuation prompt.
+// reply format and after an earlier in-turn reply in an individual group. Under Apply, a chat ending on a reply gets
+// the prefill at the end of that reply, in one request a llama.cpp template accepts. A connection that refuses a
+// request ending on an assistant message (Claude Opus 5.5, strict Gemini, Claude (Subscription)) reads it at the start
+// of its last reply in the history instead, and the request gains no trailing assistant message or continuation prompt.
 const started = performance.now();
 const dir = mkdtempSync(join(tmpdir(), "marinara-assistant-prefill-"));
 process.env.DATA_DIR = dir;
@@ -38,6 +39,12 @@ const provider = createServer(async (request, response) => {
   const body = JSON.parse(Buffer.concat(chunks).toString());
   bodies.push(body);
   const gemini = { candidates: [{ content: { role: "model", parts: [{ text: REPLY }] }, finishReason: "STOP" }] };
+  // A llama.cpp chat template refuses two assistant turns at the end, as Marinara's own local model does.
+  if (request.url?.includes("/llamacpp/") && body.messages.slice(-2).every((m: any) => m.role === "assistant")) {
+    const message = "Cannot have 2 or more assistant messages at the end of the list.";
+    response.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: { message } }));
+    return;
+  }
   if (request.url?.includes(":generateContent")) {
     response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(gemini));
     return;
@@ -260,6 +267,123 @@ try {
       }
     }
   }
+  /** A roleplay chat with Alice and the prefill set, its history as given, generated once with no new message. */
+  const generateOnce = async (
+    connectionId: string,
+    presetId: string,
+    history: Array<["user" | "assistant", string]>,
+  ) => {
+    const chat = await chats.create({
+      name: `once ${connectionId}`,
+      mode: "roleplay",
+      characterIds: [alice.id],
+      connectionId,
+      promptPresetId: presetId,
+    });
+    assert(chat);
+    await chats.patchMetadata(chat.id, {
+      enableAgents: false,
+      enableTools: false,
+      chatParameters: { assistantPrefill: prefill },
+    });
+    for (const [role, content] of history) {
+      await chats.createMessage({
+        chatId: chat.id,
+        role,
+        content,
+        ...(role === "assistant" ? { characterId: alice.id } : {}),
+      });
+    }
+    bodies.length = 0;
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generate/",
+      payload: { chatId: chat.id, streaming: true },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    assert(!response.body.includes('"type":"error"'), response.body);
+    return (await chats.listMessages(chat.id)).at(-1)!;
+  };
+
+  // A chat that ends on the character's reply under Post-Processing "Apply" (a group's next turn, a reply with no new
+  // message): roles alternate, so the prefill closes that reply and the request goes once, as llama.cpp accepts it.
+  const plainApply = await presets.create({
+    name: "Apply, history last",
+    parameters: { maxTokens: 512, maxContext: 32768, strictRoleFormatting: true },
+    wrapFormat: "xml",
+  });
+  assert(plainApply);
+  await presets.createSection({ presetId: plainApply.id, identifier: "rules", name: "Rules", content: "Rules." });
+  await presets.createSection({
+    presetId: plainApply.id,
+    identifier: "history",
+    name: "Chat History",
+    isMarker: true,
+    markerConfig: { type: "chat_history" },
+  });
+  const llama = await createConnectionsStorage(db).create({
+    name: "llama.cpp",
+    provider: "custom",
+    baseUrl: `${base}/llamacpp/v1`,
+    model: "local-model",
+    apiKey: "fixture",
+    maxContext: 32768,
+    maxTokensOverride: 512,
+  });
+  assert(llama);
+  const afterReply = await generateOnce(llama.id, plainApply.id, [
+    ["user", "I knock."],
+    ["assistant", "Alice opens."],
+  ]);
+  assert.equal(bodies.length, 1, "a chat ending on a reply sends one request under Apply");
+  assert.deepEqual(turnsOf(bodies[0]!).at(-1), {
+    role: "assistant",
+    text: "<last_message>\nAlice opens.\n</last_message>\n\nSure!",
+  });
+  assert.equal(afterReply.content, `${prefill}${REPLY}`);
+
+  // Claude (Subscription) never sends a final assistant message: its Agent SDK prompt is user-only. Whatever the model,
+  // the prefill opens the last reply in the history and no continuation prompt is added. The transcript (fold) path
+  // sends the whole history as one prompt string the stub can read.
+  process.env.CLAUDE_SUBSCRIPTION_USE_RESUME = "false";
+  const { __setSdkForTesting } =
+    await import("../../packages/server/src/services/llm/providers/claude-subscription.provider.js");
+  const prompts: string[] = [];
+  __setSdkForTesting({
+    query: ((args: { prompt: string }) => {
+      prompts.push(args.prompt);
+      return (async function* () {
+        yield {
+          type: "stream_event",
+          event: { type: "content_block_delta", delta: { type: "text_delta", text: REPLY } },
+        };
+        yield { type: "result", subtype: "success", result: REPLY, usage: {} };
+      })();
+    }) as never,
+  });
+  try {
+    const subscription = await createConnectionsStorage(db).create({
+      name: "Claude (Subscription)",
+      provider: "claude_subscription",
+      model: "claude-sonnet-4-5",
+      maxContext: 32768,
+      maxTokensOverride: 512,
+    });
+    assert(subscription);
+    const viaSdk = await generateOnce(subscription.id, plainApply.id, [
+      ["user", "I knock."],
+      ["assistant", "Alice opens."],
+      ["user", "I step inside."],
+    ]);
+    assert.equal(prompts.length, 1);
+    assert(!prompts[0]!.includes("Continue the assistant's reply"), prompts[0]);
+    assert(prompts[0]!.includes("Assistant: Sure! Alice opens.\n</chat_history>"), prompts[0]);
+    assert.equal(prompts[0]!.split("Sure!").length, 2, prompts[0]);
+    assert.equal(viaSdk.content, REPLY, "the reply is saved as the model wrote it");
+  } finally {
+    __setSdkForTesting(null);
+  }
+
   // The fallback's edges, on the helper itself. A saved reply's Gemini parts replace its text when sent, so a reply
   // the prefill opens goes as text; with no reply in the history nothing is sent; a reasoning prefill still ends it.
   const { endPromptOnAssistantPrefill } =
@@ -294,6 +418,21 @@ try {
     { role: "assistant", content: "Sure! Hi.", contextKind: "history" },
     { role: "assistant", content: "", providerMetadata: thinking },
   ]);
+  // The prefill goes right before the reply's text: after its timestamp and speaker name even when a regex script
+  // changed that text, and never inside a wrapper tag that repeats a very short reply's text.
+  for (const [content, own, expected] of [
+    ["[12:01] Alice: Alice OPENS.", "Alice opens.", "[12:01] Alice: Sure! Alice OPENS."],
+    ['<date="01.11.2026">\nAlice: OPENS.\n</date>', "opens.", '<date="01.11.2026">\nAlice: Sure! OPENS.\n</date>'],
+    ["[01.11 12:01] Alice: OPENS.", "opens.", "[01.11 12:01] Alice: Sure! OPENS."],
+    ["## Last Message\nAlice: \\# Door", "# Door", "## Last Message\nAlice: Sure! \\# Door"],
+    ["Note: the door IS locked.", "Note: the door is locked.", "Sure! Note: the door IS locked."],
+    ["y\n</chat_history>", "y", "Sure! y\n</chat_history>"],
+    ["Al B: Al", "Al", "Al B: Sure! Al"],
+  ] as const) {
+    const placed: Message[] = [{ role: "assistant", content, contextKind: "history" }];
+    endPromptOnAssistantPrefill(placed, { role: "assistant", content: prefill }, false, () => own);
+    assert.equal(placed[0]!.content, expected);
+  }
   console.log("Assistant prefill ends-prompt regression passed in %d ms.", Math.round(performance.now() - started));
 } finally {
   await app.close();

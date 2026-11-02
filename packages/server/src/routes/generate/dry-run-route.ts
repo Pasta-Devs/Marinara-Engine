@@ -2409,7 +2409,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       !impersonate && assistantPrefill.trim()
         ? resolveHistoryMessageMacros([{ role: "assistant" as const, content: assistantPrefill }])[0]!
         : null,
-      !rejectsFinalAssistantMessage(conn.model ?? ""),
+      !rejectsFinalAssistantMessage(conn.provider ?? "", conn.model ?? ""),
       (message) => {
         const source = message.id ? allChatMessages.find((saved) => saved.id === message.id) : undefined;
         return source ? conversationPromptHistoryContent(source, chatMode) : undefined;

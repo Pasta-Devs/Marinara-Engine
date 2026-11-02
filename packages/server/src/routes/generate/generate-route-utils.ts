@@ -743,19 +743,20 @@ export function appendNonLeadingSystemMessagesToLastUser<T extends PromptRoleMes
 
 /**
  * Format only audience-filtered, context-fitted messages, preserving live tool exchanges. A prompt that `endsOnPrefill`
- * keeps its final Assistant Prefill turn as it is: never merged into the turn before it or folded into a Single User
- * Message, so the request still ends on it.
+ * keeps its final Assistant Prefill turn out of a Single User Message, so the request still ends on it. Apply still
+ * joins it to an assistant reply right before it: roles must alternate, and a chat template such as llama.cpp's refuses
+ * two assistant turns at the end.
  */
 export function postProcessMessages(
   messages: ChatMessage[],
   parameters: Pick<StoredGenerationParameters, "strictRoleFormatting" | "singleUserMessage"> = {},
   endsOnPrefill = false,
 ): ChatMessage[] {
-  const prefill = endsOnPrefill ? messages.at(-1) : undefined;
+  const single = parameters.singleUserMessage === true;
+  const prefill = endsOnPrefill && single ? messages.at(-1) : undefined;
   if (prefill?.role === "assistant") {
     return [...postProcessMessages(messages.slice(0, -1), parameters), clonePromptRoleMessage(prefill)];
   }
-  const single = parameters.singleUserMessage === true;
   const apply = parameters.strictRoleFormatting !== false && !single;
   const source = apply ? appendNonLeadingSystemMessagesToLastUser(messages) : messages;
   const result: ChatMessage[] = [];
@@ -1254,6 +1255,9 @@ export function appendGenerationTailMessages(
   return { prefill, googleUserRegenerationInjected: false };
 }
 
+const HISTORY_REPLY_HEADER =
+  /^(?:<(?:chat_history|last_message)>\n|## (?:Chat History|Last Message)\n|<date="[^"\n]*">\n|(?:## )?Date: [^\n]*\n)*(?:\[(?:\d\d\.\d\d )?\d\d:\d\d\] )?/u;
+
 /**
  * End the prompt on the Assistant Prefill turn, after every injection, instruction and reply it gained. Its text is
  * trimmed at the end: Anthropic's Messages API rejects a final assistant message ending in whitespace (HTTP 400).
@@ -1283,14 +1287,18 @@ export function endPromptOnAssistantPrefill<
     const reply = messages[index];
     if (reply) {
       const own = ownText?.(reply)?.trim();
-      const at = own ? reply.content.lastIndexOf(own) : -1;
-      // ponytail: a reply whose own text the prompt changed (a regex script, a macro) is read from after Marinara's
-      // chat-history wrapper, so a timestamp or speaker name put before it stays ahead of the prefill.
+      // The header Marinara writes before a history reply's text: chat-history and date wrappers, a timestamp, then a
+      // "Name: " label the reply's own text does not start with.
+      const wrapped = HISTORY_REPLY_HEADER.exec(reply.content)![0].length;
+      const label = /^[^\n:]{1,80}: /u.exec(reply.content.slice(wrapped))?.[0];
+      const head = wrapped + (label && !own?.startsWith(label) ? label.length : 0);
+      // ponytail: a reply whose own text the prompt changed (a regex script, a macro) and does not follow that header
+      // gets the prefill right after the header, and a label the changed text starts with reads as a speaker name.
+      // Upgrade: record where each history reply's text starts when its header is written.
       const start =
-        at >= 0
-          ? at
-          : /^(?:<(?:chat_history|last_message)>\n|## (?:Chat History|Last Message)\n)*/iu.exec(reply.content)![0]
-              .length;
+        !own || reply.content.startsWith(own, head)
+          ? head
+          : (new RegExp(`(?<=^|\\s)${escapeRegex(own)}(?=\\s|$)`, "u").exec(reply.content)?.index ?? head);
       const body = reply.content.slice(start);
       if (!body.startsWith(visible.trim())) {
         const prefixed = { ...reply, content: reply.content.slice(0, start) + visible + body };

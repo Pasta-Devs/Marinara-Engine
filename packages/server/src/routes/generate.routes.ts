@@ -9241,7 +9241,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             preparedMessagesForGen,
             tailMessages.prefill &&
               resolvePromptMessageMacros([tailMessages.prefill], providerMacroContext, historyMacroProfilesById)[0]!,
-            !rejectsFinalAssistantMessage(conn.model),
+            !rejectsFinalAssistantMessage(conn.provider, conn.model),
             (message) => {
               const source = message.id ? allChatMessages.find((saved: any) => saved.id === message.id) : undefined;
               return source ? conversationPromptHistoryContent(source, chatMode) : undefined;
