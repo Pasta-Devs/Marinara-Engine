@@ -79,6 +79,7 @@ import { resolveMainGenerationToolChoice } from "../../packages/server/src/servi
 import {
   appendGenerationTailMessages,
   buildUserMessageRegenerationPromptFromSource,
+  endPromptOnAssistantPrefill,
   hasProviderMessagePayload,
   parseStoredGenerationParameters,
   type SimpleMessage,
@@ -486,7 +487,7 @@ try {
     overrides: Partial<Parameters<typeof appendGenerationTailMessages>[1]> = {},
   ) => {
     const messages: SimpleMessage[] = [{ role: "user", content: "Continue." }];
-    appendGenerationTailMessages(messages, {
+    const tail = appendGenerationTailMessages(messages, {
       assistantPrefill,
       assistantReasoningPrefill,
       supportsAssistantReasoningPrefill: true,
@@ -496,6 +497,7 @@ try {
       regenerateUserMessage: null,
       ...overrides,
     });
+    endPromptOnAssistantPrefill(messages, tail.prefill, true);
     return messages;
   };
 

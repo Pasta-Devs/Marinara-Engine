@@ -375,7 +375,7 @@ export interface SplitResult {
  * assistant turn from `finalMessages` BEFORE calling provider.chat(). Any
  * trailing assistant reaching this function is therefore intentional —
  * specifically the `assistantPrefill` feature (see
- * packages/shared/src/types/prompt.ts and appendGenerationTailMessages(),
+ * packages/shared/src/types/prompt.ts and endPromptOnAssistantPrefill(),
  * where the prefill is pushed as the final assistant message).
  *
  * If that upstream contract ever changes — i.e. regen starts leaving the

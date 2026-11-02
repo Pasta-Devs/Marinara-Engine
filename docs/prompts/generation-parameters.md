@@ -83,6 +83,8 @@ The value still shows in the box even when the **Send toggle** is off. It is jus
 
 Use it only for models that support a prefill or a set opening tag. For example, you might type an opening tag like the one shown in the placeholder to force the model to start in a certain way. If you are not sure you need this, leave it blank.
 
+The prefill is always the last thing sent to the model, after your message and every instruction that follows it. Some models refuse a prompt that ends on the AI's own words: Claude Opus 5.5 and Sonnet 5.5, Gemini 4 Argon, Gemini 3.5 Flash-Lite and Gemini 3.6 to 3.8 Flash. For them, Marinara adds the prefill to the start of the AI's last reply in the chat instead, so the model sees how it began its last turn. The new reply then does not start with the prefill, and a chat with no AI reply yet sends no prefill.
+
 ## Assistant Reasoning Prefill
 
 **Assistant Reasoning Prefill** is optional hidden text added at the very start of the AI's reasoning, before it writes the visible reply. Most people leave it empty.
