@@ -30,6 +30,11 @@ export interface ChatMessage {
   media?: ChatMediaAttachment[];
   /** Provider-specific metadata (e.g. Gemini parts with thought signatures) */
   providerMetadata?: Record<string, unknown>;
+  /**
+   * Cache the prompt up to and including this message (Capability API 1.814). Anthropic puts a cache breakpoint
+   * here whether or not `enableCaching` is on, keeping the last four, and then adds none of its own.
+   */
+  cacheBreakpoint?: boolean;
 }
 
 export interface ChatMediaAttachment {

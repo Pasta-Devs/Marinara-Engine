@@ -42,6 +42,34 @@ function buildAnthropicCacheControl(options: ChatOptions): AnthropicCacheControl
   return options.anthropicExtendedCacheTtl ? { type: "ephemeral", ttl: "1h" } : { type: "ephemeral" };
 }
 
+/** Whether a message the request keeps marks the end of a prefix to cache (Capability API 1.814). */
+function hasCacheBreakpoints(messages: ChatMessage[]): boolean {
+  return messages.some((message) => message.cacheBreakpoint === true);
+}
+
+/**
+ * The system field: one string, or text blocks when one of them caches. With marked messages, the marked blocks cache
+ * whatever the connection's switch says; without, the last block caches when the connection caches.
+ */
+function anthropicSystemField(systemMessages: ChatMessage[], options: ChatOptions, marked: boolean) {
+  if (systemMessages.length === 0) return undefined;
+  const caches = (message: ChatMessage, index: number) =>
+    marked ? message.cacheBreakpoint === true : options.enableCaching === true && index === systemMessages.length - 1;
+  if (!systemMessages.some(caches)) return systemMessages.map((message) => message.content).join("\n\n");
+  const cacheControl = buildAnthropicCacheControl(options);
+  return systemMessages.map((message, index) => ({
+    type: "text" as const,
+    text: message.content,
+    ...(caches(message, index) ? { cache_control: cacheControl } : {}),
+  }));
+}
+
+/** Anthropic refuses more than four cache breakpoints: the last four stay, system blocks counting first. */
+function keepLastFourCacheBreakpoints(system: unknown, messages: AnthropicMessagePayload[]): void {
+  const blocks = [...(Array.isArray(system) ? system : []), ...messages.flatMap((message) => message.content)];
+  for (const block of blocks.filter((block) => block.cache_control).slice(0, -4)) delete block.cache_control;
+}
+
 function resolveCacheControlMessageIndex(messages: ArrayLike<unknown>, cachingAtDepth: number): number {
   if (messages.length === 0) return -1;
   return Math.max(0, messages.length - 1 - cachingAtDepth);
@@ -218,17 +246,27 @@ function formatAnthropicTools(tools: LLMToolDefinition[] | undefined): Array<Rec
 function splitAnthropicSystemMessages(messages: ChatMessage[], model: string) {
   const firstHistoryIndex = messages.findIndex((message) => message.role !== "system");
   const prefixEnd = firstHistoryIndex < 0 ? messages.length : firstHistoryIndex;
-  const systemMessages = messages.slice(0, prefixEnd).filter((message) => message.content?.trim());
-  const history = messages
-    .slice(prefixEnd)
-    .filter(
-      (message) =>
-        message.role === "tool" ||
-        message.content?.trim() ||
-        message.images?.length ||
-        message.files?.length ||
-        message.tool_calls?.length,
-    );
+  const kept: ChatMessage[] = [];
+  let systemCount = 0;
+  messages.forEach((message, index) => {
+    const keep =
+      index < prefixEnd
+        ? message.content?.trim()
+        : message.role === "tool" ||
+          message.content?.trim() ||
+          message.images?.length ||
+          message.files?.length ||
+          message.tool_calls?.length;
+    if (keep) {
+      kept.push(message);
+      if (index < prefixEnd) systemCount++;
+    } else if (message.cacheBreakpoint === true && kept.length > 0) {
+      // An empty message adds nothing to the prefix: its marker caches the same prefix on the message kept before it.
+      kept[kept.length - 1] = { ...kept[kept.length - 1]!, cacheBreakpoint: true };
+    }
+  });
+  const systemMessages = kept.slice(0, systemCount);
+  const history = kept.slice(systemCount);
   // Only these documented models accept history-level system text. Other models
   // retain its position as user context instead of moving it into the cache prefix.
   // https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages
@@ -353,8 +391,19 @@ function mergeAnthropicPayloadMessages(messages: AnthropicMessagePayload[]): Ant
   return merged;
 }
 
-function formatAnthropicPayloadMessages(messages: ChatMessage[]): AnthropicMessagePayload[] {
+function formatAnthropicPayloadMessages(
+  messages: ChatMessage[],
+  cacheControl: AnthropicCacheControl,
+): AnthropicMessagePayload[] {
   const payload: AnthropicMessagePayload[] = [];
+  // A marked message caches up to its own last block, before merging joins it to the next turn.
+  const push = (message: ChatMessage, entry: AnthropicMessagePayload) => {
+    const last = entry.content.at(-1);
+    if (message.cacheBreakpoint === true && last) {
+      entry.content[entry.content.length - 1] = { ...last, cache_control: cacheControl };
+    }
+    payload.push(entry);
+  };
 
   for (const message of messages) {
     if (message.role === "assistant" && message.tool_calls?.length) {
@@ -372,16 +421,16 @@ function formatAnthropicPayloadMessages(messages: ChatMessage[]): AnthropicMessa
           input: parseToolArguments(call.function.arguments),
         });
       }
-      payload.push({ role: "assistant", content });
+      push(message, { role: "assistant", content });
       continue;
     }
 
     if (message.role === "tool") {
       if (!message.tool_call_id) {
-        payload.push({ role: "user", content: [{ type: "text", text: `Tool result: ${message.content || " "}` }] });
+        push(message, { role: "user", content: [{ type: "text", text: `Tool result: ${message.content || " "}` }] });
         continue;
       }
-      payload.push({
+      push(message, {
         role: "user",
         content: [
           {
@@ -397,7 +446,7 @@ function formatAnthropicPayloadMessages(messages: ChatMessage[]): AnthropicMessa
     if (message.role === "user" || message.role === "assistant" || message.role === "system") {
       const content = [...fileContentBlocks(message.files), ...imageContentBlocks(message.images)];
       if (message.content?.trim()) content.push({ type: "text", text: message.content });
-      payload.push({ role: message.role, content });
+      push(message, { role: message.role, content });
     }
   }
 
@@ -484,19 +533,16 @@ export class AnthropicProvider extends BaseLLMProvider {
     // Internal streaming also keeps quiet tool rounds alive without a UI token sink.
     const useStream = options.stream ?? !!options.onToken;
     const { systemMessages, chatMessages } = splitAnthropicSystemMessages(messages, options.model);
-    const enableCaching = options.enableCaching ?? false;
+    // Marked messages replace the connection's own breakpoints, and cache even with its switch off.
+    const marked = hasCacheBreakpoints([...systemMessages, ...chatMessages]);
+    const enableCaching = (options.enableCaching ?? false) && !marked;
     const cacheControl = buildAnthropicCacheControl(options);
-    const systemField =
-      systemMessages.length > 0
-        ? enableCaching
-          ? systemMessages.map((m, i) => ({
-              type: "text" as const,
-              text: m.content,
-              ...(i === systemMessages.length - 1 ? { cache_control: cacheControl } : {}),
-            }))
-          : systemMessages.map((m) => m.content).join("\n\n")
-        : undefined;
-    const formattedMessages = formatAnthropicPayloadMessages(trimTrailingAssistantWhitespace(chatMessages));
+    const systemField = anthropicSystemField(systemMessages, options, marked);
+    const formattedMessages = formatAnthropicPayloadMessages(
+      trimTrailingAssistantWhitespace(chatMessages),
+      cacheControl,
+    );
+    if (marked) keepLastFourCacheBreakpoints(systemField, formattedMessages);
     const cacheControlMessageIndex = enableCaching
       ? resolveCacheControlMessageIndex(formattedMessages, normalizeCachingAtDepth(options.cachingAtDepth))
       : -1;
@@ -827,25 +873,12 @@ export class AnthropicProvider extends BaseLLMProvider {
     // on it — see trimTrailingAssistantWhitespace / issue #2679).
     const mergedMessages = trimTrailingAssistantWhitespace(this.mergeConsecutiveMessages(chatMessages));
 
-    const enableCaching = options.enableCaching ?? false;
+    // Marked messages replace the connection's own breakpoints, and cache even with its switch off.
+    const marked = hasCacheBreakpoints([...systemMessages, ...chatMessages]);
+    const enableCaching = (options.enableCaching ?? false) && !marked;
     const cachingAtDepth = normalizeCachingAtDepth(options.cachingAtDepth);
     const cacheControl = buildAnthropicCacheControl(options);
-
-    // Build system field — use content blocks with cache_control when caching is on
-    let systemField: string | Array<{ type: string; text: string; cache_control?: AnthropicCacheControl }> | undefined;
-    if (systemMessages.length > 0) {
-      if (enableCaching) {
-        // Array of content blocks with cache_control on the last one
-        const blocks = systemMessages.map((m, i) => ({
-          type: "text" as const,
-          text: m.content,
-          ...(i === systemMessages.length - 1 && { cache_control: cacheControl }),
-        }));
-        systemField = blocks;
-      } else {
-        systemField = systemMessages.map((m) => m.content).join("\n\n");
-      }
-    }
+    const systemField = anthropicSystemField(systemMessages, options, marked);
 
     const cacheControlMessageIndex = enableCaching
       ? resolveCacheControlMessageIndex(mergedMessages, cachingAtDepth)
@@ -872,6 +905,15 @@ export class AnthropicProvider extends BaseLLMProvider {
         return { role: m.role, content: m.content };
       }),
     };
+    if (marked) {
+      // Content blocks keep each marked message's end, which merging into one string would lose.
+      const markedMessages = formatAnthropicPayloadMessages(
+        trimTrailingAssistantWhitespace(chatMessages),
+        cacheControl,
+      );
+      keepLastFourCacheBreakpoints(systemField, markedMessages);
+      body.messages = markedMessages;
+    }
     if (!suppressModelParameters) {
       const outputMaxTokens = maxTokens ?? 4096;
       if (this.shouldSendParameter(options, "maxTokens")) body.max_tokens = outputMaxTokens;
