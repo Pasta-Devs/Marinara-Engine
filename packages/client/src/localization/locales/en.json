@@ -2586,7 +2586,7 @@
   "connections.switcher.allModels": "All models",
   "connections.switcher.appliesToMari": "Applies to Professor Mari",
   "connections.switcher.back": "Back to your models",
-  "connections.switcher.backToAccounts": "Back",
+  "connections.switcher.backToAccounts": "All connections",
   "connections.switcher.browse": "Browse",
   "connections.switcher.browseAll": "Browse all models",
   "connections.switcher.browseConnection": "Browse {{connection}} models",
