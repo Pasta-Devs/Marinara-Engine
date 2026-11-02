@@ -1,21 +1,21 @@
 // ──────────────────────────────────────────────
 // Connection Switcher Body — the one model chooser shared by the chat's
-// composer chip, the phone menu, Chat Settings and Professor Mari's composer.
-// One column: search, Now (pinned), Follow Main, Recent, then the starred
-// Models grouped by Connection. A catalog shows only on a search or from a
-// Connection's "All models" row. A pick applies to the chat only; the star
-// saves a model, and removing it can remove the saved Model (decision 30).
+// composer chip, the phone menu, Chat Settings, Professor Mari's composer and
+// every job's Model picker. Now strip and search on top, then two panes:
+// Starred and each account on the left, the selected one's models on the
+// right. A narrow host shows one pane at a time. A pick applies to the host
+// only; the star saves a model, and removing it can remove the saved Model
+// (decision 30).
 // ──────────────────────────────────────────────
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Check,
-  CircleSlash,
   ChevronLeft,
   ChevronRight,
-  Cpu,
+  Dices,
   House,
-  Layers,
   Plus,
+  RefreshCw,
   Search,
   Shuffle,
   SlidersHorizontal,
@@ -38,13 +38,15 @@ import {
   usageAtLimit,
   useCachedCatalogFacts,
   useConnections,
+  useConnectionModels,
   useCountConnectionModels,
+  useRefreshConnectionModels,
   useUpdateConnection,
   type CachedModelFacts,
   type SubscriptionUsage,
 } from "../../hooks/use-connections";
 import { matchesKind } from "../../lib/connection-jobs";
-import { useChat, useChats, useSetChatModel } from "../../hooks/use-chats";
+import { useChat, useSetChatModel } from "../../hooks/use-chats";
 import {
   useCatalogSearch,
   useConnectionAccounts,
@@ -63,7 +65,6 @@ import {
   accountStateLabel,
   groupModelsByAccount,
   orderAccountGroups,
-  recentModels,
   roleBadges,
   viaName,
 } from "../../lib/connection-groups";
@@ -72,12 +73,10 @@ import { modelBrand, ProviderIcon } from "./ProviderIcon";
 import { ServiceRow } from "./ServiceRow";
 import { sortPanelFolders } from "../../lib/panel-sort";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
-import { ConnectionModelList } from "./ConnectionModelList";
 import { modelRoleLabels } from "./ModelRow";
 import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
 import { ModelRow, ModelTile } from "./ModelRow";
-import { ConnectionModelPicker } from "./ConnectionModelPicker";
-import { openAddConnection, openAddModels } from "../../lib/add-connection";
+import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
@@ -175,11 +174,12 @@ const runsKey = (choice: ChatModelChoice, rows: readonly SwitcherRow[]) => {
   return `${row?.accountId ?? choice.connectionId}\n${choice.model ?? row?.model ?? ""}`;
 };
 
-/** A provider with at most this many models lists them all in place. */
-const INLINE_CATALOG = 20;
-
 const ROW_CLASS =
   "relative flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 [@media(pointer:coarse)]:min-h-11";
+
+/** The accent bar at the left edge of the selected pane and the current model. */
+const ACCENT_BAR =
+  "before:absolute before:inset-y-2.5 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--marinara-chat-chrome-accent)] before:content-['']";
 
 /**
  * The chat hosts' pick (decision 26): a saved Model or a catalog model for this chat only. The pick never edits a
@@ -389,10 +389,8 @@ export function EffectiveModelIcon({
 
 export function ConnectionSwitcherBody({
   current,
-  recent: recentChoices,
   onApply,
   onDone,
-  layout,
   showLocalModel,
   localModelHint,
   shuffle,
@@ -403,7 +401,6 @@ export function ConnectionSwitcherBody({
   autoFocusSearch = false,
   className,
   listClassName,
-  modelsClassName,
   catalogBrowse = true,
   kind = "chat",
   rowFilter,
@@ -419,22 +416,17 @@ export function ConnectionSwitcherBody({
   ownRole?: string;
   /** What the host uses: a Model, or a catalog model on one ("random" while Shuffle is on). */
   current: ChatModelChoice | null;
-  /** The host's last choices; without them Recent lists the Models other chats used last. */
-  recent?: readonly ChatModelChoice[];
   /** Points the host (chat or Professor Mari) at the choice. */
   onApply: (choice: ChatModelChoice) => Promise<void | false>;
   /** Closes the host menu; every pick ends with it. */
   onDone: () => void;
-  /**
-   * steps: one column; a Connection's Browse opens its catalog in place, with a back button.
-   * container: Professor Mari's composer; the list and the current Connection's catalog both render and the host
-   * CSS places them, and Browse opens the Add model screen.
-   */
-  layout: "steps" | "container";
   showLocalModel: boolean;
   localModelHint?: string;
-  /** The chat's random-pool mode; absent where there is none (Professor Mari). */
-  shuffle?: { active: boolean; onToggle: () => void };
+  /**
+   * The chat's random-pool mode; absent where there is none (Professor Mari, jobs). Without `onToggle` the host
+   * shows the dice in its own header; with it the dice sits in the Now strip.
+   */
+  shuffle?: { active: boolean; onToggle?: () => void };
   /** Follow Main: the host follows the Main model; absent where there is no such state (Professor Mari). */
   followDefault?: {
     active: boolean;
@@ -476,7 +468,6 @@ export function ConnectionSwitcherBody({
   autoFocusSearch?: boolean;
   className?: string;
   listClassName?: string;
-  modelsClassName?: string;
   /** False skips catalog search and Browse (Quick Switcher's connection-only mode). */
   catalogBrowse?: boolean;
 }) {
@@ -484,8 +475,6 @@ export function ConnectionSwitcherBody({
   const voiceRowId = useVoiceRowId();
   const { data: connectionsRaw } = useConnections();
   const { data: accounts } = useConnectionAccounts();
-  const { data: chats } = useChats();
-  const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const openModal = useUIStore((state) => state.openModal);
   const openConnectionDetail = useUIStore((state) => state.openConnectionDetail);
   // The Connections panel's "Group by" choice applies here too.
@@ -501,8 +490,10 @@ export function ConnectionSwitcherBody({
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query.trim());
   const [highlight, setHighlight] = useState(0);
-  /** The Connection whose catalog is open in place (steps layout). */
-  const [browsingKey, setBrowsingKey] = useState<string | null>(null);
+  /** The left pane's choice: "starred", an account's group key or "folder:<id>"; null opens the default pane. */
+  const [pane, setPane] = useState<string | null>(null);
+  /** One-pane hosts (phone, Chat Settings) show the right pane; Back shows the account list. */
+  const [drilled, setDrilled] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -576,10 +567,6 @@ export function ConnectionSwitcherBody({
   const currentRow = currentId ? rows.find((row) => row.id === currentId) : undefined;
   const nowRow = currentRow ?? (followDefault?.active && !followDefault.own ? mainRow : undefined);
   const currentGroup = nowRow ? groupOfRow.get(nowRow.id) : undefined;
-  const browsingGroup =
-    layout === "steps" && catalogBrowse
-      ? groups.find((group) => group.key === browsingKey && group.account)
-      : undefined;
   // A catalog pick runs on the Model the chat already uses when it is in that Connection, else on its first one.
   const anchorOf = useCallback(
     (group: SwitcherGroup) =>
@@ -638,7 +625,7 @@ export function ConnectionSwitcherBody({
         group.account?.state === "off" ? "connections.switcher.fixTurnOn" : "connections.switcher.fixAddKey",
         { connection: group.name },
       )}
-      className="mari-chrome-control px-3"
+      className="mari-chrome-control shrink-0 whitespace-nowrap px-3 text-xs"
     >
       {fixLabel(group)}
     </button>
@@ -685,7 +672,10 @@ export function ConnectionSwitcherBody({
         onClick={() => void toggleStar(group, model, starred, title)}
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
-          starred ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
+          starred
+            ? "text-[var(--marinara-chat-chrome-accent)]"
+            : // Calm rows: an unstarred star shows on hover or focus; touch screens always show it.
+              "text-foreground/35 opacity-0 hover:text-foreground/70 focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100",
         )}
       >
         <Star size="0.875rem" fill={starred ? "currentColor" : "none"} aria-hidden />
@@ -716,35 +706,6 @@ export function ConnectionSwitcherBody({
     (!!followDefault?.active && !followDefault.own && choice.connectionId === mainRow?.id && !choice.model) ||
     (!!choice.model && !!nowRuns && runsKey(choice, rows) === nowRuns);
   const isNow = (entry: Entry) => matchesNow(entry.choice);
-  // The followed model stays visible in its original group. Selecting it keeps the follow state.
-  const isInheritedMain = (entry: Entry) =>
-    !!followDefault?.active && !followDefault.own && entry.choice.connectionId === mainRow?.id;
-  const showInGroup = (entry: Entry) => !isNow(entry) || isInheritedMain(entry);
-
-  const recent = useMemo(() => {
-    if (recentChoices) {
-      // This chat's last choices that still exist, minus what it uses now.
-      return recentChoices.flatMap((choice): Entry[] => {
-        if (choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID) {
-          return showLocalModel && currentId !== LOCAL_SIDECAR_CONNECTION_ID
-            ? [{ key: choice.connectionId, title: t("connections.switcher.localModel"), choice }]
-            : [];
-        }
-        const row = rows.find((candidate) => candidate.id === choice.connectionId);
-        if (!row || runsKey(choice, rows) === nowRuns) return [];
-        return [
-          {
-            ...entryOfRow(row, groupOfRow.get(row.id), choice.model ? choice : undefined),
-            key: `recent:${row.id}:${choice.model ?? ""}`,
-          },
-        ];
-      });
-    }
-    return recentModels(chats ?? [], rows, 3, currentId)
-      .filter((row) => runsKey({ connectionId: row.id }, rows) !== nowRuns)
-      .map((row) => entryOfRow(row, groupOfRow.get(row.id)));
-  }, [chats, currentId, groupOfRow, nowRuns, recentChoices, rows, showLocalModel, t]);
-
   // Your models: each Connection's starred models, plus the saved Models a role or their own settings keep.
   const listed = useMemo(
     () =>
@@ -762,6 +723,39 @@ export function ConnectionSwitcherBody({
       }),
     [anchorOf, groups],
   );
+
+  // Starred models of every provider: the left pane's first item.
+  const starredEntries = listed.flatMap((item) =>
+    item.group.account ? item.entries.filter((entry) => !!entry.model && starsOf(item.group).has(entry.model)) : [],
+  );
+  // The picker opens on Starred when it has something for this job, else on the current pick's account.
+  const paneKey =
+    pane ??
+    (starredEntries.length > 0 || knownGood
+      ? "starred"
+      : ((currentGroup?.account ? currentGroup : groups.find((group) => group.account))?.key ?? "starred"));
+  const paneGroup = groups.find((group) => group.key === paneKey);
+  // A selected account scopes the search to its own models.
+  const scopeGroup = paneGroup;
+  // The open account's list: shares the cache loadCatalog fills, and tells the pane when it failed.
+  const scopeAnchorId = scopeGroup ? anchorOf(scopeGroup).id : null;
+  const scopeModels = useConnectionModels(scopeAnchorId, catalogBrowse);
+  const refreshModels = useRefreshConnectionModels();
+  /** An account's pane: its starred models, then its saved Models and the rest of its catalog. */
+  const paneEntries = (group: SwitcherGroup) => {
+    const anchor = anchorOf(group);
+    const starred = group.account ? [...starsOf(group)].map((model) => entryFor(group, anchor, model)) : [];
+    const seen = new Set(starred.map((entry) => entry.model));
+    // A saved row without a model (an image server) is still a choice of its own.
+    const saved = group.rows.filter((row) => !row.model || !seen.has(row.model)).map((row) => entryOfRow(row, group));
+    for (const entry of saved) seen.add(entry.model);
+    const ids = catalogBrowse ? new Set((catalogOf(group)?.idSets ?? []).flatMap((set) => [...set])) : [];
+    const fromCatalog = [...ids]
+      .filter((id) => !seen.has(id) && (!modelFilter || modelFilter(id)))
+      .sort((x, y) => x.localeCompare(y))
+      .map((id) => entryFor(group, anchor, id));
+    return { starred, rest: [...saved, ...fromCatalog] };
+  };
 
   // Search (decision 27): saved Models first (starred, then the rest), then catalog models not saved yet, each
   // with prefix matches before the rest, then the typed text as a model id. A Connection's name or a maker
@@ -811,7 +805,7 @@ export function ConnectionSwitcherBody({
     // A pasted id goes to the Connection in use, else the first one. Only chat slots take a
     // typed id: image and video slots once saved it as a chat Model on the wrong job.
     const typed = kind === "chat" ? deferredQuery : "";
-    const target = currentGroup?.account ? currentGroup : groups.find((group) => group.account);
+    const target = scopeGroup ?? (currentGroup?.account ? currentGroup : groups.find((group) => group.account));
     const known = rows.some((row) => row.model === typed) || added.some((entry) => entry.choice.model === typed);
     if (target && typed && !/\s/.test(typed) && !known) {
       added.push({
@@ -822,19 +816,19 @@ export function ConnectionSwitcherBody({
       });
     }
     return { saved, extra: added };
-  }, [anchorOf, catalog.data, currentGroup, deferredQuery, groupByAccount, groupOfRow, groups, kind, rows, t]);
-  // Starred models of every provider, above the provider groups.
-  const starredEntries = useMemo(
-    () =>
-      listed.flatMap((item) => {
-        const stars = item.group.account ? starsOfRows(item.group.rows) : new Set<string>();
-        return item.entries.filter((entry) => !!entry.model && stars.has(entry.model) && showInGroup(entry));
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- showInGroup reads the host's current pick and follow state, tracked below
-    [listed, current, nowRow, mainRow, followDefault?.active, followDefault?.own],
-  );
-  const starredKeys = useMemo(() => new Set(starredEntries.map((entry) => entry.key)), [starredEntries]);
-
+  }, [
+    anchorOf,
+    catalog.data,
+    currentGroup,
+    deferredQuery,
+    groupByAccount,
+    groupOfRow,
+    groups,
+    kind,
+    rows,
+    scopeGroup,
+    t,
+  ]);
   // Models known to suit the slot come first, across every provider's cached catalog.
   const knownEntries = useMemo(() => {
     if (!knownGood) return [] as Entry[];
@@ -852,9 +846,47 @@ export function ConnectionSwitcherBody({
     return out.slice(0, 30);
   }, [knownGood, groups, catalogs, anchorOf]);
 
-  const searchEntries = useMemo(() => [...savedHits, ...extraHits], [extraHits, savedHits]);
-  const savedCount = savedHits.length;
   const searching = deferredQuery.length > 0;
+  // Search results: starred matches first, then one group per account; a selected account searches only its own
+  // models. The typed id comes last.
+  const isStarredEntry = (entry: Entry) =>
+    !!entry.group?.account && !!entry.model && starsOf(entry.group).has(entry.model);
+  const typedEntry = extraHits.find((entry) => entry.key.startsWith("use:"));
+  const allSections: Array<{ key: string; label?: string; entries: Entry[] }> = [];
+  if (searching && scopeGroup) {
+    const q = deferredQuery.toLowerCase();
+    const facts = catalogOf(scopeGroup);
+    const match = (list: Entry[]) =>
+      list
+        .map((entry) => ({
+          entry,
+          rank: rankModelMatch(q, { id: entry.model ?? "", name: facts?.nameOf(entry.model) ?? entry.title }),
+        }))
+        .filter((hit) => hit.rank >= 0)
+        .sort((x, y) => x.rank - y.rank)
+        .map((hit) => hit.entry);
+    const { starred, rest } = paneEntries(scopeGroup);
+    allSections.push(
+      { key: "starred", label: t("connections.switcher.starred"), entries: match(starred) },
+      { key: "all", label: t("connections.switcher.allModels"), entries: match(rest) },
+    );
+  } else if (searching) {
+    const hits = [...savedHits, ...extraHits.filter((entry) => entry !== typedEntry)];
+    const rest = hits.filter((entry) => !isStarredEntry(entry));
+    allSections.push(
+      { key: "starred", label: t("connections.switcher.starred"), entries: hits.filter(isStarredEntry) },
+      // Accounts follow their best hit, so a saved Model's account comes before catalog-only ones.
+      ...[...new Set(rest.flatMap((entry) => (entry.group ? [entry.group] : [])))].map((group) => ({
+        key: group.key,
+        label: group.name,
+        entries: rest.filter((entry) => entry.group === group),
+      })),
+      { key: "other", entries: rest.filter((entry) => !entry.group) },
+    );
+  }
+  if (searching && typedEntry) allSections.push({ key: "use", entries: [typedEntry] });
+  const searchSections = allSections.filter((section) => section.entries.length > 0);
+  const searchEntries = searchSections.flatMap((section) => section.entries);
 
   // Enter adds a typed id only after the user moved onto that row; typing a name to filter
   // and pressing Enter must not create a Model.
@@ -933,8 +965,12 @@ export function ConnectionSwitcherBody({
     return (
       <ModelRow
         key={entry.key}
-        rowProps={{ "data-switcher-row": true, className: "rounded-lg" }}
+        rowProps={{
+          "data-switcher-row": true,
+          className: cn("rounded-lg", now ? "bg-transparent" : isCurrent && ACCENT_BAR),
+        }}
         data-switcher-entry={entry.choice.model ?? entry.choice.connectionId}
+        data-switcher-model={entry.model}
         aria-current={isCurrent ? "true" : undefined}
         aria-label={[
           entry.title,
@@ -981,7 +1017,7 @@ export function ConnectionSwitcherBody({
         current={isCurrent}
         dim={!!unavailable}
         trailing={
-          isCurrent ? (
+          isCurrent && !now ? (
             <Check size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />
           ) : isKnown ? (
             <Check size="0.75rem" aria-label={knownGood!.label} className="shrink-0 text-foreground/35" />
@@ -1017,155 +1053,21 @@ export function ConnectionSwitcherBody({
     );
   };
 
-  const browse = (group: SwitcherGroup) => {
-    if (layout === "steps") {
-      setBrowsingKey(group.key);
-      return;
-    }
-    // Professor Mari's composer: the big model screen for this Connection (decision 32); the menu closes under it.
-    const anchor = anchorOf(group);
-    onDone();
-    openAddModels({
-      accountId: group.account!.id,
-      connectionId: anchor.id,
-      chat: {
-        currentModel: anchor === currentRow ? (current?.model ?? anchor.model ?? null) : null,
-        onChoose: (choice) => (sameChoice(choice, current) ? Promise.resolve() : onApply(choice).then(() => undefined)),
-      },
-    });
-  };
-  const backFromCatalog = () => {
-    const key = browsingKey;
-    setBrowsingKey(null);
-    window.requestAnimationFrame(() =>
-      rootRef.current?.querySelector<HTMLElement>(`[data-switcher-browse="${CSS.escape(key ?? "")}"]`)?.focus(),
-    );
-  };
-
-  const renderGroup = ({ group, entries }: { group: SwitcherGroup; entries: Entry[] }) => {
-    const shown = entries.filter((entry) => showInGroup(entry) && !starredKeys.has(entry.key));
-    // A standalone Model has no Connection to browse: it is its own line.
-    if (!group.account) {
-      return shown.length > 0 ? (
-        <div key={group.key}>{shown.map((entry) => renderEntry(entry, { star: "all" }))}</div>
-      ) : null;
-    }
-    const unavailable = unavailableOf(group);
-    // A provider with nothing to pick and nothing to fix is not a section.
-    if (shown.length === 0 && !unavailable && !catalogOf(group)?.count && inlineCatalog(group).length === 0)
-      return null;
-    if (modelFilter && shown.length === 0 && inlineCatalog(group).length === 0) return null;
-    return (
-      <section
-        key={group.key}
-        className="mari-connection-group mt-1"
-        data-switcher-section="connection"
-        aria-label={group.name}
-      >
-        <ServiceRow
-          data-connection-group={group.key}
-          account={{ ...group.account, baseUrl: null }}
-          rows={group.rows}
-          count={
-            (catalogOf(group)?.count ?? shown.length)
-              ? t("connections.list.models", { count: catalogOf(group)?.count ?? shown.length })
-              : undefined
-          }
-          state={group.account.state}
-          stateLabel={t(accountStateLabel(group.account))}
-          density="sm"
-          end={unavailable && fixButton(group)}
-        />
-        <ConnectionModelList
-          provider={group.account.provider}
-          rows={shown}
-          getKey={(entry) => entry.key}
-          renderRow={(entry) => renderEntry({ ...entry, subtitle: entry.model ?? "" }, { star: "all" })}
-          footer={
-            // A small catalog lists inline; a big one is one visible row away, not a header word.
-            !unavailable && catalogBrowse && inlineCatalog(group).length > 0 ? (
-              <div data-switcher-inline={group.key}>
-                {inlineCatalog(group).map((entry) => renderEntry(entry, { star: "all" }))}
-              </div>
-            ) : (
-              !unavailable &&
-              catalogBrowse &&
-              !modelFilter && (
-                <button
-                  type="button"
-                  data-switcher-browse={group.key}
-                  onClick={() => browse(group)}
-                  aria-label={t("connections.switcher.browseConnection", { connection: group.name })}
-                  className={cn(
-                    ROW_CLASS,
-                    "mari-connection-model-well min-h-11 gap-3 ps-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                  )}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
-                    <Layers size="0.875rem" />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{t("connections.switcher.allModels")}</span>
-                  <ChevronRight size="0.875rem" aria-hidden className="shrink-0" />
-                </button>
-              )
-            )
-          }
-        />
-      </section>
-    );
-  };
-
   // The catalogs are read once, so a small one can list in place (the server caches them; a failure just leaves the Browse row).
   const loadCatalog = useCountConnectionModels();
+  const catalogQueryClient = useQueryClient();
   useEffect(() => {
-    if (layout !== "steps" || !catalogBrowse) return;
-    for (const group of groups) if (group.account && group.account.state === "ok") void loadCatalog(anchorOf(group).id);
-  }, [layout, catalogBrowse, groups, anchorOf, loadCatalog]);
+    if (!catalogBrowse) return;
+    for (const group of groups) {
+      if (!group.account || group.account.state !== "ok") continue;
+      const id = anchorOf(group).id;
+      // A failed list is not cached, so loading it on every render would refetch it forever; Refresh retries it.
+      if (catalogQueryClient.getQueryState(connectionKeys.models(id))?.status === "error") continue;
+      void loadCatalog(id);
+    }
+  }, [catalogBrowse, groups, anchorOf, loadCatalog, catalogQueryClient]);
 
-  // A catalog of up to INLINE_CATALOG models lists under its provider; the saved ones are already listed.
-  const inlineCatalog = (group: SwitcherGroup): Entry[] => {
-    const ids = new Set((catalogOf(group)?.idSets ?? []).flatMap((set) => [...set]));
-    const wanted = modelFilter ? [...ids].filter(modelFilter) : [...ids];
-    if (wanted.length === 0 || wanted.length > INLINE_CATALOG || !group.account) return [];
-    const saved = new Set(listed.find((item) => item.group === group)?.entries.map((entry) => entry.model) ?? []);
-    return wanted.filter((id) => !saved.has(id)).map((id) => entryFor(group, anchorOf(group), id, id));
-  };
-
-  // Group by folder: each folder's saved Models, then the ones in none; a row names its Connection.
-  const folderSections = () => {
-    const known = new Set((folders ?? []).map((folder) => folder.id));
-    return [...sortPanelFolders(folders ?? [], sort), null].map((folder) => {
-      const entries = rows
-        .filter((row) => (folder ? row.folderId === folder.id : !row.folderId || !known.has(row.folderId)))
-        .map((row) => entryOfRow(row, groupOfRow.get(row.id)))
-        .filter(showInGroup);
-      if (entries.length === 0) return null;
-      const name = folder?.name ?? t("connections.folders.none");
-      return (
-        <section
-          key={folder?.id ?? "none"}
-          className="mari-connection-group mt-1"
-          data-switcher-section="folder"
-          aria-label={name}
-        >
-          <div className="flex min-w-0 items-center gap-2 py-1.5 ps-3 pe-1">
-            <span
-              aria-hidden
-              className={cn("h-2 w-2 shrink-0 rounded-full", !folder?.color && "border border-foreground/40")}
-              style={folder?.color ? { backgroundColor: folder.color } : undefined}
-            />
-            <strong className="min-w-0 flex-1 truncate text-sm font-semibold">{name}</strong>
-          </div>
-          <div className="mari-connection-model-well">
-            {entries.map((entry) => renderEntry(entry, { star: "all" }))}
-          </div>
-        </section>
-      );
-    });
-  };
-
-  // Follow Main: names the model the chat would follow, with its account and upstream like every other row.
-  // In Now while it does, else offered under it.
+  // The Main model and where it runs, for the "Use default" tooltip.
   const mainVia = mainRow ? viaName(mainRow.provider, mainRow.model) : null;
   const mainLine = mainRow
     ? [
@@ -1176,43 +1078,6 @@ export function ConnectionSwitcherBody({
         .filter(Boolean)
         .join(" · ")
     : "";
-  const followRow = (active: boolean) =>
-    followDefault && (
-      <button
-        type="button"
-        data-switcher-default
-        aria-current={active ? "true" : undefined}
-        disabled={busy}
-        onClick={() => {
-          if (active) return onDone();
-          setBusy(true);
-          void followDefault
-            .onSelect()
-            .then(onDone)
-            .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
-            .finally(() => setBusy(false));
-        }}
-        className={cn(ROW_CLASS, active && "bg-foreground/[0.07] font-semibold")}
-      >
-        {followDefault.label && followDefault.label !== t("connections.defaults.followsMain") ? (
-          <CircleSlash size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />
-        ) : mainRow ? (
-          <ModelTile row={mainRow} account={groupOfRow.get(mainRow.id)?.account} size="sm" />
-        ) : (
-          <House size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />
-        )}
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate">{followDefault.label ?? t("connections.switcher.followMain")}</span>
-          {!followDefault.label && (
-            <span className="truncate text-[0.625rem] font-normal text-foreground/50">
-              {mainRow ? mainLine : t("connections.switcher.noMain")}
-            </span>
-          )}
-        </span>
-        {active && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
-      </button>
-    );
-
   const extraRows = (extras ?? []).map((extra) => (
     <button
       key={extra.value}
@@ -1243,30 +1108,9 @@ export function ConnectionSwitcherBody({
     </button>
   );
 
-  const shuffleRow = shuffle && (
-    <button
-      type="button"
-      data-switcher-shuffle
-      onClick={shuffle.onToggle}
-      aria-pressed={shuffle.active}
-      title={t(
-        shuffle.active
-          ? "ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable"
-          : "ui.chat.quickconnectionswitcher.useRandomConnectionFromPool",
-      )}
-      className={cn(ROW_CLASS, shuffle.active && "bg-foreground/[0.07] font-semibold")}
-    >
-      <Shuffle size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />
-      <span className="min-w-0 flex-1 truncate">{t("connections.switcher.shuffle")}</span>
-      {shuffle.active && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
-    </button>
-  );
-
   // Shuffle on: the list becomes the pool, as before.
   const poolList = (
     <>
-      {shuffleRow}
-      <div className="mx-2 my-1 h-px bg-foreground/10" />
       {[...rows]
         .sort((a, b) => rowLabel(a).localeCompare(rowLabel(b)))
         .map((row) => {
@@ -1317,54 +1161,30 @@ export function ConnectionSwitcherBody({
         } else if (event.key === "Enter") {
           event.preventDefault();
           const entry = searchEntries[highlight];
-          if (entry && (!entry.key.startsWith("use:") || highlightMoved.current)) void apply(entry);
+          // A typed id is used on Enter only when nothing else matches, as in the old catalog picker.
+          if (entry && (!entry.key.startsWith("use:") || highlightMoved.current || searchEntries.length === 1))
+            void apply(entry);
         }
       }}
       label={t("connections.switcher.searchLabel")}
-      placeholder={t("connections.switcher.searchPlaceholder")}
+      placeholder={
+        scopeGroup
+          ? t("connections.switcher.searchInPlaceholder", { account: scopeGroup.name })
+          : t("connections.switcher.searchPlaceholder")
+      }
       autoCapitalize="off"
       autoCorrect="off"
     />
   );
 
-  // The catalog of one Connection through the Model a pick runs on. Only what the chat runs looks current there.
-  const pickerConnectionOf = (group: SwitcherGroup) => {
-    const anchor = anchorOf(group);
-    return {
-      ...anchor,
-      // A pick runs on the chat's Model; the stars come from the Connection's anchor.
-      pinnedModels: (starAnchorOf(group.rows) ?? anchor).pinnedModels,
-      model:
-        anchor === currentRow
-          ? (current?.model ?? anchor.model)
-          : followDefault?.active && !followDefault.own && mainRow && group.rows.some((row) => row.id === mainRow.id)
-            ? mainRow.model
-            : null,
-    };
-  };
-  const onChoose = (choice: ChatModelChoice) => (matchesNow(choice) ? Promise.resolve() : onApply(choice));
-
   const nothing = groups.length === 0 && !showLocalModel;
-  const nowLabel = followDefault
-    ? followDefault.label
-      ? t("connections.switcher.now")
-      : t(followDefault.active ? "connections.switcher.nowFollowsMain" : "connections.switcher.nowThisChat")
-    : t("connections.switcher.now");
-  // Now stays in sight while the list scrolls; the host's opaque surface colour backs it.
-  const nowSection = (nowEntry || followDefault?.active) && (
-    <section
-      data-switcher-section="now"
-      aria-label={nowLabel}
-      className={cn(
-        "mb-1 border-b border-foreground/10 pb-1",
-        layout === "steps" && "sticky top-0 z-[1] bg-[var(--mari-modal-opaque-bg,var(--background))]",
-      )}
-    >
-      <ListHeading>{nowLabel}</ListHeading>
-      {nowEntry ? renderEntry(nowEntry, { now: true, away: true }) : followRow(true)}
-    </section>
-  );
-
+  // A job's pick is not "this chat only"; only chat hosts (no job role) say so.
+  const nowLabel =
+    followDefault && !ownRole
+      ? followDefault.label
+        ? t("connections.switcher.now")
+        : t(followDefault.active ? "connections.switcher.nowFollowsMain" : "connections.switcher.nowThisChat")
+      : t("connections.switcher.now");
   const usageOf = (group: SwitcherGroup | undefined) => {
     const usageRow = group ? resolveUsageConnection(rows, anchorOf(group).id) : null;
     return (
@@ -1376,147 +1196,412 @@ export function ConnectionSwitcherBody({
     );
   };
 
-  const list = browsingGroup ? (
-    <div data-switcher-catalog={browsingGroup.key} className={cn("flex min-h-0 flex-1 flex-col", listClassName)}>
-      <div className="shrink-0 border-b border-foreground/10 p-1">
+  const openPane = (key: string) => {
+    setPane(key);
+    setDrilled(true);
+  };
+  const heading = (label: ReactNode, count?: number) => (
+    <ListHeading className="flex items-baseline justify-between gap-2">
+      <span className="min-w-0 truncate">{label}</span>
+      {count !== undefined && <span className="shrink-0 font-normal tabular-nums">{count}</span>}
+    </ListHeading>
+  );
+  // On a narrow host each left item drills into its pane.
+  const chevron = <ChevronRight size="0.875rem" className="shrink-0 text-foreground/35 @xl:hidden" aria-hidden />;
+  const paneButton = (key: string, tile: ReactNode, label: string, count: number) => {
+    const selected = paneKey === key;
+    return (
+      <button
+        key={key}
+        type="button"
+        data-switcher-pane={key}
+        aria-pressed={selected}
+        onClick={() => openPane(key)}
+        className={cn(ROW_CLASS, "min-h-11", selected && cn("bg-foreground/[0.07] font-semibold", ACCENT_BAR))}
+      >
+        {tile}
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="shrink-0 font-normal tabular-nums text-foreground/50">{count}</span>
+        {chevron}
+      </button>
+    );
+  };
+  const accountItem = (group: SwitcherGroup) => {
+    const account = group.account!;
+    const selected = paneKey === group.key;
+    return (
+      <ServiceRow
+        key={group.key}
+        account={account}
+        rows={group.rows}
+        density="sm"
+        count={t("connections.list.models", { count: catalogOf(group)?.count ?? group.rows.length })}
+        state={account.state}
+        stateLabel={t(accountStateLabel(account))}
+        current={selected}
+        onClick={() => openPane(group.key)}
+        aria-pressed={selected}
+        data-switcher-pane={group.key}
+        className={cn(selected && ACCENT_BAR)}
+        trailing={chevron}
+        end={unavailableOf(group) && fixButton(group)}
+      />
+    );
+  };
+  // Group by folder (the Connections panel's choice): each folder is a pane of its saved Models.
+  const knownFolders = new Set((folders ?? []).map((folder) => folder.id));
+  const folderPanes = byFolder
+    ? [...sortPanelFolders(folders ?? [], sort), null]
+        .map((folder) => ({
+          key: `folder:${folder?.id ?? "none"}`,
+          folder,
+          entries: rows
+            .filter((row) => (folder ? row.folderId === folder.id : !row.folderId || !knownFolders.has(row.folderId)))
+            .map((row) => entryOfRow(row, groupOfRow.get(row.id))),
+        }))
+        .filter((item) => item.entries.length > 0)
+    : [];
+  // A filtered job (embeddings) skips accounts with nothing it can use, as the old list did.
+  const accountGroups = groups.filter((group) => {
+    if (!group.account) return false;
+    if (!modelFilter) return true;
+    const { starred, rest } = paneEntries(group);
+    return starred.length + rest.length > 0;
+  });
+  const standaloneGroups = groups.filter((group) => !group.account);
+
+  const leftPane = (
+    <div
+      data-switcher-accounts
+      className={cn(
+        "flex min-h-0 w-full flex-col @xl:w-[15.5rem] @xl:shrink-0 @xl:border-r @xl:border-foreground/10",
+        drilled && "@max-xl:hidden",
+      )}
+    >
+      <ListFrame option="[data-switcher-pane],[data-switcher-extra]" className="min-h-0 flex-1" listClassName="p-1.5">
+        {extraRows}
+        {paneButton(
+          "starred",
+          <span
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.06] text-[var(--marinara-chat-chrome-accent)]"
+            aria-hidden
+          >
+            <Star size="0.875rem" fill="currentColor" />
+          </span>,
+          t("connections.switcher.starred"),
+          starredEntries.length,
+        )}
+        {accountGroups.length > 0 && (
+          <section data-switcher-section="accounts" aria-label={t("connections.switcher.accounts")}>
+            {heading(t("connections.switcher.accounts"))}
+            {accountGroups.map(accountItem)}
+          </section>
+        )}
+        {folderPanes.length > 0 && (
+          <section data-switcher-section="folders" aria-label={t("connections.switcher.folders")}>
+            {heading(t("connections.switcher.folders"))}
+            {folderPanes.map((item) =>
+              paneButton(
+                item.key,
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
+                  <span
+                    className={cn("h-2 w-2 rounded-full", !item.folder?.color && "border border-foreground/40")}
+                    style={item.folder?.color ? { backgroundColor: item.folder.color } : undefined}
+                  />
+                </span>,
+                item.folder?.name ?? t("connections.folders.none"),
+                item.entries.length,
+              ),
+            )}
+          </section>
+        )}
+        {standaloneGroups.flatMap((group) => group.rows.map((row) => renderEntry(entryOfRow(row, group))))}
+        {showLocalModel && renderEntry(localEntry)}
+      </ListFrame>
+      {addRow && <div className="shrink-0 border-t border-foreground/10 px-1 py-1">{addRow}</div>}
+    </div>
+  );
+
+  const paneFolder = folderPanes.find((item) => item.key === paneKey);
+  const shownGroup = paneFolder ? undefined : paneGroup;
+  const shownEntries = shownGroup ? paneEntries(shownGroup) : null;
+  const paneTitle = (title: ReactNode, summary: string) => (
+    <div className="flex min-w-0 shrink-0 items-baseline gap-2.5 px-3.5 pb-1 pt-2.5">
+      <strong className="truncate text-[0.8125rem] font-semibold">{title}</strong>
+      <span className="truncate text-[0.6875rem] text-foreground/50">{summary}</span>
+    </div>
+  );
+  const starredAccounts = new Set(starredEntries.map((entry) => entry.group?.key)).size;
+  const rightPane = (
+    <div
+      data-switcher-pane-models={paneKey}
+      className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !drilled && "@max-xl:hidden")}
+    >
+      <div className="shrink-0 px-1 pt-1 @xl:hidden">
         <button
           type="button"
           data-switcher-back
-          onClick={backFromCatalog}
+          onClick={() => setDrilled(false)}
           className={cn(ROW_CLASS, "w-auto text-foreground/70")}
         >
           <ChevronLeft size="0.875rem" className="shrink-0" aria-hidden />
-          {t("connections.switcher.back")}
+          {t("connections.switcher.backToAccounts")}
         </button>
       </div>
-      {usageOf(browsingGroup)}
-      <ConnectionModelPicker
-        key={browsingGroup.key}
-        connection={pickerConnectionOf(browsingGroup)}
-        onChoose={onChoose}
-        accountName={browsingGroup.name}
-        autoFocusSearch
-        onPicked={onDone}
-      />
-    </div>
-  ) : (
-    <div
-      data-switcher-list
-      className={cn("flex min-h-0 flex-col overflow-hidden", layout === "steps" && "flex-1", listClassName)}
-    >
-      {listHeader}
+      {shownGroup?.account ? (
+        <ServiceRow
+          account={shownGroup.account}
+          rows={shownGroup.rows}
+          density="sm"
+          count={[
+            t("connections.list.models", { count: catalogOf(shownGroup)?.count ?? shownGroup.rows.length }),
+            shownEntries!.starred.length > 0
+              ? t("connections.switcher.starredSome", { count: shownEntries!.starred.length })
+              : t("connections.switcher.starredNone"),
+          ].join(" · ")}
+          state={shownGroup.account.state}
+          stateLabel={t(accountStateLabel(shownGroup.account))}
+          className="shrink-0 ps-1 pe-3 pt-1"
+          trailing={
+            catalogBrowse &&
+            scopeAnchorId &&
+            !unavailableOf(shownGroup) && (
+              <button
+                type="button"
+                data-model-refresh
+                onClick={() =>
+                  refreshModels.mutate(scopeAnchorId, {
+                    onError: (error) =>
+                      toast.error(t("connections.modelPicker.refreshFailed", { error: errorMessage(error) })),
+                  })
+                }
+                disabled={refreshModels.isPending || scopeModels.isFetching}
+                aria-label={t("connections.modelPicker.refresh")}
+                title={t("connections.modelPicker.refresh")}
+                className="mari-chrome-control mari-chrome-control--icon"
+              >
+                <RefreshCw
+                  size="0.875rem"
+                  className={cn((refreshModels.isPending || scopeModels.isFetching) && "animate-spin")}
+                  aria-hidden
+                />
+              </button>
+            )
+          }
+          end={unavailableOf(shownGroup) && fixButton(shownGroup)}
+        />
+      ) : paneFolder ? (
+        paneTitle(
+          paneFolder.folder?.name ?? t("connections.folders.none"),
+          t("connections.list.models", { count: paneFolder.entries.length }),
+        )
+      ) : (
+        paneTitle(
+          t("connections.switcher.starred"),
+          t("connections.switcher.starredSummary", {
+            models: t("connections.list.models", { count: starredEntries.length }),
+            accounts: t("connections.switcher.accountCount", { count: starredAccounts }),
+          }),
+        )
+      )}
+      {shownGroup && usageOf(shownGroup)}
       <ListFrame
         data-connection-switcher-scroll
+        option="button.mari-connection-model-choice"
         className="min-h-0 flex-1"
-        search={!shuffle?.active && !nothing && searchBox}
-        listClassName="relative min-h-0 px-1 pb-1"
+        listClassName={cn("p-1.5", listClassName)}
       >
-        {shuffle?.active ? (
-          poolList
-        ) : nothing ? (
-          (empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>)
-        ) : searching ? (
-          <div data-switcher-results>
-            {searchEntries.slice(0, savedCount).map((entry, index) => renderEntry(entry, { index, star: "all" }))}
-
-            {searchEntries
-              .slice(savedCount)
-              .map((entry, index) => renderEntry(entry, { index: savedCount + index, star: "all" }))}
-            {searchEntries.length === 0 && (
-              <ListStatus>
-                {t(catalog.isFetching ? "connections.switcher.searching" : "connections.switcher.noMatches")}
-              </ListStatus>
-            )}
-          </div>
-        ) : (
+        {shownEntries ? (
           <>
-            {nowSection}
-            {followDefault && !followDefault.active && followRow(false)}
-            {extraRows}
-            {starredEntries.length > 0 && (
+            {shownEntries.starred.length > 0 && (
               <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
-                <ListHeading>{t("connections.switcher.starred")}</ListHeading>
-                {starredEntries.map((entry) => renderEntry(entry, { star: "all", away: true }))}
+                {heading(t("connections.switcher.starred"), shownEntries.starred.length)}
+                {shownEntries.starred.map((entry) => renderEntry(entry, { star: "all" }))}
               </section>
             )}
+            {shownEntries.rest.length > 0 && (
+              <section data-switcher-section="all" aria-label={t("connections.switcher.allModels")}>
+                {heading(t("connections.switcher.allModels"), shownEntries.rest.length)}
+                {shownEntries.rest.map((entry) => renderEntry(entry, { star: "all" }))}
+              </section>
+            )}
+            {scopeModels.isError && !refreshModels.isPending ? (
+              <ListStatus>{t("connections.modelPicker.loadFailed")}</ListStatus>
+            ) : (
+              shownEntries.starred.length + shownEntries.rest.length === 0 && (
+                <ListStatus>{t("connections.switcher.noModels")}</ListStatus>
+              )
+            )}
+          </>
+        ) : paneFolder ? (
+          paneFolder.entries.map((entry) => renderEntry(entry, { star: "all" }))
+        ) : (
+          <>
             {knownEntries.length > 0 && (
               <section data-switcher-section="known" aria-label={knownGood!.label}>
-                <ListHeading>{knownGood!.label}</ListHeading>
+                {heading(knownGood!.label)}
                 {knownEntries.map((entry) => renderEntry(entry, { away: true }))}
               </section>
             )}
-            {recent.length > 0 && (
-              <section data-switcher-section="recent" aria-label={t("connections.switcher.recent")}>
-                <ListHeading>{t("connections.switcher.recent")}</ListHeading>
-                {recent.map((entry) => renderEntry(entry, { away: true }))}
-              </section>
-            )}
-            {byFolder ? folderSections() : listed.map(renderGroup)}
-            {(showLocalModel || shuffleRow) && (
-              <div className="mt-1 border-t border-foreground/10 pt-1">
-                {showLocalModel && currentId !== LOCAL_SIDECAR_CONNECTION_ID && renderEntry(localEntry)}
-                {shuffleRow}
-              </div>
+            <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
+              {starredEntries.map((entry) => renderEntry(entry, { star: "all", away: true }))}
+            </section>
+            {starredEntries.length === 0 && knownEntries.length === 0 && (
+              <ListStatus>{t("connections.switcher.starredEmpty")}</ListStatus>
             )}
           </>
         )}
       </ListFrame>
-      {addRow && <div className="shrink-0 border-t border-foreground/10 px-1 py-1">{addRow}</div>}
-      {listFooter}
     </div>
   );
 
-  // Professor Mari's composer keeps the current Connection's catalog beside the list on wide screens.
-  const pickerGroup = currentGroup?.account ? currentGroup : undefined;
-  const models =
-    layout !== "container" || shuffle?.active ? null : (
-      <div data-quick-connection-models className={cn("flex min-h-0 min-w-0 flex-1 flex-col", modelsClassName)}>
-        {usageOf(pickerGroup)}
-        {pickerGroup ? (
-          <ConnectionModelPicker
-            key={pickerGroup.key}
-            connection={pickerConnectionOf(pickerGroup)}
-            onChoose={onChoose}
-            accountName={pickerGroup.name}
-            onPicked={onDone}
-          />
-        ) : (
-          <p className="px-4 py-4 text-[0.6875rem] text-foreground/50">
-            {currentId === LOCAL_SIDECAR_CONNECTION_ID ? (
-              <span className="flex items-center gap-1.5">
-                <Cpu size="0.75rem" aria-hidden />
-                {sidecarModelDisplayName || t("connections.modelPicker.localModel")}
-              </span>
-            ) : (
-              t("connections.modelPicker.chooseConnection")
+  const results = (
+    <ListFrame
+      data-connection-switcher-scroll
+      className="min-h-0 flex-1 border-t border-foreground/10"
+      listClassName={cn("p-1.5", listClassName)}
+    >
+      <div data-switcher-results>
+        {searchSections.map((section) => (
+          <section key={section.key} data-switcher-section={section.key} aria-label={section.label}>
+            {section.label && heading(section.label, section.entries.length)}
+            {section.entries.map((entry) =>
+              renderEntry(entry, {
+                index: searchEntries.indexOf(entry),
+                star: "all",
+                away: section.key === "starred" && !scopeGroup,
+              }),
             )}
-          </p>
+          </section>
+        ))}
+      </div>
+      {searchEntries.length === 0 && (
+        <ListStatus>
+          {t(!scopeGroup && catalog.isFetching ? "connections.switcher.searching" : "connections.switcher.noMatches")}
+        </ListStatus>
+      )}
+      {scopeGroup && (
+        <button
+          type="button"
+          data-switcher-search-all
+          onClick={() => setPane("starred")}
+          className={cn(ROW_CLASS, "text-foreground/70")}
+        >
+          <Search size="0.875rem" className="mx-[0.3125rem] shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">{t("connections.switcher.searchAll")}</span>
+        </button>
+      )}
+    </ListFrame>
+  );
+
+  // Now: what the host runs (or the default it follows), with the way back to the default beside it.
+  const activeExtra = extras?.find((extra) => extra.active);
+  const nowStrip = (
+    <section
+      data-switcher-section="now"
+      aria-label={nowLabel}
+      className={cn(
+        "mx-2 mt-2 shrink-0 rounded-[0.625rem] bg-foreground/[0.06] p-1",
+        drilled && !searching && "@max-xl:hidden",
+      )}
+    >
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <ListHeading className="pb-0 pt-0.5 text-[var(--marinara-chat-chrome-accent)]">{nowLabel}</ListHeading>
+          {nowEntry && !shuffle?.active ? (
+            renderEntry(nowEntry, { now: true, away: true })
+          ) : (
+            <p className="truncate px-3 py-2 text-xs font-medium">
+              {shuffle?.active
+                ? t("connections.switcher.shuffle")
+                : (activeExtra?.label ??
+                  (followDefault?.active
+                    ? (followDefault.label ?? t("connections.switcher.followMain"))
+                    : t("connections.switcher.chooseModel")))}
+            </p>
+          )}
+        </div>
+        {followDefault && !followDefault.active && (
+          <button
+            type="button"
+            data-switcher-default
+            disabled={busy}
+            title={mainLine || followDefault.label || t("connections.switcher.useDefaultNone")}
+            onClick={() => {
+              setBusy(true);
+              void followDefault
+                .onSelect()
+                .then(onDone)
+                .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
+                .finally(() => setBusy(false));
+            }}
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 max-md:min-w-11 [@media(pointer:coarse)]:min-h-11"
+          >
+            <House size="0.8125rem" className="shrink-0" aria-hidden />
+            <span className="@max-xl:sr-only">{followDefault.label ?? t("connections.switcher.useDefaultNone")}</span>
+          </button>
+        )}
+        {shuffle?.onToggle && (
+          <button
+            type="button"
+            data-switcher-shuffle
+            aria-pressed={shuffle.active}
+            aria-label={t("connections.switcher.shuffle")}
+            title={t(
+              shuffle.active
+                ? "ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable"
+                : "ui.chat.quickconnectionswitcher.useRandomConnectionFromPool",
+            )}
+            onClick={shuffle.onToggle}
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
+              shuffle.active && "text-[var(--marinara-chat-chrome-accent)]",
+            )}
+          >
+            <Dices size="1rem" aria-hidden />
+          </button>
         )}
       </div>
-    );
+      {listHeader}
+    </section>
+  );
 
-  if (layout === "steps") {
-    return (
-      <div
-        ref={rootRef}
-        data-connection-switcher
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && browsingKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
-            event.preventDefault();
-            event.stopPropagation();
-            backFromCatalog();
-          }
-        }}
-        className={cn("mari-connection-scope flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", className)}
-      >
-        {list}
-      </div>
-    );
-  }
   return (
-    <div ref={rootRef} data-connection-switcher className={cn("mari-connection-scope contents", className)}>
-      {list}
-      {models}
+    <div
+      ref={rootRef}
+      data-connection-switcher
+      onKeyDown={(event) => {
+        // On a narrow host Escape steps back from a drilled pane first; with two panes it closes the host.
+        if (event.key !== "Escape" || event.nativeEvent.isComposing || event.keyCode === 229) return;
+        const back = rootRef.current?.querySelector<HTMLElement>("[data-switcher-back]");
+        if (!back?.offsetParent) return;
+        event.preventDefault();
+        event.stopPropagation();
+        back.click();
+      }}
+      className={cn("mari-connection-scope @container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", className)}
+    >
+      {nowStrip}
+      {!shuffle?.active && !nothing && searchBox}
+      {shuffle?.active ? (
+        <ListFrame
+          data-connection-switcher-scroll
+          className="min-h-0 flex-1 border-t border-foreground/10"
+          listClassName="relative min-h-0 px-1 pb-1"
+        >
+          {poolList}
+        </ListFrame>
+      ) : nothing ? (
+        (empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>)
+      ) : searching ? (
+        results
+      ) : (
+        <div data-switcher-panes className="flex min-h-0 flex-1 border-t border-foreground/10">
+          {leftPane}
+          {rightPane}
+        </div>
+      )}
+      {listFooter}
     </div>
   );
 }

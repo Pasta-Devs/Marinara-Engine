@@ -1,12 +1,12 @@
 // ──────────────────────────────────────────────
 // Quick Connection Switcher — the composer chip shows the model the chat
 // runs (its maker, and whether it follows Main or is this chat's own pick);
-// it opens the shared one-column chooser. A pick applies to this chat only.
+// it opens the shared two-pane chooser. A pick applies to this chat only.
 // ──────────────────────────────────────────────
 import { openAddConnection } from "../../lib/add-connection";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Link, X } from "lucide-react";
+import { Dices, Link, X } from "lucide-react";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
@@ -80,7 +80,7 @@ export function QuickConnectionSwitcher({
       if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
       // Touch browsers may leave focus on the page after Browse, outside the chooser's key handler.
       const back = menuRef.current?.querySelector<HTMLButtonElement>("[data-switcher-back]");
-      if (back) {
+      if (back?.offsetParent) {
         event.preventDefault();
         back.click();
         return;
@@ -177,8 +177,8 @@ export function QuickConnectionSwitcher({
             }}
             data-quick-connection-menu
             className={cn(
-              // One column; a fixed size keeps the menu still while a catalog loads or is filtered.
-              "mari-chat-style-surface fixed z-[9999] flex h-[min(34rem,calc(100dvh-6rem))] w-[min(26rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
+              // Two panes; a fixed size keeps the menu still while a catalog loads or is filtered.
+              "mari-chat-style-surface fixed z-[9999] flex h-[min(34rem,calc(100dvh-6rem))] w-[min(40rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
               chatMode === "roleplay"
                 ? "bg-[var(--card)] [--mari-chat-existing-bg:var(--card)]"
                 : "bg-[var(--background)] [--mari-chat-existing-bg:var(--background)]",
@@ -191,6 +191,26 @@ export function QuickConnectionSwitcher({
               </h2>
               <button
                 type="button"
+                data-switcher-shuffle
+                onClick={handleToggleRandom}
+                aria-pressed={isRandom}
+                aria-label={localizeUi("connections.switcher.shuffle")}
+                title={localizeUi(
+                  isRandom
+                    ? "ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable"
+                    : "ui.chat.quickconnectionswitcher.useRandomConnectionFromPool",
+                )}
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
+                  isRandom
+                    ? "text-[var(--marinara-chat-chrome-accent)]"
+                    : "text-foreground/55 hover:text-foreground/80",
+                )}
+              >
+                <Dices size="1rem" aria-hidden />
+              </button>
+              <button
+                type="button"
                 onClick={close}
                 aria-label={localizeUi("common.close")}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
@@ -200,17 +220,15 @@ export function QuickConnectionSwitcher({
             </div>
             <ConnectionSwitcherBody
               onAdd={() => openAddConnection()}
-              layout="steps"
               current={chatPick.current}
-              recent={chatPick.recent}
               onApply={chatPick.apply}
               onDone={close}
               showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}
-              shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
+              shuffle={{ active: isRandom }}
               followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
               listHeader={
                 contextBudget && (
-                  <div className="border-b border-foreground/10 px-3 pt-2">
+                  <div className="px-2 pb-1">
                     <ContextBudgetIndicator budget={contextBudget} />
                   </div>
                 )

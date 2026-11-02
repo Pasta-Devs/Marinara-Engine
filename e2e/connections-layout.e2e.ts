@@ -224,19 +224,26 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(panel.locator('[data-defaults-tile="images"]')).toBeVisible();
     // A newly configured role must not remount while its controls are open.
     const images = panel.locator('[data-defaults-role="images"]');
-  const imageTile = images.locator('[data-defaults-tile="images"]');
-  await imageTile.click();
-  await images.evaluate((element) => element.setAttribute("data-retained-row", "true"));
-  const picker = page.getByRole("dialog", { name: /^Model for Images/ });
-  await picker.locator("[data-switcher-entry]").filter({ hasText: "Studio Image" }).click();
-  await expect(imageTile).toContainText("Studio Image");
-  await expect(images).toHaveAttribute("data-retained-row", "true");
-  await expect(imageTile).toBeFocused();
-  await imageTile.click();
-  await picker.getByRole("button", { name: /None/ }).click();
-  await expect(imageTile).not.toContainText("Studio Image");
-  await expect(images).toHaveAttribute("data-retained-row", "true");
-  await expect(imageTile).toBeFocused();
+    const imageTile = images.locator('[data-defaults-tile="images"]');
+    await imageTile.click();
+    await images.evaluate((element) => element.setAttribute("data-retained-row", "true"));
+    const picker = page.getByRole("dialog", { name: /^Model for Images/ });
+    // The chooser shows one account's models at a time; a phone shows the account list after Back.
+    await expect(picker.locator("[data-switcher-search]")).toBeVisible();
+    if (await picker.locator("[data-switcher-back]").isVisible()) await picker.locator("[data-switcher-back]").click();
+    await picker.locator("[data-switcher-pane]").filter({ hasText: "Mixed studio" }).click();
+    await picker.locator("[data-switcher-entry]").filter({ hasText: "Studio Image" }).click();
+    await expect(imageTile).toContainText("Studio Image");
+    await expect(images).toHaveAttribute("data-retained-row", "true");
+    await expect(imageTile).toBeFocused();
+    await imageTile.click();
+    // A phone shows the Now strip, with "None", beside the account list.
+    await expect(picker.locator("[data-switcher-search]")).toBeVisible();
+    if (await picker.locator("[data-switcher-back]").isVisible()) await picker.locator("[data-switcher-back]").click();
+    await picker.getByRole("button", { name: /None/ }).click();
+    await expect(imageTile).not.toContainText("Studio Image");
+    await expect(images).toHaveAttribute("data-retained-row", "true");
+    await expect(imageTile).toBeFocused();
     // The saved key stays masked in the editor, and opening it never changes the connection.
     await group.getByRole("button", { name: `Actions for Mixed studio ${info.project.name}` }).click();
     await page.getByRole("menuitem", { name: "Edit account", exact: true }).click();

@@ -312,9 +312,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <ConnectionSwitcherBody
                   onAdd={() => openAddConnection()}
-                  layout="steps"
                   current={chatPick.current}
-                  recent={chatPick.recent}
                   onApply={chatPick.apply}
                   onDone={closeMenu}
                   showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}

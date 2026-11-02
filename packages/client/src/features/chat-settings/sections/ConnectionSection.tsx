@@ -118,7 +118,7 @@ export function ConnectionSection({
             if (event.key !== "Escape" || !open || event.nativeEvent.isComposing || event.keyCode === 229) return;
             event.stopPropagation();
             const back = chooserRef.current?.querySelector<HTMLButtonElement>("[data-switcher-back]");
-            if (back) back.click();
+            if (back?.offsetParent) back.click();
             else close();
           }}
         >
@@ -177,9 +177,7 @@ export function ConnectionSection({
             >
               <ConnectionSwitcherBody
                 onAdd={() => openAddConnection()}
-                layout="steps"
                 current={chatPick.current}
-                recent={chatPick.recent}
                 onApply={chatPick.apply}
                 onDone={close}
                 autoFocusSearch
