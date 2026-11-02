@@ -1,4 +1,6 @@
+import { scopedRegexModeSchema } from "../schemas/prompt.schema.js";
 import type { ChatMode } from "../types/chat.js";
+import type { ScopedRegexMode } from "../types/regex.js";
 
 export const DRAWER_WINDOW_PREFIX = "drawer:";
 
@@ -34,6 +36,8 @@ export function getLegacyChatWindowLayout(
 export interface ChatWindowDefault {
   windowLayout: unknown | null;
   chatSettingsHintDismissed: boolean;
+  /** The Scoped Regex Scripts choice (#8676). Missing means new chats inherit the prompt preset's default. */
+  scopedRegexMode?: ScopedRegexMode;
 }
 
 export function getChatWindowDefaultSettingsKey(mode: ChatMode): string {
@@ -68,7 +72,13 @@ export function parseChatWindowDefault(value: string | null): ChatWindowDefault 
       if ("phoneBubbles" in layout && !isPlainRecord(layout.phoneBubbles)) return null;
       if ("phoneMenu" in layout && !isPlainRecord(layout.phoneMenu)) return null;
     }
-    return { windowLayout: layout, chatSettingsHintDismissed: parsed.chatSettingsHintDismissed };
+    const scoped = scopedRegexModeSchema.safeParse(parsed.scopedRegexMode);
+    if (!scoped.success && parsed.scopedRegexMode != null) return null;
+    return {
+      windowLayout: layout,
+      chatSettingsHintDismissed: parsed.chatSettingsHintDismissed,
+      ...(scoped.success && { scopedRegexMode: scoped.data }),
+    };
   } catch {
     return null;
   }

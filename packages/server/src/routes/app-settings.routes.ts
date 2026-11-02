@@ -204,7 +204,7 @@ export async function appSettingsRoutes(app: FastifyInstance) {
       if (favorite === null && input.value.trim() !== "null") {
         return reply.status(400).send({ error: "Invalid chat window default" });
       }
-      // Store only layout and hint preferences, never chat-specific content sent alongside them.
+      // Store only layout, hint and scoped regex preferences, never chat-specific content sent alongside them.
       input.value = JSON.stringify(favorite);
     }
     await storage.set(req.params.key, input.value);
