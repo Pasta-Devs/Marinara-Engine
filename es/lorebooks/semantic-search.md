@@ -18,25 +18,27 @@ Las coincidencias por palabra clave y las semánticas tienen la misma prioridad 
 
 La búsqueda semántica necesita un modelo que pueda crear embeddings. Tienes dos opciones.
 
-Elijas la que elijas, puedes convertirla en la predeterminada de toda la aplicación: abre **Connections** (Conexiones), luego **Defaults** (Valores predeterminados) y elígela en la sección **Embeddings**. Todas las conexiones que no definan un modelo de embeddings ni una **Embedding Connection** propios la usan entonces. El ajuste propio de una conexión sigue teniendo prioridad, y la fila te indica cuántas conexiones usan sus propios ajustes. **None** mantiene el modelo local integrado como alternativa.
+Elijas la que elijas, puedes convertirla en la predeterminada de toda la aplicación: abre **Connections** (Conexiones), luego **Defaults** (Valores predeterminados) y elígela en la sección **Embeddings**. Todas las conexiones que no definan un modelo de embeddings ni un **Embedding provider** propios la usan entonces. El ajuste propio de una conexión sigue teniendo prioridad, y la fila te indica cuántas conexiones usan sus propios ajustes. **None** mantiene el modelo local integrado como alternativa.
 
 Opción 1: una conexión con un modelo de embeddings.
 
 1. Abre el panel **Connections** (Conexiones).
 2. Abre una conexión para editarla.
-3. Busca la sección **Semantic Search (Embeddings)** (Búsqueda semántica (Embeddings)).
+3. Abre **Advanced** (Avanzado), luego **More** (Más), y busca la sección **Semantic search (embeddings)** (Búsqueda semántica: embeddings).
 4. Escribe el nombre de un modelo de embeddings en el campo del modelo. Un valor común es `text-embedding-3-small`.
 5. Guarda la conexión.
 
-Una conexión también puede enviar sus solicitudes de embeddings mediante la API key y la dirección de otra conexión. En la misma sección, elige esa conexión en **Embedding Connection** (Conexión de embeddings). El valor predeterminado es **Same as this connection** (Igual que esta conexión). Si la conexión elegida tiene su propio modelo de embeddings, Marinara lo usa; si no, usa el nombre de modelo que escribiste aquí. Esto se aplica tanto al vectorizar como durante el chat.
+Para comprobar la configuración, haz clic en **Test embedding** (Probar embedding) debajo de los ajustes de embeddings. Marinara guarda primero tus cambios y luego genera el embedding de un breve texto de muestra con el mismo modelo, la misma API key y la misma dirección que usa la búsqueda semántica. Después muestra el tamaño de vector que recibió, como "1536 dimensions" (1536 dimensiones), o el error que devolvió el proveedor.
+
+Una conexión también puede enviar sus solicitudes de embeddings mediante la API key y la dirección de otra conexión. En la misma sección, elige esa conexión en **Embedding provider** (Proveedor de embeddings). El valor predeterminado es **Same as this provider** (Igual que este proveedor). Si la conexión elegida tiene su propio modelo de embeddings, Marinara lo usa; si no, usa el nombre de modelo que escribiste aquí. Esto se aplica tanto al vectorizar como durante el chat.
 
 No todos los proveedores ofrecen embeddings. Si el proveedor no puede hacer embeddings, el editor te indica que elijas en su lugar una conexión dedicada de embeddings.
 
 Opción 2: el modelo local integrado.
 
-Marinara puede ejecutar un pequeño modelo de embeddings en tu propia máquina sin API key (clave de API). En el selector de lorebooks esta opción se llama **Local Model (sidecar)** (Modelo local (sidecar)). Aparece solo después de que descargues el modelo local. Consulta [Configuración del modelo local](../connections/local-model.md) para saber cómo instalarlo.
+Marinara puede ejecutar un pequeño modelo de embeddings en tu propia máquina sin API key (clave de API). En el selector de lorebooks esta opción se llama **Built-in model** (Modelo integrado). Aparece solo después de que descargues el modelo local. Consulta [Configuración del modelo local](../connections/local-model.md) para saber cómo instalarlo.
 
-Si usas una versión Marinara Lite, la opción **Local Model (sidecar)** está oculta. En Lite, la búsqueda semántica necesita una conexión con un modelo de embeddings.
+Si usas una versión Marinara Lite, la opción **Built-in model** está oculta. En Lite, la búsqueda semántica necesita una conexión con un modelo de embeddings.
 
 ## Activa Vectors para un lorebook
 
@@ -50,9 +52,9 @@ El texto de ayuda de **Vectors** dice: "When on, entries in this lorebook may us
 
 Mientras **Vectors** está desactivado, el panel semántico muestra esta nota: "Semantic search is disabled by the lorebook-level Vectors toggle." (La búsqueda semántica está desactivada por el interruptor Vectors a nivel del lorebook.)
 
-## El panel Semantic Search (Embeddings)
+## El panel Semantic search (embeddings)
 
-Con **Vectors** activado, el panel **Semantic Search (Embeddings)** aparece en la pestaña **Overview**. Una etiqueta de estado muestra cuántas entradas están vectorizadas, por ejemplo "8/12 entries vectorized" (8/12 entradas vectorizadas). Se pone verde con una marca de verificación cuando todas las entradas están listas.
+Con **Vectors** activado, el panel **Semantic search (embeddings)** aparece en la pestaña **Overview**. Una etiqueta de estado muestra cuántas entradas están vectorizadas, por ejemplo "8/12 entries vectorized" (8/12 entradas vectorizadas). Se pone verde con una marca de verificación cuando todas las entradas están listas.
 
 El panel tiene tres ajustes numéricos.
 
@@ -75,11 +77,11 @@ Marinara calibra esta puntuación contra varios pasajes neutros no relacionados 
 Vectorizar significa construir y guardar el embedding de cada entrada. Debes hacer esto antes de que la coincidencia semántica pueda funcionar.
 
 1. Activa **Vectors** para el lorebook.
-2. En el panel **Semantic Search (Embeddings)**, elige una fuente de embeddings en el menú desplegable. La primera opción es **No semantic search** (Sin búsqueda semántica). **Local Model (sidecar)** viene después, cuando está disponible. Tus conexiones elegibles vienen a continuación.
+2. En el panel **Semantic search (embeddings)**, elige una fuente de embeddings en el menú desplegable. La primera opción es **No semantic search** (Sin búsqueda semántica). **Built-in model** viene después, cuando está disponible. Tus conexiones elegibles vienen a continuación.
 3. Haz clic en el botón de vectorizar. Cuando algunas entradas no tienen vector, el botón dice **Vectorize N missing** (Vectorizar N que faltan), por ejemplo "Vectorize 5 missing".
 4. Espera a que termine la ejecución. La etiqueta de estado se actualiza para mostrar todas las entradas vectorizadas.
 
-Si ninguna conexión tiene un modelo de embeddings ni una **Embedding Connection**, el panel muestra esta nota en lugar del menú desplegable: "No connections with an embedding model configured. Set an Embedding Model on a connection first." (No hay conexiones con un modelo de embeddings configurado. Configura primero un Embedding Model en una conexión.) Configura primero una fuente de embeddings, siguiendo los pasos de arriba.
+Si ninguna conexión tiene un modelo de embeddings ni un **Embedding provider**, el panel muestra esta nota en lugar del menú desplegable: "No connections with an embedding model configured. Set an Embedding Model on a connection first." (No hay conexiones con un modelo de embeddings configurado. Configura primero un Embedding Model en una conexión.) Configura primero una fuente de embeddings, siguiendo los pasos de arriba.
 
 Cuando todas las entradas ya tienen un vector, el botón principal cambia a **Re-vectorize N entries** (Revectorizar N entradas). Esto reconstruye todos los vectores guardados. Te pide confirmación antes de sobrescribirlos.
 
@@ -99,7 +101,7 @@ Reconstruye todos los vectores después de cambiar el modelo de embeddings. Usa 
 
 No ejecutes solo una vectorización parcial después de un cambio de modelo. Si una ejecución de "solo los que faltan" devuelve un tamaño de vector diferente al de los vectores guardados, el servidor la rechaza con este mensaje: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models." (Las dimensiones del embedding cambiaron. Usa Re-vectorize all entries en lugar de solo las entradas que faltan antes de cambiar de modelo de embeddings.)
 
-Hay un modo de fallo silencioso que conviene conocer. Al momento del chat, Marinara genera el embedding de tus mensajes recientes con un modelo de consulta. El modelo de consulta es el propio modelo de embeddings de la conexión activa o, si define una, el de su **Embedding Connection**. Si la conexión no define ninguno de los dos, Marinara usa el valor predeterminado de **Embeddings** en **Defaults**, dentro de **Connections**, o, cuando es **None**, el modelo local integrado. El modelo de consulta puede producir un tamaño de vector diferente al del modelo que vectorizó tus entradas. Entonces Marinara omite esas entradas en la coincidencia semántica. No ves ningún error. Para evitar esto, vectoriza tus entradas con la misma fuente de embeddings que usas durante el chat. Definir un valor predeterminado de **Embeddings** ayuda: el selector de vectorización empieza en él, salvo que hayas elegido otra cosa antes, y las conexiones sin ajustes de embeddings propios consultan con él. Revectoriza después de cualquier cambio de modelo.
+Hay un modo de fallo silencioso que conviene conocer. Al momento del chat, Marinara genera el embedding de tus mensajes recientes con un modelo de consulta. El modelo de consulta es el propio modelo de embeddings de la conexión activa o, si define uno, el de su **Embedding provider**. Si la conexión no define ninguno de los dos, Marinara usa el valor predeterminado de **Embeddings** en **Defaults**, dentro de **Connections**, o, cuando es **None**, el modelo local integrado. El modelo de consulta puede producir un tamaño de vector diferente al del modelo que vectorizó tus entradas. Entonces Marinara omite esas entradas en la coincidencia semántica. No ves ningún error. Para evitar esto, vectoriza tus entradas con la misma fuente de embeddings que usas durante el chat. Definir un valor predeterminado de **Embeddings** ayuda: el selector de vectorización empieza en él, salvo que hayas elegido otra cosa antes, y las conexiones sin ajustes de embeddings propios consultan con él. Revectoriza después de cualquier cambio de modelo.
 
 ## Cómo alimenta al agente Knowledge Router
 

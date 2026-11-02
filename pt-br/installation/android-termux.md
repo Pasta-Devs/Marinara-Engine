@@ -30,12 +30,12 @@ Se você quer um ícone na tela inicial que abre Marinara como um aplicativo com
 Se preferir não usar o aplicativo, instale Marinara na mão. Abra o Termux e cole este comando único:
 
 ```
-pkg update -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
+pkg upgrade -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
 ```
 
 Esse comando único faz cinco coisas:
 
-1. Atualiza os pacotes do Termux.
+1. Atualiza todos os pacotes do Termux. O Termux não tem suporte à atualização de apenas alguns pacotes: um Node.js mais novo não consegue iniciar com bibliotecas mais antigas do Termux. Se o comando perguntar se você quer manter um arquivo de configuração, pressione Enter para manter o atual.
 2. Instala Git e Node.js. Marinara funciona com as versões 24, 25 e 26 do Node.js.
 3. Baixa Marinara Engine, a menos que já esteja instalado.
 4. Torna o inicializador (o script `start-termux.sh`) executável.

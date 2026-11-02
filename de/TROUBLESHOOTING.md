@@ -27,6 +27,18 @@ Nenne bei Verbindungsfehlern Modus, Plattform, sichtbare Fehlermeldung und ob di
 
 ## Probleme bei Installation und Start
 
+### Termux: CANNOT LINK EXECUTABLE "node"
+
+Gibt Termux `CANNOT LINK EXECUTABLE "node"` und danach `cannot locate symbol` oder `library ... not found` aus, wurde Node.js ohne den Rest von Termux aktualisiert. Termux unterstützt es nicht, nur einen Teil der Pakete zu aktualisieren, deshalb startet ein neueres Node.js nicht mit älteren Termux-Bibliotheken. Die Android-App bricht dann womöglich mit **Could not verify that this Marinara Android build can safely read your stored data** ab. Deine Daten sind nicht die Ursache, und die APK erneut zu installieren behebt das Problem nicht.
+
+Aktualisiere alle Termux-Pakete und starte Marinara danach erneut:
+
+```bash
+pkg upgrade -y
+```
+
+Tipp dann in der Android-App auf **Install / Start Marinara** oder führe bei einer manuellen Installation `cd "$HOME/Marinara-Engine" && ./start-termux.sh` aus. Fragt die Aktualisierung, ob du eine Konfigurationsdatei behalten willst, drück Enter, um deine aktuelle zu behalten. Der aktualisierte Termux-Launcher und neuere Versionen der Android-App führen diese Aktualisierung selbst aus, wenn Node.js nicht starten kann.
+
 ### Termux: zu wenig JavaScript-Heap beim Client-Build
 
 Wenn Vite mit `Reached heap limit` oder `JavaScript heap out of memory` endet, reicht der Node.js-Heap für den Client-Build nicht. Das unterscheidet sich von einer fehlenden nativen Rollup-Datei. Aktualisiere und starte `start-termux.sh` erneut: Client-Builds, auch bei Updates in der App, laufen jetzt mit einem eigenen Heap von 1536 MiB, begrenzt auf die Hälfte des bekannten Geräte-RAMs, aber nie unter den 1280 MiB, die der Build braucht. Die RAM-Grenze wird auf Schritte von 128 MiB abgerundet. Der Server behält sein kleineres profilabhängiges Limit. Ein ausdrückliches Limit in `NODE_OPTIONS` gilt für beide Prozesse; prüfe auf eine alte 1024-MiB-Vorgabe, denn mit 1024 MiB lässt sich der Client nicht mehr bauen.

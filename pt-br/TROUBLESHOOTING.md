@@ -27,6 +27,18 @@ Ao relatar um erro, inclua modo, plataforma, mensagem visível e se a admissão 
 
 ## Problemas de instalação e de inicialização
 
+### Termux: CANNOT LINK EXECUTABLE "node"
+
+Se o Termux mostrar `CANNOT LINK EXECUTABLE "node"` seguido de `cannot locate symbol` ou `library ... not found`, o Node.js foi atualizado sem o resto do Termux. O Termux não tem suporte à atualização de apenas alguns pacotes, então um Node.js mais novo não consegue iniciar com bibliotecas mais antigas do Termux. O aplicativo Android pode então parar com a mensagem **Could not verify that this Marinara Android build can safely read your stored data**. Os seus dados não são a causa, e instalar o APK de novo não resolve.
+
+Atualize todos os pacotes do Termux e depois inicie Marinara de novo:
+
+```bash
+pkg upgrade -y
+```
+
+Em seguida, toque em **Install / Start Marinara** no aplicativo Android ou, em uma instalação manual, execute `cd "$HOME/Marinara-Engine" && ./start-termux.sh`. Se a atualização perguntar se você quer manter um arquivo de configuração, pressione Enter para manter o atual. O inicializador atualizado do Termux e as versões mais recentes do aplicativo Android fazem essa atualização por conta própria quando o Node.js não consegue iniciar.
+
 ### Termux: memória insuficiente ao compilar o cliente
 
 Se o Vite termina com `Reached heap limit` ou `JavaScript heap out of memory`, falta heap do Node.js para compilar o cliente. É diferente de um binário nativo do Rollup ausente. Atualize e execute `start-termux.sh` novamente: as compilações do cliente, inclusive as das atualizações dentro do aplicativo, agora rodam com um heap próprio de 1536 MiB, limitado à metade da RAM conhecida do aparelho, mas nunca abaixo dos 1280 MiB de que a compilação precisa. O limite baseado na RAM é arredondado para baixo em passos de 128 MiB. O servidor mantém o limite menor baseado no perfil. Um limite explícito em `NODE_OPTIONS` tem prioridade nos dois processos; verifique se sobrou uma configuração antiga de 1024 MiB, porque o cliente não compila mais com 1024 MiB.

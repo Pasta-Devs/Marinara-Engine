@@ -944,3 +944,57 @@ Precedents from the #8654 / #8657 / chat-profiles (`10d6d34e08`) catch-up agains
   `chat.settingsProfile.builder.clear` or `chat.settingsProfile.builder.none`, so
   *(GLB- oder FBX-Modell)*, *(GLB oder FBX importieren)*, *(Auswahl aufheben)* and
   *(keine)* are docs glosses; recheck them when the UI pack ships those keys.
+
+## Embedding test, scoped regex favorites and Termux upgrades (2026-11-02, #8681)
+
+Precedents from the #8681 catch-up against Engine `staging` `db2d6ead7`
+(`lorebooks/semantic-search.md`, `chats/chat-settings.md`, `chats/settings-profiles.md`,
+`extending/regex-scripts.md`, `installation/android-termux.md`, `TROUBLESHOOTING.md`):
+
+- **Embedding provider** is glossed *(Embedding-Anbieter)* (§4 `der Anbieter`) and is
+  masculine in prose („keinen eigenen **Embedding provider**“, „das Modell ihres
+  **Embedding provider**“); **Same as this provider** is *(wie dieser Anbieter)*. The
+  prose keeps **Verbindung** wherever English still says connection. `ui/de.json` still
+  renders `ui.connections.connectioneditor.embeddingConnection` and
+  `ui.connections.connectioneditor.sameAsThisConnection` from the old English
+  („Embedding-Verbindung“, „Wie diese Verbindung“), so these glosses follow the current
+  English label; recheck them when the UI pack catches up.
+- **Built-in model** keeps its *(eingebautes Modell)* gloss (2026-11-01) in the lorebook
+  picker. **Local Model (sidecar)** left `lorebooks/semantic-search.md` with English and
+  stays in the guides whose English still has it (`agents/memory.md`,
+  `connections/local-model.md`, `home/professor-mari.md`).
+- **Semantic search (embeddings)** keeps the file's *(semantische Suche)* gloss; the heading
+  is „## Das Panel Semantic search (embeddings)“, in the new label's case.
+- **Advanced** *(Erweitert)* and **More** *(Mehr)* in the connection editor take the wording
+  of other `ui/de.json` keys (`settings.tabs.advanced.label`, `navigation.topbar.more`),
+  because `connections.editor.section.advanced` and `connections.editor.more` have no value
+  yet. **Test embedding** *(Embedding testen)* is coined, after *(Verbindung testen)*:
+  `connections.embeddingTest.button` has no value. Recheck all three when the UI pack ships
+  those keys. The result string is quoted as app output, „1536 dimensions“, with no German
+  thousands separator.
+- Scoped regex: in prose the mode is „der Modus für Scoped Regex Scripts“ (the section name
+  stays English, as in the heading of `extending/regex-scripts.md`; no compound is formed).
+  **Use preset default** is glossed *(Preset-Standard verwenden)*, the `ui/de.json` value of
+  `chat.settings.regex.usePreset`. **Scoped regex default** keeps the
+  *(Standard für bereichsbezogene Regex-Skripte)* gloss of `prompts/presets.md` rather than
+  the `ui/de.json` „Standard für zugeordnete Regex“, so the label has one gloss pack-wide;
+  the file's *scoped scripts* stay **gebundene Skripte**. **Reset View** takes
+  *(Ansicht zurücksetzen)*, as in `chats/chat-settings.md`. A per-script switch „gehört zum
+  Skript selbst“. The English parenthesis holding only a „see …“ link after a glossed label
+  became its own sentence („Die Schritte stehen unter …“), so no parentheses stack.
+- New anchors in the `<a id>` pattern for translated headings the English now links by
+  fragment: `<a id="the-per-chat-scoped-regex-scripts-setting"></a>` above „### Die
+  Chat-Einstellung Scoped Regex Scripts“ and `<a id="choosing-the-default-profile"></a>` above
+  „## Das Standardprofil festlegen“ (`chats/settings-profiles.md`).
+- Termux: *upgrade all packages* is „alle Termux-Pakete aktualisieren“, *upgrading only some
+  packages* „nur einen Teil der Pakete zu aktualisieren“, and the package upgrade run is **die
+  Aktualisierung** (not *Update*, which §4 keeps for Marinara updates); *Termux libraries* are
+  **Termux-Bibliotheken**; *press Enter to keep your current one* is „drück Enter, um deine
+  aktuelle zu behalten“. The heading „### Termux: CANNOT LINK EXECUTABLE "node"“ keeps the
+  English error text byte-exact, straight quotes included, so its slug matches English
+  without an anchor. The status **Could not verify that this Marinara Android build can
+  safely read your stored data** stays unglossed (§3.3); **Install / Start Marinara** stays
+  bare, like its later mention in `TROUBLESHOOTING.md`.
+- Residual (R4, not swept): `installation/android-termux.md` calls the launcher **Starter**
+  (7× `Starter`/`Starters` from step 4 of the manual install on; the file also has 2×
+  `Launcher`), against §4's `der Launcher`.

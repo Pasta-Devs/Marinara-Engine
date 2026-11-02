@@ -139,6 +139,8 @@ La segunda manera es por personaje. Abre un personaje, ve a la pestaña **Advanc
 
 Abrir el editor completo desde esta tarjeta te saca del Character Editor (editor de personajes). Si el personaje tiene cambios sin guardar, la app te avisa primero para que no los pierdas.
 
+<a id="the-per-chat-scoped-regex-scripts-setting"></a>
+
 ### El ajuste por chat Scoped Regex Scripts
 
 Los scripts limitados a un personaje no se ejecutan automáticamente en todos los chats. Un ajuste por chat los controla. Abre el panel **Chat Settings** (Ajustes del chat) de un chat. Una sección titulada **Scoped Regex Scripts** (scripts de regex limitados) aparece solo cuando al menos un personaje de ese chat tiene scripts limitados. Ofrece tres modos:
@@ -147,7 +149,9 @@ Los scripts limitados a un personaje no se ejecutan automáticamente en todos lo
 - **Exclusive** (exclusivo): cada script limitado solo cambia los mensajes del personaje al que pertenece.
 - **Chat** (chat): cada script limitado cambia todos los mensajes del chat.
 
-Debajo de los botones de modo, el panel lista cada personaje con scripts limitados y te deja activar o desactivar cada script para ese chat. Este ajuste controla los scripts del lado de la pantalla. Los scripts de prompt siempre siguen al personaje que realmente está generando la respuesta.
+**Use preset default** (Usar el valor predeterminado del preset) sigue el **Scoped regex default** (Valor predeterminado de los regex limitados) del preset de prompt; elegir un modo lo anula para este chat. Para que los chats nuevos empiecen con un modo, establécelo como valor predeterminado del preset, guárdalo en tu [perfil de ajustes predeterminado](../chats/settings-profiles.md#choosing-the-default-profile) o elígelo y luego haz clic en la estrella del diseño favorito junto a **Reset View** (Restablecer vista). Consulta [Elegir un diseño para chats nuevos](../chats/chat-settings.md#choosing-a-layout-for-new-chats).
+
+Debajo de los botones de modo, el panel lista cada personaje con scripts limitados y te deja activar o desactivar cada script. Ese interruptor es propio del script, así que cambia el script en todos los chats. El modo controla los scripts del lado de la pantalla. Los scripts de prompt siempre siguen al personaje que realmente está generando la respuesta.
 
 ## Importar scripts de regex desde SillyTavern
 

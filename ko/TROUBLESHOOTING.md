@@ -27,6 +27,18 @@
 
 ## 설치와 실행 문제
 
+### Termux: CANNOT LINK EXECUTABLE "node" 오류
+
+Termux가 `CANNOT LINK EXECUTABLE "node"`에 이어 `cannot locate symbol` 또는 `library ... not found`를 출력한다면, Termux의 나머지는 그대로 둔 채 Node.js만 업그레이드된 것입니다. Termux는 일부 패키지만 업그레이드하는 것을 지원하지 않으므로, 새 Node.js는 예전 Termux 라이브러리로는 시작할 수 없습니다. 그러면 Android 앱이 **Could not verify that this Marinara Android build can safely read your stored data** 메시지를 표시하고 멈출 수 있습니다. 데이터가 원인이 아니며, APK를 다시 설치해도 해결되지 않습니다.
+
+Termux 패키지를 모두 업그레이드한 다음 Marinara를 다시 시작하세요.
+
+```bash
+pkg upgrade -y
+```
+
+그런 다음 Android 앱에서 **Install / Start Marinara**(Marinara 설치/시작)를 탭하세요. 직접 설치했다면 `cd "$HOME/Marinara-Engine" && ./start-termux.sh`를 실행하세요. 업그레이드 중에 설정 파일을 유지할지 물으면 Enter를 눌러 현재 파일을 유지하세요. 업데이트된 Termux 런처와 새 버전의 Android 앱은 Node.js를 시작할 수 없을 때 이 업그레이드를 알아서 실행합니다.
+
 ### Termux: 클라이언트 빌드 중 메모리 부족
 
 Vite가 `Reached heap limit` 또는 `JavaScript heap out of memory`로 종료되면 클라이언트 빌드에 필요한 Node.js 힙이 부족한 것입니다. Rollup 네이티브 바이너리 누락과는 다릅니다. 업데이트하고 `start-termux.sh`를 다시 실행하세요. 이제 앱 내 업데이트를 포함한 클라이언트 빌드는 별도의 1536 MiB 힙으로 실행됩니다. 알려진 기기 RAM의 절반을 넘지 않지만, 빌드에 필요한 1280 MiB 아래로는 내려가지 않습니다. RAM에 따른 상한은 128 MiB 단위로 내림합니다. 서버는 프로필 크기에 따른 더 작은 제한을 유지합니다. `NODE_OPTIONS`의 명시적 제한은 두 프로세스 모두에서 우선하므로 예전 1024 MiB 설정이 남았는지 확인하세요. 클라이언트는 이제 1024 MiB로는 빌드되지 않습니다.

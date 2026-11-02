@@ -738,3 +738,24 @@ Cycle precedent for the #8654 / #8657 catch-up and the profile-builder rewrite (
 | library sidebar / field / desktop | 资料库侧边栏 / 字段 / 桌面端 | 资料库 and 字段 match `chat.settingsProfile.builder.library` and `libraryHint`. Slots stay 槽位. |
 
 The new GLB/FBX section uses **服务商** for provider (§3); the MMD paragraph above it keeps its older 提供商 under §7.5 P4. **Faces and mouth shapes** keeps (表情和口型) and runs bare in the new section. These are translation choices, not a new native-reader review.
+
+## Semantic search labels, scoped regex in favorites and Termux upgrades (2026-11-02, #8681)
+
+Cycle precedent for the #8681 catch-up against Engine `staging` `db2d6ead7` (`lorebooks/semantic-search.md`, `chats/chat-settings.md`, `chats/settings-profiles.md`, `extending/regex-scripts.md`, `installation/android-termux.md`, `TROUBLESHOOTING.md`).
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Embedding provider | **Embedding provider**(嵌入服务商) | Replaces **Embedding Connection**(嵌入连接) in `lorebooks/semantic-search.md`; 服务商 is the §3 provider term. `ui.connections.connectioneditor.embeddingConnection` in `ui/zh-Hans.json` still reads 嵌入连接, the old label's wording. Coined; recheck. `agents/memory.md`, `agents/knowledge-sources.md` and `connections/providers-reference.md` keep **Embedding Connection** while their English does. |
+| Same as this provider | **Same as this provider**(与此服务商相同) | Patterned on the stale `sameAsThisConnection` value 与此连接相同. Coined; recheck. |
+| Semantic search (embeddings) | keeps (语义搜索与嵌入) | Heading `## Semantic search (embeddings) 面板`; the label's own half-width parens stay byte-exact (§4.2.b). The app's 语义搜索（嵌入） is not copied (§5.4). |
+| Built-in model (lorebook picker option) | **Built-in model**(内置模型) | The 2026-11-01 gloss. Retires **Local Model (sidecar)** in this file only; `connections/local-model.md`, `agents/memory.md` and `home/professor-mari.md` keep it while their English does. |
+| Advanced / More (connection editor) | **Advanced**(高级) / **More**(更多) | `connections.editor.section.advanced` and `connections.editor.more` have no zh-Hans string; the glosses match `settings.tabs.advanced.label` and `navigation.topbar.more`. Recheck. |
+| Test embedding | **Test embedding**(测试嵌入) | Coined after **Test account**(测试账号); `connections.embeddingTest.*` has no zh-Hans string. Recheck. The result “1536 dimensions” is quoted byte-exact (§4.5.2); vector size is 向量维度, as in the file's dimension-mismatch paragraph. |
+| Scoped Regex Scripts (the mode, in prose) | Scoped Regex Scripts 模式; first plain mention per file Scoped Regex Scripts(限定正则脚本) (§5.2.b) | Reuses the `extending/regex-scripts.md` gloss, not the app's 限定范围的正则脚本 (§5.4). The link text in `chats/chat-settings.md` stays Latin. |
+| Use preset default | **Use preset default**(使用预设默认值) | Matches `chat.settings.regex.usePreset`. |
+| Scoped regex default | **Scoped regex default**(限定正则默认模式) | Reuses `prompts/presets.md`, not the app's 限定范围正则的默认值 (§5.4). |
+| per-script switch / overrides it for this chat | 这个开关属于脚本本身，所以会在所有聊天里改变这条脚本 / 在这个聊天里覆盖它 | 覆盖 is the §3 override term. The favorite layout star is 收藏布局星标. |
+| upgrade all Termux packages (`pkg upgrade`) | 升级 Termux 的所有软件包 | English now contrasts upgrade with update, so 升级 renders "upgrade" here (the §3 update row keeps 更新 for update). Termux libraries are Termux 库. |
+| keep a configuration file | 询问是否保留某个配置文件，按 Enter 保留当前的那份 | 配置文件 is a literal configuration file, as at `TROUBLESHOOTING.md:46`; the §3 ban on 配置文件 covers the preset and profile senses only. |
+
+New anchors let the new English fragment links resolve against translated headings: `<a id="the-per-chat-scoped-regex-scripts-setting"></a>` above `### 按聊天生效的 Scoped Regex Scripts 设置` and `<a id="choosing-the-default-profile"></a>` above `## 指定默认方案`. The new heading `### Termux：报错 CANNOT LINK EXECUTABLE "node"` (`TROUBLESHOOTING.md:30`) keeps the straight quotes Termux prints (§4.5.3), so the §4.5.3 prose count grows by one. **Could not verify that this Marinara Android build can safely read your stored data** stays bare (§5.2.d); **Install / Start Marinara** runs bare as elsewhere in `TROUBLESHOOTING.md`; the updated launcher is Termux 启动脚本 (§3). These are translation choices, not a new native-reader review.

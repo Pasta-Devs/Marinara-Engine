@@ -27,6 +27,18 @@ Pour signaler une erreur, indique le mode, la plateforme, le message visible et 
 
 ## Problèmes d'installation et de lancement
 
+### Termux : CANNOT LINK EXECUTABLE "node"
+
+Si Termux affiche `CANNOT LINK EXECUTABLE "node"` suivi de `cannot locate symbol` ou `library ... not found`, Node.js a été mis à jour sans le reste de Termux. Termux ne prend pas en charge la mise à jour d'une partie seulement des paquets : une version plus récente de Node.js ne peut donc pas démarrer avec des bibliothèques Termux plus anciennes. L'application Android peut alors s'arrêter avec **Could not verify that this Marinara Android build can safely read your stored data**. Tes données n'en sont pas la cause, et réinstaller l'APK ne règle pas le problème.
+
+Mets à jour tous les paquets Termux, puis relance Marinara :
+
+```bash
+pkg upgrade -y
+```
+
+Ensuite, appuie sur **Install / Start Marinara** (installer / démarrer Marinara) dans l'application Android ou, pour une installation manuelle, lance `cd "$HOME/Marinara-Engine" && ./start-termux.sh`. Si la mise à jour te demande s'il faut garder un fichier de configuration, appuie sur Enter pour conserver ton fichier actuel. Le lanceur Termux mis à jour et les versions récentes de l'application Android font eux-mêmes cette mise à jour quand Node.js ne peut pas démarrer.
+
 ### Termux : mémoire insuffisante pendant la compilation du client
 
 Si Vite s'arrête avec `Reached heap limit` ou `JavaScript heap out of memory`, le tas mémoire de Node.js est insuffisant pour compiler le client. Ce n'est pas une absence de binaire natif Rollup. Mets à jour puis relance `start-termux.sh` : la compilation du client, y compris pendant les mises à jour depuis l'application, dispose désormais de son propre tas de 1536 MiB, sans dépasser la moitié de la RAM connue de l'appareil, mais jamais en dessous des 1280 MiB dont elle a besoin. Le plafond lié à la RAM est arrondi vers le bas par pas de 128 MiB. Le serveur conserve son plafond plus bas lié au profil. Une limite explicite dans `NODE_OPTIONS` prime pour les deux processus ; vérifie qu'une ancienne limite de 1024 MiB n'est pas restée configurée : le client ne peut plus se compiler avec 1024 MiB.

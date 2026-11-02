@@ -139,6 +139,8 @@ Drugi sposób prowadzi przez samą postać. Otwórz postać, przejdź do zakład
 
 Otwarcie pełnego edytora z tej karty oznacza opuszczenie edytora postaci. Jeśli w postaci są niezapisane zmiany, aplikacja najpierw ostrzega, żeby nic nie przepadło.
 
+<a id="the-per-chat-scoped-regex-scripts-setting"></a>
+
 ### Ustawienie **Scoped Regex Scripts** dla pojedynczego czatu
 
 Skrypty przypisane do postaci nie działają automatycznie w każdym czacie. Steruje nimi ustawienie osobne dla każdego czatu. Otwórz panel **Chat Settings** (ustawienia czatu) dla danego czatu. Sekcja **Scoped Regex Scripts** pojawia się tylko wtedy, gdy przynajmniej jedna postać w tym czacie ma przypisane skrypty. Oferuje trzy tryby:
@@ -147,7 +149,9 @@ Skrypty przypisane do postaci nie działają automatycznie w każdym czacie. Ste
 - **Exclusive**: każdy przypisany skrypt zmienia wyłącznie wiadomości postaci, do której należy.
 - **Chat**: każdy przypisany skrypt zmienia każdą wiadomość w czacie.
 
-Pod przyciskami trybów panel wypisuje każdą postać z przypisanymi skryptami i pozwala włączyć albo wyłączyć każdy skrypt na potrzeby tego czatu. Ustawienie to steruje skryptami działającymi po stronie widoku. Skrypty promptu zawsze idą za postacią, która akurat generuje odpowiedź.
+Opcja **Use preset default** (użyj ustawienia domyślnego presetu) stosuje ustawienie **Scoped regex default** (domyślny tryb skryptów regex przypisanych do postaci) z presetu promptu; wybranie trybu zastępuje je w tym czacie. Żeby nowe czaty zaczynały z wybranym trybem, ustaw go jako domyślny w presecie, zapisz go w swoim [domyślnym profilu ustawień](../chats/settings-profiles.md#choosing-the-default-profile) albo wybierz go, a potem kliknij gwiazdkę ulubionego układu obok **Reset View** (zobacz [Wybieranie układu dla nowych czatów](../chats/chat-settings.md#choosing-a-layout-for-new-chats)).
+
+Pod przyciskami trybów panel wypisuje każdą postać z przypisanymi skryptami i pozwala włączyć albo wyłączyć każdy skrypt. To przełącznik samego skryptu, więc zmienia go we wszystkich czatach. Tryb steruje skryptami działającymi po stronie widoku. Skrypty promptu zawsze idą za postacią, która akurat generuje odpowiedź.
 
 ## Importowanie skryptów regex z aplikacji SillyTavern
 

@@ -18,25 +18,27 @@ As correspondências por palavra-chave e por sentido têm a mesma prioridade qua
 
 A busca semântica precisa de um modelo capaz de criar embeddings. Você tem duas opções.
 
-Seja qual for a sua escolha, você pode torná-la o padrão de todo o aplicativo: abra **Connections** (Conexões), depois **Defaults** (padrões) e escolha-a na seção **Embeddings**. Toda conexão que não defina um modelo de embeddings nem uma **Embedding Connection** própria passa a usá-la. A configuração própria de uma conexão continua tendo prioridade, e a linha mostra quantas conexões usam as próprias configurações. **None** mantém o modelo local integrado como alternativa.
+Seja qual for a sua escolha, você pode torná-la o padrão de todo o aplicativo: abra **Connections** (Conexões), depois **Defaults** (padrões) e escolha-a na seção **Embeddings**. Toda conexão que não defina um modelo de embeddings nem um **Embedding provider** próprio passa a usá-la. A configuração própria de uma conexão continua tendo prioridade, e a linha mostra quantas conexões usam as próprias configurações. **None** mantém o modelo local integrado como alternativa.
 
 Opção 1: uma conexão com um modelo de embeddings.
 
 1. Abra o painel **Connections** (Conexões).
 2. Abra uma conexão para edição.
-3. Localize a seção **Semantic Search (Embeddings)** (busca semântica por embeddings).
+3. Abra **Advanced** (avançado) e depois **More** (mais). Ali, localize a seção **Semantic search (embeddings)** (busca semântica por embeddings).
 4. Digite o nome de um modelo de embeddings no campo do modelo. Um valor comum é `text-embedding-3-small`.
 5. Salve a conexão.
 
-Uma conexão também pode enviar as requisições de embeddings pela chave de API e pelo endereço de outra conexão. Na mesma seção, escolha essa conexão em **Embedding Connection** (conexão de embeddings). O padrão é **Same as this connection** (a mesma desta conexão). Se a conexão escolhida tiver um modelo de embeddings próprio, Marinara o usa; caso contrário, usa o nome de modelo digitado aqui. Isso vale tanto na vetorização quanto durante o chat.
+Para conferir a configuração, clique em **Test embedding** (testar embedding) abaixo das configurações de embeddings. Marinara salva as suas alterações primeiro e depois gera o embedding de um texto curto de exemplo com o mesmo modelo, a mesma chave de API e o mesmo endereço que a busca semântica usa. Em seguida, mostra o tamanho do vetor que recebeu de volta, como "1536 dimensions", ou o erro que o provedor devolveu.
+
+Uma conexão também pode enviar as requisições de embeddings pela chave de API e pelo endereço de outra conexão. Na mesma seção, escolha essa conexão em **Embedding provider** (provedor de embeddings). O padrão é **Same as this provider** (o mesmo deste provedor). Se a conexão escolhida tiver um modelo de embeddings próprio, Marinara o usa; caso contrário, usa o nome de modelo digitado aqui. Isso vale tanto na vetorização quanto durante o chat.
 
 Nem todo provedor oferece embeddings. Se o provedor não for capaz de gerar embeddings, o editor pede que você escolha uma conexão dedicada a embeddings.
 
 Opção 2: o modelo local integrado.
 
-Marinara roda um modelo de embeddings pequeno na sua própria máquina, sem chave de API. No seletor do lorebook, essa opção se chama **Local Model (sidecar)** (modelo local). Ela só aparece depois que você baixa o modelo local. Veja [Como configurar o Local Model](../connections/local-model.md) para saber como instalar.
+Marinara roda um modelo de embeddings pequeno na sua própria máquina, sem chave de API. No seletor do lorebook, essa opção se chama **Built-in model** (modelo embutido). Ela só aparece depois que você baixa o modelo local. Veja [Como configurar o Local Model](../connections/local-model.md) para saber como instalar.
 
-Em uma versão Marinara Lite, a opção **Local Model (sidecar)** fica oculta. No Lite, a busca semântica precisa de uma conexão com um modelo de embeddings.
+Em uma versão Marinara Lite, a opção **Built-in model** fica oculta. No Lite, a busca semântica precisa de uma conexão com um modelo de embeddings.
 
 ## Ative o recurso Vectors em um lorebook
 
@@ -50,9 +52,9 @@ O texto de ajuda de **Vectors** diz: "When on, entries in this lorebook may use 
 
 Com **Vectors** desativado, o painel semântico mostra este aviso: "Semantic search is disabled by the lorebook-level Vectors toggle."
 
-## O painel Semantic Search (Embeddings)
+## O painel Semantic search (embeddings)
 
-Com **Vectors** ativado, o painel **Semantic Search (Embeddings)** aparece na aba **Overview**. Uma etiqueta de status mostra quantas entradas estão vetorizadas, por exemplo "8/12 entries vectorized". Ela fica verde, com um sinal de visto, assim que todas as entradas ficam prontas.
+Com **Vectors** ativado, o painel **Semantic search (embeddings)** aparece na aba **Overview**. Uma etiqueta de status mostra quantas entradas estão vetorizadas, por exemplo "8/12 entries vectorized". Ela fica verde, com um sinal de visto, assim que todas as entradas ficam prontas.
 
 O painel tem três configurações numéricas.
 
@@ -75,11 +77,11 @@ A opção **Vector Limit** limita só as correspondências semânticas. Os orça
 Vetorizar é criar e salvar o embedding de cada entrada. Esse passo é obrigatório para a correspondência semântica funcionar.
 
 1. Ative **Vectors** no lorebook.
-2. No painel **Semantic Search (Embeddings)**, escolha uma fonte de embeddings no menu suspenso. A primeira opção é **No semantic search**. Em seguida vem **Local Model (sidecar)**, quando disponível. Depois dela aparecem as conexões elegíveis.
+2. No painel **Semantic search (embeddings)**, escolha uma fonte de embeddings no menu suspenso. A primeira opção é **No semantic search**. Em seguida vem **Built-in model**, quando disponível. Depois dela aparecem as conexões elegíveis.
 3. Clique no botão de vetorização. Quando faltar o vetor de algumas entradas, o botão mostra **Vectorize N missing**, por exemplo "Vectorize 5 missing".
 4. Aguarde o fim da execução. A etiqueta de status passa a indicar todas as entradas vetorizadas.
 
-Se nenhuma conexão tiver um modelo de embeddings ou uma **Embedding Connection**, o painel mostra este aviso no lugar do menu suspenso: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Configure primeiro uma fonte de embeddings, com os passos acima.
+Se nenhuma conexão tiver um modelo de embeddings ou um **Embedding provider**, o painel mostra este aviso no lugar do menu suspenso: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Configure primeiro uma fonte de embeddings, com os passos acima.
 
 Quando todas as entradas já têm vetor, o botão principal muda para **Re-vectorize N entries**. Isso reconstrói todos os vetores salvos. Marinara pede uma confirmação antes de sobrescrevê-los.
 
@@ -99,7 +101,7 @@ Reconstrua todos os vetores depois de trocar o modelo de embeddings. Use **Re-ve
 
 Não faça só uma vetorização parcial depois de trocar de modelo. Se uma execução do tipo "missing only" devolver um tamanho de vetor diferente do que está salvo, o servidor recusa a operação com esta mensagem: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-Existe uma falha silenciosa que vale a pena conhecer. Durante o chat, Marinara gera o embedding das mensagens recentes com um modelo de consulta. Esse modelo de consulta é o modelo de embeddings da própria conexão ativa ou, se ela definir uma, o da sua **Embedding Connection**. Se a conexão não definir nenhum dos dois, Marinara usa o padrão de **Embeddings** em **Defaults**, no painel **Connections**, ou, quando ele é **None**, o modelo local integrado. O modelo de consulta pode produzir um tamanho de vetor diferente do modelo que vetorizou as entradas. Nesse caso, Marinara ignora essas entradas na correspondência semântica. Nenhum erro aparece. Para evitar isso, vetorize as entradas com a mesma fonte de embeddings usada durante o chat. Definir um padrão de **Embeddings** ajuda: o seletor de vetorização começa nele, a menos que você tenha escolhido outra coisa antes, e as conexões sem configurações de embeddings próprias fazem a consulta com ele. Vetorize de novo a cada troca de modelo.
+Existe uma falha silenciosa que vale a pena conhecer. Durante o chat, Marinara gera o embedding das mensagens recentes com um modelo de consulta. Esse modelo de consulta é o modelo de embeddings da própria conexão ativa ou, se ela definir um, o do seu **Embedding provider**. Se a conexão não definir nenhum dos dois, Marinara usa o padrão de **Embeddings** em **Defaults**, no painel **Connections**, ou, quando ele é **None**, o modelo local integrado. O modelo de consulta pode produzir um tamanho de vetor diferente do modelo que vetorizou as entradas. Nesse caso, Marinara ignora essas entradas na correspondência semântica. Nenhum erro aparece. Para evitar isso, vetorize as entradas com a mesma fonte de embeddings usada durante o chat. Definir um padrão de **Embeddings** ajuda: o seletor de vetorização começa nele, a menos que você tenha escolhido outra coisa antes, e as conexões sem configurações de embeddings próprias fazem a consulta com ele. Vetorize de novo a cada troca de modelo.
 
 ## Como isso alimenta o agente Knowledge Router
 

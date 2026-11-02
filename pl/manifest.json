@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "7450d4e709ea799e93c90d11c7e4fbede6e8e726",
+  "sourceCommit": "db2d6ead716d652b91859f66c2d21392b7b7f472",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "80ed6aeaf499bcd8d33cb29a04008b98989a07f7b9b6660ffc01e35b43d68d55",
-      "bytes": 62304
+      "sha256": "1ebcd6ae3d6de0559128cab7ca19c358a2c446b44e227cea87f11318863823eb",
+      "bytes": 63534
     },
     {
       "path": "UPGRADING.md",
@@ -154,8 +154,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "9ad64eec1a560a953a7cbb5aee4f7aa92d806a2642e35749f261bbae4296c71e",
-      "bytes": 25890
+      "sha256": "7489fff974bec91059b756325faafb0d363a3934da2a5502235902427464f0d3",
+      "bytes": 26286
     },
     {
       "path": "chats/connected-chats.md",
@@ -199,8 +199,8 @@
     },
     {
       "path": "chats/settings-profiles.md",
-      "sha256": "97ab7fe2960dce2877f5ab085f8251f30223fe5794bedf8441268cb515956be4",
-      "bytes": 11858
+      "sha256": "23160edf6c82ff8b6ef9ef095ecb6c1a07e5ce88265344e81678307baf637827",
+      "bytes": 12083
     },
     {
       "path": "chats/slash-commands.md",
@@ -404,8 +404,8 @@
     },
     {
       "path": "extending/regex-scripts.md",
-      "sha256": "2d95eb66bf0b8e69accbc02e84fb26f201bb69b2282cc0b1c4e853f56bb7ab90",
-      "bytes": 15207
+      "sha256": "d2251b17092ce1595bfb4efbd48da2a3761703593f51d7d12013996326258778",
+      "bytes": 15919
     },
     {
       "path": "extending/ruleset-catalogs.md",
@@ -549,8 +549,8 @@
     },
     {
       "path": "installation/android-termux.md",
-      "sha256": "b0ab73df882e77e3b68d58776fd6a4c40c5ff2b629f77d81c53431fcd1ada181",
-      "bytes": 9901
+      "sha256": "18c77ca78bf1729fb01e2d71e9a6b50c2f0341eb9d127609ada47f4677bbacfc",
+      "bytes": 10174
     },
     {
       "path": "installation/containers.md",
@@ -614,8 +614,8 @@
     },
     {
       "path": "lorebooks/semantic-search.md",
-      "sha256": "d3839559c47f02f046b85ab2f7037c45380dab0e95921e2c9c564918ce9d534e",
-      "bytes": 11478
+      "sha256": "51f2d68f8899403b88983566a29865c15df645495982c41516526c3c3e5836ba",
+      "bytes": 11927
     },
     {
       "path": "lorebooks/token-budgets.md",

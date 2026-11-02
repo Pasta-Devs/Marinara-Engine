@@ -111,13 +111,13 @@ Po aktualizacji znany układ przycisków narzędzi jest już oznaczony gwiazdką
 
 1. Ustaw okna i przyciski tak, jak chcesz. Umieść narzędzia w **Chat Settings** lub wydziel je do osobnych okien.
 2. Ukryj wskazówki dotyczące układu, jeśli mają być ukryte również w nowych czatach.
-3. Kliknij gwiazdkę obok **Reset View**. Wypełni się, gdy bieżący układ i wybór dotyczący wskazówek będą odpowiadać zapisanemu ulubionemu.
+3. Kliknij gwiazdkę obok **Reset View**. Wypełni się, gdy bieżący układ, wybór dotyczący wskazówek i tryb Scoped Regex Scripts będą odpowiadać zapisanemu ulubionemu.
 
-Ulubiony układ zapisuje położenia i rozmiary okien oraz przycisków, przypięcia, blokady, narzędzia wydzielone lub umieszczone w ustawieniach oraz wybór dotyczący wskazówek. Postacie, połączenie, ustawienia AI i wiadomości pozostają przypisane do czatu.
+Ulubiony układ zapisuje położenia i rozmiary okien oraz przycisków, przypięcia, blokady, narzędzia wydzielone lub umieszczone w ustawieniach, wybór dotyczący wskazówek oraz tryb [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) czatu. Czat z opcją **Use preset default** (użyj ustawienia domyślnego presetu) nie zapisuje trybu, więc nowe czaty przejmują tryb ze swojego presetu promptu. Postacie, połączenie, ustawienia AI i wiadomości pozostają przypisane do czatu.
 
 Aby zastąpić ulubiony układ, zmień rozmieszczenie i ponownie kliknij gwiazdkę. Aby przestać z niego korzystać, kliknij wypełnioną gwiazdkę. Nowe czaty zaczną wtedy używać standardowego układu. Zapisanie, zastąpienie lub usunięcie ulubionego układu dotyczy tylko czatów utworzonych później. Istniejące czaty zachowują swoje układy.
 
-Zastosowanie profilu ustawień z własnym zapisanym układem ma pierwszeństwo przed ulubionym układem. Profil bez zapisanego układu pozostawia ulubione rozmieszczenie bez zmian. Profile nadal stosują własne ustawienie dotyczące wskazówek.
+Zastosowanie profilu ustawień z własnym zapisanym układem ma pierwszeństwo przed ulubionym układem. Profil bez zapisanego układu pozostawia ulubione rozmieszczenie bez zmian. Profile nadal stosują własne ustawienie dotyczące wskazówek i własny tryb Scoped Regex Scripts; profil bez trybu korzysta z ustawienia domyślnego presetu promptu.
 
 ## Sekcja **Chat Name**
 

@@ -1247,3 +1247,59 @@ Precedents from the #8654 / #8657 / chat-profiles (`10d6d34e08`) catch-up agains
 
 These are documented choices for this catch-up, not a claim of independent
 native-reader review.
+
+## Scoped regex in favorite layouts, embedding test and Termux upgrade (2026-11-02, #8681)
+
+Precedents from the #8681 catch-up against Engine `staging` `db2d6ead7`:
+
+- Renamed connection-editor labels follow English byte-exactly (R-110). **Embedding
+  Connection** is now **Embedding provider**, glossed once as *(dostawca embeddingów)*
+  (R-36). **Same as this connection** is now **Same as this provider** *(ten sam
+  dostawca)*, after the old *(to samo połączenie)*. **Semantic Search (Embeddings)** is
+  now **Semantic search (embeddings)**, still unglossed in `lorebooks/semantic-search.md`,
+  with the heading `## Panel Semantic search (embeddings)`. **Local Model (sidecar)** is
+  now **Built-in model** *(model wbudowany)*, the 2026-11-01 gloss.
+- The connection editor's **Advanced** and **More** take the pack's existing glosses
+  *(zaawansowane)* and *(więcej)*. **Test embedding** is *(test embeddingu)*, after
+  **Test account** *(test konta)*. Its result "1536 dimensions" stays English in
+  straight quotes (R-115).
+- In prose, the Scoped Regex Scripts mode is **tryb Scoped Regex Scripts**, unbolded as
+  in English. **Use preset default** is glossed *(użyj ustawienia domyślnego presetu)*,
+  the lowercase shipped `ui/pl.json` `chat.settings.regex.usePreset` string.
+  **Scoped regex default** reuses *(domyślny tryb skryptów regex przypisanych do
+  postaci)* from `prompts/presets.md:53`, not the shipped "Domyślny regex z zakresem",
+  so *scoped* stays **przypisane do postaci** across the pack (T-4). The preset's default
+  is **ustawienie domyślne presetu promptu**. The per-script on/off switch is
+  **przełącznik samego skryptu** (R-76).
+- English now links two translated headings by fragment, so they get `<a id>` anchors
+  (2026-10-14 pattern): `the-per-chat-scoped-regex-scripts-setting`
+  (`extending/regex-scripts.md`) and `choosing-the-default-profile`
+  (`chats/settings-profiles.md`). The link texts are "domyślnym profilu ustawień", a
+  descriptive phrase like the English, and "Wybieranie układu dla nowych czatów", the
+  target heading.
+- Termux: `pkg upgrade` is **aktualizuje / zaktualizuj wszystkie pakiety środowiska
+  Termux** (R-38). "Termux does not support upgrading only some packages" is "Środowisko
+  Termux nie obsługuje aktualizowania tylko części pakietów" (R-13 carrier). A
+  configuration file is a **plik konfiguracyjny**; *press Enter* is **naciśnij Enter**.
+  The new heading `### Termux: CANNOT LINK EXECUTABLE "node"` has no prose to translate
+  and stays byte-identical to English. The Android message **Could not verify that this
+  Marinara Android build can safely read your stored data** stays bold and unglossed,
+  like the file's other full-sentence bold messages (**The file is not a readable ZIP
+  archive**, `TROUBLESHOOTING.md:396`). *The Android app* there is **aplikacja na system
+  Android**, the local precedent (`:425`); *the updated Termux launcher* is
+  **zaktualizowany program uruchamiający dla środowiska Termux** (R-37).
+- Coined glosses, to recheck when the UI pack ships or refreshes the keys: `ui/pl.json`
+  has no value for `connections.embeddingTest.button`, so *(test embeddingu)* was set
+  here; `connections.editor.more` and `connections.editor.section.advanced` have none
+  either, so *(więcej)* and *(zaawansowane)* were carried over from other files.
+  `ui.connections.connectioneditor.embeddingConnection` ("Połączenie embeddingów") and
+  `.sameAsThisConnection` ("Takie samo jak to połączenie") still translate the pre-rename
+  English, so *(dostawca embeddingów)* and *(ten sam dostawca)* were coined; align them
+  when those values are retranslated.
+- Found while scanning, not fixed: `TROUBLESHOOTING.md:183` "Zapomniałeś hasła?",
+  `:189` "straciłeś dostęp" and `REMOTE_ACCESS.md:314` "nigdy nie ustawiłeś hasła" are
+  reader-gendered past forms that R-3 bans (its check reported 0). English did not
+  change there, so they await a separate sweep.
+
+These are documented choices for this catch-up, not a claim of independent
+native-reader review.

@@ -30,12 +30,12 @@ Termux는 여기에서 설치하세요: [F-Droid의 Termux](https://f-droid.org/
 앱을 쓰고 싶지 않다면 Marinara를 직접 설치할 수 있습니다. Termux를 열고 다음 명령 하나를 붙여넣으세요:
 
 ```
-pkg update -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
+pkg upgrade -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
 ```
 
 이 명령 하나가 5가지 일을 처리합니다:
 
-1. Termux 패키지를 업데이트합니다.
+1. Termux 패키지를 모두 업그레이드합니다. Termux는 일부 패키지만 업그레이드하는 것을 지원하지 않으며, 새 Node.js는 예전 Termux 라이브러리로는 시작할 수 없습니다. 설정 파일을 유지할지 물으면 Enter를 눌러 현재 파일을 유지하세요.
 2. Git과 Node.js를 설치합니다. Marinara는 Node.js 24, 25, 26 버전을 지원합니다.
 3. 아직 설치되어 있지 않다면 Marinara Engine을 다운로드합니다.
 4. 런처(`start-termux.sh`)를 실행 가능한 상태로 만듭니다.

@@ -27,6 +27,18 @@ Al reportar un error, incluye modo, plataforma, mensaje visible y si la admisió
 
 ## Problemas de instalación y arranque
 
+### Termux: CANNOT LINK EXECUTABLE "node"
+
+Si Termux muestra `CANNOT LINK EXECUTABLE "node"` seguido de `cannot locate symbol` o `library ... not found`, Node.js se actualizó sin el resto de Termux. Termux no admite actualizar solo algunos paquetes, así que un Node.js más reciente no puede iniciarse con bibliotecas de Termux más antiguas. Entonces la app de Android puede detenerse con **Could not verify that this Marinara Android build can safely read your stored data**. Tus datos no son la causa, y volver a instalar el APK no lo soluciona.
+
+Actualiza todos los paquetes de Termux y luego vuelve a iniciar Marinara:
+
+```bash
+pkg upgrade -y
+```
+
+Después toca **Install / Start Marinara** en la app de Android o, en una instalación manual, ejecuta `cd "$HOME/Marinara-Engine" && ./start-termux.sh`. Si la actualización te pregunta si quieres conservar un archivo de configuración, pulsa Enter para conservar el actual. El lanzador de Termux actualizado y las versiones más recientes de la app de Android ejecutan esta actualización por sí solos cuando Node.js no puede iniciarse.
+
 ### Termux: memoria insuficiente al compilar el cliente
 
 Si Vite termina con `Reached heap limit` o `JavaScript heap out of memory`, falta memoria de heap de Node.js para compilar el cliente. No es el mismo problema que un binario nativo de Rollup ausente. Actualiza y ejecuta de nuevo `start-termux.sh`: las compilaciones del cliente, incluidas las de las actualizaciones dentro de la app, ahora se ejecutan con su propio heap de 1536 MiB, sin superar la mitad de la RAM conocida del dispositivo, pero nunca por debajo de los 1280 MiB que necesita la compilación. El límite de RAM se redondea hacia abajo en pasos de 128 MiB. El servidor conserva su límite menor según el perfil. Un límite explícito en `NODE_OPTIONS` tiene prioridad para ambos; revisa si quedó una configuración antigua de 1024 MiB: el cliente ya no se compila con 1024 MiB.

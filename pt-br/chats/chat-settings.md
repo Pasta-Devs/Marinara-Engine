@@ -111,13 +111,13 @@ Após uma atualização, o layout conhecido com botões de ferramentas já está
 
 1. Organize as janelas e os botões como quiser. Guarde as ferramentas em Chat Settings ou destaque-as conforme precisar.
 2. Oculte as dicas de layout se quiser que os novos chats também as ocultem.
-3. Clique na estrela ao lado de **Reset View**. Ela fica preenchida quando o layout atual e as dicas correspondem ao favorito salvo.
+3. Clique na estrela ao lado de **Reset View**. Ela fica preenchida quando o layout atual, as dicas e o modo de Scoped Regex Scripts correspondem ao favorito salvo.
 
-O favorito salva as posições e os tamanhos de janelas e botões, as fixações, as travas, as ferramentas destacadas ou guardadas e a escolha das dicas de layout. Os personagens, a conexão, as configurações de IA e as mensagens continuam pertencendo ao chat.
+O favorito salva as posições e os tamanhos de janelas e botões, as fixações, as travas, as ferramentas destacadas ou guardadas, a escolha das dicas de layout e o modo de [Scoped Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting) do chat. Um chat em **Use preset default** (usar o padrão do preset) não salva nenhum modo, então os novos chats seguem o próprio preset de prompt. Os personagens, a conexão, as configurações de IA e as mensagens continuam pertencendo ao chat.
 
 Para substituir o favorito, mude a disposição e clique na estrela novamente. Para parar de usá-lo, clique na estrela preenchida. Novos chats passam a usar o layout padrão. Salvar, substituir ou limpar um favorito só afeta os chats criados depois; os existentes mantêm seus layouts.
 
-Um perfil de configurações com layout próprio salvo tem prioridade sobre o favorito quando aplicado. Um perfil sem layout salvo mantém a disposição favorita. Os perfis continuam aplicando sua própria configuração de dicas de layout.
+Um perfil de configurações com layout próprio salvo tem prioridade sobre o favorito quando aplicado. Um perfil sem layout salvo mantém a disposição favorita. Os perfis continuam aplicando sua própria configuração de dicas de layout e seu próprio modo de Scoped Regex Scripts; um perfil sem modo usa o padrão do preset de prompt.
 
 ## Chat Name
 

@@ -99,6 +99,8 @@ Advanced Parameters und die Bildbeschreibung (an oder aus und welche Verbindung 
 
 Räume im Mehrspielermodus werden auf diesem Weg nie aktualisiert. Nutzt kein anderer Chat das Profil, funktioniert **Save** (Speichern) ohne Rückfrage.
 
+<a id="choosing-the-default-profile"></a>
+
 ## Das Standardprofil festlegen
 
 Der Stern neben dem Dropdown markiert das Profil, das neue Chats in diesem Modus automatisch bekommen. Pro Modus kann nur ein Profil der Standard sein.
@@ -111,13 +113,13 @@ Die Tooltips beschreiben den aktuellen Zustand:
 
 ## Bevorzugte Fensteranordnungen
 
-Der Stern neben **Reset View** in der Titelleiste von Chat Settings speichert eine Lieblingsanordnung für neue Chats im aktuellen Modus. Er merkt sich auch, ob die Hinweise zur Anordnung ausgeblendet sind. Du kannst ihn in Conversation, Roleplay und Game nutzen. Der Stern neben dem Dropdown **Profile** legt weiterhin das Standard-Einstellungsprofil fest.
+Der Stern neben **Reset View** in der Titelleiste von Chat Settings speichert eine Lieblingsanordnung für neue Chats im aktuellen Modus. Er merkt sich auch, ob die Hinweise zur Anordnung ausgeblendet sind, und welchen Modus der Chat für Scoped Regex Scripts nutzt. Du kannst ihn in Conversation, Roleplay und Game nutzen. Der Stern neben dem Dropdown **Profile** legt weiterhin das Standard-Einstellungsprofil fest.
 
 Beim Update einer bestehenden Installation wird die vertraute Anordnung der Tool-Schaltflächen zum Favoriten für neue Chats in allen drei Modi. Das passiert einmal; bereits gespeicherte oder ausdrücklich entfernte Favoriten bleiben unberührt. Diese Anordnung bleibt der Standard, bis du sie selbst änderst. Eine neue Installation startet mit den Chat-Tools in Chat Settings und ohne ausgewählten Favoriten.
 
-Ordne deine Fenster und Schaltflächen an und klick auf den Stern in der Titelleiste, um sie zu speichern. Er ist ausgefüllt, solange die aktuelle Anordnung und die Hinweise zum Favoriten passen. Änderst du die Anordnung oder verschiebst ein Fenster, ersetzt ein weiterer Klick den Favoriten. Klick auf den ausgefüllten Stern, um ihn zu entfernen und für künftige Chats wieder die Standardanordnung zu nutzen. Bestehende Chats bleiben unverändert.
+Ordne deine Fenster und Schaltflächen an und klick auf den Stern in der Titelleiste, um sie zu speichern. Er ist ausgefüllt, solange die aktuelle Anordnung, die Hinweise und der Modus für Scoped Regex Scripts zum Favoriten passen. Änderst du die Anordnung oder verschiebst ein Fenster, ersetzt ein weiterer Klick den Favoriten. Klick auf den ausgefüllten Stern, um ihn zu entfernen und für künftige Chats wieder die Standardanordnung zu nutzen. Bestehende Chats bleiben unverändert.
 
-Nutzt ein neuer Chat ein Standard-Einstellungsprofil, hat die darin gespeicherte Anordnung Vorrang vor dem Favoriten. Profile ohne gespeicherte Anordnung lassen den Chat unverändert, auch wenn seine Anordnung von einem Favoriten stammt. Ein Profil übernimmt weiterhin seine eigene Einstellung für die Hinweise; ältere Profile ohne diese Einstellung zeigen die Hinweise an.
+Nutzt ein neuer Chat ein Standard-Einstellungsprofil, hat die darin gespeicherte Anordnung Vorrang vor dem Favoriten. Profile ohne gespeicherte Anordnung lassen den Chat unverändert, auch wenn seine Anordnung von einem Favoriten stammt. Ein Profil übernimmt weiterhin seine eigene Einstellung für die Hinweise; ältere Profile ohne diese Einstellung zeigen die Hinweise an. Es übernimmt auch seinen eigenen Modus für Scoped Regex Scripts oder, wenn es keinen hat, den Standard des Prompt-Presets.
 
 Die Schritte stehen unter [Eine Anordnung für neue Chats wählen](chat-settings.md#choosing-a-layout-for-new-chats).
 

@@ -27,6 +27,18 @@ Zgłaszając błąd połączenia, podaj tryb, platformę, widoczny błąd i info
 
 ## Problemy z instalacją i uruchamianiem
 
+### Termux: CANNOT LINK EXECUTABLE "node"
+
+Jeśli środowisko Termux wypisuje `CANNOT LINK EXECUTABLE "node"`, a po nim `cannot locate symbol` lub `library ... not found`, Node.js zaktualizowano bez reszty pakietów środowiska Termux. Środowisko Termux nie obsługuje aktualizowania tylko części pakietów, więc nowsza wersja Node.js nie uruchomi się ze starszymi bibliotekami środowiska Termux. Aplikacja na system Android może się wtedy zatrzymać z komunikatem **Could not verify that this Marinara Android build can safely read your stored data**. Przyczyną nie są twoje dane, a ponowna instalacja pliku APK tego nie naprawi.
+
+Zaktualizuj wszystkie pakiety środowiska Termux, a potem ponownie uruchom aplikację Marinara:
+
+```bash
+pkg upgrade -y
+```
+
+Następnie dotknij **Install / Start Marinara** w aplikacji na system Android, a przy instalacji ręcznej uruchom `cd "$HOME/Marinara-Engine" && ./start-termux.sh`. Jeśli aktualizacja zapyta, czy zachować plik konfiguracyjny, naciśnij Enter, żeby zachować obecny. Zaktualizowany program uruchamiający dla środowiska Termux i nowsze wydania aplikacji na system Android samodzielnie przeprowadzają tę aktualizację, gdy Node.js nie może się uruchomić.
+
 ### Termux: brak pamięci podczas budowania klienta
 
 Jeśli Vite kończy pracę z `Reached heap limit` lub `JavaScript heap out of memory`, zabrakło pamięci sterty Node.js podczas budowania klienta. To inny problem niż brak natywnego pliku Rollup. Zaktualizuj aplikację i uruchom ponownie `start-termux.sh`: budowanie klienta, także przy aktualizacjach w aplikacji, korzysta teraz z własnego limitu sterty 1536 MiB, nie większego niż połowa znanej pamięci RAM urządzenia, ale nigdy mniejszego niż 1280 MiB, których wymaga budowanie. Limit wynikający z RAM jest zaokrąglany w dół do wielokrotności 128 MiB. Serwer zachowuje mniejszy limit zależny od profilu. Jawny limit w `NODE_OPTIONS` ma pierwszeństwo dla obu procesów, więc sprawdź, czy nie pozostało tam wcześniejsze ograniczenie 1024 MiB: przy takim limicie klient już się nie zbuduje.
