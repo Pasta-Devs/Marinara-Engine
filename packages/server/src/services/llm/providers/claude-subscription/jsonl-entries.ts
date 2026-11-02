@@ -373,10 +373,11 @@ export interface SplitResult {
  * No "drop trailing assistants" logic. Load-bearing upstream contract:
  * Marinara's regen flow (generate.routes.ts) removes the to-be-regenerated
  * assistant turn from `finalMessages` BEFORE calling provider.chat(). Any
- * trailing assistant reaching this function is therefore intentional —
- * specifically the `assistantPrefill` feature (see
- * packages/shared/src/types/prompt.ts and appendGenerationTailMessages(),
- * where the prefill is pushed as the final assistant message).
+ * trailing assistant reaching this function is therefore intentional: a
+ * request to continue that reply. Chat generation does not send its
+ * `assistantPrefill` this way here: this provider refuses a final assistant
+ * message (rejectsFinalAssistantMessage()), so endPromptOnAssistantPrefill()
+ * puts the prefill at the start of the last reply in the history instead.
  *
  * If that upstream contract ever changes — i.e. regen starts leaving the
  * to-be-regenerated assistant in the messages array — the

@@ -741,12 +741,22 @@ export function appendNonLeadingSystemMessagesToLastUser<T extends PromptRoleMes
   return result;
 }
 
-/** Format only audience-filtered, context-fitted messages, preserving live tool exchanges. */
+/**
+ * Format only audience-filtered, context-fitted messages, preserving live tool exchanges. A prompt that `endsOnPrefill`
+ * keeps its final Assistant Prefill turn out of a Single User Message, so the request still ends on it. Apply still
+ * joins it to an assistant reply right before it: roles must alternate, and a chat template such as llama.cpp's refuses
+ * two assistant turns at the end.
+ */
 export function postProcessMessages(
   messages: ChatMessage[],
   parameters: Pick<StoredGenerationParameters, "strictRoleFormatting" | "singleUserMessage"> = {},
+  endsOnPrefill = false,
 ): ChatMessage[] {
   const single = parameters.singleUserMessage === true;
+  const prefill = endsOnPrefill && single ? messages.at(-1) : undefined;
+  if (prefill?.role === "assistant") {
+    return [...postProcessMessages(messages.slice(0, -1), parameters), clonePromptRoleMessage(prefill)];
+  }
   const apply = parameters.strictRoleFormatting !== false && !single;
   const source = apply ? appendNonLeadingSystemMessagesToLastUser(messages) : messages;
   const result: ChatMessage[] = [];
@@ -1201,6 +1211,12 @@ export function buildUserMessageRegenerationPromptFromSource(source: SimpleMessa
   };
 }
 
+/**
+ * The Assistant Prefill turn a reply opens with: the visible prefill as set and, where the provider takes one, the
+ * reasoning prefill. A regenerated user message on Gemini ends on its rewrite instruction (#7558), so the turn goes
+ * before that here. Otherwise it is returned as `prefill`, for each request to end on (endPromptOnAssistantPrefill)
+ * after everything the request gains later.
+ */
 export function appendGenerationTailMessages(
   messages: SimpleMessage[],
   options: {
@@ -1212,48 +1228,97 @@ export function appendGenerationTailMessages(
     isGoogleProvider: boolean;
     regenerateUserMessage: SimpleMessage | null;
   },
-): { assistantPrefillInjected: boolean; googleUserRegenerationInjected: boolean } {
-  if (options.followUpIteration !== 0) {
-    return { assistantPrefillInjected: false, googleUserRegenerationInjected: false };
+): { prefill: SimpleMessage | null; googleUserRegenerationInjected: boolean } {
+  if (options.followUpIteration !== 0 || options.impersonate) {
+    return { prefill: null, googleUserRegenerationInjected: false };
   }
 
-  const shouldAppendGoogleUserRegeneration =
-    !options.impersonate && options.isGoogleProvider && !!options.regenerateUserMessage;
-  const assistantPrefill = options.assistantPrefill.trim();
-  const shouldAppendAssistantPrefill = !options.impersonate && !!assistantPrefill;
-  const assistantReasoningPrefill = options.assistantReasoningPrefill.trim();
-  const shouldAppendReasoningPrefill =
-    !options.impersonate && options.supportsAssistantReasoningPrefill && !!assistantReasoningPrefill;
-  const shouldAppendAssistantMessage =
-    !options.impersonate && (shouldAppendAssistantPrefill || shouldAppendReasoningPrefill);
+  const visible = options.assistantPrefill.trim() ? options.assistantPrefill : "";
+  const reasoning =
+    options.supportsAssistantReasoningPrefill && options.assistantReasoningPrefill.trim()
+      ? options.assistantReasoningPrefill.trimEnd()
+      : "";
+  const prefill: SimpleMessage | null =
+    visible || reasoning
+      ? {
+          role: "assistant",
+          content: visible,
+          ...(reasoning ? { providerMetadata: { reasoning_content: reasoning, partial: true } } : {}),
+        }
+      : null;
 
-  if (shouldAppendAssistantMessage) {
-    // Strip the trailing edge: Anthropic's Messages API rejects a final assistant
-    // message ending in whitespace (HTTP 400), which surfaces to users as a refusal.
-    // A prefill ending in "\n" or a space is common. The user-facing prefill is
-    // rendered separately, so only what is sent to the API is trimmed.
-    messages.push({
-      role: "assistant",
-      content: shouldAppendAssistantPrefill ? options.assistantPrefill.trimEnd() : "",
-      ...(shouldAppendReasoningPrefill
-        ? {
-            providerMetadata: {
-              reasoning_content: options.assistantReasoningPrefill.trimEnd(),
-              partial: true,
-            },
-          }
-        : {}),
-    });
+  if (options.isGoogleProvider && options.regenerateUserMessage) {
+    if (prefill) messages.push({ ...prefill, content: prefill.content.trimEnd() });
+    messages.push(options.regenerateUserMessage);
+    return { prefill: null, googleUserRegenerationInjected: true };
   }
+  return { prefill, googleUserRegenerationInjected: false };
+}
 
-  if (shouldAppendGoogleUserRegeneration) {
-    messages.push(options.regenerateUserMessage!);
+const HISTORY_REPLY_HEADER =
+  /^(?:<(?:chat_history|last_message)>\n|## (?:Chat History|Last Message)\n|<date="[^"\n]*">\n|(?:## )?Date: [^\n]*\n)*(?:\[(?:\d\d\.\d\d )?\d\d:\d\d\] )?/u;
+
+/**
+ * End the prompt on the Assistant Prefill turn, after every injection, instruction and reply it gained. Its text is
+ * trimmed at the end: Anthropic's Messages API rejects a final assistant message ending in whitespace (HTTP 400).
+ *
+ * A model that refuses a request ending on an assistant message (`finalAssistantAccepted` false) reads the prefill at
+ * the start of its last reply in the chat history instead, the turn it last opened: right before the reply's own text
+ * (`ownText`, after any timestamp, speaker name or history wrapper), joined as a streamed reply joins it. With no reply
+ * in the history there is no turn to show it in, so it is sent as a user message at the end instead (the maintainer's
+ * choice, #8692). A reasoning prefill still ends the prompt, as before; the provider turns that into a continuation
+ * request.
+ *
+ * `endsOnPrefill`: the prompt ends on the turn. `opensReply`: the reply starts with the visible prefill.
+ */
+export function endPromptOnAssistantPrefill<
+  T extends { role: string; content: string; contextKind?: string; providerMetadata?: Record<string, unknown> },
+>(
+  messages: T[],
+  prefill: T | null,
+  finalAssistantAccepted: boolean,
+  ownText?: (message: T) => string | undefined,
+): { endsOnPrefill: boolean; opensReply: boolean } {
+  if (!prefill) return { endsOnPrefill: false, opensReply: false };
+  let visible = prefill.content;
+  if (!finalAssistantAccepted && visible) {
+    let index = messages.length - 1;
+    while (index >= 0 && !(messages[index]!.role === "assistant" && messages[index]!.contextKind === "history"))
+      index--;
+    const reply = messages[index];
+    if (reply) {
+      const own = ownText?.(reply)?.trim();
+      // The header Marinara writes before a history reply's text: chat-history and date wrappers, a timestamp, then a
+      // "Name: " label the reply's own text does not start with.
+      const wrapped = HISTORY_REPLY_HEADER.exec(reply.content)![0].length;
+      const label = /^[^\n:]{1,80}: /u.exec(reply.content.slice(wrapped))?.[0];
+      const head = wrapped + (label && !own?.startsWith(label) ? label.length : 0);
+      // ponytail: a reply whose own text the prompt changed (a regex script, a macro) and does not follow that header
+      // gets the prefill right after the header, and a label the changed text starts with reads as a speaker name.
+      // Upgrade: record where each history reply's text starts when its header is written.
+      const start =
+        !own || reply.content.startsWith(own, head)
+          ? head
+          : (new RegExp(`(?<=^|\\s)${escapeRegex(own)}(?=\\s|$)`, "u").exec(reply.content)?.index ?? head);
+      const body = reply.content.slice(start);
+      if (!body.startsWith(visible.trim())) {
+        const prefixed = { ...reply, content: reply.content.slice(0, start) + visible + body };
+        // Saved Gemini parts are sent in place of the text and no longer describe it, so the text goes instead.
+        const { geminiParts: _parts, ...metadata } = reply.providerMetadata ?? {};
+        if (Object.keys(metadata).length) prefixed.providerMetadata = metadata;
+        else delete prefixed.providerMetadata;
+        messages[index] = prefixed;
+      }
+    } else {
+      // No reply to open: the prefill goes in as a user message, which every model accepts last.
+      const { providerMetadata: _reasoning, ...turn } = prefill;
+      messages.push({ ...turn, role: "user", content: visible.trimEnd() } as T);
+    }
+    visible = "";
   }
-
-  return {
-    assistantPrefillInjected: shouldAppendAssistantPrefill,
-    googleUserRegenerationInjected: shouldAppendGoogleUserRegeneration,
-  };
+  if (!visible && !prefill.providerMetadata) return { endsOnPrefill: false, opensReply: false };
+  messages.push({ ...prefill, content: visible.trimEnd() });
+  return { endsOnPrefill: true, opensReply: !!visible };
 }
 
 export function resolveActiveCharacterIds(

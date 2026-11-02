@@ -605,6 +605,7 @@ import {
   appendGenerationTailMessages,
   canUseMessageForUserRegeneration,
   dedupeLastMessageWrappers,
+  endPromptOnAssistantPrefill,
   findTrackerContextInsertIndex,
   formatConversationInstructionsForWrap,
   extractFileAttachmentInputs,
@@ -979,6 +980,7 @@ import {
   collectPastReasoningMetadata,
   limitPastReasoningMetadata,
   readChatCompletionsReasoningMetadata,
+  rejectsFinalAssistantMessage,
   resolveStoredChatOptions,
   resolveStoredMaxTokens,
 } from "../services/generation/generation-parameters.js";
@@ -8188,12 +8190,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           isGoogleProvider: isGoogleProvider || isGeminiModel(conn.model),
           regenerateUserMessage,
         });
-        if (tailMessages.assistantPrefillInjected) {
-          const prefillPosition = tailMessages.googleUserRegenerationInjected
-            ? "before final user message"
-            : "as final assistant message";
-          logger.debug("[generate] Injected assistant prefill (%d chars) %s", assistantPrefill.length, prefillPosition);
-        }
         if (tailMessages.googleUserRegenerationInjected && assistantPrefill.trim()) {
           logger.debug("[generate] Preserved assistant prefill before Gemini user-message regeneration instruction");
         }
@@ -9236,15 +9232,39 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               wrapFormat,
             );
           }
+          // The request ends on the Assistant Prefill, after everything this responder's prompt gained above.
+          const prefillTurn = endPromptOnAssistantPrefill<GenerationPromptMessage>(
+            preparedMessagesForGen,
+            tailMessages.prefill &&
+              resolvePromptMessageMacros([tailMessages.prefill], providerMacroContext, historyMacroProfilesById)[0]!,
+            !rejectsFinalAssistantMessage(conn.provider, conn.model),
+            (message) => {
+              const source = message.id ? allChatMessages.find((saved: any) => saved.id === message.id) : undefined;
+              return source ? conversationPromptHistoryContent(source, chatMode) : undefined;
+            },
+          );
+          if (tailMessages.prefill?.content) {
+            logger.debug(
+              "[generate] Assistant prefill (%d chars) %s",
+              assistantPrefill.length,
+              prefillTurn.opensReply
+                ? "as the final assistant message"
+                : "at the start of the last assistant reply, if any: the model refuses a final assistant message",
+            );
+          }
 
           const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
-            return postProcessMessages(messages, {
-              ...(resolvedPreset && !isStockMarinaraUniversalPreset(resolvedPreset)
-                ? parseStoredGenerationParameters(resolvedPreset.parameters)
-                : {}),
-              ...providerRuntime.connectionParams,
-              ...providerRuntime.chatParams,
-            });
+            return postProcessMessages(
+              messages,
+              {
+                ...(resolvedPreset && !isStockMarinaraUniversalPreset(resolvedPreset)
+                  ? parseStoredGenerationParameters(resolvedPreset.parameters)
+                  : {}),
+                ...providerRuntime.connectionParams,
+                ...providerRuntime.chatParams,
+              },
+              prefillTurn.endsOnPrefill,
+            );
           };
 
           let advancedMemoryReceipt: AdvancedMemoryReceipt | undefined;
@@ -9361,11 +9381,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           providerThinking = "";
           replyThinking = "";
           streamOutput.resetReasoningClock();
-          if (
-            tailMessages.assistantPrefillInjected &&
-            !tailMessages.googleUserRegenerationInjected &&
-            assistantPrefill
-          ) {
+          if (prefillTurn.opensReply && assistantPrefill) {
             await writeContentChunked(assistantPrefill);
           }
           let geminiResponseParts: unknown[] | null = null;
@@ -9612,7 +9628,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 gameToolPlan,
                 maxToolRounds,
                 initialMessages: initialProviderMessages,
-                assistantPrefillInjected: tailMessages.assistantPrefillInjected,
+                assistantPrefillInjected: prefillTurn.endsOnPrefill,
                 tools: nativeToolCalls ? responderToolDefs : undefined,
                 toolChoice: (round) =>
                   nativeToolCalls
@@ -9916,7 +9932,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           let assistantSpatialDirective: ReturnType<typeof extractAssistantSpatialDirective>["directive"] = null;
           let assistantSpatialDirectiveDetected = false;
           let conversationCommandContent: string | null = null;
-          if (tailMessages.assistantPrefillInjected && assistantPrefill && fullResponse.startsWith(assistantPrefill)) {
+          if (prefillTurn.opensReply && assistantPrefill && fullResponse.startsWith(assistantPrefill)) {
             const responseAfterPrefill = fullResponse.slice(assistantPrefill.length);
             if (responseAfterPrefill.startsWith(assistantPrefill)) {
               fullResponse = assistantPrefill + responseAfterPrefill.slice(assistantPrefill.length);
