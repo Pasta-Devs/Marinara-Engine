@@ -208,7 +208,8 @@ export function useDeviceEngines(): DeviceEngine[] {
       });
     }
   }
-  if (setup.tts.setUp) {
+  // Only PocketTTS runs here; a cloud voice (ElevenLabs, OpenAI, xAI) shows on the Voice job row instead.
+  if (setup.tts.setUp && tts?.source === "pockettts") {
     engines.push({
       item: "tts",
       name: t("connections.add.device.tts"),
