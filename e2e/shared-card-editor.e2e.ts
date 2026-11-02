@@ -88,7 +88,7 @@ for (const kind of ["characters", "personas"] as const) {
       await echo;
       if (character) {
         const result = await page.evaluate(
-          () => (window as Window & { mariPresaveResult: Promise<string> }).mariPresaveResult,
+          () => (window as Window & { mariPresaveResult?: Promise<string> }).mariPresaveResult,
         );
         expect(result).toBe("saved");
       } else await expect(save).toBeEnabled();
