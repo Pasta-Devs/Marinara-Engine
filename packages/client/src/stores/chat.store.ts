@@ -1089,6 +1089,7 @@ export const useChatStore = create<ChatState>()(
       set({
         mariDraftByChatId: new Map(),
         activeChatId: null,
+        setupWizardChatId: null,
         activeChat: null,
         pendingNewChatSetups: {},
         isStreaming: false,
