@@ -736,7 +736,7 @@ export function ConnectionSwitcherBody({
       : ((currentGroup?.account ? currentGroup : groups.find((group) => group.account))?.key ?? "starred"));
   const paneGroup = groups.find((group) => group.key === paneKey);
   // A selected account scopes the search to its own models.
-  const scopeGroup = paneGroup?.account ? paneGroup : undefined;
+  const scopeGroup = paneGroup;
   // The open account's list: shares the cache loadCatalog fills, and tells the pane when it failed.
   const scopeAnchorId = scopeGroup ? anchorOf(scopeGroup).id : null;
   const scopeModels = useConnectionModels(scopeAnchorId, catalogBrowse);
@@ -1055,10 +1055,17 @@ export function ConnectionSwitcherBody({
 
   // The catalogs are read once, so a small one can list in place (the server caches them; a failure just leaves the Browse row).
   const loadCatalog = useCountConnectionModels();
+  const catalogQueryClient = useQueryClient();
   useEffect(() => {
     if (!catalogBrowse) return;
-    for (const group of groups) if (group.account && group.account.state === "ok") void loadCatalog(anchorOf(group).id);
-  }, [catalogBrowse, groups, anchorOf, loadCatalog]);
+    for (const group of groups) {
+      if (!group.account || group.account.state !== "ok") continue;
+      const id = anchorOf(group).id;
+      // A failed list is not cached, so loading it on every render would refetch it forever; Refresh retries it.
+      if (catalogQueryClient.getQueryState(connectionKeys.models(id))?.status === "error") continue;
+      void loadCatalog(id);
+    }
+  }, [catalogBrowse, groups, anchorOf, loadCatalog, catalogQueryClient]);
 
   // The Main model and where it runs, for the "Use default" tooltip.
   const mainVia = mainRow ? viaName(mainRow.provider, mainRow.model) : null;
