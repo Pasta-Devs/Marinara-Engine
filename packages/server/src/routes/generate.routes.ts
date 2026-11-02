@@ -8613,7 +8613,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const usesIndividualGroupGeneration = groupChatMode === "individual";
         const useIndividualLoop =
           isGroupChat && usesIndividualGroupGeneration && !input.regenerateMessageId && !input.impersonate;
-        const regenGroupChatIndividual = isGroupChat && usesIndividualGroupGeneration && input.regenerateMessageId;
+        // Only a character's message regenerates as that character. A persona's turn, typed or impersonated (also
+        // one whose replay a branch dropped), takes the single/Merged path that rewrites or re-impersonates it (#8682).
+        const regenGroupChatIndividual =
+          isGroupChat && usesIndividualGroupGeneration && input.regenerateMessageId && regenMsg?.role !== "user";
         const explicitlyMentionedConversationCharacterIds =
           chatMode === "conversation" && isGroupChat && !input.impersonate ? getExplicitlyMentionedCharacterIds() : [];
         const mentionedConversationCharacters = charInfo.filter((character) =>
