@@ -272,6 +272,23 @@ test.describe("The host namespace agent packages use", () => {
     });
   });
 
+  test("a page element with the namespace's id does not stand in for it", async ({ page }) => {
+    await openPackagePage(page);
+    // Chat and card HTML keep ids, and the browser exposes an element's id on window.
+    await page.route("/", async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace("<body>", '<body><div id="__MARINARA_HOST__"></div>');
+      await route.fulfill({ response, body });
+    });
+    await page.goto("/");
+    await waitForPackageClient(page);
+    const found = await page.evaluate(() => ({
+      version: (globalThis as { __e2eHostAtImport?: { version?: number } | null }).__e2eHostAtImport?.version ?? null,
+      element: !!document.getElementById("__MARINARA_HOST__"),
+    }));
+    expect(found).toEqual({ version: 1, element: true });
+  });
+
   test("a package fetches the shared audio manifest and keeps fitting stock music", async ({ page }) => {
     await openPackagePage(page);
     const tag = "music:dialogue:slice_of_life:calm:town";
