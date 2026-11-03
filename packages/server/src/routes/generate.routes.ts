@@ -9625,8 +9625,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 maxToolRounds,
                 initialMessages: initialProviderMessages,
                 assistantPrefillInjected: prefillTurn.endsOnPrefill,
-                // A Single User Message has no separate tail turn to split the prefill from.
-                userPrefill: providerMessageParameters.singleUserMessage ? undefined : prefillTurn.userPrefill,
+                // A Single User Message labels each turn, so the merged prefill carries its "[USER]" label.
+                userPrefill:
+                  prefillTurn.userPrefill &&
+                  `${providerMessageParameters.singleUserMessage ? "[USER]\n" : ""}${prefillTurn.userPrefill}`,
                 tools: nativeToolCalls ? responderToolDefs : undefined,
                 toolChoice: (round) =>
                   nativeToolCalls
