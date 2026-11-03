@@ -397,7 +397,7 @@ function CharacterSelectWindow({
         title={title}
         width="max-w-md"
         restoreFocusRef={anchorRef}
-        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none"
+        panelClassName="max-sm:h-[85dvh]"
         contentClassName="flex flex-col !overflow-hidden !p-0"
       >
         {children}

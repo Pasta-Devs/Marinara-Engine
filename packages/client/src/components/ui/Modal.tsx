@@ -8,6 +8,8 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
   NEUTRAL_PANEL_HEADER,
+  PHONE_BOTTOM_SHEET_CLASS,
+  SHEET_GRABBER_CLASS,
   NEUTRAL_PANEL_SCROLL_AREA,
   NEUTRAL_PANEL_SHELL,
   NEUTRAL_PANEL_TITLE,
@@ -207,6 +209,9 @@ export function Modal({
   if (!mounted) return null;
 
   const isEntering = animating === "enter";
+  // Below `sm` a plain dialog is a bottom sheet; full-screen, modeless and drag-through ones keep their shape.
+  const sheet = !mobileFullscreen && !modeless && !dragThrough;
+  const phoneSheet = sheet && window.matchMedia("(max-width: 639px)").matches;
 
   return createPortal(
     <div
@@ -216,7 +221,7 @@ export function Modal({
       aria-label={localizedTitle}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough || modeless ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
+      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
@@ -254,15 +259,18 @@ export function Modal({
           mobileFullscreen
             ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]"
             : ""
-        } ${panelClassName ?? ""}`}
+        } ${sheet ? PHONE_BOTTOM_SHEET_CLASS : ""} ${panelClassName ?? ""}`}
         style={{
           ...panelStyle,
           opacity: isEntering ? 1 : 0,
           // Settle at `none`: an identity transform keeps the entire image library in a composited layer.
-          transform: isEntering ? undefined : "scale(0.97) translateY(6px)",
-          transition: "opacity 150ms ease-out, transform 150ms ease-out",
+          transform: isEntering ? undefined : phoneSheet ? "translateY(100%)" : "scale(0.97) translateY(6px)",
+          transition: phoneSheet
+            ? "opacity 150ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1)"
+            : "opacity 150ms ease-out, transform 150ms ease-out",
         }}
       >
+        {sheet && <div aria-hidden="true" className={`${SHEET_GRABBER_CLASS} sm:hidden`} />}
         {/* Header */}
         <div className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER}`}>
           {titleSlot ?? <h2 className={NEUTRAL_PANEL_TITLE}>{localizedTitle}</h2>}

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { BOTTOM_SHEET_CLASS, SHEET_GRABBER_CLASS } from "./neutral-surface-styles";
 
 export interface ContextMenuItem {
   label: string;
@@ -64,6 +65,8 @@ export function ContextMenu({
   const ref = useRef<HTMLDivElement | null>(null);
   const opener = useRef(lastPressedButton);
   const [pos, setPos] = useState({ left: x, top: y });
+  // On a touch phone the menu is an action sheet: rows a thumb can hit, no hunting near the finger.
+  const [sheet] = useState(() => window.matchMedia("(max-width: 639px) and (pointer: coarse)").matches);
 
   // Flip / clamp the menu so it always stays inside the viewport.
   useEffect(() => {
@@ -167,48 +170,65 @@ export function ContextMenu({
   }, [onClose]);
 
   return createPortal(
-    <div
-      ref={ref}
-      role="menu"
-      // Above a modal (z 10000), so a menu opened inside a dialog shows.
-      style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 10001 }}
-      className="max-h-[calc(100dvh-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {items.map((item, i) => (
-        <button
-          key={`${item.label}-${i}`}
-          type="button"
-          role={item.toggle ? "menuitemcheckbox" : item.checked === undefined ? "menuitem" : "menuitemradio"}
-          aria-checked={item.checked}
-          disabled={item.disabled}
-          onClick={() => {
-            if (item.disabled) return;
-            item.onSelect();
-            onClose();
-          }}
-          className={cn(
-            "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors outline-none focus-visible:bg-[var(--accent)]",
-            item.disabled
-              ? "cursor-not-allowed text-[var(--muted-foreground)] opacity-50"
-              : item.destructive
-                ? destructiveTone === "accent"
-                  ? "text-[var(--primary)] hover:bg-[var(--primary)]/10"
-                  : "text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
-                : "text-[var(--foreground)] hover:bg-[var(--accent)]",
-          )}
-        >
-          {item.icon && <span className="shrink-0 text-[var(--muted-foreground)]">{item.icon}</span>}
-          <span className="min-w-0 flex-1">
-            <span className="block truncate">{item.label}</span>
-            {item.hint && (
-              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{item.hint}</span>
+    <>
+      {/* Dims only: a tap goes through to the outside-press handler, which closes the menu and eats the click. */}
+      {sheet && <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[10001] bg-black/55" />}
+      <div
+        ref={ref}
+        role="menu"
+        // Above a modal (z 10000), so a menu opened inside a dialog shows.
+        style={
+          sheet
+            ? { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 10001 }
+            : { position: "fixed", left: pos.left, top: pos.top, zIndex: 10001 }
+        }
+        className={
+          sheet
+            ? cn(
+                "max-h-[80dvh] overflow-y-auto border border-[var(--border)] bg-[var(--card)] px-2 shadow-xl animate-fade-in-up",
+                BOTTOM_SHEET_CLASS,
+              )
+            : "max-h-[calc(100dvh-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
+        }
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {sheet && <div aria-hidden="true" className={SHEET_GRABBER_CLASS} />}
+        {items.map((item, i) => (
+          <button
+            key={`${item.label}-${i}`}
+            type="button"
+            role={item.toggle ? "menuitemcheckbox" : item.checked === undefined ? "menuitem" : "menuitemradio"}
+            aria-checked={item.checked}
+            disabled={item.disabled}
+            onClick={() => {
+              if (item.disabled) return;
+              item.onSelect();
+              onClose();
+            }}
+            className={cn(
+              "flex w-full items-center gap-2 text-left transition-colors outline-none focus-visible:bg-[var(--accent)]",
+              sheet ? "min-h-12 rounded-lg px-3 text-sm" : "px-3 py-1.5 text-xs",
+              item.disabled
+                ? "cursor-not-allowed text-[var(--muted-foreground)] opacity-50"
+                : item.destructive
+                  ? destructiveTone === "accent"
+                    ? "text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                    : "text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
+                  : "text-[var(--foreground)] hover:bg-[var(--accent)]",
             )}
-          </span>
-          {item.checked && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
-        </button>
-      ))}
-    </div>,
+          >
+            {item.icon && <span className="shrink-0 text-[var(--muted-foreground)]">{item.icon}</span>}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{item.label}</span>
+              {item.hint && (
+                <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{item.hint}</span>
+              )}
+            </span>
+            {item.checked && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
+          </button>
+        ))}
+      </div>
+    </>,
     document.body,
   );
 }

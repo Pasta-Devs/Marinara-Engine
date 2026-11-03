@@ -3,6 +3,15 @@ export const NEUTRAL_SURFACE_VARIABLES =
 
 export const NEUTRAL_PANEL_SHELL = `marinara-chat-popover rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] shadow-2xl shadow-black/40 backdrop-blur-md animate-message-in ${NEUTRAL_SURFACE_VARIABLES}`;
 
+/** Phone bottom sheet: the shape every sheet shares (Modal below `sm`, ContextMenu on touch phones). */
+export const BOTTOM_SHEET_CLASS =
+  "rounded-t-2xl rounded-b-none border-x-0 border-b-0 pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]";
+/** BOTTOM_SHEET_CLASS behind `max-sm:`, spelled out so Tailwind sees the classes. */
+export const PHONE_BOTTOM_SHEET_CLASS =
+  "max-sm:max-w-none max-sm:max-h-full max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]";
+export const SHEET_GRABBER_CLASS =
+  "mx-auto mt-2 mb-1 h-1 w-9 shrink-0 rounded-full bg-[var(--marinara-chat-chrome-panel-muted)] opacity-40";
+
 export const NEUTRAL_PANEL_HEADER =
   "marinara-chat-popover__header border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2.5";
 
