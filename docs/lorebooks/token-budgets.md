@@ -56,7 +56,7 @@ If matching entries were skipped, a notice at the top reads "N matching lore ent
 | **lorebook budget** | The entry did not fit that lorebook's **Token Budget**. |
 | **chat budget** | The entry did not fit the chat's **Lorebook Token Budget**. |
 | **lorebook and chat budgets** | Both caps were already full. |
-| **current-location context cap** | The entry is lore attached to the current location, which has its own cap of 2,048 tokens. No setting changes it, but the entry can still come in through its own keywords. |
+| **current-location context cap** | The entry is attached to the current map location, which has its own fixed cap of 2,048 tokens. |
 
 An entry with blank text, or text that macros turn into nothing, is not listed. Its macros still run, so a `{{setvar}}` in it still sets the variable. With both budgets at 0, only the location cap can list skipped entries.
 

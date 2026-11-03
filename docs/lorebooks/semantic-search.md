@@ -18,7 +18,7 @@ Option 1: an account with an embedding model.
 
 1. Open the **Connections** panel and open an account for editing.
 2. Open **Advanced**, then **More**, and find **Semantic search (embeddings)**.
-3. Type an embedding model name, such as `text-embedding-3-small`.
+3. Type an embedding model name, such as `text-embedding-3-small`. If you are not sure of the name, look in your service's documentation, or use the built-in model instead.
 4. Save the account.
 5. Click **Test embedding** to check. Marinara saves first, embeds a short sample, and shows the vector size, such as "1536 dimensions", or the error the service returned.
 
@@ -57,7 +57,7 @@ After you turn on **Vectors**, the panel appears on the **Overview** tab with th
 
 **Include character context** also searches recent character replies, separately from your messages, and keeps the stronger match. It embeds extra text and is off by default. **Query Messages** then applies to character replies too.
 
-A low **Score Threshold** such as 0.2 lets more entries in but risks off-topic matches. A high one such as 0.5 matches only close meanings. Start at the default. Marinara calibrates scores against neutral passages from the same model, so one setting works across embedding models.
+A low **Score Threshold** such as 0.2 lets more entries in but risks off-topic matches. A high one such as 0.5 matches only close meanings. Start at the default.
 
 **Vector Limit** counts only meaning matches. Your normal token budgets still apply.
 

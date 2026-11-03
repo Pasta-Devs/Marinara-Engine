@@ -12,8 +12,8 @@ Marinara detects the file type for you. Both kinds are `.json` files, and you ne
 ## Import a lorebook
 
 1. Open the **Lorebooks** panel.
-2. Click the download-arrow icon in the top row. Its tooltip is **Import**. It sits between the plus icon (**New**) and the check-mark icon (**Select**).
-3. In the **Import Lorebook** window, drag your `.json` files onto the box that says **Drop one or more lorebook files here or click to browse**, or click the box and pick files. You can pick several at once, and mix Marinara and World Info files.
+2. Click the download-arrow icon in the top row, the middle of three icons. Its tooltip is **Import**. The plus icon is **New** and the check-mark icon is **Select**.
+3. In the **Import Lorebook** window, tap or click the box that says **Drop one or more lorebook files here or click to browse**, and pick your `.json` files. On a computer you can also drop files on the box. You can pick several at once, and mix Marinara and World Info files.
 4. Wait for the results. Each file shows a green check with **Imported lorebook**, or a red mark with an error. With several files, a summary line shows how many succeeded and failed.
 5. Click **Close**. The new lorebooks are in the **Lorebooks** panel.
 
@@ -28,7 +28,7 @@ An imported lorebook works with keywords right away. If you use semantic search,
 ## Export a lorebook
 
 1. In the **Lorebooks** panel, click a lorebook to open it.
-2. Click the export icon in the editor header. Its tooltip is **Export lorebook**.
+2. Click the export icon in the editor header, near the top right. Its tooltip is **Export lorebook**.
 3. In the **Export Lorebook** window, pick a format. Your browser downloads the file.
 
 | Format | What you get | Use it for |
@@ -52,8 +52,8 @@ You can add entries to a lorebook from a Markdown or CSV text file, for example 
 
 1. Open the lorebook and click **Import entries from Markdown or CSV** in the editor header.
 2. In the **Import entries** window, click **Choose file**, or paste text into the box.
-3. Check **Format**. Marinara guesses it from the text. Markdown uses one `## Name` heading per entry, an optional `Keys: a, b` line, then the text. CSV needs a header row with name, keys and content, and can add folder, enabled, constant and probability columns.
-4. Read the preview. It shows how many entries are ready and lists errors and warnings by line.
+3. Check **Format**. Marinara guesses it from the text.
+4. Read the preview. For Markdown, use one `## Name` heading per entry, an optional `Keys: a, b` line, then the text. For CSV, use a header row with name, keys and content, and optional folder, enabled, constant and probability columns. It shows how many entries are ready and lists errors and warnings by line.
 5. Under **Import into**, pick **This lorebook** or **New lorebook**. For a new one, type a name under **New lorebook name**.
 6. Under **When an entry name already exists**, pick **Skip the imported entry**, **Import as a renamed copy** or **Overwrite the existing entry**.
 7. Click the **Import** button, which shows the entry count.

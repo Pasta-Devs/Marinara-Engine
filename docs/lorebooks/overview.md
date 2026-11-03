@@ -17,11 +17,15 @@ Keyword matching works with any model and needs no setup. To match by meaning in
 1. Open the **Lorebooks** panel from the sidebar.
 2. Click **New** (the plus icon). The **Create Lorebook** window opens.
 3. Type a **Name**. This field is required.
-4. Add a **Description** if you want, and pick a **Category**. The default is **Other**.
-5. Click **Create Lorebook**. The new lorebook appears in the list.
-6. Click the lorebook's row. The full-page editor opens.
-7. Click the **Entries** tab, then click **Add Entry**. A new, empty entry appears.
-8. Add a keyword such as `Eldoria`, and write the text for the AI in the **Content** field.
+4. Add a **Description** if you want.
+5. Pick a **Category**. The default is **Other**. If you will link this lorebook to a character, pick **Character**, because the character's picker lists only that category.
+6. Click **Create Lorebook**. The new lorebook appears in the list.
+7. Click the lorebook's row. The full-page editor opens.
+8. Click the **Entries** tab.
+9. Click **Add Entry**. A new, empty entry row appears.
+10. Type a name in the row, such as `Eldoria`, then click the row to open it.
+11. In **Primary Keys**, type `Eldoria` and press <kbd>Enter</kbd>.
+12. In **Content**, write the text for the AI.
 
 The entry saves by itself a moment after you stop typing, and you see **Saved automatically**. Now the entry joins the prompt whenever its keyword matches. For keywords, position and timing, see [Lorebook Entries: Keys, Position, and Timing](entries.md).
 
@@ -40,6 +44,28 @@ A lorebook feeds the AI only when it is active in the open chat. There are three
 A lorebook cannot be both global and linked. Turning on **Global** clears its character and persona links when you save.
 
 An active lorebook still needs its **Enabled** switch on. For linking, see [Linking Lorebooks to Characters and Personas](linking-to-characters.md).
+
+## The Overview tab settings
+
+Open a lorebook and click **Overview** to set how the whole lorebook behaves.
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| **Scan Depth** | How many recent messages Marinara checks for keywords. 0 scans the whole chat. | 2 |
+| **Token Budget** | The most tokens this lorebook can add to one reply. 0 means no limit. | 2048 |
+| **Entry Limit** | The most entries this lorebook can add to one reply. Range 1 to 1000. | 100 |
+| **Max Depth** | Extra passes for recursion. Shown only when **Recursive** is on. Range 1 to 10. | 3 |
+
+Tokens are small pieces of text that models count; about three-quarters of a word in English. For what each limit does, and what recursion means, see [Lorebook Token Budgets and Recursion](token-budgets.md).
+
+The tab also has these switches.
+
+- **Enabled** turns the whole lorebook on or off. It is on by default.
+- **Global** makes the lorebook active in every chat.
+- **Recursive** lets an activated entry's text trigger more entries. It is off by default.
+- **Vectors** lets entries also match by meaning. It is off by default, and keywords still work either way.
+
+The **Semantic search (embeddings)** panel below the switches is covered in [Semantic Search for Lorebooks](semantic-search.md).
 
 ## The Lorebooks panel
 
@@ -60,28 +86,6 @@ Each row has **Copy** (duplicates the lorebook) and **Delete** buttons. They app
 ### Categories
 
 A category is a label for your library. It does not change when the lorebook activates. The tabs are **All**, **Active** (lorebooks relevant to the open chat), **World**, **Character**, **NPC**, **Spellbook** and **Other**. You can change a lorebook's category on its **Overview** tab, where **Other** is called **Uncategorized**.
-
-## The Overview tab settings
-
-Open a lorebook and click **Overview** to set how the whole lorebook behaves.
-
-| Setting | What it does | Default |
-| --- | --- | --- |
-| **Scan Depth** | How many recent messages Marinara checks for keywords. 0 scans the whole chat. | 2 |
-| **Token Budget** | The most tokens this lorebook can add to one reply. 0 means no limit. | 2048 |
-| **Entry Limit** | The most entries this lorebook can add to one reply. Range 1 to 1000. | 100 |
-| **Max Depth** | Extra passes for recursion. Shown only when **Recursive** is on. Range 1 to 10. | 3 |
-
-Tokens are small pieces of text that models count; about three-quarters of a word in English. For what each limit does, see [Lorebook Token Budgets and Recursion](token-budgets.md).
-
-The tab also has these switches.
-
-- **Enabled** turns the whole lorebook on or off. It is on by default.
-- **Global** makes the lorebook active in every chat.
-- **Recursive** lets an activated entry's text trigger more entries. It is off by default.
-- **Vectors** lets entries also match by meaning. It is off by default, and keywords still work either way.
-
-The **Semantic search (embeddings)** panel below the switches is covered in [Semantic Search for Lorebooks](semantic-search.md).
 
 ## Related guides
 

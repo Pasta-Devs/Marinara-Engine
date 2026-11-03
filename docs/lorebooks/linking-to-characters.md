@@ -4,7 +4,7 @@ Link a lorebook to a character or persona and it turns on by itself in the right
 
 ## Link or embed
 
-| | Link (assign) | Embed |
+| Feature | Link (assign) | Embed |
 | --- | --- | --- |
 | What happens | The character or persona points to a lorebook in your library. | The lorebook is written into the character card. |
 | Turns on | In chats with that character or persona. | Same, and it travels with the card. |
@@ -24,12 +24,12 @@ The character editor and the persona editor both have a **Lorebook** tab.
 
 ## Assign an existing lorebook
 
-Before you start: the picker lists only lorebooks in the **Character** category, for personas too. To use a lorebook from another category, open it and change its **Category** on the **Overview** tab.
+Before you start: the picker lists only lorebooks whose **Category** is **Character**, for personas too. If a lorebook is missing, open it, set **Category** to **Character** on the **Overview** tab, and try again.
 
 1. In the **Lorebook** tab, click **Assign Lorebook**.
 2. Type part of the name in the search box.
 3. Click the lorebook. A check mark appears.
-4. Choose a **Scope** (see below).
+4. Leave **Scope** on **All chats with** the name, or change it (see below).
 5. Click **Assign**.
 
 The lorebook now shows in the assigned list. Use the **Scope** button on its row to change the scope, and the trash icon to remove the link. Click the name to open the lorebook.
@@ -42,7 +42,7 @@ A global lorebook cannot also be linked. See [Lorebooks Overview](overview.md).
 
 | Scope | Result |
 | --- | --- |
-| **All chats with** followed by the character or persona name | The default. It turns on in every such chat. |
+| **All chats with** (the name) | The default. It turns on in every such chat. |
 | **Disabled for all chats** | The link stays, but the lorebook never turns on. Use it to pause. |
 | **Specific chats** | Only the chats you check in the list. Check at least one before you can save. |
 
