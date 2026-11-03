@@ -227,7 +227,7 @@ A game with a world opens on the **overworld**, a pixel map where you walk the p
 
 ## Where each topic lives
 
-- [Game Mode: Combat](combat.md#difficulty-scaling): encounters, the action menu, damage math and quick-time events.
+- [Game Mode: Combat](combat.md): encounters, the action menu, damage math and quick-time events.
 - [Game Mode: Party and NPCs](party-and-npcs.md): Character Profiles, sheets and the Adventure Journal.
 - [Game Mode: Sessions and Saves](sessions-and-saves.md): ending and starting sessions, history and checkpoints.
 - [Game Mode: Map, Time, and Weather](map-time-weather.md): map views, the clock, weather and morale.
