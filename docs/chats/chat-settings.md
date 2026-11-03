@@ -5,10 +5,12 @@
 ## Opening Chat Settings
 
 1. Open a chat.
-2. Click or tap the **Chat Settings** button (the sliders icon). It starts at the top right of the chat. With the Tracker Panel shown on the right of a computer screen, it starts left of that panel.
-3. Click a section's title to open it. Click the title again to fold it away.
+2. Tap the **Chat Settings** button (the sliders icon). A panel opens.
+3. Tap a section's title to open it. Tap the title again to fold it away.
 
-Chat Settings opens by itself when you create a chat. To close it, click its **X** or the sliders button again.
+Chat Settings opens by itself when you create a chat. To close it, tap its **X** or the sliders button again.
+
+On a computer, the sliders button starts at the top right of the chat. With the Tracker Panel shown on the right, it starts left of that panel. The Tracker Panel is a side panel in Roleplay that shows what agents (helpers that run alongside replies) track, such as characters in the scene.
 
 You can drag the sliders button to a better spot. It lines up with nearby chat buttons as you drag. On a computer, hold <kbd>Alt</kbd> to place it freely. Each chat remembers the position. A small dot on the button means agents are working. In a Roleplay chat with Advanced Memory Recall, a steady dot in the other corner means some scene memories need attention. See [Fixing memory problems](../agents/memory.md#fixing-memory-problems).
 
@@ -18,49 +20,48 @@ The first time you open a chat, a short video shows how to arrange buttons and w
 
 Sections appear in this order. Which ones you see depends on the chat mode.
 
-| Section | What it does | Modes |
-| --- | --- | --- |
-| Settings profile bar | Applies or saves a bundle of chat settings. See [Settings Profiles](settings-profiles.md). | Conversation, Roleplay |
-| **Search messages** | Finds messages by words, or by `#` and a message number. Its **Bookmarks** and **Trash** tabs list bookmarked and deleted messages. | Not Game |
-| **Chat Name** | The name in your chat list. Click it to rename. It is never sent to the model. | All |
-| **Chat Branches** | Switch, rename, export and import branches. See [Chat Branches](branches.md). | All |
-| **Connection** | Which model answers in this chat. See below. | All |
-| **Prompt Preset** | The saved prompt structure for this chat. | All |
-| **Advanced Parameters** | Overrides generation settings such as temperature for this chat. See [Generation Parameters](../prompts/generation-parameters.md). | All |
-| **Persona** | Who you play. See [Choosing Your Persona in a Chat](../characters/choosing-your-persona.md). | Conversation, Roleplay |
-| **Characters** | The characters in the chat. | Conversation, Roleplay |
-| **Party** | Replaces **Persona** and **Characters** in one place. | Game |
-| **Group Chat** | Who speaks in a group. See [Group Chats](group-chats.md). | Chats with more than one character |
-| **Scoped Regex Scripts** | Per-chat control for regex scripts that belong to a character. See [Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). | Shown only when a chat character has scoped scripts |
-| **Chat Variables** | Named text you reuse with `{{name}}`. See below. | All |
-| **Connected Chats** | Links a chat to another. See [Connected Chats](connected-chats.md). | All |
-| **Lorebooks** | Attaches world facts. See [Lorebooks Overview](../lorebooks/overview.md). | All |
-| **Chat Summary** | Reviews and creates summaries. See [Memory Recall and Chat Summaries](../agents/memory.md#chat-summary-roleplay). | Where summaries apply |
-| **Active Context** | Shows the lorebooks and context active in this chat. See [Token Budgets and Recursion](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context). | All |
-| **Agents** | Turns on helpers. See [Agents: AI Helpers for Your Chats](../agents/agents-overview.md). | All |
-| **Agent activity** | Shows what agents did. Re-run trackers, retry or stop agents, clear trackers. See [Agent activity](../roleplay/getting-started.md#agent-activity). | Roleplay, with agents or Advanced Memory on |
-| **Author's Notes** | A note the model reads every turn. See [Author's Notes](../roleplay/getting-started.md#authors-notes). | Roleplay |
-| **Gallery** | The chat's images and videos. See [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md). | All |
-| **Translation** | Automatic message translation. See [Message Translation](../integrations/message-translation.md). | All |
+- Settings profile bar: Applies or saves a bundle of chat settings. See [Settings Profiles](settings-profiles.md). (Conversation, Roleplay.)
+- **Search messages**: Finds messages by words, or by `#` and a message number. Its **Bookmarks** and **Trash** tabs list bookmarked and deleted messages. (Not Game.)
+- **Chat Name**: The name in your chat list. Click it to rename. It is never sent to the model.
+- **Chat Branches**: Switch, rename, export and import branches. See [Chat Branches](branches.md).
+- **Connection**: Which model answers in this chat. See below.
+- **Prompt Preset**: The saved prompt structure for this chat.
+- **Advanced Parameters**: Overrides generation settings such as temperature for this chat. See [Generation Parameters](../prompts/generation-parameters.md).
+- **Persona**: Who you play. See [Choosing Your Persona in a Chat](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
+- **Characters**: The characters in the chat. (Conversation, Roleplay.)
+- **Party**: Replaces **Persona** and **Characters** in one place. (Game.)
+- **Group Chat**: Who speaks in a group. See [Group Chats](group-chats.md). (Chats with more than one character.)
+- **Scoped Regex Scripts**: Per-chat control for regex scripts that belong to a character. See [Regex Scripts](../extending/regex-scripts.md#the-per-chat-scoped-regex-scripts-setting). (Shown only when a chat character has scoped scripts.)
+- **Chat Variables**: Named text you reuse with `{{name}}`. See below.
+- **Connected Chats**: Links a chat to another. See [Connected Chats](connected-chats.md).
+- **Lorebooks**: Attaches world facts. See [Lorebooks Overview](../lorebooks/overview.md).
+- **Chat Summary**: Reviews and creates summaries. See [Memory Recall and Chat Summaries](../agents/memory.md#chat-summary-roleplay). (Where summaries apply.)
+- **Active Context**: Shows the lorebooks and context active in this chat. See [Token Budgets and Recursion](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
+- **Agents**: Turns on helpers. See [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
+- **Agent activity**: Shows what agents did. Re-run trackers, retry or stop agents, clear trackers. See [Agent activity](../roleplay/getting-started.md#agent-activity). (Roleplay, with agents or Advanced Memory on.)
+- **Author's Notes**: A note the model reads every turn. See [Author's Notes](../roleplay/getting-started.md#authors-notes). (Roleplay.)
+- **Gallery**: The chat's images and videos. See [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+- **Translation**: Automatic message translation. See [Message Translation](../integrations/message-translation.md).
 
-Autonomous Messaging, Commands and notes sections for Conversation are in [Conversation Mode: Getting Started](../conversation/getting-started.md).
+Conversation chats also have Autonomous Messaging (characters message you first), Commands (actions characters take on their own) and notes sections. They are covered in [Conversation Mode: Getting Started](../conversation/getting-started.md).
 
 ## Choose the model for a chat
 
 The **Connection** section picks the model that answers in this chat. A pick changes only this chat.
 
 1. Open **Chat Settings** and the **Connection** section.
-2. Click the **Model** field. It shows the current model and whether the chat follows **Main** or has its own choice.
-3. Pick a model. The chooser is the same as the model button in the chat input. The current model stays at the top, with recent and starred models below, grouped by account. Search across models and accounts, or use **Browse** to open one account's catalog.
+2. Tap the **Model** field. It shows the current model.
+3. Check whether it says the chat follows **Main**. Main is the default model you set in **Connections**.
+4. Pick a model. The chooser is the same as the model button in the chat input. The current model stays at the top, with recent and starred models below, grouped by account. Search across models and accounts, or use **Browse** to open one account's catalog.
 
 **Follow Main** clears the chat's own choice, so the chat changes when you change Main. **Shuffle** picks a different model from your pool for each reply. See [Shuffle](../connections/organizing-connections.md#shuffle). If an account needs a key or is off, its model leads to the repair action. To add an account, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 ## Use chat variables
 
-A chat variable is a name for a piece of text. Add `char1` with the value `Mary`, then write `{{char1}} walks in.` in a message. The model reads "Mary walks in."
+A chat variable is a name for a piece of text. For example, add `char1` with the value `Mary`, then write `{{char1}} walks in.` in a message. The model reads "Mary walks in."
 
 1. Open **Chat Settings** and the **Chat Variables** section.
-2. Add a row and fill in its **name** and **value**.
+2. Tap **Add variable**, then fill in the row's **name** and **value**.
 3. Press <kbd>Enter</kbd> or click outside the field to save. The trash button removes a variable.
 
 Names use letters, numbers and underscores, start with a letter or underscore, and are at most 64 characters. A name with exactly 21 characters is reserved for character references. A name that belongs to a built-in macro, such as `char` or `user`, is refused.
@@ -79,13 +80,11 @@ A settings profile is a saved bundle of chat settings you can apply to other cha
 
 On a computer, Chat Settings floats over the chat, and its contents rearrange to fit its size. A window opens below its button the first time, or at its saved position.
 
-| To do this | Do this |
-| --- | --- |
-| Move it | Drag its title bar. Or focus the title bar and use the arrow keys, with <kbd>Shift</kbd> for larger steps. |
-| Resize it | Drag an edge or corner. Or focus the bottom-right handle and use the arrow keys. |
-| Pin it | Click **Pin**. A pinned window stays open when you click elsewhere and reopens after a refresh. An unpinned window closes when you click outside it or press <kbd>Esc</kbd>, unless you are typing or using an open menu. |
-| Lock it | Click **Lock**. The window cannot move or resize, and its button stays in place. You can still open it. |
-| Close it | Click **X**. |
+- Move it: Drag its title bar. Or focus the title bar and use the arrow keys, with <kbd>Shift</kbd> for larger steps.
+- Resize it: Drag an edge or corner. Or focus the bottom-right handle and use the arrow keys.
+- Pin it: Click **Pin**. A pinned window stays open when you click elsewhere and reopens after a refresh. An unpinned window closes when you click outside it or press <kbd>Esc</kbd>, unless you are typing or using an open menu.
+- Lock it: Click **Lock**. The window cannot move or resize, and its button stays in place. You can still open it.
+- Close it: Click **X**.
 
 Windows stay inside the chat area. A window or button can sit beside the message box but never covers it. On a phone, Chat Settings opens as a full-width panel that fits above the keyboard.
 
@@ -102,7 +101,7 @@ When the Tracker Panel is not shown, desktop trackers use the [Trackers window](
 
 ## Popping a section out into its own window
 
-Pop out a section to keep it close at hand.
+Pop out a section to give it its own window.
 
 1. Click the **Pop out** button on the section (the box with an arrow, beside its **?**). On a computer you can also drag the section's title out of Chat Settings.
 2. Move, resize, pin or lock the new window like Chat Settings. It starts unpinned, so clicking elsewhere shrinks it to a button.
@@ -146,7 +145,7 @@ To replace the favorite, change the arrangement and click the star again. To sto
 
 A settings profile with its own saved layout takes priority over the favorite when applied. A profile without one leaves the favorite arrangement in place. Profiles still apply their own layout tips setting and Scoped Regex Scripts mode. See [Settings Profiles](settings-profiles.md#favorite-window-layouts).
 
-After an upgrade from an older version, the familiar tool-button layout is already starred for all three modes, until you replace or clear it. A fresh installation has the tools inside Chat Settings and no favorite.
+After an upgrade from an older version, your old arrangement of tool buttons is already starred for all three modes, until you replace or clear it. A fresh installation has the tools inside Chat Settings and no favorite.
 
 ## Changing how chat windows look
 
