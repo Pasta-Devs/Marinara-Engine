@@ -1,6 +1,6 @@
 # Game Mode: Combat
 
-Combat in Game Mode comes in two kinds: **Classic** menu battles and **Tactical** grid battles. You choose between them with **Combat Preference** on the setup wizard's **World** step. It is set when the game is created. The Game Master (GM, the AI that runs the game) sets up the encounter and narrates the result. Marinara resolves the battle actions with fixed dice math, so the AI never decides who hits.
+Combat in Game Mode comes in two kinds: **Classic** menu battles and **Tactical** grid battles. You choose between them with **Combat Preference** on the setup wizard's **World** step. To change it later, open **Chat Settings**, expand **Combat Style** and pick a **Battle system**. A ruleset that runs its own fights can limit the choices. The Game Master (GM, the AI that runs the game) sets up the encounter and narrates the result. Marinara resolves the battle actions with fixed dice math, so the AI never decides who hits.
 
 ## Starting an encounter
 
