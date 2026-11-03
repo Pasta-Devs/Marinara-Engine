@@ -1,6 +1,6 @@
 # Supported AI Providers
 
-This page is a reference for every service Marinara Engine can connect to: where to get its API key, its default address, and its quirks. To add an account step by step, read [Connecting to an AI Provider](connecting-to-a-provider.md) first.
+This page is a reference for the main services Marinara Engine can connect to: where to get its API key, its default address, and its quirks. To add an account step by step, read [Connecting to an AI Provider](connecting-to-a-provider.md) first.
 
 You choose a service in the **Add account** window, under the section for what it does: **Chat**, **Images & video**, **Voice**, or **Decisions**. The tile uses the name shown below. The address is the web address Marinara sends requests to. It is called **Address** in the account editor and **Base URL** in the model editor. Marinara fills it in for known services. Change it only for a proxy or a server you run.
 
@@ -12,6 +12,7 @@ These services use an API key, except the three subscription services, which use
 
 | Service | Where to get a key |
 | --- | --- |
+| LinkAPI | `linkapi.ai` |
 | OpenAI | `platform.openai.com/api-keys` |
 | Anthropic | `console.anthropic.com/settings/keys` |
 | Google Gemini | `aistudio.google.com/apikey` |
@@ -28,6 +29,7 @@ These services use an API key, except the three subscription services, which use
 
 Default addresses, which Marinara fills in for you:
 
+- LinkAPI: `https://linkapi.ai/v1` (an OpenAI-compatible gateway with its own key)
 - OpenAI: `https://api.openai.com/v1`
 - Anthropic: `https://api.anthropic.com/v1`
 - Google Gemini: `https://generativelanguage.googleapis.com/v1beta`
@@ -143,7 +145,7 @@ See [Image Generation Providers and Setup](../media/image-providers.md) and [Sce
 
 ## Decision
 
-Under **Decisions**, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. Other chat services can also do decisions with their key. A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
+Under **Decisions**, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. Chat services that use the OpenAI chat format can also do decisions, but only with a model that returns log-probabilities (scores for each possible answer). A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
 
 ## Audio
 
