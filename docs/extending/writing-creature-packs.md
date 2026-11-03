@@ -44,7 +44,7 @@ One pack draws every fight. To go back to tokens, remove the chosen pack or choo
 
 | Field | What it is |
 | --- | --- |
-| `creaturePackVersion` | `1`, or `2` for a pack with flying art. |
+| `creaturePackVersion` | `1`, or `2` for a pack with flying art (Capability API 1.352). |
 | `id` | Lowercase letters, digits, `_` and `-`. The library files an imported pack under `local/<id>`. |
 | `name`, `author` | Shown in the library. `author` is optional. |
 | `version` | A whole number. A version is never rewritten: to change a pack, raise its version. Importing the same file again changes nothing. |
@@ -79,6 +79,8 @@ A creature with `fly` is drawn from its flying block, with its frames played 0, 
 - a flight it made this turn (a step only its flight takes, such as over water)
 
 Otherwise it is drawn from its look as before.
+
+An Experience map pack whose creature packs have flying art needs Capability API 1.352.
 
 ### What `match` names
 
