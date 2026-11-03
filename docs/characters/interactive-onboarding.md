@@ -1,10 +1,10 @@
 # Interactive Onboarding
 
-Interactive onboarding lets a character card ask the player questions when they start a Roleplay chat, then builds a persona from the answers. Authors set it up in the Character Editor. Players answer in the new chat wizard.
+You only need this if you make cards for other people to play. Interactive onboarding lets a character card ask the player questions when they start a Roleplay chat, then builds a persona from the answers. Authors set it up in the Character Editor. Players answer in the new chat wizard.
 
 ## What it does
 
-A persona is the character that represents you in a chat. See [Personas](personas.md). Normally you write one yourself before you play. With onboarding, the card ships a persona template instead: the five persona fields (**Description**, **Personality**, **Backstory**, **Appearance** and **Scenario**) with blanks for the player, plus the questions that fill them.
+A persona is the character card that stands for you in a chat. See [Personas](personas.md). Normally you write one yourself before you play. With onboarding, the card ships a persona template instead: the five persona fields (**Description**, **Personality**, **Backstory**, **Appearance** and **Scenario**) with blanks for the player, plus the questions that fill them.
 
 When a player starts a Roleplay chat with the card, they can choose **Create your persona**, answer the questions and get a new, ordinary persona. The answers are written into the text once. The player can edit, keep or delete the persona like any other. The card does not change.
 
@@ -24,7 +24,7 @@ Ask [Professor Mari](../home/professor-mari.md), for example: "Write a fun onboa
 
 ### Add persona questions
 
-Under **Persona Questions**, click **Add Question**. Each question works like a preset variable. See [Presets](../prompts/presets.md). A card can have up to 100 questions.
+Under **Persona Questions**, click **Add Question**. Each question works like a preset variable, a named blank that an answer fills in. See [Presets](../prompts/presets.md). A card can have up to 100 questions.
 
 | Field | What it does |
 | --- | --- |
@@ -56,7 +56,7 @@ Use `{{#if}}` to show text only for some answers:
 
 A question that appears only inside an `{{#if}}` is asked only when the condition is true. Here, `relationToAna` is a follow-up that appears once the player answers **yes**. Comparisons ignore upper and lower case.
 
-`{{user}}` and `{{char}}` stay as macros in the created persona. Other macros, such as `{{random}}`, `{{time}}` or `{{getvar}}`, are filled in once when the persona is created, or left empty if they have no value then.
+`{{user}}` and `{{char}}` stay as macros in the created persona. Other macros (placeholders that Marinara fills in, such as `{{random}}` for a random number or `{{time}}` for the time) are filled in once when the persona is created, or left empty if they have no value then.
 
 The **Rendered preview** at the bottom shows the persona built from example answers and lists the questions asked, in order.
 
