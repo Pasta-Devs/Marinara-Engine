@@ -6,12 +6,14 @@ Selfies come from the optional **Illustrator** package and use image generation.
 
 ## Turn selfies on
 
-Before you start: install **Illustrator** from **Agents → Agent Organizer**, and add an image account (see [Image Generation Providers and Setup](../media/image-providers.md)).
+Before you start: install **Illustrator** from **Agents → Agent Organizer**, and add an image account, which is an account for a service that makes pictures (see [Image Generation Providers and Setup](../media/image-providers.md)).
 
 1. Open a Conversation chat, then open **Chat Settings**.
 2. Find the **Agents** section and open **Illustrator Settings**.
-3. Turn on **Generated Selfies**. This also turns on the master **Commands** switch for the chat. The selfie settings appear below it.
-4. Set **Selfie model** to your image account (see below).
+3. Turn on **Generated Selfies**. The selfie settings appear below it.
+4. In **Selfie model**, pick your image account.
+
+Turning on **Generated Selfies** also turns on the master **Commands** switch for the chat.
 
 Characters send selfies only once **Selfie model** is set. Until then the chat shows "Choose a Selfie Provider to let characters generate selfie images."
 
@@ -21,21 +23,19 @@ If it did not work: **Illustrator Settings** shows only when Illustrator is inst
 
 All of these live in **Illustrator Settings** and apply to the current chat only.
 
-| Setting | What it does | Default |
-| --- | --- | --- |
-| **Selfie model** | The image account that draws the picture. | **None (selfies disabled)** |
-| **Prompt Model** | The text model that writes the picture description. | **Agent default** |
-| **Image Style** | A style profile (saved art-style words, such as "anime"). See [Image Style Profiles](../media/style-profiles.md). | The default style from Style Profiles in Advanced settings |
-| **Images Per Generation** | How many variants to make for each illustration or selfie. | Not checked |
-| **Resolution** | Image size. Shown only after you set **Selfie model**. | 896x1152 |
-| **Send Avatar References** | Sends the character's avatar or sprite as a reference picture. Works only if the image service supports reference images. | **Off** |
-| **Attach Card Appearance** | Adds each named character's card **Appearance** text to the prompt. | **Off** |
+- **Selfie model**: the image account that draws the picture. The default is **None (selfies disabled)**.
+- **Prompt Model**: the text model that writes the picture description. The default is **Agent default**.
+- **Image Style**: a saved set of art-style words, such as "anime". The default is the default style from Style Profiles in Advanced settings. See [Image Style Profiles](../media/style-profiles.md).
+- **Images Per Generation**: how many variants to make for each illustration or selfie.
+- **Resolution**: the image size. It shows only after you set **Selfie model**. The default is 896x1152.
+- **Send Avatar References**: sends the character's avatar or sprite as a reference picture. Off by default. It works only if the image service accepts reference pictures.
+- **Attach Card Appearance**: adds the card's **Appearance** text of each named character to the prompt. Off by default.
 
 **Resolution** options: 512x512, 512x768, 768x768, 768x1024, 896x1152 and 1024x1024. 896x1152 is a tall portrait that suits most selfies.
 
-**Send Avatar References** and **Attach Card Appearance** each offer **Off**, **Images only**, **Videos only** and **Images and videos**. For videos, **Send Avatar References** makes a clip whose **First frame** is **Prompt only** start from the avatar or sprite.
+**Send Avatar References** and **Attach Card Appearance** each offer **Off**, **Images only**, **Videos only** and **Images and videos**.
 
-If the card or persona has **Image Appearance Override** on (under **Appearance** in the editor), Marinara sends that text instead of **Appearance**. Use it when **Appearance** is written for the narrator, not for an image model. The model that writes the prompt still reads **Appearance** for other details and keeps the override's words as written.
+If the card or persona has **Image Appearance Override** on (under **Appearance** in the editor), Marinara sends that text instead of **Appearance**. Use it when **Appearance** is written for the story, not for pictures.
 
 ## Ask for a selfie by hand
 
@@ -48,16 +48,9 @@ You see "Selfie generated." and the picture appears in the chat. A manual reques
 
 ## How characters send selfies
 
-A character decides on its own when to send a selfie. You do not type a command. The model writes `[selfie]`, with optional context, and Marinara generates the picture and posts it. Later replies see a short note of what it showed.
+A character decides on its own when to send a selfie. You do not type anything. Marinara generates the picture and posts it, and later replies see a short note of what it showed.
 
-```text
-Here is a picture from my walk!
-[selfie: context="standing beside the river at sunset"]
-```
-
-`[selfie: "standing beside the river"]` and `[selfie: standing beside the river]` also work, in any letter case.
-
-If it did not work: when you see the literal `[selfie...]` text in a message, check that the chat is in Conversation Mode, **Commands** and **Selfies** are on, **Generated Selfies** is on and **Selfie model** is set. If generation starts but fails, read the error about the image account. Changing the capital letters does not help.
+If it did not work: when you see the literal text `[selfie...]` in a message, check that the chat is in Conversation Mode, **Commands** and **Selfies** are on, **Generated Selfies** is on and **Selfie model** is set. If generation starts but fails, read the error about the image account.
 
 ## Make a selfie again
 
@@ -80,23 +73,33 @@ If a clip cannot be added to the chat, it is still saved under the Gallery's **V
 
 Open **Chat Settings → Agents → Illustrator Settings**, **Video messages**.
 
-| Setting | What it does |
-| --- | --- |
-| **Generated Videos** | Lets characters send video messages on their own. Off by default in new chats, because each clip is a video request. Also shown as **Videos** in the **Commands** list. |
-| **Video Run Interval** | Shown once **Generated Videos** is on. How many messages must pass between clips. **0** stops them. |
-| **Video model** | The video account. **Default video provider** uses your default. |
-| **First frame** | The picture the clip starts from (below). |
+- **Generated Videos**: lets characters send video messages on their own. Off by default in new chats, because each clip is a video request. It also shows as **Videos** in the **Commands** list.
+- **Video Run Interval**: shown once **Generated Videos** is on. How many messages must pass between clips. **0** stops them.
+- **Video model**: the video account. **Default video provider** uses your default.
+- **First frame**: the picture the clip starts from (below).
 
 `/video` and the Gallery **Video** button work either way and ignore the interval. Swiping a reply that sent a clip lets the new swipe send its own. In a group chat each character can send one clip per reply, up to **Videos per reply** (3 by default) under **Settings → Generations → Video Generation**.
 
-| **First frame** option | Starts from |
-| --- | --- |
-| **New selfie, or the avatar if no selfie provider** (default) | A new selfie when selfies are on and **Selfie model** is set, otherwise the avatar. |
-| **New selfie, then animate it** | Always a new selfie, also saved to the Gallery. Needs selfies on and **Selfie model**. With **Expose media prompts before sending** on, you review the selfie prompt with the clip prompt. |
-| **Avatar or sprite** | The avatar, or a full-body sprite if there is no avatar. |
-| **Prompt only (no picture)** | No picture. Some ComfyUI workflows fail without one. When **Send Avatar References** includes videos, this reads **Prompt only (avatar from Send Avatar References)** and starts from the avatar. |
+**First frame** options:
 
-Pictures in other formats, such as WebP, are converted for the video service. One video message is one video request, plus one image request when it starts from a new selfie. A connection's **Video Prompting Instructions** guide the model that writes the video prompt. Your **Prompt Model** writes it, and **Settings → Generations → Video Generation Prompt Overrides → Conversation Video Message** holds its instructions.
+- **New selfie, or the avatar if no selfie provider** (default): a new selfie when selfies are on and **Selfie model** is set, otherwise the avatar.
+- **New selfie, then animate it**: always a new selfie, also saved to the Gallery. It needs selfies on and **Selfie model**.
+- **Avatar or sprite**: the avatar, or a full-body sprite if there is no avatar.
+- **Prompt only (no picture)**: no picture. Some ComfyUI workflows fail without one. If **Send Avatar References** includes videos, this reads **Prompt only (avatar from Send Avatar References)** and starts from the avatar.
+
+With **Expose media prompts before sending** on, you review the selfie prompt together with the clip prompt.
+
+Pictures in other formats, such as WebP, are converted for the video service. One video message is one video request, plus one image request when it starts from a new selfie. Your **Prompt Model** writes the video prompt, and **Settings → Generations → Video Generation Prompt Overrides → Conversation Video Message** holds its instructions.
+
+## Reference: the selfie tag
+
+Characters ask for a selfie with a tag in their reply. You never type it. It looks like `[selfie]`, optionally with context:
+
+```text
+[selfie: context="standing beside the river at sunset"]
+```
+
+`[selfie: "standing beside the river"]` and `[selfie: standing beside the river]` also work, in any letter case. Marinara removes the tag and posts the picture.
 
 ## Related guides
 
