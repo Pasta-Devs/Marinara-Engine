@@ -398,3 +398,23 @@
   background: var(--ov-active-bg);
   box-shadow: inset 0 0 0 1px var(--ov-line);
 }
+
+/* ─── Panels hosted on a landing page ─── */
+/* The side-panel toolbars were built for a narrow column: one huge button per
+   action. On a page they become a short row of icon buttons. */
+.ov-libpage__body div:has(> .mari-panel-gradient-button) {
+  justify-content: flex-start;
+  gap: 0.375rem;
+}
+.ov-libpage__body div:has(> .mari-panel-gradient-button) > button {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 2.25rem;
+  height: 2rem;
+  min-height: 2rem;
+  padding-inline: 0.625rem;
+}
+.ov-libpage__body button:has(> .lucide-folder-plus) {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
