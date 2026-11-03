@@ -1,21 +1,27 @@
 # Personas
 
-A persona is the character card that stands for you in a chat: your name, your description and other optional details. Marinara sends them in every prompt so the AI knows who it is talking to. You can keep many personas and pick one per chat.
-
-## What a persona does
-
-Choose which persona a chat uses, or choose **None** to use no persona. See [Choosing Your Persona in a Chat](choosing-your-persona.md).
-
-The `{{user}}` macro is a placeholder that Marinara replaces with a real value before it sends the prompt. `{{user}}` becomes the name of the chat's persona. If the persona is named Alex, `{{user}}` becomes Alex. With no persona, the AI calls you "User" and no persona details are sent. See [Macros](../prompts/macros.md).
+A persona is the character card that stands for you in a chat: your name, your description and other optional details. Marinara sends them in every prompt so the AI knows who it is talking to. You can keep many personas and pick one per chat. To use one, see [Choosing Your Persona in a Chat](choosing-your-persona.md).
 
 ## Create a persona
 
-1. Open the **Personas** panel from the sidebar.
+1. Click **Personas** in the top navigation bar. If you do not see it, open **More** first.
 2. Click **New**. The **Create Persona** window opens.
 3. Type a name in **Name**. It is the only required field.
 4. Click **Create**.
 
-The persona is created with an empty description and opens in the Persona Editor so you can fill in the rest. Then select it in the chat where you want to use it.
+The persona is created with an empty description and opens in the Persona Editor.
+
+5. Open the **Card** tab and write your **Description**: your name, looks and how you act.
+6. Click **Save** in the header.
+
+Then pick it in the chat where you want to use it. See [Choosing Your Persona in a Chat](choosing-your-persona.md).
+
+## What a persona does
+
+Marinara sends your persona to the AI in every prompt. Choose **None** in a chat to send no persona. With none, the AI calls you "User".
+
+The `{{user}}` macro is a placeholder. Marinara replaces it with the persona's name before it sends the prompt. If your persona is named Alex, `{{user}}` becomes Alex. See [Macros](../prompts/macros.md).
+
 
 ## The Personas panel
 
@@ -28,7 +34,7 @@ The **Personas** panel is your persona library. Click a row to open that persona
 | **New** | Creates a persona. |
 | **Import** | Opens the **Import Persona** window. |
 | **Select** | Turns on selection mode for bulk delete and export. |
-| Search box | Placeholder **Search personas/tags**. It matches name, description, comment and tags. See [Organizing Your Character Library](library-organization.md#search) for tag searches such as `male genshin`. |
+| Search box | Placeholder **Search personas/tags**. It matches name, description, comment and tags. For tag searches, see [Search](library-organization.md#search). |
 | Sort dropdown | **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest** or **Tokens** (estimated prompt size). |
 | **New Folder** | Creates a folder. |
 | **Tags** | Expands the tag list for filtering. |
@@ -53,7 +59,7 @@ The persona editor works like the [Character Editor](creating-and-editing-charac
 
 | Tab | Persona-specific notes |
 | --- | --- |
-| **Metadata** | Shows **Persona ID** (with **Copy**), the avatar crop, **Name**, **Creator**, **Phonetic name** (used only when text-to-speech reads your name), **Title / Comment**, **Version** (default `1.0`, with an **Automatic versioning** switch), **Tags** and **Creator Notes** (never sent to the AI). |
+| **Metadata** | Identity and library details. See the list below this table. |
 | **Card** | See [Card tab](#card-tab) below. |
 | **Convo** | Fields used in Conversation mode only. See [Conversation Mode Profiles](../conversation/profiles.md). |
 | **Lorebook** | Attach lorebook entries that activate when this persona is in the chat. See [Lorebooks Overview](../lorebooks/overview.md). |
@@ -61,6 +67,17 @@ The persona editor works like the [Character Editor](creating-and-editing-charac
 | **Gallery** | Reference images and videos, with **Upload Persona Images** and **Upload Persona Videos**. See [Character and Persona Galleries](galleries.md). |
 | **Colors** | Name, dialogue and message box colors. See [Character Colors and RPG Stats](colors-and-stats.md). |
 | **Stats** | Status bars and RPG attributes. See [Stats tab](#stats-tab) below. |
+
+The **Metadata** tab shows:
+
+- **Persona ID**, with **Copy**.
+- The avatar crop.
+- **Name** and **Creator**.
+- **Phonetic name**, used only when text-to-speech reads your name.
+- **Title / Comment**, a short label.
+- **Version**, default `1.0`, with an **Automatic versioning** switch.
+- **Tags**.
+- **Creator Notes**, never sent to the AI.
 
 ### Card tab
 
@@ -86,12 +103,12 @@ These features work the same as on characters, with the persona as the subject:
 
 ### Stats tab
 
-The **Stats** tab has two separate blocks. Both feed the HUD (the on-screen stat display) during chat.
+The **Stats** tab has two separate blocks. Both feed the HUD, the stat panel shown on screen during a chat.
 
-- **Enable Persona Stats** turns on status bars. A fresh one starts with Satiety, Energy, Hygiene and Mood, each at 100 of 100. The **Persona Stats** agent adjusts them as the story goes.
-- **Enable RPG Attributes** turns on Pools and Attributes. A fresh one starts with HP and MP at 100 of 100 and STR, DEX, CON, INT, WIS and CHA at 10. They are sent with the persona for combat and Game Mode, and for optional rolls. Agents do not update them.
+- **Enable Persona Stats** turns on status bars, meters for needs such as hunger and mood. A fresh one starts with Satiety, Energy, Hygiene and Mood, each at 100 of 100. The **Persona Stats** agent adjusts them as the story goes.
+- **Enable RPG Attributes** turns on Pools (bars such as HP and MP) and Attributes (numbers such as strength). Both are explained in [Character Colors and RPG Stats](colors-and-stats.md). A fresh one starts with HP and MP at 100 of 100 and STR, DEX, CON, INT, WIS and CHA at 10. They are sent with the persona for combat and Game Mode, and for optional rolls. Agents do not update them.
 
-A **Game Mode Icon** block sets your token picture in a Game Mode fight. See [Game Mode Icon](colors-and-stats.md#game-mode-icon). When a ruleset is installed, a **Ruleset sheets** block holds your starting build for it. See [Ruleset sheets](colors-and-stats.md#ruleset-sheets). The values you set are the starting defaults for new chats.
+A **Game Mode Icon** block sets your token picture in a Game Mode fight. See [Game Mode Icon](colors-and-stats.md#game-mode-icon). When a Game Mode ruleset (a rule set for tabletop-style games) is installed, a **Ruleset sheets** block holds your starting build for it. See [Ruleset sheets](colors-and-stats.md#ruleset-sheets). The values you set are the starting defaults for new chats.
 
 ## Import and export personas
 
