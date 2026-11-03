@@ -116,13 +116,14 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     if (preset.mode !== chat.mode) {
       return reply.status(409).send({ error: "Settings profile mode does not match chat mode" });
     }
-    const body = (req.body ?? {}) as { connectionId?: unknown };
+    const body = (req.body ?? {}) as { connectionId?: unknown; keepPersona?: unknown };
     const connectionId =
       typeof body.connectionId === "string" ? body.connectionId : body.connectionId === null ? null : undefined;
-    const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId });
+    const keepPersona = body.keepPersona === true;
+    const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId, keepPersona });
     if (!updated) return reply.status(404).send({ error: "Settings profile or chat not found" });
     // The profile's persona switches who the user plays the way Chat Settings does.
-    await recordChatIdentityChange(app, chat, updated);
+    if (!keepPersona) await recordChatIdentityChange(app, chat, updated);
     return updated;
   });
 

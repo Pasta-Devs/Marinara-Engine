@@ -374,7 +374,8 @@ export function createChatPresetsStorage(db: DB) {
     async applyToChat(
       presetId: string,
       chatId: string,
-      options: { connectionId?: string | null; asFollower?: boolean } = {},
+      /** `keepPersona`: the user already picked who they play in this chat, so the profile's persona is skipped. */
+      options: { connectionId?: string | null; asFollower?: boolean; keepPersona?: boolean } = {},
     ) {
       return withChatMetadataPatchQueue(chatId, async () => {
         const preset = await storage.getById(presetId);
@@ -477,7 +478,7 @@ export function createChatPresetsStorage(db: DB) {
             ...(!options.asFollower && {
               connectionId: nextConnectionId,
               promptPresetId: preset.settings.promptPresetId ?? null,
-              ...(preset.settings.personaId && (await personaExists(preset.settings.personaId))
+              ...(!options.keepPersona && preset.settings.personaId && (await personaExists(preset.settings.personaId))
                 ? { personaId: preset.settings.personaId, personaCharacterId: null }
                 : {}),
               updatedAt: now(),

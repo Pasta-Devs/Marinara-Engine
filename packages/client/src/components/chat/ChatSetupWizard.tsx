@@ -2834,17 +2834,16 @@ function RoleplaySetupWizard({
       return;
     }
     let profileApplied = false;
-    // The persona picked in this step wins over the profile's starting persona.
-    const pickedPersonaId = chat.personaId;
-    const pickedPersonaCharacterId = chat.personaCharacterId;
     try {
       setShortcutApplying(true);
-      const applied = await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
+      // The persona picked in this step wins over the profile's starting persona: the apply leaves it in place,
+      // so the chat is not told it switched to the profile's persona and back.
+      await applyChatPreset.mutateAsync({
+        presetId: shortcutPresetId,
+        chatId: chat.id,
+        keepPersona: shortcutPersonaPicked,
+      });
       profileApplied = true;
-      if (shortcutPersonaPicked && applied && applied.personaId !== pickedPersonaId) {
-        if (pickedPersonaCharacterId) setPersonaCharacter(pickedPersonaCharacterId);
-        else if (pickedPersonaId) setPersona(pickedPersonaId);
-      }
     } catch {
       /* fall through — still close the wizard */
     } finally {
@@ -2853,18 +2852,7 @@ function RoleplaySetupWizard({
       setShortcutApplying(false);
       onFinish();
     }
-  }, [
-    shortcutPresetId,
-    shortcutPersonaPicked,
-    chat.id,
-    chat.personaId,
-    chat.personaCharacterId,
-    applyChatPreset,
-    setPersona,
-    setPersonaCharacter,
-    onFinish,
-    seedInitialGreetingsIfEmpty,
-  ]);
+  }, [shortcutPresetId, shortcutPersonaPicked, chat.id, applyChatPreset, onFinish, seedInitialGreetingsIfEmpty]);
 
   // Search state for character & lorebook pickers
   const [charSearch, setCharSearch] = useState("");

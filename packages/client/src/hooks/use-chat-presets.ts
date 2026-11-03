@@ -91,16 +91,19 @@ export function useApplyChatPreset() {
       presetId,
       chatId,
       connectionId,
+      keepPersona,
     }: {
       presetId: string;
       chatId: string;
       connectionId?: string | null;
+      /** The user picked a persona for this chat, so it stays instead of the profile's. */
+      keepPersona?: boolean;
       initialSetupProfile?: ChatPreset;
     }) =>
-      api.post<Chat>(
-        `/chat-presets/${presetId}/apply/${chatId}`,
-        connectionId !== undefined ? { connectionId } : undefined,
-      ),
+      api.post<Chat>(`/chat-presets/${presetId}/apply/${chatId}`, {
+        ...(connectionId !== undefined && { connectionId }),
+        ...(keepPersona && { keepPersona }),
+      }),
     onMutate: ({ chatId }) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
     onSuccess: (data, variables, context) => {
       const draft = useChatStore.getState().pendingNewChatSetups[variables.chatId];

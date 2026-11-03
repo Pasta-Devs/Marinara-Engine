@@ -121,6 +121,17 @@ try {
     patchedHistory.filter((message) => message.role === "system").map((message) => message.content),
     ["You are now playing as Rowan."],
   );
+  // Quick setup: a persona picked over the profile's stays, and the greeting-only chat hears of no other persona.
+  const picked = await createCharactersStorage(db).createPersona("Wren", "A courier");
+  const greetedId = await createChat("Greeted");
+  await inject("POST", `/api/chats/${greetedId}/messages`, { role: "assistant", content: "Welcome, traveller." });
+  await inject("PATCH", `/api/chats/${greetedId}`, { personaId: picked!.id });
+  const turnsOf = async (id: string) =>
+    (await createChatsStorage(db).listMessages(id)).filter((message) => message.role === "system").length;
+  const turnsBefore = await turnsOf(greetedId);
+  await inject("POST", `/api/chat-presets/${profile.id}/apply/${greetedId}`, { keepPersona: true });
+  assert.equal((await getChat(greetedId)).personaId, picked!.id, "the picked persona stays");
+  assert.equal(await turnsOf(greetedId), turnsBefore, "no turn names the profile's persona");
 
   // Exports leave the install-local persona and lorebook ids out.
   const exported = await app.inject({ method: "GET", url: `/api/chat-presets/${profile.id}/export` });
