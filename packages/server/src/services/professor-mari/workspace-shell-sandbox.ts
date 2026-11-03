@@ -266,8 +266,17 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
   const [storageDir] = uniqueExistingPaths([getFileStorageDir()]).filter((path) =>
     path.startsWith(workspaceRoot + sep),
   );
+  const forbiddenPaths = uniqueExistingPaths(forbidden);
+  // The folders between the workspace and each forbidden path, so a command cannot rename one and reach what it
+  // holds under a new path.
+  const forbiddenHolders = new Set<string>();
+  for (const path of forbiddenPaths) {
+    for (let dir = dirname(path); dir.startsWith(workspaceRoot + sep); dir = dirname(dir)) forbiddenHolders.add(dir);
+  }
   return {
-    forbidden: uniqueExistingPaths(forbidden),
+    workspaceRoot,
+    forbidden: forbiddenPaths,
+    forbiddenHolders: [...forbiddenHolders],
     sensitive: uniqueExistingPaths(sensitive),
     storageDir: storageDir ?? null,
     packageStores: uniqueExistingPaths(packageStores),
@@ -724,9 +733,21 @@ export async function buildMacosWorkspaceShellProfile(
   const readable = macosReadRoots(workspaceRoot, env, sandboxTemp, codeCheck)
     .map((path) => `    (subpath ${sandboxLiteral(path)})`)
     .join("\n");
-  const forbiddenReads = policyPaths.forbidden.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
+  const forbiddenPaths = policyPaths.forbidden.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
   const sensitiveWrites = policyPaths.sensitive.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
-  const forbiddenReadRule = forbiddenReads ? `(deny file-read*\n${forbiddenReads})` : "";
+  // Forbidden paths (.git, .env, the key file) are closed to writes as well as reads: a write-only open, a rename or
+  // a delete gets past a read rule alone. The folders holding them are pinned, and the names are matched too, so a
+  // .git, .env or key file that does not exist yet cannot be created. Seatbelt regexes have no case-insensitive
+  // flag, so each letter matches both cases, as the volume does. These rules come last, so no allow reopens them.
+  const root = `^${escapeRegExp(policyPaths.workspaceRoot)}/(.*/)?`;
+  const anyCase = (name: string) => escapeRegExp(name).replace(/[a-z]/gu, (c) => `[${c}${c.toUpperCase()}]`);
+  const forbiddenNames = `${root}(${anyCase(".git")}(/|$)|${anyCase(".env")}(\\.[^/]*)?$|${anyCase(".encryption-key")}$)`;
+  const envTemplates = `${root}${anyCase(".env.")}(${anyCase("example")}|${anyCase("sample")}|${anyCase("template")})$`;
+  const forbiddenRule = forbiddenPaths ? `(deny file-read* file-write*\n${forbiddenPaths})` : "";
+  const forbiddenWriteRule = `(deny file-write*\n${[
+    ...policyPaths.forbiddenHolders.map((path) => `    (literal ${sandboxLiteral(path)})`),
+    `    (require-all (regex ${JSON.stringify(forbiddenNames)}) (require-not (regex ${JSON.stringify(envTemplates)})))`,
+  ].join("\n")})`;
   const sensitiveWriteRule = writableWorkspace && sensitiveWrites ? `(deny file-write*\n${sensitiveWrites})` : "";
   const storeWrites = policyPaths.packageStores.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
   const storeWriteRule = writableWorkspace && storeWrites ? `(deny file-write*\n${storeWrites})` : "";
@@ -767,12 +788,13 @@ ${workspaceWriteRule}
     (subpath ${sandboxLiteral(sandboxTemp)})
     (literal "/dev/null")
     (literal "/dev/tty"))
-${forbiddenReadRule}
 ${sensitiveWriteRule}
 ${storeWriteRule}
 ${storageWriteRule}
 ${storeCacheRule}
 ${buildOutputRule}
+${forbiddenRule}
+${forbiddenWriteRule}
 (deny network*)
 `;
 }
@@ -846,6 +868,8 @@ export async function linuxBubblewrapArgs(
     if (!codeCheck) for (const output of policyPaths.buildOutputs) args.push("--ro-bind", output, output);
     if (policyPaths.storageDir) args.push("--ro-bind", policyPaths.storageDir, policyPaths.storageDir);
   }
+  // ponytail: a mount needs an existing path, so a .git or .env a command creates where none existed is not covered
+  // here (Seatbelt matches the names too). Upgrade path: refuse or revert forbidden paths the run created.
   for (const path of policyPaths.forbidden) {
     if ((await lstat(path)).isDirectory()) args.push("--tmpfs", path);
     else args.push("--ro-bind", "/dev/null", path);

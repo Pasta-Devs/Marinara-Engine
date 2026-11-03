@@ -1,8 +1,10 @@
 // Professor Mari's boundaries around server secrets and code she can edit:
 // - the auto-generated encryption key (DATA_DIR/.encryption-key) is as secret as .env, for her tools and shell;
 // - saved data (DATA_DIR/storage) is read-only to her shell, as it already is to her write tool;
+// - her shell can neither read nor change .git, .env or the key file, nor create them where they do not exist yet;
 // - `mari code check` runs pnpm check in the shell sandbox without the server's environment, or not at all when
-//   no sandbox exists, because pnpm check executes workspace scripts she can change.
+//   no sandbox exists, because pnpm check executes workspace scripts she can change. Only a real help flag keeps
+//   it direct.
 import assert from "node:assert/strict";
 import {
   chmodSync,
@@ -27,6 +29,8 @@ const keyFile = join(dataDir, ".encryption-key");
 const serverDist = join(workspace, "packages", "server", "dist");
 const KEY = "ab".repeat(32);
 const SECRET = "server-secret-mari-must-not-see";
+const ENV_FILE = "ENV_SECRET=env-secret-mari-must-not-see\n";
+const GIT_CONFIG = "[core]\n\tbare = false\n";
 const originalEnv = {
   FILE_STORAGE_DIR: process.env.FILE_STORAGE_DIR,
   MARINARA_GIT_COMMIT: process.env.MARINARA_GIT_COMMIT,
@@ -62,6 +66,9 @@ try {
   mkdirSync(serverDist, { recursive: true });
   mkdirSync(join(workspace, "scripts"));
   writeFileSync(keyFile, `${KEY}\n`, { mode: 0o600 });
+  writeFileSync(join(workspace, ".env"), ENV_FILE, { mode: 0o600 });
+  mkdirSync(join(workspace, ".git"));
+  writeFileSync(join(workspace, ".git", "config"), GIT_CONFIG);
   writeFileSync(join(storageDir, "tables", "app_settings.json"), "original\n");
   writeFileSync(join(serverDist, "index.js"), "built\n");
   let linked = true;
@@ -124,6 +131,10 @@ try {
   assert.equal(policy.storageDir, storageDir);
   const profile = await buildMacosWorkspaceShellProfile(workspace, {}, tmpdir(), true, "/bin/bash", true);
   assert.ok(profile.includes(`(deny file-write*\n    (subpath ${JSON.stringify(storageDir)}))`));
+  const forbiddenRule = profile.slice(profile.indexOf("(deny file-read* file-write*\n"));
+  assert.ok(profile.includes("(deny file-read* file-write*\n"), "forbidden paths are closed to writes, not only reads");
+  assert.ok(forbiddenRule.includes(`(subpath ${JSON.stringify(keyFile)})`));
+  assert.ok(forbiddenRule.includes(`(literal ${JSON.stringify(dataDir)})`), "the folder holding the key is pinned");
   const bwrap = (await linuxBubblewrapArgs(workspace, {}, tmpdir(), "/bin/bash", ["-c", "true"], true)).join("\0");
   assert.ok(bwrap.includes(`--ro-bind\0/dev/null\0${keyFile}`));
   assert.ok(bwrap.includes(`--ro-bind\0${storageDir}\0${storageDir}`));
@@ -148,7 +159,7 @@ try {
     true,
     true,
   );
-  assert.ok(!checkProfile.includes("(regex "), "the check's build may write dist");
+  assert.ok(!checkProfile.includes("/dist(-"), "the check's build may write dist");
   assert.ok(checkProfile.includes(`${subpath(storageDir)})`), "saved data stays read-only");
   assert.ok(checkProfile.includes(subpath(pnpmTools)), "the check reads the pnpm versions pnpm keeps");
   assert.ok(!checkProfile.includes(subpath(pnpmHome)), "but not the rest of pnpm's home");
@@ -168,6 +179,9 @@ try {
       join(workspace, "scripts", "fix.mjs"),
       'import { appendFileSync } from "node:fs";\nappendFileSync("packages/server/data/storage/tables/app_settings.json", "planted\\n");\n',
     );
+    // Seatbelt follows paths, so it also pins the folders holding a secret and covers names that do not exist yet;
+    // under bubblewrap a renamed folder takes its masking mounts along.
+    const seatbelt = sandbox.backend === "macos-seatbelt";
     const shell = await sandboxRun(
       [
         "cat packages/server/data/.encryption-key",
@@ -175,13 +189,41 @@ try {
         ...(linked ? ["cat key-link"] : []),
         "ln packages/server/data/.encryption-key hard-link && cat hard-link",
         "node scripts/fix.mjs",
+        "printf planted >> .git/config",
+        "mkdir -p .git/hooks && printf planted > .git/hooks/post-merge",
+        "printf planted >> .env",
+        "mv .env moved-env && cat moved-env",
+        "printf planted > packages/server/data/.encryption-key",
+        "rm -f packages/server/data/.encryption-key",
+        ...(seatbelt
+          ? [
+              "mv packages/server/data moved-data && cat moved-data/.encryption-key",
+              "mkdir -p fresh/.git",
+              "printf planted > fresh/.env.local",
+              "printf planted > fresh/.ENCRYPTION-KEY",
+              "printf ok > .env.example",
+              "printf ok > packages/server/data/notes.txt",
+            ]
+          : []),
         "printf ok > ordinary.txt",
         "true",
       ].join("; "),
     );
     assert.equal(shell.code, 0, shell.output);
     assert.ok(!shell.output.includes(KEY), `the shell never reads the key:\n${shell.output}`);
+    assert.ok(!shell.output.includes("env-secret"), `the shell never reads .env:\n${shell.output}`);
     assert.equal(readFileSync(join(storageDir, "tables", "app_settings.json"), "utf8"), "original\n");
+    assert.equal(readFileSync(join(workspace, ".git", "config"), "utf8"), GIT_CONFIG, "Git's config stays as it was");
+    assert.equal(existsSync(join(workspace, ".git", "hooks")), false, "no Git hook can be planted");
+    assert.equal(readFileSync(join(workspace, ".env"), "utf8"), ENV_FILE, ".env stays as it was");
+    assert.equal(readFileSync(keyFile, "utf8"), `${KEY}\n`, "the key can be neither replaced nor deleted");
+    if (seatbelt) {
+      for (const path of ["moved-data", "fresh/.git", "fresh/.env.local", "fresh/.ENCRYPTION-KEY"]) {
+        assert.equal(existsSync(join(workspace, path)), false, `${path} cannot be made`);
+      }
+      assert.equal(readFileSync(join(workspace, ".env.example"), "utf8"), "ok", ".env templates stay writable");
+      assert.equal(readFileSync(join(dataDir, "notes.txt"), "utf8"), "ok", "a pinned folder still takes new files");
+    }
     assert.equal(readFileSync(join(workspace, "ordinary.txt"), "utf8"), "ok", "ordinary files stay writable");
   }
 
@@ -214,20 +256,32 @@ try {
   } catch {
     console.log("git unavailable; skipping the build-commit case.");
   }
-  const check = await run("bash", { command: "mari code check" });
-  if (sandbox.available) {
-    assert.equal(check.success, true, check.output);
-    assert.match(check.output, /^Sandbox: /mu, "the check runs in the shell sandbox");
-    const result = JSON.parse(readFileSync(join(workspace, "check-result.json"), "utf8"));
-    assert.deepEqual(result.args, ["check"]);
-    assert.equal(result.secret, null, "the check does not inherit the server's environment");
-    if (head) assert.equal(result.commit, head, "the build records the checked-out commit");
-    assert.equal(readFileSync(join(serverDist, "index.js"), "utf8"), "rebuilt\n", "its build can still write dist");
-  } else {
-    assert.equal(check.success, false);
-    assert.match(check.output, /mari code check runs the workspace's own scripts, so it needs the shell sandbox/u);
-    assert.equal(existsSync(join(workspace, "check-result.json")), false, "nothing ran without a sandbox");
+  const checkResult = join(workspace, "check-result.json");
+  // To the CLI, a --help after -- is not a help flag, so that spelling runs the check too and must reach the sandbox.
+  for (const command of ["mari code check", "mari code check -- --help"]) {
+    rmSync(checkResult, { force: true });
+    writeFileSync(join(serverDist, "index.js"), "built\n");
+    const check = await run("bash", { command });
+    if (sandbox.available) {
+      assert.equal(check.success, true, check.output);
+      assert.match(check.output, /^Sandbox: /mu, `${command} runs in the shell sandbox`);
+      const result = JSON.parse(readFileSync(checkResult, "utf8"));
+      assert.deepEqual(result.args, ["check"]);
+      assert.equal(result.secret, null, `${command} does not inherit the server's environment`);
+      if (head) assert.equal(result.commit, head, "the build records the checked-out commit");
+      assert.equal(readFileSync(join(serverDist, "index.js"), "utf8"), "rebuilt\n", "its build can still write dist");
+    } else {
+      assert.equal(check.success, false);
+      assert.match(check.output, /mari code check runs the workspace's own scripts, so it needs the shell sandbox/u);
+      assert.equal(existsSync(checkResult), false, `${command} ran nothing without a sandbox`);
+    }
   }
+  // A real help flag still gets its text from the direct runtime, and runs nothing.
+  rmSync(checkResult, { force: true });
+  const help = await run("bash", { command: "mari code check --help" });
+  assert.equal(help.success, true, help.output);
+  assert.match(help.output, /\(direct mari runtime\)/u);
+  assert.equal(existsSync(checkResult), false, "the help text runs nothing");
   console.log(
     `Professor Mari secret-boundary regression passed${sandbox.available ? ` with ${sandbox.backend}` : " without a sandbox"}.`,
   );

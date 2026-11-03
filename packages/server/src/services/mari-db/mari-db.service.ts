@@ -1040,6 +1040,16 @@ function hasFlag(flags: Map<string, string | boolean>, name: string): boolean {
   return flags.has(name) && flags.get(name) !== false;
 }
 
+/**
+ * Whether `mari code <args>` answers with its help text. Professor Mari's shell asks the same question to decide
+ * whether `mari code check` goes to the sandbox, so the two can never read the arguments differently.
+ */
+export function isMariCodeHelpArgs(args: string[]) {
+  const sub = args[0];
+  if (!sub || sub === "help" || sub === "--help" || sub === "-h") return true;
+  return hasFlag(parseArgs(args.slice(1)).flags, "help");
+}
+
 // An on/off flag: bare means on, `--flag=true|false` sets it, anything else is refused. Before, any
 // value counted as on, so `--skip-wrap=false` turned the switch on.
 function switchFlag(flags: Map<string, string | boolean>, name: string): boolean | undefined {
@@ -6895,12 +6905,10 @@ export class MariDbService {
 
   private async executeCodeCommand(args: string[], context: CodeCommandContext): Promise<MariDbCommandResult> {
     const sub = args[0];
-    if (!sub || sub === "help" || sub === "--help" || sub === "-h") {
+    if (isMariCodeHelpArgs(args)) {
       return { ok: true, mode: "read", command: context.command, output: this.codeHelpText() };
     }
     const parsed = parseArgs(args.slice(1));
-    if (hasFlag(parsed.flags, "help"))
-      return { ok: true, mode: "read", command: context.command, output: this.codeHelpText() };
 
     switch (sub) {
       case "status":
