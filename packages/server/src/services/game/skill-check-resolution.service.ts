@@ -1,4 +1,4 @@
-import { rulesetAdvancementTurnStart } from "./ruleset-sheet-turn.service.js";
+import { gamePartyRoster, rulesetAdvancementTurnStart } from "./ruleset-sheet-turn.service.js";
 import { currentRoomGeneration, roomHostIdentity } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Service: Skill Check Resolution (chat-scoped)
@@ -78,6 +78,7 @@ import {
   type RulesetCheckTarget,
   type RulesetSheetItem,
   rulesetCheckStance,
+  rulesetSheetDead,
 } from "@marinara-engine/shared";
 import { loadGameInventoryItemBook } from "./game-inventory.service.js";
 import type { DB } from "../../db/connection.js";
@@ -190,6 +191,9 @@ export interface SkillCheckRulesetContext {
   /** True when no card is the player's own and `playerKey` is only the first card. A check that
    *  names nobody then picks its roller from the narration instead (laptop 2026-10-26). */
   playerByPosition?: boolean;
+  /** Normalized names of the cards whose member was taken out of the party: a card stays when its
+   *  member leaves. Nobody is away in a game whose party list cannot be read in full. */
+  away?: Set<string>;
 }
 
 export interface SkillCheckRequest {
@@ -429,22 +433,33 @@ export async function loadSkillCheckModifierContext(
             playerCard ? readTrimmedString(playerCard.name) : null,
           )
         : undefined;
+      const ruleset = buildSkillCheckRulesetContext(
+        pinned.definition,
+        cards,
+        playerCard,
+        // The live state of this chat's sheets: it is where a wound track's marks live, and a
+        // check cannot know what a wound costs without them. The turn's own starting state when
+        // the caller handed one over, and otherwise the snapshot read above.
+        turnStartLive === undefined ? parseStoredRulesetLive(snapshot?.rulesetLive) : turnStartLive,
+        undefined,
+        itemsOf,
+      );
+      // Who left the party, read as a whole-party sheet command reads it, with the player's own card
+      // always in it.
+      const present = await gamePartyRoster(
+        db,
+        chatId,
+        meta,
+        byPosition ? null : readTrimmedString(playerCard?.name) || null,
+      );
+      const away = present ? new Set([...ruleset.sheets.keys()].filter((key) => !present.has(key))) : undefined;
       return {
         skills: null,
         attributes: null,
         sheetAttributes: {},
-        // The live state of this chat's sheets: it is where a wound track's marks live, and a
-        // check cannot know what a wound costs without them. The turn's own starting state when
-        // the caller handed one over, and otherwise the snapshot read above.
         ruleset: {
-          ...buildSkillCheckRulesetContext(
-            pinned.definition,
-            cards,
-            playerCard,
-            turnStartLive === undefined ? parseStoredRulesetLive(snapshot?.rulesetLive) : turnStartLive,
-            undefined,
-            itemsOf,
-          ),
+          ...ruleset,
+          ...(away?.size ? { away } : {}),
           // Nothing said which card is the player's, so the first card is only a stand-in for a check
           // that names nobody (laptop 2026-10-26: Dorra's Stealth was rolled for Pip's sneak).
           // Nor in a shared room, where the chat's persona is the host's and a check that names nobody
@@ -1599,10 +1614,23 @@ export function rulesetCheckRollerRefused(ruleset: SkillCheckRulesetContext, who
 const GROUP_CHECK_WORDS: ReadonlySet<string> = new Set([...WHOLE_PARTY_WORDS, "whole", "all", "entire", "group", "us"]);
 
 /**
+ * Whether a card's member is with the party and alive, by its normalized name: what the whole party
+ * does (a group check, a story's exposure) is never done by one taken out of it or dead on their
+ * sheet, as a whole-party sheet command passes them by.
+ */
+export function rulesetPartyMemberActive(ruleset: SkillCheckRulesetContext, key: string): boolean {
+  const build = ruleset.builds.get(key);
+  return (
+    !ruleset.away?.has(key) &&
+    !(build && rulesetSheetDead(ruleset.definition, build, ruleset.live[key], ruleset.items.get(key)))
+  );
+}
+
+/**
  * The party members a group check rolls for (Alyssa 2026-10-30), in party order. A ruleset check
  * whose `who=` names the whole party ("party", "everyone", "the whole party") is everyone's, each
- * on their own sheet, and the party succeeds when at least half of them do. Undefined for any other
- * `who=`, and in a game with no party cards.
+ * on their own sheet, and the party succeeds when at least half of them do. Nobody who left the
+ * party or is dead rolls or counts. Undefined for any other `who=`, and in a game with no party cards.
  */
 export function rulesetGroupCheckRollers(ruleset: SkillCheckRulesetContext, who?: string): string[] | undefined {
   if (ruleset.sheets.size === 0 || !who?.trim()) return undefined;
@@ -1612,7 +1640,9 @@ export function rulesetGroupCheckRollers(ruleset: SkillCheckRulesetContext, who?
   if (!words.some((word) => WHOLE_PARTY_WORDS.has(word)) || !words.every((word) => GROUP_CHECK_WORDS.has(word))) {
     return undefined;
   }
-  return [...ruleset.sheets.keys()].map((key) => ruleset.names?.get(key) ?? key);
+  return [...ruleset.sheets.keys()]
+    .filter((key) => rulesetPartyMemberActive(ruleset, key))
+    .map((key) => ruleset.names?.get(key) ?? key);
 }
 
 /** A group check rolled: each member's own result, who could not attempt it, and the party's outcome. */

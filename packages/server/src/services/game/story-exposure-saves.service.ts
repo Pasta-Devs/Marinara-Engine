@@ -18,20 +18,22 @@ import { logger } from "../../lib/logger.js";
 import {
   loadSkillCheckModifierContext,
   resolveSkillCheckWithContext,
+  rulesetPartyMemberActive,
   type SkillCheckModifierContext,
 } from "./skill-check-resolution.service.js";
 
-/** Each member of the party with a sheet to roll on, by the name on their card, each name once. */
+/** Each member of the party with a sheet to roll on, by the name on their card, each name once: never
+ *  one taken out of the party or dead on their sheet. */
 export function storyPartyMembers(meta: Record<string, unknown>, context: SkillCheckModifierContext): string[] {
-  const sheets = context.ruleset?.sheets;
-  if (!sheets) return [];
+  const ruleset = context.ruleset;
+  if (!ruleset) return [];
   const cards = Array.isArray(meta.gameCharacterCards) ? (meta.gameCharacterCards as Array<{ name?: unknown }>) : [];
   const seen = new Set<string>();
   const names: string[] = [];
   for (const card of cards) {
     const name = typeof card?.name === "string" ? card.name.trim() : "";
     const key = normalizeCharacterLookupName(name);
-    if (!key || seen.has(key) || !sheets.has(key)) continue;
+    if (!key || seen.has(key) || !ruleset.sheets.has(key) || !rulesetPartyMemberActive(ruleset, key)) continue;
     seen.add(key);
     names.push(name);
   }
