@@ -39,7 +39,7 @@ Tabs that have their own guide:
 | **Gallery** | [Character and Persona Galleries](galleries.md) |
 | **Colors** and **Stats** | [Character Colors and RPG Stats](colors-and-stats.md) |
 
-The rest of this guide covers **Metadata**, **Card**, **Voice** and **Advanced**, plus avatars and version history.
+The sections below cover **Metadata**, **Card**, **Voice** and **Advanced**, plus avatars and version history.
 
 ## Metadata tab
 
