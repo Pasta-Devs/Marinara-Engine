@@ -126,12 +126,12 @@ A character's large card can make a new portrait once the Character Tracker has 
 
 ### Tracker Panel settings
 
-Open **Settings → Appearance** and find the **Tracker Panel** section.
+Open **Settings → Appearance**, open the **Roleplay** group, and find the **Tracker Panel** section.
 
 | Setting | What it does |
 | --- | --- |
 | **Tracker Panel** | The on/off switch, the same one the die turns. On by default. When on, the label reads "Shown in the Roleplay HUD". |
-| **Replace tracker HUD icons** | Hides the separate tracker buttons on phones and lets the panel dock to the screen edge. |
+| **Dock Tracker Panel to edge** | Places the panel against the screen edge and keeps nearby chat controls clear of it. |
 | **Use expression sprites for tracker portraits** | Uses a character's current expression sprite instead of the plain avatar, when one exists. See [Character Sprites](../characters/sprites.md). |
 | **Panel background** | A color or gradient for the panel. |
 | **Desktop size** | Panel width: **Compact**, **Standard** or **Expanded**. |
