@@ -1,198 +1,167 @@
-# Agendas de personagem e mensagens autônomas
+# Agendas de personagens e mensagens autônomas
 
-Neste guia você aprende como os personagens do Conversation Mode mandam mensagem primeiro e como definir quando isso acontece. Ele explica as mensagens autônomas, as agendas de personagem, o comando **/status** e o seu próprio status de presença. Esses recursos funcionam só no Conversation Mode.
+Mensagens autônomas são mensagens que um personagem envia primeiro, depois que você fica um tempo em silêncio. Uma agenda é o plano semanal de um personagem, que o faz parecer acordado, ocupado ou dormindo em horários diferentes. Os dois funcionam só no Conversation Mode.
 
-## Para que servem as mensagens autônomas e as agendas
+As agendas são opcionais. Com as agendas desativadas, os personagens ainda entram em contato conforme a sua loquacidade (a frequência com que um personagem começa uma conversa) e a sua presença.
 
-Uma mensagem autônoma é a mensagem que o personagem envia primeiro, sem você escrever nada. Marinara Engine (Marinara, para encurtar) envia essas mensagens quando você fica um tempo em silêncio, para o chat parecer uma troca de mensagens de verdade.
-
-Duas configurações controlam esse comportamento:
-
-- **Autonomous Messages** (mensagens autônomas) define se os personagens podem entrar em contato.
-- **Schedules** (agendas) dão a cada personagem uma rotina semanal, para que pareçam acordados, ocupados ou dormindo em horários diferentes.
-
-As agendas são opcionais. Com as mensagens autônomas ativadas e as agendas desativadas, os personagens continuam entrando em contato de acordo com a sociabilidade deles e com o seu status. A sociabilidade (talkativeness) é uma configuração de cada personagem: ela define com que frequência o personagem começa uma conversa sozinho.
+Ir direto a: [Ative as agendas](#turn-on-schedules), se você só quer uma agenda.
 
 ## Ative as mensagens autônomas
 
-Esse controle fica no chat, não no card de personagem. Todos esses controles ficam na seção **Autonomous Messaging** (mensagens autônomas) de **Chat Settings** (configurações do chat).
+Antes de começar: abra um chat de Conversation. Os chats novos começam com isso ativado (veja [Conversation Mode: primeiros passos](getting-started.md)).
 
-1. Abra um chat no Conversation Mode.
-2. Abra **Chat Settings** (configurações do chat) pelo botão no chat. Ele começa no canto superior direito, a menos que você o tenha movido.
-3. Localize a seção **Autonomous Messaging**.
-4. Ative o botão liga/desliga **Autonomous Messages**.
+1. Abra **Chat Settings** no chat.
+2. Encontre a seção **Autonomous Messaging**.
+3. Ative **Autonomous Messages**.
 
-No assistente de configuração de chat novo, **Autonomous Messages** vem ativado por padrão. Desative quando quiser em **Chat Settings**.
+Se não funcionou: os personagens ficam em silêncio enquanto a sua presença é **Do Not Disturb** (veja [O seu status de presença](getting-started.md#your-presence-status)).
 
-### Chat Check-In Cap
+### Defina o limite de check-ins
 
-Abaixo do botão liga/desliga, o campo **Chat Check-In Cap** (limite de contatos do chat) define quantas vezes por dia os personagens podem entrar em contato neste chat.
+Em **Chat Settings → Autonomous Messaging**, **Chat Check-In Cap** limita quantos check-ins os personagens podem enviar por dia neste chat.
 
-- A opção padrão é **Default chat ceiling (talkativeness-based)**. O limite vem da sociabilidade de cada personagem.
-- Escolha **Numeric value** para exibir um campo numérico e digitar qualquer teto inteiro positivo. Tetos altos podem gerar muitas requisições ao modelo e muitas notificações.
+- **Default chat ceiling (talkativeness-based)** tira o limite da loquacidade de cada personagem (tabela abaixo).
+- **Numeric value** mostra um campo numérico. Digite qualquer número inteiro igual ou maior que 1. Números altos podem significar muitas requisições ao modelo e muitas notificações.
 
-Esse limite vale para o chat inteiro. O limite próprio de um personagem, definido na agenda dele, só pode reduzir esse número, nunca aumentar.
+Um personagem também pode ter o seu próprio **Daily safety limit** (definido na agenda dele). O limite de um personagem funciona assim:
 
-O padrão baseado em sociabilidade funciona assim:
+- Limite do chat em **Numeric value** e um **Daily safety limit** definido: vale o número menor.
+- Só um dos dois definido: vale esse número, mesmo que seja maior que o número da loquacidade abaixo.
+- Nenhum dos dois definido: o número vem da loquacidade do personagem.
 
-| Sociabilidade do personagem | Contatos por dia (padrão) |
-|---|---|
+| Loquacidade do personagem | Check-ins por dia |
+| --- | --- |
 | 80 ou mais | 8 |
 | 60 a 79 | 6 |
 | 40 a 59 | 5 |
 | 20 a 39 | 3 |
 | abaixo de 20 | 2 |
 
-### Ative as agendas
+<a id="turn-on-schedules"></a>
 
-**Schedules** (agendas) fica em **Autonomous Messaging**. As rotinas salvas pertencem aos personagens e são reutilizadas nos chats Conversation, inclusive quando um personagem entra em um chat existente. Desativar explicitamente as agendas em um chat mantém essa escolha sem remover a rotina do personagem.
+## Ative as agendas
 
-1. Ative o botão liga/desliga **Schedules**.
-2. Rotinas existentes aparecem imediatamente. Ativar agendas não gera novas; clique em **Generate** quando quiser criá-las.
-3. Quando as rotinas existem, aparece a lista **Edit schedules** (editar as agendas), com uma linha por personagem.
+Antes de começar: ative **Autonomous Messages**.
 
-A renovação semanal automática fica desativada até você habilitá-la para o personagem em **Character Schedule Manager** (gerenciador de agendas). Uma falha não é repetida continuamente ao reabrir o chat; use os controles de geração para tentar novamente.
+1. Em **Chat Settings → Autonomous Messaging**, ative **Schedules**. (No assistente de novo chat, a mesma opção se chama **Generate Schedules**.) As agendas que já existem aparecem na hora.
+2. Escolha o seu fuso horário no campo abaixo dela.
+3. Clique em **Generate** para criar agendas para os personagens que não têm nenhuma. O botão passa a mostrar **Regenerate** quando já existem agendas.
+4. Espere terminar. Uma lista **Edit schedules** aparece então, com uma linha por personagem. Uma linha diz quantos dias estão preenchidos (por exemplo **3 days scheduled**) ou **Create schedule**. A lista só aparece quando já existem agendas.
+5. Clique na linha de um personagem para abrir o editor de agenda dele (próxima seção).
 
-Cada linha mostra quantos dias estão preenchidos, por exemplo **3 days scheduled**, ou então **Create schedule** se o personagem ainda não tem agenda. O botão **Generate** (chamado de **Regenerate** quando já existem rotinas) refaz as rotinas quando você quiser.
+Uma agenda pertence ao personagem e é reutilizada em todo chat de Conversation. Desativar **Schedules** em um chat mantém a opção desativada ali e mantém a agenda.
 
-## O editor de agendas
+A renovação semanal automática fica desativada, a menos que você ative **Renew weekly** para esse personagem no **Character Schedule Manager**. Abra-o com o botão de calendário no rodapé da barra lateral, ao lado da caixa de status.
 
-Clique na linha do personagem na lista **Edit schedules** para abrir o editor de agenda. O título da janela mostra **Edit**, o nome do personagem e **Schedule**.
+O Marinara tenta uma renovação uma vez por chat a cada vez que a página do aplicativo carrega. Se ela falhar, ele não tenta de novo até você recarregar a página. Clique em **Generate** para tentar de novo.
 
-No topo, a área **Routine profile** (perfil da rotina) mostra um resumo da semana em linguagem simples. Use o botão **Generate summary** para criar o resumo, ou **Refresh summary** para atualizá-lo. Se você mudar a agenda depois de criar o resumo, aparece o aviso **Summary may be stale**.
+**Schedule generation preferences**, na mesma área **Schedules** de **Chat Settings**, guarda uma orientação em texto livre sobre como as agendas são escritas. Ela vale para todo chat de Conversation na próxima vez que as agendas forem geradas. Exemplo:
 
-### Tuning
-
-Abra a seção **Tuning** (ajustes) para ver os controles principais.
-
-- **Chat talkativeness** é um controle deslizante com cinco níveis: **Rare**, **Quiet**, **Balanced**, **Social** e **Very frequent**. **Balanced** é o padrão, no meio da escala. Esse valor substitui a sociabilidade padrão do personagem onde a agenda dele for usada. Ele afeta com que frequência o personagem começa mensagens, envia continuações e entra na conversa em grupo. Também define o limite diário padrão do personagem.
-- **Wait before checking in** é o tempo de silêncio, em minutos, antes de o personagem iniciar um contato. A faixa vai de 15 a 360 minutos. O padrão é **120**.
-- **Check-in moments** são os motivos que o personagem pode usar para entrar em contato. As opções são **Morning**, **Goodnight**, **Meal breaks**, **After busy** e **Long absence**. Todas vêm ativadas. Clique em uma para desativá-la.
-
-### Advanced timing
-
-Dentro da seção **Tuning**, abra **Advanced timing** (ajuste fino de horários) para ver mais três controles.
-
-- **Daily safety limit** é um máximo rígido para esse personagem: **Default** ou um número de 1 a 8 por dia. Ele só pode reduzir o limite do chat, nunca aumentar. Em geral, deixe em **Default**.
-- **Delay while you're away** define quantos minutos o personagem espera antes de enviar uma mensagem enquanto o status dele é **Away**. Deixe em branco para usar o padrão, um valor aleatório de 1 a 3 minutos. A faixa vai de 0 a 120 minutos.
-- **Delay while you're busy** faz o mesmo enquanto o status do personagem é **Busy**. Deixe em branco para usar o padrão, um valor aleatório de 2 a 5 minutos. A faixa vai de 0 a 120 minutos.
-
-### Schedule AI: reescreva a semana
-
-Abra a seção **Schedule AI** para o modelo reescrever a rotina para você. Escolha uma opção em **Week action**:
-
-- **Rewrite** cria um rascunho novo da semana inteira.
-- **Adjust** mantém quase toda a rotina e aplica as suas orientações.
-- **Vary** deixa a semana bem diferente, mas ainda plausível.
-- **Repair** corrige lacunas e problemas óbvios com mudanças pequenas.
-
-Se quiser, digite orientações na caixa **Week guidance**, por exemplo:
-
-```
-make weekdays more nocturnal, keep weekends social
-```
-
-Depois clique no botão com o nome da ação escolhida, como **Rewrite week**. O resultado é apenas um rascunho. Marinara só salva quando você clica em **Save schedule**. Se o modelo retornar JSON inválido, corrija em **Edit generated schedule JSON** (editar JSON da agenda gerada) e escolha **Apply to draft** (aplicar ao rascunho). Correções validadas e dias gerados com sucesso ficam no rascunho até salvar. Uma falha interrompe a chamada sem tentar novamente de forma automática. **Stop** ou fechar o editor cancela a solicitação ativa. Fechar o gerenciador ou as configurações do chat também cancela a geração iniciada ali.
-
-### Blocos diários
-
-Abaixo dessas seções, cada dia de segunda a domingo tem a própria linha. Um dia sem nada definido mostra **No blocks scheduled for this day**.
-
-Cada bloco tem três partes, sob o rótulo **Status, time & activity**:
-
-- Um **status** escolhido entre **Online**, **Away**, **Busy** e **Offline**.
-- Um intervalo de horário, digitado assim: `09:00-11:30`.
-- Uma nota curta de atividade, por exemplo `at work`.
-
-Use **Add block** para acrescentar um intervalo de horário. Use o ícone de lixeira para remover um bloco. Cada dia também tem a própria caixa de orientação, com os rótulos **Guide Monday**, **Guide Tuesday** e assim por diante. Escreva uma orientação ali e clique no botão correspondente, como **Regenerate Monday**, para reescrever só aquele dia.
-
-O status do bloco muda o que o personagem faz quando chega a hora do contato. O personagem com um bloco **Offline** nunca manda mensagem primeiro nesse horário. O personagem com um bloco **Busy** espera três vezes mais que o normal antes de entrar em contato.
-
-Ao terminar, clique em **Save schedule**. O botão **Cancel** fecha o editor sem salvar.
-
-### Mover uma agenda entre personagens ou instalações
-
-Use o botão **Export schedule** (exportar a agenda), no fim do editor, para baixar o rascunho atual como um arquivo JSON. A exportação inclui os blocos semanais, o resumo da rotina, a sociabilidade, os momentos de contato e as configurações de **Advanced timing**.
-
-Abra o editor de agenda de outro personagem e escolha **Import schedule** (importar a agenda) para abrir esse arquivo. Marinara valida o arquivo antes de substituir o rascunho do editor e move a rotina importada para a semana atual. A importação não é salva sozinha: clique em **Save schedule** para manter a agenda, ou em **Cancel** para deixar a agenda do personagem como estava.
-
-### Schedule generation preferences
-
-De volta à seção **Chat Settings**, a caixa **Schedule generation preferences** (preferências de geração das agendas) guarda orientações em texto livre sobre como as rotinas devem ser escritas. Essa configuração é global. Ela vale para todos os chats do Conversation Mode na próxima geração de agendas, feita por você ou pelo aplicativo. Por exemplo:
-
-```
+```text
 Make everyone go to sleep before midnight. I work 9-5 on weekdays.
 ```
 
-## Defina um status pontual com /status
+## O editor de Schedules
 
-O comando **/status** define ou limpa um status temporário do personagem, sem mudar a agenda salva. Ele funciona só no Conversation Mode.
+O título do editor mostra **Edit**, o nome do personagem e **Schedule**.
 
-A forma do comando é:
+No topo, **Routine profile** mostra um resumo da semana em linguagem simples. Clique em **Generate summary** para criá-lo, ou em **Refresh summary** para atualizá-lo. Depois que você muda a agenda, aparece **Summary may be stale**. **Generation model** escolhe o modelo que escreve as agendas.
 
-```
-/status <online|idle|dnd|offline|clear> [character name]
-```
+### Tuning
 
-Digite `idle` para Away e `dnd` para Busy. São os mesmos quatro status usados nos blocos da agenda. Para deixar um personagem chamado Mira ocupado agora:
+Abra **Tuning** para os controles principais.
 
-```
+- **Chat talkativeness**: um controle deslizante com **Rare**, **Quiet**, **Balanced**, **Social** e **Very frequent**. O padrão é **Balanced**. Ele define a frequência com que o personagem começa mensagens e entra na conversa de grupo, e o limite diário padrão dele.
+- **Wait before checking in**: minutos de silêncio antes de o personagem poder fazer um check-in. O padrão é 120. Você pode usar de 15 a 360.
+- **Check-in moments**: chips para **Morning**, **Goodnight**, **Meal breaks**, **After busy** e **Long absence**. Todos ficam ativados. Clique em um para desativá-lo.
+
+Abra **Advanced timing** dentro de **Tuning** para mais três controles.
+
+- **Daily safety limit**: o máximo de check-ins por dia para este personagem. Deixe em **Default**, ou digite um número inteiro igual ou maior que 1. Se o chat também tem um limite numérico, vale o número menor. Caso contrário, este número substitui o número da loquacidade.
+- **Delay while you're away**: minutos extras antes de o personagem responder enquanto o status dele é **Away**. Deixe em branco para um tempo aleatório de 1 a 3 minutos. Você pode usar de 0 a 120.
+- **Delay while you're busy**: o mesmo enquanto o status dele é **Busy**. Deixe em branco para um tempo aleatório de 2 a 5 minutos. Você pode usar de 0 a 120.
+
+### Schedule AI: refaça a semana
+
+Abra **Schedule AI** para fazer o modelo reescrever a agenda. Escolha uma **Week action**:
+
+| Ação | Resultado |
+| --- | --- |
+| **Rewrite** | Um rascunho novo da semana inteira. |
+| **Adjust** | Mantém a maior parte da agenda e aplica a sua orientação. |
+| **Vary** | Uma semana claramente diferente, mas ainda verossímil. |
+| **Repair** | Corrige lacunas e problemas óbvios com mudanças pequenas. |
+
+1. Escolha uma **Week action**.
+2. Em **Weekly generation**, escolha **Entire week in one request** ou **One request per day**. Uma requisição por dia faz sete requisições menores e pode usar mais tokens (os pedaços pequenos de texto que os modelos contam).
+3. Digite dicas opcionais em **Week guidance**, por exemplo `make weekdays more nocturnal, keep weekends social`.
+4. Clique no botão que tem o nome da sua ação, como **Rewrite week**.
+5. Clique em **Save schedule** para manter o resultado. Até lá, ele é só um rascunho (**Unsaved draft**).
+
+Se não funcionou: o seu rascunho é mantido. Uma chamada que falhou não é repetida, então clique no botão de novo. Clique em **Stop** ou feche o editor para cancelar uma requisição em andamento. Se o editor mostrar **Edit generated schedule JSON**, o modelo devolveu um texto que não pôde ser lido. Corrija o texto ali e clique em **Apply to draft**.
+
+### Blocos diários
+
+Cada dia, de segunda a domingo, tem a sua própria linha. Um dia vazio mostra **No blocks scheduled for this day**. Cada bloco tem um status, um intervalo de tempo como `09:00-11:30` e uma atividade curta como `at work`.
+
+1. Clique em **Add block** embaixo de um dia.
+2. Escolha um status: **Online**, **Away**, **Busy** ou **Offline**.
+3. Digite o intervalo de tempo e a atividade.
+4. Clique em **Save schedule**. **Cancel** fecha o editor sem salvar.
+
+Use o ícone de lixeira para remover um bloco. Para refazer um dia, digite uma dica em **Guide Monday** (ou no dia que você quer) e clique em **Regenerate Monday**.
+
+Durante um bloco **Offline**, o personagem nunca envia mensagem primeiro. Durante um bloco **Busy**, ele espera três vezes mais que o normal.
+
+### Mova uma agenda entre personagens
+
+Clique em **Export schedule** para baixar o rascunho como um arquivo JSON (blocos semanais, resumo, loquacidade, momentos de check-in e tempos). No editor de outro personagem, clique em **Import schedule** para carregá-lo. O Marinara confere o arquivo e move a agenda para a semana atual. Nada é salvo até você clicar em **Save schedule**.
+
+## Defina um status com /status
+
+`/status` define ou limpa um status temporário de um personagem sem mudar a agenda salva dele. Funciona só no Conversation Mode. O status pertence ao personagem, então vale em todo chat em que esse personagem está.
+
+Digite um destes na caixa de mensagem:
+
+```text
 /status dnd Mira
-```
-
-Para limpar essa substituição e devolver Mira à agenda dela:
-
-```
 /status clear Mira
 ```
 
-Se o chat tem só um personagem, o nome pode ser omitido. Execute **/status** sem nenhuma opção para ver a lista de personagens e a ajuda de uso.
+O primeiro deixa a Mira ocupada. O segundo a devolve à agenda dela. Com um só personagem no chat, você pode deixar o nome de fora. `/status` sozinho lista os personagens e o modo de uso.
 
-<a id="characters-can-change-their-own-status"></a>
+A forma completa está abaixo. `idle` significa **Away** e `dnd` significa **Busy**. Os colchetes indicam que o nome é opcional.
 
-## Os personagens podem mudar o próprio status
+```text
+/status online|idle|dnd|offline|clear [character name]
+```
 
-Com o comando **Schedule Updates** ativado em **Chat Settings → Agents**, um personagem pode definir um status e uma atividade temporários para si. Por exemplo, se você pedir que ele se concentre por uma hora, ele pode mudar para **Busy** com a atividade "Studying".
+Um status que você define fica até você limpá-lo, e um personagem não pode substituí-lo.
 
-- A mudança dura o tempo que o personagem disser, ou uma hora, se ele não disser. O máximo é de sete dias.
-- Quando o tempo acaba, o personagem volta à agenda dele, ou a **Online**, se não tiver agenda.
-- Ele nunca altera a agenda salva.
-- Um status que você mesmo define com **/status** continua valendo até você limpá-lo. O personagem não pode substituí-lo.
+## Deixe os personagens mudarem o próprio status
 
-## Como as mensagens autônomas são ritmadas
+Com **Schedule Updates** ativado em **Chat Settings → Agents → Commands**, um personagem pode definir o próprio status temporário e a própria atividade. Por exemplo, se você pede que ele se concentre por uma hora, ele pode mudar para **Busy** com a atividade "Studying".
 
-Marinara controla o ritmo das mensagens autônomas para nenhum personagem encher você de mensagens. As regras abaixo usam a agenda de cada personagem.
+- A mudança dura o tempo que o personagem disser, ou uma hora se ele não disser. O máximo é sete dias.
+- Quando o tempo acaba, o personagem volta à agenda dele, ou a **Online** se ele não tem agenda.
+- Ele nunca edita a agenda salva.
 
-- O personagem espera até você ficar em silêncio pelo tempo definido em **Wait before checking in**. O padrão é 120 minutos.
-- O personagem com status atual **Offline** não manda mensagem primeiro.
-- O personagem com status atual **Busy** espera três vezes mais.
-- Depois da primeira mensagem, o personagem pode enviar até mais duas enquanto você continua em silêncio. São três mensagens no total por período de silêncio.
-- Cada continuação espera mais que a anterior. A primeira espera o dobro do tempo base, e a segunda espera quatro vezes o tempo base.
-- Quando você responde, a contagem zera. O silêncio seguinte começa do zero.
+## Como os check-ins são espaçados
 
-Se vários personagens estão prontos ao mesmo tempo, vai primeiro quem tem a maior sociabilidade e o melhor momento.
+| Regra | Detalhe |
+| --- | --- |
+| Primeiro check-in | O personagem espera até você ficar em silêncio pelo tempo de **Wait before checking in** dele (120 minutos por padrão). |
+| Reação | Uma reação sua, sem mensagem nova, abre uma espera mais curta. |
+| Status **Offline** | Nenhum check-in. |
+| Status **Busy** | A espera é três vezes mais longa. |
+| Acompanhamentos | Até dois a mais enquanto você fica em silêncio, três no total. O primeiro acompanhamento vem depois de duas vezes a espera, o segundo depois de quatro vezes a espera. |
+| A sua resposta | A contagem reinicia. |
+| Vários personagens prontos | Vai primeiro o que tem a maior loquacidade e o melhor momento. Um personagem que está **Online** tem prioridade maior. |
 
-Em um chat em grupo no modo **Individual**, os personagens compartilham um único limite diário de contatos, então também compartilham esse ritmo. Depois que qualquer personagem entra em contato, o próximo contato, de qualquer um deles, espera como uma continuação. Quando chega a hora, qualquer personagem cuja própria espera já terminou pode fazer esse contato, e vai primeiro quem fez menos contatos naquele dia. Depois de uma ausência longa, só um personagem entra em contato.
-
-## O seu status de presença
-
-O seu status diz aos personagens se você está por perto. O controle de status fica no rodapé da barra lateral e continua visível em todos os modos de chat. O efeito dele sobre as mensagens vale só no Conversation Mode.
-
-Clique no indicador de status para abrir quatro opções:
-
-- **Active**: você está online e disponível.
-- **Idle**: aparece quando você está ausente.
-- **Do Not Disturb**: interrompe todas as mensagens autônomas.
-- **Invisible**: esconde o seu status dos personagens.
-
-**Idle** é quase sempre automático. Se o status é **Active** e você fica 10 minutos sem fazer nada, Marinara muda o status para **Idle**. Quando você volta, o status volta para **Active**. Você também pode escolher **Idle** na janela que se abre. Ao escolher qualquer status manualmente, a troca automática é desligada até você marcar **Active** de novo.
-
-Escolha **Do Not Disturb** quando quiser silêncio. Nenhum personagem manda mensagem primeiro enquanto essa opção estiver ativa. **Idle** não bloqueia as mensagens autônomas. Os personagens continuam entrando em contato enquanto você está ausente.
-
-Ao lado do indicador de status fica o campo **What are you doing?** (o que você está fazendo?). Escreva uma atividade curta, de até 120 caracteres. As entradas recentes aparecem na lista **Recent status**, para você reaproveitá-las.
+Em um chat em grupo em que cada personagem responde na própria resposta (veja [Chats em grupo](../chats/group-chats.md)), os personagens compartilham um limite diário e um ritmo. Depois que qualquer personagem faz um check-in, o próximo check-in de qualquer um espera como um acompanhamento. Qualquer personagem cuja própria espera já passou pode enviá-lo, e vai primeiro o que tem menos check-ins no dia. Depois de uma longa ausência, só um personagem faz check-in.
 
 ## Guias relacionados
 
 - [Conversation Mode: primeiros passos](getting-started.md)
-- [Perfis do Conversation Mode (nome de exibição, About Me e comportamento)](profiles.md)
-- [Visão geral do painel Chat Settings](../chats/chat-settings.md)
+- [Perfis do Conversation Mode](profiles.md)
+- [Visão geral das configurações do chat](../chats/chat-settings.md)

@@ -1,69 +1,62 @@
 # Czyszczenie i resetowanie danych
 
-Z tego przewodnika dowiesz się, jak trwale usunąć dane w aplikacji Marinara Engine za pomocą sekcji **Danger Zone** (strefa zagrożenia). Da się wyczyścić kilka wybranych kategorii albo skasować wszystko. Nie ma cofania, więc najpierw przeczytaj ostrzeżenia.
+Usuń na stałe wszystkie dane albo ich część za pomocą sekcji **Danger Zone** (strefa zagrożenia). Nie ma cofania. Aby usunąć jeden czat albo jedną postać, użyj ich własnych przycisków usuwania. Zobacz [Zarządzanie listą czatów](../chats/managing-chats.md) i [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md).
 
-## Gdzie znaleźć sekcję Danger Zone
+**Zanim zaczniesz:** zrób kopię zapasową. Nie ma kosza ani żadnego odzysku. Zobacz [Kopia zapasowa i przywracanie danych aplikacji Marinara](backup-and-restore.md). Jeśli korzystasz z aplikacji Marinara Engine z innego urządzenia, potrzebujesz też sekretu administratora. Zobacz [Dostęp zdalny](../REMOTE_ACCESS.md).
 
-Wszystkie narzędzia do czyszczenia danych są w jednym miejscu.
+## Wyczyść wybrane kategorie
 
-1. Otwórz panel **Settings** (Ustawienia).
-2. Przejdź do zakładki **Advanced**.
-3. Przewiń na sam dół, do sekcji **Danger Zone**.
+1. Otwórz **Settings → Advanced** (ustawienia, zaawansowane) i przewiń do sekcji **Danger Zone**.
+2. Zaznacz każdą kategorię, którą chcesz usunąć. Przycisk **Select All** (zaznacz wszystko) zaznacza wszystkie pola. Gdy zaznaczone są już wszystkie, ten sam przycisk zmienia nazwę na **Clear Selection** (wyczyść zaznaczenie) i odznacza je.
+3. Kliknij **Clear Selected Data** (wyczyść zaznaczone dane). Przycisk jest nieaktywny, dopóki nie zaznaczysz kategorii.
+4. Przeczytaj ostrzeżenie. Pokazuje, ile kategorii wybrano.
+5. Kliknij **Confirm Delete** (potwierdź usunięcie) albo **Cancel** (anuluj), aby przerwać. Nic nie zostanie usunięte, dopóki nie potwierdzisz.
 
-Opis sekcji **Danger Zone** brzmi: "Permanently clear selected categories of local data. Professor Mari is always preserved."
+Gdy operacja się uda, pojawia się komunikat, że wybrane dane zostały wyczyszczone. Jeśli żądanie się nie powiedzie, pojawia się komunikat o błędzie ("Failed to clear selected data."). Część danych mogła już zostać wyczyszczona, więc sprawdź, co zostało. Sprawdź też, czy masz dostęp administratora.
 
-Jeśli korzystasz z aplikacji Marinara na innym urządzeniu niż komputer z uruchomionym programem, do czyszczenia danych potrzebny jest dostęp administratora. Konfigurację opisuje przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md).
+## Wyczyść wszystko
 
-## Zrób kopię zapasową przed czyszczeniem
+1. W sekcji **Danger Zone** kliknij **Clear All Data** (wyczyść wszystkie dane). Nie musisz zaznaczać żadnego pola.
+2. Ostrzeżenie pyta: "Delete all supported data categories except Professor Mari? There is no undo."
+3. Kliknij **Confirm Delete** albo **Cancel**, aby przerwać.
 
-Czyszczenia danych nie da się cofnąć. Nie ma tu kosza ani żadnego odzysku. Po potwierdzeniu dane znikają na dobre.
-
-Najpierw utwórz kopię zapasową, żeby móc przywrócić dane po zmianie zdania. Szczegóły opisuje przewodnik [Kopia zapasowa i przywracanie danych aplikacji Marinara](backup-and-restore.md).
+Efekt jest taki sam, jak po zaznaczeniu wszystkich ośmiu pól.
 
 ## Osiem kategorii danych
 
-Sekcja **Danger Zone** pokazuje listę ośmiu kategorii z polami wyboru. Każda z nich to osobny zakres. Zaznaczenie jednej kategorii nie rusza pozostałych.
+Każda kategoria usuwa tylko to, co wymienia jej wiersz, z wyjątkiem folderu galerii opisanego pod tabelą.
 
-| Kategoria | Co czyści |
-|---|---|
-| **Chats & Messages** (czaty i wiadomości) | Czaty, foldery, wiadomości, dane scen i wypowiedzi OOC oraz bieżący stan czatu. |
-| **Characters** (postacie) | Postacie i grupy postaci. Professor Mari zostaje nienaruszona. |
-| **Personas** (persony) | Persony i grupy person. |
-| **Lorebooks** (lorebooki) | Lorebooki i ich wpisy. |
-| **Presets** (presety) | Presety promptów, grupy, sekcje i zmienne. |
-| **Connections** (połączenia) | Połączenia API i adresy modeli. |
-| **Automation & Addons** (automatyzacja i dodatki) | Agenci, narzędzia, skrypty regex, zsynchronizowane motywy i stan automatyzacji. |
-| **Media & Assets** (multimedia i zasoby) | Tła, awatary, sprite'y, elementy galerii, czcionki i pliki źródeł wiedzy. |
+| Kategoria | Co usuwa |
+| --- | --- |
+| **Chats & Messages** (czaty i wiadomości) | Wszystkie czaty wraz z zawartością oraz cały folder `gallery` i filmy scen gry. |
+| **Characters** (postacie) | Wszystkie postacie i grupy wraz z awatarami, oprócz Professor Mari. |
+| **Personas** (persony) | Wszystkie persony i grupy wraz z awatarami. |
+| **Lorebooks** (lorebooki) | Wszystkie lorebooki, wpisy i foldery. |
+| **Presets** (presety) | Wszystkie presety promptów i foldery presetów, oprócz wbudowanego presetu standardowego. |
+| **Connections** (połączenia) | Wszystkie zapisane konta oraz powiązane z nimi wybory modeli i ustawienia głosu. |
+| **Automation & Addons** (automatyzacja i dodatki) | Wszystkie ustawienia agentów, własne narzędzia, skrypty regex i zsynchronizowane motywy. Nie dotyczy to Personal Extensions ani External Extensions. |
+| **Media & Assets** (multimedia i zasoby) | Pliki teł, awatarów, sprite'ów, galerii, filmów scen, czcionek i źródeł wiedzy. |
 
-Kilka kategorii usuwa więcej niż same rekordy z bazy danych. **Chats & Messages** kasuje też cały folder galerii na dysku razem ze wszystkimi plikami wideo scen. Dotyczy to również obrazów z galerii postaci i person, nawet bez zaznaczenia kategorii **Characters** i **Personas**. **Media & Assets** usuwa z dysku foldery teł, awatarów, sprite'ów, plików awatarów 2D i 3D, galerii, plików wideo scen, czcionek i plików źródeł wiedzy. **Connections** czyści dodatkowo zapisane ustawienia syntezy mowy (TTS) i Speech to Text (zamiana mowy na tekst), bo są one powiązane z połączeniem. Usuwa też klucz API Tripo zapisany wcześniej na stronie **3D Avatars** (awatary 3D).
+Więcej szczegółów:
 
-## Czyszczenie wybranych kategorii
+- **Chats & Messages** usuwa też swipe'y (kilka odpowiedzi zachowanych w jednej wiadomości), wspomnienia, wyniki agentów, stan gry i obrazy czatów.
+- **Characters** i **Personas** usuwają też modele awatarów 2D i 3D.
+- **Presets** usuwa też ich grupy, sekcje i zmienne. Jeśli domyślny był inny preset, domyślnym staje się preset standardowy.
+- **Connections** czyści też ustawienia zamiany tekstu na mowę i mowy na tekst, modele wybrane dla funkcji oraz klucz API Tripo zapisany na stronie **3D Avatars**.
+- **Automation & Addons** usuwa też wyniki agentów, pamięć agentów, foldery agentów i widgety agentów na ekranie głównym.
+- **Media & Assets** usuwa też listę zasobów i obrazy czatów.
+- Pliki źródeł wiedzy to pliki, które wgrano dla agentów wiedzy. Zsynchronizowane motywy to twoje własne motywy zapisane w aplikacji Marinara Engine.
 
-Skorzystaj z tego, gdy chcesz usunąć część danych, a resztę zachować.
+Niektóre kategorie sięgają do plików poza swoją nazwą. **Chats & Messages** usuwa cały folder `gallery`, w tym obrazy z galerii postaci i person, nawet jeśli nie zaznaczono **Characters** ani **Personas**.
 
-1. Zaznacz pole wyboru przy każdej kategorii do usunięcia.
-2. Wszystkie pola naraz przełącza przycisk **Select All** (zaznacz wszystko). Gdy zaznaczone są już wszystkie, ten sam przycisk zmienia się w **Clear Selection** i pozwala odznaczyć je wszystkie.
-3. Kliknij przycisk **Clear Selected Data**. Pozostaje on nieaktywny, dopóki nie zaznaczysz przynajmniej jednej kategorii.
-4. Pojawia się ramka z ostrzeżeniem. Podaje ona liczbę wybranych kategorii i przypomina, że nie ma cofania.
-5. Kliknij przycisk **Cancel**, żeby przerwać, albo **Confirm Delete**, żeby usunąć. Nic nie znika, dopóki nie klikniesz przycisku **Confirm Delete**.
+Czyszczenie nie rusza innych ustawień, folderu `backups/` ani pliku `.encryption-key`. Zostawia też Personal Extensions, zasoby trybu Game Mode, własne emoji i naklejki, twój dźwięk powiadomień oraz obrazy lorebooków, presetów, agentów i kont, a także pliki pamięci długoterminowej. Zobacz [Gdzie Marinara przechowuje dane](where-data-is-stored.md).
 
-Po udanym czyszczeniu pojawia się komunikat potwierdzający. Informuje on, że wybrane dane zostały wyczyszczone, a bieżące dane tymczasowe od razu zresetowane.
+## Professor Mari zostaje
 
-## Czyszczenie wszystkiego
-
-Skorzystaj z tego, żeby jednym krokiem skasować wszystkie osiem kategorii.
-
-1. Kliknij przycisk **Clear All Data**. Nie trzeba wcześniej zaznaczać żadnych pól.
-2. Ramka z ostrzeżeniem pyta: "Delete all supported data categories except Professor Mari? There is no undo."
-3. Kliknij przycisk **Cancel**, żeby przerwać, albo **Confirm Delete**, żeby usunąć wszystko.
-
-Efekt jest taki sam jak przy zaznaczeniu każdego pola i wyczyszczeniu ich razem.
-
-## Professor Mari zostaje zawsze
-
-Professor Mari to wbudowana postać pomocnika. Ta funkcja nigdy jej nie usuwa. Nawet po wyczyszczeniu kategorii **Characters** albo użyciu przycisku **Clear All Data** Professor Mari zostaje na miejscu. Sekcja **Danger Zone** nie pozwala jej skasować.
+Professor Mari to wbudowana asystentka na ekranie głównym. Sekcja **Danger Zone** nigdy jej nie usuwa, nawet po kliknięciu **Clear All Data**.
 
 ## Powiązane przewodniki
 
 - [Kopia zapasowa i przywracanie danych aplikacji Marinara](backup-and-restore.md)
+- [Gdzie Marinara przechowuje dane](where-data-is-stored.md)
 - [Dostęp zdalny](../REMOTE_ACCESS.md)

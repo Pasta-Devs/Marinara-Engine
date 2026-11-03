@@ -1,147 +1,111 @@
-# Emojis personalizados, stickers e GIFs
+# Emojis, stickers e GIFs personalizados
 
-Neste guia você aprende a usar as imagens extras de um chat no Conversation Mode: emojis personalizados, stickers personalizados (as figurinhas) e GIFs pesquisados. Ele também mostra como controlar quais emojis e stickers personalizados o personagem pode usar nas respostas.
+Envie os seus próprios emojis e stickers, busque GIFs e controle quais emojis e stickers personalizados um personagem pode usar nas respostas. Essas ferramentas funcionam só no Conversation Mode. O Roleplay e o Game Mode usam o seletor de emojis simples.
 
-Esses recursos funcionam só no Conversation Mode. Os modos Roleplay e Game têm apenas o seletor de emojis comum, sem emojis personalizados, sem stickers e sem busca de GIFs.
+## Onde encontrar essas ferramentas
 
-## Onde encontrar esses recursos
+Em um chat de Conversation, clique no botão redondo de carinha ao lado da caixa de mensagem, **Emoji, GIFs & stickers**. Um painel se abre acima dele (uma folha acima do teclado em um celular). As abas dele são:
 
-Em um chat no Conversation Mode, olhe a barra de digitação da mensagem. Ali fica um botão redondo com um ícone de carinha sorridente, chamado **Emoji, GIFs & stickers**. Clique nele para abrir um pequeno painel acima da barra de digitação.
-
-O painel tem estas abas:
-
-- **Emoji**: a grade de emojis padrão, mais uma aba com estrela chamada **Custom emojis** para as imagens que você fez upload.
+- **Emoji**: a grade de emojis padrão, mais uma aba de estrela **Custom emojis** para as suas imagens enviadas.
 - **GIFs**: busca de GIFs ao vivo.
-- **Stickers**: os stickers que você fez upload.
+- **Kaomoji**: rostos de texto como `(^_^)`.
+- **Stickers**: os seus stickers enviados.
 
-A aba **Tools** também aparece quando outros recursos de digitação estão ativados. No celular, as mesmas abas abrem em uma folha acima do teclado.
+Uma aba **Tools** também aparece quando outras ferramentas de entrada estão ativadas.
 
-## Emojis personalizados
+## Envie um emoji personalizado
 
-O emoji personalizado é uma imagem pequena que você faz upload uma vez e reutiliza em qualquer chat no Conversation Mode. Na mensagem, ele é escrito como um shortcode, ou seja, o nome do emoji entre dois-pontos, assim: `:kekw:`.
+Um emoji personalizado é uma imagem pequena que você envia uma vez e usa em qualquer chat de Conversation. Em uma mensagem que você escreve, ele é um atalho: o nome entre dois-pontos, como `:kekw:`.
 
-Os emojis personalizados valem para o perfil inteiro. Você faz o upload uma única vez e usa em todo lugar.
+1. Vá para **Emoji** e depois para a aba de estrela **Custom emojis**.
+2. Clique em **Upload** e escolha um ou mais arquivos de imagem.
+3. Na janela **Name this emoji**, digite um nome e clique em **Add**.
 
-### Como fazer upload de um emoji personalizado
+O emoji aparece na grade **Custom emojis**.
 
-1. Abra o painel **Emoji, GIFs & stickers** e vá até a aba **Emoji**.
-2. Clique na aba com estrela chamada **Custom emojis** (emojis personalizados).
-3. Clique em **Upload** e escolha um ou mais arquivos de imagem.
-4. Na janela **Name this emoji**, digite um nome e clique em **Add**.
+Regras:
 
-O novo emoji aparece na grade **Custom emojis**.
+- Um nome tem de 1 a 32 caracteres: letras minúsculas, números e sublinhados. O aplicativo muda os outros caracteres para você.
+- A imagem pode ter no máximo 256 por 256 pixels. Arquivos GIF animados funcionam e tocam no chat.
+- Os nomes precisam ser únicos. Um nome já usado mostra `An emoji named ":name:" already exists.`
 
-Os nomes de emoji seguem regras rígidas. O nome tem de 1 a 32 caracteres. Só valem letras minúsculas, números e sublinhados. Se você digitar espaços ou letras maiúsculas, o aplicativo limpa o nome sozinho. Ele converte as letras para minúsculas e troca os outros caracteres por sublinhados, por exemplo.
+Se não funcionou: confira o nome e o tamanho da imagem em relação às regras acima.
 
-A imagem de um emoji personalizado não pode passar de 256 por 256 pixels. O aplicativo confere isso no upload. Cada nome precisa ser único entre todos os seus emojis personalizados. Se você escolher um nome já ocupado, aparece um erro assim: `An emoji named ":name:" already exists.`
+## Use um emoji personalizado
 
-Também é possível fazer upload de um arquivo GIF animado como emoji personalizado. Ele roda animado no chat. Isso não tem relação com a aba **GIFs** descrita adiante.
+Clique em um bloco na grade **Custom emojis**. Isso insere o atalho dele na sua mensagem e não a envia. Você também pode digitar o atalho, em minúsculas, exatamente como foi salvo.
 
-### Como usar um emoji personalizado
+Em um chat de Conversation, um atalho aparece como uma imagem pequena na linha. Uma mensagem só com atalhos de emoji os mostra maiores. Se o nome não existe mais, por exemplo depois que você o exclui, a mensagem mostra o texto simples `:kekw:`.
 
-Clique em qualquer bloco da grade **Custom emojis** para colocar o shortcode dele na mensagem. Isso não envia a mensagem, apenas insere o texto. Você também pode digitar o shortcode na mão, por exemplo `:kekw:`. Digite o nome em minúsculas, exatamente como foi salvo.
-
-### Renomear, excluir, exportar e importar
+## Renomeie, exclua, exporte e importe
 
 Clique em **Edit** no topo da aba **Custom emojis** para ativar o modo de edição.
 
-No modo de edição:
-
-- Clique em um bloco para abrir a janela **Rename emoji** e depois clique em **Rename**.
-- Clique no pequeno selo de lixeira do bloco para excluir aquele emoji. A janela **Delete emoji** avisa que as mensagens que já usaram o emoji passam a mostrar o texto puro.
-- Clique em **Export** para baixar todos os seus emojis personalizados em um arquivo chamado `marinara-custom-emojis.json`. Esse arquivo traz as imagens dentro dele, então é totalmente portátil.
-- Clique em **Import** para importar um arquivo exportado antes. A importação pula os emojis que não passam nas regras de nome ou de tamanho, e também os que colidem com um nome existente.
+- Clique em um bloco para abri-lo, **Rename emoji**, e depois clique em **Rename**.
+- Clique no selo de lixeira de um bloco para excluí-lo. **Delete emoji** avisa que as mensagens que o usaram vão mostrar o texto no lugar.
+- Clique em **Export** para baixar todos os seus emojis personalizados como `marinara-custom-emojis.json`. As imagens estão dentro do arquivo.
+- Clique em **Import** para carregar um arquivo exportado. Ele ignora os emojis que quebram as regras de nome ou de tamanho ou que colidem com um existente.
 
 ## Stickers personalizados
 
-O sticker personalizado funciona como o emoji personalizado, mas serve para imagens maiores. O sticker é escrito como `sticker:name:` e sempre aparece como uma imagem grande, em bloco, em uma linha só dele.
+Um sticker é uma imagem maior que aparece sozinha na própria linha. Normalmente você clica nele na aba **Stickers**. O texto `sticker:name:` é o que é inserido. Na aba **Stickers**, clique em **Upload** e use **Edit**, **Export** e **Import** como nos emojis. As diferenças:
 
-Abra a aba **Stickers** no mesmo painel. O upload, a nomeação, a renomeação, a exclusão, a exportação e a importação funcionam igual aos emojis, com estas diferenças:
+- A janela de envio é **Name this sticker**.
+- A maior imagem tem 512 por 512 pixels (emojis: 256 por 256).
+- O arquivo exportado é `marinara-custom-stickers.json`.
 
-- A janela de upload se chama **Name this sticker**.
-- A imagem de um sticker não pode passar de 512 por 512 pixels.
-- Os nomes de sticker são únicos entre todos os seus stickers. Um nome repetido mostra `A sticker named "sticker:name:" already exists.`
-- A exportação baixa um arquivo chamado `marinara-custom-stickers.json`.
+Para enviar um sticker, clique no bloco dele. A janela **Send sticker** oferece:
 
-### Como enviar um sticker
+- **Send & reply**: publica o sticker como a própria mensagem e deixa o personagem responder.
+- **Add to message**: coloca o texto `sticker:name:` na sua mensagem para você continuar digitando.
 
-Clique em um bloco de sticker na grade. A janela **Send sticker** pergunta como você quer usar o sticker, com duas opções:
+## Busque GIFs
 
-- **Send & reply**: publica o sticker como mensagem própria na hora e deixa o personagem responder.
-- **Add to message**: coloca o texto `sticker:name:` na sua mensagem, para você continuar digitando.
+A aba **GIFs** busca no Giphy, uma biblioteca de GIFs online. Digite na caixa de busca ou navegue pela lista de populares e clique em um GIF para enviá-lo.
 
-## Busca de GIFs (Giphy)
+Antes de começar: a busca de GIFs precisa de uma chave de API gratuita do Giphy. Uma chave é um código secreto que deixa o Marinara usar o serviço do Giphy por você. Sem ela, a aba mostra um cartão de configuração. Defini-la significa editar o arquivo `.env`, que é o arquivo de configurações em texto simples do Marinara. Ele fica na pasta do projeto do Marinara, ou em `/app/data/.env` no Docker (veja [Edite o arquivo .env](../CONFIGURATION.md#edit-the-env-file)).
 
-A aba **GIFs** pesquisa no Giphy, uma grande biblioteca de GIFs online. Digite na caixa de busca para achar GIFs ou navegue pela lista de tendências. Clique em um GIF para enviá-lo ao chat.
+1. Abra o painel de desenvolvedor do Giphy em `https://developers.giphy.com/dashboard/`.
+2. Crie uma chave de API para um aplicativo web e copie-a.
+3. Abra o arquivo `.env` em um editor de texto.
+4. Adicione esta linha no fim, com a sua chave no lugar de `your_key_here`, e salve o arquivo:
 
-### A busca de GIFs precisa de uma chave
+   ```text
+   GIPHY_API_KEY=your_key_here
+   ```
 
-A busca de GIFs precisa de uma chave de API gratuita do Giphy. A chave de API é um código secreto, parecido com uma senha, que permite a Marinara Engine falar com o serviço do Giphy em seu nome. Sem a chave, a aba **GIFs** mostra um cartão de configuração no lugar dos resultados.
+5. Reinicie o Marinara. Isso significa pará-lo e iniciá-lo de novo do jeito que você costuma iniciá-lo (veja [Instalação](../INSTALLATION.md)).
 
-Para configurar a busca de GIFs:
+Os resultados de GIF usam a classificação adulta do Giphy. Você não pode mudá-la no aplicativo, então os resultados podem incluir GIFs adultos. Não existe uma fonte de GIFs só seguros.
 
-1. Abra o Giphy Developer Dashboard em `https://developers.giphy.com/dashboard/`.
-2. Crie uma chave de API gratuita para um aplicativo web.
-3. Adicione a chave ao arquivo `.env`. Esse é o arquivo de configurações do servidor do Marinara.
+## Marque uma imagem da galeria como emoji ou sticker
 
-Adicione uma linha assim ao arquivo `.env`:
+Qualquer imagem em uma Character Gallery ou Persona Gallery pode virar um emoji ou sticker. Ela funciona só em chats que incluem esse personagem ou persona.
 
-```
-GIPHY_API_KEY=your_key_here
-```
-
-Depois de adicionar a chave, reinicie Marinara. A explicação completa do arquivo `.env` está no guia de configuração do servidor, indicado no fim desta página.
-
-### Classificação de conteúdo dos GIFs
-
-Os resultados de GIF usam a classificação de conteúdo adulto do Giphy. Isso é fixo e não muda pelo aplicativo. Os resultados podem incluir GIFs sugestivos ou adultos, então pesquise com isso em mente. Não existe fonte de GIFs offline nem restrita a conteúdo seguro.
-
-## Marcar uma imagem da galeria como emoji ou sticker
-
-Qualquer imagem já salva na galeria de um personagem ou na galeria de uma persona pode virar emoji ou sticker personalizado. A imagem marcada fica restrita àquele personagem ou àquela persona. Ela funciona só nos chats que incluem esse personagem ou essa persona.
-
-Para marcar uma imagem da galeria:
-
-1. Abra o **Character Editor** (editor de personagem) ou o **Persona Editor** (editor de persona).
-2. Vá até a aba **Gallery** e abra a sub-aba **Images**.
-3. Passe o mouse sobre uma imagem e clique no pequeno botão de tag no canto superior esquerdo.
+1. Abra o **Character Editor** ou o **Persona Editor**.
+2. Abra a aba **Gallery** e depois a subaba **Images**.
+3. Passe o mouse sobre uma imagem e clique no botão de tag no canto superior esquerdo.
 4. Escolha **Make emoji** ou **Make sticker**.
 5. Na janela **Custom Emoji** ou **Custom Sticker**, digite um nome.
 
-O botão de tag muda e passa a mostrar o nome atribuído.
-
-Os mesmos limites de tamanho valem aqui. A opção **Make emoji** aceita até 256 por 256 pixels e a opção **Make sticker** aceita até 512 por 512 pixels. Se a imagem for grande demais para o tipo escolhido, aparece um aviso de erro em vermelho.
-
-Para mudar uma imagem marcada depois, clique de novo no botão de tag dela. O menu oferece **Rename**, uma opção de troca como **Switch to sticker** e uma opção de remoção como **Remove emoji**. A marcação não move nem copia a imagem: ela continua sendo uma imagem normal da galeria.
+O botão de tag agora mostra o nome. Os mesmos limites de tamanho valem, e uma imagem grande demais mostra um erro vermelho. Para mudar depois, clique no botão de tag de novo para **Rename**, uma opção de troca como **Switch to sticker**, ou uma opção de remoção como **Remove emoji**. A imagem também continua sendo uma imagem normal da galeria.
 
 ## Preferências de seleção
 
-Marinara informa ao personagem que vai responder quais dos seus emojis e stickers personalizados ele pode usar na resposta. Esse controle fica em **Selection preferences** (preferências de seleção).
+O Marinara diz ao personagem que responde quais emojis e stickers personalizados ele pode usar. Para mudar como ele escolhe, clique na engrenagem **Selection preferences** no topo da aba **Custom emojis** ou **Stickers**. As duas abrem a mesma configuração, salva por chat.
 
-Para abrir o painel, clique no ícone de engrenagem chamado **Selection preferences**. Ele fica no topo da aba **Custom emojis** e no topo da aba **Stickers**. Os dois abrem a mesma configuração. Essa configuração é salva por chat, então cada chat pode ter a sua.
-
-O painel tem uma linha de modo com três opções:
-
-- **Semantic** (o padrão): oferece os emojis e stickers que mais combinam com a conversa recente. O modo Semantic usa um embedder local, ou seja, um pequeno modelo de IA que roda na sua própria máquina. Se ele não estiver disponível, o modo recorre ao aleatório.
+- **Semantic** (padrão): oferece os que melhor combinam com a conversa recente. Ela usa um modelo pequeno no seu próprio computador. Se isso não está disponível, escolhe ao acaso.
 - **Random**: oferece um conjunto aleatório a cada resposta.
-- **Tool-call**: uma chamada ao modelo escolhe os mais adequados a cada resposta. É preciso escolher uma conexão no menu suspenso que aparece. Se a conexão não estiver definida ou falhar, o modo recorre ao Semantic. Em um turno de chat em grupo com mais de um personagem respondendo, o modo Tool-call é ignorado naquele turno e a seleção recorre ao Semantic.
+- **Tool-call**: um modelo escolhe os adequados a cada resposta. Escolha um modelo em **Select a model...**. Se nenhum está definido ou se ele falha, usa o semântico. É ignorada quando vários personagens respondem em uma rodada de grupo.
 
-Abaixo dos modos fica o campo **Max offered (each)**. Ele define quantos nomes de emoji personalizado e quantos nomes de sticker são oferecidos ao personagem a cada turno. O padrão é 20. O valor vai de 1 a 100.
+**Max offered (each)** é quantos nomes de emojis e quantos nomes de stickers são oferecidos por turno. O padrão é 20, de 1 a 100.
 
-## Como os emojis e stickers personalizados aparecem
+## As reações usam só os seus emojis personalizados principais
 
-Em um chat no Conversation Mode, um shortcode de emoji como `:kekw:` aparece como uma imagem pequena, na mesma linha do texto. Se a mensagem tiver só shortcodes de emoji e mais nada, eles aparecem maiores.
-
-Um sticker como `sticker:wave:` sempre aparece como uma imagem grande, em bloco, em uma linha só dele.
-
-Quando o nome não é encontrado, por exemplo depois de você excluir aquele emoji, a mensagem mostra o texto puro do shortcode, assim: `:kekw:`.
-
-## As reações usam só o conjunto global de emojis
-
-Você pode reagir a uma mensagem com um emoji personalizado. As reações usam só os seus emojis personalizados principais, o conjunto global. Emojis marcados na galeria, stickers e GIFs não ficam disponíveis como reação. As reações de mensagem são explicadas no guia de primeiros passos do Conversation Mode.
+Você pode reagir a uma mensagem com um emoji personalizado, mas só com os emojis que enviou na aba **Custom emojis**. Emojis marcados pela galeria, stickers e GIFs não estão disponíveis como reações. Veja [Reaja e receba notificações](getting-started.md#react-and-get-notified).
 
 ## Guias relacionados
 
 - [Conversation Mode: primeiros passos](getting-started.md)
-- [Galerias de personagem e de persona](../characters/galleries.md)
+- [Galerias de personagens e personas](../characters/galleries.md)
 - [Referência de configuração do servidor](../CONFIGURATION.md)

@@ -1,100 +1,84 @@
 # Profile w trybie Conversation Mode (nazwa wyświetlana, About Me, zachowanie)
 
-Z tego przewodnika dowiesz się, do czego służy niewielki profil, który w trybie Conversation Mode dostaje każda postać i każda persona. Profil ma trzy części: nazwę wyświetlaną, biogram "about me" oraz wytyczną dotyczącą zachowania. Te pola działają jak profil w komunikatorze, takim jak Discord. Obowiązują wyłącznie w trybie Conversation Mode i nigdy nie trafiają do trybu Roleplay ani Game Mode.
+Każda postać i każda persona ma mały profil w stylu komunikatora dla trybu Conversation: nazwę wyświetlaną, biogram "o mnie" i instrukcję zachowania. Te pola nigdy nie są używane w trybach Roleplay i Game Mode.
 
-Tryb Conversation Mode to czat w stylu wiadomości prywatnych (DM) albo komunikatora. Jeśli to dla Ciebie nowość, zacznij od przewodnika [Tryb Conversation: pierwsze kroki](getting-started.md). Persona to profil, który w czacie zastępuje Ciebie (czyli `{{user}}`).
+To nie jest profil ustawień (zapisany zestaw opcji czatu, zobacz [Profile ustawień](../chats/settings-profiles.md)). Jeśli dopiero poznajesz ten tryb, przeczytaj najpierw [Tryb Conversation: pierwsze kroki](getting-started.md). Persona to karta postaci, która reprezentuje ciebie.
 
-## Gdzie znaleźć te pola
+## Gdzie są te pola
 
-Wszystkie pola profilu znajdują się w zakładce **Convo**. Mają ją zarówno postacie, jak i persony.
+Pola znajdują się w zakładce o nazwie **Convo**.
 
-1. Aby edytować profil postaci, otwórz postać w panelu **Character Editor** (edytor postaci) i kliknij zakładkę **Convo**.
-2. Aby edytować profil persony, otwórz personę w panelu **Persona Editor** (edytor persony) i kliknij zakładkę **Convo**.
+1. Otwórz postać w panelu **Character Editor** (edytor postaci) albo personę w panelu **Persona Editor** (edytor persony). Aby tam trafić, otwórz panel **Characters** z paska bocznego albo panel **Personas** za pomocą ikony osoby na górnym pasku prawego paska bocznego, a potem kliknij kartę (zobacz [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md) i [Persony użytkownika: tworzenie i edycja](../characters/personas.md)).
+2. Kliknij zakładkę **Convo**.
 
-W zakładce **Convo** są trzy pola: **Convo Display Name**, **About Me** i **Convo Behavior**. Dla postaci i person wyglądają tak samo, poza jedną drobną różnicą opisaną niżej.
+Zakładka zawiera **Convo Display Name**, **About Me** i **Convo Behavior**. Przy postaci ma też **Weekly schedule** (z przyciskiem **Edit schedule** lub **Create schedule**, zobacz [harmonogramy](schedules.md)) oraz **Image generation instructions**, czyli opcjonalne wskazówki dla selfie tej postaci (zobacz [Selfie](selfies.md)).
 
-## Convo Display Name
+## Ustaw nazwę wyświetlaną
 
-Pole **Convo Display Name** (nazwa wyświetlana w trybie Conversation Mode) decyduje o tym, jak dana postać lub persona podpisuje się w czatach tego trybu. Zostaw je puste, a aplikacja użyje nazwy z karty. Zmiana od razu poprawia nazwę na istniejących wiadomościach. Działa tylko w trybie Conversation Mode.
+**Convo Display Name** (nazwa wyświetlana w trybie Conversation) to nazwa pokazywana w czatach Conversation. Zostaw pole puste, aby użyć nazwy z karty. Istniejące wiadomości aktualizują się od razu.
 
-Postacie (ale nie persony) mają dodatkowo pole wyboru **Declare this name on the card in the prompt**. Po jego włączeniu Marinara dopisuje krótką linijkę do tekstu karty postaci. Ta linijka mówi modelowi, która karta kryje się pod którą nazwą wyświetlaną. To pole wyboru działa dopiero wtedy, gdy nazwa wyświetlana jest ustawiona.
+Postacie mają też opcję **Declare this name on the card in the prompt**. Gdy jest włączona, aplikacja dodaje do tekstu karty w prompcie (tekście, który aplikacja wysyła do modelu) linię w rodzaju "Conversation display name: X", żeby model wiedział, która karta używa której nazwy. Najpierw trzeba ustawić nazwę wyświetlaną.
 
-Makro `{{convo_display}}` wstawia nazwę wyświetlaną odpowiadającej postaci do własnego promptu. Makro to symbol zastępczy, na przykład `{{convo_display}}`, który zamienia się w prawdziwy tekst. Poza trybem Conversation Mode nie daje nic. Zobacz [Makra](../prompts/macros.md).
+## Napisz About Me
 
-## About Me
+**About Me** (o mnie) to krótki biogram: linijka lub dwie, emoji, żart albo nic. Aplikacja dodaje **About Me** każdej obecnej postaci i persony do promptu w każdej turze, żeby model wiedział, jak każda z nich się przedstawia. Nie musisz nic robić.
 
-Pole **About Me** (o mnie) to krótki biogram napisany w imieniu postaci lub persony, widoczny w trybie Conversation Mode. Może mieć linijkę albo dwie, może być jednym emoji, żartem albo zostać puste. Na pasku narzędzi pola tekstowego jest przycisk emoji, więc emoji da się wstawić do biogramu jednym kliknięciem.
+Aby go wypełnić:
 
-Biogram to nie sama ozdoba. Domyślnie Marinara dodaje pole **About Me** każdej obecnej postaci i persony do promptu w każdej turze. Biogramy trafiają tam jako krótka lista profili uczestników. Dzięki temu model zawsze wie, jak każda osoba się przedstawia. Nie trzeba nic w tym celu ustawiać.
+- Wpisz go samodzielnie. Przycisk emoji na pasku narzędzi wstawia emoji. Przycisk **Revert** (cofnij) przywraca tekst sprzed bieżącej edycji.
+- Przy zapisanej postaci kliknij przycisk różdżki (**Generate About Me from this card**).
+- Poproś asystentkę **Professor Mari** na ekranie głównym, na przykład `Write Luna's About Me as a cryptic one-line bio.` Professor Mari czyta zapisany profil, pisze biogram głosem tej postaci lub persony i go zapisuje. Jej zmianę możesz zachować albo cofnąć w zwykłym przeglądzie zmian.
 
-### Pisanie pola About Me z asystentką Professor Mari
+Jeśli to nie zadziałało: na karcie, która nie jest jeszcze zapisana, brakuje przycisku różdżki. Najpierw zapisz kartę.
 
-Biogramu nie musisz pisać samodzielnie. Otwórz asystentkę Professor Mari z ekranu głównego i poproś ją o napisanie albo poprawienie pola **About Me** dla wskazanej postaci lub persony. Najpierw czyta zapisany profil, potem pisze krótki biogram głosem tej osoby i zapisuje go wprost w prawdziwym polu **About Me**.
+## Ustaw Convo Behavior
 
-Przykładowa prośba: `Write Luna's About Me as a cryptic one-line bio.` Można też poprosić o poprawkę, na przykład o to, żeby istniejący biogram był zabawniejszy, krótszy, cieplejszy albo bliższy karcie.
+**Convo Behavior** (zachowanie w trybie Conversation) to instrukcja, jak postać lub persona zachowuje się w trybie Conversation, na przykład: pisz krótkie odpowiedzi małymi literami i pisz jak prawdziwa osoba. Instrukcje post-history to tekst promptu umieszczany po niedawnej historii czatu. Zostaw ustawienie domyślne, jeśli nie piszesz własnych promptów. Użyj listy **Insertion** (miejsce wstawienia), aby wybrać, gdzie instrukcja trafia w prompcie:
 
-Professor Mari korzysta ze swojego zwykłego, skonfigurowanego modelu. W edytorach postaci i person nie ma osobnego połączenia, listy źródeł ani przycisku generowania dla pola About Me. Zapisana przez nią zmiana trafia do zwykłego przeglądu zmian, gdzie można ją zachować albo przywrócić poprzednią wersję. Przy ręcznej edycji w edytorze nadal pojawia się przycisk **Revert** (cofnięcie zmian), który przywraca tekst sprzed bieżącej edycji.
+| Opcja | Gdzie trafia instrukcja |
+| --- | --- |
+| **Constant — after the card** (domyślnie) | Zawsze, tuż po tekście karty. |
+| **Constant — before the card** | Zawsze, tuż przed tekstem karty. |
+| **Append to post-history** | Na końcu instrukcji post-history. |
+| **Prepend to post-history** | Na początku instrukcji post-history. |
+| **Replace post-history** | W miejsce instrukcji post-history. |
+| **Only where {{convo_behavior}} is placed** | Tylko tam, gdzie we własnym prompcie umieścisz makro. |
 
-## Convo Behavior
+## Zmiany About Me dla jednego czatu
 
-Pole **Convo Behavior** (zachowanie w trybie Conversation Mode) to dowolny tekst z instrukcją, jak postać lub persona ma się zachowywać w tym trybie. Na przykład: krótkie odpowiedzi małymi literami, pisane jak przez prawdziwą osobę, a nie przez narratora. Ta treść nigdy nie trafia do trybu Roleplay ani Game Mode.
+**About Me** z karty jest domyślne wszędzie. Możesz ustawić inny biogram tylko dla jednego czatu.
 
-### Insertion (miejsce wstawienia wytycznej)
+1. W czacie Conversation kliknij awatar lub imię postaci albo persony. Obok otwiera się karta profilu (na telefonie od dołu).
+2. Przeczytaj kartę. Pokazuje awatar, imię i bieżące **About Me**. Plakietka mówi **Default** albo **Chat-specific**. Postacie pokazują też **Online**, **Away**, **Busy** lub **Offline**.
+3. Kliknij **Edit** (edytuj).
+4. Wpisz biogram dla tego czatu. Dostępny jest wybór emoji z zakładką **Custom emojis**.
+5. Kliknij **Save** (zapisz). Zobaczysz komunikat "Chat-specific about me saved".
 
-Pod polem **Convo Behavior** jest lista rozwijana **Insertion** (miejsce wstawienia). Decyduje o tym, gdzie w prompcie ląduje twoja wytyczna. Do wyboru są:
+Przycisk **Cancel** zamyka tryb edycji bez zapisu. Przycisk **Revert** cofa niezapisane zmiany. Przycisk **Clear** usuwa istniejącą zmianę i wraca do wartości domyślnej z karty. Zapisanie pustego biogramu też ją usuwa.
 
-- Opcja **Constant** opisana jako "after the card" (domyślna): dodawana zawsze, zaraz po tekście karty.
-- Opcja **Constant** opisana jako "before the card": dodawana zawsze, tuż przed tekstem karty.
-- **Append to post-history**: dodawana na końcu instrukcji post-history.
-- **Prepend to post-history**: dodawana na początku instrukcji post-history.
-- **Replace post-history**: używana zamiast instrukcji post-history.
-- **Only where `{{convo_behavior}}` is placed**: wstawiana tylko tam, gdzie we własnym prompcie umieścisz makro `{{convo_behavior}}`.
+## Pozwól postaci zmieniać własne About Me
 
-Instrukcje post-history to fragment promptu, który aplikacja umieszcza za ostatnimi wiadomościami z czatu. Jeśli nie piszesz własnych promptów, zostaw ustawienie domyślne.
+To opcja zaawansowana. Narzędzie o nazwie `update_about_me` pozwala postaci edytować własny biogram w trakcie czatu. Jest domyślnie wyłączone. Aby go użyć, otwórz **Chat Settings → Function Calling**, włącz **Enable Tool Use**, a potem dodaj narzędzie `update_about_me`.
 
-## Biogramy About Me osobne dla jednego czatu
+Postać wybiera jedną z dwóch możliwości:
 
-Pole **About Me** na karcie to domyślny biogram używany wszędzie. Da się jednak ustawić inny biogram dla jednego konkretnego czatu. To właśnie ten wyjątek dla pojedynczego czatu, a otwiera się go w panelu podręcznym profilu.
+- Public zmienia prawdziwy biogram widoczny w każdym czacie. Najpierw ją zatwierdzasz.
+- Chat zmienia biogram prywatny dla bieżącego czatu.
 
-1. W czacie trybu Conversation Mode kliknij awatar albo nazwę postaci lub persony.
-2. Obok awatara otwiera się mała wizytówka profilu. Na telefonie wysuwa się od dołu.
-3. Wizytówka pokazuje powiększony awatar, nazwę i aktualną treść pola **About Me**.
-4. Plakietka **Default** oznacza biogram z karty, a **Chat-specific** – biogram ustawiony dla tego jednego czatu. Przy postaciach widać tu też status obecności: **Online**, **Away**, **Busy** albo **Offline**.
+## Makra do własnych promptów
 
-Aby ustawić biogram dla jednego czatu:
+Makra nie są potrzebne, żeby profile trafiały do modelu. Używaj ich tylko po to, aby umieścić wartość w dokładnie wybranym miejscu własnego promptu. Każde z nich jest puste poza trybem Conversation. Zobacz [Makra promptów](../prompts/macros.md).
 
-1. Kliknij przycisk **Edit** (edycja) w panelu podręcznym.
-2. Wpisz biogram na potrzeby tego czatu. Do dyspozycji masz wybór emoji, razem z zakładką **Custom emojis**.
-3. Kliknij przycisk **Save** (zapis). Powinno pojawić się potwierdzenie, że biogram dla tego czatu został zapisany.
-
-W trakcie edycji przycisk **Revert** cofa niezapisane zmiany, a **Cancel** (anulowanie) zamyka tryb edycji bez zapisu. Kiedy biogram dla jednego czatu już istnieje, przycisk **Clear** (wyczyszczenie) usuwa go i przywraca wersję z karty. Zapisanie pustego biogramu również go usuwa. Pamiętaj: domyślne pole **About Me** edytuje się na karcie, a osobny biogram obowiązuje tylko w tym jednym czacie.
-
-## Jak pozwolić postaci samodzielnie zmieniać własne pole About Me
-
-Jest też narzędzie, po które postać może sięgnąć w trakcie rozmowy, żeby zmienić własny biogram. Nazywa się **update_about_me** i domyślnie jest wyłączone. Włącz je w panelu **Chat Settings** (ustawienia czatu) w sekcji **Function Calling**: włącz przełącznik **Enable Tool Use** i dodaj narzędzie **update_about_me**.
-
-Po włączeniu postać może zmienić własny biogram na dwa sposoby:
-
-- Zakres publiczny zmienia prawdziwy biogram widoczny we wszystkich czatach. Taka zmiana najpierw trafia do Ciebie do zatwierdzenia.
-- Zakres czatu zmienia biogram widoczny tylko w bieżącej rozmowie.
-
-## Profile we własnych promptach
-
-Żeby profile dotarły do modelu, makra nie są potrzebne. Biogramy **About Me** dokleja się do promptu automatycznie, a pole **Convo Behavior** trafia tam zgodnie z ustawieniem **Insertion**. Makra przydają się przy własnych promptach, kiedy chcesz samodzielnie umieścić wartość w konkretnym miejscu.
-
-Cztery makra wstawiają wartości z profilu bezpośrednio w tekst. Poza trybem Conversation Mode każde z nich nie daje nic:
-
-- `{{convo_display}}`: nazwa wyświetlana odpowiadającej postaci.
-- `{{char_about}}`: obowiązująca treść pola **About Me** postaci.
-- `{{persona_about}}`: obowiązująca treść pola **About Me** persony.
-- `{{convo_behavior}}`: wytyczna z pola **Convo Behavior** postaci.
-
-Pełną listę makr znajdziesz w przewodniku [Makra](../prompts/macros.md).
+| Makro | Wartość |
+| --- | --- |
+| `{{convo_display}}` | Nazwa wyświetlana odpowiadającej postaci. |
+| `{{char_about}}` | Obowiązujące **About Me** postaci. |
+| `{{persona_about}}` | Obowiązujące **About Me** persony. |
+| `{{convo_behavior}}` | **Convo Behavior** postaci. |
 
 ## Powiązane przewodniki
 
 - [Tryb Conversation: pierwsze kroki](getting-started.md)
 - [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md)
 - [Persony użytkownika: tworzenie i edycja](../characters/personas.md)
-- [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md)
-- [Makra](../prompts/macros.md)
+- [Makra promptów](../prompts/macros.md)

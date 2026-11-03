@@ -1,182 +1,109 @@
 # Mode Conversation : premiers pas
 
-Ce guide explique le mode Conversation de Marinara Engine, le mode de chat qui ressemble à une messagerie. Au programme : à quoi sert ce mode et comment fonctionne l'assistant de configuration en quatre étapes. Tu découvres aussi les fonctionnalités réservées au mode Conversation : messages autonomes, statut de présence, réactions, selfies et jeux de table.
+Le mode Conversation est le chat de style messagerie : un ou plusieurs personnages, une barre de saisie et un historique qui défile, comme quand tu écris à un ami. Il n'a ni maître du jeu ni art de scène. Les personnages peuvent aussi t'écrire en premier, suivre des emplois du temps hebdomadaires, envoyer des selfies et jouer à des jeux de table, et ces fonctions existent seulement dans ce mode.
 
-## Ce qu'est le mode Conversation
+## Démarrer un chat Conversation
 
-Le mode Conversation est l'un des modes de chat de Marinara Engine. Il fonctionne comme une application de messagerie. Tu as un ou plusieurs personnages, une barre de saisie et un historique de messages qui défile.
+**Avant de commencer :** ajoute un compte dans **Connections** (connexions) (voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md)) et aie au moins un personnage. Une persona, la fiche de personnage qui te représente, est facultative (voir [Personas utilisateur](../characters/personas.md)).
 
-Vois-le comme des messages privés, ou DM, comme quand tu écris à un ami. Pas de Game Master (le maître du jeu), pas d'illustrations de scène, aucune mécanique imposée. C'est le mode de chat le plus léger, et beaucoup d'utilisateurs y passent l'essentiel de leur temps.
+1. Dans la barre latérale des chats, ouvre l'onglet **CONVO** et clique sur **New Conversation** (nouvelle conversation). Un assistant de configuration en quatre pages s'ouvre.
+2. Sur la première page, **Name & Connection** (nom et connexion), nomme le chat et choisis le compte qui écrit les réponses.
+3. Sur la deuxième page, **Prompt Preset** (preset de prompt), choisis le preset pour le prompt Conversation, ou garde celui par défaut.
+4. Sur la troisième page, **Persona & Characters** (persona et personnages), choisis ta persona et un ou plusieurs personnages.
+5. Sur la dernière page, **Automation** (automatisation), choisis ce que les personnages font seuls (voir le tableau ci-dessous).
+6. Clique sur **Start Chatting** (commencer à discuter).
 
-Le mode Conversation ajoute des fonctionnalités qui n'ont de sens que dans une relation suivie par messagerie. Les personnages ont un statut en ligne ou absent, ainsi qu'un emploi du temps hebdomadaire. Ils peuvent t'écrire les premiers, envoyer des selfies, réagir avec des emojis et jouer à des jeux de table. Chaque personnage et chaque persona dispose aussi d'un petit profil façon Discord, avec un nom affiché et une présentation. Les champs de ce profil sont détaillés dans [Profils du mode Conversation](profiles.md).
+Un personnage crée un chat privé. Deux personnages ou plus créent un chat de groupe, sans rien de plus à configurer. Voir [Chats de groupe](../chats/group-chats.md) pour les tours de parole.
 
-Aucune de ces fonctionnalités propres au mode Conversation ne s'applique dans le mode Roleplay ou dans Game Mode, même si tu y réutilises la même fiche de personnage.
+Si ça n'a pas marché : **Start Chatting** a besoin d'un compte et d'au moins un personnage. Tu peux fermer l'assistant et tout régler plus tard dans **Chat Settings** (réglages du chat).
 
-À l'inverse, certains champs de la fiche ne s'appliquent pas en mode Conversation. Un chat Conversation ne commence pas par le **First Message** (premier message) de la fiche ni par une autre salutation ; seuls les chats Roleplay le font. Il n'utilise pas non plus la **Dialogue Highlight Color** (couleur de surbrillance des dialogues) ni la **Message Box Color** (couleur de la bulle de message) de la fiche. La **Name Display Color** (couleur d'affichage du nom) colore toujours le nom du personnage au-dessus de chaque message. Consulte [Où les couleurs apparaissent](../characters/colors-and-stats.md#where-your-colors-show).
+## Choisir les options d'automatisation
 
-### Quand choisir le mode Conversation
+| Option | Par défaut | Ce qu'elle fait |
+| --- | --- | --- |
+| **Autonomous Messages** | Activé | Les personnages t'écrivent en premier quand tu es resté silencieux un moment. |
+| **Generate Schedules** | Désactivé | Crée une routine hebdomadaire pour chaque personnage. Affiché seulement quand **Autonomous Messages** est activé. |
+| **Commands** | Désactivé | Interrupteur principal des actions qu'un personnage fait de lui-même. |
 
-Choisis le mode Conversation si tu veux l'une de ces choses :
+Active **Generate Schedules**, puis choisis ton fuseau horaire dans le champ qui apparaît. Dans **Chat Settings**, le même interrupteur s'appelle **Schedules**. Les emplois du temps et les limites de check-in sont dans [Emplois du temps des personnages et messages autonomes](schedules.md).
 
-- Discuter avec un personnage comme tu écrirais à un ami en message privé : du texte en entrée, du texte en sortie.
-- Parler à plusieurs personnages à la fois dans un même fil.
-- Laisser les personnages agir d'eux-mêmes : envoyer des messages, suivre leur emploi du temps et réagir au fil du temps.
+Change-les plus tard dans **Chat Settings → Autonomous Messaging**. Si les personnages écrivent trop souvent, désactive **Autonomous Messages** là, ou règle ta présence sur **Do Not Disturb**.
 
-Choisis plutôt le mode Roleplay ou Game Mode si tu veux des illustrations de scène, comme les sprites (image du personnage sur le plateau) et les arrière-plans, ou des mécaniques de jeu structurées.
+<a id="choose-which-commands-a-character-can-use"></a>
 
-## L'assistant de configuration en quatre étapes
+## Choisir quelles Commands un personnage peut utiliser
 
-Quand tu démarres un nouveau chat en mode Conversation, un assistant de configuration en quatre étapes s'ouvre. Autre option : le fermer et tout régler plus tard depuis le panneau latéral des réglages du chat. Voici les quatre étapes :
+Les Commands sont des actions que le personnage décide de faire seul. Tu ne les tapes pas. Après la configuration, ouvre **Chat Settings → Agents → Commands**. L'interrupteur principal **Commands** contrôle toutes les familles : quand il est désactivé, aucune famille ne fonctionne. Chaque famille a son propre interrupteur. Tous sont activés, sauf **Videos** que tu dois activer toi-même. Les familles qui dépendent d'un agent facultatif apparaissent seulement quand tu installes cet agent depuis **Agents → Agent Organizer**.
 
-1. L'étape **Name & Connection** (nom et connexion) : donne un nom au chat et choisis la connexion à l'IA qu'utilisent les personnages. Une connexion est un lien enregistré vers un fournisseur d'IA. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
-2. L'étape **Prompt Preset** (preset de prompt) : choisis le preset (modèle de prompt enregistré) qui fournit le prompt du mode Conversation, autrement dit le texte que Marinara envoie à l'IA, ou garde celui par défaut.
-3. L'étape **Persona & Characters** (persona et personnages) : choisis ton persona et un ou plusieurs personnages.
-4. L'étape **Automation** (automatisation) : décide de ce que les personnages peuvent faire d'eux-mêmes.
+| Famille | Ce qu'un personnage peut faire | Besoin d'un agent |
+| --- | --- | --- |
+| **Schedule Updates** | Changer son statut actuel. | Non |
+| **Cross-Post** | Envoyer un message dans un autre chat. | Non |
+| **Memories** | Créer des souvenirs pour d'autres personnages. | Non |
+| **Scenes** | Lancer une scène immersive. | Non |
+| **Influence** | Influencer un chat connecté. | Non |
+| **Notes** | Enregistrer des notes durables pour un chat connecté. | Non |
+| **Reactions** | Réagir aux messages avec des badges emoji. | Non |
+| **Selfies** | Demander un selfie généré. | Illustrator |
+| **Videos** | Envoyer de courts messages vidéo. | Illustrator |
+| **Music** | Jouer des chansons avec le lecteur de musique actif. | Music DJ |
+| **Haptics** | Contrôler des appareils haptiques connectés. | Haptic Feedback |
+| **Calls** | T'appeler. | Calls |
+| **UNO** | Lancer ou accepter une partie d'UNO. | UNO |
+| **Chess** | Accepter un défi d'échecs. | Chess |
+| **Poker** | S'asseoir pour du Texas Hold'em. | Poker |
+| **8-Ball Pool** | Lancer une partie de billard. | 8-Ball Pool |
+| **Tic-Tac-Toe** | Accepter un défi de morpion. | Tic-Tac-Toe |
+| **Rock-Paper-Scissors** | Accepter une partie. | Rock-Paper-Scissors |
 
-Le persona, c'est le personnage que tu incarnes. Voir [Personas utilisateur](../characters/personas.md).
+Pour **Influence** et **Notes**, voir [Chats connectés](../chats/connected-chats.md). La dernière colonne nomme l'agent à installer depuis **Agent Organizer**.
 
-Le nombre de personnages choisis détermine la forme du chat. Un seul personnage donne un message privé en tête-à-tête. Deux personnages ou plus donnent un chat de groupe, sans mode supplémentaire à activer. Les réglages du chat de groupe sont décrits dans [Chats de groupe](../chats/group-chats.md).
+<a id="your-presence-status"></a>
 
-Une fois la connexion et au moins un personnage définis, clique sur **Start Chatting** (commencer à discuter) pour ouvrir le chat.
+## Ton statut de présence
 
-### L'étape Automation
+Ta présence est une pastille colorée dans le pied de la barre latérale. Elle est la même dans tous les chats. Clique dessus pour choisir :
 
-L'étape **Automation** comprend toujours ces réglages :
+| Statut | Signification |
+| --- | --- |
+| **Active** | Tu es en ligne. |
+| **Idle** | Tu es absent. |
+| **Do Not Disturb** | Arrête les messages autonomes. |
+| **Invisible** | Te cache aux modèles. |
 
-| Interrupteur | Par défaut | Rôle |
-|---|---|---|
-| **Autonomous Messages** | On | Les personnages peuvent t'écrire les premiers quand tu es inactif. |
-| **Generate Schedules** | Off | Crée des routines hebdomadaires facultatives. Affiché uniquement quand **Autonomous Messages** est activé. |
+Si tu restes **Active** et ne fais rien pendant 10 minutes, Marinara passe à **Idle** et repasse à **Active** quand tu reviens. Si tu choisis toi-même un statut, ce changement automatique s'arrête jusqu'à ce que tu choisisses à nouveau **Active**. **Idle** n'arrête pas les check-ins.
 
-Si tu as installé un package d'agent qui apporte des commandes pour le mode Conversation, l'étape affiche aussi **Commands** (commandes). Les appels, les selfies de l'agent **Illustrator**, **Music DJ**, **Haptic Feedback** et chaque jeu de table n'apparaissent que si le package correspondant est installé. Pour les appels, voir [Appels audio et vidéo en mode Conversation](calls.md).
+À côté de la pastille se trouve la zone de statut, qui affiche "What's up?" quand elle est vide. Tape ton activité actuelle (jusqu'à 120 caractères) pour que les personnages le sachent. Les entrées récentes apparaissent sous **Recent status** pour que tu les réutilises.
 
-### La grille des commandes
+<a id="react-and-get-notified"></a>
 
-Quand **Commands** est disponible et activé, une grille pouvant compter jusqu'à 17 familles de commandes s'affiche. Chaque famille correspond à une action cachée qu'un personnage peut déclencher seul. Les entrées fournies par un package n'apparaissent que si ce package est installé. Toutes les familles visibles sont activées au départ. Désactiver un interrupteur retire uniquement cette famille. Les commandes sont des actions pilotées par le modèle, pas des choses que tu tapes.
+## Réagir et être notifié
 
-Voici la liste complète des familles de commandes :
+Utilise **Add reaction** sur un message pour réagir avec un emoji. Les réponses suivantes peuvent voir ta réaction. Avec la commande **Reactions**, les personnages peuvent réagir à tes messages et à ceux des autres.
 
-- **Schedule Updates** : les personnages peuvent changer leur statut du moment.
-- **Cross-Post** : les personnages peuvent rediriger un message vers un autre chat.
-- **Selfies** : les personnages peuvent demander des selfies générés.
-- **Memories** : les personnages peuvent créer des souvenirs pour d'autres personnages.
-- **Scenes** : les personnages peuvent lancer une scène immersive.
-- **Music** : les personnages peuvent jouer des morceaux via le **Music Player** actif.
-- **Haptics** : les personnages peuvent piloter les appareils haptiques connectés.
-- **Influence** : les personnages peuvent influencer un chat connecté.
-- **Notes** : les personnages peuvent enregistrer des notes durables pour un chat connecté.
-- **Calls** : les personnages peuvent te sonner pour un appel en mode Conversation.
-- **Reactions** : les personnages peuvent réagir aux messages avec des badges emoji.
-- **UNO** : les personnages peuvent lancer une partie d'UNO à la table quand tu acceptes de jouer.
-- **Chess** : les personnages peuvent accepter un duel d'échecs à la table.
-- **Poker** : les personnages peuvent s'installer à la table pour une partie de Texas Hold'em.
-- **8-Ball Pool** : les personnages peuvent lancer une partie de billard américain à la table.
-- **Tic-Tac-Toe** : les personnages peuvent accepter un duel de morpion.
-- **Rock-Paper-Scissors** : les personnages peuvent accepter un duel de pierre-feuille-ciseaux.
+Quand un personnage écrit dans un chat que tu ne regardes pas, une bulle d'avatar apparaît au bord de l'écran. Clique dessus pour ouvrir ce chat, ou clique sur son X pour la fermer. Sur un téléphone, plusieurs bulles se regroupent en un seul groupe sur lequel tu peux toucher.
 
-Un unique interrupteur principal **Commands** commande l'ensemble. Quand cet interrupteur principal est désactivé, aucune famille de commandes ne fonctionne, même si elle semble activée.
+## Bon à savoir
 
-## Messages autonomes et statut de présence
+Un chat Conversation n'utilise pas le **First Message** (message d'accueil) ni le **Dialogue Highlight Color** et le **Message Box Color** de la fiche du personnage. Le **Name Display Color** colore toujours le nom au-dessus de chaque message. Voir [Où tes couleurs s'affichent](../characters/colors-and-stats.md#where-your-colors-show).
 
-Les messages autonomes permettent à un personnage de te contacter en premier. Quand **Autonomous Messages** est activé, un personnage peut t'écrire après un moment de silence de ta part. Il tient compte de son propre bavardage et, si les emplois du temps sont activés, de sa disponibilité. Une fois l'assistant de configuration terminé, les messages autonomes sont activés par défaut.
+## Fonctions associées
 
-Ce réglage se change à tout moment. Ouvre le panneau latéral des réglages du chat, puis va dans la section **Autonomous Messaging** (messagerie autonome).
-
-### Ton statut de présence
-
-Tu as un statut de présence qui influence le moment où les personnages te contactent. Il se trouve en pied de la barre latérale, sous forme de pastille colorée affichant ton statut actuel. Clique sur la pastille pour choisir parmi quatre options :
-
-- **Active** : tu es en ligne et disponible.
-- **Idle** : appliqué automatiquement quand tu t'absentes.
-- **Do Not Disturb** : bloque les messages autonomes.
-- **Invisible** : masque ton statut aux personnages.
-
-À côté de la pastille se trouve le champ **What are you doing?**. Saisis-y une courte activité personnalisée si tu veux que les personnages sachent ce que tu fais. Le statut de présence est global : il reste le même dans tous les chats.
-
-## Réactions et notifications
-
-Tout message du mode Conversation peut recevoir une réaction emoji. Utilise le bouton de réaction sur un message pour ajouter la tienne. Marinara enregistre la réaction sous forme de note, du type `[User reacted with ...]`, et les réponses suivantes la voient. Un personnage peut ainsi remarquer que tu as réagi.
-
-Quand la famille de commandes **Reactions** est activée, les personnages réagissent aussi. Ils peuvent réagir à tes messages ou à ceux des autres personnages. C'est pratique dans les chats de groupe : un personnage peut réagir brièvement, sans écrire un message complet.
-
-Quand un personnage t'écrit dans un chat que tu n'as pas sous les yeux, une bulle d'avatar flottante apparaît au bord de l'écran. Clique sur la bulle pour rejoindre ce chat, ou ferme-la avec le X. Sur mobile, plusieurs bulles en attente se regroupent en un seul bloc à toucher.
-
-## Selfies
-
-Les personnages peuvent t'envoyer des selfies, c'est-à-dire des photos du personnage générées par l'IA. Un selfie n'est pas une illustration de scène comme dans le mode Roleplay ou dans Game Mode : il est lié à un seul personnage.
-
-Pour utiliser les selfies, installe **Illustrator** depuis **Agents → Agent Organizer (organisateur d’agents)**. Ouvre ensuite le panneau latéral des réglages du chat, va dans **Agents → Illustrator Settings**, puis renseigne le champ **Selfie Connection**. Une connexion de selfie pointe vers un fournisseur de génération d'images. Chaque selfie consomme un appel de génération d'images.
-
-La configuration complète, avec le style, la résolution et le bouton de demande manuelle, est détaillée dans [Selfies](selfies.md).
-
-## Jeux de table
-
-Le mode Conversation propose six packages de jeux de table facultatifs : **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** et **Rock-Paper-Scissors**. Installe les jeux qui t'intéressent depuis **Agents → Agent Organizer (organisateur d’agents)**. L'application met en place le plateau de jeu, applique les règles et fait narrer à chaque personnage ses propres coups, en restant dans son rôle. Les jeux de table ne fonctionnent que dans les chats en mode Conversation.
-
-Une partie se lance de trois façons :
-
-1. Tape une commande slash dans la zone de message, puis appuie sur Enter.
-2. Écris un message normal, du genre "let's play uno".
-3. Laisse un personnage t'inviter, quand sa famille de commandes est activée.
-
-Voici les commandes slash :
-
-```
-/uno
-```
-
-```
-/chess
-```
-
-```
-/poker
-```
-
-```
-/8ball
-```
-
-```
-/tictactoe
-```
-
-```
-/rps
-```
-
-Chaque jeu a sa propre fenêtre de configuration avec des options. Pour les règles complètes, les fenêtres de configuration et les plateaux de jeu, voir [Jeux de table](table-games.md).
-
-## Emplois du temps des personnages
-
-Chaque personnage d'un chat en mode Conversation peut avoir un emploi du temps hebdomadaire. Cet emploi du temps fixe son statut et son activité sur une grille de 7 jours et 24 heures. Les messages autonomes suivent alors la routine : un personnage marqué absent ne te contacte pas pendant ces heures.
-
-Tu peux créer un emploi du temps pendant la configuration en activant **Generate Schedules**. Autre option : en créer ou en modifier un plus tard, depuis la section **Autonomous Messaging** du panneau latéral des réglages du chat. [Emplois du temps des personnages et messagerie autonome](schedules.md) présente l'éditeur complet, les limites quotidiennes et la commande `/status`, qui force le statut.
+- [Selfies](selfies.md) : les personnages envoient des photos d'eux-mêmes générées.
+- [Audio et appels vidéo en Conversation](calls.md)
+- [Jeux de table](table-games.md) : lance une partie avec `/uno`, `/chess`, `/poker`, `/8ball`, `/tictactoe` ou `/rps`.
+- [Emplois du temps des personnages et messages autonomes](schedules.md)
+- [Profils du mode Conversation](profiles.md)
+- [Emojis, stickers et GIF personnalisés](emoji-stickers-gifs.md)
+- [Chats connectés](../chats/connected-chats.md)
 
 ## Dépannage
 
-### Les messages autonomes arrivent trop souvent
+| Symptôme | Solution |
+| --- | --- |
+| Les personnages écrivent trop souvent | Désactive **Autonomous Messages**, règle **Do Not Disturb**, ou marque plus d'heures comme absent dans [Emplois du temps](schedules.md). |
+| Un personnage répond à tout dans un groupe | Définis qui parle dans [Chats de groupe](../chats/group-chats.md). |
+| Un personnage oublie le chat précédent | Utilise un modèle avec une fenêtre de contexte plus grande (la quantité de texte qu'il lit d'un coup), ou ajoute des faits clés dans une entrée de lorebook. |
+| Un selfie ne ressemble pas au personnage | Voir [Selfies](selfies.md). |
 
-Ouvre le panneau latéral des réglages du chat et désactive **Autonomous Messages** dans la section **Autonomous Messaging**. Autre option : passer ton statut de présence sur **Do Not Disturb**, qui bloque les messages autonomes. Si tu utilises les emplois du temps, marque davantage d'heures comme absent, voir [Emplois du temps des personnages et messagerie autonome](schedules.md).
-
-### Un seul personnage répond à tout dans un chat de groupe
-
-Les chats de groupe offrent des réglages de tour de parole, comme **Reply When Mentioned**. Ouvre [Chats de groupe](../chats/group-chats.md) pour définir qui parle et quand.
-
-### Un personnage oublie ce qui s'est passé plus tôt
-
-Les chats longs saturent la mémoire du modèle. Essaie un modèle avec une fenêtre de contexte plus grande, ou ajoute les faits importants à une entrée de lorebook, un recueil de faits sur ton univers, pour qu'ils restent dans le contexte. Autre option : repartir sur un nouveau chat avec le même personnage et le même persona. Pour plus d'aide, voir [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md).
-
-### Un selfie ne ressemble pas au personnage
-
-Ouvre les réglages **Selfies** et règle **Attach Card Appearance** (joindre l'apparence de la fiche) sur **Images only** (images seulement) ou **Images and videos** (images et vidéos). Si ton fournisseur d'images prend en charge les images de référence, règle aussi **Send Avatar References** (envoyer l'avatar en référence). Voir [Selfies](selfies.md) pour le détail.
-
-## Guides associés
-
-- [Appels audio et vidéo en mode Conversation](calls.md)
-- [Emplois du temps des personnages et messagerie autonome](schedules.md)
-- [Profils du mode Conversation](profiles.md)
-- [Selfies](selfies.md)
-- [Emojis, stickers et GIF personnalisés](emoji-stickers-gifs.md)
-- [Jeux de table](table-games.md)
-- [Connecter une Conversation à un Roleplay ou à une partie](../chats/connected-chats.md)
+Plus d'aide : [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md).

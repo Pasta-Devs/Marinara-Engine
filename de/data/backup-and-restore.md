@@ -34,6 +34,8 @@ Unter Android kannst du den Datenordner der App nicht öffnen. Mit **Download Ba
 
 Wenn es nicht funktioniert: Erscheint „Backup preparation timed out after one hour.“, versuche es erneut. Kann ein anderes Gerät das Backup nicht herunterladen, prüf **Admin Access** (siehe oben).
 
+<a id="automatic-backups"></a>
+
 ## Automatische Backups
 
 Marinara kann auf dem Rechner, auf dem es läuft, regelmäßig ein vollständiges Backup anlegen.
@@ -82,6 +84,8 @@ Wenn es nicht funktioniert:
 
 Importierst du dasselbe Profil zweimal, aktualisiert Marinara die vorhandenen Elemente, statt Kopien anzulegen. Profile aus sehr alten Versionen können Duplikate erzeugen.
 
+<a id="enter-your-keys-again"></a>
+
 ## Keys erneut eingeben
 
 **Import Profile** stellt API-Keys und Webhook-Links nie wieder her, auch nicht aus einer `.zip` von **Download Backup**. Ein API-Key ist ein geheimer Code, den du von einem Dienst bekommst. In der Profildatei und im Profil innerhalb eines Backups sind diese Werte entfernt. Nach dem Import auf einem neuen Rechner musst du sie erneut eingeben:
@@ -102,6 +106,8 @@ Beim Import werden bereits gesetzte Keys derselben Installation nicht gelöscht.
 4. Gib deine API-Keys erneut ein, wie oben beschrieben.
 
 Die Schlüsseldatei im Backup hilft nur, wenn du den gesamten Datenordner von Hand kopierst, wie unten beschrieben.
+
+<a id="restore-by-hand"></a>
 
 ## Von Hand wiederherstellen
 

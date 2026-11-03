@@ -1,175 +1,205 @@
 # Visão geral das configurações
 
-Este guia mostra o painel **Settings** (Configurações) do Marinara Engine: as seis abas e o que cada uma controla. A aba **General** é explicada em detalhes, junto com as **Text Rules**, que formatam o texto do chat, e com o modo como as configurações são sincronizadas entre os dispositivos.
+Descubra qual parte de **Settings** (Configurações) guarda cada controle, configure a aba **General** e saiba como as suas configurações são sincronizadas entre dispositivos.
 
-## O painel Settings e suas seis abas
+## O painel Settings e as suas seis abas
 
-Abra **Settings** pelo ícone de engrenagem na barra superior. No topo do painel fica a caixa **Search settings** (buscar nas configurações). Digite qualquer palavra (como `delete`, `streaming` ou `quotes`) e Marinara leva você direto para a seção correspondente. A busca encontra uma configuração pelo nome no idioma da sua interface ou em inglês.
+Abra **Settings** pelo ícone de engrenagem na barra superior. A caixa **Search settings** no topo encontra uma configuração pelo nome. Digite uma palavra como `delete`, `streaming` ou `quotes`, e o Marinara leva você direto para a seção correspondente. A busca encontra nomes no idioma da sua interface e em inglês.
 
-O painel tem seis abas. A tabela abaixo mostra o que cada aba controla.
+O painel tem seis abas. Cada aba tem as suas próprias seções.
 
-| Aba | O que você configura ali |
+### O que você quer fazer
+
+| O que você quer fazer | Vá para |
 | --- | --- |
-| **General** | Comportamento do aplicativo, notificações, respostas, entrada de texto, regras de texto e leitura no Game Mode. |
-| **Appearance** | Tema, cores, fontes, layout do chat, animações e planos de fundo. |
-| **Generations** | Padrões de imagem e vídeo, além de modelos de prompt reutilizáveis. |
-| **Addons** | Rascunhos de Personal Extension da Professor Mari em ambiente isolado, External Extensions liberadas por você e temas personalizados. |
-| **Imports** | Restauração de perfis completos e importação a partir de outros aplicativos. |
-| **Advanced** | Acesso de administrador, chaves de recursos opcionais, atualizações, ferramentas de mensagem, backups e ações destrutivas. |
+| Mudar o idioma | **Settings → General → App Behavior → Language** |
+| Deixar o texto maior | **Settings → Appearance → App → Text & Scale** |
+| Mudar o tema ou as cores | **Settings → Appearance → App → App Style** |
+| Definir um som de notificação | **Settings → General → Notifications** |
+| Parar a confirmação de exclusão | **Settings → General → App Behavior** |
+| Adicionar respostas rápidas | **Settings → General → Input & Editing** |
+| Fazer um backup | **Settings → Advanced → Backup & Export** |
+| Excluir os meus dados | **Settings → Advanced → Danger Zone** |
+| Atualizar o Marinara | **Settings → Advanced → Updates** |
 
-Onde ler mais sobre cada aba:
+### O que cada aba guarda
 
-- **General**: explicada nesta página (veja as seções abaixo).
-- **Appearance**: veja [Configurações de aparência](../appearance/appearance-settings.md).
-- **Generations**: veja [Perfis de estilo](../media/style-profiles.md) e [Vídeo de cena](../media/scene-video.md).
-- **Addons**: veja [Extensões pessoais](../extending/personal-extensions.md) e [Temas de CSS personalizados](../appearance/custom-css-themes.md).
-- **Imports**: veja [Importando do SillyTavern](../data/importing-from-sillytavern.md) e [Fazer backup e restaurar Marinara](../data/backup-and-restore.md).
-- **Advanced**: veja a seção **Message Tools** abaixo e [Chaves de recursos](../configuration/features.md), além de [Atualizando Marinara Engine](../UPGRADING.md), [Acesso remoto](../REMOTE_ACCESS.md) e [Limpar ou zerar os seus dados](../data/clearing-data.md).
+**General** (este guia)
 
-## Settings, aba General
+- **App Behavior** (com uma linha **Search and Professor Mari settings**)
+- **Notifications**
+- **Responses**
+- **Input & Editing**
+- **Text Rules**
+- **Game Playback**
 
-A aba **General** tem seis seções. Duas delas são explicadas por completo nesta página: **App Behavior** e **Text Rules**. As outras aparecem aqui em resumo e têm guias próprios com todos os detalhes.
+**Appearance** tem quatro botões. Veja [Configurações de aparência](../appearance/appearance-settings.md).
 
-- **App Behavior**: idioma, proteção contra exclusão e botões liga/desliga que mostram ou escondem recursos. Explicada abaixo.
-- **Notifications**: sons de notificação, com controles separados para o navegador e para o aplicativo Android. Faça upload de um **Custom sound** (som personalizado) em MP3, WAV, OGG, M4A/MP4 ou WebM (até 10 MB) para substituir o som padrão do Marinara em todos os dispositivos ligados a este servidor. Você pode ouvir, trocar ou remover o som quando quiser. Se o arquivo personalizado não puder ser lido, Marinara volta ao som padrão. O arquivo entra nos backups e nas exportações de perfil. As **Background Notifications** avisam sobre mensagens autônomas no Conversation Mode, e as **Generation Completion Notifications** avisam sobre respostas que você mesmo iniciou nos modos Conversation, Roleplay e Game. As duas funcionam enquanto Marinara continua aberto, mas sem o foco da tela, e o conteúdo das mensagens não aparece.
-- **Responses**: como as respostas chegam em streaming, são salvas e divididas em páginas. Veja [Enviar mensagens e streaming](../chats/sending-and-streaming.md).
-- **Input & Editing**: campo de mensagem e controles de edição rápida. Veja [Ações de mensagem](../chats/messages.md).
-- **Text Rules**: formatação aplicada ao texto do chat. Explicada abaixo.
-- **Game Playback**: leitura e navegação no Game Mode.
+- **App**: **App Style**, **Text & Scale**, **Atmosphere**, **Backgrounds**
+- **Conversation**: **Conversation Display**, **Conversation Theme**
+- **Roleplay**: **Tracker Panel**, **Roleplay Presentation**
+- **Game**: **Game Presentation**
 
-## App Behavior
+**Generations** tem **Overall Generations**, **Image Generation**, **Video Generation** e **Prompt Overrides**. Até você instalar o agente Illustrator, essa aba só mostra um convite para baixá-lo. Veja [Perfis de estilo](../media/style-profiles.md) e [Vídeo de cena](../media/scene-video.md).
 
-Esta seção fica em **Settings** > **General** > **App Behavior**. Ela controla o comportamento do dia a dia e alguns botões liga/desliga que mostram ou escondem recursos.
+**Addons** tem o histórico de revisões das extensões, **Personal Extensions**, **External Extensions** (só quando você as liberou) e **Theme Library**. Veja [Extensões pessoais](../extending/personal-extensions.md) e [Temas de CSS personalizados](../appearance/custom-css-themes.md).
 
-- **Language**: escolha o idioma da interface. Marinara já inclui árabe, chinês simplificado, inglês,
-  francês, alemão, hindi, japonês, coreano, polonês, português do Brasil, russo e espanhol. O árabe usa
-  layout da direita para a esquerda. Os textos de interface ainda não traduzidos aparecem em inglês. Essa configuração muda
-  os controles e as orientações do Marinara, não os prompts enviados ao modelo nem o conteúdo do chat. Para melhorar uma tradução ou contribuir com outro
-  idioma, veja [Localização da interface](../development/localization.md).
-- **Documentation Language**: escolha o idioma dos guias internos do Marinara, separado do idioma da interface acima. O inglês já vem embutido e nunca precisa ser baixado. Ao escolher um idioma diferente do inglês, aparece o botão **Download & Replace** (baixar e substituir), que baixa aquele pacote de idioma uma vez e remove o pacote anterior, então só um idioma baixado fica guardado. Os guias ainda não traduzidos abrem em inglês com um pequeno selo `EN`, e a busca da documentação funciona no idioma ativo no momento. A sua escolha continua valendo depois das atualizações, e o pacote se renova sozinho depois de uma atualização, quando as traduções dele mudaram. Se os guias baixados sumirem ou ficarem danificados, aparece o botão **Fix documentation** (corrigir a documentação): ele baixa o pacote de novo e devolve os guias para o inglês quando a fonte do download não puder ser acessada.
-- **Confirm before deleting**: ativado por padrão. Quando está ativo, Marinara pergunta antes de excluir para sempre um chat, um personagem ou outro item. Mantenha ativo para evitar exclusões por engano.
-- **Hide chat Help button** (esconder o botão de ajuda do chat): desativado por padrão. Quando está ativo, o botão **Help** (ajuda) some dos chats de Conversation, Roleplay e Game.
-- **Show Android status bar** (mostrar a barra de status do Android): desativado por padrão, e só funciona no aplicativo Android do Marinara Engine. Quando está ativo, a hora, o nível da bateria e os ícones de notificação continuam visíveis acima do Marinara.
-- **Achievements**: ativado por padrão. Quando está ativo, a tela inicial mostra o favorito **Achievements** e os avisos de conquista desbloqueada. O widget opcional **Achievements** aparece se você o adicionou ao layout da tela inicial. Quando está desativado, o acompanhamento continua em silêncio. Veja [Conquistas](../home/achievements.md).
-- **Music Player**: ativado por padrão. Quando está ativo, o player de música compacto aparece. Ele precisa do agente **Music DJ**, de **Agents** > **Agent Organizer (organizador de agentes)**, e o botão fica esmaecido até você instalá-lo. Veja [Música](../media/music.md).
-- **Search and Professor Mari settings**: selecione **Open** (abrir) para ir à página dessas configurações. Todas as configurações da busca e da Professor Mari ficam ali, nestes grupos:
+**Imports** tem **Profile & Marinara**, **SillyTavern Import** e **Game Assets**. Veja [Fazer backup e restaurar o Marinara](../data/backup-and-restore.md) e [Importar do SillyTavern](../data/importing-from-sillytavern.md).
 
-  - **Search** (busca): oferecer melhorias para um campo e histórico de buscas.
-  - **Quick answers** (respostas rápidas): **Quick answers in Search**, **Answer with** e **Wait after typing**.
-  - **Search window** (janela da busca) e **Professor Mari window** (janela da Professor Mari): cada janela tem as configurações **Height** (altura) e **Width** (largura). Esses grupos não aparecem no celular.
-  - **Professor Mari**: Ask Professor Mari from Search, modo de permissões, **Runtime** (ambiente de execução), sugestões de resposta, como os cards de mudança abrem e Enter sends to Professor Mari.
-  - **Around the app** (pelo aplicativo): Mini Professor Mari visits.
-  - **Appearance** (aparência): o visual dela. Cada pacote mostra o retrato dela. O que está em uso mostra **In use**. Um pacote bloqueado mostra o seu tempo de jogo para desbloqueá-lo.
+**Advanced** tem estas seções, nesta ordem. Veja [A aba Advanced](#the-advanced-tab).
 
-  A engrenagem da busca abre a mesma página. Buscar qualquer uma dessas configurações, pelo nome novo ou pelo antigo, leva você direto até ela.
+- **Multiplayer WIP**
+- **Access**
+- **Admin Access**
+- **Features**
+- **Updates**
+- **Support Diagnostics**
+- **Request timeouts**
+- **Parameters**
+- **Message Tools**
+- **Backup & Export**
+- **Storage Optimization**
+- **Danger Zone**
 
-## Text Rules
+## A aba General
 
-Esta seção fica em **Settings** > **General** > **Text Rules**. Essas regras mudam o tratamento dado ao texto do chat. As opções **Bold dialogue in quotes** e **Convert LaTeX symbols** afetam só a exibição, ou seja, nunca alteram as mensagens salvas. A opção **Quote style** é diferente: ela reescreve as aspas de verdade no texto que você digita e salva.
+Cada seção da aba **General** fica em **Settings → General**.
 
-### Bold dialogue in quotes
+| Seção | O que ela controla |
+| --- | --- |
+| **App Behavior** | Idioma, proteção contra exclusão, botões que mostram e escondem recursos e a linha **Search and Professor Mari settings**. Veja [App Behavior](#app-behavior). |
+| **Notifications** | Sons de notificação e notificações do navegador e do Android. Veja [Notifications](#notifications). |
+| **Responses** | Streaming, corte de texto e **Messages per page**. Veja [Enviar mensagens e streaming](../chats/sending-and-streaming.md). |
+| **Input & Editing** | **Send on Enter**, **Quick replies** e atalhos de swipe e de edição. Veja [Input & Editing](#input-and-editing). |
+| **Text Rules** | Como o texto do chat é formatado. Veja [Text Rules](#text-rules). |
+| **Game Playback** | Leitura e navegação no Game Mode. Veja [Game Mode: primeiros passos](../game/getting-started.md). |
 
-Ativado por padrão. Quando está ativo, o texto entre aspas aparece em negrito. Veja esta linha:
+### App Behavior
 
-```
-"I missed you," she said.
-```
+| Configuração | O que ela faz |
+| --- | --- |
+| **Language** | Define o idioma da interface. Ela não muda os prompts do modelo nem o conteúdo do chat. O texto ainda não traduzido aparece em inglês. O árabe usa um layout da direita para a esquerda. Padrão: inglês. |
+| **Documentation Language** | Define o idioma dos guias internos. Veja abaixo. Padrão: inglês. |
+| **Confirm before deleting** | Pergunta antes de o Marinara excluir para sempre um chat, um personagem ou outro item. Padrão: ativado. |
+| **Hide chat Help button** | Esconde o botão **Help** nos chats de Conversation, Roleplay e Game. Padrão: desativado. |
+| **Show Android status bar** | Mantém a hora, a bateria e os ícones de notificação visíveis acima do Marinara. Funciona só no aplicativo Android. Padrão: desativado. |
+| **Achievements** | Acompanha as conquistas, mostra os avisos de desbloqueio e o favorito e o widget da tela inicial. Veja [Conquistas](../home/achievements.md). Padrão: ativado. |
+| **Disable seasonal ME themes** | Desliga os temas sazonais do Marinara. Padrão: desativado. |
+| **Music Player** | Mostra o Music Player compacto. Ele precisa do agente **Music DJ**, de **Agents → Agent Organizer**, e fica esmaecido até você instalá-lo. Veja [Música](../media/music.md). Padrão: ativado. |
 
-Com **Bold dialogue in quotes** ativo, as palavras `I missed you` aparecem em negrito. Desative para manter a cor do diálogo sem o negrito.
+**Search and Professor Mari settings** é uma linha no fim de **App Behavior**. Selecione **Open** para ir à página de configurações da busca, das respostas rápidas e da Professor Mari. Veja [Professor Mari](../home/professor-mari.md).
 
-### Convert LaTeX symbols
+Os idiomas da interface são árabe, chinês simplificado, inglês, francês, alemão, hindi, japonês, coreano, polonês, português do Brasil, russo e espanhol. Para melhorar uma tradução ou adicionar um idioma, veja [Localização da interface](../development/localization.md).
 
-Ativado por padrão. Alguns modelos escrevem fórmulas usando comandos LaTeX. Quando está ativo, comandos comuns como `\rightarrow`, `\neq`, `\times` e `\alpha` aparecem como os símbolos normais. Por exemplo, `\times` aparece como o sinal de multiplicação `×`, e `\alpha` aparece como a letra grega `α`. Os trechos de código ficam intactos.
+Em **Documentation Language**, o inglês já vem embutido. Escolha outro idioma e clique em **Download & Replace**. O Marinara baixa esse pacote de idioma uma vez e remove o anterior, então guarda um só idioma baixado. Os guias ainda não traduzidos abrem em inglês, com um pequeno selo `EN`. A busca da documentação funciona no idioma ativo. A sua escolha continua valendo depois das atualizações, e o pacote se renova depois de uma atualização quando as traduções dele mudaram. Se os guias baixados sumirem ou ficarem danificados, aparece o botão **Fix documentation**. Ele baixa o pacote de novo, ou devolve os guias ao inglês se a fonte do download não puder ser acessada.
 
-### Quote style
+### Notifications
 
-Define como as aspas são padronizadas. Diferente das duas regras acima, esta muda o próprio texto: as mensagens que você digita e salva são reescritas no estilo escolhido. São duas opções:
+O Marinara toca um som embutido nas notificações. Para usar o seu próprio som:
 
-- **Straight**: mantém as aspas retas de máquina de escrever, como em `"Hello," it's me.` É o padrão.
-- **Typographic**: troca as aspas retas por aspas e apóstrofos curvos.
+1. Abra **Settings → General → Notifications**.
+2. Envie um **Custom sound**: MP3, WAV, OGG, M4A, MP4 ou WebM, de até 10 MB.
 
-### Load images from other websites in messages
+O som toca em todos os dispositivos conectados a este servidor. Você pode ouvir, trocar ou remover o som. Se o arquivo não puder ser lido, o Marinara toca o som embutido. O arquivo faz parte dos backups e das exportações de perfil.
 
-Desativado por padrão. Quando está desativado, uma imagem de outro site em uma mensagem, em uma saudação ou na prévia de um card mostra o nome do site e um botão **Load image** (carregar imagem) no lugar, para que uma mensagem não consiga contatar outros sites sozinha. Selecione **Load image** para mostrar essa imagem; Marinara se lembra disso em todos os seus dispositivos. Ative a configuração para mostrar todas as imagens na hora. As imagens guardadas no Marinara, como as fotos da galeria, os avatares e os sprites, sempre aparecem.
+**Background Notifications** cobrem as mensagens de Conversation que os personagens enviam por conta própria. **Generation Completion Notifications** cobrem as respostas que você mesmo inicia em Conversation, Roleplay e Game Mode. As duas funcionam enquanto o Marinara está aberto, mas sem o foco da tela. Elas nunca mostram o conteúdo das mensagens.
 
-## Responses e Input & Editing
+<a id="input-and-editing"></a>
 
-Essas duas seções da aba **General** ajustam como as respostas chegam e como você digita e edita. Veja os controles, com links para os guias completos.
+### Input & Editing
 
-A seção **Responses** controla:
+Configurações em **Settings → General → Input & Editing**:
 
-- **Enable streaming**: mostrar o texto da IA palavra por palavra conforme ele é gerado.
-- **Streaming speed**: a velocidade com que o texto em streaming aparece.
-- **Trim incomplete sentences from the response**: cortar uma frase inacabada no final antes de salvar.
-- **Add a new line before /continue text**: começar o texto acrescentado por `/continue` depois de uma linha em branco. Ativado por padrão.
-- **Messages per page**: quantas mensagens são carregadas de uma vez.
+| Configuração | O que ela faz |
+| --- | --- |
+| **Send on Enter** | Escolhe em quais modos a tecla Enter envia a mensagem. |
+| **Keep guidance after regenerating** | Deixa a sua direção na caixa de mensagem depois de uma regeneração guiada. Ativado por padrão. |
+| **Add CYOA choices to the message box instead of sending them** | Coloca uma escolha clicada na sua caixa de mensagem, para você poder editá-la antes. |
+| **Quick replies** | Adiciona ações de rascunho ao lado do botão Send. Veja [Geração guiada e Impersonate](../chats/guided-and-impersonate.md). |
+| **Speech-to-text microphone** | Mostra um botão de microfone nos campos de mensagem. |
+| **Intuitive swipe navigation** | Alterna entre os swipes (várias respostas guardadas em uma mensagem) com as setas do teclado ou com um toque deslizante. |
+| **Reroll past the newest swipe** | Gera uma resposta nova quando você passa do swipe mais recente. |
+| **Up Arrow edits last message** | Pressione Up Arrow em um campo vazio para editar a sua última mensagem. |
+| **Double-click edits messages** | Dê um duplo clique em uma mensagem de Roleplay para editá-la. |
 
-Saiba mais em [Enviar mensagens e streaming](../chats/sending-and-streaming.md).
+A seção **Responses** tem **Enable streaming**, **Streaming speed**, **Trim incomplete sentences from the response**, **Add a new line before /continue text** (ativado por padrão) e **Messages per page**. Veja [Enviar mensagens e streaming](../chats/sending-and-streaming.md). Para as ações de mensagem, veja [Ações de mensagem](../chats/messages.md).
 
-A seção **Input & Editing** controla:
+### Text Rules
 
-- **Send on Enter**: escolha em quais modos a tecla Enter envia a mensagem.
-- **Keep guidance after regenerating**: manter a direção digitada na caixa de mensagem depois de uma regeneração guiada. Ativado por padrão.
-- **Add CYOA choices to the message box instead of sending them**: uma escolha CYOA clicada vai para a sua caixa de mensagem, para você poder editá-la antes de enviar.
-- **Quick replies**: acrescentar ações de rascunho alternativas ao lado do botão Send. Veja [Geração guiada e Impersonate](../chats/guided-and-impersonate.md).
-- **Speech-to-text microphone**: mostrar um botão de microfone nos campos de mensagem.
-- **Intuitive swipe navigation**: usar as setas do teclado ou o deslizar do dedo para alternar entre as respostas alternativas.
-- **Reroll past the newest swipe**: gerar uma resposta nova ao passar do swipe mais recente.
-- **Up Arrow edits last message**: pressionar Up Arrow com o campo vazio para editar a última mensagem.
-- **Double-click edits messages**: dar um duplo clique em uma mensagem do Roleplay Mode para editá-la.
+Essas regras mudam o tratamento do texto do chat em **Settings → General → Text Rules**. **Bold dialogue in quotes** e **Convert LaTeX symbols** mudam só a aparência do texto, então as suas mensagens salvas continuam iguais. **Quote style** reescreve as aspas no texto que você digita e salva.
 
-Saiba mais em [Ações de mensagem](../chats/messages.md).
+| Configuração | O que ela faz |
+| --- | --- |
+| **Bold dialogue in quotes** | Mostra em negrito o texto entre aspas. Ativado por padrão. |
+| **Convert LaTeX symbols** | Mostra os comandos de matemática LaTeX como símbolos. O código fica intacto. Ativado por padrão. |
+| **Quote style** | **Straight** mantém as aspas simples (padrão). **Typographic** as reescreve como aspas e apóstrofos curvos. |
+| **Load images from other websites in messages** | Controla as imagens hospedadas em outros sites. Desativado por padrão. |
 
-## Message Tools
+#### Bold dialogue in quotes
 
-A seção **Message Tools** fica em **Settings** > **Advanced** > **Message Tools**. Ela reúne botões liga/desliga de exibição e de correção. Todos os botões abaixo vêm desativados por padrão, exceto **Show context usage** (mostrar o uso do contexto) e **Show "older messages not sent" note** (mostrar o aviso de mensagens antigas não enviadas), que vêm ativados. A tabela mostra o que cada um faz e onde ler mais.
+Com esta opção ativada, as palavras entre aspas em `"I missed you," she said.` aparecem em negrito. Desative para manter a cor do diálogo sem o negrito.
 
-| Botão liga/desliga | O que faz | Guia completo |
-| --- | --- | --- |
-| **Show message timestamps** | Mostra a data e a hora em cada mensagem. | [Ações de mensagem](../chats/messages.md) |
-| **Show characters in Persona pickers** | Lista os seus personagens nos seletores de persona, para você poder jogar como um deles. | [Personas](../characters/personas.md) |
-| **Show model name on messages** | Mostra qual modelo de IA escreveu cada resposta. | [Ações de mensagem](../chats/messages.md) |
-| **Show token usage on messages** | Mostra a contagem de tokens de prompt e de resposta por mensagem. | [Ações de mensagem](../chats/messages.md) |
-| **Show context usage** | Mostra o quanto o contexto do modelo estava cheio na última requisição medida, nos seletores de conexão e nas configurações do chat de Game. | [Como escolher um modelo para um chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat) |
-| **Show message numbers** | Mostra um número em cada mensagem do chat. | [Ações de mensagem](../chats/messages.md) |
-| **Show "older messages not sent" note** | Mostra um aviso abaixo da resposta mais recente quando as mensagens mais antigas não couberam no prompt. Desative para esconder esse aviso em chats longos. Uma resposta cortada ou vazia continua mostrando o próprio aviso. | [Peek Prompt](../chats/peek-prompt.md) |
-| **Guide swipes/regens with chat input** | Usa o rascunho atual como direção quando você regenera. | [Geração guiada e Impersonate](../chats/guided-and-impersonate.md) |
-| **Include reasoning in exports** | Inclui o raciocínio oculto nas exportações de chat. | [Exportar e importar chats](../chats/export-import.md) |
-| **Include private notes in exports** | Acrescenta as suas notas privadas de mensagem às exportações de chat em JSONL e em texto. Mantenha desativado quando for compartilhar uma transcrição. | [Exportar e importar chats](../chats/export-import.md) |
-| **Debug mode** | Registra no console do servidor o que é enviado ao modelo, para dar suporte. | [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md) |
+#### Convert LaTeX symbols
 
-O resto da aba **Advanced** é explicado em outros guias. Veja [Atualizando Marinara Engine](../UPGRADING.md) para **Updates**, [Acesso remoto](../REMOTE_ACCESS.md) para **Admin Access**, [Fazer backup e restaurar Marinara](../data/backup-and-restore.md) para **Backup & Export** e [Limpar ou zerar os seus dados](../data/clearing-data.md) para **Danger Zone**.
+Alguns modelos escrevem matemática como comandos LaTeX. Com esta opção ativada, `\rightarrow`, `\neq`, `\times` e `\alpha` aparecem como `→`, `≠`, `×` e `α`.
+
+#### Load images from other websites in messages
+
+Com esta opção desativada, uma imagem de outro site em uma mensagem, em uma saudação ou na prévia de um card mostra o nome do site e um botão **Load image**. Isso impede que uma mensagem contate outros sites sozinha. Selecione **Load image** para mostrar essa imagem. O Marinara se lembra da sua escolha em todos os seus dispositivos. Ative a configuração para mostrar todas as imagens na hora. As imagens guardadas no Marinara, como as fotos da galeria, os avatares e os sprites, sempre aparecem.
+
+<a id="the-advanced-tab"></a>
+
+## A aba Advanced
+
+| Seção | Leia mais |
+| --- | --- |
+| **Admin Access** | [Acesso remoto](../REMOTE_ACCESS.md) |
+| **Features** | [Chaves de recursos](../configuration/features.md) |
+| **Updates** | [Atualizando o Marinara Engine](../UPGRADING.md) |
+| **Message Tools** | [Message Tools](#message-tools) |
+| **Backup & Export** | [Fazer backup e restaurar o Marinara](../data/backup-and-restore.md) |
+| **Danger Zone** | [Limpar ou redefinir os seus dados](../data/clearing-data.md) |
+
+### Message Tools
+
+Estes botões ficam em **Settings → Advanced → Message Tools**. Todos vêm desativados por padrão, exceto **Show context usage** e **Show "older messages not sent" note**.
+
+| Botão | O que ele faz |
+| --- | --- |
+| **Show message timestamps** | Mostra a data e a hora em cada mensagem. |
+| **Show characters in Persona pickers** | Lista os seus personagens nos seletores de persona, para você poder jogar como um deles. |
+| **Show model name on messages** | Mostra qual modelo escreveu cada resposta. |
+| **Show token usage on messages** | Mostra a contagem de tokens de prompt e de resposta por mensagem. |
+| **Show context usage** | Mostra o quanto a janela de contexto estava cheia na última requisição medida, nos seletores de conexão e nas configurações do chat de Game. |
+| **Show message numbers** | Mostra um número em cada mensagem. |
+| **Show "older messages not sent" note** | Mostra um aviso abaixo da resposta mais recente quando as mensagens mais antigas não couberam no prompt. Uma resposta cortada ou vazia continua mostrando o próprio aviso. |
+| **Guide swipes/regens with chat input** | Usa o seu rascunho como direção quando você regenera. |
+| **Include reasoning in exports** | Inclui o raciocínio oculto do modelo nas exportações de chat. |
+| **Include private notes in exports** | Inclui as suas notas privadas de mensagem nas exportações em JSONL e em texto. Mantenha desativado quando for compartilhar uma transcrição. |
+| **Debug mode** | Registra no console do servidor o que é enviado ao modelo, para dar suporte. |
+
+Para saber mais, veja [Ações de mensagem](../chats/messages.md), [Personas](../characters/personas.md), [Como escolher um modelo para um chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat), [Peek Prompt](../chats/peek-prompt.md), [Geração guiada e Impersonate](../chats/guided-and-impersonate.md), [Exportando e importando chats](../chats/export-import.md) e [Solução de problemas](../TROUBLESHOOTING.md).
 
 ## Como as configurações são sincronizadas entre dispositivos
 
-Marinara guarda a maior parte das configurações no servidor, então elas acompanham você entre navegadores e dispositivos. É assim que funciona a sincronização das configurações.
+O Marinara guarda a maior parte das configurações no servidor, então elas acompanham você entre navegadores e dispositivos.
 
-Veja como acontece:
+1. Você muda uma configuração em **Settings**.
+2. Cerca de um segundo depois, o Marinara a salva no servidor.
+3. Outro navegador que abre o mesmo servidor carrega essas configurações.
 
-1. Você muda uma configuração em qualquer lugar do painel **Settings**.
-2. Cerca de um segundo depois, Marinara salva a mudança no servidor com a marca de data e hora.
-3. Quando outro navegador abre o mesmo servidor do Marinara, ele carrega essas configurações salvas.
+A mudança mais recente vence. Se você abrir o Marinara em um segundo dispositivo logo depois de uma mudança, a cópia mais antiga dele pode substituir a sua mudança. Espere um momento antes de trocar de dispositivo.
 
-Cada dispositivo fica com a cópia mais recente. Vence a última gravação, de acordo com a marca de data e hora. Fique atento a uma consequência dessa regra. Se você abrir Marinara em um segundo dispositivo, a cópia dele pode sobrescrever em silêncio uma configuração que você acabou de mudar no primeiro. Dê um tempo para o aplicativo sincronizar antes de trocar de dispositivo.
+Duas configurações nunca são sincronizadas. Defina-as de novo em cada dispositivo, em **Settings → Appearance → App → Text & Scale**:
 
-Duas configurações nunca são sincronizadas. Elas ficam guardadas em cada navegador, no dispositivo em que você as definiu:
+- **Display Size**, o tamanho do texto da interface
+- **Chat Font Size**, o tamanho do texto do chat
 
-- **Display Size** (o tamanho do texto da interface)
-- **Chat Font Size** (o tamanho do texto do chat)
-
-As duas ficam em **Settings** > **Appearance** > **Text & Scale**. Ajuste de novo em cada dispositivo que você usa. Veja [Configurações de aparência](../appearance/appearance-settings.md).
-
-Se o servidor estiver fora de alcance, o aplicativo continua funcionando com as configurações locais e tenta de novo na próxima vez que você mudar algo.
+Veja [Configurações de aparência](../appearance/appearance-settings.md). Se o servidor não puder ser acessado, o aplicativo continua funcionando com as suas configurações locais e tenta de novo na próxima mudança.
 
 ## Guias relacionados
 
 - [Configurações de aparência](../appearance/appearance-settings.md)
 - [Ações de mensagem](../chats/messages.md)
-- [Enviar mensagens e streaming](../chats/sending-and-streaming.md)
-- [Exportar e importar chats](../chats/export-import.md)
-- [Onde Marinara salva os seus dados](../data/where-data-is-stored.md)
-- [Atualizando Marinara Engine](../UPGRADING.md)
-- [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md)
-- [Conquistas](../home/achievements.md)
-- [Extensões pessoais](../extending/personal-extensions.md)
-- [Localização da interface](../development/localization.md)
+- [Onde o Marinara guarda os seus dados](../data/where-data-is-stored.md)
+- [Solução de problemas](../TROUBLESHOOTING.md)

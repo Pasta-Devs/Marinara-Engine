@@ -1,65 +1,62 @@
 # Gdzie Marinara przechowuje dane
 
-Ten przewodnik wyjaśnia, gdzie aplikacja Marinara Engine trzyma twoje dane na twoim własnym komputerze. Znajdziesz tu opis głównego folderu danych, folderu `storage` i folderów zasobów w jego wnętrzu, a także pliku z kluczem szyfrowania, który chroni zapisane klucze API (klucz API to tajny kod, trochę jak hasło).
+Dowiedz się, w którym folderze aplikacja Marinara Engine trzyma twoje dane i które jego części musisz zachować, gdy go przenosisz lub kopiujesz.
 
-Aplikacja Marinara Engine (dalej w skrócie "Marinara") działa na twoim własnym komputerze. Zapisane postacie, czaty i ustawienia Marinara trzyma wyłącznie na tym komputerze. Pamiętaj jednak, że przy generowaniu odpowiedzi Marinara wysyła treść czatu do dostawcy AI wskazanego w połączeniu.
+Aplikacja Marinara Engine działa na twoim własnym komputerze i zapisuje tam postacie, czaty i ustawienia. Gdy generujesz odpowiedź, Marinara nadal wysyła treść czatu do usługi AI wskazanej w połączeniu.
 
-## Folder danych (DATA_DIR)
+## Znajdź folder danych
 
-Wszystko, co powstaje w aplikacji Marinara Engine, trafia do jednego folderu na komputerze, który uruchamia serwer. Ten folder nazywamy folderem danych. Zmienna środowiskowa, która na niego wskazuje, nosi nazwę `DATA_DIR`. Zmienna środowiskowa to wartość ustawiana na serwerze, poza aplikacją. Nie znajdziesz jej w panelu **Settings** (Ustawienia) w aplikacji.
+Wszystko, co tworzysz, leży w jednym folderze na komputerze, na którym działa serwer. To jest folder danych. Wskazuje na niego ustawienie `DATA_DIR`, czyli wartość, którą podajesz serwerowi przed startem (zmienna środowiskowa). Nie ma jej w panelu **Settings** (ustawienia).
 
-Domyślnie folderem danych jest folder o nazwie `data`, który Marinara tworzy obok plików serwera. Przy uruchomieniu w oficjalnym kontenerze Docker folderem danych jest `/app/data` wewnątrz kontenera.
+- Domyślnie jest to folder o nazwie `data`, który leży obok plików serwera.
+- W oficjalnym kontenerze Docker jest to `/app/data`.
+- Aby zobaczyć dokładną ścieżkę, spójrz na okno, w którym uruchomiono aplikację Marinara Engine (terminal lub konsolę). Przy starcie aplikacja wypisuje tam linię zaczynającą się od `[storage] DATA_DIR=`, a po niej ścieżkę. Jeśli nie możesz znaleźć tego okna, poszukaj folderu `data` wewnątrz folderu aplikacji Marinara Engine.
 
-Jeśli nie wiadomo, gdzie leży folder danych, sprawdź log startowy serwera (log to dziennik serwera). Przy starcie Marinara wypisuje linię zaczynającą się od `[storage] DATA_DIR=`, a po niej pełną ścieżkę do folderu danych.
+Aby przenieść ten folder, ustaw `DATA_DIR` i uruchom aplikację Marinara Engine ponownie. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
 
-Folder danych da się przenieść w inne miejsce – wystarczy samodzielnie ustawić `DATA_DIR`. Jak to zrobić, opisuje [Konfiguracja serwera](../CONFIGURATION.md). Nowa wartość `DATA_DIR` zaczyna działać dopiero po ponownym uruchomieniu aplikacji Marinara Engine.
+## Co jest w środku
 
-## Folder storage i foldery zasobów
+Dane tekstowe leżą w folderze `storage`: postacie, czaty, wiadomości, lorebooki, presety i połączenia. Marinara zapisuje je jako wiele małych plików. Po aktualizacji ze starszego układu w folderze `storage/tables/` mogą pojawić się stare kopie z nazwami kończącymi się na `.pre-shard`. Marinara nigdy ich nie usuwa. Gdy wszystko działa, możesz je usunąć samodzielnie, aby zwolnić miejsce.
 
-Wewnątrz folderu danych dane dzielą się na folder `storage` i kilka folderów zasobów.
-
-W folderze `storage` leżą dane tekstowe: postacie, czaty, wiadomości, lorebooki, presety i połączenia. Marinara zapisuje każdą tabelę w mniejszych plikach pogrupowanych według właściciela — na przykład wiadomości jednego czatu albo wpisy jednego lorebooka — dzięki czemu zmiana pojedynczego elementu nie przepisuje całego, stale rosnącego globalnego pliku JSON. Podczas jednorazowej aktualizacji starszego formatu pamięci Marinara zachowuje pierwotne pliki tabel obok nowych folderów z przyrostkiem `.pre-shard`.
-
-Obrazy, dźwięki i inne pliki multimedialne mają własne foldery, a nazwa każdego z nich mówi, co się w nim znajduje. Najważniejsze foldery zasobów to:
+Twoje obrazy, dźwięki i inne pliki leżą we własnych folderach obok folderu `storage`. Oto nazwy tych folderów:
 
 | Folder | Co zawiera |
 | --- | --- |
 | `avatars` | Awatary postaci i person |
-| `sprites` | Sprite'y postaci |
+| `sprites` | Grafiki sprite'ów postaci |
 | `avatar-models` | Pliki agentów **2D Avatars** i **3D Avatars**, na przykład obrazki PNGTuber i modele 3D |
 | `backgrounds` | Wgrane tła czatów |
 | `gallery` | Obrazy z galerii |
 | `fonts` | Dodane własne czcionki |
-| `knowledge-sources` | Pliki wgrane na potrzeby agentów wiedzy |
+| `knowledge-sources` | Pliki wgrane dla agentów wiedzy |
 | `game-assets` | Zasoby trybu Game Mode |
+| `game-scene-videos` | Filmy scen w trybie Game Mode |
+| `conversation-call-character-videos` | Filmy postaci do połączeń w trybie Conversation |
 | `custom-emojis` | Własne obrazki emoji |
 | `custom-stickers` | Własne obrazki naklejek |
+| `notification-sounds` | Twój własny dźwięk powiadomień |
+| `long-term-memory` | Dane agenta pamięci długoterminowej |
+| `lorebooks/images`, `prompts/images`, `agents/images`, `connections/images` | Obrazy dołączone do lorebooków, presetów, agentów i kont |
 
-Głębsze, techniczne wyjaśnienie działania folderu `storage` programiści znajdą w tekście [Przechowywanie danych w plikach](../development/file-storage.md).
+W folderze danych leżą też folder `backups/` (twoje [automatyczne kopie zapasowe](backup-and-restore.md#automatic-backups)) oraz plik z kluczem szyfrowania. Przycisk **Download Backup** (pobranie kopii zapasowej) obejmuje każdy folder z tabeli, folder `storage` i plik z kluczem. Programiści mogą przeczytać [Przechowywanie danych w plikach](../development/file-storage.md).
 
-## Plik z kluczem szyfrowania
+## Zachowaj plik z kluczem szyfrowania
 
-Marinara szyfruje zapisane klucze API, żeby nie leżały w postaci zwykłego tekstu. Klucz użyty do tego szyfrowania trafia do pliku o nazwie `.encryption-key` w folderze danych.
+Marinara szyfruje zapisane klucze API. Kluczem do tego szyfrowania jest plik `.encryption-key` w folderze danych.
 
-Ten plik ma znaczenie przy przenoszeniu i przywracaniu danych. Załóżmy, że folder danych trafia na nowy komputer, ale plik `.encryption-key` zostaje w starym miejscu. Marinara nie potrafi już odszyfrować zapisanych kluczy API, więc trzeba wpisać je jeszcze raz. Trzymaj ten plik zawsze razem z resztą danych.
+Jeśli skopiujesz dane na nowy komputer bez tego pliku, Marinara nie odczyta zapisanych kluczy API. Musisz wtedy wpisać je ponownie. Kopiuj ten plik razem z resztą folderu danych.
 
-Niektóre zaawansowane konfiguracje podają klucz zmienną środowiskową `ENCRYPTION_KEY` zamiast pliku. Przy tym wariancie zadbaj o bezpieczne przechowanie samej wartości. Nie ma wtedy pliku `.encryption-key` do skopiowania. Szczegóły znajdziesz w dokumencie [Konfiguracja serwera](../CONFIGURATION.md).
+Niektóre konfiguracje podają klucz przez zmienną środowiskową `ENCRYPTION_KEY` zamiast przez plik. Wtedy nie ma pliku do skopiowania. Przechowuj tę wartość bezpiecznie osobno. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
 
-## Gdzie znaleźć moje dane w systemie Android
+## Skopiuj dane z Androida
 
-W systemie Android folder danych serwera leży zwykle w pamięci aplikacji, do której nie ma dostępu bez uprawnień roota. Dlatego nie da się po prostu skopiować tego folderu z telefonu.
+W systemie Android folder danych leży w pamięci aplikacji, do której nie masz dostępu bez uprawnień roota, więc nie możesz go skopiować. Użyj **Settings → Advanced → Backup & Export → Download Backup** (ustawienia, zaawansowane, kopia zapasowa i eksport, pobranie kopii zapasowej). Plik `.zip` zawiera plik `.encryption-key`, jeśli on istnieje. Zobacz [Kopia zapasowa i przywracanie danych aplikacji Marinara](backup-and-restore.md).
 
-Kopię danych na urządzeniu z systemem Android pobierzesz przyciskiem **Download Backup** (pobranie kopii zapasowej). Znajdziesz go w panelu **Settings**, na zakładce **Advanced**, w sekcji **Backup & Export**. Powstaje wtedy jeden plik zip z twoimi danymi. Zip zawiera też plik `.encryption-key`, o ile taki istnieje. To najpewniejszy sposób na zapisanie danych z telefonu.
-
-Ta sama sekcja potrafi trzymać od 1 do 9999 rotujących automatycznych archiwów dziennych, tygodniowych lub miesięcznych w folderze `backups/` wewnątrz
-folderu danych. Najnowsze archiwum to `marinara-automatic-backup.zip`, a zachowane starsze archiwa automatyczne mają w nazwie datę i godzinę.
-Ten limit dotyczy wyłącznie kopii automatycznych. Ważne kopie zapasowe skopiuj też poza pamięć aplikacji, ponieważ
-odinstalowanie lub zresetowanie aplikacji może usunąć zarówno bieżące dane, jak i lokalne kopie automatyczne.
-
-Pełne kroki tworzenia i przywracania kopii zapasowej na każdej platformie opisuje [Kopia zapasowa i przywracanie danych aplikacji Marinara](backup-and-restore.md).
+Automatyczne kopie zapasowe trafiają do tej samej pamięci aplikacji. Odinstalowanie lub zresetowanie aplikacji może usunąć je razem z bieżącymi danymi, więc trzymaj kopię w innym miejscu.
 
 ## Powiązane przewodniki
 
 - [Kopia zapasowa i przywracanie danych aplikacji Marinara](backup-and-restore.md)
+- [Czyszczenie i resetowanie danych](clearing-data.md)
 - [Konfiguracja serwera](../CONFIGURATION.md)
 - [Przechowywanie danych w plikach](../development/file-storage.md)

@@ -11,7 +11,7 @@ Zapisz kopię danych aplikacji Marinara Engine, aby móc je później przywróci
 
 Plik `.zip` mieści wiele plików. Obie opcje są w sekcji **Settings → Advanced → Backup & Export** (ustawienia, zaawansowane, kopie zapasowe i eksport). Przywracanie danych jest w sekcji **Settings → Imports → Profile & Marinara** (ustawienia, import, profil i Marinara).
 
-**Zanim zaczniesz:** na komputerze, na którym działa aplikacja Marinara Engine, te narzędzia działają od razu. Aby użyć ich z telefonu, tabletu lub innego urządzenia, ustaw sekret administratora na serwerze i wpisz tę samą wartość w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administratora). Sekret administratora to hasło w pliku `.env` serwera, zapisane jako `ADMIN_SECRET`. Zobacz sekcję "Privileged APIs (ADMIN_SECRET)" w [Dokumentacji konfiguracji serwera](../CONFIGURATION.md) oraz przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md).
+**Zanim zaczniesz:** na komputerze, na którym działa aplikacja Marinara Engine, te narzędzia działają od razu. Aby użyć ich z telefonu, tabletu lub innego urządzenia, ustaw sekret administratora na serwerze i wpisz tę samą wartość w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administratora). Sekret administratora to hasło w pliku `.env` serwera, zapisane jako `ADMIN_SECRET`. Zobacz sekcję "Privileged APIs (ADMIN_SECRET)" w dokumencie [Konfiguracja serwera](../CONFIGURATION.md) oraz przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md).
 
 ## Download Backup
 
@@ -33,6 +33,8 @@ Nazwy folderów znajdziesz w przewodniku [Gdzie Marinara przechowuje dane](where
 W systemie Android nie masz dostępu do folderu danych aplikacji. Użyj **Download Backup**, aby skopiować dane poza urządzenie.
 
 Jeśli operacja się nie powiedzie: po komunikacie "Backup preparation timed out after one hour." spróbuj ponownie. Jeśli nie da się pobrać kopii z innego urządzenia, sprawdź **Admin Access** (opis wyżej).
+
+<a id="automatic-backups"></a>
 
 ## Automatyczne kopie zapasowe
 
@@ -82,6 +84,8 @@ Jeśli operacja się nie powiedzie:
 
 Jeśli zaimportujesz ten sam profil dwukrotnie, Marinara zaktualizuje istniejące elementy zamiast je powielać. Profile z dużo starszych wersji mogą jednak utworzyć duplikaty.
 
+<a id="enter-your-keys-again"></a>
+
 ## Ponowne wpisanie kluczy
 
 **Import Profile** nigdy nie przywraca kluczy API ani adresów webhooków, nawet z pliku `.zip` utworzonego przez **Download Backup**. Klucz API to tajny kod otrzymany od usługi. Te wartości są wyczyszczone w pliku profilu oraz w profilu wewnątrz kopii zapasowej. Po imporcie na nowym komputerze wpisz je ponownie:
@@ -102,6 +106,8 @@ Import nigdy nie usuwa kluczy już zapisanych w tej samej instalacji.
 4. Wpisz ponownie klucze API zgodnie z opisem wyżej.
 
 Plik klucza z kopii zapasowej pomaga tylko wtedy, gdy ręcznie kopiujesz cały folder danych, jak opisano niżej.
+
+<a id="restore-by-hand"></a>
 
 ## Ręczne przywracanie
 

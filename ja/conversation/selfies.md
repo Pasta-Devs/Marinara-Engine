@@ -1,137 +1,107 @@
 # 自撮り写真
 
-このガイドでは、Conversationモードの自撮り写真を説明します。自撮り写真とは、キャラクターが自分自身の画像を生成してチャットに送る機能です。メッセージアプリで写真を共有する感覚に近いものです。ここでは、自撮り写真をオンにする手順、設定の内容、そして手動でリクエストする方法がわかります。
+自撮り写真とは、キャラクターが自分で生成し、Conversationのチャットに送ってくる画像です。メッセージアプリで共有される写真のようなものです。このガイドでは、自撮り写真のオン、見た目の選び方、手動で依頼する方法、動画メッセージを説明します。
 
-## 自撮り写真とは
-
-自撮り写真はConversationモードの機能です。ふつうのチャットの途中で、キャラクターが自分を写した画像を生成して送れます。RoleplayモードやGame Modeで使うシーンの画像とは別物です。自撮り写真は、Conversationモードのメッセージアプリらしい雰囲気に合わせて作られています。
-
-自撮り写真は画像生成を使います。キャラクターが自撮り写真を1枚送るたびに、選んだ接続の画像生成リクエストを1回消費します。そのため、設定を済ませるまで自撮り写真はオフになっています。
-
-自撮り写真の機能は、追加パッケージの**Illustrator**が提供します。設定の前に、**Agents → Agent Organizer (エージェント管理)**からIllustratorをインストールしてください。
+自撮り写真は、任意の**Illustrator**パッケージから届き、画像生成を使います。自撮り写真1枚は、選んだサービスへの画像リクエスト1回です。そのため、設定するまで何も起きません。RoleplayやGame Modeのシーンの画像とは別のものです。
 
 ## 自撮り写真をオンにする
 
-自撮り写真の設定は、Conversationチャットの**Agents**(エージェント)セクションにある**Illustrator Settings**(Illustratorの設定)の中にあります。**Commands**(コマンド)とは、曲を再生する、自撮り写真を送るといった、キャラクターが自分の判断で実行できる隠れた操作のことです。コマンドを提供するパッケージをインストールすると、**Agents**の中にコマンドの設定が現れます。
+始める前に: **Agents → Agent Organizer**から**Illustrator**をインストールし、画像アカウント(画像を作るサービスのアカウント)を追加してください([画像生成プロバイダーとセットアップ](../media/image-providers.md)を参照)。
 
-自撮り写真をオンにする手順は次のとおりです。
+1. Conversationのチャットを開き、**Chat Settings**を開きます。
+2. **Agents**セクションを探し、**Illustrator Settings**を開きます。
+3. **Generated Selfies**をオンにします。自撮り写真の設定が、その下に表示されます。
+4. **Selfie model**で、画像アカウントを選びます。
 
-1. Conversationチャットを開きます。
-2. スライダーのアイコンから**Chat Settings**(チャット設定)を開きます。
-3. **Agents**セクションを探します。
-4. その中にある**Commands**の親トグルをオンにします。これがオフの間、キャラクターは隠れた操作を一切実行できません。
-5. **Illustrator Settings**を探します。
-6. **Generated Selfies**(自撮り写真の生成)のスイッチをオンにします。
+**Generated Selfies**をオンにすると、そのチャットのマスターの**Commands**スイッチもオンになります。
 
-**Generated Selfies**をオンにすると、スイッチの下に自撮り写真の設定が現れます。接続、プロンプトモデル、スタイル、参照画像の欄が表示されます。**Resolution**のボタンは、**Selfie Connection**を選んだあとにだけ現れます。
+キャラクターが自撮り写真を送るのは、**Selfie model**を設定した後だけです。それまでは、チャットに「Choose a Selfie Provider to let characters generate selfie images.」と表示されます。
+
+うまくいかなかった場合: **Illustrator Settings**は、Illustratorをインストールしたときだけ表示されます。自撮り写真には、**Commands**の**Selfies**コマンドもオンである必要があります([キャラクターが使えるCommandsの選択](getting-started.md#choose-which-commands-a-character-can-use)を参照)。
 
 ## 自撮り写真の設定
 
-自撮り写真をオンにしたら、見た目と生成に使うサービスを設定します。以下の設定はすべて、**Chat Settings → Agents**の**Illustrator Settings**にあります。設定が効くのは現在のチャットだけです。
+これらはすべて**Illustrator Settings**にあり、現在のチャットだけに適用されます。
 
-### Selfie Connection
+- **Selfie model**: 絵を描く画像アカウントです。デフォルトは**None (selfies disabled)**です。
+- **Prompt Model**: 画像の説明を書くテキストモデルです。デフォルトは**Agent default**です。
+- **Image Style**: 「anime」のような、絵のスタイルを表す言葉を保存したものです。デフォルトは、詳細設定のスタイルプロファイルにあるデフォルトのスタイルです。[画像スタイルプロファイル](../media/style-profiles.md)を参照してください。
+- **Images Per Generation**: イラストや自撮り写真1回で作るバリエーションの数です。
+- **Resolution**: 画像のサイズです。**Selfie model**を設定した後にだけ表示されます。デフォルトは896x1152です。
+- **Send Avatar References**: キャラクターのアバターまたはスプライトを、参照画像として送ります。デフォルトはオフです。画像サービスが参照画像に対応している場合にだけ働きます。
+- **Attach Card Appearance**: 名前を挙げた各キャラクターのカードの**Appearance**テキストを、プロンプトに追加します。デフォルトはオフです。
 
-**Selfie Connection**(自撮り写真の接続)では、画像を描く画像生成サービスを選びます。デフォルトは**None (selfies disabled)**で、まだサービスを選んでいない状態です。ここで、設定済みの画像用の接続から1つ選びます。
+**Resolution**の選択肢は、512x512、512x768、768x768、768x1024、896x1152、1024x1024です。896x1152は縦長のポートレートで、ほとんどの自撮り写真に合います。
 
-**Selfie Connection**を選ぶまで、キャラクターは自撮り写真を送れません。「Choose a Selfie Connection to let characters generate selfie images」という注意書きが表示されているときは、接続がまだ空のままです。
+**Send Avatar References**と**Attach Card Appearance**には、それぞれ**Off**、**Images only**、**Videos only**、**Images and videos**の選択肢があります。
 
-画像用の接続を追加する方法は、[画像生成プロバイダーと設定](../media/image-providers.md)を参照してください。
+カードまたはペルソナで、エディターの**Appearance**にある**Image Appearance Override**がオンの場合、Marinaraは**Appearance**の代わりにそのテキストを使います。**Appearance**が、絵ではなく物語のために書かれているときに使ってください。
 
-### Prompt Model
+## 手動で自撮り写真を頼む
 
-**Prompt Model**(プロンプトモデル)では、自撮り写真の説明文を書くテキストモデルを選びます。その説明文をもとに、画像用の接続が絵を描きます。デフォルトは**Main chat model**で、チャットがすでに使っているモデルをそのまま使います。説明文を別のモデルに書かせたいときは、ほかのテキスト用の接続を選べます。
-
-### Image Style
-
-**Image Style**(画像スタイル)では、自撮り写真に使うStyle Profileを選びます。Style Profileとは、「anime」「realistic photo」のような画風を表す語句をまとめて保存したものです。デフォルトは**Use default style from Style Profiles in Advanced settings**で、全体のデフォルトスタイルに従います。
-
-スタイルの詳細は、[画像スタイルプロファイル](../media/style-profiles.md)を参照してください。
-
-### Send Avatar References
-
-**Send Avatar References**(アバターの参照画像を送信)はドロップダウンで、デフォルトは**Off**(オフ)です。**Video messages**(動画メッセージ)セクションの下にあり、各選択肢には適用先が書かれています。**Images only**(画像のみ)、**Videos only**(動画のみ)、**Images and videos**(画像と動画)の3つです。
-
-- 画像では、Marinaraがキャラクターのアバターやスプライトを参照画像として画像生成サービスに送ります。これで自撮り写真がキャラクターの見た目に近づきます。動作するのは、プロバイダーが参照画像に対応している場合だけです。
-- 動画では、**First frame**(最初のフレーム)が**Prompt only**の動画メッセージが、画像なしではなくキャラクターのアバターやスプライトから始まります。動画サービスが受け取る開始画像は1枚だけです。ほかの最初のフレームはすでにキャラクターの画像から始まるので、影響を受けません。
-
-### Attach Card Appearance
-
-**Attach Card Appearance**(カードの外見情報を添付)はドロップダウンで、デフォルトは**Off**です。選択肢は同じく**Images only**、**Videos only**、**Images and videos**です。プロンプトに名前が出てくる各キャラクターについて、カードの外見の記述を自撮り写真のプロンプト、動画のプロンプト、またはその両方に加えます。キャラクターの見た目の情報がモデルに詳しく伝わります。
-
-カードやペルソナの**Image Appearance Override**(画像用の外見指定)もオンになっていて、その欄に内容が入力されている場合は、Marinaraが**Appearance**の代わりにそちらの文章を送ります。**Appearance**の全文が画像モデル向けではなく、物語を書くモデル向けの説明になっているときに役立ちます。キャラクターまたはペルソナのエディターで、**Appearance**の下にあるスイッチをオンにしてください。自撮り写真の説明文を書くAIは、カードの**Appearance**も引き続き読みます。上書き用の文章は書かれたとおりに残し、**Appearance**の文章はそれ以外の細部を補うためだけに使います。
-
-### Resolution
-
-**Resolution**(解像度)では、自撮り写真の画像サイズを決めます。**Resolution**のボタンは、**Selfie Connection**を選んだあとにだけ現れます。用意されたボタンから1つ選んでください。デフォルトは**896x1152**で、縦長の形はほとんどの自撮り写真に合います。
-
-選べるサイズは次のとおりです。
-
-| 解像度 | 形状 |
-| ---------- | ------------------ |
-| 512x512    | 正方形             |
-| 512x768    | 縦長             |
-| 768x768    | 正方形             |
-| 768x1024   | 縦長             |
-| 896x1152   | 縦長(デフォルト) |
-| 1024x1024  | 正方形             |
+1. **Chat Settings**を開き、**Gallery**セクションを展開します。
+2. **Selfie**をクリックします。キャラクターが複数いる場合は、ボタンの隣の一覧から、撮るキャラクターを選びます。
+3. **Expose media prompts before sending**がオンの場合(**Settings → Generations → Overall Generations**)は、プロンプトを確認または編集して、**Generate**をクリックします。取り消すと、リクエストは送られません。
+4. ボタンに**Generating...**と表示されているあいだ、待ちます。
+5. 「Selfie generated.」と表示され、画像がチャットに現れます。手動のリクエストでは**Selfie model**を使い、画像リクエスト1回分の費用がかかります。
 
 ## キャラクターが自撮り写真を送る仕組み
 
-設定が終わると、キャラクターはチャットの流れの中で自分の判断で自撮り写真を送れます。コマンドを打つ必要はありません。キャラクターがタイミングを選び、Marinaraが画像を生成してチャットに投稿します。以降の返信を書くAIには、自撮り写真に写っていた内容を伝える短いメモが見えるので、キャラクターは自撮り写真を送ったことを覚えています。
+キャラクターは、自撮り写真をいつ送るかを自分で決めます。自分で入力する必要はありません。Marinaraが画像を生成して投稿し、その後の返信では、写っていたものの短いメモが見られます。
 
-モデルの応答では`[selfie]`を使い、必要に応じてコンテキストを指定します:
-
-```text
-Here is a picture from my walk!
-[selfie: context="standing beside the river at sunset"]
-```
-
-`[selfie: "standing beside the river"]`と`[selfie: standing beside the river]`も使えます。大文字と小文字は区別しないため、`[SELFIE:xxxxx.]`も有効な構文です。これはConversationのコマンドであり、RoleplayやGame Modeの画像生成トリガーではありません。マーカーがそのままメッセージに残る場合は、別のモードであるか、**Commands**が無効になっている可能性があります。Illustratorがインストール済みで、**Generated Selfies**が有効になり、**Selfie Connection**が選ばれているか確認してください。生成が始まってから失敗する場合は、報告された接続や画像プロバイダーのエラーを確認します。マーカーの大文字・小文字を変えても解決しません。
-
-## 手動で自撮り写真をリクエストする
-
-キャラクターが送ってくるのを待たずに、自分からリクエストすることもできます。
-
-1. **Chat Settings**(チャット設定)を開き、**Gallery**(ギャラリー)セクションを展開します。
-2. **Selfie**ボタン(カメラのアイコン)をクリックします。
-3. チャットにキャラクターが複数いる場合は、ボタンの隣のキャラクター一覧から、自撮り写真を撮るキャラクターを選びます。
-4. **Settings**、**Generations**、**Overall Generations**の**Expose media prompts before sending**が有効な場合は、組み立てられた最終的な自撮り写真のプロンプトを確認または編集してから**Generate**をクリックします。この確認をキャンセルすれば、画像生成リクエストは送信されません。
-5. ボタンの表示が**Generating...**の間は、そのまま待ちます。
-
-自撮り写真ができあがると「Selfie generated.」というメッセージが表示され、画像がチャットに現れます。この手動のリクエストも、選んだ**Selfie Connection**を使うため、画像生成リクエストを1回消費します。
+うまくいかなかった場合: メッセージにそのままの文字列`[selfie...]`が表示されたら、チャットがConversationモードで、**Commands**と**Selfies**がオンで、**Generated Selfies**がオンで、**Selfie model**が設定されているかを確認してください。生成が始まっても失敗する場合は、画像アカウントについてのエラーを読んでください。
 
 ## 自撮り写真を作り直す
 
-画像が気に入らない場合は、チャットの自撮り写真をクリックして開き、ピンのボタンの隣にある円形の矢印の**Regenerate image**(画像を再生成)をクリックします。プロンプト、ネガティブプロンプト、キャラクターごとのプロンプトを編集でき、**Image connection**(画像用の接続)も選べます。**Generate image**(画像を生成)をクリックします。新しい画像がメッセージ内の古い画像と置き換わり、古い画像はGalleryに残ります。試すたびに、画像生成リクエストを1回消費します。
+1. チャットの自撮り写真をクリックして、開きます。
+2. **Regenerate image**(ピンボタンの隣の円形の矢印)をクリックします。
+3. 必要ならプロンプトを編集します(**Character prompts**を含みます)。**Image model**を選ぶか、**Chat's image provider**のままにします。
+4. **Generate image**をクリックします。
 
-この機能ができる前に作った画像も作り直せます。その場合は、チャットの自撮り写真の接続を使います。ネガティブプロンプトとキャラクターごとのプロンプトは保存されていません。
+新しい画像が、メッセージの古い画像に置き換わります。古い画像はギャラリーに残ります。1回の試行は、画像リクエスト1回です。このオプションができる前に作った画像は、チャットの自撮り写真のプロンプトを保存していないため、ネガティブプロンプトとキャラクターのプロンプトも保存されていません。
 
 <a id="video-messages"></a>
 
 ## 動画メッセージ
 
-キャラクターに短い動画クリップを送ってもらうこともできます。`/video`と入力するか、キャラクターを指定して`/video Aster`のように入力します。または、チャットの**Gallery**(ギャラリー)にある、フィルムのアイコンの**Video**(動画)ボタンをクリックします。この場合は、Galleryで選んでいるキャラクターが送ります。**Video**は、Illustratorがインストールされていれば、自撮り写真がオフでも使えます。クリップはそのキャラクターからの新しいメッセージとして届き、チャットの中で再生されます。この方法で頼んだクリップには、会話のいちばん新しい場面が映ります。クリップのプロンプトを書くAIは、Illustratorが画像を作るときと同じ数の直近のメッセージを読みます。この数は、Illustratorの**Agent Budget**(エージェントの割り当て)のコンテキストサイズです。最初のフレームに自撮り写真を使う場合も同じメッセージを読むため、クリップもその場面から始まります。以降の返信を書くAIには、クリップに映っている内容を伝える短いメモが見えます。Galleryの画像を動かすこともできます。その場合、クリップはその画像の続きになり、Galleryで選んでいるキャラクターが送り、いちばん新しい返信に追加されます。クリップをチャットに追加できなかった場合も、Galleryの**Videos**(動画)タブには保存されます。キャラクター自身のギャラリーに動画メッセージが並ぶのは、そのクリップにそのキャラクターが映っている場合だけです。[キャラクターとペルソナのギャラリー](../characters/galleries.md)を参照してください。
+キャラクターは、短い動画クリップを送れます。先にIllustratorをインストールしてください。自撮り写真は、オフのままでもかまいません。自分で頼むには、`/video`と入力するか、`/video Aster`のように入力してキャラクターを選びます。または、チャットの**Gallery**で**Video**をクリックします。この場合は、そこで選んだキャラクターが使われます。クリップは新しいメッセージとして届き、チャットの中で再生されます。会話の最新の場面が使われます。クリップを書くモデルは、Illustratorが絵に使うのと同じ数の最近のメッセージを読みます(**Agent Budget**)。ギャラリーにある画像から動画にすることもできます。クリップはその画像から続き、最新の返信に付きます。
 
-設定は、**Chat Settings**(チャット設定)、**Agents**、**Illustrator Settings**の**Video messages**(動画メッセージ)セクションで行います。
+クリップをチャットに追加できなかった場合でも、ギャラリーの**Videos**タブに保存されます。キャラクター自身のギャラリーに動画が一覧表示されるのは、そのクリップにそのキャラクターが写っているときだけです([キャラクターとペルソナのギャラリー](../characters/galleries.md)を参照)。
 
-- **Generated Videos**(自動動画)を使うと、会話に合う場面でキャラクターが自発的に動画メッセージを送れます。
-  - `/video`と同じく、直近の会話をもとにクリップの内容を書くため、依頼したクリップにその依頼内容が反映されます。
-  - 各クリップは動画リクエストになるため、新しいチャットではデフォルトでオフです。ここでオンにするか、設定プロファイルに保存して新しいチャットでオンにしてください。同じスイッチは、新規チャット設定とChat Settingsの**Commands**一覧に**Videos**として表示されます。
-  - **Video Run Interval**(オンにすると表示)で、これらのクリップの間に必要なメッセージ数を設定します。**0**で停止します。
-  - `/video`とGalleryの**Video**ボタンは、どちらの設定でも使え、間隔を無視します。
-  - クリップを送った返信をスワイプすると、新しいスワイプも独自のクリップを送れます。
-  - グループチャットでは各キャラクターが1返信につき1本送れます。上限は**Settings**、**Generations**、**Video Generation**の**Videos per reply**(デフォルト3)です。
-- **Video Connection**(動画の接続)では、Video Generationの接続を選びます。デフォルトの接続を使うなら、**Default video connection**のままにしておきます。接続の**Video Prompting Instructions**(動画プロンプトの作成指示)が、動画のプロンプトを書くAIへの指示になります。
-- **First frame**(最初のフレーム)では、クリップの始まりになる画像を選びます。
-  - **New selfie, or the avatar if no selfie connection**(デフォルト)は、自撮り写真がオンで**Selfie Connection**が設定されていれば新しい自撮り写真を作り、そうでなければアバターを使います。
-  - **New selfie, then animate it**は、必ず先に新しい自撮り写真を作ります。自撮り写真がオンで、**Selfie Connection**が設定されている必要があります。作った自撮り写真はGalleryにも保存されます。**Expose media prompts before sending**(送信前にメディアのプロンプトを表示)がオンの場合は、自撮り写真のプロンプトをクリップのプロンプトと一緒に確認します。
-  - **Avatar or sprite**は、キャラクターのアバターから始めます。アバターがない場合は全身スプライトを使います。
-  - **Prompt only (no picture)**は画像を送らないため、動画モデルはプロンプトだけをもとに動画を作ります。ComfyUIのワークフローの中には画像を必要とするものがあり、画像がないと失敗します。**Send Avatar References**が動画を含む設定になっている場合、この選択肢は**Prompt only (avatar from Send Avatar References)**と表示され、クリップは代わりにアバターから始まります。
+### 動画の設定
 
-WebPなど、ほかの形式の画像は動画サービス向けに変換されます。動画メッセージ1件につき、動画のリクエストが1回発生します。新しい自撮り写真から始める場合は、さらに画像のリクエストが1回発生します。プロンプトを書くAIは**Prompt Model**(プロンプトモデル)で選んだモデルで、その指示は**Settings**、**Generations**、**Video Generation Prompt Overrides**、**Conversation Video Message**にあります。
+**Chat Settings → Agents → Illustrator Settings**、**Video messages**を開きます。
+
+- **Generated Videos**: キャラクターが自分で動画メッセージを送れるようにします。各クリップは動画リクエスト1回なので、新しいチャットではデフォルトでオフです。**Commands**の一覧にも、**Videos**として表示されます。
+- **Video Run Interval**: **Generated Videos**をオンにすると表示されます。動画の間に何通のメッセージを挟むかを決めます。**0**で止まります。
+- **Video model**: 動画アカウントです。**Default video provider**は、デフォルトのアカウントを使います。
+- **First frame**: クリップを始める画像です(下記を参照)。
+
+`/video`とギャラリーの**Video**ボタンは、どちらの設定でも動作し、間隔を無視します。自撮り写真つきの返信をスワイプすると、新しいスワイプで、その返信ならではのクリップを送れます。グループチャットでは、**Settings → Generations → Video Generation**の**Videos per reply**(デフォルトは3)の範囲で、各キャラクターが返信ごとに1つのクリップを送れます。
+
+**First frame**の選択肢は次のとおりです。
+
+- **New selfie, or the avatar if no selfie provider**(デフォルト): 自撮り写真がオンで**Selfie model**が設定されていれば新しい自撮り写真、そうでなければアバターを使います。
+- **New selfie, then animate it**: 常に新しい自撮り写真を作り、ギャラリーにも保存します。自撮り写真がオンで、**Selfie model**が必要です。
+- **Avatar or sprite**: アバター。アバターがなければ、全身のスプライトを使います。
+- **Prompt only (no picture)**: 画像なしです。ComfyUIのワークフローには、これがないと失敗するものがあります。**Send Avatar References**に動画が含まれている場合は、**Prompt only (avatar from Send Avatar References)**と読み替えて、アバターから始めます。
+
+**Expose media prompts before sending**がオンの場合は、動画プロンプトと一緒に自撮り写真のプロンプトも確認します。
+
+WebPなど別の形式の画像は、動画サービス向けに変換されます。動画メッセージ1つは、動画リクエスト1回です。新しい自撮り写真から始める場合は、画像リクエストがもう1回加わります。**Settings → Generations → Prompt Model**が、動画のプロンプトを書きます。**Settings → Generations → Video Generation Prompt Overrides → Conversation Video Message**が、その指示を持ちます。
+
+## リファレンス: 自撮り写真のタグ
+
+キャラクターは、返信に入れるタグで自撮り写真を頼みます。自分で入力することはありません。形は`[selfie]`のようで、任意で文脈を付けられます。
+
+```text
+[selfie: context="standing beside the river at sunset"]
+```
+
+`[selfie: "standing beside the river"]`や`[selfie: standing beside the river]`も使え、どの大文字小文字でも動きます。Marinaraがタグを読み取り、画像を投稿します。
 
 ## 関連ガイド
 
 - [Conversationモード: はじめに](getting-started.md)
-- [画像生成プロバイダーと設定](../media/image-providers.md)
+- [画像生成プロバイダーとセットアップ](../media/image-providers.md)
 - [画像スタイルプロファイル](../media/style-profiles.md)

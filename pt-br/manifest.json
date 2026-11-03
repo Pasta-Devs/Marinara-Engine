@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "db2d6ead716d652b91859f66c2d21392b7b7f472",
+  "sourceCommit": "aed5e3578d93d7c81a17a5a1ce4b3f53f59cba55",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -254,58 +254,58 @@
     },
     {
       "path": "conversation/calls.md",
-      "sha256": "20e76a3ed2c0084af399a3e973b3b13e94be0bc20dd3561402637dd86a4a4a52",
-      "bytes": 25644
+      "sha256": "a333233ed949756fb490de09b8870bbdf60236783822c67631d6eff64abfa718",
+      "bytes": 18802
     },
     {
       "path": "conversation/emoji-stickers-gifs.md",
-      "sha256": "0c3c2589dbdd099a9a53dfec346a9c7db1a66e75ba9fe46e5fb7b42d038da1cc",
-      "bytes": 10231
+      "sha256": "66cbe1d8503d5434b9f5e7a88a70193ac6df14579dc327bb3c24ebcb803ec4f3",
+      "bytes": 7406
     },
     {
       "path": "conversation/getting-started.md",
-      "sha256": "abbe374c0bfe8765b31f93d068e3cebe6c9c7c0fbc60236819ec49b05b923c50",
-      "bytes": 13245
+      "sha256": "615e51814acd565360812ac278dfb284c34b3ff31e63f354e5f49d23de3f8576",
+      "bytes": 7709
     },
     {
       "path": "conversation/profiles.md",
-      "sha256": "c3f9c70d7154e9fc6becec1d6394a41fd3351f8961489e065241227e464fe66e",
-      "bytes": 8577
+      "sha256": "72d666ae9d77ad5c559f61fdc2d697d710c2c33aa12bb684feddbd8a52a37b21",
+      "bytes": 6222
     },
     {
       "path": "conversation/schedules.md",
-      "sha256": "4bae6c46bb75f9fdf152eaf2fb25645594de9506810ebf76ab5a6641440fb473",
-      "bytes": 14237
+      "sha256": "abcee2e09d519604523f183c1080d1ca6b2be523e9de8a7d985aa30d16c9b3ed",
+      "bytes": 11135
     },
     {
       "path": "conversation/selfies.md",
-      "sha256": "7a0040fcf42640fa1c6645b0e6c0b6545de42d89d4d82101b1f0a2a7f03c46c7",
-      "bytes": 13925
+      "sha256": "b972381c02e97f6696e5fcbbfd65ccd74f1daffff912212c70c38e47a74d8e65",
+      "bytes": 8742
     },
     {
       "path": "conversation/table-games.md",
-      "sha256": "e96bf68158847e111765f6c5cec0653c835610acfcc3f1951d221c4f2645643e",
-      "bytes": 16018
+      "sha256": "6d9ad7bf8a8939e4cdccd738e2538ef8a38368d5dcaa98ef400cb3a1cecd6ca8",
+      "bytes": 8854
     },
     {
       "path": "data/backup-and-restore.md",
-      "sha256": "fb7bcbc9cd1f21c0777a84f492b70bb3ff0ba536a81e3433425fbd42964e06bf",
-      "bytes": 11109
+      "sha256": "e63e1d761d674d575bd978eb2bd16b8847d14e4872f20e01178237fdd7619822",
+      "bytes": 8620
     },
     {
       "path": "data/clearing-data.md",
-      "sha256": "8fbc138fd355987ee8c6aa15a0b17e150256dfb45e6239a67aefd6d239b551c2",
-      "bytes": 4626
+      "sha256": "8b036175e0b29b164d43aacf02459eaf831a622f82f5bc2f7dce30ddc346422c",
+      "bytes": 4822
     },
     {
       "path": "data/importing-from-sillytavern.md",
-      "sha256": "d9e631992f73f75dc8df824d45643a06bae45135b9801704631b9eea5973e6a5",
-      "bytes": 9150
+      "sha256": "c4d02394f815e613de00223ccfa68d3abe79ccc8bf883fc3a65cd587d4f22044",
+      "bytes": 6328
     },
     {
       "path": "data/where-data-is-stored.md",
-      "sha256": "aeb134e9ab4be0393bf5f634d1cf37037cf4375eb2633d2069c113c4a79c85a9",
-      "bytes": 5984
+      "sha256": "7b1eb08c1cc898c9c4b40db60d1da6c376aeda42f82bd33b0ae0341051b61d5f",
+      "bytes": 4674
     },
     {
       "path": "development/antigravity-cli-qualification.md",
@@ -739,8 +739,8 @@
     },
     {
       "path": "settings/settings-overview.md",
-      "sha256": "3744aee54fb981d619af5334c9fd688ce11e73b1427e73b1eb68b63723a78c28",
-      "bytes": 17378
+      "sha256": "4daadd423c97649423356b5aa75f7d6b839e9014903e12e16d3483bf8355efdf",
+      "bytes": 14763
     }
   ]
 }

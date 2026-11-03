@@ -1,66 +1,62 @@
 # Dónde guarda Marinara tus datos
 
-Esta guía explica dónde guarda Marinara Engine tus datos en tu propia computadora. Cubre la carpeta principal de datos, las carpetas `storage` y de recursos que hay dentro, y el archivo de la clave de cifrado que protege tus API key (claves de API) guardadas.
+Encuentra la carpeta donde Marinara Engine guarda tus datos y sabe qué partes conservar cuando los mudas o los copias.
 
-Marinara Engine (llamado "Marinara" a partir de aquí) se ejecuta en tu propia máquina. Marinara guarda tus personajes, chats y ajustes solo en tu propia computadora. Ten en cuenta que, cuando generas una respuesta, Marinara sí envía el contenido de tu chat al proveedor de IA al que te conectaste.
+Marinara se ejecuta en tu propia computadora y guarda allí tus personajes, chats y ajustes. Cuando generas una respuesta, Marinara sigue enviando el contenido de tu chat al servicio de IA que conectaste.
 
-## La carpeta de datos (DATA_DIR)
+## Encontrar la carpeta de datos
 
-Todo lo que creas en Marinara vive dentro de una sola carpeta en la máquina que ejecuta el servidor. Esa carpeta se llama la carpeta de datos. La variable de entorno que apunta a ella se llama `DATA_DIR`. Una variable de entorno es un valor que defines en el servidor, fuera de la app. No la encontrarás dentro del panel **Settings** (Configuración) de la app.
+Todo lo que creas vive en una sola carpeta de la computadora que ejecuta el servidor. Esta es la carpeta de datos. Su ajuste es `DATA_DIR`, un valor que le das al servidor antes de que arranque (una variable de entorno). No está en **Settings** (Configuración).
 
-De forma predeterminada, la carpeta de datos es una carpeta llamada `data` que Marinara crea junto a sus archivos de servidor. Si ejecutas Marinara en un contenedor oficial de Docker, la carpeta de datos es `/app/data` dentro del contenedor.
+- De forma predeterminada es una carpeta llamada `data` junto a los archivos del servidor.
+- En el contenedor oficial de Docker es `/app/data`.
+- Para ver la ruta exacta, mira la ventana donde iniciaste Marinara (la terminal o la consola). Al arrancar, imprime una línea que empieza con `[storage] DATA_DIR=` seguida de la ruta. Si no encuentras esa ventana, busca una carpeta llamada `data` dentro de la carpeta de Marinara.
 
-Si no estás seguro de dónde está la carpeta de datos, revisa el registro de inicio del servidor. Cuando Marinara arranca, imprime una línea que empieza por `[storage] DATA_DIR=` seguida de la ruta completa a tu carpeta de datos.
+Para mover la carpeta, define `DATA_DIR` y reinicia Marinara. Consulta la [Referencia de configuración del servidor](../CONFIGURATION.md).
 
-Puedes mover la carpeta de datos a otra ubicación definiendo tú mismo `DATA_DIR`. Para saber cómo definirla, consulta la [Referencia de configuración del servidor](../CONFIGURATION.md). Marinara debe reiniciarse para que un nuevo valor de `DATA_DIR` surta efecto.
+## Qué hay dentro
 
-## La carpeta storage y las carpetas de recursos
+Tus datos de texto están en la carpeta `storage`: personajes, chats, mensajes, lorebooks, presets y conexiones. Marinara los guarda como muchos archivos pequeños. Después de una actualización desde el formato anterior, puede que veas copias antiguas en `storage/tables/` con nombres que terminan en `.pre-shard`. Marinara nunca las borra. Puedes borrarlas tú para liberar espacio cuando todo funcione.
 
-Dentro de la carpeta de datos, tus datos se reparten entre una carpeta `storage` y varias carpetas de recursos.
-
-La carpeta `storage` contiene tus datos de texto: personajes, chats, mensajes, lorebooks, presets y conexiones. Marinara guarda cada tabla en archivos más pequeños agrupados por propietario —por ejemplo, los mensajes de un chat o las entradas de un lorebook— para que cambiar un elemento no vuelva a escribir un archivo JSON global cada vez mayor. Durante la actualización única desde un almacenamiento anterior, Marinara conserva los archivos de tabla originales junto a las carpetas nuevas con el sufijo `.pre-shard`.
-
-Tus imágenes, audio y otros archivos multimedia viven en sus propias carpetas, cada una nombrada según lo que contiene. Las carpetas de recursos principales son:
+Tus imágenes, audio y otros archivos están en sus propias carpetas junto a `storage`. Los nombres de las carpetas son:
 
 | Carpeta | Qué contiene |
 | --- | --- |
-| `avatars` | Avatares de personaje y de persona |
-| `sprites` | Arte de sprite del personaje |
-| `avatar-models` | Archivos de los agentes **2D Avatars** (Avatares 2D) y **3D Avatars** (Avatares 3D), como imágenes PNGTuber y modelos 3D |
+| `avatars` | Avatares de personajes y personas |
+| `sprites` | Arte de sprites de personajes |
+| `avatar-models` | Archivos de los agentes **2D Avatars** y **3D Avatars**, como imágenes PNGTuber y modelos 3D |
 | `backgrounds` | Fondos de chat que subiste |
 | `gallery` | Imágenes de la galería |
-| `fonts` | Fuentes personalizadas que añadiste |
-| `knowledge-sources` | Archivos que subiste para agentes de conocimiento |
+| `fonts` | Fuentes personalizadas que agregaste |
+| `knowledge-sources` | Archivos que subiste para los agentes de conocimiento |
 | `game-assets` | Recursos de Game Mode |
-| `custom-emojis` | Imágenes de emoji personalizadas |
-| `custom-stickers` | Imágenes de sticker personalizadas |
+| `game-scene-videos` | Videos de escenas de Game Mode |
+| `conversation-call-character-videos` | Videos de personajes para las llamadas de Conversation |
+| `custom-emojis` | Imágenes de emoji personalizados |
+| `custom-stickers` | Imágenes de stickers personalizados |
+| `notification-sounds` | Tu sonido de notificación personalizado |
+| `long-term-memory` | Datos del agente de memoria a largo plazo |
+| `lorebooks/images`, `prompts/images`, `agents/images`, `connections/images` | Imágenes adjuntas a lorebooks, presets, agentes y cuentas |
 
-Para una explicación técnica más profunda de cómo funciona la carpeta `storage`, los desarrolladores pueden leer [Almacenamiento nativo en archivos](../development/file-storage.md).
+La carpeta de datos también contiene `backups/` (tus [copias de seguridad automáticas](backup-and-restore.md#automatic-backups)) y el archivo de la clave de cifrado. **Download Backup** incluye todas las carpetas de la tabla, `storage` y el archivo de la clave. Los desarrolladores pueden leer [Almacenamiento basado en archivos](../development/file-storage.md).
 
-## El archivo de la clave de cifrado
+## Conserva el archivo de la clave de cifrado
 
-Marinara cifra tus API key guardadas para que no se almacenen como texto plano. La clave usada para este cifrado se guarda en un archivo llamado `.encryption-key` dentro de tu carpeta de datos.
+Marinara cifra tus API keys (claves de API) guardadas. La clave para esto es el archivo `.encryption-key` de la carpeta de datos.
 
-Este archivo importa cuando mueves o restauras tus datos. Supón que copias tu carpeta de datos a una máquina nueva pero dejas atrás el archivo `.encryption-key`. Marinara ya no puede descifrar tus API key guardadas, así que tienes que volver a introducirlas. Mantén siempre este archivo junto con el resto de tus datos.
+Si copias tus datos a una computadora nueva sin este archivo, Marinara no puede leer tus API keys guardadas. Tendrás que escribirlas de nuevo. Cópialo junto con el resto de la carpeta de datos.
 
-Algunas configuraciones avanzadas proporcionan la clave a través de una variable de entorno `ENCRYPTION_KEY` en lugar del archivo. Si usas esa variable, mantén el valor a salvo por su cuenta. En ese caso no hay ningún archivo `.encryption-key` que copiar. Consulta la [Referencia de configuración del servidor](../CONFIGURATION.md) para más detalles.
+Algunas configuraciones dan la clave mediante la variable de entorno `ENCRYPTION_KEY`. Entonces no hay ningún archivo que copiar. Guarda ese valor a salvo por separado. Consulta la [Referencia de configuración del servidor](../CONFIGURATION.md).
 
-## Dónde están mis datos en Android
+## Copiar tus datos desde Android
 
-En Android, la carpeta de datos del servidor suele estar en un almacenamiento de la app que no puedes alcanzar sin acceso root. Esto significa que no puedes simplemente copiar la carpeta fuera del teléfono.
+En Android, la carpeta de datos está en el almacenamiento de la app, al que no puedes acceder sin acceso root, así que no puedes copiarla. Usa **Settings → Advanced → Backup & Export → Download Backup**. El `.zip` incluye el archivo `.encryption-key` cuando existe. Consulta [Copia de seguridad y restauración de Marinara](backup-and-restore.md).
 
-Para obtener una copia de tus datos en Android, usa el botón **Download Backup** (Descargar copia de seguridad). Lo encuentras en **Settings**, en la pestaña **Advanced**, en la sección **Backup & Export**. Esto crea un único archivo zip con tus datos. El zip incluye el archivo `.encryption-key` cuando existe uno. Esta es la forma más fiable de guardar tus datos desde un teléfono.
-
-La misma sección puede conservar de 1 a 9999 archivos automáticos rotativos diarios, semanales o mensuales en `backups/`, dentro
-de la carpeta de datos. El más reciente se llama `marinara-automatic-backup.zip` y los archivos automáticos anteriores que se
-conservan llevan una marca de tiempo. Este límite se aplica únicamente a las copias de seguridad automáticas. Copia las copias
-de seguridad importantes también en algún lugar fuera del almacenamiento de la app, porque desinstalar o restablecer la app
-puede eliminar tanto los datos activos como sus copias de seguridad automáticas locales.
-
-Para los pasos completos de copia de seguridad y restauración en cada plataforma, consulta [Copia de seguridad y restauración de Marinara](backup-and-restore.md).
+Las copias de seguridad automáticas se guardan en el mismo almacenamiento de la app. Desinstalar o restablecer la app puede eliminarlas junto con los datos activos, así que guarda una copia en otro lugar.
 
 ## Guías relacionadas
 
 - [Copia de seguridad y restauración de Marinara](backup-and-restore.md)
+- [Borrar o restablecer tus datos](clearing-data.md)
 - [Referencia de configuración del servidor](../CONFIGURATION.md)
-- [Almacenamiento nativo en archivos](../development/file-storage.md)
+- [Almacenamiento basado en archivos](../development/file-storage.md)

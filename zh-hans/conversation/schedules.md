@@ -1,195 +1,163 @@
 # 角色日程与自主消息
 
-本指南介绍 Conversation(对话模式) 里的角色怎么主动给你发消息，以及怎么控制它们发消息的时机，内容包括自主消息、角色日程、**/status** 命令和你自己的在线状态。这些功能只在 Conversation 模式下有效。
+自主消息是你安静一段时间之后，角色主动发给你的消息。日程是角色的每周计划，让它在不同时段显得清醒、忙碌或在睡觉。两者都只在 Conversation(对话模式) 中生效。
 
-## 自主消息和日程的作用
+日程是可选的。关闭日程后，角色仍会根据健谈度（角色主动开启对话的频率）和你的在线状态来主动联系你。
 
-自主消息就是角色抢先发来的消息，你一个字都不用写。你安静一段时间之后，Marinara Engine(下文简称 Marinara) 就会发出这类消息，让聊天更像现实中的日常联络。
-
-控制这个行为的设置有两个：
-
-- **Autonomous Messages**(自主消息) 决定角色能不能主动来找你。
-- **Schedules**(日程) 给每个角色安排一套每周作息，让它们在不同时段呈现清醒、忙碌或睡着的状态。
-
-日程不是必需的。只开自主消息、不开日程时，角色照样会按照各自的健谈度和你的状态来找你。健谈度是每个角色单独的设置，决定它主动开口的频率。
+如果你只想设置日程，请直接跳到[开启日程](#turn-on-schedules)。
 
 ## 开启自主消息
 
-这项开关在聊天里控制，不在角色卡上。下面这些控件都在 **Chat Settings**(聊天设置) 的 **Autonomous Messaging**(自主消息设置) 部分里。
+**开始之前：** 打开一个 Conversation 聊天。新聊天默认开启此功能（参见[Conversation 模式：入门](getting-started.md)）。
 
-1. 打开一个 Conversation 聊天。
-2. 打开 **Chat Settings**(点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角)。
-3. 找到 **Autonomous Messaging** 部分。
-4. 打开 **Autonomous Messages** 开关。
+1. 在聊天中打开 **Chat Settings**(聊天设置)。
+2. 找到 **Autonomous Messaging**(自主消息设置) 部分。
+3. 开启 **Autonomous Messages**。
 
-新建聊天的设置向导里，**Autonomous Messages** 默认是开的。随时可以在 **Chat Settings** 里关掉。
+如果没有成功：当你的在线状态为 **Do Not Disturb**(勿扰) 时，角色会保持沉默（参见[你的在线状态](getting-started.md#your-presence-status)）。
 
-### Chat Check-In Cap
+### 设置问候次数上限
 
-开关下方的 **Chat Check-In Cap**(问候次数上限) 限制角色每天在这个聊天里主动来找你的次数。
+在 **Chat Settings → Autonomous Messaging** 中，**Chat Check-In Cap**(问候次数上限) 限制角色每天在这个聊天中可以发送的问候次数。
 
-- 默认选项是 **Default chat ceiling (talkativeness-based)**，上限由每个角色各自的健谈度决定。
-- 选 **Numeric value** 会出现一个数字输入框，可以填任意正整数上限。上限定得越高，产生的模型请求和通知就越多。
+- **Default chat ceiling (talkativeness-based)** 会使用每个角色健谈度决定的上限（见下表）。
+- **Numeric value** 会显示数字输入框，可以输入任意 1 或更大的整数。数字越大，模型请求和通知可能越多。
 
-这个上限管的是整个聊天。角色在自己日程里设的单独上限只能把这个数字调低，不能调高。
+角色还可以在自己的日程中设置单独的 **Daily safety limit**(每日安全上限)。角色的上限按以下规则生效：
 
-基于健谈度的默认值是这样的：
+- 聊天上限设为 **Numeric value**，且设置了 **Daily safety limit**：以较小的数字为准。
+- 只设置了其中一个：以该数字为准，即使它高于下表中的健谈度数字。
+- 两者都未设置：数字取自角色的健谈度。
 
-| 角色健谈度 | 每天默认问候次数 |
-|---|---|
+| 角色健谈度 | 每天问候次数 |
+| --- | --- |
 | 80 或更高 | 8 |
 | 60 到 79 | 6 |
 | 40 到 59 | 5 |
 | 20 到 39 | 3 |
 | 低于 20 | 2 |
 
-### 开启日程
+<a id="turn-on-schedules"></a>
+## 开启日程
 
-**Schedules**(日程)开关位于**Autonomous Messaging**中。保存的作息属于角色，并在各个 Conversation 聊天中复用，包括把角色加入已有聊天时。在某个聊天中明确关闭日程，会保留该聊天的关闭状态，不会删除角色作息。
+**开始之前：** 开启 **Autonomous Messages**。
 
-1. 打开 **Schedules** 开关。
-2. 现有作息会立即显示。启用日程不会自动生成新作息；需要时点击**Generate**。
-3. 作息生成之后，界面上会出现 **Edit schedules**(编辑日程) 列表，每个角色一行。
+1. 在 **Chat Settings → Autonomous Messaging** 中开启 **Schedules**(日程)。（在新建聊天向导中，同一选项叫 **Generate Schedules**(生成日程)。）已有的日程会立即显示。
+2. 在其下方的字段中选择你的时区。
+3. 点击 **Generate**(生成)，为尚无日程的角色生成日程。日程存在后，按钮会显示 **Regenerate**(重新生成)。
+4. 等待生成完成。随后会出现 **Edit schedules**(编辑日程) 列表，每个角色占一行。每行显示已安排的天数（例如 **3 days scheduled**），或显示 **Create schedule**(创建日程)。只有存在日程后，列表才会显示。
+5. 点击某个角色的行，打开其日程编辑器（见下一节）。
 
-每周自动更新默认关闭，只有在**Character Schedule Manager**(角色日程管理器)中为该角色启用后才会运行。失败后重新打开聊天不会反复重试；请使用生成按钮手动重试。
+日程属于角色，会在每个 Conversation 聊天中复用。在某个聊天中关闭 **Schedules**，只会让该聊天中的日程保持关闭，日程本身会保留。
 
-每一行显示已经排好几天，例如 **3 days scheduled**；如果这个角色还没有日程，显示的是 **Create schedule**。**Generate** 按钮（已有作息之后显示为 **Regenerate**）可以随时重新生成作息。
+除非你在 **Character Schedule Manager**(角色日程管理器) 中为该角色开启 **Renew weekly**(每周更新)，否则自动每周更新默认关闭。点击侧边栏底部状态框旁边的日历按钮即可打开它。
 
-## Schedules 编辑器
+每次加载应用页面时，Marinara 会对每个聊天尝试一次更新。如果失败，在你重新加载页面之前不会再次尝试。点击 **Generate** 即可重试。
 
-在 **Edit schedules** 列表里点击某个角色所在的行，就会打开日程编辑器。窗口标题是 **Edit** 加角色名再加 **Schedule**。
+**Schedule generation preferences**(日程生成偏好) 位于 **Chat Settings** 中同一个 **Schedules** 区域，它保存着关于如何编写日程的自由文本指导。下次生成日程时，它会应用于每个 Conversation 聊天。示例：
 
-顶部的 **Routine profile**(作息概况) 区域用大白话把一周的安排讲一遍。点 **Generate summary** 按钮生成，点 **Refresh summary** 更新。生成摘要之后又改了日程，界面上会出现 **Summary may be stale** 提示。
-
-### Tuning
-
-展开 **Tuning**(调节) 部分，主要的控件都在里面。
-
-- **Chat talkativeness**(聊天健谈度) 是一个五档滑块：**Rare**、**Quiet**、**Balanced**、**Social**、**Very frequent**。中间的 **Balanced** 是默认值。这个值会在使用该日程的所有聊天中覆盖角色自带的默认健谈度。它影响角色主动发消息、追加消息和参与群聊闲聊的频率，同时决定角色的默认每日上限。
-- **Wait before checking in**(问候前的等待时长) 指角色开始问候之前需要多久的安静时间，单位是分钟。范围是 15 到 360 分钟，默认 **120**。
-- **Check-in moments**(问候时机) 是角色主动来找你的理由，可选项有 **Morning**、**Goodnight**、**Meal breaks**、**After busy** 和 **Long absence**，默认全部开启，点一下就关掉。
-
-### Advanced timing
-
-在 **Tuning** 里展开 **Advanced timing**(高级时间设置)，还有三个控件。
-
-- **Daily safety limit**(每日安全上限) 是这一个角色的硬性上限，可以选 **Default**，也可以填每天 1 到 8 之间的数字。它只能把聊天上限调低，不能调高。一般保持 **Default** 就行。
-- **Delay while you're away**(离开时的延迟) 决定角色自身状态为 **Away** 时，发消息前要等多少分钟。留空则用默认值，也就是随机 1 到 3 分钟。范围是 0 到 120 分钟。
-- **Delay while you're busy**(忙碌时的延迟) 的作用一样，对应角色状态为 **Busy** 的情况。留空则用默认值，也就是随机 2 到 5 分钟。范围是 0 到 120 分钟。
-
-### Schedule AI：重新起草一周
-
-展开 **Schedule AI**(日程 AI) 部分，可以让模型帮你重写作息。先选一个 **Week action**(整周操作)：
-
-- **Rewrite** 重新起草完整的一周。
-- **Adjust** 保留大部分作息，按你的说明做调整。
-- **Vary** 生成明显不一样、但依然合理的一周。
-- **Repair** 用小改动补上空缺和明显的问题。
-
-可以在 **Week guidance**(整周说明) 框里写点提示，例如：
-
-```
-make weekdays more nocturnal, keep weekends social
-```
-
-然后点击对应操作的按钮，例如 **Rewrite week**。结果只是草稿，点击 **Save schedule** 之前不会保存任何内容。 如果模型返回无效 JSON，可在**Edit generated schedule JSON**(编辑生成的日程 JSON)中修正，然后选择**Apply to draft**(应用到草稿)。验证通过的修正和成功生成的日期会保留在草稿中，直到保存。调用失败后会停止，不会自动重试。**Stop**或关闭编辑器会取消当前请求。关闭日程管理器或聊天设置，也会取消在其中启动的生成。
-
-### 每日时段块
-
-这几个部分下面，周一到周日各占一行。什么都没安排的那天显示 **No blocks scheduled for this day**。
-
-每个时段块由三部分组成，这一栏标着 **Status, time & activity**：
-
-- 一个**状态**，从 **Online**、**Away**、**Busy**、**Offline** 里选。
-- 一个时间范围，写法像 `09:00-11:30`。
-- 一句简短的活动说明，例如 `at work`。
-
-点 **Add block** 添加时间范围，点垃圾桶图标删掉一个。每一天还有各自的说明框，标着 **Guide Monday**、**Guide Tuesday**，依此类推。在里面写一句提示，再点对应的按钮，例如 **Regenerate Monday**，就只重新起草那一天。
-
-时段块的状态决定问候时间到了之后角色怎么做。处在 **Offline** 时段块里的角色，那段时间绝不会主动发消息。处在 **Busy** 时段块里的角色，来找你之前要多等三倍的时间。
-
-改完之后点 **Save schedule**。点 **Cancel** 则关闭编辑器，不保存。
-
-### 在角色之间、不同安装之间搬运日程
-
-编辑器底部的 **Export schedule**(导出日程) 可以把当前草稿下载成一个 JSON 文件。导出内容包含每周的时段块、作息摘要、健谈度、问候时机和高级时间设置。
-
-打开另一个角色的日程编辑器，选择 **Import schedule**(导入日程) 加载这个文件。Marinara 会先校验文件再替换编辑器里的草稿，并把导入的作息挪到当前这一周。导入不会自动保存：点 **Save schedule** 保留，点 **Cancel** 则不动这个角色原有的日程。
-
-### Schedule generation preferences
-
-回到 **Chat Settings**，**Schedule generation preferences**(日程生成偏好) 框里可以自由写一段文字，指导作息的编写方式。这是全局设置。下一次生成日程时，它对每个 Conversation 聊天都生效，手动生成和应用自动生成都算。例如：
-
-```
+```text
 Make everyone go to sleep before midnight. I work 9-5 on weekdays.
 ```
 
-## 用 /status 设置一次性状态
+## 日程编辑器
 
-**/status** 命令用来给角色设置或清除临时状态，不会改动已经保存的日程。它只在 Conversation 模式下有效。
+编辑器的标题由 **Edit**、角色名和 **Schedule** 组成。
 
-命令格式：
+编辑器顶部的 **Routine profile**(作息概况) 用通俗的语言概括一周的安排。点击 **Generate summary**(生成摘要) 即可生成它，点击 **Refresh summary**(刷新摘要) 即可更新它。修改日程后，会出现 **Summary may be stale**(摘要可能已过时) 提示。**Generation model**(生成模型) 用来选择负责编写日程的模型。
 
-```
-/status <online|idle|dnd|offline|clear> [character name]
-```
+### 调节
 
-Away 写 `idle`，Busy 写 `dnd`。这四个状态和日程时段块里用的是同一套。要让名叫 Mira 的角色现在显示为忙碌：
+打开 **Tuning**(调节)，即可看到主要控件。
 
-```
+- **Chat talkativeness**(聊天健谈度)：一个滑块，档位有 **Rare**、**Quiet**、**Balanced**、**Social** 和 **Very frequent**。默认是 **Balanced**。它决定角色主动发消息和加入群聊闲聊的频率，也决定它的默认每日上限。
+- **Wait before checking in**(问候前等待)：角色可以开始问候之前，需要保持安静的分钟数。默认为 120。可以设为 15 到 360。
+- **Check-in moments**(问候时机)：包括 **Morning**、**Goodnight**、**Meal breaks**、**After busy** 和 **Long absence** 几个标签。默认全部开启。点击某个标签即可关闭它。
+
+在 **Tuning** 中展开 **Advanced timing**(高级时间设置)，可以看到另外三个控件。
+
+- **Daily safety limit**(每日安全上限)：这个角色每天最多的问候次数。保持 **Default** 即可，也可以输入 1 或更大的整数。如果聊天也设置了数字上限，以较小的数字为准；否则，这个数字会取代健谈度对应的数字。
+- **Delay while you're away**(离开时的延迟)：角色状态为 **Away** 时，回复前额外等待的分钟数。留空则随机等待 1 到 3 分钟。可以设为 0 到 120。
+- **Delay while you're busy**(忙碌时的延迟)：角色状态为 **Busy** 时的相同设置。留空则随机等待 2 到 5 分钟。可以设为 0 到 120。
+
+### Schedule AI：重新起草一周
+
+展开 **Schedule AI**(日程 AI)，让模型重写日程。选择一个 **Week action**(整周操作)：
+
+| 操作 | 结果 |
+| --- | --- |
+| **Rewrite** | 重新起草一整周的新草稿。 |
+| **Adjust** | 保留大部分日程，并应用你的指导。 |
+| **Vary** | 生成明显不同、但仍然可信的一周。 |
+| **Repair** | 用小改动修补空缺和明显的问题。 |
+
+1. 选择一个 **Week action**。
+2. 在 **Weekly generation**(整周生成方式) 下，选择 **Entire week in one request**(整周一次请求) 或 **One request per day**(每天一次请求)。每天一次请求会发出七个较小的请求，可能消耗更多 Token(模型切分文本的最小单位)。
+3. 在 **Week guidance**(整周说明) 中输入可选的提示，例如 `make weekdays more nocturnal, keep weekends social`。
+4. 点击写有你所选操作的按钮，例如 **Rewrite week**(重写整周)。
+5. 点击 **Save schedule**(保存日程) 保留结果。在此之前，它只是草稿（**Unsaved draft**(未保存的草稿)）。
+
+如果没有成功：草稿会保留。失败的调用不会自动重试，因此请再次点击按钮。点击 **Stop**(停止) 或关闭编辑器，即可取消正在运行的请求。如果编辑器显示 **Edit generated schedule JSON**，表示模型返回了它无法读取的文本。请在那里修正文本，然后点击 **Apply to draft**(应用到草稿)。
+
+### 每日时段
+
+从周一到周日，每一天各占一行。没有安排的那天会显示 **No blocks scheduled for this day**。每个时段包含一个状态、一个时间范围（例如 `09:00-11:30`）和一段简短的活动（例如 `at work`）。
+
+1. 点击某一天下方的 **Add block**(添加时段)。
+2. 选择状态：**Online**、**Away**、**Busy** 或 **Offline**。
+3. 输入时间范围和活动。
+4. 点击 **Save schedule**。**Cancel**(取消) 会关闭编辑器，但不保存。
+
+使用垃圾桶图标可以删除一个时段。要重新起草某一天，请在 **Guide Monday**(或你想要的那一天)中输入提示，然后点击 **Regenerate Monday**。
+
+在 **Offline** 时段内，角色绝不会先发消息。在 **Busy** 时段内，它等待的时间是平常的三倍。
+
+### 在角色之间移动日程
+
+点击 **Export schedule**(导出日程)，把草稿下载为 JSON 文件（包括每周时段、摘要、健谈度、问候时机和时间设置）。在另一个角色的编辑器中，点击 **Import schedule**(导入日程) 加载该文件。Marinara 会检查文件，并把日程移到当前这一周。点击 **Save schedule** 之前，不会保存任何内容。
+
+## 用 /status 设置状态
+
+`/status` 为角色设置或清除临时状态，不会改变已保存的日程。它只在 Conversation 模式中生效。这个状态属于角色本身，因此它会应用于该角色所在的每个聊天。
+
+在消息框中输入以下命令之一：
+
+```text
 /status dnd Mira
-```
-
-要清除这个临时状态，让 Mira 回到自己的日程：
-
-```
 /status clear Mira
 ```
 
-聊天里只有一个角色时，名字可以省略。不带任何参数运行 **/status**，会列出角色清单和用法说明。
+第一条命令会让 Mira 进入忙碌状态。第二条会让她回到自己的日程。如果聊天中只有一个角色，可以省略名字。单独输入 `/status` 会列出角色和用法。
 
-<a id="characters-can-change-their-own-status"></a>
+完整格式如下。`idle` 表示 **Away**，`dnd` 表示 **Busy**。方括号表示名字可以省略。
 
-## 角色可以自己更改状态
+```text
+/status online|idle|dnd|offline|clear [character name]
+```
 
-在 **Chat Settings → Agents**(聊天设置 → 智能体) 中开启 **Schedule Updates**(更新日程) 命令后，角色可以给自己设置临时的状态和活动。例如，你让角色专心一小时，它就可以切换到 **Busy**，并把活动设为“学习中”。
+你设置的状态会一直保留，直到你清除它，角色无法替换它。
 
-- 状态会持续角色指定的时长，没有指定时为一小时，最长七天。
-- 时间到了以后，角色会回到自己的日程；没有日程的角色则回到 **Online**。
-- 它绝不会改动已保存的日程。
-- 你自己用 **/status** 设置的状态会一直保留，直到你清除它。角色无法替换它。
+## 让角色更改自己的状态
 
-## 自主消息的节奏
+在 **Chat Settings → Agents → Commands** 中开启 **Schedule Updates**(更新日程) 后，角色可以设置它自己的临时状态和活动。例如，如果你请它专心一小时，它可以切换到 **Busy**，并把活动设为 “Studying”。
 
-Marinara 会控制自主消息的节奏，不让角色刷屏。下面这些规则依据的是每个角色自己的日程。
+- 这项改动持续的时间由角色指定；如果角色没有指定，则为一小时。最长为七天。
+- 时间到后，角色会回到自己的日程；如果没有日程，则回到 **Online**。
+- 它绝不会编辑已保存的日程。
 
-- 角色会一直等到你安静满 **Wait before checking in** 设定的时长，默认是 120 分钟。
-- 当前状态是 **Offline** 的角色不会主动发消息。
-- 当前状态是 **Busy** 的角色要多等三倍时间。
-- 第一条消息之后，只要你一直不说话，角色最多再发两条，也就是一段沉默期内总共三条。
-- 每条追加消息的间隔都比上一条长：第一条追加等基础时长的两倍，第二条等四倍。
-- 你一回复，计数就归零，下一段沉默重新开始。
+## 问候节奏
 
-如果几个角色同时都准备好了，健谈度最高、时机最合适的那个先发。
+| 规则 | 说明 |
+| --- | --- |
+| 第一次问候 | 角色会等到你保持安静达到它的 **Wait before checking in** 时间（默认为 120 分钟）。 |
+| 回应 | 你只做出回应、没有发送新消息时，会开始较短的等待。 |
+| **Offline** 状态 | 不进行问候。 |
+| **Busy** 状态 | 等待时间为三倍。 |
+| 追加问候 | 只要你保持安静，最多再追加两条，共三条。第一条追加在两倍等待时间后发出，第二条在四倍等待时间后发出。 |
+| 你的回复 | 计数归零。 |
+| 多个角色已准备好 | 健谈度最高、时机最合适的角色先发。**Online** 的角色排名更靠前。 |
 
-在设为 **Individual**(各自独立) 的群聊里，所有角色共用同一个每日问候上限，所以也共用这套节奏。任何一个角色问候过之后，下一次问候不管由谁发，都要像追加消息那样等待。时间一到，自己的等待时长已满的角色都可以发，当天问候次数最少的那个先发。你离开很久之后，只会有一个角色来问候。
-
-## 你的在线状态
-
-你自己的状态告诉角色你在不在。状态控件在侧边栏底部，任何聊天模式下都看得到，但它对消息的影响只在 Conversation 模式里生效。
-
-点击状态胶囊标记，会展开四个选项：
-
-- **Active**(在线)：你在线，也有空。
-- **Idle**(离开)：表示你暂时离开。
-- **Do Not Disturb**(勿扰)：停掉所有自主消息。
-- **Invisible**(隐身)：对角色隐藏你的状态。
-
-**Idle** 基本上是自动的。状态为 **Active** 且 10 分钟没有任何操作时，Marinara 会把你切到 **Idle**，你回来之后再切回 **Active**。也可以自己在弹出菜单里选 **Idle**。只要手动选过状态，自动切换就会停用，直到你重新选 **Active**。
-
-想清静一会儿就设成 **Do Not Disturb**，开着的时候不会有角色主动来找你。**Idle** 不会拦下自主消息，你离开期间角色照样可以来问候。
-
-状态胶囊标记旁边是 **What are you doing?** 输入框，可以写一句简短的自定义活动，最多 120 个字符。写过的内容会出现在 **Recent status** 列表里，方便重复使用。
+在每个角色各自回复的群聊中（参见[群聊](../chats/group-chats.md)），角色共享同一个每日上限和同一套节奏。任何角色完成问候之后，下一次问候无论来自谁，都要像追加消息那样等待。自己的等待时间已过的角色都可以发出问候，当天问候次数最少的角色优先。长时间离开之后，只会有一个角色进行问候。
 
 ## 相关指南
 

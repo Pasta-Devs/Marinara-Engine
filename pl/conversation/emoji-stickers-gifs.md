@@ -1,144 +1,107 @@
 # Własne emoji, naklejki i GIF-y
 
-Z tego przewodnika dowiesz się, jakie dodatkowe obrazki da się wstawić do czatu w trybie Conversation: własne emoji, własne naklejki i GIF-y z wyszukiwarki. Zobaczysz też, jak zdecydować, których własnych emoji i naklejek postać może użyć w odpowiedzi.
-
-Te narzędzia działają wyłącznie w trybie Conversation. Tryby Roleplay i Game Mode mają zwykłą tabelę emoji, bez własnych emoji, bez naklejek i bez wyszukiwarki GIF-ów.
+Wgraj własne emoji i naklejki, szukaj GIF-ów i kontroluj, których własnych emoji i naklejek może używać postać w swoich odpowiedziach. Te narzędzia działają tylko w trybie Conversation. Tryby Roleplay i Game Mode mają zwykły wybór emoji.
 
 ## Gdzie znaleźć te narzędzia
 
-W czacie w trybie Conversation spójrz na pasek wpisywania wiadomości. Jest tam okrągły przycisk z ikoną uśmiechniętej buźki, podpisany **Emoji, GIFs & stickers** (emoji, GIF-y i naklejki). Kliknij go, a nad paskiem otworzy się mały panel.
+W czacie Conversation kliknij okrągły przycisk z uśmiechniętą buźką **Emoji, GIFs & stickers** obok pola wiadomości. Nad nim otwiera się panel (na telefonie jest to arkusz nad klawiaturą). Ma zakładki:
 
-Panel ma następujące zakładki:
-
-- **Emoji**: standardowa tabela emoji oraz zakładka z gwiazdką o nazwie **Custom emojis** (własne emoji) na wgrane obrazki.
+- **Emoji**: standardowa siatka emoji oraz zakładka z gwiazdką **Custom emojis** dla wgranych obrazów.
 - **GIFs**: wyszukiwarka GIF-ów na żywo.
+- **Kaomoji**: buźki z tekstu, takie jak `(^_^)`.
 - **Stickers**: wgrane naklejki.
 
-Zakładka **Tools** pojawia się dodatkowo wtedy, gdy włączone są inne narzędzia paska wpisywania. Na telefonie te same zakładki otwierają się w panelu nad klawiaturą.
+Zakładka **Tools** pokazuje się też wtedy, gdy włączone są inne narzędzia wprowadzania.
 
-## Własne emoji
+## Wgraj własne emoji
 
-Własne emoji to mały obrazek, który wgrywasz raz i wykorzystujesz w dowolnym czacie w trybie Conversation. W wiadomości zapisujesz je jako kod skrótowy, czyli nazwę emoji otoczoną dwukropkami, na przykład `:kekw:`.
+Własne emoji to mały obraz, który wgrywasz raz i używasz w każdym czacie Conversation. W napisanej wiadomości zapisuje się je jako kod skrótu: nazwa między dwukropkami, na przykład `:kekw:`.
 
-Własne emoji są wspólne dla całego profilu. Wystarczy wgrać je raz, żeby korzystać z nich wszędzie.
+1. Przejdź do zakładki **Emoji**, a potem do zakładki z gwiazdką **Custom emojis**.
+2. Kliknij **Upload** (wgraj) i wybierz jeden plik obrazu lub więcej.
+3. W oknie **Name this emoji** wpisz nazwę i kliknij **Add** (dodaj).
+4. Emoji pojawia się w siatce **Custom emojis**.
 
-### Wgrywanie własnego emoji
+Reguły:
 
-1. Otwórz panel **Emoji, GIFs & stickers** i przejdź do zakładki **Emoji**.
-2. Kliknij zakładkę z gwiazdką o nazwie **Custom emojis**.
-3. Kliknij przycisk **Upload** (wgranie) i wskaż jeden plik graficzny lub kilka.
-4. W oknie **Name this emoji** wpisz nazwę i kliknij przycisk **Add**.
+- Nazwa ma od 1 do 32 znaków: małe litery, cyfry i podkreślenia. Aplikacja zmienia inne znaki za ciebie.
+- Obraz może mieć najwyżej 256 na 256 pikseli. Animowane pliki GIF działają i odtwarzają się w czacie.
+- Nazwy muszą być unikalne. Zajęta nazwa pokazuje komunikat `An emoji named ":name:" already exists.`
 
-Nowe emoji powinno pojawić się w tabeli **Custom emojis**.
+Jeśli to nie zadziałało: sprawdź nazwę i rozmiar obrazu względem powyższych reguł.
 
-Nazwy emoji podlegają ścisłym regułom. Nazwa ma od 1 do 32 znaków. Wolno używać wyłącznie małych liter, cyfr i podkreśleń. Spacje i wielkie litery aplikacja poprawia sama. Zamienia na przykład wielkie litery na małe, a pozostałe znaki na podkreślenia.
+## Użyj własnego emoji
 
-Obrazek własnego emoji nie może być większy niż 256 na 256 pikseli. Aplikacja sprawdza to podczas wgrywania. Nazwy muszą być niepowtarzalne w obrębie wszystkich własnych emoji. Przy nazwie, która jest już zajęta, pojawia się błąd `An emoji named ":name:" already exists.`
+Kliknij kafelek w siatce **Custom emojis**. Wstawia to jego kod skrótu do wiadomości i nie wysyła jej. Możesz też wpisać kod skrótu małymi literami, dokładnie tak, jak go zapisano.
 
-Jako własne emoji można wgrać animowany plik GIF. W czacie odtwarza się z animacją. To coś innego niż zakładka **GIFs** opisana niżej.
+W czacie Conversation kod skrótu pokazuje się jako mały obraz w tekście. Wiadomość złożona wyłącznie z kodów skrótu emoji pokazuje je większe. Jeśli nazwy już nie ma, na przykład po jej usunięciu, wiadomość pokazuje zwykły tekst `:kekw:`.
 
-### Używanie własnego emoji
+## Zmień nazwę, usuń, wyeksportuj i zaimportuj
 
-Kliknij dowolny kafelek w tabeli **Custom emojis**, aby wstawić jego kod skrótowy do wiadomości. To nie wysyła wiadomości, a jedynie wstawia tekst. Kod skrótowy da się też wpisać ręcznie, na przykład `:kekw:`. Wpisz nazwę małymi literami, dokładnie tak, jak została zapisana.
+Kliknij **Edit** (edytuj) na górze zakładki **Custom emojis**, aby włączyć tryb edycji.
 
-### Zmiana nazwy, usuwanie, eksport i import
-
-Kliknij przycisk **Edit** (edycja) u góry zakładki **Custom emojis**, aby włączyć tryb edycji.
-
-W trybie edycji:
-
-- Kliknij kafelek, aby otworzyć okno **Rename emoji**, a potem kliknij przycisk **Rename**.
-- Kliknij małą ikonę kosza na kafelku, aby usunąć to emoji. Okno **Delete emoji** ostrzega, że w wiadomościach, które już go użyły, pojawi się zwykły tekst.
-- Kliknij przycisk **Export** (eksport), aby pobrać wszystkie własne emoji w pliku o nazwie `marinara-custom-emojis.json`. Plik zawiera w sobie same obrazki, więc jest w pełni przenośny.
-- Kliknij przycisk **Import** (import), aby wczytać wcześniej wyeksportowany plik. Import pomija emoji, które łamią reguły nazwy lub rozmiaru albo mają nazwę już zajętą.
+- Kliknij kafelek, aby otworzyć **Rename emoji**, a potem kliknij **Rename**.
+- Kliknij plakietkę kosza na kafelku, aby go usunąć. Okno **Delete emoji** ostrzega, że wiadomości, które go używały, pokażą zamiast niego tekst.
+- Kliknij **Export**, aby pobrać wszystkie własne emoji jako `marinara-custom-emojis.json`. Obrazy są w środku pliku.
+- Kliknij **Import**, aby wczytać wyeksportowany plik. Pomija emoji, które łamią reguły nazwy lub rozmiaru albo kolidują z istniejącym.
 
 ## Własne naklejki
 
-Własna naklejka działa jak własne emoji, tylko dotyczy większych obrazków. Naklejkę zapisujesz jako `sticker:name:` i zawsze wyświetla się jako duży obrazek blokowy w osobnej linii.
+Naklejka to większy obraz, który pokazuje się w osobnej linii. Zwykle klikasz ją w zakładce **Stickers**, a wstawiany jest tekst `sticker:name:`. W zakładce **Stickers** kliknij **Upload** i używaj przycisków **Edit**, **Export** i **Import** tak jak przy emoji. Różnice:
 
-Otwórz zakładkę **Stickers** w tym samym panelu. Wgrywanie, nadawanie nazw, zmiana nazwy, usuwanie, eksport i import działają tak samo jak przy emoji, z tymi różnicami:
+- Okno wgrywania nazywa się **Name this sticker**.
+- Największy obraz ma 512 na 512 pikseli (emoji: 256 na 256).
+- Plik eksportu nazywa się `marinara-custom-stickers.json`.
 
-- Okno wgrywania nosi tytuł **Name this sticker**.
-- Obrazek naklejki nie może być większy niż 512 na 512 pikseli.
-- Nazwy naklejek są niepowtarzalne w obrębie wszystkich naklejek. Przy powtórzeniu pojawia się `A sticker named "sticker:name:" already exists.`
-- Eksport pobiera plik o nazwie `marinara-custom-stickers.json`.
+Aby wysłać naklejkę, kliknij jej kafelek. Okno **Send sticker** oferuje:
 
-### Wysyłanie naklejki
+- **Send & reply**: publikuje naklejkę jako osobną wiadomość i pozwala postaci odpowiedzieć.
+- **Add to message**: wstawia tekst `sticker:name:` do twojej wiadomości, aby można było pisać dalej.
 
-Kliknij kafelek naklejki w tabeli. Okno **Send sticker** pyta, w jaki sposób jej użyć, i daje dwie możliwości:
+## Szukaj GIF-ów
 
-- **Send & reply**: od razu publikuje naklejkę jako osobną wiadomość i pozwala postaci odpowiedzieć.
-- **Add to message**: wstawia tekst `sticker:name:` do wiadomości, żeby dało się pisać dalej.
+Zakładka **GIFs** przeszukuje Giphy, internetową bibliotekę GIF-ów. Wpisz hasło w polu wyszukiwania albo przeglądaj listę popularnych, a potem kliknij GIF, aby go wysłać.
 
-## Wyszukiwarka GIF-ów (Giphy)
+Zanim zaczniesz: wyszukiwanie GIF-ów wymaga darmowego klucza API Giphy. Klucz to tajny kod, dzięki któremu usługa Giphy zna twoją aplikację. Bez niego zakładka pokazuje kartę konfiguracji. Ustawienie go oznacza edycję pliku `.env`, czyli zwykłego pliku ustawień tekstowych aplikacji Marinara Engine. Leży on w folderze projektu aplikacji albo w `/app/data/.env` w Dockerze (zobacz [Edycja pliku .env](../CONFIGURATION.md#edit-the-env-file)).
 
-Zakładka **GIFs** przeszukuje serwis Giphy, czyli dużą internetową bibliotekę GIF-ów. Wpisz hasło w polu wyszukiwania albo przejrzyj listę popularnych pozycji. Kliknięty GIF trafia do czatu.
+1. Otwórz panel deweloperski Giphy pod adresem `https://developers.giphy.com/dashboard/`.
+2. Utwórz klucz API dla aplikacji internetowej i skopiuj go.
+3. Otwórz plik `.env` w edytorze tekstu.
+4. Dodaj tę linię na końcu, wstawiając swój klucz w miejsce `your_key_here`, i zapisz plik:
 
-### Wyszukiwarka GIF-ów wymaga klucza
+   ```text
+   GIPHY_API_KEY=your_key_here
+   ```
 
-Wyszukiwarka GIF-ów wymaga darmowego klucza API do serwisu Giphy. Klucz API to tajny kod, trochę jak hasło, dzięki któremu Marinara Engine rozmawia z serwisem Giphy w twoim imieniu. Bez klucza zakładka **GIFs** pokazuje kartę konfiguracji zamiast wyników.
+5. Uruchom aplikację Marinara Engine ponownie. To znaczy: zatrzymaj ją i uruchom tak, jak zwykle ją uruchamiasz (zobacz [Instalacja aplikacji Marinara Engine](../INSTALLATION.md)).
 
-Aby uruchomić wyszukiwarkę GIF-ów:
+Wyniki GIF-ów używają dojrzałej klasyfikacji Giphy. Nie możesz jej zmienić w aplikacji, więc wyniki mogą zawierać GIF-y dla dorosłych. Nie ma źródła GIF-ów tylko bezpiecznych.
 
-1. Otwórz panel Giphy Developer Dashboard pod adresem `https://developers.giphy.com/dashboard/`.
-2. Utwórz darmowy klucz API dla aplikacji internetowej.
-3. Dodaj klucz do pliku `.env`. To plik z ustawieniami serwera aplikacji Marinara Engine.
+## Oznacz obraz z galerii jako emoji lub naklejkę
 
-Dopisz do pliku `.env` linię w tej postaci:
+Każdy obraz w galerii postaci lub galerii persony może stać się emoji albo naklejką. Działa to w czatach, które obejmują tę postać lub personę.
 
-```
-GIPHY_API_KEY=your_key_here
-```
-
-Po dodaniu klucza uruchom ponownie aplikację Marinara Engine. Pełne wyjaśnienie pliku `.env` znajdziesz w przewodniku konfiguracji serwera, do którego link jest niżej.
-
-### Klasyfikacja treści GIF-ów
-
-Wyniki wyszukiwania GIF-ów korzystają z klasyfikacji treści dla dorosłych w serwisie Giphy. Jest to ustawione na stałe i nie da się tego zmienić w aplikacji. Wśród wyników mogą trafić się GIF-y sugestywne lub dla dorosłych, więc warto szukać z tą świadomością. Nie ma źródła GIF-ów działającego offline ani wyłącznie bezpiecznego.
-
-## Oznaczanie obrazka z galerii jako emoji lub naklejki
-
-Dowolny obrazek zapisany już w galerii postaci lub w galerii persony da się oznaczyć jako własne emoji lub naklejkę. Tak oznaczony obrazek z galerii należy tylko do tej jednej postaci albo persony. Działa wyłącznie w czatach, w których one występują.
-
-Aby oznaczyć obrazek z galerii:
-
-1. Otwórz panel **Character Editor** (edytor postaci) lub **Persona Editor** (edytor persony).
-2. Przejdź do zakładki **Gallery** i otwórz podzakładkę **Images**.
-3. Najedź na obrazek i kliknij mały przycisk oznaczania w jego lewym górnym rogu.
-4. Wybierz **Make emoji** albo **Make sticker**.
+1. Otwórz **Character Editor** (edytor postaci) albo **Persona Editor** (edytor persony).
+2. Otwórz zakładkę **Gallery**, a potem podzakładkę **Images**.
+3. Najedź na obraz i kliknij przycisk tagu w jego lewym górnym rogu.
+4. Wybierz **Make emoji** lub **Make sticker**.
 5. W oknie **Custom Emoji** lub **Custom Sticker** wpisz nazwę.
 
-Przycisk oznaczania powinien zmienić się tak, aby pokazywać nadaną nazwę.
-
-Obowiązują tu te same limity rozmiaru. **Make emoji** dopuszcza najwyżej 256 na 256 pikseli, a **Make sticker** najwyżej 512 na 512 pikseli. Jeśli obrazek jest za duży dla wybranego rodzaju, pojawia się czerwony komunikat błędu.
-
-Aby później zmienić oznaczony obrazek, kliknij jego przycisk oznaczania ponownie. Menu proponuje opcję **Rename**, opcję zamiany w rodzaju **Switch to sticker** oraz opcję usunięcia w rodzaju **Remove emoji**. Oznaczenie nie przenosi ani nie kopiuje obrazka, bo pozostaje on też zwykłym obrazkiem w galerii.
+Przycisk tagu pokazuje teraz tę nazwę. Obowiązują te same limity rozmiaru, a obraz, który jest zbyt duży, pokazuje czerwony błąd. Aby zmienić to później, kliknij przycisk tagu ponownie, aby zobaczyć **Rename**, opcję przełączenia, taką jak **Switch to sticker**, albo opcję usunięcia, taką jak **Remove emoji**. Obraz nadal pozostaje zwykłym obrazem w galerii.
 
 ## Preferencje wyboru
 
-Marinara Engine potrafi podpowiedzieć odpowiadającej postaci, których własnych emoji i naklejek wolno jej użyć w odpowiedzi. Steruje tym panel **Selection preferences** (preferencje wyboru).
+Aplikacja informuje odpowiadającą postać, których własnych emoji i naklejek może używać. Aby zmienić sposób ich wyboru, kliknij ikonę koła zębatego **Selection preferences** na górze zakładki **Custom emojis** lub **Stickers**. Obie otwierają to samo ustawienie, zapisywane dla każdego czatu osobno.
 
-Aby otworzyć ten panel, kliknij ikonę koła zębatego podpisaną **Selection preferences**. Znajduje się u góry zakładki **Custom emojis** oraz zakładki **Stickers**. Obie otwierają to samo ustawienie. Ustawienie zapisuje się osobno dla każdego czatu, więc może się różnić między czatami.
+- **Semantic** (domyślnie): oferuje te, które najlepiej pasują do ostatniej rozmowy. Używa małego modelu na twoim komputerze. Jeśli nie jest dostępny, wybiera losowo.
+- **Random**: oferuje losowy zestaw przy każdej odpowiedzi.
+- **Tool-call**: model wybiera pasujące przy każdej odpowiedzi. Wybierz model w polu **Select a model...**. Jeśli żaden nie jest ustawiony albo wybór się nie uda, używa trybu Semantic. Jest pomijany, gdy w jednej grupowej turze odpowiada kilka postaci.
 
-Panel ma jeden wiersz trybu z trzema możliwościami:
+**Max offered (each)** to liczba nazw emoji i nazw naklejek oferowanych na turę. Domyślnie jest to 20, w zakresie od 1 do 100.
 
-- **Semantic** (domyślnie): proponuje emoji i naklejki najlepiej pasujące do ostatnich wiadomości. Ten tryb korzysta z lokalnego modelu embeddingu, czyli małego modelu AI działającego na twoim komputerze. Kiedy model jest niedostępny, tryb przechodzi na losowanie.
-- **Random**: przy każdej odpowiedzi proponuje losowy zestaw.
-- **Tool-call**: pasujące pozycje wybiera przy każdej odpowiedzi osobne zapytanie do modelu. Trzeba wskazać połączenie na liście rozwijanej, która się pojawia. Kiedy połączenie nie jest wybrane albo zawiedzie, tryb przechodzi na **Semantic**. W turze czatu grupowego, w której odpowiada więcej niż jedna postać, tryb **Tool-call** jest pomijany, a wybór przechodzi na **Semantic**.
+## Reakcje używają tylko głównych własnych emoji
 
-Pod trybami jest ustawienie **Max offered (each)**. Decyduje ono, ile nazw własnych emoji i ile nazw naklejek trafia do postaci w każdej turze. Domyślnie jest to 20. Da się ustawić wartość od 1 do 100.
-
-## Jak wyświetlają się własne emoji i naklejki
-
-W czacie w trybie Conversation kod skrótowy emoji w rodzaju `:kekw:` wyświetla się jako mały obrazek wewnątrz linii tekstu. Jeśli wiadomość zawiera wyłącznie kody skrótowe emoji i nic poza tym, obrazki są większe.
-
-Naklejka w rodzaju `sticker:wave:` zawsze wyświetla się jako duży obrazek blokowy w osobnej linii.
-
-Kiedy nazwy nie da się odnaleźć, na przykład po usunięciu danego emoji, wiadomość pokazuje zamiast obrazka zwykły tekst kodu skrótowego, czyli `:kekw:`.
-
-## Reakcje korzystają tylko z globalnej puli emoji
-
-Na wiadomość można zareagować własnym emoji. Reakcje korzystają wyłącznie z głównych własnych emoji, czyli z globalnej puli. Emoji oznaczone w galerii, naklejki i GIF-y nie są dostępne jako reakcje. Reakcje na wiadomości opisuje przewodnik pierwszych kroków w trybie Conversation.
+Na wiadomość możesz zareagować własnym emoji, ale tylko z emoji wgranych w zakładce **Custom emojis**. Emoji, naklejki i GIF-y oznaczone w galerii nie są dostępne jako reakcje. Zobacz [Reaguj i otrzymuj powiadomienia](getting-started.md#react-and-get-notified).
 
 ## Powiązane przewodniki
 

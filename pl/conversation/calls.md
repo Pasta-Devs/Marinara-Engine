@@ -1,294 +1,206 @@
 # Rozmowy audio i wideo w trybie Conversation
 
-Ten przewodnik wyjaśnia, jak działają rozmowy w trybie Conversation w aplikacji Marinara Engine. Zobaczysz, na czym polega rozmowa, jak ją skonfigurować, jak w niej mówić i jak rozwiązać typowe problemy.
+Rozmowa to ekran na żywo, podobny do komunikatora głosowego, na którym rozmawiasz z jedną postacią lub kilkoma przez mikrofon albo pisząc. Gdy trwa, leży na wierzchu zwykłego czatu Conversation. Rozmowy istnieją tylko w trybie Conversation.
 
-Rozmowy istnieją wyłącznie w trybie Conversation. Czaty w trybie Roleplay i Game Mode nie mają ekranu rozmowy.
+Rozmowy to opcjonalny pakiet. Zainstaluj **Calls** z **Agents → Agent Organizer** (organizator agentów). Jeśli katalog poprosi o ponowne uruchomienie, zatrzymaj aplikację Marinara Engine i uruchom ją tak, jak zwykle (zobacz [Instalacja aplikacji Marinara Engine](../INSTALLATION.md)).
 
-Calls to opcjonalny pakiet agenta. Zanim wykonasz poniższą konfigurację, zainstaluj pakiet **Calls** z sekcji **Agents → Agent Organizer (organizowanie agentów)** , a potem uruchom ponownie aplikację Marinara Engine, kiedy katalog o to poprosi.
+Podczas rozmowy postacie z działającym głosem Text to Speech (TTS, tekst zamieniany na mówiony dźwięk) mówią na głos. Postacie bez głosu odpowiadają wiadomościami tekstowymi na czacie rozmowy. Zamiast nieruchomego awatara możesz też pokazywać zapętlone klipy wideo postaci wykonane przez AI.
 
-## Na czym polega rozmowa
+Aplikacja nagrywa mikrofon lub kamerę w twojej przeglądarce. Zależnie od trybu wejścia (niżej) twoja mowa jest zamieniana na tekst na twoim komputerze albo wysyłana do modelu wybranego dla czatu. Odpowiedzi są odtwarzane przez twoją usługę TTS. Gdy rozmowa się kończy, krótkie podsumowanie wraca do czatu Conversation. Pełny zapis rozmowy zostaje w osobnym magazynie rozmów.
 
-Rozmowa to ekran na żywo w stylu aplikacji Discord, na którym mówisz z jedną postacią lub kilkoma naraz. Przez cały czas trwania rozmowy ekran ten leży na zwykłym czacie w trybie Conversation.
+## Czego potrzebujesz
 
-W trakcie rozmowy:
+- Zainstalowanego pakietu **Calls**.
+- Czatu Conversation z co najmniej jedną postacią i konta dla modelu, który pisze odpowiedzi.
+- Włączonych **Audio/Video Calls** i **Call Audio Pipeline** w ustawieniach czatu.
+- Opcjonalnie: konta Text to Speech, aby postacie mówiły. Bez niego odpowiadają tekstem.
+- Opcjonalnie: domyślny tryb mikrofonu wymaga jednorazowego pobrania Local Whisper (zobacz [Pobranie modelu Local Whisper](#download-local-whisper)). Zamiast tego możesz pisać na czacie rozmowy.
 
-- Postacie z działającym głosem Text to Speech (TTS) wypowiadają swoje kwestie na głos. TTS to zamiana tekstu na mówiony dźwięk.
-- Postacie bez głosu odpowiadają wiadomościami tekstowymi na czacie rozmowy.
-- Ty odpowiadasz mikrofonem albo pisząc.
-- Zamiast nieruchomego awatara można też oglądać zapętlone klipy wideo postaci wygenerowane przez AI.
+## Skonfiguruj pierwszą rozmowę
 
-Rozmowa nie działa jak telefon łączący dwa urządzenia. Marinara nagrywa mikrofon lub kamerę w przeglądarce na tym urządzeniu. Nagranie trafia do modelu wybranego dla danego czatu w trybie Conversation. Odpowiedzi wypowiada dostawca TTS, a dane rozmowy zostają na tym samym komputerze.
+Zanim zaczniesz: potrzebujesz czatu Conversation z co najmniej jedną postacią i konta dla modelu, który pisze odpowiedzi (zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md)).
 
-Po zakończeniu rozmowy Marinara zapisuje w zwykłym czacie w trybie Conversation krótkie podsumowanie rozmowy audio. Pełny zapis rozmowy zostaje w osobnym miejscu i nie jest kopiowany wiadomość po wiadomości do głównego czatu.
+1. Opcjonalnie: skonfiguruj Text to Speech (zobacz [Konfiguracja Text to Speech](#set-up-text-to-speech)). Bez tego każda postać dołącza tylko jako tekst.
+2. Otwórz czat, a potem **Chat Settings → Agents → Calls** (ustawienia czatu, agenci, rozmowy).
+3. Włącz **Audio/Video Calls**. Obok nazwy rozmowy pojawia się przycisk rozmowy.
+4. Włącz **Call Audio Pipeline**. Bez tego nie można rozpocząć żadnej rozmowy, nawet jeśli tylko piszesz lub tylko słuchasz. Włącza też mikrofon.
+5. Wybierz **Audio input mode** (tryb wejścia audio; niżej).
+6. Kliknij **Start call** (rozpocznij rozmowę).
 
-## Zanim zaczniesz
+Jeśli to nie zadziałało: gdy widzisz komunikat "Conversation call audio is not enabled in Chat Settings", przełącznik **Call Audio Pipeline** jest wyłączony. To ustawienie globalne, więc włączenie go w jednym czacie włącza je dla wszystkich rozmów Conversation.
 
-Żeby rozmowa głosowa zadziałała, przygotuj kolejno te elementy. Kroki oznaczone jako opcjonalne można pominąć.
+W nowym czacie najpierw dokończ kreator konfiguracji, a potem otwórz **Chat Settings** tego czatu. Ustawienia Calls pokazują się tylko wtedy, gdy pakiet Calls jest zainstalowany.
 
-1. Czat w trybie Conversation z co najmniej jedną postacią.
-2. Zwykłe połączenie z modelem wybrane dla tego czatu. To ten model pisze odpowiedzi postaci w trakcie rozmowy.
-3. Włączony przełącznik **Audio/Video Calls** (rozmowy audio i wideo) dla tego czatu – patrz sekcja "Włączanie rozmów dla czatu" poniżej.
-4. Włączony przełącznik **Call Audio Pipeline** (obsługa dźwięku rozmów). Bez niego nie ruszy żadna rozmowa, nawet taka, w której tylko piszesz albo tylko słuchasz. On też odpowiada za wejście mikrofonowe.
-5. Skonfigurowany Text to Speech, dzięki czemu postacie mogą mówić. Bez tego każda postać dołącza wyłącznie w formie tekstowej.
-6. Opcjonalnie: model Local Whisper pobrany z sekcji **Connections** (Połączenia) po instalacji pakietu Calls, jeśli przeglądarka nie rozpoznaje mowy wystarczająco pewnie – w przeglądarce Firefox jest to konieczne. Zamiast modelu Local Whisper możesz też użyć własnego serwera zamiany mowy na tekst.
-7. Opcjonalnie: połączenie wideo i wygenerowane klipy, jeśli chcesz korzystać z funkcji **Character Video Presence** (obecność wideo postaci).
-8. Opcjonalnie: połączenie do generowania obrazów ustawione dla czatu jako Selfie Connection, jeśli postacie mają wysyłać selfie w rozmowie.
+Dwa przełączniki wyglądają podobnie, ale robią co innego:
+
+- **Audio/Video Calls** pokazuje przycisk rozmowy, więc możesz zadzwonić do postaci.
+- Komenda **Calls** pozwala postaciom dzwonić do ciebie jako pierwsze. Gdy jest wyłączona, nadal możesz samodzielnie rozpoczynać rozmowy.
+
+Główny przełącznik **Commands** w tej samej sekcji musi być włączony, aby działały komendy w rozmowie. Sama rozmowa może się rozpocząć także przy wyłączonym przełączniku.
+
+<a id="set-up-text-to-speech"></a>
 
 ### Konfiguracja Text to Speech
 
-Text to Speech decyduje o tym, które postacie mogą mówić i jakiego głosu używa każda z nich. To funkcja wspólna dla całej aplikacji, więc ma własny przewodnik.
-
-Pełny opis krok po kroku znajdziesz w przewodniku [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). W skrócie: otwórz sekcję **Connections**, potem **Text to Speech**, a następnie:
+Text to Speech decyduje, które postacie mogą mówić i jakim głosem. Pełny opis znajdziesz w [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). W skrócie: otwórz **Connections**, kliknij **Add account** i wybierz **Text to speech**. Jeśli to konto jest już na liście w sekcji **On this device**, otwórz je stamtąd. Potem:
 
 1. Włącz Text to Speech.
-2. Wybierz źródło: **OpenAI-compatible**, **ElevenLabs**, **PocketTTS** albo **xAI Voice**.
-3. Wpisz klucz dostawcy lub adres lokalnego serwera dla tego źródła.
+2. Wybierz źródło: **OpenAI-compatible**, **ElevenLabs**, **PocketTTS** lub **xAI Voice**.
+3. Wpisz klucz API albo adres lokalnego serwera dla tego źródła.
 4. Wybierz model i głos.
-5. Ustaw opcję **Voice Option** na **One voice for all characters** albo **Selected per character**.
-6. Zapisz, a potem sprawdź przyciskiem podglądu, czy dźwięk faktycznie słychać.
+5. Ustaw **Voice option** na **One voice for all** albo **Selected per character or persona**. Osobne głosy postaci ułatwiają śledzenie rozmów grupowych.
+6. Zapisz, a potem użyj przycisku podglądu, aby sprawdzić, czy słychać dźwięk.
 
-W rozmowie grupowej osobne głosy postaci dużo ułatwiają rozpoznanie, kto mówi. Postać, której głosu Marinara nie potrafi ustalić, bierze udział w rozmowie wyłącznie w formie tekstowej.
+Jeśli postać nie ma głosu, który aplikacja potrafi ustalić, ta postać jest w rozmowie tylko tekstowa.
 
-### Wybór trybu wejścia mikrofonowego
+### Wybór trybu wejścia audio
 
-Po włączeniu przełącznika **Call Audio Pipeline** pojawia się lista rozwijana **Audio input mode** (tryb wejścia dźwięku) z czterema opcjami. Wybierz tę, która pasuje do przeglądarki i dostawcy.
+Gdy **Call Audio Pipeline** jest włączone, pojawia się lista **Audio input mode**. Jeśli nie masz pewności, zostaw ustawienie domyślne.
 
-- **Mic recording + Local Whisper**: nagrywa, dopóki mikrofon jest włączony, pomija ciszę i zamienia mowę na tekst na tym samym urządzeniu. To ustawienie domyślne i najlepszy wybór dla przeglądarki Firefox.
-- **Browser speech recognition**: korzysta z funkcji Web Speech w przeglądarce. Web Speech API to wbudowane narzędzie przeglądarki do zamiany mowy na tekst. Obsługa bywa różna, a przy jej braku Marinara przełącza się na Local Whisper.
-- **Manual system dictation**: ustawia tylko kursor w polu tekstowym rozmowy, żeby mogło tam pisać dyktowanie systemu operacyjnego. W tym trybie Marinara sama nie nagrywa mikrofonu.
-- **Provider-native audio/video**: wysyła nagrany dźwięk lub obraz prosto do modelu w trybie Conversation, jeśli ten model przyjmuje multimedia bezpośrednio. Jeśli nie przyjmuje, użyj opcji Local Whisper albo rozpoznawania mowy w przeglądarce.
+| Tryb | Co robi |
+| --- | --- |
+| **Mic recording + Local Whisper** (domyślny) | Nagrywa, gdy mikrofon nie jest wyciszony, pomija ciszę i zamienia twoją mowę na tekst na twoim komputerze. Najlepszy dla Firefoxa. |
+| **Browser speech recognition** | Używa narzędzia do mowy wbudowanego w przeglądarkę. Obsługa bywa różna. Gdy go brakuje, aplikacja wraca do Local Whisper. |
+| **Manual system dictation** | Tylko ustawia kursor w polu tekstowym rozmowy, aby dyktowanie systemu operacyjnego mogło tam pisać. Aplikacja nic nie nagrywa. |
+| **Provider-native audio/video** | Wysyła nagrany dźwięk lub wideo prosto do modelu, jeśli model przyjmuje multimedia. |
 
-Przyciski kamery i ekranu pojawiają się tylko przy włączonej opcji **Camera and screen input** (obraz z kamery i ekranu). Działają wyłącznie w trybie **Provider-native audio/video**. W każdym innym trybie są widoczne, ale nieaktywne.
-
-### Pobieranie modelu Local Whisper
-
-Local Whisper zamienia mowę na tekst na tym urządzeniu, na którym działa Marinara. Dźwięk z mikrofonu nigdy nie opuszcza tego urządzenia w celu transkrypcji. Powstały tekst nadal trafia do modelu w trybie Conversation jako część rozmowy.
-
-Local Whisper należy do pakietu Calls i jest najpewniejszą drogą dla mikrofonu w przeglądarkach ze słabym rozpoznawaniem mowy, w tym w przeglądarce Firefox. Po instalacji pakietu Calls otwórz sekcję **Connections**, otwórz **Local Model**, rozwiń kafelek i znajdź **Local Speech Model**. Ta sekcja jest ukryta, dopóki pakiet Calls nie zostanie zainstalowany. Ogólny opis kafelka **Local Model** znajdziesz w przewodniku [Konfiguracja modelu Local Model](../connections/local-model.md).
-
-1. Wybierz model. Domyślny to **Whisper Tiny (Multilingual)**. Zajmuje około 180 MB do pobrania i około 350 MB pamięci podczas pracy. To najlepszy pierwszy wybór na telefony i starsze urządzenia.
-2. Albo wybierz **Whisper Base (Multilingual)**, żeby uzyskać większą dokładność przy niewyraźnej mowie. Zajmuje około 320 MB do pobrania i około 650 MB pamięci.
-3. Kliknij przycisk **Download Whisper**.
-4. Poczekaj, aż pasek postępu dojdzie do końca.
-
-Po pobraniu pojawia się kontrolka **Delete Local Whisper** (ikona kosza), którą można usunąć model.
-
-Odinstalowanie pakietu Calls usuwa też każdy pobrany model Whisper wraz z zapisanym wyborem. W ten sposób odzyskujesz zajęte miejsce na dysku. Ponowna instalacja pakietu Calls przywraca kontrolki pobierania, ale model pobiera się dopiero po jego wybraniu.
-
-<a id="use-your-own-speech-to-text-server"></a>
-
-### Korzystanie z własnego serwera zamiany mowy na tekst
-
-Jeśli Local Whisper słabo radzi sobie z twoim językiem albo akcentem, możesz zamiast tego wysyłać nagrany głos do innego modelu zamiany mowy na tekst. Działa to z każdym serwerem, który udostępnia punkt końcowy `/audio/transcriptions` w stylu OpenAI. Należą do nich samodzielnie hostowane serwery, takie jak Speaches, serwery faster-whisper, LocalAI i serwer whisper.cpp (uruchomiony z opcją `--inference-path /v1/audio/transcriptions`), a także dostawcy tacy jak OpenAI czy Groq.
-
-1. Zainstaluj pakiet Calls, a potem otwórz sekcję **Connections** i znajdź kafelek **Speech to Text** (zamiana mowy na tekst). Dopóki pakiet Calls nie jest zainstalowany, ten kafelek jest ukryty.
-2. Rozwiń kafelek i wpisz adres w polu **Server URL** (adres serwera), na przykład `http://localhost:8000/v1` dla serwera na twoim komputerze.
-3. Wpisz klucz w polu **API key** (klucz API), jeśli wymaga go twój serwer lub dostawca. Klucz jest zapisywany w postaci zaszyfrowanej, a kafelek pokazuje go tylko w formie zamaskowanej.
-4. W polu **Model** wpisz nazwę modelu, której używa twój serwer. Jeśli zostawisz to pole puste, wysyłana jest nazwa `whisper-1`.
-5. Opcjonalnie: w polu **Language** (język) wpisz kod języka, na przykład `pl` albo `de`. Podanie modelowi języka zwykle poprawia dokładność. Zostaw pole puste, żeby serwer sam rozpoznał język.
-6. Kliknij przycisk **Test** (test). Marinara wysyła jednosekundowe nagranie ciszy i informuje, czy serwer odpowiedział.
-7. Włącz przełącznik na kafelku.
-
-Dopóki przełącznik jest włączony, tryb **Mic recording + Local Whisper** wysyła twoją mowę do tego serwera zamiast do modelu Local Whisper. Nie trzeba do tego pobierać modelu Local Whisper. Wyłącz przełącznik, żeby wrócić do modelu Local Whisper. Dźwięk trafia na wpisany przez ciebie serwer, więc używaj tylko takiego, któremu ufasz.
-
-Serwer na tym samym komputerze, na którym działa Marinara, nie wymaga dodatkowych ustawień. Serwer na innym komputerze w sieci domowej zostaje odrzucony, chyba że ustawisz `STT_LOCAL_URLS_ENABLED=true` w pliku `.env` serwera. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
-
-Wymaga to wersji pakietu Calls, która obsługuje tę funkcję. Jeśli po włączeniu przełącznika rozmowy nadal korzystają z modelu Local Whisper, zaktualizuj pakiet Calls w sekcji **Agents → Agent Organizer (organizowanie agentów)**.
-
-## Włączanie rozmów dla czatu
-
-Rozmowy da się włączyć podczas tworzenia nowego czatu w trybie Conversation albo później, w ustawieniach czatu.
-
-Przy nowym czacie w trybie Conversation najpierw dokończ kreator konfiguracji, potem otwórz ustawienia tego czatu i wykonaj te same kroki co poniżej. Ustawienia pakietów opcjonalnych widać dopiero po instalacji pakietu Calls.
-
-W istniejącym czacie w trybie Conversation:
-
-1. Otwórz czat.
-2. Otwórz panel **Chat Settings** (ustawienia czatu).
-3. Przejdź do sekcji **Agents**.
-4. Otwórz **Calls**.
-5. Włącz przełącznik **Audio/Video Calls**. Obok nazwy czatu powinien pojawić się przycisk rozmowy.
-6. Włącz przełącznik **Call Audio Pipeline**. Bez niego żadna rozmowa się nie zacznie, nawet jeśli nigdy nie używasz mikrofonu.
-7. Wybierz tryb **Audio input mode**.
-
-Przełącznik **Audio/Video Calls** i komenda **Calls** to dwa różne ustawienia. **Audio/Video Calls** pokazuje przycisk rozmowy, dzięki czemu możesz zadzwonić do postaci. Komenda **Calls** pozwala postaciom dzwonić do ciebie jako pierwsze. Po wyłączeniu komendy **Calls** nadal zaczniesz rozmowę samodzielnie, ale postacie nie powinny inicjować rozmów przychodzących.
-
-W sekcji **Agents** jest też główny przełącznik **Commands**, widoczny po instalacji pakietu z komendami. Musi być włączony, żeby ukryte komendy w rozmowie działały. Sama rozmowa ruszy nawet przy wyłączonym przełączniku.
-
-### Ustawienia i wartości domyślne
-
-Większość ustawień rozmowy znajdziesz w panelu **Chat Settings**, dalej **Agents**, dalej **Calls**. Część z nich jest globalna, czyli zmiana w jednym czacie działa na wszystkie rozmowy w trybie Conversation w całej aplikacji.
-
-| Ustawienie | Zakres | Domyślnie |
-|---|---|---|
-| **Audio/Video Calls** | Dla czatu | Off |
-| **Calls** (komenda) | Dla czatu | On |
-| **Generate voice cues in [tags]** | Dla czatu | On |
-| **Call Audio Pipeline** | Globalnie | Off |
-| **Audio input mode** | Globalnie | Mic recording + Local Whisper |
-| **Camera and screen input** | Globalnie | Off |
-| **Character video presence** | Globalnie | Off |
-| **Automatic video clips generation** | Globalnie | Off |
-| **Custom clips** | Globalnie | Off |
-
-Opcja **Generate voice cues in [tags]** prosi model o dodawanie krótkich wskazówek w nawiasach kwadratowych, na przykład `[whispering]`, `[laughing]` albo `[sighs]`, wewnątrz wypowiadanych kwestii. Te wskazówki wpływają na sposób czytania kwestii przez TTS i pomagają dobrać klip wideo z reakcją. Domyślnie jest włączona. Wyłącz ją, jeśli wypowiedzi mają zostać bez ozdobników.
+Przyciski kamery i ekranu wymagają włączonego **Camera and screen input** i działają tylko w trybie **Provider-native audio/video**. W pozostałych trybach są widoczne, ale nieaktywne.
 
 ## Rozpoczynanie, odbieranie i kończenie rozmowy
 
-### Rozpoczynanie rozmowy
+**Rozpoczęcie rozmowy.** Gdy rozmowy są włączone, obok nazwy rozmowy jest przycisk telefonu. Jego podpowiedź to **Start call**, a gdy rozmowa trwa, **Open call**. Kliknij go, a otworzy się ekran rozmowy. W jednym czacie może być aktywna lub dzwoniąca tylko jedna rozmowa. Rozpoczęcie kolejnej otwiera ponownie bieżącą.
 
-Kiedy rozmowy są włączone dla czatu, obok nazwy czatu pojawia się przycisk ze słuchawką. Jego podpowiedź brzmi **Start call**, gdy żadna rozmowa nie trwa, albo **Open call**, gdy rozmowa już się toczy.
+**Odbieranie rozmowy.** Postać może do ciebie zadzwonić, gdy komenda **Calls** jest włączona. W tym czacie nad polem wiadomości pojawia się baner **Incoming call** z przyciskami **Decline call** i **Answer call**. W innych miejscach aplikacji dostajesz powiadomienie o rozmowie przychodzącej i krótki sygnał dzwonka. Aplikacja nigdy nie odbiera za ciebie. Dołączają tylko postacie, które są dostępne: postać, której harmonogram lub status to offline, nie dołącza.
 
-Kliknij przycisk **Start call**. Pełny ekran rozmowy otwiera się od razu.
+**Kończenie rozmowy.** Kliknij czerwony przycisk **End call** na ekranie rozmowy albo w zminimalizowanym pływającym okienku. Postać może też wyjść z rozmowy lub ją zakończyć komendą w rozmowie. Aplikacja przestaje wtedy nagrywać i dodaje kartę do czatu Conversation.
 
-W jednym czacie może trwać albo dzwonić tylko jedna rozmowa. Jeśli zaczniesz rozmowę w trakcie innej, Marinara otwiera tę trwającą zamiast tworzyć nową.
+## Ekran rozmowy
 
-### Rozmowy przychodzące od postaci
+Scena pokazuje po jednym kafelku dla każdego uczestnika, czyli twojej persony i każdej dostępnej postaci, oraz podświetla osobę, która mówi. Czat rozmowy zawiera wpisane wiadomości i odpowiedzi tylko tekstowe. Wypowiedzi mówione nie są tam powtarzane. Na komputerze jest to panel boczny. Na telefonie otwiera się jako szuflada przyciskiem **Open call chat** i zamyka przyciskiem **Close call chat**.
 
-Postać może zadzwonić do ciebie, jeśli komenda **Calls** jest włączona. Gdy tak się stanie, a ty jesteś w tym czacie, nad polem wiadomości pojawia się baner **Incoming call**. Baner ma przycisk **Decline call** i przycisk **Answer call**.
+Pole pisania w rozmowie ma pole **Message in call**, przycisk **Send**, wybór emoji, GIF-ów i naklejek oraz szybki przełącznik modelu. Załączniki plików nie są obsługiwane na czacie rozmowy.
 
-Jeśli akurat pracujesz w innym miejscu aplikacji Marinara Engine, pojawia się powiadomienie o rozmowie przychodzącej, podobne do powiadomienia o wiadomości autonomicznej postaci. Rozlega się krótki dźwięk dzwonka. Marinara nigdy nie odbiera za ciebie, więc trzeba kliknąć przycisk **Answer call**.
+| Kontrolka | Co robi |
+| --- | --- |
+| Mikrofon | Wycisza i włącza twój mikrofon. Podpowiedź zmienia się zależnie od trybu, na przykład **Unmute microphone with Local Whisper**. |
+| **Turn camera on** / **Turn camera off** | Tylko w trybie Provider-native audio/video przy włączonym **Camera and screen input**. |
+| **Share screen** / **Stop sharing screen** | Ta sama zasada co przy kamerze. |
+| **Character volume** | Przycisk wyciszenia i suwak od 0 do 100. Domyślnie 100, zapisywane w przeglądarce. |
+| **Soundboard** | Lista dźwięków z kontrolką **Upload**. |
+| **End call** | Czerwony przycisk rozłączenia. |
 
-Do rozmowy dołączają tylko postacie aktualnie dostępne. Jeśli harmonogram lub status oznacza postać jako niedostępną, ta postać nie dołącza do rozmowy, mimo że należy do czatu.
+Jeśli mikrofon jest wyciszony przez dłuższy czas, zobaczysz komunikat "You are muted! Remember to unmute yourself first if you want to talk."
 
-### Kończenie rozmowy
+Jeśli opuścisz czat Conversation podczas rozmowy, ekran zmniejsza się do pływającego okienka z nazwą czatu, upływającym czasem i przyciskiem **End call**. Kliknij okienko, aby wrócić. Rozmowa trwa dalej, gdy przeglądasz aplikację.
 
-Rozmowę zakończysz w każdej chwili czerwonym przyciskiem **End call**. Jest on i na ekranie rozmowy, i w zminimalizowanym okienku. Postać również może wyjść z rozmowy albo ją zakończyć, korzystając z komendy dostępnej w trakcie rozmowy.
+### Soundboard
 
-Po zakończeniu rozmowy Marinara przerywa nagrywanie, bezpiecznie zamyka multimedia i dodaje kafelek do zwykłego czatu w trybie Conversation.
+Soundboard ma cztery wbudowane dźwięki, których nie można usunąć: **Soft Chime**, **Tap**, **Sparkle** i **Pop**. Kliknij **Upload**, aby dodać własne (mp3, wav, ogg, webm lub m4a, do 8 MB każdy). Własne wgrane dźwięki możesz usunąć. Postacie mogą odtwarzać dźwięk komendą soundboardu.
 
-## Ekran rozmowy i kontrolki
+## Obecność wideo postaci
 
-Obszar rozmowy pokazuje po jednym kafelku na uczestnika, czyli twoją personę i każdą dostępną postać. Kafelek osoby, która mówi, jest wyróżniony.
+Ta część jest opcjonalna i zaawansowana. **Character video presence** zastępuje kafelek z nieruchomym awatarem zapętlonym klipem postaci wykonanym przez AI. Domyślnie jest wyłączona. Przełącznik leży w **Chat Settings → Agents → Calls**.
 
-Czat rozmowy zbiera pisane wiadomości i odpowiedzi postaci działających tylko tekstowo. Na komputerze siedzi w panelu bocznym. Na telefonie chowa się za przyciskiem **Open call chat**. Czat otwiera się wtedy jako pełny panel boczny, a zamyka przyciskiem **Close call chat**. Wypowiadane kwestie służą jako dźwięk i nie powtarzają się jako osobne dymki czatu.
+Zanim zaczniesz: dodaj konto Video Generation w **Connections** i oznacz jedno jako **Default for Videos** albo wybieraj je za każdym razem.
 
-Panel pisania w rozmowie ma pole **Message in call** i przycisk **Send**. Ma też wybór emoji, GIF-ów i naklejek oraz szybki przełącznik połączenia. Załączników plikowych czat rozmowy jeszcze nie obsługuje.
+1. Otwórz edytor postaci lub persony.
+2. Otwórz zakładkę **Sprites**, a potem podzakładkę **Clips**.
+3. Kliknij **Generate Clips** albo **Upload extra**, aby dodać własne.
+4. W oknie **Generate Call Clips** wybierz **Video Generation Connection** i zaznacz **Use avatar as reference**.
+5. Wybierz standardowe klipy do wykonania: **Idle**, **Talking**, **Laughing**, **Angry**, **Crying**, **Sighing**. Możesz też zdefiniować jeden własny klip, podając **Clip name** i opis działania.
 
-Pasek sterowania na dole obszaru rozmowy zawiera przyciski z ikonami:
+Podczas mówionej tury aplikacja czyta w linii wskazówki głosowe, takie jak `[sighs]`, wybiera pasujący klip reakcji, a potem wraca do klipu Idle. Brakujący klip nigdy nie blokuje rozmowy: postać pokazuje wtedy nieruchomy awatar. Przycięty klip zapętla się w swoim zakresie przycięcia. Zobacz [Sprite'y postaci (wyrazy twarzy i całe sylwetki)](../characters/sprites.md).
 
-- Mikrofon: wycisza cię i włącza z powrotem. Jego podpowiedź zmienia się razem z trybem wejścia, na przykład **Unmute microphone with Local Whisper**.
-- **Turn camera on** i **Turn camera off**: aktywne wyłącznie w trybie **Provider-native audio/video** przy włączonej opcji **Camera and screen input**.
-- **Share screen** i **Stop sharing screen**: ta sama zasada co przy kamerze.
-- **Character volume**: otwiera panel podręczny z przyciskiem wyciszenia i suwakiem głośności od 0 do 100. Domyślnie jest to 100 procent, a wybór zapisuje się w przeglądarce.
-- **Soundboard**: otwiera listę dźwięków z kontrolką **Upload**.
-- **End call**: czerwony przycisk rozłączenia.
+Dwa kolejne przełączniki pojawiają się pod **Character video presence**, gdy ta opcja jest włączona:
 
-Jeśli mikrofon zostaje wyciszony na dłużej, pojawia się przypomnienie: "You are muted! Remember to unmute yourself first if you want to talk."
+- **Automatic video clips generation** (domyślnie wyłączone) tworzy tylko klipy **Idle** i **Talking** dla uczestnika, który ich potrzebuje. Klipy reakcji i własne nigdy nie powstają automatycznie.
+- **Custom clips** (domyślnie wyłączone) pozwala postaci rzadko poprosić o jednorazowy klip w rozmowie na żywo i odtworzyć gotowy własny klip. Służy do szczególnych próśb, a nie do każdego nastroju.
 
-Po opuszczeniu czatu w trybie Conversation w trakcie rozmowy rozmowa kurczy się do małego pływającego okienka. Okienko pokazuje nazwę czatu, upływający czas i czerwony przycisk **End call**. Kliknij wnętrze okienka, żeby wrócić na pełny ekran rozmowy. Marinara utrzymuje rozmowę, kiedy przeglądasz inne panele.
+Wyłączenie **Character video presence** wyłącza też oba te przełączniki. Klipy tutaj to wielokrotnego użytku pętle obecności, a nie pozycje **Videos** w galerii, które zawierają filmy scen.
 
-### Tablica dźwięków
+## Konfiguracja zamiany mowy na tekst (zaawansowana)
 
-Tablica dźwięków **Soundboard** to mała biblioteka dźwięków, które można odtworzyć w dowolnej rozmowie. Domyślnie są cztery wbudowane dźwięki: **Soft Chime**, **Tap**, **Sparkle** i **Pop**. Wbudowanych dźwięków nie da się usunąć.
+Potrzebna tylko w trybie **Mic recording + Local Whisper** albo gdy chcesz użyć własnego serwera zamiany mowy na tekst.
 
-Własny dźwięk wgrasz przyciskiem **Upload**. Obsługiwane formaty to mp3, wav, ogg, webm i m4a, każdy do 8 MB. Przy wgranych dźwiękach jest kontrolka usuwania. Postacie również mogą odtworzyć dźwięk komendą tablicy dźwięków.
+<a id="download-local-whisper"></a>
 
-## Obecność wideo postaci i klipy do rozmów
+### Pobranie modelu Local Whisper
 
-Funkcja **Character Video Presence** zastępuje kafelek z nieruchomym awatarem zapętlonym klipem wideo postaci wygenerowanym przez AI. Domyślnie jest wyłączona. Odpowiada za nią przełącznik **Character video presence** w panelu **Chat Settings**, dalej **Agents**, dalej **Calls**.
+Local Whisper zamienia twoją mowę na tekst na komputerze, na którym działa aplikacja Marinara Engine, więc dźwięk z mikrofonu nie opuszcza go na potrzeby transkrypcji. Tekst nadal trafia do twojego modelu jako część rozmowy. To najpewniejsza ścieżka mikrofonu w przeglądarkach ze słabą obsługą mowy, takich jak Firefox.
 
-Konfiguracja klipów wideo do rozmów:
+Zanim zaczniesz: zainstaluj pakiet Calls. Bez niego ta sekcja jest ukryta.
 
-1. Utwórz połączenie Video Generation w sekcji **Settings**, dalej **Connections**.
-2. Oznacz jedno połączenie jako **Default for Videos** albo wybieraj połączenie wideo przy każdym generowaniu.
-3. Otwórz edytor postaci lub persony.
-4. Otwórz zakładkę **Sprites**, a w niej podzakładkę **Clips**.
-5. Użyj przycisku **Generate Clips** albo **Upload extra**, żeby dodać potrzebne klipy.
+1. Otwórz **Connections** i znajdź **Speech to text** w sekcji **On this device**. Jeśli go nie ma na liście, kliknij **Add account** i wybierz **Speech to text**.
+2. Znajdź **Local speech model** na tej stronie.
+3. Wybierz model:
+   - **Whisper Tiny (Multilingual)**: około 180 MB do pobrania i 350 MB pamięci. Najlepszy dla telefonów i starszych komputerów.
+   - **Whisper Base (Multilingual)**: około 320 MB do pobrania i 650 MB pamięci. Lepiej radzi sobie z niewyraźną mową.
+4. Kliknij **Download Whisper** i poczekaj na pasek postępu.
+5. Uruchom aplikację Marinara Engine całkowicie od nowa, zanim użyjesz Calls.
 
-Więcej o sprite'ach i o edytorze znajdziesz w przewodniku [Sprite'y postaci (wyrazy twarzy i całe sylwetki)](../characters/sprites.md).
+Ikona kosza, **Delete Local Whisper**, usuwa model. Odinstalowanie Calls usuwa też pobrane modele Whisper, a ponowna instalacja nie pobiera ich znowu, dopóki jednego nie wybierzesz.
 
-Przycisk **Generate Clips** otwiera okno **Generate Call Clips**. Wybierasz tam połączenie w polu **Video Generation Connection** oraz opcję **Use avatar as reference**. Potem zaznaczasz, które standardowe klipy mają powstać. Da się też zdefiniować jeden własny klip: nazwę w polu **Clip name** i opis czynności.
+Jeśli to nie zadziałało: w wersji Lite aplikacji Marinara Engine zobaczysz komunikat "Local Whisper is disabled in Lite mode. Use a full Marinara install to download and run the local speech model." Jeśli zobaczysz komunikat o "native ONNX runtime", brakuje silnika mowy dla twojej platformy. Zainstaluj zależności ponownie tą samą wersją Node, której używasz do uruchamiania aplikacji, a potem uruchom ją ponownie.
 
-Sześć standardowych rodzajów klipu to **Idle**, **Talking**, **Laughing**, **Angry**, **Crying** i **Sighing**. Podczas wypowiedzi Marinara czyta wskazówki głosowe w wypowiedzi, na przykład `[sighs]` albo `[laughs]`. Dobiera pasujący klip z reakcją, a potem wraca do klipu Idle.
+<a id="use-your-own-speech-to-text-server"></a>
 
-Przy włączonej opcji **Character video presence** pojawiają się pod nią dwa dodatkowe przełączniki:
+### Użyj własnego serwera zamiany mowy na tekst
 
-- **Automatic video clips generation**: domyślnie wyłączony. Po włączeniu Marinara generuje sama tylko dwa podstawowe klipy, **Idle** i **Talking**, dla uczestnika rozmowy, który ich potrzebuje. Klipy z reakcjami i klipy własne nigdy nie powstają automatycznie. Robisz je ręcznie z podzakładki **Clips**.
-- **Custom clips**: domyślnie wyłączony. Po włączeniu postać może rzadko poprosić o jednorazowy klip w trakcie trwającej rozmowy, a potem odtworzyć gotowy klip własny. Służy to wyjątkowym prośbom o obraz, a nie każdemu nastrojowi czy każdej kwestii.
+Jeśli Local Whisper słabo radzi sobie z twoim językiem lub akcentem, wyślij głos do innego serwera zamiany mowy na tekst. Działa każdy serwer, który przyjmuje format OpenAI do zamiany mowy na tekst (adres `/audio/transcriptions`), niezależnie od tego, czy uruchamiasz go sam, czy korzystasz z usługi takiej jak OpenAI lub Groq.
 
-Brak klipów nigdy nie blokuje rozmowy. Postać pokazuje po prostu nieruchomy awatar, dopóki klip nie będzie gotowy. Przycięty klip zapętla się w ustawionym zakresie przycięcia.
+1. Otwórz **Connections** i otwórz **Speech to text** w sekcji **On this device**. Jeśli go nie ma na liście, kliknij **Add account** i wybierz **Speech to text**. Jest ukryty, dopóki pakiet Calls nie jest zainstalowany.
+2. Wpisz **Server URL**, na przykład `http://localhost:8000/v1`.
+3. Wpisz **API key**, jeśli serwer go wymaga. Jest zapisywany w postaci zaszyfrowanej i pokazywany zamaskowany.
+4. Wpisz nazwę **Model** używaną przez twój serwer. Zostaw puste, aby wysyłać `whisper-1`.
+5. Opcjonalnie: wpisz kod **Language**, taki jak `pl` lub `de`. Zostaw puste, aby serwer sam wykrył język.
+6. Kliknij **Test**. Aplikacja wysyła jednosekundowy cichy klip. Zobaczysz komunikat "The server answered." albo "The test failed."
+7. Włącz **Use your own speech-to-text server**.
 
-Wyłączenie opcji **Character video presence** wyłącza również **Automatic video clips generation** oraz **Custom clips**.
+Gdy to jest włączone, **Mic recording + Local Whisper** wysyła twoją mowę na ten serwer i nie musisz pobierać Local Whisper. Twój dźwięk trafia na ten serwer, więc używaj takiego, któremu ufasz.
 
-Klipy wideo do rozmów to co innego niż sekcja **Videos** w galerii. Galeria Videos trzyma filmy ze scen z czatów w trybie Roleplay, Game Mode i Conversation. Podzakładka **Clips** trzyma opisane tutaj zapętlone klipy obecności, których używa się wielokrotnie.
+Serwer na tym samym komputerze działa bez zmian. Serwer na innym komputerze w twojej sieci jest odrzucany, chyba że ustawisz `STT_LOCAL_URLS_ENABLED=true` w pliku `.env` (zobacz [Konfiguracja serwera](../CONFIGURATION.md)).
 
-## Ukryte komendy w rozmowie
+Jeśli to nie zadziałało: przeczytaj komunikat pod przyciskiem **Test**. Komunikat "Could not reach the speech-to-text server" oznacza, że adres jest błędny albo serwer jest wyłączony. Komunikat z nazwą `STT_LOCAL_URLS_ENABLED` oznacza, że serwer jest na innym komputerze. Liczba pochodzi z twojego serwera: 401 zwykle oznacza błędny klucz API, a 404 błędny adres lub nazwę modelu. Jeśli rozmowy nadal używają Local Whisper, zaktualizuj Calls w **Agents → Agent Organizer**.
 
-Postacie mogą używać w rozmowie tych samych ukrytych komend w nawiasach kwadratowych co w zwykłych wiadomościach w trybie Conversation. Każda komenda potrzebuje swojego przełącznika w **Chat Settings → Agents**, a główny przełącznik **Commands** w tej sekcji musi być włączony. Komendy działają po cichu i nigdy nie są wypowiadane ani pokazywane jako tekst.
+## Ustawienia i wartości domyślne
 
-- **Selfies**: postać generuje zdjęcie i wysyła je na czat rozmowy. Wymaga to połączenia **Selfie Connection** ustawionego dla czatu. Patrz [Selfie](selfies.md).
-- **Memories**: postać zapisuje wspomnienie o innej postaci na podstawie rozmowy.
-- **Music**: postać odtwarza utwór przez Music Player, o ile źródło muzyki jest podłączone.
-- **Haptics**: postać steruje podłączonym urządzeniem haptycznym w intymnych momentach, o ile takie urządzenie jest podłączone.
-- **Reactions**: postać reaguje emoji na twoją ostatnią pisaną wiadomość w rozmowie.
-- **Cross-Post**: postać przenosi bieżący temat do innego wspólnego czatu w trybie Conversation.
-- **Schedule Updates**: postać na jakiś czas zmienia swój status na dostępny, bezczynny, nie przeszkadzać albo niedostępny oraz swoje zajęcie, a potem wraca do harmonogramu. Patrz [Harmonogramy postaci i wiadomości autonomiczne](schedules.md#characters-can-change-their-own-status).
-- **Notes** i **Influence**: zapisują trwałą notatkę albo jednorazową podpowiedź i pojawiają się tylko wtedy, gdy czat ma skonfigurowany czat powiązany.
-- **Soundboard**: postać odtwarza jeden z dźwięków tablicy dźwięków rozmowy.
-- Wyjście i zakończenie: postać może sama wyjść z rozmowy albo zakończyć ją dla wszystkich.
+Ustawienia **Per chat** (dla czatu) dotyczą jednego czatu. Ustawienia **Global** (globalne) dotyczą każdej rozmowy Conversation.
 
-Niektóre komendy dodają na czat rozmowy mały wpis systemowy. Selfie pokazuje na przykład wpis "sent a selfie" wraz z obrazem, a klip własny pokazuje element zastępczy na czas renderowania.
+| Ustawienie | Zakres | Domyślnie |
+| --- | --- | --- |
+| **Audio/Video Calls** | Per chat | Wyłączone |
+| **Calls** (komenda) | Per chat | Włączone |
+| **Generate voice cues in [tags]** | Per chat | Włączone |
+| **Call Audio Pipeline** | Global | Wyłączone |
+| **Audio input mode** | Global | Mic recording + Local Whisper |
+| **Camera and screen input** | Global | Wyłączone |
+| **Character video presence** | Global | Wyłączone |
+| **Automatic video clips generation** | Global | Wyłączone |
+| **Custom clips** | Global | Wyłączone |
+
+Ustawienie globalne zmienione w jednym czacie zmienia się dla każdej rozmowy Conversation. Opcja **Generate voice cues in [tags]** prosi model o dodawanie krótkich wskazówek, takich jak `[whispering]`, `[laughing]` lub `[sighs]`, wewnątrz mówionych linii. Wpływają one na to, jak TTS czyta linię, i pomagają wybierać klipy reakcji. Wyłącz ją, aby mówione linie pozostały zwykłe.
+
+## Komendy w rozmowie
+
+Postacie używają w rozmowie tych samych ukrytych komend co w zwykłych wiadomościach. Każda wymaga swojego przełącznika w **Chat Settings → Agents → Commands** i włączonego głównego przełącznika **Commands**. Zobacz [Wybierz, których komend może używać postać](getting-started.md#choose-which-commands-a-character-can-use). Działają po cichu i nigdy nie są wypowiadane.
+
+W rozmowie działają dwie dodatkowe: **Soundboard** (postać odtwarza dźwięk z soundboardu) oraz wyjście lub zakończenie (postać opuszcza rozmowę albo kończy ją dla wszystkich). **Notes** i **Influence** pojawiają się tylko wtedy, gdy czat ma połączony czat (zobacz [Łączenie czatu Conversation z czatem Roleplay lub Game](../chats/connected-chats.md)). Selfie wymaga **Selfie model** (zobacz [Selfie](selfies.md)). Niektóre komendy dodają do czatu rozmowy mały wpis, na przykład "sent a selfie" z obrazem.
 
 ## Podsumowanie po zakończonej rozmowie
 
-Po zakończeniu rozmowy Marinara dodaje kafelek do zwykłego zapisu czatu w trybie Conversation. Kafelek pokazuje status rozmowy. Możesz zobaczyć takie tytuły:
-
-- **Call Started**
-- **Incoming Call**
-- **Call Ended**, wraz z długością rozmowy
-- **Call Declined**
-- **Missed Call**
-
-Po kafelku **Call Ended** Marinara generuje w tle krótkie podsumowanie rozmowy audio, o ile wydarzyło się w niej cokolwiek istotnego. Potem dodaje to podsumowanie do czatu w trybie Conversation jako ukryty kontekst, który model może przeczytać. Dzięki temu model wie, o czym była mowa, a cała rozmowa nie trafia do widocznego czatu.
-
-Szczegółowy zapis rozmowy zostaje w osobnym miejscu. Do zwykłego czatu wraca wyłącznie krótkie podsumowanie.
+Gdy rozmowa się kończy, w czacie Conversation pojawia się karta. Jej tytuł to **Call Started**, **Incoming Call**, **Call Ended** (z czasem trwania), **Call Declined** lub **Missed Call**. Po **Call Ended**, jeśli wydarzyło się coś istotnego, aplikacja pisze w tle krótkie podsumowanie i dodaje je jako ukryty kontekst, który model może czytać. Dzięki temu model wie o rozmowie, a jej treść nie jest kopiowana do widocznego czatu.
 
 ## Rozwiązywanie problemów
 
-### Rozmowa nie startuje i pojawia się komunikat o wyłączonym dźwięku
-
-Jeśli po kliknięciu przycisku **Start call** widzisz komunikat "Conversation call audio is not enabled in Chat Settings", włącz przełącznik **Call Audio Pipeline**. Otwórz panel **Chat Settings**, dalej **Agents**, dalej **Calls**, i go włącz. To ustawienie jest wymagane przy każdej rozmowie, nawet takiej, w której tylko piszesz. Jest globalne, więc włączenie go w jednym czacie włącza je we wszystkich rozmowach w trybie Conversation.
-
-### Słyszę postacie, ale one nie słyszą mnie
-
-Otwórz panel **Chat Settings**, dalej **Agents**, dalej **Calls**, i sprawdź, czy przełącznik **Call Audio Pipeline** jest włączony. Potem sprawdź, czy przeglądarka dała stronie aplikacji Marinara Engine dostęp do mikrofonu.
-
-Jeśli korzystasz z przeglądarki Firefox albo rozpoznawanie mowy w przeglądarce nie działa, zainstaluj pakiet Calls i pobierz model Local Whisper. Otwórz sekcję **Connections**, dalej **Local Model**, dalej **Local Speech Model**. Potem wybierz tryb **Mic recording + Local Whisper**.
-
-### Local Whisper zgłasza, że jest niedostępny
-
-Local Whisper potrzebuje natywnego środowiska ONNX dla danej platformy. ONNX to silnik, który uruchamia lokalny model mowy. Jeśli model przygotowano dla innej wersji środowiska Node, zainstaluj zależności ponownie z tą samą wersją Node, na której działa Marinara, a potem uruchom aplikację ponownie.
-
-Jeśli używasz wersji "Lite" aplikacji Marinara Engine, Local Whisper jest w niej wyłączony. Aplikacja pokazuje wtedy: "Local Whisper is disabled in Lite mode. Use a full Marinara install to download and run the local speech model." Do korzystania z Local Whisper potrzebna jest pełna instalacja.
-
-### Opcja rozpoznawania mowy w przeglądarce nic nie robi
-
-Rozpoznawanie mowy w przeglądarce zależy od jej obsługi. Firefox nie oferuje takiego rozpoznawania Web Speech jak przeglądarki Chromium i Safari. Użyj trybu **Mic recording + Local Whisper**, żeby mówić bez rąk, albo trybu **Manual system dictation**, żeby pisać dyktowaniem systemu operacyjnego.
-
-### Postać tylko pisze, zamiast mówić
-
-Sprawdź ustawienia Text to Speech i przypisanie głosów. Postać potrzebuje albo jednego globalnego głosu, albo własnego głosu, który dostawca TTS potrafi ustalić. Patrz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md).
-
-### Model źle rozumie moją mowę
-
-Zamiast modelu Whisper Tiny wypróbuj **Whisper Base (Multilingual)** dla większej dokładności. Ogranicz hałas i muzykę w tle. Jeśli model to obsługuje, przełącz **Audio input mode** na **Provider-native audio/video**, żeby model słyszał dźwięk bezpośrednio. W przypadku języka, z którym Whisper słabo sobie radzi, [skorzystaj z własnego serwera zamiany mowy na tekst](#use-your-own-speech-to-text-server) z modelem, który zna ten język, i wpisz kod tego języka w polu **Language**.
-
-### Test Speech to Text kończy się błędem
-
-Przeczytaj komunikat pod przyciskiem **Test**. "Could not reach the speech-to-text server" oznacza, że adres jest błędny albo serwer nie działa. Komunikat, w którym pada nazwa `STT_LOCAL_URLS_ENABLED`, oznacza, że serwer działa na innym komputerze w twojej sieci; ustaw tę zmienną na `true` w pliku `.env`. Kod liczbowy, taki jak 401 albo 404, pochodzi od twojego serwera: 401 zwykle oznacza błędny klucz API, a 404 – błędny adres albo błędną nazwę modelu.
-
-### Przycisk kamery albo ekranu jest nieaktywny
-
-Te przyciski działają tylko w trybie **Provider-native audio/video** przy włączonej opcji **Camera and screen input**. Zmień tryb **Audio input mode**, włącz opcję **Camera and screen input** i spróbuj ponownie. Przyciski pomagają zresztą tylko wtedy, gdy model faktycznie potrafi wykorzystać obraz z kamery lub ekranu.
-
-### Rozmowa nie działa na telefonie
-
-Na telefonie czat rozmowy otwiera przycisk **Open call chat**, a zamyka **Close call chat**. Jeśli postać nie chce mówić, sprawdź konfigurację Text to Speech. Przy problemach z mikrofonem na telefonie obowiązują te same kroki z modelem Local Whisper i uprawnieniami co wyżej.
-
-### Postać przestała odpowiadać w trakcie rozmowy
-
-Postacie odpowiadają tylko wtedy, gdy działa połączenie z modelem wybrane dla czatu. Jeśli odpowiedzi się urwały, sprawdź to połączenie, a potem spróbuj wysłać wiadomość na czacie rozmowy jeszcze raz.
+| Objaw | Rozwiązanie |
+| --- | --- |
+| Postacie mnie nie słyszą | Sprawdź, czy **Call Audio Pipeline** jest włączone, a przeglądarka zezwala na mikrofon dla strony aplikacji. W Firefoxie albo gdy mowa w przeglądarce nie działa, pobierz Local Whisper i użyj **Mic recording + Local Whisper**. |
+| Opcja mowy w przeglądarce nic nie robi | Firefox nie ma rozpoznawania Web Speech, które mają przeglądarki Chromium i Safari. Użyj **Mic recording + Local Whisper** albo **Manual system dictation**. |
+| Postać pisze zamiast mówić | Sprawdź ustawienia Text to Speech i przypisania głosów. Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). |
+| Model źle rozumie moją mowę | Spróbuj **Whisper Base (Multilingual)**, zmniejsz hałas albo użyj **Provider-native audio/video**, jeśli twój model to obsługuje. Dla języka, z którym Whisper radzi sobie słabo, [użyj własnego serwera zamiany mowy na tekst](#use-your-own-speech-to-text-server) i ustaw jego **Language**. |
+| Przycisk kamery lub ekranu jest nieaktywny | Użyj trybu **Provider-native audio/video** i włącz **Camera and screen input**. Twój model musi też przyjmować wejście z kamery lub ekranu. |
+| Postać przestaje odpowiadać w trakcie rozmowy | Sprawdź konto modelu dla tego czatu, a potem znowu wyślij wiadomość na czacie rozmowy. |
+| Rozmowa nie działa na moim telefonie | Czat rozmowy otwiera się przyciskiem **Open call chat**. Aby działała mowa, sprawdź konfigurację TTS. Dla mikrofonu obowiązują te same kroki z Local Whisper i uprawnieniami. |
 
 ## Powiązane przewodniki
 
