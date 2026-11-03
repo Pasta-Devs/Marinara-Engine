@@ -1,9 +1,9 @@
 // ──────────────────────────────────────────────
 // Professor Mari image command service
 // ──────────────────────────────────────────────
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
-import { basename, extname, join, resolve } from "node:path";
+import { basename, extname, join, relative, resolve } from "node:path";
 import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
@@ -484,8 +484,18 @@ function decodeDataImage(value: string): ResolvedImage | null {
   return { label: "data-url", buffer, base64, mimeType: imageInfo.mimeType, ext: imageInfo.ext };
 }
 
-async function imageFromFile(path: string, label: string): Promise<ResolvedImage> {
-  const buffer = await readFile(path);
+// An asset or app URL names its file inside an app folder, checked as written, but a read follows links and Professor
+// Mari's shell can write into these folders. Read the real path only when it stays inside the real folder: the real
+// data dir plus the folder's place in it, so a linked file and a linked folder are both refused.
+// ponytail: checked, then read by the checked path, so a folder swapped for a link between the two is not caught;
+// opening each path part without following links (O_NOFOLLOW) would close that window.
+function realPathInAppFolder(folder: string, path: string): string {
+  const realPath = realpathSync(path);
+  return assertInsideDir(join(realpathSync(DATA_DIR), relative(DATA_DIR, folder)), realPath);
+}
+
+async function imageFromFile(path: string, label: string, appFolder?: string): Promise<ResolvedImage> {
+  const buffer = await readFile(appFolder ? realPathInAppFolder(appFolder, path) : path);
   const imageInfo = isAllowedImageBuffer(buffer, extname(path));
   if (!imageInfo) throw new Error(`Unsupported or invalid image file: ${label}`);
   return {
@@ -505,7 +515,7 @@ function safeUrlPath(value: string) {
   }
 }
 
-function appImagePathFromUrl(value: string): { path: string; label: string; url: string } | null {
+function appImagePathFromUrl(value: string): { path: string; folder: string; label: string; url: string } | null {
   const pathname = safeUrlPath(value);
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] !== "api") return null;
@@ -516,6 +526,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!chatId || !filename) return null;
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, join(GALLERY_DIR, chatId), filename),
+      folder: GALLERY_DIR,
       label: `gallery:${chatId}/${filename}`,
       url: pathname,
     };
@@ -534,6 +545,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const root = join(GALLERY_DIR, "personas", personaId);
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, root, filename),
+      folder: GALLERY_DIR,
       label: `persona-gallery:${personaId}/${filename}`,
       url: pathname,
     };
@@ -545,6 +557,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const root = join(GALLERY_DIR, "characters", characterId);
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, root, filename),
+      folder: GALLERY_DIR,
       label: `character-gallery:${characterId}/${filename}`,
       url: pathname,
     };
@@ -554,6 +567,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename)),
+      folder: AVATAR_DIR,
       label: `avatar:${filename}`,
       url: pathname,
     };
@@ -563,6 +577,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename)),
+      folder: LOREBOOK_IMAGE_DIR,
       label: `lorebook-image:${filename}`,
       url: pathname,
     };
@@ -572,6 +587,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename)),
+      folder: BACKGROUND_DIR,
       label: `background:${filename}`,
       url: pathname,
     };
@@ -581,7 +597,12 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const filename = decodeSafePathSegment(parts[4]);
     if (!ownerId || !filename) return null;
     const root = join(SPRITES_DIR, ownerId);
-    return { path: assertInsideDir(root, join(root, filename)), label: `sprite:${ownerId}/${filename}`, url: pathname };
+    return {
+      path: assertInsideDir(root, join(root, filename)),
+      folder: root,
+      label: `sprite:${ownerId}/${filename}`,
+      url: pathname,
+    };
   }
 
   return null;
@@ -1017,13 +1038,14 @@ export class MariImagesService {
       const image = await imageFromFile(
         assertInsideDir(PREVIEW_DIR, join(PREVIEW_DIR, asset.filename)),
         `asset:${asset.id}`,
+        PREVIEW_DIR,
       );
       return { ...image, url: asset.url, asset };
     }
 
     const appPath = appImagePathFromUrl(value);
     if (appPath) {
-      const image = await imageFromFile(appPath.path, appPath.label);
+      const image = await imageFromFile(appPath.path, appPath.label, appPath.folder);
       return { ...image, url: appPath.url };
     }
 

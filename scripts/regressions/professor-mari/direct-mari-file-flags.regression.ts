@@ -1,9 +1,10 @@
 // Simple `mari ...` commands run in the server process, outside the shell sandbox, and --json-file, --file and
 // --css-file read the file they name, as does a `mari images` source given as a file. Those paths follow the read
 // tool's rule: inside the workspace, and never .env, the encryption key or Git internals. Ordinary workspace payload
-// files, and image sources given as an asset id, app URL or data URL, keep working.
+// files, and image sources given as an asset id, app URL or data URL, keep working. An asset id or app URL names a file
+// in an app folder, and is read only while its real path stays inside that folder (no link out of it).
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,7 +18,9 @@ const originalEnv = { DATA_DIR: process.env.DATA_DIR, FILE_STORAGE_DIR: process.
 mkdirSync(join(workspace, "packages", "server", "data"), { recursive: true });
 mkdirSync(join(workspace, "payloads"), { recursive: true });
 mkdirSync(join(dataDir, "storage"), { recursive: true });
-process.env.DATA_DIR = dataDir;
+// DATA_DIR is reached through a link, as on a host where it sits behind one: real app images must still load.
+symlinkSync(dataDir, join(root, "data-link"), "dir");
+process.env.DATA_DIR = join(root, "data-link");
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 
 const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
@@ -86,16 +89,26 @@ try {
   writeFileSync(join(workspace, "payloads", "pixel.png"), PNG);
   writeFileSync(join(dataDir, "backgrounds", "dusk.png"), PNG);
   writeFileSync(join(previewDir, "preview-1.png"), PNG);
+  // Links planted in the app folders: a file linked out of its folder, and an app subfolder that is itself a link.
+  mkdirSync(join(root, "outside-sprites"));
+  mkdirSync(join(dataDir, "sprites"), { recursive: true });
+  writeFileSync(join(root, "outside-sprites", "smile.png"), PNG);
+  symlinkSync(join(root, "outside.png"), join(dataDir, "backgrounds", "linked.png"), "file");
+  symlinkSync(
+    join(workspace, "packages", "server", "data", ".encryption-key"),
+    join(dataDir, "backgrounds", "key.png"),
+  );
+  symlinkSync(join(root, "outside-sprites"), join(dataDir, "sprites", "linked-owner"), "dir");
+  symlinkSync(join(root, "outside.png"), join(previewDir, "preview-linked.png"), "file");
+  const previewAsset = (id: string) => ({
+    id,
+    filename: `${id}.png`,
+    filePath: `mari-images/${id}.png`,
+    url: `/api/gallery/file/mari-images/${id}.png`,
+  });
   writeFileSync(
     join(previewDir, "manifest.json"),
-    JSON.stringify([
-      {
-        id: "preview-1",
-        filename: "preview-1.png",
-        filePath: "mari-images/preview-1.png",
-        url: "/api/gallery/file/mari-images/preview-1.png",
-      },
-    ]),
+    JSON.stringify([previewAsset("preview-1"), previewAsset("preview-linked")]),
   );
   const assign = "mari images assign --target background";
   const refusedImages: Array<[string, RegExp]> = [
@@ -103,6 +116,10 @@ try {
     [`${assign} --source-image=../outside.png`, /escapes the workspace/u],
     [`${assign} --from .env`, /cannot access secret files/u],
     [`${assign} --source packages/server/data/.encryption-key`, /cannot access secret files/u],
+    [`${assign} --source /api/backgrounds/file/linked.png`, /escapes the allowed directory/u],
+    [`${assign} --source /api/backgrounds/file/key.png`, /escapes the allowed directory/u],
+    [`${assign} --source /api/sprites/linked-owner/file/smile.png`, /escapes the allowed directory/u],
+    [`${assign} --asset preview-linked`, /escapes the allowed directory/u],
   ];
   for (const [command, refusal] of refusedImages) {
     const result = await bash(command);
