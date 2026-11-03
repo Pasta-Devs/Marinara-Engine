@@ -2,6 +2,13 @@
 
 Text to speech (TTS) reads chat messages and game narration out loud. This guide shows how to turn it on, pick a voice service and voices, set up auto-play, and use the per-message controls.
 
+## Quick start
+
+1. Open the text to speech card (steps below) and turn on **Use text to speech**.
+2. Pick a **Source** and paste your key into **API key**.
+3. Click **Preview** to hear a sample.
+4. In a chat, click **Speak** under a message.
+
 ## Turn on text to speech
 
 Almost every TTS setting is in one card. Turning TTS on does not make anything speak by itself. It reveals the **Speak** button on each message and the **Auto-play** options. You still choose what is read and when.
@@ -171,7 +178,21 @@ Marinara saves generated audio in your browser so it does not generate the same 
 
 If the voice mispronounces a character or persona name, add a **Phonetic name** and type how it should sound. In the **Character Editor** it is on the **Voice** tab. In the **Persona Editor** it sits with the basic info fields. It is used only in Conversation audio and video calls. **Speak**, auto-play and Game Mode narration ignore it.
 
-## Game music and sound effects on a compatible audio server
+## Troubleshooting
+
+- **Nothing speaks**: check that **Use text to speech** is on. Then check the right **Auto-play** toggle, or use **Speak** on a message.
+- **The card shows Missing Audio provider**: the account chosen as **Source** was deleted or cannot be used. Pick another Source. See [Use an Audio connection](#use-an-audio-connection).
+- **No voices in the list**: save the card with TTS on and a valid key, then click **Refresh voices from provider**. The official PocketTTS server uses Marinara's built-in list. For a compatible PocketTTS wrapper, check that `<Base URL>/v1/voices` responds.
+- **ElevenLabs will not speak**: pick a real voice, not the "Select an ElevenLabs voice" placeholder. Check that **Model** is a speech model, not a voice-design model whose ID contains `ttv`.
+- **A line stops with "No audio after 60 s"**: the voice server needs more time. Raise **Request timeout (seconds)** where the message says. See [Request timeout](#request-timeout).
+- **A self-hosted server on a local address is blocked**: turn on `TTS_LOCAL_URLS_ENABLED` in `.env`. It lets Marinara reach a local or private address for OpenAI-compatible or ElevenLabs-style servers. PocketTTS does not need it. See [Server Configuration Reference](../CONFIGURATION.md).
+- **Test fast**: click **Preview** in the card to hear a short sample with your current settings.
+
+## Reference: music, sound effects and Gacha Forge
+
+These sections are for advanced setups.
+
+### Game music and sound effects on a compatible audio server
 
 1. In **Connections**, add a **Music & Sound Effects** account and choose **Custom compatible server**.
 2. Enter the address, key and model for your music or sound-effect server.
@@ -190,26 +211,14 @@ Turn on only what your server implements. An OpenAI-compatible speech endpoint a
 
 Generated context music is composed once per area or encounter tier and reused. Repeated sound effects use the audio cache. A generation error leaves the cache available for retry.
 
-## Gacha Forge dialogue and audio
+### Gacha Forge dialogue and audio
 
-Gacha Forge 1.11.0 or later uses the TTS card's selected account and its per-character voice assignments. These Gacha Forge options are package-owned and could not be checked against this Engine's source.
-
-- Turn on **Read character dialogue** to read dialogue from imported characters that have an assigned voice. It is in a new world's **Lore** setup step, or in Gacha Forge's own world settings for an existing world. Narration, thoughts, generated units without an Engine character ID and characters without a voice stay silent. A name alone never borrows another character's voice.
+Gacha Forge 1.11.0 or later uses the TTS card's selected account and its per-character voice assignments. - Turn on **Read character dialogue** to read dialogue from imported characters that have an assigned voice. It is in a new world's **Lore** setup step, or in Gacha Forge's own world settings for an existing world. Narration, thoughts, generated units without an Engine character ID and characters without a voice stay silent. A name alone never borrows another character's voice.
 - A selected Audio account can be used when the world's TTS toggle is on. When you use the card's own source settings directly, **Use text to speech** must also be on.
 - Stock Game music and sound effects need no generation account. To compose new tracks, turn on **Generate music and sound effects** in Gacha Forge and choose a Music & Sound Effects account under **Audio connection**. It appears when generation is on. Home, combat, boss, story-scene and character-story tracks are generated when first needed, then reused. These requests use your service account.
 - The top-right mute button silences music, dialogue and sound effects together. Gacha Forge's visual settings have separate volume controls for the three, including zero, plus the autoplay pause (default **3 seconds**, after the text reveal and any spoken dialogue). Choices still wait for the player. Spoken dialogue is canceled when you leave a scene. Leaving the world stops its audio.
 
 Update the installed Gacha Forge package as well as the Engine to get these controls.
-
-## Troubleshooting
-
-- **Nothing speaks**: check that **Use text to speech** is on. Then check the right **Auto-play** toggle, or use **Speak** on a message.
-- **The card shows Missing Audio provider**: the account chosen as **Source** was deleted or cannot be used. Pick another Source. See [Use an Audio connection](#use-an-audio-connection).
-- **No voices in the list**: save the card with TTS on and a valid key, then click **Refresh voices from provider**. The official PocketTTS server uses Marinara's built-in list. For a compatible PocketTTS wrapper, check that `<Base URL>/v1/voices` responds.
-- **ElevenLabs will not speak**: pick a real voice, not the "Select an ElevenLabs voice" placeholder. Check that **Model** is a speech model, not a voice-design model whose ID contains `ttv`.
-- **A line stops with "No audio after 60 s"**: the voice server needs more time. Raise **Request timeout (seconds)** where the message says. See [Request timeout](#request-timeout).
-- **A self-hosted server on a local address is blocked**: turn on `TTS_LOCAL_URLS_ENABLED` in `.env`. It lets Marinara reach a local or private address for OpenAI-compatible or ElevenLabs-style servers. PocketTTS does not need it. See [Server Configuration Reference](../CONFIGURATION.md).
-- **Test fast**: click **Preview** in the card to hear a short sample with your current settings.
 
 ## Related guides
 
