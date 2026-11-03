@@ -21,12 +21,10 @@ import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { translate } from "../localization/i18n";
-import { useChatStore } from "../stores/chat.store";
-import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
+import { chatKeys } from "./use-chats";
 import { connectionAccountKeys } from "./use-connection-accounts";
 import type {
   APIProvider,
-  Chat,
   ConnectionTestResult,
   DecisionSource,
   GenerativeAudioSource,
@@ -250,23 +248,15 @@ export function useDeleteConnection() {
         throw new Error(t("connections.decision.deleteCancelled"));
       return api.delete(`/connections/${id}`);
     },
-    onSuccess: async (_data, id) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
       qc.invalidateQueries({ queryKey: connectionAccountKeys.all });
       // Deleting the default embedding connection clears that default on the server.
       qc.invalidateQueries({ queryKey: connectionKeys.defaultEmbedding() });
-      const activeChatId = useChatStore.getState().activeChatId;
-      if (!activeChatId) return;
-      const activeChat = qc.getQueryData<Chat>(chatKeys.detail(activeChatId));
-      if (activeChat?.connectionId !== id) return;
-      try {
-        const metadataVersion = captureChatMetadataVersion(activeChatId);
-        const updated = await api.patch<Chat>(`/chats/${activeChatId}`, { connectionId: null });
-        qc.setQueryData<Chat>(chatKeys.detail(activeChatId), guardServerChatSnapshot(qc, updated, metadataVersion));
-        qc.invalidateQueries({ queryKey: chatKeys.list() });
-      } catch {
-        qc.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });
-      }
+      // The delete already cleared the chats' Model, or moved a catalog pick onto another Model of the
+      // Connection: refetch rather than clear the cached Model, which would drop that pick.
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
+      qc.invalidateQueries({ queryKey: [...chatKeys.all, "detail"] });
     },
   });
 }

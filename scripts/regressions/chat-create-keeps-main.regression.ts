@@ -128,9 +128,72 @@ try {
   await assertFollowsMain("a profile without a Model puts the chat back on Main");
   await inject("PATCH", `/api/chats/${created.id}`, { connectionId: second.id });
   await createConnectionsStorage(db).remove(second.id);
-  // The client clears its cached Model after a delete; the chat did not choose Main, so the notice stays.
+  // A stale form that still clears the deleted Model: the chat did not choose Main, so the notice stays.
   await inject("PATCH", `/api/chats/${created.id}`, { connectionId: null });
   assert.deepEqual(await fallbackReasons(), ["deleted"], "a deleted Model is still reported");
+
+  // Deleting a Model moves a chat's catalog pick onto another Model of its Connection. The client's delete refreshes
+  // the chat instead of clearing the Model it had cached, so the chat keeps the pick and does not switch to Main.
+  const { createConnectionAccountsStorage } =
+    await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
+  const { readChatModelOverride } = await import("../../packages/shared/src/index.js");
+  const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  const account = await createConnectionAccountsStorage(db).create({
+    name: "Fixture service",
+    provider: "custom",
+    baseUrl,
+    apiKey: "fixture",
+  });
+  const onAccount = async (model: string) =>
+    (await createConnectionsStorage(db).create({
+      name: model,
+      provider: "custom",
+      baseUrl,
+      model,
+      accountId: account.id,
+    }))!;
+  const picked = await onAccount("fixture-3");
+  const peer = await onAccount("fixture-4");
+  await inject("PATCH", `/api/chats/${created.id}`, { connectionId: picked.id });
+  await chats.patchMetadata(created.id, { modelOverride: { connectionId: picked.id, model: "fixture-catalog" } });
+  const stored = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+      removeItem: (key: string) => stored.delete(key),
+    },
+  });
+  const requireClient = createRequire(new URL("../../packages/client/package.json", import.meta.url));
+  const React = requireClient("react");
+  const { renderToStaticMarkup } = requireClient("react-dom/server");
+  const { QueryClient, QueryClientProvider } =
+    await import("../../packages/client/node_modules/@tanstack/react-query/build/modern/index.js");
+  const { useDeleteConnection } = await import("../../packages/client/src/hooks/use-connections.js");
+  const { chatKeys } = await import("../../packages/client/src/hooks/use-chats.js");
+  const { useChatStore } = await import("../../packages/client/src/stores/chat.store.js");
+  const { api } = await import("../../packages/client/src/lib/api-client.js");
+  const queryClient = new QueryClient();
+  let deleteModel!: ReturnType<typeof useDeleteConnection>;
+  function Probe() {
+    deleteModel = useDeleteConnection();
+    return null;
+  }
+  renderToStaticMarkup(React.createElement(QueryClientProvider, { client: queryClient }, React.createElement(Probe)));
+  // The client talks to this app; its delete runs what DELETE /connections/:id runs.
+  api.get = (async () => []) as typeof api.get;
+  api.delete = (async (path: string) =>
+    createConnectionsStorage(db).remove(path.split("/").pop()!)) as typeof api.delete;
+  api.patch = ((path: string, body: unknown) => inject("PATCH", `/api${path}`, body)) as typeof api.patch;
+  useChatStore.setState({ activeChatId: created.id });
+  queryClient.setQueryData(chatKeys.detail(created.id), await inject("GET", `/api/chats/${created.id}`));
+  await deleteModel.mutateAsync(picked.id);
+  const carried = (await chats.getById(created.id))!;
+  assert.equal(carried.connectionId, peer.id, "the chat keeps its pick on the Connection's other Model");
+  assert.equal(readChatModelOverride(carried)?.model, "fixture-catalog", "the catalog pick is kept");
+  assert.equal(readChatFollowsMain(carried), false, "the chat does not switch to Main");
+  assert.deepEqual(await fallbackReasons(), [], "the carried pick needs no notice");
   console.log("New chats are created without an explicit connection.");
 } finally {
   provider.closeAllConnections();

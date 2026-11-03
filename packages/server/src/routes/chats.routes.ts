@@ -1638,7 +1638,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       updated = (await storage.patchMetadata(req.params.id, { [CHAT_MODEL_OVERRIDE_KEY]: null })) ?? updated;
     }
     // Changing the Model to none ("Use default", Random off) follows Main by choice, so generation reports no deleted
-    // Model; a PATCH that keeps the id (the client's after a Model is deleted) leaves the flag as it is.
+    // Model; a PATCH that keeps the id (a stale form after the delete already cleared it) leaves the flag as it is.
     if (updated && data.connectionId !== undefined && (data.connectionId ?? null) !== (existing.connectionId ?? null)) {
       updated =
         (await storage.patchMetadata(req.params.id, { [CHAT_FOLLOWS_MAIN_KEY]: !data.connectionId })) ?? updated;
