@@ -25,13 +25,12 @@ Two editors are there. Click a title to expand it.
 
 1. Open an editor.
 2. Pick a template from **Registered prompt**. The list depends on the editor.
-3. Check the status pill beside it.
-4. Read the short description under the dropdown.
-5. Under **Available variables**, click a variable chip to insert it. Variables look like `${charName}`.
-6. Edit the text in the **Template** box.
-7. Check **Rendered preview**. It fills your template with example values.
-8. Fix any **Unknown variables** warning. A name that is not on the **Available variables** list is not filled in.
-9. Click **Save**.
+3. Check the status pill beside it, and read the short description under the dropdown.
+4. Under **Available variables**, click a variable chip to insert it. Variables look like `${charName}`.
+5. Edit the text in the **Template** box.
+6. Check **Rendered preview**. It fills your template with example values.
+7. Fix any **Unknown variables** warning. A name that is not on the **Available variables** list is not filled in.
+8. Click **Save**.
 
 You see "Prompt override saved", and the pill changes to **Custom active**.
 
