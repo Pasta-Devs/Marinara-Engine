@@ -247,6 +247,7 @@ export function ChatConversationSurface({
                 chat={chat}
                 chatMeta={chatMeta}
                 characterNames={stageCharacterNames}
+                preview={welcomeBack.preview}
                 onClose={welcomeBack.close}
               />
             ) : null

@@ -2050,6 +2050,7 @@ export function ChatRoleplaySurface({
                           chat={chat}
                           chatMeta={chatMeta}
                           characterNames={stageCharacterNames}
+                          preview={welcomeBack.preview}
                           onClose={welcomeBack.close}
                         />
                       )}

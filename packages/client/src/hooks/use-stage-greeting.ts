@@ -21,15 +21,16 @@ export function useStageGreeting(chatId: string) {
   });
 }
 
-/** The welcome-back recap for an older chat. It reads the chat and writes nothing. */
+/** The welcome-back recap for an older chat. It reads the chat and writes nothing; it only runs once `enabled` (a click). */
 export function useStageRecap(chatId: string, enabled: boolean) {
   return useQuery({
     queryKey: ["chat-welcome-recap", chatId],
-    queryFn: () =>
-      api.post<{ recap: string }>(`/chats/${chatId}/setup-greeting`, {
-        mode: "recap",
-        debugMode: useUIStore.getState().debugMode,
-      }),
+    queryFn: ({ signal }) =>
+      api.post<{ recap: string }>(
+        `/chats/${chatId}/setup-greeting`,
+        { mode: "recap", debugMode: useUIStore.getState().debugMode },
+        { signal },
+      ),
     enabled,
     staleTime: Infinity,
     retry: false,

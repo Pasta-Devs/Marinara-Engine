@@ -126,6 +126,15 @@ export function shouldWelcomeBack(input: {
   return input.now - newest >= WELCOME_BACK_AFTER_MS;
 }
 
+/** Focuses the composer of the chat that holds `from`; falls back to the first composer on the page. */
+export function focusChatComposer(from?: Element | null): void {
+  const selector = "textarea[data-chat-composer]";
+  (
+    from?.closest("[data-chat-mode]")?.querySelector<HTMLTextAreaElement>(selector) ??
+    document.querySelector<HTMLTextAreaElement>(selector)
+  )?.focus();
+}
+
 /** The newest paragraph of the chat's stored rolling summary, or null when there is none. */
 export function welcomeRecapFromSummary(summary: unknown): string | null {
   if (typeof summary !== "string") return null;

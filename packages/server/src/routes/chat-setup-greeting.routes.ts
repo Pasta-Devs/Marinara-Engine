@@ -30,6 +30,8 @@ const CONTINUE_TAIL_MESSAGES = 20;
 const CONTINUE_TAIL_CHARS = 1500;
 const MAX_GREETING_TOKENS = 4096;
 const MAX_RECAP_TOKENS = 1024;
+/** A welcome-back recap needs at least this many messages in the chat. */
+const RECAP_MIN_MESSAGES = 6;
 const RECAP_INSTRUCTION =
   "Step out of the chat for a moment. The user is back after a few days away. In at most three short lines, remind them where things stand right now: where they are, what just happened, and what is still open. Write plain prose in the language of the chat, without headings, lists, quotes, notes or XML tags. Do not continue the chat.";
 /** Earlier chats looked at before giving up on a recap. */
@@ -42,6 +44,11 @@ function parseMeta(value: unknown): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/** The tail of a chat as plain "User:" / "Character:" turns, each capped. */
+function tailTranscript(tail: Array<{ role: string; content: string }>): string {
+  return tailTranscript(tail);
 }
 
 /** Hosted rooms have their own broadcast and generation policy; a solo write here would split host and guests. */
@@ -108,6 +115,9 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
     if (chat.mode !== "roleplay" && !(recapMode && chat.mode === "conversation"))
       return fail(reply, 400, "not-roleplay", "Only roleplay chats have a setup stage");
     if (isRoomChat(parseMeta(chat.metadata))) return fail(reply, 409, "room-chat", "Room chats keep their own opening");
+    if (recapMode && (await chats.countMessages(chat.id)) < RECAP_MIN_MESSAGES) {
+      return fail(reply, 400, "too-short", "This chat is too short to recap");
+    }
     const messages = recapMode ? [] : await chats.listMessages(chat.id);
     if (!recapMode && chatHasStarted(messages, chat.metadata, chat.mode))
       return fail(reply, 409, "started", "This chat has already started");
@@ -140,13 +150,23 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
 
     // The assembled prompt a real turn would send: card, persona, preset, lorebooks, macros resolved. Plain
     // history, as a real turn sends it: the preview's XML wrapping of the last message is a preview-only shim.
-    const preview = await forwardPromptPreview(app, req, {
-      chatId: chat.id,
-      connectionId: conn.id,
-      wrapLastMessage: false,
-    });
-    const assembled = preview.body.prompt?.messages;
-    if (preview.statusCode >= 400 || !assembled?.length) {
+    // A recap is cheap: just the chat's last messages, no card, persona, preset or lorebooks.
+    const recapTranscript = recapMode
+      ? tailTranscript(
+          (await chats.listMessagesPaginated(chat.id, CONTINUE_TAIL_MESSAGES)).filter(
+            (m) => m.role === "user" || m.role === "assistant",
+          ),
+        )
+      : "";
+    const preview = recapMode
+      ? null
+      : await forwardPromptPreview(app, req, {
+          chatId: chat.id,
+          connectionId: conn.id,
+          wrapLastMessage: false,
+        });
+    const assembled = preview?.body.prompt?.messages;
+    if (preview && (preview.statusCode >= 400 || !assembled?.length)) {
       logger.error("[setup-greeting] Prompt preview failed for chat %s (status %d)", chat.id, preview.statusCode);
       return fail(reply, 502, "generation-failed", "The opening could not be written");
     }
@@ -159,9 +179,9 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
       continue: `Pick up where the last chat with this character left off. What happened so far:\n${recap}\n\nWrite the opening message of a new session that follows on from it.`,
     }[body.data.mode];
     const instruction = recapMode
-      ? RECAP_INSTRUCTION
+      ? `${recapTranscript}\n\n${RECAP_INSTRUCTION}`
       : `${brief}\n\nWrite only the character's opening message, in the same voice, format and language as the existing opening message above. Do not speak or act for the user. Do not add notes or XML tags.`;
-    const prompt = [...(assembled as ChatMessage[])];
+    const prompt = recapMode ? [] : [...(assembled as ChatMessage[])];
     const lastTurn = prompt.at(-1);
     // Strict providers reject (or merge) two user turns in a row, and some presets already end on one.
     if (lastTurn?.role === "user")
@@ -202,7 +222,7 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
       showThoughts: _show,
       assistantPrefill: _prefill,
       ...sampling
-    } = (preview.body.parameters ?? {}) as Record<string, unknown>;
+    } = (preview?.body.parameters ?? {}) as Record<string, unknown>;
     const abort = new AbortController();
     // The request stream is already closed once the body is read; the reply is what notices the client leaving.
     reply.raw.on("close", () => {
@@ -223,7 +243,7 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
         logger.warn("[setup-greeting] Empty opening for chat %s", chat.id);
         return fail(reply, 502, "generation-failed", "The opening could not be written");
       }
-      if (!greeting) return { recap: text };
+      if (recapMode || !greeting) return { recap: text };
       // The first message may have been sent while the model was writing; do not swap a started chat's greeting.
       const latest = await chats.getById(chat.id);
       if (!latest || chatHasStarted(await chats.listMessages(chat.id), latest.metadata, latest.mode)) {
