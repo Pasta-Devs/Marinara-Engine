@@ -161,7 +161,7 @@ The expanded drawer holds more fields.
 | **No Vector** | Leaves the entry out of semantic search. See [Semantic Search for Lorebooks](semantic-search.md). |
 | **Recursion** | Lets this entry's content trigger more entries. Off by default. See [Lorebook Token Budgets and Recursion](token-budgets.md). |
 
-The **Context filters & matching sources** section limits an entry to certain characters, character tags or generation types. It also lets you scan extra card fields, such as the character description, for the entry's keys. In a group chat, a character filter also keeps the entry out of other characters' replies. Use it for secrets that only one character knows.
+The **Context filters & matching sources** section limits an entry to certain characters, character tags or generation types. It also lets you scan extra card fields, such as the character description, for the entry's keys. In a group chat in **Individual** mode, each reply counts only the character who writes it, so a character filter keeps the entry out of other characters' replies. In a **Merged (Narrator)** reply, every character in the chat counts, so the entry stays in if any filtered character is in the chat. Use it for secrets that only one character knows.
 
 ## Choose settings for a fact
 
