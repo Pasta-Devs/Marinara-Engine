@@ -86,17 +86,6 @@ For all agents, see [Agents: AI Helpers for Your Chats](../agents/agents-overvie
 
 Your chat connection writes the character prose. A stronger model keeps a character's voice steady in long scenes. Your agent connections run small structured tasks, such as reading state or picking an expression, and small models can get these wrong. Many people run chat on a strong model and agents on a fast, cheap one. If HUD values or sprites keep going wrong, move the agents to a stronger model. For sampler settings, see [Generation Parameters](../prompts/generation-parameters.md).
 
-## Troubleshooting
-
-| Symptom | Fix |
-| --- | --- |
-| A HUD value is wrong. | Edit it by hand and lock it so the next run leaves it alone. See [Roleplay HUD and Trackers](hud-and-trackers.md). If values keep drifting, use a stronger agent model. |
-| Sprites do not change. | Check that the character has a sprite library. You can also use `/emote`. |
-| The background never changes. | The **Background** agent picks from your library, so add more backgrounds. See [Roleplay Backgrounds](backgrounds.md). |
-| A regenerated reply keeps the wrong direction. | Turn on **Debug mode**, open **Agent activity → Injections**, then edit or re-run the saved snippet before you regenerate. |
-
-For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
-
 ## Commands
 
 These are optional features. Commands are actions a character can take on its own, written inside its reply as short bracketed text such as `[illustrate: ...]`. Marinara reads the bracket, does the action and hides the bracket from the message.
@@ -132,7 +121,7 @@ You can also make an illustration yourself with `/illustrate`. In Roleplay it ne
 
 Turn on **HTML Artifacts** to let the narrator make one in-world object, such as a spellbook page, a sign, a sketch on a letter or a terminal readout. The command is `[html: prompt="..."]`. It needs no agent. You can also ask for one yourself with `/html <what you want>`.
 
-The artifact appears where the narrator placed the command, after the reply finishes. In the Visual Novel layout you see only a marker. A reply can make at most 3 artifacts, and each is a separate model request. The request uses the **Immersive HTML** agent's connection if it has one, then your default agent connection, then the chat's connection. That connection's **Parallel jobs** setting sets how many run at once. For a plain styled page, the built-in **Documents** kinds are free and instant.
+The artifact appears where the narrator placed the command, after the reply finishes. In the Visual Novel layout you see only a marker. A reply can make at most 3 artifacts, and each is a separate model request. The request uses the **Immersive HTML** agent's connection if it has one, then your default agent connection, then the chat's connection. That connection's **Parallel requests** setting (in the account editor) sets how many run at once. For a plain styled page, the built-in **Documents** kinds are free and instant.
 
 The narrator does not see the artifact's HTML. In later turns it sees a short plain-text version: the artifact's readable text and one line on how it looks. Open the "used html command" marker under the message to read or edit that text, or to delete the artifact, which also removes it from the narrator's memory. If a run fails, the marker says why.
 
@@ -188,6 +177,17 @@ To get the original back, open the reply's command information and choose **Rest
 ## CYOA choices
 
 CYOA means Choose Your Own Adventure. The CYOA Choices agent is off by default, and works only in Roleplay. When on, it adds clickable choice buttons after a reply, and clicking one sends it as your next message. To combine choices or edit one first, turn on **Add CYOA choices to the message box instead of sending them** in **Settings → General → Input & Editing**. Clicking a choice then adds its text to your message box.
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| A HUD value is wrong. | Edit it by hand and lock it so the next run leaves it alone. See [Roleplay HUD and Trackers](hud-and-trackers.md). If values keep drifting, use a stronger agent model. |
+| Sprites do not change. | Check that the character has a sprite library. You can also use `/emote`. |
+| The background never changes. | The **Background** agent picks from your library, so add more backgrounds. See [Roleplay Backgrounds](backgrounds.md). |
+| A regenerated reply keeps the wrong direction. | Turn on **Debug mode**, open **Agent activity → Injections**, then edit or re-run the saved snippet before you regenerate. |
+
+For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Related guides
 
