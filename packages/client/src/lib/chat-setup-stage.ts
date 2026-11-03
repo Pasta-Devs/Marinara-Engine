@@ -78,6 +78,12 @@ export function presetChoiceSummary(
  * leaves its list, an auto-activated one (character, global, persona) toggles the exclude list,
  * and any other book joins the chat's list.
  */
+/** After a cast change on the stage: drop a greeting whose character left, and greet with the first character when none is left. */
+export function stageGreetingSwap(first: { characterId?: string | null } | null, cast: readonly string[]) {
+  const stale = !!first?.characterId && !cast.includes(first.characterId);
+  return { drop: stale, greet: !first || stale ? (cast[0] ?? null) : null };
+}
+
 export function lorebookSwitchWrite(
   id: string,
   view: { isPinned: boolean; isExcluded: boolean; activeReasons: readonly string[] } | undefined,

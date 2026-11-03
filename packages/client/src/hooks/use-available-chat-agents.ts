@@ -6,6 +6,7 @@ import {
   isRetiredBuiltInAgentId,
   normalizeAgentPhaseForType,
   type AgentPhase,
+  type Chat,
   type ChatMode,
 } from "@marinara-engine/shared";
 import { useAgentConfigs, type AgentConfigRow } from "./use-agents";
@@ -21,6 +22,27 @@ export type AvailableAgent = {
   runtimeDisabled?: boolean;
   execution?: "pipeline" | "feature" | "host";
 };
+
+export function getChatActiveAgentIds(chat: Chat): string[] {
+  const metadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+  const activeIds =
+    metadata && typeof metadata === "object" ? (metadata as { activeAgentIds?: unknown }).activeAgentIds : [];
+  return Array.isArray(activeIds) ? activeIds.filter((id): id is string => typeof id === "string") : [];
+}
+
+/** Installed built-in agents the user deleted; a chat's stored helper list drops them on write. */
+export function useDeletedBuiltInAgentTypes(): Set<string> {
+  const { data: agentConfigs } = useAgentConfigs();
+  const { data: installedAgentManifests = [] } = useCapabilityAgentRegistry();
+  return useMemo(() => {
+    const installed = new Set(installedAgentManifests.map((agent) => agent.id));
+    return new Set(
+      ((agentConfigs ?? []) as AgentConfigRow[])
+        .filter((config) => installed.has(config.type) && isAgentConfigDeleted(config.settings))
+        .map((config) => config.type),
+    );
+  }, [agentConfigs, installedAgentManifests]);
+}
 
 /** The helpers a chat of this mode can turn on, as Chat Settings and the setup stage list them. */
 export function useAvailableChatAgents(chatMode: ChatMode): AvailableAgent[] {

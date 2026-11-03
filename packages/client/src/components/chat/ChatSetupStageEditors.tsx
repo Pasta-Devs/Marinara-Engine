@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Check, Minus, Plus, Search, Star } from "lucide-react";
 import { LOCAL_SIDECAR_CONNECTION_ID, type Chat, type Lorebook } from "@marinara-engine/shared";
 import { chatKeys, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
@@ -10,7 +10,11 @@ import { usePresets } from "../../hooks/use-presets";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { useApplyChatPreset, useChatPresets } from "../../hooks/use-chat-presets";
 import { useChatCast } from "../../hooks/use-chat-cast";
-import { useAvailableChatAgents } from "../../hooks/use-available-chat-agents";
+import {
+  getChatActiveAgentIds,
+  useAvailableChatAgents,
+  useDeletedBuiltInAgentTypes,
+} from "../../hooks/use-available-chat-agents";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { useConnections } from "../../hooks/use-connections";
 import { usePresetChoiceVariables } from "../presets/ChoiceSelectionModal";
@@ -29,7 +33,7 @@ import {
   getChatExcludedLorebookIds,
 } from "../../lib/chat-lorebooks";
 import { requestChatSettingsSectionOpen, type StageSettingsSection } from "../../lib/chat-floating-ui-events";
-import { lorebookSwitchWrite } from "../../lib/chat-setup-stage";
+import { lorebookSwitchWrite, stageGreetingSwap } from "../../lib/chat-setup-stage";
 import { cn } from "../../lib/utils";
 import type { CharacterMap, MessageWithSwipes, PersonaInfo } from "./chat-area.types";
 
@@ -61,6 +65,7 @@ const TITLES: Record<StageEditorSection, string> = {
 
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 const NAV = "[data-stage-option], [data-stage-panel] input";
+const TABBABLE = 'button:not([disabled]), input:not([disabled]), select, textarea, a[href], [tabindex="0"]';
 
 function parseData(data: unknown): Record<string, unknown> | null {
   if (typeof data !== "string") return data && typeof data === "object" ? (data as Record<string, unknown>) : null;
@@ -70,6 +75,9 @@ function parseData(data: unknown): Record<string, unknown> | null {
     return null;
   }
 }
+
+// Fast toggles write from the query cache, which mutations update at once, not from the last render.
+const latestChat = (qc: QueryClient, chat: Chat) => qc.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
 
 /** An in-place editor anchored to the word or row that opened it; a bottom sheet on phones. */
 function StagePopover({
@@ -108,18 +116,24 @@ function StagePopover({
     };
     measure();
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
   }, [anchor, phone, width]);
 
   // Focus moves in on open and back to the word that opened it on close.
   useLayoutEffect(() => {
     const panel = panelRef.current;
-    const target =
-      panel?.querySelector<HTMLElement>('[data-stage-option][aria-checked="true"]') ??
-      panel?.querySelector<HTMLElement>(NAV);
+    // On a phone the panel takes focus, so no input opens the keyboard by itself.
+    const target = phone
+      ? panel
+      : (panel?.querySelector<HTMLElement>('[data-stage-option][aria-checked="true"]') ??
+        panel?.querySelector<HTMLElement>(NAV));
     target?.focus({ preventScroll: true });
     return () => anchor.focus({ preventScroll: true });
-  }, [anchor]);
+  }, [anchor, phone]);
 
   useLayoutEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
@@ -142,6 +156,16 @@ function StagePopover({
   }, [anchor, onClose]);
 
   const onKeyDown = (event: KeyboardEvent) => {
+    // The phone sheet is modal, so Tab wraps inside it.
+    if (event.key === "Tab" && phone) {
+      const focusable = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(TABBABLE) ?? []);
+      const edge = event.shiftKey ? focusable[0] : focusable[focusable.length - 1];
+      if (edge && (document.activeElement === edge || document.activeElement === panelRef.current)) {
+        event.preventDefault();
+        (event.shiftKey ? focusable[focusable.length - 1] : focusable[0])?.focus();
+      }
+      return;
+    }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(NAV) ?? []);
     const at = items.indexOf(document.activeElement as HTMLElement);
@@ -157,10 +181,19 @@ function StagePopover({
         ref={panelRef}
         data-stage-panel
         role="dialog"
+        aria-modal={phone ? true : undefined}
         aria-label={t(TITLES[section])}
+        tabIndex={-1}
         onKeyDown={onKeyDown}
+        onBlur={(event) => {
+          // The desktop popover is not modal, so it closes when focus moves on to the page.
+          const next = event.relatedTarget as Element | null;
+          if (phone || !next || next === anchor || panelRef.current?.contains(next)) return;
+          if (next.closest("[data-stage-layer], .mari-modal, [role=dialog]")) return;
+          onClose();
+        }}
         className={cn(
-          "pointer-events-auto absolute flex flex-col overflow-hidden border border-[color-mix(in_srgb,var(--foreground)_11%,transparent)] bg-[color-mix(in_srgb,var(--background)_94%,transparent)] text-[var(--foreground)] shadow-[0_20px_50px_rgba(0,0,0,.45)] backdrop-blur-[20px]",
+          "pointer-events-auto absolute flex flex-col overflow-hidden border outline-none border-[color-mix(in_srgb,var(--foreground)_11%,transparent)] bg-[color-mix(in_srgb,var(--background)_94%,transparent)] text-[var(--foreground)] shadow-[0_20px_50px_rgba(0,0,0,.45)] backdrop-blur-[20px]",
           phone
             ? "inset-x-0 bottom-0 max-h-[80dvh] rounded-t-[18px] pb-[env(safe-area-inset-bottom)]"
             : "rounded-[18px]",
@@ -300,19 +333,26 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
     metadata: ctx.chatMeta,
     chatCharIds: ctx.chatCharIds,
     isGame: false,
-    // Same rule as Chat Settings: while the stage is open only the first character's greeting is posted.
-    onAdded: (charId, current) => {
-      if (ctx.variant !== "roleplay" || current.length !== 1 || ctx.first) return;
-      const data = characters.find((c) => c.id === charId)?.data;
-      // ponytail: a card with questions gets no greeting here; Chat Settings asks them. Ask in place if users miss it.
-      if (!data || readCardWithQuestions(data)) return;
-      const [greeting, ...alternates] = readCharacterGreetings(data).greetings.map((g) => g.text);
-      if (!greeting) return;
-      void postGreetingWithSwipes(ctx.chat.id, charId, greeting, alternates)
-        .catch(() => undefined)
-        .finally(() => qc.invalidateQueries({ queryKey: chatKeys.messages(ctx.chat.id) }));
-    },
+    onAdded: (_charId, current) => syncGreeting(current),
+    onRemoved: (charId) => syncGreeting(ctx.chatCharIds.filter((id) => id !== charId)),
   });
+  // A swap (remove A, add B) replaces A's greeting with B's while the stage is open.
+  const syncGreeting = (cast: string[]) => {
+    if (ctx.variant !== "roleplay") return;
+    const { drop, greet } = stageGreetingSwap(ctx.first, cast);
+    const data = greet ? characters.find((c) => c.id === greet)?.data : null;
+    // ponytail: a card with questions gets no greeting here; Chat Settings asks them. Ask in place if users miss it.
+    const [greeting, ...alternates] =
+      greet && data && !readCardWithQuestions(data) ? readCharacterGreetings(data).greetings.map((g) => g.text) : [];
+    if (!drop && !greeting) return;
+    const first = ctx.first;
+    void (async () => {
+      if (drop && first) await api.delete(`/chats/${ctx.chat.id}/messages/${first.id}?trash=false`);
+      if (greet && greeting) await postGreetingWithSwipes(ctx.chat.id, greet, greeting, alternates);
+    })()
+      .catch(() => undefined)
+      .finally(() => qc.invalidateQueries({ queryKey: chatKeys.messages(ctx.chat.id) }));
+  };
   const needle = query.trim().toLowerCase();
   const others = characters.filter((c) => !ctx.chatCharIds.includes(c.id) && c.name.toLowerCase().includes(needle));
   const nameOf = (id: string) => ctx.characterMap.get(id)?.name ?? characters.find((c) => c.id === id)?.name ?? id;
@@ -400,6 +440,7 @@ function StyleEditor({ ctx }: { ctx: StageEditorContext }) {
   const { data: presets } = usePresets();
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
+  const qc = useQueryClient();
   const presetId = ctx.chat.promptPresetId ?? null;
   const existing = (ctx.chatMeta.presetChoices ?? {}) as Record<string, string | string[]>;
   const { variables, baseSelections } = usePresetChoiceVariables(presetId, existing);
@@ -425,9 +466,13 @@ function StyleEditor({ ctx }: { ctx: StageEditorContext }) {
                 selection={baseSelections[v.variableName]}
                 optionKey={(option) => option.value}
                 ariaLabel={v.question}
-                onChange={(next) =>
-                  updateMeta.mutate({ id: ctx.chat.id, presetChoices: { ...baseSelections, [v.variableName]: next } })
-                }
+                onChange={(next) => {
+                  const latest = parseData(latestChat(qc, ctx.chat).metadata)?.presetChoices as typeof existing;
+                  updateMeta.mutate({
+                    id: ctx.chat.id,
+                    presetChoices: { ...baseSelections, ...latest, [v.variableName]: next },
+                  });
+                }}
               />
             </div>
           ))}
@@ -438,6 +483,7 @@ function StyleEditor({ ctx }: { ctx: StageEditorContext }) {
 }
 
 function NarratorEditor({ ctx, close }: { ctx: StageEditorContext; close: () => void }) {
+  const phone = useMatchMedia("(max-width: 640px)");
   const chatPick = useChatModelPick(ctx.chat.id);
   const { data: connections } = useConnections();
   const updateChat = useUpdateChat();
@@ -448,7 +494,7 @@ function NarratorEditor({ ctx, close }: { ctx: StageEditorContext; close: () => 
       onApply={chatPick.apply}
       onDone={close}
       onAdd={() => openAddConnection()}
-      autoFocusSearch
+      autoFocusSearch={!phone}
       showLocalModel={((connections ?? []) as Array<{ id: string }>).some((c) => c.id === LOCAL_SIDECAR_CONNECTION_ID)}
       shuffle={{
         active: isRandom,
@@ -463,6 +509,7 @@ function WorldEditor({ ctx }: { ctx: StageEditorContext }) {
   const { t } = useTranslation();
   const { data } = useLorebooks();
   const updateMeta = useUpdateChatMetadata();
+  const qc = useQueryClient();
   const chat = ctx.chat;
   const lorebooks = (data ?? []) as Lorebook[];
   const activeIds = getChatActiveLorebookIds(chat);
@@ -492,9 +539,18 @@ function WorldEditor({ ctx }: { ctx: StageEditorContext }) {
             label={book.name}
             hint={linked ? t("chat.setupStage.editor.linkedTo", { name: linked }) : null}
             checked={on}
-            onChange={() =>
-              updateMeta.mutate({ id: chat.id, ...lorebookSwitchWrite(book.id, view, activeIds, excludedIds) })
-            }
+            onChange={() => {
+              const latest = latestChat(qc, chat);
+              updateMeta.mutate({
+                id: chat.id,
+                ...lorebookSwitchWrite(
+                  book.id,
+                  view,
+                  getChatActiveLorebookIds(latest),
+                  getChatExcludedLorebookIds(latest),
+                ),
+              });
+            }}
           />
         );
       })}
@@ -505,6 +561,8 @@ function WorldEditor({ ctx }: { ctx: StageEditorContext }) {
 function HelpersEditor({ ctx }: { ctx: StageEditorContext }) {
   const { t } = useTranslation();
   const updateMeta = useUpdateChatMetadata();
+  const qc = useQueryClient();
+  const deleted = useDeletedBuiltInAgentTypes();
   const agents = useAvailableChatAgents(ctx.chat.mode).filter((agent) => !agent.runtimeDisabled);
   const enabled = ctx.chatMeta.enableAgents === true;
   const activeIds = Array.isArray(ctx.chatMeta.activeAgentIds)
@@ -512,8 +570,11 @@ function HelpersEditor({ ctx }: { ctx: StageEditorContext }) {
     : [];
   // ponytail: plain list write; Chat Settings also clears a removed agent's stored memory and image settings,
   // which a chat still on its setup stage does not have yet. Route through a shared toggle if that changes.
-  const toggle = (id: string, on: boolean) =>
-    updateMeta.mutate({ id: ctx.chat.id, activeAgentIds: on ? [...activeIds, id] : activeIds.filter((x) => x !== id) });
+  const toggle = (id: string, on: boolean) => {
+    // Same as Chat Settings: start from the latest list and drop deleted built-in helpers.
+    const ids = getChatActiveAgentIds(latestChat(qc, ctx.chat)).filter((x) => x !== id && !deleted.has(x));
+    updateMeta.mutate({ id: ctx.chat.id, activeAgentIds: on ? [...ids, id] : ids });
+  };
   return (
     <>
       <SwitchRow

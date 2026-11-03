@@ -341,7 +341,6 @@ import {
   CONVERSATION_COMMAND_KEYS,
   CHAT_SUMMARY_OUTPUT_TOKENS,
   getDefaultBuiltInAgentSettings,
-  isAgentConfigDeleted,
   mergeBuiltInAgentSettings,
   normalizeManualTrackerAgentTypes,
   normalizeAgentPromptTemplateOptions,
@@ -368,7 +367,12 @@ import {
 } from "../../hooks/use-custom-tools";
 import { normalizeSpritePlacements } from "./sprite-placement";
 import { useChatCast } from "../../hooks/use-chat-cast";
-import { useAvailableChatAgents, type AvailableAgent } from "../../hooks/use-available-chat-agents";
+import {
+  getChatActiveAgentIds,
+  useAvailableChatAgents,
+  useDeletedBuiltInAgentTypes,
+  type AvailableAgent,
+} from "../../hooks/use-available-chat-agents";
 import {
   normalizeSpriteCharacterVisualSettingsMap,
   type LocalSpriteVisualSettings,
@@ -950,13 +954,6 @@ function customLorebookBackfillChunkSize(settings: Record<string, unknown>): num
   );
 }
 
-function getChatActiveAgentIds(chat: Chat): string[] {
-  const metadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
-  const activeIds =
-    metadata && typeof metadata === "object" ? (metadata as { activeAgentIds?: unknown }).activeAgentIds : [];
-  return Array.isArray(activeIds) ? activeIds.filter((id): id is string => typeof id === "string") : [];
-}
-
 export function ChatSettingsDrawer({
   chat,
   open: windowOpen,
@@ -1503,16 +1500,7 @@ export function ChatSettingsDrawer({
     () => new Set(installedAgentManifests.map((agent) => agent.id)),
     [installedAgentManifests],
   );
-  const deletedBuiltInAgentTypes = useMemo(
-    () =>
-      new Set(
-        ((agentConfigs ?? []) as AgentConfigRow[])
-          .filter((config) => installedAgentIds.has(config.type))
-          .filter((config) => isAgentConfigDeleted(config.settings))
-          .map((config) => config.type),
-      ),
-    [agentConfigs, installedAgentIds],
-  );
+  const deletedBuiltInAgentTypes = useDeletedBuiltInAgentTypes();
   const activeAgentIds = useMemo<string[]>(
     () =>
       (Array.isArray(metadata.activeAgentIds) ? metadata.activeAgentIds : []).filter(

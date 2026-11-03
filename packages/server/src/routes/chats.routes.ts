@@ -913,12 +913,12 @@ type ProfessorMariRestartQuery = {
   name?: string;
 };
 
-/** The opening greeting alone does not start a chat: cast and persona changes before the first turn are setup. */
-function chatHasStarted(messages: ReadonlyArray<{ role: string }>, metadata: unknown): boolean {
+/** A roleplay's opening greeting alone does not start it: cast and persona changes before the first turn are setup. */
+function chatHasStarted(messages: ReadonlyArray<{ role: string }>, metadata: unknown, mode: string): boolean {
   return (
     parseChatMetadata(metadata).conversationSetupComplete === true ||
     messages.some((message) => message.role === "user") ||
-    messages.filter((message) => message.role === "assistant").length > 1
+    messages.filter((message) => message.role === "assistant").length > (mode === "roleplay" ? 1 : 0)
   );
 }
 
@@ -1558,7 +1558,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
       if (removedIds.length > 0 || addedIds.length > 0) {
         const existingMessages = await storage.listMessages(req.params.id);
-        const hasStartedChat = chatHasStarted(existingMessages, existing.metadata);
+        const hasStartedChat = chatHasStarted(existingMessages, existing.metadata, existing.mode);
         if (existing.mode === "roleplay") {
           await storage.patchMetadata(req.params.id, (current) => {
             const settings = normalizeAdvancedMemorySettings(current.advancedMemory);
@@ -1684,7 +1684,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
     if (updated && identityChanged) {
       const existingMessages = await storage.listMessages(req.params.id);
-      const hasStartedChat = chatHasStarted(existingMessages, existing.metadata);
+      const hasStartedChat = chatHasStarted(existingMessages, existing.metadata, existing.mode);
       if (hasStartedChat && identityAfter) {
         await storage.createMessage({
           chatId: req.params.id,

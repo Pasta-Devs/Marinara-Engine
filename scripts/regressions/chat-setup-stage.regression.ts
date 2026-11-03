@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 
-const { lorebookSwitchWrite, backgroundLabel, presetChoiceSummary, shouldShowSetupStage, stageTagline, chatTurnTaken } =
-  await import("../../packages/client/src/lib/chat-setup-stage.js");
+const {
+  lorebookSwitchWrite,
+  stageGreetingSwap,
+  backgroundLabel,
+  presetChoiceSummary,
+  shouldShowSetupStage,
+  stageTagline,
+  chatTurnTaken,
+} = await import("../../packages/client/src/lib/chat-setup-stage.js");
 
 const base = { chatId: "c1", mode: "roleplay", stageChatId: "c1", setupComplete: undefined, messages: [] };
 
@@ -74,5 +81,11 @@ assert.deepEqual(lorebookSwitchWrite("b", book(false, false, "Character"), [], [
 });
 assert.deepEqual(lorebookSwitchWrite("b", book(false, true, "Global"), [], ["b"]), { excludedLorebookIds: [] });
 assert.deepEqual(lorebookSwitchWrite("b", undefined, ["a"], []), { activeLorebookIds: ["a", "b"] });
+
+// A cast swap on the stage replaces the gone character's greeting with the new first character's.
+assert.deepEqual(stageGreetingSwap({ characterId: "a" }, ["a", "b"]), { drop: false, greet: null });
+assert.deepEqual(stageGreetingSwap({ characterId: "a" }, ["b"]), { drop: true, greet: "b" });
+assert.deepEqual(stageGreetingSwap({ characterId: "a" }, []), { drop: true, greet: null });
+assert.deepEqual(stageGreetingSwap(null, ["b"]), { drop: false, greet: "b" });
 
 console.log("chat-setup-stage regression passed");
