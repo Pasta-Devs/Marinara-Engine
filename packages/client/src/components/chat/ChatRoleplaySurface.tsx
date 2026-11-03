@@ -2008,6 +2008,7 @@ export function ChatRoleplaySurface({
                     messages={messages}
                     chatBackground={chatBackground}
                     onSetActiveSwipe={onSetActiveSwipe}
+                    hasSprite={showSpriteOverlay}
                   />
                 )}
                 {visibleMessages?.map((msg, i) => {

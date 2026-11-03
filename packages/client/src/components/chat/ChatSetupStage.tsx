@@ -139,6 +139,8 @@ interface ChatSetupStageProps {
   messages: MessageWithSwipes[] | undefined;
   chatBackground: string | null;
   onSetActiveSwipe: (messageId: string, index: number) => void;
+  /** Sprites already show the character; without them the stage shows a large avatar. */
+  hasSprite?: boolean;
 }
 
 type ConnectionRow = {
@@ -252,6 +254,7 @@ export function ChatSetupStage({
   messages,
   chatBackground,
   onSetActiveSwipe,
+  hasSprite,
 }: ChatSetupStageProps) {
   const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -557,6 +560,23 @@ export function ChatSetupStage({
           className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-[20vh] -z-10 [mask-image:linear-gradient(to_bottom,#000_75%,transparent)] bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_55%,transparent)_30%,color-mix(in_srgb,var(--background)_70%,transparent)_100%)] md:right-auto md:w-[min(100vw,1100px)] md:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--background)_82%,transparent)_0%,color-mix(in_srgb,var(--background)_58%,transparent)_55%,transparent_100%)]"
         />
       )}
+      {!hasSprite && castAvatars.length > 0 ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-hidden="true"
+          onClick={open("characters")}
+          className="mb-4 flex cursor-pointer -space-x-4 bg-transparent p-0 md:mb-5"
+        >
+          {castAvatars.slice(0, 3).map((avatar, index) => (
+            <StageAvatar
+              key={index}
+              {...avatar}
+              className="h-16 w-16 border-2 border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_55%,transparent)] text-2xl shadow-[0_8px_30px_rgba(0,0,0,.35)] md:h-[76px] md:w-[76px]"
+            />
+          ))}
+        </button>
+      ) : null}
       <h1
         style={SERIF}
         className={cn(
