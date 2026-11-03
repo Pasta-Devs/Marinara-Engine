@@ -2,9 +2,16 @@
 
 This guide covers the people in your Game Mode campaign: your party members and the non-player characters (NPCs) the Game Master (GM) introduces. Use it to open and edit character sheets, manage the inventory, read the Adventure Journal and choose a GM mode. For setup and the basics, see [Game Mode: Getting Started](getting-started.md).
 
+## Check your party and inventory
+
+1. Click **Character Profiles** and pick a portrait to see that character's sheet.
+2. Click **Inventory** above the story text to see what everyone carries.
+
+Details for both follow.
+
 ## Character Profiles
 
-**Character Profiles** is a portrait button that shows who travels with you. With several party members, it cycles through their portraits and shows a count badge. Before the story adds anyone, the party is only your persona.
+**Character Profiles** is a portrait button that shows who travels with you. It stays outside the **Chat tools** menu (see [The Game's controls](getting-started.md#the-games-controls)). With several party members, it cycles through their portraits and shows a count badge. Before the story adds anyone, the party is only your persona.
 
 1. Click or tap the **Character Profiles** button.
 2. Click or tap a portrait to open that character's sheet.
@@ -19,8 +26,8 @@ A character sheet is a game summary of one party member, separate from the chara
 
 | Section | What it holds |
 | --- | --- |
-| **Attributes** | Scores such as STR, DEX and CON, each with a modifier. |
-| **Stats** | Resource bars such as HP or MP. |
+| **Attributes** | Scores such as STR, DEX and CON with a modifier, and resource bars such as HP or MP. |
+| **Stats** | Other stat bars. |
 | **Abilities** | Things the character can do. |
 | **Strengths**, **Weaknesses** | Short lists. |
 | **Details** | Extra facts such as Skills, Weapon or Faction. |
@@ -29,11 +36,9 @@ A character sheet is a game summary of one party member, separate from the chara
 
 A new character may show "Character data will populate as the story progresses." The sheet fills in as you play.
 
-### Regenerate a sheet with AI
+### Edit or recreate a sheet
 
-Click **Retry** to have the AI recreate the sheet from the character and the current game history. Use it after the story has changed a character a lot. It makes a model request. On a narrow screen the button shows only an icon.
-
-### Edit a sheet by hand
+**Retry**, **Save Sheet** and **Cancel** appear only after you click **Edit card**.
 
 1. Open the character's sheet and click **Edit card**.
 2. Change what you need:
@@ -42,6 +47,8 @@ Click **Retry** to have the AI recreate the sheet from the character and the cur
    - **Abilities**, **Strengths** and **Weaknesses**: **Add** appends a line.
    - **Details**: **Add Detail** adds a labeled fact.
 3. Click **Save Sheet**. Click **Cancel** to discard your changes.
+
+To have the AI recreate the sheet, click **Retry** while editing. It uses the character and the current game history, and makes a request to your model. It creates a draft: "new sheet draft is ready. Review it, then save to apply." Review the draft, then click **Save Sheet**. Use it after the story has changed a character a lot. On a narrow screen the button shows only an icon.
 
 ### The ruleset sheet
 
@@ -57,56 +64,32 @@ An Experience can bring its own companions: people of its world who can join you
 
 ## The inventory
 
-Click **Inventory** above the narration. Each square is a stack: an item and how many there are. Click a stack to select it.
+Click the **Inventory** button above the story text. A grid of squares opens. Each square is a stack: an item and how many there are. Click a stack to select it.
 
 Everyone in the party has their own bag. The inventory opens on **All**, which shows every bag together with the carrier's name on each stack. Click a party member's tab to see only their bag. While nobody else carries anything, there are no tabs.
 
-| Action | How |
-| --- | --- |
-| Change the amount | **-** and **+** take or add one. To change it by more, type in the number between them and press <kbd>Enter</kbd>: a number sets the count (`300`), a sign adds or takes that many (`+100`, `-50`). Setting 0 removes the stack, and asks first when there is more than one. |
-| Split a stack | Click **Split**, type how many go in the new stack, click **Split** again. |
-| Give | Click **Give**, pick who gets it and how many, click **Give** again. You can also drag a whole stack onto that person's tab. |
-| Add | Type the item's name and click **Add**. It goes into the open tab's bag, or your own bag from **All**. Adding an item the bag already has adds one to its first stack. |
-| Merge or reorder | Drag a stack onto another stack of the same item to merge them. The merged stack stays with whoever carried the stack you dropped it on. Drag a stack onto a different item to swap the two. |
-| Use | Click **Use** to tell the GM you use the item. |
-| Nickname | Type a new name and click **Save**. It is only what you call that stack. The item keeps its own name, shown beside it, and a nickname never merges stacks. Type the own name back to clear it. |
+- **Change the amount.** Use **-** and **+** to take or add one. Or type a number between them and press <kbd>Enter</kbd>.
+  - A number sets the count: `300`.
+  - A sign adds or takes that many: `+100`, `-50`.
+  - Setting 0 removes the stack, and asks first when there is more than one.
+- **Split a stack.** Click **Split**, type how many go in the new stack, click **Split** again.
+- **Give.** Click **Give**, pick who gets it and how many, click **Give** again. Or drag a whole stack onto that person's tab.
+- **Add.** Type the item's name and click **Add**. It goes into the open tab's bag, or your own bag from **All**. Adding an item the bag already has adds one to its first stack.
+- **Merge.** Drag a stack onto another stack of the same item. The merged stack stays with whoever carried the stack you dropped it on.
+- **Swap.** Drag a stack onto a different item to swap the two.
+- **Use.** Click **Use** to tell the GM you use the item.
+- **Nickname.** Type a new name and click **Save**. The item keeps its own name, shown beside it, and a nickname never merges stacks. Type the own name back to clear it.
 
-**Use** on a ruleset item that says what it does, such as a healing poultice, makes Marinara apply it first. It rolls what the item gives back, writes that on the carrier's sheet, takes one off the stack or spends a charge, and tells the GM what happened. What it does to somebody else is left to the GM. An item with nothing left is refused, and an item that must be worn works only while worn. Some items ask for a check first, such as a scroll above your reading level: Marinara rolls it, and if it fails the item is used up for nothing.
+### How the GM changes your inventory
 
-The GM adds, removes and hands over items as the story goes, and says who carries them. When it takes an item without naming a holder, it comes from your bag first, then from the party. A change that cannot happen, such as taking something nobody has, is refused and the GM is told. Changes are made when the reply is saved. A regenerated reply starts again from where that turn began, and swiping back shows what that version left. A branch keeps every version's inventory. If you change something yourself, a new reply adds its changes on top and nothing you did is undone. A fight uses items from the **Items** action and counts every stack of an item together. Every bag, split and nickname carries over to the next session.
+The GM adds, removes and hands over items as the story goes, and says who carries them.
 
-### Items from a ruleset
-
-These controls appear only when the game runs on a ruleset that has items.
-
-- **From the ruleset** opens a picker of the ruleset's items with its search and filters. Tick items and click **Add**: one of each goes where **Add** puts an item. A name you type that is one of the ruleset's items adds that item. Some rulesets take only their own items, and then there is no name to type.
-- **Starting gear** opens gear the ruleset offers to start with. Choose who it is **For**, make any choices the kit asks for and click **Take**. Gear that fits the character's sheet is listed first. Taking it is optional. Once everything is taken, the button reads **Starting gear (taken)**.
-- Selecting a ruleset item shows its kind, rarity, tags, stats and description. A stack holds only as many as the ruleset says, and extra items start a new stack.
-- The GM can invent an item in the ruleset's words, such as a named blade. It works like a ruleset item, and its details say it was invented and what Marinara changed to fit the ruleset, such as a bonus held to what its rarity allows.
-- Some rulesets turn off Game Mode's own items. The GM then gives only the ruleset's items and ones it invents, and you can still type items of your own unless the ruleset takes only its own.
-
-### Wearing, binding and carrying
-
-A ruleset can say how its items are worn and carried.
-
-- **Equipped.** An item that takes slots, such as armor on the body or a bow in both hands, has an **Equipped** button. Its bearer can wear it while those slots are free. The bag's tab shows slots in use, such as **Hands 2/2**. Equipping one item of a larger stack moves it to a stack of its own, marked as worn.
-- **Binding.** An item that must be bound to work (attuned, invested) has a button named for the ruleset's word, such as **Bound**. A character can bind only as many as the sheet allows, shown as **Bound 1/3**. A cursed item, once bound, cannot be unbound, taken off, given away or thrown out. Only the story, through the GM, can end the curse.
-- **Carrying.** When the ruleset sets weights and capacity, each bag shows its load, such as **Load 5/6, at most 12**, and **Encumbered** once it passes what its bearer carries with ease. An item added from **All** goes to someone who can carry it without becoming encumbered: you first, then the party in order. If nobody can, it is shared by the room each has left, and nobody gets more than they can carry at all. What nobody can carry is left behind and you are told. **Give** or dragging a stack onto a bag that would exceed its limit is refused.
-
-Giving a worn or bound item to someone else takes it off and unbinds it. In a ruleset with these rules, the GM also puts items on and off, binds and unbinds them and sees each load, slots and bound items.
-
-### Money
-
-A ruleset can have its own money: families of coins, such as pennies, shillings and crowns, where each larger coin is worth a number of the smallest. Coins are stacks like any item. They weigh what the ruleset says, count toward the carrier's load, and you can split, give and merge them. **From the ruleset** has a **Coins** list for adding them by hand. Above the stacks, a line shows each family in the open tab and its total, such as **Coin: crowns ×2, pennies ×12 (worth 132 pennies)**.
-
-- The GM charges and pays the party in these coins. A won fight or a rolled treasure can drop them too. A payment comes out of one character's purse, yours unless it says whose.
-- A price is paid only in the family it is named in, so a price in salt is paid in salt. The largest coins go first, and a larger coin is broken when the exact amount is not there, with change in smaller coins.
-- A price the purse cannot meet is refused and the GM is told. Each payment and earning shows as a notification.
-- A variant of the ruleset can leave a coin out. Nobody pays or is paid in that coin then, and a price named in it is shown in the coins left, at the same worth.
-
-A ruleset can also have markets, so what you can buy depends on where you are. The GM says which place a scene is in and how big it is, a hamlet or a city in the ruleset's words. A small place sells less: rare things may be found only in a town, and some sellers keep shop only in bigger places or serve only some buyers, such as a chapel that sells only to the faithful. When you buy, Marinara works out the price from the item's cost and how cheap or dear the deal is, takes it from the buyer's purse and puts the item in their bag. Lodging, passage and other services are only paid for. A purchase the place, seller or purse cannot make is refused and the GM is told why. A ruleset can also make each day at a place different: a place may keep only a few of something rare, a seller may turn up something unusual, and you can sell things back at a share of the price until the sellers have spent what they pay out in a day. A new day at the same place, which the GM starts when the party stays on, fills the shelves and purses again.
-
-A game without a ruleset has money and a market too when its setting kit has them. Every starter kit does, for example copper, silver and gold in high fantasy, copper cash and taels of silver in wuxia, dollars and cents in modern day, and credits in cyberpunk and space opera. The kit's shop lists everyday goods with a price and the smallest place that sells each, so a village has a café but only a town has a first-aid kit. You can change the money and the shop under the kit's **Change its words**, or remove the money. See [Choosing a setting kit](getting-started.md#choosing-a-setting-kit).
+- When it takes an item without naming a holder, it comes from your bag first, then from the party.
+- A change that cannot happen, such as taking something nobody has, is refused and the GM is told.
+- Changes are made when the reply is saved. Regenerating a reply starts again from where that turn began. Swiping back shows what that version left. A branch keeps every version's inventory.
+- If you change something yourself, a new reply adds its changes on top and nothing you did is undone.
+- A fight uses items from the **Items** action and counts every stack of an item together.
+- Every bag, split and nickname carries over to the next session.
 
 ## The Adventure Journal
 
@@ -129,7 +112,7 @@ The **World** tab shows where you are and how well known the party is, its stand
 
 ### Player notes
 
-On the **Notes** tab, type on the left and a formatted preview shows on the right. A caption warns that your notes are visible to the GM and party members, so anything you write can influence the story. Notes save a moment after you stop typing. The label shows **Saving…** and then **Saved**.
+On the **Notes** tab, type on the left and a formatted preview shows on the right. A caption warns that your notes are visible to the GM and party members, so anything you write can influence the story. Notes save a moment after you stop typing. The label shows **Saving...** and then **Saved**.
 
 ### NPC reputation labels
 
@@ -155,6 +138,54 @@ You pick who runs the game in the setup wizard, on the **Party** step, under **G
 - **Character GM**: one of your own character cards is the GM. The model acts as that character while still running the game. Pick this for a specific narrator voice.
 
 If this is your first game, use **Standalone GM**.
+
+## Reference: ruleset inventory
+
+These parts apply only to games that use a ruleset, or a setting kit with money. See [Playing with a Ruleset](rulesets.md).
+
+### Ruleset items
+
+These controls appear only when the game runs on a ruleset that has items.
+
+- **From the ruleset** opens a picker of the ruleset's items with its search and filters. Tick items and click **Add**: one of each goes where **Add** puts an item. A name you type that is one of the ruleset's items adds that item. Some rulesets take only their own items, and then there is no name to type.
+- **Starting gear** opens gear the ruleset offers to start with. Choose who it is **For**, make any choices the kit asks for and click **Take**. Gear that fits the character's sheet is listed first. Taking it is optional. Once everything is taken, the button reads **Starting gear (taken)**.
+- **Use** on a ruleset item that says what it does, such as a healing poultice, makes Marinara apply it first:
+  - It rolls what the item gives back and writes that on the carrier's sheet.
+  - It takes one off the stack or spends a charge, and tells the GM what happened.
+  - What it does to somebody else is left to the GM.
+  - An item with nothing left is refused, and an item that must be worn works only while worn.
+  - Some items ask for a check first, such as a scroll above your reading level. Marinara rolls it, and if it fails the item is used up for nothing.
+- Selecting a ruleset item shows its kind, rarity, tags, stats and description. A stack holds only as many as the ruleset says, and extra items start a new stack.
+- The GM can invent an item in the ruleset's words, such as a named blade. It works like a ruleset item, and its details say it was invented and what Marinara changed to fit the ruleset, such as a bonus held to what its rarity allows.
+- Some rulesets turn off Game Mode's own items. The GM then gives only the ruleset's items and ones it invents, and you can still type items of your own unless the ruleset takes only its own.
+
+### Wearing, binding and carrying
+
+A ruleset can say how its items are worn and carried.
+
+- **Equipped.** An item that takes slots, such as armor on the body or a bow in both hands, has an **Equipped** button. Its bearer can wear it while those slots are free. The bag's tab shows slots in use, such as **Hands 2/2**. Equipping one item of a larger stack moves it to a stack of its own, marked as worn.
+- **Binding.** An item that must be bound to work (attuned, invested) has a button named for the ruleset's word, such as **Bound**. A character can bind only as many as the sheet allows, shown as **Bound 1/3**. A cursed item, once bound, cannot be unbound, taken off, given away or thrown out. Only the story, through the GM, can end the curse.
+- **Carrying.** When the ruleset sets weights and capacity, each bag shows its load, such as **Load 5/6, at most 12**, and **Encumbered** once it passes what its bearer carries with ease. An item added from **All** goes to someone who can carry it without becoming encumbered: you first, then the party in order. If nobody can, it is shared by the room each has left, and nobody gets more than they can carry at all. What nobody can carry is left behind and you are told. **Give** or dragging a stack onto a bag that would exceed its limit is refused.
+
+Giving a worn or bound item to someone else takes it off and unbinds it. In a ruleset with these rules, the GM also puts items on and off, binds and unbinds them and sees each load, slots and bound items.
+
+### Money and markets
+
+A ruleset can have its own money: families of coins, such as pennies, shillings and crowns, where each larger coin is worth a number of the smallest. Coins are stacks like any item. They weigh what the ruleset says, count toward the carrier's load, and you can split, give and merge them. **From the ruleset** has a **Coins** list for adding them by hand. Above the stacks, a line shows each family in the open tab and its total, such as **Coin: crowns ×2, pennies ×12 (worth 132 pennies)**.
+
+- The GM charges and pays the party in these coins. A won fight or a rolled treasure can drop them too. A payment comes out of one character's purse, yours unless it says whose.
+- A price is paid only in the family it is named in, so a price in salt is paid in salt. The largest coins go first, and a larger coin is broken when the exact amount is not there, with change in smaller coins.
+- A price the purse cannot meet is refused and the GM is told. Each payment and earning shows as a notification.
+- A variant of the ruleset can leave a coin out. Nobody pays or is paid in that coin then, and a price named in it is shown in the coins left, at the same worth.
+
+A ruleset can also have markets, so what you can buy depends on where you are.
+
+- The GM says which place a scene is in and how big it is, a hamlet or a city in the ruleset's words. A small place sells less: rare things may be found only in a town, and some sellers keep shop only in bigger places or serve only some buyers, such as a chapel that sells only to the faithful.
+- When you buy, Marinara works out the price from the item's cost and how cheap or dear the deal is, takes it from the buyer's purse and puts the item in their bag. Lodging, passage and other services are only paid for.
+- A purchase the place, seller or purse cannot make is refused and the GM is told why.
+- A ruleset can make each day at a place different: a place may keep only a few of something rare, a seller may turn up something unusual, and you can sell things back at a share of the price until the sellers have spent what they pay out in a day. A new day at the same place, which the GM starts when the party stays on, fills the shelves and purses again.
+
+A game without a ruleset has money and a market too when its setting kit has them. Every starter kit does, for example copper, silver and gold in high fantasy, copper cash and taels of silver in wuxia, dollars and cents in modern day, and credits in cyberpunk and space opera. The kit's shop lists everyday goods with a price and the smallest place that sells each, so a village has a café but only a town has a first-aid kit. You can change the money and the shop under the kit's **Change its words**, or remove the money. See [Choosing a setting kit](getting-started.md#choosing-a-setting-kit).
 
 ## Related guides
 
