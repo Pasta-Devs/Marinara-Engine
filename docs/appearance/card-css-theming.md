@@ -10,23 +10,11 @@ Terms used in this guide:
 - **Card CSS** is CSS embedded in a card. It themes that card's messages.
 - **Card Theming** is the per-chat control that turns Card CSS on. It is in **Chat Settings → Characters** (**Party** in Game).
 - A **selector** is the part of a CSS rule that picks which elements to style. A space between two selectors means "inside", so `.a .b` matches a `.b` inside an `.a`.
-- A **layout** is how messages are arranged. Conversation has **Linear** rows and **Bubbles**. Roleplay always has a bubble.
+- A **layout** is how messages are arranged. Conversation has **Linear** rows and **Bubbles**.
 
 ## Quick Start
 
-You add CSS to the card, then turn it on in the chat.
-
-1. Open the character in the Character Editor and find **Creator Notes**. Personas have the same field in the Persona Editor.
-2. Paste a `<style>` block into **Creator Notes** and save the card.
-3. Open a chat with that character.
-4. Open **Chat Settings**, then **Characters** (**Party** in Game).
-5. Choose **Exclusive** or **Chat** under **Card Theming**. It starts on **Disabled**.
-
-The character's messages change right away.
-
-If it did not work: the **Disabled**, **Exclusive** and **Chat** buttons appear only when an active character in the chat has CSS in its **Creator Notes**. Persona CSS alone does not show them, so a persona's theme also needs one character in the chat with a `<style>` block. Check that your `<style>` block saved. In Roleplay chats, **Color Character Names in Text** is in **Characters**, below **Add from Folder** when a folder is available.
-
-Here is a starter block:
+Here is a starter block to paste in step 2:
 
 ```html
 <style>
@@ -46,6 +34,18 @@ Here is a starter block:
   }
 </style>
 ```
+
+You add CSS to the card, then turn it on in the chat.
+
+1. Open the character in the Character Editor and find **Creator Notes**. Personas have the same field in the Persona Editor.
+2. Paste the starter block into **Creator Notes** and save the card.
+3. Open a chat with that character.
+4. Open **Chat Settings**, then **Characters** (**Party** in Game).
+5. Choose **Exclusive** or **Chat** under **Card Theming**. It starts on **Disabled**.
+
+The character's messages change right away.
+
+If it did not work: the **Disabled**, **Exclusive** and **Chat** buttons appear only when an active character in the chat has CSS in its **Creator Notes**. Persona CSS alone does not show them, so a persona's theme also needs one character in the chat with a `<style>` block. Check that your `<style>` block saved. In Roleplay chats, **Color Character Names in Text** is in **Characters**, below **Add from Folder** when a folder is available.
 
 The name glows pink and the text turns soft pink in every layout. The bubble rule adds a purple gradient with a pink border. `.mari-message-bubble` exists only in the **Bubbles** layout and in roleplay, so in the default **Linear** conversation layout the bubble rule does nothing.
 
