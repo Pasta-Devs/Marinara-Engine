@@ -1,18 +1,20 @@
 # Built-in Model Setup
 
-The **Built-in model** is a small AI model that Marinara downloads and runs on your own computer. It needs no API key and no online account, and nothing leaves your computer. It is made for background helper work: tracker agents, Game Mode scene effects, lorebook embeddings, and (if you choose it) decision checks. It is too small for good roleplay, Game Master narration, or Professor Mari edits. Use a stronger account for those. See [Connecting to an AI Provider](connecting-to-a-provider.md).
+The **Built-in model** is a small AI model that Marinara downloads and runs on your own computer. It needs no API key and no online account, and nothing leaves your computer.
 
-The Built-in model is not part of "Lite" installs, a slimmed-down build without the local runtime. On a Lite install its card does not appear.
+It is small, so it suits background helper work: tracker agents (helpers that keep track of story details), Game Mode scene effects, lorebook embeddings, and decision checks. It is too weak for good roleplay or Professor Mari edits. For those, use a stronger account. See [Connecting to an AI Provider](connecting-to-a-provider.md).
+
+If the **Built-in model** card is missing, you have a "Lite" install, a slimmed-down build without the local runtime.
 
 ## Download the Built-in model
 
-Before you start, make sure you have free disk space and memory (RAM) for the model. Each model below lists its sizes.
+Before you start, make sure you have free disk space and memory (RAM) for the model. The sizes are in the table below.
 
 1. Click **Connections** in the top bar.
 2. Find the **Built-in model** card under the **Jobs** box. It says **Not downloaded**.
 3. Click the card, or click its **Download** button. A window titled **Built-in model** opens.
-4. Under **Which model?**, pick a model. **Gemma 4 E2B — Q8 (Best Quality)** is tagged **Recommended**. Pick the Q4_K_M one if you have less memory.
-5. Click the **Download** button at the bottom. It shows the model size, for example **Download 5.4 GB**.
+4. Under **Which model?**, pick a model. **Gemma 4 E2B — Q8 (Best Quality)** is tagged **Recommended**. If your computer has little memory, pick **Q4_K_M**. It needs about 3.4 GB of RAM instead of 5.4 GB.
+5. Click the **Download** button at the bottom. It shows the model size, for example **Download 5.0 GB**.
 6. Wait. The window shows three steps: **Install runtime**, **Download model**, and **Start and test**. A runtime is the program that runs the model. Marinara installs it first when it is missing.
 7. When the window shows the model name with a green dot, click **Test**. A box titled **Local test message** says **Succeeded** and shows how long the reply took.
 8. Click **Done**.
@@ -21,7 +23,7 @@ The card now says **Ready**, with the model size and the jobs it does.
 
 If it did not work:
 
-- **Sidecar runtime install is disabled.** Installing the runtime is a protected action. See [Allow runtime installs](#allow-runtime-installs).
+- **Sidecar runtime install is disabled** (an error message). Installing the runtime is a protected action. See [Allow runtime installs](#allow-runtime-installs).
 - **Local runtime failed to start.** See [Troubleshooting](#troubleshooting).
 - **Download failed.** The window shows the error. Check your internet connection and free disk space, then click the download button again.
 
@@ -29,14 +31,19 @@ You can also reach this window from **Add** in the **Connections** panel, under 
 
 ### Curated presets
 
-The window offers two ready-made presets of Gemma 4 E2B, a small Google model. Apple Silicon gets MLX presets instead of GGUF files. GGUF and MLX are two file formats for local models.
+The window offers two ready-made presets of Gemma 4 E2B, a small Google model. Apple Silicon computers get MLX versions instead of GGUF files. GGUF and MLX are two file formats for local models. The sizes below are what the window shows (in GB, where 1 GB is 1024 × 1024 × 1024 bytes).
 
-| Computer | Preset | Download | RAM while running |
-| --- | --- | --- | --- |
-| Windows, Linux, Intel Mac | Q8 (Best Quality) | about 5.4 GB | about 5.8 GB |
-| Windows, Linux, Intel Mac | Q4_K_M (Smaller, Faster) | about 3.2 GB | about 3.6 GB |
-| Apple Silicon | 8-bit MLX (Best Quality) | about 5.9 GB | about 7.5 GB |
-| Apple Silicon | 4-bit MLX (Smaller, Faster) | about 3.6 GB | about 4.8 GB |
+| Preset | Download | RAM while running |
+| --- | --- | --- |
+| Q8 (Best Quality) | 5.0 GB | 5.4 GB |
+| Q4_K_M (Smaller, Faster) | 3.0 GB | 3.4 GB |
+
+Apple Silicon shows two MLX presets instead:
+
+| Preset | Download | RAM while running |
+| --- | --- | --- |
+| 8-bit MLX (Best Quality) | 5.5 GB | 7.0 GB |
+| 4-bit MLX (Smaller, Faster) | 3.4 GB | 4.5 GB |
 
 Marinara keeps one Built-in model on disk at a time. Choosing another model replaces the first one. To switch later, open the card and click **Change model** in the **Built-in model** window. On the card's page, the buttons next to **Model** switch between the presets and ask you to confirm the download size first.
 
@@ -76,40 +83,61 @@ You can also pick the Built-in model as your Decision model. See [Decision Model
 
 ### Chat model
 
-**Built-in model (on this device)** appears at the bottom of most model pickers. If you pick it for a normal chat, a warning says it is small and replies may be slow, short, or low quality. Game Mode's main model list does not include it.
+To chat with the Built-in model:
+
+1. Open a chat and click the model button in the chat input (the link icon).
+2. In **Model for this chat**, pick **Built-in model (on this device)**. It is at the bottom of the list, and shows once the model is downloaded.
+3. Send a message. A warning says the model is small, so replies can be slow, short, or low quality.
 
 ## Runtime settings
 
-To open them, click **Runtime settings** on the card's page, or click **Settings** in the **Built-in model** window. They sit in four groups: **Speed**, **Memory**, **Replies**, and **Expert**. Dropdowns and switches save at once. The number fields save when you click **Apply settings**, except **Physical batch size** and **Custom GPU layers**, which each have their own **Apply**.
+To open them, click **Runtime settings** on the card's page, or click **Settings** in the **Built-in model** window. They sit in four groups. Dropdowns and switches save at once. The number fields save when you click **Apply settings**. **Physical batch size** and **Custom GPU layers** each have their own **Apply**.
 
-| Setting | Group | Default | Allowed | What it controls |
-| --- | --- | --- | --- | --- |
-| **Runtime target** | **Speed** | Auto detect | Depends on your system | Which GPU family Marinara installs for. |
-| **GPU offload** | **Speed** | Auto offload | **Auto offload**, **CPU only**, **Custom GPU layers** (1 to 1024) | How much work goes to the graphics card. |
-| **Context window** | **Memory** | 8192 | 512 or more | How much text the model reads at once. |
-| **KV cache type** | **Memory** | f16 | f16, q8_0, q4_0 | Cache memory. q8_0 and q4_0 use less memory and need Flash Attention support. |
-| **Max response tokens** | **Replies** | 4096 | 64 or more | The longest reply the model may write. |
-| **Temperature** | **Replies** | 0.3 | 0 to 2 | How random replies are. |
-| **Top P** | **Replies** | 0.95 | above 0 to 1 | A limit on word choice. |
-| **Top K** | **Replies** | 64 | 0 to 500 | A limit on word choice. |
-| **Native tool calls** | **Expert** | On | On or off | Lets the model use tools. Professor Mari and custom agents need it on. |
-| **Max parallel agent jobs** | **Expert** | 2 | 1 to 16 | How many jobs run at once. |
-| **Pooling type** | **Expert** | None | None, Mean, CLS, Last token, Rank | Embedding math for lorebook search. Use **Mean** for lorebook embeddings. |
-| **Physical batch size** | **Expert** | 512 | 128 to 32768 | Text per embedding batch. Raise it when long lorebook entries fail. Gemma often works with 1024. |
+**Speed**
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Runtime target** | Auto detect | Which graphics card family Marinara installs for. |
+| **GPU offload** | Auto offload | How much work goes to the graphics card. Choose **Auto offload**, **CPU only**, or **Custom GPU layers** (1 to 1024). |
+
+**Memory**
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Context window** | 8192 | How much text the model reads at once, in tokens. 512 or more. |
+| **KV cache type** | f16 | How the model stores what it has read. Choose f16, q8_0, or q4_0. The last two use less memory and need Flash Attention support. |
+
+**Replies**
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Max response tokens** | 4096 | The longest reply the model may write. 64 or more. |
+| **Temperature** | 0.3 | How random replies are. 0 to 2. |
+| **Top P** | 0.95 | A limit on word choice. Above 0, up to 1. |
+| **Top K** | 64 | A limit on word choice. 0 to 500. |
+
+**Expert**
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Native tool calls** | On | Lets the model use tools. Professor Mari and custom agents need it on. |
+| **Max parallel agent jobs** | 2 | How many jobs run at once. 1 to 16. |
+| **Pooling type** | None | How the model turns text into numbers for lorebook search. Choose **Mean** for lorebook embeddings. |
+| **Physical batch size** | 512 | Text per lorebook embedding batch. 128 to 32768. Raise it when long entries fail. Gemma often works with 1024. |
 
 Some settings differ by system:
 
-- **Runtime target** options: Windows and Linux on x64 offer Auto detect, NVIDIA GPU, AMD GPU, Intel GPU, Vulkan GPU, CPU only, and System llama-server. Linux on ARM offers Auto detect, Vulkan, CPU only, and System. Windows on ARM and Intel Mac offer Auto detect, CPU only, and System. Android offers Auto detect and CPU only.
-- On Apple Silicon, MLX chooses the accelerator for you, so **Runtime target**, **GPU offload**, **KV cache type**, **Native tool calls**, **Pooling type**, and **Physical batch size** do not show.
+- **Runtime target** on Windows and Linux (x64) offers Auto detect, NVIDIA GPU, AMD GPU, Intel GPU, Vulkan GPU, CPU only, and System llama-server. Other systems offer fewer choices.
+- On Apple Silicon, MLX chooses the accelerator for you. **Runtime target**, **GPU offload**, **KV cache type**, **Native tool calls**, **Pooling type**, and **Physical batch size** do not show.
 - **Max response tokens** does not limit Game Mode scene analysis, which has its own cap.
-- **Diagnostics** in **Expert** shows the runtime build, the detected GPU, and the last launch command.
+- **Diagnostics** in **Expert** shows the runtime build, the detected graphics card, and the last launch command.
 
 ### Allow runtime installs
 
 Installing or reinstalling the runtime is a protected action. Windows one-click installs allow it for you. On macOS, Linux, and Docker, do one of these, then try again:
 
-- Add `SIDECAR_RUNTIME_INSTALL_ENABLED=true` to the server `.env` file. See [Server Configuration Reference](../CONFIGURATION.md).
-- Enter your admin secret once in **Settings → Advanced → Admin Access**.
+- Enter the admin secret in **Settings → Advanced → Admin Access**. The admin secret is a password you set in the server's `.env` file as `ADMIN_SECRET`. See [Admin Access](../REMOTE_ACCESS.md#admin-access-and-privileged-actions).
+- Add `SIDECAR_RUNTIME_INSTALL_ENABLED=true` to the server `.env` file, then restart Marinara. The `.env` file is a text file in the Marinara folder. See [Where the .env file is](../CONFIGURATION.md#where-the-env-file-is).
 
 Marinara downloads only the llama.cpp, MLX, and uv versions approved for your release, and checks each file's size and SHA-256 checksum before it runs anything.
 
@@ -135,7 +163,7 @@ Your audio stays on your computer. Only the text goes to your chat model. To use
 
 | Symptom | Fix |
 | --- | --- |
-| **Sidecar runtime install is disabled.** | See [Allow runtime installs](#allow-runtime-installs). |
+| **Sidecar runtime install is disabled** (an error message). | See [Allow runtime installs](#allow-runtime-installs). |
 | **Local runtime failed to start.** The window shows the error and a log file path. The card shows **Local runtime unavailable**. | Click **Retry startup**. If that fails, click **Reinstall runtime**, or pick a different **Runtime target**. **Continue without local AI** turns off the helper switches and keeps Marinara working without the model. |
 | The runtime download reports a size or SHA-256 mismatch. | Marinara discarded the file. Update Marinara and try again. If it still fails, do not open the file yourself. Report the runtime target and the error. |
 | Lorebook search says the local model is not enabled. | Turn on **Use for tracker agents (roleplay)** or **Use for game scene analysis**, then vectorize again. |
