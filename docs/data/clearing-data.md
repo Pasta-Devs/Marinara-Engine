@@ -12,7 +12,7 @@ Permanently delete some or all of your data with the **Danger Zone**. There is n
 4. Read the warning. It shows how many categories you picked.
 5. Click **Confirm Delete**, or **Cancel** to stop. Nothing is deleted until you confirm.
 
-When it works, a message says the selected data was cleared and runtime caches were reset immediately. If it did not work, an error message appears and nothing more is deleted. Check that you have admin access.
+When it works, a message says the selected data was cleared and runtime caches were reset immediately. If the request fails, an error message appears ("Failed to clear selected data."). Some data may already be cleared, so check what is left. Check that you have admin access.
 
 ## Clear everything
 
@@ -28,13 +28,13 @@ Each category is separate. Checking one does not touch the others.
 
 | Category | What it deletes |
 | --- | --- |
-| **Chats & Messages** | All chats, chat folders and messages, with their swipes, memories, agent results, game state and chat images. Also the whole `gallery` folder and all game scene videos. |
+| **Chats & Messages** | All chats, chat folders and messages, with their swipes, memories, agent results and agent memory, game state and chat images. Also the whole `gallery` folder and all game scene videos. |
 | **Characters** | All characters and character groups, except Professor Mari. Also their avatar files and 2D and 3D avatar models. |
 | **Personas** | All personas and persona groups, with their avatar files and avatar models. |
 | **Lorebooks** | All lorebooks, their entries and lorebook folders. |
-| **Presets** | All prompt presets, their groups, sections and variables, and preset folders. Marinara keeps its built-in stock preset and makes it the default. |
+| **Presets** | All prompt presets, their groups, sections and variables, and preset folders. Marinara keeps its built-in stock preset, and makes it the default if another preset was the default. |
 | **Connections** | All saved accounts and their model settings. Also your text-to-speech and speech-to-text settings, the models you chose for features, and a Tripo API key saved on the **3D Avatars** page. |
-| **Automation & Addons** | All agent settings, agent results and memory, agent Home widgets, custom tools, regex scripts and synced themes. |
+| **Automation & Addons** | All agent settings, agent results and memory, agent folders, agent Home widgets, custom tools, regex scripts and synced themes. It does not delete Personal Extensions or External Extensions. |
 | **Media & Assets** | The asset list and the folders for backgrounds, avatars, sprites, 2D and 3D avatar models, gallery, scene videos, fonts and knowledge-source files. Also chat images. |
 
 Some terms in the list:
@@ -45,7 +45,7 @@ Some terms in the list:
 
 Some categories reach into files outside their name. **Chats & Messages** deletes the whole `gallery` folder, including character and persona gallery images, even if you did not check **Characters** or **Personas**.
 
-Clearing does not touch your other settings, the `backups/` folder or the `.encryption-key` file. See [Where Marinara Stores Your Data](where-data-is-stored.md).
+Clearing does not touch your other settings, the `backups/` folder or the `.encryption-key` file. It also leaves Personal Extensions, Game Mode assets, custom emoji and stickers, your notification sound, lorebook, preset, agent and account images, and long-term memory files. See [Where Marinara Stores Your Data](where-data-is-stored.md).
 
 ## Professor Mari stays
 
