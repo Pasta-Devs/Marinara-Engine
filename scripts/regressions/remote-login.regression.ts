@@ -490,7 +490,7 @@ try {
   assert.match(wrongPairing.body, /This code does not work/);
   assert.match(
     wrongPairing.body,
-    /Forgot the password\? On the computer that runs Marinara, run <code>pnpm reset-login<\/code>/,
+    /Forgot the password\? On the computer that runs Marinara \(Termux included\), run <code>node scripts\/reset-login\.mjs<\/code>/,
   );
 
   const asHostPut = (body: Record<string, string>) => putLogin(host, body, asHost);

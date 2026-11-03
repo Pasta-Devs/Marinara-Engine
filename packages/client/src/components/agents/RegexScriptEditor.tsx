@@ -51,12 +51,12 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 // ═══════════════════════════════════════════════
 const PLACEMENT_META: Record<RegexPlacement, { label: string; description: string }> = {
   ai_output: {
-    label: "AI Output",
-    description: "Applied to AI responses before they are displayed.",
+    label: "ui.agents.regexscripteditor.placementAiOutput",
+    description: "ui.agents.regexscripteditor.placementAiOutputHint",
   },
   user_input: {
-    label: "User Input",
-    description: "Applied to your messages before they are sent.",
+    label: "ui.agents.regexscripteditor.placementUserInput",
+    description: "ui.agents.regexscripteditor.placementUserInputHint",
   },
 };
 
@@ -67,16 +67,16 @@ type RegexApplyMode = "prompt" | "display" | "both";
 
 const APPLY_MODE_META: Record<RegexApplyMode, { label: string; description: string }> = {
   display: {
-    label: "Only Display",
-    description: "Change what appears in chat only.",
+    label: "ui.agents.regexscripteditor.applyModeDisplay",
+    description: "ui.agents.regexscripteditor.applyModeDisplayHint",
   },
   prompt: {
-    label: "Only Prompt",
-    description: "Change what the model receives only.",
+    label: "ui.agents.regexscripteditor.applyModePrompt",
+    description: "ui.agents.regexscripteditor.applyModePromptHint",
   },
   both: {
-    label: "Both",
-    description: "Change display and prompt text.",
+    label: "ui.agents.regexscripteditor.applyModeBoth",
+    description: "ui.agents.regexscripteditor.applyModeBothHint",
   },
 };
 
@@ -810,8 +810,8 @@ export function RegexScriptEditor() {
                           : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                       )}
                     >
-                      <span className="font-medium">{meta.label}</span>
-                      <span className="text-[0.5625rem] opacity-70">{meta.description}</span>
+                      <span className="font-medium">{localizeUi(meta.label)}</span>
+                      <span className="text-[0.5625rem] opacity-70">{localizeUi(meta.description)}</span>
                     </button>
                   );
                 },
@@ -999,8 +999,10 @@ export function RegexScriptEditor() {
                               : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                           )}
                         >
-                          <span className="font-medium">{meta.label}</span>
-                          <span className="text-[0.5625rem] leading-snug opacity-70">{meta.description}</span>
+                          <span className="font-medium">{localizeUi(meta.label)}</span>
+                          <span className="text-[0.5625rem] leading-snug opacity-70">
+                            {localizeUi(meta.description)}
+                          </span>
                         </button>
                       );
                     },
