@@ -17,7 +17,7 @@ In the tables, the format of each command is in its row. Replace bracketed label
 
 Some commands run in your browser and cost nothing. Others ask the model to write text, which uses your account and may use tokens (the units that services count and bill).
 
-Slash commands work in the Conversation and Roleplay message boxes. Anything else that starts with a slash is sent as normal text. Commands that need the Illustrator agent (`/illustrate`, `/selfie`, `/video`) appear only when it is installed.
+Slash commands work in the Conversation and Roleplay message boxes. In Game, only a bare `/illustrate` (or `/ill`) with no range or prompt works, and only when Game illustrations are set up with an image account. Anything else that starts with a slash is sent as normal text. In Roleplay and Conversation, the commands `/illustrate`, `/selfie` and `/video` need the Illustrator agent and appear only when it is installed.
 
 Several commands use message numbers. Marinara counts from the first message in the chat as number 1. `/goto`, `/hide` and `/unhide` use these numbers. **Show message numbers** displays them. See [Message Actions](messages.md#message-display-toggles).
 
