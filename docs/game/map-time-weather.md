@@ -23,10 +23,10 @@ Marinara picks the view from the kind of place the map shows. You do not switch 
 You can pick only certain places. On a grid map, a square must be next to your party and already discovered. On a node map, a node must be joined to your current location, or already discovered. Other squares and nodes do nothing when you click them.
 
 1. Click a grid square, or a node on a node map.
-2. A **Destination:** chip with the place name appears above the message box.
+2. A **Map position:** chip with the place name appears above the message box.
 3. Type your message and send it. Marinara adds a short line like `*moves to <place>*` to the front of your message.
 
-To cancel, click the clear button (X) on the **Destination:** chip.
+To cancel, click the clear button (X) on the **Map position:** chip. Its tooltip reads **Clear destination**.
 
 On a phone, tap a node once to select it, then tap **Set destination** in the footer. A node marked **You are here** is your current location.
 
@@ -118,13 +118,23 @@ At a settlement, pick it on the overworld and choose **Enter** to see the town. 
 
 Pick a building or the square, or choose from **Places in town**, to see who is there and how many minutes away it is. **Walk there** crosses town along the streets, round buildings and anything a hand layout painted, over its bridges. The minutes pass on the clock, and your next turn tells the GM where the party went and who is there. A visit to a named place, such as an inn the story added, makes it the party's current place. **Leave town** goes back to the overworld. The game remembers which view you were in.
 
-A town can be **laid out by hand** with a maker such as Pixelforge, as part of the world's hand edits. Buildings can move to other lots (a building moved onto another's lot swaps with it, and every building still faces a street). The ground can be painted with streets, paving, open ground, trees or a well, but never under a building, before its door, in the middle of the square or under a market stall. Who lives and works where never changes, and a walk to a moved building is timed from its new door. The maker refuses a layout that does not fit the town and says why. Places the story adds in play still find a lot. A layout can also place buildings off the lots, paint fields, dirt paths, water with bridges and hedges, and set decorations. The town view draws them all (decorations only with an image pack that has them).
+A town can be **laid out by hand** with a world editor such as Pixelforge, as part of the world's hand edits.
+
+- Buildings can move to other lots. A building moved onto another's lot swaps with it, and every building still faces a street.
+- The ground can be painted with streets, paving, open ground, trees or a well, but never under a building, before its door, in the middle of the square or under a market stall.
+- Who lives and works where never changes, and a walk to a moved building is timed from its new door.
+- The editor refuses a layout that does not fit the town and says why. Places the story adds in play still find a lot.
+- A layout can also place buildings off the lots, paint fields, dirt paths, water with bridges and hedges, and set decorations. The town view draws them all (decorations only with an image pack that has them).
 
 ### Dungeons, caves and stations
 
 When the story goes underground or aboard, the GM can open a **map of the place**: a dungeon, cave or station, drawn over the scene. It is laid out from the game and the place's name, so the same place always has the same rooms, and going back keeps the map as it was. The GM picks a look from eleven: rock, ice, crystal and lava caves; a crypt, a sewer and a temple; and a station's corridors, lab, engine deck and hydroponics. With a tile pack for that look, the map uses its art. Without one, it is plain colors.
 
-A place in town the party can go down into (a cave, mine, crypt, sewer or ruin by its name, or in science fiction a derelict or a bunker) shows **Go down** when the party is there. It opens the same map each time, and leaving puts the party back in town. While the party is on another map, leave that one first. A place can also have a map made by hand with a maker such as Pixelforge. **Go down** then opens that map, whatever the place is called, drawn with the pack it names. On such a map, the way out is where the party came in, props never block the way, and people stand on named spots at the hours the map gives them. The GM is told who is there.
+A place in town the party can go down into (a cave, mine, crypt, sewer or ruin by its name, or in science fiction a derelict or a bunker) shows **Go down** when the party is there.
+
+- It opens the same map each time, and leaving puts the party back in town.
+- While the party is on another map, leave that one first.
+- A place can also have a map made by hand with a world editor such as Pixelforge. **Go down** then opens that map, whatever the place is called, drawn with the pack it names. On such a map the way out is where the party came in, props never block the way, and people stand on named spots at the hours the map gives them. The GM is told who is there.
 
 Click a place on the map, or use the arrow keys, to walk there by the shortest way. The minutes pass on the clock (about a minute per thirty steps), and your next turn tells the GM which area the party walked from and to. The label at the top names the current area. **Show the scene** and **Show the map** in **Game controls** switch between the scene and the map.
 
