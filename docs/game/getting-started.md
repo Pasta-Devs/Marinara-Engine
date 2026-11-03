@@ -46,7 +46,7 @@ If it did not work, see [World generation fails with a JSON or 422 error](#world
 
 The ideas offered under the setting and goals change each time the wizard opens. In a Tactical game, the GM writes a short brief for each fight and Marinara builds a board from it. See [Combat](combat.md#tactical-battles-and-terrain).
 
-The **World** step also has combat options for bosses. **GM directs bosses** lets the GM decide boss turns using your model, which may take a moment. When it is on, you can also set **Game Master also plays named and brilliant opponents**, **Companions fight on their own** and **Let cruel opponents strike the fallen**. See [Combat](combat.md).
+The **World** step also has combat options for bosses. **GM directs bosses** is on by default. It lets the GM decide boss turns using your GM connection, which may take a moment. Ordinary enemies decide on their own, unless **GM directs bosses** is on and the game's ruleset gives the opposition to the Game Master (see [Game Master text](../extending/ruleset-sheets.md#game-master-text)). While **GM directs bosses** is on, **Game Master also plays named and brilliant opponents** (on by default) lets the GM play named characters and very clever foes too. Two more options are always shown: **Companions fight on their own** (on by default; turn it off to play the whole party yourself) and **Let cruel opponents strike the fallen** (off by default). See [Combat](combat.md).
 
 With the **Hierarchical Maps** agent downloaded (now called World Maps, see [World Maps](../agents/hierarchical-maps.md)) and **Enable Agents** on, the **Features** step can also draft a **Hierarchical world map**, use a saved map template or link a shared world.
 

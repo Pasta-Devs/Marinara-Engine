@@ -16,7 +16,7 @@ Before you start, see [Which one to pick](#which-one-to-pick).
    - **None (decisions off)** is the default. Nothing is asked, and the activation question fields in the agent editor stay disabled.
    - **Built-in model** lists the models Marinara runs on your computer: **Built-in model**, **Built-in model (utility)**, and **Built-in model (decisions)**. Nothing leaves your computer.
    - **Connections** lists your accounts that can answer decisions: hosted, or a chat model on a server you already run.
-4. To test it, click the **Decision settings** gear on the row and click **Test**. That button shows for the Built-in model entries. For an account, open **Edit model** on its model and click **Test provider**.
+4. To test it, click the **Decision settings** gear on the row and click **Test**. That button shows for the Built-in model entries. For a TypeSafe or OpenRouter account, open **Edit model** on its model and click **Test provider**. For an **Own decision server** account, use **Test** in the account's **⋯** menu.
 
 A passing test shows the probability of yes and how long the answer took. For a model on your computer it also says whether log-probabilities were available and whether the model answers directly. Log-probabilities are the model's confidence numbers for each word it could write. The test sends a fixed sample, not your chat.
 
@@ -81,9 +81,9 @@ A hosted Decision account sends the selected recent messages and statements to t
 2. Under **Decisions**, click **TypeSafe** or **Own decision server**. For OpenRouter, click **OpenRouter** under **Chat**, connect it, then use **Use this key for decisions** in the model's **⋯** menu.
 3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**. The window closes and the panel shows the new account.
 4. Click the **Decision** row under **Behind the scenes** and pick the new model.
-5. To test it, click the model in the panel to open **Edit model**, then click **Test provider** in the **Provider tests** card.
+5. To test it, click the model in the panel to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Open the account's **⋯** menu in the panel and click **Test** instead.
 
-A passing test shows the probability, how long the answer took, and the account's time limit. The test waits at least 10 seconds, or 5 seconds past a longer limit. If the answer took longer than the limit, the result says so: in chats that answer would count as no answer.
+A passing **Test provider** shows the probability, how long the answer took, and the account's time limit. The account's **Test** in the **⋯** menu only says whether it worked and how long it took. The test waits at least 10 seconds, or 5 seconds past a longer limit. If the answer took longer than the limit, the result says so: in chats that answer would count as no answer.
 
 If it did not work, see [Troubleshooting](#troubleshooting).
 
@@ -224,7 +224,7 @@ A model's first answer after it starts is slower, so Marinara asks one warm-up q
    It uses an NVIDIA GPU or Apple silicon when it finds one, and the processor otherwise, more slowly. The first start downloads the model and about 4.6 GB of base weights, and its Python packages take about 5.5 GB. The server has no password, so keep it on `127.0.0.1`.
 
 2. Add an **Own decision server** account with the **Server address** `http://127.0.0.1:8000`. Any model name works.
-3. Pick it on the **Decision** row, then test it with **Test provider** in **Edit model**. Its first answer after it starts takes about 2 seconds, longer than the default time limit, so test it once before you chat.
+3. Pick it on the **Decision** row, then test it with **Test** in the account's **⋯** menu. Its first answer after it starts takes about 2 seconds, longer than the default time limit, so test it once before you chat.
 
 Its probabilities are calibrated, so the default 0.5 threshold suits it, unlike a self-hosted Open-Jev (see [Thresholds](#thresholds)). Its answers depend on wording, so follow [Writing statements](../prompts/conditional-prompts.md#writing-statements).
 
