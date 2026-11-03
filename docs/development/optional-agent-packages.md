@@ -1845,6 +1845,18 @@ const result = await model.chatComplete([
 const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 ```
 
+### Capability API 1.815: choose how long a marked prompt stays cached
+
+`chatComplete` takes `cacheTtl: "5m" | "1h"`: how long the prompt up to the call's `cacheBreakpoint`
+messages (1.814) stays cached on Anthropic. Left out, the connection's own cache time applies, as before. Ask
+for `"1h"` when the same prefix comes back more than five minutes apart, for example a story's context that
+each scene reuses while the player reads. A 1-hour cache write costs more than a 5-minute one, so it pays only
+when the prefix is read again in that hour. A call with no marked message ignores the option, and so do
+providers that cache on their own (OpenAI, Gemini, xAI, DeepSeek) and Claude (Subscription), where the
+connection's cache time applies.
+
+Older Engines ignore the option, so a package can always pass it. Declare 1.815 when the package relies on it.
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed
