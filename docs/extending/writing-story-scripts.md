@@ -396,7 +396,7 @@ Each story feature needs a minimum Capability API version.
 - more than 64 flags need 1.353 (the limit is 256);
 - fight `variants` need 1.356;
 - `any` conditions, a `fight` event naming its fight, a `leave` event, a flag's `min` or `max`, and an `if` on an action or a page need 1.358;
-- an item use that spends a story number, read by an event's `if`, needs 1.359;
+- a map pack whose ruleset overlay has a `storyUses` entry (an item use that spends a story number, which a held ground `if` can read) needs 1.359; see [items that cost a story number](../development/optional-agent-packages.md#capability-api-1359-items-that-cost-a-story-number);
 - a `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants need 1.360;
 - a `noncombatant` companion, left out of the party size, needs 1.360;
 - a `season` action `over` everything inside it needs 1.361;
