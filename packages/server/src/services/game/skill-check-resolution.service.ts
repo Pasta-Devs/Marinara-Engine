@@ -1640,9 +1640,11 @@ export function rulesetGroupCheckRollers(ruleset: SkillCheckRulesetContext, who?
   if (!words.some((word) => WHOLE_PARTY_WORDS.has(word)) || !words.every((word) => GROUP_CHECK_WORDS.has(word))) {
     return undefined;
   }
-  return [...ruleset.sheets.keys()]
+  const rollers = [...ruleset.sheets.keys()]
     .filter((key) => rulesetPartyMemberActive(ruleset, key))
     .map((key) => ruleset.names?.get(key) ?? key);
+  // A party with nobody left to roll is no group: the check is refused for want of a roller, never "0 of 0 passed".
+  return rollers.length > 0 ? rollers : undefined;
 }
 
 /** A group check rolled: each member's own result, who could not attempt it, and the party's outcome. */

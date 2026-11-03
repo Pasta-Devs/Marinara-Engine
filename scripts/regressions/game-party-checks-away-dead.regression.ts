@@ -99,6 +99,19 @@ try {
     group.content,
   );
 
+  // ── Nobody left to roll: the whole party is dead or gone, so the check is refused, never "0 of 0 passed" ──
+  const allDown = await loadSkillCheckModifierContext(db, chat.id, {
+    rook: { tracks: { death_save_failures: 3 } },
+    pip: { tracks: { death_save_failures: 3 } },
+    wren: { tracks: { death_save_failures: 3 } },
+  });
+  const nobody = await resolveSkillCheckTagsInContent(
+    `They wade the ford. [skill_check: skill="Athletics" dc="12" who="party"]`,
+    { loadContext: async () => allDown, rollD20: scripted([]), rulesetPinned: true },
+  );
+  assert.doesNotMatch(nobody.content, /0 of 0 passed/, nobody.content);
+  assert.doesNotMatch(nobody.content, /Group Athletics check/, "no group is rolled");
+
   // ── The same in a branch: the party's half is theirs ──
   const branched = await resolveGameTurnBranches(
     [
