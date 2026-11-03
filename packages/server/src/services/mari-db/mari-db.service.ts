@@ -94,6 +94,8 @@ import {
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
+  SPEECH_TO_TEXT_SETTINGS_KEY,
+  TTS_SETTINGS_KEY,
   createCustomToolSchema,
   createLorebookEntrySchema,
   lorebookDecisionModeSchema,
@@ -9124,6 +9126,27 @@ export class MariDbService {
         table: "mari_instructions",
         message:
           "Professor Mari cannot mutate memories through raw DB actions. Use instruction.remember, instruction.update, or instruction.forget so length limits and flag rules apply.",
+      });
+    }
+
+    // Models, Connections and the speech server settings keep a stored key next to the address it is sent to.
+    // Raw writes apply before the Keep/Restore review, so an edited address could receive the key before the user
+    // sees the change, without the checks the Connections editor and profile import make. Mari has no actions for
+    // them, so deny every change (change-level, so transforms are covered too).
+    const credentialChange = changes.find(
+      (change) =>
+        change.table === "api_connections" ||
+        change.table === "connection_accounts" ||
+        (change.table === "app_settings" &&
+          (change.id === TTS_SETTINGS_KEY || change.id === SPEECH_TO_TEXT_SETTINGS_KEY)),
+    );
+    if (credentialChange) {
+      issues.push({
+        level: "error",
+        table: credentialChange.table,
+        id: credentialChange.id,
+        message:
+          "Professor Mari cannot change Models, Connections or the speech server settings, because they hold stored keys. The user edits them in Connections and Settings.",
       });
     }
 

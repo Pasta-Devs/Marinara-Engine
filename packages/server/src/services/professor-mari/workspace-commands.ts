@@ -187,6 +187,11 @@ export function setSkillGateEnabled(enabled: boolean) {
   skillGateEnabled = enabled;
 }
 
+// The mari CLI flags that read a text file (mari-db's parseJsonInput, parseCssInput and resolveJsonInput).
+// ponytail: checked on the argv before the CLI runs, so a new file-reading mari flag must join this set. The upgrade
+// is a read-path resolver passed through executeCli, so mari-db checks each path where it reads it.
+const DIRECT_MARI_TEXT_FILE_FLAGS = new Set(["--json-file", "--file", "--css-file"]);
+
 const DRY_RUN_FOOTER =
   '\n\nNOT SAVED. Nothing changed and the user sees nothing. If the user asked for this change, send this same call again with top-level "apply": true to save it.';
 // Guards read these on an output's first line only (see isDryRunResult, the read-back check and the
@@ -1098,6 +1103,15 @@ export class WorkspaceCommands {
   }
 
   private async commandMariDirect(command: string, argv: string[]): Promise<string> {
+    // This runs in the server process, outside the shell sandbox, and these flags read the file they name. Hold
+    // them to the read tool's rule: inside the workspace, never .env, the encryption key or Git internals. The scan
+    // matches how the mari CLI reads its flags: `--flag=value`, or `--flag value` unless the value starts with --.
+    for (const [index, token] of argv.entries()) {
+      const equals = token.indexOf("=");
+      if (!DIRECT_MARI_TEXT_FILE_FLAGS.has(equals > 0 ? token.slice(0, equals) : token)) continue;
+      const value = equals > 0 ? token.slice(equals + 1) : argv[index + 1];
+      if (value && (equals > 0 || !value.startsWith("--"))) this.resolveWorkspacePath(value, { readOnly: true });
+    }
     const result = await getMariDbService(this.app.db).executeCli({
       argv,
       command,

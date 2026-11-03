@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFileNativeDB } from "../../../packages/server/src/db/file-backed-store.js";
 import { eq } from "../../../packages/server/src/db/file-query.js";
-import { customTools } from "../../../packages/server/src/db/schema/index.js";
+import {
+  apiConnections,
+  appSettings,
+  connectionAccounts,
+  customTools,
+} from "../../../packages/server/src/db/schema/index.js";
 import { MariDbService } from "../../../packages/server/src/services/mari-db/mari-db.service.js";
 import { runMariTransformSandbox } from "../../../packages/server/src/services/mari-db/mari-transform-sandbox.js";
 import { createMariWherePredicate } from "../../../packages/server/src/services/mari-db/mari-where-expression.js";
@@ -410,6 +415,89 @@ try {
     });
     assert.equal(longer.ok, false, "setting a new over-long description is still refused");
     assert.match(JSON.stringify(longer), /Tool description must be at most 500 characters/u);
+
+    // Models, Connections and the speech server settings keep a stored key next to the address it is sent to. Raw
+    // Mari DB writes apply before the user's Keep/Restore review, so they cannot change those rows at all.
+    const stamp = new Date().toISOString();
+    const storedHost = "https://api.openai.com/v1";
+    await db.insert(apiConnections).values({
+      id: "stored-model",
+      name: "Stored model",
+      provider: "openai",
+      baseUrl: storedHost,
+      apiKeyEncrypted: "stored-ciphertext",
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    await db.insert(connectionAccounts).values({
+      id: "stored-account",
+      name: "Stored account",
+      provider: "openai",
+      baseUrl: storedHost,
+      apiKeyEncrypted: "stored-ciphertext",
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    const ttsValue = JSON.stringify({ baseUrl: storedHost, apiKey: "stored-ciphertext" });
+    await db.insert(appSettings).values({ key: "tts", value: ttsValue, updatedAt: stamp });
+    const elsewhereHost = "https://elsewhere.example.test/v1";
+    const elsewhere = JSON.stringify({ baseUrl: elsewhereHost });
+    const credentialWrites = [
+      ["db", "patch", "api_connections", "stored-model", "--json", elsewhere, "--apply"],
+      ["db", "patch", "connection_accounts", "stored-account", "--json", elsewhere, "--apply"],
+      [
+        "db",
+        "insert",
+        "api_connections",
+        "--json",
+        JSON.stringify({
+          name: "Copy",
+          provider: "openai",
+          baseUrl: elsewhereHost,
+          apiKeyEncrypted: "stored-ciphertext",
+          isDefault: "true",
+        }),
+        "--apply",
+      ],
+      ["db", "delete", "api_connections", "stored-model", "--apply"],
+      [
+        "db",
+        "patch",
+        "app_settings",
+        "tts",
+        "--json",
+        JSON.stringify({
+          value: JSON.stringify({ baseUrl: elsewhereHost, apiKey: "stored-ciphertext" }),
+        }),
+        "--apply",
+      ],
+      ["db", "insert", "app_settings", "--json", JSON.stringify({ key: "speech-to-text", value: "{}" }), "--apply"],
+    ];
+    for (const argv of credentialWrites) {
+      const result = await mari.executeCli({ argv });
+      assert.equal(result.ok, false, `${argv.join(" ")} is refused: ${JSON.stringify(result)}`);
+      assert.match(
+        JSON.stringify(result.validation),
+        /cannot change Models, Connections or the speech server settings/u,
+      );
+    }
+    assert.deepEqual(
+      (await db.select().from(apiConnections)).map((row) => [row.id, row.baseUrl, row.apiKeyEncrypted]),
+      [["stored-model", storedHost, "stored-ciphertext"]],
+      "the stored Model keeps its address and no copy of its key is made",
+    );
+    assert.equal(
+      (await db.select().from(connectionAccounts))[0]?.baseUrl,
+      storedHost,
+      "the Connection keeps its address",
+    );
+    assert.deepEqual(
+      (await db.select().from(appSettings))
+        .filter((row) => row.key === "tts" || row.key === "speech-to-text")
+        .map((row) => row.value),
+      [ttsValue],
+      "the speech settings are unchanged",
+    );
   } finally {
     await db._fileStore.close();
   }
