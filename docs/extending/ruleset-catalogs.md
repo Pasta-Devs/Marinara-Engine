@@ -1,6 +1,6 @@
 # Ruleset Catalogs
 
-This page is part of [Writing Game Mode Rulesets](writing-rulesets.md). Ready-made entries the sheet editor offers in a picker: the catalog header, entries, values the ruleset keeps, sheet commands and the use command.
+Use this page to ship ready-made entries (spells, gear, class features) that the sheet editor offers in a picker, so players do not type long lists by hand. It covers the catalog header, entries, values the ruleset keeps, sheet commands and the use command. It is for ruleset authors. Before you start, read [Writing Game Mode Rulesets](writing-rulesets.md).
 
 Typing a spell list, a gear table, or a page of class features row by row is miserable. A catalog is a named collection of ready-made entries that you ship with the ruleset. The sheet editor offers them in a picker on every list the catalog feeds, and picking one fills the row in.
 

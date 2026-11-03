@@ -1,6 +1,6 @@
 # Ruleset Combat
 
-This page is part of [Writing Game Mode Rulesets](writing-rulesets.md). How a ruleset takes part in a fight: the `battle` block, which lends Marinara's combat the sheet, and the `combat` block, which resolves the whole fight by the ruleset's own rules, with its bestiary, board, reactions and contests.
+Use this page to decide how your ruleset takes part in a fight: the `battle` block lends Marinara's combat the sheet, and the `combat` block resolves the whole fight by the ruleset's own rules, with its bestiary, board, reactions and contests. It is for ruleset authors. Before you start, read [Writing Game Mode Rulesets](writing-rulesets.md).
 
 ## Battles: lending the sheet to Marinara's combat
 
@@ -81,7 +81,7 @@ A catalog entry's `mechanics` block is read like this:
   promises, such as clearing a condition on the sheet, is not applied in the fight. Leave
   `mechanics` off an entry whose effect only makes sense outside a battle.
 
-`coverage.combat` is separate and still means what it meant: set it only when battles really do
+`coverage.combat` is separate and still means what it meant: set it only when battles do
 follow your system's rules.
 
 ## Combat: a fight your own rules resolve
@@ -208,7 +208,7 @@ same keys for a d20 system:
   `toHit.bonus`, `damage.ability`, `damage.bonus` and `damage.type` names a column of the same list.
   An `ability` column is an `enum` holding one of your ability ids; a value that is not one adds
   nothing. A `proficiency` column is a `boolean`, and where it is set your proficiency bonus is
-  added. A row with no readable dice is not an attack, so rope in the same list is just rope.
+  added. A row with no readable dice is not an attack, so rope in the same list is only rope.
   `toHit.skill` names an `enum` column holding one of your skill ids: the row adds what a check of
   that skill adds, with the row's own `ability` in place of the skill's when it names one, exactly as
   a check's `with=` swaps it (Capability API 1.47).
@@ -385,7 +385,7 @@ same keys for a d20 system:
   `cannot-target-source` keeps the holder from pointing anything at whoever put it on them
   (`cannot-target-source-side`, 1.278: or at anybody on their side, unless it is the holder's own), and
   `cannot-approach-source` keeps them from walking any nearer to that somebody than the cell they
-  stand in, the route included: a way round to a cell just as far off is still offered, and one
+  stand in, the route included: a way round to a cell as far off is still offered, and one
   that would dip past them and come out the other side is not.
 
   ```json
@@ -403,7 +403,7 @@ same keys for a d20 system:
   `attacks` is `weapon`, `spell` or `any` (the default). Attack-list rows and equipped item attacks
   are weapons, as are single-target stat-block attack rolls; catalog abilities (including creature
   spellcasting) and item uses are spell/other attacks. `blow: "melee" | "ranged"` follows 1.118,
-  so a thrown weapon in reach is melee. `ability` names the ability actually chosen for the attack
+  so a thrown weapon in reach is melee. `ability` names the ability chosen for the attack
   roll: a row's ability, or the first best ability offered by an item (including finesse). Plain
   stat-block actions have none and never match an ability restriction. These keys and `damageType`
   are refused on other modifier targets. `fromSource: true` is only for `damage-taken`: the hit must
@@ -537,7 +537,7 @@ same keys for a d20 system:
   track's own maximum), the `dice`, `succeedAt`, what the extreme faces do (`naturals.max`:
   `revive-1` or `success`; `naturals.min`: `one-failure` or `two-failures`), what damage while down
   costs (`damageWhileDown`, `criticalWhileDown`) and the `condition` a downed character is in.
-  Without this block a character at zero is simply down, and healing brings them back.
+  Without this block a character at zero is down, and healing brings them back.
 - `damageTypes`: optional. The types your system has, matched without case.
 - `damageKinds`: required when `health` names a wound track, and refused when it names a pool,
   because only a mark carries a kind and a pool of points has nowhere to keep one (see [Wound tracks](ruleset-sheets.md#wound-tracks-health-that-is-a-track-not-a-number)). It says which of the track's `kinds` a blow marks and how many boxes it ticks. `default` is what
@@ -792,7 +792,7 @@ After static soak takes dice off the first damage pool of a hit, the pool is rai
 this number. It is whole dice, rounded down and bounded by zero and `resolution.pool.max`, not
 automatic successes: every surviving die may fail. Rolled soak still takes successes off after
 the damage throw; it does not reduce a dice pool, so the minimum does not protect successes from
-it. Resistance and immunity still apply. Initiative-spending blows ignore the minimum, just as
+it. Resistance and immunity still apply. Initiative-spending blows ignore the minimum, as
 they ignore weapon damage and soak; initiative-taking blows use it.
 
 A weapon may override the common minimum with `item.attack.damage.minimum`. It accepts the same
@@ -923,7 +923,7 @@ menu, and so is a `utility` entry unless it changes what the turn itself may hol
 list's `toHit`; `autoHit` skips that entirely. `save` rolls the target's own save against the list's
 `saveDifficulty`, and `onSuccess` decides whether a success takes half or nothing. `targetCount` is
 how many it may be pointed at. An ability that rolls no attack (an area everyone saves against,
-something that simply hits) rolls its dice ONCE for all of them, and one that rolls to hit each
+something that hits) rolls its dice ONCE for all of them, and one that rolls to hit each
 target rolls its dice again for each hit. `applies` puts conditions on what it
 affects, each with a `duration` of `instant` (no clock of its own: it stays until something takes it
 off), `until-save` (which needs `saveEnds` beside it) or `{ "rounds": n }`, and an optional
@@ -1276,7 +1276,7 @@ lists as its characters says so, whatever those are. Ember Roads' Toll Warden:
   picked from, as it does on a character's sheet, and that entry is where a fight reads what the row
   costs and does. The catalog has to be one that feeds that list. When the catalog is written
   inline, the entry has to be in it; when it lives in its own file, a row naming an entry the file
-  does not have simply gives the creature nothing. The catalogs a bestiary's sheets name are loaded
+  does not have gives the creature nothing. The catalogs a bestiary's sheets name are loaded
   for the fight along with the bestiary.
 - **What the entry says beside the sheet still counts**: `tier`, `traits`, `actions`,
   `signaturePoints`, `riders`, `resist`, `vulnerable`, `immune` and `conditionImmunities`.
@@ -1533,7 +1533,7 @@ stop at anything solid.
 A line on an entry's `mechanics.area` or a creature action's `area` may carry `width` in the same unit as `size`, rounded to cells with a minimum of one (Capability API 1.128), for example `{ "shape": "line", "size": 60, "width": 10 }` for a 60-foot line that is 10 feet wide; omit it for one cell, and an even cell width puts its extra column on the caster's left.
 
 **Line of sight and cover.** A straight line of cells between the two of them: a wall or a mountain
-on it blocks a shot and stops an area spreading past it, and the target simply is not on the menu.
+on it blocks a shot and stops an area spreading past it, and the target is not on the menu.
 Water is seen across: a shot crosses a river, and a line area carries on over it. The Engine's own
 fights use the same sight test.
 
@@ -1587,7 +1587,7 @@ what its system adds with `elevation` (Capability API 1.75, and it needs `distan
 of the reach of a standing enemy who can act, has that budget and has something melee to strike
 with, the walk STOPS where it stands and that enemy is asked whether to strike. Taking it spends the
 budget and resolves exactly as the same attack would on their own turn; letting it go by costs
-nothing. Either way the walk then picks up where it was held, paying for every cell it really
+nothing. Either way the walk then picks up where it was held, paying for every cell it
 crossed, and a strike that drops the mover ends the walk where they fell. One chance each for a
 whole walk, however many times the path leaves the same reach. `disengage` prevents it for the rest
 of the turn, and a ruleset that declares no `opportunity` has none of this at all.
@@ -1769,7 +1769,7 @@ What a window does, whichever opened it:
 - **It asks one at a time**, in turn order, and each is asked once. Passing is always an answer, and
   costs nothing. Somebody who is asked and has nothing they can take is skipped rather than asked.
 - **It picks up exactly where it was held.** A walk finishes on the cells it had left, paying for
-  every one it really crossed.
+  every one it crossed.
 - **Who answers is who plays them.** Your own party member's window is yours, with the option and a
   Pass beside it on the menu; an opponent's is answered by whoever plays it, and a Game Master's
   boss is asked through the Game Master, with letting the moment go by as one of its answers.
@@ -1842,7 +1842,7 @@ or came out of a pool in no group, is level 0, so every such counter stops it. T
 fight's own dice with the answerer's conditions on checks; a `dice-pool` fight has no DC to meet and
 refuses `above`. A creature without a sheet writes its check as `{ "const": n }`. The log says the
 level and the roll whenever the answer reaches above itself, and the usual line follows when it
-stops it. Without `above`, something higher is simply not stopped, and what the answer cost is
+stops it. Without `above`, something higher is not stopped, and what the answer cost is
 still spent.
 
 **The moment after a hit.** An entry on `hit` is how Shield, a Parry and Uncanny Dodge are said. The
@@ -1897,7 +1897,7 @@ does nothing:
 ```
 
 Only the first moment may cancel, so a reaction that cancels has no `also`. The catalog an entry
-names has to be one the ruleset has. An entry that is not in it simply never opens the moment. A blow
+names has to be one the ruleset has. An entry that is not in it never opens the moment. A blow
 kept off this way shows in the log as one the target is immune to.
 
 **Answering only some blows** (Capability API 1.118). A `hit` moment may say `"blow": "melee"` or
@@ -2041,7 +2041,7 @@ Said plainly, because a ruleset should not claim what the Engine does not do:
   window opens another: a counter cannot itself be countered, what a reaction deals opens no
   further moment, and an attack made inside a window is not held when it hits. An answerable fall
   caused during a window is held until it closes and then asked about in turn.
-- **Only an attack roll is a hit.** Something that lands without one (darts that simply hit, an area
+- **Only an attack roll is a hit.** Something that lands without one (darts that hit, an area
   everyone saves against) opens no `hit` moment.
 - **Damage modifiers belong to attack hits.** An answer can put a damage modifier on its holder
   or halve incoming harm with `resist-all`; damage modifiers never change a save-only effect.
