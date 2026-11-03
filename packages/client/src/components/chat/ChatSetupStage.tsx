@@ -203,7 +203,7 @@ type ConnectionRow = {
 const accentCache = new Map<string, string | null>();
 
 /** The first character's avatar colour, read once per image; null keeps --primary. */
-function useAvatarAccent(src: string | null | undefined) {
+export function useAvatarAccent(src: string | null | undefined) {
   const [read, setRead] = useState<{ src: string; color: string | null } | null>(null);
   useEffect(() => {
     if (!src || accentCache.has(src)) return;

@@ -454,6 +454,7 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
         <audio ref={audioRef} className="hidden" onPlaying={clearPlaybackError} />
         {showPlayer && (
           <div
+            data-component="LocalMusicPlayer.Mobile"
             className="fixed z-[45] touch-none select-none md:hidden"
             style={mobileWidgetStyle}
             onPointerDown={startDrag}

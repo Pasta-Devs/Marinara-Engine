@@ -1,4 +1,4 @@
-import { useMemo, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useMemo, type ComponentProps, type ReactNode } from "react";
 import type { Message, SpriteSide } from "@marinara-engine/shared";
 import { ConversationPackageWindows, ConversationView } from "./ConversationView";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
@@ -203,6 +203,12 @@ export function ChatConversationSurface({
     isLoading,
   });
   const welcomeBack = useWelcomeBack({ chat, chatMeta, messages, blocked: setupStage.visible });
+  // globals.css quiets tips, the music bubble and header icons while this is set.
+  useEffect(() => {
+    if (!setupStage.visible) return;
+    document.documentElement.dataset.setupStage = "";
+    return () => void delete document.documentElement.dataset.setupStage;
+  }, [setupStage.visible]);
 
   return (
     <div data-component="ChatArea.Conversation" className="flex flex-1 overflow-hidden">
