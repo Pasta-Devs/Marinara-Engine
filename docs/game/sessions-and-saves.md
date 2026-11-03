@@ -4,6 +4,16 @@ Game Mode splits your adventure into numbered sessions, like tabletop game night
 
 Your first session is **Session 1**. Ending it and starting again creates **Session 2**, and so on. When you end a session, the Game Master (GM, the AI that runs your game) writes a summary you can reread later.
 
+## Save and continue
+
+There is no save button. Your game saves by itself as you play.
+
+1. To stop for now, close the tab or the app.
+2. To continue, open the same game chat. You are back where you stopped.
+3. To wrap up a chapter, end the session (see [End a session](#end-a-session)).
+
+For going back to an earlier moment, see [How your game saves](#how-your-game-saves).
+
 ## Opening Session
 
 **Session** is where you end sessions, start new ones and read your history.
@@ -21,7 +31,7 @@ End a session when you want to wrap up a chapter and let the GM summarize it.
 
 1. Open **Session** and stay on **Session History**.
 2. Find the current session at the top, labeled **Session N (Current)**.
-3. In that row, click the **End Session** button (the small square icon next to **Show Spoilers**). A dialog titled **End Session** asks you to confirm.
+3. In that row, click the **End Session** button (the small square icon). The row has several small icon buttons, so hover to read their tooltips. A dialog titled **End Session** asks you to confirm.
 4. Optional: type a note in **What do you want to happen in the next session (optional)?** (up to 5,000 characters). Leave it empty to let the GM steer.
 5. Click **End Session** in the dialog. Click **Cancel** to back out.
 
@@ -96,7 +106,7 @@ Character cards, personas, lorebooks, models and accounts are named but not bund
 
 ## See the GM's hidden notes
 
-**Show Spoilers** reveals the GM's private notes for the current session. Reading them can spoil plot twists.
+**Show Spoilers** (the eye icon in the current session row) reveals the GM's private notes for the current session. Reading them can spoil plot twists.
 
 1. Open **Session** and go to **Session History**.
 2. In the current session row, click **Show Spoilers** (the eye icon).
@@ -144,7 +154,7 @@ To go back:
 
 **Load** takes the game back to that moment. The tracker, map, **World Edits**, story, party cards and sheets, NPCs, journal, your notes, inventory, session summaries, the GM's story plans, HUD widgets, time, weather and morale all go back. A system message marks where the game was set back. Your settings stay as they are. **Delete** removes a checkpoint for good.
 
-To undo only one bad turn, use **Retry turn** in **Game controls**, or a swipe.
+To undo only one bad turn, use **Retry turn** in **Game controls**, or swipe to another version of the reply.
 
 To keep your own copy of your data, see [Backup and Restore](../data/backup-and-restore.md).
 
