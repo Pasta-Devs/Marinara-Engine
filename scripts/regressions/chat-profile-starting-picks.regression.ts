@@ -121,6 +121,66 @@ try {
     patchedHistory.filter((message) => message.role === "system").map((message) => message.content),
     ["You are now playing as Rowan."],
   );
+  // A PATCH that names one identity field clears the other on the row storage.update writes. The back-fill and the
+  // turn must follow that row: a target that kept the omitted field's saved value would see a persona-only PATCH on a
+  // chat played as a character as no change (the character wins when both are set) and skip both.
+  const { resolveChatUserIdentity } = await import("../../packages/server/src/services/chat-user-identity.js");
+  const savedIdentity = async (id: string) => {
+    const row = (await createChatsStorage(db).getById(id))!;
+    const identity = await resolveChatUserIdentity(createCharactersStorage(db), row);
+    return {
+      row: { personaId: row.personaId ?? null, personaCharacterId: row.personaCharacterId ?? null },
+      identity: identity && { source: identity.source, name: identity.name },
+    };
+  };
+  const pairedSwitch = async (saved: object, patch: object) => {
+    const id = await createChat("Paired switch");
+    await inject("PATCH", `/api/chats/${id}`, saved);
+    const before = await savedIdentity(id);
+    // Saved without a snapshot, so the one it ends up with is the switch's back-fill.
+    await createChatsStorage(db).createMessage({ chatId: id, role: "user", characterId: null, content: "Before." });
+    await inject("PATCH", `/api/chats/${id}`, patch);
+    const after = await savedIdentity(id);
+    const history = await createChatsStorage(db).listMessages(id);
+    const snapshot = extraOf(history.find((message) => message.role === "user")!.extra).personaSnapshot;
+    assert.deepEqual(
+      snapshot ? { source: snapshot.source, name: snapshot.name } : null,
+      before.identity,
+      "the earlier message keeps the identity of the row saved before the write",
+    );
+    assert.deepEqual(
+      history
+        .filter((message) => message.role === "system")
+        .map((message) => ({ content: message.content, event: extraOf(message.extra).identityTransitionEvent })),
+      [
+        {
+          content: `You are now playing as ${after.identity?.name}.`,
+          event: { from: before.identity?.name, to: after.identity?.name, source: after.identity?.source },
+        },
+      ],
+      "the turn announces the identity of the row read back after the write",
+    );
+    return { row: after.row, from: before.identity, to: after.identity };
+  };
+  const characterId = (asCharacter as { id: string }).id;
+  assert.deepEqual(
+    await pairedSwitch({ personaId: persona.id }, { personaCharacterId: characterId }),
+    {
+      row: { personaId: null, personaCharacterId: characterId },
+      from: { source: "persona", name: "Rowan" },
+      to: { source: "character", name: "Kestrel" },
+    },
+    "a character-only PATCH clears the persona, and the switch follows that row",
+  );
+  assert.deepEqual(
+    await pairedSwitch({ personaCharacterId: characterId }, { personaId: persona.id }),
+    {
+      row: { personaId: persona.id, personaCharacterId: null },
+      from: { source: "character", name: "Kestrel" },
+      to: { source: "persona", name: "Rowan" },
+    },
+    "a persona-only PATCH clears the character, and the switch follows that row",
+  );
   // Quick setup: a persona picked over the profile's stays, and the greeting-only chat hears of no other persona.
   const picked = await createCharactersStorage(db).createPersona("Wren", "A courier");
   const greetedId = await createChat("Greeted");
