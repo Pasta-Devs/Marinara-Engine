@@ -39,6 +39,15 @@ export function stageTagline(description: string | null | undefined): string | n
   return sentence.length <= 90 ? sentence : null;
 }
 
+/** The avatar's strongest colour as the stage accent, or null when it is grey (the stage keeps --primary). */
+export function stageAccent(hex: string | null | undefined): string | null {
+  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex ?? "");
+  if (!match) return null;
+  const [r, g, b] = match.slice(1).map((part) => parseInt(part, 16));
+  const max = Math.max(r, g, b);
+  return max === 0 || (max - Math.min(r, g, b)) / max < 0.25 ? null : match[0];
+}
+
 /** "Harbor at night" from ".../harbor-at-night.jpg". */
 export function backgroundLabel(url: string | null | undefined): string | null {
   if (!url) return null;

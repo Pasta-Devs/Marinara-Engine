@@ -207,7 +207,14 @@ function CardTagInput({
 }
 
 /** ChatArea already restores and persists this active-chat selection for every picker/agent. */
-export function ActiveChatBackgroundPicker({ game = false }: { game?: boolean }) {
+export function ActiveChatBackgroundPicker({
+  game = false,
+  onPicked,
+}: {
+  game?: boolean;
+  /** Runs before a new background is set, with the one it replaces (the setup stage offers Undo). */
+  onPicked?: (previous: string | null) => void;
+}) {
   const selected = useUIStore((state) => state.chatBackground);
   const onSelect = useUIStore((state) => state.setChatBackground);
   const defaultBackground = useUIStore((state) => state.defaultRoleplayBackground);
@@ -219,7 +226,10 @@ export function ActiveChatBackgroundPicker({ game = false }: { game?: boolean })
       showRoleplayDefault={!game}
       selected={selected}
       sceneBackgroundTag={sceneBackgroundTag}
-      onSelect={onSelect}
+      onSelect={(url) => {
+        if (url !== selected) onPicked?.(selected);
+        onSelect(url);
+      }}
       defaultRoleplayBackground={defaultBackground}
       onDefaultChange={onDefaultChange}
     />

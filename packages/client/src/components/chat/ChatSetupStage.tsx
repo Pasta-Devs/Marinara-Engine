@@ -1,4 +1,15 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactElement, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { useQueries } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
 import {
   BookOpen,
@@ -13,13 +24,23 @@ import {
   Play,
   Sparkles,
   Users,
+  CircleAlert,
 } from "lucide-react";
-import { BUILT_IN_AGENTS, type Chat, type Lorebook } from "@marinara-engine/shared";
+import {
+  BUILT_IN_AGENTS,
+  estimateTextTokens,
+  readChatModelOverride,
+  type Chat,
+  type Lorebook,
+  type LorebookEntry,
+} from "@marinara-engine/shared";
+import { api } from "../../lib/api-client";
+import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { useChatStore } from "../../stores/chat.store";
 import { useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useConnections } from "../../hooks/use-connections";
 import { usePresetFull, usePresets } from "../../hooks/use-presets";
-import { useLorebooks } from "../../hooks/use-lorebooks";
+import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useChatPresets } from "../../hooks/use-chat-presets";
 import { usePersonas } from "../../hooks/use-characters";
@@ -34,6 +55,7 @@ import {
   backgroundLabel,
   presetChoiceSummary,
   shouldShowSetupStage,
+  stageAccent,
   stageTagline,
   chatTurnTaken,
 } from "../../lib/chat-setup-stage";
@@ -114,7 +136,81 @@ interface ChatSetupStageProps {
   onSetActiveSwipe: (messageId: string, index: number) => void;
 }
 
-type ConnectionRow = { id: string; name?: string; model?: string; isDefault?: unknown; promptPresetId?: unknown };
+type ConnectionRow = {
+  id: string;
+  name?: string;
+  model?: string;
+  maxContext?: number;
+  isDefault?: unknown;
+  promptPresetId?: unknown;
+};
+
+const accentCache = new Map<string, string | null>();
+
+/** The first character's avatar colour, read once per image; null keeps --primary. */
+function useAvatarAccent(src: string | null | undefined) {
+  const [read, setRead] = useState<{ src: string; color: string | null } | null>(null);
+  useEffect(() => {
+    if (!src || accentCache.has(src)) return;
+    let live = true;
+    void extractColorsFromImage(src)
+      .then(
+        ([color]) => stageAccent(color),
+        () => null,
+      )
+      .then((color) => {
+        accentCache.set(src, color);
+        if (live) setRead({ src, color });
+      });
+    return () => {
+      live = false;
+    };
+  }, [src]);
+  if (!src) return null;
+  return accentCache.get(src) ?? (read?.src === src ? read.color : null);
+}
+
+/** One quiet line when the first reply would fail or degrade, and the editor that fixes it. */
+function useStageReadiness(
+  narrator: ConnectionRow | null | undefined,
+  chat: Chat | null | undefined,
+  lorebookIds: string[],
+) {
+  const override = chat ? readChatModelOverride(chat) : null;
+  const model = override?.model || narrator?.model;
+  const maxContext = override?.maxContext || narrator?.maxContext || 0;
+  const entries = useQueries({
+    queries: (maxContext > 0 ? lorebookIds : []).map((id) => ({
+      queryKey: lorebookKeys.entries(id),
+      queryFn: () => api.get<LorebookEntry[]>(`/lorebooks/${id}/entries`),
+    })),
+  });
+  // undefined: connections are still loading.
+  if (narrator === undefined) return null;
+  if (!narrator || !model) {
+    return {
+      text: "chat.setupStage.polish.noModel",
+      fix: "chat.setupStage.polish.fixModel",
+      section: "connection" as const,
+      percent: 0,
+    };
+  }
+  if (!maxContext) return null;
+  // ponytail: counts always-on entries only; keyword entries depend on the chat, so they cannot be priced up front.
+  const tokens = entries
+    .flatMap((query) => query.data ?? [])
+    .filter((entry) => entry.enabled && entry.constant)
+    .reduce((sum, entry) => sum + estimateTextTokens(entry.content), 0);
+  const percent = Math.round((tokens / maxContext) * 100);
+  return percent > 50
+    ? {
+        text: "chat.setupStage.polish.lorebookHeavy",
+        fix: "chat.setupStage.polish.fixLorebooks",
+        section: "lorebooks" as const,
+        percent,
+      }
+    : null;
+}
 
 const SERIF = { fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' };
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
@@ -216,6 +312,31 @@ export function ChatSetupStage({
   }, [agentConfigs, chatMeta.activeAgentIds, chatMeta.enableAgents]);
   const helperText = helperNames.length ? listFormat.format(helperNames) : null;
   const look = backgroundLabel(chatBackground);
+  const accent = useAvatarAccent(characters[0] ? characterMap.get(characters[0].id)?.avatarUrl : null);
+  const readiness = useStageReadiness(
+    connectionsData ? narrator : undefined,
+    chat,
+    lorebooks.map((book) => book.id),
+  );
+  const sectionRef = useRef<HTMLElement>(null);
+  const [leaving, setLeaving] = useState(false);
+  // Start: the title lifts away, the rest fades and the stage folds so the greeting slides up. The composer gets
+  // focus at once; the stage closes when the curtain is down.
+  const begin = () => {
+    if (leaving) return;
+    document.querySelector<HTMLTextAreaElement>(".mari-chat-input-textarea")?.focus();
+    setEditor(null);
+    setLeaving(true);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const section = sectionRef.current;
+    if (section && !reduced) {
+      section.style.height = `${section.offsetHeight}px`;
+      requestAnimationFrame(() => {
+        section.style.height = "0px";
+      });
+    }
+    window.setTimeout(onBegin, reduced ? 200 : 560);
+  };
   const profile = chatPresets?.find((p) => p.id === chatMeta.appliedChatPresetId && !p.isDefault) ?? null;
 
   const [editor, setEditor] = useState<{ section: StageEditorSection; anchor: HTMLElement } | null>(null);
@@ -232,7 +353,7 @@ export function ChatSetupStage({
       onClick={onClick}
       aria-label={label}
       className={cn(
-        "inline cursor-pointer bg-transparent p-0 italic text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--primary)_75%,transparent)] decoration-[1.5px] underline-offset-[5px] hover:decoration-[var(--primary)]",
+        "inline cursor-pointer bg-transparent p-0 text-left italic text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--stage-accent,var(--primary))_75%,transparent)] decoration-[1.5px] underline-offset-[5px] hover:decoration-[var(--stage-accent,var(--primary))]",
         FOCUS,
         "rounded-sm",
       )}
@@ -350,7 +471,7 @@ export function ChatSetupStage({
   const beginButton = (
     <button
       type="button"
-      onClick={onBegin}
+      onClick={begin}
       className={cn(
         "inline-flex h-[46px] min-w-11 items-center gap-2 rounded-full bg-[var(--primary)] px-[26px] text-[15px] font-semibold text-[var(--primary-foreground)] shadow-[0_10px_30px_color-mix(in_srgb,var(--primary)_40%,transparent)] transition-[filter] duration-150 hover:brightness-110",
         FOCUS,
@@ -379,9 +500,16 @@ export function ChatSetupStage({
   return (
     <section
       data-component="ChatSetupStage"
+      ref={sectionRef}
+      data-leaving={leaving || undefined}
+      style={
+        accent
+          ? ({ "--stage-accent": `color-mix(in oklab, ${accent} 72%, var(--foreground))` } as CSSProperties)
+          : undefined
+      }
       aria-label={t("chat.setupStage.a11y.region")}
       className={cn(
-        "relative z-[2] mx-auto mb-2 w-full max-w-[600px]",
+        "mari-setup-stage relative z-[2] mx-auto mb-2 w-full max-w-[600px]",
         calm
           ? "px-4 pt-6 md:pt-10"
           : "px-2 pt-[clamp(1rem,22vh,9rem)] md:mx-0 md:px-0 md:ml-[max(0px,calc(50%-20rem))] md:pt-16",
@@ -398,12 +526,21 @@ export function ChatSetupStage({
         style={SERIF}
         className={cn(
           "m-0 font-normal tracking-[-0.02em] text-[var(--foreground)]",
-          calm ? "text-[32px] md:text-[40px]" : "text-[42px] [text-shadow:0_2px_30px_rgba(0,0,0,.45)] md:text-[66px]",
+          calm
+            ? "text-[32px] md:text-[40px]"
+            : "text-[42px] [text-shadow:0_2px_30px_rgba(0,0,0,.45),0_0_46px_color-mix(in_srgb,var(--stage-accent,var(--primary))_26%,transparent)] md:text-[66px]",
           // Last, so the size classes above do not drop it in tailwind-merge.
           "leading-[1.02]",
         )}
       >
-        {title}
+        <button
+          type="button"
+          onClick={open("characters")}
+          aria-haspopup="dialog"
+          className={cn("cursor-pointer bg-transparent p-0 text-left", FOCUS, "rounded-md")}
+        >
+          {title}
+        </button>
       </h1>
       {tagline && (
         <p className="mt-3 text-sm text-[color-mix(in_srgb,var(--foreground)_72%,transparent)] md:text-[15px]">
@@ -457,7 +594,7 @@ export function ChatSetupStage({
                   FOCUS,
                 )}
               >
-                <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[11px] bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)] [&>svg]:h-[17px] [&>svg]:w-[17px]">
+                <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[11px] bg-[color-mix(in_srgb,var(--stage-accent,var(--primary))_15%,transparent)] text-[var(--stage-accent,var(--primary))] [&>svg]:h-[17px] [&>svg]:w-[17px]">
                   {row.icon}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -488,7 +625,7 @@ export function ChatSetupStage({
                   type="button"
                   onClick={open(item.section)}
                   className={cn(
-                    "inline-flex min-h-11 max-w-full items-center gap-[7px] rounded-md hover:text-[var(--foreground)] md:min-h-8 [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:flex-none [&>svg]:text-[var(--primary)] [&>svg]:opacity-90",
+                    "inline-flex min-h-11 max-w-full items-center gap-[7px] rounded-md hover:text-[var(--foreground)] md:min-h-8 [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:flex-none [&>svg]:text-[var(--stage-accent,var(--primary))] [&>svg]:opacity-90",
                     FOCUS,
                   )}
                 >
@@ -504,10 +641,39 @@ export function ChatSetupStage({
         </>
       )}
 
+      {readiness && (
+        <p className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]">
+          <CircleAlert size="0.85rem" aria-hidden="true" className="flex-none" />
+          <span>{t(readiness.text, { percent: readiness.percent })}</span>
+          <button
+            type="button"
+            onClick={open(readiness.section)}
+            aria-haspopup="dialog"
+            className={cn(
+              "-my-2 inline-flex min-h-11 cursor-pointer items-center bg-transparent p-0 font-semibold text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--stage-accent,var(--primary))_60%,transparent)] underline-offset-4 md:my-0 md:min-h-0",
+              FOCUS,
+              "rounded-sm",
+            )}
+          >
+            {t(readiness.fix)}
+          </button>
+        </p>
+      )}
       {first && (
         <p className="mb-0 mt-8 flex items-center gap-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
-          <MessageSquare size="0.8rem" aria-hidden className="text-[var(--primary)]" />
-          {t("chat.setupStage.firstMessage")}
+          <button
+            type="button"
+            onClick={open("opening")}
+            aria-haspopup="dialog"
+            className={cn(
+              "-my-2 inline-flex min-h-11 cursor-pointer items-center gap-2 bg-transparent p-0 hover:text-[var(--foreground)] md:my-0 md:min-h-0",
+              FOCUS,
+              "rounded-sm",
+            )}
+          >
+            <MessageSquare size="0.8rem" aria-hidden className="text-[var(--stage-accent,var(--primary))]" />
+            {t("chat.setupStage.firstMessage")}
+          </button>
         </p>
       )}
       {editor && chat && (
