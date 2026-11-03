@@ -20,6 +20,7 @@ const { chatPresetsRoutes } = await import("../../packages/server/src/routes/cha
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { saveIntoProfileSettings } = await import("../../packages/client/src/lib/chat-preset-apply.js");
 const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
+const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 
 const db = await getDB();
 const app = Fastify();
@@ -91,6 +92,35 @@ try {
   assert.equal(untouched.personaId, persona.id, "an old profile keeps the chat's persona");
   assert.deepEqual(untouched.metadata.activeLorebookIds, ["kept"], "an old profile keeps the chat's lorebooks");
   assert.equal(untouched.metadata.background, "kept.png", "a profile without a background keeps the chat's own");
+
+  // A profile persona switches who the user plays as Chat Settings does: earlier messages keep the identity they
+  // were sent as, and a started chat is told about the change once.
+  const startedId = await createChat("Started");
+  await inject("POST", `/api/chats/${startedId}/messages`, { role: "user", content: "Hello there." });
+  await inject("POST", `/api/chat-presets/${profile.id}/apply/${startedId}`);
+  await inject("POST", `/api/chat-presets/${profile.id}/apply/${startedId}`);
+  const history = await createChatsStorage(db).listMessages(startedId);
+  const extraOf = (extra: unknown) => (typeof extra === "string" ? JSON.parse(extra) : (extra ?? {}));
+  assert.equal(
+    extraOf(history.find((message) => message.role === "user")!.extra).personaSnapshot?.name,
+    "You",
+    "a message sent before the switch keeps the identity it was sent as",
+  );
+  assert.deepEqual(
+    history.filter((message) => message.role === "system").map((message) => message.content),
+    ["You are now playing as Rowan."],
+    "the switch is announced once",
+  );
+  // Chat Settings (a persona PATCH) keeps doing the same.
+  const patchedId = await createChat("Patched");
+  await inject("POST", `/api/chats/${patchedId}/messages`, { role: "user", content: "Hi." });
+  await inject("PATCH", `/api/chats/${patchedId}`, { personaId: persona.id });
+  const patchedHistory = await createChatsStorage(db).listMessages(patchedId);
+  assert.equal(extraOf(patchedHistory.find((message) => message.role === "user")!.extra).personaSnapshot?.name, "You");
+  assert.deepEqual(
+    patchedHistory.filter((message) => message.role === "system").map((message) => message.content),
+    ["You are now playing as Rowan."],
+  );
 
   // Exports leave the install-local persona and lorebook ids out.
   const exported = await app.inject({ method: "GET", url: `/api/chat-presets/${profile.id}/export` });

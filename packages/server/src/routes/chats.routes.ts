@@ -582,6 +582,51 @@ async function buildPersonaSnapshotForChat(
   };
 }
 
+type ChatIdentityFields = { personaId?: string | null; personaCharacterId?: string | null; mode?: string | null };
+
+/**
+ * After a chat's persona changed (Chat Settings or a settings profile): user messages sent before keep the
+ * identity they were sent as, and a started chat gets a "You are now playing as" turn so the model knows.
+ */
+export async function recordChatIdentityChange(
+  app: FastifyInstance,
+  before: ChatIdentityFields & { id: string },
+  after: ChatIdentityFields,
+) {
+  const charactersStore = createCharactersStorage(app.db);
+  const identityBefore = await resolveChatUserIdentity(charactersStore, before);
+  const identityAfter = await resolveChatUserIdentity(charactersStore, { ...after, id: before.id });
+  if (identityBefore?.id === identityAfter?.id && identityBefore?.source === identityAfter?.source) return;
+  const storage = createChatsStorage(app.db);
+  // Keep the file protected until every backfilled reference is saved, not just until
+  // the avatar URL is read: cleanup may otherwise delete it during an awaited write.
+  await withAvatarFileLifecycleLock(async () => {
+    const previousSnapshot =
+      (await buildPersonaSnapshotForChat(app, before)) ??
+      ({ personaId: "default-user", source: "persona", name: "You" } as const);
+    for (const message of await storage.listMessages(before.id)) {
+      if (message.role !== "user" || parseExtra(message.extra).personaSnapshot) continue;
+      await storage.updateMessageExtra(message.id, { personaSnapshot: previousSnapshot });
+    }
+  });
+  const messages = await storage.listMessages(before.id);
+  const hasStartedChat = messages.some((message) => message.role === "user" || message.role === "assistant");
+  if (!hasStartedChat || !identityAfter) return;
+  await storage.createMessage({
+    chatId: before.id,
+    role: "system",
+    characterId: null,
+    content: `You are now playing as ${identityAfter.name}.`,
+    extra: {
+      identityTransitionEvent: {
+        from: identityBefore?.name ?? null,
+        to: identityAfter.name,
+        source: identityAfter.source,
+      },
+    },
+  });
+}
+
 async function buildCharacterDisplaySnapshot(app: FastifyInstance, characterId: string) {
   const charactersStore = createCharactersStorage(app.db);
   const row = await charactersStore.getById(characterId);
@@ -1494,38 +1539,6 @@ export async function chatsRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
       }
     }
-    const identityBefore =
-      data.personaId !== undefined || data.personaCharacterId !== undefined
-        ? await resolveChatUserIdentity(createCharactersStorage(app.db), existing)
-        : null;
-    const nextIdentity =
-      data.personaId !== undefined || data.personaCharacterId !== undefined
-        ? {
-            personaId: data.personaCharacterId ? null : (data.personaId ?? null),
-            personaCharacterId: data.personaCharacterId || null,
-          }
-        : null;
-    const identityAfter = nextIdentity
-      ? await resolveChatUserIdentity(createCharactersStorage(app.db), { ...existing, ...nextIdentity })
-      : null;
-    const identityChanged =
-      identityBefore?.id !== identityAfter?.id || identityBefore?.source !== identityAfter?.source;
-    if (identityChanged) {
-      // Keep the file protected until every backfilled reference is saved, not just until
-      // the avatar URL is read: cleanup may otherwise delete it during an awaited write.
-      await withAvatarFileLifecycleLock(async () => {
-        const previousSnapshot =
-          (await buildPersonaSnapshotForChat(app, existing)) ??
-          ({ personaId: "default-user", source: "persona", name: "You" } as const);
-        const messages = await storage.listMessages(req.params.id);
-        for (const message of messages) {
-          if (message.role !== "user") continue;
-          const extra = parseExtra(message.extra);
-          if (extra.personaSnapshot) continue;
-          await storage.updateMessageExtra(message.id, { personaSnapshot: previousSnapshot });
-        }
-      });
-    }
     let roleplayTrackerCharacterIdsToSeed: string[] = [];
     // Characters added to an existing chat need the same card-variable defaults
     // as at creation, or a card that just joined carries a literal
@@ -1682,26 +1695,8 @@ export async function chatsRoutes(app: FastifyInstance) {
         logger.warn(err, "Failed to update the game party for characters added or removed");
       }
     }
-    if (updated && identityChanged) {
-      const existingMessages = await storage.listMessages(req.params.id);
-      const hasStartedChat = existingMessages.some(
-        (message) => message.role === "user" || message.role === "assistant",
-      );
-      if (hasStartedChat && identityAfter) {
-        await storage.createMessage({
-          chatId: req.params.id,
-          role: "system",
-          characterId: null,
-          content: `You are now playing as ${identityAfter.name}.`,
-          extra: {
-            identityTransitionEvent: {
-              from: identityBefore?.name ?? null,
-              to: identityAfter.name,
-              source: identityAfter.source,
-            },
-          },
-        });
-      }
+    if (updated && (data.personaId !== undefined || data.personaCharacterId !== undefined)) {
+      await recordChatIdentityChange(app, existing, updated);
     }
     return updated ? normalizeChatForResponse(updated) : updated;
   });

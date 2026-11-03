@@ -15,6 +15,7 @@ import {
 import { logger } from "../lib/logger.js";
 import { createChatPresetsStorage } from "../services/storage/chat-presets.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { recordChatIdentityChange } from "./chats.routes.js";
 
 function toSafeExportName(name: string, fallback: string) {
   const sanitized = name
@@ -120,6 +121,8 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
       typeof body.connectionId === "string" ? body.connectionId : body.connectionId === null ? null : undefined;
     const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId });
     if (!updated) return reply.status(404).send({ error: "Settings profile or chat not found" });
+    // The profile's persona switches who the user plays the way Chat Settings does.
+    await recordChatIdentityChange(app, chat, updated);
     return updated;
   });
 

@@ -115,6 +115,10 @@ export function useApplyChatPreset() {
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
       qc.invalidateQueries({ queryKey: [...chatKeys.all, "group"] });
+      // A profile persona keeps earlier messages under their persona and can add a "now playing as" turn.
+      qc.invalidateQueries({ queryKey: chatKeys.messages(variables.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.messageCount(variables.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.messagePeek(variables.chatId) });
     },
   });
 }
