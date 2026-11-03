@@ -282,6 +282,15 @@ function isBlockedResolvedAddress(address: string, policy: OutboundUrlPolicy): b
   return !(policy.allowLoopback && isLoopbackIp(address));
 }
 
+/** A hop is local when every address it may connect to is on this machine or the local network. */
+async function isLocalHop(url: URL, addresses?: Array<{ address: string }>): Promise<boolean> {
+  if (isLocalHostname(url.hostname)) return true;
+  // ponytail: hops fetched under allowLocal are not pinned, so their name is looked up again here.
+  // Pinning those hops too would let this reuse the addresses they connected to.
+  const records = addresses ?? (await resolveHostname(url.hostname).catch(() => []));
+  return records.length > 0 && records.every((record) => isReservedIp(record.address));
+}
+
 function preferIpv4Records(
   records: Array<{ address: string; family: 4 | 6 }>,
 ): Array<{ address: string; family: 4 | 6 }> {
@@ -417,7 +426,7 @@ async function validateOutboundUrlForFetch(
   policy: OutboundUrlPolicy = {},
   agentOptions?: Omit<AgentOptions, "connect">,
   keepAliveInitialDelayMs?: number,
-): Promise<{ url: URL; dispatcher?: Dispatcher }> {
+): Promise<{ url: URL; dispatcher?: Dispatcher; addresses?: Array<{ address: string; family: 4 | 6 }> }> {
   const parsed = await validateOutboundUrl(url, policy);
   // Local URLs skip the address checks, but `localhost` still goes through the pinned lookup below
   // so it reaches 127.0.0.1 even where the resolver only answers `::1`.
@@ -459,7 +468,7 @@ async function validateOutboundUrlForFetch(
       },
     },
   });
-  return { url: parsed, dispatcher };
+  return { url: parsed, dispatcher, addresses };
 }
 
 async function readCappedResponse(
@@ -751,7 +760,15 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
         currentHeaders = new Headers(currentHeaders);
         currentHeaders.delete("x-opencode-session");
       }
-      current = await validateOutboundUrlForFetch(nextUrl, policy, agentOptions, keepAliveInitialDelayMs);
+      // Local trust covers the server the caller chose. A remote server cannot pass it on by redirecting,
+      // so only a hop on this machine or the local network may redirect into them.
+      const hopPolicy =
+        policy &&
+        (policy.allowLocal || policy.allowLoopback || policy.allowMdns) &&
+        !(await isLocalHop(previousUrl, current.addresses))
+          ? { ...policy, allowLocal: false, allowLoopback: false, allowMdns: false, flagName: undefined }
+          : policy;
+      current = await validateOutboundUrlForFetch(nextUrl, hopPolicy, agentOptions, keepAliveInitialDelayMs);
       continue;
     }
 
