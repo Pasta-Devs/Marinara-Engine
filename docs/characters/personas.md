@@ -49,7 +49,7 @@ Leaving the editor saves your changes first. If saving fails, the editor stays o
 
 The tabs, in order, are **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** and **Stats**. Each tab jumps to its section of one long form.
 
-The persona editor works like the [Character Editor](creating-and-editing-characters.md). This guide covers what is different.
+The persona editor works like the [Character Editor](creating-and-editing-characters.md). The notes below cover what is different.
 
 | Tab | Persona-specific notes |
 | --- | --- |
