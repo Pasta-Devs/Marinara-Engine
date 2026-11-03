@@ -1,6 +1,6 @@
 # Marinara Engine Installation
 
-Marinara runs on your own device, so your chats and data stay with you. Pick the guide for your device below.
+Marinara runs on your own device. Pick the guide for your device below.
 
 ## Choose your platform
 
@@ -9,14 +9,14 @@ Marinara runs on your own device, so your chats and data stay with you. Pick the
 | Windows | [Windows installation](installation/windows.md) |
 | macOS or Linux | [macOS and Linux installation](installation/macos-linux.md) |
 | Docker or Podman | [Container installation](installation/containers.md) |
-| Android phone or tablet | [Download the APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk), then read the [Android installation guide](installation/android-termux.md) |
+| Android phone or tablet | [Android installation guide](installation/android-termux.md) |
 | iPhone or iPad | [iOS and iPadOS](installation/ios-pwa.md) |
 
 ## Which one should I pick?
 
 - **Windows:** use the Windows installer. It sets up everything and adds a desktop shortcut.
-- **Android:** use the APK. Open the downloaded file, then tap **Install / Start Marinara** in the app.
-- **macOS, Linux or a home server:** use Docker. One command runs the app, and you do not install Node.js or build anything.
+- **Android:** [download the APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk). Open the downloaded file, then tap **Install / Start Marinara** in the app.
+- **macOS, Linux or a home server:** pick one. The native guide runs Marinara straight on your computer with a launcher script. Docker needs no Node.js and builds nothing, but you install Docker first.
 - **iPhone or iPad:** Marinara cannot run the server on these devices. Run it on a computer, a home server or an Android device, then open it in Safari. The iOS guide explains how.
 - **You want to edit the code:** run from source. This means you download the code and build the app on your device. The Windows, macOS and Linux, and Android guides all cover it.
 
@@ -29,13 +29,22 @@ On Android, Marinara runs inside **Termux**, a free Android app that gives your 
 
 ## Open Marinara
 
-When Marinara is running, open this address in a browser on the same device:
+When Marinara is running, open this address in a browser on the same device. Do not use it from another device.
 
 ```text
 http://127.0.0.1:7860
 ```
 
-`127.0.0.1` means this device and `7860` is the default port. The launchers also let other devices on your network reach Marinara, but they stay blocked until you set a login. To open Marinara from another device, see [Remote Access](REMOTE_ACCESS.md) and the [FAQ](FAQ.md).
+`127.0.0.1` means this device. `7860` is the default port, the number the app listens on. The launchers (the scripts that start Marinara) also let other devices on your network reach it, but they stay blocked until you set a login.
+
+## Open Marinara on your phone
+
+1. Install and start Marinara on a computer, home server or Android phone.
+2. Set a login there. See [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended).
+3. Find that device's IP address. The [FAQ](FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device) shows how.
+4. On your phone, open `http://` followed by the IP address and `:7860`.
+
+For an iPhone, see [iOS and iPadOS](installation/ios-pwa.md).
 
 ## After you install
 
