@@ -27,7 +27,7 @@ Roleplay is off by default because roleplay messages are often long and need lin
 
 ## Attach images and files
 
-1. Click the paperclip in the input bar.
+1. Tap the paperclip in the input bar.
 2. Pick a file. It shows as a small chip above the input.
 3. Send as usual.
 
@@ -89,7 +89,7 @@ In Roleplay, an empty **Send** also starts a brand new reply after the AI alread
 
 ## When a generation error appears
 
-A failed reply shows a toast at the bottom of the screen for about 15 seconds. You can copy its text. Marinara rewrites some errors into a next step:
+A failed reply shows a toast (a short pop-up message) at the bottom of the screen for about 15 seconds. You can copy its text. Marinara rewrites some errors into a next step:
 
 | Cause | What the toast tells you |
 | --- | --- |
