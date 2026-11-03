@@ -77,6 +77,10 @@ export type CharacterSelectProps = CommonProps &
 
 const PHONE_QUERY = "(max-width: 767px)";
 
+/** The one id a multiple pick added or removed. */
+export const changedId = (prev: readonly string[], next: readonly string[]) =>
+  next.find((id) => !prev.includes(id)) ?? prev.find((id) => !next.includes(id));
+
 const toggleId = (ids: readonly string[], id: string) =>
   ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
 

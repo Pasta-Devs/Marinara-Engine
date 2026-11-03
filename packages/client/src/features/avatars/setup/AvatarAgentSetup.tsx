@@ -21,6 +21,7 @@ import {
   type AvatarOwnerRef,
   type AvatarOwnerType,
 } from "@marinara-engine/shared";
+import { CharacterSelect, type PersonaChoice } from "../../../components/characters/CharacterSelect";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { useAvatarModel, useAvatarModelActions, useAvatarModelList } from "../../../hooks/use-avatar-models";
 import { useCharacterSprites, useCharacters, usePersonas } from "../../../hooks/use-characters";
@@ -47,8 +48,6 @@ const FEATURE_KEYS: ReadonlyArray<readonly [keyof AvatarFeatureFlags, string, st
   ["idleMotion", "avatars.setup.features.idleMotion", "avatars.setup.features.idleMotionHelp"],
 ];
 
-const SELECT_CLASS =
-  "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]";
 const CARD_CLASS = "rounded-xl bg-[var(--secondary)]/55 ring-1 ring-[var(--border)]";
 
 function ownerValue(owner: AvatarOwnerRef): string {
@@ -122,31 +121,29 @@ export function AvatarAgentSetup({ agentId }: AvatarAgentSetupProps) {
       <AvatarModelStatus />
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-[var(--foreground)]">{t("avatars.setup.owner.label")}</span>
-        <select
-          value={selectedOwner}
-          onChange={(event) => setSelectedOwner(event.target.value)}
-          className={SELECT_CLASS}
-        >
-          <option value="">{t("avatars.setup.owner.placeholder")}</option>
-          {(
-            [
-              ["avatars.setup.owner.characters", owners.characters],
-              ["avatars.setup.owner.personas", owners.personas],
-            ] as const
-          ).map(([groupKey, options]) =>
-            options.length > 0 ? (
-              <optgroup key={groupKey} label={t(groupKey)}>
-                {options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {owners.avatarOwners.has(option.value)
-                      ? t("avatars.setup.owner.hasAvatar", { name: option.name })
-                      : option.name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null,
-          )}
-        </select>
+        <CharacterSelect
+          kind="persona"
+          withCharacters
+          variant="picker"
+          placeholder={t("avatars.setup.owner.placeholder")}
+          value={owner ? ({ [owner.ownerType]: owner.ownerId } as PersonaChoice) : null}
+          badge={(id) =>
+            owners.avatarOwners.has(`persona:${id}`) || owners.avatarOwners.has(`character:${id}`) ? (
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {t("avatars.setup.owner.hasAvatar")}
+              </span>
+            ) : null
+          }
+          onChange={(choice) =>
+            setSelectedOwner(
+              choice && "character" in choice
+                ? `character:${choice.character}`
+                : choice?.persona
+                  ? `persona:${choice.persona}`
+                  : "",
+            )
+          }
+        />
       </label>
       {owner ? (
         <OwnerAvatarSetup key={selectedOwner} agentId={agentId} kinds={kinds} owner={owner} />

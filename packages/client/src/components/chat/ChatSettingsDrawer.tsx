@@ -98,7 +98,7 @@ import { FloatingWindow } from "../ui/FloatingWindow";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
 import { PickerDropdown } from "../../features/chat-settings/PickerDropdown";
-import { CharacterSelect } from "../characters/CharacterSelect";
+import { CharacterSelect, changedId } from "../characters/CharacterSelect";
 import { PersonaHistoryReassignDropdown } from "../../features/chat-settings/sections/PersonaHistoryReassignDropdown";
 import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
@@ -3184,10 +3184,9 @@ export function ChatSettingsDrawer({
     }
   };
 
-  // CharacterSelect hands back the whole list; one tap changes one id.
   const toggleChangedCharacter = (ids: string[]) => {
-    const changed = ids.find((id) => !chatCharIds.includes(id)) ?? chatCharIds.find((id) => !ids.includes(id));
-    if (changed) toggleCharacter(changed);
+    const id = changedId(chatCharIds, ids);
+    if (id) toggleCharacter(id);
   };
 
   const toggleCharacterActivity = (charId: string) => {
