@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { promises as dns } from "node:dns";
+import dnsModule, { promises as dns } from "node:dns";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { llmFetch } from "../../packages/server/src/services/llm/base-provider.js";
@@ -33,7 +33,7 @@ const remoteHits: string[] = [];
 const originalFetch = globalThis.fetch;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = new URL(input instanceof Request ? input.url : String(input));
-  if (url.hostname === "127.0.0.1" || url.hostname === "localhost") return originalFetch(input, init);
+  if (["127.0.0.1", "localhost", "filtered-direct.test"].includes(url.hostname)) return originalFetch(input, init);
   remoteHits.push(url.href);
   if (url.hostname === "relay.test") relayContacted = true;
   const location = remoteRedirects.get(url.href);
@@ -51,10 +51,14 @@ const fakeNames: Record<string, Array<{ address: string; family: 4 | 6 }>> = {
     { address: "2606:4700:4700::1111", family: 6 },
     { address: "192.168.1.20", family: 4 },
   ],
-  // A remote server reached through the well-known NAT64 prefix.
+  // Remote servers reached through the well-known NAT64 prefix.
   "nat64.test": [{ address: "64:ff9b::5db8:d822", family: 6 }],
-  // A remote server behind a VPN app's fake-IP DNS, which answers from 198.18.0.0/15.
+  "nat64-cdn.test": [{ address: "64:ff9b::5db8:d823", family: 6 }],
+  // Remote servers behind a VPN app's fake-IP DNS, which answers every name from 198.18.0.0/15.
   "fakeip.test": [{ address: "198.18.0.5", family: 4 }],
+  "fakeip-cdn.test": [{ address: "198.18.0.6", family: 4 }],
+  // A name a DNS filter answers with the unspecified address.
+  "sinkhole.test": [{ address: "0.0.0.0", family: 4 }],
 };
 // A remote name whose DNS answer changes to loopback once it has been contacted.
 let relayContacted = false;
@@ -65,7 +69,21 @@ const relayLookups: string[] = [];
     relayLookups.push(address);
     return [{ address, family: 4 }];
   }
+  // Names that local DNS cannot answer, as behind a proxy that does the lookups itself.
+  if (hostname.startsWith("filtered"))
+    throw Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: "ENOTFOUND" });
   return fakeNames[hostname] ?? originalLookup(hostname, options as never);
+};
+// A connection that looked the name up again would reach this machine.
+const originalCallbackLookup = dnsModule.lookup;
+(dnsModule as { lookup: unknown }).lookup = (
+  hostname: string,
+  options: { all?: boolean },
+  callback: (...args: unknown[]) => void,
+) => {
+  if (hostname !== "filtered-direct.test") return originalCallbackLookup(hostname, options as never, callback as never);
+  if (options?.all) callback(null, [{ address: "127.0.0.1", family: 4 }]);
+  else callback(null, "127.0.0.1", 4);
 };
 
 const llm = { allowLoopback: true, allowMdns: true, allowedProtocols: ["https:", "http:"] };
@@ -79,9 +97,19 @@ const localTargets = [
   `http://127.0.0.1:${internalPort}/blocked`,
   `http://localhost:${internalPort}/blocked`,
   "http://[::1]/blocked",
+  `http://[::ffff:127.0.0.1]:${internalPort}/blocked`,
+  `http://[::7f00:1]:${internalPort}/blocked`,
+  `http://0.0.0.0:${internalPort}/blocked`,
+  "http://[64:ff9b::7f00:1]/blocked",
   "http://printer.local/blocked",
+  "http://metadata.google.internal/computeMetadata/v1/",
+  "http://gpu-box.test/blocked",
+  "http://sinkhole.test/blocked",
   "http://10.0.0.5/blocked",
+  "http://100.100.100.200/latest/meta-data/",
+  "http://[fd00:ec2::254]/latest/meta-data/",
   "http://169.254.169.254/latest/meta-data/",
+  "http://[64:ff9b::a9fe:a9fe]/latest/meta-data/",
 ];
 
 try {
@@ -179,13 +207,111 @@ try {
   const unspecified = await safeFetch("http://0.0.0.0:5001/", { policy: policies["provider fetch with local URLs"] });
   assert.equal(await unspecified.text(), "internal", "a server on 0.0.0.0 redirects to loopback");
 
-  remoteRedirects.set(`${REMOTE}/llm`, `http://127.0.0.1:${internalPort}/blocked`);
-  await assert.rejects(llmFetch(`${REMOTE}/llm`, { method: "POST", body: "{}" }), /Refused to fetch/);
+  // A remote service behind VPN fake-IP DNS or NAT64 answers from a reserved range. With local URLs its redirect to
+  // another such service is followed, like the first request; without them the deny-list still refuses both.
+  for (const host of ["fakeip", "nat64"]) {
+    const start = `http://${host}.test/v1/models`;
+    const cdn = `https://${host}-cdn.test/v1/models`;
+    remoteRedirects.set(start, cdn);
+    remoteRedirects.set(`${REMOTE}/to-${host}`, cdn);
+    for (const [name, policy] of Object.entries(policies)) {
+      remoteHits.length = 0;
+      if (policy.allowLocal) {
+        assert.equal(await (await safeFetch(start, { policy })).text(), "remote", `${name}: ${host} to ${host}-cdn`);
+        assert.deepEqual(remoteHits, [start, cdn], `${name}: both ${host} services are requested`);
+      } else {
+        await assert.rejects(safeFetch(start, { policy }), /Refused to fetch/, `${name}: ${host}.test is refused`);
+        await assert.rejects(
+          safeFetch(`${REMOTE}/to-${host}`, { policy }),
+          /Refused to fetch/,
+          `${name}: a redirect to ${host}-cdn.test is refused`,
+        );
+        assert.deepEqual(remoteHits, [`${REMOTE}/to-${host}`], `${name}: ${host}-cdn.test is never requested`);
+      }
+    }
+  }
+
+  // llmFetch builds the provider policy from PROVIDER_LOCAL_URLS_ENABLED, with loopback and mDNS always allowed.
+  const providerLocalUrls = process.env.PROVIDER_LOCAL_URLS_ENABLED;
+  try {
+    for (const localUrls of ["true", "false"]) {
+      process.env.PROVIDER_LOCAL_URLS_ENABLED = localUrls;
+      const label = `llmFetch with PROVIDER_LOCAL_URLS_ENABLED=${localUrls}`;
+      for (const start of [`${REMOTE}/llm`, "http://fakeip.test/llm"]) {
+        remoteRedirects.set(start, `http://127.0.0.1:${internalPort}/blocked`);
+        await assert.rejects(
+          llmFetch(start, { method: "POST", body: "{}" }),
+          /Refused to fetch/,
+          `${label}: ${start} cannot redirect to loopback`,
+        );
+      }
+      const fakeIp = llmFetch("http://fakeip.test/v1/models");
+      if (localUrls === "true") assert.equal(await (await fakeIp).text(), "remote", `${label}: fake-IP to fake-IP`);
+      else await assert.rejects(fakeIp, /Refused to fetch/, `${label}: fake-IP stays refused`);
+    }
+  } finally {
+    if (providerLocalUrls === undefined) delete process.env.PROVIDER_LOCAL_URLS_ENABLED;
+    else process.env.PROVIDER_LOCAL_URLS_ENABLED = providerLocalUrls;
+  }
+
+  // Behind an env proxy a hop's address is unknown, so it counts as remote. Its redirect to a name local DNS cannot
+  // answer is left to the proxy, which looks names up itself, while a local answer is still refused. Sent direct, such
+  // a name is refused: before the request, or at connect time for a NO_PROXY host, which is never looked up again.
+  const proxyVars = [
+    "NODE_USE_ENV_PROXY",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+  ];
+  const savedProxyEnv = proxyVars.map((key) => [key, process.env[key]] as const);
+  const withLocalUrls = policies["provider fetch with local URLs"];
+  try {
+    for (const key of proxyVars) delete process.env[key];
+    remoteRedirects.set("http://fakeip.test/proxied", "https://filtered.test/v1/models");
+    await assert.rejects(
+      safeFetch("http://fakeip.test/proxied", { policy: withLocalUrls }),
+      /did not resolve/,
+      "without a proxy, a redirect target that does not resolve is refused",
+    );
+
+    process.env.NODE_USE_ENV_PROXY = "1";
+    // Never contacted: requests to the remote fixtures do not reach the network.
+    process.env.HTTP_PROXY = "http://127.0.0.1:9";
+    remoteHits.length = 0;
+    const proxied = await safeFetch("http://fakeip.test/proxied", { policy: withLocalUrls });
+    assert.equal(await proxied.text(), "remote", "behind a proxy, a redirect target that does not resolve is followed");
+    assert.deepEqual(remoteHits, ["http://fakeip.test/proxied", "https://filtered.test/v1/models"]);
+    for (const target of ["http://sinkhole.test/blocked", "http://gpu-box.test/blocked", "http://printer.local/x"]) {
+      remoteRedirects.set("http://fakeip.test/proxied-local", target);
+      await assert.rejects(
+        safeFetch("http://fakeip.test/proxied-local", { policy: withLocalUrls }),
+        /Refused to fetch/,
+        `behind a proxy, a redirect to ${target} is refused`,
+      );
+    }
+
+    process.env.NO_PROXY = "filtered-direct.test";
+    remoteRedirects.set("http://fakeip.test/no-proxy", `http://filtered-direct.test:${internalPort}/blocked`);
+    await assert.rejects(
+      safeFetch("http://fakeip.test/no-proxy", { policy: withLocalUrls }),
+      (error: Error) => /did not resolve/.test(String((error.cause as Error | undefined)?.message ?? error.message)),
+      "a NO_PROXY redirect target that did not resolve is not looked up again at connect time",
+    );
+  } finally {
+    for (const [key, value] of savedProxyEnv) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 
   assert.deepEqual(loopbackHits, ["/ok", "/ok", "/ok", "/ok", "/ok"], "only local-to-local redirects reach loopback");
 } finally {
   globalThis.fetch = originalFetch;
   (dns as { lookup: unknown }).lookup = originalLookup;
+  (dnsModule as { lookup: unknown }).lookup = originalCallbackLookup;
   await Promise.all([internal, hop].map(({ server }) => new Promise((resolve) => server.close(resolve))));
 }
 

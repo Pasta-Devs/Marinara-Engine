@@ -306,6 +306,23 @@ function isLocalHop(url: URL, connectedAddress: string | undefined): boolean {
   );
 }
 
+// A remote hop's redirect target is refused on the same built-in ranges, and on more than a hop is trusted on: all of
+// 0.0.0.0/8 and the IPv4-compatible ::/96 forms such as ::7f00:1, which no remote service answers from. A NAT64
+// address is judged by the IPv4 address it embeds, so a remote service behind DNS64 still counts as remote.
+const NON_REMOTE_CIDRS = [parseCidr("0.0.0.0/8")!, parseCidr("::/96")!];
+const NAT64_CIDR = parseCidr("64:ff9b::/96")!;
+
+function isLocalTargetAddress(address: string): boolean {
+  const bytes = ipToBytes(address);
+  if (!bytes) return true;
+  if (matchesCidr(bytes, NAT64_CIDR)) return isLocalTargetAddress(bytes.slice(12).join("."));
+  return (
+    isLoopbackIp(address) ||
+    isNonRoutableNetworkIp(address) ||
+    NON_REMOTE_CIDRS.some((cidr) => matchesCidr(bytes, cidr))
+  );
+}
+
 function preferIpv4Records(
   records: Array<{ address: string; family: 4 | 6 }>,
 ): Array<{ address: string; family: 4 | 6 }> {
@@ -417,12 +434,16 @@ export async function validateOutboundUrl(url: string | URL, policy: OutboundUrl
  * dispatcher passed to fetch replaces that global one, so provider calls skipped the proxy (#7652). Follow the same
  * switch. NO_PROXY hosts and this machine's own addresses keep the plain agent, with its pinned address.
  */
-function createDispatcher(hostname: string, options: AgentOptions): Dispatcher {
-  const envProxy =
+function usesEnvProxy(): boolean {
+  return (
     (process.env.NODE_USE_ENV_PROXY === "1" ||
       [...process.execArgv, ...(process.env.NODE_OPTIONS ?? "").split(/\s+/)].includes("--use-env-proxy")) &&
-    Boolean(process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy);
-  if (!envProxy || isLoopbackHostname(hostname)) return new Agent(options);
+    Boolean(process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy)
+  );
+}
+
+function createDispatcher(hostname: string, options: AgentOptions): Dispatcher {
+  if (!usesEnvProxy() || isLoopbackHostname(hostname)) return new Agent(options);
   // A proxied request tunnels through the proxy, which looks up the name itself, so `connect` only reaches NO_PROXY
   // hosts. The address check still runs first, but cannot pin what the proxy connects to (the same as Node's own
   // fetch), because local DNS behind a proxy may be filtered. Keep the keepalive on the socket to the proxy.
@@ -436,17 +457,54 @@ function createDispatcher(hostname: string, options: AgentOptions): Dispatcher {
   });
 }
 
+/**
+ * A remote hop's redirect keeps the caller's local-URL allowance minus local trust (see safeFetch). A local name, or a
+ * name or IP whose address is on this machine or the local network, is refused. Other reserved ranges that remote
+ * services answer from, such as VPN fake-IP (198.18.0.0/15) or NAT64, stay allowed, as they are for the hop itself.
+ *
+ * A name that does not resolve here is left to an env proxy, which looks it up itself as it does every proxied name.
+ * Connected directly (no proxy, a NO_PROXY host, or the caller's own dispatcher), its address would be unknown, so it
+ * is refused: here, or by the pinned lookup at connect time.
+ */
+async function validateRemoteHopTarget(
+  hostname: string,
+  original: string,
+  dialledBy: "own-dispatcher" | "caller-dispatcher",
+): Promise<Array<{ address: string; family: 4 | 6 }>> {
+  if (isLocalHostname(hostname)) {
+    throw new Error(
+      `Refused to fetch ${original}: hostname '${hostname}' is local, and a remote server redirected here.`,
+    );
+  }
+  const addresses = await resolveHostname(hostname).catch(() => []);
+  const local = addresses.filter((record) => isLocalTargetAddress(record.address)).map((record) => record.address);
+  if (local.length > 0) {
+    throw new Error(
+      `Refused to fetch ${original}: '${hostname}' (resolved to ${local.join(", ")}) is on this machine or the local network, and a remote server redirected here.`,
+    );
+  }
+  if (addresses.length === 0 && (dialledBy === "caller-dispatcher" || !usesEnvProxy())) {
+    throw new Error(`Refused to fetch ${original}: hostname '${hostname}' did not resolve to any address.`);
+  }
+  return addresses;
+}
+
 async function validateOutboundUrlForFetch(
   url: string | URL,
   policy: OutboundUrlPolicy = {},
   agentOptions?: Omit<AgentOptions, "connect">,
   keepAliveInitialDelayMs?: number,
+  /** Set when a remote hop redirected here (see safeFetch), naming the dispatcher that will connect. */
+  fromRemoteHop?: "own-dispatcher" | "caller-dispatcher",
 ): Promise<{ url: URL; dispatcher?: Dispatcher; connected?: { address?: string } }> {
   const parsed = await validateOutboundUrl(url, policy);
+  const original = typeof url === "string" ? url : parsed.toString();
   let addresses: Array<{ address: string; family: 4 | 6 }>;
-  // Local URLs skip the address checks, but `localhost` still goes through the pinned lookup below
-  // so it reaches 127.0.0.1 even where the resolver only answers `::1`.
-  if (policy.allowLocal && !isLocalhostName(parsed.hostname)) {
+  if (policy.allowLocal && fromRemoteHop) {
+    addresses = await validateRemoteHopTarget(parsed.hostname, original, fromRemoteHop);
+  } else if (policy.allowLocal && !isLocalhostName(parsed.hostname)) {
+    // Local URLs skip the address checks, but `localhost` still goes through the pinned lookup below
+    // so it reaches 127.0.0.1 even where the resolver only answers `::1`.
     // Other names, `.local` ones included, are pinned too, IPv4 first like other local servers, so a redirect from
     // this hop is judged by the address it reached (see isLocalHop). IP literals and names that do not resolve here
     // (an env proxy may still reach them) keep the plain dispatcher.
@@ -464,7 +522,6 @@ async function validateOutboundUrlForFetch(
       return { url: parsed, dispatcher };
     }
   } else {
-    const original = typeof url === "string" ? url : parsed.toString();
     addresses = await validateResolvedAddresses(parsed.hostname, policy, original);
   }
   const connected: { address?: string } = {};
@@ -480,7 +537,13 @@ async function validateOutboundUrlForFetch(
         }
         used = true;
         const family = options.family === 4 || options.family === 6 ? options.family : undefined;
-        const selected = addresses.find((record) => !family || record.family === family) ?? addresses[0]!;
+        const selected = addresses.find((record) => !family || record.family === family) ?? addresses[0];
+        if (!selected) {
+          // A remote hop's unresolved name is only for the env proxy (see validateRemoteHopTarget).
+          const error = `Refused to fetch ${original}: hostname '${parsed.hostname}' did not resolve to any address.`;
+          callback(new Error(error), "", 4);
+          return;
+        }
         connected.address = selected.address;
         // `localhost` lists both loopback addresses, IPv4 first, so a server on either one answers.
         if (options.all)
@@ -496,7 +559,7 @@ async function validateOutboundUrlForFetch(
   });
   // A direct connection dials the first record, and the lookup above records the one it hands out. An env proxy
   // resolves the name itself, so a proxied hop's address stays unknown.
-  if (!(dispatcher instanceof EnvHttpProxyAgent)) connected.address = addresses[0]!.address;
+  if (!(dispatcher instanceof EnvHttpProxyAgent)) connected.address = addresses[0]?.address;
   return { url: parsed, dispatcher, connected };
 }
 
@@ -790,16 +853,20 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
         currentHeaders.delete("x-opencode-session");
       }
       // Local trust covers the server the caller chose. A remote server cannot pass it on by redirecting,
-      // so only a hop on this machine or the local network may redirect into them. A caller's own dispatcher
-      // resolves names itself, so the pinned address says nothing about where that hop went: only an IP literal
-      // hop keeps its trust there.
-      const hopPolicy =
-        policy &&
-        (policy.allowLocal || policy.allowLoopback || policy.allowMdns) &&
-        !isLocalHop(previousUrl, dispatcher ? undefined : current.connected?.address)
-          ? { ...policy, allowLocal: false, allowLoopback: false, allowMdns: false, flagName: undefined }
-          : policy;
-      current = await validateOutboundUrlForFetch(nextUrl, hopPolicy, agentOptions, keepAliveInitialDelayMs);
+      // so only a hop on this machine or the local network may redirect into them. A remote hop keeps the
+      // caller's other allowances: without local URLs the deny-list applies in full, and with them only local
+      // targets are refused (see validateRemoteHopTarget). A caller's own dispatcher resolves names itself, so
+      // the pinned address says nothing about where that hop went: only an IP literal hop keeps its trust there.
+      const remoteHop =
+        Boolean(policy?.allowLocal || policy?.allowLoopback || policy?.allowMdns) &&
+        !isLocalHop(previousUrl, dispatcher ? undefined : current.connected?.address);
+      current = await validateOutboundUrlForFetch(
+        nextUrl,
+        remoteHop ? { ...policy, allowLoopback: false, allowMdns: false, flagName: undefined } : policy,
+        agentOptions,
+        keepAliveInitialDelayMs,
+        remoteHop ? (dispatcher ? "caller-dispatcher" : "own-dispatcher") : undefined,
+      );
       continue;
     }
 
