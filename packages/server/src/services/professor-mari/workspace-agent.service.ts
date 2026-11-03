@@ -149,6 +149,7 @@ import {
 } from "./mari-composer-references.js";
 import { createAssistantMessage, saveAssistantMessageExtra, saveRunStart } from "./workspace-message-store.js";
 import {
+  closingAnswerGetsNotice,
   newRoundReviewState,
   reviewRepeatedFailures,
   reviewRoundClaim,
@@ -346,6 +347,8 @@ export type AssistantWorkspaceAction = {
   understoodRequest: string | null;
   stop: boolean;
   protocolValid: boolean;
+  /** #8711: the reply sent a change attempt, run or not: beside a question or in a rejected frame counts too. */
+  triedChange: boolean;
   assistantHistoryContent: string;
 };
 
@@ -1945,14 +1948,13 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
       )
       .find((value) => value.length > 0)
       ?.slice(0, 2000) ?? null;
-  const parsedCommands = hasInvalidCommands
-    ? []
-    : dedupeWorkspaceCommandCalls([
-        ...parseXmlCommandCalls(contentWithoutJson),
-        ...jsonCommands,
-        ...textualCommands,
-        ...parseBracketCommandCalls(contentWithoutJson),
-      ]);
+  const sentCommands = [
+    ...parseXmlCommandCalls(contentWithoutJson),
+    ...jsonCommands,
+    ...textualCommands,
+    ...parseBracketCommandCalls(contentWithoutJson),
+  ];
+  const parsedCommands = hasInvalidCommands ? [] : dedupeWorkspaceCommandCalls(sentCommands);
   // A question ends the turn: reads beside it run, changes don't (no Accept card next to a question), and the card
   // replaces any chips.
   // Even an invalid card means she wants an answer first.
@@ -1973,6 +1975,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     understoodRequest,
     stop,
     protocolValid,
+    triedChange: sentCommands.some(isChangeAttemptCommand),
     assistantHistoryContent: hasInvalidCommands
       ? content
       : assistantHistoryContentForAction({
@@ -2352,13 +2355,39 @@ export function visibleTextAsksApplyPermission(text: string): boolean {
   );
 }
 
+// #8711: a fenced block counts only once it is closed, so an unclosed fence hides nothing after its own line.
+const CLOSED_CODE_FENCE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gmu;
+// A quote is a double or curly pair within one sentence of one line, its marks away from letters and digits, so a
+// stray mark never hides the next sentence. Single quotes never count: they are too often apostrophes ("I've", "'90s",
+// "'em", "the twins'"), and a single-quoted example costs at most the notice, never a hidden claim.
+const quotedPhrase = (open: string, close: string) => String.raw`${open}(?:[^${close}\n.!?]|[.!?](?!\s))*${close}`;
+const QUOTED_PHRASE = new RegExp(
+  String.raw`(?<![\p{L}\p{N}])(?:${quotedPhrase('"', '"')}|${quotedPhrase("“", "”")})(?![\p{L}\p{N}])`,
+  "gu",
+);
+
+/**
+ * #8711: the words a claim check reads - her own prose, whitespace collapsed and curly apostrophes made straight. A
+ * closed code fence, inline code, a blockquote line or a quoted phrase is a draft, an example or a quote, never her claim.
+ */
+function workspaceClaimProse(text: string): string {
+  return text
+    .replace(/[’‘]/gu, "'")
+    .replace(CLOSED_CODE_FENCE, " ")
+    .replace(/`[^`\n]*`/gu, " ")
+    .replace(/^[ \t]*>.*$/gmu, " ")
+    .replace(QUOTED_PHRASE, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
 /**
  * True when the text says a change is held, staged, ready on a card or waiting for the user's approval. The pi
  * runtime checks it on a run that held nothing, where such a claim is false.
  * ponytail: English phrasings only. Upgrade path: have the server state what is held and compare, not read words.
  */
 export function workspaceTextClaimsHeldChange(text: string): boolean {
-  const normalized = text.toLowerCase().replace(/\s+/g, " ");
+  const normalized = workspaceClaimProse(text).toLowerCase();
   return (
     /\b(held|staged|queued)\b.{0,20}\bfor (your |the user'?s? )?(review|approval|accept\w*)/.test(normalized) ||
     /\bchange cards? (is|are) (ready|staged|waiting|held)\b/.test(normalized) ||
@@ -2440,6 +2469,11 @@ export function isMutatingWorkspaceCommand(command: WorkspaceCommandCall): boole
   if (command.name !== "bash") return false;
   const rawCommand = command.arguments.command;
   return typeof rawCommand === "string" && bashLooksMutating(rawCommand);
+}
+
+/** #8711: a call that tries a change, whatever comes of it: a change, a preview of one, or any shell command. */
+export function isChangeAttemptCommand(command: WorkspaceCommandCall): boolean {
+  return command.name === "bash" || isMutatingWorkspaceCommand(command) || isPreviewOnlyAppDataCommand(command);
 }
 
 /** The "Needs you" card lists this many held changes; Accept applies stored calls only when it showed them all. */
@@ -2815,13 +2849,16 @@ export function workspaceTextClaimsMutationCompletion(
     // is the exact word the guard's own coaching asks the model to produce.
     "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced|added|applied|edited|modified|set|inserted|completed";
   const adverbs = "(?:(?:successfully|now|just|already)\\s+)*";
+  // #8711: a phrase counts only in her prose, never in code, a blockquote or a quoted phrase; a whole-reply claim
+  // ("Done.") is still read from the whole reply.
+  const prose = workspaceClaimProse(text);
   // Slice 68: a docs answer's "a chunk waits before it's created" or "it is enabled by default"
   // describes how a feature works, not work she did; the audit then replaced a correct answer.
   const describesFeature = (match: RegExpMatchArray) =>
     /\b(?:before|until|when|whenever|after|once|if|unless|whether)\s+(?:[^\s.,;:!?]+\s+){0,3}$/iu.test(
-      normalized.slice(0, match.index),
-    ) || /^\s*by default\b/iu.test(normalized.slice((match.index ?? 0) + match[0].length));
-  const claims = (pattern: RegExp) => [...normalized.matchAll(pattern)].some((match) => !describesFeature(match));
+      prose.slice(0, match.index),
+    ) || /^\s*by default\b/iu.test(prose.slice((match.index ?? 0) + match[0].length));
+  const claims = (pattern: RegExp) => [...prose.matchAll(pattern)].some((match) => !describesFeature(match));
   const selfClaim = claims(
     new RegExp(`\\b(?:i(?:'ve| have)?|we(?:'ve| have)?)\\s+${adverbs}(?:${completedMutation})\\b`, "giu"),
   );
@@ -3787,6 +3824,8 @@ export class ProfessorMariWorkspaceService {
     let replyStartedAt = runStartedAt;
     let replyUserMessageId = userMessage.id;
     let replyIsFiller = false;
+    // #8711: this reply's words were kept although a claim check flagged them, in a run that tried no change.
+    let replyNothingChanged = false;
     // Where this reply's results start in `commandResultsForContinuity`: each row keeps only its own.
     let replyResultsStart = 0;
     // A typed "yes" armed this run for the change she held, not for whatever you send next.
@@ -3942,6 +3981,7 @@ export class ProfessorMariWorkspaceService {
         runError,
         runStartedAt: replyStartedAt,
         checkpointFiller: replyIsFiller,
+        nothingChanged: replyNothingChanged,
         suggestions: runSuggestions,
         questions: runQuestions,
         todos: runTodos,
@@ -4045,6 +4085,7 @@ export class ProfessorMariWorkspaceService {
       assistantText = "";
       thinkingText = "";
       replyIsFiller = false;
+      replyNothingChanged = false;
       workspaceTrace.length = 0;
       workspaceActionResults.length = 0;
       totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
@@ -4259,6 +4300,7 @@ export class ProfessorMariWorkspaceService {
           suggestions: runSuggestions,
           questions: runQuestions,
           todos: runTodos,
+          nothingChanged: replyNothingChanged,
         };
         const syncFromPi = () => {
           assistantText = piState.assistantText;
@@ -4268,6 +4310,7 @@ export class ProfessorMariWorkspaceService {
           runSuggestions = piState.suggestions;
           runQuestions = piState.questions;
           runTodos = piState.todos;
+          replyNothingChanged = piState.nothingChanged;
         };
         try {
           await this.runPiRuntime({
@@ -4294,6 +4337,7 @@ export class ProfessorMariWorkspaceService {
                   piState.assistantText = assistantText;
                   piState.suggestions = runSuggestions;
                   piState.todos = runTodos;
+                  piState.nothingChanged = replyNothingChanged;
                 }
                 return text;
               },
@@ -4400,6 +4444,8 @@ export class ProfessorMariWorkspaceService {
         const rawContent = result.content ?? "";
         debugLog?.("[debug/professor-mari] Raw response:\n%s", rawContent);
         const parsedFrame = parseAssistantWorkspaceAction(rawContent);
+        // #8711: a change this round sent counts even if it never runs: held, set aside, rejected or discarded.
+        if (parsedFrame.triedChange) reviewState.changeTried = true;
         // Slice 70: a chips-only round adds chips to the answer already shown - never new words or commands;
         // without chips the answer simply stands.
         const chipRound = chipRepairPending;
@@ -4629,6 +4675,9 @@ export class ProfessorMariWorkspaceService {
           // his card…") stays in the timeline only. Server notes are appended after this and end the run.
           assistantText = action.visibleText.trim();
           emitRoundText(workspaceTrace, action.visibleText, args.onEvent);
+          // #8711: the notice belongs to the reply these words are, never to words no check flagged.
+          replyNothingChanged = claimDecision.kind === "notice";
+          if (replyNothingChanged) args.onEvent({ type: "metadata", data: { nothingChanged: true } });
           // Slice 72: this round's steps ran before its words were judged and sent, so its words arrive after
           // them. Mark them (unless they end the run: then they are her answer), so the client shows them as that
           // phase's caption instead of a line below it.
@@ -4752,12 +4801,14 @@ export class ProfessorMariWorkspaceService {
             totalTokens: totalUsage.totalTokens + finalUsage.totalTokens,
           };
           const finalAction = parseAssistantWorkspaceAction(finalResult.content ?? "");
+          if (finalAction.triedChange) reviewState.changeTried = true;
           const finalVerificationIssue = auditWorkspaceCompletionClaim(finalAction, commandResultsForContinuity, {
             auditFrom: reviewState.claimAuditWatermark,
             hadPassedClaimAudit: reviewState.hadPassedClaimAudit,
             lastPassedClaimText: reviewState.lastPassedClaimText,
           }).issue;
-          if (finalVerificationIssue) {
+          const nothingChanged = closingAnswerGetsNotice(reviewState, finalAction.visibleText, finalVerificationIssue);
+          if (finalVerificationIssue && !nothingChanged) {
             const content =
               "Professor Mari reached the workspace command limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.";
             assistantText = appendVisibleText(assistantText, content);
@@ -4767,6 +4818,8 @@ export class ProfessorMariWorkspaceService {
           } else if (finalAction.visibleText || finalAction.questions.length > 0) {
             assistantText = finalAction.visibleText.trim() || mariQuestionsAsText(finalAction.questions);
             emitRoundText(workspaceTrace, assistantText, args.onEvent);
+            replyNothingChanged = nothingChanged;
+            if (nothingChanged) args.onEvent({ type: "metadata", data: { nothingChanged: true } });
             runQuestions = finalAction.questions;
             if (finalAction.suggestions.length > 0) {
               runSuggestions = finalAction.suggestions;

@@ -78,6 +78,8 @@ export type AssistantRunRecord = {
   runStartedAt: number;
   /** Send now reached her after steps but before any words: the text is a placeholder, shown muted. */
   checkpointFiller?: boolean;
+  /** #8711: a claim check flagged these words in a run that tried no change; the client says nothing was changed. */
+  nothingChanged?: boolean;
   suggestions: MariSuggestionChip[];
   /** The question card this run ended on, when it asked one. */
   questions?: MariQuestion[];
@@ -109,6 +111,7 @@ export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<stri
   }
   if (run.runError) extraUpdate.mariRunError = run.runError;
   if (run.checkpointFiller) extraUpdate.mariCheckpointFiller = true;
+  if (run.nothingChanged) extraUpdate.mariNothingChanged = true;
   extraUpdate.mariRunStartedAt = run.runStartedAt;
   extraUpdate.mariRunFinishedAt = Date.now();
   const questions = run.questions ?? [];
