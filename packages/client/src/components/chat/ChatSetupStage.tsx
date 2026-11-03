@@ -39,6 +39,7 @@ import { api } from "../../lib/api-client";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { useChatStore } from "../../stores/chat.store";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useConnections } from "../../hooks/use-connections";
 import { usePresetFull, usePresets } from "../../hooks/use-presets";
@@ -283,8 +284,17 @@ function StageWord({
   children,
   ...button
 }: { avatars?: StageAvatarProps[]; children?: ReactNode } & Omit<ComponentProps<"button">, "children">) {
+  // When the value changes, the old text slides up and the new one rises in (globals.css).
+  const label = button["aria-label"];
+  const reducedMotion = useMatchMedia("(prefers-reduced-motion: reduce)");
+  const [shown, setShown] = useState({ label, children });
+  const [swap, setSwap] = useState<{ key: number; old: ReactNode } | null>(null);
+  if (shown.label !== label) {
+    setShown({ label, children });
+    if (!reducedMotion) setSwap((current) => ({ key: (current?.key ?? 0) + 1, old: shown.children }));
+  }
   return (
-    <button type="button" {...button}>
+    <button type="button" {...button} className={cn(button.className, swap && "stage-word-swapping")}>
       {avatars?.length ? (
         <span aria-hidden="true" className="mr-[0.3em] inline-flex -space-x-[0.3em] align-[-0.14em]">
           {avatars.slice(0, 3).map((avatar, index) => (
@@ -292,7 +302,20 @@ function StageWord({
           ))}
         </span>
       ) : null}
-      {children}
+      {swap ? (
+        <span
+          key={swap.key}
+          className="stage-word-swap"
+          onAnimationEnd={(event) => event.target === event.currentTarget && setSwap(null)}
+        >
+          <span aria-hidden="true" className="stage-word-old">
+            {swap.old}
+          </span>
+          <span className="stage-word-new">{children}</span>
+        </span>
+      ) : (
+        children
+      )}
     </button>
   );
 }
