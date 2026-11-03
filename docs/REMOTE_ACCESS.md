@@ -8,6 +8,22 @@ A quick word list used throughout this guide:
 - Loopback: the machine that is actually running the server. Its address is `127.0.0.1` or `localhost`.
 - Remote access: opening Marinara from any device that is NOT the machine running the server.
 
+## Connect from anywhere with Tailscale
+
+[Tailscale](https://tailscale.com) is a private network for your own devices. Use it to open Marinara on your phone or laptop, at home or away, without opening ports on your router or putting Marinara on the public internet. Marinara trusts devices that connect straight over Tailscale, so you do not need to set a login.
+
+1. Install Tailscale on the computer that runs Marinara and on your other device. Get it from [tailscale.com/download](https://tailscale.com/download).
+2. Sign in to Tailscale with the same account on both devices.
+3. Start Marinara with `start.sh`, `start.bat`, `start-termux.sh`, or the Windows installer. These let other devices connect. If you run `pnpm start` instead, first add `HOST=0.0.0.0` to your `.env` file (see [Where the .env file lives](#where-the-env-file-lives)).
+4. Find the Tailscale address of the Marinara computer. Open the Tailscale app on it, or run `tailscale ip -4`. The address starts with `100.`, for example `100.101.102.103`.
+5. On your other device, turn Tailscale on and open `http://100.101.102.103:7860` in a browser. Use your own address, and your `PORT` if you changed it. Marinara opens without a sign-in page.
+
+If the page does not load, check that Tailscale is on for both devices and that the server listens on `HOST=0.0.0.0`.
+
+> **Note:** This does not work for Docker installs. Tailscale traffic reaches the container through the Docker gateway, so Marinara cannot see that it came from Tailscale. Set a login first ([Option 1](#option-1-login-recommended)), then publish the port beyond `127.0.0.1`.
+
+Backups, imports, updates, and other risky actions still need the admin secret from a remote device. See [Admin Access and privileged actions](#admin-access-and-privileged-actions).
+
 ## What Marinara blocks by default
 
 To protect your data, a fresh Marinara install refuses connections from other devices until you set up access control. By default, only three kinds of client are trusted:
