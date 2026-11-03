@@ -1058,6 +1058,11 @@ export interface MessageExtra {
   mariRunError?: { message: string; dismissed?: boolean } | null;
   /** Send now reached her after steps but before any words: the text is a placeholder, shown muted. */
   mariCheckpointFiller?: boolean;
+  /**
+   * #8711: a claim check flagged this reply's words in a run that tried no change. The words stay as she wrote them,
+   * and the client adds a localized note that no change was made or held. Never part of the text or her history.
+   */
+  mariNothingChanged?: boolean;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Presentation-only ID-macro card references for merged Roleplay narrator avatars; never chat members. */
