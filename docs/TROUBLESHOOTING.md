@@ -8,6 +8,123 @@ Find your symptom, then follow the fix. Most problems clear after you restart Ma
 2. Look at the server console (the terminal window that runs Marinara) for red error lines. They usually name the real problem.
 3. To ask for help, turn on **Debug mode** first. See [Get more help](#get-more-help).
 
+## My character does not reply
+
+Check these in order.
+
+1. Look for a toast (a short message at the bottom of the screen). It usually names the problem. See [Connection and generation errors](#connection-and-generation-errors).
+2. Check the chat has an account and a model: open **Chat Settings** and look at the connection. With none, add an account in **Connections**. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
+3. Check the API key is correct and the account has credit. A wrong key or an empty balance is a common cause.
+4. Check the model name and, for a local server such as Ollama or LM Studio, that the server is running.
+5. Send your message again, or pick a different model.
+
+If nothing helps, turn on **Debug mode** and read the server console. See [Get more help](#get-more-help).
+
+## App not loading on mobile / another device
+
+Cannot open Marinara from a phone, tablet or another computer?
+
+Most often it is one of these three:
+
+- **Address.** The server listens on `127.0.0.1` (this computer only) by default. The launchers set `HOST=0.0.0.0`. If you started with `pnpm start`, set `HOST=0.0.0.0` in `.env` first.
+- **Network.** Both devices must be on the same Wi-Fi network, and no firewall may block the port. The default port is `7860`, or your `PORT`.
+- **Login.** Set one. On the blocked device, type the one-time setup code from the server log with a new username and password. In Docker, find the code with `docker logs <container> 2>&1 | grep "setup code"`. Or set it in **Settings → Advanced → Access** in a browser that is already signed in. On a headless server, run `ssh -L 7860:127.0.0.1:7860 user@server`, open `http://localhost:7860` and use **Settings**. See [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended).
+
+More causes:
+
+- **Proxy or tunnel on the same machine.** A reverse proxy or tunnel on the same machine needs the login. Direct Tailscale traffic is trusted by default. Tailscale Serve or Funnel and nginx's default HTTP/1.0 `proxy_pass` count as relayed and need the login. Same-host Docker bridge traffic is trusted only while no login, `IP_ALLOWLIST` or `TRUSTED_AUTH_PROXY` is set.
+- **Custom name for this computer.** A name mapped to `127.0.0.1` in `/etc/hosts` counts as relayed. Use `localhost`, `127.0.0.1`, the machine's hostname or a `*.localhost` name instead.
+- **Too many wrong passwords.** Wait 15 minutes, then sign in. Forgot the password? Run `pnpm reset-login` on the computer that runs Marinara. In Docker, run `docker exec <container> node scripts/reset-login.mjs`. Restarting the server also lets it try again.
+- **Untrusted request host.** For a public or reverse-proxy domain, add its exact hostname to `TRUSTED_HOSTS` in `.env`. Direct IP addresses stay accepted.
+- **Risky actions blocked** (backups, clearing data, updates) from that device. Set `ADMIN_SECRET` in the server `.env`. Paste the same value into **Settings → Advanced → Admin Access** on that device and click **Save**.
+
+See [Remote Access](REMOTE_ACCESS.md) and the [FAQ](FAQ.md). If you were locked out after an update, see [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
+
+## Save blocked, or settings that do not persist
+
+A save seems to work but reverts when you reload. Cross-site protection (CSRF) is blocking it because it does not trust this browser address. You see a red banner saying saves will silently fail, or a toast titled **Save blocked: missing CSRF header**, **Save blocked: cross-site request rejected** or **Save blocked: origin not trusted**.
+
+Loopback, private network addresses, Tailscale and the Docker bridge are trusted automatically. This mostly happens on a public IP or a domain name. Add the address to `CSRF_TRUSTED_ORIGINS` in `.env`, comma separated. The banner has a **Copy** button that fills in the line. No restart is needed.
+
+```bash
+CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
+```
+
+## Connection and generation errors
+
+Generation errors show as a toast at the bottom of the screen. It names the reason and stays up long enough to copy.
+
+| Message or symptom | Fix |
+| --- | --- |
+| **No API connection configured for this chat** | The chat has no account. Add one in **Connections**, then pick it for the chat. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md). |
+| The model does not accept a parameter | Open **Chat Settings → Advanced Parameters** and turn off the switch next to the parameter the toast names. |
+| The model says a parameter is required | Turn that parameter's switch on. |
+| **This model's chat template needs user and assistant messages to take turns** | Some local models, such as Mistral-based models on llama.cpp, need alternating messages. Marinara merges back-to-back messages and retries once. If it persists, set **Post-Processing Messages** to **Single User Message** in **Chat Settings → Advanced Parameters**, or serve the model with a less strict chat template. |
+| **The AI returned an empty response. Try sending your message again.** | Send again. If it repeats, try another model or account. |
+| **A generation is already in progress for this chat** | A reply is still streaming. Wait, or click **Stop**, then try again. |
+| **No connections are marked for the random pool** | Random routing is on but no account is in the pool. Add one, or turn random routing off. |
+| Every message fails with a network error, and your computer reaches the internet only through a proxy | Tell Marinara about the proxy. See [Outbound HTTP proxy](CONFIGURATION.md#outbound-http-proxy). |
+
+## After an update
+
+Problems right after an update, in plain words first:
+
+- The screen is blank or looks old: see [Blank, stale or old-looking screen](#blank-stale-or-old-looking-screen) and [Blank page or JavaScript served as HTML after an update](#blank-page-or-javascript-served-as-html-after-an-update).
+- Chats or presets look missing: see [Data seems missing after an update](#data-seems-missing-after-an-update). Your data is almost always still on disk.
+- Chats look empty after you went back to an older version: see [Chats show no messages after switching to an older version](#chats-show-no-messages-after-switching-to-an-older-version).
+
+### Blank, stale or old-looking screen
+
+The server runs but the browser shows a blank page, or the app looks old after an update. The browser holds a cached copy of the web app.
+
+1. Hard refresh.
+2. If that does not help, open **Settings → Advanced → Updates** and click **Refresh App**.
+
+**Refresh App** clears the browser's service worker (a background script that caches the app) and cache, then reloads. It does not change your data or update the server. To update the app itself, see [Upgrading Marinara Engine](UPGRADING.md).
+
+### Blank page or JavaScript served as HTML after an update
+
+An error such as "Failed to load module script" with a `text/html` type means the browser asked for a JavaScript file that is missing from the build. Deleting your data does not fix it.
+
+1. Stop the server.
+2. Run `start.bat`, `start.sh` or `start-termux.sh` again. The launcher rebuilds incomplete client assets before it starts. For a manual install, run `pnpm build` from the repository root first.
+3. If the page is still blank, hard refresh or try a private window.
+
+If it still fails, report the failing asset's full URL, HTTP status, Content-Type and first response line, with the launcher output.
+
+### Data seems missing after an update
+
+Do not delete any data folders. Marinara keeps live data in a `storage` folder inside its data folder. Look for `storage` in `packages/server/data/` and in `data/`. The server prints the folders it resolved at startup.
+
+### Chats show no messages after switching to an older version
+
+Newer versions of Marinara store each chat's records (messages, swipes, memories, images) in their own files, which makes saving long chats faster. Older versions cannot read that layout, so chats look empty. The data is still on disk.
+
+Marinara blocks obvious downgrades. The launcher skips an auto-update that would land on an incompatible version, and the in-app updater shows an error that points here.
+
+If you updated and then went back to an older version, restore the backup you made before the update. See [Downgrading to an older version](UPGRADING.md#downgrading-to-an-older-version). Technical details follow.
+
+Your data is now at storage format 10. Formats 8, 9 and 10 add 3D avatar settings (MMD, then GLB and FBX) and connection account links that older builds cannot read safely. If your data reached format 8 or newer, restore a full backup made before that upgrade to use an older build. The command below only converts older chat-file layouts. Do not change the format number by hand. See [Downgrading to an older version](UPGRADING.md#downgrading-to-an-older-version).
+
+For data below format 8, convert the chat-file layout:
+
+1. Stop the Marinara server.
+2. From the Marinara folder, run:
+
+   ```bash
+   node scripts/protect-launcher-data.mjs unshard
+   ```
+
+3. Switch to the older version and start it.
+
+The command rebuilds the single-file layout from the per-chat files. Nothing is deleted. The per-chat files stay in folders named `<table>.post-unshard-<timestamp>`, and any `.pre-shard` originals stay. When you upgrade again, Marinara converts your data back.
+
+In Docker or Podman, data lives in the `marinara-data` volume. Stop the container, run the command below, then start the older image:
+
+```bash
+docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard
+```
+
 ## Install and launch problems
 
 ### Termux: CANNOT LINK EXECUTABLE "node"
@@ -53,16 +170,6 @@ Your chats and settings are not touched. If Sharp still cannot load, Marinara ke
 
 Update and restart through the launcher. It opens the browser only after the server reports it is ready. If startup fails, no tab opens, so keep the terminal error. To open the app yourself, set `AUTO_OPEN_BROWSER=false`.
 
-### Blank page or JavaScript served as HTML after an update
-
-An error such as "Failed to load module script" with a `text/html` type means the browser asked for a JavaScript file that is missing from the build. Deleting your data does not fix it.
-
-1. Stop the server.
-2. Run `start.bat`, `start.sh` or `start-termux.sh` again. The launcher rebuilds incomplete client assets before it starts. For a manual install, run `pnpm build` from the repository root first.
-3. If the page is still blank, hard refresh or try a private window.
-
-If it still fails, report the failing asset's full URL, HTTP status, Content-Type and first response line, with the launcher output.
-
 ### Windows: EPERM or corepack signature error when installing pnpm
 
 pnpm is the package manager Marinara uses to install its code. `EPERM: operation not permitted` or a corepack signature error means corepack could not write into the Node install folder. Try one fix, then run the launcher again:
@@ -100,55 +207,6 @@ This is almost always a half-finished install. Run the launcher again. For a man
 ```bash
 pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --frozen-lockfile
 ```
-
-## Blank, stale or old-looking screen
-
-The server runs but the browser shows a blank page, or the app looks old after an update. The browser holds a cached copy of the web app.
-
-1. Hard refresh.
-2. If that does not help, open **Settings → Advanced → Updates** and click **Refresh App**.
-
-**Refresh App** clears the browser's service worker (a background script that caches the app) and cache, then reloads. It does not change your data or update the server. To update the app itself, see [Upgrading Marinara Engine](UPGRADING.md).
-
-## Access Marinara from another device
-
-Cannot open Marinara from a phone, tablet or another computer? Check these in order.
-
-- **Address.** The server listens on `127.0.0.1` (this computer only) by default. The launchers set `HOST=0.0.0.0`. If you started with `pnpm start`, set `HOST=0.0.0.0` in `.env` first.
-- **Network.** Both devices must be on the same Wi-Fi network, and no firewall may block the port. The default port is `7860`, or your `PORT`.
-- **Login.** Set one. On the blocked device, type the one-time setup code from the server log with a new username and password. In Docker, find the code with `docker logs <container> 2>&1 | grep "setup code"`. Or set it in **Settings → Advanced → Access** in a browser that is already signed in. On a headless server, run `ssh -L 7860:127.0.0.1:7860 user@server`, open `http://localhost:7860` and use **Settings**. See [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended).
-- **Proxy or tunnel on the same machine.** A reverse proxy or tunnel on the same machine needs the login. Direct Tailscale traffic is trusted by default. Tailscale Serve or Funnel and nginx's default HTTP/1.0 `proxy_pass` count as relayed and need the login. Same-host Docker bridge traffic is trusted only while no login, `IP_ALLOWLIST` or `TRUSTED_AUTH_PROXY` is set.
-- **Custom name for this computer.** A name mapped to `127.0.0.1` in `/etc/hosts` counts as relayed. Use `localhost`, `127.0.0.1`, the machine's hostname or a `*.localhost` name instead.
-- **Too many wrong passwords.** Wait 15 minutes, then sign in. Forgot the password? Run `pnpm reset-login` on the computer that runs Marinara. In Docker, run `docker exec <container> node scripts/reset-login.mjs`. Restarting the server also lets it try again.
-- **Untrusted request host.** For a public or reverse-proxy domain, add its exact hostname to `TRUSTED_HOSTS` in `.env`. Direct IP addresses stay accepted.
-- **Risky actions blocked** (backups, clearing data, updates) from that device. Set `ADMIN_SECRET` in the server `.env`. Paste the same value into **Settings → Advanced → Admin Access** on that device and click **Save**.
-
-See [Remote Access](REMOTE_ACCESS.md) and the [FAQ](FAQ.md). If you were locked out after an update, see [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
-
-## Save blocked, or settings that do not persist
-
-A save seems to work but reverts when you reload. Cross-site protection (CSRF) is blocking it because it does not trust this browser address. You see a red banner saying saves will silently fail, or a toast titled **Save blocked: missing CSRF header**, **Save blocked: cross-site request rejected** or **Save blocked: origin not trusted**.
-
-Loopback, private network addresses, Tailscale and the Docker bridge are trusted automatically. This mostly happens on a public IP or a domain name. Add the address to `CSRF_TRUSTED_ORIGINS` in `.env`, comma separated. The banner has a **Copy** button that fills in the line. No restart is needed.
-
-```bash
-CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
-```
-
-## Connection and generation errors
-
-Generation errors show as a toast at the bottom of the screen. It names the reason and stays up long enough to copy.
-
-| Message or symptom | Fix |
-| --- | --- |
-| **No API connection configured for this chat** | The chat has no account. Add one in **Connections**, then pick it for the chat. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md). |
-| The model does not accept a parameter | Open **Chat Settings → Advanced Parameters** and turn off the switch next to the parameter the toast names. |
-| The model says a parameter is required | Turn that parameter's switch on. |
-| **This model's chat template needs user and assistant messages to take turns** | Some local models, such as Mistral-based models on llama.cpp, need alternating messages. Marinara merges back-to-back messages and retries once. If it persists, set **Post-Processing Messages** to **Single User Message** in **Chat Settings → Advanced Parameters**, or serve the model with a less strict chat template. |
-| **The AI returned an empty response. Try sending your message again.** | Send again. If it repeats, try another model or account. |
-| **A generation is already in progress for this chat** | A reply is still streaming. Wait, or click **Stop**, then try again. |
-| **No connections are marked for the random pool** | Random routing is on but no account is in the pool. Add one, or turn random routing off. |
-| Every message fails with a network error, and your computer reaches the internet only through a proxy | Tell Marinara about the proxy. See [Outbound HTTP proxy](CONFIGURATION.md#outbound-http-proxy). |
 
 ## Built-in model problems
 
@@ -193,7 +251,7 @@ Summaries need a working text account.
 ## Downloadable agent problems
 
 - **Catalog unavailable in Agent Organizer.** The computer that runs the server, not only your browser, must reach the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog over HTTPS. Installed agents keep working offline. Restore the connection, then click **Refresh** or **Try again**.
-- **An installed map or call does not appear.** Close Marinara completely and start it again. These packages stay in **Restart required** until the next start. Conversation games activate at once. If installation failed, refresh the catalog and check that the game shows as ready.
+- **An installed map or call does not appear.** Close Marinara completely and start it again. These packages stay in **Restart required** until the next start. Conversation games activate at once. If installation failed, refresh the catalog and check that the game shows as ready. Adding a game under a chat's **Commands** settings is only needed so characters can start it themselves, not for its manual slash command.
 - **First package migration cannot finish.** Do not delete `data/capability-packages` or your chat data. Marinara retries on the next start, and your chat selections stay stored.
 - **Large `data/capability-runtime-snapshots` or `data/capability-packages/versions`.** No cleanup needed. Marinara removes old copies at start and keeps the current and previous version of each agent.
 - **A package download is rejected.** The checksum, file list, Marinara version range or archive paths do not match the official catalog. Update Marinara, refresh the catalog and retry. Do not extract an artifact into the data folder by hand.
@@ -282,37 +340,6 @@ After a crash or a moved Docker volume, startup can report **The storage writer 
 
 Marinara clears a lease left by a crashed process on its own on Linux, Android, containers and Windows when the data folder is on a local drive. The manual step is the fallback for network or shared storage, removable drives, and (on Windows) a computer renamed after the crash.
 
-### Data seems missing after an update
-
-Do not delete any data folders. Marinara keeps live data in a `storage` folder inside its data folder. Look for `storage` in `packages/server/data/` and in `data/`. The server prints the folders it resolved at startup.
-
-### Chats show no messages after switching to an older version
-
-Newer versions of Marinara store each chat's records (messages, swipes, memories, images) in their own files, which makes saving long chats faster. Older versions cannot read that layout, so chats look empty. The data is still on disk.
-
-Marinara blocks obvious downgrades. The launcher skips an auto-update that would land on an incompatible version, and the in-app updater shows an error that points here.
-
-Your data is now at storage format 10. Formats 8, 9 and 10 add 3D avatar settings (MMD, then GLB and FBX) and connection account links that older builds cannot read safely. If your data reached format 8 or newer, restore a full backup made before that upgrade to use an older build. The command below only converts older chat-file layouts. Do not change the format number by hand. See [Downgrading to an older version](UPGRADING.md#downgrading-to-an-older-version).
-
-For data below format 8, convert the chat-file layout:
-
-1. Stop the Marinara server.
-2. From the Marinara folder, run:
-
-   ```bash
-   node scripts/protect-launcher-data.mjs unshard
-   ```
-
-3. Switch to the older version and start it.
-
-The command rebuilds the single-file layout from the per-chat files. Nothing is deleted. The per-chat files stay in folders named `<table>.post-unshard-<timestamp>`, and any `.pre-shard` originals stay. When you upgrade again, Marinara converts your data back.
-
-In Docker or Podman, data lives in the `marinara-data` volume. Stop the container, run the command below, then start the older image:
-
-```bash
-docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard
-```
-
 ### Backup or Export returns 403
 
 Same-computer sessions can back up without an admin secret. Requests from another device, a network address, Docker, or a proxy or tunnel on the same computer need one. Set `ADMIN_SECRET` on the server and save the same value in **Settings → Advanced → Admin Access**. To make loopback require it too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. If `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, forwarded visitors get the local bypass. Keep it on for a public proxy or tunnel.
@@ -333,7 +360,7 @@ For Noodle or other server jobs, remove any blank `TZ=` line from `.env` and res
 
 ### Android app stuck on Connecting or Waiting for Server
 
-The Android app is a small shell around Termux, which runs the real Marinara server.
+The Android app is a small shell around Termux, a Linux terminal app for Android that runs the real Marinara server.
 
 1. Tap **Install / Start Marinara**.
 2. If Android asks to install Termux, approve the prompts.
@@ -377,7 +404,7 @@ In Android settings, allow Termux to run in the background and remove its batter
 
 ### Marinara stops responding until Termux is in the foreground
 
-Chats hang at "Opening chat...", the app reports **Server unreachable**, and everything recovers the moment you open Termux. Android's cached-app freezer suspended the Termux process. The phone accepts the connection, but the frozen server never answers. A wake lock does not prevent this.
+Chats hang at "Opening chat...", the app reports **Server unreachable**, the Support Diagnostics copy shows **Unreachable (request timed out)** for the server fields, and everything recovers the moment you open Termux. Android's cached-app freezer suspended the Termux process. The phone accepts the connection, but the frozen server never answers. A wake lock does not prevent this. The session log shows a gap in timestamps over the frozen time, not an error.
 
 Exempt Termux from battery optimization, allow background activity, lock Termux in the recents screen if your phone supports it, and keep its notification visible. If freezes continue, keep Termux in the foreground or the screen on while you use Marinara.
 
@@ -435,6 +462,8 @@ services:
 
 > **Warning:** Running the server as root with `SYS_ADMIN` and no AppArmor profile is a broad privilege escalation. Do not enable it only to hide this message.
 
+Docker's default seccomp profile adapts to added capabilities, so you should not need `seccomp=unconfined` on current Docker.
+
 Windows, Android and other unsupported hosts refuse Server Extension execution. Browser Extensions still run in their sandbox.
 
 ## Extension problems
@@ -456,7 +485,7 @@ Open it in **Settings → Addons → External Extensions** and read **Requested 
 
 A package exported again with an empty capabilities list is treated as a safe sandbox extension, and code that needs the page's DOM will not work. Add `full_page_access` to its manifest only if you accept that the code gets the whole page, browser storage, network APIs and your session.
 
-After you disable a full page extension, reload Marinara if a toolbar item, overlay or listener remains.
+After you disable a full page extension, reload Marinara if a toolbar item, overlay or listener remains. Cleanup is best effort, because page code can cause side effects Marinara does not track.
 
 ## Multiplayer connection or turn problems
 
@@ -498,3 +527,16 @@ Then ask the community:
 - [Built-in model setup](connections/local-model.md)
 - [Game Mode: Getting Started](game/getting-started.md)
 - [Settings Overview](settings/settings-overview.md)
+
+<details>
+<summary>Maintainers: updating pinned local runtimes</summary>
+
+GitHub-generated source archives are not guaranteed to remain byte-for-byte stable, even when their commit contents do not change. Never “fix” a user mismatch by accepting the bytes seen on their machine or weakening verification. Re-pin runtime inputs only in a reviewed Engine change:
+
+1. Select an immutable upstream revision or release asset and review the upstream changes.
+2. Download the artifact into a temporary directory, record its exact byte count, and calculate its SHA-256 digest independently.
+3. Update `runtime-integrity-manifest.ts` with the revision, URL, size, and digest. For MLX, regenerate `packages/server/src/assets/mlx-runtime-requirements.lock` from its `.in` file with the pinned uv version on Apple Silicon/Python 3.12, review every dependency change, and update `requirementsLockSha256`.
+4. Run `pnpm regression:runtime-integrity`, `pnpm check`, and a real clean runtime installation on the affected platform.
+5. Ship the reviewed Engine update before asking users to retry. Do not provide a manual checksum override.
+
+</details>
