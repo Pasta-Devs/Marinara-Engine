@@ -379,18 +379,20 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
 
   private async chatCompleteChain(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
     // Text the primary already streamed through onToken has reached the caller, so a fallback
-    // reply would be appended after it, exactly as in chatChain.
+    // reply would be appended after it, exactly as in chatChain. A keepalive-only onToken kept
+    // nothing, so its caller still gets the fallback's reply.
     let emittedUsableOutput = false;
     try {
-      const primaryOptions = options.onToken
-        ? {
-            ...options,
-            onToken: async (chunk: string) => {
-              emittedUsableOutput ||= chunk.trim().length > 0;
-              await options.onToken?.(chunk);
-            },
-          }
-        : options;
+      const primaryOptions =
+        options.onToken && !options.onTokenKeepaliveOnly
+          ? {
+              ...options,
+              onToken: async (chunk: string) => {
+                emittedUsableOutput ||= chunk.trim().length > 0;
+                await options.onToken?.(chunk);
+              },
+            }
+          : options;
       const result = await this.primary.chatComplete(
         prepareAssistantReasoningPrefillMessages(messages, this.primarySupportsAssistantReasoningPrefill),
         primaryOptions,

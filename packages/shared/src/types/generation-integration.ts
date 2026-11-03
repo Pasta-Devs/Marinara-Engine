@@ -97,6 +97,11 @@ export interface ChatOptions {
   captureReasoning?: boolean;
   /** Callback for streaming text tokens as they arrive (used in tool path) */
   onToken?: (chunk: string) => void | Promise<void>;
+  /**
+   * onToken only shows the call is alive and the caller reads the reply from the result, so a fallback connection may
+   * still answer after the primary streamed text and failed.
+   */
+  onTokenKeepaliveOnly?: boolean;
   /** Enable extended thinking (reasoning models) */
   enableThinking?: boolean;
   /**
