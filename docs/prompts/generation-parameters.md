@@ -148,7 +148,7 @@ Marinara resolves each parameter through this list. Later items override earlier
 4. Mode rules. An active scene chat sets output to 8192, reasoning to **Maximum** and verbosity to **High**. Game uses saved account and chat parameters without forcing sampling, reasoning or a minimum output size.
 5. Output limits. Game applies the model's known output limit, and the account's **Max output tokens override** caps requests in every mode. Available context can reduce the budget further.
 
-The **Effective** line beside a parameter shows the value that wins and which layer it came from, for example **Effective: 16384 · this chat**, or **Effective: 4096 · output token cap** when an account cap applies. A disabled Send switch shows **not sent**. Services can still require parameters or adjust unsupported values. Custom Parameters and context fitting may change the final request. Resetting chat parameters returns the chat to the account's **Chat defaults**. It does not remove preset or mode rules, which still apply on top.
+The **Effective** line beside a parameter shows the value that wins and which layer it came from, for example **Effective: 16384 · this chat**, or **Effective: 4096 · output token cap** when an account cap applies. A disabled Send switch shows **not sent**. Services can still require parameters or adjust unsupported values. Custom Parameters and context fitting may change the final request. Resetting chat parameters removes only this chat's override (item 3). The value then comes from the account's **Chat defaults** if set, otherwise from the preset. Mode rules and output limits (items 4 and 5) still apply afterwards.
 
 ## Parameters for agents
 
