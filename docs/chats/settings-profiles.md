@@ -33,7 +33,6 @@ The builder groups the slots under **Chat**, **Story**, **Pictures** and **Behin
 - **Persona**, **Lorebooks** and **Background**
 - **Image style** and **Translation**
 
-
 How to fill the slots:
 
 - Pick items from each slot's list. **Agents**, **Tools** and **Lorebooks** allow several picks. Use the checkboxes in **Tools** to turn each tool on or off. For a single-item slot, choose **None** to clear it.
