@@ -193,7 +193,7 @@ import {
 import { RoleplayMessagePreview } from "./ChatMessage";
 import { resolveChatContextBudget } from "../../lib/professor-mari-context-budget";
 import { CHAT_SETTINGS_SURFACES } from "./chat-settings-surfaces";
-import { useCharacters, usePersonas, useCharacterGroups, type SpriteInfo } from "../../hooks/use-characters";
+import { useCharacters, usePersonas, type SpriteInfo } from "../../hooks/use-characters";
 import { lorebookKeys, useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
 import { useDefaultPreset, usePresetFull, usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
@@ -352,13 +352,7 @@ import {
   rulesetCombatStyle,
   rulesetCombatStyles,
 } from "@marinara-engine/shared";
-import type {
-  Chat,
-  CharacterGroup,
-  GameCombatStyle,
-  Lorebook,
-  SpriteCharacterVisualSettings,
-} from "@marinara-engine/shared";
+import type { Chat, GameCombatStyle, Lorebook, SpriteCharacterVisualSettings } from "@marinara-engine/shared";
 import {
   isCustomToolSelectable,
   useCustomToolCapabilities,
@@ -1067,7 +1061,6 @@ export function ChatSettingsDrawer({
   const resetView = useFloatingWindowStore((s) => s.resetView);
 
   const { data: allCharacters } = useCharacters({ includeBuiltIn: true });
-  const { data: characterGroups } = useCharacterGroups();
   const { data: lorebooks } = useLorebooks();
   const { data: presets } = usePresets();
   const { data: defaultPromptPreset } = useDefaultPreset();
@@ -4026,7 +4019,6 @@ export function ChatSettingsDrawer({
   const [showCharPicker, setShowCharPicker] = useState(false);
   const addCharBtnRef = useRef<HTMLButtonElement>(null);
   const partyBtnRef = useRef<HTMLButtonElement>(null);
-  const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [showLbPicker, setShowLbPicker] = useState(false);
   const [showToolPicker, setShowToolPicker] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
@@ -6009,26 +6001,36 @@ export function ChatSettingsDrawer({
                 {chat.personaId ? (
                   <>
                     <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-2.5 py-2 ring-1 ring-[var(--primary)]/30">
-                      {(() => {
-                        const p = personas.find((persona) => persona.id === chat.personaId);
-                        return p ? (
-                          <>
-                            <DrawerPersonaAvatar persona={p} size="md" />
-                            <div className="min-w-0 flex-1">
-                              <span className="block truncate text-xs">{p.name}</span>
-                              {p.comment && (
-                                <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                  {p.comment}
-                                </span>
-                              )}
-                            </div>
-                          </>
-                        ) : (
-                          <span className="flex-1 truncate text-xs text-[var(--muted-foreground)]">
-                            {localizeUi("ui.chat.chatsettingsdrawer.unknownPersona")}
-                          </span>
-                        );
-                      })()}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          gamePersonaBtnRef.current = event.currentTarget;
+                          setShowPersonaPicker(true);
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
+                        title={localizeUi("ui.chat.chatsettingsdrawer.changePersona")}
+                      >
+                        {(() => {
+                          const p = personas.find((persona) => persona.id === chat.personaId);
+                          return p ? (
+                            <>
+                              <DrawerPersonaAvatar persona={p} size="md" />
+                              <div className="min-w-0 flex-1">
+                                <span className="block truncate text-xs">{p.name}</span>
+                                {p.comment && (
+                                  <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                                    {p.comment}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="flex-1 truncate text-xs text-[var(--muted-foreground)]">
+                              {localizeUi("ui.chat.chatsettingsdrawer.unknownPersona")}
+                            </span>
+                          );
+                        })()}
+                      </button>
                       <div className="ml-auto flex shrink-0 items-center gap-1">
                         <button
                           type="button"
@@ -6066,17 +6068,18 @@ export function ChatSettingsDrawer({
                   targetName={personas.find((persona) => persona.id === chat.personaId)?.name ?? null}
                 />
 
-                <button
-                  ref={gamePersonaBtnRef}
-                  onClick={() => setShowPersonaPicker(true)}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                >
-                  <Plus size="0.75rem" />{" "}
-                  {chat.personaId
-                    ? localizeUi("ui.chat.chatsettingsdrawer.change")
-                    : localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
-                  {localizeUi("ui.characters.cardlibrarydetailcard.persona")}
-                </button>
+                {!chat.personaId && (
+                  <button
+                    onClick={(event) => {
+                      gamePersonaBtnRef.current = event.currentTarget;
+                      setShowPersonaPicker(true);
+                    }}
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+                  >
+                    <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
+                    {localizeUi("ui.characters.cardlibrarydetailcard.persona")}
+                  </button>
+                )}
                 <CharacterSelect
                   kind="persona"
                   variant="controlled"
@@ -6087,7 +6090,11 @@ export function ChatSettingsDrawer({
                   anchorRef={gamePersonaBtnRef}
                   value={chat.personaId ? { persona: chat.personaId } : null}
                   onChange={(next) =>
-                    updateChat.mutate({ id: chat.id, personaId: next && "persona" in next ? next.persona : null })
+                    updateChat.mutate({
+                      id: chat.id,
+                      personaId: next && "persona" in next ? next.persona : null,
+                      personaCharacterId: null,
+                    })
                   }
                 />
               </div>
@@ -6111,12 +6118,13 @@ export function ChatSettingsDrawer({
                         <Fragment key={c.id}>
                           <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
                             <button
-                              onClick={() => {
-                                onClose();
-                                useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                              type="button"
+                              onClick={(event) => {
+                                partyBtnRef.current = event.currentTarget;
+                                setShowCharPicker(true);
                               }}
                               className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
-                              title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
+                              title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
                             >
                               {c.avatarPath ? (
                                 <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">
@@ -6169,8 +6177,10 @@ export function ChatSettingsDrawer({
               </div>
 
               <button
-                ref={partyBtnRef}
-                onClick={() => setShowCharPicker(true)}
+                onClick={(event) => {
+                  partyBtnRef.current = event.currentTarget;
+                  setShowCharPicker(true);
+                }}
                 className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
               >
                 <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacterToParty")}
@@ -6204,53 +6214,63 @@ export function ChatSettingsDrawer({
               {chat.personaId || chat.personaCharacterId ? (
                 <>
                   <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-2.5 py-2">
-                    {(() => {
-                      const character = chat.personaCharacterId
-                        ? characters.find((candidate) => candidate.id === chat.personaCharacterId)
-                        : null;
-                      const p = personas.find((p) => p.id === chat.personaId);
-                      if (character) {
-                        return (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        personaBtnRef.current = event.currentTarget;
+                        setShowPersonaPicker(true);
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:opacity-80"
+                      title={localizeUi("ui.chat.chatsettingsdrawer.changePersona")}
+                    >
+                      {(() => {
+                        const character = chat.personaCharacterId
+                          ? characters.find((candidate) => candidate.id === chat.personaCharacterId)
+                          : null;
+                        const p = personas.find((p) => p.id === chat.personaId);
+                        if (character) {
+                          return (
+                            <>
+                              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-xs font-semibold">
+                                {character.avatarPath ? (
+                                  <img
+                                    src={character.avatarPath}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                    style={getAvatarCropStyle(getCharacterInfo(character).avatarCrop)}
+                                  />
+                                ) : (
+                                  charName(character)[0]
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="block truncate text-xs">{charName(character)}</span>
+                                <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                                  {charTitle(character) || localizeUi("ui.chat.personapicker.characterSource")}
+                                </span>
+                              </div>
+                            </>
+                          );
+                        }
+                        return p ? (
                           <>
-                            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-xs font-semibold">
-                              {character.avatarPath ? (
-                                <img
-                                  src={character.avatarPath}
-                                  alt=""
-                                  className="h-full w-full object-cover"
-                                  style={getAvatarCropStyle(getCharacterInfo(character).avatarCrop)}
-                                />
-                              ) : (
-                                charName(character)[0]
+                            <DrawerPersonaAvatar persona={p} size="md" />
+                            <div className="min-w-0 flex-1">
+                              <span className="block truncate text-xs">{p.name}</span>
+                              {p.comment && (
+                                <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                                  {p.comment}
+                                </span>
                               )}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="block truncate text-xs">{charName(character)}</span>
-                              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                                {charTitle(character) || localizeUi("ui.chat.personapicker.characterSource")}
-                              </span>
-                            </div>
                           </>
+                        ) : (
+                          <span className="flex-1 truncate text-xs text-[var(--muted-foreground)]">
+                            {localizeUi("ui.chat.chatsettingsdrawer.unknownPersona")}
+                          </span>
                         );
-                      }
-                      return p ? (
-                        <>
-                          <DrawerPersonaAvatar persona={p} size="md" />
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{p.name}</span>
-                            {p.comment && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {p.comment}
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <span className="flex-1 truncate text-xs text-[var(--muted-foreground)]">
-                          {localizeUi("ui.chat.chatsettingsdrawer.unknownPersona")}
-                        </span>
-                      );
-                    })()}
+                      })()}
+                    </button>
                     <div className="ml-auto flex shrink-0 items-center gap-1">
                       <button
                         type="button"
@@ -6295,17 +6315,18 @@ export function ChatSettingsDrawer({
               )}
 
               {/* Persona picker */}
-              <button
-                ref={personaBtnRef}
-                onClick={() => setShowPersonaPicker(true)}
-                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-              >
-                <Plus size="0.75rem" />{" "}
-                {chat.personaId || chat.personaCharacterId
-                  ? localizeUi("ui.chat.chatsettingsdrawer.change")
-                  : localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
-                {localizeUi("ui.characters.cardlibrarydetailcard.persona")}
-              </button>
+              {!(chat.personaId || chat.personaCharacterId) && (
+                <button
+                  onClick={(event) => {
+                    personaBtnRef.current = event.currentTarget;
+                    setShowPersonaPicker(true);
+                  }}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+                >
+                  <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
+                  {localizeUi("ui.characters.cardlibrarydetailcard.persona")}
+                </button>
+              )}
               <CharacterSelect
                 kind="persona"
                 variant="controlled"
@@ -6457,12 +6478,13 @@ export function ChatSettingsDrawer({
                             <GripVertical size="0.75rem" />
                           </div>
                           <button
-                            onClick={() => {
-                              onClose();
-                              useUIStore.getState().openCharacterDetail(c.id, { initialTab: "card" });
+                            type="button"
+                            onClick={(event) => {
+                              addCharBtnRef.current = event.currentTarget;
+                              setShowCharPicker(true);
                             }}
                             className="flex items-center gap-2.5 min-w-0 flex-1 text-left transition-colors hover:opacity-80"
-                            title={localizeUi("ui.chat.chatsettingsdrawer.openCharacterCard")}
+                            title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
                           >
                             {c.avatarPath ? (
                               <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">
@@ -6576,8 +6598,10 @@ export function ChatSettingsDrawer({
 
               {/* Add character picker */}
               <button
-                ref={addCharBtnRef}
-                onClick={() => setShowCharPicker(true)}
+                onClick={(event) => {
+                  addCharBtnRef.current = event.currentTarget;
+                  setShowCharPicker(true);
+                }}
                 className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
               >
                 <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacter")}
@@ -6605,71 +6629,11 @@ export function ChatSettingsDrawer({
                     </span>
                   ) : null
                 }
+                onPickGroup={(ids) => {
+                  if (hostedRoom) void changeRoomCharacters(ids, []);
+                  else updateChat.mutate({ id: chat.id, characterIds: [...chatCharIds, ...ids] });
+                }}
               />
-
-              {/* Add from Folder picker */}
-              {((characterGroups ?? []) as CharacterGroup[]).length > 0 &&
-                (!showGroupPicker ? (
-                  <button
-                    onClick={() => setShowGroupPicker(true)}
-                    className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                  >
-                    <Users size="0.75rem" /> {localizeUi("ui.noodle.noodlehome.addFromFolder")}
-                  </button>
-                ) : (
-                  <PickerDropdown
-                    search=""
-                    onSearchChange={() => {}}
-                    onClose={() => setShowGroupPicker(false)}
-                    placeholder={localizeUi("ui.chat.chatsettingsdrawer.selectAFolder")}
-                  >
-                    {((characterGroups ?? []) as CharacterGroup[]).map((group) => {
-                      const rawIds = group.characterIds ?? [];
-                      const groupCharIds: string[] = Array.isArray(rawIds)
-                        ? rawIds
-                        : typeof rawIds === "string"
-                          ? JSON.parse(rawIds)
-                          : [];
-                      const newIds = groupCharIds.filter((id) => !chatCharIds.includes(id));
-                      return (
-                        <button
-                          key={group.id}
-                          onClick={() => {
-                            if (newIds.length > 0 && hostedRoom) void changeRoomCharacters(newIds, []);
-                            else if (newIds.length > 0) {
-                              updateChat.mutate({ id: chat.id, characterIds: [...chatCharIds, ...newIds] });
-                            }
-                            setShowGroupPicker(false);
-                          }}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                        >
-                          {group.avatarPath ? (
-                            <img
-                              src={group.avatarPath}
-                              alt={group.name}
-                              loading="lazy"
-                              className="h-6 w-6 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
-                              {group.name[0]}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <span className="block truncate text-xs">{group.name}</span>
-                            <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                              {groupCharIds.length} {localizeUi("ui.noodle.noodlehome.characters")}
-                              {newIds.length > 0
-                                ? localizeUi("ui.chat.chatsettingsdrawer.value1New", { value1: newIds.length })
-                                : localizeUi("ui.chat.chatsettingsdrawer.allAdded")}
-                            </span>
-                          </div>
-                          {newIds.length > 0 && <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />}
-                        </button>
-                      );
-                    })}
-                  </PickerDropdown>
-                ))}
               {cardThemingControls}
             </Section>
           )}

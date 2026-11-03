@@ -45,7 +45,7 @@ You add CSS to the card, then turn it on in the chat.
 
 The character's messages change right away.
 
-If it did not work: the **Disabled**, **Exclusive** and **Chat** buttons appear only when an active character in the chat has CSS in its **Creator Notes**. Persona CSS alone does not show them, so a persona's theme also needs one character in the chat with a `<style>` block. Check that your `<style>` block saved. In Roleplay chats, **Color Character Names in Text** is in **Characters**, below **Add from Folder** when a folder is available.
+If it did not work: the **Disabled**, **Exclusive** and **Chat** buttons appear only when an active character in the chat has CSS in its **Creator Notes**. Persona CSS alone does not show them, so a persona's theme also needs one character in the chat with a `<style>` block. Check that your `<style>` block saved. In Roleplay chats, **Color Character Names in Text** is in **Characters**, below **Add Character**.
 
 The name glows pink and the text turns soft pink in every layout. The bubble rule adds a purple gradient with a pink border. `.mari-message-bubble` exists only in the **Bubbles** layout and in roleplay, so in the default **Linear** conversation layout the bubble rule does nothing.
 
