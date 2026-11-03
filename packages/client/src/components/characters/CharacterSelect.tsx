@@ -379,6 +379,15 @@ function CharacterSelectWindow({
     return () => document.removeEventListener("pointerdown", onPointer);
   }, [phone, anchorRef, onClose]);
 
+  // autoFocus misses the search box while the popover is still hidden, so focus it once placed.
+  const placed = pos !== null;
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!placed || !panel || panel.contains(document.activeElement)) return;
+    const search = window.matchMedia?.("(pointer: fine)").matches ? panel.querySelector("input") : null;
+    (search ?? panel).focus();
+  }, [placed]);
+
   if (phone) {
     return (
       <Modal
@@ -401,6 +410,7 @@ function CharacterSelectWindow({
       ref={panelRef}
       role="dialog"
       aria-modal="true"
+      tabIndex={-1}
       aria-label={title}
       data-chat-floating-panel
       onPointerDown={(event) => event.stopPropagation()}
@@ -409,7 +419,7 @@ function CharacterSelectWindow({
         event.stopPropagation();
         onClose();
       }}
-      className="fixed z-[10050] flex flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl"
+      className="fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl"
       style={
         pos
           ? {
