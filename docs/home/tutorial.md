@@ -14,17 +14,17 @@ The tour starts again from the first step. On a phone, tap the bookmark button a
 Every card has a skip button. On the first card it reads **Skip Tutorial**. On later cards it reads **Skip**. Click it to end the tour at once.
 
 - **Skip**, **Skip Tutorial** and **Get Started** all mark the tour as done, so it does not start again by itself. They can also unlock the **Diligent Student** achievement.
-- Only **Get Started** saves the guide language you picked on the last card. **Skip** leaves it as it was. You can change it later in **Settings → General**.
+- Only **Get Started** saves the guide language you picked on the last card (the language of the in-app guides). **Skip** leaves it as it was. You can change it later in **Settings → General**.
 
 ## How the tour works
 
 The tour shows one card at a time. Each card has a title, a short explanation and progress dots. On a normal desktop screen, a pulsing ring highlights the button the card talks about.
 
-Some steps also open the matching panel or tab for you. For example, the **Connections** step opens the **Connections** panel. The tour shows where things live, not only what they are called.
+Some steps also open the matching panel or tab for you. For example, the **Connections** step opens the **Connections** panel.
 
 Click **Next** to go to the next card. On the last step, the button reads **Get Started**.
 
-On screens under 640 pixels wide, each card shows centered below the top bar. There is no pulsing ring. Panels still open, as full-screen overlays.
+On a phone or other narrow screen, each card shows centered below the top bar. There is no pulsing ring. Panels still open, as full-screen overlays.
 
 ## Reference: the 18 steps
 
@@ -43,7 +43,7 @@ On screens under 640 pixels wide, each card shows centered below the top bar. Th
 | 11 | **Roleplay Mode** | The roleplay tab, labeled **RP**. |
 | 12 | **Game Mode** | The game tab, labeled **GM**. |
 | 13 | **Home: Your Story Hub** | Goes back to Home. Home is where you continue a chat, start a new one and arrange widgets. |
-| 14 | **Ask Me Where Things Are** | The search bar at the top of Home. On a phone, the card tells you to pull down from the top bar. |
+| 14 | **Ask Me Where Things Are** | The search bar at the top of Home. On a phone, the card tells you to pull down from the top bar of the app. |
 | 15 | **Guides and Home Controls** | The **Documentation**, **Tutorial**, **FAQ** and **Widgets** bookmarks. |
 | 16 | **Migrating from SillyTavern?** | The **Settings** button again. Opens **Settings** on the **Imports** tab. |
 | 17 | **You're All Set!** | The **Connections** panel button once more. |
