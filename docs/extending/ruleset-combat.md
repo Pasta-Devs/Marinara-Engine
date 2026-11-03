@@ -2,6 +2,29 @@
 
 Use this page to decide how your ruleset takes part in a fight: the `battle` block lends Marinara's combat the sheet, and the `combat` block resolves the whole fight by the ruleset's own rules, with its bestiary, board, reactions and contests. It is for ruleset authors. Before you start, read [Writing Game Mode Rulesets](writing-rulesets.md).
 
+Sections on this page:
+
+- [Battles: lending the sheet to Marinara's combat](#battles-lending-the-sheet-to-marinaras-combat)
+  - [What is carried in, and what is carried out](#what-is-carried-in-and-what-is-carried-out)
+  - [How an entry becomes a skill](#how-an-entry-becomes-a-skill)
+- [Combat: a fight your own rules resolve](#combat-a-fight-your-own-rules-resolve)
+  - [Every key](#every-key)
+  - [Saves against conditions, damage or magic](#saves-against-conditions-damage-or-magic)
+  - [A fight thrown in pools: dice-pool](#a-fight-thrown-in-pools-dice-pool)
+  - [A fight thrown in symbol dice: symbol-pool](#a-fight-thrown-in-symbol-dice-symbol-pool)
+  - [Minimum damage dice](#minimum-damage-dice)
+  - [A hit that dazes](#a-hit-that-dazes)
+  - [The target chooses the wound kind](#the-target-chooses-the-wound-kind)
+  - [Initiative that attacks move](#initiative-that-attacks-move)
+  - [What a fight reads from mechanics](#what-a-fight-reads-from-mechanics)
+  - [Creatures: a bestiary a fight reads](#creatures-a-bestiary-a-fight-reads)
+  - [Positions: a fight on a board](#positions-a-fight-on-a-board)
+  - [What a fight does with your block on the server](#what-a-fight-does-with-your-block-on-the-server)
+  - [On screen](#on-screen)
+  - [Contests: grabbing, shoving, breaking free](#contests-grabbing-shoving-breaking-free)
+  - [Windows: holding the fight open](#windows-holding-the-fight-open)
+  - [Not yet](#not-yet)
+
 ## Battles: lending the sheet to Marinara's combat
 
 By default a battle knows nothing about the sheet. It builds its fighters the way it always has, and

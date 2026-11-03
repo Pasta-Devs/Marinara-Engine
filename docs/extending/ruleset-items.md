@@ -2,6 +2,24 @@
 
 Use this page to describe what a party carries: categories, weapons, armor, ammunition, loot, money, starting gear and markets. It is for ruleset authors. Before you start, read [Writing Game Mode Rulesets](writing-rulesets.md).
 
+Sections on this page:
+
+- [The items block](#the-items-block)
+- [An item](#an-item)
+- [What reads items](#what-reads-items)
+- [Items on the sheet](#items-on-the-sheet)
+- [Checks outside a fight](#checks-outside-a-fight)
+- [Typed defenses from conditions, levels, items and sheet rows](#typed-defenses-from-conditions-levels-items-and-sheet-rows)
+- [Weapons in a fight](#weapons-in-a-fight)
+- [Armor and worn effects in a fight](#armor-and-worn-effects-in-a-fight)
+- [Using items in a fight](#using-items-in-a-fight)
+- [Items in Classic and Tactical battles](#items-in-classic-and-tactical-battles)
+- [Loot](#loot)
+- [Money](#money)
+- [Starting gear](#starting-gear)
+- [Markets](#markets)
+- [Using items outside a fight](#using-items-outside-a-fight)
+
 Armor, weapons, potions, gear, ammunition and money are items. An optional `items` block declares the words every item of your ruleset is written in, and a catalog with `holds: "items"` lists the items themselves. Both need Capability API 1.49; the block's `rarityCaps` and `propose`, which govern the items the Game Master invents, need 1.51, a value that reads the items a character holds (`itemStat`) needs 1.52, what an item does to checks while worn or carried, with the block's `bonus` caps, needs 1.53, what an item asks of its wearer and the abilities it changes need 1.54, a weapon's `attack` needs 1.55, what an item does in a fight needs 1.56, what a weapon shoots and holds loaded needs 1.57, a weapon's modes, off-hand attack, floor and conditions on a hit need 1.58, what using an item does in a fight, with the charges it holds, needs 1.59, a use that restores a pool needs 1.60, charges regained on a rest or an item that breaks when emptied need 1.61, a use that asks a check first (`gate`) needs 1.62, loot tables and a creature's loot need 1.63, a loot line that drops coins or a layer that takes coins out needs 1.64, a market, an item's `sold` place and a `service` need 1.65, a market day (a purse, `buyBack`, a seller's `stock`, a `limited` count, or a `sold` that names no place) needs 1.69, a rider that fires on held weapons (`weapons`) needs 1.70, starting gear (`startingGear`) needs 1.78, a risky item, a fake or a dishonest seller needs 1.79, and a market's `unsold` (or a layer's `items`) needs 1.813.
 
 ## The items block
@@ -606,7 +624,7 @@ Capability API 1.79 lets an item be risky or a fake, and a seller be dishonest.
 - **`risky`** on an item: what an honest seller warns of before selling it. The MARKET block lists it with "(warn the buyer first: ...)" beside an honest seller's ware; a dishonest seller says nothing.
 - **`passesFor`** on an item makes it a fake of another item (`<catalog>/<entry>`): a real, sellable item of the same category, worn in the same slots, that binds if the fake binds. It is checked at import where both are readable, at install for every catalog file, and again when a market offers it, so a fake whose target is missing or hidden by a layer is never sold. A cursed item (`binds.cursed`) or a fake is never among anybody's wares, and never in an honest seller's stock.
 - **`honest: false`** on a seller: a fake their `stock` table rolls is offered as the item it passes for, at that item's price, and the MARKET block shows the Game Master the truth beside it. A buy that names that seller and that item gets the fake; a buy that names no seller never does.
-- **A fake in the bag** shows as the item it passes for everywhere the player looks (the bag, the journal, notifications, fights), and keeps what it truly is. The Game Master's inventory block marks it `[FAKE: ...]` and asks it to keep calling it by the name it is shown by.
+- **A fake in the bag** shows as the item it passes for everywhere the player looks (the bag, the journal, notifications, fights), and keeps what it truly is. The Game Master's inventory block marks it `(FAKE: really <name>)` and asks it to keep calling it by the name it is shown by.
 - **Found out**: `[inventory: action="reveal" item="Bag of Holding" who="Ada"]`, binding it (attuning shows a curse), using it (what it truly does happens; when that is nothing the rules work out, the Game Master tells it), or selling it to an honest buyer, who says what it truly is and pays what that is worth (its own `cost`), or refuses where it has none. A dishonest buyer takes a fake as what it seems. From then on it is its true item.
 - **Worn or carried**: a fake does what it truly does on the character's sheet (its `worn` or `carried` effects and its stats). The first inventory change after which the sheet shows a number, or what a check adds, that the item it passes for would not, finds it out, and the journal and the screen say what it was. A difference only a fight reads (a resistance) does not, and neither does a change to the sheet alone until the next inventory change. In a fight, a worn fake weapon still attacks as the weapon it passes for.
 - Under single-player trust, Peek Prompt shows the Game Master's view, truth included.
