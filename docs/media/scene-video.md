@@ -16,7 +16,7 @@ Scene videos use a separate kind of account, **Video Generation**, not normal im
 4. Click **Connect**, then pick a model or keep the default. NanoGPT has no default, so pick one from its list. For ComfyUI, leave the model unset unless the workflow uses `%model%`. For SwarmUI the model is optional.
 5. Open the video model and click **Test video** to check it.
 
-Each service fills in a default address and, where it applies, a default model.
+Each service fills in a default address and, where it applies, a default model. NanoGPT has no default model, so pick one.
 
 | Video service | Default model | Notes |
 | --- | --- | --- |
@@ -31,9 +31,9 @@ Each service fills in a default address and, where it applies, a default model.
 
 **Google AI Studio** covers two families. **Gemini Omni** uses `gemini-omni-flash-preview`. **Google Veo** uses `veo-3.1-generate-preview`. The model you pick decides which runs.
 
-For **ComfyUI**, use `http://127.0.0.1:8188` and paste an API-format video workflow into **ComfyUI Workflow**. It is required. See [ComfyUI Workflow Setup](comfyui.md#comfyui-video-workflows) for placeholders and output nodes.
+For **ComfyUI**, use `http://127.0.0.1:8188` and paste an API-format video workflow into **ComfyUI workflow (required)**. It is required. See [ComfyUI Workflow Setup](comfyui.md#comfyui-video-workflows) for placeholders and output nodes.
 
-For **SwarmUI**, Marinara fills in `http://127.0.0.1:7801`. Paste an API-format video workflow into **ComfyUI Workflow**. It is required. SwarmUI cannot use the `%reference_image_name%` placeholders, so use `%reference_image%`. If your server requires an account, paste a Swarm Auth Token into **API key**.
+For **SwarmUI**, Marinara fills in `http://127.0.0.1:7801`. Paste an API-format video workflow into **ComfyUI workflow (required)**. It is required. SwarmUI cannot use the `%reference_image_name%` placeholders, so use `%reference_image%`. If your server requires an account, paste a Swarm Auth Token into **API key**.
 
 ### Make it the default video model
 
@@ -47,17 +47,15 @@ Each video model has a **Video prompting instructions** box. Tell the AI that wr
 
 A video model has a **Video defaults** panel for default clip length, aspect ratio and resolution. They win over the app-wide fallback length.
 
-| Service | Default length | Length range | Aspect ratio | Resolution |
-| --- | --- | --- | --- | --- |
-| Gemini Omni | 10s | 1 to 60s | 16:9 | Provider default |
-| Google Veo | 8s | 4, 6 or 8s | 16:9 | 720p |
-| xAI Imagine | 10s | 1 to 15s | 16:9 | 720p |
-| OpenRouter Video | 10s | 1 to 60s | 16:9 | 720p |
-| NanoGPT | 10s | 1 to 60s | 16:9 | 720p |
-| Atlas Cloud | 8s | 1 to 60s | 16:9 | 720p |
-| Seedance 2.0 | 5s | 4 to 15s | 16:9 | 720p |
-| ComfyUI | 5s | 1 to 60s | 16:9 | 720p |
-| SwarmUI | 5s | 1 to 60s | 16:9 | 720p |
+Default length, range, aspect ratio and resolution for each service:
+
+- Gemini Omni: 10s, 1 to 60s, 16:9, provider-default resolution.
+- Google Veo: 8s, 4, 6 or 8s, 16:9, 720p.
+- xAI Imagine: 10s, 1 to 15s, 16:9, 720p.
+- OpenRouter Video: 10s, 1 to 60s, 16:9, 720p.
+- Atlas Cloud: 8s, 1 to 60s, 16:9, 720p.
+- Seedance 2.0: 5s, 4 to 15s, 16:9, 720p.
+- ComfyUI and SwarmUI: 5s, 1 to 60s, 16:9, 720p.
 
 Gemini Omni has no resolution field, and its length goes into the prompt text. Google Veo forces 8 seconds whenever it animates a reference image, because it needs 8 seconds to blend the first and last frames.
 
@@ -70,6 +68,42 @@ Seedance must fetch your reference image over a public web link. A local Marinar
 3. Optional: set **Temporary link lifetime**. The default is 12 hours.
 
 If your Marinara server already has a public address, you can set an environment variable instead. See the [Server Configuration Reference](../CONFIGURATION.md).
+
+## Make a video from the Gallery
+
+Roleplay and Game Mode chats can make scene videos from the Gallery. Open **Chat Settings** and expand **Gallery**. The Gallery has an **Images** tab and a **Videos** tab, each with a count.
+
+### In Roleplay
+
+**Video** in the action row at the top of the Gallery makes a clip of the latest reply, the same as `/video`. Add a description after `/video` to say what the clip should show.
+
+- **First frame**: follows Illustrator's **First frame** setting. That is a new Illustrator picture of the latest reply (drawn first, then animated), the character's avatar or sprite, or no picture. With none chosen, the clip is made from the story alone.
+- **Avatar**: the clip starts from whoever your description names first, including your persona. A part of a name no one else shares is enough, with a capital ("Lena" for "Dr. Lena Kowalski"). With no one named, it starts from the chat's character.
+- **Review**: with **Expose media prompts before sending** on, you can review and edit the clip's prompt first.
+- **Context**: the AI reads as many recent messages as Illustrator does for a picture (Illustrator's **Context Size**, under **Agent Budget** on its setup screen).
+- **No picture**: when the clip starts from no picture or an avatar, the AI describes the scene itself. Its instructions are **Roleplay Clip Director**, under **Settings → Generations → Video Generation Prompt Overrides**.
+
+The finished clip plays inline under the latest reply, even when the picture came from an earlier one. Clips do not open in a floating window on their own. To float one, use **Pin video to chat** under **Videos**. Remove a clip from a message with its **X** button. It stays in the Gallery.
+
+### In Game Mode
+
+1. Make sure at least one picture is under **Images**. Use **Illustrate** or upload one.
+2. Click **Video** in the action row at the top of the Gallery.
+3. If **Expose media prompts before sending** is on (**Settings → Generations → Overall Generations**), review or edit the prompt and click **Generate**. Canceling does not start a request.
+4. The button shows **Generating...** and a banner says video generation is running.
+5. When it finishes, the clip appears under **Videos**.
+
+If there is no picture, Marinara says "Add or generate a gallery image before generating a scene video." Make or upload one and try again.
+
+### Animate one picture
+
+1. Open the **Images** tab.
+2. Hover over the picture.
+3. Click **Animate illustration** (the film icon).
+
+With prompt review on, a window shows the exact compiled prompt, duration, aspect ratio and resolution for that picture. Your edit applies only to that clip. In Roleplay, the AI planning the motion reads as many recent messages as Illustrator does, ending at the reply the picture belongs to. Its reusable instructions are **Roleplay Gallery Animation Director** under **Settings → Generations → Video Generation Prompt Overrides**.
+
+Each clip under **Videos** plays inline with its length and model name. Use **Pin video to chat** or **Download scene video**. With no clips, the tab reads **No videos yet**.
 
 ## Choose a service
 
@@ -110,42 +144,6 @@ The top of **Model options** lists the lengths, resolutions, frame sizes and asp
 
 Choices are saved per model. **Reset model options** clears them for the current model. Click **Save** to keep your changes. If a saved option no longer fits the model, Marinara leaves it out and names it in the log line.
 
-## Make a video from the Gallery
-
-Roleplay and Game Mode chats can make scene videos from the Gallery. Open **Chat Settings** and expand **Gallery**. The Gallery has an **Images** tab and a **Videos** tab, each with a count.
-
-### In Roleplay
-
-**Video** in the action row at the top of the Gallery makes a clip of the latest reply, the same as `/video`. Add a description after `/video` to say what the clip should show.
-
-- **First frame**: follows Illustrator's **First frame** setting. That is a new Illustrator picture of the latest reply (drawn first, then animated), the character's avatar or sprite, or no picture. With none chosen, the clip is made from the story alone.
-- **Avatar**: the clip starts from whoever your description names first, including your persona. A part of a name no one else shares is enough, with a capital ("Lena" for "Dr. Lena Kowalski"). With no one named, it starts from the chat's character.
-- **Review**: with **Expose media prompts before sending** on, you can review and edit the clip's prompt first.
-- **Context**: the AI reads as many recent messages as Illustrator does for a picture (Illustrator's **Context Size**, under **Agent Budget** on its setup screen).
-- **No picture**: when the clip starts from no picture or an avatar, the AI describes the scene itself. Its instructions are **Roleplay Clip Director**, under **Settings → Generations → Video Generation Prompt Overrides**.
-
-The finished clip plays inline under the latest reply, even when the picture came from an earlier one. Clips do not open in a floating window on their own. To float one, use **Pin video to chat** under **Videos**. Remove a clip from a message with its **X** button. It stays in the Gallery.
-
-### In Game Mode
-
-1. Make sure at least one picture is under **Images**. Use **Illustrate** or upload one.
-2. Click **Video** in the action row at the top of the Gallery.
-3. If **Expose media prompts before sending** is on (**Settings → Generations → Overall Generations**), review or edit the prompt and click **Generate**. Canceling does not start a request.
-4. The button shows **Generating...** and a banner says video generation is running.
-5. When it finishes, the clip appears under **Videos**.
-
-If there is no picture, Marinara says "Add or generate a gallery image before generating a scene video." Make or upload one and try again.
-
-### Animate one picture
-
-1. Open the **Images** tab.
-2. Hover over the picture.
-3. Click **Animate illustration** (the film icon).
-
-With prompt review on, a window shows the exact compiled prompt, duration, aspect ratio and resolution for that picture. Your edit applies only to that clip. In Roleplay, the AI planning the motion reads as many recent messages as Illustrator does, ending at the reply the picture belongs to. Its reusable instructions are **Roleplay Gallery Animation Director** under **Settings → Generations → Video Generation Prompt Overrides**.
-
-Each clip under **Videos** plays inline with its length and model name. Use **Pin video to chat** or **Download scene video**. With no clips, the tab reads **No videos yet**.
-
 ## Make a video in Game Assets
 
 Game Mode has a second place to make a scene video, **Game Assets**. Click its folder button, near the top right of the chat. It opens as a window on a computer and a full-width panel on a phone. If you moved it into Chat Settings, open the **Game Assets** section there.
@@ -161,7 +159,7 @@ Game Mode has a second place to make a scene video, **Game Assets**. Click its f
 Each chat picks its own video model under **Chat Settings → Agents → Scene Videos**.
 
 - **Roleplay** shows a **Scene Videos** card ("Generate manual MP4 scene videos from gallery images"). It has one control, the video model list.
-- **Game Mode** shows a **Scene Videos** card ("Generate MP4 scene videos from game illustrations") with more controls. The video model list picks the model. **Game Video Prompt** is the template that decides how the picture animates. The built-in default is **Cinematic Scene Video**. **Edit Video Presets** adds and edits your own copies for this chat.
+- **Game Mode** shows a **Scene Videos** card ("Generate MP4 scene videos from game illustrations") with more controls. The video model list picks the model. **Game Video Prompt** is the template that decides how the picture animates. The built-in default is **Cinematic Scene Video**. **Edit Video Prompt Presets** adds and edits your own copies for this chat.
 
 **Game Video Prompt** controls manual Gallery and Game Assets videos in Game Mode. Roleplay Gallery animations use **Roleplay Gallery Animation Director** instead. The Storyboard Agent has its own default **Storyboard Video Prompt**. Each chat can override it under **Chat Settings → Agents → Storyboards**. Resetting returns to the Storyboard Agent default.
 
