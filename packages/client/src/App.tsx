@@ -758,11 +758,7 @@ export function App() {
     const accent = appAccentColor.trim();
     // The Stage visual theme (UI overhaul preview) brings its own steady brass accent.
     const stageDefaultAccent = visualTheme === "stage" && !accent;
-    const defaultAccent = stageDefaultAccent
-      ? theme === "light"
-        ? "#a8322f"
-        : "#d9a441"
-      : getDefaultAppAccentColor();
+    const defaultAccent = stageDefaultAccent ? (theme === "light" ? "#a8322f" : "#d9a441") : getDefaultAppAccentColor();
     const defaultSolidAccent = getCssColorFallback(defaultAccent, "currentColor");
     const accentSource = accent || themeAccentPulseConfig.source || defaultAccent;
     const solidAccent = getCssColorFallback(accentSource, defaultSolidAccent);
