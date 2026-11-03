@@ -454,10 +454,10 @@ export function CharacterPickerList({
     (!offersCharacters || characterCount === 0);
 
   // Links to a deleted card stay as a removable pill instead of vanishing.
-  const deleted = (ids: readonly string[], rows: Array<{ id: string }> | undefined) =>
-    rows
+  const deleted = (ids: readonly string[], cards: Array<{ id: string }> | undefined) =>
+    cards
       ? ids
-          .filter((id) => !exclude?.includes(id) && !rows.some((row) => row.id === id))
+          .filter((id) => !exclude?.includes(id) && !cards.some((card) => card.id === id))
           .map((id) => ({ id, name: t("ui.characterselect.deleted"), src: null }))
       : [];
   const picked = multiple
@@ -474,19 +474,19 @@ export function CharacterPickerList({
         ]
     : [];
 
+  const searchLabel = t(
+    !isPersona
+      ? "ui.chat.chatsettingsdrawer.searchCharacters"
+      : offersCharacters
+        ? "ui.characterselect.searchPersonasAndCharacters"
+        : "ui.characterselect.searchPersonas",
+  );
+
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <label className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 py-2 text-foreground/55 focus-within:border-foreground/25">
         <Search size="0.875rem" className="shrink-0" />
-        <span className="sr-only">
-          {t(
-            !isPersona
-              ? "ui.chat.chatsettingsdrawer.searchCharacters"
-              : offersCharacters
-                ? "ui.characterselect.searchPersonasAndCharacters"
-                : "ui.characterselect.searchPersonas",
-          )}
-        </span>
+        <span className="sr-only">{searchLabel}</span>
         <input
           type="search"
           ref={searchRef}
@@ -495,19 +495,13 @@ export function CharacterPickerList({
           autoFocus={autoFocusSearch}
           onChange={(event) => setSearch(event.target.value)}
           onKeyDown={onSearchKey}
-          placeholder={t(
-            !isPersona
-              ? "ui.chat.chatsettingsdrawer.searchCharacters"
-              : offersCharacters
-                ? "ui.characterselect.searchPersonasAndCharacters"
-                : "ui.characterselect.searchPersonas",
-          )}
+          placeholder={searchLabel}
           className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-foreground/40 max-md:text-base"
         />
       </label>
 
       {picked.length > 0 && (
-        <div className="flex max-h-24 shrink-0 flex-wrap gap-1.5 overflow-y-auto px-2 pt-2">
+        <div className="flex max-h-24 shrink-0 flex-wrap gap-1.5 overflow-y-auto px-2 py-2">
           {picked.map((item) => (
             <span
               key={item.id}
