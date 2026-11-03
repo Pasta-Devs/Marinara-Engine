@@ -23,6 +23,7 @@ import {
   ImageIcon,
   MessageSquare,
   Play,
+  Plus,
   Sparkles,
   Users,
   CircleAlert,
@@ -282,8 +283,12 @@ export const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(
 function StageWord({
   avatars,
   children,
+  after,
   ...button
-}: { avatars?: StageAvatarProps[]; children?: ReactNode } & Omit<ComponentProps<"button">, "children">) {
+}: { avatars?: StageAvatarProps[]; children?: ReactNode; after?: ReactNode } & Omit<
+  ComponentProps<"button">,
+  "children"
+>) {
   // When the value changes, the old text slides up and the new one rises in (globals.css).
   const label = button["aria-label"];
   const reducedMotion = useMatchMedia("(prefers-reduced-motion: reduce)");
@@ -294,29 +299,32 @@ function StageWord({
     if (!reducedMotion) setSwap((current) => ({ key: (current?.key ?? 0) + 1, old: shown.children }));
   }
   return (
-    <button type="button" {...button} className={cn(button.className, swap && "stage-word-swapping")}>
-      {avatars?.length ? (
-        <span aria-hidden="true" className="mr-[0.3em] inline-flex -space-x-[0.3em] align-[-0.14em]">
-          {avatars.slice(0, 3).map((avatar, index) => (
-            <StageAvatar key={index} {...avatar} className="h-[0.9em] w-[0.9em] text-[0.4em] not-italic" />
-          ))}
-        </span>
-      ) : null}
-      {swap ? (
-        <span
-          key={swap.key}
-          className="stage-word-swap"
-          onAnimationEnd={(event) => event.target === event.currentTarget && setSwap(null)}
-        >
-          <span aria-hidden="true" className="stage-word-old">
-            {swap.old}
+    <>
+      <button type="button" {...button} className={cn(button.className, swap && "stage-word-swapping")}>
+        {avatars?.length ? (
+          <span aria-hidden="true" className="mr-[0.3em] inline-flex -space-x-[0.3em] align-[-0.14em]">
+            {avatars.slice(0, 3).map((avatar, index) => (
+              <StageAvatar key={index} {...avatar} className="h-[0.9em] w-[0.9em] text-[0.4em] not-italic" />
+            ))}
           </span>
-          <span className="stage-word-new">{children}</span>
-        </span>
-      ) : (
-        children
-      )}
-    </button>
+        ) : null}
+        {swap ? (
+          <span
+            key={swap.key}
+            className="stage-word-swap"
+            onAnimationEnd={(event) => event.target === event.currentTarget && setSwap(null)}
+          >
+            <span aria-hidden="true" className="stage-word-old">
+              {swap.old}
+            </span>
+            <span className="stage-word-new">{children}</span>
+          </span>
+        ) : (
+          children
+        )}
+      </button>
+      {after}
+    </>
   );
 }
 
@@ -463,9 +471,15 @@ export function ChatSetupStage({
   };
   const openGreeting = open(first ? "opening" : "characters");
 
-  const word = (onClick: (event: MouseEvent<HTMLElement>) => void, label: string, avatars?: StageAvatarProps[]) => (
+  const word = (
+    onClick: (event: MouseEvent<HTMLElement>) => void,
+    label: string,
+    avatars?: StageAvatarProps[],
+    after?: ReactNode,
+  ) => (
     <StageWord
       avatars={avatars}
+      after={after}
       onClick={onClick}
       aria-label={label}
       className={cn(
@@ -506,6 +520,20 @@ export function ChatSetupStage({
       open("characters"),
       t("chat.setupStage.a11y.cast", { value: castNames ?? t("chat.setupStage.chooseCharacter") }),
       castAvatars,
+      castNames ? (
+        <button
+          type="button"
+          onClick={open("add-character")}
+          aria-haspopup="dialog"
+          aria-label={t("chat.setupStage.a11y.addCharacter")}
+          className={cn(
+            "relative ml-[0.25em] inline-flex h-[1.05em] w-[1.05em] cursor-pointer items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_45%,transparent)] bg-transparent p-0 align-[-0.12em] text-[color-mix(in_srgb,var(--stage-accent,var(--primary))_85%,var(--foreground))] transition-colors before:absolute before:-inset-3 before:content-[''] hover:bg-[color-mix(in_srgb,var(--stage-accent,var(--primary))_16%,transparent)]",
+            FOCUS,
+          )}
+        >
+          <Plus size="0.7em" aria-hidden />
+        </button>
+      ) : undefined,
     ),
     greeting: word(openGreeting, t("chat.setupStage.a11y.greeting", { value: greetingWord })),
     preset: word(

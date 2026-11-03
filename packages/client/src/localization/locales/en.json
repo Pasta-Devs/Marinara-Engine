@@ -1213,6 +1213,7 @@
   "chat.settingsProfile.wizard.description": "Pick a saved settings profile, your persona, and any characters in one compact setup pass.",
   "chat.settingsProfile.wizard.title": "Use a Profile",
   "chat.setup.pickBackground": "Pick a background",
+  "chat.setupStage.a11y.addCharacter": "Add a character",
   "chat.setupStage.a11y.cast": "Characters {{value}}, change",
   "chat.setupStage.a11y.greeting": "Opening {{value}}, change",
   "chat.setupStage.a11y.model": "No model is set up yet, choose one",

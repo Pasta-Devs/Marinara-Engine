@@ -70,7 +70,7 @@ export interface StageEditorContext {
 }
 
 /** Every stage editor; all but the opening also live in Chat Settings. */
-export type StageEditorSection = StageSettingsSection | "opening" | "creator-notes";
+export type StageEditorSection = StageSettingsSection | "opening" | "creator-notes" | "add-character";
 
 const TITLES: Record<StageEditorSection, string> = {
   persona: "chat.setupStage.row.persona",
@@ -83,6 +83,7 @@ const TITLES: Record<StageEditorSection, string> = {
   background: "chat.setupStage.row.look",
   profile: "chat.setupStage.row.profile",
   "creator-notes": "chat.setupStage.creatorNotes",
+  "add-character": "chat.setupStage.a11y.addCharacter",
 };
 
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
@@ -122,7 +123,8 @@ function StagePopover({
   const panelRef = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
   const width = wide ? 440 : 360;
-  const drawerSection = section === "opening" || section === "creator-notes" ? null : section;
+  const drawerSection =
+    section === "opening" || section === "creator-notes" ? null : section === "add-character" ? "characters" : section;
 
   useLayoutEffect(() => {
     if (phone) return;
@@ -399,7 +401,8 @@ function PersonaEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
   );
 }
 
-function CastEditor({ ctx }: { ctx: StageEditorContext }) {
+/** `addOnly` is the "+" after the cast names: just the others, and one tap adds and closes. */
+function CastEditor({ ctx, addOnly, close }: { ctx: StageEditorContext; addOnly?: boolean; close?: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
@@ -463,8 +466,8 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
   const nameOf = (id: string) => ctx.characterMap.get(id)?.name ?? characters.find((c) => c.id === id)?.name ?? id;
   return (
     <>
-      <ChatSetupStageCastOrder ctx={ctx} />
-      {ctx.chatCharIds.map((id) => (
+      {!addOnly && <ChatSetupStageCastOrder ctx={ctx} />}
+      {(addOnly ? [] : ctx.chatCharIds).map((id) => (
         <button
           key={id}
           type="button"
@@ -497,7 +500,10 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
           type="button"
           data-stage-option
           aria-label={t("chat.setupStage.editor.add", { name: c.name })}
-          onClick={() => toggle(c.id)}
+          onClick={() => {
+            toggle(c.id);
+            if (addOnly) close?.();
+          }}
           className={cn(
             "flex min-h-11 w-full items-center gap-3 rounded-[12px] px-3 text-left text-[14px] hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)]",
             FOCUS,
@@ -947,6 +953,8 @@ export function StageEditor({
       />
     ) : section === "profile" ? (
       <ProfileEditor ctx={ctx} close={onClose} />
+    ) : section === "add-character" ? (
+      <CastEditor ctx={ctx} addOnly close={onClose} />
     ) : section === "creator-notes" ? (
       <CreatorNotesView ctx={ctx} />
     ) : (
