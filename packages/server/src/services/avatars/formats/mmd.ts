@@ -519,6 +519,11 @@ function modelImport(bytes: Uint8Array, source: string, entries?: Map<string, Bu
   let total = parsed.bytes.length;
   let decodedTextures = 0;
   const references = new Set<string>();
+  // MMD runs on Windows, whose file names ignore case: "Tex\Body.PNG" may name "tex/body.png".
+  // An exact name wins; a folded name shared by two entries finds neither.
+  const fold = (path: string) => path.normalize("NFC").toLowerCase();
+  const folded = new Map<string, string | null>();
+  for (const path of entries?.keys() ?? []) folded.set(fold(path), folded.has(fold(path)) ? null : path);
   for (const texture of parsed.textures) {
     references.add(texture);
     if (
@@ -526,7 +531,8 @@ function modelImport(bytes: Uint8Array, source: string, entries?: Map<string, Bu
       references.size > AVATAR_MMD_METADATA_LIMITS.textures
     )
       refuse("This MMD model has too many textures or a texture path is too long.");
-    const name = archivePath(texture, posix.dirname(source));
+    const reference = archivePath(texture, posix.dirname(source));
+    const name = entries?.has(reference) ? reference : (folded.get(fold(reference)) ?? reference);
     const raw = entries?.get(name);
     if (!raw)
       refuse(
