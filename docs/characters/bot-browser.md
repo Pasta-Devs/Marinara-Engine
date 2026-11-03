@@ -109,7 +109,7 @@ Click **Download as PNG** in the detail view to save the card as a standard PNG 
 
 | Problem | Fix |
 | --- | --- |
-| **JannyAI** search or details fail with a error mentioning Cloudflare (a security check that blocks automatic requests), or the card's full definition is blocked. | Visit jannyai.com once in the same browser and pass any challenge. Then search again. If the card is still blocked, open it on JannyAI, download its PNG, and import that file. |
+| **JannyAI** search or details fail with an error mentioning Cloudflare (a security check that blocks automatic requests), or the card's full definition is blocked. | Visit jannyai.com once in the same browser and pass any challenge. Then search again. If the card is still blocked, open it on JannyAI, download its PNG, and import that file. |
 | My Pygmalion login stopped working. | Restarting the server clears it. Log in again with a fresh token. |
 | **CharacterTavern** only shows a notice. | Expected. See [CharacterTavern](#charactertavern). |
 | **PlotLight is busy.** | Wait the number of seconds in the message, then retry. |

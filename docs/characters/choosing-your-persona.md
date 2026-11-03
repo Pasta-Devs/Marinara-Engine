@@ -8,7 +8,7 @@ The choice applies to that chat only, so different chats can use different perso
 
 ## Switch quickly in an open chat
 
-This is the fastest way. On a computer, the **Quick Persona Switcher** is the small round avatar button near the message box. Its tooltip shows **No persona selected** when none is set.
+This is the fastest way. On a computer, the **Quick Persona Switcher** is the small round avatar button near the message box. Its tooltip shows the persona's name, or **Quick Persona Switcher** when none is set. In the open menu, the **None** row reads **No persona selected**.
 
 1. Click the avatar button. A menu titled **Personas** opens.
 2. Click a persona to switch at once, or click **None** to use no persona.
