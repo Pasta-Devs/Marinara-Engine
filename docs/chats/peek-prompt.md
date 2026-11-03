@@ -1,6 +1,6 @@
 # Peek Prompt: See What the AI Received
 
-Peek Prompt shows the exact text Marinara Engine sent to the model for a reply, or a live preview of the next one. Use it when a reply surprises you and you want to know what the model actually saw.
+Peek Prompt shows the exact text Marinara Engine sent to the model for a reply, or a live preview of the next one. Use it when a reply is not what you expected and you want to know what the model actually saw.
 
 The prompt is the full block of instructions and chat history Marinara puts together and sends. The model reads it and writes the reply.
 
@@ -10,14 +10,14 @@ There are two ways to open the **Assembled Prompt** window.
 
 From a message:
 
-1. Hover over the newest AI message.
+1. Tap the newest AI message to show its action bar.
 2. Click **Peek prompt** (a magnifying glass).
 
 It appears only on the last AI message. Older messages do not show it.
 
 From the input box, which also works before any AI reply:
 
-1. Type `{{prompt}}` in the message box.
+1. Type this exact text in the message box: `{{prompt}}`
 2. Press <kbd>Enter</kbd> or click **Send**.
 
 Marinara clears the box and opens the window instead of sending a message. `{{prompt_preview}}` and `{{preview_prompt}}` do the same.
@@ -34,7 +34,7 @@ A badge next to the title says which version of the prompt you are reading.
 | **Prompt Preview** | A general preview. |
 | **Decision test preview** | A prompt built with the answers from a decision test. It was not sent to the chat model. |
 
-Below it, an info panel can show the service and model, an estimated token count, and the real prompt token count after a reply finishes. A token is a small chunk of text that models count instead of words. It also shows tags for the values used, such as **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** and **Assistant Prefill**, and sampling values like **Top P**, **Top K** and **Min P**. If the first model failed and your fallback wrote the reply, the panel names the failed model and a short reason, such as "key rejected" or "rate limited".
+Below it, an info panel can show the service and model, an estimated token count, and the real prompt token count after a reply finishes. A token is a small chunk of text that models count instead of words. It also shows tags for the values used, such as **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** and **Assistant Prefill**, and sampling values like **Top P**, **Top K** and **Min P**. Tags such as **Service Tier** and **Assistant Prefill**, and the sampling values, are advanced model settings. You can ignore them at first. If the first model failed and your fallback wrote the reply, the panel names the failed model and a short reason, such as "key rejected" or "rate limited".
 
 The rest is the prompt in collapsible sections, each with its own rough token estimate. Chat messages are grouped under **Chat History**. For an exact saved request, the service may have merged several chat turns into one block, so expand each block to see all the text. Click a section header to open or close it.
 
@@ -66,7 +66,7 @@ Open **Assembled Prompt** and check:
 - **Missing information.** If a lorebook entry, memory or persona detail is in no section, the model never saw it.
 - **Parameter tags.** A high **Temperature** can make replies random, and a low **Max Output Tokens** can cut them short.
 - **Chat History.** Confirm the messages you expect are there, in the right order.
-- **Token count.** A very large prompt can push older messages out of the model's limit.
+- **Token count.** A large prompt can push older messages out of the model's limit.
 
 Then fix the cause: edit a character card, adjust a lorebook entry, or change a generation setting. See [Generation Parameters](../prompts/generation-parameters.md).
 
@@ -90,4 +90,4 @@ If it did not work: **Could not prepare the decision test. Check the chat connec
 
 Tests use the current chat and settings, even when you opened Peek Prompt from an older reply. They do not rebuild the original decision requests. They cover prompt statements and lorebook decisions, not agent activation or post-reply decisions.
 
-When **Use Decision model** is on for Advanced Memory, the panel also shows **Advanced Memory activity**. These saved reports show the latest recall and scene-end check with their model, time, scores, selections and fallback status. They describe past calls, not the current preview, and can appear even when the prompt has no decision statements. Compatible swipes can reuse an earlier recall report. Each report keeps up to 128 results, selected ones first, and counts the rest. New reports appear after the next eligible Decision model call. Viewing them makes no model requests.
+When **Use Decision model** is on for Advanced Memory (Marinara's long-term memory feature, see [Memory Recall and Chat Summaries](../agents/memory.md)), the panel also shows **Advanced Memory activity**. These saved reports show the latest recall and scene-end check with their model, time, scores, selections and fallback status. They describe past calls, not the current preview, and can appear even when the prompt has no decision statements. Compatible swipes can reuse an earlier recall report. Each report keeps up to 128 results, selected ones first, and counts the rest. New reports appear after the next eligible Decision model call. Viewing them makes no model requests.
