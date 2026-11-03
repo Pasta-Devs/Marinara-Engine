@@ -49,11 +49,11 @@ Marinara mirrors your messages and the AI replies as they are generated.
 
 - Regenerated replies and swipes are not mirrored again. A swipe is another answer kept on the same message. Only the first reply for each turn is sent.
 - Impersonated messages are not mirrored. Impersonate is the feature where the AI writes a message in your place.
-- Only Discord rate limits are retried (see below). Any other failed send shows no error in the chat and is not retried. It is recorded on the server only.
+- A send that fails is not resent. A send Discord answers with a rate limit (429) is not resent either; see below. A failed send shows no error in the chat. Failures other than a rate limit are recorded on the server only.
 
 ## Rate limiting
 
-Discord limits how fast an app can post. Marinara sends at most one message about every 1.2 seconds per webhook. That is around 50 messages per minute. Extra messages wait in a queue and go out in order. If Discord asks Marinara to slow down, Marinara waits, then continues sending.
+Discord limits how fast an app can post. Marinara sends at most one message about every 1.2 seconds per webhook. That is around 50 messages per minute. Extra messages wait in a queue and go out in order. If Discord answers a send with 429 (slow down), that message is not resent. Marinara waits for the Retry-After time Discord gives, then continues with the next queued message.
 
 ## Related guides
 
