@@ -12,6 +12,8 @@ const META_KEYS = [
   "background",
 ] as const;
 
+const LIST_KEYS = new Set<string>(["activeLorebookIds", "excludedLorebookIds"]);
+
 export interface SetupFields {
   personaId: string | null;
   connectionId: string | null;
@@ -50,7 +52,8 @@ export function readSetupFields(chat: Pick<Chat, "personaId" | "connectionId" | 
     personaId: chat.personaId ?? null,
     connectionId: chat.connectionId ?? null,
     promptPresetId: chat.promptPresetId ?? null,
-    metadata: Object.fromEntries(META_KEYS.map((key) => [key, meta[key] ?? null])),
+    // The server rejects null for the lorebook id lists, so absent lists become [].
+    metadata: Object.fromEntries(META_KEYS.map((key) => [key, meta[key] ?? (LIST_KEYS.has(key) ? [] : null)])),
   };
 }
 
