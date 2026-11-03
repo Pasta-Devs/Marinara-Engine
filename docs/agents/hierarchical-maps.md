@@ -2,7 +2,9 @@
 
 > **Current compatibility:** This guide matches World Maps **1.3.1**, which supports Marinara Engine **2.3.5 through 3.x** in Roleplay and Game chats. Engine **2.4.1** adds movement-stream cleanup and an immediate Lorebooks refresh after portable imports. Engine 2.3.5 through 2.4.0 still works, but needs a manual Lorebooks refresh after an import.
 
-World Maps adds persistent world state to Roleplay and Game. Instead of keeping one free-text location, it represents the world as nested places:
+World Maps gives your story a map of places that can sit inside each other, such as a coast, a town, a district and an inn. Marinara always knows where the party is, and the AI uses that to stay consistent. To try it: install **World Maps** in **Agent Organizer**, restart, then follow [Quick start](#quick-start).
+
+Instead of one free-text location, the world is a set of nested places:
 
 ```text
 The Shattered Coast

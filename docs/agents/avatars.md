@@ -6,7 +6,7 @@ Live2D models are not supported. Live2D's licence needs a separate agreement eve
 
 ## Install the avatar agents
 
-Both agents are in **Agent Organizer** for every install, under the **Roleplay** and **Game** filters. They need Marinara Engine 2.5.1 or newer and Capability API 1.73. An older Engine refuses to install them. They are separate downloads, so install only the one you want. Both work for characters and personas in Roleplay and Game chats, and send no extra requests to your AI models while you chat.
+Both agents are in **Agent Organizer** for every install, under the **Roleplay** and **Game** filters. They need Marinara Engine 2.5.1 or newer. An older Engine refuses to install them. They are separate downloads, so install only the one you want. Both work for characters and personas in Roleplay and Game chats, and send no extra requests to your AI models while you chat.
 
 1. Open **Agents → Agent Organizer** and install **2D Avatars**, **3D Avatars** or both. Neither needs a restart.
 2. Set up each avatar on the agent's page (see [Set up an avatar](#set-up-an-avatar)).
@@ -195,7 +195,7 @@ When the reply is read aloud with **Auto-play** on, the voice usually starts a f
 
 Details:
 
-- **Who speaks.** The mouth that moves belongs to the character whose voice reads the line, the one the **Voice Option** picks a voice for. Each character's mouth moves only during their own lines. Narrator-voice lines and speakers who are not characters in the chat move no mouth. With **Only read dialogues** off, a character's own narration is read in their voice and moves their mouth.
+- **Who speaks.** The mouth that moves belongs to the character whose voice reads the line, the one the **Voice option** picks a voice for. Each character's mouth moves only during their own lines. Narrator-voice lines and speakers who are not characters in the chat move no mouth. With **Only read dialogues** off, a character's own narration is read in their voice and moves their mouth.
 - **Pause, stop and switching chats.** Pausing or stopping the voice stops the mouth. If you switch chats while a reply is read, avatars there stay still. Return while the voice still plays and the avatar picks it up.
 - **Volume.** **Line volume** changes loudness, not how wide the mouth opens.
 - **Personas.** A persona's mouth does not move for your own messages.
