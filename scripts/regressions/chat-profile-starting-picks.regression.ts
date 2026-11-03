@@ -133,6 +133,50 @@ try {
   assert.equal((await getChat(greetedId)).personaId, picked!.id, "the picked persona stays");
   assert.equal(await turnsOf(greetedId), turnsBefore, "no turn names the profile's persona");
 
+  // A switch whose back-fill fails part way keeps the previous persona saved, so its retry back-fills the rest:
+  // every earlier user message keeps the previous persona, through Chat Settings and through a profile.
+  const { messages: messageTable } = await import("../../packages/server/src/db/schema/index.js");
+  const realUpdate = db.update;
+  const retriedSwitch = async (chatId: string, method: "PATCH" | "POST", url: string, payload: object) => {
+    const personaBefore = (await getChat(chatId)).personaId ?? null;
+    // Messages saved before persona snapshots existed carry none.
+    for (const content of ["First.", "Second."]) {
+      await createChatsStorage(db).createMessage({ chatId, role: "user", characterId: null, content });
+    }
+    let messageWrites = 0;
+    db.update = ((table: Parameters<typeof db.update>[0]) => {
+      if (table === messageTable && ++messageWrites === 2) throw new Error("injected message write failure");
+      return realUpdate(table);
+    }) as typeof db.update;
+    try {
+      const failed = await app.inject({ method, url, payload: payload as never });
+      assert.equal(failed.statusCode, 500, "the back-fill fails on the second message");
+    } finally {
+      db.update = realUpdate;
+    }
+    assert.equal((await getChat(chatId)).personaId ?? null, personaBefore, "a failed back-fill saves no new persona");
+    await inject(method, url, payload);
+    const after = await createChatsStorage(db).listMessages(chatId);
+    return {
+      snapshots: after.filter((m) => m.role === "user").map((m) => extraOf(m.extra).personaSnapshot?.name ?? null),
+      turns: after.filter((m) => m.role === "system").map((m) => m.content),
+    };
+  };
+  const patchRetryId = await createChat("Patch retry");
+  assert.deepEqual(
+    await retriedSwitch(patchRetryId, "PATCH", `/api/chats/${patchRetryId}`, { personaId: persona.id }),
+    { snapshots: ["You", "You"], turns: ["You are now playing as Rowan."] },
+    "a retried Chat Settings switch keeps the previous persona on every earlier message",
+  );
+  const applyRetryId = await createChat("Apply retry");
+  await inject("PATCH", `/api/chats/${applyRetryId}`, { personaId: picked!.id });
+  assert.deepEqual(
+    await retriedSwitch(applyRetryId, "POST", `/api/chat-presets/${profile.id}/apply/${applyRetryId}`, {}),
+    { snapshots: ["Wren", "Wren"], turns: ["You are now playing as Rowan."] },
+    "a retried profile apply keeps the previous persona on every earlier message",
+  );
+  assert.equal((await getChat(applyRetryId)).personaId, persona.id, "the retried apply switches the persona");
+
   // Exports leave the install-local persona and lorebook ids out.
   const exported = await app.inject({ method: "GET", url: `/api/chat-presets/${profile.id}/export` });
   const exportedSettings = exported.json().data.settings;
