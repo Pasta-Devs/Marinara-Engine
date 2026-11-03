@@ -5131,7 +5131,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expandedSheet.click();
     await sheetPreview.click({ position: { x: 2, y: 2 } });
     await expect(sheetPreview).toBeHidden();
-    await expect(editor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
+    await expect(editor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
     await editor
       .locator('[data-editor-section="sprites"]')
@@ -5183,7 +5183,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await openEditorSection(personaEditor, "Sprites");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
-    await expect(personaEditor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
+    await expect(personaEditor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
     await personaEditor
       .locator('[data-editor-section="sprites"]')
       .getByRole("button", { name: "Create with AI", exact: true })
