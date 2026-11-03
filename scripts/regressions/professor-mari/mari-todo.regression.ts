@@ -161,8 +161,6 @@ try {
   const { createAppSettingsStorage } =
     await import("../../../packages/server/src/services/storage/app-settings.storage.js");
   const { MARI_RUNTIME_SETTINGS_KEY } = await import("../../../packages/shared/src/constants/mari-runtime.js");
-  const { NOTHING_CHANGED_NOTICE } =
-    await import("../../../packages/server/src/services/professor-mari/workspace-round-review.js");
   const chats = createChatsStorage(db);
   const settings = createAppSettingsStorage(db);
   writeFileSync(join(workspaceDir, "hello.txt"), "hi\n");
@@ -433,23 +431,17 @@ try {
     assert.deepEqual(executed, []);
 
     // A todo-only round is not work and not a final answer: a false claim in its words is audited as a mid-run one
-    // (the step budget), not as the closing answer, and no held-claim repair runs. The run tried a change first (an
-    // edit that failed): in a run that tried none, the words stay with the notice instead (#8711).
-    const failedEdit: Call = {
-      name: "edit",
-      args: { path: "hello.txt", edits: [{ oldText: "absent", newText: "x" }] },
-    };
+    // (the step budget), not as the closing answer, and no held-claim repair runs.
     const claim = await scenario("claim", [
-      { say: "", calls: [failedEdit] },
       { say: "I have created the character and it is saved.", todo: list },
       { say: "Let me look first." },
     ]);
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 2);
     assert.ok(
-      asked(requests[2], "You claimed a step was completed"),
+      asked(requests[1], "You claimed a step was completed"),
       "pi: audited as a mid-run claim, not a closing one",
     );
-    assert.ok(!asked(requests[2], "claimed the requested workspace change was complete"));
+    assert.ok(!asked(requests[1], "claimed the requested workspace change was complete"));
     assert.equal(claim.unusedSteps, 0);
     const held = await scenario("held claim", [
       { say: "The change is held for your approval.", todo: list },
@@ -457,7 +449,7 @@ try {
     ]);
     assert.equal(requests.length, 2, "pi: a lone todo round gets no held-claim repair");
     assert.equal(held.unusedSteps, 0);
-    assert.equal(lastReply(held.rows).content, `Here is where things stand.\n\n${NOTHING_CHANGED_NOTICE}`);
+    assert.equal(lastReply(held.rows).content, "Here is where things stand.");
 
     // Words plus chips plus todo is a final answer: no further request.
     const withChips = await scenario("chips", [

@@ -5,8 +5,8 @@ import type { MariPermissionsMode } from "@marinara-engine/shared";
 import {
   auditWorkspaceCompletionClaim,
   commandFailureSignature,
+  isChangeAttemptCommand,
   isMutatingWorkspaceCommand,
-  isMutationShapedCommand,
   MAX_MIDRUN_CLAIM_REPAIR_ROUNDS,
   MAX_REPEATED_COMMAND_FAILURES,
   MAX_VERIFICATION_REPAIR_ROUNDS,
@@ -14,6 +14,7 @@ import {
   visibleTextRequestsUserApproval,
   workspaceTextClaimsHeldChange,
   type AssistantWorkspaceAction,
+  type WorkspaceClaimAudit,
   type WorkspaceCommandResult,
 } from "./workspace-agent.service.js";
 
@@ -25,17 +26,11 @@ export type RoundReviewState = {
   hadPassedClaimAudit: boolean;
   lastPassedClaimText: string | null;
   /**
-   * #8711: some round of the run tried a change - ran or previewed it, held it, or sent it beside a question or in a
-   * cut-off reply. Kept for the run: a repair discards its round, and a held or set-aside change leaves no result.
+   * #8711: the run tried a change - a change or a preview of one, or any shell command - whatever came of it: run,
+   * failed, held, set aside beside a question, cut off or discarded with a repaired round. Never cleared.
    */
   changeTried: boolean;
-  /** #8711: a flagged reply kept its words in a run that had tried no change; the run's reply gets the notice. */
-  flaggedReplyKept: boolean;
 };
-
-/** #8711: added to the reply of a run that changed nothing, once a claim check flagged words it kept. */
-export const NOTHING_CHANGED_NOTICE =
-  "No change was made or held in this reply. Ask Professor Mari again if you want one made.";
 
 export function newRoundReviewState(): RoundReviewState {
   return {
@@ -46,28 +41,20 @@ export function newRoundReviewState(): RoundReviewState {
     hadPassedClaimAudit: false,
     lastPassedClaimText: null,
     changeTried: false,
-    flaggedReplyKept: false,
   };
 }
 
 /**
- * #8711: whether a reply a claim check flagged keeps its words. A run that tried no change changed nothing in the
- * workspace and holds nothing, and a phrase tripwire cannot tell her draft, quote or explanation from a claim, so the
- * words stay, nothing is repaired, and the reply gets NOTHING_CHANGED_NOTICE at the end of the run. Once the run tried
- * a change, a false claim about it is repaired as before.
+ * #8711: whether a closing answer keeps the words a claim check flags, with the notice that nothing was changed. A run
+ * that tried no change changed nothing and holds nothing, and a phrase check cannot tell her draft, quote or
+ * explanation from a claim. Once the run tried a change, a false claim is repaired as before.
  */
-export function keepsFlaggedReply(state: RoundReviewState): boolean {
-  if (state.changeTried) return false;
-  state.flaggedReplyKept = true;
-  return true;
-}
-
-/**
- * The notice the run's reply ends with, or null.
- * ponytail: only the run's last reply gets it; one saved earlier by Send now does not. Upgrade path: add it there too.
- */
-export function nothingChangedNotice(state: RoundReviewState): string | null {
-  return state.flaggedReplyKept && !state.changeTried ? NOTHING_CHANGED_NOTICE : null;
+export function closingAnswerGetsNotice(
+  state: RoundReviewState,
+  text: string,
+  issue: WorkspaceClaimAudit["issue"],
+): boolean {
+  return !state.changeTried && (issue !== null || workspaceTextClaimsHeldChange(text));
 }
 
 /**
@@ -103,6 +90,8 @@ export function shouldDeferRoundMutations(args: {
 
 export type RoundClaimDecision =
   | { kind: "continue" }
+  /** #8711: keep the round's words; the reply carries the notice that nothing was changed (closingAnswerGetsNotice). */
+  | { kind: "notice" }
   /** Discard the round's words and ask the model again with this prompt. */
   | { kind: "repair"; prompt: string }
   /** Budget spent: end the run with this text. */
@@ -121,10 +110,12 @@ export function reviewRoundClaim(
   },
 ): RoundClaimDecision {
   const { action } = args;
+  // The loops mark the changes that never reach here (held, set aside, cut off, in a rejected or discarded frame). A
+  // staged sensitive file is a write, edit or shell result, so it counts too.
   if (
-    action.commands.some(isMutationShapedCommand) ||
+    action.commands.some(isChangeAttemptCommand) ||
     args.commandResultsForContinuity.some((result) =>
-      isMutationShapedCommand({ id: result.id, name: result.name, arguments: result.input }),
+      isChangeAttemptCommand({ id: result.id, name: result.name, arguments: result.input }),
     )
   ) {
     state.changeTried = true;
@@ -143,14 +134,17 @@ export function reviewRoundClaim(
     state.lastPassedClaimText = action.visibleText;
   }
   const verificationIssue = claimAudit.issue;
-  // A held claim is read here only to give a run that changed nothing its notice; the pi runtime repairs one otherwise.
-  const heldClaim = action.protocolValid && !state.changeTried && workspaceTextClaimsHeldChange(action.visibleText);
-  if (!verificationIssue && !heldClaim) return { kind: "continue" };
-  if (keepsFlaggedReply(state)) return { kind: "continue" };
   // #5819: mid-run claims draw on their own budget, so catching a
   // false step-claim early in a batch cannot starve the terminal
-  // check that ends the run.
+  // check that ends the run. Chips, a card and the to-do list are not commands.
   const terminalClaim = action.commands.length === 0 && action.stop;
+  // #8711: only a closing answer keeps flagged words. Narration beside commands is repaired as before.
+  if (terminalClaim && !state.changeTried) {
+    return closingAnswerGetsNotice(state, action.visibleText, verificationIssue)
+      ? { kind: "notice" }
+      : { kind: "continue" };
+  }
+  if (!verificationIssue) return { kind: "continue" };
   if (terminalClaim) state.verificationRepairRounds += 1;
   else state.midRunClaimRepairRounds += 1;
   const withinRepairBudget = terminalClaim

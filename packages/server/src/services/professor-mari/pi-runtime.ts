@@ -39,10 +39,10 @@ import {
   describeHeldCommands,
   emitRoundText,
   formatCommandResultForPrompt,
+  isChangeAttemptCommand,
   isLengthFinishReason,
   isLocalSidecarConnection,
   isMutatingWorkspaceCommand,
-  isMutationShapedCommand,
   isStagedSensitiveMutation,
   MAX_PROTOCOL_REPAIR_ROUNDS,
   MAX_PROTOCOL_REPAIR_ROUNDS_LOCAL_SIDECAR,
@@ -62,9 +62,8 @@ import {
 } from "./workspace-agent.service.js";
 import type { WorkspaceCommands } from "./workspace-commands.js";
 import {
-  keepsFlaggedReply,
+  closingAnswerGetsNotice,
   newRoundReviewState,
-  nothingChangedNotice,
   reviewRepeatedFailures,
   reviewRoundClaim,
   shouldDeferRoundMutations,
@@ -111,6 +110,8 @@ export type PiRunState = {
   questions: MariQuestion[];
   /** Her to-do list, set only once she called `todo`; `[]` means she cleared it. */
   todos?: MariTodoItem[];
+  /** #8711: these words were kept although a claim check flagged them, in a run that tried no change. */
+  nothingChanged: boolean;
 };
 
 export type PiRunInput = {
@@ -340,6 +341,15 @@ export function outputLimitRepairPrompt(cut: CutReply, attempt: number, maxOutpu
     );
   }
   return lines.join("\n");
+}
+
+/** A provider's tool call as a workspace call; unparsable arguments arrive as {}. */
+function asCall(call: ChatCompletionResult["toolCalls"][number]): WorkspaceCommandCall {
+  return {
+    id: call.id || randomUUID(),
+    name: call.function.name as WorkspaceCommandCall["name"],
+    arguments: parseArguments(call.function.arguments),
+  };
 }
 
 function parseArguments(raw: string): Record<string, unknown> {
@@ -592,11 +602,6 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           stream.push({ type: "text_delta", contentIndex: 0, delta: text, partial: message });
           stream.push({ type: "text_end", contentIndex: 0, content: text, partial: message });
         }
-        const asCall = (call: (typeof calls)[number]): WorkspaceCommandCall => ({
-          id: call.id || randomUUID(),
-          name: call.function.name as WorkspaceCommandCall["name"],
-          arguments: parseArguments(call.function.arguments),
-        });
         const allCalls = calls.map(asCall);
         for (const { id, name, arguments: args } of allCalls) {
           const toolCall = { type: "toolCall" as const, id, name, arguments: args as never };
@@ -608,7 +613,11 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         // Like classic, an identical call in one turn runs once; pi still needs a result for each call it was given.
         const workspaceCalls = dedupeWorkspaceCommandCalls(allCalls);
         const duplicates = new Set(allCalls.filter((call) => !workspaceCalls.includes(call)).map((call) => call.id));
-        const droppedMutating = truncated && parsedCalls.map(asCall).some(isMutatingWorkspaceCommand);
+        const sentCalls = parsedCalls.map(asCall);
+        const droppedMutating = truncated && sentCalls.some(isMutatingWorkspaceCommand);
+        // #8711: every change a turn sends counts for the run, whatever comes of it: cut off, held, set aside beside a
+        // question, or refused in a chips-only round.
+        if (isAgentTurn && sentCalls.some(isChangeAttemptCommand)) reviewState.changeTried = true;
         if (result.providerMetadata && workspaceCalls[0])
           metadataByCallId.set(workspaceCalls[0].id, result.providerMetadata);
         if (isAgentTurn) {
@@ -667,8 +676,6 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       stopRequested = true;
       return "done" as const;
     }
-    // #8711: a change cut off, held, or set aside beside a question never reaches the claim review as a call it ran.
-    if (current.droppedMutating || current.calls.some(isMutationShapedCommand)) reviewState.changeTried = true;
     if (current.calls.length === 0 && !current.text.trim() && !current.truncated) {
       // Same as classic: an empty turn is retried within a budget, then ends with a note.
       emptyRepairs += 1;
@@ -792,7 +799,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     }
     // A final answer that says a change is held, when nothing was held, is false: one repair, then an honest line.
     // Not after an applied change: a summary of real work must not be replaced by "nothing changed". Not in a run that
-    // tried no change either (#8711): the claim review kept those words and gives the reply its notice.
+    // tried no change either (#8711): there the claim review kept the words with the notice.
     const appliedAny = input.commandResults.some(
       (result) =>
         result.success && isMutatingWorkspaceCommand({ id: result.id, name: result.name, arguments: result.input }),
@@ -822,6 +829,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       if (visibleTextAsksApplyPermission(current.text)) runAskedForApproval = true;
       state.assistantText = current.text.trim();
       emitRoundText(trace, current.text, onEvent);
+      // #8711: the notice belongs to the reply these words are, never to words no check flagged.
+      state.nothingChanged = decision.kind === "notice";
+      if (state.nothingChanged) onEvent({ type: "metadata", data: { nothingChanged: true } });
       if (((current.results.length > 0 && hasWorkspaceCalls) || todoOnly) && !asking) {
         onEvent({ type: "metadata", data: { narration: true } });
       }
@@ -892,13 +902,16 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     // Calls in this turn never run; they only decide which line the user reads.
     const reply = textualTools ? textualReply(result.content) : null;
     const text = scrubInternalNames(reply ? reply.text : (result.content ?? "")).trim();
-    const tried = (reply?.calls ?? result.toolCalls).length > 0;
+    const sentCalls = (reply?.calls ?? result.toolCalls).map(asCall);
+    const tried = sentCalls.length > 0;
+    if (sentCalls.some(isChangeAttemptCommand)) reviewState.changeTried = true;
     const issue = auditWorkspaceCompletionClaim({ visibleText: text, commands: [], stop: true }, input.commandResults, {
       auditFrom: reviewState.claimAuditWatermark,
       hadPassedClaimAudit: reviewState.hadPassedClaimAudit,
       lastPassedClaimText: reviewState.lastPassedClaimText,
     }).issue;
-    if (issue && !keepsFlaggedReply(reviewState)) {
+    const nothingChanged = closingAnswerGetsNotice(reviewState, text, issue);
+    if (issue && !nothingChanged) {
       addNote(
         "Professor Mari reached the tool round limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.",
         "retry",
@@ -907,6 +920,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     } else if (text) {
       state.assistantText = text;
       emitRoundText(trace, text, onEvent);
+      state.nothingChanged = nothingChanged;
+      if (nothingChanged) onEvent({ type: "metadata", data: { nothingChanged: true } });
     } else if (tried) {
       addNote(
         "Professor Mari tried to call more tools after the round limit, so I stopped the loop. Ask her to continue if you want her to keep working from the saved trace.",
@@ -1228,8 +1243,6 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     if (providerError) throw providerError;
     if (signal.aborted) throw new Error("aborted");
     if (limitReached) await summarizeAtLimit(session);
-    const notice = nothingChangedNotice(reviewState);
-    if (notice) addNote(notice, "info", "warning");
   } finally {
     signal.removeEventListener("abort", onAbort);
     session.dispose();

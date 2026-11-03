@@ -6,13 +6,14 @@ import {
   parseAssistantWorkspaceAction,
   READ_BACK_MISMATCH_SENTINEL,
   READ_BACK_VERIFIED_SENTINEL,
+  STAGED_SENSITIVE_CHANGE_PREFIX,
+  workspaceTextClaimsHeldChange,
+  workspaceTextClaimsMutationCompletion,
   type WorkspaceCommandResult,
 } from "../../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import {
-  keepsFlaggedReply,
+  closingAnswerGetsNotice,
   newRoundReviewState,
-  NOTHING_CHANGED_NOTICE,
-  nothingChangedNotice,
   reviewRepeatedFailures,
   reviewRoundClaim,
   shouldDeferRoundMutations,
@@ -118,7 +119,7 @@ const mutationOutput = (sentinel: string) =>
 }
 
 // A false "done" with no mutation behind it is sent back for repair, then stops once the budget is spent - in a run
-// that tried a change (here one the loop held for approval, so it left no result).
+// that tried a change (#8711: here one the loop held, so it left no result).
 {
   const state = newRoundReviewState();
   state.changeTried = true;
@@ -141,12 +142,12 @@ const mutationOutput = (sentinel: string) =>
   assert.match((stopped as { content: string }).content, /could not verify the requested workspace change/u);
 }
 
-// #8711: a run that tried no change changed nothing and holds nothing, so a reply a claim check flags keeps its words:
-// no repair, no budget spent, and the run's reply gets the notice. A phrase in code, a blockquote or a quote is never
-// read, so those replies get no notice either.
+// #8711: a closing answer of a run that tried no change keeps its words: no repair and no budget spent. A claim check
+// that flags them gives the reply the notice; code, a blockquote or a quoted phrase is never read. Narration beside
+// commands, and every run that tried a change, are repaired as before.
 {
   const draftList = [
-    "Here are 12 short item descriptions you can paste into the other screen:",
+    "Here are 12 short item descriptions you can paste into another screen:",
     ...Array.from({ length: 11 }, (_, index) =>
       index % 2 === 0
         ? `${index + 1}. Starlit lantern ${index + 1}: a brass lantern that is created from a fallen star.`
@@ -154,75 +155,78 @@ const mutationOutput = (sentinel: string) =>
     ),
     "12. Fortune card: Your fate has been written in starlight.",
   ].join("\n");
+  // The issue's step 5: asked whether her reply format could confuse the review system, she explains the flow.
   const step5 =
     "Possibly. If a reply that made no change says a change is held for your review, or that a change card is ready, the check replaces it. In Manual mode, every edit is held for your approval until you press Accept.";
-  const kept: Array<[text: string, flagged: boolean]> = [
+  const closing: Array<[text: string, flagged: boolean]> = [
     [draftList, true],
     ['A reply like "The entry is created and the card was updated." reads as a finished change.', false],
     ["Phrases such as 'it is saved' or 'the change is held for your review' trip the check.", false],
     ["```text\nstatus: it is saved\nThe change is held for your review.\n```\nThat block is only an example.", false],
     ["Write `the card is updated` in the note, then:\n\n> Your changes are saved.", false],
-    [
-      "In Accept edits mode, each change you ask for is applied right away and a change card is added under my reply, so you can undo it. In Manual mode it waits on the card until you press Accept.",
-      true,
-    ],
+    ["In Accept edits mode, each change is applied right away and a change card is added under my reply.", true],
     [step5, true],
-    ["Here's an example: the change is held for your review.", true],
-    // Real false claims keep their words too; the notice says nothing was changed or held.
     ["Done! Your greeting has been updated.", true],
     ["Yes, it's saved.", true],
     ["Sure, I've staged the rename for your review.", true],
-    ["The rename is held for your review until you press Accept.", true],
-    ["All three of your changes are ready for your review.", true],
   ];
-  const docsSearch: WorkspaceCommandResult = {
+  const docsRead: WorkspaceCommandResult = {
     id: "d1",
-    name: "docs_search",
-    input: { query: "change cards" },
-    output: "results",
+    name: "docs_read",
+    input: { path: "home/mari.md" },
+    output: "The change card flow.",
     success: true,
   };
-  for (const [text, flagged] of kept) {
-    for (const [results, terminal] of [
-      [[], true],
-      [[docsSearch], true],
-      [[docsSearch], false],
-    ] as const) {
-      const label = `${text.slice(0, 48)} (terminal=${terminal}, results=${results.length})`;
+  for (const [text, flagged] of closing) {
+    for (const results of [[], [docsRead]]) {
+      const label = `${text.slice(0, 48)} (results=${results.length})`;
       const state = newRoundReviewState();
       const decision = reviewRoundClaim(state, {
-        action: frame(text, terminal ? [] : [{ name: "docs_read", arguments: { path: "home/mari.md" } }], terminal),
-        commandResultsForContinuity: [...results],
+        action: frame(text),
+        commandResultsForContinuity: results,
         truncated: false,
       });
-      assert.deepEqual(decision, { kind: "continue" }, label);
+      assert.deepEqual(decision, { kind: flagged ? "notice" : "continue" }, label);
       assert.equal(state.verificationRepairRounds + state.midRunClaimRepairRounds, 0, label);
-      assert.equal(nothingChangedNotice(state), flagged ? NOTHING_CHANGED_NOTICE : null, label);
     }
   }
 
-  // Once a change was tried - and failed, or was held - a false claim about it is repaired as before.
-  const failedUpdate = { ...appData("Error: update failed"), success: false };
-  for (const text of ["Done! Your greeting has been updated.", "Yes, it's saved.", "I updated the card."]) {
+  // Narration beside a real command keeps the step repair, in a run that tried no change too.
+  const midRun = reviewRoundClaim(newRoundReviewState(), {
+    action: frame(
+      "I've created entry A. Now let me check entry B.",
+      [{ name: "read", arguments: { path: "b.md" } }],
+      false,
+    ),
+    commandResultsForContinuity: [{ ...docsRead, name: "read", input: { path: "b.md" } }],
+    truncated: false,
+  });
+  assert.equal(midRun.kind, "repair");
+  assert.match((midRun as { prompt: string }).prompt, /You claimed a step was completed/u);
+
+  // Any change tried - failed, previewed, a shell command or a staged sensitive file - and the closing claim is
+  // repaired as before, with no notice.
+  const tried: WorkspaceCommandResult[] = [
+    { ...appData("Error: update failed"), success: false },
+    { ...appData('{"preview":true}'), input: { action: "character.update", characterId: "c1", apply: false } },
+    { id: "b1", name: "bash", input: { command: "ls" }, output: "Command: ls\nExit code: 0", success: true },
+    {
+      id: "w1",
+      name: "write",
+      input: { path: ".env", content: "x" },
+      output: `${STAGED_SENSITIVE_CHANGE_PREFIX} .env`,
+      success: true,
+    },
+  ];
+  for (const result of tried) {
     const decision = reviewRoundClaim(newRoundReviewState(), {
-      action: frame(text),
-      commandResultsForContinuity: [failedUpdate],
+      action: frame("Done! Your greeting has been updated."),
+      commandResultsForContinuity: [result],
       truncated: false,
     });
-    assert.equal(decision.kind, "repair", text);
-    assert.match((decision as { prompt: string }).prompt, /no mutating command succeeded/u, text);
-    const held = newRoundReviewState();
-    held.changeTried = true;
-    assert.equal(
-      reviewRoundClaim(held, { action: frame(text), commandResultsForContinuity: [], truncated: false }).kind,
-      "repair",
-      `${text} (held)`,
-    );
-    assert.equal(nothingChangedNotice(held), null);
+    assert.equal(decision.kind, "repair", result.name);
   }
-
-  // The flag is kept for the run: a change whose round was discarded (here cut off, so it never ran and was never
-  // audited) still makes the next round's claim a change run's.
+  // A change that never ran (here a cut-off frame) still counts for the rest of the run.
   {
     const state = newRoundReviewState();
     const write = { name: "write", arguments: { path: "greeting.md", content: "x" } };
@@ -232,46 +236,42 @@ const mutationOutput = (sentinel: string) =>
       truncated: true,
     });
     assert.equal(state.changeTried, true);
-    assert.equal(
-      reviewRoundClaim(state, {
-        action: frame("Done! Your greeting has been updated."),
-        commandResultsForContinuity: [],
-        truncated: false,
-      }).kind,
-      "repair",
-    );
+    const claim = {
+      action: frame("Done! Your greeting has been updated."),
+      commandResultsForContinuity: [],
+      truncated: false,
+    };
+    assert.equal(reviewRoundClaim(state, claim).kind, "repair");
+    assert.equal(closingAnswerGetsNotice(state, "Done! Your greeting has been updated.", "none"), false);
   }
 
-  // A change tried after a kept reply withdraws the notice: the run may have changed something after all.
-  {
-    const state = newRoundReviewState();
-    reviewRoundClaim(state, {
-      action: frame("I've updated it.", [{ name: "docs_read", arguments: { path: "home/mari.md" } }], false),
-      commandResultsForContinuity: [docsSearch],
-      truncated: false,
-    });
-    assert.equal(nothingChangedNotice(state), NOTHING_CHANGED_NOTICE);
-    reviewRoundClaim(state, {
-      action: frame("", [{ name: "write", arguments: { path: "greeting.md", content: "x" } }], false),
-      commandResultsForContinuity: [docsSearch],
-      truncated: false,
-    });
-    assert.equal(nothingChangedNotice(state), null);
-    assert.equal(keepsFlaggedReply(state), false, "a tried change is no longer kept");
-  }
-
-  // A change sent beside a question is set aside unrun; the frame says so, and the loop marks the run with it.
-  const beside = parseAssistantWorkspaceAction(
-    JSON.stringify({
-      say: "Which tone next?",
-      ask: [{ question: "Which tone?", options: [{ label: "Dark" }, { label: "Light" }] }],
-      commands: [{ name: "write", arguments: { path: "greeting.md", content: "x" } }],
-      stop: false,
+  // The frame says when it sent a change that will not run: beside a question, or in a frame the protocol rejects.
+  const parse = (payload: Record<string, unknown>) => parseAssistantWorkspaceAction(JSON.stringify(payload));
+  const write = { name: "write", arguments: { path: "greeting.md", content: "x" } };
+  for (const unrun of [
+    parse({
+      say: "Which tone?",
+      ask: [{ question: "Which?", options: [{ label: "A" }, { label: "B" }] }],
+      commands: [write],
     }),
-  );
-  assert.equal(beside.commands.length, 0, "a change beside a question does not run");
-  assert.equal(beside.changeBesideQuestion, true);
-  assert.equal(frame("Which tone next?").changeBesideQuestion, false);
+    parse({ say: "", commands: [write, { name: "not_a_tool", arguments: {} }], stop: false }),
+  ]) {
+    assert.equal(unrun.commands.length, 0, "the change does not run");
+    assert.equal(unrun.triedChange, true);
+  }
+  assert.equal(parse({ say: "", commands: [{ name: "bash", arguments: { command: "ls" } }] }).triedChange, true);
+  assert.equal(parse({ say: "", commands: [{ name: "read", arguments: { path: "a.md" } }] }).triedChange, false);
+
+  // Only closed code is stripped, and a quote never pairs across a sentence or on an apostrophe or plural possessive.
+  for (const text of [
+    "```\nI have updated the card.",
+    "The '90s theme is set. Users' names stay.",
+    "The '90s theme is set and Users' names stay.",
+    'A stray " mark. I\'ve saved the layout, see "Margins".',
+  ]) {
+    assert.equal(workspaceTextClaimsMutationCompletion(text), true, text);
+  }
+  assert.equal(workspaceTextClaimsHeldChange("```\nThe change is held for your review."), true);
 }
 
 // A read-back mismatch under a completion claim must not be claimed as success.

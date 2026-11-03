@@ -2,7 +2,7 @@
 // Covers the tool-call round trip through WorkspaceCommands, the Permissions Mode floors, abort, the classic
 // default and fallback, the closed tool set, replay metadata, the per-turn review and the real prompt builder.
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -48,8 +48,6 @@ try {
   } = await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
   const { assertClosedToolSet, describeCutReply, outputLimitRepairPrompt, MAX_OUTPUT_LIMIT_REPAIRS } =
     await import("../../../packages/server/src/services/professor-mari/pi-runtime.js");
-  const { NOTHING_CHANGED_NOTICE } =
-    await import("../../../packages/server/src/services/professor-mari/workspace-round-review.js");
   // These frames test claims and rounds, not the handbook gate (dry-run-enforcement pins that).
   const { setSkillGateEnabled } =
     await import("../../../packages/server/src/services/professor-mari/workspace-commands.js");
@@ -327,7 +325,7 @@ try {
     );
     assert.deepEqual((await lorebooks.getEntry(duke.id))?.keys, keys);
     // A read that still shows Duke cannot prove the model's claim that it deleted him. The run tried no change, so the
-    // words stay and the notice says nothing was changed (#8711); no hidden repair is sent.
+    // words stay, with no hidden repair, and the reply carries the notice flag (#8711).
     const falseDeletion = await start(
       "unsupported deletion claim",
       [
@@ -350,10 +348,9 @@ try {
     );
     await falseDeletion.done;
     assert.equal(requests.length, 2, "no repair request");
-    assert.equal(
-      (await lastAssistant(created.chat.id))?.content,
-      `I deleted Duke Gunterlie.\n\n${NOTHING_CHANGED_NOTICE}`,
-    );
+    const deletionReply = await lastAssistant(created.chat.id);
+    assert.equal(deletionReply?.content, "I deleted Duke Gunterlie.");
+    assert.equal(deletionReply?.extra.mariNothingChanged, true);
     assert.ok(await lorebooks.getEntry(duke.id), "a read-only run never deleted the entry");
     const deleted = await start(
       "delete Duke and keys",
@@ -555,8 +552,8 @@ try {
     const savedAgain = await lastAssistant(held.chat.id);
     assert.equal(savedAgain?.extra.mariDeferredMutations, true);
     assert.match(JSON.stringify(savedAgain?.extra.mariHeldChanges), /armed-b\.txt/u);
-    // An armed run that only CLAIMS it is done, with no call, tried no change: the words stay, with the notice that
-    // nothing was changed or held (#8711).
+    // An armed run that only CLAIMS it is done, with no call, tried no change: its words stay and the reply carries the
+    // notice flag (#8711).
     const claim = await start(
       "pi armed claim",
       [reply("I have updated armed2.txt for you."), reply("This must never be requested.")],
@@ -567,14 +564,13 @@ try {
     await claim.done;
     armed = false;
     assert.equal(requests.length, 1);
-    assert.equal(
-      (await lastAssistant(held.chat.id))?.content,
-      `I have updated armed2.txt for you.\n\n${NOTHING_CHANGED_NOTICE}`,
-    );
+    const armedReply = await lastAssistant(held.chat.id);
+    assert.equal(armedReply?.content, "I have updated armed2.txt for you.");
+    assert.equal(armedReply?.extra.mariNothingChanged, true);
   }
 
   // A held-change claim on a run that tried a change but held nothing is sent back once, then replaced by an honest
-  // line. In a run that tried no change, the words stay with the notice instead (#8711).
+  // line. In a run that tried no change the words stay, with the notice flag (#8711).
   {
     mode = "auto";
     for (const text of [
@@ -623,7 +619,7 @@ try {
     assert.equal(requests.length, 3);
     assert.match((await lastAssistant(repeated.chat.id))?.content ?? "", /did not make or hold any change/u);
 
-    // #8711: after only a read, nothing was tried: no repair, no canned line, and the notice follows her words.
+    // After only a read nothing was tried: no repair, no canned line.
     const readOnly = await start("pi held claim read only", [
       reply("", [readCall("held-r1")]),
       reply("Held for your review — the change card is ready."),
@@ -631,10 +627,9 @@ try {
     ]);
     await readOnly.done;
     assert.equal(requests.length, 2, "no repair request");
-    assert.equal(
-      (await lastAssistant(readOnly.chat.id))?.content,
-      `Held for your review — the change card is ready.\n\n${NOTHING_CHANGED_NOTICE}`,
-    );
+    const readOnlyReply = await lastAssistant(readOnly.chat.id);
+    assert.equal(readOnlyReply?.content, "Held for your review — the change card is ready.");
+    assert.equal(readOnlyReply?.extra.mariNothingChanged, true);
   }
 
   // (d) Abort stops the run immediately: no tool starts, no further request.
@@ -659,10 +654,14 @@ try {
     assert.equal((await service.status(null, null)).active, false);
   }
 
-  // (g) #8711: in a run that tried no change, a reply the claim checks flag keeps her words exactly, no hidden repair
-  // is sent, and the notice follows; a draft, quote, code block or explanation they do not flag stays as it is. Once a
-  // change was tried and failed or was held, a false claim is still sent back as a repair. Both runtimes.
+  // (g) #8711: a closing answer of a run that tried no change keeps her words exactly, with no hidden repair. When a
+  // claim check flags them, the reply carries the nothingChanged flag the client shows as its localized note, which is
+  // never her text or her history. Narration beside a command, and a run that tried a change (a shell command, a failed
+  // or a held change), are repaired as before. Both runtimes.
   {
+    const enLocale = new URL("../../../packages/client/src/localization/locales/en.json", import.meta.url);
+    const notice = (JSON.parse(readFileSync(enLocale, "utf8")) as Record<string, string>)["mari.reply.nothingChanged"];
+    assert.ok(notice, "the client has the note's English line");
     const draftList = [
       "Here are 12 short item descriptions you can paste into another screen:",
       ...Array.from({ length: 11 }, (_, index) =>
@@ -675,35 +674,16 @@ try {
     // The issue's step 5: asked whether her reply format could confuse the review system, she explains the flow.
     const step5 =
       "Possibly. If a reply that made no change says a change is held for your review, or that a change card is ready, the check replaces it. In Manual mode, every edit is held for your approval until you press Accept.";
-    const cases: Array<[text: string, flagged: boolean]> = [
+    const closing: Array<[text: string, flagged: boolean]> = [
       [draftList, true],
       ['A reply like "The entry is created and the card was updated." reads as a finished change.', false],
       ["```text\nstatus: it is saved\nThe change is held for your review.\n```\nThat block is only an example.", false],
       ["> Your changes are saved.\n\nThat line is a quote.", false],
-      [
-        "In Accept edits mode, each change you ask for is applied right away and a change card is added under my reply, so you can undo it.",
-        true,
-      ],
+      ["In Accept edits mode, each change is applied right away and a change card is added under my reply.", true],
       [step5, true],
-      ["Here's an example: the change is held for your review.", true],
-      // From the review of the earlier fix: descriptions, a second-person draft, and more of the change-card flow.
-      ["Your chats are saved on the server in the data folder.", true],
-      ["It's saved in your browser, so clearing site data removes it.", true],
-      ["Your temperature is set to 0.7.", true],
-      ["Three greetings:\n- Your name was written in the stars.\n- Your path is set by the tides.", true],
-      ["When I propose an edit in Manual mode, the change is held for your review on a change card.", true],
-      ["In Manual mode, edits are held for your approval, and the change card is where you accept them.", true],
-      ["The change card is ready only after I actually stage something.", true],
-      ["Possibly. The guard reacts to wording like: the change is held for your review.", true],
-      ['The check looks for phrases like "held for your review" and `the change card is ready`.', false],
-      ["Phrases such as 'it is saved' or 'the change is held for your review' trip the check.", false],
-      ["> Held for your review — the change card is ready.", false],
-      // Real false claims keep their words too: the notice is the correction.
       ["Done! Your greeting has been updated.", true],
       ["Yes, it's saved.", true],
       ["Sure, I've staged the rename for your review.", true],
-      ["The rename is held for your review until you press Accept.", true],
-      ["All three of your changes are ready for your review.", true],
     ];
     const answer = (runtime: "pi" | "classic", text: string, calls: Call[] = []) =>
       runtime === "pi"
@@ -717,41 +697,83 @@ try {
           );
     const lastUserText = (index: number) =>
       requests[index]!.messages.filter((message) => message.role === "user").pop()?.content ?? "";
+    const flagEvents = (events: Array<{ type: string; data?: unknown }>) =>
+      events.filter((event) => event.type === "metadata" && (event.data as { nothingChanged?: boolean }).nothingChanged)
+        .length;
+    const historyService = makeService(false);
     for (const runtime of ["pi", "classic"] as const) {
       mode = "auto";
-      for (const [text, flagged] of cases) {
+      for (const [text, flagged] of closing) {
         const label = `${runtime}: ${text.slice(0, 40)}`;
         const run = await start(
-          `no change ${label}`,
+          `closing ${label}`,
           [answer(runtime, text), answer(runtime, "Never requested.")],
           runtime,
         );
         await run.done;
         assert.equal(requests.length, 1, `${label}: no hidden repair`);
-        const saved = (await lastAssistant(run.chat.id))?.content;
-        assert.equal(saved, flagged ? `${text}\n\n${NOTHING_CHANGED_NOTICE}` : text, label);
-        assert.doesNotMatch(saved ?? "", /did not make or hold any change/u, `${label}: never the canned line`);
-        if (flagged) assert.ok(statusTexts(run.events).includes(NOTHING_CHANGED_NOTICE), `${label}: a status line too`);
+        const saved = await lastAssistant(run.chat.id);
+        assert.equal(saved?.content, text, `${label}: her words, exactly`);
+        assert.equal(saved?.extra.mariNothingChanged, flagged || undefined, label);
+        assert.equal(flagEvents(run.events), flagged ? 1 : 0, `${label}: the stream carries the flag too`);
       }
+      // The next run reads her words as she wrote them, with no notice in them.
+      const flagged = await start(`flagged history ${runtime}`, [answer(runtime, "Yes, it's saved.")], runtime);
+      await flagged.done;
+      const next = await start(
+        "unused",
+        [answer(runtime, "Noted.")],
+        runtime,
+        historyService,
+        flagged.chat.id,
+        "Thanks.",
+      );
+      await next.done;
+      const history = JSON.stringify(requests[0]!.messages);
+      assert.ok(history.includes("Yes, it's saved."), `${runtime}: her words are in her history`);
+      assert.ok(!history.includes(notice), `${runtime}: the notice is not`);
 
-      const failedEdit: Call = {
-        id: `claim-edit-${runtime}`,
-        name: "edit",
-        args: { path: "hello.txt", edits: [{ oldText: "not in the file", newText: "x" }], reason: "t" },
-      };
-      const failed = await start(
-        `failed change claim ${runtime}`,
+      // Narration beside a real command is still repaired as a step claim.
+      const midRun = await start(
+        `mid-run claim ${runtime}`,
         [
-          answer(runtime, "", [failedEdit]),
-          answer(runtime, "Done! Your greeting has been updated."),
-          answer(runtime, "The edit failed, so nothing changed."),
+          answer(runtime, "I've created entry A. Now let me check entry B.", [
+            { id: `claim-read-${runtime}`, name: "read", args: { path: "hello.txt" } },
+          ]),
+          answer(runtime, "Entry A is not there yet."),
         ],
         runtime,
       );
-      await failed.done;
-      assert.equal(requests.length, 3, `${runtime}: a claim after a failed change is repaired`);
-      assert.match(lastUserText(2), /no mutating command succeeded/u);
-      assert.equal((await lastAssistant(failed.chat.id))?.content, "The edit failed, so nothing changed.");
+      await midRun.done;
+      assert.equal(requests.length, 2, `${runtime}: the step claim is repaired`);
+      assert.match(lastUserText(1), /You claimed a step was completed/u);
+      assert.equal((await lastAssistant(midRun.chat.id))?.content, "Entry A is not there yet.");
+
+      // A shell command or a failed change was tried: a false closing claim is repaired, with no flag.
+      for (const call of [
+        { id: `claim-bash-${runtime}`, name: "bash", args: { command: "ls" } },
+        {
+          id: `claim-edit-${runtime}`,
+          name: "edit",
+          args: { path: "hello.txt", edits: [{ oldText: "not in the file", newText: "x" }], reason: "t" },
+        },
+      ]) {
+        const tried = await start(
+          `${call.name} then claim ${runtime}`,
+          [
+            answer(runtime, "", [call]),
+            answer(runtime, "Done! Your greeting has been updated."),
+            answer(runtime, "Nothing changed yet."),
+          ],
+          runtime,
+        );
+        await tried.done;
+        assert.equal(requests.length, 3, `${runtime} ${call.name}: the claim is repaired`);
+        assert.match(lastUserText(2), /no mutating command succeeded/u);
+        const saved = await lastAssistant(tried.chat.id);
+        assert.equal(saved?.content, "Nothing changed yet.");
+        assert.equal(saved?.extra.mariNothingChanged, undefined);
+      }
 
       // Manual holds the change: classic repairs the claim beside it, pi replaces the words with the held line.
       mode = "manual";
@@ -774,6 +796,7 @@ try {
         assert.equal(requests.length, 1);
         assert.match((await lastAssistant(held.chat.id))?.content ?? "", /^I have changes ready\./u);
       }
+      assert.equal((await lastAssistant(held.chat.id))?.extra.mariNothingChanged, undefined);
     }
     mode = "auto";
   }
