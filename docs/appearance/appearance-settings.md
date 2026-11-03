@@ -85,7 +85,7 @@ Clearing a color field returns it to the scheme default.
 
 ### Backgrounds
 
-The **Backgrounds** section holds the **Chat Background** picker and **Background Blur**. Two more controls are here. **Conversation background image opacity** sets how strongly the chat background shows in Conversation mode, with the gradient still visible. **Chat List Backgrounds** shows each chat's background as a muted banner behind its row in the chat list. See [Chat Backgrounds](chat-backgrounds.md).
+The **Backgrounds** section holds the **Chat Background** picker and **Background Blur**. Two more controls are here. **Conversation background image opacity** sets how strongly the chat background shows in Conversation mode, with the gradient still visible. **Chat List Backgrounds** shows each chat's background as a muted banner behind its row in the chat list. Choose **Active & Hovered**, **Every Row** or **Off**. See [Chat Backgrounds](chat-backgrounds.md).
 
 ## Conversation button
 
