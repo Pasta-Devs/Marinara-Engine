@@ -1,14 +1,12 @@
 # Prompt Macros
 
-This guide explains prompt macros in Marinara Engine. A macro is a short `{{tag}}` that Marinara replaces with a live value. The value is filled in when a prompt is built, such as your name or the current date. You will learn every built-in macro, where you can type them, and the mistakes to avoid.
+A macro is a short `{{tag}}` that Marinara replaces with a live value, such as your name or the current date, when it builds a prompt. This guide lists every built-in macro, where you can type them and the mistakes to avoid.
 
-## What macros are and where they work
+## Where macros work
 
-A macro is literal text wrapped in double braces, like `{{user}}` or `{{char}}`. When Marinara builds the text it sends to the AI, it scans for these tags and swaps each one for its current value. There is no switch to turn macros on. Any field that supports them always resolves them.
+When Marinara builds the text it sends to the AI, it swaps each `{{tag}}` for its current value. There is no switch to turn macros on. Any field that supports them always resolves them. Names of built-in macros are not case sensitive, so `{{user}}` and `{{USER}}` both work. A macro value can contain another macro, and Marinara resolves that one too.
 
-Macro names are not case sensitive for built-in tags. So `{{user}}` and `{{USER}}` both work.
-
-You can type macros in many places across the app:
+You can type macros in these places:
 
 - Character fields in the **Character Editor**: Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions, and the **Depth Prompt**.
 - Persona fields in the **Persona Editor** (the same card fields).
@@ -18,13 +16,7 @@ You can type macros in many places across the app:
 - Agent prompt templates.
 - The chat message box. Type `{{roll:1d20}}` in a message and it resolves before the message is sent.
 
-A macro value can contain another macro, and Marinara resolves that one too.
-
-## Before you start
-
-You do not need to set anything up. The built-in macros work right away, with no API key and no extra connection. An API key is the secret code that lets Marinara talk to an AI provider, but macros run inside Marinara on their own.
-
-Two macro features do depend on other parts of the app:
+Macros run inside Marinara and need no setup or API key. Two features depend on other parts of the app:
 
 - Preset variables (the `{{NAME}}` catch-all) need a prompt preset that defines them. See [Preset Variables](preset-variables.md).
 - The agent macro `{{agent::TYPE}}` only shows text once the matching agent has run and produced output.
@@ -116,7 +108,7 @@ These macros describe the current chat and the current request.
 | `{{gameStoryboardKeyframeCount}}` | Game Mode's current **Keyframes per Turn** target, from 1 to 6. It defaults to `3`. |
 | `{{agent::TYPE}}` | The saved output of an agent of the given type. |
 
-`{{reasoning}}` names the level the model is actually sent, after your preset, connection, and chat settings are layered. **Maximum** shows as the highest level the model takes, so it can read `max`, `xhigh`, or `high`. Because `off` reads as false, `{{#if reasoning}}` keeps a block only while the model thinks. If your preset or chat already has its own variable named `reasoning`, that variable keeps the name.
+`{{reasoning}}` names the level the model is sent, after your preset, account and chat settings are layered. **Maximum** shows as the highest level the model takes, so it can read `max`, `xhigh`, or `high`. Because `off` reads as false, `{{#if reasoning}}` keeps a block only while the model thinks. If your preset or chat already has its own variable named `reasoning`, that variable keeps the name.
 
 The value of `{{lastGenerationType}}` is a plain label. Example values seen in the app include `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan`, and `retry_agents`. This list can grow, so treat it as examples, not a fixed set.
 
@@ -134,7 +126,7 @@ Use Outlet macros in prompt sections in Conversation, Roleplay, or Game mode. Th
 
 ## Lorebook size macro
 
-`{{lorebooksize::ID}}` resolves to the total number of entries in the lorebook with the given ID. Replace `ID` with the lorebook's actual ID — copy it from the Lorebooks panel. For example, if a lorebook has the ID `V1StGXR8_Z5jdHi6B-myT` and contains 151 entries, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` resolves to `151`.
+`{{lorebooksize::ID}}` resolves to the total number of entries in the lorebook with the given ID. Replace `ID` with the lorebook's ID, which you can copy from the **Lorebooks** panel. For example, if a lorebook has the ID `V1StGXR8_Z5jdHi6B-myT` and contains 151 entries, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` resolves to `151`.
 
 Unknown lorebook IDs resolve to `0`. The count includes all entries regardless of whether they are enabled, disabled, or in folders.
 
@@ -240,7 +232,7 @@ Any `{{NAME}}` that is not a built-in macro is looked up by name: first among th
 
 You do not have to use `{{setvar}}` to create a variable. The **Chat Variables** section of the **Chat Settings** panel lets you type a name and a value directly, then use the name anywhere macros work, including your own messages. Add `char1` with the value `Mary`, type `{{char1}} walks in.` and the AI reads "Mary walks in."
 
-Rules worth knowing:
+Rules for chat variables:
 
 - Names use letters, numbers, and underscores, and must start with a letter or underscore. Names with exactly 21 characters are reserved for character references. A name with a dot or a dash can still be set and read with `{{setvar}}` and `{{getvar}}`, but it will not resolve as a bare `{{name}}`.
 - A built-in macro name cannot be used. `{{char}}` always means the character.
@@ -280,9 +272,16 @@ These fields also finish macro names for you. Type `{{ch` at the end of a line a
 
 You can also type `/macros` in the chat box (the short form `/macro` works too). It prints the full macro list right in the chat as a quick reminder.
 
-Conditional blocks can combine comparisons with `||` (OR), `&&` (AND), and parentheses. Equality lists may use the compact form `{{#if character == "Maukie" || "Pantalone"}}`. See [Conditional Prompts](conditional-prompts.md) for precedence, group-chat examples, and the full operator list.
+## Conditions with macros
 
-A condition can also ask your Decision model about the scene: `{{#if decision:"The latest message moves the scene to a new place"}}` for yes or no, and `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` to pick one option. With no Decision model, or no answer, these read as no. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model). Add `sticky:3 cooldown:5` after a statement to keep a yes for three turns and then rest it for five; see [Sticky and cooldown](conditional-prompts.md#sticky-and-cooldown). Add `until:"..."` or `while:"..."` to keep a yes for as long as a second statement allows; see [Until and while](conditional-prompts.md#until-and-while). `every:3` asks a statement only every three turns, and `priority:high` or `priority:low` chooses which statements fit within a prompt plan; see [Checking every few turns](conditional-prompts.md#checking-every-few-turns), [Priority](conditional-prompts.md#priority), and [Limits and cost](conditional-prompts.md#limits-and-cost).
+Conditional blocks (`{{#if ...}}`) can combine comparisons with `||` (OR), `&&` (AND) and parentheses. Equality lists can use the compact form `{{#if character == "Maukie" || "Pantalone"}}`. See [Conditional Prompts](conditional-prompts.md) for precedence, group-chat examples and the full operator list.
+
+A condition can also ask your Decision model about the scene, for example `{{#if decision:"The latest message moves the scene to a new place"}}` for yes or no, and `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}` to pick one option. With no Decision model, or no answer, these read as no. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model). Options you can add after a statement:
+
+- `sticky:3 cooldown:5` keeps a yes for three turns, then rests it for five. See [Sticky and cooldown](conditional-prompts.md#sticky-and-cooldown).
+- `until:"..."` or `while:"..."` keeps a yes for as long as a second statement allows. See [Until and while](conditional-prompts.md#until-and-while).
+- `every:3` asks a statement only every three turns. See [Checking every few turns](conditional-prompts.md#checking-every-few-turns).
+- `priority:high` or `priority:low` chooses which statements fit within a prompt plan. See [Priority](conditional-prompts.md#priority) and [Limits and cost](conditional-prompts.md#limits-and-cost).
 
 ## Common mistakes
 
