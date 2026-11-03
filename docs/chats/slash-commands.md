@@ -9,7 +9,7 @@ A slash command is a shortcut you type in the message box, starting with `/`, to
 
 As soon as you type `/`, a menu of matching commands appears above the box. Each row shows the command format and a short description. Click a row to fill it into the box, add any extra text, and send. The box hint also mentions commands: **Write your response, / for commands** in Roleplay, and "Message @Alice, / for commands" in Conversation.
 
-Replace bracketed labels such as `[name]` or `[range]` with your own values and do not type the brackets. Inputs marked `(optional)` can be left out. A `|` separates alternatives. Many commands have shorter aliases, such as `/cont` for `/continue`. To see every command in the app, type:
+In the tables, the format of each command is in its row. Replace bracketed labels such as `[name]` or `[range]` with your own values and do not type the brackets. Inputs marked `(optional)` can be left out. A `|` separates alternatives. Many commands have shorter aliases, such as `/cont` for `/continue`. To see every command in the app, type:
 
 ```text
 /help
@@ -25,17 +25,17 @@ Several commands use message numbers. Marinara counts from the first message in 
 
 These work in Conversation and Roleplay.
 
-| Command | Also works as | What it does |
-| --- | --- | --- |
-| `/help` | | Lists every slash command. |
-| `/send [message]` | | Posts a message as your persona without asking for a reply. Macros are filled in, as with **Send**. |
-| `/continue` | `/cont` | Adds more text to the last AI reply, without a new message. **Settings → General → Responses → Add a new line before /continue text** sets whether the text starts after a blank line or at the cutoff. |
-| `/goto [number]` | `/jump`, `/scroll` | Scrolls the chat to a message number. |
-| `/hide [range] [name (optional)]` | | Hides messages from the model on future turns. |
-| `/unhide [range]` | | Puts globally hidden messages back. |
-| `/sys [message]` | `/system` | Adds a system message. It shows in the chat and steers the model, but no character speaks it. |
-| `/macros` | `/macro` | Lists prompt macros such as `{{user}}` and `{{char}}`. |
-| `/remind [time] [message]` | `/reminder`, `/timer` | Sets a timer, then posts a reminder in the chat. |
+| Command | What it does |
+| --- | --- |
+| `/help` | Lists every slash command. |
+| `/send` | Posts a message as your persona without asking for a reply. Macros are filled in, as with **Send**. Format: `/send [message]`. |
+| `/continue` | Adds more text to the last AI reply, without a new message. Also `/cont`. **Settings → General → Responses → Add a new line before /continue text** sets whether the text starts after a blank line or at the cutoff. |
+| `/goto` | Scrolls the chat to a message number. Also `/jump`, `/scroll`. Format: `/goto [number]`. |
+| `/hide` | Hides messages from the model on future turns. Format: `/hide [range] [name (optional)]`. |
+| `/unhide` | Puts globally hidden messages back. Format: `/unhide [range]`. |
+| `/sys` | Adds a system message. It shows in the chat and steers the model, but no character speaks it. Also `/system`. Format: `/sys [message]`. |
+| `/macros` | Lists prompt macros such as `{{user}}` and `{{char}}`. Also `/macro`. |
+| `/remind` | Sets a timer, then posts a reminder in the chat. Also `/reminder`, `/timer`. Format: `/remind [time] [message]`. |
 
 Examples:
 
@@ -60,21 +60,21 @@ Quote names that contain spaces. The older name-first forms such as `/hide Mauki
 
 ## Story and roleplay commands
 
-| Command | Also works as | What it does |
-| --- | --- | --- |
-| `/guided [direction]` or `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Steers the next reply. |
-| `/as [name] [message (optional)]` | `/respond` | Posts a message as a character, or asks that character to reply. |
-| `/emote [expression (optional)]` or `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Lists or switches a sprite expression. |
-| `/roll [dice (optional)]` | `/r`, `/dice` | Rolls dice and posts the result. |
-| `/random` | `/rand`, `/event` | Asks the model to add a surprise event. |
-| `/scene [description (optional)]` | `/rp` | Starts a Roleplay scene that branches off the conversation. |
-| `/illustrate [range=N or range=N-M (optional)] [prompt (optional)]` | `/ill` | Generates a gallery image. Needs the Illustrator agent. |
-| `/html [what you want]` | | Roleplay | Makes one in-world artifact, such as `a spellbook page`, at the end of the latest reply. |
-| `/video [description (optional)]` | | Roleplay | Makes a short clip of the latest reply, or of your description, under that reply. Follows Illustrator's **First frame** setting. Needs Illustrator. |
-| `/impersonate [direction (optional)]` | `/imp` | Writes a reply as your persona. |
-| `/impersonate_prompt [prompt or reset]` | `/imp_prompt` | Sets the instruction `/impersonate` uses in this chat. |
+| Command | What it does |
+| --- | --- |
+| `/guided` | Steers the next reply. Also `/narrator`, `/narrate`, `/nar`. Format: `/guided [direction]`. |
+| `/as` | Posts a message as a character, or asks that character to reply. Also `/respond`. Format: `/as [name] [message (optional)]`. |
+| `/emote` | Lists or switches a sprite expression. Also `/emotion`, `/sprite`. Format: `/emote [expression]`. |
+| `/roll` | Rolls dice and posts the result. Also `/r`, `/dice`. Format: `/roll [dice (optional)]`. |
+| `/random` | Asks the model to add a surprise event. Also `/rand`, `/event`. |
+| `/scene` | Starts a Roleplay scene that branches off the conversation. Also `/rp`. Format: `/scene [description (optional)]`. |
+| `/illustrate` | Roleplay only. Generates a gallery image. Needs the Illustrator agent. Also `/ill`. Format: `/illustrate [range=N-M] [prompt]`. |
+| `/html` | Roleplay only. Makes one in-world artifact, such as `a spellbook page`, at the end of the latest reply. Format: `/html [what you want]`. |
+| `/video` | Roleplay only. Makes a short clip of the latest reply, or of your description, under that reply. Follows Illustrator's **First frame** setting. Needs Illustrator. Format: `/video [description]`. |
+| `/impersonate` | Writes a reply as your persona. Also `/imp`. Format: `/impersonate [direction (optional)]`. |
+| `/impersonate_prompt` | Sets the instruction `/impersonate` uses in this chat. Also `/imp_prompt`. Format: `/impersonate_prompt [prompt or reset]`. |
 
-Most of these work best in Roleplay. `/scene` is run from a Conversation. `/illustrate` and `/html` are Roleplay only, and `/impersonate` and `/impersonate_prompt` are not available in Conversation.
+Most of these work best in Roleplay. `/scene` is run from a Conversation. `/impersonate` and `/impersonate_prompt` are not available in Conversation.
 
 ### Steer a reply
 
@@ -126,13 +126,13 @@ These work only in a Conversation chat.
 | Command | What it does |
 | --- | --- |
 | `/games` | Opens the installed game picker. `/game` and `/play` do the same. |
-| `/selfie [name (optional)]` | Generates a selfie with the Illustrator agent. Add a name to choose a character. |
-| `/video [name (optional)]` | Has a character send a short video message, using the chat's **Video messages** settings. See [Video messages](../conversation/selfies.md#video-messages). |
+| `/selfie` | Generates a selfie with the Illustrator agent. Add a name to choose a character. Format: `/selfie [name (optional)]`. |
+| `/video` | Has a character send a short video message, using the chat's **Video messages** settings. See [Video messages](../conversation/selfies.md#video-messages). Format: `/video [name (optional)]`. |
 | `/uno` | Starts UNO with the characters in the chat. |
 | `/chess` | Starts a one-on-one chess game with a character. |
 | `/poker` | Starts Texas Hold'em with the characters. |
 | `/8ball` | Starts one-on-one 8-ball pool with a character. `/pool` does the same. |
-| `/status [online\|idle\|dnd\|offline\|clear] [name (optional)]` | Sets or clears a character's presence status. |
+| `/status` | Sets or clears a character's presence status. Format: `/status [online, idle, dnd, offline or clear] [name]`. |
 
 The game commands open that game's setup screen, and each appears only when its game agent is installed. You can play one game at a time in a chat. See [Table Games](../conversation/table-games.md).
 
