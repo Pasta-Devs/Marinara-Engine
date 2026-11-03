@@ -20,7 +20,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
 import { ConnectionSwitcherBody, useChatModelPick } from "../connections/ConnectionSwitcherBody";
-import { IdentityPicker } from "./IdentityPicker";
+import { CharacterPickerList } from "../characters/CharacterPickerList";
 
 export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: ProfessorMariContextBudget | null }) {
   const { t: localizeUi } = useUiTranslation();
@@ -155,10 +155,11 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               </div>
             )}
             {tab === "personas" && (
-              <IdentityPicker
-                scope="persona"
-                activePersonaId={activePersonaId}
-                activeCharacterId={activeCharacterId}
+              <CharacterPickerList
+                kind="persona"
+                personaIds={activePersonaId ? [activePersonaId] : []}
+                characterIds={activeCharacterId ? [activeCharacterId] : []}
+                onPickNone={() => handleSwitchPersona(null)}
                 onPickPersona={handleSwitchPersona}
                 onPickCharacter={handleSwitchCharacter}
               />
