@@ -396,6 +396,78 @@ assert.equal(
   "batch JSON repair must not hide an incomplete inventory array from validation",
 );
 
+// Marinara-Agents#2077: Inventory has three groups, so a root envelope names none.
+// A row goes to the one group that already tracks its name, alone or beside group
+// parts; a row no single group tracks is retried like invalid JSON, then fails.
+const inventoryContext = { ...context, gameState: { playerStats: savedInventory } } as AgentContext;
+for (const [output, expected] of [
+  [{ updates: [{ name: "gold", qty: 5 }] }, { inventoryTrackerCurrencies: [{ name: "Gold", qty: 5 }] }],
+  [{ removed: ["Rope"] }, { inventoryTrackerInventory: [{ name: "Potion", qty: 3 }] }],
+  [
+    {
+      inventory: [{ name: "Rope" }, { name: "Potion", qty: 3 }, { name: "Lantern" }],
+      updates: [
+        { name: "Gold", qty: 5 },
+        { name: "Potion", qty: 2 },
+      ],
+    },
+    {
+      inventoryTrackerCurrencies: [{ name: "Gold", qty: 5 }],
+      inventoryTrackerInventory: [{ name: "Rope" }, { name: "Potion", qty: 2 }, { name: "Lantern" }],
+    },
+  ],
+  [
+    { equipped: { updates: [{ name: "Shield" }] }, removed: ["Sword"] },
+    { inventoryTrackerEquipped: [{ name: "Shield" }] },
+  ],
+] as const) {
+  const single = await executeAgent(
+    inventoryAgent,
+    inventoryContext,
+    new RecordingProvider(JSON.stringify(output)),
+    "agent-model",
+  );
+  const batched = (
+    await executeAgentBatch(
+      [inventoryAgent, makeAgent("world-state", "game_state_update")],
+      inventoryContext,
+      new RecordingProvider(JSON.stringify({ "world-state": { weather: "rain" }, "inventory-tracker": output })),
+      "agent-model",
+    )
+  ).find((result) => result.agentType === "inventory-tracker")!;
+  for (const result of [single, batched]) {
+    assert.equal(result.success, true, `assignable root rows must succeed: ${JSON.stringify(output)}`);
+    assert.deepEqual(
+      buildLockedInventoryTrackerPatch({
+        data: result.data as Record<string, unknown>,
+        snapshot: { playerStats: savedInventory },
+        lockState: null,
+      }).playerStats,
+      { ...savedInventory, ...expected },
+      `every root row and group part must be applied: ${JSON.stringify(output)}`,
+    );
+  }
+}
+for (const [output, gameState, name] of [
+  [{ updates: [{ name: "Lantern" }], removed: ["Rope"] }, inventoryContext.gameState, "Lantern"],
+  [
+    { updates: [{ name: "Gold", qty: 5 }] },
+    { playerStats: { ...savedInventory, inventoryTrackerEquipped: [{ name: "Gold" }] } },
+    "Gold",
+  ],
+] as const) {
+  const provider = new RecordingProvider(JSON.stringify(output));
+  const result = await executeAgent(inventoryAgent, { ...context, gameState } as AgentContext, provider, "agent-model");
+  assert.equal(result.success, false, `an unassignable root row must not be a successful no-change: ${name}`);
+  assert.equal(provider.calls, 2, "an unassignable root row is retried once like invalid JSON");
+  assert.match(result.error ?? "", new RegExp(name), "the failed run names the row it could not place");
+  assert.match(
+    String(provider.messages[1]?.at(-1)?.content),
+    /"currencies", "equipped" or "inventory"/,
+    "the retry asks for the group",
+  );
+}
+
 // Custom Tracker accepts the same incremental envelope at the root or under fields.
 const trackerUpdates = { updates: [{ name: "Trust", value: "49/100" }], removed: ["Obsolete"] };
 for (const output of [trackerUpdates, { fields: trackerUpdates }]) {
