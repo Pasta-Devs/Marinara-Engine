@@ -20,7 +20,7 @@ Marinara installs a free starter library the first time the server starts, and r
 - **Ambient** loops under `nature`, `urban` and `interior` folders.
 - **Sound Effects** for menus, combat and exploration.
 
-The **Backgrounds** and **Sprites** folders in the Asset Browser start empty. No character sprites are bundled, so add art that fits your own games. For backgrounds, Game Mode also draws on the app's own background library, which holds 13 starter images plus a plain `Black.jpg`. Games can use those without any upload. Generated scene art and your uploads add to them.
+The **Backgrounds** and **Sprites** folders in the Asset Browser start empty. No character sprites are bundled, so add art that fits your own games. For backgrounds, Game Mode also draws on the app's own background library. On a new install it holds 13 starter images plus a plain `Black.jpg`, and games can use those without any upload. If that folder already held images, only `Black.jpg` is restored. Generated scene art and your uploads add to them.
 
 All bundled audio is licensed CC0 (public domain, free to use). Credit for each file is in a `CREDITS.md` file that ships with the assets on disk. It is not shown in the app.
 
