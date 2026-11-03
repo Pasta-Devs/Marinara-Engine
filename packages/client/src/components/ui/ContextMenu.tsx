@@ -171,8 +171,8 @@ export function ContextMenu({
 
   return createPortal(
     <>
-      {/* Dims only: a tap goes through to the outside-press handler, which closes the menu and eats the click. */}
-      {sheet && <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[10001] bg-black/55" />}
+      {/* Catches the outside tap: the outside-press handler closes the menu and the click lands here, not on the page. */}
+      {sheet && <div aria-hidden="true" className="fixed inset-0 z-[10001] bg-black/55" />}
       <div
         ref={ref}
         role="menu"
