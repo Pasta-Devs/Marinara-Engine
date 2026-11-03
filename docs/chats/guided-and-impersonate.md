@@ -27,11 +27,11 @@ This reuses the text in your message box as a one-time direction for a regenerat
 
 1. Open **Settings → Advanced → Message Tools** and turn on **Guide swipes/regens with chat input**. It is off by default.
 2. In a chat, type a direction in the message box but do not send it.
-3. Click **Regenerate** on the AI message. With text in the box, its tooltip reads **Regenerate (guided)**.
+3. Click **Regenerate** on the AI message. With text in the box, the button is labeled **Regenerate (guided)**.
 
 Your direction stays in the box afterward, so you can adjust it and regenerate again. To clear it instead, turn off **Keep guidance after regenerating** in **Settings → General → Input & Editing**.
 
-If it did not work: the tooltip must read **Regenerate (guided)**. If it reads **Regenerate**, the setting is off or the box is empty.
+If it did not work: the button must be labeled **Regenerate (guided)**. If it says only **Regenerate**, the setting is off or the box is empty.
 
 ## Read Stored guidance
 
