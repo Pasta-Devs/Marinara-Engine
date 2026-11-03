@@ -42,7 +42,7 @@ A global lorebook cannot also be linked. See [Lorebooks Overview](overview.md).
 
 | Scope | Result |
 | --- | --- |
-| **All chats with** the character or persona | The default. It turns on in every such chat. |
+| **All chats with** followed by the character or persona name | The default. It turns on in every such chat. |
 | **Disabled for all chats** | The link stays, but the lorebook never turns on. Use it to pause. |
 | **Specific chats** | Only the chats you check in the list. Check at least one before you can save. |
 
