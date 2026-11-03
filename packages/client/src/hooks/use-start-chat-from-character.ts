@@ -133,6 +133,11 @@ export function useStartChatFromCharacter() {
                       connections: new Set((connections as Array<{ id: string }>).map((c) => c.id)),
                     }),
                   };
+                  // A list that failed to load cannot be verified, so it keeps the fresh chat's defaults.
+                  const keep = (keys: string[]) =>
+                    keys.forEach((key) => (memory.metadata[key] = defaults.metadata[key]));
+                  if (!lorebooks) keep(["activeLorebookIds", "excludedLorebookIds"]);
+                  if (!agents) keep(["activeAgentIds"]);
                   await api.patch(`/chats/${chat.id}`, {
                     personaId: memory.personaId,
                     connectionId: memory.connectionId,

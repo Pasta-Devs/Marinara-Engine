@@ -81,7 +81,8 @@ export function keepExistingSetup(memory: SetupFields, defaults: SetupFields, kn
     connectionId: pick(memory.connectionId, known.connections, defaults.connectionId),
     promptPresetId: pick(memory.promptPresetId, known.promptPresets, defaults.promptPresetId),
     metadata: {
-      ...metadata,
+      // Keys the source chat never set stay at the fresh chat's creation defaults.
+      ...Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, value ?? defaults.metadata[key]])),
       activeLorebookIds: list(metadata.activeLorebookIds, known.lorebooks),
       excludedLorebookIds: list(metadata.excludedLorebookIds, known.lorebooks),
       activeAgentIds: list(metadata.activeAgentIds, known.agents),

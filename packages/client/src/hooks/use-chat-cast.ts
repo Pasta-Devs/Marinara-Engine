@@ -103,7 +103,8 @@ export function useChatCast({
     const current = [...(pendingCast.current ?? chatCharIds)];
     pendingCast.current = current;
     const settled = () => {
-      pendingCast.current = null;
+      // A newer click may have replaced the pending cast while this write was in flight.
+      if (pendingCast.current === current) pendingCast.current = null;
     };
     const idx = current.indexOf(charId);
     if (idx >= 0) {

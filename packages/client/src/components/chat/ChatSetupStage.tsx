@@ -36,6 +36,7 @@ import {
 } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { useChatStore } from "../../stores/chat.store";
 import { useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useConnections } from "../../hooks/use-connections";
@@ -321,6 +322,9 @@ export function ChatSetupStage({
   );
   const sectionRef = useRef<HTMLElement>(null);
   const [leaving, setLeaving] = useState(false);
+  const reduced = useReducedAmbientEffects();
+  const beginTimer = useRef<number>(0);
+  useEffect(() => () => window.clearTimeout(beginTimer.current), []);
   // Start: the title lifts away, the rest fades and the stage folds so the greeting slides up. The composer gets
   // focus at once; the stage closes when the curtain is down.
   const begin = () => {
@@ -328,15 +332,14 @@ export function ChatSetupStage({
     document.querySelector<HTMLTextAreaElement>(".mari-chat-input-textarea")?.focus();
     setEditor(null);
     setLeaving(true);
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const section = sectionRef.current;
+        const section = sectionRef.current;
     if (section && !reduced) {
       section.style.height = `${section.offsetHeight}px`;
       requestAnimationFrame(() => {
         section.style.height = "0px";
       });
     }
-    window.setTimeout(onBegin, reduced ? 200 : 560);
+    beginTimer.current = window.setTimeout(onBegin, reduced ? 200 : 560);
   };
   const profile = chatPresets?.find((p) => p.id === chatMeta.appliedChatPresetId && !p.isDefault) ?? null;
 

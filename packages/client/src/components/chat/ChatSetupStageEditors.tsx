@@ -41,6 +41,7 @@ import { openAddConnection } from "../../lib/add-connection";
 import { api } from "../../lib/api-client";
 import { readCharacterGreetings } from "../../lib/character-greetings";
 import { readCardWithQuestions } from "../../lib/onboarding-add-card";
+import { readSetupFields } from "../../lib/chat-setup-memory";
 import { postGreetingWithSwipes } from "../../lib/message-swipes";
 import {
   deriveActiveLorebookViews,
@@ -716,6 +717,8 @@ function ProfileEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
   const { data: presets } = useChatPresets(ctx.variant);
   const applyChatPreset = useApplyChatPreset();
   const undo = useStageUndo("profile");
+  const updateChat = useUpdateChat();
+  const updateMeta = useUpdateChatMetadata();
   return (
     <>
       {(presets ?? []).map((preset) => (
@@ -731,15 +734,21 @@ function ProfileEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
             />
           }
           onSelect={() => {
-            const apply = (presetId: string) =>
-              void applyChatPreset.mutateAsync({ presetId, chatId: ctx.chat.id }).catch(() => undefined);
-            const previous =
-              typeof ctx.chatMeta.appliedChatPresetId === "string"
-                ? ctx.chatMeta.appliedChatPresetId
-                : presets?.find((p) => p.isDefault)?.id;
-            apply(preset.id);
-            if (previous && previous !== preset.id) undo(() => apply(previous));
-            close();
+            const apply = (presetId: string) => {
+                // Undo writes back the chat's own prior settings, not another preset's.
+                const before = readSetupFields(ctx.chat);
+                void applyChatPreset.mutateAsync({ presetId, chatId: ctx.chat.id }).then(
+                  () =>
+                    undo(() => {
+                      const { metadata, ...fields } = before;
+                      updateChat.mutate({ id: ctx.chat.id, ...fields });
+                      updateMeta.mutate({ id: ctx.chat.id, ...metadata });
+                    }),
+                  () => undefined,
+                );
+              };
+              apply(preset.id);
+              close();
           }}
         />
       ))}

@@ -63,6 +63,9 @@ function OrderItem({
         data-order-id={id}
         {...drag.listeners}
         {...drag.attributes}
+      // Arrow keys reorder; dnd-kit's drag instructions would mislead screen readers.
+      aria-describedby={undefined}
+      aria-roledescription={undefined}
         onKeyDown={key}
         aria-label={t("chat.setupStage.order.item", { name, position: index + 1, total })}
         style={{
