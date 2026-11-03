@@ -81,7 +81,7 @@ Safari sometimes keeps an older version of the app, or the saved app gets stuck.
 - If no login exists, type the one-time setup code from the server log on the setup page.
 - If the server prints no code, set the login on the server device under **Settings → Advanced → Access**.
 - A **403** can mean your iPhone is not in `IP_ALLOWLIST`. The server owner changes that list.
-- The PWA cannot reset the server login. The server owner runs `pnpm reset-login` on the server (in Docker: `docker exec <container> node scripts/reset-login.mjs`), or changes a login set in `.env`.
+- The PWA cannot reset the server login. The server owner runs `node scripts/reset-login.mjs` in the Marinara folder on the server (in Docker: `docker exec <container> node scripts/reset-login.mjs`), or changes a login set in `.env`.
 
 See [Locked out after updating](../REMOTE_ACCESS.md#locked-out-after-updating).
 

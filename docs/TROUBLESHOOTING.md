@@ -34,7 +34,7 @@ More causes:
 
 - **Proxy or tunnel on the same machine.** A reverse proxy or tunnel on the same machine needs the login. Direct Tailscale traffic is trusted by default. Tailscale Serve or Funnel and nginx's default HTTP/1.0 `proxy_pass` count as relayed and need the login. Same-host Docker bridge traffic is trusted only while no login, `IP_ALLOWLIST` or `TRUSTED_AUTH_PROXY` is set.
 - **Custom name for this computer.** A name mapped to `127.0.0.1` in `/etc/hosts` counts as relayed. Use `localhost`, `127.0.0.1`, the machine's hostname or a `*.localhost` name instead.
-- **Too many wrong passwords.** Wait 15 minutes, then sign in. Forgot the password? Run `pnpm reset-login` on the computer that runs Marinara. In Docker, run `docker exec <container> node scripts/reset-login.mjs`. Restarting the server also lets it try again.
+- **Too many wrong passwords.** Wait 15 minutes, then sign in. Forgot the password? Run `node scripts/reset-login.mjs` in the Marinara folder on the computer that runs Marinara. In Docker, run `docker exec <container> node scripts/reset-login.mjs`. Restarting the server also lets it try again.
 - **Untrusted request host.** For a public or reverse-proxy domain, add its exact hostname to `TRUSTED_HOSTS` in `.env`. Direct IP addresses stay accepted.
 - **Risky actions blocked** (backups, clearing data, updates) from that device. Set `ADMIN_SECRET` in the server `.env`. Paste the same value into **Settings → Advanced → Admin Access** on that device and click **Save**.
 
