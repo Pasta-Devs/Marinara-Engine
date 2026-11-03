@@ -286,11 +286,12 @@ function isBlockedResolvedAddress(address: string, policy: OutboundUrlPolicy): b
 const NAT64_CIDR = parseCidr("64:ff9b::/96")!;
 
 /**
- * A hop is local when the server it reached is on this machine or the local network. A DNS name is judged by the
- * address its pinned connection used, never by a fresh lookup, and counts as remote when that address is unknown.
+ * A hop is local when the server it reached is on this machine or the local network. A name, including `localhost`
+ * and `.local` or `.internal` ones that DNS or mDNS may answer with any address, is judged by the address its pinned
+ * connection used, never by its spelling or a fresh lookup. It counts as remote when that address is unknown: sent
+ * through a caller's own dispatcher or an env proxy, or not resolved here.
  */
 function isLocalHop(url: URL, connectedAddress: string | undefined): boolean {
-  if (isLocalHostname(url.hostname)) return true;
   const address = isIpLiteral(url.hostname) ? normalizeHostnameForAddress(url.hostname) : connectedAddress;
   const bytes = address ? ipToBytes(address) : null;
   return bytes !== null && isReservedIp(address!) && !matchesCidr(bytes, NAT64_CIDR);
@@ -437,13 +438,12 @@ async function validateOutboundUrlForFetch(
   // Local URLs skip the address checks, but `localhost` still goes through the pinned lookup below
   // so it reaches 127.0.0.1 even where the resolver only answers `::1`.
   if (policy.allowLocal && !isLocalhostName(parsed.hostname)) {
-    // Other DNS names are pinned too, IPv4 first like other local servers, so a redirect from this hop is judged by
-    // the address it reached (see isLocalHop). IP literals, local names and names that do not resolve here (an env
-    // proxy may still reach them) keep the plain dispatcher.
-    addresses =
-      isIpLiteral(parsed.hostname) || isLocalHostname(parsed.hostname)
-        ? []
-        : preferIpv4Records(await resolveHostname(parsed.hostname).catch(() => []));
+    // Other names, `.local` ones included, are pinned too, IPv4 first like other local servers, so a redirect from
+    // this hop is judged by the address it reached (see isLocalHop). IP literals and names that do not resolve here
+    // (an env proxy may still reach them) keep the plain dispatcher.
+    addresses = isIpLiteral(parsed.hostname)
+      ? []
+      : preferIpv4Records(await resolveHostname(parsed.hostname).catch(() => []));
     if (addresses.length === 0) {
       const dispatcher =
         agentOptions || keepAliveInitialDelayMs
@@ -782,7 +782,8 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
       }
       // Local trust covers the server the caller chose. A remote server cannot pass it on by redirecting,
       // so only a hop on this machine or the local network may redirect into them. A caller's own dispatcher
-      // resolves names itself, so the pinned address says nothing about where that hop went.
+      // resolves names itself, so the pinned address says nothing about where that hop went: only an IP literal
+      // hop keeps its trust there.
       const hopPolicy =
         policy &&
         (policy.allowLocal || policy.allowLoopback || policy.allowMdns) &&

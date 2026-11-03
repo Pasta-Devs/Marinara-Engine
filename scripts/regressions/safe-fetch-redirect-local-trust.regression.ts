@@ -43,6 +43,9 @@ const originalLookup = dns.lookup;
 const fakeNames: Record<string, Array<{ address: string; family: 4 | 6 }>> = {
   "gpu-box.test": [{ address: "192.168.1.20", family: 4 }],
   "printer.local": [{ address: "192.168.1.30", family: 4 }],
+  // A local-looking name that DNS answers with a remote address.
+  "cloud.local": [{ address: "93.184.216.34", family: 4 }],
+  "cloud.internal": [{ address: "93.184.216.34", family: 4 }],
   // A dual-stack LAN server whose resolver lists its global IPv6 address first.
   "nas.test": [
     { address: "2606:4700:4700::1111", family: 6 },
@@ -111,6 +114,31 @@ try {
     policy: policies["provider fetch with local URLs"],
   });
   assert.equal(await dualStack.text(), "remote", "a dual-stack local-network host redirects to itself");
+
+  // A local-looking name is judged by the address it reached, so a .local name on the local network keeps its trust
+  // and one that resolved to a remote address does not. Behind a caller's own dispatcher that address is unknown.
+  for (const name of ["provider fetch", "provider fetch with local URLs"]) {
+    remoteRedirects.set("http://printer.local/", "https://printer.local/");
+    const mdns = await safeFetch("http://printer.local/", { policy: policies[name] });
+    assert.equal(await mdns.text(), "remote", `${name}: a .local host on the local network redirects to itself`);
+    for (const host of name.includes("local URLs") ? ["cloud.local", "cloud.internal"] : ["cloud.local"]) {
+      remoteRedirects.set(`http://${host}/`, `http://127.0.0.1:${internalPort}/blocked`);
+      await assert.rejects(
+        safeFetch(`http://${host}/`, { policy: policies[name] }),
+        /Refused to fetch/,
+        `${name}: ${host} on a remote address cannot redirect to loopback`,
+      );
+    }
+  }
+  remoteRedirects.set("http://printer.local/via-dispatcher", `http://127.0.0.1:${internalPort}/blocked`);
+  await assert.rejects(
+    safeFetch("http://printer.local/via-dispatcher", {
+      policy: policies["provider fetch with local URLs"],
+      dispatcher: {},
+    }),
+    /Refused to fetch/,
+    "a hop sent through a caller's dispatcher is not trusted as local",
+  );
 
   // With local URLs on, a remote hop is judged by the address it was reached at, not by a later lookup.
   for (const [index, name] of ["provider fetch with local URLs", "image fetch with local URLs"].entries()) {
