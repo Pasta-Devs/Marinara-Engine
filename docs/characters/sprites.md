@@ -15,7 +15,7 @@ Sprites appear on screen in Roleplay Mode and Game Mode, not in Conversation cha
 2. Click the **Sprites** tab.
 3. At the top, pick a category: **Facial Expressions**, **Full-body** or **Clips**.
 
-This guide covers **Facial Expressions** and **Full-body**. **Clips** is part of the call feature. See [Conversation Audio and Video Calls](../conversation/calls.md).
+The sections below cover **Facial Expressions** and **Full-body**. **Clips** is part of the call feature. See [Conversation Audio and Video Calls](../conversation/calls.md).
 
 ## Upload your own sprites
 
