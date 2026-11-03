@@ -4886,7 +4886,9 @@ strong {
 .mari-message-content .mari-md-codeblock-lang {
   position: absolute;
   top: 0;
-  inset-inline-end: 0;
+  /* Physical: code blocks are left-to-right (dir="ltr", markdown.tsx), so the end corner is the right one in
+     every locale, as for the Copy button. inset-inline-end compiles to :lang() lists Chromium drops (#8709). */
+  right: 0;
   font-size: 0.7em;
   color: rgba(255, 255, 255, 0.3);
   padding: 0.25em 0.6em;
