@@ -3403,7 +3403,9 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
     inset: auto;
     display: block;
     float: inline-start;
-    margin: -0.3rem 0.6rem 0.15rem 0;
+    /* Logical like the float, so the gap stays on the text side in right-to-left locales. */
+    margin-block: -0.3rem 0.15rem;
+    margin-inline: 0 0.6rem;
   }
 
   .mari-answer .mari-run-outcome {
