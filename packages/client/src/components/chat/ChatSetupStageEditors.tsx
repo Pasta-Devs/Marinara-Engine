@@ -2,13 +2,28 @@ import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type Re
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Check, Minus, Plus, Search, Star } from "lucide-react";
-import { LOCAL_SIDECAR_CONNECTION_ID, type Chat, type Lorebook } from "@marinara-engine/shared";
+import {
+  LOCAL_SIDECAR_CONNECTION_ID,
+  normalizeAvatarCrop,
+  type AvatarCrop,
+  type Chat,
+  type ChatPresetSettings,
+  type Lorebook,
+} from "@marinara-engine/shared";
 import { chatKeys, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { usePresets } from "../../hooks/use-presets";
 import { useLorebooks } from "../../hooks/use-lorebooks";
-import { useApplyChatPreset, useChatPresets } from "../../hooks/use-chat-presets";
+import {
+  useApplyChatPreset,
+  useChatPresets,
+  useCreateChatPreset,
+  useSetActiveChatPreset,
+} from "../../hooks/use-chat-presets";
+import { useUIStore } from "../../stores/ui.store";
+import { AvatarImage } from "../characters/AvatarImage";
 import { useChatCast } from "../../hooks/use-chat-cast";
 import {
   getChatActiveAgentIds,
@@ -34,7 +49,7 @@ import {
 } from "../../lib/chat-lorebooks";
 import { requestChatSettingsSectionOpen, type StageSettingsSection } from "../../lib/chat-floating-ui-events";
 import { lorebookSwitchWrite, stageGreetingSwap } from "../../lib/chat-setup-stage";
-import { cn } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import type { CharacterMap, MessageWithSwipes, PersonaInfo } from "./chat-area.types";
 
 export interface StageEditorContext {
@@ -140,12 +155,17 @@ function StagePopover({
       const node = event.target as Node;
       if (panelRef.current?.contains(node) || anchor.contains(node)) return;
       // Pickers inside (model switcher, background upload) may open their own layers above this one.
-      if ((node as Element).closest?.("[data-stage-layer], .mari-modal, [role=dialog]")) return;
+      // The undo toast sits outside too; pressing Undo keeps the editor open.
+      if ((node as Element).closest?.("[data-stage-layer], .mari-modal, [role=dialog], [data-sonner-toaster]")) return;
       onClose();
     };
     // Inner pickers that use Escape themselves stop it before it gets here.
     const onEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      // A layer opened above this one (a modal, a nested popover) handles its own Escape.
+      const layer = (event.target as Element | null)?.closest?.("[data-stage-layer], .mari-modal, [role=dialog]");
+      if (layer && layer !== panelRef.current && !layer.contains(panelRef.current)) return;
+      onClose();
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onEscape);
@@ -223,17 +243,47 @@ function StagePopover({
   );
 }
 
+type StageAvatarProps = { src?: string | null; crop?: AvatarCrop | null; name: string };
+
+/** A round avatar, or the first letter of the name, the same as the persona switcher. */
+export function StageAvatar({ src, crop, name }: StageAvatarProps) {
+  return (
+    <span className="relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--foreground)_12%,transparent)] bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] text-xs font-semibold text-[var(--muted-foreground)]">
+      {src ? (
+        <AvatarImage src={src} alt="" className="h-full w-full object-cover" style={getAvatarCropStyle(crop ?? null)} />
+      ) : (
+        <span aria-hidden="true">{name.trim()[0]?.toUpperCase() ?? "?"}</span>
+      )}
+    </span>
+  );
+}
+
+const UNDO_TOAST_ID = "chat-setup-stage-undo";
+
+/** Every stage change offers Undo; it writes the old value back through the same path. One toast at a time. */
+function useStageUndo(section: StageEditorSection) {
+  const { t } = useTranslation();
+  return (undo: () => void) =>
+    toast(t("chat.setupStage.polish.changed", { section: t(TITLES[section]) }), {
+      id: UNDO_TOAST_ID,
+      action: { label: t("chat.setupStage.polish.undo"), onClick: undo },
+    });
+}
+
 function Option({
   active,
   label,
   hint,
   icon,
+  avatar,
   onSelect,
 }: {
   active: boolean;
   label: ReactNode;
   hint?: ReactNode;
   icon?: ReactNode;
+  /** A person row (persona, character, greeting) shows their round avatar. */
+  avatar?: StageAvatarProps;
   onSelect: () => void;
 }) {
   return (
@@ -251,7 +301,7 @@ function Option({
         FOCUS,
       )}
     >
-      {icon}
+      {avatar ? <StageAvatar {...avatar} /> : icon}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14px]">{label}</span>
         {hint && (
@@ -295,18 +345,30 @@ function PersonaEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
   const { t } = useTranslation();
   const { data: personas } = usePersonas();
   const updateChat = useUpdateChat();
+  const undo = useStageUndo("persona");
   const pick = (personaId: string | null) => {
+    const previous = ctx.chat.personaId ?? null;
     updateChat.mutate({ id: ctx.chat.id, personaId });
+    if (previous !== personaId) undo(() => updateChat.mutate({ id: ctx.chat.id, personaId: previous }));
     close();
   };
   return (
     <>
       <Option active={!ctx.chat.personaId} label={t("chat.setupStage.editor.noPersona")} onSelect={() => pick(null)} />
-      {((personas ?? []) as Array<{ id: string; name: string; comment?: string | null }>).map((p) => (
+      {(
+        (personas ?? []) as Array<{
+          id: string;
+          name: string;
+          comment?: string | null;
+          avatarPath?: string | null;
+          avatarCrop?: AvatarCrop | null;
+        }>
+      ).map((p) => (
         <Option
           key={p.id}
           active={ctx.chat.personaId === p.id}
           label={p.name}
+          avatar={{ src: p.avatarPath, crop: p.avatarCrop, name: p.name }}
           hint={p.comment}
           onSelect={() => pick(p.id)}
         />
@@ -322,9 +384,16 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
   const { data: characterRows } = useCharacters();
   const characters = useMemo(
     () =>
-      ((characterRows ?? []) as Array<{ id: string; data: unknown }>).map((row) => {
+      ((characterRows ?? []) as Array<{ id: string; data: unknown; avatarPath?: string | null }>).map((row) => {
         const data = parseData(row.data);
-        return { id: row.id, data, name: typeof data?.name === "string" ? data.name : row.id };
+        const extensions = data?.extensions as Record<string, unknown> | undefined;
+        return {
+          id: row.id,
+          data,
+          name: typeof data?.name === "string" ? data.name : row.id,
+          avatar: row.avatarPath ?? null,
+          crop: normalizeAvatarCrop(extensions?.avatarCrop),
+        };
       }),
     [characterRows],
   );
@@ -355,6 +424,20 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
   };
   const needle = query.trim().toLowerCase();
   const others = characters.filter((c) => !ctx.chatCharIds.includes(c.id) && c.name.toLowerCase().includes(needle));
+  const undo = useStageUndo("characters");
+  const toggle = (id: string) => {
+    toggleCharacter(id);
+    undo(() => toggleCharacter(id));
+  };
+  const avatarOf = (id: string): StageAvatarProps => {
+    const known = ctx.characterMap.get(id);
+    const row = characters.find((c) => c.id === id);
+    return {
+      src: known?.avatarUrl ?? row?.avatar,
+      crop: known?.avatarCrop ?? row?.crop,
+      name: known?.name ?? row?.name ?? id,
+    };
+  };
   const nameOf = (id: string) => ctx.characterMap.get(id)?.name ?? characters.find((c) => c.id === id)?.name ?? id;
   return (
     <>
@@ -364,12 +447,13 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
           type="button"
           data-stage-option
           aria-label={t("chat.setupStage.editor.remove", { name: nameOf(id) })}
-          onClick={() => toggleCharacter(id)}
+          onClick={() => toggle(id)}
           className={cn(
             "flex min-h-11 w-full items-center gap-3 rounded-[12px] bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] px-3 text-left text-[14px] hover:bg-[color-mix(in_srgb,var(--primary)_22%,transparent)]",
             FOCUS,
           )}
         >
+          <StageAvatar {...avatarOf(id)} />
           <span className="min-w-0 flex-1 truncate">{nameOf(id)}</span>
           <Minus size="1rem" aria-hidden className="text-[var(--muted-foreground)]" />
         </button>
@@ -390,12 +474,13 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
           type="button"
           data-stage-option
           aria-label={t("chat.setupStage.editor.add", { name: c.name })}
-          onClick={() => toggleCharacter(c.id)}
+          onClick={() => toggle(c.id)}
           className={cn(
             "flex min-h-11 w-full items-center gap-3 rounded-[12px] px-3 text-left text-[14px] hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)]",
             FOCUS,
           )}
         >
+          <StageAvatar src={c.avatar} crop={c.crop} name={c.name} />
           <span className="min-w-0 flex-1 truncate">{c.name}</span>
           <Plus size="1rem" aria-hidden className="text-[var(--primary)]" />
         </button>
@@ -407,6 +492,7 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
 
 function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => void }) {
   const { t } = useTranslation();
+  const undo = useStageUndo("opening");
   const first = ctx.first;
   const { data } = useQuery({
     queryKey: [...chatKeys.messages(ctx.chat.id), first?.id, "swipes", first?.swipeCount],
@@ -417,6 +503,7 @@ function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
   if (!first) return <Muted>{t("chat.setupStage.row.noGreeting")}</Muted>;
   const swipes = data?.length ? [...data].sort((a, b) => a.index - b.index).map((s) => s.content) : [first.content];
   const active = first.activeSwipeIndex ?? 0;
+  const speaker = first.characterId ? ctx.characterMap.get(first.characterId) : undefined;
   return (
     <>
       {swipes.map((content, index) => (
@@ -425,8 +512,12 @@ function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
           active={index === active}
           label={t("chat.setupStage.editor.greeting", { index: index + 1 })}
           hint={(content ?? "").trim().split("\n")[0].replace(/[*_]/g, "")}
+          avatar={speaker && { src: speaker.avatarUrl, crop: speaker.avatarCrop, name: speaker.name }}
           onSelect={() => {
-            if (index !== active) ctx.onSetActiveSwipe(first.id, index);
+            if (index !== active) {
+              ctx.onSetActiveSwipe(first.id, index);
+              undo(() => ctx.onSetActiveSwipe(first.id, active));
+            }
             close();
           }}
         />
@@ -442,13 +533,19 @@ function StyleEditor({ ctx }: { ctx: StageEditorContext }) {
   const updateMeta = useUpdateChatMetadata();
   const qc = useQueryClient();
   const presetId = ctx.chat.promptPresetId ?? null;
+  const undo = useStageUndo("prompt-preset");
   const existing = (ctx.chatMeta.presetChoices ?? {}) as Record<string, string | string[]>;
   const { variables, baseSelections } = usePresetChoiceVariables(presetId, existing);
   const pick = (id: string | null) => {
     if (id === presetId) return;
+    const prompt = typeof ctx.chatMeta.customSystemPrompt === "string" ? ctx.chatMeta.customSystemPrompt : null;
     updateChat.mutate({ id: ctx.chat.id, promptPresetId: id });
     // Same as Chat Settings: picking a preset drops a conversation's own prompt.
     if (ctx.variant === "conversation") updateMeta.mutate({ id: ctx.chat.id, customSystemPrompt: null });
+    undo(() => {
+      updateChat.mutate({ id: ctx.chat.id, promptPresetId: presetId });
+      if (ctx.variant === "conversation") updateMeta.mutate({ id: ctx.chat.id, customSystemPrompt: prompt });
+    });
   };
   return (
     <>
@@ -468,6 +565,7 @@ function StyleEditor({ ctx }: { ctx: StageEditorContext }) {
                 ariaLabel={v.question}
                 onChange={(next) => {
                   const latest = parseData(latestChat(qc, ctx.chat).metadata)?.presetChoices as typeof existing;
+                  undo(() => updateMeta.mutate({ id: ctx.chat.id, presetChoices: latest ?? {} }));
                   updateMeta.mutate({
                     id: ctx.chat.id,
                     presetChoices: { ...baseSelections, ...latest, [v.variableName]: next },
@@ -488,6 +586,7 @@ function NarratorEditor({ ctx, close }: { ctx: StageEditorContext; close: () => 
   const { data: connections } = useConnections();
   const updateChat = useUpdateChat();
   const isRandom = ctx.chat.connectionId === "random";
+  const undo = useStageUndo("connection");
   return (
     <ConnectionSwitcherBody
       current={chatPick.current}
@@ -498,7 +597,11 @@ function NarratorEditor({ ctx, close }: { ctx: StageEditorContext; close: () => 
       showLocalModel={((connections ?? []) as Array<{ id: string }>).some((c) => c.id === LOCAL_SIDECAR_CONNECTION_ID)}
       shuffle={{
         active: isRandom,
-        onToggle: () => updateChat.mutate({ id: ctx.chat.id, connectionId: isRandom ? null : "random" }),
+        onToggle: () => {
+          const previous = ctx.chat.connectionId ?? null;
+          updateChat.mutate({ id: ctx.chat.id, connectionId: isRandom ? null : "random" });
+          undo(() => updateChat.mutate({ id: ctx.chat.id, connectionId: previous }));
+        },
       }}
       followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
     />
@@ -514,6 +617,7 @@ function WorldEditor({ ctx }: { ctx: StageEditorContext }) {
   const lorebooks = (data ?? []) as Lorebook[];
   const activeIds = getChatActiveLorebookIds(chat);
   const excludedIds = getChatExcludedLorebookIds(chat);
+  const undo = useStageUndo("lorebooks");
   const views = deriveActiveLorebookViews({
     activeLorebookIds: activeIds,
     excludedLorebookIds: excludedIds,
@@ -541,6 +645,9 @@ function WorldEditor({ ctx }: { ctx: StageEditorContext }) {
             checked={on}
             onChange={() => {
               const latest = latestChat(qc, chat);
+              const activeLorebookIds = getChatActiveLorebookIds(latest);
+              const excludedLorebookIds = getChatExcludedLorebookIds(latest);
+              undo(() => updateMeta.mutate({ id: chat.id, activeLorebookIds, excludedLorebookIds }));
               updateMeta.mutate({
                 id: chat.id,
                 ...lorebookSwitchWrite(
@@ -563,6 +670,7 @@ function HelpersEditor({ ctx }: { ctx: StageEditorContext }) {
   const updateMeta = useUpdateChatMetadata();
   const qc = useQueryClient();
   const deleted = useDeletedBuiltInAgentTypes();
+  const undo = useStageUndo("agents");
   const agents = useAvailableChatAgents(ctx.chat.mode).filter((agent) => !agent.runtimeDisabled);
   const enabled = ctx.chatMeta.enableAgents === true;
   const activeIds = Array.isArray(ctx.chatMeta.activeAgentIds)
@@ -573,14 +681,19 @@ function HelpersEditor({ ctx }: { ctx: StageEditorContext }) {
   const toggle = (id: string, on: boolean) => {
     // Same as Chat Settings: start from the latest list and drop deleted built-in helpers.
     const ids = getChatActiveAgentIds(latestChat(qc, ctx.chat)).filter((x) => x !== id && !deleted.has(x));
+    const previous = getChatActiveAgentIds(latestChat(qc, ctx.chat));
     updateMeta.mutate({ id: ctx.chat.id, activeAgentIds: on ? [...ids, id] : ids });
+    undo(() => updateMeta.mutate({ id: ctx.chat.id, activeAgentIds: previous }));
   };
   return (
     <>
       <SwitchRow
         label={t("chat.setupStage.editor.helpersOn")}
         checked={enabled}
-        onChange={(next) => updateMeta.mutate({ id: ctx.chat.id, enableAgents: next })}
+        onChange={(next) => {
+          updateMeta.mutate({ id: ctx.chat.id, enableAgents: next });
+          undo(() => updateMeta.mutate({ id: ctx.chat.id, enableAgents: !next }));
+        }}
       />
       {enabled && agents.length === 0 && <Muted>{t("chat.setupStage.editor.noHelpers")}</Muted>}
       {enabled &&
@@ -600,6 +713,7 @@ function HelpersEditor({ ctx }: { ctx: StageEditorContext }) {
 function ProfileEditor({ ctx, close }: { ctx: StageEditorContext; close: () => void }) {
   const { data: presets } = useChatPresets(ctx.variant);
   const applyChatPreset = useApplyChatPreset();
+  const undo = useStageUndo("profile");
   return (
     <>
       {(presets ?? []).map((preset) => (
@@ -615,12 +729,106 @@ function ProfileEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
             />
           }
           onSelect={() => {
-            void applyChatPreset.mutateAsync({ presetId: preset.id, chatId: ctx.chat.id }).catch(() => undefined);
+            const apply = (presetId: string) =>
+              void applyChatPreset.mutateAsync({ presetId, chatId: ctx.chat.id }).catch(() => undefined);
+            const previous =
+              typeof ctx.chatMeta.appliedChatPresetId === "string"
+                ? ctx.chatMeta.appliedChatPresetId
+                : presets?.find((p) => p.isDefault)?.id;
+            apply(preset.id);
+            if (previous && previous !== preset.id) undo(() => apply(previous));
             close();
           }}
         />
       ))}
+      <SaveProfileForm ctx={ctx} close={close} />
     </>
+  );
+}
+
+/** "Save this setup": the chat's current choices become a new profile, starred when asked. */
+function SaveProfileForm({ ctx, close }: { ctx: StageEditorContext; close: () => void }) {
+  const { t } = useTranslation();
+  const createPreset = useCreateChatPreset();
+  const setActive = useSetActiveChatPreset();
+  const updateMeta = useUpdateChatMetadata();
+  const [name, setName] = useState<string | null>(null);
+  const [star, setStar] = useState(false);
+  const busy = createPreset.isPending || setActive.isPending;
+  if (name === null) {
+    const firstName = ctx.characterMap.get(ctx.chatCharIds[0] ?? "")?.name;
+    return (
+      <button
+        type="button"
+        data-stage-option
+        onClick={() => setName(firstName ? t("chat.setupStage.polish.profileName", { name: firstName }) : "")}
+        className={cn(
+          "mt-1 flex min-h-11 w-full items-center gap-3 rounded-[12px] px-3 py-2 text-left text-[13px] text-[var(--muted-foreground)] hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)] hover:text-[var(--foreground)]",
+          FOCUS,
+        )}
+      >
+        <Plus size="1rem" aria-hidden="true" className="shrink-0 text-[var(--primary)]" />
+        {t("chat.setupStage.polish.saveSetup")}
+      </button>
+    );
+  }
+  const save = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || busy) return;
+    // The server drops chat-only metadata (summaries, tags, branch links) from a profile.
+    const settings: ChatPresetSettings = {
+      connectionId: ctx.chat.connectionId ?? null,
+      promptPresetId: ctx.chat.promptPresetId ?? null,
+      personaId: ctx.chat.personaId ?? null,
+      lorebookIds: getChatActiveLorebookIds(ctx.chat),
+      metadata: ctx.chatMeta as ChatPresetSettings["metadata"],
+    };
+    try {
+      const preset = await createPreset.mutateAsync({ name: trimmed.slice(0, 120), mode: ctx.variant, settings });
+      if (star) await setActive.mutateAsync(preset.id);
+      updateMeta.mutate({ id: ctx.chat.id, appliedChatPresetId: preset.id });
+      toast.success(t("chat.setupStage.polish.profileSaved", { name: preset.name }));
+      close();
+    } catch {
+      toast.error(t("chat.settingsProfile.saveFailed"));
+    }
+  };
+  return (
+    <form
+      className="mt-1.5 space-y-1 border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-1 pb-1 pt-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
+      <label className="flex min-h-11 items-center rounded-[12px] border border-[color-mix(in_srgb,var(--foreground)_10%,transparent)] px-3 focus-within:ring-2 focus-within:ring-[var(--ring)]">
+        <span className="sr-only">{t("chat.setupStage.polish.profileNameLabel")}</span>
+        <input
+          autoFocus
+          value={name}
+          maxLength={120}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={t("chat.setupStage.polish.profileNameLabel")}
+          className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[var(--muted-foreground)] md:text-[14px]"
+        />
+      </label>
+      <SwitchRow
+        label={t("chat.setupStage.polish.starIt")}
+        hint={t("chat.setupStage.polish.starHint")}
+        checked={star}
+        onChange={setStar}
+      />
+      <button
+        type="submit"
+        disabled={!name.trim() || busy}
+        className={cn(
+          "flex min-h-11 w-full items-center justify-center rounded-[12px] bg-[var(--primary)] px-3 text-[14px] font-semibold text-[var(--primary-foreground)] disabled:opacity-50",
+          FOCUS,
+        )}
+      >
+        {t("chat.setupStage.polish.saveProfile")}
+      </button>
+    </form>
   );
 }
 
@@ -636,6 +844,7 @@ export function StageEditor({
   ctx: StageEditorContext;
   onClose: () => void;
 }) {
+  const undoLook = useStageUndo("background");
   const body =
     section === "persona" ? (
       <PersonaEditor ctx={ctx} close={onClose} />
@@ -650,7 +859,9 @@ export function StageEditor({
     ) : section === "agents" ? (
       <HelpersEditor ctx={ctx} />
     ) : section === "background" ? (
-      <ActiveChatBackgroundPicker />
+      <ActiveChatBackgroundPicker
+        onPicked={(previous) => undoLook(() => useUIStore.getState().setChatBackground(previous))}
+      />
     ) : section === "profile" ? (
       <ProfileEditor ctx={ctx} close={onClose} />
     ) : (

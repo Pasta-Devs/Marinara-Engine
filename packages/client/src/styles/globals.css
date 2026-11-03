@@ -9088,3 +9088,42 @@ html[data-marinara-reduced-effects="true"] .mari-window {
 [data-drag-source="true"] {
   opacity: 0.5;
 }
+
+/* Setup stage curtain on Start: the title lifts toward the header, the rest fades, then the stage folds so the
+   greeting slides up. ChatSetupStage sets the start height and the 560 ms close timer. */
+.mari-setup-stage {
+  transition:
+    height 420ms cubic-bezier(0.32, 0.72, 0, 1) 120ms,
+    margin 420ms cubic-bezier(0.32, 0.72, 0, 1) 120ms;
+}
+.mari-setup-stage[data-leaving] {
+  margin-bottom: 0;
+  pointer-events: none;
+}
+.mari-setup-stage > * {
+  transition: opacity 180ms ease-out;
+}
+.mari-setup-stage[data-leaving] > * {
+  opacity: 0;
+}
+.mari-setup-stage > h1 {
+  transform-origin: 0 0;
+  transition:
+    transform 520ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 360ms ease-in 140ms;
+}
+.mari-setup-stage[data-leaving] > h1 {
+  transform: translateY(-2.5rem) scale(0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-setup-stage,
+  .mari-setup-stage > h1 {
+    transform: none !important;
+    transition: opacity 180ms linear;
+  }
+  /* The roleplay background swaps at once instead of crossfading. */
+  .mari-background {
+    transition: none !important;
+  }
+}

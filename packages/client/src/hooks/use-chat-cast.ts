@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { MultiplayerHostAction } from "@marinara-engine/shared";
@@ -91,17 +92,26 @@ export function useChatCast({
     }
   };
 
+  const pendingCast = useRef<string[] | null>(null);
   const toggleCharacter = (charId: string) => {
     if (hostedRoom) {
       const removing = chatCharIds.includes(charId);
       void changeRoomCharacters(removing ? [] : [charId], removing ? [charId] : []);
       return;
     }
-    const current = [...chatCharIds];
+    // Two fast clicks before the first write returns must build on each other, not on the same stale cast.
+    const current = [...(pendingCast.current ?? chatCharIds)];
+    pendingCast.current = current;
+    const settled = () => {
+      pendingCast.current = null;
+    };
     const idx = current.indexOf(charId);
     if (idx >= 0) {
       current.splice(idx, 1);
-      updateChat.mutate({ id: chatId, characterIds: current }, { onSuccess: () => syncGamePartyMetadata(current) });
+      updateChat.mutate(
+        { id: chatId, characterIds: current },
+        { onSuccess: () => syncGamePartyMetadata(current), onSettled: settled },
+      );
       clearRemovedCharacterMetadata(charId);
       onRemoved?.(charId);
     } else {
@@ -113,6 +123,7 @@ export function useChatCast({
             syncGamePartyMetadata(current);
             onAdded?.(charId, current);
           },
+          onSettled: settled,
         },
       );
     }
