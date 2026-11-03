@@ -1,6 +1,6 @@
 # Peek Prompt: See What the AI Received
 
-Peek Prompt shows the exact text Marinara Engine sent to the model for a reply, or a live preview of the next one. Use it when a reply is not what you expected and you want to know what the model actually saw.
+Peek Prompt shows the exact text Marinara Engine sent to the model for a reply, or a live preview of the next one. Use it when a reply is not what you expected and you want to know what the model saw.
 
 The prompt is the full block of instructions and chat history Marinara puts together and sends. The model reads it and writes the reply.
 
