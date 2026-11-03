@@ -84,7 +84,7 @@ In Conversation you can always translate an unsent draft from the composer's smi
 
 ## Translator defaults for new chats
 
-**Save translator defaults**, below the toggles, saves this chat's translation settings for new chats in every mode. Settings from the setup wizard and from a settings profile come first. Existing chats keep their own settings. **Forget saved defaults** clears them. [Noodle](../noodle/settings.md#translation) uses the same defaults.
+**Save translator defaults**, below the toggles, saves this chat's translation settings for new chats in every mode. Settings from the setup wizard and from a settings profile come first. Existing chats keep their own settings. **Forget saved defaults** clears them. [Noodle](../agents/noodle-settings.md#translation) uses the same defaults.
 
 The DeepL API key and the DeepLX URL stay on this Marinara install. Chat exports, exported settings profiles and **Export Profile** files leave them out, and importing any of them never sets them. Enter them again after you move a chat to another install.
 
