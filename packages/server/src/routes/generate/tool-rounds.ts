@@ -347,7 +347,8 @@ export async function runToolRounds(ctx: ToolRoundsContext, fullResponse: string
         const head = last.content.slice(0, -ctx.userPrefill.length).trimEnd();
         withToolResults.pop();
         if (head) withToolResults.push({ ...last, content: head });
-        prefillTail.push({ ...last, content: ctx.userPrefill });
+        // Attachments stay on one message: the head, or the tail when the head is empty.
+        prefillTail.push(head ? { role: last.role, content: ctx.userPrefill } : { ...last, content: ctx.userPrefill });
       }
       const resultIndex =
         ctx.assistantPrefillInjected && withToolResults.at(-1)?.role === "assistant"
