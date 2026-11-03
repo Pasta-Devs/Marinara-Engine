@@ -33,10 +33,10 @@ export async function forwardPromptPreview(
     remoteAddress: "127.0.0.1",
     headers,
     payload: {
+      wrapLastMessage: true,
       ...payload,
       returnPrompt: true,
       streaming: false,
-      wrapLastMessage: true,
       injectLorebook: true,
       injectTrackers: true,
       injectChatSummary: true,
