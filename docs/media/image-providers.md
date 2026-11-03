@@ -8,9 +8,9 @@ An API key is a secret code a service gives you so Marinara can use your account
 
 1. Click **Connections** in the top bar, then **Add**. The **Add account** window opens.
 2. Find the service. The list has an **Images & video** section, and **Search providers** helps you find one.
-3. Click **API key** and paste your key. Free and local services need none. For a server you run yourself, fill in the address field.
+3. Paste your key into the **API key** field. Free and local services need none. For a server you run yourself, fill in the address field.
 4. Click **Connect**. Marinara tests the account.
-5. Pick an image model from the list, or type a model ID.
+5. Pick an image model from the list, or type a model ID. This is your image model. It appears under the account in the **Connections** panel.
 6. Open the image model and click **Test image**. Marinara makes a small test picture.
 7. To make it the model the app uses for pictures, set the **Images** job under **Defaults** at the top of the **Connections** panel.
 
@@ -18,34 +18,46 @@ To add another image model to an account, open its **⋯** menu and click **Add 
 
 If it did not work: **Test image** fails when the key or address is wrong. Check both first. **Test provider** only checks that Marinara can reach the service. **Test image** makes a real picture and can use credit.
 
+## Get a picture in a chat
+
+Once an image model is set as the **Images** job, ask for a picture in a chat.
+
+1. Add the Illustrator agent to a Roleplay chat. See [Illustrator Agent](illustrator-agent.md).
+2. Open **Chat Settings**, expand **Gallery** and click **Illustrate**.
+3. Wait for **Generating...** to finish. The picture appears in the Gallery.
+
+In a Roleplay chat you can also use the `/illustrate` command. See [Slash Commands](../chats/slash-commands.md).
+
 ## Choosing a service
 
-Cloud services need an account, and most need an API key. Free services need no key. Local services run image software on your own computer.
+Marinara fills in each service's address for you. Cloud services need an account, and most need an API key. Free services need no key. Local services run image software on your own computer.
 
-| Service | API key | Where it runs | Default address |
-| --- | --- | --- | --- |
-| OpenAI (DALL-E) | Yes | Cloud | `https://api.openai.com/v1` |
-| ChatGPT (Codex login) | No, uses `codex login` | Cloud | none |
-| Stability AI | Yes | Cloud | `https://api.stability.ai/v2beta` |
-| Together AI | Yes | Cloud | `https://api.together.xyz/v1` |
-| Arli AI | Yes | Cloud | `https://api.arliai.com/v1` |
-| NovelAI | Yes | Cloud | `https://image.novelai.net` |
-| OpenRouter Images | Yes | Cloud | `https://openrouter.ai/api/v1` |
-| xAI / Grok Imagine | Yes | Cloud | `https://api.x.ai/v1` |
-| Venice.ai | Yes | Cloud | `https://api.venice.ai/api/v1` |
-| Z.AI | Yes | Cloud | `https://api.z.ai/api/paas/v4` |
-| Atlas Cloud | Yes | Cloud | `https://api.atlascloud.ai/api/v1` |
-| fal.ai | Yes | Cloud | `https://fal.run` |
-| SpicyAPI | Yes | Cloud | `https://api.spicyapi.ai/api/v1` |
-| NanoGPT | Yes | Cloud | `https://nano-gpt.com/api/v1` |
-| Block Entropy | Yes | Cloud | `https://api.blockentropy.ai` |
-| RunPod Serverless (ComfyUI) | Yes | Cloud | `https://api.runpod.ai/v2` |
-| Pollinations | No | Free cloud | `https://image.pollinations.ai` |
-| Stable Horde | Optional | Free cloud | `https://stablehorde.net/api/v2` |
-| SD Web UI (AUTOMATIC1111 / Forge) | No | Local | `http://localhost:7860` |
-| ComfyUI | No | Local | `http://127.0.0.1:8188` |
-| SwarmUI | Optional | Local | `http://127.0.0.1:7801` |
-| Draw Things | No | Local | `http://localhost:7860` |
+**Easiest start:** choose **Pollinations**. It is free and needs no account or key. Pick a stronger service later if you want better pictures.
+
+| Service | API key | Where it runs |
+| --- | --- | --- |
+| OpenAI (DALL-E) | Yes | Cloud |
+| ChatGPT (Codex login) | No, uses `codex login` | Cloud |
+| Stability AI | Yes | Cloud |
+| Together AI | Yes | Cloud |
+| Arli AI | Yes | Cloud |
+| NovelAI | Yes | Cloud |
+| OpenRouter Images | Yes | Cloud |
+| xAI / Grok Imagine | Yes | Cloud |
+| Venice.ai | Yes | Cloud |
+| Z.AI | Yes | Cloud |
+| Atlas Cloud | Yes | Cloud |
+| fal.ai | Yes | Cloud |
+| SpicyAPI | Yes | Cloud |
+| NanoGPT | Yes | Cloud |
+| Block Entropy | Yes | Cloud |
+| RunPod Serverless (ComfyUI) | Yes | Cloud |
+| Pollinations | No | Free cloud |
+| Stable Horde | Optional | Free cloud |
+| SD Web UI (AUTOMATIC1111 / Forge) | No | Local |
+| ComfyUI | No | Local |
+| SwarmUI | Optional | Local |
+| Draw Things | No | Local |
 
 Notes for the simple services:
 
@@ -111,7 +123,7 @@ Each image is a task. Marinara waits, checks back after about a minute, then dow
 
 SwarmUI can spread ComfyUI work across its own queue. A local server without accounts needs no key. If your server requires an account, paste a Swarm Auth Token into **API key**. The model list shows models on your SwarmUI server.
 
-The **ComfyUI Workflow** field is optional. Leave it empty to use SwarmUI's own image settings, or paste a workflow (see below). Turn on **Save images in SwarmUI** in **Local Image Defaults** to also keep each image in SwarmUI's output folder. Marinara keeps its own copy either way.
+The **ComfyUI workflow (optional)** field can stay empty. Leave it empty to use SwarmUI's own image settings, or paste a workflow (see below). Turn on **Save images in SwarmUI** in **Local Image Defaults** to also keep each image in SwarmUI's output folder. Marinara keeps its own copy either way.
 
 ### Local services on your network
 
@@ -121,7 +133,7 @@ When a service returns a URL instead of image data, Marinara downloads public CD
 
 ## ComfyUI workflow JSON and RunPod
 
-For **ComfyUI**, **SwarmUI** and **RunPod Serverless (ComfyUI)** a **ComfyUI Workflow** field appears. Paste a workflow JSON you exported from ComfyUI with **Save (API Format)**, **Export (API)** or **Export to API**, depending on your ComfyUI version. It is optional for ComfyUI and SwarmUI and required for RunPod, which needs your RunPod API token as the API key, a **RunPod endpoint ID** and the workflow.
+For **ComfyUI**, **SwarmUI** and **RunPod Serverless (ComfyUI)** a **ComfyUI workflow (optional)** or **(required)** field appears. Paste a workflow JSON you exported from ComfyUI with **Save (API Format)**, **Export (API)** or **Export to API**, depending on your ComfyUI version. It is optional for ComfyUI and SwarmUI and required for RunPod, which needs your RunPod API token as the API key, a **RunPod endpoint ID** and the workflow.
 
 Put these text markers in the workflow where Marinara should fill in a value:
 
@@ -144,20 +156,20 @@ Every service has a **Seed** field. -1 keeps each image random. Any other number
 | Service | Field | Default |
 | --- | --- | --- |
 | AUTOMATIC1111 / Forge | Steps | 20 |
-| AUTOMATIC1111 / Forge | CFG Scale | 7 |
+| AUTOMATIC1111 / Forge | CFG scale | 7 |
 | AUTOMATIC1111 / Forge | Sampler | Euler a |
-| AUTOMATIC1111 / Forge | Img2Img Denoise | 0.6 |
+| AUTOMATIC1111 / Forge | Img2img denoise | 0.6 |
 | ComfyUI | Steps | 20 |
-| ComfyUI | CFG Scale | 7 |
+| ComfyUI | CFG scale | 7 |
 | ComfyUI | Sampler | euler_ancestral |
 | ComfyUI | Scheduler | normal |
 | ComfyUI | Denoise | 1 |
 | NovelAI | Steps | 28 |
-| NovelAI | Prompt Guidance | 6 |
+| NovelAI | Prompt guidance | 6 |
 | NovelAI | Sampler | k_euler_ancestral |
-| NovelAI | Noise Schedule | karras |
+| NovelAI | Noise schedule | karras |
 
-Each service also has **Prompt prefix** and **Negative prefix** fields. Text there is added to the front of every prompt on this model. AUTOMATIC1111 / Forge and ComfyUI have a **Clip skip** field. AUTOMATIC1111 / Forge adds a **Restore faces** toggle. ComfyUI adds a toggle to upload a 1x1 placeholder when no reference image is given, which matters only for custom workflows with reference placeholders. NovelAI adds **Guidance Rescale** and **UC Preset**.
+Each service also has **Prompt prefix** and **Negative prefix** fields. Text there is added to the front of every prompt on this model. AUTOMATIC1111 / Forge and ComfyUI have a **Clip skip** field. AUTOMATIC1111 / Forge adds a **Restore faces** toggle. ComfyUI adds a toggle to upload a 1x1 placeholder when no reference image is given, which matters only for custom workflows with reference placeholders. NovelAI adds **Guidance rescale** and **UC preset**.
 
 ## Reference image support varies by service
 
