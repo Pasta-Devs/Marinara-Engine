@@ -5,7 +5,7 @@
 ## Opening Chat Settings
 
 1. Open a chat.
-2. Tap the **Chat Settings** button (the sliders icon). A panel opens.
+2. Tap the **Chat Settings** button (the sliders icon). A panel opens. On a phone, **Help** (the **?**) shows a guide to the icons.
 3. Tap a section's title to open it. Tap the title again to fold it away.
 
 Chat Settings opens by itself when you create a chat. To close it, tap its **X** or the sliders button again.
@@ -18,7 +18,7 @@ The first time you open a chat, a short video shows how to arrange buttons and w
 
 ## The sections at a glance
 
-Sections appear in this order. Which ones you see depends on the chat mode.
+Sections appear in this order. Which ones you see depends on the chat mode. The **Impersonate** section is in [Guided Generation and Impersonate](guided-and-impersonate.md).
 
 - Settings profile bar: Applies or saves a bundle of chat settings. See [Settings Profiles](settings-profiles.md). (Conversation, Roleplay.)
 - **Search messages**: Finds messages by words, or by `#` and a message number. Its **Bookmarks** and **Trash** tabs list bookmarked and deleted messages. (Not Game.)
@@ -40,7 +40,12 @@ Sections appear in this order. Which ones you see depends on the chat mode.
 - **Agents**: Turns on helpers. See [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
 - **Agent activity**: Shows what agents did. Re-run trackers, retry or stop agents, clear trackers. See [Agent activity](../roleplay/getting-started.md#agent-activity). (Roleplay, with agents or Advanced Memory on.)
 - **Author's Notes**: A note the model reads every turn. See [Author's Notes](../roleplay/getting-started.md#authors-notes). (Roleplay.)
+- **Background**: The chat's background picture. (Roleplay, Game.)
 - **Gallery**: The chat's images and videos. See [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+- **Widgets**: Which HUD widgets show in the game. (Game.)
+- **Impersonate**: Settings for the `/impersonate` command. (Roleplay.)
+- **Memory Recall**: Remembers earlier parts of the chat. See [Memory Recall and Chat Summaries](../agents/memory.md). (Not in the Lite version.)
+- **Function Calling**: Lets the model use tools (functions) in this chat.
 - **Translation**: Automatic message translation. See [Message Translation](../integrations/message-translation.md).
 
 Conversation chats also have Autonomous Messaging (characters message you first), Commands (actions characters take on their own) and notes sections. They are covered in [Conversation Mode: Getting Started](../conversation/getting-started.md).
