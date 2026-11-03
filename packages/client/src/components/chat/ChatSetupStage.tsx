@@ -759,7 +759,7 @@ export function ChatSetupStage({
         </button>
       </h1>
       {tagline && (
-        <p className="mt-3 text-sm text-[color-mix(in_srgb,var(--foreground)_72%,transparent)] md:text-[15px]">
+        <p className="mt-3 text-sm text-[color-mix(in_srgb,var(--foreground)_80%,transparent)] md:text-[15px] dark:text-[color-mix(in_srgb,var(--foreground)_72%,transparent)]">
           {tagline}
         </p>
       )}
