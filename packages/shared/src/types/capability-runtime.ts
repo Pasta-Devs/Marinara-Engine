@@ -206,6 +206,12 @@ export interface CapabilityLanguageModelCompletionOptions {
   verbosity?: "low" | "medium" | "high";
   signal?: AbortSignal;
   responseFormat?: Readonly<{ type: string; [key: string]: unknown }>;
+  /**
+   * Capability API 1.815: how long the prompt up to the call's `cacheBreakpoint` messages stays cached on a provider
+   * with a cache time (Anthropic): "5m" or "1h". Left out, the connection's own cache time applies. A call with no
+   * marked message ignores it, and so does a provider that caches on its own.
+   */
+  cacheTtl?: "5m" | "1h";
 }
 
 export interface CapabilityLanguageModelCompletion {

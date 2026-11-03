@@ -147,6 +147,37 @@ try {
     );
   }
 
+  // ── A call's own cache time (1.815) overrides the connection's, both ways; an unmarked call still sends none ──
+  {
+    const fiveMinutes = await host.resolve((await anthropic("Caching off, call asks 1 hour", {})).id);
+    await fiveMinutes.chatComplete(stable, { cacheTtl: "1h" });
+    assert.deepEqual(
+      breakpoints(lastBody()),
+      ["system:1 ephemeral/1h", "2.0 ephemeral/1h"],
+      "the call's 1-hour TTL on a 5-minute connection",
+    );
+    await fiveMinutes.chatComplete(
+      stable.map(({ cacheBreakpoint: _marker, ...message }) => message),
+      { cacheTtl: "1h" },
+    );
+    assert.equal(JSON.stringify(lastBody()).includes("cache_control"), false, "no marker, no cache, whatever the TTL");
+    const hour = await host.resolve(
+      (await anthropic("1 hour, call asks 5 minutes", { anthropicExtendedCacheTtl: true })).id,
+    );
+    await hour.chatComplete(stable, { cacheTtl: "5m" });
+    assert.deepEqual(
+      breakpoints(lastBody()),
+      ["system:1 ephemeral/5m", "2.0 ephemeral/5m"],
+      "the call's 5-minute TTL on a 1-hour connection",
+    );
+    await hour.chatComplete(stable);
+    assert.deepEqual(
+      breakpoints(lastBody()),
+      ["system:1 ephemeral/1h", "2.0 ephemeral/1h"],
+      "left out, the connection's 1 hour applies",
+    );
+  }
+
   // ── More than four markers: the last four count, system blocks first ──
   {
     const model = await host.resolve((await anthropic("Many markers", {})).id);
