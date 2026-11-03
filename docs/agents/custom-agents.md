@@ -12,7 +12,7 @@ Before you start: read [Agents: AI Helpers for Your Chats](agents-overview.md). 
 4. Fill in **Description** and **Author**.
 5. Choose a **Pipeline Phase** (see [Pipeline Phase](#pipeline-phase)).
 6. Turn on the powers it needs under **Custom Agent Abilities**.
-7. Pick a **Result Type** that matches what the agent produces.
+7. Pick a **Result Type** that matches what the agent produces. If you are unsure, pick **Context Injection**. It needs no ability and no strict output format.
 8. Write its instructions under **Prompt Template**.
 9. Click **Save** in the top bar. A green **Saved** badge appears.
 
@@ -34,52 +34,57 @@ Post-Processing agents also get a **Turn Data Access** section with two toggles,
 
 Abilities are opt-in powers. Each stays blocked until you turn on its toggle.
 
-| Ability | What it lets the agent do |
-| --- | --- |
-| **Create lorebooks** | Create a new agent-made lorebook when its lore output has no target. |
-| **Edit lorebooks** | Write lorebook entries or return lorebook update results. |
-| **Edit messages** | Replace the generated message text, or add continuation choices to it. |
-| **Edit trackers** | Update game, character, persona or custom tracker state. |
-| **Frontend styling** | Apply a temporary visual style during generation. |
-| **Change chat backgrounds** | Change and save the background for a chat. |
-| **Change character sprites** | Change character and persona expressions shown in chat. |
-| **Control media playback** | Control Spotify, YouTube or local music. |
-| **Control haptic devices** | Send bounded commands to a connected haptic device. |
-| **Edit About Me details** | Change chat-specific About Me text. Public card changes still need your approval. |
-| **Image generation** | Send an image prompt to the image generator. |
-| **Vectors/embeddings** | Use vector context. Vectors let Marinara search text by meaning. |
-| **Main prompt edits** | Edit the prompt sent to the main model. |
-| **Create character cards** | Propose a new character card. It is saved only after you review and accept it. |
-| **Choose active chat characters** | Choose which attached characters are enabled for the current Conversation or Roleplay reply. |
+- **Create lorebooks**: create a new agent-made lorebook when its lore output has no target.
+- **Edit lorebooks**: write lorebook entries or return lorebook update results.
+- **Edit messages**: replace the generated message text, or add continuation choices to it.
+- **Edit trackers**: update game, character, persona or custom tracker state.
+- **Frontend styling**: apply a temporary visual style during generation.
+- **Change chat backgrounds**: change and save the background for a chat.
+- **Change character sprites**: change character and persona expressions shown in chat.
+- **Control media playback**: control Spotify, YouTube or local music.
+- **Control haptic devices**: send bounded commands to a connected haptic device.
+- **Edit About Me details**: change chat-specific About Me text. Public card changes still need your approval.
+- **Image generation**: send an image prompt to the image generator.
+- **Vectors/embeddings**: use vector context. Vectors let Marinara search text by meaning.
+- **Main prompt edits**: edit the prompt sent to the main model.
+- **Create character cards**: propose a new character card. It is saved only after you review and accept it.
+- **Choose active chat characters**: choose which attached characters are enabled for the current Conversation or Roleplay reply.
 
 If you turn on **Edit lorebooks**, a **Lorebook Writer** section appears. Turn on **Allow lorebook entry writes** and pick one lorebook in **Target lorebook**. The agent can write only to that lorebook.
 
 ## Result Type
 
-**Result Type** tells Marinara how to read the agent's answer. Most types expect JSON, a text format written with braces and quotation marks. Each type needs the matching ability. A type stays greyed out until you turn that ability on.
+**Result Type** tells Marinara how to read the agent's answer. Most types expect JSON, a text format written with braces and quotation marks. A type stays greyed out until you turn on the ability it needs.
 
-| Result Type | What it does | Ability needed |
-| --- | --- | --- |
-| **Context Injection** | Adds text before generation, or records a note after it. | None |
-| **Text Rewrite** | Replaces the message text after the reply. | Edit messages |
-| **Lorebook Update** | Creates or updates lorebook entries. | Edit lorebooks |
-| **Character Tracker** | Updates the present characters. | Edit trackers |
-| **Persona Stats** | Updates persona stats, status and inventory. | Edit trackers |
-| **Custom Tracker** | Replaces your custom tracker fields. | Edit trackers |
-| **Game State** | Updates world-state style game data. | Edit trackers |
-| **Image Prompt** | Asks the image generator to draw a scene. | Image generation |
-| **Prompt Patch** | Adds, prepends or replaces prompt sections. | Main prompt edits |
-| **Frontend Style** | Applies a temporary styling effect. | Frontend styling |
-| **Background Change** | Picks and saves an available chat background. | Change chat backgrounds |
-| **Sprite Change** | Changes expressions shown in chat. | Change character sprites |
-| **Spotify Control**, **YouTube Control**, **Local Music Control** | Controls playback. | Control media playback |
-| **Haptic Command** | Sends a bounded command to a haptic device. | Control haptic devices |
-| **About Me Update** | Updates chat-specific About Me text and proposes public edits. | Edit About Me details |
-| **Interactive Choices** | Adds continuation choices to the message. | Edit messages |
-| **Character Card Creation** | Proposes one editable character card for your approval. | Create character cards |
-| **Character Activity** | Selects the character cards used for the current reply. | Choose active chat characters |
+Types that need no ability:
 
-**Context Injection** is the easiest start. It needs no ability and no strict output format.
+- **Context Injection**: adds text before generation, or records a note after it. The easiest start.
+
+Types that need **Edit messages**:
+
+- **Text Rewrite**: replaces the message text after the reply.
+- **Interactive Choices**: adds continuation choices to the message.
+
+Types that need **Edit trackers**:
+
+- **Character Tracker**: updates the present characters.
+- **Persona Stats**: updates persona stats, status and inventory.
+- **Custom Tracker**: replaces your custom tracker fields.
+- **Game State**: updates world-state style game data.
+
+Other types, each with its own ability:
+
+- **Lorebook Update** (Edit lorebooks): creates or updates lorebook entries.
+- **Image Prompt** (Image generation): asks the image generator to draw a scene.
+- **Prompt Patch** (Main prompt edits): adds, prepends or replaces prompt sections.
+- **Frontend Style** (Frontend styling): applies a temporary styling effect.
+- **Background Change** (Change chat backgrounds): picks and saves an available background.
+- **Sprite Change** (Change character sprites): changes expressions shown in chat.
+- **Spotify Control**, **YouTube Control**, **Local Music Control** (Control media playback): control playback.
+- **Haptic Command** (Control haptic devices): sends a bounded command to a haptic device.
+- **About Me Update** (Edit About Me details): updates chat-specific About Me text and proposes public edits.
+- **Character Card Creation** (Create character cards): proposes one editable character card for your approval.
+- **Character Activity** (Choose active chat characters): selects the character cards used for the current reply.
 
 ### Controls for image agents in a chat
 
@@ -96,48 +101,6 @@ By default an agent runs on its normal cadence (how often it runs). **Activation
 2. Set **Scan Depth** to the number of recent messages to search. The default is 5 and the maximum is 200.
 
 The agent then runs only when a keyword appears in those messages. Leave the box empty to turn the filter off. Cadence and any activation question still apply.
-
-## Activation questions
-
-An activation question asks whether the recent scene needs your agent. It catches paraphrases that keywords miss. It needs a **Decision model**, a small model that answers yes-or-no questions. Pick one in the Connections panel. See [Decision Models](../connections/decision-models.md). With **Decision model** set to **None**, the default, the question fields stay disabled, and an agent with a question runs as if it had none.
-
-1. Open the custom agent.
-2. Type a **Question** of up to 500 characters. The macros `{{user}}` and `{{char}}` work in it.
-3. Set **Run when probability is at least** to the threshold for this agent. The agent runs when the chance of "yes" meets it, so higher values skip more runs. The editor shows a recommended value for your model. See [Thresholds](../connections/decision-models.md#thresholds).
-4. Optional: set **Bypass the question after this many messages without a successful run**. After that many messages, the question is skipped, so a model that keeps answering "no" cannot silence the agent for good. Keywords and cadence still apply.
-
-Write the question as a statement about the latest message, such as `The latest message moves the scene to a new place.` A small model answered this more reliably than `Did the scene change?` See [Writing statements](../prompts/conditional-prompts.md#writing-statements).
-
-How it runs:
-
-- Keywords and cadence are checked first, so a skipped agent costs no decision request.
-- **Scan Depth** sets the messages used by both keywords and the question.
-- Pre-generation and parallel agents use the chat before the reply. Post-processing agents also see the finished reply.
-- A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit is the Decision connection's **Time limit (seconds)**, 1.5 seconds by default.
-- Imported agents with an activation question or decision statements show a notice linking to the Decision Models guide. Without a Decision model, the agent runs whenever keywords and **Trigger Cadence** allow, and prompt statements read as no.
-
-Activation questions apply to custom agents only.
-
-## Decision statements in the agent's prompt
-
-An activation question decides whether the agent runs. A decision statement in the **Prompt Template** decides what a running agent is told. The syntax is in [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model):
-
-```text
-{{#if decision:"In the latest message, the characters move to a different location"}}
-Update the location field.
-{{else}}
-Leave the location as it is.
-{{/if}}
-```
-
-Use them to send a smaller prompt on quiet turns. A tracker can update the location only when it changed. An image agent can describe a new picture only when the scene changed. A music agent can change tracks only when the mood shifted.
-
-- Pre-generation and parallel agents read the chat before the reply and share answers with the main prompt. Post-processing agents read the finished reply, and their statements are asked again with it.
-- Re-running an agent reuses successful answers still cached for the same turn, model and statements. See [Answer reuse](../prompts/conditional-prompts.md#answer-reuse).
-- In an agent prompt, `{{char}}` names every character in the chat, so in a group `{{char}} is angry` becomes "Kaelen, Alyssa is angry". Name the character, or write "a character".
-- With no answer, a statement reads as no. Make the `{{else}}` branch sensible, because many users have no Decision model.
-
-Agents installed from Marinara-Agents render prompts the same way.
 
 ## Attach tools
 
@@ -177,12 +140,12 @@ This agent rewrites every reply into British English.
 3. Under **Result Type**, pick **Text Rewrite**. The phase switches to **Post-Processing**.
 4. Paste this into **Prompt Template**:
 
-```text
-You are a copy editor. Rewrite the latest reply into British English.
-Change spelling and vocabulary only. Do not change the meaning, tone, or events.
-Return JSON with an "editedText" field holding the full rewritten reply,
-and a "changes" array of short notes describing what you changed.
-```
+   ```text
+   You are a copy editor. Rewrite the latest reply into British English.
+   Change spelling and vocabulary only. Do not change the meaning, tone, or events.
+   Return JSON with an "editedText" field holding the full rewritten reply,
+   and a "changes" array of short notes describing what you changed.
+   ```
 
 5. Click **Save**.
 6. Open a Roleplay chat, turn on **Enable Agents** in **Chat Settings** and add the agent from **Custom Agents**.
@@ -208,6 +171,48 @@ External imports are locked by default.
 This lock affects only agents from files, folders or custom repositories. Agents you create and official agents from **Agent Organizer** work normally. Each imported file gets a new custom identity, so it cannot replace an official agent.
 
 For safety, Marinara ignores bundled functions, clears tool selections, cleans temporary CSS and checks approved capabilities before an imported agent can change messages, trackers, lorebooks, backgrounds, sprites, media, haptics, About Me data, prompts or images. Import trusted functions separately, review them, and attach them to the agent yourself. Turning the **Danger Zone** toggle off stops imported agents from running.
+
+## Activation questions
+
+An activation question asks whether the recent scene needs your agent. It catches paraphrases that keywords miss. It needs a **Decision model**, a small model that answers yes-or-no questions. Pick one in the Connections panel. See [Decision Models](../connections/decision-models.md). With **Decision model** set to **None**, the default, the question fields stay disabled, and an agent with a question runs as if it had none.
+
+1. Open the custom agent.
+2. Type a **Question** of up to 500 characters. The macros `{{user}}` and `{{char}}` work in it.
+3. Set **Run when probability is at least** to the threshold for this agent. The agent runs when the chance of "yes" meets it, so higher values skip more runs. The editor shows a recommended value for your model: 0.5 for local chat models and Decision accounts, or 0.1 for the built-in Open-Jev models. Check it against your own chats after you switch models. See [Thresholds](../connections/decision-models.md#thresholds).
+4. Optional: set **Bypass the question after this many messages without a successful run**. After that many messages, the question is skipped, so a model that keeps answering "no" cannot silence the agent for good. Keywords and cadence still apply.
+
+Write the question as a statement about the latest message, such as `The latest message moves the scene to a new place.` A small model answered this more reliably than `Did the scene change?` See [Writing statements](../prompts/conditional-prompts.md#writing-statements).
+
+How it runs:
+
+- Keywords and cadence are checked first, so a skipped agent costs no decision request. Questions with the same scan depth are batched per phase.
+- **Scan Depth** sets the messages used by both keywords and the question.
+- Pre-generation and parallel agents use the chat before the reply. Post-processing agents also see the finished reply.
+- A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit is the Decision account's **Time limit (seconds)**: 1.5 seconds by default, or 4 seconds for an OpenAI-compatible chat model.
+- Imported agents with an activation question or decision statements show a notice linking to the Decision Models guide. Without a Decision model, the agent runs whenever keywords and **Trigger Cadence** allow, and prompt statements read as no.
+
+Activation questions apply to custom agents only.
+
+## Decision statements in the agent's prompt
+
+An activation question decides whether the agent runs. A decision statement in the **Prompt Template** decides what a running agent is told. The syntax is in [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model):
+
+```text
+{{#if decision:"In the latest message, the characters move to a different location"}}
+Update the location field.
+{{else}}
+Leave the location as it is.
+{{/if}}
+```
+
+Use them to send a smaller prompt on quiet turns. A tracker can update the location only when it changed. An image agent can describe a new picture only when the scene changed. A music agent can change tracks only when the mood shifted. To pick one of several instruction sets, use `{{#if decision_choice:"The kind of scene in the latest message" == "combat"}}`, then `{{else if decision_choice:"The kind of scene in the latest message" == "dialogue"}}`, and so on. See [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model).
+
+- Pre-generation and parallel agents read the chat before the reply and share answers with the main prompt. Post-processing agents read the finished reply, and their statements are asked again with it.
+- Re-running an agent reuses successful answers still cached for the same turn, model and statements. See [Answer reuse](../prompts/conditional-prompts.md#answer-reuse).
+- In an agent prompt, `{{char}}` names every character in the chat, so in a group `{{char}} is angry` becomes "Kaelen, Alyssa is angry". Name the character, or write "a character".
+- With no answer, a statement reads as no. Make the `{{else}}` branch sensible, because many users have no Decision model.
+
+Agents installed from Marinara-Agents render prompts the same way.
 
 ## Related guides
 

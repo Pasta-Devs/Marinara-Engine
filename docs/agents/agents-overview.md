@@ -10,12 +10,12 @@ A fresh install has no optional agents. Install them from **Agent Organizer**, t
 
 ## Add an agent to a chat
 
-Before you start: install the agent from **Agent Organizer** (see [Install and update agents](#install-and-update-agents)).
+Before you start: install the agent first. Open the **Agents** panel (the Sparkles icon in the right-side tabs), click **Agent Organizer**, open the agent's page and click **Get**. See [Install and update agents](#install-and-update-agents).
 
 1. Open the chat.
 2. Open **Chat Settings** and find the **Agents** section.
 3. Turn on **Enable Agents**. This is the master switch: when it is off, no agent runs in this chat.
-4. Add the agents you want from the lists below the switch.
+4. Click **Add Agent**, open the group the agent belongs to (such as **Writer Agents** or **Misc Agents**) and choose it.
 
 The agents you added appear as active, each with a small remove button. You can add or remove agents at any time.
 
@@ -25,15 +25,18 @@ If an agent did not run, check that **Enable Agents** is on, that the agent is a
 
 ### More controls in the Agents section
 
-| Control | What it does |
-| --- | --- |
-| **Agent Menus** | Roleplay only. Click an agent's name to jump to its settings. |
-| **Trackers Control** | Roleplay only. A closed card with the tracker options below. |
-| **Attach chat summaries** | In **Trackers Control**. Off by default. Adds saved chat summaries to agent requests, including retries. |
-| **Attach Lorebooks to Trackers** | In **Trackers Control**. Tracker agents also get the lorebook entries used for the main reply. Shows once the chat has a tracker agent. |
-| **Individual tracker schedule** | In **Trackers Control**. Stops a tracker from running after every reply. You run it by hand from the HUD (the on-screen status overlay in Roleplay). |
-| **Review Agent Outputs** | Lorebook, summary and character card changes wait for your approval. In Roleplay it is inside **Trackers Control**. See [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md). |
-| **Agent Suite** | Opens a viewer where you read and edit what agents stored for this chat. |
+These controls are in the same **Agents** section.
+
+- **Agent Menus** (Roleplay only): click an agent's name to jump to its settings.
+- **Trackers Control** (Roleplay only): a closed card with the tracker options below.
+- **Agent Suite**: opens a viewer where you read and edit what agents stored for this chat.
+- **Review Agent Outputs**: makes lorebook, summary and character card changes wait for your approval. In Roleplay it is inside **Trackers Control**. See [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md).
+
+Options inside **Trackers Control**:
+
+- **Attach chat summaries**: off by default. Adds saved chat summaries to agent requests, including retries. It does not remove summaries from the main reply or stop summary generation. Agents with full main-prompt access can still read summaries there.
+- **Attach Lorebooks to Trackers**: tracker agents also get the lorebook entries used for the main reply. Shows once the chat has a tracker agent.
+- **Individual tracker schedule**: stops a tracker from running after every reply. You run it by hand from the HUD (the on-screen status overlay in Roleplay).
 
 ### Give one agent a reference lorebook
 
