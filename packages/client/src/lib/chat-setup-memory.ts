@@ -60,3 +60,35 @@ export function readSetupFields(chat: Pick<Chat, "personaId" | "connectionId" | 
 export function setupMemoryFrom(chat: Chat): SetupMemory {
   return { ...readSetupFields(chat), sourceName: chat.name };
 }
+
+export interface KnownSetupIds {
+  personas: ReadonlySet<string>;
+  promptPresets: ReadonlySet<string>;
+  chatPresets: ReadonlySet<string>;
+  lorebooks: ReadonlySet<string>;
+  agents: ReadonlySet<string>;
+  connections: ReadonlySet<string>;
+}
+
+/** Drop anything that no longer exists: single ids fall back to the fresh chat's value, lists are filtered. */
+export function keepExistingSetup(memory: SetupFields, defaults: SetupFields, known: KnownSetupIds): SetupFields {
+  const pick = (id: string | null, set: ReadonlySet<string>, fallback: string | null) => (id && set.has(id) ? id : fallback);
+  const list = (value: unknown, set: ReadonlySet<string>) =>
+    Array.isArray(value) ? value.filter((id) => typeof id === "string" && set.has(id)) : value;
+  const { metadata } = memory;
+  return {
+    personaId: pick(memory.personaId, known.personas, defaults.personaId),
+    connectionId: pick(memory.connectionId, known.connections, defaults.connectionId),
+    promptPresetId: pick(memory.promptPresetId, known.promptPresets, defaults.promptPresetId),
+    metadata: {
+      ...metadata,
+      activeLorebookIds: list(metadata.activeLorebookIds, known.lorebooks),
+      excludedLorebookIds: list(metadata.excludedLorebookIds, known.lorebooks),
+      activeAgentIds: list(metadata.activeAgentIds, known.agents),
+      appliedChatPresetId:
+        typeof metadata.appliedChatPresetId === "string" && known.chatPresets.has(metadata.appliedChatPresetId)
+          ? metadata.appliedChatPresetId
+          : null,
+    },
+  };
+}

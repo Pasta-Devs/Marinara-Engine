@@ -4,11 +4,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import { useChatStore } from "../stores/chat.store";
 import { chatKeys, useCreateChat } from "./use-chats";
+import { characterKeys } from "./use-characters";
+import { agentKeys } from "./use-agents";
+import { lorebookKeys } from "./use-lorebooks";
+import { presetKeys } from "./use-presets";
 import { useApplyChatPreset, useChatPresets } from "./use-chat-presets";
 import { connectionListQuery } from "./use-connections";
 import { postGreetingWithSwipes } from "../lib/message-swipes";
 import { readCardWithQuestions } from "../lib/onboarding-add-card";
-import { pickSetupSource, readSetupFields, setupMemoryFrom } from "../lib/chat-setup-memory";
+import { keepExistingSetup, pickSetupSource, readSetupFields, setupMemoryFrom } from "../lib/chat-setup-memory";
 
 type ChatMode = "roleplay" | "conversation" | "game";
 
@@ -103,12 +107,35 @@ export function useStartChatFromCharacter() {
             void (async () => {
               if (source) {
                 try {
-                  const memory = setupMemoryFrom(source);
                   const defaults = readSetupFields(chat);
-                  const connectionOk = (connections as Array<{ id: string }>).some((c) => c.id === memory.connectionId);
+                  const fetchIds = async (queryKey: readonly unknown[], path: string, field = "id") => {
+                    const rows = await queryClient
+                      .ensureQueryData({ queryKey, queryFn: () => api.get<Array<Record<string, unknown>>>(path), staleTime: 60_000 })
+                      .catch(() => null);
+                    return rows ? new Set(rows.map((row) => String(row[field]))) : null;
+                  };
+                  const [personas, promptPresets, lorebooks, agents] = await Promise.all([
+                    fetchIds(characterKeys.personas, "/characters/personas/list"),
+                    fetchIds(presetKeys.list(), "/prompts"),
+                    fetchIds(lorebookKeys.list(), "/lorebooks"),
+                    fetchIds(agentKeys.all, "/agents", "type"),
+                  ]);
+                  // A list that failed to load is treated as empty, so nothing unverifiable is copied.
+                  const none = new Set<string>();
+                  const memory = {
+                    sourceName: source.name,
+                    ...keepExistingSetup(setupMemoryFrom(source), defaults, {
+                      personas: personas ?? none,
+                      promptPresets: promptPresets ?? none,
+                      lorebooks: lorebooks ?? none,
+                      agents: agents ?? none,
+                      chatPresets: new Set((chatPresetsData ?? []).map((preset) => preset.id)),
+                      connections: new Set((connections as Array<{ id: string }>).map((c) => c.id)),
+                    }),
+                  };
                   await api.patch(`/chats/${chat.id}`, {
                     personaId: memory.personaId,
-                    connectionId: connectionOk ? memory.connectionId : defaults.connectionId,
+                    connectionId: memory.connectionId,
                     promptPresetId: memory.promptPresetId,
                   });
                   await api.patch(`/chats/${chat.id}/metadata`, memory.metadata);
