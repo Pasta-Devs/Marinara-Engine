@@ -11,11 +11,20 @@ Her window opens. You can also reach her from any screen: type in Search and pic
 
 Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends. Your first message unlocks the **Hello World** achievement.
 
-You can close her window while she works. A thin line along the bottom of the top bar wavers while she works, turns green when she finishes, gold while an approval waits, and red if the last run failed. While her window is closed, a pill in the top bar shows **Working**, **Needs you**, **Done** or **Failed**. Click the pill to return to her chat. The line is off while **Ask Professor Mari from Search** is turned off.
-
 All her settings are under **Settings → General → Search and Professor Mari settings → Open**, or the gear in Search. On a computer, the **Height** and **Width** sliders under **Professor Mari window** resize her window. On a phone, her window fills the screen.
 
-If it did not work: with no account added, the **Connections** list opens when you press send. See [Pick an account for her](#pick-an-account-for-her).
+## Make a character with Mari
+
+Before you start: add an account for text generation. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) and [Pick an account for her](#pick-an-account-for-her).
+
+1. Open her window (see above).
+2. Click the **Create a character** chip. It fills the message box.
+3. Add your idea to the text, for example the name and personality, then press <kbd>Enter</kbd>.
+4. Answer her questions. Pick an option or type your own, then click **Submit**.
+5. When she finishes, click **Open** on the result to see the new character.
+6. If you do not like a change, click **Undo** on its change card.
+
+If it did not work: with no account added, the **Connections** list opens when you press send. Pick or add an account there.
 
 ## What she can do
 
@@ -38,7 +47,7 @@ When your request leaves real choices open, she can ask on a question card under
 
 ### Ask from the place you are working
 
-These places open her with an editable draft and a small **Context** chip that you can remove before you send:
+These places open her with an editable draft and a small **Context** chip (a label above the message box) that you can remove before you send:
 
 - The **Character**, **Persona**, **Lorebook** and **Preset** editors.
 - **FAQ** answers: **Ask Prof. Mari about this**.
@@ -70,14 +79,11 @@ The card has one action: **Undo**. It puts back the previous saved version. Ever
 - Characters and personas also keep a version history in their editors, as a second way back.
 - She cannot edit or delete her own card. Marinara resets it on every start.
 
-A card belongs to the chat where she made the change. Deleting a chat keeps its changes and removes its cards. A change made with the `mari` command in a terminal belongs to no chat, so its card shows in every Professor Mari chat.
+A card belongs to the chat where she made the change. Deleting a chat keeps its changes and removes its cards.
 
 ### Changes that wait for you
 
-A held change waits instead of being saved. It shows **Apply** and **Don't apply**. A delete shows **Delete** and **Put back**. Changes are held in Manual mode, and for sensitive files and dependencies. Search does not list her changes: open Professor Mari to apply or undo them.
-
-- **Sensitive files** (dependency files, launchers, installers, CI workflows) show the path and new content with **Apply change** and **Discard**.
-- **Dependencies** show the npm package, exact version and registry integrity with **Install** and **Not now**. Install commands are blocked in her shell. Approving a library means trusting its code when Marinara runs it.
+A held change waits instead of being saved. It shows **Apply** and **Don't apply**. A delete shows **Delete** and **Put back**. Changes are held in Manual mode, and for sensitive files and dependencies (see [Held changes for files and libraries](#held-changes-for-files-and-libraries)). Search does not list her changes: open Professor Mari to apply or undo them.
 
 When she creates or updates a character, persona, lorebook or preset, the result can show **Open**, which opens that item. An updated result can also show **Review** while a review is pending.
 
@@ -142,10 +148,8 @@ The message box stays open while she works. You choose when your message reaches
 - **Send now** goes in at her next step without stopping her. Her reply so far is saved, your message appears below it, and she continues with it in mind.
 - **Queue for later** waits in a list above the box, marked **Sends when she finishes**. She takes waiting messages one at a time when she finishes cleanly.
 
-| | Send now | Queue for later |
-| --- | --- | --- |
-| **Enter sends** on (default) | <kbd>Enter</kbd> | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> |
-| **Enter sends** off | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> |
+- **Enter sends** on (default): <kbd>Enter</kbd> sends now. <kbd>Ctrl</kbd>+<kbd>Enter</kbd> queues.
+- **Enter sends** off: <kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends now. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> queues.
 
 On a Mac, use <kbd>⌘</kbd> in place of <kbd>Ctrl</kbd>. The small arrow beside the send button offers both choices, which helps on a phone. A **Stop** button beside the send button cancels the current task.
 
@@ -180,15 +184,13 @@ Quick answers are off until you turn on **Quick answers in Search** under **Sear
 
 ## Reference: settings, skills and memories
 
+### Status line and top-bar pill
+
+You can close her window while she works. A thin line along the bottom of the top bar wavers while she works, turns green when she finishes, gold while an approval waits, and red if the last run failed. While her window is closed, a pill in the top bar shows **Working**, **Needs you**, **Done** or **Failed**. Click the pill to return to her chat.
+
 ### Appearance
 
 Under **Search and Professor Mari settings → Appearance**, pick a look such as **Basic**, **Prof. Mari loves Dottore** or **Safari Prof. Mari**. It shows in her chat, Search, Home and the top bar. Some looks unlock after enough play time, and a locked look shows your hours so far.
-
-### Runtime
-
-Under **Runtime** you can choose **Classic** (the default) or **Pi**. Pi is an experimental mode where she thinks more before she acts and works through longer tasks. The change applies from her next answer, and Undo works the same in both. If she behaves oddly on Pi, switch back to Classic.
-
-**Read the handbook before the first write**, also under **Runtime**, is on by default. Her first change to an area with a built-in skill is turned back until she has read that skill. This helps smaller models. Only you can switch it off.
 
 ### Skills
 
@@ -210,24 +212,11 @@ A memory is a standing preference she keeps, such as how you like lorebook entri
 - Each turn she sees only a short index of your enabled memories and reads the full text when one is relevant. A **Persistent** memory is in front of her on every turn, so keep those few and small.
 - Memories take precedence over her default habits when they conflict.
 
-For agent **Activation questions**, lorebook **Decision** statements and conditional prompts, she checks which decision model you picked first. A decision model is a small model that answers yes-or-no questions. Without one, she keeps new work free of Decisions unless you ask. Tell her "Stop reminding me to set up a Decision model" to stop the reminders. See [Decision Models](../connections/decision-models.md), [Conditional Prompts](../prompts/conditional-prompts.md), [Custom Agents](../agents/custom-agents.md#activation-questions) and [Lorebook Entries](../lorebooks/entries.md#decision-activation).
-
 ## Trust and recovery status
 
 Open **Context** in her header to see what goes with your next message, what stays in this chat, and how she works: the model, the context budget and whether her shell runs in a sandbox. The header also shows pending approvals, Skills and Memories. **Context** grants no extra access.
 
 When a request fails, the chat keeps the reason and shows **Retry** when you can send it again. Fix the named account, sandbox or access problem first. If your question was not saved, it returns to the message box with its files. **Retry** and **Retry with another model** then send what is in the box.
-
-### What she can reach on your computer
-
-She can read and change Marinara's own program files and run sandboxed commands, so she can repair the app. Most people never need this.
-
-- Her file tools stay inside the folder where Marinara is installed. Raw shell commands cannot read your other personal files, have no network access and do not inherit server secrets.
-- `.env`, the key file that protects your saved API keys, and Git's internal files are not available to her.
-- She cannot write straight into your data folder, where your characters and chats live. She uses the reviewable change flow above.
-- Dependency manifests, lockfiles, launchers, installers and CI workflows are staged for your approval first. Package install scripts stay off.
-- Commands stop on their own after a short time.
-- If Marinara cannot provide its macOS or Linux shell sandbox, raw shell commands and `mari code check` are off. She can still use the structured file and app-data tools.
 
 ## Read the FAQ
 
@@ -252,6 +241,47 @@ Click the **FAQ** bookmark, or **Read FAQ** in the **Learn the engine** widget, 
 | She cannot read your image | Switch to an account whose model supports image input. |
 | Fandom lookups fail | They need an internet connection. |
 | Actions blocked with a permission error | You reach Marinara over a network. Set up remote access first. |
+
+## Reference for advanced users
+
+These parts are for people who edit Marinara's own files or want to tune how she works. You can skip them.
+
+### Runtime
+
+Under **Runtime** you can choose **Pi (experimental)**, the default, or **Classic**. Pi is a mode where she thinks more before she acts and works through longer tasks. If your account cannot run Pi, she uses Classic. The change applies from her next answer, and Undo works the same in both. If she behaves oddly on Pi, switch to Classic.
+
+**Read the handbook before the first write**, also under **Runtime**, is on by default. Her first change to an area with a built-in skill is turned back until she has read that skill. This helps smaller models. Only you can switch it off.
+
+### What she can reach on your computer
+
+She can read and change Marinara's own program files and run sandboxed commands, so she can repair the app. Most people never need this.
+
+- Her file tools stay inside the folder where Marinara is installed. Raw shell commands cannot read your other personal files, have no network access and do not inherit server secrets.
+- `.env`, the key file that protects your saved API keys, and Git's internal files are not available to her.
+- She cannot write straight into your data folder, where your characters and chats live. She uses the reviewable change flow above.
+- Dependency manifests, lockfiles, launchers, installers and CI workflows are staged for your approval first. Package install scripts stay off.
+- Commands stop on their own after a short time.
+- If Marinara cannot provide its macOS or Linux shell sandbox, raw shell commands and `mari code check` are off. She can still use the structured file and app-data tools.
+
+### Held changes for files and libraries
+
+- **Sensitive files** (dependency files, launchers, installers, CI workflows) show the path and new content with **Apply change** and **Discard**.
+- **Dependencies** show the npm package, exact version and registry integrity with **Install** and **Not now**. Install commands are blocked in her shell. Approving a library means trusting its code when Marinara runs it.
+
+### How she handles Decisions
+
+A decision model is a small model that answers yes-or-no questions. For agent **Activation questions**, lorebook **Decision** statements and conditional prompts, she checks which decision model you picked first.
+
+- She asks before she adds Decision content, and without a decision model she keeps new work free of Decisions unless you ask.
+- She prefers sparse use with a timing control: **Sticky** or **Cooldown** for lorebook entries, **Trigger Cadence** for agent activation, and `sticky`, `cooldown` or `every` in prompt conditions.
+- She asks before she adds content that changes early in a prompt or inside chat history, so the start of the prompt stays stable for the service's prompt caching.
+- Tell her "Stop reminding me to set up a Decision model" to stop the reminders.
+
+See [Decision Models](../connections/decision-models.md), [Conditional Prompts](../prompts/conditional-prompts.md), [Custom Agents](../agents/custom-agents.md#activation-questions) and [Lorebook Entries](../lorebooks/entries.md#decision-activation).
+
+### The mari command
+
+A change made with the `mari` command in a terminal belongs to no chat, so its change card shows in every Professor Mari chat.
 
 ## Related guides
 
