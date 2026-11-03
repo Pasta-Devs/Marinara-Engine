@@ -2,7 +2,7 @@
 
 A branch is a copy of a chat up to one message. Use it to try a different path while the original stays safe. This guide covers making, switching, viewing, renaming, deleting, exporting and importing branches.
 
-All branches of one chat are grouped. In the chat list the chat keeps one row and shows a branch count. When the branches record which chat they came from, click the count to open them underneath. Older or imported branches without that record stay in one row; open them from **Chat Branches**. A branch made from a branch nests under it, so you see a tree. Each branch has a display name and a last-active time, so you can label them "friendly ending" and "dark ending". The display name is separate from the chat name. A Game group keeps one row, because Game sessions are numbered sessions, not branches.
+All branches of one chat are grouped. In the chat list the chat keeps one row and shows a branch count. When at least one branch in the group records which chat it came from, click the count to open the tree; a branch without that record sits directly under the chat. If no branch in the group has the record (older or imported branches), the group stays in one row; open its branches from **Chat Branches**. A branch made from a branch nests under it, so you see a tree. Each branch has a display name and a last-active time, so you can label them "friendly ending" and "dark ending". The display name is separate from the chat name. A Game group keeps one row, because Game sessions are numbered sessions, not branches.
 
 ## Branch from here
 
