@@ -1,61 +1,49 @@
 # Choosing Your Persona in a Chat
 
-This guide explains how to pick which persona represents you in a chat, including the quick switchers and the option to use no persona.
+Each chat has its own persona, the character card that stands for you. You can pick it in Chat Settings, when you create the chat, or with a quick switcher near the message box.
 
-## Each chat has its own persona
+Before you start: create a persona. See [Personas](personas.md).
 
-A persona is your own character card, the identity Marinara Engine uses to represent you. It gives the AI your name and details so the AI knows who it is talking to. To learn how to build one, see [User Personas](personas.md).
+The choice applies to that chat only, so different chats can use different personas. Choose **None** to use no persona. The AI then calls you "User" and receives no persona details. This applies in Conversation, Roleplay and Game Mode. A chat that has no persona stays anonymous.
 
-Choose a persona for each chat where you want to use it. The selection applies to that chat only. Choose **None** to use no persona; the AI receives the generic name "User" and no persona details.
+## From Chat Settings
 
-The former global **active persona** setting has been removed. Your saved personas and each chat's existing selection are kept. A chat without a selected persona stays anonymous.
-
-## Choosing a persona for one chat
-
-Every chat can store its own persona. You can use different personas in different chats.
-
-### From Chat Settings
-
-1. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
+1. Open **Chat Settings**, from the button at the top right of the chat unless you moved it.
 2. Find the **Persona** section. Its help text starts with "Your persona defines who you are in this chat."
-3. When no persona is set, you see "No persona selected."
-4. Click **Choose Persona**. This button reads **Change Persona** once a persona is set.
-5. Search in the picker (placeholder "Search personas...") and click a persona.
+3. Click **Choose Persona**. The button reads **Change Persona** once a persona is set. Before that, the section says "No persona selected."
+4. Search in the picker (placeholder **Search personas**) and click a persona.
 
-To clear the per-chat persona, click the remove (X) button next to it, or pick **None** in the picker.
+To clear the persona, click the X next to it, or pick **None** in the picker.
 
-In Game Mode this section is framed as your in-game party, but it still uses the **Persona** label.
+If it did not work: you can only pick personas you have already created. Create one first, or use **Create your persona** from the picker (see below).
 
-### When you create a chat
+In Game Mode this section is framed as your in-game party but still uses the **Persona** label.
 
-The New Chat setup wizard has a **Your Persona** field. It uses the same searchable picker and a **None** option. In the New Game Setup wizard, this field is labeled **Player's Persona** instead.
+## When you create a chat
 
-In a Roleplay chat, a character card can offer **Create your persona** at the top of this picker. Pick it to answer the card's questions and get a new persona. See [Interactive Onboarding](interactive-onboarding.md).
+The New Chat setup wizard has a **Your Persona** field. It uses the same searchable picker and a **None** option. In the New Game Setup wizard, the field is called **Player's Persona**, and the chat keeps that choice.
 
-The same row is in the Chat Settings persona picker, so a persona can still be created after setup. Chat Settings → **Characters** also shows a card's onboarding marker, which reopens that card's character questions so you can change an answer or restore one you deleted.
+In a Roleplay chat, a character card can offer **Create your persona** at the top of the picker. Pick it to answer the card's questions and get a new persona. See [Interactive Onboarding](interactive-onboarding.md). The same row is in the Chat Settings picker, so you can still create a persona after setup. In Chat Settings, the **Characters** section also shows an onboarding marker on a card. Click it to reopen that card's questions and change an answer or restore one you deleted.
 
-## The Quick Persona Switcher
+## Switch quickly in an open chat
 
-Once a chat is open, a small round avatar button sits near the message box. This is the **Quick Persona Switcher**. Its tooltip shows this name when no persona is set.
+The **Quick Persona Switcher** is the small round avatar button near the message box. Its tooltip shows **No persona selected** when none is set.
 
-1. Click the avatar button.
-2. A menu titled **Personas** opens.
-3. Click any persona to switch instantly, or click **None** to use no persona.
+1. Click the avatar button. A menu titled **Personas** opens.
+2. Click a persona to switch at once, or click **None** to use no persona.
 
-Personas are grouped by folder. Personas without a folder appear under **Ungrouped**.
+Personas are grouped by folder. Those without a folder appear under **Ungrouped**.
 
-On mobile, persona switching shares a menu with connection switching. Tap the **Quick Switcher** chevron near the message box, then open the **Personas** tab. The **Connections** tab sits in the same menu.
+On a phone, persona switching shares a menu with connection switching. Tap the **Quick Switcher** chevron near the message box, then open the **Personas** tab. The **Connections** tab is in the same menu.
 
-## Which persona wins
+Switching in the middle of a chat does not rewrite earlier messages. Each message you already sent keeps the persona it was sent under.
 
-The persona selected for the chat determines your identity. If you select **None**, the AI addresses you as "User" and receives no persona details. This applies in Conversation, Roleplay, and Game Mode.
+## Play as a character
 
-In Game Mode, you choose your persona in the New Game Setup wizard. The chat keeps that selection.
-
-Switching your persona in the middle of a chat does not rewrite earlier messages. Each message you already sent keeps the persona it was sent under.
+To use a character card as your identity, turn on **Show characters in Persona pickers** under **Settings → Advanced → Message Tools**. The pickers then show a **Play as a character** group that lists your characters.
 
 ## Related guides
 
-- [User Personas: Creating and Editing](personas.md)
+- [Personas](personas.md)
 - [Interactive Onboarding](interactive-onboarding.md)
 - [Chat Settings Overview](../chats/chat-settings.md)
