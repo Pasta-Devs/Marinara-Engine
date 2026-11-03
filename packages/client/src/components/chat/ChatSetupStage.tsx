@@ -353,7 +353,7 @@ export function ChatSetupStage({
       onClick={onClick}
       aria-label={label}
       className={cn(
-        "inline cursor-pointer bg-transparent p-0 italic text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--stage-accent,var(--primary))_75%,transparent)] decoration-[1.5px] underline-offset-[5px] hover:decoration-[var(--stage-accent,var(--primary))]",
+        "inline cursor-pointer bg-transparent p-0 text-left italic text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--stage-accent,var(--primary))_75%,transparent)] decoration-[1.5px] underline-offset-[5px] hover:decoration-[var(--stage-accent,var(--primary))]",
         FOCUS,
         "rounded-sm",
       )}
