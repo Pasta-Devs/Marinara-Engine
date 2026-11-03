@@ -23,7 +23,11 @@ In **Chat Settings → Autonomous Messaging**, **Chat Check-In Cap** limits how 
 - **Default chat ceiling (talkativeness-based)** takes the limit from each character's talkativeness (table below).
 - **Numeric value** shows a number field. Enter any whole number of 1 or more. High numbers can mean many model requests and notifications.
 
-A character can also have its own **Daily safety limit** (set in its schedule). When both exist, the lower number wins.
+A character can also have its own **Daily safety limit** (set in its schedule). The limit for a character works like this:
+
+- Chat cap set to **Numeric value** and a **Daily safety limit** set: the lower number wins.
+- Only one of them set: that number applies, even if it is higher than the talkativeness number below.
+- Neither set: the number comes from the character's talkativeness.
 
 | Character talkativeness | Check-ins per day |
 | --- | --- |
@@ -71,7 +75,7 @@ Open **Tuning** for the main controls.
 
 Open **Advanced timing** inside **Tuning** for three more controls.
 
-- **Daily safety limit**: the most check-ins per day for this character. Leave it on **Default**, or enter a whole number of 1 or more. The lower of this and the chat cap wins.
+- **Daily safety limit**: the most check-ins per day for this character. Leave it on **Default**, or enter a whole number of 1 or more. If the chat also has a numeric cap, the lower number wins; otherwise this number replaces the talkativeness number.
 - **Delay while you're away**: extra minutes before the character replies while its status is **Away**. Leave it blank for a random 1 to 3 minutes. You can use 0 to 120.
 - **Delay while you're busy**: the same while its status is **Busy**. Leave it blank for a random 2 to 5 minutes. You can use 0 to 120.
 
