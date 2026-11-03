@@ -15,7 +15,7 @@ A local language model and an image model may not fit in GPU memory at the same 
 ## Create the Marinara connection
 
 1. Click **Connections**, then **Add**. In the **Add account** window, choose **ComfyUI** for a local server or **RunPod Serverless (ComfyUI)** for a RunPod endpoint, under **Images & video**.
-2. For local ComfyUI, enter its address (`http://127.0.0.1:8188`). No API key is needed. With an empty **ComfyUI Workflow** field, Marinara uses a built-in basic text-to-image workflow.
+2. For local ComfyUI, enter its address (`http://127.0.0.1:8188`). No API key is needed. With an empty **ComfyUI workflow (optional)** field, Marinara uses a built-in basic text-to-image workflow.
 3. For RunPod, enter your API key and **RunPod endpoint ID**. A custom workflow is required.
 4. Set **Local image defaults** on the image model. These values replace the matching placeholders in your workflow.
 5. Paste the workflow, save, and click **Test image**.
@@ -36,7 +36,7 @@ An API-format workflow is different from the normal visual-editor workflow. Its 
 
 ## ComfyUI video workflows
 
-Add a **ComfyUI** account under **Images & video** and open its video model. Paste an API-format workflow into the required **ComfyUI Workflow** field. WAN 2.2 and other local video graphs are supported as long as the same workflow runs in ComfyUI and saves an MP4 through an output such as the core **SaveVideo** node.
+Add a **ComfyUI** account under **Images & video** and open its video model. Paste an API-format workflow into the required **ComfyUI workflow (optional)** field. WAN 2.2 and other local video graphs are supported as long as the same workflow runs in ComfyUI and saves an MP4 through an output such as the core **SaveVideo** node.
 
 Video workflows can use these placeholders, kept inside quotes:
 
@@ -115,7 +115,7 @@ This is only a fragment: keep the node links and other inputs from your exported
 | `%denoise%`           | Denoising strength. `%denoising_strength%` is also accepted.                                |
 | `%clip_skip%`         | Clip Skip value for a compatible node.                                                      |
 
-After editing, save the JSON, copy the whole file, paste it into **ComfyUI Workflow** on the image model, save, and click **Test image**.
+After editing, save the JSON, copy the whole file, paste it into **ComfyUI workflow (optional)** on the image model, save, and click **Test image**.
 
 ## Use reference images
 
