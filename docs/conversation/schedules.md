@@ -1,8 +1,10 @@
 # Character Schedules and Autonomous Messaging
 
-Autonomous messages are messages a character sends you first, after you have been quiet for a while. Schedules give each character a weekly routine, so they seem awake, busy or asleep at different times. Both work only in Conversation Mode.
+Autonomous messages are messages a character sends you first, after you have been quiet for a while. A schedule is a character's weekly plan that makes it seem awake, busy or asleep at different times. Both work only in Conversation Mode.
 
 Schedules are optional. With schedules off, characters still reach out based on their talkativeness (how often a character starts a conversation) and your presence.
+
+Jump to: [Turn on schedules](#turn-on-schedules) if you only want a schedule.
 
 ## Turn on autonomous messages
 
@@ -16,12 +18,12 @@ If it did not work: characters stay silent while your presence is **Do Not Distu
 
 ### Set the check-in limit
 
-**Chat Check-In Cap** limits how many check-ins characters may send per day in this chat.
+In **Chat Settings → Autonomous Messaging**, **Chat Check-In Cap** limits how many check-ins characters may send per day in this chat.
 
 - **Default chat ceiling (talkativeness-based)** takes the limit from each character's talkativeness (table below).
 - **Numeric value** shows a number field. Enter any whole number of 1 or more. High numbers can mean many model requests and notifications.
 
-A character's own **Daily safety limit** (set in its schedule) can only lower this cap when both are set.
+A character can also have its own **Daily safety limit** (set in its schedule). When both exist, the lower number wins.
 
 | Character talkativeness | Check-ins per day |
 | --- | --- |
@@ -35,13 +37,19 @@ A character's own **Daily safety limit** (set in its schedule) can only lower th
 
 Before you start: turn on **Autonomous Messages**.
 
-1. In **Autonomous Messaging**, turn on **Schedules**.
-2. Existing character routines appear at once. Click **Generate** to make routines for characters that have none. It becomes **Regenerate** once routines exist.
-3. An **Edit schedules** list shows one row per character. Each row says how many days are filled (for example **3 days scheduled**) or **Create schedule**.
+1. In **Chat Settings → Autonomous Messaging**, turn on **Schedules**. (In the new-chat wizard the same option is called **Generate Schedules**.) Schedules that already exist appear at once.
+2. Pick your time zone in the field below it.
+3. Click **Generate** to make schedules for characters that have none. The button reads **Regenerate** once schedules exist.
+4. Wait for it to finish. An **Edit schedules** list then appears with one row per character. A row says how many days are filled (for example **3 days scheduled**) or **Create schedule**. The list shows only once schedules exist.
+5. Click a character's row to open its schedule editor (next section).
 
-Routines belong to the character and are reused in every Conversation chat. Turning **Schedules** off in a chat keeps them off there and keeps the routine. Automatic weekly renewal is off unless you turn on **Renew weekly** for that character in **Character Schedule Manager**. A failed renewal is not retried when you reopen the chat; use **Generate** to retry.
+A schedule belongs to the character and is reused in every Conversation chat. Turning **Schedules** off in a chat keeps it off there and keeps the schedule.
 
-**Schedule generation preferences** (also in **Chat Settings**) holds free-text guidance for how routines are written. It applies to every Conversation chat the next time routines are generated. Example:
+Automatic weekly renewal is off unless you turn on **Renew weekly** for that character in the **Character Schedule Manager**. Open it with the calendar button in the sidebar footer, next to the status box.
+
+A failed renewal is not retried when you reopen the chat. Click **Generate** to try again.
+
+**Schedule generation preferences**, in the same **Schedules** area of **Chat Settings**, holds free-text guidance for how schedules are written. It applies to every Conversation chat the next time schedules are generated. Example:
 
 ```text
 Make everyone go to sleep before midnight. I work 9-5 on weekdays.
@@ -49,7 +57,7 @@ Make everyone go to sleep before midnight. I work 9-5 on weekdays.
 
 ## The Schedules editor
 
-Click a character's row in **Edit schedules** to open the editor. Its title reads **Edit** plus the character name and **Schedule**.
+The editor's title reads **Edit** plus the character name and **Schedule**.
 
 At the top, **Routine profile** shows a plain-language summary of the week. Click **Generate summary** to make it, or **Refresh summary** to update it. After you change the schedule, **Summary may be stale** appears. **Generation model** picks the model that writes schedules.
 
@@ -57,28 +65,24 @@ At the top, **Routine profile** shows a plain-language summary of the week. Clic
 
 Open **Tuning** for the main controls.
 
-| Control | What it does | Default and range |
-| --- | --- | --- |
-| **Chat talkativeness** | Slider with **Rare**, **Quiet**, **Balanced**, **Social**, **Very frequent**. Sets how often the character starts messages and joins group talk, and its default daily limit. | **Balanced** |
-| **Wait before checking in** | Quiet minutes before the character may check in. | 120, from 15 to 360 |
-| **Check-in moments** | Chips: **Morning**, **Goodnight**, **Meal breaks**, **After busy**, **Long absence**. Click one to turn it off. | All on |
+- **Chat talkativeness**: a slider with **Rare**, **Quiet**, **Balanced**, **Social** and **Very frequent**. The default is **Balanced**. It sets how often the character starts messages and joins group talk, and its default daily limit.
+- **Wait before checking in**: quiet minutes before the character may check in. The default is 120. You can use 15 to 360.
+- **Check-in moments**: chips for **Morning**, **Goodnight**, **Meal breaks**, **After busy** and **Long absence**. All are on. Click one to turn it off.
 
 Open **Advanced timing** inside **Tuning** for three more controls.
 
-| Control | What it does | Default and range |
-| --- | --- | --- |
-| **Daily safety limit** | Hard maximum per day for this character. It can only lower the chat cap. | **Default**, or a whole number of 1 or more |
-| **Delay while you're away** | Extra minutes before the character replies while its status is **Away**. | Blank: random 1 to 3 minutes. Range 0 to 120 |
-| **Delay while you're busy** | The same while its status is **Busy**. | Blank: random 2 to 5 minutes. Range 0 to 120 |
+- **Daily safety limit**: the most check-ins per day for this character. Leave it on **Default**, or enter a whole number of 1 or more. The lower of this and the chat cap wins.
+- **Delay while you're away**: extra minutes before the character replies while its status is **Away**. Leave it blank for a random 1 to 3 minutes. You can use 0 to 120.
+- **Delay while you're busy**: the same while its status is **Busy**. Leave it blank for a random 2 to 5 minutes. You can use 0 to 120.
 
 ### Schedule AI: redraft the week
 
-Open **Schedule AI** to have the model rewrite the routine. Pick one **Week action**:
+Open **Schedule AI** to have the model rewrite the schedule. Pick one **Week action**:
 
 | Action | Result |
 | --- | --- |
 | **Rewrite** | A fresh full-week draft. |
-| **Adjust** | Keeps most of the routine and applies your guidance. |
+| **Adjust** | Keeps most of the schedule and applies your guidance. |
 | **Vary** | A clearly different week that is still believable. |
 | **Repair** | Fixes gaps and obvious problems with small changes. |
 
@@ -88,7 +92,7 @@ Open **Schedule AI** to have the model rewrite the routine. Pick one **Week acti
 4. Click the button that names your action, such as **Rewrite week**.
 5. Click **Save schedule** to keep the result. Until then it is a draft only (**Unsaved draft**).
 
-If it did not work: your draft is kept. If the model returns schedule text the editor cannot read, fix it in **Edit generated schedule JSON** and click **Apply to draft**. A failed call is not retried. Click **Stop** or close the editor to cancel a running request.
+If it did not work: your draft is kept. A failed call is not retried, so click the button again. Click **Stop** or close the editor to cancel a running request. If the editor shows **Edit generated schedule JSON**, the model returned text it could not read. Correct the text there and click **Apply to draft**.
 
 ### Daily blocks
 
@@ -105,24 +109,28 @@ During an **Offline** block the character never messages first. During a **Busy*
 
 ### Move a schedule between characters
 
-Click **Export schedule** to download the draft as a JSON file (weekly blocks, summary, talkativeness, check-in moments and timing). In another character's editor, click **Import schedule** to load it. Marinara checks the file and moves the routine to the current week. Nothing is saved until you click **Save schedule**.
+Click **Export schedule** to download the draft as a JSON file (weekly blocks, summary, talkativeness, check-in moments and timing). In another character's editor, click **Import schedule** to load it. Marinara checks the file and moves the schedule to the current week. Nothing is saved until you click **Save schedule**.
 
 ## Set a status with /status
 
-`/status` sets or clears a temporary status for a character without changing its saved schedule. It works only in Conversation Mode.
+`/status` sets or clears a temporary status for a character without changing its saved schedule. It works only in Conversation Mode. The status belongs to the character, so it applies in every chat that character is in.
 
-```text
-/status <online|idle|dnd|offline|clear> [character name]
-```
-
-`idle` means **Away** and `dnd` means **Busy**. To make Mira busy, then return her to her schedule:
+Type one of these in the message box:
 
 ```text
 /status dnd Mira
 /status clear Mira
 ```
 
-With one character in the chat you can leave the name out. `/status` alone lists the characters and usage. A status you set stays until you clear it, and a character cannot replace it.
+The first makes Mira busy. The second returns her to her schedule. With one character in the chat you can leave the name out. `/status` alone lists the characters and usage.
+
+The full form is below. `idle` means **Away** and `dnd` means **Busy**. Square brackets mean the name is optional.
+
+```text
+/status online|idle|dnd|offline|clear [character name]
+```
+
+A status you set stays until you clear it, and a character cannot replace it.
 
 ## Let characters change their own status
 
@@ -140,11 +148,11 @@ With **Schedule Updates** on in **Chat Settings → Agents → Commands**, a cha
 | Reaction | A reaction from you with no new message opens a shorter wait. |
 | **Offline** status | No check-in. |
 | **Busy** status | The wait is three times longer. |
-| Follow-ups | Up to two more while you stay silent, three in total. The first waits twice the base time, the second four times. |
+| Follow-ups | Up to two more while you stay silent, three in total. The first follow-up comes after twice the wait, the second after four times the wait. |
 | Your reply | The count resets. |
 | Several characters ready | The one with the highest talkativeness and best timing goes first. A character that is **Online** ranks higher. |
 
-In a group chat set to **Individual**, the characters share one daily limit and one pace. After any character checks in, the next check-in from anyone waits like a follow-up. Any character whose own wait has passed can send it, and the one with the fewest check-ins that day goes first. After a long absence, only one character checks in.
+In a group chat where each character answers in its own reply (see [Group Chats](../chats/group-chats.md)), the characters share one daily limit and one pace. After any character checks in, the next check-in from anyone waits like a follow-up. Any character whose own wait has passed can send it, and the one with the fewest check-ins that day goes first. After a long absence, only one character checks in.
 
 ## Related guides
 
