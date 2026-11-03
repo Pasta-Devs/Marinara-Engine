@@ -52,7 +52,7 @@ Some options need no key. The subscription options (Claude, ChatGPT and Grok) si
 
 ## Which AI providers are supported?
 
-Many. Marinara supports services for text, image and video generation, plus **OpenAI-compatible** servers such as Ollama, LM Studio and KoboldCpp. The full list is in [Supported Providers](connections/providers-reference.md). To add one, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
+Many. Marinara supports services for text, image and video generation, plus **OpenAI-compatible** servers such as Ollama, LM Studio and KoboldCpp. The full list is in [Supported AI Providers](connections/providers-reference.md). To add one, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
 ## Do I have to pay to use Marinara?
 
