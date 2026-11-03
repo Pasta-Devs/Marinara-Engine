@@ -36,7 +36,7 @@ A character sheet is a game summary of one party member, separate from the chara
 
 A new character may show "Character data will populate as the story progresses." The sheet fills in as you play.
 
-### Edit or recreate a sheet
+### Edit a sheet by hand
 
 **Retry**, **Save Sheet** and **Cancel** appear only after you click **Edit card**.
 
