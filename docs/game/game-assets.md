@@ -147,9 +147,9 @@ The bundled starter backgrounds count as shared, except the fantasy ones (`ancie
 
 Game Mode can generate sound effects and music through a **Music & Sound Effects** account. Choose ElevenLabs, SunoAPI or a custom compatible server. Each new sound or track uses that service account. Bundled audio stays available without generation.
 
-**Before you start:** add the account in Connections.
+**Before you start:** you need a **Music & Sound Effects** account. The **Add account** window has no tile for it. These accounts come from an upgrade or an import (**Import a backup** in **Connections**). See [provider setup and limits](../connections/providers-reference.md#music--sound-effects).
 
-1. Open **Connections** and create a **Music & Sound Effects** account.
+1. In **Connections**, open the account's model with **Edit model**.
 2. Choose the service, enter its key and select the music and sound-effect models. SunoAPI music also needs a public HTTPS callback URL. A custom server needs its endpoint paths.
 3. Turn on **Sound-effect generation**, **Music generation**, or both.
 4. Save the account. See [provider setup and limits](../connections/providers-reference.md#music--sound-effects).
