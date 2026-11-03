@@ -26,7 +26,7 @@ The agent now appears in the **Custom Agents** section of the **Agents** panel. 
 - **Parallel**: at the same time as the reply. It cannot see the finished reply.
 - **Post-Processing**: after the reply. It can read the reply and, for some result types, edit it.
 
-Some result types force a phase. **Text Rewrite** switches to **Post-Processing**. **Prompt Patch** switches to **Pre-Generation**.
+Some result types force a phase. **Text Rewrite** switches to **Post-Processing**. **Prompt Patch** and **Character Activity** switch to **Pre-Generation**.
 
 Post-Processing agents also get a **Turn Data Access** section with two toggles, **Pre-generation injections** and **Parallel agent results**. Turn them on to let the agent read what other agents produced in the same turn.
 
@@ -84,7 +84,7 @@ Other types, each with its own ability:
 - **Haptic Command** (Control haptic devices): sends a bounded command to a haptic device.
 - **About Me Update** (Edit About Me details): updates chat-specific About Me text and proposes public edits.
 - **Character Card Creation** (Create character cards): proposes one editable character card for your approval.
-- **Character Activity** (Choose active chat characters): selects the character cards used for the current reply.
+- **Character Activity** (Choose active chat characters): selects the character cards used for the current reply. It runs before the reply and must select at least one attached character.
 
 ### Controls for image agents in a chat
 
@@ -188,7 +188,7 @@ How it runs:
 - Keywords and cadence are checked first, so a skipped agent costs no decision request. Questions with the same scan depth are batched per phase.
 - **Scan Depth** sets the messages used by both keywords and the question.
 - Pre-generation and parallel agents use the chat before the reply. Post-processing agents also see the finished reply.
-- A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit is the Decision account's **Time limit (seconds)**: 1.5 seconds by default, or 4 seconds for an OpenAI-compatible chat model.
+- A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit is the Decision account's **Time limit (seconds)**: 1.5 seconds by default, or 4 seconds for an OpenAI-compatible chat model or a local model (20 seconds when the local model has to think first). See [Time limits](../connections/decision-models.md#time-limits).
 - Imported agents with an activation question or decision statements show a notice linking to the Decision Models guide. Without a Decision model, the agent runs whenever keywords and **Trigger Cadence** allow, and prompt statements read as no.
 
 Activation questions apply to custom agents only.
