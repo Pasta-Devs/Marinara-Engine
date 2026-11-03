@@ -6594,7 +6594,7 @@ export function ChatSettingsDrawer({
                 exclude={PICKER_EXCLUDED_IDS}
                 busy={updateChat.isPending || roomRoster.isPending}
                 badge={(id) =>
-                  isConversation && onboardingByCharacterId.has(id) ? (
+                  !isConversation && onboardingByCharacterId.has(id) ? (
                     <span
                       role="img"
                       aria-label={localizeUi("ui.characters.onboarding.hasOnboarding")}

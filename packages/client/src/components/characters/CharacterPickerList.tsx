@@ -350,14 +350,18 @@ export function CharacterPickerList({
       row.id = `${listId}-row-${index}`;
       if (index === active) {
         row.dataset.active = "true";
-        row.scrollIntoView?.({ block: "nearest" });
       } else delete row.dataset.active;
     });
     const activeRow = rows()[active];
     if (activeRow) searchRef.current?.setAttribute("aria-activedescendant", activeRow.id);
     else searchRef.current?.removeAttribute("aria-activedescendant");
   });
+  useEffect(() => {
+    rows()[active]?.scrollIntoView?.({ block: "nearest" });
+  }, [active, query]);
+
   const onSearchKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     const count = rows().length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
@@ -449,12 +453,25 @@ export function CharacterPickerList({
     visiblePersonas.length === 0 &&
     (!offersCharacters || characterCount === 0);
 
+  // Links to a deleted card stay as a removable pill instead of vanishing.
+  const deleted = (ids: readonly string[], rows: Array<{ id: string }> | undefined) =>
+    rows
+      ? ids
+          .filter((id) => !exclude?.includes(id) && !rows.some((row) => row.id === id))
+          .map((id) => ({ id, name: t("ui.characterselect.deleted"), src: null }))
+      : [];
   const picked = multiple
     ? isPersona
-      ? personas.filter((p) => personaSet.has(p.id)).map((p) => ({ id: p.id, name: p.name, src: p.avatarPath }))
-      : allCharacters
-          .filter((c) => characterSet.has(c.id))
-          .map((c) => ({ id: c.id, name: parseCharacterDisplayData(c).name, src: c.avatarPath }))
+      ? [
+          ...personas.filter((p) => personaSet.has(p.id)).map((p) => ({ id: p.id, name: p.name, src: p.avatarPath })),
+          ...deleted(personaIds, personasQuery.data as Array<{ id: string }> | undefined),
+        ]
+      : [
+          ...allCharacters
+            .filter((c) => characterSet.has(c.id))
+            .map((c) => ({ id: c.id, name: parseCharacterDisplayData(c).name, src: c.avatarPath })),
+          ...deleted(characterIds, charactersQuery.data as Array<{ id: string }> | undefined),
+        ]
     : [];
 
   return (
@@ -462,7 +479,13 @@ export function CharacterPickerList({
       <label className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 py-2 text-foreground/55 focus-within:border-foreground/25">
         <Search size="0.875rem" className="shrink-0" />
         <span className="sr-only">
-          {t(isPersona ? "ui.characterselect.searchPersonas" : "ui.chat.chatsettingsdrawer.searchCharacters")}
+          {t(
+            !isPersona
+              ? "ui.chat.chatsettingsdrawer.searchCharacters"
+              : offersCharacters
+                ? "ui.characterselect.searchPersonasAndCharacters"
+                : "ui.characterselect.searchPersonas",
+          )}
         </span>
         <input
           type="search"
@@ -473,14 +496,18 @@ export function CharacterPickerList({
           onChange={(event) => setSearch(event.target.value)}
           onKeyDown={onSearchKey}
           placeholder={t(
-            isPersona ? "ui.characterselect.searchPersonas" : "ui.chat.chatsettingsdrawer.searchCharacters",
+            !isPersona
+              ? "ui.chat.chatsettingsdrawer.searchCharacters"
+              : offersCharacters
+                ? "ui.characterselect.searchPersonasAndCharacters"
+                : "ui.characterselect.searchPersonas",
           )}
           className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-foreground/40 max-md:text-base"
         />
       </label>
 
       {picked.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-2 pt-2">
+        <div className="flex max-h-24 shrink-0 flex-wrap gap-1.5 overflow-y-auto px-2 pt-2">
           {picked.map((item) => (
             <span
               key={item.id}
