@@ -395,7 +395,8 @@ export const useChatStore = create<ChatState>()(
     setupMemory: null,
     setSetupMemory: (setupMemory) => set({ setupMemory }),
     setupStageChatId: null,
-    setSetupStageChatId: (setupStageChatId) => set({ setupStageChatId }),
+    setSetupStageChatId: (setupStageChatId) =>
+      set(setupStageChatId ? { setupStageChatId } : { setupStageChatId, setupMemory: null }),
     clearPendingNewChatSetup: (chatId) =>
       set((state) => {
         const drafts = { ...state.pendingNewChatSetups };
