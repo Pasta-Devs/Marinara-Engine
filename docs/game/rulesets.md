@@ -4,9 +4,16 @@ A ruleset tells Game Mode how a tabletop system works: which dice a check rolls,
 
 ## Get a ruleset
 
-Rulesets come from two places:
+To install an official ruleset such as 5e (SRD 5.1):
 
-- **Official** rulesets, such as 5e (SRD 5.1), are installed from **Agent Organizer**, where they are marked **Rules**.
+1. Open the **Agents** panel (the Sparkles icon).
+2. Select **Agent Organizer**.
+3. Find the ruleset. Rulesets are marked **Rules**.
+4. Select **Install**.
+
+Then start a new game and pick it (see below). Rulesets come from two places:
+
+- **Official** rulesets are installed as above.
 - **Community** rulesets are imported from a file or an author's GitHub repository. They are filed by origin, such as `local/ember-roads` or `alice/v20`.
 
 Importing uses the same **Allow custom Agent imports** switch as imported agents. While it is off, imported rulesets are left out of new games, and games that already use one keep working. A game on an imported ruleset always plays on the exact version it was created on. To write your own, see [Writing Game Mode Rulesets](../extending/writing-rulesets.md).
@@ -21,11 +28,19 @@ A ruleset's own text, such as skill names, spells and Game Master (GM) text, fol
 2. Under **Rules**, keep **Marinara's own rules** (the built-in d20 checks and six-attribute sheet), or pick a ruleset such as **5e (SRD 5.1)**.
 3. Read the summary. It lists what the ruleset covers and one line about battles (see [What happens in battles](#what-happens-in-battles)).
 4. Optional: turn on **layers** (see below).
-5. On the **Party** step, check who **Has a sheet** and who **Starts on a blank sheet**.
+5. On the **Party** step, check who **Has a sheet** and who **Starts on a blank sheet**. A sheet is the character's numbers for this ruleset, such as scores and hit points. A blank sheet uses the ruleset's default values. You can fill one in later.
 
 The ruleset is set when the game is created. You cannot change it or add one later.
 
-**Layers** are named variants, such as Low magic or Hard winter, shown as toggles under the ruleset with a line on what each does. A layer can make difficulties harsher, narrow a choice on the sheet, hide some ready-made entries from the sheet editor's picker, change what shops sell and what treasure drops, and give the GM extra instructions, including for the world it builds. Some layers rule each other out, and the wizard disables the one you cannot have. Layers are fixed once the game starts. A sheet that already uses something a layer removes keeps it.
+**Layers** are named variants of a ruleset, such as Low magic or Hard winter. They show as toggles under the ruleset, with a line on what each does. A layer can:
+
+- make difficulties harsher,
+- narrow a choice on the sheet,
+- hide some ready-made entries from the sheet editor's picker,
+- change what shops sell and what treasure drops,
+- give the GM extra instructions, including for the world it builds.
+
+Some layers rule each other out, and the wizard disables the one you cannot have. Layers are fixed once the game starts. A sheet that already uses something a layer removes keeps it.
 
 A sheet is added under **Stats** in the character or persona editor (see [Ruleset sheets](../characters/colors-and-stats.md#ruleset-sheets)). The game copies each sheet when it generates the world, and nothing you change in the game goes back to the character or persona. A member without a sheet gets a blank one with every value at the ruleset's default. World generation never makes up scores.
 
@@ -41,7 +56,12 @@ What a ruleset does in a fight depends on how it was written. The wizard's line 
 | Lends its sheet to battles | Marinara's own combat, using the sheet's health, spell slots and abilities (see below). |
 | Says nothing about battles | Marinara's own combat, exactly as with no ruleset. See [Combat](combat.md). |
 
-When a ruleset lends its sheet, each party member starts the fight with the resource pool and spell slots the ruleset set up for battles, as their sheet has them now. Abilities picked from the ruleset's catalogs become skills when Marinara's combat can use them. An entry that only describes something outside combat, a reaction, or one whose cost the battle cannot charge is left out. Hit points carry over as a share of the maximum, not as the sheet's number: a character at half health starts at half the battle screen's health bar. A sheet with 9 health never walks into a fight where one hit does 12. When the fight ends, health lost or regained is carried back the same way, and slots and resources spent are written back as they are.
+When a ruleset lends its sheet, Marinara's combat uses the sheet like this:
+
+- Each party member starts the fight with the resource pool and spell slots the ruleset set up for battles, as their sheet has them now.
+- Abilities picked from the ruleset's catalogs become skills when Marinara's combat can use them. An entry that only describes something outside combat, a reaction, or one whose cost the battle cannot charge is left out.
+- Hit points carry over as a share of the maximum, not as the sheet's number. A character at half health starts at half the battle screen's health bar, so a sheet with 9 health never walks into a fight where one hit does 12.
+- When the fight ends, health lost or regained is carried back the same way, and slots and resources spent are written back as they are.
 
 The rest is unchanged. The dice math is still Marinara's (see [How combat math works](combat.md#how-combat-math-works)), and the tabletop system's attack rolls, saving throws and concentration are not applied. A fight you leave by deleting the message it started in writes nothing back.
 
