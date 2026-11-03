@@ -435,6 +435,8 @@ export function MultiplayerAwayPlayers({ host }: { host: MultiplayerHostState })
 export function MultiplayerGenerationFailed({ host }: { host: MultiplayerHostState }) {
   const { t } = useTranslation();
   const action = useMultiplayerMutation<unknown, MultiplayerHostAction>("/multiplayer/host/actions");
+  // Read when Retry is pressed, so raising the limit afterwards cannot relabel the refusal as a part-written round.
+  const [atLimit, setAtLimit] = useState(false);
   const { snapshot } = host;
   if (snapshot.mode !== "game") return null;
   const interrupted = snapshot.status === "paused" && snapshot.round?.phase === "interrupted";
@@ -454,18 +456,17 @@ export function MultiplayerGenerationFailed({ host }: { host: MultiplayerHostSta
           type="button"
           className={MULTIPLAYER_BUTTON_CLASS}
           disabled={action.isPending}
-          onClick={() => action.mutate({ type: "retry" })}
+          onClick={() => {
+            setAtLimit(snapshot.usage.generations >= snapshot.usage.maxGenerations);
+            action.mutate({ type: "retry" });
+          }}
         >
           {t("multiplayer.host.retryRound")}
         </button>
       )}
       {action.isError && (
         <p className="w-full text-[var(--destructive)]">
-          {t(
-            snapshot.usage.generations >= snapshot.usage.maxGenerations
-              ? "multiplayer.host.retryLimitReached"
-              : "multiplayer.host.retryRefused",
-          )}
+          {t(atLimit ? "multiplayer.host.retryLimitReached" : "multiplayer.host.retryRefused")}
         </p>
       )}
     </div>
