@@ -180,7 +180,7 @@ pnpm is the package manager Marinara uses to install its code. `EPERM: operation
 
 ### pnpm version error, or `'pnpm' is not recognized`
 
-Marinara uses pnpm 12.15.0. The launcher fetches the right version for you, and an older global pnpm does not need replacing. Update Marinara (`git pull` in its folder if the launcher cannot), then run the launcher again. If it still fails, install the exact version and rerun the launcher:
+Marinara uses pnpm 12.15.0. The launcher fetches the right version for you, and an older global pnpm does not need to be replaced first. Update Marinara (`git pull` in its folder if the launcher cannot), then run the launcher again. If it still fails, install the exact version and rerun the launcher:
 
 ```bash
 npm install -g pnpm@12.15.0
