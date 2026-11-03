@@ -149,8 +149,8 @@ Turn on **Personal Notes**, then write `[notes: content="your private note"]` in
 You can also keep a note on one message:
 
 1. Choose **Bookmark, pin or note** under the message.
-2. Write a **Private note**. It stays private and is never sent to the model.
-3. To share it, turn on **Show the note to the narrator character** and pick a character. Only that character gets the note, next to that message. Sharing needs a solo chat or **Individual** group generation.
+2. Write a **Private note**. By default it stays private and is not sent to the model.
+3. To share it with the model, turn on **Show the note to the narrator character** and pick a character. Only that character gets the note, next to that message. Sharing needs a solo chat or **Individual** group generation.
 
 **Remove note** also stops sharing it.
 
