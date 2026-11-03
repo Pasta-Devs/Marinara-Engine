@@ -32,6 +32,26 @@ interface ContextMenuProps {
   autoFocus?: boolean;
 }
 
+// The button under the last left press, so a menu knows which button opened it.
+let lastPressedButton: Element | null = null;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      lastPressedButton = e.button === 0 && e.target instanceof Element ? e.target.closest("button") : null;
+    },
+    true,
+  );
+  // A keyboard click (detail 0) has no pointerdown, so its own button is the opener.
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (e.detail === 0 && e.target instanceof Element) lastPressedButton = e.target.closest("button");
+    },
+    true,
+  );
+}
+
 /** Right-click menu anchored at (x, y). Auto-flips when it would clip the viewport. */
 export function ContextMenu({
   x,
@@ -42,6 +62,7 @@ export function ContextMenu({
   autoFocus = false,
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const opener = useRef(lastPressedButton);
   const [pos, setPos] = useState({ left: x, top: y });
 
   // Flip / clamp the menu so it always stays inside the viewport.
@@ -73,7 +94,21 @@ export function ContextMenu({
   // Close on outside click, Escape, scroll, or window resize.
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (!ref.current || ref.current.contains(e.target as Node)) return;
+      // A press on the button that opened the menu only closes it; without this its click opens it again.
+      if (e.button === 0 && opener.current?.contains(e.target as Node)) {
+        const swallow = (c: MouseEvent) => {
+          if (c.detail === 0) return; // keyboard/programmatic click: let it through
+          c.stopPropagation();
+          c.preventDefault();
+        };
+        window.addEventListener("click", swallow, { capture: true, once: true });
+        window.addEventListener("pointerdown", () => window.removeEventListener("click", swallow, true), {
+          capture: true,
+          once: true,
+        });
+      }
+      onClose();
     };
     // Escape is the menu's alone: captured before React's own listeners, so the panel or dialog under the
     // menu does not close with it.
