@@ -6,7 +6,7 @@ All branches of one chat are grouped. In the chat list the chat keeps one row an
 
 ## Branch from here
 
-1. Hover over a message, or tap it on a phone, to show the message action bar.
+1. Tap the message (on a computer, point at it) to show the message action bar.
 2. Click **Branch from here**, the small branching icon.
 
 Marinara copies the chat up to and including that message into a new branch named **New Branch**. You can rename it later.
@@ -51,7 +51,7 @@ The graph opens in its own window that you can move and resize. On a phone it op
 - A branch draws only its own messages. A line joins it to the message it was branched from.
 - A branch with no recorded fork point is drawn from the top chat with a dashed line, and the legend shows **Fork not recorded**. This covers older branches and branches whose source chat was deleted.
 - Long stretches with no fork fold into a **··· N ···** marker, where N is the number of hidden messages. Click it to show them. **Expand all** unfolds every stretch and **Collapse long runs** folds them again.
-- Fork points and each branch's latest message have a ring. Hover over it, tap it, or focus it with the keyboard to see the message number, who wrote it and the start of its text.
+- Fork points and each branch's latest message have a ring. Tap it, point at it, or focus it with the keyboard to see the message number, who wrote it and the start of its text.
 - Click a branch's name or row to switch to it. The branch you are viewing is highlighted.
 
 The graph updates when you branch, rename or delete a chat, and shortly after new messages arrive.
