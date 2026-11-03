@@ -5635,7 +5635,7 @@
   "mari.queue.failed": "Professor Mari could not queue that message.",
   "mari.queue.held": "Held. Send it when you're ready",
   "mari.queue.label": "Messages waiting for Professor Mari",
-  "mari.queue.later": "Queue for later",
+  "mari.queue.later": "Send after her answer",
   "mari.queue.remove": "Remove this message",
   "mari.queue.removeFailed": "Professor Mari could not remove that message.",
   "mari.queue.send": "Send",

@@ -147,12 +147,12 @@ Type `/` at the start of a line to list her commands. Keep typing to filter, the
 The message box stays open while she works. You choose when your message reaches her.
 
 - **Send now** goes in at her next step without stopping her. Her reply so far is saved, your message appears below it, and she continues with it in mind.
-- **Queue for later** waits in a list above the box, marked **Sends when she finishes**. She takes waiting messages one at a time when she finishes cleanly.
+- **Send after her answer** waits in a list above the box, marked **Sends when she finishes**. She takes waiting messages one at a time when she finishes cleanly.
 
 - **Enter sends** on (default): <kbd>Enter</kbd> sends now. <kbd>Ctrl</kbd>+<kbd>Enter</kbd> queues.
 - **Enter sends** off: <kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends now. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> queues.
 
-On a Mac, use <kbd>⌘</kbd> in place of <kbd>Ctrl</kbd>. The small arrow beside the send button offers both choices, which helps on a phone. A **Stop** button beside the send button cancels the current task.
+On a Mac, use <kbd>⌘</kbd> in place of <kbd>Ctrl</kbd>. While she works, an empty message box shows only a **Stop** button, which cancels the current task. When you type, **Stop** changes to the send button. Click it to pick **Send now** or **Send after her answer**, which helps on a phone.
 
 Send now is for words only. A message with files, `@` links or a handed-over field is queued instead. So is a message about a different subject, or one sent after you changed the permissions mode. A short notice says so. Click the **X** on a message to remove it. A chat holds up to 20 waiting messages.
 
