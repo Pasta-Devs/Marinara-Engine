@@ -778,6 +778,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       action,
       commandResultsForContinuity: input.commandResults,
       truncated: current.truncated,
+      // A change set aside beside a question has no result, but it was tried: her claims get the full audit (#8711).
+      changeTried: askCalled && current.calls.some((call) => !isUiTool(call.name) && isMutatingWorkspaceCommand(call)),
     });
     if (decision.kind === "repair") return decision;
     if (decision.kind === "stop") {
@@ -890,6 +892,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       auditFrom: reviewState.claimAuditWatermark,
       hadPassedClaimAudit: reviewState.hadPassedClaimAudit,
       lastPassedClaimText: reviewState.lastPassedClaimText,
+      changeTried: reviewState.changeTried,
     }).issue;
     if (issue) {
       addNote(

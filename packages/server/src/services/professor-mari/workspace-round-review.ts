@@ -6,6 +6,7 @@ import {
   auditWorkspaceCompletionClaim,
   commandFailureSignature,
   isMutatingWorkspaceCommand,
+  isMutationShapedCommand,
   MAX_MIDRUN_CLAIM_REPAIR_ROUNDS,
   MAX_REPEATED_COMMAND_FAILURES,
   MAX_VERIFICATION_REPAIR_ROUNDS,
@@ -22,6 +23,11 @@ export type RoundReviewState = {
   claimAuditWatermark: number;
   hadPassedClaimAudit: boolean;
   lastPassedClaimText: string | null;
+  /**
+   * #8711: some round of the run tried a change - ran, held, or set aside beside a question - so its claims get the
+   * full audit. Kept for the run: a held or set-aside change leaves no result, and a repair discards its round.
+   */
+  changeTried: boolean;
 };
 
 export function newRoundReviewState(): RoundReviewState {
@@ -32,6 +38,7 @@ export function newRoundReviewState(): RoundReviewState {
     claimAuditWatermark: 0,
     hadPassedClaimAudit: false,
     lastPassedClaimText: null,
+    changeTried: false,
   };
 }
 
@@ -83,11 +90,12 @@ export function reviewRoundClaim(
     action: Pick<AssistantWorkspaceAction, "visibleText" | "commands" | "stop" | "protocolValid">;
     commandResultsForContinuity: WorkspaceCommandResult[];
     truncated: boolean;
-    /** The round's changes were held for approval: tried, though they have no result (#8711). */
-    mutationHeld?: boolean;
+    /** The round tried a change that left no result: held for approval, or set aside beside a question (#8711). */
+    changeTried?: boolean;
   },
 ): RoundClaimDecision {
   const { action } = args;
+  if (args.changeTried || action.commands.some(isMutationShapedCommand)) state.changeTried = true;
   const claimAudit =
     (!action.protocolValid && action.commands.length === 0) || (action.commands.length > 0 && args.truncated)
       ? { issue: null, advanceWatermark: false }
@@ -95,7 +103,7 @@ export function reviewRoundClaim(
           auditFrom: state.claimAuditWatermark,
           hadPassedClaimAudit: state.hadPassedClaimAudit,
           lastPassedClaimText: state.lastPassedClaimText,
-          mutationHeld: args.mutationHeld,
+          changeTried: state.changeTried,
         });
   if (claimAudit.advanceWatermark) {
     state.claimAuditWatermark = args.commandResultsForContinuity.length;

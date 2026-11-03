@@ -154,6 +154,13 @@ const mutationOutput = (sentinel: string) =>
   ].join("\n\n");
   const flow =
     "In Accept edits mode, each change you ask for is applied right away and a change card is added under my reply, so you can undo it. In Manual mode it waits on the card until you press Accept.";
+  // A description of where data lives, or a second-person draft, is not a claim about the user's data either.
+  const descriptions = [
+    "Your chats are saved on the server in the data folder.",
+    "It's saved in your browser, so clearing site data removes it.",
+    "Your temperature is set to 0.7.",
+    "Here are three greetings to choose from:\n- Your name was written in the stars.\n- Your path is set by the tides.\n- Your story is created in the first step you take.",
+  ];
   const docsSearch: WorkspaceCommandResult = {
     id: "d1",
     name: "docs_search",
@@ -161,7 +168,7 @@ const mutationOutput = (sentinel: string) =>
     output: "results",
     success: true,
   };
-  for (const text of [draftList, quoted, flow]) {
+  for (const text of [draftList, quoted, flow, ...descriptions]) {
     for (const [results, terminal] of [
       [[], true],
       [[docsSearch], true],
@@ -178,23 +185,83 @@ const mutationOutput = (sentinel: string) =>
     }
   }
 
-  // A real unsupported claim is still sent back: her own claim with nothing tried, and any claim wording once a
-  // change was tried and failed, or was held for approval (classic holds the round's calls before the audit).
+  // A real unsupported claim is still sent back: her own claim with nothing tried, a claim about the user's own data
+  // (a completion marker, or "your"/"the" + a data noun with a change verb), and any claim wording once a change was
+  // tried and failed, or was held for approval (classic holds the round's calls before the audit).
   const failedUpdate = { ...appData("Error: update failed"), success: false };
-  for (const [text, results, mutationHeld] of [
+  for (const [text, results, changeTried] of [
     ["I updated the card.", [], false],
     ["Updated.", [], false],
+    ["Done! Your greeting has been updated.", [], false],
+    ["All set — the description is updated.", [], false],
+    ["Yes, it's saved.", [], false],
+    ["Your character's greeting was changed to a friendlier one.", [], false],
+    ["Done! Your greeting has been updated.", [docsSearch], false],
+    ["Your character's greeting was changed to a friendlier one.", [docsSearch], false],
+    ["Here's what changed:\n- Your greeting has been updated.", [], false],
     ["The card is updated.", [failedUpdate], false],
     ["The card is updated. Should I keep going?", [], true],
+    ["The greeting is saved in the card.", [failedUpdate], false],
+    ["The greeting is saved in the card.", [], true],
   ] as const) {
     const decision = reviewRoundClaim(newRoundReviewState(), {
       action: frame(text),
       commandResultsForContinuity: [...results],
       truncated: false,
-      mutationHeld,
+      changeTried,
     });
     assert.equal(decision.kind, "repair", text);
     assert.match((decision as { prompt: string }).prompt, /no mutating command succeeded/u, text);
+  }
+
+  // A tried change is remembered for the run: a held round whose claim was repaired leaves no result, so the same
+  // claim with no command in the next round is still checked in full, and so is a change set aside beside a question.
+  {
+    const claim = "The greeting is saved in the card.";
+    const state = newRoundReviewState();
+    for (const changeTried of [true, false]) {
+      const decision = reviewRoundClaim(state, {
+        action: frame(claim),
+        commandResultsForContinuity: [],
+        truncated: false,
+        changeTried,
+      });
+      assert.equal(decision.kind, "repair", `${claim} (held round: ${changeTried})`);
+    }
+    // With nothing tried in the run, that descriptive sentence is not her claim.
+    assert.equal(
+      reviewRoundClaim(newRoundReviewState(), {
+        action: frame(claim),
+        commandResultsForContinuity: [],
+        truncated: false,
+      }).kind,
+      "continue",
+    );
+    const beside = parseAssistantWorkspaceAction(
+      JSON.stringify({
+        say: `${claim} Which tone next?`,
+        ask: [{ question: "Which tone?", options: [{ label: "Dark" }, { label: "Light" }] }],
+        commands: [{ name: "write", arguments: { path: "greeting.md", content: "x" } }],
+        stop: false,
+      }),
+    );
+    assert.equal(beside.commands.length, 0, "a change beside a question does not run");
+    assert.equal(beside.changeBesideQuestion, true, "the frame says a change was set aside");
+    const besideState = newRoundReviewState();
+    assert.equal(
+      reviewRoundClaim(besideState, {
+        action: beside,
+        commandResultsForContinuity: [],
+        truncated: false,
+        changeTried: beside.changeBesideQuestion,
+      }).kind,
+      "repair",
+    );
+    assert.equal(
+      reviewRoundClaim(besideState, { action: frame(claim), commandResultsForContinuity: [], truncated: false }).kind,
+      "repair",
+      "the set-aside change is remembered in the next round",
+    );
   }
 }
 

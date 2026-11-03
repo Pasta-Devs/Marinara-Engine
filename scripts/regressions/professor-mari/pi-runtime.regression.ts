@@ -579,6 +579,13 @@ try {
       "The rename is held for review.",
       "I've staged the rename for your review.",
       "Done - the change is held for your approval.",
+      // #8711: a discourse marker before the claim, a claim after ", and", a longer subject or a count still report a hold.
+      "Sure, I've staged the rename for your review.",
+      "The character card is held for your review.",
+      "I've made the change, and it's held for your review.",
+      "Both edits are held for your approval.",
+      "All three changes are ready for your review.",
+      "Got it. The lorebook entry is now staged for your review.",
     ])
       assert.equal(workspaceTextClaimsHeldChange(text), true, text);
     for (const text of [
@@ -592,6 +599,11 @@ try {
       "In Manual mode, edits are held for your approval, and the change card is where you accept them.",
       'The check looks for phrases like "held for your review" and `the change card is ready`.',
       "> Held for your review — the change card is ready.",
+      // A condition after the phrase, or an example after "like:", explains the flow too.
+      "Your edits are held for your approval in Manual mode, and the card shows Accept.",
+      "The change card is ready only after I actually stage something.",
+      "Your changes are held for review only in Manual mode; in Accept edits they apply right away.",
+      "Possibly. The guard reacts to wording like: the change is held for your review.",
     ])
       assert.equal(workspaceTextClaimsHeldChange(text), false, text);
     const readCall = (id: string) => ({ id, name: "read", args: { path: "hello.txt" } });
@@ -1615,6 +1627,25 @@ try {
       const claimRow = await lastAssistant(falseClaim.chat.id);
       assert.equal(claimRow?.content, "I have not changed anything.");
       assert.equal(claimRow?.extra.mariQuestions, undefined, `${runtime}: the repaired round's card is gone`);
+
+      // #8711: the change set aside beside the question leaves no result, but it was tried, so a claim the full check
+      // reads is repaired too (a run that tried nothing would let this descriptive sentence through).
+      const passiveClaim = await start(
+        `ask passive claim ${runtime}`,
+        [
+          asks(runtime, "The file is saved in your folder. Which tone?", [write(`ask-passive-${runtime}.txt`)]),
+          reply(
+            runtime === "pi"
+              ? "I have not changed anything."
+              : JSON.stringify({ say: "I have not changed anything.", commands: [], stop: true }),
+          ),
+        ],
+        runtime,
+        askService,
+      );
+      await passiveClaim.done;
+      assert.equal(requests.length, 2, `${runtime}: a claim beside a set-aside change is repaired`);
+      assert.equal((await lastAssistant(passiveClaim.chat.id))?.content, "I have not changed anything.");
     }
 
     // A change beside an invalid card stays back too, on both runtimes.
