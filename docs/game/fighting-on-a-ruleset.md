@@ -8,7 +8,7 @@ You do not start these fights. The Game Master (GM) starts one when the story ca
 
 The screen is the ruleset's own:
 
-- **The menu** lists your character's attacks and abilities. Each says what it spends from the ruleset's action economy and pools.
+- **The menu** lists your character's attacks and abilities. Each says what it spends from the ruleset's action economy (what you can do each turn) and pools (stores such as spell slots).
 - **The panel below** shows the turn order, the round, everyone's conditions by the ruleset's names and what is left of each budget.
 - **The log** prints the real arithmetic, for example "Juno attacks Rust jackal with Road axe: 8 (5 + 3) + 3 = 11 against Guard 6, a hit."
 
@@ -22,7 +22,12 @@ Every action is written to the character sheet as it lands. Closing the tab mid-
 4. Read the log line to see what happened.
 5. When nothing is left to do, or you want to skip, choose **Pass**.
 
-If you cannot act, an action may be missing from the menu on purpose. Something that costs more than you have left, or goes past a per-turn limit on a resource, is not offered until your next turn. An entry to break free shows only while something holds you. An attack that reaches nobody says **Nobody is in reach. Move closer.** Check the budgets in the panel, and see [On a battlefield](#on-a-battlefield).
+If you cannot act, an action may be missing from the menu on purpose. Check these:
+
+- It costs more than you have left. Look at the budgets (what is left of each pool and action) in the panel.
+- It goes past a per-turn limit on a resource. It is offered again on your next turn.
+- It is a way to break free, which shows only while something holds you.
+- It needs a target and nobody is in reach. The menu says **Nobody is in reach. Move closer.** See [On a battlefield](#on-a-battlefield).
 
 The menu groups its choices under these headings, when the ruleset has them:
 
