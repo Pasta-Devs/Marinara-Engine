@@ -12,9 +12,9 @@ Before you start: open a Conversation chat that already has some messages. See [
 
 1. In the message box, type `/scene` and a short description. `/rp` does the same. For example: `/scene we sneak into the old library at midnight`
 2. Press <kbd>Enter</kbd>. **Scene Prompt Setup** opens.
-3. Choose a **Prompt preset**. Leave it on **None** to use the preset of your default Roleplay [settings profile](../chats/settings-profiles.md#choosing-the-default-profile). Marinara remembers your choice for the next scene.
-4. If you see **Scene persona**, choose who plays you. **Use the Conversation persona** keeps the persona of the Conversation.
-5. If you see **Scene characters**, leave **Let the scene planner choose characters** on to let Marinara pick. Or turn it off and choose at least one character.
+3. If you see **Scene persona**, choose who plays you. **Use the Conversation persona** keeps the persona of the Conversation.
+4. If you see **Scene characters**, leave **Let the scene planner choose characters** on to let Marinara pick. Or turn it off and choose at least one character.
+5. Choose a **Prompt preset**. Leave it on **None** to use the preset of your default Roleplay [settings profile](../chats/settings-profiles.md#choosing-the-default-profile). Marinara remembers your choice for the next scene.
 6. Under **POV**, pick **First Person**, **Second Person** or **Third Person**.
 7. Under **Tense**, pick **Past**, **Present** or **Future**.
 8. Optional: type notes in **Extra instructions** to steer the scene.
