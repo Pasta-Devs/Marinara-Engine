@@ -88,7 +88,8 @@ function useCurrentTab(): OverhaulTab | null {
     if (real(connectionDetailId)) return { kind: "connection", id: connectionDetailId! };
     if (real(presetDetailId)) return { kind: "preset", id: presetDetailId! };
     if (real(characterDetailId)) return { kind: "character", id: characterDetailId! };
-    if (characterLibraryOpen) return { kind: "library", id: cardLibraryKind === "personas" ? "personas" : "characters" };
+    if (characterLibraryOpen)
+      return { kind: "library", id: cardLibraryKind === "personas" ? "personas" : "characters" };
     if (real(lorebookDetailId)) return { kind: "lorebook", id: lorebookDetailId! };
     if (libraryPage) return { kind: "library", id: libraryPage };
     if (activeChatId) return { kind: "chat", id: activeChatId };
@@ -181,7 +182,8 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   else if (tab.kind === "character") label = parseCharacterName(character.data);
   else if (tab.kind === "persona") label = nameOf(persona.data);
   else if (tab.kind === "lorebook") label = nameOf(lorebook.data);
-  else if (tab.kind === "preset") label = nameOf((preset.data as { preset?: unknown } | undefined)?.preset ?? preset.data);
+  else if (tab.kind === "preset")
+    label = nameOf((preset.data as { preset?: unknown } | undefined)?.preset ?? preset.data);
   else if (tab.kind === "connection") label = nameOf(connection.data);
   else if (tab.kind === "library") {
     const section = LIBRARY_SECTIONS.find((entry) => entry.id === tab.id);
@@ -194,7 +196,9 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
 function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   if (tab.kind === "chat") {
     const mode = chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay";
-    return <span aria-hidden="true" className="ov-tab__dot" style={{ background: MODE_DOT[mode] ?? MODE_DOT.roleplay }} />;
+    return (
+      <span aria-hidden="true" className="ov-tab__dot" style={{ background: MODE_DOT[mode] ?? MODE_DOT.roleplay }} />
+    );
   }
   if (tab.kind === "library") {
     const Icon = LIBRARY_SECTIONS.find((entry) => entry.id === tab.id)?.icon ?? Layers;
@@ -265,16 +269,12 @@ export function OverhaulTopBar() {
   };
   const libraryOpen = rightPanelOpen;
   const modeLabel = activeChat
-    ? localize(
-        activeChat.mode === "conversation" ? "Conversation" : activeChat.mode === "game" ? "Game" : "Roleplay",
-      )
+    ? localize(activeChat.mode === "conversation" ? "Conversation" : activeChat.mode === "game" ? "Game" : "Roleplay")
     : "";
 
   return (
     <header data-component="TopBar" data-overhaul-topbar="true" className="ov-topbar">
-      {mariEdgeGlow ? (
-        <span aria-hidden="true" data-state={mariEdgeGlow} className="mari-topbar-edge-glow" />
-      ) : null}
+      {mariEdgeGlow ? <span aria-hidden="true" data-state={mariEdgeGlow} className="mari-topbar-edge-glow" /> : null}
       <button
         type="button"
         className={cn("ov-icon-btn", sidebarOpen && "is-on")}

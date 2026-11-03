@@ -10,15 +10,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type OverhaulTabKind =
-  | "chat"
-  | "character"
-  | "persona"
-  | "lorebook"
-  | "preset"
-  | "connection"
-  | "agent"
-  | "regex"
-  | "library";
+  "chat" | "character" | "persona" | "lorebook" | "preset" | "connection" | "agent" | "regex" | "library";
 
 export type OverhaulTab = { kind: OverhaulTabKind; id: string };
 

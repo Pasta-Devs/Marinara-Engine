@@ -1355,303 +1355,302 @@ export function AppShell({
         data-component="OverhaulShellRow"
         className={overhaulActive ? "relative flex min-h-0 flex-1 overflow-hidden" : "contents"}
       >
-      {/* Y2K decorative stars */}
-      {showAmbientDecor && (
-        <>
-          <div className="y2k-star hidden md:block" style={{ top: "10%", left: "5%", animationDelay: "0s" }} />
-          <div className="y2k-star-md hidden md:block" style={{ top: "25%", right: "8%", animationDelay: "1.5s" }} />
-          <div className="y2k-star-lg hidden md:block" style={{ top: "60%", left: "3%", animationDelay: "3s" }} />
-          <div className="y2k-star hidden md:block" style={{ top: "80%", right: "12%", animationDelay: "0.8s" }} />
-          <div className="y2k-star-md hidden md:block" style={{ top: "45%", left: "50%", animationDelay: "2.2s" }} />
-        </>
-      )}
+        {/* Y2K decorative stars */}
+        {showAmbientDecor && (
+          <>
+            <div className="y2k-star hidden md:block" style={{ top: "10%", left: "5%", animationDelay: "0s" }} />
+            <div className="y2k-star-md hidden md:block" style={{ top: "25%", right: "8%", animationDelay: "1.5s" }} />
+            <div className="y2k-star-lg hidden md:block" style={{ top: "60%", left: "3%", animationDelay: "3s" }} />
+            <div className="y2k-star hidden md:block" style={{ top: "80%", right: "12%", animationDelay: "0.8s" }} />
+            <div className="y2k-star-md hidden md:block" style={{ top: "45%", left: "50%", animationDelay: "2.2s" }} />
+          </>
+        )}
 
-      {/* Mobile navigation backdrop */}
-      {mobileNavigationPanel && (
-        <div
-          className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
-          onClick={() => {
-            setSidebarOpen(false);
-            closeRightPanel();
-          }}
-        />
-      )}
-
-      {/* Left sidebar - Chat list */}
-      {!shellOverlayMode && (
-        <aside
-          data-tour="sidebar"
-          data-component="ChatSidebarSlot"
-          aria-label={localizeUi("ui.layout.appshell.chatList")}
-          aria-hidden={!sidebarOpen}
-          inert={!sidebarOpen}
-          className={cn(
-            "mari-shell-panel-slot relative flex-shrink-0 overflow-hidden",
-            sidebarDragWidth != null && "!transition-none",
-            !sidebarOpen && "pointer-events-none",
-          )}
-          style={{ width: sidebarOpen ? liveSidebarWidth : 0 }}
-        >
+        {/* Mobile navigation backdrop */}
+        {mobileNavigationPanel && (
           <div
-            data-component="ChatSidebarPanel"
+            className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
+            onClick={() => {
+              setSidebarOpen(false);
+              closeRightPanel();
+            }}
+          />
+        )}
+
+        {/* Left sidebar - Chat list */}
+        {!shellOverlayMode && (
+          <aside
+            data-tour="sidebar"
+            data-component="ChatSidebarSlot"
+            aria-label={localizeUi("ui.layout.appshell.chatList")}
             aria-hidden={!sidebarOpen}
             inert={!sidebarOpen}
             className={cn(
-              "mari-sidebar mari-shell-panel-motion mari-shell-panel-edge mari-shell-panel-edge--right absolute inset-y-0 left-0 overflow-hidden bg-[var(--background)]/95",
-              sidebarOpen ? "mari-shell-panel-enter-left" : "mari-shell-panel-exit-left pointer-events-none",
+              "mari-shell-panel-slot relative flex-shrink-0 overflow-hidden",
+              sidebarDragWidth != null && "!transition-none",
+              !sidebarOpen && "pointer-events-none",
             )}
-            style={{ width: liveSidebarWidth }}
+            style={{ width: sidebarOpen ? liveSidebarWidth : 0 }}
           >
-            <ChatSidebar />
-          </div>
-        </aside>
-      )}
-      {!shellOverlayMode && sidebarOpen && (
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={localizeUi("ui.layout.appshell.resizeLeftSidebar")}
-          aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
-          aria-valuemax={SHARED_SIDEBAR_WIDTH_MAX}
-          aria-valuenow={Math.round(liveSidebarWidth)}
-          tabIndex={0}
-          onMouseDown={startSidebarResize}
-          onKeyDown={adjustSidebarWidth}
-          className="absolute inset-y-0 z-40 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
-          style={{ left: sidebarOpen ? liveSidebarWidth : 0 }}
-        />
-      )}
-
-      {/* Center content */}
-      <main
-        ref={mainRef}
-        data-tour="chat-area"
-        data-component="CenterContent"
-        data-center-compact={centerCompact ? "true" : undefined}
-        data-shell-overlay-mode={shellOverlayMode ? "true" : undefined}
-        aria-label={localizeUi("ui.layout.appshell.mainContent")}
-        className={cn(
-          "@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden",
-          shellOverlayMode && hasDetailView && "z-50",
-        )}
-      >
-        {!overhaulActive && <TopBar mobileTopbarNavigation={shellOverlayMode} />}
-        <div className="mari-app-background-paint relative flex flex-1 flex-col overflow-hidden">
-          {/* Browser — kept mounted once opened so state persists across close/reopen */}
-          <MountOnceWhenOpened open={botBrowserOpen} overlay>
-            <BotBrowserView />
-          </MountOnceWhenOpened>
-          {/* Game Assets Browser — kept mounted once opened so state persists across close/reopen */}
-          <MountOnceWhenOpened open={gameAssetsBrowserOpen} overlay>
-            <GameAssetsBrowserView />
-          </MountOnceWhenOpened>
-          {/* Overlay mode keeps the chat mounted under panels and editors; globals.css hides its windows then. */}
-          <div
-            data-chat-covered={chatSurfaceActive ? undefined : "true"}
-            className={cn(
-              "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
-              (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",
-            )}
-            style={
-              {
-                "--tracker-panel-hud-clear-left": `${trackerPanelSide === "left" ? trackerPanelHudClearance : 0}px`,
-                "--tracker-panel-hud-clear-right": `${trackerPanelSide === "right" ? trackerPanelHudClearance : 0}px`,
-                "--tracker-panel-overlay-clearance": `${trackerPanelOverlayClearance}px`,
-                "--tracker-panel-chat-clearance": `${trackerPanelChatClearance}px`,
-                "--tracker-panel-column-room": `${trackerPanelColumnRoom}px`,
-              } as CSSProperties
-            }
-          >
-            <Suspense fallback={<MainPaneFallback />}>
-              {(shellOverlayMode || !hasDetailView) && (
-                <ChatArea
-                  chatWindowIntroAllowed={
-                    chatWindowIntroAllowed &&
-                    !chatWindowIntroNavigationBlocked &&
-                    (!shellOverlayMode || (!mobileNavigationPanel && !trackerPanelVisible))
-                  }
-                  onChatWindowIntroOpenChange={onChatWindowIntroOpenChange}
-                />
+            <div
+              data-component="ChatSidebarPanel"
+              aria-hidden={!sidebarOpen}
+              inert={!sidebarOpen}
+              className={cn(
+                "mari-sidebar mari-shell-panel-motion mari-shell-panel-edge mari-shell-panel-edge--right absolute inset-y-0 left-0 overflow-hidden bg-[var(--background)]/95",
+                sidebarOpen ? "mari-shell-panel-enter-left" : "mari-shell-panel-exit-left pointer-events-none",
               )}
-            </Suspense>
-          </div>
-          {/* Keep the detail host at one React tree position across the mobile breakpoint.
+              style={{ width: liveSidebarWidth }}
+            >
+              <ChatSidebar />
+            </div>
+          </aside>
+        )}
+        {!shellOverlayMode && sidebarOpen && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={localizeUi("ui.layout.appshell.resizeLeftSidebar")}
+            aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
+            aria-valuemax={SHARED_SIDEBAR_WIDTH_MAX}
+            aria-valuenow={Math.round(liveSidebarWidth)}
+            tabIndex={0}
+            onMouseDown={startSidebarResize}
+            onKeyDown={adjustSidebarWidth}
+            className="absolute inset-y-0 z-40 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
+            style={{ left: sidebarOpen ? liveSidebarWidth : 0 }}
+          />
+        )}
+
+        {/* Center content */}
+        <main
+          ref={mainRef}
+          data-tour="chat-area"
+          data-component="CenterContent"
+          data-center-compact={centerCompact ? "true" : undefined}
+          data-shell-overlay-mode={shellOverlayMode ? "true" : undefined}
+          aria-label={localizeUi("ui.layout.appshell.mainContent")}
+          className={cn(
+            "@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden",
+            shellOverlayMode && hasDetailView && "z-50",
+          )}
+        >
+          {!overhaulActive && <TopBar mobileTopbarNavigation={shellOverlayMode} />}
+          <div className="mari-app-background-paint relative flex flex-1 flex-col overflow-hidden">
+            {/* Browser — kept mounted once opened so state persists across close/reopen */}
+            <MountOnceWhenOpened open={botBrowserOpen} overlay>
+              <BotBrowserView />
+            </MountOnceWhenOpened>
+            {/* Game Assets Browser — kept mounted once opened so state persists across close/reopen */}
+            <MountOnceWhenOpened open={gameAssetsBrowserOpen} overlay>
+              <GameAssetsBrowserView />
+            </MountOnceWhenOpened>
+            {/* Overlay mode keeps the chat mounted under panels and editors; globals.css hides its windows then. */}
+            <div
+              data-chat-covered={chatSurfaceActive ? undefined : "true"}
+              className={cn(
+                "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
+                (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",
+              )}
+              style={
+                {
+                  "--tracker-panel-hud-clear-left": `${trackerPanelSide === "left" ? trackerPanelHudClearance : 0}px`,
+                  "--tracker-panel-hud-clear-right": `${trackerPanelSide === "right" ? trackerPanelHudClearance : 0}px`,
+                  "--tracker-panel-overlay-clearance": `${trackerPanelOverlayClearance}px`,
+                  "--tracker-panel-chat-clearance": `${trackerPanelChatClearance}px`,
+                  "--tracker-panel-column-room": `${trackerPanelColumnRoom}px`,
+                } as CSSProperties
+              }
+            >
+              <Suspense fallback={<MainPaneFallback />}>
+                {(shellOverlayMode || !hasDetailView) && (
+                  <ChatArea
+                    chatWindowIntroAllowed={
+                      chatWindowIntroAllowed &&
+                      !chatWindowIntroNavigationBlocked &&
+                      (!shellOverlayMode || (!mobileNavigationPanel && !trackerPanelVisible))
+                    }
+                    onChatWindowIntroOpenChange={onChatWindowIntroOpenChange}
+                  />
+                )}
+              </Suspense>
+            </div>
+            {/* Keep the detail host at one React tree position across the mobile breakpoint.
               Moving an editor between separate desktop/mobile branches remounts it and
               discards component-local unsaved form state. */}
+            <AnimatePresence mode="wait">
+              {detailView && (
+                <motion.aside
+                  key="detail-editor"
+                  initial={shellOverlayMode ? { opacity: 0, x: 24 } : false}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={shellOverlayMode ? { opacity: 0, x: 24 } : undefined}
+                  transition={{ type: "spring", damping: 30, stiffness: 360 }}
+                  data-component={shellOverlayMode ? "MobileDetailSheet" : "DetailEditor"}
+                  aria-label={localizeUi("ui.layout.appshell.detailEditor")}
+                  tabIndex={-1}
+                  className={cn(
+                    "mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
+                    shellOverlayMode &&
+                      cn(
+                        "mari-mobile-detail-sheet !fixed bottom-0 right-0 z-50 !w-full bg-[var(--background)]/95 shadow-2xl backdrop-blur-xl",
+                        MOBILE_SHELL_PANEL_TOP_CLASS,
+                        MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
+                      ),
+                  )}
+                >
+                  <Suspense fallback={<MainPaneFallback />}>{detailView}</Suspense>
+                </motion.aside>
+              )}
+            </AnimatePresence>
+          </div>
+          {/* Floating avatar notification bubbles (right edge) */}
+          <Suspense fallback={null}>
+            <ChatNotificationBubbles />
+          </Suspense>
+        </main>
+
+        <AnimatePresence initial={false} mode="wait">
+          {!shellOverlayMode && trackerPanelSurfaceAvailable && trackerPanelDesktop(trackerPanelSide)}
+        </AnimatePresence>
+
+        {trackerPanelWindowTarget && trackerPanelActive && trackerPanelModeAvailable && (
+          <TrackerPanelDetachedWindow
+            host={trackerPanelHost}
+            target={trackerPanelWindowTarget}
+            onClosed={handleTrackerPanelWindowClosed}
+          />
+        )}
+
+        {trackerPanelPortal}
+
+        {/* Overlay tracker panel backdrop */}
+        {trackerPanelVisible && shellOverlayMode && (
+          <div
+            className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
+            onClick={closeTrackerPanel}
+          />
+        )}
+
+        {/* Overlay tracker panel */}
+        {shellOverlayMode && (
           <AnimatePresence mode="wait">
-            {detailView && (
+            {trackerPanelVisible && (
               <motion.aside
-                key="detail-editor"
-                initial={shellOverlayMode ? { opacity: 0, x: 24 } : false}
-                animate={{ opacity: 1, x: 0 }}
-                exit={shellOverlayMode ? { opacity: 0, x: 24 } : undefined}
-                transition={{ type: "spring", damping: 30, stiffness: 360 }}
-                data-component={shellOverlayMode ? "MobileDetailSheet" : "DetailEditor"}
-                aria-label={localizeUi("ui.layout.appshell.detailEditor")}
+                ref={overlayTrackerPanelRef}
                 tabIndex={-1}
+                key="mobile-tracker"
+                initial={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
+                transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                data-component="TrackerDataSidebarMobile"
+                aria-label={localizeUi("ui.layout.appshell.trackerDataPanel")}
                 className={cn(
-                  "mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
-                  shellOverlayMode &&
-                    cn(
-                      "mari-mobile-detail-sheet !fixed bottom-0 right-0 z-50 !w-full bg-[var(--background)]/95 shadow-2xl backdrop-blur-xl",
-                      MOBILE_SHELL_PANEL_TOP_CLASS,
-                      MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
-                    ),
+                  "mari-tracker-panel !fixed bottom-0 z-50 w-screen max-w-none overflow-hidden bg-zinc-950/95 shadow-2xl outline-none ring-1 ring-[var(--marinara-app-accent-solid)] backdrop-blur-xl",
+                  MOBILE_SHELL_PANEL_TOP_CLASS,
+                  MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
+                  trackerPanelSide === "left" ? "left-0" : "right-0",
                 )}
+                style={trackerPanelBackgroundStyle}
               >
-                <Suspense fallback={<MainPaneFallback />}>{detailView}</Suspense>
+                <TrackerPanelHostSlot host={trackerPanelHost} />
               </motion.aside>
             )}
           </AnimatePresence>
-        </div>
-        {/* Floating avatar notification bubbles (right edge) */}
-        <Suspense fallback={null}>
-          <ChatNotificationBubbles />
-        </Suspense>
-      </main>
+        )}
 
-      <AnimatePresence initial={false} mode="wait">
-        {!shellOverlayMode && trackerPanelSurfaceAvailable && trackerPanelDesktop(trackerPanelSide)}
-      </AnimatePresence>
+        {shellOverlayMode && <ChatResourceMobileDropDock />}
 
-      {trackerPanelWindowTarget && trackerPanelActive && trackerPanelModeAvailable && (
-        <TrackerPanelDetachedWindow
-          host={trackerPanelHost}
-          target={trackerPanelWindowTarget}
-          onClosed={handleTrackerPanelWindowClosed}
-        />
-      )}
-
-      {trackerPanelPortal}
-
-      {/* Overlay tracker panel backdrop */}
-      {trackerPanelVisible && shellOverlayMode && (
-        <div
-          className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
-          onClick={closeTrackerPanel}
-        />
-      )}
-
-      {/* Overlay tracker panel */}
-      {shellOverlayMode && (
-        <AnimatePresence mode="wait">
-          {trackerPanelVisible && (
-            <motion.aside
-              ref={overlayTrackerPanelRef}
-              tabIndex={-1}
-              key="mobile-tracker"
-              initial={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              data-component="TrackerDataSidebarMobile"
-              aria-label={localizeUi("ui.layout.appshell.trackerDataPanel")}
-              className={cn(
-                "mari-tracker-panel !fixed bottom-0 z-50 w-screen max-w-none overflow-hidden bg-zinc-950/95 shadow-2xl outline-none ring-1 ring-[var(--marinara-app-accent-solid)] backdrop-blur-xl",
-                MOBILE_SHELL_PANEL_TOP_CLASS,
-                MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
-                trackerPanelSide === "left" ? "left-0" : "right-0",
-              )}
-              style={trackerPanelBackgroundStyle}
-            >
-              <TrackerPanelHostSlot host={trackerPanelHost} />
-            </motion.aside>
-          )}
-        </AnimatePresence>
-      )}
-
-      {shellOverlayMode && <ChatResourceMobileDropDock />}
-
-      {/* Mobile navigation swaps content in one shell; desktop keeps independent sidebars. */}
-      {shellOverlayMode ? (
-        <AnimatePresence mode="wait">
-          {mobileNavigationPanel && (
-            <motion.aside
-              key="mobile-navigation"
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              data-tour={mobileNavigationPanel === "chats" ? "sidebar" : undefined}
-              data-component={mobileNavigationPanel === "chats" ? "ChatSidebarPanel" : "RightPanelMobile"}
-              aria-label={localizeUi(
-                mobileNavigationPanel === "chats"
-                  ? "ui.layout.appshell.chatList"
-                  : "ui.layout.appshell.settingsAndToolsPanel",
-              )}
-              className={cn(
-                "!fixed right-0 bottom-0 z-50 !w-full overflow-hidden shadow-2xl backdrop-blur-xl",
-                MOBILE_SHELL_PANEL_TOP_CLASS,
-                MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
-                mobileNavigationPanel === "chats"
-                  ? "mari-sidebar bg-[var(--background)]/95"
-                  : "mari-right-panel bg-[var(--background)]/80",
-              )}
-              style={{ "--mari-right-panel-width": "100vw" } as CSSProperties}
-            >
-              {mobileNavigationPanel === "chats" ? (
-                <ChatSidebar />
-              ) : (
+        {/* Mobile navigation swaps content in one shell; desktop keeps independent sidebars. */}
+        {shellOverlayMode ? (
+          <AnimatePresence mode="wait">
+            {mobileNavigationPanel && (
+              <motion.aside
+                key="mobile-navigation"
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                data-tour={mobileNavigationPanel === "chats" ? "sidebar" : undefined}
+                data-component={mobileNavigationPanel === "chats" ? "ChatSidebarPanel" : "RightPanelMobile"}
+                aria-label={localizeUi(
+                  mobileNavigationPanel === "chats"
+                    ? "ui.layout.appshell.chatList"
+                    : "ui.layout.appshell.settingsAndToolsPanel",
+                )}
+                className={cn(
+                  "!fixed right-0 bottom-0 z-50 !w-full overflow-hidden shadow-2xl backdrop-blur-xl",
+                  MOBILE_SHELL_PANEL_TOP_CLASS,
+                  MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
+                  mobileNavigationPanel === "chats"
+                    ? "mari-sidebar bg-[var(--background)]/95"
+                    : "mari-right-panel bg-[var(--background)]/80",
+                )}
+                style={{ "--mari-right-panel-width": "100vw" } as CSSProperties}
+              >
+                {mobileNavigationPanel === "chats" ? (
+                  <ChatSidebar />
+                ) : (
+                  <Suspense fallback={<SidePanelFallback />}>
+                    <RightPanel />
+                  </Suspense>
+                )}
+              </motion.aside>
+            )}
+          </AnimatePresence>
+        ) : (
+          <aside
+            data-component="RightPanelDesktopSlot"
+            aria-label={localizeUi("ui.layout.appshell.settingsAndToolsPanel")}
+            aria-hidden={!rightPanelOpen}
+            inert={!rightPanelOpen}
+            className={cn(
+              "mari-shell-panel-slot relative flex-shrink-0 overflow-hidden",
+              rightPanelDragWidth != null && "!transition-none",
+              !rightPanelOpen && "pointer-events-none",
+            )}
+            style={
+              {
+                width: rightPanelOpen ? liveRightPanelWidth : 0,
+                "--mari-right-panel-width": `${liveRightPanelWidth}px`,
+              } as CSSProperties
+            }
+          >
+            {(rightPanelOpen || rightPanelEverOpened) && (
+              <div
+                data-component="RightPanelDesktop"
+                aria-hidden={!rightPanelOpen}
+                inert={!rightPanelOpen}
+                className={cn(
+                  "mari-right-panel mari-shell-panel-motion mari-shell-panel-edge mari-shell-panel-edge--left absolute inset-y-0 right-0 overflow-hidden bg-[var(--background)]/95",
+                  rightPanelOpen ? "mari-shell-panel-enter-right" : "mari-shell-panel-exit-right pointer-events-none",
+                )}
+                style={{ width: liveRightPanelWidth }}
+              >
                 <Suspense fallback={<SidePanelFallback />}>
                   <RightPanel />
                 </Suspense>
-              )}
-            </motion.aside>
-          )}
-        </AnimatePresence>
-      ) : (
-        <aside
-          data-component="RightPanelDesktopSlot"
-          aria-label={localizeUi("ui.layout.appshell.settingsAndToolsPanel")}
-          aria-hidden={!rightPanelOpen}
-          inert={!rightPanelOpen}
-          className={cn(
-            "mari-shell-panel-slot relative flex-shrink-0 overflow-hidden",
-            rightPanelDragWidth != null && "!transition-none",
-            !rightPanelOpen && "pointer-events-none",
-          )}
-          style={
-            {
-              width: rightPanelOpen ? liveRightPanelWidth : 0,
-              "--mari-right-panel-width": `${liveRightPanelWidth}px`,
-            } as CSSProperties
-          }
-        >
-          {(rightPanelOpen || rightPanelEverOpened) && (
-            <div
-              data-component="RightPanelDesktop"
-              aria-hidden={!rightPanelOpen}
-              inert={!rightPanelOpen}
-              className={cn(
-                "mari-right-panel mari-shell-panel-motion mari-shell-panel-edge mari-shell-panel-edge--left absolute inset-y-0 right-0 overflow-hidden bg-[var(--background)]/95",
-                rightPanelOpen ? "mari-shell-panel-enter-right" : "mari-shell-panel-exit-right pointer-events-none",
-              )}
-              style={{ width: liveRightPanelWidth }}
-            >
-              <Suspense fallback={<SidePanelFallback />}>
-                <RightPanel />
-              </Suspense>
-            </div>
-          )}
-        </aside>
-      )}
+              </div>
+            )}
+          </aside>
+        )}
 
-      {!shellOverlayMode && rightPanelOpen && (
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={localizeUi("ui.layout.appshell.resizeRightSidebar")}
-          aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
-          aria-valuemax={SHARED_SIDEBAR_WIDTH_MAX}
-          aria-valuenow={Math.round(liveRightPanelWidth)}
-          tabIndex={0}
-          onMouseDown={startRightPanelResize}
-          onKeyDown={adjustRightPanelWidth}
-          className="absolute inset-y-0 z-40 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
-          style={{ right: rightPanelOpen ? Math.max(0, liveRightPanelWidth - 4) : 0 }}
-        />
-      )}
-
+        {!shellOverlayMode && rightPanelOpen && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={localizeUi("ui.layout.appshell.resizeRightSidebar")}
+            aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
+            aria-valuemax={SHARED_SIDEBAR_WIDTH_MAX}
+            aria-valuenow={Math.round(liveRightPanelWidth)}
+            tabIndex={0}
+            onMouseDown={startRightPanelResize}
+            onKeyDown={adjustRightPanelWidth}
+            className="absolute inset-y-0 z-40 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
+            style={{ right: rightPanelOpen ? Math.max(0, liveRightPanelWidth - 4) : 0 }}
+          />
+        )}
       </div>
 
       {spatialMapDetailChatId ? (
