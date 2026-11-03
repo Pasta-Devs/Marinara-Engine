@@ -2,18 +2,31 @@
 
 Three services let you chat with a plan you already pay for instead of an API key: **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)**. You install a small command line tool (CLI) and sign in once. Marinara Engine then reuses that sign-in. Nothing is pasted into Marinara.
 
-| Service | Plan you need | Install command | Sign-in command |
-| --- | --- | --- | --- |
-| **Claude (Subscription)** | Anthropic Pro or Max, or another plan Claude Code accepts | `npm i -g @anthropic-ai/claude-code` | `claude login` |
-| **OpenAI (ChatGPT)** | A ChatGPT account. Usage limits depend on the plan. | `npm i -g @openai/codex` | `codex login` |
-| **Grok CLI (Subscription)** | SuperGrok or X Premium+ | `curl -fsSL https://x.ai/cli/install.sh \| bash` | `grok login` |
+The plan you need:
+
+- **Claude (Subscription)**: Anthropic Pro or Max, or another plan Claude Code accepts.
+- **OpenAI (ChatGPT)**: a ChatGPT account. Usage limits depend on the plan.
+- **Grok CLI (Subscription)**: SuperGrok or X Premium+.
 
 ## Add a subscription account
 
-Before you start, know that the CLI must be installed and signed in on the computer that runs the Marinara server. This is not the phone or browser you view Marinara on. If Marinara runs on another computer or in Docker, do steps 1 and 2 there.
+Before you start, know that the CLI must be installed and signed in on the computer that runs the Marinara server. This is not the phone or browser you view Marinara on. If Marinara runs on another computer or in Docker, do steps 1 and 2 there. The `npm` commands need Node.js, which you have if you installed Marinara from source. See [Installation](../INSTALLATION.md).
 
-1. Open a terminal on the computer that runs Marinara. A terminal is the window where you type commands.
-2. Run the install command from the table, then run the sign-in command. Follow the sign-in steps the tool shows.
+1. Open a terminal on the computer that runs Marinara. A terminal is the window where you type commands. On Windows, open PowerShell. On macOS, open Terminal.
+2. Run the install command for your service, then run its sign-in command. The tool shows its own sign-in steps, usually a web page where you sign in.
+
+| Service | Install | Sign in |
+| --- | --- | --- |
+| Claude | `npm i -g @anthropic-ai/claude-code` | `claude login` |
+| ChatGPT | `npm i -g @openai/codex` | `codex login` |
+| Grok | see below | `grok login` |
+
+For Grok, the app shows this install command. If it does not run on your system, follow x.ai's own instructions for the Grok CLI.
+
+```bash
+curl -fsSL https://x.ai/cli/install.sh | bash
+```
+
 3. In Marinara, click **Connections** in the top bar, then click **Add**.
 4. Under **Chat**, click your service. These services have the tag **Sign in**.
 5. The window says **Sign in first** and names the command. There is no key field. Click **Connect**. Marinara tests the login. **Connected** means it works.
@@ -27,24 +40,26 @@ If it did not work:
 
 ## Claude (Subscription)
 
-This service uses your Claude plan through Claude Code, the same sign-in other Anthropic tools use. It supports text chat only. It has three extra controls in the model editor (**Edit model**): prompt caching, **Fast mode**, and **Diagnose model routing**.
+The sections from here on are optional settings. You do not need them to chat.
+
+This service uses your Claude plan through Claude Code. It has three extra controls in the model editor (**Edit model**): prompt caching, **Fast mode**, and **Diagnose model routing**.
 
 ### Extended token caching
 
 Prompt caching lets Claude reuse the start of your prompt, so repeated requests cost less of your limit. **Prompt caching → Extended token caching (1 hour)** asks for a one-hour cache, which helps when you pause between messages. It needs Claude Code 2.1.242 or later. Marinara sends the setting with the request and does not change your saved Claude settings.
 
-When it is off, Claude uses its own default for your account. That is currently one hour for subscription use within plan limits and five minutes for extra usage, credits, or API billing. Claude Code's own subagents use five minutes unless you set otherwise. Environment variables you set for the CLI still take precedence. See [Claude Code prompt caching](https://code.claude.com/docs/en/prompt-caching).
+When it is off, Claude uses its own default for your account. See [Claude Code prompt caching](https://code.claude.com/docs/en/prompt-caching).
 
 ### Fast mode
 
-**Fast mode → Use Claude Code fast-mode routing** is off by default. Leave it off. It asks Claude Code for a faster model tier, but current Claude models no longer offer one, so turning it on does nothing useful and can add overhead. If you try to turn it on, a dialog titled **Turn on fast mode?** appears. Click **Keep it off**.
+**Fast mode → Use Claude Code fast-mode routing** is off by default. Leave it off. It asks Claude Code for a faster model tier, but the app says current models no longer offer one, so turning it on does nothing useful and can add overhead. If you try to turn it on, a dialog titled **Turn on fast mode?** appears. Click **Keep it off**.
 
 ### Diagnose model routing
 
 Use **Diagnose model routing** when you asked for a large model such as Opus but suspect you got a smaller one.
 
-1. Pick a model and click **Save**. The button stays disabled until a model is set.
-2. Click **Diagnose model routing**.
+1. Pick a model. The button stays disabled until a model is set.
+2. Click **Diagnose model routing**. Marinara saves unsaved changes first.
 3. Read the result. Marinara sends a real prompt through your Claude Code sign-in and reports which model your account was billed for.
 
 ## OpenAI (ChatGPT)
@@ -58,7 +73,7 @@ To set how long Codex thinks before it answers, open **Edit model**, turn on **U
 This service runs the Grok CLI on the Marinara computer. Two things differ from other services:
 
 - It does not stream. A reply appears all at once instead of word by word.
-- Its context window defaults to 32,000 tokens. Tokens are small pieces of text that models count. Very large prompts can hit the CLI's own turn limit, so the default stays low. You can set a larger **Max Context Window** on the model.
+- Its context window defaults to 32,000 tokens. Tokens are small pieces of text that models count. Large prompts can hit the CLI's own turn limit, so the default stays low. You can set a larger **Max Context Window** on the model.
 
 In the model editor, **Use the Grok CLI default** leaves the model empty so the CLI picks its own. The editor names `grok-composer-2.5-fast` as usually the safest model for roleplay, because Marinara runs the CLI headless, with Grok's own tools, memory, web search, plans, and subagents turned off.
 
