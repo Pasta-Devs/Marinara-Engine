@@ -86,7 +86,7 @@ const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)
 const NAV = "[data-stage-option], [data-stage-panel] input";
 const TABBABLE = 'button:not([disabled]), input:not([disabled]), select, textarea, a[href], [tabindex="0"]';
 
-function parseData(data: unknown): Record<string, unknown> | null {
+export function parseData(data: unknown): Record<string, unknown> | null {
   if (typeof data !== "string") return data && typeof data === "object" ? (data as Record<string, unknown>) : null;
   try {
     return JSON.parse(data);

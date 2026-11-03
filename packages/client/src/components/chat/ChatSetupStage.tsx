@@ -52,7 +52,13 @@ import {
   getChatExcludedLorebookIds,
 } from "../../lib/chat-lorebooks";
 import { ChatSetupStageMemoryNote } from "./ChatSetupStageMemoryNote";
-import { StageAvatar, StageEditor, type StageAvatarProps, type StageEditorSection } from "./ChatSetupStageEditors";
+import {
+  parseData,
+  StageAvatar,
+  StageEditor,
+  type StageAvatarProps,
+  type StageEditorSection,
+} from "./ChatSetupStageEditors";
 import { ChatSetupStageScene } from "./ChatSetupStageScene";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import {
@@ -341,6 +347,13 @@ export function ChatSetupStage({
   const castNames = characters.length ? listFormat.format(characters.map((c) => c.name!)) : null;
   const title = characters.length ? listFormat.format(characters.map((c) => c.name!)) : t("chat.setupStage.untitled");
   const tagline = characters.length === 1 ? stageTagline(characterMap.get(characters[0]!.id)?.description) : null;
+  // Group chats show the first character's card.
+  const { data: leadRow } = useCharacter(characters[0]?.id ?? null);
+  const leadCard = parseData((leadRow as { data?: unknown } | undefined)?.data);
+  const tags = (Array.isArray(leadCard?.tags) ? leadCard.tags : [])
+    .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
+    .slice(0, 3)
+    .map((tag) => tag.trim());
   const personaName = personaInfo?.name || null;
   const canPickPersona = (personas?.length ?? 0) >= 2;
   // With one persona the wizard never picked it, so an unset persona stays out of the sentence.
@@ -625,6 +638,11 @@ export function ChatSetupStage({
           ))}
         </button>
       ) : null}
+      {tags.length > 0 && (
+        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs">
+          {[t(`chat.setupStage.tags.${variant}`), ...tags].join(" · ")}
+        </p>
+      )}
       <h1
         style={SERIF}
         className={cn(
