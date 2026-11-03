@@ -189,7 +189,7 @@ export function setSkillGateEnabled(enabled: boolean) {
 
 // The mari CLI flags that read a text file (mari-db's parseJsonInput, parseCssInput and resolveJsonInput).
 // ponytail: checked on the argv before the CLI runs, so a new file-reading mari flag must join this set. The upgrade
-// is a read-path resolver passed through executeCli, so mari-db checks each path where it reads it.
+// is to read them through executeCli's resolveReadPath instead, as mari images already reads its image files.
 const DIRECT_MARI_TEXT_FILE_FLAGS = new Set(["--json-file", "--file", "--css-file"]);
 
 const DRY_RUN_FOOTER =
@@ -1117,6 +1117,8 @@ export class WorkspaceCommands {
       command,
       cwd: this.workspaceRoot,
       sessionId: this.runSessionId(),
+      // mari images takes an asset id, app URL, data URL or file for its source; the same rule covers the file.
+      resolveReadPath: (path) => this.resolveWorkspacePath(path, { readOnly: true }),
     });
     // A failed read can carry both an error and an output; the error is the part the model needs.
     const printable =

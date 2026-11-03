@@ -53,6 +53,8 @@ type ImageCommandContext = {
   command: string;
   sessionId: string;
   cwd?: string;
+  // Resolves and checks a file path before it is read (Professor Mari's direct runtime passes her read tool's rule).
+  resolveReadPath?: (path: string) => string;
 };
 
 type ImageConnection = {
@@ -717,7 +719,7 @@ export class MariImagesService {
       imageDefaults,
     });
     const size = this.resolveSize(flags, kind, imageSettings);
-    const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context.cwd, true) : null;
+    const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
 
     return {
       ok: true,
@@ -759,7 +761,7 @@ export class MariImagesService {
       throw new Error(`No edit-capable image connection selected. ${capability.notes.join(" ")}`);
     }
 
-    const sourceImage = operation === "edit" ? await this.resolveSourceImage(flags, target, context.cwd, true) : null;
+    const sourceImage = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
     const imageSettings = await loadImageGenerationUserSettings(this.db);
     const imageDefaults = resolveConnectionImageDefaults(connection);
     const kind = detectImageKind(target, flagString(flags, "kind"));
@@ -916,25 +918,25 @@ export class MariImagesService {
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required: true,
   ): Promise<ResolvedImage>;
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required?: false,
   ): Promise<ResolvedImage | null>;
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required = false,
   ): Promise<ResolvedImage | null> {
     const explicit = flagString(flags, "source", "source-image", "asset", "from");
-    if (explicit) return this.resolveImageReference(explicit, cwd);
+    if (explicit) return this.resolveImageReference(explicit, context);
     const targetImage = target ? await this.currentImageReferenceForTarget(target) : null;
-    if (targetImage) return this.resolveImageReference(targetImage, cwd);
+    if (targetImage) return this.resolveImageReference(targetImage, context);
     if (required)
       throw new Error(
         "Image editing requires --source <asset-id|app-url|file|data-url>, or a target that already has an image.",
@@ -999,7 +1001,7 @@ export class MariImagesService {
     return `/api/characters/${encodeURIComponent(characterId)}/gallery/file/${encodeURIComponent(filename)}`;
   }
 
-  private async resolveImageReference(value: string, cwd?: string): Promise<ResolvedImage> {
+  private async resolveImageReference(value: string, context: ImageCommandContext): Promise<ResolvedImage> {
     const data = decodeDataImage(value);
     if (data) return data;
 
@@ -1033,7 +1035,10 @@ export class MariImagesService {
         return { label: "base64", buffer, base64: base64ish, mimeType: imageInfo.mimeType, ext: imageInfo.ext };
     }
 
-    const filePath = resolve(cwd?.trim() ? cwd : process.cwd(), value);
+    // Anything else is a file path. Check it before imageFromFile opens it, so a refused file is never read.
+    const filePath = context.resolveReadPath
+      ? context.resolveReadPath(value)
+      : resolve(context.cwd?.trim() ? context.cwd : process.cwd(), value);
     return imageFromFile(filePath, value);
   }
 
@@ -1046,7 +1051,7 @@ export class MariImagesService {
       throw new Error(
         "Assign target cannot be asset; use mari images delete --target asset --asset <id> to manage preview assets.",
       );
-    const source = await this.resolveSourceImage(flags, null, context.cwd, true);
+    const source = await this.resolveSourceImage(flags, null, context, true);
 
     if (!hasFlag(flags, "apply")) {
       return {
