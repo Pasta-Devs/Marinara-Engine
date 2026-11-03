@@ -4766,19 +4766,6 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
       expect(sent.at(-1)?.referenceImages).toEqual(expected);
     }
 
-    await neutral.check();
-    await page.evaluate(async () => {
-      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      useUIStore.getState().setReviewImagePromptsBeforeSend(true);
-    });
-    const previewRequest = page.waitForRequest("**/api/characters/avatar-generation/preview");
-    await dialog.getByRole("button", { name: "Regenerate", exact: true }).click();
-    expect((await previewRequest).postDataJSON().referenceImages).toEqual([sprite]);
-    const review = page.getByRole("dialog", { name: "Review Image Prompt", exact: true });
-    await review.getByRole("button", { name: "Generate", exact: true }).click();
-    await expect(dialog.getByRole("button", { name: "Save as Character Sheet" })).toBeEnabled();
-    expect(sent.at(-1)?.referenceImages).toEqual([sprite]);
-
     const uploadedSheet = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/characters/${character.id}/gallery/upload`) &&
@@ -4795,6 +4782,28 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
             .characterSheetImageId,
       )
       .toBe(savedSheet.id);
+    await expect(editor.locator(".mari-editor-action--save")).toBeDisabled();
+    await create.click();
+    await expect(neutral).not.toBeChecked();
+    await neutral.check();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setReviewImagePromptsBeforeSend(true);
+    });
+    const previewRequest = page.waitForRequest("**/api/characters/avatar-generation/preview");
+    await dialog.getByRole("button", { name: "Generate", exact: true }).click();
+    expect((await previewRequest).postDataJSON().referenceImages).toEqual([sprite]);
+    const review = page.getByRole("dialog", { name: "Review Image Prompt", exact: true });
+    await review.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Save as Character Sheet" })).toBeEnabled();
+    expect(sent.at(-1)?.referenceImages).toEqual([sprite]);
+
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(
+      JSON.parse((await (await request.get(`/api/characters/${character.id}`)).json()).data).extensions
+        .characterSheetImageId,
+    ).toBe(savedSheet.id);
     await expect(editor.locator(".mari-editor-action--save")).toBeDisabled();
     await create.click();
     await expect(neutral).not.toBeChecked();
