@@ -1,5 +1,5 @@
 import { posix, resolve, win32 } from "node:path";
-import { closeSync, openSync, readSync } from "node:fs";
+import { closeSync, existsSync, openSync, readSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
@@ -54,6 +54,20 @@ export function resolvePnpmRunner({
   }
 
   return { command: "pnpm", args: [] };
+}
+
+/**
+ * Delete the checkout's pnpm 10 store once a pnpm 11+ install has finished. Those releases keep their files in
+ * `.pnpm-store/v11` and never read `v10`, and their `store prune` cannot see it, so it would sit there forever.
+ * ponytail: handles only the v10 layout stranded by the move to pnpm 12; delete once no supported update
+ * starts from a pnpm 10 install.
+ */
+export function removeLegacyPnpmStore(root, environment = process.env) {
+  const pnpmMajor = Number(/^pnpm\/(\d+)\./u.exec(environment.npm_config_user_agent ?? "")?.[1] ?? 0);
+  const legacyStore = resolve(root, ".pnpm-store", "v10");
+  if (pnpmMajor < 11 || !existsSync(legacyStore)) return false;
+  rmSync(legacyStore, { recursive: true, force: true });
+  return true;
 }
 
 /** Detach Playwright project children from piped Windows stdin while preserving their output. */

@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolvePlaywrightProjectStdio, resolvePnpmRunner } from "../pnpm-runner.mjs";
+import { removeLegacyPnpmStore, resolvePlaywrightProjectStdio, resolvePnpmRunner } from "../pnpm-runner.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const nativeRunner = resolvePnpmRunner({
@@ -104,6 +104,40 @@ assert.equal(
   resolvePlaywrightProjectStdio("linux"),
   "inherit",
   "POSIX Playwright project children keep inherited stdio.",
+);
+
+// pnpm 12 keeps the checkout's store in .pnpm-store/v11; the pnpm 10 store beside it is dead weight.
+const storeRoot = mkdtempSync(join(tmpdir(), "marinara-legacy-store-"));
+try {
+  for (const layout of ["v10/files/00", "v11/files/00"])
+    mkdirSync(join(storeRoot, ".pnpm-store", layout), { recursive: true });
+  assert.equal(removeLegacyPnpmStore(storeRoot, {}), false, "Without a pnpm user agent nothing is removed.");
+  assert.equal(
+    removeLegacyPnpmStore(storeRoot, { npm_config_user_agent: "pnpm/10.34.5 npm/? node/v24.15.0 linux x64" }),
+    false,
+    "A pnpm 10 install still uses its v10 store.",
+  );
+  assert.ok(existsSync(join(storeRoot, ".pnpm-store", "v10")));
+  assert.equal(
+    removeLegacyPnpmStore(storeRoot, { npm_config_user_agent: "pnpm/12.15.0 npm/? node/? linux x64" }),
+    true,
+    "A pnpm 12 install reclaims the stranded pnpm 10 store.",
+  );
+  assert.ok(!existsSync(join(storeRoot, ".pnpm-store", "v10")));
+  assert.ok(existsSync(join(storeRoot, ".pnpm-store", "v11", "files", "00")), "The live v11 store stays.");
+  assert.equal(
+    removeLegacyPnpmStore(storeRoot, { npm_config_user_agent: "pnpm/12.15.0 npm/? node/? linux x64" }),
+    false,
+  );
+} finally {
+  rmSync(storeRoot, { recursive: true, force: true });
+}
+const nativeDepsSource = readFileSync(join(repositoryRoot, "scripts", "ensure-native-deps.mjs"), "utf8");
+assert.match(nativeDepsSource, /removeLegacyPnpmStore\(repoRoot\)/u, "The root postinstall reclaims the v10 store.");
+assert.match(
+  readFileSync(join(repositoryRoot, "start-termux.sh"), "utf8"),
+  /prune_pnpm_store\(\) \{[\s\S]*rm -rf \.pnpm-store\/v10[\s\S]*run_pnpm store prune/u,
+  "Termux drops the v10 store before installing, so both stores never have to fit at once.",
 );
 
 async function reservePort() {
