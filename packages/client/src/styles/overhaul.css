@@ -340,3 +340,61 @@
   font-family: var(--ov-serif);
   font-weight: 400;
 }
+
+/* ─── Chat list (left) ─── */
+.ov-new-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.75rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: var(--ov-accent);
+  color: var(--primary-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.ov-new-pill:hover {
+  filter: brightness(1.08);
+}
+.ov-mode-count {
+  margin-left: 0.25rem;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+:root[data-overhaul="on"] [data-component="ChatSidebar"] .mari-chrome-segmented__button {
+  padding-inline: 0.25rem;
+  font-size: 0.6875rem;
+}
+:root[data-overhaul="on"] [data-component="ChatSidebar"] .mari-sidebar-header {
+  padding-inline: 0.75rem;
+}
+
+/* ─── Home ─── */
+/* Home fills the main area instead of floating as a card, and its own pages
+   (Home, Professor, browser apps) read as a small switcher, not a second tab strip. */
+:root[data-overhaul="on"] [data-component="HomeBrowserHub"] > div {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+:root[data-overhaul="on"] [data-component="HomeBrowserHub"] header > div:first-child {
+  height: 2.375rem;
+  align-items: center;
+}
+:root[data-overhaul="on"] [data-component="HomeBrowserHub.TabList"] {
+  align-items: center;
+}
+:root[data-overhaul="on"] [data-component="HomeBrowserHub.TabList"] [role="tab"] {
+  min-height: 1.75rem;
+  min-width: 0;
+  padding-inline: 0.625rem;
+  border: 0;
+  border-radius: 0.5rem;
+  font-weight: 500;
+}
+:root[data-overhaul="on"] [data-component="HomeBrowserHub.TabList"] [role="tab"][aria-selected="true"] {
+  background: var(--ov-active-bg);
+  box-shadow: inset 0 0 0 1px var(--ov-line);
+}

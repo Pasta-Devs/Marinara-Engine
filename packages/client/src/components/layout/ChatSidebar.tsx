@@ -1,4 +1,5 @@
 import { insertLibraryItems } from "../../lib/library-order";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
@@ -238,6 +239,7 @@ export function ChatSidebar() {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const localize = useLocalizedUiText();
+  const overhaulActive = useOverhaulActive();
   const { data: chats, isError: chatsError, isLoading, isFetching, refetch: refetchChats } = useChats();
   const { data: connections } = useConnections();
   const createChat = useCreateChat();
@@ -1043,7 +1045,8 @@ export function ChatSidebar() {
           if (isMobileShellViewport()) setSidebarOpen(false);
         }}
         className={cn(
-          "group relative isolate flex w-full touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 overflow-hidden rounded-lg px-3 py-2.5 text-left transition-all duration-150",
+          "group relative isolate flex w-full touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 overflow-hidden rounded-lg px-3 text-left transition-all duration-150",
+          overhaulActive ? "py-1.5" : "py-2.5",
           multiSelectMode && isSelected
             ? "mari-chrome-accent-surface mari-accent-animated"
             : isActive
@@ -1330,9 +1333,55 @@ export function ChatSidebar() {
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-1">
           <PersonalExtensionContributionSlot surface="chats" position="header" className="max-w-28" />
+          {overhaulActive ? (
+            <>
+              <button
+                onClick={() => chatImportInputRef.current?.click()}
+                disabled={isImportingChat}
+                className="ov-icon-btn ov-icon-btn--sm"
+                title={localize(isImportingChat ? "Importing chat" : "Import SillyTavern or Marinara chat JSONL")}
+                aria-label={localize(isImportingChat ? "Importing chat" : "Import SillyTavern or Marinara chat JSONL")}
+              >
+                <Download size="0.8125rem" />
+              </button>
+              {activeModeHasChats ? (
+                <button
+                  onClick={handleCreateFolder}
+                  className="ov-icon-btn ov-icon-btn--sm"
+                  title={localize("New Folder")}
+                  aria-label={localize("New Folder")}
+                >
+                  <FolderPlus size="0.8125rem" />
+                </button>
+              ) : null}
+              <button
+                onClick={() => (multiSelectMode ? exitMultiSelect() : setMultiSelectMode(true))}
+                disabled={displayChats.length === 0}
+                aria-pressed={multiSelectMode}
+                className={cn("ov-icon-btn ov-icon-btn--sm", multiSelectMode && "is-on")}
+                title={localize(multiSelectMode ? "Cancel selection" : "Select chats")}
+                aria-label={localize(multiSelectMode ? "Cancel selection" : "Select chats")}
+              >
+                <Check size="0.8125rem" />
+              </button>
+              <button
+                onClick={handleNewChatFromTab}
+                disabled={createChat.isPending}
+                className="ov-new-pill"
+                title={t(`navigation.chatSidebar.new.${activeTab}`)}
+                aria-label={t(`navigation.chatSidebar.new.${activeTab}`)}
+              >
+                <Plus size="0.8125rem" aria-hidden="true" />
+                <span>{localize("New")}</span>
+              </button>
+            </>
+          ) : null}
           <button
             onClick={() => setSidebarOpen(false)}
-            className="mari-chrome-control mari-chrome-control--small mari-accent-animated p-1.5 active:scale-90 md:hidden max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
+            className={cn(
+              "mari-chrome-control mari-chrome-control--small mari-accent-animated p-1.5 active:scale-90 md:hidden max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9",
+              overhaulActive && "!hidden",
+            )}
             title={localize("Close")}
             aria-label={localize("Close chats")}
           >
@@ -1369,8 +1418,11 @@ export function ChatSidebar() {
               >
                 <span className="shrink-0 leading-none">{cfg.icon}</span>
                 <span className="inline-flex min-h-[1rem] items-center whitespace-nowrap pb-px leading-normal">
-                  {localize(cfg.shortLabel)}
+                  {localize(overhaulActive ? (tab === "conversation" ? "Convo" : cfg.label) : cfg.shortLabel)}
                 </span>
+                {overhaulActive ? (
+                  <small className="ov-mode-count">{chats?.filter((c) => c.mode === tab).length ?? 0}</small>
+                ) : null}
                 {tabUnread > 0 && !isActive && (
                   <span className="absolute -top-1 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-md bg-red-500 px-0.5 text-[0.5rem] font-bold leading-none text-white">
                     {tabUnread > 99 ? "99+" : tabUnread}
@@ -1382,7 +1434,7 @@ export function ChatSidebar() {
         </div>
       </div>
 
-      <div className="flex gap-2 px-3 pt-2">
+      <div className={cn("flex gap-2 px-3 pt-2", overhaulActive && "hidden")}>
         <input
           ref={chatImportInputRef}
           type="file"
@@ -1619,7 +1671,7 @@ export function ChatSidebar() {
         )}
 
         <div className="stagger-children flex flex-col gap-0.5 px-1">
-          {activeModeHasChats && (
+          {activeModeHasChats && !overhaulActive && (
             <div className="flex items-center gap-1">
               <button
                 onClick={handleCreateFolder}
