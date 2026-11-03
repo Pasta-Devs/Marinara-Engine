@@ -9090,23 +9090,30 @@ html[data-marinara-reduced-effects="true"] .mari-window {
 }
 
 /* While a setup stage is open, tips and the floating music bubble wait, and the chat header icons dim. */
+html[data-setup-stage] :is([data-chat-settings-move-tip]) {
+  display: none;
+}
+
 html[data-setup-stage]
   :is(
-    [data-chat-settings-move-tip],
+    [data-roleplay-top-controls],
+    [data-minimized="true"],
     [data-component="SpotifyMiniPlayer.Floating"],
     [data-component="SpotifyMiniPlayer.Mobile"],
     [data-component="LocalMusicPlayer.Mobile"]
   ) {
-  display: none;
-}
-
-html[data-setup-stage] :is([data-roleplay-top-controls], [data-minimized="true"]) {
   opacity: 0.4;
   transition: opacity 150ms ease-out;
 }
 
 html[data-setup-stage]
-  :is([data-roleplay-top-controls], [data-minimized="true"]):is(:hover, :focus-visible, :has(:focus-visible)) {
+  :is(
+    [data-roleplay-top-controls],
+    [data-minimized="true"],
+    [data-component="SpotifyMiniPlayer.Floating"],
+    [data-component="SpotifyMiniPlayer.Mobile"],
+    [data-component="LocalMusicPlayer.Mobile"]
+  ):is(:hover, :focus-visible, :has(:focus-visible)) {
   opacity: 1;
 }
 

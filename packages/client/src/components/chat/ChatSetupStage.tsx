@@ -653,7 +653,7 @@ export function ChatSetupStage({
     </button>
   );
   // The first message ends the stage too; on phones the row has no room for it.
-  const typingHint = (
+  const typingHint = noModel ? null : (
     <span className="font-serif text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] max-sm:hidden">
       {t("chat.setupStage.typingHint")}
     </span>

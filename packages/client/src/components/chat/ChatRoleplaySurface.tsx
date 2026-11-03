@@ -1548,7 +1548,10 @@ export function ChatRoleplaySurface({
   const welcomeBack = useWelcomeBack({ chat, chatMeta, messages, blocked: setupStage.visible });
   // A plain black or empty background gets a soft wash of the lead character behind the stage.
   const washSrc =
-    !chatBackground || chatBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL
+    setupStage.visible &&
+    !roleplayReducedPaintEffects &&
+    !ambientVisualsPaused &&
+    (!chatBackground || chatBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL)
       ? (characterMap.get(chatCharIds[0] ?? "")?.avatarUrl ?? null)
       : null;
   const washAccent = useAvatarAccent(washSrc);

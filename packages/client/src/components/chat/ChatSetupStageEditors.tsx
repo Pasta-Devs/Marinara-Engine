@@ -422,12 +422,16 @@ function CastEditor({ ctx, addOnly, close }: { ctx: StageEditorContext; addOnly?
       }),
     [characterRows],
   );
-  const { toggleCharacter } = useChatCast({
+  const { toggleCharacter, hostedRoom } = useChatCast({
     chatId: ctx.chat.id,
     metadata: ctx.chatMeta,
     chatCharIds: ctx.chatCharIds,
     isGame: false,
-    onAdded: (_charId, current) => syncGreeting(current),
+    onAdded: (_charId, current) => {
+      syncGreeting(current);
+      // Close once the write lands: per-call mutation callbacks are dropped if the editor unmounts first.
+      if (addOnly) close?.();
+    },
     onRemoved: (charId) => syncGreeting(ctx.chatCharIds.filter((id) => id !== charId)),
   });
   // A swap (remove A, add B) replaces A's greeting with B's while the stage is open.
@@ -502,7 +506,7 @@ function CastEditor({ ctx, addOnly, close }: { ctx: StageEditorContext; addOnly?
           aria-label={t("chat.setupStage.editor.add", { name: c.name })}
           onClick={() => {
             toggle(c.id);
-            if (addOnly) close?.();
+            if (addOnly && hostedRoom) close?.();
           }}
           className={cn(
             "flex min-h-11 w-full items-center gap-3 rounded-[12px] px-3 text-left text-[14px] hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)]",
@@ -544,37 +548,41 @@ function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
       api.get<Array<{ index: number; content: string }>>(`/chats/${ctx.chat.id}/messages/${first!.id}/swipes`),
     enabled: !!first,
   });
+  // Resolved like the greeting below the stage, so {{user}} and {{char}} read as names.
+  const previews = useMemo(() => {
+    if (!first) return [];
+    const speakerRow = characterRows?.find((c) => c.id === first.characterId);
+    const contents = data?.length ? [...data].sort((a, b) => a.index - b.index).map((s) => s.content) : [first.content];
+    return contents.map((content) => {
+      const text = speakerRow
+        ? resolveGreetingPreview(content, {
+            character: speakerRow,
+            chat: ctx.chat,
+            characters: characterRows,
+            personas,
+            chatVariables,
+          }).text
+        : content;
+      return stripStrayMarkdown(text)
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("\n");
+    });
+  }, [data, first, characterRows, personas, chatVariables, ctx.chat]);
   if (!first) return <Muted>{t("chat.setupStage.row.noGreeting")}</Muted>;
   const swipes = data?.length ? [...data].sort((a, b) => a.index - b.index).map((s) => s.content) : [first.content];
   const active = first.activeSwipeIndex ?? 0;
   const speaker = first.characterId ? ctx.characterMap.get(first.characterId) : undefined;
-  const speakerRow = characterRows?.find((c) => c.id === first.characterId);
-  // Resolved like the greeting below the stage, so {{user}} and {{char}} read as names.
-  const preview = (content: string) => {
-    const text = speakerRow
-      ? resolveGreetingPreview(content, {
-          character: speakerRow,
-          chat: ctx.chat,
-          characters: characterRows,
-          personas,
-          chatVariables,
-        }).text
-      : content;
-    return stripStrayMarkdown(text)
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("\n");
-  };
   return (
     <>
-      {swipes.map((content, index) => (
+      {swipes.map((_content, index) => (
         <Option
           key={index}
           active={index === active}
           label={t("chat.setupStage.editor.greeting", { index: index + 1 })}
-          hint={preview(content ?? "")}
+          hint={previews[index] ?? ""}
           wrapHint
           avatar={speaker && { src: speaker.avatarUrl, crop: speaker.avatarCrop, name: speaker.name }}
           onSelect={() => {
@@ -907,12 +915,20 @@ function SaveProfileForm({ ctx, close }: { ctx: StageEditorContext; close: () =>
 /** The card's creator notes as prose; the `<style>` blocks some cards carry are dropped. */
 export function readCreatorNotes(card: Record<string, unknown> | null | undefined): string {
   const notes = card?.creator_notes;
-  return typeof notes === "string" ? extractCreatorNotesCss(notes).text : "";
+  return typeof notes === "string" ? htmlToPlainText(extractCreatorNotesCss(notes).text) : "";
 }
 
-/** Read-only creator notes, rendered through the same markdown path as the character page. */
+/** Card notes are often HTML: keep the line breaks, drop the tags, decode entities. DOMParser never runs scripts or loads images. */
+function htmlToPlainText(html: string): string {
+  const withBreaks = html.replace(/<br\s*\/?>|<\/(?:p|div|h[1-6]|li)>/gi, "\n");
+  return (new DOMParser().parseFromString(withBreaks, "text/html").body.textContent ?? "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Read-only creator notes: HTML reduced to plain text, then rendered as inline markdown. */
 function CreatorNotesView({ ctx }: { ctx: StageEditorContext }) {
-  const { data } = useCharacter(ctx.chatCharIds[0] ?? null);
+  const { data } = useCharacter(ctx.chatCharIds.find((id) => ctx.characterMap.get(id)?.name) ?? null);
   const notes = readCreatorNotes(parseData((data as { data?: unknown } | undefined)?.data));
   return (
     <div className="mari-message-content whitespace-pre-wrap px-3 py-2 text-[13.5px] leading-6 text-[var(--foreground)]">
