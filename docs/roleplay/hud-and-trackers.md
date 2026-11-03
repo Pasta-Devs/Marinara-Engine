@@ -2,16 +2,29 @@
 
 The HUD (heads-up display) shows live story details in a Roleplay chat: the time, the weather, who is present, your stats, your items and your quests. You can fix any value by hand, lock a value so the AI stops changing it, and re-run a tracker on demand.
 
-The values come from tracker agents. A tracker agent is a small AI helper that watches the story and updates one part of the HUD after each message. A widget shows only when its agent is on for the chat. Turn agents on and off in **Chat Settings → Agents**. With no tracker agents on, the HUD has no widgets.
+The values come from tracker agents. An agent is a helper that runs alongside replies. A tracker agent watches the story and updates one part of the HUD after each message. A widget shows only when its agent is on for the chat.
+
+## Turn on the HUD
+
+1. Open **Chat Settings** with the sliders button in the chat.
+2. Go to **Agents** and turn on **Enable Agents**.
+3. Add the agents from the lists below the switch. For a basic HUD, add **World State** first. Add **Persona Stats**, **Character Tracker** or **Quest Tracker** for more.
+4. Send a message.
+
+After the reply, the tracker appears. On a phone you see the **World State** button. On a computer you see the **Tracker Panel** or the **Trackers** window (see below). The widget table lists which agent feeds which widget.
+
+If it did not work: with no tracker agents on, the HUD shows no widgets. Check that **Enable Agents** is on.
 
 ## Where the HUD appears
 
-| Device | Where you find the trackers |
-| --- | --- |
-| Phone | Movable **World State** and **Player & Tracker** buttons. Tap one to open its panel, and **X** to close it. |
-| Computer | The **Tracker Panel** while it is on, otherwise the **Trackers** window. |
+On a phone, the trackers are the movable **World State** and **Player & Tracker** buttons. Tap one to open its panel, and **X** to close it. Once World State has details, its button shows a small banner with the location, day, time, weather and temperature. Drag the buttons anywhere. Your chat remembers where you put them. They follow your **Chat widget style** in **Settings → Appearance → App**.
 
-On a phone, once World State has details, its button becomes a small banner showing the location, the day, the time, the weather and the temperature. Your chat remembers where you put each button. The buttons and panels follow your **Chat widget style** in **Settings → Appearance → App**. They are separate from the **Chat tools** three-dot menu.
+On a computer, the same trackers appear in one of two places:
+
+- The **Tracker Panel**: a side panel beside your messages. It is on by default. The die button in the **Chat Settings** title bar turns it on and off.
+- The **Trackers** window: a movable window that holds the trackers when the Tracker Panel is off.
+
+You use only one of the two at a time. See [The Tracker Panel](#the-tracker-panel) and [The Trackers window](#the-trackers-window).
 
 ## The HUD widgets
 
@@ -25,9 +38,11 @@ On a phone, once World State has details, its button becomes a small banner show
 | **Active Quests** | Quest Tracker | Your current objective |
 | **Custom Tracker** | Custom Tracker | Your own named fields, such as counters or currency |
 
-The **Inventory** widget comes from the **Persona Stats** agent, so turn that on to get both. The **Inventory Tracker** is separate. It keeps name-and-quantity entries in three groups, **Currencies**, **Equipped** and **Inventory**, and never lists equipped gear twice.
+The **Inventory** widget comes from the **Persona Stats** agent, so turn that on to get both. The **Inventory Tracker** is separate. It keeps entries in three groups, **Currencies**, **Equipped** and **Inventory**, and never lists equipped gear twice.
 
-Each entry is a small pill that wraps onto the next line. A quantity shows as `×4` only when it is more than one. To change a quantity of one, turn on add mode or lock mode: both show the quantity control on every entry. **Present Characters** shows up to three character emoji plus a "+N" count. **Inventory** and **Custom Tracker** cycle through their entries one at a time.
+Each entry is a small pill. A quantity shows as `×4` only when it is more than one. To change a quantity of one, turn on add mode or lock mode: both show the quantity control on every entry. Add mode is the **+** button in the Tracker Panel header. [Lock mode](#lock-mode) is explained below.
+
+**Present Characters** shows up to three character emoji plus a "+N" count. **Inventory** and **Custom Tracker** show their entries one at a time.
 
 ## Edit a tracker value
 
@@ -36,21 +51,19 @@ Every field is editable, so you can correct a value the AI got wrong. Your edit 
 1. Open the tracker: tap its button on a phone, or open its section in the Tracker Panel or Trackers window on a computer.
 2. Click the value and type the new one.
 
-| Tracker | What you can edit |
-| --- | --- |
-| **World State** | **Location**, **Date**, **Time**, **Weather**, **Temperature** and custom world-field rows. |
-| **Persona Stats** | A **Status** line, and named bars with a current and a max value. You can add or remove bars. |
-| **Present Characters** | Add or remove characters. Edit each emoji, name, **Mood**, **Look**, **Outfit**, **Thinks** (private thoughts) and custom fields. Upload an avatar per character. The **Auto** button turns "Auto-generate avatars" on or off. |
-| **Inventory** | Add or remove items, and edit names and quantities. |
-| **Inventory Tracker** | Add or remove entries under **Currencies**, **Equipped** and **Inventory**, and edit names and quantities. To move an item between groups, remove it and add it to the other group. |
-| **Active Quests** | Add or remove quests. Each quest has named objectives with checkboxes. |
-| **Custom Tracker** | Add, remove or edit name and value fields. |
+- **World State**: **Location**, **Date**, **Time**, **Weather**, **Temperature** and custom world fields.
+- **Persona Stats**: a **Status** line, and named bars with a current and a max value. Add or remove bars.
+- **Present Characters**: add or remove characters. Edit each one's emoji, name, **Mood**, **Look**, **Outfit**, **Thinks** (private thoughts) and custom fields. You can upload an avatar for each one. The **Auto** button turns "Auto-generate avatars" on or off.
+- **Inventory**: add or remove items. Edit names and quantities.
+- **Inventory Tracker**: add or remove entries under **Currencies**, **Equipped** and **Inventory**. To move an item to another group, remove it and add it there.
+- **Active Quests**: add or remove quests. Each quest has objectives with checkboxes.
+- **Custom Tracker**: add, remove or edit name and value fields.
 
 To fix many values at once, use the [State Editor](#the-state-editor).
 
 ## Lock mode
 
-Tracker agents overwrite HUD values after each turn. When a value keeps drifting wrong, lock it. The next automatic run leaves a locked field alone.
+Tracker agents overwrite HUD values after each turn. Lock mode lets you pin a value. When a field is locked, the next automatic run leaves it alone. Use it when a value keeps drifting wrong.
 
 1. Open the tracker.
 2. Click the lock toggle near the top of the tracker (tooltip **Enter lock mode**). A small lock button appears next to each editable value.
@@ -72,15 +85,15 @@ While at least one tracker is manual, a refresh button appears: in the HUD row o
 
 ## The Trackers window
 
-On a computer, when the Tracker Panel is not shown, the trackers use the **Trackers** window. If there is room beside your messages, it opens on the left. Otherwise it starts as a small **Trackers** button at the top left of the chat. Click the button to open it. A chat with a saved layout keeps your arrangement.
+On a computer, the trackers use the **Trackers** window when the Tracker Panel is off. If there is room beside your messages, it opens on the left. Otherwise it starts as a small **Trackers** button at the top left of the chat. Click the button to open it. A chat with a saved layout keeps your arrangement.
 
-Move the window by its title bar and resize it from its edges. The buttons in its top-right corner are:
+Move the window by its title bar and resize it from its edges. Its top-right buttons are:
 
 - **Pin**: keeps it open when you click elsewhere. It starts pinned.
 - **Lock**: stops it from moving or resizing, and fixes its button in place. The button still opens the window.
 - **Close**: shrinks it to the movable **Trackers** button.
 
-A dot shows beside the window title (and on the **Chat Settings** button) while agents are working. **Reset View** in Chat Settings clears the saved arrangement and picks the starting window or button to fit the space.
+**Reset View** in Chat Settings clears the saved arrangement and picks the starting window or button to fit the space.
 
 Each tracker has a collapsible section. Click its header to collapse it to a small preview, and again to open it. Marinara remembers which ones you collapsed.
 
@@ -88,7 +101,7 @@ To give one tracker its own window, click the pop-out button beside its arrow, o
 
 ## The Tracker Panel
 
-The **Tracker Panel** is a larger side panel with the same data. It gives the trackers more room and adds portraits and thoughts.
+The **Tracker Panel** is a larger side panel with the same data. It also shows character portraits and thoughts.
 
 1. Open **Chat Settings**.
 2. Click the **Tracker Panel** button (the die) in its title bar, next to pin and lock. It stays highlighted while the panel is on.
@@ -105,11 +118,11 @@ The buttons in the panel header change the tracker's structure:
 - The lock icon enters lock mode. Custom fields follow the same lock behavior as built-in ones.
 - The crossed-out eye icon enters hide mode. Choose **Mood**, **Look**, **Outfit** or **Thoughts** on a character card. A hidden field disappears from the Tracker Panel and the HUD, is cleared, and stays locked so agents do not refill it. Enter hide mode again to show it as an empty field.
 
-Custom field names stay stable across runs. Agents update their values, and omitted agent output does not erase fields you made.
+Agents update the values of your custom fields. They never delete a field you made.
 
 ### Make a new portrait
 
-A character's large card can make a new portrait once the Character Tracker has an image connection. On a compact card, click **Feature character card** to open the large one. The Trackers window always shows large cards. Hover the portrait and click the eye button to make one from the **Look**, or the shirt button for the **Look** and **Outfit**. The shirt button shows only when the character has an outfit. The old portrait stays until the new one is ready, and stays if it fails. Characters shown with their card avatar or an expression sprite do not have these buttons.
+A character's large card can make a new portrait once the Character Tracker has an image connection. On a compact card, click **Feature character card** to open the large one. The Trackers window always shows large cards. Hover the portrait and click the eye button to make one from the **Look**, or the shirt button for the **Look** and **Outfit**. The shirt button shows only when the character has an outfit. The old portrait stays until the new one is ready. If making one fails, you keep the old one. Characters shown with their card avatar or an expression sprite do not have these buttons.
 
 ### Tracker Panel settings
 
@@ -140,18 +153,16 @@ Open it from any of these:
 
 It opens on the section of the tracker you came from. World State opens on **Scene**, for example.
 
-| Part | What it does |
-| --- | --- |
-| Turn line | Under the search box. It says which message and swipe you are editing, for example "Editing message #12 · swipe 2 of 3". **Latest** marks the newest turn. Each swipe has its own state, so swipe first to fix a different one. |
-| Sections | **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields** and **Active Quests**. On a phone they are chips above the editor. A dot marks a section you changed. |
-| Search | Type a key or a value, for example `mood`, to search every section. Click a result to jump to it. |
-| **Fields** | Each section opens as **Fields**: boxes for text, numbers and on/off values, and a card for each character, item or quest. |
-| Empty values | A field the trackers left empty shows **No value** and a choice of **Text**, **Number** or **On/off**. A half-filled card shows its missing rows. |
-| **Add item** | Adds an entry. It copies the entry above or starts from that kind of entry's fields. |
-| **Add** | Adds a field with a name and a value to a section or to an empty card. |
-| **×** | Beside an entry it removes it. Beside a value it puts the value back to no value. |
-| **JSON** | Edit the raw data. **Format** tidies it. If the JSON does not parse, the section is marked and cannot be saved until you fix it. |
-| **Revert** | Undoes your changes to one section. |
+- **Turn line**: under the search box. It names the message and swipe you are editing, for example "Editing message #12 · swipe 2 of 3". **Latest** marks the newest turn. Each swipe has its own state, so swipe first to edit another one.
+- **Sections**: **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields** and **Active Quests**. On a phone they are chips above the editor. A dot marks a changed section.
+- **Search**: type a key or value, such as `mood`. Click a result to jump to it.
+- **Fields**: each section opens as **Fields**, with boxes for text, numbers and on/off values.
+- **No value**: an empty field shows a choice of **Text**, **Number** or **On/off**.
+- **Add item**: adds an entry, copying the one above it.
+- **Add**: adds a named field to a section or an empty card.
+- **×**: removes an entry, or clears a value.
+- **JSON**: edit the raw data. **Format** tidies it. A section with broken JSON cannot be saved until you fix it.
+- **Revert**: undoes your changes to one section.
 
 Characters and quests belong to the story, so you cannot add their cards here. You can edit lists inside them, such as a character's stats.
 
