@@ -2,7 +2,9 @@
 
 Every AI model can read only a limited amount of text at once, called the context window. In a long chat the oldest messages fall out of it and the AI forgets them. Marinara Engine (Marinara from here on) has several ways to bring that history back. This guide shows how to turn each one on and fix it when it does not work.
 
-## Which memory feature to use
+## Which memory feature do I want?
+
+Start with **Memory Recall**. It works with no extra setup, because Marinara can use a built-in embedding model on your computer. Add summaries when chats get very long.
 
 | Feature | What it does | Works in |
 | --- | --- | --- |
@@ -15,7 +17,7 @@ Memory Recall and summaries do different jobs and can run together. Game Mode ha
 
 ## Memory Recall
 
-Memory Recall uses embeddings. An embedding is a numeric fingerprint of what a message means. Marinara compares the fingerprint of your new message with stored fingerprints of past messages and adds the closest matches to the prompt.
+Memory Recall uses embeddings. An embedding is a numeric fingerprint of what a message means. Marinara stores past messages in small groups called chunks. It compares the fingerprint of your new message with the stored fingerprints and adds the closest chunks to the prompt.
 
 ### Turning Memory Recall on
 
@@ -25,11 +27,11 @@ Memory Recall uses embeddings. An embedding is a numeric fingerprint of what a m
 
 The setting is per chat. It starts on in Conversation chats, and in Roleplay or Game chats that have an active Scene. It starts off in other chats. Turning it off stops recall but does not delete stored memories.
 
-If it did not work: Memory Recall needs an embedding source (next section). Check that **Memory Recall** appears at all. Some container builds, known as Marinara Lite, turn it off completely.
+If it did not work: Memory Recall needs an embedding source (next section). If you set none, Marinara uses its built-in model, so most people can skip that section. Check that **Memory Recall** appears at all. Some container builds, known as Marinara Lite, turn it off completely.
 
-### Set the embedding source
+### Set the embedding source (optional)
 
-Memory Recall needs a model that makes fingerprints. You set it on an account, not in chat settings.
+Memory Recall needs a model that makes fingerprints. If you set nothing, Marinara uses the built-in embedding model (see below), which is the simple answer for most people. To use a service instead, set it on an account, not in chat settings.
 
 Before you start: you need an account that offers embeddings. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
@@ -194,7 +196,7 @@ Press **Fix**, in the notice or the list, to repair every flagged scene in one r
 
 Fix never rewrites a summary you edited by hand. It lists those under **need your review** and carries on. It cannot change settings for you, such as a character's knowledge range or a working Decision connection.
 
-When Fix finishes it shows **Fixed N scenes** and the scene numbers that need review. Select a number to open that scene in **Access memories for this chat**. If Chat Settings was closed, a notice with **Show** takes you there. A scene Fix could not decide is not asked about again on the next Fix, so save its character access yourself.
+When Fix finishes it shows "Advanced Memory fixed N scenes" and the scene numbers that need review. Select a number to open that scene in **Access memories for this chat**. If Chat Settings was closed, a notice with **Show** takes you there. A scene Fix could not decide is not asked about again on the next Fix, so save its character access yourself.
 
 ### Re-scan scenes
 
@@ -210,7 +212,7 @@ Advanced Memory finds scene changes in those messages again and summarizes the s
 A decision model is a small model that answers yes-or-no questions. It is off by default and saved per Roleplay chat.
 
 1. Turn on **Use Decision model** in Advanced Memory.
-2. Pick a model in **Memory Decision connection**. Under **Local models** it lists the same models as the global **Decision model**. One that cannot answer yet is greyed out with the reason, and a stopped one starts when asked. Under **Connections** it lists your saved Decision accounts. See [Decision Models](../connections/decision-models.md).
+2. Pick a model in **Memory Decision connection**. Under **Built-in model** it lists the same models as the global **Decision model**. One that cannot answer yet is greyed out with the reason, and a stopped one starts when asked. Under **Connections** it lists your saved Decision accounts. See [Decision Models](../connections/decision-models.md).
 
 This choice is separate from the global Decision default.
 
@@ -226,7 +228,7 @@ In a one-by-one Roleplay group chat, Advanced Memory can decide which characters
 
 Each new message, yours or a character's, is hidden from characters who are not in the scene. It uses the same per-character **Hide from AI** as a message's own button, so the crossed-eye marker shows who cannot see it. Your message is decided as soon as you post it. Earlier messages are decided before the next character replies.
 
-- The **Narrator** chosen here, and the **Narrator character** chosen under **Roleplay Commands**, see every message. A message's author always sees their own. A whisper's recipient who is not in the scene still gets the whisper.
+- The **Narrator** chosen here, and the **Narrator character** chosen in the Roleplay commands settings, see every message. A message's author always sees their own. A whisper's recipient who is not in the scene still gets the whisper.
 - With **Use Decision model** on, that model is asked, for each character, whether they clearly cannot see or hear the message. A character the story never puts in the scene counts as elsewhere. Otherwise the **Helper model** decides. A message is hidden only when the model is sure.
 - The model reads the messages so far in the current scene, and at least the last few before it. It also gets a list of characters who have spoken since the scene began. The list is only a hint: a quiet listener still counts as present.
 - If you change a message's **Hide from AI** yourself, or use `/hide` or `/unhide`, your choice stays and Advanced Memory never changes that message again.
@@ -250,14 +252,23 @@ Turn on **Character recollections** to give each character their own memory of a
 
 - Each character who was in a finished scene gets one short memory, about 50 to 100 words, in the first person and their own voice. Their card decides what they notice. The **Narrator**, your persona and characters who were elsewhere get none.
 - The model may use only what each character could know. A recollection that copies four words in a row from something its character could not know is left out. A fact retold in other words is guarded by the instructions only.
+
+How they stay correct:
+
 - A recollection counts only while its character can read exactly what they could when it was written. If a scene message is later hidden from them or shown to them, a generated recollection is rewritten. One you edited is left out of prompts until you check and save it again.
 - A new scene's recollections come from the same request as its summary. If a character card is too large for that, they follow in their own requests. A character whose card takes more than half of the Helper's room for the scene gets none.
 - Turning it on in a chat with summarized scenes adds recollections one scene at a time, shown as **Writing character recollections**. Scene summaries never change. **Resume** retries failed scenes.
 - If the model writes nothing usable, the scene keeps an empty recollection until its summary or readable text changes. You can write one in **Access memories for this chat**.
+
+Where they appear and what they cost:
+
 - Recollections appear only with recalled scenes, under the scene's summary and before its excerpt, one line per character. In a one-by-one group chat a character sees only their own. In a merged reply every present character who remembers the scene is shown by name.
 - They count toward **Summary and recall budget**. Summaries come first, then recollections, then excerpts. Excerpts shrink first, then whole recollections are left out. A recollection is never cut short.
 - Recollections never go into **Chat Summaries** and never decide which scenes are recalled.
 - After a scene's summary changes, its generated recollections are rewritten for up to three scenes after each reply, newest first. **Prepare existing history**, **Re-scan scenes** and **Resume** do all of them.
+
+Editing and turning off:
+
 - In **Access memories for this chat**, open a scene to read and edit each recollection. An edited one is marked **Manually edited** and never replaced. **Delete** removes it from prompts for good, but you can type a new one.
 - Turning the setting off keeps saved recollections and leaves them out of prompts. Export, import and branches include them.
 
@@ -346,7 +357,7 @@ To keep a scene out of recall, turn off its memory record. Character-specific hi
 - When one request fails, times out or is too large, only those memories fall back to ordinary recall, after the scenes the model chose, and the receipt says so. A missing connection or a pass with no answer falls back completely to the shortlist ranking and text matching. Unavailable scene decisions fall back to the standard scene checker.
 - Embeddings are made in this mode too. A new summarized scene gets them right away. Older scenes and ones made with another embedding model get them after replies, a few at a time. **Reindex** does all at once.
 - **Peek Prompt → Decision diagnostics → Advanced Memory activity** shows saved results from the latest recall and scene check: model, time, scores, selected memories or scene starts, fallback status and why a scene has no excerpt. It keeps up to 128 results. These are past activity, not predictions. Opening it does not rerun decisions. Compatible swipes reuse saved selections. A continuation chooses its memories again.
-- Hosted Decision accounts get bounded batches within their context budget.
+- Hosted Decision accounts get bounded batches within their context budget. Managed Open-Jev models use their measured time per question, and a Decision account answers one request's questions together, so it counts each request once.
 
 ### Preset placement
 
