@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Folder, FolderOpen, Search } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import type { CharacterGroup, Persona } from "@marinara-engine/shared";
+import { includesTextForMatch, type CharacterGroup, type Persona } from "@marinara-engine/shared";
 import { useCharacterGroups, useCharacters, usePersonaGroups, usePersonas } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -25,6 +25,10 @@ interface IdentityPickerProps {
   onPickCharacter: (characterId: string) => void;
   /** Controlled search, for shells that draw their own search box. Omit to show the built-in one. */
   search?: string;
+  /** Extra mark after a character's name, such as the onboarding badge. */
+  characterBadge?: (characterId: string) => ReactNode;
+  /** Character scope: text when nothing is left to show. */
+  emptyLabel?: string;
   listClassName?: string;
 }
 
@@ -61,6 +65,7 @@ function PickRow({
   avatar,
   title,
   subtitle,
+  badge,
   indented = false,
 }: {
   active: boolean;
@@ -68,6 +73,7 @@ function PickRow({
   avatar: ReactNode;
   title: string;
   subtitle?: string | null;
+  badge?: ReactNode;
   indented?: boolean;
 }) {
   return (
@@ -77,6 +83,7 @@ function PickRow({
         <span className={cn("truncate text-xs font-semibold", active && "text-foreground")}>{title}</span>
         {subtitle && <span className="truncate text-[0.625rem] leading-tight text-foreground/45">{subtitle}</span>}
       </div>
+      {badge}
       {active && <span className="ml-auto shrink-0 text-[0.6875rem]">✓</span>}
     </button>
   );
@@ -139,6 +146,8 @@ export function IdentityPicker({
   onPickPersona,
   onPickCharacter,
   search: controlledSearch,
+  characterBadge,
+  emptyLabel,
   listClassName,
 }: IdentityPickerProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -146,8 +155,8 @@ export function IdentityPicker({
   const search = controlledSearch ?? ownSearch;
   const query = search.trim().toLocaleLowerCase();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [showCharacters, setShowCharacters] = useState(scope === "character");
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
+  const [showCharacters, setShowCharacters] = useState(scope === "character" || showCharacterIdentities);
 
   const isPersonaScope = scope === "persona";
   const { data: rawPersonas } = usePersonas(isPersonaScope);
@@ -171,8 +180,7 @@ export function IdentityPicker({
     [rawPersonas],
   );
   const visiblePersonas = useMemo(
-    () =>
-      query ? personas.filter((p) => `${p.name} ${p.comment ?? ""}`.toLocaleLowerCase().includes(query)) : personas,
+    () => (query ? personas.filter((p) => includesTextForMatch(`${p.name} ${p.comment ?? ""}`, query)) : personas),
     [personas, query],
   );
   const { personaGroups, ungroupedPersonas } = useMemo(() => {
@@ -198,7 +206,8 @@ export function IdentityPicker({
       if (excluded.has(c.id)) return false;
       // Persona scope shows characters only when the setting is on; the one in use always stays visible.
       if (isPersonaScope && !showCharacterIdentities && c.id !== activeCharacterId) return false;
-      return characterMatchesSearch(parseCharacterDisplayData(c), search);
+      const data = parseCharacterDisplayData(c);
+      return characterMatchesSearch(data, search) || includesTextForMatch(data.comment, search);
     });
     return buildCharacterIdentityGroups(
       characters,
@@ -237,6 +246,7 @@ export function IdentityPicker({
         subtitle={
           getCharacterTitle(data) || (isPersonaScope ? localizeUi("ui.chat.personapicker.characterSource") : null)
         }
+        badge={characterBadge?.(character.id)}
         indented={indented}
       />
     );
@@ -363,7 +373,7 @@ export function IdentityPicker({
             {characterList}
             {!hasCharacters && (
               <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
-                {localizeUi("ui.chat.identitypicker.noMatchingCharacters")}
+                {emptyLabel ?? localizeUi("ui.chat.identitypicker.noMatchingCharacters")}
               </div>
             )}
           </>

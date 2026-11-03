@@ -256,7 +256,7 @@ import {
   parseCadenceInputValue,
   stepCadenceValue,
 } from "../../lib/agent-cadence";
-import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
+import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { buildRoleplayAgentSettingsOrder, hasStandaloneRoleplayAgentSettings } from "../../lib/agent-settings-order";
 import { extractCreatorNotesCss } from "../../lib/creator-notes-css";
 import { isLorebookScopeActiveForChat } from "../../lib/lorebook-scope";
@@ -6655,70 +6655,33 @@ export function ChatSettingsDrawer({
                   onClose={() => setShowCharPicker(false)}
                   placeholder={localizeUi("ui.chat.chatsettingsdrawer.searchCharacters")}
                 >
-                  {selectableCharacters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(getCharacterInfo(c), charSearch))
-                    .map((c) => {
-                      const name = charName(c);
-                      const title = charTitle(c);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            toggleCharacter(c.id);
-                            setShowCharPicker(false);
-                          }}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                  <IdentityPicker
+                    scope="character"
+                    search={charSearch}
+                    excludeCharacterIds={characterPickerExcludedIds}
+                    onPickCharacter={(id) => {
+                      toggleCharacter(id);
+                      setShowCharPicker(false);
+                    }}
+                    characterBadge={(id) =>
+                      isConversation && onboardingByCharacterId.has(id) ? (
+                        <span
+                          role="img"
+                          aria-label={localizeUi("ui.characters.onboarding.hasOnboarding")}
+                          title={localizeUi("ui.characters.onboarding.hasOnboarding")}
+                          className="shrink-0 text-[var(--primary)]"
                         >
-                          {c.avatarPath ? (
-                            <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full">
-                              <img
-                                src={c.avatarPath}
-                                alt={name}
-                                loading="lazy"
-                                className="h-full w-full object-cover"
-                                style={getAvatarCropStyle(getCharacterInfo(c).avatarCrop)}
-                              />
-                            </span>
-                          ) : (
-                            <div className="mari-avatar-placeholder mari-avatar-placeholder--character flex h-6 w-6 items-center justify-center rounded-full text-[0.5625rem] font-bold">
-                              {name[0]}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{name}</span>
-                            {title && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {title}
-                              </span>
-                            )}
-                          </div>
-                          {/* Same badge the setup wizard shows, so a card with
-                              interactive onboarding is recognisable before it is
-                              added. The in-chat row marker does the answering. */}
-                          {!isConversation && onboardingByCharacterId.has(c.id) && (
-                            <span
-                              role="img"
-                              aria-label={localizeUi("ui.characters.onboarding.hasOnboarding")}
-                              title={localizeUi("ui.characters.onboarding.hasOnboarding")}
-                              className="shrink-0 text-[var(--primary)]"
-                            >
-                              <UserPlus size="0.75rem" />
-                            </span>
-                          )}
-                          <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                        </button>
-                      );
-                    })}
-                  {selectableCharacters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(getCharacterInfo(c), charSearch)).length === 0 && (
-                    <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {selectableCharacters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                        ? localizeUi("ui.chat.chatsettingsdrawer.allCharactersAlreadyAdded")
-                        : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-                    </p>
-                  )}
+                          <UserPlus size="0.75rem" />
+                        </span>
+                      ) : null
+                    }
+                    emptyLabel={
+                      selectableCharacters.some((c) => !chatCharIds.includes(c.id))
+                        ? localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")
+                        : localizeUi("ui.chat.chatsettingsdrawer.allCharactersAlreadyAdded")
+                    }
+                    listClassName="p-0"
+                  />
                 </PickerDropdown>
               )}
 
