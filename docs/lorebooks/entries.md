@@ -88,7 +88,8 @@ These controls decide where an activated entry lands in the prompt. On a wide sc
 | **Outlet** | Nowhere automatically (see below). |
 | **Depth** | Shown only for **@ Depth**. How many messages back from the latest the entry sits. Default 4. |
 | **Order** | The sequence when several entries activate. A lower number comes first and survives trimming when the budget is tight. Default 100. |
-| **Role** | Labels the injected text **System**, **User** or **Assistant**. Matters only for **@ Depth**. Default **System**. |
+
+**Role** is in the expanded entry panel, not in the quick controls. It labels the injected text **System**, **User** or **Assistant**, matters only for **@ Depth**, and defaults to **System**.
 
 Leave these at their defaults unless an entry needs more. Use **@ Depth** sparingly. The text lands between recent messages like an interruption, so keep it for a rule the model keeps forgetting or a fact that changed a moment ago. For example, "The tavern is now on fire." at **@ Depth** 1.
 
@@ -232,7 +233,7 @@ Folders show as groups only when you sort by **Order** with no search. Otherwise
 | A key worked, then stopped. | Marinara scans only the last few messages (**Scan Depth**, default 2). Raise **Scan Depth**, add **Sticky**, or make the entry **Constant**. |
 | An entry fires in the wrong scenes. | Use **Whole Words**, **Selective** secondary keys, or a character filter. |
 | Important lore gets dropped. | Give it a lower **Order** or raise the **Token Budget**. **Active Context** in **Chat Settings** shows what was skipped and why. See [Lorebook Token Budgets and Recursion](token-budgets.md). |
-| The AI ignores an entry. | Check **Active Context** to confirm it activated. A fact far from the latest message has less pull than one at **After character definitions** or **@ Depth**. |
+| The AI ignores an entry. | Check **Active Context** to confirm it activated. A fact far from the latest message has less pull than one placed near the latest message with **@ Depth**. |
 
 ## Related guides
 
