@@ -55,11 +55,8 @@ function OrderItem({
   return (
     <li
       ref={drop.setNodeRef}
-      className={cn("flex items-center gap-1", drop.isOver && !drag.isDragging && "opacity-70")}
+      className={cn("flex items-center gap-1", drag.isDragging && "relative z-20", drop.isOver && !drag.isDragging && "opacity-70")}
     >
-      <span className="w-4 text-center text-[12px] tabular-nums text-[var(--muted-foreground)]" aria-hidden>
-        {index + 1}
-      </span>
       <button
         ref={drag.setNodeRef}
         type="button"
@@ -73,11 +70,16 @@ function OrderItem({
           touchAction: "none",
         }}
         className={cn(
-          "flex min-h-11 cursor-grab items-center gap-2 rounded-[12px] bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)] py-1 pl-1 pr-3 text-[14px] outline-none",
-          "hover:bg-[color-mix(in_srgb,var(--foreground)_11%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+          "flex min-h-11 cursor-grab items-center gap-2 rounded-[12px] py-1 pl-2 pr-3 text-[14px] outline-none",
+          drag.isDragging ? "bg-[var(--background)]" : "bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)]",
+          !drag.isDragging && "hover:bg-[color-mix(in_srgb,var(--foreground)_11%,transparent)]",
+          "focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
           drag.isDragging && "z-10 cursor-grabbing shadow-lg",
         )}
       >
+        <span className="w-3 text-center text-[11px] tabular-nums text-[var(--muted-foreground)]" aria-hidden>
+          {index + 1}
+        </span>
         <span className="size-9 shrink-0 overflow-hidden rounded-full bg-[var(--secondary)]">
           <AvatarImage
             src={avatarUrl ?? ""}
@@ -135,7 +137,7 @@ export function ChatSetupStageCastOrder({ ctx }: { ctx: StageEditorContext }) {
     <section className="px-3 pb-2" aria-label={t("chat.setupStage.order.title")}>
       <p className="pb-1 text-[12.5px] text-[var(--muted-foreground)]">{t("chat.setupStage.order.title")}</p>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <ul className="flex flex-wrap gap-x-3 gap-y-2">
+        <ul className="flex flex-wrap gap-2">
           {ids.map((id, index) => {
             const character = ctx.characterMap.get(id);
             return (
