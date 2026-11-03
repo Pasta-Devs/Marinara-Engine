@@ -260,6 +260,24 @@ function existingGeneratedBackgroundPath(targetDir: string, slug: string): strin
   return null;
 }
 
+/** After a new background is written, delete other-format copies of the slug so every lookup finds the new file.
+ *  Returns the removed filenames. */
+function removeOtherGeneratedBackgroundFormats(targetDir: string, slug: string, keptExt: string): string[] {
+  const removed: string[] = [];
+  for (const ext of GENERATED_GAME_BACKGROUND_EXTS) {
+    if (ext === keptExt) continue;
+    const candidate = generatedBackgroundPath(targetDir, slug, ext);
+    if (!existsSync(candidate)) continue;
+    try {
+      unlinkSync(candidate);
+      removed.push(basename(candidate));
+    } catch (err) {
+      logger.warn(err, "[game-asset-gen] Could not remove the previous background %s", candidate);
+    }
+  }
+  return removed;
+}
+
 function existingGeneratedPortraitPath(targetDir: string, slug: string): string | null {
   for (const ext of GENERATED_GAME_BACKGROUND_EXTS) {
     const candidate = join(targetDir, `${slug}.${ext}`);
@@ -1274,6 +1292,7 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
     const image = await gameBackgroundImage(result, size);
     const targetPath = generatedBackgroundPath(targetDir, slug, image.ext);
     atomicWriteBuffer(targetPath, image.buffer);
+    removeOtherGeneratedBackgroundFormats(targetDir, slug, image.ext);
 
     // Rebuild manifest so the new tag is available immediately
     buildAssetManifest();
@@ -1347,6 +1366,9 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
     atomicWriteBuffer(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
 
     const meta = readChatBackgroundMeta();
+    for (const removed of removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, slug, image.ext)) {
+      delete meta[removed];
+    }
     meta[filename] = {
       tags: chatBackgroundTags(req, baseSlug),
     };

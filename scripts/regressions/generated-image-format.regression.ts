@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -22,6 +22,7 @@ const { applyGeneratedImageFormatUiSettingsValue, formatGeneratedImageForStorage
   await import("../../packages/server/src/services/image/generated-image-format.js");
 const { generateBackground, generateChatBackground, generateSceneIllustration } =
   await import("../../packages/server/src/services/game/game-asset-generation.js");
+const { buildAssetManifest } = await import("../../packages/server/src/services/game/asset-manifest.service.js");
 
 const sharp = await getSharp();
 const pixels = Buffer.alloc(64 * 64 * 4);
@@ -131,6 +132,41 @@ try {
     assert.match(path, /\.webp$/, `${label} is saved as WebP`);
     assert.deepEqual(readFileSync(path), encodedOnce, `${label} gets one lossy encode, after resizing`);
   }
+
+  // Forced regeneration after the setting changes leaves one file per slug, and every slug or tag lookup finds it.
+  const chatBackgroundDir = join(directory, "backgrounds");
+  const gameBackgroundDir = join(directory, "game-assets", "backgrounds", "fantasy");
+  const filesFor = (dir: string, slug: string) => readdirSync(dir).filter((file) => file.startsWith(`${slug}.`));
+  const chatMetaKeys = () =>
+    Object.keys(JSON.parse(readFileSync(join(chatBackgroundDir, "meta.json"), "utf-8"))).filter((file) =>
+      file.startsWith("generated-webp-forest."),
+    );
+  for (const [saveGeneratedImagesAsWebp, ext] of [
+    [false, "png"],
+    [true, "webp"],
+  ] as const) {
+    await settings.set("ui", JSON.stringify({ saveGeneratedImagesAsWebp, generatedImageWebpQuality: 95 }));
+    const filename = `generated-webp-forest.${ext}`;
+    assert.equal(await generateChatBackground({ ...location, force: true }), filename);
+    assert.equal(await generateChatBackground(location), filename, `a later Background agent lookup finds the .${ext}`);
+    assert.deepEqual(filesFor(chatBackgroundDir, "generated-webp-forest"), [filename]);
+    assert.deepEqual(chatMetaKeys(), [filename], "the removed format leaves no background meta entry");
+    assert.equal(await generateBackground({ ...location, force: true }), gameBackground);
+    assert.deepEqual(filesFor(gameBackgroundDir, "webp-forest"), [`webp-forest.${ext}`]);
+    const { assets } = buildAssetManifest();
+    assert.equal(assets[String(gameBackground)]?.ext, `.${ext}`, `the Game tag resolves to the .${ext}`);
+    assert.equal(
+      assets["backgrounds:user:generated-webp-forest"]?.ext,
+      `.${ext}`,
+      `the user tag resolves to the .${ext}`,
+    );
+  }
+  // A failed regeneration keeps the previous image and its meta.
+  assert.equal(await generateChatBackground({ ...location, force: true, signal: AbortSignal.abort() }), null);
+  assert.equal(await generateBackground({ ...location, force: true, signal: AbortSignal.abort() }), null);
+  assert.deepEqual(filesFor(chatBackgroundDir, "generated-webp-forest"), ["generated-webp-forest.webp"]);
+  assert.deepEqual(chatMetaKeys(), ["generated-webp-forest.webp"]);
+  assert.deepEqual(filesFor(gameBackgroundDir, "webp-forest"), ["webp-forest.webp"]);
 
   const withMetadata = {
     ...original,
