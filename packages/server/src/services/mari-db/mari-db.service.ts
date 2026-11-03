@@ -94,6 +94,10 @@ import {
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
+  SPEECH_TO_TEXT_SETTINGS_KEY,
+  TTS_SETTINGS_KEY,
+  CHAT_METADATA_LOCAL_DESTINATION_KEYS,
+  TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   createCustomToolSchema,
   createLorebookEntrySchema,
   lorebookDecisionModeSchema,
@@ -9125,6 +9129,57 @@ export class MariDbService {
         message:
           "Professor Mari cannot mutate memories through raw DB actions. Use instruction.remember, instruction.update, or instruction.forget so length limits and flag rules apply.",
       });
+    }
+
+    // Models, Connections and the speech server settings keep a stored key next to the address it is sent to.
+    // Raw writes apply before the Keep/Restore review, so an edited address could receive the key before the user
+    // sees the change, without the checks the Connections editor and profile import make. Mari has no actions for
+    // them, so deny every change (change-level, so transforms are covered too).
+    const credentialChange = changes.find(
+      (change) =>
+        change.table === "api_connections" ||
+        change.table === "connection_accounts" ||
+        (change.table === "app_settings" &&
+          (change.id === TTS_SETTINGS_KEY || change.id === SPEECH_TO_TEXT_SETTINGS_KEY)),
+    );
+    if (credentialChange) {
+      issues.push({
+        level: "error",
+        table: credentialChange.table,
+        id: credentialChange.id,
+        message:
+          "Professor Mari cannot change Models, Connections or the speech server settings, because they hold stored keys. The user edits them in Connections and Settings.",
+      });
+    }
+    // Same reason for the chat settings that send chat text to an address outside the app, or hold its key
+    // (CHAT_METADATA_LOCAL_DESTINATION_KEYS). They live where profile import strips them: chat metadata, a settings
+    // profile's metadata and the translator defaults for new chats. Per key, so her other chat-settings edits still
+    // apply; clearing one is allowed, since that sends nothing.
+    const localDestinations = (change: PlanChange, row: Row | null | undefined): Row => {
+      if (!row) return {};
+      if (change.table === "chats") return parseJsonRecordValue(row.metadata);
+      if (change.table === "chat_presets") return parseJsonRecordValue(parseJsonRecordValue(row.settings).metadata);
+      if (change.table === "app_settings" && change.id === TRANSLATOR_DEFAULTS_SETTINGS_KEY) {
+        return parseJsonRecordValue(row.value);
+      }
+      return {};
+    };
+    for (const change of changes) {
+      const after = localDestinations(change, change.afterRaw);
+      const before = localDestinations(change, change.beforeRaw);
+      if (
+        CHAT_METADATA_LOCAL_DESTINATION_KEYS.some(
+          (key) => after[key] && stableJson(after[key]) !== stableJson(before[key]),
+        )
+      ) {
+        issues.push({
+          level: "error",
+          table: change.table,
+          id: change.id,
+          message:
+            "Professor Mari cannot set the Discord mirror, translator or haptics addresses and keys. The user enters them in Chat Settings.",
+        });
+      }
     }
 
     const validation = await this.validateTouchedRows(changes, issues);
