@@ -304,7 +304,11 @@ function StageWord({
         {avatars?.length ? (
           <span aria-hidden="true" className="mr-[0.3em] inline-flex -space-x-[0.3em] align-[-0.14em]">
             {avatars.slice(0, 3).map((avatar, index) => (
-              <StageAvatar key={index} {...avatar} className="h-[0.9em] w-[0.9em] text-[0.4em] not-italic" />
+              <StageAvatar
+                key={index}
+                {...avatar}
+                className="h-[0.85em] w-[0.85em] border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_60%,transparent)] text-[length:inherit] not-italic [&>span]:text-[0.45em]"
+              />
             ))}
           </span>
         ) : null}
