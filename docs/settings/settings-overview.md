@@ -10,21 +10,20 @@ The panel has six tabs.
 
 | Tab | Sections | Read more |
 | --- | --- | --- |
-| **General** | **App Behavior**, **Search and Professor Mari**, **Notifications**, **Responses**, **Input & Editing**, **Text Rules**, **Game Playback** | This guide |
-| **Appearance** | **App Style**, **Text & Scale**, **Conversation Display**, **Tracker Panel**, **Roleplay Presentation**, **Game Presentation**, **Atmosphere**, **Conversation Theme**, **Backgrounds** | [Appearance Settings](../appearance/appearance-settings.md) |
-| **Generations** | **Overall Generations**, **Image Generation**, **Video Generation**, **Prompt Overrides** | [Style Profiles](../media/style-profiles.md), [Scene Video](../media/scene-video.md) |
-| **Addons** | **Personal Extensions**, **Theme Library** | [Personal Extensions](../extending/personal-extensions.md), [Custom CSS Themes](../appearance/custom-css-themes.md) |
+| **General** | **App Behavior** (with a **Search and Professor Mari settings** row), **Notifications**, **Responses**, **Input & Editing**, **Text Rules**, **Game Playback** | This guide |
+| **Appearance** | Four buttons: **App** (**App Style**, **Text & Scale**, **Atmosphere**, **Backgrounds**), **Conversation** (**Conversation Display**, **Conversation Theme**), **Roleplay** (**Tracker Panel**, **Roleplay Presentation**) and **Game** (**Game Presentation**) | [Appearance Settings](../appearance/appearance-settings.md) |
+| **Generations** | **Overall Generations**, **Image Generation**, **Video Generation**, **Prompt Overrides**. Until you install the Illustrator agent, this tab only shows a prompt to download it. | [Style Profiles](../media/style-profiles.md), [Scene Video](../media/scene-video.md) |
+| **Addons** | Extension revision history, **Personal Extensions**, **External Extensions** (only when you have unlocked them), **Theme Library** | [Personal Extensions](../extending/personal-extensions.md), [Custom CSS Themes](../appearance/custom-css-themes.md) |
 | **Imports** | **Profile & Marinara**, **SillyTavern Import**, **Game Assets** | [Backing Up and Restoring Marinara](../data/backup-and-restore.md), [Importing from SillyTavern](../data/importing-from-sillytavern.md) |
-| **Advanced** | **Access**, **Admin Access**, **Multiplayer WIP**, **Features**, **Updates**, **Support Diagnostics**, **Request timeouts**, **Parameters**, **Message Tools**, **Backup & Export**, **Storage Optimization**, **Danger Zone** | See [The Advanced tab](#the-advanced-tab) |
+| **Advanced** | **Multiplayer WIP**, **Access**, **Admin Access**, **Features**, **Updates**, **Support Diagnostics**, **Request timeouts**, **Parameters**, **Message Tools**, **Backup & Export**, **Storage Optimization**, **Danger Zone** | See [The Advanced tab](#the-advanced-tab) |
 
 ## The General tab
 
-Each section of the **General** tab is at **Settings → General → <section name>**.
+Each section of the **General** tab is at **Settings → General**.
 
 | Section | What it controls | Read more |
 | --- | --- | --- |
-| **App Behavior** | Language, delete safety, show and hide switches. | [App Behavior](#app-behavior) |
-| **Search and Professor Mari** | Search, quick answers and Professor Mari's windows and looks. Select **Open** to go to their settings page. | [Professor Mari](../home/professor-mari.md) |
+| **App Behavior** | Language, delete safety, show and hide switches, and the **Search and Professor Mari settings** row. | [App Behavior](#app-behavior) |
 | **Notifications** | Notification sounds, and browser and Android notifications. | [Notifications](#notifications) |
 | **Responses** | Streaming, trimming, **Messages per page**. | [Sending and Streaming Messages](../chats/sending-and-streaming.md) |
 | **Input & Editing** | **Send on Enter**, **Quick replies**, swipe and edit shortcuts. | [Input and Editing](#input-and-editing) |
@@ -40,12 +39,15 @@ Each section of the **General** tab is at **Settings → General → <section na
 | **Confirm before deleting** | Asks before Marinara permanently deletes a chat, a character or another item. | On |
 | **Hide chat Help button** | Hides the **Help** button in Conversation, Roleplay and Game chats. | Off |
 | **Show Android status bar** | Keeps the time, battery and notification icons visible above Marinara. Works only in the Android app. | Off |
-| **Achievements** | Tracks achievements and shows unlock notices. See [Achievements](../home/achievements.md). | On |
+| **Achievements** | Tracks achievements, shows unlock notices and the Home bookmark and widget. See [Achievements](../home/achievements.md). | On |
+| **Disable seasonal ME themes** | Turns off Marinara's seasonal themes. | Off |
 | **Music Player** | Shows the compact Music Player. It needs the **Music DJ** agent from **Agents → Agent Organizer**, and stays greyed out until you install it. See [Music](../media/music.md). | On |
+
+**Search and Professor Mari settings** is a row at the bottom of **App Behavior**. Select **Open** to go to the settings page for Search, quick answers and Professor Mari. See [Professor Mari](../home/professor-mari.md).
 
 The interface languages are Arabic, Simplified Chinese, English, French, German, Hindi, Japanese, Korean, Polish, Brazilian Portuguese, Russian and Spanish. To improve a translation or add a language, see [UI Localization](../development/localization.md).
 
-For **Documentation Language**, English is built in. Choose another language and click **Download & Replace**. Marinara downloads that language pack once and removes the previous one, so it keeps one downloaded language. Guides not yet translated open in English with a small `EN` badge. Your choice survives updates. If the downloaded guides go missing or break, a **Fix documentation** button appears. It downloads the pack again, or resets the guides to English if the download source cannot be reached.
+For **Documentation Language**, English is built in. Choose another language and click **Download & Replace**. Marinara downloads that language pack once and removes the previous one, so it keeps one downloaded language. Guides not yet translated open in English with a small `EN` badge. Docs search works in the active language. Your choice survives updates, and the pack refreshes after an update when its translations changed. If the downloaded guides go missing or break, a **Fix documentation** button appears. It downloads the pack again, or resets the guides to English if the download source cannot be reached.
 
 ### Notifications
 
