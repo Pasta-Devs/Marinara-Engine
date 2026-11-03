@@ -282,13 +282,18 @@ function isBlockedResolvedAddress(address: string, policy: OutboundUrlPolicy): b
   return !(policy.allowLoopback && isLoopbackIp(address));
 }
 
-/** A hop is local when every address it may connect to is on this machine or the local network. */
-async function isLocalHop(url: URL, addresses?: Array<{ address: string }>): Promise<boolean> {
+// The well-known NAT64 prefix carries IPv4 internet traffic, so reaching it says nothing about the local network.
+const NAT64_CIDR = parseCidr("64:ff9b::/96")!;
+
+/**
+ * A hop is local when the server it reached is on this machine or the local network. A DNS name is judged by the
+ * address its pinned connection used, never by a fresh lookup, and counts as remote when that address is unknown.
+ */
+function isLocalHop(url: URL, connectedAddress: string | undefined): boolean {
   if (isLocalHostname(url.hostname)) return true;
-  // ponytail: hops fetched under allowLocal are not pinned, so their name is looked up again here.
-  // Pinning those hops too would let this reuse the addresses they connected to.
-  const records = addresses ?? (await resolveHostname(url.hostname).catch(() => []));
-  return records.length > 0 && records.every((record) => isReservedIp(record.address));
+  const address = isIpLiteral(url.hostname) ? normalizeHostnameForAddress(url.hostname) : connectedAddress;
+  const bytes = address ? ipToBytes(address) : null;
+  return bytes !== null && isReservedIp(address!) && !matchesCidr(bytes, NAT64_CIDR);
 }
 
 function preferIpv4Records(
@@ -426,23 +431,34 @@ async function validateOutboundUrlForFetch(
   policy: OutboundUrlPolicy = {},
   agentOptions?: Omit<AgentOptions, "connect">,
   keepAliveInitialDelayMs?: number,
-): Promise<{ url: URL; dispatcher?: Dispatcher; addresses?: Array<{ address: string; family: 4 | 6 }> }> {
+): Promise<{ url: URL; dispatcher?: Dispatcher; connected?: { address?: string } }> {
   const parsed = await validateOutboundUrl(url, policy);
+  let addresses: Array<{ address: string; family: 4 | 6 }>;
   // Local URLs skip the address checks, but `localhost` still goes through the pinned lookup below
   // so it reaches 127.0.0.1 even where the resolver only answers `::1`.
   if (policy.allowLocal && !isLocalhostName(parsed.hostname)) {
-    const dispatcher =
-      agentOptions || keepAliveInitialDelayMs
-        ? createDispatcher(parsed.hostname, {
-            ...(agentOptions ?? {}),
-            ...(keepAliveInitialDelayMs ? { connect: { keepAliveInitialDelay: keepAliveInitialDelayMs } } : {}),
-          })
-        : undefined;
-    return { url: parsed, dispatcher };
+    // Other DNS names are pinned too, IPv4 first like other local servers, so a redirect from this hop is judged by
+    // the address it reached (see isLocalHop). IP literals, local names and names that do not resolve here (an env
+    // proxy may still reach them) keep the plain dispatcher.
+    addresses =
+      isIpLiteral(parsed.hostname) || isLocalHostname(parsed.hostname)
+        ? []
+        : preferIpv4Records(await resolveHostname(parsed.hostname).catch(() => []));
+    if (addresses.length === 0) {
+      const dispatcher =
+        agentOptions || keepAliveInitialDelayMs
+          ? createDispatcher(parsed.hostname, {
+              ...(agentOptions ?? {}),
+              ...(keepAliveInitialDelayMs ? { connect: { keepAliveInitialDelay: keepAliveInitialDelayMs } } : {}),
+            })
+          : undefined;
+      return { url: parsed, dispatcher };
+    }
+  } else {
+    const original = typeof url === "string" ? url : parsed.toString();
+    addresses = await validateResolvedAddresses(parsed.hostname, policy, original);
   }
-
-  const original = typeof url === "string" ? url : parsed.toString();
-  const addresses = await validateResolvedAddresses(parsed.hostname, policy, original);
+  const connected: { address?: string } = {};
   let used = false;
   const dispatcher = createDispatcher(parsed.hostname, {
     ...(agentOptions ?? {}),
@@ -456,6 +472,7 @@ async function validateOutboundUrlForFetch(
         used = true;
         const family = options.family === 4 || options.family === 6 ? options.family : undefined;
         const selected = addresses.find((record) => !family || record.family === family) ?? addresses[0]!;
+        connected.address = selected.address;
         // `localhost` lists both loopback addresses, IPv4 first, so a server on either one answers.
         if (options.all)
           callback(
@@ -468,7 +485,10 @@ async function validateOutboundUrlForFetch(
       },
     },
   });
-  return { url: parsed, dispatcher, addresses };
+  // A direct connection dials the first record, and the lookup above records the one it hands out. An env proxy
+  // resolves the name itself, so a proxied hop's address stays unknown.
+  if (!(dispatcher instanceof EnvHttpProxyAgent)) connected.address = addresses[0]!.address;
+  return { url: parsed, dispatcher, connected };
 }
 
 async function readCappedResponse(
@@ -761,11 +781,12 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
         currentHeaders.delete("x-opencode-session");
       }
       // Local trust covers the server the caller chose. A remote server cannot pass it on by redirecting,
-      // so only a hop on this machine or the local network may redirect into them.
+      // so only a hop on this machine or the local network may redirect into them. A caller's own dispatcher
+      // resolves names itself, so the pinned address says nothing about where that hop went.
       const hopPolicy =
         policy &&
         (policy.allowLocal || policy.allowLoopback || policy.allowMdns) &&
-        !(await isLocalHop(previousUrl, current.addresses))
+        !isLocalHop(previousUrl, dispatcher ? undefined : current.connected?.address)
           ? { ...policy, allowLocal: false, allowLoopback: false, allowMdns: false, flagName: undefined }
           : policy;
       current = await validateOutboundUrlForFetch(nextUrl, hopPolicy, agentOptions, keepAliveInitialDelayMs);

@@ -35,13 +35,33 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   const url = new URL(input instanceof Request ? input.url : String(input));
   if (url.hostname === "127.0.0.1" || url.hostname === "localhost") return originalFetch(input, init);
   remoteHits.push(url.href);
+  if (url.hostname === "relay.test") relayContacted = true;
   const location = remoteRedirects.get(url.href);
   return location ? new Response(null, { status: 307, headers: { location } }) : new Response("remote");
 }) as typeof fetch;
 const originalLookup = dns.lookup;
-const lanNames: Record<string, string> = { "gpu-box.test": "192.168.1.20", "printer.local": "192.168.1.30" };
-(dns as { lookup: unknown }).lookup = async (hostname: string, options: unknown) =>
-  lanNames[hostname] ? [{ address: lanNames[hostname], family: 4 }] : originalLookup(hostname, options as never);
+const fakeNames: Record<string, Array<{ address: string; family: 4 | 6 }>> = {
+  "gpu-box.test": [{ address: "192.168.1.20", family: 4 }],
+  "printer.local": [{ address: "192.168.1.30", family: 4 }],
+  // A dual-stack LAN server whose resolver lists its global IPv6 address first.
+  "nas.test": [
+    { address: "2606:4700:4700::1111", family: 6 },
+    { address: "192.168.1.20", family: 4 },
+  ],
+  // A remote server reached through the well-known NAT64 prefix.
+  "nat64.test": [{ address: "64:ff9b::5db8:d822", family: 6 }],
+};
+// A remote name whose DNS answer changes to loopback once it has been contacted.
+let relayContacted = false;
+const relayLookups: string[] = [];
+(dns as { lookup: unknown }).lookup = async (hostname: string, options: unknown) => {
+  if (hostname === "relay.test") {
+    const address = relayContacted ? "127.0.0.1" : "93.184.216.34";
+    relayLookups.push(address);
+    return [{ address, family: 4 }];
+  }
+  return fakeNames[hostname] ?? originalLookup(hostname, options as never);
+};
 
 const llm = { allowLoopback: true, allowMdns: true, allowedProtocols: ["https:", "http:"] };
 const policies: Record<string, OutboundUrlPolicy> = {
@@ -86,6 +106,27 @@ try {
   remoteRedirects.set("http://gpu-box.test/", "https://192.168.1.20/v1");
   const lan = await safeFetch("http://gpu-box.test/", { policy: policies["provider fetch with local URLs"] });
   assert.equal(await lan.text(), "remote", "a local-network host redirects within the local network");
+  remoteRedirects.set("http://nas.test:11434/v1/models", "https://nas.test:11434/v1/models");
+  const dualStack = await safeFetch("http://nas.test:11434/v1/models", {
+    policy: policies["provider fetch with local URLs"],
+  });
+  assert.equal(await dualStack.text(), "remote", "a dual-stack local-network host redirects to itself");
+
+  // With local URLs on, a remote hop is judged by the address it was reached at, not by a later lookup.
+  for (const [index, name] of ["provider fetch with local URLs", "image fetch with local URLs"].entries()) {
+    for (const host of ["relay.test", "nat64.test"]) {
+      const start = `http://${host}/v1/chat/completions?${index}`;
+      remoteRedirects.set(start, `http://127.0.0.1:${internalPort}/blocked`);
+      relayContacted = false;
+      relayLookups.length = 0;
+      await assert.rejects(
+        safeFetch(start, { method: "POST", body: "{}", policy: policies[name] }),
+        /Refused to fetch/,
+        `${name}: ${host} cannot redirect to loopback`,
+      );
+      if (host === "relay.test") assert.deepEqual(relayLookups, ["93.184.216.34"], `${name}: ${host} resolves once`);
+    }
+  }
 
   remoteRedirects.set(`${REMOTE}/llm`, `http://127.0.0.1:${internalPort}/blocked`);
   await assert.rejects(llmFetch(`${REMOTE}/llm`, { method: "POST", body: "{}" }), /Refused to fetch/);
