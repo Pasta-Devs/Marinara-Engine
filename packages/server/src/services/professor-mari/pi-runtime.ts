@@ -42,6 +42,7 @@ import {
   isLengthFinishReason,
   isLocalSidecarConnection,
   isMutatingWorkspaceCommand,
+  isMutationShapedCommand,
   isStagedSensitiveMutation,
   MAX_PROTOCOL_REPAIR_ROUNDS,
   MAX_PROTOCOL_REPAIR_ROUNDS_LOCAL_SIDECAR,
@@ -61,7 +62,9 @@ import {
 } from "./workspace-agent.service.js";
 import type { WorkspaceCommands } from "./workspace-commands.js";
 import {
+  keepsFlaggedReply,
   newRoundReviewState,
+  nothingChangedNotice,
   reviewRepeatedFailures,
   reviewRoundClaim,
   shouldDeferRoundMutations,
@@ -664,6 +667,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       stopRequested = true;
       return "done" as const;
     }
+    // #8711: a change cut off, held, or set aside beside a question never reaches the claim review as a call it ran.
+    if (current.droppedMutating || current.calls.some(isMutationShapedCommand)) reviewState.changeTried = true;
     if (current.calls.length === 0 && !current.text.trim() && !current.truncated) {
       // Same as classic: an empty turn is retried within a budget, then ends with a note.
       emptyRepairs += 1;
@@ -778,8 +783,6 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       action,
       commandResultsForContinuity: input.commandResults,
       truncated: current.truncated,
-      // A change set aside beside a question has no result, but it was tried: her claims get the full audit (#8711).
-      changeTried: askCalled && current.calls.some((call) => !isUiTool(call.name) && isMutatingWorkspaceCommand(call)),
     });
     if (decision.kind === "repair") return decision;
     if (decision.kind === "stop") {
@@ -788,12 +791,14 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       return "done" as const;
     }
     // A final answer that says a change is held, when nothing was held, is false: one repair, then an honest line.
-    // Not after an applied change: a summary of real work must not be replaced by "nothing changed".
+    // Not after an applied change: a summary of real work must not be replaced by "nothing changed". Not in a run that
+    // tried no change either (#8711): the claim review kept those words and gives the reply its notice.
     const appliedAny = input.commandResults.some(
       (result) =>
         result.success && isMutatingWorkspaceCommand({ id: result.id, name: result.name, arguments: result.input }),
     );
     if (
+      reviewState.changeTried &&
       !hasWorkspaceCalls &&
       !todoOnly &&
       !state.endedWithDeferral &&
@@ -892,9 +897,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       auditFrom: reviewState.claimAuditWatermark,
       hadPassedClaimAudit: reviewState.hadPassedClaimAudit,
       lastPassedClaimText: reviewState.lastPassedClaimText,
-      changeTried: reviewState.changeTried,
     }).issue;
-    if (issue) {
+    if (issue && !keepsFlaggedReply(reviewState)) {
       addNote(
         "Professor Mari reached the tool round limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.",
         "retry",
@@ -1224,6 +1228,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     if (providerError) throw providerError;
     if (signal.aborted) throw new Error("aborted");
     if (limitReached) await summarizeAtLimit(session);
+    const notice = nothingChangedNotice(reviewState);
+    if (notice) addNote(notice, "info", "warning");
   } finally {
     signal.removeEventListener("abort", onAbort);
     session.dispose();

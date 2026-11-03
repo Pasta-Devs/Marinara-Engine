@@ -149,7 +149,9 @@ import {
 } from "./mari-composer-references.js";
 import { createAssistantMessage, saveAssistantMessageExtra, saveRunStart } from "./workspace-message-store.js";
 import {
+  keepsFlaggedReply,
   newRoundReviewState,
+  nothingChangedNotice,
   reviewRepeatedFailures,
   reviewRoundClaim,
   shouldDeferRoundMutations,
@@ -346,7 +348,7 @@ export type AssistantWorkspaceAction = {
   understoodRequest: string | null;
   stop: boolean;
   protocolValid: boolean;
-  /** A change sent beside a question: set aside unrun, though the claim audit still counts it as tried (#8711). */
+  /** #8711: a change sent beside a question was set aside unrun; the run still tried it. */
   changeBesideQuestion: boolean;
   assistantHistoryContent: string;
 };
@@ -2356,88 +2358,33 @@ export function visibleTextAsksApplyPermission(text: string): boolean {
 }
 
 /**
- * #8711: the words a claim audit may read - Mari's own prose. Code (fenced or inline), blockquote lines, quoted
- * strings and an example after "like:" or "for example:" are a draft, an example or a quote, never her claim, so a
- * quoted "is created" cannot discard the answer around it. Whitespace is collapsed and curly apostrophes made
- * straight.
+ * #8711: the words a claim check reads - her own prose, whitespace collapsed and curly apostrophes made straight. Code
+ * (fenced or inline), blockquote lines and quoted strings are a draft, an example or a quote, never her claim. A single
+ * quote counts only away from letters, so "I've" and "users'" stay prose.
  */
 function workspaceClaimProse(text: string): string {
-  return (
-    text
-      .replace(/[’‘]/gu, "'")
-      .replace(/(```|~~~)[\s\S]*?(?:\1|$)/gu, " ")
-      .replace(/`[^`\n]*`/gu, " ")
-      .replace(/^[ \t]*>.*$/gmu, " ")
-      // A single quote opens or closes a quote only away from letters, so "I've" and "users'" stay prose.
-      .replace(/"[^"\n]*"|“[^”\n]*”|(?<![\p{L}\p{N}])'[^'\n]*'(?![\p{L}\p{N}])/gu, " ")
-      .replace(
-        /\b(?:like|such as|for example|for instance|e\.g\.|wording|phrasing|phrases?|says|said)\s*:[^\n.!?]*/giu,
-        " ",
-      )
-      .replace(/\s+/gu, " ")
-      .trim()
-  );
-}
-
-/** Where one of her clauses ends: a sentence end, a colon, a dash, or ", and" / ", but" / ", so". */
-const CLAIM_CLAUSE_BREAK = String.raw`[.!?;:](?:\s|$)|\s[-–—]\s|[—–]|,\s(?:and|but|so)\s`;
-/** The clause in `prose` that ends at `index`, without the words that open it but name nothing ("Sure,", "Got it"). */
-function claimClauseBefore(prose: string, index: number): string {
-  return prose
-    .slice(0, index)
-    .replace(new RegExp(`^.*(?:${CLAIM_CLAUSE_BREAK})`, "su"), "")
-    .replace(
-      /^(?:(?:sure|okay|ok|alright|all right|got it|done|all done|all set|yes|yep|yeah|great|perfect|no problem|of course|and|but|so|also|now|then)\b[,!.]?\s+)+/iu,
-      "",
-    )
+  return text
+    .replace(/[’‘]/gu, "'")
+    .replace(/(```|~~~)[\s\S]*?(?:\1|$)/gu, " ")
+    .replace(/`[^`\n]*`/gu, " ")
+    .replace(/^[ \t]*>.*$/gmu, " ")
+    .replace(/"[^"\n]*"|“[^”\n]*”|(?<![\p{L}\p{N}])'[^'\n]*'(?![\p{L}\p{N}])/gu, " ")
+    .replace(/\s+/gu, " ")
     .trim();
-}
-/** The rest of the clause in `prose` from `index`. */
-function claimClauseAfter(prose: string, index: number): string {
-  return prose.slice(index).split(new RegExp(CLAIM_CLAUSE_BREAK, "u"))[0]!;
 }
 
 /**
  * True when the text says a change is held, staged, ready on a card or waiting for the user's approval. The pi
  * runtime checks it on a run that held nothing, where such a claim is false.
- * #8711: only her report of THIS reply's hold counts - a clause whose subject is the hold's owner or the held thing
- * ("Sure, I've staged", "and it's held", "The lorebook entry is now staged", "All three changes are ready"). An
- * explanation of the flow is not one: a sentence with "when", "if", "how", "would" and the like before the phrase, a
- * general subject ("edits are", "every change is", "In Manual mode, the change is"), or a condition after it ("in
- * Manual mode", "only", "until", "after"). Code, quotes and examples after "like:" are never read.
  * ponytail: English phrasings only. Upgrade path: have the server state what is held and compare, not read words.
  */
 export function workspaceTextClaimsHeldChange(text: string): boolean {
-  const prose = workspaceClaimProse(text).toLowerCase();
-  const word = String.raw`[^\s.,;:!?]+`;
-  // Before "held"/"staged": who holds it ("I've", "it's") or the held thing and its verb ("the character card is").
-  const holder = new RegExp(
-    String.raw`^(?:(?:(?:i|we)(?:'ve| have)?|(?:it|that|there|everything)'s|(?:it|this|that|these|those|the|your|my|our|both|all|everything)(?: ${word}){0,3}? (?:is|are|was|were|has been|have been))(?: (?:now|already|just|all|both|currently|still|also))*)?$`,
-    "u",
-  );
-  // Before "change(s)": a determiner, owner or count ("the", "all three", "I have").
-  const owner = new RegExp(
-    String.raw`^(?:(?:the|this|that|these|those|your|my|our|both|all|i have|we have|i've got|we've got|there are|there's|there is)(?: ${word}){0,2})?$`,
-    "u",
-  );
+  const normalized = workspaceClaimProse(text).toLowerCase();
   return (
-    [
-      [/\b(held|staged|queued)\b.{0,20}\bfor (your |the user'?s? )?(review|approval|accept\w*)/gu, holder],
-      [/\bchange cards? (is|are) (ready|staged|waiting|held)\b/gu, owner],
-      [/\bchanges? (is|are)? ?(ready|staged|waiting|held)\b.{0,60}\b(review|accept|approv\w*)/gu, owner],
-      [/\bnothing was applied yet\b/gu, owner],
-    ] as const
-  ).some(([pattern, subject]) =>
-    [...prose.matchAll(pattern)].some(
-      (match) =>
-        !/\b(?:when|whenever|if|once|until|unless|before|after|whether|how|would|will|can|could|may|might|should)\b/u.test(
-          prose.slice(0, match.index).replace(/^.*[.!?;]\s/su, ""),
-        ) &&
-        subject.test(claimClauseBefore(prose, match.index)) &&
-        !/\b(?:only|when|whenever|if|after|until|unless|once|in [\w-]+(?: [\w-]+)? mode)\b/u.test(
-          claimClauseAfter(prose, match.index),
-        ),
-    ),
+    /\b(held|staged|queued)\b.{0,20}\bfor (your |the user'?s? )?(review|approval|accept\w*)/.test(normalized) ||
+    /\bchange cards? (is|are) (ready|staged|waiting|held)\b/.test(normalized) ||
+    /\bchanges? (is|are)? ?(ready|staged|waiting|held)\b.{0,60}\b(review|accept|approv\w*)/.test(normalized) ||
+    /\bnothing was applied yet\b/.test(normalized)
   );
 }
 
@@ -2877,92 +2824,40 @@ export function resolveWorkspaceMutationVerification(
   return mutationSeen ? "verified" : "none";
 }
 
-/**
- * `selfAttributedOnly`: only first-person claims ("I updated"). `ownClaimsOnly`: those, a whole reply that is a bare
- * claim ("Done.", "Updated.", "Edit applied."), and a claim about the user's own data (see `userDataClaim`), never
- * the descriptive passives a draft, a list or an explanation carries ("a lantern that is created", "it's saved in
- * your browser", "each change you ask for is applied"). #8711: phrases are read from her prose only, never from code
- * or quotes; a whole-reply claim is still read from the whole reply.
- */
 export function workspaceTextClaimsMutationCompletion(
   text: string,
-  options: { selfAttributedOnly?: boolean; ownClaimsOnly?: boolean } = {},
+  options: { selfAttributedOnly?: boolean } = {},
 ): boolean {
   const normalized = text.trim().replace(/[’‘]/gu, "'").replace(/\s+/gu, " ");
   if (!normalized) return false;
   if (/^(?:have|has|did|is|are|was|were)\b[^.!]*\?$/iu.test(normalized)) return false;
-  const prose = workspaceClaimProse(text);
   const completedMutation =
     // #5830: "verified" is deliberately absent - it describes a READ, and it
     // is the exact word the guard's own coaching asks the model to produce.
     "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced|added|applied|edited|modified|set|inserted|completed";
   const adverbs = "(?:(?:successfully|now|just|already)\\s+)*";
+  // #8711: a phrase counts only in her prose, never in code, a blockquote or a quoted string; a whole-reply claim
+  // ("Done.") is still read from the whole reply.
+  const prose = workspaceClaimProse(text);
   // Slice 68: a docs answer's "a chunk waits before it's created" or "it is enabled by default"
   // describes how a feature works, not work she did; the audit then replaced a correct answer.
-  const describesFeature = (source: string, match: RegExpMatchArray) =>
+  const describesFeature = (match: RegExpMatchArray) =>
     /\b(?:before|until|when|whenever|after|once|if|unless|whether)\s+(?:[^\s.,;:!?]+\s+){0,3}$/iu.test(
-      source.slice(0, match.index),
-    ) || /^\s*by default\b/iu.test(source.slice((match.index ?? 0) + match[0].length));
-  const claimMatches = (pattern: RegExp, source = prose) =>
-    [...source.matchAll(pattern)].filter((match) => !describesFeature(source, match));
-  const claims = (pattern: RegExp) => claimMatches(pattern).length > 0;
+      prose.slice(0, match.index),
+    ) || /^\s*by default\b/iu.test(prose.slice((match.index ?? 0) + match[0].length));
+  const claims = (pattern: RegExp) => [...prose.matchAll(pattern)].some((match) => !describesFeature(match));
   const selfClaim = claims(
     new RegExp(`\\b(?:i(?:'ve| have)?|we(?:'ve| have)?)\\s+${adverbs}(?:${completedMutation})\\b`, "giu"),
   );
   if (options.selfAttributedOnly) return selfClaim;
-  const wholeReplyClaim = () =>
-    new RegExp(`^(?:(?:the )?(?:edit|change|update)s?\\s+)${adverbs}(?:${completedMutation})\\b[^?]*[.!]?$`, "iu").test(
-      normalized,
-    ) || new RegExp(`^(?:${completedMutation}|done)[.!]*$`, "iu").test(normalized);
-  // #8711: a passive claim about the user's own data ("Done! Your greeting has been updated.", "All set - the
-  // description is updated.", "Yes, it's saved."). Its subject is theirs - "your"/"my" and a noun, or
-  // "the"/"this"/"both" and a data noun - or a bare "it"/"that". A bare "it" or a present "is saved" claims only when
-  // settled: its clause ends at the verb, "now" marks it, or "Done"/"All set" opens a sentence, since "it's saved in
-  // your browser" and "your chats are saved on the server" describe. A relative clause ("a lantern that is created")
-  // never has such a subject, and a list item is a draft: only its "has been" claims count, unless "Done" was said.
-  const userDataClaim = () => {
-    const lower = prose.toLowerCase();
-    const markedDone =
-      /(?:^|[.!?]\s)(?:(?:yes|okay|ok|alright|great|perfect)[,!.]?\s+)?(?:all done|done|all set|finished|saved)\s*[,.!:;—–-]/u.test(
-        lower,
-      );
-    const narrative = markedDone
-      ? lower
-      : workspaceClaimProse(text.replace(/^[ \t]*(?:[-*+•]|\d+[.)])[ \t]+.*$/gmu, " ")).toLowerCase();
-    const word = String.raw`[^\s.,;:!?]+`;
-    const dataNoun =
-      /\b(?:cards?|characters?|greetings?|descriptions?|personalit(?:y|ies)|scenarios?|personas?|lorebooks?|entry|entries|presets?|prompts?|chats?|messages?|settings?|names?|avatars?|fields?|tags?|notes?|files?|folders?|themes?|changes?|edits?|updates?|profiles?|connections?|agents?|memor(?:y|ies)|summar(?:y|ies)|scripts?|sprites?|backgrounds?|groups?|sections?)\b/u;
-    const claimAbout = (source: string, auxiliary: string) =>
-      claimMatches(new RegExp(`${auxiliary}\\s+(${adverbs})(?:${completedMutation})\\b`, "giu"), source).some(
-        (match) => {
-          const subject = claimClauseBefore(source, match.index!);
-          const settled =
-            markedDone ||
-            /\b(?:now|just|successfully)\b/u.test(match[1]!) ||
-            /^\s*(?:(?:now|too|also|again|as well|for you|as requested)\b\s*)*$/u.test(
-              claimClauseAfter(source, match.index! + match[0].length),
-            );
-          if (/^(?:it|that|this|everything|all of it)$/u.test(subject)) return settled;
-          const theirs =
-            new RegExp(`^(?:your|my|our)(?: ${word}){1,4}$`, "u").test(subject) ||
-            (new RegExp(`^(?:the|this|that|these|those|both|all)(?: ${word}){1,4}$`, "u").test(subject) &&
-              dataNoun.test(subject));
-          return theirs && (settled || !/^(?:is|are|'re|'s)\s(?!been\b)/u.test(match[0]));
-        },
-      );
-    return (
-      claimAbout(lower, "(?:\\b(?:has|have) been|'s been|'ve been)") ||
-      claimAbout(narrative, "(?:\\b(?:is|are|was|were|has been|have been)|'s(?: been)?|'re|'ve been)")
-    );
-  };
-  if (options.ownClaimsOnly) return selfClaim || wholeReplyClaim() || userDataClaim();
   return (
     selfClaim ||
     claims(new RegExp(`\\b(?:it(?:'s| is)?|that(?:'s| is)?)\\s+${adverbs}(?:${completedMutation})\\b`, "giu")) ||
     claims(new RegExp(`\\b(?:is|are|was|were|has been|have been)\\s+${adverbs}(?:${completedMutation})\\b`, "giu")) ||
-    wholeReplyClaim() ||
-    // Every claim the own-claims check reads counts here too ("It's been updated.").
-    userDataClaim()
+    new RegExp(`^(?:(?:the )?(?:edit|change|update)s?\\s+)${adverbs}(?:${completedMutation})\\b[^?]*[.!]?$`, "iu").test(
+      normalized,
+    ) ||
+    new RegExp(`^(?:${completedMutation}|done)[.!]*$`, "iu").test(normalized)
   );
 }
 
@@ -2978,7 +2873,7 @@ function isUnappliedMutationAttempt(result: WorkspaceCommandResult): boolean {
   return !isAppliedWorkspaceMutation(result) && !isStagedSensitiveMutation(result);
 }
 
-/** A change, or a preview of one: what counts as an attempt to change something, whatever its outcome. */
+/** A change or a preview of one: an attempt to change something, whatever came of it. */
 export function isMutationShapedCommand(call: WorkspaceCommandCall): boolean {
   return isMutatingWorkspaceCommand(call) || isPreviewOnlyAppDataCommand(call);
 }
@@ -3054,25 +2949,11 @@ export type WorkspaceClaimAudit = {
  * watermark, so their debt stays visible to the terminal audit: a later
  * frame can still read the change back, and the user can still accept a
  * staged one.
- *
- * #8711: a run that never tried to change anything - no change or preview
- * ran or failed, and none was held or set aside beside a question in any
- * round of the run (`changeTried`) - is judged by her own claims only
- * (`ownClaimsOnly`): a descriptive passive there belongs to a draft, a list
- * or an explanation, and discarding the answer for it lost the text the user
- * asked for. "I updated the card" or "Your greeting has been updated" with
- * nothing behind it is still sent back.
  */
 export function auditWorkspaceCompletionClaim(
   action: Pick<AssistantWorkspaceAction, "commands" | "stop" | "visibleText">,
   results: readonly WorkspaceCommandResult[],
-  options: {
-    auditFrom?: number;
-    hadPassedClaimAudit?: boolean;
-    lastPassedClaimText?: string | null;
-    /** An earlier round or this one tried a change that left no result: held, or set aside beside a question. */
-    changeTried?: boolean;
-  } = {},
+  options: { auditFrom?: number; hadPassedClaimAudit?: boolean; lastPassedClaimText?: string | null } = {},
 ): WorkspaceClaimAudit {
   const auditFrom = options.auditFrom ?? 0;
   const hadPassedClaimAudit = options.hadPassedClaimAudit ?? false;
@@ -3084,11 +2965,7 @@ export function auditWorkspaceCompletionClaim(
   ) {
     return { issue: "dry_run", advanceWatermark: false };
   }
-  const attemptedChange =
-    options.changeTried === true ||
-    action.commands.some(isMutationShapedCommand) ||
-    results.some((result) => isMutationShapedCommand(commandCallForResult(result)));
-  if (!workspaceTextClaimsMutationCompletion(action.visibleText, { ownClaimsOnly: !attemptedChange })) {
+  if (!workspaceTextClaimsMutationCompletion(action.visibleText)) {
     return { issue: null, advanceWatermark: false };
   }
   const verification = resolveWorkspaceMutationVerification(results, auditFrom);
@@ -4576,6 +4453,8 @@ export class ProfessorMariWorkspaceService {
             }
           : parsedFrame;
         const shouldDeferMutations = shouldDeferRoundMutations({ permissionsMode, parsedAction, runAskedForApproval });
+        // #8711: a held change, or one set aside beside a question, is not among the calls the claim review sees.
+        if (shouldDeferMutations || parsedAction.changeBesideQuestion) reviewState.changeTried = true;
         const action = shouldDeferMutations
           ? {
               ...parsedAction,
@@ -4698,7 +4577,6 @@ export class ProfessorMariWorkspaceService {
           action,
           commandResultsForContinuity,
           truncated: isLengthFinishReason(result.finishReason),
-          changeTried: shouldDeferMutations || parsedAction.changeBesideQuestion,
         });
         if (claimDecision.kind === "repair") {
           // The repair discards this round, and with it any hold the round made: a later round may apply the change,
@@ -4909,9 +4787,8 @@ export class ProfessorMariWorkspaceService {
             auditFrom: reviewState.claimAuditWatermark,
             hadPassedClaimAudit: reviewState.hadPassedClaimAudit,
             lastPassedClaimText: reviewState.lastPassedClaimText,
-            changeTried: reviewState.changeTried,
           }).issue;
-          if (finalVerificationIssue) {
+          if (finalVerificationIssue && !keepsFlaggedReply(reviewState)) {
             const content =
               "Professor Mari reached the workspace command limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.";
             assistantText = appendVisibleText(assistantText, content);
@@ -4942,6 +4819,13 @@ export class ProfessorMariWorkspaceService {
       }
       // Errors and aborts skip this; the client clears her field text when the run ends.
       endFieldStream();
+      const nothingChanged = nothingChangedNotice(reviewState);
+      if (nothingChanged) {
+        assistantText = appendVisibleText(assistantText, nothingChanged);
+        appendTraceStatus(workspaceTrace, nothingChanged);
+        args.onEvent({ type: "status", data: { content: nothingChanged, kind: "info", level: "warning" } });
+        for (const chunk of chunkText(nothingChanged)) args.onEvent({ type: "token", data: chunk });
+      }
 
       if (!assistantText.trim()) {
         const failedTool = workspaceTrace.find((item) => item.type === "tool" && item.tool.status === "error");

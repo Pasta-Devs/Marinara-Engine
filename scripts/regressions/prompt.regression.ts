@@ -14134,7 +14134,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       ).replace(/\s+/gu, " ");
       assert.ok(
         agentSourceForPins.includes(
-          "auditWorkspaceCompletionClaim(action, args.commandResultsForContinuity, { auditFrom: state.claimAuditWatermark, hadPassedClaimAudit: state.hadPassedClaimAudit, lastPassedClaimText: state.lastPassedClaimText, changeTried: state.changeTried, })",
+          "auditWorkspaceCompletionClaim(action, args.commandResultsForContinuity, { auditFrom: state.claimAuditWatermark, hadPassedClaimAudit: state.hadPassedClaimAudit, lastPassedClaimText: state.lastPassedClaimText, })",
         ),
         "the loop audits against the live watermark, never from zero",
       );
@@ -14150,7 +14150,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.ok(
         agentSourceForPins.includes(
-          "auditWorkspaceCompletionClaim(finalAction, commandResultsForContinuity, { auditFrom: reviewState.claimAuditWatermark, hadPassedClaimAudit: reviewState.hadPassedClaimAudit, lastPassedClaimText: reviewState.lastPassedClaimText, changeTried: reviewState.changeTried, })",
+          "auditWorkspaceCompletionClaim(finalAction, commandResultsForContinuity, { auditFrom: reviewState.claimAuditWatermark, hadPassedClaimAudit: reviewState.hadPassedClaimAudit, lastPassedClaimText: reviewState.lastPassedClaimText, })",
         ),
         "the command-limit audit shares the run's scope state",
       );

@@ -12,6 +12,7 @@ import {
   MAX_VERIFICATION_REPAIR_ROUNDS,
   visibleTextAsksApplyPermission,
   visibleTextRequestsUserApproval,
+  workspaceTextClaimsHeldChange,
   type AssistantWorkspaceAction,
   type WorkspaceCommandResult,
 } from "./workspace-agent.service.js";
@@ -24,11 +25,17 @@ export type RoundReviewState = {
   hadPassedClaimAudit: boolean;
   lastPassedClaimText: string | null;
   /**
-   * #8711: some round of the run tried a change - ran, held, or set aside beside a question - so its claims get the
-   * full audit. Kept for the run: a held or set-aside change leaves no result, and a repair discards its round.
+   * #8711: some round of the run tried a change - ran or previewed it, held it, or sent it beside a question or in a
+   * cut-off reply. Kept for the run: a repair discards its round, and a held or set-aside change leaves no result.
    */
   changeTried: boolean;
+  /** #8711: a flagged reply kept its words in a run that had tried no change; the run's reply gets the notice. */
+  flaggedReplyKept: boolean;
 };
+
+/** #8711: added to the reply of a run that changed nothing, once a claim check flagged words it kept. */
+export const NOTHING_CHANGED_NOTICE =
+  "No change was made or held in this reply. Ask Professor Mari again if you want one made.";
 
 export function newRoundReviewState(): RoundReviewState {
   return {
@@ -39,7 +46,28 @@ export function newRoundReviewState(): RoundReviewState {
     hadPassedClaimAudit: false,
     lastPassedClaimText: null,
     changeTried: false,
+    flaggedReplyKept: false,
   };
+}
+
+/**
+ * #8711: whether a reply a claim check flagged keeps its words. A run that tried no change changed nothing in the
+ * workspace and holds nothing, and a phrase tripwire cannot tell her draft, quote or explanation from a claim, so the
+ * words stay, nothing is repaired, and the reply gets NOTHING_CHANGED_NOTICE at the end of the run. Once the run tried
+ * a change, a false claim about it is repaired as before.
+ */
+export function keepsFlaggedReply(state: RoundReviewState): boolean {
+  if (state.changeTried) return false;
+  state.flaggedReplyKept = true;
+  return true;
+}
+
+/**
+ * The notice the run's reply ends with, or null.
+ * ponytail: only the run's last reply gets it; one saved earlier by Send now does not. Upgrade path: add it there too.
+ */
+export function nothingChangedNotice(state: RoundReviewState): string | null {
+  return state.flaggedReplyKept && !state.changeTried ? NOTHING_CHANGED_NOTICE : null;
 }
 
 /**
@@ -90,12 +118,17 @@ export function reviewRoundClaim(
     action: Pick<AssistantWorkspaceAction, "visibleText" | "commands" | "stop" | "protocolValid">;
     commandResultsForContinuity: WorkspaceCommandResult[];
     truncated: boolean;
-    /** The round tried a change that left no result: held for approval, or set aside beside a question (#8711). */
-    changeTried?: boolean;
   },
 ): RoundClaimDecision {
   const { action } = args;
-  if (args.changeTried || action.commands.some(isMutationShapedCommand)) state.changeTried = true;
+  if (
+    action.commands.some(isMutationShapedCommand) ||
+    args.commandResultsForContinuity.some((result) =>
+      isMutationShapedCommand({ id: result.id, name: result.name, arguments: result.input }),
+    )
+  ) {
+    state.changeTried = true;
+  }
   const claimAudit =
     (!action.protocolValid && action.commands.length === 0) || (action.commands.length > 0 && args.truncated)
       ? { issue: null, advanceWatermark: false }
@@ -103,7 +136,6 @@ export function reviewRoundClaim(
           auditFrom: state.claimAuditWatermark,
           hadPassedClaimAudit: state.hadPassedClaimAudit,
           lastPassedClaimText: state.lastPassedClaimText,
-          changeTried: state.changeTried,
         });
   if (claimAudit.advanceWatermark) {
     state.claimAuditWatermark = args.commandResultsForContinuity.length;
@@ -111,7 +143,10 @@ export function reviewRoundClaim(
     state.lastPassedClaimText = action.visibleText;
   }
   const verificationIssue = claimAudit.issue;
-  if (!verificationIssue) return { kind: "continue" };
+  // A held claim is read here only to give a run that changed nothing its notice; the pi runtime repairs one otherwise.
+  const heldClaim = action.protocolValid && !state.changeTried && workspaceTextClaimsHeldChange(action.visibleText);
+  if (!verificationIssue && !heldClaim) return { kind: "continue" };
+  if (keepsFlaggedReply(state)) return { kind: "continue" };
   // #5819: mid-run claims draw on their own budget, so catching a
   // false step-claim early in a batch cannot starve the terminal
   // check that ends the run.
