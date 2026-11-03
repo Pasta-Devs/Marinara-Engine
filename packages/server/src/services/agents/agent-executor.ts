@@ -3770,7 +3770,8 @@ const INVENTORY_TRACKER_GROUP_FIELDS = {
 /**
  * Inventory has three row groups, so a root-level envelope names none of them
  * (Marinara-Agents#2077). Move each row under the one group that already tracks
- * its name, merged with any part sent for that group. Names that no single group
+ * its name, merged with any part sent for that group. Removing a name that no
+ * group tracks changes nothing, so it is dropped. Other names that no single group
  * tracks are reported rather than guessed: a new item could be money or gear.
  */
 function placeInventoryTrackerRootRows(
@@ -3780,14 +3781,19 @@ function placeInventoryTrackerRootRows(
   const { updates = [], removed = [], ...grouped } = data;
   const parts: Record<string, { updates: unknown[]; removed: unknown[] }> = {};
   const unplaced: string[] = [];
+  let placed = 0;
   const place = (name: string, kind: "updates" | "removed", value: unknown) => {
     const key = inventoryTrackerComparableName(name);
     const groups = Object.entries(INVENTORY_TRACKER_GROUP_FIELDS).filter(([, field]) => {
       const rows: unknown = gameState?.playerStats?.[field];
       return Array.isArray(rows) && rows.some((row) => inventoryTrackerComparableName(row?.name) === key);
     });
-    if (groups.length === 1) (parts[groups[0]![0]] ??= { updates: [], removed: [] })[kind].push(value);
-    else unplaced.push(name);
+    if (groups.length === 1) {
+      (parts[groups[0]![0]] ??= { updates: [], removed: [] })[kind].push(value);
+      placed += 1;
+    } else if (kind === "removed" && groups.length === 0) {
+      logger.debug("[agent] Inventory Tracker removed %s, which no group tracks; nothing to remove", name);
+    } else unplaced.push(name);
   };
   // Rows and removals were validated with the groups, so every name is a non-empty string.
   for (const row of updates) place((row as { name: string }).name, "updates", row);
@@ -3803,7 +3809,7 @@ function placeInventoryTrackerRootRows(
           }
         : part;
   }
-  return { data: grouped, placed: updates.length + removed.length, unplaced };
+  return { data: grouped, placed, unplaced };
 }
 
 /**

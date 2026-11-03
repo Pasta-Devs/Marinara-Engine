@@ -398,7 +398,8 @@ assert.equal(
 
 // Marinara-Agents#2077: Inventory has three groups, so a root envelope names none.
 // A row goes to the one group that already tracks its name, alone or beside group
-// parts; a row no single group tracks is retried like invalid JSON, then fails.
+// parts; a removal no group tracks is dropped. A row no single group tracks, or a
+// removal more than one group tracks, is retried like invalid JSON, then fails.
 const inventoryContext = { ...context, gameState: { playerStats: savedInventory } } as AgentContext;
 for (const [output, expected] of [
   [{ updates: [{ name: "gold", qty: 5 }] }, { inventoryTrackerCurrencies: [{ name: "Gold", qty: 5 }] }],
@@ -420,13 +421,15 @@ for (const [output, expected] of [
     { equipped: { updates: [{ name: "Shield" }] }, removed: ["Sword"] },
     { inventoryTrackerEquipped: [{ name: "Shield" }] },
   ],
+  // Removing a name no group tracks changes nothing, so it must not sink the placed rows.
+  [
+    { updates: [{ name: "Gold", qty: 3 }], removed: ["Torch"] },
+    { inventoryTrackerCurrencies: [{ name: "Gold", qty: 3 }] },
+  ],
 ] as const) {
-  const single = await executeAgent(
-    inventoryAgent,
-    inventoryContext,
-    new RecordingProvider(JSON.stringify(output)),
-    "agent-model",
-  );
+  const provider = new RecordingProvider(JSON.stringify(output));
+  const single = await executeAgent(inventoryAgent, inventoryContext, provider, "agent-model");
+  assert.equal(provider.calls, 1, `assignable root rows need no retry: ${JSON.stringify(output)}`);
   const batched = (
     await executeAgentBatch(
       [inventoryAgent, makeAgent("world-state", "game_state_update")],
@@ -455,6 +458,7 @@ for (const [output, gameState, name] of [
     { playerStats: { ...savedInventory, inventoryTrackerEquipped: [{ name: "Gold" }] } },
     "Gold",
   ],
+  [{ removed: ["Gold"] }, { playerStats: { ...savedInventory, inventoryTrackerEquipped: [{ name: "Gold" }] } }, "Gold"],
 ] as const) {
   const provider = new RecordingProvider(JSON.stringify(output));
   const result = await executeAgent(inventoryAgent, { ...context, gameState } as AgentContext, provider, "agent-model");
