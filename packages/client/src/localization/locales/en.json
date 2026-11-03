@@ -15201,6 +15201,7 @@
   "ui.panels.backgroundpicker.noBackgroundsAvailableYet": "No backgrounds available yet",
   "ui.panels.backgroundpicker.noBackgroundsMatchThoseFilters": "No backgrounds match those filters",
   "ui.panels.backgroundpicker.oldest": "Oldest",
+  "ui.panels.backgroundpicker.recent": "Recent",
   "ui.panels.backgroundpicker.removeAsRoleplayDefault": "Remove as Roleplay default",
   "ui.panels.backgroundpicker.removeFromFavorites": "Remove from favorites",
   "ui.panels.backgroundpicker.removeTagValue1": "Remove tag {{value1}}",
