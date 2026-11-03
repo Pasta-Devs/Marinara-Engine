@@ -42,6 +42,14 @@ if (typeof document !== "undefined") {
     },
     true,
   );
+  // A keyboard click (detail 0) has no pointerdown, so its own button is the opener.
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (e.detail === 0 && e.target instanceof Element) lastPressedButton = e.target.closest("button");
+    },
+    true,
+  );
 }
 
 /** Right-click menu anchored at (x, y). Auto-flips when it would clip the viewport. */
@@ -88,8 +96,9 @@ export function ContextMenu({
     const onDown = (e: MouseEvent) => {
       if (!ref.current || ref.current.contains(e.target as Node)) return;
       // A press on the button that opened the menu only closes it; without this its click opens it again.
-      if (opener.current?.contains(e.target as Node)) {
+      if (e.button === 0 && opener.current?.contains(e.target as Node)) {
         const swallow = (c: MouseEvent) => {
+          if (c.detail === 0) return; // keyboard/programmatic click: let it through
           c.stopPropagation();
           c.preventDefault();
         };
