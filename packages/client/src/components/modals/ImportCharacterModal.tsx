@@ -37,16 +37,36 @@ type ImportResultRow = {
 type TagImportMode = "all" | "none" | "existing";
 
 const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; description: string }> = [
-  { value: "all", label: "All tags", description: "Keep source tags." },
-  { value: "none", label: "No tags", description: "Skip source tags." },
-  { value: "existing", label: "Existing only", description: "Keep tags already in Marinara." },
+  {
+    value: "all",
+    label: "ui.modals.importcharactermodal.tagsAll",
+    description: "ui.modals.importcharactermodal.tagsAllHint",
+  },
+  {
+    value: "none",
+    label: "ui.modals.importcharactermodal.tagsNone",
+    description: "ui.modals.importcharactermodal.tagsNoneHint",
+  },
+  {
+    value: "existing",
+    label: "ui.modals.importcharactermodal.tagsExisting",
+    description: "ui.modals.importcharactermodal.tagsExistingHint",
+  },
 ];
 
 type RegexScriptScope = "character" | "global";
 
 const REGEX_SCOPE_OPTIONS: Array<{ value: RegexScriptScope; label: string; description: string }> = [
-  { value: "character", label: "Character only", description: "Scripts apply only to this bot." },
-  { value: "global", label: "Global", description: "Add to Presets → Regexes for every chat." },
+  {
+    value: "character",
+    label: "ui.modals.importcharactermodal.scopeCharacter",
+    description: "ui.modals.importcharactermodal.scopeCharacterHint",
+  },
+  {
+    value: "global",
+    label: "ui.modals.importcharactermodal.scopeGlobal",
+    description: "ui.modals.importcharactermodal.scopeGlobalHint",
+  },
 ];
 
 export function ImportCharacterModal({ open, onClose }: Props) {
@@ -171,14 +191,15 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             filename: result.filename,
             success: result.success,
             message: result.success
-              ? `Imported "${result.name ?? result.filename}"${
+              ? localizeUi(
                   result.embeddedLorebook?.skipped
-                    ? " without creating the embedded lorebook"
+                    ? "ui.modals.importcharactermodal.importedNameWithoutLorebook"
                     : result.lorebook?.lorebookId
-                      ? " with its embedded lorebook"
-                      : ""
-                }`
-              : (result.error ?? "Import failed"),
+                      ? "ui.modals.importcharactermodal.importedNameWithLorebook"
+                      : "ui.modals.importcharactermodal.importedName",
+                  { name: result.name ?? result.filename },
+                )
+              : (result.error ?? localizeUi("ui.modals.importcharactermodal.importFailed")),
             characterId: result.characterId,
             name: result.name,
             descriptionSplit: result.success ? result.descriptionSplit : undefined,
@@ -203,13 +224,15 @@ export function ImportCharacterModal({ open, onClose }: Props) {
           nextResults.push({
             filename: item.file.name,
             success: result.success,
-            message: result.success ? `Imported "${result.name ?? item.file.name}"` : (result.error ?? "Import failed"),
+            message: result.success
+              ? localizeUi("ui.modals.importcharactermodal.importedName", { name: result.name ?? item.file.name })
+              : (result.error ?? localizeUi("ui.modals.importcharactermodal.importFailed")),
           });
         } catch (error) {
           nextResults.push({
             filename: item.file.name,
             success: false,
-            message: error instanceof Error ? error.message : "Import failed",
+            message: error instanceof Error ? error.message : localizeUi("ui.modals.importcharactermodal.importFailed"),
           });
         }
       }
@@ -232,13 +255,15 @@ export function ImportCharacterModal({ open, onClose }: Props) {
           nextResults.push({
             filename: file.name,
             success: result.success,
-            message: result.success ? `Imported "${result.name ?? file.name}"` : (result.error ?? "Import failed"),
+            message: result.success
+              ? localizeUi("ui.modals.importcharactermodal.importedName", { name: result.name ?? file.name })
+              : (result.error ?? localizeUi("ui.modals.importcharactermodal.importFailed")),
           });
         } catch (error) {
           nextResults.push({
             filename: file.name,
             success: false,
-            message: error instanceof Error ? error.message : "Import failed",
+            message: error instanceof Error ? error.message : localizeUi("ui.modals.importcharactermodal.importFailed"),
           });
         }
       }
@@ -260,9 +285,12 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     } catch (err) {
       setResults([
         {
-          filename: files.length === 1 ? files[0]!.name : `${files.length} files`,
+          filename:
+            files.length === 1
+              ? files[0]!.name
+              : localizeUi("ui.modals.importcharactermodal.fileCount", { count: files.length }),
           success: false,
-          message: err instanceof Error ? err.message : "Failed to parse import files",
+          message: err instanceof Error ? err.message : localizeUi("ui.modals.importcharactermodal.parseFailed"),
         },
       ]);
       setStatus("done");
@@ -392,9 +420,9 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   onChange={() => setTagImportMode(option.value)}
                   className="sr-only"
                 />
-                <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
+                <span className="block text-xs font-medium text-[var(--foreground)]">{localizeUi(option.label)}</span>
                 <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-                  {option.description}
+                  {localizeUi(option.description)}
                 </span>
               </label>
             ))}
@@ -428,9 +456,9 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   onChange={() => setRegexScriptScope(option.value)}
                   className="sr-only"
                 />
-                <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
+                <span className="block text-xs font-medium text-[var(--foreground)]">{localizeUi(option.label)}</span>
                 <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-                  {option.description}
+                  {localizeUi(option.description)}
                 </span>
               </label>
             ))}

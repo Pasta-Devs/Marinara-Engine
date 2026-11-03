@@ -194,7 +194,7 @@ These sections are for advanced setups.
 
 ### Game music and sound effects on a compatible audio server
 
-1. In **Connections**, add a **Music & Sound Effects** account and choose **Custom compatible server**.
+1. In **Connections**, open your **Music & Sound Effects** account with **Edit model** and choose **Custom compatible server**. The **Add account** window has no tile for this account type; it comes from an upgrade or an import (see [the account reference](../connections/providers-reference.md#music--sound-effects)).
 2. Enter the address, key and model for your music or sound-effect server.
 3. Set **Generation API format** and enter the endpoint paths your server provides. A blank path leaves that capability unavailable.
 4. Turn on **Music generation**, **Sound-effect generation**, or both.

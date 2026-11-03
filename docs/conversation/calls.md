@@ -199,6 +199,6 @@ When a call ends, a card appears in the Conversation. Its title is **Call Starte
 ## Related guides
 
 - [Text to Speech (TTS) Setup](../media/tts-setup.md)
-- [Local Model Setup](../connections/local-model.md)
+- [Built-in Model Setup](../connections/local-model.md)
 - [Character Sprites (Expressions and Full-body)](../characters/sprites.md)
 - [Conversation Mode: Getting Started](getting-started.md)

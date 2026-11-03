@@ -49,7 +49,7 @@ Access-control settings and secrets (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_A
 
 Access control decides who can reach a running server. For steps and examples, see [Remote Access: Login and IP Allowlist](REMOTE_ACCESS.md).
 
-You can also set the login without `.env`: use **Settings → Advanced → Access** in a browser that is already signed in, or the one-time setup code from the server log. The server prints that code only while no login is set and it listens beyond loopback. The login is saved in `DATA_DIR/.remote-login.json`. `pnpm reset-login` removes it and signs out every browser. A login in `.env` wins. Changing or removing the login needs the current password. For login proxies, see [Login proxies (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth).
+You can also set the login without `.env`: use **Settings → Advanced → Access** in a browser that is already signed in, or the one-time setup code from the server log. The server prints that code only while no login is set and it listens beyond loopback. The login is saved in `DATA_DIR/.remote-login.json`. `node scripts/reset-login.mjs` (run in the Marinara folder) removes it and signs out every browser. A login in `.env` wins. Changing or removing the login needs the current password. For login proxies, see [Login proxies (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth).
 
 Terms used below:
 
