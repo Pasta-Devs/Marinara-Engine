@@ -42,7 +42,7 @@ The simple Marinara path puts one complete prompt in the LTX Director global pro
 
 The LTX Director node can still handle image conditioning, guide data, audio and the two sampling stages. "Simple" means Marinara sends one coherent image-to-video paragraph instead of a Prompt Relay timeline.
 
-### Required placeholders
+### Placeholders
 
 In the API export, replace the matching values with these quoted Marinara placeholders:
 
