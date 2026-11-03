@@ -285,13 +285,13 @@ A condition can also ask your Decision model about the scene, for example `{{#if
 
 ## Common mistakes
 
-- Do not write variables inside a `{{random::...}}` block. A `{{setvar}}` inside a random option runs for every option before the choice is made, not just the chosen one.
+- Do not write variables inside a `{{random::...}}` block. A `{{setvar}}` inside a random option runs for every option before the choice is made, not only the chosen one.
 - Do not use a local variable as global state. It persists only inside the chat where it was set.
 - A prompt section or lorebook entry that runs `{{setvar}}` overwrites a chat variable of the same name, because both use one storage per chat. Give them different names if you want both.
 - `{{prompt}}` is not a macro. If your whole message is `{{prompt}}`, Marinara opens the **Peek Prompt** viewer instead of sending it. See [Peek Prompt](../chats/peek-prompt.md).
 - Custom Tools do not use `{{macro}}` text. Do not paste `{{roll:1d20}}` into a tool field expecting it to resolve.
 - The **Impersonate** prompt template accepts only a few placeholders, not the full macro list. Its names differ too, so a macro that works in a card may not work there.
-- Very large or deeply nested macro output is cut off silently. There is no error, so keep macro expansions reasonable.
+- Large or deeply nested macro output is cut off silently. There is no error, so keep macro expansions reasonable.
 
 ## Related guides
 
