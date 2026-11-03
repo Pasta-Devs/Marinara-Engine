@@ -110,6 +110,9 @@ const localTargets = [
   "http://[fd00:ec2::254]/latest/meta-data/",
   "http://169.254.169.254/latest/meta-data/",
   "http://[64:ff9b::a9fe:a9fe]/latest/meta-data/",
+  // 464XLAT puts 192.0.0.4 on this device; 192.0.0.192 is a cloud metadata endpoint.
+  `http://192.0.0.4:${internalPort}/blocked`,
+  "http://192.0.0.192/latest/",
 ];
 
 try {
@@ -245,9 +248,19 @@ try {
           `${label}: ${start} cannot redirect to loopback`,
         );
       }
+      remoteHits.length = 0;
       const fakeIp = llmFetch("http://fakeip.test/v1/models");
-      if (localUrls === "true") assert.equal(await (await fakeIp).text(), "remote", `${label}: fake-IP to fake-IP`);
-      else await assert.rejects(fakeIp, /Refused to fetch/, `${label}: fake-IP stays refused`);
+      if (localUrls === "true") {
+        assert.equal(await (await fakeIp).text(), "remote", `${label}: fake-IP to fake-IP`);
+        assert.deepEqual(
+          remoteHits,
+          ["http://fakeip.test/v1/models", "https://fakeip-cdn.test/v1/models"],
+          `${label}: the fake-IP redirect is followed`,
+        );
+      } else {
+        await assert.rejects(fakeIp, /Refused to fetch/, `${label}: fake-IP stays refused`);
+        assert.deepEqual(remoteHits, [], `${label}: fake-IP is never requested`);
+      }
     }
   } finally {
     if (providerLocalUrls === undefined) delete process.env.PROVIDER_LOCAL_URLS_ENABLED;

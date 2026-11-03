@@ -306,10 +306,12 @@ function isLocalHop(url: URL, connectedAddress: string | undefined): boolean {
   );
 }
 
-// A remote hop's redirect target is refused on the same built-in ranges, and on more than a hop is trusted on: all of
-// 0.0.0.0/8 and the IPv4-compatible ::/96 forms such as ::7f00:1, which no remote service answers from. A NAT64
-// address is judged by the IPv4 address it embeds, so a remote service behind DNS64 still counts as remote.
-const NON_REMOTE_CIDRS = [parseCidr("0.0.0.0/8")!, parseCidr("::/96")!];
+// A remote hop's redirect target is refused on the same built-in ranges, and on more than a hop is trusted on, none of
+// which a remote service answers from: all of 0.0.0.0/8, the IPv4-compatible ::/96 forms such as ::7f00:1, and
+// 192.0.0.0/24, which holds addresses on this device or its router (464XLAT CLAT, DS-Lite) and a cloud metadata
+// endpoint (192.0.0.192). A NAT64 address is judged by the IPv4 address it embeds, so a remote service behind DNS64
+// still counts as remote.
+const NON_REMOTE_CIDRS = [parseCidr("0.0.0.0/8")!, parseCidr("::/96")!, parseCidr("192.0.0.0/24")!];
 const NAT64_CIDR = parseCidr("64:ff9b::/96")!;
 
 function isLocalTargetAddress(address: string): boolean {
