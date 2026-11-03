@@ -4,12 +4,14 @@ A decision model is a small model that answers yes-or-no questions for Marinara,
 
 Its answers control what Marinara does and are never posted in the chat. It scores a statement from 0 to 1. Marinara compares that number with a threshold and treats the result as yes or no. It can also pick one answer from a short list, such as "angry", "sad", or "none of these".
 
+Our advice: leave it on **None** if you are unsure. If you want decisions, use the Built-in model you may already have, or a chat model on a server you already run. Both cost nothing extra.
+
 ## Choose a decision model
 
-Before you start, decide which model to use. See [Which one to pick](#which-one-to-pick). To use a model you already run, you need nothing else.
+Before you start, see [Which one to pick](#which-one-to-pick).
 
 1. Click **Connections** in the top bar and open the **Jobs** box.
-2. Under **Behind the scenes**, click the **Decision** row. **Model for** opens.
+2. Under **Behind the scenes**, click the **Decision** row. A list opens.
 3. Pick a model. The list has three groups:
    - **None (decisions off)** is the default. Nothing is asked, and the activation question fields in the agent editor stay disabled.
    - **Built-in model** lists the models Marinara runs on your computer: **Built-in model**, **Built-in model (utility)**, and **Built-in model (decisions)**. Nothing leaves your computer.
@@ -20,18 +22,16 @@ A passing test shows the probability of yes and how long the answer took. For a 
 
 If it did not work, the message says why. Common causes: the key was rejected, the service is limiting requests, the built-in model is not running, or the answer was over the time limit. See [Troubleshooting](#troubleshooting).
 
-Entries that cannot answer right now stay in the list, greyed out, with the reason. Choosing **None** turns decisions off without deleting any activation question or decision statement.
+Entries that cannot answer right now stay in the list, gray, with the reason. Choosing **None** turns decisions off without deleting any activation question or decision statement.
 
 ### Which one to pick
 
-| Option | Costs | Needs | Good for |
-| --- | --- | --- | --- |
-| A model you already run in the **Built-in model** | Nothing extra | The Built-in model downloaded | Most people who run it |
-| A chat model on your own server | Nothing extra | Ollama, LM Studio, llama.cpp, or another OpenAI-compatible server | A model that runs outside Marinara, so it is not loaded twice |
-| A hosted Decision account | Billed requests; one turn can make several | An API key (TypeSafe or OpenRouter) | Phones, and computers that run no local model |
-| The **Built-in decision model** | Separate disk and GPU memory | Linux x86-64 and a supported NVIDIA GPU | A separate decision model beside your chat model |
+- **A model you already run in the Built-in model.** Costs nothing extra. Best for most people who use the Built-in model.
+- **A chat model on your own server** (Ollama, LM Studio, llama.cpp, or another OpenAI-compatible server). Costs nothing extra. Good when your model runs outside Marinara, so it is not loaded twice.
+- **A hosted Decision account** (TypeSafe or OpenRouter key). Billed per request, and one turn can make several. Good for phones and computers that run no local model.
+- **The Built-in decision model.** Uses separate disk and GPU memory. Needs Linux x86-64 and a supported NVIDIA GPU. For a separate decision model beside your chat model.
 
-If you already run a local model, try it first. In a small wording test on one roleplay scene, Gemma 4 E4B answered 32 of 32 recommended statements correctly, and Open-Jev 2B and 9B each answered 31. This shows that wording matters. It is not an accuracy ranking. Test turns from your own chats. See [Writing statements](../prompts/conditional-prompts.md#writing-statements).
+If you already run a local model, try it first, and test turns from your own chats. Wording matters a lot. See [Writing statements](../prompts/conditional-prompts.md#writing-statements).
 
 Jev and Open-Jev are different models. Jev is TypeSafe's hosted model, available directly or through OpenRouter. [Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B) is a separately published model built on Qwen, which Marinara can run locally. The Open-Jev tests do not measure hosted Jev.
 
@@ -102,6 +102,87 @@ Some hosted services answer slower than 1.5 seconds at times, which makes decisi
 
 Deleting an account whose key is used for decisions shows a warning. The Decision account then needs relinking, and until then decisions give no answer. Imported connection files never contain API keys or borrowed account links, so restore them by hand.
 
+## Where Marinara uses it
+
+- [Activation questions](../agents/custom-agents.md#activation-questions) decide whether a custom agent runs. Without an answer: the question does not stop it. Keywords and **Trigger Cadence** still apply.
+- [Prompt statements](../prompts/conditional-prompts.md#asking-the-decision-model) choose text when a chat or agent prompt is built. Without an answer: the decision reads as no, so a decision block uses its `{{else}}` branch if there is one.
+- [Lorebook Decision fields](../lorebooks/entries.md#decision-activation) check Require or Trigger during the lorebook scan. Without an answer: require cannot admit a new entry and Trigger adds no route. Sticky holds and ordinary Trigger routes still apply.
+- [Smart response order](../chats/group-chats.md#response-order-individual-only) scores who speaks next in a group chat, if turned on. Without an answer: smart order makes its usual AI call.
+- [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only) asks who is in the scene before each reply in a Merged Roleplay group, if set to **Decision model**. Without an answer: if no character gets an answer, it uses the Character Tracker's last scene, or keeps the list.
+- [Advanced Memory Recall](../agents/memory.md#optional-decision-model) can use its own decision model for Roleplay scene boundaries and memory selection. Turn on **Use Decision model** in that chat's Advanced Memory settings. Without an answer: failed decisions fall back to ordinary recall or scene checks. Summaries still use the Helper model.
+
+An activation question decides whether an agent runs. A decision statement inside its prompt decides what that running agent is told. Use `{{#if decision:"..."}}` for yes-or-no conditions and `{{#if decision_choice:"..." == "..."}}` for a choice among answers.
+
+## What the model sees
+
+For activation questions and prompt and lorebook statements, the model gets the statement and the recent messages as saved in the chat. It does not get your preset, character card, persona, lorebook entries (Constant ones too), summaries, or agent output. Text placed between messages, such as an entry set to **@ Depth**, is left out too. A statement that depends on one of those must state the fact itself.
+
+- Prompt and lorebook statements, Smart response order, and Automate active characters read the last 5 messages. This number is fixed.
+- Activation questions read the agent's **Scan Depth**, 5 by default.
+- Each message carries its speaker's name. Messages hidden from the AI are left out.
+- A check that runs after the reply, such as a post-processing agent's question, also sees the reply that was written.
+- Macros in the statement are filled in first, so `{{char}}` arrives as the character's name.
+- When the messages do not fit the model's budget, older messages are dropped first.
+
+**Smart response order** also sends a roster: each candidate's name, status, activity, and talkativeness when known, plus up to 300 characters of personality or, if empty, description.
+
+**Automate active characters** also sends a roster: each character's name and up to 300 characters of description or, if empty, personality, cut to 100 characters or names alone when a big cast does not fit, plus the names the Character Tracker last saw. If names alone leave too little room for messages, the model is not asked and the Character Tracker stands in. Replies in a Merged group are labeled "the narrator", since one reply voices everyone.
+
+A hosted decision service receives these rosters as well as the messages.
+
+**Advanced Memory** uses its own per-chat decision model and not the last-5 rule. Scene checks read the relevant transcript window. Recall sends recent conversation text and up to 24 shortlisted archived recaps (more if **Maximum recalled scenes** is higher), then original messages from the scenes the model chose, after character access checks. Hosted services receive these texts, sometimes in several batches. Each recall pass normally gets 10 to 25 seconds, sized to the model's speed. Both passes share 40 seconds per reply, so a pass can get less than 10 seconds. Memories with no answer in time fall back to ordinary recall. See [Optional Decision model](../agents/memory.md#optional-decision-model).
+
+## Thresholds
+
+Probabilities are not comparable between models. The same example can score 0.99 on one and 0.2 on another. The default yes-or-no threshold depends on the model:
+
+- **Built-in model, or an OpenAI-compatible chat model account:** 0.5
+- **TypeSafe, OpenRouter, or Custom System One account:** 0.5
+- **Built-in decision model:** The model manifest's recommendation: 0.1 for the Open-Jev 2B and 9B
+
+An agent's **Run when probability is at least** overrides this. The editor offers to restore the model's recommendation when the saved value differs. Check it whenever you switch models. Prompt statements and lorebook Decision fields use the model's default, and an agent's threshold does not change theirs.
+
+A self-hosted Open-Jev behind a Custom System One account still uses 0.5, because Marinara cannot calibrate arbitrary custom endpoints. Its results can differ from the built-in Open-Jev, including reading a positive result below 0.5 as no.
+
+## Time limits
+
+A decision that does not arrive in time gives no answer, and generation continues with the feature's fallback (see [Where Marinara uses it](#where-marinara-uses-it)). Every limit is per statement. A request with several statements gets the limit for each, and each Choice answer counts as a statement. A local model works on only a few requests at a time, so statements wait their turn, and a statement's time starts when the model starts on it.
+
+- **TypeSafe, OpenRouter, or Custom System One account:** 1.5 seconds, or your **Time limit**
+- **OpenAI-compatible chat model account:** 4 seconds, or your **Time limit**. A model that must think first gets at least 20 seconds.
+- **Built-in model:** 4 seconds. A model that must think first gets 20 seconds.
+- **Built-in decision model:** 4 seconds for the first statement. Each further one gets the model's measured time: 0.35 seconds for Open-Jev 2B and 0.8 seconds for Open-Jev 9B. A model you installed from a repository gets 4 seconds for each.
+
+Decision requests stop when you cancel a generation.
+
+## Other settings
+
+These sit in the **Decision settings** gear:
+
+- **Also use it to pick who speaks in Smart response order** is off by default. See [Group Chats](../chats/group-chats.md#response-order-individual-only).
+- **Decision statements per turn** limits prompt and lorebook statement planning. Default 32, up to 255. The allowance applies at several stages and is not a single cap on all requests or spending in a turn. Agent activation questions and Smart response order are separate. See [Limits and cost](../prompts/conditional-prompts.md#limits-and-cost).
+- **Also gate agents that run before the reply** and **Thinking** show for the Built-in model entries that can think. The **Built-in decision model** never reasons, so it has neither.
+
+## Plan for wrong answers
+
+Any model can answer wrongly, and correct yes answers can sit close to the threshold.
+
+- Use a decision to fine-tune a reply, never for something the chat cannot do without. A missed decision should make a reply less tailored, not break it.
+- Do not gate consent, content warnings, or safety instructions on a decision.
+- For an agent that runs only on an activation question, set **Bypass the question after this many messages**, so a model that keeps answering no cannot silence it forever.
+
+## Troubleshooting
+
+- **The test fails.** The message says why: the key was rejected, the service is limiting requests, the built-in model is not running, the decision model is not installed, the model did not answer yes or no, or it ran out of time.
+- **The server has no such endpoint.** The Decision source does not match the server. Ollama, LM Studio, and other chat model servers need **OpenAI-compatible chat model**. **Custom System One endpoint** is only for System One servers such as Open-Jev.
+- **The answer was over the time limit, or decisions work only some of the time.** The service is slower than the **Time limit** at times. Test a few times and raise the limit above the slowest answer.
+- **An agent with an activation question runs every turn.** No decision model is set or it is not answering, so the agent runs as if it had no question. Run a test.
+- **A decision branch in a prompt never appears.** See [When a decision branch never appears](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
+- **Smart response order still makes its usual AI call.** The switch is off, or the decision model did not answer on that turn.
+- **Automate active characters follows the Character Tracker.** The model did not answer for every character, it thinks first and **Also gate agents that run before the reply** is off, or the cast is too big for the model's input even by name.
+
+To see decision scores and outputs during generation, turn on Debug Mode or set the log level to debug. See [Logging levels](../CONFIGURATION.md#logging-levels). To test your own statements without generating a reply, open **Peek Prompt → Decision diagnostics → Test decisions**. Explicit tests call the selected model and can cost money on a hosted service. See [Testing decision statements](../chats/peek-prompt.md#testing-decision-statements).
+
 ## Let Marinara install a decision model
 
 The **Built-in decision model** is an experimental, purpose-built decision model that Marinara downloads and runs as its own local process, beside your chat model. It adds its memory use to your chat model's. If you already have a local model, try its decisions first.
@@ -145,96 +226,7 @@ A model's first answer after it starts is slower, so Marinara asks one warm-up q
 2. Add an **Own decision server** account with the **Server address** `http://127.0.0.1:8000`. Any model name works.
 3. Pick it on the **Decision** row, then test it with **Test provider** in **Edit model**. Its first answer after it starts takes about 2 seconds, longer than the default time limit, so test it once before you chat.
 
-Its probabilities are calibrated, so the default 0.5 threshold suits it, unlike a self-hosted Open-Jev (see [Thresholds](#thresholds)). In a small roleplay test of 80 statements on an RTX 5090, it answered 73 correctly against Open-Jev 2B's 74, and used about 5.1 GB (4.7 GiB) of GPU memory. On a long chat both took about 0.3 seconds. Its answers depend more on wording, so follow [Writing statements](../prompts/conditional-prompts.md#writing-statements).
-
-## Where Marinara uses it
-
-| Feature | Without an answer |
-| --- | --- |
-| [Activation questions](../agents/custom-agents.md#activation-questions) decide whether a custom agent runs. | The question does not stop it. Keywords and **Trigger Cadence** still apply. |
-| [Prompt statements](../prompts/conditional-prompts.md#asking-the-decision-model) choose text when a chat or agent prompt is built. | The decision reads as no, so a decision block uses its `{{else}}` branch if there is one. |
-| [Lorebook Decision fields](../lorebooks/entries.md#decision-activation) check Require or Trigger during the lorebook scan. | Require cannot admit a new entry and Trigger adds no route. Sticky holds and ordinary Trigger routes still apply. |
-| [Smart response order](../chats/group-chats.md#response-order-individual-only) scores who speaks next in a group chat, if turned on. | Smart order makes its usual AI call. |
-| [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only) asks who is in the scene before each reply in a Merged Roleplay group, if set to **Decision model**. | If no character gets an answer, it uses the Character Tracker's last scene, or keeps the list. |
-| [Advanced Memory Recall](../agents/memory.md#optional-decision-model) can use its own decision model for Roleplay scene boundaries and memory selection. Turn on **Use Decision model** in that chat's Advanced Memory settings. | Failed decisions fall back to ordinary recall or scene checks. Summaries still use the Helper model. |
-
-An activation question decides whether an agent runs. A decision statement inside its prompt decides what that running agent is told. Use `{{#if decision:"..."}}` for yes-or-no conditions and `{{#if decision_choice:"..." == "..."}}` for a choice among answers.
-
-## What the model sees
-
-For activation questions and prompt and lorebook statements, the model gets the statement and the recent messages as saved in the chat. It does not get your preset, character card, persona, lorebook entries (Constant ones too), summaries, or agent output. Text placed between messages, such as an entry set to **@ Depth**, is left out too. A statement that depends on one of those must state the fact itself.
-
-- Prompt and lorebook statements, Smart response order, and Automate active characters read the last 5 messages. This number is fixed.
-- Activation questions read the agent's **Scan Depth**, 5 by default.
-- Each message carries its speaker's name. Messages hidden from the AI are left out.
-- A check that runs after the reply, such as a post-processing agent's question, also sees the reply just written.
-- Macros in the statement are filled in first, so `{{char}}` arrives as the character's name.
-- When the messages do not fit the model's budget, older messages are dropped first.
-
-**Smart response order** also sends a roster: each candidate's name, status, activity, and talkativeness when known, plus up to 300 characters of personality or, if empty, description.
-
-**Automate active characters** also sends a roster: each character's name and up to 300 characters of description or, if empty, personality, cut to 100 characters or names alone when a big cast does not fit, plus the names the Character Tracker last saw. If names alone leave too little room for messages, the model is not asked and the Character Tracker stands in. Replies in a Merged group are labeled "the narrator", since one reply voices everyone.
-
-A hosted decision service receives these rosters as well as the messages.
-
-**Advanced Memory** uses its own per-chat decision model and not the last-5 rule. Scene checks read the relevant transcript window. Recall sends recent conversation text and up to 24 shortlisted archived recaps (more if **Maximum recalled scenes** is higher), then original messages from the scenes the model chose, after character access checks. Hosted services receive these texts, sometimes in several batches. Each recall pass normally gets 10 to 25 seconds, sized to the model's speed. Both passes share 40 seconds per reply, so a pass can get less than 10 seconds. Memories with no answer in time fall back to ordinary recall. See [Optional Decision model](../agents/memory.md#optional-decision-model).
-
-## Thresholds
-
-Probabilities are not comparable between models. The same example can score 0.99 on one and 0.2 on another. The default yes-or-no threshold depends on the model:
-
-| Selected model | Default threshold |
-| --- | --- |
-| Built-in model, or an OpenAI-compatible chat model account | 0.5 |
-| TypeSafe, OpenRouter, or Custom System One account | 0.5 |
-| **Built-in decision model** | The model manifest's recommendation: 0.1 for the Open-Jev 2B and 9B |
-
-An agent's **Run when probability is at least** overrides this. The editor offers to restore the model's recommendation when the saved value differs. Check it whenever you switch models. Prompt statements and lorebook Decision fields use the model's default, and an agent's threshold does not change theirs.
-
-A self-hosted Open-Jev behind a Custom System One account still uses 0.5, because Marinara cannot calibrate arbitrary custom endpoints. Its results can differ from the built-in Open-Jev, including reading a positive result below 0.5 as no.
-
-## Time limits
-
-A decision that does not arrive in time gives no answer, and generation continues with the feature's fallback (see [Where Marinara uses it](#where-marinara-uses-it)). Every limit is per statement. A request with several statements gets the limit for each, and each Choice answer counts as a statement. A local model works on only a few requests at a time, so statements wait their turn, and a statement's time starts when the model starts on it.
-
-| Model | Limit per statement |
-| --- | --- |
-| TypeSafe, OpenRouter, or Custom System One account | 1.5 seconds, or your **Time limit** |
-| OpenAI-compatible chat model account | 4 seconds, or your **Time limit**. A model that must think first gets at least 20 seconds. |
-| Built-in model | 4 seconds. A model that must think first gets 20 seconds. |
-| **Built-in decision model** | 4 seconds for the first statement. Each further one gets the model's measured time: 0.35 seconds for Open-Jev 2B and 0.8 seconds for Open-Jev 9B. A model you installed from a repository gets 4 seconds for each. |
-
-Decision requests stop when you cancel a generation.
-
-## Other settings
-
-These sit in the **Decision settings** gear:
-
-- **Also use it to pick who speaks in Smart response order** is off by default. See [Group Chats](../chats/group-chats.md#response-order-individual-only).
-- **Decision statements per turn** limits prompt and lorebook statement planning. Default 32, up to 255. The allowance applies at several stages and is not a single cap on all requests or spending in a turn. Agent activation questions and Smart response order are separate. See [Limits and cost](../prompts/conditional-prompts.md#limits-and-cost).
-- **Also gate agents that run before the reply** and **Thinking** show for the Built-in model entries that can think. The **Built-in decision model** never reasons, so it has neither.
-
-## Plan for wrong answers
-
-Any model can answer wrongly. In the small wording test above, several of Open-Jev 2B's correct yes answers sat just above its threshold.
-
-- Use a decision to fine-tune a reply, never for something the chat cannot do without. A missed decision should make a reply less tailored, not break it.
-- Do not gate consent, content warnings, or safety instructions on a decision.
-- For an agent that runs only on an activation question, set **Bypass the question after this many messages**, so a model that keeps answering no cannot silence it forever.
-
-## Troubleshooting
-
-| Symptom | Fix |
-| --- | --- |
-| The test fails. | The message says why: the key was rejected, the service is limiting requests, the built-in model is not running, the decision model is not installed, the model did not answer yes or no, or it ran out of time. |
-| The server has no such endpoint. | The Decision source does not match the server. Ollama, LM Studio, and other chat model servers need **OpenAI-compatible chat model**. **Custom System One endpoint** is only for System One servers such as Open-Jev. |
-| The answer was over the time limit, or decisions work only some of the time. | The service is slower than the **Time limit** at times. Test a few times and raise the limit above the slowest answer. |
-| An agent with an activation question runs every turn. | No decision model is set or it is not answering, so the agent runs as if it had no question. Run a test. |
-| A decision branch in a prompt never appears. | See [When a decision branch never appears](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears). |
-| Smart response order still makes its usual AI call. | The switch is off, or the decision model did not answer on that turn. |
-| Automate active characters follows the Character Tracker. | The model did not answer for every character, it thinks first and **Also gate agents that run before the reply** is off, or the cast is too big for the model's input even by name. |
-
-To see decision scores and outputs during generation, turn on Debug Mode or set the log level to debug. See [Logging levels](../CONFIGURATION.md#logging-levels). To test your own statements without generating a reply, open **Peek Prompt → Decision diagnostics → Test decisions**. Explicit tests call the selected model and can cost money on a hosted service. See [Testing decision statements](../chats/peek-prompt.md#testing-decision-statements).
+Its probabilities are calibrated, so the default 0.5 threshold suits it, unlike a self-hosted Open-Jev (see [Thresholds](#thresholds)). Its answers depend on wording, so follow [Writing statements](../prompts/conditional-prompts.md#writing-statements).
 
 ## Related guides
 
