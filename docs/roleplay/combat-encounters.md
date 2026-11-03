@@ -4,12 +4,12 @@ A combat encounter gives a Roleplay scene a turn-based battle screen with health
 
 ## Turn on combat
 
-An agent is a helper that runs alongside your chat. The **Combat** agent adds the battle feature. It is off by default, so you turn it on per chat.
+An agent is a helper that runs alongside replies. The **Combat** agent adds the battle feature. It is off by default, so you turn it on per chat.
 
-1. Open the chat and open **Chat Settings** (the button in the chat, top right unless you moved it).
-2. Open **Agents**.
+1. Open the chat. Open **Chat Settings** with the sliders button in the chat.
+2. Go to **Agents**.
 3. Turn on **Enable Agents** if it is off.
-4. Add the **Combat** agent to the chat.
+4. Add the **Combat** agent from the lists below the switch.
 
 An **Encounter** button (crossed swords) now appears above the message box. Its tooltip reads **Start Combat Encounter**.
 
@@ -18,7 +18,7 @@ If it did not work: without the button, the **Combat** agent is not active in th
 ## Start an encounter
 
 1. Click **Encounter**. The **Configure Combat Narrative** box opens. It sets the writing style the AI uses.
-2. Choose the style for **Combat Narration** (while the fight happens) and for **Summary Narration** (the summary written to the chat when it ends). Each group has the same controls.
+2. Choose the style for **Combat Narration** (while the fight happens) and for **Summary Narration** (the summary written to the chat when it ends). Both groups have the same four settings, listed below. The defaults work, so you can click **Begin Combat** right away.
 3. Optional: pick a **Spellbook**. A spellbook is a lorebook (a saved set of world facts) that lists the spells and abilities available in the fight. Leave it on **None** if you do not use one.
 4. Click **Begin Combat**. Click **Cancel** to close the box without a fight.
 
@@ -28,7 +28,7 @@ You see "Initializing combat encounter..." while the AI builds the enemies, your
 | --- | --- |
 | Tense | **Present Tense**, **Past Tense** |
 | Person | **First Person**, **Second Person**, **Third Person** |
-| Narration | **Omniscient** (the narrator knows everything), **Limited** (it knows only what one character knows) |
+| Narration | **Omniscient**: knows everything. **Limited**: knows what one character knows. |
 | Point of view | A text box for whose eyes tell the scene. Leave it blank for a neutral narrator. |
 
 ## Play your turn
