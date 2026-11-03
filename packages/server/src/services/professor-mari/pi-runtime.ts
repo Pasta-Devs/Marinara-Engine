@@ -710,6 +710,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       }
       if (current.text.trim()) {
         state.assistantText = current.text.trim();
+        // #8711: new words, so an earlier round's notice no longer applies to them.
+        state.nothingChanged = false;
         emitRoundText(trace, current.text, onEvent);
       }
       return stopTruncated(current, OUTPUT_LIMIT_STOP);
@@ -777,6 +779,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           ? current.text.trim()
           : HELD_WITHOUT_WORDS;
       state.assistantText = words;
+      state.nothingChanged = false;
       emitRoundText(trace, words, onEvent);
       state.suggestions = [
         MARI_AUTHORIZATION_ACCEPT_CHIP,
@@ -821,6 +824,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         };
       }
       state.assistantText = NOTHING_HELD;
+      state.nothingChanged = false;
       emitRoundText(trace, NOTHING_HELD, onEvent);
       stopRequested = true;
       return "done" as const;
@@ -850,6 +854,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       if (!current.text.trim()) {
         const words = mariQuestionsAsText(questions);
         state.assistantText = words;
+        state.nothingChanged = false;
         emitRoundText(trace, words, onEvent);
       }
       stopRequested = true;

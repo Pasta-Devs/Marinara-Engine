@@ -161,7 +161,14 @@ const mutationOutput = (sentinel: string) =>
   const closing: Array<[text: string, flagged: boolean]> = [
     [draftList, true],
     ['A reply like "The entry is created and the card was updated." reads as a finished change.', false],
-    ["Phrases such as 'it is saved' or 'the change is held for your review' trip the check.", false],
+    // Single quotes are never stripped (too often apostrophes), so a single-quoted example keeps its text with the notice.
+    ["Phrases such as 'it is saved' or 'the change is held for your review' trip the check.", true],
+    // An apostrophe never opens a quote that hides a real claim (the verifier's sentences; staging flags them too).
+    ["The '90s theme is set for the users', and the admins' view stays.", true],
+    ["The '90s theme is set for the twins'.", true],
+    ["The '90s theme is set in the users' 3 profiles.", true],
+    ["The '90s theme is set for the users' **profiles**.", true],
+    ["Got 'em: the palette is saved for the Joneses'.", true],
     ["```text\nstatus: it is saved\nThe change is held for your review.\n```\nThat block is only an example.", false],
     ["Write `the card is updated` in the note, then:\n\n> Your changes are saved.", false],
     ["In Accept edits mode, each change is applied right away and a change card is added under my reply.", true],

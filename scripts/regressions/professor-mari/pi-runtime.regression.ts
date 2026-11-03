@@ -799,6 +799,33 @@ try {
       assert.equal((await lastAssistant(held.chat.id))?.extra.mariNothingChanged, undefined);
     }
     mode = "auto";
+
+    // pi: flagged words beside a rejected `ask` card count as a closing answer, but the run goes on, and words a later
+    // round sets (a held change's line, a wordless card's question) carry no flag of theirs.
+    const rejectedAsk = (id: string): Call => ({ id, name: "ask", args: {} });
+    const tone = { question: "Which tone?", options: [{ label: "Dark" }, { label: "Light" }] };
+    const replaced: Array<[label: string, then: ReturnType<typeof reply>, words: RegExp, manual?: boolean]> = [
+      ["a wordless card", reply("", [{ id: "flag-card", name: "ask", args: { questions: [tone] } }]), /Which tone\?/u],
+      [
+        "a held change",
+        reply("", [{ id: "flag-held", name: "write", args: { path: "flag-held.txt", content: "x", reason: "t" } }]),
+        /^I have changes ready\./u,
+        true,
+      ],
+    ];
+    for (const [label, then, words, manual] of replaced) {
+      mode = manual ? "manual" : "auto";
+      const run = await start(
+        `flag then ${label}`,
+        [reply("Done! Your greeting has been updated.", [rejectedAsk(`flag-ask-${label}`)]), then],
+        "pi",
+      );
+      await run.done;
+      const saved = await lastAssistant(run.chat.id);
+      assert.match(saved?.content ?? "", words, label);
+      assert.equal(saved?.extra.mariNothingChanged, undefined, `${label}: the flag left with the flagged words`);
+    }
+    mode = "auto";
   }
 
   // A model that repeats one invalid tool call is stopped by the repeated-failure rule (pi answers such calls itself).

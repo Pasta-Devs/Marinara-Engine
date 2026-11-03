@@ -2357,12 +2357,12 @@ export function visibleTextAsksApplyPermission(text: string): boolean {
 
 // #8711: a fenced block counts only once it is closed, so an unclosed fence hides nothing after its own line.
 const CLOSED_CODE_FENCE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gmu;
-// A quote pairs within one sentence of one line, and its marks sit away from letters and digits. So an apostrophe
-// ("I've", "'90s") or a plural possessive ("Users' names") never opens or closes one, and a stray mark never hides the
-// words of the next sentence.
+// A quote is a double or curly pair within one sentence of one line, its marks away from letters and digits, so a
+// stray mark never hides the next sentence. Single quotes never count: they are too often apostrophes ("I've", "'90s",
+// "'em", "the twins'"), and a single-quoted example costs at most the notice, never a hidden claim.
 const quotedPhrase = (open: string, close: string) => String.raw`${open}(?:[^${close}\n.!?]|[.!?](?!\s))*${close}`;
 const QUOTED_PHRASE = new RegExp(
-  String.raw`(?<![\p{L}\p{N}])(?:${quotedPhrase('"', '"')}|${quotedPhrase("“", "”")}|${quotedPhrase("'", "'")}(?<![sS]'(?=\s+\p{L})))(?![\p{L}\p{N}])`,
+  String.raw`(?<![\p{L}\p{N}])(?:${quotedPhrase('"', '"')}|${quotedPhrase("“", "”")})(?![\p{L}\p{N}])`,
   "gu",
 );
 
