@@ -11642,8 +11642,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   ...referencedCharacterIds,
                 ]),
               ];
+              // The roster this reply was written with, so its narrator avatars outlast later roster changes (#8762).
+              const previousRosterIds = input.continueMessageId
+                ? parseExtra(savedMsg.extra).mergedRosterCharacterIds
+                : null;
+              extraUpdate.mergedRosterCharacterIds = [
+                ...new Set([
+                  ...(Array.isArray(previousRosterIds)
+                    ? previousRosterIds.filter((id): id is string => typeof id === "string")
+                    : []),
+                  ...characterIds,
+                ]),
+              ];
             } else {
               extraUpdate.referencedCharacterIds = [];
+              extraUpdate.mergedRosterCharacterIds = [];
             }
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
@@ -11809,6 +11822,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 "generationReplay",
                 "lorebookGenerationTriggers",
                 "referencedCharacterIds",
+                "mergedRosterCharacterIds",
               ]);
               // Every fallback-written part keeps its identity, without duplicating the turn's usage.
               if (generationProviderOrigin.fallback) everyPart.generationInfo = generationProviderOrigin;
