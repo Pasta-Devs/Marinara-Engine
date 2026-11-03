@@ -54,6 +54,7 @@ import {
 import { ChatSetupStageMemoryNote } from "./ChatSetupStageMemoryNote";
 import {
   parseData,
+  readCreatorNotes,
   StageAvatar,
   StageEditor,
   type StageAvatarProps,
@@ -354,6 +355,7 @@ export function ChatSetupStage({
     .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
     .slice(0, 3)
     .map((tag) => tag.trim());
+  const hasCreatorNotes = readCreatorNotes(leadCard).length > 0;
   const personaName = personaInfo?.name || null;
   const canPickPersona = (personas?.length ?? 0) >= 2;
   // With one persona the wizard never picked it, so an unset persona stays out of the sentence.
@@ -638,9 +640,27 @@ export function ChatSetupStage({
           ))}
         </button>
       ) : null}
-      {tags.length > 0 && (
-        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs">
-          {[t(`chat.setupStage.tags.${variant}`), ...tags].join(" · ")}
+      {(tags.length > 0 || hasCreatorNotes) && (
+        <p className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs">
+          {tags.length > 0 && (
+            <span className="font-semibold uppercase tracking-[0.18em]">
+              {[t(`chat.setupStage.tags.${variant}`), ...tags].join(" · ")}
+            </span>
+          )}
+          {hasCreatorNotes && (
+            <button
+              type="button"
+              onClick={open("creator-notes")}
+              aria-haspopup="dialog"
+              className={cn(
+                "-my-2 inline-flex min-h-11 cursor-pointer items-center bg-transparent p-0 italic underline decoration-[color-mix(in_srgb,var(--foreground)_30%,transparent)] underline-offset-4 hover:text-[var(--foreground)] md:my-0 md:min-h-0",
+                FOCUS,
+                "rounded-sm",
+              )}
+            >
+              {t("chat.setupStage.creatorNotes")}
+            </button>
+          )}
         </p>
       )}
       <h1

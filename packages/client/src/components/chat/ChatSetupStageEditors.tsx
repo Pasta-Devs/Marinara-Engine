@@ -13,7 +13,7 @@ import {
   type Lorebook,
 } from "@marinara-engine/shared";
 import { chatKeys, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacter, useCharacters, usePersonas } from "../../hooks/use-characters";
 import { usePresets } from "../../hooks/use-presets";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import {
@@ -41,6 +41,8 @@ import { openAddConnection } from "../../lib/add-connection";
 import { api } from "../../lib/api-client";
 import { readCharacterGreetings } from "../../lib/character-greetings";
 import { resolveGreetingPreview } from "../../lib/chat-macros";
+import { extractCreatorNotesCss } from "../../lib/creator-notes-css";
+import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { stripStrayMarkdown } from "../../lib/omnibar-aside-text";
 import { readCardWithQuestions } from "../../lib/onboarding-add-card";
 import { readSetupFields } from "../../lib/chat-setup-memory";
@@ -68,7 +70,7 @@ export interface StageEditorContext {
 }
 
 /** Every stage editor; all but the opening also live in Chat Settings. */
-export type StageEditorSection = StageSettingsSection | "opening";
+export type StageEditorSection = StageSettingsSection | "opening" | "creator-notes";
 
 const TITLES: Record<StageEditorSection, string> = {
   persona: "chat.setupStage.row.persona",
@@ -80,6 +82,7 @@ const TITLES: Record<StageEditorSection, string> = {
   agents: "chat.setupStage.row.helpers",
   background: "chat.setupStage.row.look",
   profile: "chat.setupStage.row.profile",
+  "creator-notes": "chat.setupStage.creatorNotes",
 };
 
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
@@ -119,7 +122,7 @@ function StagePopover({
   const panelRef = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
   const width = wide ? 440 : 360;
-  const drawerSection = section === "opening" ? null : section;
+  const drawerSection = section === "opening" || section === "creator-notes" ? null : section;
 
   useLayoutEffect(() => {
     if (phone) return;
@@ -895,6 +898,23 @@ function SaveProfileForm({ ctx, close }: { ctx: StageEditorContext; close: () =>
   );
 }
 
+/** The card's creator notes as prose; the `<style>` blocks some cards carry are dropped. */
+export function readCreatorNotes(card: Record<string, unknown> | null | undefined): string {
+  const notes = card?.creator_notes;
+  return typeof notes === "string" ? extractCreatorNotesCss(notes).text : "";
+}
+
+/** Read-only creator notes, rendered through the same markdown path as the character page. */
+function CreatorNotesView({ ctx }: { ctx: StageEditorContext }) {
+  const { data } = useCharacter(ctx.chatCharIds[0] ?? null);
+  const notes = readCreatorNotes(parseData((data as { data?: unknown } | undefined)?.data));
+  return (
+    <div className="mari-message-content whitespace-pre-wrap px-3 py-2 text-[13.5px] leading-6 text-[var(--foreground)]">
+      {renderMarkdownBlocks(notes, applyInlineMarkdown, "stage-creator-notes")}
+    </div>
+  );
+}
+
 /** Opens the editor for one stage section in place. */
 export function StageEditor({
   section,
@@ -927,6 +947,8 @@ export function StageEditor({
       />
     ) : section === "profile" ? (
       <ProfileEditor ctx={ctx} close={onClose} />
+    ) : section === "creator-notes" ? (
+      <CreatorNotesView ctx={ctx} />
     ) : (
       <OpeningEditor ctx={ctx} close={onClose} />
     );
@@ -935,7 +957,7 @@ export function StageEditor({
       anchor={anchor}
       section={section}
       chatId={ctx.chat.id}
-      wide={section === "connection" || section === "background"}
+      wide={section === "connection" || section === "background" || section === "creator-notes"}
       onClose={onClose}
     >
       {body}
