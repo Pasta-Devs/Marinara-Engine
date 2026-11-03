@@ -50,7 +50,7 @@ If it did not work: sprites need an uploaded sprite library on the character. Wi
 
 ## The chat tools
 
-The chat's tools (search, branches, summary, active context, Agent activity, Author's Notes, Gallery) are sections of **Chat Settings**. Open it with the sliders button in the chat. See [Chat tools in Chat Settings](../chats/chat-settings.md#chat-tools-in-chat-settings) for what each one does, and how to pop a section out into its own window.
+The chat's tools (search, branches, summary, active context, Agent activity, Author's Notes, Gallery) are sections of **Chat Settings**. Open it with the sliders button in the chat. See [Chat Settings](../chats/chat-settings.md) for what each one does, and [Popping a section out into its own window](../chats/chat-settings.md#popping-a-section-out-into-its-own-window).
 
 ### Author's Notes
 
