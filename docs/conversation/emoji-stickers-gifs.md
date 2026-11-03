@@ -8,6 +8,7 @@ In a Conversation chat, click the round smiley button **Emoji, GIFs & stickers**
 
 - **Emoji**: the standard emoji grid, plus a star tab **Custom emojis** for your uploaded images.
 - **GIFs**: live GIF search.
+- **Kaomoji**: text faces such as `(^_^)`.
 - **Stickers**: your uploaded stickers.
 
 A **Tools** tab also shows when other input tools are on.
@@ -24,7 +25,7 @@ The emoji appears in the **Custom emojis** grid.
 
 Rules:
 
-- A name is 1 to 32 characters: lowercase letters, numbers and underscores. The app cleans other characters for you.
+- A name is 1 to 32 characters: lowercase letters, numbers and underscores. The app changes other characters for you.
 - The image can be at most 256 by 256 pixels. Animated GIF files work and play in the chat.
 - Names must be unique. A taken name shows `An emoji named ":name:" already exists.`
 
@@ -47,14 +48,11 @@ Click **Edit** at the top of the **Custom emojis** tab to turn on edit mode.
 
 ## Custom stickers
 
-A sticker works like a custom emoji for larger images. You write it as `sticker:name:`, and it shows as a big image on its own line. Open the **Stickers** tab. Upload, rename, delete, export and import work the same way, with these differences:
+A sticker is a larger image that shows on its own line. You normally click it in the **Stickers** tab; the text `sticker:name:` is what gets inserted. On the **Stickers** tab, click **Upload** and use **Edit**, **Export** and **Import** as for emojis. The differences:
 
-| | Emoji | Sticker |
-| --- | --- | --- |
-| Upload dialog | **Name this emoji** | **Name this sticker** |
-| Largest image | 256 by 256 pixels | 512 by 512 pixels |
-| Duplicate name error | `An emoji named ":name:" already exists.` | `A sticker named "sticker:name:" already exists.` |
-| Export file | `marinara-custom-emojis.json` | `marinara-custom-stickers.json` |
+- The upload dialog is **Name this sticker**.
+- The largest image is 512 by 512 pixels (emojis: 256 by 256).
+- The export file is `marinara-custom-stickers.json`.
 
 To send a sticker, click its tile. The **Send sticker** dialog offers:
 
@@ -65,19 +63,18 @@ To send a sticker, click its tile. The **Send sticker** dialog offers:
 
 The **GIFs** tab searches Giphy, an online GIF library. Type in the search box or browse the trending list, then click a GIF to send it.
 
-Before you start: GIF search needs a free Giphy API key (the secret code that lets Marinara use the Giphy service for you). Without one, the tab shows a setup card.
+Before you start: GIF search needs a free Giphy API key. A key is a secret code that lets Marinara use the Giphy service for you. Without one, the tab shows a setup card. Setting it up means editing the `.env` file, which is Marinara's plain text settings file. It sits in the Marinara project folder, or at `/app/data/.env` in Docker (see [Where the .env file is](../CONFIGURATION.md#where-the-env-file-is)).
 
 1. Open the Giphy developer dashboard at `https://developers.giphy.com/dashboard/`.
-2. Create an API key for a web app.
-3. Add this line to your `.env` file (the server settings file):
+2. Create an API key for a web app and copy it.
+3. Open the `.env` file in a text editor.
+4. Add this line at the end, with your key in place of `your_key_here`, and save the file:
 
    ```text
    GIPHY_API_KEY=your_key_here
    ```
 
-4. Restart Marinara.
-
-See [Server Configuration Reference](../CONFIGURATION.md) for more about `.env`.
+5. Restart Marinara. That means stop it and start it again the way you normally start it (see [Installation](../INSTALLATION.md)).
 
 GIF results use Giphy's mature rating. You cannot change it in the app, so results can include adult GIFs. There is no safe-only GIF source.
 
@@ -97,17 +94,15 @@ The tag button now shows the name. The same size limits apply, and an image that
 
 Marinara tells the responding character which custom emojis and stickers it may use. To change how it picks them, click the gear **Selection preferences** at the top of the **Custom emojis** or **Stickers** tab. Both open the same setting, saved per chat.
 
-| Mode | What it offers |
-| --- | --- |
-| **Semantic** (default) | The ones that best fit the recent conversation. It uses a local embedder (a small model on your own computer). If that is not available, it falls back to random. |
-| **Random** | A random set each reply. |
-| **Tool-call** | A model picks the fitting ones each reply. Choose a model in the **Select a model…** list. If none is set or it fails, it falls back to semantic. When several characters reply in one group turn, it is skipped and semantic is used. |
+- **Semantic** (default): offers the ones that best fit the recent conversation. It uses a small model on your own computer. If that is not available, it picks at random.
+- **Random**: offers a random set each reply.
+- **Tool-call**: a model picks the fitting ones each reply. Choose a model in **Select a model…**. If none is set or it fails, it uses semantic. It is skipped when several characters reply in one group turn.
 
 **Max offered (each)** is how many emoji names and how many sticker names are offered per turn. The default is 20, from 1 to 100.
 
-## Reactions use only the global pool
+## Reactions use only your main custom emojis
 
-You can react to a message with a custom emoji, but only from your main custom emojis. Gallery-tagged emojis, stickers and GIFs are not available as reactions. See [React and get notified](getting-started.md#react-and-get-notified).
+You can react to a message with a custom emoji, but only from the emojis you uploaded on the **Custom emojis** tab. Gallery-tagged emojis, stickers and GIFs are not available as reactions. See [React and get notified](getting-started.md#react-and-get-notified).
 
 ## Related guides
 
