@@ -29,7 +29,7 @@ The server reads `.env` however you start it. The launchers (`start.bat`, `start
 
 ## Restart or hot reload
 
-Marinara watches `.env` while it runs. Most settings apply within about two seconds, with no restart. The log shows an `[env-watcher]` line for each change. If the watch cannot start, the server checks the file every 30 seconds and says so in the log.
+Marinara watches `.env` while it runs. Most settings apply almost at once, with no restart. The log shows an `[env-watcher]` line for each change. If the watch cannot start, the server checks the file every 30 seconds and says so in the log.
 
 If your edits are not picked up, for example when you edit from another machine or into a container bind mount, set `MARINARA_ENV_WATCH=poll`. To turn the watcher off, set `MARINARA_ENV_WATCH=0`. Both are advanced options.
 
@@ -97,7 +97,7 @@ Generate an encryption key and paste it into `ENCRYPTION_KEY`:
 openssl rand -hex 32
 ```
 
-Marinara keeps your data as plain JSON files, so backups are easy to copy and inspect. For what each folder holds, see [Where Your Data Is Stored](data/where-data-is-stored.md).
+Marinara keeps your data as plain JSON files, so you can copy and read backups. For what each folder holds, see [Where Your Data Is Stored](data/where-data-is-stored.md).
 
 ## Logging levels
 
@@ -108,7 +108,7 @@ Marinara keeps your data as plain JSON files, so backups are easy to copy and in
 | `error` | Serious failures only. |
 | `warn` | Errors and warnings. The default. |
 | `info` | Adds startup and per-request logs. |
-| `debug` | Everything, including full prompts and model replies. Very verbose. |
+| `debug` | Everything, including full prompts and model replies. Produces a lot of output. |
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -220,6 +220,8 @@ Limits and behavior:
 - The host controls automatic or manual replies, **Pause**/**Resume** and **Stop**. The default allowance is 100 coordinated generation turns per hosting session. A group turn or Game setup can make more than one model call. It is a turn limit, not a price estimate.
 - In Game, review the party before **Start Game**. Each required player submits an action or passes, and the GM resolves when all are ready. A disconnected player stays required until they return or the host passes or removes them. Paused or interrupted rounds never repeat a paid request or committed world effects on their own.
 - **Stop**, **Leave**, turning off the setting and a server restart end the live session. A restart never hosts or joins by itself.
+- Custom and package tools and unsafe commands stay unavailable in rooms. Guests never run a scheduler or local commands from received text. Conversation schedules use the host scheduler.
+- New players and persona changes take effect at the next round.
 - Rooms carry bounded text only. There is no file, media, extension or package transfer. The Android native wrapper cannot join.
 
 > **Warning:** Connect only to people you trust, and use your own Marinara client. Never install a host-provided client, extension or file. The host can read what you share, and shared content may go to their AI services. Direct connections reveal network addresses. Do not share passwords, API keys or personal information. Leave at once if anything seems wrong.
