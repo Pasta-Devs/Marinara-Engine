@@ -3011,14 +3011,14 @@ export const ChatMessage = memo(function ChatMessage({
   const mergedCharacterIds = useMemo(
     () => [
       ...resolveMergedAvatarRoster({
-        savedRoster: extra.mergedRosterCharacterIds,
+        extra,
         chatCharacterIds: chatCharacterIds ?? [],
         liveRoster: mergedGroupCharacterIds,
         isLive: !!isStreaming,
       }),
       ...referencedAvatarIds,
     ],
-    [chatCharacterIds, extra.mergedRosterCharacterIds, isStreaming, mergedGroupCharacterIds, referencedAvatarIds],
+    [chatCharacterIds, extra, isStreaming, mergedGroupCharacterIds, referencedAvatarIds],
   );
   const mergedCycleKey = JSON.stringify(mergedCharacterIds);
   const reduceAmbientEffects = useReducedAmbientEffects();

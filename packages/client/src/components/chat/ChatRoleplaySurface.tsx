@@ -462,7 +462,7 @@ function RegeneratingMessageContent({
   const streamingOutputStarted = useChatStore((s) =>
     hasVisibleStreamText(s.streamBuffers.get(msg.chatId) ?? (s.activeChatId === msg.chatId ? s.streamBuffer : "")),
   );
-  // A new swipe replaces the old media and reasoning; a continuation retains them.
+  // A new swipe replaces the old media, reasoning and narrator roster; a continuation retains them.
   const parsedExtra = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
   const cleanExtra = {
     ...parsedExtra,
@@ -473,6 +473,7 @@ function RegeneratingMessageContent({
           roleplayCommandActivity: null,
           roleplayPrivateCommands: null,
           diceRollResult: null,
+          mergedRosterCharacterIds: null,
         }
       : {}),
     thinking: thinkingBuffer || (isContinuation ? parsedExtra.thinking : null),
