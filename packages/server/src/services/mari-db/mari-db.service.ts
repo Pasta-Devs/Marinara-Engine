@@ -225,6 +225,8 @@ type MariCliEnvelope = {
   command?: string;
   cwd?: string;
   sessionId?: string;
+  // Set by Professor Mari's direct runtime (never by the HTTP route): checks a file path before mari images reads it.
+  resolveReadPath?: (path: string) => string;
 };
 
 type MariAppDataActionEnvelope = Row & {
@@ -3102,7 +3104,12 @@ export class MariDbService {
         return await this.executeThemeCommand(argv.slice(1), { command, sessionId, cwd: envelope.cwd });
       }
       if (group === "image" || group === "images" || group === "media") {
-        return await getMariImagesService(this.db).execute(argv.slice(1), { command, sessionId, cwd: envelope.cwd });
+        return await getMariImagesService(this.db).execute(argv.slice(1), {
+          command,
+          sessionId,
+          cwd: envelope.cwd,
+          resolveReadPath: envelope.resolveReadPath,
+        });
       }
       if (group === "wiki" || group === "fandom") {
         return await executeWikiCli(argv.slice(1), { command });

@@ -1,9 +1,9 @@
 // ──────────────────────────────────────────────
 // Professor Mari image command service
 // ──────────────────────────────────────────────
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
-import { basename, extname, join, resolve } from "node:path";
+import { basename, extname, join, relative, resolve } from "node:path";
 import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
@@ -53,6 +53,8 @@ type ImageCommandContext = {
   command: string;
   sessionId: string;
   cwd?: string;
+  // Resolves and checks a file path before it is read (Professor Mari's direct runtime passes her read tool's rule).
+  resolveReadPath?: (path: string) => string;
 };
 
 type ImageConnection = {
@@ -482,8 +484,18 @@ function decodeDataImage(value: string): ResolvedImage | null {
   return { label: "data-url", buffer, base64, mimeType: imageInfo.mimeType, ext: imageInfo.ext };
 }
 
-async function imageFromFile(path: string, label: string): Promise<ResolvedImage> {
-  const buffer = await readFile(path);
+// An asset or app URL names its file inside an app folder, checked as written, but a read follows links and Professor
+// Mari's shell can write into these folders. Read the real path only when it stays inside the real folder: the real
+// data dir plus the folder's place in it, so a linked file and a linked folder are both refused.
+// ponytail: checked, then read by the checked path, so a folder swapped for a link between the two is not caught;
+// opening each path part without following links (O_NOFOLLOW) would close that window.
+function realPathInAppFolder(folder: string, path: string): string {
+  const realPath = realpathSync(path);
+  return assertInsideDir(join(realpathSync(DATA_DIR), relative(DATA_DIR, folder)), realPath);
+}
+
+async function imageFromFile(path: string, label: string, appFolder?: string): Promise<ResolvedImage> {
+  const buffer = await readFile(appFolder ? realPathInAppFolder(appFolder, path) : path);
   const imageInfo = isAllowedImageBuffer(buffer, extname(path));
   if (!imageInfo) throw new Error(`Unsupported or invalid image file: ${label}`);
   return {
@@ -503,7 +515,7 @@ function safeUrlPath(value: string) {
   }
 }
 
-function appImagePathFromUrl(value: string): { path: string; label: string; url: string } | null {
+function appImagePathFromUrl(value: string): { path: string; folder: string; label: string; url: string } | null {
   const pathname = safeUrlPath(value);
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] !== "api") return null;
@@ -514,6 +526,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!chatId || !filename) return null;
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, join(GALLERY_DIR, chatId), filename),
+      folder: GALLERY_DIR,
       label: `gallery:${chatId}/${filename}`,
       url: pathname,
     };
@@ -532,6 +545,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const root = join(GALLERY_DIR, "personas", personaId);
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, root, filename),
+      folder: GALLERY_DIR,
       label: `persona-gallery:${personaId}/${filename}`,
       url: pathname,
     };
@@ -543,6 +557,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const root = join(GALLERY_DIR, "characters", characterId);
     return {
       path: resolveOwnedGalleryPath(GALLERY_DIR, root, filename),
+      folder: GALLERY_DIR,
       label: `character-gallery:${characterId}/${filename}`,
       url: pathname,
     };
@@ -552,6 +567,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename)),
+      folder: AVATAR_DIR,
       label: `avatar:${filename}`,
       url: pathname,
     };
@@ -561,6 +577,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename)),
+      folder: LOREBOOK_IMAGE_DIR,
       label: `lorebook-image:${filename}`,
       url: pathname,
     };
@@ -570,6 +587,7 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     if (!filename) return null;
     return {
       path: assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename)),
+      folder: BACKGROUND_DIR,
       label: `background:${filename}`,
       url: pathname,
     };
@@ -579,7 +597,12 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
     const filename = decodeSafePathSegment(parts[4]);
     if (!ownerId || !filename) return null;
     const root = join(SPRITES_DIR, ownerId);
-    return { path: assertInsideDir(root, join(root, filename)), label: `sprite:${ownerId}/${filename}`, url: pathname };
+    return {
+      path: assertInsideDir(root, join(root, filename)),
+      folder: root,
+      label: `sprite:${ownerId}/${filename}`,
+      url: pathname,
+    };
   }
 
   return null;
@@ -717,7 +740,7 @@ export class MariImagesService {
       imageDefaults,
     });
     const size = this.resolveSize(flags, kind, imageSettings);
-    const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context.cwd, true) : null;
+    const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
 
     return {
       ok: true,
@@ -759,7 +782,7 @@ export class MariImagesService {
       throw new Error(`No edit-capable image connection selected. ${capability.notes.join(" ")}`);
     }
 
-    const sourceImage = operation === "edit" ? await this.resolveSourceImage(flags, target, context.cwd, true) : null;
+    const sourceImage = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
     const imageSettings = await loadImageGenerationUserSettings(this.db);
     const imageDefaults = resolveConnectionImageDefaults(connection);
     const kind = detectImageKind(target, flagString(flags, "kind"));
@@ -916,25 +939,25 @@ export class MariImagesService {
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required: true,
   ): Promise<ResolvedImage>;
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required?: false,
   ): Promise<ResolvedImage | null>;
   private async resolveSourceImage(
     flags: Map<string, string | boolean>,
     target: ImageTarget | null,
-    cwd: string | undefined,
+    context: ImageCommandContext,
     required = false,
   ): Promise<ResolvedImage | null> {
     const explicit = flagString(flags, "source", "source-image", "asset", "from");
-    if (explicit) return this.resolveImageReference(explicit, cwd);
+    if (explicit) return this.resolveImageReference(explicit, context);
     const targetImage = target ? await this.currentImageReferenceForTarget(target) : null;
-    if (targetImage) return this.resolveImageReference(targetImage, cwd);
+    if (targetImage) return this.resolveImageReference(targetImage, context);
     if (required)
       throw new Error(
         "Image editing requires --source <asset-id|app-url|file|data-url>, or a target that already has an image.",
@@ -999,7 +1022,7 @@ export class MariImagesService {
     return `/api/characters/${encodeURIComponent(characterId)}/gallery/file/${encodeURIComponent(filename)}`;
   }
 
-  private async resolveImageReference(value: string, cwd?: string): Promise<ResolvedImage> {
+  private async resolveImageReference(value: string, context: ImageCommandContext): Promise<ResolvedImage> {
     const data = decodeDataImage(value);
     if (data) return data;
 
@@ -1015,13 +1038,14 @@ export class MariImagesService {
       const image = await imageFromFile(
         assertInsideDir(PREVIEW_DIR, join(PREVIEW_DIR, asset.filename)),
         `asset:${asset.id}`,
+        PREVIEW_DIR,
       );
       return { ...image, url: asset.url, asset };
     }
 
     const appPath = appImagePathFromUrl(value);
     if (appPath) {
-      const image = await imageFromFile(appPath.path, appPath.label);
+      const image = await imageFromFile(appPath.path, appPath.label, appPath.folder);
       return { ...image, url: appPath.url };
     }
 
@@ -1033,7 +1057,10 @@ export class MariImagesService {
         return { label: "base64", buffer, base64: base64ish, mimeType: imageInfo.mimeType, ext: imageInfo.ext };
     }
 
-    const filePath = resolve(cwd?.trim() ? cwd : process.cwd(), value);
+    // Anything else is a file path. Check it before imageFromFile opens it, so a refused file is never read.
+    const filePath = context.resolveReadPath
+      ? context.resolveReadPath(value)
+      : resolve(context.cwd?.trim() ? context.cwd : process.cwd(), value);
     return imageFromFile(filePath, value);
   }
 
@@ -1046,7 +1073,7 @@ export class MariImagesService {
       throw new Error(
         "Assign target cannot be asset; use mari images delete --target asset --asset <id> to manage preview assets.",
       );
-    const source = await this.resolveSourceImage(flags, null, context.cwd, true);
+    const source = await this.resolveSourceImage(flags, null, context, true);
 
     if (!hasFlag(flags, "apply")) {
       return {

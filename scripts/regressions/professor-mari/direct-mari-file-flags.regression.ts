@@ -1,8 +1,10 @@
 // Simple `mari ...` commands run in the server process, outside the shell sandbox, and --json-file, --file and
-// --css-file read the file they name. Those paths follow the read tool's rule: inside the workspace, and never .env,
-// the encryption key or Git internals. Ordinary workspace payload files keep working.
+// --css-file read the file they name, as does a `mari images` source given as a file. Those paths follow the read
+// tool's rule: inside the workspace, and never .env, the encryption key or Git internals. Ordinary workspace payload
+// files, and image sources given as an asset id, app URL or data URL, keep working. An asset id or app URL names a file
+// in an app folder, and is read only while its real path stays inside that folder (no link out of it).
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -16,7 +18,9 @@ const originalEnv = { DATA_DIR: process.env.DATA_DIR, FILE_STORAGE_DIR: process.
 mkdirSync(join(workspace, "packages", "server", "data"), { recursive: true });
 mkdirSync(join(workspace, "payloads"), { recursive: true });
 mkdirSync(join(dataDir, "storage"), { recursive: true });
-process.env.DATA_DIR = dataDir;
+// DATA_DIR is reached through a link, as on a host where it sits behind one: real app images must still load.
+symlinkSync(dataDir, join(root, "data-link"), "dir");
+process.env.DATA_DIR = join(root, "data-link");
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 
 const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
@@ -71,6 +75,68 @@ try {
   const allowed = await bash("mari themes create --name Purple --css-file payloads/theme.css");
   assert.equal(allowed.success, true, allowed.output);
   assert.match(allowed.output, /rebeccapurple/u, "a payload file inside the workspace is still read");
+
+  // `mari images` --source, --source-image and --from take an asset id, an app URL, a data URL or a file. Only the
+  // file form reads a path Mari names, so only it follows the same rule.
+  const PNG = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const previewDir = join(dataDir, "gallery", "mari-images");
+  mkdirSync(join(dataDir, "backgrounds"), { recursive: true });
+  mkdirSync(previewDir, { recursive: true });
+  writeFileSync(join(root, "outside.png"), PNG);
+  writeFileSync(join(workspace, "payloads", "pixel.png"), PNG);
+  writeFileSync(join(dataDir, "backgrounds", "dusk.png"), PNG);
+  writeFileSync(join(previewDir, "preview-1.png"), PNG);
+  // Links planted in the app folders: a file linked out of its folder, and an app subfolder that is itself a link.
+  mkdirSync(join(root, "outside-sprites"));
+  mkdirSync(join(dataDir, "sprites"), { recursive: true });
+  writeFileSync(join(root, "outside-sprites", "smile.png"), PNG);
+  symlinkSync(join(root, "outside.png"), join(dataDir, "backgrounds", "linked.png"), "file");
+  symlinkSync(
+    join(workspace, "packages", "server", "data", ".encryption-key"),
+    join(dataDir, "backgrounds", "key.png"),
+  );
+  symlinkSync(join(root, "outside-sprites"), join(dataDir, "sprites", "linked-owner"), "dir");
+  symlinkSync(join(root, "outside.png"), join(previewDir, "preview-linked.png"), "file");
+  const previewAsset = (id: string) => ({
+    id,
+    filename: `${id}.png`,
+    filePath: `mari-images/${id}.png`,
+    url: `/api/gallery/file/mari-images/${id}.png`,
+  });
+  writeFileSync(
+    join(previewDir, "manifest.json"),
+    JSON.stringify([previewAsset("preview-1"), previewAsset("preview-linked")]),
+  );
+  const assign = "mari images assign --target background";
+  const refusedImages: Array<[string, RegExp]> = [
+    [`${assign} --source ${join(root, "outside.png")}`, /escapes the workspace/u],
+    [`${assign} --source-image=../outside.png`, /escapes the workspace/u],
+    [`${assign} --from .env`, /cannot access secret files/u],
+    [`${assign} --source packages/server/data/.encryption-key`, /cannot access secret files/u],
+    [`${assign} --source /api/backgrounds/file/linked.png`, /escapes the allowed directory/u],
+    [`${assign} --source /api/backgrounds/file/key.png`, /escapes the allowed directory/u],
+    [`${assign} --source /api/sprites/linked-owner/file/smile.png`, /escapes the allowed directory/u],
+    [`${assign} --asset preview-linked`, /escapes the allowed directory/u],
+  ];
+  for (const [command, refusal] of refusedImages) {
+    const result = await bash(command);
+    assert.equal(result.success, false, `${command}\n${result.output}`);
+    assert.match(result.output, refusal, command);
+  }
+  const allowedImages: Array<[string, string]> = [
+    [`${assign} --source payloads/pixel.png`, '"source": "payloads/pixel.png"'],
+    [`${assign} --source /api/backgrounds/file/dusk.png`, '"source": "background:dusk.png"'],
+    [`${assign} --source data:image/png;base64,${PNG.toString("base64")}`, '"source": "data-url"'],
+    [`${assign} --asset preview-1`, '"source": "asset:preview-1"'],
+  ];
+  for (const [command, source] of allowedImages) {
+    const result = await bash(command);
+    assert.equal(result.success, true, `${command}\n${result.output}`);
+    assert.ok(result.output.includes(source), `${command} reads its image:\n${result.output}`);
+  }
   console.log("Professor Mari direct mari file-flag regression passed.");
 } finally {
   await db._fileStore.close();
