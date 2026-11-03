@@ -1322,7 +1322,7 @@ export function endPromptOnAssistantPrefill<
   if (!visible && !prefill.providerMetadata)
     return { endsOnPrefill: false, opensReply: false, ...(userPrefill && { userPrefill }) };
   messages.push({ ...prefill, content: visible.trimEnd() });
-  return { endsOnPrefill: true, opensReply: !!visible };
+  return { endsOnPrefill: true, opensReply: !!visible, ...(userPrefill && { userPrefill }) };
 }
 
 export function resolveActiveCharacterIds(

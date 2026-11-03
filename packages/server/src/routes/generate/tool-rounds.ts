@@ -340,20 +340,23 @@ export async function runToolRounds(ctx: ToolRoundsContext, fullResponse: string
       // This list is already provider-formatted. Keep any assistant
       // prefill at the tail and do not apply message prefixes twice.
       const withToolResults = [...ctx.initialMessages];
-      // A user-turn prefill was merged into the last user message: split it back out so it stays last.
-      const last = withToolResults.at(-1);
+      // The prompt's tail stays last: the results go before an assistant prefill or reasoning stub, and
+      // before a user-turn prefill that was merged into the last user message (split back out here).
       const prefillTail: ChatMessage[] = [];
+      if (ctx.assistantPrefillInjected && withToolResults.at(-1)?.role === "assistant") {
+        prefillTail.unshift(withToolResults.pop()!);
+      }
+      const last = withToolResults.at(-1);
       if (ctx.userPrefill && last?.role === "user" && last.content.endsWith(ctx.userPrefill)) {
         const head = last.content.slice(0, -ctx.userPrefill.length).trimEnd();
         withToolResults.pop();
         if (head) withToolResults.push({ ...last, content: head });
         // Attachments stay on one message: the head, or the tail when the head is empty.
-        prefillTail.push(head ? { role: last.role, content: ctx.userPrefill } : { ...last, content: ctx.userPrefill });
+        prefillTail.unshift(
+          head ? { role: last.role, content: ctx.userPrefill } : { ...last, content: ctx.userPrefill },
+        );
       }
-      const resultIndex =
-        ctx.assistantPrefillInjected && withToolResults.at(-1)?.role === "assistant"
-          ? withToolResults.length - 1
-          : withToolResults.length;
+      const resultIndex = withToolResults.length;
       withToolResults.splice(resultIndex, 0, {
         role: "user",
         content:
