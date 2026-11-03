@@ -17,7 +17,7 @@ The integration is a small piece of software that installs inside Home Assistant
 - Marinara running and reachable from the Home Assistant machine. The default address is `localhost:7860`.
 - `WEBHOOK_LOCAL_URLS_ENABLED=true` in Marinara's `.env` file.
 
-The `.env` file is the plain text settings file for the Marinara server. See [Server Configuration](../CONFIGURATION.md) for where it is. The integration uses a webhook, a web address that lets one app send data to another. Home Assistant's webhook is a local, plain `http` address, and Marinara blocks those by default for safety. This setting allows them. Add this line and save. It takes effect within a couple of seconds, with no restart:
+The `.env` file is the plain text settings file for the Marinara server. See [Server Configuration](../CONFIGURATION.md) for where it is. The integration uses a webhook, a web address that lets one app send data to another. Home Assistant's webhook is a local, plain `http` address, and Marinara blocks those by default for safety. This setting allows them. Add this line and save. It takes effect without a restart, usually within seconds (up to about 30 seconds):
 
 ```text
 WEBHOOK_LOCAL_URLS_ENABLED=true
