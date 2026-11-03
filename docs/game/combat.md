@@ -39,7 +39,7 @@ Tactical combat places your party and the enemies on a grid battlefield. Each sq
 4. For **Attack**, the board says **Select an enemy**. Click one. The attack forecast shows the expected result. Click **Confirm** to commit. **← Back** goes back one step.
 5. Click **End Turn** when you are done. In the party-first turn order, the **Enemy Phase** then plays.
 
-To skip the forecast, or if the board shows **Resolving…**, wait a moment. If the fight cannot continue, the screen offers **Retry battle** or **Restart**.
+If the board shows **Resolving…**, wait a moment. **Restart** restarts the battle from the beginning on the same battlefield, after you confirm.
 
 Who acts when depends on **Turn order**. See [Turn order](#turn-order). Hand-made boards and terrain rules are in [Tactical battles and terrain](#tactical-battles-and-terrain).
 
