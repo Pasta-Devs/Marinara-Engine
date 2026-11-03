@@ -979,7 +979,7 @@ function forgotPasswordHint(): string {
   }
   return docker
     ? "Forgot the password? On the computer that runs Docker, run <code>docker exec &lt;container&gt; node scripts/reset-login.mjs</code>, then set a new login."
-    : "Forgot the password? On the computer that runs Marinara, run <code>pnpm reset-login</code> in the Marinara Engine folder, then set a new login.";
+    : "Forgot the password? On the computer that runs Marinara (Termux included), run <code>node scripts/reset-login.mjs</code> in the Marinara Engine folder, then set a new login.";
 }
 
 function renderLoginPage(next: string, error?: PageError): string {
