@@ -2,13 +2,13 @@
 
 Every character and persona has a small chat-app profile for Conversation Mode: a display name, an "about me" bio and a behavior instruction. These fields are never used in Roleplay or Game Mode.
 
-This is not a settings profile (a saved set of chat options, see [Settings Profiles](../chats/settings-profiles.md)). New to the mode? Read [Conversation Mode: Getting Started](getting-started.md) first. A persona is the character that stands for you (`{{user}}`).
+This is not a settings profile (a saved set of chat options, see [Settings Profiles](../chats/settings-profiles.md)). New to the mode? Read [Conversation Mode: Getting Started](getting-started.md) first. A persona is the character card that stands for you.
 
 ## Where these fields live
 
 The fields are on a tab named **Convo**.
 
-1. Open the character in the **Character Editor**, or the persona in the **Persona Editor**.
+1. Open the character in the **Character Editor**, or the persona in the **Persona Editor**. To get there, open the **Characters** panel from the sidebar, or the **Personas** panel from the person icon in the right sidebar top bar, then click the card (see [Creating and Editing Characters](../characters/creating-and-editing-characters.md) and [User Personas](../characters/personas.md)).
 2. Click the **Convo** tab.
 
 The tab holds **Convo Display Name**, **About Me** and **Convo Behavior**. On a character it also has **Weekly schedule** (with **Edit schedule** or **Create schedule**, see [schedules](schedules.md)) and **Image generation instructions**, optional directions for that character's selfies (see [Selfies](selfies.md)).
@@ -17,7 +17,7 @@ The tab holds **Convo Display Name**, **About Me** and **Convo Behavior**. On a 
 
 **Convo Display Name** is the name shown in Conversation chats. Leave it blank to use the card name. Existing messages update right away.
 
-Characters also have **Declare this name on the card in the prompt**. When on, Marinara adds a line like "Conversation display name: X" to the card text, so the model knows which card uses which name. It needs a display name first.
+Characters also have **Declare this name on the card in the prompt**. When on, Marinara adds a line like "Conversation display name: X" to the card text in the prompt (the text Marinara sends to the model), so the model knows which card uses which name. It needs a display name first.
 
 ## Write an About Me
 
@@ -33,7 +33,7 @@ If it did not work: the wand button is missing on a card that is not saved yet. 
 
 ## Set Convo Behavior
 
-**Convo Behavior** is an instruction for how the character or persona acts in Conversation Mode, for example: keep replies short and lowercase, and text like a real person. Use **Insertion** to choose where it goes in the prompt:
+**Convo Behavior** is an instruction for how the character or persona acts in Conversation Mode, for example: keep replies short and lowercase, and text like a real person. Post-history instructions are prompt text placed after the recent chat history. Keep the default if you are not writing custom prompts. Use **Insertion** to choose where the instruction goes in the prompt:
 
 | Option | Where the instruction goes |
 | --- | --- |
@@ -43,8 +43,6 @@ If it did not work: the wand button is missing on a card that is not saved yet. 
 | **Prepend to post-history** | At the start of the post-history instructions. |
 | **Replace post-history** | In place of the post-history instructions. |
 | **Only where {{convo_behavior}} is placed** | Only where you put the macro in a custom prompt. |
-
-Post-history instructions are prompt text placed after the recent chat history. Keep the default if you are not writing custom prompts.
 
 ## Chat-specific About Me overrides
 
@@ -60,16 +58,16 @@ The card **About Me** is the default everywhere. You can set a different bio for
 
 ## Let a character change its own About Me
 
-The `update_about_me` tool lets a character edit its own bio during a chat. It is off by default. In **Chat Settings → Function Calling**, turn on **Enable Tool Use**, then add the `update_about_me` tool.
+This is an advanced option. A tool called `update_about_me` lets a character edit its own bio during a chat. It is off by default. To use it, open **Chat Settings → Function Calling**, turn on **Enable Tool Use**, then add the `update_about_me` tool.
 
-The character picks one of two scopes:
+The character picks one of two choices:
 
 - Public changes the real bio seen in every chat. You approve it first.
 - Chat changes a bio private to the current chat.
 
 ## Macros for custom prompts
 
-You do not need macros for profiles to reach the model. Use them only to place a value in an exact spot in a custom prompt. Each resolves to nothing outside Conversation Mode. See [Macros](../prompts/macros.md).
+You do not need macros for profiles to reach the model. Use them only to place a value in an exact spot in a custom prompt. Each is empty outside Conversation Mode. See [Macros](../prompts/macros.md).
 
 | Macro | Value |
 | --- | --- |
