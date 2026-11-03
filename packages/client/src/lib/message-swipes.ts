@@ -29,3 +29,18 @@ export async function addSilentGreetingSwipes(chatId: string, messageId: string,
     });
   }
 }
+
+/** Posts a character's greeting as the chat's first message, with its alternates as swipes. */
+export async function postGreetingWithSwipes(
+  chatId: string,
+  characterId: string,
+  greeting: string,
+  alternates?: readonly string[],
+) {
+  const msg = await api.post<{ id: string }>(`/chats/${chatId}/messages`, {
+    role: "assistant",
+    content: greeting,
+    characterId,
+  });
+  if (msg?.id && alternates?.length) await addSilentGreetingSwipes(chatId, msg.id, alternates);
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-const { backgroundLabel, presetChoiceSummary, shouldShowSetupStage, stageTagline, chatTurnTaken } =
+const { lorebookSwitchWrite, backgroundLabel, presetChoiceSummary, shouldShowSetupStage, stageTagline, chatTurnTaken } =
   await import("../../packages/client/src/lib/chat-setup-stage.js");
 
 const base = { chatId: "c1", mode: "roleplay", stageChatId: "c1", setupComplete: undefined, messages: [] };
@@ -61,5 +61,18 @@ const blocks = [
 ];
 assert.equal(presetChoiceSummary(blocks, { tone: "a", pov: ["3rd"] }), "An adventure, Third person");
 assert.equal(presetChoiceSummary(blocks, {}), null);
+
+// World switches write like Chat Settings.
+const book = (isPinned: boolean, isExcluded: boolean, ...activeReasons: string[]) => ({
+  isPinned,
+  isExcluded,
+  activeReasons,
+});
+assert.deepEqual(lorebookSwitchWrite("b", book(true, false, "Chat"), ["a", "b"], []), { activeLorebookIds: ["a"] });
+assert.deepEqual(lorebookSwitchWrite("b", book(false, false, "Character"), [], ["x"]), {
+  excludedLorebookIds: ["x", "b"],
+});
+assert.deepEqual(lorebookSwitchWrite("b", book(false, true, "Global"), [], ["b"]), { excludedLorebookIds: [] });
+assert.deepEqual(lorebookSwitchWrite("b", undefined, ["a"], []), { activeLorebookIds: ["a", "b"] });
 
 console.log("chat-setup-stage regression passed");

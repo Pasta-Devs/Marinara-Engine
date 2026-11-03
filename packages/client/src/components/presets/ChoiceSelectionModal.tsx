@@ -76,27 +76,13 @@ function fallbackChoiceSelection(variable: VariableData): string | string[] | un
   return variable.options[0]?.value;
 }
 
-export function ChoiceSelectionModal(props: ChoiceSelectionModalProps) {
-  return <ChatChoiceSelectionModal key={`${props.chatId}:${props.presetId}`} {...props} />;
-}
-
-function ChatChoiceSelectionModal({
-  open,
-  onClose,
-  presetId,
-  chatId,
-  onConfirm,
-  existingChoices = {},
-  chatFloatingPanel = false,
-}: ChoiceSelectionModalProps) {
-  const { t: localizeUi } = useUiTranslation();
+/** A preset's variables and the choices that apply to a chat: saved ones, then the preset's defaults, then a fallback. */
+export function usePresetChoiceVariables(
+  presetId: string | null,
+  existingChoices: Record<string, string | string[]> = {},
+) {
   const { data } = usePresetFull(presetId);
   const isLoading = !data && !!presetId;
-  const updateMetadata = useUpdateChatMetadata();
-  const updatePreset = useUpdatePreset();
-
-  const [saveAsDefault, setSaveAsDefault] = useState(false);
-
   // Parse variables from preset data
   const variables = useMemo<VariableData[]>(() => {
     if (!data?.choiceBlocks) return [];
@@ -157,6 +143,28 @@ function ChatChoiceSelectionModal({
     }
     return initial;
   }, [variables, existingChoices, defaultChoices, fallbackSelections]);
+  return { variables, baseSelections, isLoading };
+}
+
+export function ChoiceSelectionModal(props: ChoiceSelectionModalProps) {
+  return <ChatChoiceSelectionModal key={`${props.chatId}:${props.presetId}`} {...props} />;
+}
+
+function ChatChoiceSelectionModal({
+  open,
+  onClose,
+  presetId,
+  chatId,
+  onConfirm,
+  existingChoices = {},
+  chatFloatingPanel = false,
+}: ChoiceSelectionModalProps) {
+  const { t: localizeUi } = useUiTranslation();
+  const { variables, baseSelections, isLoading } = usePresetChoiceVariables(presetId, existingChoices);
+  const updateMetadata = useUpdateChatMetadata();
+  const updatePreset = useUpdatePreset();
+
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
 
   // User overrides (only written when user clicks an option).
   // Reset when modal re-opens so stale overrides don't persist.

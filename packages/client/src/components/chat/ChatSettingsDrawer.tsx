@@ -120,7 +120,7 @@ import { PromptPresetSection } from "../../features/chat-settings/sections/Promp
 import { SceneInstructionsSection } from "../../features/chat-settings/sections/SceneInstructionsSection";
 import { TranslationSection } from "../../features/chat-settings/sections/TranslationSection";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
-import type { AutoActiveCharactersMode, AvatarCrop, MultiplayerHostAction } from "@marinara-engine/shared";
+import type { AutoActiveCharactersMode, AvatarCrop } from "@marinara-engine/shared";
 import {
   AVATAR_AGENT_IDS,
   BUILT_IN_AGENT_IDS,
@@ -288,7 +288,6 @@ import {
   useSetActiveChatPreset,
 } from "../../hooks/use-chat-presets";
 import type {
-  AgentPhase,
   AgentPromptTemplateOption,
   ChatMode,
   ChatMemoryChunk,
@@ -342,10 +341,7 @@ import {
   CONVERSATION_COMMAND_KEYS,
   CHAT_SUMMARY_OUTPUT_TOKENS,
   getDefaultBuiltInAgentSettings,
-  isAgentManifestAvailableInChatMode,
   isAgentConfigDeleted,
-  isBuiltInAgentRuntimeDisabled,
-  isRetiredBuiltInAgentId,
   mergeBuiltInAgentSettings,
   normalizeManualTrackerAgentTypes,
   normalizeAgentPromptTemplateOptions,
@@ -371,6 +367,8 @@ import {
   type CustomToolRow,
 } from "../../hooks/use-custom-tools";
 import { normalizeSpritePlacements } from "./sprite-placement";
+import { useChatCast } from "../../hooks/use-chat-cast";
+import { useAvailableChatAgents, type AvailableAgent } from "../../hooks/use-available-chat-agents";
 import {
   normalizeSpriteCharacterVisualSettingsMap,
   type LocalSpriteVisualSettings,
@@ -410,8 +408,6 @@ import {
   MultiplayerPlayersSection,
   type MultiplayerGameStart,
 } from "../../features/multiplayer/MultiplayerHostControls";
-import { multiplayerGuestErrorLabelKey } from "../../features/multiplayer/multiplayer-guest-labels";
-import { multiplayerActionError, useMultiplayerMutation } from "../../hooks/use-multiplayer";
 
 const QuickPresetSectionsEditor = lazy(() =>
   import("../presets/PresetEditor").then((module) => ({ default: module.QuickPresetSectionsEditor })),
@@ -783,17 +779,6 @@ const CHAT_PRESET_UNAPPLIED_SELECT_VALUE = "__chat_preset_unapplied__";
 const DEFAULT_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE = 25;
 const MAX_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE = 100;
 
-type AvailableAgent = {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  phase: AgentPhase;
-  builtIn: boolean;
-  runtimeDisabled?: boolean;
-  execution?: "pipeline" | "feature" | "host";
-};
-
 type DrawerPersona = {
   id: string;
   name: string;
@@ -1007,7 +992,6 @@ export function ChatSettingsDrawer({
   const agentSuiteCloseGuardRef = useRef<(() => Promise<boolean>) | null>(null);
   const drawerClosingRef = useRef(false);
   const updateChat = useUpdateChat();
-  const roomRoster = useMultiplayerMutation<unknown, MultiplayerHostAction>("/multiplayer/host/actions");
   const updateMeta = useUpdateChatMetadata();
   const updateTranslationMeta = useUpdateChatMetadata({ serialize: true });
   // Generation waits for queued saves, so the next reply uses the narration mode shown here (#6959).
@@ -1848,48 +1832,7 @@ export function ChatSettingsDrawer({
     },
     [agentConfigsByType],
   );
-  // Build the available agent list: built-in + custom agents from DB
-  // Mode capabilities decide which built-ins are exposed for each chat mode.
-  // Custom agents are user-authored and can be attached to any chat mode.
-  const availableAgents = useMemo(() => {
-    const agents: AvailableAgent[] = [];
-    for (const a of installedAgentManifests) {
-      if (a.libraryHidden) continue;
-      if (!isAgentManifestAvailableInChatMode(chatMode, a)) continue;
-      const existing = agentConfigsByType.get(a.id);
-      if (existing && isAgentConfigDeleted(existing.settings)) continue;
-      agents.push({
-        id: a.id,
-        name: a.name,
-        description: existing?.description ?? a.description,
-        category: a.category,
-        phase: normalizeAgentPhaseForType(a.id, existing?.phase ?? a.phase),
-        builtIn: true,
-        runtimeDisabled: isBuiltInAgentRuntimeDisabled(a.id),
-        execution: a.execution,
-      });
-    }
-    // Custom agents from DB
-    if (agentConfigs) {
-      for (const c of agentConfigs as AgentConfigRow[]) {
-        if (isAgentConfigDeleted(c.settings)) continue;
-        if (isRetiredBuiltInAgentId(c.type)) continue;
-        if (!installedAgentIds.has(c.type)) {
-          agents.push({
-            id: c.type,
-            name: c.name,
-            description: c.description,
-            category: "custom",
-            phase: normalizeAgentPhaseForType(c.type, c.phase),
-            builtIn: false,
-            runtimeDisabled: false,
-            execution: "pipeline",
-          });
-        }
-      }
-    }
-    return agents;
-  }, [agentConfigs, agentConfigsByType, chatMode, installedAgentIds, installedAgentManifests]);
+  const availableAgents = useAvailableChatAgents(chatMode);
   const visibleActiveAgentIds = useMemo(
     () => activeAgentIds.filter((agentId) => availableAgents.some((agent) => agent.id === agentId)),
     [activeAgentIds, availableAgents],
@@ -3105,108 +3048,30 @@ export function ChatSettingsDrawer({
   }, [firstMesConfirm, createMessage, chat.id, qc, localizeUi]);
 
   // ── Mutations ──
-  const syncGamePartyMetadata = (nextCharacterIds: string[]) => {
-    if (!isGame) return;
-    const storedPartyIds: unknown[] = Array.isArray(metadata.gamePartyCharacterIds)
-      ? metadata.gamePartyCharacterIds
-      : Array.isArray((metadata.gameSetupConfig as { partyCharacterIds?: unknown[] } | undefined)?.partyCharacterIds)
-        ? (metadata.gameSetupConfig as { partyCharacterIds: unknown[] }).partyCharacterIds
-        : [];
-    const npcPartyIds = storedPartyIds.filter((id): id is string => typeof id === "string" && id.startsWith("npc:"));
-    const nextPartyIds = Array.from(new Set([...nextCharacterIds, ...npcPartyIds]));
-    const gameSetupConfig =
-      metadata.gameSetupConfig && typeof metadata.gameSetupConfig === "object"
-        ? { ...(metadata.gameSetupConfig as Record<string, unknown>), partyCharacterIds: nextPartyIds }
-        : metadata.gameSetupConfig;
-    updateMeta.mutate({
-      id: chat.id,
-      gamePartyCharacterIds: nextPartyIds,
-      ...(gameSetupConfig ? { gameSetupConfig } : {}),
-    });
-  };
-
-  // A removed character also leaves the chat's sprite and inactive-character lists.
-  const clearRemovedCharacterMetadata = (charId: string) => {
-    if (spriteCharacterIds.includes(charId)) {
-      const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
-      delete nextSpritePlacements[charId];
-      delete nextSpritePlacements[`${charId}:expressions`];
-      delete nextSpritePlacements[`${charId}:full-body`];
-      updateMeta.mutate({
-        id: chat.id,
-        spriteCharacterIds: spriteCharacterIds.filter((id) => id !== charId),
-        spritePlacements: nextSpritePlacements,
+  const { toggleCharacter, changeRoomCharacters, hostedRoom } = useChatCast({
+    chatId: chat.id,
+    metadata,
+    chatCharIds,
+    isGame,
+    onRemoved: (charId) => setPendingAddedCard((pending) => (pending?.charId === charId ? null : pending)),
+    onAdded: (charId, current) => {
+      // Skip auto-greeting for conversation mode
+      if (isConversation) return;
+      // A new chat on its setup stage opens with one greeting: the first character's.
+      if (current.length > 1 && useChatStore.getState().setupStageChatId === chat.id) return;
+      const char = characters.find((c) => c.id === charId);
+      if (!char) return;
+      const { greetings, dialogueColor } = readCharacterGreetings(char.data);
+      // The card's questions (if any) open first; the effect below then shows the greeting.
+      setPendingAddedCard({
+        charId,
+        greeting:
+          greetings.length > 0
+            ? { charId, charName: charName(char), dialogueColor, greetings, selectedIndex: 0 }
+            : null,
       });
-    }
-    if (inactiveCharacterIds.includes(charId)) {
-      updateMeta.mutate({
-        id: chat.id,
-        inactiveCharacterIds: inactiveCharacterIds.filter((id) => id !== charId),
-      });
-    }
-  };
-
-  // A hosted room keeps its AI roster in the room, so roster changes go through the room and replies keep working.
-  const hostedRoom = metadata.multiplayer?.role === "host";
-  const changeRoomCharacters = async (add: string[], remove: string[]) => {
-    try {
-      for (const characterId of remove) {
-        await roomRoster.mutateAsync({ type: "remove-character", characterId });
-        clearRemovedCharacterMetadata(characterId);
-      }
-      for (const characterId of add)
-        await roomRoster.mutateAsync({ type: "add-character", characterId, role: "character" });
-    } catch (error) {
-      const code = multiplayerActionError(error);
-      toast.error(t(code === "identity-conflict" ? multiplayerGuestErrorLabelKey(code) : "multiplayer.actionFailed"));
-    }
-  };
-
-  const toggleCharacter = (charId: string) => {
-    if (hostedRoom) {
-      const removing = chatCharIds.includes(charId);
-      void changeRoomCharacters(removing ? [] : [charId], removing ? [charId] : []);
-      return;
-    }
-    const current = [...chatCharIds];
-    const idx = current.indexOf(charId);
-    if (idx >= 0) {
-      current.splice(idx, 1);
-      updateChat.mutate(
-        { id: chat.id, characterIds: current },
-        {
-          onSuccess: () => syncGamePartyMetadata(current),
-        },
-      );
-      clearRemovedCharacterMetadata(charId);
-      setPendingAddedCard((pending) => (pending?.charId === charId ? null : pending));
-    } else {
-      current.push(charId);
-      updateChat.mutate(
-        { id: chat.id, characterIds: current },
-        {
-          onSuccess: () => {
-            syncGamePartyMetadata(current);
-            // Skip auto-greeting for conversation mode
-            if (isConversation) return;
-            // A new chat on its setup stage opens with one greeting: the first character's.
-            if (current.length > 1 && useChatStore.getState().setupStageChatId === chat.id) return;
-            const char = characters.find((c) => c.id === charId);
-            if (!char) return;
-            const { greetings, dialogueColor } = readCharacterGreetings(char.data);
-            // The card's questions (if any) open first; the effect below then shows the greeting.
-            setPendingAddedCard({
-              charId,
-              greeting:
-                greetings.length > 0
-                  ? { charId, charName: charName(char), dialogueColor, greetings, selectedIndex: 0 }
-                  : null,
-            });
-          },
-        },
-      );
-    }
-  };
+    },
+  });
 
   const toggleCharacterActivity = (charId: string) => {
     if (!supportsCharacterActivityToggle) return;

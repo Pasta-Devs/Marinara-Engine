@@ -72,3 +72,20 @@ export function presetChoiceSummary(
   });
   return labels.length ? labels.join(", ") : null;
 }
+
+/**
+ * What a World switch on the setup stage writes, the same as Chat Settings: a book pinned to the chat
+ * leaves its list, an auto-activated one (character, global, persona) toggles the exclude list,
+ * and any other book joins the chat's list.
+ */
+export function lorebookSwitchWrite(
+  id: string,
+  view: { isPinned: boolean; isExcluded: boolean; activeReasons: readonly string[] } | undefined,
+  activeIds: readonly string[],
+  excludedIds: readonly string[],
+): { activeLorebookIds: string[] } | { excludedLorebookIds: string[] } {
+  if (view?.isPinned) return { activeLorebookIds: activeIds.filter((x) => x !== id) };
+  if (view?.activeReasons.some((reason) => reason !== "Chat"))
+    return { excludedLorebookIds: view.isExcluded ? excludedIds.filter((x) => x !== id) : [...excludedIds, id] };
+  return { activeLorebookIds: [...activeIds, id] };
+}

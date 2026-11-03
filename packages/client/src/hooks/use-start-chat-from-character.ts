@@ -5,7 +5,7 @@ import { useChatStore } from "../stores/chat.store";
 import { chatKeys, useCreateChat } from "./use-chats";
 import { useApplyChatPreset, useChatPresets } from "./use-chat-presets";
 import { connectionListQuery } from "./use-connections";
-import { addSilentGreetingSwipes } from "../lib/message-swipes";
+import { postGreetingWithSwipes } from "../lib/message-swipes";
 import { readCardWithQuestions } from "../lib/onboarding-add-card";
 
 type ChatMode = "roleplay" | "conversation" | "game";
@@ -98,14 +98,7 @@ export function useStartChatFromCharacter() {
 
               if (mode !== "roleplay" || useWizard || !greeting?.trim()) return;
               try {
-                const msg = await api.post<{ id: string }>(`/chats/${chat.id}/messages`, {
-                  role: "assistant",
-                  content: greeting,
-                  characterId,
-                });
-                if (msg?.id && alternates?.length) {
-                  await addSilentGreetingSwipes(chat.id, msg.id, alternates);
-                }
+                await postGreetingWithSwipes(chat.id, characterId, greeting, alternates);
                 queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
               } catch {
                 /* non-fatal: don't block the new chat if greeting injection fails */

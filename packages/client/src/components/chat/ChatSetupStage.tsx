@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactElement, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   BookOpen,
@@ -28,7 +28,7 @@ import {
   getChatActiveLorebookIds,
   getChatExcludedLorebookIds,
 } from "../../lib/chat-lorebooks";
-import { requestChatSettingsSectionOpen, type StageSettingsSection } from "../../lib/chat-floating-ui-events";
+import { StageEditor, type StageEditorSection } from "./ChatSetupStageEditors";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import {
   backgroundLabel,
@@ -216,12 +216,15 @@ export function ChatSetupStage({
   const look = backgroundLabel(chatBackground);
   const profile = chatPresets?.find((p) => p.id === chatMeta.appliedChatPresetId && !p.isDefault) ?? null;
 
-  const open = (section: StageSettingsSection) => requestChatSettingsSectionOpen(chat.id, section);
-  const cycleGreeting = () => {
-    if (first && greetingCount > 1) onSetActiveSwipe(first.id, (greetingIndex + 1) % greetingCount);
+  const [editor, setEditor] = useState<{ section: StageEditorSection; anchor: HTMLElement } | null>(null);
+  const closeEditor = useCallback(() => setEditor(null), []);
+  const open = (section: StageEditorSection) => (event: MouseEvent<HTMLElement>) => {
+    const anchor = event.currentTarget;
+    setEditor((current) => (current?.anchor === anchor ? null : { section, anchor }));
   };
+  const openGreeting = open(first ? "opening" : "characters");
 
-  const word = (onClick: () => void, label: string) => (
+  const word = (onClick: (event: MouseEvent<HTMLElement>) => void, label: string) => (
     <button
       type="button"
       onClick={onClick}
@@ -235,22 +238,22 @@ export function ChatSetupStage({
   );
   const sentenceComponents: Record<string, ReactElement> = {
     persona: canPickPersona ? (
-      word(() => open("persona"), t("chat.setupStage.a11y.persona", { value: personaName }))
+      word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaName }))
     ) : (
       <span />
     ),
     cast: word(
-      () => open("characters"),
+      open("characters"),
       t("chat.setupStage.a11y.cast", { value: castNames ?? t("chat.setupStage.chooseCharacter") }),
     ),
-    greeting: word(cycleGreeting, t("chat.setupStage.a11y.greeting", { value: greetingWord })),
+    greeting: word(openGreeting, t("chat.setupStage.a11y.greeting", { value: greetingWord })),
     preset: word(
-      () => open("prompt-preset"),
+      open("prompt-preset"),
       t("chat.setupStage.a11y.preset", { value: presetName ?? t("chat.setupStage.defaultPreset") }),
     ),
   };
 
-  const lineItems: Array<{ key: string; icon: ReactNode; text: string | null; section: StageSettingsSection }> = [
+  const lineItems: Array<{ key: string; icon: ReactNode; text: string | null; section: StageEditorSection }> = [
     { key: "model", icon: <Cpu />, text: narrator?.name ?? null, section: "connection" },
     { key: "world", icon: <BookOpen />, text: lorebookText, section: "lorebooks" },
     { key: "helpers", icon: <Sparkles />, text: helperText, section: "agents" },
@@ -259,7 +262,13 @@ export function ChatSetupStage({
   ];
 
   const none = t("chat.setupStage.none");
-  const allRows: Array<{ key: string; icon: ReactNode; label: string; value: string; onClick: () => void }> = [
+  const allRows: Array<{
+    key: string;
+    icon: ReactNode;
+    label: string;
+    value: string;
+    onClick: (event: MouseEvent<HTMLElement>) => void;
+  }> = [
     {
       key: "cast",
       icon: <Users />,
@@ -269,7 +278,7 @@ export function ChatSetupStage({
           ? t("chat.setupStage.row.castWithPersona", { cast: castNames, persona: personaName })
           : castNames
         : t("chat.setupStage.chooseCharacterRow"),
-      onClick: () => open("characters"),
+      onClick: open("characters"),
     },
     {
       key: "opening",
@@ -280,7 +289,7 @@ export function ChatSetupStage({
         : greetingCount > 1
           ? t("chat.setupStage.row.openingValue", { index: greetingIndex + 1, count: greetingCount })
           : t("chat.setupStage.row.openingSingle"),
-      onClick: first && greetingCount > 1 ? cycleGreeting : () => open("characters"),
+      onClick: openGreeting,
     },
     {
       key: "style",
@@ -293,7 +302,7 @@ export function ChatSetupStage({
         calm && typeof chatMeta.customSystemPrompt === "string" && chatMeta.customSystemPrompt.trim()
           ? t("chat.setupStage.row.customPrompt")
           : (styleSummary ?? presetName ?? t("chat.setupStage.row.defaultPreset")),
-      onClick: () => open("prompt-preset"),
+      onClick: open("prompt-preset"),
     },
     {
       key: "world",
@@ -302,35 +311,35 @@ export function ChatSetupStage({
         ? t("chat.setupStage.row.worldLinked", { character: linkedCharacter })
         : t("chat.setupStage.row.world"),
       value: lorebookText ?? none,
-      onClick: () => open("lorebooks"),
+      onClick: open("lorebooks"),
     },
     {
       key: "narrator",
       icon: <Cpu />,
       label: followsMain ? t("chat.setupStage.row.narratorMain") : t("chat.setupStage.row.narrator"),
       value: narrator?.name ?? none,
-      onClick: () => open("connection"),
+      onClick: open("connection"),
     },
     {
       key: "helpers",
       icon: <Sparkles />,
       label: t("chat.setupStage.row.helpers"),
       value: helperText ?? none,
-      onClick: () => open("agents"),
+      onClick: open("agents"),
     },
     {
       key: "look",
       icon: <ImageIcon />,
       label: t("chat.setupStage.row.look"),
       value: look ?? t("chat.setupStage.row.defaultLook"),
-      onClick: () => open("background"),
+      onClick: open("background"),
     },
     {
       key: "profile",
       icon: <Bookmark />,
       label: profile?.isActive ? t("chat.setupStage.row.profileFavourite") : t("chat.setupStage.row.profile"),
       value: profile?.name ?? none,
-      onClick: () => open("profile"),
+      onClick: open("profile"),
     },
   ];
 
@@ -347,7 +356,7 @@ export function ChatSetupStage({
       )}
     >
       <Play size="0.875rem" aria-hidden />
-      {t("chat.setupStage.begin")}
+      {t("chat.setupStage.start")}
     </button>
   );
   const toggleButton = (
@@ -475,7 +484,7 @@ export function ChatSetupStage({
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => open(item.section)}
+                  onClick={open(item.section)}
                   className={cn(
                     "inline-flex min-h-11 max-w-full items-center gap-[7px] rounded-md hover:text-[var(--foreground)] md:min-h-8 [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:flex-none [&>svg]:text-[var(--primary)] [&>svg]:opacity-90",
                     FOCUS,
@@ -498,6 +507,14 @@ export function ChatSetupStage({
           <MessageSquare size="0.8rem" aria-hidden className="text-[var(--primary)]" />
           {t("chat.setupStage.firstMessage")}
         </p>
+      )}
+      {editor && chat && (
+        <StageEditor
+          section={editor.section}
+          anchor={editor.anchor}
+          onClose={closeEditor}
+          ctx={{ variant, chat, chatMeta, chatCharIds, characterMap, personaInfo, first, onSetActiveSwipe }}
+        />
       )}
     </section>
   );
