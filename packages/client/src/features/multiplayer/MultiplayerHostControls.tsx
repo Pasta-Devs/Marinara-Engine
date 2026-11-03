@@ -459,7 +459,15 @@ export function MultiplayerGenerationFailed({ host }: { host: MultiplayerHostSta
           {t("multiplayer.host.retryRound")}
         </button>
       )}
-      {action.isError && <p className="w-full text-[var(--destructive)]">{t("multiplayer.host.retryRefused")}</p>}
+      {action.isError && (
+        <p className="w-full text-[var(--destructive)]">
+          {t(
+            snapshot.usage.generations >= snapshot.usage.maxGenerations
+              ? "multiplayer.host.retryLimitReached"
+              : "multiplayer.host.retryRefused",
+          )}
+        </p>
+      )}
     </div>
   );
 }

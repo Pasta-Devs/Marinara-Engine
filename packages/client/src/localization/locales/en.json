@@ -5899,6 +5899,7 @@
   "multiplayer.host.requests": "Join requests",
   "multiplayer.host.resume": "Resume session",
   "multiplayer.host.resumeHelp": "Resuming an interrupted Game starts the next round. It does not retry an uncertain AI response or repeat world changes.",
+  "multiplayer.host.retryLimitReached": "This round can't be tried again yet: the session has used all its allowed AI generations. Raise Maximum AI generations in Chat Settings, then try again.",
   "multiplayer.host.retryRefused": "This round can't be tried again: the Game Master already wrote part of it. Resume session in Chat Settings starts the next round.",
   "multiplayer.host.retryRound": "Try the round again",
   "multiplayer.host.review": "Review shared session",

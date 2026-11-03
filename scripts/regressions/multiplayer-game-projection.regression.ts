@@ -254,5 +254,26 @@ assert.equal(
   const nobody = projectMultiplayerGame(own);
   assert.deepEqual([nobody.ownRolls, nobody.bag], [[], []]);
   assert.ok(!JSON.stringify(guest).includes("Map of the coast"), "another's bag never reaches a guest");
+  // A check whispered to its player is theirs, by the audience the reply was saved with.
+  const whispered = (extra: unknown) => ({
+    ...own,
+    messages: [
+      {
+        role: "assistant",
+        content: `[GM][whisper:Rowan]You sense a lie. ${check("Rowan", "Insight", 15, "success")}`,
+        extra,
+      },
+    ],
+  });
+  const bound = whispered({ multiplayerGameAudience: audience });
+  const insight = [{ skill: "Insight", total: 15, dc: 12, success: true }];
+  assert.deepEqual(projectMultiplayerGame({ ...bound, viewerId: "guest_fixture" }).ownRolls, insight);
+  assert.deepEqual(projectMultiplayerGame({ ...bound, viewerId: "host_fixture" }).ownRolls, []);
+  assert.deepEqual(projectMultiplayerGame(bound).rolls, [], "a whispered check stays out of the public rolls");
+  assert.deepEqual(
+    projectMultiplayerGame({ ...whispered({}), viewerId: "guest_fixture" }).ownRolls,
+    [],
+    "a whisper with no saved audience stays private",
+  );
 }
 process.stdout.write("Multiplayer Game projection regression passed.\n");
