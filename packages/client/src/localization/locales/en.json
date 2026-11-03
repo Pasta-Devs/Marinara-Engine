@@ -1973,6 +1973,7 @@
   "connections.builtin.whichModel": "Which model?",
   "connections.check.again": "Check again",
   "connections.check.blocked": "Marinara does not connect to this address from the server.",
+  "connections.check.busy": "The server is busy ({{status}}). Check again in a moment.",
   "connections.check.checking": "Checking…",
   "connections.check.keyRejected": "Key not accepted ({{status}}). Check that you copied all of it.",
   "connections.check.keyWorks": "Key works",

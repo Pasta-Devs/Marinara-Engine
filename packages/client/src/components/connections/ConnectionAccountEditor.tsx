@@ -178,7 +178,10 @@ export function ConnectionAccountEditor({
   });
   const check = accessCheckFields(
     accessCheck,
-    { hasAddress: !!(draft?.baseUrl ?? account?.baseUrl)?.trim(), hasKey: !!apiKey?.trim() || !!account?.hasApiKey },
+    {
+      hasAddress: !!(draft?.baseUrl ?? account?.baseUrl)?.trim(),
+      hasKey: apiKey === null ? !!account?.hasApiKey : !!apiKey.trim(),
+    },
     t,
   );
   const recheck = () => void accessCheck.recheck();

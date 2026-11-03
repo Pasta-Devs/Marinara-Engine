@@ -292,6 +292,8 @@ export type AccessCheck =
       reachable: boolean;
       /** The server's own policy refused the address. */
       blocked?: boolean;
+      /** The provider answered 429 or 5xx: busy, not a wrong address. */
+      transient?: boolean;
       keyOk: boolean | null;
       modelCount: number | null;
       status: number | null;
@@ -322,7 +324,8 @@ export function useAccessCheck(input: {
         },
         { signal },
       ),
-    enabled: !!input.provider,
+    // Only send what the form still holds: after Back and a new service, the debounced values are stale.
+    enabled: !!input.provider && typedUrl === baseUrl && typedKey === apiKey,
     staleTime: 30_000,
     gcTime: 60_000,
     retry: false,

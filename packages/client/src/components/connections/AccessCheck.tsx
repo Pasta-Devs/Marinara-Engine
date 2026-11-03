@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { AccessCheck } from "../../hooks/use-connections";
 import { cn } from "../../lib/utils";
 
-export type FieldCheckState = "idle" | "checking" | "ok" | "warn" | "bad";
+export type FieldCheckState = "idle" | "checking" | "ok" | "warn" | "bad" | "busy";
 export type FieldCheck = { state: FieldCheckState; text: string };
 
 const IDLE: FieldCheck = { state: "idle", text: "" };
@@ -27,6 +27,8 @@ export function accessCheckFields(
   if (input.hasAddress) {
     if (result.blocked) address = { state: "warn", text: t("connections.check.blocked") };
     else if (!result.reachable) address = { state: "warn", text: t("connections.check.noAnswer") };
+    else if (result.transient)
+      address = { state: "busy", text: t("connections.check.busy", { status: result.status ?? "" }) };
     else if (result.error && !rejected)
       address = { state: "warn", text: t("connections.check.wrongAddress", { status: result.status ?? "" }) };
     else if (rejected && !input.hasKey) address = { state: "ok", text: t("connections.check.needsKey") };
@@ -94,11 +96,11 @@ export function CheckLine({ id, check, onRecheck }: { id: string; check: FieldCh
         check.state === "ok" && "text-emerald-500",
         check.state === "warn" && "text-[var(--warning)]",
         check.state === "bad" && "text-[var(--destructive)]",
-        check.state === "checking" && "text-[var(--muted-foreground)]",
+        (check.state === "checking" || check.state === "busy") && "text-[var(--muted-foreground)]",
       )}
     >
       {check.text}
-      {onRecheck && (check.state === "warn" || check.state === "bad") && (
+      {onRecheck && (check.state === "warn" || check.state === "bad" || check.state === "busy") && (
         <>
           {" · "}
           <button

@@ -1706,7 +1706,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const models = normalizeModelsResponse(conn.provider, json);
       return { models };
     } catch (err) {
-      logger.warn(err, "Model discovery failed for connection %s", conn.id);
+      if (conn.id) logger.warn(err, "Model discovery failed for connection %s", conn.id);
+      else logger.debug(err, "Live check: model discovery failed");
       // Node's fetch hides socket/DNS failures in Error.cause. Keep the code
       // visible without exposing provider headers, credentials or response bodies.
       const cause = err instanceof Error ? err.cause : undefined;
@@ -1819,25 +1820,17 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return this;
       },
     };
-    const pending = discoverConnectionModels(conn, sink as unknown as FastifyReply);
-    // ponytail: this only stops waiting; the fetch runs on until the OS gives up. Pass a signal into discovery if that matters.
-    const timedOut = await Promise.race([
-      pending.then(() => false),
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(true), CHECK_TIMEOUT_MS).unref()),
-    ]);
-    if (timedOut) {
-      return { ok: false as const, status: undefined, error: "No answer in time", unreachable: true, blocked: false };
-    }
-    const discovered = await pending;
+    const discovered = await discoverConnectionModels(conn, sink as unknown as FastifyReply);
     if ((discovered as unknown) === sink) {
       const body = sink.body as { error?: unknown; unreachable?: boolean; blocked?: boolean } | undefined;
       const error = String(body?.error ?? "Model list request failed");
       const unreachable = body?.unreachable === true;
       const blocked = body?.blocked === true;
       // The provider's own status is inside the message ("Provider returned 429: ..."); a network failure has none.
-      const status =
-        Number(/returned (\d{3})/.exec(error)?.[1] ?? (unreachable || blocked ? 0 : sink.code)) || undefined;
-      return { ok: false as const, status, error, unreachable, blocked };
+      const providerStatus = Number(/returned (\d{3})/.exec(error)?.[1]) || undefined;
+      const status = providerStatus ?? (Number(unreachable || blocked ? 0 : sink.code) || undefined);
+      const transient = providerStatus === 429 || (providerStatus ?? 0) >= 500;
+      return { ok: false as const, status, error, unreachable, blocked, transient };
     }
     return { ok: true as const, ...(discovered as Exclude<typeof discovered, FastifyReply>) };
   };
@@ -1868,13 +1861,25 @@ export async function connectionsRoutes(app: FastifyInstance) {
     if (!baseUrl)
       return { supported: true, reachable: false, keyOk: null, modelCount: null, status: null, error: null };
 
-    const discovered = await discoverQuietly({
-      provider,
-      baseUrl,
-      apiKey,
-      model: "",
-      treatAsLocalEndpoint: account?.treatAsLocalEndpoint ?? "false",
-    } as Parameters<typeof discoverQuietly>[0]);
+    // ponytail: this only stops waiting; the fetch runs on until the OS gives up. Pass a signal into discovery if that matters.
+    const timedOut = {
+      ok: false as const,
+      status: undefined,
+      error: "No answer in time",
+      unreachable: true,
+      blocked: false,
+      transient: false,
+    };
+    const discovered = await Promise.race([
+      new Promise<typeof timedOut>((resolve) => setTimeout(() => resolve(timedOut), CHECK_TIMEOUT_MS).unref()),
+      discoverQuietly({
+        provider,
+        baseUrl,
+        apiKey,
+        model: "",
+        treatAsLocalEndpoint: account?.treatAsLocalEndpoint ?? "false",
+      } as Parameters<typeof discoverQuietly>[0]),
+    ]);
     if (!discovered.ok) {
       const status = discovered.status ?? null;
       const rejected = status === 401 || status === 403;
@@ -1883,6 +1888,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         // Any HTTP answer means the address is right; no answer means nothing listens there.
         reachable: !discovered.unreachable,
         blocked: discovered.blocked || undefined,
+        transient: discovered.transient || undefined,
         keyOk: apiKey && rejected ? false : null,
         modelCount: null,
         status,
@@ -1891,7 +1897,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
 
     // OpenRouter and NanoGPT list models for any key, so their key has its own check.
-    let keyOk: boolean | null = apiKey ? true : null;
+    let keyOk: boolean | null = apiKey && provider !== "custom" ? true : null;
     let status: number | null = null;
     const keyCheck = apiKey ? buildKeyCheck(provider, normalizeConnectionTestBaseUrl(baseUrl, provider)) : null;
     if (keyCheck) {
