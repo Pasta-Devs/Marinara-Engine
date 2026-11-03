@@ -64,7 +64,6 @@ import {
   ChevronDown,
   Globe,
   Users,
-  UserRound,
   Drama,
   X,
   ArrowUpDown,
@@ -89,6 +88,7 @@ import {
 } from "lucide-react";
 import { cn, copyToClipboard } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { api } from "../../lib/api-client";
 import {
@@ -197,158 +197,6 @@ function getKeywordPreviewMatches(entries: LorebookEntry[], text: string) {
 }
 
 // ── Types ──
-type LinkedResourceItem = {
-  id: string;
-  name: string;
-  description?: string | null;
-  deleted?: boolean;
-};
-
-function LinkedResourcePicker({
-  label,
-  help,
-  emptyText,
-  addLabel,
-  searchPlaceholder,
-  icon,
-  items,
-  selectedIds,
-  search,
-  onSearchChange,
-  isOpen,
-  onOpen,
-  onClose,
-  onAdd,
-  onRemove,
-}: {
-  label: string;
-  help: string;
-  emptyText: string;
-  addLabel: string;
-  searchPlaceholder: string;
-  icon: ReactNode;
-  items: LinkedResourceItem[];
-  selectedIds: string[];
-  search: string;
-  onSearchChange: (value: string) => void;
-  isOpen: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-  onAdd: (id: string) => void;
-  onRemove: (id: string) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const selectedItems = selectedIds.map(
-    (id) =>
-      items.find((item) => item.id === id) ?? {
-        id,
-        name: "(deleted)",
-        description: id,
-        deleted: true,
-      },
-  );
-  const availableItems = items.filter(
-    (item) =>
-      !selectedIds.includes(item.id) &&
-      [item.name, item.description ?? ""].some((value) => includesTextForMatch(value, search)),
-  );
-
-  return (
-    <div>
-      <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
-        {label} <HelpTooltip text={help} />
-      </label>
-
-      {selectedItems.length === 0 ? (
-        <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{emptyText}</p>
-      ) : (
-        <div className="flex flex-col gap-1">
-          {selectedItems.map((item) => (
-            <div
-              key={item.id}
-              className="mari-editor-panel mari-editor-panel--soft flex items-center gap-2.5 px-3 py-2"
-            >
-              <span className="mari-chrome-accent-icon mari-accent-animated">{icon}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs">{item.name}</span>
-                {item.description && (
-                  <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                    {item.description}
-                  </span>
-                )}
-              </span>
-              <button
-                onClick={() => onRemove(item.id)}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                title={localizeUi("ui.lorebooks.linkedresourcepicker.removeValue1", { value1: item.name })}
-              >
-                <X size="0.6875rem" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!isOpen ? (
-        <button
-          onClick={onOpen}
-          className="mari-editor-empty mt-2 flex w-full items-center justify-center gap-1.5 px-3 py-2 text-xs text-[var(--marinara-editor-muted)] transition-colors hover:border-[var(--marinara-editor-border-strong)] hover:text-[var(--marinara-editor-text)]"
-        >
-          <Plus size="0.75rem" /> {addLabel}
-        </button>
-      ) : (
-        <div className="mari-editor-panel mt-2 overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-[var(--marinara-editor-divider)] px-3 py-2">
-            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-            <input
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder={searchPlaceholder}
-              autoFocus
-              className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--marinara-editor-muted)]"
-            />
-            <button
-              onClick={onClose}
-              className="text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
-            >
-              <X size="0.75rem" />
-            </button>
-          </div>
-          <div className="max-h-40 overflow-y-auto">
-            {availableItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onAdd(item.id)}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--marinara-editor-control-bg-hover)]"
-              >
-                <span className="mari-chrome-accent-icon mari-accent-animated">{icon}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs">{item.name}</span>
-                  {item.description && (
-                    <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                      {item.description}
-                    </span>
-                  )}
-                </span>
-                <Plus size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-              </button>
-            ))}
-            {availableItems.length === 0 && (
-              <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                {items.length === selectedItems.length
-                  ? localizeUi("ui.lorebooks.linkedresourcepicker.allValue1AlreadyAdded", {
-                      value1: label.toLowerCase(),
-                    })
-                  : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 const TABS = [
   { id: "overview", label: "Overview", icon: Settings2 },
   { id: "entries", label: "Entries", icon: FileText },
@@ -757,10 +605,6 @@ export function LorebookEditor() {
   const [formPersonaIds, setFormPersonaIds] = useState<string[]>([]);
   const [formTags, setFormTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
-  const [characterLinkSearch, setCharacterLinkSearch] = useState("");
-  const [personaLinkSearch, setPersonaLinkSearch] = useState("");
-  const [characterLinkPickerOpen, setCharacterLinkPickerOpen] = useState(false);
-  const [personaLinkPickerOpen, setPersonaLinkPickerOpen] = useState(false);
 
   const characterNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -2617,68 +2461,52 @@ export function LorebookEditor() {
                         </div>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           {/* Character Link */}
-                          <LinkedResourcePicker
-                            label={localizeUi("ui.lorebooks.lorebookeditor.linkedCharacters")}
-                            help={localizeUi(
-                              "ui.lorebooks.lorebookeditor.whenLinkedToCharactersThisLorebookAutoActivatesIn",
-                            )}
-                            emptyText={localizeUi("ui.lorebooks.lorebookeditor.noCharactersSelected")}
-                            addLabel="Add Character"
-                            searchPlaceholder="Search characters..."
-                            icon={<Users size="0.875rem" />}
-                            items={characters}
-                            selectedIds={formCharacterIds}
-                            search={characterLinkSearch}
-                            onSearchChange={setCharacterLinkSearch}
-                            isOpen={characterLinkPickerOpen}
-                            onOpen={() => {
-                              setCharacterLinkPickerOpen(true);
-                              setCharacterLinkSearch("");
-                            }}
-                            onClose={() => setCharacterLinkPickerOpen(false)}
-                            onAdd={(id) => {
-                              setFormCharacterIds((current) => (current.includes(id) ? current : [...current, id]));
-                              markLorebookDirty();
-                            }}
-                            onRemove={(id) => {
-                              setFormCharacterIds((current) => current.filter((characterId) => characterId !== id));
-                              markLorebookDirty();
-                            }}
-                          />
+                          <div>
+                            <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
+                              {localizeUi("ui.lorebooks.lorebookeditor.linkedCharacters")}{" "}
+                              <HelpTooltip
+                                text={localizeUi(
+                                  "ui.lorebooks.lorebookeditor.whenLinkedToCharactersThisLorebookAutoActivatesIn",
+                                )}
+                              />
+                            </label>
+                            <CharacterSelect
+                              kind="character"
+                              multiple
+                              variant="picker"
+                              placeholder={localizeUi("ui.lorebooks.lorebookeditor.noCharactersSelected")}
+                              aria-label={localizeUi("ui.lorebooks.lorebookeditor.linkedCharacters")}
+                              value={formCharacterIds}
+                              onChange={(ids) => {
+                                setFormCharacterIds(ids);
+                                markLorebookDirty();
+                              }}
+                            />
+                          </div>
 
                           {/* Persona Link */}
-                          <LinkedResourcePicker
-                            label={localizeUi("ui.lorebooks.lorebookeditor.linkedPersonas")}
-                            help={localizeUi(
-                              "ui.lorebooks.lorebookeditor.whenLinkedToPersonasThisLorebookAutoActivatesIn",
-                            )}
-                            emptyText={localizeUi("ui.lorebooks.lorebookeditor.noPersonasSelected")}
-                            addLabel="Add Persona"
-                            searchPlaceholder="Search personas..."
-                            icon={<UserRound size="0.875rem" />}
-                            items={personas.map((persona) => ({
-                              id: persona.id,
-                              name: persona.name,
-                              description: persona.comment,
-                            }))}
-                            selectedIds={formPersonaIds}
-                            search={personaLinkSearch}
-                            onSearchChange={setPersonaLinkSearch}
-                            isOpen={personaLinkPickerOpen}
-                            onOpen={() => {
-                              setPersonaLinkPickerOpen(true);
-                              setPersonaLinkSearch("");
-                            }}
-                            onClose={() => setPersonaLinkPickerOpen(false)}
-                            onAdd={(id) => {
-                              setFormPersonaIds((current) => (current.includes(id) ? current : [...current, id]));
-                              markLorebookDirty();
-                            }}
-                            onRemove={(id) => {
-                              setFormPersonaIds((current) => current.filter((personaId) => personaId !== id));
-                              markLorebookDirty();
-                            }}
-                          />
+                          <div>
+                            <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
+                              {localizeUi("ui.lorebooks.lorebookeditor.linkedPersonas")}{" "}
+                              <HelpTooltip
+                                text={localizeUi(
+                                  "ui.lorebooks.lorebookeditor.whenLinkedToPersonasThisLorebookAutoActivatesIn",
+                                )}
+                              />
+                            </label>
+                            <CharacterSelect
+                              kind="persona"
+                              multiple
+                              variant="picker"
+                              placeholder={localizeUi("ui.lorebooks.lorebookeditor.noPersonasSelected")}
+                              aria-label={localizeUi("ui.lorebooks.lorebookeditor.linkedPersonas")}
+                              value={formPersonaIds}
+                              onChange={(ids) => {
+                                setFormPersonaIds(ids);
+                                markLorebookDirty();
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
                     )}

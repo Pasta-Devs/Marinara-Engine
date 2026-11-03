@@ -220,8 +220,12 @@ export async function generateAudioBytes(
   };
 
   if (config.source === "elevenlabs") {
-    const lengthMs = options.lengthMs ?? (kind === "music" ? 30_000 : 5_000);
-    if (kind === "music" ? lengthMs < 3_000 || lengthMs > 600_000 : lengthMs < 500 || lengthMs > 30_000) {
+    // Without a length, ElevenLabs picks a sound effect's duration from its prompt.
+    const lengthMs = options.lengthMs ?? (kind === "music" ? 30_000 : undefined);
+    if (
+      lengthMs !== undefined &&
+      (kind === "music" ? lengthMs < 3_000 || lengthMs > 600_000 : lengthMs < 500 || lengthMs > 30_000)
+    ) {
       throw new Error(
         kind === "music"
           ? "ElevenLabs music length must be 3–600 seconds"
@@ -235,7 +239,7 @@ export async function generateAudioBytes(
         : {
             text: prompt,
             model_id: model || "eleven_text_to_sound_v2",
-            duration_seconds: lengthMs / 1000,
+            ...(lengthMs === undefined ? {} : { duration_seconds: lengthMs / 1000 }),
             prompt_influence: 0.3,
           },
     );

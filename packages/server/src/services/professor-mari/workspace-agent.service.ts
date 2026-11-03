@@ -122,7 +122,7 @@ import type {
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
 import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
-import { getMariDbService, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
+import { getMariDbService, isMariCodeHelpArgs, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
@@ -3198,10 +3198,11 @@ export function parseDirectMariArgv(command: string, cwd: string): string[] | nu
 const QUICK_EDIT_EXPIRY_MS = 10 * 60_000;
 /**
  * `mari code check` runs pnpm check, which executes workspace scripts and configs Mari can edit, so it runs in
- * the shell sandbox like any other command instead of the direct runtime. Its help text stays direct.
+ * the shell sandbox like any other command instead of the direct runtime. Its help text stays direct, decided by the
+ * CLI's own argument reading, so an argument the CLI does not take as a help flag cannot send the check direct.
  */
 export function isMariCodeCheckArgv(argv: string[]) {
-  return argv[0] === "code" && argv[1] === "check" && !argv.includes("--help");
+  return argv[0] === "code" && argv[1] === "check" && !isMariCodeHelpArgs(argv.slice(1));
 }
 
 /**

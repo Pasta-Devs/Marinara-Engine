@@ -206,7 +206,12 @@ export function projectMultiplayerGame(input: {
       .filter((owner) => owner.id !== viewer.id)
       .map((owner) => normalizeCharacterLookupName(owner.name));
     for (const one of [...names]) if (others.includes(one)) names.delete(one);
-    const seen = gameNarrationForParticipant(content, input.room, viewer.id, record(latest?.extra).audienceSnapshot);
+    const seen = gameNarrationForParticipant(
+      content,
+      input.room,
+      viewer.id,
+      record(latest?.extra).multiplayerGameAudience,
+    );
     for (const check of parseGmTags(seen).skillChecks) {
       const result = check.resolvedResult;
       const mine = check.who ? names.has(normalizeCharacterLookupName(check.who)) : viewer.isHost;

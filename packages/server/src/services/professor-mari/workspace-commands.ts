@@ -31,6 +31,7 @@ import {
   restoreReplacedStoreLinks,
   getWorkspaceShellSandboxStatus,
   killSandboxedProcessTree,
+  quarantineNewRootSecrets,
   snapshotSensitiveWorkspaceFiles,
   spawnWorkspaceSandboxedShell,
   type SensitiveScanResult,
@@ -186,6 +187,11 @@ let skillGateEnabled = true;
 export function setSkillGateEnabled(enabled: boolean) {
   skillGateEnabled = enabled;
 }
+
+// The mari CLI flags that read a text file (mari-db's parseJsonInput, parseCssInput and resolveJsonInput).
+// ponytail: checked on the argv before the CLI runs, so a new file-reading mari flag must join this set. The upgrade
+// is to read them through executeCli's resolveReadPath instead, as mari images already reads its image files.
+const DIRECT_MARI_TEXT_FILE_FLAGS = new Set(["--json-file", "--file", "--css-file"]);
 
 const DRY_RUN_FOOTER =
   '\n\nNOT SAVED. Nothing changed and the user sees nothing. If the user asked for this change, send this same call again with top-level "apply": true to save it.';
@@ -955,13 +961,15 @@ export class WorkspaceCommands {
     } catch (err) {
       // Spawn failure: the round's result is discarded, but a write that
       // already landed must still be reverted and surfaced as pending.
-      await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      const lines = await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      if (lines.length) logger.warn("[mari] After a failed shell spawn: %s", lines.join(" "));
       throw err;
     }
     if (aborted) {
       // The child has closed (or exhausted its teardown grace); revert and
       // stage the aftermath, then report the abort as before.
-      await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      const lines = await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      if (lines.length) logger.warn("[mari] After an aborted shell run: %s", lines.join(" "));
       throw new Error("aborted");
     }
     const stagedLines = await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
@@ -997,14 +1005,21 @@ export class WorkspaceCommands {
       logger.error(err, "[mari] Store-link integrity pass failed");
       linkLines = ["Store-link integrity check failed; treat package-store paths as unreviewed."];
     }
+    // Before the scan, so a root .git or .env the run created is moved away even when the scan fails.
+    const rootSecretLines = await quarantineNewRootSecrets(snapshot);
     let scan: SensitiveScanResult;
     try {
       scan = await detectUnreviewedSensitiveChanges(this.workspaceRoot, snapshot);
     } catch (err) {
       logger.error(err, "[mari] Post-execution sensitive-file scan failed");
-      return ["Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed."];
+      // What was already moved aside still has to be reported, even when the scan itself failed.
+      return [
+        ...linkLines,
+        ...rootSecretLines,
+        "Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed.",
+      ];
     }
-    const lines: string[] = [...linkLines];
+    const lines: string[] = [...linkLines, ...rootSecretLines];
     if (snapshot.entryCapExceeded || scan.entryCapExceeded) {
       lines.push(
         "Post-execution scan stopped at its entry cap; part of the workspace went uninspected - treat this run's file changes as unreviewed.",
@@ -1098,11 +1113,22 @@ export class WorkspaceCommands {
   }
 
   private async commandMariDirect(command: string, argv: string[]): Promise<string> {
+    // This runs in the server process, outside the shell sandbox, and these flags read the file they name. Hold
+    // them to the read tool's rule: inside the workspace, never .env, the encryption key or Git internals. The scan
+    // matches how the mari CLI reads its flags: `--flag=value`, or `--flag value` unless the value starts with --.
+    for (const [index, token] of argv.entries()) {
+      const equals = token.indexOf("=");
+      if (!DIRECT_MARI_TEXT_FILE_FLAGS.has(equals > 0 ? token.slice(0, equals) : token)) continue;
+      const value = equals > 0 ? token.slice(equals + 1) : argv[index + 1];
+      if (value && (equals > 0 || !value.startsWith("--"))) this.resolveWorkspacePath(value, { readOnly: true });
+    }
     const result = await getMariDbService(this.app.db).executeCli({
       argv,
       command,
       cwd: this.workspaceRoot,
       sessionId: this.runSessionId(),
+      // mari images takes an asset id, app URL, data URL or file for its source; the same rule covers the file.
+      resolveReadPath: (path) => this.resolveWorkspacePath(path, { readOnly: true }),
     });
     // A failed read can carry both an error and an output; the error is the part the model needs.
     const printable =

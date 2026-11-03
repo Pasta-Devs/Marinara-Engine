@@ -884,6 +884,16 @@ try {
   assert.equal((await store.read()).room.round!.phase, "interrupted");
   assert.equal((await store.read()).room.status, "paused");
   assert.equal(await store.beginGeneration(), null, "a failed round is never automatically retried");
+  // Its generation was the last allowed: Retry refuses and the round waits, paused, for a higher limit.
+  await store.change((stored) => {
+    stored.maxGenerations = stored.generations;
+  });
+  await assert.rejects(store.retry(), expectCode("busy"), "a round past the generation limit is not tried again");
+  const atLimit = (await store.read()).room;
+  assert.deepEqual([atLimit.status, atLimit.round!.phase], ["paused", "interrupted"]);
+  await store.change((stored) => {
+    stored.maxGenerations = 10;
+  });
   // The host tries it again (laptop 2026-10-30): the same round, its actions not appended twice.
   const retried = await store.retry();
   assert.ok(retried, "an interrupted round the Game Master wrote nothing of is tried again");

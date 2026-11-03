@@ -78,6 +78,8 @@ import {
   syncCharacterBookFromLorebook,
   clearCharacterEmbeddedLorebook,
   resolveEmbeddedCharacterId,
+  stPosition,
+  stSelectiveLogic,
 } from "../services/lorebook/character-book-sync.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../services/llm/local-sidecar.js";
 import {
@@ -161,22 +163,6 @@ function asStringArray(value: unknown): string[] {
     }
   }
   return [];
-}
-
-function stSelectiveLogic(value: unknown): number {
-  if (value === "and" || value === "or") return 0;
-  if (value === "not_all") return 1;
-  if (value === "not") return 2;
-  if (value === "and_all") return 3;
-  return 0;
-}
-
-function stPosition(value: unknown): number {
-  const position = Number(value ?? 0);
-  if (position === 7) return 7;
-  if (position === 2) return 4;
-  if (position === 1) return 1;
-  return 0;
 }
 
 function stRole(value: unknown): number {

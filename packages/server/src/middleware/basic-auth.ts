@@ -315,6 +315,8 @@ export function trySetupCode(request: FastifyRequest, code: unknown): "ok" | "wr
   const buckets = setupCodeBuckets(request);
   const retryAfter = lockoutSeconds(request, buckets);
   if (retryAfter > 0) return retryAfter;
+  // A code tried without room to count it would be a free guess.
+  if (!hasRoomFor(buckets)) return 1;
   const value = typeof code === "string" ? code : "";
   if (isLoginSetupCode(value)) return "ok";
   const guess = createHmac("sha256", HEADER_MAC_KEY).update(normalizeCode(value)).digest("base64url").slice(0, 16);
@@ -359,21 +361,38 @@ function guessId(header: string, config: CachedConfig): string {
     .slice(0, 16);
 }
 
-/** Counts a guess for this client before it is checked; a browser resending one saved password counts once. */
-function countGuess(request: FastifyRequest, guess: string, buckets = failureBuckets(request)) {
+// ponytail: thousands of addresses can fill the table and keep every client it does not count yet, the
+// owner's new devices too, from signing in with a password or code until counts end; signed-in browsers,
+// clients already counted and trusted peers still get in. Count the overflow in one shared bucket if that
+// ever matters.
+/**
+ * False when the table has no room for this client's counts. Dropping a count that still runs would
+ * give its client those guesses back, so only counts whose window ended make room. Without room no
+ * password or code is compared, so the reply cannot tell a right one from a wrong one.
+ */
+function hasRoomFor(buckets: FailureBucket[], now = Date.now()): boolean {
+  const missing = buckets.filter((bucket) => !activeRecord(bucket.key, now)).length;
+  if (failures.size + missing <= MAX_TRACKED_CLIENTS) return true;
+  for (const [entryKey, entry] of failures) if (entry.resetAt <= now) failures.delete(entryKey);
+  return failures.size + missing <= MAX_TRACKED_CLIENTS;
+}
+
+/**
+ * Counts a guess for this client before it is checked; a browser resending one saved password counts once.
+ * False, counting nothing, when the table has no room, so the guess must not be checked.
+ */
+function countGuess(request: FastifyRequest, guess: string, buckets = failureBuckets(request)): boolean {
   const now = Date.now();
+  if (!hasRoomFor(buckets, now)) return false;
   for (const bucket of buckets) {
     let record = activeRecord(bucket.key, now);
     if (!record) {
-      if (failures.size >= MAX_TRACKED_CLIENTS) {
-        for (const [entryKey, entry] of failures) if (entry.resetAt <= now) failures.delete(entryKey);
-        if (failures.size >= MAX_TRACKED_CLIENTS) failures.delete(failures.keys().next().value!);
-      }
       record = { guesses: new Set(), resetAt: now + BASIC_AUTH_FAILURE_WINDOW_MS };
       failures.set(bucket.key, record);
     }
     record.guesses.add(guess);
   }
+  return true;
 }
 
 function logWrongPassword(request: FastifyRequest, pairingCode = false) {
@@ -405,6 +424,7 @@ async function checkCredentials(
   config: CachedConfig,
   header: string,
 ): Promise<boolean | null> {
+  if (!hasRoomFor(failureBuckets(request))) return null;
   if (!headerMatches(header, config)) {
     const guess = guessId(header, config);
     const running = checksInFlight.get(guess);
@@ -414,7 +434,7 @@ async function checkCredentials(
     if (failureBuckets(request).some((bucket) => activeRecord(bucket.key, now)?.guesses.has(guess))) return false;
     // Counted before the slow check, in the same step as the caller's lockout check, so parallel
     // guesses see each other and cannot pass the limit.
-    countGuess(request, guess);
+    if (!countGuess(request, guess)) return null;
     const check = verifyHeader(header, config);
     checksInFlight.set(guess, check);
     let verdict: boolean | null;
@@ -739,7 +759,7 @@ export function isBasicAuthSatisfied(request: FastifyRequest): boolean {
   if (!config) return !policy.lockedDown;
 
   if (requestSession(request, config)) return true;
-  if (lockoutSeconds(request) > 0) return false;
+  if (lockoutSeconds(request) > 0 || !hasRoomFor(failureBuckets(request))) return false;
   return hasCorrectPassword(request, config);
 }
 
@@ -1048,7 +1068,9 @@ export async function loginRoutes(app: FastifyInstance) {
     { config: { rateLimit: LOGIN_PAGE_RATE_LIMIT } },
     async (request, reply) => {
       const next = safeNextPath(request.query.next);
-      if (!loadConfig() || isBasicAuthSatisfied(request)) return reply.redirect(next, 302);
+      const config = loadConfig();
+      // The hook skips this page, so a Basic header is not compared here: it would never be counted.
+      if (!config || isTrustedPeer(request) || requestSession(request, config)) return reply.redirect(next, 302);
       if (!cookieValue(request, PRE_AUTH_COOKIE)) {
         const secure = isHttpsRequest(request) ? "; Secure" : "";
         reply.header(
@@ -1075,6 +1097,10 @@ export async function loginRoutes(app: FastifyInstance) {
         return sendLoginPage(reply, 429, next, { field, text: `Too many wrong tries. ${tryAgainIn(retryAfter)}` });
       }
       if (typeof body.code === "string") {
+        // A right code is spent when tried, so the room to count a wrong one is checked first.
+        if (!hasRoomFor(failureBuckets(request))) {
+          return sendLoginPage(reply, 429, next, { field, text: "Too many sign-ins at once. Try again in a moment." });
+        }
         const hash = pairingHash(body.code);
         const key = sessionLoginKey(config);
         const redeemed = key ? redeemPairingCode(hash, key) : "wrong";

@@ -130,6 +130,9 @@ let hostReady: Promise<MarinaraHostV1> | null = null;
  * of this module finds the namespace an earlier copy defined, which can never be replaced.
  */
 export function ensureMarinaraHost(): Promise<MarinaraHostV1> {
-  hostReady ??= new Promise((resolve) => resolve(globalThis.__MARINARA_HOST__ ?? defineMarinaraHost()));
+  // Only an own property: a page element with this id (chat HTML keeps ids) is a named property of window too.
+  hostReady ??= new Promise((resolve) =>
+    resolve(Object.hasOwn(globalThis, "__MARINARA_HOST__") ? globalThis.__MARINARA_HOST__! : defineMarinaraHost()),
+  );
   return hostReady;
 }

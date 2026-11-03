@@ -12,7 +12,7 @@ Marinara runs as a server on one computer, and you open it in a browser. The sta
 4. Set a login. From the other device, open Marinara: the blocked page has a **Setup code** form. Find the one-time code in the server log on the host computer (in Docker, run `docker logs <container> 2>&1 | grep "setup code"`), then type it with a new username and password. Or, in a browser that is already signed in on the host, open **Settings → Advanced → Access**.
 5. Sign in. To add more devices without typing the password, use **Add a device** in **Settings → Advanced → Access**.
 
-The same computer (`127.0.0.1`) needs no password on ordinary desktop installs. A reverse proxy on the same computer counts as a remote visitor and needs the login. For all options, setup codes and Docker, see [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended). For devices on different networks, a tool like Tailscale gives each device a stable private address. If you cannot connect, see [Troubleshooting](TROUBLESHOOTING.md).
+The same computer (`127.0.0.1`) needs no password on ordinary desktop installs. A reverse proxy on the same computer counts as a remote visitor and needs the login. For all options, setup codes and Docker, see [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended). For devices on different networks, use Tailscale: see [Connect from anywhere with Tailscale](REMOTE_ACCESS.md#connect-from-anywhere-with-tailscale). If you cannot connect, see [Troubleshooting](TROUBLESHOOTING.md).
 
 ## Is there a mobile app for Marinara?
 
@@ -82,7 +82,7 @@ An agent is an optional AI helper that runs during a chat to do a focused job, s
 
 ## How do I set up Noodle?
 
-Noodle is a local, fictional social network for your characters. Install **Noodle** from **Agents → Agent Organizer**, restart Marinara when asked, then open **Home → Noodle**. See [Noodle: The In-App Social Timeline](noodle/overview.md).
+Noodle is a local, fictional social network for your characters. Install **Noodle** from **Agents → Agent Organizer**, restart Marinara when asked, then open **Home → Noodle**. See [Noodle: The In-App Social Timeline](agents/noodle.md).
 
 ## Why does my character not reply?
 

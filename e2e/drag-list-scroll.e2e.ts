@@ -590,18 +590,58 @@ test("connection cards sort and move, and folders keep their saved drag order", 
       await page.mouse.move(folderTargetBox.x + folderTargetBox.width / 2, folderTargetBox.y + 2);
       await page.mouse.up();
     }
-    await expect
-      .poll(async () => {
-        const current = (await (await request.get("/api/connection-folders")).json()) as Array<{
-          id: string;
-          sortOrder: number;
-        }>;
-        return current
-          .filter((folder) => folderIds.includes(folder.id))
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((folder) => folder.id);
-      })
-      .toEqual([folderIds[0], folderIds[2], folderIds[1]]);
+    const folderOrder = async () => {
+      const current = (await (await request.get("/api/connection-folders")).json()) as Array<{
+        id: string;
+        sortOrder: number;
+      }>;
+      return current
+        .filter((folder) => folderIds.includes(folder.id))
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((folder) => folder.id);
+    };
+    await expect.poll(folderOrder).toEqual([folderIds[0], folderIds[2], folderIds[1]]);
+
+    // A card inside a folder owns its drag: moving it to another folder leaves the folder around it in place.
+    const card = panel.locator(`[data-connection-account-id="${accountIds[0]}"]`);
+    const heading = panel.locator(`[data-connections-row="account:${accountIds[0]}"]`);
+    const folderOf = async () => {
+      const current = (await (await request.get("/api/connections")).json()) as Array<{
+        id: string;
+        folderId: string | null;
+      }>;
+      return current.find((row) => row.id === connectionIds[0])?.folderId ?? null;
+    };
+    const dragCardTo = async (folderId: string, whileDragging?: () => Promise<void>) => {
+      await heading.evaluate((element) => element.scrollIntoView({ block: "center" }));
+      const from = (await heading.boundingBox())!;
+      const to = (await panel.locator(`[data-drag-id="${folderId}"] > div > button[data-drag-surface]`).boundingBox())!;
+      finger.clientX = from.x + from.width / 2;
+      finger.clientY = from.y + from.height / 2;
+      if (mobile) {
+        await touch(heading, "touchstart", [finger]);
+        await page.waitForTimeout(350);
+        finger.clientX = to.x + to.width / 2;
+        finger.clientY = to.y + to.height / 2;
+        await touch(heading, "touchmove", [finger]);
+        await whileDragging?.();
+        await touch(heading, "touchend", [], [finger]);
+      } else {
+        await page.mouse.move(finger.clientX, finger.clientY);
+        await page.mouse.down();
+        await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2);
+        await whileDragging?.();
+        await page.mouse.up();
+      }
+    };
+    await dragCardTo(folderIds[0]!);
+    await expect.poll(folderOf).toBe(folderIds[0]);
+    await dragCardTo(folderIds[1]!, async () => {
+      await expect(card).toHaveAttribute("data-drag-source", "true");
+      expect(await panel.locator(`[data-drag-id="${folderIds[0]}"]`).getAttribute("data-drag-source")).toBeNull();
+    });
+    await expect.poll(folderOf).toBe(folderIds[1]);
+    expect(await folderOrder()).toEqual([folderIds[0], folderIds[2], folderIds[1]]);
   } finally {
     for (const id of connectionIds) await request.delete(`/api/connections/${id}`).catch(() => undefined);
     for (const id of accountIds) await request.delete(`/api/connection-accounts/${id}`).catch(() => undefined);

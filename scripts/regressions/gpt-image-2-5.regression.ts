@@ -121,7 +121,7 @@ try {
       model,
       prompt: "a moonlit laboratory",
       n: 1,
-      size: "1536x864",
+      size: "1680x944",
       output_format: "png",
       quality: "xhigh",
       background: "transparent",
@@ -134,7 +134,7 @@ try {
     }).formData();
     for (const [key, value] of Object.entries({
       model,
-      size: "1536x864",
+      size: "1680x944",
       quality: "max",
       output_format: "png",
       background: "transparent",
@@ -150,7 +150,17 @@ try {
     }
   }
 
-  // Exercise the serialized request, including API bounds and exact preservation of valid canvases.
+  // Exercise the serialized request, including API bounds, the 1024x1536-pixel floor and exact preservation
+  // of valid canvases. The ~1 MP sizes packages ask for grow in their own shape; 1024x1536 itself is kept.
+  for (const [width, height, expected] of [
+    [768, 1344, "960x1664"],
+    [832, 1216, "1040x1520"],
+    [1024, 1024, "1264x1264"],
+    [1024, 1536, "1024x1536"],
+    [1536, 1024, "1536x1024"],
+  ] as const)
+    assert.equal(JSON.parse((await generate({ width, height })).body.toString()).size, expected);
+  const floor = 1024 * 1536;
   for (const [width, height] of [
     [1024, 640],
     [3840, 2160],
@@ -175,12 +185,14 @@ try {
     assert.equal(outWidth % 16, 0, size);
     assert.equal(outHeight % 16, 0, size);
     assert.ok(Math.max(outWidth, outHeight) <= 3840, size);
-    assert.ok(outWidth * outHeight >= 655_360 && outWidth * outHeight <= 8_294_400, size);
+    assert.ok(outWidth * outHeight >= floor && outWidth * outHeight <= 8_294_400, size);
     assert.ok(outWidth / outHeight >= 1 / 3 && outWidth / outHeight <= 3, size);
+    const ratio = Math.min(3, Math.max(1 / 3, width / height));
+    if (Number.isFinite(ratio)) assert.ok(Math.abs(outWidth / outHeight / ratio - 1) < 0.02, `${size} keeps its shape`);
     if (
       width % 16 === 0 &&
       height % 16 === 0 &&
-      width * height >= 655_360 &&
+      width * height >= floor &&
       width * height <= 8_294_400 &&
       Math.max(width, height) <= 3840 &&
       width / height >= 1 / 3 &&

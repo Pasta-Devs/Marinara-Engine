@@ -1164,6 +1164,12 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   const gameStates = createGameStateStorage(db);
   // listMessages returns fresh rows each time, but unchanged JSON extras need not
   // be reparsed for every Advanced Memory operation on the same service.
+  // Route services live for the whole process, so only the chats read most recently
+  // stay cached (Map order, oldest first); otherwise every visited or deleted chat's
+  // extras would stay pinned even after the file store evicts that chat.
+  // ponytail: a fixed 4-chat LRU bounds the cache without hooking chat deletion, so a
+  // deleted chat lingers until four other chats are read; clear it on delete if that matters.
+  const parsedMessageExtraChats = 4;
   const parsedMessageExtras = new Map<string, Map<string, { raw: unknown; parsed: Metadata }>>();
 
   function parsedMessageExtra(chatId: string, message: { id: string; extra?: unknown }): Metadata {
@@ -1178,13 +1184,16 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   }
 
   function pruneParsedMessageExtras(chatId: string, messages: readonly { id: string }[]) {
-    const byMessage = parsedMessageExtras.get(chatId);
-    if (!byMessage) return;
+    const byMessage = parsedMessageExtras.get(chatId) ?? new Map<string, { raw: unknown; parsed: Metadata }>();
     const liveIds = new Set(messages.map((message) => message.id));
     for (const id of byMessage.keys()) {
       if (!liveIds.has(id)) byMessage.delete(id);
     }
-    if (byMessage.size === 0) parsedMessageExtras.delete(chatId);
+    parsedMessageExtras.delete(chatId);
+    parsedMessageExtras.set(chatId, byMessage);
+    while (parsedMessageExtras.size > parsedMessageExtraChats) {
+      parsedMessageExtras.delete(parsedMessageExtras.keys().next().value!);
+    }
   }
 
   async function context(chatId: string): Promise<Context> {

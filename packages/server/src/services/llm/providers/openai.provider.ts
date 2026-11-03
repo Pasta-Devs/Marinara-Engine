@@ -580,6 +580,11 @@ export class OpenAIProvider extends BaseLLMProvider {
     return fallbackPayload;
   }
 
+  /** Compatible endpoints may ignore stream:true and return the completed JSON response. */
+  private static receivedJsonBody(response: Response): boolean {
+    return response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() === "application/json";
+  }
+
   private static extractSseData(trimmedLine: string): string | null {
     if (!trimmedLine.startsWith("data:")) return null;
     return trimmedLine.slice(5).trimStart();
@@ -2102,11 +2107,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     const response = await this.postChatCompletions(url, body, effectiveStream, options);
     const prefixEcho = createPrefixEchoFilter(mistralPrefixText(body));
 
-    if (!effectiveStream) {
+    if (!effectiveStream || OpenAIProvider.receivedJsonBody(response)) {
       const json = await OpenAIProvider.parseJsonBody<Record<string, unknown>>(
         response,
         "OpenAI chat() non-stream response",
       );
+      if (effectiveStream) options.signal?.throwIfAborted();
       const choices = OpenAIProvider.requireChatCompletionsChoices<{
         finish_reason?: string | null;
         message: Record<string, unknown> & { content: string | unknown[] | null; refusal?: string };
@@ -2416,8 +2422,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     const response = await this.postChatCompletions(url, body, useStream, options);
     const prefixEcho = createPrefixEchoFilter(mistralPrefixText(body));
 
-    const receivedJson =
-      response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() === "application/json";
+    const receivedJson = OpenAIProvider.receivedJsonBody(response);
     if (!useStream || receivedJson) {
       // Compatible endpoints may ignore stream:true and return the completed JSON response.
       const json = await OpenAIProvider.parseJsonBody<Record<string, unknown>>(
@@ -3079,12 +3084,13 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     }
 
-    if (!parseAsStream) {
+    if (!parseAsStream || OpenAIProvider.receivedJsonBody(response)) {
       // Non-streaming: parse the full response
       const json = await OpenAIProvider.parseJsonBody<Record<string, unknown>>(
         response,
         "OpenAI chatResponses() non-stream response",
       );
+      if (parseAsStream) options.signal?.throwIfAborted();
       OpenAIProvider.assertResponsesSucceeded(json, "OpenAI chatResponses() non-stream response");
       this.emitMissingResponsesReasoningSummary(json, options, "");
       // Emit encrypted reasoning items for multi-turn context
@@ -3347,8 +3353,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     }
 
-    const receivedJson =
-      response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() === "application/json";
+    const receivedJson = OpenAIProvider.receivedJsonBody(response);
     if (!useStream || receivedJson) {
       // Non-streaming: parse the full response
       const json = await OpenAIProvider.parseJsonBody<Record<string, unknown>>(

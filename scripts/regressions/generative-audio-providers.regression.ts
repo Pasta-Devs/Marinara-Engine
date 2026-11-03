@@ -87,6 +87,13 @@ try {
   assert.equal(calls[0]!.url.pathname, "/v1/sound-generation");
   assert.equal(calls[0]!.body?.model_id, "eleven_text_to_sound_v2", "the music model is never used as the SFX default");
   assert.equal(calls[0]!.body?.duration_seconds, 2.5);
+  reset(() => audio());
+  await generateAudioBytes(eleven, "sfx", "Distant rolling thunder");
+  assert.deepEqual(
+    calls[0]!.body,
+    { text: "Distant rolling thunder", model_id: "eleven_text_to_sound_v2", prompt_influence: 0.3 },
+    "without a length, ElevenLabs fits the sound effect's duration to its prompt",
+  );
 
   let polls = 0;
   reset((call) => {

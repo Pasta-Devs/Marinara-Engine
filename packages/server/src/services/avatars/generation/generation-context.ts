@@ -16,6 +16,7 @@ import {
   LOCAL_SIDECAR_CONNECTION_ID,
   type AvatarPngtuberVariant,
   isChatProvider,
+  isOpenAIGptImage25Model,
   isOpenAIGptImageModel,
   mergeBuiltInAgentSettings,
   normalizeAgentPromptTemplateOptions,
@@ -34,7 +35,12 @@ import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
 } from "../../image/image-generation-defaults.js";
-import { generateImage, imageConnectionTakesReferencePicture } from "../../image/image-generation.js";
+import {
+  generateImage,
+  imageConnectionTakesReferencePicture,
+  OPENAI_GPT_IMAGE_2_MIN_PIXELS,
+  OPENAI_GPT_IMAGE_25_MIN_PIXELS,
+} from "../../image/image-generation.js";
 import { renderTemplate } from "../../prompt-overrides/template.js";
 import { getSharp } from "../../image/sharp-runtime.js";
 import { createAgentsStorage } from "../../storage/agents.storage.js";
@@ -339,11 +345,12 @@ export function avatarImageRequestSize(
           ? { width: 1024, height: 1536 }
           : { width: 1024, height: 1024 };
     }
-    // GPT Image 2 and 2.5 keep a size of at least 1024x1024 pixels in steps of 32 with sides at most 3:1
+    // GPT Image 2 and 2.5 keep a size of at least their fewest pixels in steps of 32 with sides at most 3:1
     // (openAIGptImage2Size / openAIGptImage25Size in services/image/image-generation.ts). A size they
     // would change gives a canvas of another shape than the one the sprite was placed on.
+    const minPixels = isOpenAIGptImage25Model(model) ? OPENAI_GPT_IMAGE_25_MIN_PIXELS : OPENAI_GPT_IMAGE_2_MIN_PIXELS;
     const clamped = Math.min(3, Math.max(1 / 3, ratio));
-    const side = (value: number) => Math.ceil(Math.sqrt(1024 * 1024 * value) / 32) * 32;
+    const side = (value: number) => Math.ceil(Math.sqrt(minPixels * value) / 32) * 32;
     return { width: side(clamped), height: side(1 / clamped) };
   }
   const scale = Math.min(1, 1536 / Math.max(width, height));

@@ -28,7 +28,7 @@ Adds the optional local Noodle public timeline in its own **Home** tab. It does 
 - **Where it works**: Home, with optional context carried in from Conversation, Roleplay and Game chats.
 - **Key settings**: install it from **Agents → Agent Organizer** and restart when prompted. Inside Noodle you set invited accounts, text and image connections, timeline refreshes, random users and chat carryover.
 - **Data**: uninstalling removes the tab and stops the schedulers after a restart. Your Noodle data stays for a later reinstall.
-- **Full guide**: [Noodle: The In-App Social Timeline](../noodle/overview.md).
+- **Full guide**: [Noodle: The In-App Social Timeline](noodle.md).
 
 ### Slurp
 
