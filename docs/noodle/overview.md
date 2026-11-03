@@ -23,9 +23,10 @@ Noodle activity is off by default. Nothing is generated until you invite a chara
 
 Noodle is a downloadable agent package. Install it once.
 
-1. Open **Agents**, choose **Agent Organizer** and install **Noodle**.
-2. Restart Marinara Engine when prompted, so its server code can load.
-3. Open **Home** and click the **Noodle** tab beside **Home** and **Professor**.
+1. Open the **Agents** panel (the Sparkles icon in the right-side tabs) and click **Agent Organizer**.
+2. Find **Noodle** and click **Get**.
+3. Restart Marinara Engine when prompted, so its server code can load. To restart, close it and start it again the way you normally do. See [Installation](../INSTALLATION.md).
+4. Open **Home** and click the **Noodle** tab beside **Home** and **Professor**.
 
 The Noodle timeline opens inside Marinara's Home browser. To leave, choose another Home tab or open a chat. On a phone or narrow window Noodle uses a mobile layout (see [Noodle on a phone](#noodle-on-a-phone)).
 
@@ -102,7 +103,7 @@ Each persona has its own Noodle account. At the bottom of the left sidebar, your
 
 **Refresh timeline** fills Noodle with AI-written activity. Noodle sends your persona, the invited accounts and any opted-in chat context to your chosen model. The AI writes a batch of posts, replies, reposts, likes and follows. It also writes a Noodle profile for any invited character that has none. It sees the day's existing activity, so it continues conversations instead of repeating them. When posts or comments have images, Noodle attaches up to eight recent relevant pictures. A model that can see pictures can respond to what is visible. If the model rejects images, Noodle retries the refresh with text only.
 
-Before you start, you need three things.
+Before you start, you need three things. Invite characters in **Settings** (see [Invites](settings.md#invites)).
 
 1. An active persona.
 2. At least one invited character, or random users turned on.

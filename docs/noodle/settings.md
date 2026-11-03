@@ -1,12 +1,12 @@
 # Noodle Settings and Chat Carryover
 
-This guide covers the **Noodle settings** panel section by section, with every default and limit, and shows how to share context between Noodle and your chats. Two features do that, in opposite directions: **Carryover to chats** and the per-chat **Allow Noodle references** toggle.
+Use the **Noodle settings** panel to choose who takes part in the timeline, how much they post, and how Noodle shares context with your chats. Two features share context in opposite directions: **Carryover to chats** and the per-chat **Allow Noodle references** toggle.
 
 If you are new to Noodle, read [Noodle: The In-App Social Timeline](overview.md) first. A persona is the character you play as in a chat. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) for AI accounts.
 
 ## Open the settings
 
-1. Open Noodle from the top bar.
+1. Open Noodle from **Home**.
 2. In the left sidebar, click **Settings** (the gear icon). The header reads **Noodle settings**.
 3. Pick a page with the buttons under the header.
 
