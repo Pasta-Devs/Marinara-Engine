@@ -44,7 +44,7 @@ Before you start: the wizard reads files on the server computer. On that compute
 
 1. Open **Settings → Imports → SillyTavern Import**.
 2. Click **Import from SillyTavern Folder**.
-3. In **SillyTavern Folder Path**, type the path (for example `/path/to/SillyTavern`), or click **Browse** and pick the folder. On a remote server with no folder chooser, an in-app folder browser opens with a **Select This Folder** button. Choose the main SillyTavern folder, usually the one that holds a `data/` or `public/` folder.
+3. In **SillyTavern Folder Path**, click **Browse** and pick the folder. On a remote server with no folder chooser, an in-app folder browser opens with a **Select This Folder** button. It lists only folders inside the home folder of the user that runs the server. Choose the main SillyTavern folder, usually the one that holds a `data/` or `public/` folder. You can also type the path (for example `/path/to/SillyTavern`), but a typed path works only when the server sets `IMPORT_ALLOWED_ROOTS` and the path is inside it.
 4. Click **Scan Folder**. Marinara shows how many items it found in each category.
 5. On **Choose exactly what to import**, check the items you want. Each category has **All** and **None** buttons and a **Show** or **Hide** toggle for the single items.
 6. Click **Import Selected**. A progress bar shows the current item and a count per category.
@@ -62,7 +62,7 @@ If the scan finds characters, two more options appear:
 If it did not work:
 
 - "Could not find SillyTavern data directory." means Marinara cannot read that folder. Pick the main SillyTavern folder.
-- If the server sets `IMPORT_ALLOWED_ROOTS`, typed paths outside those folders are refused. Paths you pick with **Browse** always work.
+- "folderPath is not allowed" means the path was refused. Pick the folder with **Browse** instead. If the server sets `IMPORT_ALLOWED_ROOTS`, even a picked folder must be inside one of those roots. See [Server Configuration Reference](../CONFIGURATION.md).
 - If one item fails, Marinara skips it, keeps going and lists it under warnings on the last step, for example `Character "Foo": error message`.
 
 ## What happens to your data
