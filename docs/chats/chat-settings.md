@@ -144,7 +144,7 @@ The favorite saves positions, sizes, pins, locks, popped-out or docked tools, th
 
 To replace the favorite, change the arrangement and click the star again. To stop using it, click the filled star. This only affects chats you create afterward.
 
-A settings profile with its own saved layout takes priority over the favorite when applied. A profile without one leaves the favorite arrangement in place. Profiles still apply their own layout tips setting and Scoped Regex Scripts mode. See [Settings Profiles](settings-profiles.md#choosing-the-default-profile).
+A settings profile with its own saved layout takes priority over the favorite when applied. A profile without one leaves the favorite arrangement in place. Profiles still apply their own layout tips setting and Scoped Regex Scripts mode. See [Settings Profiles](settings-profiles.md#favorite-window-layouts).
 
 After an upgrade from an older version, the familiar tool-button layout is already starred for all three modes, until you replace or clear it. A fresh installation has the tools inside Chat Settings and no favorite.
 
