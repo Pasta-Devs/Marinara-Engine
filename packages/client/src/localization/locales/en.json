@@ -1219,6 +1219,7 @@
   "chat.setupStage.allSettings": "All settings",
   "chat.setupStage.chooseCharacter": "choose a character",
   "chat.setupStage.chooseCharacterRow": "Choose a character",
+  "chat.setupStage.choosePersona": "choose who you play",
   "chat.setupStage.defaultPreset": "the default preset",
   "chat.setupStage.editor.add": "Add {{name}}",
   "chat.setupStage.editor.greeting": "Greeting {{index}}",

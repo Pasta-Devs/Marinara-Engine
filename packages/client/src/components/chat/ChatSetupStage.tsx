@@ -171,6 +171,8 @@ export function ChatSetupStage({
   const tagline = characters.length === 1 ? stageTagline(characterMap.get(characters[0]!.id)?.description) : null;
   const personaName = personaInfo?.name || null;
   const canPickPersona = (personas?.length ?? 0) >= 2;
+  // With one persona the wizard never picked it, so an unset persona stays out of the sentence.
+  const personaWord = personaName ?? (canPickPersona ? t("chat.setupStage.choosePersona") : null);
 
   const first = messages?.[0]?.role === "assistant" && messages[0].chatId === chat.id ? messages[0] : null;
   const greetingCount = Math.max(1, first?.swipeCount ?? first?.swipes?.length ?? 1);
@@ -238,7 +240,7 @@ export function ChatSetupStage({
   );
   const sentenceComponents: Record<string, ReactElement> = {
     persona: canPickPersona ? (
-      word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaName }))
+      word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaWord }))
     ) : (
       <span />
     ),
@@ -414,8 +416,8 @@ export function ChatSetupStage({
       >
         <Trans
           t={t}
-          i18nKey={personaName ? "chat.setupStage.sentenceWho" : "chat.setupStage.sentenceWhoNoPersona"}
-          values={{ persona: personaName, cast: castNames ?? t("chat.setupStage.chooseCharacter") }}
+          i18nKey={personaWord ? "chat.setupStage.sentenceWho" : "chat.setupStage.sentenceWhoNoPersona"}
+          values={{ persona: personaWord, cast: castNames ?? t("chat.setupStage.chooseCharacter") }}
           components={sentenceComponents}
         />{" "}
         {first ? (
