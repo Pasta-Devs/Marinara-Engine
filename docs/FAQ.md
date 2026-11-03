@@ -7,7 +7,7 @@ Short answers to common questions about Marinara Engine. Each one links to the g
 Marinara runs as a server on one computer, and you open it in a browser. The start scripts let other devices reach the server, but access control blocks them until you set a login (a username and password) on the host computer. Until then, a remote device only sees an **Access blocked** page.
 
 1. Keep Marinara running on the host computer.
-2. Set a login in **Settings → Advanced → Access**. Or set it from the other device with the one-time setup code in the server log.
+2. Set a login. From the other device, open Marinara: the blocked page has a **Setup code** form. Find the one-time code in the server log on the host computer (in Docker, run `docker logs <container> 2>&1 | grep "setup code"`), then type it with a new username and password. Or, in a browser that is already signed in on the host, open **Settings → Advanced → Access**.
 3. Find the host's local IP address. On Windows, run `ipconfig` and read **IPv4 Address**. On macOS or Linux, run `hostname -I`.
 4. On the other device, open `http://<host IP>:7860` in a browser, for example `http://192.168.1.42:7860`. `7860` is the default port.
 5. Sign in. To add more devices without typing the password, use **Add a device** in **Settings → Advanced → Access**.
@@ -46,13 +46,13 @@ To get instant replies in one chat, turn **Conversation schedules** off in that 
 
 ## Do I need an API key to use Marinara?
 
-Almost always. An **API key** is a secret code from an AI service that lets Marinara use your account there. You need at least one account before you can start a chat. Open **Connections**, click **Add**, choose a service, paste your key and click **Connect**. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
+Yes, for online AI services. An **API key** is a secret code from an AI service that lets Marinara use your account there. You need at least one account before you can start a chat. Open **Connections**, click **Add**, choose a service, paste your key and click **Connect**. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
 Some options need no key. The subscription options (Claude, ChatGPT and Grok) sign in through a command-line tool. The **Built-in model** runs on your computer. See [Built-in model setup](connections/local-model.md).
 
 ## Which AI providers are supported?
 
-Many. Marinara supports services for text, image and video generation, plus **OpenAI-compatible** servers such as Ollama, LM Studio and KoboldCpp. The full list is in [Supported AI Providers](connections/providers-reference.md). To add one, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
+Marinara supports OpenAI, Anthropic, Google Gemini, OpenRouter and many more services for text, image and video generation, plus **OpenAI-compatible** servers such as Ollama, LM Studio and KoboldCpp. The full list is in [Supported AI Providers](connections/providers-reference.md). To add one, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
 ## Do I have to pay to use Marinara?
 
@@ -84,6 +84,10 @@ An agent is an optional AI helper that runs during a chat to do a focused job, s
 
 Noodle is a local, fictional social network for your characters. Install **Noodle** from **Agents → Agent Organizer**, restart Marinara when asked, then open **Home → Noodle**. See [Noodle: The In-App Social Timeline](noodle/overview.md).
 
+## Why does my character not reply?
+
+Usually the chat has no account or model, the API key is wrong, or the account is out of credit. See [My character does not reply](TROUBLESHOOTING.md#my-character-does-not-reply).
+
 ## Why doesn't my character remember earlier messages?
 
 Models read only so much text at once, so old messages drop out of long chats. Two tools help. **Memory Recall** brings relevant older messages back, and summaries compress old messages into recaps. Both are in **Chat Settings**. For long Roleplay chats, use **Advanced Memory Recall** in **Chat Settings → Memory Recall**. See [Memory and Summaries](agents/memory.md).
@@ -110,11 +114,11 @@ Professor Mari is the built-in assistant on the Home screen. She explains the ap
 
 ## What is the Storyboard Agent, and how do I use it in Game Mode?
 
-The **Storyboard** agent turns finished story text into a sequence of images, and can animate them. Install it from **Agents → Agent Organizer**. In a Game, open **Chat Settings → Agents**, turn on **Enable Agents** and **Enable Storyboards**, and set an image account. Then open **Chat Settings → Gallery** and click **Create storyboard**. See the [Storyboard Agent Guide](game/storyboard.md).
+It turns finished story text into images. Install **Storyboard** from **Agents → Agent Organizer**, then turn it on in the chat. See the [Storyboard Agent Guide](game/storyboard.md).
 
 ## Can characters talk out loud in a call?
 
-Yes, in Conversation mode. Set up **Text to Speech** in **Connections** first. To talk back when your browser's speech recognition is unreliable, install **Calls** from **Agent Organizer**. Then open **Connections → Speech to text**, find **Local speech model** under **On this device**, pick a Whisper model and click **Download Whisper**. See [Calls](conversation/calls.md).
+Yes, in Conversation mode. You need **Text to Speech** set up in **Connections**. See [Calls](conversation/calls.md) for the steps, including speech recognition for your microphone.
 
 ## Can Marinara generate images?
 
