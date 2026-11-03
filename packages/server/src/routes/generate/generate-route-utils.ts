@@ -1278,9 +1278,10 @@ export function endPromptOnAssistantPrefill<
   prefill: T | null,
   finalAssistantAccepted: boolean,
   ownText?: (message: T) => string | undefined,
-): { endsOnPrefill: boolean; opensReply: boolean } {
+): { endsOnPrefill: boolean; opensReply: boolean; userPrefill?: string } {
   if (!prefill) return { endsOnPrefill: false, opensReply: false };
   let visible = prefill.content;
+  let userPrefill: string | undefined;
   if (!finalAssistantAccepted && visible) {
     let index = messages.length - 1;
     while (index >= 0 && !(messages[index]!.role === "assistant" && messages[index]!.contextKind === "history"))
@@ -1313,10 +1314,13 @@ export function endPromptOnAssistantPrefill<
       // No reply to open: the prefill goes in as a user message, which every model accepts last.
       const { providerMetadata: _reasoning, ...turn } = prefill;
       messages.push({ ...turn, role: "user", content: visible.trimEnd() } as T);
+      userPrefill = visible.trim();
     }
     visible = "";
   }
-  if (!visible && !prefill.providerMetadata) return { endsOnPrefill: false, opensReply: false };
+  // `userPrefill`: the prompt ends on the prefill as a user turn (a game tool round must keep it last).
+  if (!visible && !prefill.providerMetadata)
+    return { endsOnPrefill: false, opensReply: false, ...(userPrefill && { userPrefill }) };
   messages.push({ ...prefill, content: visible.trimEnd() });
   return { endsOnPrefill: true, opensReply: !!visible };
 }

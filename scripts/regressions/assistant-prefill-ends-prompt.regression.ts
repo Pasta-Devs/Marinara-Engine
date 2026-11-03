@@ -412,6 +412,7 @@ try {
   assert.deepEqual(endPromptOnAssistantPrefill(noReply, { role: "assistant", content: prefill }, false), {
     endsOnPrefill: false,
     opensReply: false,
+    userPrefill: "Sure!",
   });
   assert.deepEqual(noReply, [
     { role: "user", content: "Hello.", contextKind: "history" },

@@ -9629,6 +9629,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 maxToolRounds,
                 initialMessages: initialProviderMessages,
                 assistantPrefillInjected: prefillTurn.endsOnPrefill,
+                userPrefill: prefillTurn.userPrefill,
                 tools: nativeToolCalls ? responderToolDefs : undefined,
                 toolChoice: (round) =>
                   nativeToolCalls

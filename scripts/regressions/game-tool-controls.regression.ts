@@ -150,7 +150,7 @@ async function* narrator(messages: ChatMessage[], options: ChatOptions): AsyncGe
     "a separately planned narrator cannot emit textual tool calls",
   );
   if (expectedPrefill) {
-    assert.equal(messages.at(-1)?.role, "assistant");
+    assert.equal(messages.at(-1)?.role, "user");
     assert.equal(
       messages.at(-1)?.content,
       expectedPrefill.trimEnd(),
