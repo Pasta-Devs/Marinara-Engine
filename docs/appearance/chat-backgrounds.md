@@ -2,7 +2,17 @@
 
 The background library holds images you upload and pick by hand to sit behind your chat. For the **Background** agent that picks a backdrop for you each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md). For AI-generated backgrounds made from the Gallery, see [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
 
-A chat background shows only in Roleplay and Game chats. Conversation chats use a gradient, set in **Conversation Theme**. See [Appearance Settings](appearance-settings.md).
+A chat background shows in all chat modes. In Conversation chats, the gradient from **Conversation Theme** stays over the image, and **Conversation background image opacity** sets how strongly the image shows. See [Appearance Settings](appearance-settings.md).
+
+## Change the background of a chat
+
+Before you start: open the chat you want to change. The background you pick applies to that chat.
+
+1. Open **Settings**, then **Appearance**, then the **App** button.
+2. In **Backgrounds**, tap **Browse library**.
+3. Tap a picture. It becomes this chat's background, and the window closes.
+
+To use your own image, import it first (see [Import a background](#import-a-background)).
 
 ## Where to find backgrounds
 
@@ -28,7 +38,7 @@ The **Filter by source** buttons, **All sources**, **My uploads** and **Game ass
 ### Import a background
 
 1. In the **Background Library** window, find **Import Backgrounds** next to the search box.
-2. Drag image files onto it, or click it to pick files. You can import several at once.
+2. Tap or click it and pick image files. You can pick several at once. On a computer you can also drop files on it.
 3. Wait. It shows **Importing…** while it works.
 
 The new images appear in the grid with the **My upload** label.
@@ -55,7 +65,7 @@ Click the star on an image to add it to your favorites. It does not change the d
 Folders organize the library without moving or hiding the image files.
 
 1. Click **New Folder**, type a name and click **Add**.
-2. Drag an image onto a folder chip. On a phone or tablet, press and hold the image, then drag. Or use the image's **Move to folder** button.
+2. Tap an image's **Move to folder** button and pick the folder. Or drag the image onto a folder chip. On a phone or tablet, press and hold the image, then drag.
 3. To bring an image back, drag it onto **Unfiled**.
 4. Select a folder chip to show the pencil (**Rename folder**) and trash (**Delete folder**) buttons.
 
@@ -103,7 +113,7 @@ The thumbnail shows a **Default** label. To undo it, click the pin on that image
 
 ## Background Blur
 
-**Background Blur** softens the background behind the chat so text is easier to read. It applies to Roleplay and Game backgrounds.
+**Background Blur** softens the background behind the chat so text is easier to read. It applies to backgrounds in all chat modes.
 
 1. In the **Backgrounds** section, find the **Background Blur** slider.
 2. Drag it from 0 to 24. Higher means more blur.
