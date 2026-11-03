@@ -6,13 +6,13 @@ Regex is short for "regular expression", a search pattern that finds text matchi
 
 Example: some models wrap actions in asterisks.
 
-```
+```text
 *She smiles* Hello there.
 ```
 
-Find `\*([^*]+)\*` and replace it with `$1`, and the asterisks go away while the text inside stays:
+Copy this pattern exactly: `\*([^*]+)\*`. Replace it with `$1`, and the asterisks go away while the text inside stays:
 
-```
+```text
 She smiles Hello there.
 ```
 
@@ -27,10 +27,12 @@ Your global scripts live in the **Presets** panel, in the **Regexes** section. O
 1. Open **Presets** and find **Regexes**.
 2. Click **Create regex**. The full editor opens.
 3. Type a name at the top. A new script is named "New Regex Script".
-4. Fill in **Find Pattern (Regex)**, and **Replace With** if you want to replace the match (see [Editor fields](#editor-fields)).
-5. Choose where it runs in **Apply To** (see [Choose where a script runs](#choose-where-a-script-runs)).
-6. Paste sample text into **Live Test** and check **Result:**.
-7. Click **Save**. A green **Saved** note appears for a moment.
+4. In **Find Pattern (Regex)**, type `\*([^*]+)\*` (see [Editor fields](#editor-fields)).
+5. In **Replace With**, type `$1`.
+6. In **Apply To**, leave **AI Output** selected. The default **Only Display** apply mode is the safe choice (see [Choose where a script runs](#choose-where-a-script-runs)).
+7. Paste `*She smiles* Hello there.` into **Live Test**. **Result:** should read `She smiles Hello there.`
+8. Click **Save**. A green **Saved** note appears for a moment.
+9. Check it in a chat: when an AI reply has text between asterisks, the asterisks no longer show.
 
 If it did not work: a red error under **Find Pattern (Regex)** blocks saving. The pattern is invalid or unsafe; see [Safety and performance](#safety-and-performance).
 
@@ -44,7 +46,7 @@ The section header has three icon buttons: **Create regex**, **Import regexes fr
 
 ### Find Pattern (Regex)
 
-The search pattern. Write it without slash delimiters. The placeholder shows an example: `\*([^*]+)\*`.
+The search pattern. Write only the pattern, without a slash at the start or end. The placeholder shows an example: `\*([^*]+)\*`.
 
 ### Replace With
 
@@ -65,7 +67,7 @@ Toggle buttons that change how the pattern matches. A new script starts with `g`
 
 | Flag | Meaning |
 | --- | --- |
-| `g` | Global: replace every match, not just the first |
+| `g` | Global: replace every match, not only the first |
 | `i` | Case-insensitive |
 | `m` | Multiline: `^` and `$` match at line breaks |
 | `s` | dotAll: `.` also matches newline characters |
@@ -88,17 +90,13 @@ Paste sample text, and the result appears under **Result:**. Live Test checks on
 - **AI Output**: runs on AI replies before they are displayed.
 - **User Input**: runs on your messages before they are sent.
 
-For **Only Prompt** and **Both** in a **Roleplay** chat with **Individual** group mode, placement follows the character receiving the prompt. Your messages and other characters' messages count as **User Input**, and the responding character's own replies count as **AI Output**. This also applies to earlier replies in the same group turn. Character restrictions still select who receives the rewritten prompt, so a narrator excluded from a thought-hiding script keeps the original thoughts.
-
 ### Apply Mode
 
 **Apply Mode** is inside **Advanced Options**. It decides what the rewrite changes. A new script starts on **Only Display**.
 
-| Mode | What changes | Use it when |
-| --- | --- | --- |
-| **Only Display** | What you see in chat. The saved message and the model's later context stay the same. | You want to tidy how a reply looks. This is the safest choice. |
-| **Only Prompt** | What the model receives, also shown in the prompt preview. The display and the saved message stay the same. | You want to strip something the model keeps copying. |
-| **Both** | The display and the prompt text. | You want both. |
+- **Only Display**: changes what you see in chat. The saved message and the model's later context stay the same. Safest for tidying how a reply looks.
+- **Only Prompt**: changes what the model receives, also shown in the prompt preview. The display and the saved message stay the same. Use it to strip something the model keeps copying.
+- **Both**: changes the display and the prompt text.
 
 For your own messages, a **User Input** script set to **Only Display** or **Both** rewrites the message just before it is sent. The saved and sent message changes, not only how it looks. There is no display-only mode for outgoing messages.
 
@@ -108,6 +106,15 @@ Both are in **Advanced Options**.
 
 - **Execution Order** is a number. Lower numbers run first, which matters when several scripts can match the same text. A new script starts at 0, and the app assigns the next free number when you save. You can also drag rows in the **Regexes** list.
 - **Depth Range** limits how far back a script runs, with **Min** and **Max**. The newest message is depth 0, the one before it is depth 1, and so on. Leave both empty to run at any depth. Saving is blocked if **Min** is larger than **Max**.
+
+### Group chats
+
+This applies to **Only Prompt** and **Both** in a **Roleplay** chat with **Individual** group mode.
+
+- Placement follows the character receiving the prompt.
+- Your messages and other characters' messages count as **User Input**.
+- The responding character's own replies count as **AI Output**, including earlier replies in the same group turn.
+- Character limits still decide who receives the rewritten prompt. A narrator left out of a thought-hiding script keeps the original thoughts.
 
 ## Limit a script to one character
 
@@ -128,7 +135,11 @@ Character-scoped scripts do not run in every chat on their own. A per-chat setti
 | **Exclusive** | Each scoped script changes only messages from its own character. |
 | **Chat** | Every scoped script changes every message in the chat. |
 
-**Use preset default** follows the prompt preset's **Scoped regex default**. Choosing a mode overrides it for this chat. To start new chats with a mode, set it as the preset default, save it in your [default settings profile](../chats/settings-profiles.md#choosing-the-default-profile), or choose it and click the favorite layout star beside **Reset View** (see [Choosing a layout for new chats](../chats/chat-settings.md#choosing-a-layout-for-new-chats)).
+**Use preset default** follows the prompt preset's **Scoped regex default**. Choosing a mode overrides it for this chat. To start new chats with a mode, use one of these:
+
+- Set it as the preset default.
+- Save it in your [default settings profile](../chats/settings-profiles.md#choosing-the-default-profile).
+- Choose it, then click the favorite layout star beside **Reset View** (see [Choosing a layout for new chats](../chats/chat-settings.md#choosing-a-layout-for-new-chats)).
 
 Below the modes, the panel lists each character's scoped scripts with a switch for each. That switch belongs to the script itself, so it changes the script in every chat. The mode controls display-side scripts. Prompt scripts always follow the character that is generating the reply.
 
@@ -156,11 +167,11 @@ Failed deletions stay selected so you can retry. Unselected scripts stay in plac
 
 Every pattern is checked before it can be saved or run. A pattern likely to run slowly and hang the app is blocked with this message, and saving stops until you fix it:
 
-```
+```text
 Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns.
 ```
 
-Avoid these shapes:
+If you see this message, make the pattern shorter and simpler. Avoid these shapes:
 
 - Patterns longer than 1000 characters.
 - A repeating group inside another repeating group, such as `(a+)+`.
