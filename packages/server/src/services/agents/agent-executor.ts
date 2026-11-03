@@ -52,6 +52,8 @@ import {
   resolveMacros,
   extractLeadingThinkingBlocks,
   findInvalidInventoryTrackerRow,
+  inventoryTrackerComparableName,
+  resolveTrackerRowsUpdate,
   type CustomAgentContextSources,
 } from "@marinara-engine/shared";
 import {
@@ -974,7 +976,7 @@ export async function executeAgent(
     });
 
     // Parse the result based on agent type
-    let parsed = parseAgentResponse(config, responseText);
+    let parsed = parseAgentResponse(config, responseText, context);
     let invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
     let totalTokens = result.usage?.totalTokens ?? 0;
     let finishReason = result.finishReason;
@@ -982,7 +984,7 @@ export async function executeAgent(
     if (invalidJson && shouldRetryInvalidJsonAgent(config) && !context.signal?.aborted) {
       logger.warn("[agent] %s returned invalid JSON; retrying once with strict JSON reminder", config.type);
       const retryMessages = prepareAgentProviderMessages(
-        buildInvalidJsonRetryMessages(messages, parsed.type, responseText),
+        buildInvalidJsonRetryMessages(messages, parsed.type, responseText, invalidResultReason(parsed.data)),
       );
       emitAgentDebug(context, {
         stage: "retry_request",
@@ -1027,13 +1029,13 @@ export async function executeAgent(
         ...debugUsage(retryResult.usage),
         ...responseDebugFields(responseText),
       });
-      parsed = parseAgentResponse(config, responseText);
+      parsed = parseAgentResponse(config, responseText, context);
       invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
       finishReason = retryResult.finishReason;
     }
 
     const structured = invalidJson
-      ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+      ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type, parsed.data) }
       : resolveStructuredAgentResult(config, context, parsed.data, finishReason);
     return {
       agentId: config.id,
@@ -1315,10 +1317,10 @@ async function executeAgentWithTools(
     // No tool calls → final response
     if (!result.toolCalls || result.toolCalls.length === 0) {
       const responseText = result.content?.trim() ?? "";
-      const parsed = parseAgentResponse(config, responseText);
+      const parsed = parseAgentResponse(config, responseText, context);
       const invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
       const structured = invalidJson
-        ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+        ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type, parsed.data) }
         : resolveStructuredAgentResult(config, context, parsed.data, result.finishReason);
       return {
         agentId: config.id,
@@ -1407,10 +1409,10 @@ async function executeAgentWithTools(
     ...debugUsage(finalResult.usage),
     ...responseDebugFields(responseText),
   });
-  const parsed = parseAgentResponse(config, responseText);
+  const parsed = parseAgentResponse(config, responseText, context);
   const invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
   const structured = invalidJson
-    ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+    ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type, parsed.data) }
     : resolveStructuredAgentResult(config, context, parsed.data, finalResult.finishReason);
   return {
     agentId: config.id,
@@ -1665,7 +1667,7 @@ export async function executeAgentBatch(
     });
 
     // Parse the batched response into individual results
-    const { parsed, failed } = parseBatchResponse(configs, responseText, durationMs, totalTokens);
+    const { parsed, failed } = parseBatchResponse(configs, context, responseText, durationMs, totalTokens);
 
     logger.info(
       "[agent-batch] Batch parse: %d parsed, %d failed %s",
@@ -1797,6 +1799,7 @@ function buildBatchSystemPrompt(
  */
 function parseBatchResponse(
   configs: AgentExecConfig[],
+  context: Pick<AgentContext, "gameState">,
   responseText: string,
   totalDurationMs: number,
   totalTokens: number = 0,
@@ -1825,7 +1828,7 @@ function parseBatchResponse(
       matchLegacyResultTag(config.type, residualText);
 
     if (matchedOutput !== null) {
-      const parsedResult = parseAgentResponse(config, matchedOutput);
+      const parsedResult = parseAgentResponse(config, matchedOutput, context);
       const invalidJson = shouldFailInvalidJsonResult(config, parsedResult.data);
       if (invalidJson && shouldRetryInvalidJsonAgent(config)) {
         logger.warn(
@@ -1843,7 +1846,7 @@ function parseBatchResponse(
         tokensUsed: perAgentTokens,
         durationMs: perAgentDuration,
         success: !invalidJson,
-        error: invalidJson ? invalidJsonAgentError(parsedResult.type) : null,
+        error: invalidJson ? invalidJsonAgentError(parsedResult.type, parsedResult.data) : null,
       });
     } else {
       // Could not find this agent's output — mark for individual retry
@@ -2012,8 +2015,16 @@ function shouldFailInvalidJsonResult(config: Pick<AgentExecConfig, "type" | "set
 const CUT_OFF_TEXT_REWRITE_ERROR =
   "The rewrite stopped before it finished (often the agent's max tokens), so the reply was kept as written. Raise this agent's max tokens and try again.";
 
-function invalidJsonAgentError(resultType: AgentResultType): string {
-  return `Agent returned invalid JSON instead of the requested ${resultType} format. Check this agent's model/connection settings and try again.`;
+/** Why parsed JSON was still unusable, when parseAgentResponse knows. */
+function invalidResultReason(data: unknown): string | undefined {
+  return isRecord(data) && typeof data.reason === "string" ? data.reason : undefined;
+}
+
+function invalidJsonAgentError(resultType: AgentResultType, data?: unknown): string {
+  const reason = invalidResultReason(data);
+  return reason
+    ? `Agent returned an unusable ${resultType} result. ${reason} Check this agent's model/connection settings and try again.`
+    : `Agent returned invalid JSON instead of the requested ${resultType} format. Check this agent's model/connection settings and try again.`;
 }
 
 function resolveStructuredAgentResult(
@@ -2041,6 +2052,7 @@ function buildInvalidJsonRetryMessages(
   messages: ChatMessage[],
   resultType: AgentResultType,
   rawResponse: string,
+  reason?: string,
 ): ChatMessage[] {
   const rawPreview = rawResponse.trim().slice(0, 4000);
   return [
@@ -2049,7 +2061,7 @@ function buildInvalidJsonRetryMessages(
     {
       role: "user",
       content: [
-        `Your previous response was not valid JSON for the requested ${resultType} format.`,
+        reason ?? `Your previous response was not valid JSON for the requested ${resultType} format.`,
         "Return ONLY one valid JSON object that matches the required output format.",
         "Do not include markdown fences, XML tags, commentary, explanations, or any text before or after the JSON.",
       ].join("\n"),
@@ -3748,12 +3760,65 @@ const SINGLE_GROUP_TRACKER_KEYS: Partial<Record<AgentResultType, string>> = {
   character_tracker_update: "presentCharacters",
 };
 
+/** Inventory Tracker groups and the playerStats field each one is saved in. */
+const INVENTORY_TRACKER_GROUP_FIELDS = {
+  currencies: "inventoryTrackerCurrencies",
+  equipped: "inventoryTrackerEquipped",
+  inventory: "inventoryTrackerInventory",
+} as const;
+
+/**
+ * Inventory has three row groups, so a root-level envelope names none of them
+ * (Marinara-Agents#2077). Move each row under the one group that already tracks
+ * its name, merged with any part sent for that group. Removing a name that no
+ * group tracks changes nothing, so it is dropped. Other names that no single group
+ * tracks are reported rather than guessed: a new item could be money or gear.
+ */
+function placeInventoryTrackerRootRows(
+  data: Record<string, unknown> & { updates?: unknown[]; removed?: unknown[] },
+  gameState: AgentContext["gameState"] | undefined,
+): { data: Record<string, unknown>; placed: number; unplaced: string[] } {
+  const { updates = [], removed = [], ...grouped } = data;
+  const parts: Record<string, { updates: unknown[]; removed: unknown[] }> = {};
+  const unplaced: string[] = [];
+  let placed = 0;
+  const place = (name: string, kind: "updates" | "removed", value: unknown) => {
+    const key = inventoryTrackerComparableName(name);
+    const groups = Object.entries(INVENTORY_TRACKER_GROUP_FIELDS).filter(([, field]) => {
+      const rows: unknown = gameState?.playerStats?.[field];
+      return Array.isArray(rows) && rows.some((row) => inventoryTrackerComparableName(row?.name) === key);
+    });
+    if (groups.length === 1) {
+      (parts[groups[0]![0]] ??= { updates: [], removed: [] })[kind].push(value);
+      placed += 1;
+    } else if (kind === "removed" && groups.length === 0) {
+      logger.debug("[agent] Inventory Tracker removed %s, which no group tracks; nothing to remove", name);
+    } else unplaced.push(name);
+  };
+  // Rows and removals were validated with the groups, so every name is a non-empty string.
+  for (const row of updates) place((row as { name: string }).name, "updates", row);
+  for (const name of removed) place(name as string, "removed", name);
+  for (const [group, part] of Object.entries(parts)) {
+    const current = grouped[group];
+    grouped[group] = Array.isArray(current)
+      ? resolveTrackerRowsUpdate(part, current)
+      : isTrackerRowsUpdate(current)
+        ? {
+            updates: [...(current.updates ?? []), ...part.updates],
+            removed: [...(current.removed ?? []), ...part.removed],
+          }
+        : part;
+  }
+  return { data: grouped, placed, unplaced };
+}
+
 /**
  * Parse the raw LLM response into a typed result.
  */
 function parseAgentResponse(
   config: Pick<AgentExecConfig, "type" | "settings">,
   responseText: string,
+  context?: Pick<AgentContext, "gameState">,
 ): {
   type: AgentResultType;
   data: unknown;
@@ -3770,15 +3835,16 @@ function parseAgentResponse(
         throw new Error("Structured agent response must be a JSON object");
       }
       if (resultType === "inventory_tracker_update") {
-        for (const group of ["currencies", "equipped", "inventory"] as const) {
-          if (!(group in parsedData)) continue;
-          const value = (parsedData as Record<string, unknown>)[group];
+        // `null` checks a root-level envelope the same way as a named group.
+        for (const group of ["currencies", "equipped", "inventory", null] as const) {
+          if (group ? !(group in parsedData) : !isTrackerRowsUpdate(parsedData)) continue;
+          const value = group ? (parsedData as Record<string, unknown>)[group] : parsedData;
           const incremental = isTrackerRowsUpdate(value);
           if (
             findInvalidInventoryTrackerRow(incremental ? (value.updates ?? []) : value) ||
             (incremental && value.removed?.some((name) => typeof name !== "string" || !name.trim()))
           ) {
-            throw new Error(`Invalid inventory tracker group: ${group}`);
+            throw new Error(`Invalid inventory tracker group: ${group ?? "root"}`);
           }
         }
       }
@@ -3790,6 +3856,25 @@ function parseAgentResponse(
       if (rowsKey && isTrackerRowsUpdate(data) && !(rowsKey in data)) {
         const { updates, removed } = data;
         data = { ...data, [rowsKey]: { updates, removed } };
+      }
+      // The apply path reads only the three groups, so an unplaced root row would
+      // otherwise vanish behind a successful run. Retry it like invalid JSON.
+      if (resultType === "inventory_tracker_update" && isTrackerRowsUpdate(data)) {
+        const placement = placeInventoryTrackerRootRows(data, context?.gameState);
+        if (placement.unplaced.length > 0) {
+          const names = placement.unplaced.join(", ");
+          logger.warn("[agent] %s returned ungrouped inventory changes it could not place: %s", config.type, names);
+          const reason = `Changes to ${names} named no group, and no single tracked group holds them. Put every change under "currencies", "equipped" or "inventory".`;
+          return { type: resultType, data: { raw: responseText, parseError: true, reason } };
+        }
+        if (placement.placed > 0) {
+          logger.warn(
+            "[agent] %s returned %d ungrouped inventory change(s); placed them by tracked name",
+            config.type,
+            placement.placed,
+          );
+        }
+        data = placement.data;
       }
       if (config.settings.jsonContextOutput === true && resultType === "context_injection") {
         const output = data as Record<string, unknown>;
