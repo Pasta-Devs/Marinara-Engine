@@ -282,19 +282,28 @@ function isBlockedResolvedAddress(address: string, policy: OutboundUrlPolicy): b
   return !(policy.allowLoopback && isLoopbackIp(address));
 }
 
-// The well-known NAT64 prefix carries IPv4 internet traffic, so reaching it says nothing about the local network.
-const NAT64_CIDR = parseCidr("64:ff9b::/96")!;
+// Dialling the unspecified address reaches this machine, so a server configured as http://0.0.0.0:port is local.
+const UNSPECIFIED_CIDRS = [parseCidr("0.0.0.0/32")!, parseCidr("::/128")!];
 
 /**
- * A hop is local when the server it reached is on this machine or the local network. A name, including `localhost`
- * and `.local` or `.internal` ones that DNS or mDNS may answer with any address, is judged by the address its pinned
- * connection used, never by its spelling or a fresh lookup. It counts as remote when that address is unknown: sent
- * through a caller's own dispatcher or an env proxy, or not resolved here.
+ * A hop is local when the server it reached is on this machine or the local network. A name is judged by the address
+ * its pinned connection used, never by its spelling or a fresh lookup: `localhost` is always pinned to loopback, while
+ * DNS or mDNS may answer `.local`, `.internal` and `.localhost` names with any address. It counts as remote when that
+ * address is unknown: sent through a caller's own dispatcher or an env proxy, or not resolved here.
+ *
+ * Only the built-in loopback, private, link-local, ULA and CGNAT ranges count. isReservedIp is a deny-list that leans
+ * toward "reserved" and honors TRUSTED_PRIVATE_NETWORKS, so it would trust remote hops such as VPN fake-IP
+ * (198.18.0.0/15), NAT64, TEST-NET or an operator-trusted public range.
  */
 function isLocalHop(url: URL, connectedAddress: string | undefined): boolean {
   const address = isIpLiteral(url.hostname) ? normalizeHostnameForAddress(url.hostname) : connectedAddress;
   const bytes = address ? ipToBytes(address) : null;
-  return bytes !== null && isReservedIp(address!) && !matchesCidr(bytes, NAT64_CIDR);
+  return (
+    bytes !== null &&
+    (isLoopbackIp(address!) ||
+      isNonRoutableNetworkIp(address!) ||
+      UNSPECIFIED_CIDRS.some((cidr) => matchesCidr(bytes, cidr)))
+  );
 }
 
 function preferIpv4Records(

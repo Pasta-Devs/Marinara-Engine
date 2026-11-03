@@ -53,6 +53,8 @@ const fakeNames: Record<string, Array<{ address: string; family: 4 | 6 }>> = {
   ],
   // A remote server reached through the well-known NAT64 prefix.
   "nat64.test": [{ address: "64:ff9b::5db8:d822", family: 6 }],
+  // A remote server behind a VPN app's fake-IP DNS, which answers from 198.18.0.0/15.
+  "fakeip.test": [{ address: "198.18.0.5", family: 4 }],
 };
 // A remote name whose DNS answer changes to loopback once it has been contacted.
 let relayContacted = false;
@@ -142,7 +144,7 @@ try {
 
   // With local URLs on, a remote hop is judged by the address it was reached at, not by a later lookup.
   for (const [index, name] of ["provider fetch with local URLs", "image fetch with local URLs"].entries()) {
-    for (const host of ["relay.test", "nat64.test"]) {
+    for (const host of ["relay.test", "nat64.test", "fakeip.test"]) {
       const start = `http://${host}/v1/chat/completions?${index}`;
       remoteRedirects.set(start, `http://127.0.0.1:${internalPort}/blocked`);
       relayContacted = false;
@@ -156,10 +158,31 @@ try {
     }
   }
 
+  // Only the built-in local ranges count: a public range trusted for sign-in stays remote, while a server
+  // configured on the unspecified address is this machine.
+  const trustedNetworks = process.env.TRUSTED_PRIVATE_NETWORKS;
+  process.env.TRUSTED_PRIVATE_NETWORKS = "10.0.0.0/8,93.184.216.0/24";
+  try {
+    for (const name of ["provider fetch with local URLs", "image fetch with local URLs"]) {
+      remoteRedirects.set(`${REMOTE}/trusted`, `http://127.0.0.1:${internalPort}/blocked`);
+      await assert.rejects(
+        safeFetch(`${REMOTE}/trusted`, { policy: policies[name] }),
+        /Refused to fetch/,
+        `${name}: a remote hop in TRUSTED_PRIVATE_NETWORKS cannot redirect to loopback`,
+      );
+    }
+  } finally {
+    if (trustedNetworks === undefined) delete process.env.TRUSTED_PRIVATE_NETWORKS;
+    else process.env.TRUSTED_PRIVATE_NETWORKS = trustedNetworks;
+  }
+  remoteRedirects.set("http://0.0.0.0:5001/", `${internal.origin}/ok`);
+  const unspecified = await safeFetch("http://0.0.0.0:5001/", { policy: policies["provider fetch with local URLs"] });
+  assert.equal(await unspecified.text(), "internal", "a server on 0.0.0.0 redirects to loopback");
+
   remoteRedirects.set(`${REMOTE}/llm`, `http://127.0.0.1:${internalPort}/blocked`);
   await assert.rejects(llmFetch(`${REMOTE}/llm`, { method: "POST", body: "{}" }), /Refused to fetch/);
 
-  assert.deepEqual(loopbackHits, ["/ok", "/ok", "/ok", "/ok"], "only local-to-local redirects reach loopback");
+  assert.deepEqual(loopbackHits, ["/ok", "/ok", "/ok", "/ok", "/ok"], "only local-to-local redirects reach loopback");
 } finally {
   globalThis.fetch = originalFetch;
   (dns as { lookup: unknown }).lookup = originalLookup;
