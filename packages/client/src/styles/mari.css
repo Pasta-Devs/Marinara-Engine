@@ -1142,40 +1142,17 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   outline-offset: 2px;
 }
 
-.mari-workspace-composer__stop + .mari-workspace-composer__send {
-  margin-inline-start: 0.25rem;
-}
-
-.mari-workspace-composer__send-menu {
+/* Static, so the two send choices span the whole composer above it. */
+.mari-workspace-composer__send-menu.mari-composer-menu {
+  position: static;
   flex: none;
-}
-
-.mari-workspace-composer__send-more {
-  display: grid;
-  width: 1.25rem;
-  height: var(--mari-composer-control);
-  place-items: center;
-  color: var(--muted-foreground);
-}
-
-.mari-workspace-composer__send-more:hover:not(:disabled),
-.mari-workspace-composer__send-more[aria-expanded="true"] {
-  color: var(--foreground);
-}
-
-.mari-workspace-composer__send-more:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.mari-workspace-composer__send-more > svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  margin-inline-start: auto;
 }
 
 .mari-workspace-composer__send-menu .mari-composer-menu__popover {
   right: 0;
-  left: auto;
+  left: 0;
+  width: auto;
 }
 
 /* A reply Send now reached before she said anything: its steps are the content. */
@@ -1242,17 +1219,9 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 }
 
 @media (pointer: coarse) {
-  .mari-workspace-composer__send-more,
   .mari-pending-queue__send,
   .mari-pending-queue__remove {
     position: relative;
-  }
-
-  /* Grows away from Send: a near miss here must not send now. */
-  .mari-workspace-composer__send-more::after {
-    position: absolute;
-    inset: -0.5rem -1.25rem -0.5rem 0;
-    content: "";
   }
 
   .mari-pending-queue__send::after,
@@ -5231,7 +5200,7 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
     width: auto;
   }
 
-  /* A run adds Stop and the send menu to the row: the connection's name gives way, not its neighbours. */
+  /* A run swaps Send for Stop or the send menu: the connection's name gives way, not its neighbours. */
   .mari-composer-menu:not(.mari-composer-menu--connection) {
     flex: none;
   }
