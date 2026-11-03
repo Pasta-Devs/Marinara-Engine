@@ -29,7 +29,7 @@ A character can also ask to start a scene. A **Set up scene** invitation appears
 How the scene opens:
 
 - It starts from your default Roleplay settings profile, like any new Roleplay chat. A [settings profile](../chats/settings-profiles.md) is a saved set of chat settings.
-- A short note on how to play the scene is posted first as a narrator message, then the scene's description as a second narrator message.
+- When the scene plan has them, a short note on how to play the scene is posted first as a narrator message, then the scene's description as a second narrator message. A plan without one skips it.
 - With one character, the opening is in that character's voice, with spoken words in double quotes unless your writing instructions set another style.
 - In a group scene, the opening follows the profile's group mode. **Merged (Narrator)** is the default: one reply voices every character. In **Individual** mode, the character who opens the scene writes it. See [Group Chats](../chats/group-chats.md#choose-who-speaks).
 
