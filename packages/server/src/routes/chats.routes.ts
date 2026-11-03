@@ -914,7 +914,7 @@ type ProfessorMariRestartQuery = {
 };
 
 /** A roleplay's opening greeting alone does not start it: cast and persona changes before the first turn are setup. */
-function chatHasStarted(messages: ReadonlyArray<{ role: string }>, metadata: unknown, mode: string): boolean {
+export function chatHasStarted(messages: ReadonlyArray<{ role: string }>, metadata: unknown, mode: string): boolean {
   return (
     parseChatMetadata(metadata).conversationSetupComplete === true ||
     messages.some((message) => message.role === "user") ||
