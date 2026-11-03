@@ -53,6 +53,6 @@ Click **Reset to Default**. If an override is saved, Marinara asks you to confir
 - [Image Generation Providers and Setup](../media/image-providers.md)
 - [Scene Video Generation](../media/scene-video.md)
 - [Image Style Profiles](../media/style-profiles.md)
-- [Noodle Settings and Chat Carryover](../noodle/settings.md)
+- [Noodle Settings and Chat Carryover](../agents/noodle-settings.md)
 - [Preset Editor and Prompt Manager](presets.md)
 - [Generation Parameters](generation-parameters.md)

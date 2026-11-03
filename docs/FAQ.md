@@ -82,7 +82,7 @@ An agent is an optional AI helper that runs during a chat to do a focused job, s
 
 ## How do I set up Noodle?
 
-Noodle is a local, fictional social network for your characters. Install **Noodle** from **Agents → Agent Organizer**, restart Marinara when asked, then open **Home → Noodle**. See [Noodle: The In-App Social Timeline](noodle/overview.md).
+Noodle is a local, fictional social network for your characters. Install **Noodle** from **Agents → Agent Organizer**, restart Marinara when asked, then open **Home → Noodle**. See [Noodle: The In-App Social Timeline](agents/noodle.md).
 
 ## Why does my character not reply?
 

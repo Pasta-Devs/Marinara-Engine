@@ -2,7 +2,7 @@
 
 Use the **Noodle settings** panel to choose who takes part in the timeline, how much they post, and how Noodle shares context with your chats. Two features share context in opposite directions: **Carryover to chats** and the per-chat **Allow Noodle references** toggle.
 
-If you are new to Noodle, read [Noodle: The In-App Social Timeline](overview.md) first. A persona is the character you play as in a chat. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) for AI accounts.
+If you are new to Noodle, read [Noodle: The In-App Social Timeline](noodle.md) first. A persona is the character you play as in a chat. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) for AI accounts.
 
 ## Open the settings
 
@@ -85,7 +85,7 @@ This section lets Noodle attach AI-made images to some posts. It needs an image 
 
 - **Image generation**: default **off**. Turn it on to let the AI make post images. More controls then appear.
 - **Image width** and **Image height**: 64 to 4096 pixels, default **1024** by **1536**.
-- **Image generation connection**: default **Default image generation connection**, which uses the model marked default for images in **Connections**. A character can use its own (see [Profiles and following](overview.md#profiles-and-following)).
+- **Image generation connection**: default **Default image generation connection**, which uses the model marked default for images in **Connections**. A character can use its own (see [Profiles and following](noodle.md#profiles-and-following)).
 - **Image instructions (sent to your LLM)**: built-in text, up to 4000 characters. The timeline model follows it when writing each post's image description, so write directions, not image tags. For style tags sent straight to the image model, use a style profile.
 - **Use avatar references**: default **on**. Sends the character's avatar or reference images to the image model.
 - **Interpret image prompts**: default **on**. A text model rewrites each image prompt, following your image model's **Image prompting instructions** and your style profile's Style text. When off, the instructions are not used and the Style text is added as written.
@@ -204,7 +204,7 @@ Use either one alone, or both together.
 
 ## Related guides
 
-- [Noodle: The In-App Social Timeline](overview.md)
+- [Noodle: The In-App Social Timeline](noodle.md)
 - [Chat Settings Overview](../chats/chat-settings.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Supported AI Providers](../connections/providers-reference.md)

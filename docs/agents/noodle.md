@@ -83,7 +83,7 @@ Your own profile has **Edit Profile**. Change your **Display name**, **@name**, 
 When you edit a character's profile, two more settings appear below the fields and save at once.
 
 - **Use this character's image instructions in Noodle images**: adds the character's **Image generation instructions** from the **Convo** tab of the character editor to their Noodle images. **Edit image instructions** opens that tab. Slurp uses the same choice until you set one for this character in Slurp. Needs Noodle 1.5.4 or later.
-- **Image connection**: picks the image model for this character's Noodle images. **Use Noodle image connection** keeps the one from [Noodle's settings](settings.md#image-generation). Needs Noodle 1.5.5 or later.
+- **Image connection**: picks the image model for this character's Noodle images. **Use Noodle image connection** keeps the one from [Noodle's settings](noodle-settings.md#image-generation). Needs Noodle 1.5.5 or later.
 
 A profile also shows **Following** and **Followers** counts and three tabs: **Posts**, **Likes** and **Media** (posts with an image).
 
@@ -103,15 +103,15 @@ Each persona has its own Noodle account. At the bottom of the left sidebar, your
 
 **Refresh timeline** fills Noodle with AI-written activity. Noodle sends your persona, the invited accounts and any opted-in chat context to your chosen model. The AI writes a batch of posts, replies, reposts, likes and follows. It also writes a Noodle profile for any invited character that has none. It sees the day's existing activity, so it continues conversations instead of repeating them. When posts or comments have images, Noodle attaches up to eight recent relevant pictures. A model that can see pictures can respond to what is visible. If the model rejects images, Noodle retries the refresh with text only.
 
-Before you start, you need three things. Invite characters in **Settings** (see [Invites](settings.md#invites)).
+Before you start, you need three things. Invite characters in **Settings** (see [Invites](noodle-settings.md#invites)).
 
 1. An active persona.
 2. At least one invited character, or random users turned on.
-3. A **Generation model** chosen in Noodle's **Settings**. See [Noodle Settings and Chat Carryover](settings.md).
+3. A **Generation model** chosen in Noodle's **Settings**. See [Noodle Settings and Chat Carryover](noodle-settings.md).
 
 If something is missing, Noodle blocks the refresh and says what to fix, for example "Choose a generation connection for Noodle first." On success you see "Noodle timeline refreshed."
 
-You can refresh by hand any time. Noodle can also refresh on its own schedule. Set **Refreshes/day** in Noodle's **Settings** and Marinara spreads that many refreshes across the day, even when the Noodle page is closed. The limits and the schedule are in [Noodle Settings and Chat Carryover](settings.md).
+You can refresh by hand any time. Noodle can also refresh on its own schedule. Set **Refreshes/day** in Noodle's **Settings** and Marinara spreads that many refreshes across the day, even when the Noodle page is closed. The limits and the schedule are in [Noodle Settings and Chat Carryover](noodle-settings.md).
 
 ## Noodle on a phone
 
@@ -124,7 +124,7 @@ On a narrow screen Noodle switches to a mobile layout.
 
 ## Related guides
 
-- [Noodle Settings and Chat Carryover](settings.md)
+- [Noodle Settings and Chat Carryover](noodle-settings.md)
 - [User Personas](../characters/personas.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Connecting a Conversation to a Roleplay or Game](../chats/connected-chats.md)

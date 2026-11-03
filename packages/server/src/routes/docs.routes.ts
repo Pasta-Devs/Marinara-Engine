@@ -71,7 +71,6 @@ const DIR_ORDER = [
   "agents",
   "media",
   "prompts",
-  "noodle",
   "appearance",
   "settings",
   "data",
@@ -168,6 +167,8 @@ const DOC_ORDER: Record<string, string[]> = {
     "knowledge-sources.md",
     "memory.md",
     "approvals-and-agent-suite.md",
+    "noodle.md",
+    "noodle-settings.md",
   ],
   media: [
     "image-providers.md",
@@ -188,7 +189,6 @@ const DOC_ORDER: Record<string, string[]> = {
     "generation-parameters.md",
     "prompt-overrides.md",
   ],
-  noodle: ["overview.md", "settings.md"],
   appearance: [
     "appearance-settings.md",
     "fonts.md",
