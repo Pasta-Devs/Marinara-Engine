@@ -519,8 +519,13 @@ assert.match(
 );
 assert.match(
   flatAgentSource,
-  /catch \(err\) \{[^]{0,400}?await this\.revertAndStageSensitiveAftermath\(sensitiveSnapshot\); throw err; \}/u,
-  "an aborted or failed spawn still reverts and stages the aftermath",
+  /catch \(err\) \{[^]{0,400}?await this\.revertAndStageSensitiveAftermath\(sensitiveSnapshot\);[^]{0,200}?throw err; \}/u,
+  "a failed spawn still reverts and stages the aftermath before it rethrows",
+);
+assert.match(
+  flatAgentSource,
+  /if \(aborted\) \{[^]{0,400}?await this\.revertAndStageSensitiveAftermath\(sensitiveSnapshot\);[^]{0,200}?throw new Error\("aborted"\); \}/u,
+  "an aborted run still reverts and stages the aftermath before it reports the abort",
 );
 assert.match(
   flatAgentSource,
