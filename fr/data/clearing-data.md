@@ -1,69 +1,62 @@
 # Effacer ou réinitialiser tes données
 
-Ce guide explique comment supprimer définitivement tes données dans Marinara Engine grâce à la section **Danger Zone** (zone de danger). Tu peux effacer quelques catégories seulement ou tout supprimer. Aucun retour en arrière n'est possible : lis d'abord les avertissements.
+Supprime définitivement une partie ou la totalité de tes données avec le bouton **Danger Zone** (zone de danger). Il n'y a pas d'annulation. Pour supprimer un seul chat ou un seul personnage, utilise plutôt son propre bouton de suppression. Voir [Gérer les chats](../chats/managing-chats.md) et [Créer et modifier des personnages](../characters/creating-and-editing-characters.md).
 
-## Où se trouve la Danger Zone
-
-Les outils d'effacement sont tous réunis au même endroit.
-
-1. Ouvre **Settings** (Paramètres).
-2. Va sur l'onglet **Advanced** (Avancé).
-3. Descends jusqu'à la section **Danger Zone**, tout en bas.
-
-La description de la **Danger Zone** indique : "Permanently clear selected categories of local data. Professor Mari is always preserved."
-
-Si tu utilises Marinara depuis un autre appareil que l'ordinateur qui fait tourner l'application, l'effacement demande un accès administrateur. La marche à suivre est décrite dans [Accès à distance](../REMOTE_ACCESS.md).
-
-## Fais une sauvegarde avant d'effacer
-
-Un effacement est irréversible. Il n'y a ni corbeille ni panier de récupération. Une fois que tu confirmes, les données sont perdues.
-
-Commence par créer une sauvegarde : tu pourras ainsi restaurer les données si tu changes d'avis. Voir [Sauvegarder et restaurer Marinara](backup-and-restore.md).
-
-## Les huit catégories de données
-
-La **Danger Zone** affiche une liste de huit catégories à cocher. Chacune forme un périmètre indépendant. Cocher une catégorie ne touche pas aux autres.
-
-| Catégorie | Ce qui est effacé |
-|---|---|
-| **Chats & Messages** | Les chats, les dossiers, les messages, les données de scène et hors-personnage, ainsi que l'état d'exécution du chat. |
-| **Characters** | Les personnages et les groupes de personnages. Professor Mari est toujours conservée. |
-| **Personas** | Les personas et les groupes de personas. |
-| **Lorebooks** | Les lorebooks et leurs entrées. |
-| **Presets** | Les presets de prompt, les groupes, les sections et les variables. |
-| **Connections** | Les connexions API et les points d'accès des modèles. |
-| **Automation & Addons** | Les agents, les outils, les scripts regex, les thèmes synchronisés et l'état de l'automatisation. |
-| **Media & Assets** | Les arrière-plans, les avatars, les sprites, les éléments de la galerie, les polices et les fichiers de sources de connaissances. |
-
-Certaines catégories vont plus loin que les enregistrements en base de données. **Chats & Messages** supprime aussi tout le dossier de galerie présent sur le disque, ainsi que les fichiers vidéo de scène. Cela inclut les images de galerie des personnages et des personas, même si tu n'as coché ni **Characters** ni **Personas**. **Media & Assets** supprime les dossiers présents sur le disque pour les arrière-plans, les avatars, les sprites, les fichiers d'avatars 2D et 3D, les galeries, les fichiers vidéo de scène, les polices et les fichiers de sources de connaissances. **Connections** efface également les réglages Text to Speech (TTS, synthèse vocale) et Speech to Text (reconnaissance vocale) enregistrés, car ils sont liés à une connexion. Cette catégorie supprime aussi une clé API Tripo enregistrée auparavant sur la page **3D Avatars** (avatars 3D).
+**Avant de commencer :** fais une sauvegarde. Il n'y a ni corbeille ni poubelle. Voir [Sauvegarder et restaurer Marinara](backup-and-restore.md). Si tu ouvres Marinara depuis un autre appareil, tu as aussi besoin du secret d'administration. Voir [Accès à distance](../REMOTE_ACCESS.md).
 
 ## Effacer certaines catégories
 
-Utilise cette méthode pour supprimer une partie des données et garder le reste.
+1. Ouvre **Settings → Advanced** (Paramètres → Avancé) et fais défiler jusqu'à **Danger Zone**.
+2. Vérifie chaque catégorie que tu veux supprimer. **Select All** (tout sélectionner) coche toutes les cases. Quand tout est coché, le même bouton affiche **Clear Selection** (effacer la sélection) et décoche tout.
+3. Clique sur **Clear Selected Data**. Il reste désactivé jusqu'à ce que tu coches une catégorie.
+4. Lis l'avertissement. Il indique combien de catégories tu as choisies.
+5. Clique sur **Confirm Delete**, ou sur **Cancel**. Rien n'est supprimé avant ta confirmation.
 
-1. Coche la case de chaque catégorie à supprimer.
-2. Pour cocher ou décocher toutes les cases d'un coup, utilise le bouton **Select All** (tout sélectionner). Quand toutes les cases sont cochées, ce même bouton devient **Clear Selection** (effacer la sélection) pour tout décocher.
-3. Clique sur **Clear Selected Data** (effacer les données sélectionnées). Ce bouton reste désactivé tant qu'aucune catégorie n'est cochée.
-4. Un encadré d'avertissement apparaît. Il précise le nombre de catégories choisies et rappelle qu'aucun retour en arrière n'est possible.
-5. Clique sur **Cancel** (annuler) pour renoncer, ou sur **Confirm Delete** (confirmer la suppression) pour supprimer. Rien n'est supprimé tant que tu n'as pas cliqué sur **Confirm Delete**.
-
-Une fois l'effacement réussi, un message de confirmation s'affiche. Il indique que les données sélectionnées ont été effacées et que les caches d'exécution ont été réinitialisés immédiatement.
+Quand ça marche, un message indique que les données choisies ont été effacées. Si la requête échoue, un message d'erreur apparaît ("Failed to clear selected data."). Certaines données peuvent déjà être effacées, alors vérifie ce qui reste. Vérifie aussi que tu as l'accès d'administration.
 
 ## Tout effacer
 
-Utilise cette méthode pour vider les huit catégories en une seule fois.
+1. Dans **Danger Zone**, clique sur **Clear All Data**. Tu n'as pas besoin de cocher les cases une par une.
+2. L'avertissement demande : "Delete all supported data categories except Professor Mari? There is no undo."
+3. Clique sur **Confirm Delete**, ou sur **Cancel** pour arrêter.
 
-1. Clique sur **Clear All Data** (tout effacer). Inutile de cocher quoi que ce soit au préalable.
-2. Un encadré d'avertissement demande : "Delete all supported data categories except Professor Mari? There is no undo."
-3. Clique sur **Cancel** pour renoncer, ou sur **Confirm Delete** pour tout supprimer.
+Cela revient à cocher les huit cases.
 
-Le résultat est le même que si tu cochais toutes les cases avant de les effacer ensemble.
+## Les huit catégories de données
 
-## Professor Mari est toujours conservée
+Chaque catégorie supprime seulement ce que sa ligne indique, sauf pour le dossier de la galerie noté sous le tableau.
 
-Professor Mari est l'assistante intégrée de l'application. Cette fonctionnalité ne la supprime jamais. Même si tu effaces la catégorie **Characters** ou que tu utilises **Clear All Data**, Professor Mari reste en place. Impossible de la retirer depuis la **Danger Zone**.
+| Catégorie | Ce qu'elle supprime |
+| --- | --- |
+| **Chats & Messages** | Tous les chats et leur contenu, tout le dossier `gallery` et les vidéos de scène du jeu. |
+| **Characters** | Tous les personnages et groupes, sauf Professor Mari, avec leurs avatars. |
+| **Personas** | Tous les personas et groupes, avec leurs avatars. |
+| **Lorebooks** | Tous les lorebooks, entrées et dossiers. |
+| **Presets** | Tous les presets de prompt et dossiers de presets, sauf le preset de base intégré. |
+| **Connections** | Tous les comptes enregistrés, et les choix de modèles et de voix liés à eux. |
+| **Automation & Addons** | Tous les réglages d'agents, outils personnalisés, scripts regex et thèmes synchronisés. Pas les Personal Extensions ni les External Extensions. |
+| **Media & Assets** | Arrière-plans, avatars, sprites, galerie, vidéos de scène, polices et fichiers de sources de connaissances. |
+
+Plus de détails :
+
+- **Chats & Messages** supprime aussi les swipes (plusieurs réponses gardées sur un message), les souvenirs, les résultats d'agents, l'état du jeu et les images de chat.
+- **Characters** et **Personas** suppriment aussi les modèles d'avatar 2D et 3D.
+- **Presets** supprime aussi leurs groupes, sections et variables. Si un autre preset était celui par défaut, le preset de base devient celui par défaut.
+- **Connections** efface aussi la synthèse vocale et la reconnaissance vocale, les modèles que tu as choisis pour des fonctions, et une clé API Tripo enregistrée sur la page **3D Avatars**.
+- **Automation & Addons** supprime aussi les résultats d'agents, la mémoire d'agent, les dossiers d'agents et les widgets Home.
+- **Media & Assets** supprime aussi la liste des ressources et les images de chat.
+- Les fichiers de sources de connaissances sont des fichiers que tu as téléversés pour les agents de connaissances. Les thèmes synchronisés sont tes thèmes personnalisés enregistrés dans Marinara.
+
+Certaines catégories touchent des fichiers hors de leur nom. **Chats & Messages** supprime tout le dossier `gallery`, y compris les images de personnages et de galerie de personas, même si tu n'as pas coché **Characters** ou **Personas**.
+
+L'effacement ne touche pas tes autres réglages, le dossier `backups/` ni le fichier `.encryption-key`. Il laisse aussi les Personal Extensions, les ressources du Game Mode, les emojis et stickers personnalisés, ton son de notification, les images de lorebooks, de presets, d'agents et de comptes, et les fichiers de mémoire à long terme. Voir [Où Marinara enregistre tes données](where-data-is-stored.md).
+
+## Professor Mari reste
+
+Professor Mari est l'assistante intégrée de l'écran Home. La **Danger Zone** ne la supprime jamais, pas même avec **Clear All Data**.
 
 ## Guides associés
 
 - [Sauvegarder et restaurer Marinara](backup-and-restore.md)
+- [Où Marinara enregistre tes données](where-data-is-stored.md)
 - [Accès à distance](../REMOTE_ACCESS.md)

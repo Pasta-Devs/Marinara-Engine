@@ -1,69 +1,62 @@
-# Limpar ou zerar os seus dados
+# Limpar ou redefinir os seus dados
 
-Neste guia você aprende a excluir os seus dados do Marinara Engine de forma permanente, pela seção **Danger Zone** (zona de perigo). Você pode limpar algumas categorias ou apagar tudo de uma vez. Não existe desfazer, então leia os avisos antes.
+Exclua de forma permanente alguns dos seus dados ou todos eles com a **Danger Zone**. Não há como desfazer. Para excluir um chat ou um personagem, use o botão de excluir próprio dele. Veja [Gerenciando chats](../chats/managing-chats.md) e [Criando e editando personagens](../characters/creating-and-editing-characters.md).
 
-## Onde fica a Danger Zone
+**Antes de começar:** faça um backup. Não existe lixeira. Veja [Fazer backup e restaurar o Marinara](backup-and-restore.md). Se você usa o Marinara a partir de outro dispositivo, você também precisa do segredo de administrador. Veja [Acesso remoto](../REMOTE_ACCESS.md).
 
-As ferramentas de limpeza de dados ficam todas no mesmo lugar.
+## Limpar algumas categorias
 
-1. Abra **Settings** (Configurações).
-2. Vá até a aba **Advanced**.
-3. Role até a seção **Danger Zone**, lá embaixo.
+1. Abra **Settings → Advanced** e role até **Danger Zone**.
+2. Marque cada categoria que você quer excluir. **Select All** marca todas as caixas. Quando todas estão marcadas, o mesmo botão mostra **Clear Selection** e desmarca todas.
+3. Clique em **Clear Selected Data**. Ele fica desativado até você marcar uma categoria.
+4. Leia o aviso. Ele mostra quantas categorias você escolheu.
+5. Clique em **Confirm Delete**, ou em **Cancel** para parar. Nada é excluído até você confirmar.
 
-A descrição da seção **Danger Zone** diz: "Permanently clear selected categories of local data. Professor Mari is always preserved."
-
-Se você usa Marinara de outro dispositivo, e não do computador que roda o aplicativo, a limpeza de dados exige acesso de administrador. Veja [Acesso remoto](../REMOTE_ACCESS.md) para configurar isso.
-
-## Faça backup antes de limpar
-
-A limpeza de dados não pode ser desfeita. Não há lixeira nem cesto de reciclagem. Depois que você confirma, os dados somem.
-
-Faça um backup antes, para poder restaurar caso mude de ideia. Veja [Fazer backup e restaurar Marinara](backup-and-restore.md).
-
-## As oito categorias de dados
-
-A seção **Danger Zone** mostra uma lista com oito categorias. Cada uma tem seu próprio alcance. Marcar uma categoria não mexe nas outras.
-
-| Categoria | O que a limpeza remove |
-|---|---|
-| **Chats & Messages** | Chats, pastas, mensagens, dados de cena e de OOC, e o estado de execução do chat. |
-| **Characters** | Personagens e grupos de personagens. Professor Mari é sempre preservada. |
-| **Personas** | Personas e grupos de personas. |
-| **Lorebooks** | Lorebooks e entradas de lorebook. |
-| **Presets** | Presets de prompt, grupos, seções e variáveis. |
-| **Connections** | Conexões de API e endpoints de modelo. |
-| **Automation & Addons** | Agentes, ferramentas, scripts de regex, temas sincronizados e o estado da automação. |
-| **Media & Assets** | Planos de fundo, avatares, sprites, itens da galeria, fontes e arquivos de fontes de conhecimento. |
-
-Algumas categorias removem mais do que registros do banco de dados. A categoria **Chats & Messages** também exclui a pasta inteira da galeria em disco e todos os arquivos de vídeo de cena. Isso inclui as imagens de galeria de personagens e personas, mesmo que você não tenha marcado **Characters** nem **Personas**. A categoria **Media & Assets** exclui as pastas em disco de planos de fundo, avatares, sprites, arquivos de avatares 2D e 3D, galerias, arquivos de vídeo de cena, fontes e arquivos de fontes de conhecimento. A categoria **Connections** também limpa as configurações salvas de Text to Speech (TTS, conversão de texto em voz) e de Speech to Text (conversão de fala em texto), porque elas ficam vinculadas a uma conexão. Ela também remove uma chave de API do Tripo salva antes na página do **3D Avatars** (avatares 3D).
-
-## Limpar apenas algumas categorias
-
-Use este caminho quando quiser apagar parte dos dados e manter o resto.
-
-1. Marque a caixa de seleção ao lado de cada categoria que você quer excluir.
-2. Para marcar todas as caixas de uma vez, use o botão **Select All** (selecionar tudo). Com todas marcadas, esse mesmo botão vira **Clear Selection**, para desmarcar todas.
-3. Clique em **Clear Selected Data**. Esse botão fica desativado enquanto nenhuma categoria estiver marcada.
-4. Aparece uma caixa de aviso. Ela informa quantas categorias você escolheu e lembra que não existe desfazer.
-5. Clique em **Cancel** para parar, ou em **Confirm Delete** para excluir. Nada é excluído até você clicar em **Confirm Delete**.
-
-Quando a limpeza dá certo, aparece uma mensagem de confirmação. Ela diz que os dados selecionados foram limpos e que os caches de execução foram zerados na hora.
+Quando funciona, uma mensagem diz que os dados selecionados foram limpos. Se a requisição falhar, aparece uma mensagem de erro ("Failed to clear selected data."). Alguns dados já podem ter sido limpos, então confira o que sobrou. Confira se você tem acesso de administrador.
 
 ## Limpar tudo
 
-Use este caminho para apagar as oito categorias em um passo só.
+1. Em **Danger Zone**, clique em **Clear All Data**. Você não precisa marcar nenhuma caixa.
+2. O aviso pergunta: "Delete all supported data categories except Professor Mari? There is no undo."
+3. Clique em **Confirm Delete**, ou em **Cancel** para parar.
 
-1. Clique em **Clear All Data**. Não precisa marcar nenhuma caixa antes.
-2. Uma caixa de aviso pergunta: "Delete all supported data categories except Professor Mari? There is no undo."
-3. Clique em **Cancel** para parar, ou em **Confirm Delete** para excluir tudo.
+Isso faz o mesmo que marcar todas as oito categorias.
 
-O resultado é o mesmo de marcar todas as caixas e limpá-las juntas.
+## As oito categorias de dados
 
-## Professor Mari fica sempre
+Cada categoria exclui só o que a sua linha lista, exceto a pasta da galeria, indicada abaixo da tabela.
 
-Professor Mari é a personagem de ajuda que já vem com o aplicativo. Esse recurso nunca exclui ela. Mesmo que você limpe a categoria **Characters** ou use **Clear All Data**, Professor Mari continua no lugar. Não é possível removê-la pela seção **Danger Zone**.
+| Categoria | O que ela exclui |
+| --- | --- |
+| **Chats & Messages** | Todos os chats e o conteúdo deles, a pasta `gallery` inteira e os vídeos de cena de jogo. |
+| **Characters** | Todos os personagens e grupos, exceto a Professor Mari, com os seus avatares. |
+| **Personas** | Todas as personas e grupos, com os seus avatares. |
+| **Lorebooks** | Todos os lorebooks, entradas e pastas. |
+| **Presets** | Todos os presets de prompt e pastas de presets, exceto o preset de fábrica embutido. |
+| **Connections** | Todas as contas salvas e as escolhas de modelo e de voz ligadas a elas. |
+| **Automation & Addons** | Todas as configurações de agentes, ferramentas personalizadas, scripts de regex e temas sincronizados. Não inclui Personal Extensions nem External Extensions. |
+| **Media & Assets** | Planos de fundo, avatares, sprites, galeria, vídeos de cena, fontes e arquivos de fontes de conhecimento. |
+
+Mais detalhes:
+
+- **Chats & Messages** também exclui swipes (várias respostas guardadas em uma mensagem), memórias, resultados de agentes, estado de jogo e imagens de chat.
+- **Characters** e **Personas** também excluem os modelos de avatar 2D e 3D.
+- **Presets** também exclui os seus grupos, seções e variáveis. Se outro preset era o padrão, o preset de fábrica se torna o padrão.
+- **Connections** também limpa as configurações de texto para fala e de fala para texto, os modelos que você escolheu para recursos e uma chave de API do Tripo salva na página **3D Avatars**.
+- **Automation & Addons** também exclui resultados de agentes, memória de agentes, pastas de agentes e widgets de agentes na tela inicial.
+- **Media & Assets** também exclui a lista de recursos e as imagens de chat.
+- Arquivos de fontes de conhecimento são arquivos que você enviou para agentes de conhecimento. Temas sincronizados são os seus temas personalizados salvos no Marinara.
+
+Algumas categorias alcançam arquivos fora da sua própria pasta. **Chats & Messages** exclui a pasta `gallery` inteira, incluindo as imagens de galeria de personagens e personas, mesmo que você não tenha marcado **Characters** nem **Personas**.
+
+Limpar não toca nas suas outras configurações, na pasta `backups/` nem no arquivo `.encryption-key`. Também deixa intactos as Personal Extensions, os recursos do Game Mode, os emojis e stickers personalizados, o seu som de notificação, as imagens de lorebooks, presets, agentes e contas e os arquivos de memória de longo prazo. Veja [Onde o Marinara guarda os seus dados](where-data-is-stored.md).
+
+## A Professor Mari permanece
+
+A Professor Mari é a assistente embutida na tela inicial. A **Danger Zone** nunca a exclui, nem mesmo com **Clear All Data**.
 
 ## Guias relacionados
 
-- [Fazer backup e restaurar Marinara](backup-and-restore.md)
+- [Fazer backup e restaurar o Marinara](backup-and-restore.md)
+- [Onde o Marinara guarda os seus dados](where-data-is-stored.md)
 - [Acesso remoto](../REMOTE_ACCESS.md)

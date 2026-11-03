@@ -1,134 +1,106 @@
 # 自拍
 
-本指南介绍 Conversation(对话模式) 里的自拍。自拍就是角色生成一张自己的图片发进聊天，就像在聊天软件里发照片一样。下面讲解怎么开启自拍、怎么配置，以及怎么手动要一张。
+自拍是角色为自己生成的一张图片，并在 Conversation(对话模式) 聊天中发出，就像在聊天软件里分享照片一样。本指南介绍如何开启自拍、选择它的外观、手动请求一张，以及视频消息。
 
-## 自拍是什么
-
-自拍是 Conversation 模式专属的功能。角色可以在普通聊天过程中发来一张生成的自己的照片。这和 Roleplay(角色扮演) 模式、Game Mode(游戏模式) 里的场景图不是一回事。自拍是为了配合 Conversation 模式那种聊天软件的感觉而做的。
-
-自拍依赖图像生成。角色每发一张自拍，就会向选定的连接发出一次图像生成请求。正因如此，自拍在配置好之前一直是关闭的。
-
-自拍功能由可选的 **Illustrator** 包提供。配置之前先从 **Agents → Agent Organizer(智能体管理器)** 安装 Illustrator。
+自拍来自可选的 **Illustrator** 包，并使用图像生成。每张自拍都是一次发送给你所选服务的图像请求，因此在你完成设置之前，自拍功能一直关闭。它们不同于 Roleplay(角色扮演) 和 Game Mode(游戏模式) 中的场景图片。
 
 ## 开启自拍
 
-自拍的开关在 Conversation 聊天的 **Agents**(智能体) 部分，位于 **Illustrator Settings**(Illustrator 设置) 里面。**Commands**(命令) 指角色可以自行采取的隐藏动作，比如发一张自拍或者放一首歌。装了提供命令的包之后，命令相关的控件就会出现在 **Agents** 里。
+**开始之前：** 从 **Agents → Agent Organizer**(智能体管理器) 安装 **Illustrator**，并添加一个图像账号，即用于生成图片的服务的账号（参见[图像生成服务商与设置](../media/image-providers.md)）。
 
-开启自拍的步骤：
+1. 打开一个 Conversation 聊天，然后打开 **Chat Settings**(聊天设置)。
+2. 找到 **Agents**(智能体) 部分，然后打开 **Illustrator Settings**(Illustrator 设置)。
+3. 开启 **Generated Selfies**(生成自拍)。自拍设置会出现在它下方。
+4. 在 **Selfie model**(自拍模型) 中选择你的图像账号。
 
-1. 打开一个 Conversation 聊天。
-2. 打开 **Chat Settings**(聊天设置)（滑块图标）。
-3. 找到 **Agents** 部分。
-4. 打开里面的总开关 **Commands**。关着的时候，角色无法使用任何隐藏动作。
-5. 找到 **Illustrator Settings**。
-6. 打开 **Generated Selfies**(生成自拍) 开关。
+开启 **Generated Selfies** 也会打开本聊天的总开关 **Commands**(命令)。
 
-打开 **Generated Selfies** 之后，自拍的各项设置会出现在开关下方，包括连接、提示词模型、风格和参考图几个输入框。**Resolution**(分辨率) 那排按钮要先选好 **Selfie Connection**(自拍连接) 才会出现。
+只有设置了 **Selfie model** 之后，角色才会发送自拍。在此之前，聊天中会显示 “Choose a Selfie Provider to let characters generate selfie images.”
+
+如果没有成功：只有安装了 Illustrator，**Illustrator Settings** 才会显示。自拍还需要开启 **Selfies**(自拍) 命令（参见[选择角色可以使用的命令](getting-started.md#choose-which-commands-a-character-can-use)）。
 
 ## 自拍设置
 
-自拍开启后，接下来决定它长什么样、由哪个服务生成。所有这些设置都在 **Chat Settings → Agents** 的 **Illustrator Settings** 里，只对当前聊天生效。
+以下设置都位于 **Illustrator Settings** 中，且只对当前聊天生效。
 
-### Selfie Connection
+- **Selfie model**：负责绘制图片的图像账号。默认值为 **None (selfies disabled)**。
+- **Prompt Model**：撰写图片描述的文本模型。默认值为 **Agent default**。
+- **Image Style**：一组保存好的画风词，例如 “anime”。默认值为高级设置中风格方案的默认风格。参见[图像风格方案](../media/style-profiles.md)。
+- **Images Per Generation**：每次生成时，为每张插图或自拍制作多少个变体。
+- **Resolution**：图片尺寸。只有设置了 **Selfie model** 之后才会显示。默认值为 896x1152。
+- **Send Avatar References**：把角色的头像或立绘作为参考图发送。默认关闭。只有图像服务接受参考图时才有效。
+- **Attach Card Appearance**：把每个被点名角色卡片上的 **Appearance**(外观) 文字加入提示词。默认关闭。
 
-**Selfie Connection** 决定由哪个图像生成服务来画这张图。默认值是 **None (selfies disabled)**，也就是还没选服务。在这里选一个已经配好的图像连接。
+**Resolution** 可选：512x512、512x768、768x768、768x1024、896x1152 和 1024x1024。896x1152 是一种高的竖构图，适合大多数自拍。
 
-没选 **Selfie Connection** 之前，角色发不出自拍。如果看到提示“Choose a Selfie Connection to let characters generate selfie images”，说明连接还空着。
+**Send Avatar References** 和 **Attach Card Appearance** 都提供 **Off**(关闭)、**Images only**(仅图片)、**Videos only**(仅视频) 和 **Images and videos**(图片和视频) 选项。
 
-图像连接怎么添加，见[图像生成服务商与设置](../media/image-providers.md)。
+如果角色卡或用户角色开启了 **Image Appearance Override**(图像外观覆盖)（位于编辑器的 **Appearance** 下方），Marinara 会发送这段文字，而不是 **Appearance**。当 **Appearance** 是为故事而写、而非为图片而写时，就使用它。
 
-### Prompt Model
+## 手动请求自拍
 
-**Prompt Model**(提示词模型) 决定由哪个文本模型来写这张自拍的描述，图像连接再照着这段描述作画。默认值是 **Main chat model**，即复用聊天当前用的那个模型。想换个模型来写自拍描述，选另一个文本连接就行。
+1. 打开 **Chat Settings**，并展开 **Gallery**(图库) 部分。
+2. 点击 **Selfie**(自拍)。如果有多个角色，请在按钮旁边的列表中选择由谁拍摄。
+3. 如果开启了 **Expose media prompts before sending**（**Settings → Generations → Overall Generations**），请检查或编辑提示词，然后点击 **Generate**(生成)。取消则不会发送请求。
+4. 等待，直到按钮显示 **Generating...**。
 
-### Image Style
+你会看到 “Selfie generated.”，图片随即出现在聊天中。手动请求使用 **Selfie model**，并消耗一次图像请求。
 
-**Image Style**(图像风格) 为自拍指定一个 Style Profile(风格方案)。Style Profile 就是保存好的一组画风词，比如“anime”或“realistic photo”。默认值是 **Use default style from Style Profiles in Advanced settings**，也就是跟随全局默认风格。
+## 角色如何发送自拍
 
-关于风格的更多内容，见[图像风格方案](../media/style-profiles.md)。
+角色会自行决定何时发送自拍。你无需输入任何内容。Marinara 生成图片并发布，之后的回复会看到一段简短的备注，说明图片展示了什么。
 
-### Send Avatar References
-
-**Send Avatar References**(发送头像参考) 是一个下拉菜单，默认为 **Off**(关闭)。它位于 **Video messages**(视频消息) 部分下方，每个选项都写明了它适用于什么：**Images only**(仅图片)、**Videos only**(仅视频) 或 **Images and videos**(图片和视频)。
-
-- 对于图片，Marinara 会把角色的头像或立绘作为参考图发给图像服务，让自拍更像这个角色。只有图像服务商支持参考图时才有效果。
-- 对于视频，**First frame**(首帧) 为 **Prompt only**(只用提示词) 的视频消息会从角色的头像或立绘开始，而不是不带图片。视频服务只接受一张起始图片，所以其他本来就从角色图片开始的首帧选项不受影响。
-
-### Attach Card Appearance
-
-**Attach Card Appearance**(附带角色卡外貌) 是一个下拉菜单，默认为 **Off**，选项同样是 **Images only**、**Videos only** 和 **Images and videos**。它会把提示词里点到名的每个角色的卡片外貌描述加进自拍提示词、视频提示词，或两者都加，让模型更清楚角色长什么样。
-
-如果角色卡或用户角色还打开了 **Image Appearance Override**(图像专用外貌)，并填写了内容，Marinara 就会发送这段文字，而不是 **Appearance** 的内容。如果完整的 **Appearance** 描述更适合写旁白的模型，而不适合图像模型，可以在角色或用户角色编辑器的 **Appearance** 下方打开这个开关。撰写自拍描述的 AI 仍然会读取角色卡的 **Appearance**。它会原样保留覆盖内容里的措辞，只用 **Appearance** 的文字来补充其他细节。
-
-### Resolution
-
-**Resolution** 设定自拍图片的尺寸。**Resolution** 按钮要先选好 **Selfie Connection** 才会出现，直接点其中一个即可。默认是 **896x1152**，一种偏高的竖构图，适合大多数自拍。
-
-可选的尺寸有：
-
-| 分辨率 | 构图 |
-| ---------- | ------------------ |
-| 512x512    | 正方形 |
-| 512x768    | 竖构图 |
-| 768x768    | 正方形 |
-| 768x1024   | 竖构图 |
-| 896x1152   | 竖构图（默认） |
-| 1024x1024  | 正方形 |
-
-## 角色怎么发自拍
-
-自拍配置好以后，角色会在聊天中自行决定什么时候发一张，不需要输入任何命令。时机由角色把握，Marinara 负责生成图片并发进聊天。之后的回复会看到一条简短的备注，写明自拍里拍了什么，这样角色就记得自己发过它。
-
-模型回复使用 `[selfie]`，也可以附上上下文：
-
-```text
-Here is a picture from my walk!
-[selfie: context="standing beside the river at sunset"]
-```
-
-`[selfie: "standing beside the river"]` 和 `[selfie: standing beside the river]` 也能使用。命令不区分大小写，所以 `[SELFIE:xxxxx.]` 是有效语法。这是 Conversation 命令，不是 Roleplay 或 Game Mode 的图像触发命令。如果标记原样留在消息中，可能是聊天处于其他模式，或 **Commands** 已关闭。请确认已安装 Illustrator，开启 **Generated Selfies**，并选好 **Selfie Connection**。如果生成开始后失败，请检查报告的连接或图像服务商错误；改变标记的大小写无法解决问题。
-
-## 手动要一张自拍
-
-也可以自己主动要一张，不用干等角色。
-
-1. 打开 **Chat Settings**，展开 **Gallery**(图库)。
-2. 点击 **Selfie**(自拍) 按钮（相机图标）。
-3. 如果聊天里不止一个角色，在按钮旁边的角色列表中选出由谁来拍。
-4. 如果在 **Settings**(设置)、**Generations**(生成)、**Overall Generations**(总体生成) 下开启了 **Expose media prompts before sending**，可以先检查或修改最终编译好的自拍提示词，再点 **Generate**。取消检查则不会发出图像请求。
-5. 等待按钮上显示的 **Generating...** 结束。
-
-自拍完成后会看到一条“Selfie generated.”消息，图片随之出现在聊天里。手动请求同样走选定的 **Selfie Connection**，因此也会消耗一次图像生成请求。
+如果没有成功：如果消息中直接显示 `[selfie...]` 文字，请检查聊天是否处于 Conversation 模式，**Commands** 和 **Selfies** 是否已开启，**Generated Selfies** 是否已开启，以及 **Selfie model** 是否已设置。如果生成已开始但失败，请阅读有关图像账号的错误信息。
 
 ## 重新生成自拍
 
-对某张图片不满意？在聊天里点击这张自拍打开它，再点击 **Regenerate image**(重新生成图片)（固定按钮旁边的圆形箭头）。你可以修改提示词、负面提示词和各个角色提示词，并选择一个 **Image connection**(图像连接)。点击 **Generate image**(生成图片)。新图片会替换消息里的旧图片，旧图片仍保留在 Gallery 里。每次尝试都会消耗一次图像生成请求。
+1. 点击聊天中的自拍，将其打开。
+2. 点击 **Regenerate image**(重新生成图片)（固定按钮旁边的圆形箭头）。
+3. 如需要，可编辑提示词，包括 **Character prompts**(角色提示词)。选择一个 **Image model**(图像模型)，或保留 **Chat's image provider**(聊天的图像服务商)。
+4. 点击 **Generate image**(生成图片)。
 
-在这个选项出现之前生成的图片也可以重新生成。它们使用聊天的自拍连接，而且它们的负面提示词和角色提示词当时没有保存。
+新图片会替换消息中的旧图片，旧图片仍保留在 Gallery 中。每次尝试都会消耗一次图像请求。在此选项出现之前制作的图片，使用的是聊天的自拍账号，而且当时没有保存它们的负面提示词和角色提示词。
 
 <a id="video-messages"></a>
-
 ## 视频消息
 
-角色也可以给你发一段短视频。输入 `/video`，或者输入 `/video Aster` 指定角色；也可以点击聊天 **Gallery** 里的 **Video**(视频)（胶片图标），这时由 Gallery 里选中的角色来发。只要装了 Illustrator，**Video** 就能用，即使自拍处于关闭状态也一样。短片会作为该角色的一条新消息发来，并直接在聊天里播放。用这种方式要来的短片，展示的是对话最新的一刻：撰写短片的 AI 读取的最近消息条数，和 Illustrator 生成图片时一样（即 Illustrator 的 **Agent Budget**(智能体预算) 里的上下文大小）。以自拍作为首帧时，读取的也是这些消息，所以短片同样从这一刻开始。之后的回复会看到一条简短的备注，写明短片里展示了什么。也可以让 Gallery 里的一张图片动起来：短片会接着这张图片往下演，由 Gallery 里选中的角色发出，并归入最新的一条回复。如果短片没能加进聊天，它仍会保存在 Gallery 的 **Videos**(视频) 选项卡下。只有当短片拍到某个角色时，这条视频消息才会列在该角色自己的图库里；见[角色与用户角色图库](../characters/galleries.md)。
+角色也可以发送一段短视频。请先安装 Illustrator。自拍功能可以保持关闭。
 
-相关设置位于 **Chat Settings**、**Agents**、**Illustrator Settings** 下的 **Video messages**(视频消息) 部分：
+如果想自己请求一段视频，请输入 `/video`，或输入 `/video Aster` 来选择角色。也可以点击聊天 **Gallery** 中的 **Video**(视频)，它会使用在那里选中的角色。短片会作为一条新消息到达，并在聊天中播放。它展示的是对话的最新时刻：撰写短片的模型读取的最近消息数，与 Illustrator 为图片读取的一样（即它的 **Agent Budget**(智能体预算)）。你也可以让 Gallery 中的图片动起来。短片会接续该图片，并归入最新的一条回复。
 
-- **Generated Videos**(自动视频) 让角色在符合对话情境时主动发送视频消息。
-  - 和 `/video` 一样，短片内容根据最近的对话编写，因此请求的短片会体现你提出的要求。
-  - 新聊天默认关闭，因为每段短片都会发起一次视频请求。可以在这里开启，或保存到设置配置中，让新聊天也开启。同一个开关也会以 **Videos** 的名称出现在新聊天设置和 Chat Settings 的 **Commands** 列表中。
-  - **Video Run Interval**(开启后显示) 设置这类短片之间必须经过多少条消息。**0** 会停止自动短片。
-  - `/video` 和 Gallery 的 **Video** 按钮不受开关影响，也不受间隔限制。
-  - 对已发送短片的回复切换滑动候选时，新候选也可以发送自己的短片。
-  - 群聊中，每个角色每条回复可以发送一段短片，总数不超过 **Settings**、**Generations**、**Video Generation** 下的 **Videos per reply**，默认为 3。
-- **Video Connection**(视频连接) 用来选择 Video Generation(视频生成) 连接。保持 **Default video connection**(默认视频连接) 即可使用你的默认连接。连接里的 **Video Prompting Instructions**(视频提示词指令) 会指导撰写视频提示词的 AI。
-- **First frame**(首帧) 用来选择短片从哪张图片开始：
-  - **New selfie, or the avatar if no selfie connection**(新自拍，没有自拍连接时用头像)（默认）会在自拍已开启且设置了 **Selfie Connection** 时拍一张新自拍，否则使用头像。
-  - **New selfie, then animate it**(先拍新自拍，再让它动起来) 总是先拍一张新自拍。这需要开启自拍并设置 **Selfie Connection**，拍好的自拍也会保存到 Gallery。开启 **Expose media prompts before sending** 时，你会把自拍的提示词和短片的提示词放在一起检查。
-  - **Avatar or sprite**(头像或立绘) 从角色的头像开始；没有头像时，改用全身立绘。
-  - **Prompt only (no picture)**(只用提示词，不带图片) 不发送图片，视频模型只根据提示词生成。有些 ComfyUI 工作流必须有图片，没有就会失败。当 **Send Avatar References** 包含视频时，这个选项显示为 **Prompt only (avatar from Send Avatar References)**(只用提示词，头像来自 Send Avatar References)，短片会改为从头像开始。
+如果短片无法添加到聊天中，它仍会保存在 Gallery 的 **Videos**(视频) 选项卡下。只有当短片展示了某个角色时，该角色自己的图库才会列出这段视频（参见[角色与用户角色图库](../characters/galleries.md)）。
 
-其他格式的图片（比如 WebP）会先转换成视频服务能用的格式。一条视频消息会发出一次视频请求；如果从新自拍开始，还会多发一次图像请求。撰写提示词的 AI 就是你的 **Prompt Model**，它的指令位于 **Settings**、**Generations**、**Video Generation Prompt Overrides**(视频生成提示词覆盖)、**Conversation Video Message**(Conversation 视频消息)。
+### 视频设置
+
+打开 **Chat Settings → Agents → Illustrator Settings**，找到 **Video messages**(视频消息)。
+
+- **Generated Videos**：让角色自行发送视频消息。新聊天默认关闭，因为每段短片都是一次视频请求。它也会以 **Videos** 的名称显示在 **Commands** 列表中。
+- **Video Run Interval**：在 **Generated Videos** 开启后显示。两段短片之间必须经过的消息数。设为 **0** 会停止它们。
+- **Video model**：视频账号。选择 **Default video provider**(默认视频服务商) 即使用你的默认设置。
+- **First frame**：短片开始所用的图片（见下文）。
+
+无论上述设置如何，`/video` 和 Gallery 中的 **Video** 按钮都能使用，并且会忽略间隔。对发送过短片的回复进行滑动切换时，新的备选回复也可以发送它自己的短片。在群聊中，每个角色每条回复可以发送一段短片，直至 **Settings → Generations → Video Generation** 下的 **Videos per reply**(默认为 3)。
+
+**First frame** 的选项：
+
+- **New selfie, or the avatar if no selfie provider**(默认)：自拍已开启且设置了 **Selfie model** 时拍一张新自拍，否则使用头像。
+- **New selfie, then animate it**：总是先拍一张新自拍，并同时保存到 Gallery。需要开启自拍并设置 **Selfie model**。
+- **Avatar or sprite**：使用头像；没有头像时使用全身立绘。
+- **Prompt only (no picture)**：不使用图片。有些 ComfyUI 工作流没有图片就会失败。如果 **Send Avatar References** 包含视频，此选项会显示为 **Prompt only (avatar from Send Avatar References)**，并从头像开始。
+
+开启 **Expose media prompts before sending** 后，你可以同时检查自拍提示词和短片提示词。
+
+WebP 等其他格式的图片，会先为视频服务转换格式。一条视频消息是一次视频请求；如果从新自拍开始，还会再加一次图像请求。视频提示词由你的 **Prompt Model** 撰写，其指令保存在 **Settings → Generations → Video Generation Prompt Overrides → Conversation Video Message** 中。
+
+## 参考：自拍标记
+
+角色在回复中用一个标记来请求自拍。你从不需要输入它。它的形式是 `[selfie]`，可以附带上下文：
+
+```text
+[selfie: context="standing beside the river at sunset"]
+```
+
+`[selfie: "standing beside the river"]` 和 `[selfie: standing beside the river]` 也可以使用，字母大小写不限。Marinara 会移除该标记，并发布图片。
 
 ## 相关指南
 

@@ -1,195 +1,162 @@
 # Charakter-Zeitpläne und autonome Nachrichten
 
-In dieser Anleitung erfährst du, wie Charaktere im Conversation Mode von sich aus schreiben und wie du den Zeitpunkt steuerst. Es geht um autonome Nachrichten, Charakter-Zeitpläne, den Befehl **/status** und deinen eigenen Anwesenheitsstatus. All das funktioniert ausschließlich im Conversation Mode.
+Autonome Nachrichten sind Nachrichten, die ein Charakter dir zuerst schickt, nachdem du eine Weile still warst. Ein Zeitplan ist der Wochenplan eines Charakters, durch den er je nach Uhrzeit wach, beschäftigt oder schlafend wirkt. Beides funktioniert nur in Conversation Mode.
 
-## Wozu autonome Nachrichten und Zeitpläne gut sind
-
-Eine autonome Nachricht schreibt ein Charakter von sich aus, ohne dass du vorher etwas eingibst. Marinara Engine (kurz Marinara) verschickt sie, wenn du länger nichts von dir hören lässt. So fühlt sich ein Chat an wie eine echte Beziehung im Messenger.
-
-Zwei Einstellungen steuern dieses Verhalten:
-
-- **Autonomous Messages** (autonome Nachrichten) legt fest, ob Charaktere überhaupt von sich aus schreiben dürfen.
-- **Schedules** (Zeitpläne) gibt jedem Charakter einen Wochenablauf. Dadurch wirkt er je nach Uhrzeit wach, beschäftigt oder schlafend.
-
-Zeitpläne sind optional. Sind autonome Nachrichten aktiv und Zeitpläne nicht, melden sich Charaktere trotzdem – abhängig von ihrer Gesprächigkeit und deinem Status. Die Gesprächigkeit ist eine Einstellung pro Charakter dafür, wie oft er ein Gespräch selbst beginnt.
+Zeitpläne sind optional. Ohne Zeitpläne melden sich Charaktere trotzdem, je nach ihrer Gesprächigkeit (wie oft ein Charakter ein Gespräch beginnt) und deinem Status. Springe zu: [Zeitpläne aktivieren](#turn-on-schedules), wenn du nur einen Zeitplan willst.
 
 ## Autonome Nachrichten aktivieren
 
-Gesteuert wird das im Chat, nicht auf der Charakterkarte. Alle Bedienelemente dafür stehen im Bereich **Autonomous Messaging** der **Chat Settings** (Chat-Einstellungen).
+Bevor du anfängst: Öffne einen Conversation-Chat. Neue Chats starten mit dieser Option an (siehe [Conversation Mode: Erste Schritte](getting-started.md)).
 
-1. Öffne einen Conversation-Chat.
-2. Öffne **Chat Settings** über die Schaltfläche im Chat. Sie liegt oben rechts, solange du sie nicht verschoben hast.
-3. Suche den Bereich **Autonomous Messaging**.
-4. Aktiviere den Schalter **Autonomous Messages**.
+1. Öffne die **Chat Settings** im Chat.
+2. Suche den Bereich **Autonomous Messaging**.
+3. Schalte **Autonomous Messages** an.
 
-Im Einrichtungsassistenten für neue Chats ist **Autonomous Messages** standardmäßig aktiv. Abschalten lässt sich das jederzeit in den **Chat Settings**.
+Wenn es nicht funktioniert hat: Charaktere bleiben still, solange dein Status **Do Not Disturb** ist (siehe [Dein Anwesenheitsstatus](getting-started.md#your-presence-status)).
 
-### Chat Check-In Cap
+### Das Check-in-Limit festlegen
 
-Unter dem Schalter begrenzt **Chat Check-In Cap** (Obergrenze für Meldungen im Chat), wie oft sich Charaktere pro Tag in diesem Chat melden dürfen.
+Unter **Chat Settings → Autonomous Messaging** begrenzt **Chat Check-In Cap**, wie viele Check-ins Charaktere in diesem Chat pro Tag senden dürfen.
 
-- Standard ist die Option **Default chat ceiling (talkativeness-based)**. Die Grenze ergibt sich dann aus der Gesprächigkeit des jeweiligen Charakters.
-- Mit **Numeric value** erscheint ein Zahlenfeld, in das du jede positive ganze Zahl als Obergrenze einträgst. Hohe Werte erzeugen viele Modellanfragen und Benachrichtigungen.
+- **Default chat ceiling (talkativeness-based)** übernimmt das Limit aus der Gesprächigkeit jedes Charakters (Tabelle unten).
+- **Numeric value** zeigt ein Zahlenfeld. Gib eine beliebige ganze Zahl ab 1 ein. Hohe Zahlen können viele Modellanfragen und Benachrichtigungen bedeuten.
 
-Diese Grenze gilt für den gesamten Chat. Der eigene Wert eines Charakters aus seinem Zeitplan kann sie nur senken, niemals anheben.
+Ein Charakter kann auch ein eigenes **Daily safety limit** haben (in seinem Zeitplan festgelegt). Das Limit für einen Charakter funktioniert so:
 
-Der Standard nach Gesprächigkeit sieht so aus:
+- Chat-Limit auf **Numeric value** und **Daily safety limit** gesetzt: Die niedrigere Zahl gilt.
+- Nur eines von beiden gesetzt: Diese Zahl gilt, auch wenn sie höher ist als die Zahl der Gesprächigkeit unten.
+- Keines von beiden gesetzt: Die Zahl stammt aus der Gesprächigkeit des Charakters.
 
-| Gesprächigkeit des Charakters | Meldungen pro Tag (Standard) |
-|---|---|
+| Gesprächigkeit des Charakters | Check-ins pro Tag |
+| --- | --- |
 | 80 oder höher | 8 |
 | 60 bis 79 | 6 |
 | 40 bis 59 | 5 |
 | 20 bis 39 | 3 |
 | unter 20 | 2 |
 
-### Zeitpläne aktivieren
+<a id="turn-on-schedules"></a>
 
-Der Schalter **Schedules** (Zeitpläne) befindet sich unter **Autonomous Messaging**. Gespeicherte Routinen gehören den Figuren und werden in Conversation-Chats wiederverwendet, auch beim Hinzufügen einer Figur zu einem bestehenden Chat. Explizites Ausschalten in einem Chat gilt weiter nur dort und löscht die Routine nicht.
+## Zeitpläne aktivieren
 
-1. Aktiviere den Schalter **Schedules**.
-2. Vorhandene Figurenroutinen erscheinen sofort. Einschalten erzeugt keine neuen Routinen; klicke dafür auf **Generate**.
-3. Sobald Abläufe vorliegen, erscheint die Liste **Edit schedules** (Zeitpläne bearbeiten) mit einer Zeile pro Charakter.
+Bevor du anfängst: Schalte **Autonomous Messages** an.
 
-Automatische wöchentliche Erneuerung bleibt aus, bis du sie für die Figur im **Character Schedule Manager** (Figuren-Zeitplanmanager) aktivierst. Ein fehlgeschlagener Versuch wird beim erneuten Öffnen nicht ständig wiederholt; nutze die Generierungsfunktionen für einen neuen Versuch.
+1. Schalte unter **Chat Settings → Autonomous Messaging** **Schedules** an. (Im Einrichtungsassistenten für neue Chats heißt dieselbe Option **Generate Schedules**.) Bereits vorhandene Zeitpläne erscheinen sofort.
+2. Wähle im Feld darunter deine Zeitzone.
+3. Klicke auf **Generate**, um Zeitpläne für Charaktere ohne Zeitplan zu erstellen. Die Schaltfläche heißt **Regenerate**, sobald Zeitpläne vorliegen.
+4. Warte, bis es fertig ist. Dann erscheint die Liste **Edit schedules** mit einer Zeile pro Charakter. Eine Zeile nennt, wie viele Tage gefüllt sind (zum Beispiel **3 days scheduled**), oder **Create schedule**. Die Liste erscheint nur, sobald Zeitpläne vorliegen.
+5. Klicke auf die Zeile eines Charakters, um seinen Zeitplan-Editor zu öffnen (nächster Abschnitt).
 
-Jede Zeile zeigt, wie viele Tage belegt sind, etwa **3 days scheduled**, oder **Create schedule**, falls für diesen Charakter noch nichts existiert. Die Schaltfläche **Generate** (heißt **Regenerate**, sobald Abläufe vorliegen) baut die Abläufe jederzeit neu auf.
+Ein Zeitplan gehört dem Charakter und wird in jedem Conversation-Chat wiederverwendet. Schaltest du **Schedules** in einem Chat aus, bleibt er dort erhalten, und der Zeitplan bleibt gespeichert.
 
-## Der Zeitplan-Editor
+Die automatische wöchentliche Erneuerung ist aus, solange du nicht **Renew weekly** für diesen Charakter im **Character Schedule Manager** einschaltest. Öffne ihn über die Kalenderschaltfläche in der Fußzeile der Seitenleiste, neben dem Statusfeld. Marinara versucht bei jedem Laden der App einmal pro Chat eine Erneuerung. Schlägt sie fehl, versucht es Marinara erst nach einem Neuladen der Seite wieder. Klicke auf **Generate**, um es erneut zu versuchen.
 
-Klick auf die Zeile eines Charakters in der Liste **Edit schedules**, um den Zeitplan-Editor zu öffnen. Im Fenstertitel steht **Edit**, danach der Charaktername und **Schedule**.
+**Schedule generation preferences** im selben Bereich **Schedules** der **Chat Settings** enthalten Freitext-Vorgaben dafür, wie Zeitpläne geschrieben werden. Sie gelten für jeden Conversation-Chat, wenn das nächste Mal Zeitpläne erstellt werden. Beispiel:
 
-Ganz oben fasst der Bereich **Routine profile** die Woche in verständlicher Sprache zusammen. Erzeugt wird sie über die Schaltfläche **Generate summary**, aktualisiert über **Refresh summary**. Änderst du den Zeitplan nach dem Erzeugen, erscheint der Hinweis **Summary may be stale**.
-
-### Tuning
-
-Im Bereich **Tuning** (Feinabstimmung) stehen die wichtigsten Bedienelemente.
-
-- **Chat talkativeness** ist ein Schieberegler mit fünf Stufen: **Rare**, **Quiet**, **Balanced**, **Social** und **Very frequent**. **Balanced** ist der mittlere Standard. Dieser Wert überschreibt die Standard-Gesprächigkeit des Charakters überall dort, wo sein Zeitplan verwendet wird. Er beeinflusst, wie oft der Charakter Nachrichten beginnt, nachfasst und sich am Gruppengeplauder beteiligt. Außerdem legt er das tägliche Standardlimit des Charakters fest.
-- **Wait before checking in** ist die Ruhezeit in Minuten, bevor sich dieser Charakter melden darf. Möglich sind 15 bis 360 Minuten, der Standard ist **120**.
-- **Check-in moments** sind die Anlässe, zu denen sich der Charakter melden darf. Zur Wahl stehen die Chips **Morning**, **Goodnight**, **Meal breaks**, **After busy** und **Long absence**. Alle sind standardmäßig aktiv. Ein Klick schaltet einen davon ab.
-
-### Advanced timing
-
-Innerhalb von **Tuning** verbergen sich unter **Advanced timing** (erweiterte Zeitsteuerung) drei weitere Bedienelemente.
-
-- **Daily safety limit** ist eine harte Obergrenze für genau diesen Charakter, entweder **Default** oder eine Zahl von 1 bis 8 pro Tag. Sie kann die Chat-Obergrenze nur senken, nicht anheben. Lass sie im Normalfall auf **Default**.
-- **Delay while you're away** bestimmt, wie viele Minuten dieser Charakter wartet, solange sein eigener Status **Away** lautet. Bleibt das Feld leer, gilt der Standard: zufällige 1 bis 3 Minuten. Möglich sind 0 bis 120 Minuten.
-- **Delay while you're busy** macht dasselbe für den Status **Busy**. Bleibt das Feld leer, gilt der Standard: zufällige 2 bis 5 Minuten. Möglich sind 0 bis 120 Minuten.
-
-### Schedule AI: die Woche neu entwerfen
-
-Im Bereich **Schedule AI** lässt du den Ablauf vom Modell umschreiben. Wähle eine **Week action**:
-
-- **Rewrite** entwirft die komplette Woche neu.
-- **Adjust** behält den Ablauf weitgehend bei und setzt deine Vorgaben um.
-- **Vary** macht die Woche deutlich anders, aber weiterhin glaubwürdig.
-- **Repair** schließt Lücken und behebt offensichtliche Probleme mit kleinen Änderungen.
-
-Ins Feld **Week guidance** kannst du optional Hinweise eintragen, zum Beispiel:
-
-```
-make weekdays more nocturnal, keep weekends social
-```
-
-Klick anschließend auf die Schaltfläche mit dem Namen deiner Aktion, etwa **Rewrite week**. Das Ergebnis ist zunächst nur ein Entwurf. Gespeichert wird erst mit einem Klick auf **Save schedule**. Ungültiges Modell-JSON kannst du unter **Edit generated schedule JSON** (generiertes Zeitplan-JSON bearbeiten) korrigieren und mit **Apply to draft** (auf Entwurf anwenden) prüfen. Gültige Reparaturen und erfolgreich generierte Tage bleiben bis zum Speichern im Entwurf. Fehler stoppen den Aufruf ohne automatische Wiederholung. **Stop** oder Schließen des Editors bricht aktive Anfragen ab. Auch Schließen des Zeitplanmanagers oder der Chat-Einstellungen beendet dort gestartete Generierung.
-
-### Tagesblöcke
-
-Unter den Bereichen hat jeder Tag von Montag bis Sonntag eine eigene Zeile. Ist für einen Tag nichts hinterlegt, steht dort **No blocks scheduled for this day**.
-
-Jeder Block besteht aus drei Teilen, beschriftet mit **Status, time & activity**:
-
-- Ein **Status** zur Auswahl: **Online**, **Away**, **Busy** oder **Offline**.
-- Eine Zeitspanne in der Schreibweise `09:00-11:30`.
-- Eine kurze Notiz zur Aktivität, etwa `at work`.
-
-Über **Add block** kommt eine Zeitspanne hinzu, über das Papierkorbsymbol verschwindet eine wieder. Jeder Tag hat außerdem ein eigenes Hinweisfeld, beschriftet mit **Guide Monday**, **Guide Tuesday** und so weiter. Trag dort einen Hinweis ein und klick auf die passende Schaltfläche, etwa **Regenerate Monday**, um nur diesen einen Tag neu zu entwerfen.
-
-Der Status eines Blocks entscheidet, was der Charakter tut, wenn der Zeitpunkt zum Melden gekommen ist. Bei einem **Offline**-Block schreibt er in dieser Zeit nie zuerst. Bei einem **Busy**-Block wartet er dreimal so lange wie sonst, bevor er sich meldet.
-
-Zum Schluss klick auf **Save schedule**. **Cancel** schließt den Editor, ohne zu speichern.
-
-### Einen Zeitplan zwischen Charakteren oder Installationen übertragen
-
-Über **Export schedule** (Zeitplan exportieren) ganz unten im Editor lädst du den aktuellen Entwurf als JSON-Datei herunter – JSON ist ein schlichtes Textformat. Der Export enthält die Blöcke der Woche, die Zusammenfassung der Routine, die Gesprächigkeit, die **Check-in moments** und die Einstellungen unter **Advanced timing**.
-
-Öffne den Zeitplan-Editor eines anderen Charakters und wähle dort **Import schedule** (Zeitplan importieren), um diese Datei zu laden. Marinara prüft die Datei, bevor sie den Entwurf im Editor ersetzt, und schiebt die importierte Routine auf die aktuelle Woche. Gespeichert wird der Import nicht automatisch: Mit **Save schedule** behältst du ihn, mit **Cancel** bleibt der bisherige Zeitplan des Charakters unverändert.
-
-### Schedule generation preferences
-
-Zurück in den **Chat Settings**: Das Feld **Schedule generation preferences** (Vorgaben für die Zeitplan-Erstellung) nimmt frei formulierte Hinweise dazu auf, wie die Abläufe geschrieben werden. Diese Einstellung gilt global. Sie greift in jedem Conversation-Chat, sobald das nächste Mal Zeitpläne entstehen – von Hand oder durch die App. Zum Beispiel:
-
-```
+```text
 Make everyone go to sleep before midnight. I work 9-5 on weekdays.
 ```
 
-## Einen einmaligen Status mit /status setzen
+## Der Zeitplan-Editor
 
-Der Befehl **/status** setzt oder löscht einen vorübergehenden Status für einen Charakter, ohne den gespeicherten Zeitplan anzurühren. Er funktioniert nur im Conversation Mode.
+Der Titel des Editors lautet **Edit** plus Charaktername und **Schedule**.
 
-Der Befehl hat diese Form:
+Oben zeigt **Routine profile** eine Zusammenfassung der Woche in einfacher Sprache. Klicke auf **Generate summary**, um sie zu erstellen, oder auf **Refresh summary**, um sie zu aktualisieren. Nach einer Änderung des Zeitplans erscheint **Summary may be stale**. **Generation model** wählt das Modell, das Zeitpläne schreibt.
 
-```
-/status <online|idle|dnd|offline|clear> [character name]
-```
+### Tuning
 
-`idle` steht für Away, `dnd` für Busy. Es sind dieselben vier Status wie in den Zeitplan-Blöcken. Damit ein Charakter namens Mira gerade jetzt beschäftigt wirkt:
+Öffne **Tuning** für die Hauptregler.
 
-```
+- **Chat talkativeness**: ein Regler mit **Rare**, **Quiet**, **Balanced**, **Social** und **Very frequent**. Standard ist **Balanced**. Er legt fest, wie oft der Charakter Nachrichten beginnt und in Gruppengesprächen mitredet, sowie sein Standard-Tageslimit.
+- **Wait before checking in**: Ruheminuten, bevor sich der Charakter melden darf. Standard ist 120. Du kannst 15 bis 360 nutzen.
+- **Check-in moments**: Chips für **Morning**, **Goodnight**, **Meal breaks**, **After busy** und **Long absence**. Alle sind an. Klicke auf einen, um ihn auszuschalten.
+
+Öffne **Advanced timing** in **Tuning** für drei weitere Regler.
+
+- **Daily safety limit**: die meisten Check-ins pro Tag für diesen Charakter. Lass es auf **Default**, oder gib eine ganze Zahl ab 1 ein. Hat auch der Chat ein Zahlenlimit, gilt die niedrigere Zahl. Sonst ersetzt dieses Limit die Zahl der Gesprächigkeit.
+- **Delay while you're away**: zusätzliche Minuten, bevor der Charakter antwortet, während sein Status **Away** ist. Lass es leer für zufällige 1 bis 3 Minuten. Du kannst 0 bis 120 nutzen.
+- **Delay while you're busy**: dasselbe, während sein Status **Busy** ist. Lass es leer für zufällige 2 bis 5 Minuten. Du kannst 0 bis 120 nutzen.
+
+### Schedule AI: die Woche neu entwerfen
+
+Öffne **Schedule AI**, damit das Modell den Zeitplan neu schreibt. Wähle eine **Week action**:
+
+| Aktion | Ergebnis |
+| --- | --- |
+| **Rewrite** | Ein frischer Entwurf für die ganze Woche. |
+| **Adjust** | Behält das meiste des Zeitplans bei und wendet deine Vorgaben an. |
+| **Vary** | Eine deutlich andere Woche, die trotzdem glaubwürdig ist. |
+| **Repair** | Behebt Lücken und offensichtliche Probleme mit kleinen Änderungen. |
+
+1. Wähle eine **Week action**.
+2. Wähle unter **Weekly generation** **Entire week in one request** oder **One request per day**. Eine Anfrage pro Tag macht kleinere Anfragen und kann mehr Tokens verbrauchen (die kleinen Textstücke, die Modelle zählen).
+3. Tippe optionale Hinweise in **Week guidance**, zum Beispiel `make weekdays more nocturnal, keep weekends social`.
+4. Klicke auf die Schaltfläche mit dem Namen deiner Aktion, etwa **Rewrite week**.
+5. Klicke auf **Save schedule**, um das Ergebnis zu behalten. Bis dahin ist es nur ein Entwurf (**Unsaved draft**).
+
+Wenn es nicht funktioniert hat: Dein Entwurf bleibt erhalten. Ein fehlgeschlagener Aufruf wird nicht wiederholt, also klicke erneut auf die Schaltfläche. Klicke auf **Stop** oder schließe den Editor, um eine laufende Anfrage abzubrechen. Wenn der Editor unter **Edit generated schedule JSON** Text zeigt, den das Modell zurückgab und den er nicht lesen konnte, korrigiere den Text und klicke auf **Apply to draft**.
+
+### Tagesblöcke
+
+Jeder Tag von Montag bis Sonntag hat eine eigene Zeile. Ein leerer Tag zeigt **No blocks scheduled for this day**. Jeder Block hat einen Status, eine Zeitspanne wie `09:00-11:30` und eine kurze Tätigkeit wie `at work`.
+
+1. Klicke unter einem Tag auf **Add block**.
+2. Wähle einen Status: **Online**, **Away**, **Busy** oder **Offline**.
+3. Tippe die Zeitspanne und die Tätigkeit ein.
+4. Klicke auf **Save schedule**. **Cancel** schließt den Editor ohne Speichern.
+
+Nutze das Papierkorbsymbol, um einen Block zu entfernen. Um einen Tag neu zu entwerfen, tippe einen Hinweis in **Guide Monday** (oder den Tag deiner Wahl) und klicke auf **Regenerate Monday**.
+
+Während eines **Offline**-Blocks schreibt der Charakter nie zuerst. Während eines **Busy**-Blocks wartet er dreimal so lange wie sonst.
+
+### Einen Zeitplan zwischen Charakteren verschieben
+
+Klicke auf **Export schedule**, um den Entwurf als JSON-Datei herunterzuladen (Blöcke der Woche, Zusammenfassung, Gesprächigkeit, Check-in-Momente und Timing). Klicke im Editor eines anderen Charakters auf **Import schedule**, um sie zu laden. Marinara prüft die Datei und verschiebt den Zeitplan auf die aktuelle Woche. Nichts wird gespeichert, bis du auf **Save schedule** klickst.
+
+## Einen Status mit /status setzen
+
+`/status` setzt oder löscht einen vorübergehenden Status für einen Charakter, ohne seinen gespeicherten Zeitplan zu ändern. Es funktioniert nur in Conversation Mode. Der Status gehört dem Charakter, gilt also in jedem Chat, in dem dieser Charakter ist.
+
+Tippe eines davon in das Nachrichtenfeld:
+
+```text
 /status dnd Mira
-```
-
-Und so hebst du das wieder auf, sodass für Mira wieder ihr Zeitplan gilt:
-
-```
 /status clear Mira
 ```
 
-Gibt es im Chat nur einen Charakter, kannst du den Namen weglassen. **/status** ohne weitere Angaben zeigt die Liste der Charaktere und eine kurze Hilfe.
+Das erste setzt Mira auf beschäftigt. Das zweite gibt sie an ihren Zeitplan zurück. Bei nur einem Charakter im Chat kannst du den Namen weglassen. `/status` allein listet die Charaktere und die Verwendung.
+
+Die volle Form steht unten. `idle` bedeutet **Away** und `dnd` bedeutet **Busy**. Eckige Klammern bedeuten, dass der Name optional ist.
+
+```text
+/status online|idle|dnd|offline|clear [character name]
+```
+
+Ein Status, den du setzt, bleibt, bis du ihn löschst, und ein Charakter kann ihn nicht ersetzen.
 
 <a id="characters-can-change-their-own-status"></a>
 
-## Charaktere können ihren Status selbst ändern
+## Charaktere ihren eigenen Status ändern lassen
 
-Ist der Befehl **Schedule Updates** unter **Chat Settings → Agents** eingeschaltet, kann ein Charakter selbst einen vorübergehenden Status samt Aktivität setzen. Bittest du ihn zum Beispiel, sich eine Stunde lang zu konzentrieren, kann er mit der Aktivität „Lernen“ auf **Busy** wechseln.
+Ist **Schedule Updates** unter **Chat Settings → Agents → Commands** an, kann ein Charakter selbst einen vorübergehenden Status und eine Tätigkeit setzen. Bittest du ihn zum Beispiel, sich eine Stunde lang zu konzentrieren, kann er auf **Busy** mit der Tätigkeit „Studying“ wechseln.
 
-- Die Änderung gilt so lange, wie der Charakter angibt, oder eine Stunde, wenn er nichts dazu sagt. Höchstens sind sieben Tage möglich.
-- Ist die Zeit um, kehrt der Charakter zu seinem Zeitplan zurück oder, wenn er keinen hat, zu **Online**.
-- Den gespeicherten Zeitplan ändert er dabei nie.
-- Ein Status, den du selbst mit **/status** setzt, bleibt, bis du ihn aufhebst. Ein Charakter kann ihn nicht ersetzen.
+- Die Änderung gilt so lange, wie der Charakter sagt, oder eine Stunde, wenn er nichts sagt. Das Maximum sind sieben Tage.
+- Ist die Zeit um, kehrt der Charakter zu seinem Zeitplan zurück, oder zu **Online**, wenn er keinen hat.
+- Er ändert nie den gespeicherten Zeitplan.
 
-## Wie autonome Nachrichten getaktet werden
+## Wie Check-ins getaktet werden
 
-Marinara taktet autonome Nachrichten so, dass dich kein Charakter zuspammt. Grundlage der folgenden Regeln ist der jeweils eigene Zeitplan.
+| Regel | Detail |
+| --- | --- |
+| Erster Check-in | Der Charakter wartet, bis du so lange still warst, wie unter **Wait before checking in** steht (standardmäßig 120 Minuten). |
+| Reaktion | Eine Reaktion von dir ohne neue Nachricht löst eine kürzere Wartezeit aus. |
+| Status **Offline** | Kein Check-in. |
+| Status **Busy** | Die Wartezeit ist dreimal so lang. |
+| Folge-Check-ins | Bis zu zwei weitere, solange du still bleibst, insgesamt drei. Der erste Folge-Check-in kommt nach der doppelten Wartezeit, der zweite nach der vierfachen. |
+| Deine Antwort | Die Zählung beginnt von vorn. |
+| Mehrere Charaktere bereit | Der mit der höchsten Gesprächigkeit und dem besten Timing kommt zuerst. Ein Charakter mit Status **Online** hat Vorrang. |
 
-- Ein Charakter wartet, bis du so lange geschwiegen hast, wie unter **Wait before checking in** hinterlegt ist. Der Standard sind 120 Minuten.
-- Ein Charakter mit dem aktuellen Status **Offline** schreibt nicht zuerst.
-- Ein Charakter mit dem aktuellen Status **Busy** wartet dreimal so lange.
-- Nach der ersten Nachricht darf ein Charakter noch zwei weitere schicken, solange du schweigst. Macht drei Nachrichten pro Schweigephase.
-- Jede weitere Nachricht wartet länger als die vorige: die erste das Doppelte der Grundzeit, die zweite das Vierfache.
-- Sobald du antwortest, beginnt die Zählung von vorn. Die nächste Stille startet bei null.
-
-Sind mehrere Charaktere gleichzeitig bereit, kommt der mit der höchsten Gesprächigkeit und dem besten Timing zuerst.
-
-In einem Gruppenchat im Modus **Individual** teilen sich die Charaktere ein gemeinsames Tageslimit für Meldungen und damit auch diese Taktung. Sobald sich irgendein Charakter gemeldet hat, gilt für die nächste Meldung – egal von wem – dieselbe Wartezeit wie beim Nachfassen. Ist die Meldung fällig, darf sie jeder Charakter schicken, dessen eigene Wartezeit abgelaufen ist; zuerst kommt der mit den wenigsten Meldungen an diesem Tag. Nach einer langen Abwesenheit meldet sich nur ein Charakter.
-
-## Dein Anwesenheitsstatus
-
-Dein eigener Status verrät den Charakteren, ob du gerade da bist. Das Bedienelement dafür sitzt unten in der Seitenleiste und bleibt in jedem Chat-Modus sichtbar. Auf die Nachrichten wirkt es sich nur im Conversation Mode aus.
-
-Klick auf die Statusanzeige, um vier Möglichkeiten zu öffnen:
-
-- **Active**: du bist online und ansprechbar.
-- **Idle**: erscheint, wenn du abwesend bist.
-- **Do Not Disturb**: stoppt alle autonomen Nachrichten.
-- **Invisible**: verbirgt deinen Status vor den Charakteren.
-
-**Idle** läuft größtenteils automatisch. Steht dein Status auf **Active** und passiert 10 Minuten lang nichts, setzt Marinara dich auf **Idle**. Bei deiner Rückkehr geht es zurück auf **Active**. Du kannst **Idle** auch selbst im Einblendfenster wählen. Wählst du einen Status von Hand, ruht die Automatik, bis du wieder **Active** wählst.
-
-Setz **Do Not Disturb**, wenn du Ruhe willst. Solange das aktiv ist, schreibt dir kein Charakter zuerst. **Idle** blockiert autonome Nachrichten dagegen nicht. Charaktere melden sich also auch während deiner Abwesenheit.
-
-Neben der Statusanzeige liegt das Feld **What are you doing?**. Trag dort eine kurze eigene Aktivität ein, bis zu 120 Zeichen. Zuletzt genutzte Einträge sammelt die Liste **Recent status**, sodass du sie wiederverwenden kannst.
+In einem Gruppenchat, in dem jeder Charakter in einer eigenen Antwort antwortet (siehe [Gruppenchats](../chats/group-chats.md)), teilen sich die Charaktere ein Tageslimit und ein Tempo. Nachdem sich irgendein Charakter gemeldet hat, wartet der nächste Check-in von jedem wie ein Folge-Check-in. Jeder Charakter, dessen eigene Wartezeit abgelaufen ist, darf sich melden, und der mit den wenigsten Check-ins an diesem Tag kommt zuerst. Nach einer langen Abwesenheit meldet sich nur ein Charakter.
 
 ## Verwandte Anleitungen
 

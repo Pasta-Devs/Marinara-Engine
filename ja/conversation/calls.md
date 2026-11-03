@@ -1,298 +1,206 @@
 # Conversationの音声通話とビデオ通話
 
-このガイドでは、Marinara EngineのConversationの通話について説明します。通話の仕組み、通話を用意する手順、通話中の話し方、よくある問題の直し方がわかります。
+通話とは、ボイスチャットアプリのようなライブ画面で、1人以上のキャラクターに、マイクまたは文字入力で話しかけるものです。実行中は、通常のConversationのチャットの上に重なって表示されます。通話は、Conversationモードでだけ使えます。
 
-通話が使えるのはConversationモードだけです。RoleplayとGameのチャットに通話画面はありません。
+通話は、任意のパッケージです。**Agents → Agent Organizer**から**Calls**をインストールしてください。カタログが再起動を求めた場合は、Marinaraを停止して、いつもの方法でもう一度起動します([インストール](../INSTALLATION.md)を参照)。
 
-Callsは任意で追加するエージェントパッケージです。以下の設定に進む前に**Agents → Agent Organizer (エージェント管理)**から**Calls**をインストールし、カタログから求められたらMarinaraを再起動してください。
+通話中は、動作するText to Speech(TTS、テキストを音声に変える機能)の音声を持つキャラクターが、声に出して話します。音声のないキャラクターは、通話チャットに文字で返信します。静止したアバターの代わりに、キャラクターのAI生成のループ動画クリップを表示することもできます。
 
-## 通話とは
+Marinaraは、ブラウザーでマイクまたはカメラを録音します。入力モード(下記を参照)によって、音声は自分のコンピューター上でテキストに変えられるか、選んだチャット用のモデルに送られます。返信は、TTSサービスで読み上げられます。通話が終わると、短い要約がConversationに戻ります。全文の記録は、通話専用のストレージに残ります。
 
-通話を始めると、1人または複数のキャラクターと話せるDiscord風のライブ画面が開きます。通話中は、通常のConversationチャットの上に重なって表示されます。
+## 必要なもの
 
-通話中の動作は次のとおりです。
+- **Calls**がインストールされている。
+- キャラクターが1人以上いるConversationのチャットと、返信を書くモデルのアカウント。
+- チャットの設定で、**Audio/Video Calls**と**Call Audio Pipeline**がオンになっている。
+- 任意: Text to Speechのアカウント。これでキャラクターが話せます。ないと、文字で返信します。
+- 任意: デフォルトのマイクモードには、一度だけLocal Whisperのダウンロードが必要です([Local Whisperのダウンロード](#download-local-whisper)を参照)。代わりに、通話チャットで文字を入力することもできます。
 
-- Text to Speech (TTS)の音声が使えるキャラクターは、セリフを声に出して話します。TTSは音声合成のことで、文章を音声に変換します。
-- 音声のないキャラクターは、通話チャットに文字のメッセージで返信します。
-- こちらからはマイクで話すか、文字を入力して答えます。
-- 静止画のアバターの代わりに、AIが生成したキャラクターの動画クリップをループ再生させることもできます。
+## 最初の通話の準備
 
-通話といっても、相手と直接つながる電話ではありません。Marinaraはローカルのブラウザーからマイクやカメラの入力を受け取り、そのConversationで選んでいるモデルへ送ります。返信はTTSプロバイダーの音声で読み上げ、通話のデータは自分のコンピューターに保存します。
+始める前に: キャラクターが1人以上いるConversationのチャットと、返信を書くモデルのアカウントが必要です([AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)を参照)。
 
-通話が終わると、Marinaraは音声通話の短い要約を通常のConversationに書き戻します。通話の全文の記録は別の通話用ストレージに残り、メインのチャットへ1メッセージずつコピーされることはありません。
+1. 任意: Text to Speechを設定します([Text to Speechの設定](#set-up-text-to-speech)を参照)。設定しないと、キャラクターは全員、文字だけで参加します。
+2. チャットを開き、**Chat Settings → Agents → Calls**を開きます。
+3. **Audio/Video Calls**をオンにします。会話の名前の隣に、通話ボタンが表示されます。
+4. **Call Audio Pipeline**をオンにします。これをオフにすると、通話を始められません。文字を入力するだけ、聞くだけの場合でも同じです。マイクも有効になります。
+5. **Audio input mode**を選びます(下記を参照)。
+6. **Start call**をクリックします。
 
-## 始める前に
+うまくいかなかった場合: 「Conversation call audio is not enabled in Chat Settings」と表示されたら、**Call Audio Pipeline**がオフです。これはグローバルな設定なので、1つのチャットでオンにすると、すべてのConversationの通話でオンになります。新しいチャットでは、先にセットアップウィザードを完了してから、そのチャットの**Chat Settings**を開いてください。Callsの設定は、Callsをインストールしたときだけ表示されます。
 
-音声通話を動かすには、次の項目をこの順に用意します。Optionalと書かれた手順は飛ばせます。
+似たスイッチが2つありますが、役割は違います。
 
-1. キャラクターが1人以上いるConversationモードのチャット。
-2. そのチャットに選んだ通常のモデル接続。通話中のキャラクターの返信を書くのは、このモデルです。
-3. そのチャットで**Audio/Video Calls**(音声通話とビデオ通話)をオンにすること(後述の「チャットで通話をオンにする」を参照)。
-4. **Call Audio Pipeline**(通話の音声パイプライン)をオンにすること。どんな通話にもこれが必要で、文字入力だけの通話や聞くだけの通話でも必要です。マイク入力もこの設定で有効になります。
-5. キャラクターが話せるようにText to Speechを設定すること。設定がないと、すべてのキャラクターが文字だけで参加します。
-6. Optional: ブラウザーの音声認識が安定しない場合(Firefoxがこれに当たります)、Callsのインストール後にConnectionsからLocal Whisperをダウンロードします。または、Local Whisperの代わりに自分の音声認識サーバーを使います。
-7. Optional: **Character Video Presence**を使いたい場合は、動画の接続と生成済みのクリップ。
-8. Optional: 通話中にキャラクターが自撮り写真を送れるようにしたい場合は、チャットのSelfie Connectionに指定した画像の接続。
+- **Audio/Video Calls**は、通話ボタンを表示します。これで、自分からキャラクターに通話をかけられます。
+- **Calls**コマンドは、キャラクターから先に電話をかけられるようにします。これがオフでも、自分から通話を始められます。
+
+同じセクションにあるマスターの**Commands**スイッチも、通話中のコマンドのためにオンにする必要があります。通話そのものは、オフのままでも始められます。
+
+<a id="set-up-text-to-speech"></a>
 
 ### Text to Speechの設定
 
-Text to Speechでは、どのキャラクターが話せるか、それぞれどの音声を使うかが決まります。ほかの機能とも共通の仕組みなので、専用のガイドで説明しています。
-
-詳しい手順は[Text to Speech (TTS)の設定](../media/tts-setup.md)を読んでください。大まかには、**Connections**(接続)を開いて**Text to Speech**を開き、次の操作をします。
+Text to Speechは、どのキャラクターが、どの声で話せるかを決めます。全体の手順は[Text to Speech(TTS)のセットアップ](../media/tts-setup.md)を読んでください。要点は次のとおりです。**Connections**を開き、**Add account**をクリックして、**Text to speech**を選びます。すでに**On this device**の下に一覧表示されている場合は、そこで開きます。そのうえで、次の手順に従います。
 
 1. Text to Speechをオンにします。
-2. ソースを選びます: **OpenAI-compatible**、**ElevenLabs**、**PocketTTS**、**xAI Voice**のいずれかです。
-3. そのソースのプロバイダーキー、またはローカルサーバーのアドレスを入力します。
-4. モデルと音声を選びます。
-5. **Voice Option**を**One voice for all characters**または**Selected per character**に設定します。
-6. 保存してから、プレビューボタンで音声が聞こえるか確かめます。
+2. ソースを選びます: **OpenAI-compatible**、**ElevenLabs**、**PocketTTS**、**xAI Voice**。
+3. そのソースのAPIキーかローカルサーバーのアドレスを入力します。
+4. モデルと声を選びます。
+5. **Voice option**を**One voice for all**または**Selected per character or persona**に設定します。キャラクターごとに声を決めると、グループ通話が聞き分けやすくなります。
+6. 保存してから、プレビューのボタンを使って、音声が聞こえることを確認します。
 
-グループ通話では、キャラクターごとに音声を分けると誰が話しているか格段にわかりやすくなります。Marinaraが音声を解決できないキャラクターは、その通話では文字だけの参加になります。
+キャラクターにMarinaraが特定できる声がない場合、そのキャラクターは、通話中は文字だけになります。
 
-### マイク入力モードの選択
+### Audio input modeの選択
 
-**Call Audio Pipeline**がオンになっていると、**Audio input mode**(音声入力モード)ドロップダウンが表示され、4つの選択肢から選べます。使っているブラウザーとプロバイダーに合うものを選んでください。
+**Call Audio Pipeline**がオンのときは、**Audio input mode**の一覧が表示されます。迷ったら、デフォルトのままにしてください。
 
-- **Mic recording + Local Whisper**: ミュートを解除している間だけ録音し、無音は無視して、話した内容を自分のコンピューター上で文字に変換します。これがデフォルトで、Firefoxではこの選択が最適です。
-- **Browser speech recognition**: ブラウザーのWeb Speech機能を使います。Web Speech APIは、音声を文字に変換するブラウザー内蔵の仕組みです。対応状況はブラウザーによって異なり、使えないときはMarinaraがLocal Whisperに切り替えます。
-- **Manual system dictation**: 通話のテキスト入力欄にカーソルを置くだけで、OSの音声入力から文字を打ち込めるようにします。このモードでは、Marinara自身がマイクを録音することはありません。
-- **Provider-native audio/video**: 録音した音声や映像を、そのままConversationのモデルへ送ります。モデルがメディアを直接受け取れる場合に使えます。対応していないモデルでは、Local Whisperかブラウザーの音声認識を使ってください。
+| モード | 働き |
+| --- | --- |
+| **Mic recording + Local Whisper**(デフォルト) | ミュートを解除しているあいだ録音し、無音を無視して、自分のコンピューター上で音声をテキストに変えます。Firefoxに最適です。 |
+| **Browser speech recognition** | ブラウザーに組み込まれた音声認識ツールを使います。対応状況はさまざまです。使えないときは、MarinaraがLocal Whisperに切り替えます。 |
+| **Manual system dictation** | 通話のテキストボックスにカーソルを置くだけなので、お使いのOSの音声入力で入力できます。Marinaraは録音しません。 |
+| **Provider-native audio/video** | モデルがメディアを受け付ける場合に、録音した音声や動画を、そのままモデルに送ります。 |
 
-カメラと画面のボタンは、**Camera and screen input**(カメラと画面の入力)がオンのときだけ表示されます。動作するのは**Provider-native audio/video**モードだけです。ほかのモードでは、ボタンは見えていても無効のままです。
+カメラと画面共有のボタンは、**Camera and screen input**をオンにしたときだけ、**Provider-native audio/video**モードで動作します。ほかのモードでは、ボタンは表示されますが、無効のままです。
+
+## 通話の開始、応答、終了
+
+**通話を始める。** 通話がオンのとき、会話の名前の隣に電話ボタンがあります。ツールチップは**Start call**、通話が実行中のときは**Open call**です。クリックすると、通話画面が開きます。1つのチャットで、アクティブになれるのも呼び出し中になれるのも、通話1つだけです。別の通話を始めると、現在の通話が開き直されます。
+
+**通話に応答する。** **Calls**コマンドがオンのとき、キャラクターから着信があります。そのチャットでは、メッセージ入力欄の上に**Incoming call**のバナーが表示され、**Decline call**と**Answer call**があります。Marinaraのほかの場所では、着信の通知と短い着信音が出ます。Marinaraが、自分から応答することはありません。参加できるのは、利用可能なキャラクターだけです。スケジュールやステータスがオフラインのキャラクターは参加しません。
+
+**通話を終える。** 通話画面または最小化したポップアウトの、赤い**End call**ボタンをクリックします。キャラクターも、通話中のコマンドで、通話から抜けたり終了したりできます。その後、Marinaraは録音を止め、Conversationにカードを追加します。
+
+## 通話画面
+
+ステージには、参加者ごとに1つのタイルが表示されます。ペルソナと、利用可能な各キャラクターです。話している人が強調表示されます。通話チャットには、入力したメッセージと、文字だけの返信が表示されます。声に出して話した内容は、そこには繰り返されません。デスクトップでは、サイドパネルです。スマートフォンでは、**Open call chat**で開き、**Close call chat**で閉じるドロワーです。
+
+通話のコンポーザーには、**Message in call**ボックス、**Send**、絵文字、GIF、スタンプのピッカー、モデルのクイック切り替えがあります。通話チャットでは、ファイルの添付には対応していません。
+
+| コントロール | 働き |
+| --- | --- |
+| マイク | ミュートとミュート解除を切り替えます。ツールチップはモードによって変わります。例: **Unmute microphone with Local Whisper**。 |
+| **Turn camera on** / **Turn camera off** | **Provider-native audio/video**モードで、**Camera and screen input**がオンのときだけ。 |
+| **Share screen** / **Stop sharing screen** | カメラと同じルールです。 |
+| **Character volume** | ミュートボタンと、0から100のスライダー。デフォルトは100で、ブラウザーに保存されます。 |
+| **Soundboard** | **Upload**コントロール付きの、音の一覧。 |
+| **End call** | 赤い受話器のボタン。 |
+
+ミュートのまましばらく話さないでいると、「You are muted! Remember to unmute yourself first if you want to talk.」と表示されます。
+
+通話中にConversationを離れると、通話は、チャット名、経過時間、**End call**を表示する、浮かぶポップアウトに縮小されます。ポップアウトをクリックすると、元に戻ります。閲覧しているあいだも、通話は続きます。
+
+### Soundboard
+
+サウンドボードには、削除できない組み込みの音が4つあります。**Soft Chime**、**Tap**、**Sparkle**、**Pop**です。クリックすると再生されます。**Upload**で、自分の音を追加します(mp3、wav、ogg、webm、m4a、各8 MBまで)。自分のアップロードは削除できます。キャラクターも、サウンドボードのコマンドで音を鳴らせます。
+
+## Character Video Presence
+
+この部分は、任意で、上級者向けです。**Character video presence**は、静止したアバターのタイルを、キャラクターのAI生成のループ動画クリップに置き換えます。デフォルトではオフです。スイッチは、**Chat Settings → Agents → Calls**にあります。
+
+始める前に: **Connections**でVideo Generationのアカウントを追加し、**Default for Videos**にするか、毎回選んでください。
+
+1. キャラクターまたはペルソナのエディターを開きます。
+2. **Sprites**タブを開き、**Clips**サブタブに進みます。
+3. **Generate Clips**をクリックするか、**Upload extra**で自分のクリップを追加します。
+4. **Generate Call Clips**ウィンドウで、**Video Generation Connection**を選び、**Use avatar as reference**を選びます。
+5. 標準のクリップを選びます: **Idle**、**Talking**、**Laughing**、**Angry**、**Crying**、**Sighing**。**Clip name**と動きの説明を入力して、自分だけのクリップを定義することもできます。
+
+声に出して話すターンのあいだ、Marinaraは`[sighs]`のような行の中の声のキューを読み取り、合うリアクションのクリップを選び、その後Idleに戻します。クリップがなくても、通話は止まりません。キャラクターは、静止したアバターを表示します。トリミングしたクリップは、そのトリミング範囲の中でループします。[キャラクタースプライト(表情と全身)](../characters/sprites.md)を参照してください。
+
+**Character video presence**がオンのときは、さらに2つのスイッチが、その下に表示されます。
+
+- **Automatic video clips generation**(デフォルトはオフ)は、参加者に必要な**Idle**と**Talking**だけを作ります。リアクションやカスタムのクリップは、自動では作られません。
+- **Custom clips**(デフォルトはオフ)は、キャラクターが、ライブ通話で1回限りのクリップをまれに依頼し、用意できたものを再生できるようにします。特別な依頼のためのもので、毎回の気分のためのものではありません。
+
+**Character video presence**をオフにすると、この2つもオフになります。クリップは、再利用できるプレゼンスのループです。シーン動画を入れるGalleryの**Videos**ではありません。
+
+## Speech-to-textの設定(上級)
+
+**Mic recording + Local Whisper**モードのとき、または自分の音声認識サーバーを使いたいときだけ必要です。
+
+<a id="download-local-whisper"></a>
 
 ### Local Whisperのダウンロード
 
-Local Whisperは、Marinaraを動かしているコンピューター上で音声を文字に変換します。文字起こしのためにマイクの音声がそのコンピューターの外へ出ることはありません。変換後の文字は、通話の一部としてConversationのモデルへ送られます。
+Local Whisperは、Marinaraを動かしているコンピューター上で、音声をテキストに変えます。そのため、マイクの音声は文字起こしのために外へ出ません。ただし、通話の一部として、テキストは引き続きモデルに送られます。音声認識の対応が弱いブラウザー(Firefoxなど)では、もっとも確実なマイクの経路です。
 
-Local WhisperはCallsパッケージに含まれる機能で、Firefoxのように音声認識が弱いブラウザーではもっとも確実なマイク入力の経路です。Callsをインストールしたら、**Connections**を開き、**Local Model**を開いてカードを展開し、**Local Speech Model**を探します。Callsが入っていないときは、このセクションが表示されません。Local Modelカード全般については[Local Modelのセットアップ](../connections/local-model.md)を参照してください。
+始める前に: Callsをインストールしてください。インストールしないと、このセクションは表示されません。
 
-1. モデルを選びます。デフォルトは**Whisper Tiny (Multilingual)**です。ダウンロードは約180 MBで、実行中に約350 MBのメモリーを使います。スマートフォンや古いコンピューターには、これが最初の選択肢として最適です。
-2. 聞き取りにくい発話でも精度を上げたいときは、**Whisper Base (Multilingual)**を選びます。ダウンロードは約320 MBで、メモリーは約650 MBを使います。
-3. **Download Whisper**をクリックします。
-4. 進捗バーが最後まで進むのを待ちます。
+1. **Connections**を開き、**On this device**の下にある**Speech to text**を探します。一覧にない場合は、**Add account**をクリックして、**Speech to text**を選びます。
+2. このページの**Local Speech model**を探します。
+3. モデルを選びます。
+   - **Whisper Tiny (Multilingual)**: ダウンロードは約180 MB、メモリーは約350 MB。スマートフォンや古いコンピューターに最適です。
+   - **Whisper Base (Multilingual)**: ダウンロードは約320 MB、メモリーは約650 MB。聞き取りにくい音声に向いています。
+4. **Download Whisper**をクリックして、進行状況バーが終わるまで待ちます。
+5. Callsを使う前に、Marinaraを完全に再起動します。
 
-ダウンロードが終わると、モデルを削除するための**Delete Local Whisper**(ゴミ箱のアイコン)が表示されます。
+ごみ箱アイコンの**Delete Local Whisper**で、モデルを削除します。Callsをアンインストールすると、ダウンロードしたWhisperモデルも削除されます。再インストールしても、自分で選ぶまで、再ダウンロードはされません。
 
-Callsをアンインストールすると、ダウンロード済みのWhisperモデルと選択内容もすべて削除されます。モデルが使っていたディスク容量は、これで解放されます。Callsを再インストールするとダウンロードの操作は戻りますが、モデルを選び直すまで再ダウンロードは始まりません。
+うまくいかなかった場合: MarinaraのLiteビルドでは、「Local Whisper is disabled in Lite mode. Use a full Marinara install to download and run the local speech model.」と表示されます。「native ONNX runtime」についてのメッセージが表示された場合は、お使いのプラットフォーム用の音声エンジンが見つかりません。Marinaraを動かしているのと同じNodeのビルドで、依存関係を再インストールしてから、再起動してください。
 
 <a id="use-your-own-speech-to-text-server"></a>
 
 ### 自分の音声認識サーバーを使う
 
-話す言語やなまりをLocal Whisperがうまく聞き取れない場合は、録音した声を別の音声認識モデルへ送ることもできます。OpenAI形式の`/audio/transcriptions`エンドポイントを提供するサーバーであれば、どれでも使えます。Speaches、faster-whisperのサーバー、LocalAI、whisper.cpp server(`--inference-path /v1/audio/transcriptions`を付けて起動したもの)などのセルフホストのサーバーや、OpenAI、Groqなどのプロバイダーが当てはまります。
+Local Whisperが、自分の言語やアクセントで苦戦する場合は、代わりに別の音声認識サーバーに音声を送ります。OpenAIの音声認識の形式(`/audio/transcriptions`のアドレス)を受け付けるサーバーであれば、自分で動かしているものでも、OpenAIやGroqのようなサービスでも使えます。
 
-1. Callsをインストールしてから**Connections**を開き、**Speech to Text**(音声認識)カードを探します。Callsがインストールされていないあいだ、このカードは表示されません。
-2. カードを展開し、**Server URL**(サーバーのURL)を入力します。たとえば自分のコンピューター上のサーバーなら`http://localhost:8000/v1`です。
-3. サーバーやプロバイダーが必要とする場合は、**API key**(APIキー)を入力します。キーは暗号化して保存され、カードには伏せ字でしか表示されません。
-4. サーバーで使う**Model**(モデル)の名前を入力します。空欄のままにすると`whisper-1`を送ります。
-5. Optional: `pl`や`de`のような**Language**(言語)コードを入力します。話す言語をモデルに伝えると、たいてい精度が上がります。空欄のままにすると、サーバーが言語を検出します。
-6. **Test**(テスト)をクリックします。Marinaraは1秒間の無音のクリップを送り、サーバーが応答したかどうかを表示します。
-7. カードのスイッチをオンにします。
+1. **Connections**を開き、**On this device**の下にある**Speech to text**を開きます。一覧にない場合は、**Add account**をクリックして、**Speech to text**を選びます。Callsがインストールされていないと、表示されません。
+2. **Server URL**を入力します。例: `http://localhost:8000/v1`。
+3. サーバーが必要とする場合は、**API key**を入力します。暗号化されて保存され、伏せて表示されます。
+4. サーバーが使う**Model**名を入力します。空にすると、`whisper-1`を送ります。
+5. 任意: **Language**のコードを入力します。`pl`や`de`のような形です。空にすると、サーバーが検出します。
+6. **Test**をクリックします。Marinaraは、1秒間の無音のクリップを送ります。「The server answered.」または「The test failed.」と表示されます。
+7. **Use your own speech-to-text server**をオンにします。
 
-スイッチがオンのあいだ、**Mic recording + Local Whisper**は話した内容をLocal Whisperではなくこのサーバーへ送ります。この場合、Local Whisperをダウンロードする必要はありません。Local Whisperに戻すには、スイッチをオフにします。音声は入力したサーバーへ送られるので、信頼できるサーバーを使ってください。
+オンのあいだは、**Mic recording + Local Whisper**が、音声をこのサーバーに送ります。Local Whisperをダウンロードする必要はありません。音声がそのサーバーに届くので、信頼できるものを使ってください。同じコンピューター上のサーバーは動作します。ネットワーク上の別のコンピューターのサーバーは、`.env`で`STT_LOCAL_URLS_ENABLED=true`を設定しない限り、拒否されます([サーバー設定リファレンス](../CONFIGURATION.md)を参照)。
 
-Marinaraと同じコンピューター上のサーバーは、そのまま使えます。自宅のネットワーク内にある別のコンピューターのサーバーは、サーバーの`.env`ファイルで`STT_LOCAL_URLS_ENABLED=true`を設定しない限り拒否されます。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
+うまくいかなかった場合: **Test**の下のメッセージを読んでください。「Could not reach the speech-to-text server」は、アドレスが違うか、サーバーが停止しているという意味です。`STT_LOCAL_URLS_ENABLED`を挙げているメッセージは、サーバーが別のコンピューター上にあるという意味です。サーバーから返る数字のうち、401はたいていAPIキーの誤り、404はアドレスかモデル名の誤りです。通話がそれでもLocal Whisperを使う場合は、**Agents → Agent Organizer**からCallsをアップデートしてください。
 
-この機能には、対応したバージョンのCallsが必要です。スイッチをオンにしても通話がLocal Whisperを使い続ける場合は、**Agents → Agent Organizer (エージェント管理)**からCallsをアップデートしてください。
+## 設定とデフォルト
 
-## チャットで通話をオンにする
-
-通話は、新しいConversationを作るときにオンにすることも、後からチャットの設定でオンにすることもできます。
-
-新しいConversationでは、まず設定ウィザードを終わらせてから、そのチャットの設定を開いて以下と同じ手順を実行します。パッケージの任意設定は、Callsのインストール後にだけ表示されます。
-
-既存のConversationでは次のようにします。
-
-1. チャットを開きます。
-2. **Chat Settings**(チャット設定)を開きます。
-3. **Agents**(エージェント)セクションへ移動します。
-4. **Calls**を開きます。
-5. **Audio/Video Calls**をオンにします。チャット名の横に通話ボタンが表示されます。
-6. **Call Audio Pipeline**をオンにします。マイクを一度も使わない場合でも、これがないと通話を開始できません。
-7. **Audio input mode**を選びます。
-
-**Audio/Video Calls**と**Calls**コマンドは別の設定です。**Audio/Video Calls**は通話ボタンを表示し、こちらからキャラクターに発信できるようにします。**Calls**コマンドは、キャラクターの側から着信をかけられるようにするものです。**Calls**をオフにしても自分から通話を始めることはできますが、キャラクターからの着信は発生しなくなります。
-
-**Agents**セクションには、コマンドを提供するパッケージが入っているときに**Commands**の親トグルも表示されます。通話中の隠しコマンドを使うには、これがオンである必要があります。オフのままでも、通話自体は開始できます。
-
-### 設定項目とデフォルト
-
-通話の設定の大半は、**Chat Settings**を開いて**Agents**、**Calls**と進んだ場所にあります。一部はグローバル設定で、1つのチャットで変更するとアプリ内のすべてのConversation通話に反映されます。
+**Per chat**の設定は、1つのチャットに適用されます。**Global**の設定は、すべてのConversationの通話に適用されます。
 
 | 設定 | 適用範囲 | デフォルト |
-|---|---|---|
-| **Audio/Video Calls** | チャットごと | Off |
-| **Calls**(コマンド) | チャットごと | On |
-| **Generate voice cues in [tags]** | チャットごと | On |
-| **Call Audio Pipeline** | グローバル | Off |
-| **Audio input mode** | グローバル | Mic recording + Local Whisper |
-| **Camera and screen input** | グローバル | Off |
-| **Character video presence** | グローバル | Off |
-| **Automatic video clips generation** | グローバル | Off |
-| **Custom clips** | グローバル | Off |
+| --- | --- | --- |
+| **Audio/Video Calls** | Per chat | オフ |
+| **Calls**(コマンド) | Per chat | オン |
+| **Generate voice cues in [tags]** | Per chat | オン |
+| **Call Audio Pipeline** | Global | オフ |
+| **Audio input mode** | Global | Mic recording + Local Whisper |
+| **Camera and screen input** | Global | オフ |
+| **Character video presence** | Global | オフ |
+| **Automatic video clips generation** | Global | オフ |
+| **Custom clips** | Global | オフ |
 
-**Generate voice cues in [tags]**は、`[whispering]`、`[laughing]`、`[sighs]`のような短い合図を角括弧に入れてセリフの中に加えるよう、モデルに指示する設定です。この合図はTTSの読み上げ方を左右し、反応の動画クリップを選ぶ手がかりにもなります。デフォルトはオンです。セリフを素のままにしたいときはオフにします。
+1つのチャットで変えたグローバルな設定は、すべてのConversationの通話に影響します。**Generate voice cues in [tags]**は、声に出して話す行の中に、`[whispering]`、`[laughing]`、`[sighs]`のような短いキューを加えるようモデルに頼みます。キューは、TTSが行を読む方法を形作り、リアクションのクリップの選択にも役立ちます。声に出して話す行をそのままにしたい場合は、オフにします。
 
-## 通話の開始、着信、終了
+## 通話中のコマンド
 
-### 通話を始める
+キャラクターは、通常のメッセージと同じ、見えないコマンドを、通話中にも使います。そのスイッチは、**Chat Settings → Agents → Commands**にあり、マスターの**Commands**スイッチがオンです。[キャラクターが使えるCommandsの選択](getting-started.md#choose-which-commands-a-character-can-use)を参照してください。コマンドは静かに実行され、声に出して読み上げられることはありません。
 
-チャットで通話がオンになっていると、チャット名の横に電話のボタンが表示されます。ツールチップは、通話がないときは**Start call**、すでに通話中のときは**Open call**と表示されます。
-
-**Start call**をクリックすると、すぐに通話画面が全体に開きます。
-
-1つのチャットで同時に通話中または呼び出し中にできる通話は、1件だけです。通話中にもう一度通話を始めようとすると、Marinaraは新しい通話を作らず、その通話を開き直します。
-
-### キャラクターからの着信
-
-**Calls**コマンドがオンなら、キャラクターの側から着信をかけてきます。そのチャットを開いている状態で着信があると、メッセージ入力欄の上に**Incoming call**のバナーが表示されます。バナーには**Decline call**ボタンと**Answer call**ボタンがあります。
-
-Marinaraの別の画面にいるときは、キャラクターの自発的なメッセージの通知と同じように、着信の通知が表示されます。短い着信音も鳴ります。Marinaraが代わりに応答することはないので、**Answer call**をクリックしてください。
-
-通話に参加するのは、そのとき対応できるキャラクターだけです。スケジュールやステータスでオフラインになっているキャラクターは、そのチャットに所属していても通話に参加しません。
-
-### 通話を終える
-
-通話はいつでも赤い**End call**ボタンで終了できます。このボタンは通話画面にも、最小化したポップアウトにもあります。キャラクターが通話中のコマンドで退出したり、通話を終了したりすることもあります。
-
-通話が終わると、Marinaraは録音を止め、メディアを安全に閉じて、通常のConversationにカードを追加します。
-
-## 通話画面と操作
-
-通話のステージには参加者ごとにタイルが並び、自分のペルソナと参加中の各キャラクターが表示されます。話している相手はハイライトされます。
-
-通話チャットには、入力したメッセージと文字だけのキャラクターの返信が並びます。デスクトップではサイドのパネルに表示され、モバイルでは**Open call chat**ボタンの後ろに隠れます。モバイルではチャットが全体を覆うパネルとして開き、**Close call chat**で閉じます。声に出したセリフは音声として再生されるだけで、チャットの吹き出しとして重ねて表示されることはありません。
-
-通話の入力欄には**Message in call**のボックスと**Send**ボタンがあります。絵文字、GIF、スタンプのピッカーと、接続をすばやく切り替える機能も付いています。通話チャットは、まだファイルの添付に対応していません。
-
-ステージ下部のコントロールバーには、アイコンのボタンが並びます。
-
-- マイク: 自分のミュートとミュート解除を切り替えます。ツールチップは入力モードに応じて変わり、たとえば**Unmute microphone with Local Whisper**と表示されます。
-- **Turn camera on**と**Turn camera off**: **Camera and screen input**をオンにした**Provider-native audio/video**モードでのみ有効です。
-- **Share screen**と**Stop sharing screen**: カメラと同じ条件です。
-- **Character volume**: ミュートボタンと0から100までの音量スライダーが入ったポップオーバーを開きます。デフォルトは100パーセントで、選んだ値はブラウザーに保存されます。
-- **Soundboard**: **Upload**の操作が付いた音の一覧を開きます。
-- **End call**: 赤い通話終了ボタンです。
-
-ミュートのままでいると、「You are muted! Remember to unmute yourself first if you want to talk.」という注意が表示されます。
-
-通話中にConversationから離れると、通話は小さなフローティングのポップアウトに縮みます。ポップアウトにはチャット名、経過時間、赤い**End call**ボタンが表示されます。ポップアウトの本体をクリックすると、全体の通話画面に戻ります。ほかのパネルを見て回っている間も、Marinaraは通話を続けます。
-
-### Soundboard
-
-サウンドボードは、どの通話でも再生できる小さな効果音のライブラリーです。デフォルトでは**Soft Chime**、**Tap**、**Sparkle**、**Pop**の4つが最初から入っています。組み込みの音は削除できません。
-
-**Upload**ボタンから自分の音をアップロードできます。対応形式はmp3、wav、ogg、webm、m4aで、1ファイルあたり8 MBまでです。アップロードした音には削除の操作が付きます。キャラクターがサウンドボードのコマンドで音を鳴らすこともできます。
-
-## Character Video Presenceと通話用の動画クリップ
-
-**Character Video Presence**(キャラクターの動画表示)は、静止画のアバタータイルを、AIが生成したキャラクターの動画クリップのループに置き換える機能です。デフォルトはオフです。トグルは、**Chat Settings**、**Agents**、**Calls**と進んだ場所にある**Character video presence**です。
-
-通話用の動画クリップを用意する手順は次のとおりです。
-
-1. **Settings**(設定)、**Connections**と進み、Video Generationの接続を作成します。
-2. 1つの接続を**Default for Videos**に指定するか、生成のたびに動画の接続を選びます。
-3. キャラクターまたはペルソナのエディターを開きます。
-4. **Sprites**タブを開き、その中の**Clips**サブタブを開きます。
-5. **Generate Clips**または**Upload extra**で、必要なクリップを追加します。
-
-スプライトとエディターについて詳しくは、[キャラクターのスプライト(表情と全身)](../characters/sprites.md)を参照してください。
-
-**Generate Clips**ボタンを押すと、**Generate Call Clips**ウィンドウが開きます。ここで**Video Generation Connection**を選び、**Use avatar as reference**を選択します。続いて、作成する標準のクリップを選びます。**Clip name**と動作の説明を入力して、カスタムのクリップを1つ定義することもできます。
-
-標準のクリップは**Idle**、**Talking**、**Laughing**、**Angry**、**Crying**、**Sighing**の6種類です。セリフを話すターンでは、Marinaraが`[sighs]`や`[laughs]`のような音声の合図を読み取ります。それに合った反応のクリップを選び、再生後はキャラクターをIdleに戻します。
-
-**Character video presence**がオンのときは、その下に2つのトグルが追加で表示されます。
-
-- **Automatic video clips generation**: デフォルトはオフです。オンにすると、通話の参加者に必要な基本の2種類、**Idle**と**Talking**だけをMarinaraが自動で生成します。反応のクリップとカスタムのクリップが自動生成されることはありません。これらは**Clips**サブタブから手作業で作ります。
-- **Custom clips**: デフォルトはオフです。オンにすると、通話中にキャラクターがまれに単発のクリップを要求し、出来上がったカスタムのクリップを後から再生できるようになります。これは特別な映像の要望のための機能で、気分やセリフのたびに使うものではありません。
-
-クリップがなくても通話は止まりません。クリップが用意できるまで、キャラクターは静止画のアバターのままです。クリップをトリミングした場合は、設定した範囲の中でループします。
-
-**Character video presence**をオフにすると、**Automatic video clips generation**と**Custom clips**も一緒にオフになります。
-
-通話用の動画クリップは、ギャラリーの**Videos**とは別のものです。ギャラリーのVideosには、Roleplay、Game、Conversationの各チャットで作ったシーンの動画が入ります。ここで説明している常時再生用のループは、**Clips**サブタブに入ります。
-
-## 通話中の隠しコマンド
-
-キャラクターは、通常のConversationのメッセージで使うのと同じ角括弧の隠しコマンドを、通話中にも使えます。コマンドごとに**Chat Settings → Agents**の対応するトグルが必要で、そのセクション内にある**Commands**の親トグルもオンにしておく必要があります。これらのコマンドは表に出ずに実行され、読み上げられることも文章として表示されることもありません。
-
-- **Selfies**: キャラクターが写真を生成して通話チャットに送ります。チャットに**Selfie Connection**を設定しておく必要があります。[自撮り写真](selfies.md)を参照してください。
-- **Memories**: キャラクターが通話の内容をもとに、ほかのキャラクターについての記憶を保存します。
-- **Music**: 音楽のソースが接続されていれば、キャラクターがMusic Playerで曲を再生します。
-- **Haptics**: デバイスが接続されていれば、親密な場面でキャラクターが接続済みのハプティックデバイスを動かします。
-- **Reactions**: 直前に入力した通話のメッセージに、キャラクターが絵文字で反応します。
-- **Cross-Post**: キャラクターが今の話題を、共有しているほかのConversationチャットへ移します。
-- **Schedule Updates**: キャラクターが自分のオンライン、離席中、取り込み中、オフラインといったステータスと活動内容をしばらくの間変更し、その後スケジュールどおりの状態に戻ります。[キャラクタースケジュールと自律メッセージ](schedules.md#characters-can-change-their-own-status)を参照してください。
-- **Notes**と**Influence**: 残しておくメモや1回限りの働きかけを保存します。表示されるのは、そのチャットに連携したチャットを設定しているときだけです。
-- **Soundboard**: キャラクターが通話のサウンドボードの音を鳴らします。
-- 退出と終了: キャラクターは自分だけ通話から退出することも、全員の通話を終了することもできます。
-
-一部のコマンドは、通話チャットに小さなシステムの表示を追加します。たとえば自撮り写真では画像と一緒に「sent a selfie」の表示が出て、カスタムのクリップでは生成が終わるまでプレースホルダーが表示されます。
+通話中には、追加のものが2つ働きます。**Soundboard**(キャラクターがサウンドボードの音を鳴らす)と、離脱または終了(キャラクターが通話から抜ける、または通話を終える)です。**Notes**と**Influence**は、チャットにつながっているチャットがあるときだけ表示されます([ConversationをRoleplayやGameにつなぐ](../chats/connected-chats.md)を参照)。自撮り写真には、**Selfie model**が必要です([自撮り写真](selfies.md)を参照)。コマンドによっては、画像付きの「sent a selfie」のような小さな項目が、通話チャットに追加されます。
 
 ## 通話終了後の要約
 
-通話が終わると、Marinaraは通常のConversationの記録にカードを追加します。カードには通話の状態が表示され、次のタイトルが出ることがあります。
-
-- **Call Started**
-- **Incoming Call**
-- **Call Ended**(通話時間付き)
-- **Call Declined**
-- **Missed Call**
-
-**Call Ended**のカードが出た後、内容のあるやり取りがあれば、Marinaraは裏側で音声通話の短い要約を生成します。そしてその要約を、モデルが読める隠しコンテキストとしてConversationに追加します。これで、通話の全文を見えるチャットにコピーしなくても、モデルは話された内容を把握できます。
-
-詳しい通話の記録は、別の通話用ストレージに残ります。通常のチャットに戻るのは、短い要約だけです。
+通話が終わると、カードがConversationに表示されます。タイトルは、**Call Started**、**Incoming Call**、**Call Ended**(長さ付き)、**Call Declined**、**Missed Call**のいずれかです。**Call Ended**の後、意味のある出来事があった場合、Marinaraは裏で短い要約を書き、モデルが読める非表示の文脈として追加します。これで、見えるチャットにコピーしなくても、モデルは通話を把握しています。
 
 ## トラブルシューティング
 
-### 通話を開始できず、通話音声が有効でないと表示される
-
-**Start call**をクリックして「Conversation call audio is not enabled in Chat Settings」と表示される場合は、**Call Audio Pipeline**をオンにしてください。**Chat Settings**を開き、**Agents**、**Calls**と進んでオンにします。この設定はすべての通話に必要で、文字入力しかしない通話でも必要です。グローバル設定なので、1つのチャットでオンにすればすべてのConversation通話でオンになります。
-
-### キャラクターの声は聞こえるのに、こちらの声が届かない
-
-**Chat Settings**を開き、**Agents**、**Calls**と進んで、**Call Audio Pipeline**がオンになっているか確かめます。次に、ブラウザーがMarinaraのページにマイクの使用を許可しているか確かめます。
-
-Firefoxを使っている場合や、ブラウザーの音声認識が動かない場合は、CallsをインストールしてLocal Whisperをダウンロードします。**Connections**、**Local Model**、**Local Speech Model**の順に開いてください。その後、**Mic recording + Local Whisper**を選びます。
-
-### Local Whisperが利用できないと表示される
-
-Local Whisperには、使っているプラットフォーム向けのネイティブなONNXランタイムが必要です。ONNXは、ローカルの音声モデルを動かすエンジンです。別のNodeビルド向けに用意された状態になっている場合は、Marinaraの実行に使っているのと同じNodeビルドで依存関係をインストールし直してから、再起動してください。
-
-Marinaraの「Lite」ビルドを使っている場合、そのビルドではLocal Whisperがオフになっています。アプリには「Local Whisper is disabled in Lite mode. Use a full Marinara install to download and run the local speech model.」と表示されます。Local Whisperを使うには、フル版のインストールが必要です。
-
-### ブラウザーの音声認識を選んでも何も起きない
-
-ブラウザーの音声認識は、ブラウザーの対応状況に左右されます。Firefoxには、ChromiumやSafari系のブラウザーと同じWeb Speechの音声認識がありません。手を使わずに音声を取り込むには**Mic recording + Local Whisper**を使うか、OSの音声入力で文字を打つ**Manual system dictation**を使ってください。
-
-### キャラクターが話さずに文字だけで返す
-
-Text to Speechの設定と音声の割り当てを確認してください。キャラクターには、全体で共通の音声か、TTSプロバイダーが解決できるキャラクターごとの音声のどちらかが必要です。[Text to Speech (TTS)の設定](../media/tts-setup.md)を参照してください。
-
-### 話した内容をモデルが取り違える
-
-精度を上げるには、Whisper Tinyの代わりに**Whisper Base (Multilingual)**を試してください。周囲の雑音や音楽を減らすのも効果があります。モデルが対応していれば、**Audio input mode**を**Provider-native audio/video**に切り替えると、モデルが音声を直接聞き取ります。Whisperが苦手な言語では、その言語を扱えるモデルで[自分の音声認識サーバーを使う](#use-your-own-speech-to-text-server)ようにし、**Language**コードを設定してください。
-
-### Speech to Textのテストが失敗する
-
-**Test**ボタンの下に表示されるメッセージを読んでください。「Could not reach the speech-to-text server」は、アドレスが間違っているか、サーバーが動いていないことを示します。`STT_LOCAL_URLS_ENABLED`という名前が出てくるメッセージは、サーバーがネットワーク内の別のコンピューターにあることを示します。`.env`でその変数を`true`に設定してください。401や404のような数値は、サーバーから返されたものです。401はたいていAPIキーの誤り、404はアドレスかモデル名の誤りを示します。
-
-### カメラや画面共有のボタンが無効になっている
-
-これらのボタンが動くのは、**Camera and screen input**をオンにした**Provider-native audio/video**モードだけです。**Audio input mode**を切り替え、**Camera and screen input**をオンにしてから試してください。また、これらのボタンが役に立つのは、モデルが実際にカメラや画面の入力を扱える場合だけです。
-
-### スマートフォンで通話がうまく動かない
-
-モバイルでは、通話チャットを**Open call chat**ボタンで開き、**Close call chat**で閉じます。キャラクターが話さない場合は、Text to Speechの設定を確認してください。モバイルのマイクの問題にも、上で説明したLocal Whisperと権限の手順がそのまま当てはまります。
-
-### 通話の途中でキャラクターが返信しなくなった
-
-キャラクターが返信できるのは、そのチャットに選んだモデル接続が正常に動いている間だけです。返信が止まったら、その接続を確認してから、通話チャットでもう一度メッセージを送ってみてください。
+| 症状 | 対処 |
+| --- | --- |
+| キャラクターに自分の声が聞こえない | **Call Audio Pipeline**がオンで、ブラウザーがMarinaraのページでマイクを許可していることを確認してください。Firefoxや、ブラウザーの音声認識が使えない場合は、Local Whisperをダウンロードして、**Mic recording + Local Whisper**を使ってください。 |
+| ブラウザーの音声認識を選んでも何も起きない | Firefoxには、ChromiumとSafariのブラウザーが持つWeb Speech認識がありません。**Mic recording + Local Whisper**か、**Manual system dictation**を使ってください。 |
+| キャラクターが話さずに文字を入力する | Text to Speechの設定と声の割り当てを確認してください。[Text to Speech(TTS)のセットアップ](../media/tts-setup.md)を参照してください。 |
+| モデルが話した内容を取り違える | **Whisper Base (Multilingual)**を試すか、雑音を減らすか、モデルが対応していれば**Provider-native audio/video**を使ってください。Whisperが苦手な言語では、[自分の音声認識サーバーを使い](#use-your-own-speech-to-text-server)、その**Language**を設定してください。 |
+| カメラまたは画面のボタンが無効になっている | **Provider-native audio/video**モードを使い、**Camera and screen input**をオンにしてください。モデルもカメラや画面の入力に対応している必要があります。 |
+| キャラクターが通話の途中で返信しなくなった | そのチャットのモデルのアカウントを確認して、通話チャットでもう一度メッセージを送ってください。 |
+| スマートフォンで通話がうまく動かない | 通話チャットは**Open call chat**で開きます。音声については、TTSが設定されていることを確認してください。マイクについては、同じLocal Whisperと、許可の手順が当てはまります。 |
 
 ## 関連ガイド
 
-- [Text to Speech (TTS)の設定](../media/tts-setup.md)
-- [Local Modelのセットアップ](../connections/local-model.md)
-- [キャラクターのスプライト(表情と全身)](../characters/sprites.md)
+- [Text to Speech(TTS)のセットアップ](../media/tts-setup.md)
+- [内蔵モデルのセットアップ](../connections/local-model.md)
+- [キャラクタースプライト(表情と全身)](../characters/sprites.md)
 - [Conversationモード: はじめに](getting-started.md)

@@ -1,69 +1,62 @@
 # Borrar o restablecer tus datos
 
-Esta guía te muestra cómo eliminar de forma permanente tus datos en Marinara Engine usando la **Danger Zone** (Zona de peligro). Puedes borrar unas pocas categorías o eliminarlo todo. No hay forma de deshacerlo, así que lee primero las advertencias.
+Borra de forma permanente una parte o la totalidad de tus datos con la **Danger Zone** (Zona de peligro). No se puede deshacer. Para borrar un chat o un personaje, usa su propio botón de borrar. Consulta [Administrar chats](../chats/managing-chats.md) y [Crear y editar personajes](../characters/creating-and-editing-characters.md).
 
-## Dónde está la Danger Zone
+**Antes de empezar:** haz una copia de seguridad. No hay papelera ni papelera de reciclaje. Consulta [Copia de seguridad y restauración de Marinara](backup-and-restore.md). Si usas Marinara desde otro dispositivo, también necesitas el secreto de administrador. Consulta [Acceso remoto](../REMOTE_ACCESS.md).
 
-Las herramientas para borrar datos están todas en un mismo lugar.
+## Borrar algunas categorías
 
-1. Abre **Settings** (Configuración).
-2. Ve a la pestaña **Advanced** (Avanzado).
-3. Baja hasta la sección **Danger Zone** al final.
+1. Abre **Settings → Advanced** y baja hasta **Danger Zone**.
+2. Marca cada categoría que quieras borrar. **Select All** marca todas las casillas. Cuando todas están marcadas, el mismo botón dice **Clear Selection** y las desmarca.
+3. Haz clic en **Clear Selected Data**. Sigue desactivado hasta que marques una categoría.
+4. Lee la advertencia. Muestra cuántas categorías elegiste.
+5. Haz clic en **Confirm Delete**, o en **Cancel** para detenerte. No se borra nada hasta que confirmes.
 
-La descripción de la **Danger Zone** dice: "Permanently clear selected categories of local data. Professor Mari is always preserved." (Borra de forma permanente las categorías de datos locales seleccionadas. Professor Mari siempre se conserva.)
-
-Si usas Marinara desde otro dispositivo (no la computadora en la que corre la app), borrar datos requiere acceso de administrador. Consulta [Acceso remoto](../REMOTE_ACCESS.md) para saber cómo configurarlo.
-
-## Haz una copia de seguridad antes de borrar
-
-Borrar datos no se puede deshacer. No hay papelera ni papelera de reciclaje. Una vez que confirmas, los datos desaparecen.
-
-Haz primero una copia de seguridad para poder restaurar más tarde si cambias de opinión. Consulta [Copia de seguridad y restauración de Marinara](backup-and-restore.md).
-
-## Las ocho categorías de datos
-
-La **Danger Zone** muestra una lista de ocho categorías. Cada una es un ámbito independiente. Marcar una categoría no afecta a las demás.
-
-| Categoría | Qué borra |
-|---|---|
-| **Chats & Messages** | Chats, carpetas, mensajes, datos de escena/OOC y el estado de ejecución del chat. |
-| **Characters** | Personajes y grupos de personajes. Professor Mari siempre se conserva. |
-| **Personas** | Personas y grupos de personas. |
-| **Lorebooks** | Lorebooks y entradas de lorebook. |
-| **Presets** | Presets de prompt, grupos, secciones y variables. |
-| **Connections** | Conexiones de API y endpoints de modelos. |
-| **Automation & Addons** | Agentes, herramientas, scripts de regex, temas sincronizados y estado de automatización. |
-| **Media & Assets** | Fondos, avatares, sprites, elementos de la galería, fuentes y archivos de fuentes de conocimiento. |
-
-Algunas categorías eliminan más que registros de la base de datos. **Chats & Messages** también elimina toda la carpeta de la galería en disco y todos los archivos de video de escena. Esto incluye las imágenes de galería de personajes y personas, aunque no hayas marcado **Characters** ni **Personas**. **Media & Assets** elimina las carpetas en disco de fondos, avatares, sprites, archivos de avatares 2D y 3D, galerías, archivos de video de escena, fuentes y archivos de fuentes de conocimiento. **Connections** también borra tus ajustes guardados de Text to Speech (TTS, texto a voz) y de Speech to Text (voz a texto), porque están vinculados a una conexión. También elimina una API key (clave de API) de Tripo guardada anteriormente en la página **3D Avatars** (Avatares 3D).
-
-## Borrar categorías seleccionadas
-
-Usa esto cuando quieras eliminar algunos datos pero conservar el resto.
-
-1. Marca la casilla junto a cada categoría que quieras eliminar.
-2. Para activar o desactivar todas las casillas a la vez, usa el botón **Select All** (Seleccionar todo). Cuando todas las casillas están marcadas, ese mismo botón cambia a **Clear Selection** (Borrar selección) para que puedas desmarcarlas todas.
-3. Haz clic en **Clear Selected Data** (Borrar datos seleccionados). Este botón permanece desactivado hasta que marques al menos una categoría.
-4. Aparece un cuadro de advertencia. Indica cuántas categorías elegiste y te recuerda que no hay forma de deshacerlo.
-5. Haz clic en **Cancel** (Cancelar) para detenerte, o en **Confirm Delete** (Confirmar eliminación) para eliminar. No se elimina nada hasta que hagas clic en **Confirm Delete**.
-
-Después de un borrado exitoso, deberías ver un mensaje de confirmación. Indica que los datos seleccionados se borraron y que las cachés de ejecución se restablecieron de inmediato.
+Cuando funciona, un mensaje indica que se borraron los datos seleccionados. Si la solicitud falla, aparece un mensaje de error ("Failed to clear selected data."). Puede que ya se hayan borrado algunos datos, así que revisa qué queda. Comprueba que tienes acceso de administrador.
 
 ## Borrar todo
 
-Usa esto para eliminar las ocho categorías en un solo paso.
+1. En **Danger Zone**, haz clic en **Clear All Data**. No necesitas marcar ninguna casilla.
+2. La advertencia pregunta: "Delete all supported data categories except Professor Mari? There is no undo."
+3. Haz clic en **Confirm Delete**, o en **Cancel** para detenerte.
 
-1. Haz clic en **Clear All Data** (Borrar todos los datos). No necesitas marcar ninguna casilla antes.
-2. Un cuadro de advertencia pregunta: "Delete all supported data categories except Professor Mari? There is no undo." (¿Eliminar todas las categorías de datos compatibles excepto Professor Mari? No hay forma de deshacerlo.)
-3. Haz clic en **Cancel** para detenerte, o en **Confirm Delete** para eliminar todo.
+Esto equivale a marcar las ocho casillas.
 
-Esto hace lo mismo que marcar todas las casillas y borrarlas juntas.
+## Las ocho categorías de datos
 
-## Professor Mari siempre se conserva
+Cada categoría borra solo lo que indica la lista de su fila, salvo la carpeta de la galería que se señala debajo de la tabla.
 
-Professor Mari es el personaje ayudante integrado. Esta función nunca la elimina. Aunque borres la categoría **Characters** o uses **Clear All Data**, Professor Mari permanece en su lugar. No puedes quitarla desde la **Danger Zone**.
+| Categoría | Qué borra |
+| --- | --- |
+| **Chats & Messages** | Todos los chats y su contenido, y toda la carpeta `gallery` y los videos de escenas de Game. |
+| **Characters** | Todos los personajes y grupos, salvo Professor Mari, con sus avatares. |
+| **Personas** | Todas las personas y grupos, con sus avatares. |
+| **Lorebooks** | Todos los lorebooks, entradas y carpetas. |
+| **Presets** | Todos los presets de prompts y carpetas de presets, salvo el preset de fábrica integrado. |
+| **Connections** | Todas las cuentas guardadas, y las elecciones de modelo y los ajustes de voz vinculados a ellas. |
+| **Automation & Addons** | Todos los ajustes de agentes, herramientas personalizadas, scripts de regex y temas sincronizados. No las Personal Extensions ni las External Extensions. |
+| **Media & Assets** | Fondos, avatares, sprites, galería, videos de escenas, fuentes y archivos de fuentes de conocimiento. |
+
+Más detalles:
+
+- **Chats & Messages** también borra los swipes (varias respuestas guardadas en un mismo mensaje), las memorias, los ajustes de agentes, el estado del juego y las imágenes de los chats.
+- **Characters** y **Personas** también borran los modelos de avatar 2D y 3D.
+- **Presets** también borra sus grupos, secciones y variables. Si otro preset era el predeterminado, el preset de fábrica pasa a ser el predeterminado.
+- **Connections** también borra los ajustes de texto a voz y de voz a texto, los modelos que elegiste para funciones y una API key de Tripo guardada en la página **3D Avatars**.
+- **Automation & Addons** también borra los resultados de agentes, la memoria de agentes, las carpetas de agentes y los widgets de agentes de Home.
+- **Media & Assets** también borra la lista de recursos y las imágenes de los chats.
+- Las fuentes de conocimiento son archivos que subiste para los agentes de conocimiento. Los temas sincronizados son tus temas personalizados guardados en Marinara.
+
+Algunas categorías llegan a archivos fuera de su propio nombre. **Chats & Messages** borra toda la carpeta `gallery`, incluidas las imágenes de galería de personajes y personas, aunque no hayas marcado **Characters** ni **Personas**.
+
+Borrar no toca tus otros ajustes, la carpeta `backups/` ni el archivo `.encryption-key`. También deja intactos las Personal Extensions, los recursos de Game Mode, los emoji y stickers personalizados, tu sonido de notificación, las imágenes de lorebooks, presets, agentes y cuentas, y los archivos de memoria a largo plazo. Consulta [Dónde guarda Marinara tus datos](where-data-is-stored.md).
+
+## Professor Mari se queda
+
+Professor Mari es el asistente integrado de la pantalla Home. La **Danger Zone** nunca la borra, ni siquiera con **Clear All Data**.
 
 ## Guías relacionadas
 
 - [Copia de seguridad y restauración de Marinara](backup-and-restore.md)
+- [Dónde guarda Marinara tus datos](where-data-is-stored.md)
 - [Acceso remoto](../REMOTE_ACCESS.md)

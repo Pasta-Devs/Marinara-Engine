@@ -1,136 +1,105 @@
 # Selfies
 
-Ce guide explique les selfies en mode Conversation. Un selfie est une image qu'un personnage génère de lui-même et envoie dans le chat, comme une photo partagée dans une application de messagerie. Au programme : comment activer les selfies, comment les régler et comment en demander un toi-même.
+Un selfie est une image qu'un personnage génère de lui-même et envoie dans un chat Conversation, comme une photo partagée dans une application de messagerie. Ce guide couvre l'activation des selfies, le choix de leur apparence, la demande manuelle d'un selfie et les messages vidéo.
 
-## À quoi servent les selfies
-
-Les selfies sont une fonctionnalité du mode Conversation. Un personnage peut envoyer une photo générée de lui-même au fil d'un chat normal. C'est différent des images de scène utilisées en mode Roleplay et en Game Mode. Les selfies sont pensés pour l'ambiance "application de messagerie" du mode Conversation.
-
-Les selfies reposent sur la génération d'images. Chaque selfie qu'un personnage envoie consomme une requête de génération d'images auprès de la connexion que tu choisis. C'est pourquoi les selfies restent désactivés tant que tu ne les as pas réglés.
-
-Les selfies proviennent du paquet optionnel **Illustrator**. Installe Illustrator depuis **Agents → Agent Organizer (organisateur d’agents)** avant de passer aux réglages.
+Les selfies viennent du package facultatif **Illustrator** et utilisent la génération d'images. Chaque selfie est une requête d'image au service que tu choisis, donc ils restent désactivés jusqu'à ce que tu les actives. Ils sont différents des images de scène en mode Roleplay et en Game Mode.
 
 ## Activer les selfies
 
-Les selfies se trouvent dans la section **Illustrator Settings** (réglages de l'Illustrator), à l'intérieur de la section **Agents** d'un chat en mode Conversation. Les **Commands** (commandes) sont des actions cachées qu'un personnage peut décider d'exécuter seul, comme envoyer un selfie ou passer une chanson. Les contrôles de commandes apparaissent dans la section **Agents** dès qu'un paquet fournissant des commandes est installé.
+**Avant de commencer :** installe **Illustrator** depuis **Agents → Agent Organizer**, et ajoute un compte d'image, c'est-à-dire un compte pour un service qui fait des images (voir [Fournisseurs de génération d'images et configuration](../media/image-providers.md)).
 
-Pour activer les selfies :
+1. Ouvre un chat Conversation, puis ouvre **Chat Settings** (réglages du chat).
+2. Trouve la section **Agents** et ouvre **Illustrator Settings**.
+3. Active **Generated Selfies**. Les réglages de selfie apparaissent en dessous.
+4. Dans **Selfie model**, choisis ton compte d'image.
 
-1. Ouvre un chat en mode Conversation.
-2. Ouvre **Chat Settings** (réglages du chat), l'icône avec les curseurs.
-3. Repère la section **Agents**.
-4. Active l'interrupteur principal **Commands** qui s'y trouve. Tant qu'il est désactivé, aucun personnage ne peut utiliser la moindre action cachée.
-5. Repère la section **Illustrator Settings**.
-6. Active l'interrupteur **Generated Selfies** (selfies générés).
+Activer **Generated Selfies** active aussi l'interrupteur principal **Commands** du chat.
 
-Une fois **Generated Selfies** activé, les réglages des selfies apparaissent sous l'interrupteur. Tu vois alors les champs pour la connexion, le modèle de prompt, le style et les références. Les boutons **Resolution** n'apparaissent qu'après avoir choisi une **Selfie Connection**.
+Les personnages envoient des selfies seulement une fois **Selfie model** défini. Jusque-là, le chat affiche "Choose a Selfie Provider to let characters generate selfie images."
+
+Si ça n'a pas marché : **Illustrator Settings** s'affiche seulement quand Illustrator est installé. Un selfie a aussi besoin de la commande **Selfies** activée (voir [Choisir quelles Commands un personnage peut utiliser](getting-started.md#choose-which-commands-a-character-can-use)).
 
 ## Réglages des selfies
 
-Les selfies activés, il reste à définir leur apparence et le service qui les fabrique. Tous ces réglages se trouvent dans la section **Illustrator Settings**, sous **Chat Settings → Agents**. Ils ne valent que pour le chat en cours.
+Tous ces réglages sont dans **Illustrator Settings** et s'appliquent seulement au chat actuel.
 
-### Selfie Connection
+- **Selfie model** : le compte d'image qui dessine l'image. La valeur par défaut est **None (selfies disabled)**.
+- **Prompt Model** : le modèle de texte qui écrit la description de l'image. La valeur par défaut est **Agent default**.
+- **Image Style** : un ensemble enregistré de mots de style artistique, comme "anime". La valeur par défaut est le style par défaut des Style Profiles dans Advanced settings. Voir [Profils de style d'image](../media/style-profiles.md).
+- **Images Per Generation** : combien de variantes faire pour chaque illustration ou selfie.
+- **Resolution** : la taille de l'image. Il s'affiche seulement après que tu as défini **Selfie model**. La valeur par défaut est 896x1152.
+- **Send Avatar References** : envoie l'avatar ou le sprite du personnage comme image de référence. Désactivé par défaut. Il fonctionne seulement si le service d'image accepte des images de référence.
+- **Attach Card Appearance** : ajoute au prompt le texte **Appearance** de la fiche de chaque personnage nommé. Désactivé par défaut.
 
-Le champ **Selfie Connection** (connexion pour les selfies) choisit le service de génération d'images qui dessine la photo. La valeur par défaut est **None (selfies disabled)** : aucun service n'est encore sélectionné. Choisis ici l'une des connexions d'image que tu as configurées.
+Options de **Resolution** : 512x512, 512x768, 768x768, 768x1024, 896x1152 et 1024x1024. 896x1152 est un grand portrait qui convient à la plupart des selfies.
 
-Tant qu'aucune **Selfie Connection** n'est choisie, les personnages ne peuvent pas envoyer de selfie. Si la note "Choose a Selfie Connection to let characters generate selfie images" s'affiche, c'est que la connexion est encore vide.
+**Send Avatar References** et **Attach Card Appearance** proposent chacun **Off**, **Images only**, **Videos only** et **Images and videos**.
 
-Pour savoir comment ajouter une connexion d'image, consulte [Fournisseurs de génération d'images et configuration](../media/image-providers.md).
+Si la fiche ou la persona a **Image Appearance Override** activé (sous **Appearance** dans l'éditeur), Marinara envoie ce texte à la place de **Appearance**. Utilise-le quand **Appearance** est écrit pour l'histoire, pas pour les images.
 
-### Prompt Model
+## Demander un selfie à la main
 
-Le champ **Prompt Model** (modèle de prompt) choisit le modèle de texte qui rédige la description du selfie. La connexion d'image dessine ensuite cette description. La valeur par défaut est **Main chat model**, qui réutilise le modèle déjà employé par le chat. Tu peux sélectionner une autre connexion de texte si tu préfères qu'un autre modèle écrive la description du selfie.
+1. Ouvre **Chat Settings** et déploie la section **Gallery**.
+2. Clique sur **Selfie**. Avec plus d'un personnage, choisis celui qui le prend dans la liste à côté du bouton.
+3. Si **Expose media prompts before sending** est activé (dans **Settings → Generations → Overall Generations**), relis ou modifie le prompt et clique sur **Generate**. Annuler n'envoie aucune requête.
+4. Attends pendant que le bouton affiche **Generating...**.
 
-### Image Style
+Tu vois "Selfie generated." et l'image apparaît dans le chat. Une requête manuelle utilise **Selfie model** et coûte une requête d'image.
 
-Le champ **Image Style** (style d'image) choisit un Style Profile pour le selfie. Un Style Profile est un ensemble enregistré de mots décrivant un style graphique, par exemple "anime" ou "realistic photo". La valeur par défaut est **Use default style from Style Profiles in Advanced settings**, qui suit ton style global par défaut.
+## Comment les personnages envoient des selfies
 
-Pour en savoir plus sur les styles, consulte [Profils de style d'image](../media/style-profiles.md).
+Un personnage décide seul quand envoyer un selfie. Tu n'as rien à taper. Marinara génère l'image et la publie, et les réponses suivantes voient une courte note de ce qu'elle montrait.
 
-### Send Avatar References
-
-**Send Avatar References** (envoyer l'avatar en référence) est un menu déroulant réglé sur **Off** (désactivé) par défaut. Il se trouve sous la section **Video messages** (messages vidéo), et chaque choix indique à quoi il s'applique : **Images only** (images seulement), **Videos only** (vidéos seulement) ou **Images and videos** (images et vidéos).
-
-- Pour les images, Marinara envoie l'avatar ou le sprite du personnage au service d'image comme image de référence. Le selfie ressemble ainsi davantage au personnage. Cela ne fonctionne que si le fournisseur d'images prend en charge les images de référence.
-- Pour les vidéos, un message vidéo dont la **First frame** (première image) est **Prompt only** part de l'avatar ou du sprite du personnage au lieu de ne partir d'aucune image. Les services vidéo n'acceptent qu'une seule image de départ : les autres choix de première image, qui partent déjà d'une image du personnage, ne sont donc pas concernés.
-
-### Attach Card Appearance
-
-**Attach Card Appearance** (joindre l'apparence de la fiche) est un menu déroulant réglé sur **Off** par défaut, avec les mêmes choix **Images only**, **Videos only** et **Images and videos**. Il ajoute le texte d'apparence de la fiche de chaque personnage nommé dans le prompt au prompt du selfie, au prompt de la vidéo, ou aux deux. Le modèle dispose ainsi de plus de détails sur le physique du personnage.
-
-Si la fiche ou le persona a aussi **Image Appearance Override** (apparence propre aux images) activé, Marinara envoie ce remplacement à la place du texte d'**Appearance**. Active cette option sous **Appearance** dans l'éditeur de personnage ou de persona lorsque la description complète d'**Appearance** est écrite pour le narrateur plutôt que pour un modèle d'images. L'IA qui écrit la description du selfie lit quand même aussi le champ **Appearance** de la fiche. Elle garde tels quels les mots d'**Image Appearance Override** et ne se sert du texte d'**Appearance** que pour compléter les autres détails.
-
-### Resolution
-
-Le réglage **Resolution** (résolution) définit la taille de l'image du selfie. Les boutons **Resolution** n'apparaissent qu'après avoir choisi une **Selfie Connection**. Choisis l'un des boutons rapides. La valeur par défaut est **896x1152**, un format portrait allongé qui convient à la plupart des selfies.
-
-Voici les tailles proposées :
-
-| Résolution | Format             |
-| ---------- | ------------------ |
-| 512x512    | Carré              |
-| 512x768    | Portrait           |
-| 768x768    | Carré              |
-| 768x1024   | Portrait           |
-| 896x1152   | Portrait (par défaut) |
-| 1024x1024  | Carré              |
-
-## Comment un personnage envoie un selfie
-
-Une fois les selfies réglés, un personnage peut décider d'en envoyer un de lui-même pendant le chat. Tu n'as aucune commande à taper. Le personnage choisit le moment, Marinara génère l'image et la publie dans le chat. Les réponses suivantes voient une courte note qui indique ce que montrait le selfie : le personnage se souvient donc de l'avoir envoyé.
-
-La réponse du modèle utilise `[selfie]`, avec un contexte facultatif :
-
-```text
-Here is a picture from my walk!
-[selfie: context="standing beside the river at sunset"]
-```
-
-Les formes `[selfie: "standing beside the river"]` et `[selfie: standing beside the river]` fonctionnent aussi. La casse n'a pas d'importance : `[SELFIE:xxxxx.]` est donc une syntaxe valide. C'est une commande Conversation, pas un déclencheur d'image pour Roleplay ou Game Mode. Un marqueur resté tel quel dans le message peut indiquer un autre mode de chat ou la désactivation de **Commands**. Vérifie qu'Illustrator est installé, que **Generated Selfies** est activé et que **Selfie Connection** est choisie. Si la génération démarre puis échoue, examine l'erreur de connexion ou du fournisseur d'images. Changer les majuscules du marqueur ne la corrigera pas.
-
-## Demander un selfie soi-même
-
-Autre option : demander toi-même un selfie plutôt que d'attendre le personnage.
-
-1. Ouvre **Chat Settings** et déplie **Gallery** (galerie).
-2. Clique sur le bouton **Selfie**, l'icône d'appareil photo.
-3. Si le chat compte plusieurs personnages, choisis qui prend le selfie dans la liste des personnages située à côté du bouton.
-4. Si l'option **Expose media prompts before sending** est activée sous **Settings**, **Generations**, **Overall Generations**, relis ou modifie le prompt de selfie final, puis clique sur **Generate**. Si tu annules à cette étape, aucune requête d'image n'est envoyée.
-5. Patiente pendant que le bouton affiche **Generating...**.
-
-Quand le selfie est prêt, le message "Selfie generated." s'affiche et l'image apparaît dans le chat. Cette demande manuelle passe elle aussi par la **Selfie Connection** choisie : elle consomme donc également une requête de génération d'images.
-
-<a id="making-a-selfie-again"></a>
+Si ça n'a pas marché : quand tu vois le texte littéral `[selfie...]` dans un message, vérifie que le chat est en mode Conversation, que **Commands** et **Selfies** sont activés, que **Generated Selfies** est activé et que **Selfie model** est défini. Si la génération démarre mais échoue, lis l'erreur à propos du compte d'image.
 
 ## Refaire un selfie
 
-L'image ne te plaît pas ? Clique sur un selfie dans le chat pour l'ouvrir, puis clique sur **Regenerate image** (régénérer l'image), la flèche circulaire à côté du bouton d'épingle. Tu peux modifier le prompt, le prompt négatif et les éventuels prompts de personnage, et choisir une **Image connection** (connexion d'image). Clique sur **Generate image** (générer l'image). La nouvelle image remplace l'ancienne dans le message, et l'ancienne reste dans la galerie. Chaque essai consomme une requête de génération d'images.
+1. Clique sur un selfie dans le chat pour l'ouvrir.
+2. Clique sur **Regenerate image** (le bouton à flèche circulaire à côté du bouton épingle).
+3. Modifie les prompts si tu le veux, y compris les **Character prompts**. Choisis un **Image model**, ou garde **Chat's image provider**.
+4. Clique sur **Generate image**.
 
-Les images créées avant l'arrivée de cette option peuvent aussi être refaites. Elles utilisent la connexion de selfies du chat, et leurs prompts négatifs et de personnage n'avaient pas été enregistrés.
+La nouvelle image remplace l'ancienne dans le message. L'ancienne reste dans la Gallery. Chaque essai est une requête d'image. Les images faites avant l'existence de cette option utilisent le compte de selfie du chat, et leurs prompts négatifs et de personnage n'ont pas été enregistrés.
 
 <a id="video-messages"></a>
 
 ## Messages vidéo
 
-Un personnage peut aussi t'envoyer un court clip vidéo. Tape `/video`, ou `/video Aster` pour choisir un personnage, ou clique sur **Video**, l'icône de pellicule, dans la **Gallery** du chat : ce bouton utilise le personnage choisi dans la galerie. Le bouton **Video** fonctionne dès qu'Illustrator est installé, même si les selfies sont désactivés. Le clip arrive sous la forme d'un nouveau message de ce personnage et se lit dans le chat. Quand tu demandes un clip de cette façon, il montre le moment le plus récent du chat : l'IA qui en écrit le prompt lit autant de messages récents qu'Illustrator pour une image, c'est-à-dire la taille de contexte de son **Agent Budget** (budget de l'agent). Quand la première image est un selfie, elle s'appuie sur les mêmes messages : le clip part donc lui aussi de ce moment. Les réponses suivantes voient une courte note qui indique ce que montre le clip. Tu peux aussi animer une image depuis la galerie : le clip prolonge cette image, il est envoyé par le personnage choisi dans la galerie et rejoint la réponse la plus récente. Si un clip ne peut pas être ajouté au chat, il est quand même enregistré dans l'onglet **Videos** de la galerie. La galerie propre à un personnage ne liste un message vidéo que si le clip montre ce personnage ; consulte [Galeries de personnages et de personas](../characters/galleries.md).
+Un personnage peut envoyer un court clip vidéo. Installe d'abord Illustrator. Les selfies peuvent rester désactivés.
 
-Règle tout cela sous **Chat Settings**, **Agents**, **Illustrator Settings**, dans la section **Video messages** :
+Pour en demander un toi-même, tape `/video`, ou `/video Aster` pour choisir un personnage. Ou clique sur **Video** dans la **Gallery** du chat, qui utilise le personnage choisi là. Le clip arrive comme un nouveau message et se joue dans le chat. Il montre le dernier moment de la conversation : le modèle qui l'écrit lit autant de messages récents qu'Illustrator pour une image (son **Agent Budget**). Tu peux aussi animer une image depuis la Gallery. Le clip continue cette image et rejoint la réponse la plus récente. Si un clip ne peut pas être ajouté au chat, il est quand même enregistré dans l'onglet **Videos** de la Gallery. La galerie d'un personnage liste une vidéo seulement quand le clip montre ce personnage (voir [Galeries de personnages et de personas](../characters/galleries.md)).
 
-- **Generated Videos** (vidéos automatiques) permet aux personnages de t'envoyer spontanément un message vidéo lorsque la conversation s'y prête.
-  - Comme avec `/video`, le clip est rédigé à partir de la conversation récente pour montrer ce que tu as demandé.
-  - Cette option est désactivée dans les nouveaux chats, car chaque clip représente une requête vidéo. Active-la ici ou enregistre-la dans un profil de réglages pour l'activer dans les nouveaux chats. Le même interrupteur apparaît sous le nom **Videos** dans la liste **Commands** de la configuration d'un nouveau chat et de Chat Settings.
-  - **Video Run Interval** (visible une fois l'option activée) fixe le nombre de messages entre ces clips. **0** les arrête.
-  - `/video` et le bouton **Video** de la Gallery fonctionnent dans les deux cas et ignorent l'intervalle.
-  - Si tu fais défiler les variantes d'une réponse ayant envoyé un clip, la nouvelle variante peut envoyer le sien.
-  - Dans un chat de groupe, chaque personnage peut envoyer un clip par réponse, dans la limite de **Videos per reply** (3 par défaut), sous **Settings**, **Generations**, **Video Generation**.
-- **Video Connection** (connexion vidéo) choisit la connexion Video Generation. Garde l'option **Default video connection** (connexion vidéo par défaut) pour utiliser ta connexion par défaut. Les **Video Prompting Instructions** (instructions de prompt vidéo) d'une connexion guident l'IA qui écrit le prompt vidéo.
-- **First frame** choisit l'image de départ du clip :
-  - **New selfie, or the avatar if no selfie connection** (par défaut) : crée un nouveau selfie quand les selfies sont activés et qu'une **Selfie Connection** est définie, et utilise l'avatar sinon.
-  - **New selfie, then animate it** : crée toujours d'abord un nouveau selfie. Cette option exige que les selfies soient activés et qu'une **Selfie Connection** soit définie, et le selfie est aussi enregistré dans la galerie. Si l'option **Expose media prompts before sending** est activée, tu relis le prompt du selfie en même temps que celui du clip.
-  - **Avatar or sprite** : part de l'avatar du personnage, ou d'un sprite en pied s'il n'a pas d'avatar.
-  - **Prompt only (no picture)** : n'envoie aucune image, si bien que le modèle vidéo travaille à partir du seul prompt. Certains workflows ComfyUI ont besoin d'une image et échouent sans elle. Quand **Send Avatar References** inclut les vidéos, ce choix s'affiche sous le nom **Prompt only (avatar from Send Avatar References)** et le clip part plutôt de l'avatar.
+### Réglages vidéo
 
-Les images dans d'autres formats, comme le WebP, sont converties pour le service vidéo. Un message vidéo envoie une requête vidéo, plus une requête d'image quand il part d'un nouveau selfie. L'IA qui écrit le prompt est ton **Prompt Model**, et ses instructions se trouvent sous **Settings**, **Generations**, **Video Generation Prompt Overrides** (remplacements de prompt pour la génération de vidéos), **Conversation Video Message** (message vidéo de Conversation).
+Ouvre **Chat Settings → Agents → Illustrator Settings**, **Video messages**.
+
+- **Generated Videos** : laisse les personnages envoyer des messages vidéo d'eux-mêmes. Désactivé par défaut dans les nouveaux chats, parce qu'un clip vidéo est une requête vidéo. Il s'affiche aussi comme **Videos** dans la liste **Commands**.
+- **Video Run Interval** : affiché une fois **Generated Videos** activé. Combien de messages doivent passer entre deux clips. **0** l'arrête.
+- **Video model** : le compte vidéo. **Default video provider** utilise ton compte par défaut.
+- **First frame** : l'image de départ du clip (voir ci-dessous).
+
+`/video` et le bouton **Video** de la Gallery fonctionnent dans les deux cas et ignorent l'intervalle. Balayer une réponse qui a envoyé un clip laisse le nouveau swipe envoyer le sien. Dans un chat de groupe, chaque personnage peut envoyer un clip par réponse, jusqu'à **Videos per reply** (3 par défaut) sous **Settings → Generations → Video Generation**.
+
+Options de **First frame** :
+
+- **New selfie, or the avatar if no selfie provider** (par défaut) : un nouveau selfie quand les selfies sont activés et que **Selfie model** est défini, sinon l'avatar.
+- **New selfie, then animate it** : toujours un nouveau selfie, aussi enregistré dans la Gallery. Il a besoin des selfies activés et de **Selfie model**.
+- **Avatar or sprite** : l'avatar, ou un sprite en pied s'il n'y a pas d'avatar.
+- **Prompt only (no picture)** : certains workflows ComfyUI échouent sans image. Si **Send Avatar References** inclut les vidéos, cela lit **Prompt only** (avatar de Send Avatar References) et démarre depuis l'avatar.
+
+Avec **Expose media prompts before sending** activé, tu relis le prompt du selfie avec le prompt du clip.
+
+Les images dans d'autres formats, comme WebP, sont converties pour le service vidéo. Un message vidéo est une requête vidéo, plus une requête d'image quand il démarre d'un nouveau selfie. Ton **Prompt Model** écrit le prompt vidéo, et **Settings → Generations → Video Generation Prompt Overrides → Conversation Video Message** contient ses instructions.
+
+## Référence : le tag selfie
+
+Les personnages demandent un selfie avec un tag dans leur réponse. Tu ne le tapes jamais. Il ressemble à `[selfie]`, avec un contexte facultatif :
+
+```text
+[selfie: context="standing beside the river at sunset"]
+```
+
+`[selfie: "standing beside the river"]` et `[selfie: standing beside the river]` fonctionnent aussi, quelle que soit la casse. Marinara retire le tag et publie l'image.
 
 ## Guides associés
 

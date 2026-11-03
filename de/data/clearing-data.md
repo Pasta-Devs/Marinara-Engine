@@ -1,69 +1,64 @@
 # Daten löschen oder zurücksetzen
 
-In dieser Anleitung erfährst du, wie du Daten in Marinara Engine über die **Danger Zone** (Gefahrenbereich) endgültig löschst. Du kannst einzelne Kategorien leeren oder alles auf einmal. Ein Rückgängig gibt es nicht – lies deshalb zuerst die Warnungen.
+Lösche einen Teil deiner Daten oder alle Daten endgültig über die **Danger Zone** (Gefahrenbereich). Es gibt kein Rückgängig.
 
-## Wo die Danger Zone liegt
+Um einen einzelnen Chat oder Charakter zu löschen, nutze stattdessen seine eigene Löschen-Schaltfläche. Siehe [Chats verwalten](../chats/managing-chats.md) und [Charaktere anlegen und bearbeiten](../characters/creating-and-editing-characters.md).
 
-Alle Werkzeuge zum Löschen sitzen an einer Stelle.
+**Bevor du anfängst:** Erstelle ein Backup. Es gibt keinen Papierkorb. Siehe [Marinara sichern und wiederherstellen](backup-and-restore.md). Nutzt du Marinara von einem anderen Gerät aus, brauchst du außerdem das Admin-Secret. Siehe [Fernzugriff](../REMOTE_ACCESS.md).
 
-1. Öffne **Settings** (Einstellungen).
-2. Wechsle zum Tab **Advanced** (Erweitert).
-3. Scroll ganz nach unten zum Abschnitt **Danger Zone**.
+## Einige Kategorien löschen
 
-Die Beschreibung der **Danger Zone** lautet: „Permanently clear selected categories of local data. Professor Mari is always preserved.“
+1. Öffne **Settings → Advanced** und scrolle zur **Danger Zone**.
+2. Kreuze jede Kategorie an, die du löschen willst. **Select All** kreuzt alle Kästchen an. Sind alle angekreuzt, heißt dieselbe Schaltfläche **Clear Selection** und entfernt die Häkchen wieder.
+3. Klicke auf **Clear Selected Data**. Sie bleibt deaktiviert, bis du eine Kategorie ankreuzt.
+4. Lies die Warnung. Sie zeigt, wie viele Kategorien du gewählt hast.
+5. Klicke auf **Confirm Delete**, oder auf **Cancel**, um abzubrechen. Bis du bestätigst, wird nichts gelöscht.
 
-Greifst du von einem anderen Gerät auf Marinara zu – also nicht vom Computer, auf dem die App läuft –, brauchst du Admin-Rechte fürs Löschen. Wie du das einrichtest, steht unter [Fernzugriff](../REMOTE_ACCESS.md).
-
-## Vorher ein Backup anlegen
-
-Gelöschte Daten lassen sich nicht zurückholen. Es gibt keinen Papierkorb, aus dem du etwas zurückholen könntest. Nach der Bestätigung sind die Daten weg.
-
-Leg vorher ein Backup an, damit du es dir später noch anders überlegen kannst. Siehe [Marinara sichern und wiederherstellen](backup-and-restore.md).
-
-## Die acht Datenkategorien
-
-Die **Danger Zone** zeigt eine Liste mit acht Kategorien zum Ankreuzen. Jede davon ist ein eigener Bereich. Kreuzt du eine Kategorie an, bleiben die anderen unberührt.
-
-| Kategorie | Was gelöscht wird |
-|---|---|
-| **Chats & Messages** | Chats, Ordner, Nachrichten, Szenen- und OOC-Daten sowie den Laufzeitzustand der Chats. |
-| **Characters** | Charaktere und Charaktergruppen. Professor Mari bleibt immer erhalten. |
-| **Personas** | Personas und Persona-Gruppen. |
-| **Lorebooks** | Lorebooks (Sammlungen von Weltwissen) und Lorebook-Einträge. |
-| **Presets** | Prompt-Presets (gespeicherte Prompt-Vorlagen), Gruppen, Abschnitte und Variablen. |
-| **Connections** | API-Verbindungen und Modell-Endpunkte. |
-| **Automation & Addons** | Agenten, Tools, Regex-Skripte, synchronisierte Themes und den Automatisierungszustand. |
-| **Media & Assets** | Hintergründe, Avatare, Sprites, Galerie-Objekte, Schriften und Dateien von Wissensquellen. |
-
-Einige Kategorien löschen mehr als nur Datenbankeinträge. **Chats & Messages** entfernt zusätzlich den kompletten Galerie-Ordner auf der Festplatte samt allen Szenen-Videodateien. Betroffen sind auch die Galeriebilder von Charakteren und Personas, selbst wenn du **Characters** oder **Personas** gar nicht angekreuzt hast. **Media & Assets** löscht die Ordner auf der Festplatte für Hintergründe, Avatare, Sprites, Dateien für 2D- und 3D-Avatare, Galerien, Szenen-Videodateien, Schriften und Dateien von Wissensquellen. **Connections** leert außerdem die gespeicherten Einstellungen für Text to Speech (TTS, Sprachausgabe) und Speech to Text (Spracherkennung), denn die hängen an einer Verbindung. Auch einen Tripo-API-Key, der früher auf der Seite **3D Avatars** (3D-Avatare) gespeichert wurde, entfernt diese Kategorie.
-
-## Ausgewählte Kategorien löschen
-
-Nimm diesen Weg, wenn ein Teil der Daten verschwinden und der Rest bleiben soll.
-
-1. Kreuz jede Kategorie an, die du löschen willst.
-2. Alle Kästchen auf einmal schaltest du mit der Schaltfläche **Select All** (Alle auswählen) um. Sind alle angekreuzt, heißt dieselbe Schaltfläche **Clear Selection** (Auswahl aufheben) und entfernt sämtliche Häkchen wieder.
-3. Klick auf **Clear Selected Data** (Ausgewählte Daten löschen). Diese Schaltfläche bleibt deaktiviert, solange keine einzige Kategorie angekreuzt ist.
-4. Es erscheint ein Warnfenster. Darin steht, wie viele Kategorien du gewählt hast, und der Hinweis, dass es kein Zurück gibt.
-5. Klick auf **Cancel** (Abbrechen), um abzubrechen, oder auf **Confirm Delete** (Löschen bestätigen), um zu löschen. Bis zum Klick auf **Confirm Delete** wird nichts gelöscht.
-
-Hat alles geklappt, erscheint eine Bestätigungsmeldung. Sie besagt, dass die gewählten Daten gelöscht und die Laufzeit-Caches sofort zurückgesetzt wurden.
+Hat es geklappt, meldet eine Nachricht, dass die gewählten Daten gelöscht wurden. Schlägt die Anfrage fehl, erscheint eine Fehlermeldung („Failed to clear selected data.“). Manche Daten können schon gelöscht sein. Prüfe daher, was übrig ist. Prüfe auch, ob du Admin-Zugang hast.
 
 ## Alles löschen
 
-Nimm diesen Weg, um alle acht Kategorien in einem Schritt zu leeren.
+1. Klicke in der **Danger Zone** auf **Clear All Data**. Du musst kein Kästchen ankreuzen.
+2. Die Warnung fragt: „Delete all supported data categories except Professor Mari? There is no undo.“
+3. Klicke auf **Confirm Delete**, oder auf **Cancel**, um abzubrechen.
 
-1. Klick auf **Clear All Data** (Alle Daten löschen). Vorher etwas anzukreuzen ist nicht nötig.
-2. Ein Warnfenster fragt: „Delete all supported data categories except Professor Mari? There is no undo.“
-3. Klick auf **Cancel**, um abzubrechen, oder auf **Confirm Delete**, um alles zu löschen.
+Das Ergebnis ist dasselbe, als würdest du alle acht Kästchen ankreuzen.
 
-Das Ergebnis ist dasselbe, als würdest du jedes Kästchen ankreuzen und gemeinsam löschen.
+## Die acht Datenkategorien
 
-## Professor Mari bleibt immer erhalten
+Jede Kategorie löscht nur, was in ihrer Zeile steht, mit Ausnahme des Galerieordners unter der Tabelle.
 
-Professor Mari ist der eingebaute Hilfs-Charakter. Diese Funktion löscht sie nie. Auch wenn du die Kategorie **Characters** leerst oder **Clear All Data** benutzt, bleibt Professor Mari bestehen. Über die **Danger Zone** lässt sie sich nicht entfernen.
+| Kategorie | Was sie löscht |
+| --- | --- |
+| **Chats & Messages** | Alle Chats und ihren Inhalt sowie den ganzen Ordner `gallery` und Szenenvideos aus Game Mode. |
+| **Characters** | Alle Charaktere und Gruppen samt ihren Avataren, außer Professor Mari. |
+| **Personas** | Alle Personas und Gruppen samt ihren Avataren. |
+| **Lorebooks** | Alle Lorebooks, Einträge und Ordner. |
+| **Presets** | Alle Prompt-Presets und Preset-Ordner, außer dem eingebauten Standard-Preset. |
+| **Connections** | Alle gespeicherten Konten sowie die damit verbundenen Modellauswahlen und Spracheinstellungen. |
+| **Automation & Addons** | Alle Agenten-Einstellungen, eigene Tools, Regex-Skripte und synchronisierte Themes. Nicht Personal Extensions oder External Extensions. |
+| **Media & Assets** | Hintergründe, Avatare, Sprites, Galerie, Szenenvideos, Schriftarten und Dateien von Wissensquellen. |
+
+Mehr Details:
+
+- **Chats & Messages** löscht auch Swipes (mehrere Antworten, die in einer Nachricht gespeichert sind), Erinnerungen, Agenten-Ergebnisse, Spielstände von Game Mode und Chat-Bilder.
+- **Characters** und **Personas** löschen auch 2D- und 3D-Avatarmodelle.
+- **Presets** löscht auch ihre Gruppen, Abschnitte und Variablen. Wenn ein anderes Preset der Standard war, wird das eingebaute Preset zum Standard.
+- **Connections** leert auch die Einstellungen für Text-to-Speech und Speech-to-Text, die Modelle für Funktionen und einen Tripo-API-Key, der auf der Seite **3D Avatars** gespeichert war.
+- **Automation & Addons** löscht auch Agenten-Ergebnisse, Agenten-Gedächtnis, Agenten-Ordner und Agenten-Widgets auf dem Home-Bildschirm.
+- **Media & Assets** löscht auch die Asset-Liste und Chat-Bilder.
+- Dateien von Wissensquellen sind Dateien, die du für Wissens-Agenten hochgeladen hast. Synchronisierte Themes sind deine eigenen Themes, die in Marinara gespeichert sind.
+
+Manche Kategorien greifen auf Dateien außerhalb ihres Namens zu. **Chats & Messages** löscht den ganzen Ordner `gallery`, auch die Galeriebilder von Charakteren und Personas, selbst wenn du **Characters** oder **Personas** nicht angekreuzt hast.
+
+Das Löschen berührt deine übrigen Einstellungen nicht, den Ordner `backups/` und die Datei `.encryption-key`. Es lässt außerdem Personal Extensions, Assets von Game Mode, eigene Emojis und Sticker, deinen Benachrichtigungston, Bilder von Lorebooks, Presets, Agenten und Konten sowie Daten des Langzeitgedächtnisses unberührt. Siehe [Wo Marinara deine Daten speichert](where-data-is-stored.md).
+
+## Professor Mari bleibt erhalten
+
+Professor Mari ist der eingebaute Assistent auf dem Home-Bildschirm. Die **Danger Zone** löscht sie nie, auch nicht mit **Clear All Data**.
 
 ## Verwandte Anleitungen
 
 - [Marinara sichern und wiederherstellen](backup-and-restore.md)
+- [Wo Marinara deine Daten speichert](where-data-is-stored.md)
 - [Fernzugriff](../REMOTE_ACCESS.md)

@@ -1,100 +1,84 @@
 # Conversation-Mode-Profile (Display Name, About Me, Behavior)
 
-In dieser Anleitung geht es um das kleine Profil, das jeder Charakter und jede Persona im Conversation Mode bekommt. Ein Profil besteht aus drei Teilen: einem Anzeigenamen, einer Kurzbiografie („about me“) und einer Verhaltensanweisung. Die Felder funktionieren wie ein Profil in einer Chat-App – denk an Discord. Sie greifen ausschließlich im Conversation Mode und werden in Roleplay oder Game Mode nie verwendet.
+Jeder Charakter und jede Persona hat ein kleines Chat-App-Profil für Conversation Mode: einen Anzeigenamen, eine Kurzbiografie („about me“) und eine Verhaltensanweisung. Diese Felder werden in Roleplay oder Game Mode nie verwendet.
 
-Der Conversation Mode ist der Chat im Stil einer DM (Direktnachricht) oder eines Messengers. Falls er neu für dich ist, lies zuerst [Conversation Mode: Erste Schritte](getting-started.md). Eine Persona ist das Profil, das im Chat für dich selbst steht (also für `{{user}}`).
+Das ist kein Einstellungsprofil (ein gespeicherter Satz von Chat-Optionen, siehe [Einstellungsprofile](../chats/settings-profiles.md)). Neu im Modus? Lies zuerst [Conversation Mode: Erste Schritte](getting-started.md). Eine Persona ist die Charakterkarte, die dich vertritt.
 
-## Wo diese Felder zu finden sind
+## Wo diese Felder liegen
 
-Sämtliche Profilfelder sitzen auf einem Tab namens **Convo**. Charaktere und Personas haben ihn gleichermaßen.
+Die Felder liegen auf einem Tab namens **Convo**.
 
-1. Um das Profil eines Charakters zu bearbeiten, öffne den Charakter im **Character Editor** (Charakter-Editor) und klick auf den Tab **Convo**.
-2. Um das Profil deiner Persona zu bearbeiten, öffne die Persona im **Persona Editor** (Persona-Editor) und klick auf den Tab **Convo**.
+1. Öffne den Charakter im **Character Editor** oder die Persona im **Persona Editor**. Öffne dafür das Panel **Characters** in der Seitenleiste oder das Panel **Personas** über das Personensymbol in der rechten oberen Leiste und klicke dann auf die Karte (siehe [Charaktere anlegen und bearbeiten](../characters/creating-and-editing-characters.md) und [Nutzer-Personas](../characters/personas.md)).
+2. Klicke auf den Tab **Convo**.
 
-Der Tab **Convo** enthält drei Felder: **Convo Display Name** (Anzeigename), **About Me** (Über mich) und **Convo Behavior** (Verhalten). Für Charaktere und Personas gelten sie identisch, bis auf einen kleinen Unterschied weiter unten.
+Der Tab enthält **Convo Display Name**, **About Me** und **Convo Behavior**. Bei einem Charakter hat er außerdem **Weekly schedule** (mit **Edit schedule** oder **Create schedule**, siehe [Zeitpläne](schedules.md)) und **Image generation directions**, optionale Vorgaben für die Selfies dieses Charakters (siehe [Selfies](selfies.md)).
 
-## Convo Display Name
+## Einen Anzeigenamen festlegen
 
-**Convo Display Name** ist der Name, unter dem dieser Charakter beziehungsweise diese Persona in Conversation-Mode-Chats erscheint. Bleibt das Feld leer, gilt der Name der Karte. Eine Änderung greift sofort auch für bereits vorhandene Nachrichten. Betroffen ist nur der Conversation Mode.
+**Convo Display Name** ist der Name, der in Conversation-Chats angezeigt wird. Lass das Feld leer, um den Namen der Karte zu nutzen. Bestehende Nachrichten werden sofort aktualisiert.
 
-Charaktere – nicht Personas – haben zusätzlich ein Kontrollkästchen: **Declare this name on the card in the prompt** (diesen Namen im Prompt auf der Karte nennen). Ist es aktiv, ergänzt Marinara eine kurze Zeile im Kartentext des Charakters. Diese Zeile sagt dem Modell, welche Karte unter welchem Anzeigenamen läuft. Voraussetzung ist ein gesetzter Anzeigename.
+Charaktere haben außerdem **Declare this name on the card in the prompt**. Ist es an, fügt Marinara dem Kartentext im Prompt (dem Text, den Marinara an das Modell sendet) eine Zeile wie „Conversation display name: X“ hinzu, damit das Modell weiß, welche Karte zu welchem Namen gehört. Es braucht zuerst einen Anzeigenamen.
 
-Das Makro `{{convo_display}}` setzt den Anzeigenamen des antwortenden Charakters in einen eigenen Prompt ein. Ein Makro ist ein Platzhalter wie `{{convo_display}}`, den Marinara durch echten Text ersetzt. Außerhalb des Conversation Mode löst es sich zu nichts auf. Siehe [Makros](../prompts/macros.md).
+## Eine About Me schreiben
 
-## About Me
+**About Me** ist eine kurze Biografie: eine Zeile oder zwei, ein Emoji, ein Witz oder nichts. Marinara fügt bei jedem Zug das **About Me** jedes anwesenden Charakters und jeder anwesenden Persona dem Prompt hinzu, damit das Modell weiß, wie sich jeder darstellt. Dafür musst du nichts tun.
 
-**About Me** ist eine kurze, selbst geschriebene Kurzbiografie des Charakters oder der Persona und erscheint im Conversation Mode. Ein, zwei Zeilen reichen – genauso gut tun es ein einzelnes Emoji, ein Witz oder gar nichts. In der Werkzeugleiste des Textfelds sitzt eine Emoji-Schaltfläche, über die ein Emoji direkt in der Biografie landet.
+So füllst du sie aus:
 
-Die Biografie ist mehr als Zierde. Standardmäßig hängt Marinara das **About Me** aller anwesenden Charaktere und Personas bei jedem Zug an den Prompt an. Die Biografien landen dort als kurze Liste von Teilnehmerprofilen. So weiß das Modell jederzeit, wie sich die Beteiligten selbst darstellen. Dafür musst du nichts weiter tun.
+- Tippe sie selbst ein. Die Emoji-Schaltfläche in der Werkzeugleiste fügt ein Emoji ein. **Revert** stellt den Text von vor deiner aktuellen Bearbeitung wieder her.
+- Klicke bei einem gespeicherten Charakter auf den Zauberstab (**Generate About Me from this card**).
+- Bitte **Professor Mari** auf dem Home-Bildschirm darum, zum Beispiel `Write Luna's About Me as a cryptic one-line bio.` Sie liest das gespeicherte Profil, schreibt die Biografie in der Stimme dieser Person und speichert sie. Du kannst ihre Änderung im üblichen Prüfablauf behalten oder zurücknehmen.
 
-### Ein About Me von Professor Mari schreiben lassen
+Wenn es nicht funktioniert hat: Fehlt der Zauberstab bei einer Karte, ist sie noch nicht gespeichert. Speichere zuerst die Karte.
 
-Die Biografie muss nicht von dir stammen. Öffne Professor Mari über den Home-Bildschirm und bitte sie, das **About Me** für einen genannten Charakter oder eine genannte Persona zu schreiben oder zu überarbeiten. Sie liest zuerst das gespeicherte Profil, verfasst eine kurze Biografie in der Stimme dieser Person und speichert sie direkt im echten Feld **About Me**.
+## Convo Behavior festlegen
 
-Bitte sie zum Beispiel: `Write Luna's About Me as a cryptic one-line bio.` Ebenso möglich ist eine Überarbeitung – etwa eine bestehende Biografie witziger, kürzer, wärmer oder kartentreuer machen zu lassen.
+**Convo Behavior** ist eine Anweisung dafür, wie der Charakter oder die Persona sich in Conversation Mode verhält, zum Beispiel: kurze Antworten in Kleinschreibung halten und wie ein echter Mensch schreiben. Post-History-Anweisungen sind Prompt-Text, der nach dem jüngsten Chatverlauf steht. Behalte den Standard, wenn du keine eigenen Prompts schreibst. Mit **Insertion** wählst du, wohin die Anweisung im Prompt kommt:
 
-Professor Mari nutzt dabei ihr normal konfiguriertes Modell. Eine eigene About-Me-Verbindung, eine Quellenauswahl oder eine Generieren-Schaltfläche gibt es in den Charakter- und Persona-Editoren nicht. Ihre gespeicherte Änderung erscheint im gewohnten Prüfablauf, wo du sie behalten oder zurücknehmen kannst. Bei manuellen Änderungen im Editor gibt es weiterhin **Revert** (zurücksetzen) – damit kehrt der Text zum Stand vor der aktuellen Bearbeitung zurück.
-
-## Convo Behavior
-
-**Convo Behavior** ist eine frei formulierte Anweisung dazu, wie sich der Charakter oder die Persona im Conversation Mode verhalten soll. Zum Beispiel: kurze Antworten in Kleinschreibung, und schreiben wie ein echter Mensch statt wie ein Erzähler. In Roleplay oder Game Mode wird sie nie mitgeschickt.
-
-### Insertion (wohin die Anweisung kommt)
-
-Unter dem Feld **Convo Behavior** sitzt ein Dropdown-Menü namens **Insertion** (Einfügung). Es steuert, an welcher Stelle des Prompts die Anweisung landet. Zur Wahl stehen:
-
-- Die Option **Constant** mit dem Zusatz „after the card“ (Standard): immer dabei, direkt hinter dem Kartentext.
-- Die Option **Constant** mit dem Zusatz „before the card“: immer dabei, direkt vor dem Kartentext.
-- **Append to post-history**: kommt ans Ende der Post-History-Anweisungen.
-- **Prepend to post-history**: kommt an den Anfang der Post-History-Anweisungen.
-- **Replace post-history**: ersetzt die Post-History-Anweisungen.
-- **Only where `{{convo_behavior}}` is placed**: kommt nur dorthin, wo du das Makro `{{convo_behavior}}` in einem eigenen Prompt platziert hast.
-
-Post-History-Anweisungen sind Prompt-Text, den die App hinter dem jüngsten Chatverlauf einsetzt. Schreibst du keine eigenen Prompts, bleib beim Standard.
+| Option | Wohin die Anweisung kommt |
+| --- | --- |
+| **Constant — after the card** (Standard) | Immer, direkt nach dem Kartentext. |
+| **Constant — before the card** | Immer, direkt vor dem Kartentext. |
+| **Append to post-history** | Ans Ende der Post-History-Anweisungen. |
+| **Prepend to post-history** | An den Anfang der Post-History-Anweisungen. |
+| **Replace post-history** | Anstelle der Post-History-Anweisungen. |
+| **Only where {{convo_behavior}} is placed** | Nur dorthin, wo du das Makro in einem eigenen Prompt platzierst. |
 
 ## Chat-spezifische About-Me-Überschreibungen
 
-Das **About Me** auf der Karte ist die Standardbiografie und gilt überall. Für einen einzelnen Chat lässt sich aber eine abweichende Biografie hinterlegen. Das ist die chat-spezifische Überschreibung, und sie führt über ein Profil-Popover – ein kleines Einblendfenster.
+Das **About Me** der Karte ist der Standard überall. Du kannst für einen Chat allein eine andere Biografie festlegen.
 
-1. Klick in einem Conversation-Mode-Chat auf den Avatar oder den Namen eines Charakters oder einer Persona.
-2. Neben dem Avatar öffnet sich eine kleine Profilkarte. Auf dem Handy schiebt sie sich von unten herein.
-3. Die Karte zeigt den vergrößerten Avatar, den Namen und das aktuelle **About Me**.
-4. Ein Badge zeigt **Default**, solange die Biografie der Karte gilt, oder **Chat-specific**, sobald eine Überschreibung für diesen Chat aktiv ist. Bei Charakteren steht hier zusätzlich ein Status: **Online**, **Away**, **Busy** oder **Offline**.
+1. Klicke in einem Conversation-Chat auf den Avatar oder den Namen eines Charakters oder einer Persona. Daneben öffnet sich eine Profilkarte (auf dem Handy von unten).
+2. Lies die Karte. Sie zeigt den Avatar, den Namen und das aktuelle **About Me**. Ein Badge zeigt **Default** oder **Chat-specific**. Bei Charakteren steht dort außerdem **Online**, **Away**, **Busy** oder **Offline**.
+3. Klicke auf **Edit**.
+4. Tippe die Biografie für diesen Chat ein. Der Tab **Custom emojis** bietet eine Emoji-Auswahl.
+5. Klicke auf **Save**. Du siehst „Chat-specific about me saved“.
 
-So legst du eine Überschreibung an:
+**Cancel** schließt den Bearbeitungsmodus ohne Speichern. **Revert** macht ungespeicherte Änderungen rückgängig. **Clear** entfernt eine bestehende Überschreibung und kehrt zum Standard der Karte zurück. Auch das Speichern einer leeren Biografie hebt die Überschreibung auf.
 
-1. Klick im Popover auf **Edit** (bearbeiten).
-2. Tipp die Biografie für diesen Chat. Dafür steht eine Emoji-Auswahl bereit, samt Tab **Custom emojis** (eigene Emojis).
-3. Klick auf **Save** (speichern). Ein Hinweis bestätigt dir, dass ein chat-spezifisches About Me gespeichert wurde.
+## Einen Charakter sein eigenes About Me ändern lassen
 
-Während der Bearbeitung macht die Schaltfläche **Revert** ungespeicherte Änderungen rückgängig, und **Cancel** (abbrechen) beendet den Bearbeitungsmodus ohne zu speichern. Existiert eine Überschreibung, entfernt sie die Schaltfläche **Clear** (leeren) und der Kartenstandard gilt wieder. Auch eine leer gespeicherte Biografie hebt die Überschreibung auf. Merke: Das Standard-**About Me** wird auf der Karte bearbeitet, eine Überschreibung greift nur in diesem einen Chat.
+Das ist eine fortgeschrittene Option. Ein Tool namens `update_about_me` lässt einen Charakter während eines Chats seine eigene Biografie bearbeiten. Es ist standardmäßig aus. Um es zu nutzen, öffne **Chat Settings → Function Calling**, schalte **Enable Tool Use** ein und füge dann das Tool `update_about_me` hinzu.
 
-## Charakteren erlauben, ihr About Me selbst zu ändern
+Der Charakter wählt eine von zwei Möglichkeiten:
 
-Es gibt außerdem ein Werkzeug, das ein Charakter mitten im Gespräch aufrufen kann, um die eigene Biografie zu ändern. Es heißt **update_about_me** und ist standardmäßig aus. Aktiviere es in den **Chat Settings** (Chat-Einstellungen) im Abschnitt **Function Calling**: Schalte **Enable Tool Use** ein und füge das Werkzeug **update_about_me** hinzu.
+- Public ändert die echte Biografie, die in jedem Chat sichtbar ist. Du gibst sie zuerst frei.
+- Chat ändert eine Biografie, die nur im aktuellen Chat gilt.
 
-Ist es aktiv, kann ein Charakter die eigene Biografie auf zwei Wegen ändern:
+## Makros für eigene Prompts
 
-- Der Geltungsbereich „public“ ändert die echte Biografie, die in jedem Chat sichtbar ist. Das legt Marinara dir vorher zur Freigabe vor.
-- Der Geltungsbereich „chat“ ändert eine Biografie, die nur im aktuellen Chat gilt.
+Du brauchst keine Makros, damit Profile das Modell erreichen. Nutze sie nur, um einen Wert an eine genaue Stelle in einem eigenen Prompt zu setzen. Jedes ist außerhalb von Conversation Mode leer. Siehe [Makros](../prompts/macros.md).
 
-## Die Profile in eigenen Prompts nutzen
-
-Damit die Profile beim Modell ankommen, brauchst du keine Makros. Die **About Me**-Biografien landen automatisch im Prompt, und **Convo Behavior** folgt der Einstellung **Insertion**. Makros sind für eigene Prompts gedacht, wenn du einen Wert selbst an eine ganz bestimmte Stelle setzen willst.
-
-Vier Makros fügen diese Profilwerte direkt im Text ein. Außerhalb des Conversation Mode löst sich jedes davon zu nichts auf:
-
-- `{{convo_display}}`: der Anzeigename des antwortenden Charakters.
-- `{{char_about}}`: das wirksame **About Me** des Charakters.
-- `{{persona_about}}`: das wirksame **About Me** der Persona.
-- `{{convo_behavior}}`: die **Convo Behavior**-Anweisung des Charakters.
-
-Die vollständige Liste steht unter [Makros](../prompts/macros.md).
+| Makro | Wert |
+| --- | --- |
+| `{{convo_display}}` | Der Anzeigename des antwortenden Charakters. |
+| `{{char_about}}` | Das wirksame **About Me** des Charakters. |
+| `{{persona_about}}` | Das wirksame **About Me** der Persona. |
+| `{{convo_behavior}}` | Die Anweisung **Convo Behavior** des Charakters. |
 
 ## Verwandte Anleitungen
 
 - [Conversation Mode: Erste Schritte](getting-started.md)
 - [Charaktere anlegen und bearbeiten](../characters/creating-and-editing-characters.md)
-- [Personas erstellen und bearbeiten](../characters/personas.md)
-- [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md)
+- [Nutzer-Personas: erstellen und bearbeiten](../characters/personas.md)
 - [Makros](../prompts/macros.md)

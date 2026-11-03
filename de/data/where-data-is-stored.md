@@ -1,66 +1,62 @@
 # Wo Marinara deine Daten speichert
 
-In dieser Anleitung erfährst du, wo Marinara Engine die Daten auf dem eigenen Rechner ablegt. Es geht um den zentralen Datenordner, um die Ordner `storage` und die Asset-Ordner darin sowie um die Schlüsseldatei, die gespeicherte API-Keys schützt.
+Finde den Ordner, in dem Marinara Engine deine Daten speichert, und erfahre, was du beim Umzug oder Kopieren mitnehmen musst.
 
-Marinara Engine (unten kurz „Marinara“) läuft auf dem eigenen Rechner. Gespeicherte Charaktere, Chats und Einstellungen bleiben also lokal. Beachte trotzdem: Sobald eine Antwort generiert wird, schickt Marinara den Chat-Inhalt an den verbundenen KI-Anbieter.
+Marinara läuft auf deinem eigenen Rechner und speichert dort deine Charaktere, Chats und Einstellungen. Wenn du eine Antwort erzeugst, sendet Marinara den Chat-Inhalt trotzdem an den verbundenen KI-Dienst.
 
-## Der Datenordner (DATA_DIR)
+## Den Datenordner finden
 
-Alles, was in Marinara entsteht, liegt in einem einzigen Ordner auf dem Rechner, der den Server betreibt. Dieser Ordner heißt Datenordner. Die Umgebungsvariable, die darauf zeigt, heißt `DATA_DIR`. Eine Umgebungsvariable ist ein Wert, den du außerhalb der App auf dem Server setzt. Im Panel **Settings** (Einstellungen) findest du sie deshalb nicht.
+Alles, was du erstellst, liegt in einem Ordner auf dem Rechner, auf dem der Server läuft. Das ist der Datenordner. Die Einstellung dafür heißt `DATA_DIR`: eine Umgebungsvariable, die du vor dem Start des Servers setzt. Sie steht nicht unter **Settings**.
 
-Standardmäßig ist der Datenordner ein Ordner namens `data`, den Marinara neben den Server-Dateien anlegt. Läuft Marinara in einem offiziellen Docker-Container, liegt der Datenordner unter `/app/data` im Container.
+- Standardmäßig heißt der Ordner `data` und liegt neben den Server-Dateien.
+- Im offiziellen Docker-Container lautet der Pfad `/app/data`.
+- Den genauen Pfad findest du im Fenster, in dem du Marinara gestartet hast (Terminal oder Konsole). Beim Start erscheint eine Zeile, die mit `[storage] DATA_DIR=` beginnt; danach folgt der Pfad. Findest du das Fenster nicht mehr, suche im Marinara-Ordner nach einem Ordner namens `data`.
 
-Falls du den Datenordner nicht findest, hilft das Start-Log des Servers. Beim Start gibt Marinara eine Zeile aus, die mit `[storage] DATA_DIR=` beginnt – dahinter steht der vollständige Pfad zum Datenordner.
+Um den Ordner zu verlegen, setze `DATA_DIR` und starte Marinara neu. Siehe die [Referenz zur Server-Konfiguration](../CONFIGURATION.md).
 
-Über ein selbst gesetztes `DATA_DIR` lässt sich der Datenordner an einen anderen Ort verlegen. Wie du die Variable setzt, steht in der [Server-Konfigurationsreferenz](../CONFIGURATION.md). Damit ein neuer `DATA_DIR`-Wert greift, muss Marinara neu starten.
+## Was im Datenordner liegt
 
-## Der Ordner `storage` und die Asset-Ordner
+Deine Textdaten liegen im Ordner `storage`: Charaktere, Chats, Nachrichten, Lorebooks, Presets und Verbindungen. Marinara speichert sie in vielen kleinen Dateien. Nach einem Upgrade von einer älteren Ordnerstruktur können unter `storage/tables/` noch alte Kopien mit der Endung `.pre-shard` liegen. Marinara löscht sie nie. Sobald alles funktioniert, kannst du sie selbst löschen, um Platz freizugeben.
 
-Im Datenordner sind die Daten auf einen Ordner `storage` und mehrere Asset-Ordner verteilt.
-
-Der Ordner `storage` enthält die Textdaten: Charaktere, Chats, Nachrichten, Lorebooks, Presets und Verbindungen. Marinara speichert jede Tabelle in kleineren, nach Besitzer gruppierten Dateien – zum Beispiel die Nachrichten eines Chats oder die Einträge eines Lorebooks. So wird beim Ändern eines Elements nicht immer eine wachsende globale JSON-Datei neu geschrieben. Beim einmaligen Upgrade von einem älteren Speicherformat bleiben die ursprünglichen Tabellendateien mit der Endung `.pre-shard` neben den neuen Ordnern erhalten.
-
-Bilder, Audio und andere Mediendateien liegen in eigenen Ordnern, jeweils benannt nach ihrem Inhalt. Die wichtigsten Asset-Ordner sind:
+Bilder, Audio und andere Dateien liegen in eigenen Ordnern neben `storage`:
 
 | Ordner | Inhalt |
 | --- | --- |
 | `avatars` | Avatare von Charakteren und Personas |
 | `sprites` | Sprite-Grafiken der Charaktere |
 | `avatar-models` | Dateien für die Agenten **2D Avatars** und **3D Avatars**, etwa PNGTuber-Bilder und 3D-Modelle |
-| `backgrounds` | Selbst hochgeladene Chat-Hintergründe |
-| `gallery` | Bilder der Galerie |
-| `fonts` | Selbst hinzugefügte Schriftarten |
-| `knowledge-sources` | Dateien, die du für Wissens-Agenten hochgeladen hast |
-| `game-assets` | Assets für den Game Mode |
+| `backgrounds` | Hochgeladene Chat-Hintergründe |
+| `gallery` | Galeriebilder |
+| `fonts` | Eigene Schriftarten |
+| `knowledge-sources` | Dateien für Wissens-Agenten |
+| `game-assets` | Assets für Game Mode |
+| `game-scene-videos` | Szenenvideos für Game Mode |
+| `conversation-call-character-videos` | Charaktervideos für Anrufe in Conversation |
 | `custom-emojis` | Eigene Emoji-Bilder |
 | `custom-stickers` | Eigene Sticker-Bilder |
+| `notification-sounds` | Dein eigener Benachrichtigungston |
+| `long-term-memory` | Daten des Agenten für Langzeitgedächtnis |
+| `lorebooks/images`, `prompts/images`, `agents/images`, `connections/images` | Bilder für Lorebooks, Presets, Agenten und Konten |
 
-Wie der Ordner `storage` technisch funktioniert, erklärt [File-Native Storage](../development/file-storage.md) für Entwicklerinnen und Entwickler im Detail.
+Der Datenordner enthält außerdem `backups/` (deine [automatischen Backups](backup-and-restore.md#automatic-backups)) und die Schlüsseldatei. **Download Backup** enthält alle Ordner in der Tabelle, `storage` und die Schlüsseldatei. Für Entwickler gibt es die Anleitung [File-Native Storage](../development/file-storage.md).
 
-## Die Schlüsseldatei für die Verschlüsselung
+## Die Schlüsseldatei aufbewahren
 
-Marinara verschlüsselt gespeicherte API-Keys (geheime Zugangscodes, ähnlich einem Passwort), damit sie nicht im Klartext auf der Festplatte liegen. Den dafür genutzten Schlüssel legt Marinara in der Datei `.encryption-key` im Datenordner ab.
+Marinara verschlüsselt deine gespeicherten API-Keys. Der Schlüssel dafür liegt in der Datei `.encryption-key` im Datenordner.
 
-Wichtig wird diese Datei, sobald du Daten verschiebst oder wiederherstellst. Angenommen, du kopierst den Datenordner auf einen neuen Rechner, lässt die Datei `.encryption-key` aber zurück: Dann kann Marinara die gespeicherten API-Keys nicht mehr entschlüsseln, und du musst sie erneut eingeben. Halte diese Datei deshalb immer bei den übrigen Daten.
+Kopierst du deine Daten ohne diese Datei auf einen neuen Rechner, kann Marinara die gespeicherten API-Keys nicht lesen. Du musst sie erneut eingeben. Kopiere die Datei daher zusammen mit dem übrigen Datenordner.
 
-Manche fortgeschrittenen Setups liefern den Schlüssel nicht über die Datei, sondern über die Umgebungsvariable `ENCRYPTION_KEY`. Wenn du diese Variable nutzt, bewahre den Wert separat sicher auf. Eine Datei `.encryption-key` gibt es dann nicht zum Mitkopieren. Details stehen in der [Server-Konfigurationsreferenz](../CONFIGURATION.md).
+Manche Installationen beziehen den Schlüssel stattdessen aus der Umgebungsvariable `ENCRYPTION_KEY`. Dann gibt es keine Datei zum Kopieren. Bewahre den Wert separat sicher auf. Siehe die [Referenz zur Server-Konfiguration](../CONFIGURATION.md).
 
-## Wo liegen meine Daten unter Android
+## Daten von Android kopieren
 
-Unter Android liegt der Datenordner des Servers meist im App-Speicher, an den du ohne Root-Zugriff nicht herankommst. Der Ordner lässt sich also nicht einfach vom Handy kopieren.
+Unter Android liegt der Datenordner im App-Speicher. Ohne Root-Zugriff kannst du ihn nicht öffnen und daher nicht kopieren. Nutze **Settings → Advanced → Backup & Export → Download Backup**. Die `.zip` enthält die Datei `.encryption-key`, sofern vorhanden. Siehe [Marinara sichern und wiederherstellen](backup-and-restore.md).
 
-Um unter Android trotzdem eine Kopie der Daten zu bekommen, nutze die Schaltfläche **Download Backup** (Backup herunterladen). Du findest sie unter **Settings** im Tab **Advanced** im Bereich **Backup & Export**. Daraus entsteht eine einzelne ZIP-Datei mit allen Daten. Sofern vorhanden, enthält das ZIP auch die Datei `.encryption-key`. Zuverlässiger lassen sich Daten vom Handy nicht sichern.
-
-Derselbe Bereich kann zusätzlich 1 bis 9999 rotierende tägliche, wöchentliche oder monatliche automatische Archive unter
-`backups/` im Datenordner aufbewahren. Das neueste heißt `marinara-automatic-backup.zip`; ältere aufbewahrte automatische
-Archive tragen einen Zeitstempel im Dateinamen. Diese Grenze gilt nur für automatische Backups. Kopiere wichtige Backups
-zusätzlich an einen Ort außerhalb des App-Speichers: Beim Deinstallieren oder Zurücksetzen der App können sonst sowohl die
-aktiven Daten als auch die lokalen automatischen Backups verschwinden.
-
-Alle Schritte zum Sichern und Wiederherstellen auf jeder Plattform findest du unter [Marinara sichern und wiederherstellen](backup-and-restore.md).
+Automatische Backups liegen im selben App-Speicher. Wenn du die App deinstallierst oder zurücksetzt, können sie zusammen mit den aktiven Daten verloren gehen. Bewahre deshalb eine Kopie an einem anderen Ort auf.
 
 ## Verwandte Anleitungen
 
 - [Marinara sichern und wiederherstellen](backup-and-restore.md)
-- [Server-Konfigurationsreferenz](../CONFIGURATION.md)
+- [Daten löschen oder zurücksetzen](clearing-data.md)
+- [Referenz zur Server-Konfiguration](../CONFIGURATION.md)
 - [File-Native Storage](../development/file-storage.md)

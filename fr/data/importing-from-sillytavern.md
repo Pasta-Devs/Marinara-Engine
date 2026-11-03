@@ -1,104 +1,86 @@
 # Importer depuis SillyTavern
 
-Ce guide explique comment récupérer tes données SillyTavern dans Marinara Engine. Deux approches : importer un fichier à la fois, ou analyser tout un dossier SillyTavern et tout importer d'un coup.
+Amène tes données SillyTavern dans Marinara Engine. Importe un fichier à la fois, ou analyse un dossier SillyTavern complet et importe tout d'un coup.
 
-## Ce que tu peux récupérer
+## Ce que tu peux amener
 
-Marinara Engine sait importer ces types de données SillyTavern :
+| Données SillyTavern | Dans Marinara |
+| --- | --- |
+| Characters | Personnages |
+| Chats et chats de groupe | Chats |
+| Presets | Presets (un ensemble enregistré de paramètres de génération) |
+| World Info | Lorebooks (des notes que l'IA lit quand certains mots apparaissent) |
+| Backgrounds | Arrière-plans de chat |
+| Personas | Personas (le profil qui te représente) |
 
-- Les personnages (fiches de personnage)
-- Les chats (historiques de messages)
-- Les chats de groupe (chats avec plusieurs personnages)
-- Les presets (réglages de génération)
-- Les lorebooks (SillyTavern les appelle "World Info")
-- Les arrière-plans (images d'arrière-plan du chat)
-- Les personas (tes propres profils **{{user}}**)
+## Imports rapides d'un seul fichier
 
-Un lorebook est un recueil de notes que l'IA lit quand certains mots apparaissent dans le chat. Un preset est un ensemble de réglages de génération enregistré. Un persona est le profil qui te représente dans un chat, le personnage que tu incarnes.
+1. Ouvre **Settings → Imports** (Paramètres → Imports).
+2. Dans **SillyTavern Import**, clique sur le bouton qui correspond à ton type de fichier.
+3. Choisis le fichier.
 
-L'import se fait de deux façons. Pour un seul fichier, utilise les boutons dédiés. Pour transférer une installation SillyTavern complète en une fois, passe par l'assistant **Import from SillyTavern Folder** (importer depuis un dossier SillyTavern).
+| Bouton | Fichier |
+| --- | --- |
+| **Import Character (JSON/PNG)** (importer un personnage) | Un personnage en `.json` ou `.png`. |
+| **Import Chat (JSONL)** (importer un chat) | Un journal de chat en `.jsonl` (un enregistrement JSON par ligne, le format dans lequel SillyTavern enregistre les chats). |
+| **Import Preset (JSON)** (importer un preset) | Un preset en `.json`. |
+| **Import Lorebook (JSON)** (importer un lorebook) | Un fichier World Info en `.json`. |
 
-## Imports rapides fichier par fichier
+Les boutons n'ont pas d'options. Un import de personnage garde tous les tags source et limite les scripts regex à ce personnage. Un script regex est une règle de recherche et remplacement pour du texte. Pour choisir ces options, utilise **Import** dans le panneau Characters. Voir [Importer et exporter des fiches de personnage](../characters/import-export.md).
 
-Ouvre **Settings** (Paramètres), puis l'onglet **Imports**, et repère la section **SillyTavern Import**. Sa description indique "Bring over characters, chats, presets, and lorebooks from SillyTavern files."
+Si une fiche de personnage contient un lorebook, ton navigateur demande si tu veux l'importer comme son propre lorebook. Clique sur **OK** pour le garder comme un lorebook réutilisable, ou sur **Cancel** pour importer seulement le personnage.
 
-Cette section propose quatre boutons, un par fichier. Chacun ouvre un sélecteur de fichiers classique, sans option supplémentaire :
+**Import Chat (JSONL)** crée un chat Roleplay, sauf si le fichier enregistre un autre mode, et l'ouvre.
 
-- **Import Character (JSON/PNG)** accepte une fiche de personnage `.json` ou `.png`.
-- **Import Chat (JSONL)** accepte un historique de chat `.jsonl`. Il crée toujours un chat **Roleplay** et t'y bascule.
-- **Import Preset (JSON)** accepte un fichier de preset `.json`.
-- **Import Lorebook (JSON)** accepte un fichier World Info `.json`.
+### Importer un chat dans le mode de ton choix
 
-JSONL signifie un enregistrement JSON par ligne. C'est le format dans lequel SillyTavern enregistre un historique de chat.
+Pour choisir le mode, utilise le bouton d'import en haut de la liste des chats. Son infobulle est **Import SillyTavern or Marinara chat JSONL**. Il importe dans l'onglet de mode que tu as ouvert (Conversation, Roleplay ou Game). Voir [Exporter et importer des chats](../chats/export-import.md).
 
-Quand tu importes un personnage dont la fiche contient un lorebook intégré, le navigateur te demande si tu veux aussi l'importer comme lorebook Marinara indépendant. Clique sur **OK** pour conserver le World Info comme lorebook autonome et réutilisable. Clique sur **Cancel** pour sauter cette étape et n'importer que le personnage.
+## Importer un dossier SillyTavern
 
-Ces boutons rapides s'appuient sur des valeurs par défaut fixes, non modifiables ici. Ils conservent tous les tags d'origine et limitent les scripts regex au seul personnage. Un script regex est une règle de rechercher-remplacer qui modifie le texte avant ou après son passage par l'IA. Pour choisir ces options toi-même, passe plutôt par le bouton **Import** du panneau Characters. Voir [Importer et exporter des fiches de personnage](../characters/import-export.md).
+**Avant de commencer :** l'assistant lit les fichiers sur l'ordinateur du serveur. Si SillyTavern est sur un autre ordinateur, copie d'abord son dossier (celui où tu as installé SillyTavern) sur l'ordinateur de Marinara. Sur l'ordinateur de Marinara, l'assistant fonctionne tout de suite. Depuis un autre appareil, définis le secret d'administration et saisis-le dans **Settings → Advanced → Admin Access**. Voir [Sauvegarder et restaurer Marinara](backup-and-restore.md) et la section "Privileged APIs (ADMIN_SECRET)" de la [référence de configuration du serveur](../CONFIGURATION.md).
 
-### Importer un chat dans un mode précis
+1. Ouvre **Settings → Imports → SillyTavern Import**.
+2. Clique sur **Import from SillyTavern Folder**.
+3. Choisis ton dossier SillyTavern. Choisis le dossier principal, d'habitude celui qui contient un dossier `data/` ou `public/`. Utilise l'une de ces méthodes :
+   - Clique sur **Browse** et choisis le dossier.
+   - S'il n'y a pas de sélecteur de dossier (un serveur distant), un navigateur de dossiers intégré s'ouvre. Il liste seulement les dossiers dans le dossier personnel de l'utilisateur qui exécute le serveur. Clique sur **Select This Folder**.
+   - Saisis le chemin dans **SillyTavern Folder Path**, par exemple `/path/to/SillyTavern`. Un chemin saisi ne fonctionne que si le réglage `IMPORT_ALLOWED_ROOTS` du serveur liste un dossier qui le contient.
+4. Clique sur **Scan Folder**. Marinara affiche combien d'éléments il a trouvés dans chaque catégorie.
+5. Dans **Choose exactly what to import**, coche les éléments que tu veux. Chaque catégorie a des boutons **All** et **None**, et un bouton **Show** ou **Hide** pour les éléments individuels.
+6. Clique sur **Import Selected**. Une barre de progression montre l'élément en cours et un compteur par catégorie.
+7. Quand tu vois **Import complete!**, lis le compte de chaque catégorie et clique sur **Done**.
 
-Le bouton **Import Chat (JSONL)** ci-dessus crée toujours un chat **Roleplay**. Pour que le chat arrive dans un autre mode, utilise plutôt le petit bouton d'import en haut de la liste des chats. Son infobulle indique **Import SillyTavern or Marinara chat JSONL**. Ce bouton importe le fichier dans l'onglet de mode ouvert à ce moment-là : Conversation, Roleplay ou Game. Pour en savoir plus sur l'import et l'export de chats, voir [Exporter et importer des chats](../chats/export-import.md).
+La plupart des éléments sont cochés au départ. Marinara laisse décochés les presets de base de SillyTavern, comme `deterministic`, `neutral` et les presets `universal-*`, et une bannière l'indique. Laisse-les décochés sauf si tu veux des copies.
 
-## Import from SillyTavern Folder
+Si l'analyse trouve des personnages, deux options de plus apparaissent :
 
-Cet assistant analyse un dossier SillyTavern complet et importe de nombreux éléments d'un coup. Il traite ensemble les personnages, les chats, les chats de groupe, les presets, les lorebooks, les arrière-plans et les personas.
+**Imported character tags** (par défaut **All tags**) :
 
-Pour l'ouvrir, va dans **Settings**, puis **Imports**, puis la section **SillyTavern Import**, et clique sur **Import from SillyTavern Folder**. Une fenêtre intitulée **Import from SillyTavern** s'ouvre.
+- **All tags** garde les tags source.
+- **No tags** les ignore.
+- **Existing only** garde seulement les tags que tu as déjà.
 
-### Étape 1 : indiquer le dossier SillyTavern
+**Imported regex scripts** (par défaut **Character only**) :
 
-1. Dans le champ **SillyTavern Folder Path**, saisis le chemin de ton dossier SillyTavern. Par exemple `/path/to/SillyTavern`.
-2. Autre option : clique sur le bouton **Browse** (parcourir) pour choisir le dossier avec le sélecteur de ton ordinateur. Sur un serveur distant ou sans interface graphique, un explorateur de dossiers intégré s'ouvre à la place, avec un bouton **Select This Folder** (sélectionner ce dossier).
-3. Vise le dossier SillyTavern principal. L'indication affichée dans la fenêtre précise qu'il s'agit en général du dossier qui contient un sous-dossier `data/` ou `public/`.
-4. Clique sur **Scan Folder** (analyser le dossier). Le bouton affiche **Scanning...** pendant le traitement.
+- **Character only** applique les scripts au personnage.
+- **Global** les ajoute à **Presets → Regexes** pour chaque personnage.
 
-Une fois l'analyse terminée, Marinara indique combien d'éléments il a trouvés dans chaque catégorie. S'il n'arrive pas à lire le dossier, une erreur s'affiche, par exemple "Could not find SillyTavern data directory."
+Si ça n'a pas marché :
 
-### Étape 2 : choisir ce que tu importes
+- "Could not find SillyTavern data directory." veut dire que Marinara ne peut pas lire ce dossier. Choisis le dossier principal de SillyTavern.
+- "folderPath is not allowed" veut dire que le serveur a refusé le chemin. Clique sur **Browse** et choisis plutôt le dossier. Le propriétaire du serveur peut limiter les dossiers importables avec le réglage `IMPORT_ALLOWED_ROOTS`. S'il est défini, même un dossier choisi doit se trouver dans l'un de ces dossiers. Demande à la personne qui gère le serveur, ou consulte la [référence de configuration du serveur](../CONFIGURATION.md).
+- Si un élément échoue, Marinara l'ignore, garde le reste et le liste sous les avertissements à la dernière étape, par exemple `Character "Foo": error message`.
 
-L'écran suivant s'intitule **Choose exactly what to import**. Il affiche une liste à cocher par catégorie : **Characters**, **Chats**, **Group Chats**, **Presets**, **Lorebooks**, **Backgrounds** et **Personas**. Un compteur indique le nombre d'éléments sélectionnés.
+## Ce qui arrive à tes données
 
-Chaque catégorie dispose de boutons **All** et **None**, ainsi que d'un interrupteur **Show** ou **Hide** pour afficher le détail des éléments et leurs dates.
+- Les fichiers de chat qui appartiennent à un personnage s'importent comme des branches d'un seul chat. Une branche est une copie d'un chat que tu continues séparément.
+- Les chats de groupe s'importent comme des chats Roleplay.
+- Les éléments importés gardent la date de dernière modification du fichier source, pas la date de l'import.
 
-Presque tout est présélectionné. Seuls les presets fournis d'origine avec SillyTavern font exception. Marinara les repère et les laisse décochés, avec un bandeau qui explique pourquoi. Il s'agit des presets standards comme `default`, `deterministic`, `neutral` et les presets `universal-*`. Laisse-les décochés, sauf si tu tiens vraiment à en avoir des copies.
+## Ce qui ne se transfère pas
 
-Si l'analyse a trouvé des personnages, deux réglages supplémentaires apparaissent :
-
-- **Imported character tags** définit le mode d'import des tags. Choisis **All tags** pour conserver les tags d'origine, **No tags** pour les ignorer, ou **Existing only** pour ne garder que les tags déjà présents dans Marinara. La valeur par défaut est **All tags**.
-- **Imported regex scripts** définit la portée des scripts regex. Choisis **Character only** pour que les scripts s'appliquent à chaque bot, ou **Global** pour les ajouter à **Presets -> Regexes** et les appliquer à tous les chats. La valeur par défaut est **Character only**.
-
-Quand ta sélection te convient, clique sur **Import Selected**. Le bouton **Back** te ramène à l'étape du dossier.
-
-### Étape 3 : suivre la progression
-
-Marinara importe les éléments un par un. Tu vois un indicateur d'activité, la catégorie et le nom de l'élément en cours, une barre de progression et des compteurs par catégorie qui avancent en direct.
-
-### Étape 4 : lire le bilan
-
-La dernière étape affiche un bandeau **Import complete!** si l'import a réussi, ou un bandeau d'erreur en cas d'échec. En cas de réussite, une carte par catégorie donne le total final. Si un élément a échoué, une liste d'avertissements affiche une ligne par échec, du type `Character "Foo": error message`. Clique sur **Done** pour fermer la fenêtre.
-
-### Comment l'assistant traite tes données
-
-- L'import fonctionne au mieux, élément par élément. Si un personnage, un chat, un preset, un lorebook, un arrière-plan ou un persona échoue, Marinara le saute, note un avertissement et poursuit avec le reste.
-- Plusieurs fichiers de chat appartenant à un même personnage arrivent sous forme de branches d'un seul chat, et non de chats distincts.
-- Les chats de groupe deviennent toujours des chats **Roleplay**.
-- Les éléments importés conservent la date de dernière modification du fichier source comme date dans Marinara. Ce n'est pas le moment de l'import qui compte.
-
-## Accès et règles sur les dossiers
-
-Les boutons d'import fichier par fichier fonctionnent pour tout le monde, sans configuration particulière.
-
-L'assistant **Import from SillyTavern Folder** lit des fichiers sur le disque : il lui faut donc un accès privilégié. Sur la même machine que le serveur (loopback), aucune configuration n'est nécessaire. Depuis un autre appareil ou un autre navigateur, tu dois définir un secret administrateur sur le serveur. Enregistre ensuite la même valeur dans **Settings -> Advanced -> Admin Access**. Voir [Référence de configuration du serveur](../CONFIGURATION.md) pour savoir comment définir ce secret.
-
-Si ton serveur définit `IMPORT_ALLOWED_ROOTS`, Marinara refuse les chemins saisis en dehors de ces dossiers. Les chemins choisis via **Browse** ou l'explorateur de dossiers intégré fonctionnent toujours, même avec ce réglage actif.
-
-## Ce qui n'est pas transféré
-
-L'assistant de dossier n'analyse que les sept catégories listées plus haut. Les autres données SillyTavern, comme les réglages généraux de l'application et les réponses rapides, ne sont ni lues ni importées.
-
-Les presets fournis d'origine avec SillyTavern restent décochés par défaut : ils ne sont donc pas récupérés, sauf si tu les coches toi-même.
-
-Marinara ignore tout élément dont la conversion échoue. Consulte la liste d'avertissements à la dernière étape de l'assistant pour voir précisément ce qui a été laissé de côté.
+L'assistant lit seulement les catégories du premier tableau. Les autres données SillyTavern, comme les réglages globaux de l'application et les réponses rapides, ne sont pas importées.
 
 ## Guides associés
 

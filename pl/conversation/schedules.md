@@ -1,198 +1,167 @@
 # Harmonogramy postaci i wiadomości autonomiczne
 
-Z tego przewodnika dowiesz się, jak postacie w trybie Conversation odzywają się pierwsze i jak ustalić, kiedy to robią. Opisuje wiadomości autonomiczne, harmonogramy postaci, komendę **/status** oraz status obecności. Wszystkie te funkcje działają wyłącznie w trybie Conversation.
+Wiadomości autonomiczne to wiadomości, które postać wysyła do ciebie pierwsza, gdy przez jakiś czas milczysz. Harmonogram to tygodniowy plan postaci, dzięki któremu o różnych porach wydaje się ona obudzona, zajęta albo śpiąca. Oba mechanizmy działają tylko w trybie Conversation.
 
-## Do czego służą wiadomości autonomiczne i harmonogramy
+Harmonogramy są opcjonalne. Przy wyłączonych harmonogramach postacie nadal odzywają się same zależnie od swojej gadatliwości (jak często postać zaczyna rozmowę) i twojej obecności.
 
-Wiadomość autonomiczna to wiadomość, którą postać wysyła pierwsza, bez żadnego pytania z drugiej strony. Marinara Engine (w skrócie Marinara) wysyła je po dłuższej ciszy, dzięki czemu czat przypomina prawdziwą wymianę wiadomości.
+Skocz do: [Włącz harmonogramy](#turn-on-schedules), jeśli potrzebujesz tylko harmonogramu.
 
-Za to zachowanie odpowiadają dwa ustawienia:
+## Włącz wiadomości autonomiczne
 
-- **Autonomous Messages** decyduje, czy postacie w ogóle mogą się odzywać.
-- **Schedules** dają każdej postaci tygodniową rutynę, więc o różnych porach wydaje się rozbudzona, zajęta albo śpiąca.
+Zanim zaczniesz: otwórz czat Conversation. Nowe czaty zaczynają z tą opcją włączoną (zobacz [Tryb Conversation: pierwsze kroki](getting-started.md)).
 
-Harmonogramy są opcjonalne. Przy włączonych wiadomościach autonomicznych i wyłączonych harmonogramach postacie nadal się odzywają, kierując się swoją gadatliwością i twoim statusem. Gadatliwość to ustawienie osobne dla każdej postaci: mówi, jak często zaczyna ona rozmowę z własnej inicjatywy.
+1. Otwórz **Chat Settings** (ustawienia czatu) w czacie.
+2. Znajdź sekcję **Autonomous Messaging** (wiadomości autonomiczne).
+3. Włącz **Autonomous Messages**.
 
-## Włączanie wiadomości autonomicznych
+Jeśli to nie zadziałało: postacie milczą, gdy twoja obecność to **Do Not Disturb** (zobacz [Twój status obecności](getting-started.md#your-presence-status)).
 
-Steruje się tym z poziomu czatu, a nie karty postaci. Wszystkie te ustawienia znajdują się w sekcji **Autonomous Messaging** panelu **Chat Settings** (ustawienia czatu).
+### Ustaw limit odezwań
 
-1. Otwórz czat w trybie Conversation.
-2. Otwórz **Chat Settings** przyciskiem w czacie. Domyślnie jest w prawym górnym rogu; możesz go przenieść.
-3. Znajdź sekcję **Autonomous Messaging**.
-4. Włącz przełącznik **Autonomous Messages**.
+W **Chat Settings → Autonomous Messaging** pole **Chat Check-In Cap** ogranicza, ile odezwań na dobę mogą wysłać postacie w tym czacie.
 
-W kreatorze nowego czatu opcja **Autonomous Messages** jest domyślnie włączona. Można ją wyłączyć w każdej chwili w panelu **Chat Settings**.
+- **Default chat ceiling (talkativeness-based)** bierze limit z gadatliwości każdej postaci (tabela niżej).
+- **Numeric value** pokazuje pole liczby. Wpisz dowolną liczbę całkowitą równą 1 lub większą. Wysokie liczby mogą oznaczać wiele żądań do modelu i powiadomień.
 
-### Chat Check-In Cap
+Postać może też mieć własny **Daily safety limit** (ustawiany w jej harmonogramie). Limit dla postaci działa tak:
 
-Pod przełącznikiem znajduje się lista rozwijana **Chat Check-In Cap**, która ogranicza liczbę odezwań postaci w tym czacie w ciągu doby.
+- Limit czatu ustawiony na **Numeric value** i ustawiony **Daily safety limit**: wygrywa niższa liczba.
+- Ustawiony tylko jeden z nich: obowiązuje ta liczba, nawet jeśli jest wyższa niż liczba wynikająca z gadatliwości podana niżej.
+- Żaden nie jest ustawiony: liczba wynika z gadatliwości postaci.
 
-- Domyślna opcja to **Default chat ceiling (talkativeness-based)**. Limit wynika wtedy z gadatliwości każdej postaci.
-- Wybierz **Numeric value**, żeby pojawiło się pole liczbowe, i wpisz dowolny dodatni limit całkowity. Wysokie limity oznaczają wiele zapytań do modelu i wiele powiadomień.
-
-Ten limit obowiązuje cały czat. Własny limit postaci, ustawiony w jej harmonogramie, może tę liczbę tylko obniżyć, nigdy podnieść.
-
-Wartość domyślna oparta na gadatliwości działa tak:
-
-| Gadatliwość postaci | Domyślna liczba odezwań dziennie |
-|---|---|
+| Gadatliwość postaci | Odezwań na dobę |
+| --- | --- |
 | 80 lub więcej | 8 |
 | od 60 do 79 | 6 |
 | od 40 do 59 | 5 |
 | od 20 do 39 | 3 |
 | poniżej 20 | 2 |
 
-### Włączanie harmonogramów
+<a id="turn-on-schedules"></a>
 
-Przełącznik **Schedules** (harmonogramy) jest w sekcji **Autonomous Messaging**. Zapisane rutyny należą do postaci i są używane we wszystkich czatach Conversation, także w istniejącym czacie po dodaniu postaci. Wyraźne wyłączenie harmonogramów w danym czacie zachowuje to ustawienie bez usuwania rutyny postaci.
+## Włącz harmonogramy
 
-1. Włącz przełącznik **Schedules**.
-2. Istniejące rutyny pojawiają się od razu. Samo włączenie harmonogramów nie generuje nowych; kliknij **Generate**, gdy ich potrzebujesz.
-3. Kiedy rutyny są gotowe, pojawia się lista **Edit schedules** z jednym wierszem na postać.
+Zanim zaczniesz: włącz **Autonomous Messages**.
 
-Automatyczne odnawianie tygodniowe jest wyłączone, dopóki nie włączysz go dla postaci w **Character Schedule Manager** (menedżer harmonogramów postaci). Po błędzie otwieranie czatu nie ponawia stale żądania; użyj przycisków generowania, aby spróbować ponownie.
+1. W **Chat Settings → Autonomous Messaging** włącz **Schedules** (harmonogramy). (W kreatorze nowego czatu ta sama opcja nazywa się **Generate Schedules**.) Istniejące harmonogramy pojawiają się od razu.
+2. Wybierz swoją strefę czasową w polu pod spodem.
+3. Kliknij **Generate** (generuj), aby utworzyć harmonogramy dla postaci, które ich nie mają. Gdy harmonogramy już istnieją, przycisk nazywa się **Regenerate**.
+4. Poczekaj na koniec. Pojawi się wtedy lista **Edit schedules** z jednym wierszem na postać. Wiersz podaje, ile dni jest wypełnionych (na przykład **3 days scheduled**), albo **Create schedule**. Lista pokazuje się dopiero wtedy, gdy harmonogramy istnieją.
+5. Kliknij wiersz postaci, aby otworzyć jej edytor harmonogramu (następna sekcja).
 
-Każdy wiersz pokazuje liczbę wypełnionych dni, na przykład **3 days scheduled**, albo napis **Create schedule**, jeśli dana postać nie ma jeszcze harmonogramu. Przycisk **Generate** (po utworzeniu rutyn opisany jako **Regenerate**) buduje rutyny od nowa, kiedy tylko chcesz.
+Harmonogram należy do postaci i jest używany w każdym czacie Conversation. Wyłączenie **Schedules** w jednym czacie zostawia je wyłączone tylko tam i zachowuje harmonogram.
 
-## Edytor harmonogramu
+Automatyczne tygodniowe odnawianie jest wyłączone, chyba że włączysz **Renew weekly** dla tej postaci w oknie **Character Schedule Manager** (menedżer harmonogramów postaci). Otworzysz je przyciskiem kalendarza w stopce paska bocznego, obok pola statusu.
 
-Kliknij wiersz postaci na liście **Edit schedules**, żeby otworzyć edytor harmonogramu. Tytuł okna to **Edit**, nazwa postaci i słowo **Schedule**.
+Aplikacja próbuje odnowić harmonogram raz dla każdego czatu przy każdym wczytaniu strony aplikacji. Jeśli się to nie uda, nie próbuje ponownie, dopóki nie wczytasz strony od nowa. Kliknij **Generate**, aby spróbować jeszcze raz.
 
-Na górze, w obszarze **Routine profile**, widać opis całego tygodnia zwykłym językiem. Przycisk **Generate summary** tworzy ten opis, a **Refresh summary** go odświeża. Po zmianie harmonogramu już po utworzeniu opisu pojawia się uwaga **Summary may be stale**.
+Pole **Schedule generation preferences** w tym samym obszarze **Schedules** w **Chat Settings** zawiera wskazówki w wolnym tekście o tym, jak pisać harmonogramy. Obowiązuje we wszystkich czatach Conversation przy następnym generowaniu harmonogramów. Przykład:
 
-### Tuning
-
-Główne ustawienia kryją się w sekcji **Tuning**.
-
-- **Chat talkativeness** to suwak o pięciu stopniach: **Rare**, **Quiet**, **Balanced**, **Social** i **Very frequent**. Środkowy stopień **Balanced** jest domyślny. Ta wartość zastępuje domyślną gadatliwość postaci wszędzie tam, gdzie używany jest jej harmonogram. Wpływa na to, jak często postać zaczyna wiadomości, dopisuje kolejne i włącza się do rozmowy w grupie. Ustala też domyślny dzienny limit postaci.
-- **Wait before checking in** to czas ciszy w minutach, po którym postać może się odezwać. Zakres to od 15 do 360 minut. Domyślnie **120**.
-- **Check-in moments** to powody, dla których postać może się odezwać. Kafelki to **Morning**, **Goodnight**, **Meal breaks**, **After busy** i **Long absence**. Wszystkie są domyślnie włączone. Kliknięcie kafelka go wyłącza.
-
-### Advanced timing
-
-W sekcji **Tuning** otwórz **Advanced timing**, żeby zobaczyć trzy dodatkowe ustawienia.
-
-- **Daily safety limit** to twardy limit dla tej jednej postaci: albo **Default**, albo liczba od 1 do 8 dziennie. Może obniżyć limit czatu, ale nie może go podnieść. Zwykle najlepiej zostawić **Default**.
-- **Delay while you're away** określa, ile minut ta postać czeka z wysłaniem wiadomości, gdy jej własny status to **Away**. Puste pole oznacza wartość domyślną, czyli losowo od 1 do 3 minut. Zakres to od 0 do 120 minut.
-- **Delay while you're busy** działa tak samo, gdy status postaci to **Busy**. Puste pole oznacza wartość domyślną, czyli losowo od 2 do 5 minut. Zakres to od 0 do 120 minut.
-
-### Schedule AI: napisanie tygodnia od nowa
-
-Otwórz sekcję **Schedule AI**, żeby model przepisał rutynę za ciebie. Wybierz jedną opcję **Week action**:
-
-- **Rewrite** tworzy zupełnie nowy szkic całego tygodnia.
-- **Adjust** zachowuje większość rutyny i stosuje twoje wskazówki.
-- **Vary** układa tydzień wyraźnie inaczej, ale nadal wiarygodnie.
-- **Repair** łata luki i widoczne problemy drobnymi poprawkami.
-
-W polu **Week guidance** można wpisać dodatkowe wskazówki, na przykład:
-
-```
-make weekdays more nocturnal, keep weekends social
-```
-
-Potem kliknij przycisk z nazwą wybranej akcji, na przykład **Rewrite week**. Wynik jest tylko szkicem. Nic nie zapisuje się aż do kliknięcia przycisku **Save schedule**. Jeśli model zwróci niepoprawny JSON, popraw go w **Edit generated schedule JSON** (edytuj wygenerowany harmonogram JSON) i wybierz **Apply to draft** (zastosuj do szkicu). Zatwierdzone poprawki i udane dni pozostają w szkicu do zapisania. Nieudane wywołanie zatrzymuje pracę zamiast ponawiać ją automatycznie. **Stop** lub zamknięcie edytora anuluje aktywne żądanie. Zamknięcie menedżera harmonogramów lub ustawień czatu też anuluje rozpoczęte tam generowanie.
-
-### Bloki dzienne
-
-Pod sekcjami każdy dzień od poniedziałku do niedzieli ma własny wiersz. Dzień bez żadnych ustawień pokazuje napis **No blocks scheduled for this day**.
-
-Każdy blok składa się z trzech części, opisanych jako **Status, time & activity**:
-
-- **Status** wybierany spośród **Online**, **Away**, **Busy** i **Offline**.
-- Zakres czasu wpisywany w postaci `09:00-11:30`.
-- Krótka notatka o zajęciu, na przykład `at work`.
-
-Przycisk **Add block** dodaje zakres czasu, a ikona kosza usuwa istniejący. Każdy dzień ma też własne pole wskazówek, opisane **Guide Monday**, **Guide Tuesday** i tak dalej. Wpisz tam wskazówkę i kliknij odpowiedni przycisk, na przykład **Regenerate Monday**, żeby napisać od nowa tylko ten jeden dzień.
-
-Status bloku decyduje o tym, co postać zrobi, gdy nadejdzie pora odezwania się. Postać z blokiem **Offline** nigdy nie odzywa się pierwsza w tym czasie. Postać z blokiem **Busy** czeka przed odezwaniem się trzy razy dłużej niż zwykle.
-
-Na koniec kliknij przycisk **Save schedule**. Przycisk **Cancel** zamyka edytor bez zapisywania.
-
-### Przenoszenie harmonogramu między postaciami i instalacjami
-
-Przycisk **Export schedule** (eksport harmonogramu) na dole edytora pobiera bieżący szkic jako plik JSON. W eksporcie znajdują się bloki tygodniowe, podsumowanie rutyny, gadatliwość, pory odezwania się oraz zaawansowane ustawienia czasu.
-
-Otwórz edytor harmonogramu innej postaci i wybierz **Import schedule** (import harmonogramu), żeby wczytać ten plik. Marinara sprawdza plik, zanim podmieni szkic w edytorze, i przenosi zaimportowaną rutynę na bieżący tydzień. Import nie zapisuje się sam: kliknij przycisk **Save schedule**, żeby go zachować, albo przycisk **Cancel**, żeby zostawić dotychczasowy harmonogram postaci bez zmian.
-
-### Schedule generation preferences
-
-W panelu **Chat Settings** pole **Schedule generation preferences** przyjmuje dowolny tekst ze wskazówkami, jak mają powstawać rutyny. To ustawienie globalne. Obejmuje każdy czat w trybie Conversation przy następnym generowaniu harmonogramów, ręcznym albo automatycznym. Na przykład:
-
-```
+```text
 Make everyone go to sleep before midnight. I work 9-5 on weekdays.
 ```
 
-## Ustawianie jednorazowego statusu komendą /status
+## Edytor harmonogramów
 
-Komenda **/status** ustawia albo czyści tymczasowy status postaci, nie ruszając jej zapisanego harmonogramu. Działa wyłącznie w trybie Conversation.
+Tytuł edytora składa się ze słowa **Edit**, imienia postaci i słowa **Schedule**.
 
-Postać komendy wygląda tak:
+Na górze pole **Routine profile** (profil rutyny) pokazuje zwięzłe podsumowanie tygodnia. Kliknij **Generate summary**, aby je utworzyć, albo **Refresh summary**, aby je odświeżyć. Po zmianie harmonogramu pojawia się napis **Summary may be stale**. Lista **Generation model** wybiera model, który pisze harmonogramy.
 
-```
-/status <online|idle|dnd|offline|clear> [character name]
-```
+### Tuning
 
-Wpisz `idle` dla statusu **Away** i `dnd` dla statusu **Busy**. To te same cztery statusy, których używają bloki harmonogramu. Żeby postać o imieniu Mira wyglądała teraz na zajętą:
+Otwórz **Tuning** (dostrajanie), aby zobaczyć główne ustawienia.
 
-```
+- **Chat talkativeness**: suwak z pozycjami **Rare**, **Quiet**, **Balanced**, **Social** i **Very frequent**. Domyślna jest **Balanced**. Ustawia, jak często postać zaczyna wiadomości i włącza się do rozmowy grupowej, oraz jej domyślny dzienny limit.
+- **Wait before checking in**: minuty ciszy, po których postać może się odezwać. Domyślnie 120. Możesz ustawić od 15 do 360.
+- **Check-in moments**: plakietki **Morning**, **Goodnight**, **Meal breaks**, **After busy** i **Long absence**. Wszystkie są włączone. Kliknij jedną, aby ją wyłączyć.
+
+Otwórz **Advanced timing** wewnątrz sekcji **Tuning**, aby zobaczyć trzy kolejne ustawienia.
+
+- **Daily safety limit**: największa liczba odezwań na dobę dla tej postaci. Zostaw **Default** albo wpisz liczbę całkowitą równą 1 lub większą. Jeśli czat ma też limit liczbowy, wygrywa niższa liczba. W przeciwnym razie ta liczba zastępuje liczbę wynikającą z gadatliwości.
+- **Delay while you're away**: dodatkowe minuty, zanim postać odpowie, gdy jej status to **Away**. Zostaw puste, aby losowo czekać od 1 do 3 minut. Możesz ustawić od 0 do 120.
+- **Delay while you're busy**: to samo, gdy jej status to **Busy**. Zostaw puste, aby losowo czekać od 2 do 5 minut. Możesz ustawić od 0 do 120.
+
+### Schedule AI: przepisanie tygodnia
+
+Otwórz **Schedule AI**, aby model przepisał harmonogram. Wybierz jedną opcję **Week action**:
+
+| Działanie | Wynik |
+| --- | --- |
+| **Rewrite** | Nowy szkic całego tygodnia. |
+| **Adjust** | Zachowuje większość harmonogramu i stosuje twoje wskazówki. |
+| **Vary** | Wyraźnie inny tydzień, który nadal jest wiarygodny. |
+| **Repair** | Naprawia luki i oczywiste problemy małymi zmianami. |
+
+1. Wybierz **Week action**.
+2. W sekcji **Weekly generation** wybierz **Entire week in one request** albo **One request per day**. Opcja jednego żądania na dzień wysyła siedem mniejszych żądań i może zużyć więcej tokenów (małych kawałków tekstu, które liczą modele).
+3. Wpisz opcjonalne wskazówki w polu **Week guidance**, na przykład `make weekdays more nocturnal, keep weekends social`.
+4. Kliknij przycisk z nazwą twojego działania, na przykład **Rewrite week**.
+5. Kliknij **Save schedule** (zapisz harmonogram), aby zachować wynik. Do tego czasu jest to tylko szkic (**Unsaved draft**).
+
+Jeśli to nie zadziałało: twój szkic zostaje zachowany. Nieudane wywołanie nie jest ponawiane, więc kliknij przycisk jeszcze raz. Kliknij **Stop** albo zamknij edytor, aby przerwać trwające żądanie. Jeśli edytor pokazuje **Edit generated schedule JSON**, model zwrócił tekst, którego nie dało się odczytać. Popraw tam tekst i kliknij **Apply to draft**.
+
+### Bloki dzienne
+
+Każdy dzień od poniedziałku do niedzieli ma własny wiersz. Pusty dzień pokazuje **No blocks scheduled for this day**. Każdy blok ma status, zakres czasu, taki jak `09:00-11:30`, i krótką aktywność, taką jak `at work`.
+
+1. Kliknij **Add block** pod danym dniem.
+2. Wybierz status: **Online**, **Away**, **Busy** lub **Offline**.
+3. Wpisz zakres czasu i aktywność.
+4. Kliknij **Save schedule**. Przycisk **Cancel** zamyka edytor bez zapisu.
+
+Użyj ikony kosza, aby usunąć blok. Aby przepisać jeden dzień, wpisz wskazówkę w polu **Guide Monday** (albo innego dnia) i kliknij **Regenerate Monday**.
+
+Podczas bloku **Offline** postać nigdy nie pisze pierwsza. Podczas bloku **Busy** czeka trzy razy dłużej niż zwykle.
+
+### Przenieś harmonogram między postaciami
+
+Kliknij **Export schedule**, aby pobrać szkic jako plik JSON (bloki tygodniowe, podsumowanie, gadatliwość, momenty odezwań i czasy). W edytorze innej postaci kliknij **Import schedule**, aby go wczytać. Aplikacja sprawdza plik i przenosi harmonogram na bieżący tydzień. Nic nie zostaje zapisane, dopóki nie klikniesz **Save schedule**.
+
+## Ustaw status poleceniem /status
+
+Polecenie `/status` ustawia lub czyści tymczasowy status postaci bez zmiany jej zapisanego harmonogramu. Działa tylko w trybie Conversation. Status należy do postaci, więc obowiązuje w każdym czacie, w którym ona jest.
+
+Wpisz jedną z tych linii w polu wiadomości:
+
+```text
 /status dnd Mira
-```
-
-Żeby usunąć to nadpisanie i przywrócić Mirę do harmonogramu:
-
-```
 /status clear Mira
 ```
 
-Jeśli w czacie jest tylko jedna postać, nazwę można pominąć. Komenda **/status** bez żadnych opcji pokazuje listę postaci i pomoc do użycia.
+Pierwsza sprawia, że Mira jest zajęta. Druga przywraca ją do harmonogramu. Gdy w czacie jest jedna postać, możesz pominąć imię. Samo `/status` wypisuje postacie i sposób użycia.
 
-<a id="characters-can-change-their-own-status"></a>
+Pełna postać polecenia jest niżej. `idle` oznacza **Away**, a `dnd` oznacza **Busy**. Nawiasy kwadratowe oznaczają, że imię jest opcjonalne.
 
-## Postacie mogą same zmieniać swój status
+```text
+/status online|idle|dnd|offline|clear [character name]
+```
 
-Gdy w **Chat Settings → Agents** komenda **Schedule Updates** jest włączona, postać może sama ustawić sobie tymczasowy status i zajęcie. Jeśli na przykład poprosisz ją, żeby przez godzinę się skupiła, może przełączyć się na **Busy** z zajęciem "Studying".
+Ustawiony status trwa, dopóki go nie wyczyścisz, a postać nie może go zastąpić.
 
-- Zmiana trwa tak długo, jak poda postać, a jeśli nie poda, przez godzinę. Najdłużej może trwać siedem dni.
-- Gdy czas minie, postać wraca do swojego harmonogramu albo do statusu **Online**, jeśli harmonogramu nie ma.
-- Postać nigdy nie zmienia zapisanego harmonogramu.
-- Status ustawiony przez ciebie komendą **/status** pozostaje, dopóki go nie wyczyścisz. Postać nie może go zastąpić.
+## Pozwól postaciom zmieniać własny status
 
-## Jak rozkładane są wiadomości autonomiczne
+Gdy **Schedule Updates** jest włączone w **Chat Settings → Agents → Commands**, postać może ustawić własny tymczasowy status i aktywność. Na przykład jeśli poprosisz ją o skupienie na godzinę, może przełączyć się na **Busy** z aktywnością "Studying".
 
-Marinara rozkłada wiadomości autonomiczne w czasie, żeby żadna postać nie zasypywała cię wiadomościami. Poniższe zasady korzystają z harmonogramu każdej postaci.
+- Zmiana trwa tak długo, jak powie postać, albo godzinę, jeśli nie poda czasu. Najdłuższy czas to siedem dni.
+- Gdy czas minie, postać wraca do harmonogramu albo do **Online**, jeśli go nie ma.
+- Nigdy nie edytuje zapisanego harmonogramu.
 
-- Postać czeka, aż cisza z twojej strony potrwa tyle, ile mówi ustawienie **Wait before checking in**. Domyślnie to 120 minut.
-- Postać, której bieżący status to **Offline**, nie odzywa się pierwsza.
-- Postać, której bieżący status to **Busy**, czeka trzy razy dłużej.
-- Po pierwszej wiadomości postać może wysłać jeszcze najwyżej dwie, dopóki cisza trwa. Razem daje to trzy wiadomości na jeden okres ciszy.
-- Każda kolejna wiadomość czeka dłużej niż poprzednia. Pierwsza dodatkowa czeka dwa razy dłużej niż czas bazowy, a druga cztery razy dłużej.
-- Po twojej odpowiedzi licznik zeruje się. Kolejna cisza liczy się od nowa.
+## Jak działa tempo odezwań
 
-Jeśli kilka postaci jest gotowych naraz, pierwszeństwo ma ta o najwyższej gadatliwości i najlepszym momencie.
+| Reguła | Szczegóły |
+| --- | --- |
+| Pierwsze odezwanie | Postać czeka, aż będziesz milczeć przez czas z ustawienia **Wait before checking in** (domyślnie 120 minut). |
+| Reakcja | Twoja reakcja bez nowej wiadomości otwiera krótsze oczekiwanie. |
+| Status **Offline** | Brak odezwań. |
+| Status **Busy** | Oczekiwanie jest trzy razy dłuższe. |
+| Kolejne odezwania | Do dwóch więcej, gdy nadal milczysz, czyli trzy w sumie. Pierwsze kolejne przychodzi po dwukrotności czasu oczekiwania, drugie po czterokrotności. |
+| Twoja odpowiedź | Licznik się zeruje. |
+| Kilka postaci gotowych | Pierwsza idzie ta z największą gadatliwością i najlepszym momentem. Postać ze statusem **Online** ma wyższą pozycję. |
 
-W czacie grupowym ustawionym na **Individual** (osobno) postacie mają jeden wspólny dzienny limit odezwań, więc te zasady rozkładania wiadomości też są dla nich wspólne. Gdy którakolwiek postać się odezwie, następne odezwanie się dowolnej z nich czeka tak jak dodatkowa wiadomość. Kiedy nadejdzie na nie pora, może się odezwać każda postać, której własny czas oczekiwania już minął, a pierwszeństwo ma ta, która tego dnia odezwała się najmniej razy. Po długiej nieobecności odzywa się tylko jedna postać.
-
-## Twój status obecności
-
-Twój własny status mówi postaciom, czy jesteś w pobliżu. Sterowanie statusem znajduje się w stopce paska bocznego i jest widoczne w każdym trybie czatu. Na wiadomości wpływa jednak tylko w trybie Conversation.
-
-Kliknij kafelek statusu, żeby zobaczyć cztery opcje:
-
-- **Active**: jesteś online i w zasięgu.
-- **Idle**: pokazuje, że cię nie ma przy urządzeniu.
-- **Do Not Disturb**: wstrzymuje wszystkie wiadomości autonomiczne.
-- **Invisible**: ukrywa twój status przed postaciami.
-
-Status **Idle** włącza się przeważnie sam. Przy statusie **Active** i dziesięciu minutach bez żadnej aktywności Marinara przełącza cię na **Idle**. Po powrocie wraca do statusu **Active**. Status **Idle** można też wybrać ręcznie w panelu podręcznym. Ręczny wybór dowolnego statusu wyłącza automatyczne przełączanie aż do ponownego wybrania **Active**.
-
-Ustaw **Do Not Disturb**, kiedy potrzebujesz ciszy. Przy tym statusie żadna postać nie odezwie się pierwsza. Status **Idle** nie blokuje wiadomości autonomicznych. Postacie mogą się odzywać także podczas twojej nieobecności.
-
-Obok kafelka statusu jest pole **What are you doing?**. Wpisz tam krótki własny opis zajęcia, do 120 znaków. Ostatnio używane wpisy pojawiają się na liście **Recent status**, więc łatwo ich użyć ponownie.
+W czacie grupowym, w którym każda postać odpowiada osobną wiadomością (zobacz [Czaty grupowe w trybach Conversation i Roleplay](../chats/group-chats.md)), postacie dzielą jeden dzienny limit i jedno tempo. Gdy którakolwiek postać się odezwie, następne odezwanie dowolnej z nich czeka tak jak kolejne odezwanie. Wysłać je może każda postać, której własny czas oczekiwania minął, a pierwsza idzie ta, która danego dnia odezwała się najmniej razy. Po długiej nieobecności odzywa się tylko jedna postać.
 
 ## Powiązane przewodniki
 
 - [Tryb Conversation: pierwsze kroki](getting-started.md)
 - [Profile w trybie Conversation Mode (nazwa wyświetlana, About Me, zachowanie)](profiles.md)
-- [Panel **Chat Settings** – przegląd](../chats/chat-settings.md)
+- [Panel Chat Settings – przegląd](../chats/chat-settings.md)

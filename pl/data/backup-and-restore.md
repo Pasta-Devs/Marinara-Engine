@@ -1,128 +1,126 @@
 # Kopia zapasowa i przywracanie danych aplikacji Marinara
 
-Z tego przewodnika dowiesz się, jak na dwa sposoby zapisać wszystko, co masz w aplikacji Marinara Engine, i jak później wgrać taki zapis z powrotem. Przyda się przed aktualizacją, przed przesiadką na nowe urządzenie i przed resetem danych.
+Zapisz kopię danych aplikacji Marinara Engine, aby móc je później przywrócić. Zrób to przed aktualizacją, zmianą urządzenia lub [wyczyszczeniem danych](clearing-data.md).
 
-## Dwa sposoby na zapisanie danych
+## Którą opcję wybrać
 
-Marinara daje dwie opcje zapisu. Każda leży w innym miejscu i służy do czegoś innego.
+| Opcja | Co tworzy | Kiedy jej użyć |
+| --- | --- | --- |
+| **Download Backup** | Plik `.zip` ze wszystkimi danymi i plikami. | Gdy potrzebujesz jednej pełnej kopii. |
+| **Export Profile** | Mniejszy plik z danymi konta (postaciami, czatami, lorebookami i innymi danymi). | Gdy potrzebujesz kopii bez sekretów lub plików dla innych narzędzi. |
 
-- **Download Backup** (pobranie kopii zapasowej) tworzy pełne archiwum **.zip** ze wszystkim, co leży na dysku. Plik **.zip** to jeden skompresowany plik, który mieści w sobie wiele innych plików. To najbardziej kompletny zapis i najlepsze zabezpieczenie przed utratą danych.
-- **Export Profile** (eksport profilu) tworzy lżejszy plik z danymi konta: postaciami, personami, czatami, lorebookami, presetami, agentami, motywami i rozszerzeniami Personal Extensions. Profil to przenośna kopia konta w formacie aplikacji Marinara Engine. Da się ją później przywrócić w samej aplikacji.
+Plik `.zip` mieści wiele plików. Obie opcje są w sekcji **Settings → Advanced → Backup & Export** (ustawienia, zaawansowane, kopie zapasowe i eksport). Przywracanie danych jest w sekcji **Settings → Imports → Profile & Marinara** (ustawienia, import, profil i Marinara).
 
-Jeśli chodzi tylko o jeden bezpieczny zapis całości, wybierz **Download Backup**. Opcja **Export Profile** przyda się wtedy, gdy potrzebny jest mniejszy plik albo wersja czytelna dla innych narzędzi do roleplayu.
-
-Obie opcje zapisu znajdziesz w sekcji **Backup & Export** w panelu **Settings** (Ustawienia), na zakładce **Advanced**.
-
-## Dostęp na tym samym urządzeniu i na innym
-
-Na komputerze, który uruchamia aplikację Marinara Engine, obie funkcje działają od razu. To przypadek pętli zwrotnej, czyli sytuacja, w której aplikacja została otwarta pod adresem `localhost` albo `127.0.0.1` na tej samej maszynie.
-
-Z telefonu, tabletu i każdego innego urządzenia kopia zapasowa oraz przywracanie wymagają sekretu **Admin Access** (dostęp administratora). Ustaw sekret na serwerze, a potem wklej tę samą wartość w panelu **Settings**, na zakładce **Advanced**, w polu **Admin Access**. Zajrzyj do przewodnika o dostępie zdalnym podlinkowanego na końcu.
+**Zanim zaczniesz:** na komputerze, na którym działa aplikacja Marinara Engine, te narzędzia działają od razu. Aby użyć ich z telefonu, tabletu lub innego urządzenia, ustaw sekret administratora na serwerze i wpisz tę samą wartość w **Settings → Advanced → Admin Access** (ustawienia, zaawansowane, dostęp administratora). Sekret administratora to hasło w pliku `.env` serwera, zapisane jako `ADMIN_SECRET`. Zobacz sekcję "Privileged APIs (ADMIN_SECRET)" w dokumencie [Konfiguracja serwera](../CONFIGURATION.md) oraz przewodnik [Dostęp zdalny](../REMOTE_ACCESS.md).
 
 ## Download Backup
 
-Opcja **Download Backup** tworzy jeden plik **.zip** z bazą danych, ustawieniami i wszystkimi folderami multimediów: awatarami, sprite'ami, tłami, obrazami z galerii, czcionkami, własnym dźwiękiem powiadomień i resztą.
+1. Otwórz **Settings → Advanced** (ustawienia, zaawansowane).
+2. W sekcji **Backup & Export** kliknij **Download Backup** (pobranie kopii zapasowej). Przycisk wyświetli **Creating backup…** (tworzenie kopii zapasowej).
+3. Zapisz plik, gdy przeglądarka o to poprosi, albo znajdź go w folderze pobranych plików.
 
-1. Otwórz panel **Settings**.
-2. Przejdź na zakładkę **Advanced**.
-3. Znajdź sekcję **Backup & Export**.
-4. Kliknij przycisk **Download Backup**.
-5. W trakcie pracy na przycisku widnieje napis **Creating backup…**.
-6. Kiedy archiwum jest gotowe, Marinara przesyła je strumieniowo prosto do przeglądarki, bez przechowywania całego pliku w pamięci strony.
-7. Zależnie od ustawień pobierania przeglądarka otwiera zwykłe okno **Save As** albo umieszcza plik w folderze pobranych plików.
+Plik `.zip` zawiera:
 
-Ten krok ma największe znaczenie w systemach Android i iOS. Na tych urządzeniach folder z danymi aplikacji zwykle pozostaje poza zasięgiem. Dlatego opcja **Download Backup** to jedyny prosty sposób, żeby przenieść kopię poza urządzenie. Zapisz ją w bezpiecznym i prywatnym miejscu, na przykład we własnej chmurze.
+- zapisane dane tekstowe (postacie, czaty, lorebooki, presety, połączenia i ustawienia);
+- przesłane i wygenerowane pliki, w tym awatary, sprite'y, tła, obrazy z galerii, czcionki, własne emoji i naklejki oraz własny dźwięk powiadomień;
+- plik `.encryption-key`, jeśli istnieje;
+- plik `RESTORE.txt` z instrukcją ręcznego przywracania danych (zobacz [Ręczne przywracanie](#restore-by-hand)).
 
-W pliku **.zip** znajduje się też zwykły plik tekstowy `RESTORE.txt`. Wyjaśnia, jak w razie potrzeby odzyskać dane ręcznie. Traktuj kopię zapasową jak coś prywatnego: może zawierać tajne pliki, które odblokowują zapisane klucze API. Opis zawartości poszczególnych folderów znajdziesz w przewodniku o lokalizacji danych podlinkowanym niżej.
+Nazwy folderów znajdziesz w przewodniku [Gdzie Marinara przechowuje dane](where-data-is-stored.md).
+
+> **Ostrzeżenie:** Kopia zapasowa zawiera zapisane klucze API oraz plik `.encryption-key`, który je odblokowuje. Nigdy jej nie udostępniaj. Przechowuj ją w prywatnym miejscu.
+
+W systemie Android nie masz dostępu do folderu danych aplikacji. Użyj **Download Backup**, aby skopiować dane poza urządzenie.
+
+Jeśli operacja się nie powiedzie: po komunikacie "Backup preparation timed out after one hour." spróbuj ponownie. Jeśli nie da się pobrać kopii z innego urządzenia, sprawdź **Admin Access** (opis wyżej).
+
+<a id="automatic-backups"></a>
 
 ## Automatyczne kopie zapasowe
 
-Sekcja **Backup & Export** potrafi też tworzyć rotacyjną, automatyczną pełną kopię zapasową na urządzeniu z aplikacją Marinara Engine.
-Włącz przełącznik **Automatic Backups** (automatyczne kopie zapasowe), wybierz **Daily**, **Weekly** albo **Monthly** i ustaw pole
-**Automatic backups kept** na wartość od 1 do 9999. Pierwszą kopię Marinara tworzy krótko po włączeniu tej opcji. Po każdym
-udanym przebiegu zachowuje tyle najnowszych automatycznych archiwów, ile wynosi ustawienie, i usuwa najstarsze nadmiarowe
-archiwum automatyczne. Ten limit nigdy nie kasuje kopii ręcznych ani kopii zapisanych przez **Download Backup**.
+Marinara może regularnie tworzyć pełną kopię zapasową na komputerze, na którym działa.
 
-Automatyczne kopie zapasowe lądują w folderze `backups/` wewnątrz folderu danych aplikacji Marinara Engine. Najnowsze archiwum to
-`marinara-automatic-backup.zip`; zachowane starsze archiwa automatyczne mają w nazwie znacznik czasu. Format archiwum jest ten sam,
-strumieniowy i gotowy do przywrócenia, co przy **Download Backup** – razem z wgranymi multimediami i plikiem klucza szyfrowania,
-jeśli taki istnieje. Trzymaj osobną kopię poza folderem danych aplikacji Marinara Engine, jeśli chcesz zabezpieczyć się przed awarią
-dysku, wyczyszczeniem pamięci aplikacji albo resetem urządzenia.
+1. Otwórz **Settings → Advanced → Backup & Export**.
+2. Włącz **Automatic backups** (automatyczne kopie zapasowe).
+3. Wybierz **Daily** (codziennie), **Weekly** (co tydzień) lub **Monthly** (co miesiąc).
+4. Ustaw **Automatic backups kept** (liczba zachowywanych kopii automatycznych) na wartość od 1 do 9999.
 
-Każde wykonanie wymaga miejsca na jeszcze jedno pełne archiwum na dysku z folderem `backups/`, ponieważ poprzednia kopia pozostaje zachowana do czasu ukończenia nowej. Jeśli miejsca nie wystarcza, Marinara pomija ten przebieg i wyświetla przyczynę obok przełącznika **Automatic Backups**. Po zwolnieniu miejsca ponowi próbę przy następnej kontroli.
+Marinara tworzy pierwszą kopię niedługo po włączeniu tej opcji. Po każdym wykonaniu zachowuje wskazaną liczbę najnowszych kopii i usuwa starsze kopie automatyczne. Nigdy nie usuwa kopii utworzonych przez **Download Backup**.
 
-## Export Profile
+Automatyczne kopie leżą w folderze `backups/` wewnątrz folderu danych. Najnowsza ma nazwę `marinara-automatic-backup.zip`. Starsze mają w nazwie datę i godzinę. Ich format jest taki sam jak format kopii z **Download Backup**.
 
-Opcja **Export Profile** tworzy mniejszy plik z danymi konta. Multimedia też się w nim znajdują, więc awatary, obrazy i własny dźwięk powiadomień wędrują razem z resztą.
+Każde wykonanie wymaga wolnego miejsca na jeszcze jedno pełne archiwum, ponieważ poprzednia kopia pozostaje na dysku aż do zakończenia nowej. Jeśli miejsca nie wystarcza, Marinara pomija wykonanie i wyświetla przyczynę obok ustawienia. Ponawia próbę po zwolnieniu miejsca.
 
-1. Otwórz panel **Settings**.
-2. Przejdź na zakładkę **Advanced**.
-3. Znajdź sekcję **Backup & Export**.
-4. Kliknij przycisk **Export Profile**.
-5. Otwiera się okno **Export Profile** z dwiema możliwościami.
-6. Wybierz format (opis niżej).
-7. Plik pobiera się na urządzenie.
+> **Wskazówka:** Przechowuj drugą kopię poza folderem danych. Awaria dysku lub usunięcie danych aplikacji usuwa też automatyczne kopie zapasowe.
 
-Okno oferuje dwa formaty:
+## Eksport profilu
 
-| Format | Co to jest | Da się przywrócić w aplikacji Marinara Engine? |
-| --- | --- | --- |
-| **Marinara Native** | Zachowuje pola aplikacji Marinara Engine, foldery lorebooków, dane postaci i person, presety, agentów, motywy, wersje robocze rozszerzeń Personal Extensions oraz multimedia osadzone w pliku. | Tak |
-| **Compatible JSON** | Zwykłe pliki postaci, person i lorebooków dla innych narzędzi do roleplayu. | Nie |
+1. Otwórz **Settings → Advanced → Backup & Export**.
+2. Kliknij **Export Profile** (eksport profilu). Otworzy się okno o tej samej nazwie.
+3. Wybierz format.
+4. Przeglądarka pobierze plik.
 
-Wybierz **Marinara Native**, żeby zachować kopię możliwą do późniejszego przywrócenia w aplikacji Marinara Engine. Mniejsze profile
-pobierają się jako `marinara-profile.json`; większe trafiają do strumieniowego pliku `marinara-profile.zip`, w którym dane dzielą się
-na ograniczone rozmiarem pliki tabel, dzięki czemu duża biblioteka nie musi zmieścić się w jednym ciągu JSON w pamięci.
+- **Marinara Native** (format natywny) zachowuje postacie, persony, czaty, lorebooki, presety, agentów, motywy, kod rozszerzeń Personal Extension i multimedia. Nie przywraca kluczy API, adresów webhooków ani niektórych ustawień czatu (zobacz [Ponowne wpisanie kluczy](#enter-your-keys-again)). Da się go przywrócić w aplikacji Marinara Engine.
+- **Compatible JSON** (zgodny format JSON) tworzy plik `.zip` ze zwykłymi plikami postaci, person i lorebooków dla innych narzędzi. Nie da się go przywrócić w aplikacji Marinara Engine.
 
-Kod rozszerzeń Personal Extensions zostaje zachowany w profilu natywnym, ale stan włączenia i zgoda na uruchamianie już nie. Każde przywrócone rozszerzenie trafia do aplikacji wyłączone i wymaga ponownego przejrzenia w **Settings** > **Addons**.
+Profil natywny pobiera się jako `marinara-profile.json`. Jeśli jest za duży, Marinara proponuje zamiast niego plik ZIP. Kliknij **Export ZIP** (eksport ZIP), aby pobrać `marinara-profile.zip`.
 
-Format **Compatible JSON** wybieraj tylko wtedy, gdy chcesz przenieść postacie albo lorebooki do innego narzędzia. Pobiera się jako plik **.zip** ze zwykłymi plikami. Takiego pliku nie da się przywrócić w aplikacji Marinara Engine przez **Import Profile**.
+Profil natywny zachowuje kod Personal Extension, lecz nie zachowuje informacji o włączeniu ani zatwierdzeniu rozszerzenia. Każde przywrócone rozszerzenie jest wyłączone. Przejrzyj je ponownie w **Settings → Addons** (ustawienia, dodatki).
 
 ## Przywracanie przez Import Profile
 
-Żeby wgrać z powrotem zapisany profil albo archiwum z **Download Backup**, użyj opcji **Import Profile** (import profilu). Znajdziesz ją na innej zakładce niż narzędzia do zapisu.
+**Import Profile** (import profilu) wczytuje plik profilu lub plik `.zip` utworzony przez **Download Backup**.
 
-1. Otwórz panel **Settings**.
-2. Przejdź na zakładkę **Imports**.
-3. Znajdź sekcję **Profile & Marinara**.
-4. Kliknij przycisk **Import Profile (JSON/ZIP)**.
-5. Wskaż plik. Może to być `marinara-profile.json`, `marinara-profile.zip` albo pełny plik **.zip** z **Download Backup**.
-6. Marinara najpierw sprawdza zawartość pliku. Na przycisku widnieje wtedy napis **Scanning Profile...**.
-7. Pojawia się okno **Import Profile**. Wypisuje, co udało się znaleźć, na przykład liczbę postaci i person.
-8. Okno ostrzega, że importu nie da się cofnąć. Przeczytaj treść, a potem kliknij przycisk **Import**, żeby kontynuować, albo **Cancel**, żeby przerwać.
-9. Import rusza i pokazuje napis **Importing Profile...** wraz z paskiem postępu.
+1. Otwórz **Settings → Imports** (ustawienia, import).
+2. W sekcji **Profile & Marinara** (profil i Marinara) kliknij **Import Profile (JSON/ZIP)** (import profilu JSON/ZIP).
+3. Wybierz `marinara-profile.json`, `marinara-profile.zip` albo plik `.zip` z kopią zapasową. Przycisk wyświetli **Scanning Profile...** (sprawdzanie profilu).
+4. Przeczytaj treść okna **Import Profile**. Pokazuje znalezione dane i ostrzega, że importu nie da się cofnąć.
+5. Kliknij **Import** (import), aby kontynuować, albo **Cancel** (anulowanie), aby przerwać. Przycisk wyświetli **Importing Profile...** (importowanie profilu), a następnie pojawi się pasek postępu. Po zakończeniu zobaczysz potwierdzenie importu.
 
-Niedawno utworzony profil z aplikacji Marinara Engine przywraca się przez dopasowanie tożsamości każdego elementu, a nie jego nazwy. Dlatego import tego samego profilu po raz drugi aktualizuje istniejące elementy w miejscu, zamiast tworzyć duplikaty.
+Jeśli operacja się nie powiedzie:
 
-Bardzo stare pliki profilu, z dużo wcześniejszych wersji, nie mają tej właściwości. Ponowny import takiego pliku potrafi utworzyć zduplikowane postacie, persony i lorebooki. Przy przywracaniu wyłącznie świeżych eksportów ten problem w ogóle nie występuje.
+- Poza adresami `localhost`, `127.0.0.1` i `[::1]` import profilu wymaga HTTPS. Komunikat błędu brzmi "Profile import requires HTTPS outside local development." Otwórz aplikację Marinara Engine przez adres HTTPS.
+- Jeśli w pliku `.zip` brakuje części multimediów, import i tak się kończy. Ostrzeżenie zawiera listę brakujących plików, a Marinara importuje pozostałe dane.
 
-Jeśli po wskazaniu pliku zmieni się on na dysku, zanim import zostanie potwierdzony, operacja zatrzymuje się z ostrzeżeniem. Wystarczy wskazać plik jeszcze raz.
+Jeśli zaimportujesz ten sam profil dwukrotnie, Marinara zaktualizuje istniejące elementy zamiast je powielać. Profile z dużo starszych wersji mogą jednak utworzyć duplikaty.
 
-Kiedy w pliku **.zip** brakuje części plików multimedialnych, import mimo to dobiega końca. Pokazuje bursztynowe ostrzeżenie z listą brakujących plików i importuje całą resztę.
+<a id="enter-your-keys-again"></a>
 
-## Po przywróceniu: wpisz klucze od nowa
+## Ponowne wpisanie kluczy
 
-Opcja **Export Profile** usuwa tajne wartości z pliku profilu. Zapisane klucze API i adresy webhooków są w nim puste. Dzięki temu plik profilu można bezpiecznie przechowywać i udostępniać. Klucz API to hasło, które łączy aplikację Marinara Engine z dostawcą AI.
+**Import Profile** nigdy nie przywraca kluczy API ani adresów webhooków, nawet z pliku `.zip` utworzonego przez **Download Backup**. Klucz API to tajny kod otrzymany od usługi. Te wartości są wyczyszczone w pliku profilu oraz w profilu wewnątrz kopii zapasowej. Po imporcie na nowym komputerze wpisz je ponownie:
 
-Z archiwum **Download Backup** sprawa wygląda inaczej. Marinara nie usuwa z niego tajnych danych. Plik **.zip** z kopią zapasową to surowy zapis danych. Zawiera zapisane klucze i tajny plik, który potrafi je odblokować. Nigdy nie udostępniaj tego pliku **.zip**. Trzymaj go w prywatnym miejscu.
+1. Otwórz **Connections** (połączenia) na górnym pasku.
+2. Otwórz każde używane konto, wpisz klucz API i zapisz. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+3. Wpisz ponownie adres webhooka w każdym własnym narzędziu, które go używa.
 
-Opcja **Import Profile** przywraca dane z pliku profilu, nawet gdy wskażesz plik **.zip** z kopią zapasową. Archiwum ma w środku kopię pliku profilu i to właśnie ją czyta import. Dlatego elementy utworzone przez import mają puste klucze i adresy webhooków.
+Niektóre ustawienia czatu z adresami lub kluczami (Discord, DeepL, Intiface) też są puste po imporcie. Wpisz je ponownie w **Chat Settings** (ustawienia czatu) każdego czatu.
 
-Po zaimportowaniu profilu zrób tak:
+Import nigdy nie usuwa kluczy już zapisanych w tej samej instalacji.
 
-1. Otwórz panel **Connections** (połączenia) z górnego paska.
-2. Otwórz każde używane połączenie.
-3. Wpisz od nowa jego klucz API i zapisz połączenie.
+## Przeniesienie danych na nowy komputer
 
-Jeśli używasz własnych narzędzi wywołujących adres webhooka, wpisz ten adres od nowa również przy każdym narzędziu.
+1. Zainstaluj aplikację Marinara Engine na nowym komputerze i uruchom ją. Zobacz [Instalacja](../INSTALLATION.md).
+2. Otwórz **Settings → Imports → Profile & Marinara** i kliknij **Import Profile (JSON/ZIP)**.
+3. Wybierz plik `.zip` utworzony przez **Download Backup** albo plik profilu, a następnie kliknij **Import**.
+4. Wpisz ponownie klucze API zgodnie z opisem wyżej.
 
-Plik profilu pomija też kilka adresów zapisanych razem z czatem: webhook kopii czatu w serwisie Discord, adres DeepLX, klucz DeepL i adres Intiface. Dotyczy to również profili ustawień i domyślnych ustawień tłumaczenia dla nowych czatów. Po imporcie profilu w innej instalacji wpisz je ponownie w **Chat Settings** (ustawienia czatu) każdego czatu.
+Plik klucza z kopii zapasowej pomaga tylko wtedy, gdy ręcznie kopiujesz cały folder danych, jak opisano niżej.
 
-Import nie kasuje kluczy, które są już wpisane. Przy ponownym imporcie starego profilu Marinara zachowuje aktualne klucze i adresy webhooków przy elementach, które nadal istnieją. Ponowny import ich nie wyczyści.
+<a id="restore-by-hand"></a>
 
-## Lista Existing backups
+## Ręczne przywracanie
 
-Sekcja **Backup & Export** może pokazywać listę **Existing backups** (istniejące kopie zapasowe) razem z przyciskiem usuwania. Przy zwykłym używaniu aplikacji lista pozostaje pusta. Opcja **Download Backup** zapisuje plik prosto na urządzenie. Nie zostawia kopii na tej liście, a pojedynczym rotacyjnym archiwum automatycznym zarządza osobno przełącznik **Automatic Backups**. Ta lista nie jest potrzebna do utworzenia ani przechowania pobranej kopii zapasowej.
+Użyj tej metody tylko wtedy, gdy nie da się użyć **Import Profile**. W pliku `.zip` znajduje się folder, na przykład `marinara-backup-...`, z instrukcją `RESTORE.txt`.
+
+1. Zatrzymaj aplikację Marinara Engine.
+2. Rozpakuj kopię zapasową.
+3. Skopiuj foldery oraz plik `.encryption-key` z rozpakowanego folderu do folderu danych. Zobacz [Gdzie Marinara przechowuje dane](where-data-is-stored.md).
+4. Uruchom aplikację Marinara Engine.
+
+Trzymaj plik `.encryption-key` razem z folderem `storage`, inaczej nie da się odczytać zapisanych kluczy API.
+
+Lista **Existing backups** (istniejące kopie zapasowe) w sekcji **Backup & Export** zwykle jest pusta. Nie musisz jej używać.
 
 ## Powiązane przewodniki
 

@@ -1,198 +1,165 @@
 # Emplois du temps des personnages et messages autonomes
 
-Ce guide explique comment les personnages du mode Conversation t'écrivent en premier, et comment tu décides du moment où ils le font. Au programme : les messages autonomes, les emplois du temps des personnages, la commande **/status** et ton propre statut de présence. Ces fonctionnalités n'existent qu'en mode Conversation.
+Les messages autonomes sont des messages qu'un personnage t'envoie en premier, après que tu es resté silencieux un moment. Un emploi du temps est le plan hebdomadaire d'un personnage, qui lui donne l'air d'être éveillé, occupé ou endormi à différents moments. Les deux ne fonctionnent qu'en mode Conversation.
 
-## À quoi servent les messages autonomes et les emplois du temps
+Les emplois du temps sont facultatifs. Quand ils sont désactivés, les personnages te contactent quand même selon leur sociabilité (la fréquence à laquelle un personnage lance une conversation) et ta présence.
 
-Un message autonome, c'est un message qu'un personnage t'envoie de lui-même, sans que tu aies rien écrit. Marinara Engine (Marinara en abrégé) les envoie après un moment de silence de ta part, pour qu'un chat (une conversation enregistrée) ressemble à une vraie relation par messagerie.
-
-Deux réglages pilotent ce comportement :
-
-- **Autonomous Messages** (messages autonomes) détermine si les personnages ont le droit de te contacter.
-- **Schedules** (emplois du temps) donne à chaque personnage une routine hebdomadaire, pour qu'il paraisse éveillé, occupé ou endormi selon l'heure.
-
-Les emplois du temps restent facultatifs. Avec les messages autonomes activés et les emplois du temps désactivés, les personnages te contactent quand même, selon leur niveau de bavardage et ton statut. Le niveau de bavardage est un réglage propre à chaque personnage : il indique à quelle fréquence celui-ci lance une conversation de lui-même.
+Aller à : [Activer les emplois du temps](#turn-on-schedules) si tu veux seulement un emploi du temps.
 
 ## Activer les messages autonomes
 
-Tout se règle depuis le chat, pas depuis la fiche de personnage. Ces commandes se trouvent toutes dans la section **Autonomous Messaging** (messagerie autonome) des **Chat Settings** (réglages du chat).
+**Avant de commencer :** ouvre un chat Conversation. Les nouveaux chats démarrent avec cette option activée (voir [Mode Conversation : premiers pas](getting-started.md)).
 
-1. Ouvre un chat en mode Conversation.
-2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
-3. Repère la section **Autonomous Messaging**.
-4. Active l'interrupteur **Autonomous Messages**.
+1. Ouvre **Chat Settings** (réglages du chat) dans le chat.
+2. Trouve la section **Autonomous Messaging** (messages autonomes).
+3. Active **Autonomous Messages**.
 
-Dans l'assistant de configuration d'un nouveau chat, l'option **Autonomous Messages** est activée par défaut. Désactive-la quand tu veux depuis les **Chat Settings**.
+Si ça n'a pas marché : les personnages restent silencieux tant que ta présence est **Do Not Disturb** (voir [Ton statut de présence](getting-started.md#your-presence-status)).
 
-### Chat Check-In Cap
+### Définir la limite de check-ins
 
-Sous l'interrupteur, le réglage **Chat Check-In Cap** (plafond de prises de nouvelles) limite le nombre de fois par jour où les personnages peuvent te contacter dans ce chat.
+Dans **Chat Settings → Autonomous Messaging**, **Chat Check-In Cap** limite le nombre de check-ins que les personnages peuvent envoyer par jour dans ce chat.
 
-- L'option par défaut est **Default chat ceiling (talkativeness-based)**. La limite découle alors du niveau de bavardage de chaque personnage.
-- Choisis **Numeric value** pour afficher un champ numérique et saisir le plafond entier positif de ton choix. Attention : un plafond élevé peut entraîner beaucoup de requêtes au modèle et beaucoup de notifications.
+- **Default chat ceiling (talkativeness-based)** prend la limite de la sociabilité de chaque personnage (tableau ci-dessous).
+- **Numeric value** affiche un champ numérique. Saisis un nombre entier de 1 ou plus. Les nombres élevés peuvent signifier beaucoup de requêtes au modèle et de notifications.
 
-Ce plafond vaut pour le chat entier. La limite propre à un personnage, définie dans son emploi du temps, peut seulement abaisser ce nombre, jamais l'augmenter.
+Un personnage peut aussi avoir sa propre **Daily safety limit** (définie dans son emploi du temps). La limite d'un personnage fonctionne ainsi :
 
-La valeur par défaut fondée sur le niveau de bavardage fonctionne ainsi :
+- Si le plafond du chat est sur **Numeric value** et qu'une **Daily safety limit** est définie, le nombre le plus bas gagne.
+- Si un seul des deux est défini, ce nombre s'applique, même s'il est plus haut que le nombre de sociabilité ci-dessous.
+- Si aucun n'est défini, le nombre vient de la sociabilité du personnage.
 
-| Niveau de bavardage du personnage | Prises de nouvelles par jour, par défaut |
-|---|---|
+| Sociabilité du personnage | Check-ins par jour |
+| --- | --- |
 | 80 ou plus | 8 |
 | 60 à 79 | 6 |
 | 40 à 59 | 5 |
 | 20 à 39 | 3 |
 | moins de 20 | 2 |
 
-### Activer les emplois du temps
+<a id="turn-on-schedules"></a>
 
-**Schedules** (plannings) se trouve dans **Autonomous Messaging**. Les routines enregistrées appartiennent aux personnages et sont réutilisées dans les chats Conversation, y compris quand un personnage rejoint un chat existant. Les désactiver explicitement dans un chat conserve ce choix sans supprimer la routine du personnage.
+## Activer les emplois du temps
 
-1. Active l'interrupteur **Schedules**.
-2. Les routines existantes apparaissent immédiatement. Activer les plannings ne génère rien ; clique sur **Generate** pour en créer.
-3. Une fois les routines créées, une liste **Edit schedules** (modifier les emplois du temps) apparaît, avec une ligne par personnage.
+**Avant de commencer :** active **Autonomous Messages**.
 
-Le renouvellement hebdomadaire automatique reste désactivé tant que tu ne l'actives pas pour le personnage dans **Character Schedule Manager** (gestionnaire des plannings). Un échec ne déclenche pas de tentatives répétées à chaque réouverture du chat ; utilise les commandes de génération pour réessayer.
+1. Dans **Chat Settings → Autonomous Messaging**, active **Schedules**. (Dans l'assistant de nouveau chat, la même option s'appelle **Generate Schedules**.) Les emplois du temps qui existent déjà apparaissent tout de suite.
+2. Choisis ton fuseau horaire dans le champ en dessous.
+3. Clique sur **Generate** pour créer des emplois du temps pour les personnages qui n'en ont pas. Le bouton affiche **Regenerate** une fois que des emplois du temps existent.
+4. Attends la fin. Une liste **Edit schedules** apparaît alors, avec une ligne par personnage. Une ligne indique combien de jours sont remplis (par exemple **3 days scheduled**) ou **Create schedule**. La liste s'affiche seulement une fois que des emplois du temps existent.
+5. Clique sur la ligne d'un personnage pour ouvrir son éditeur d'emploi du temps (section suivante).
 
-Chaque ligne indique le nombre de jours remplis, par exemple **3 days scheduled**, ou affiche **Create schedule** si le personnage n'a encore rien. Un bouton **Generate** (nommé **Regenerate** une fois les routines créées) reconstruit les routines à la demande.
+Un emploi du temps appartient au personnage et sert dans chaque chat Conversation. Désactiver **Schedules** dans un chat le garde désactivé là et garde l'emploi du temps.
 
-## L'éditeur d'emploi du temps
+Le renouvellement hebdomadaire automatique est désactivé, sauf si tu actives **Renew weekly** pour ce personnage dans le **Character Schedule Manager** (gestionnaire d'emplois du temps). Ouvre-le avec le bouton calendrier dans le pied de la barre latérale, à côté de la zone de statut. Marinara tente un renouvellement une fois pour chaque personnage à chaque chargement de la page de l'application. S'il échoue, il ne réessaie pas avant que tu recharges la page. Clique sur **Generate** pour réessayer.
 
-Clique sur la ligne d'un personnage dans la liste **Edit schedules** pour ouvrir l'éditeur d'emploi du temps. Le titre de la fenêtre affiche **Edit**, puis le nom du personnage, puis **Schedule**.
+**Schedule generation preferences**, dans la même zone **Schedules** de **Chat Settings**, contient des consignes en texte libre sur la façon d'écrire les emplois du temps. Elles s'appliquent à chaque chat Conversation la prochaine fois que des emplois du temps sont générés. Exemple :
 
-En haut, la zone **Routine profile** présente un récapitulatif de la semaine en langage courant. Le bouton **Generate summary** le crée, et **Refresh summary** le met à jour. Si tu modifies l'emploi du temps après avoir créé un résumé, la mention **Summary may be stale** apparaît.
-
-### Tuning
-
-Ouvre la section **Tuning** (réglage fin) pour accéder aux commandes principales.
-
-- **Chat talkativeness** est un curseur à cinq crans : **Rare**, **Quiet**, **Balanced**, **Social** et **Very frequent**. La valeur par défaut, **Balanced**, se trouve au milieu. Elle remplace le niveau de bavardage par défaut du personnage partout où son planning est utilisé. Elle influe sur la fréquence à laquelle le personnage lance des messages, en envoie de nouveaux à la suite et participe au bavardage de groupe. Elle fixe aussi sa limite quotidienne par défaut.
-- **Wait before checking in** correspond à la durée de silence, en minutes, avant que ce personnage puisse prendre de tes nouvelles. La plage va de 15 à 360 minutes. La valeur par défaut est **120**.
-- **Check-in moments** liste les prétextes que le personnage peut invoquer pour te contacter. Les pastilles disponibles sont **Morning**, **Goodnight**, **Meal breaks**, **After busy** et **Long absence**. Toutes sont actives par défaut. Clique sur l'une d'elles pour la désactiver.
-
-### Advanced timing
-
-Dans **Tuning**, ouvre **Advanced timing** (minutage avancé) pour trois commandes supplémentaires.
-
-- **Daily safety limit** fixe un maximum strict pour ce seul personnage, soit **Default**, soit un nombre de 1 à 8 par jour. Il peut seulement abaisser le plafond du chat, jamais l'augmenter. En général, mieux vaut le laisser sur **Default**.
-- **Delay while you're away** indique combien de minutes ce personnage attend avant d'envoyer un message tant que son propre statut est **Away**. Laisse le champ vide pour garder la valeur par défaut, un délai aléatoire de 1 à 3 minutes. La plage va de 0 à 120 minutes.
-- **Delay while you're busy** fait de même quand le statut du personnage est **Busy**. Laisse le champ vide pour garder la valeur par défaut, un délai aléatoire de 2 à 5 minutes. La plage va de 0 à 120 minutes.
-
-### Schedule AI : réécrire la semaine
-
-Ouvre la section **Schedule AI** pour confier la réécriture de la routine au modèle. Choisis une action dans **Week action** :
-
-- **Rewrite** rédige un nouveau brouillon pour la semaine entière.
-- **Adjust** conserve l'essentiel de la routine et applique tes consignes.
-- **Vary** produit une semaine nettement différente, mais toujours crédible.
-- **Repair** comble les trous et corrige les problèmes évidents par petites touches.
-
-Saisis des indications facultatives dans le champ **Week guidance**, par exemple :
-
-```
-make weekdays more nocturnal, keep weekends social
-```
-
-Clique ensuite sur le bouton qui porte le nom de ton action, par exemple **Rewrite week**. Le résultat n'est qu'un brouillon. Rien n'est enregistré tant que tu n'as pas cliqué sur **Save schedule**. Si le modèle renvoie du JSON invalide, corrige-le dans **Edit generated schedule JSON** (modifier le JSON généré), puis choisis **Apply to draft** (appliquer au brouillon). Les corrections validées et les jours générés correctement restent dans le brouillon jusqu'à l'enregistrement. Un échec arrête l'appel sans nouvelle tentative automatique. **Stop** ou la fermeture de l'éditeur annule la requête active. Fermer le gestionnaire ou les paramètres du chat annule aussi la génération lancée à cet endroit.
-
-### Blocs quotidiens
-
-Sous ces sections, chaque jour du lundi au dimanche dispose de sa propre ligne. Un jour sans rien de défini affiche **No blocks scheduled for this day**.
-
-Chaque bloc comporte trois parties, regroupées sous l'intitulé **Status, time & activity** :
-
-- Un **statut**, à choisir parmi **Online**, **Away**, **Busy** ou **Offline**.
-- Une plage horaire, saisie sous la forme `09:00-11:30`.
-- Une courte note d'activité, par exemple `at work`.
-
-Le bouton **Add block** ajoute une plage horaire. L'icône en forme de corbeille en supprime une. Chaque jour possède aussi son champ de consignes, intitulé **Guide Monday**, **Guide Tuesday**, et ainsi de suite. Saisis-y une indication, puis clique sur le bouton correspondant, par exemple **Regenerate Monday**, pour réécrire ce seul jour.
-
-Le statut du bloc change ce que fait un personnage quand l'heure d'une prise de nouvelles arrive. Un personnage dont le bloc est **Offline** n'écrit jamais en premier pendant cette période. Un personnage dont le bloc est **Busy** attend trois fois plus longtemps que d'habitude avant de te contacter.
-
-Quand tu as terminé, clique sur **Save schedule**. Le bouton **Cancel** ferme l'éditeur sans rien enregistrer.
-
-### Déplacer un emploi du temps d'un personnage ou d'une installation à l'autre
-
-Le bouton **Export schedule** (exporter l'emploi du temps), en bas de l'éditeur, télécharge le brouillon en cours sous forme de fichier JSON. L'export contient les blocs de la semaine, le résumé de routine, le niveau de bavardage, les prétextes de prise de nouvelles et les réglages de minutage avancé.
-
-Ouvre l'éditeur d'emploi du temps d'un autre personnage, puis choisis **Import schedule** (importer un emploi du temps) pour charger ce fichier. Marinara vérifie le fichier avant de remplacer le brouillon de l'éditeur, et replace la routine importée sur la semaine en cours. L'import n'est pas enregistré automatiquement : clique sur **Save schedule** pour le conserver, ou sur **Cancel** pour laisser l'emploi du temps du personnage inchangé.
-
-### Schedule generation preferences
-
-De retour dans les **Chat Settings**, le champ **Schedule generation preferences** (préférences de génération des emplois du temps) accueille des consignes libres sur la manière d'écrire les routines. Ce réglage est global. Il s'applique à tous les chats en mode Conversation, dès la prochaine génération d'emplois du temps, à la main ou par l'application. Par exemple :
-
-```
+```text
 Make everyone go to sleep before midnight. I work 9-5 on weekdays.
 ```
 
-## Définir un statut ponctuel avec /status
+## L'éditeur d'emplois du temps
 
-La commande **/status** définit ou efface un statut temporaire pour un personnage, sans toucher à son emploi du temps enregistré. Elle ne fonctionne qu'en mode Conversation.
+Le titre de l'éditeur affiche **Edit**, plus le nom du personnage et **Schedule**.
 
-Voici la forme de la commande :
+En haut, **Routine profile** montre un résumé de la semaine en langage simple. Clique sur **Generate summary** pour le créer, ou sur **Refresh summary** pour le mettre à jour. Après une modification de l'emploi du temps, **Summary may be stale** apparaît. **Generation model** choisit le modèle qui écrit les emplois du temps.
 
-```
-/status <online|idle|dnd|offline|clear> [character name]
-```
+### Réglages fins
 
-Saisis `idle` pour **Away** et `dnd` pour **Busy**. Ce sont les quatre statuts déjà utilisés dans les blocs d'emploi du temps. Pour qu'un personnage nommé Mira apparaisse occupé tout de suite :
+Ouvre **Tuning** pour les contrôles principaux.
 
-```
+- **Chat talkativeness** : un curseur avec **Rare**, **Quiet**, **Balanced**, **Social** et **Very frequent**. La valeur par défaut est **Balanced**. Il règle la fréquence à laquelle le personnage lance des messages et se joint aux discussions de groupe, ainsi que sa limite quotidienne par défaut.
+- **Wait before checking in** : les minutes de silence avant que le personnage puisse faire un check-in. La valeur par défaut est 120. Tu peux utiliser de 15 à 360.
+- **Check-in moments** : des pastilles pour **Morning**, **Goodnight**, **Meal breaks**, **After busy** et **Long absence**. Toutes sont activées. Clique sur l'une pour la désactiver.
+
+Ouvre **Advanced timing** dans **Tuning** pour trois contrôles de plus.
+
+- **Daily safety limit** : le maximum de check-ins par jour pour ce personnage. Laisse **Default**, ou saisis un nombre entier de 1 ou plus. Si le chat a aussi un plafond numérique, le nombre le plus bas gagne. Sinon, ce nombre remplace le nombre de sociabilité.
+- **Delay while you're away** : des minutes en plus avant que le personnage réponde quand son statut est **Away**. Laisse vide pour un délai aléatoire de 1 à 3 minutes. Tu peux utiliser de 0 à 120.
+- **Delay while you're busy** : la même chose quand son statut est **Busy**. Laisse vide pour un délai aléatoire de 2 à 5 minutes. Tu peux utiliser de 0 à 120.
+
+### Schedule AI : réécrire la semaine
+
+Ouvre **Schedule AI** pour que le modèle réécrive l'emploi du temps. Choisis une **Week action** :
+
+| Action | Résultat |
+| --- | --- |
+| **Rewrite** | Un nouveau brouillon de semaine complète. |
+| **Adjust** | Garde l'essentiel de l'emploi du temps actuel et applique tes consignes. |
+| **Vary** | Une semaine nettement différente mais toujours crédible. |
+| **Repair** | Corrige les trous et les problèmes évidents par de petits changements. |
+
+1. Choisis une **Week action**.
+2. Sous **Weekly generation**, choisis **Entire week in one request** ou **One request per day**. Une requête par jour fait sept requêtes plus petites et peut utiliser plus de tokens (les petits morceaux de texte que comptent les modèles).
+3. Saisis des indications facultatives dans **Week guidance**, par exemple `make weekdays more nocturnal, keep weekends social`.
+4. Clique sur le bouton qui nomme ton action, comme **Rewrite week**.
+5. Clique sur **Save schedule** pour garder le résultat. Jusque-là, c'est un brouillon (**Unsaved draft**).
+
+Si ça n'a pas marché : ton brouillon est conservé. Un appel échoué n'est pas relancé, donc clique à nouveau sur le bouton. Clique sur **Stop** ou ferme l'éditeur pour annuler une requête en cours. Si l'éditeur affiche **Edit generated schedule JSON**, le modèle a renvoyé un texte illisible. Corrige le texte là et clique sur **Apply to draft**.
+
+### Blocs quotidiens
+
+Chaque jour, du lundi au dimanche, a sa propre ligne. Un jour vide affiche **No blocks scheduled for this day**. Chaque bloc a un statut, une plage horaire comme `09:00-11:30` et une courte activité comme `at work`.
+
+1. Clique sur **Add block** sous un jour.
+2. Choisis un statut : **Online**, **Away**, **Busy** ou **Offline**.
+3. Saisis la plage horaire et l'activité.
+4. Clique sur **Save schedule**. **Cancel** ferme l'éditeur sans enregistrer.
+
+Utilise l'icône de corbeille pour supprimer un bloc. Pour réécrire un seul jour, saisis une indication dans **Guide Monday** (ou le jour voulu) et clique sur **Regenerate Monday**.
+
+Pendant un bloc **Offline**, le personnage n'écrit jamais en premier. Pendant un bloc **Busy**, il attend trois fois plus longtemps que d'habitude.
+
+### Déplacer un emploi du temps entre des personnages
+
+Clique sur **Export schedule** pour télécharger le brouillon comme fichier JSON (blocs hebdomadaires, résumé, sociabilité, moments de check-in et délais). Dans l'éditeur d'un autre personnage, clique sur **Import schedule** pour le charger. Marinara vérifie le fichier et déplace l'emploi du temps vers la semaine en cours. Rien n'est enregistré avant que tu cliques sur **Save schedule**.
+
+## Définir un statut avec /status
+
+`/status` définit ou efface un statut temporaire pour un personnage sans changer son emploi du temps enregistré. Il ne fonctionne qu'en mode Conversation. Le statut appartient au personnage, donc il s'applique dans chaque chat où ce personnage se trouve.
+
+Tape l'une de ces lignes dans le champ de message :
+
+```text
 /status dnd Mira
-```
-
-Pour annuler ce forçage et rendre Mira à son emploi du temps :
-
-```
 /status clear Mira
 ```
 
-Si le chat ne compte qu'un seul personnage, le nom devient facultatif. Lance **/status** sans option pour afficher la liste des personnages et l'aide d'utilisation.
+La première rend Mira occupée. La seconde la remet sur son emploi du temps. Avec un seul personnage dans le chat, tu peux omettre le nom. `/status` seul liste les personnages et l'usage.
 
-<a id="characters-can-change-their-own-status"></a>
+La forme complète est ci-dessous. `idle` veut dire **Away** et `dnd` veut dire **Busy**. Les crochets veulent dire que le nom est facultatif.
 
-## Les personnages peuvent changer leur propre statut
+```text
+/status online|idle|dnd|offline|clear [character name]
+```
 
-Quand la commande **Schedule Updates** (mises à jour de l'emploi du temps) est activée dans **Chat Settings → Agents**, un personnage peut définir lui-même un statut et une activité temporaires. Par exemple, si tu lui demandes de se concentrer pendant une heure, il peut passer en **Busy** avec l'activité "Studying".
+Un statut que tu définis reste jusqu'à ce que tu l'effaces, et un personnage ne peut pas le remplacer.
 
-- Le changement dure aussi longtemps que le personnage l'indique, ou une heure s'il ne précise rien. La durée maximale est de sept jours.
-- Une fois le délai écoulé, le personnage revient à son emploi du temps, ou à **Online** s'il n'en a pas.
+## Laisser les personnages changer leur propre statut
+
+Avec **Schedule Updates** activé dans **Chat Settings → Agents → Commands**, un personnage peut définir son propre statut et sa propre activité temporaires. Par exemple, si tu lui demandes de se concentrer pendant une heure, il peut passer à **Busy** avec l'activité "Studying".
+
+- Le changement dure aussi longtemps que le personnage le dit, ou une heure s'il ne le dit pas. Le maximum est de sept jours.
+- Quand le temps est écoulé, le personnage revient à son emploi du temps, ou à **Online** s'il n'en a pas.
 - Il ne modifie jamais l'emploi du temps enregistré.
-- Un statut que tu définis toi-même avec **/status** reste en place jusqu'à ce que tu l'effaces. Un personnage ne peut pas le remplacer.
 
-## Comment les messages autonomes sont cadencés
+## Rythme des check-ins
 
-Marinara cadence les messages autonomes pour qu'un personnage ne t'inonde jamais. Les règles ci-dessous s'appuient sur l'emploi du temps propre à chaque personnage.
+| Règle | Détail |
+| --- | --- |
+| Premier check-in | Le personnage attend que tu aies été silencieux pendant son délai **Wait before checking in** (120 minutes par défaut). |
+| Réaction | Une réaction de ta part sans nouveau message ouvre une attente plus courte. |
+| Statut **Offline** | Pas de check-in. |
+| Statut **Busy** | L'attente est trois fois plus longue. |
+| Relances | Jusqu'à deux de plus pendant que tu restes silencieux, trois au total. La première relance vient après deux fois l'attente, la seconde après quatre fois l'attente. |
+| Ta réponse | Le compte repart à zéro. |
+| Plusieurs personnages prêts | Celui qui a la plus haute sociabilité et le meilleur timing passe en premier. Un personnage **Online** passe avant. |
 
-- Un personnage attend que tu sois resté silencieux pendant sa durée **Wait before checking in**. Par défaut, 120 minutes.
-- Un personnage dont le statut est **Offline** n'écrit pas en premier.
-- Un personnage dont le statut est **Busy** attend trois fois plus longtemps.
-- Après le premier message, un personnage peut en envoyer deux de plus tant que tu restes silencieux. Cela fait trois messages au total par période de silence.
-- Chaque message suivant attend plus longtemps que le précédent. Le premier attend le double du délai de base, le second le quadruple.
-- Dès que tu réponds, le compteur repart à zéro. Le prochain silence recommence de zéro.
-
-Si plusieurs personnages sont prêts en même temps, celui qui a le plus haut niveau de bavardage et le meilleur minutage passe en premier.
-
-Dans un chat de groupe réglé sur **Individual** (individuel), les personnages partagent une seule limite quotidienne de prises de nouvelles, et donc aussi cette cadence. Dès qu'un personnage prend de tes nouvelles, la prochaine prise de nouvelles, quel que soit le personnage, attend comme un message suivant. Quand elle arrive à échéance, n'importe quel personnage dont le délai d'attente personnel est écoulé peut l'envoyer, et celui qui a pris de tes nouvelles le moins souvent ce jour-là passe en premier. Après une longue absence, un seul personnage prend de tes nouvelles.
-
-## Ton statut de présence
-
-Ton propre statut indique aux personnages si tu es disponible. La commande de statut se trouve dans le pied de page de la barre latérale et reste visible dans tous les modes de chat. Son effet sur la messagerie ne joue toutefois qu'en mode Conversation.
-
-Clique sur la pastille de statut pour ouvrir quatre choix :
-
-- **Active** : tu es en ligne et disponible.
-- **Idle** : affiché quand tu t'absentes.
-- **Do Not Disturb** : coupe tous les messages autonomes.
-- **Invisible** : masque ton statut aux personnages.
-
-Le statut **Idle** est surtout automatique. Si ton statut est **Active** et que tu ne fais rien pendant 10 minutes, Marinara te bascule sur **Idle**. Il te remet sur **Active** dès ton retour. Autre option : choisir **Idle** toi-même dans le panneau contextuel. Dès que tu choisis un statut à la main, la bascule automatique s'arrête jusqu'à ce que tu reviennes sur **Active**.
-
-Passe sur **Do Not Disturb** quand tu veux la paix. Aucun personnage ne t'écrira en premier tant que ce statut est actif. En revanche, **Idle** ne bloque pas les messages autonomes : les personnages peuvent continuer à prendre de tes nouvelles pendant ton absence.
-
-À côté de la pastille de statut se trouve le champ **What are you doing?**. Saisis-y une activité personnalisée courte, jusqu'à 120 caractères. Les dernières saisies apparaissent dans une liste **Recent status**, prête à être réutilisée.
+Dans un chat de groupe où chaque personnage répond dans sa propre réponse (voir [Chats de groupe](../chats/group-chats.md)), les personnages partagent une limite quotidienne et un rythme. Après le check-in d'un personnage, le check-in suivant de n'importe qui attend comme une relance. Tout personnage dont l'attente est écoulée peut l'envoyer, et celui qui a le moins de check-ins ce jour-là passe en premier. Après une longue absence, un seul personnage fait un check-in.
 
 ## Guides associés
 
 - [Mode Conversation : premiers pas](getting-started.md)
-- [Profils du mode Conversation (Display Name, About Me, Behavior)](profiles.md)
-- [Vue d'ensemble des Chat Settings](../chats/chat-settings.md)
+- [Profils du mode Conversation](profiles.md)
+- [Vue d'ensemble des réglages du chat](../chats/chat-settings.md)
