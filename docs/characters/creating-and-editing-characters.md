@@ -4,13 +4,22 @@ A character card is the file that defines an AI character: who they are, how the
 
 ## Create a character
 
-1. Open the **Characters** panel from the sidebar.
+1. Click **Characters** in the top navigation bar. If you do not see it, open **More** first.
 2. Click **New** (the plus icon). The **Create Character** window opens.
 3. Type a name in **Name \***. A name is required.
 4. Click the round avatar circle to add a picture. This step is optional.
 5. Click **Create**.
 
-The card is saved with empty fields, and the Character Editor opens so you can fill in the rest. If you already have a card file, click **Import** instead. See [Importing and Exporting Character Cards](import-export.md).
+The card is saved with empty fields, and the Character Editor opens.
+
+6. Open the **Card** tab and write the **Description**: who the character is. Add a **First Message** under **Dialogue & Greetings**, which is how a Roleplay chat opens.
+7. Click **Save** in the header.
+
+If you already have a card file, click **Import** instead. See [Importing and Exporting Character Cards](import-export.md).
+
+### Start a chat with your character
+
+Pick the character when you start a chat. See [Roleplay Mode: Getting Started](../roleplay/getting-started.md) or [Conversation Mode: Getting Started](../conversation/getting-started.md).
 
 ## The Character Editor at a glance
 
@@ -19,7 +28,7 @@ The Character Editor replaces the chat area with a full-page workspace. On a wid
 The header holds the parts you use most:
 
 - The **Back** arrow, the avatar tile, a name field, and a title or comment field for a short label such as `Modern AU version`. A line below shows the creator and version.
-- **Save**. It is off until you change something. While it works, it reads **Uploading…**, **Embedding…** or **Saving…**.
+- **Save**. It is off until you change something. While it works, it reads **Uploading…** (an avatar is uploading), **Embedding…** (a lorebook is being added to the card) or **Saving…**.
 - The **Favorite** star.
 - **Export character**. See [Importing and Exporting Character Cards](import-export.md).
 - **Import character as persona**, which copies this card into a new persona. See [Personas](personas.md).
@@ -46,9 +55,9 @@ The sections below cover **Metadata**, **Card**, **Voice** and **Advanced**, plu
 The **Metadata** tab holds identity and organization details. They help you sort, share and track a card. Most are not sent to the AI.
 
 - **Character ID**. Read-only. It appears after the card is saved. Click **Copy** to copy it.
-- **Name**. The display name. It is `{{char}}` in prompts.
+- **Name**. The display name. It is `{{char}}` in prompts, a placeholder that Marinara replaces with the character's name.
 - **Creator**. Who made the card, for credit when you share it.
-- **Version**. A version number you set, such as `1.0`. The **Automatic versioning** switch next to it keeps earlier versions and raises this number when the card changes.
+- **Version**. A version number you set, such as `1.0`. The **Automatic versioning** switch next to it keeps earlier versions and raises this number when the card changes. Version history only saves snapshots while this switch is on.
 - **Talkativeness**. A slider from 0 to 100 percent. It sets how often this character speaks in group chats. The default is 50 percent.
 - **Tags**. Type tags in the add-tag field and press <kbd>Enter</kbd> or click **Add**. Separate several tags with commas. The field suggests tags your library already uses, most used first. Remove one tag with its X, or all of them with **Remove All**.
 - **Creator Notes**. Private notes that are never sent to the AI.
@@ -70,7 +79,7 @@ The **Card** tab is the main writing workspace. Jump links at the top skip to an
 | **Appearance** | Looks, clothing, visual details. Also seeds an AI avatar prompt. | Yes |
 | **Scenario** | The default setting for new chats with this character. | Yes |
 
-**Image Appearance Override** sits under **Appearance** and is off by default. Turn it on to show a second box for short image tags, such as a LoRA trigger word. While it is on and filled, image prompts use those tags exactly as written, with **Appearance** kept as background. An AI avatar prompt is seeded from it too. The narrator always sees the full **Appearance** text.
+**Image Appearance Override** sits under **Appearance** and is off by default. Turn it on to show a second box for short image tags, such as a LoRA trigger word (a keyword that switches on a custom image style). While it is on and filled, image prompts use those tags exactly as written, with **Appearance** kept as background. An AI avatar prompt is seeded from it too. The narrator always sees the full **Appearance** text.
 
 The **Dialogue & Greetings** section sets how a chat opens and how the character sounds:
 
@@ -101,27 +110,6 @@ The wand uses your default agent text connection, or your default text connectio
 
 The wand replaces only the chosen field in your unsaved draft. If generation fails, your text stays. If you edit that field while waiting, or switch to another card, a late result does not overwrite your work. You do not need Professor Mari to use the wand.
 
-### Use an alternative field in selected chats
-
-An alternative field gives the same character a different description, appearance, backstory or other detail in chosen chats, while everyone else keeps the original. Each of the seven card fields has **Add Alternative Field** below it.
-
-1. Click **Add Alternative Field** under the field you want to vary. Marinara copies the field's text into a new alternative.
-2. Edit the alternative. It has its own wand, which uses the alternative's text as the starting details and does not change the original field.
-3. Open **Active in 0 chats** and tick the chats that should use it. Only chats that include this character are listed.
-4. Click **Save**.
-
-Rules:
-
-- A chat can use only one alternative per field. Ticking a chat in another alternative moves it there.
-- With no chats ticked, the alternative stays inactive for later.
-- An empty alternative clears that field in its chats.
-- Chat-specific scenario and image appearance overrides still win.
-- **Summary** alternatives stay metadata and are not sent to the AI.
-- If the character leaves a chat, its assignment pauses and resumes when you add the character again.
-- Card export, import, duplication and conversion between characters and personas keep the alternative text but clear the chat ticks. Whole-profile backups keep the ticks.
-
-To remove an alternative, click its trash button, confirm **Delete**, then **Save**. Its chats go back to the original field. The original field is never deleted with an alternative.
-
 ## Add an avatar
 
 An avatar is the picture shown for the character in chat and in your library.
@@ -146,9 +134,50 @@ Before you start: add an image-generation connection. The AI avatar button appea
 
 The picture size comes from the **Portraits** image size in the image-generation settings. It defaults to 1024 by 1024. If **Expose media prompts before sending** is on, a prompt review step appears before each request.
 
+## Voice tab
+
+The **Voice** tab sets how the character sounds when Text to Speech reads it aloud.
+
+- **Voice**. The voice for this character. A change saves right away, without **Save**. It is the same setting as this character's row in **Connections → Text to Speech**. Leave it empty to use the default voice. When a card with a matching name has a voice, such as the original of an AU copy, the empty field names that voice, because this card uses it too.
+- **Preview**. Plays a short line in that voice. The line says the character's name, or the **Phonetic name** when one is set.
+- **Phonetic name**. An optional spelling used only to fix pronunciation. It is part of the card, so click **Save** to keep it.
+
+If Text to Speech is off, or every character shares one voice, a short note replaces the **Voice** field. With one shared voice, the note offers **Use a voice per character**. **Open Text to Speech settings** opens Connections. See [Text to Speech (TTS) Setup](../media/tts-setup.md).
+
+## Advanced tab
+
+The **Advanced** tab holds prompt controls. Leave them empty for a normal character. They apply in Conversation, Roleplay and Game modes. A Conversation or Game preset changes the surrounding prompt but does not turn off the character's Post-History Instructions or Depth Prompt.
+
+- **System Prompt**. Character-specific instructions added through the active preset's character block, Conversation character context, or Game character card. It does not replace the chat's main system prompt.
+- **Post-History Instructions**. Text placed after the chat history, right before the AI writes, such as "Stay in character".
+- **Depth Prompt**. Text injected into the chat history. **Depth** is how many messages back: 0 is right after the latest message. The default is 4. **Role** is **System**, **User** or **Assistant**. The default is System.
+
+The **Regex Scripts** section holds find-and-replace scripts for this one character. See [Regex Scripts](../extending/regex-scripts.md).
+
+## Use an alternative field in selected chats
+
+An alternative field gives the same character a different description, appearance, backstory or other detail in chosen chats, while everyone else keeps the original. Each of the seven card fields has **Add Alternative Field** below it.
+
+1. Click **Add Alternative Field** under the field you want to vary. Marinara copies the field's text into a new alternative.
+2. Edit the alternative. It has its own wand, which uses the alternative's text as the starting details and does not change the original field.
+3. Open **Active in 0 chats** and tick the chats that should use it. Only chats that include this character are listed.
+4. Click **Save**.
+
+Rules:
+
+- A chat can use only one alternative per field. Ticking a chat in another alternative moves it there.
+- With no chats ticked, the alternative stays inactive for later.
+- An empty alternative clears that field in its chats.
+- Chat-specific scenario and image appearance overrides still win.
+- **Summary** alternatives stay metadata and are not sent to the AI.
+- If the character leaves a chat, its assignment pauses and resumes when you add the character again.
+- Card export, import, duplication and conversion between characters and personas keep the alternative text but clear the chat ticks. Whole-profile backups keep the ticks.
+
+To remove an alternative, click its trash button, confirm **Delete**, then **Save**. Its chats go back to the original field. The original field is never deleted with an alternative.
+
 ## Version history
 
-Each save can add a snapshot to **Version history** on the **Metadata** tab. Until then it reads `Previous card states will appear here after the next edit.` A counter shows how many snapshots are saved.
+While **Automatic versioning** is on, each save can add a snapshot to **Version history** on the **Metadata** tab. Until then it reads `Previous card states will appear here after the next edit.` A counter shows how many snapshots are saved.
 
 To compare a saved version with your current card:
 
@@ -177,26 +206,6 @@ In a Roleplay chat, an optional agent can suggest small edits to card fields bas
 - **Reject** dismisses it.
 
 If the text changed since the proposal was made, the app warns you before it lets you force the edit. To turn these agents on or off, see [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
-
-## Voice tab
-
-The **Voice** tab sets how the character sounds when Text to Speech reads it aloud.
-
-- **Voice**. The voice for this character. A change saves right away, without **Save**. It is the same setting as this character's row in **Connections → Text to Speech**. Leave it empty to use the default voice. When a card with a matching name has a voice, such as the original of an AU copy, the empty field names that voice, because this card uses it too.
-- **Preview**. Plays a short line in that voice. The line says the character's name, or the **Phonetic name** when one is set.
-- **Phonetic name**. An optional spelling used only to fix pronunciation. It is part of the card, so click **Save** to keep it.
-
-If Text to Speech is off, or every character shares one voice, a short note replaces the **Voice** field. With one shared voice, the note offers **Use a voice per character**. **Open Text to Speech settings** opens Connections. See [Text to Speech (TTS) Setup](../media/tts-setup.md).
-
-## Advanced tab
-
-The **Advanced** tab holds prompt controls. Leave them empty for a normal character. They apply in Conversation, Roleplay and Game modes. A Conversation or Game preset changes the surrounding prompt but does not turn off the character's Post-History Instructions or Depth Prompt.
-
-- **System Prompt**. Character-specific instructions added through the active preset's character block, Conversation character context, or Game character card. It does not replace the chat's main system prompt.
-- **Post-History Instructions**. Text placed near the end of the prompt, close to generation, such as "Stay in character".
-- **Depth Prompt**. Text injected into the chat history. **Depth** is how many messages back: 0 is right after the latest message. The default is 4. **Role** is **System**, **User** or **Assistant**. The default is System.
-
-The **Regex Scripts** section holds find-and-replace scripts for this one character. See [Regex Scripts](../extending/regex-scripts.md).
 
 ## If it did not work
 
