@@ -8,9 +8,7 @@ Change the font Marinara uses across the app. Pick the built-in font, add your o
 2. Find the **Text & Scale** section.
 3. Open the **Font** dropdown and pick a font.
 
-The default is **Default (Inter)**, a clean font chosen for on-screen reading. Fonts you add appear in the same dropdown below it.
-
-While the default font is selected, the preset editor's prompt fields and a character's Example Dialogue use a monospace font. Any other font applies to them too. Other prompt fields, such as an agent's prompt template, stay monospace.
+The easiest way to get a new font is [Google Fonts](#downloading-from-google-fonts). The default is **Default (Inter)**, a clean font chosen for on-screen reading. Fonts you add appear in the same dropdown below it.
 
 Your font choice syncs across devices. Every browser connected to the same Marinara server switches to it. See [Settings Overview](../settings/settings-overview.md).
 
@@ -18,12 +16,13 @@ Chat widgets have a separate **Font** choice under **Chat widget style**. Turn o
 
 ## Adding your own fonts
 
-Before you start: fonts go in a folder on the server, the computer that runs Marinara.
+Before you start: fonts go in a folder on the server. The server is the computer that runs Marinara. If you run Marinara on your own computer, that is the server, and the data folder is where Marinara keeps your data.
 
-1. Copy your font file into the `data/fonts/` folder inside Marinara's data folder on the server.
-2. Go to **Settings → Appearance → App → Text & Scale**.
-3. Open the **Font** dropdown. Your font is in the list.
-4. Select it.
+1. Click **Open Fonts Folder**, next to the **Font** dropdown, to open `data/fonts/` on the server. Or find the `data/fonts/` folder in Marinara's data folder yourself.
+2. Copy your font file into it.
+3. Go to **Settings → Appearance → App → Text & Scale**.
+4. Open the **Font** dropdown. Your font is in the list.
+5. Select it. The app text changes at once.
 
 Marinara reads `.ttf`, `.otf`, `.woff` and `.woff2` files and ignores other types. It builds the display name from the file name, so `OpenSans-Bold.ttf` shows as "Open Sans". Name your files clearly for a tidy list.
 
@@ -50,6 +49,8 @@ If it did not work, read the error message.
 ## Open Fonts Folder
 
 The **Open Fonts Folder** button next to the **Font** dropdown opens `data/fonts/` in the file explorer on the server computer, not on the device you are using. If you run Marinara on your own computer, it opens the folder for you. From a phone or a second computer, copy your font files into the server's `data/fonts/` folder yourself.
+
+While the default font is selected, the preset editor's prompt fields and a character's Example Dialogue use a monospace font. Any other font applies to them too. Other prompt fields, such as an agent's prompt template, stay monospace.
 
 ## Related guides
 
