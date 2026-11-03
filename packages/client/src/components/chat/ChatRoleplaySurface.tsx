@@ -1817,12 +1817,12 @@ export function ChatRoleplaySurface({
           <div
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute left-1/2 top-[4%] size-[min(80vmin,560px)] -translate-x-1/2 rounded-full md:left-[calc(50%-31rem)] md:translate-x-0 blur-[64px] transition-[opacity,visibility] duration-500 motion-reduce:transition-none",
-              setupStage.visible ? "opacity-15" : "invisible opacity-0",
+              "pointer-events-none absolute left-[20%] top-24 size-[110vmin] blur-[48px] brightness-[1.7] saturate-[1.4] mix-blend-lighten dark:mix-blend-normal dark:brightness-[1.9] transition-[opacity,visibility] duration-500 [mask-image:radial-gradient(closest-side,#000_35%,transparent)] motion-reduce:transition-none md:left-[calc(50%-20rem)] md:-top-24 md:size-[min(110vmin,900px)]",
+              setupStage.visible ? "opacity-35" : "invisible opacity-0",
             )}
             style={{ backgroundColor: washAccent ?? "var(--primary)" }}
           >
-            <img src={washSrc} alt="" className="size-full rounded-full object-cover opacity-60" />
+            <img src={washSrc} alt="" className="size-full object-cover opacity-80" />
           </div>
         )}
         {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
