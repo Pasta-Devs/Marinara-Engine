@@ -91,6 +91,43 @@ When code and guide disagree, the code wins; record it in the PR ("Guide said de
 
 ## Word list
 
-Use one term for each thing, matching the app's UI labels.
+Use one term for each thing, matching the app's UI labels (`en.json`). Explain the term in plain words the first time a guide uses it. Left column: the term to use. Middle: words to replace.
 
-_To be filled from the Phase 1 audit._
+| Use | Instead of | Plain meaning |
+| --- | --- | --- |
+| **Connections** | providers page, API settings | The panel where you add AI services and pick which model does each job. |
+| account | connection, provider, API, endpoint | One saved key or sign-in for one service (UI: **Add account**, **Edit account**). |
+| service | provider, vendor, backend | The company or server an account talks to, such as OpenAI or Ollama. "Provider" only where the UI says it (**Which provider?**). |
+| model | AI, engine, LLM | One AI model that writes replies or does a job. |
+| job | role, default | What a model is used for, such as **Main** (writes chat replies) or **Images**. |
+| API key | key, token, secret | The secret code a service gives you so Marinara can use your account. |
+| **Built-in model** | Local Model, local model, sidecar, Gemma | The small model Marinara downloads and runs on your own computer, with no API key. |
+| **Built-in decision model** | decision sidecar | The optional second built-in model for yes-or-no checks. |
+| decision model | helper model, yes/no model | A small model that answers yes-or-no questions for features such as lorebooks. |
+| **OpenAI-compatible** | Custom (OAI-Compatible), custom endpoint | A server or proxy that accepts the OpenAI request format. |
+| chat | conversation (as a noun for any chat), thread | One saved chat in any mode. |
+| Conversation / Roleplay / Game Mode | convo, RP, GM (except as the tab labels **CONVO**, **RP**, **GM**) | The three chat modes. Mode names stay in English. |
+| **Chat Settings** | chat settings drawer, settings panel | The panel of options for the chat you have open. |
+| character | bot, card (alone) | An AI character. Say "character card" for the file that defines one. |
+| persona | user persona, your identity | The character card that stands for you in a chat. |
+| lorebook | world info, lore book | A set of world facts the AI reads when their keywords come up. |
+| entry | lore entry, WI entry | One fact inside a lorebook. |
+| preset (**Prompt Preset**) | prompt template, prompt source | A saved prompt structure and generation values. |
+| agent | add-on, plugin | A helper that runs alongside replies, such as a tracker or illustrator. |
+| **Agent Organizer** | Agents Manager, agent catalog | Where you install and update optional agents. |
+| **Commands** | Roleplay Commands, hidden actions | Actions a character can take on its own (illustrations, whispers, selfies). |
+| swipe | alternate reply, version | One of several answers kept on the same message. |
+| **Branch from here** / branch | fork | A copy of a chat up to one message, which you continue separately. |
+| **Professor Mari** (then Mari) | Prof. Mari, the assistant | The built-in assistant on the Home screen. |
+| prompt | context (as a synonym) | All the text Marinara sends to the model for one reply. |
+| context window | context size, context length | How much text a model can read at once, counted in tokens. |
+| tokens | — | Small pieces of text that models count; about three-quarters of a word in English. |
+| system prompt | system message | Instructions sent to the model before the chat, which the reader does not see in the chat. |
+| **Download Backup** | backup ZIP, export all | A `.zip` file of all your data and uploaded files. |
+| **Export Profile** / **Import Profile** | profile file, restore | Save or load your account data as a file. |
+| data folder | DATA_DIR (except in configuration steps) | The folder on the server computer where Marinara keeps your data. |
+| login | Basic Auth, remote password | The username and password that protect Marinara when other devices reach it. |
+| admin secret (`ADMIN_SECRET`) | admin password | A second password for risky actions, such as updates, from another device. |
+| **Apply Update** | update button | Updates a git install from the browser, if the server allows it. |
+| Termux | Linux terminal | The Android app that runs a small Linux system where Marinara runs on a phone. |
+| PWA | web app, Home Screen app | A website saved to the Home Screen that opens like an app. |
