@@ -597,6 +597,12 @@ export function ChatSetupStage({
       {t("chat.setupStage.start")}
     </button>
   );
+  // The first message ends the stage too; on phones the row has no room for it.
+  const typingHint = (
+    <span className="font-serif text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] max-sm:hidden">
+      {t("chat.setupStage.typingHint")}
+    </span>
+  );
   const toggleButton = (
     <button
       type="button"
@@ -783,6 +789,7 @@ export function ChatSetupStage({
           </div>
           <div className="mt-1.5 flex items-center gap-[18px] border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-1.5 pb-1.5 pt-3">
             {beginButton}
+            {typingHint}
             {toggleButton}
           </div>
         </div>
@@ -808,6 +815,7 @@ export function ChatSetupStage({
           </div>
           <div className="mt-[18px] flex items-center gap-[18px] md:mt-[22px]">
             {beginButton}
+            {typingHint}
             {toggleButton}
           </div>
         </>

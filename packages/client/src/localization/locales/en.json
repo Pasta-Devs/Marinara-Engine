@@ -1302,6 +1302,7 @@
   "chat.setupStage.start": "Start",
   "chat.setupStage.tags.conversation": "Conversation",
   "chat.setupStage.tags.roleplay": "Roleplay",
+  "chat.setupStage.typingHint": "or just start typing",
   "chat.setupStage.untitled": "New chat",
   "chat.setupStage.welcome.busy": "Catching up on where you left off...",
   "chat.setupStage.welcome.catchUp": "Catch me up",
