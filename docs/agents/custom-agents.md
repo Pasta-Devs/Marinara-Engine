@@ -188,7 +188,7 @@ How it runs:
 - Keywords and cadence are checked first, so a skipped agent costs no decision request. Questions with the same scan depth are batched per phase.
 - **Scan Depth** sets the messages used by both keywords and the question.
 - Pre-generation and parallel agents use the chat before the reply. Post-processing agents also see the finished reply.
-- A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit is the Decision account's **Time limit (seconds)**: 1.5 seconds by default, or 4 seconds for an OpenAI-compatible chat model or a local model (20 seconds when the local model has to think first). See [Time limits](../connections/decision-models.md#time-limits).
+- A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit depends on the model type and on whether the model has to think first. See [Time limits](../connections/decision-models.md#time-limits).
 - Imported agents with an activation question or decision statements show a notice linking to the Decision Models guide. Without a Decision model, the agent runs whenever keywords and **Trigger Cadence** allow, and prompt statements read as no.
 
 Activation questions apply to custom agents only.
