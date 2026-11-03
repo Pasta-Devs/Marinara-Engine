@@ -711,6 +711,7 @@ function PersonaPicker({
       <CharacterSelect
         kind="persona"
         allowNone
+        nonePicked={templateValue ? false : undefined}
         withCharacters={onCharacterChange ? undefined : false}
         placeholder={localizeUi(
           templateValue ? "ui.characters.onboarding.modalTitle" : "ui.chat.personapicker.stayAnonymous",

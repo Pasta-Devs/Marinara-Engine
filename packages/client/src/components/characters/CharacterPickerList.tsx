@@ -4,7 +4,7 @@
 // lists characters. With `multiple`, rows toggle and the picked ones show as pills on top.
 // The shell (popover, sheet, inline tab) belongs to the caller.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import {
   Ban,
   Check,
@@ -52,6 +52,8 @@ export interface CharacterPickerListProps {
   /** Shows a "New character" / "New persona" button when the library is empty. */
   onCreate?: () => void;
   autoFocusSearch?: boolean;
+  /** Set false when the caller has a pick the list cannot show, so None is not marked. */
+  nonePicked?: boolean;
   className?: string;
 }
 
@@ -238,6 +240,7 @@ export function CharacterPickerList({
   badge,
   onCreate,
   autoFocusSearch = false,
+  nonePicked,
   className,
 }: CharacterPickerListProps) {
   const { t } = useUiTranslation();
@@ -246,6 +249,8 @@ export function CharacterPickerList({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
   const isPersona = kind === "persona";
   const showSetting = useUIStore((state) => state.showCharactersInPersonaPickers);
   // Persona kind offers characters only for a single pick, behind the user setting (or when one is in use).
@@ -328,6 +333,13 @@ export function CharacterPickerList({
     // Only on open and when the pick changes, not on every search keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstPicked, characterGroups.length > 0]);
+  const firstPersona = personaIds[0];
+  useEffect(() => {
+    const group = personaGroups.find((g) => g.members.some((p) => p.id === firstPersona));
+    if (group) setExpanded((prev) => (prev.has(group.id) ? prev : new Set(prev).add(group.id)));
+    // Only on open and when the pick changes, like the character folder above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstPersona, personaGroups.length > 0]);
 
   // ── Keyboard: the search keeps focus, arrows move a ring over the rows, Enter picks ──
   useEffect(() => setActive(0), [query]);
@@ -335,11 +347,15 @@ export function CharacterPickerList({
     Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-pick-row]:not(:disabled)") ?? []);
   useEffect(() => {
     rows().forEach((row, index) => {
+      row.id = `${listId}-row-${index}`;
       if (index === active) {
         row.dataset.active = "true";
         row.scrollIntoView?.({ block: "nearest" });
       } else delete row.dataset.active;
     });
+    const activeRow = rows()[active];
+    if (activeRow) searchRef.current?.setAttribute("aria-activedescendant", activeRow.id);
+    else searchRef.current?.removeAttribute("aria-activedescendant");
   });
   const onSearchKey = (event: KeyboardEvent<HTMLInputElement>) => {
     const count = rows().length;
@@ -389,7 +405,7 @@ export function CharacterPickerList({
   const noneRow = onPickNone && !multiple && query === "" && (
     <>
       <PickRow
-        picked={personaIds.length === 0 && characterIds.length === 0}
+        picked={nonePicked ?? (personaIds.length === 0 && characterIds.length === 0)}
         onClick={onPickNone}
         avatar={
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/35 text-foreground/40">
@@ -450,6 +466,8 @@ export function CharacterPickerList({
         </span>
         <input
           type="search"
+          ref={searchRef}
+          aria-controls={listId}
           value={search}
           autoFocus={autoFocusSearch}
           onChange={(event) => setSearch(event.target.value)}
@@ -479,7 +497,7 @@ export function CharacterPickerList({
                 disabled={busy}
                 onClick={() => (isPersona ? onPickPersona?.(item.id) : onPickCharacter?.(item.id))}
                 aria-label={t("ui.characterselect.remove", { name: item.name })}
-                className="flex h-5 w-5 items-center justify-center rounded-full text-foreground/55 hover:bg-foreground/10 hover:text-foreground"
+                className="relative after:absolute after:-inset-3 after:content-[''] flex h-5 w-5 items-center justify-center rounded-full text-foreground/55 hover:bg-foreground/10 hover:text-foreground"
               >
                 <X size="0.6875rem" />
               </button>
@@ -490,6 +508,7 @@ export function CharacterPickerList({
 
       <div
         ref={listRef}
+        id={listId}
         aria-busy={busy || undefined}
         className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-foreground/10 p-1"
       >
