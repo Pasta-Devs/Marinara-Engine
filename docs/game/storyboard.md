@@ -4,13 +4,8 @@ The downloadable **Storyboard** agent turns completed story text into ordered ke
 
 The Storyboard package supplies the planning prompts, defaults and per-chat controls. Marinara supplies the media generation, saves results to the Gallery and shows them in the chat or Game viewer. This guide covers Game Mode first. The Roleplay workflow follows in [Roleplay Storyboards](#roleplay-storyboards). For the rest of Roleplay, see [Roleplay Mode: Getting Started](../roleplay/getting-started.md).
 
-|  | Game Mode | Roleplay |
-| --- | --- | --- |
-| Story source | One completed GM narration turn | Completed user and assistant messages since the last successful episode |
-| Automatic choices | Separate **Automatic Storyboard Illustrations** and **Automatic Storyboard Animations** switches | **Manual only**, **Still images** or **Animations** |
-| Manual action | **Gallery → Create storyboard** for the latest GM turn | **Gallery → Create storyboard** for the latest completed assistant response |
-| Display | Floating viewer or Game background, synced to the narration | Inline below the response that ends the episode |
-| Planning prompts | Separate still and animation planners | Episode contract, visual style, optional animation addon, output contract |
+- **Game Mode** uses one completed GM narration turn. It has separate **Automatic Storyboard Illustrations** and **Automatic Storyboard Animations** switches, and **Gallery → Create storyboard** for the latest GM turn. It shows in a floating viewer or as the Game background, synced to the narration, and uses separate still and animation planners.
+- **Roleplay** uses completed messages since the last successful episode. Its automatic choices are **Manual only**, **Still images** or **Animations**, and **Gallery → Create storyboard** works on the latest completed assistant response. It shows inline below the response that ends the episode, and uses an episode contract, visual style, optional animation addon and output contract.
 
 Both modes save keyframe images to the Gallery's **Images** tab and clips to its **Videos** tab.
 
@@ -63,10 +58,10 @@ Open **Chat Settings → Agents → Storyboards**.
 | **Enable Storyboards** | Off per chat | Turns the installed agent on for this game. |
 | **Automatic Storyboard Illustrations** | From Automatic generation | Still keyframes after each GM turn. |
 | **Automatic Storyboard Animations** | From Automatic generation | MP4 clips for every keyframe. |
-| **Keyframes per Turn** | 3 (1 to 6) | Target number of frames. Short turns may produce fewer. |
+| **Keyframes per Turn** | 3 (1 to 200) | Target number of frames. Short turns may produce fewer. |
 | **Animation Clip Duration** | 5 seconds (1 to 15) | Requested length of each clip. A service may clamp it. |
 | **Viewer Display** | Floating | Draggable viewer, or full Game background. |
-| **Still Planner** | Still Keyframes | Plans completed still illustrations. |
+| **Illustration Planner** | Still Keyframes | Plans completed still illustrations. |
 | **Animation Planner** | Comic Page Animation | Plans animation-ready first frames and motion directions. |
 | **Use Storyboard Template** | On | Applies the selected final illustration formatter. |
 | **Storyboard Illustration Prompt** | Game Scene Illustration | Formats the planned frame for the image service. |
@@ -82,7 +77,7 @@ Game Mode keeps separate planners for stills and animations.
 
 ```text
 completed GM narration
-  -> Still Planner or Animation Planner
+  -> still or animation planner
   -> Storyboard Illustration Prompt
   -> image account
   -> optional Storyboard Video Prompt
@@ -108,7 +103,7 @@ Each recipe pairs a Storyboard chain with the other Game and service settings. A
 
 #### Google Comic Storyboards
 
-Chain: **Still Planner** Still Keyframes, **Animation Planner** Comic Page Animation, **Storyboard Illustration Prompt** Game Scene Illustration, **Storyboard Video Prompt** Comic Page Video, **Use Storyboard Template** On.
+Chain: **Illustration Planner** Still Keyframes, **Animation Planner** Comic Page Animation, **Storyboard Illustration Prompt** Game Scene Illustration, **Storyboard Video Prompt** Comic Page Video, **Use Storyboard Template** On.
 
 Game checklist:
 
@@ -123,7 +118,7 @@ This makes ordinary still Storyboards. The saved Comic Page animation chain appl
 
 #### NovelAI Direct Tags
 
-Chain: **Still Planner** NovelAI Keyframes. For **Storyboard Illustration Prompt**, create a custom option whose prompt contains only the text below. Set **Use Storyboard Template** to On. Leave the Animation Planner and Video Prompt unchanged.
+Chain: **Illustration Planner** NovelAI Keyframes. For **Storyboard Illustration Prompt**, create a custom option whose prompt contains only the text below. Set **Use Storyboard Template** to On. Leave the Animation Planner and Video Prompt unchanged.
 
 ```text
 ${scenePrompt}
@@ -131,7 +126,7 @@ ${scenePrompt}
 
 Game checklist:
 
-- **Image Style**: Danbooru, and remove the prose **Style Text** from the Danbooru profile
+- **Image Style**: Danbooru, and remove the prose **Style text** from the Danbooru profile
 - **Use Campaign Art Style**: Off
 - **Attach Card Appearance**: Off
 - **Send Avatar References**: Off
@@ -143,7 +138,7 @@ The pass-through template sends the planner's compact NovelAI tags without wrapp
 
 #### Local Krea 2 + LTX 2.3
 
-Chain: **Still Planner** Still Keyframes as the still-only fallback, **Animation Planner** LTX Simple Image-to-Video, **Storyboard Illustration Prompt** Storyboard First Frame, **Storyboard Video Prompt** Narration Passthrough, **Use Storyboard Template** On.
+Chain: **Illustration Planner** Still Keyframes as the still-only fallback, **Animation Planner** LTX Simple Image-to-Video, **Storyboard Illustration Prompt** Storyboard First Frame, **Storyboard Video Prompt** Narration Passthrough, **Use Storyboard Template** On.
 
 On an 8 GB VRAM GPU, start with one keyframe at 480p. After it works, move toward three keyframes and higher sizes. For the ComfyUI account, placeholders and full test, see [LTX 2.3 Storyboards in Game Mode](ltx-2-3-storyboards.md).
 
@@ -154,7 +149,7 @@ Roleplay Storyboards group completed exchanges into a visual episode shown below
 ### Make a Roleplay Storyboard
 
 1. Install Storyboard and turn it on for the Roleplay chat.
-2. In **Chat Settings → Agents → Storyboards**, pick a **Prompt connection** and **Image connection**, or leave them on **Use global default** when the global setup is complete.
+2. In **Chat Settings → Agents → Storyboards**, pick a **Prompt connection** and **Image model**, or leave them on **Use global default** when the global setup is complete.
 3. Choose an **Automatic mode**:
    - **Manual only**: no automatic episode. **Create storyboard** makes a still episode on demand.
    - **Still images**: automatically makes an illustrated episode.
@@ -194,10 +189,10 @@ Open the **Agents** panel, select **Storyboard** and open its setup. These value
 | Setting | Default | Purpose |
 | --- | --- | --- |
 | Agent connection | Your selected agent account | Plans the storyboard with a model. |
-| **Image connection** | **Use the chat image connection** | Makes every keyframe. An image account is needed somewhere in the fallback chain. |
+| **Image model** | **Use the chat image connection** | Makes every keyframe. An image account is needed somewhere in the fallback chain. |
 | **Video connection** | **Use the chat video connection** | Makes clips when animations are on. |
 | **Automatic generation** | Still images | The starting automatic behavior for newly activated chats. |
-| **Keyframes per turn** | 3 (1 to 6) | Target number of ordered frames. |
+| **Keyframes per turn** | 3 (1 to 200) | Target number of ordered frames. |
 | **Clip seconds** | 5 (1 to 15) | Requested length of each clip. |
 | **Viewer display** | Floating viewer | The Game viewer default. Roleplay always shows Storyboards inline. |
 | **Default Roleplay episode interval** | 1 (1 to 100) | New Roleplay material needed between automatic episodes. |
@@ -210,7 +205,7 @@ For Game Mode, the library has two planning lanes, chosen by whether the game ma
 
 After planning, shared formatters create the final requests: **Default image prompt** (Game Scene Illustration) and **Default video prompt** (Cinematic Scene Video). Each numbered stage has its own collapsed **Prompt library**: Stage 2 for image formatters, Stage 3 for image-aware motion planners and Stage 4 for video passthrough formatters. Image choices also include **Storyboard Illustration** and **Storyboard First Frame**. Video choices include **Anime Game Video**, **Comic Page Video** and **Narration Passthrough**. Game and Roleplay chats can pick different formatters.
 
-Stage 3's **Image-aware shot planning** also follows the video account's **Video Prompting Instructions**. Use that field in the account editor to say what your video model expects, such as camera wording, prompt length or sound cues.
+Stage 3's **Image-aware shot planning** also follows the video account's **Video prompting instructions**. Use that field in the account editor to say what your video model expects, such as camera wording, prompt length or sound cues.
 
 Accounts are picked slightly differently by mode. Roleplay has per-chat prompt, image and video selectors, and **Use global default** inherits the Storyboard setup. Game Mode uses its own planning, image and video accounts when set, then falls back to the agent defaults. Stills need an image account. Animations need a successful keyframe image and a video account.
 
