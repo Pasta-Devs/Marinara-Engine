@@ -25,7 +25,8 @@ export function accessCheckFields(
 
   let address = IDLE;
   if (input.hasAddress) {
-    if (!result.reachable) address = { state: "warn", text: t("connections.check.noAnswer") };
+    if (result.blocked) address = { state: "warn", text: t("connections.check.blocked") };
+    else if (!result.reachable) address = { state: "warn", text: t("connections.check.noAnswer") };
     else if (result.error && !rejected)
       address = { state: "warn", text: t("connections.check.wrongAddress", { status: result.status ?? "" }) };
     else if (rejected && !input.hasKey) address = { state: "ok", text: t("connections.check.needsKey") };

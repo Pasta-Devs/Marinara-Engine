@@ -290,6 +290,8 @@ export type AccessCheck =
   | {
       supported: true;
       reachable: boolean;
+      /** The server's own policy refused the address. */
+      blocked?: boolean;
       keyOk: boolean | null;
       modelCount: number | null;
       status: number | null;

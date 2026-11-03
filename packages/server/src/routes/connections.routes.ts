@@ -1715,7 +1715,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
       return reply.status(502).send({
         error: `Failed to fetch models: ${detail}${code && /^[A-Z0-9_]+$/.test(code) ? ` (${code})` : ""}. The connection is made from the Marinara server; check that the provider is reachable there.`,
         // Nothing answered: the live check reads this instead of guessing from the text.
-        unreachable: true,
+        // A policy refusal ("Refused to fetch ...") never left the server, so it is not "no answer".
+        ...(detail.startsWith("Refused to fetch") ? { blocked: true } : { unreachable: true }),
       });
     }
   };
@@ -1802,6 +1803,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
   });
 
   /** The same fetch with the error reply captured instead of sent (background refresh, move catalogs). */
+  // A live check must not hang while the user types.
+  const CHECK_TIMEOUT_MS = 10_000;
+
   const discoverQuietly = async (conn: Parameters<typeof discoverConnectionModels>[0]) => {
     const sink = {
       code: 0,
@@ -1815,14 +1819,25 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return this;
       },
     };
-    const discovered = await discoverConnectionModels(conn, sink as unknown as FastifyReply);
+    const pending = discoverConnectionModels(conn, sink as unknown as FastifyReply);
+    // ponytail: this only stops waiting; the fetch runs on until the OS gives up. Pass a signal into discovery if that matters.
+    const timedOut = await Promise.race([
+      pending.then(() => false),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(true), CHECK_TIMEOUT_MS).unref()),
+    ]);
+    if (timedOut) {
+      return { ok: false as const, status: undefined, error: "No answer in time", unreachable: true, blocked: false };
+    }
+    const discovered = await pending;
     if ((discovered as unknown) === sink) {
-      const body = sink.body as { error?: unknown; unreachable?: boolean } | undefined;
+      const body = sink.body as { error?: unknown; unreachable?: boolean; blocked?: boolean } | undefined;
       const error = String(body?.error ?? "Model list request failed");
       const unreachable = body?.unreachable === true;
+      const blocked = body?.blocked === true;
       // The provider's own status is inside the message ("Provider returned 429: ..."); a network failure has none.
-      const status = Number(/returned (\d{3})/.exec(error)?.[1] ?? (unreachable ? 0 : sink.code)) || undefined;
-      return { ok: false as const, status, error, unreachable };
+      const status =
+        Number(/returned (\d{3})/.exec(error)?.[1] ?? (unreachable || blocked ? 0 : sink.code)) || undefined;
+      return { ok: false as const, status, error, unreachable, blocked };
     }
     return { ok: true as const, ...(discovered as Exclude<typeof discovered, FastifyReply>) };
   };
@@ -1836,7 +1851,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const account = parsed.data.accountId ? await accounts.getById(parsed.data.accountId) : null;
     if (parsed.data.accountId && !account) return reply.status(404).send({ error: "Connection not found" });
     const provider = account?.provider ?? parsed.data.provider;
-    if (!(provider in PROVIDERS) || UNCHECKED_ACCESS_PROVIDERS.has(provider)) return { supported: false };
+    if (!Object.hasOwn(PROVIDERS, provider) || UNCHECKED_ACCESS_PROVIDERS.has(provider)) return { supported: false };
     const typedKey = parsed.data.apiKey?.trim();
     const baseUrl =
       parsed.data.baseUrl?.trim() ||
@@ -1867,6 +1882,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         supported: true,
         // Any HTTP answer means the address is right; no answer means nothing listens there.
         reachable: !discovered.unreachable,
+        blocked: discovered.blocked || undefined,
         keyOk: apiKey && rejected ? false : null,
         modelCount: null,
         status,
@@ -1889,6 +1905,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
           policy: localUrlPolicyForProvider(provider, ""),
           maxResponseBytes: 256 * 1024,
           decodeCompressedResponse: true,
+          signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
         });
         // Only a refusal means a bad key; a busy or failing provider says nothing about it.
         keyOk = res.ok ? true : res.status === 401 || res.status === 403 ? false : null;

@@ -1978,6 +1978,7 @@
   "connections.check.keyWorksModels_one": "Key works · {{count}} model",
   "connections.check.keyWorksModels_other": "Key works · {{count}} models",
   "connections.check.needsKey": "Server answers. It needs a key.",
+  "connections.check.blocked": "Marinara does not connect to this address from the server.",
   "connections.check.noAnswer": "No answer at this address. Is the server running?",
   "connections.check.serverAnswers": "Server answers",
   "connections.check.serverModels_one": "Server answers · {{count}} model found",
