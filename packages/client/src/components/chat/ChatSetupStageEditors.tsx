@@ -40,6 +40,8 @@ import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { openAddConnection } from "../../lib/add-connection";
 import { api } from "../../lib/api-client";
 import { readCharacterGreetings } from "../../lib/character-greetings";
+import { resolveGreetingPreview } from "../../lib/chat-macros";
+import { stripStrayMarkdown } from "../../lib/omnibar-aside-text";
 import { readCardWithQuestions } from "../../lib/onboarding-add-card";
 import { readSetupFields } from "../../lib/chat-setup-memory";
 import { postGreetingWithSwipes } from "../../lib/message-swipes";
@@ -284,6 +286,7 @@ function Option({
   icon,
   avatar,
   onSelect,
+  wrapHint,
 }: {
   active: boolean;
   label: ReactNode;
@@ -292,6 +295,8 @@ function Option({
   /** A person row (persona, character, greeting) shows their round avatar. */
   avatar?: StageAvatarProps;
   onSelect: () => void;
+  /** Show up to two hint lines instead of one. */
+  wrapHint?: boolean;
 }) {
   return (
     <button
@@ -312,7 +317,14 @@ function Option({
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14px]">{label}</span>
         {hint && (
-          <span className="block truncate font-serif text-[12.5px] italic text-[var(--muted-foreground)]">{hint}</span>
+          <span
+            className={cn(
+              "block font-serif text-[12.5px] italic text-[var(--muted-foreground)]",
+              wrapHint ? "line-clamp-2 whitespace-pre-line" : "truncate",
+            )}
+          >
+            {hint}
+          </span>
         )}
       </span>
       {active && <Check size="1rem" aria-hidden className="shrink-0 text-[var(--primary)]" />}
@@ -502,6 +514,21 @@ function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
   const { t } = useTranslation();
   const undo = useStageUndo("opening");
   const first = ctx.first;
+  const { data: characterData } = useCharacters();
+  const characterRows = characterData as Array<{ id: string; data: unknown }> | undefined;
+  const { data: personas } = usePersonas();
+  const macroVariables = ctx.chatMeta.macroVariables;
+  const chatVariables = useMemo(
+    () =>
+      macroVariables && typeof macroVariables === "object" && !Array.isArray(macroVariables)
+        ? Object.fromEntries(
+            Object.entries(macroVariables as Record<string, unknown>).filter(
+              (entry): entry is [string, string] => typeof entry[1] === "string",
+            ),
+          )
+        : {},
+    [macroVariables],
+  );
   const { data } = useQuery({
     queryKey: [...chatKeys.messages(ctx.chat.id), first?.id, "swipes", first?.swipeCount],
     queryFn: () =>
@@ -512,6 +539,25 @@ function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
   const swipes = data?.length ? [...data].sort((a, b) => a.index - b.index).map((s) => s.content) : [first.content];
   const active = first.activeSwipeIndex ?? 0;
   const speaker = first.characterId ? ctx.characterMap.get(first.characterId) : undefined;
+  const speakerRow = characterRows?.find((c) => c.id === first.characterId);
+  // Resolved like the greeting below the stage, so {{user}} and {{char}} read as names.
+  const preview = (content: string) => {
+    const text = speakerRow
+      ? resolveGreetingPreview(content, {
+          character: speakerRow,
+          chat: ctx.chat,
+          characters: characterRows,
+          personas,
+          chatVariables,
+        }).text
+      : content;
+    return stripStrayMarkdown(text)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("\n");
+  };
   return (
     <>
       {swipes.map((content, index) => (
@@ -519,7 +565,8 @@ function OpeningEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
           key={index}
           active={index === active}
           label={t("chat.setupStage.editor.greeting", { index: index + 1 })}
-          hint={(content ?? "").trim().split("\n")[0].replace(/[*_]/g, "")}
+          hint={preview(content ?? "")}
+          wrapHint
           avatar={speaker && { src: speaker.avatarUrl, crop: speaker.avatarCrop, name: speaker.name }}
           onSelect={() => {
             if (index !== active) {
