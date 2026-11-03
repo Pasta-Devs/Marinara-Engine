@@ -2,7 +2,7 @@
 
 An `{{#if}}` block includes some prompt text only when a condition is true. Use it to give one shared preset different instructions for different characters, personas or chats, or to leave out a field that is empty. Conditionals are part of the macro system, so they work wherever [macros](macros.md) work: character cards, personas, lorebook entries and presets.
 
-Marinara checks the condition each time it builds a prompt, keeps the matching text, and drops the rest.
+Marinara checks the condition each time it builds a prompt, keeps the matching text, and drops the rest. This is an advanced feature, and most chats never need it.
 
 ## The basic syntax
 
@@ -291,7 +291,7 @@ Only statements a stage can use enter its plan: enabled preset sections and grou
 
 On a hosted Decision account, one turn can make several billed requests. Statements can be batched, but lorebook activation, newly activated entry content, recursive matches and agent phases can need more batches. A local chat model adds processing time instead of charges, and answers a `decision_choice:` with one yes/no question per option.
 
-Each request has a time limit, 1.5 seconds by default for a hosted Decision account. See [Time limits](../connections/decision-models.md#time-limits). A local reasoning model holds off before the reply unless you turn on **Also gate agents that run before the reply**.
+Each request has a time limit, 1.5 seconds by default for a hosted Decision account, or 4 seconds for an OpenAI-compatible chat model account or a local model. See [Time limits](../connections/decision-models.md#time-limits). A local reasoning model holds off before the reply unless you turn on **Also gate agents that run before the reply**.
 
 #### Answer reuse
 
