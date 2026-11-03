@@ -19,7 +19,7 @@ You need only one thing to start a game: an AI provider connection for the GM. A
 Everything else is optional and off by default. You can add these later:
 
 - **Image generation.** Game Mode has a visual layout with backgrounds and character art. To fill it, you need an image generation connection. The **Visual Generation** setting in the wizard is off by default, so you must turn it on yourself. Without it, you still get the story, state tracking, and combat, but the visual areas stay empty.
-- **A Local Model for scene effects.** Marinara can run a small model on your own machine, labeled **Local Model (Gemma)**. It powers background and music suggestions without extra cost. It is the default choice in the wizard. See [Local Model Setup](../connections/local-model.md).
+- **A Local Model for scene effects.** Marinara can run a small model on your own machine, labeled **Local Model (Gemma)**. It powers background and music suggestions without extra cost. It is the default choice in the wizard. See [Built-in Model Setup](../connections/local-model.md).
 - **The Storyboard Agent.** Install it from **Agents > Agent Organizer**, then activate it for the finished Game under **Chat Settings > Agents** when you want still or animated Storyboards.
 - **A video generation connection.** This is only needed for scene videos or animated Storyboards.
 - **Music.** The **Music DJ** agent can play game music. It needs Spotify or a local music folder, and it is off by default.
