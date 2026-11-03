@@ -11,7 +11,7 @@ A ruleset is one JSON file. It is data, not code, so nothing in it runs and impo
    - [`gravewatch.json`](https://github.com/Pasta-Devs/Marinara-Engine/blob/staging/docs/examples/rulesets/gravewatch.json) is a small ten-sided dice pool with three ratings and six trades.
    - The official [5e (SRD 5.1) package](https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/ruleset-5e-2014), a full-size example. Its `ruleset.json` and `catalogs/` are what the Agent Organizer installs.
 2. Change `id` to your own. An id is lowercase letters, digits, and single hyphens, such as `ember-roads`.
-3. Open your copy in a text editor such as Notepad or VS Code, and save it with the `.json` ending. Change `name` first, then the ability names in `sheet`, then `rests` and the `gm` text. [Parts of the file](#parts-of-the-file) lists each key and the pages that explain it.
+3. Open your copy in a text editor such as Notepad or VS Code, and save it with the `.json` ending. Change `name` first, then the ability names in `sheet`, then `rests` and the `gm` text. [Parts of the file](#parts-of-the-file) lists each key, and [Reference pages](#reference-pages) links the pages that explain them.
 4. Import it (see [Try your ruleset](#try-your-ruleset)). The import checks the whole file and reports what is wrong, line by line, before it saves anything.
 5. Create a new game (see [Game Mode: Getting Started](../game/getting-started.md)), pick your ruleset under **Rules**, and play a few checks.
 
@@ -33,7 +33,7 @@ A ruleset fills in the blanks of a mechanic the Engine already knows. The Engine
 - **`dice-pool`**: throw the character's own number of dice and count the ones that reach a target. That covers systems where a rating is a handful of dice rather than a bonus.
 - **`dice-highest`**: throw a pool and read its highest die, or add its highest few. That covers Blades in the Dark and Trophy Dark.
 - **`roll-against`**: roll at or under (or over) the sheet's number. That covers percentile skills and GURPS checks.
-- **`symbol-pool`**: build and upgrade narrative dice, then cancel opposing symbols. That covers Genesys checks and its fights.
+- **`symbol-pool`**: build and upgrade narrative dice, then cancel opposing symbols. That covers Genesys checks, and its fights since Capability API 1.382.
 
 All five are described in full under [Resolution kinds](ruleset-checks.md#resolution-kinds).
 
@@ -61,7 +61,7 @@ Game Mode resolves a fight with either Marinara's own combat or your ruleset's r
 | `combat`        | Optional. How a fight is resolved by your own rules, and what the battle screen then plays.       |
 | `layers`        | Optional. Variants of your ruleset a player turns on when a game is created.                      |
 
-The file may be up to 512 KB. Text that ends up in a prompt (names, labels, Game Master text) cannot contain line breaks, square brackets or double curly braces.
+The file may be up to 512 KB (256 KB before Capability API 1.340). Text that ends up in a prompt (names, labels, Game Master text) cannot contain line breaks, square brackets or double curly braces.
 
 Ids inside the sheet (abilities, skills, fields, pools, and so on) are lowercase letters, digits, and underscores, starting with a letter, such as `grit_max`.
 
@@ -98,7 +98,7 @@ If you change the shape of the sheet (add, remove, or rename things), raise `she
 
 ## Sharing your ruleset
 
-There are four ways to share.
+There are five ways to share.
 
 ### As a file
 
