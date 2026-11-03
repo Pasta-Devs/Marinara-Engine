@@ -13,6 +13,8 @@ import {
 } from "react";
 import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, VenetianMask, Bot, Puzzle } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { LibraryNav } from "../overhaul/LibraryNav";
 import { cn } from "../../lib/utils";
 import { usePersonalExtensionContributions } from "../../lib/personal-extension-contributions";
 import { PersonalExtensionContributionIcon } from "../extensions/PersonalExtensionContributionIcon";
@@ -133,6 +135,12 @@ function PanelFallback() {
 }
 
 export function RightPanel() {
+  // UI overhaul preview: the right pane is the Library section list.
+  const overhaulActive = useOverhaulActive();
+  return overhaulActive ? <LibraryNav /> : <StandardRightPanel />;
+}
+
+function StandardRightPanel() {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const panel = useUIStore((s) => s.rightPanel);

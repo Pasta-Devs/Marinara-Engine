@@ -14,6 +14,8 @@ import { queryClient } from "./lib/query-client";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { formatRuntimeBuild } from "./lib/runtime-build";
 import { recordClientReload, registerClientRuntimeDiagnostics } from "./lib/client-runtime-diagnostics";
+import "@fontsource/gloock/400.css";
+import "@fontsource-variable/figtree";
 import "./styles/globals.css";
 
 // Installed capability clients can outlive the Engine build that produced

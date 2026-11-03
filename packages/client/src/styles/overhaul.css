@@ -1,0 +1,342 @@
+/* ═══════════════════════════════════════════════
+   UI OVERHAUL PREVIEW: layout chrome
+   Desktop only. Active while <html data-overhaul="on">.
+   Colors come from the active theme's variables, so the
+   Stage visual theme, other visual themes and custom CSS
+   themes all apply. Fonts: Gloock for titles.
+   ═══════════════════════════════════════════════ */
+
+:root {
+  --ov-serif: "Gloock", Georgia, "Times New Roman", serif;
+  --ov-topbar-height: 2.625rem;
+  --ov-mode-conversation: #4fb8c9;
+  --ov-mode-roleplay: #e0566f;
+  --ov-mode-game: #d9a441;
+  --ov-line: var(--border);
+  --ov-text: var(--foreground);
+  --ov-muted: var(--muted-foreground);
+  --ov-dim: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  --ov-accent: var(--primary);
+  --ov-hover: color-mix(in srgb, var(--foreground) 7%, transparent);
+  --ov-active-bg: color-mix(in srgb, var(--foreground) 9%, var(--background));
+}
+
+/* ─── Top bar ─── */
+.ov-topbar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  height: var(--ov-topbar-height);
+  padding: 0 0.5rem;
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+  border-bottom: 1px solid var(--ov-line);
+  color: var(--ov-muted);
+  user-select: none;
+}
+.ov-topbar .mari-topbar-edge-glow {
+  bottom: -1px;
+}
+.ov-mark {
+  font: 400 1.375rem/1 var(--ov-serif);
+  color: var(--ov-accent);
+  margin: 0 0.375rem 0 0.25rem;
+}
+.ov-icon-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 0.5rem;
+  color: var(--ov-muted);
+}
+.ov-icon-btn--sm {
+  width: 1.625rem;
+  height: 1.625rem;
+}
+.ov-icon-btn:hover {
+  background: var(--ov-hover);
+  color: var(--ov-text);
+}
+.ov-icon-btn.is-on {
+  color: var(--ov-accent);
+  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+}
+.ov-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 0.125rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ov-tabs::-webkit-scrollbar {
+  display: none;
+}
+.ov-tab {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 13rem;
+  align-items: center;
+  height: 1.875rem;
+  border-radius: 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.ov-tab--home {
+  flex: none;
+  gap: 0.4375rem;
+  padding: 0 0.625rem 0 0.5625rem;
+}
+.ov-tab:hover {
+  color: var(--ov-text);
+  background: var(--ov-hover);
+}
+.ov-tab.is-on {
+  color: var(--ov-text);
+  background: var(--ov-active-bg);
+  box-shadow: inset 0 0 0 1px var(--ov-line);
+}
+.ov-tab__main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4375rem;
+  height: 100%;
+  padding: 0 0.25rem 0 0.5625rem;
+}
+.ov-tab__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-tab__dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  flex: none;
+}
+.ov-tab__icon {
+  flex: none;
+  opacity: 0.85;
+}
+.ov-tab__close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.3125rem;
+  border-radius: 0.3125rem;
+  opacity: 0.5;
+}
+.ov-tab__close:hover {
+  opacity: 1;
+  background: var(--ov-hover);
+}
+.ov-topbar__right {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+}
+.ov-vsep {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: var(--ov-line);
+}
+.ov-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  height: 1.875rem;
+  padding: 0 0.6875rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.ov-text-btn small {
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+}
+.ov-text-btn:hover {
+  color: var(--ov-text);
+  background: var(--ov-hover);
+}
+.ov-text-btn.is-on {
+  color: var(--ov-text);
+  border-color: var(--ov-line);
+  background: var(--ov-active-bg);
+}
+.ov-text-btn--library {
+  color: var(--ov-accent);
+}
+.ov-text-btn--library.is-on {
+  color: var(--ov-accent);
+  border-color: color-mix(in srgb, var(--ov-accent) 35%, var(--ov-line));
+}
+.ov-topbar button:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 1px;
+}
+
+/* ─── Library pane (right) ─── */
+.ov-libnav {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 0.0625rem;
+  overflow-y: auto;
+  padding: 0.75rem 0.5rem 1rem;
+  color: var(--ov-muted);
+}
+.ov-libnav__title {
+  margin: 0;
+  padding: 0.125rem 0.375rem 0.625rem;
+  font: 400 1.375rem/1 var(--ov-serif);
+  color: var(--ov-accent);
+}
+.ov-libnav__group {
+  display: grid;
+  gap: 0.0625rem;
+}
+.ov-libnav__rule {
+  height: 1px;
+  margin: 0.625rem 0.375rem;
+  background: var(--ov-line);
+}
+.ov-libnav__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  height: 2rem;
+  padding: 0 0.625rem;
+  border-radius: 0.5625rem;
+  font-size: 0.875rem;
+  text-align: left;
+}
+.ov-libnav__item small {
+  margin-left: auto;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.ov-libnav__item:hover {
+  color: var(--ov-text);
+  background: var(--ov-hover);
+}
+.ov-libnav__item.is-on {
+  color: var(--ov-text);
+  background: var(--ov-active-bg);
+  box-shadow: inset 2px 0 0 var(--ov-accent);
+}
+.ov-libnav__tags {
+  display: grid;
+  gap: 0.0625rem;
+  margin: 0.125rem 0 0.375rem 1.125rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--ov-line);
+}
+.ov-libnav__tag {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.625rem;
+  padding: 0 0.5rem;
+  border-radius: 0.4375rem;
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.ov-libnav__tag span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-libnav__tag small {
+  margin-left: auto;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+}
+.ov-libnav__tag:hover {
+  color: var(--ov-text);
+  background: var(--ov-hover);
+}
+.ov-libnav__tag.is-on {
+  color: var(--ov-text);
+  background: color-mix(in srgb, var(--ov-accent) 12%, transparent);
+}
+.ov-libnav__tag svg {
+  opacity: 0.6;
+}
+.ov-libnav button:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -2px;
+}
+
+/* ─── Library landing pages (main area) ─── */
+.ov-libpage {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1.25rem 2rem 0;
+}
+.ov-libpage__head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 auto;
+  padding-bottom: 0.75rem;
+}
+.ov-libpage__head h1 {
+  flex: 1;
+  margin: 0;
+  font: 400 2rem/1 var(--ov-serif);
+  color: var(--ov-text);
+}
+.ov-libpage__body {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  margin: 0 auto;
+  overflow: hidden;
+}
+.ov-libpage__body > * {
+  min-height: 0;
+  flex: 1;
+}
+.ov-libpage__loading {
+  padding: 2rem 0;
+  color: var(--ov-muted);
+  font-size: 0.875rem;
+}
+
+/* ─── The old chrome the overhaul replaces ─── */
+/* Home's fake browser: the brand and address bar go; the Home apps row stays. */
+:root[data-overhaul="on"] [data-component="HomeBrowserHub.Brand"],
+:root[data-overhaul="on"] [data-component="HomeBrowserHub.AddressRow"] {
+  display: none !important;
+}
+
+/* Titles in the overhaul's serif. */
+:root[data-overhaul="on"] .mari-sidebar h2,
+:root[data-overhaul="on"] [data-component="ChatSidebar"] h2 {
+  font-family: var(--ov-serif);
+  font-weight: 400;
+}
