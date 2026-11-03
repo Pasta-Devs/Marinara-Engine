@@ -159,7 +159,8 @@ Below the dropdown, a badge shows where the prompt comes from.
 | --- | --- |
 | **Default** | The built-in prompt. |
 | **Preset** | The chosen preset's prompt. |
-| **Custom** | A chat-local edit for this chat only. |
+| **Style** | The prompt of the selected GM prompt style. Game chats only. |
+| **Custom** | A chat-local edit for this chat only. It wins over all the others. |
 
 The text box shows the prompt in use. Edit it to make a chat-local copy. If your text matches the preset or default exactly, Marinara treats it as not customized. While a custom edit exists, a reset icon appears (tooltip **Reset to default prompt**).
 
