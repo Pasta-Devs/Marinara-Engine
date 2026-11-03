@@ -4,7 +4,7 @@ Game Mode turns Marinara Engine into a single-player role-playing game run by an
 
 Game Mode is one of the three chat modes (Conversation, Roleplay and Game Mode). The Game Master (GM) is the AI that narrates the world, plays every character you meet and decides what happens next, like the Dungeon Master in a tabletop game. Marinara keeps track of the map, your party, non-player characters (NPCs), items, quests, in-world time and weather. You can split a long game into several **sessions**, like game nights in one campaign.
 
-You do not have to use every mechanic. Some players skip combat and dice and use Game Mode for story-driven, visual play.
+You do not have to use every mechanic. You can skip combat and dice and play for the story.
 
 ## Before you start
 
@@ -13,20 +13,22 @@ You need one thing: an AI account for the Game Master. See [Connecting to an AI 
 Everything else is optional and off by default. You can add it later:
 
 - **Images.** The **Illustrator** agent draws NPC portraits, location backgrounds and scene images. Download it from **Agents → Agent Organizer**. It needs an image account. Without it, you still get the story, state tracking and combat, but the visual areas stay empty.
-- **Scene effects from the Built-in model.** Marinara can run a small model on your own computer to pick backgrounds and music at no cost. It is the default for the **Scene effects model**, but it only works after you download it. See [Built-in Model Setup](../connections/local-model.md).
+- **Scene effects from the Built-in model.** Marinara can run a small model on your own computer to pick backgrounds and music at no cost. It becomes the default **Scene effects model** once you download it. Until then the default is **Skip - use inline tags from GM**. See [Built-in Model Setup](../connections/local-model.md).
 - **Storyboards.** Download the Storyboard agent, then turn it on for the game. See [Storyboard Agent Guide](storyboard.md).
 - **Video.** A video account is only needed for scene videos or animated Storyboards.
 - **Music.** The **Music DJ** agent plays music from Spotify or a local music folder.
 
 ## Start a game
 
-1. Create a new chat and choose **Game Mode**. The setup wizard opens.
-2. Go through the seven steps below. Only the model on the first step is required. Every other field has a default.
-3. Click **Start Game**.
+1. In the chat sidebar, open the **GM** tab and click the **+** button (**New Game**). Or click **Game** on the Home screen. The setup wizard opens. See [Managing Chats](../chats/managing-chats.md).
+2. On the first step, pick the **Model** that runs the GM. Choose an account you added before. If the list is empty, add one first. For world generation, pick a strong paid model (see [Choosing a model](#choosing-a-model)).
+3. Click **Next** on each step. Every other field has a default, so you can click through.
+4. On the last step, click **Create world**. The button shows **Generating World…** while Marinara builds your world. This is one large request to your model, so wait until it finishes.
+5. When the world is ready, the game screen shows **Start Game**. Click it. The GM then writes the first message.
 
-Marinara now builds your world. This is one large request to your model, so it can take a while. The wizard shows **Generating World…** until it is done. Then the GM writes the first message.
+If custom HUD widgets are on (the default), a **Review Starting Widgets** button sits under **Start Game**. You can skip it, or use it to change the starting widgets first. See [Game Mode: HUD Widgets](hud-widgets.md).
 
-> **Tip:** If you are new to Game Mode, leave **Game Master Mode** on **Standalone GM**. Marinara builds a fair, slightly snarky GM for you.
+> **Tip:** If you are new to Game Mode, leave **Game Master Mode** on **Standalone GM**. Marinara builds a snarky narrator for you.
 
 If it did not work, see [World generation fails with a JSON or 422 error](#world-generation-fails-with-a-json-or-422-error).
 
@@ -44,7 +46,9 @@ If it did not work, see [World generation fails with a JSON or 422 error](#world
 
 The ideas offered under the setting and goals change each time the wizard opens. In a Tactical game, the GM writes a short brief for each fight and Marinara builds a board from it. See [Combat](combat.md#tactical-battles-and-terrain).
 
-With the **Hierarchical Maps** agent downloaded, the **World** step can also draft a world map, use a saved map template or link a shared world. See [Hierarchical Maps](../agents/hierarchical-maps.md).
+The **World** step also has combat options for bosses. **GM directs bosses** lets the GM decide boss turns using your model, which may take a moment. When it is on, you can also set **Game Master also plays named and brilliant opponents**, **Companions fight on their own** and **Let cruel opponents strike the fallen**. See [Combat](combat.md).
+
+With the **Hierarchical Maps** agent downloaded (now called World Maps, see [World Maps](../agents/hierarchical-maps.md)) and **Enable Agents** on, the **Features** step can also draft a **Hierarchical world map**, use a saved map template or link a shared world.
 
 ### Defaults worth knowing
 
@@ -56,7 +60,7 @@ With the **Hierarchical Maps** agent downloaded, the **World** step can also dra
 | Content Rating | SFW | **SFW** or **NSFW**. NSFW only permits adult content, it does not force it. |
 | Language | English | All in-game text is written in this language. |
 | Game Master Mode | Standalone GM | **Character GM** uses one of your character cards as the GM. |
-| Scene effects model | Built-in model | Used only after you download the Built-in model. |
+| Scene effects model | Built-in model | Only once you download it. Until then the default is **Skip - use inline tags from GM**. |
 | Enable Agents | Off | Turn on to see the agent cards. |
 | Illustrator | Off | Needs the Illustrator agent and an image account. |
 | Music DJ | Off | Needs Spotify or a local music folder. |
@@ -123,7 +127,8 @@ You can also keep a control inside **Chat Settings**. Open the control's window 
 
 World generation is the hardest part of Game Mode. It asks the model for one long, strict JSON document (a text format that must be exact or the game cannot read it) with no missing fields. A model that chats well can still fail this step.
 
-- For world generation, use a capable, current top-tier model on a paid account. Specific model names change often, so check the provider's current flagship.
+- For world generation, use a capable, current top-tier model on a paid account. As of 2026, players report good results from the flagship tiers of the major providers, such as Anthropic Claude, OpenAI GPT and Google Gemini. Model names change often, so treat these as examples, not a fixed list.
+- The cheapest models we recommend, both tested in play as of October 31, 2026, are DeepSeek V4 Flash and Claude Haiku 5.5.
 - For later turns you can sometimes use a cheaper model, because turns need narration, not strict JSON. If the GM forgets NPCs or contradicts earlier details, move back to a stronger model.
 - Avoid free or auto-routing models for world generation. They can route to a small model that cannot produce valid JSON. Small open-weight models usually fail too.
 
@@ -166,13 +171,25 @@ The model most likely could not produce the full JSON. Try these in order.
 
 1. Check which model the GM uses. If it is a free or auto-routing model, switch to a capable paid one.
 2. Try again. Some failures happen once.
-3. Shorten a very long setting or preferences field. Long input leaves less room for the JSON.
+3. Shorten a long setting or preferences field. Long input leaves less room for the JSON.
 
 If a call almost worked, Marinara offers a **Repair JSON** window with the model's raw output in a line-numbered editor. A status line says whether the JSON is valid or shows the parse error. Click **Format** to tidy valid JSON, then **Apply Repaired JSON** to use your fix without paying for a retry. **Repair JSON** also appears for session summaries and other structured calls. For more fixes, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
 ### The GM narrates cheerfully although you chose a dark tone
 
 Some models stay upbeat. Add a clear instruction in the wizard's preferences field, such as "keep narration grim, do not soften failures". Or switch to a model whose default voice fits the tone.
+
+## Where each topic lives
+
+- [Game Mode: Combat](combat.md): encounters, the action menu, damage math and quick-time events.
+- [Game Mode: Party and NPCs](party-and-npcs.md): Character Profiles, sheets and the Adventure Journal.
+- [Game Mode: Sessions and Saves](sessions-and-saves.md): ending and starting sessions, history and checkpoints.
+- [Game Mode: Map, Time, and Weather](map-time-weather.md): map views, the clock, weather and morale.
+- [Game Mode: Dice and Skill Checks](dice-and-skill-checks.md): the dice menu and skill-check rules.
+- [Game Mode: HUD Widgets](hud-widgets.md): the on-screen status widgets.
+- [Game Assets](game-assets.md): the music, sound, sprite and background library.
+- [Storyboard Agent Guide](storyboard.md): Storyboards for Game Mode and Roleplay.
+- [Roleplay Mode: Getting Started](../roleplay/getting-started.md): Author's Notes work the same way here.
 
 ## Overworld RPG
 
@@ -224,15 +241,3 @@ A world comes from a **World seed**. The same seed, kit and brief always make th
 **Later and saved.** A game made without a world can be given one later from the journal's **World** tab with **Make a world for this game**. The world starts from the next turn, and past turns, map and people stay. The button is greyed out while Overworld RPG is locked. A game keeps its world as it was made, so a new session, a branch and an exported chat keep the same world. A world made by an earlier version of the generator plays on but can no longer be edited.
 
 A game with a world opens on the **overworld**, a pixel map where you walk the party between settlements and enter towns. See [The overworld](map-time-weather.md#the-overworld).
-
-## Where each topic lives
-
-- [Game Mode: Combat](combat.md): encounters, the action menu, damage math and quick-time events.
-- [Game Mode: Party and NPCs](party-and-npcs.md): Character Profiles, sheets and the Adventure Journal.
-- [Game Mode: Sessions and Saves](sessions-and-saves.md): ending and starting sessions, history and checkpoints.
-- [Game Mode: Map, Time, and Weather](map-time-weather.md): map views, the clock, weather and morale.
-- [Game Mode: Dice and Skill Checks](dice-and-skill-checks.md): the dice menu and skill-check rules.
-- [Game Mode: HUD Widgets](hud-widgets.md): the on-screen status widgets.
-- [Game Assets](game-assets.md): the music, sound, sprite and background library.
-- [Storyboard Agent Guide](storyboard.md): Storyboards for Game Mode and Roleplay.
-- [Roleplay Mode: Getting Started](../roleplay/getting-started.md): Author's Notes work the same way here.
