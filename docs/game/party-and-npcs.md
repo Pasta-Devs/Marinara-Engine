@@ -4,7 +4,7 @@ This guide covers the people in your Game Mode campaign: your party members and 
 
 ## Character Profiles
 
-**Character Profiles** is a portrait button that shows who travels with you. With several party members, it cycles through their portraits and shows a count badge. Before the story adds anyone, the party is just your persona.
+**Character Profiles** is a portrait button that shows who travels with you. With several party members, it cycles through their portraits and shows a count badge. Before the story adds anyone, the party is only your persona.
 
 1. Click or tap the **Character Profiles** button.
 2. Click or tap a portrait to open that character's sheet.
