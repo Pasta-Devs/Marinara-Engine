@@ -18,7 +18,7 @@ The first time you open a chat, a short video shows how to arrange buttons and w
 
 ## The sections at a glance
 
-Sections appear in this order. Which ones you see depends on the chat mode. The **Impersonate** section is in [Guided Generation and Impersonate](guided-and-impersonate.md).
+Which sections you see depends on the chat mode. The **Impersonate** section is in [Guided Generation and Impersonate](guided-and-impersonate.md).
 
 - Settings profile bar: Applies or saves a bundle of chat settings. See [Settings Profiles](settings-profiles.md). (Conversation, Roleplay.)
 - **Search messages**: Finds messages by words, or by `#` and a message number. Its **Bookmarks** and **Trash** tabs list bookmarked and deleted messages. (Not Game.)
