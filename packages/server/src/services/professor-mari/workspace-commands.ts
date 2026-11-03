@@ -956,13 +956,15 @@ export class WorkspaceCommands {
     } catch (err) {
       // Spawn failure: the round's result is discarded, but a write that
       // already landed must still be reverted and surfaced as pending.
-      await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      const lines = await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      if (lines.length) logger.warn("[mari] After a failed shell spawn: %s", lines.join(" "));
       throw err;
     }
     if (aborted) {
       // The child has closed (or exhausted its teardown grace); revert and
       // stage the aftermath, then report the abort as before.
-      await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      const lines = await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      if (lines.length) logger.warn("[mari] After an aborted shell run: %s", lines.join(" "));
       throw new Error("aborted");
     }
     const stagedLines = await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
@@ -1005,7 +1007,12 @@ export class WorkspaceCommands {
       scan = await detectUnreviewedSensitiveChanges(this.workspaceRoot, snapshot);
     } catch (err) {
       logger.error(err, "[mari] Post-execution sensitive-file scan failed");
-      return ["Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed."];
+      // What was already moved aside still has to be reported, even when the scan itself failed.
+      return [
+        ...linkLines,
+        ...rootSecretLines,
+        "Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed.",
+      ];
     }
     const lines: string[] = [...linkLines, ...rootSecretLines];
     if (snapshot.entryCapExceeded || scan.entryCapExceeded) {
