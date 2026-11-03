@@ -438,7 +438,9 @@ export function ChatSetupStage({
         )}
       </p>
 
-      {!calm && <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />}
+      {!calm && !chatMeta.multiplayer && chatMeta.multiplayerSetup !== true && (
+        <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />
+      )}
       {expanded ? (
         <div
           className={cn(
