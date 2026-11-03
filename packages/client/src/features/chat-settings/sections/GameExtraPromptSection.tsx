@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RotateCcw, Sliders } from "lucide-react";
+import { FileText, RotateCcw } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { DEFAULT_GAME_SYSTEM_PROMPT, type AgentPromptTemplateOption } from "@marinara-engine/shared";
 import { MacroTextarea } from "../../../components/ui/MacroTextarea";
@@ -73,7 +73,7 @@ export function GameExtraPromptSection({
     <ChatSettingsSection
       id="game-prompt"
       label={localizeUi("ui.chatSettings.conversationpromptsection.promptPreset")}
-      icon={<Sliders size="0.875rem" />}
+      icon={<FileText size="0.875rem" />}
       help={localizeUi("ui.chatSettings.gameextrapromptsection.chooseAPresetSGamePromptThenOptionallyEdit")}
     >
       <div className="space-y-2">

@@ -1243,8 +1243,16 @@ export type MariWorkspacePromptEvent =
   | { type: "approval_pending"; data: MariWorkspacePendingApproval }
   | {
       type: "metadata";
-      /** `narration`: the text just sent belongs to the round whose steps came before it (slice 72). */
-      data: Record<string, unknown> & { actionResult?: MariWorkspaceActionResult; narration?: boolean };
+      /**
+       * `narration`: the text just sent belongs to the round whose steps came before it (slice 72).
+       * `nothingChanged`: the reply just sent changed nothing although a claim check flagged its words (#8711); the
+       * saved reply carries it as `mariNothingChanged`.
+       */
+      data: Record<string, unknown> & {
+        actionResult?: MariWorkspaceActionResult;
+        narration?: boolean;
+        nothingChanged?: boolean;
+      };
     }
   | { type: "suggestions"; data: MariSuggestionChip[] }
   | { type: "todos"; data: MariTodoItem[] }

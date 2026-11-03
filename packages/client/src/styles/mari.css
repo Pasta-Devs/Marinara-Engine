@@ -995,13 +995,19 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
+  /* Physical, flipped for right-to-left: inset-inline-start compiles to :lang() lists Chromium drops (#8709). */
   .mari-list__cols > .mari-list__item:nth-child(2n)::after {
     position: absolute;
     inset-block: 0.625rem;
-    inset-inline-start: 0;
+    left: 0;
     width: 1px;
     background: var(--mari-divider);
     content: "";
+  }
+
+  :where([dir="rtl"]) .mari-list__cols > .mari-list__item:nth-child(2n)::after {
+    right: 0;
+    left: auto;
   }
 }
 
@@ -2297,16 +2303,18 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   overflow: visible;
 }
 
+/* Physical: both corners of an edge in either direction. Logical corner radii compile to :lang() lists
+   Chromium drops (#8709). */
 .mari-edit--menus > :first-child,
 .mari-edit--menus > :first-child > .mari-row {
-  border-start-start-radius: inherit;
-  border-start-end-radius: inherit;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
 }
 
 .mari-edit--menus > :last-child,
 .mari-edit--menus > :last-child > .mari-row {
-  border-end-start-radius: inherit;
-  border-end-end-radius: inherit;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
 }
 
 /* Not clipped (its ⋮ menus overflow), so the first row's divider is hidden by hand. */
@@ -2651,9 +2659,15 @@ html[data-marinara-effects-paused="true"] .mari-status-shimmer[data-active="true
   content: "";
   position: absolute;
   inset-block: 0.6rem;
-  inset-inline-start: calc(-0.25rem - 0.5px);
+  /* Physical, flipped for right-to-left: inset-inline-start compiles to :lang() lists Chromium drops (#8709). */
+  left: calc(-0.25rem - 0.5px);
   width: 1px;
   background: var(--border);
+}
+
+:where([dir="rtl"]) .mari-omnibar-header-destinations button[data-destination="chats"]::before {
+  right: calc(-0.25rem - 0.5px);
+  left: auto;
 }
 
 @media (min-width: 30.0625rem) {
@@ -3358,9 +3372,16 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   position: absolute;
   /* The whole height of her reply, so the sprite inside can stick while the reply scrolls. */
   inset-block: -0.6rem 0;
-  inset-inline-start: -3.75rem;
+  /* Physical, flipped for right-to-left: inset-inline-start compiles to :lang() lists Chromium drops (#8709).
+     :where() keeps the flip at this rule's specificity, so the narrow layout's inset: auto still wins. */
+  left: -3.75rem;
   display: flex;
   flex-direction: column;
+}
+
+:where([dir="rtl"]) .mari-answer__sprite {
+  right: -3.75rem;
+  left: auto;
 }
 
 /* G3: no margin beside the column (a phone, a narrow panel): 44rem + 2 x 3.75rem + the scrollbar gutters. */
@@ -3382,7 +3403,9 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
     inset: auto;
     display: block;
     float: inline-start;
-    margin: -0.3rem 0.6rem 0.15rem 0;
+    /* Logical like the float, so the gap stays on the text side in right-to-left locales. */
+    margin-block: -0.3rem 0.15rem;
+    margin-inline: 0 0.6rem;
   }
 
   .mari-answer .mari-run-outcome {
@@ -5416,7 +5439,8 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   content: "";
   position: absolute;
   inset-block: 0;
-  inset-inline-start: calc(50% - 1px);
+  /* Centred, so physical in either direction (the logical form compiles to :lang() lists, #8709). */
+  left: calc(50% - 1px);
   width: 2px;
   border-radius: 1px;
   background: var(--border);

@@ -18,7 +18,7 @@ import { MariNote } from "../mari-primitives";
 import { MariStorySprite } from "../MariStorySprite";
 import { MariSuggestionChips, MariNextStepCards } from "../MariSuggestionChips";
 import { MariTurnReviews, MariWorkTimelineOutcome } from "./CompactMariMessage";
-import { ProfessorMariRecovery, continuedThereByContext } from "./mari-chat-helpers";
+import { ProfessorMariRecovery, continuedThereByContext, toMessageExtra } from "./mari-chat-helpers";
 import { WorkspaceTimelineItem, getMessageRunError, getMessageRunTime } from "./mari-tool-presentation";
 import { LoadingHistoryState } from "./MariChatStates";
 import { MariWorkTimeline } from "./MariWorkTimeline";
@@ -289,6 +289,7 @@ export function MariTranscript({
                       onRegenerate={!isBusy ? () => handleRegenerateMessage(latestMessage.id) : undefined}
                       onDelete={!isBusy ? () => handleDeleteMessage(latestMessage.id) : undefined}
                       reviews={renderTurnReviews(latestMessage.id)}
+                      nothingChanged={toMessageExtra(latestMessage)?.mariNothingChanged === true}
                     />
                   ) : null}
                 </MariWorkTimeline>

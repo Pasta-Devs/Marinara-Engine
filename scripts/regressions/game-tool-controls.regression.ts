@@ -150,10 +150,10 @@ async function* narrator(messages: ChatMessage[], options: ChatOptions): AsyncGe
     "a separately planned narrator cannot emit textual tool calls",
   );
   if (expectedPrefill) {
-    assert.equal(messages.at(-1)?.role, "assistant");
+    assert.equal(messages.at(-1)?.role, "user");
     assert.equal(
       messages.at(-1)?.content,
-      expectedPrefill.trimEnd(),
+      (singleUser ? "[USER]\n" : "") + expectedPrefill.trimEnd(),
       "tool results precede the original assistant prefill",
     );
     assert.match(messages.at(-2)!.content, /separate tool-planning pass/);
@@ -469,7 +469,7 @@ try {
     maxContext: 32768,
     treatAsLocalEndpoint: true,
   });
-  for (const variant of ["prefill", "single", "no-finish", "empty", "continue"] as const) {
+  for (const variant of ["prefill", "single-prefill", "single", "no-finish", "empty", "continue"] as const) {
     const chat = (await chats.create({
       name: variant,
       mode: "game",
@@ -477,8 +477,8 @@ try {
       connectionId: dedicatedNarrator.id,
       promptPresetId: null,
     }))!;
-    expectedPrefill = variant === "prefill" ? "The gate: " : "";
-    singleUser = variant === "single";
+    expectedPrefill = variant === "prefill" || variant === "single-prefill" ? "The gate: " : "";
+    singleUser = variant === "single" || variant === "single-prefill";
     continueTurn = variant === "continue";
     omitFinishReason = variant === "no-finish" || variant === "empty";
     emptyNarrator = variant === "empty";
