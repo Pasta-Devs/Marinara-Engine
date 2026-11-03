@@ -88,7 +88,7 @@ These controls decide where an activated entry lands in the prompt. On a wide sc
 | **Order** | The sequence when several entries activate. A lower number comes first and survives trimming when the budget is tight. Default 100. |
 | **Role** | Labels the injected text **System**, **User** or **Assistant**. Matters only for **@ Depth**. Default **System**. |
 
-Leave these at their defaults unless an entry needs more. Use **@ Depth** sparingly. The text lands between recent messages like an interruption, so keep it for a rule the model keeps forgetting or a fact that just changed. For example, "The tavern is now on fire." at **@ Depth** 1.
+Leave these at their defaults unless an entry needs more. Use **@ Depth** sparingly. The text lands between recent messages like an interruption, so keep it for a rule the model keeps forgetting or a fact that changed a moment ago. For example, "The tavern is now on fire." at **@ Depth** 1.
 
 ### Outlet
 

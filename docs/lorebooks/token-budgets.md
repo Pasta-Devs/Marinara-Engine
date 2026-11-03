@@ -64,7 +64,7 @@ If large lorebooks keep being skipped, **Active Context** suggests the **Knowled
 
 ## Recursive scanning
 
-Normally Marinara scans only your recent messages for keys. With **Recursive** on, it also scans the text of entries that just activated, so one entry can pull in related entries.
+Normally Marinara scans only your recent messages for keys. With **Recursive** on, it also scans the text of entries that were newly activated, so one entry can pull in related entries.
 
 1. Open the lorebook and click **Overview**.
 2. Turn on **Recursive**. It is off by default.
