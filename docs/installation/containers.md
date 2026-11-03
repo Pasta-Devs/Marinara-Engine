@@ -20,24 +20,30 @@ The official images are at `ghcr.io/pasta-devs/marinara-engine`.
 
 The project has a ready-to-use `docker-compose.yml` file. Compose is the part of Docker that reads this file and starts the container. This is the recommended way.
 
-1. Get the project files. If you already have a Marinara checkout, open a terminal in that folder and skip the clone.
+1. Open a terminal, a window where you type commands. If you already have a Marinara checkout, open it in that folder and skip the next two steps.
+2. Download the project files.
 
-```bash
-git clone https://github.com/Pasta-Devs/Marinara-Engine.git
-cd Marinara-Engine
-```
+   ```bash
+   git clone https://github.com/Pasta-Devs/Marinara-Engine.git
+   ```
 
-2. Start the container in the background.
+3. Open the new folder.
 
-```bash
-docker compose up -d
-```
+   ```bash
+   cd Marinara-Engine
+   ```
 
-The first run downloads the `ghcr.io/pasta-devs/marinara-engine:latest` image. This can take a few minutes.
+4. Start the container in the background.
 
-3. Open `http://127.0.0.1:7860` in your browser. The Marinara home screen loads.
+   ```bash
+   docker compose up -d
+   ```
 
-If it did not work: another program may use port `7860`. In the `ports:` list of `docker-compose.yml`, change `7860` on the left to a free port, such as `8080:7860`. Run `docker compose up -d` again and open `http://127.0.0.1:8080`. Other fixes are under [Troubleshooting](#troubleshooting).
+   The first run downloads the `ghcr.io/pasta-devs/marinara-engine:latest` image, which can take a few minutes. When it finishes, the terminal shows the container as `Started`.
+
+5. Open `http://127.0.0.1:7860` in your browser. The Marinara home screen loads.
+
+If it did not work: another program may use port `7860`. Pick a free port, such as `8080`, and start with `PORT=8080 docker compose up -d` (on Windows PowerShell, set `$env:PORT=8080` first). Then open `http://127.0.0.1:8080`. Other fixes are under [Troubleshooting](#troubleshooting).
 
 ## Stop Marinara
 
@@ -70,30 +76,35 @@ By default, Compose lets only this computer reach Marinara. To open it on a phon
 
 Docker Desktop, OrbStack and rootless Docker (Docker without root) show every device as one gateway address. Without a login, a port published on all interfaces lets everyone in. Once a login is set, this computer is asked for it too. See [Tailscale and Docker bypass](../REMOTE_ACCESS.md#tailscale-and-docker-bypass).
 
-1. Open `docker-compose.yml` in a text editor.
+1. Open `docker-compose.yml`, in the Marinara folder, in a text editor.
 2. In the `ports:` list, remove `127.0.0.1:`.
 
-```yaml
-ports:
-  - "${PORT:-7860}:7860"
-```
+   ```yaml
+   ports:
+     - "${PORT:-7860}:7860"
+   ```
 
-3. In the `environment:` list, add an admin secret and a login. Use your own long random values.
+3. In the `environment:` list, add an admin secret. Use your own long random value.
 
-```yaml
-environment:
-  - ADMIN_SECRET=another-long-random-value
-  - BASIC_AUTH_USER=your-username
-  - BASIC_AUTH_PASS=another-long-random-password
-```
+   ```yaml
+   environment:
+     - ADMIN_SECRET=another-long-random-value
+   ```
 
-4. Save the file and restart the container.
+4. In the same list, add a login. Use your own username and a long random password.
 
-```bash
-docker compose up -d
-```
+   ```yaml
+   - BASIC_AUTH_USER=your-username
+   - BASIC_AUTH_PASS=another-long-random-password
+   ```
 
-5. On the other device, open `http://YOUR_COMPUTER_IP:7860`. If you set `PORT`, use that port. The page asks for your login.
+5. Save the file and restart the container.
+
+   ```bash
+   docker compose up -d
+   ```
+
+6. On the other device, open `http://YOUR_COMPUTER_IP:7860`. If you set `PORT`, use that port. The page asks for your login.
 
 If you leave out `BASIC_AUTH_USER` and `BASIC_AUTH_PASS`, the page asks for a one-time setup code instead. Find it in the logs, then type it on the page with a new username and password.
 
@@ -130,7 +141,10 @@ To go back to an older release, set its tag on the `image:` line of `docker-comp
 If you run `staging`, use a separate volume so it cannot change your stable data:
 
 ```bash
-docker run -d --name marinara-staging -p 127.0.0.1:7860:7860 -v marinara-staging-data:/app/data ghcr.io/pasta-devs/marinara-engine:staging
+docker run -d --name marinara-staging \
+  -p 127.0.0.1:7860:7860 \
+  -v marinara-staging-data:/app/data \
+  ghcr.io/pasta-devs/marinara-engine:staging
 ```
 
 ### The lite image
@@ -148,7 +162,10 @@ The lite image is a smaller download built on Wolfi, a minimal Linux base for co
 Everything else works: chat, roleplay, Game Mode, agents, lorebooks, characters and remote AI services. For AI features you must add an account for an outside service. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 ```bash
-docker run -d --name marinara-lite -p 127.0.0.1:7860:7860 -v marinara-data:/app/data ghcr.io/pasta-devs/marinara-engine:lite
+docker run -d --name marinara-lite \
+  -p 127.0.0.1:7860:7860 \
+  -v marinara-data:/app/data \
+  ghcr.io/pasta-devs/marinara-engine:lite
 ```
 
 Some older lite images crash on a Raspberry Pi 4 and similar ARM computers with a `SIGILL` error (an illegal-instruction error) during outgoing AI calls. On those devices, use the regular `latest` image. See [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md) for current details.
@@ -164,7 +181,10 @@ podman compose up -d
 To run one container without Compose:
 
 ```bash
-podman run -d -p 127.0.0.1:7860:7860 -v marinara-data:/app/data ghcr.io/pasta-devs/marinara-engine:latest
+podman run -d \
+  -p 127.0.0.1:7860:7860 \
+  -v marinara-data:/app/data \
+  ghcr.io/pasta-devs/marinara-engine:latest
 ```
 
 `podman compose` needs the `podman-compose` helper. Install it with one of these:
