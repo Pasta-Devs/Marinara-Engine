@@ -2,7 +2,7 @@
 
 This page is a reference for every service Marinara Engine can connect to: where to get its API key, its default address, and its quirks. To add an account step by step, read [Connecting to an AI Provider](connecting-to-a-provider.md) first.
 
-You choose a service in the **Add account** window, under the section for what it does: **Chat**, **Decisions**, **Images & video**, or **Voice**. The tile uses the name shown below. The address is the web address Marinara sends requests to. It is called **Address** in the account editor and **Base URL** in the model editor. Marinara fills it in for known services. Change it only for a proxy or a server you run.
+You choose a service in the **Add account** window, under the section for what it does: **Chat**, **Images & video**, **Voice**, or **Decisions**. The tile uses the name shown below. The address is the web address Marinara sends requests to. It is called **Address** in the account editor and **Base URL** in the model editor. Marinara fills it in for known services. Change it only for a proxy or a server you run.
 
 Models change often, so this page does not list them. After you connect, the model list loads in the picker. Click **Refresh model list** in the picker to reload it.
 
@@ -10,24 +10,39 @@ Models change often, so this page does not list them. After you connect, the mod
 
 These services use an API key, except the three subscription services, which use a sign-in on your computer.
 
-| Service | Where to get a key | Default address |
-| --- | --- | --- |
-| OpenAI | `https://platform.openai.com/api-keys` | `https://api.openai.com/v1` |
-| Anthropic | `https://console.anthropic.com/settings/keys` | `https://api.anthropic.com/v1` |
-| Google Gemini | `https://aistudio.google.com/apikey` | `https://generativelanguage.googleapis.com/v1beta` |
-| Google Vertex AI | `https://cloud.google.com/vertex-ai/docs/authentication` (credential guide) | `https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1` |
-| Mistral | `https://console.mistral.ai/api-keys` | `https://api.mistral.ai/v1` |
-| Cohere | `https://dashboard.cohere.com/api-keys` | `https://api.cohere.ai/compatibility/v1` |
-| OpenRouter | `https://openrouter.ai/keys` | `https://openrouter.ai/api/v1` |
-| NanoGPT | `https://nano-gpt.com/api` | `https://nano-gpt.com/api/v1` |
-| xAI / Grok | `https://console.x.ai` | `https://api.x.ai/v1` |
-| Arli AI | `https://www.arliai.com/account` | `https://api.arliai.com/v1` |
-| Z.AI | `https://z.ai/manage-apikey/apikey-list` | `https://api.z.ai/api/paas/v4` |
-| DeepSeek | `https://platform.deepseek.com/api_keys` | `https://api.deepseek.com/v1` |
-| OpenAI-compatible | None. Your server or proxy sets it. | None. You enter one. |
-| Claude (Subscription) | None. Sign in with Claude Code. | None |
-| OpenAI (ChatGPT) | None. Sign in with the Codex CLI. | None |
-| Grok CLI (Subscription) | None. Sign in with the Grok CLI. | None |
+| Service | Where to get a key |
+| --- | --- |
+| OpenAI | `platform.openai.com/api-keys` |
+| Anthropic | `console.anthropic.com/settings/keys` |
+| Google Gemini | `aistudio.google.com/apikey` |
+| Google Vertex AI | `cloud.google.com/vertex-ai/docs/authentication` (credential guide) |
+| Mistral | `console.mistral.ai/api-keys` |
+| Cohere | `dashboard.cohere.com/api-keys` |
+| OpenRouter | `openrouter.ai/keys` |
+| NanoGPT | `nano-gpt.com/api` |
+| xAI / Grok | `console.x.ai` |
+| Arli AI | `www.arliai.com/account` |
+| Z.AI | `z.ai/manage-apikey/apikey-list` |
+| DeepSeek | `platform.deepseek.com/api_keys` |
+| OpenAI-compatible, Claude (Subscription), OpenAI (ChatGPT), Grok CLI (Subscription) | No key page. See the notes below. |
+
+Default addresses, which Marinara fills in for you:
+
+- OpenAI: `https://api.openai.com/v1`
+- Anthropic: `https://api.anthropic.com/v1`
+- Google Gemini: `https://generativelanguage.googleapis.com/v1beta`
+- Google Vertex AI: `https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
+- Mistral: `https://api.mistral.ai/v1`
+- Cohere: `https://api.cohere.ai/compatibility/v1`
+- OpenRouter: `https://openrouter.ai/api/v1`
+- NanoGPT: `https://nano-gpt.com/api/v1`
+- xAI / Grok: `https://api.x.ai/v1`
+- Arli AI: `https://api.arliai.com/v1`
+- Z.AI: `https://api.z.ai/api/paas/v4`
+- DeepSeek: `https://api.deepseek.com/v1`
+- OpenAI-compatible and the subscription services: none. You enter an address, or none is needed.
+
+All key pages start with `https://`.
 
 The three subscription services hide the **API key** and address fields. They do not offer embeddings. Install and sign-in steps are in [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md), which also covers plan usage.
 
@@ -37,7 +52,7 @@ An aggregator is a service where one key reaches models from many companies. Ope
 
 ### OpenAI
 
-**OpenAI** runs the GPT models and is for chat only. For DALL-E images, use the **Images & video** section and its **OpenAI (DALL-E)** service instead.
+**OpenAI** runs the GPT models. For DALL-E images, add **OpenAI** and pick **Image** models on the same account. This applies to the other services that make images with the same key.
 
 ### Anthropic
 
@@ -53,9 +68,7 @@ An aggregator is a service where one key reaches models from many companies. Ope
 2. An OAuth access token, for example from `gcloud auth print-access-token`.
 3. A Vertex API key.
 
-**Gemini 4 Argon** runs only in the `global`, `us`, and `eu` locations, not in one region such as `us-central1`. This comes from Google's documentation. To use it, set the address to `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. With another location, Google returns an error and Marinara shows it.
-
-Argon can take several minutes to answer on either Google option. If chat replies time out, raise `CHAT_GENERATION_TIMEOUT_MS`. If agent calls time out, raise `AGENT_CALL_TIMEOUT_MS`. Google suggests allowing at least 15 minutes, which is `900000`. See [Configuration](../CONFIGURATION.md).
+**Gemini 4 Argon** runs only in the `global`, `us`, and `eu` locations, not in one region such as `us-central1`, according to a note in Marinara's code that follows Google's documentation. To use it, set the address to `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. With another location, Google returns an error and Marinara shows it.
 
 ### Cohere
 
@@ -91,7 +104,7 @@ The meter shows your weekly and daily input-token quotas, with what is left and 
 
 Two credentials can read the usage:
 
-- **Management key** (recommended). Create one at `https://nano-gpt.com/settings#management-api-tokens` with the **Usage only** scope. It reads quotas but cannot run models or spend your balance. Marinara stores it encrypted and sends it only to NanoGPT's management endpoint.
+- **Management key** (recommended). Create one at `https://nano-gpt.com/settings#management-api-tokens` for usage reads only. It reads quotas but cannot run models or spend your balance. Marinara stores it encrypted and sends it only to NanoGPT's management endpoint.
 - **Your API key**, used when no management key is saved. It works, but the quota read then uses a key that can spend your balance.
 
 The same meter shows under the context bar in a chat's connection picker and in the chat's **Connection** settings. It shows only when the chat's model is a NanoGPT one with the meter turned on, and not for **Shuffle**.
@@ -102,15 +115,15 @@ The same meter shows under the context bar in a chat's connection picker and in 
 
 ### Arli AI
 
-**Arli AI** is a hosted chat service with no built-in model list. After you connect, the picker loads its models. For Arli AI images, use the **Images & video** section and its **Arli AI** service instead.
+**Arli AI** is a hosted chat service with no built-in model list. After you connect, the picker loads its models. For Arli AI images, add **Arli AI** and pick **Image** models on the same account.
 
 ### Z.AI
 
-**Z.AI** serves the GLM models (GLM 5.3, GLM 5.3 Flash, and earlier) on its own API. GLM 5.3 models always reason. The **Reasoning Effort** in your preset maps onto the levels Z.AI accepts, **Low**, **High**, and **Maximum**. If you leave it unset, Z.AI's default, Maximum, applies. The default address is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint that its usage policy reserves for the tools on its list, so a Coding Plan key is not expected to work here.
+**Z.AI** serves the GLM models (GLM 5.3, GLM 5.3 Flash, and earlier) on its own API. GLM 5.2 and 5.3 models accept the **Maximum** reasoning level. The default address is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint, so a Coding Plan key may not work here.
 
 ### DeepSeek
 
-**DeepSeek** serves `deepseek-flash` and `deepseek-v4-pro`. DeepSeek thinks by default. Its **Reasoning Effort** uses **Low**, **High**, and **Max**, and **Off** turns thinking off for that request. There is no **Medium**, because DeepSeek serves a medium request as High. The thinking shows in the reply with the usual thought display.
+**DeepSeek** serves `deepseek-flash` and `deepseek-v4-pro`. DeepSeek thinks by default. Its **Reasoning Effort** uses DeepSeek's own levels, and **Off** turns thinking off for that request. DeepSeek serves a medium request as High. The thinking shows in the reply with the usual thought display.
 
 Some parameters do not apply, so the panel leaves them out: **Verbosity**, **Top K**, and the penalties are retired and ignored. **Temperature** and **Top P** are a pair, because DeepSeek uses one at a time. You see **Temperature** when thinking is off and **Top P** when it is on.
 
@@ -122,13 +135,15 @@ Connect DeepSeek with its own tile, not by pointing **OpenAI** at DeepSeek's add
 
 ## Images and video
 
-Under **Images & video**, you pick a service, and each has its own address and its own rule about whether a key is needed. Image services include paid APIs such as **OpenAI (DALL-E)**, **Stability AI**, **NovelAI**, and **Z.AI**, free ones such as **Pollinations** and **Stable Horde**, and local servers such as **ComfyUI** and **SD Web UI (AUTOMATIC1111 / Forge)**. See [Image Generation Providers and Setup](../media/image-providers.md).
+Under **Images & video**, each tile has its own address and its own rule about whether a key is needed. The tiles are Stability AI, Together AI, NovelAI, Venice.ai, Atlas Cloud, fal.ai, SpicyAPI, Pollinations, Stable Horde, Seedance 2.0, and local servers: ComfyUI, SD Web UI (AUTOMATIC1111 / Forge), SwarmUI, RunPod Serverless (ComfyUI), Draw Things, and Block Entropy. Draw Things, ComfyUI, SwarmUI, SD Web UI, and RunPod are tagged **Self-hosted**.
 
-Video services make short MP4 scene videos: **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0**, **ComfyUI**, and **SwarmUI**. Cloud services need a key. **ComfyUI** and **SwarmUI** run on your computer and normally do not. See [Scene Video Generation](../media/scene-video.md).
+Image and video models from OpenAI, OpenRouter, xAI, NanoGPT, Arli AI, Z.AI, and Google come from your chat account for that service. Add the chat account, then pick **Image** or **Video** models on it.
+
+See [Image Generation Providers and Setup](../media/image-providers.md) and [Scene Video Generation](../media/scene-video.md).
 
 ## Decision
 
-Under **Decisions**, **TypeSafe** (default address `https://api.typesafe.ai`) and **Own decision server** are the Decision services. Other chat services can also do decisions with their key. A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
+Under **Decisions**, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. Other chat services can also do decisions with their key. A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
 
 ## Audio
 
@@ -141,19 +156,21 @@ Under **Voice**, an audio service speaks character voices and narration. Pick an
 | PocketTTS | A free voice server you run on your own computer. |
 | xAI Voice | xAI's voice service. |
 
-Each source fills in a default address and model. **Default voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line, 60 by default. Raise it for a slow voice server.
+Each source fills in a default address and model. **Default voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line. Raise it for a slow voice server.
 
 To choose the speech account Marinara uses by default, click the **Voice (Text to Speech)** row in the **Jobs** box. To read messages aloud with one, pick it as the **Source** in the **Text to Speech** card. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use an Audio connection](../media/tts-setup.md#use-an-audio-connection).
 
 ## Music & Sound Effects
 
-This account type makes instrumental music and sound effects, separately from speech. Pick a service, enter its key and models, and turn on **Music generation**, **Sound-effect generation**, or both. In Game setup, **Music & Sound Effects account** picks which account a game uses, and its default choice is **Use the default Music & Sound Effects account**.
+This account type makes instrumental music and sound effects, separately from speech. The **Add account** window has no tile for it. These accounts come from an upgrade (see below) or an import. You edit one with **Edit model**, where you pick its service and turn on **Music generation**, **Sound-effect generation**, or both. Game setup asks for one in **Music & Sound Effects account**, and its default choice is **Use the default Music & Sound Effects account**.
 
-| Service | Default address | Setup |
-| --- | --- | --- |
-| ElevenLabs | `https://api.elevenlabs.io` | An ElevenLabs key. Music and sound effects have separate model fields. |
-| SunoAPI | `https://apibox.erweima.ai` | A key from [sunoapi.org](https://sunoapi.org/), and a public HTTPS **SunoAPI music callback URL** when music is on. This is SunoAPI's own service, not a Suno subscription sign-in. |
-| Custom compatible server | Your server's address | An explicit music or sound-effect endpoint path and a supported request format. See [compatible audio contracts](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server). |
+The services:
+
+- **ElevenLabs**: default address `https://api.elevenlabs.io`. Needs an ElevenLabs key. Music and sound effects have separate model fields.
+- **SunoAPI**: default address `https://apibox.erweima.ai`. Needs a key from [sunoapi.org](https://sunoapi.org/) and a public HTTPS **SunoAPI music callback URL** when music is on. This is SunoAPI's own service, not a Suno subscription sign-in.
+- **Custom compatible server**: your server's address. Needs an explicit music or sound-effect endpoint path and a supported request format. See [compatible audio contracts](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server).
+
+Notes:
 
 - SunoAPI needs the callback address even though Marinara checks for the finished track itself. You provide the address. Marinara does not create one.
 - Music style prompts can have up to 1,000 characters. Sound-effect prompts can have up to 500.
@@ -170,6 +187,10 @@ Embeddings turn text into lists of numbers so Marinara can find related text. Th
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)** cannot make embeddings. For those, use the **Embedding provider** dropdown to borrow another account, such as an OpenAI-compatible one, **Google Gemini**, or the **Built-in model**.
 
 To use one embedding source for every account that has no embedding settings of its own, click the **Embeddings** row in the **Jobs** box. **Marinara's own search** keeps the built-in embedding model. An account's own embedding model or **Embedding provider** still wins. Vectorize your lorebooks and memories again after you change it. See [Semantic Search for Lorebooks](../lorebooks/semantic-search.md).
+
+## Timeouts
+
+Slow models can hit the server's time limits for chat replies and agent calls. The server settings for them are in [Configuration](../CONFIGURATION.md).
 
 ## Related guides
 
