@@ -6,7 +6,9 @@
  *   - a group check (`who="party"`) rolls and counts only the members present and alive, in the tag
  *     pass and in a branch, so two removed members passing never carry a party that failed;
  *   - a story's exposure saves are rolled, and their failures marked, only for them, and only a shade
- *     one of them carries keeps an exposure off.
+ *     one of them carries keeps an exposure off;
+ *   - the fight-setup brief counts the same members away as the checks do, so a persona called by a
+ *     shorter name than its card ("Lethariel" for "Lethariel Moonwhisper") is still in the party.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -21,13 +23,15 @@ process.env.DATA_DIR = dataDir;
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 
 const [
-  { loadSkillCheckModifierContext, resolveSkillCheckTagsInContent },
+  { gamePlayerCardName, loadSkillCheckModifierContext, resolveSkillCheckTagsInContent },
   { createGameTurnChanceSession, resolveGameTurnBranches },
   { rollStoryExposureSavesWith, storyPartyCarriesShade },
   { buildPartyNpcId },
   { getDB, closeDB },
   { createChatsStorage },
   { createGameRulesetsStorage },
+  { gameRulesetCardsAway },
+  { createCharactersStorage },
 ] = await Promise.all([
   import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
   import("../../packages/server/src/services/game/one-request-dice.js"),
@@ -36,6 +40,8 @@ const [
   import("../../packages/server/src/db/connection.js"),
   import("../../packages/server/src/services/storage/chats.storage.js"),
   import("../../packages/server/src/services/storage/game-rulesets.storage.js"),
+  import("../../packages/server/src/services/game/ruleset-sheet-turn.service.js"),
+  import("../../packages/server/src/services/storage/characters.storage.js"),
 ]);
 const db = await getDB();
 
@@ -171,8 +177,46 @@ try {
   await chats.patchMetadata(chat.id, { gamePartyCharacterIds: [...meta.gamePartyCharacterIds, "missing-character"] });
   assert.equal((await loadSkillCheckModifierContext(db, chat.id, live)).ruleset?.away, undefined);
 
+  // ── The fight brief's party, for a persona called by a shorter name than its card ──
+  // The player is never on the party list: only the roster's seed keeps their card present, so it must
+  // be seeded with the card a check finds for the persona, not the persona's own name.
+  const lethariel = await createCharactersStorage(db).createPersona("Lethariel", "The player.");
+  assert.ok(lethariel);
+  const ridge = await chats.create({ name: "The ridge", mode: "game", characterIds: [], personaId: lethariel.id });
+  const ridgeMeta = {
+    gameRuleset: meta.gameRuleset,
+    gameCharacterCards: ["Lethariel Moonwhisper", "Rook", "Dagna"].map((name) => ({
+      name,
+      rulesetSheet: { v: 1, build: defaultRulesetSheetBuild(fiveE) },
+    })),
+    gameNpcs: [{ name: "Rook" }, { name: "Dagna" }],
+    gamePartyCharacterIds: [buildPartyNpcId("Rook")],
+  };
+  await chats.patchMetadata(ridge.id, ridgeMeta);
+  assert.deepEqual(
+    await gameRulesetCardsAway(db, ridge.id, fiveE, ridgeMeta, "Lethariel"),
+    ["Lethariel Moonwhisper", "Dagna"],
+    "the persona's own name seeds no card",
+  );
+  const playerCard = await gamePlayerCardName(db, ridge.id, ridgeMeta, ridge.personaId);
+  assert.equal(playerCard, "Lethariel Moonwhisper");
+  assert.deepEqual(await gameRulesetCardsAway(db, ridge.id, fiveE, ridgeMeta, playerCard), ["Dagna"]);
+  assert.deepEqual(
+    [...((await loadSkillCheckModifierContext(db, ridge.id)).ruleset?.away ?? [])],
+    ["dagna"],
+    "the checks count the same member away",
+  );
+  // And the fight's setup seeds its roster that way.
+  assert.match(
+    readFileSync(
+      fileURLToPath(new URL("../../packages/server/src/routes/encounter.routes.ts", import.meta.url)),
+      "utf8",
+    ),
+    /gameRulesetCardsAway\(\s*app\.db,\s*chatId,\s*resolved\.definition,\s*chatMeta,\s*await gamePlayerCardName\(app\.db, chatId, chatMeta, chat\.personaId\),\s*\)/u,
+  );
+
   console.log(
-    "Party checks: removed and dead members neither roll nor count in group checks and exposure saves, nor carry a shade.",
+    "Party checks: removed and dead members neither roll nor count in group checks and exposure saves, nor carry a shade; the fight brief counts the same party.",
   );
 } finally {
   await closeDB();

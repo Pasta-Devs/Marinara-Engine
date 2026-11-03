@@ -48,6 +48,7 @@ import {
 } from "../services/game/story-fight.service.js";
 import { loadRulesetRegistry, resolveGameRuleset } from "../services/game/ruleset-registry.service.js";
 import { gameRulesetCardsAway } from "../services/game/ruleset-sheet-turn.service.js";
+import { gamePlayerCardName } from "../services/game/skill-check-resolution.service.js";
 // ──────────────────────────────────────────────
 // Routes: Combat Encounter (non-streaming JSON)
 // ──────────────────────────────────────────────
@@ -1360,7 +1361,15 @@ export async function encounterRoutes(app: FastifyInstance) {
           {
             cards: chatMeta.gameCharacterCards,
             difficulty: normalizeGameDifficulty(setupConfig?.difficulty),
-            away: await gameRulesetCardsAway(app.db, chatId, resolved.definition, chatMeta, personaName || null),
+            // Seeded with the player's card as a check finds it, so a persona called by a shorter name
+            // than its card ("Lethariel" for "Lethariel Moonwhisper") is still in the party it budgets for.
+            away: await gameRulesetCardsAway(
+              app.db,
+              chatId,
+              resolved.definition,
+              chatMeta,
+              await gamePlayerCardName(app.db, chatId, chatMeta, chat.personaId),
+            ),
             live: parseStoredRulesetLive(liveRow?.rulesetLive),
           },
           [latest("user"), latest("assistant")],

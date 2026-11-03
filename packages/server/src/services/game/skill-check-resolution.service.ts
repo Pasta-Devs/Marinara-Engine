@@ -301,6 +301,25 @@ async function findPlayerCharacterCard(
   return (await findPlayerCharacterCardMatch(db, cards, chatPersonaId, meta, chatId)).card;
 }
 
+/**
+ * The name on the player's own card as a check finds it, which is what a party roster is seeded with
+ * (`gamePartyRoster`): a persona called by a shorter name than its card still names that card. Null
+ * when nothing says which card is the player's. For a caller outside the check context, such as the
+ * fight-setup brief, that must count the same members away as the checks do.
+ */
+export async function gamePlayerCardName(
+  db: DB,
+  chatId: string,
+  meta: Record<string, unknown>,
+  chatPersonaId: unknown,
+): Promise<string | null> {
+  const cards = Array.isArray(meta.gameCharacterCards)
+    ? (meta.gameCharacterCards as Array<Record<string, unknown>>)
+    : [];
+  const { card, byPosition } = await findPlayerCharacterCardMatch(db, cards, chatPersonaId, meta, chatId);
+  return byPosition ? null : readTrimmedString(card?.name) || null;
+}
+
 /** The player's card, and whether it is only the first card because nothing said whose it is. */
 async function findPlayerCharacterCardMatch(
   db: DB,
