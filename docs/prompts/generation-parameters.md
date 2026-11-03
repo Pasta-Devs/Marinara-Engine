@@ -140,7 +140,7 @@ At the bottom of **Advanced Parameters**, **Save as Connection Default** writes 
 
 ## How defaults layer and override
 
-For each parameter, Marinara uses the first value it finds in this list, from the top.
+Marinara resolves each parameter through this list. Later items override earlier ones.
 
 1. The preset's **Parameters**, or built-in defaults when no preset is used. Output starts at 4096 tokens, because presets cannot set output limits. In Roleplay, an account's preset override beats the chat's selected preset.
 2. The account's **Chat defaults**.
@@ -148,7 +148,7 @@ For each parameter, Marinara uses the first value it finds in this list, from th
 4. Mode rules. An active scene chat sets output to 8192, reasoning to **Maximum** and verbosity to **High**. Game uses saved account and chat parameters without forcing sampling, reasoning or a minimum output size.
 5. Output limits. Game applies the model's known output limit, and the account's **Max output tokens override** caps requests in every mode. Available context can reduce the budget further.
 
-The **Effective** line beside a parameter shows the value that wins and which layer it came from, for example **Effective: 16384 · this chat**, or **Effective: 4096 · output token cap** when an account cap applies. A disabled Send switch shows **not sent**. Services can still require parameters or adjust unsupported values. Custom Parameters and context fitting may change the final request. Resetting chat parameters falls back to the next item in the list. It does not remove preset or mode rules.
+The **Effective** line beside a parameter shows the value that wins and which layer it came from, for example **Effective: 16384 · this chat**, or **Effective: 4096 · output token cap** when an account cap applies. A disabled Send switch shows **not sent**. Services can still require parameters or adjust unsupported values. Custom Parameters and context fitting may change the final request. Resetting chat parameters returns the chat to the account's **Chat defaults**. It does not remove preset or mode rules, which still apply on top.
 
 ## Parameters for agents
 
