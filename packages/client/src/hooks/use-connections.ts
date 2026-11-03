@@ -22,6 +22,7 @@ import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../l
 import { useUIStore } from "../stores/ui.store";
 import { translate } from "../localization/i18n";
 import { useChatStore } from "../stores/chat.store";
+import { useDebouncedValue } from "./use-debounced-value";
 import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
 import { connectionAccountKeys } from "./use-connection-accounts";
 import type {
@@ -283,6 +284,63 @@ function recordConnectionFailure(id: string, action: string, error: unknown) {
 /** A Model id, or one with a key or address typed in an editor but not saved yet. */
 type TestInput = string | { id: string; apiKey?: string; baseUrl?: string };
 const testId = (input: TestInput) => (typeof input === "string" ? input : input.id);
+
+export type AccessCheck =
+  | { supported: false }
+  | {
+      supported: true;
+      reachable: boolean;
+      /** The server's own policy refused the address. */
+      blocked?: boolean;
+      /** The provider answered 429 or 5xx: busy, not a wrong address. */
+      transient?: boolean;
+      keyOk: boolean | null;
+      modelCount: number | null;
+      status: number | null;
+      error: string | null;
+    };
+
+/** Live address and key check for the account forms: runs 0.6 s after the user stops typing. */
+export function useAccessCheck(input: {
+  provider: string | null;
+  baseUrl: string;
+  apiKey: string;
+  accountId?: string;
+}) {
+  const typedUrl = input.baseUrl.trim();
+  const typedKey = input.apiKey.trim();
+  const baseUrl = useDebouncedValue(typedUrl, 600);
+  const apiKey = useDebouncedValue(typedKey, 600);
+  const query = useQuery({
+    queryKey: ["connection-access-check", input.provider, baseUrl, apiKey, input.accountId ?? null],
+    queryFn: ({ signal }) =>
+      api.post<AccessCheck>(
+        "/connections/check",
+        {
+          provider: input.provider,
+          baseUrl: baseUrl || undefined,
+          apiKey: apiKey || undefined,
+          accountId: input.accountId,
+        },
+        { signal },
+      ),
+    // Only send what the form still holds: after Back and a new service, the debounced values are stale.
+    enabled: !!input.provider && typedUrl === baseUrl && typedKey === apiKey,
+    staleTime: 30_000,
+    gcTime: 60_000,
+    retry: false,
+    placeholderData: (previous) => previous,
+  });
+  // Typing, or waiting for the answer: the last answer is for other input.
+  const checking = typedUrl !== baseUrl || typedKey !== apiKey || query.isFetching;
+  return {
+    result: checking ? undefined : query.data,
+    // A provider without live checks shows no spinner.
+    checking: !!input.provider && checking && query.data?.supported !== false,
+    supported: query.isError ? false : query.data?.supported,
+    recheck: query.refetch,
+  };
+}
 
 export function useTestConnection(accountId?: string) {
   const qc = useQueryClient();
