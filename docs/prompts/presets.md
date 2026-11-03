@@ -2,9 +2,24 @@
 
 A preset is a saved blueprint for the prompt, the text Marinara sends to the model for each reply. It decides what goes in and in what order: your instructions, the character card, your persona, the chat history, lorebook entries and more. Use the **Preset Editor** to build one, then assign it to a chat.
 
-Presets shape the prompt in **Roleplay** and **Game** chats. **Conversation** chats use a single prompt box instead (see [Conversation and Game chats](#conversation-and-game-chats)). Presets need no API key. You still need a working account to send the prompt. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+Presets build the prompt in **Roleplay** chats. **Conversation** and **Game** chats use a single prompt box instead (see [Conversation and Game chats](#conversation-and-game-chats)). Presets need no API key, but you still need a working account to send the prompt. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-The built-in **Marinara's Universal Preset** supplies prompt text but no generation parameters. Its older saved sampling, reasoning, formatting and token settings are ignored, and your account settings, chat overrides and app defaults apply instead. Make an editable copy to customize it.
+## Assign a preset to a chat
+
+A preset does nothing until a chat uses it. In a **Roleplay** chat, use either way. To pick one, assign it. To make your own, see [Create a preset](#create-a-preset).
+
+From the **Presets** panel:
+
+1. Open the chat.
+2. In the **Presets** panel, find a preset row. On a computer, point at the row to show its buttons.
+3. Click the check-mark **Assign to chat** button. A check mark shows the preset is in use. Click it again to unassign.
+
+From **Chat Settings**:
+
+1. Open the chat, then **Chat Settings**.
+2. Find **Prompt Preset** and pick a preset from the dropdown.
+
+If the preset has variables, the **Configure Preset Variables** window opens. See [Preset Variables](preset-variables.md). Switching presets clears earlier variable choices.
 
 ## Create a preset
 
@@ -15,7 +30,7 @@ The built-in **Marinara's Universal Preset** supplies prompt text but no generat
 5. Build the prompt on the **Sections** tab.
 6. Click **Save** in the top right.
 
-The editor does not save by itself. If you leave with unsaved edits, a warning offers **Keep editing**, **Discard** and **Save & close**.
+The editor does not save by itself. Click **Save** after every change. If you leave with unsaved edits, a warning offers **Keep editing**, **Discard** and **Save & close**.
 
 To export a preset, click the up-arrow icon in the top bar (tooltip **Export preset**). Marinara asks you to save first if you have unsaved edits. To delete it, click the trash icon.
 
@@ -23,7 +38,9 @@ To export a preset, click the up-arrow icon in the top bar (tooltip **Export pre
 
 **Prompts** is the section for presets. The other sections are **Regexes** and **Functions**. The top buttons are **New**, **Import** (load a `.json` file) and **Select** (export or delete several at once).
 
-**Search presets** filters the list. The sort menu offers **Manual order**, **A-Z**, **Z-A**, **Newest** and **Oldest**. With **Manual order**, drag a row, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. **New Folder** groups presets. Drag a preset onto a folder, and double-click or double-tap a folder to rename it. On a touch screen, press and hold a row to pick it up.
+- **Search presets** filters the list.
+- The sort menu offers **Manual order**, **A-Z**, **Z-A**, **Newest** and **Oldest**. With **Manual order**, drag a row, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. On a touch screen, press and hold a row to pick it up.
+- **New Folder** groups presets. Drag a preset onto a folder, and double-click or double-tap a folder to rename it.
 
 Each row shows the name, wrap format, section count and author. A **DEFAULT** badge marks the starred default. Click a row to open it.
 
@@ -52,6 +69,8 @@ Two read-only cards show the **Sections** and **Groups** counts.
 - **Roleplay Mode** is not editable here. Roleplay uses the prompt assembled from your **Sections**.
 - **Game Mode** is a text box for this preset's Game prompt. Leave it empty to use the built-in prompt.
 
+The built-in **Marinara's Universal Preset** supplies prompt text but no generation parameters. Its older saved sampling, reasoning, formatting and token settings are ignored, and your account settings, chat overrides and app defaults apply instead. Make an editable copy to customize it.
+
 ## Sections and markers
 
 The **Sections** tab is where you build the prompt. Sections are assembled from top to bottom.
@@ -67,15 +86,17 @@ A **Prompt Block** is text you write: system instructions, tone rules, anything 
 | **Persona** | Your active persona details. |
 | **Chat History** | The chat messages. |
 | **Chat Summary** | The compiled chat summary. |
-| **Current Scene Summary** | The temporary summary of the earlier part of an ongoing scene. Used by Advanced Memory Recall. |
-| **Recalled Scenes** | All recalled scene summaries, each followed by its message excerpt. Without an enabled marker, they appear before chat history. |
-| **ID Macro Cards** | Character cards referenced by exact 21-character ID macros. Without this marker, they use the default prompt position. |
 | **Dialogue Examples** | The character's example dialogue. |
 | **Lorebook Marker (All)** | All active lorebook entries. |
 | **Lorebook Marker (Before)** | Lorebook entries set to go before. |
 | **Lorebook Marker (After)** | Lorebook entries set to go after. |
 
-A marker row shows a **MARKER** badge. You cannot type into most markers. The Advanced Memory Recall markers are described in [Memory](../agents/memory.md).
+A marker row shows a **MARKER** badge. You cannot type into most markers. Use **Lorebook Marker (All)** unless you want to split lorebook entries into before and after.
+
+Three rarer markers:
+
+- **Current Scene Summary** and **Recalled Scenes** place the summaries that Advanced Memory Recall makes. Without a **Recalled Scenes** marker, they appear before the chat history. See [Memory](../agents/memory.md).
+- **ID Macro Cards** places character cards that you pull into a prompt by typing a character's card ID in double braces. Without this marker, they go at the default place. See [Prompt Macros](macros.md).
 
 Without an enabled **Dialogue Examples** marker, non-empty example dialogue is added to **Character Info** after the scenario, in the preset's wrap format. Add the marker to choose the placement. Marinara never includes it twice.
 
@@ -85,7 +106,10 @@ If you have custom agents with "inject as section" turned on, the add menu shows
 
 ### Edit a section
 
-Click a section's name or arrow to expand it. You can change its **Name** and its role (**System**, **User** or **Assistant**). For a **Prompt Block**, you can also edit **Content**, which supports [macros](macros.md).
+1. Click a section's name or arrow to expand it.
+2. Change its **Name** or its role (**System**, **User** or **Assistant**).
+3. For a **Prompt Block**, edit **Content**. It supports [macros](macros.md).
+4. Click **Save** in the top right.
 
 The row's controls:
 
@@ -124,23 +148,6 @@ Each section has a **Position** in its editor.
 XML suits most models. Try the others only if a model answers better without tags.
 
 To send one **Prompt Block** without its tag or heading, expand it and turn on **Send without wrapper**. A group's tag can still surround it, so remove the block from its group to make it fully bare. Markers always keep their wrapper, and the switch is hidden when the format is **NONE**.
-
-## Assign a preset to a chat
-
-A preset does nothing until a chat uses it. In a **Roleplay** chat, use either way.
-
-From the **Presets** panel:
-
-1. Open the chat.
-2. In the **Presets** panel, hover over a preset row.
-3. Click the check-mark **Assign to chat** button. Click it again to unassign.
-
-From **Chat Settings**:
-
-1. Open the chat, then **Chat Settings**.
-2. Find **Prompt Preset** and pick a preset.
-
-If the preset has variables, the **Configure Preset Variables** window opens. See [Preset Variables](preset-variables.md). Switching presets clears earlier variable choices.
 
 ## Conversation and Game chats
 
