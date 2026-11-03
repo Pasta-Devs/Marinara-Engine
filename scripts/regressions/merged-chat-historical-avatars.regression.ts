@@ -3,7 +3,7 @@
  * so automatic or manual roster changes affect only later replies. A streaming reply follows the live
  * roster (a continuation keeps its saved one too), and a reply saved before the snapshot existed shows the
  * members its expression result names plus the live roster: it neither shrinks to one avatar nor revives
- * a member who was inactive.
+ * a member who was inactive. Continuing such a reply keeps those members, on the stream and once saved.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -27,7 +27,7 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createGameStateStorage } = await import("../../packages/server/src/services/storage/game-state.storage.js");
-const { characterDataSchema } = await import("../../packages/shared/dist/index.js");
+const { characterDataSchema, mergedReplyRoster } = await import("../../packages/shared/dist/index.js");
 
 const provider = createServer(async (request, response) => {
   for await (const _chunk of request);
@@ -105,7 +105,9 @@ try {
     return { id: reply.id, extra: JSON.parse(reply.extra) as Record<string, unknown> };
   };
   const generate = async (chatId = chat.id, payload: Record<string, unknown> = {}) => {
-    if (!payload.continueMessageId) await chats.createMessage({ chatId, role: "user", content: "We look around." });
+    if (!payload.continueMessageId && !payload.regenerateMessageId) {
+      await chats.createMessage({ chatId, role: "user", content: "We look around." });
+    }
     const response = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId, ...payload } });
     assert.equal(response.statusCode, 200, response.body);
     assert(!response.body.includes('"type":"error"'), response.body);
@@ -168,6 +170,47 @@ try {
   assert.equal(continued.id, soloReply.id);
   assert.deepEqual(continued.extra.mergedRosterCharacterIds, [ana.id, ben.id], "the server merges them on Continue");
 
+  // Ana alone again: continuing an older reply keeps the members its expression result names (never the persona),
+  // on the stream as RegeneratingMessageContent seeds it and once saved, while a regeneration follows the live roster.
+  await chats.patchMetadata(chat.id, { inactiveCharacterIds: [ben.id, cal.id] });
+  const olderReplies = {
+    "a reply with an expression sprite list": {
+      spriteExpressions: { [ana.id]: "smile" },
+      expressionSpriteIds: [ana.id, ben.id, "persona-not-a-member"],
+    },
+    "an older reply with only expression keys": {
+      spriteExpressions: { [ana.id]: "smile", [ben.id]: "frown", "persona-not-a-member": "calm" },
+    },
+  };
+  for (const [kind, legacyExtra] of Object.entries(olderReplies)) {
+    const older = await chats.createMessage({
+      chatId: chat.id,
+      role: "assistant",
+      characterId: ana.id,
+      content: "An older reply.",
+      extra: legacyExtra,
+    } as never);
+    const olderExtra = JSON.parse(older.extra) as Record<string, unknown>;
+    assert.deepEqual(roster(olderExtra, narrowed), [ana.id, ben.id], `${kind} shows Ana and Ben`);
+    const continuationStream = {
+      ...olderExtra,
+      mergedRosterCharacterIds: mergedReplyRoster(olderExtra, chatCharacterIds),
+    };
+    assert.deepEqual(roster(continuationStream, narrowed, true), [ana.id, ben.id], `${kind} streams Continue with Ben`);
+    const olderContinued = await generate(chat.id, { continueMessageId: older.id });
+    assert.equal(olderContinued.id, older.id);
+    assert.deepEqual(olderContinued.extra.mergedRosterCharacterIds, [ana.id, ben.id], `${kind} keeps Ben on Continue`);
+    const regenerationStream = { ...olderExtra, mergedRosterCharacterIds: null };
+    assert.deepEqual(roster(regenerationStream, narrowed, true), [ana.id], `${kind} regenerates with the live roster`);
+    const regenerated = await generate(chat.id, { regenerateMessageId: older.id });
+    assert.equal(regenerated.id, older.id);
+    assert.deepEqual(
+      regenerated.extra.mergedRosterCharacterIds,
+      [ana.id],
+      `${kind}: a new swipe saves the live roster`,
+    );
+  }
+
   // The roster grows again: saved replies still keep what they were written with.
   assert.deepEqual(roster(soloReply.extra, chatCharacterIds), [ana.id], "a narrowed reply does not grow back");
   assert.deepEqual(roster(fullReply.extra, chatCharacterIds), [ana.id, ben.id]);
@@ -199,6 +242,11 @@ try {
     clientSource("ChatRoleplaySurface.tsx"),
     /\.\.\.\(!isContinuation\s*\?\s*\{[^}]*mergedRosterCharacterIds: null,/u,
     "a regenerating reply streams without the old swipe's roster",
+  );
+  assert.match(
+    clientSource("ChatRoleplaySurface.tsx"),
+    /:\s*\{\s*mergedRosterCharacterIds: mergedReplyRoster\(parsedExtra, rest\.chatCharacterIds \?\? \[\]\)\s*\}\),/u,
+    "a continued reply streams with its own roster, which the server also keeps",
   );
   console.log("Merged Roleplay replies keep the avatar roster they were generated with.");
 } finally {

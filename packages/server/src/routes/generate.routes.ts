@@ -5,6 +5,7 @@ import {
   normalizeVideoGenerationUserSettings,
   TTS_SETTINGS_KEY,
   isStockMarinaraUniversalPreset,
+  mergedReplyRoster,
   VIDEO_GENERATION_SETTINGS_KEY,
   type RulesetClocks,
 } from "@marinara-engine/shared";
@@ -11643,17 +11644,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 ]),
               ];
               // The roster this reply was written with, so its narrator avatars outlast later roster changes (#8762).
+              // Continuing keeps the reply's own, which an older reply derives from its expression result.
               const previousRosterIds = input.continueMessageId
-                ? parseExtra(savedMsg.extra).mergedRosterCharacterIds
-                : null;
-              extraUpdate.mergedRosterCharacterIds = [
-                ...new Set([
-                  ...(Array.isArray(previousRosterIds)
-                    ? previousRosterIds.filter((id): id is string => typeof id === "string")
-                    : []),
-                  ...characterIds,
-                ]),
-              ];
+                ? mergedReplyRoster(parseExtra(savedMsg.extra), allCharacterIds)
+                : [];
+              extraUpdate.mergedRosterCharacterIds = [...new Set([...previousRosterIds, ...characterIds])];
             } else {
               extraUpdate.referencedCharacterIds = [];
               extraUpdate.mergedRosterCharacterIds = [];
