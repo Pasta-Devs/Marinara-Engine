@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, ChevronDown, Layers, Pencil, Sliders } from "lucide-react";
+import { AlertTriangle, ChevronDown, FileText, Layers, Pencil } from "lucide-react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../../lib/utils";
 import { useUIStore } from "../../../stores/ui.store";
@@ -45,7 +45,7 @@ export function PromptPresetSection({
     <ChatSettingsSection
       id="prompt-preset"
       label={localizeUi("ui.chatSettings.conversationpromptsection.promptPreset")}
-      icon={<Sliders size="0.875rem" />}
+      icon={<FileText size="0.875rem" />}
       help={localizeUi("ui.chatSettings.promptpresetsection.presetsControlHowTheSystemPromptIsStructuredAnd")}
     >
       <div className="flex items-center gap-1.5">
