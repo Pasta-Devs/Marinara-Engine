@@ -2,13 +2,15 @@
 
 A custom tool (also called a function) lets the AI run a small action during a chat. The action can return a fixed piece of text, call a web address, or run a short script on the server. Use one when you want the AI to look something up or calculate something instead of guessing.
 
-Function calling means the AI asks the app to run an action and then uses the result in its reply. Marinara already ships built-in tools such as dice rolls, lorebook search and game state updates. Your custom tools work next to them. A custom tool is not attached to a character card: you turn it on for a chat, or attach it to an agent (a helper that runs alongside your chat).
+Function calling means the AI asks the app to run an action and then uses the result in its reply. Marinara already ships built-in tools such as dice rolls, lorebook search and game state updates. Your custom tools work next to them. A custom tool is not attached to a character card. You turn it on for a chat, or attach it to an agent (a helper that runs alongside your chat).
 
 > **Note:** Tools need a connection that supports them. Claude and Grok subscription connections ignore tool definitions, so **Chat Settings** shows a notice and disables the tool controls for them. Text commands and dice tags still work.
 
 ## Create a tool
 
-Before you start, open the **Presets** panel from the top bar. Tools live in its **Functions** section (wrench icon).
+Before you start, open the **Presets** panel from the top bar. Tools live in its **Functions** section (wrench icon). If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Admin Access**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
+
+For a first try, pick **Static Result**: it needs nothing else.
 
 ### Creating a tool
 
@@ -23,13 +25,23 @@ Before you start, open the **Presets** panel from the top bar. Tools live in its
 
 Rules for names and descriptions:
 
-- The name is 1 to 100 characters. The description is 1 to 500 characters.
+- The name is at most 100 characters.
 - Two tools cannot share a name, and a tool cannot use a built-in name such as `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` or `update_about_me`. A clash shows a message such as `"your_name" is a reserved built-in tool name.`
 - If you leave the editor with unsaved changes, a banner offers **Keep editing**, **Discard** or **Save & close**.
 
-The **Functions** header has three icon buttons: **Create function**, **Import functions from ZIP or JSON** and **Export functions to ZIP** (greyed out when you have no tools). Each tool in the list shows its name, type, parameter count, description, an on/off switch, **Edit function** and **Delete Function**. You can drag a tool by its handle to reorder the list; the order is for display only. With no tools, the list reads **No functions yet**.
+The **Functions** header has three icon buttons:
 
-> **Note:** Managing tools from a device other than the computer running the server needs the admin secret. Save it under **Settings → Advanced → Admin Access**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
+- **Create function** (plus icon)
+- **Import functions from ZIP or JSON**
+- **Export functions to ZIP** (greyed out when you have no tools)
+
+Each tool in the list shows:
+
+- its name, type, parameter count and description
+- an on/off switch
+- **Edit function** and **Delete Function**
+
+Drag a tool by its handle to reorder the list. The order is for display only. With no tools, the list reads **No functions yet**.
 
 ## Add parameters
 
@@ -43,7 +55,7 @@ Parameters are the inputs the AI sends when it calls your tool. Each has a name,
 
 Add more rows with **Add Parameter**, or remove a row with its minus button. A row with an empty name is dropped when you save.
 
-If the AI never seems to call an imported tool, its parameter setup may be invalid. In that case the app skips the tool during generation and writes a note to the server log only. Rebuild the parameters by hand.
+If the AI never seems to call an imported tool, its parameters may be invalid, and the app then skips the tool without telling you. Delete the parameters and add them again by hand.
 
 ## Choose an execution type
 
@@ -55,7 +67,7 @@ The one field is **Static Result**, a multi-line box. If you leave it empty, the
 
 Example: a tool named `store_hours` with no parameters and this **Static Result**:
 
-```
+```text
 We are open Monday to Friday, 9am to 5pm. We are closed on weekends.
 ```
 
@@ -67,7 +79,7 @@ A **Webhook** tool sends the call to a web address and returns that service's re
 
 The one field is **Webhook URL**. The app sends a POST request, which is a way to send data to a web service. The body is JSON, a plain-text format for structured data, shaped like this:
 
-```
+```json
 { "tool": "your_tool_name", "arguments": { ... } }
 ```
 
@@ -75,7 +87,7 @@ If you turn on **Include hidden chat context**, the body also has a `context` va
 
 Example: a tool named `check_weather` with one required string parameter `city`, and this **Webhook URL**:
 
-```
+```text
 https://api.example.com/weather
 ```
 
@@ -96,7 +108,7 @@ A **Script** tool runs a short piece of JavaScript on the server and returns the
 
 Script tools are off by default. If your server has not turned them on, the **Script** card is greyed out and an amber **Script disabled** pill shows. To turn them on, the server admin adds this line to the server's `.env` file and restarts Marinara:
 
-```
+```text
 CUSTOM_TOOL_SCRIPT_ENABLED=true
 ```
 
@@ -104,7 +116,7 @@ The one field is **Script Body**. The script reads `args` (the values the AI sen
 
 Example: a tool named `add_numbers` with two required number parameters `x` and `y`, and this **Script Body**:
 
-```
+```js
 const result = args.x + args.y;
 return { sum: result };
 ```
@@ -123,7 +135,14 @@ If it did not work: when the **Script** card is greyed out, ask the admin to set
 
 ### Include hidden chat context
 
-**Webhook** and **Script** tools can receive extra chat data that the AI does not see as tool inputs. Turn on **Include hidden chat context** in the tool editor (off by default). Your tool then receives a `context` value that can include the chat mode, the active persona name, character names, saved chat variables and, in Game Mode, the game state. This lets a tool personalize its result without the AI passing all that data.
+**Webhook** and **Script** tools can receive extra chat data that the AI does not see as tool inputs. Turn on **Include hidden chat context** in the tool editor (off by default). Your tool then receives a `context` value that can include:
+
+- the chat mode
+- the active persona name and the character names
+- saved chat variables
+- in Game Mode, the game state
+
+This lets a tool personalize its result without the AI passing all that data.
 
 ## Turn on tools for a chat
 
@@ -132,6 +151,7 @@ Creating a tool does not make the AI use it. You also turn tool use on for the c
 1. Open a chat, then open **Chat Settings**.
 2. Open the **Function Calling** section (wrench icon).
 3. Turn on **Enable Tool Use**. Its description reads **Allow AI to call functions (dice rolls, game state, etc.)**. It is off by default for a new chat.
+4. Check it works: ask the AI something your tool answers, such as "What are your store hours?" for the `store_hours` example. The reply should use the tool's text.
 
 With **Enable Tool Use** on and nothing added below it, the chat can use every globally enabled tool it supports: the built-in tools plus each custom tool whose switch is on in **Functions**. Game chats also need **Let the GM search lore** for `search_lorebook`.
 
@@ -155,7 +175,7 @@ You can also give a tool to an agent instead of a chat.
 2. Open its **Tools / Function Calling** group.
 3. Turn on the tools that agent may use.
 
-You still turn on **Enable Tool Use** in the chat's **Function Calling** section. The agent editor's footer says "Enable Function Calling"; the switch is labeled **Enable Tool Use**. For agents in general, see [Creating Custom Agents](../agents/custom-agents.md).
+You still turn on **Enable Tool Use** in the chat's **Function Calling** section. The agent editor's footer reminds you of this. For agents in general, see [Creating Custom Agents](../agents/custom-agents.md).
 
 ## Export and import tools
 
