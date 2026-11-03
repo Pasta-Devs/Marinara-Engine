@@ -47,7 +47,7 @@ To set a manual order, drag a row up or down, or press <kbd>Alt</kbd>+<kbd>Up</k
 
 ## Folders
 
-Folders group related characters inside the panel. They are optional.
+Folders group related characters, for example by story or series, so a long list is easier to scan. They are optional.
 
 1. Click **New Folder**. A folder named **unnamed** appears.
 2. Rename it: double-click or double-tap it, or select it and press <kbd>F2</kbd>. Type the new name and press <kbd>Enter</kbd>.
@@ -55,7 +55,9 @@ Folders group related characters inside the panel. They are optional.
 
 To take a character out, hover its row inside the folder and click the remove-from-folder button, or drag it out. Click a folder to expand or collapse it. The number next to its name is how many characters it holds.
 
-On a touch screen, press and hold a row to pick it up, then drag. A normal swipe still scrolls. While you hold one row, tap other rows with a second finger to carry them along as a stack, then drop the stack on a folder.
+On a touch screen, press and hold a row to pick it up, then drag. A normal swipe still scrolls.
+
+To move several at once, hold one row and tap other rows with a second finger to carry them along as a stack. Then drop the stack on a folder.
 
 To delete a folder, hover it and click its trash button. A folder with characters asks you to confirm: **Delete "name"? Its N characters will stay in the library and move out of the folder.** An empty folder is removed at once. Deleting a folder never deletes the characters in it.
 
