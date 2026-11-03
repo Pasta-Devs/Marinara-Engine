@@ -1552,6 +1552,12 @@ export function ChatRoleplaySurface({
       ? (characterMap.get(chatCharIds[0] ?? "")?.avatarUrl ?? null)
       : null;
   const washAccent = useAvatarAccent(washSrc);
+  // globals.css quiets tips, the music bubble and header icons while this is set.
+  useEffect(() => {
+    if (!setupStage.visible) return;
+    document.documentElement.dataset.setupStage = "";
+    return () => void delete document.documentElement.dataset.setupStage;
+  }, [setupStage.visible]);
   const activeChatCharacterIds = useMemo(() => {
     const inactiveIds = new Set(readStringArray(chatMeta.inactiveCharacterIds));
     const activeIds = chatCharIds.filter((id) => !inactiveIds.has(id));
