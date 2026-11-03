@@ -6,32 +6,16 @@ import { getMergedAvatarBorderStyle } from "../../packages/client/src/lib/utils.
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
-// A solid name color is used as it is; a gradient one uses its first color.
-assert.deepEqual(getMergedAvatarBorderStyle("#64b544", 0, 1, true), { boxShadow: "inset 0 0 0 0.125rem #64b544" });
-assert.equal(
-  getMergedAvatarBorderStyle("linear-gradient(90deg, #ff6b6b, #ffd93d)", 0, 2, true).boxShadow,
-  "inset 0 0 0 0.125rem #ff6b6b",
-);
+// A solid name color is used as it is; a gradient one uses its first color. The style is only the
+// outline of the box it is given: no clipping, and no CSS variable handed to themes.
+assert.deepEqual(getMergedAvatarBorderStyle("#64b544"), { boxShadow: "inset 0 0 0 0.125rem #64b544" });
+assert.deepEqual(getMergedAvatarBorderStyle("linear-gradient(90deg, #ff6b6b, #ffd93d)"), {
+  boxShadow: "inset 0 0 0 0.125rem #ff6b6b",
+});
 // Characters without a name color get the Narrator label's palette, which can be a theme color.
-assert.equal(
-  getMergedAvatarBorderStyle("var(--marinara-chat-chrome-text)", 1, 3, true).boxShadow,
-  "inset 0 0 0 0.125rem var(--marinara-chat-chrome-text)",
-);
-
-// A cycling avatar fills the frame, so its border is the whole outline. Avatars shown together
-// split the frame evenly, and each border keeps to its own avatar's share.
-assert.equal(getMergedAvatarBorderStyle("#fff", 2, 4, true).clipPath, undefined);
-assert.equal(getMergedAvatarBorderStyle("#fff", 0, 1, false).clipPath, undefined);
-assert.deepEqual(
-  [0, 1, 2, 3].map((index) => getMergedAvatarBorderStyle("#fff", index, 4, false).clipPath),
-  ["inset(0 75% 0 0%)", "inset(0 50% 0 25%)", "inset(0 25% 0 50%)", "inset(0 0% 0 75%)"],
-);
-for (const style of [getMergedAvatarBorderStyle("#fff", 0, 2, true), getMergedAvatarBorderStyle("#fff", 1, 2, false)]) {
-  assert.ok(
-    Object.keys(style).every((property) => !property.startsWith("--")),
-    "the border must not hand themes a CSS variable",
-  );
-}
+assert.deepEqual(getMergedAvatarBorderStyle("var(--marinara-chat-chrome-text)"), {
+  boxShadow: "inset 0 0 0 0.125rem var(--marinara-chat-chrome-text)",
+});
 
 // Off by default, kept across reloads and devices, and an older store starts with it off.
 const store = read("packages/client/src/stores/ui.store.ts");
@@ -52,15 +36,37 @@ assert.match(
 // The borders render only when the setting is on, in both the compact avatar and the Glued Side
 // Panel, and cycle with their avatars. They carry no data attributes for themes.
 const message = read("packages/client/src/components/chat/ChatMessage.tsx");
-const bordersStart = message.indexOf("const mergedAvatarBorders = roleplayNarratorAvatarBorders");
-assert.notEqual(bordersStart, -1, "the borders must be gated on the setting");
-const borders = message.slice(bordersStart, message.indexOf(": null;", bordersStart));
-assert.match(borders, /className="pointer-events-none absolute inset-0 rounded-\[inherit\]/u);
+const bordersStart = message.indexOf("const mergedAvatarsSideBySide =");
+assert.notEqual(bordersStart, -1, "the borders must know when the avatars are shown side by side");
+const borders = message.slice(bordersStart, message.indexOf("const compactAvatarSpacerClass", bordersStart));
 assert.match(
   borders,
-  /getMergedAvatarBorderStyle\(avatar\.nameColor, i, mergedAvatars\.length, cycleMergedNarratorAvatars\)/u,
+  /^const mergedAvatarsSideBySide = !cycleMergedNarratorAvatars && mergedAvatars\.length > 1;\s*const mergedAvatarBorders = !roleplayNarratorAvatarBorders \? null : mergedAvatarsSideBySide \? \(/u,
+  "the borders must be gated on the setting",
 );
-assert.doesNotMatch(borders, /data-|--/u, "the borders must not expose character data to CSS");
+assert.doesNotMatch(borders, /clip|data-|--/u, "no clipped shared outline, and no character data exposed to CSS");
+const fullFrameStart = borders.indexOf(") : (");
+assert.notEqual(fullFrameStart, -1);
+const sideBySideBorders = borders.slice(0, fullFrameStart);
+const fullFrameBorders = borders.slice(fullFrameStart);
+
+// Avatars shown side by side (cycling off or reduced ambient effects) split the frame evenly. Each
+// border is its own equal-share flex item, laid out like the images, so every avatar, a middle one
+// included, gets a whole outline that also separates it from its neighbours.
+assert.match(
+  sideBySideBorders,
+  /<span aria-hidden="true" className="pointer-events-none absolute inset-0 flex">\s*\{mergedAvatars\.map\(\(avatar\) => \(\s*<span\s+key=\{`border-\$\{avatar\.id\}`\}\s+className="w-0 min-w-0 flex-1"\s+style=\{getMergedAvatarBorderStyle\(avatar\.nameColor\)\}\s*\/>/u,
+);
+assert.equal(
+  message.match(/cycleMergedNarratorAvatars \? "absolute inset-0 w-full" : "relative w-0 min-w-0 flex-1"/gu)?.length,
+  3,
+  "the panel tail, compact and Glued Side Panel images share the frame the same way as the borders",
+);
+// A cycling avatar, or a lone one, fills the frame, so its border is the frame's whole outline.
+assert.match(
+  fullFrameBorders,
+  /className="pointer-events-none absolute inset-0 rounded-\[inherit\] transition-opacity duration-700"\s*style=\{getMergedAvatarBorderStyle\(avatar\.nameColor\)\}/u,
+);
 assert.equal(message.match(/\{mergedAvatarBorders\}/gu)?.length, 2, "compact avatars and the Glued Side Panel");
 assert.match(
   message,

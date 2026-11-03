@@ -3546,22 +3546,34 @@ export const ChatMessage = memo(function ChatMessage({
   const panelMergedAvatarCropStyle = (avatar: { crop?: AvatarCrop | null }): React.CSSProperties =>
     rectangleSafeCropStyle(avatar.crop, getAvatarCropStyle(avatar.crop));
   // Name-color borders sit over the merged avatars without changing their size, place or cycle.
-  const mergedAvatarBorders = roleplayNarratorAvatarBorders
-    ? mergedAvatars.map((avatar, i) => (
+  // Avatars shown side by side each get a full outline of their own share, laid out like the images.
+  const mergedAvatarsSideBySide = !cycleMergedNarratorAvatars && mergedAvatars.length > 1;
+  const mergedAvatarBorders = !roleplayNarratorAvatarBorders ? null : mergedAvatarsSideBySide ? (
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex">
+      {mergedAvatars.map((avatar) => (
         <span
           key={`border-${avatar.id}`}
-          ref={(el) => {
-            mergedAvatarBorderRefs.current[i] = el;
-            // Opacity lives in the DOM like the cycling avatars', so a border shown mid-cycle
-            // starts on the avatar in view.
-            if (el) el.style.opacity = !cycleMergedNarratorAvatars || i === cycleIndexRef.current ? "1" : "0";
-          }}
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity duration-700"
-          style={getMergedAvatarBorderStyle(avatar.nameColor, i, mergedAvatars.length, cycleMergedNarratorAvatars)}
+          className="w-0 min-w-0 flex-1"
+          style={getMergedAvatarBorderStyle(avatar.nameColor)}
         />
-      ))
-    : null;
+      ))}
+    </span>
+  ) : (
+    mergedAvatars.map((avatar, i) => (
+      <span
+        key={`border-${avatar.id}`}
+        ref={(el) => {
+          mergedAvatarBorderRefs.current[i] = el;
+          // Opacity lives in the DOM like the cycling avatars', so a border shown mid-cycle
+          // starts on the avatar in view.
+          if (el) el.style.opacity = !cycleMergedNarratorAvatars || i === cycleIndexRef.current ? "1" : "0";
+        }}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity duration-700"
+        style={getMergedAvatarBorderStyle(avatar.nameColor)}
+      />
+    ))
+  );
   const compactAvatarSpacerClass = useCompactRectangleAvatar
     ? "w-[calc(2.75rem*var(--roleplay-avatar-scale))]"
     : "w-[calc(2.5rem*var(--roleplay-avatar-scale))]";

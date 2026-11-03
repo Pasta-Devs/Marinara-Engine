@@ -94,18 +94,9 @@ export function getAvatarCropStyle(crop?: AvatarCrop | null): CSSProperties {
 }
 
 /** Inline style for the name-color border over one merged Narrator avatar. The border is its own
- *  overlay because a crop may transform or pan the `<img>`. The overlay covers the avatar frame
- *  and takes its corner radius: a cycling avatar gets the whole outline, and avatars shown
- *  together each keep their share of it. A gradient name color uses its first color. */
-export function getMergedAvatarBorderStyle(
-  nameColor: string,
-  index: number,
-  count: number,
-  cycling: boolean,
-): CSSProperties {
-  const boxShadow = `inset 0 0 0 0.125rem ${getCssColorFallback(nameColor, "transparent")}`;
-  if (cycling || count <= 1) return { boxShadow };
-  const left = (index * 100) / count;
-  const right = ((count - index - 1) * 100) / count;
-  return { boxShadow, clipPath: `inset(0 ${right}% 0 ${left}%)` };
+ *  overlay because a crop may transform or pan the `<img>`, and it outlines whatever box it is
+ *  given: the whole frame for a cycling avatar, or one avatar's share when they are shown side by
+ *  side. A gradient name color uses its first color. */
+export function getMergedAvatarBorderStyle(nameColor: string): CSSProperties {
+  return { boxShadow: `inset 0 0 0 0.125rem ${getCssColorFallback(nameColor, "transparent")}` };
 }
