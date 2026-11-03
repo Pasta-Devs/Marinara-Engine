@@ -51,7 +51,7 @@ A schedule belongs to the character and is reused in every Conversation chat. Tu
 
 Automatic weekly renewal is off unless you turn on **Renew weekly** for that character in the **Character Schedule Manager**. Open it with the calendar button in the sidebar footer, next to the status box.
 
-A failed renewal is not retried when you reopen the chat. Click **Generate** to try again.
+Marinara tries a renewal once for each chat each time the app page loads. If it fails, it does not try again until you reload the page. Click **Generate** to try again.
 
 **Schedule generation preferences**, in the same **Schedules** area of **Chat Settings**, holds free-text guidance for how schedules are written. It applies to every Conversation chat the next time schedules are generated. Example:
 
