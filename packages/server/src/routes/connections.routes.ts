@@ -1897,7 +1897,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
 
     // OpenRouter and NanoGPT list models for any key, so their key has its own check.
-    let keyOk: boolean | null = apiKey && provider !== "custom" ? true : null;
+    // A model list only proves the key at the provider's own address; a proxy or custom server may ignore keys.
+    const defaultUrl = (PROVIDERS[provider as keyof typeof PROVIDERS].defaultBaseUrl || "").replace(/\/+$/, "");
+    let keyOk: boolean | null = apiKey && defaultUrl && baseUrl.replace(/\/+$/, "") === defaultUrl ? true : null;
     let status: number | null = null;
     const keyCheck = apiKey ? buildKeyCheck(provider, normalizeConnectionTestBaseUrl(baseUrl, provider)) : null;
     if (keyCheck) {
