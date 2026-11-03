@@ -913,6 +913,15 @@ type ProfessorMariRestartQuery = {
   name?: string;
 };
 
+/** The opening greeting alone does not start a chat: cast and persona changes before the first turn are setup. */
+function chatHasStarted(messages: ReadonlyArray<{ role: string }>, metadata: unknown): boolean {
+  return (
+    parseChatMetadata(metadata).conversationSetupComplete === true ||
+    messages.some((message) => message.role === "user") ||
+    messages.filter((message) => message.role === "assistant").length > 1
+  );
+}
+
 export async function chatsRoutes(app: FastifyInstance) {
   const storage = createChatsStorage(app.db);
   const messageTrashStore = createMessageTrashStorage(app.db);
@@ -1549,12 +1558,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
       if (removedIds.length > 0 || addedIds.length > 0) {
         const existingMessages = await storage.listMessages(req.params.id);
-        const existingMetadata = parseChatMetadata(existing.metadata);
-        // The opening greeting alone does not start a chat: cast changes before the first turn are setup.
-        const hasStartedChat =
-          existingMetadata.conversationSetupComplete === true ||
-          existingMessages.some((message) => message.role === "user") ||
-          existingMessages.filter((message) => message.role === "assistant").length > 1;
+        const hasStartedChat = chatHasStarted(existingMessages, existing.metadata);
         if (existing.mode === "roleplay") {
           await storage.patchMetadata(req.params.id, (current) => {
             const settings = normalizeAdvancedMemorySettings(current.advancedMemory);
@@ -1680,9 +1684,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
     if (updated && identityChanged) {
       const existingMessages = await storage.listMessages(req.params.id);
-      const hasStartedChat = existingMessages.some(
-        (message) => message.role === "user" || message.role === "assistant",
-      );
+      const hasStartedChat = chatHasStarted(existingMessages, existing.metadata);
       if (hasStartedChat && identityAfter) {
         await storage.createMessage({
           chatId: req.params.id,
