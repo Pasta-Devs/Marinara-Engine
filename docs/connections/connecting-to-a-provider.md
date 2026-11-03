@@ -23,7 +23,7 @@ Most services ask you to sign up, and some ask you to add credit, before a key w
    - **No Main model yet, or you opened Add from a new chat:** the window shows the service's models. **Recommended** models are at the top. Click a model to add it, or type a name in **Search or enter model ID…**. If you do not know which to choose, take a **Recommended** one. You can change it later. Keep **Make … my Main model** checked. It shows only when you have no Main model. When you opened Add from a new chat and already have a Main model, a **Set … as Main** button shows instead. Then click **Done**, or **Start chatting** from a new chat.
    - **You already have a Main model:** the window closes and a message says the account was added with its number of models. To add more models, click **⋯** on the account and choose **Add model**.
 
-The panel shows your account. Start a chat and send a message. A reply means it works.
+The panel shows your account. **Connected** in step 5 already means the key works. If the new model is your Main model, start a chat and send a message: a reply means everything works. If you already had a Main model, new chats still use it until you pick a model from the new account (see [Choosing the model for each job](#choosing-the-model-for-each-job)).
 
 If it did not work:
 
