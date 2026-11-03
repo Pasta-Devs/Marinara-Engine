@@ -4,14 +4,14 @@ import { ArrowRight, History, Shuffle, Sprout } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
 import { useChats } from "../../hooks/use-chats";
 import { useStageGreeting, type StageGreetingMode } from "../../hooks/use-stage-greeting";
-import { getApiErrorMessage } from "../../lib/api-client";
+import { ApiError, getApiErrorMessage } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import type { MessageWithSwipes } from "./chat-area.types";
 
 const FOCUS =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]";
 const CHOICE =
-  "inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--foreground)_14%,transparent)] px-3.5 text-[13.5px] text-[color-mix(in_srgb,var(--foreground)_85%,transparent)] transition-colors hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)] disabled:opacity-50 md:min-h-9";
+  "inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--foreground)_14%,transparent)] px-3 text-[13.5px] sm:px-3.5 text-[color-mix(in_srgb,var(--foreground)_85%,transparent)] transition-colors hover:bg-[color-mix(in_srgb,var(--foreground)_7%,transparent)] disabled:opacity-50 md:min-h-9";
 
 /**
  * Setup stage: write a new opening scene for the chat, or go back to the card's own greeting. The new opening
@@ -93,7 +93,7 @@ export function ChatSetupStageScene({
             onClick={() => run({ mode: "continue" })}
             className={cn(CHOICE, FOCUS)}
           >
-            <History size="0.9rem" aria-hidden />
+            <History size="0.9rem" aria-hidden className="max-sm:hidden" />
             {t("chat.setupStage.scene.continue")}
           </button>
         )}
@@ -103,7 +103,7 @@ export function ChatSetupStageScene({
           onClick={() => onSetActiveSwipe(first.id, 0)}
           className={cn(CHOICE, FOCUS)}
         >
-          <Sprout size="0.9rem" aria-hidden />
+          <Sprout size="0.9rem" aria-hidden className="max-sm:hidden" />
           {t("chat.setupStage.scene.fresh")}
         </button>
         <button
@@ -112,15 +112,17 @@ export function ChatSetupStageScene({
           onClick={() => run({ mode: "surprise" })}
           className={cn(CHOICE, FOCUS)}
         >
-          <Shuffle size="0.9rem" aria-hidden />
+          <Shuffle size="0.9rem" aria-hidden className="max-sm:hidden" />
           {t("chat.setupStage.scene.surprise")}
         </button>
       </div>
-      <p role="status" className="m-0 min-h-5 text-[12.5px] text-[var(--muted-foreground)]">
+      <p role="status" className="m-0 text-[12.5px] empty:-mt-2.5 text-[var(--muted-foreground)]">
         {greeting.isPending && t("chat.setupStage.scene.busy")}
         {greeting.isError && (
           <>
-            {getApiErrorMessage(greeting.error, t("chat.setupStage.scene.error"))}{" "}
+            {greeting.error instanceof ApiError && greeting.error.status < 500
+              ? getApiErrorMessage(greeting.error, t("chat.setupStage.scene.error"))
+              : t("chat.setupStage.scene.error")}{" "}
             {last && (
               <button type="button" onClick={() => run(last)} className={cn("underline underline-offset-2", FOCUS)}>
                 {t("chat.setupStage.scene.retry")}

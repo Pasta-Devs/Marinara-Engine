@@ -134,7 +134,7 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
       ...(assembled as ChatMessage[]),
       {
         role: "user" as const,
-        content: `${brief}\n\nWrite only the character's opening message, in the same voice, format and language as the existing opening message above. Do not speak or act for the user. Do not add notes.`,
+        content: `${brief}\n\nWrite only the character's opening message, in the same voice, format and language as the existing opening message above. Do not speak or act for the user. Do not add notes or XML tags.`,
       },
     ];
 
