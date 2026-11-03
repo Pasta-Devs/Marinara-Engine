@@ -56,6 +56,24 @@ try {
     "the imported lorebook works once added to a chat",
   );
 
+  const globalForeign = await importBook({
+    name: "Global in a few chats elsewhere",
+    isGlobal: true,
+    scope: { mode: "specific", chatIds: ["foreign-chat"] },
+  });
+  assert.equal(globalForeign.isGlobal, false, "a global book whose chats are all gone is imported as non-global");
+  const unrelated = await lorebooks.listActiveEntries({ chatId: chat.id, characterIds: [character.id] });
+  assert.ok(
+    !unrelated.some((entry) => entry.lorebookId === globalForeign.id),
+    "so it does not join chats it was never added to",
+  );
+  const globalHere = await importBook({
+    name: "Global in a chat here",
+    isGlobal: true,
+    scope: { mode: "specific", chatIds: [chat.id] },
+  });
+  assert.equal(globalHere.isGlobal, true, "a global book that keeps a local chat stays global");
+
   const restored = await importBook({
     name: "Restored here",
     characterIds: [character.id, "foreign-character"],

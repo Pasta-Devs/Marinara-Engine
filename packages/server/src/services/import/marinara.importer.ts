@@ -780,6 +780,9 @@ async function importLorebookPayload(data: unknown, db: DB) {
     keepLocalIds(db, chats, legacyChatId ? [...scope.chatIds, legacyChatId] : scope.chatIds),
   ]);
   const scopeChatIds = scope.chatIds.filter((chatId) => localChatIds.includes(chatId));
+  // A "specific chats" scope with none of its chats here applies to all chats, so the book can be added to
+  // one. It is then imported as non-global, or a global book limited to a few chats would join every chat.
+  const scopeCollapsed = scope.mode === "specific" && scopeChatIds.length === 0;
   let newLb: Record<string, unknown> | null = null;
   try {
     for (const entry of d.entries ?? [])
@@ -802,12 +805,9 @@ async function importLorebookPayload(data: unknown, db: DB) {
         characterIds,
         personaIds,
         chatId: legacyChatId && localChatIds.includes(legacyChatId) ? legacyChatId : null,
-        isGlobal: lb.isGlobal === true || lb.isGlobal === "true",
+        isGlobal: !scopeCollapsed && (lb.isGlobal === true || lb.isGlobal === "true"),
         enabled: lb.enabled !== false,
-        scope:
-          scope.mode === "specific" && scopeChatIds.length === 0
-            ? { mode: "all", chatIds: [] }
-            : { ...scope, chatIds: scopeChatIds },
+        scope: scopeCollapsed ? { mode: "all", chatIds: [] } : { ...scope, chatIds: scopeChatIds },
         tags: Array.isArray(lb.tags) ? lb.tags.map(String) : [],
         generatedBy: "import",
         sourceAgentId: typeof lb.sourceAgentId === "string" ? lb.sourceAgentId : null,
