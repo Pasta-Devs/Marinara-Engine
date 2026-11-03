@@ -83,7 +83,7 @@ A hosted Decision account sends the selected recent messages and statements to t
 4. Click the **Decision** row under **Behind the scenes** and pick the new model.
 5. To test it, click the model in the panel to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Open the account's **⋯** menu in the panel and click **Test** instead.
 
-A passing test shows the probability, how long the answer took, and the account's time limit. The test waits at least 10 seconds, or 5 seconds past a longer limit. If the answer took longer than the limit, the result says so: in chats that answer would count as no answer.
+A passing **Test provider** shows the probability, how long the answer took, and the account's time limit. The account's **Test** in the **⋯** menu only says whether it worked and how long it took. The test waits at least 10 seconds, or 5 seconds past a longer limit. If the answer took longer than the limit, the result says so: in chats that answer would count as no answer.
 
 If it did not work, see [Troubleshooting](#troubleshooting).
 
