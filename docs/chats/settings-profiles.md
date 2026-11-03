@@ -9,7 +9,7 @@ A **prompt preset** is different. It controls the system prompt structure and ge
 ## Apply a profile
 
 1. Open the chat you want to change, then open **Chat Settings**. See [Chat Settings](chat-settings.md).
-2. Open the **Profile** dropdown (tooltip **Apply a settings profile to this chat**).
+2. Open the **Profile** dropdown (labeled **Apply a settings profile to this chat**).
 3. Choose a profile by name.
 
 The chat updates at once. If the profile turns **Hide summarised messages** on or off, the chat's summarised messages are hidden from the model, or shown again, at the same moment.
@@ -18,12 +18,21 @@ If it did not work: when the chat's values match no saved profile, the dropdown 
 
 ## Create or edit a profile
 
-1. Next to the dropdown, click **New** (tooltip "New profile from this chat's settings"). The profile builder opens with this chat's settings in its slots. To change a saved profile, select it and click **Edit**. The Default profile cannot be edited.
+1. Next to the dropdown, tap **New** ("New profile from this chat's settings"). The profile builder opens with this chat's settings in its slots. To change a saved profile, select it and click **Edit**. The Default profile cannot be edited.
 2. Type a **Profile name**.
-3. Fill the slots. They are grouped into **Chat**, **Story**, **Pictures** and **Behind the scenes**. The slots are **Connection**, **Prompt preset**, **Agents**, **Tools**, **Persona**, **Lorebooks**, **Background**, **Image style**, **Translation**, **Parameters** and **Memory & summary**.
-4. Click **Save and choose chats…**.
-5. Tick **Make this the default** to use the profile for new chats. Tick the existing chats that should get it now. The list starts with **New conversation chats** or **New roleplay chats**.
-6. Click **Apply to N chats**, or **Save** with none ticked.
+3. Fill the slots (see the list below).
+4. Tap **Save and choose chats…**.
+5. To use the profile for new chats, tick **Make this the default**. The list starts with **New conversation chats** or **New roleplay chats**.
+6. Tick the existing chats that should get the profile now.
+7. Tap **Apply to N chats**, or **Save** with none ticked.
+
+The builder groups the slots under **Chat**, **Story**, **Pictures** and **Behind the scenes**. The slots are:
+
+- **Connection**, **Prompt preset** and **Parameters**
+- **Agents**, **Tools** and **Memory & summary**
+- **Persona**, **Lorebooks** and **Background**
+- **Image style** and **Translation**
+
 
 How to fill the slots:
 
@@ -38,7 +47,7 @@ In the new chat wizard, the **Use a Profile** step also has **New profile…** a
 
 To update a profile from a chat, apply it, change the chat, then use the icon row below the dropdown.
 
-| Button | Tooltip | Result |
+| Button | Label | Result |
 | --- | --- | --- |
 | Save | **Save current chat settings into this profile** | Replaces the profile's saved values. |
 | Rename | **Rename profile** | Changes the name. |
@@ -57,7 +66,7 @@ When no other chat uses the profile, **Save** works without asking. Multiplayer 
 
 ## Choosing the default profile
 
-The star beside the dropdown marks the profile used automatically for new chats in that mode. Only one profile per mode can be the default. The tooltips are **Mark this profile as default for new chats in this mode**, **This profile is the default for new chats in this mode** and **Select a profile to mark it as default**. You can also tick **Make this the default** in the builder.
+The star beside the dropdown marks the profile used automatically for new chats in that mode. Only one profile per mode can be the default. The labels are **Mark this profile as default for new chats in this mode**, **This profile is the default for new chats in this mode** and **Select a profile to mark it as default**. You can also tick **Make this the default** in the builder.
 
 ## Import and export a profile
 
@@ -87,7 +96,13 @@ A profile stores how the chat talks to the model:
 - Whether the layout tips are hidden. Applying **Default**, or an older profile without this choice, shows the tips again.
 - Other reusable chat options.
 
-A profile can also hold **starting picks**: a persona, lorebooks to switch on, and a background. Applying the profile copies them into the chat. If the profile leaves one of the three empty, the chat keeps its own. Other settings in the profile still replace the chat's settings. The picks are not linked. A later change in the chat stays in that chat. **Save current chat settings into this profile** keeps the profile's own persona, lorebooks and background, but a profile without a background takes the chat's background when you save into it. Updating other chats never changes their persona, lorebooks or background.
+A profile can also hold **starting picks**: a persona, lorebooks to switch on, and a background.
+
+- Applying the profile copies the picks into the chat. If the profile leaves one empty, the chat keeps its own.
+- Other settings in the profile still replace the chat's settings.
+- The picks are not linked. A later change in the chat stays in that chat.
+- **Save current chat settings into this profile** keeps the profile's own persona, lorebooks and background. A profile without a background takes the chat's background when you save into it.
+- Updating other chats never changes their persona, lorebooks or background.
 
 A profile does not replace chat-owned content: characters, sprites, summary, tags and scene prompt. It also holds no conversation history and no running state such as macro variables, the characters you turned off, or a multiplayer room.
 
