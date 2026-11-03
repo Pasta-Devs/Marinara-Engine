@@ -1,0 +1,91 @@
+agents/custom-agents.md|Pipeline Phase
+agents/custom-agents.md|Creating a custom agent
+agents/memory.md|Turning Memory Recall on
+appearance/appearance-settings.md|Opening the Appearance settings
+appearance/chat-backgrounds.md|The background library
+appearance/custom-css-themes.md|Where to find the Theme Library
+appearance/fonts.md|Choosing an app font
+characters/choosing-your-persona.md|From Chat Settings
+characters/colors-and-stats.md|The Colors tab
+characters/colors-and-stats.md|The Stats tab
+characters/creating-and-editing-characters.md|The Character Editor at a glance
+characters/creating-and-editing-characters.md|Card tab
+characters/creating-and-editing-characters.md|Advanced tab
+characters/galleries.md|The Gallery tab
+characters/import-export.md|Importing a character
+characters/interactive-onboarding.md|Setting it up as an author
+characters/personas.md|The Persona Editor
+chats/branches.md|The Chat Branches section
+chats/chat-settings.md|Opening Chat Settings
+chats/connected-chats.md|Linking a Conversation to a Roleplay or Game chat
+chats/export-import.md|Export a single chat
+chats/guided-and-impersonate.md|The Impersonate settings
+chats/managing-chats.md|The chat list and mode tabs
+chats/managing-chats.md|Selecting multiple chats
+chats/messages.md|The message toolbar
+chats/peek-prompt.md|Opening Peek Prompt
+chats/slash-commands.md|How slash commands work
+connections/connecting-to-a-provider.md|The Connections panel
+connections/connecting-to-a-provider.md|Adding an account
+connections/local-model.md|Curated presets
+connections/local-self-hosted.md|Set up a Custom connection
+connections/organizing-connections.md|Account actions
+connections/subscription-clis.md|Claude (Subscription)
+conversation/getting-started.md|Your presence status
+conversation/profiles.md|Chat-specific About Me overrides
+conversation/profiles.md|Where these fields live
+conversation/schedules.md|The Schedules editor
+conversation/schedules.md|Tuning
+conversation/schedules.md|Schedule AI: redraft the week
+conversation/schedules.md|Turn on schedules
+conversation/selfies.md|Selfie settings
+conversation/emoji-stickers-gifs.md|Where to find these tools
+data/backup-and-restore.md|Download Backup
+data/clearing-data.md|The eight data categories
+data/importing-from-sillytavern.md|Quick single-file imports
+extending/custom-tools.md|Creating a tool
+extending/regex-scripts.md|Creating a regex script
+game/combat.md|Starting an encounter
+game/game-assets.md|Generated sound effects and music
+game/getting-started.md|The Game's controls
+game/getting-started.md|The setup wizard
+game/hud-widgets.md|Sharing widgets with import and export
+game/map-time-weather.md|The map panel
+game/party-and-npcs.md|The inventory
+game/party-and-npcs.md|Character Profiles
+game/party-and-npcs.md|Game Master modes
+game/sessions-and-saves.md|Opening Session
+game/storyboard.md|Game Mode Storyboards
+home/achievements.md|The 24 achievements
+home/professor-mari.md|Where to find her
+home/professor-mari.md|Reviewing her changes
+home/professor-mari.md|The paperclip menu
+home/professor-mari.md|Trust and recovery status
+home/welcome.md|The Home screen at a glance
+integrations/message-translation.md|Where to find translation settings
+lorebooks/entries.md|The Keyword test tool
+lorebooks/entries.md|The Entries tab
+lorebooks/entries.md|Adding and editing an entry
+lorebooks/import-export.md|Import a lorebook
+lorebooks/linking-to-characters.md|The Lorebook tab in the editor
+lorebooks/linking-to-characters.md|The Chat Settings Lorebooks section
+lorebooks/overview.md|The Overview tab settings
+lorebooks/semantic-search.md|The Semantic search (embeddings) panel
+lorebooks/token-budgets.md|Setting a lorebook's Token Budget and Entry Limit
+media/image-providers.md|Choosing a service
+media/scene-video.md|Video generation settings
+prompts/generation-parameters.md|Each parameter in plain language
+prompts/preset-variables.md|Adding a preset variable
+prompts/presets.md|Overview tab
+prompts/presets.md|Prompts tab
+prompts/presets.md|Sections and markers
+prompts/prompt-overrides.md|Editing a template
+roleplay/backgrounds.md|Set a background for one chat
+roleplay/getting-started.md|Author's Notes
+roleplay/getting-started.md|The chat tools
+roleplay/getting-started.md|Sprite display controls
+roleplay/hud-and-trackers.md|The HUD widgets
+roleplay/hud-and-trackers.md|The Tracker Panel
+roleplay/hud-and-trackers.md|Lock mode
+settings/settings-overview.md|The Settings panel and its six tabs
+settings/settings-overview.md|Text Rules
