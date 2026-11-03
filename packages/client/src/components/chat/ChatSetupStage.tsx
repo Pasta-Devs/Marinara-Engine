@@ -95,7 +95,7 @@ export function useChatSetupStage(input: {
       const draft = store.pendingNewChatSetups[chat.id];
       store.setSetupStageChatId(null);
       store.clearPendingNewChatSetup(chat.id);
-      if (focusComposer) document.querySelector<HTMLTextAreaElement>(".mari-chat-input-textarea")?.focus();
+      if (focusComposer) document.querySelector<HTMLTextAreaElement>("textarea[data-chat-composer]")?.focus();
       // What the setup wizard wrote on finish: the cast name for an untouched draft name, and the setup flag.
       if (draft && chat.name === draft.name && characterNames.length) {
         updateChat.mutate({ id: chat.id, name: characterNames.join(", ") });
@@ -216,8 +216,8 @@ function useStageReadiness(
     : null;
 }
 
-const SERIF = { fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' };
-const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+export const SERIF = { fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' };
+export const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 
 /** A tappable sentence word. Trans replaces its children with the word, so the avatars live here. */
 function StageWord({
@@ -351,7 +351,7 @@ export function ChatSetupStage({
   // focus at once; the stage closes when the curtain is down.
   const begin = () => {
     if (leaving) return;
-    document.querySelector<HTMLTextAreaElement>(".mari-chat-input-textarea")?.focus();
+    document.querySelector<HTMLTextAreaElement>("textarea[data-chat-composer]")?.focus();
     setEditor(null);
     setLeaving(true);
     const section = sectionRef.current;

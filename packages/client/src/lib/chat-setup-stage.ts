@@ -104,3 +104,36 @@ export function lorebookSwitchWrite(
     return { excludedLorebookIds: view.isExcluded ? excludedIds.filter((x) => x !== id) : [...excludedIds, id] };
   return { activeLorebookIds: [...activeIds, id] };
 }
+
+const WELCOME_BACK_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
+
+/**
+ * Whether an older solo roleplay or conversation chat greets the user back: at least 6 messages of
+ * this chat are loaded and the newest is 2 or more days old. Hosted rooms and other modes never do.
+ */
+export function shouldWelcomeBack(input: {
+  chatId: string | null | undefined;
+  mode: string | null | undefined;
+  meta: Record<string, unknown>;
+  messages: ReadonlyArray<{ chatId: string; createdAt: string }> | undefined;
+  now: number;
+}): boolean {
+  if (!input.chatId || (input.mode !== "roleplay" && input.mode !== "conversation")) return false;
+  if (input.meta.multiplayer || input.meta.multiplayerSetup === true) return false;
+  const own = (input.messages ?? []).filter((message) => message.chatId === input.chatId);
+  if (own.length < 6) return false;
+  const newest = Math.max(...own.map((message) => Date.parse(message.createdAt)));
+  return input.now - newest >= WELCOME_BACK_AFTER_MS;
+}
+
+/** The newest paragraph of the chat's stored rolling summary, or null when there is none. */
+export function welcomeRecapFromSummary(summary: unknown): string | null {
+  if (typeof summary !== "string") return null;
+  return (
+    summary
+      .split(/\n\s*\n/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .at(-1) ?? null
+  );
+}

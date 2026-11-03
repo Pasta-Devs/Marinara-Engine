@@ -18,7 +18,7 @@ import { resolveBaseUrl } from "./generate/generate-route-utils.js";
 
 const bodySchema = z
   .object({
-    mode: z.enum(["line", "surprise", "continue"]),
+    mode: z.enum(["line", "surprise", "continue", "recap"]),
     idea: z.string().trim().max(500).optional(),
     debugMode: z.boolean().optional(),
   })
@@ -29,6 +29,9 @@ const bodySchema = z
 const CONTINUE_TAIL_MESSAGES = 20;
 const CONTINUE_TAIL_CHARS = 1500;
 const MAX_GREETING_TOKENS = 4096;
+const MAX_RECAP_TOKENS = 1024;
+const RECAP_INSTRUCTION =
+  "Step out of the chat for a moment. The user is back after a few days away. In at most three short lines, remind them where things stand right now: where they are, what just happened, and what is still open. Write plain prose in the language of the chat, without headings, lists, quotes, notes or XML tags. Do not continue the chat.";
 /** Earlier chats looked at before giving up on a recap. */
 const MAX_RECAP_CANDIDATES = 10;
 
@@ -100,13 +103,16 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
 
     const chat = await chats.getById(req.params.id);
     if (!chat) return fail(reply, 404, "not-found", "Chat not found");
-    if (chat.mode !== "roleplay") return fail(reply, 400, "not-roleplay", "Only roleplay chats have a setup stage");
+    // `recap` is the welcome-back line for an older chat: it reads the chat as it stands and writes nothing.
+    const recapMode = body.data.mode === "recap";
+    if (chat.mode !== "roleplay" && !(recapMode && chat.mode === "conversation"))
+      return fail(reply, 400, "not-roleplay", "Only roleplay chats have a setup stage");
     if (isRoomChat(parseMeta(chat.metadata))) return fail(reply, 409, "room-chat", "Room chats keep their own opening");
-    const messages = await chats.listMessages(chat.id);
-    if (chatHasStarted(messages, chat.metadata, chat.mode))
+    const messages = recapMode ? [] : await chats.listMessages(chat.id);
+    if (!recapMode && chatHasStarted(messages, chat.metadata, chat.mode))
       return fail(reply, 409, "started", "This chat has already started");
     const greeting = messages.find((m) => m.role === "assistant");
-    if (!greeting) return fail(reply, 400, "no-greeting", "This chat has no opening message to replace");
+    if (!recapMode && !greeting) return fail(reply, 400, "no-greeting", "This chat has no opening message to replace");
 
     let recap: string | null = null;
     if (body.data.mode === "continue") {
@@ -149,9 +155,12 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
       line: `The user describes the scene they want to start in: "${body.data.idea}". Write the opening message of the roleplay set in that scene.`,
       surprise:
         "Invent a fresh, specific opening scene that suits the character and the world above. Do not repeat the opening message above.",
+      recap: "",
       continue: `Pick up where the last chat with this character left off. What happened so far:\n${recap}\n\nWrite the opening message of a new session that follows on from it.`,
     }[body.data.mode];
-    const instruction = `${brief}\n\nWrite only the character's opening message, in the same voice, format and language as the existing opening message above. Do not speak or act for the user. Do not add notes or XML tags.`;
+    const instruction = recapMode
+      ? RECAP_INSTRUCTION
+      : `${brief}\n\nWrite only the character's opening message, in the same voice, format and language as the existing opening message above. Do not speak or act for the user. Do not add notes or XML tags.`;
     const prompt = [...(assembled as ChatMessage[])];
     const lastTurn = prompt.at(-1);
     // Strict providers reject (or merge) two user turns in a row, and some presets already end on one.
@@ -162,7 +171,8 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
     const debug = body.data.debugMode === true || isDebugAgentsEnabled();
     logDebugOverride(
       debug,
-      "[setup-greeting] prompt for chat %s (%s / %s):\n%s",
+      "[setup-greeting] %s prompt for chat %s (%s / %s):\n%s",
+      body.data.mode,
       chat.id,
       conn.provider,
       conn.model,
@@ -204,7 +214,7 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
         ...sampled,
         model: conn.model,
         temperature: sampled.temperature ?? 1,
-        maxTokens: Math.min(sampled.maxTokens ?? 2048, MAX_GREETING_TOKENS),
+        maxTokens: Math.min(sampled.maxTokens ?? 2048, recapMode ? MAX_RECAP_TOKENS : MAX_GREETING_TOKENS),
         signal: abort.signal,
       });
       const text = (result.content ?? "").trim();
@@ -213,6 +223,7 @@ export async function chatSetupGreetingRoutes(app: FastifyInstance) {
         logger.warn("[setup-greeting] Empty opening for chat %s", chat.id);
         return fail(reply, 502, "generation-failed", "The opening could not be written");
       }
+      if (!greeting) return { recap: text };
       // The first message may have been sent while the model was writing; do not swap a started chat's greeting.
       const latest = await chats.getById(chat.id);
       if (!latest || chatHasStarted(await chats.listMessages(chat.id), latest.metadata, latest.mode)) {
