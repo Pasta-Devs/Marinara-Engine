@@ -58,7 +58,7 @@ Each run needs free space for one more full archive, because the old one stays u
 3. Pick a format.
 4. Your browser downloads the file.
 
-- **Marinara Native** keeps everything Marinara uses, including media. You can restore it in Marinara.
+- **Marinara Native** keeps your characters, personas, chats, lorebooks, presets, agents, themes, Personal Extension code and media. It does not restore API keys, webhook links or some chat settings (see [Enter your keys again](#enter-your-keys-again)). You can restore it in Marinara.
 - **Compatible JSON** makes a `.zip` of plain character, persona and lorebook files for other tools. You cannot restore it in Marinara.
 
 A native profile downloads as `marinara-profile.json`. If it is too large, Marinara offers a ZIP file instead. Click **Export ZIP** to download `marinara-profile.zip`.
@@ -77,7 +77,7 @@ A native profile keeps Personal Extension code, but not whether it is turned on 
 
 If it did not work:
 
-- Unless you open Marinara at `localhost` or `127.0.0.1`, profile import needs HTTPS. The error is "Profile import requires HTTPS outside local development." Open Marinara through an HTTPS address.
+- Unless you open Marinara at `localhost`, `127.0.0.1` or `[::1]`, profile import needs HTTPS. The error is "Profile import requires HTTPS outside local development." Open Marinara through an HTTPS address.
 - If a `.zip` is missing some media files, the import still finishes. A warning lists what is missing, and Marinara imports the rest.
 
 If you import the same profile twice, Marinara updates your items and does not copy them. Profiles from much older versions can make duplicates.
