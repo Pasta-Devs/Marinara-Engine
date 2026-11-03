@@ -15,7 +15,7 @@ These rules are additive. `AGENTS.md`, `CONTRIBUTING.md` and the maintainer's la
 - Put the common task first, then options, then edge cases and troubleshooting. Move deep reference material (every field of a form) into a table or a clearly marked reference section at the end.
 - Use task headings that name what the reader wants: "Add an account", "Import a character". Avoid vague headings like "Overview", "Understanding X", "Deep dive".
 - When a task needs something first (an account, a character, a setting turned on), start it with one "Before you start" line that names it and links to the guide that sets it up.
-- Write procedures as numbered steps. One action per step. Start each step with the verb. Say where: **Settings → Connections → Add account**. After a step whose result is not obvious, say what the reader sees.
+- Write procedures as numbered steps. One action per step. Start each step with the verb. Say where: **Connections → Add account**. After a step whose result is not obvious, say what the reader sees.
 - Keep paragraphs short (1–4 sentences). Prefer a short table over a long list of "X does Y" bullets when items share the same shape.
 - Say each fact once. When two guides explain the same thing, keep it in the guide that owns the feature and link from the other one.
 - Explain a term on first use in that guide, in plain words ("context window", "tokens", "system prompt", "API key", "embeddings"). One short clause is enough.
@@ -39,7 +39,7 @@ The same files render on GitHub, in the in-app docs viewer and on marinaraengine
 - Write each paragraph on one line. Do not hard-wrap: the website keeps line breaks.
 - One blank line between blocks. Never two.
 - Numbered lists (`1.`) for ordered steps, bullets (`-`) for unordered items. Nest at most one level. Extra detail for a step goes in an indented sentence, not a new list.
-- UI labels in **bold**. Menu paths with an arrow: **Settings → Connections**. Keys as <kbd>Ctrl</kbd>+<kbd>K</kbd> or `Ctrl+K`, the same way throughout a guide.
+- UI labels in **bold**. Menu paths with an arrow: **Settings → General**. Keys as <kbd>Ctrl</kbd>+<kbd>K</kbd> or `Ctrl+K`, the same way throughout a guide.
 - `Inline code` only for things the reader types or sees literally: file names, paths, commands, environment variables, macros like `{{user}}`, values like `true`. Not for UI labels, not for emphasis.
 - Code blocks with a language tag (`bash`, `json`, `text`), only for things to copy or exact output. One block per platform, each with a short label above it.
 - Tables for items with the same shape, 2–4 columns, short cells. No lists or long paragraphs inside cells.
