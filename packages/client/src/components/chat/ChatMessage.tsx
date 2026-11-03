@@ -3545,10 +3545,22 @@ export const ChatMessage = memo(function ChatMessage({
   const panelAvatarCropStyle: React.CSSProperties = rectangleSafeCropStyle(compactAvatarCrop, avatarCropStyle);
   const panelMergedAvatarCropStyle = (avatar: { crop?: AvatarCrop | null }): React.CSSProperties =>
     rectangleSafeCropStyle(avatar.crop, getAvatarCropStyle(avatar.crop));
+  const compactAvatarSpacerClass = useCompactRectangleAvatar
+    ? "w-[calc(2.75rem*var(--roleplay-avatar-scale))]"
+    : "w-[calc(2.5rem*var(--roleplay-avatar-scale))]";
+  const compactAvatarIconSize = useCompactRectangleAvatar
+    ? `${Math.max(1, Math.min(1.75, 1.125 * roleplayAvatarScale))}rem`
+    : `${Math.max(0.875, Math.min(1.5, roleplayAvatarScale))}rem`;
+  const showRoleplayAvatarPanel = isRoleplay && roleplayAvatarStyle === "panel" && !isGrouped;
+  const showCompactRoleplayAvatar = isRoleplay && !isGrouped && !hideRoleplayAvatars && !showRoleplayAvatarPanel;
   // Name-color borders sit over the merged avatars without changing their size, place or cycle.
-  // Avatars shown side by side each get a full outline of their own share, laid out like the images.
+  // Side by side in the Glued Side Panel's square frame, each avatar gets a full outline of its own
+  // share, laid out like the images. The compact frame clips round instead (`.rpg-avatar-glow`'s 50%
+  // radius makes a circle, or an oval for rectangles), so there the avatars split the frame's own
+  // ring and each keeps the arc over its column.
   const mergedAvatarsSideBySide = !cycleMergedNarratorAvatars && mergedAvatars.length > 1;
-  const mergedAvatarBorders = !roleplayNarratorAvatarBorders ? null : mergedAvatarsSideBySide ? (
+  const outlineEachMergedAvatar = mergedAvatarsSideBySide && showRoleplayAvatarPanel;
+  const mergedAvatarBorders = !roleplayNarratorAvatarBorders ? null : outlineEachMergedAvatar ? (
     <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex">
       {mergedAvatars.map((avatar) => (
         <span
@@ -3570,18 +3582,13 @@ export const ChatMessage = memo(function ChatMessage({
         }}
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity duration-700"
-        style={getMergedAvatarBorderStyle(avatar.nameColor)}
+        style={getMergedAvatarBorderStyle(
+          avatar.nameColor,
+          mergedAvatarsSideBySide ? { index: i, count: mergedAvatars.length } : undefined,
+        )}
       />
     ))
   );
-  const compactAvatarSpacerClass = useCompactRectangleAvatar
-    ? "w-[calc(2.75rem*var(--roleplay-avatar-scale))]"
-    : "w-[calc(2.5rem*var(--roleplay-avatar-scale))]";
-  const compactAvatarIconSize = useCompactRectangleAvatar
-    ? `${Math.max(1, Math.min(1.75, 1.125 * roleplayAvatarScale))}rem`
-    : `${Math.max(0.875, Math.min(1.5, roleplayAvatarScale))}rem`;
-  const showRoleplayAvatarPanel = isRoleplay && roleplayAvatarStyle === "panel" && !isGrouped;
-  const showCompactRoleplayAvatar = isRoleplay && !isGrouped && !hideRoleplayAvatars && !showRoleplayAvatarPanel;
   const roleplayAvatarPanelTail = showRoleplayAvatarPanel ? (
     isMergedGroup && mergedAvatars.length > 0 ? (
       <div
