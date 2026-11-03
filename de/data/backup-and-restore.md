@@ -1,128 +1,120 @@
 # Marinara sichern und wiederherstellen
 
-In dieser Anleitung erfährst du, wie du auf zwei Wegen eine Kopie von allem in Marinara Engine anlegst und diese Kopie später wieder einspielst. Nutze sie vor einem Update, vor dem Umzug auf ein neues Gerät oder bevor du die Daten zurücksetzt.
+Speichere eine Kopie deiner Daten aus Marinara Engine, damit du sie später wiederherstellen kannst. Tu das vor einem Update, einem Gerätewechsel oder bevor du [deine Daten löschst](clearing-data.md).
 
-## Zwei Wege, die Daten zu sichern
+## Welche Option passt?
 
-Marinara bietet zwei Speicheroptionen. Sie sitzen an unterschiedlichen Stellen und haben unterschiedliche Aufgaben.
+| Option | Ergebnis | Zweck |
+| --- | --- | --- |
+| **Download Backup** | Eine `.zip` mit allen Daten und Dateien. | Eine vollständige Kopie von allem. |
+| **Export Profile** | Eine kleinere Datei mit deinen Kontodaten (Charaktere, Chats, Lorebooks und mehr). | Eine Kopie ohne geheime Werte oder Dateien für andere Tools. |
 
-- **Download Backup** (Backup herunterladen) legt ein vollständiges **.zip**-Archiv von allem an, was auf der Festplatte liegt. Eine **.zip** ist eine einzelne komprimierte Datei, die viele Dateien in sich trägt. Das ist die vollständigste Kopie und der beste Schutz vor Datenverlust.
-- **Export Profile** (Profil exportieren) erzeugt eine leichtere Datei mit den Kontodaten (Charaktere, Personas, Chats, Lorebooks, Presets, Agenten, Themes und Personal Extensions). Ein Profil ist Marinaras portable Kopie des Kontos. Es lässt sich später in Marinara wiederherstellen.
+Eine `.zip` ist eine Datei, die viele Dateien enthält. Beide Optionen findest du unter **Settings → Advanced → Backup & Export**. Die Wiederherstellung findest du unter **Settings → Imports → Profile & Marinara**.
 
-Willst du einfach eine sichere Kopie von allem, nimm **Download Backup**. **Export Profile** ist die richtige Wahl, wenn die Datei kleiner sein soll oder wenn andere Roleplay-Tools sie lesen können sollen.
-
-Beide Speicheroptionen findest du unter **Settings** (Einstellungen) im Tab **Advanced** (Erweitert), im Abschnitt **Backup & Export**.
-
-## Zugriff auf demselben oder einem anderen Gerät
-
-Auf dem Computer, der Marinara ausführt, funktionieren diese Werkzeuge sofort. Das ist der Loopback-Fall: Du hast die App unter `localhost` oder `127.0.0.1` auf demselben Rechner geöffnet.
-
-Von einem Handy, Tablet oder einem anderen Gerät aus brauchen Backup und Wiederherstellung das Geheimnis unter **Admin Access** (Administratorzugriff). Lege das Geheimnis auf dem Server fest und füge denselben Wert in **Settings** im Tab **Advanced** unter **Admin Access** ein. Siehe dazu die am Ende verlinkte Anleitung zum Fernzugriff.
+**Bevor du anfängst:** Auf dem Rechner, auf dem Marinara läuft, funktionieren diese Funktionen sofort. Von einem Handy, Tablet oder anderen Gerät aus musst du das Admin-Secret auf dem Server festlegen und denselben Wert unter **Settings → Advanced → Admin Access** eingeben. Das Admin-Secret ist ein Passwort in der `.env`-Datei des Servers, unter `ADMIN_SECRET`. Siehe den Abschnitt „Privileged APIs (ADMIN_SECRET)“ in der [Referenz zur Server-Konfiguration](../CONFIGURATION.md) und [Fernzugriff](../REMOTE_ACCESS.md).
 
 ## Download Backup
 
-**Download Backup** erzeugt eine einzelne **.zip**-Datei mit der Datenbank, den Einstellungen und allen Medienordnern (Avatare, Sprites, Hintergründe, Galeriebilder, Schriften, dein eigener Benachrichtigungston und mehr).
+1. Öffne **Settings → Advanced**.
+2. Klick unter **Backup & Export** auf **Download Backup**. Die Schaltfläche zeigt **Creating backup…**.
+3. Speichere die Datei, wenn dein Browser danach fragt, oder suche sie im Downloads-Ordner.
 
-1. Öffne **Settings**.
-2. Wechsle zum Tab **Advanced**.
-3. Suche den Abschnitt **Backup & Export**.
-4. Klick auf **Download Backup**.
-5. Während der Arbeit zeigt die Schaltfläche **Creating backup…**.
-6. Sobald das Archiv fertig ist, streamt Marinara es direkt an deinen Browser, ohne die ganze Datei im Seitenspeicher zu halten.
-7. Je nach Download-Einstellungen öffnet dein Browser sein normales **Save As**-Dialogfenster oder legt die Datei im Downloads-Ordner ab.
+Die `.zip` enthält:
 
-Besonders wichtig ist dieser Schritt auf Android und iOS. Auf diesen Geräten kommst du an den eigenen Datenordner der App meist gar nicht heran. Damit ist **Download Backup** der einzige einfache Weg, eine Kopie vom Gerät zu holen. Bewahre sie an einem sicheren, privaten Ort auf, etwa im eigenen Cloud-Speicher.
+- deine gespeicherten Textdaten (Charaktere, Chats, Lorebooks, Presets, Verbindungen, Einstellungen);
+- deine hochgeladenen und erzeugten Dateien, etwa Avatare, Sprites, Hintergründe, Galeriebilder, Schriften, eigene Emojis und Sticker sowie deinen eigenen Benachrichtigungston;
+- die Datei `.encryption-key`, sofern vorhanden;
+- eine Anleitung `RESTORE.txt` zur Wiederherstellung von Hand (siehe [Von Hand wiederherstellen](#restore-by-hand)).
 
-Die **.zip** enthält außerdem eine reine Textdatei namens `RESTORE.txt`. Sie erklärt, wie du die Daten notfalls von Hand wiederherstellst. Behandle das Backup als privat: Es kann geheime Dateien enthalten, mit denen sich die gespeicherten API-Keys entsperren lassen. Welcher Ordner was enthält, steht in der unten verlinkten Anleitung zu den Datenspeicherorten.
+Die Ordnernamen stehen unter [Wo Marinara deine Daten speichert](where-data-is-stored.md).
+
+> **Warnung:** Ein Backup enthält deine gespeicherten API-Keys und die Datei `.encryption-key`, mit der sie entschlüsselt werden können. Gib es niemals weiter. Bewahre es an einem privaten Ort auf.
+
+Unter Android kannst du den Datenordner der App nicht öffnen. Mit **Download Backup** bekommst du eine Kopie vom Gerät.
+
+Wenn es nicht funktioniert: Erscheint „Backup preparation timed out after one hour.“, versuche es erneut. Kann ein anderes Gerät das Backup nicht herunterladen, prüf **Admin Access** (siehe oben).
 
 ## Automatische Backups
 
-Der Abschnitt **Backup & Export** kann außerdem ein rotierendes automatisches Vollbackup auf dem Gerät anlegen, das Marinara ausführt.
-Aktiviere **Automatic Backups** (automatische Backups), wähle **Daily**, **Weekly** oder **Monthly** und stelle **Automatic backups kept**
-auf einen Wert von 1 bis 9999. Marinara legt das erste Backup kurz nach dem Aktivieren an. Nach jedem erfolgreichen Lauf behält es
-die festgelegte Anzahl der neuesten automatischen Archive und löscht das älteste überzählige automatische Archiv. Diese
-Aufbewahrungsgrenze löscht niemals manuelle Backups oder Backups, die mit **Download Backup** gespeichert wurden.
+Marinara kann auf dem Rechner, auf dem es läuft, regelmäßig ein vollständiges Backup anlegen.
 
-Automatische Backups liegen im Ordner `backups/` im Datenordner von Marinara. Das neueste Archiv heißt
-`marinara-automatic-backup.zip`; ältere aufbewahrte automatische Archive verwenden Dateinamen mit Zeitstempel. Sie nutzen
-dasselbe wiederherstellbare, gestreamte Archivformat wie **Download Backup** – inklusive hochgeladener Medien und der Datei mit
-dem Verschlüsselungs-Key, sofern eine existiert. Halte eine separate Kopie außerhalb des Marinara-Datenordners bereit, wenn du dich
-gegen einen Festplattenausfall, gelöschten App-Speicher oder ein zurückgesetztes Gerät absichern willst.
+1. Öffne **Settings → Advanced → Backup & Export**.
+2. Aktiviere **Automatic backups**.
+3. Wähle **Daily**, **Weekly** oder **Monthly**.
+4. Stell **Automatic backups kept** auf einen Wert von 1 bis 9999.
 
-Für jeden Durchlauf muss auf dem Datenträger mit dem Ordner `backups/` Platz für ein weiteres vollständiges Archiv frei sein, da das vorherige Archiv erhalten bleibt, bis das neue fertig ist. Reicht der Platz nicht aus, überspringt Marinara diesen Durchlauf und zeigt den Grund neben **Automatic Backups** an. Sobald wieder Platz frei ist, versucht Marinara es bei der nächsten Prüfung erneut.
+Marinara erstellt das erste Backup kurz nach dem Aktivieren. Nach jedem Durchlauf behält es die festgelegte Anzahl der neuesten Backups und löscht ältere automatische Backups. Backups, die du mit **Download Backup** erstellt hast, löscht es nie.
 
-## Export Profile
+Automatische Backups liegen im Ordner `backups/` innerhalb des Datenordners. Das neueste heißt `marinara-automatic-backup.zip`. Ältere Dateien tragen Datum und Uhrzeit im Namen. Sie verwenden dasselbe Format wie **Download Backup**.
 
-**Export Profile** erzeugt eine kleinere Datei mit den Kontodaten. Medien sind enthalten, also kommen Avatare, Bilder und der eigene Benachrichtigungston mit.
+Für jeden Durchlauf muss Platz für ein weiteres vollständiges Archiv frei sein, da das alte bestehen bleibt, bis das neue fertig ist. Reicht der Platz nicht aus, überspringt Marinara den Durchlauf und zeigt den Grund neben der Einstellung an. Sobald wieder Platz frei ist, versucht Marinara es erneut.
 
-1. Öffne **Settings**.
-2. Wechsle zum Tab **Advanced**.
-3. Suche den Abschnitt **Backup & Export**.
-4. Klick auf **Export Profile**.
-5. Es öffnet sich ein Fenster mit dem Titel **Export Profile** und zwei Auswahlmöglichkeiten.
-6. Wähle ein Format (Erklärung siehe unten).
-7. Die Datei wird auf das Gerät heruntergeladen.
+> **Tipp:** Bewahre eine zweite Kopie außerhalb des Datenordners auf. Bei einem Festplattenausfall oder wenn die App gelöscht wird, gehen auch die automatischen Backups verloren.
 
-Das Fenster bietet zwei Formate:
+## Ein Profil exportieren
 
-| Format | Was es ist | In Marinara wiederherstellbar? |
-| --- | --- | --- |
-| **Marinara Native** | Behält Marinara-Felder, Lorebook-Ordner, Charakter- und Persona-Daten, Presets, Agenten, Themes, Entwürfe für Personal Extensions und eingebettete Medien. | Ja |
-| **Compatible JSON** | Einfache Charakter-, Persona- und Lorebook-Dateien für andere Roleplay-Tools. | Nein |
+1. Öffne **Settings → Advanced → Backup & Export**.
+2. Klick auf **Export Profile**. Ein Dialog mit demselben Titel öffnet sich.
+3. Wähle ein Format.
+4. Dein Browser lädt die Datei herunter.
 
-Nimm **Marinara Native**, wenn du eine Kopie behalten willst, die sich später in Marinara wiederherstellen lässt. Kleinere Profile werden als
-`marinara-profile.json` heruntergeladen; größere Profile kommen als gestreamte `marinara-profile.zip`, deren Daten auf begrenzte
-Tabellendateien verteilt sind. So muss eine große Bibliothek nicht in einen einzigen JSON-String im Arbeitsspeicher passen.
+- **Marinara Native** behält Charaktere, Personas, Chats, Lorebooks, Presets, Agenten, Themes, den Code von Personal Extensions und Medien. API-Keys, Webhook-Links und manche Chat-Einstellungen werden nicht wiederhergestellt (siehe [Keys erneut eingeben](#enter-your-keys-again)). Du kannst das Profil in Marinara wiederherstellen.
+- **Compatible JSON** erstellt eine `.zip` mit einfachen Charakter-, Persona- und Lorebook-Dateien für andere Tools. Du kannst sie nicht in Marinara wiederherstellen.
 
-Der Code von Personal Extensions bleibt im nativen Profil erhalten, nicht aber der Aktivierungszustand und die Ausführungsfreigabe. Jede wiederhergestellte Erweiterung kommt deaktiviert an und muss unter **Settings** > **Addons** erneut geprüft werden.
+Ein natives Profil wird als `marinara-profile.json` heruntergeladen. Ist es zu groß, bietet Marinara stattdessen eine ZIP-Datei an. Klick auf **Export ZIP**, um `marinara-profile.zip` herunterzuladen.
 
-Nimm **Compatible JSON** nur, wenn du Charaktere oder Lorebooks in ein anderes Tool übertragen willst. Heruntergeladen wird eine **.zip** mit einfachen Dateien. Diese Datei lässt sich mit **Import Profile** nicht wieder in Marinara einspielen.
+Ein natives Profil behält den Code von Personal Extensions, aber nicht den Aktivierungs- oder Freigabestatus. Jede wiederhergestellte Erweiterung ist deaktiviert. Prüfe sie erneut unter **Settings → Addons**.
 
-## Wiederherstellen mit Import Profile
+## Mit Import Profile wiederherstellen
 
-Um ein gespeichertes Profil oder ein **Download Backup**-Archiv wieder einzuspielen, nutze **Import Profile** (Profil importieren). Es sitzt in einem anderen Tab als die Speicherwerkzeuge.
+**Import Profile** lädt eine Profildatei oder eine `.zip` von **Download Backup**.
 
-1. Öffne **Settings**.
-2. Wechsle zum Tab **Imports**.
-3. Suche den Abschnitt **Profile & Marinara**.
-4. Klick auf **Import Profile (JSON/ZIP)**.
-5. Wähle die Datei aus. Möglich sind eine `marinara-profile.json`, eine `marinara-profile.zip` oder eine vollständige **Download Backup**-**.zip**.
-6. Marinara prüft die Datei zuerst. Die Schaltfläche zeigt **Scanning Profile...**.
-7. Es erscheint ein Fenster mit dem Titel **Import Profile**. Es listet auf, was gefunden wurde, zum Beispiel die Anzahl der Charaktere und Personas.
-8. Das Fenster warnt, dass sich der Import nicht rückgängig machen lässt. Lies den Hinweis und klick dann auf **Import**, um fortzufahren, oder auf **Cancel**, um abzubrechen.
-9. Der Import läuft und zeigt **Importing Profile...** mit einem Fortschrittsbalken.
+1. Öffne **Settings → Imports**.
+2. Klick unter **Profile & Marinara** auf **Import Profile (JSON/ZIP)**.
+3. Wähle `marinara-profile.json`, `marinara-profile.zip` oder eine Backup-`.zip`. Die Schaltfläche zeigt **Scanning Profile...**.
+4. Lies den Dialog **Import Profile**. Er listet die gefundenen Daten auf und warnt, dass du den Import nicht rückgängig machen kannst.
+5. Klick auf **Import** oder zum Abbrechen auf **Cancel**. Die Schaltfläche zeigt **Importing Profile...**, danach folgt ein Fortschrittsbalken. Nach Abschluss bestätigt eine Meldung den Import.
 
-Bei einem aktuellen Marinara-Profil erkennt Marinara jedes Element an seiner eigenen Identität wieder, nicht am Namen. Importierst du dasselbe Profil zweimal, aktualisiert Marinara die vorhandenen Elemente an Ort und Stelle, statt Duplikate anzulegen.
+Wenn es nicht funktioniert:
 
-Sehr alte Profildateien (aus deutlich älteren Versionen) verhalten sich anders. Ein erneuter Import davon kann doppelte Charaktere, Personas und Lorebooks erzeugen. Wer nur aktuelle Exporte wiederherstellt, stößt nie auf dieses Problem.
+- Außer unter `localhost`, `127.0.0.1` oder `[::1]` ist für den Profilimport HTTPS erforderlich. Die Fehlermeldung lautet „Profile import requires HTTPS outside local development.“ Öffne Marinara über eine HTTPS-Adresse.
+- Fehlen Mediendateien in einer `.zip`, wird der Import trotzdem abgeschlossen. Eine Warnung listet die fehlenden Dateien auf; den Rest importiert Marinara.
 
-Wählst du die Datei aus und änderst sie auf der Festplatte, bevor du bestätigst, bricht der Import mit einer Warnung ab. Wähle die Datei dann einfach erneut aus.
+Importierst du dasselbe Profil zweimal, aktualisiert Marinara die vorhandenen Elemente, statt Kopien anzulegen. Profile aus sehr alten Versionen können Duplikate erzeugen.
 
-Fehlen in einer **.zip** einzelne Mediendateien, läuft der Import trotzdem durch. Eine gelbe Warnung listet die fehlenden Dateien auf, alles andere wird importiert.
+## Keys erneut eingeben
 
-## Nach dem Wiederherstellen: Keys erneut eingeben
+**Import Profile** stellt API-Keys und Webhook-Links nie wieder her, auch nicht aus einer `.zip` von **Download Backup**. Ein API-Key ist ein geheimer Code, den du von einem Dienst bekommst. In der Profildatei und im Profil innerhalb eines Backups sind diese Werte entfernt. Nach dem Import auf einem neuen Rechner musst du sie erneut eingeben:
 
-**Export Profile** entfernt geheime Werte aus der Profildatei. Die gespeicherten API-Keys und Webhook-Links stehen darin leer. Deshalb lässt sich die Profildatei gefahrlos aufbewahren und weitergeben. Ein API-Key ist das Passwort, das Marinara mit einem KI-Anbieter verbindet.
+1. Öffne **Connections** über die obere Leiste.
+2. Öffne jedes Konto, das du nutzt, gib den API-Key ein und speichere. Siehe [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
+3. Gib den Webhook-Link bei jedem eigenen Tool, das ihn verwendet, erneut ein.
 
-Bei einem **Download Backup**-Archiv ist das anders. Marinara entfernt daraus keine Geheimnisse. Die Backup-**.zip** ist eine rohe Kopie der Daten. Sie enthält die gespeicherten Keys und die geheime Datei, mit der sie sich entsperren lassen. Gib eine Backup-**.zip** niemals weiter. Bewahre sie an einem privaten Ort auf.
+Auch manche Chat-Einstellungen mit Adressen oder Keys (Discord, DeepL, Intiface) bleiben leer. Gib sie in den **Chat Settings** jedes betroffenen Chats erneut ein.
 
-**Import Profile** stellt aus der Profildatei wieder her, selbst wenn du eine Backup-**.zip** auswählst. Das Archiv enthält eine Kopie der Profildatei, und der Import liest genau diese Kopie. Elemente, die dabei neu entstehen, kommen deshalb ohne Keys und ohne Webhook-Links an.
+Beim Import werden bereits gesetzte Keys derselben Installation nicht gelöscht.
 
-Nach dem Import eines Profils gehst du so vor:
+## Auf einen neuen Rechner umziehen
 
-1. Öffne über die obere Leiste das Panel **Connections** (Verbindungen).
-2. Öffne jede Verbindung, die du nutzt.
-3. Gib ihren API-Key erneut ein und speichere sie.
+1. Installiere Marinara auf dem neuen Rechner und starte es. Siehe [Installation](../INSTALLATION.md).
+2. Öffne **Settings → Imports → Profile & Marinara** und klick auf **Import Profile (JSON/ZIP)**.
+3. Wähle deine `.zip` von **Download Backup** oder deine Profildatei und klick auf **Import**.
+4. Gib deine API-Keys erneut ein, wie oben beschrieben.
 
-Nutzt du eigene Tools, die einen Webhook-Link aufrufen, trage den Link auch dort erneut ein.
+Die Schlüsseldatei im Backup hilft nur, wenn du den gesamten Datenordner von Hand kopierst, wie unten beschrieben.
 
-Ein paar Adressen, die mit einem Chat gespeichert sind, fehlen in der Profildatei ebenfalls: der Webhook des Discord-Mirrors, die DeepLX-Adresse, der DeepL-Key und die Intiface-Adresse. Das gilt auch für Einstellungsprofile und für die Übersetzungs-Standardwerte für neue Chats. Importierst du ein Profil in einer anderen Installation, trag sie in den **Chat Settings** (Chat-Einstellungen) jedes Chats neu ein.
+## Von Hand wiederherstellen
 
-Bereits gesetzte Keys löscht der Import nicht. Importierst du ein altes Profil erneut, behält Marinara die aktiven Keys und Webhook-Links bei allen Elementen, die es weiterhin gibt. Ein erneuter Import leert sie nicht.
+Nutze diesen Weg nur, wenn **Import Profile** nicht verfügbar ist. Die `.zip` enthält einen Ordner, beispielsweise `marinara-backup-...`, mit einer Anleitung `RESTORE.txt`.
 
-## Die Liste Existing backups
+1. Stoppe Marinara.
+2. Entpacke das Backup.
+3. Kopiere die Ordner und die Datei `.encryption-key` aus dem entpackten Ordner in deinen Datenordner. Siehe [Wo Marinara deine Daten speichert](where-data-is-stored.md).
+4. Starte Marinara.
 
-Der Abschnitt **Backup & Export** kann eine Liste **Existing backups** (vorhandene Backups) samt Lösch-Schaltfläche anzeigen. Im normalen Betrieb bleibt diese Liste leer. **Download Backup** speichert die Datei direkt auf dem Gerät. Eine Kopie in dieser Liste hinterlässt es nicht, und die festgelegte Anzahl aufbewahrter automatischer Archive verwaltet stattdessen der Schalter **Automatic Backups**. Für ein heruntergeladenes Backup brauchst du diese Liste nicht.
+Bewahre die Datei `.encryption-key` zusammen mit dem Ordner `storage` auf. Sonst können die gespeicherten API-Keys nicht gelesen werden.
+
+Die Liste **Existing backups** unter **Backup & Export** ist normalerweise leer. Du brauchst sie nicht.
 
 ## Verwandte Anleitungen
 

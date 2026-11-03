@@ -63,11 +63,11 @@ Diesen Abschnitt findest du unter **Settings** > **General** > **App Behavior**.
 
   Das Zahnrad in der Suche öffnet dieselbe Seite. Suchst du nach einer dieser Einstellungen – unter ihrem neuen oder alten Namen –, landest du direkt bei ihr.
 
-## Text Rules
+### Text Rules
 
 Diesen Abschnitt findest du unter **Settings** > **General** > **Text Rules**. Diese Regeln bestimmen, wie Marinara mit dem Chat-Text umgeht. **Bold dialogue in quotes** und **Convert LaTeX symbols** betreffen nur die Anzeige und rühren die gespeicherten Nachrichten nie an. **Quote style** ist anders: Diese Regel schreibt die Anführungszeichen in dem Text um, den du tippst und speicherst.
 
-### Bold dialogue in quotes
+#### Bold dialogue in quotes
 
 Standardmäßig an. Ist die Regel an, erscheint Text in Anführungszeichen fett. Nimm diese Zeile:
 
@@ -77,18 +77,18 @@ Standardmäßig an. Ist die Regel an, erscheint Text in Anführungszeichen fett.
 
 Mit aktivem **Bold dialogue in quotes** stehen die Wörter `I missed you` fett da. Schalte die Regel aus, wenn der Dialog seine Farbe behalten soll, aber nicht fett sein darf.
 
-### Convert LaTeX symbols
+#### Convert LaTeX symbols
 
 Standardmäßig an. Manche Modelle schreiben Formeln mit LaTeX-Befehlen. Ist die Regel an, zeigt Marinara gängige Befehle wie `\rightarrow`, `\neq`, `\times` und `\alpha` als normale Symbole an. `\times` erscheint zum Beispiel als Malzeichen `×` und `\alpha` als griechischer Buchstabe `α`. Code-Schnipsel bleiben unangetastet.
 
-### Quote style
+#### Quote style
 
 Legt fest, wie Marinara die Anführungszeichen vereinheitlicht. Anders als die beiden Regeln oben ändert das den Text selbst: Nachrichten, die du tippst und speicherst, werden auf den gewählten Stil umgeschrieben. Es gibt zwei Optionen:
 
 - **Straight**: behält einfache Schreibmaschinenzeichen bei, etwa `"Hello," it's me.` Das ist der Standard.
 - **Typographic**: ersetzt gerade Zeichen durch typografische Anführungszeichen und Apostrophe.
 
-### Load images from other websites in messages
+#### Load images from other websites in messages
 
 Standardmäßig aus. Ist die Einstellung aus, zeigt ein Bild von einer anderen Website in einer Nachricht, einer Begrüßung oder einer Kartenvorschau stattdessen den Namen der Website und die Schaltfläche **Load image** (Bild laden). So kann eine Nachricht nicht von sich aus andere Websites kontaktieren. Wähle **Load image**, um dieses Bild anzuzeigen; Marinara merkt sich das auf all deinen Geräten. Schalte die Einstellung ein, um jedes Bild sofort anzuzeigen. Bilder, die in Marinara gespeichert sind, etwa Galeriebilder, Avatare und Sprites, erscheinen immer.
 
