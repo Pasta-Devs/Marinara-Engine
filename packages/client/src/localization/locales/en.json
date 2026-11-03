@@ -10531,6 +10531,7 @@
   "ui.chat.hudlockmodetoggle.enterLockMode": "Enter lock mode",
   "ui.chat.hudlockmodetoggle.exitHudLockMode": "Exit HUD lock mode",
   "ui.chat.hudlockmodetoggle.exitLockMode": "Exit lock mode",
+  "ui.chat.identitypicker.noMatchingCharacters": "No matching characters.",
   "ui.chat.imageregeneratepanel.characterPrompts": "Character prompts",
   "ui.chat.imageregeneratepanel.chatConnection": "Chat's image provider",
   "ui.chat.imageregeneratepanel.connection": "Image model",
