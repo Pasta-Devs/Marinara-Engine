@@ -258,7 +258,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
   const footer = props.multiple ? (
     <div className="flex shrink-0 items-center gap-2 border-t border-foreground/10 p-2">
       <span className="min-w-0 flex-1 truncate text-[0.6875rem] text-foreground/55">
-        {t("ui.characterselect.picked", { count: props.value.length })}
+        {t("ui.characterselect.picked", { count: items.length })}
       </span>
       <button
         type="button"
@@ -405,7 +405,7 @@ function CharacterSelectWindow({
       data-chat-floating-panel
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
+        if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
         event.stopPropagation();
         onClose();
       }}

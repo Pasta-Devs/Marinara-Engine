@@ -4130,6 +4130,10 @@ export function ChatSettingsDrawer({
   // The card whose character questions are open from the Characters list. Kept
   // separate from the persona template: this window writes chat variables only.
   const [onboardingQuestionsCharacterId, setOnboardingQuestionsCharacterId] = useState<string | null>(null);
+  // A greeting or onboarding dialog opens under the add-character picker, so close the picker first.
+  useEffect(() => {
+    if (pendingAddedCard?.greeting || onboardingQuestionsCharacterId) setShowCharPicker(false);
+  }, [pendingAddedCard, onboardingQuestionsCharacterId]);
   const onboardingQuestionsTarget = onboardingQuestionsCharacterId
     ? (onboardingCardQuestionsById.get(onboardingQuestionsCharacterId) ?? null)
     : null;
@@ -6181,7 +6185,7 @@ export function ChatSettingsDrawer({
                 value={chatCharIds}
                 onChange={toggleChangedCharacter}
                 exclude={PICKER_EXCLUDED_IDS}
-                busy={updateChat.isPending}
+                busy={updateChat.isPending || roomRoster.isPending}
               />
               {activeCardsHaveCss && cardThemingControls}
             </Section>
@@ -6588,7 +6592,7 @@ export function ChatSettingsDrawer({
                 value={chatCharIds}
                 onChange={toggleChangedCharacter}
                 exclude={PICKER_EXCLUDED_IDS}
-                busy={updateChat.isPending}
+                busy={updateChat.isPending || roomRoster.isPending}
                 badge={(id) =>
                   isConversation && onboardingByCharacterId.has(id) ? (
                     <span

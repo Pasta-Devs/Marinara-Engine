@@ -476,6 +476,7 @@ export function CharacterPickerList({
               <span className="truncate">{item.name}</span>
               <button
                 type="button"
+                disabled={busy}
                 onClick={() => (isPersona ? onPickPersona?.(item.id) : onPickCharacter?.(item.id))}
                 aria-label={t("ui.characterselect.remove", { name: item.name })}
                 className="flex h-5 w-5 items-center justify-center rounded-full text-foreground/55 hover:bg-foreground/10 hover:text-foreground"

@@ -27,6 +27,7 @@ export function MultiplayerPersonaFields({
       </label>
       <CharacterSelect
         kind="persona"
+        withCharacters={false}
         variant="picker"
         id={`${id}-picker`}
         value={picked ? { persona: picked } : null}
