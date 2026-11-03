@@ -11,11 +11,16 @@ import { supportsNovelAiCharacterPrompts } from "../image/character-prompts.js";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { createHash } from "crypto";
 import { logger } from "../../lib/logger.js";
-import { basename, join } from "path";
+import { basename, extname, join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { generateImage, type ImageGenRequest, type ImageGenResult } from "../image/image-generation.js";
 import { formatGeneratedImageForStorage } from "../image/generated-image-format.js";
 import { buildAssetManifest, GAME_ASSETS_DIR } from "./asset-manifest.service.js";
+import {
+  moveBackgroundAssignment,
+  readBackgroundLibraryOrganization,
+  writeBackgroundLibraryOrganization,
+} from "../background-library-organization.js";
 import type { PromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import {
   loadPrompt,
@@ -276,6 +281,14 @@ function removeOtherGeneratedBackgroundFormats(targetDir: string, slug: string, 
     }
   }
   return removed;
+}
+
+/** A chat or setting can still name a generated background that a regeneration replaced with another format.
+ *  Returns the replacement file, or null. */
+export function replacedGeneratedChatBackgroundPath(filename: string): string | null {
+  const ext = extname(filename).slice(1).toLowerCase();
+  if (!filename.startsWith("generated-") || !GAME_BACKGROUND_EXT_SET.has(ext)) return null;
+  return existingGeneratedBackgroundPath(CHAT_BACKGROUND_DIR, filename.slice(0, -ext.length - 1));
 }
 
 function existingGeneratedPortraitPath(targetDir: string, slug: string): string | null {
@@ -1365,14 +1378,21 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
     const filename = `${slug}.${image.ext}`;
     atomicWriteBuffer(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
 
+    const replaced = removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, slug, image.ext);
     const meta = readChatBackgroundMeta();
-    for (const removed of removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, slug, image.ext)) {
-      delete meta[removed];
-    }
+    for (const removed of replaced) delete meta[removed];
     meta[filename] = {
       tags: chatBackgroundTags(req, baseSlug),
     };
     writeChatBackgroundMeta(meta);
+    if (replaced.length > 0) {
+      // The new file takes over the replaced file's folder and star, as a rename does.
+      let organization = readBackgroundLibraryOrganization(CHAT_BACKGROUND_DIR);
+      for (const removed of replaced) {
+        organization = moveBackgroundAssignment(organization, `user:${removed}`, `user:${filename}`);
+      }
+      writeBackgroundLibraryOrganization(CHAT_BACKGROUND_DIR, organization);
+    }
 
     buildAssetManifest();
     logger.info('[background-agent] Generated roleplay background "%s"', filename);

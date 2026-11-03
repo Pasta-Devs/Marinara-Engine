@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -15,6 +15,7 @@ const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
 const { appSettingsRoutes } = await import("../../packages/server/src/routes/app-settings.routes.js");
+const { backgroundsRoutes } = await import("../../packages/server/src/routes/backgrounds.routes.js");
 const { getSharp } = await import("../../packages/server/src/services/image/sharp-runtime.js");
 const { generateImage, saveImageToDisk, stageImageToDisk } =
   await import("../../packages/server/src/services/image/image-generation.js");
@@ -63,6 +64,7 @@ const generate = (preserveProviderOutput = false) =>
   });
 try {
   await app.register(appSettingsRoutes, { prefix: "/app-settings" });
+  await app.register(backgroundsRoutes, { prefix: "/backgrounds" });
   const original = await generate();
   assert.equal(original.base64, png.toString("base64"), "the default keeps PNG bytes unchanged");
   assert.equal(original.ext, "png");
@@ -141,9 +143,23 @@ try {
     Object.keys(JSON.parse(readFileSync(join(chatBackgroundDir, "meta.json"), "utf-8"))).filter((file) =>
       file.startsWith("generated-webp-forest."),
     );
-  for (const [saveGeneratedImagesAsWebp, ext] of [
-    [false, "png"],
-    [true, "webp"],
+  const organizationPath = join(chatBackgroundDir, "organization.json");
+  const organization = () => {
+    const { assignments, favorites } = JSON.parse(readFileSync(organizationPath, "utf-8"));
+    return { assignments, favorites };
+  };
+  const createdAt = "2026-11-01T00:00:00.000Z";
+  writeFileSync(
+    organizationPath,
+    JSON.stringify({
+      folders: [{ id: "folder-forest", name: "Forest", createdAt, updatedAt: createdAt }],
+      assignments: { "user:generated-webp-forest.webp": "folder-forest" },
+      favorites: ["user:generated-webp-forest.webp"],
+    }),
+  );
+  for (const [saveGeneratedImagesAsWebp, ext, replacedExt] of [
+    [false, "png", "webp"],
+    [true, "webp", "png"],
   ] as const) {
     await settings.set("ui", JSON.stringify({ saveGeneratedImagesAsWebp, generatedImageWebpQuality: 95 }));
     const filename = `generated-webp-forest.${ext}`;
@@ -151,6 +167,15 @@ try {
     assert.equal(await generateChatBackground(location), filename, `a later Background agent lookup finds the .${ext}`);
     assert.deepEqual(filesFor(chatBackgroundDir, "generated-webp-forest"), [filename]);
     assert.deepEqual(chatMetaKeys(), [filename], "the removed format leaves no background meta entry");
+    assert.deepEqual(
+      organization(),
+      { assignments: { [`user:${filename}`]: "folder-forest" }, favorites: [`user:${filename}`] },
+      "the new file takes over the folder and star, and the removed file keeps neither",
+    );
+    const oldReference = await app.inject({ url: `/backgrounds/file/generated-webp-forest.${replacedExt}` });
+    assert.equal(oldReference.statusCode, 200, "a chat that still names the removed file shows the new image");
+    assert.equal(oldReference.headers["content-type"], `image/${ext}`);
+    assert.deepEqual(oldReference.rawPayload, readFileSync(join(chatBackgroundDir, filename)));
     assert.equal(await generateBackground({ ...location, force: true }), gameBackground);
     assert.deepEqual(filesFor(gameBackgroundDir, "webp-forest"), [`webp-forest.${ext}`]);
     const { assets } = buildAssetManifest();
@@ -167,6 +192,16 @@ try {
   assert.deepEqual(filesFor(chatBackgroundDir, "generated-webp-forest"), ["generated-webp-forest.webp"]);
   assert.deepEqual(chatMetaKeys(), ["generated-webp-forest.webp"]);
   assert.deepEqual(filesFor(gameBackgroundDir, "webp-forest"), ["webp-forest.webp"]);
+  assert.equal((await app.inject({ url: "/backgrounds/file/missing.png" })).statusCode, 404);
+
+  // An unstarred leftover in another format does not take the regenerated file's own star away.
+  writeFileSync(join(chatBackgroundDir, "generated-webp-forest.png"), png);
+  assert.equal(await generateChatBackground({ ...location, force: true }), "generated-webp-forest.webp");
+  assert.deepEqual(filesFor(chatBackgroundDir, "generated-webp-forest"), ["generated-webp-forest.webp"]);
+  assert.deepEqual(organization(), {
+    assignments: { "user:generated-webp-forest.webp": "folder-forest" },
+    favorites: ["user:generated-webp-forest.webp"],
+  });
 
   const withMetadata = {
     ...original,
