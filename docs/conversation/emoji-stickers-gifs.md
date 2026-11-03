@@ -63,7 +63,7 @@ To send a sticker, click its tile. The **Send sticker** dialog offers:
 
 The **GIFs** tab searches Giphy, an online GIF library. Type in the search box or browse the trending list, then click a GIF to send it.
 
-Before you start: GIF search needs a free Giphy API key. A key is a secret code that lets Marinara use the Giphy service for you. Without one, the tab shows a setup card. Setting it up means editing the `.env` file, which is Marinara's plain text settings file. It sits in the Marinara project folder, or at `/app/data/.env` in Docker (see [Where the .env file is](../CONFIGURATION.md#where-the-env-file-is)).
+Before you start: GIF search needs a free Giphy API key. A key is a secret code that lets Marinara use the Giphy service for you. Without one, the tab shows a setup card. Setting it up means editing the `.env` file, which is Marinara's plain text settings file. It sits in the Marinara project folder, or at `/app/data/.env` in Docker (see [Edit the .env file](../CONFIGURATION.md#edit-the-env-file)).
 
 1. Open the Giphy developer dashboard at `https://developers.giphy.com/dashboard/`.
 2. Create an API key for a web app and copy it.

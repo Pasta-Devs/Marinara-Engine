@@ -137,7 +137,7 @@ Some settings differ by system:
 Installing or reinstalling the runtime is a protected action. Windows one-click installs allow it for you. On macOS, Linux, and Docker, do one of these, then try again:
 
 - Enter the admin secret in **Settings → Advanced → Admin Access**. The admin secret is a password you set in the server's `.env` file as `ADMIN_SECRET`. See [Admin Access](../REMOTE_ACCESS.md#admin-access-and-privileged-actions).
-- Add `SIDECAR_RUNTIME_INSTALL_ENABLED=true` to the server `.env` file, then restart Marinara. The `.env` file is a text file in the Marinara folder. See [Where the .env file is](../CONFIGURATION.md#where-the-env-file-is).
+- Add `SIDECAR_RUNTIME_INSTALL_ENABLED=true` to the server `.env` file, then restart Marinara. The `.env` file is a text file in the Marinara folder. See [Edit the .env file](../CONFIGURATION.md#edit-the-env-file).
 
 Marinara downloads only the llama.cpp, MLX, and uv versions approved for your release, and checks each file's size and SHA-256 checksum before it runs anything.
 

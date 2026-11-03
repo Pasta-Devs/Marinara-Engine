@@ -53,7 +53,7 @@ If a test fails, check that the server is running with a model loaded, and that 
 
 Addresses such as `localhost` and `127.0.0.1` always work. If your model server is on another computer on your network, Marinara blocks that private address by default. The person who runs the Marinara server can allow it with an environment variable, a setting the server reads when it starts.
 
-1. Open the server's `.env` file. On a normal install it is in the Marinara project folder. For Docker and Podman, see [Server Configuration Reference](../CONFIGURATION.md#where-the-env-file-is).
+1. Open the server's `.env` file. On a normal install it is in the Marinara project folder. For Docker and Podman, see [Server Configuration Reference](../CONFIGURATION.md#edit-the-env-file).
 2. Add this line:
 
 ```
