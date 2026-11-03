@@ -803,7 +803,11 @@ function localImageBackendFetch(
   });
 }
 
-const OPENAI_GPT_IMAGE_2_MIN_PIXELS = 1024 * 1024;
+// The fewest pixels sent to GPT Image 2 and 2.5; a smaller request is scaled up in its own shape.
+// 2.5 accepts 655,360, but below OpenAI's recommended 1024x1536 the ~1 MP sizes packages ask for
+// (768x1344) draw small figures with broken hands and limbs.
+export const OPENAI_GPT_IMAGE_2_MIN_PIXELS = 1024 * 1024;
+export const OPENAI_GPT_IMAGE_25_MIN_PIXELS = 1024 * 1536;
 const OPENAI_GPT_IMAGE_2_SIZE_MULTIPLE = 32;
 
 function roundUpToMultiple(value: number, multiple: number): number {
@@ -822,7 +826,7 @@ function openAIGptImage2Size(width: number, height: number): string {
 
 function openAIGptImage25Size(width: number, height: number): string {
   // https://developers.openai.com/api/docs/guides/image-generation#size-and-quality-options
-  const minPixels = 655_360;
+  const minPixels = OPENAI_GPT_IMAGE_25_MIN_PIXELS;
   const maxPixels = 8_294_400;
   const maxEdge = 3840;
   width = Number.isFinite(width) && width > 0 ? width : 1024;
