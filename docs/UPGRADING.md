@@ -2,9 +2,19 @@
 
 Update Marinara Engine to a newer version, check for updates in the app, and go back if something breaks. Your chats and settings are kept when you upgrade.
 
+## Which update method is mine?
+
+| How you installed | How to update |
+| --- | --- |
+| Windows installer or `start.bat` | Close Marinara and open it again. See [Windows](#windows). |
+| macOS or Linux | Run `./start.sh` again. See [macOS and Linux](#macos-and-linux). |
+| Docker or Podman | Pull the new image and restart. See [Docker or Podman](#docker-or-podman). |
+| Android app | Update the APK, then tap **Install / Start Marinara**. See [Android (Termux)](#android-termux). |
+| iPhone or iPad | Update the server device. See [iPhone and iPad](#iphone-and-ipad). |
+
 ## Back up first
 
-Upgrades are safe, but a backup is cheap insurance. Make one before any large jump, and always before you might go back to an older version.
+Make a backup before any large jump, and always before you might go back to an older version.
 
 1. Open **Settings**.
 2. Go to the **Advanced** tab.
@@ -25,7 +35,7 @@ The launcher updates Marinara when you start it.
 1. Close Marinara Engine.
 2. Open it again from the desktop or Start Menu shortcut, or run `start.bat`.
 
-The launcher fetches the latest code, reinstalls what changed, rebuilds and starts the new version. It copies your data before it updates, and it skips an update that would land on a version older than your data (see [Downgrading to an older version](#downgrading-to-an-older-version)).
+The launcher fetches the latest code, reinstalls what changed, rebuilds and starts the new version. If you changed the code yourself, it sets your changes aside and puts them back after the update. If it cannot, it keeps your current version and prints a note. It copies your data before it updates, and it skips an update that would land on a version older than your data (see [Downgrading to an older version](#downgrading-to-an-older-version)).
 
 To skip the update once, run `start.bat --skip-update`. To keep your installed version across launches, set `AUTO_UPDATE_ENABLED=false` in the project `.env`. This turns off only automatic updates. Manual commands and **Settings → Advanced → Check for Updates** still work.
 
@@ -96,7 +106,7 @@ git merge --ff-only origin/main || git checkout --detach origin/main
 3. Reinstall dependencies, rebuild and start.
 
 ```bash
-pnpm install --force
+pnpm install --force --frozen-lockfile
 pnpm build
 pnpm start
 ```
@@ -146,8 +156,14 @@ If the check fails, you see "Could not check for updates. Try again later." This
 - The install is a git copy. Containers and other installs cannot apply this way.
 - The branch is `main`, `master` or `staging`, or a detached checkout. A copy on any other branch counts as a development checkout and Marinara refuses.
 - The server owner set `UPDATES_APPLY_ENABLED=true` in the server `.env` file.
+- `UPDATES_APPLY_DISABLED` is not set. It blocks every apply, including the channel switch, and developer launchers set it.
 
-You do not need the admin secret to apply from the computer that runs the server. This means opening Marinara at `http://127.0.0.1:7860` or `http://localhost:7860`. An address served by a reverse proxy or tunnel counts as another device by default. Setting `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` makes those visitors count as local, so keep it on for a public proxy or tunnel. Setting `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true` makes even local requests need the secret.
+You do not need the admin secret to apply from the computer that runs the server. Open Marinara at `http://127.0.0.1:7860` or `http://localhost:7860`.
+
+Two settings change this:
+
+- An address served by a reverse proxy or tunnel counts as another device. `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` makes those visitors count as local, including for the local admin-secret bypass. Keep it on for a public proxy or tunnel.
+- `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true` makes even local requests need the secret.
 
 Applying from another device is off by default. It needs all three of these:
 
@@ -179,7 +195,10 @@ Upgrading replaces the app code, not your data folder or the `marinara-data` vol
 
 ## Updating from 2.5.0
 
-The steps above are the same. A few changes affect a server that other devices or people use:
+The steps above are the same. A few changes affect a server that other devices or people use. Open the details if that is you.
+
+<details>
+<summary>Changes for shared servers</summary>
 
 - **A reverse proxy or tunnel on the same computer.** Visitors that nginx, Caddy, Cloudflare Tunnel, Tailscale Serve or ngrok pass to Marinara now count as remote. Without a login they see the setup page, and backups and other protected actions need the admin secret. See [Reverse proxies and tunnels on the same computer](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer).
 - **Tailscale login bypass.** Direct connections to this computer's Tailscale address still skip the login. Other connections from `100.64.0.0/10` no longer skip it, and Tailscale Serve and Funnel visitors need a login. See [Tailscale and Docker bypass](REMOTE_ACCESS.md#tailscale-and-docker-bypass).
@@ -187,11 +206,13 @@ The steps above are the same. A few changes affect a server that other devices o
 - **Chats and profiles moved to another install.** A chat log, settings profile or full profile no longer carries its **Discord Mirror**, **DeepLX URL**, **DeepL API Key** or **Intiface URL** to a different install. Enter them again there. Your own profiles, and a full profile restored on the same install, keep them.
 - **Locked out after updating?** See [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
 
+</details>
+
 ## Downgrading to an older version
 
 Going back is not always possible. Newer versions save data in a newer storage format, and a build refuses data in a format newer than it knows. Current builds use storage format 10. Formats 8, 9 and 10 added MMD avatars, connection account links and GLB/FBX avatars. A build that knows only an older format cannot open data saved in them.
 
-The launcher skips an auto-update that would land on an incompatible version, and the in-app updater refuses to apply one. To go back to an older build, stop Marinara and restore a full backup made before you upgraded. Do not change the format number by hand.
+The launcher skips an auto-update that would land on an incompatible version, and the in-app updater refuses to apply one. To go back to an older build, stop Marinara and restore a full backup made before you upgraded. The chat-file conversion command below cannot convert MMD avatar settings. Do not change the format number by hand.
 
 If your data is older than storage format 8, a one-command conversion can put chat files back in the old layout. See [Chats show no messages after switching to an older version](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
 
