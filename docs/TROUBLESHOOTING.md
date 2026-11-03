@@ -473,7 +473,7 @@ Windows, Android and other unsupported hosts refuse Server Extension execution. 
 The section stays hidden until both gates are open.
 
 1. Set `ENABLE_EXTERNAL_EXTENSIONS=true` in the host's `.env`.
-2. Wait about two seconds, then open **Settings → Advanced → Danger Zone**, scroll below the data-deletion controls and turn on **Allow third-party extension imports**.
+2. Wait a moment, then open **Settings → Advanced → Danger Zone**, scroll below the data-deletion controls and turn on **Allow third-party extension imports**.
 
 If the switch is disabled, the host flag is still false or the app has not seen the change. Confirm you edited the active `.env` described in [Server Configuration](CONFIGURATION.md). On Docker it is normally `/app/data/.env`.
 
