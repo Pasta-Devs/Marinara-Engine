@@ -30,7 +30,7 @@ For the folder names, see [Where Marinara Stores Your Data](where-data-is-stored
 
 > **Warning:** A backup is a raw copy. It holds your saved API keys and the `.encryption-key` file that unlocks them. Never share it. Store it somewhere private.
 
-On Android and iOS you cannot reach the app's data folder, so **Download Backup** is the way to get a copy off the device.
+On Android you cannot reach the app's data folder, so **Download Backup** is the way to get a copy off the device.
 
 If it did not work: if you see "Backup preparation timed out after one hour.", try again. If another device cannot download, check **Admin Access** (see above).
 
@@ -63,7 +63,7 @@ Each run needs free space for one more full archive, because the old one stays u
 | **Marinara Native** | Marinara fields, lorebook folders, characters, personas, presets, agents, themes, Personal Extension drafts and media. | Yes |
 | **Compatible JSON** | A `.zip` of plain character, persona and lorebook files for other tools. | No |
 
-A native profile downloads as `marinara-profile.json`. A large one downloads as `marinara-profile.zip` instead.
+A native profile downloads as `marinara-profile.json`. If it is too large, Marinara asks **Export profile as ZIP?**. Click **Export ZIP** to download `marinara-profile.zip` instead.
 
 A native profile keeps Personal Extension code, but not whether it is turned on or approved. Every restored extension arrives disabled. Review it again in **Settings → Addons**.
 
@@ -75,12 +75,11 @@ A native profile keeps Personal Extension code, but not whether it is turned on 
 2. In **Profile & Marinara**, click **Import Profile (JSON/ZIP)**.
 3. Choose `marinara-profile.json`, `marinara-profile.zip` or a backup `.zip`. The button shows **Scanning Profile...**.
 4. Read the **Import Profile** dialog. It lists what Marinara found and warns that you cannot undo the import.
-5. Click **Import**, or **Cancel** to stop. A progress bar shows **Importing Profile...**.
+5. Click **Import**, or **Cancel** to stop. The import button shows **Importing Profile...** and a progress bar follows the import.
 
 If it did not work:
 
-- If the file changed on disk after you chose it, the import stops with a warning. Choose the file again.
-- Outside your own computer, profile import needs HTTPS. Open Marinara through an HTTPS address.
+- Unless you open Marinara at `localhost` or `127.0.0.1`, profile import needs HTTPS. The error is "Profile import requires HTTPS outside local development." Open Marinara through an HTTPS address.
 - If a `.zip` is missing some media files, the import still finishes. A warning lists what is missing, and Marinara imports the rest.
 
 Recent profiles match each item by its own identity, not its name. If you import the same profile twice, Marinara updates your items and does not make copies. Profiles from much older versions do not match this way, so importing one again can make duplicate characters, personas and lorebooks.
