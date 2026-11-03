@@ -44,7 +44,7 @@ Options inside **Trackers Control**:
 2. Turn on **Attach lorebook for the specific agent**. It starts off.
 3. Choose a book in **Reference lorebook**.
 
-The choice belongs to this agent in this chat. Matching entries follow the normal lorebook trigger rules and go to that agent only, including manual retries. The main reply and other agents do not see the book through this setting. Deleted or unavailable books supply nothing.
+The choice belongs to this agent in this chat. Matching entries follow the normal lorebook trigger rules and go to this agent, including manual retries. This setting does not add the book to the main reply or to unrelated agents, but agents running together may also see the same entries. Deleted or unavailable books supply nothing.
 
 ## When agents run
 
