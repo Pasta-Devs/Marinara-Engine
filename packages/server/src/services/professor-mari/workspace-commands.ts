@@ -31,6 +31,7 @@ import {
   restoreReplacedStoreLinks,
   getWorkspaceShellSandboxStatus,
   killSandboxedProcessTree,
+  quarantineNewRootSecrets,
   snapshotSensitiveWorkspaceFiles,
   spawnWorkspaceSandboxedShell,
   type SensitiveScanResult,
@@ -997,6 +998,8 @@ export class WorkspaceCommands {
       logger.error(err, "[mari] Store-link integrity pass failed");
       linkLines = ["Store-link integrity check failed; treat package-store paths as unreviewed."];
     }
+    // Before the scan, so a root .git or .env the run created is moved away even when the scan fails.
+    const rootSecretLines = await quarantineNewRootSecrets(snapshot);
     let scan: SensitiveScanResult;
     try {
       scan = await detectUnreviewedSensitiveChanges(this.workspaceRoot, snapshot);
@@ -1004,7 +1007,7 @@ export class WorkspaceCommands {
       logger.error(err, "[mari] Post-execution sensitive-file scan failed");
       return ["Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed."];
     }
-    const lines: string[] = [...linkLines];
+    const lines: string[] = [...linkLines, ...rootSecretLines];
     if (snapshot.entryCapExceeded || scan.entryCapExceeded) {
       lines.push(
         "Post-execution scan stopped at its entry cap; part of the workspace went uninspected - treat this run's file changes as unreviewed.",

@@ -2,6 +2,7 @@
 // - the auto-generated encryption key (DATA_DIR/.encryption-key) is as secret as .env, for her tools and shell;
 // - saved data (DATA_DIR/storage) is read-only to her shell, as it already is to her write tool;
 // - her shell can neither read nor change .git, .env or the key file, nor create them where they do not exist yet;
+//   a root .git or .env that appears during a run anyway is moved aside after it;
 // - `mari code check` runs pnpm check in the shell sandbox without the server's environment, or not at all when
 //   no sandbox exists, because pnpm check executes workspace scripts she can change. Only a real help flag keeps
 //   it direct.
@@ -12,6 +13,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -43,6 +45,8 @@ const {
   buildMacosWorkspaceShellProfile,
   getWorkspaceShellSandboxStatus,
   linuxBubblewrapArgs,
+  quarantineNewRootSecrets,
+  snapshotSensitiveWorkspaceFiles,
   spawnWorkspaceSandboxedShell,
   workspacePolicyPaths,
 } = await import("../../../packages/server/src/services/professor-mari/workspace-shell-sandbox.js");
@@ -135,6 +139,7 @@ try {
   assert.ok(profile.includes("(deny file-read* file-write*\n"), "forbidden paths are closed to writes, not only reads");
   assert.ok(forbiddenRule.includes(`(subpath ${JSON.stringify(keyFile)})`));
   assert.ok(forbiddenRule.includes(`(literal ${JSON.stringify(dataDir)})`), "the folder holding the key is pinned");
+  assert.ok(forbiddenRule.includes(`(literal ${JSON.stringify(workspace)})`), "so is the workspace itself");
   const bwrap = (await linuxBubblewrapArgs(workspace, {}, tmpdir(), "/bin/bash", ["-c", "true"], true)).join("\0");
   assert.ok(bwrap.includes(`--ro-bind\0/dev/null\0${keyFile}`));
   assert.ok(bwrap.includes(`--ro-bind\0${storageDir}\0${storageDir}`));
@@ -225,6 +230,54 @@ try {
       assert.equal(readFileSync(join(dataDir, "notes.txt"), "utf8"), "ok", "a pinned folder still takes new files");
     }
     assert.equal(readFileSync(join(workspace, "ordinary.txt"), "utf8"), "ok", "ordinary files stay writable");
+    if (seatbelt) {
+      // Every Seatbelt rule matches paths under the workspace, so the workspace itself cannot move out from under them.
+      const moved = await sandboxRun(
+        [
+          'ws="$PWD"',
+          'mv "$ws" "$TMPDIR/ws" && (cd "$TMPDIR/ws" && cat .env packages/server/data/.encryption-key; printf planted >> .git/config; printf planted > .env.local; mkdir -p sub/.git)',
+          'mv "$TMPDIR/ws" "$ws" 2>/dev/null',
+          "printf ok > ordinary.txt",
+          "true",
+        ].join("; "),
+      );
+      assert.ok(!moved.output.includes(KEY), `the moved workspace never shows the key:\n${moved.output}`);
+      assert.ok(!moved.output.includes("env-secret"), `the moved workspace never shows .env:\n${moved.output}`);
+      assert.equal(readFileSync(join(workspace, ".git", "config"), "utf8"), GIT_CONFIG, "Git's config stays as it was");
+      assert.equal(readFileSync(join(workspace, ".env"), "utf8"), ENV_FILE, ".env stays as it was");
+      for (const path of [".env.local", "sub"]) {
+        assert.equal(existsSync(join(workspace, path)), false, `${path} cannot be made from a moved workspace`);
+      }
+      assert.equal(readFileSync(join(workspace, "ordinary.txt"), "utf8"), "ok", "the pinned workspace takes new files");
+    }
+  }
+
+  // Bubblewrap can only mask paths that exist, so the post-run pass moves aside a root .git or .env that appeared
+  // during a run, the two that host git and the .env loader read. Created here between the snapshot and the pass.
+  const bare = realpathSync(mkdtempSync(join(tmpdir(), "marinara-mari-bare-")));
+  try {
+    const before = await snapshotSensitiveWorkspaceFiles(bare);
+    mkdirSync(join(bare, ".git"));
+    writeFileSync(join(bare, ".git", "config"), GIT_CONFIG);
+    writeFileSync(join(bare, ".env"), ENV_FILE);
+    const lines = await quarantineNewRootSecrets(before);
+    assert.equal(lines.length, 2, lines.join("\n"));
+    assert.equal(existsSync(join(bare, ".git")), false, "a root .git made during the run is moved aside");
+    assert.equal(existsSync(join(bare, ".env")), false, "a root .env made during the run is moved aside");
+    const kept = readdirSync(bare).sort();
+    assert.equal(kept.length, 2);
+    assert.ok(kept[0]!.startsWith(".env.unreviewed-") && kept[1]!.startsWith(".git.unreviewed-"), kept.join(", "));
+    assert.ok(
+      lines.every((line) => !line.includes("env-secret")),
+      "the lines never show what the files hold",
+    );
+    // Ones that already existed are left to the sandbox's own rules.
+    mkdirSync(join(bare, ".git"));
+    writeFileSync(join(bare, ".env"), ENV_FILE);
+    assert.deepEqual(await quarantineNewRootSecrets(await snapshotSensitiveWorkspaceFiles(bare)), []);
+    assert.ok(existsSync(join(bare, ".git")) && existsSync(join(bare, ".env")));
+  } finally {
+    rmSync(bare, { recursive: true, force: true });
   }
 
   // 3. `mari code check`: a pnpm stand-in runs the workspace's own check script, which Mari could have edited.
