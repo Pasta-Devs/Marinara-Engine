@@ -4,15 +4,13 @@ This guide connects a local LTX 2.3 ComfyUI image-to-video workflow to Game Mode
 
 The setup was developed with **Krea 2** first-frame images and the **Z-Image Turbo Narrative** Image Style. Other image accounts should work if they accept descriptive natural-language scene prompts. The LTX video renders locally in ComfyUI. Whether the first-frame image is local or hosted depends on the image account you pick.
 
-The finished path is:
+The finished path has these steps:
 
-```text
-GM narration
-  -> Animation Planner
-     -> imagePrompt -> image account -> first-frame illustration
-     -> narrationBeat -> Narration Passthrough -> %prompt%
-  -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
-```
+1. The GM writes a narration turn.
+2. The Animation Planner returns an `imagePrompt` and a `narrationBeat`.
+3. The `imagePrompt` goes to the image account and becomes the first-frame illustration.
+4. The `narrationBeat` goes through **Narration Passthrough** and becomes `%prompt%`.
+5. The first frame and the prompt go to the ComfyUI LTX 2.3 workflow, which makes an MP4 clip.
 
 The illustration is the first frame of the clip. LTX gets both a starting picture and a prompt about what moves next. If it works, a clip appears in the Gallery's **Videos** tab.
 
@@ -88,7 +86,7 @@ Deleting a node and continuing to use an older export leaves references to a nod
 2. Click **Add account** and choose a **Video Generation** account.
 3. Choose **ComfyUI**.
 4. Enter the **Base URL**, normally `http://127.0.0.1:8188` when ComfyUI runs on the same computer.
-5. Paste the full API-format workflow into **ComfyUI Workflow**.
+5. Paste the full API-format workflow into **ComfyUI workflow**.
 6. For the first low-VRAM test, choose a six-second default duration, **16:9** and 480p.
 7. Save the account.
 
@@ -103,7 +101,7 @@ Open the Game Mode chat, then **Chat Settings → Agents**. Turn on **Enable Age
 | Setting | Recommended value |
 | --- | --- |
 | **Game Illustrator** | On |
-| **Image Connection** | **Krea 2** |
+| **Image model** | **Krea 2** |
 | **Image Style** | **Z-Image Turbo Narrative** |
 | **Use Campaign Art Style** | Off |
 | **Attach Card Appearance** | Off |
@@ -119,7 +117,7 @@ The first frame strongly affects animation quality. It should show the exact mom
 
 | Setting | Recommended value |
 | --- | --- |
-| **Video Connection** | The LTX 2.3 ComfyUI account you created |
+| **Video model** | The LTX 2.3 ComfyUI account you created |
 | **Game Video Prompt** | **Narration Passthrough** |
 
 **Game Video Prompt** controls manual Gallery and Game Assets animations. Storyboard clips can use their own prompt without changing those.
@@ -194,7 +192,7 @@ The API workflow does not match the installed graph. Look for a deleted node, a 
 
 ### Images are created but videos are not
 
-Check **Automatic Storyboard Animations** and the Game Mode **Video Connection**. Animations need both the first-frame illustration and a selected video account.
+Check **Automatic Storyboard Animations** and the Game Mode **Video model**. Animations need both the first-frame illustration and a selected video account.
 
 ### LTX receives no starting image
 
