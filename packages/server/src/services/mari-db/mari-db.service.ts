@@ -96,6 +96,8 @@ import {
   MARI_SKILL_GATE_SETTINGS_KEY,
   SPEECH_TO_TEXT_SETTINGS_KEY,
   TTS_SETTINGS_KEY,
+  CHAT_METADATA_LOCAL_DESTINATION_KEYS,
+  TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   createCustomToolSchema,
   createLorebookEntrySchema,
   lorebookDecisionModeSchema,
@@ -9148,6 +9150,36 @@ export class MariDbService {
         message:
           "Professor Mari cannot change Models, Connections or the speech server settings, because they hold stored keys. The user edits them in Connections and Settings.",
       });
+    }
+    // Same reason for the chat settings that send chat text to an address outside the app, or hold its key
+    // (CHAT_METADATA_LOCAL_DESTINATION_KEYS). They live where profile import strips them: chat metadata, a settings
+    // profile's metadata and the translator defaults for new chats. Per key, so her other chat-settings edits still
+    // apply; clearing one is allowed, since that sends nothing.
+    const localDestinations = (change: PlanChange, row: Row | null | undefined): Row => {
+      if (!row) return {};
+      if (change.table === "chats") return parseJsonRecordValue(row.metadata);
+      if (change.table === "chat_presets") return parseJsonRecordValue(parseJsonRecordValue(row.settings).metadata);
+      if (change.table === "app_settings" && change.id === TRANSLATOR_DEFAULTS_SETTINGS_KEY) {
+        return parseJsonRecordValue(row.value);
+      }
+      return {};
+    };
+    for (const change of changes) {
+      const after = localDestinations(change, change.afterRaw);
+      const before = localDestinations(change, change.beforeRaw);
+      if (
+        CHAT_METADATA_LOCAL_DESTINATION_KEYS.some(
+          (key) => after[key] && stableJson(after[key]) !== stableJson(before[key]),
+        )
+      ) {
+        issues.push({
+          level: "error",
+          table: change.table,
+          id: change.id,
+          message:
+            "Professor Mari cannot set the Discord mirror, translator or haptics addresses and keys. The user enters them in Chat Settings.",
+        });
+      }
     }
 
     const validation = await this.validateTouchedRows(changes, issues);

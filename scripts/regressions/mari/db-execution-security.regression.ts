@@ -7,6 +7,8 @@ import { eq } from "../../../packages/server/src/db/file-query.js";
 import {
   apiConnections,
   appSettings,
+  chatPresets,
+  chats,
   connectionAccounts,
   customTools,
 } from "../../../packages/server/src/db/schema/index.js";
@@ -497,6 +499,119 @@ try {
         .map((row) => row.value),
       [ttsValue],
       "the speech settings are unchanged",
+    );
+
+    // The chat settings that send chat text to an outside address, or hold its key, cannot be set by raw Mari DB
+    // writes either. The check is per key, so her other chat-settings edits still apply.
+    const chatMetadata = JSON.stringify({ translationDeeplxUrl: storedHost, autoTranslate: false });
+    await db.insert(chats).values({
+      id: "stored-chat",
+      name: "Stored chat",
+      mode: "roleplay",
+      metadata: chatMetadata,
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    const profileSettings = JSON.stringify({ metadata: { autoTranslate: false } });
+    await db.insert(chatPresets).values({
+      id: "stored-profile",
+      name: "Stored profile",
+      mode: "roleplay",
+      settings: profileSettings,
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    const translatorDefaults = JSON.stringify({ translationProvider: "deeplx" });
+    await db.insert(appSettings).values({ key: "translator-defaults", value: translatorDefaults, updatedAt: stamp });
+    const destinationWrites = [
+      [
+        "db",
+        "patch",
+        "chats",
+        "stored-chat",
+        "--json",
+        JSON.stringify({ metadata: { translationDeeplxUrl: elsewhereHost } }),
+        "--apply",
+      ],
+      [
+        "db",
+        "patch",
+        "chats",
+        "stored-chat",
+        "--json",
+        JSON.stringify({ metadata: { discordWebhookUrl: elsewhereHost } }),
+        "--apply",
+      ],
+      [
+        "db",
+        "insert",
+        "chats",
+        "--json",
+        JSON.stringify({
+          name: "Copy",
+          mode: "roleplay",
+          characterIds: [],
+          sortOrder: 0,
+          metadata: { hapticIntifaceUrl: elsewhereHost },
+        }),
+        "--apply",
+      ],
+      [
+        "db",
+        "patch",
+        "chat_presets",
+        "stored-profile",
+        "--json",
+        JSON.stringify({ settings: { metadata: { translationDeeplApiKey: "other-key" } } }),
+        "--apply",
+      ],
+      [
+        "db",
+        "patch",
+        "app_settings",
+        "translator-defaults",
+        "--json",
+        JSON.stringify({
+          value: JSON.stringify({ translationProvider: "deeplx", translationDeeplxUrl: elsewhereHost }),
+        }),
+        "--apply",
+      ],
+    ];
+    for (const argv of destinationWrites) {
+      const result = await mari.executeCli({ argv });
+      assert.equal(result.ok, false, `${argv.join(" ")} is refused: ${JSON.stringify(result)}`);
+      assert.match(
+        JSON.stringify(result.validation),
+        /cannot set the Discord mirror, translator or haptics addresses and keys/u,
+      );
+    }
+    const otherSetting = await mari.executeCli({
+      argv: [
+        "db",
+        "patch",
+        "chats",
+        "stored-chat",
+        "--json",
+        JSON.stringify({ metadata: { autoTranslate: true } }),
+        "--apply",
+      ],
+    });
+    assert.equal(otherSetting.ok, true, `another chat setting still applies: ${JSON.stringify(otherSetting)}`);
+    const storedChats = await db.select().from(chats);
+    assert.deepEqual(
+      storedChats.map((row) => [
+        row.id,
+        JSON.parse(row.metadata).translationDeeplxUrl,
+        JSON.parse(row.metadata).discordWebhookUrl,
+      ]),
+      [["stored-chat", storedHost, undefined]],
+      "the chat keeps its translator address, gains no Discord mirror and no copy is made",
+    );
+    assert.equal((await db.select().from(chatPresets))[0]?.settings, profileSettings, "the profile is unchanged");
+    assert.equal(
+      (await db.select().from(appSettings)).find((row) => row.key === "translator-defaults")?.value,
+      translatorDefaults,
+      "the translator defaults are unchanged",
     );
   } finally {
     await db._fileStore.close();
