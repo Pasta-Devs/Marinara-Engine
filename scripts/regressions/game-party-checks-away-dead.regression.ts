@@ -5,7 +5,8 @@
  *     command does, and a list it cannot read in full counts nobody away;
  *   - a group check (`who="party"`) rolls and counts only the members present and alive, in the tag
  *     pass and in a branch, so two removed members passing never carry a party that failed;
- *   - a story's exposure saves are rolled, and their failures marked, only for them.
+ *   - a story's exposure saves are rolled, and their failures marked, only for them, and only a shade
+ *     one of them carries keeps an exposure off.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -22,7 +23,7 @@ process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 const [
   { loadSkillCheckModifierContext, resolveSkillCheckTagsInContent },
   { createGameTurnChanceSession, resolveGameTurnBranches },
-  { rollStoryExposureSavesWith },
+  { rollStoryExposureSavesWith, storyPartyCarriesShade },
   { buildPartyNpcId },
   { getDB, closeDB },
   { createChatsStorage },
@@ -139,11 +140,27 @@ try {
   assert.equal(exposed.sheet, '[sheet: who="Rook" op="track" track="exhaustion" by="1"]');
   assert.doesNotMatch(exposed.tells.join("\n"), /Dagna|Mars|Wren/, exposed.tells.join("\n"));
 
+  // ── A shade lit spares the party only when one with it and alive carries it ──
+  const lantern = {
+    id: "lantern_of_dusk",
+    name: "Lantern of Dusk",
+    carried: { light: { bright: 0, dim: 15, shade: true } },
+  };
+  const holding = (key: string) => ({
+    ...context,
+    ruleset: { ...context.ruleset!, items: new Map([[key, [{ item: lantern, quantity: 1, worn: false } as never]]]) },
+  });
+  assert.equal(storyPartyCarriesShade(holding("rook")), true);
+  assert.equal(storyPartyCarriesShade(holding("dagna")), false, "a removed member's lantern");
+  assert.equal(storyPartyCarriesShade(holding("wren")), false, "a dead member's lantern");
+
   // ── A party list the Engine cannot read in full counts nobody away ──
   await chats.patchMetadata(chat.id, { gamePartyCharacterIds: [...meta.gamePartyCharacterIds, "missing-character"] });
   assert.equal((await loadSkillCheckModifierContext(db, chat.id, live)).ruleset?.away, undefined);
 
-  console.log("Party checks: removed and dead members neither roll nor count in group checks and exposure saves.");
+  console.log(
+    "Party checks: removed and dead members neither roll nor count in group checks and exposure saves, nor carry a shade.",
+  );
 } finally {
   await closeDB();
   rmSync(dataDir, { recursive: true, force: true });

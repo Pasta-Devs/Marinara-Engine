@@ -56,9 +56,14 @@ export async function loadStoryExposureSheets(
   }
 }
 
-/** Whether any of the party carries a shade lit (1.365): a Lantern of Dusk keeps an exposure off. */
+/** Whether any of the party carries a shade lit (1.365): a Lantern of Dusk keeps an exposure off. Never
+ *  one held by a member taken out of the party or dead on their sheet, as a fight's light passes them by. */
 export function storyPartyCarriesShade(context: SkillCheckModifierContext | null): boolean {
-  return [...(context?.ruleset?.items.values() ?? [])].some((items) => rulesetItemsShedShade(items));
+  const ruleset = context?.ruleset;
+  return (
+    !!ruleset &&
+    [...ruleset.items].some(([key, items]) => rulesetPartyMemberActive(ruleset, key) && rulesetItemsShedShade(items))
+  );
 }
 
 /** Roll the saves a story turn owes, on the party's sheets, and fold what they cost into it. A turn that
