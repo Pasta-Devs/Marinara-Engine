@@ -6,17 +6,17 @@ Marinara runs on your own computer and saves your characters, chats and settings
 
 ## Find the data folder
 
-Everything you create lives in one folder on the computer that runs the server. This is the data folder. Its setting is the environment variable `DATA_DIR`, a value you set on the server outside the app. It is not in **Settings**.
+Everything you create lives in one folder on the computer that runs the server. This is the data folder. Its setting is `DATA_DIR`, a value you give the server before it starts (an environment variable). It is not in **Settings**.
 
 - By default it is a folder named `data` next to the server files.
 - In the official Docker container it is `/app/data`.
-- To see the exact path, read the server startup log. It prints a line that starts with `[storage] DATA_DIR=`.
+- To see the exact path, look at the window where you started Marinara (the terminal or console). When it starts, it prints a line that begins with `[storage] DATA_DIR=` followed by the path. If you cannot find that window, look for a folder named `data` inside the Marinara folder.
 
 To move the folder, set `DATA_DIR` and restart Marinara. See the [Server Configuration Reference](../CONFIGURATION.md).
 
 ## What is inside
 
-Your text data is in the `storage` folder: characters, chats, messages, lorebooks, presets and connections. Marinara saves it as many small files grouped by owner, for example one chat's messages in their own files, so changing one item does not rewrite one huge file. When Marinara upgrades from the older storage layout, it keeps the original table files in `storage/tables/` and adds the suffix `.pre-shard` to their names.
+Your text data is in the `storage` folder: characters, chats, messages, lorebooks, presets and connections. Marinara saves it as many small files. After an upgrade from the older layout, you may see old copies in `storage/tables/` with names ending in `.pre-shard`. Marinara never deletes them. You can delete them yourself to free space once everything works.
 
 Your images, audio and other files are in their own folders next to `storage`. The folder names are:
 
