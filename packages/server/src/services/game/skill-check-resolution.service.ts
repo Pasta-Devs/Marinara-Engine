@@ -339,11 +339,14 @@ function playerRosterCard(
 function gameSetUpWithoutParty(meta: Record<string, unknown>): boolean {
   const kept = (meta.gameInitialSetup as { config?: { partyCharacterIds?: unknown } } | null | undefined)?.config
     ?.partyCharacterIds;
-  // ponytail: no card is marked as the player's, so this reads the setup, with two known misses. A game
-  // set up before its setup was kept is read by its party list now: once it recruits a companion, its
-  // first card is only a stand-in again and its player is counted away. And a setup that made no card
-  // leaves a later recruit first, kept in the party after leaving it. The upgrade is to mark the
-  // player's own card as setup makes it, and seed the roster with that.
+  // ponytail: no card is marked as the player's, so this reads the setup, with two known misses. The
+  // party list stands in only for metadata the setup did not write, if any (a ruleset pinned by a
+  // hand-made metadata PATCH): the Engine pins a ruleset (`gameRuleset`) only at setup, in the same
+  // update that keeps the setup, and setups were kept (2026-07) before a ruleset could be chosen at
+  // creation (2026-09). There, once a companion is recruited, the first card is only a stand-in again
+  // and the player is counted away. And a setup that made no card leaves a later recruit first, kept in the
+  // party after leaving it. The upgrade is to mark the player's own card as setup makes it, and seed
+  // the roster with that.
   const ids = Array.isArray(kept) ? kept : meta.gamePartyCharacterIds;
   return Array.isArray(ids) && ids.length === 0;
 }
