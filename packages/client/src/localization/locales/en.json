@@ -1872,7 +1872,7 @@
   "connections.audioGeneration.music": "Music generation",
   "connections.audioGeneration.musicModel": "Music model",
   "connections.audioGeneration.sameModel": "Use the music model",
-  "connections.audioGeneration.setupEmpty": "Add a Music & Sound Effects account in Connections first.",
+  "connections.audioGeneration.setupEmpty": "No Music & Sound Effects account yet. Connections cannot add a new one; import one with Import a backup in Connections.",
   "connections.audioGeneration.setupHelp": "Generate scene music and sound effects with a dedicated account, separate from character voices.",
   "connections.audioGeneration.sfxModel": "Sound-effect model",
   "connections.audioGeneration.soundEffects": "Sound-effect generation",
