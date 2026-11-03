@@ -19,9 +19,9 @@ Each row shows the chat name and the avatars of its characters. In Conversation 
 Before you start: add at least one account in **Connections**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 1. Click the tab for the mode you want.
-2. Click the **+** button at the top of the panel. Its tooltip reads **New Conversation**, **New Roleplay** or **New Game**, to match the tab.
+2. Tap the **+** button at the top of the panel. Its label is **New Conversation**, **New Roleplay** or **New Game**, to match the tab.
 
-Marinara creates the chat, opens it, and opens **Chat Settings** and a setup wizard. The chat starts with the name **New Conversation**, **New Roleplay** or **New Game**. If you saved a starred default settings profile for Conversation or Roleplay, Marinara applies it to the new chat. See [Settings Profiles](settings-profiles.md).
+Marinara creates and opens the chat. **Chat Settings** and a setup wizard open beside it. The chat starts with the name **New Conversation**, **New Roleplay** or **New Game**. If you saved a starred default settings profile for Conversation or Roleplay, Marinara applies it to the new chat. See [Settings Profiles](settings-profiles.md).
 
 If it did not work: with no account saved, the **Add account** window opens instead of a chat. Pick a service, click **Connect**, then choose a model. The full steps are in [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
@@ -30,12 +30,12 @@ If it did not work: with no account saved, the **Add account** window opens inst
 You can import a `.jsonl` chat log from SillyTavern or Marinara.
 
 1. Click the tab for the mode the chat should land in.
-2. Click the **Import** button at the top of the panel. Its tooltip reads **Import SillyTavern or Marinara chat JSONL**.
+2. Tap the **Import** button at the top of the panel. Its label is **Import SillyTavern or Marinara chat JSONL**.
 3. Choose your `.jsonl` file.
 
 Marinara creates the chat, opens it, and shows **Imported N messages**. For export formats and bulk export, see [Exporting and Importing Chats](export-import.md).
 
-If it did not work: a toast reads **Import failed** with the reason. Only `.jsonl` files are accepted.
+If it did not work: a small message at the bottom of the screen reads **Import failed** with the reason. Only `.jsonl` files are accepted.
 
 ## Rename a chat
 
@@ -49,7 +49,7 @@ See [Chat Settings](chat-settings.md) for how to open the panel.
 
 ## Delete a chat
 
-1. Hover over the chat row and click the trash button. On a phone the button is always visible.
+1. Tap the trash button on the chat row. On a computer, it shows when you point at the row.
 2. In the **Delete Chat** dialog, click **Delete**.
 
 Deleting is permanent. It also stops any reply still being written for that chat.
@@ -67,7 +67,7 @@ The app-wide setting **Confirm before deleting** controls these dialogs. It is o
 
 Folders group chats inside one mode tab.
 
-1. Open a tab that has at least one chat. **New Folder** appears above the list only then.
+1. Open a tab that has at least one chat. **New Folder** appears under the tabs only then.
 2. Click **New Folder**. The folder is named **unnamed** (then **unnamed 2**, **unnamed 3**).
 
 | To do this | Do this |
@@ -82,9 +82,18 @@ With several chats selected, dragging one moves the whole selection. Chats outsi
 
 ## Search, sort and filter
 
-Each tab has a search box. Its placeholder is **Search conversations**, **Search roleplays** or **Search games**. It matches chat names, tags and character names, not message text. To search message text, click the button beside the sort menu (**Search all chats**). It searches every chat and can filter by mode, character, sender and date.
+### Find a chat by name
 
-The sort menu (tooltip **Sort chats**) has these options:
+Each tab has a search box. Its placeholder is **Search conversations**, **Search roleplays** or **Search games**. Type a word. It matches chat names, tags and character names, not message text.
+
+### Find a message in all chats
+
+1. Tap **Search all chats**, the button beside the sort menu.
+2. Type your words.
+
+It searches every chat and can filter by mode, character, sender and date.
+
+The sort menu (**Sort chats**) has these options:
 
 | Option | Order |
 | --- | --- |
