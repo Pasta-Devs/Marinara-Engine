@@ -1,4 +1,5 @@
 import { CardLibraryPreview } from "./CardLibraryPreview";
+import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
 import { AvatarImage } from "./AvatarImage";
 import {
   Fragment,
@@ -11,7 +12,7 @@ import {
   useState,
   type UIEvent,
 } from "react";
-import { ArrowLeft, ArrowUpDown, Download, Hash, MessageCircle, Pencil, Plus, Search, Star, User } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Download, Hash, MessageCircle, Pencil, Play, Plus, Search, Star, User } from "lucide-react";
 import { estimateTextTokens, type CharacterData, type Persona } from "@marinara-engine/shared";
 import type { CharacterCatalogEntry } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -36,6 +37,7 @@ import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
+  isMobileShellViewport,
   useUIStore,
   type CardLibraryKind,
   type CharacterLibrarySort,
@@ -238,11 +240,13 @@ function CardLibraryDetailCard({
   kind,
   onEdit,
   onChat,
+  onStart,
 }: {
   card: LibraryCard;
   kind: CardLibraryKind;
   onEdit: (id: string) => void;
   onChat?: (card: LibraryCard) => void;
+  onStart?: (card: LibraryCard) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const copy = LIBRARY_COPY[kind];
@@ -337,6 +341,15 @@ function CardLibraryDetailCard({
                   ? localizeUi("ui.characters.cardlibrarydetailcard.character")
                   : localizeUi("ui.characters.cardlibrarydetailcard.persona")}
               </button>
+              {onStart && (
+                <button
+                  type="button"
+                  onClick={() => onStart(card)}
+                  className="mari-chrome-control mari-chrome-control--regular-label mari-chrome-control--primary min-h-10 px-3 py-2 text-xs sm:px-4 sm:text-sm"
+                >
+                  <Play size="0.875rem" /> {localizeUi("characters.startChat.start")}
+                </button>
+              )}
               {onChat && (
                 <button
                   type="button"
@@ -561,6 +574,24 @@ export function CharacterLibraryView() {
     else openCharacterDetail(id, { preserveCharacterLibrary: true });
   };
 
+  const { startChatFromCharacter } = useStartChatFromCharacter();
+  const startCharacterChat = useCallback(
+    (card: LibraryCard) => {
+      if (isPersonaLibrary) return;
+      // Roleplay with the remembered setup, landing on the setup stage.
+      void startChatFromCharacter({
+        characterId: card.id,
+        characterName: card.name,
+        mode: "roleplay",
+        onSuccess: () => {
+          const ui = useUIStore.getState();
+          ui.closeAllDetails();
+          if (isMobileShellViewport()) ui.closeRightPanel();
+        },
+      });
+    },
+    [isPersonaLibrary, startChatFromCharacter],
+  );
   const openCharacterChat = useCallback(
     (card: LibraryCard) => {
       if (isPersonaLibrary) return;
@@ -739,6 +770,7 @@ export function CharacterLibraryView() {
                           kind={kind}
                           onEdit={openDetailFromLibrary}
                           onChat={isPersonaLibrary ? undefined : openCharacterChat}
+            onStart={isPersonaLibrary ? undefined : startCharacterChat}
                         />
                       </div>
                     )}
@@ -772,6 +804,7 @@ export function CharacterLibraryView() {
                 kind={kind}
                 onEdit={openDetailFromLibrary}
                 onChat={isPersonaLibrary ? undefined : openCharacterChat}
+            onStart={isPersonaLibrary ? undefined : startCharacterChat}
               />
             ) : (
               <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)]/65 p-6 text-center">

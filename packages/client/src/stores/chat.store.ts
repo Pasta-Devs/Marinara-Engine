@@ -16,6 +16,7 @@ import type {
 } from "@marinara-engine/shared";
 import type { CharacterMap, PersonaInfo } from "../components/chat/chat-area.types";
 import { api } from "../lib/api-client";
+import type { SetupFields } from "../lib/chat-setup-memory";
 import { useAgentStore } from "./agent.store";
 import { useGameStateStore } from "./game-state.store";
 
@@ -201,6 +202,9 @@ interface ChatState {
   setPendingNewChatSetup: (chat: Chat) => void;
   /** The new roleplay or conversation chat that shows its setup stage (memory only, a reload ends it). */
   setupStageChatId: string | null;
+  /** Setup copied from the last chat with this character; in-memory, same lifecycle as the stage. */
+  setupMemory: { chatId: string; sourceName: string; defaults: SetupFields; starredProfileId: string | null } | null;
+  setSetupMemory: (memory: ChatState["setupMemory"]) => void;
   setSetupStageChatId: (chatId: string | null) => void;
   clearPendingNewChatSetup: (chatId: string) => void;
   isStreaming: boolean;
@@ -388,6 +392,8 @@ export const useChatStore = create<ChatState>()(
     pendingNewChatSetups: {},
     setPendingNewChatSetup: (chat) =>
       set((state) => ({ pendingNewChatSetups: { ...state.pendingNewChatSetups, [chat.id]: chat } })),
+    setupMemory: null,
+    setSetupMemory: (setupMemory) => set({ setupMemory }),
     setupStageChatId: null,
     setSetupStageChatId: (setupStageChatId) => set({ setupStageChatId }),
     clearPendingNewChatSetup: (chatId) =>
@@ -1090,6 +1096,7 @@ export const useChatStore = create<ChatState>()(
         activeChatId: null,
         activeChat: null,
         pendingNewChatSetups: {},
+        setupMemory: null,
         setupStageChatId: null,
         isStreaming: false,
         streamingChatId: null,

@@ -49,6 +49,7 @@ import {
   getChatActiveLorebookIds,
   getChatExcludedLorebookIds,
 } from "../../lib/chat-lorebooks";
+import { ChatSetupStageMemoryNote } from "./ChatSetupStageMemoryNote";
 import { StageEditor, type StageEditorSection } from "./ChatSetupStageEditors";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import {
@@ -573,6 +574,8 @@ export function ChatSetupStage({
           />
         )}
       </p>
+
+      <ChatSetupStageMemoryNote chatId={chat.id} />
 
       {expanded ? (
         <div
