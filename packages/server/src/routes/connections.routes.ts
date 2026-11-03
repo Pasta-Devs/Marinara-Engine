@@ -5,7 +5,8 @@ import {
   TTS_CONNECTION_UNAVAILABLE,
   ttsCatalogHeaders,
 } from "./tts.routes.js";
-import { partialInput } from "@marinara-engine/shared";
+import { z } from "zod";
+import { partialInput, PROVIDERS } from "@marinara-engine/shared";
 import { migrateGenerativeAudioConnections } from "../services/connections/generative-audio-connection-migration.js";
 import { validateSunoMusicCallback } from "../services/audio/generative-audio-providers.js";
 import { askNoulQuestions } from "../services/decision/system-one.client.js";
@@ -72,7 +73,7 @@ import {
   createConnectionsStorage,
   withoutSavedModels,
 } from "../services/storage/connections.storage.js";
-import { accountBlocksRows } from "../services/storage/connection-accounts.storage.js";
+import { accountBlocksRows, createConnectionAccountsStorage } from "../services/storage/connection-accounts.storage.js";
 import {
   readCatalogModelMetadata,
   registerModelCatalogRefresher,
@@ -460,6 +461,39 @@ export function buildKeyCheck(provider: string, baseUrl: string): { url: string;
   if (provider === "nanogpt") return { url: `${new URL(base).origin}/api/check-balance`, method: "POST" };
   return null;
 }
+
+/** The headers a provider expects with its key: Test and the live access check send the same ones. */
+async function providerKeyHeaders(providerId: string, apiKey: string): Promise<Record<string, string>> {
+  const provider = PROVIDERS[providerId as keyof typeof PROVIDERS];
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+  };
+  if (provider?.usesAuthHeader) headers["Authorization"] = `Bearer ${apiKey}`;
+  if (provider?.apiKeyHeader) headers[provider.apiKeyHeader] = apiKey;
+  if (providerId === "google_vertex") Object.assign(headers, await googleAuthHeadersForVertex(apiKey));
+  if (providerId === "anthropic") headers["anthropic-version"] = "2023-06-01";
+  return headers;
+}
+
+/** Providers the live access check skips: they sign in another way or have no model list to ask. */
+const UNCHECKED_ACCESS_PROVIDERS = new Set([
+  "audio",
+  "audio_generation",
+  "image_generation",
+  "video_generation",
+  "decision",
+  "claude_subscription",
+  "openai_chatgpt",
+  "grok_subscription",
+]);
+
+const accessCheckSchema = z.object({
+  provider: z.string().min(1).max(64),
+  baseUrl: z.string().max(2048).optional(),
+  apiKey: z.string().max(8192).optional(),
+  accountId: z.string().min(1).max(200).optional(),
+});
 
 function normalizeConnectionTestBaseUrl(baseUrl: string, provider: string): string {
   if (provider === "google") return normalizeGoogleGenerativeLanguageBaseUrl(baseUrl);
@@ -917,7 +951,6 @@ export async function connectionsRoutes(app: FastifyInstance) {
         }
 
         // Simple models list fetch to verify the key works
-        const { PROVIDERS } = await import("@marinara-engine/shared");
         const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
         let baseUrl = conn.baseUrl || provider?.defaultBaseUrl || "";
 
@@ -929,22 +962,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
             modelName: null,
           };
         }
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          "User-Agent": `MarinaraEngine/${APP_VERSION}`,
-        };
-        if (provider?.usesAuthHeader) {
-          headers["Authorization"] = `Bearer ${conn.apiKey}`;
-        }
-        if (provider?.apiKeyHeader) {
-          headers[provider.apiKeyHeader] = conn.apiKey;
-        }
-        if (conn.provider === "google_vertex") {
-          Object.assign(headers, await googleAuthHeadersForVertex(conn.apiKey));
-        }
-        if (conn.provider === "anthropic") {
-          headers["anthropic-version"] = "2023-06-01";
-        }
+        const headers = await providerKeyHeaders(conn.provider, conn.apiKey);
 
         const imageSource =
           conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
@@ -1696,6 +1714,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const detail = err instanceof Error ? err.message : "Unknown error";
       return reply.status(502).send({
         error: `Failed to fetch models: ${detail}${code && /^[A-Z0-9_]+$/.test(code) ? ` (${code})` : ""}. The connection is made from the Marinara server; check that the provider is reachable there.`,
+        // Nothing answered: the live check reads this instead of guessing from the text.
+        unreachable: true,
       });
     }
   };
@@ -1797,13 +1817,96 @@ export async function connectionsRoutes(app: FastifyInstance) {
     };
     const discovered = await discoverConnectionModels(conn, sink as unknown as FastifyReply);
     if ((discovered as unknown) === sink) {
-      const error = String((sink.body as { error?: unknown } | undefined)?.error ?? "Model list request failed");
-      // The provider's own status is inside the message ("Provider returned 429: ...").
-      const status = Number(/returned (\d{3})/.exec(error)?.[1] ?? sink.code) || undefined;
-      return { ok: false as const, status, error };
+      const body = sink.body as { error?: unknown; unreachable?: boolean } | undefined;
+      const error = String(body?.error ?? "Model list request failed");
+      const unreachable = body?.unreachable === true;
+      // The provider's own status is inside the message ("Provider returned 429: ..."); a network failure has none.
+      const status = Number(/returned (\d{3})/.exec(error)?.[1] ?? (unreachable ? 0 : sink.code)) || undefined;
+      return { ok: false as const, status, error, unreachable };
     }
     return { ok: true as const, ...(discovered as Exclude<typeof discovered, FastifyReply>) };
   };
+
+  // Live check while the user types an address or pastes a key, before anything is saved: does the
+  // server answer, and does the key work. Edit sends `accountId` so the saved key is used when no new one is typed.
+  const accounts = createConnectionAccountsStorage(app.db);
+  app.post("/check", { config: { rateLimit: CONNECTION_TEST_RATE_LIMIT } }, async (req, reply) => {
+    const parsed = accessCheckSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid check" });
+    const account = parsed.data.accountId ? await accounts.getById(parsed.data.accountId) : null;
+    if (parsed.data.accountId && !account) return reply.status(404).send({ error: "Connection not found" });
+    const provider = account?.provider ?? parsed.data.provider;
+    if (!(provider in PROVIDERS) || UNCHECKED_ACCESS_PROVIDERS.has(provider)) return { supported: false };
+    const typedKey = parsed.data.apiKey?.trim();
+    const baseUrl =
+      parsed.data.baseUrl?.trim() ||
+      account?.baseUrl ||
+      PROVIDERS[provider as keyof typeof PROVIDERS].defaultBaseUrl ||
+      "";
+    // The saved key only goes to the saved address, never to one that is half typed.
+    const savedUrl = (account?.baseUrl || PROVIDERS[provider as keyof typeof PROVIDERS].defaultBaseUrl || "").replace(
+      /\/+$/,
+      "",
+    );
+    const useSavedKey = !!account && baseUrl.replace(/\/+$/, "") === savedUrl;
+    const apiKey = typedKey || (account && useSavedKey ? decryptApiKey(account.apiKeyEncrypted ?? "") : "");
+    if (!baseUrl)
+      return { supported: true, reachable: false, keyOk: null, modelCount: null, status: null, error: null };
+
+    const discovered = await discoverQuietly({
+      provider,
+      baseUrl,
+      apiKey,
+      model: "",
+      treatAsLocalEndpoint: account?.treatAsLocalEndpoint ?? "false",
+    } as Parameters<typeof discoverQuietly>[0]);
+    if (!discovered.ok) {
+      const status = discovered.status ?? null;
+      const rejected = status === 401 || status === 403;
+      return {
+        supported: true,
+        // Any HTTP answer means the address is right; no answer means nothing listens there.
+        reachable: !discovered.unreachable,
+        keyOk: apiKey && rejected ? false : null,
+        modelCount: null,
+        status,
+        error: discovered.error,
+      };
+    }
+
+    // OpenRouter and NanoGPT list models for any key, so their key has its own check.
+    let keyOk: boolean | null = apiKey ? true : null;
+    let status: number | null = null;
+    const keyCheck = apiKey ? buildKeyCheck(provider, normalizeConnectionTestBaseUrl(baseUrl, provider)) : null;
+    if (keyCheck) {
+      try {
+        const res = await safeFetch(keyCheck.url, {
+          method: keyCheck.method,
+          headers: requestHeadersWithDefaultUserAgent({
+            ...(await providerKeyHeaders(provider, apiKey)),
+            "x-api-key": apiKey,
+          }),
+          policy: localUrlPolicyForProvider(provider, ""),
+          maxResponseBytes: 256 * 1024,
+          decodeCompressedResponse: true,
+        });
+        // Only a refusal means a bad key; a busy or failing provider says nothing about it.
+        keyOk = res.ok ? true : res.status === 401 || res.status === 403 ? false : null;
+        status = res.status;
+      } catch (err) {
+        logger.debug(err, "[connections/check] key check for %s failed", provider);
+        keyOk = null;
+      }
+    }
+    return {
+      supported: true,
+      reachable: true,
+      keyOk,
+      modelCount: discovered.models.length,
+      status,
+      error: keyOk === false ? `API returned ${status}` : null,
+    };
+  });
 
   // The background refresh uses the same fetch and save.
   registerModelCatalogRefresher(async (id) => {

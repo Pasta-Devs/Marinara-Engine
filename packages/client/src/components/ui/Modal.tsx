@@ -24,6 +24,8 @@ interface ModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** Shown in the header instead of the title text; `title` still names the dialog. */
+  titleSlot?: ReactNode;
   children: ReactNode;
   /** Width class, e.g. "max-w-md", "max-w-lg" */
   width?: string;
@@ -56,6 +58,7 @@ export function Modal({
   open,
   onClose,
   title,
+  titleSlot,
   children,
   width = "max-w-md",
   contentRef,
@@ -262,7 +265,7 @@ export function Modal({
       >
         {/* Header */}
         <div className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER}`}>
-          <h2 className={NEUTRAL_PANEL_TITLE}>{localizedTitle}</h2>
+          {titleSlot ?? <h2 className={NEUTRAL_PANEL_TITLE}>{localizedTitle}</h2>}
           <button
             type="button"
             onClick={onClose}

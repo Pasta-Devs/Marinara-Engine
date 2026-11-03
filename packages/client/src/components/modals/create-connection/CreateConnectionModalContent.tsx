@@ -21,7 +21,9 @@ import {
   useDeleteConnection,
   useTestConnection,
   useUpdateConnection,
+  useAccessCheck,
 } from "../../../hooks/use-connections";
+import { accessCheckFields } from "../../connections/AccessCheck";
 import {
   useConnectionAccounts,
   useCreateConnectionAccount,
@@ -191,6 +193,15 @@ export function CreateConnectionModalContent({
   const isLocal = (provider === "custom" && service !== LINKAPI_SERVICE) || service === "decision:custom";
   const isMedia = !!provider && !isChatProvider(provider);
   const busy = createAccount.isPending || updateAccount.isPending || testConnection.isPending;
+  const accessCheck = useAccessCheck({
+    provider: step === 2 && !isMedia && !selectedMedia ? provider : null,
+    // Check the address Save will store, so "localhost:11434/v1" works here too.
+    baseUrl: withHttpScheme(baseUrl.trim()),
+    apiKey,
+  });
+  const check = accessCheckFields(accessCheck, { hasAddress: !!baseUrl.trim(), hasKey: !!apiKey.trim() }, t);
+  // A live check already failed: Connect would only fail again, so the one button saves without the test.
+  const checkFailed = !tested && (check.address.state === "warn" || check.key.state === "bad");
   const closeBlocked =
     finishing ||
     busy ||
@@ -806,6 +817,9 @@ export function CreateConnectionModalContent({
       : step === 1
         ? t("connections.add.heading.forProvider")
         : (presetName ?? serviceName(service ?? provider!));
+  // The account form names the account in the header; device and built-in screens have no name.
+  const nameInHeader =
+    step === 2 && !!provider && !device && service !== DECISION_BUILTIN && (!isMedia || !!selectedMedia);
   const goBack =
     step === 2
       ? backToList
@@ -848,12 +862,18 @@ export function CreateConnectionModalContent({
           <button
             type="button"
             data-add-connection-connect
-            onClick={() => void saveAndTest()}
+            onClick={() => void saveAndTest(checkFailed)}
             disabled={connectDisabled}
-            className={PRIMARY_CLASS}
+            className={checkFailed ? SECONDARY_CLASS : PRIMARY_CLASS}
           >
             {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-            {t(failure ? "connections.add.tryAgain" : "connections.add.connect")}
+            {t(
+              checkFailed
+                ? "connections.add.continueAnyway"
+                : failure
+                  ? "connections.add.tryAgain"
+                  : "connections.add.connect",
+            )}
           </button>
         </div>
       );
@@ -927,34 +947,47 @@ export function CreateConnectionModalContent({
       closeDisabled={closeBlocked}
       panelClassName={panelClass}
       contentClassName="flex flex-col overflow-hidden! p-0!"
+      titleSlot={
+        step !== 1 && (step === 2 || goBack) ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {goBack && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!closeBlocked) void goBack();
+                }}
+                disabled={closeBlocked}
+                aria-label={t("connections.add.back")}
+                title={t("connections.add.back")}
+                className="mari-editor-action shrink-0"
+              >
+                <ArrowLeft size="1.125rem" aria-hidden />
+              </button>
+            )}
+            {step === 2 && service && (
+              <ServiceTile service={service} baseUrl={baseUrl} name={presetName ?? undefined} />
+            )}
+            <h3
+              ref={headingRef}
+              tabIndex={-1}
+              className={cn("min-w-0 flex-1 text-sm font-semibold outline-none", nameInHeader && "sr-only")}
+            >
+              {heading}
+            </h3>
+            {nameInHeader && (
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={heading}
+                aria-label={t("connections.add.name")}
+                className="h-9 min-w-0 flex-1 rounded-lg border border-dashed border-[var(--border)] bg-transparent px-2 text-sm font-semibold outline-none focus:border-solid focus:border-[var(--primary)]"
+              />
+            )}
+          </div>
+        ) : undefined
+      }
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
-        {step !== 1 && (step === 2 || goBack) && (
-          <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
-            <div className="flex items-center gap-2">
-              {goBack && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!closeBlocked) void goBack();
-                  }}
-                  disabled={closeBlocked}
-                  aria-label={t("connections.add.back")}
-                  title={t("connections.add.back")}
-                  className="mari-editor-action shrink-0"
-                >
-                  <ArrowLeft size="1.125rem" aria-hidden />
-                </button>
-              )}
-              {step === 2 && service && (
-                <ServiceTile service={service} baseUrl={baseUrl} name={presetName ?? undefined} />
-              )}
-              <h3 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold outline-none">
-                {heading}
-              </h3>
-            </div>
-          </div>
-        )}
         <div key={String(step)} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
           {step === 1 && (
             <ServiceListStep
@@ -973,7 +1006,6 @@ export function CreateConnectionModalContent({
               device={device}
               selectedMedia={selectedMedia}
               def={def}
-              presetName={presetName}
               closeBlocked={closeBlocked}
               keyless={keyless}
               isLocal={isLocal}
@@ -987,8 +1019,8 @@ export function CreateConnectionModalContent({
               setBaseUrl={setBaseUrl}
               resetTest={resetTest}
               tested={tested}
-              name={name}
-              setName={setName}
+              check={check}
+              onRecheck={() => void accessCheck.recheck()}
               maxRpm={maxRpm}
               setMaxRpm={setMaxRpm}
               maxJobs={maxJobs}

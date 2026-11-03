@@ -440,6 +440,10 @@ function UsageKeySheet({
  * "Usage and balance" on the Connection page. Hidden where nothing can be read (a local server, a service without a
  * balance and without readable upstreams). Until the user allows outside reads it offers to turn them on.
  */
+/** Small capitals that head a section of the account form, as in the Connections panel groups. */
+export const SECTION_HEADING_CLASS =
+  "text-[0.625rem] font-semibold uppercase tracking-[0.06em] text-[var(--muted-foreground)]";
+
 export function ConnectionUsageSection({
   account,
   models,
@@ -468,7 +472,7 @@ export function ConnectionUsageSection({
   return (
     <section data-connection-usage className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-baseline gap-1.5 text-xs font-semibold text-[var(--foreground)]">
+        <h3 className={cn("flex items-baseline gap-1.5", SECTION_HEADING_CLASS)}>
           {t("connections.usage.title")}
           <span className="font-normal text-[var(--muted-foreground)]">
             {t("connections.usage.sources", { count: upstreams.length + 1 })}
@@ -485,40 +489,43 @@ export function ConnectionUsageSection({
           </button>
         )}
       </div>
-      {!allowed ? (
-        <div className="mari-connection-model-well flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3">
-          <p className="min-w-0 flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-            {t("connections.usage.consentNeeded")}
-          </p>
-          <button type="button" onClick={() => void outsideReads.ask()} className={SMALL_ACTION}>
-            {t("connections.usage.turnOn")}
-          </button>
-        </div>
-      ) : (
-        <ul className="mari-connection-model-well divide-y divide-[var(--border)]/60">
-          <OwnRow
-            account={account}
-            usageAnchorId={usageAnchorId}
-            refreshTick={refreshTick}
-            onKey={() => setSheet({ upstream: null })}
-          />
-          {upstreams.map((upstream) => (
-            <UpstreamRow
-              key={upstream}
+      {/* One card: the reads, then the meter switch at its foot. */}
+      <div className="mari-connection-model-well divide-y divide-[var(--border)]/60 overflow-hidden">
+        {!allowed ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3">
+            <p className="min-w-0 flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+              {t("connections.usage.consentNeeded")}
+            </p>
+            <button type="button" onClick={() => void outsideReads.ask()} className={SMALL_ACTION}>
+              {t("connections.usage.turnOn")}
+            </button>
+          </div>
+        ) : (
+          <ul className="divide-y divide-[var(--border)]/60">
+            <OwnRow
               account={account}
-              upstream={upstream}
-              accounts={accounts}
+              usageAnchorId={usageAnchorId}
               refreshTick={refreshTick}
-              onKey={() => setSheet({ upstream })}
+              onKey={() => setSheet({ upstream: null })}
             />
-          ))}
-        </ul>
-      )}
-      {plan && (
-        <div className="-mx-1.5">
-          <ToggleSetting label={t("connections.usage.showOnCard")} checked={showOnCard} onChange={onShowOnCard} />
-        </div>
-      )}
+            {upstreams.map((upstream) => (
+              <UpstreamRow
+                key={upstream}
+                account={account}
+                upstream={upstream}
+                accounts={accounts}
+                refreshTick={refreshTick}
+                onKey={() => setSheet({ upstream })}
+              />
+            ))}
+          </ul>
+        )}
+        {plan && (
+          <div className="px-1.5">
+            <ToggleSetting label={t("connections.usage.showOnCard")} checked={showOnCard} onChange={onShowOnCard} />
+          </div>
+        )}
+      </div>
       {sheet && (
         <UsageKeySheet account={account} upstream={sheet.upstream} accounts={accounts} onClose={() => setSheet(null)} />
       )}
