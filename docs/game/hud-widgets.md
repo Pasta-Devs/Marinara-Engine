@@ -21,7 +21,7 @@ The GM picks a type for each widget it creates. You can pick types yourself when
 
 ## Review widgets before the game starts
 
-When custom widgets exist, pressing **Start Game** opens the **Review Starting Widgets** window. It lists every starting widget so you can adjust them before the game locks them in.
+When custom widgets exist, a **Review Starting Widgets** button sits under **Start Game** on the game screen. Clicking it opens the **Review Starting Widgets** window before you start. It lists every starting widget so you can adjust them before the game locks them in.
 
 1. Press **Edit** on a widget to change its starting values or rename **Stat Block** fields.
 2. Press **Remove** to drop a widget you do not want.
