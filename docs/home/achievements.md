@@ -7,7 +7,7 @@ Achievements are cosmetic badges that unlock as you use Marinara Engine, for exa
 1. Go to the Home screen.
 2. Click the **Achievements** bookmark (trophy icon). On a phone, tap the bookmark button at the left of the tabs first.
 
-The **Achievements** window opens. At the top is a summary such as **12 of 24 achievements unlocked in this profile.** Below it is a grid of cards.
+The **Achievements** window opens. At the top is a summary such as **12 of 24 achievements unlocked in this profile.** A profile is your saved set of Marinara data. Below it is a grid of cards.
 
 - A locked card shows **?????** and a lock icon. You cannot read it until you unlock it.
 - An unlocked card shows an **unlocked** tag.
@@ -17,7 +17,7 @@ You can also add the **Achievements** widget to Home. Click **Widgets** in the b
 
 If it did not work: the bookmark, widget and window show only when the **Achievements** setting is on. See [Turn achievements on or off](#turn-achievements-on-or-off).
 
-Your progress is saved in the profile you use. A different profile or a fresh install starts with nothing unlocked. Unlocks travel with a full profile backup.
+Your progress is saved in the profile you use. A different profile or a fresh install starts with nothing unlocked. Unlocks are saved in a full backup.
 
 ## The 24 achievements
 
