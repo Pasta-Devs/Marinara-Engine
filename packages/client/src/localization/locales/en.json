@@ -15140,7 +15140,7 @@
   "ui.panels.appearancesettings.showsAnimatedWeatherParticlesBasedOnInStoryWeather": "Shows animated weather particles based on in-story weather and time of day. Requires the",
   "ui.panels.appearancesettings.showsEachChatsOwnBackgroundAsAMutedBanner": "Shows each chat's own background as a muted banner behind its row in the chat list.",
   "ui.panels.appearancesettings.small": "Small",
-  "ui.panels.appearancesettings.softensSelectedRoleplayAndGameModeBackgroundImagesBehind": "Softens selected Roleplay and Game mode background images behind the chat UI. Set to 0px to keep backgrounds sharp.",
+  "ui.panels.appearancesettings.softensSelectedRoleplayAndGameModeBackgroundImagesBehind": "Softens selected Conversation, Roleplay and Game mode background images behind the chat UI. Set to 0px to keep backgrounds sharp.",
   "ui.panels.appearancesettings.squareAvatars": "Square",
   "ui.panels.appearancesettings.switchBetweenDarkAndLightModeDarkModeIs": "Switch between dark and light mode. Dark mode is easier on the eyes in low-light environments.",
   "ui.panels.appearancesettings.textOutlineStroke": "Text Outline / Stroke",
