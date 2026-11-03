@@ -1,6 +1,13 @@
 # Appearance Settings
 
-The **Appearance** tab changes how Marinara looks: colors, text size, chat layout and message styling for each chat mode. Fonts, backgrounds and custom CSS themes have their own guides, linked below.
+The **Appearance** tab changes how Marinara looks: colors, text size, chat layout and message styling for each chat mode. 
+
+Looking for something else?
+
+- A different font: [Custom Fonts and Google Fonts](fonts.md).
+- A chat background image: [Chat Backgrounds](chat-backgrounds.md).
+- A custom theme (**Settings → Addons → Theme Library**): [Custom CSS Themes](custom-css-themes.md).
+- A character's own look in chat: [Card CSS Theming Guide](card-css-theming.md).
 
 ## Opening the Appearance settings
 
@@ -23,7 +30,7 @@ To start over, click **Reset Appearance** at the top of **App Style**. It resets
 
 ### Color Scheme and Visual Style
 
-In **App Style**, the **Color Scheme** dropdown has **Dark** (the default) and **Light**. Colors with separate dark and light defaults follow it until you set your own.
+In **App Style**, the **Color Scheme** dropdown has **Dark** (the default) and **Light**. The app changes at once. Colors with separate dark and light defaults follow it until you set your own.
 
 **Visual Style** has two cards. **Default (Marinara)** is a retro Y2K look with glow effects. **SillyTavern** is a clean, minimal look. It changes the look only and has nothing to do with importing from SillyTavern.
 
@@ -34,7 +41,7 @@ Both accept a plain color or a gradient, a smooth blend of two or more colors. C
 | Setting | What it colors | Default |
 | --- | --- | --- |
 | **Background Color** | The main app shell. | `#050312` in Dark, `#faf8ff` in Light |
-| **Accent Color** | Buttons, active icons, focus rings, highlights, panel outlines and chat chrome. | **Marinara Gradient**, a pink, orange and cyan blend |
+| **Accent Color** | Buttons, active icons, focus rings, highlights, panel outlines and the controls around the chat. | **Marinara Gradient**, a pink, orange and cyan blend |
 
 A value such as `#050312` is a hex color code, a short way to write a color.
 
@@ -59,7 +66,20 @@ At the bottom of **App Style**, pick **Default**, **Dottore** or **Prof. Mari** 
 
 In **Text & Scale**:
 
-- **Display Size** sets the base text size for the whole app on this device. The choices are **Tiny** (12 px), **Small** (14 px), **Medium** (16 px), **Default** (17 px), **Large** (19 px), **Huge** (22 px), **Extra large** (26 px), **Extra extra large** (30 px) and **Maximum** (34 px).
+- **Display Size** sets the base text size for the whole app on this device. The change applies at once. Choose one of these:
+
+| Choice | Size |
+| --- | --- |
+| **Tiny** | 12 px |
+| **Small** | 14 px |
+| **Medium** | 16 px |
+| **Default** | 17 px |
+| **Large** | 19 px |
+| **Huge** | 22 px |
+| **Extra large** | 26 px |
+| **Extra extra large** | 30 px |
+| **Maximum** | 34 px |
+
 - **Chat Font Size** is a slider for chat message text, from 12 px to 72 px. The default is 16 px.
 
 The **Font** dropdown is in the same section. See [Custom Fonts and Google Fonts](fonts.md).
@@ -70,7 +90,7 @@ Also in **Text & Scale**:
 
 - **Chat Text Color** is the main message text color. The default is `#d4d4d4` in Dark and `#1a1025` in Light.
 - **Default Dialogue Color** colors quoted dialogue when a character or persona has no Dialogue Highlight Color of its own. Card colors win. While **Apply preset colors** is on, dialogue uses the chat style's text color.
-- **Chat Chrome Text Color** sets ordinary text in tracker widgets, folder labels and settings descriptions. It has the same defaults as **Chat Text Color**.
+- **Chat Chrome Text Color** sets the text of the controls around the chat: tracker widgets, folder labels and settings descriptions. It has the same defaults as **Chat Text Color**.
 - **Text Outline / Stroke** adds an outline so text stays readable over busy backgrounds. Set the color and a **Width** from 0 to 5 px. The default is 0.5 px, and 0 turns it off.
 
 Clearing a color field returns it to the scheme default.
