@@ -69,6 +69,11 @@ assert.match(
   "While Mari works the composer must show Stop on an empty field and a Send that opens the choice otherwise",
 );
 assert.doesNotMatch(mariComposerSource, /send-more/u, "The send chevron is gone; Send itself opens the choice");
+assert.match(
+  mariComposerSource,
+  /title=\{t\("mari\.queue\.later"\)\}[\s\S]{0,200}handleSubmit\(undefined, undefined, undefined, true\)/u,
+  "Send after her answer must queue the message instead of steering",
+);
 assert.doesNotMatch(mariChatAll, /mari-omnibar-header-stop|mari-live-work__stop/u, "Stop lives only in the composer");
 assert.match(
   mariWorkTimelineSource,
