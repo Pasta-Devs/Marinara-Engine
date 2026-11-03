@@ -11,6 +11,7 @@ import { presetKeys } from "./use-presets";
 import { useApplyChatPreset, useChatPresets } from "./use-chat-presets";
 import { connectionListQuery } from "./use-connections";
 import { postGreetingWithSwipes } from "../lib/message-swipes";
+import { setupStageClosedChats } from "../lib/chat-setup-stage";
 import { readCardWithQuestions } from "../lib/onboarding-add-card";
 import { keepExistingSetup, pickSetupSource, readSetupFields, setupMemoryFrom } from "../lib/chat-setup-memory";
 
@@ -96,9 +97,10 @@ export function useStartChatFromCharacter() {
             // Roleplay and conversation open straight into the chat with its setup stage.
             if (!useWizard) {
               // With a remembered setup the stage opens once the copy has landed.
-              if (!source) store.setSetupStageChatId(chat.id);
-            }
-            else {
+              // Held back from the stage's own auto-open until then.
+              if (source) setupStageClosedChats.add(chat.id);
+              else store.setSetupStageChatId(chat.id);
+            } else {
               store.setShouldOpenSettings(true);
               store.setShouldOpenWizard(true);
             }
@@ -110,7 +112,11 @@ export function useStartChatFromCharacter() {
                   const defaults = readSetupFields(chat);
                   const fetchIds = async (queryKey: readonly unknown[], path: string, field = "id") => {
                     const rows = await queryClient
-                      .ensureQueryData({ queryKey, queryFn: () => api.get<Array<Record<string, unknown>>>(path), staleTime: 60_000 })
+                      .ensureQueryData({
+                        queryKey,
+                        queryFn: () => api.get<Array<Record<string, unknown>>>(path),
+                        staleTime: 60_000,
+                      })
                       .catch(() => null);
                     return rows ? new Set(rows.map((row) => String(row[field]))) : null;
                   };

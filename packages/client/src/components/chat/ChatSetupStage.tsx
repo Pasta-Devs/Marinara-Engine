@@ -45,7 +45,7 @@ import { usePresetFull, usePresets } from "../../hooks/use-presets";
 import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useChatPresets } from "../../hooks/use-chat-presets";
-import { usePersonas } from "../../hooks/use-characters";
+import { useCharacter, usePersonas } from "../../hooks/use-characters";
 import {
   deriveActiveLorebookViews,
   getChatActiveLorebookIds,
@@ -63,9 +63,21 @@ import {
   stageTagline,
   chatTurnTaken,
   focusChatComposer,
+  setupStageClosedChats,
 } from "../../lib/chat-setup-stage";
+import { readCardWithQuestions } from "../../lib/onboarding-add-card";
 import { cn } from "../../lib/utils";
 import type { CharacterMap, MessageWithSwipes, PersonaInfo } from "./chat-area.types";
+
+/** A card with character questions starts in the setup wizard, never on the stage (same rule as chat creation). */
+function cardAsksQuestions(row: unknown): boolean {
+  try {
+    const data = (row as { data?: unknown }).data;
+    return readCardWithQuestions(typeof data === "string" ? JSON.parse(data) : data) !== null;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Whether a new roleplay or conversation chat shows its setup stage, and the Begin action that ends it.
@@ -76,8 +88,10 @@ export function useChatSetupStage(input: {
   chatMeta: Record<string, unknown>;
   messages: ReadonlyArray<{ role: string; chatId: string }> | undefined;
   characterNames: string[];
+  /** The chat's messages are still being fetched; the stage never opens by itself meanwhile. */
+  isLoading: boolean;
 }) {
-  const { chat, chatMeta, messages, characterNames } = input;
+  const { chat, chatMeta, messages, characterNames, isLoading } = input;
   const stageChatId = useChatStore((s) => s.setupStageChatId);
   const updateMeta = useUpdateChatMetadata();
   const updateChat = useUpdateChat();
@@ -93,6 +107,7 @@ export function useChatSetupStage(input: {
     (focusComposer: boolean) => {
       const store = useChatStore.getState();
       if (!chat || store.setupStageChatId !== chat.id) return;
+      setupStageClosedChats.add(chat.id);
       const draft = store.pendingNewChatSetups[chat.id];
       store.setSetupStageChatId(null);
       store.clearPendingNewChatSetup(chat.id);
@@ -124,6 +139,39 @@ export function useChatSetupStage(input: {
   useEffect(() => {
     if ((turnTaken || generating) && stageChatId === chat?.id) complete(false);
   }, [turnTaken, generating, stageChatId, chat?.id, complete]);
+
+  // A chat that has not started shows its stage when opened, not only right after creation. The
+  // stage owns the chat from then on, so every `setupStageChatId === chat.id` rule stays shared.
+  // Games, hosted rooms and cards whose questions open the wizard keep their own setup.
+  const chatId = chat?.id;
+  const mayAsk = chat?.mode === "roleplay" && !isLoading && messages !== undefined;
+  const card = useCharacter(mayAsk ? (chat?.characterIds?.[0] ?? null) : null);
+  const eligible =
+    !isLoading &&
+    messages !== undefined &&
+    !!chatId &&
+    !setupStageClosedChats.has(chatId) &&
+    !chatMeta.multiplayer &&
+    chatMeta.multiplayerSetup !== true &&
+    !card.isLoading &&
+    !(card.data && cardAsksQuestions(card.data)) &&
+    shouldShowSetupStage({
+      chatId,
+      mode: chat?.mode,
+      stageChatId: chatId,
+      setupComplete: chatMeta.conversationSetupComplete,
+      messages,
+    });
+  const decided = !isLoading && messages !== undefined && !card.isLoading;
+  useEffect(() => {
+    if (!chatId || !decided) return;
+    const store = useChatStore.getState();
+    if (eligible) {
+      if (store.setupStageChatId !== chatId) store.setSetupStageChatId(chatId);
+    } else if (store.setupStageChatId && store.setupStageChatId !== chatId) {
+      store.setSetupStageChatId(null);
+    }
+  }, [chatId, decided, eligible]);
 
   return { visible, complete };
 }

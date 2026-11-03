@@ -1538,7 +1538,13 @@ export function ChatRoleplaySurface({
     () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
     [chatCharIds, characterMap],
   );
-  const setupStage = useChatSetupStage({ chat, chatMeta, messages, characterNames: stageCharacterNames });
+  const setupStage = useChatSetupStage({
+    chat,
+    chatMeta,
+    messages,
+    characterNames: stageCharacterNames,
+    isLoading,
+  });
   const welcomeBack = useWelcomeBack({ chat, chatMeta, messages, blocked: setupStage.visible });
   const activeChatCharacterIds = useMemo(() => {
     const inactiveIds = new Set(readStringArray(chatMeta.inactiveCharacterIds));

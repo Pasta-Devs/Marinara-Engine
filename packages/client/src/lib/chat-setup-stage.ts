@@ -17,6 +17,12 @@ export function shouldShowSetupStage(input: {
 }
 
 /**
+ * Chats whose stage must not open by itself in this session: the user ended it, or a new-chat flow
+ * is still preparing it and opens it explicitly. A reload clears the set on purpose.
+ */
+export const setupStageClosedChats = new Set<string>();
+
+/**
  * Setup ends with the first turn: a user message, or any message beyond the roleplay opening greeting
  * (conversation chats get no greeting, so an autonomous message counts too). Right after a chat switch the
  * list can still hold the previous chat's messages, so only this chat's count.
