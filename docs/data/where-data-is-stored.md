@@ -16,7 +16,7 @@ To move the folder, set `DATA_DIR` and restart Marinara. See the [Server Configu
 
 ## What is inside
 
-Your text data is in the `storage` folder: characters, chats, messages, lorebooks, presets and connections. Marinara saves it as many small files grouped by owner, for example one chat's messages in their own files, so changing one item does not rewrite one huge file. When Marinara upgrades from the older storage layout, it keeps the original table files next to the new folders and adds the suffix `.pre-shard` to their names.
+Your text data is in the `storage` folder: characters, chats, messages, lorebooks, presets and connections. Marinara saves it as many small files grouped by owner, for example one chat's messages in their own files, so changing one item does not rewrite one huge file. When Marinara upgrades from the older storage layout, it keeps the original table files in `storage/tables/` and adds the suffix `.pre-shard` to their names.
 
 Your images, audio and other files are in their own folders next to `storage`. The folder names are:
 
