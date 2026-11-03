@@ -88,7 +88,7 @@ With no login set, the server accepts only trusted sources: loopback, addresses 
 | `DATA_DIR` | `packages/server/data` | Root folder for all user data. Docker images set `/app/data`. |
 | `FILE_STORAGE_DIR` | `storage` inside `DATA_DIR` | Overrides the file-storage folder. |
 | `ENCRYPTION_KEY` | empty | Key that encrypts saved API keys. |
-| `MARINARA_MAX_RESIDENT_CHATS` | `0` (unlimited); `8` on SteamOS and Termux | Most chats kept in memory at once. Past the cap, the least recently used chat with no unsaved changes leaves memory (never disk) after each save. Invalid text falls back to the platform default. Values below `2` become `2`. `0` turns eviction off. |
+| `MARINARA_MAX_RESIDENT_CHATS` | `0` (unlimited); `8` on SteamOS and Termux | Most chats kept in memory at once. Past the cap, the least recently used chat with no unsaved changes leaves memory (never disk) after each save. Invalid text falls back to the platform default. Positive values below `2` become `2`. `0` turns eviction off. |
 | `MARINARA_EAGER_STORAGE` | off | `1` loads every chat at startup, as before 2.4.5. Uses much more memory on large profiles. Needs a restart. |
 
 Generate an encryption key and paste it into `ENCRYPTION_KEY`:

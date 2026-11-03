@@ -1,6 +1,6 @@
 # Professor Mari, Your In-App Assistant
 
-Professor Mari is the built-in assistant on the Home screen. She explains the app, helps you set it up, and creates or edits characters, personas, lorebooks and presets for you. Every change she makes can be undone.
+Professor Mari is the built-in assistant on the Home screen. She explains the app, helps you set it up, and creates or edits characters, personas, lorebooks and presets for you. You can undo her changes from the change card for a limited time (see [Reviewing her changes](#reviewing-her-changes)).
 
 ## Where to find her
 
@@ -18,11 +18,12 @@ All her settings are under **Settings → General → Search and Professor Mari 
 Before you start: add an account for text generation. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) and [Pick an account for her](#pick-an-account-for-her).
 
 1. Open her window (see above).
-2. Click the **Create a character** chip. It fills the message box.
-3. Add your idea to the text, for example the name and personality, then press <kbd>Enter</kbd>.
-4. Answer her questions. Pick an option or type your own, then click **Submit**.
-5. When she finishes, click **Open** on the result to see the new character.
-6. If you do not like a change, click **Undo** on its change card.
+2. If the chat already has messages, click **New chat** first. The current chat is saved in **Chats**.
+3. Click the **Create a character** chip. It fills the message box. If no chip shows, type your request instead.
+4. Add your idea to the text, for example the name and personality, then press <kbd>Enter</kbd>.
+5. Answer her questions. Pick an option or type your own, then click **Submit**.
+6. When she finishes, click **Open** on the result to see the new character.
+7. If you do not like a change, click **Undo** on its change card.
 
 If it did not work: with no account added, the **Connections** list opens when you press send. Pick or add an account there.
 
@@ -70,7 +71,7 @@ On a phone, tap an account to use it, or tap the arrow at the end of its row to 
 
 When she changes something, she saves it at once and shows a change card under her answer. The card lists each field that changed. A text edit shows the old and new words. **Show all** shows every field, and **Technical details** shows the raw command.
 
-The card has one action: **Undo**. It puts back the previous saved version. Every change can be undone in every permissions mode. The permissions mode only decides whether she asks first.
+The card has one action: **Undo**. It puts back the previous saved version. While its undo copy is kept, every change can be undone in every permissions mode. The permissions mode only decides whether she asks first.
 
 - **Not saved** with a reason means the change failed. **Try again** asks her again.
 - **Undo until** shows only in the last 24 hours. An undo copy lasts up to 14 days, and only the newest 50 are kept. After that, the card reads **Undo closed** and the change stays.

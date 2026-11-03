@@ -7,9 +7,9 @@ Short answers to common questions about Marinara Engine. Each one links to the g
 Marinara runs as a server on one computer, and you open it in a browser. The start scripts let other devices reach the server, but access control blocks them until you set a login (a username and password) on the host computer. Until then, a remote device only sees an **Access blocked** page.
 
 1. Keep Marinara running on the host computer.
-2. Set a login. From the other device, open Marinara: the blocked page has a **Setup code** form. Find the one-time code in the server log on the host computer (in Docker, run `docker logs <container> 2>&1 | grep "setup code"`), then type it with a new username and password. Or, in a browser that is already signed in on the host, open **Settings → Advanced → Access**.
-3. Find the host's local IP address. On Windows, run `ipconfig` and read **IPv4 Address**. On macOS or Linux, run `hostname -I`.
-4. On the other device, open `http://<host IP>:7860` in a browser, for example `http://192.168.1.42:7860`. `7860` is the default port.
+2. Find the host's local IP address. On Windows, run `ipconfig` and read **IPv4 Address**. On macOS or Linux, run `hostname -I`.
+3. On the other device, open `http://<host IP>:7860` in a browser, for example `http://192.168.1.42:7860`. `7860` is the default port.
+4. Set a login. From the other device, open Marinara: the blocked page has a **Setup code** form. Find the one-time code in the server log on the host computer (in Docker, run `docker logs <container> 2>&1 | grep "setup code"`), then type it with a new username and password. Or, in a browser that is already signed in on the host, open **Settings → Advanced → Access**.
 5. Sign in. To add more devices without typing the password, use **Add a device** in **Settings → Advanced → Access**.
 
 The same computer (`127.0.0.1`) needs no password on ordinary desktop installs. A reverse proxy on the same computer counts as a remote visitor and needs the login. For all options, setup codes and Docker, see [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended). For devices on different networks, a tool like Tailscale gives each device a stable private address. If you cannot connect, see [Troubleshooting](TROUBLESHOOTING.md).
