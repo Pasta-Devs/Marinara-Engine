@@ -259,7 +259,7 @@ Held ground can let go: the showcase's year turning. Its `release` says what the
 "release": { "felled": "die", "owing": { "track": "owing", "bonus": { "flag": "hymn_bonus" } } }
 ```
 
-`felled` is what becomes of whoever lies felled: they die (`"die"`, the default) or go down and start dying by the ruleset's own rule (`"down"`). `owing` makes each of the party roll one of the ruleset's dying saves for each mark on `track` (the held ground's first marked track when not said), `bonus` added to each (a number, or a number flag read as it lets go), until the marks run out or the count is decided; the marks are spent, and three failures are death. In a ruleset fight still on it, it lets go in the very step that turns it: an item's use that spends the story number its `if` reads, or a prop broken that a `broke` event answers, and the flags events those set off. The felled and the Owing come due in that round, by the fight's own release. Out of a fight, the story turn that records it rolls each member's Owing off their own sheet and tells the Game Master who lived and who died; a fight left unfinished on it lets go on its next step. What a fight let go is never rolled twice.
+`felled` is what becomes of whoever lies felled: they die (`"die"`, the default) or go down and start dying by the ruleset's own rule (`"down"`). `owing` makes each of the party roll one of the ruleset's dying saves for each mark on `track` (the held ground's first marked track when not said), `bonus` added to each (a number, or a number flag read as it lets go), until the marks run out or the count is decided; the marks are spent, and three failures are death. In a ruleset fight still on it, it lets go in the step that turns it: an item's use that spends the story number its `if` reads, or a prop broken that a `broke` event answers, and the flags events those set off. The felled and the Owing come due in that round, by the fight's own release. Out of a fight, the story turn that records it rolls each member's Owing off their own sheet and tells the Game Master who lived and who died; a fight left unfinished on it lets go on its next step. What a fight let go is never rolled twice.
 
 ### Seasons
 
@@ -384,6 +384,8 @@ Use `GET` on the same address to read the saved story and `DELETE` to remove it.
 
 Each story feature needs a minimum Capability API version.
 
+- a `broke` event needs 1.316;
+- `intro` needs 1.339, and an Experience's `contributions.gameSurface.setup.defaults.intro` needs 1.372;
 - clocks need 1.342;
 - fights, endings, and the `give`, `fight`, `move` and `ending` actions need 1.343;
 - music cues need 1.345;
@@ -394,8 +396,11 @@ Each story feature needs a minimum Capability API version.
 - more than 64 flags need 1.353 (the limit is 256);
 - fight `variants` need 1.356;
 - `any` conditions, a `fight` event naming its fight, a `leave` event, a flag's `min` or `max`, and an `if` on an action or a page need 1.358;
+- an item use that spends a story number, read by an event's `if`, needs 1.359;
 - a `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants need 1.360;
+- a `noncombatant` companion, left out of the party size, needs 1.360;
 - a `season` action `over` everything inside it needs 1.361;
+- ranking of which knowledge entries are told each turn (people the scene names first) needs 1.361;
 - `exposures` need 1.362;
 - fight creatures that `adjust` need 1.363;
 - an exposure `save` or a track's `upTo` needs 1.364;
