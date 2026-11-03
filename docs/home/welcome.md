@@ -37,7 +37,7 @@ You pick a mode when you start a chat.
 - **Roleplay**: roleplay with characters, scene tracking and world state. See [Roleplay Mode: Getting Started](../roleplay/getting-started.md).
 - **Game**: a single-player game run by an AI Game Master, with a party, dice, maps and quests. See [Game Mode: Getting Started](../game/getting-started.md).
 
-## Show, hide and move Home widgets
+## Home widgets
 
 Widgets are small cards you can show, hide and move.
 
