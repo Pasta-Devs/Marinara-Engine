@@ -170,6 +170,8 @@ try {
   assert.ok(!checkProfile.includes(subpath(pnpmHome)), "but not the rest of pnpm's home");
   assert.ok(!checkProfile.includes(subpath(realpathSync(tmpdir()))), "a stray pnpm opens nothing around it");
   const shellProfile = await buildMacosWorkspaceShellProfile(workspace, pnpmEnv, sandboxTemp, true, "/bin/bash", true);
+  // The check's "no /dist(- rule" above means something only while every other command keeps that rule.
+  assert.ok(shellProfile.includes("/dist(-"), "other commands keep the build-output rule");
   assert.ok(!shellProfile.includes(subpath(pnpmTools)), "other commands never read them");
   const checkBwrap = (
     await linuxBubblewrapArgs(workspace, pnpmEnv, tmpdir(), "/bin/bash", ["-c", "true"], true, true)
