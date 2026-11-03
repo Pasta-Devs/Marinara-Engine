@@ -4,7 +4,7 @@ A preset variable is a labeled choice built into a prompt preset. The preset's a
 
 You name the variable, write a question, and list options. Then you type the name in double braces, like `{{tone}}`, in any prompt section. When the AI generates a reply, Marinara replaces `{{tone}}` with the option value the user picked.
 
-Preset variables need a prompt preset, so they work in Roleplay and Game chats. They do not apply in Conversation chats, which use a single prompt text instead of sections. For presets themselves, see [Preset Editor and Prompt Manager](presets.md).
+Preset variables need a prompt preset, so they work in Roleplay chats. They do not apply in Conversation or Game chats, which use a single prompt text instead of sections. For presets themselves, see [Preset Editor and Prompt Manager](presets.md).
 
 ## The kinds of preset variable
 
