@@ -1,87 +1,77 @@
 # Exporting and Importing Chats
 
-This guide shows how to save a chat to a file and load a chat back into Marinara Engine. You can export one chat or many chats at once, and you can save a single chat as a readable story to share. You can also import a chat file that came from Marinara or from SillyTavern (another roleplay chat app).
+Save a chat to a file, share it as a readable story, or load a chat file from Marinara or SillyTavern (another roleplay chat app) back in. You can export one chat, part of a chat, or many chats at once.
 
 ## File formats you will see
 
-Marinara can save a chat in four formats.
+| Format | What it is | Import it back? |
+| --- | --- | --- |
+| **JSONL** | JSON Lines, a plain text file with one message per line. The default format. | Yes |
+| **Text** | A readable `.txt` transcript. | No |
+| **Markdown** | A readable `.md` file. It starts with the chat name and the dates it covers, then each message under its speaker's name. | No |
+| **Story** | A styled `.html` web page with each speaker's name and avatar. Open it in a browser to read, share or print it. | No |
 
-- **JSONL**: JSONL means JSON Lines. It is a plain text file that saves one message per line. This is the default export format. You can import a JSONL file back into Marinara later.
-- **Text**: A plain, readable `.txt` transcript. It is easy to read and share, but Marinara cannot import it back in. Use **Text** only when you want a human to read the chat.
-- **Markdown**: A readable `.md` file. It starts with the chat name and the dates it covers, then gives each message under its speaker's name.
-- **Story**: A styled `.html` web page. It shows each message with the speaker's name and avatar. Open it in any web browser to read, share, or print it.
+**Markdown** and **Story** files leave out system messages and messages hidden from you. Chat import accepts `.jsonl` only, so export as **JSONL** if you want to import the chat later.
 
-**Markdown** and **Story** files leave out system messages and messages hidden from you.
-
-The chat import feature accepts a `.jsonl` file only. If you want to re-import a chat later, export it as **JSONL**, not **Text**, **Markdown**, or **Story**.
-
-A **JSONL** file leaves out a few addresses saved with the chat: the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Importing a chat never brings them in either. If you use them, enter them again in the imported chat's **Chat Settings**.
+A **JSONL** file leaves out a few addresses saved with the chat: the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Importing never brings them in either. Enter them again in the imported chat's **Chat Settings** if you use them.
 
 ## Export a single chat
 
-To export one chat to a file, use the **Chat Branches** section of **Chat Settings**. This is the quickest way to export chat history for a single conversation.
+1. Open the chat.
+2. Open **Chat Settings** and expand **Chat Branches**, under **Chat Name**. The export buttons are in this section even if the chat has only one branch.
+3. Tap **JSONL**, **Text**, **Markdown** or **Story**.
 
-1. Open the chat you want to export.
-2. Open **Chat Settings** and expand the **Chat Branches** section, under **Chat Name**.
-3. Click **JSONL** to save the chat as a JSONL file, **Text** for a readable text file, **Markdown** for a Markdown file, or **Story** for a styled web page.
-4. Your browser downloads the file.
+Your browser downloads the file. It holds the branch you are viewing, with its messages.
 
-The download saves the chat that is currently open, including its messages.
+## Export part of a chat
+
+Use **Export a range** to save only some messages. It is not available in Game chats.
+
+1. In **Chat Branches**, click **Export a range**.
+2. Click the first message, then the last message. A hint reads "Select the first and last message to export."
+3. Click **Export selected**.
+4. In the **Export messages** dialog, check the message count and the first and last message, then choose **Text**, **Markdown**, **JSONL** or **Story**.
+
+Marinara exports every message from the first to the last one you picked. Click **Cancel** to stop without exporting.
 
 ## Export several chats at once
 
-You can select many chats and download them together in one `.zip` file.
+1. In the left sidebar, click the tab for the mode you want: **CONVO**, **RP** or **GM**. Each tab exports only its own chats.
+2. Click **Select chats** at the top of the list.
+3. Click each chat you want. A bar at the bottom shows the count, such as "3 selected".
+4. Click **Export** in the bar.
 
-1. Open the chat list in the left sidebar.
-2. Pick the mode tab you want: **CONVO** (Conversation), **RP** (Roleplay), or **GM** (Game). Each tab exports only its own chats.
-3. Click the **Select chats** button at the top of the chat list.
-4. Click each chat you want to include. A checkbox turns on for each one.
-5. A bar appears at the bottom showing the count, for example "3 selected".
-6. Click **Export** in that bar.
-7. Your browser downloads a `.zip` file of JSONL transcripts, one file per chat.
-
-The bulk export always uses the **JSONL** format. Click **Delete** in the same bar only if you want to remove the selected chats instead.
+Your browser downloads a `.zip` file with one JSONL transcript per chat. Bulk export always uses **JSONL**. See [Managing Your Chat List](managing-chats.md#selecting-multiple-chats).
 
 ## Import a chat as a new chat
 
-This creates a brand new chat from a `.jsonl` file. Use it to import chat files saved by Marinara or exported from SillyTavern.
+This makes a new chat from a `.jsonl` file saved by Marinara or exported from SillyTavern.
 
-1. Open the chat list in the left sidebar.
-2. Pick the mode tab you want: **CONVO**, **RP**, or **GM**. Marinara creates the imported chat in the tab you have open right now.
-3. Click the import button next to the **New** button at the top of the list. Its tooltip reads **Import SillyTavern or Marinara chat JSONL**.
-4. Choose your `.jsonl` file in the file picker.
-5. You should see a message that says "Imported N messages", and Marinara switches you into the new chat.
+1. In the left sidebar, click the tab for the mode you want. The imported chat uses the mode of the tab you have open, not the mode in the file.
+2. Click the **Import** button next to the **+** button. Its label is **Import SillyTavern or Marinara chat JSONL**.
+3. Choose your `.jsonl` file.
 
-If you want the new chat in Roleplay mode, open the **RP** tab before you import. The tab you have open sets the mode, not the file.
+You see "Imported N messages", and Marinara opens the new chat. For SillyTavern files in more depth, see [Importing from SillyTavern](../data/importing-from-sillytavern.md).
+
+If it did not work: a small message at the bottom of the screen reads **Import failed** with the reason. Check that the file ends in `.jsonl`.
 
 ## Import a chat as a new branch
 
-You can also load a `.jsonl` file into an existing chat as a new branch. A branch is a separate saved copy of a chat that you can explore on its own. See [Chat Branches](branches.md) for more about branches.
+This loads a `.jsonl` file into a chat you already have, as a new branch. See [Chat Branches](branches.md).
 
-1. Open the chat you want to add the branch to.
-2. Open **Chat Settings** and expand the **Chat Branches** section.
-3. Click **Import** in that section.
-4. Choose your `.jsonl` file.
-5. You should see a message that says "Imported N messages as a new branch".
+1. Open the chat that should get the branch.
+2. Open **Chat Settings**, expand **Chat Branches**, and click **Import**.
+3. Choose your `.jsonl` file.
 
-The new branch joins the open chat. It reuses the open chat's characters, persona, connection, and prompt preset.
+You see "Imported N messages as a new branch". The branch reuses the open chat's characters, persona, connection and prompt preset.
 
-## Include reasoning in exports
+## Include reasoning and private notes in exports
 
-Some models save hidden thinking or reasoning text with a reply. A setting decides whether that hidden text goes into your export files.
+Two settings decide whether hidden text goes into export files. Both are toggles in **Settings → Advanced → Message Tools**, and both are off by default. They affect single-chat and `.zip` exports.
 
-The setting is **Include reasoning in exports**. You find it in **Settings**, on the **Advanced** tab, in the **Message Tools** section. It is a toggle, and it is **off** by default.
+| Setting | When on |
+| --- | --- |
+| **Include reasoning in exports** | Adds the model's saved thinking to every format. In **Markdown** and **Story** files it sits in a collapsible **Thinking** section under the message. |
+| **Include private notes in exports** | Adds your private message notes to **JSONL** and **Text** exports. |
 
-- When it is **off**, Marinara leaves saved thinking and reasoning text out of all chat exports.
-- When it is **on**, Marinara adds that hidden thinking and reasoning text to every format. In **Markdown** and **Story** files, it sits in a collapsible **Thinking** section under the message.
-
-This setting affects both single-chat exports and bulk `.zip` exports.
-
-Keep **Include reasoning in exports** off before you share a transcript with someone else. The hidden reasoning can contain notes you did not mean to send along. Turn it on only when you want a full record for yourself.
-
-## Related guides
-
-- [Chat Branches](branches.md)
-- [Importing from SillyTavern](../data/importing-from-sillytavern.md)
-- [Backup and Restore](../data/backup-and-restore.md)
-- [Settings Overview](../settings/settings-overview.md)
+> **Warning:** Keep both off before you share a transcript. Hidden reasoning and private notes can hold things you did not mean to send.
