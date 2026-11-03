@@ -2551,7 +2551,12 @@ function buildGameAssetsLocalMusicBlock(settings: Record<string, unknown>): stri
   const folder = normalizeCustomMusicFolder(settings.customMusicFolder ?? settings.localMusicFolder);
   const folderPrefix = folder === "music" ? "music/" : `${folder}/`;
   const tracks = (getAssetManifest().byCategory.music ?? [])
-    .filter((entry) => entry.path === folder || entry.path.startsWith(folderPrefix))
+    .filter(
+      (entry) =>
+        (entry.path === folder || entry.path.startsWith(folderPrefix)) &&
+        // A Music & Sound Effects connection's test sample is a diagnostic, not a track to play.
+        !entry.path.startsWith("music/contexts/connection-test/"),
+    )
     .sort((a, b) => a.path.localeCompare(b.path))
     .slice(0, 120);
 
