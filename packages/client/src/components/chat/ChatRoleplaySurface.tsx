@@ -93,6 +93,7 @@ import type {
 } from "./chat-area.types";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { ChatSetupStage, useChatSetupStage } from "./ChatSetupStage";
+import { ChatWelcomeBack, useWelcomeBack } from "./ChatWelcomeBack";
 import {
   gameStoryboardKeys,
   useGameChatStoryboards,
@@ -1538,6 +1539,7 @@ export function ChatRoleplaySurface({
     [chatCharIds, characterMap],
   );
   const setupStage = useChatSetupStage({ chat, chatMeta, messages, characterNames: stageCharacterNames });
+  const welcomeBack = useWelcomeBack({ chat, chatMeta, messages, blocked: setupStage.visible });
   const activeChatCharacterIds = useMemo(() => {
     const inactiveIds = new Set(readStringArray(chatMeta.inactiveCharacterIds));
     const activeIds = chatCharIds.filter((id) => !inactiveIds.has(id));
@@ -2034,6 +2036,15 @@ export function ChatRoleplaySurface({
                           : undefined
                       }
                     >
+                      {welcomeBack.visible && chat && msg.id === messages?.at(-1)?.id && (
+                        <ChatWelcomeBack
+                          variant="roleplay"
+                          chat={chat}
+                          chatMeta={chatMeta}
+                          characterNames={stageCharacterNames}
+                          onClose={welcomeBack.close}
+                        />
+                      )}
                       {isRegenerating ? (
                         <RegeneratingMessageContent
                           msg={msg}

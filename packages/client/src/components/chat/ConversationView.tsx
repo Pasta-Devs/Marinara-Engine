@@ -99,6 +99,8 @@ interface ConversationViewProps {
   onSetActiveSwipe: (messageId: string, index: number) => void;
   /** A new chat's setup stage, shown above the first message in place of the welcome line. */
   setupStage?: ReactNode;
+  /** The welcome-back card of an older chat, shown above its latest message. */
+  welcomeBack?: ReactNode;
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onPeekPrompt: (messageId?: string) => void;
   onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
@@ -393,6 +395,7 @@ export function ConversationView({
   replyCheckup,
   onSetActiveSwipe,
   setupStage,
+  welcomeBack,
   onToggleHiddenFromAI,
   onPeekPrompt,
   onIllustrate,
@@ -1415,6 +1418,7 @@ export function ConversationView({
 
           return (
             <Fragment key={item.key}>
+              {welcomeBack && msg.id === messages?.at(-1)?.id && welcomeBack}
               <ConversationMessage
                 key={msg.id}
                 message={displayMsg as any}

@@ -3,6 +3,7 @@ import type { Message, SpriteSide } from "@marinara-engine/shared";
 import { ConversationPackageWindows, ConversationView } from "./ConversationView";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
 import { ChatSetupStage, useChatSetupStage } from "./ChatSetupStage";
+import { ChatWelcomeBack, useWelcomeBack } from "./ChatWelcomeBack";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { ChatConnectedChatWindow } from "./ChatControlWindow";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
@@ -195,6 +196,7 @@ export function ChatConversationSurface({
     [chatCharIds, characterMap],
   );
   const setupStage = useChatSetupStage({ chat, chatMeta, messages, characterNames: stageCharacterNames });
+  const welcomeBack = useWelcomeBack({ chat, chatMeta, messages, blocked: setupStage.visible });
 
   return (
     <div data-component="ChatArea.Conversation" className="flex flex-1 overflow-hidden">
@@ -235,6 +237,17 @@ export function ChatConversationSurface({
                 messages={messages}
                 chatBackground={chatBackgroundMetadataToUrl(chatMeta.background)}
                 onSetActiveSwipe={onSetActiveSwipe}
+              />
+            ) : null
+          }
+          welcomeBack={
+            welcomeBack.visible && chat ? (
+              <ChatWelcomeBack
+                variant="conversation"
+                chat={chat}
+                chatMeta={chatMeta}
+                characterNames={stageCharacterNames}
+                onClose={welcomeBack.close}
               />
             ) : null
           }

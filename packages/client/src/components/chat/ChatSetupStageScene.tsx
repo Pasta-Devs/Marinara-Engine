@@ -19,7 +19,7 @@ const ERROR_KEYS: Record<string, string> = {
   "no-model": "chat.setupStage.scene.errorNoModel",
   started: "chat.setupStage.scene.errorStarted",
 };
-function errorCode(error: unknown): string {
+export function errorCode(error: unknown): string {
   const payload = error instanceof ApiError ? (error.payload as { code?: unknown } | null) : null;
   return typeof payload?.code === "string" ? payload.code : "";
 }

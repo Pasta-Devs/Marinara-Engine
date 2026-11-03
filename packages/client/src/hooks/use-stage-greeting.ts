@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { chatKeys } from "./use-chats";
@@ -18,5 +18,20 @@ export function useStageGreeting(chatId: string) {
       qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       qc.invalidateQueries({ queryKey: [...chatKeys.all, "swipes", messageId] });
     },
+  });
+}
+
+/** The welcome-back recap for an older chat. It reads the chat and writes nothing. */
+export function useStageRecap(chatId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["chat-welcome-recap", chatId],
+    queryFn: () =>
+      api.post<{ recap: string }>(`/chats/${chatId}/setup-greeting`, {
+        mode: "recap",
+        debugMode: useUIStore.getState().debugMode,
+      }),
+    enabled,
+    staleTime: Infinity,
+    retry: false,
   });
 }
