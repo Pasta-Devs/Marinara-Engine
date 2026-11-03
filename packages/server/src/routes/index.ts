@@ -47,6 +47,7 @@ import { botBrowserDatacatRoutes } from "./bot-browser-datacat.routes.js";
 import { chatFoldersRoutes } from "./chat-folders.routes.js";
 import { connectionFoldersRoutes } from "./connection-folders.routes.js";
 import { chatPresetsRoutes } from "./chat-presets.routes.js";
+import { chatSetupGreetingRoutes } from "./chat-setup-greeting.routes.js";
 import { updatesRoutes } from "./updates.routes.js";
 import { noticesRoutes } from "./notices.routes.js";
 import { docsRoutes } from "./docs.routes.js";
@@ -107,6 +108,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(androidLocalAuthRoutes, { prefix: "/api/android-auth" });
   await app.register(loginRoutes);
   await app.register(chatsRoutes, { prefix: "/api/chats" });
+  await app.register(chatSetupGreetingRoutes, { prefix: "/api/chats" });
   await app.register(advancedMemoryRoutes, { prefix: "/api/chats" });
   await app.register(chatInsightsRoutes, { prefix: "/api/chat-insights" });
   await app.register(chatFoldersRoutes, { prefix: "/api/chat-folders" });

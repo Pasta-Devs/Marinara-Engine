@@ -52,6 +52,7 @@ import {
 } from "../../lib/chat-lorebooks";
 import { ChatSetupStageMemoryNote } from "./ChatSetupStageMemoryNote";
 import { StageEditor, type StageEditorSection } from "./ChatSetupStageEditors";
+import { ChatSetupStageScene } from "./ChatSetupStageScene";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import {
   backgroundLabel,
@@ -580,6 +581,7 @@ export function ChatSetupStage({
 
       <ChatSetupStageMemoryNote chatId={chat.id} />
 
+      {!calm && <ChatSetupStageScene chat={chat} first={first} onSetActiveSwipe={onSetActiveSwipe} />}
       {expanded ? (
         <div
           className={cn(
