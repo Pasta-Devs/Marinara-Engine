@@ -62,11 +62,13 @@ Your presence is a colored pill in the sidebar footer. It is the same in every c
 | Status | Meaning |
 | --- | --- |
 | **Active** | You are online. |
-| **Idle** | Set automatically after 10 minutes away. |
+| **Idle** | You are away. |
 | **Do Not Disturb** | Stops autonomous messages. |
 | **Invisible** | Hides your status from the models. |
 
-Next to the pill, the **What are you doing?** field tells characters your current activity.
+If you stay **Active** and do nothing for 10 minutes, Marinara sets **Idle** and sets **Active** again when you return. If you pick a status yourself, this automatic change stops until you pick **Active** again. **Idle** does not stop check-ins.
+
+Next to the pill, the **What are you doing?** field tells characters your current activity (up to 120 characters). Recent entries appear under **Recent status** so you can reuse them.
 
 ## React and get notified
 
