@@ -6,7 +6,10 @@
 // saved wrong password counts once, and loopback, IP_ALLOWLIST and the local
 // proxy rules keep working as before. A browser that signed in on /login keeps a
 // random session token whose hash the server stores, so visitors sharing a local
-// proxy's address cannot lock the owner out.
+// proxy's address cannot lock the owner out. When the table of counts is full,
+// new clients wait for room instead of pushing out a count that still runs, and
+// get the same reply for the right password as for a wrong one. The sign-in page
+// never compares a Basic header, since nothing would count it there.
 import assert from "node:assert/strict";
 import { createHmac, randomBytes } from "node:crypto";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
@@ -315,6 +318,58 @@ try {
   }
   assert.equal((await signIn("127.0.0.1", await preAuth())).statusCode, 429, "the shared cap holds");
   assert.equal((await get("/", "127.0.0.1", undefined, owner)).statusCode, 200, "a signed-in browser still gets in");
+
+  // ── The sign-in page does not test a Basic header ──
+  const pageVisitor = "203.0.113.90";
+  assert.equal((await get("/login", pageVisitor, RIGHT)).statusCode, 200, "the right password gets the page");
+  assert.equal((await get("/login", pageVisitor, basic("page-guess"))).statusCode, 200, "like a wrong one");
+  assert.equal((await get("/login", "127.0.0.1", undefined, loopback)).statusCode, 302, "this computer skips it");
+
+  // ── A full table keeps every running count, so many addresses cannot lift one's lock ──
+  Date.now = () => realNow() + 4 * (BASIC_AUTH_FAILURE_WINDOW_MS + 1_000);
+  const lockedClient = "198.18.0.1";
+  const countedClient = "198.18.0.5";
+  await guessWrong("/", lockedClient, BASIC_AUTH_FAILURE_LIMIT, "locked");
+  await guessWrong("/", countedClient, 1, "counted");
+  for (let index = 0; index < 4096; index += 1) {
+    await get("/", `198.19.${index >> 8}.${index & 255}`, basic("filler"));
+  }
+  assert.equal((await get("/", lockedClient, RIGHT)).statusCode, 429, "the lock outlasts a full table");
+  assert.equal((await get("/", "198.18.0.2", basic("new-guess"))).statusCode, 429, "a new guess is not checked");
+  assert.equal((await get("/", "198.18.0.2", RIGHT)).statusCode, 429, "nor is the right password, so it is not tested");
+  assert.equal((await get("/api/chats", "198.18.0.2", RIGHT)).statusCode, 429, "on any path");
+  assert.deepEqual(
+    (await get("/api/health", "198.18.0.2", RIGHT)).json(),
+    { status: "ok" },
+    "the health probe gives no sign either",
+  );
+  const codeTry = await app.inject({
+    method: "POST",
+    url: "/login",
+    remoteAddress: "198.18.0.3",
+    headers: { ...HOST, "content-type": "application/x-www-form-urlencoded" },
+    payload: "code=ABCD-2345",
+  });
+  assert.equal(codeTry.statusCode, 429, "nor is a pairing code");
+  delete process.env.BASIC_AUTH_USER;
+  delete process.env.BASIC_AUTH_PASS;
+  const setupTry = await app.inject({
+    method: "POST",
+    url: "/login/setup",
+    remoteAddress: "198.18.0.4",
+    headers: { ...HOST, "content-type": "application/x-www-form-urlencoded" },
+    payload: `setupCode=${"0".repeat(24)}&user=owner&password=first-password`,
+  });
+  assert.equal(setupTry.statusCode, 429, "nor is a setup code");
+  process.env.BASIC_AUTH_USER = "mari";
+  process.env.BASIC_AUTH_PASS = "secret";
+  // Last while full: signing in clears this client's count and frees its place.
+  assert.equal((await get("/", countedClient, RIGHT)).statusCode, 200, "a client already counted still gets in");
+  assert.equal((await get("/", "127.0.0.1", undefined, owner)).statusCode, 200, "a signed-in browser still gets in");
+  assert.equal((await get("/api/chats", "127.0.0.1", undefined, loopback)).statusCode, 200, "and this computer");
+  Date.now = () => realNow() + 6 * (BASIC_AUTH_FAILURE_WINDOW_MS + 1_000);
+  assert.equal((await get("/", "198.18.0.2", basic("new-guess"))).statusCode, 401, "ended counts make room");
+  assert.equal((await get("/", "198.18.0.2", RIGHT)).statusCode, 200, "and the right password gets in again");
 
   console.info("Basic Auth wrong-password throttle regressions passed.");
 } finally {
