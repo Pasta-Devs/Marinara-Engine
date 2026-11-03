@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ComponentProps,
   type MouseEvent,
   type ReactElement,
   type ReactNode,
@@ -51,7 +52,7 @@ import {
   getChatExcludedLorebookIds,
 } from "../../lib/chat-lorebooks";
 import { ChatSetupStageMemoryNote } from "./ChatSetupStageMemoryNote";
-import { StageEditor, type StageEditorSection } from "./ChatSetupStageEditors";
+import { StageAvatar, StageEditor, type StageAvatarProps, type StageEditorSection } from "./ChatSetupStageEditors";
 import { ChatSetupStageScene } from "./ChatSetupStageScene";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import {
@@ -218,6 +219,26 @@ function useStageReadiness(
 const SERIF = { fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' };
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 
+/** A tappable sentence word. Trans replaces its children with the word, so the avatars live here. */
+function StageWord({
+  avatars,
+  children,
+  ...button
+}: { avatars?: StageAvatarProps[]; children?: ReactNode } & Omit<ComponentProps<"button">, "children">) {
+  return (
+    <button type="button" {...button}>
+      {avatars?.length ? (
+        <span aria-hidden="true" className="mr-[0.3em] inline-flex -space-x-[0.3em] align-[-0.14em]">
+          {avatars.slice(0, 3).map((avatar, index) => (
+            <StageAvatar key={index} {...avatar} className="h-[0.9em] w-[0.9em] text-[0.4em] not-italic" />
+          ))}
+        </span>
+      ) : null}
+      {children}
+    </button>
+  );
+}
+
 /** The setup stage a new roleplay chat shows above its greeting: a sentence of fast controls plus All settings. */
 export function ChatSetupStage({
   variant,
@@ -333,7 +354,7 @@ export function ChatSetupStage({
     document.querySelector<HTMLTextAreaElement>(".mari-chat-input-textarea")?.focus();
     setEditor(null);
     setLeaving(true);
-        const section = sectionRef.current;
+    const section = sectionRef.current;
     if (section && !reduced) {
       section.style.height = `${section.offsetHeight}px`;
       requestAnimationFrame(() => {
@@ -352,9 +373,9 @@ export function ChatSetupStage({
   };
   const openGreeting = open(first ? "opening" : "characters");
 
-  const word = (onClick: (event: MouseEvent<HTMLElement>) => void, label: string) => (
-    <button
-      type="button"
+  const word = (onClick: (event: MouseEvent<HTMLElement>) => void, label: string, avatars?: StageAvatarProps[]) => (
+    <StageWord
+      avatars={avatars}
       onClick={onClick}
       aria-label={label}
       className={cn(
@@ -364,15 +385,23 @@ export function ChatSetupStage({
       )}
     />
   );
+  const personaAvatars = personaName
+    ? [{ src: personaInfo?.avatarUrl, crop: personaInfo?.avatarCrop, name: personaName }]
+    : undefined;
+  const castAvatars = characters.map((c) => {
+    const known = characterMap.get(c.id);
+    return { src: known?.avatarUrl, crop: known?.avatarCrop, name: c.name ?? "" };
+  });
   const sentenceComponents: Record<string, ReactElement> = {
     persona: canPickPersona ? (
-      word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaWord }))
+      word(open("persona"), t("chat.setupStage.a11y.persona", { value: personaWord }), personaAvatars)
     ) : (
       <span />
     ),
     cast: word(
       open("characters"),
       t("chat.setupStage.a11y.cast", { value: castNames ?? t("chat.setupStage.chooseCharacter") }),
+      castAvatars,
     ),
     greeting: word(openGreeting, t("chat.setupStage.a11y.greeting", { value: greetingWord })),
     preset: word(
@@ -524,7 +553,7 @@ export function ChatSetupStage({
       {!calm && (
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-[20vh] -z-10 bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_55%,transparent)_30%,color-mix(in_srgb,var(--background)_70%,transparent)_100%)] md:right-auto md:w-[min(100vw,1100px)] md:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--background)_82%,transparent)_0%,color-mix(in_srgb,var(--background)_58%,transparent)_55%,transparent_100%)]"
+          className="pointer-events-none absolute -inset-x-[50vw] -bottom-6 -top-[20vh] -z-10 [mask-image:linear-gradient(to_bottom,#000_75%,transparent)] bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--background)_55%,transparent)_30%,color-mix(in_srgb,var(--background)_70%,transparent)_100%)] md:right-auto md:w-[min(100vw,1100px)] md:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--background)_82%,transparent)_0%,color-mix(in_srgb,var(--background)_58%,transparent)_55%,transparent_100%)]"
         />
       )}
       <h1

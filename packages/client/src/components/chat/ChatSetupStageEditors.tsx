@@ -245,12 +245,17 @@ function StagePopover({
   );
 }
 
-type StageAvatarProps = { src?: string | null; crop?: AvatarCrop | null; name: string };
+export type StageAvatarProps = { src?: string | null; crop?: AvatarCrop | null; name: string };
 
 /** A round avatar, or the first letter of the name, the same as the persona switcher. */
-export function StageAvatar({ src, crop, name }: StageAvatarProps) {
+export function StageAvatar({ src, crop, name, className }: StageAvatarProps & { className?: string }) {
   return (
-    <span className="relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--foreground)_12%,transparent)] bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] text-xs font-semibold text-[var(--muted-foreground)]">
+    <span
+      className={cn(
+        "relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--foreground)_12%,transparent)] bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] text-xs font-semibold text-[var(--muted-foreground)]",
+        className,
+      )}
+    >
       {src ? (
         <AvatarImage src={src} alt="" className="h-full w-full object-cover" style={getAvatarCropStyle(crop ?? null)} />
       ) : (
@@ -735,20 +740,20 @@ function ProfileEditor({ ctx, close }: { ctx: StageEditorContext; close: () => v
           }
           onSelect={() => {
             const apply = (presetId: string) => {
-                // Undo writes back the chat's own prior settings, not another preset's.
-                const before = readSetupFields(ctx.chat);
-                void applyChatPreset.mutateAsync({ presetId, chatId: ctx.chat.id }).then(
-                  () =>
-                    undo(() => {
-                      const { metadata, ...fields } = before;
-                      updateChat.mutate({ id: ctx.chat.id, ...fields });
-                      updateMeta.mutate({ id: ctx.chat.id, ...metadata });
-                    }),
-                  () => undefined,
-                );
-              };
-              apply(preset.id);
-              close();
+              // Undo writes back the chat's own prior settings, not another preset's.
+              const before = readSetupFields(ctx.chat);
+              void applyChatPreset.mutateAsync({ presetId, chatId: ctx.chat.id }).then(
+                () =>
+                  undo(() => {
+                    const { metadata, ...fields } = before;
+                    updateChat.mutate({ id: ctx.chat.id, ...fields });
+                    updateMeta.mutate({ id: ctx.chat.id, ...metadata });
+                  }),
+                () => undefined,
+              );
+            };
+            apply(preset.id);
+            close();
           }}
         />
       ))}

@@ -1785,6 +1785,14 @@ export function ChatRoleplaySurface({
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
+        {/* Dim the whole surface behind the setup stage, so its text reads over any background. */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 bg-[color-mix(in_srgb,var(--background)_55%,transparent)] transition-opacity duration-500 motion-reduce:transition-none",
+            setupStage.visible ? "opacity-100" : "opacity-0",
+          )}
+        />
         {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
         {visualNovel && !vnHistoryOpen && (
           <div
