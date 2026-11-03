@@ -765,6 +765,8 @@ interface UIState {
   /** The same for a `?seasonalPreview=` page: this page load only, never saved or synced. */
   mariSeasonPreviewOptOut: string;
   chatBackground: string | null;
+  /** Last picked background URLs, newest first; kept on this device only. */
+  recentChatBackgrounds: string[];
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
   /** Native blur applied to selected chat/game background images, in px. */
@@ -1946,6 +1948,7 @@ export function pickPersistedUIState(state: UIState) {
     mariUnlockedPackIds: state.mariUnlockedPackIds,
     mariSeasonOptOut: state.mariSeasonOptOut,
     chatBackground: state.chatBackground,
+    recentChatBackgrounds: state.recentChatBackgrounds,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
     conversationBackgroundImageOpacity: state.conversationBackgroundImageOpacity,
@@ -2221,6 +2224,7 @@ export const useUIStore = create<UIState>()(
         mariSeasonOptOut: "",
         mariSeasonPreviewOptOut: "",
         chatBackground: null,
+        recentChatBackgrounds: [],
         defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
         chatBackgroundBlur: 0,
         conversationBackgroundImageOpacity: DEFAULT_CONVERSATION_BACKGROUND_IMAGE_OPACITY,
@@ -2631,7 +2635,14 @@ export const useUIStore = create<UIState>()(
               ? state
               : { mariUnlockedPackIds: [...state.mariUnlockedPackIds, packId] },
           ),
-        setChatBackground: (url) => set({ chatBackground: url }),
+        setChatBackground: (url) =>
+          set((state) => ({
+            chatBackground: url,
+            // Keep the one being replaced too, so the picker can offer it back right away.
+            recentChatBackgrounds: [
+              ...new Set([url, state.chatBackground, ...state.recentChatBackgrounds].filter((recent) => !!recent)),
+            ].slice(0, 4) as string[],
+          })),
         setDefaultRoleplayBackground: (url) =>
           set({ defaultRoleplayBackground: normalizeDefaultRoleplayBackground(url) }),
         setChatBackgroundBlur: (v) => set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(v))) }),
@@ -4287,6 +4298,9 @@ export const useUIStore = create<UIState>()(
           mariAppearancePackId: getMariAppearancePack(persisted.mariAppearancePackId).id,
           mariUnlockedPackIds: Array.isArray(persisted.mariUnlockedPackIds)
             ? persisted.mariUnlockedPackIds.filter((id): id is string => typeof id === "string")
+            : [],
+          recentChatBackgrounds: Array.isArray(persisted.recentChatBackgrounds)
+            ? persisted.recentChatBackgrounds.filter((url): url is string => typeof url === "string").slice(0, 4)
             : [],
           connectionTestFailures:
             persisted.connectionTestFailures && typeof persisted.connectionTestFailures === "object"
