@@ -5609,10 +5609,12 @@ export async function chatsRoutes(app: FastifyInstance) {
     const inheritedHiddenIds = new Set(
       inheritedSourceEntries.flatMap((entry) => entry.hiddenMessageIds ?? entry.messageIds ?? []),
     );
+    // Like deleting an entry, a dropped entry shows only what it hid itself, so a covered
+    // message hidden by hand stays hidden in the branch.
     const droppedHiddenIds = new Set(
       sourceSummaryEntries
         .filter((entry) => !inheritedSourceEntries.some((inherited) => inherited.id === entry.id))
-        .flatMap((entry) => entry.hiddenMessageIds ?? entry.messageIds ?? []),
+        .flatMap((entry) => entry.hiddenMessageIds ?? []),
     );
 
     // Copy messages from source chat, preserving every swipe and the active index.
