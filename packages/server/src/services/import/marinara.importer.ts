@@ -8,6 +8,8 @@ import {
 // Import: Marinara Engine native format (.marinara.json)
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
+import { inArray } from "../../db/file-query.js";
+import { characters, chats, personas } from "../../db/schema/index.js";
 import {
   canReparentFolder,
   unassignCardFieldAlternatives,
@@ -144,6 +146,20 @@ async function saveAvatarFromDataUrl(dataUrl: unknown, prefix: string, id: strin
     throw error;
   }
   return { avatarPath: `/api/avatars/file/${filename}`, filePath: filepath };
+}
+
+function readLinkIds(ids: unknown, legacyId: unknown): string[] {
+  const listed = Array.isArray(ids) ? ids.filter((value): value is string => typeof value === "string") : [];
+  if (listed.length > 0) return listed;
+  return typeof legacyId === "string" ? [legacyId] : [];
+}
+
+/** The given IDs that name a row of `table` on this install, in their original order. */
+async function keepLocalIds(db: DB, table: typeof characters | typeof personas | typeof chats, ids: string[]) {
+  if (ids.length === 0) return [];
+  const rows = await db.select({ id: table.id }).from(table).where(inArray(table.id, ids));
+  const local = new Set(rows.map((row) => row.id));
+  return ids.filter((id) => local.has(id));
 }
 
 function readLorebookScope(value: unknown): { mode: "all" | "disabled" | "specific"; chatIds: string[] } {
@@ -754,6 +770,16 @@ async function importLorebookPayload(data: unknown, db: DB) {
   for (const entry of d.entries ?? []) decodedImages.set(entry, await decodeLorebookImages(entry.images));
   const savedImages = new Map<Record<string, unknown>, Awaited<ReturnType<typeof saveDecodedLorebookImages>>>();
   const lb = d.lorebook;
+  // Links and chat scope name rows of the exporting install. Keep the ones that exist here (a restore on
+  // the same install), so links do not dangle and a "specific chats" scope does not hide the book everywhere.
+  const scope = readLorebookScope(lb.scope);
+  const legacyChatId = typeof lb.chatId === "string" ? lb.chatId : null;
+  const [characterIds, personaIds, localChatIds] = await Promise.all([
+    keepLocalIds(db, characters, readLinkIds(lb.characterIds, lb.characterId)),
+    keepLocalIds(db, personas, readLinkIds(lb.personaIds, lb.personaId)),
+    keepLocalIds(db, chats, legacyChatId ? [...scope.chatIds, legacyChatId] : scope.chatIds),
+  ]);
+  const scopeChatIds = scope.chatIds.filter((chatId) => localChatIds.includes(chatId));
   let newLb: Record<string, unknown> | null = null;
   try {
     for (const entry of d.entries ?? [])
@@ -773,22 +799,15 @@ async function importLorebookPayload(data: unknown, db: DB) {
         vectorIncludeAssistant: lb.vectorIncludeAssistant === true,
         vectorScoreThreshold: Number(lb.vectorScoreThreshold ?? 0.3),
         vectorMaxResults: Number(lb.vectorMaxResults ?? 10),
-        characterId: typeof lb.characterId === "string" ? lb.characterId : null,
-        characterIds: Array.isArray(lb.characterIds)
-          ? lb.characterIds.filter((value): value is string => typeof value === "string")
-          : typeof lb.characterId === "string"
-            ? [lb.characterId]
-            : [],
-        personaId: typeof lb.personaId === "string" ? lb.personaId : null,
-        personaIds: Array.isArray(lb.personaIds)
-          ? lb.personaIds.filter((value): value is string => typeof value === "string")
-          : typeof lb.personaId === "string"
-            ? [lb.personaId]
-            : [],
-        chatId: typeof lb.chatId === "string" ? lb.chatId : null,
+        characterIds,
+        personaIds,
+        chatId: legacyChatId && localChatIds.includes(legacyChatId) ? legacyChatId : null,
         isGlobal: lb.isGlobal === true || lb.isGlobal === "true",
         enabled: lb.enabled !== false,
-        scope: readLorebookScope(lb.scope),
+        scope:
+          scope.mode === "specific" && scopeChatIds.length === 0
+            ? { mode: "all", chatIds: [] }
+            : { ...scope, chatIds: scopeChatIds },
         tags: Array.isArray(lb.tags) ? lb.tags.map(String) : [],
         generatedBy: "import",
         sourceAgentId: typeof lb.sourceAgentId === "string" ? lb.sourceAgentId : null,

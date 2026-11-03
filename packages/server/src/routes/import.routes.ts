@@ -489,7 +489,7 @@ async function importCharacterBuffer(
 
   let json: Record<string, unknown>;
   try {
-    json = JSON.parse(buffer.toString("utf-8"));
+    json = parseJsonBytes(buffer) as Record<string, unknown>;
   } catch {
     return {
       success: false,
@@ -533,7 +533,7 @@ async function inspectCharacterBuffer(fileName: string, buffer: Buffer) {
   }
 
   try {
-    const json = JSON.parse(buffer.toString("utf-8"));
+    const json = parseJsonBytes(buffer) as Record<string, unknown>;
     return inspectSTCharacter(json);
   } catch {
     return {
