@@ -9253,19 +9253,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             );
           }
 
-          const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
-            return postProcessMessages(
-              messages,
-              {
-                ...(resolvedPreset && !isStockMarinaraUniversalPreset(resolvedPreset)
-                  ? parseStoredGenerationParameters(resolvedPreset.parameters)
-                  : {}),
-                ...providerRuntime.connectionParams,
-                ...providerRuntime.chatParams,
-              },
-              prefillTurn.endsOnPrefill,
-            );
+          const providerMessageParameters = {
+            ...(resolvedPreset && !isStockMarinaraUniversalPreset(resolvedPreset)
+              ? parseStoredGenerationParameters(resolvedPreset.parameters)
+              : {}),
+            ...providerRuntime.connectionParams,
+            ...providerRuntime.chatParams,
           };
+          const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] =>
+            postProcessMessages(messages, providerMessageParameters, prefillTurn.endsOnPrefill);
 
           let advancedMemoryReceipt: AdvancedMemoryReceipt | undefined;
           let advancedMemorySnapshot: AdvancedMemorySnapshot | undefined;
@@ -9629,6 +9625,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 maxToolRounds,
                 initialMessages: initialProviderMessages,
                 assistantPrefillInjected: prefillTurn.endsOnPrefill,
+                // A Single User Message labels each turn, so the merged prefill carries its "[USER]" label.
+                userPrefill:
+                  prefillTurn.userPrefill &&
+                  `${providerMessageParameters.singleUserMessage ? "[USER]\n" : ""}${prefillTurn.userPrefill}`,
                 tools: nativeToolCalls ? responderToolDefs : undefined,
                 toolChoice: (round) =>
                   nativeToolCalls
