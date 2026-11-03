@@ -25,7 +25,7 @@ For a first try, pick **Static Result**: it needs nothing else.
 
 Rules for names and descriptions:
 
-- The name is at most 100 characters.
+- The name is 1 to 100 characters. The description is 1 to 500 characters.
 - Two tools cannot share a name, and a tool cannot use a built-in name such as `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` or `update_about_me`. A clash shows a message such as `"your_name" is a reserved built-in tool name.`
 - If you leave the editor with unsaved changes, a banner offers **Keep editing**, **Discard** or **Save & close**.
 
