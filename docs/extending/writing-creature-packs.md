@@ -4,6 +4,16 @@ A **creature pack** is art for the creatures Game Mode fights. When a pack is ch
 
 A pack is one JSON file (`.creatures.json`). The easiest way to make one is the **Creatures** tab in Pixelforge, an outside tool that builds the file from one picture per creature. This guide describes the file itself, for anyone who builds packs another way.
 
+## Use a pack
+
+Before you start, make or download a `.creatures.json` file. Pixelforge is a separate authoring app, not part of Marinara.
+
+1. Open the **Creatures** tab in Pixelforge.
+2. To load a file, choose **Import a creature pack file**. For a pack you made in Pixelforge, choose **Save to the library**.
+3. Choose **Use for fights**.
+
+One pack draws every fight. To go back to tokens, remove the chosen pack or choose **Use tokens instead**.
+
 ## The file
 
 ```json
@@ -56,12 +66,19 @@ A sheet's `png` must be a PNG **data URL**: `data:image/png;base64,` followed by
 | `size` | `tiny`, `small`, `medium`, `large`, `huge` or `gargantuan`. This is only how it looks; every unit still takes one square. |
 | `w`, `h` | One frame's size in cells, 1 to 6 each. |
 | `frames` | `1` for a still creature, `3` for a walking one (step, stand, step). |
-| `variants` | Its **looks**, 1 to 8, each where its block starts on a sheet: `sheet` and the top-left cell `x`, `y`. |
-| `fly` | Optional, needs `creaturePackVersion` 2: its **flying** blocks, laid out as a walking block (three frames across, the four facings down), placed as `variants` are. One for every look, or one per look in the same order. |
+| `variants` | Its looks, 1 to 8, each where its block starts on a sheet: `sheet` and the top-left cell `x`, `y`. |
+| `fly` | Optional, needs `creaturePackVersion` 2: its flying blocks, laid out as a walking block (three frames across, the four facings down), placed as `variants` are. One for every look, or one per look in the same order. |
 
 ### Flying
 
-A creature with `fly` is drawn from its flying block, its frames played 0, 1, 2, 1, while it is shown in the air in a fight: it has a fly speed and no walk, it hovers, it is up above the ground, or it flew this turn (a step only its flight takes, such as over water). Otherwise it is drawn from its look as before.
+A creature with `fly` is drawn from its flying block, with its frames played 0, 1, 2, 1, while it is shown in the air in a fight. That means it has any of these:
+
+- a fly speed and no walk speed
+- hovering
+- a position above the ground
+- a flight it made this turn (a step only its flight takes, such as over water)
+
+Otherwise it is drawn from its look as before.
 
 ### What `match` names
 
@@ -91,20 +108,10 @@ Each look is a **block** on its sheet. A block is `frames` frames across and 4 r
 3. right
 4. up (seen from behind)
 
-A still creature (`frames: 1`) is one column of the four facings. A walking one (`frames: 3`) has step, stand and step across each row, as a walking character in RPG Maker does. Every block must lie wholly inside its sheet; the Engine names any that reaches past the edge.
+A still creature (`frames: 1`) is one column of the four facings. A walking one (`frames: 3`) has step, stand and step across each row, as in a typical walking sprite sheet. Every block must lie wholly inside its sheet; the Engine names any that reaches past the edge.
 
 ### Looks
 
 A creature with several looks (other clothes, colours or weapons) gives each of its fighters one. A fighter keeps the same look every time it is drawn, and two goblins in one fight can differ. All of a creature's looks are the same size.
 
 In Pixelforge's **Creatures** tab, **Add looks** beside a creature adds more pictures of the same size as its first, up to eight in all.
-
-## Use a pack
-
-Before you start, make or download a `.creatures.json` file.
-
-1. Open the **Creatures** tab in Pixelforge.
-2. Choose **Import a creature pack file**, or **Save to the library** for a pack you made there.
-3. Choose **Use for fights**.
-
-One pack draws every fight. To go back to tokens, remove the chosen pack or choose **Use tokens instead**.
