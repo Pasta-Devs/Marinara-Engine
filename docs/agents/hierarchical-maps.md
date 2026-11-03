@@ -105,7 +105,7 @@ Templates keep account-wide Global Gallery artwork references. When you use **Sa
 
 ## Link chats to one shared world
 
-Use **Shared worlds** in the World map library when several Roleplay or Game chats should read the same hierarchy. Create a blank shared world, import one, promote a template with **Make shared**, or open a saved chat map and choose **Make shared**. The last option moves its chat artwork to the Global Gallery, creates the shared world and links the original chat to it.
+Use **Shared worlds** in the World map library when several Roleplay or Game chats should read the same hierarchy. Create a blank shared world, import one, promote a template with **Make shared**, or open a saved chat map and choose **Make shared**. The last option promotes its referenced chat artwork to the Global Gallery, creates the shared world and links the original chat to it.
 
 Choose **Link to chat** to attach the chat named by the library's target-chat status. The current location and any location IDs already used by campaign history must exist in the shared world. Otherwise, use **Independent copy** or first migrate the chat's current map into a new shared world.
 
@@ -445,7 +445,7 @@ Install the package and restart Marinara. The chat must be Roleplay or Game. Tur
 
 ### Add to chat or Link to chat is missing from the world library
 
-Open a Roleplay or Game chat before opening the library. It names the target chat and shows **Add to chat** for templates or **Link to chat** for shared worlds. During Game setup the matching actions are **Use template** and **Use shared world**. If **Use shared world** is missing while shared worlds are listed, the browser may still run an older package client. Save or discard the open map editor, close it, hard-refresh Marinara once and reopen Game setup.
+Open a Roleplay or Game chat before opening the library. It names the target chat and shows **Add to chat** for templates or **Link to chat** for shared worlds. During Game setup the matching actions are **Use template** and **Use shared world**. If **Use shared world** is missing while shared worlds are listed, the browser may still run an older package client. Save or discard the open map editor, close it, save any unrelated work in other tabs, hard-refresh Marinara once and reopen Game setup.
 
 ### Game setup used the wrong or fallback locations
 
