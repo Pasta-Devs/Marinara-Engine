@@ -56,6 +56,49 @@ try {
       `reimport restores its owner without removing an existing ${legacyOnly ? "legacy" : "shared"} link`,
     );
   }
+
+  // The card book's own settings carry over on import, and a reimport keeps the user's lorebook settings.
+  const tuned = (await characters.create(
+    characterDataSchema.parse({
+      name: "Alice",
+      character_book: {
+        name: "Alice World",
+        description: "Card author book description",
+        scan_depth: 6,
+        token_budget: 4096,
+        recursive_scanning: true,
+        entries: [{ keys: ["alice"], content: "Alice fact" }],
+      },
+    }),
+  ))!;
+  const tunedImport = await app.inject({ method: "POST", url: `/api/characters/${tuned.id}/embedded-lorebook/import` });
+  assert.equal(tunedImport.statusCode, 200, tunedImport.body);
+  const tunedId = tunedImport.json().lorebookId as string;
+  const expectSettings = async (label: string) => {
+    const lorebook = (await lorebooks.getById(tunedId))!;
+    assert.equal(lorebook.description, "Card author book description", `${label}: description`);
+    assert.equal(lorebook.scanDepth, 6, `${label}: scan depth`);
+    assert.equal(lorebook.tokenBudget, 4096, `${label}: token budget`);
+    assert.equal(lorebook.recursiveScanning, true, `${label}: recursion`);
+    const cardBook = JSON.parse((await characters.getById(tuned.id))!.data).character_book;
+    assert.equal(cardBook.description, "Card author book description", `${label}: card description`);
+    assert.equal(cardBook.scan_depth, 6, `${label}: card scan depth`);
+    assert.equal(cardBook.token_budget, 4096, `${label}: card token budget`);
+    assert.equal(cardBook.recursive_scanning, true, `${label}: card recursion`);
+    return lorebook;
+  };
+  await expectSettings("import");
+  await lorebooks.update(tunedId, { name: "My renamed book", category: "character", maxRecursionDepth: 5 });
+  const tunedReimport = await app.inject({
+    method: "POST",
+    url: `/api/characters/${tuned.id}/embedded-lorebook/import`,
+  });
+  assert.equal(tunedReimport.statusCode, 200, tunedReimport.body);
+  assert.equal(tunedReimport.json().reimported, true);
+  const afterReimport = await expectSettings("reimport");
+  assert.equal(afterReimport.name, "My renamed book", "reimport keeps the user's lorebook name");
+  assert.equal(afterReimport.category, "character", "reimport keeps the user's category");
+  assert.equal(afterReimport.maxRecursionDepth, 5, "reimport keeps a setting the card book does not carry");
 } finally {
   await app.close();
   await closeDB();
