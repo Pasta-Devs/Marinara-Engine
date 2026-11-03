@@ -440,13 +440,16 @@ function selectRule(request: FastifyRequest): RateLimitRule {
   // route still resolved. The table's `[^/]+` segments also match a pattern's
   // `:param`s. An unrouted request is a 404 whichever bucket it lands in.
   const { url: routeUrl, config } = request.routeOptions;
-  const tableRule = ROUTE_RULES.find((entry) => entry.pattern.test(routeUrl ?? request.url))?.rule;
+  // Fastify's automatic HEAD route for a prefix root ("/api/notices" + "/") reports
+  // the trailing-slash pattern; trim it so that HEAD lands in its GET's bucket.
+  const routePath = routeUrl && routeUrl.length > 1 ? routeUrl.replace(/\/$/u, "") : routeUrl;
+  const tableRule = ROUTE_RULES.find((entry) => entry.pattern.test(routePath ?? request.url))?.rule;
   if (tableRule) return tableRule;
   const declared = config?.rateLimit;
-  if (!declared || routeUrl === undefined) return DEFAULT_RULE;
+  if (!declared || routePath === undefined) return DEFAULT_RULE;
   // A route the table does not cover keeps the limit it declares, in a bucket of its own; HEAD shares GET's.
   const method = request.method === "HEAD" ? "GET" : request.method;
-  return { key: `route:${method} ${routeUrl}`, limit: declared.max, windowMs: declared.timeWindow };
+  return { key: `route:${method} ${routePath}`, limit: declared.max, windowMs: declared.timeWindow };
 }
 
 function sweepExpired(now: number) {

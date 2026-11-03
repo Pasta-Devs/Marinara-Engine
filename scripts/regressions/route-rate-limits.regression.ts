@@ -39,7 +39,13 @@ app.post("/login", async () => ({ ok: true }));
 app.post("/login/setup", async () => ({ ok: true }));
 // No table rule covers these; only their declarations bound them.
 app.post("/api/access/pairing-codes", { config: { rateLimit: ACCESS_LOGIN_RATE_LIMIT } }, async () => ({ ok: true }));
-app.get("/api/notices", { config: { rateLimit: MARINARA_NOTICES_RATE_LIMIT } }, async () => ({ ok: true }));
+// Registered like the real notices route: "/" under a prefix, so Fastify also adds a trailing-slash HEAD route.
+await app.register(
+  async (scope) => {
+    scope.get("/", { config: { rateLimit: MARINARA_NOTICES_RATE_LIMIT } }, async () => ({ ok: true }));
+  },
+  { prefix: "/api/notices" },
+);
 app.post("/api/utility-sidecar/start", { config: { rateLimit: UTILITY_SIDECAR_RATE_LIMIT } }, async () => ({
   ok: true,
 }));
@@ -89,12 +95,10 @@ try {
   await hitsWallAt(["/login", "/login/setup?next=%2F"], LOGIN_PAGE_RATE_LIMIT.max);
 
   await hitsWallAt(["/api/access/pairing-codes"], ACCESS_LOGIN_RATE_LIMIT.max);
-  await hitsWallAt(["/api/notices", "/api/notices?tab=2"], MARINARA_NOTICES_RATE_LIMIT.max, "GET");
-  assert.equal(
-    (await app.inject({ method: "HEAD", url: "/api/notices" })).statusCode,
-    429,
-    "HEAD shares the GET route's bucket",
-  );
+  await hitsWallAt(["/api/notices", "/api/notices/?tab=2"], MARINARA_NOTICES_RATE_LIMIT.max, "GET");
+  for (const url of ["/api/notices", "/api/notices/"]) {
+    assert.equal((await app.inject({ method: "HEAD", url })).statusCode, 429, `HEAD ${url} shares the GET bucket`);
+  }
   await hitsWallAt(["/api/utility-sidecar/start"], UTILITY_SIDECAR_RATE_LIMIT.max);
   await hitsWallAt(["/api/sprites/c1/happy", "/api/sprites/c2/sad"], SPRITE_RENAME_RATE_LIMIT.max, "PATCH");
   const spriteRead = await app.inject({ method: "GET", url: "/api/sprites/c1/happy" });
