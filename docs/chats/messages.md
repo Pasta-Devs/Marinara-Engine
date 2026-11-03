@@ -23,7 +23,7 @@ The buttons are icons. Their labels are below. Some appear only in certain situa
 | **Translate** / **Hide translation** | Translates the message into your language, then hides the translation. |
 | **Add reaction** | Opens an emoji picker. Conversation only. |
 | **Hide from AI** / **Unhide from AI** | Stops or resumes sending this message to the model. In a Roleplay group chat, opens a character chooser. |
-| **Bookmark, pin or note** | Bookmarks the message, pins it so it stays in the prompt past the history limit (up to 10 per chat), or adds a **Private note** that is never sent to the model. |
+| **Bookmark, pin or note** | Bookmarks the message, pins it so it stays in the prompt past the history limit (up to 10 per chat), or adds a **Private note**. The model never sees a note unless you turn on **Show the note to the narrator character**, which works in one-character chats and in group chats with individual replies. |
 | **Branch from here** | Copies the chat up to this message into a new branch. Not in scene chats. |
 | **Clone from here** | Copies a scene chat up to this message into a new Roleplay. Scene chats only. |
 | **Peek prompt** | Shows the exact prompt for this reply. Latest AI message only. |
