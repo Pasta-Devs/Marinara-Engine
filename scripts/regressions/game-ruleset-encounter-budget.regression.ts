@@ -332,7 +332,7 @@ try {
       fileURLToPath(new URL("../../packages/server/src/routes/encounter.routes.ts", import.meta.url)),
       "utf8",
     ),
-    /away: await gameRulesetCardsAway\(\s*app\.db,\s*chatId,\s*resolved\.definition,\s*chatMeta,\s*await gamePlayerCardName\(app\.db, chatId, chatMeta, chat\.personaId\),\s*\),\s*live: parseStoredRulesetLive\(liveRow\?\.rulesetLive\),/u,
+    /away: await gameRulesetCardsAway\(app\.db, chatId, resolved\.definition, chatMeta, chat\.personaId\),\s*live: parseStoredRulesetLive\(liveRow\?\.rulesetLive\),/u,
   );
   // A ruleset with no budget says nothing of one.
   const plain = parsed(JSON.parse(text));

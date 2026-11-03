@@ -302,10 +302,9 @@ async function findPlayerCharacterCard(
 }
 
 /**
- * The name on the player's own card as a check finds it, which is what a party roster is seeded with
- * (`gamePartyRoster`): a persona called by a shorter name than its card still names that card. Null
- * when nothing says which card is the player's. For a caller outside the check context, such as the
- * fight-setup brief, that must count the same members away as the checks do.
+ * The player's own card as a party roster is seeded with it (`gamePartyRoster`): the player is never
+ * on the party list, so this is what keeps them in it. The checks, the sheet commands and the fight
+ * brief all seed it here, so they count the same members away.
  */
 export async function gamePlayerCardName(
   db: DB,
@@ -316,8 +315,37 @@ export async function gamePlayerCardName(
   const cards = Array.isArray(meta.gameCharacterCards)
     ? (meta.gameCharacterCards as Array<Record<string, unknown>>)
     : [];
-  const { card, byPosition } = await findPlayerCharacterCardMatch(db, cards, chatPersonaId, meta, chatId);
-  return byPosition ? null : readTrimmedString(card?.name) || null;
+  return playerRosterCard(meta, await findPlayerCharacterCardMatch(db, cards, chatPersonaId, meta, chatId));
+}
+
+/**
+ * The name `gamePlayerCardName` seeds a roster with, from the card a check finds: a persona called by
+ * a shorter name than its card still names that card. Where nothing said whose card is whose, the first
+ * card is the player's only in a game set up with no party, whose setup made a card for nobody but the
+ * player (gm-prompts' character_card_scope: with no party, characterCards hold the player's character
+ * or nothing). With a party, the first card is a companion's, and one taken out of the party must not
+ * be kept in it: null.
+ */
+function playerRosterCard(
+  meta: Record<string, unknown>,
+  { card, byPosition }: { card: Record<string, unknown> | undefined; byPosition: boolean },
+): string | null {
+  if (byPosition && !gameSetUpWithoutParty(meta)) return null;
+  return readTrimmedString(card?.name) || null;
+}
+
+/** Whether a game was set up with no party, by the setup it keeps (`gameInitialSetup`), so a companion
+ *  recruited since never changes it. */
+function gameSetUpWithoutParty(meta: Record<string, unknown>): boolean {
+  const kept = (meta.gameInitialSetup as { config?: { partyCharacterIds?: unknown } } | null | undefined)?.config
+    ?.partyCharacterIds;
+  // ponytail: no card is marked as the player's, so this reads the setup, with two known misses. A game
+  // set up before its setup was kept is read by its party list now: once it recruits a companion, its
+  // first card is only a stand-in again and its player is counted away. And a setup that made no card
+  // leaves a later recruit first, kept in the party after leaving it. The upgrade is to mark the
+  // player's own card as setup makes it, and seed the roster with that.
+  const ids = Array.isArray(kept) ? kept : meta.gamePartyCharacterIds;
+  return Array.isArray(ids) && ids.length === 0;
 }
 
 /** The player's card, and whether it is only the first card because nothing said whose it is. */
@@ -463,14 +491,9 @@ export async function loadSkillCheckModifierContext(
         undefined,
         itemsOf,
       );
-      // Who left the party, read as a whole-party sheet command reads it, with the player's own card
-      // always in it.
-      const present = await gamePartyRoster(
-        db,
-        chatId,
-        meta,
-        byPosition ? null : readTrimmedString(playerCard?.name) || null,
-      );
+      // Who left the party, off the same roster and the same seed for the player's own card as the
+      // sheet commands and the fight brief count it (`gamePlayerCardName`).
+      const present = await gamePartyRoster(db, chatId, meta, playerRosterCard(meta, { card: playerCard, byPosition }));
       const away = present ? new Set([...ruleset.sheets.keys()].filter((key) => !present.has(key))) : undefined;
       return {
         skills: null,

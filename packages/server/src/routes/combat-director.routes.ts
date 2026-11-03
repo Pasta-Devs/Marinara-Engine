@@ -1416,7 +1416,10 @@ export async function combatDirectorRoutes(
           });
           // The game's whole party fights, not only those the setup named (cheap-GM playtest
           // 2026-10-26: combat:init listed one of three heroes, accepted without a word, and he fought
-          // alone): only where its party list can be read, so who left it is known.
+          // alone): only where its party list can be read, so who left it is known. Seeded with the
+          // persona's own name, not the card a check finds (`gamePlayerCardName`): the fight reads its
+          // party, its sheets and its lead by exact name, so "Lethariel Moonwhisper" seeded for the Game
+          // Master's "Lethariel" would join as a second member, played by the Engine.
           const roster = await gamePartyRoster(app.db, input.chatId, meta, persona?.name ?? null, persona?.id);
           const partyRoster = roster
             ? {

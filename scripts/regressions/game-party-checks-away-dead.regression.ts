@@ -7,8 +7,12 @@
  *     pass and in a branch, so two removed members passing never carry a party that failed;
  *   - a story's exposure saves are rolled, and their failures marked, only for them, and only a shade
  *     one of them carries keeps an exposure off;
- *   - the fight-setup brief counts the same members away as the checks do, so a persona called by a
- *     shorter name than its card ("Lethariel" for "Lethariel Moonwhisper") is still in the party.
+ *   - the checks, the sheet commands (a party long rest) and the fight-setup brief count the same
+ *     members away, seeded alike with the player's own card: a persona called by a shorter name than
+ *     its card ("Lethariel" for "Lethariel Moonwhisper") is still in the party;
+ *   - with no persona, the first card is the player's in a game set up with no party (its setup makes a
+ *     card for nobody else), so a solo game's only card, the player, is never counted away, even once
+ *     it recruits; where the game had a party, a first card whose member was removed is still away.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -23,14 +27,14 @@ process.env.DATA_DIR = dataDir;
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 
 const [
-  { gamePlayerCardName, loadSkillCheckModifierContext, resolveSkillCheckTagsInContent },
+  { gamePlayerCardName, loadSkillCheckModifierContext, resolveSkillCheckTagsInContent, rulesetGroupCheckRollers },
   { createGameTurnChanceSession, resolveGameTurnBranches },
   { rollStoryExposureSavesWith, storyPartyCarriesShade },
   { buildPartyNpcId },
   { getDB, closeDB },
   { createChatsStorage },
   { createGameRulesetsStorage },
-  { gameRulesetCardsAway },
+  { gameRulesetCardsAway, loadGameRulesetSheetContext },
   { createCharactersStorage },
 ] = await Promise.all([
   import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
@@ -177,46 +181,106 @@ try {
   await chats.patchMetadata(chat.id, { gamePartyCharacterIds: [...meta.gamePartyCharacterIds, "missing-character"] });
   assert.equal((await loadSkillCheckModifierContext(db, chat.id, live)).ruleset?.away, undefined);
 
-  // ── The fight brief's party, for a persona called by a shorter name than its card ──
-  // The player is never on the party list: only the roster's seed keeps their card present, so it must
-  // be seeded with the card a check finds for the persona, not the persona's own name.
+  // Who each path counts away: the checks (by lookup key), the sheet commands and the fight brief.
+  const awayEverywhere = async (chatId: string, personaId: string | null = null) => {
+    const stored = JSON.parse((await chats.getById(chatId))!.metadata) as Record<string, unknown>;
+    return {
+      checks: [...((await loadSkillCheckModifierContext(db, chatId)).ruleset?.away ?? [])],
+      sheets: (await loadGameRulesetSheetContext(db, chatId))?.away ?? [],
+      brief: await gameRulesetCardsAway(db, chatId, fiveE, stored, personaId),
+    };
+  };
+  const sheeted = (...cardNames: string[]) =>
+    cardNames.map((name) => ({ name, rulesetSheet: { v: 1, build: defaultRulesetSheetBuild(fiveE) } }));
+
+  // ── A persona called by a shorter name than its card ──
+  // The player is never on the party list: only the roster's seed keeps their card present, so every
+  // path seeds it with the card a check finds for the persona, not the persona's own name.
   const lethariel = await createCharactersStorage(db).createPersona("Lethariel", "The player.");
   assert.ok(lethariel);
   const ridge = await chats.create({ name: "The ridge", mode: "game", characterIds: [], personaId: lethariel.id });
-  const ridgeMeta = {
+  await chats.patchMetadata(ridge.id, {
     gameRuleset: meta.gameRuleset,
-    gameCharacterCards: ["Lethariel Moonwhisper", "Rook", "Dagna"].map((name) => ({
-      name,
-      rulesetSheet: { v: 1, build: defaultRulesetSheetBuild(fiveE) },
-    })),
+    gameCharacterCards: sheeted("Lethariel Moonwhisper", "Rook", "Dagna"),
     gameNpcs: [{ name: "Rook" }, { name: "Dagna" }],
     gamePartyCharacterIds: [buildPartyNpcId("Rook")],
-  };
-  await chats.patchMetadata(ridge.id, ridgeMeta);
-  assert.deepEqual(
-    await gameRulesetCardsAway(db, ridge.id, fiveE, ridgeMeta, "Lethariel"),
-    ["Lethariel Moonwhisper", "Dagna"],
-    "the persona's own name seeds no card",
+  });
+  assert.equal(
+    await gamePlayerCardName(db, ridge.id, JSON.parse((await chats.getById(ridge.id))!.metadata), ridge.personaId),
+    "Lethariel Moonwhisper",
   );
-  const playerCard = await gamePlayerCardName(db, ridge.id, ridgeMeta, ridge.personaId);
-  assert.equal(playerCard, "Lethariel Moonwhisper");
-  assert.deepEqual(await gameRulesetCardsAway(db, ridge.id, fiveE, ridgeMeta, playerCard), ["Dagna"]);
   assert.deepEqual(
-    [...((await loadSkillCheckModifierContext(db, ridge.id)).ruleset?.away ?? [])],
-    ["dagna"],
-    "the checks count the same member away",
+    await awayEverywhere(ridge.id, ridge.personaId),
+    { checks: ["dagna"], sheets: ["Dagna"], brief: ["Dagna"] },
+    "a party long rest reaches the player's own card",
   );
-  // And the fight's setup seeds its roster that way.
+
+  // ── No persona: a solo game's only card is the player's ──
+  // Set up with no persona and no party, the setup makes a card only for a player character its
+  // preferences define (gm-prompts' character_card_scope), and the player is never on the party list.
+  const solo = await chats.create({ name: "The lone road", mode: "game", characterIds: [] });
+  await chats.patchMetadata(solo.id, {
+    gameRuleset: meta.gameRuleset,
+    gameCharacterCards: sheeted("Kaelen"),
+    gameNpcs: [],
+    gamePartyCharacterIds: [],
+  });
+  assert.deepEqual(await awayEverywhere(solo.id), { checks: [], sheets: [], brief: [] }, "the solo player is present");
+  assert.deepEqual(rulesetGroupCheckRollers((await loadSkillCheckModifierContext(db, solo.id)).ruleset!, "party"), [
+    "Kaelen",
+  ]);
+  // And still once a companion joins, by the setup the game keeps: it had no party.
+  await chats.patchMetadata(solo.id, {
+    gameInitialSetup: { config: { partyCharacterIds: [] }, createdAt: "2026-11-04T00:00:00.000Z" },
+    gameCharacterCards: sheeted("Kaelen", "Rook"),
+    gameNpcs: [{ name: "Rook" }],
+    gamePartyCharacterIds: [buildPartyNpcId("Rook")],
+  });
+  assert.deepEqual(await awayEverywhere(solo.id), { checks: [], sheets: [], brief: [] }, "a recruit keeps Kaelen in");
+  // Rook leaves: he is away, the player is not.
+  await chats.patchMetadata(solo.id, { gamePartyCharacterIds: [] });
+  assert.deepEqual(await awayEverywhere(solo.id), { checks: ["rook"], sheets: ["Rook"], brief: ["Rook"] });
+
+  // ── No persona, a game with a party: the first card is a companion's, and once removed it is away ──
+  const band = await chats.create({ name: "The band", mode: "game", characterIds: [] });
+  await chats.patchMetadata(band.id, {
+    gameRuleset: meta.gameRuleset,
+    gameCharacterCards: sheeted("Rook", "Pip"),
+    gameNpcs: [{ name: "Rook" }, { name: "Pip" }],
+    gamePartyCharacterIds: [buildPartyNpcId("Pip")],
+  });
+  assert.deepEqual(
+    await awayEverywhere(band.id),
+    { checks: ["rook"], sheets: ["Rook"], brief: ["Rook"] },
+    "a removed companion who happens to be first",
+  );
+  // Nor kept once everyone has left, where the setup it keeps had a party.
+  await chats.patchMetadata(band.id, {
+    gameInitialSetup: {
+      config: { partyCharacterIds: [buildPartyNpcId("Rook"), buildPartyNpcId("Pip")] },
+      createdAt: "2026-11-04T00:00:00.000Z",
+    },
+    gamePartyCharacterIds: [],
+  });
+  assert.deepEqual(await awayEverywhere(band.id), {
+    checks: ["rook", "pip"],
+    sheets: ["Rook", "Pip"],
+    brief: ["Rook", "Pip"],
+  });
+
+  // ── And each route seeds its roster that way: the fight brief, and the sheet blocks a turn shows ──
+  const source = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
   assert.match(
-    readFileSync(
-      fileURLToPath(new URL("../../packages/server/src/routes/encounter.routes.ts", import.meta.url)),
-      "utf8",
-    ),
-    /gameRulesetCardsAway\(\s*app\.db,\s*chatId,\s*resolved\.definition,\s*chatMeta,\s*await gamePlayerCardName\(app\.db, chatId, chatMeta, chat\.personaId\),\s*\)/u,
+    source("../../packages/server/src/routes/encounter.routes.ts"),
+    /gameRulesetCardsAway\(app\.db, chatId, resolved\.definition, chatMeta, chat\.personaId\)/u,
+  );
+  assert.match(
+    source("../../packages/server/src/routes/generate.routes.ts"),
+    /gameRulesetCardsAway\(\s*app\.db,\s*input\.chatId,\s*pinnedGameRuleset\.definition,\s*turnSheetMetadata as Record<string, unknown>,\s*chat\.personaId,\s*\)/u,
   );
 
   console.log(
-    "Party checks: removed and dead members neither roll nor count in group checks and exposure saves, nor carry a shade; the fight brief counts the same party.",
+    "Party checks: removed and dead members neither roll nor count in group checks and exposure saves, nor carry a shade; the checks, the sheet commands and the fight brief count one party, a solo game's player in it.",
   );
 } finally {
   await closeDB();

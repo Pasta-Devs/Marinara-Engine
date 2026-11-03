@@ -5903,7 +5903,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             input.chatId,
                             pinnedGameRuleset.definition,
                             turnSheetMetadata as Record<string, unknown>,
-                            personaName || null,
+                            chat.personaId,
                           ),
                         ),
                       }
