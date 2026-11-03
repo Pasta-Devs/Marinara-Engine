@@ -378,12 +378,24 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
   }
 
   private async chatCompleteChain(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+    // Text the primary already streamed through onToken has reached the caller, so a fallback
+    // reply would be appended after it, exactly as in chatChain.
+    let emittedUsableOutput = false;
     try {
+      const primaryOptions = options.onToken
+        ? {
+            ...options,
+            onToken: async (chunk: string) => {
+              emittedUsableOutput ||= chunk.trim().length > 0;
+              await options.onToken?.(chunk);
+            },
+          }
+        : options;
       const result = await this.primary.chatComplete(
         prepareAssistantReasoningPrefillMessages(messages, this.primarySupportsAssistantReasoningPrefill),
-        options,
+        primaryOptions,
       );
-      const hasUsableOutput = Boolean(result.content?.trim()) || result.toolCalls.length > 0;
+      const hasUsableOutput = emittedUsableOutput || Boolean(result.content?.trim()) || result.toolCalls.length > 0;
       if (hasUsableOutput || options.signal?.aborted) {
         if (hasUsableOutput) this.onProviderUsed?.({ kind: "primary" });
         return result;
@@ -392,7 +404,8 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
         reason: "empty",
       });
     } catch (error) {
-      if (isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error)) throw error;
+      if (emittedUsableOutput || isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error))
+        throw error;
       await this.logFallback(error, options.model);
     }
     options.signal?.throwIfAborted();
