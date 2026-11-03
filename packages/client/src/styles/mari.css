@@ -5200,7 +5200,7 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
     width: auto;
   }
 
-  /* A run adds Stop and the send menu to the row: the connection's name gives way, not its neighbours. */
+  /* A run swaps Send for Stop or the send menu: the connection's name gives way, not its neighbours. */
   .mari-composer-menu:not(.mari-composer-menu--connection) {
     flex: none;
   }
