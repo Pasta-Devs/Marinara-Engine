@@ -84,6 +84,14 @@ assert.equal(noReasoning.verbosity, undefined);
 const claude = gameGenOptions("claude-opus-4-7", {}, { temperature: 0.3, topP: 0.6 }, "anthropic");
 assert.equal(claude.temperature, undefined, "provider sampling restrictions still apply");
 assert.equal(claude.topP, undefined);
+const unknownModel = gameGenOptions(
+  "unlisted-model",
+  { onToken: () => {}, onTokenKeepaliveOnly: true },
+  null,
+  "openai",
+);
+assert.equal(unknownModel.suppressModelParameters, true);
+assert.equal(unknownModel.onTokenKeepaliveOnly, true, "a keepalive-only game call still lets the fallback answer");
 console.info("Game generation parameter precedence regression passed");
 
 assert.doesNotThrow(() => assertCompleteGameJson('{"summary":"Finished"}', "stop"));

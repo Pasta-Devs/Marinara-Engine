@@ -2732,6 +2732,47 @@ await assert.rejects(
 assert.equal(callbackOutput, "visible callback output");
 assert.equal(callbackFallback.calls, 0, "a fallback must not replace output already emitted through onToken");
 
+const completeCallbackFallback = new RegressionProvider(["must not follow streamed completion output"]);
+let completeCallbackOutput = "";
+await assert.rejects(
+  new ConnectionFallbackProvider(
+    new TokenCallbackFailureProvider(),
+    completeCallbackFallback,
+    fallbackConnection,
+    "main",
+  ).chatComplete([{ role: "user", content: "test" }], {
+    model: "primary-model",
+    onToken: (chunk) => {
+      completeCallbackOutput += chunk;
+    },
+  }),
+  /stream interrupted after callback output/,
+);
+assert.equal(completeCallbackOutput, "visible callback output");
+assert.equal(
+  completeCallbackFallback.calls,
+  0,
+  "a chatComplete fallback must not be appended after output already emitted through onToken",
+);
+
+const keepaliveCallbackFallback = new RegressionProvider(["fallback replaces keepalive-only output"]);
+let keepaliveChunks = 0;
+const keepaliveCallbackResult = await new ConnectionFallbackProvider(
+  new TokenCallbackFailureProvider(),
+  keepaliveCallbackFallback,
+  fallbackConnection,
+  "main",
+).chatComplete([{ role: "user", content: "test" }], {
+  model: "primary-model",
+  onToken: () => {
+    keepaliveChunks += 1;
+  },
+  onTokenKeepaliveOnly: true,
+});
+assert.equal(keepaliveCallbackResult.content, "fallback replaces keepalive-only output");
+assert.equal(keepaliveCallbackFallback.calls, 1, "a keepalive-only onToken must still let the fallback answer");
+assert.ok(keepaliveChunks > 1, "the fallback keeps the caller's keepalive onToken");
+
 const rejectedNoticeFallback = new RegressionProvider(["fallback survives notification failure"]);
 assert.equal(
   await collectProviderOutput(

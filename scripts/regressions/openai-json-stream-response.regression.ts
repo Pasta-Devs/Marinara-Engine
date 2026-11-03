@@ -133,6 +133,26 @@ try {
     assert.equal(calls.length - before, 1, "an endpoint ignoring stream:true must never buy a second generation");
     assert.equal(calls.at(-1)!.body.stream, true);
 
+    // The main reply without tools streams through chat(), not chatComplete().
+    const drainChat = async (stream: boolean) => {
+      const chunks: string[] = [];
+      const generation = provider.chat(messages, { model, stream });
+      let next = await generation.next();
+      while (!next.done) {
+        chunks.push(next.value);
+        next = await generation.next();
+      }
+      return { chunks, usage: next.value };
+    };
+    const chatBaseline = await drainChat(false);
+    const chatBefore = calls.length;
+    const streamedChat = await drainChat(true);
+    assert.deepEqual(streamedChat, chatBaseline, "chat() reads actual JSON after stream:true like a buffered reply");
+    assert.deepEqual(streamedChat.chunks, ["Answer"]);
+    assert.equal(streamedChat.usage?.totalTokens, 8);
+    assert.equal(calls.length - chatBefore, 1, "chat() must not replay a generation for actual JSON");
+    assert.equal(calls.at(-1)!.body.stream, true);
+
     const quietBefore = calls.length;
     const quiet = await completeAgentCall({}, agents, provider, messages, {
       model,

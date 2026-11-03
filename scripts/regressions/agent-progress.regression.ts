@@ -21,6 +21,7 @@ let thinking = "";
 let text = "";
 const provider = {
   chatComplete: async (_messages: unknown, options: ChatOptions) => {
+    assert.equal(options.onTokenKeepaliveOnly, false, "a caller's own onToken keeps the streamed text");
     now += 40;
     options.onThinking?.("private reasoning");
     for (let i = 0; i < 60; i++) {
@@ -97,6 +98,19 @@ try {
       throw new Error("Provider failed");
     },
   } as unknown as BaseLLMProvider;
+  await completeAgentCall(
+    context,
+    [config],
+    {
+      chatComplete: async (_messages: unknown, options: ChatOptions) => {
+        assert.equal(typeof options.onToken, "function", "progress streams without a caller onToken");
+        assert.equal(options.onTokenKeepaliveOnly, true, "progress alone keeps no text, so a fallback may answer");
+        return { content: "ok", toolCalls: [], finishReason: "stop" };
+      },
+    } as unknown as BaseLLMProvider,
+    [],
+    { model: "fixture", stream: true },
+  );
   await assert.rejects(completeAgentCall(context, [config], failing, [], { model: "fixture", stream: true }));
   assert.equal(events.at(-1)!.stage, "error");
   await assert.rejects(
