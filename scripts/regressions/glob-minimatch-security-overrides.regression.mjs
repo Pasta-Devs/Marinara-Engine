@@ -29,6 +29,10 @@ const piRequire = fromRepo("../../packages/server/node_modules/@earendil-works/p
 const workboxRequire = chain(fromRepo("../../packages/client/package.json"), "vite-plugin-pwa", "workbox-build");
 const filelistRequire = chain(workboxRequire, "@trickfilm400/rollup-plugin-off-main-thread", "ejs", "jake", "filelist");
 
+// glob returns native separators (assets\index-AbCd.js on Windows). Both consumers convert results
+// to "/" themselves, so the assertions do the same and the glob calls stay exactly as they make them.
+const posixSorted = (files) => files.map((file) => file.replaceAll("\\", "/")).sort();
+
 const root = mkdtempSync(join(tmpdir(), "marinara-glob-overrides-"));
 try {
   mkdirSync(join(root, "assets"));
@@ -37,11 +41,11 @@ try {
   // @fastify/static walks client/dist once at registration because wildcard is false.
   const { glob } = staticRequire("glob");
   const served = await glob("**/**", { cwd: `${root}/`, absolute: false, follow: true, nodir: true });
-  assert.deepEqual(served.sort(), ["assets/index-AbCd.js", "index.html"]);
+  assert.deepEqual(posixSorted(served), ["assets/index-AbCd.js", "index.html"]);
 
   // workbox-build lists the PWA precache files.
   const precached = workboxRequire("glob").globSync("**/*.{js,html}", { cwd: root, follow: true, ignore: [] });
-  assert.deepEqual(precached.sort(), ["assets/index-AbCd.js", "index.html"]);
+  assert.deepEqual(posixSorted(precached), ["assets/index-AbCd.js", "index.html"]);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }
