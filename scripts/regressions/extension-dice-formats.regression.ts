@@ -15,6 +15,7 @@ import {
   rollWithPersonalExtensionDiceFormats,
   setPersonalExtensionDiceDispatcher,
 } from "../../packages/client/src/lib/personal-extension-dice-formats.js";
+import { containsChatHtml } from "../../packages/client/src/lib/chat-html.js";
 import { matchSlashCommand, type SlashCommandContext } from "../../packages/client/src/lib/slash-commands.js";
 
 type Message = Record<string, unknown> & { type?: string };
@@ -305,9 +306,20 @@ assert.doesNotMatch(
   /\]\(|<b>|\n/,
   "the extension's text cannot add links, images, HTML or lines",
 );
-assert.match(slash.posted.content, /\\!\\\[x\\\]\\\(https:\/\/x\\\.test\/p\\\.png\\\) \\<b\\>1\\<\/b\\> success/);
+assert.equal(containsChatHtml(slash.posted.content), false, "the extension's text renders as text, not HTML");
+assert.match(slash.posted.content, /\\!\\\[x\\\]\\\(https:\/\/x\\\.test\/p\\\.png\\\) ＜b＞1＜\/b＞ success/);
 assert.match(slash.posted.content, /_\(Narrative \\\[dice\\\]\\\(https:\/\/x\\\.test\\\)\)_$/);
 assert.equal(slash.posted.extra, undefined, "the d20-shaped dice card is not used for extension dice");
+// The chat renderer turns entity-encoded tags back into HTML, so `&` must not survive either.
+for (const text of ["&lt;a href=&quot;/x&quot;&gt;open&lt;/a&gt;", '<a href="/x">open</a>']) {
+  answer = (message) =>
+    message.type === "dice-parse"
+      ? { type: "dice-parse-result", ok: true, dice: [6, 6] }
+      : { type: "dice-read-result", ok: true, total: 1, text };
+  const { posted } = await slashRoll("2 boost");
+  assert.ok(posted);
+  assert.equal(containsChatHtml(posted.content), false, `${text} stays plain text`);
+}
 const beforePlain = toHost.length;
 await slashRoll("2d6");
 await slashRoll("500d6");

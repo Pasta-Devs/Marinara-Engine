@@ -1393,9 +1393,10 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
     reply.type("text/html; charset=utf-8");
     reply.header("Cache-Control", "no-store");
     reply.header("X-Frame-Options", "SAMEORIGIN");
+    // `sandbox` gives the document an opaque origin wherever it loads, not only inside the client's sandboxed iframe.
     reply.header(
       "Content-Security-Policy",
-      `default-src 'none'; script-src 'nonce-${nonce}'; worker-src blob:; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`,
+      `sandbox allow-scripts; default-src 'none'; script-src 'nonce-${nonce}'; worker-src blob:; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`,
     );
     return sandboxDocument(extension, nonce);
   });

@@ -272,7 +272,14 @@ function parseDice(notation: string): ParsedDiceNotation | null {
 
 /** Extension text as one plain line in a chat message: no links, images, markup or HTML. */
 function plainDiceText(text: string): string {
-  return text.replace(/\s+/g, " ").replace(/[\\`*_{}[\]()#+\-.!<>|~]/g, "\\$&");
+  // Backslashes do not stop HTML, and the chat renderer decodes `&lt;…&gt;` into tags, so `<`, `>` and `&`
+  // become full-width lookalikes.
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/</g, "＜")
+    .replace(/>/g, "＞")
+    .replace(/&/g, "＆")
+    .replace(/[\\`*_{}[\]()#+\-.!|~]/g, "\\$&");
 }
 
 /** `/roll` with notation the shared grammar does not read: ask the formats extensions registered. */
