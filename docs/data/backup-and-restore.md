@@ -61,7 +61,7 @@ Each run needs free space for one more full archive, because the old one stays u
 - **Marinara Native** keeps everything Marinara uses, including media. You can restore it in Marinara.
 - **Compatible JSON** makes a `.zip` of plain character, persona and lorebook files for other tools. You cannot restore it in Marinara.
 
-A native profile downloads as `marinara-profile.json`. If it is too large, Marinara asks **Export profile as ZIP?**. Click **Export ZIP** to download `marinara-profile.zip` instead.
+A native profile downloads as `marinara-profile.json`. If it is too large, Marinara offers a ZIP file instead. Click **Export ZIP** to download `marinara-profile.zip`.
 
 A native profile keeps Personal Extension code, but not whether it is turned on or approved. Every restored extension arrives disabled. Review it again in **Settings → Addons**.
 
