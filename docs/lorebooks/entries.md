@@ -22,12 +22,12 @@ A line under the toolbar shows the entry count, the folder count and the estimat
 
 1. Click **Add Entry**. A new row appears.
 2. Type a name in the row. Every entry needs one. The name is for you and for search, not for the AI.
-3. Click the row, or its arrow, to open the full editor.
-4. Type your keys and **Content**, as described below.
+3. Click the row, or its arrow. A panel opens under the row with all the fields.
+4. Type a key in **Primary Keys** and press <kbd>Enter</kbd>. Then write the text for the AI in **Content**. See [Content and keys](#content-and-keys).
 
 Edits save by themselves. The drawer shows **Autosaving…**, then **Saving…**, then **Saved automatically**. If a save fails, your text stays and Marinara retries on your next edit.
 
-To copy an entry, hover over its row and click **Duplicate**. To remove it, click **Delete** and confirm.
+To copy an entry, click **Duplicate entry** on its row. To remove it, click **Delete entry** and confirm. On a computer these buttons show when you point at the row.
 
 ### Content and keys
 
@@ -46,11 +46,9 @@ For example, an entry named `Silverhaven` with the keys `Silverhaven` and `the c
 
 By default a key matches when it appears anywhere in the recent chat, ignoring upper and lower case. Three controls change that.
 
-| Control | Where | Default | What it does |
-| --- | --- | --- | --- |
-| **Whole Words** | Entry drawer | Off | The key must be a full word. `Ash` matches "Ash" but not "cash". |
-| **Case Sensitive** | Entry drawer | Off | Capitalization must match. `IT` matches "IT" but not "it". |
-| **Regex** | Compact row (turns orange when on) | Off | Treats each key as a regular expression, a text-matching pattern. |
+- **Whole Words** (entry panel, off by default): the key must be a full word. `Ash` matches "Ash" but not "cash".
+- **Case Sensitive** (entry panel, off by default): capitalization must match. `IT` matches "IT" but not "it".
+- **Regex** (an icon on the row with the tooltip **Enable regex key matching**, off by default): treats each key as a regular expression, a text-matching pattern. The icon turns orange when it is on.
 
 Use **Regex** only if you know regular expressions. Each pattern runs with a short time limit, and a pattern that runs too long does not match, so keep patterns simple. For example, `\bVlad(?:'s)?\b` matches "Vlad" and "Vlad's".
 
@@ -58,11 +56,11 @@ Use **Regex** only if you know regular expressions. Each pattern runs with a sho
 
 Click the colored dot on the row to open the type menu.
 
-| Type | Dot | When it activates | Use it for |
-| --- | --- | --- | --- |
-| **Normal** | Green | When a primary key matches. This is the default. | Most entries: people, places, items. Give each three to eight specific keys. |
-| **Constant** | Yellow | Every time the lorebook is active, with no key. Timing, probability and filters still apply. | The few facts that must always be present, such as the year or the tone. Each one costs tokens on every message. |
-| **Selective** | Red | When a primary key matches and the secondary-key logic passes. | A common key that would fire in the wrong scene. |
+- **Normal** (green dot, the default): activates when a primary key matches. Use it for most entries: people, places, items. Give each three to eight specific keys.
+- **Constant** (yellow dot): activates every time the lorebook is active, with no key. Use it for the few facts that must always be present, such as the year or the tone. Timing, probability and filters still apply.
+- **Selective** (red dot): activates when a primary key matches and the secondary-key logic passes. Use it when a common key would fire in the wrong scene.
+
+Each **Constant** entry costs tokens on every message, so keep them few.
 
 For a **Selective** entry, add **Secondary Keys** and pick a **Logic** button.
 
@@ -79,11 +77,15 @@ If it did not work: a **Normal** entry with no keys has nothing to match. Add ke
 
 ## Position, Depth, and Order
 
-These controls decide where an activated entry lands in the prompt. On a wide screen they are on the compact row. On a narrow screen, tap the row's quick-controls button.
+These controls decide where an activated entry lands in the prompt. On a wide screen they are on the compact row. On a narrow screen, tap the **Entry quick controls** button on the row.
 
 | Control | What it does |
 | --- | --- |
-| **Position** | **Before character definitions** or **After character definitions** place the entry around the character card. **@ Depth** puts it inside the chat history. **Outlet** puts it nowhere automatically (see below). The compact row shows the first three as **↑Char**, **↓Char** and **@Depth**. |
+| **Position** | Where the entry goes. The default is **Before character definitions**. |
+| **Before character definitions** | Before the character card in the prompt. Row label **↑Char**. |
+| **After character definitions** | After the character card. Row label **↓Char**. |
+| **@ Depth** | Inside the chat history. Row label **@Depth**. |
+| **Outlet** | Nowhere automatically (see below). |
 | **Depth** | Shown only for **@ Depth**. How many messages back from the latest the entry sits. Default 4. |
 | **Order** | The sequence when several entries activate. A lower number comes first and survives trimming when the budget is tight. Default 100. |
 | **Role** | Labels the injected text **System**, **User** or **Assistant**. Matters only for **@ Depth**. Default **System**. |
@@ -98,7 +100,7 @@ An **Outlet** entry appears only where you place a macro.
 2. Type an exact, case-sensitive name such as `character_rules`.
 3. Put `{{outlet::character_rules}}` in a prompt section of your [preset](../prompts/presets.md).
 
-Entries that share a name are joined in **Order**, separated by new lines. Only entries that activated for this reply appear. They still follow keys, probability, filters, timing, **Entry Limit** and **Token Budget**. With no active entries the macro adds nothing. An Outlet entry cannot call another Outlet macro. See [macros](../prompts/macros.md) for the macro.
+Entries that share a name are joined in **Order**, separated by new lines. Outlet macros work in prompt sections in Conversation, Roleplay and Game chats. Only entries that activated for this reply appear. They still follow keys, probability, filters, timing, **Entry Limit** and **Token Budget**. With no active entries the macro adds nothing. An Outlet entry cannot call another Outlet macro. See [macros](../prompts/macros.md) for the macro.
 
 ## Probability and timing
 
@@ -127,15 +129,24 @@ The **Decision** field lets your Decision model, a small model that answers yes-
 
 You can use macros such as `{{user}}` and `{{char}}` in the statement.
 
-Before you start: choose a Decision model under **Decision model** in the **Connections** panel. With no Decision model, or no answer, the statement counts as no. **Require** then never admits a new entry, and **Trigger** adds nothing. The editor warns you when no Decision model is set. Give important entries an ordinary route too, and use **Require** only to filter optional lore.
+Before you start: choose a Decision model under **Decision model** in the **Connections** panel. With no Decision model, or no answer, the statement counts as no. The editor warns you when none is set.
+
+- **Require** never admits a new entry then, though an existing **Sticky** hold can keep one active.
+- **Trigger** adds no route, and the entry can still activate by its keys.
+
+Give important entries an ordinary route too, and use **Require** only to filter optional lore.
+
+**Require** checks only an entry that already qualifies through keys, semantic match, **Constant** or a map location, and then only if the statement is also true. On a **Constant** entry it makes the entry situational, for example combat rules with `A fight is happening in the latest message`. It does not scan every unused entry.
 
 Decision statements add model requests and share the **Decision statements per turn** limit. For wording tips, limits, cost and answer reuse, see [Writing statements](../prompts/conditional-prompts.md#writing-statements), [Limits and cost](../prompts/conditional-prompts.md#limits-and-cost) and [Answer reuse](../prompts/conditional-prompts.md#answer-reuse). For the model setup, see [Decision Models](../connections/decision-models.md).
 
-- **Sticky** and **Cooldown** work with **Decision**. A sticky entry is not asked again while its hold lasts, and a cooling entry is not asked at all.
+More details:
+
+- A **sticky** entry is not asked again while its hold lasts, and a cooling entry is not asked at all.
 - The active-lorebook list shows **decision** for an entry that a **Trigger** statement activated.
-- **Peek Prompt** never asks. It uses answers the turn already has and lists statements with none.
+- **Peek Prompt** never asks. It shows the answers the turn already has.
 - Decision activation applies to chat turns only. Game setup and the scans that agents run for themselves read decision entries as no.
-- A `{{#if decision:"..."}}` inside the entry's content is different. It trims the text of an entry that already activated. Use the **Decision** field to decide whether the entry activates at all.
+- A `{{#if decision:"..."}}` inside the entry's content is different. It trims the text of an entry that already activated.
 
 ## Groups, filters and other options
 
@@ -151,9 +162,9 @@ The expanded drawer holds more fields.
 
 The **Context filters & matching sources** section limits an entry to certain characters, character tags or generation types. It also lets you scan extra card fields, such as the character description, for the entry's keys. In a group chat, a character filter also keeps the entry out of other characters' replies. Use it for secrets that only one character knows.
 
-## Put the pieces together
+## Choose settings for a fact
 
-Start from one question: when should the AI see this fact?
+Ask when the AI should see the fact, then use this table.
 
 | The fact | Setup |
 | --- | --- |
@@ -164,11 +175,12 @@ Start from one question: when should the AI see this fact?
 | Several versions that must not appear together | The same **Group**. |
 | A rule the model forgets in the middle of a scene | **@ Depth** near 1 to 4. |
 
-A few habits keep a lorebook lean.
+Habits that keep a lorebook small:
 
 - Use specific keys. A key like `he` or `the city` matches almost every message and wastes budget.
 - Fill in **Description** on any entry you expect the **Knowledge Router** to route. It reads the description, not the content.
-- Build big settings as a tree. Add a hub entry for a group, such as an entry for *The Empire* that lists its members, next to an entry for each member. Leave **Recursion** off on hubs. Otherwise naming the group pulls every member's full entry into the prompt at once.
+- Build big settings as a tree. Add a hub entry for a group, such as one for The Empire that lists its members, next to an entry for each member.
+- Leave **Recursion** off on hubs. Otherwise naming the group pulls every member's full entry into the prompt at once.
 
 For example, take the rule for how a villain can be killed, which the AI tends to forget. Make it **Selective** with **AND Any**, **Whole Words** on and **Order** 10. Use the primary keys `weakness`, `kill`, `destroy`, `stake` and the secondary keys `Vlad`, `the count`. The secondary keys keep it silent when the party kills a wolf. **Whole Words** stops `stake` from matching "mistake". The low order keeps it from being trimmed in a crowded scene.
 
@@ -176,11 +188,12 @@ Where a lorebook lives decides which chats see it. See [Lorebooks Overview](over
 
 ## Macros in entry content
 
-**Content** is expanded like any other prompt text before it is sent. Some handy macros:
+**Content** is expanded like any other prompt text before it is sent. Useful macros:
 
 - `{{char}}` and `{{user}}` give the names, so a shared entry reads well in any chat.
+- `{{roll:1d6}}` rolls a die. `{{setvar::mood::angry}}` stores a value for this chat, and `{{getvar::mood}}` reads it back.
 - `{{random::a::b::c}}` picks one option. Add weights, as in `{{random::common@3::rare@1}}`. Pair it with a low **Probability** to fold a whole encounter table into one entry.
-- `{{include::Entry name}}` puts in the text of another entry from the same lorebook. See [Lorebook include macro](../prompts/macros.md#lorebook-include-macro).
+- `{{include::Entry name}}` puts in the text of another entry from the same lorebook, even a turned-off one. See [Lorebook include macro](../prompts/macros.md#lorebook-include-macro).
 - `{{// note}}` is a comment. It is stripped before the AI sees it, and before recursion scans, so it can never trigger anything.
 
 For the full list, see [Prompt Macros](../prompts/macros.md).
@@ -203,10 +216,11 @@ The test ignores timing, chance, character and persona filters, and matching by 
 Folders group entries inside one lorebook. They are separate from the library folders in the **Lorebooks** panel.
 
 - Click **Add Folder**, then rename the folder in place.
-- Drag an entry onto a folder, or use the entry's **Folder** picker.
+- Drag an entry onto a folder, or use the entry's **Folder** picker (works by tap).
 - Drag a folder onto another to nest it, or onto the top strip to un-nest it.
-- Each folder has an **Enabled** switch. When it is off, every entry inside stops activating.
-- **Clone** copies the folder with all its entries and sub-folders. **Delete** removes only the folder. Its contents move up to the top level.
+- Each folder has an enabled switch (tooltip "Folder enabled"). When it is off, every entry inside stops activating.
+- **Clone folder** copies the folder with all its entries and sub-folders.
+- **Delete folder** removes only the folder. Its contents move up to the top level.
 
 Folders show as groups only when you sort by **Order** with no search. Otherwise you see a flat list and the note **Folder view paused (clear search and sort by Order)**.
 
