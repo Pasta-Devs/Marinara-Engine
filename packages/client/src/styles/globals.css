@@ -9148,3 +9148,45 @@ html[data-setup-stage]
     transition: none !important;
   }
 }
+
+/* Setup stage word swap: the old value slides up and fades, the new one rises in and its accent
+   underline draws left to right. StageWord skips it under prefers-reduced-motion. */
+.stage-word-swapping {
+  text-decoration-color: transparent !important;
+}
+.stage-word-swap {
+  position: relative;
+  display: inline-block;
+  background: linear-gradient(var(--stage-accent, var(--primary)), var(--stage-accent, var(--primary))) left
+    calc(100% - 0.12em) / 0% 1.5px no-repeat;
+  animation: stage-word-line 180ms ease-out forwards;
+}
+.stage-word-new {
+  display: inline-block;
+  animation: stage-word-in 180ms ease-out;
+}
+.stage-word-old {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: stage-word-out 180ms ease-in forwards;
+}
+@keyframes stage-word-line {
+  to {
+    background-size: 100% 1.5px;
+  }
+}
+@keyframes stage-word-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45em);
+  }
+}
+@keyframes stage-word-out {
+  to {
+    opacity: 0;
+    transform: translateY(-0.45em);
+  }
+}

@@ -23,6 +23,7 @@ import {
   ImageIcon,
   MessageSquare,
   Play,
+  Plus,
   Sparkles,
   Users,
   CircleAlert,
@@ -39,6 +40,7 @@ import { api } from "../../lib/api-client";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { useChatStore } from "../../stores/chat.store";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useConnections } from "../../hooks/use-connections";
 import { usePresetFull, usePresets } from "../../hooks/use-presets";
@@ -52,7 +54,14 @@ import {
   getChatExcludedLorebookIds,
 } from "../../lib/chat-lorebooks";
 import { ChatSetupStageMemoryNote } from "./ChatSetupStageMemoryNote";
-import { StageAvatar, StageEditor, type StageAvatarProps, type StageEditorSection } from "./ChatSetupStageEditors";
+import {
+  parseData,
+  readCreatorNotes,
+  StageAvatar,
+  StageEditor,
+  type StageAvatarProps,
+  type StageEditorSection,
+} from "./ChatSetupStageEditors";
 import { ChatSetupStageScene } from "./ChatSetupStageScene";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import {
@@ -274,19 +283,52 @@ export const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[var(
 function StageWord({
   avatars,
   children,
+  after,
   ...button
-}: { avatars?: StageAvatarProps[]; children?: ReactNode } & Omit<ComponentProps<"button">, "children">) {
+}: { avatars?: StageAvatarProps[]; children?: ReactNode; after?: ReactNode } & Omit<
+  ComponentProps<"button">,
+  "children"
+>) {
+  // When the value changes, the old text slides up and the new one rises in (globals.css).
+  const label = button["aria-label"];
+  const reducedMotion = useMatchMedia("(prefers-reduced-motion: reduce)");
+  const [shown, setShown] = useState({ label, children });
+  const [swap, setSwap] = useState<{ key: number; old: ReactNode } | null>(null);
+  if (shown.label !== label) {
+    setShown({ label, children });
+    if (!reducedMotion) setSwap((current) => ({ key: (current?.key ?? 0) + 1, old: shown.children }));
+  }
   return (
-    <button type="button" {...button}>
-      {avatars?.length ? (
-        <span aria-hidden="true" className="mr-[0.3em] inline-flex -space-x-[0.3em] align-[-0.14em]">
-          {avatars.slice(0, 3).map((avatar, index) => (
-            <StageAvatar key={index} {...avatar} className="h-[0.9em] w-[0.9em] text-[0.4em] not-italic" />
-          ))}
-        </span>
-      ) : null}
-      {children}
-    </button>
+    <>
+      <button type="button" {...button} className={cn(button.className, swap && "stage-word-swapping")}>
+        {avatars?.length ? (
+          <span aria-hidden="true" className="mr-[0.3em] inline-flex -space-x-[0.3em] align-[-0.14em]">
+            {avatars.slice(0, 3).map((avatar, index) => (
+              <StageAvatar
+                key={index}
+                {...avatar}
+                className="h-[0.85em] w-[0.85em] border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_60%,transparent)] text-[length:inherit] not-italic [&>span]:text-[0.45em]"
+              />
+            ))}
+          </span>
+        ) : null}
+        {swap ? (
+          <span
+            key={swap.key}
+            className="stage-word-swap"
+            onAnimationEnd={(event) => event.target === event.currentTarget && setSwap(null)}
+          >
+            <span aria-hidden="true" className="stage-word-old">
+              {swap.old}
+            </span>
+            <span className="stage-word-new">{children}</span>
+          </span>
+        ) : (
+          children
+        )}
+      </button>
+      {after}
+    </>
   );
 }
 
@@ -341,6 +383,14 @@ export function ChatSetupStage({
   const castNames = characters.length ? listFormat.format(characters.map((c) => c.name!)) : null;
   const title = characters.length ? listFormat.format(characters.map((c) => c.name!)) : t("chat.setupStage.untitled");
   const tagline = characters.length === 1 ? stageTagline(characterMap.get(characters[0]!.id)?.description) : null;
+  // Group chats show the first character's card.
+  const { data: leadRow } = useCharacter(characters[0]?.id ?? null);
+  const leadCard = parseData((leadRow as { data?: unknown } | undefined)?.data);
+  const tags = (Array.isArray(leadCard?.tags) ? leadCard.tags : [])
+    .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
+    .slice(0, 3)
+    .map((tag) => tag.trim());
+  const hasCreatorNotes = readCreatorNotes(leadCard).length > 0;
   const personaName = personaInfo?.name || null;
   const canPickPersona = (personas?.length ?? 0) >= 2;
   // With one persona the wizard never picked it, so an unset persona stays out of the sentence.
@@ -425,13 +475,33 @@ export function ChatSetupStage({
   };
   const openGreeting = open(first ? "opening" : "characters");
 
-  const word = (onClick: (event: MouseEvent<HTMLElement>) => void, label: string, avatars?: StageAvatarProps[]) => (
+  const word = (
+    onClick: (event: MouseEvent<HTMLElement>) => void,
+    label: string,
+    avatars?: StageAvatarProps[],
+    after?: ReactNode,
+  ) => (
     <StageWord
       avatars={avatars}
+      after={after}
       onClick={onClick}
       aria-label={label}
       className={cn(
         "inline cursor-pointer bg-transparent p-0 text-left italic text-[var(--foreground)] underline decoration-[color-mix(in_srgb,var(--stage-accent,var(--primary))_75%,transparent)] decoration-[1.5px] underline-offset-[5px] hover:decoration-[var(--stage-accent,var(--primary))]",
+        FOCUS,
+        "rounded-sm",
+      )}
+    />
+  );
+  // No model yet: the sentence says so in amber, and the word opens the connection editor.
+  const noModel = readiness?.section === "connection";
+  const modelWord = (
+    <StageWord
+      onClick={open("connection")}
+      aria-haspopup="dialog"
+      aria-label={t("chat.setupStage.a11y.model")}
+      className={cn(
+        "inline cursor-pointer bg-transparent p-0 text-left italic text-amber-700 underline decoration-amber-500/70 decoration-[1.5px] underline-offset-[5px] hover:decoration-amber-500 dark:text-amber-300",
         FOCUS,
         "rounded-sm",
       )}
@@ -454,6 +524,20 @@ export function ChatSetupStage({
       open("characters"),
       t("chat.setupStage.a11y.cast", { value: castNames ?? t("chat.setupStage.chooseCharacter") }),
       castAvatars,
+      castNames ? (
+        <button
+          type="button"
+          onClick={open("add-character")}
+          aria-haspopup="dialog"
+          aria-label={t("chat.setupStage.a11y.addCharacter")}
+          className={cn(
+            "relative ml-[0.25em] inline-flex h-[1.05em] w-[1.05em] cursor-pointer items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--stage-accent,var(--primary))_45%,transparent)] bg-transparent p-0 align-[-0.12em] text-[color-mix(in_srgb,var(--stage-accent,var(--primary))_85%,var(--foreground))] transition-colors before:absolute before:-inset-3 before:content-[''] hover:bg-[color-mix(in_srgb,var(--stage-accent,var(--primary))_16%,transparent)]",
+            FOCUS,
+          )}
+        >
+          <Plus size="0.7em" aria-hidden />
+        </button>
+      ) : undefined,
     ),
     greeting: word(openGreeting, t("chat.setupStage.a11y.greeting", { value: greetingWord })),
     preset: word(
@@ -568,6 +652,12 @@ export function ChatSetupStage({
       {t("chat.setupStage.start")}
     </button>
   );
+  // The first message ends the stage too; on phones the row has no room for it.
+  const typingHint = (
+    <span className="font-serif text-[13.5px] italic text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] max-sm:hidden">
+      {t("chat.setupStage.typingHint")}
+    </span>
+  );
   const toggleButton = (
     <button
       type="button"
@@ -625,6 +715,29 @@ export function ChatSetupStage({
           ))}
         </button>
       ) : null}
+      {(tags.length > 0 || hasCreatorNotes) && (
+        <p className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_58%,transparent)] md:text-xs">
+          {tags.length > 0 && (
+            <span className="font-semibold uppercase tracking-[0.18em]">
+              {[t(`chat.setupStage.tags.${variant}`), ...tags].join(" · ")}
+            </span>
+          )}
+          {hasCreatorNotes && (
+            <button
+              type="button"
+              onClick={open("creator-notes")}
+              aria-haspopup="dialog"
+              className={cn(
+                "-my-2 inline-flex min-h-11 cursor-pointer items-center bg-transparent p-0 italic underline decoration-[color-mix(in_srgb,var(--foreground)_30%,transparent)] underline-offset-4 hover:text-[var(--foreground)] md:my-0 md:min-h-0",
+                FOCUS,
+                "rounded-sm",
+              )}
+            >
+              {t("chat.setupStage.creatorNotes")}
+            </button>
+          )}
+        </p>
+      )}
       <h1
         style={SERIF}
         className={cn(
@@ -646,7 +759,7 @@ export function ChatSetupStage({
         </button>
       </h1>
       {tagline && (
-        <p className="mt-3 text-sm text-[color-mix(in_srgb,var(--foreground)_72%,transparent)] md:text-[15px]">
+        <p className="mt-3 text-sm text-[color-mix(in_srgb,var(--foreground)_80%,transparent)] md:text-[15px] dark:text-[color-mix(in_srgb,var(--foreground)_72%,transparent)]">
           {tagline}
         </p>
       )}
@@ -674,6 +787,18 @@ export function ChatSetupStage({
             values={{ preset: presetName ?? t("chat.setupStage.defaultPreset") }}
             components={sentenceComponents}
           />
+        )}
+        {noModel && (
+          <>
+            {" "}
+            <Trans
+              t={t}
+              i18nKey={castNames ? "chat.setupStage.sentenceModel" : "chat.setupStage.sentenceModelNoCast"}
+              count={characters.length}
+              values={{ cast: castNames }}
+              components={{ model: modelWord }}
+            />
+          </>
         )}
       </p>
 
@@ -719,6 +844,7 @@ export function ChatSetupStage({
           </div>
           <div className="mt-1.5 flex items-center gap-[18px] border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-1.5 pb-1.5 pt-3">
             {beginButton}
+            {typingHint}
             {toggleButton}
           </div>
         </div>
@@ -744,12 +870,13 @@ export function ChatSetupStage({
           </div>
           <div className="mt-[18px] flex items-center gap-[18px] md:mt-[22px]">
             {beginButton}
+            {typingHint}
             {toggleButton}
           </div>
         </>
       )}
 
-      {readiness && (
+      {readiness && !noModel && (
         <p className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]">
           <CircleAlert size="0.85rem" aria-hidden="true" className="flex-none" />
           <span>{t(readiness.text, { percent: readiness.percent })}</span>
