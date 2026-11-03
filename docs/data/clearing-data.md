@@ -1,69 +1,58 @@
 # Clearing or Resetting Your Data
 
-This guide shows you how to permanently delete your data in Marinara Engine using the **Danger Zone**. You can clear a few categories or wipe everything. There is no undo, so read the warnings first.
+Permanently delete some or all of your data with the **Danger Zone**. There is no undo.
 
-## Where the Danger Zone is
+**Before you start:** make a backup. There is no trash or recycle bin. See [Backing Up and Restoring Marinara](backup-and-restore.md). If you use Marinara from another device, you also need the admin secret. See [Remote Access](../REMOTE_ACCESS.md).
 
-The clear data tools live in one place.
+## Clear some categories
 
-1. Open **Settings**.
-2. Go to the **Advanced** tab.
-3. Scroll to the **Danger Zone** section at the bottom.
+1. Open **Settings → Advanced** and scroll to **Danger Zone**.
+2. Check each category you want to delete. **Select All** checks every box. When all are checked, the same button reads **Clear Selection** and unchecks them.
+3. Click **Clear Selected Data**. It stays disabled until you check a category.
+4. Read the warning. It shows how many categories you picked.
+5. Click **Confirm Delete**, or **Cancel** to stop. Nothing is deleted until you confirm.
 
-The **Danger Zone** description reads: "Permanently clear selected categories of local data. Professor Mari is always preserved."
+When it works, a message says the selected data was cleared and runtime caches were reset immediately. If it did not work, an error message appears and nothing more is deleted. Check that you have admin access.
 
-If you use Marinara from another device (not the computer running the app), clearing data needs admin access. See [Remote Access](../REMOTE_ACCESS.md) for how to set that up.
+## Clear everything
 
-## Back up before you clear
+1. In **Danger Zone**, click **Clear All Data**. You do not need to check any box.
+2. The warning asks: "Delete all supported data categories except Professor Mari? There is no undo."
+3. Click **Confirm Delete**, or **Cancel** to stop.
 
-Clearing data cannot be undone. There is no trash and no recycle bin. Once you confirm, the data is gone.
-
-Make a backup first so you can restore later if you change your mind. See [Backing Up and Restoring Marinara](backup-and-restore.md).
+This does the same as checking all eight boxes.
 
 ## The eight data categories
 
-The **Danger Zone** shows a checklist of eight categories. Each one is a separate scope. Checking one category does not touch the others.
+Each category is separate. Checking one does not touch the others.
 
-| Category | What it clears |
-|---|---|
-| **Chats & Messages** | Chats, folders, messages, scene/OOC data, and chat runtime state. |
-| **Characters** | Characters and character groups. Professor Mari is always preserved. |
-| **Personas** | Personas and persona groups. |
-| **Lorebooks** | Lorebooks and lorebook entries. |
-| **Presets** | Prompt presets, groups, sections, and variables. |
-| **Connections** | API connections and model endpoints. |
-| **Automation & Addons** | Agents, tools, regex scripts, synced themes, and automation state. |
-| **Media & Assets** | Backgrounds, avatars, sprites, gallery items, fonts, and knowledge-source files. |
+| Category | What it deletes |
+| --- | --- |
+| **Chats & Messages** | All chats, chat folders and messages, with their swipes, memories, agent results, game state and chat images. Also the whole `gallery` folder and all game scene videos. |
+| **Characters** | All characters and character groups, except Professor Mari. Also their avatar files and 2D and 3D avatar models. |
+| **Personas** | All personas and persona groups, with their avatar files and avatar models. |
+| **Lorebooks** | All lorebooks, their entries and lorebook folders. |
+| **Presets** | All prompt presets, their groups, sections and variables, and preset folders. Marinara keeps its built-in stock preset and makes it the default. |
+| **Connections** | All saved accounts and their model settings. Also your text-to-speech and speech-to-text settings, the models you chose for features, and a Tripo API key saved on the **3D Avatars** page. |
+| **Automation & Addons** | All agent settings, agent results and memory, agent Home widgets, custom tools, regex scripts and synced themes. |
+| **Media & Assets** | The asset list and the folders for backgrounds, avatars, sprites, 2D and 3D avatar models, gallery, scene videos, fonts and knowledge-source files. Also chat images. |
 
-A few categories remove more than database records. **Chats & Messages** also deletes the entire on-disk gallery folder and all scene-video files. This includes character and persona gallery images, even if you did not check **Characters** or **Personas**. **Media & Assets** deletes the on-disk folders for backgrounds, avatars, sprites, 2D and 3D avatar files, galleries, scene-video files, fonts, and knowledge-source files. **Connections** also clears your saved text-to-speech (TTS) and Speech to Text settings, because those are tied to a connection. It also removes a Tripo API key saved earlier on the **3D Avatars** page.
+Some terms in the list:
 
-## Clearing selected categories
+- A swipe is one of several answers kept on a message.
+- Knowledge-source files are files you uploaded for knowledge agents.
+- Synced themes are your custom themes saved in Marinara.
 
-Use this when you want to wipe some data but keep the rest.
+Some categories reach into files outside their name. **Chats & Messages** deletes the whole `gallery` folder, including character and persona gallery images, even if you did not check **Characters** or **Personas**.
 
-1. Check the box next to each category you want to delete.
-2. To toggle every box at once, use the **Select All** button. When all boxes are checked, the same button changes to **Clear Selection** so you can uncheck them all.
-3. Click **Clear Selected Data**. This button stays disabled until at least one category is checked.
-4. A warning box appears. It says how many categories you picked and reminds you there is no undo.
-5. Click **Cancel** to stop, or **Confirm Delete** to delete. Nothing is deleted until you click **Confirm Delete**.
+Clearing does not touch your other settings, the `backups/` folder or the `.encryption-key` file. See [Where Marinara Stores Your Data](where-data-is-stored.md).
 
-After a successful clear, you should see a confirmation message. It says the selected data was cleared and runtime caches were reset immediately.
+## Professor Mari stays
 
-## Clearing everything
-
-Use this to wipe all eight categories in one step.
-
-1. Click **Clear All Data**. You do not need to check any boxes first.
-2. A warning box asks: "Delete all supported data categories except Professor Mari? There is no undo."
-3. Click **Cancel** to stop, or **Confirm Delete** to delete everything.
-
-This does the same thing as checking every box and clearing them together.
-
-## Professor Mari is always kept
-
-Professor Mari is the built-in helper character. This feature never deletes her. Even if you clear the **Characters** category or use **Clear All Data**, Professor Mari stays in place. You cannot remove her from the **Danger Zone**.
+Professor Mari is the built-in assistant on the Home screen. The **Danger Zone** never deletes her, not even with **Clear All Data**.
 
 ## Related guides
 
 - [Backing Up and Restoring Marinara](backup-and-restore.md)
+- [Where Marinara Stores Your Data](where-data-is-stored.md)
 - [Remote Access](../REMOTE_ACCESS.md)
