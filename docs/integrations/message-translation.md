@@ -29,8 +29,10 @@ Google Translate works with no setup. Pick another only if you need what it offe
 
 Two fields set the languages. Both default to `en` (English).
 
-- **Model Language**: your own messages are translated into this language before the AI reads them. **Translate My Messages** and **Translate draft** use it.
-- **My Language**: AI replies are translated into this language. **Auto-Translate Responses** and the per-message **Translate** button use it.
+- **Model Language** is the language the AI model understands and replies in. When you type in your own language, your message is translated into this one before the AI reads it. **Translate My Messages** and **Translate draft** use it.
+- **My Language** is the language you read. AI replies are translated into this one. **Auto-Translate Responses** and the per-message **Translate** button use it.
+
+For example, if you write in Spanish and the AI works best in English, set **Model Language** to `en` and **My Language** to `es`.
 
 For Google Translate, DeepL API and DeepLX, enter a short code such as `en`, `ja`, `es`, `de`, `fr`, `zh` or `ko`. For AI (via connection), enter a language name such as `English`, `Japanese` or `Spanish`.
 
@@ -48,7 +50,7 @@ xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx
 
 DeepLX is a free translation server you run yourself. Pick **DeepLX (self-hosted)** and enter your server's address in **DeepLX URL**, for example `http://localhost:1188`.
 
-A DeepLX server on your own computer or local network has a local address. Marinara blocks local addresses by default for safety. To allow them, add this line to your `.env` file and save. No restart is needed, and it takes effect within a few seconds. The [Server Configuration Reference](../CONFIGURATION.md) shows where the file is.
+A DeepLX server on your own computer or local network has a local address. Marinara blocks local addresses by default for safety. To allow them, add this line to your `.env` file and save. No restart is needed. It takes effect usually within seconds, up to about 30 seconds. The [Server Configuration Reference](../CONFIGURATION.md) shows where the file is.
 
 ```text
 DEEPLX_LOCAL_URLS_ENABLED=true
@@ -64,7 +66,9 @@ Pick **AI (via connection)** to use one of your AI models. Three fields appear.
 - **Outgoing Message Prompt** and **Incoming Response Prompt**: the instructions the AI gets when it translates your messages and its own replies. Both start with a built-in default you can edit for this chat. `{{targetLanguage}}` becomes **Model Language** or **My Language**. After you change a prompt, **Restore** resets it. The default prompt is:
 
 ```text
-You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
+You are a translator. Translate the given text accurately into {{targetLanguage}},
+preserving formatting, markdown, and any special characters like *asterisks* for actions.
+Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
 
 ## Turn on automatic translation
@@ -86,12 +90,12 @@ The DeepL API key and the DeepLX URL stay on this Marinara install. Chat exports
 
 ## Translate one message
 
-Every message, from you or the AI, has a **Translate** button (a languages icon) in its hover action bar. It works without any toggle above.
+Every message, from you or the AI, has a **Translate** button (a languages icon) in its action bar. It works without any toggle above.
 
-1. Move your pointer over the message to show its action bar.
+1. Move your pointer over the message, or tap it on a phone, to show its action bar.
 2. Click **Translate**.
 3. The translation appears below the message, or in its place with **Show Only Translation** on.
-4. Click the button again to hide it. Its hover text then reads **Hide translation**.
+4. Click the button again to hide it. Its label then reads **Hide translation**.
 
 The translation is saved with the message and survives a page refresh and switching chats. It uses the same provider and **My Language** as the section above.
 
