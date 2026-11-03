@@ -226,7 +226,7 @@ What being in a place does to the party over time, such as a field of noon light
 ]
 ```
 
-On the game's clock: the first turn the party is in `place` (or inside it) while `if` holds starts it, and each later turn counts how many `hours` have passed there since. Each time they do, the Engine moves the `tracks` by `by` and puts the `applies` conditions on for each of the party, with its own sheet commands applied with the reply's, and tells the Game Master (with `tell`). Leaving the place, or `if` no longer holding, ends it; it starts afresh next time. It is recorded in the reply (`[story: exposure=...]`), once.
+On the game's clock: the first turn the party is in `place` (or inside it) while `if` holds starts it, and each later turn counts how many `hours` have passed there since. Each time they do, the Engine moves the `tracks` by `by` and puts the `applies` conditions on for each of the party, with its own sheet commands applied with the reply's, and tells the Game Master (with `tell`). Leaving the place, or `if` no longer holding, ends it; it starts afresh next time. It is recorded in the reply (`[story: exposure="<id>" ...]`), once.
 
 A track may stop at a most: `{ "track": "exhaustion", "by": 1, "upTo": 3 }` never carries it past 3, and never moves one already beyond it. An exposure may ask a save instead of biting everyone, the same shape as a fight board's light rule `save`:
 
@@ -251,7 +251,7 @@ Where death is held, as the showcase's valley holds it:
 ]
 ```
 
-While the party is in `place` (or inside it; the whole world without one) and `if` holds, a ruleset fight started there is fought on Held Ground: whoever reaches no health is felled instead, out of the fight, stable and never dying, and gets up again later unless something that reaps felled them. `condition` goes on the felled, and each felled character's `marks` tracks move (a mark of Owing). The first entry that holds is the one. The story records the party coming onto it and leaving it (`[story: held=...]`) and tells the Game Master each time (with `tell`); every turn it holds, the Game Master is reminded what it means.
+While the party is in `place` (or inside it; the whole world without one) and `if` holds, a ruleset fight started there is fought on Held Ground: whoever reaches no health is felled instead, out of the fight, stable and never dying, and gets up again later unless something that reaps felled them. `condition` goes on the felled, and each felled character's `marks` tracks move (a mark of Owing). The first entry that holds is the one. The story records the party coming onto it and leaving it (`[story: held="<id>" ...]`; leaving it records an empty id) and tells the Game Master each time (with `tell`); every turn it holds, the Game Master is reminded what it means.
 
 Held ground can let go: the showcase's year turning. Its `release` says what then comes due:
 
