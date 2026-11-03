@@ -11,7 +11,6 @@ import {
   useDeleteRegexScript,
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
-import { useCharacters } from "../../hooks/use-characters";
 import { usePresets } from "../../hooks/use-presets";
 import {
   ArrowLeft,
@@ -33,6 +32,7 @@ import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { ApiError } from "../../lib/api-client";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { CharacterSelect } from "../characters/CharacterSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -132,17 +132,6 @@ function parseStringArray(value: unknown): string[] {
   }
 }
 
-function parseCharacterData(value: unknown): Record<string, unknown> {
-  if (isRecord(value)) return value;
-  if (typeof value !== "string") return {};
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return isRecord(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
 function formatValidationIssue(issue: unknown): string | null {
   if (!isRecord(issue)) return null;
   const message = typeof issue.message === "string" ? issue.message : null;
@@ -239,7 +228,6 @@ export function RegexScriptEditor() {
   const quoteFormat = useUIStore((s) => s.quoteFormat);
 
   const { data: regexScripts } = useRegexScripts();
-  const { data: characters } = useCharacters();
   const { data: promptPresets } = usePresets();
   const updateScript = useUpdateRegexScript();
   const createScript = useCreateRegexScript();
@@ -282,24 +270,6 @@ export function RegexScriptEditor() {
   // ── Test area ──
   const [testInput, setTestInput] = useState("");
 
-  const characterOptions = useMemo(() => {
-    if (!Array.isArray(characters)) return [];
-    return characters
-      .map((character) => {
-        if (!isRecord(character) || typeof character.id !== "string") return null;
-        const row = character as Record<string, unknown>;
-        const data = parseCharacterData(row.data);
-        const name =
-          typeof data.name === "string" && data.name.trim()
-            ? data.name.trim()
-            : typeof row.name === "string" && row.name.trim()
-              ? row.name.trim()
-              : "Unnamed";
-        return { id: character.id, name };
-      })
-      .filter((character): character is { id: string; name: string } => character !== null)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [characters]);
   const promptPresetOptions = useMemo(
     () =>
       (promptPresets ?? [])
@@ -847,19 +817,15 @@ export function RegexScriptEditor() {
               </div>
               {localCharacterScopeEnabled && (
                 <div>
-                  <ScopeTargetPicker
-                    icon={<Users size="0.75rem" />}
-                    options={characterOptions}
-                    selectedIds={localTargetCharacterIds}
-                    addLabel={localizeUi("ui.agents.regexscripteditor.addCharacter")}
-                    emptyLabel={localizeUi("ui.agents.regexscripteditor.noCharactersFound")}
-                    removeLabel={(name) => localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: name })}
-                    onAdd={(id) => {
-                      setLocalTargetCharacterIds((previous) => [...previous, id]);
-                      markDirty();
-                    }}
-                    onRemove={(id) => {
-                      setLocalTargetCharacterIds((previous) => previous.filter((value) => value !== id));
+                  <CharacterSelect
+                    kind="character"
+                    multiple
+                    variant="picker"
+                    placeholder={localizeUi("ui.agents.regexscripteditor.addCharacter")}
+                    aria-label={localizeUi("ui.agents.regexscripteditor.addCharacter")}
+                    value={localTargetCharacterIds}
+                    onChange={(ids) => {
+                      setLocalTargetCharacterIds(ids);
                       markDirty();
                     }}
                   />

@@ -67,7 +67,6 @@ import {
   Save,
   FileText,
   FolderOpen,
-  Folder,
   Upload,
   Download,
   Star,
@@ -99,6 +98,7 @@ import { FloatingWindow } from "../ui/FloatingWindow";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
 import { PickerDropdown } from "../../features/chat-settings/PickerDropdown";
+import { CharacterSelect, changedId } from "../characters/CharacterSelect";
 import { PersonaHistoryReassignDropdown } from "../../features/chat-settings/sections/PersonaHistoryReassignDropdown";
 import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
@@ -256,8 +256,7 @@ import {
   parseCadenceInputValue,
   stepCadenceValue,
 } from "../../lib/agent-cadence";
-import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
-import { buildCharacterIdentityGroups } from "../../lib/character-identity-groups";
+import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { buildRoleplayAgentSettingsOrder, hasStandaloneRoleplayAgentSettings } from "../../lib/agent-settings-order";
 import { extractCreatorNotesCss } from "../../lib/creator-notes-css";
 import { isLorebookScopeActiveForChat } from "../../lib/lorebook-scope";
@@ -409,6 +408,7 @@ import {
 import { multiplayerGuestErrorLabelKey } from "../../features/multiplayer/multiplayer-guest-labels";
 import { multiplayerActionError, useMultiplayerMutation } from "../../hooks/use-multiplayer";
 
+const PICKER_EXCLUDED_IDS = [PROFESSOR_MARI_ID];
 const QuickPresetSectionsEditor = lazy(() =>
   import("../presets/PresetEditor").then((module) => ({ default: module.QuickPresetSectionsEditor })),
 );
@@ -1258,7 +1258,6 @@ export function ChatSettingsDrawer({
   const { data: customToolCapabilities } = useCustomToolCapabilities();
   const { data: allChats } = useChats({ refetchOnMount: false });
   const personas = useMemo(() => allPersonas ?? [], [allPersonas]);
-  const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
 
   const chatCharIds: string[] = useMemo(
     () => getChatCharacterIds({ characterIds: chat.characterIds }),
@@ -2800,19 +2799,6 @@ export function ChatSettingsDrawer({
       }>,
     [allCharacters],
   );
-  const selectableCharacters = useMemo(
-    () => characters.filter((character) => character.id !== PROFESSOR_MARI_ID),
-    [characters],
-  );
-  const characterIdentityGroups = useMemo(
-    () =>
-      buildCharacterIdentityGroups(
-        selectableCharacters,
-        (characterGroups ?? []) as CharacterGroup[],
-        localizeUi("ui.chat.personapicker.ungrouped"),
-      ),
-    [characterGroups, localizeUi, selectableCharacters],
-  );
 
   const chatCharacters = useMemo(
     () =>
@@ -3196,6 +3182,11 @@ export function ChatSettingsDrawer({
         },
       );
     }
+  };
+
+  const toggleChangedCharacter = (ids: string[]) => {
+    const id = changedId(chatCharIds, ids);
+    if (id) toggleCharacter(id);
   };
 
   const toggleCharacterActivity = (charId: string) => {
@@ -4033,12 +4024,14 @@ export function ChatSettingsDrawer({
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(chat.name);
   const [showCharPicker, setShowCharPicker] = useState(false);
+  const addCharBtnRef = useRef<HTMLButtonElement>(null);
+  const partyBtnRef = useRef<HTMLButtonElement>(null);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [showLbPicker, setShowLbPicker] = useState(false);
   const [showToolPicker, setShowToolPicker] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
-  const [showCharacterIdentityGroups, setShowCharacterIdentityGroups] = useState(false);
-  const [expandedCharacterIdentityGroups, setExpandedCharacterIdentityGroups] = useState<Set<string>>(new Set());
+  const personaBtnRef = useRef<HTMLButtonElement>(null);
+  const gamePersonaBtnRef = useRef<HTMLButtonElement>(null);
   const [showConnectionPicker, setShowConnectionPicker] = useState(false);
   const [showSummariesModal, setShowSummariesModal] = useState(false);
   const [showAgentSuiteModal, setShowAgentSuiteModal] = useState(false);
@@ -4100,7 +4093,6 @@ export function ChatSettingsDrawer({
     setRolloverTouchedThisSession(false);
   }, [chat.id]);
   const [connectionSearch, setConnectionSearch] = useState("");
-  const [personaSearch, setPersonaSearch] = useState("");
   // The onboarding template whose questions window is open, picked from the
   // persona picker. A character, not a persona: nothing exists until Create.
   const [onboardingTemplateId, setOnboardingTemplateId] = useState<string | null>(null);
@@ -4138,6 +4130,10 @@ export function ChatSettingsDrawer({
   // The card whose character questions are open from the Characters list. Kept
   // separate from the persona template: this window writes chat variables only.
   const [onboardingQuestionsCharacterId, setOnboardingQuestionsCharacterId] = useState<string | null>(null);
+  // A greeting or onboarding dialog opens under the add-character picker, so close the picker first.
+  useEffect(() => {
+    if (pendingAddedCard?.greeting || onboardingQuestionsCharacterId) setShowCharPicker(false);
+  }, [pendingAddedCard, onboardingQuestionsCharacterId]);
   const onboardingQuestionsTarget = onboardingQuestionsCharacterId
     ? (onboardingCardQuestionsById.get(onboardingQuestionsCharacterId) ?? null)
     : null;
@@ -4202,7 +4198,6 @@ export function ChatSettingsDrawer({
     setOnboardingQuestionsCharacterId(null);
   }, [continueAddedCardGreeting, onboardingQuestionsCharacterId]);
   const [pendingToolIds, setPendingToolIds] = useState<string[]>([]);
-  const [charSearch, setCharSearch] = useState("");
   const [lbSearch, setLbSearch] = useState("");
   const [toolSearch, setToolSearch] = useState("");
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
@@ -6071,88 +6066,30 @@ export function ChatSettingsDrawer({
                   targetName={personas.find((persona) => persona.id === chat.personaId)?.name ?? null}
                 />
 
-                {!showPersonaPicker ? (
-                  <button
-                    onClick={() => {
-                      setShowPersonaPicker(true);
-                      setPersonaSearch("");
-                    }}
-                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                  >
-                    <Plus size="0.75rem" />{" "}
-                    {chat.personaId
-                      ? localizeUi("ui.chat.chatsettingsdrawer.change")
-                      : localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
-                    {localizeUi("ui.characters.cardlibrarydetailcard.persona")}
-                  </button>
-                ) : (
-                  <PickerDropdown
-                    search={personaSearch}
-                    onSearchChange={setPersonaSearch}
-                    onClose={() => setShowPersonaPicker(false)}
-                    placeholder={localizeUi("ui.chat.chatsettingsdrawer.searchPersonas")}
-                  >
-                    <button
-                      onClick={() => {
-                        updateChat.mutate({ id: chat.id, personaId: null });
-                        setShowPersonaPicker(false);
-                      }}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                        !chat.personaId && "bg-[var(--primary)]/10",
-                      )}
-                    >
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--muted-foreground)]">
-                        <X size="0.625rem" />
-                      </div>
-                      <span className="flex-1 truncate text-xs">{localizeUi("ui.game.gamesurfacecomponent.none")}</span>
-                      {!chat.personaId && <Check size="0.625rem" className="ml-auto shrink-0 text-[var(--primary)]" />}
-                    </button>
-                    {personas
-                      .filter(
-                        (p) =>
-                          includesTextForMatch(p.name, personaSearch) ||
-                          includesTextForMatch(p.comment ?? "", personaSearch),
-                      )
-                      .map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => {
-                            updateChat.mutate({ id: chat.id, personaId: p.id });
-                            setShowPersonaPicker(false);
-                          }}
-                          className={cn(
-                            "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                            chat.personaId === p.id && "bg-[var(--primary)]/10",
-                          )}
-                        >
-                          <DrawerPersonaAvatar persona={p} />
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{p.name}</span>
-                            {p.comment && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {p.comment}
-                              </span>
-                            )}
-                          </div>
-                          {chat.personaId === p.id && (
-                            <Check size="0.625rem" className="ml-auto shrink-0 text-[var(--primary)]" />
-                          )}
-                        </button>
-                      ))}
-                    {personas.filter(
-                      (p) =>
-                        includesTextForMatch(p.name, personaSearch) ||
-                        includesTextForMatch(p.comment ?? "", personaSearch),
-                    ).length === 0 && (
-                      <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                        {personas.length === 0
-                          ? localizeUi("ui.chat.chatsettingsdrawer.noPersonasCreatedYet")
-                          : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-                      </p>
-                    )}
-                  </PickerDropdown>
-                )}
+                <button
+                  ref={gamePersonaBtnRef}
+                  onClick={() => setShowPersonaPicker(true)}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+                >
+                  <Plus size="0.75rem" />{" "}
+                  {chat.personaId
+                    ? localizeUi("ui.chat.chatsettingsdrawer.change")
+                    : localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
+                  {localizeUi("ui.characters.cardlibrarydetailcard.persona")}
+                </button>
+                <CharacterSelect
+                  kind="persona"
+                  variant="controlled"
+                  allowNone
+                  withCharacters={false}
+                  open={showPersonaPicker}
+                  onOpenChange={setShowPersonaPicker}
+                  anchorRef={gamePersonaBtnRef}
+                  value={chat.personaId ? { persona: chat.personaId } : null}
+                  onChange={(next) =>
+                    updateChat.mutate({ id: chat.id, personaId: next && "persona" in next ? next.persona : null })
+                  }
+                />
               </div>
 
               <div className="mt-2 space-y-1.5">
@@ -6231,52 +6168,25 @@ export function ChatSettingsDrawer({
                 )}
               </div>
 
-              {!showCharPicker ? (
-                <button
-                  onClick={() => {
-                    setShowCharPicker(true);
-                    setCharSearch("");
-                  }}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                >
-                  <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacterToParty")}
-                </button>
-              ) : (
-                <PickerDropdown
-                  search={charSearch}
-                  onSearchChange={setCharSearch}
-                  onClose={() => setShowCharPicker(false)}
-                  placeholder={localizeUi("ui.chat.chatsettingsdrawer.searchCharacters")}
-                >
-                  {selectableCharacters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(getCharacterInfo(c), charSearch))
-                    .map((c) => {
-                      const name = charName(c);
-                      const title = charTitle(c);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            toggleCharacter(c.id);
-                            setShowCharPicker(false);
-                          }}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{name}</span>
-                            {title && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {title}
-                              </span>
-                            )}
-                          </div>
-                          <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                        </button>
-                      );
-                    })}
-                </PickerDropdown>
-              )}
+              <button
+                ref={partyBtnRef}
+                onClick={() => setShowCharPicker(true)}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+              >
+                <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacterToParty")}
+              </button>
+              <CharacterSelect
+                kind="character"
+                multiple
+                variant="controlled"
+                open={showCharPicker}
+                onOpenChange={setShowCharPicker}
+                anchorRef={partyBtnRef}
+                value={chatCharIds}
+                onChange={toggleChangedCharacter}
+                exclude={PICKER_EXCLUDED_IDS}
+                busy={updateChat.isPending || roomRoster.isPending}
+              />
               {activeCardsHaveCss && cardThemingControls}
             </Section>
           )}
@@ -6385,245 +6295,88 @@ export function ChatSettingsDrawer({
               )}
 
               {/* Persona picker */}
-              {!showPersonaPicker ? (
-                <button
-                  onClick={() => {
-                    setShowPersonaPicker(true);
-                    setPersonaSearch("");
-                  }}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                >
-                  <Plus size="0.75rem" />{" "}
-                  {chat.personaId || chat.personaCharacterId
-                    ? localizeUi("ui.chat.chatsettingsdrawer.change")
-                    : localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
-                  {localizeUi("ui.characters.cardlibrarydetailcard.persona")}
-                </button>
-              ) : (
-                <PickerDropdown
-                  search={personaSearch}
-                  onSearchChange={setPersonaSearch}
-                  onClose={() => setShowPersonaPicker(false)}
-                  placeholder={localizeUi("ui.chat.chatsettingsdrawer.searchPersonas")}
-                >
-                  {/* Onboarding templates, above None like the setup wizard's
+              <button
+                ref={personaBtnRef}
+                onClick={() => setShowPersonaPicker(true)}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+              >
+                <Plus size="0.75rem" />{" "}
+                {chat.personaId || chat.personaCharacterId
+                  ? localizeUi("ui.chat.chatsettingsdrawer.change")
+                  : localizeUi("ui.chat.chatsettingsdrawer.choose")}{" "}
+                {localizeUi("ui.characters.cardlibrarydetailcard.persona")}
+              </button>
+              <CharacterSelect
+                kind="persona"
+                variant="controlled"
+                allowNone
+                open={showPersonaPicker}
+                onOpenChange={setShowPersonaPicker}
+                anchorRef={personaBtnRef}
+                value={
+                  chat.personaId
+                    ? { persona: chat.personaId }
+                    : chat.personaCharacterId
+                      ? { character: chat.personaCharacterId }
+                      : null
+                }
+                onChange={(next) =>
+                  updateChat.mutate({
+                    id: chat.id,
+                    personaId: next && "persona" in next ? next.persona : null,
+                    personaCharacterId: next && "character" in next ? next.character : null,
+                  })
+                }
+                exclude={PICKER_EXCLUDED_IDS}
+                header={
+                  <>
+                    {/* Onboarding templates, above None like the setup wizard's
                       Your Persona picker: Create is a positive choice, not an
                       escape hatch. One row per card in this chat that can build
                       a persona. */}
-                  {onboardingPersonaTemplates.map(({ character }) => {
-                    const name = charName(character);
-                    return (
-                      <button
-                        key={`onboarding-template-${character.id}`}
-                        type="button"
-                        onClick={() => {
-                          setShowPersonaPicker(false);
-                          setOnboardingTemplateId(character.id);
-                        }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                      >
-                        {character.avatarPath ? (
-                          <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full">
-                            <img
-                              src={character.avatarPath}
-                              alt=""
-                              loading="lazy"
-                              className="h-full w-full object-cover"
-                              style={getAvatarCropStyle(getCharacterInfo(character).avatarCrop)}
-                            />
-                          </span>
-                        ) : (
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[0.625rem] font-semibold">
-                            {name[0]}
-                          </span>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <span className="flex items-center gap-1 truncate text-xs font-medium">
-                            <UserPlus size="0.625rem" className="shrink-0 text-[var(--primary)]" />
-                            {localizeUi("ui.characters.onboarding.modalTitle")}
-                          </span>
-                          <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                            {localizeUi("ui.characters.onboarding.templateSource", { value1: name })}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {onboardingPersonaTemplates.length > 0 && <div className="border-t border-[var(--border)]" />}
-                  {/* None option */}
-                  <button
-                    onClick={() => {
-                      updateChat.mutate({ id: chat.id, personaId: null, personaCharacterId: null });
-                      setShowPersonaPicker(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                      !chat.personaId && !chat.personaCharacterId && "bg-[var(--primary)]/10",
-                    )}
-                  >
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--muted-foreground)]">
-                      <X size="0.625rem" />
-                    </div>
-                    <span className="flex-1 truncate text-xs">{localizeUi("ui.game.gamesurfacecomponent.none")}</span>
-                    {!chat.personaId && !chat.personaCharacterId && (
-                      <Check size="0.625rem" className="ml-auto shrink-0 text-[var(--primary)]" />
-                    )}
-                  </button>
-                  {personas
-                    .filter(
-                      (p) =>
-                        includesTextForMatch(p.name, personaSearch) ||
-                        includesTextForMatch(p.comment ?? "", personaSearch),
-                    )
-                    .map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => {
-                          updateChat.mutate({ id: chat.id, personaId: p.id, personaCharacterId: null });
-                          setShowPersonaPicker(false);
-                        }}
-                        className={cn(
-                          "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                          chat.personaId === p.id && "bg-[var(--primary)]/10",
-                        )}
-                      >
-                        <DrawerPersonaAvatar persona={p} />
-                        <div className="min-w-0 flex-1">
-                          <span className="block truncate text-xs">{p.name}</span>
-                          {p.comment && (
-                            <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                              {p.comment}
-                            </span>
-                          )}
-                        </div>
-                        {chat.personaId === p.id && (
-                          <Check size="0.625rem" className="ml-auto shrink-0 text-[var(--primary)]" />
-                        )}
-                      </button>
-                    ))}
-                  {(showCharacterIdentities || !!chat.personaCharacterId) && (
-                    <button
-                      type="button"
-                      onClick={() => setShowCharacterIdentityGroups((value) => !value)}
-                      aria-expanded={showCharacterIdentityGroups}
-                      className="flex w-full items-center gap-2 border-t border-[var(--border)] px-3 py-2 text-left text-[0.625rem] font-semibold uppercase text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-                    >
-                      {showCharacterIdentityGroups ? <FolderOpen size="0.75rem" /> : <Folder size="0.75rem" />}
-                      <span className="flex-1">{localizeUi("ui.chat.personapicker.playAsCharacter")}</span>
-                      {showCharacterIdentityGroups ? <ChevronDown size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-                    </button>
-                  )}
-                  {(showCharacterIdentities || !!chat.personaCharacterId) &&
-                    showCharacterIdentityGroups &&
-                    characterIdentityGroups.map((group) => {
-                      const expanded = expandedCharacterIdentityGroups.has(group.id);
-                      const visibleMembers = group.members.filter(
-                        (character) =>
-                          character.id === chat.personaCharacterId ||
-                          (showCharacterIdentities &&
-                            characterMatchesSearch(getCharacterInfo(character), personaSearch)),
-                      );
-                      if (visibleMembers.length === 0) return null;
+                    {onboardingPersonaTemplates.map(({ character }) => {
+                      const name = charName(character);
                       return (
-                        <div key={group.id}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedCharacterIdentityGroups((current) => {
-                                const next = new Set(current);
-                                if (next.has(group.id)) next.delete(group.id);
-                                else next.add(group.id);
-                                return next;
-                              })
-                            }
-                            aria-expanded={expanded}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-[var(--accent)]"
-                          >
-                            {group.avatarPath ? (
+                        <button
+                          key={`onboarding-template-${character.id}`}
+                          type="button"
+                          onClick={() => {
+                            setShowPersonaPicker(false);
+                            setOnboardingTemplateId(character.id);
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                        >
+                          {character.avatarPath ? (
+                            <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full">
                               <img
-                                src={group.avatarPath}
+                                src={character.avatarPath}
                                 alt=""
                                 loading="lazy"
-                                className="h-4 w-4 shrink-0 rounded object-cover"
+                                className="h-full w-full object-cover"
+                                style={getAvatarCropStyle(getCharacterInfo(character).avatarCrop)}
                               />
-                            ) : expanded ? (
-                              <FolderOpen size="0.75rem" />
-                            ) : (
-                              <Folder size="0.75rem" />
-                            )}
-                            <span className="min-w-0 flex-1 truncate">{group.name}</span>
-                            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                              {visibleMembers.length}
                             </span>
-                            {expanded ? <ChevronDown size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-                          </button>
-                          {expanded &&
-                            visibleMembers.map((character) => (
-                              <button
-                                key={`persona-character-${character.id}`}
-                                onClick={() => {
-                                  updateChat.mutate({
-                                    id: chat.id,
-                                    personaId: null,
-                                    personaCharacterId: character.id,
-                                  });
-                                  setShowPersonaPicker(false);
-                                }}
-                                className={cn(
-                                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                                  chat.personaCharacterId === character.id && "bg-[var(--primary)]/10",
-                                )}
-                              >
-                                <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-[0.625rem] font-semibold">
-                                  {character.avatarPath ? (
-                                    <img
-                                      src={character.avatarPath}
-                                      alt=""
-                                      className="h-full w-full object-cover"
-                                      style={getAvatarCropStyle(getCharacterInfo(character).avatarCrop)}
-                                    />
-                                  ) : (
-                                    charName(character)[0]
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <span className="block truncate text-xs">{charName(character)}</span>
-                                  <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                                    {charTitle(character) || localizeUi("ui.chat.personapicker.characterSource")}
-                                  </span>
-                                </div>
-                                {chat.personaCharacterId === character.id && (
-                                  <Check size="0.625rem" className="ml-auto shrink-0 text-[var(--primary)]" />
-                                )}
-                              </button>
-                            ))}
-                        </div>
+                          ) : (
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[0.625rem] font-semibold">
+                              {name[0]}
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1 truncate text-xs font-medium">
+                              <UserPlus size="0.625rem" className="shrink-0 text-[var(--primary)]" />
+                              {localizeUi("ui.characters.onboarding.modalTitle")}
+                            </span>
+                            <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                              {localizeUi("ui.characters.onboarding.templateSource", { value1: name })}
+                            </span>
+                          </div>
+                        </button>
                       );
                     })}
-                  {personas.filter(
-                    (p) =>
-                      includesTextForMatch(p.name, personaSearch) ||
-                      includesTextForMatch(p.comment ?? "", personaSearch),
-                  ).length === 0 &&
-                    !(
-                      (showCharacterIdentities || !!chat.personaCharacterId) &&
-                      characterIdentityGroups.some((group) =>
-                        group.members.some(
-                          (character) =>
-                            character.id === chat.personaCharacterId ||
-                            (showCharacterIdentities &&
-                              characterMatchesSearch(getCharacterInfo(character), personaSearch)),
-                        ),
-                      )
-                    ) && (
-                      <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                        {personas.length === 0
-                          ? localizeUi("ui.chat.chatsettingsdrawer.noPersonasCreatedYet")
-                          : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-                      </p>
-                    )}
-                </PickerDropdown>
-              )}
+                    {onboardingPersonaTemplates.length > 0 && <div className="border-t border-[var(--border)]" />}
+                  </>
+                }
+              />
 
               <PersonaHistoryReassignDropdown
                 chatId={chat.id}
@@ -6822,89 +6575,37 @@ export function ChatSettingsDrawer({
               )}
 
               {/* Add character picker */}
-              {!showCharPicker ? (
-                <button
-                  onClick={() => {
-                    setShowCharPicker(true);
-                    setCharSearch("");
-                  }}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                >
-                  <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacter")}
-                </button>
-              ) : (
-                <PickerDropdown
-                  search={charSearch}
-                  onSearchChange={setCharSearch}
-                  onClose={() => setShowCharPicker(false)}
-                  placeholder={localizeUi("ui.chat.chatsettingsdrawer.searchCharacters")}
-                >
-                  {selectableCharacters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(getCharacterInfo(c), charSearch))
-                    .map((c) => {
-                      const name = charName(c);
-                      const title = charTitle(c);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            toggleCharacter(c.id);
-                            setShowCharPicker(false);
-                          }}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                        >
-                          {c.avatarPath ? (
-                            <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full">
-                              <img
-                                src={c.avatarPath}
-                                alt={name}
-                                loading="lazy"
-                                className="h-full w-full object-cover"
-                                style={getAvatarCropStyle(getCharacterInfo(c).avatarCrop)}
-                              />
-                            </span>
-                          ) : (
-                            <div className="mari-avatar-placeholder mari-avatar-placeholder--character flex h-6 w-6 items-center justify-center rounded-full text-[0.5625rem] font-bold">
-                              {name[0]}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{name}</span>
-                            {title && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {title}
-                              </span>
-                            )}
-                          </div>
-                          {/* Same badge the setup wizard shows, so a card with
-                              interactive onboarding is recognisable before it is
-                              added. The in-chat row marker does the answering. */}
-                          {!isConversation && onboardingByCharacterId.has(c.id) && (
-                            <span
-                              role="img"
-                              aria-label={localizeUi("ui.characters.onboarding.hasOnboarding")}
-                              title={localizeUi("ui.characters.onboarding.hasOnboarding")}
-                              className="shrink-0 text-[var(--primary)]"
-                            >
-                              <UserPlus size="0.75rem" />
-                            </span>
-                          )}
-                          <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                        </button>
-                      );
-                    })}
-                  {selectableCharacters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(getCharacterInfo(c), charSearch)).length === 0 && (
-                    <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {selectableCharacters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                        ? localizeUi("ui.chat.chatsettingsdrawer.allCharactersAlreadyAdded")
-                        : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-                    </p>
-                  )}
-                </PickerDropdown>
-              )}
+              <button
+                ref={addCharBtnRef}
+                onClick={() => setShowCharPicker(true)}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+              >
+                <Plus size="0.75rem" /> {localizeUi("ui.chat.chatsettingsdrawer.addCharacter")}
+              </button>
+              <CharacterSelect
+                kind="character"
+                multiple
+                variant="controlled"
+                open={showCharPicker}
+                onOpenChange={setShowCharPicker}
+                anchorRef={addCharBtnRef}
+                value={chatCharIds}
+                onChange={toggleChangedCharacter}
+                exclude={PICKER_EXCLUDED_IDS}
+                busy={updateChat.isPending || roomRoster.isPending}
+                badge={(id) =>
+                  !isConversation && onboardingByCharacterId.has(id) ? (
+                    <span
+                      role="img"
+                      aria-label={localizeUi("ui.characters.onboarding.hasOnboarding")}
+                      title={localizeUi("ui.characters.onboarding.hasOnboarding")}
+                      className="shrink-0 text-[var(--primary)]"
+                    >
+                      <UserPlus size="0.75rem" />
+                    </span>
+                  ) : null
+                }
+              />
 
               {/* Add from Folder picker */}
               {((characterGroups ?? []) as CharacterGroup[]).length > 0 &&
