@@ -13,8 +13,8 @@ These rules are additive. `AGENTS.md`, `CONTRIBUTING.md` and the maintainer's la
 
 - Open each guide with one or two sentences: what the feature is for and when you would use it. No "In this guide, we will…".
 - Put the common task first, then options, then edge cases and troubleshooting. Move deep reference material (every field of a form) into a table or a clearly marked reference section at the end.
-- Use task headings that name what the reader wants: "Add a connection", "Import a character". Avoid vague headings like "Overview", "Understanding X", "Deep dive".
-- When a task needs something first (a connection, a character, a setting turned on), start it with one "Before you start" line that names it and links to the guide that sets it up.
+- Use task headings that name what the reader wants: "Add an account", "Import a character". Avoid vague headings like "Overview", "Understanding X", "Deep dive".
+- When a task needs something first (an account, a character, a setting turned on), start it with one "Before you start" line that names it and links to the guide that sets it up.
 - Write procedures as numbered steps. One action per step. Start each step with the verb. Say where: **Settings → Connections → Add account**. After a step whose result is not obvious, say what the reader sees.
 - Keep paragraphs short (1–4 sentences). Prefer a short table over a long list of "X does Y" bullets when items share the same shape.
 - Say each fact once. When two guides explain the same thing, keep it in the guide that owns the feature and link from the other one.
