@@ -13,8 +13,6 @@ Bring your SillyTavern data into Marinara Engine. Import one file at a time, or 
 | Backgrounds | Chat backgrounds |
 | Personas | Personas (the profile that stands in for you) |
 
-Use the one-file buttons for a single file. Use the folder wizard to move a whole SillyTavern install.
-
 ## Quick single-file imports
 
 1. Open **Settings → Imports**.
@@ -40,11 +38,14 @@ To pick the mode, use the import button at the top of the chat list. Its tooltip
 
 ## Import a SillyTavern folder
 
-Before you start: the wizard reads files on the server computer. On that computer it works right away. From another device, set the admin secret (`ADMIN_SECRET`) on the server and enter it in **Settings → Advanced → Admin Access**. See [Server Configuration Reference](../CONFIGURATION.md).
+Before you start: the wizard reads files on the server computer. If SillyTavern is on another computer, copy its folder (the one where you installed SillyTavern) to the Marinara computer first. On the Marinara computer the wizard works right away. From another device, set the admin secret and enter it in **Settings → Advanced → Admin Access**. See [Backing Up and Restoring Marinara](backup-and-restore.md) and the "Privileged APIs (ADMIN_SECRET)" section of the [Server Configuration Reference](../CONFIGURATION.md).
 
 1. Open **Settings → Imports → SillyTavern Import**.
 2. Click **Import from SillyTavern Folder**.
-3. In **SillyTavern Folder Path**, click **Browse** and pick the folder. On a remote server with no folder chooser, an in-app folder browser opens with a **Select This Folder** button. It lists only folders inside the home folder of the user that runs the server. Choose the main SillyTavern folder, usually the one that holds a `data/` or `public/` folder. You can also type the path (for example `/path/to/SillyTavern`), but a typed path works only when the server sets `IMPORT_ALLOWED_ROOTS` and the path is inside it.
+3. Choose your SillyTavern folder. Pick the main folder, usually the one that holds a `data/` or `public/` folder. Use one of these ways:
+   - Click **Browse** and pick the folder.
+   - If there is no folder chooser (a remote server), an in-app folder browser opens. It lists only folders inside the home folder of the user that runs the server. Click **Select This Folder**.
+   - Type the path in **SillyTavern Folder Path**, for example `/path/to/SillyTavern`. A typed path works only if the server's `IMPORT_ALLOWED_ROOTS` setting lists a folder that contains it.
 4. Click **Scan Folder**. Marinara shows how many items it found in each category.
 5. On **Choose exactly what to import**, check the items you want. Each category has **All** and **None** buttons and a **Show** or **Hide** toggle for the single items.
 6. Click **Import Selected**. A progress bar shows the current item and a count per category.
@@ -54,15 +55,21 @@ Most items start selected. Marinara leaves SillyTavern's stock presets unchecked
 
 If the scan finds characters, two more options appear:
 
-| Option | Choices | Default |
-| --- | --- | --- |
-| **Imported character tags** | **All tags**, **No tags**, **Existing only** (only tags you already have) | **All tags** |
-| **Imported regex scripts** | **Character only** (scripts apply to each character), **Global** (added to **Presets → Regexes** for every chat) | **Character only** |
+**Imported character tags** (default **All tags**):
+
+- **All tags** keeps the source tags.
+- **No tags** skips them.
+- **Existing only** keeps only tags you already have.
+
+**Imported regex scripts** (default **Character only**):
+
+- **Character only** applies the scripts to each character.
+- **Global** adds them to **Presets → Regexes** for every chat.
 
 If it did not work:
 
 - "Could not find SillyTavern data directory." means Marinara cannot read that folder. Pick the main SillyTavern folder.
-- "folderPath is not allowed" means the path was refused. Pick the folder with **Browse** instead. If the server sets `IMPORT_ALLOWED_ROOTS`, even a picked folder must be inside one of those roots. See [Server Configuration Reference](../CONFIGURATION.md).
+- "folderPath is not allowed" means the server refused the path. Click **Browse** and pick the folder instead. The server's owner can limit which folders may be imported with the `IMPORT_ALLOWED_ROOTS` setting. If it is set, even a picked folder must be inside one of those folders. Ask whoever runs the server, or see the [Server Configuration Reference](../CONFIGURATION.md).
 - If one item fails, Marinara skips it, keeps going and lists it under warnings on the last step, for example `Character "Foo": error message`.
 
 ## What happens to your data
