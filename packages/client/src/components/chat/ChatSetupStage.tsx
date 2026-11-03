@@ -452,6 +452,20 @@ export function ChatSetupStage({
       )}
     />
   );
+  // No model yet: the sentence says so in amber, and the word opens the connection editor.
+  const noModel = readiness?.section === "connection";
+  const modelWord = (
+    <StageWord
+      onClick={open("connection")}
+      aria-haspopup="dialog"
+      aria-label={t("chat.setupStage.a11y.model")}
+      className={cn(
+        "inline cursor-pointer bg-transparent p-0 text-left italic text-amber-700 underline decoration-amber-500/70 decoration-[1.5px] underline-offset-[5px] hover:decoration-amber-500 dark:text-amber-300",
+        FOCUS,
+        "rounded-sm",
+      )}
+    />
+  );
   const personaAvatars = personaName
     ? [{ src: personaInfo?.avatarUrl, crop: personaInfo?.avatarCrop, name: personaName }]
     : undefined;
@@ -713,6 +727,18 @@ export function ChatSetupStage({
             components={sentenceComponents}
           />
         )}
+        {noModel && (
+          <>
+            {" "}
+            <Trans
+              t={t}
+              i18nKey={castNames ? "chat.setupStage.sentenceModel" : "chat.setupStage.sentenceModelNoCast"}
+              count={characters.length}
+              values={{ cast: castNames }}
+              components={{ model: modelWord }}
+            />
+          </>
+        )}
       </p>
 
       <ChatSetupStageMemoryNote chatId={chat.id} />
@@ -787,7 +813,7 @@ export function ChatSetupStage({
         </>
       )}
 
-      {readiness && (
+      {readiness && !noModel && (
         <p className="mt-6 flex flex-wrap items-center gap-x-2 text-[12.5px] text-[color-mix(in_srgb,var(--foreground)_62%,transparent)]">
           <CircleAlert size="0.85rem" aria-hidden="true" className="flex-none" />
           <span>{t(readiness.text, { percent: readiness.percent })}</span>
