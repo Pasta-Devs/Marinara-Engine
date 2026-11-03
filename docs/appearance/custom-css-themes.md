@@ -2,6 +2,13 @@
 
 A custom CSS theme repaints the whole of Marinara. Use the **Theme Library** to create, import, export and switch themes. This guide also lists the CSS variables and classes a theme can use, and explains how themes work with Card CSS. For a quick change with no CSS, see [Ready-made chat window styles](#ready-made-chat-window-styles).
 
+Before you start: if you open Marinara from another device, such as a phone, the server needs an admin secret before you can create, edit, import, activate or remove themes. On the computer that runs the server, no secret is needed.
+
+1. On the server, set `ADMIN_SECRET` in the `.env` file.
+2. In the app, open **Settings → Advanced → Admin Access** and enter the same value.
+
+See the [Server Configuration Reference](../CONFIGURATION.md) and the [Remote Access guide](../REMOTE_ACCESS.md). To switch to a theme someone gave you, go to [Activating a theme](#activating-a-theme).
+
 ## What a custom theme is
 
 CSS, short for Cascading Style Sheets, is the code that sets colors, borders and spacing. A theme is a block of CSS that can change the page background, accent color, cards, borders, text and more.
@@ -56,15 +63,6 @@ To export a theme, click the upload icon (tooltip **Export theme**) on its row i
 To delete a theme, click the trash icon (tooltip **Remove theme**) and confirm in the **Delete Theme** dialog. This permanently deletes its CSS from the server.
 
 If it did not work: when the app looks wrong, check both the active theme and any Card CSS in the chat. See [Themes and Card CSS](#themes-and-card-css).
-
-## Admin Access for remote installs
-
-Creating, editing, importing, activating and removing a theme are protected actions. This matters only when you open Marinara over a network. On the computer that runs the server (localhost), they work as they are. From another device, the server needs an admin secret first.
-
-1. On the server, set `ADMIN_SECRET` in the `.env` file.
-2. In the app, open **Settings → Advanced → Admin Access** and enter the same value.
-
-Without it, theme changes over a network fail. See the [Server Configuration Reference](../CONFIGURATION.md) and the [Remote Access guide](../REMOTE_ACCESS.md).
 
 ## Ready-made chat window styles
 
