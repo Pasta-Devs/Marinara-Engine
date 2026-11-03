@@ -29,6 +29,7 @@ import {
   type TrackerThoughtBubbleDisplay,
   type VisualTheme,
 } from "../../stores/ui.store";
+import { useOverhaulStore } from "../../stores/overhaul.store";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -3429,6 +3430,9 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
     appAccentColor.trim().toLowerCase() === defaultAppAccentColor.toLowerCase() ? "" : appAccentColor;
   const visualTheme = useUIStore((s) => s.visualTheme);
   const setVisualTheme = useUIStore((s) => s.setVisualTheme);
+  const localize = useLocalizedUiText();
+  const overhaulLayoutEnabled = useOverhaulStore((s) => s.enabled);
+  const setOverhaulLayoutEnabled = useOverhaulStore((s) => s.setEnabled);
   const chatWidgetPreset = useUIStore((s) => s.chatWidgetPreset);
   const setChatWidgetPreset = useUIStore((s) => s.setChatWidgetPreset);
   const chatWidgetFont = useUIStore((s) => s.chatWidgetFont);
@@ -3855,6 +3859,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                         label: "SillyTavern",
                         desc: "Classic SillyTavern look — clean & minimal",
                       },
+                      {
+                        id: "stage" as VisualTheme,
+                        label: "Stage",
+                        desc: "Plum, brass and crimson from the UI overhaul",
+                      },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -3870,6 +3879,16 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   ))}
                 </div>
               </div>
+
+              <ToggleSetting
+                anchorId={getSettingsControlAnchorId("overhaul-layout")}
+                label={localize("New layout (UI overhaul preview)")}
+                checked={overhaulLayoutEnabled}
+                onChange={setOverhaulLayoutEnabled}
+                help={localize(
+                  "One tab bar on top, the Library on the right and Library pages in the middle. Desktop only; phones keep the standard layout.",
+                )}
+              />
 
               <label id={getSettingsControlAnchorId("theme-mode")} className="flex scroll-mt-3 flex-col gap-1">
                 <span className="text-xs font-medium inline-flex items-center gap-1">

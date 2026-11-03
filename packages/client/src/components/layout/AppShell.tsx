@@ -66,6 +66,8 @@ import {
 } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
+import { useOverhaulStore } from "../../stores/overhaul.store";
+import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 
 const ChatArea = lazy(() => import("../chat/ChatArea").then((module) => ({ default: module.ChatArea })));
@@ -100,6 +102,9 @@ const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
 const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
+const LibraryLandingPage = lazy(() =>
+  import("../overhaul/LibraryLandingPage").then((module) => ({ default: module.LibraryLandingPage })),
+);
 const TrackerDataSidebar = lazy(() =>
   import("./TrackerDataSidebar").then((module) => ({ default: module.TrackerDataSidebar })),
 );
@@ -499,6 +504,29 @@ export function AppShell({
   }, []);
 
   const shellOverlayMode = isMobile;
+  // UI overhaul preview: desktop only; phones keep the standard shell.
+  const overhaulEnabled = useOverhaulStore((s) => s.enabled);
+  const overhaulLibraryPage = useOverhaulStore((s) => s.libraryPage);
+  const overhaulActive = overhaulEnabled && !shellOverlayMode;
+  useEffect(() => {
+    useOverhaulStore.getState().setDesktop(!isMobile);
+  }, [isMobile]);
+  useEffect(() => {
+    if (!overhaulActive) return;
+    document.documentElement.dataset.overhaul = "on";
+    return () => {
+      delete document.documentElement.dataset.overhaul;
+    };
+  }, [overhaulActive]);
+  // Opening a chat leaves the Library landing page.
+  useEffect(() => {
+    let previous = useChatStore.getState().activeChatId;
+    return useChatStore.subscribe((state) => {
+      if (state.activeChatId === previous) return;
+      previous = state.activeChatId;
+      if (state.activeChatId) useOverhaulStore.getState().setLibraryPage(null);
+    });
+  }, []);
   const mobileNavigationPanel = shellOverlayMode ? (rightPanelOpen ? "right" : sidebarOpen ? "chats" : null) : null;
   const [rightPanelEverOpened, setRightPanelEverOpened] = useState(rightPanelOpen);
   useEffect(() => {
@@ -870,6 +898,8 @@ export function AppShell({
     <AgentCatalogView />
   ) : lorebookDetailId ? (
     <LorebookEditor />
+  ) : overhaulActive && overhaulLibraryPage ? (
+    <LibraryLandingPage key={overhaulLibraryPage} section={overhaulLibraryPage} />
   ) : null;
 
   const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
@@ -1316,9 +1346,15 @@ export function AppShell({
       data-chat-surface-active={chatSurfaceActive ? "true" : undefined}
       className={cn(
         "mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden",
+        overhaulActive && "mari-overhaul flex-col",
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
     >
+      {overhaulActive && <OverhaulTopBar />}
+      <div
+        data-component="OverhaulShellRow"
+        className={overhaulActive ? "relative flex min-h-0 flex-1 overflow-hidden" : "contents"}
+      >
       {/* Y2K decorative stars */}
       {showAmbientDecor && (
         <>
@@ -1399,7 +1435,7 @@ export function AppShell({
           shellOverlayMode && hasDetailView && "z-50",
         )}
       >
-        <TopBar mobileTopbarNavigation={shellOverlayMode} />
+        {!overhaulActive && <TopBar mobileTopbarNavigation={shellOverlayMode} />}
         <div className="mari-app-background-paint relative flex flex-1 flex-col overflow-hidden">
           {/* Browser — kept mounted once opened so state persists across close/reopen */}
           <MountOnceWhenOpened open={botBrowserOpen} overlay>
@@ -1615,6 +1651,8 @@ export function AppShell({
           style={{ right: rightPanelOpen ? Math.max(0, liveRightPanelWidth - 4) : 0 }}
         />
       )}
+
+      </div>
 
       {spatialMapDetailChatId ? (
         <CapabilityElement

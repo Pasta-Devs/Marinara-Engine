@@ -41,6 +41,7 @@ import {
   type CharacterLibrarySort,
   type ResourcePanelSort,
 } from "../../stores/ui.store";
+import { useOverhaulStore } from "../../stores/overhaul.store";
 
 const libraryToolbarButtonClass =
   "mari-chrome-control mari-chrome-control--primary h-10 min-h-10 min-w-0 px-3 text-[0.75rem]";
@@ -421,10 +422,18 @@ export function CharacterLibraryView() {
     return rows;
   }, [characters, initialCharacter.data, isPersonaLibrary, personas]);
 
+  // UI overhaul: the Library pane's tag list filters the Characters gallery.
+  const overhaulTag = useOverhaulStore((s) => (s.enabled && s.desktop && !isPersonaLibrary ? s.characterTag : null));
   const filteredCards = useMemo(() => {
     const query = parseCardLibrarySearchQuery(search);
-    return cards.filter((card) => matchesCardLibrarySearch(card, query));
-  }, [cards, search]);
+    const wantedTag = overhaulTag?.toLowerCase() ?? null;
+    return cards.filter(
+      (card) =>
+        matchesCardLibrarySearch(card, query) &&
+        (wantedTag === null ||
+          (wantedTag === "" ? card.tags.length === 0 : card.tags.some((tag) => tag.toLowerCase() === wantedTag))),
+    );
+  }, [cards, overhaulTag, search]);
 
   const sortedCards = useMemo(() => {
     const list = [...filteredCards];

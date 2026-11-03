@@ -1,0 +1,589 @@
+/* ═══════════════════════════════════════════════
+   STAGE VISUAL THEME (UI overhaul preview)
+   Plum, brass and crimson from the approved overhaul mockup.
+   Activated via data-visual-theme="stage"
+   on :root. Disables Y2K effects and uses flat styling.
+   ═══════════════════════════════════════════════
+
+   THEME VARIABLE CONTRACT
+   ───────────────────────
+   Every visual theme must define the same set of CSS
+   custom properties so components can depend on a
+   single, stable interface. The complete list:
+
+   Core UI (25)
+     --background, --foreground,
+     --card, --card-foreground,
+     --popover, --popover-foreground,
+     --primary, --primary-foreground,
+     --secondary, --secondary-foreground,
+     --muted, --muted-foreground,
+     --accent, --accent-foreground,
+     --destructive, --destructive-foreground,
+     --border, --input, --ring, --radius,
+     --sidebar, --sidebar-foreground, --sidebar-border,
+     --sidebar-accent, --sidebar-accent-foreground
+
+   Glow (2)
+     --glow-primary, --glow-accent
+
+   Glass effects (5)
+     --glass-bg, --glass-border,
+     --glass-strong-bg, --glass-strong-border,
+     --glass-strong-shadow
+
+   Glow effects (5)
+     --glow-color-1, --glow-color-2, --glow-color-3,
+     --glow-sm-1, --glow-sm-2
+
+   Scrollbar (2)
+     --scrollbar-track, --scrollbar-border
+
+   Cursor (1)
+     --cursor-pink
+
+   Y2K palette (7)
+     --y2k-pink, --y2k-purple, --y2k-blue,
+     --y2k-mint, --y2k-peach, --y2k-lavender, --y2k-yellow
+
+   Conversation surfaces (2)
+     --marinara-conversation-gradient-from,
+     --marinara-conversation-gradient-to
+
+   Pastel palette (8)
+     --pastel-rose, --pastel-lilac, --pastel-sky,
+     --pastel-mint, --pastel-coral, --pastel-peach,
+     --pastel-lavender, --pastel-periwinkle
+
+   RGB palette (8)
+     --rgb-red, --rgb-orange, --rgb-yellow, --rgb-green,
+     --rgb-cyan, --rgb-blue, --rgb-indigo, --rgb-violet
+
+   Font / Layout (2)
+     --font-y2k, --app-font-size
+
+   Total: 67 variables
+
+   NOTE: Even when a theme disables certain effects
+   (glass, glow, custom cursors, etc.) via CSS class
+   overrides, it should still define every variable so
+   the full contract is explicit. This makes it easy to
+   copy any theme file as a starting template.
+   ═══════════════════════════════════════════════ */
+
+/* ─── Dark-mode variable overrides ─── */
+[data-visual-theme="stage"],
+[data-visual-theme="stage"][data-theme="dark"] {
+  /* Core Stage palette */
+  --background: #0d0a12;
+  --foreground: #efe6d8;
+  --card: rgba(22, 16, 32, 0.94);
+  --card-foreground: #efe6d8;
+  --popover: rgba(26, 19, 35, 0.98);
+  --popover-foreground: #efe6d8;
+  --primary: #d9a441;
+  --primary-foreground: #140e1c;
+  --secondary: #1f172b;
+  --secondary-foreground: #e3d6c4;
+  --marinara-conversation-gradient-from: var(--secondary);
+  --marinara-conversation-gradient-to: var(--secondary);
+  --muted: #1f172b;
+  --muted-foreground: #b8ab9c;
+  --accent: #2a1f38;
+  --accent-foreground: #efe6d8;
+  --destructive: #e0566f;
+  --destructive-foreground: #ffffff;
+  --border: #3a2c45;
+  --input: #3a2c45;
+  --ring: #d9a441;
+  --radius: 0.625rem;
+  --sidebar: #0d0a12;
+  --sidebar-foreground: #e3d6c4;
+  --sidebar-border: #3a2c45;
+  --sidebar-accent: rgba(217, 164, 65, 0.1);
+  --sidebar-accent-foreground: #d9a441;
+  --glow-primary: rgba(217, 164, 65, 0.08);
+  --glow-accent: rgba(192, 44, 82, 0.06);
+
+  /* Map Y2K palette → muted ST equivalents */
+  --y2k-pink: #e0566f;
+  --y2k-purple: #8a5cd1;
+  --y2k-blue: #6fa3ff;
+  --y2k-mint: #6fcf97;
+  --y2k-peach: #d9a441;
+  --y2k-lavender: #b8a0d8;
+  --y2k-yellow: #e8c060;
+
+  --pastel-rose: #9090b8;
+  --pastel-lilac: #7a7aaa;
+  --pastel-sky: #e0b45a;
+  --pastel-mint: #55a87a;
+  --pastel-coral: #c07070;
+  --pastel-peach: #c49a6c;
+  --pastel-lavender: #9090b8;
+  --pastel-periwinkle: #7a7aaa;
+
+  --rgb-red: #c44040;
+  --rgb-orange: #c49a6c;
+  --rgb-yellow: #c4b060;
+  --rgb-green: #55a87a;
+  --rgb-cyan: #50a0b0;
+  --rgb-blue: #e0b45a;
+  --rgb-indigo: #7a7aaa;
+  --rgb-violet: #9070a0;
+
+  /* Glass effects — disabled via class overrides, but defined for contract completeness */
+  --glass-bg: linear-gradient(
+    135deg,
+    rgba(217, 164, 65, 0.04) 0%,
+    rgba(90, 90, 140, 0.04) 50%,
+    rgba(80, 160, 176, 0.04) 100%
+  );
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-strong-bg: linear-gradient(
+    135deg,
+    rgba(217, 164, 65, 0.08) 0%,
+    rgba(90, 90, 140, 0.08) 50%,
+    rgba(80, 160, 176, 0.08) 100%
+  );
+  --glass-strong-border: rgba(255, 255, 255, 0.1);
+  --glass-strong-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.06);
+
+  /* Glow effect colors — effects disabled, but kept for completeness */
+  --glow-color-1: rgba(217, 164, 65, 0.15);
+  --glow-color-2: rgba(90, 90, 140, 0.1);
+  --glow-color-3: rgba(80, 160, 176, 0.05);
+  --glow-sm-1: rgba(217, 164, 65, 0.1);
+  --glow-sm-2: rgba(90, 90, 140, 0.05);
+
+  /* Scrollbar — restyled via class overrides, but vars defined for completeness */
+  --scrollbar-track: rgba(255, 255, 255, 0.04);
+  --scrollbar-border: rgba(0, 0, 0, 0.4);
+
+  /* Cursor — disabled via class overrides; no custom cursor SVG */
+  --cursor-pink: none;
+
+  /* Font: Noto Sans is SillyTavern's house font, but respect user's custom font choice */
+  --font-y2k:
+    "Straight Quotes", var(--font-user, "Figtree Variable", "Figtree"), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --app-font-size: 0.875rem;
+}
+
+/* ─── Light-mode overrides for ST theme ─── */
+[data-visual-theme="stage"][data-theme="light"] {
+  --background: #f4ede2;
+  --foreground: #22182b;
+  --card: rgba(255, 250, 242, 0.94);
+  --card-foreground: #22182b;
+  --popover: rgba(255, 250, 242, 0.98);
+  --popover-foreground: #22182b;
+  --primary: #a8322f;
+  --primary-foreground: #ffffff;
+  --secondary: #ebe1d2;
+  --secondary-foreground: #2e2236;
+  --marinara-conversation-gradient-from: var(--secondary);
+  --marinara-conversation-gradient-to: var(--secondary);
+  --muted: #e6dccc;
+  --muted-foreground: #6e6070;
+  --accent: #e8dccb;
+  --accent-foreground: #22182b;
+  --destructive: #b0303f;
+  --destructive-foreground: #ffffff;
+  --border: #d8c8b4;
+  --input: #d8c8b4;
+  --ring: #a8322f;
+  --sidebar: #efe6d8;
+  --sidebar-foreground: #2e2236;
+  --sidebar-border: #d8c8b4;
+  --sidebar-accent: rgba(168, 50, 47, 0.08);
+  --sidebar-accent-foreground: #a8322f;
+  --glow-primary: rgba(168, 50, 47, 0.06);
+  --glow-accent: rgba(168, 50, 47, 0.04);
+
+  --y2k-pink: #a8322f;
+  --y2k-purple: #5a5a80;
+  --y2k-blue: #a8322f;
+  --y2k-mint: #2a7a50;
+  --y2k-peach: #a07a4a;
+  --y2k-lavender: #606088;
+  --y2k-yellow: #9a8a30;
+
+  /* Glass effects — disabled via class overrides, but defined for contract completeness */
+  --glass-bg: linear-gradient(135deg, rgba(168, 50, 47, 0.04) 0%, rgba(90, 90, 128, 0.04) 100%);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-strong-bg: linear-gradient(135deg, rgba(168, 50, 47, 0.08) 0%, rgba(90, 90, 128, 0.08) 100%);
+  --glass-strong-border: rgba(0, 0, 0, 0.08);
+  --glass-strong-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), inset 0 1px rgba(255, 255, 255, 0.3);
+
+  /* Glow effect colors — effects disabled, but kept for completeness */
+  --glow-color-1: rgba(168, 50, 47, 0.12);
+  --glow-color-2: rgba(90, 90, 128, 0.08);
+  --glow-color-3: rgba(80, 160, 176, 0.04);
+  --glow-sm-1: rgba(168, 50, 47, 0.08);
+  --glow-sm-2: rgba(90, 90, 128, 0.04);
+
+  /* Scrollbar — restyled via class overrides, but vars defined for completeness */
+  --scrollbar-track: rgba(0, 0, 0, 0.06);
+  --scrollbar-border: rgba(0, 0, 0, 0.08);
+
+  /* Cursor — disabled; no custom cursor */
+  --cursor-pink: none;
+
+  --app-font-size: 0.875rem;
+}
+
+/* ─── Restore native cursors when the Marinara custom pointer is off ─── */
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] *),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] a),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] button),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] input),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] select),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] textarea),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-pointer),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-grab),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-help),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-default),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-text),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-move),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-not-allowed),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] input[type="color"]) {
+  cursor: unset !important;
+}
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] a),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] button),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-pointer),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-grab),
+:where(
+  :root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] label[class*="cursor-pointer"]
+),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] input[type="color"]) {
+  cursor: pointer !important;
+}
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-not-allowed),
+:where(
+  :root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"]
+    .disabled\:cursor-not-allowed:disabled
+) {
+  cursor: not-allowed !important;
+}
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-grab) {
+  cursor: grab !important;
+}
+:where(
+  :root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .active\:cursor-grabbing:active
+) {
+  cursor: grabbing !important;
+}
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-help) {
+  cursor: help !important;
+}
+
+/* ─── Disable glow / decorative effects ─── */
+[data-visual-theme="stage"] .glow-primary,
+[data-visual-theme="stage"] .glow-sm {
+  box-shadow: none;
+}
+
+[data-visual-theme="stage"] .bunny-glow {
+  animation: none;
+  box-shadow: none;
+}
+
+[data-visual-theme="stage"] .gradient-border::before {
+  display: none;
+}
+
+[data-visual-theme="stage"] .btn-glow::after {
+  display: none;
+}
+
+[data-visual-theme="stage"] .pulse-glow {
+  animation: none;
+  box-shadow: none;
+}
+
+[data-visual-theme="stage"] .animate-pulse-ring {
+  animation: none;
+  box-shadow: none;
+}
+
+[data-visual-theme="stage"] .mari-workspace-glow-band {
+  display: none;
+}
+
+/* ─── Disable scanlines & noise overlays ─── */
+[data-visual-theme="stage"] .retro-scanlines::after {
+  display: none !important;
+}
+
+[data-visual-theme="stage"] .btn-scanlines::after {
+  display: none !important;
+}
+
+[data-visual-theme="stage"] .noise-bg::before {
+  display: none !important;
+}
+
+/* ─── Disable decorative stars ─── */
+[data-visual-theme="stage"] .y2k-star,
+[data-visual-theme="stage"] .y2k-star-md,
+[data-visual-theme="stage"] .y2k-star-lg {
+  display: none !important;
+}
+
+/* ─── Simpler scrollbar ─── */
+[data-visual-theme="stage"] * {
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+[data-visual-theme="stage"] ::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+[data-visual-theme="stage"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-visual-theme="stage"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 0.25rem;
+}
+
+[data-visual-theme="stage"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Flat glass panels (no blur / gradients) ─── */
+[data-visual-theme="stage"] .glass {
+  backdrop-filter: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+[data-visual-theme="stage"] .glass-strong {
+  backdrop-filter: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* ─── Simpler retro divider → solid muted line ─── */
+[data-visual-theme="stage"] .retro-divider {
+  background: var(--border);
+  animation: none;
+  mask-image: none;
+}
+
+/* ─── Simpler retro badge ─── */
+[data-visual-theme="stage"] .retro-badge {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* ─── Simpler retro card ─── */
+[data-visual-theme="stage"] .retro-card {
+  backdrop-filter: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  animation: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-visual-theme="stage"] .retro-card:hover {
+  transform: none;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── OS-window → clean ST panel ─── */
+[data-visual-theme="stage"] .os-window {
+  backdrop-filter: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-visual-theme="stage"] .os-window:hover {
+  transform: none;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-visual-theme="stage"] .os-title-bar {
+  border-bottom-color: var(--border);
+}
+
+[data-visual-theme="stage"] .os-window-btn.close {
+  background: #c44040;
+}
+[data-visual-theme="stage"] .os-window-btn.minimize {
+  background: #b09430;
+}
+[data-visual-theme="stage"] .os-window-btn.maximize {
+  background: #409040;
+}
+
+[data-visual-theme="stage"] .os-window-btn:hover {
+  box-shadow: none;
+}
+
+/* ─── Disable retro glow text ─── */
+[data-visual-theme="stage"] .retro-glow-text {
+  color: var(--primary);
+  text-shadow: none;
+}
+
+/* ─── Disable 3D card tilt ─── */
+[data-visual-theme="stage"] .card-3d-tilt:hover {
+  transform: none;
+}
+
+/* ─── Pastel gradient bar → solid ST accent ─── */
+[data-visual-theme="stage"] .pastel-gradient {
+  background: var(--primary);
+  animation: none;
+}
+
+/* ─── Glimmer bubbles → flat ST message style ─── */
+[data-visual-theme="stage"] .glimmer-avatar-ring {
+  background: var(--border);
+  box-shadow: none;
+}
+
+[data-visual-theme="stage"] .glimmer-avatar-ring:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+[data-visual-theme="stage"] .glimmer-name-gradient {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--primary);
+  background-clip: unset;
+}
+
+[data-visual-theme="stage"] .glimmer-bubble-char {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+[data-visual-theme="stage"] .glimmer-bubble-user {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 1px solid var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+[data-visual-theme="stage"] .glimmer-streaming {
+  box-shadow: 0 0 0 2px rgba(217, 164, 65, 0.3);
+  animation: st-stream-pulse 2s ease-in-out infinite;
+}
+
+@keyframes st-stream-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(217, 164, 65, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(217, 164, 65, 0.5);
+  }
+}
+
+/* ─── Texting bubbles → ST style ─── */
+[data-visual-theme="stage"] .texting-bubble-user {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+[data-visual-theme="stage"] .texting-bubble-other {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ─── RPG mode → muted ST feel ─── */
+[data-visual-theme="stage"] .rpg-chat-area {
+  background: var(--background);
+}
+
+[data-visual-theme="stage"] .rpg-avatar-glow::after {
+  display: none;
+}
+
+[data-visual-theme="stage"] .rpg-avatar-panel::after {
+  display: none;
+}
+
+[data-visual-theme="stage"] .rpg-char-name {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--primary);
+  background-clip: unset;
+}
+
+[data-visual-theme="stage"] .rpg-streaming::after {
+  border-color: rgba(217, 164, 65, 0.55);
+  box-shadow: inset 0 0 14px rgba(217, 164, 65, 0.2);
+}
+
+/* ─── Function call card → cleaner look ─── */
+[data-visual-theme="stage"] .fn-call-card {
+  background: rgba(217, 164, 65, 0.06);
+  border-color: rgba(217, 164, 65, 0.2);
+}
+
+[data-visual-theme="stage"] .fn-call-card .fn-name {
+  color: var(--primary);
+}
+
+/* ─── Shimmer → neutral grey ─── */
+[data-visual-theme="stage"] .shimmer {
+  background: linear-gradient(90deg, #1f172b 25%, #2a1f38 50%, #1f172b 75%);
+  background-size: 200% 100%;
+}
+
+/* ─── OS button pastel → flat ST button ─── */
+[data-visual-theme="stage"] .os-button-pastel {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-visual-theme="stage"] .os-button-pastel:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Light-mode ST overrides for glass ─── */
+[data-visual-theme="stage"][data-theme="light"] .glass {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+[data-visual-theme="stage"][data-theme="light"] .glass-strong {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Light-mode ST scrollbar ─── */
+[data-visual-theme="stage"][data-theme="light"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-visual-theme="stage"][data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-color: transparent;
+}
+
+[data-visual-theme="stage"][data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* ─── Light-mode ST shimmer ─── */
+[data-visual-theme="stage"][data-theme="light"] .shimmer {
+  background: linear-gradient(90deg, #ebe1d2 25%, #f4ede2 50%, #ebe1d2 75%);
+  background-size: 200% 100%;
+}

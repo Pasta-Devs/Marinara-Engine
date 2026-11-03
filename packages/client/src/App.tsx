@@ -756,7 +756,13 @@ export function App() {
     const root = document.documentElement;
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const accent = appAccentColor.trim();
-    const defaultAccent = getDefaultAppAccentColor();
+    // The Stage visual theme (UI overhaul preview) brings its own steady brass accent.
+    const stageDefaultAccent = visualTheme === "stage" && !accent;
+    const defaultAccent = stageDefaultAccent
+      ? theme === "light"
+        ? "#a8322f"
+        : "#d9a441"
+      : getDefaultAppAccentColor();
     const defaultSolidAccent = getCssColorFallback(defaultAccent, "currentColor");
     const accentSource = accent || themeAccentPulseConfig.source || defaultAccent;
     const solidAccent = getCssColorFallback(accentSource, defaultSolidAccent);
@@ -767,7 +773,8 @@ export function App() {
     const animatedGradientStops = animatedAccentIsGradient
       ? getCssGradientColorStops(animatedAccentSource, animatedSolidAccent)
       : [animatedSolidAccent];
-    const accentAnimationEnabled = appAccentRgbMode || appAccentPulseMode || themeAccentPulseConfig.enabled;
+    const accentAnimationEnabled =
+      appAccentRgbMode || (appAccentPulseMode && !stageDefaultAccent) || themeAccentPulseConfig.enabled;
     const usesTimerDrivenAccentAnimation = accentAnimationEnabled;
 
     root.style.setProperty("--marinara-app-accent-static", solidAccent);
@@ -989,6 +996,7 @@ export function App() {
     theme,
     themeAccentPulseConfig.enabled,
     themeAccentPulseConfig.source,
+    visualTheme,
   ]);
 
   useEffect(() => {
