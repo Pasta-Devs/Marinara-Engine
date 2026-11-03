@@ -66,7 +66,7 @@ A card's [Interactive Onboarding](interactive-onboarding.md) is kept by **Marina
 2. Click **Select** in the toolbar (the checkmark icon) and tick the characters you want.
 3. Click **Export** in the bar at the bottom. Marinara downloads `marinara-characters.zip`.
 
-The zip holds one **Marinara Native** file per character. Bulk export has no PNG or JSON option. Use single-character export for those. For more ways to select characters, see [Organizing Your Character Library](library-organization.md).
+The zip holds one **Marinara Native** file per character. Bulk export has no PNG or JSON option. Use single-character export for those. For more ways to select characters, see [Organizing Your Character Library](library-organization.md#export-or-delete-many-characters).
 
 ## Related guides
 
