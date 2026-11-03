@@ -4,34 +4,40 @@ A character card is one file that holds one character: name, description, person
 
 ## Importing a character
 
-1. Open the **Characters** panel.
+Before you start: have a character card file on your device. To find cards online instead, see [Card Browser](bot-browser.md).
+
+1. Click **Characters** in the top navigation bar. If you do not see it, open **More** first.
 2. Click **Import** in the toolbar (the icon with a download arrow). The **Import Character** window opens.
 3. Set the import options below. They apply to every file in this batch.
-4. Drop your files on the window, or click it to browse. It says "Drop one or more files here or click to browse". You can pick several files, and the types can be mixed.
-5. Wait for the result list. Each file shows a green check and `Imported "Name"`, or a red mark with an error.
+4. Drop your files on the window, or tap or click it to open your device's file picker. You can pick several files, and the types can be mixed.
+5. Wait for the result list. Each file shows a green check, or a red mark with an error. The text is `Imported "Name"`, `Imported "Name" with its embedded lorebook`, or `Imported "Name" without creating the embedded lorebook`.
+6. Find the new character in **Characters**.
 
 Marinara accepts four file types:
 
 | File type | What it is |
 | --- | --- |
-| **.json** | A plain character card in text form (Chara Card V2). |
-| **.png** | A character card image with the card data hidden inside the picture. |
-| **.charx** | A Character Card V3 package (CharX), the zip-based format used by RisuAI. |
-| **.marinara** | A Marinara native export. Exports are named `.marinara.json`. |
+| **.json** | A card saved as text. Marinara exports (`.marinara.json`) are also .json files. |
+| **.png** | A card image with the card data hidden inside the picture. |
+| **.charx** | A card package saved as a zip file. |
+| **.marinara** | A Marinara export file. |
 
-A Marinara native file keeps the most detail. The other three come from SillyTavern, Chub, Risu and similar tools.
+A Marinara export keeps the most detail. The other types come from SillyTavern, Chub, Risu and similar tools.
 
 If it did not work: read the red message next to the file. The other files in the batch still import.
 
 ### Import options
 
-| Option | Choices | Default |
-| --- | --- | --- |
-| **Imported card tags** | **All tags** keeps every tag on the card. **No tags** skips them. **Existing only** keeps only tags already in your library. | **All tags** |
-| **Imported regex scripts** | **Character only** runs the card's regex scripts for this character. **Global** adds them to **Presets → Regexes**, so they run in every chat. | **Character only** |
-| **Split description into fields** | Tick it to move labelled personality, appearance, backstory, scenario, rules and example-dialogue text out of **Description** into their own fields. Narrator, world and multi-character cards are left as they are. | Off |
+| Option | Choices |
+| --- | --- |
+| **Imported card tags** | **All tags** (default): keep every tag. |
+| | **No tags**: skip them. |
+| | **Existing only**: keep tags already in your library. |
+| **Imported regex scripts** | **Character only** (default): rules run for this character. |
+| | **Global**: rules go to **Presets → Regexes** and run in every chat. |
+| **Split description into fields** | Off by default. Tick it to move labelled personality, appearance and similar text out of **Description** into their own fields. |
 
-Regex scripts are small text-replacement rules. Keep **Character only** unless you want the rules everywhere.
+Regex scripts are small text-replacement rules. Keep **Character only** unless you want the rules everywhere. The split leaves narrator, world and multi-character cards as they are.
 
 ### Cards with a built-in lorebook
 
@@ -53,16 +59,16 @@ To move a whole SillyTavern install, use the bulk importer in **Settings** on th
 | Format | What you get | Best for |
 | --- | --- | --- |
 | **Marinara Native** | A `.marinara.json` file with Marinara metadata, sprites, gallery images and attached lorebooks. | Moving a character between Marinara installs with full detail. |
-| **Compatible JSON** | Plain Chara Card V2 JSON. It drops Marinara-only extras such as sprites and gallery images. | Other apps that read JSON cards. |
-| **Compatible PNG Card** | A Chara Card V2 image with the card data inside the picture. It carries your sprites but not gallery images. | Apps and sites that expect a PNG card, such as SillyTavern, Chub and Risu. |
+| **Compatible JSON** | A plain card file other apps can read. It drops Marinara-only extras such as sprites and gallery images. | Other apps that read JSON cards. |
+| **Compatible PNG Card** | A card image with the data inside the picture. It carries your sprites but not gallery images. | Apps and sites that expect a PNG card, such as SillyTavern, Chub and Risu. |
 
-Both **Compatible** formats append non-empty **Backstory** and **Appearance** fields to the standard **Description**, so other V2 readers keep that information. Your saved card does not change.
+Both **Compatible** formats append non-empty **Backstory** and **Appearance** fields to the standard **Description**, so other apps keep that information. Your saved card does not change.
 
 A card's [Interactive Onboarding](interactive-onboarding.md) is kept by **Marinara Native** and **Compatible PNG Card**, so the card still asks its questions when someone imports it into Marinara. **Compatible JSON** leaves it out.
 
 ## Export many characters at once
 
-1. Open the **Characters** panel.
+1. Click **Characters** in the top navigation bar (or **More** first, if it is not shown).
 2. Click **Select** in the toolbar (the checkmark icon) and tick the characters you want.
 3. Click **Export** in the bar at the bottom. Marinara downloads `marinara-characters.zip`.
 
