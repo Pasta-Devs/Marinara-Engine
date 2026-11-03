@@ -6,7 +6,7 @@ A character card is a file that holds one character's name, personality, greetin
 
 ## Open the Card Browser
 
-1. Open the **Characters** panel or the **Personas** panel.
+1. Click **Characters** or **Personas** in the top navigation bar. If you do not see them, open **More** first.
 2. Click the **Download** button at the top. Its tooltip reads **Download character cards**.
 
 The Card Browser fills the whole content area, with the title **Browse character cards online**. To leave, click the back arrow at the top left.
@@ -17,14 +17,16 @@ If you close it and open it again, your last search, filters and selected charac
 
 Click the source button in the header. The menu lists, in order: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat**, **PlotLight** and **PlotLight Personas**. **ChubAI** is selected the first time. Switching source clears your search text, tags and filters. Each source keeps its own adult-content setting and login.
 
-| Source | Default sort | Adult content (NSFW) |
-| --- | --- | --- |
-| **ChubAI** | Most Downloaded | The **NSFW** checkbox works. Off by default. |
-| **JannyAI** | Newest | The **NSFW** checkbox works. Off by default. |
-| **Pygmalion** | Downloads | Greyed out until you [log in](#log-in-to-pygmalion). Then it follows your Pygmalion account settings. |
-| **Wyvern** | Popular | Always greyed out. Pick the **🔞 Popular NSFW** sort instead. |
-| **DataCat** | Relevance | Every card is adult-tagged, so the checkbox is locked on. |
-| **PlotLight** and **PlotLight Personas** | Popular | Always greyed out. PlotLight applies its own rules. Adult-tagged results get an **NSFW** badge. |
+| Source | Adult content (NSFW) |
+| --- | --- |
+| **ChubAI** | The **NSFW** checkbox works. Off by default. |
+| **JannyAI** | The **NSFW** checkbox works. Off by default. |
+| **Pygmalion** | Greyed out until you [log in](#log-in-to-pygmalion). Then it follows your Pygmalion account settings. |
+| **Wyvern** | Always greyed out. Pick the **🔞 Popular NSFW** sort instead. |
+| **DataCat** | Every card is adult-tagged, so the checkbox is locked on. |
+| **PlotLight** and **PlotLight Personas** | Always greyed out. PlotLight applies its own rules. Adult-tagged results get an **NSFW** badge. |
+
+Not sure where to start? Use **ChubAI**, the first source. Each source starts on its own sort order, and you can change it in the sort dropdown.
 
 Adult cards show a small red **NSFW** badge on their thumbnail. The menu says **ChubAI**, but a card's outside link reads **View on Chub**, which is the site's own name.
 
@@ -78,24 +80,6 @@ Most sources add a **Filters** button with a badge that counts active filters. I
 
 On **Wyvern**, the **Lorebook** and **Alt Greetings** checkboxes and the token boxes appear but do not change results. Use the sort dropdown and tags instead.
 
-## Log in to Pygmalion
-
-Pygmalion hides its adult content behind a login. Public characters need no login. Marinara never asks for your password. You paste a value copied from your own account.
-
-1. Click **Log In** in the toolbar. The **Pygmalion Authentication** window opens.
-2. Go to pygmalion.chat in your browser and log in.
-3. Open your browser's developer tools. On most browsers, press <kbd>F12</kbd>.
-4. Open the **Application** tab, then **Local Storage**.
-5. Find the entry named `authn` and copy its value.
-6. Paste it into **Auth Token** in Marinara. The box hides what you paste.
-7. Click **Save & Connect**. A message says NSFW content is enabled.
-
-The window has a help section that repeats these steps and a **Website** link to pygmalion.chat.
-
-Marinara checks the token with Pygmalion first. If Pygmalion rejects it, nothing is saved and a message says why. If Pygmalion stops accepting it later, Marinara logs you out and asks you to log in again.
-
-The login is held in the server's memory only. It is never saved to a file, so restarting the Marinara server logs you out. To sign out yourself, open the window again and click **Log Out**. To fully sign out, also log out on pygmalion.chat.
-
 ## Review a character
 
 Click a result to open its detail view. **Back to results** returns to the list.
@@ -109,10 +93,11 @@ Before you start: to chat with the character you will need a working text connec
 1. Open a character's detail view.
 2. Choose an **Imported tags** option next to the avatar. The default is **All tags**. See [Import options](import-export.md#import-options).
 3. Click **Import**. An **Import Card** window opens and asks **Where should this card live?**
-4. Click **Import as Character** to add it to **Characters**, or **Import as Persona** to add it to **Personas**. Optionally tick **Split description into fields** first. See [Import options](import-export.md#import-options).
-5. If the card has an embedded lorebook, an **Embedded lorebook found** panel shows how many entries it has. Click **Import Lorebook** to also create a standalone lorebook, or **No Import** to keep it only inside the card. **Back** returns to step 4.
-6. Wait while the button reads **Importing...**. A message says `Imported "Name" successfully!`
-7. Open the **Characters** panel (or **Personas**) to find it.
+4. Optionally tick **Split description into fields**. See [Import options](import-export.md#import-options).
+5. Click **Import as Character** to add it to **Characters**, or **Import as Persona** to add it to **Personas**.
+6. If the card has an embedded lorebook, an **Embedded lorebook found** panel shows how many entries it has. Click **Import Lorebook** to also create a standalone lorebook, or **No Import** to keep it only inside the card. **Back** returns to step 5.
+7. Wait while the button reads **Importing...**. A message says `Imported "Name" successfully!`
+8. Open **Characters** (or **Personas**) to find it.
 
 If it did not work: read the error message in the toast. For **JannyAI**, a Cloudflare block is the most common cause (see Troubleshooting below).
 
@@ -124,12 +109,30 @@ Click **Download as PNG** in the detail view to save the card as a standard PNG 
 
 | Problem | Fix |
 | --- | --- |
-| **JannyAI** search or details fail with a Cloudflare error, or the card's full definition is blocked. | Visit jannyai.com once in the same browser and pass any challenge. Then search again. If the card is still blocked, open it on JannyAI, download its PNG, and import that file. |
+| **JannyAI** search or details fail with a error mentioning Cloudflare (a security check that blocks automatic requests), or the card's full definition is blocked. | Visit jannyai.com once in the same browser and pass any challenge. Then search again. If the card is still blocked, open it on JannyAI, download its PNG, and import that file. |
 | My Pygmalion login stopped working. | Restarting the server clears it. Log in again with a fresh token. |
 | **CharacterTavern** only shows a notice. | Expected. See [CharacterTavern](#charactertavern). |
 | **PlotLight is busy.** | Wait the number of seconds in the message, then retry. |
 | **PlotLight doesn't offer this for download.** | The creator may not allow downloads, or the card is no longer public. Use **View on PlotLight** to check. |
 | A search fails or a source stops working. | Public sites change or block access at any time. Try later, or download the card from the site and use the normal import. See [Importing and Exporting Character Cards](import-export.md). |
+
+## Log in to Pygmalion
+
+Pygmalion hides its adult content behind a login. Public characters need no login. Marinara never asks for your password. You paste a value copied from your own account.
+
+1. Click **Log In** in the toolbar. The **Pygmalion Authentication** window opens.
+2. Go to pygmalion.chat in your browser and log in.
+3. Open your browser's developer tools, a built-in panel for advanced users. On most computer browsers, press <kbd>F12</kbd>. Phone browsers usually do not have it, so use a computer for this step.
+4. Open the **Application** tab, then **Local Storage**.
+5. Find the entry named `authn` and copy its value.
+6. Paste it into **Auth Token** in Marinara. The box hides what you paste.
+7. Click **Save & Connect**. A message says NSFW content is enabled.
+
+The window has a help section that repeats these steps and a **Website** link to pygmalion.chat.
+
+Marinara checks the token with Pygmalion first. If Pygmalion rejects it, nothing is saved and a message says why. If Pygmalion stops accepting it later, Marinara logs you out and asks you to log in again.
+
+The login is held in the server's memory only. It is never saved to a file, so restarting the Marinara server logs you out. To sign out yourself, open the window again and click **Log Out**. To fully sign out, also log out on pygmalion.chat.
 
 ## Related guides
 
