@@ -112,7 +112,8 @@ export function ChatSetupStageCastOrder({ ctx }: { ctx: StageEditorContext }) {
     focusId.current = null;
   });
 
-  if (ctx.chatCharIds.length < 2) return null;
+  // Hosted rooms change their cast through room actions, so leave their order alone.
+  if (ctx.chatCharIds.length < 2 || ctx.chatMeta.multiplayer) return null;
 
   const move = (id: string, toIndex: number, refocus = false) => {
     const next = moveItem(ids, id, toIndex);
