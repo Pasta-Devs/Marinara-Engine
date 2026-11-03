@@ -42,7 +42,7 @@ The simple Marinara path puts one complete prompt in the LTX Director global pro
 
 The LTX Director node can still handle image conditioning, guide data, audio and the two sampling stages. "Simple" means Marinara sends one coherent image-to-video paragraph instead of a Prompt Relay timeline.
 
-### Placeholders
+### Required placeholders
 
 In the API export, replace the matching values with these quoted Marinara placeholders:
 
@@ -56,7 +56,8 @@ In the API export, replace the matching values with these quoted Marinara placeh
 | `%width%`, `%height%` | Dimensions from the video account's resolution and aspect ratio |
 | `%seed%` | A new random seed for each request |
 | `%model%` | Optional model value from the account, when the workflow does not fix its loader model |
-| `%length_s%`, `%global_prompt%`, `%local_prompts%`, `%segment_lengths%` | Other values Marinara can fill. The simple path needs only `%prompt%`. |
+
+Marinara can also fill `%length_s%`, `%global_prompt%`, `%local_prompts%` and `%segment_lengths%`. These four are optional. The simple path does not need them and sends its prompt through `%prompt%`.
 
 The reference image belongs inside the `segments` array of LTX Director's `timeline_data`, which is a serialized JSON string in the API workflow. `%length%` keeps the clip length dynamic through `normalDurationFrames`. The frame-zero reference-image segment keeps its own fixed `"length":16`.
 

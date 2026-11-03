@@ -68,7 +68,7 @@ On a phone, the action buttons stick to the bottom of the screen. Panels that do
 
 ## How combat math works
 
-Each round is decided by fixed dice math, not by the AI. This keeps combat fair and consistent. A d20 is a twenty-sided die (1 to 20). These rules are Marinara's own Classic and Tactical rules, not those of a ruleset.
+Each round is decided by fixed dice math, not by the AI. This keeps combat fair and consistent. A d20 is a twenty-sided die (1 to 20). The initiative, attack and damage rules below are how Classic battles play. They are Marinara's own rules, not those of a ruleset. For Tactical battles, see [Turn order](#turn-order) and [Sight, cover and height](#sight-cover-and-height).
 
 **Initiative.** At the start of each round, every fighter rolls a d20 and adds a bonus from their Speed (Speed divided by 5, rounded down). Higher totals act first. A fighter skips the round if frozen, stunned or imprisoned, or if their Speed has dropped to 0.
 
