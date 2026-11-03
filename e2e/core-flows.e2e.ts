@@ -4786,6 +4786,7 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     await create.click();
     await expect(neutral).not.toBeChecked();
     await neutral.check();
+    await likeness.uncheck();
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().setReviewImagePromptsBeforeSend(true);
