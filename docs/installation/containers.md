@@ -43,7 +43,7 @@ The project has a ready-to-use `docker-compose.yml` file. Compose is the part of
 
 5. Open `http://127.0.0.1:7860` in your browser. The Marinara home screen loads.
 
-If it did not work: another program may use port `7860`. Pick a free port, such as `8080`, and start with `PORT=8080 docker compose up -d` (on Windows PowerShell, set `$env:PORT=8080` first). Then open `http://127.0.0.1:8080`. Other fixes are under [Troubleshooting](#troubleshooting).
+If it did not work: another program may use port `7860`. Pick a free port, such as `8080`. Create a file named `.env` in the same folder as `docker-compose.yml` with the line `PORT=8080`, then run `docker compose up -d` again. Compose reads this file every time, so later updates keep the new port. Then open `http://127.0.0.1:8080`. Other fixes are under [Troubleshooting](#troubleshooting).
 
 ## Stop Marinara
 

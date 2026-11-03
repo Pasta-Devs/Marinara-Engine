@@ -35,11 +35,12 @@ When Marinara is running, open this address in a browser on the same device. Do 
 http://127.0.0.1:7860
 ```
 
-`127.0.0.1` means this device. `7860` is the default port, the number the app listens on. The launchers (the scripts that start Marinara) also let other devices on your network reach it, but they stay blocked until you set a login.
+`127.0.0.1` means this device. `7860` is the default port, the number the app listens on. The launchers (the scripts that start Marinara) also let other devices on your network reach it, but they stay blocked until you set a login. A Docker or Podman install only answers on this device until you change its port line; see [Containers](installation/containers.md#open-marinara-from-another-device).
 
 ## Open Marinara on your phone
 
 1. Install and start Marinara on a computer, home server or Android phone.
+   With Docker or Podman, first follow [Open Marinara from another device](installation/containers.md#open-marinara-from-another-device).
 2. Set a login there. See [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended).
 3. Find that device's IP address. The [FAQ](FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device) shows how.
 4. On your phone, open `http://` followed by the IP address and `:7860`.
