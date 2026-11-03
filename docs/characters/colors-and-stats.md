@@ -20,13 +20,23 @@ Set each with the color field, or type a value:
 
 | Field | What it colors | Example value |
 | --- | --- | --- |
-| **Name Display Color** | The name. It also takes a CSS gradient, a smooth blend between colors. | `linear-gradient(90deg, #f59e0b, #ef4444)` |
+| **Name Display Color** | The name. It also takes a gradient, see below. | `#f59e0b` |
 | **Dialogue Highlight Color** | Text inside dialogue quotation marks. | `#ffd700` |
 | **Message Box Color** | The background of the Roleplay message bubble. | `#123456` |
 
+**Name Display Color** also takes a CSS gradient, a smooth blend between colors:
+
+```text
+linear-gradient(90deg, #f59e0b, #ef4444)
+```
+
 A character's **Colors** tab also has **Name Aliases**. Type extra names or nicknames, separated by commas, such as `Kate, Kitty, Katherine`. They get the character's name color when they appear in chat messages. The main name is always included. Turn it on per chat in **Chat Settings → Characters**.
 
-To change transparency, use **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**. The slider replaces the transparency saved in character, persona and preset background colors, including extracted ones. Your saved color values stay as they are. Name and dialogue colors are not affected. Custom-theme background hooks and card CSS can still override the app's bubble styling.
+To change transparency, use **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**.
+
+The slider replaces the transparency saved in character, persona and preset background colors, including extracted ones. Your saved color values stay as they are. Name and dialogue colors are not affected.
+
+Custom-theme background hooks and card CSS can still override the app's bubble styling.
 
 ### Where your colors show
 
