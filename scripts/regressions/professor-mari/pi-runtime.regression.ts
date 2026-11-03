@@ -577,6 +577,8 @@ try {
       "Held for your review — the change card is ready.",
       "The change is staged and waiting for your approval.",
       "The rename is held for review.",
+      "I've staged the rename for your review.",
+      "Done - the change is held for your approval.",
     ])
       assert.equal(workspaceTextClaimsHeldChange(text), true, text);
     for (const text of [
@@ -584,6 +586,12 @@ try {
       "I read the card and the lorebook; here is what they say.",
       "Want me to make that change?",
       "I'm waiting for your approval to continue.",
+      // #8711: an explanation of the change-card flow, and a quoted or code phrase, report no hold of hers.
+      "Possibly. If a reply that made no change says a change is held for your review, or that a change card is ready, the check replaces it. In Manual mode, every edit is held for your approval until you press Accept.",
+      "When I propose an edit in Manual mode, the change is held for your review on a change card.",
+      "In Manual mode, edits are held for your approval, and the change card is where you accept them.",
+      'The check looks for phrases like "held for your review" and `the change card is ready`.',
+      "> Held for your review — the change card is ready.",
     ])
       assert.equal(workspaceTextClaimsHeldChange(text), false, text);
     const readCall = (id: string) => ({ id, name: "read", args: { path: "hello.txt" } });

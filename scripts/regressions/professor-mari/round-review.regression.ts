@@ -136,6 +136,68 @@ const mutationOutput = (sentinel: string) =>
   assert.match((stopped as { content: string }).content, /could not verify the requested workspace change/u);
 }
 
+// #8711: a text-only answer in a run that tried no change keeps its words. A draft list whose items say "is created"
+// or "are saved", a quoted example or code block, and an explanation of the change-card flow all pass untouched.
+{
+  const draftList = [
+    "Here are 12 short item descriptions you can paste into the other screen:",
+    ...Array.from({ length: 12 }, (_, index) =>
+      index % 2 === 0
+        ? `${index + 1}. Starlit lantern ${index + 1}: a brass lantern that is created from a fallen star.`
+        : `${index + 1}. Rainy-day ledger ${index + 1}: old letters that are saved for a quiet evening.`,
+    ),
+  ].join("\n");
+  const quoted = [
+    'A reply like "The entry is created and the card was updated." reads as a finished change.',
+    "> Your changes are saved.",
+    "```text\nstatus: it is saved\n```",
+  ].join("\n\n");
+  const flow =
+    "In Accept edits mode, each change you ask for is applied right away and a change card is added under my reply, so you can undo it. In Manual mode it waits on the card until you press Accept.";
+  const docsSearch: WorkspaceCommandResult = {
+    id: "d1",
+    name: "docs_search",
+    input: { query: "change cards" },
+    output: "results",
+    success: true,
+  };
+  for (const text of [draftList, quoted, flow]) {
+    for (const [results, terminal] of [
+      [[], true],
+      [[docsSearch], true],
+      [[docsSearch], false],
+    ] as const) {
+      const state = newRoundReviewState();
+      const decision = reviewRoundClaim(state, {
+        action: frame(text, terminal ? [] : [{ name: "docs_read", arguments: { path: "home/mari.md" } }], terminal),
+        commandResultsForContinuity: [...results],
+        truncated: false,
+      });
+      assert.deepEqual(decision, { kind: "continue" }, `${text.slice(0, 40)} (terminal=${terminal})`);
+      assert.equal(state.verificationRepairRounds + state.midRunClaimRepairRounds, 0);
+    }
+  }
+
+  // A real unsupported claim is still sent back: her own claim with nothing tried, and any claim wording once a
+  // change was tried and failed, or was held for approval (classic holds the round's calls before the audit).
+  const failedUpdate = { ...appData("Error: update failed"), success: false };
+  for (const [text, results, mutationHeld] of [
+    ["I updated the card.", [], false],
+    ["Updated.", [], false],
+    ["The card is updated.", [failedUpdate], false],
+    ["The card is updated. Should I keep going?", [], true],
+  ] as const) {
+    const decision = reviewRoundClaim(newRoundReviewState(), {
+      action: frame(text),
+      commandResultsForContinuity: [...results],
+      truncated: false,
+      mutationHeld,
+    });
+    assert.equal(decision.kind, "repair", text);
+    assert.match((decision as { prompt: string }).prompt, /no mutating command succeeded/u, text);
+  }
+}
+
 // A read-back mismatch under a completion claim must not be claimed as success.
 {
   const state = newRoundReviewState();

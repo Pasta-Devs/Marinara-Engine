@@ -14134,7 +14134,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       ).replace(/\s+/gu, " ");
       assert.ok(
         agentSourceForPins.includes(
-          "auditWorkspaceCompletionClaim(action, args.commandResultsForContinuity, { auditFrom: state.claimAuditWatermark, hadPassedClaimAudit: state.hadPassedClaimAudit, lastPassedClaimText: state.lastPassedClaimText, })",
+          "auditWorkspaceCompletionClaim(action, args.commandResultsForContinuity, { auditFrom: state.claimAuditWatermark, hadPassedClaimAudit: state.hadPassedClaimAudit, lastPassedClaimText: state.lastPassedClaimText, mutationHeld: args.mutationHeld, })",
         ),
         "the loop audits against the live watermark, never from zero",
       );

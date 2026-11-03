@@ -83,6 +83,8 @@ export function reviewRoundClaim(
     action: Pick<AssistantWorkspaceAction, "visibleText" | "commands" | "stop" | "protocolValid">;
     commandResultsForContinuity: WorkspaceCommandResult[];
     truncated: boolean;
+    /** The round's changes were held for approval: tried, though they have no result (#8711). */
+    mutationHeld?: boolean;
   },
 ): RoundClaimDecision {
   const { action } = args;
@@ -93,6 +95,7 @@ export function reviewRoundClaim(
           auditFrom: state.claimAuditWatermark,
           hadPassedClaimAudit: state.hadPassedClaimAudit,
           lastPassedClaimText: state.lastPassedClaimText,
+          mutationHeld: args.mutationHeld,
         });
   if (claimAudit.advanceWatermark) {
     state.claimAuditWatermark = args.commandResultsForContinuity.length;

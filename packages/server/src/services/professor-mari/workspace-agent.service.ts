@@ -2353,17 +2353,53 @@ export function visibleTextAsksApplyPermission(text: string): boolean {
 }
 
 /**
+ * #8711: the words a claim audit may read - Mari's own prose. Code (fenced or inline), blockquote lines and quoted
+ * strings are a draft, an example or a quote, never her claim, so a quoted "is created" cannot discard the answer
+ * around it. Whitespace is collapsed and curly apostrophes made straight.
+ */
+function workspaceClaimProse(text: string): string {
+  return (
+    text
+      .replace(/[’‘]/gu, "'")
+      .replace(/(```|~~~)[\s\S]*?(?:\1|$)/gu, " ")
+      .replace(/`[^`\n]*`/gu, " ")
+      .replace(/^[ \t]*>.*$/gmu, " ")
+      // A single quote opens or closes a quote only away from letters, so "I've" and "users'" stay prose.
+      .replace(/"[^"\n]*"|“[^”\n]*”|(?<![\p{L}\p{N}])'[^'\n]*'(?![\p{L}\p{N}])/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim()
+  );
+}
+
+/**
  * True when the text says a change is held, staged, ready on a card or waiting for the user's approval. The pi
  * runtime checks it on a run that held nothing, where such a claim is false.
+ * #8711: only her report of THIS reply's hold counts - a sentence that opens with the hold or with its subject ("I
+ * have changes ready", "The rename is held for review"). An explanation of the flow is not one: a sentence with
+ * "when", "if", "how", "would" and the like before the phrase, or a general subject ("edits are", "every change is",
+ * "In Manual mode, the change is"). Code and quotes are never read.
  * ponytail: English phrasings only. Upgrade path: have the server state what is held and compare, not read words.
  */
 export function workspaceTextClaimsHeldChange(text: string): boolean {
-  const normalized = text.toLowerCase().replace(/\s+/g, " ");
-  return (
-    /\b(held|staged|queued)\b.{0,20}\bfor (your |the user'?s? )?(review|approval|accept\w*)/.test(normalized) ||
-    /\bchange cards? (is|are) (ready|staged|waiting|held)\b/.test(normalized) ||
-    /\bchanges? (is|are)? ?(ready|staged|waiting|held)\b.{0,60}\b(review|accept|approv\w*)/.test(normalized) ||
-    /\bnothing was applied yet\b/.test(normalized)
+  const prose = workspaceClaimProse(text).toLowerCase();
+  return [
+    /\b(held|staged|queued)\b.{0,20}\bfor (your |the user'?s? )?(review|approval|accept\w*)/gu,
+    /\bchange cards? (is|are) (ready|staged|waiting|held)\b/gu,
+    /\bchanges? (is|are)? ?(ready|staged|waiting|held)\b.{0,60}\b(review|accept|approv\w*)/gu,
+    /\bnothing was applied yet\b/gu,
+  ].some((pattern) =>
+    [...prose.matchAll(pattern)].some((match) => {
+      const sentence = prose.slice(0, match.index).replace(/^.*[.!?;]\s/u, "");
+      const clause = sentence.replace(/^.*(?:[:—–]|\s-)\s*/u, "");
+      return (
+        !/\b(?:when|whenever|if|once|until|unless|before|after|whether|how|would|will|can|could|may|might|should)\b/u.test(
+          sentence,
+        ) &&
+        /^(?:(?:i|i've|i'm|we|we've|we're|it|it's|this|these|those|the|your|my)\s+(?:[^\s.,;:!?]+\s+){0,2})?$/u.test(
+          clause,
+        )
+      );
+    }),
   );
 }
 
@@ -2803,13 +2839,20 @@ export function resolveWorkspaceMutationVerification(
   return mutationSeen ? "verified" : "none";
 }
 
+/**
+ * `selfAttributedOnly`: only first-person claims ("I updated"). `ownClaimsOnly`: those, plus a whole reply that is a
+ * bare claim ("Done.", "Updated.", "Edit applied."), never the passive or "it is" phrases a draft, a list or an
+ * explanation carries ("a lantern that is created", "it's saved in your browser"). #8711: phrases are read from her
+ * prose only, never from code or quotes; a whole-reply claim is still read from the whole reply.
+ */
 export function workspaceTextClaimsMutationCompletion(
   text: string,
-  options: { selfAttributedOnly?: boolean } = {},
+  options: { selfAttributedOnly?: boolean; ownClaimsOnly?: boolean } = {},
 ): boolean {
   const normalized = text.trim().replace(/[’‘]/gu, "'").replace(/\s+/gu, " ");
   if (!normalized) return false;
   if (/^(?:have|has|did|is|are|was|were)\b[^.!]*\?$/iu.test(normalized)) return false;
+  const prose = workspaceClaimProse(text);
   const completedMutation =
     // #5830: "verified" is deliberately absent - it describes a READ, and it
     // is the exact word the guard's own coaching asks the model to produce.
@@ -2819,21 +2862,23 @@ export function workspaceTextClaimsMutationCompletion(
   // describes how a feature works, not work she did; the audit then replaced a correct answer.
   const describesFeature = (match: RegExpMatchArray) =>
     /\b(?:before|until|when|whenever|after|once|if|unless|whether)\s+(?:[^\s.,;:!?]+\s+){0,3}$/iu.test(
-      normalized.slice(0, match.index),
-    ) || /^\s*by default\b/iu.test(normalized.slice((match.index ?? 0) + match[0].length));
-  const claims = (pattern: RegExp) => [...normalized.matchAll(pattern)].some((match) => !describesFeature(match));
+      prose.slice(0, match.index),
+    ) || /^\s*by default\b/iu.test(prose.slice((match.index ?? 0) + match[0].length));
+  const claims = (pattern: RegExp) => [...prose.matchAll(pattern)].some((match) => !describesFeature(match));
   const selfClaim = claims(
     new RegExp(`\\b(?:i(?:'ve| have)?|we(?:'ve| have)?)\\s+${adverbs}(?:${completedMutation})\\b`, "giu"),
   );
   if (options.selfAttributedOnly) return selfClaim;
+  const wholeReplyClaim = () =>
+    new RegExp(`^(?:(?:the )?(?:edit|change|update)s?\\s+)${adverbs}(?:${completedMutation})\\b[^?]*[.!]?$`, "iu").test(
+      normalized,
+    ) || new RegExp(`^(?:${completedMutation}|done)[.!]*$`, "iu").test(normalized);
+  if (options.ownClaimsOnly) return selfClaim || wholeReplyClaim();
   return (
     selfClaim ||
     claims(new RegExp(`\\b(?:it(?:'s| is)?|that(?:'s| is)?)\\s+${adverbs}(?:${completedMutation})\\b`, "giu")) ||
     claims(new RegExp(`\\b(?:is|are|was|were|has been|have been)\\s+${adverbs}(?:${completedMutation})\\b`, "giu")) ||
-    new RegExp(`^(?:(?:the )?(?:edit|change|update)s?\\s+)${adverbs}(?:${completedMutation})\\b[^?]*[.!]?$`, "iu").test(
-      normalized,
-    ) ||
-    new RegExp(`^(?:${completedMutation}|done)[.!]*$`, "iu").test(normalized)
+    wholeReplyClaim()
   );
 }
 
@@ -2845,9 +2890,13 @@ export function workspaceTextClaimsMutationCompletion(
  * pass a claim over a scope that contains one.
  */
 function isUnappliedMutationAttempt(result: WorkspaceCommandResult): boolean {
-  const call = commandCallForResult(result);
-  if (!isMutatingWorkspaceCommand(call) && !isPreviewOnlyAppDataCommand(call)) return false;
+  if (!isMutationShapedCommand(commandCallForResult(result))) return false;
   return !isAppliedWorkspaceMutation(result) && !isStagedSensitiveMutation(result);
+}
+
+/** A change, or a preview of one: what counts as an attempt to change something, whatever its outcome. */
+function isMutationShapedCommand(call: WorkspaceCommandCall): boolean {
+  return isMutatingWorkspaceCommand(call) || isPreviewOnlyAppDataCommand(call);
 }
 
 function scopeHasUnappliedMutationAttempt(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
@@ -2921,11 +2970,23 @@ export type WorkspaceClaimAudit = {
  * watermark, so their debt stays visible to the terminal audit: a later
  * frame can still read the change back, and the user can still accept a
  * staged one.
+ *
+ * #8711: a run that never tried to change anything - no change or preview
+ * ran, failed, or was held (`mutationHeld`) - is judged by her own claims
+ * only (`ownClaimsOnly`). A passive or "it is" phrase there belongs to a
+ * draft, a list or an explanation, and discarding the answer for it lost the
+ * text the user asked for; "I updated the card" with nothing behind it is
+ * still sent back.
  */
 export function auditWorkspaceCompletionClaim(
   action: Pick<AssistantWorkspaceAction, "commands" | "stop" | "visibleText">,
   results: readonly WorkspaceCommandResult[],
-  options: { auditFrom?: number; hadPassedClaimAudit?: boolean; lastPassedClaimText?: string | null } = {},
+  options: {
+    auditFrom?: number;
+    hadPassedClaimAudit?: boolean;
+    lastPassedClaimText?: string | null;
+    mutationHeld?: boolean;
+  } = {},
 ): WorkspaceClaimAudit {
   const auditFrom = options.auditFrom ?? 0;
   const hadPassedClaimAudit = options.hadPassedClaimAudit ?? false;
@@ -2937,7 +2998,11 @@ export function auditWorkspaceCompletionClaim(
   ) {
     return { issue: "dry_run", advanceWatermark: false };
   }
-  if (!workspaceTextClaimsMutationCompletion(action.visibleText)) {
+  const attemptedChange =
+    options.mutationHeld === true ||
+    action.commands.some(isMutationShapedCommand) ||
+    results.some((result) => isMutationShapedCommand(commandCallForResult(result)));
+  if (!workspaceTextClaimsMutationCompletion(action.visibleText, { ownClaimsOnly: !attemptedChange })) {
     return { issue: null, advanceWatermark: false };
   }
   const verification = resolveWorkspaceMutationVerification(results, auditFrom);
@@ -4546,6 +4611,7 @@ export class ProfessorMariWorkspaceService {
           action,
           commandResultsForContinuity,
           truncated: isLengthFinishReason(result.finishReason),
+          mutationHeld: shouldDeferMutations,
         });
         if (claimDecision.kind === "repair") {
           // The repair discards this round, and with it any hold the round made: a later round may apply the change,
