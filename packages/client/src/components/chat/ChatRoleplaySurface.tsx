@@ -59,7 +59,7 @@ import {
   resolveTranscriptRenderWindowSize,
   TRANSCRIPT_RENDER_WINDOW_STEP,
 } from "../../lib/transcript-render-window";
-import { selectSidebarShown, useUIStore } from "../../stores/ui.store";
+import { DEFAULT_ROLEPLAY_BACKGROUND_URL, selectSidebarShown, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useChatComposerFocused, useChatKeyboardOpen } from "../../hooks/use-visual-viewport-chat-bottom";
@@ -92,7 +92,7 @@ import type {
   PersonaInfo,
 } from "./chat-area.types";
 import type { ChatImage } from "../../hooks/use-gallery";
-import { ChatSetupStage, useChatSetupStage } from "./ChatSetupStage";
+import { ChatSetupStage, useAvatarAccent, useChatSetupStage } from "./ChatSetupStage";
 import { ChatWelcomeBack, useWelcomeBack } from "./ChatWelcomeBack";
 import {
   gameStoryboardKeys,
@@ -1546,6 +1546,12 @@ export function ChatRoleplaySurface({
     isLoading,
   });
   const welcomeBack = useWelcomeBack({ chat, chatMeta, messages, blocked: setupStage.visible });
+  // A plain black or empty background gets a soft wash of the lead character behind the stage.
+  const washSrc =
+    !chatBackground || chatBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL
+      ? (characterMap.get(chatCharIds[0] ?? "")?.avatarUrl ?? null)
+      : null;
+  const washAccent = useAvatarAccent(washSrc);
   const activeChatCharacterIds = useMemo(() => {
     const inactiveIds = new Set(readStringArray(chatMeta.inactiveCharacterIds));
     const activeIds = chatCharIds.filter((id) => !inactiveIds.has(id));
@@ -1801,6 +1807,18 @@ export function ChatRoleplaySurface({
             setupStage.visible ? "opacity-100" : "opacity-0",
           )}
         />
+        {washSrc && (
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute left-1/2 top-[4%] size-[min(80vmin,560px)] -translate-x-1/2 rounded-full md:left-[calc(50%-31rem)] md:translate-x-0 blur-[64px] transition-[opacity,visibility] duration-500 motion-reduce:transition-none",
+              setupStage.visible ? "opacity-15" : "invisible opacity-0",
+            )}
+            style={{ backgroundColor: washAccent ?? "var(--primary)" }}
+          >
+            <img src={washSrc} alt="" className="size-full rounded-full object-cover opacity-60" />
+          </div>
+        )}
         {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
         {visualNovel && !vnHistoryOpen && (
           <div
