@@ -6369,7 +6369,7 @@
   "settings.accessStatus.login.error.tooMany_one": "Too many wrong tries. Try again in 1 minute.",
   "settings.accessStatus.login.error.tooMany_other": "Too many wrong tries. Try again in {{count}} minutes.",
   "settings.accessStatus.login.failed": "Marinara could not save the login.",
-  "settings.accessStatus.login.forgot": "Forgot the password? On the computer that runs Marinara, run pnpm reset-login (in Docker: docker exec {{container}} node scripts/reset-login.mjs).",
+  "settings.accessStatus.login.forgot": "Forgot the password? In the Marinara folder on the computer that runs it (Termux included), run node scripts/reset-login.mjs. In Docker: docker exec {{container}} node scripts/reset-login.mjs.",
   "settings.accessStatus.login.fromEnv": "Your login comes from the .env file (BASIC_AUTH_USER and BASIC_AUTH_PASS), so change it there.",
   "settings.accessStatus.login.newPassword": "New password",
   "settings.accessStatus.login.password": "Password",
