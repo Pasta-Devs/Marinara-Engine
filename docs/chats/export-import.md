@@ -18,8 +18,8 @@ A **JSONL** file leaves out a few addresses saved with the chat: the Discord mir
 ## Export a single chat
 
 1. Open the chat.
-2. Open **Chat Settings** and expand **Chat Branches**, under **Chat Name**.
-3. Click **JSONL**, **Text**, **Markdown** or **Story**.
+2. Open **Chat Settings** and expand **Chat Branches**, under **Chat Name**. The export buttons are in this section even if the chat has only one branch.
+3. Tap **JSONL**, **Text**, **Markdown** or **Story**.
 
 Your browser downloads the file. It holds the branch you are viewing, with its messages.
 
@@ -48,12 +48,12 @@ Your browser downloads a `.zip` file with one JSONL transcript per chat. Bulk ex
 This makes a new chat from a `.jsonl` file saved by Marinara or exported from SillyTavern.
 
 1. In the left sidebar, click the tab for the mode you want. The imported chat uses the mode of the tab you have open, not the mode in the file.
-2. Click the **Import** button next to the **+** button. Its tooltip reads **Import SillyTavern or Marinara chat JSONL**.
+2. Click the **Import** button next to the **+** button. Its label is **Import SillyTavern or Marinara chat JSONL**.
 3. Choose your `.jsonl` file.
 
 You see "Imported N messages", and Marinara opens the new chat. For SillyTavern files in more depth, see [Importing from SillyTavern](../data/importing-from-sillytavern.md).
 
-If it did not work: a toast reads **Import failed** with the reason. Check that the file ends in `.jsonl`.
+If it did not work: a small message at the bottom of the screen reads **Import failed** with the reason. Check that the file ends in `.jsonl`.
 
 ## Import a chat as a new branch
 
