@@ -286,6 +286,10 @@ prune_pnpm_store() {
     # Old releases otherwise accumulate there indefinitely and can consume several
     # gigabytes even though the built application itself is comparatively small.
     echo "  [..] Reclaiming dependency cache space from older releases..."
+    # The pinned pnpm 12 never reads the pnpm 10 store and its prune cannot see it. Drop it before the
+    # install so both stores never have to fit at once (the install relinks node_modules anyway).
+    # ponytail: only the v10 layout; delete once no supported update starts from a pnpm 10 install.
+    rm -rf .pnpm-store/v10
     if ! run_pnpm store prune >/dev/null 2>&1; then
         echo "  [WARN] Could not prune the pnpm store; continuing without removing cached packages."
     fi
