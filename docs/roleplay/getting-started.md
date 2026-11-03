@@ -1,32 +1,35 @@
 # Roleplay Mode: Getting Started
 
-Roleplay is the chat mode for stories. It adds a stage behind your messages (a background and character sprites), a heads-up display (HUD) of story details, and helpers called agents. An agent is a small automatic task that runs alongside each reply, for example one that tracks the weather or picks a sprite.
+Roleplay is the chat mode for stories. It adds a stage behind your messages (a background and character sprites) and a heads-up display (HUD) of story details. An agent is a helper that runs alongside replies, for example one that tracks the weather or picks a sprite.
 
-Pick Roleplay for an immersive scene. Pick [Conversation](../conversation/getting-started.md) for plain messaging, or [Game Mode](../game/getting-started.md) for a structured game with a party, combat and dice. Roleplay works as text-only chat without image generation: sprite slots stay empty, the background is a solid color, and the HUD still tracks the story.
+Pick Roleplay for a story scene. Pick [Conversation](../conversation/getting-started.md) for plain messaging, or [Game Mode](../game/getting-started.md) for a structured game with a party, combat and dice. Roleplay works as text-only chat without image generation: sprite slots stay empty, the background is a solid color, and the HUD still tracks the story.
 
 ## Start a roleplay
 
-Before you start: add an account in **Connections**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+Before you start: add an account in the **Connections** panel on the right side of the app. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-Create a new Roleplay chat. A setup wizard opens with five steps. Only the connection is required. You can change everything later.
+1. In the chat sidebar, click the **RP** tab.
+2. Click the **+** button near the top of the sidebar. Its tooltip reads **New Roleplay**.
+
+The chat opens with **Chat Settings** and a setup wizard of five steps. Only the account is required. You can change everything later.
 
 1. **Name & Connection**. Name the roleplay (optional) and choose which connection answers.
 2. **Pick a Preset**. A preset sets the prompt structure and generation values. The default works for most chats.
-3. **Persona & Characters**. Choose your persona and the characters in the scene. Some character cards can build a persona for you: pick **Create your persona** and answer the questions. See [Interactive Onboarding](../characters/interactive-onboarding.md).
+3. **Persona & Characters**. Choose your persona and the characters in the scene. In this step, a button named **Create your persona** can build a persona for you from a few questions. See [Interactive Onboarding](../characters/interactive-onboarding.md).
 4. **Attach Lorebooks**. A lorebook is a set of world facts the AI reads when their keywords come up. Optional.
 5. **Enable Agents**. Pick which agents run in this chat. You can change this later in **Chat Settings → Agents**.
 
-When you finish, the scene opens and you can send your first message.
+When you finish, you see the chat with a message box. Type your first message and send it.
 
 ## The stage: background, sprites and HUD
 
 - **Background**: a full-scene image behind your messages that fades when it changes. The **Background** agent can pick one each turn, or you can fix one per chat. See [Roleplay Backgrounds](backgrounds.md).
 - **Sprites**: character pictures on the stage. Every sprite-enabled character can appear. A character needs a sprite library on its card, or its slot stays empty. See [Character Sprites](../characters/sprites.md).
-- **HUD**: your trackers (date, time, weather, location, who is present, inventory, quests, stats). Each tracker shows only when its agent is on. You can edit every value. See [Roleplay HUD and Trackers](hud-and-trackers.md).
+- **HUD**: your trackers (date, time, weather, location, who is present, inventory, quests, stats). Turn them on in **Chat Settings → Agents**. See [Roleplay HUD and Trackers](hud-and-trackers.md).
 
 ### Sprite display controls
 
-Open **Chat Settings → Agents** and find the **Expression Engine** card. These controls appear once at least one character has sprites enabled.
+Open **Chat Settings** (the sliders button in the chat), go to **Agents**, and find the **Expression Engine** card. This is the agent that picks sprite expressions. These controls appear once at least one character has sprites enabled.
 
 | Control | What it does |
 | --- | --- |
@@ -40,7 +43,7 @@ The four size and opacity sliders are saved in this browser only. They do not sy
 
 To move sprites by hand:
 
-1. Click **Arrange** on the stage. It becomes **Done**.
+1. Click **Arrange**, the button on the scene. It becomes **Done**.
 2. Drag a sprite, then click the small check above it to confirm.
 3. Click **Done** to finish. **Reset** clears all custom placements.
 
@@ -58,9 +61,9 @@ The chat's tools (search, branches, summary, active context, Agent activity, Aut
 
 1. Open **Chat Settings** and expand **Author's Notes**, under **Agents**.
 2. Type your note, for example: "Keep the tone dark and suspenseful."
-3. Set **Injection Depth**, if you want. It sets how far up the chat history the note sits. Depth 0 puts it after the latest message. Depth 4 puts it four messages from the end.
+3. Leave **Injection Depth** as it is if you are unsure. It sets where the note sits in the chat: 0 is after the newest message, and 4 is four messages before the end.
 
-For a longer note, drag the bottom corner of the box on a computer. Author's Notes works the same way in Game Mode and Conversation Mode. This guide is its main reference.
+For a longer note, drag the bottom corner of the box on a computer. Author's Notes works the same way in Game Mode and Conversation Mode.
 
 ## Agent activity
 
@@ -73,9 +76,30 @@ For a longer note, drag the bottom corner of the box on a computer. Author's Not
 
 For all agents, see [Agents: AI Helpers for Your Chats](../agents/agents-overview.md). For the story-steering agent, see [Narrative Director and Secret Plot](narrative-director.md).
 
+## Combat and scenes
+
+- Roleplay has a light combat layer. Add the Combat agent, then click **Encounter** above the chat box. See [Combat Encounters (Roleplay)](combat-encounters.md).
+- A scene is a side branch for a flashback or side location. See [Scenes: Branching a Roleplay](scenes.md).
+- To steer the plot, see [Narrative Director and Secret Plot](narrative-director.md).
+
+## Choosing models
+
+Your chat connection writes the character prose. A stronger model keeps a character's voice steady in long scenes. Your agent connections run small structured tasks, such as reading state or picking an expression, and small models can get these wrong. Many people run chat on a strong model and agents on a fast, cheap one. If HUD values or sprites keep going wrong, move the agents to a stronger model. For sampler settings, see [Generation Parameters](../prompts/generation-parameters.md).
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| A HUD value is wrong. | Edit it by hand and lock it so the next run leaves it alone. See [Roleplay HUD and Trackers](hud-and-trackers.md). If values keep drifting, use a stronger agent model. |
+| Sprites do not change. | Check that the character has a sprite library. You can also use `/emote`. |
+| The background never changes. | The **Background** agent picks from your library, so add more backgrounds. See [Roleplay Backgrounds](backgrounds.md). |
+| A regenerated reply keeps the wrong direction. | Turn on **Debug mode**, open **Agent activity → Injections**, then edit or re-run the saved snippet before you regenerate. |
+
+For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
+
 ## Commands
 
-Commands are actions a character can take on its own, written inside its reply as short bracketed text such as `[illustrate: ...]`. Marinara reads the bracket, does the action and hides the bracket from the message.
+These are optional features. Commands are actions a character can take on its own, written inside its reply as short bracketed text such as `[illustrate: ...]`. Marinara reads the bracket, does the action and hides the bracket from the message.
 
 ### Turn on a command
 
@@ -83,13 +107,12 @@ Commands are actions a character can take on its own, written inside its reply a
 2. Turn on the **Commands** switch at the top. Every command inside starts off.
 3. Turn on the commands you want. A command that is greyed out shows what it still needs.
 
-| Command | Needs |
-| --- | --- |
-| **Illustrations**, **Video clips** | The Illustrator agent added to this chat. |
-| **Combat** | The Combat agent added to this chat. |
-| **Soundtrack** | The Music DJ agent added to this chat, with agents on. |
-| **Personal Notes**, **Reminders**, **Whisper** | A solo chat, or a group chat with **Individual** generation. |
-| **Documents**, **HTML Artifacts**, **Rolls**, **Sound Cues**, **Direct Messages**, **Interruptions** | Nothing extra. **Sound Cues** needs a Music & Sound Effects connection with sound effects on. |
+- **Illustrations**, **Video clips**: add the Illustrator agent to this chat.
+- **Combat**: add the Combat agent to this chat.
+- **Soundtrack**: add the Music DJ agent, and turn agents on.
+- **Personal Notes**, **Reminders**, **Whisper**: use a solo chat, or a group chat with **Individual** generation.
+- **Sound Cues**: choose a Music & Sound Effects connection with sound effects on.
+- **Documents**, **HTML Artifacts**, **Rolls**, **Direct Messages**, **Interruptions**: nothing extra.
 
 **Rolls**, **Combat**, **Documents** and **Whisper** also ask who may use them: **All** characters, or only the **Narrator**. The narrator is the character you choose under **Narrator character**. It can use narrator-only commands and read everyone's notes, reminders and whispers.
 
@@ -101,7 +124,7 @@ Before you start: add the Illustrator agent to the chat and turn on **Illustrati
 
 A character can now ask for an image with `[illustrate: subject="..." characters="..."]`. The image uses the chat's Illustrator settings and appears below the message.
 
-Turn on **Render in-line** to show each image inside the message, where the character wrote the command. Select an image to see its prompt, or use **X** to remove it. The setting applies to new images only. Automatic Illustrator images and the Visual Novel layout show images as before.
+Turn on **Render in-line** to show each image inside the message, where the character wrote the command. Select an image to see its prompt, or use **X** to remove it. The setting applies to new images only. Images the Illustrator agent makes on its own, and the Visual Novel layout, do not change.
 
 You can also make an illustration yourself with `/illustrate`. In Roleplay it needs the Illustrator agent.
 
@@ -123,7 +146,12 @@ Turn on **Whisper** for private asides, secrets and visions inside a reply. The 
 - A message that holds only a whisper is hidden from the characters it does not reach.
 - If you use **Hide from AI** on a message for some characters, the whisper's recipient still gets the whisper but none of the rest of the message.
 
-Agents read whispers too: Echo Chamber, trackers, Lorebook Keeper, Long-Term Memory and, in group chats, **Smart** response order. A whisper to a character can make that character the next one to reply. Each whisper is marked private and names its recipient. What an agent writes from it, such as a lorebook entry or a tracker note, can still reach other characters. In a hosted multiplayer room, agents and **Smart** response order get no whispers. Relationship Tracker and Memory Nag read the chat themselves and do not see whispers yet.
+Agents can read whispers too:
+
+- These agents read them: Echo Chamber, trackers, Lorebook Keeper and Long-Term Memory. In group chats, **Smart** response order reads them too, so a whisper can make that character reply next.
+- Each whisper is marked private and names its recipient. What an agent writes from it, such as a lorebook entry or a tracker note, can still reach other characters.
+- In a hosted multiplayer room, agents and **Smart** response order get no whispers.
+- Relationship Tracker and Memory Nag read the chat themselves and do not see whispers yet.
 
 ### Your private notes
 
@@ -160,27 +188,6 @@ To get the original back, open the reply's command information and choose **Rest
 ## CYOA choices
 
 CYOA means Choose Your Own Adventure. The CYOA Choices agent is off by default, and works only in Roleplay. When on, it adds clickable choice buttons after a reply, and clicking one sends it as your next message. To combine choices or edit one first, turn on **Add CYOA choices to the message box instead of sending them** in **Settings → General → Input & Editing**. Clicking a choice then adds its text to your message box.
-
-## Combat and scenes
-
-- Roleplay has a light combat layer. Add the Combat agent, then click **Encounter** above the chat box. See [Combat Encounters (Roleplay)](combat-encounters.md).
-- A scene is a side branch for a flashback or side location. See [Scenes: Branching a Roleplay](scenes.md).
-- To steer the plot, see [Narrative Director and Secret Plot](narrative-director.md).
-
-## Choosing models
-
-Your chat connection writes the character prose. A mid-tier model or better keeps a character's voice steady in long scenes. Your agent connections run small structured tasks, such as reading state or picking an expression, and weak models can get these wrong. Many people run chat on a strong model and agents on a fast, cheap one. If HUD values or sprites keep going wrong, move the agents to a stronger model. For sampler settings, see [Generation Parameters](../prompts/generation-parameters.md).
-
-## Troubleshooting
-
-| Symptom | Fix |
-| --- | --- |
-| A HUD value is wrong. | Edit it by hand and lock it so the next run leaves it alone. See [Roleplay HUD and Trackers](hud-and-trackers.md). If values keep drifting, use a stronger agent model. |
-| Sprites do not change. | Check that the character has a sprite library. You can also use `/emote`. |
-| The background never changes. | The **Background** agent picks from your library, so add more backgrounds. See [Roleplay Backgrounds](backgrounds.md). |
-| A regenerated reply keeps the wrong direction. | Turn on **Debug mode**, open **Agent activity → Injections**, then edit or re-run the saved snippet before you regenerate. |
-
-For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Related guides
 
