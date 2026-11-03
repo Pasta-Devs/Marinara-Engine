@@ -6,12 +6,12 @@ Save a copy of your Marinara Engine data, and put it back later. Do this before 
 
 | Option | What it makes | Use it for |
 | --- | --- | --- |
-| **Download Backup** | A `.zip` file with all your data, uploaded files and the key file for saved API keys. | One complete copy of everything. |
-| **Export Profile** | A smaller file with your account data: characters, personas, chats, lorebooks, presets, agents, themes and Personal Extensions. | A restorable copy without secrets, or characters and lorebooks for other tools. |
+| **Download Backup** | A `.zip` with all your data and files. | One complete copy of everything. |
+| **Export Profile** | A smaller file with your account data (characters, chats, lorebooks and more). | A copy without secrets, or files for other tools. |
 
 A `.zip` is one file that holds many files. Both options are in **Settings → Advanced → Backup & Export**. Restoring is in **Settings → Imports → Profile & Marinara**.
 
-**Before you start:** on the computer that runs Marinara, these tools work right away. From a phone, a tablet or any other device, set the admin secret (`ADMIN_SECRET`) on the server and enter the same value in **Settings → Advanced → Admin Access**. See [Remote Access](../REMOTE_ACCESS.md).
+**Before you start:** on the computer that runs Marinara, these tools work right away. From a phone, a tablet or any other device, set the admin secret on the server and enter the same value in **Settings → Advanced → Admin Access**. The admin secret is a password in the server's `.env` file, as the setting `ADMIN_SECRET`. See the "Privileged APIs (ADMIN_SECRET)" section of the [Server Configuration Reference](../CONFIGURATION.md) and [Remote Access](../REMOTE_ACCESS.md).
 
 ## Download Backup
 
@@ -24,11 +24,11 @@ The `.zip` holds:
 - your saved text data (characters, chats, lorebooks, presets, connections, settings);
 - your uploaded and generated files, such as avatars, sprites, backgrounds, gallery images, fonts, custom emoji and stickers, and your custom notification sound;
 - the `.encryption-key` file, when it exists;
-- a `RESTORE.txt` note that explains how to recover files by hand.
+- a `RESTORE.txt` note about restoring files by hand (see [Restore by hand](#restore-by-hand)).
 
 For the folder names, see [Where Marinara Stores Your Data](where-data-is-stored.md).
 
-> **Warning:** A backup is a raw copy. It holds your saved API keys and the `.encryption-key` file that unlocks them. Never share it. Store it somewhere private.
+> **Warning:** A backup holds your saved API keys and the `.encryption-key` file that unlocks them. Never share it. Store it somewhere private.
 
 On Android you cannot reach the app's data folder, so **Download Backup** is the way to get a copy off the device.
 
@@ -58,10 +58,8 @@ Each run needs free space for one more full archive, because the old one stays u
 3. Pick a format.
 4. Your browser downloads the file.
 
-| Format | What it makes | Restore it in Marinara? |
-| --- | --- | --- |
-| **Marinara Native** | Marinara fields, lorebook folders, characters, personas, presets, agents, themes, Personal Extension drafts and media. | Yes |
-| **Compatible JSON** | A `.zip` of plain character, persona and lorebook files for other tools. | No |
+- **Marinara Native** keeps everything Marinara uses, including media. You can restore it in Marinara.
+- **Compatible JSON** makes a `.zip` of plain character, persona and lorebook files for other tools. You cannot restore it in Marinara.
 
 A native profile downloads as `marinara-profile.json`. If it is too large, Marinara asks **Export profile as ZIP?**. Click **Export ZIP** to download `marinara-profile.zip` instead.
 
@@ -75,32 +73,48 @@ A native profile keeps Personal Extension code, but not whether it is turned on 
 2. In **Profile & Marinara**, click **Import Profile (JSON/ZIP)**.
 3. Choose `marinara-profile.json`, `marinara-profile.zip` or a backup `.zip`. The button shows **Scanning Profile...**.
 4. Read the **Import Profile** dialog. It lists what Marinara found and warns that you cannot undo the import.
-5. Click **Import**, or **Cancel** to stop. The import button shows **Importing Profile...** and a progress bar follows the import.
+5. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...** and a progress bar follows. When it finishes, a message says the profile was imported.
 
 If it did not work:
 
 - Unless you open Marinara at `localhost` or `127.0.0.1`, profile import needs HTTPS. The error is "Profile import requires HTTPS outside local development." Open Marinara through an HTTPS address.
 - If a `.zip` is missing some media files, the import still finishes. A warning lists what is missing, and Marinara imports the rest.
 
-Recent profiles match each item by its own identity, not its name. If you import the same profile twice, Marinara updates your items and does not make copies. Profiles from much older versions do not match this way, so importing one again can make duplicate characters, personas and lorebooks.
+If you import the same profile twice, Marinara updates your items and does not copy them. Profiles from much older versions can make duplicates.
 
 ## Enter your keys again
 
-**Export Profile** blanks your API keys and webhook links. An API key is the secret code a service gives you. This makes the profile file safe to store.
-
-**Import Profile** also reads the profile file inside a backup `.zip`. Items it creates come in with blank keys and links, even from a backup. After you import:
+**Import Profile** never brings back API keys or webhook links, even from a **Download Backup** `.zip`. An API key is the secret code a service gives you. The profile file and the profile inside a backup have these values blanked. So after you import on a new computer, you must enter them again:
 
 1. Open **Connections** from the top bar.
 2. Open each account you use, enter its API key and save. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 3. Enter the webhook link again on each custom tool that uses one.
 
-Marinara also leaves some chat addresses out of the profile: the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. The same goes for settings profiles and the translation defaults for new chats. Enter them again in each chat's **Chat Settings**.
+Some chat settings with addresses or keys (Discord, DeepL, Intiface) also come back blank. Enter them again in each chat's **Chat Settings**.
 
-Importing never blanks keys you already set. If you import an old profile again, items that still exist keep their live keys and links.
+Importing never blanks keys you already set on the same install.
 
-## The Existing backups list
+## Move to a new computer
 
-The **Backup & Export** section can show an **Existing backups** list with a delete button. It is normally empty. **Download Backup** saves to your device and adds nothing to it. The automatic backup is managed by the **Automatic backups** setting.
+1. Install Marinara on the new computer and start it. See [Installation](../INSTALLATION.md).
+2. Open **Settings → Imports → Profile & Marinara** and click **Import Profile (JSON/ZIP)**.
+3. Choose your **Download Backup** `.zip` or your profile file, then click **Import**.
+4. Enter your API keys again, as described above.
+
+The key file in a backup only helps if you copy the whole data folder by hand, as below.
+
+## Restore by hand
+
+Use this only if **Import Profile** cannot be used. The `.zip` has one folder inside, for example `marinara-backup-...`, with a `RESTORE.txt` note.
+
+1. Stop Marinara.
+2. Unzip the backup.
+3. Copy the folders and the `.encryption-key` file from the unzipped folder into your data folder. See [Where Marinara Stores Your Data](where-data-is-stored.md).
+4. Start Marinara.
+
+Keep the `.encryption-key` file with the `storage` folder, or the saved API keys cannot be read.
+
+The **Existing backups** list in **Backup & Export** is normally empty. You do not need it.
 
 ## Related guides
 
