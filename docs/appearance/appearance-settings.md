@@ -53,11 +53,7 @@ If your device asks for reduced motion, both animations are skipped.
 
 ### Chat widget style
 
-At the bottom of **App Style**, pick **Default**, **Dottore** or **Prof. Mari** for movable chat buttons, windows and sections. You can change the font, shape and three main colors separately. Color pickers support gradients.
-
-**Button size (px)** resizes movable chat buttons and their icons without changing **Display Size**. Enter 32 to 96. Leave it empty, or use its reset button, for the default.
-
-**Apply preset font**, **Apply preset shape** and **Apply preset colors** extend the style to the rest of the chat: messages, input boxes and chat controls, and in Game mode the HUD widgets, map panel, character sheets, logs, inventory and dialogs. They start off and work independently. Conversation messages take the font and colors but keep their own shape. With **Apply preset colors** on, quoted dialogue still uses each character's or persona's own Dialogue Highlight Color. For examples, see [Custom CSS Themes](custom-css-themes.md#ready-made-chat-window-styles).
+At the bottom of **App Style**, pick **Default**, **Dottore** or **Prof. Mari** for movable chat buttons, windows and sections. You can change the font, shape and three main colors separately, and the three **Apply preset** switches carry the style into messages, input boxes and chat controls. **Button size (px)** resizes movable chat buttons and their icons without changing **Display Size**. Enter 32 to 96, or leave it empty for the default. See [Custom CSS Themes](custom-css-themes.md#ready-made-chat-window-styles) for every control.
 
 ### Display Size and Chat Font Size
 
