@@ -344,7 +344,7 @@ assert.match(editorSource, /withUniqueOnboardingIds\(parsedOnboarding\.data/, "t
 assert.match(editorSource, /pool\.delete\(id\);/, "a reorder takes each question once, so it can't grow the list");
 assert.match(
   editorSource,
-  /saveDisabled = !dirty \|\| unreadableOnboarding/,
+  /saveDisabled\s*=\s*!dirty\s*\|\|\s*unreadableOnboarding/,
   "Save is disabled while onboarding is unreadable",
 );
 assert.match(

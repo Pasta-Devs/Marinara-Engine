@@ -4723,7 +4723,13 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     await editor.getByRole("button", { name: "Manage", exact: true }).click();
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet" });
-    await chooseConnection(page, dialog.locator("[data-connection-value]"), connection.id);
+    await dialog.locator("[data-connection-value]").click();
+    const modelPicker = page.getByRole("dialog", { name: "Model for Avatar images", exact: true });
+    await modelPicker
+      .getByRole("region", { name: "All models", exact: true })
+      .getByRole("button", { name: /^Sheet reference fixture,/ })
+      .click();
+    await expect(modelPicker).toBeHidden();
     const neutral = dialog.getByRole("checkbox", { name: "Use neutral full-body sprite as a reference" });
     const likeness = dialog.getByRole("checkbox", { name: /Use current avatar as a likeness reference/ });
     await expect(neutral).not.toBeChecked();
@@ -4760,13 +4766,33 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
       expect(sent.at(-1)?.referenceImages).toEqual(expected);
     }
 
+    const uploadedSheet = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/characters/${character.id}/gallery/upload`) &&
+        response.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "Save as Character Sheet", exact: true }).click();
+    expect((await uploadedSheet).ok()).toBeTruthy();
+    const savedSheet = (await (await uploadedSheet).json()) as { id: string };
+    await expect(dialog).toHaveCount(0);
+    await expect
+      .poll(
+        async () =>
+          JSON.parse((await (await request.get(`/api/characters/${character.id}`)).json()).data).extensions
+            .characterSheetImageId,
+      )
+      .toBe(savedSheet.id);
+    await expect(editor.locator(".mari-editor-action--save")).toBeDisabled();
+    await create.click();
+    await expect(neutral).not.toBeChecked();
     await neutral.check();
+    await likeness.uncheck();
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().setReviewImagePromptsBeforeSend(true);
     });
     const previewRequest = page.waitForRequest("**/api/characters/avatar-generation/preview");
-    await dialog.getByRole("button", { name: "Regenerate", exact: true }).click();
+    await dialog.getByRole("button", { name: "Generate", exact: true }).click();
     expect((await previewRequest).postDataJSON().referenceImages).toEqual([sprite]);
     const review = page.getByRole("dialog", { name: "Review Image Prompt", exact: true });
     await review.getByRole("button", { name: "Generate", exact: true }).click();
@@ -4774,6 +4800,12 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     expect(sent.at(-1)?.referenceImages).toEqual([sprite]);
 
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(
+      JSON.parse((await (await request.get(`/api/characters/${character.id}`)).json()).data).extensions
+        .characterSheetImageId,
+    ).toBe(savedSheet.id);
+    await expect(editor.locator(".mari-editor-action--save")).toBeDisabled();
     await create.click();
     await expect(neutral).not.toBeChecked();
     await neutral.check();
@@ -5084,9 +5116,32 @@ test("Character and persona sheets persist an explicit reference choice and fall
     ).toHaveCount(0);
     await openEditorSection(editor, "Sprites");
     await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
+    const sheetThumbnail = editor.getByRole("button", { name: "Open full image", exact: true });
+    const sheetPreview = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await sheetThumbnail.focus();
+    await sheetThumbnail.press("Enter");
+    await expect(sheetPreview).toBeVisible();
+    await expect(sheetPreview.locator(".mari-modal-panel")).toHaveCount(0);
+    await expect(sheetPreview.getByRole("heading")).toHaveCount(0);
+    await expect(sheetPreview.getByAltText(`${characterName} character sheet`, { exact: true })).toHaveJSProperty(
+      "src",
+      await sheetThumbnail.locator("img").evaluate((image: HTMLImageElement) => image.src),
+    );
+    await page.keyboard.press("Escape");
+    await expect(sheetPreview).toBeHidden();
+    await expect(sheetThumbnail).toBeFocused();
     await editor.getByRole("button", { name: "Manage", exact: true }).click();
     await expect(editor.getByAltText(`${characterName} character sheet`)).toBeVisible();
-    await expect(editor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
+    const expandedSheet = editor.getByAltText(`${characterName} character sheet`).locator("..");
+    await expandedSheet.click();
+    await expect(sheetPreview).toBeVisible();
+    await sheetPreview.getByRole("button", { name: "Close image", exact: true }).click();
+    await expect(sheetPreview).toBeHidden();
+    await expect(expandedSheet).toBeFocused();
+    await expandedSheet.click();
+    await sheetPreview.click({ position: { x: 2, y: 2 } });
+    await expect(sheetPreview).toBeHidden();
+    await expect(editor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
     await editor
       .locator('[data-editor-section="sprites"]')
@@ -5138,7 +5193,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await openEditorSection(personaEditor, "Sprites");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
-    await expect(personaEditor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
+    await expect(personaEditor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
     await personaEditor
       .locator('[data-editor-section="sprites"]')
       .getByRole("button", { name: "Create with AI", exact: true })
