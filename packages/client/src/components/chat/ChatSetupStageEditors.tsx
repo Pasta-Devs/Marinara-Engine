@@ -35,6 +35,7 @@ import {
 import { requestChatSettingsSectionOpen, type StageSettingsSection } from "../../lib/chat-floating-ui-events";
 import { lorebookSwitchWrite, stageGreetingSwap } from "../../lib/chat-setup-stage";
 import { cn } from "../../lib/utils";
+import { ChatSetupStageCastOrder } from "./ChatSetupStageCastOrder";
 import type { CharacterMap, MessageWithSwipes, PersonaInfo } from "./chat-area.types";
 
 export interface StageEditorContext {
@@ -358,6 +359,7 @@ function CastEditor({ ctx }: { ctx: StageEditorContext }) {
   const nameOf = (id: string) => ctx.characterMap.get(id)?.name ?? characters.find((c) => c.id === id)?.name ?? id;
   return (
     <>
+      <ChatSetupStageCastOrder ctx={ctx} />
       {ctx.chatCharIds.map((id) => (
         <button
           key={id}
