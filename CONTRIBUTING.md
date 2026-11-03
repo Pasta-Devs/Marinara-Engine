@@ -269,6 +269,7 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 - `docs/TROUBLESHOOTING.md` collects common user-facing issues and fixes.
 - `docs/FAQ.md` is the user-facing FAQ for common questions like LAN access.
 - If a change makes any existing doc misleading, fix that doc in the same PR.
+- When you write or edit the user guides in `docs/`, follow the [docs-writing skill](.agents/skills/docs-writing/SKILL.md) for structure, wording, Markdown style, accuracy checks, the shared word list, and the website constraints (screenshot headings, renames, categories).
 
 ### Translated documentation
 

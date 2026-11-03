@@ -41,7 +41,7 @@ import { useAgentConfigs } from "../../../hooks/use-agents";
 import { ResultTypeIcon } from "../../command-center/ResultTypeIcon";
 import { chatResultType, resourceResultType } from "../../../lib/command-icons";
 import { MacroTextarea } from "../../ui/MacroTextarea";
-import { MariList, MariRow } from "../mari-primitives";
+import { MariList, MariNote, MariRow } from "../mari-primitives";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { formatReferenceToken } from "../../../lib/composer-triggers";
 import { getProfessorMariAttachments, formatMariMessageTime, toMessageExtra } from "./mari-chat-helpers";
@@ -387,6 +387,7 @@ export function MariWorkTimelineOutcome({
   onRegenerate,
   onDelete,
   reviews,
+  nothingChanged = false,
 }: {
   content: string;
   actionResults: MariWorkspaceActionResult[];
@@ -396,7 +397,10 @@ export function MariWorkTimelineOutcome({
   onRegenerate?: () => void;
   onDelete?: () => void;
   reviews?: MariTurnReviews;
+  /** #8711: a claim check flagged her words in a run that tried no change (`mariNothingChanged`). */
+  nothingChanged?: boolean;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   // Slice 72: no reference cards here - the names in her answer are the links; cards are for what changed
   // and what needs you.
   // R10: one row per record. A review of the same record that the receipt does not cover shows it instead.
@@ -411,6 +415,12 @@ export function MariWorkTimelineOutcome({
     result.summary;
   return (
     <div className="mari-run-outcome">
+      {/* #8711: her words stay as she wrote them; this says that nothing was changed or held. */}
+      {nothingChanged ? (
+        <MariNote tone="accent" role="status">
+          {localizeUi("mari.reply.nothingChanged")}
+        </MariNote>
+      ) : null}
       <MariOutcomeGroup
         changed={reviews?.changed ?? []}
         needsOk={reviews?.needsOk ?? []}
@@ -649,6 +659,7 @@ export const CompactMariMessage = memo(function CompactMariMessage({
             onRegenerate={onRegenerate && canRegenerate ? () => onRegenerate(message.id) : undefined}
             onDelete={onDelete ? () => onDelete(message.id) : undefined}
             reviews={reviews}
+            nothingChanged={toMessageExtra(message)?.mariNothingChanged === true}
           />
         </MariWorkTimeline>
       </div>
@@ -679,6 +690,7 @@ export const CompactMariMessage = memo(function CompactMariMessage({
             onRegenerate={onRegenerate && canRegenerate ? () => onRegenerate(message.id) : undefined}
             onDelete={onDelete ? () => onDelete(message.id) : undefined}
             reviews={reviews}
+            nothingChanged={toMessageExtra(message)?.mariNothingChanged === true}
           />
         </MariAnswer>
       </TranscriptRow>

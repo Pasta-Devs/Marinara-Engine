@@ -1562,7 +1562,10 @@ const capabilityPackageManifestBaseSchema = z
 //        that take cache breakpoints (Anthropic), whatever the connection's caching switch says, for the connection's
 //        cache time; and a completion's usage reports `cachedPromptTokens` and `cacheWritePromptTokens`. A soft seam:
 //        older Engines ignore the field. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 814 } as const);
+// 1.815: a language model call's `cacheTtl` ("5m" or "1h"): how long its marked prefix stays cached on Anthropic,
+//        whatever the connection's cache time says; left out, the connection's applies. A soft seam: older Engines
+//        ignore the option. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 815 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

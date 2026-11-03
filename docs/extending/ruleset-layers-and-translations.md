@@ -1,6 +1,6 @@
 # Ruleset Layers, Translations and Migrations
 
-This page is part of [Writing Game Mode Rulesets](writing-rulesets.md). Variants a player turns on for one game, translations of a ruleset's text, and moving values to new ids when a sheet changes.
+Use this page to offer variants a player turns on for one game, to translate a ruleset's text, and to move saved values to new ids when a sheet changes. It is for ruleset authors. Before you start, read [Writing Game Mode Rulesets](writing-rulesets.md).
 
 ## Layers: variants of your own ruleset
 
@@ -82,7 +82,7 @@ enough. The wizard disables the other toggle, and if a saved choice somehow has 
 declared **later** is dropped, so the same two choices always give the same rules.
 
 **A sheet that already holds a removed value keeps it.** Nothing rewrites a character. The editor
-simply stops offering the value, and a character who already had it shows it as what it is. Turn
+stops offering the value, and a character who already had it shows it as what it is. Turn
 the layer off in a new game and the value is offered again. The same is true of a hidden catalog
 entry: it is left out of the picker, and a row a player already picked stays on the sheet. Coins a
 layer takes out that somebody already carries stay in their bag.

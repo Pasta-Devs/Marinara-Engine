@@ -1,181 +1,153 @@
 # Game Mode: Dice and Skill Checks
 
-This guide covers dice rolling in Marinara Engine Game Mode. It explains the quick-dice menu, custom dice notation, and the limits on custom rolls. It also covers how the Game Master runs a skill check against a Difficulty Class (DC).
+Use the dice button to roll dice for the Game Master (GM) in Game Mode. This guide also shows how the GM runs a skill check against a Difficulty Class (DC), the number a roll must reach or beat.
 
-## Rolling dice
+## Roll dice
 
-The message input bar in a Game Mode chat has a dice button. Hover it to see the tooltip **Roll dice**. Click it to open the quick-dice menu.
+The message input bar has a dice button. Its tooltip is **Roll dice**.
 
-The menu has eight one-click presets:
+1. Click the dice button to open the quick-dice menu.
+2. Click a preset: d20, d6, 2d6, d10, d100, d4, d8 or d12.
+3. A chip appears in the input bar, like `🎲 d20`. The roll is queued, not sent yet.
+4. Send your message. Marinara rolls and adds the result to the end of your message as a tag, which the GM reads and narrates around.
 
-| Preset | Rolls             |
-| ------ | ----------------- |
-| d20    | one 20-sided die  |
-| d6     | one 6-sided die   |
-| 2d6    | two 6-sided dice  |
-| d10    | one 10-sided die  |
-| d100   | one 100-sided die |
-| d4     | one 4-sided die   |
-| d8     | one 8-sided die   |
-| d12    | one 12-sided die  |
+To remove a queued roll before you send, click **Clear queued roll** on the chip.
 
-To make a quick roll:
+A single die with no bonus looks like this:
 
-1. Open the message input bar in a Game Mode chat.
-2. Click the dice button.
-3. Click one of the eight presets, for example **d20**.
-4. You should see a small chip in the input bar, like `🎲 d20`.
-
-The roll is not sent right away. It is queued. To remove a queued roll, click the clear button on the chip. Its tooltip is **Clear queued roll**.
-
-The dice math runs when you send your next message. The app adds the result to the end of your message as a tag. A single die with no bonus looks like this:
-
-```
+```text
 [dice: d20 = 14]
 ```
 
-A roll with more than one die or with a bonus also shows the parts:
+More than one die, or a bonus, also shows the parts:
 
-```
+```text
 [dice: 3d8+2 = 18 (4, 6, 6 +2)]
 ```
 
-The Game Master reads that tag and narrates around the result.
+The GM can also ask for a roll in its narration with `[dice: 3d8+2]`. Marinara supplies the real numbers and shows the same animated card. This works on text-only connections, including Claude and Grok subscriptions. When the GM rolls several times in one turn, each dice card waits its turn: dismiss one to see the next. All rolls are saved on that turn's active swipe and stay in **Logs** after a reload. Continuing a turn keeps its earlier rolls. Regenerating makes a new set for the new swipe.
 
-When the Game Master rolls several times in one turn, each dice card gets its own place in the queue. Dismiss a card to see the next one. All rolls are saved on that turn's active swipe and remain in **Logs** after a reload. Continuing a turn keeps its earlier rolls; regenerating creates a separate set for the new swipe.
+## Roll custom dice
 
-The Game Master can also request a roll in narration with `[dice: 3d8+2]`. The engine supplies the real numbers and shows the same animated card. This works on text-only connections, including Claude and Grok subscriptions. It uses the same notation and limits as the dice menu.
+The dice menu has a text field for a custom roll in `NdM` notation: `N` dice with `M` sides each, with an optional bonus or penalty at the end. The field shows the example `3d8+2` (three 8-sided dice, add 2).
 
-## Custom dice notation
+1. Open the dice menu.
+2. Type your notation, for example `2d6+1`.
+3. Press <kbd>Enter</kbd> or click the paper-plane button. The roll is queued as a chip.
 
-The dice menu also has a text field for a custom roll. It uses standard `NdM` notation. `N` is how many dice to roll and `M` is how many sides each die has. You can add a bonus or a penalty at the end.
+| Notation | Meaning |
+| --- | --- |
+| `d20` | One 20-sided die |
+| `4d8-1` | Four 8-sided dice, subtract 1 |
+| `4d6kh3` | Roll four 6-sided dice, keep the highest three |
+| `2d20kl1` | Keep the lowest one: a roll with disadvantage |
+| `4d6dl1+2` | Drop the lowest die, add 2 |
 
-The field placeholder shows an example: `3d8+2`. That means roll three 8-sided dice and add 2 to the total.
+`kh` and `kl` keep the highest or lowest dice. `dh` and `dl` drop them. Every die thrown is recorded, and only the kept ones are added up.
 
-To use a custom roll:
+If it did not work: text that is not `NdM` or a bare `dM`, optionally followed by `kh`, `kl`, `dh` or `dl` and a number, fails with an error that names the expected format.
 
-1. Click the dice button to open the menu.
-2. Type your notation in the text field, for example `2d6+1`.
-3. Press Enter, or click the small paper-plane (send) button next to the field.
-4. You should see the roll queued as a chip, ready to send.
-
-Some more examples you can type:
-
-- `d20` rolls one 20-sided die.
-- `4d8-1` rolls four 8-sided dice and subtracts 1.
-- `2d6+3` rolls two 6-sided dice and adds 3.
-- `4d6kh3` rolls four 6-sided dice and keeps the highest three. `kl` keeps the lowest, and `dh` and `dl` drop the highest or lowest instead, so `2d20kl1` is a roll with disadvantage and `4d6dl1+2` drops the lowest die and adds 2. Every die thrown is recorded, and only the kept ones are added up.
-
-There are two hard limits. You can roll at most 100 dice at once, and each die can have at most 1000 sides. If a plain roll asks for more, the app trims it down to those limits instead of refusing it, and the result card shows the trimmed notation, so typing `500d6` gives you a `100d6` card for the hundred dice it actually rolled. A keep or drop roll past the limits, such as `101d6kh3`, is refused with an out-of-range error instead, because trimming the dice would change which ones are kept. If your text is not valid dice notation, meaning `NdM` or a bare `dM` like `d20`, optionally followed by `kh`, `kl`, `dh` or `dl` and a number, the roll fails and you get an error that names the expected format.
-
-### Symbol dice by name
-
-In a game whose ruleset throws symbol dice (a `symbol-pool` ruleset, such as a Genesys-style system), the custom field also takes those dice by name. Give a count and the die's name for each kind, for example `2 ability 1 proficiency vs 2 difficulty`. Names can be the die's id or its label in any case, and you can separate them with spaces, commas, `+` or `vs`.
-
-The card shows each die with the symbols on its face, then the symbols left after they cancel and whether that is a success. The tag added to your message carries the same, for example `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. A roll can name up to 40 dice. When the Game Master rolls with its dice tool, it can use these names too. Plain `NdM` notation still rolls as above in every game.
+You can roll at most 100 dice at once, and each die can have at most 1000 sides. A plain roll above that is trimmed to the limits and the card shows the trimmed notation, so `500d6` gives a `100d6` card. A keep-or-drop roll above the limits, such as `101d6kh3`, is refused with an out-of-range error, because trimming would change which dice are kept.
 
 ## Skill checks
 
-A skill check tests whether you succeed at something risky, such as sneaking, spotting a clue, or convincing an NPC. You do not start a skill check yourself. The Game Master calls for one inside its narration. The app then turns it into an animated d20 roll with a result banner.
-
-A text-requested check begins with the attempt. The engine resolves the dice, then makes one additional model request with the actual results so the Game Master can finish the outcome in the same turn. This also corrects a draft that guessed an outcome before the roll existed. The extra request sends the prompt again and uses more input and output tokens. If it fails, the turn keeps the resolved results in its log without saving a guessed or partial outcome. A notice remains on the turn with a **Regenerate turn** button, including after reloading the chat.
-
-Turn off **Narrate dice outcomes immediately** in **Chat Settings → Function Calling** to keep the real results for the next turn without this extra request. This setting is on by default. Requests that produce no actual rolls never trigger the extra narration request.
-
-There is a third option, which keeps the outcome in the same turn without the second request. See [Finishing a rolled turn in one request](#finishing-a-rolled-turn-in-one-request) below.
-
-On a connection that supports the dice tool, the Game Master can instead obtain a real roll during generation. The dice card appears as soon as the tool returns; the completed check records that result without rolling again. Every resolved skill check receives its own banner, following any queued dice cards.
-
-The banner shows the skill and the target number, for example **Stealth Check** with **DC 15** next to it. DC stands for Difficulty Class. It is the number your roll must reach or beat.
+A skill check tests something risky, such as sneaking, spotting a clue or convincing an NPC. You do not start one. The GM calls for it in its narration, and Marinara turns it into an animated d20 roll with a result banner. The banner shows the skill and target, for example **Stealth Check** with **DC 15**. Each resolved check gets its own banner, after any queued dice cards.
 
 ### How the result is decided
 
-The check rolls one 20-sided die and adds two modifiers:
+The check rolls one d20 and adds two modifiers:
 
-- A skill modifier, from the skill level the game tracks for your character. If the game has no level for that skill yet, this modifier is 0.
-- An attribute modifier, from the governing attribute for that skill.
+- A skill modifier, from the skill level the game tracks for your character. It is 0 if the game has no level for that skill yet.
+- An attribute modifier, from the skill's governing attribute. Each skill maps to one automatically: Stealth uses Dexterity, Perception uses Wisdom, Persuasion uses Charisma. A skill Marinara does not recognize uses Intelligence.
 
-The die roll plus both modifiers is your total. If the total reaches or beats the DC, the check succeeds. If it falls short, the check fails. Each skill maps to a governing attribute automatically. For example, Stealth uses Dexterity, Perception uses Wisdom, and Persuasion uses Charisma. A skill the app does not recognize falls back to Intelligence.
+If the total reaches or beats the DC, the check succeeds. Two rolls override the math:
 
-### Critical success and critical failure
+- A natural 20 is a **CRITICAL SUCCESS** and always passes.
+- A natural 1 is a **CRITICAL FAILURE** and always fails.
 
-Two rolls override the math:
-
-- A natural 20 (the die itself shows 20) is a **CRITICAL SUCCESS**. It always passes, even against a high DC.
-- A natural 1 (the die itself shows 1) is a **CRITICAL FAILURE**. It always fails, even with large modifiers.
-
-The banner shows one of four results: **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE**, or **CRITICAL FAILURE**.
-
-### Other dice systems
-
-The Game Master can specify another notation, such as `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. These checks use the notation's flat modifier instead of d20 character-sheet modifiers and succeed when the total reaches the DC. Natural-1 and natural-20 rules apply only to the standard d20 check above.
-
-Success pools must state both the per-die threshold and the number of successes needed: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` rolls six d10s, counts each die showing at least 6 once, and succeeds with at least four successes. The engine does not guess a missing threshold or implement exploding dice, botches, or other special pool rules. A pool without a valid threshold stays unresolved, with any model-invented numbers removed.
-
-This is the pool a game with **no ruleset** gets, and it is unchanged. A game that carries a ruleset built on dice pools is a different thing, with rules the engine actually holds; see [Checks on a ruleset](rulesets.md#checks-on-a-ruleset).
-
-A check's `dice=` attribute takes plain `NdM` only. Requests there such as `4d6kh3`, `3d6!`, or `4dF` are not rolled. The engine logs the unsupported notation and removes invented numbers from check records. These outcomes remain open; the engine does not silently substitute a different dice system.
+The banner shows **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE** or **CRITICAL FAILURE**.
 
 ### Advantage and disadvantage
 
-The Game Master can call a check with advantage or with disadvantage. A check is never rolled with both at the same time.
+The GM can call a check with advantage (roll two d20s, keep the higher) or disadvantage (keep the lower). The banner shows the mode next to the DC and marks the die used. If the GM asks for both at once, Marinara leaves that check alone instead of guessing, so you get no banner for it.
 
-- With advantage, the app rolls two 20-sided dice and keeps the higher one.
-- With disadvantage, the app rolls two dice and keeps the lower one.
+### Pre-roll your own d20
 
-If the Game Master ever asks for both at once, the app leaves that check alone instead of guessing which one it meant, so you get no banner for it.
+Queue a `d20` from the dice menu before the check happens. The check then uses your number instead of rolling a new die. Your skill and attribute modifiers still apply.
 
-When either one is active, the banner shows the mode next to the DC, and it marks which die it used.
+For how the GM finishes a turn after a roll, and what it costs, see [How a rolled turn is narrated](#how-a-rolled-turn-is-narrated).
 
-### Pre-rolling your own die
+### Games that use a ruleset
 
-You can queue your own `d20` from the dice menu before the check happens. When you do, the skill check uses your rolled number instead of rolling a fresh die. Your skill and attribute modifiers still apply on top of it.
+In a game on a ruleset, such as 5e (SRD 5.1), checks use the ruleset's own dice, difficulty ladder and sheet modifiers, and in some rulesets a pool of dice or symbol dice. See [Checks on a ruleset](rulesets.md#checks-on-a-ruleset).
 
-## Games that use a ruleset
+## Reference
 
-In a game on a ruleset, such as 5e (SRD 5.1), checks are rolled the ruleset's way: its own dice, difficulty ladder and sheet modifiers, and in some rulesets a pool of dice or symbol dice. See [Checks on a ruleset](rulesets.md#checks-on-a-ruleset).
+### How a rolled turn is narrated
 
-## Finishing a rolled turn in one request
+When the GM calls for a check in text, Marinara resolves the dice and has three ways to finish the outcome. All three are in **Chat Settings → Function Calling**.
 
-Without it, a turn that rolls dice costs two model requests: one for the draft, one to rewrite the outcome with the real numbers. **Finish rolled turns in one request** in **Chat Settings → Function Calling** removes the second one. It is on by default; turn it off in a chat to have that chat rewrite each rolled turn with the real numbers instead.
+| Setting | Default | What happens |
+| --- | --- | --- |
+| **Finish rolled turns in one request** | On | One request. The GM writes the outcome without numbers and Marinara fills them in. See below. |
+| **Narrate dice outcomes immediately** | On | Two requests. The GM drafts, Marinara rolls, then one more request sends the prompt again with the real results so the GM finishes the outcome in the same turn. This costs more input and output tokens. |
+| Both off | | The real results are kept for the next turn, with no extra request. |
 
-It works because the Game Master commits its writing before any number exists. It never sees a roll before it decides what happens, so it cannot steer an outcome towards the die it was handed. The engine rolls afterwards, and the engine's record is what gets saved.
+With **Narrate dice outcomes immediately**, if the extra request fails, the turn keeps the resolved results in its log without saving a guessed or partial outcome. A notice with a **Regenerate turn** button stays on the turn, even after a reload. A request with no actual rolls never triggers the extra request.
 
-While the switch is on, the Game Master is asked to write a check in one of three ways, and to pick by what the outcome actually is.
+On a connection that supports the dice tool, the GM can get a real roll during generation instead. The dice card appears as soon as the tool returns, and the completed check records that result without rolling again.
 
-**When the outcome splits two ways, it writes both halves.** The check is written without numbers, followed by a block holding a success line and a failure line. The engine rolls, keeps the half the roll selected, and deletes the other before you ever read the turn. What you see is one outcome, exactly as if the roll had come first.
+#### Finishing a rolled turn in one request
 
-**When the outcome is only a number, it writes a placeholder and keeps going.** Damage, healing, gold, a duration, a count, a distance: the Game Master writes `[[roll: 2d6+3]]` in the middle of the sentence, and the engine puts the number in its place. A placeholder can name a character-sheet modifier instead of a value, as in `[[roll: 1d8+STR]]`, and the engine adds the modifier itself; that form is only offered when your game actually has a sheet to read, and a name the engine cannot resolve is refused rather than treated as zero. Hover a number that came from a placeholder to see the dice behind it; every one of them also appears in **Logs** as its own roll line.
+Without this, a turn that rolls dice costs two requests. **Finish rolled turns in one request** removes the second. It is on by default. Turn it off in a chat to have that chat rewrite each rolled turn with the real numbers instead.
 
-**When the number itself has to choose between three or more different endings, it asks for the value and stops.** This is the same sparse check or `[dice:]` request the Game Master writes today. The engine rolls it, records it, and the turn ends without the outcome. The Game Master narrates what the number meant at the start of the next turn, which is exactly what happens with **Narrate dice outcomes immediately** turned off.
+It works because the GM commits its writing before any number exists. It never sees a roll before it decides what happens, so it cannot steer the outcome. Marinara rolls afterwards and saves its own record. While the switch is on, the GM writes a check in one of three ways:
 
-A check written in none of those forms falls back to that same behaviour, so nothing is ever left unresolved and nothing is ever invented.
+- **Two outcomes.** The GM writes the check without numbers, then a success line and a failure line. Marinara rolls, keeps the half the roll selected and deletes the other before you read the turn.
+- **Only a number.** For damage, healing, gold, a duration, a count or a distance, the GM writes a placeholder such as `[[roll: 2d6+3]]` mid-sentence, and Marinara puts the number in its place. A placeholder can name a sheet modifier, as in `[[roll: 1d8+STR]]`. That form is offered only when your game has a sheet to read, and a name Marinara cannot resolve is refused rather than treated as zero. Hover a number from a placeholder to see its dice. Each one also appears in **Logs** as its own roll line.
+- **Three or more endings.** The GM asks for the value and stops. Marinara rolls and records it, the turn ends without the outcome, and the GM narrates what the number meant at the start of the next turn.
 
-Some things worth knowing before you turn it on.
+A check written in none of these forms falls back to the last behavior, so nothing is left unresolved and nothing is invented.
 
-- **Narrate dice outcomes immediately is not used while this is on.** It stays visible, disabled, with a note saying so. Its stored value is untouched, so turning one-request dice back off gives you your old setting back.
-- **Your existing turns do not change.** The switch only affects turns generated after you turn it on, and an already-saved transcript reads exactly as it did.
-- **A turn can still cost more than one request in two cases.** If **Enable Tool Use** is on and the dice tool is in your tool list, the Game Master can still call it, and a tool call costs a full extra round. And a **Game tool connection** other than **Same as narrator** always makes its own planning request. Neither of those is the outcome rewrite this switch removes.
-- **When something cannot be rolled, you are told.** A number the engine cannot read is replaced with a short notice rather than a made-up value, a branch it cannot read leaves the recorded roll and drops both halves, and either way a plain line appears in **Logs** saying what was left out.
-- **While the turn is being written**, a placeholder or a branch block is held back from the streaming text, so you never watch a number appear and then change. The finished sentence arrives when the turn is done.
+- **Narrate dice outcomes immediately** is not used while this is on. It stays visible but disabled, and its stored value is kept for when you turn this off.
+- Existing turns do not change. The switch affects only turns generated after you turn it on.
+- A turn can still cost more than one request in two cases: **Enable Tool Use** is on and the dice tool is in your tool list (a tool call costs a full extra round), or a **Game tool provider** other than **Same as narrator** is set (it always makes a planning request).
+- When something cannot be rolled, a short notice replaces the number, never a made-up value. **Logs** says what was left out.
+- While the turn is written, placeholders and branch blocks are held back from the streaming text, so you never watch a number change.
 
-### Letting the Game Master see one die of each size
+### Symbol dice by name
 
-Under the switch there is a second setting, **Let the Game Master see one die of each size**, and it is off by default. It exists for the one case the two blind forms cannot serve: an outcome where the number itself has to pick between three or more different endings, like a margin of success, a hit-location table, or a reaction roll. Without it, that kind of check has to end the turn and be narrated at the start of the next one.
+In a game whose ruleset throws symbol dice (a `symbol-pool` ruleset, such as a Genesys-style system), the custom field also takes those dice by name. Give a count and a die name for each kind, for example `2 ability 1 proficiency vs 2 difficulty`. Names can be a die's id or label in any case, separated by spaces, commas, `+` or `vs`. A roll can name up to 40 dice.
 
-When it is on, the engine throws one die of each standard size before the turn and shows the next value of each to the Game Master, so it can spend one and write what it means in the same pass.
+The card shows each die with its face symbols, then the symbols left after cancelling and whether that is a success. The message tag carries the same, for example `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. The GM's dice tool accepts these names too. Plain `NdM` still works in every game.
 
-**This is the trade-off, and it is worth reading twice.** The Game Master sees the number before it decides what to check and how hard to make it. That means it can steer outcomes in a way the blind forms do not allow: it can pick a difficulty that the die it was handed will clear, and it can avoid calling for a check at all while it is holding a bad number. Nothing in the engine can tell whether a difficulty suits the fiction, so nothing in the engine can catch that. A player who does not know the Game Master saw the dice will read a suspiciously heroic session as good luck.
+### Other dice in a skill check
 
-What the engine does enforce, and enforces without asking the Game Master to cooperate:
+The GM can specify another notation, such as `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. These checks use the notation's flat modifier instead of d20 sheet modifiers and succeed when the total reaches the DC. Natural-1 and natural-20 rules apply only to the standard d20 check.
 
-- **The values come out in order, and none of them comes out twice.** The engine keeps the queue and hands out the next one, whatever the turn claims.
-- **Every number in the record is the engine's.** The roll, the modifier, the total and the outcome are all recomputed from the queue and your character sheet. A number the Game Master wrote that does not match is replaced, and a line in **Logs** says so.
-- **The difficulty is bounded.** It is held between 1 and 40, which a written check has never been before. A game on a ruleset may go as far as its ruleset's difficulty ladder instead.
-- **Being asked again does not improve the luck.** A swipe, a regenerate and a continuation of the same turn all face the same values, so there is no rerolling until something good comes up.
-- **Only the next value of each size is shown.** That is the **Values shown per size** setting, and 1 is the default. Every later roll of the same size in one turn is unseen, and it is narrated on the next turn instead.
-- **An unspent die is thrown again after a while.** That is **Rethrow after idle turns**, 3 by default. Without it, a low value can sit at the front of the queue for the rest of the chat while the Game Master simply avoids that size. Setting it to 0 turns the rethrow off and brings that behaviour back.
-- **Asking for more rolls than the queue holds does not produce one.** The check keeps its question, loses every number, and is narrated on the next turn. **Logs** says which turn that happened on.
+A success pool must give both a per-die threshold and the number of successes needed: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` rolls six d10s, counts each die showing at least 6, and succeeds with at least four. Marinara does not guess a missing threshold or implement exploding dice, botches or other special pool rules. A pool without a valid threshold stays unresolved, with invented numbers removed.
+
+This is the pool a game with no ruleset gets. A game with a ruleset built on dice pools is different: see [Checks on a ruleset](rulesets.md#checks-on-a-ruleset).
+
+A check's `dice=` attribute takes plain `NdM` only. Requests such as `4d6kh3`, `3d6!` or `4dF` are not rolled: Marinara logs the unsupported notation and removes invented numbers, and the outcome stays open.
+
+### Let the Game Master see one die of each size
+
+**Let the Game Master see one die of each size** is under **Finish rolled turns in one request**. It is off by default. It serves one case the blind forms cannot: a number that must choose between three or more endings, such as a margin of success or a hit-location table. Without it, that check ends the turn and is narrated next turn.
+
+When on, Marinara throws one die of each standard size before the turn and shows the next value of each to the GM, so it can write what it means in the same pass.
+
+> **Warning:** The GM then sees the number before it decides what to check and how hard to make it. It can pick a difficulty that the die it holds will clear, or avoid calling a check while holding a bad number. Marinara cannot tell whether a difficulty suits the fiction, so it cannot catch this. A suspiciously heroic session may be luck-shaping.
+
+What Marinara enforces without the GM's cooperation:
+
+- Values come out in order and none comes out twice.
+- Every number in the record is Marinara's. The roll, modifier, total and outcome are recomputed from the queue and your sheet. A mismatched number is replaced, and **Logs** says so.
+- Difficulty is held between 1 and 40. A game on a ruleset may go as far as its ruleset's difficulty ladder.
+- A swipe, regenerate or continuation of the same turn faces the same values, so there is no rerolling for luck.
+- **Values shown per size** sets how many values the GM sees per size. The default is 1. Later rolls of that size in one turn are unseen and narrated next turn.
+- **Rethrow after idle turns** (default 3) throws an unspent die again after that many turns. Without it, a low value could sit at the front for the rest of the chat. Set 0 to turn the rethrow off.
+- If the GM asks for more rolls than the queue holds, the check keeps its question, loses every number and is narrated next turn. **Logs** says which turn.
 
 ## Related guides
 

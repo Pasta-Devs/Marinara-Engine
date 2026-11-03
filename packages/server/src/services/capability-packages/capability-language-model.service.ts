@@ -62,9 +62,10 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         const requestOptions = saved
           ? resolveCapabilityChatOptions({ ...saved, model }, packageOptions)
           : packageOptions;
-        // A marked stable prefix (1.814) is cached whatever the connection's caching switch says, for its cache time.
+        // A marked stable prefix (1.814) is cached whatever the connection's caching switch says, for the cache time the
+        // call asks for (1.815), else the connection's.
         const cacheOptions = messages.some((message) => message.cacheBreakpoint === true)
-          ? { anthropicExtendedCacheTtl: extendedCacheTtl }
+          ? { anthropicExtendedCacheTtl: options.cacheTtl ? options.cacheTtl === "1h" : extendedCacheTtl }
           : {};
         const result = await withLlmInactivityTimeout(
           timeoutMs,

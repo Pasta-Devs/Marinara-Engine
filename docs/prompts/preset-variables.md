@@ -1,73 +1,71 @@
 # Preset Variables
 
-This guide explains **Preset Variables**, the small form-like choices you can build into a prompt preset. A preset author defines the choices once, and anyone using the preset picks the options when the preset is assigned to a chat. Preset variables are sometimes called choice blocks.
+A preset variable is a labeled choice built into a prompt preset. The preset's author defines it once, and whoever uses the preset picks the options when assigning it to a chat. Use one to let a single preset behave in different ways without editing the prompt text.
 
-## What preset variables are
+You name the variable, write a question, and list options. Then you type the name in double braces, like `{{tone}}`, in any prompt section. When the AI generates a reply, Marinara replaces `{{tone}}` with the option value the user picked.
 
-A prompt preset is a reusable blueprint for the text sent to the AI. A preset variable adds a labeled choice to that blueprint. You give the choice a name, write a question, and list some options.
+Preset variables need a prompt preset, so they work in Roleplay chats. They do not apply in Conversation or Game chats, which use a single prompt text instead of sections. For presets themselves, see [Preset Editor and Prompt Manager](presets.md).
 
-Inside any prompt section you type the variable's name in double braces, like `{{tone}}`. When the AI generates a reply, Marinara Engine replaces `{{tone}}` with the option value the user picked. This lets one preset produce different behavior without editing the prompt text.
+## The kinds of preset variable
 
-Preset variables live inside a prompt preset, so they work in the chat modes that use prompt presets. They do not apply in Conversation mode. That mode uses a single prompt-text override instead of the section-based preset, so there is nothing for the variables to fill in. To learn about presets themselves, see [Preset Editor and Prompt Manager](presets.md).
+A variable with several options is a single choice by default. The user picks one option, shown as radio buttons. Three settings change that.
 
-## The three kinds of preset variable
-
-A variable's behavior depends on its options and two toggles. By default a variable with several options is a single choice: the user picks exactly one option, shown as radio buttons. On top of that baseline there are three named kinds.
-
-**Boolean Toggle.** If a variable has exactly one option, it becomes an on/off switch. When the user turns it on, the option value is inserted. When it is off, nothing is inserted. The editor shows a **Boolean Toggle** label on these variables.
-
-**Multi-Select.** Turn on the **Multi-Select** toggle to let users pick more than one option. By default the selected values are joined together with a separator. The separator is a short text field, and the default is a comma and a space. For example, options Romance, Fantasy, and Action joined with `, ` become the text "Romance, Fantasy, Action".
-
-**Random Pick.** For a single-select variable, Marinara preselects a random option for each new chat. You can change it before confirming, and the saved choice stays fixed until you edit it. With **Multi-Select** on, the app picks one of the user's selected options at random each time it generates. This is useful for variety: the user chooses a pool of options, and each reply draws one from that pool.
+| Kind | How you get it | Behavior |
+| --- | --- | --- |
+| **Boolean Toggle** | Give the variable exactly one option. | An on/off switch. On inserts the option value. Off inserts nothing. |
+| **Multi-Select** | Turn on **Multi-Select**. | The user picks several options. The values are joined with a separator, `, ` by default. Romance, Fantasy and Action become "Romance, Fantasy, Action". |
+| **Random Pick** | Turn on **Random Pick**. | On a single-select variable, Marinara preselects a random option for each new chat, and the choice stays fixed until you change it. With **Multi-Select** on, the user chooses a pool and each reply draws one option from it. |
 
 ## Adding a preset variable
 
-You add variables while editing a preset. Follow these steps.
-
 1. Open the **Presets** panel and click a preset to open the **Preset Editor**.
 2. Go to the **Sections** tab and scroll to the **Preset Variables** panel at the bottom.
-3. Click **Add Variable**. A new variable card appears. Click it to expand the editor.
-4. Set the **Variable Name**. It must use only letters, numbers, and underscores. This is the name you type in braces, like `{{variable_name}}`.
-5. Fill in **Question (shown to user)**. This is the prompt the user reads when picking a value.
-6. Edit the **Options** list. Each option has a **Label** (what the user sees) and a **Value** (the text inserted into the prompt). A blank value inserts nothing.
-7. Choose a display style under **Presentation**: **Auto**, or the button style (**Radios** or **Checkboxes**), or the compact style (**Dropdown** or **Listbox**). Turn on **Alphabetical option display** to sort options by label.
-8. Your changes save automatically. The editor footer reads "Changes auto-save. Press Escape to close." Press Escape or click **Done** when you are finished.
+3. Click **Add Variable**. A new variable card appears. Click it to expand it.
+4. Set the **Variable Name**. The field keeps only letters, numbers and underscores. This is the name you type in braces.
+5. Fill in **Question (shown to user)**. The user reads this when picking.
+6. Edit the **Options** list. Each option has a **Label**, which the user sees, and a **Value**, the text inserted into the prompt. A blank value inserts nothing.
+7. Under **Presentation**, pick **Auto**, a button style (**Radios** or **Checkboxes**), or a compact style (**Dropdown** or **Listbox**). Turn on **Alphabetical option display** to sort options by label.
+8. Press <kbd>Escape</kbd> or click **Done**. Changes save automatically, and the footer says "Changes auto-save. Press Escape to close."
 
-To use the variable, type its name in braces inside any prompt section's content. For example, put `{{tone}}` in a section, then create a variable named `tone` with a **Gentle** option and a **Harsh** option. When the user picks Harsh, the section receives the harsh value.
+Now type the name in braces in a prompt section. For example, put `{{tone}}` in a section, and create a variable named `tone` with a **Gentle** option and a **Harsh** option. When the user picks **Harsh**, the section receives its value.
 
-A variable must always keep at least one option. If you try to delete the last option, Marinara keeps it.
+A variable always keeps at least one option. Marinara keeps the last one if you try to delete it.
 
-## The Configure Preset Variables modal
+## Answer the variables
 
-When you assign a preset that has variables to a chat, the **Configure Preset Variables** modal opens automatically. Its intro reads: "This preset has configurable variables. Select option(s) for each to customize your experience."
+When you assign a preset that has variables to a chat, the **Configure Preset Variables** window opens. It says: "This preset has configurable variables. Select option(s) for each to customize your experience."
 
-Each variable shows its question, the token it maps to (like `{{tone}}`), and a small badge saying **Boolean toggle**, **Multi-select**, or **Random pick** where it applies. Pick a value for every variable.
+Each variable shows its question, its token such as `{{tone}}`, and a badge (**Boolean toggle**, **Multi-select** or **Random pick**) where it applies.
 
-- **Save as default** stores your picks back onto the preset, so they are pre-filled next time.
-- **Skip** closes the modal without saving your choices.
-- **Confirm Choices** saves your choices. It stays disabled until every single-choice variable has a value. **Boolean toggle** and **Multi-select** variables do not block it, even when nothing is picked.
+1. Pick a value for each variable.
+2. Click **Confirm Choices**.
 
-Switching to a different preset clears any variable choices you made for the current preset.
+The other buttons:
 
-## Changing your answers later
+- **Save as default** stores your picks on the preset, so they are filled in next time.
+- **Skip** closes the window without saving.
 
-You do not have to reopen a preset from scratch to change your answers. In the chat settings drawer, the **Prompt Preset** section shows a pencil button labeled **Edit preset variables** whenever the selected preset has variables. Click it to reopen the **Configure Preset Variables** modal with your current choices filled in.
+**Confirm Choices** stays off until every single-choice variable has a value. **Boolean toggle** and **Multi-select** variables do not block it, even with nothing picked. Switching to a different preset clears your choices for the old one.
 
-## The {{NAME}} catch-all
+## Change your answers later
 
-Marinara resolves many built-in macros, such as `{{user}}` and `{{char}}`. After those, any leftover placeholder in the form `{{NAME}}` (letters, numbers, and underscores only) is matched against your preset variables.
+In **Chat Settings**, the **Prompt Preset** section shows a pencil button, **Edit preset variables**, when the selected preset has variables. Click it to reopen the window with your current choices.
 
-If a variable with that exact name exists, the placeholder becomes the chosen value. If none matches, Marinara tries the chat's own variables next, the ones listed in the **Chat Variables** section of the **Chat Settings** panel. A preset variable wins when both use the same name. If neither has it, the `{{NAME}}` text is left exactly as typed. This is why an unknown placeholder shows up unchanged in the output instead of raising an error. For the full macro list, see [Prompt Macros](macros.md).
+## Names that are not variables
+
+Marinara resolves built-in macros such as `{{user}}` and `{{char}}` first. Then it matches any other `{{NAME}}` (letters, numbers and underscores) against your preset variables. If none matches, it tries the chat's own variables from the **Chat Variables** section of **Chat Settings**. A preset variable wins when both share a name. If neither has the name, the text stays exactly as typed, without an error. See [Prompt Macros](macros.md).
 
 ## Decision blocks in options
 
-An option's value can hold a decision block, `{{#if decision:"..."}}`, like any other prompt text. Only the options the chat has selected are asked about, and they count toward **Decision statements per turn**. For a **Random Pick** variable, every option in the selected pool is asked about, since any of them could be drawn. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
+An option's value can hold a decision block, `{{#if decision:"..."}}`, like any other prompt text. Only the options the chat selected are asked about, and they count toward **Decision statements per turn**. For a **Random Pick** variable, every option in the pool is asked about, because any could be drawn. See [Asking the Decision model](conditional-prompts.md#asking-the-decision-model).
 
-A variable's value lands wherever its `{{name}}` sits. If a decision changes that value near the top of a preset, it can lose much of the provider's prompt-cache reuse, though an earlier unchanged prefix may still qualify. Put frequently changing content later where possible. See [Decision blocks and prompt caching](presets.md#decision-blocks-and-prompt-caching).
+A variable's value lands wherever its `{{name}}` sits. If a decision changes that value near the top of a preset, you can lose much of the service's prompt-cache reuse. Put frequently changing content later. See [Decision blocks and prompt caching](presets.md#decision-blocks-and-prompt-caching).
+
+## Greetings
+
+Preset variables also resolve in character greetings, including choices confirmed after a greeting was created. The original greeting stays editable with its macros intact.
 
 ## Related guides
 
 - [Preset Editor and Prompt Manager](presets.md)
 - [Prompt Macros](macros.md)
-
-Preset variables also resolve in character greetings, including choices confirmed after a greeting was created. The original greeting stays editable with its macros intact.
