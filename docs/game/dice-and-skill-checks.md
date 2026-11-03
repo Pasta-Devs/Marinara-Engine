@@ -75,11 +75,15 @@ The GM can call a check with advantage (roll two d20s, keep the higher) or disad
 
 Queue a `d20` from the dice menu before the check happens. The check then uses your number instead of rolling a new die. Your skill and attribute modifiers still apply.
 
+For how the GM finishes a turn after a roll, and what it costs, see [How a rolled turn is narrated](#how-a-rolled-turn-is-narrated).
+
 ### Games that use a ruleset
 
 In a game on a ruleset, such as 5e (SRD 5.1), checks use the ruleset's own dice, difficulty ladder and sheet modifiers, and in some rulesets a pool of dice or symbol dice. See [Checks on a ruleset](rulesets.md#checks-on-a-ruleset).
 
-## How a rolled turn is narrated
+## Reference
+
+### How a rolled turn is narrated
 
 When the GM calls for a check in text, Marinara resolves the dice and has three ways to finish the outcome. All three are in **Chat Settings → Function Calling**.
 
@@ -93,7 +97,7 @@ With **Narrate dice outcomes immediately**, if the extra request fails, the turn
 
 On a connection that supports the dice tool, the GM can get a real roll during generation instead. The dice card appears as soon as the tool returns, and the completed check records that result without rolling again.
 
-### Finishing a rolled turn in one request
+#### Finishing a rolled turn in one request
 
 Without this, a turn that rolls dice costs two requests. **Finish rolled turns in one request** removes the second. It is on by default. Turn it off in a chat to have that chat rewrite each rolled turn with the real numbers instead.
 
@@ -110,8 +114,6 @@ A check written in none of these forms falls back to the last behavior, so nothi
 - A turn can still cost more than one request in two cases: **Enable Tool Use** is on and the dice tool is in your tool list (a tool call costs a full extra round), or a **Game tool provider** other than **Same as narrator** is set (it always makes a planning request).
 - When something cannot be rolled, a short notice replaces the number, never a made-up value. **Logs** says what was left out.
 - While the turn is written, placeholders and branch blocks are held back from the streaming text, so you never watch a number change.
-
-## Reference
 
 ### Symbol dice by name
 
