@@ -28,7 +28,7 @@ To start from a Game chat, open its **Chat Settings → Connected Chats**, click
 
 ### Remove a link
 
-Open **Chat Settings → Connected Chats** and click the unlink button (tooltip **Disconnect**). This also clears pending influences and saved notes tied to the link. Deleting a chat disconnects it too.
+Open **Chat Settings → Connected Chats** and click the unlink button (labeled **Disconnect**). This also clears pending influences and saved notes tied to the link. Deleting a chat disconnects it too.
 
 ## Cross-Chat Awareness
 
@@ -36,7 +36,7 @@ Open **Chat Settings → Connected Chats** and click the unlink button (tooltip 
 
 ## Passing information across the link
 
-Characters write these tags inside their messages. You do not normally type them.
+Characters write these tags inside their messages. You do not need to do anything. This is how the two chats talk to each other.
 
 | Tag | What it does |
 | --- | --- |
