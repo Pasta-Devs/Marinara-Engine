@@ -2,32 +2,38 @@
 
 Every message, yours or the AI's, has a toolbar. Use it to edit, delete, regenerate, hide or branch from one message.
 
-The toolbar appears when you hover over a message on a computer, or tap the message on a phone or tablet.
+The toolbar appears when you tap a message on a phone or tablet, or point at it on a computer.
 
 ## The message toolbar
 
-Each button has a tooltip with the label below. Some buttons appear only in certain situations.
+Most used:
 
-| Button | What it does | When it appears |
-| --- | --- | --- |
-| **Copy** | Copies the message text. | Always |
-| **Add reaction** | Opens an emoji picker and toggles your reaction. | Conversation only |
-| **Translate** / **Hide translation** | Translates the message into your language, then hides the translation. | Always |
-| **Edit** | Opens the message for editing. | Always |
-| **Regenerate** | Creates a new swipe. | AI messages. Also your messages in Roleplay, and your Impersonate messages in Conversation. |
-| **Show original before rewrite** / **Show rewritten version** | Switches between the original and rewritten text. Both stay saved. | After an agent rewrote the message |
-| **Bookmark, pin or note** | Bookmarks the message, pins it so it stays in the prompt past the history limit (up to 10 per chat), or adds a **Private note** that is never sent to the model. | Always |
-| **Mark as new start** | Starts the model's context at this message. See [Advanced Memory](../agents/memory.md). | Roleplay only |
-| **Hide from AI** / **Unhide from AI** | Stops or resumes sending this message to the model. In a Roleplay group chat, opens a character chooser. | Always |
-| **Peek prompt** | Shows the exact prompt for this reply. | Latest AI message only |
-| **Stored guidance** | Shows the direction that steered this reply. | Replies made with guidance or Impersonate |
-| **View model thoughts** | Opens the model's hidden reasoning. | Only if the model returned reasoning |
-| **Branch from here** | Copies the chat up to this message into a new branch. | Always, except in scene chats |
-| **Clone from here** | Copies a scene chat up to this message into a new Roleplay. | Scene chats only |
-| **Delete** | Deletes the message. | Always |
-| **Pause speaking** / **Resume speaking** / **Restart speaking** | Controls the spoken audio. | When Text to Speech is on and speaking |
+- **Edit** changes the message text.
+- **Regenerate** asks the model for a new version of an AI reply. Each version is called a swipe.
+- **Delete** removes the message.
 
-More: [Peek Prompt](peek-prompt.md), [Chat Branches](branches.md), [Scenes](../roleplay/scenes.md) for **Clone from here**, [Message Translation](../integrations/message-translation.md), [Text to Speech (TTS) Setup](../media/tts-setup.md), [Guided Generation and Impersonate](guided-and-impersonate.md), and [private notes](../roleplay/getting-started.md#your-private-notes).
+The buttons are icons. Their labels are below. Some appear only in certain situations.
+
+| Button | What it does |
+| --- | --- |
+| **Copy** | Copies the message text. |
+| **Edit** | Opens the message for editing. |
+| **Regenerate** | Creates a new swipe (another version of the reply). AI messages only. Also on your messages in Roleplay, and on your Impersonate messages in Conversation. |
+| **Delete** | Deletes the message. |
+| **Translate** / **Hide translation** | Translates the message into your language, then hides the translation. |
+| **Add reaction** | Opens an emoji picker. Conversation only. |
+| **Hide from AI** / **Unhide from AI** | Stops or resumes sending this message to the model. In a Roleplay group chat, opens a character chooser. |
+| **Bookmark, pin or note** | Bookmarks the message, pins it so it stays in the prompt past the history limit (up to 10 per chat), or adds a **Private note** that is never sent to the model. |
+| **Branch from here** | Copies the chat up to this message into a new branch. Not in scene chats. |
+| **Clone from here** | Copies a scene chat up to this message into a new Roleplay. Scene chats only. |
+| **Peek prompt** | Shows the exact prompt for this reply. Latest AI message only. |
+| **Stored guidance** | Shows the direction that steered this reply. Only for replies made with guidance or Impersonate. |
+| **View model thoughts** | Opens the model's hidden reasoning. Only if the model returned reasoning. |
+| **Show original before rewrite** / **Show rewritten version** | Switches between the original and rewritten text when an agent (a helper that runs alongside replies) rewrote the message. |
+| **Mark as new start** | Roleplay only. Starts the model's memory of the chat at this message, when Advanced Memory (Marinara's long-term memory feature) is on. See [Advanced Memory](../agents/memory.md). |
+| **Pause speaking** / **Resume speaking** / **Restart speaking** | Controls spoken audio when Text to Speech (a voice reads messages aloud) is on and speaking. |
+
+More: [Peek Prompt](peek-prompt.md), [Chat Branches](branches.md), [Scenes](../roleplay/scenes.md) (a scene chat is a short Roleplay branched off a chat), [Message Translation](../integrations/message-translation.md), [Text to Speech (TTS) Setup](../media/tts-setup.md), [Guided Generation and Impersonate](guided-and-impersonate.md), [private notes](../roleplay/getting-started.md#your-private-notes).
 
 ## Edit a message
 
@@ -63,7 +69,7 @@ System messages, such as a "joined the chat" line, delete with one click and no 
 A swipe is one version of an AI reply. One message can hold several, so you can compare answers and keep the one you like. A swipe control appears once a message has two or more. It shows the active swipe and the total, such as "2/4".
 
 - **Previous swipe** and **Next swipe** step through the swipes.
-- The number box jumps to a swipe. Type a number and press <kbd>Enter</kbd>. Its tooltip reads **Jump to swipe 1-N**.
+- The number box jumps to a swipe. Type a number and press <kbd>Enter</kbd>. Its label is **Jump to swipe 1-N**.
 - On the newest swipe, the forward button becomes **Generate next swipe** and creates a new swipe.
 
 You cannot delete the last swipe. The app says "Cannot delete the last remaining swipe". Use **Delete this message** instead.
