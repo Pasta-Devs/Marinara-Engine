@@ -1,6 +1,6 @@
 # Scene Backgrounds and the Gallery
 
-This guide covers AI-generated scene backgrounds, the backdrop images Marinara Engine creates for you from the **Gallery**, and the Gallery itself. Two related guides exist: [Chat Backgrounds](../appearance/chat-backgrounds.md) covers the hand-picked upload library, and [Roleplay Backgrounds](../roleplay/backgrounds.md) covers the agent that auto-picks a backdrop each turn.
+AI-generated scene backgrounds are backdrop images Marinara Engine makes from the **Gallery**. This guide shows how to make one, what the Gallery holds, and how to redraw or review an image. For the hand-picked upload library, see [Chat Backgrounds](../appearance/chat-backgrounds.md). For the agent that picks a backdrop each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md).
 
 ## Where scene backgrounds work
 
@@ -10,11 +10,11 @@ Scene backgrounds work in Roleplay and Game modes. They are not available in Con
 Scene background generation is available in Roleplay and Game modes.
 ```
 
-To generate a background, you need an **Image Generation** connection. Set one up first if you have not already. See [Image Generation Providers and Setup](image-providers.md).
+Before you start: you need an image model. Set one up first if you have not already. See [Image Generation Providers and Setup](image-providers.md).
 
 ## Generating and applying a background from the Gallery
 
-The **Gallery** holds a chat's images and videos. It is a section of **Chat Settings**: open Chat Settings and expand **Gallery**. On a computer, you can pop it out into its own window (see [Chat Settings Overview](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). The **Background** button lets you generate background art for the current scene.
+The **Gallery** holds a chat's images and videos. It is a section of **Chat Settings**. On a computer you can pop it out into its own window (see [Chat Settings Overview](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Its **Background** button makes background art for the current scene.
 
 In Roleplay, the **Background** button shows as soon as the **Illustrator** agent is installed. You do not need to add it to the chat or turn on agents. Like **Illustrate**, it runs once and does not start automatic runs.
 
@@ -23,20 +23,18 @@ To generate a background:
 1. Open the **Gallery** section in **Chat Settings**.
 2. Click the **Background** button.
 3. The button label changes to **Generating...** while the image is made.
-4. You should see this status message: "AI background generation is running. The new background will be applied when it finishes."
-5. When it finishes, the new image is applied to the current scene right away. A "Background generated." message confirms it.
+4. A status message reads "AI background generation is running. The new background will be applied when it finishes."
+5. When it finishes, the new image is applied to the current scene at once, and "Background generated." confirms it.
 
 The background is built from your current scene. In a game, this includes the genre, setting, location, weather, and time of day. Generated backgrounds use the **Backgrounds** canvas size, which is 1280 by 720 pixels by default. You can change that size under **Settings**, then **Generations**, then **Image Generation**.
 
-### If no image connection is set
-
-If Marinara cannot find an image connection to use, the generate step fails with this message:
+If it did not work: if Marinara finds no image model to use, the step fails with this message:
 
 ```
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-To fix this, open the **Connections** panel, expand **Defaults**, and choose an image connection under **Images**, or set an image connection override on the **Illustrator** agent.
+To fix it, set the **Images** job under **Defaults** in the **Connections** panel, or give the **Illustrator** agent its own image model.
 
 ## The Gallery section
 
@@ -56,7 +54,7 @@ Below the buttons is the **Upload Images** dropzone. Drag images onto it to add 
 
 ### Per-image actions
 
-Move your pointer over any image in the **Images** tab, or tap it on mobile, to reveal its actions:
+Move your pointer over an image in the **Images** tab, or tap it on mobile, to see its actions:
 
 - Open the image full size (**Open gallery image**).
 - **Pin to chat**: pins the image to the chat as a floating picture. Drag it to move it and use its corner handle to resize it. It keeps its place and size when you reload the page in this browser. The lock button next to the dismiss button stops it from moving or resizing until you unlock it.
@@ -71,14 +69,14 @@ You can make a generated image again without regenerating the reply it belongs t
 
 1. Open the image full size, from the Gallery or from the message it is in.
 2. Click **Regenerate image** (the circular-arrow button at the top right of the picture).
-3. Change what you want in the boxes under the picture: **Prompt**, **Negative prompt**, a box for each character under **Character prompts** when the image had them, and the **Image connection**.
+3. Change what you want in the boxes under the picture: **Prompt**, **Negative prompt**, a box for each character under **Character prompts** when the image had them, and the image model.
 4. Click **Generate image**, or **Cancel** to leave the image as it is.
 
 The new image replaces the old one in the message. The old one stays in the Gallery, so you can pin it again. Reference pictures are sent again from the characters' current avatars. Some older images did not save their negative prompt and character prompts; the editor says so when that is the case.
 
 ## Reviewing a prompt before it is sent
 
-You can check and edit the prompt before Marinara sends a background request to your image provider.
+You can check and edit the prompt before Marinara sends a background request to your image service.
 
 1. Open **Settings**, then **Generations**, then **Overall Generations**.
 2. Turn on **Expose media prompts before sending**.
@@ -106,5 +104,5 @@ You manage this library and set a per-chat or default backdrop from the appearan
 - [Chat Backgrounds](../appearance/chat-backgrounds.md): the upload library you pick from by hand.
 - [Roleplay Backgrounds](../roleplay/backgrounds.md): the agent that auto-picks a backdrop each turn.
 - [Illustrator Agent](illustrator-agent.md): scene illustrations for Roleplay and Game modes.
-- [Image Generation Providers and Setup](image-providers.md): set up an image connection.
+- [Image Generation Providers and Setup](image-providers.md): set up an image model.
 - [Scene Video Generation](scene-video.md): turn a Gallery image into a video.
