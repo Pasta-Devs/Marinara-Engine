@@ -33,7 +33,8 @@ Other ways to start a game:
 
 - Type `/games` to pick from the installed games.
 - Say it in a normal message, such as "let's play uno", "start a game of chess" or "deal me into poker". The setup window opens and your message still sends, so a character can react to your invite. This happens only when that game is not already running.
-- A character can offer or accept a game on its own. When it is willing to play, its reply starts the game at once with the default rules and no setup window. If it is busy or declines, it says so in character. This needs the game's **Commands** switch on (see [Let characters start games](#let-characters-start-games-on-their-own)).
+- A character can offer or accept a game on its own. Its reply then starts the game at once with the default rules and no setup window. If it is busy or declines, it says so in character.
+- A character can only do this when the game's **Commands** switch is on (see [Let characters start games](#let-characters-start-games-on-their-own)).
 
 ## UNO
 
@@ -43,18 +44,21 @@ The setup window is titled **Start UNO**.
 - **Starting hand**: cards per player, 1 to 10. The default is **7**.
 - **Penalize missed UNO**: ticked by default. A player caught without declaring UNO draws 2 cards, and **Catch!** is active.
 - **House rules**, all off by default:
+  - **Stacking**: stack +2/+4 onto the next player instead of drawing.
+  - **Draw to match**: keep drawing until you draw a playable card.
+  - **7-0 rule**: a 7 swaps hands with a chosen player; a 0 rotates all hands.
+  - **Jump-in**: play an identical card out of turn.
+  - **Force play**: if a drawn card is playable, you must play it.
 
-| Rule | What it does |
-| --- | --- |
-| **Stacking** | Stack +2/+4 onto the next player instead of drawing. |
-| **Draw to match** | Keep drawing until you draw a playable card. |
-| **7-0 rule** | 7 swaps hands with a chosen player; 0 rotates all hands. |
-| **Jump-in** | Play an identical card out of turn. |
-| **Force play** | If a drawn card is playable, you must play it. |
+**Deal** stays disabled until you pick at least one character. It shows the number of players, for example **Deal (3p)** for you and two characters.
 
-**Deal** is disabled until one character is picked and shows the seat total, for example **Deal (3p)**.
+On the board:
 
-On the board, playable cards lift and the rest dim. A wild card opens "Pick a color:". With **7-0 rule** on, a 7 opens "Swap hands with:". Buttons appear as needed: **Draw**, **Pass**, **Call UNO!** and **Catch!**. Playing your second-to-last card declares UNO for you. A banner reads "{winner} wins!" or "Game over".
+- Playable cards lift and the rest dim. Click a card to play it.
+- A wild card opens "Pick a color:". With **7-0 rule** on, a 7 opens "Swap hands with:".
+- Buttons appear as needed: **Draw**, **Pass**, **Call UNO!** and **Catch!**.
+- Playing your second-to-last card declares UNO for you.
+- A banner reads "{winner} wins!" or "Game over".
 
 ## Chess
 
@@ -66,14 +70,12 @@ Click one of your pieces to select it. Legal moves show as a dot, and captures a
 
 The setup window is titled **Start Poker**. The table seats 2 to 8 players.
 
-| Option | What it does | Default |
-| --- | --- | --- |
-| **Players** | Tick the characters to seat. At seven, the rest gray out. | Not stated |
-| **Dealer** | **House dealer (silent)** deals without commentary. Or pick a character to announce hands and showdowns. | **House dealer (silent)** |
-| **Starting stack** | Chips per player, 100 to 1,000,000. | **1000** |
-| **Small blind** | The big blind is double. | **10** |
-| **Blinds double every** | Hands between blind increases. 0 means never. | **0** |
-| **Hand limit** | The session ends after this many hands, and the most chips wins. 0 plays until one player has chips. | **0** |
+- **Players**: tick the characters to seat. At seven, the rest gray out.
+- **Dealer**: **House dealer (silent)** (default) deals without commentary. Or pick a character to announce hands and showdowns.
+- **Starting stack**: chips per player, 100 to 1,000,000. The default is **1000**.
+- **Small blind**: the big blind is double. The default is **10**.
+- **Blinds double every**: hands between blind increases. The default is **0**, which means never.
+- **Hand limit**: the session ends after this many hands, and the most chips wins. The default is **0**, which plays until one player has chips.
 
 On your turn the bar shows **Fold**, **Check**, **Call** and **All in**. When you can bet or raise, a bet box adds **Min**, **½ pot**, **Pot** and **All-in** buttons. After each hand a **Showdown** panel awards the pot, and **Next hand** deals again. At the end a banner names the winner and lists every final stack.
 
@@ -98,13 +100,11 @@ In **Rock-Paper-Scissors**, choose the opponent and a best-of-three, five or sev
 
 Every board has an X button.
 
-| Board | Button | Asks first |
-| --- | --- | --- |
-| UNO | **End game** | "End this game?" |
-| Chess | **Resign** | "Resign and end this game?" |
-| Poker | **End game**, then **Close** after the session ends | "End this poker game?" |
-| 8-Ball Pool | **End game**, then **Close** after the match ends | "End this pool game?" |
-| Tic-Tac-Toe, Rock-Paper-Scissors | The board's close or end control | Not checked |
+- **UNO**: **End game**. It asks "End this game?" first.
+- **Chess**: **Resign**. It asks "Resign and end this game?" first.
+- **Poker**: **End game**. It asks "End this poker game?" first. After the session ends it reads **Close**.
+- **8-Ball Pool**: **End game**. It asks "End this pool game?" first. After the match ends it reads **Close**.
+- **Tic-Tac-Toe** and **Rock-Paper-Scissors**: use the board's close or end button to clear the match.
 
 Ending a game early deletes its state and records no winner.
 
