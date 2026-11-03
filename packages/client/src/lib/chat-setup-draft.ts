@@ -1,4 +1,5 @@
 import {
+  CHAT_FOLLOWS_MAIN_KEY,
   CHAT_PRESET_EXCLUDED_METADATA_KEYS,
   CHAT_PRESET_EXCLUDED_PACKAGE_METADATA_KEYS,
   TRANSLATOR_SETTINGS_KEYS,
@@ -79,9 +80,12 @@ export function advanceStarredProfileDraft(
   }
   // Starting picks the server just copied in (persona, lorebooks).
   if (profile.settings.lorebookIds?.length) metadata.activeLorebookIds = response.metadata.activeLorebookIds;
+  const nextConnectionId = connectionId !== undefined ? connectionId : (profile.settings.connectionId ?? null);
+  // A profile without a Model leaves the chat following Main.
+  metadata[CHAT_FOLLOWS_MAIN_KEY] = !nextConnectionId;
   return {
     ...initial,
-    connectionId: connectionId !== undefined ? connectionId : (profile.settings.connectionId ?? null),
+    connectionId: nextConnectionId,
     promptPresetId: profile.settings.promptPresetId ?? null,
     ...(profile.settings.personaId ? { personaId: response.personaId } : {}),
     metadata: metadata as Chat["metadata"],
