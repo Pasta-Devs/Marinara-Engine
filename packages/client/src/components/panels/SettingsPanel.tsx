@@ -3713,6 +3713,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setRoleplayAvatarsScrollable = useUIStore((s) => s.setRoleplayAvatarsScrollable);
   const roleplayNarratorAvatarCycling = useUIStore((s) => s.roleplayNarratorAvatarCycling);
   const setRoleplayNarratorAvatarCycling = useUIStore((s) => s.setRoleplayNarratorAvatarCycling);
+  const roleplayNarratorAvatarBorders = useUIStore((s) => s.roleplayNarratorAvatarBorders);
+  const setRoleplayNarratorAvatarBorders = useUIStore((s) => s.setRoleplayNarratorAvatarBorders);
   const roleplaySpriteScale = useUIStore((s) => s.roleplaySpriteScale);
   const setRoleplaySpriteScale = useUIStore((s) => s.setRoleplaySpriteScale);
   const roleplayDisplayStyle = useUIStore((s) => s.roleplayDisplayStyle);
@@ -5098,6 +5100,13 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   checked={roleplayNarratorAvatarCycling}
                   onChange={setRoleplayNarratorAvatarCycling}
                   help={localizeUi("settings.controls.narratorCyclingAvatars.help")}
+                />
+                <ToggleSetting
+                  anchorId={getSettingsControlAnchorId("narrator-avatar-borders")}
+                  label={localizeUi("settings.controls.narratorAvatarBorders.label")}
+                  checked={roleplayNarratorAvatarBorders}
+                  onChange={setRoleplayNarratorAvatarBorders}
+                  help={localizeUi("settings.controls.narratorAvatarBorders.help")}
                 />
                 <div
                   id={getSettingsControlAnchorId("roleplay-avatar-style")}

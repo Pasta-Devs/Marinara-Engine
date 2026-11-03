@@ -3,7 +3,13 @@ import { useMessagePresetVariables } from "../../hooks/use-message-preset-variab
 // Chat: Message — mode-aware rendering
 // ──────────────────────────────────────────────
 import { createPortal } from "react-dom";
-import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
+import {
+  cn,
+  copyToClipboard,
+  getAvatarCropStyle,
+  getMergedAvatarBorderStyle,
+  isLegacyAvatarCrop,
+} from "../../lib/utils";
 import {
   normalizeAvatarCrop,
   getRoleplayWhispers,
@@ -2042,6 +2048,7 @@ export const ChatMessage = memo(function ChatMessage({
     roleplayAvatarScale,
     roleplayAvatarsScrollable,
     roleplayNarratorAvatarCycling,
+    roleplayNarratorAvatarBorders,
     showRoleplayThinkingInMessages,
     keepRoleplayThinkingExpanded,
     textStrokeWidth,
@@ -2067,6 +2074,7 @@ export const ChatMessage = memo(function ChatMessage({
       roleplayAvatarScale: s.roleplayAvatarScale,
       roleplayAvatarsScrollable: s.roleplayAvatarsScrollable,
       roleplayNarratorAvatarCycling: s.roleplayNarratorAvatarCycling,
+      roleplayNarratorAvatarBorders: s.roleplayNarratorAvatarBorders,
       showRoleplayThinkingInMessages: s.showRoleplayThinkingInMessages,
       keepRoleplayThinkingExpanded: s.keepRoleplayThinkingExpanded,
       textStrokeWidth: s.textStrokeWidth,
@@ -3046,6 +3054,7 @@ export const ChatMessage = memo(function ChatMessage({
   const mergedNameRef = useRef<HTMLSpanElement>(null);
   const mergedAvatarRefs = useRef<(HTMLImageElement | null)[]>([]);
   const mergedAvatarTailRefs = useRef<(HTMLImageElement | null)[]>([]);
+  const mergedAvatarBorderRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
     cycleIndexRef.current = 0;
@@ -3057,6 +3066,9 @@ export const ChatMessage = memo(function ChatMessage({
       });
       mergedAvatarTailRefs.current.forEach((img, i) => {
         if (img) img.style.opacity = i === index ? "1" : "0";
+      });
+      mergedAvatarBorderRefs.current.forEach((border, i) => {
+        if (border) border.style.opacity = i === index ? "1" : "0";
       });
       // Update name color opacity via DOM directly
       const nameEl = mergedNameRef.current;
@@ -3533,6 +3545,23 @@ export const ChatMessage = memo(function ChatMessage({
   const panelAvatarCropStyle: React.CSSProperties = rectangleSafeCropStyle(compactAvatarCrop, avatarCropStyle);
   const panelMergedAvatarCropStyle = (avatar: { crop?: AvatarCrop | null }): React.CSSProperties =>
     rectangleSafeCropStyle(avatar.crop, getAvatarCropStyle(avatar.crop));
+  // Name-color borders sit over the merged avatars without changing their size, place or cycle.
+  const mergedAvatarBorders = roleplayNarratorAvatarBorders
+    ? mergedAvatars.map((avatar, i) => (
+        <span
+          key={`border-${avatar.id}`}
+          ref={(el) => {
+            mergedAvatarBorderRefs.current[i] = el;
+            // Opacity lives in the DOM like the cycling avatars', so a border shown mid-cycle
+            // starts on the avatar in view.
+            if (el) el.style.opacity = !cycleMergedNarratorAvatars || i === cycleIndexRef.current ? "1" : "0";
+          }}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity duration-700"
+          style={getMergedAvatarBorderStyle(avatar.nameColor, i, mergedAvatars.length, cycleMergedNarratorAvatars)}
+        />
+      ))
+    : null;
   const compactAvatarSpacerClass = useCompactRectangleAvatar
     ? "w-[calc(2.75rem*var(--roleplay-avatar-scale))]"
     : "w-[calc(2.5rem*var(--roleplay-avatar-scale))]";
@@ -4113,6 +4142,7 @@ export const ChatMessage = memo(function ChatMessage({
                       }}
                     />
                   ))}
+                  {mergedAvatarBorders}
                 </button>
               ) : displayAvatarUrl ? (
                 <div className={cn(!isUser && "rpg-avatar-glow")}>
@@ -4291,6 +4321,7 @@ export const ChatMessage = memo(function ChatMessage({
                               }}
                             />
                           ))}
+                          {mergedAvatarBorders}
                         </button>
                       ) : displayAvatarUrl ? (
                         <button

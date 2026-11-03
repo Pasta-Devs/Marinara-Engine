@@ -196,6 +196,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.roleplayNarratorAvatarCycling,
     set: (value) => useUIStore.getState().setRoleplayNarratorAvatarCycling(value),
   },
+  "narrator-avatar-borders": {
+    get: (state) => state.roleplayNarratorAvatarBorders,
+    set: (value) => useUIStore.getState().setRoleplayNarratorAvatarBorders(value),
+  },
   "game-text-effects": {
     get: (state) => state.gameTextEffectsEnabled,
     set: (value) => useUIStore.getState().setGameTextEffectsEnabled(value),

@@ -1116,6 +1116,8 @@ interface UIState {
   roleplayAvatarsScrollable: boolean;
   /** When true, merged-group Narrator avatars cycle instead of appearing together. */
   roleplayNarratorAvatarCycling: boolean;
+  /** When true, each merged-group Narrator avatar has a border in that character's name color. */
+  roleplayNarratorAvatarBorders: boolean;
   /** Default scale multiplier for Roleplay full-body sprites. */
   roleplaySpriteScale: number;
   /** Default presentation for Roleplay chats without a saved choice. */
@@ -1512,6 +1514,7 @@ interface UIState {
   setRoleplayAvatarScale: (v: number) => void;
   setRoleplayAvatarsScrollable: (v: boolean) => void;
   setRoleplayNarratorAvatarCycling: (v: boolean) => void;
+  setRoleplayNarratorAvatarBorders: (v: boolean) => void;
   setRoleplaySpriteScale: (v: number) => void;
   setRoleplayDisplayStyle: (v: "classic" | "visual-novel") => void;
   setRoleplayChatPosition: (v: RoleplayChatPosition) => void;
@@ -1807,6 +1810,7 @@ export function pickSyncedSettings(state: UIState) {
     roleplayAvatarScale: state.roleplayAvatarScale,
     roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
+    roleplayNarratorAvatarBorders: state.roleplayNarratorAvatarBorders,
     roleplaySpriteScale: state.roleplaySpriteScale,
     roleplayDisplayStyle: state.roleplayDisplayStyle,
     roleplayChatPosition: state.roleplayChatPosition,
@@ -2060,6 +2064,7 @@ export function pickPersistedUIState(state: UIState) {
     roleplayAvatarScale: state.roleplayAvatarScale,
     roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
+    roleplayNarratorAvatarBorders: state.roleplayNarratorAvatarBorders,
     roleplaySpriteScale: state.roleplaySpriteScale,
     roleplayDisplayStyle: state.roleplayDisplayStyle,
     roleplayChatPosition: state.roleplayChatPosition,
@@ -2392,6 +2397,7 @@ export const useUIStore = create<UIState>()(
         roleplayAvatarScale: 1,
         roleplayAvatarsScrollable: false,
         roleplayNarratorAvatarCycling: true,
+        roleplayNarratorAvatarBorders: false,
         roleplaySpriteScale: 1,
         roleplayDisplayStyle: "classic",
         roleplayChatPosition: "center",
@@ -3368,6 +3374,7 @@ export const useUIStore = create<UIState>()(
           set({ roleplayAvatarScale: Math.max(ROLEPLAY_AVATAR_SCALE_MIN, Math.min(ROLEPLAY_AVATAR_SCALE_MAX, v)) }),
         setRoleplayAvatarsScrollable: (v) => set({ roleplayAvatarsScrollable: v }),
         setRoleplayNarratorAvatarCycling: (v) => set({ roleplayNarratorAvatarCycling: v }),
+        setRoleplayNarratorAvatarBorders: (v) => set({ roleplayNarratorAvatarBorders: v }),
         setRoleplaySpriteScale: (v) =>
           set({ roleplaySpriteScale: Math.max(ROLEPLAY_SPRITE_SCALE_MIN, Math.min(ROLEPLAY_SPRITE_SCALE_MAX, v)) }),
         setGameAvatarScale: (v) => set({ gameAvatarScale: Math.max(0.75, Math.min(1.75, v)) }),
@@ -3456,6 +3463,7 @@ export const useUIStore = create<UIState>()(
             roleplayAvatarScale: 1,
             roleplayAvatarsScrollable: false,
             roleplayNarratorAvatarCycling: true,
+            roleplayNarratorAvatarBorders: false,
             roleplaySpriteScale: 1,
             roleplayDisplayStyle: "classic",
             roleplayChatPosition: "center",
@@ -4262,6 +4270,7 @@ export const useUIStore = create<UIState>()(
         persisted.keepRoleplayThinkingExpanded =
           persisted.showRoleplayThinkingInMessages && persisted.keepRoleplayThinkingExpanded === true;
         persisted.roleplayNarratorAvatarCycling = persisted.roleplayNarratorAvatarCycling !== false;
+        persisted.roleplayNarratorAvatarBorders = persisted.roleplayNarratorAvatarBorders === true;
         persisted.gameTextEffectsEnabled = persisted.gameTextEffectsEnabled !== false;
         persisted.defaultDialogueColor =
           typeof persisted.defaultDialogueColor === "string" ? persisted.defaultDialogueColor : "";
