@@ -9,6 +9,7 @@ const directory = mkdtempSync(join(tmpdir(), "marinara-image-format-"));
 process.env.DATA_DIR = directory;
 process.env.FILE_STORAGE_DIR = join(directory, "storage");
 process.env.LOG_LEVEL = "silent";
+process.env.IMAGE_LOCAL_URLS_ENABLED = "true"; // Game background generators reach the local provider fixture.
 const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
 const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
@@ -19,6 +20,8 @@ const { generateImage, saveImageToDisk, stageImageToDisk } =
   await import("../../packages/server/src/services/image/image-generation.js");
 const { applyGeneratedImageFormatUiSettingsValue, formatGeneratedImageForStorage } =
   await import("../../packages/server/src/services/image/generated-image-format.js");
+const { generateBackground, generateChatBackground, generateSceneIllustration } =
+  await import("../../packages/server/src/services/game/game-asset-generation.js");
 
 const sharp = await getSharp();
 const pixels = Buffer.alloc(64 * 64 * 4);
@@ -104,6 +107,30 @@ try {
   await secondApp.register(appSettingsRoutes, { prefix: "/app-settings" });
   assert.equal((await generate()).ext, "webp");
   await secondApp.close();
+
+  // Backgrounds are resized from the provider's own pixels, then encoded once as the WebP the setting asks for.
+  const backgroundRequest = {
+    chatId: "webp-backgrounds",
+    imgSource: "openai",
+    imgModel: "gpt-image-1",
+    imgBaseUrl: `http://127.0.0.1:${address.port}/v1`,
+    imgApiKey: "fixture-key",
+    size: { width: 32, height: 32 },
+  };
+  const resized = await sharp(png).resize(32, 32, { fit: "cover", position: "centre" }).png().toBuffer();
+  const encodedOnce = await sharp(resized).keepMetadata().webp({ quality: 95, alphaQuality: 100 }).toBuffer();
+  const location = { ...backgroundRequest, locationSlug: "webp-forest", sceneDescription: "a forest" };
+  const chatBackground = await generateChatBackground(location);
+  const gameBackground = await generateBackground(location);
+  const illustration = await generateSceneIllustration({ ...backgroundRequest, prompt: "a forest", slug: "webp" });
+  for (const [label, path] of [
+    ["Roleplay background", join(directory, "backgrounds", String(chatBackground))],
+    ["Game background", `${join(directory, "game-assets", ...String(gameBackground).split(":"))}.webp`],
+    ["scene illustration", `${join(directory, "game-assets", ...String(illustration).split(":"))}.webp`],
+  ] as const) {
+    assert.match(path, /\.webp$/, `${label} is saved as WebP`);
+    assert.deepEqual(readFileSync(path), encodedOnce, `${label} gets one lossy encode, after resizing`);
+  }
 
   const withMetadata = {
     ...original,

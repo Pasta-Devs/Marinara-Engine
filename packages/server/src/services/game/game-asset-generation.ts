@@ -14,6 +14,7 @@ import { logger } from "../../lib/logger.js";
 import { basename, join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { generateImage, type ImageGenRequest, type ImageGenResult } from "../image/image-generation.js";
+import { formatGeneratedImageForStorage } from "../image/generated-image-format.js";
 import { buildAssetManifest, GAME_ASSETS_DIR } from "./asset-manifest.service.js";
 import type { PromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import {
@@ -221,24 +222,28 @@ function normalizeGeneratedImageExt(result: Pick<ImageGenResult, "mimeType" | "e
   return "png";
 }
 
-/** Resize generated backgrounds through sharp when available, preserving original format otherwise. */
+/** Resize generated backgrounds through sharp when available, then encode them once in the chosen storage format.
+ *  Callers request the provider's own output, so the WebP setting never re-encodes a lossy copy as PNG. */
 async function gameBackgroundImage(result: ImageGenResult, size: ImageGenerationSize): Promise<GameBackgroundImage> {
-  const input = Buffer.from(result.base64, "base64");
+  let resized = result;
   const sharp = await getSharp();
-  if (!sharp) return { buffer: input, ext: normalizeGeneratedImageExt(result, input) };
-  try {
-    const buffer = await sharp(input, {
-      limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS,
-      failOn: "warning",
-    })
-      .resize(size.width, size.height, { fit: "cover", position: "centre" })
-      .png()
-      .toBuffer();
-    return { buffer, ext: "png" };
-  } catch (err) {
-    logger.warn(err, "[game-asset-gen] Failed to resize generated game background; saving original image");
-    return { buffer: input, ext: normalizeGeneratedImageExt(result, input) };
+  if (sharp) {
+    try {
+      const buffer = await sharp(Buffer.from(result.base64, "base64"), {
+        limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS,
+        failOn: "warning",
+      })
+        .resize(size.width, size.height, { fit: "cover", position: "centre" })
+        .png()
+        .toBuffer();
+      resized = { ...result, base64: buffer.toString("base64"), mimeType: "image/png", ext: "png" };
+    } catch (err) {
+      logger.warn(err, "[game-asset-gen] Failed to resize generated game background; saving original image");
+    }
   }
+  const stored = await formatGeneratedImageForStorage(resized);
+  const buffer = Buffer.from(stored.base64, "base64");
+  return { buffer, ext: normalizeGeneratedImageExt(stored, buffer) };
 }
 
 /** Build the generated game background file path for a slug and extension. */
@@ -1261,6 +1266,7 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
         quality: req.imgQuality,
         fallback: req.imgFallback,
         signal: req.signal,
+        preserveProviderOutput: true,
       },
     );
 
@@ -1332,6 +1338,7 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
         quality: req.imgQuality,
         fallback: req.imgFallback,
         signal: req.signal,
+        preserveProviderOutput: true,
       },
     );
 
@@ -1403,6 +1410,7 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
         signal: req.signal,
         referenceImages: referenceImages.length ? referenceImages : undefined,
         characterPrompts: req.characterPrompts,
+        preserveProviderOutput: true,
       },
     );
 
