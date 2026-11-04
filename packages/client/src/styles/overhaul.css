@@ -4590,3 +4590,366 @@ input.ov-edhead__title:focus {
 .ov-gset button:disabled {
   opacity: 0.45;
 }
+
+/* ─── Character schedules page (mockup "Schedules") ─── */
+.ov-sched {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  background: var(--background);
+  color: var(--ov-text);
+}
+.ov-sched__list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--ov-line);
+}
+.ov-sched__lh {
+  padding: 0.875rem 0.75rem 0.5rem;
+}
+.ov-sched__lh h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.ov-sched__search {
+  display: flex;
+  height: 1.875rem;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.4375rem;
+  color: var(--ov-muted);
+}
+.ov-sched__search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  outline: none;
+}
+.ov-sched__bulk {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-bottom: 1px solid var(--ov-line);
+  color: var(--ov-dim);
+  font-size: 0.72rem;
+}
+.ov-sched__bulk > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-sched__bulk.is-on {
+  background: color-mix(in srgb, var(--ov-accent) 8%, transparent);
+  color: var(--ov-text);
+}
+.ov-sched__bulk button {
+  display: inline-flex;
+  height: 1.5rem;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+.ov-sched__bulk button.is-danger {
+  color: var(--destructive);
+}
+.ov-sched__bulk button.is-icon {
+  width: 1.5rem;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+}
+.ov-sched__bulk button.is-link {
+  border: 0;
+  color: var(--ov-accent);
+}
+.ov-sched__bulk button:disabled {
+  opacity: 0.5;
+}
+.ov-sched__groups {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0.5rem 1rem;
+}
+.ov-sched__groups > section {
+  margin-top: 0.5rem;
+}
+.ov-sched__groups > section > * + * {
+  margin-top: 0 !important;
+}
+.ov-sched__groups h2 {
+  margin: 0.25rem 0.25rem 0.25rem !important;
+  font-size: 0.6875rem !important;
+  letter-spacing: 0.08em;
+}
+.ov-sched__row {
+  min-height: 2.5rem;
+  gap: 0.5rem !important;
+  padding: 0.25rem 0.375rem !important;
+  border-color: transparent !important;
+  border-radius: 0.4375rem !important;
+  background: transparent !important;
+}
+.ov-sched__row:hover {
+  background: var(--ov-hover) !important;
+}
+.ov-sched__row.is-on {
+  background: color-mix(in srgb, var(--ov-accent) 12%, transparent) !important;
+}
+.ov-sched__row img,
+.ov-sched__row .mari-avatar-placeholder {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+}
+.ov-sched__row > button:last-child {
+  display: none;
+}
+.ov-sched__row p {
+  font-size: 0.8125rem !important;
+}
+.ov-sched__row p + p {
+  font-size: 0.72rem !important;
+}
+.ov-sched__empty {
+  padding: 2rem 1rem;
+  color: var(--ov-dim);
+  text-align: center;
+}
+.ov-sched__main {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.75rem 1rem 2rem;
+  container: ov-sched / inline-size;
+}
+/* Narrow: one column, actions, week, then the rest. */
+.ov-schedEd {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+.ov-schedEd > * {
+  min-width: 0;
+}
+.ov-schedEd__side {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.ov-schedEd > div:last-child {
+  order: -3;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center !important;
+  padding-top: 0 !important;
+  padding-bottom: 0.5rem;
+  border-top: 0 !important;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-schedEd > .ov-week {
+  order: -2;
+}
+.ov-schedEd > fieldset {
+  order: 5;
+}
+/* The editor as a page: the week on the left, Schedule AI and Tuning on the right. */
+@container ov-sched (min-width: 44rem) {
+  .ov-schedEd {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    grid-template-rows: auto auto 1fr;
+    align-items: start;
+    column-gap: 1.25rem;
+    row-gap: 0.75rem;
+  }
+  .ov-schedEd > div:last-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .ov-schedEd > .ov-week {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .ov-schedEd > fieldset {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .ov-schedEd > .ov-schedEd__side {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+}
+.ov-schedEd__side > :is(div, details):is(.rounded-lg, .rounded-xl) {
+  padding: 0 0 0.75rem !important;
+  border-bottom: 1px solid var(--ov-line);
+  border-radius: 0 !important;
+  background: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  box-shadow: none !important;
+}
+.ov-schedEd__side > div.rounded-xl > div > div:first-child {
+  display: none;
+}
+.ov-schedEd fieldset > section {
+  padding: 0.375rem 0.5rem !important;
+  border-radius: 0.4375rem !important;
+  background: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 60%, transparent);
+}
+.ov-schedEd button.rounded-md:is(.px-3, .px-4),
+.ov-schedEd .mari-chrome-control {
+  min-height: 1.75rem !important;
+  padding: 0 0.75rem !important;
+  border-radius: 0.4375rem !important;
+  font-size: 0.78rem !important;
+}
+.ov-schedEd :is(select, input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), textarea) {
+  border-radius: 0.4375rem !important;
+  font-size: 0.8125rem !important;
+}
+.ov-schedEd :is(select, input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"])) {
+  min-height: 1.875rem;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+.ov-week {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.75rem repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+.ov-week__hrs {
+  position: relative;
+  margin-top: 1.75rem;
+  height: 26rem;
+  color: var(--ov-dim);
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+}
+.ov-week__hrs span {
+  position: absolute;
+  right: 0.25rem;
+  transform: translateY(-0.35em);
+}
+.ov-week__col {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.ov-week__dh {
+  height: 1.5rem;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-week__dh:hover {
+  background: var(--ov-hover);
+}
+.ov-week__dh.is-today {
+  color: var(--ov-accent);
+}
+.ov-week__dh.is-on {
+  background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
+}
+.ov-week__day {
+  position: relative;
+  height: 26rem;
+  border-radius: 0.375rem;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--ov-line) 55%, transparent) 0 1px,
+      transparent 1px calc(100% / 6)
+    ),
+    color-mix(in srgb, var(--foreground) 2.5%, transparent);
+  cursor: pointer;
+}
+.ov-week__blk {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  display: flex;
+  min-height: 2px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0.125rem 0.3125rem;
+  border-left: 2px solid currentColor;
+  border-radius: 0.25rem;
+  font-size: 0.65rem;
+  line-height: 1.25;
+}
+.ov-week__blk b {
+  overflow: hidden;
+  color: var(--ov-text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-week__blk span {
+  overflow: hidden;
+  color: var(--ov-dim);
+  white-space: nowrap;
+}
+.ov-week__blk.is-online {
+  background: color-mix(in srgb, #3fbf6f 18%, transparent);
+  color: #3fbf6f;
+}
+.ov-week__blk.is-idle {
+  background: color-mix(in srgb, #e0b04a 18%, transparent);
+  color: #e0b04a;
+}
+.ov-week__blk.is-dnd {
+  background: color-mix(in srgb, #e0566f 18%, transparent);
+  color: #e0566f;
+}
+.ov-week__blk.is-offline {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  color: color-mix(in srgb, var(--foreground) 35%, transparent);
+}
+.ov-week__now {
+  position: absolute;
+  z-index: 2;
+  left: -2px;
+  right: -2px;
+  height: 2px;
+  background: var(--ov-accent);
+}
+/* The calendar already shows every day, so below it only the picked day's editor shows. */
+.ov-schedEd fieldset > section:not(:has(> div)) {
+  display: none;
+}
+.ov-schedEd fieldset > section > button > :last-child {
+  display: none;
+}
+.ov-schedEd fieldset > section > button {
+  grid-template-columns: 1fr !important;
+}
+.ov-schedEd fieldset:not(:has(> section > div))::before {
+  content: "Click a day in the calendar to edit its blocks.";
+  display: block;
+  padding: 0.5rem 0;
+  color: var(--ov-dim);
+  font-size: 0.78rem;
+}

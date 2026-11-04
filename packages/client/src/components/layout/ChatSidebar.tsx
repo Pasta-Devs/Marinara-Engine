@@ -1,5 +1,5 @@
 import { insertLibraryItems } from "../../lib/library-order";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { isOverhaulActive, useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
@@ -1762,7 +1762,13 @@ export function ChatSidebar() {
       {/* ── User Status Selector ── */}
       <UserStatusFooter
         showScheduleManager={activeTab === "conversation"}
-        onOpenScheduleManager={() => setScheduleManagerOpen(true)}
+        onOpenScheduleManager={() => {
+          // Overhaul: the schedules are a page with its own tab, not a dialog.
+          if (isOverhaulActive()) {
+            useUIStore.getState().closeAllDetails();
+            useOverhaulStore.getState().openSchedules();
+          } else setScheduleManagerOpen(true);
+        }}
       />
 
       {scheduleManagerOpen && (

@@ -42,6 +42,8 @@ type CharacterScheduleEditorModalProps = {
   initialDay?: string | null;
   onClose: () => void;
   onSave: (characterId: string, schedule: WeekSchedule) => void;
+  /** UI overhaul: render inline on the Character schedules page (week calendar + side pane), not in a dialog. */
+  embedded?: boolean;
 };
 
 type DraftSchedule = {
@@ -349,6 +351,7 @@ export function CharacterScheduleEditorModal({
   initialDay,
   onClose,
   onSave,
+  embedded = false,
 }: CharacterScheduleEditorModalProps) {
   const { t: localizeUi } = useUiTranslation();
   const { data: connections, isLoading: connectionsLoading } = useConnections();
@@ -767,7 +770,8 @@ export function CharacterScheduleEditorModal({
   const save = () => {
     if (!validateDailyCap()) return;
     onSave(characterId, currentSchedule);
-    handleClose();
+    if (embedded) toast.success(localizeUi("ui.chat.characterscheduleeditormodal.saveSchedule"));
+    else handleClose();
   };
 
   const exportSchedule = () => {
@@ -815,15 +819,9 @@ export function CharacterScheduleEditorModal({
     }
   };
 
-  return (
-    <Modal
-      open={open}
-      onClose={handleClose}
-      title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })}
-      width="max-w-5xl"
-      chatFloatingPanel
-    >
-      <div className="space-y-4">
+  const body = (
+    <div className={embedded ? "ov-schedEd" : "space-y-4"}>
+      <SideWrap embedded={embedded}>
         <div className="rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
           <ConversationTimeZoneSelect compact />
         </div>
@@ -1252,248 +1250,335 @@ export function CharacterScheduleEditorModal({
             </div>
           </div>
         </details>
-
-        <fieldset disabled={generationBusy} className="min-w-0 space-y-2">
-          {CONVERSATION_SCHEDULE_DAYS.map((day) => {
-            const blocks = draft.days[day] ?? [];
-            const expanded = expandedDay === day;
-            return (
-              <section key={day} className="rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
-                <button
-                  type="button"
-                  onClick={() => setExpandedDay(expanded ? null : day)}
-                  className="grid w-full gap-3 text-left md:grid-cols-[8rem_minmax(0,1fr)] md:items-center"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <ChevronRight
-                      size="0.875rem"
-                      className={cn(
-                        "shrink-0 text-[var(--muted-foreground)] transition-transform",
-                        expanded && "rotate-90",
-                      )}
-                    />
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">{day}</div>
-                      <div className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        {blocks.length} {localizeUi("ui.chat.characterscheduleeditormodal.block")}
-                        {blocks.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
-                      </div>
+      </SideWrap>
+      {embedded && (
+        <OvWeekCalendar
+          days={draft.days}
+          expandedDay={expandedDay}
+          onPickDay={(day) => setExpandedDay(expandedDay === day ? null : day)}
+        />
+      )}
+      <fieldset disabled={generationBusy} className="min-w-0 space-y-2">
+        {CONVERSATION_SCHEDULE_DAYS.map((day) => {
+          const blocks = draft.days[day] ?? [];
+          const expanded = expandedDay === day;
+          return (
+            <section key={day} className="rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setExpandedDay(expanded ? null : day)}
+                className="grid w-full gap-3 text-left md:grid-cols-[8rem_minmax(0,1fr)] md:items-center"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <ChevronRight
+                    size="0.875rem"
+                    className={cn(
+                      "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                      expanded && "rotate-90",
+                    )}
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{day}</div>
+                    <div className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      {blocks.length} {localizeUi("ui.chat.characterscheduleeditormodal.block")}
+                      {blocks.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
                     </div>
                   </div>
-                  <ScheduleTimeline day={day} blocks={blocks} />
-                </button>
+                </div>
+                <ScheduleTimeline day={day} blocks={blocks} />
+              </button>
 
-                {expanded && (
-                  <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-xs font-semibold">
-                        {day} {localizeUi("ui.chat.characterscheduleeditormodal.blocks")}
-                      </div>
-                      {dayGenerationStatus[day] && (
-                        <div className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-                          {dayGenerationStatus[day]}
-                        </div>
-                      )}
+              {expanded && (
+                <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs font-semibold">
+                      {day} {localizeUi("ui.chat.characterscheduleeditormodal.blocks")}
                     </div>
-                    <label className="block text-xs">
-                      <span className="mb-1.5 block font-medium">
-                        {localizeUi("ui.noodle.noodlerpostcomposer.guide_bf073fa")} {day}
-                      </span>
-                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                        <input
-                          value={dayGuidance[day] ?? ""}
-                          onChange={(event) => setDayGuidance((current) => ({ ...current, [day]: event.target.value }))}
-                          placeholder={localizeUi(
-                            "ui.chat.characterscheduleeditormodal.exampleMakeValue1MoreSocialAfterDinner",
-                            { value1: day },
-                          )}
-                          className="w-full rounded-md bg-[var(--background)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]/50"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => generateDay(day)}
-                          disabled={generationBusy || generationUnavailable}
-                          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {generatingDay === day ? (
-                            <Loader2 size="0.75rem" className="animate-spin" />
-                          ) : (
-                            <RefreshCw size="0.75rem" />
-                          )}
-                          {localizeUi("ui.agents.secretplotpanel.regenerate")} {day}
-                        </button>
+                    {dayGenerationStatus[day] && (
+                      <div className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                        {dayGenerationStatus[day]}
                       </div>
-                    </label>
-                    {blocks.length === 0 && (
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.characterscheduleeditormodal.noBlocksScheduledForThisDay")}
-                      </p>
                     )}
-                    {blocks.map((block, index) => {
-                      const menuKey = `${day}-${index}`;
-                      const status = block.status ?? "online";
-                      const isStatusMenuOpen = openStatusMenu === menuKey;
-                      return (
-                        <div
-                          key={index}
-                          className="grid gap-2 rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)] md:grid-cols-[minmax(0,1fr)_2.5rem]"
-                        >
-                          <div className="space-y-1 text-xs">
-                            <div className="font-medium">
-                              {localizeUi("ui.chat.characterscheduleeditormodal.statusTimeActivity")}
-                            </div>
-                            <div
-                              data-schedule-status-menu
-                              className="relative flex w-full min-w-0 items-stretch overflow-visible rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)] transition-colors hover:ring-[var(--border)]/80 focus-within:ring-[var(--primary)]/50"
-                            >
-                              <button
-                                type="button"
-                                aria-haspopup="menu"
-                                aria-expanded={isStatusMenuOpen}
-                                aria-label={localizeUi(
-                                  "ui.chat.characterscheduleeditormodal.chooseValue1BlockStatusCurrentlyValue2",
-                                  { value1: day, value2: STATUS_LABELS[status] },
-                                )}
-                                className={cn(
-                                  "inline-flex min-h-[2.125rem] shrink-0 items-center justify-center gap-1 border-r border-[var(--border)] px-2 text-[0.6875rem] font-medium transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
-                                  isStatusMenuOpen && "bg-[var(--accent)]",
-                                )}
-                                onClick={() => setOpenStatusMenu((current) => (current === menuKey ? null : menuKey))}
-                              >
-                                <span className={cn("h-2 w-2 rounded-full", STATUS_COLORS[status])} />
-                                <ChevronDown size="0.625rem" className="shrink-0 opacity-60" />
-                              </button>
-                              <input
-                                value={block.time}
-                                onChange={(event) => updateBlock(day, index, { time: event.target.value })}
-                                placeholder="09:00-11:30"
-                                aria-label={localizeUi("ui.chat.characterscheduleeditormodal.value1BlockTimeRange", {
-                                  value1: day,
-                                })}
-                                className="min-h-[2.125rem] w-[7.75rem] shrink-0 border-r border-[var(--border)] bg-transparent px-2 py-1.5 font-mono text-xs text-[var(--foreground)]/88 outline-none placeholder:text-[var(--muted-foreground)]/55 max-sm:w-[6.75rem]"
-                              />
-                              <input
-                                value={block.activity}
-                                onChange={(event) => updateBlock(day, index, { activity: event.target.value })}
-                                placeholder={STATUS_LABELS[status]}
-                                aria-label={localizeUi("ui.chat.characterscheduleeditormodal.value1BlockActivity", {
-                                  value1: day,
-                                })}
-                                className="min-h-[2.125rem] w-full min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-[var(--foreground)]/88 outline-none placeholder:text-[var(--muted-foreground)]/55"
-                              />
-                              {isStatusMenuOpen && (
-                                <div
-                                  role="menu"
-                                  aria-label={localizeUi(
-                                    "ui.chat.characterscheduleeditormodal.chooseScheduleBlockStatus",
-                                  )}
-                                  className="absolute left-0 top-[calc(100%+0.375rem)] z-20 w-44 rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]"
-                                >
-                                  {STATUS_OPTIONS.map((option) => {
-                                    const selected = status === option.value;
-                                    return (
-                                      <button
-                                        key={option.value}
-                                        type="button"
-                                        role="menuitemradio"
-                                        aria-checked={selected}
-                                        onClick={() => {
-                                          if (!selected) updateBlock(day, index, { status: option.value });
-                                          setOpenStatusMenu(null);
-                                        }}
-                                        className={cn(
-                                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[0.6875rem] transition-colors",
-                                          selected
-                                            ? "bg-[var(--accent)] text-[var(--foreground)]"
-                                            : "text-[var(--popover-foreground)] hover:bg-[var(--accent)]",
-                                        )}
-                                      >
-                                        <span className={cn("h-2 w-2 shrink-0 rounded-full", option.className)} />
-                                        <span>{option.label}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeBlock(day, index)}
-                            className="flex h-10 w-10 items-center justify-center self-end rounded-md text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10"
-                            title={localizeUi("ui.chat.characterscheduleeditormodal.removeBlock")}
-                          >
-                            <Trash2 size="0.875rem" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    <div className="flex flex-wrap gap-2">
+                  </div>
+                  <label className="block text-xs">
+                    <span className="mb-1.5 block font-medium">
+                      {localizeUi("ui.noodle.noodlerpostcomposer.guide_bf073fa")} {day}
+                    </span>
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <input
+                        value={dayGuidance[day] ?? ""}
+                        onChange={(event) => setDayGuidance((current) => ({ ...current, [day]: event.target.value }))}
+                        placeholder={localizeUi(
+                          "ui.chat.characterscheduleeditormodal.exampleMakeValue1MoreSocialAfterDinner",
+                          { value1: day },
+                        )}
+                        className="w-full rounded-md bg-[var(--background)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]/50"
+                      />
                       <button
                         type="button"
-                        onClick={() => addBlock(day)}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+                        onClick={() => generateDay(day)}
+                        disabled={generationBusy || generationUnavailable}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <Plus size="0.75rem" /> {localizeUi("ui.chat.characterscheduleeditormodal.addBlock")}
+                        {generatingDay === day ? (
+                          <Loader2 size="0.75rem" className="animate-spin" />
+                        ) : (
+                          <RefreshCw size="0.75rem" />
+                        )}
+                        {localizeUi("ui.agents.secretplotpanel.regenerate")} {day}
                       </button>
                     </div>
+                  </label>
+                  {blocks.length === 0 && (
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {localizeUi("ui.chat.characterscheduleeditormodal.noBlocksScheduledForThisDay")}
+                    </p>
+                  )}
+                  {blocks.map((block, index) => {
+                    const menuKey = `${day}-${index}`;
+                    const status = block.status ?? "online";
+                    const isStatusMenuOpen = openStatusMenu === menuKey;
+                    return (
+                      <div
+                        key={index}
+                        className="grid gap-2 rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)] md:grid-cols-[minmax(0,1fr)_2.5rem]"
+                      >
+                        <div className="space-y-1 text-xs">
+                          <div className="font-medium">
+                            {localizeUi("ui.chat.characterscheduleeditormodal.statusTimeActivity")}
+                          </div>
+                          <div
+                            data-schedule-status-menu
+                            className="relative flex w-full min-w-0 items-stretch overflow-visible rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)] transition-colors hover:ring-[var(--border)]/80 focus-within:ring-[var(--primary)]/50"
+                          >
+                            <button
+                              type="button"
+                              aria-haspopup="menu"
+                              aria-expanded={isStatusMenuOpen}
+                              aria-label={localizeUi(
+                                "ui.chat.characterscheduleeditormodal.chooseValue1BlockStatusCurrentlyValue2",
+                                { value1: day, value2: STATUS_LABELS[status] },
+                              )}
+                              className={cn(
+                                "inline-flex min-h-[2.125rem] shrink-0 items-center justify-center gap-1 border-r border-[var(--border)] px-2 text-[0.6875rem] font-medium transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
+                                isStatusMenuOpen && "bg-[var(--accent)]",
+                              )}
+                              onClick={() => setOpenStatusMenu((current) => (current === menuKey ? null : menuKey))}
+                            >
+                              <span className={cn("h-2 w-2 rounded-full", STATUS_COLORS[status])} />
+                              <ChevronDown size="0.625rem" className="shrink-0 opacity-60" />
+                            </button>
+                            <input
+                              value={block.time}
+                              onChange={(event) => updateBlock(day, index, { time: event.target.value })}
+                              placeholder="09:00-11:30"
+                              aria-label={localizeUi("ui.chat.characterscheduleeditormodal.value1BlockTimeRange", {
+                                value1: day,
+                              })}
+                              className="min-h-[2.125rem] w-[7.75rem] shrink-0 border-r border-[var(--border)] bg-transparent px-2 py-1.5 font-mono text-xs text-[var(--foreground)]/88 outline-none placeholder:text-[var(--muted-foreground)]/55 max-sm:w-[6.75rem]"
+                            />
+                            <input
+                              value={block.activity}
+                              onChange={(event) => updateBlock(day, index, { activity: event.target.value })}
+                              placeholder={STATUS_LABELS[status]}
+                              aria-label={localizeUi("ui.chat.characterscheduleeditormodal.value1BlockActivity", {
+                                value1: day,
+                              })}
+                              className="min-h-[2.125rem] w-full min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-[var(--foreground)]/88 outline-none placeholder:text-[var(--muted-foreground)]/55"
+                            />
+                            {isStatusMenuOpen && (
+                              <div
+                                role="menu"
+                                aria-label={localizeUi(
+                                  "ui.chat.characterscheduleeditormodal.chooseScheduleBlockStatus",
+                                )}
+                                className="absolute left-0 top-[calc(100%+0.375rem)] z-20 w-44 rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]"
+                              >
+                                {STATUS_OPTIONS.map((option) => {
+                                  const selected = status === option.value;
+                                  return (
+                                    <button
+                                      key={option.value}
+                                      type="button"
+                                      role="menuitemradio"
+                                      aria-checked={selected}
+                                      onClick={() => {
+                                        if (!selected) updateBlock(day, index, { status: option.value });
+                                        setOpenStatusMenu(null);
+                                      }}
+                                      className={cn(
+                                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[0.6875rem] transition-colors",
+                                        selected
+                                          ? "bg-[var(--accent)] text-[var(--foreground)]"
+                                          : "text-[var(--popover-foreground)] hover:bg-[var(--accent)]",
+                                      )}
+                                    >
+                                      <span className={cn("h-2 w-2 shrink-0 rounded-full", option.className)} />
+                                      <span>{option.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeBlock(day, index)}
+                          className="flex h-10 w-10 items-center justify-center self-end rounded-md text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10"
+                          title={localizeUi("ui.chat.characterscheduleeditormodal.removeBlock")}
+                        >
+                          <Trash2 size="0.875rem" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => addBlock(day)}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+                    >
+                      <Plus size="0.75rem" /> {localizeUi("ui.chat.characterscheduleeditormodal.addBlock")}
+                    </button>
                   </div>
-                )}
-              </section>
-            );
-          })}
-        </fieldset>
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </fieldset>
 
-        <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.characterscheduleeditormodal.unsavedDraft")}
-            </span>
-            <input
-              ref={scheduleFileInputRef}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={(event) => void importSchedule(event.target.files?.[0])}
-            />
-            <button
-              type="button"
-              onClick={() => scheduleFileInputRef.current?.click()}
-              disabled={generationBusy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Upload size="0.75rem" />
-              {localizeUi("ui.chat.characterscheduleeditormodal.importSchedule")}
-            </button>
-            <button
-              type="button"
-              onClick={exportSchedule}
-              disabled={generationBusy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Download size="0.75rem" />
-              {localizeUi("ui.chat.characterscheduleeditormodal.exportSchedule")}
-            </button>
-          </div>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            >
-              {localizeUi("chat.delete.dialog.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={generationBusy}
-              className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
-            >
-              {localizeUi("ui.chat.characterscheduleeditormodal.saveSchedule")}
-            </button>
-          </div>
+      <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.characterscheduleeditormodal.unsavedDraft")}
+          </span>
+          <input
+            ref={scheduleFileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(event) => void importSchedule(event.target.files?.[0])}
+          />
+          <button
+            type="button"
+            onClick={() => scheduleFileInputRef.current?.click()}
+            disabled={generationBusy}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Upload size="0.75rem" />
+            {localizeUi("ui.chat.characterscheduleeditormodal.importSchedule")}
+          </button>
+          <button
+            type="button"
+            onClick={exportSchedule}
+            disabled={generationBusy}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Download size="0.75rem" />
+            {localizeUi("ui.chat.characterscheduleeditormodal.exportSchedule")}
+          </button>
+        </div>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={embedded ? () => setDraft(createDraft(schedule)) : handleClose}
+            className="rounded-md px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            {embedded ? "Discard" : localizeUi("chat.delete.dialog.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={generationBusy}
+            className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+          >
+            {localizeUi("ui.chat.characterscheduleeditormodal.saveSchedule")}
+          </button>
         </div>
       </div>
+    </div>
+  );
+  if (embedded) return body;
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })}
+      width="max-w-5xl"
+      chatFloatingPanel
+    >
+      {body}
     </Modal>
+  );
+}
+
+/** UI overhaul: on the schedules page the settings stack in a side column; in the dialog they stay in the flow. */
+function SideWrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div className="ov-schedEd__side">{children}</div> : <>{children}</>;
+}
+
+/** UI overhaul: the week as seven columns, each block placed by its time. Click a day to edit its blocks below. */
+function OvWeekCalendar({
+  days,
+  expandedDay,
+  onPickDay,
+}: {
+  days: Record<string, ScheduleBlock[]>;
+  expandedDay: string | null;
+  onPickDay: (day: string) => void;
+}) {
+  const now = new Date();
+  const todayName = CONVERSATION_SCHEDULE_DAYS[(now.getDay() + 6) % 7];
+  const nowTop = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 100;
+  return (
+    <div className="ov-week" role="grid" aria-label="Week schedule">
+      <div className="ov-week__hrs" aria-hidden="true">
+        {[0, 4, 8, 12, 16, 20].map((hour) => (
+          <span key={hour} style={{ top: `${(hour / 24) * 100}%` }}>
+            {hour}:00
+          </span>
+        ))}
+      </div>
+      {CONVERSATION_SCHEDULE_DAYS.map((day) => (
+        <div key={day} className="ov-week__col" role="row">
+          <button
+            type="button"
+            className={cn("ov-week__dh", day === todayName && "is-today", expandedDay === day && "is-on")}
+            onClick={() => onPickDay(day)}
+          >
+            {day.slice(0, 3)}
+            {day === todayName ? " · today" : ""}
+          </button>
+          <div className="ov-week__day" onClick={() => onPickDay(day)}>
+            {(days[day] ?? []).flatMap((block, index) => {
+              const range = parseTimeRange(block.time);
+              if (!range) return [];
+              const status = block.status ?? "online";
+              const parts =
+                range.start > range.end
+                  ? [
+                      [range.start, 1440],
+                      [0, range.end],
+                    ]
+                  : [[range.start, range.end]];
+              return parts.map(([start, end], part) => (
+                <div
+                  key={`${index}-${part}`}
+                  className={cn("ov-week__blk", `is-${status}`)}
+                  style={{ top: `${(start! / 1440) * 100}%`, height: `${((end! - start!) / 1440) * 100}%` }}
+                  title={`${block.time} · ${block.activity || STATUS_LABELS[status]}`}
+                >
+                  <b>{block.activity || STATUS_LABELS[status]}</b>
+                  <span>{block.time}</span>
+                </div>
+              ));
+            })}
+            {day === todayName && <div className="ov-week__now" style={{ top: `${nowTop}%` }} />}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
