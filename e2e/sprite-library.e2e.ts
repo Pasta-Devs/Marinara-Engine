@@ -1,5 +1,7 @@
-import { expect, test, request as createRequest, type CDPSession } from "@playwright/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { expect, test, request as createRequest, type CDPSession, type Page, type Locator } from "@playwright/test";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { basename } from "node:path";
+import { isSpriteImageFile } from "../packages/client/src/lib/sprite-folder-import.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 async function dispatchTouch(
@@ -15,6 +17,48 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAMCAYAAABfnvydAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAFklEQVQYlWPo6en5jw8zjCr4T6dwAACTCf0hFZvtCQAAAABJRU5ErkJggg==",
   "base64",
 );
+
+async function importCharacterFolder(page: Page, library: Locator, directory: string) {
+  const files = readdirSync(directory).map((name) => ({
+    name,
+    contents: readFileSync(`${directory}/${name}`).toString("base64"),
+  }));
+  const button = library.getByRole("button", { name: "Import folder", exact: true });
+  if (!(await button.isVisible())) await library.getByRole("button", { name: "Add sprites", exact: true }).click();
+  await button.click();
+  const dialog = page.getByRole("dialog", { name: "Import folder", exact: true });
+  await dialog.getByText("Drop a folder here, or choose images from a folder below.").evaluate(
+    (target, { files, root }) => {
+      const entries = files.map(({ name, contents }) => ({
+        name,
+        fullPath: `/${root}/${name}`,
+        isFile: true,
+        file: (resolve: (file: File) => void) =>
+          resolve(new File([Uint8Array.from(atob(contents), (c) => c.charCodeAt(0))], name)),
+      }));
+      const entry = {
+        isDirectory: true,
+        createReader: () => {
+          let read = false;
+          return {
+            readEntries: (resolve: (entries: unknown[]) => void) => {
+              resolve(read ? [] : entries);
+              read = true;
+            },
+          };
+        },
+      };
+      const event = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", {
+        value: { items: [{ webkitGetAsEntry: () => entry }], files: [] },
+      });
+      target.dispatchEvent(event);
+    },
+    { files, root: basename(directory) },
+  );
+  if (files.some(isSpriteImageFile)) await dialog.getByRole("button", { name: "Import", exact: true }).click();
+  else await dialog.getByRole("button", { name: "Close Import folder", exact: true }).click();
+}
 
 test("sprite metadata stays optional and folder moves work without dragging", async ({ page, request }, info) => {
   test.setTimeout(90_000);
@@ -137,11 +181,13 @@ test("sprite metadata stays optional and folder moves work without dragging", as
           ? route.fulfill({ status: 409, json: { error: "The label already exists" } })
           : route.continue(),
       );
-      await library.locator("input[webkitdirectory]").setInputFiles(rejectedDirectory);
+      if (persona) await library.locator("input[webkitdirectory]").setInputFiles(rejectedDirectory);
+      else await importCharacterFolder(page, library, rejectedDirectory);
       await expect(
         page.locator('[data-sonner-toast][data-type="error"]').filter({ hasText: "The label already exists" }),
       ).toBeVisible();
-      await library.locator("input[webkitdirectory]").setInputFiles(emptyDirectory);
+      if (persona) await library.locator("input[webkitdirectory]").setInputFiles(emptyDirectory);
+      else await importCharacterFolder(page, library, emptyDirectory);
       await expect(
         page
           .locator('[data-sonner-toast][data-type="warning"]')
@@ -970,7 +1016,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         ? route.fulfill({ status: 409, json: { error: "Fixture import failure" } })
         : route.continue(),
     );
-    await library.locator("input[webkitdirectory]").setInputFiles(importDirectory);
+    await importCharacterFolder(page, library, importDirectory);
     await expect(
       page.getByText("1 sprite could not be imported. Fixture import failure Folder information could not be read.", {
         exact: true,
