@@ -1173,28 +1173,48 @@ export function CharacterScheduleEditorModal({
           <div className="mt-3 space-y-3">
             <div className="space-y-1.5">
               <div className="text-xs font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.weekAction")}</div>
-              <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
-                {WEEK_DRAFT_MODES.map((option) => {
-                  const selected = weekDraftMode === option.value;
-                  return (
-                    <button
-                      disabled={generationBusy}
-                      key={option.value}
-                      type="button"
-                      onClick={() => setWeekDraftMode(option.value)}
-                      className={cn(
-                        "rounded-lg px-3 py-2 text-left text-xs ring-1 transition-colors",
-                        selected
-                          ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-[var(--primary)]/35"
-                          : "bg-[var(--background)] text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                      )}
-                    >
-                      <span className="block font-semibold">{option.label}</span>
-                      <span className="mt-0.5 block text-[0.625rem] leading-4 opacity-80">{option.hint}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {embedded ? (
+                <>
+                  <select
+                    value={weekDraftMode}
+                    onChange={(event) => setWeekDraftMode(event.target.value as WeekDraftMode)}
+                    disabled={generationBusy}
+                    className="w-full rounded-md bg-[var(--background)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)] disabled:opacity-60"
+                  >
+                    {WEEK_DRAFT_MODES.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    {WEEK_DRAFT_MODES.find((option) => option.value === weekDraftMode)?.hint}
+                  </p>
+                </>
+              ) : (
+                <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                  {WEEK_DRAFT_MODES.map((option) => {
+                    const selected = weekDraftMode === option.value;
+                    return (
+                      <button
+                        disabled={generationBusy}
+                        key={option.value}
+                        type="button"
+                        onClick={() => setWeekDraftMode(option.value)}
+                        className={cn(
+                          "rounded-lg px-3 py-2 text-left text-xs ring-1 transition-colors",
+                          selected
+                            ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-[var(--primary)]/35"
+                            : "bg-[var(--background)] text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                        )}
+                      >
+                        <span className="block font-semibold">{option.label}</span>
+                        <span className="mt-0.5 block text-[0.625rem] leading-4 opacity-80">{option.hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <label className="block text-xs">
               <span className="mb-1.5 block font-medium">

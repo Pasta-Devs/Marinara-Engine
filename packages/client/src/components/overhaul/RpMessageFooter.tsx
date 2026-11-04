@@ -2,8 +2,8 @@
 // UI overhaul: roleplay message footer (mockup "RP B", with RP C's menus)
 //
 // One thin line at the bottom of a reply: swipe arrows and counter on the
-// left, Regenerate / Edit / Copy / Branch and More on the right. It is always
-// shown on the newest reply and on hover for the others. The counter opens a
+// left, Regenerate / Edit / Copy / Branch and More on the right. It shows on
+// hover (or while one of its menus is open). The counter opens a
 // swipe list you can read before picking; More opens every other action
 // (the upstream action buttons, shown as a labelled menu).
 // ──────────────────────────────────────────────

@@ -3781,7 +3781,7 @@ input.ov-edhead__title:focus {
   opacity: 0;
   transition: opacity 0.12s ease;
 }
-.ov-rpf.is-pinned,
+/* Hover-only on every reply, including the newest (Alyssa, 2026-11-04). */
 .ov-rpf.is-open,
 .group:hover .ov-rpf,
 .ov-rpf:focus-within {
@@ -4952,4 +4952,30 @@ input.ov-edhead__title:focus {
   padding: 0.5rem 0;
   color: var(--ov-dim);
   font-size: 0.78rem;
+}
+
+/* Schedules page: summary tags next to Tuning / Schedule AI read as plain text, not pills. */
+.ov-schedEd summary span.rounded-full {
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+.ov-schedEd summary span.rounded-full + span.rounded-full::before {
+  content: "· ";
+}
+
+/* Reactions: opaque chips and tooltip, so message text never shows through. */
+:root[data-overhaul="on"] .mari-reaction-pill {
+  background: color-mix(in srgb, var(--foreground) 3%, var(--background));
+}
+:root[data-overhaul="on"] .mari-reaction-pill:hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--background));
+}
+:root[data-overhaul="on"] .mari-reaction-pill.is-mine {
+  background: color-mix(in srgb, var(--primary) 18%, var(--background));
+}
+:root[data-overhaul="on"] .mari-reaction-tip {
+  background: var(--background);
+  backdrop-filter: none;
 }

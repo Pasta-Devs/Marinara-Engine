@@ -14,6 +14,7 @@ import { useMatchMedia } from "../../hooks/use-match-media";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps } from "./chat-settings-window";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
+import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
 
 const loadChatSettingsDrawer = async () => {
   const module = await import("./ChatSettingsDrawer");
@@ -228,6 +229,11 @@ function ChatSettingsLoadingFallback({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const phoneLayout = useMatchMedia("(max-width: 767px)");
+  // UI overhaul: while the drawer loads, show the same docked pane it opens as, not the old floating window.
+  const overhaulActive = useOverhaulActive() && !phoneLayout;
+  const ovFloating = useOverhaulStore((state) => state.chatSettingsFloating);
+  const ovDocked = overhaulActive && !ovFloating;
+  const windowProps = getChatSettingsWindowProps(anchor);
 
   return (
     <FloatingWindow
@@ -236,7 +242,12 @@ function ChatSettingsLoadingFallback({
       title={localizeUi("chat.toolbar.settings")}
       titleIcon={<Loader2 size="0.8125rem" className="mari-chrome-accent-icon shrink-0 animate-spin" />}
       closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
-      {...getChatSettingsWindowProps(anchor)}
+      {...windowProps}
+      className={cn(
+        windowProps.className,
+        overhaulActive && "mari-chat-settings-popover mari-chat-settings-drawer ov-cs",
+        ovDocked && "ov-cs--docked",
+      )}
       onRequestClose={() => onClose({ force: true })}
     >
       <div className="mari-chrome-text-muted flex min-h-32 items-center justify-center px-4 py-8 text-xs">

@@ -142,7 +142,8 @@ function ReactionPill({
         })}
         aria-pressed={mine}
         className={cn(
-          "flex items-center gap-1 rounded-md border px-1.5 py-0.5 leading-none transition-colors",
+          "mari-reaction-pill flex items-center gap-1 rounded-md border px-1.5 py-0.5 leading-none transition-colors",
+          mine && "is-mine",
           mine
             ? "border-[var(--primary)]/60 bg-[var(--primary)]/15 text-[var(--primary)]"
             : "border-[var(--border)] bg-[var(--secondary)]/60 text-[var(--muted-foreground)] hover:border-[var(--muted-foreground)]/40 hover:bg-[var(--secondary)]",
@@ -166,7 +167,7 @@ function ReactionPill({
         createPortal(
           <div
             ref={tipRef}
-            className="pointer-events-none fixed z-[9999] flex max-w-[18rem] items-center gap-2 rounded-lg bg-[var(--card)] px-2.5 py-1.5 text-[0.75rem] text-[var(--foreground)] shadow-xl ring-1 ring-[var(--border)]"
+            className="mari-reaction-tip pointer-events-none fixed z-[9999] flex max-w-[18rem] items-center gap-2 rounded-lg bg-[var(--card)] px-2.5 py-1.5 text-[0.75rem] text-[var(--foreground)] shadow-xl ring-1 ring-[var(--border)]"
             style={{ top: pos.top, left: pos.left, visibility: pos.ready ? "visible" : "hidden" }}
           >
             {reaction.imageUrl ? (
