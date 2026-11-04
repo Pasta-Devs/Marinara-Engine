@@ -31,7 +31,7 @@ import { Modal } from "../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CharacterScheduleEditorModal } from "./CharacterScheduleEditorModal";
-import { getAvatarCropStyle } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 
 type ManagerCharacter = {
   id: string;
@@ -107,9 +107,16 @@ function statusDotClass(status: ConversationPresenceStatus) {
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** UI overhaul: a page in its own tab (list on the left, the editor beside it) instead of two dialogs. */
+  page?: boolean;
 }
 
-export function CharacterScheduleManagerModal({ open, onClose }: Props) {
+/** UI overhaul: the Character schedules page shown in its tab. */
+export function OverhaulSchedulesPage() {
+  return <CharacterScheduleManagerModal open page onClose={() => undefined} />;
+}
+
+export function CharacterScheduleManagerModal({ open, onClose, page = false }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const { data: rows, isLoading, refetch: refetchCharacters } = useCharacters(open);
   const { data: chats } = useChats();
@@ -168,6 +175,11 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
     [groups],
   );
   const editingCharacter = characters.find((character) => character.id === editingCharacterId);
+  // The page always shows someone: the first character with a schedule, else the first one.
+  useEffect(() => {
+    if (!page || editingCharacterId || !characters.length) return;
+    setEditingCharacterId((characters.find((character) => character.schedule) ?? characters[0])!.id);
+  }, [characters, editingCharacterId, page]);
 
   const toggle = (id: string) => {
     setSelected((current) => {
@@ -296,8 +308,114 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
       localizeUi={localizeUi}
       generationStates={generationStates}
       conversationTimeZone={conversationTimeZone}
+      activeId={page ? editingCharacterId : undefined}
     />
   );
+
+  const saveSchedule = (characterId: string, schedule: WeekSchedule) =>
+    updateCharacter.mutate({
+      id: characterId,
+      data: { extensions: { conversationSchedule: schedule } },
+      skipVersionSnapshot: true,
+    });
+
+  if (page) {
+    return (
+      <div className="ov-sched" data-component="CharacterSchedulesPage">
+        <aside className="ov-sched__list" aria-label={localizeUi("ui.characters.schedulemanager.title")}>
+          <div className="ov-sched__lh">
+            <h1>Character schedules</h1>
+            <label className="ov-sched__search">
+              <Search size={14} aria-hidden="true" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={localizeUi("ui.characters.schedulemanager.search")}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  aria-label={localizeUi("ui.characters.schedulemanager.clearSearch")}
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </label>
+          </div>
+          <div className={selected.size ? "ov-sched__bulk is-on" : "ov-sched__bulk"}>
+            {selected.size ? (
+              <>
+                <span>{localizeUi("ui.characters.schedulemanager.selected", { count: selected.size })}</span>
+                <span className="flex-1" />
+                <button type="button" disabled={working !== null} onClick={() => void generate()}>
+                  {working === "generate" ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                  {localizeUi("ui.characters.schedulemanager.generate")}
+                </button>
+                {working === "generate" && (
+                  <button type="button" onClick={() => generationAbortRef.current?.abort()}>
+                    {localizeUi("ui.chat.summarypopover.stop")}
+                  </button>
+                )}
+                <button type="button" className="is-danger" disabled={working !== null} onClick={() => void remove()}>
+                  <Trash2 size={13} />
+                  {localizeUi("ui.characters.schedulemanager.remove")}
+                </button>
+                <button
+                  type="button"
+                  className="is-icon"
+                  onClick={() => setSelected(new Set())}
+                  aria-label={localizeUi("ui.characters.schedulemanager.clearSelection")}
+                >
+                  <X size={13} />
+                </button>
+              </>
+            ) : (
+              <>
+                <span>{localizeUi("ui.characters.schedulemanager.description")}</span>
+                <button
+                  type="button"
+                  className="is-link"
+                  onClick={() => setSelected(new Set(filtered.map((character) => character.id)))}
+                >
+                  {localizeUi("ui.characters.schedulemanager.selectVisible")}
+                </button>
+              </>
+            )}
+          </div>
+          {isLoading ? (
+            <Loader2 className="mx-auto my-8 h-5 w-5 animate-spin" />
+          ) : (
+            <div className="ov-sched__groups">
+              {renderGroup(localizeUi("ui.characters.schedulemanager.scheduled"), scheduled)}
+              {renderGroup(localizeUi("ui.characters.schedulemanager.unscheduled"), unscheduled)}
+              {!scheduled.length && !unscheduled.length && (
+                <p className="ov-sched__empty">{localizeUi("ui.characters.schedulemanager.noCharacters")}</p>
+              )}
+            </div>
+          )}
+        </aside>
+        <section className="ov-sched__main">
+          {editingCharacter ? (
+            <CharacterScheduleEditorModal
+              key={editingCharacter.id}
+              open
+              embedded
+              characterId={editingCharacter.id}
+              characterName={editingCharacter.name}
+              characterAvatarUrl={editingCharacter.avatarPath}
+              characterAvatarCrop={editingCharacter.avatarCrop}
+              schedule={editingCharacter.schedule}
+              onClose={() => undefined}
+              onSave={saveSchedule}
+            />
+          ) : (
+            <p className="ov-sched__empty">{localizeUi("ui.characters.schedulemanager.noCharacters")}</p>
+          )}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -430,13 +548,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
           characterAvatarCrop={editingCharacter.avatarCrop}
           schedule={editingCharacter.schedule}
           onClose={() => setEditingCharacterId(null)}
-          onSave={(characterId, schedule) =>
-            updateCharacter.mutate({
-              id: characterId,
-              data: { extensions: { conversationSchedule: schedule } },
-              skipVersionSnapshot: true,
-            })
-          }
+          onSave={saveSchedule}
         />
       )}
     </>
@@ -453,6 +565,7 @@ function CharacterScheduleGroup({
   localizeUi,
   generationStates,
   conversationTimeZone,
+  activeId,
 }: {
   title: string;
   characters: ManagerCharacter[];
@@ -463,6 +576,8 @@ function CharacterScheduleGroup({
   localizeUi: (key: string, options?: Record<string, unknown>) => string;
   generationStates: Record<string, GenerationState>;
   conversationTimeZone?: string;
+  /** The page: the character whose schedule is open. */
+  activeId?: string | null;
 }) {
   if (!characters.length) return null;
   return (
@@ -483,7 +598,11 @@ function CharacterScheduleGroup({
         return (
           <div
             key={character.id}
-            className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2"
+            className={cn(
+              "flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2",
+              activeId !== undefined && "ov-sched__row",
+              activeId === character.id && "is-on",
+            )}
           >
             <button
               type="button"

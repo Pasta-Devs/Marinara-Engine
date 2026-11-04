@@ -102,6 +102,9 @@ const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
 const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
+const OverhaulSchedulesPage = lazy(() =>
+  import("../chat/CharacterScheduleManagerModal").then((module) => ({ default: module.OverhaulSchedulesPage })),
+);
 const OverhaulMariPage = lazy(() =>
   import("../overhaul/MariPage").then((module) => ({ default: module.OverhaulMariPage })),
 );
@@ -515,6 +518,7 @@ export function AppShell({
   const overhaulLibraryPage = useOverhaulStore((s) => s.libraryPage);
   const overhaulDocsTab = useOverhaulStore((s) => s.activeDocsTab);
   const overhaulMari = useOverhaulStore((s) => s.activeMari);
+  const overhaulSchedules = useOverhaulStore((s) => s.activeSchedules);
   const overhaulActive = overhaulEnabled && !shellOverlayMode;
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
@@ -886,7 +890,9 @@ export function AppShell({
   }, [overhaulDocsLeaveKey]);
 
   const detailView =
-    overhaulActive && overhaulMari ? (
+    overhaulActive && overhaulSchedules ? (
+      <OverhaulSchedulesPage />
+    ) : overhaulActive && overhaulMari ? (
       <OverhaulMariPage />
     ) : overhaulActive && overhaulDocsTab ? (
       <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />

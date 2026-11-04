@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
+  CalendarDays,
   CircleHelp,
   FileText,
   GraduationCap,
@@ -66,6 +67,7 @@ const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library">, LucideIcon
   regex: Regex,
   docs: CircleHelp,
   mari: GraduationCap,
+  schedules: CalendarDays,
 };
 
 const MODE_DOT: Record<string, string> = {
@@ -89,8 +91,10 @@ function useCurrentTab(): OverhaulTab | null {
   const libraryPage = useOverhaulStore((s) => s.libraryPage);
   const activeDocsTab = useOverhaulStore((s) => s.activeDocsTab);
   const activeMari = useOverhaulStore((s) => s.activeMari);
+  const activeSchedules = useOverhaulStore((s) => s.activeSchedules);
   return useMemo(() => {
     const real = (id: string | null | undefined) => (id && id !== "__new__" ? id : null);
+    if (activeSchedules) return { kind: "schedules", id: "main" };
     if (activeMari) return { kind: "mari", id: "main" };
     if (activeDocsTab) return { kind: "docs", id: activeDocsTab };
     if (real(regexDetailId)) return { kind: "regex", id: regexDetailId! };
@@ -109,6 +113,7 @@ function useCurrentTab(): OverhaulTab | null {
     activeChatId,
     activeDocsTab,
     activeMari,
+    activeSchedules,
     agentDetailId,
     cardLibraryKind,
     characterDetailId,
@@ -141,6 +146,11 @@ function activateTab(tab: OverhaulTab) {
   if (tab.kind === "mari") {
     ui.closeAllDetails();
     overhaul.openMari();
+    return;
+  }
+  if (tab.kind === "schedules") {
+    ui.closeAllDetails();
+    overhaul.openSchedules();
     return;
   }
   overhaul.leaveDocs();
@@ -238,6 +248,7 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   } else if (tab.kind === "agent") label = tab.id.replace(/[-_]/g, " ");
   else if (tab.kind === "regex") label = localize("Regex script");
   else if (tab.kind === "mari") label = localize("Professor Mari");
+  else if (tab.kind === "schedules") label = localize("Character schedules");
   else if (tab.kind === "docs") {
     const title = docsTitle(docsPath);
     label = title ? `${localize("Docs")}: ${title}` : localize("Docs");

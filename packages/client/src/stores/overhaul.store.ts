@@ -20,7 +20,8 @@ export type OverhaulTabKind =
   | "regex"
   | "library"
   | "docs"
-  | "mari";
+  | "mari"
+  | "schedules";
 
 export type OverhaulTab = { kind: OverhaulTabKind; id: string };
 
@@ -73,6 +74,9 @@ interface OverhaulState {
   /** Professor Mari's chat is the page on screen (her tab). */
   activeMari: boolean;
   openMari: () => void;
+  /** The Character schedules page is on screen (its tab). */
+  activeSchedules: boolean;
+  openSchedules: () => void;
   setLibraryPage: (section: LibrarySection | null) => void;
   /** Docs tabs: tab id -> open guide path (null = guide index). */
   docsTabs: Record<string, string | null>;
@@ -136,9 +140,15 @@ export const useOverhaulStore = create<OverhaulState>()(
           return { tabs };
         }),
       activeMari: false,
-      openMari: () => set({ activeMari: true, activeDocsTab: null, libraryPage: null }),
+      openMari: () => set({ activeMari: true, activeSchedules: false, activeDocsTab: null, libraryPage: null }),
+      activeSchedules: false,
+      openSchedules: () => set({ activeSchedules: true, activeMari: false, activeDocsTab: null, libraryPage: null }),
       setLibraryPage: (libraryPage) =>
-        set(libraryPage ? { libraryPage, activeDocsTab: null, activeMari: false } : { libraryPage }),
+        set(
+          libraryPage
+            ? { libraryPage, activeDocsTab: null, activeMari: false, activeSchedules: false }
+            : { libraryPage },
+        ),
       docsTabs: {},
       activeDocsTab: null,
       openDocs: (path, options) =>
@@ -148,11 +158,12 @@ export const useOverhaulStore = create<OverhaulState>()(
             docsTabs: { ...state.docsTabs, [tabId]: path ?? state.docsTabs[tabId] ?? null },
             activeDocsTab: tabId,
             activeMari: false,
+            activeSchedules: false,
             libraryPage: null,
           };
         }),
       setDocsPath: (tabId, path) => set((state) => ({ docsTabs: { ...state.docsTabs, [tabId]: path } })),
-      leaveDocs: () => set({ activeDocsTab: null, activeMari: false }),
+      leaveDocs: () => set({ activeDocsTab: null, activeMari: false, activeSchedules: false }),
       chatSettingsLayouts: {},
       setChatSettingsLayout: (mode, layout) =>
         set((state) => {
