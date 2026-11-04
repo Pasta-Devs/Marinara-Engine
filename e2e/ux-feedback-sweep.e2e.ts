@@ -3,6 +3,19 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
+// Since #8719 the pick shows in the big preview (named Browse library), with a small round Clear selection button
+// over its top right corner instead of a button styled like Browse library beside it.
+async function expectClearOverPreview(scope: Page | Locator) {
+  const clear = scope.getByRole("button", { name: "Clear selection", exact: true });
+  await expect(clear).toBeVisible();
+  const box = (await clear.boundingBox())!;
+  const preview = (await scope.getByRole("button", { name: "Browse library", exact: true }).boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(preview.x + preview.width / 2);
+  expect(box.x + box.width).toBeLessThanOrEqual(preview.x + preview.width);
+  expect(box.y).toBeGreaterThanOrEqual(preview.y);
+  expect(box.y + box.height).toBeLessThanOrEqual(preview.y + preview.height / 2);
+}
+
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 test.use({ actionTimeout: 10_000 });
 test.beforeEach(async ({ page }) => {
@@ -408,8 +421,7 @@ test("UX sweep: Background library mobile toolbar, accent marker and settled mod
   const useButton = card.getByRole("button", { name: /Use .* for this chat/ });
   await useButton.click();
   await expect(library).toBeHidden();
-  // The pick shows in the big preview, with its small Clear selection button over it (#8719).
-  await expect(page.getByRole("button", { name: "Clear selection", exact: true })).toBeVisible();
+  await expectClearOverPreview(page);
   await page.getByRole("button", { name: "Browse library", exact: true }).click();
   await expect(library).toHaveCSS("opacity", "1");
   await expect(library.locator(".mari-modal-panel")).toHaveCSS("transform", "none");
@@ -652,7 +664,15 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
           ] as const) {
             await trigger.click();
             const picker = page.getByRole("dialog", { name, exact: true });
-            await expect(picker).toHaveCSS("background-color", cardColor);
+            // The model menu lays the card paint over the opaque page background (#8842); Personas paints it directly.
+            await expect
+              .poll(() =>
+                picker.evaluate((element, card) => {
+                  const style = getComputedStyle(element);
+                  return style.backgroundColor === card || style.backgroundImage.includes(card);
+                }, cardColor),
+              )
+              .toBe(true);
             await picker.screenshot({
               path: testInfo.outputPath(`desktop-${name.split(" ")[0]!.toLowerCase()}-picker.png`),
             });
@@ -714,7 +734,7 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
       await choice.getByRole("button", { name: /Use .* for this chat/ }).click();
       await expect(library).toBeHidden();
       await expect(section.locator('img[src*="ancient_library.jpg"]')).toBeVisible();
-      await expect(section.getByRole("button", { name: "Clear selection", exact: true })).toBeVisible();
+      await expectClearOverPreview(section);
       await expect
         .poll(async () => {
           const data = await (await request.get(`/api/chats/${chat.id}`)).json();
