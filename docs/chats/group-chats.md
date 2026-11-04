@@ -24,7 +24,8 @@ Open **Chat Settings** and find the **Characters** section. It is not in Game Mo
 | To do this | Do this |
 | --- | --- |
 | Add a character | Click **Add Character** and search. |
-| Add a Folder | Click **Add from Folder** and pick one. |
+| Add a Folder | Click **Add Character**, then **Add all** on the folder row. |
+| Change several at once | Click a member's name. The same picker opens. |
 | Remove a character | Click the trash icon (**Remove from chat**). |
 | Reorder | Drag the handle (**Drag to reorder**). In **Sequential** order, characters reply in this order. |
 | Turn off for a while | Click the eye (**Disable in chat**). Click again to turn on (**Enable in chat**). |

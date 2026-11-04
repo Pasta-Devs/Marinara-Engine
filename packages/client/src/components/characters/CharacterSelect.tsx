@@ -21,7 +21,7 @@ export type PersonaChoice = { persona: string } | { character: string } | null;
 
 type CommonProps = Pick<
   CharacterPickerListProps,
-  "exclude" | "nonePicked" | "unavailable" | "badge" | "onCreate" | "withCharacters" | "busy"
+  "exclude" | "nonePicked" | "unavailable" | "badge" | "onCreate" | "withCharacters" | "busy" | "onPickGroup"
 > & {
   /** `picker` (default): a field. `menu`: a Settings label/value row. `controlled`: no trigger. */
   variant?: "picker" | "menu" | "controlled";
@@ -246,6 +246,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
       onPickPersona={pickPersona}
       onPickCharacter={pickCharacter}
       onPickNone={pickNone}
+      onPickGroup={props.onPickGroup}
       withCharacters={props.withCharacters}
       busy={props.busy}
       exclude={props.exclude}

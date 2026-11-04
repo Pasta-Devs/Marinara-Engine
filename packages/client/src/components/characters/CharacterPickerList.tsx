@@ -24,7 +24,11 @@ import { useCharacterGroups, useCharacters, usePersonaGroups, usePersonas } from
 import { useUIStore } from "../../stores/ui.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
-import { buildCharacterIdentityGroups, type CharacterIdentityChoice } from "../../lib/character-identity-groups";
+import {
+  buildCharacterIdentityGroups,
+  UNGROUPED_CHARACTER_GROUP_ID,
+  type CharacterIdentityChoice,
+} from "../../lib/character-identity-groups";
 
 export type CharacterSelectKind = "persona" | "character";
 
@@ -39,6 +43,8 @@ export interface CharacterPickerListProps {
   onPickCharacter?: (characterId: string) => void;
   /** Single pick: a "None" row on top that calls this. */
   onPickNone?: () => void;
+  /** Multi pick: an "Add all" button on each folder row, with the ids it would add. */
+  onPickGroup?: (characterIds: string[]) => void;
   /** Persona kind: `true` always offers "Play as a character", `false` never; unset follows the user setting. */
   withCharacters?: boolean;
   /** Rows pause while the caller saves a pick, so fast taps never save from an old list. */
@@ -233,6 +239,7 @@ export function CharacterPickerList({
   onPickPersona,
   onPickCharacter,
   onPickNone,
+  onPickGroup,
   withCharacters,
   busy = false,
   exclude,
@@ -424,21 +431,54 @@ export function CharacterPickerList({
   );
 
   // One folder only (often just "Ungrouped") is a flat list, with no extra tap.
+  // A single real folder keeps its row, open, when the caller can add a whole folder.
+  const groupPickable = (id: string) => multiple && !!onPickGroup && id !== UNGROUPED_CHARACTER_GROUP_ID;
   const characterList =
-    characterGroups.length === 1 ? (
+    characterGroups.length === 1 && !groupPickable(characterGroups[0]!.id) ? (
       <Capped items={characterGroups[0]!.members} render={(c) => characterRow(c, false)} />
     ) : (
-      characterGroups.map((group) => (
-        <div key={group.id}>
-          <FolderToggle
-            open={isOpen(group.id)}
-            onClick={() => toggle(group.id)}
-            label={group.name}
-            count={group.members.length}
-          />
-          {isOpen(group.id) && <Capped items={group.members} render={(c) => characterRow(c, true)} />}
-        </div>
-      ))
+      characterGroups.map((group) => {
+        // The sole folder cannot collapse, so its header is a plain label.
+        const sole = characterGroups.length === 1;
+        const open = sole || isOpen(group.id);
+        const addable = groupPickable(group.id)
+          ? group.members.filter((c) => !characterSet.has(c.id) && !unavailable?.[c.id]).map((c) => c.id)
+          : [];
+        return (
+          <div key={group.id}>
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                {sole ? (
+                  <div className="flex min-h-9 items-center gap-2 px-2 text-xs">
+                    <FolderOpen size="0.875rem" className="shrink-0 text-foreground/45" />
+                    <span className="min-w-0 flex-1 truncate font-semibold">{group.name}</span>
+                    <span className="text-[0.6875rem] tabular-nums text-foreground/45">{group.members.length}</span>
+                  </div>
+                ) : (
+                  <FolderToggle
+                    open={open}
+                    onClick={() => toggle(group.id)}
+                    label={group.name}
+                    count={group.members.length}
+                  />
+                )}
+              </div>
+              {addable.length > 0 && (
+                <button
+                  type="button"
+                  data-pick-row
+                  disabled={busy}
+                  onClick={() => onPickGroup?.(addable)}
+                  className="shrink-0 rounded-lg px-2 py-1.5 text-[0.6875rem] font-medium text-[var(--primary)] hover:bg-foreground/[0.06] data-[active=true]:ring-2 data-[active=true]:ring-[var(--marinara-chat-chrome-focus-ring,currentColor)]"
+                >
+                  {t("ui.characterselect.addAll", { count: addable.length })}
+                </button>
+              )}
+            </div>
+            {open && <Capped items={group.members} render={(c) => characterRow(c, true)} />}
+          </div>
+        );
+      })
     );
 
   const libraryEmpty =
