@@ -12,6 +12,8 @@ import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { useTranslation } from "react-i18next";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 
@@ -82,6 +84,7 @@ function resolveGameBackground(
 export function RecentChats() {
   const { t } = useTranslation();
   const feed = useHomeFeed();
+  const overhaul = useOverhaulActive();
   const gameAssets = useGameAssetManifest();
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const recentChats = useMemo(() => feed.data?.recentChats ?? [], [feed.data?.recentChats]);
@@ -195,6 +198,57 @@ export function RecentChats() {
           {t("home.recentChats.emptyDescription")}
         </p>
       </div>
+    );
+  }
+
+  if (overhaul) {
+    return (
+      <ul className="ov-recent" data-component="RecentChats" data-variant="list">
+        {recentChats.slice(0, 6).map(({ chat, latestMessage }) => {
+          const mode = MODE_BADGE[chat.mode];
+          const characterId = chat.characterIds.find((id) => characterLookup.has(id)) ?? null;
+          const character = characterId ? characterLookup.get(characterId) : null;
+          return (
+            <li key={chat.id}>
+              <button
+                type="button"
+                onClick={() => setActiveChatId(chat.id)}
+                style={{ "--recent-chat-accent": mode.accent } as CSSProperties}
+              >
+                <span className="ov-recent__avatar" aria-hidden="true">
+                  {character?.avatarUrl ? (
+                    <img
+                      src={character.avatarUrl}
+                      alt=""
+                      style={getAvatarCropStyle(character.avatarCrop)}
+                      loading="lazy"
+                    />
+                  ) : (
+                    (chat.name || "?").slice(0, 1).toUpperCase()
+                  )}
+                </span>
+                <span className="ov-recent__text">
+                  <strong>{chat.name}</strong>
+                  <small>
+                    {latestMessage
+                      ? messagePreview(
+                          latestMessage.role,
+                          latestMessage.content,
+                          t("home.recentChats.noPreview"),
+                          t("home.recentChats.you"),
+                        )
+                      : t("home.recentChats.noPreview")}
+                  </small>
+                </span>
+                <span className="ov-recent__mode">{t(mode.labelKey)}</span>
+                <span className="ov-recent__time">
+                  {latestMessage ? (formatRelativeContact(latestMessage.createdAt) ?? "") : ""}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 

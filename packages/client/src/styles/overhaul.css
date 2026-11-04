@@ -2173,3 +2173,143 @@
   color: var(--ov-dim);
   font-size: 0.75rem;
 }
+
+/* ─── Home ─── */
+:root[data-overhaul="on"] [data-component="HomeBrowserHub"][data-home-tab="home"] header.mari-home-browser-chrome {
+  display: none;
+}
+:root[data-overhaul="on"] .mari-home-hero {
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center !important;
+  justify-content: flex-start;
+  gap: 0.75rem 1rem !important;
+  padding: 0.75rem 0.25rem 1rem !important;
+  text-align: left !important;
+}
+:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 1rem;
+  max-width: none;
+}
+:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) > div:first-child > :not(:last-child),
+:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) > p {
+  display: none !important;
+}
+:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) > div:first-child {
+  order: 2;
+}
+:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) > div:first-child > span {
+  margin: 0;
+  color: var(--ov-dim);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+:root[data-overhaul="on"] .mari-home-hero h1 {
+  order: 1;
+  margin: 0;
+  color: var(--ov-text);
+  font: 400 2rem/1.15 var(--ov-serif) !important;
+  letter-spacing: 0;
+}
+.ov-home-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ov-home-hero-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.ov-home-hero-actions .ov-btn {
+  height: 2.25rem;
+  border-radius: 999px;
+}
+:root[data-overhaul="on"] [data-component="HomeBrowserHub.HomePage"] > .relative {
+  max-width: 82rem;
+  margin: 0 auto;
+}
+/* Recent chats as a dense list. */
+.ov-recent {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ov-recent button {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto 4rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3125rem 0.375rem;
+  border-radius: 0.5rem;
+  text-align: left;
+}
+.ov-recent button:hover {
+  background: var(--ov-hover);
+}
+.ov-recent__avatar {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--recent-chat-accent) 55%, var(--card));
+  color: var(--ov-text);
+  font-weight: 700;
+}
+.ov-recent__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ov-recent__text {
+  display: grid;
+  min-width: 0;
+}
+.ov-recent__text strong {
+  overflow: hidden;
+  color: var(--ov-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-recent__text small {
+  overflow: hidden;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-recent__mode {
+  padding: 0.0625rem 0.4375rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.3125rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-recent__time {
+  white-space: nowrap;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  text-align: right;
+}
+[data-overhaul="on"] .mari-home-widget--recent section > img[aria-hidden="true"],
+[data-overhaul="on"] .mari-home-widget--recent img[src*="story-comet"] {
+  display: none;
+}
+:root[data-overhaul="on"] .mari-home-widget--recent .ov-recent {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+:root[data-overhaul="on"] .mari-home-feed-grid :is(h2, h3) {
+  font-family: var(--ov-serif);
+  font-size: 1.375rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
