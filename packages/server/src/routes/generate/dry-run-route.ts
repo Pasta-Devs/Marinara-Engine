@@ -782,7 +782,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }
     }
     if (chatMode === "roleplay" && !advancedMemoryEnabled) {
-      chatMessages = capSummarizedHistory(chatMessages, chatMeta).messages;
+      chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
+        excludeMessageIds: regenerateMessageId ? [regenerateMessageId] : undefined,
+      }).messages;
     }
     const dryRunBeholderState = await loadPriorBeholderState({
       agentsStore: createAgentsStorage(app.db),

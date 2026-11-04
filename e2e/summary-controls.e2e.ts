@@ -797,3 +797,61 @@ test("Chat Summary counts older unsummarized messages still sent past the recent
     await request.delete(`/api/chats/${id}?force=true`);
   }
 });
+
+// The count is asked for as soon as the switch shows hiding on, before the save that hides anything lands (#8831).
+test("Chat Summary counts the backlog again once turning on hiding is saved", async ({ page, request }) => {
+  const created = await request.post("/api/chats", { data: { name: "Summary backlog save", mode: "roleplay" } });
+  expect(created.ok()).toBeTruthy();
+  const { id } = await created.json();
+  try {
+    const ids: string[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      const message = { role: index % 2 ? "assistant" : "user", content: `Line ${index + 1}` };
+      const response = await request.post(`/api/chats/${id}/messages`, { data: message });
+      expect(response.ok()).toBeTruthy();
+      ids.push((await response.json()).id);
+    }
+    const entry = createChatSummaryEntry({
+      id: "recent",
+      title: "Recent",
+      content: "Lines 4 and 5.",
+      messageIds: ids.slice(3),
+    });
+    const patched = await request.patch(`/api/chats/${id}/metadata`, {
+      data: { summaryEntries: [entry], summaryTailMessages: 1 },
+    });
+    expect(patched.ok()).toBeTruthy();
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    });
+    await page.addInitScript(
+      ({ id, version }) => {
+        localStorage.setItem("marinara-active-chat-id", id);
+        localStorage.setItem("marinara:whats-new:seen-version", version);
+      },
+      { id, version },
+    );
+    await page.goto("/");
+    const panel = await openChatSettingsTool(page, "chat-summary");
+    // Hold the save until the early count has been answered from the setting as it was.
+    const early = page.waitForResponse((response) => response.url().endsWith(`/api/chats/${id}/summary-backlog`));
+    await page.route(`**/api/chats/${id}/metadata`, async (route) => {
+      if (route.request().method() === "PATCH") await early;
+      await route.continue();
+    });
+    await panel.getByLabel("Hide summarised messages", { exact: true }).check();
+    expect(await (await early).json()).toEqual({ backlog: 0 });
+    await expect(
+      panel.getByText(
+        "Older messages still sent past this tail because no summary covers them yet: 3. Backfill Summary can summarize them.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+  } finally {
+    await request.delete(`/api/chats/${id}?force=true`);
+  }
+});

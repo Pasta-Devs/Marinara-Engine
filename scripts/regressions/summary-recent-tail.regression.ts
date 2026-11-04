@@ -23,7 +23,8 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
 const { capSummarizedHistory } = await import("../../packages/server/src/routes/generate/generate-route-utils.js");
-const { characterDataSchema } = await import("../../packages/shared/dist/index.js");
+const { characterDataSchema, compileChatSummaryEntries, createChatSummaryEntry } =
+  await import("../../packages/shared/dist/index.js");
 
 // Every history message is one "Seed n.", "Turn n." or "Reply n." line; summaries say "Recap n".
 const historyCount = (messages: unknown) =>
@@ -172,6 +173,62 @@ try {
   assert.equal(dryRun.statusCode, 200, dryRun.body);
   assert.equal(historyCount(dryRun.json().prompt.messages), 10, "the preview keeps only the tail");
 
+  // A swipe leaves out every summary of the reply it replaces, so the messages that summary covers are sent
+  // word for word instead. This summary was committed after approval, which never hides its messages.
+  const swiped = await chats.create({
+    name: "Recent tail swipe",
+    mode: "roleplay",
+    characterIds: [alice.id],
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(swiped);
+  const swipedIds: string[] = [];
+  for (let index = 1; index <= 20; index++) {
+    const message = await chats.createMessage({
+      chatId: swiped.id,
+      role: index % 2 ? "user" : "assistant",
+      characterId: index % 2 ? null : alice.id,
+      content: `Seed ${index}.`,
+    });
+    assert(message);
+    swipedIds.push(message.id);
+  }
+  const swipedEntries = [
+    createChatSummaryEntry({ id: "older", content: "Recap of the start.", messageIds: swipedIds.slice(0, 4) }),
+    createChatSummaryEntry({ id: "latest", content: "Recap of the swiped reply.", messageIds: swipedIds.slice(4) }),
+  ];
+  await chats.patchMetadata(swiped.id, {
+    enableAgents: false,
+    enableTools: false,
+    enableMemoryRecall: false,
+    hideSummarisedMessages: true,
+    summaryTailMessages: 4,
+    summaryEntries: swipedEntries,
+    summary: compileChatSummaryEntries(swipedEntries),
+  });
+  const lastReply = swipedIds.at(-1)!;
+  const swipe = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: swiped.id, regenerateMessageId: lastReply },
+  });
+  assert.equal(swipe.statusCode, 200, swipe.body);
+  assert(!swipe.body.includes('"type":"error"'), swipe.body);
+  const swipePrompt = JSON.stringify(mainPrompts.at(-1));
+  assert.doesNotMatch(swipePrompt, /Recap of the swiped reply/u, "the swiped reply's summary is left out");
+  assert.match(swipePrompt, /Recap of the start/u, "a summary without the swiped reply stays");
+  // Seeds 1-4 go with their summary; Seeds 5-19 stay, since the summary of them is left out; Seed 20 is swiped.
+  assert.equal(historyCount(mainPrompts.at(-1)), 15, "a swipe sends what its left-out summary covers");
+  assert.doesNotMatch(swipePrompt, /Seed (?:[1-4]|20)\./u);
+  const swipePreview = await app.inject({
+    method: "POST",
+    url: "/api/generate/dryRun",
+    payload: { chatId: swiped.id, returnPrompt: true, regenerateMessageId: lastReply },
+  });
+  assert.equal(swipePreview.statusCode, 200, swipePreview.body);
+  assert.equal(historyCount(swipePreview.json().prompt.messages), 15, "the swipe preview sends the same");
+
   // The helper alone: covered messages past the tail go, uncovered ones stay and count, the user's choice wins.
   const rows = Array.from({ length: 8 }, (_, index) => ({ id: `m${index + 1}`, extra: {} as Record<string, unknown> }));
   const meta = (extra: Record<string, unknown> = {}) => ({
@@ -216,6 +273,41 @@ try {
   });
   assert.deepEqual(ids(capSummarizedHistory(rows, off)), ["m1", "m2", "m6", "m7", "m8"]);
   assert.equal(capSummarizedHistory(rows, off).backlog, 1, "only m2 has no summary at all");
+
+  // An entry the swipe's summary leaves out, by its messages or the ones it hid, covers nothing either.
+  const split = meta({
+    summaryEntries: [
+      { id: "e1", content: "Recap", enabled: true, messageIds: ["m3", "m4"] },
+      { id: "e2", content: "Recap", enabled: true, messageIds: ["m5", "m6"], hiddenMessageIds: ["m9"] },
+    ],
+  });
+  assert.deepEqual(ids(capSummarizedHistory(rows, split)), ["m1", "m2", "m6", "m7", "m8"]);
+  for (const target of ["m6", "m9"]) {
+    assert.deepEqual(
+      ids(capSummarizedHistory(rows, split, { excludeMessageIds: [target] })),
+      ["m1", "m2", "m5", "m6", "m7", "m8"],
+      `swiping ${target} keeps what e2 covered`,
+    );
+  }
+
+  // Semantic retrieval always keeps only the newest entries, so what an older one covers is sent as it is.
+  const dated = (entries: Array<Record<string, unknown>>) =>
+    entries.map((entry, index) => ({ ...entry, createdAt: `2026-01-0${index + 1}T00:00:00.000Z` }));
+  const semantic = meta({
+    semanticSummaryRetrievalEnabled: true,
+    semanticSummaryRecentCount: 1,
+    summaryEntries: dated([
+      { id: "e1", content: "Recap", enabled: true, messageIds: ["m3", "m4"] },
+      { id: "e2", content: "Recap", enabled: true, messageIds: ["m5", "m6"] },
+    ]),
+  });
+  assert.deepEqual(ids(capSummarizedHistory(rows, semantic)), ["m1", "m2", "m3", "m4", "m6", "m7", "m8"]);
+  assert.equal(capSummarizedHistory(rows, semantic).backlog, 2, "m3 and m4 have a summary, so only m1 and m2 count");
+  assert.deepEqual(
+    ids(capSummarizedHistory(rows, { ...semantic, semanticSummaryRecentCount: 2 })),
+    ["m1", "m2", "m6", "m7", "m8"],
+    "both entries are among the newest kept",
+  );
   console.log("summary recent tail regression passed");
 } finally {
   await app.close();

@@ -2175,7 +2175,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         lorebookKeeperMessages = lorebookKeeperMessages.filter((message) => timelineIds.has(message.id));
       }
       if (isRoleplaySummaryMode(chatMode) && !advancedMemoryEnabled) {
-        chatMessages = capSummarizedHistory(chatMessages, chatMeta).messages;
+        chatMessages = capSummarizedHistory(chatMessages, chatMeta, {
+          excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
+        }).messages;
       }
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
       const promptIdleDuration = resolvePromptIdleDuration(chatMessages, {

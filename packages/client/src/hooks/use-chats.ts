@@ -1123,6 +1123,10 @@ export function useUpdateChatMetadata(options?: { serialize?: boolean }) {
       if (Object.hasOwn(vars, "enableMemoryRecall") || Object.hasOwn(vars, "advancedMemory")) {
         qc.invalidateQueries({ queryKey: ["advanced-memory", vars.id] });
       }
+      // The optimistic value asks for the backlog before this save hides anything, so count again now (#8831).
+      if (["hideSummarisedMessages", "summaryTailMessages", "summaryEntries"].some((key) => Object.hasOwn(vars, key))) {
+        qc.invalidateQueries({ queryKey: [...chatKeys.messages(vars.id), "summaryBacklog"] });
+      }
     },
   });
 }
