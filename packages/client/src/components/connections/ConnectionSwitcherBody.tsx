@@ -1391,7 +1391,9 @@ export function ConnectionSwitcherBody({
             )}
           </section>
         )}
-        {standaloneGroups.flatMap((group) => group.rows.map((row) => renderEntry(entryOfRow(row, group))))}
+        {standaloneGroups.flatMap((group) =>
+          group.rows.map((row) => renderEntry(entryOfRow(row, group), { pane: true })),
+        )}
         {showLocalModel && renderEntry(localEntry, { pane: true })}
       </ListFrame>
       {addRow && <div className="shrink-0 border-t border-foreground/10 px-1 py-1">{addRow}</div>}
