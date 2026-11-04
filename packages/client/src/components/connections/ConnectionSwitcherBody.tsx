@@ -775,7 +775,9 @@ export function ConnectionSwitcherBody({
 
   // Starred models of every provider: the left pane's first item.
   const starredEntries = listed.flatMap((item) =>
-    item.group.account ? item.entries.filter((entry) => !!entry.model && starsOf(item.group).has(entry.model)) : [],
+    item.group.account
+      ? [...starsOf(item.group)].flatMap((model) => item.entries.find((entry) => entry.model === model) ?? [])
+      : [],
   );
   // The picker opens on Starred when it has something for this job, else on the current pick's account.
   const paneKey =
