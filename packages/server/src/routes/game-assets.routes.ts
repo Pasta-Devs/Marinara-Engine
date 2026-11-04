@@ -393,13 +393,19 @@ interface TreeNode {
  * @param dir - Absolute directory to scan
  * @param relPrefix - Relative prefix for building node paths
  * @param meta - Loaded folder metadata
+ * @param linked - Real paths of the folders this walk entered through a link (see listGameAssetFolder)
  * @returns Array of TreeNode objects
  */
-function buildTree(dir: string, relPrefix: string, meta: Record<string, FolderMeta>): TreeNode[] {
+function buildTree(
+  dir: string,
+  relPrefix: string,
+  meta: Record<string, FolderMeta>,
+  linked = new Set<string>(),
+): TreeNode[] {
   const nodes: TreeNode[] = [];
 
-  // Listed like the manifest scan: linked folders are not entered and links that lead out are skipped.
-  for (const { name: entry, stat } of listGameAssetFolder(dir)) {
+  // Listed like the manifest scan: a link is followed only while it leads inside game-assets, and a link cycle ends.
+  for (const { name: entry, stat } of listGameAssetFolder(dir, linked)) {
     if (entry === "manifest.json" && relPrefix === "") continue;
     if (entry === "meta.json" && relPrefix === "") continue;
 
@@ -407,7 +413,7 @@ function buildTree(dir: string, relPrefix: string, meta: Record<string, FolderMe
     const rel = relPrefix ? `${relPrefix}/${entry}` : entry;
 
     if (stat.isDirectory()) {
-      const children = buildTree(full, rel, meta);
+      const children = buildTree(full, rel, meta, linked);
       nodes.push({
         name: entry,
         path: rel,

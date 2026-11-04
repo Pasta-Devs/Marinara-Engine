@@ -8,6 +8,7 @@ import { extname, join } from "path";
 import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger } from "../../lib/logger.js";
+import { logRateLimited } from "../../lib/log-rate-limit.js";
 import { getSharp } from "./sharp-runtime.js";
 import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-engine/shared";
 
@@ -46,14 +47,27 @@ export function parseThumbnailWidth(value: unknown): number | null {
 export async function resolveThumbPath(filePath: string, width: number): Promise<string | null> {
   if (!THUMB_WIDTHS.has(width) || !THUMBABLE_EXTS.has(extname(filePath).toLowerCase())) return null;
 
+  // Professor Mari's shell can make links in the data dir when it sits in her workspace, so the cache is held to its
+  // real folder. While that folder is refused, every preview request serves the original, so this logs once a minute.
+  let thumbDir: string;
+  try {
+    thumbDir = realPathInAppFolder(THUMB_DIR, THUMB_DIR);
+  } catch (error) {
+    logRateLimited(
+      "warn",
+      "image-thumbnail:cache-folder",
+      error,
+      "Serving original images: the preview folder %s leads out of its place in the data folder or cannot be resolved",
+      THUMB_DIR,
+    );
+    return null;
+  }
+
   try {
     // Inside the try: the source can vanish between the caller's existsSync and this stat.
     const key = createHash("sha1").update(filePath).digest("hex").slice(0, 16);
     const source = statSync(filePath);
-    // Professor Mari's shell can make links in the data dir when it sits in her workspace, so the cache is held to its
-    // real folder (a cache folder whose real path is outside throws here and the original is served), and only a plain
-    // file at the name is a cache hit: a link there is replaced by the new preview, never served.
-    const thumbDir = realPathInAppFolder(THUMB_DIR, THUMB_DIR);
+    // Only a plain file at the name is a cache hit: a link there is replaced by the new preview, never served.
     // v3 also invalidates width-only previews that left portrait/tall images too large.
     const thumbPath = join(thumbDir, `v3-${width}-${source.mtimeMs}-${key}.webp`);
     if (lstatSync(thumbPath, { throwIfNoEntry: false })?.isFile()) return thumbPath;

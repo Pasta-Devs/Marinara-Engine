@@ -2,9 +2,10 @@
 // held to its own real path (a game-assets folder that is itself a link, e.g. to another disk, still works): the
 // default assets seed and the asset manifest build (startup, uploads, `mari images` background assign/delete) and the
 // game-assets routes create, scan, copy, rename, write, read and delete only inside it, a link that leads out is
-// skipped or refused and its target is never touched, a link cycle ends, and manifest.json, meta.json and the seed's
-// hash are written as new files, never through a link, and read only when they are plain files (a FIFO would block the
-// server). Image previews are cached only in the real thumbnail folder and a link at a preview's name is never served.
+// skipped or refused and its target is never touched, a folder link that stays inside is listed, a link cycle ends, and
+// manifest.json, meta.json and the seed's hash are written as new files, never through a link, and read only when they
+// are plain files (a FIFO would block the server). Image previews are cached only in the real thumbnail folder (a
+// refused one serves originals and logs once), and a link at a preview's name is never served.
 // The shared avatar cleanup used by the app's own deletes keeps a file whose avatar folder's real path is outside the
 // data dir. A category folder is never deleted through a trailing slash, dot or other case. Normal work still runs with
 // DATA_DIR behind a link and with game-assets behind a link, and a dangling link (game-assets on an unplugged disk
@@ -53,6 +54,8 @@ const { deleteAbandonedAvatarFiles, mutateAvatarReferencesAndCleanup, removeUnat
   await import("../../packages/server/src/services/image/avatar-file-lifecycle.js");
 const { seedDefaultGameAssets } = await import("../../packages/server/src/db/seed-game-assets.js");
 const { BUNDLED_GAME_ASSETS_DIR } = await import("../../packages/server/src/services/game/native-game-assets.js");
+const { logger } = await import("../../packages/server/src/lib/logger.js");
+const { resetRateLimitedLogs } = await import("../../packages/server/src/lib/log-rate-limit.js");
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
@@ -357,17 +360,28 @@ async function thumbnailCases(label: string) {
     assert.ok(lstatSync(join(thumbs, previewName())).isFile(), "the preview is cached");
     assert.deepEqual((await inject("GET", url)).rawPayload, readFileSync(join(thumbs, previewName())), "cache hit");
   });
-  await check(`${label}: previews are never written into a linked thumbnail folder`, async () => {
+  await check(`${label}: previews are never written into a linked thumbnail folder, and that logs once`, async () => {
     const target = join(outside, `${label}-thumbs`);
     mkdirSync(target);
     const restore = link(thumbs, target);
+    const originalWarn = logger.warn;
+    const warnings: unknown[] = [];
+    logger.warn = ((...args: unknown[]) => void warnings.push(args)) as typeof logger.warn;
+    resetRateLimitedLogs();
     try {
       await untouched(
         target,
-        async () => assert.deepEqual((await status(inject("GET", url), 200, "original")).rawPayload, PNG),
+        async () => {
+          for (let request = 0; request < 5; request++)
+            assert.deepEqual((await status(inject("GET", url), 200, "original")).rawPayload, PNG);
+        },
         "preview",
       );
+      assert.equal(warnings.length, 1, "five previews from a refused cache folder log one warning");
+      assert.ok(String(warnings[0]).includes("backgrounds-thumbs"), "the warning names the preview folder");
     } finally {
+      logger.warn = originalWarn;
+      resetRateLimitedLogs();
       restore();
     }
   });
@@ -417,19 +431,65 @@ async function linkedCases(label: string) {
       link(join(dataDir, "backgrounds", "linked-background.png"), join(file, "leaked-name.png")),
     ];
     try {
-      assert.deepEqual(listed(manifestText(), "secret-face", "leaked-link", "linked-background"), [], "manifest");
-      assert.deepEqual(listed((await inject("GET", "/tree")).body, "secret-face", "leaked-link"), [], "tree");
+      await untouched(
+        outside,
+        async () => {
+          assert.deepEqual(listed(manifestText(), "secret-face", "leaked-link", "linked-background"), [], "manifest");
+          assert.deepEqual(listed((await inject("GET", "/tree")).body, "secret-face", "leaked-link"), [], "tree");
+        },
+        "scan",
+      );
     } finally {
       for (const restore of restores) restore();
     }
   });
-  await check(`${label}: a link cycle ends`, async () => {
-    const restore = link("sfx/ui/loop", join(gameAssets, "sfx"));
+  await check(`${label}: a music/<state> folder linked inside game-assets is listed with its tracks`, async () => {
+    const shared = bait(join(gameAssets, "shared-music"), { "fantasy/calm/linked-track.mp3": "calm" });
+    const escape = bait(join(outside, `${label}-escape-music`), { "fantasy/calm/escaped-track.mp3": BAIT });
+    symlinkSync(escape, join(shared, "escape"));
+    const restore = link("music/dialogue", shared);
     try {
-      buildAssetManifest();
-      await status(inject("GET", "/tree"), 200, "tree");
+      await untouched(
+        outside,
+        async () => {
+          const manifest = JSON.stringify(buildAssetManifest());
+          assert.ok(manifest.includes('"music:dialogue:fantasy:calm:linked-track"'), "the manifest lists its track");
+          const tree = (await status(inject("GET", "/tree"), 200, "tree")).body;
+          assert.ok(tree.includes('"path":"music/dialogue/fantasy/calm/linked-track.mp3"'), "the tree lists its track");
+          assert.deepEqual(listed(manifest + tree, "escaped-track"), [], "a link in it that leads out stays unlisted");
+        },
+        "scan",
+      );
     } finally {
       restore();
+      rmSync(shared, { recursive: true });
+    }
+  });
+  await check(`${label}: a link cycle ends with the scan complete`, async () => {
+    bait(join(gameAssets, "sfx/ui"), { "cycle-click.mp3": "click" });
+    // One link to the folder it sits in, one to game-assets, and a cycle through two links.
+    mkdirSync(join(gameAssets, "cycle-hop"));
+    const restores = [
+      link("sfx/ui/loop", join(gameAssets, "sfx")),
+      link("sprites/all", gameAssets),
+      link("music/combat", join(gameAssets, "cycle-hop")),
+      link("cycle-hop/back", join(gameAssets, "music")),
+    ];
+    try {
+      const manifest = buildAssetManifest();
+      assert.ok(manifest.assets["sfx:ui:cycle-click"], "the manifest lists the folder a cycle leads to");
+      const tree = (await status(inject("GET", "/tree"), 200, "tree")).body;
+      assert.ok(tree.includes('"path":"sfx/ui/cycle-click.mp3"'), "the tree lists it");
+      const followed = Object.keys(manifest.assets).filter((tag) => /:(loop|all):/u.test(tag));
+      assert.deepEqual(followed, [], "a link to its own folder is not entered");
+      // Without one walk-wide set, the walk would go around until the path holds too many links (ELOOP).
+      const twice = /back[/:]combat[/:]back/u;
+      assert.ok(!twice.test(tree), "the tree goes around a cycle through two links at most once");
+      assert.ok(!Object.keys(manifest.assets).some((tag) => twice.test(tag)), "and so does the manifest");
+    } finally {
+      for (const restore of restores.reverse()) restore();
+      rmSync(join(gameAssets, "cycle-hop"), { recursive: true });
+      rmSync(join(gameAssets, "sfx/ui/cycle-click.mp3"));
     }
   });
   await check(`${label}: manifest.json is never written or read through a link`, async () => {

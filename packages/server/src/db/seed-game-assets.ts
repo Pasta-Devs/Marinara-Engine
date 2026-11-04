@@ -28,7 +28,11 @@ function seedFolder(dest: string): string | null {
     mkdirSync(realDest, { recursive: true });
     return realDest;
   } catch (error) {
-    logger.warn(error, "[seed] Skipped default game assets for %s: its real path is outside game-assets", dest);
+    logger.warn(
+      error,
+      "[seed] Skipped default game assets for %s: it leads outside game-assets or cannot be made (for example, a link to a missing folder)",
+      dest,
+    );
     return null;
   }
 }

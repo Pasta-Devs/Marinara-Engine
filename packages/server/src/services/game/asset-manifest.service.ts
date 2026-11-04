@@ -16,7 +16,7 @@ import {
   writeFileSync,
   type Stats,
 } from "fs";
-import { join, extname, relative, basename, dirname } from "path";
+import { join, extname, relative, basename, dirname, isAbsolute, sep } from "path";
 import { WORLD_ART_FAMILIES, type MusicGenre, type MusicIntensity } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { realPathInAppFolder, realPathInRealFolder } from "../../utils/app-folder.js";
@@ -73,15 +73,19 @@ export interface AssetFolderEntry {
   name: string;
   /** The name in the folder's checked real path. */
   path: string;
-  /** lstat of a real entry; stat of a linked file's target. */
+  /** lstat of a real entry; lstat of a link's real target. */
   stat: Stats;
 }
 
-// The entries of `dir`, read in its real path held by `bound`. A linked folder in it is never listed for entering, so a
-// link cycle cannot be followed, and a linked file is kept only while it leads to a file inside. Anything else is skipped with a
-// warning, never thrown, since startup scans here. Linked folders are not a supported game-assets layout: the file
-// route never served a link that leads out, and nothing the app writes there is a link.
-function listFolder(bound: (path: string) => string, dir: string): AssetFolderEntry[] {
+// The entries of `dir`, read in its real path held by `bound`. A link is kept only while it leads to a file or a folder
+// inside; the caller enters a linked folder by the link's name, and its entries are held the same way. `linked` holds the
+// real paths of the folders one walk entered through a link, so a link to the folder being listed or one above it, or to
+// a folder the walk already entered through a link, is skipped: a link cycle ends with one warning. Anything else is
+// skipped with a warning, never thrown, since startup scans here.
+// ponytail: a second link to a folder already entered through a link is skipped, so that folder is listed under the name
+// the walk reaches first, and a cycle through two or more links is listed once around before it ends. Upgrade by tracking
+// the folders on the current branch to tell a cycle from a second link, with a listing budget to bound the work.
+function listFolder(bound: (path: string) => string, dir: string, linked: Set<string>): AssetFolderEntry[] {
   let realDir: string;
   let names: string[];
   try {
@@ -109,20 +113,41 @@ function listFolder(bound: (path: string) => string, dir: string): AssetFolderEn
       entries.push({ name, path, stat: own });
       continue;
     }
+    let target: string;
+    let stat: Stats;
     try {
-      const stat = lstatSync(bound(path));
-      if (stat.isFile()) entries.push({ name, path, stat });
-      else logger.warn("[game-assets] Skipped linked folder %s: linked folders are not scanned", join(dir, name));
+      target = bound(path);
+      stat = lstatSync(target);
     } catch (error) {
       logger.warn(error, "[game-assets] Skipped link %s: it leads outside its folder", join(dir, name));
+      continue;
     }
+    if (stat.isFile()) {
+      entries.push({ name, path, stat });
+      continue;
+    }
+    if (!stat.isDirectory()) {
+      logger.warn("[game-assets] Skipped link %s: it leads to neither a file nor a folder", join(dir, name));
+      continue;
+    }
+    // The folder being listed is inside the link's target when the way back from the target does not leave it.
+    const back = relative(target, realDir);
+    if (linked.has(target) || !(back === ".." || back.startsWith(`..${sep}`) || isAbsolute(back))) {
+      logger.warn(
+        "[game-assets] Skipped linked folder %s: this scan already lists the folder it leads to",
+        join(dir, name),
+      );
+      continue;
+    }
+    linked.add(target);
+    entries.push({ name, path, stat });
   }
   return entries;
 }
 
-/** The entries of a game-assets folder; see listFolder. */
-export function listGameAssetFolder(dir: string): AssetFolderEntry[] {
-  return listFolder(realGameAssetPath, dir);
+/** The entries of a game-assets folder; see listFolder. Pass one `linked` set down a recursive walk. */
+export function listGameAssetFolder(dir: string, linked = new Set<string>()): AssetFolderEntry[] {
+  return listFolder(realGameAssetPath, dir, linked);
 }
 
 /** Supported file extensions by asset category. */
@@ -212,7 +237,8 @@ function uniqueDestinationPath(destDir: string, filename: string): string {
   return candidate;
 }
 
-// Moves files only from and into folders inside the real game-assets folder: a linked music/<state> folder is skipped.
+// Moves files only from and into folders inside the real game-assets folder: a music/<state> folder linked outside it is
+// skipped. Only files are moved, so a linked folder listed in a music/<state> folder is left alone.
 function migrateLegacyFlatMusicAssets(): void {
   for (const state of MUSIC_STATES) {
     const stateDir = join(GAME_ASSETS_DIR, "music", state);
@@ -277,14 +303,15 @@ function scanDir(
   bound: (path: string) => string,
   dir: string,
   allowedExts: Set<string>,
+  linked = new Set<string>(),
 ): Array<{ rel: string; name: string; ext: string }> {
   const results: Array<{ rel: string; name: string; ext: string }> = [];
 
-  for (const { name: entry, stat } of listFolder(bound, dir)) {
+  for (const { name: entry, stat } of listFolder(bound, dir, linked)) {
     const full = join(dir, entry);
     if (stat.isDirectory()) {
-      // Recurse into subdirectories
-      const sub = scanDir(bound, full, allowedExts);
+      // Recurse into subdirectories, a linked one by its name here
+      const sub = scanDir(bound, full, allowedExts, linked);
       results.push(...sub);
     } else if (stat.isFile()) {
       const ext = extname(entry).toLowerCase();
