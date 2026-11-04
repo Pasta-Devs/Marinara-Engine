@@ -1178,10 +1178,12 @@ export function ConnectionSwitcherBody({
     </button>
   ));
   const addRow = onAdd && (
-    <button type="button" data-switcher-add onClick={onAdd} className={ROW_CLASS}>
-      <Plus size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
-      <span className="min-w-0 flex-1 truncate">{t("connections.switcher.addProvider")}</span>
-    </button>
+    <div className="shrink-0 border-t border-foreground/10 px-1 py-1">
+      <button type="button" data-switcher-add onClick={onAdd} className={ROW_CLASS}>
+        <Plus size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
+        <span className="min-w-0 flex-1 truncate">{t("connections.switcher.addProvider")}</span>
+      </button>
+    </div>
   );
 
   // Shuffle on: the list becomes the pool, as before.
@@ -1396,7 +1398,7 @@ export function ConnectionSwitcherBody({
         )}
         {showLocalModel && renderEntry(localEntry, { pane: true })}
       </ListFrame>
-      {addRow && <div className="shrink-0 border-t border-foreground/10 px-1 py-1">{addRow}</div>}
+      {addRow}
     </div>
   );
 
@@ -1679,7 +1681,11 @@ export function ConnectionSwitcherBody({
           {poolList}
         </ListFrame>
       ) : nothing ? (
-        (empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>)
+        // With no models there are no panes, so the add row goes under the empty message.
+        <>
+          {empty ?? <ListStatus>{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>}
+          {addRow}
+        </>
       ) : searching ? (
         results
       ) : (

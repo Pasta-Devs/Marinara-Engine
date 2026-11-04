@@ -33,6 +33,8 @@ type CommonProps = Pick<
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Extra classes for the desktop window, such as the chat surface it opens over. */
+  windowClassName?: string;
   id?: string;
   "aria-label"?: string;
   /** Extra rows above the list, such as onboarding templates. */
@@ -336,7 +338,13 @@ export function CharacterSelect(props: CharacterSelectProps) {
         </button>
       ) : null}
       {open && (
-        <CharacterSelectWindow title={windowTitle} anchorRef={anchorRef ?? triggerRef} onClose={close} footer={footer}>
+        <CharacterSelectWindow
+          title={windowTitle}
+          anchorRef={anchorRef ?? triggerRef}
+          onClose={close}
+          footer={footer}
+          className={props.windowClassName}
+        >
           {props.header}
           {list}
         </CharacterSelectWindow>
@@ -350,12 +358,14 @@ function CharacterSelectWindow({
   anchorRef,
   onClose,
   footer,
+  className,
   children,
 }: {
   title: string;
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   footer: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   const { t } = useUiTranslation();
@@ -429,7 +439,10 @@ function CharacterSelectWindow({
         event.stopPropagation();
         onClose();
       }}
-      className="fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl"
+      className={cn(
+        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl",
+        className,
+      )}
       style={
         pos
           ? {

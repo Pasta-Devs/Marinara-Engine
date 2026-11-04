@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { seedUIState } from "./ui-state-fixture.js";
+import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -105,6 +105,9 @@ test("game chat inherits connection send switches after editing another value an
 }, info) => {
   const connections = [];
   let chatId: string | undefined;
+  const accountsBefore = new Set(
+    ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map((a) => a.id),
+  );
   try {
     for (const enabled of [true, false]) {
       const response = await request.post("/api/connections", {
@@ -146,6 +149,9 @@ test("game chat inherits connection send switches after editing another value an
     await request.patch(`/api/chats/${chatId}/metadata`, {
       data: { gameSessionStatus: "active", gameIntroPresented: true },
     });
+    // The drawer remembers which sections are open in the synced UI settings; an earlier run left Connection
+    // open there, and the click below then folded it shut.
+    await isolateSyncedUISettings(page);
     await seedUIState(page, {
       hasCompletedOnboarding: true,
       rightPanelOpen: false,
@@ -167,6 +173,8 @@ test("game chat inherits connection send switches after editing another value an
     const reasoning = parameters.getByRole("checkbox", { name: "Send Reasoning Effort parameter", exact: true });
     await expect(reasoning).toBeChecked();
     const output = parameters.getByRole("textbox", { name: "Max Output Tokens", exact: true });
+    // Wait for the inherited value: on WebKit a fill that races it is appended to it ("409612000").
+    await expect(output).toHaveValue("4096");
     await output.fill("12000");
     await output.press("Enter");
     await expect
@@ -176,18 +184,31 @@ test("game chat inherits connection send switches after editing another value an
       })
       .toEqual({ maxTokens: 12000 });
     await drawer.getByRole("button", { name: "Connection", exact: true }).click();
-    const connectionSelect = drawer
-      .locator("select")
-      .filter({ has: page.locator(`option[value="${connections[0].id}"]`) })
-      .first();
-    await connectionSelect.selectOption(connections[1].id);
+    // The chat's model field opens the composer's two-pane picker: the account on the left, its Models on the right.
+    const field = drawer.locator("[data-chat-settings-model-field]");
+    const choose = async (connection: { name: string; accountId: string }) => {
+      await field.locator("button[aria-expanded]").click();
+      // A narrow drawer opens on one pane (the current account's); its back button returns to the account list.
+      const account = field.locator(`[data-switcher-pane="${connection.accountId}"]`);
+      const back = field.locator("[data-switcher-back]");
+      await expect(account.or(back).filter({ visible: true }).first()).toBeVisible();
+      if (await back.isVisible()) await back.click();
+      await account.click();
+      await field
+        .locator("[data-switcher-pane-models] [data-switcher-row]")
+        .filter({ hasText: connection.name })
+        .first()
+        .click();
+      await expect(field.locator("button[aria-expanded]")).toContainText(connection.name);
+    };
+    await choose(connections[1]);
     await expect(reasoning).not.toBeChecked();
-    await connectionSelect.selectOption(connections[0].id);
+    await choose(connections[0]);
     await expect(reasoning).toBeChecked();
     await reasoning.locator("..").click();
     await expect(reasoning).not.toBeChecked();
-    await connectionSelect.selectOption(connections[1].id);
-    await connectionSelect.selectOption(connections[0].id);
+    await choose(connections[1]);
+    await choose(connections[0]);
     await expect(reasoning).not.toBeChecked();
     await info.attach("game-reasoning-inheritance", {
       body: await page.screenshot({ animations: "disabled" }),
@@ -196,5 +217,8 @@ test("game chat inherits connection send switches after editing another value an
   } finally {
     if (chatId) await request.delete(`/api/chats/${chatId}`);
     for (const connection of connections) await request.delete(`/api/connections/${connection.id}`);
+    // The Models were linked to an account; one this test made goes with them.
+    for (const accountId of new Set(connections.map((connection) => connection.accountId)))
+      if (accountId && !accountsBefore.has(accountId)) await request.delete(`/api/connection-accounts/${accountId}`);
   }
 });
