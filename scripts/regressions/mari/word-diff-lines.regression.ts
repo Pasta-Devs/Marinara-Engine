@@ -102,6 +102,29 @@ assert(diffLines("", "").length === 0, "empty to empty has nothing to show");
   );
   const cut = diffWordRuns("A X foo Y B", "A foo B");
   assert(!cut.some((s) => s.type === "added"), "a pure deletion adds nothing");
+  // An earlier pure run must not make a later one look like a replacement.
+  for (const [oldText, newText] of [
+    [
+      "She was very tired. Later she bought bread and left.",
+      "She was tired. Later she bought fresh bread today and left.",
+    ],
+    [
+      "She was tired. Later she bought fresh bread today and left.",
+      "She was very tired. Later she bought bread and left.",
+    ],
+  ]) {
+    const runs = diffWordRuns(oldText, newText);
+    assert(
+      runs.some((s) => s.type === "equal" && /\bbread\b/.test(s.value)),
+      `"bread" stays kept after an earlier pure run (${oldText} -> ${newText})`,
+    );
+    const spell = (keep: string) =>
+      runs
+        .filter((s) => s.type === "equal" || s.type === keep)
+        .map((s) => s.value)
+        .join("");
+    assert(spell("removed") === oldText && spell("added") === newText, "pure runs still spell both texts");
+  }
   const apart = diffWordRuns("one cat sleeps quietly here", "two cat sleeps loudly here");
   assert(
     apart.filter((s) => s.type === "equal").some((s) => s.value.includes("cat sleeps")),
