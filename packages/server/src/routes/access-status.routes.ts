@@ -8,7 +8,10 @@
 import type { FastifyInstance } from "fastify";
 import {
   announceSetupCode,
+  clearStoredAdminSecret,
   clearStoredLogin,
+  createStoredAdminSecret,
+  getAdminSecretSource,
   consumeLoginSetupCode,
   getLoginConfig,
   hasLoginSetupCode,
@@ -40,6 +43,7 @@ import { ACCESS_LOGIN_RATE_LIMIT, RUNTIME_DIAGNOSTICS_RATE_LIMIT } from "../midd
 import { listRefusals } from "../middleware/refused-devices.js";
 
 const ENV_MANAGED = { error: "The login is set in .env (BASIC_AUTH_USER and BASIC_AUTH_PASS). Change it there." };
+const ADMIN_SECRET_ENV_MANAGED = { error: "The admin secret is set in .env (ADMIN_SECRET). Change it there." };
 
 export async function accessStatusRoutes(app: FastifyInstance) {
   app.get("/status", { config: { rateLimit: RUNTIME_DIAGNOSTICS_RATE_LIMIT } }, async (request, reply) => {
@@ -55,6 +59,7 @@ export async function accessStatusRoutes(app: FastifyInstance) {
       loginSource: getLoginConfig()?.source ?? null,
       loginUser: getLoginConfig()?.user ?? null,
       adminSecret: policy.adminSecretConfigured,
+      adminSecretSource: getAdminSecretSource(),
       allowlist: getIpAllowlist() !== null,
       trustedAuthProxy: getTrustedAuthProxies().length > 0,
       passwordlessPeers: getPasswordlessPeers(host),
@@ -149,6 +154,25 @@ export async function accessStatusRoutes(app: FastifyInstance) {
       return reply.status(204).send();
     },
   );
+
+  // Makes a new admin secret and returns it once. Only a caller that already has
+  // admin rights may do this: this computer, or a device that sends the current
+  // secret. A signed-in browser alone may not, so a stolen session cannot take over.
+  app.post("/admin-secret", { config: { rateLimit: ACCESS_LOGIN_RATE_LIMIT } }, async (request, reply) => {
+    if (!requirePrivilegedAccess(request, reply, { feature: "Admin secret" })) return;
+    if (getAdminSecretSource() === "env") return reply.status(409).send(ADMIN_SECRET_ENV_MANAGED);
+    const secret = createStoredAdminSecret();
+    logger.info("[login] A new admin secret was made in the app");
+    return { secret };
+  });
+
+  app.delete("/admin-secret", { config: { rateLimit: ACCESS_LOGIN_RATE_LIMIT } }, async (request, reply) => {
+    if (!requirePrivilegedAccess(request, reply, { feature: "Admin secret" })) return;
+    if (getAdminSecretSource() === "env") return reply.status(409).send(ADMIN_SECRET_ENV_MANAGED);
+    clearStoredAdminSecret();
+    logger.info("[login] The admin secret made in the app was removed");
+    return reply.status(204).send();
+  });
 
   // Tells a device that is not this computer whether the Settings login form takes the setup
   // code. True only while no login is set, so it tells nothing to a visitor who has to sign in.

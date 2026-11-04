@@ -1,16 +1,14 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { getAdminSecret, isAdminSecretRequiredOnLoopback } from "../config/runtime-config.js";
+import { getAdminSecretSource, matchesAdminSecret } from "../config/login-credential.js";
+import { isAdminSecretRequiredOnLoopback } from "../config/runtime-config.js";
 import { hasBrowserSession, isBasicAuthSatisfied } from "./basic-auth.js";
 import { getRequestAccess } from "./ip-allowlist.js";
-import { safeCompareString } from "../utils/security.js";
 import { isRequestHostTrusted } from "./host-validation.js";
 
 export function isAdminAuthorized(request: FastifyRequest): boolean {
-  const adminSecret = getAdminSecret();
-  if (!adminSecret) return false;
   const provided = request.headers["x-admin-secret"];
   const value = Array.isArray(provided) ? provided[0] : provided;
-  return typeof value === "string" && safeCompareString(value, adminSecret);
+  return typeof value === "string" && matchesAdminSecret(value);
 }
 
 /** This computer or the admin secret: owners who do not need the login password. */
@@ -74,7 +72,7 @@ export function requirePrivilegedAccess(
   // but never the trusted-host or normal-authentication checks above.
   if (options.oneTimeCapabilityAuthorized) return true;
 
-  if (!getAdminSecret()) {
+  if (!getAdminSecretSource()) {
     reply.status(403).send({
       error: "ADMIN_SECRET is required for privileged APIs",
       message: "Set ADMIN_SECRET=<secret> in the server .env and send the same value in the X-Admin-Secret header.",

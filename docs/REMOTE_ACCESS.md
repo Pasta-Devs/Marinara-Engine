@@ -249,9 +249,23 @@ You need a certificate and key before setting `SSL_CERT` and `SSL_KEY`. You can 
 
 ## Admin Access and privileged actions
 
-Some actions are extra sensitive: clearing data, creating or downloading backups, importing and exporting profiles, installing themes, and installing the Local Model runtime. These need a separate shared secret called the admin secret, on top of whichever access option you chose above.
+Some actions are extra sensitive: clearing data, creating or downloading backups, importing and exporting profiles, installing themes and agents, and installing the Local Model runtime. These need a separate shared secret called the admin secret, on top of whichever access option you chose above.
 
-On the loopback machine, these actions usually work with no admin secret. From a remote device, you need to set the secret up. Follow these steps.
+On the loopback machine, these actions usually work with no admin secret. From a remote device, you need to set the secret up. You can make it in the app or set it in `.env`.
+
+Installed agents, such as the ones on the Home screen, do not need the admin secret. A device that signed in with the login can use them. Installing, updating and removing an agent still need it.
+
+### Make the admin secret in the app
+
+1. On the computer that runs Marinara, open **Settings**, then the **Advanced** tab, then the **Admin Access** section.
+2. Click **Make admin secret**. Marinara shows the new secret once and saves it in this browser.
+3. On each remote device, open **Settings** → **Advanced** → **Admin Access**, type the secret into the box, then click **Save**. Case, spaces and dashes do not matter.
+
+A device that already has the secret can also make it. A device that is only signed in with the login cannot. This stops a stolen sign-in from taking over the risky actions.
+
+To change the secret, click **Replace admin secret**. The old secret stops working on every device. To turn it off, click **Remove admin secret**. Marinara keeps only a fingerprint of the secret, in `.admin-secret.json` in the data folder. Deleting that file also removes the secret.
+
+### Set the admin secret in .env
 
 1. In `.env`, set a strong random value and save. It applies within a couple of seconds, no restart.
 
@@ -259,18 +273,20 @@ On the loopback machine, these actions usually work with no admin secret. From a
 ADMIN_SECRET=some-long-random-string
 ```
 
-2. On the remote device, open Marinara and go to **Settings**, then the **Advanced** tab, then the **Admin Access** section.
+2. On the remote device, open **Settings** → **Advanced** → **Admin Access**.
 3. Paste the same value into the box (its placeholder reads **ADMIN_SECRET**), then click **Save**.
 4. You should see the message **Admin secret saved for this browser**.
 
-A few things to know about the admin secret:
+`ADMIN_SECRET` in `.env` wins over a secret made in the app. While it is set, **Admin Access** says so and you change the secret in `.env` only.
 
-- It is stored in that one browser only. It does not sync across devices. Each browser that needs privileged actions must paste it in separately.
+### Good to know
+
+- Each browser keeps its own copy. It does not sync across devices.
 - Clicking **Save** with the box empty clears it and shows **Admin secret cleared**.
-- If the server operator sets `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, even the loopback machine needs the secret.
+- If the server operator sets `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`, even the loopback machine needs the secret. Then you need the current secret to make, replace or remove it in the app, so set the first one in `.env`.
 - This is separate from Basic Auth. You can use both. Basic Auth gates the whole app, and the admin secret gates the dangerous actions.
 
-If a privileged action fails on a remote device, Marinara shows an error message with two fixes. One fix is to open the app through localhost. The other is to set `ADMIN_SECRET` in the server `.env`, then paste the same value in **Settings** > **Advanced** > **Admin Access**.
+If a privileged action fails on a remote device, Marinara shows an error message with two fixes. One fix is to open the app through localhost. The other is to set up the admin secret as described above.
 
 ## Why is my save blocked (CSRF)
 

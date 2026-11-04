@@ -613,6 +613,48 @@ try {
   assert.equal((await putLogin(REMOTE, { ...first, setupCode: afterReset })).statusCode, 200, "the new code works");
   delete process.env.ALLOW_UNAUTHENTICATED_REMOTE;
 
+  // ── Admin secret made in the app: only admin rights make it, .env wins ──
+  const adminSession = cookieOf(await signIn("203.0.113.70", { ...first }));
+  const adminSecretCall = (method: "POST" | "DELETE", remoteAddress: string, headers: Record<string, string>) =>
+    app.inject({
+      method,
+      url: "/api/access/admin-secret",
+      remoteAddress,
+      headers: { ...(remoteAddress === "127.0.0.1" ? LOCAL : HOST), ...headers },
+    });
+  const fromBrowser = { cookie: adminSession };
+  assert.equal(
+    (await adminSecretCall("POST", "203.0.113.70", fromBrowser)).statusCode,
+    403,
+    "a signed-in browser alone cannot make the admin secret",
+  );
+  const made = await adminSecretCall("POST", "127.0.0.1", {});
+  assert.equal(made.statusCode, 200, made.body);
+  const appSecret = (made.json() as { secret: string }).secret;
+  assert.match(appSecret, /^[2-9A-HJKMNP-Z]{4}(-[2-9A-HJKMNP-Z]{4}){5}$/, "this computer makes a readable secret");
+  assert.ok(
+    !readFileSync(join(DATA_DIR, ".admin-secret.json"), "utf8").includes(appSecret.slice(0, 4)),
+    "only the hash is saved",
+  );
+  assert.equal((await local("GET", "/api/access/status")).json().adminSecretSource, "app");
+  const typed = appSecret.toLowerCase().replaceAll("-", " ");
+  const rotated = await adminSecretCall("POST", "203.0.113.70", { ...fromBrowser, "x-admin-secret": typed });
+  assert.equal(rotated.statusCode, 200, "the current secret, typed loosely, makes a new one from another device");
+  assert.equal(
+    (await adminSecretCall("DELETE", "203.0.113.70", { ...fromBrowser, "x-admin-secret": appSecret })).statusCode,
+    403,
+    "the old secret stops working",
+  );
+  process.env.ADMIN_SECRET = "env-admin-secret";
+  assert.equal((await adminSecretCall("POST", "127.0.0.1", {})).statusCode, 409, ".env manages the secret meanwhile");
+  delete process.env.ADMIN_SECRET;
+  const newSecret = (rotated.json() as { secret: string }).secret;
+  assert.equal(
+    (await adminSecretCall("DELETE", "203.0.113.70", { ...fromBrowser, "x-admin-secret": newSecret })).statusCode,
+    204,
+  );
+  assert.equal((await local("GET", "/api/access/status")).json().adminSecretSource, null);
+
   // ── .env wins and the app login is read-only meanwhile ──
   process.env.BASIC_AUTH_USER = "envuser";
   process.env.BASIC_AUTH_PASS = "env-password";

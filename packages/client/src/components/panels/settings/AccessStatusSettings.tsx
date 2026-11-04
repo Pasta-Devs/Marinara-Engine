@@ -1,12 +1,15 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ApiError } from "../../../lib/api-client";
+import { api, ApiError, getPrivilegedActionErrorMessage } from "../../../lib/api-client";
+import { showConfirmDialog } from "../../../lib/app-dialogs";
+import { toast } from "sonner";
 import { useUIStore } from "../../../stores/ui.store";
 import { useAccessStatus, visiblePasswordlessPeers } from "../../diagnostics/use-access-warning-banner";
 import { useLoginSetupCode } from "../../../hooks/use-remote-login";
 import { LOGIN_USER_INPUT_ID, RemoteLoginSettings, SetupCodeLoginForm } from "./RemoteLoginSettings";
-import { SettingsSection } from "./SettingControls";
+import { SETTINGS_BUTTON_CLASS, SettingsSection } from "./SettingControls";
 
 const LINK_BUTTON_CLASS =
   "inline-flex min-h-11 items-center text-left font-semibold text-[var(--foreground)] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-[var(--ring)]";
@@ -129,5 +132,81 @@ export function AccessStatusSettings({ anchorId }: { anchorId: string }) {
         <RemoteLoginSettings status={data} />
       </div>
     </SettingsSection>
+  );
+}
+
+/**
+ * Settings > Advanced > Admin Access: make or remove the admin secret in the
+ * app. The server only lets this computer or a holder of the current secret do
+ * it; `onSaved` keeps this browser's copy in step.
+ */
+export function AdminSecretMaker({ onSaved }: { onSaved: (secret: string) => void }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { data } = useAccessStatus();
+  const [shown, setShown] = useState<string | null>(null);
+  const done = (secret: string) => {
+    onSaved(secret);
+    setShown(secret || null);
+    void qc.invalidateQueries({ queryKey: ["access-status"] });
+  };
+  const make = useMutation({
+    mutationFn: () => api.post<{ secret: string }>("/access/admin-secret"),
+    onSuccess: ({ secret }) => done(secret),
+    onError: (error) =>
+      toast.error(getPrivilegedActionErrorMessage(error, t("settings.sections.adminAccess.makeFailed"))),
+  });
+  const remove = useMutation({
+    mutationFn: () => api.delete("/access/admin-secret"),
+    onSuccess: () => done(""),
+    onError: (error) =>
+      toast.error(getPrivilegedActionErrorMessage(error, t("settings.sections.adminAccess.removeFailed"))),
+  });
+  if (!data) return null;
+  if (data.adminSecretSource === "env") {
+    return <p className="text-xs text-[var(--muted-foreground)]">{t("settings.sections.adminAccess.envManaged")}</p>;
+  }
+
+  const fromApp = data.adminSecretSource === "app";
+  const confirmThen = async (kind: "replace" | "remove", run: () => void) => {
+    const confirmed = await showConfirmDialog({
+      title: t(`settings.sections.adminAccess.${kind}Confirm.title`),
+      message: t(`settings.sections.adminAccess.${kind}Confirm.message`),
+      confirmLabel: t(`settings.sections.adminAccess.${kind}`),
+      tone: "destructive",
+    });
+    if (confirmed) run();
+  };
+  const busy = make.isPending || remove.isPending;
+  return (
+    <div className="flex flex-col gap-2 text-xs">
+      {!fromApp && <p className="text-[var(--muted-foreground)]">{t("settings.sections.adminAccess.none")}</p>}
+      {shown && (
+        <div className="rounded-lg border border-[var(--border)] p-3">
+          <p className="font-mono text-sm text-[var(--foreground)] select-all break-all">{shown}</p>
+          <p className="mt-1 text-[var(--muted-foreground)]">{t("settings.sections.adminAccess.madeHint")}</p>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => (fromApp ? void confirmThen("replace", () => make.mutate()) : make.mutate())}
+          className={SETTINGS_BUTTON_CLASS}
+        >
+          {t(fromApp ? "settings.sections.adminAccess.replace" : "settings.sections.adminAccess.make")}
+        </button>
+        {fromApp && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void confirmThen("remove", () => remove.mutate())}
+            className={SETTINGS_BUTTON_CLASS}
+          >
+            {t("settings.sections.adminAccess.remove")}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
