@@ -1353,6 +1353,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "stretch-roleplay-messages",
+    sectionId: "roleplay-messages",
+    labelKey: "settings.controls.stretchRoleplayMessages.label",
+    label: "Stretch Messages",
+    description: "Make every roleplay message fill the full row, even short ones.",
+    descriptionKey: "settings.search.stretchRoleplayMessages.description",
+    aliases: ["roleplay", "full width", "wide", "bubble"],
+    kind: "Toggle",
+  },
+  {
     id: "scrollable-avatars",
     sectionId: "roleplay-messages",
     labelKey: "settings.controls.scrollableAvatars.label",
@@ -1379,7 +1389,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     label: "Roleplay Avatars",
     description: "Choose how avatars sit next to roleplay messages.",
     descriptionKey: "settings.search.roleplayAvatarStyle.description",
-    aliases: ["avatar", "portrait", "circles", "rectangles"],
+    aliases: ["avatar", "portrait", "circles", "rectangles", "panel", "faded"],
     kind: "Button group",
   },
   {
