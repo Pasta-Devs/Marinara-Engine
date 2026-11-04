@@ -208,6 +208,7 @@ export function ModelRow({
       )}
       <button
         type="button"
+        data-drag-surface=""
         {...button}
         aria-describedby={
           [button["aria-label"] ? copyId : null, button["aria-describedby"]].filter(Boolean).join(" ") || undefined

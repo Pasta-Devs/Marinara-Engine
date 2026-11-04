@@ -114,6 +114,8 @@ The **Automatic Summaries** panel keeps summaries current as you chat.
 - **Recent message tail**: keeps this many of the newest messages visible even when hiding is on. The default is 10. Any whole number from 0 up works. 0 hides the whole summarized batch. Higher values make prompts larger and costlier.
 - **Collapse hidden messages**: changes how hidden messages look in the transcript.
 
+The tail limits summarized messages. A summarized message older than the tail is left out of the prompt right away, even before the next summary hides it. An older message that no summary covers yet is still sent, because leaving it out would lose it. When there are such messages, Chat Summary shows how many under **Recent message tail**. Click **Backfill Summary** to summarize them.
+
 ### Merged group chats
 
 In a merged group chat, one reply speaks for every character. A part of an entry written for certain characters, such as `{{#if char == "Kaito"}}…{{/if}}`, is kept for every character it applies to and marked with who knows it, for example "known only to Kaito". Parts only the Advanced Memory **Narrator** gets stay out. In one-by-one group chats and one-character chats, each character reads the entries as before, and the Narrator reads every part.

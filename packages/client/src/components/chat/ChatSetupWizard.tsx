@@ -714,7 +714,7 @@ function PersonaPicker({
         nonePicked={templateValue ? false : undefined}
         withCharacters={onCharacterChange ? undefined : false}
         placeholder={localizeUi(
-          templateValue ? "ui.characters.onboarding.modalTitle" : "ui.chat.personapicker.stayAnonymous",
+          templateValue ? "ui.characters.onboarding.modalTitle" : "ui.game.gamesurfacecomponent.none",
         )}
         value={value ? { persona: value } : characterValue ? { character: characterValue } : null}
         onChange={(next) => {

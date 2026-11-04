@@ -20,6 +20,10 @@ export type AccessStatus = {
   loginSource: "env" | "app" | null;
   loginUser: string | null;
   adminSecret: boolean;
+  /** ADMIN_SECRET in .env wins over the secret made in the app. */
+  adminSecretSource: "env" | "app" | null;
+  /** An app secret is on disk, also while .env wins over it. */
+  adminSecretStored: boolean;
   allowlist: boolean;
   /** TRUSTED_AUTH_PROXY names a proxy that logs visitors in instead. */
   trustedAuthProxy: boolean;

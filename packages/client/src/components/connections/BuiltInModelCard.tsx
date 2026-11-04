@@ -1,12 +1,9 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, MoreHorizontal, Settings2, Download } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { openAddConnection } from "../../lib/add-connection";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { ContextMenu } from "../ui/ContextMenu";
 import { ROW_BUTTON } from "./ConnectionRow";
-import { menuAt, type MenuAt } from "./ModelRow";
 import { ServiceRow } from "./ServiceRow";
 import { cn } from "../../lib/utils";
 
@@ -21,13 +18,13 @@ export function BuiltInModelCard({ onOpenDevice }: { onOpenDevice: (item: Device
   const progress = useSidecarStore((s) => s.downloadProgress);
   const modelSize = useSidecarStore((s) => s.modelSize);
   const config = useSidecarStore((s) => s.config);
-  const [menu, setMenu] = useState<MenuAt | null>(null);
   if (!local.available) return null;
 
   const downloading = status === "downloading_runtime" || status === "downloading_model";
   const percent = progress && progress.total > 0 ? Math.round((progress.downloaded / progress.total) * 100) : 0;
   const setUp = () => openAddConnection({ category: "device", item: "local-model" });
   const open = () => (local.setUp ? onOpenDevice("local-model") : setUp());
+  const notDownloaded = !local.setUp && !downloading;
   const uses = [
     config.useAsMainDefault && t("connections.builtin.card.main"),
     config.useAsAgentsDefault && t("connections.builtin.card.agents"),
@@ -57,48 +54,27 @@ export function BuiltInModelCard({ onOpenDevice }: { onOpenDevice: (item: Device
         account={{ ...ACCOUNT, name: t("connections.add.device.local_model") }}
         rows={[]}
         count={line}
-        onClick={open}
+        // One action per state: the Download button while nothing is on disk, otherwise the row itself.
+        onClick={notDownloaded ? undefined : open}
+        trailing={
+          notDownloaded ? undefined : (
+            <ChevronRight size="0.875rem" aria-hidden className="shrink-0 text-[var(--muted-foreground)]" />
+          )
+        }
         end={
-          <>
-            {!local.setUp && !downloading && (
-              <button
-                type="button"
-                onClick={setUp}
-                className={cn(ROW_BUTTON, "text-[var(--marinara-app-accent-static)]")}
-                title={t("connections.builtin.card.download")}
-                aria-label={t("connections.builtin.card.download")}
-              >
-                <Download size="1rem" aria-hidden />
-              </button>
-            )}
+          notDownloaded && (
             <button
               type="button"
-              onClick={(event) => setMenu(menuAt(event))}
-              className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
-              title={t("connections.builtin.card.actions")}
-              aria-label={t("connections.builtin.card.actions")}
-              aria-haspopup="menu"
-              aria-expanded={!!menu}
+              onClick={setUp}
+              className={cn(ROW_BUTTON, "text-[var(--marinara-app-accent-static)]")}
+              title={t("connections.builtin.card.download")}
+              aria-label={t("connections.builtin.card.download")}
             >
-              <MoreHorizontal size="1rem" aria-hidden />
+              <Download size="1rem" aria-hidden />
             </button>
-            <ChevronRight size="0.875rem" aria-hidden className="shrink-0 text-[var(--muted-foreground)]" />
-          </>
+          )
         }
       />
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          autoFocus={menu.keyboard}
-          onClose={() => setMenu(null)}
-          items={[
-            local.setUp
-              ? { label: t("connections.builtin.card.settings"), icon: <Settings2 size="0.75rem" />, onSelect: open }
-              : { label: t("connections.builtin.card.download"), icon: <Download size="0.75rem" />, onSelect: setUp },
-          ]}
-        />
-      )}
     </div>
   );
 }

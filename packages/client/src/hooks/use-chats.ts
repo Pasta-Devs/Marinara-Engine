@@ -63,6 +63,9 @@ export const chatKeys = {
   list: () => [...chatKeys.all, "list"] as const,
   detail: (id: string) => [...chatKeys.all, "detail", id] as const,
   messages: (chatId: string) => [...chatKeys.all, "messages", chatId] as const,
+  /** Under `messages`, so whatever refreshes the transcript refreshes this count too. */
+  summaryBacklog: (chatId: string, coverageKey: string) =>
+    [...chatKeys.messages(chatId), "summaryBacklog", coverageKey] as const,
   messageCount: (chatId: string) => [...chatKeys.all, "messageCount", chatId] as const,
   trash: (chatId: string) => [...chatKeys.all, "trash", chatId] as const,
   messagePeek: (chatId: string) => [...chatKeys.all, "messagePeek", chatId] as const,
@@ -470,6 +473,16 @@ export function useProfessorMariChats() {
     queryKey: chatKeys.professorMari(),
     queryFn: ({ signal }) => api.get<Chat[]>("/chats/internal/professor-mari/chats", { signal }),
     staleTime: 30_000,
+  });
+}
+
+/** Older Roleplay messages no summary covers yet, which the next prompt still sends past the recent tail. */
+export function useSummaryBacklog(chatId: string, enabled: boolean, coverageKey: string) {
+  return useQuery({
+    queryKey: chatKeys.summaryBacklog(chatId, coverageKey),
+    queryFn: ({ signal }) => api.get<{ backlog: number }>(`/chats/${chatId}/summary-backlog`, { signal }),
+    enabled: enabled && !!chatId,
+    staleTime: 0,
   });
 }
 
@@ -1109,6 +1122,10 @@ export function useUpdateChatMetadata(options?: { serialize?: boolean }) {
       qc.invalidateQueries({ queryKey: lorebookKeys.active(vars.id) });
       if (Object.hasOwn(vars, "enableMemoryRecall") || Object.hasOwn(vars, "advancedMemory")) {
         qc.invalidateQueries({ queryKey: ["advanced-memory", vars.id] });
+      }
+      // The optimistic value asks for the backlog before this save hides anything, so count again now (#8831).
+      if (["hideSummarisedMessages", "summaryTailMessages", "summaryEntries"].some((key) => Object.hasOwn(vars, key))) {
+        qc.invalidateQueries({ queryKey: [...chatKeys.messages(vars.id), "summaryBacklog"] });
       }
     },
   });
@@ -1770,9 +1787,11 @@ function applyCachedSwipeToMessage(message: Message, swipe: MessageSwipe): Messa
 /** Peek at the assembled prompt for a chat */
 export function usePeekPrompt() {
   return useMutation({
-    mutationFn: (request: string | { chatId: string; messageId: string }) => {
+    // `current` builds the context now instead of returning the request saved for the last reply.
+    mutationFn: (request: string | { chatId: string; messageId?: string; current?: boolean }) => {
       const chatId = typeof request === "string" ? request : request.chatId;
       const messageId = typeof request === "string" ? undefined : request.messageId;
+      const current = typeof request !== "string" && request.current === true;
       return api.post<{
         messages: Array<{ role: string; content: string }>;
         chatMode?: string;
@@ -1803,7 +1822,7 @@ export function usePeekPrompt() {
         gameToolPlanning?: GameToolPlanningInfo | null;
         agentNote?: string;
         decisions?: { unanswered: string[]; dropped?: string[]; decisionModelSet: boolean };
-      }>(`/chats/${chatId}/peek-prompt`, messageId ? { messageId } : {});
+      }>(`/chats/${chatId}/peek-prompt`, messageId ? { messageId } : current ? { current } : {});
     },
   });
 }

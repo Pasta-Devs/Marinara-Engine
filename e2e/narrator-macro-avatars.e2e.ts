@@ -129,6 +129,85 @@ test("saved narrator references add only valid outside avatars without reviving 
   }
 });
 
+test("historical narrator replies show only the characters of their own scene", async ({ page, request }, info) => {
+  test.skip(baseline || !info.project.name.includes("desktop"), "Roster selection is shared across viewports.");
+  const data = fixture(request);
+  try {
+    const ana = await data.character("Ana", "#c0392b");
+    const ben = await data.character("Ben", "#2a6fdb");
+    const cal = await data.character("Cal", "#1e8449");
+    const dee = await data.character("Dee", "#d4a017");
+    // Eve has no sprites, so no expression result could ever name her.
+    const eve = await data.character("Eve", "#8e44ad");
+    const cast = [ana, ben, cal, dee, eve];
+    const spriteImage: Buffer = await sharp({
+      create: { width: 32, height: 32, channels: 3, background: "#777777" },
+    })
+      .png()
+      .toBuffer();
+    for (const character of [ana, ben, cal, dee]) {
+      const response = await request.post(`/api/sprites/${character.id}`, {
+        data: { expression: "smile", image: `data:image/png;base64,${spriteImage.toString("base64")}` },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+    }
+    const chat = await data.create("/api/chats", {
+      name: "Scene-only narrator avatars",
+      mode: "roleplay",
+      characterIds: cast.map((character) => character.id),
+    });
+    const metadata = await request.patch(`/api/chats/${chat.id}/metadata`, { data: { groupChatMode: "merged" } });
+    expect(metadata.ok()).toBeTruthy();
+    // Every member is active now; each reply was written with only Ana and Ben in the scene. A user turn before each
+    // reply keeps it from grouping under the previous one, which would hide its avatars.
+    const reply = async (content: string, characterId: string, extra?: Record<string, unknown>) => {
+      await data.create(`/api/chats/${chat.id}/messages`, { role: "user", content: "What happens next?" });
+      return data.create(`/api/chats/${chat.id}/messages`, {
+        role: "assistant",
+        characterId,
+        content,
+        ...(extra ? { extra } : {}),
+      });
+    };
+    const anaAndBen = {
+      spriteExpressions: { [ana.id]: "smile", [ben.id]: "smile" },
+      expressionSpriteIds: [ana.id, ben.id],
+    };
+    const cases: Array<[{ id: string }, typeof cast]> = [
+      [
+        await reply("A reply saved with its roster.", ana.id, { mergedRosterCharacterIds: [ana.id, ben.id] }),
+        [ana, ben],
+      ],
+      [await reply("An older reply with an expression result.", ana.id, anaAndBen), [ana, ben, eve]],
+      [await reply("An older reply without expression data.", ana.id), cast],
+      [await reply("Cal's greeting.", cal.id), cast],
+    ];
+    // An older reply split at a scene break: the expression result is on its last part, grouped under the first.
+    const splitFirst = await reply("The first scene of a split reply.", ana.id, { continuesAfterSceneBreak: true });
+    await data.create(`/api/chats/${chat.id}/messages`, {
+      role: "assistant",
+      characterId: ana.id,
+      content: "The second scene of a split reply.",
+      extra: anaAndBen,
+    });
+    cases.push([splitFirst, [ana, ben, eve]]);
+    await openChat(page, chat.id);
+    for (const [message, expected] of cases) {
+      const row = page.locator(`[data-message-id="${message.id}"]`);
+      await expect(row).toBeVisible();
+      await expect(row.locator(".mari-message-avatar img")).toHaveCount(expected.length);
+      for (const character of cast) {
+        await expect(row.locator(`.mari-message-avatar img[src="${character.avatarUrl}"]`)).toHaveCount(
+          expected.includes(character) ? 1 : 0,
+        );
+      }
+    }
+    await capture(page, info, "narrator-scene-only-avatars");
+  } finally {
+    await data.cleanup();
+  }
+});
+
 test("lorebook narrator avatar references clear on regeneration and follow the selected swipe", async ({
   page,
   request,

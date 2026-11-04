@@ -34,11 +34,15 @@ import {
   IMAGE_SOURCE_VENDOR,
   PROVIDERS,
   isChatProvider,
-  isLocalAuthProvider,
   parsePinnedModels,
   type APIProvider,
 } from "@marinara-engine/shared";
-import { useConnections, useOutsideReads, type CachedCatalogFacts } from "../../hooks/use-connections";
+import {
+  useConnections,
+  useMoveConnection,
+  useOutsideReads,
+  type CachedCatalogFacts,
+} from "../../hooks/use-connections";
 import { useConnectionAccounts, useFeatureModels } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import type { DeviceItem } from "../../hooks/use-device-setup";
@@ -63,6 +67,7 @@ import { sortPanelFolders } from "../../lib/panel-sort";
 import { insertLibraryItems, type InsertEdge } from "../../lib/library-order";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../hooks/use-library-order";
+import { isLanguageGenerationConnection } from "../../lib/connection-filters";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { modelSubtitle } from "../../lib/connection-identity";
 import {
@@ -72,7 +77,15 @@ import {
 } from "../../hooks/use-connection-folders";
 import { ConnectionRow, ROW_BUTTON, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
-import { ConnectionGroup, GROUP_SURFACE, hostOf, sameServiceTargets } from "../connections/ConnectionGroup";
+import {
+  ConnectionGroup,
+  GROUP_SURFACE,
+  dropKindFor,
+  hostOf,
+  moveBlockedKey,
+  moveRowsTo,
+  moveTargetsFor,
+} from "../connections/ConnectionGroup";
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
@@ -423,6 +436,57 @@ export function ConnectionsPanel() {
   });
   const startAccountDrag = (event: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>, id: string) =>
     dragAccount.startTouchDrag(event, id);
+  // Model rows drag through the same hook as character rows (mouse and touch). It also feeds chat drop; an
+  // account card under the point moves the picked Models (same service) or opens the Move dialog (other).
+  const moveModel = useMoveConnection();
+  const [draggedModelIds, setDraggedModelIds] = useState<string[] | null>(null);
+  const modelPickRef = useRef<string[] | null>(null);
+  const modelDragIds = (id: string) => (modelPickRef.current?.includes(id) ? modelPickRef.current : [id]);
+  const modelDrag = useTouchFolderDrag({
+    getDragIds: modelDragIds,
+    onActivate: (id) => setDraggedModelIds(modelDragIds(id)),
+    onCancel: () => setDraggedModelIds(null),
+    onDrop: (_id, x, y, ids) => {
+      setDraggedModelIds(null);
+      const targetId = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-connection-account-id]")
+        ?.dataset.connectionAccountId;
+      const target = accounts?.find((item) => item.id === targetId);
+      const rows = ids.flatMap((rowId) => connectionsList.find((row) => row.id === rowId) ?? []);
+      if (!target || !rows.length) return;
+      const kinds = rows.map((row) => dropKindFor(row, target, accounts ?? [], connectionsList));
+      if (rows.length === 1 && kinds[0] === "other") {
+        const { same, other } = moveTargetsFor(
+          rows[0]!,
+          accounts?.find((item) => item.id === rows[0]!.accountId),
+          accounts ?? [],
+          connectionsList,
+        );
+        setMoving({ row: rows[0]!, same, other, initialTarget: target });
+        return;
+      }
+      if (!kinds.every((kind) => kind === "same")) return;
+      void moveRowsTo(rows, target, moveModel.mutateAsync, t);
+    },
+  });
+  const modelDragProps = (row: ConnectionRowData, pick: string[] | null = null) => {
+    const start = (event: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>) => {
+      // The Connection card around the row starts an account drag; this row's drag wins.
+      event.stopPropagation();
+      modelPickRef.current = pick;
+      const ids = modelDragIds(row.id);
+      const picked = ids.flatMap((rowId) => connectionsList.find((item) => item.id === rowId) ?? []);
+      modelDrag.startTouchDrag(event, row.id, {
+        chatResourcePayload: {
+          version: 1,
+          kind: "connection",
+          ids,
+          label: picked.map((item) => item.name || item.model).join(", "),
+          ...(picked.every(isLanguageGenerationConnection) ? {} : { unsupported: "connection-kind" as const }),
+        },
+      });
+    };
+    return { "data-drag-id": row.id, "data-drag-kind": "connection-model", onMouseDown: start, onTouchStart: start };
+  };
   const folderDrag = useLibraryFolderDrag("connection", (ids, target, edge) => {
     setSort("custom");
     const orderedIds = insertLibraryItems(
@@ -503,16 +567,7 @@ export function ConnectionsPanel() {
     const anchor =
       (row.accountId && starAnchorOf(connectionsList.filter((other) => other.accountId === row.accountId))) || row;
     const starred = !!row.model && parsePinnedModels(anchor.pinnedModels).includes(row.model);
-    const sameTargets = account ? sameServiceTargets(row, account, accounts ?? [], connectionsList) : [];
-    // Mirrors the server: chat Models move to chat Connections of other services; media, decision and local-login
-    // (subscription) Models and Connections never change service.
-    const portable = (provider: string) => isChatProvider(provider) && !isLocalAuthProvider(provider);
-    const otherTargets =
-      account && !row.credentialsFromConnectionId && portable(row.provider) && portable(account.provider)
-        ? (accounts ?? []).filter(
-            (item) => item.id !== account.id && portable(item.provider) && !sameTargets.includes(item),
-          )
-        : [];
+    const { same: sameTargets, other: otherTargets } = moveTargetsFor(row, account, accounts ?? [], connectionsList);
     // A Connection with more than one Model can give one to a copy of itself (same key), to split a grouping.
     const splitFrom =
       account &&
@@ -520,6 +575,7 @@ export function ConnectionsPanel() {
       connectionsList.filter((candidate) => candidate.accountId === account.id).length > 1
         ? account
         : null;
+    const blockedKey = moveBlockedKey(row);
     const moveTargets = [...sameTargets, ...otherTargets];
     return (
       <ConnectionRow
@@ -529,6 +585,7 @@ export function ConnectionsPanel() {
         subtitle={subtitle}
         connectionName={connectionName}
         catalog={catalog}
+        dragProps={modelDragProps(row)}
         current={activeChat?.connectionId === row.id}
         starred={starred}
         onToggleStar={
@@ -555,6 +612,7 @@ export function ConnectionsPanel() {
           ...(splitFrom ? [t("connections.move.newConnection")] : []),
         ]}
         onMove={() => setMoving({ row, same: sameTargets, other: otherTargets, splitFrom })}
+        moveBlocked={moveTargets.length || !blockedKey ? undefined : t(blockedKey)}
         folderName={
           (folders ?? []).find((folder) => folder.id === row.folderId)?.name ?? t("connections.folders.noFolder")
         }
@@ -592,6 +650,8 @@ export function ConnectionsPanel() {
       rows={rows}
       visibleRows={visibleRows}
       providerName={providerName}
+      draggedIds={draggedModelIds}
+      modelDragProps={modelDragProps}
       dragBindings={{
         "data-drag-id": account.id,
         "data-drag-order-id": account.id,
