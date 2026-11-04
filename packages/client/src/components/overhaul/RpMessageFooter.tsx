@@ -30,7 +30,7 @@ import { cn } from "../../lib/utils";
 type Anchor = { left: number; top: number; bottom: number; right: number };
 
 /** A popover in a portal, so the bubble's overflow cannot clip it. Opens above the button when there is no room below. */
-function FooterPopover({
+export function FooterPopover({
   anchor,
   onClose,
   className,
@@ -86,6 +86,14 @@ function FooterPopover({
     </div>,
     document.body,
   );
+}
+
+/** Click handler (capture) for a menu of actions: a plain action closes the menu; a toggle that opens its own popover (marks) keeps it. */
+export function closeAfterAction(close: () => void) {
+  return (event: React.MouseEvent) => {
+    const button = (event.target as HTMLElement).closest("button");
+    if (button && !button.hasAttribute("aria-pressed") && !button.disabled) close();
+  };
 }
 
 function SwipeList({
@@ -269,7 +277,9 @@ export function OvRpMessageFooter({
       {open?.kind === "more" ? (
         <FooterPopover anchor={open.anchor} onClose={() => setOpen(null)} className="ov-rpf-menu">
           <p className="ov-rpf-pop__label">Message actions</p>
-          {more}
+          <div className="contents" onClickCapture={closeAfterAction(() => setOpen(null))}>
+            {more}
+          </div>
         </FooterPopover>
       ) : null}
       {open?.kind === "swipes" ? (

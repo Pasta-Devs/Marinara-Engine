@@ -3962,3 +3962,143 @@ input.ov-edhead__title:focus {
   color: var(--ov-dim);
   font-size: 0.6875rem;
 }
+
+/* ─── Conversation hover bar, reply bar and typing line (mockup Convo A + reply bar) ─── */
+:root[data-overhaul="on"] [data-message-id]:has(.ov-cvh) {
+  position: relative;
+}
+.ov-cvh {
+  position: absolute;
+  z-index: 20;
+  top: -0.875rem;
+  right: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.0625rem;
+  padding: 0.125rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+  background: var(--card, #1e1d26);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45);
+  color: var(--ov-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+}
+.group:hover .ov-cvh,
+.group:focus-within .ov-cvh,
+.ov-cvh.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.ov-cvh > button,
+.ov-cvh .mari-message-action {
+  width: 1.875rem;
+  height: 1.625rem;
+}
+.ov-cvh__quick {
+  display: flex;
+  gap: 0.0625rem;
+  margin-right: 0.125rem;
+  padding-right: 0.125rem;
+  border-right: 1px solid var(--ov-line);
+}
+.ov-cvh__quick button {
+  display: grid;
+  width: 1.625rem;
+  height: 1.625rem;
+  place-items: center;
+  border-radius: 0.375rem;
+  font-size: 0.9375rem;
+}
+.ov-cvh__quick button:hover {
+  background: var(--ov-hover);
+}
+.ov-typing {
+  display: flex;
+  height: 1.375rem;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1.5rem;
+  color: var(--ov-muted);
+  font-size: 0.78rem;
+}
+.ov-typing b {
+  color: var(--ov-text);
+  font-weight: 600;
+}
+.ov-replybar,
+.ov-replyquote {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--ov-muted);
+}
+.ov-replybar {
+  height: 2.125rem;
+  margin: 0 0 -0.25rem;
+  padding: 0 0.5rem 0 0.875rem;
+  border: 1px solid var(--ov-line);
+  border-bottom: 0;
+  border-radius: 0.625rem 0.625rem 0 0;
+  background: color-mix(in srgb, var(--foreground) 4%, var(--background));
+}
+.ov-replybar b,
+.ov-replyquote b {
+  color: var(--ov-mode-conversation);
+  font-weight: 600;
+}
+.ov-replybar__who {
+  flex: none;
+  white-space: nowrap;
+}
+.ov-replybar__q {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ov-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-replybar button {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-left: auto;
+  flex: none;
+  place-items: center;
+  border-radius: 0.375rem;
+}
+.ov-replybar button:hover {
+  background: var(--ov-hover);
+  color: var(--ov-text);
+}
+.ov-replyquote {
+  margin: 0 0 0.125rem;
+  font-size: 0.75rem;
+}
+.ov-tab__presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+  color: #5fc48a;
+  font-size: 0.6875rem;
+}
+.ov-tab__presence i {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ov-tab__presence.is-idle {
+  color: #e0b04a;
+}
+.ov-tab__presence.is-dnd {
+  color: #e0566f;
+}
+.ov-tab__presence.is-offline {
+  color: var(--ov-dim);
+}

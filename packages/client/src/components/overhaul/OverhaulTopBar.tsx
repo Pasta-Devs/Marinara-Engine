@@ -41,7 +41,8 @@ import { useCharacter, usePersona } from "../../hooks/use-characters";
 import { useLorebook } from "../../hooks/use-lorebooks";
 import { useConnection } from "../../hooks/use-connections";
 import { usePresetFull } from "../../hooks/use-presets";
-import { getChatDisplayName } from "../../lib/chat-display";
+import { getChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
+import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { useDocsIndex } from "../../hooks/use-docs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
@@ -243,6 +244,27 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   return <span className="ov-tab__label">{label ?? localize("Untitled")}</span>;
 }
 
+const PRESENCE_LABEL: Record<string, string> = { online: "Online", idle: "Idle", dnd: "Busy", offline: "Offline" };
+
+/** Convo tabs show the character's presence ("Online"), which used to float over the chat. */
+function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
+  const chat = tab.kind === "chat" ? chats.find((entry) => entry.id === tab.id) : undefined;
+  const firstId = chat?.mode === "conversation" ? chat.characterIds?.[0] : undefined;
+  const character = useCharacter(firstId ?? null);
+  if (!chat || !firstId) return null;
+  const meta = parseChatMetadata(chat.metadata);
+  const snapshot = (meta?.conversationCharacterStatuses as Record<string, { status?: unknown }> | undefined)?.[firstId];
+  const stored = (character.data as { conversationStatus?: unknown } | undefined)?.conversationStatus;
+  const raw = resolveLiveConversationStatus(meta, firstId, new Date())?.status ?? snapshot?.status ?? stored;
+  const status = typeof raw === "string" && raw in PRESENCE_LABEL ? raw : "online";
+  return (
+    <small className={cn("ov-tab__presence", `is-${status}`)}>
+      <i aria-hidden="true" />
+      {PRESENCE_LABEL[status]}
+    </small>
+  );
+}
+
 function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   if (tab.kind === "chat") {
     const mode = chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay";
@@ -407,6 +429,7 @@ export function OverhaulTopBar() {
               >
                 <TabIcon tab={tab} chats={chats} />
                 <TabLabel tab={tab} chats={chats} />
+                <TabPresence tab={tab} chats={chats} />
               </button>
               <button
                 type="button"
