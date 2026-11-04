@@ -5,7 +5,14 @@
 // them is the jump list of the sections this item actually uses, with
 // "+ Add a section" for the rest. The editor's sections scroll on the right.
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { ChevronRight, Plus, X, type LucideIcon } from "lucide-react";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
@@ -130,18 +137,23 @@ export function EditorRail({
         </div>
       </div>
 
-      <input
-        className="ov-rail__name"
+      {/* Single-line values that wrap: textareas sized to their content, Enter does not add a line. */}
+      <textarea
+        className="ov-rail__name ov-rail__wrap"
+        rows={1}
         value={name}
-        onChange={(event) => onNameChange(event.target.value)}
+        onChange={(event) => onNameChange(event.target.value.replace(/\n/g, " "))}
+        onKeyDown={blockNewline}
         placeholder={namePlaceholder}
         aria-label={namePlaceholder}
       />
       {onSubtitleChange ? (
-        <input
-          className="ov-rail__subtitle"
+        <textarea
+          className="ov-rail__subtitle ov-rail__wrap"
+          rows={1}
           value={subtitle ?? ""}
-          onChange={(event) => onSubtitleChange(event.target.value)}
+          onChange={(event) => onSubtitleChange(event.target.value.replace(/\n/g, " "))}
+          onKeyDown={blockNewline}
           placeholder={subtitlePlaceholder}
           aria-label={subtitlePlaceholder}
         />
@@ -248,6 +260,13 @@ export function EditorRail({
       ) : null}
     </aside>
   );
+}
+
+function blockNewline(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    event.currentTarget.blur();
+  }
 }
 
 /** "+ Backstory" style chips for fields that are not in use yet. */
