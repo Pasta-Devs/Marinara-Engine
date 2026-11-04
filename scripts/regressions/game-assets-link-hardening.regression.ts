@@ -30,7 +30,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, relative } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "marinara-game-assets-links-")));
 const dataDir = join(root, "data");
@@ -313,16 +313,26 @@ async function seedCases(label: string, linkCases: boolean) {
       for (const restore of restores) restore();
     }
   });
-  await check(`${label}: a dangling link never stops the seed`, async () => {
-    const missing = join(outside, `${label}-unplugged-ambient`);
-    const restore = link("ambient", missing);
-    try {
+  await check(
+    `${label}: a dangling link never stops the seed, and the skipped folder is seeded once it is back`,
+    async () => {
+      const missing = join(outside, `${label}-unplugged-ambient`);
+      const restore = link("ambient", missing);
+      rmSync(join(gameAssets, SEED_MARKER), { force: true });
+      try {
+        await seedDefaultGameAssets();
+        assert.ok(!existsSync(missing), "nothing is created at the link's target");
+        assert.ok(!existsSync(join(gameAssets, SEED_MARKER)), "a skipped folder leaves the hash unrecorded");
+      } finally {
+        restore();
+      }
+      rmSync(join(gameAssets, "ambient"), { recursive: true, force: true });
       await seedDefaultGameAssets();
-      assert.ok(!existsSync(missing), "nothing is created at the link's target");
-    } finally {
-      restore();
-    }
-  });
+      for (const file of bundledFiles.filter((path) => path.startsWith(`ambient${sep}`)))
+        assert.ok(lstatSync(join(gameAssets, file)).isFile(), `${file} is installed on the next run`);
+      assert.ok(lstatSync(join(gameAssets, SEED_MARKER)).isFile(), "and the hash is recorded then");
+    },
+  );
   await check(`${label}: a FIFO at the seed's hash is never read`, async () => {
     rmSync(join(gameAssets, SEED_MARKER), { force: true });
     assert.equal(await fifoOpened(join(gameAssets, SEED_MARKER), () => seedDefaultGameAssets()), false, "read");

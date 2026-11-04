@@ -69,12 +69,15 @@ function hashDirRecursive(src: string, relativeRoot = ""): string {
 /**
  * Recursively copy a source directory into a destination,
  * skipping files that already exist at the destination.
- * Returns the number of files copied.
+ * Returns the number of files copied; a folder seedFolder refuses is added to `skipped`.
  */
-function copyDirRecursive(src: string, dest: string): number {
+function copyDirRecursive(src: string, dest: string, skipped: string[]): number {
   if (!existsSync(src)) return 0;
   const realDest = seedFolder(dest);
-  if (!realDest) return 0;
+  if (!realDest) {
+    skipped.push(dest);
+    return 0;
+  }
 
   let copied = 0;
   const entries = readdirSync(src);
@@ -85,7 +88,7 @@ function copyDirRecursive(src: string, dest: string): number {
     const stat = statSync(srcPath);
 
     if (stat.isDirectory()) {
-      copied += copyDirRecursive(srcPath, join(dest, entry));
+      copied += copyDirRecursive(srcPath, join(dest, entry), skipped);
     } else {
       // Anything already at the name, a link included, is kept; COPYFILE_EXCL also keeps one that appears meanwhile.
       const destPath = join(realDest, entry);
@@ -142,12 +145,19 @@ export async function seedDefaultGameAssets(): Promise<void> {
   const needsCopy = !bundleHash || existingHash !== bundleHash;
 
   if (needsCopy) {
-    const copied = copyDirRecursive(BUNDLED_GAME_ASSETS_DIR, GAME_ASSETS_DIR);
-    try {
-      // A new file renamed into place; a link at the name is refused and left alone.
-      writeGameAssetFile(SEED_MARKER, `${bundleHash}\n`);
-    } catch (error) {
-      logger.warn(error, "[seed] Did not record the default game assets hash; the seed runs again next boot");
+    const skipped: string[] = [];
+    const copied = copyDirRecursive(BUNDLED_GAME_ASSETS_DIR, GAME_ASSETS_DIR, skipped);
+    // A skipped folder (a link that leads out, or one to an unplugged disk) has not received the bundle yet, so the hash
+    // is recorded only once every folder was seeded: until then the seed runs again each boot.
+    if (skipped.length) {
+      logger.warn("[seed] Did not record the default game assets hash: %d folder(s) were skipped", skipped.length);
+    } else {
+      try {
+        // A new file renamed into place; a link at the name is refused and left alone.
+        writeGameAssetFile(SEED_MARKER, `${bundleHash}\n`);
+      } catch (error) {
+        logger.warn(error, "[seed] Did not record the default game assets hash; the seed runs again next boot");
+      }
     }
     if (copied > 0) {
       logger.info(`[seed] Installed ${copied} default game asset${copied > 1 ? "s" : ""} (music, ambient, SFX)`);
