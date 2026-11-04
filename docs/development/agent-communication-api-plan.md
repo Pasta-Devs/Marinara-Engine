@@ -34,7 +34,7 @@ The Engine mediates every package-to-package exchange. A package never names a p
 - The Engine assigns caller identity. A package never self-reports who it is.
 - Every new seam is a soft seam: a package feature-detects it and degrades quietly on an older Engine, the same way `runtime.services.get` returning `null` is handled today.
 - Existing permissions gate existing data. Reading chat content through an event needs `chat-read`, the same as reading it through persistence. No new permission is added unless a seam exposes data no existing permission covers.
-- Nothing is shown to the user unless it changes a decision. Agent Organizer shows "Works with" only when a manifest declares it. Everything else is visible only in Debug mode and the server log.
+- Nothing is shown to the user unless it changes a decision. Agent Organizer shows the "Other agents" section only when a manifest declares services, and shows sharing switches only once two packages that talk are both installed. Everything else is visible only in Debug mode and the server log.
 - Durable state stays where it is. Events are not storage. Package documents stay owned by the package that wrote them.
 
 ## Current Contracts
@@ -221,14 +221,18 @@ An Engine-owned `contributions.services` block:
 ```json
 "contributions": {
   "services": {
-    "provides": [{ "key": "long-term-memory:recall", "version": 1 }],
+    "provides": [
+      { "key": "long-term-memory:recall", "version": 1 },
+      { "key": "long-term-memory:intake", "version": 1, "sharedByDefault": false }
+    ],
     "requires": [{ "key": "slurp2:settings", "version": 1, "optional": true }]
   }
 }
 ```
 
 - `provides` keys must start with the package id. The install validator rejects a mismatch.
-- `requires` is informational in this phase. Agent Organizer shows a **Works with** line on the package page listing the installed-or-not state of each provider. Nothing is blocked at install. `optional: false` is reserved for a later decision; in this phase it only changes the wording.
+- `sharedByDefault` (default `true`) is the provider's starting position for each consumer pair. Long-Term Memory sets it to `false` on intake and leaves recall on, which matches the two switches it ships today. The user can flip any pair on the package page (see User-Facing Surfaces).
+- `requires` is informational in this phase. Agent Organizer lists each provider as installed or not in the package page's **Other agents** section. Nothing is blocked at install. `optional: false` is reserved for a later decision; in this phase it only changes the wording.
 - Activation order: packages whose `requires` name another installed package activate after it, so a consumer's `activate` can find the provider. Cycles fall back to today's order with a warning.
 - `version` is the contract version the service object already carries (`{ version: 1, ... }` in Long-Term Memory). A breaking change bumps the number and keeps the old key registered until consumers move. Non-breaking additions do not bump it.
 
@@ -260,6 +264,36 @@ context.turn.exchange.get(key): JsonValue | undefined;
 - Nothing in this plan widens what a package can read. `chat-read` still gates chat content. `engine:chat.metadata.changed` carries keys, not values.
 - Client-side identity is cooperative and documented as such. Anything that needs trust goes through a privileged route or a server service.
 - Shared-room generations keep every seam off, matching `getCapabilityService`.
+- Per-pair sharing is enforced on the server in `runtime.services.get`. The client section only displays and edits the stored state. A consumer that is switched off gets `null`, the same value it gets when the provider is not installed, so no package needs a new code path.
+
+## User-Facing Surfaces
+
+One place. Cross-agent sharing is managed on the package page in the Agent Organizer (`packages/client/src/components/agents/organizer/AgentPage.tsx`), as a new Engine-rendered **Other agents** section directly below **Permissions**. Nothing is added to the Agents panel, Chat Settings, or the global Settings.
+
+Why there and not elsewhere:
+
+- The package page is already where trust decisions are shown: the trusted-code notice, the permission list, and the version history. Letting another package read this package's data is the same kind of decision.
+- Permissions already renders two states, installed and available, from the same manifest data. The new section follows that pattern, so it introduces no new concept.
+- The agent detail page in the Agents panel already has a Manage package action that opens the package page, so the control is one tap from wherever the user is looking at the agent.
+- The Engine owning the section means every provider gets it without writing UI, and there is exactly one control per pair. Long-Term Memory's hand-rolled "Other Agents can read memories" and "Other Agents can add memories" switches and its usage table become redundant and are removed in the Agents-repo follow-up once the Engine version ships.
+
+What the section shows, driven by `contributions.services` (Seam 4) and the caller identity from Seam 1:
+
+| State | Rows | Controls |
+| --- | --- | --- |
+| Not installed | One row per peer the package provides to or requires, each marked installed or with a Get action, plus one plain sentence per row saying what flows (for example "adds memories to Long-Term Memory"). | None. |
+| Installed | The same rows, with last used and uses this week for pairs where both packages are installed. | One switch per pair, on or off. Hidden when the peer is not installed. |
+
+Rules:
+
+- A pair is `<provider service key>` plus `<consumer package id>`. The switch appears on both packages' pages and edits the same stored value.
+- The starting value is the provider's `sharedByDefault`. The Engine stores only pairs the user has changed, so a package update that changes its default applies to pairs the user never touched.
+- Usage counts are aggregates, not a log. "Last used" and "uses this week" come from the Engine counting calls through the resolved service; there is no per-call record and no chat content.
+- Per-chat activity stays in Chat Settings, Agent activity. Whether Slurp added a memory in this turn is a chat question, and the package page shows totals only.
+- No global "Connections" page. That word already means model providers in Marinara (`ConnectionSection.tsx`, `ui.pickConnection`), and a second meaning would confuse users.
+- No graph or matrix view. With a handful of real pairings it would be an empty diagram, and a list per package is enough.
+- Ponytail rule: the section is omitted entirely when the manifest declares no services, and shows no switches until two packages that actually talk are installed.
+- All strings go through semantic localization keys under `ui.agents.agentcatalogview.otherAgents.*`.
 
 ## Delivery Phases
 
@@ -289,13 +323,17 @@ Each phase is one PR to `staging`, one Capability API minor, one regression scri
 - Regression: a foreign `packageId` is refused for new-minor packages and warned for older; `gameState.read` needs `chat-read` and applies the maps projection when active.
 - Agents-repo follow-up: Slurp replaces its direct table read.
 
-### Phase 4: Manifest declarations (Seam 4)
+### Phase 4: Manifest declarations and sharing controls (Seam 4 and User-Facing Surfaces)
 
-- `contributions.services` in the zod schema and the Agents-repo JSON schema.
+- `contributions.services` in the zod schema and the Agents-repo JSON schema, including `sharedByDefault`.
 - Install validation of `provides` prefix.
 - Activation ordering by `requires`.
-- Agent Organizer **Works with** line, localized through semantic keys.
-- Regression: provider activates before consumer; cycle falls back with a warning; mismatched `provides` is refused at install.
+- Per-pair sharing state stored by the Engine, keyed by provider service key and consumer package id, holding only user-changed pairs. Read and write routes under `/api/capability-packages/` for the package page.
+- Enforcement in `runtime.services.get`: a pair that resolves to off returns `null` for that consumer. Host reads are unaffected.
+- Usage counting on the resolved service (last used, uses this week), kept as aggregates.
+- Agent Organizer **Other agents** section on the package page, both states, localized through semantic keys.
+- Regression: provider activates before consumer; cycle falls back with a warning; mismatched `provides` is refused at install; a pair switched off returns `null` to that consumer and the raw service to the host; a `sharedByDefault: false` service is `null` to every consumer until a pair is switched on; a pair the user set survives a package update that changes the default.
+- Agents-repo follow-up: Long-Term Memory sets `sharedByDefault: false` on intake, removes its own sharing switches and usage table, and drops `LTM_INTAKE_CALLERS`.
 
 ### Phase 5: Same-turn exchange and ordering (Seam 5)
 
@@ -304,7 +342,7 @@ Needs a separate maintainer decision before it starts, because of the batching c
 ### Deferred
 
 - A persistent client event stream (`GET /api/capability-packages/events`, SSE) for events outside a generation. Decide after Phase 2 shows whether packages need it. Until then, clients keep polling.
-- A user-facing switch for cross-package data sharing beyond what packages already offer (Long-Term Memory's "Other Agents can add memories"). Add only if a real complaint arrives.
+- Per-chat sharing control (turning a pair off for one chat only). The package-level switch ships in Phase 4; add a per-chat override only if a real complaint arrives.
 - Enforced `requires` (install refused without the provider). Informational first.
 
 ## Expected File Changes
@@ -316,7 +354,7 @@ Engine, by phase.
 | 1 | `packages/shared/src/types/capability-runtime.ts` (caller type, `services.list`, `packages.isActive`), `packages/server/src/services/capability-packages/capability-service-registry.service.ts`, `capability-module-runtime.service.ts`, `packages/shared/src/schemas/capability-package.schema.ts` (minor bump and comment line), `scripts/regressions/capability-package-lifecycle.regression.ts` (assertion), new `scripts/regressions/capability-service-identity.regression.ts`, `docs/development/optional-agent-packages.md` |
 | 2 | new `packages/server/src/services/capability-packages/capability-event-bus.service.ts`, `capability-module-runtime.service.ts` (`api.events`), `packages/shared/src/types/capability-runtime.ts` (`CapabilityEvent`), emit points in `routes/generate/` where agent results and completion are already written to SSE, `packages/client/src/lib/capability-client-events.ts`, `marinara-host-contract.ts`, `marinara-host.ts`, new `scripts/regressions/capability-event-bus.regression.ts`, docs |
 | 3 | `capability-persistence.service.ts`, new game-state view type in `packages/shared/src/types/`, new host member in `capability-module-runtime.service.ts`, `scripts/regressions/capability-persistence-permissions.regression.ts`, docs |
-| 4 | `capability-package.schema.ts` (`contributions.services`), install validator, activation ordering in `capability-module-runtime.service.ts`, Agent Organizer package page, `packages/client/src/locales/en/*.json`, docs |
+| 4 | `capability-package.schema.ts` (`contributions.services`), install validator, activation ordering and pair enforcement in `capability-module-runtime.service.ts`, new pair-state storage and routes under `packages/server/src/services/capability-packages/` and `packages/server/src/routes/`, Agent Organizer package page (`AgentPage.tsx` plus a new `OtherAgentsSection` component), `packages/client/src/locales/en/*.json`, docs |
 | 5 | `packages/server/src/services/agents/agent-pipeline.ts`, `agent-executor.ts`, `packages/shared/src/types/agent.ts`, `capability-agent-runtime.service.ts`, Custom Agents settings UI and docs |
 
 Agents repo: `schemas/package-manifest.schema.json` (Phase 4), `scripts/esbuild-host-plugins.mjs` baseline, `sources/host-runtime-overlay/.../host-runtime.ts` type, then per-package adoption listed under each phase.
@@ -327,7 +365,7 @@ Agents repo: `schemas/package-manifest.schema.json` (Phase 4), `scripts/esbuild-
 - `capability-package-lifecycle.regression.ts` asserts the new minor.
 - Phase 2 adds an SSE-level check that a chat-scoped event reaches the client dispatch as a package-addressed frame and that a non-scoped event does not.
 - Phase 3 adds a legacy-manifest row: a package declaring an older minor still reads a foreign document and gets a warning, so no installed package breaks on update.
-- Phase 4 adds an Agent Organizer browser check for the **Works with** line in both themes and on mobile width.
+- Phase 4 adds an Agent Organizer browser check for the **Other agents** section, both states and the switch, in both themes and on mobile width.
 - `pnpm check` and `pnpm localization:check` on every phase.
 
 ## Risks and Mitigations
@@ -360,6 +398,7 @@ Agents repo: `schemas/package-manifest.schema.json` (Phase 4), `scripts/esbuild-
 - A chat-scoped package event published during a generation reaches that package's client element through the existing event path.
 - Slurp reads tracker state through a typed Engine contract instead of the table.
 - Agent Organizer shows which installed packages a package works with, when the manifest says so.
+- A user can switch a pair off on either package's page, and that consumer's next `services.get` returns `null` while the host and every other consumer are unaffected.
 - Every seam degrades to today's behavior on an Engine that predates it, and every published package keeps working unchanged after each phase.
 
 ## Open Questions for the Maintainer
