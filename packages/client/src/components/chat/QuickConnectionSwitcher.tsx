@@ -208,6 +208,8 @@ export function QuickConnectionSwitcher({
                 <button
                   type="button"
                   onClick={handleToggleRandom}
+                  data-random-on={isRandom ? "" : undefined}
+                  aria-pressed={isRandom}
                   title={
                     isRandom
                       ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
