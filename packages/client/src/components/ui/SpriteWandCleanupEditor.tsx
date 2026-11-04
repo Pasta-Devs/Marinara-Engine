@@ -40,6 +40,7 @@ import {
   type WandResult,
 } from "../../lib/sprite-cleanup-tools";
 import { Modal } from "./Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface SpriteWandCleanupEditorProps {
@@ -898,8 +899,24 @@ export function SpriteWandCleanupEditor({
       title={localizeUi("ui.ui.spritewandcleanupeditor.cleanValue1", { value1: label })}
       width="max-w-6xl"
       closeDisabled={applying}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={() => void handleApply()}
+            disabled={loading || applying || !hasChanges}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {applying ? <Loader2 size="0.875rem" className="animate-spin" /> : <Eraser size="0.875rem" />}
+            {localizeUi("ui.ui.spritewandcleanupeditor.applyCleanup")}
+          </button>
+          <button type="button" onClick={onClose} disabled={applying} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
-      <div className="flex h-[calc(100dvh-7rem)] min-h-0 flex-col gap-3 overflow-x-hidden overflow-y-auto sm:h-[min(44rem,calc(90dvh-6rem))]">
+      <div className="flex h-[calc(100dvh-15rem)] min-h-0 flex-col gap-3 overflow-x-hidden overflow-y-auto sm:h-[min(40rem,calc(90dvh-10rem))]">
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {cleanupToolOptions.map(({ tool: optionTool, label: optionLabel, title, Icon }) => (
             <button
@@ -1269,23 +1286,6 @@ export function SpriteWandCleanupEditor({
           >
             <RotateCcw size="0.875rem" />
             {localizeUi("ui.characters.charactercliptrimmodal.reset")}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={applying}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleApply()}
-            disabled={loading || applying || !hasChanges}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-50"
-          >
-            {applying ? <Loader2 size="0.875rem" className="animate-spin" /> : <Eraser size="0.875rem" />}
-            {localizeUi("ui.ui.spritewandcleanupeditor.applyCleanup")}
           </button>
         </div>
       </div>

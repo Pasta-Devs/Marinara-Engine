@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, UserCog, Check, X, AlertCircle, RefreshCw } from "lucide-react";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { useAgentStore } from "../../stores/agent.store";
 import { useCharacter, useUpdateCharacter } from "../../hooks/use-characters";
 import { type CharacterCardFieldUpdate, type EditableCharacterCardField } from "@marinara-engine/shared";
@@ -257,6 +258,68 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
   return (
     <Modal
       pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={() => void handleApprove(false)}
+            disabled={
+              busyAction !== null || updateCharacter.isPending || isFetchingCharacter || applicableUpdates.length === 0
+            }
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {busyAction === "approve" || updateCharacter.isPending ? (
+              <Loader2 size="0.75rem" className="animate-spin" />
+            ) : (
+              <Check size="0.75rem" />
+            )}
+            {localizeUi("ui.modals.charactercardupdatemodal.approve")}{" "}
+            {applicableUpdates.length > 0
+              ? localizeUi("ui.modals.charactercardupdatemodal.value1", { value1: applicableUpdates.length })
+              : ""}
+          </button>
+          {staleUpdates.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleApprove(true)}
+              disabled={busyAction !== null || updateCharacter.isPending || isFetchingCharacter}
+              className={SHEET_BUTTON_SECONDARY}
+            >
+              {busyAction === "approve" || updateCharacter.isPending ? (
+                <Loader2 size="0.75rem" className="animate-spin" />
+              ) : (
+                <AlertCircle size="0.75rem" />
+              )}
+              {localizeUi("ui.modals.charactercardupdatemodal.overrideStale")}
+              {staleUpdates.length})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleRegenerate}
+            disabled={busyAction !== null || updateCharacter.isPending}
+            className={SHEET_BUTTON_SECONDARY}
+            title={localizeUi("ui.modals.agentwriteapprovalmodal.regenerateThisProposal")}
+          >
+            {busyAction === "regenerate" ? (
+              <Loader2 size="0.75rem" className="animate-spin" />
+            ) : (
+              <RefreshCw size="0.75rem" />
+            )}
+            {localizeUi("ui.agents.secretplotpanel.regenerate")}
+          </button>
+          <button
+            type="button"
+            onClick={handleReject}
+            disabled={busyAction !== null || updateCharacter.isPending}
+            className={SHEET_BUTTON_QUIET}
+          >
+            <X size="0.75rem" />
+            {localizeUi("ui.modals.charactercardupdatemodal.reject")}
+          </button>
+        </>
+      }
       open={open}
       onClose={closeAndAdvance}
       title={localizeUi("ui.modals.charactercardupdatemodal.reviewCharacterCardUpdates")}
@@ -335,7 +398,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
                     onChange={(event) => updateDraftNewText(idx, event.target.value)}
                     disabled={busyAction !== null}
                     rows={Math.max(3, Math.min(8, u.newText.split(/\r?\n/).length + 1))}
-                    className="w-full resize-y rounded-md border border-emerald-500/10 bg-emerald-500/5 p-2 text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/55 focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)] disabled:opacity-70"
+                    className="w-full resize-y rounded-md border border-emerald-500/10 bg-emerald-500/5 p-2 text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/55 focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)] disabled:opacity-70 max-sm:text-base"
                   />
                 </div>
               </div>
@@ -349,66 +412,6 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
             {error}
           </div>
         )}
-
-        <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
-          <button
-            type="button"
-            onClick={handleReject}
-            disabled={busyAction !== null || updateCharacter.isPending}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            <X size="0.75rem" />
-            {localizeUi("ui.modals.charactercardupdatemodal.reject")}
-          </button>
-          <button
-            type="button"
-            onClick={handleRegenerate}
-            disabled={busyAction !== null || updateCharacter.isPending}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-            title={localizeUi("ui.modals.agentwriteapprovalmodal.regenerateThisProposal")}
-          >
-            {busyAction === "regenerate" ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <RefreshCw size="0.75rem" />
-            )}
-            {localizeUi("ui.agents.secretplotpanel.regenerate")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleApprove(false)}
-            disabled={
-              busyAction !== null || updateCharacter.isPending || isFetchingCharacter || applicableUpdates.length === 0
-            }
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
-          >
-            {busyAction === "approve" || updateCharacter.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <Check size="0.75rem" />
-            )}
-            {localizeUi("ui.modals.charactercardupdatemodal.approve")}{" "}
-            {applicableUpdates.length > 0
-              ? localizeUi("ui.modals.charactercardupdatemodal.value1", { value1: applicableUpdates.length })
-              : ""}
-          </button>
-          {staleUpdates.length > 0 && (
-            <button
-              type="button"
-              onClick={() => void handleApprove(true)}
-              disabled={busyAction !== null || updateCharacter.isPending || isFetchingCharacter}
-              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-4 py-2 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-            >
-              {busyAction === "approve" || updateCharacter.isPending ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
-              ) : (
-                <AlertCircle size="0.75rem" />
-              )}
-              {localizeUi("ui.modals.charactercardupdatemodal.overrideStale")}
-              {staleUpdates.length})
-            </button>
-          )}
-        </div>
       </div>
     </Modal>
   );

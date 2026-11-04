@@ -5,6 +5,7 @@ import { api, type JsonRepairRequest } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type GameJsonRepairModalProps = {
@@ -83,6 +84,32 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
 
   return (
     <Modal
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={!validation.valid || isApplying}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {isApplying ? <Loader2 size="0.95rem" className="animate-spin" /> : <CheckCircle2 size="0.95rem" />}
+            {localizeUi("ui.game.gamejsonrepairmodal.applyRepairedJson")}
+          </button>
+          <button
+            type="button"
+            onClick={handleFormat}
+            disabled={!validation.valid || isApplying}
+            className={SHEET_BUTTON_SECONDARY}
+          >
+            <Wand2 size="0.95rem" />
+            {localizeUi("ui.game.gamejsonrepairmodal.format")}
+          </button>
+          <button type="button" onClick={onClose} disabled={isApplying} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
+      closeButtonClassName="max-sm:hidden"
       open={!!request}
       onClose={onClose}
       closeDisabled={isApplying}
@@ -138,37 +165,8 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
               }
             }}
             spellCheck={false}
-            className="min-h-[45vh] w-full resize-y border-0 bg-transparent px-3 py-2 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] max-md:min-h-[52vh]"
+            className="min-h-[45vh] w-full resize-y border-0 bg-transparent px-3 py-2 font-mono text-xs max-sm:text-base leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] max-md:min-h-[52vh]"
           />
-        </div>
-
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isApplying}
-            className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={handleFormat}
-            disabled={!validation.valid || isApplying}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Wand2 size="0.95rem" />
-            {localizeUi("ui.game.gamejsonrepairmodal.format")}
-          </button>
-          <button
-            type="button"
-            onClick={handleApply}
-            disabled={!validation.valid || isApplying}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isApplying ? <Loader2 size="0.95rem" className="animate-spin" /> : <CheckCircle2 size="0.95rem" />}
-            {localizeUi("ui.game.gamejsonrepairmodal.applyRepairedJson")}
-          </button>
         </div>
       </div>
     </Modal>

@@ -1,7 +1,7 @@
 import { FileJson, ImageDown, Layers, X } from "lucide-react";
 import { Modal } from "./Modal";
 import { cn } from "../../lib/utils";
-import { SETTINGS_BUTTON_CLASS } from "../panels/settings/SettingControls";
+import { SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 export type ExportFormatChoice = "native" | "compatible" | "compatible-png";
@@ -59,7 +59,18 @@ export function ExportFormatDialog({
   const gridColumns = options.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2";
 
   return (
-    <Modal open={open} onClose={onClose} title={title} width="max-w-lg">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      width="max-w-lg"
+      footer={
+        <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>
+          <X size="0.75rem" />
+          {localizeUi("chat.delete.dialog.cancel")}
+        </button>
+      }
+    >
       <div className="space-y-4">
         <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{description}</p>
         <div className={cn("grid gap-2", gridColumns)}>
@@ -89,12 +100,6 @@ export function ExportFormatDialog({
               </button>
             );
           })}
-        </div>
-        <div className="flex justify-end">
-          <button type="button" onClick={onClose} className={SETTINGS_BUTTON_CLASS}>
-            <X size="0.75rem" />
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
         </div>
       </div>
     </Modal>

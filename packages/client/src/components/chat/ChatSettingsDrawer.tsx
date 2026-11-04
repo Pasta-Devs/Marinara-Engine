@@ -93,7 +93,7 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import { NEUTRAL_PANEL_SCROLL_AREA } from "../ui/neutral-surface-styles";
+import { NEUTRAL_PANEL_SCROLL_AREA, SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { FloatingWindow } from "../ui/FloatingWindow";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
@@ -10553,6 +10553,26 @@ export function ChatSettingsDrawer({
             ? localizeUi("ui.chat.chatsettingsdrawer.addValue1", { value1: agentAddPreview.agent.name })
             : localizeUi("ui.chat.chatsettingsdrawer.addAgent")
         }
+        footer={
+          <>
+            <button onClick={confirmAddAgent} disabled={addingAgentToChat} className={SHEET_BUTTON_PRIMARY}>
+              {addingAgentToChat
+                ? localizeUi("ui.chat.chatsettingsdrawer.adding")
+                : localizeUi("ui.characters.metadatatab.add")}
+            </button>
+            <button
+              onClick={() => {
+                setAgentAddPreview(null);
+                setAgentSetupQueue([]);
+              }}
+              disabled={addingAgentToChat}
+              className={SHEET_BUTTON_QUIET}
+            >
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
+          </>
+        }
+        closeButtonClassName="max-sm:hidden"
         width="max-w-lg"
         chatFloatingPanel
       >
@@ -10619,7 +10639,7 @@ export function ChatSettingsDrawer({
                           );
                         }}
                         disabled={addingAgentToChat}
-                        className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
                         {localizeUi("ui.agents.agenteditor.messages")}
@@ -10654,7 +10674,7 @@ export function ChatSettingsDrawer({
                           );
                         }}
                         disabled={addingAgentToChat}
-                        className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
                         {localizeUi("ui.agents.agenteditor.tokens")}
@@ -10696,7 +10716,7 @@ export function ChatSettingsDrawer({
                         );
                       }}
                       disabled={addingAgentToChat}
-                      className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   ) : (
                     <div className="relative w-28">
@@ -10747,7 +10767,7 @@ export function ChatSettingsDrawer({
                           );
                         }}
                         disabled={addingAgentToChat}
-                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 pr-8 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 pr-8 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-md">
                         <button
@@ -10823,28 +10843,6 @@ export function ChatSettingsDrawer({
                 )
               }
             />
-
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                onClick={() => {
-                  setAgentAddPreview(null);
-                  setAgentSetupQueue([]);
-                }}
-                disabled={addingAgentToChat}
-                className="rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {localizeUi("chat.delete.dialog.cancel")}
-              </button>
-              <button
-                onClick={confirmAddAgent}
-                disabled={addingAgentToChat}
-                className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {addingAgentToChat
-                  ? localizeUi("ui.chat.chatsettingsdrawer.adding")
-                  : localizeUi("ui.characters.metadatatab.add")}
-              </button>
-            </div>
           </div>
         )}
       </Modal>
@@ -11167,7 +11165,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={() => void handleExport()}
               disabled={memories.length === 0 || exportMemories.isPending}
-              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+              className="max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.exportMemories")}
               aria-label={localizeUi("ui.chat.memoryrecallmemoriesmodal.exportMemories")}
             >
@@ -11177,7 +11175,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={() => importInputRef.current?.click()}
               disabled={importMemories.isPending}
-              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+              className="max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.importMemories")}
               aria-label={localizeUi("ui.chat.memoryrecallmemoriesmodal.importMemories")}
             >
@@ -11187,7 +11185,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={() => void handleRevectorize()}
               disabled={memoriesQuery.isFetching || refreshMemories.isPending || importMemories.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2 py-1.5 text-[0.625rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]/80 disabled:opacity-50"
+              className="max-sm:min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-2 py-1.5 text-[0.625rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]/80 disabled:opacity-50"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.reVectorizeAllMemoriesDescription")}
               aria-label={localizeUi("ui.chat.memoryrecallmemoriesmodal.reVectorizeAllMemories")}
             >
@@ -11201,7 +11199,7 @@ function MemoryRecallMemoriesModal({
               type="button"
               onClick={handleClear}
               disabled={memories.length === 0 || clearMemories.isPending}
-              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
+              className="max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
               title={localizeUi("ui.chat.memoryrecallmemoriesmodal.clearAllMemories")}
             >
               <Trash2 size="0.8125rem" />
@@ -11256,7 +11254,7 @@ function MemoryRecallMemoriesModal({
                     type="button"
                     onClick={() => void handleDelete(memory)}
                     disabled={deleteMemory.isPending}
-                    className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
+                    className="max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
                     title={localizeUi("ui.chat.memoryrecallmemoriesmodal.forgetThisMemory")}
                   >
                     <Trash2 size="0.75rem" />

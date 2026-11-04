@@ -4,6 +4,7 @@
 import { useState, useRef } from "react";
 import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { Download, FileJson, Image, CheckCircle, XCircle, Loader2, BookOpen, Scissors } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
@@ -341,6 +342,17 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         onClose();
       }}
       title={localizeUi("ui.modals.importcharactermodal.importCharacter")}
+      footer={
+        <button
+          onClick={() => {
+            reset();
+            onClose();
+          }}
+          className={SHEET_BUTTON_SECONDARY}
+        >
+          {localizeUi("capabilities.actions.close")}
+        </button>
+      }
     >
       <div className="flex flex-col gap-4">
         {pendingLorebookChoice && (
@@ -374,14 +386,14 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => void handleFiles(pendingLorebookChoice.files, false)}
-                    className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                    className={SHEET_BUTTON_SECONDARY}
                   >
                     {localizeUi("ui.modals.importcharactermodal.noImport")}
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleFiles(pendingLorebookChoice.files, true)}
-                    className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+                    className={SHEET_BUTTON_PRIMARY}
                   >
                     {localizeUi("ui.modals.importcharactermodal.importLorebook")}
                   </button>
@@ -603,19 +615,6 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             </div>
           </div>
         )}
-
-        {/* Footer */}
-        <div className="flex justify-end border-t border-[var(--border)] pt-3">
-          <button
-            onClick={() => {
-              reset();
-              onClose();
-            }}
-            className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            {localizeUi("capabilities.actions.close")}
-          </button>
-        </div>
       </div>
       <DescriptionSplitDialog
         open={splitSummaryOpen}

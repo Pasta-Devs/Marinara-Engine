@@ -6,6 +6,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "./neutral-surface-styles";
 import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
@@ -224,7 +225,51 @@ export function AvatarGenerationModal({
 
   return (
     <>
-      <Modal open={open} onClose={onClose} closeDisabled={generating || saving} title={title} width="max-w-2xl">
+      <Modal
+        open={open}
+        onClose={onClose}
+        closeDisabled={generating || saving}
+        title={title}
+        width="max-w-2xl"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={handleUseAvatar}
+              disabled={!generatedAvatar || generating || saving}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {saving ? (
+                <Loader2 size="0.875rem" className="animate-spin" />
+              ) : isCharacterSheet ? (
+                <IdCard size="0.875rem" />
+              ) : (
+                <Camera size="0.875rem" />
+              )}
+              {localizeUi(
+                isCharacterSheet
+                  ? "ui.ui.avatargenerationmodal.saveAsCharacterSheet"
+                  : "ui.ui.avatargenerationmodal.useAvatar",
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={!effectiveConnectionId || !appearance.trim() || generating || saving}
+              className={SHEET_BUTTON_SECONDARY}
+            >
+              {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
+              {generatedAvatar
+                ? localizeUi("ui.agents.secretplotpanel.regenerate")
+                : localizeUi("ui.characters.characterclipcard.generate")}
+            </button>
+            <button type="button" onClick={onClose} disabled={generating || saving} className={SHEET_BUTTON_QUIET}>
+              <X size="0.875rem" />
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_13rem]">
             <div className="space-y-4">
@@ -257,7 +302,7 @@ export function AvatarGenerationModal({
                   value={appearance}
                   onChange={(event) => setAppearance(event.target.value)}
                   rows={7}
-                  className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
+                  className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs max-sm:text-base leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
                   placeholder={localizeUi(
                     isCharacterSheet
                       ? "ui.ui.avatargenerationmodal.describeCanonicalCharacterSheet"
@@ -348,7 +393,7 @@ export function AvatarGenerationModal({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 border-t border-[var(--border)]/50 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-[0.625rem] text-[var(--muted-foreground)]">
               {canvasWidth}
               {localizeUi("ui.panels.imagedimensionrow.x")}
@@ -359,57 +404,6 @@ export function AvatarGenerationModal({
                   : "ui.ui.avatargenerationmodal.portraitCanvas",
               )}
             </span>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={generating || saving}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <X size="0.875rem" />
-                {localizeUi("chat.delete.dialog.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={!effectiveConnectionId || !appearance.trim() || generating || saving}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ring-1 transition-colors",
-                  !effectiveConnectionId || !appearance.trim() || generating || saving
-                    ? "cursor-not-allowed bg-[var(--muted)] text-[var(--muted-foreground)] ring-[var(--border)]"
-                    : "bg-[var(--secondary)] text-[var(--foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
-                )}
-              >
-                {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
-                {generatedAvatar
-                  ? localizeUi("ui.agents.secretplotpanel.regenerate")
-                  : localizeUi("ui.characters.characterclipcard.generate")}
-              </button>
-              <button
-                type="button"
-                onClick={handleUseAvatar}
-                disabled={!generatedAvatar || generating || saving}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ring-1 transition-colors",
-                  !generatedAvatar || generating || saving
-                    ? "cursor-not-allowed bg-[var(--muted)] text-[var(--muted-foreground)] ring-[var(--border)]"
-                    : "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/30 hover:bg-[var(--primary)]/20",
-                )}
-              >
-                {saving ? (
-                  <Loader2 size="0.875rem" className="animate-spin" />
-                ) : isCharacterSheet ? (
-                  <IdCard size="0.875rem" />
-                ) : (
-                  <Camera size="0.875rem" />
-                )}
-                {localizeUi(
-                  isCharacterSheet
-                    ? "ui.ui.avatargenerationmodal.saveAsCharacterSheet"
-                    : "ui.ui.avatargenerationmodal.useAvatar",
-                )}
-              </button>
-            </div>
           </div>
         </div>
       </Modal>

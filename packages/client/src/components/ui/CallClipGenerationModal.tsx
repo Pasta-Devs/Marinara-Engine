@@ -7,6 +7,7 @@ import {
 import { useConnections } from "../../hooks/use-connections";
 import { type CharacterCallVideoGenerationInput } from "../../hooks/use-characters";
 import { cn } from "../../lib/utils";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { Modal } from "./Modal";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -94,8 +95,38 @@ export function CallClipGenerationModal({
     <Modal
       open={open}
       onClose={onClose}
+      closeDisabled={generating}
       title={localizeUi("ui.ui.callclipgenerationmodal.generateCallClips")}
       width="max-w-lg"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              void onGenerate({
+                clipKinds: selectedKinds,
+                clipCount: selectedKinds.length,
+                connectionId: effectiveConnectionId,
+                includeAvatarReference,
+                customClip: customClipReady
+                  ? {
+                      label: customClipLabel.trim(),
+                      prompt: customClipPrompt.trim(),
+                    }
+                  : null,
+              })
+            }
+            disabled={!canGenerate}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
+            {localizeUi("ui.characters.characterclipcard.generate")}
+          </button>
+          <button type="button" onClick={onClose} disabled={generating} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
       <div className="space-y-4">
         <p className="text-sm leading-relaxed text-[var(--muted-foreground)]">
@@ -202,7 +233,7 @@ export function CallClipGenerationModal({
                   onChange={(event) => setCustomClipLabel(event.target.value)}
                   placeholder={localizeUi("ui.ui.callclipgenerationmodal.kissing")}
                   maxLength={80}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm font-medium text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+                  className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm max-sm:text-base font-medium text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
                 />
               </label>
               <label className="grid gap-1 text-xs font-semibold text-[var(--foreground)]">
@@ -213,7 +244,7 @@ export function CallClipGenerationModal({
                   placeholder={localizeUi("ui.ui.callclipgenerationmodal.blowAKissTowardTheScreenThenReturnTo")}
                   rows={3}
                   maxLength={800}
-                  className="resize-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm font-medium text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+                  className="resize-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm max-sm:text-base font-medium text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
                 />
               </label>
               {selectedKinds.length === 0 ? (
@@ -223,39 +254,6 @@ export function CallClipGenerationModal({
               ) : null}
             </div>
           ) : null}
-        </div>
-
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={generating}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              void onGenerate({
-                clipKinds: selectedKinds,
-                clipCount: selectedKinds.length,
-                connectionId: effectiveConnectionId,
-                includeAvatarReference,
-                customClip: customClipReady
-                  ? {
-                      label: customClipLabel.trim(),
-                      prompt: customClipPrompt.trim(),
-                    }
-                  : null,
-              })
-            }
-            disabled={!canGenerate}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
-            {localizeUi("ui.characters.characterclipcard.generate")}
-          </button>
         </div>
       </div>
     </Modal>

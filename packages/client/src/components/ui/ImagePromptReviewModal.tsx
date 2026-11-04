@@ -1,7 +1,7 @@
 import { Loader2, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "./Modal";
-import { cn } from "../../lib/utils";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 export type ImagePromptReviewKind = "background" | "illustration" | "portrait" | "sprite" | "avatar" | "video";
@@ -103,6 +103,25 @@ export function ImagePromptReviewModal({
           : localizeUi("ui.ui.imagepromptreviewmodal.reviewValue1Prompts", { value1: mediaTitle })
       }
       width="max-w-4xl"
+      pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isSubmitting || hasEmptyPrompt}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {isSubmitting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Send size="0.875rem" />}
+            {localizeUi("ui.characters.characterclipcard.generate")}
+          </button>
+          <button type="button" onClick={onCancel} disabled={isSubmitting} className={SHEET_BUTTON_QUIET}>
+            <X size="0.875rem" />
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
       <div className="flex max-h-[72vh] flex-col gap-4">
         <div className="text-xs leading-relaxed text-[var(--muted-foreground)]">
@@ -205,7 +224,7 @@ export function ImagePromptReviewModal({
           })}
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-[var(--border)]/50 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
           {hasEmptyPrompt ? (
             <span className="text-[0.625rem] text-[var(--destructive)]">
               {localizeUi("ui.chat.summarypopover.every")} {mediaLabel}{" "}
@@ -218,29 +237,6 @@ export function ImagePromptReviewModal({
               {localizeUi("ui.ui.imagepromptreviewmodal.ready")}
             </span>
           )}
-          <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={onCancel}
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <X size="0.875rem" />
-              {localizeUi("chat.delete.dialog.cancel")}
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={isSubmitting || hasEmptyPrompt}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ring-1 transition-colors",
-                isSubmitting || hasEmptyPrompt
-                  ? "cursor-not-allowed bg-[var(--muted)] text-[var(--muted-foreground)] ring-[var(--border)]"
-                  : "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/30 hover:bg-[var(--primary)]/20",
-              )}
-            >
-              {isSubmitting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Send size="0.875rem" />}
-              {localizeUi("ui.characters.characterclipcard.generate")}
-            </button>
-          </div>
         </div>
       </div>
     </Modal>

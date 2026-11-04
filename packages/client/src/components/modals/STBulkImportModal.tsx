@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useCallback } from "react";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import {
   FolderSearch,
   FolderOpen,
@@ -374,6 +375,38 @@ export function STBulkImportModal({ open, onClose }: Props) {
       onClose={handleClose}
       title={localizeUi("ui.modals.stbulkimportmodal.importFromSillytavern")}
       width="max-w-3xl"
+      footer={
+        phase === "input" || phase === "scanning" ? (
+          <button
+            onClick={handleScan}
+            disabled={!folderPath.trim() || phase === "scanning"}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {phase === "scanning" ? (
+              <Loader2 size="0.875rem" className="animate-spin" />
+            ) : (
+              <FolderSearch size="0.875rem" />
+            )}
+            {phase === "scanning"
+              ? localizeUi("ui.modals.stbulkimportmodal.scanning")
+              : localizeUi("ui.modals.stbulkimportmodal.scanFolder")}
+          </button>
+        ) : phase === "preview" && scanResult ? (
+          <>
+            <button onClick={handleImport} disabled={!hasAnySelected} className={SHEET_BUTTON_PRIMARY}>
+              <Import size="0.875rem" />
+              {localizeUi("ui.modals.stbulkimportmodal.importSelected")}
+            </button>
+            <button onClick={reset} className={SHEET_BUTTON_SECONDARY}>
+              {localizeUi("ui.noodle.noodlerframe.back")}
+            </button>
+          </>
+        ) : phase === "done" && importResult ? (
+          <button onClick={handleClose} className={SHEET_BUTTON_PRIMARY}>
+            {localizeUi("lorebook.editor.batch.done")}
+          </button>
+        ) : undefined
+      }
     >
       <div className="flex flex-col gap-4">
         {(phase === "input" || phase === "scanning") && (
@@ -396,7 +429,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   }}
                   placeholder={localizeUi("ui.modals.stbulkimportmodal.pathToSillytavern")}
                   disabled={phase === "scanning"}
-                  className="flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
+                  className="flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs max-sm:text-base outline-none ring-1 ring-transparent placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleScan();
                   }}
@@ -470,26 +503,6 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 </div>
               </div>
             )}
-
-            <button
-              onClick={handleScan}
-              disabled={!folderPath.trim() || phase === "scanning"}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-all",
-                folderPath.trim() && phase !== "scanning"
-                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 active:scale-95"
-                  : "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-50",
-              )}
-            >
-              {phase === "scanning" ? (
-                <Loader2 size="0.875rem" className="animate-spin" />
-              ) : (
-                <FolderSearch size="0.875rem" />
-              )}
-              {phase === "scanning"
-                ? localizeUi("ui.modals.stbulkimportmodal.scanning")
-                : localizeUi("ui.modals.stbulkimportmodal.scanFolder")}
-            </button>
 
             {error && (
               <div className="flex items-start gap-2 rounded-lg bg-[var(--destructive)]/10 p-3 text-xs text-[var(--destructive)]">
@@ -801,28 +814,6 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 <span>{error}</span>
               </div>
             )}
-
-            <div className="flex items-center gap-2 max-sm:flex-col">
-              <button
-                onClick={reset}
-                className="flex-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium transition-all hover:bg-[var(--secondary)] active:scale-95"
-              >
-                {localizeUi("ui.noodle.noodlerframe.back")}
-              </button>
-              <button
-                onClick={handleImport}
-                disabled={!hasAnySelected}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all active:scale-95",
-                  hasAnySelected
-                    ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90"
-                    : "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-60",
-                )}
-              >
-                <Import size="0.875rem" />
-                {localizeUi("ui.modals.stbulkimportmodal.importSelected")}
-              </button>
-            </div>
           </>
         )}
 
@@ -981,13 +972,6 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 </div>
               </div>
             )}
-
-            <button
-              onClick={handleClose}
-              className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-95"
-            >
-              {localizeUi("lorebook.editor.batch.done")}
-            </button>
           </>
         )}
       </div>

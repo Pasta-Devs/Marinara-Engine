@@ -15,6 +15,7 @@ import { DEFAULT_LOREBOOK_SCOPE, normalizeLorebookScope } from "../../lib/lorebo
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type LorebookOwnerType = "character" | "persona";
@@ -347,6 +348,28 @@ export function LorebookAssignmentSection({
       ) : null}
 
       <Modal
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={saveAssignment}
+              disabled={!selectedLorebook || specificSelectionInvalid || updateLorebook.isPending}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {updateLorebook.isPending ? (
+                <Loader2 size="0.75rem" className="animate-spin" />
+              ) : (
+                <Check size="0.75rem" />
+              )}
+              {localizeUi("ui.lorebooks.lorebookassignmentsection.assign")}
+            </button>
+            <button type="button" onClick={() => setDraft(null)} className={SHEET_BUTTON_QUIET}>
+              <X size="0.75rem" />
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
+          </>
+        }
+        closeButtonClassName="max-sm:hidden"
         open={draft !== null}
         onClose={() => setDraft(null)}
         title={localizeUi("ui.lorebooks.lorebookassignmentsection.assignLorebook")}
@@ -365,7 +388,7 @@ export function LorebookAssignmentSection({
                   setDraft((current) => (current ? { ...current, search: event.target.value } : current))
                 }
                 placeholder={localizeUi("ui.lorebooks.lorebookassignmentsection.searchCharacterLorebooks")}
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 max-sm:text-base"
               />
             </div>
 
@@ -502,30 +525,6 @@ export function LorebookAssignmentSection({
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
-              <button
-                type="button"
-                onClick={() => setDraft(null)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-              >
-                <X size="0.75rem" />
-                {localizeUi("chat.delete.dialog.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={saveAssignment}
-                disabled={!selectedLorebook || specificSelectionInvalid || updateLorebook.isPending}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {updateLorebook.isPending ? (
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                ) : (
-                  <Check size="0.75rem" />
-                )}
-                {localizeUi("ui.lorebooks.lorebookassignmentsection.assign")}
-              </button>
             </div>
           </div>
         )}

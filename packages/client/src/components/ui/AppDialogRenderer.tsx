@@ -41,9 +41,11 @@ export function AppDialogRenderer() {
   if (!dialog) return null;
 
   const confirmToneClass =
-    dialog.tone === "destructive" || dialog.tone === "accent"
-      ? "mari-chrome-control mari-chrome-control--primary"
-      : "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85";
+    dialog.tone === "destructive"
+      ? "bg-[var(--destructive)] font-semibold text-white hover:opacity-90"
+      : dialog.tone === "accent"
+        ? "mari-chrome-control mari-chrome-control--primary"
+        : "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85";
   const chatControlClass = dialog.chatStyle ? "mari-chat-style-control" : "";
 
   return (
@@ -59,6 +61,7 @@ export function AppDialogRenderer() {
       chatFloatingPanel
       topLayer
       pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
       panelClassName={dialog.chatStyle ? "mari-chat-style-surface mari-chat-action-panel" : undefined}
     >
       <div className="space-y-4">
@@ -88,7 +91,7 @@ export function AppDialogRenderer() {
               value={promptValue}
               onChange={(event) => setPromptValue(event.target.value)}
               placeholder={dialog.placeholder}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm text-[var(--foreground)] outline-none max-sm:text-base transition-colors focus:border-[var(--primary)]"
             />
             <div className="flex flex-row-reverse items-center justify-start gap-2 max-sm:flex-col max-sm:items-stretch">
               <button

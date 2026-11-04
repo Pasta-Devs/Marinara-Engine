@@ -9,6 +9,19 @@ export const BOTTOM_SHEET_CLASS =
 /** BOTTOM_SHEET_CLASS behind `max-sm:`, spelled out so Tailwind sees the classes. */
 export const PHONE_BOTTOM_SHEET_CLASS =
   "max-sm:max-w-none max-sm:max-h-full max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]";
+/** Sheet buttons: compact on desktop; on phones a 48px full-width target. Main action first in the footer. */
+const SHEET_BUTTON_BASE =
+  "inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-sm:min-h-12 max-sm:w-full max-sm:rounded-xl max-sm:text-[15px]";
+export const SHEET_BUTTON_PRIMARY = `${SHEET_BUTTON_BASE} bg-[var(--primary)] font-semibold text-[var(--primary-foreground)] hover:opacity-90`;
+export const SHEET_BUTTON_SECONDARY = `${SHEET_BUTTON_BASE} bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--accent)]`;
+export const SHEET_BUTTON_DESTRUCTIVE = `${SHEET_BUTTON_BASE} bg-[var(--destructive)] font-semibold text-white hover:opacity-90`;
+export const SHEET_BUTTON_QUIET = `${SHEET_BUTTON_BASE} text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]`;
+/** Choice list in a confirm or menu sheet: one grouped block of full-width rows. */
+export const SHEET_CHOICE_GROUP_CLASS =
+  "flex flex-col overflow-hidden rounded-xl bg-[var(--secondary)] divide-y divide-[var(--border)]";
+export const SHEET_CHOICE_ROW_CLASS =
+  "flex min-h-10 w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)] disabled:opacity-50 max-sm:min-h-13 max-sm:justify-center max-sm:text-center max-sm:text-[15px]";
+
 /** Phone sheet close X: 30px circle with a 44px hit area. */
 export const SHEET_CLOSE_BUTTON_CLASS =
   "max-sm:h-[30px]! max-sm:w-[30px]! max-sm:rounded-full max-sm:bg-[var(--marinara-chat-chrome-highlight-bg)] max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']";

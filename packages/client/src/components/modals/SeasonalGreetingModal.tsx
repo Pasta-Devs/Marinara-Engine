@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { SeasonalThemeId } from "../../lib/seasonal-themes";
 import { useUIStore } from "../../stores/ui.store";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 
 const GREETINGS: Record<SeasonalThemeId, { title: string; intro: string; details: string; art: string; bat: string }> =
   {
@@ -80,7 +81,22 @@ export function SeasonalGreetingModal({
   };
 
   return (
-    <Modal open={open} onClose={() => setOpen(false)} title={t(greeting.title)} initialFocusRef={keepRef}>
+    <Modal
+      open={open}
+      onClose={() => setOpen(false)}
+      title={t(greeting.title)}
+      initialFocusRef={keepRef}
+      footer={
+        <>
+          <button ref={keepRef} type="button" onClick={() => setOpen(false)} className={SHEET_BUTTON_PRIMARY}>
+            {t("seasonalThemes.greeting.keep")}
+          </button>
+          <button type="button" onClick={turnOff} className={SHEET_BUTTON_SECONDARY}>
+            {t("seasonalThemes.greeting.turnOff")}
+          </button>
+        </>
+      }
+    >
       <div data-component="SeasonalGreetingModal" data-seasonal-greeting={themeId} className="space-y-4">
         <div aria-hidden="true" className="relative mx-auto h-28 w-full max-w-xs">
           <img
@@ -93,23 +109,6 @@ export function SeasonalGreetingModal({
         </div>
         <p className="text-sm leading-6 text-[var(--marinara-chat-chrome-panel-title)]">{t(greeting.intro)}</p>
         <p className="text-sm leading-6 text-[var(--marinara-chat-chrome-panel-text)]">{t(greeting.details)}</p>
-        <div className="flex flex-col-reverse gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] pt-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={turnOff}
-            className="mari-chrome-control min-h-10 justify-center px-4 py-2 text-sm"
-          >
-            {t("seasonalThemes.greeting.turnOff")}
-          </button>
-          <button
-            ref={keepRef}
-            type="button"
-            onClick={() => setOpen(false)}
-            className="mari-chrome-control mari-chrome-control--primary min-h-10 justify-center px-5 py-2 text-sm"
-          >
-            {t("seasonalThemes.greeting.keep")}
-          </button>
-        </div>
       </div>
     </Modal>
   );

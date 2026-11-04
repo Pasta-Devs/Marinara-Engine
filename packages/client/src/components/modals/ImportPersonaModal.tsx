@@ -4,6 +4,7 @@
 import { useState, useRef } from "react";
 import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
@@ -137,6 +138,18 @@ export function ImportPersonaModal({ open, onClose }: Props) {
         onClose();
       }}
       title={localizeUi("ui.modals.importpersonamodal.importPersona")}
+      footer={
+        <button
+          type="button"
+          onClick={() => {
+            reset();
+            onClose();
+          }}
+          className={SHEET_BUTTON_SECONDARY}
+        >
+          {localizeUi("capabilities.actions.close")}
+        </button>
+      }
     >
       <div className="flex flex-col gap-4">
         {/* Drop zone */}
@@ -231,18 +244,6 @@ export function ImportPersonaModal({ open, onClose }: Props) {
         )}
 
         {/* Footer */}
-        <div className="flex justify-end border-t border-[var(--border)] pt-3">
-          <button
-            type="button"
-            onClick={() => {
-              reset();
-              onClose();
-            }}
-            className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            {localizeUi("capabilities.actions.close")}
-          </button>
-        </div>
       </div>
     </Modal>
   );

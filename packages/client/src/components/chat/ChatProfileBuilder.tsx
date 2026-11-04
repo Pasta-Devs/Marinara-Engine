@@ -2,7 +2,7 @@
 // Settings profile builder: fill a profile's slots by drag or click,
 // then pick the chats that should use it.
 // ──────────────────────────────────────────────
-import { useId, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { useId, useMemo, useState, type DragEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ import {
   type ChatPresetSettings,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import {
   getActiveChatResourceDrag,
   getActiveChatResourceMouseDrag,
@@ -517,9 +518,6 @@ function ChatProfileBuilderBody({
   };
 
   const bodyClass = "flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-5 py-4 text-left";
-  const footer = (children: ReactNode) => (
-    <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] px-5 py-3">{children}</div>
-  );
   const buttonClass =
     "min-h-9 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none disabled:opacity-50";
   const primaryClass =
@@ -535,6 +533,18 @@ function ChatProfileBuilderBody({
         title={t("chat.settingsProfile.builder.useTitle", { name: saved.name })}
         width="max-w-lg"
         contentClassName={CONTENT_CLASS}
+        footer={
+          <>
+            <button type="button" className={SHEET_BUTTON_PRIMARY} disabled={busy} onClick={handleApply}>
+              {count > 0
+                ? t("chat.settingsProfile.builder.applyTo", { count })
+                : t("chat.settingsProfile.builder.done")}
+            </button>
+            <span className="text-center text-xs text-[var(--muted-foreground)]">
+              {t("chat.settingsProfile.builder.stepTwoHint")}
+            </span>
+          </>
+        }
       >
         <div className={bodyClass}>
           <label className="flex min-h-11 items-center gap-3 rounded-lg bg-[var(--secondary)] px-3 py-2">
@@ -585,18 +595,6 @@ function ChatProfileBuilderBody({
             </div>
           )}
         </div>
-        {footer(
-          <>
-            <span className="min-w-40 flex-1 text-xs text-[var(--muted-foreground)]">
-              {t("chat.settingsProfile.builder.stepTwoHint")}
-            </span>
-            <button type="button" className={primaryClass} disabled={busy} onClick={handleApply}>
-              {count > 0
-                ? t("chat.settingsProfile.builder.applyTo", { count })
-                : t("chat.settingsProfile.builder.done")}
-            </button>
-          </>,
-        )}
       </Modal>
     );
   }

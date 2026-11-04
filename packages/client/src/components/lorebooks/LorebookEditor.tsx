@@ -121,6 +121,7 @@ import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 
 // ──────────────────────────────────────────────
 // Folder collapse state lives in localStorage — purely a UI preference, not
@@ -2107,6 +2108,32 @@ export function LorebookEditor() {
             />
           ) : null}
           <Modal
+            footer={
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleTransferEntries()}
+                  disabled={!entryTransferTargetId || transferEntries.isPending}
+                  className={SHEET_BUTTON_PRIMARY}
+                >
+                  {transferEntries.isPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : null}
+                  {t(
+                    entryTransferOperation === "copy"
+                      ? "lorebook.editor.batch.transfer.copyConfirm"
+                      : "lorebook.editor.batch.transfer.moveConfirm",
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEntryTransferOperation(null)}
+                  disabled={transferEntries.isPending}
+                  className={SHEET_BUTTON_QUIET}
+                >
+                  {t("lorebook.editor.batch.transfer.cancel")}
+                </button>
+              </>
+            }
+            closeButtonClassName="max-sm:hidden"
             open={entryTransferOperation !== null}
             onClose={() => {
               if (!transferEntries.isPending) setEntryTransferOperation(null);
@@ -2136,7 +2163,7 @@ export function LorebookEditor() {
                   value={entryTransferTargetId}
                   onChange={(event) => setEntryTransferTargetId(event.target.value)}
                   aria-label={t("lorebook.editor.batch.transfer.destination")}
-                  className="mari-editor-field w-full px-3 py-2 text-sm"
+                  className="mari-editor-field w-full px-3 py-2 text-sm max-sm:text-base"
                 >
                   {transferTargetLorebooks.map((book) => (
                     <option key={book.id} value={book.id}>
@@ -2145,29 +2172,6 @@ export function LorebookEditor() {
                   ))}
                 </select>
               </label>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEntryTransferOperation(null)}
-                  disabled={transferEntries.isPending}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
-                >
-                  {t("lorebook.editor.batch.transfer.cancel")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleTransferEntries()}
-                  disabled={!entryTransferTargetId || transferEntries.isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary)]/85 disabled:opacity-40"
-                >
-                  {transferEntries.isPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : null}
-                  {t(
-                    entryTransferOperation === "copy"
-                      ? "lorebook.editor.batch.transfer.copyConfirm"
-                      : "lorebook.editor.batch.transfer.moveConfirm",
-                  )}
-                </button>
-              </div>
             </div>
           </Modal>
 

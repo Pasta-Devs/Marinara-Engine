@@ -7,7 +7,12 @@ import type { LocalSpriteVisualSettings } from "./local-sprite-visual-settings";
 import type { AvatarLayoutControls } from "./AvatarLayoutSettings";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
-import { NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
+import {
+  NEUTRAL_PANEL_SHELL,
+  SHEET_BUTTON_SECONDARY,
+  SHEET_CHOICE_GROUP_CLASS,
+  SHEET_CHOICE_ROW_CLASS,
+} from "../ui/neutral-surface-styles";
 import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
 import { FloatingWindow } from "../ui/FloatingWindow";
 import { useMatchMedia } from "../../hooks/use-match-media";
@@ -70,9 +75,6 @@ type DeleteDialogProps = {
   onClose: () => void;
 };
 
-const DELETE_DIALOG_ACTION_CLASS =
-  "mari-chat-style-control mari-chrome-control min-h-10 w-full justify-start px-3 py-2 text-left text-xs";
-
 function DeleteConfirmationDialog({
   messageId,
   canDeleteSwipe,
@@ -93,6 +95,7 @@ function DeleteConfirmationDialog({
       onClose={onClose}
       title={t("chat.delete.dialog.title")}
       pullToClose={false}
+      closeButtonClassName="max-sm:hidden"
       width="max-w-sm"
       panelClassName="mari-chat-style-surface mari-chat-action-panel"
       chatFloatingPanel
@@ -100,34 +103,39 @@ function DeleteConfirmationDialog({
       <p className="mb-4 text-sm leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
         {t("chat.delete.dialog.description")}
       </p>
-      <div className="grid gap-2" data-component="MessageDeleteActions">
-        {canDeleteSwipe && (
-          <button type="button" onClick={onDeleteSwipe} className={DELETE_DIALOG_ACTION_CLASS}>
-            <Layers size="0.8rem" />
-            <span>
-              {t("chat.delete.dialog.swipe", {
-                current: activeSwipeIndex + 1,
-                total: swipeCount,
-              })}
-            </span>
+      <div className="flex flex-col gap-2" data-component="MessageDeleteActions">
+        <div className={SHEET_CHOICE_GROUP_CLASS}>
+          {canDeleteSwipe && (
+            <button type="button" onClick={onDeleteSwipe} className={SHEET_CHOICE_ROW_CLASS}>
+              <Layers size="0.8rem" />
+              <span>
+                {t("chat.delete.dialog.swipe", {
+                  current: activeSwipeIndex + 1,
+                  total: swipeCount,
+                })}
+              </span>
+            </button>
+          )}
+          {canDeleteOtherSwipes && (
+            <button type="button" onClick={onDeleteOtherSwipes} className={SHEET_CHOICE_ROW_CLASS}>
+              <Layers size="0.8rem" />
+              <span>{t("chat.delete.dialog.otherSwipes")}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onConfirm}
+            className={`${SHEET_CHOICE_ROW_CLASS} font-semibold text-[var(--destructive)]`}
+          >
+            <Trash2 size="0.8rem" />
+            <span>{t("chat.delete.dialog.message")}</span>
           </button>
-        )}
-        {canDeleteOtherSwipes && (
-          <button type="button" onClick={onDeleteOtherSwipes} className={DELETE_DIALOG_ACTION_CLASS}>
-            <Layers size="0.8rem" />
-            <span>{t("chat.delete.dialog.otherSwipes")}</span>
+          <button type="button" onClick={onDeleteMore} className={SHEET_CHOICE_ROW_CLASS}>
+            <ListChecks size="0.8rem" />
+            <span>{t("chat.delete.dialog.more")}</span>
           </button>
-        )}
-        <button type="button" onClick={onConfirm} className={DELETE_DIALOG_ACTION_CLASS}>
-          <Trash2 size="0.8rem" />
-          <span>{t("chat.delete.dialog.message")}</span>
-        </button>
-        <button type="button" onClick={onDeleteMore} className={DELETE_DIALOG_ACTION_CLASS}>
-          <ListChecks size="0.8rem" />
-          <span>{t("chat.delete.dialog.more")}</span>
-        </button>
-        <button type="button" onClick={onClose} className={DELETE_DIALOG_ACTION_CLASS}>
-          <X size="0.8rem" />
+        </div>
+        <button type="button" onClick={onClose} className={SHEET_BUTTON_SECONDARY}>
           <span>{t("chat.delete.dialog.cancel")}</span>
         </button>
       </div>

@@ -16,6 +16,7 @@ import {
   type CharacterTagEdit,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { cn } from "../../lib/utils";
 import { useAllCharacterCatalog, useBulkEditCharacterTags } from "../../hooks/use-characters";
 
@@ -93,6 +94,38 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
       title={t("characters.bulkTags.title", { count: selectedIds.size })}
       width="max-w-md"
       closeDisabled={bulkEdit.isPending}
+      footer={
+        catalog.isPending || catalog.isError ? undefined : reviewing ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void apply()}
+              disabled={bulkEdit.isPending || summary.changedIds.length === 0}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {bulkEdit.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+              {t("characters.bulkTags.apply", { count: summary.changedIds.length })}
+            </button>
+            <button
+              type="button"
+              onClick={() => setReviewing(false)}
+              disabled={bulkEdit.isPending}
+              className={SHEET_BUTTON_QUIET}
+            >
+              {t("characters.bulkTags.back")}
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={() => setReviewing(true)} disabled={empty} className={SHEET_BUTTON_PRIMARY}>
+              {t("characters.bulkTags.review")}
+            </button>
+            <button type="button" onClick={close} className={SHEET_BUTTON_QUIET}>
+              {t("characters.bulkTags.cancel")}
+            </button>
+          </>
+        )
+      }
     >
       {catalog.isPending ? (
         <p role="status" className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
@@ -207,20 +240,6 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
               {t("characters.bulkTags.addRename")}
             </button>
           </div>
-
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={close} className="mari-chrome-control px-3 py-2 text-xs">
-              {t("characters.bulkTags.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setReviewing(true)}
-              disabled={empty}
-              className="mari-chrome-control mari-chrome-control--primary px-3 py-2 text-xs"
-            >
-              {t("characters.bulkTags.review")}
-            </button>
-          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -247,25 +266,6 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
             ))}
           </ul>
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("characters.bulkTags.versionNote")}</p>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setReviewing(false)}
-              disabled={bulkEdit.isPending}
-              className="mari-chrome-control px-3 py-2 text-xs"
-            >
-              {t("characters.bulkTags.back")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void apply()}
-              disabled={bulkEdit.isPending || summary.changedIds.length === 0}
-              className="mari-chrome-control mari-chrome-control--primary px-3 py-2 text-xs"
-            >
-              {bulkEdit.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
-              {t("characters.bulkTags.apply", { count: summary.changedIds.length })}
-            </button>
-          </div>
         </div>
       )}
     </Modal>

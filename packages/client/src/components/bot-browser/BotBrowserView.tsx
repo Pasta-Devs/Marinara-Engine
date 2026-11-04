@@ -72,6 +72,7 @@ import {
 import { translate } from "../../localization/i18n";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 
 // ════════════════════════════════════════════════
 // Types
@@ -2990,6 +2991,38 @@ export function BotBrowserView() {
         title={localizeUi("ui.botBrowser.importDialog.importCard")}
         width="max-w-lg"
         closeDisabled={importing}
+        footer={
+          pendingImport?.target && pendingImport.prepared ? (
+            <>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => void finishImport(true)}
+                className={SHEET_BUTTON_PRIMARY}
+              >
+                {importing ? <Loader2 size="0.75rem" className="animate-spin" /> : <BookOpen size="0.75rem" />}
+                {localizeUi("ui.modals.importcharactermodal.importLorebook")}
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => void finishImport(false)}
+                className={SHEET_BUTTON_SECONDARY}
+              >
+                {localizeUi("ui.modals.importcharactermodal.noImport")}
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => setPendingImport({ card: pendingImport.card })}
+                className={SHEET_BUTTON_QUIET}
+              >
+                <ArrowLeft size="0.75rem" />
+                {localizeUi("ui.botBrowser.importDialog.back")}
+              </button>
+            </>
+          ) : undefined
+        }
       >
         {pendingImport && (
           <div className="flex flex-col gap-4" data-component="BotBrowserImportDialog">
@@ -3100,36 +3133,6 @@ export function BotBrowserView() {
                         })}
                       </p>
                     </div>
-                  </div>
-                </div>
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <button
-                    type="button"
-                    disabled={importing}
-                    onClick={() => setPendingImport({ card: pendingImport.card })}
-                    className="mari-chrome-control px-3 py-2 text-xs"
-                  >
-                    <ArrowLeft size="0.75rem" />
-                    {localizeUi("ui.botBrowser.importDialog.back")}
-                  </button>
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                    <button
-                      type="button"
-                      disabled={importing}
-                      onClick={() => void finishImport(false)}
-                      className="mari-chrome-control px-3 py-2 text-xs"
-                    >
-                      {localizeUi("ui.modals.importcharactermodal.noImport")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={importing}
-                      onClick={() => void finishImport(true)}
-                      className="mari-panel-gradient-button mari-panel-gradient--lorebooks px-3 py-2 text-xs"
-                    >
-                      {importing ? <Loader2 size="0.75rem" className="animate-spin" /> : <BookOpen size="0.75rem" />}
-                      {localizeUi("ui.modals.importcharactermodal.importLorebook")}
-                    </button>
                   </div>
                 </div>
               </div>

@@ -8,6 +8,7 @@ import {
   type WeekSchedule,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { api, ApiError } from "../../lib/api-client";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -824,6 +825,17 @@ export function CharacterScheduleEditorModal({
       title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })}
       width="max-w-5xl"
       chatFloatingPanel
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button type="button" onClick={save} disabled={generationBusy} className={SHEET_BUTTON_PRIMARY}>
+            {localizeUi("ui.chat.characterscheduleeditormodal.saveSchedule")}
+          </button>
+          <button type="button" onClick={handleClose} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
       <div className="space-y-4">
         <div className="rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
@@ -1439,54 +1451,35 @@ export function CharacterScheduleEditorModal({
           })}
         </fieldset>
 
-        <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.characterscheduleeditormodal.unsavedDraft")}
-            </span>
-            <input
-              ref={scheduleFileInputRef}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={(event) => void importSchedule(event.target.files?.[0])}
-            />
-            <button
-              type="button"
-              onClick={() => scheduleFileInputRef.current?.click()}
-              disabled={generationBusy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Upload size="0.75rem" />
-              {localizeUi("ui.chat.characterscheduleeditormodal.importSchedule")}
-            </button>
-            <button
-              type="button"
-              onClick={exportSchedule}
-              disabled={generationBusy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Download size="0.75rem" />
-              {localizeUi("ui.chat.characterscheduleeditormodal.exportSchedule")}
-            </button>
-          </div>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            >
-              {localizeUi("chat.delete.dialog.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={generationBusy}
-              className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
-            >
-              {localizeUi("ui.chat.characterscheduleeditormodal.saveSchedule")}
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.characterscheduleeditormodal.unsavedDraft")}
+          </span>
+          <input
+            ref={scheduleFileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(event) => void importSchedule(event.target.files?.[0])}
+          />
+          <button
+            type="button"
+            onClick={() => scheduleFileInputRef.current?.click()}
+            disabled={generationBusy}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Upload size="0.75rem" />
+            {localizeUi("ui.chat.characterscheduleeditormodal.importSchedule")}
+          </button>
+          <button
+            type="button"
+            onClick={exportSchedule}
+            disabled={generationBusy}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Download size="0.75rem" />
+            {localizeUi("ui.chat.characterscheduleeditormodal.exportSchedule")}
+          </button>
         </div>
       </div>
     </Modal>

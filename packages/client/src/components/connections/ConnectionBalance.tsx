@@ -31,6 +31,7 @@ import { formatMoney } from "./CostBadge";
 import { SMALL_ACTION } from "./DeviceDetail";
 import { BrandMark } from "./ProviderIcon";
 import { CompactUsageMeter } from "./SubscriptionUsageWidget";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 
 /** The card header word: what is left, or this month's use where the key has no cap. */
 export function balanceWord(balance: ConnectionBalance | null | undefined, t: TFunction, locale?: string) {
@@ -364,7 +365,7 @@ function UsageKeySheet({
       }}
       placeholder={t("connections.usage.keyPlaceholder")}
       aria-label={t("connections.usage.pasteKey")}
-      className="mari-chrome-field mt-2 h-11 w-full px-3 font-mono text-xs md:h-9"
+      className="mari-chrome-field mt-2 h-11 w-full px-3 font-mono text-xs max-sm:text-base md:h-9"
     />
   );
 
@@ -375,6 +376,32 @@ function UsageKeySheet({
       closeDisabled={busy}
       title={upstream ? t("connections.usage.sheetTitle", { service }) : t("connections.usage.selfSheetTitle")}
       opaque
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={busy || !canSave}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {t("connections.usage.showUsage")}
+          </button>
+          <button type="button" onClick={onClose} disabled={busy} className={SHEET_BUTTON_QUIET}>
+            {t("connections.accounts.editor.cancel")}
+          </button>
+          {saved && (
+            <button
+              type="button"
+              onClick={() => void remove()}
+              disabled={busy}
+              className={`${SHEET_BUTTON_QUIET} text-[var(--destructive)]`}
+            >
+              {t("connections.usage.remove")}
+            </button>
+          )}
+        </>
+      }
+      closeButtonClassName="max-sm:hidden"
       width="max-w-md"
       panelClassName="mari-connection-scope"
     >
@@ -402,35 +429,12 @@ function UsageKeySheet({
                   inputMode="numeric"
                   autoComplete="off"
                   maxLength={20}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                  className="mari-chrome-field h-11 w-full px-3 text-xs max-sm:text-base md:h-9"
                 />
               </label>
             )}
           </>
         )}
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
-          {saved && (
-            <button
-              type="button"
-              onClick={() => void remove()}
-              disabled={busy}
-              className="me-auto min-h-11 text-xs font-semibold text-[var(--marinara-app-accent-static)] hover:underline md:min-h-9"
-            >
-              {t("connections.usage.remove")}
-            </button>
-          )}
-          <button type="button" onClick={onClose} disabled={busy} className="mari-chrome-control px-3">
-            {t("connections.accounts.editor.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={busy || !canSave}
-            className="mari-chrome-control mari-chrome-control--primary"
-          >
-            {t("connections.usage.showUsage")}
-          </button>
-        </div>
       </div>
     </Modal>
   );

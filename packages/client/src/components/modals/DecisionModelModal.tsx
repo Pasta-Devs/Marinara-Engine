@@ -328,7 +328,7 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
                 value={String(data.cudaDevice)}
                 disabled={busy}
                 onChange={(event) => device.mutate(Number(event.target.value), { onError: report })}
-                className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                className="mari-chrome-field h-11 w-full px-3 text-xs max-sm:text-base md:h-9"
               >
                 {data.devices.map((entry) => (
                   <option key={entry.index} value={String(entry.index)}>
@@ -404,7 +404,7 @@ export function DecisionModelModal({ open, onClose, embedded }: Props) {
                       inspect.reset();
                     }}
                     placeholder={localizeUi("ui.modals.decisionmodelmodal.byoPlaceholder")}
-                    className="min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]"
+                    className="min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm max-sm:text-base ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]"
                   />
                   <button
                     type="button"

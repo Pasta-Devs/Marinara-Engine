@@ -6,6 +6,7 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film } from "lucide-react";
 import { Modal } from "./Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "./neutral-surface-styles";
 import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { cn } from "../../lib/utils";
@@ -2053,6 +2054,78 @@ export function SpriteGenerationModal({
         onClose={handleClose}
         title={localizeUi("ui.ui.spritegenerationmodal.generateSprites")}
         width="max-w-2xl"
+        footer={
+          step === 0 ? (
+            <>
+              <button
+                onClick={handleGenerate}
+                disabled={
+                  generationUnavailable ||
+                  !effectiveConnectionId ||
+                  cappedSelectedExpressions.length === 0 ||
+                  !appearance.trim()
+                }
+                title={generationUnavailable ? generationUnavailableReason : undefined}
+                className={SHEET_BUTTON_PRIMARY}
+              >
+                <Sparkles size={14} />
+                {animatedExpressionMode
+                  ? singleImageMode
+                    ? localizeUi("ui.ui.spritegenerationmodal.generateAnimatedPortrait")
+                    : localizeUi("ui.ui.spritegenerationmodal.generateAnimatedPortraits_9591e33")
+                  : fullBodyExpressionMode
+                    ? localizeUi("ui.ui.spritegenerationmodal.generateMatchedBatches")
+                    : spriteType === "full-body"
+                      ? singleImageMode
+                        ? localizeUi("ui.ui.spritegenerationmodal.generatePose")
+                        : localizeUi("ui.ui.spritegenerationmodal.generatePoseSheet")
+                      : faceBatches.length > 1
+                        ? localizeUi("ui.ui.spritegenerationmodal.generateSprites")
+                        : singleImageMode
+                          ? localizeUi("ui.characters.spritestab.generateSprite")
+                          : localizeUi("ui.ui.spritegenerationmodal.generateSheet")}
+              </button>
+              <button onClick={handleClose} className={SHEET_BUTTON_QUIET}>
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
+            </>
+          ) : step === 2 && neutralFullBodyCandidate ? (
+            <>
+              <button type="button" onClick={handleAcceptNeutralFullBody} className={SHEET_BUTTON_PRIMARY}>
+                <Check size={14} />
+                {localizeUi("ui.spriteGeneration.neutral.useAndContinue")}
+              </button>
+              <button type="button" onClick={handleGenerate} className={SHEET_BUTTON_SECONDARY}>
+                <RotateCcw size={13} />
+                {localizeUi("ui.spriteGeneration.neutral.regenerate")}
+              </button>
+            </>
+          ) : step === 2 ? (
+            <>
+              <button onClick={handleSave} disabled={saving || selectedCount === 0} className={SHEET_BUTTON_PRIMARY}>
+                {saving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    {localizeUi("chat.settings.inlineEditor.saving")}
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    {localizeUi("ui.noodle.noodlehome.save")} {selectedCount}{" "}
+                    {animatedExpressionMode
+                      ? localizeUi("ui.ui.spritegenerationmodal.gifSprite")
+                      : localizeUi("ui.ui.spritegenerationmodal.sprite")}
+                    {selectedCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
+                  </>
+                )}
+              </button>
+              <button onClick={handleReset} className={SHEET_BUTTON_SECONDARY}>
+                <ArrowLeft size={14} />
+                {localizeUi("ui.agents.secretplotpanel.regenerate")}
+              </button>
+            </>
+          ) : undefined
+        }
       >
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleReferenceUpload} />
 
@@ -2497,44 +2570,6 @@ export function SpriteGenerationModal({
                 )}
               </>
             )}
-
-            {/* Generate Button */}
-            <div className="flex items-center justify-between border-t border-[var(--border)]/30 pt-4">
-              <button
-                onClick={handleClose}
-                className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--secondary)]"
-              >
-                {localizeUi("chat.delete.dialog.cancel")}
-              </button>
-              <button
-                onClick={handleGenerate}
-                disabled={
-                  generationUnavailable ||
-                  !effectiveConnectionId ||
-                  cappedSelectedExpressions.length === 0 ||
-                  !appearance.trim()
-                }
-                title={generationUnavailable ? generationUnavailableReason : undefined}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-              >
-                <Sparkles size={14} />
-                {animatedExpressionMode
-                  ? singleImageMode
-                    ? localizeUi("ui.ui.spritegenerationmodal.generateAnimatedPortrait")
-                    : localizeUi("ui.ui.spritegenerationmodal.generateAnimatedPortraits_9591e33")
-                  : fullBodyExpressionMode
-                    ? localizeUi("ui.ui.spritegenerationmodal.generateMatchedBatches")
-                    : spriteType === "full-body"
-                      ? singleImageMode
-                        ? localizeUi("ui.ui.spritegenerationmodal.generatePose")
-                        : localizeUi("ui.ui.spritegenerationmodal.generatePoseSheet")
-                      : faceBatches.length > 1
-                        ? localizeUi("ui.ui.spritegenerationmodal.generateSprites")
-                        : singleImageMode
-                          ? localizeUi("ui.characters.spritestab.generateSprite")
-                          : localizeUi("ui.ui.spritegenerationmodal.generateSheet")}
-              </button>
-            </div>
           </div>
         )}
 
@@ -2601,25 +2636,6 @@ export function SpriteGenerationModal({
                   className="h-full w-full object-contain"
                 />
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)]/30 pt-4">
-              <button
-                type="button"
-                onClick={handleGenerate}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-              >
-                <RotateCcw size={13} />
-                {localizeUi("ui.spriteGeneration.neutral.regenerate")}
-              </button>
-              <button
-                type="button"
-                onClick={handleAcceptNeutralFullBody}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90"
-              >
-                <Check size={14} />
-                {localizeUi("ui.spriteGeneration.neutral.useAndContinue")}
-              </button>
             </div>
           </div>
         )}
@@ -3065,38 +3081,6 @@ export function SpriteGenerationModal({
                   );
                 })}
               </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between border-t border-[var(--border)]/30 pt-4">
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--secondary)]"
-              >
-                <ArrowLeft size={14} />
-                {localizeUi("ui.agents.secretplotpanel.regenerate")}
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || selectedCount === 0}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    {localizeUi("chat.settings.inlineEditor.saving")}
-                  </>
-                ) : (
-                  <>
-                    <Check size={14} />
-                    {localizeUi("ui.noodle.noodlehome.save")} {selectedCount}{" "}
-                    {animatedExpressionMode
-                      ? localizeUi("ui.ui.spritegenerationmodal.gifSprite")
-                      : localizeUi("ui.ui.spritegenerationmodal.sprite")}
-                    {selectedCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
-                  </>
-                )}
-              </button>
             </div>
           </div>
         )}

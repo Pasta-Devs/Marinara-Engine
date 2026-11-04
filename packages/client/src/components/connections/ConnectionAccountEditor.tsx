@@ -18,6 +18,7 @@ import {
   useUpdateConnectionAccount,
 } from "../../hooks/use-connection-accounts";
 import { ApiError } from "../../lib/api-client";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { openAddModels } from "../../lib/add-connection";
 import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { groupModelsByAccount, sortByModelId } from "../../lib/connection-groups";
@@ -49,7 +50,7 @@ type Draft = {
 const capValue = (value: string) => (value.trim() ? Number(value) : null);
 const STATE_TONE: Record<ConnectionAccountState, EngineTone> = { ok: "ok", off: "off", needs_key: "warn" };
 const labelClass = "mb-1 block text-xs font-semibold text-[var(--foreground)]";
-const fieldClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
+const fieldClass = "mari-chrome-field h-11 w-full px-3 text-xs max-sm:text-base md:h-9";
 
 function SecretField({
   label,
@@ -391,7 +392,7 @@ export function ConnectionAccountEditor({
                 onChange={(event) => set("name", event.target.value)}
                 aria-label={t("connections.accounts.editor.name")}
                 data-account-name
-                className="mari-chrome-field h-10 w-full px-3 text-[0.9375rem] font-semibold"
+                className="mari-chrome-field h-10 w-full px-3 text-[0.9375rem] max-sm:text-base font-semibold"
               />
               <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
                 <span className="min-w-0 truncate">
@@ -414,6 +415,39 @@ export function ConnectionAccountEditor({
         ) : undefined
       }
       opaque
+      footer={
+        account && draft ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={!dirty || update.isPending}
+              className={SHEET_BUTTON_PRIMARY}
+            >
+              {update.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+              {t("connections.accounts.editor.save")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void leaveFor(() => {})}
+              disabled={update.isPending || remove.isPending || test.isPending}
+              className={SHEET_BUTTON_QUIET}
+            >
+              {t("connections.accounts.editor.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void deleteAccount()}
+              disabled={remove.isPending}
+              className={`${SHEET_BUTTON_QUIET} text-[var(--destructive)]`}
+            >
+              <Trash2 size="0.875rem" aria-hidden />
+              {t("connections.accounts.editor.delete")}
+            </button>
+          </>
+        ) : undefined
+      }
+      closeButtonClassName="max-sm:hidden"
       width="max-w-lg"
       panelClassName="mari-connection-scope"
     >
@@ -620,38 +654,6 @@ export function ConnectionAccountEditor({
                 </ul>
               </div>
             )}
-          </div>
-
-          {/* Pinned to the bottom so Save stays in view on every screen size. */}
-          <div className="sticky bottom-0 z-10 -mx-5 -mb-4 flex items-center justify-between gap-2 border-t border-[var(--border)] bg-[var(--sidebar)] px-5 pb-4 pt-3">
-            <button
-              type="button"
-              onClick={() => void deleteAccount()}
-              disabled={remove.isPending}
-              className="flex min-h-11 items-center gap-2 text-xs font-semibold text-[var(--marinara-app-accent-static)] hover:underline disabled:opacity-50 md:min-h-9"
-            >
-              <Trash2 size="0.875rem" aria-hidden />
-              {t("connections.accounts.editor.delete")}
-            </button>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => void leaveFor(() => {})}
-                disabled={update.isPending || remove.isPending || test.isPending}
-                className="mari-chrome-control px-3"
-              >
-                {t("connections.accounts.editor.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void save()}
-                disabled={!dirty || update.isPending}
-                className="mari-chrome-control mari-chrome-control--primary"
-              >
-                {update.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
-                {t("connections.accounts.editor.save")}
-              </button>
-            </div>
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@ import {
   useStorageMigrationNotice,
 } from "../../hooks/use-storage-migration-notice";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 
 /**
  * One-time notice shown after the store migrated chat data to the per-chat
@@ -52,6 +53,17 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
       onClose={handleDismiss}
       title={localizeUi("ui.modals.storagemigrationnoticemodal.yourStorageGotAnUpgrade")}
       width="max-w-xl"
+      footer={
+        <>
+          <button type="button" onClick={handleDismiss} className={SHEET_BUTTON_PRIMARY}>
+            {localizeUi("ui.modals.storagemigrationnoticemodal.gotIt")}
+          </button>
+          <button type="button" onClick={openStorageGuide} className={SHEET_BUTTON_SECONDARY}>
+            <BookOpen size="0.875rem" aria-hidden="true" />
+            {localizeUi("ui.modals.storagemigrationnoticemodal.openTheStorageGuide")}
+          </button>
+        </>
+      }
     >
       <div data-component="StorageMigrationNoticeModal" className="space-y-4">
         <div className="flex items-start gap-3">
@@ -103,24 +115,6 @@ export function StorageMigrationNoticeModal({ presentationAllowed }: { presentat
             <li>{localizeUi("ui.modals.storagemigrationnoticemodal.technicalDowngrade")}</li>
           </ul>
         ) : null}
-
-        <div className="flex flex-col-reverse gap-2 border-t border-[var(--border)] pt-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={openStorageGuide}
-            className="mari-chrome-control min-h-10 justify-center px-4 py-2 text-sm"
-          >
-            <BookOpen size="0.875rem" aria-hidden="true" />
-            {localizeUi("ui.modals.storagemigrationnoticemodal.openTheStorageGuide")}
-          </button>
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="mari-chrome-control mari-chrome-control--primary min-h-10 justify-center px-5 py-2 text-sm"
-          >
-            {localizeUi("ui.modals.storagemigrationnoticemodal.gotIt")}
-          </button>
-        </div>
       </div>
     </Modal>
   );

@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useRef } from "react";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useCreateCharacter, useUploadAvatar } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
@@ -111,6 +112,26 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
       onClose={guardedClose}
       title={localizeUi("ui.modals.createcharactermodal.createCharacter")}
       width="max-w-sm"
+      closeButtonClassName="max-sm:hidden"
+      footer={
+        <>
+          <button
+            onClick={handleCreate}
+            disabled={!name.trim() || createCharacter.isPending}
+            className={SHEET_BUTTON_PRIMARY}
+          >
+            {createCharacter.isPending ? (
+              <Loader2 size="0.75rem" className="animate-spin" />
+            ) : (
+              <Sparkles size="0.75rem" />
+            )}
+            {localizeUi("ui.modals.createcharactermodal.create")}
+          </button>
+          <button onClick={guardedClose} className={SHEET_BUTTON_QUIET}>
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
     >
       <div className="flex flex-col items-center gap-4">
         {/* Avatar picker */}
@@ -143,30 +164,8 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
             onKeyDown={(e) => {
               if (e.key === "Enter") handleCreate();
             }}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
+            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)] max-sm:text-base"
           />
-        </div>
-
-        {/* Footer */}
-        <div className="flex w-full justify-end gap-2 border-t border-[var(--border)] pt-3">
-          <button
-            onClick={guardedClose}
-            className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={!name.trim() || createCharacter.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
-          >
-            {createCharacter.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <Sparkles size="0.75rem" />
-            )}
-            {localizeUi("ui.modals.createcharactermodal.create")}
-          </button>
         </div>
       </div>
     </Modal>
