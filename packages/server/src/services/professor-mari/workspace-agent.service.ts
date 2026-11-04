@@ -1733,11 +1733,16 @@ export function scrubInternalNames(text: string): string {
     });
 }
 
+const LOOKUP_OPENERS = ['<use_tool name="app data">', '<use_tool name="app_data">'];
+
 /**
  * The visible part of a live draft: cut at the first textual call opener (or a half-written one), internal names
  * scrubbed. Without an opener the trailing word run is held back, so a name split across deltas never shows raw.
  */
 export function draftVisibleText(raw: string): string {
+  // Hold the standalone lookup opener, including a split across provider deltas.
+  const start = raw.trimStart();
+  if (LOOKUP_OPENERS.some((opener) => opener.startsWith(start) || start.startsWith(opener))) return "";
   const suggestion = suggestionSuffixIndex(raw);
   const marker = textualCallMarkerIndex(suggestion < 0 ? raw : raw.slice(0, suggestion));
   if (marker < 0 && suggestion >= 0) return scrubInternalNames(raw.slice(0, suggestion));

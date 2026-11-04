@@ -154,7 +154,22 @@ export type PiRunInput = {
   onSession?: (session: AgentSession, tools: ToolDefinition[]) => void;
 };
 
+// Recognize only the two complete, standalone read requests seen in #8806. Their contents
+// never become tool arguments. A fresh model turn must choose a tool for the user's request.
+function printedLorebookLookup(content: string): boolean {
+  const text = content.trim();
+  return (
+    /^<use_tool name="app[ _]data">\s*<parameter name="action">lorebook[. ]entries<\/parameter>\s*<parameter name="lorebookId">[^<>]+<\/parameter>\s*<\/use_tool>$/u.test(
+      text,
+    ) ||
+    /^<tool_calls>\s*<invoke name="app[ _]data">\s*<parameter name="action">lorebook[. ]search<\/parameter>\s*<parameter name="query">[^<>]+<\/parameter>\s*<\/invoke>\s*<\/tool_calls>$/u.test(
+      text,
+    )
+  );
+}
+
 type Round = {
+  printedLookup: boolean;
   text: string;
   /** Tool calls in order, UI tools included. */
   calls: WorkspaceCommandCall[];
@@ -415,6 +430,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
   let chipRepair: "unused" | "pending" | "used" = "unused";
   let toolRounds = 0;
   let limitReached = false;
+  let lookupRetried = false;
   let emptyRepairs = 0;
   let outputLimitRepairs = 0;
   const maxEmptyRepairs = isLocalSidecarConnection(input.connection)
@@ -602,7 +618,15 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           });
         }
         const shown = scrubInternalNames(recovered?.text ?? words);
-        const text = shown.trim() ? shown : "";
+        const printedLookup =
+          isAgentTurn &&
+          !truncated &&
+          parsedCalls.length === 0 &&
+          result.toolCalls.length === 0 &&
+          toolDefs.some((tool) => tool.function.name === "app_data") &&
+          printedLorebookLookup(result.content ?? "");
+        // Keep a nonempty, argument-free assistant turn in the repair history for strict endpoints.
+        const text = printedLookup ? "I printed a lorebook lookup. It did not run." : shown.trim() ? shown : "";
         // A truncated frame never runs: its tool calls may be cut off mid-argument.
         const calls = truncated ? [] : parsedCalls;
         if (result.usage) {
@@ -640,6 +664,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           metadataByCallId.set(workspaceCalls[0].id, result.providerMetadata);
         if (isAgentTurn) {
           round = {
+            printedLookup,
             text,
             calls: workspaceCalls,
             results: [],
@@ -693,6 +718,19 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       // The answer before it stands; this round only added chips (or nothing).
       stopRequested = true;
       return "done" as const;
+    }
+    if (current.printedLookup) {
+      if (lookupRetried) {
+        addNote("The lorebook lookup did not run. Please try again.", "retry", "warning");
+        stopRequested = true;
+        return "done" as const;
+      }
+      lookupRetried = true;
+      const format = textualTools ? "the <tool_call> format in your instructions" : "the provided tool interface";
+      return {
+        kind: "repair" as const,
+        prompt: `Your last reply printed a lorebook lookup and nothing ran. Return to the user's original request. If it needs a tool, use ${format}. Otherwise answer directly.`,
+      };
     }
     if (current.calls.length === 0 && !current.text.trim() && !current.truncated) {
       // Same as classic: an empty turn is retried within a budget, then ends with a note.

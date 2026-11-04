@@ -180,6 +180,108 @@ try {
         typeof event.data === "string" ? event.data : String((event.data as { content?: string }).content),
       );
 
+  // #8806: the OpenAI-compatible wire response goes through the provider, Pi review and saved chat.
+  {
+    const { OpenAIProvider } = await import("../../../packages/server/src/services/llm/providers/openai.provider.js");
+    const entries =
+      '<use_tool name="app data"><parameter name="action">lorebook entries</parameter><parameter name="lorebookId">sample-book</parameter></use_tool>';
+    const search =
+      '<tool_calls><invoke name="app data"><parameter name="action">lorebook search</parameter><parameter name="query">sample query</parameter></invoke></tool_calls>';
+    for (const streaming of [false, true]) {
+      for (const [kind, block] of [
+        ["nanogpt", entries.replace("app data", "app_data").replace("lorebook entries", "lorebook.entries")],
+        ["nanogpt", entries],
+        ["custom", search.replace("app data", "app_data").replace("lorebook search", "lorebook.search")],
+        ["custom", search],
+      ] as const) {
+        provider = kind;
+        const adapter = new OpenAIProvider("http://127.0.0.1:1/v1", "", 32768, null, null, kind);
+        const wire = async (options: ChatOptions) => {
+          const original = globalThis.fetch;
+          globalThis.fetch = async (_url, init) => {
+            const body = JSON.parse(String(init?.body));
+            assert.equal(body.stream, streaming);
+            assert.ok(body.tools.some((tool: { function: { name: string } }) => tool.function.name === "app_data"));
+            if (!streaming) return Response.json({ choices: [{ message: { content: block }, finish_reason: "stop" }] });
+            const frames = [block.slice(0, 3), block.slice(3, 20), block.slice(20)].map(
+              (content) => "data: " + JSON.stringify({ choices: [{ delta: { content } }] }) + "\n\n",
+            );
+            return new Response(frames.join("") + "data: [DONE]\n\n", {
+              headers: { "content-type": "text/event-stream" },
+            });
+          };
+          try {
+            return await adapter.chatComplete(requests.at(-1)!.messages, {
+              ...options,
+              stream: streaming,
+              onToken: streaming ? options.onToken : undefined,
+            });
+          } finally {
+            globalThis.fetch = original;
+          }
+        };
+        const repeated = await start(
+          "printed lookup",
+          [wire, wire],
+          "pi",
+          service,
+          undefined,
+          "Help me create a chat.",
+        );
+        await repeated.done;
+        assert.equal(requests.length, 2);
+        assert.ok(requests[1]!.messages.some((m) => m.content === "Help me create a chat."));
+        assert.match(requests[1]!.messages.at(-1)!.content, /provided tool interface/u);
+        assert.equal(toolMessages(requests[1]!.messages).length, 0);
+        assert.match((await lastAssistant(repeated.chat.id))!.content, /lookup did not run/u);
+        assert.doesNotMatch(JSON.stringify(repeated.events), /<use_tool|<tool_calls>|<parameter/u);
+      }
+    }
+    provider = "claude_subscription";
+    const repaired = await start("printed lookup textual retry", [
+      reply(entries),
+      reply('<tool_call>{"name":"read","arguments":{"path":"hello.txt"}}</tool_call>'),
+      reply("Finished."),
+    ]);
+    await repaired.done;
+    assert.equal(requests.length, 3);
+    assert.match(requests[1]!.messages.at(-1)!.content, /<tool_call> format/u);
+    assert.match(requests[2]!.messages.at(-1)!.content, /hi from the workspace file/u);
+    provider = "custom";
+    mode = "plan";
+    const denied = await start("printed lookup retry permissions", [
+      reply(search),
+      reply("", [{ id: "retry-write", name: "write", args: { path: "retry.txt", content: "x", reason: "fixture" } }]),
+      reply("The file was not written."),
+    ]);
+    await denied.done;
+    assert.match(toolMessages(requests[2]!.messages)[0]!.content, /Plan mode is active/u);
+    assert.equal(existsSync(join(workspaceDir, "retry.txt")), false);
+    mode = "auto";
+    for (const example of [
+      JSON.stringify(search),
+      "Example: " + entries,
+      search + " is an example.",
+      "```xml\n" + entries + "\n```",
+      entries.slice(0, -3),
+      search.replace("</invoke>", "</wrong>"),
+      entries.replace("app data", "unknown"),
+      entries.replace("lorebook entries", "lorebook delete"),
+    ]) {
+      const run = await start("printed lookup negative", [reply(example)]);
+      await run.done;
+      assert.equal(requests.length, 1);
+      assert.equal((await lastAssistant(run.chat.id))!.content, example);
+    }
+    const mixed = await start("printed and native", [
+      reply(search, [{ id: "native-read", name: "read", args: { path: "hello.txt" } }]),
+      reply("Finished."),
+    ]);
+    await mixed.done;
+    assert.equal(requests.length, 2);
+    assert.equal(toolMessages(requests[1]!.messages).length, 1);
+    assert.match(toolMessages(requests[1]!.messages)[0]!.content, /hi from the workspace file/u);
+  }
   // (a) + (f): a read tool call runs through WorkspaceCommands and its result reaches the next model request,
   // and the model is offered only Marinara's tools (their descriptions, never pi's built-ins).
   {
