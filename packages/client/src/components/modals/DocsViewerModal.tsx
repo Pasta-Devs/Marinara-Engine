@@ -248,7 +248,7 @@ const DIR_LABELS_BY_DOCS_LANG: Record<string, Record<string, string>> = {
   },
 };
 
-function dirLabel(dir: string, docsLanguage: string) {
+export function dirLabel(dir: string, docsLanguage: string) {
   return (
     DIR_LABELS_BY_DOCS_LANG[docsLanguage]?.[dir] ??
     DIR_LABELS_BY_DOCS_LANG.en[dir] ??
@@ -294,7 +294,7 @@ function resolveDocPath(currentPath: string, target: string): string {
  * links point at the content endpoint so the click handler below can follow
  * them inside the modal.
  */
-function prepareDocMarkdown(raw: string, docPath: string): string {
+export function prepareDocMarkdown(raw: string, docPath: string): string {
   const out: string[] = [];
   for (const line of raw.replace(/\r\n/g, "\n").split("\n")) {
     const trimmed = line.trim();

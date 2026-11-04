@@ -102,6 +102,9 @@ const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
 const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
+const OverhaulDocsPage = lazy(() =>
+  import("../overhaul/DocsPage").then((module) => ({ default: module.OverhaulDocsPage })),
+);
 const LibraryLandingPage = lazy(() =>
   import("../overhaul/LibraryLandingPage").then((module) => ({ default: module.LibraryLandingPage })),
 );
@@ -507,6 +510,7 @@ export function AppShell({
   // UI overhaul preview: desktop only; phones keep the standard shell.
   const overhaulEnabled = useOverhaulStore((s) => s.enabled);
   const overhaulLibraryPage = useOverhaulStore((s) => s.libraryPage);
+  const overhaulDocsTab = useOverhaulStore((s) => s.activeDocsTab);
   const overhaulActive = overhaulEnabled && !shellOverlayMode;
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
@@ -854,53 +858,79 @@ export function AppShell({
     [setRightPanelWidth, setSidebarWidth, sharedSidebarWidth],
   );
 
-  const detailView = regexDetailId ? (
-    <RegexScriptEditor />
-  ) : personaDetailId ? (
-    <PersonaEditor />
-  ) : toolDetailId ? (
-    <ToolEditor />
-  ) : agentDetailId ? (
-    capabilityAgents.isLoading ? (
-      <MainPaneFallback />
-    ) : selectedFeatureAgent ? (
-      <FeatureAgentDetailHost
-        agent={selectedFeatureAgent}
-        installedPackage={selectedFeaturePackage}
-        activeChat={activeChat ? { id: activeChat.id, name: activeChat.name, mode: activeChat.mode } : null}
-        activeChatSupported={selectedFeatureSupportsActiveChat}
-        enabledForChat={selectedFeatureEnabledForChat}
-        onEnabledForChatChange={setSelectedFeatureEnabledForChat}
-        onClose={closeFeatureDetail}
-        onManagePackage={() => openAgentCatalog(selectedFeaturePackage?.id)}
-        capabilityProps={{
-          debugMode,
-          confirmAction: showConfirmDialog,
-          onDirtyChange: setEditorDirty,
-          onOpenLorebook: openSpatialLorebook,
-          onLorebooksChanged: refreshLorebooks,
-          onOpenChatSummarySettings: activeChat?.mode === "roleplay" ? openChatSummarySettings : undefined,
-          onOpenActivePromptPresetEditor: activeChat?.promptPresetId ? openActivePromptPresetEditor : undefined,
-        }}
-      />
-    ) : (
-      <AgentEditor />
-    )
-  ) : connectionDetailId ? (
-    <ConnectionEditor />
-  ) : presetDetailId ? (
-    <PresetEditor />
-  ) : characterDetailId ? (
-    <CharacterEditor />
-  ) : characterLibraryOpen ? (
-    <CharacterLibraryView key={cardLibraryKind} />
-  ) : agentCatalogOpen ? (
-    <AgentCatalogView />
-  ) : lorebookDetailId ? (
-    <LorebookEditor />
-  ) : overhaulActive && overhaulLibraryPage ? (
-    <LibraryLandingPage key={overhaulLibraryPage} section={overhaulLibraryPage} />
-  ) : null;
+  // UI overhaul: opening a chat, editor or library page leaves the Docs tab.
+  const overhaulDocsLeaveKeyRef = useRef<string | null>(null);
+  const overhaulDocsLeaveKey = [
+    activeChatId,
+    regexDetailId,
+    personaDetailId,
+    agentDetailId,
+    connectionDetailId,
+    presetDetailId,
+    characterDetailId,
+    lorebookDetailId,
+    characterLibraryOpen ? cardLibraryKind : "",
+  ].join("|");
+  useEffect(() => {
+    const previous = overhaulDocsLeaveKeyRef.current;
+    overhaulDocsLeaveKeyRef.current = overhaulDocsLeaveKey;
+    if (previous === null || previous === overhaulDocsLeaveKey) return;
+    const opened = overhaulDocsLeaveKey
+      .split("|")
+      .some((value, index) => value && value !== previous.split("|")[index]);
+    if (opened) useOverhaulStore.getState().leaveDocs();
+  }, [overhaulDocsLeaveKey]);
+
+  const detailView =
+    overhaulActive && overhaulDocsTab ? (
+      <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
+    ) : regexDetailId ? (
+      <RegexScriptEditor />
+    ) : personaDetailId ? (
+      <PersonaEditor />
+    ) : toolDetailId ? (
+      <ToolEditor />
+    ) : agentDetailId ? (
+      capabilityAgents.isLoading ? (
+        <MainPaneFallback />
+      ) : selectedFeatureAgent ? (
+        <FeatureAgentDetailHost
+          agent={selectedFeatureAgent}
+          installedPackage={selectedFeaturePackage}
+          activeChat={activeChat ? { id: activeChat.id, name: activeChat.name, mode: activeChat.mode } : null}
+          activeChatSupported={selectedFeatureSupportsActiveChat}
+          enabledForChat={selectedFeatureEnabledForChat}
+          onEnabledForChatChange={setSelectedFeatureEnabledForChat}
+          onClose={closeFeatureDetail}
+          onManagePackage={() => openAgentCatalog(selectedFeaturePackage?.id)}
+          capabilityProps={{
+            debugMode,
+            confirmAction: showConfirmDialog,
+            onDirtyChange: setEditorDirty,
+            onOpenLorebook: openSpatialLorebook,
+            onLorebooksChanged: refreshLorebooks,
+            onOpenChatSummarySettings: activeChat?.mode === "roleplay" ? openChatSummarySettings : undefined,
+            onOpenActivePromptPresetEditor: activeChat?.promptPresetId ? openActivePromptPresetEditor : undefined,
+          }}
+        />
+      ) : (
+        <AgentEditor />
+      )
+    ) : connectionDetailId ? (
+      <ConnectionEditor />
+    ) : presetDetailId ? (
+      <PresetEditor />
+    ) : characterDetailId ? (
+      <CharacterEditor />
+    ) : characterLibraryOpen ? (
+      <CharacterLibraryView key={cardLibraryKind} />
+    ) : agentCatalogOpen ? (
+      <AgentCatalogView />
+    ) : lorebookDetailId ? (
+      <LorebookEditor />
+    ) : overhaulActive && overhaulLibraryPage ? (
+      <LibraryLandingPage key={overhaulLibraryPage} section={overhaulLibraryPage} />
+    ) : null;
 
   const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   const hasDetailView = detailView != null;

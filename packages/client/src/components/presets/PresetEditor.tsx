@@ -599,7 +599,9 @@ export function PresetEditor() {
             <button
               type="button"
               className="ov-btn"
-              onClick={() => useUIStore.getState().openModal("docs-viewer", { initialDoc: "prompts/macros.md" })}
+              onClick={() =>
+                useUIStore.getState().openModal("docs-viewer", { initialDoc: "prompts/macros.md", newTab: true })
+              }
             >
               {localizeUi("Macro Reference")}
               <ExternalLink size={13} aria-hidden="true" />

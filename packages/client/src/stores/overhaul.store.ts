@@ -10,7 +10,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type OverhaulTabKind =
-  "chat" | "character" | "persona" | "lorebook" | "preset" | "connection" | "agent" | "regex" | "library";
+  "chat" | "character" | "persona" | "lorebook" | "preset" | "connection" | "agent" | "regex" | "library" | "docs";
 
 export type OverhaulTab = { kind: OverhaulTabKind; id: string };
 
@@ -54,6 +54,14 @@ interface OverhaulState {
   touchTab: (tab: OverhaulTab) => void;
   closeTab: (tab: OverhaulTab) => void;
   setLibraryPage: (section: LibrarySection | null) => void;
+  /** Docs tabs: tab id -> open guide path (null = guide index). */
+  docsTabs: Record<string, string | null>;
+  /** The Docs tab showing in the main area, if any. */
+  activeDocsTab: string | null;
+  /** Open the docs in a tab. `newTab` gives the guide its own tab (Macro Reference). */
+  openDocs: (path: string | null, options?: { newTab?: boolean }) => void;
+  setDocsPath: (tabId: string, path: string | null) => void;
+  leaveDocs: () => void;
 }
 
 export const useOverhaulStore = create<OverhaulState>()(
@@ -79,7 +87,20 @@ export const useOverhaulStore = create<OverhaulState>()(
         }),
       closeTab: (tab) =>
         set((state) => ({ tabs: state.tabs.filter((existing) => overhaulTabKey(existing) !== overhaulTabKey(tab)) })),
-      setLibraryPage: (libraryPage) => set({ libraryPage }),
+      setLibraryPage: (libraryPage) => set(libraryPage ? { libraryPage, activeDocsTab: null } : { libraryPage }),
+      docsTabs: {},
+      activeDocsTab: null,
+      openDocs: (path, options) =>
+        set((state) => {
+          const tabId = options?.newTab && path ? path : "main";
+          return {
+            docsTabs: { ...state.docsTabs, [tabId]: path ?? state.docsTabs[tabId] ?? null },
+            activeDocsTab: tabId,
+            libraryPage: null,
+          };
+        }),
+      setDocsPath: (tabId, path) => set((state) => ({ docsTabs: { ...state.docsTabs, [tabId]: path } })),
+      leaveDocs: () => set({ activeDocsTab: null }),
     }),
     {
       name: "marinara-overhaul-layout",
@@ -89,6 +110,7 @@ export const useOverhaulStore = create<OverhaulState>()(
         tabs: state.tabs,
         libraryPage: state.libraryPage,
         settingsTab: state.settingsTab,
+        docsTabs: state.docsTabs,
       }),
     },
   ),

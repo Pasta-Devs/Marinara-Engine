@@ -2,6 +2,7 @@
 // Zustand Store: UI Slice
 // ──────────────────────────────────────────────
 import { create } from "zustand";
+import { isOverhaulActive, useOverhaulStore } from "./overhaul.store";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { generateClientId } from "../lib/utils";
 import {
@@ -2467,7 +2468,16 @@ export const useUIStore = create<UIState>()(
         requestWhatsNew: () => set({ whatsNewRequested: true }),
         consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),
-        openModal: (type, props) => set({ modal: { type, props } }),
+        openModal: (type, props) => {
+          // UI overhaul: Docs open as a tab instead of a modal.
+          if (type === "docs-viewer" && isOverhaulActive()) {
+            const initialDoc = typeof props?.initialDoc === "string" ? props.initialDoc : null;
+            get().closeAllDetails();
+            useOverhaulStore.getState().openDocs(initialDoc, { newTab: Boolean(props?.newTab) });
+            return;
+          }
+          set({ modal: { type, props } });
+        },
         closeModal: () => set({ modal: null }),
         setAdvancedMemoryRequest: (advancedMemoryRequest) => set({ advancedMemoryRequest }),
         setTheme: (theme) => set({ theme }),
