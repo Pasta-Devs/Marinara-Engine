@@ -393,7 +393,7 @@ interface TreeNode {
  * @param dir - Absolute directory to scan
  * @param relPrefix - Relative prefix for building node paths
  * @param meta - Loaded folder metadata
- * @param linked - Real paths of the folders this walk entered through a link (see listGameAssetFolder)
+ * @param linked - Identities of the folders this walk entered through a link (see listGameAssetFolder)
  * @returns Array of TreeNode objects
  */
 function buildTree(

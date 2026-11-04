@@ -16,7 +16,7 @@ import {
   writeFileSync,
   type Stats,
 } from "fs";
-import { join, extname, relative, basename, dirname, isAbsolute, sep } from "path";
+import { join, extname, relative, basename, dirname } from "path";
 import { WORLD_ART_FAMILIES, type MusicGenre, type MusicIntensity } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { realPathInAppFolder, realPathInRealFolder } from "../../utils/app-folder.js";
@@ -77,14 +77,31 @@ export interface AssetFolderEntry {
   stat: Stats;
 }
 
+// The file identity of `path`, or undefined once it is gone. One folder can be reached under several spellings (another
+// case or Unicode form on a disk that ignores them, a Windows short name), and Node's realpath keeps the spelling a link
+// is written in, so a walk tells folders apart by identity, never by path. bigint keeps a Windows 64-bit file index exact.
+function folderKey(path: string): string | undefined {
+  const id = lstatSync(path, { bigint: true, throwIfNoEntry: false });
+  return id && `${id.dev}:${id.ino}`;
+}
+
+// Whether `key` is the folder `dir` or one above it.
+function isFolderOrAbove(key: string, dir: string): boolean {
+  for (let folder = dir; ; folder = dirname(folder)) {
+    if (folderKey(folder) === key) return true;
+    if (dirname(folder) === folder) return false;
+  }
+}
+
 // The entries of `dir`, read in its real path held by `bound`. A link is kept only while it leads to a file or a folder
 // inside; the caller enters a linked folder by the link's name, and its entries are held the same way. `linked` holds the
-// real paths of the folders one walk entered through a link, so a link to the folder being listed or one above it, or to
-// a folder the walk already entered through a link, is skipped: a link cycle ends with one warning. Anything else is
-// skipped with a warning, never thrown, since startup scans here.
+// identities of the folders one walk entered through a link, so a link to the folder being listed or one above it, or to
+// a folder the walk already entered through a link, is skipped: a link cycle ends with one warning, and each folder is
+// entered through a link at most once. Anything else is skipped with a warning, never thrown, since startup scans here.
 // ponytail: a second link to a folder already entered through a link is skipped, so that folder is listed under the name
 // the walk reaches first, and a cycle through two or more links is listed once around before it ends. Upgrade by tracking
-// the folders on the current branch to tell a cycle from a second link, with a listing budget to bound the work.
+// the folders on the current branch to tell a cycle from a second link, with a listing budget to bound the work. A disk
+// that reports no file numbers (ino 0) gives its folders one identity, so its folder links are skipped.
 function listFolder(bound: (path: string) => string, dir: string, linked: Set<string>): AssetFolderEntry[] {
   let realDir: string;
   let names: string[];
@@ -130,16 +147,16 @@ function listFolder(bound: (path: string) => string, dir: string, linked: Set<st
       logger.warn("[game-assets] Skipped link %s: it leads to neither a file nor a folder", join(dir, name));
       continue;
     }
-    // The folder being listed is inside the link's target when the way back from the target does not leave it.
-    const back = relative(target, realDir);
-    if (linked.has(target) || !(back === ".." || back.startsWith(`..${sep}`) || isAbsolute(back))) {
+    const key = folderKey(target);
+    if (!key) continue; // removed while listing
+    if (linked.has(key) || isFolderOrAbove(key, realDir)) {
       logger.warn(
         "[game-assets] Skipped linked folder %s: this scan already lists the folder it leads to",
         join(dir, name),
       );
       continue;
     }
-    linked.add(target);
+    linked.add(key);
     entries.push({ name, path, stat });
   }
   return entries;

@@ -2,10 +2,11 @@
 // held to its own real path (a game-assets folder that is itself a link, e.g. to another disk, still works): the
 // default assets seed and the asset manifest build (startup, uploads, `mari images` background assign/delete) and the
 // game-assets routes create, scan, copy, rename, write, read and delete only inside it, a link that leads out is
-// skipped or refused and its target is never touched, a folder link that stays inside is listed, a link cycle ends, and
-// manifest.json, meta.json and the seed's hash are written as new files, never through a link, and read only when they
-// are plain files (a FIFO would block the server). Image previews are cached only in the real thumbnail folder (a
-// refused one serves originals and logs once), and a link at a preview's name is never served.
+// skipped or refused and its target is never touched, a folder link that stays inside is listed, a link cycle ends, a
+// folder reached under another spelling is entered through a link once, and manifest.json, meta.json and the seed's
+// hash are written as new files, never through a link, and read only when they are plain files (a FIFO would block the
+// server). Image previews are cached only in the real thumbnail folder (a refused one serves originals and logs once),
+// and a link at a preview's name is never served.
 // The shared avatar cleanup used by the app's own deletes keeps a file whose avatar folder's real path is outside the
 // data dir. A category folder is never deleted through a trailing slash, dot or other case. Normal work still runs with
 // DATA_DIR behind a link and with game-assets behind a link, and a dangling link (game-assets on an unplugged disk
@@ -490,6 +491,39 @@ async function linkedCases(label: string) {
       for (const restore of restores.reverse()) restore();
       rmSync(join(gameAssets, "cycle-hop"), { recursive: true });
       rmSync(join(gameAssets, "sfx/ui/cycle-click.mp3"));
+    }
+  });
+  await check(`${label}: a folder reached under another spelling is entered once`, async () => {
+    // On a disk that ignores case (macOS, Windows), a link written in another case reaches the same folder under a new
+    // path. Each folder in a chain holds a track, its child and a link to that child in upper case, and the first one
+    // also links to itself and to sfx in upper case. Told apart by path, the chain alone listed 2^(n+1) - 2 tracks for n
+    // links; by identity, each folder is entered through a link once. On a case-sensitive disk these links dangle.
+    const depth = 5;
+    const top = join(gameAssets, "sfx/chain");
+    for (let i = 1, dir = top; i <= depth; i++) {
+      const child = bait(join(dir, `c${i}`), { [`chain-${i}.mp3`]: "x" });
+      symlinkSync(`C${i}`, join(dir, `s${i}`));
+      dir = child;
+    }
+    symlinkSync(join(top, "C1"), join(top, "c1/self-upper"));
+    symlinkSync(join(gameAssets, "SFX"), join(top, "c1/sfx-upper"));
+    try {
+      const tags = Object.keys(buildAssetManifest().assets).filter((tag) => tag.includes(":chain-"));
+      const tree = (await status(inject("GET", "/tree"), 200, "tree")).body;
+      const bound = depth + (depth * (depth + 1)) / 2;
+      assert.ok(tags.length <= bound, `the manifest lists ${tags.length} chain tracks, at most ${bound}`);
+      const inTree = tree.split('"name":"chain-').length - 1;
+      assert.ok(inTree <= bound, `the tree lists ${inTree} chain tracks, at most ${bound}`);
+      assert.deepEqual(
+        tags.filter((tag) => /self-upper|sfx-upper/u.test(tag)),
+        [],
+        "a link in another case to its own folder or one above it is not entered",
+      );
+      if (existsSync(join(gameAssets, "SFX"))) {
+        assert.ok(tags.includes("sfx:chain:s1:chain-1"), "a link in another case to a child folder is entered");
+      }
+    } finally {
+      rmSync(top, { recursive: true });
     }
   });
   await check(`${label}: manifest.json is never written or read through a link`, async () => {
