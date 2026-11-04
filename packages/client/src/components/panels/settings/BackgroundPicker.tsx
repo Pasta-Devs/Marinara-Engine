@@ -11,6 +11,7 @@ import {
   FolderPlus,
   Image,
   Loader2,
+  MoreHorizontal,
   Pencil,
   Pin,
   Search,
@@ -47,6 +48,7 @@ import { Modal } from "../../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../../chat/ChatResourceActionButton";
+import { ContextMenu, type ContextMenuItem } from "../../ui/ContextMenu";
 import {
   SETTINGS_BUTTON_CLASS,
   SETTINGS_ICON_BUTTON_CLASS,
@@ -248,6 +250,7 @@ export function BackgroundPicker({
   const [uploading, setUploading] = useState(false);
   const [editingTags, setEditingTags] = useState<string | null>(null);
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
+  const [cardMenu, setCardMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<BackgroundLibrarySort>("name-asc");
   const [sourceFilter, setSourceFilter] = useState<"all" | "user" | "game_asset">("all");
@@ -866,19 +869,13 @@ export function BackgroundPicker({
           >
             <ChatResourceActionButton
               payload={{ version: 1, kind: "background", ids: [background.url], label: title }}
-              className={cn(
-                SETTINGS_ICON_BUTTON_CLASS,
-                "relative max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']",
-              )}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!size-11")}
             />
             <button
               type="button"
               data-background-move
               onClick={() => void handleMoveBackground(background)}
-              className={cn(
-                SETTINGS_ICON_BUTTON_CLASS,
-                "relative max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']",
-              )}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
               title={localizeUi("ui.panels.backgroundpicker.moveToFolder")}
               aria-label={localizeUi("ui.panels.backgroundpicker.moveValue1ToAFolder", { value1: title })}
             >
@@ -892,10 +889,7 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setRenamingFile(background.id);
                   }}
-                  className={cn(
-                    SETTINGS_ICON_BUTTON_CLASS,
-                    "relative max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']",
-                  )}
+                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
                   title={localizeUi("ui.panels.backgroundpicker.renameBackground")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.renameValue1", { value1: title })}
                 >
@@ -908,10 +902,7 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setEditingTags(isEditingTags ? null : background.id);
                   }}
-                  className={cn(
-                    SETTINGS_ICON_BUTTON_CLASS,
-                    "relative max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']",
-                  )}
+                  className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
                   title={localizeUi("ui.panels.backgroundpicker.editTags")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.editTagsForValue1", { value1: title })}
                   aria-pressed={isEditingTags}
@@ -928,10 +919,7 @@ export function BackgroundPicker({
                   cancelPendingClose();
                   onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url);
                 }}
-                className={cn(
-                  SETTINGS_ICON_BUTTON_CLASS,
-                  "relative max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']",
-                )}
+                className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
                 title={
                   isDefaultRoleplay
                     ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
@@ -956,10 +944,7 @@ export function BackgroundPicker({
                 cancelPendingClose();
                 void saveExportUrl(background.url, background.filename);
               }}
-              className={cn(
-                SETTINGS_ICON_BUTTON_CLASS,
-                "relative max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']",
-              )}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!hidden")}
               title={localizeUi("ui.panels.backgroundpicker.downloadBackground")}
               aria-label={localizeUi("ui.panels.backgroundpicker.downloadValue1", { value1: title })}
             >
@@ -972,16 +957,70 @@ export function BackgroundPicker({
                   cancelPendingClose();
                   void handleDeleteBackground(background);
                 }}
-                className={cn(
-                  SETTINGS_ICON_BUTTON_CLASS,
-                  "mari-chrome-control--danger relative max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']",
-                )}
+                className={cn(SETTINGS_ICON_BUTTON_CLASS, "mari-chrome-control--danger max-sm:!hidden")}
                 title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
                 aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
               >
                 <Trash2 size="0.75rem" />
               </button>
             )}
+            {/* Phones: one 44px menu button instead of a crowded row of small icons. */}
+            <button
+              type="button"
+              onClick={(event) => {
+                cancelPendingClose();
+                const items: ContextMenuItem[] = [
+                  {
+                    label: localizeUi("ui.panels.backgroundpicker.moveToFolder"),
+                    icon: <FolderInput size="1rem" />,
+                    onSelect: () => void handleMoveBackground(background),
+                  },
+                ];
+                if (isEditable) {
+                  items.push(
+                    {
+                      label: localizeUi("ui.panels.backgroundpicker.renameBackground"),
+                      icon: <Pencil size="1rem" />,
+                      onSelect: () => setRenamingFile(background.id),
+                    },
+                    {
+                      label: localizeUi("ui.panels.backgroundpicker.editTags"),
+                      icon: <Tag size="1rem" />,
+                      onSelect: () => setEditingTags(background.id),
+                    },
+                  );
+                }
+                if (showRoleplayDefault) {
+                  items.push({
+                    label: isDefaultRoleplay
+                      ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
+                      : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats"),
+                    icon: <Pin size="1rem" />,
+                    onSelect: () =>
+                      onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url),
+                  });
+                }
+                items.push({
+                  label: localizeUi("ui.panels.backgroundpicker.downloadBackground"),
+                  icon: <Download size="1rem" />,
+                  onSelect: () => void saveExportUrl(background.url, background.filename),
+                });
+                if (background.deletable !== false && isEditable) {
+                  items.push({
+                    label: localizeUi("ui.panels.backgroundpicker.deleteBackground"),
+                    icon: <Trash2 size="1rem" />,
+                    destructive: true,
+                    onSelect: () => void handleDeleteBackground(background),
+                  });
+                }
+                setCardMenu({ x: event.clientX, y: event.clientY, items });
+              }}
+              className={cn(SETTINGS_ICON_BUTTON_CLASS, "max-sm:!size-11 sm:!hidden")}
+              title={localizeUi("connections.accounts.header.more")}
+              aria-label={localizeUi("connections.accounts.header.more")}
+            >
+              <MoreHorizontal size="1rem" />
+            </button>
           </div>
         </div>
 
@@ -1408,6 +1447,9 @@ export function BackgroundPicker({
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
               {visibleBackgrounds.map(renderCard)}
             </div>
+          )}
+          {cardMenu && (
+            <ContextMenu x={cardMenu.x} y={cardMenu.y} items={cardMenu.items} onClose={() => setCardMenu(null)} />
           )}
 
           {backgrounds.length === 0 && (
