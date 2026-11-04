@@ -73,7 +73,10 @@ export function diffWords(before: string, after: string): DiffSegment[] {
   return segments;
 }
 
-/** A kept stretch this short between two edits joins them: "~~a~~ the ~~b~~" reads as one edit. */
+/**
+ * A kept stretch this short between two edits joins them: one word of any length ("~~a~~ against ~~b~~"),
+ * or a couple of short ones ("~~a~~ of the ~~b~~"), reads as part of one edit rather than its own island.
+ */
 const BRIDGE_MAX_WORDS = 2;
 const BRIDGE_MAX_WORD_LENGTH = 4;
 
@@ -81,13 +84,14 @@ function isBridge(value: string): boolean {
   // A line break is a paragraph boundary; edits on either side stay separate.
   if (value.includes("\n")) return false;
   const words = value.split(/\s+/u).filter(Boolean);
+  if (words.length <= 1) return true;
   return words.length <= BRIDGE_MAX_WORDS && words.every((word) => word.length <= BRIDGE_MAX_WORD_LENGTH);
 }
 
 /**
  * Regroup a word diff into whole edited runs for reading: each run of changes shows all of its old
  * text struck, then all of its new text, instead of alternating word by word. Short kept stretches
- * between two changes (spaces, "a", "of the") join the run on both sides, so `equal`+`removed`
+ * between two changes (spaces, one word, "of the") join the run on both sides, so `equal`+`removed`
  * still spells `before` and `equal`+`added` still spells `after`.
  */
 export function groupChangeRuns(segments: readonly DiffSegment[]): DiffSegment[] {

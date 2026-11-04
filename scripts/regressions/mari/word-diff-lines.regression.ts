@@ -87,7 +87,12 @@ assert(diffLines("", "").length === 0, "empty to empty has nothing to show");
   assert(spell("removed") === before, "kept + removed still spells the old text");
   assert(spell("added") === after, "kept + added still spells the new text");
 
-  // A longer kept word between two edits stays kept, and so does a line break.
+  // One kept word between two edits joins them; a longer kept stretch stays kept, and so does a line break.
+  const joined = diffWordRuns("shield to against a growing fault.", "shield against growing exhaustion.");
+  assert(
+    joined.map((s) => s.type).join(",") === "equal,removed,added",
+    `single kept words fold into one run (got ${joined.map((s) => s.type).join(",")})`,
+  );
   const apart = diffWordRuns("one cat sleeps quietly here", "two cat sleeps loudly here");
   assert(
     apart.filter((s) => s.type === "equal").some((s) => s.value.includes("cat sleeps")),
