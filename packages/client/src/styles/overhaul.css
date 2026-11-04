@@ -4102,3 +4102,181 @@ input.ov-edhead__title:focus {
 .ov-tab__presence.is-offline {
   color: var(--ov-dim);
 }
+
+/* ─── New game setup (mockup "New game B": compact stepper dialog) ─── */
+.ov-gsw {
+  max-width: 40rem !important;
+  border-radius: 0.75rem !important;
+}
+.ov-gsw > div:first-child {
+  gap: 0.25rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem !important;
+}
+.ov-gsw__icon {
+  display: grid;
+  width: 1.875rem;
+  height: 1.875rem;
+  place-items: center;
+  border-radius: 0.4375rem;
+  color: var(--ov-muted);
+}
+.ov-gsw__icon:hover:not(:disabled) {
+  background: var(--ov-hover);
+  color: var(--ov-text);
+}
+.ov-gsw__steps {
+  display: flex;
+  flex: none;
+  gap: 0.125rem;
+  overflow-x: auto;
+  padding: 0.375rem 0.625rem;
+  border-bottom: 1px solid var(--ov-line);
+  scrollbar-width: none;
+}
+.ov-gsw__steps button {
+  display: inline-flex;
+  height: 1.75rem;
+  flex: none;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0 0.5625rem;
+  border-radius: 0.375rem;
+  color: var(--ov-dim);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.ov-gsw__steps button:hover:not(:disabled) {
+  background: var(--ov-hover);
+  color: var(--ov-text);
+}
+.ov-gsw__steps button.is-done {
+  color: var(--ov-muted);
+}
+.ov-gsw__steps button.is-done svg {
+  color: #5fc48a;
+}
+.ov-gsw__steps button.is-on {
+  background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
+  color: var(--ov-accent);
+}
+.ov-gsw__hint {
+  margin: -0.25rem 0 0.75rem !important;
+  color: var(--ov-dim) !important;
+  font-size: 0.75rem !important;
+}
+.ov-gsw .space-y-4 > :not(:last-child) {
+  margin-bottom: 0.5rem !important;
+}
+.ov-gsw .space-y-4 > * + * {
+  margin-top: 0 !important;
+}
+/* Label-left rows: the field label sits in a 8.5rem column, everything else in the second column. */
+.ov-gsw .space-y-4 > div:has(> :is(label, span).mb-1\.5:first-child) {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  column-gap: 0.75rem;
+  align-items: start;
+}
+.ov-gsw .space-y-4 > div > :is(label, span).mb-1\.5:first-child {
+  grid-column: 1;
+  grid-row: 1 / span 12;
+  margin: 0 !important;
+  padding-top: 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem !important;
+  font-weight: 400 !important;
+}
+.ov-gsw .space-y-4 > div:has(> :is(label, span).mb-1\.5:first-child) > :not(:first-child) {
+  grid-column: 2;
+}
+/* Flatten the inner cards. */
+.ov-gsw .space-y-4 :is(div, label, p).rounded-lg:is([class*="border"], [class*="ring-1"]),
+.ov-gsw .space-y-4 div.rounded-xl {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.ov-gsw .space-y-4 div.rounded-lg:is([class*="ring-1"]):has(> div > input, > div > svg) {
+  border: 1px solid var(--ov-line) !important;
+  border-radius: 0.4375rem !important;
+}
+.ov-gsw .space-y-4 div.rounded-lg:is([class*="ring-1"]):has(> div > input, > div > svg) > div {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.ov-gsw .space-y-4 [class*="max-h-"] > * {
+  min-height: 1.875rem !important;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+/* Choice cards (title + description) become a segmented control; the description shows on hover. */
+.ov-gsw .space-y-4 :is(.flex.gap-2, .grid.gap-2) > button.rounded-lg {
+  flex: none !important;
+  width: auto !important;
+  min-height: 0 !important;
+  padding: 0.3125rem 0.75rem !important;
+  border-radius: 0.4375rem !important;
+  font-size: 0.78rem !important;
+}
+.ov-gsw .space-y-4 :is(.flex.gap-2, .grid.gap-2):has(> button.rounded-lg) {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 0.25rem !important;
+}
+.ov-gsw
+  .space-y-4
+  :is(.flex.gap-2, .grid.gap-2)
+  > button.rounded-lg
+  :is(div, p, span)
+  + :is(div, p, span):not(:has(*)) {
+  display: none;
+}
+.ov-gsw .space-y-4 :is(.flex.gap-2, .grid.gap-2) > button.rounded-lg > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.ov-gsw input:not([type="checkbox"], [type="radio"], .sr-only),
+.ov-gsw select {
+  min-height: 1.875rem !important;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+  border-radius: 0.4375rem !important;
+  font-size: 0.8125rem !important;
+}
+.ov-gsw textarea {
+  border-radius: 0.4375rem !important;
+  font-size: 0.8125rem !important;
+}
+.ov-gsw .space-y-4 button.min-h-11 {
+  min-height: 1.875rem !important;
+}
+.ov-gsw-import > div:first-of-type {
+  display: none !important;
+}
+.ov-gsw-import {
+  padding: 0 !important;
+}
+.ov-gsw-import:not(:has(> :nth-child(3))) {
+  display: none !important;
+}
+.ov-gsw > div:last-child {
+  padding: 0.5rem 0.75rem !important;
+}
+.ov-gsw .space-y-4 button.rounded-lg:has(> span.rounded-full, > span > span.rounded-full) {
+  padding: 0.25rem 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+.ov-gsw .space-y-4 div.border-b:has(> input) {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+.ov-gsw .space-y-4 div.border-b:has(> input) > input {
+  border: 0 !important;
+  background: transparent !important;
+}
