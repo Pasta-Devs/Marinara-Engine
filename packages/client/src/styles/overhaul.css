@@ -355,11 +355,6 @@
 }
 
 /* ─── The old chrome the overhaul replaces ─── */
-/* Home's fake browser: the brand and address bar go; the Home apps row stays. */
-:root[data-overhaul="on"] [data-component="HomeBrowserHub.Brand"],
-:root[data-overhaul="on"] [data-component="HomeBrowserHub.AddressRow"] {
-  display: none !important;
-}
 
 /* Titles in the overhaul's serif. */
 :root[data-overhaul="on"] .mari-sidebar h2,
@@ -1249,8 +1244,10 @@
 .ov-table td {
   white-space: nowrap;
 }
-.ov-table__desc {
-  max-width: 22rem;
+/* The description column takes the space that is left and truncates, so tables never scroll sideways. */
+.ov-table td.ov-table__desc {
+  width: 100%;
+  max-width: 0;
 }
 .ov-gallery__tools {
   flex-wrap: wrap;
@@ -1939,26 +1936,6 @@
 [data-overhaul="on"] .ov-lore-row > div:first-of-type {
   gap: 0.375rem;
 }
-.ov-lore-row__keys {
-  display: flex;
-  min-width: 0;
-  flex: 1 1 6rem;
-  flex-wrap: nowrap;
-  gap: 0.25rem;
-  overflow: hidden;
-}
-.ov-lore-row__keys code {
-  flex: none;
-  padding: 0.0625rem 0.375rem;
-  border-radius: 0.3125rem;
-  background: var(--ov-hover);
-  color: var(--ov-text);
-  font-size: 0.75rem;
-}
-.ov-lore-row__keys small {
-  color: var(--ov-dim);
-  font-size: 0.75rem;
-}
 [data-overhaul="on"] [data-editor-section="entries"] .space-y-2 > * + *,
 [data-overhaul="on"] [data-editor-section="entries"] .space-y-1\.5 > * + * {
   margin-top: 0;
@@ -2284,9 +2261,6 @@
 }
 
 /* ─── Home ─── */
-:root[data-overhaul="on"] [data-component="HomeBrowserHub"][data-home-tab="home"] header.mari-home-browser-chrome {
-  display: none;
-}
 :root[data-overhaul="on"] .mari-home-hero {
   flex-direction: row !important;
   flex-wrap: wrap;
@@ -3059,9 +3033,6 @@ input.ov-edhead__title:focus {
   display: grid;
   min-width: 0;
   align-content: start;
-}
-.ov-ed__full {
-  grid-column: 1 / -1;
 }
 .ov-eyebrow {
   display: flex;
@@ -5301,10 +5272,6 @@ input.ov-edhead__title:focus {
   flex-direction: column;
   border-right: 1px solid var(--ov-line);
 }
-.ov-vw__head {
-  padding: 0.75rem 1rem 0.625rem;
-  border-bottom: 1px solid var(--ov-line);
-}
 .ov-vw__crumb {
   display: flex;
   gap: 0.3rem;
@@ -5313,17 +5280,6 @@ input.ov-edhead__title:focus {
 }
 .ov-vw__crumb button:hover {
   color: var(--ov-text);
-}
-.ov-vw__head h1 {
-  margin: 0.125rem 0 0;
-  color: var(--ov-text);
-  font-size: 1.25rem;
-  font-weight: 600;
-  line-height: 1.2;
-}
-.ov-vw__head small {
-  color: var(--ov-muted);
-  font-size: 0.75rem;
 }
 .ov-vw__label {
   display: flex;
@@ -5385,17 +5341,6 @@ input.ov-edhead__title:focus {
   color: var(--ov-text);
   font-size: 0.8125rem;
   outline: none;
-}
-.ov-vw__new {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--ov-text);
-  font-size: 0.8125rem;
-}
-.ov-vw__new:hover {
-  color: var(--ov-accent);
 }
 .ov-vw__list {
   min-height: 0;
@@ -6058,10 +6003,6 @@ input.ov-edhead__title:focus {
 }
 
 /* ─── Home apps live in the top bar's tabs (2026-11-04) ─── */
-/* Home's own tab strip and bookmarks bar are gone in the overhaul: each app is a top tab. */
-:root[data-overhaul="on"] [data-component="HomeBrowserHub"] header.mari-home-browser-chrome {
-  display: none;
-}
 .ov-tab__appicon {
   display: inline-flex;
   width: 1.125rem;
