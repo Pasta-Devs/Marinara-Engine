@@ -10,7 +10,17 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type OverhaulTabKind =
-  "chat" | "character" | "persona" | "lorebook" | "preset" | "connection" | "agent" | "regex" | "library" | "docs";
+  | "chat"
+  | "character"
+  | "persona"
+  | "lorebook"
+  | "preset"
+  | "connection"
+  | "agent"
+  | "regex"
+  | "library"
+  | "docs"
+  | "mari";
 
 export type OverhaulTab = { kind: OverhaulTabKind; id: string };
 
@@ -53,6 +63,11 @@ interface OverhaulState {
   setDesktop: (desktop: boolean) => void;
   touchTab: (tab: OverhaulTab) => void;
   closeTab: (tab: OverhaulTab) => void;
+  /** Drag-to-reorder: put the tab with `key` at `index` in the strip. */
+  moveTab: (key: string, index: number) => void;
+  /** Professor Mari's chat is the page on screen (her tab). */
+  activeMari: boolean;
+  openMari: () => void;
   setLibraryPage: (section: LibrarySection | null) => void;
   /** Docs tabs: tab id -> open guide path (null = guide index). */
   docsTabs: Record<string, string | null>;
@@ -87,7 +102,19 @@ export const useOverhaulStore = create<OverhaulState>()(
         }),
       closeTab: (tab) =>
         set((state) => ({ tabs: state.tabs.filter((existing) => overhaulTabKey(existing) !== overhaulTabKey(tab)) })),
-      setLibraryPage: (libraryPage) => set(libraryPage ? { libraryPage, activeDocsTab: null } : { libraryPage }),
+      moveTab: (key, index) =>
+        set((state) => {
+          const from = state.tabs.findIndex((tab) => overhaulTabKey(tab) === key);
+          if (from < 0) return state;
+          const tabs = [...state.tabs];
+          const [moved] = tabs.splice(from, 1);
+          tabs.splice(Math.max(0, Math.min(index > from ? index - 1 : index, tabs.length)), 0, moved!);
+          return { tabs };
+        }),
+      activeMari: false,
+      openMari: () => set({ activeMari: true, activeDocsTab: null, libraryPage: null }),
+      setLibraryPage: (libraryPage) =>
+        set(libraryPage ? { libraryPage, activeDocsTab: null, activeMari: false } : { libraryPage }),
       docsTabs: {},
       activeDocsTab: null,
       openDocs: (path, options) =>
@@ -96,15 +123,21 @@ export const useOverhaulStore = create<OverhaulState>()(
           return {
             docsTabs: { ...state.docsTabs, [tabId]: path ?? state.docsTabs[tabId] ?? null },
             activeDocsTab: tabId,
+            activeMari: false,
             libraryPage: null,
           };
         }),
       setDocsPath: (tabId, path) => set((state) => ({ docsTabs: { ...state.docsTabs, [tabId]: path } })),
-      leaveDocs: () => set({ activeDocsTab: null }),
+      leaveDocs: () => set({ activeDocsTab: null, activeMari: false }),
     }),
     {
       name: "marinara-overhaul-layout",
-      version: 1,
+      version: 2,
+      // v2: Library sections no longer get tabs (they are one click away in the Library pane).
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as { tabs?: OverhaulTab[] };
+        return { ...state, tabs: (state.tabs ?? []).filter((tab) => tab.kind !== "library") } as never;
+      },
       partialize: (state) => ({
         enabled: state.enabled,
         tabs: state.tabs,

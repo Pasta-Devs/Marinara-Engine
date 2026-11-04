@@ -6,11 +6,12 @@
 // Chat settings, Help, Library and the Library pane toggle on the right.
 // Sidebar collapse controls live here, never over the chat background.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CircleHelp,
   FileText,
+  GraduationCap,
   Home,
   Layers,
   Link,
@@ -62,6 +63,7 @@ const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library">, LucideIcon
   agent: Sparkles,
   regex: Regex,
   docs: CircleHelp,
+  mari: GraduationCap,
 };
 
 const MODE_DOT: Record<string, string> = {
@@ -84,8 +86,10 @@ function useCurrentTab(): OverhaulTab | null {
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const libraryPage = useOverhaulStore((s) => s.libraryPage);
   const activeDocsTab = useOverhaulStore((s) => s.activeDocsTab);
+  const activeMari = useOverhaulStore((s) => s.activeMari);
   return useMemo(() => {
     const real = (id: string | null | undefined) => (id && id !== "__new__" ? id : null);
+    if (activeMari) return { kind: "mari", id: "main" };
     if (activeDocsTab) return { kind: "docs", id: activeDocsTab };
     if (real(regexDetailId)) return { kind: "regex", id: regexDetailId! };
     if (real(personaDetailId)) return { kind: "persona", id: personaDetailId! };
@@ -102,6 +106,7 @@ function useCurrentTab(): OverhaulTab | null {
   }, [
     activeChatId,
     activeDocsTab,
+    activeMari,
     agentDetailId,
     cardLibraryKind,
     characterDetailId,
@@ -128,7 +133,12 @@ function activateTab(tab: OverhaulTab) {
   const overhaul = useOverhaulStore.getState();
   if (tab.kind === "docs") {
     ui.closeAllDetails();
-    useOverhaulStore.setState({ activeDocsTab: tab.id, libraryPage: null });
+    useOverhaulStore.setState({ activeDocsTab: tab.id, activeMari: false, libraryPage: null });
+    return;
+  }
+  if (tab.kind === "mari") {
+    ui.closeAllDetails();
+    overhaul.openMari();
     return;
   }
   overhaul.leaveDocs();
@@ -225,6 +235,7 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
     label = section ? localize(section.label) : null;
   } else if (tab.kind === "agent") label = tab.id.replace(/[-_]/g, " ");
   else if (tab.kind === "regex") label = localize("Regex script");
+  else if (tab.kind === "mari") label = localize("Professor Mari");
   else if (tab.kind === "docs") {
     const title = docsTitle(docsPath);
     label = title ? `${localize("Docs")}: ${title}` : localize("Docs");
@@ -263,10 +274,15 @@ export function OverhaulTopBar() {
   const current = useCurrentTab();
   const currentKey = current ? overhaulTabKey(current) : null;
   const stripRef = useRef<HTMLDivElement | null>(null);
+  const moveTab = useOverhaulStore((s) => s.moveTab);
+  // Drag to reorder: the dragged tab's key, and where it would land (index in `tabs`).
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
-  // Whatever is on screen gets a tab, so you can hop back to it.
+  // Whatever is on screen gets a tab, so you can hop back to it. Library sections, Settings and
+  // Extensions don't: they are one click away in the Library pane.
   useEffect(() => {
-    if (current) touchTab(current);
+    if (current && current.kind !== "library") touchTab(current);
   }, [current, touchTab]);
 
   // Keep the active tab in view when the strip overflows.
@@ -325,9 +341,13 @@ export function OverhaulTopBar() {
       >
         <PanelLeft size={16} />
       </button>
-      <span className="ov-mark" aria-hidden="true">
-        M
-      </span>
+      <img
+        className="ov-mark"
+        src="/favicon.png"
+        srcSet="/favicon.png 1x, /icon-192.png 3x"
+        alt=""
+        aria-hidden="true"
+      />
       <nav className="ov-tabs" aria-label={localize("Open tabs")} ref={stripRef}>
         <button
           type="button"
@@ -338,11 +358,44 @@ export function OverhaulTopBar() {
           <Home size={14} aria-hidden="true" className="ov-tab__icon" />
           <span className="ov-tab__label">{localize("Home")}</span>
         </button>
-        {tabs.map((tab) => {
+        {tabs.map((tab, index) => {
           const key = overhaulTabKey(tab);
           const on = key === currentKey;
           return (
-            <div key={key} className={cn("ov-tab", on && "is-on")} data-tab-key={key}>
+            <div
+              key={key}
+              className={cn(
+                "ov-tab",
+                on && "is-on",
+                dragKey === key && "is-dragging",
+                dragKey && dropIndex === index && "is-drop-before",
+                dragKey && dropIndex === tabs.length && index === tabs.length - 1 && "is-drop-after",
+              )}
+              data-tab-key={key}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", key);
+                setDragKey(key);
+              }}
+              onDragOver={(event) => {
+                if (!dragKey) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                const box = event.currentTarget.getBoundingClientRect();
+                setDropIndex(event.clientX < box.left + box.width / 2 ? index : index + 1);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (dragKey && dropIndex !== null) moveTab(dragKey, dropIndex);
+                setDragKey(null);
+                setDropIndex(null);
+              }}
+              onDragEnd={() => {
+                setDragKey(null);
+                setDropIndex(null);
+              }}
+            >
               <button
                 type="button"
                 className="ov-tab__main"

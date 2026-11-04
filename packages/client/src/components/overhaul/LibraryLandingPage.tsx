@@ -18,9 +18,7 @@ const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType>>>
   connections: lazy(() => import("./LibraryTables").then((m) => ({ default: m.ConnectionsLanding }))),
   agents: lazy(() => import("./LibraryTables").then((m) => ({ default: m.AgentsLanding }))),
   settings: lazy(() => import("./SettingsPage").then((m) => ({ default: m.OverhaulSettingsPage }))),
-  extensions: lazy(() =>
-    import("../panels/PersonalExtensionPanel").then((m) => ({ default: m.PersonalExtensionPanel })),
-  ),
+  extensions: lazy(() => import("./SettingsPage").then((m) => ({ default: m.OverhaulExtensionsPage }))),
 };
 
 const SURFACES = {
@@ -35,7 +33,15 @@ const SURFACES = {
 const PAGE_WIDTH: Partial<Record<LibrarySection, number>> = { settings: 980, agents: 1080 };
 
 /** Pages that draw their own title row and toolbar (the Library tables). */
-const SELF_HEADED = new Set<LibrarySection>(["lorebooks", "presets", "regex", "connections", "agents", "settings"]);
+const SELF_HEADED = new Set<LibrarySection>([
+  "lorebooks",
+  "presets",
+  "regex",
+  "connections",
+  "agents",
+  "settings",
+  "extensions",
+]);
 
 export function LibraryLandingPage({ section }: { section: LibrarySection }) {
   const localize = useLocalizedUiText();
