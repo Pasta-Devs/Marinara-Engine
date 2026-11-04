@@ -1,4 +1,3 @@
-import { recoverSuggestionSuffix } from "./suggestion-suffix.js";
 // Professor Mari's optional second runtime, built on the pi SDK: native tool calls instead of the JSON frame.
 // It calls Marinara's own provider layer for the model, runs every tool through WorkspaceCommands, and applies
 // the same Permissions Mode, claim audit and repeated-failure rules as the classic loop. The sandbox is closed
@@ -30,6 +29,7 @@ import {
   supportsNativeToolCalls,
 } from "@marinara-engine/shared";
 import { parseTextualToolCalls, stripTextualToolCalls } from "../llm/textual-tool-call-parser.js";
+import { recoverSuggestionSuffix } from "./suggestion-suffix.js";
 import {
   appendTraceStatus,
   appendVisibleText,
@@ -596,7 +596,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           tools.some((tool) => tool.name === "suggestions")
         ) {
           parsedCalls.push({
-            id: `suggestions_${crypto.randomUUID()}`,
+            id: `suggestions_${randomUUID()}`,
             type: "function",
             function: { name: "suggestions", arguments: JSON.stringify({ chips: recovered.chips }) },
           });

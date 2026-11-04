@@ -1,4 +1,3 @@
-import { recoverSuggestionSuffix, suggestionSuffixIndex } from "./suggestion-suffix.js";
 // ──────────────────────────────────────────────
 // Professor Mari native command workspace runtime
 // ──────────────────────────────────────────────
@@ -28,6 +27,7 @@ import { readFeatureModelConnections } from "../storage/feature-model-connection
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { createMariInstructionsStorage } from "../storage/mari-instructions.storage.js";
 import { mariDecisionContext } from "./decision-authoring.js";
+import { recoverSuggestionSuffix, suggestionSuffixIndex } from "./suggestion-suffix.js";
 import { renderMariMemoryPrompt } from "./mari-instructions-prompt.js";
 import { renderMariSkillsPrompt } from "./mari-skills-prompt.js";
 import { createMariWorkspaceContextStorage } from "../storage/mari-workspace-context.storage.js";
@@ -1916,13 +1916,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     .filter(Boolean)
     .join("\n\n");
   const visibleText = scrubInternalNames([inlineVisibleText, frameVisibleText].filter(Boolean).join("\n\n").trim());
-  const parsedSuggestions = matches
-    .flatMap((match) => sanitizeSuggestionChips(match.payload.suggestions))
-    .map((chip) => ({
-      ...chip,
-      label: scrubInternalNames(chip.label),
-      ...(chip.detail ? { detail: scrubInternalNames(chip.detail) } : {}),
-    }));
+  const parsedSuggestions = matches.flatMap((match) => sanitizeSuggestionChips(match.payload.suggestions));
   // A frame with invalid commands is repaired, not shown, so its card is dropped with it.
   const questions = hasInvalidCommands
     ? []
@@ -1964,8 +1958,15 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
   // Even an invalid card means she wants an answer first.
   const askCalled = matches.some((match) => Array.isArray(match.payload.ask) && match.payload.ask.length > 0);
   const commands = askCalled ? parsedCommands.filter((call) => !isMutatingWorkspaceCommand(call)) : parsedCommands;
+  const chosenChips = parsedSuggestions.length ? parsedSuggestions : (recovered?.chips ?? []);
   const suggestions =
-    asking || hasInvalidCommands ? [] : parsedSuggestions.length ? parsedSuggestions : (recovered?.chips ?? []);
+    asking || hasInvalidCommands
+      ? []
+      : chosenChips.map((chip) => ({
+          ...chip,
+          label: scrubInternalNames(chip.label),
+          ...(chip.detail ? { detail: scrubInternalNames(chip.detail) } : {}),
+        }));
   const protocolValid =
     (matches.length > 0 || (Boolean(recovered) && sentCommands.length === 0)) && !hasInvalidCommands;
   const explicitStop = [...matches].reverse().find((match) => jsonPayloadStopValue(match.payload) !== undefined);
