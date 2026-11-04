@@ -9,8 +9,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 <!--
 Still open: add these before the release merges.
 - #8837 (#8820): continuity compaction halves summaries with only the combine prompt.
-- #8841 (#8831): the recent message tail is kept strictly; Peek Prompt shows the current context.
-- #8846 (#8843): the full browser matrix fixes, with the empty picker's Add account row and the subscription model context.
+- #8843: the rest of the full browser matrix fixes (batch 2 and 3); app fixes in them may need entries.
 - The docs-i18n translation PR for this release.
 Remove this comment before tagging: the release body includes everything under the heading.
 -->
@@ -381,6 +380,10 @@ Remove this comment before tagging: the release body includes everything under t
 - New Roleplay chat setup no longer offers **Prepare existing history**, since a new chat has none; existing chats keep it in **Chat Settings → Memory Recall**. The setup's **Automatic context and memory handling** text now names Advanced Memory Recall, and **Maximum messages per excerpt** now starts at 5 instead of 10. Limits you saved, including 10 and 0, stay as they are (#8175).
 
 - An Advanced Memory scene-repair notification, and its **Fix** button, now open **Memory Recall** in that chat even when the section is popped out or minimized or the notice came while you were in another chat, and expand the section if it was collapsed (#8203).
+
+- With **Hide summarised messages** on, the **Recent message tail** is now a strict limit in Roleplay: a summarized message older than the tail is left out of the prompt right away, instead of staying until the next summary hid it. Older messages that no summary covers yet are still sent, and Chat Summary shows how many under **Recent message tail**, so **Backfill Summary** can summarize them. A swipe or regeneration still sends the messages that the replaced reply's summary covered (#8831, #8841).
+
+- **Peek Prompt** on a reply shows the exact request sent for it, captured before any later summary or hiding, and says so. **Show current context** switches to what the next request would send now, and **Show sent request** goes back (#8831, #8841).
 
 ### Voice and Calls
 
