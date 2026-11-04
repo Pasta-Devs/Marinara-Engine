@@ -4677,6 +4677,127 @@ test("Character and Persona avatar actions stay separated and visually balanced"
   }
 });
 
+test("Sprite folder imports use Engine confirmation and preserve duplicate names across folders", async ({
+  page,
+  request,
+}, testInfo) => {
+  const response = await request.post("/api/characters", { data: { data: { name: "Folder import confirmation" } } });
+  expect(response.ok()).toBeTruthy();
+  const character = (await response.json()) as { id: string };
+  const browserDialogs: string[] = [];
+  page.on("dialog", async (dialog) => {
+    browserDialogs.push(dialog.type());
+    await dialog.dismiss();
+  });
+  const uploads: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes(`/api/sprites/${character.id}`))
+      uploads.push(request.url());
+  });
+  try {
+    await page.goto("/");
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openCharacterDetail(id);
+    }, character.id);
+    const editor = page.locator(".mari-editor-shell");
+    await openEditorSection(editor, "Sprites");
+    await editor.getByRole("button", { name: "Manage", exact: true }).last().click();
+    await editor.getByRole("button", { name: "Add sprites", exact: true }).click();
+    await expect(editor.locator("input[webkitdirectory]")).toHaveCount(0);
+    const folderDialog = page.getByRole("dialog", { name: "Import folder", exact: true });
+    async function dropFolder(broken = false) {
+      await editor.getByRole("button", { name: "Import folder", exact: true }).click();
+      await folderDialog.getByText("Drop a folder here, or choose images from a folder below.").evaluate(
+        (target, { image, broken }) => {
+          const imageFile = (path: string) => ({
+            name: "happy.png",
+            fullPath: path,
+            isFile: true,
+            file: (resolve: (file: File) => void, reject: (error: Error) => void) => {
+              if (broken) reject(new Error("unreadable fixture"));
+              else
+                resolve(
+                  new File([Uint8Array.from(atob(image), (c) => c.charCodeAt(0))], "happy.png", { type: "image/png" }),
+                );
+            },
+          });
+          const directory = (children: unknown[]) => ({
+            isDirectory: true,
+            createReader: () => {
+              let read = false;
+              return {
+                readEntries: (resolve: (entries: unknown[]) => void) => {
+                  resolve(read ? [] : children);
+                  read = true;
+                },
+              };
+            },
+          });
+          const entry = directory([
+            imageFile("/Front/happy.png"),
+            directory([imageFile("/Front/Side/happy.png")]),
+            { isFile: true, name: "notes.txt" },
+          ]);
+          const event = new Event("drop", { bubbles: true, cancelable: true });
+          Object.defineProperty(event, "dataTransfer", {
+            value: { items: [{ webkitGetAsEntry: () => entry }], files: [] },
+          });
+          target.dispatchEvent(event);
+        },
+        { image: TRANSPARENT_PNG_BASE64, broken },
+      );
+    }
+    await dropFolder();
+    await expect(folderDialog.getByText("Import 2 images from folder?", { exact: true })).toBeVisible();
+    expect(uploads).toEqual([]);
+    for (const theme of ["dark", "light"] as const) {
+      await page.evaluate(async (theme) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setTheme(theme);
+      }, theme);
+      await expect(folderDialog.getByRole("button", { name: "Import", exact: true })).toBeInViewport();
+      await testInfo.attach(`sprite-folder-confirmation-${theme}`, {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
+    }
+    await folderDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(uploads).toEqual([]);
+    await dropFolder(true);
+    await expect(
+      page.getByText("Could not read this folder. Try dropping it again or choose its images."),
+    ).toBeVisible();
+    expect(uploads).toEqual([]);
+    await folderDialog.getByRole("button", { name: "Close Import folder", exact: true }).click();
+    await dropFolder();
+    await folderDialog.getByRole("button", { name: "Import", exact: true }).click();
+    await expect.poll(async () => (await (await request.get(`/api/sprites/${character.id}`)).json()).length).toBe(2);
+    const sprites = (await (await request.get(`/api/sprites/${character.id}`)).json()) as Array<{
+      expression: string;
+      label: string;
+      folderName: string;
+    }>;
+    expect(sprites.map((sprite) => sprite.label)).toEqual(["happy", "happy"]);
+    expect(new Set(sprites.map((sprite) => sprite.expression)).size).toBe(2);
+    expect(new Set(sprites.map((sprite) => sprite.folderName))).toEqual(new Set(["Front", "Front / Side"]));
+    await expect(editor.getByRole("button", { name: "Import folder", exact: true })).toBeEnabled();
+    // Choosing files stays available on touch devices and uses the same app confirmation.
+    await editor.getByRole("button", { name: "Import folder", exact: true }).click();
+    await folderDialog.locator('input[type="file"]').setInputFiles({
+      name: "neutral.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(TRANSPARENT_PNG_BASE64, "base64"),
+    });
+    await expect(folderDialog.getByText("Import 1 image from folder?", { exact: true })).toBeVisible();
+    await folderDialog.getByRole("button", { name: "Import", exact: true }).click();
+    await expect.poll(async () => (await (await request.get(`/api/sprites/${character.id}`)).json()).length).toBe(3);
+    expect(browserDialogs).toEqual([]);
+  } finally {
+    await bestEffortDelete(request, `/api/characters/${character.id}`);
+  }
+});
+
 test("Character-sheet generation offers the saved neutral full-body sprite as an optional reference", async ({
   page,
   request,

@@ -7,6 +7,7 @@ import { CardRpgFields, DEFAULT_RPG_STATS } from "../cards/CardRpgFields";
 import { CardColors } from "../cards/CardColors";
 import { useCardGallerySelection } from "../cards/use-card-gallery-selection";
 import { CardIdentityFields } from "../cards/CardIdentityFields";
+import { SpriteFolderImport } from "./SpriteFolderImport";
 import {
   useSpriteLibrary,
   SpriteLibraryShell,
@@ -126,7 +127,6 @@ import {
   Upload,
   Plus,
   Palette,
-  FolderOpen,
   Film,
   Link2,
   Loader2,
@@ -5414,7 +5414,6 @@ function SpritesTab({
   const [folderProgress, setFolderProgress] = useState<{ done: number; total: number } | null>(null);
   const [spriteGenOpen, setSpriteGenOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
   const pendingExpressionRef = useRef("");
   const pendingReplaceRef = useRef(false);
 
@@ -5586,11 +5585,6 @@ function SpritesTab({
     } finally {
       setFolderProgress(null);
     }
-  };
-
-  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    await handleImageFiles(Array.from(e.target.files ?? []), true);
-    e.target.value = "";
   };
 
   const handleDeleteSingleSprite = useCallback(async () => {
@@ -5948,16 +5942,6 @@ function SpritesTab({
         }
       >
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-        <input
-          ref={folderInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute
-          webkitdirectory=""
-          className="hidden"
-          onChange={handleFolderUpload}
-        />
 
         {exportAnchor && (
           <ContextMenu
@@ -6003,15 +5987,7 @@ function SpritesTab({
                 onFilesSelected={(files) => void handleImageFiles(files)}
                 icon={<Upload size={16} />}
               />
-              <button
-                type="button"
-                className={cn(spriteActionClass, "md:ml-auto")}
-                disabled={spriteBusy}
-                onClick={() => folderInputRef.current?.click()}
-              >
-                <FolderOpen size={14} />
-                {localizeUi("sprites.library.importFolder")}
-              </button>
+              <SpriteFolderImport disabled={spriteBusy} onImport={(files) => handleImageFiles(files, true)} />
               <button
                 type="button"
                 className={spriteActionClass}
