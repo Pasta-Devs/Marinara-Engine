@@ -419,6 +419,11 @@ export function getAdminSecretSource(): "env" | "app" | null {
   return adminSecretFile.get() ? "app" : null;
 }
 
+/** An app secret kept on disk, even while .env wins over it. */
+export function hasStoredAdminSecret(): boolean {
+  return adminSecretFile.get() !== null;
+}
+
 /** Case, spaces and dashes do not matter for the app secret: it is typed off another screen. */
 export function matchesAdminSecret(value: string): boolean {
   const env = getAdminSecret();

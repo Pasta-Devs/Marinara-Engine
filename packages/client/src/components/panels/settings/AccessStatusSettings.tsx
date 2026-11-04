@@ -145,6 +145,7 @@ export function AdminSecretMaker({ onSaved }: { onSaved: (secret: string) => voi
   const qc = useQueryClient();
   const { data } = useAccessStatus();
   const [shown, setShown] = useState<string | null>(null);
+  const envWins = data?.adminSecretSource === "env";
   const done = (secret: string) => {
     onSaved(secret);
     setShown(secret || null);
@@ -158,16 +159,37 @@ export function AdminSecretMaker({ onSaved }: { onSaved: (secret: string) => voi
   });
   const remove = useMutation({
     mutationFn: () => api.delete("/access/admin-secret"),
-    onSuccess: () => done(""),
+    // While .env wins, this browser keeps its copy: that is the .env secret.
+    onSuccess: () => (envWins ? void qc.invalidateQueries({ queryKey: ["access-status"] }) : done("")),
     onError: (error) =>
       toast.error(getPrivilegedActionErrorMessage(error, t("settings.sections.adminAccess.removeFailed"))),
   });
   if (!data) return null;
-  if (data.adminSecretSource === "env") {
-    return <p className="text-xs text-[var(--muted-foreground)]">{t("settings.sections.adminAccess.envManaged")}</p>;
-  }
   // Only this computer or a holder of the current secret may change it.
-  if (data.needsCurrentPassword) {
+  const canChange = !data.needsCurrentPassword;
+  if (envWins) {
+    return (
+      <div className="flex flex-col gap-2 text-xs text-[var(--muted-foreground)]">
+        <p>{t("settings.sections.adminAccess.envManaged")}</p>
+        {canChange && data.adminSecretStored && (
+          <>
+            <p>{t("settings.sections.adminAccess.storedUnused")}</p>
+            <div>
+              <button
+                type="button"
+                disabled={remove.isPending}
+                onClick={() => remove.mutate()}
+                className={SETTINGS_BUTTON_CLASS}
+              >
+                {t("settings.sections.adminAccess.remove")}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+  if (!canChange) {
     return <p className="text-xs text-[var(--muted-foreground)]">{t("settings.sections.adminAccess.elsewhere")}</p>;
   }
 

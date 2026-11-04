@@ -654,7 +654,14 @@ try {
   assert.equal((await adminSecretCall("POST", "127.0.0.1", {})).statusCode, 200);
   process.env.ADMIN_SECRET = "env-admin-secret";
   assert.equal((await adminSecretCall("POST", "127.0.0.1", {})).statusCode, 409, ".env manages the secret meanwhile");
+  const envStatus = (await local("GET", "/api/access/status")).json();
+  assert.deepEqual(
+    [envStatus.adminSecretSource, envStatus.adminSecretStored],
+    ["env", true],
+    "the status tells the owner an unused app secret is still saved",
+  );
   assert.equal((await adminSecretCall("DELETE", "127.0.0.1", {})).statusCode, 204);
+  assert.equal((await local("GET", "/api/access/status")).json().adminSecretStored, false);
   delete process.env.ADMIN_SECRET;
   assert.ok(
     !existsSync(join(DATA_DIR, ".admin-secret.json")),

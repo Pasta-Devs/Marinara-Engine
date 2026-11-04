@@ -7139,6 +7139,7 @@
   "settings.sections.adminAccess.replace": "Replace admin secret",
   "settings.sections.adminAccess.replaceConfirm.message": "The current secret stops working on every device. Type the new one on your other devices.",
   "settings.sections.adminAccess.replaceConfirm.title": "Replace the admin secret?",
+  "settings.sections.adminAccess.storedUnused": "An older admin secret made in the app is still saved. ADMIN_SECRET in .env wins over it. Remove it so it cannot come back if you clear .env.",
   "settings.sections.adminAccess.title": "Admin Access",
   "settings.sections.appStyle.componentDescription": "Theme family, color scheme, fonts, and reading scale.",
   "settings.sections.appStyle.description": "Theme family, color scheme, accent, and app chrome controls.",
