@@ -20,6 +20,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type TouchEvent as ReactTouchEvent,
 } from "react";
+import { isOverhaulActive } from "../../stores/overhaul.store";
 import { ChevronDown, CheckSquare2, Copy, GripVertical, Square, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { confirmNonEmptyFolderDelete } from "../../lib/app-dialogs";
@@ -206,7 +207,7 @@ export function LorebookFolderRow({
       )}
       ref={rowRef}
       data-lorebook-folder-row-id={folder.id}
-      draggable={draggable && isDragReady}
+      draggable={draggable && (isDragReady || isOverhaulActive())}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}

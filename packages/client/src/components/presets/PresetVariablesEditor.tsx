@@ -4,6 +4,7 @@
 // Moved verbatim out of PresetEditor.tsx so other editors can reuse it.
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import { isOverhaulActive } from "../../stores/overhaul.store";
 import { createPortal } from "react-dom";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -365,7 +366,7 @@ export function PresetVariablesEditor({
                 <div
                   data-touch-reorder-item="preset-variable"
                   data-touch-reorder-index={idx}
-                  draggable={dragReady === idx}
+                  draggable={dragReady === idx || isOverhaulActive()}
                   onDragStart={(e) => handleDragStart(idx, e)}
                   onDragOver={(e) => {
                     e.stopPropagation();
@@ -920,7 +921,7 @@ function VariableCard({
                   <div
                     data-touch-reorder-item={`preset-variable-option-${variable.id}`}
                     data-touch-reorder-index={oi}
-                    draggable={dragReadyOptIdx === oi && !optionOrderIsAlphabetical}
+                    draggable={(dragReadyOptIdx === oi || isOverhaulActive()) && !optionOrderIsAlphabetical}
                     onDragStart={(e) => handleOptionDragStart(oi, e)}
                     onDragOver={(e) => {
                       e.stopPropagation();

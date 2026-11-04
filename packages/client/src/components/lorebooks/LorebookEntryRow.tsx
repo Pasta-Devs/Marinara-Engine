@@ -636,7 +636,7 @@ export function LorebookEntryRow({
       )}
       ref={rowRef}
       data-lorebook-entry-row-id={entry.id}
-      draggable={draggable && isDragReady}
+      draggable={draggable && (isDragReady || overhaul)}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}

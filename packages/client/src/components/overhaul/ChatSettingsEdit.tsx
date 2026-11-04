@@ -188,10 +188,7 @@ export function OvChatSettingsEditor({
   return (
     <div className="ov-cs-edit">
       <div className="ov-cs-edit__hint">
-        <p>
-          Drag <GripVertical size={12} aria-label="the handle" /> to reorder. Click the eye to hide or show a setting.
-          Hidden settings still apply.
-        </p>
+        <p>Drag a row to reorder it. Click the eye to hide or show a setting. Hidden settings still apply.</p>
         <button type="button" className="ov-ed__link" onClick={() => setLayout(mode, null)}>
           Reset
         </button>
