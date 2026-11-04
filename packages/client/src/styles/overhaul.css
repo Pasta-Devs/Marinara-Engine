@@ -982,3 +982,185 @@
   justify-content: center;
   margin-top: 1.5rem;
 }
+
+/* ─── Library tables ─── */
+.ov-list {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 1.5rem 2rem 2.5rem;
+}
+.ov-list__empty {
+  padding: 2rem 0;
+  color: var(--ov-muted);
+  font-size: 0.875rem;
+}
+.ov-pill {
+  height: 2rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-pill:hover {
+  background: var(--ov-hover);
+}
+.ov-pill.is-on {
+  border-color: transparent;
+  background: var(--ov-text);
+  color: var(--background);
+  font-weight: 600;
+}
+.ov-seg {
+  display: inline-flex;
+  padding: 0.1875rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+}
+.ov-seg button {
+  height: 1.5rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ov-seg button.is-on {
+  background: var(--ov-text);
+  color: var(--background);
+  font-weight: 600;
+}
+.ov-table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.75rem;
+}
+.ov-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.ov-table th {
+  height: 2.375rem;
+  padding: 0 0.75rem;
+  border-bottom: 1px solid var(--ov-line);
+  color: var(--ov-accent);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ov-table td {
+  height: 2.75rem;
+  padding: 0.375rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 70%, transparent);
+  color: var(--ov-muted);
+  vertical-align: middle;
+}
+.ov-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ov-table tbody tr {
+  cursor: pointer;
+}
+.ov-table tbody tr:hover td,
+.ov-table tbody tr:focus-visible td {
+  background: var(--ov-hover);
+}
+.ov-table tbody tr:focus-visible {
+  outline: none;
+}
+.ov-table__lead {
+  width: 3.25rem;
+  padding-right: 0 !important;
+}
+.ov-table__name {
+  color: var(--ov-text) !important;
+  font-weight: 500;
+}
+.ov-table__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.ov-table__desc {
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-table__num,
+.ov-table__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+}
+.ov-thumb {
+  display: inline-block;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  overflow: hidden;
+  border-radius: 0.375rem;
+}
+.ov-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ov-kbd {
+  display: inline-block;
+  padding: 0 0.375rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.3125rem;
+  font:
+    0.75rem/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.ov-switch {
+  position: relative;
+  display: inline-block;
+  width: 2.125rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 18%, transparent);
+  transition: background 0.15s ease;
+}
+.ov-switch span {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--foreground) 70%, transparent);
+  transition: transform 0.15s ease;
+}
+.ov-switch.is-on {
+  background: var(--ov-mode-roleplay);
+}
+.ov-switch.is-on span {
+  transform: translateX(0.875rem);
+  background: #fff;
+}
+.ov-card__art--square {
+  aspect-ratio: 1;
+}
+.ov-table-wrap {
+  overflow-x: auto;
+}
+.ov-table__name,
+.ov-table td {
+  white-space: nowrap;
+}
+.ov-table__desc {
+  max-width: 22rem;
+}
+.ov-gallery__tools {
+  flex-wrap: wrap;
+}
