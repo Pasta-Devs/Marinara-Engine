@@ -19,6 +19,9 @@ import { useEffectiveGenerationParameters } from "../../hooks/use-effective-gene
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useMemo, useRef, type ChangeEvent } from "react";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { OvEditorHead, OvEyebrow, OvSaveState } from "../overhaul/EditorChrome";
+import { OvSeg } from "../overhaul/LoreEntryParts";
 import {
   useConnection,
   useCreateConnection,
@@ -324,8 +327,28 @@ function normalizeMaxParallelJobs(value: unknown): number {
 //  Main Editor
 // ═══════════════════════════════════════════════
 
+const OV_CONNECTION_TYPES = [
+  { value: "text", label: "Text" },
+  { value: "image", label: "Image" },
+  { value: "video", label: "Video" },
+  { value: "audio", label: "Audio" },
+] as const;
+type OvConnectionType = (typeof OV_CONNECTION_TYPES)[number]["value"];
+const OV_TYPE_PROVIDER: Record<Exclude<OvConnectionType, "text">, APIProvider> = {
+  image: "image_generation",
+  video: "video_generation",
+  audio: "audio",
+};
+function ovConnectionTypeOf(provider: APIProvider): OvConnectionType {
+  if (provider === "image_generation") return "image";
+  if (provider === "video_generation") return "video";
+  if (provider === "audio") return "audio";
+  return "text";
+}
+
 export function ConnectionEditor() {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulActive = useOverhaulActive();
   const { t } = useTranslation();
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
@@ -1592,6 +1615,52 @@ export function ConnectionEditor() {
   const emptyModelLabel = isGrokSubscriptionProvider ? "Use Grok CLI default model" : "Select a model…";
   const canSendTestMessage = isGrokSubscriptionProvider || Boolean(localModel.trim());
 
+  const selectProvider = (key: APIProvider) => {
+    const info = PROVIDERS[key];
+    if (key === localProvider) return;
+    const defaultModel = MODEL_LISTS[key]?.[0];
+    setLocalProvider(key);
+    // Auto-fill base URL
+    setLocalBaseUrl(info.defaultBaseUrl);
+    // The base URL and model are reset, so the old image service must be picked again;
+    // otherwise a hidden-field service like ChatGPT (Codex login) keeps a stale URL.
+    setLocalImageGenerationSource("");
+    setLocalImageService(null);
+    // Leave Grok CLI blank so the local CLI can use its
+    // account/default model until the user fetches
+    // `grok models`. Other providers keep their usual seeded
+    // default model when we know one.
+    setLocalModel(key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.5" : "")));
+    setLocalMaxContext(
+      key === "grok_subscription" ? GROK_CLI_DEFAULT_CONTEXT_TOKENS : Number(defaultModel?.context) || 128000,
+    );
+    setLocalMaxTokensOverride(null);
+    setLocalDefaultParametersEnabled(false);
+    setLocalDefaultParameters(getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, null, key));
+    if (key === "decision") {
+      setLocalDecisionSource("typesafe");
+      setLocalCredentialsFrom("");
+      setLocalMaxStateTokens(30000);
+      setLocalDecisionTimeoutMs(DECISION_TIMEOUT_MS.systemOne);
+      setLocalModel("jev-latest");
+    }
+    if (key === "audio") {
+      // The provider tile seeds ElevenLabs base URL/model, so
+      // the audio source must reset to match — otherwise a
+      // pockettts/openai/xai source survives the switch under
+      // ElevenLabs endpoints and saves a self-inconsistent row.
+      setLocalAudioSource("elevenlabs");
+      setLocalAudioVoice("");
+      setLocalAudioSoundEffects(false);
+      setLocalAudioMusic(false);
+    }
+    // Provider switches must not keep an encrypted key from
+    // the previous provider under the new provider identity.
+    setLocalApiKey("");
+    setClearStoredApiKeyOnSave(true);
+    markDirty();
+  };
+
   if (!connectionDetailId) return null;
 
   if (isLoading) {
@@ -1618,66 +1687,68 @@ export function ConnectionEditor() {
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="mari-editor-header">
-        <button onClick={handleClose} className="mari-editor-action inline-flex shrink-0">
-          <ArrowLeft size="1.125rem" />
-        </button>
-        <div className="mari-editor-icon-tile">
-          <Link size="1.125rem" />
+      {!overhaulActive && (
+        <div className="mari-editor-header">
+          <button onClick={handleClose} className="mari-editor-action inline-flex shrink-0">
+            <ArrowLeft size="1.125rem" />
+          </button>
+          <div className="mari-editor-icon-tile">
+            <Link size="1.125rem" />
+          </div>
+          <input
+            value={localName}
+            onChange={(e) => {
+              setLocalName(e.target.value);
+              markDirty();
+            }}
+            className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
+            placeholder={localizeUi("ui.connections.connectioneditor.connectionName")}
+          />
+          <div className="mari-editor-actions flex shrink-0">
+            {saveError && (
+              <span className="mari-editor-status mr-2 text-red-400">
+                <AlertCircle size="0.6875rem" />{" "}
+                <span className="max-md:hidden">{localizeUi("ui.connections.connectioneditor.saveFailed")}</span>
+              </span>
+            )}
+            {savedFlash && !dirty && (
+              <span className="mari-editor-status mr-2 text-emerald-400">
+                <Check size="0.6875rem" />{" "}
+                <span className="max-md:hidden">{localizeUi("chat.settings.inlineEditor.saved")}</span>
+              </span>
+            )}
+            {dirty && !saveError && (
+              <span className="mari-editor-status mr-2 text-amber-400 max-md:hidden">
+                {localizeUi("ui.connections.connectioneditor.unsaved")}
+              </span>
+            )}
+            <button
+              onClick={handleSave}
+              aria-label={localizeUi("ui.noodle.noodlehome.save")}
+              disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
+              className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
+            >
+              <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
+            </button>
+            <button
+              onClick={handleExportConnection}
+              className="mari-editor-action inline-flex"
+              title={localizeUi("ui.connections.connectioneditor.exportConnection")}
+              aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
+            >
+              <Upload size="0.9375rem" />
+            </button>
+            <button
+              onClick={handleDelete}
+              className="mari-editor-action inline-flex"
+              title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+              aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+            >
+              <Trash2 size="0.9375rem" />
+            </button>
+          </div>
         </div>
-        <input
-          value={localName}
-          onChange={(e) => {
-            setLocalName(e.target.value);
-            markDirty();
-          }}
-          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
-          placeholder={localizeUi("ui.connections.connectioneditor.connectionName")}
-        />
-        <div className="mari-editor-actions flex shrink-0">
-          {saveError && (
-            <span className="mari-editor-status mr-2 text-red-400">
-              <AlertCircle size="0.6875rem" />{" "}
-              <span className="max-md:hidden">{localizeUi("ui.connections.connectioneditor.saveFailed")}</span>
-            </span>
-          )}
-          {savedFlash && !dirty && (
-            <span className="mari-editor-status mr-2 text-emerald-400">
-              <Check size="0.6875rem" />{" "}
-              <span className="max-md:hidden">{localizeUi("chat.settings.inlineEditor.saved")}</span>
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="mari-editor-status mr-2 text-amber-400 max-md:hidden">
-              {localizeUi("ui.connections.connectioneditor.unsaved")}
-            </span>
-          )}
-          <button
-            onClick={handleSave}
-            aria-label={localizeUi("ui.noodle.noodlehome.save")}
-            disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
-            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-          >
-            <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
-          </button>
-          <button
-            onClick={handleExportConnection}
-            className="mari-editor-action inline-flex"
-            title={localizeUi("ui.connections.connectioneditor.exportConnection")}
-            aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
-          >
-            <Upload size="0.9375rem" />
-          </button>
-          <button
-            onClick={handleDelete}
-            className="mari-editor-action inline-flex"
-            title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-            aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-          >
-            <Trash2 size="0.9375rem" />
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Unsaved warning */}
       {showUnsavedWarning && (
@@ -1729,8 +1800,67 @@ export function ConnectionEditor() {
       )}
 
       {/* ── Body ── */}
-      <div className="mari-editor-content max-md:p-4">
-        <div className="mari-editor-content-inner space-y-6">
+      <div className={overhaulActive ? "ov-ed ov-coned" : "mari-editor-content max-md:p-4"}>
+        {overhaulActive && (
+          <OvEditorHead
+            section="connections"
+            sectionLabel="Connections"
+            title={localName}
+            titlePlaceholder="Untitled connection"
+            onTitleChange={(next) => {
+              setLocalName(next);
+              markDirty();
+            }}
+            meta={[providerDef?.name, localModel].filter(Boolean).join(" · ")}
+            status={
+              <OvSaveState
+                dirty={dirty}
+                saving={updateConnection.isPending || saveConnectionDefaults.isPending}
+                error={!!saveError}
+              />
+            }
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="ov-edbtn"
+                  onClick={handleTestConnection}
+                  disabled={testConnection.isPending}
+                >
+                  {testConnection.isPending ? <Loader2 size={13} className="animate-spin" /> : <Wifi size={13} />}
+                  Test connection
+                </button>
+                {!isMediaGenerationProvider && (
+                  <button
+                    type="button"
+                    className="ov-edbtn"
+                    onClick={handleTestMessage}
+                    disabled={testMessage.isPending || !canSendTestMessage}
+                  >
+                    Send test message
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="ov-edbtn ov-edbtn--primary"
+                  onClick={handleSave}
+                  disabled={
+                    !dirty || updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError
+                  }
+                >
+                  {savedFlash && !dirty ? "Saved" : "Save"}
+                </button>
+              </>
+            }
+            menu={[
+              { label: "Export connection", onSelect: () => void handleExportConnection() },
+              { label: "Back to Connections", onSelect: handleClose },
+              { label: "Delete connection", danger: true, onSelect: () => void handleDelete() },
+            ]}
+          />
+        )}
+        <div className={overhaulActive ? "ov-coned__flow" : "mari-editor-content-inner space-y-6"}>
+          {overhaulActive && <OvEyebrow>Connection</OvEyebrow>}
           {/* ── Connection Name ── */}
           <FieldGroup
             label={localizeUi("ui.connections.connectioneditor.connectionName_669ca65")}
@@ -1748,80 +1878,63 @@ export function ConnectionEditor() {
             />
           </FieldGroup>
 
+          {overhaulActive && (
+            <FieldGroup label="Type">
+              <OvSeg
+                label="Connection type"
+                value={ovConnectionTypeOf(localProvider)}
+                options={[...OV_CONNECTION_TYPES]}
+                onChange={(next) => {
+                  if (next === ovConnectionTypeOf(localProvider)) return;
+                  selectProvider(next === "text" ? "openai" : OV_TYPE_PROVIDER[next]);
+                }}
+              />
+            </FieldGroup>
+          )}
+
           {/* ── Provider ── */}
-          <FieldGroup
-            label={localizeUi("ui.connections.connectioneditor.provider")}
-            icon={<Globe size="0.875rem" className="text-sky-400" />}
-            help={localizeUi("ui.connections.connectioneditor.theAiServiceYouWantToConnectToEach")}
-          >
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][]).map(([key, info]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    if (key === localProvider) return;
-                    const defaultModel = MODEL_LISTS[key]?.[0];
-                    setLocalProvider(key);
-                    // Auto-fill base URL
-                    setLocalBaseUrl(info.defaultBaseUrl);
-                    // The base URL and model are reset, so the old image service must be picked again;
-                    // otherwise a hidden-field service like ChatGPT (Codex login) keeps a stale URL.
-                    setLocalImageGenerationSource("");
-                    setLocalImageService(null);
-                    // Leave Grok CLI blank so the local CLI can use its
-                    // account/default model until the user fetches
-                    // `grok models`. Other providers keep their usual seeded
-                    // default model when we know one.
-                    setLocalModel(
-                      key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.5" : "")),
-                    );
-                    setLocalMaxContext(
-                      key === "grok_subscription"
-                        ? GROK_CLI_DEFAULT_CONTEXT_TOKENS
-                        : Number(defaultModel?.context) || 128000,
-                    );
-                    setLocalMaxTokensOverride(null);
-                    setLocalDefaultParametersEnabled(false);
-                    setLocalDefaultParameters(
-                      getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, null, key),
-                    );
-                    if (key === "decision") {
-                      setLocalDecisionSource("typesafe");
-                      setLocalCredentialsFrom("");
-                      setLocalMaxStateTokens(30000);
-                      setLocalDecisionTimeoutMs(DECISION_TIMEOUT_MS.systemOne);
-                      setLocalModel("jev-latest");
-                    }
-                    if (key === "audio") {
-                      // The provider tile seeds ElevenLabs base URL/model, so
-                      // the audio source must reset to match — otherwise a
-                      // pockettts/openai/xai source survives the switch under
-                      // ElevenLabs endpoints and saves a self-inconsistent row.
-                      setLocalAudioSource("elevenlabs");
-                      setLocalAudioVoice("");
-                      setLocalAudioSoundEffects(false);
-                      setLocalAudioMusic(false);
-                    }
-                    // Provider switches must not keep an encrypted key from
-                    // the previous provider under the new provider identity.
-                    setLocalApiKey("");
-                    setClearStoredApiKeyOnSave(true);
-                    markDirty();
-                  }}
-                  aria-pressed={localProvider === key}
-                  className={cn(
-                    "truncate rounded-md px-3 py-2.5 text-xs font-medium transition-all",
-                    localProvider === key
-                      ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
-                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                  )}
+          {(!overhaulActive || ovConnectionTypeOf(localProvider) === "text") && (
+            <FieldGroup
+              label={localizeUi("ui.connections.connectioneditor.provider")}
+              icon={<Globe size="0.875rem" className="text-sky-400" />}
+              help={localizeUi("ui.connections.connectioneditor.theAiServiceYouWantToConnectToEach")}
+            >
+              {overhaulActive ? (
+                <select
+                  value={localProvider}
+                  onChange={(event) => selectProvider(event.target.value as APIProvider)}
+                  aria-label="Provider"
                 >
-                  {key === "decision" ? t("connections.decision.label") : info.name}
-                </button>
-              ))}
-            </div>
-          </FieldGroup>
+                  {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][])
+                    .filter(([key]) => ovConnectionTypeOf(key) === "text")
+                    .map(([key, info]) => (
+                      <option key={key} value={key}>
+                        {key === "decision" ? t("connections.decision.label") : info.name}
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][]).map(([key, info]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => selectProvider(key)}
+                      aria-pressed={localProvider === key}
+                      className={cn(
+                        "truncate rounded-md px-3 py-2.5 text-xs font-medium transition-all",
+                        localProvider === key
+                          ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
+                          : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      {key === "decision" ? t("connections.decision.label") : info.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </FieldGroup>
+          )}
 
           {/* ── Claude (Subscription) — prerequisites notice ── */}
           {isClaudeSubscriptionProvider && (
@@ -3092,6 +3205,7 @@ export function ConnectionEditor() {
             />
           )}
 
+          {overhaulActive && !isMediaGenerationProvider && <OvEyebrow className="ov-colbreak">Limits</OvEyebrow>}
           {/* ── Max Context ── */}
           {!isMediaGenerationProvider && (
             <FieldGroup
@@ -3240,6 +3354,7 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
+          {overhaulActive && !isMediaGenerationProvider && <OvEyebrow>Defaults</OvEyebrow>}
           {/* ── Prompt Preset Override ── */}
           {!isMediaGenerationProvider && (
             <FieldGroup
@@ -3377,6 +3492,10 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
+          {overhaulActive &&
+            (localProvider === "anthropic" || localProvider === "openrouter" || isClaudeSubscriptionProvider) && (
+              <OvEyebrow>Prompt caching</OvEyebrow>
+            )}
           {/* ── Prompt Caching (Anthropic + compatible OpenRouter models) ── */}
           {(localProvider === "anthropic" || localProvider === "openrouter") && (
             <FieldGroup
@@ -3588,6 +3707,7 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
+          {overhaulActive && !isMediaGenerationProvider && <OvEyebrow>Semantic search (embeddings)</OvEyebrow>}
           {/* ── Embedding Model (for lorebook vectorization) ── */}
           {!isMediaGenerationProvider && (
             <FieldGroup
@@ -3694,8 +3814,9 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
+          {overhaulActive && <OvEyebrow>Test</OvEyebrow>}
           {/* ── Test Section ── */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
+          <div className="ov-contest rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
             <h3 className="text-sm font-semibold">{localizeUi("ui.connections.connectioneditor.connectionTests")}</h3>
             <div className="flex gap-2">
               <button
@@ -4031,6 +4152,20 @@ function FieldGroup({
   help?: string;
   children: React.ReactNode;
 }) {
+  const overhaulActive = useOverhaulActive();
+  if (overhaulActive) {
+    return (
+      <div className="ov-row is-top ov-cf">
+        <div className="ov-row__label">
+          <span>
+            {label}
+            {help && <HelpTooltip text={help} />}
+          </span>
+        </div>
+        <div className="ov-cf__control">{children}</div>
+      </div>
+    );
+  }
   return (
     <div className="mari-editor-panel space-y-2 p-3">
       <div className="flex items-center gap-1.5">

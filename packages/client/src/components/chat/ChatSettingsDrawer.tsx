@@ -251,6 +251,13 @@ import { abortGenerationForChat, useChatStore } from "../../stores/chat.store";
 import { blurActiveChatFloatingUiControl } from "../../lib/chat-floating-ui-events";
 import { requestChatHelp } from "../../lib/chat-help-events";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
+import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import {
+  OvChatSettingsEditor,
+  OvChatSettingsHeader,
+  OvChatSettingsResizeHandle,
+  OvChatSettingsStyle,
+} from "../overhaul/ChatSettingsEdit";
 import { getChatSettingsWindowProps, useTrackerPanelClearance } from "./chat-settings-window";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { readCurrentWindowLayout } from "../../hooks/use-chat-window-layout";
@@ -1039,6 +1046,11 @@ export function ChatSettingsDrawer({
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   // Phones show Chat Settings as a full-width sheet.
   const phoneLayout = useMatchMedia("(max-width: 767px)");
+  const overhaulActive = useOverhaulActive() && !phoneLayout;
+  const ovFloating = useOverhaulStore((state) => state.chatSettingsFloating);
+  const ovEditing = useOverhaulStore((state) => state.chatSettingsEditing) && overhaulActive;
+  const ovDocked = overhaulActive && !ovFloating;
+  const [ovScrollEl, setOvScrollEl] = useState<HTMLDivElement | null>(null);
   const trackerPanelClearance = useTrackerPanelClearance(!phoneLayout);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const setTrackerPanelEnabled = useUIStore((s) => s.setTrackerPanelEnabled);
@@ -5393,18 +5405,27 @@ export function ChatSettingsDrawer({
         presentation={phoneLayout ? "sheet" : "window"}
         title={localizeUi("chat.toolbar.settings")}
         titleIcon={<Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />}
-        titleAccessory={helpLayoutButton}
-        headerControls={headerControls}
+        titleAccessory={overhaulActive ? <OvChatSettingsHeader mode={chatMode} /> : helpLayoutButton}
+        headerControls={ovDocked ? null : headerControls}
         closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
         {...windowProps}
         // A window the user has not moved opens beside a right-side Tracker Panel, not over it.
         defaultLayoutKey={`${trackerPanelSide}:${trackerPanelClearance}`}
-        className={cn(windowProps.className, "mari-chat-settings-popover mari-chat-settings-drawer")}
+        className={cn(
+          windowProps.className,
+          "mari-chat-settings-popover mari-chat-settings-drawer",
+          overhaulActive && "ov-cs",
+          ovDocked && "ov-cs--docked",
+          ovEditing && "is-editing",
+        )}
         bodyRef={panelRef}
         onRequestClose={() => requestClose()}
       >
         {/* Desktop-only: drag-and-drop hint (sidebar drag is disabled on mobile overlays) */}
-        {metadata.chatSettingsHintDismissed !== true && (
+        {overhaulActive && <OvChatSettingsStyle mode={chatMode} />}
+        {ovEditing && <OvChatSettingsEditor mode={chatMode} container={ovScrollEl} />}
+        {ovDocked && ovEditing && <OvChatSettingsResizeHandle />}
+        {!overhaulActive && metadata.chatSettingsHintDismissed !== true && (
           <div
             data-chat-settings-top-row
             className="flex shrink-0 items-start gap-2 border-b border-[var(--border)] px-4 py-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)] max-md:hidden"
@@ -5431,9 +5452,11 @@ export function ChatSettingsDrawer({
         )}
 
         <div
+          ref={setOvScrollEl}
           className={cn(
             NEUTRAL_PANEL_SCROLL_AREA,
             "@container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[calc(1rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))]",
+            overhaulActive && "ov-cs__scroll",
           )}
         >
           {/* Settings profile bar — hidden in Game Mode. Scene chats keep it, but scene instructions stay chat-owned. */}
@@ -5448,6 +5471,8 @@ export function ChatSettingsDrawer({
           {modeSettingsSurfaces.showSettingsProfiles && (
             <div
               style={{ order: CHAT_SETTINGS_ORDER.settingsPresets }}
+              data-chat-settings-section="settings-profile"
+              data-ov-label="Settings profile"
               className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3"
             >
               <input

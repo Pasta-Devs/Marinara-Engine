@@ -41,6 +41,9 @@ export const MAX_OVERHAUL_TABS = 8;
 
 export type OverhaulSettingsTab = "general" | "chatting" | "appearance" | "chat-modes" | "media" | "data" | "advanced";
 
+/** Chat settings drawer arrangement for one chat mode: section ids in order, and hidden ones. */
+export type OverhaulChatSettingsLayout = { order: string[]; hidden: string[] };
+
 export function overhaulTabKey(tab: OverhaulTab) {
   return `${tab.kind}:${tab.id}`;
 }
@@ -77,6 +80,17 @@ interface OverhaulState {
   openDocs: (path: string | null, options?: { newTab?: boolean }) => void;
   setDocsPath: (tabId: string, path: string | null) => void;
   leaveDocs: () => void;
+  /** Chat settings drawer: per chat mode order/hidden sections (Edit mode). */
+  chatSettingsLayouts: Record<string, OverhaulChatSettingsLayout>;
+  setChatSettingsLayout: (mode: string, layout: OverhaulChatSettingsLayout | null) => void;
+  /** Docked drawer width in px (0 = default). */
+  chatSettingsWidth: number;
+  setChatSettingsWidth: (width: number) => void;
+  /** Float the drawer as the movable, resizable window instead of docking it on the right. */
+  chatSettingsFloating: boolean;
+  setChatSettingsFloating: (floating: boolean) => void;
+  chatSettingsEditing: boolean;
+  setChatSettingsEditing: (editing: boolean) => void;
 }
 
 export const useOverhaulStore = create<OverhaulState>()(
@@ -129,6 +143,20 @@ export const useOverhaulStore = create<OverhaulState>()(
         }),
       setDocsPath: (tabId, path) => set((state) => ({ docsTabs: { ...state.docsTabs, [tabId]: path } })),
       leaveDocs: () => set({ activeDocsTab: null, activeMari: false }),
+      chatSettingsLayouts: {},
+      setChatSettingsLayout: (mode, layout) =>
+        set((state) => {
+          const chatSettingsLayouts = { ...state.chatSettingsLayouts };
+          if (layout) chatSettingsLayouts[mode] = layout;
+          else delete chatSettingsLayouts[mode];
+          return { chatSettingsLayouts };
+        }),
+      chatSettingsWidth: 0,
+      setChatSettingsWidth: (chatSettingsWidth) => set({ chatSettingsWidth }),
+      chatSettingsFloating: false,
+      setChatSettingsFloating: (chatSettingsFloating) => set({ chatSettingsFloating }),
+      chatSettingsEditing: false,
+      setChatSettingsEditing: (chatSettingsEditing) => set({ chatSettingsEditing }),
     }),
     {
       name: "marinara-overhaul-layout",
@@ -144,6 +172,9 @@ export const useOverhaulStore = create<OverhaulState>()(
         libraryPage: state.libraryPage,
         settingsTab: state.settingsTab,
         docsTabs: state.docsTabs,
+        chatSettingsLayouts: state.chatSettingsLayouts,
+        chatSettingsWidth: state.chatSettingsWidth,
+        chatSettingsFloating: state.chatSettingsFloating,
       }),
     },
   ),

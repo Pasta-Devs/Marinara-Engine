@@ -77,6 +77,7 @@ import { createPortal } from "react-dom";
 import { useOverhaulActive } from "../../stores/overhaul.store";
 import { EditorCrumbs } from "../overhaul/EditorRail";
 import { openLibrarySection } from "../overhaul/library-navigation";
+import { OvSeg } from "../overhaul/LoreEntryParts";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { MacroTextarea } from "../ui/MacroTextarea";
@@ -475,7 +476,39 @@ export function PresetEditor() {
   }
 
   const presetArtwork = resolvePresetArtwork(data.preset);
-  const ov_overview = (
+  const ov_overview = overhaulActive ? (
+    <OvPresetOverview
+      preset={data.preset}
+      name={localName}
+      onNameChange={(v) => {
+        setLocalName(v);
+        markDirty();
+      }}
+      description={localDescription}
+      onDescriptionChange={(v) => {
+        setLocalDescription(formatQuotes(v));
+        markDirty();
+      }}
+      wrapFormat={localWrapFormat}
+      onWrapFormatChange={(v) => {
+        setLocalWrapFormat(v);
+        markDirty();
+      }}
+      author={localAuthor}
+      onAuthorChange={(v) => {
+        setLocalAuthor(formatQuotes(v));
+        markDirty();
+      }}
+      scopedRegexMode={localScopedRegexMode}
+      onScopedRegexModeChange={(mode) => {
+        setLocalScopedRegexMode(mode);
+        markDirty();
+      }}
+      onOpenRegex={() => setOvPage("regex")}
+      sectionCount={orderedSections.length}
+      groupCount={data.groups?.length ?? 0}
+    />
+  ) : (
     <OverviewTab
       preset={data.preset}
       name={localName}
@@ -1187,7 +1220,121 @@ function OverviewTab({
   );
 }
 
-function PresetPictureField({ preset }: { preset: PromptPreset }) {
+/** Overhaul (v1 frame 24): one dense form, no boxed cards. */
+function OvPresetOverview({
+  preset,
+  name,
+  onNameChange,
+  description,
+  onDescriptionChange,
+  wrapFormat,
+  onWrapFormatChange,
+  author,
+  onAuthorChange,
+  scopedRegexMode,
+  onScopedRegexModeChange,
+  onOpenRegex,
+  sectionCount,
+  groupCount,
+}: {
+  preset: PromptPreset;
+  name: string;
+  onNameChange: (v: string) => void;
+  description: string;
+  onDescriptionChange: (v: string) => void;
+  wrapFormat: WrapFormat;
+  onWrapFormatChange: (v: WrapFormat) => void;
+  author: string;
+  onAuthorChange: (v: string) => void;
+  scopedRegexMode: ScopedRegexMode;
+  onScopedRegexModeChange: (mode: ScopedRegexMode) => void;
+  onOpenRegex: () => void;
+  sectionCount: number;
+  groupCount: number;
+}) {
+  const { data: scripts } = useRegexScripts();
+  const linkedCount = useMemo(
+    () =>
+      (scripts ?? []).filter((script) => {
+        try {
+          const ids: unknown = JSON.parse(script.targetPromptPresetIds);
+          return Array.isArray(ids) && ids.includes(preset.id);
+        } catch {
+          return false;
+        }
+      }).length,
+    [scripts, preset.id],
+  );
+  return (
+    <div className="ov-povw">
+      <h2 className="ov-povw__title">Overview</h2>
+      <div className="ov-povw__grid">
+        <label className="ov-lf ov-povw__name">
+          <span>Name</span>
+          <input value={name} onChange={(e) => onNameChange(e.target.value)} placeholder="Preset name" />
+        </label>
+        <label className="ov-lf">
+          <span>Author</span>
+          <input value={author} onChange={(e) => onAuthorChange(e.target.value)} placeholder="Your name (optional)" />
+        </label>
+        <div className="ov-lf">
+          <span>Picture</span>
+          <PresetPictureField preset={preset} compact />
+        </div>
+        <label className="ov-lf ov-povw__full">
+          <span>Description</span>
+          <textarea
+            value={description}
+            rows={3}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder="What does this preset do?"
+          />
+        </label>
+        <div className="ov-lf">
+          <span>Wrap format</span>
+          <OvSeg
+            label="Wrap format"
+            value={wrapFormat}
+            options={[
+              { value: "xml", label: "XML" },
+              { value: "markdown", label: "Markdown" },
+              { value: "none", label: "None" },
+            ]}
+            onChange={onWrapFormatChange}
+          />
+        </div>
+        <div className="ov-lf">
+          <span>Scoped regex default</span>
+          <OvSeg
+            label="Scoped regex default"
+            value={scopedRegexMode}
+            options={[
+              { value: "disabled", label: "Disabled" },
+              { value: "exclusive", label: "Exclusive" },
+              { value: "chat", label: "Chat" },
+            ]}
+            onChange={onScopedRegexModeChange}
+          />
+        </div>
+        <div className="ov-lf">
+          <span>Regex scripts</span>
+          <p className="ov-povw__line">
+            {linkedCount === 1 ? "1 script targets" : `${linkedCount} scripts target`} this preset{" "}
+            <button type="button" className="ov-ed__link" onClick={onOpenRegex}>
+              Open in Regex ›
+            </button>
+          </p>
+        </div>
+      </div>
+      <p className="ov-povw__stats">
+        {sectionCount} {sectionCount === 1 ? "section" : "sections"} · {groupCount}{" "}
+        {groupCount === 1 ? "group" : "groups"}
+      </p>
+    </div>
+  );
+}
+
+function PresetPictureField({ preset, compact = false }: { preset: PromptPreset; compact?: boolean }) {
   const { t: localizeUi } = useUiTranslation();
   const uploadPresetImage = useUploadPresetImage();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1227,6 +1374,31 @@ function PresetPictureField({ preset }: { preset: PromptPreset }) {
     [localizeUi, preset.id, uploadPresetImage],
   );
 
+  if (compact) {
+    const pick = () => {
+      if (!inputRef.current) return;
+      inputRef.current.value = "";
+      inputRef.current.click();
+    };
+    return (
+      <div className="ov-povw__pic">
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
+        <button
+          type="button"
+          className="mari-panel-gradient-surface mari-panel-gradient--presets ov-povw__thumb"
+          onClick={pick}
+          disabled={uploadPresetImage.isPending}
+          title={pictureLabel}
+          aria-label={pictureLabel}
+        >
+          {artwork ? <img src={artwork} alt="" draggable={false} /> : <FileText size={14} />}
+        </button>
+        <button type="button" className="ov-ed__link" onClick={pick} disabled={uploadPresetImage.isPending}>
+          {artwork ? "Replace" : "Upload"}
+        </button>
+      </div>
+    );
+  }
   return (
     <FieldGroup
       label={localizeUi("ui.presets.overviewtab.picture")}

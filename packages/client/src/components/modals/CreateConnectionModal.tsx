@@ -8,6 +8,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { Loader2, Link } from "lucide-react";
 import { MODEL_LISTS, PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function CreateConnectionModal({ open, onClose, initialProvider }: Props) {
+  const overhaulActive = useOverhaulActive();
   const { t: localizeUi } = useUiTranslation();
   const createConnection = useCreateConnection();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
@@ -92,24 +94,39 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
           <span className="text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.connections.connectioneditor.provider")}
           </span>
-          <div className="grid grid-cols-2 gap-1.5">
-            {(Object.entries(PROVIDERS) as [APIProvider, (typeof PROVIDERS)[APIProvider]][]).map(([key, info]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setProvider(key)}
-                aria-pressed={provider === key}
-                className={cn(
-                  "rounded-md px-2.5 py-2 text-left text-[0.6875rem] font-medium transition-all",
-                  provider === key
-                    ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
-                    : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                )}
-              >
-                {key === "decision" ? localizeUi("connections.decision.label") : info.name}
-              </button>
-            ))}
-          </div>
+          {overhaulActive ? (
+            <select
+              value={provider}
+              onChange={(e) => setProvider(e.target.value as APIProvider)}
+              aria-label={localizeUi("ui.connections.connectioneditor.provider")}
+              className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
+            >
+              {(Object.entries(PROVIDERS) as [APIProvider, (typeof PROVIDERS)[APIProvider]][]).map(([key, info]) => (
+                <option key={key} value={key}>
+                  {key === "decision" ? localizeUi("connections.decision.label") : info.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="grid grid-cols-2 gap-1.5">
+              {(Object.entries(PROVIDERS) as [APIProvider, (typeof PROVIDERS)[APIProvider]][]).map(([key, info]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setProvider(key)}
+                  aria-pressed={provider === key}
+                  className={cn(
+                    "rounded-md px-2.5 py-2 text-left text-[0.6875rem] font-medium transition-all",
+                    provider === key
+                      ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
+                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                  )}
+                >
+                  {key === "decision" ? localizeUi("connections.decision.label") : info.name}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             {provider === "xai"
               ? localizeUi("ui.modals.createconnectionmodal.createsAnXaiConnectionPrefilledWithGrok45")

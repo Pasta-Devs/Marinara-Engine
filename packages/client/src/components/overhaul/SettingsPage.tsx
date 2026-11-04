@@ -5,7 +5,7 @@
 // sections themselves are the app's own components, so nothing loses
 // behaviour. Chips under the tabs jump to a section; search covers all tabs.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
 import { useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
@@ -87,23 +87,69 @@ function sectionLabel(id: SettingsSectionId) {
   return SECTION_LABELS[id] ?? SETTINGS_SECTIONS.find((section) => section.id === id)?.label ?? id;
 }
 
-/** Scrolls to a section and flashes it, so you can see which block the chip meant. */
+/**
+ * Scrolls the settings list (only the list, never the page around it) to a section and flashes
+ * it, so you can see which block the chip meant.
+ */
 function scrollToSection(id: SettingsSectionId, attempt = 0) {
   window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => {
-      const target = document.getElementById(`settings-section-${id}`);
-      if (!target) {
-        // The tab's sections load lazily; try again for a moment after a tab switch.
-        if (attempt < 20) window.setTimeout(() => scrollToSection(id, attempt + 1), 100);
-        return;
-      }
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      target.classList.remove("ov-flash");
-      void target.offsetWidth;
-      target.classList.add("ov-flash");
-      window.setTimeout(() => target.classList.remove("ov-flash"), 1800);
-    });
+    const target = document.getElementById(`settings-section-${id}`);
+    const scroller = target?.closest<HTMLElement>(".ov-settings__scroll");
+    if (!target || !scroller || target.offsetParent === null) {
+      // The tab's sections load lazily; try again for a moment after a tab switch.
+      if (attempt < 20) window.setTimeout(() => scrollToSection(id, attempt + 1), 100);
+      return;
+    }
+    const top = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+    scroller.scrollTo({ top: Math.max(0, top - 8), behavior: "smooth" });
+    target.classList.remove("ov-flash");
+    void target.offsetWidth;
+    target.classList.add("ov-flash");
+    window.setTimeout(() => target.classList.remove("ov-flash"), 1800);
   });
+}
+
+type Chip = { id: SettingsSectionId; label: string };
+
+/**
+ * The jump chips, read from what is on screen: one per top-level section (rows nested inside
+ * another section don't get their own), labelled with the section's own title, in page order.
+ */
+function useSectionChips(container: HTMLElement | null, fallback: SettingsSectionId[]): Chip[] {
+  const [chips, setChips] = useState<Chip[]>(() => fallback.map((id) => ({ id, label: sectionLabel(id) })));
+  useEffect(() => {
+    if (!container) return;
+    const read = () => {
+      const anchors = Array.from(container.querySelectorAll<HTMLElement>('[id^="settings-section-"]')).filter(
+        (el) => el.offsetParent !== null && !el.parentElement?.closest('[id^="settings-section-"]'),
+      );
+      if (!anchors.length) return;
+      const next = anchors.map((el) => {
+        const id = el.id.replace("settings-section-", "") as SettingsSectionId;
+        const titleNode = el.querySelector(":scope > div:first-child .font-semibold")?.firstChild;
+        const title = titleNode?.textContent?.trim();
+        return { id, label: title || sectionLabel(id) };
+      });
+      setChips((current) =>
+        current.length === next.length &&
+        current.every((chip, i) => chip.id === next[i]!.id && chip.label === next[i]!.label)
+          ? current
+          : next,
+      );
+    };
+    read();
+    let frame = 0;
+    const observer = new MutationObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(read);
+    });
+    observer.observe(container, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [container]);
+  return chips;
 }
 
 /** Settings that live on another Library page now, still found by Settings search. */
@@ -117,6 +163,12 @@ export function OverhaulSettingsPage() {
   const setTab = useOverhaulStore((s) => s.setSettingsTab);
   const [query, setQuery] = useState("");
   const tab = OVERHAUL_SETTINGS_TABS.find((item) => item.id === tabId) ?? OVERHAUL_SETTINGS_TABS[0]!;
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  const chips = useSectionChips(scrollEl, tab.sections);
+  // A new tab starts at its top.
+  useEffect(() => {
+    scrollEl?.scrollTo({ top: 0 });
+  }, [scrollEl, tab.id]);
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -205,13 +257,13 @@ export function OverhaulSettingsPage() {
         </div>
       </div>
       <div className="ov-settings__chips">
-        {tab.sections.map((id) => (
-          <button key={id} type="button" className="ov-chip" onClick={() => scrollToSection(id)}>
-            {localize(sectionLabel(id))}
+        {chips.map((chip) => (
+          <button key={chip.id} type="button" className="ov-chip" onClick={() => scrollToSection(chip.id)}>
+            {chip.label}
           </button>
         ))}
       </div>
-      <div className="ov-settings__scroll">
+      <div className="ov-settings__scroll" ref={setScrollEl}>
         <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
           <OverhaulSettingsSections key={tab.id} sectionIds={tab.sections} />
         </Suspense>

@@ -45,6 +45,9 @@ import {
   type RegexPlacement,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { OvEditorHead, OvEyebrow, OvRow, OvSaveState } from "../overhaul/EditorChrome";
+import { OvChipInput, OvChipPicker, OvNum, OvSeg, OvToggle } from "../overhaul/LoreEntryParts";
 
 // ═══════════════════════════════════════════════
 //  Placement metadata
@@ -64,6 +67,15 @@ const REGEX_FIELD_ICON_CLASS = "mari-chrome-accent-icon mari-accent-animated";
 const REGEX_ACTIVE_OPTION_CLASS =
   "mari-chrome-accent-surface mari-accent-animated ring-[var(--marinara-chat-chrome-button-border-active)]";
 type RegexApplyMode = "prompt" | "display" | "both";
+const REGEX_FLAG_TITLES: Record<string, string> = {
+  g: "Global: replace every match",
+  i: "Case-insensitive",
+  m: "Multiline: ^ and $ match at line breaks",
+  s: "Dot-all: . also matches line breaks",
+  u: "Unicode",
+  y: "Sticky: match only at the last index",
+  d: "Indices: record match positions",
+};
 
 const APPLY_MODE_META: Record<RegexApplyMode, { label: string; description: string }> = {
   display: {
@@ -230,6 +242,7 @@ function ScopeTargetPicker({
 // ═══════════════════════════════════════════════
 export function RegexScriptEditor() {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulActive = useOverhaulActive();
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const regexDetailDefaultCharacterIds = useUIStore((s) => s.regexDetailDefaultCharacterIds);
   const regexDetailDefaultPresetIds = useUIStore((s) => s.regexDetailDefaultPresetIds);
@@ -582,6 +595,311 @@ export function RegexScriptEditor() {
     localPromptPresetScopeEnabled && localTargetPromptPresetIds.length === 0
       ? localizeUi("ui.agents.regexscripteditor.chooseAtLeastOnePromptPreset")
       : null;
+
+  if (overhaulActive) {
+    const runsLabel = (() => {
+      const n = localOrder + 1;
+      const suffix =
+        n % 10 === 1 && n % 100 !== 11
+          ? "st"
+          : n % 10 === 2 && n % 100 !== 12
+            ? "nd"
+            : n % 10 === 3 && n % 100 !== 13
+              ? "rd"
+              : "th";
+      return `Order ${localOrder} · runs ${n}${suffix}`;
+    })();
+    const copyId = () => {
+      if (dbRow) void navigator.clipboard?.writeText(dbRow.id);
+    };
+    return (
+      <div className="mari-editor-shell flex flex-1 flex-col overflow-hidden">
+        <div
+          className="ov-ed"
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+              event.preventDefault();
+              void handleSave();
+            }
+          }}
+        >
+          <OvEditorHead
+            section="regex"
+            sectionLabel="Regex scripts"
+            title={localName}
+            titlePlaceholder="Untitled script"
+            onTitleChange={(next) => {
+              setLocalName(next);
+              markDirty();
+            }}
+            meta={runsLabel}
+            status={<OvSaveState dirty={dirty} saving={isPending} error={!!saveError} />}
+            actions={
+              <>
+                <OvToggle
+                  label="Enabled"
+                  on={localEnabled}
+                  onChange={(next) => {
+                    setLocalEnabled(next);
+                    markDirty();
+                  }}
+                />
+                <button type="button" className="ov-edbtn" onClick={handleExport}>
+                  Export
+                </button>
+                <button
+                  type="button"
+                  className="ov-edbtn ov-edbtn--primary"
+                  disabled={!dirty || isPending}
+                  onClick={() => void handleSave()}
+                >
+                  {savedFlash ? "Saved" : "Save"}
+                </button>
+              </>
+            }
+            menu={[
+              { label: "Back to Regex scripts", onSelect: handleClose },
+              ...(dbRow ? [{ label: "Delete script", danger: true, onSelect: () => void handleDelete() }] : []),
+            ]}
+          />
+          {showUnsavedWarning ? (
+            <div className="ov-ed__banner">
+              <span>You have unsaved changes.</span>
+              <button type="button" className="ov-edbtn" onClick={() => setShowUnsavedWarning(false)}>
+                Keep editing
+              </button>
+              <button type="button" className="ov-edbtn ov-edbtn--danger" onClick={() => closeRegexDetail()}>
+                Discard
+              </button>
+              <button
+                type="button"
+                className="ov-edbtn ov-edbtn--primary"
+                onClick={async () => {
+                  await handleSave();
+                  closeRegexDetail();
+                }}
+              >
+                Save and close
+              </button>
+            </div>
+          ) : null}
+          {saveError ? (
+            <div className="ov-ed__banner is-error">
+              <AlertCircle size={13} />
+              <span>{saveError}</span>
+              <button
+                type="button"
+                className="ov-edbtn ov-edbtn--icon"
+                aria-label="Dismiss"
+                onClick={() => setSaveError(null)}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ) : null}
+          <div className="ov-ed__cols">
+            <div className="ov-ed__col">
+              <OvEyebrow>Pattern</OvEyebrow>
+              <OvRow label="Find pattern" hint={regexError ? undefined : "Macros like {{char}} work"}>
+                <input
+                  className={cn("is-mono", regexError && "is-invalid")}
+                  value={localFindRegex}
+                  onChange={(e) => {
+                    setLocalFindRegex(e.target.value);
+                    markDirty();
+                  }}
+                  placeholder="e.g. \\(OOC:.*?\\)"
+                  aria-label="Find pattern"
+                />
+                {regexError ? <span className="ov-row__note is-error">{regexError}</span> : null}
+              </OvRow>
+              <OvRow label="Replace with">
+                <input
+                  className="is-mono"
+                  value={localReplaceString}
+                  onChange={(e) => {
+                    setLocalReplaceString(e.target.value);
+                    markDirty();
+                  }}
+                  placeholder="e.g. $1 or leave empty to remove"
+                  aria-label="Replace with"
+                />
+              </OvRow>
+              <OvRow label="Flags">
+                <div className="ov-ed__flags">
+                  {["g", "i", "m", "s", "u", "y", "d"].map((flag) => (
+                    <OvToggle
+                      key={flag}
+                      label={flag}
+                      title={REGEX_FLAG_TITLES[flag]}
+                      on={localFlags.includes(flag)}
+                      onChange={(on) => {
+                        setLocalFlags((prev) => (on ? prev + flag : prev.replace(flag, "")));
+                        markDirty();
+                      }}
+                    />
+                  ))}
+                </div>
+              </OvRow>
+              <OvRow label="Trim strings" hint="Removed from the result" top>
+                <OvChipInput
+                  values={localTrimStrings}
+                  onChange={(next) => {
+                    setLocalTrimStrings(next);
+                    markDirty();
+                  }}
+                  placeholder="string to trim…"
+                  parse={(current, text) => (current.includes(text) ? current : [...current, text])}
+                />
+              </OvRow>
+              <OvEyebrow aside="Preview only; placement, scope and depth are not simulated">Live test</OvEyebrow>
+              <OvRow label="Sample" top>
+                <textarea
+                  value={testInput}
+                  onChange={(e) => setTestInput(e.target.value)}
+                  rows={3}
+                  placeholder="Paste sample text to test…"
+                  aria-label="Sample"
+                />
+              </OvRow>
+              <OvRow label="Result" top>
+                <div className="ov-ed__result">{testInput ? testResult : <span className="ov-row__note">—</span>}</div>
+              </OvRow>
+            </div>
+            <div className="ov-ed__col">
+              <OvEyebrow>Where it applies</OvEyebrow>
+              <OvRow label="Apply to">
+                {(Object.entries(PLACEMENT_META) as [RegexPlacement, { label: string; description: string }][]).map(
+                  ([placement, meta]) => (
+                    <OvToggle
+                      key={placement}
+                      label={meta.label}
+                      title={meta.description}
+                      on={localPlacement.includes(placement)}
+                      onChange={() => togglePlacement(placement)}
+                    />
+                  ),
+                )}
+              </OvRow>
+              <OvRow label="Apply mode" hint={APPLY_MODE_META[localApplyMode].description}>
+                <OvSeg
+                  label="Apply mode"
+                  value={localApplyMode}
+                  options={[
+                    { value: "prompt", label: "Prompt" },
+                    { value: "display", label: "Display" },
+                    { value: "both", label: "Both" },
+                  ]}
+                  onChange={(next) => {
+                    setLocalApplyMode(next);
+                    markDirty();
+                  }}
+                />
+              </OvRow>
+              <OvRow label="Characters" top={localCharacterScopeEnabled}>
+                <OvToggle
+                  label={localCharacterScopeEnabled ? "Specific characters" : "Applies to all characters"}
+                  on={localCharacterScopeEnabled}
+                  onChange={(next) => {
+                    setLocalCharacterScopeEnabled(next);
+                    markDirty();
+                  }}
+                />
+                {localCharacterScopeEnabled ? (
+                  <div className="ov-grow">
+                    <OvChipPicker
+                      options={characterOptions.map((o) => ({ value: o.id, label: o.name }))}
+                      selected={localTargetCharacterIds}
+                      onChange={(next) => {
+                        setLocalTargetCharacterIds(next);
+                        markDirty();
+                      }}
+                      placeholder="Add character…"
+                    />
+                    {characterScopeError ? <span className="ov-row__note is-error">{characterScopeError}</span> : null}
+                  </div>
+                ) : null}
+              </OvRow>
+              <OvRow label="Prompt presets" top={localPromptPresetScopeEnabled}>
+                <OvToggle
+                  label={localPromptPresetScopeEnabled ? "Specific prompt presets" : "Applies to all prompt presets"}
+                  on={localPromptPresetScopeEnabled}
+                  onChange={(next) => {
+                    setLocalPromptPresetScopeEnabled(next);
+                    markDirty();
+                  }}
+                />
+                {localPromptPresetScopeEnabled ? (
+                  <div className="ov-grow">
+                    <OvChipPicker
+                      options={promptPresetOptions.map((o) => ({ value: o.id, label: o.name }))}
+                      selected={localTargetPromptPresetIds}
+                      onChange={(next) => {
+                        setLocalTargetPromptPresetIds(next);
+                        markDirty();
+                      }}
+                      placeholder="Add prompt preset…"
+                    />
+                    {promptPresetScopeError ? (
+                      <span className="ov-row__note is-error">{promptPresetScopeError}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </OvRow>
+              <OvEyebrow>Advanced</OvEyebrow>
+              <OvRow label="Execution order">
+                <OvNum
+                  value={localOrder}
+                  onCommit={(value) => {
+                    setLocalOrder(value ?? 0);
+                    markDirty();
+                  }}
+                  label="Execution order"
+                />
+                <span className="ov-row__note">Lower numbers run first</span>
+              </OvRow>
+              <OvRow label="Depth range" hint="Messages back from the newest">
+                <OvNum
+                  value={localMinDepth}
+                  allowEmpty
+                  min={0}
+                  placeholder="–"
+                  onCommit={(value) => {
+                    setLocalMinDepth(value);
+                    markDirty();
+                  }}
+                  label="Minimum depth"
+                />
+                <span className="ov-row__note">to</span>
+                <OvNum
+                  value={localMaxDepth}
+                  allowEmpty
+                  min={0}
+                  placeholder="–"
+                  onCommit={(value) => {
+                    setLocalMaxDepth(value);
+                    markDirty();
+                  }}
+                  label="Maximum depth"
+                />
+                <span className={cn("ov-row__note", depthRangeError && "is-error")}>
+                  {depthRangeError ?? "blank = no limit"}
+                </span>
+              </OvRow>
+              {dbRow ? (
+                <div className="ov-ed__id">
+                  ID <code>{dbRow.id}</code>
+                  <button type="button" className="ov-ed__link" onClick={copyId}>
+                    Copy
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
