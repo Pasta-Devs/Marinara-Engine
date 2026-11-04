@@ -6085,3 +6085,11 @@ input.ov-edhead__title:focus {
 .ov-vw__left .ov-vw__find {
   padding-top: 0.75rem;
 }
+
+/* Character and Persona pages share the .ov-ed class with the single-column editors (Regex,
+   Connection, Agent). Their rail + sections layout runs side by side, not stacked. */
+[data-overhaul="on"] .ov-ed:has(> .ov-rail) {
+  flex-direction: row;
+  padding: 0;
+  overflow: hidden;
+}
