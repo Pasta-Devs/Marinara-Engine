@@ -41,7 +41,7 @@ import {
   type CharacterLibrarySort,
   type ResourcePanelSort,
 } from "../../stores/ui.store";
-import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { CardGallery } from "../overhaul/CardGallery";
 
 const libraryToolbarButtonClass =
@@ -424,7 +424,7 @@ export function CharacterLibraryView() {
   }, [characters, initialCharacter.data, isPersonaLibrary, personas]);
 
   // UI overhaul: the Library pane's tag list filters the Characters gallery.
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const overhaulTag = useOverhaulStore((s) =>
     s.enabled && s.desktop ? (isPersonaLibrary ? s.personaTag : s.characterTag) : null,
   );

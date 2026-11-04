@@ -35,7 +35,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { notifyDecisionImport } from "../../lib/decision-import-notice";
 import { useUIStore } from "../../stores/ui.store";
-import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { AgentArtwork } from "./AgentArtwork";
 import { AgentModeFilter, type AgentModeFilterValue } from "./AgentModeFilter";
 import { CustomAgentRepositoriesModal } from "./CustomAgentRepositoriesModal";
@@ -170,7 +170,7 @@ export function AgentCatalogView() {
   const [bulkProgress, setBulkProgress] = useState<BulkActionProgress | null>(null);
   const [customRepositoriesOpen, setCustomRepositoriesOpen] = useState(false);
   const hasActiveFilters = Boolean(query.trim()) || modeFilter !== "all";
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const [ovMenuOpen, setOvMenuOpen] = useState(false);
   const [ovClosed, setOvClosed] = useState<Record<string, boolean>>({});
   const ovMenuRef = useRef<HTMLDivElement>(null);

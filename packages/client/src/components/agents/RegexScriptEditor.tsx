@@ -45,7 +45,7 @@ import {
   type RegexPlacement,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { OvEditorHead, OvEyebrow, OvRow, OvSaveState } from "../overhaul/EditorChrome";
 import { OvChipInput, OvChipPicker, OvNum, OvSeg, OvToggle } from "../overhaul/LoreEntryParts";
 
@@ -242,7 +242,7 @@ function ScopeTargetPicker({
 // ═══════════════════════════════════════════════
 export function RegexScriptEditor() {
   const { t: localizeUi } = useUiTranslation();
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const regexDetailDefaultCharacterIds = useUIStore((s) => s.regexDetailDefaultCharacterIds);
   const regexDetailDefaultPresetIds = useUIStore((s) => s.regexDetailDefaultPresetIds);

@@ -580,7 +580,15 @@
 }
 
 /* The sheet's big buttons already cover these; don't list them twice. */
-.ovm-sheet__more .mari-message-actions > button:has(> svg.lucide-copy, > svg.lucide-check, > svg.lucide-pencil, > svg.lucide-refresh-cw, > svg.lucide-git-branch) {
+.ovm-sheet__more
+  .mari-message-actions
+  > button:has(
+    > svg.lucide-copy,
+    > svg.lucide-check,
+    > svg.lucide-pencil,
+    > svg.lucide-refresh-cw,
+    > svg.lucide-git-branch
+  ) {
   display: none !important;
 }
 .ovm-sheet__more .mari-message-actions > *:not(button) {
@@ -629,4 +637,156 @@
 .ovm-sheet__reactions > button:active,
 .ovm-sheet__reactions > span > button:active {
   background: color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+/* ─── Chat settings: the desktop drawer's look as a phone/tablet sheet ─── */
+:root[data-overhaul="mobile"] .ov-cs [data-window-control="lock"],
+:root[data-overhaul="mobile"] .ov-cs [aria-label="Lock window"],
+:root[data-overhaul="mobile"] .ov-cs [data-chat-settings-control="reset-view"],
+:root[data-overhaul="mobile"] .ov-cs .ov-cs__mode {
+  display: none !important;
+}
+:root[data-overhaul="mobile"] .ov-cs .mari-window__title {
+  overflow: visible;
+  font-size: 1.125rem;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-cs .mari-window__control {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+:root[data-overhaul="mobile"] .ov-cs .mari-drawer > [data-drawer-toggle],
+:root[data-overhaul="mobile"] .ov-cs .mari-drawer > div:first-child {
+  min-height: 3.25rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+:root[data-overhaul="mobile"] .ov-cs .mari-drawer__title {
+  font-size: 0.9375rem !important;
+}
+:root[data-overhaul="mobile"] .ov-cs :is(input, textarea, select) {
+  font-size: 1rem;
+}
+
+/* ─── Overhaul pages at phone width: one column, wrapping headers ─── */
+@media (max-width: 767px) {
+  :root[data-overhaul="mobile"] :is(.ov-gallery, .ov-settings) {
+    padding: 1rem 1rem 2rem;
+  }
+  :root[data-overhaul="mobile"] .ov-gallery__head {
+    flex-wrap: wrap;
+  }
+  :root[data-overhaul="mobile"] :is(.ov-gallery__head h1, .ov-settings__head h1) {
+    font-size: 1.75rem;
+  }
+  :root[data-overhaul="mobile"] .ov-gallery__head .ov-btn {
+    height: 2.5rem;
+  }
+  :root[data-overhaul="mobile"] .ov-gallery__tools {
+    flex-wrap: wrap;
+  }
+  :root[data-overhaul="mobile"] .ov-search {
+    width: 100%;
+    height: 2.75rem;
+  }
+  :root[data-overhaul="mobile"] .ov-search input {
+    font-size: 1rem;
+  }
+  :root[data-overhaul="mobile"] .ov-select {
+    height: 2.5rem;
+  }
+  :root[data-overhaul="mobile"] .ov-gallery__grid {
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: 1rem 0.75rem;
+  }
+  /* Tables keep only the leading toggle/thumb and the name; the rest is on the item's page. */
+  :root[data-overhaul="mobile"] .ov-table :is(th, td):not(.ov-table__lead):not(.ov-table__lead + *):not(:first-child) {
+    display: none;
+  }
+  :root[data-overhaul="mobile"] .ov-table td {
+    height: 3.25rem;
+  }
+  :root[data-overhaul="mobile"] .ov-settings__head {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+  }
+  :root[data-overhaul="mobile"] .ov-settings__head p {
+    flex: 1 1 100%;
+    order: 3;
+  }
+  :root[data-overhaul="mobile"] .ov-settings__search {
+    flex: 1 1 100%;
+    order: 4;
+    margin: 0.25rem 0 0;
+  }
+  /* Docs: the guide list, or the open guide; never both side by side. */
+  :root[data-overhaul="mobile"] .ov-docs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root[data-overhaul="mobile"] .ov-docs:not([data-has-doc]) .ov-docs__reader,
+  :root[data-overhaul="mobile"] .ov-docs[data-has-doc] .ov-docs__nav {
+    display: none;
+  }
+  :root[data-overhaul="mobile"] .ov-docs__nav {
+    border-left: 0;
+    padding: 1rem;
+  }
+  :root[data-overhaul="mobile"] .ov-docs__nav li > button,
+  :root[data-overhaul="mobile"] .ov-docs__nav a {
+    min-height: 2.75rem;
+  }
+  :root[data-overhaul="mobile"] .ov-docs__reader {
+    padding: 1rem 1rem 3rem;
+  }
+  :root[data-overhaul="mobile"] .ov-docs__back {
+    display: inline-flex;
+    height: 2.5rem;
+    align-items: center;
+    gap: 0.25rem;
+    margin: 0 0 0.5rem -0.375rem;
+    color: var(--ov-accent);
+    font-size: 0.9375rem;
+  }
+}
+
+/* ─── Character / persona / editor pages at phone width: the rail stacks above the fields ─── */
+@media (max-width: 767px) {
+  :root[data-overhaul="mobile"] .ov-ed {
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  :root[data-overhaul="mobile"] .ov-ed > .ov-rail {
+    width: 100% !important;
+    max-width: none !important;
+    overflow: visible;
+    padding: 1rem 1rem 0.5rem;
+    border-right: 0 !important;
+  }
+  :root[data-overhaul="mobile"] .ov-ed > .ov-rail .ov-rail__portrait {
+    width: min(100%, 15rem);
+    margin: 0 auto;
+  }
+  :root[data-overhaul="mobile"] .ov-ed > .mari-editor-body {
+    flex: none;
+    overflow: visible;
+  }
+  :root[data-overhaul="mobile"] .ov-ed .mari-editor-content {
+    height: auto;
+    overflow: visible;
+    padding: 0.5rem 1rem 3rem;
+  }
+  :root[data-overhaul="mobile"] .ov-ed .mari-editor-content h2 {
+    font-size: 1.5rem !important;
+  }
+}
+
+/* Wider phones and tablets: Chat settings is a side sheet, not the full width. */
+@media (min-width: 600px) {
+  :root[data-overhaul="mobile"] .mari-window.ov-cs {
+    left: auto !important;
+    right: 0.5rem !important;
+    width: min(28rem, calc(100vw - 1rem)) !important;
+  }
 }

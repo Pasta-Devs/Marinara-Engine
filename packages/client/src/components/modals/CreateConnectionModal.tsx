@@ -8,7 +8,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { Loader2, Link } from "lucide-react";
 import { MODEL_LISTS, PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
 }
 
 export function CreateConnectionModal({ open, onClose, initialProvider }: Props) {
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const { t: localizeUi } = useUiTranslation();
   const createConnection = useCreateConnection();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);

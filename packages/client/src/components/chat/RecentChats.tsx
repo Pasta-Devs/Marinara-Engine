@@ -12,7 +12,7 @@ import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { useTranslation } from "react-i18next";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
@@ -84,7 +84,7 @@ function resolveGameBackground(
 export function RecentChats() {
   const { t } = useTranslation();
   const feed = useHomeFeed();
-  const overhaul = useOverhaulActive();
+  const overhaul = useOverhaulLook();
   const gameAssets = useGameAssetManifest();
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const recentChats = useMemo(() => feed.data?.recentChats ?? [], [feed.data?.recentChats]);

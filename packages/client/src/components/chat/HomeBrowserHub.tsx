@@ -84,7 +84,7 @@ import { ChatModeIcon } from "./ChatModeIcon";
 import { HomeClockCalendar } from "./HomeClockCalendar";
 import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
-import { isOverhaulActive, useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { isOverhaulLook, useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 
@@ -981,13 +981,13 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     [browserPackages],
   );
   const [localActiveTab, setLocalActiveTab] = useState("home");
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   // UI overhaul: each installed app gets its own tab in the top bar instead of Home's tab strip.
   const overhaulApp = useOverhaulStore((state) => state.activeApp);
   const activeTab = overhaulActive ? (overhaulApp ?? "home") : localActiveTab;
   const setActiveTab = useCallback(
     (tab: string) => {
-      if (!isOverhaulActive()) setLocalActiveTab(tab);
+      if (!isOverhaulLook()) setLocalActiveTab(tab);
       else if (tab === "home") useOverhaulStore.setState({ activeApp: null });
       else useOverhaulStore.getState().openApp(tab);
     },
@@ -1272,7 +1272,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       setFocusedPackagePost((current) => (current?.packageId === tab ? current : null));
       if (sceneOriginFocus && sceneOriginFocus.packageId !== tab) setSceneOriginFocus(null);
       if (tab === "professor") {
-        if (isOverhaulActive()) useOverhaulStore.getState().openMari();
+        if (isOverhaulLook()) useOverhaulStore.getState().openMari();
         else requestProfessorMariOpen();
         return;
       }
@@ -1282,7 +1282,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   );
   // UI overhaul: Home opens her in her own tab; ⌘J still opens the popover.
   const openProfessor = () => {
-    if (isOverhaulActive()) useOverhaulStore.getState().openMari();
+    if (isOverhaulLook()) useOverhaulStore.getState().openMari();
     else requestProfessorMariOpen();
   };
   // The omnibar and Command Center ask Home for a surface through `requestHome`; Home opens it here.

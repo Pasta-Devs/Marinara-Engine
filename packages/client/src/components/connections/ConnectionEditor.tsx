@@ -19,7 +19,7 @@ import { useEffectiveGenerationParameters } from "../../hooks/use-effective-gene
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useMemo, useRef, type ChangeEvent } from "react";
 import { useUIStore } from "../../stores/ui.store";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { OvEditorHead, OvEyebrow, OvSaveState } from "../overhaul/EditorChrome";
 import { OvSeg } from "../overhaul/LoreEntryParts";
 import {
@@ -348,7 +348,7 @@ function ovConnectionTypeOf(provider: APIProvider): OvConnectionType {
 
 export function ConnectionEditor() {
   const { t: localizeUi } = useUiTranslation();
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const { t } = useTranslation();
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
@@ -4152,7 +4152,7 @@ function FieldGroup({
   help?: string;
   children: React.ReactNode;
 }) {
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   if (overhaulActive) {
     return (
       <div className="ov-row is-top ov-cf">

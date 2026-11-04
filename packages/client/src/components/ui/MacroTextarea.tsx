@@ -19,7 +19,7 @@ import { cn } from "../../lib/utils";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { DecisionStatementNote } from "./DecisionStatementNote";
 import { MacroCompletionGhost, useMacroCompletion } from "./MacroCompletionGhost";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
@@ -232,7 +232,7 @@ interface MacrosReferenceModalProps {
 
 function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
   const { t: localizeUi } = useUiTranslation();
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const [query, setQuery] = useState("");
   useEffect(() => {
     if (!open) setQuery("");

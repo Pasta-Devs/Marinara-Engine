@@ -1,6 +1,9 @@
 /* ═══════════════════════════════════════════════
    UI OVERHAUL PREVIEW: layout chrome
-   Desktop only. Active while <html data-overhaul="on">.
+   <html data-overhaul> is "on" on desktop and "mobile" on phones and
+   tablets. Rules for the desktop shell and density use [data-overhaul="on"];
+   the look shared by both uses [data-overhaul]. Phone sizing lives in
+   overhaul-mobile.css.
    Colors come from the active theme's variables, so the
    Stage visual theme, other visual themes and custom CSS
    themes all apply. Titles use the app font.
@@ -396,19 +399,19 @@
 /* ─── Home ─── */
 /* Home fills the main area instead of floating as a card, and its own pages
    (Home, Professor, browser apps) read as a small switcher, not a second tab strip. */
-:root[data-overhaul="on"] [data-component="HomeBrowserHub"] > div {
+:root[data-overhaul] [data-component="HomeBrowserHub"] > div {
   border: 0;
   border-radius: 0;
   box-shadow: none;
 }
-:root[data-overhaul="on"] [data-component="HomeBrowserHub"] header > div:first-child {
+:root[data-overhaul] [data-component="HomeBrowserHub"] header > div:first-child {
   height: 2.375rem;
   align-items: center;
 }
-:root[data-overhaul="on"] [data-component="HomeBrowserHub.TabList"] {
+:root[data-overhaul] [data-component="HomeBrowserHub.TabList"] {
   align-items: center;
 }
-:root[data-overhaul="on"] [data-component="HomeBrowserHub.TabList"] [role="tab"] {
+:root[data-overhaul] [data-component="HomeBrowserHub.TabList"] [role="tab"] {
   min-height: 1.75rem;
   min-width: 0;
   padding-inline: 0.625rem;
@@ -416,7 +419,7 @@
   border-radius: 0.5rem;
   font-weight: 500;
 }
-:root[data-overhaul="on"] [data-component="HomeBrowserHub.TabList"] [role="tab"][aria-selected="true"] {
+:root[data-overhaul] [data-component="HomeBrowserHub.TabList"] [role="tab"][aria-selected="true"] {
   background: var(--ov-active-bg);
   box-shadow: inset 0 0 0 1px var(--ov-line);
 }
@@ -1714,7 +1717,7 @@
 .ov-menu button.is-danger {
   color: var(--destructive);
 }
-[data-overhaul="on"] .mari-editor-content-inner--wide:has(> .ov-bk-head) {
+[data-overhaul] .mari-editor-content-inner--wide:has(> .ov-bk-head) {
   max-width: none;
 }
 .ov-bk-head {
@@ -1921,7 +1924,7 @@
   display: none;
 }
 /* Entry rows read as table rows: no bubbles, hairline dividers. */
-[data-overhaul="on"] .ov-lore-row {
+[data-overhaul] .ov-lore-row {
   margin-top: 0 !important;
   border-width: 0 0 1px !important;
   border-color: var(--ov-line) !important;
@@ -1929,23 +1932,23 @@
   background: transparent !important;
   box-shadow: none !important;
 }
-[data-overhaul="on"] .ov-lore-row:hover > div:first-of-type,
-[data-overhaul="on"] .ov-lore-row.is-open > div:first-of-type {
+[data-overhaul] .ov-lore-row:hover > div:first-of-type,
+[data-overhaul] .ov-lore-row.is-open > div:first-of-type {
   background: var(--ov-hover);
 }
-[data-overhaul="on"] .ov-lore-row > div:first-of-type {
+[data-overhaul] .ov-lore-row > div:first-of-type {
   gap: 0.375rem;
 }
-[data-overhaul="on"] [data-editor-section="entries"] .space-y-2 > * + *,
-[data-overhaul="on"] [data-editor-section="entries"] .space-y-1\.5 > * + * {
+[data-overhaul] [data-editor-section="entries"] .space-y-2 > * + *,
+[data-overhaul] [data-editor-section="entries"] .space-y-1\.5 > * + * {
   margin-top: 0;
 }
-[data-overhaul="on"] .ov-lore-toggles {
+[data-overhaul] .ov-lore-toggles {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 1.25rem;
 }
-[data-overhaul="on"] .ov-lore-toggles > * {
+[data-overhaul] .ov-lore-toggles > * {
   width: auto;
   gap: 0.5rem;
   padding: 0.25rem 0;
@@ -1955,7 +1958,7 @@
   --tw-ring-shadow: 0 0 #0000;
   color: var(--ov-text);
 }
-[data-overhaul="on"] .ov-lore-row.is-open > div:last-child {
+[data-overhaul] .ov-lore-row.is-open > div:last-child {
   padding-bottom: 1rem;
 }
 
@@ -2261,7 +2264,7 @@
 }
 
 /* ─── Home ─── */
-:root[data-overhaul="on"] .mari-home-hero {
+:root[data-overhaul] .mari-home-hero {
   flex-direction: row !important;
   flex-wrap: wrap;
   align-items: center !important;
@@ -2270,28 +2273,28 @@
   padding: 0.75rem 0.25rem 1rem !important;
   text-align: left !important;
 }
-:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) {
+:root[data-overhaul] .mari-home-hero > div:nth-child(2) {
   display: flex;
   flex: 1 1 auto;
   align-items: baseline;
   gap: 1rem;
   max-width: none;
 }
-:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) > div:first-child > :not(:last-child),
-:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) > p {
+:root[data-overhaul] .mari-home-hero > div:nth-child(2) > div:first-child > :not(:last-child),
+:root[data-overhaul] .mari-home-hero > div:nth-child(2) > p {
   display: none !important;
 }
-:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) > div:first-child {
+:root[data-overhaul] .mari-home-hero > div:nth-child(2) > div:first-child {
   order: 2;
 }
-:root[data-overhaul="on"] .mari-home-hero > div:nth-child(2) > div:first-child > span {
+:root[data-overhaul] .mari-home-hero > div:nth-child(2) > div:first-child > span {
   margin: 0;
   color: var(--ov-dim);
   font-size: 0.8125rem;
   font-weight: 400;
   letter-spacing: 0;
 }
-:root[data-overhaul="on"] .mari-home-hero h1 {
+:root[data-overhaul] .mari-home-hero h1 {
   order: 1;
   margin: 0;
   color: var(--ov-text);
@@ -2311,7 +2314,7 @@
   height: 2.25rem;
   border-radius: 999px;
 }
-:root[data-overhaul="on"] [data-component="HomeBrowserHub.HomePage"] > .relative {
+:root[data-overhaul] [data-component="HomeBrowserHub.HomePage"] > .relative {
   max-width: 82rem;
   margin: 0 auto;
 }
@@ -2383,14 +2386,14 @@
   font-size: 0.75rem;
   text-align: right;
 }
-[data-overhaul="on"] .mari-home-widget--recent section > img[aria-hidden="true"],
-[data-overhaul="on"] .mari-home-widget--recent img[src*="story-comet"] {
+[data-overhaul] .mari-home-widget--recent section > img[aria-hidden="true"],
+[data-overhaul] .mari-home-widget--recent img[src*="story-comet"] {
   display: none;
 }
-:root[data-overhaul="on"] .mari-home-widget--recent .ov-recent {
+:root[data-overhaul] .mari-home-widget--recent .ov-recent {
   grid-template-columns: minmax(0, 1fr) !important;
 }
-:root[data-overhaul="on"] .mari-home-feed-grid :is(h2, h3) {
+:root[data-overhaul] .mari-home-feed-grid :is(h2, h3) {
   font-family: var(--ov-serif);
   font-size: 1.375rem;
   font-weight: 400;
@@ -2527,8 +2530,8 @@
   background: var(--ov-hover);
   color: var(--ov-text);
 }
-[data-overhaul="on"] .ov-lore-row:hover > .ov-lrow,
-[data-overhaul="on"] .ov-lore-row.is-open > .ov-lrow {
+[data-overhaul] .ov-lore-row:hover > .ov-lrow,
+[data-overhaul] .ov-lore-row.is-open > .ov-lrow {
   background: var(--ov-hover);
 }
 
@@ -2883,7 +2886,7 @@
 }
 
 /* ─── Library editors, v1 frames (Regex, Connection, Agent, Preset overview) ─── */
-[data-overhaul="on"] .ov-ed {
+[data-overhaul] .ov-ed {
   display: flex;
   min-height: 0;
   flex: 1;
@@ -5033,16 +5036,16 @@ input.ov-edhead__title:focus {
 }
 
 /* Reactions: opaque chips and tooltip, so message text never shows through. */
-:root[data-overhaul="on"] .mari-reaction-pill {
+:root[data-overhaul] .mari-reaction-pill {
   background: color-mix(in srgb, var(--foreground) 3%, var(--background));
 }
-:root[data-overhaul="on"] .mari-reaction-pill:hover {
+:root[data-overhaul] .mari-reaction-pill:hover {
   background: color-mix(in srgb, var(--foreground) 6%, var(--background));
 }
-:root[data-overhaul="on"] .mari-reaction-pill.is-mine {
+:root[data-overhaul] .mari-reaction-pill.is-mine {
   background: color-mix(in srgb, var(--primary) 18%, var(--background));
 }
-:root[data-overhaul="on"] .mari-reaction-tip {
+:root[data-overhaul] .mari-reaction-tip {
   background: var(--background);
   backdrop-filter: none;
 }
@@ -5474,7 +5477,7 @@ input.ov-edhead__title:focus {
 }
 
 /* ─── Lorebook viewer: entries on the left, the open entry on the right (mockup) ─── */
-[data-overhaul="on"] .mari-editor-content:has(> .ov-lv) {
+[data-overhaul] .mari-editor-content:has(> .ov-lv) {
   overflow: hidden !important;
   padding: 0 !important;
 }
@@ -6074,7 +6077,7 @@ input.ov-edhead__title:focus {
 :is(.ov-lv-tools__acts, .ov-po-tools) button.mari-editor-action--primary {
   color: var(--ov-accent) !important;
 }
-:root[data-overhaul="on"] .ov-po-tools {
+:root[data-overhaul] .ov-po-tools {
   gap: 0.25rem 0.875rem !important;
   padding: 0.125rem 0 0.375rem !important;
   border: 0 !important;
@@ -6117,7 +6120,7 @@ input.ov-edhead__title:focus {
 
 /* Character and Persona pages share the .ov-ed class with the single-column editors (Regex,
    Connection, Agent). Their rail + sections layout runs side by side, not stacked. */
-[data-overhaul="on"] .ov-ed:has(> .ov-rail) {
+[data-overhaul] .ov-ed:has(> .ov-rail) {
   flex-direction: row;
   padding: 0;
   overflow: hidden;
@@ -6126,16 +6129,16 @@ input.ov-edhead__title:focus {
 /* ─── No drag handles (2026-11-04) ─── */
 /* Lists reorder by dragging the whole row, so the ⋮⋮ handles only took space. Home widget editing,
    the battle map and the floating music players keep theirs: there the handle is the only grip. */
-:root[data-overhaul="on"]
+:root[data-overhaul]
   :is(div, button, span):has(> svg.lucide-grip-vertical:only-child):not(
     [data-component="HomeBrowserHub"] *,
     [data-component="TacticalCombatUI"] *
   ),
-:root[data-overhaul="on"] .ov-lrow__grip,
-:root[data-overhaul="on"] .ov-cs-edit__grip {
+:root[data-overhaul] .ov-lrow__grip,
+:root[data-overhaul] .ov-cs-edit__grip {
   display: none !important;
 }
-:root[data-overhaul="on"] :is([data-ov-row], .ov-cs-edit [draggable="true"]) {
+:root[data-overhaul] :is([data-ov-row], .ov-cs-edit [draggable="true"]) {
   cursor: grab;
 }
 .ov-lv__left .ov-lrow {
@@ -6143,8 +6146,8 @@ input.ov-edhead__title:focus {
 }
 
 /* Picking a row in a list should feel instant: no fade on the selection highlight. */
-:root[data-overhaul="on"] :is([data-ov-row], [data-lorebook-entry-row-id], [data-lorebook-folder-row-id]),
-:root[data-overhaul="on"] :is([data-ov-row], [data-lorebook-entry-row-id], [data-lorebook-folder-row-id]) * {
+:root[data-overhaul] :is([data-ov-row], [data-lorebook-entry-row-id], [data-lorebook-folder-row-id]),
+:root[data-overhaul] :is([data-ov-row], [data-lorebook-entry-row-id], [data-lorebook-folder-row-id]) * {
   transition: none !important;
 }
 
@@ -6155,21 +6158,21 @@ input.ov-edhead__title:focus {
    element (the app, and every menu or window portaled into <body>) swaps them in and rebuilds the
    surfaces derived from them. */
 @supports (color: rgb(from red r g b / 1)) {
-  :root[data-overhaul="on"] body {
+  :root[data-overhaul] body {
     --ov-solid-card: rgb(from var(--card) r g b / 1);
     --ov-solid-popover: rgb(from var(--popover) r g b / 1);
     --ov-glass-card: var(--card);
     --ov-glass-popover: var(--popover);
   }
-  :root[data-overhaul="on"] body > * {
+  :root[data-overhaul] body > * {
     --card: var(--ov-solid-card);
     --popover: var(--ov-solid-popover);
   }
-  :root[data-overhaul="on"] [data-component="GlobalOmnibar"] {
+  :root[data-overhaul] [data-component="GlobalOmnibar"] {
     --card: var(--ov-glass-card);
     --popover: var(--ov-glass-popover);
   }
-  :root[data-overhaul="on"] :is(body > *, [data-component="GlobalOmnibar"]) {
+  :root[data-overhaul] :is(body > *, [data-component="GlobalOmnibar"]) {
     --marinara-chat-chrome-surface-bg: var(--card);
     --marinara-chat-chrome-surface-bg-hover: color-mix(
       in srgb,
@@ -6627,13 +6630,13 @@ input.ov-edhead__title:focus {
 /* ─── Character / Persona page: rail hugs the content (2026-11-04) ─── */
 /* On wide screens the portrait + glossary rail sat at the far left while the fields were centered,
    leaving a gap between them. The rail and the content column now sit together as one centered group. */
-[data-overhaul="on"] .ov-ed:has(> .ov-rail) {
+[data-overhaul] .ov-ed:has(> .ov-rail) {
   justify-content: center;
 }
-[data-overhaul="on"] .ov-ed:has(> .ov-rail) > .mari-editor-body {
+[data-overhaul] .ov-ed:has(> .ov-rail) > .mari-editor-body {
   max-width: calc(56rem + 4rem);
 }
-[data-overhaul="on"] .ov-ed:has(> .ov-rail) .mari-editor-content-inner {
+[data-overhaul] .ov-ed:has(> .ov-rail) .mari-editor-content-inner {
   margin-inline: 0;
 }
 
@@ -6912,4 +6915,8 @@ input.ov-edhead__title:focus {
 /* A tab coming back stays hidden for a moment until its scroll position is restored (use-tab-scroll-memory). */
 [data-ov-restoring-scroll] [data-component="CenterContent"] {
   visibility: hidden;
+}
+/* Phones only (overhaul-mobile.css): the back button from a guide to the list. */
+.ov-docs__back {
+  display: none;
 }

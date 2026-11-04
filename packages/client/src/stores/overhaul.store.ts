@@ -257,3 +257,15 @@ export function isOverhaulActive() {
   const state = useOverhaulStore.getState();
   return state.enabled && state.desktop;
 }
+
+/**
+ * True when the overhaul is on at any size. Pages and editors (Library, character/persona pages,
+ * Home, the editors) use the overhaul look on desktop and mobile alike; only the shell differs.
+ */
+export function useOverhaulLook() {
+  return useOverhaulStore((state) => state.enabled);
+}
+
+export function isOverhaulLook() {
+  return useOverhaulStore.getState().enabled;
+}

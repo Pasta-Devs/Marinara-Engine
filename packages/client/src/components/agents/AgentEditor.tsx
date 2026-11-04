@@ -7,7 +7,7 @@ import { useDecisionCalibration, useHasDecisionModel } from "../../hooks/use-dec
 import { lazy, Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { OvEditorHead, OvSaveState } from "../overhaul/EditorChrome";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -682,7 +682,7 @@ function isCustomSecretPlotPrompt(value: string): boolean {
 }
 
 export function AgentEditor() {
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   const { t: localizeUi } = useUiTranslation();
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
@@ -4703,7 +4703,7 @@ function FieldGroup({
   children: React.ReactNode;
 }) {
   const contentVisible = !collapsible || expanded;
-  const overhaulActive = useOverhaulActive();
+  const overhaulActive = useOverhaulLook();
   if (overhaulActive) {
     return (
       <div className="ov-row is-top ov-cf">

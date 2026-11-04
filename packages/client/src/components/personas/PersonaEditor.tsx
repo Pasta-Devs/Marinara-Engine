@@ -124,7 +124,7 @@ import { useEditorSections } from "../../hooks/use-editor-sections";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
-import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
+import { isOverhaulLook, useOverhaulLook } from "../../stores/overhaul.store";
 import { AddFieldChips, EditorCrumbs, EditorRail, RailMoreMenu } from "../overhaul/EditorRail";
 import { MariContextChip } from "../chat/MariContextChip";
 import { CopyIdLine } from "../overhaul/CopyIdLine";
@@ -1340,11 +1340,11 @@ export function PersonaEditor() {
   const uploadCharacterSheet = useUploadPersonaGalleryImage(personaId ?? "");
   const { data: connectionsList } = useConnections();
 
-  const overhaulActive = useOverhaulActive();
-  const defaultTab: TabId = isOverhaulActive() ? "card" : "metadata";
+  const overhaulActive = useOverhaulLook();
+  const defaultTab: TabId = isOverhaulLook() ? "card" : "metadata";
   const [activeTab, setActiveTab] = useState<TabId>(() => personaInitialTab ?? defaultTab);
   useEffect(() => {
-    setActiveTab(personaInitialTab ?? (isOverhaulActive() ? "card" : "metadata"));
+    setActiveTab(personaInitialTab ?? (isOverhaulLook() ? "card" : "metadata"));
   }, [personaId, personaInitialTab]);
   const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>([]);
   const [overhaulAddedFields, setOverhaulAddedFields] = useState<string[]>([]);
@@ -3889,7 +3889,7 @@ function PersonaMetadataTab({
     updateField("tags", []);
   };
 
-  const overhaulMeta = useOverhaulActive();
+  const overhaulMeta = useOverhaulLook();
 
   return (
     <div className="space-y-5">
