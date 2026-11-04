@@ -1777,11 +1777,17 @@ export function GameSetupWizard({
 
   return (
     <>
+      {/* New layout: Cancel is the only way out, and the tab bar stays reachable above the dialog. */}
       <div
-        className="fixed inset-0 z-[10000] bg-black/45 backdrop-blur-[2px]"
-        onClick={isLoading ? undefined : onCancel}
+        className={cn("fixed inset-0 z-[10000] bg-black/45 backdrop-blur-[2px]", overhaulActive && "ov-gsw-layer")}
+        onClick={isLoading || overhaulActive ? undefined : onCancel}
       />
-      <div className="fixed inset-0 z-[10001] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
+      <div
+        className={cn(
+          "fixed inset-0 z-[10001] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4",
+          overhaulActive && "ov-gsw-layer",
+        )}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep.key}
@@ -1830,15 +1836,18 @@ export function GameSetupWizard({
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={isLoading}
-                className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-wait disabled:opacity-40"
-                aria-label={localizeUi("ui.game.gamesetupwizard.closeSetup")}
-              >
-                <X size="0.875rem" />
-              </button>
+              {/* The new layout closes setup with Cancel only. */}
+              {overhaulActive ? null : (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  disabled={isLoading}
+                  className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-wait disabled:opacity-40"
+                  aria-label={localizeUi("ui.game.gamesetupwizard.closeSetup")}
+                >
+                  <X size="0.875rem" />
+                </button>
+              )}
             </div>
 
             {overhaulActive && (
