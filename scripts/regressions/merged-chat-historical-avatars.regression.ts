@@ -1,20 +1,27 @@
 /**
  * Merged Roleplay narrator avatars (#8762): a saved reply keeps the active roster it was generated with,
  * so automatic or manual roster changes affect only later replies. A streaming reply follows the live
- * roster (a continuation keeps its saved one too), and a reply saved before the snapshot existed shows only the
- * members its expression result names (#8823): it neither shrinks to one avatar, revives a member who was
- * inactive, nor gains the members who were absent from its scene. Only a reply with no per-character data at all
- * shows the live roster. Continuing such a reply keeps those members, on the stream and once saved, and
+ * roster (a continuation keeps its saved one too), and a reply saved before the snapshot existed shows the members
+ * its expression result names (#8823) plus the active members no expression result could name (no sprites the chat
+ * shows, or outside its sprite selection): it neither shrinks to one avatar, revives a member who was inactive, nor
+ * gains members with sprites who were absent from its scene. An older reply split at scene breaks takes this from
+ * its last part. Only a reply with no per-character data at all shows the live roster. Continuing such a reply
+ * keeps the members its expression result names, on the stream and once saved, and
  * continuing any reply keeps a member who has left the chat on its roster, hidden until they rejoin, even when
  * their leaving takes the chat down to one member.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveMergedAvatarRoster } from "../../packages/client/src/components/chat/merged-avatar-roster.ts";
+import {
+  membersWithoutExpressions,
+  resolveMergedAvatarRoster,
+  splitReplyLastParts,
+} from "../../packages/client/src/components/chat/merged-avatar-roster.ts";
+import { normalizeSpriteDisplayModes } from "../../packages/client/src/components/chat/sprite-display-modes.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "marinara-merged-avatars-"));
 process.env.DATA_DIR = dir;
@@ -31,6 +38,11 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createGameStateStorage } = await import("../../packages/server/src/services/storage/game-state.storage.js");
 const { characterDataSchema, mergedReplyRoster } = await import("../../packages/shared/dist/index.js");
+const { listSpriteCatalog, spriteDirectory } =
+  await import("../../packages/server/src/services/sprites/sprite-catalog.js");
+const { listCharacterSprites } = await import("../../packages/server/src/services/game/sprite.service.js");
+const { buildAvailableSpriteCharacter } =
+  await import("../../packages/server/src/routes/generate/expression-agent-utils.js");
 
 const provider = createServer(async (request, response) => {
   for await (const _chunk of request);
@@ -362,14 +374,145 @@ try {
     "the next reply streams with everyone active",
   );
 
+  // An expression result can name only members with sprites the chat shows, in its sprite selection when it has one
+  // (generate.routes builds `_availableSprites` that way). A reply saved before #8800 keeps the active members it
+  // could never name, so it does not shrink to the one character with sprites; the #8823 case above still shows only
+  // Ana and Ben, as Cal and Dee have sprites. The client's rule matches the server's sprite list member by member.
+  const sprite = (ownerId: string, ...expressions: string[]) => {
+    mkdirSync(spriteDirectory(ownerId), { recursive: true });
+    for (const expression of expressions) writeFileSync(join(spriteDirectory(ownerId), `${expression}.png`), "");
+  };
+  sprite(ana.id, "smile", "frown");
+  sprite(cal.id, "full_idle");
+  sprite(dee.id, "smile", "full_idle");
+  const quartetSprites = quartet.map((id) => listSpriteCatalog(id).sprites);
+  const unnameable = (spriteCharacterIds: string[], modes: unknown) => {
+    const spriteDisplayModes = normalizeSpriteDisplayModes(modes);
+    const serverNames = quartet.filter(
+      (id) =>
+        (spriteCharacterIds.length === 0 || spriteCharacterIds.includes(id)) &&
+        !!listCharacterSprites(id) &&
+        !!buildAvailableSpriteCharacter(id, id, listCharacterSprites(id)!, spriteDisplayModes),
+    );
+    const result = membersWithoutExpressions({
+      chatCharacterIds: quartet,
+      spriteCharacterIds,
+      spriteDisplayModes,
+      spriteLists: quartetSprites,
+    });
+    assert.deepEqual(
+      result,
+      quartet.filter((id) => !serverNames.includes(id)),
+      `the client and the server agree on who can be named (${JSON.stringify([spriteCharacterIds, modes])})`,
+    );
+    return result;
+  };
+  assert.deepEqual(unnameable([], undefined), [ben.id], "only Ben has no sprites");
+  assert.deepEqual(unnameable([], ["expressions"]), [ben.id, cal.id], "Cal has only full-body sprites");
+  assert.deepEqual(unnameable([ana.id], undefined), [ben.id, cal.id, dee.id], "the stage shows only Ana's sprites");
+  assert.deepEqual(unnameable([ana.id, dee.id], ["full-body"]), [ana.id, ben.id, cal.id]);
+  assert.deepEqual(
+    membersWithoutExpressions({
+      chatCharacterIds: quartet,
+      spriteCharacterIds: [],
+      spriteDisplayModes: normalizeSpriteDisplayModes(undefined),
+      spriteLists: [quartetSprites[0], null, quartetSprites[2]],
+    }),
+    [],
+    "a sprite list still loading names nobody yet",
+  );
+  const anaOnly = { spriteExpressions: { [ana.id]: "smile" }, expressionSpriteIds: [ana.id] };
+  const olderRoster = (
+    chatCharacterIds: string[],
+    noExpressionCharacterIds: string[],
+    extra: Record<string, unknown> = anaOnly,
+    liveRoster = chatCharacterIds,
+  ) => resolveMergedAvatarRoster({ extra, chatCharacterIds, liveRoster, isLive: false, noExpressionCharacterIds });
+  assert.deepEqual(
+    olderRoster([ana.id, ben.id], [ben.id]),
+    [ana.id, ben.id],
+    "Ben, who has no sprites, keeps his avatar on an older reply in a chat whose roster never changed",
+  );
+  assert.deepEqual(
+    olderRoster(quartet, unnameable([ana.id], undefined)),
+    quartet,
+    "with the stage limited to Ana's sprites, no member is cut",
+  );
+  assert.deepEqual(olderRoster(quartet, unnameable([], undefined)), [ana.id, ben.id], "Cal and Dee have sprites");
+  assert.deepEqual(
+    olderRoster(quartet, unnameable([], undefined), anaOnly, [ana.id, cal.id]),
+    [ana.id],
+    "an inactive member without sprites is not revived",
+  );
+  assert.deepEqual(
+    olderRoster(quartet, [ben.id], { mergedRosterCharacterIds: [ana.id] }),
+    [ana.id],
+    "a saved roster stays exact",
+  );
+  assert.deepEqual(
+    olderRoster(quartet, [ben.id], sceneCases[0]![1]),
+    [ana.id, ben.id],
+    "a reply saved with its roster is unchanged",
+  );
+
+  // A reply split at scene breaks (#7481) before #8800 saved its expression result only on its last part, which is
+  // grouped under the first part, so the first part's avatars come from that last part. A newer split reply saves
+  // its roster on every part and keeps it.
+  const splitMessages = [
+    { id: "user-1", role: "user", characterId: null, extra: {} },
+    { id: "part-1", role: "assistant", characterId: ana.id, extra: JSON.stringify({ continuesAfterSceneBreak: true }) },
+    { id: "part-2", role: "assistant", characterId: ana.id, extra: { continuesAfterSceneBreak: true } },
+    { id: "part-3", role: "assistant", characterId: ana.id, extra: { expressionSpriteIds: [ana.id, ben.id] } },
+    { id: "user-2", role: "user", characterId: null, extra: {} },
+    {
+      id: "new-part-1",
+      role: "assistant",
+      characterId: ana.id,
+      extra: { continuesAfterSceneBreak: true, mergedRosterCharacterIds: [ana.id, cal.id] },
+    },
+    { id: "new-part-2", role: "assistant", characterId: ana.id, extra: { mergedRosterCharacterIds: [ana.id, cal.id] } },
+    { id: "cut-off", role: "assistant", characterId: ben.id, extra: { continuesAfterSceneBreak: true } },
+    { id: "other", role: "assistant", characterId: cal.id, extra: { expressionSpriteIds: [cal.id] } },
+    { id: "unfinished", role: "assistant", characterId: cal.id, extra: { continuesAfterSceneBreak: true } },
+  ];
+  const lastParts = splitReplyLastParts(splitMessages);
+  assert.deepEqual(
+    [...lastParts.keys()],
+    ["new-part-1", "part-2", "part-1"],
+    "only earlier parts followed by their own last part are linked",
+  );
+  assert.equal(lastParts.get("part-1"), splitMessages[3]!.extra);
+  const splitRoster = (id: string) => {
+    const message = splitMessages.find((entry) => entry.id === id)!;
+    return resolveMergedAvatarRoster({
+      extra: typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra,
+      chatCharacterIds: quartet,
+      liveRoster: quartet,
+      isLive: false,
+      noExpressionCharacterIds: [],
+      splitReplyLastPartExtra: lastParts.get(id),
+    });
+  };
+  assert.deepEqual(splitRoster("part-1"), [ana.id, ben.id], "an older split reply shows its scene on its first part");
+  assert.deepEqual(splitRoster("new-part-1"), [ana.id, cal.id], "a newer split reply keeps its own roster");
+  assert.deepEqual(splitRoster("cut-off"), quartet, "a part without its last part falls back to the live roster");
+
   // Every merged reply in the Roleplay surface (list, Visual Novel, streaming, regenerating) renders through ChatMessage.
   const clientSource = (file: string) =>
     readFileSync(new URL(`../../packages/client/src/components/chat/${file}`, import.meta.url), "utf8");
   assert.match(
     clientSource("ChatMessage.tsx"),
-    /resolveMergedAvatarRoster\(\{\s*extra,[^}]*isLive: !!isStreaming,/u,
+    /resolveMergedAvatarRoster\(\{\s*extra,[^}]*isLive: !!isStreaming,\s*noExpressionCharacterIds,\s*splitReplyLastPartExtra,/u,
     "ChatMessage picks narrator avatars through the roster decision",
   );
+  const surface = clientSource("ChatRoleplaySurface.tsx");
+  assert.equal(
+    surface.match(/noExpressionCharacterIds=\{noExpressionCharacterIds\}/gu)?.length,
+    2,
+    "the transcript and the Visual Novel box pass who an expression result cannot name",
+  );
+  assert.match(surface, /splitReplyLastPartExtra=\{splitReplyLastPartExtras\.get\(msg\.id\)\}/u);
+  assert.match(surface, /splitReplyLastPartExtra=\{splitReplyLastPartExtras\.get\(activeVnMessage\.id\)\}/u);
   assert.match(
     clientSource("ChatRoleplaySurface.tsx"),
     /\.\.\.\(!isContinuation\s*\?\s*\{[^}]*mergedRosterCharacterIds: null,/u,

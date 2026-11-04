@@ -136,7 +136,21 @@ test("historical narrator replies show only the characters of their own scene", 
     const ana = await data.character("Ana", "#c0392b");
     const ben = await data.character("Ben", "#2a6fdb");
     const cal = await data.character("Cal", "#1e8449");
-    const cast = [ana, ben, cal, await data.character("Dee", "#d4a017")];
+    const dee = await data.character("Dee", "#d4a017");
+    // Eve has no sprites, so no expression result could ever name her.
+    const eve = await data.character("Eve", "#8e44ad");
+    const cast = [ana, ben, cal, dee, eve];
+    const spriteImage: Buffer = await sharp({
+      create: { width: 32, height: 32, channels: 3, background: "#777777" },
+    })
+      .png()
+      .toBuffer();
+    for (const character of [ana, ben, cal, dee]) {
+      const response = await request.post(`/api/sprites/${character.id}`, {
+        data: { expression: "smile", image: `data:image/png;base64,${spriteImage.toString("base64")}` },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+    }
     const chat = await data.create("/api/chats", {
       name: "Scene-only narrator avatars",
       mode: "roleplay",
@@ -155,21 +169,28 @@ test("historical narrator replies show only the characters of their own scene", 
         ...(extra ? { extra } : {}),
       });
     };
+    const anaAndBen = {
+      spriteExpressions: { [ana.id]: "smile", [ben.id]: "smile" },
+      expressionSpriteIds: [ana.id, ben.id],
+    };
     const cases: Array<[{ id: string }, typeof cast]> = [
       [
         await reply("A reply saved with its roster.", ana.id, { mergedRosterCharacterIds: [ana.id, ben.id] }),
         [ana, ben],
       ],
-      [
-        await reply("An older reply with an expression result.", ana.id, {
-          spriteExpressions: { [ana.id]: "smile", [ben.id]: "frown" },
-          expressionSpriteIds: [ana.id, ben.id],
-        }),
-        [ana, ben],
-      ],
+      [await reply("An older reply with an expression result.", ana.id, anaAndBen), [ana, ben, eve]],
       [await reply("An older reply without expression data.", ana.id), cast],
       [await reply("Cal's greeting.", cal.id), cast],
     ];
+    // An older reply split at a scene break: the expression result is on its last part, grouped under the first.
+    const splitFirst = await reply("The first scene of a split reply.", ana.id, { continuesAfterSceneBreak: true });
+    await data.create(`/api/chats/${chat.id}/messages`, {
+      role: "assistant",
+      characterId: ana.id,
+      content: "The second scene of a split reply.",
+      extra: anaAndBen,
+    });
+    cases.push([splitFirst, [ana, ben, eve]]);
     await openChat(page, chat.id);
     for (const [message, expected] of cases) {
       const row = page.locator(`[data-message-id="${message.id}"]`);

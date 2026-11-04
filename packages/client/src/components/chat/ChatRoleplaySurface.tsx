@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { normalizeSemanticSummaryRetrievalSettings } from "@marinara-engine/shared";
 import { toast } from "sonner";
@@ -81,7 +81,10 @@ import { EndSceneBar } from "./SceneBanner";
 import { ChatCommonOverlays, type ChatSettingsTools } from "./ChatCommonOverlays";
 import { useProvideChatGalleryActions } from "../../hooks/use-chat-gallery-actions";
 import { PinnedImageOverlay } from "./PinnedImageOverlay";
-import type { SpriteDisplayMode } from "./sprite-display-modes";
+import { normalizeSpriteDisplayModes, type SpriteDisplayMode } from "./sprite-display-modes";
+import { membersWithoutExpressions, splitReplyLastParts } from "./merged-avatar-roster";
+import { spriteKeys, type SpriteInfo } from "../../hooks/use-characters";
+import { api } from "../../lib/api-client";
 import { chatAvatarParticipants } from "../../features/avatars/stage/avatar-stage-logic";
 import { useChatAvatarAgentIds } from "../../features/avatars/stage/use-chat-avatar-agents";
 import type {
@@ -100,6 +103,12 @@ import {
 } from "../../hooks/use-game-storyboards";
 
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
+
+/** Each sprite list: null while loading, empty when it failed. Structurally shared by React Query, so an unchanged
+ *  list keeps its identity. */
+function combineSpriteLists(results: Array<{ data?: SpriteInfo[]; isError: boolean }>): (SpriteInfo[] | null)[] {
+  return results.map((result) => result.data ?? (result.isError ? [] : null));
+}
 
 const RoleplayTrackerWindow = lazy(async () => {
   const module = await import("./RoleplayTrackerWindow");
@@ -1540,6 +1549,36 @@ export function ChatRoleplaySurface({
     const activeIds = chatCharIds.filter((id) => !inactiveIds.has(id));
     return activeIds.length > 0 ? activeIds : chatCharIds;
   }, [chatCharIds, chatMeta.inactiveCharacterIds]);
+  // A merged reply saved before its roster was keeps the active members its expression result could never name.
+  const mergedRoleplayGroup = isRoleplay && groupChatMode === "merged" && chatCharIds.length > 1;
+  const mergedSpriteLists = useQueries({
+    queries: (mergedRoleplayGroup ? chatCharIds : []).map((characterId) => ({
+      queryKey: spriteKeys.list(characterId),
+      queryFn: () => api.get<SpriteInfo[]>(`/sprites/${characterId}`),
+      enabled: spriteCharacterIds.length === 0 || spriteCharacterIds.includes(characterId),
+      staleTime: 5 * 60_000,
+    })),
+    combine: combineSpriteLists,
+  });
+  const chatSpriteDisplayModes = chatMeta.spriteDisplayModes;
+  const noExpressionCharacterIds = useMemo(
+    () =>
+      mergedRoleplayGroup
+        ? membersWithoutExpressions({
+            chatCharacterIds: chatCharIds,
+            spriteCharacterIds,
+            spriteDisplayModes: normalizeSpriteDisplayModes(chatSpriteDisplayModes),
+            spriteLists: mergedSpriteLists,
+          })
+        : [],
+    [chatCharIds, chatSpriteDisplayModes, mergedRoleplayGroup, mergedSpriteLists, spriteCharacterIds],
+  );
+  // An older reply split at scene breaks saved its expression result only on its last part, grouped under the first.
+  const splitReplyLastPartExtras = useMemo(
+    () =>
+      mergedRoleplayGroup && messages ? splitReplyLastParts(messages) : new Map<string, Record<string, unknown>>(),
+    [mergedRoleplayGroup, messages],
+  );
   const loadedMessageOffset = totalMessageCount - (messages?.length ?? 0);
   const summaryActiveAgentIds = Array.isArray(chatMeta.activeAgentIds)
     ? chatMeta.activeAgentIds.filter((agentId): agentId is string => typeof agentId === "string")
@@ -2081,6 +2120,8 @@ export function ChatRoleplaySurface({
                           colorInlineNames={colorInlineNames}
                           chatCharacterIds={chatCharIds}
                           mergedGroupCharacterIds={activeChatCharacterIds}
+                          noExpressionCharacterIds={noExpressionCharacterIds}
+                          splitReplyLastPartExtra={splitReplyLastPartExtras.get(msg.id)}
                           expressionAvatarResolver={expressionAvatarResolver}
                           multiSelectMode={multiSelectMode}
                           isSelected={selectedMessageIds.has(msg.id)}
@@ -2218,6 +2259,8 @@ export function ChatRoleplaySurface({
                             colorInlineNames={colorInlineNames}
                             chatCharacterIds={chatCharIds}
                             mergedGroupCharacterIds={activeChatCharacterIds}
+                            noExpressionCharacterIds={noExpressionCharacterIds}
+                            splitReplyLastPartExtra={splitReplyLastPartExtras.get(activeVnMessage.id)}
                             expressionAvatarResolver={expressionAvatarResolver}
                             messageDepth={(messages?.length ?? 1) - 1 - (messages?.indexOf(activeVnMessage) ?? 0)}
                           />
