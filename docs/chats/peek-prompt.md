@@ -38,6 +38,8 @@ Below it, an info panel can show the service and model, an estimated token count
 
 The rest is the prompt in collapsible sections, each with its own rough token estimate. Chat messages are grouped under **Chat History**. For an exact saved request, the service may have merged several chat turns into one block, so expand each block to see all the text. Click a section header to open or close it.
 
+An **Exact Text Model Request** is the request as sent for that reply. It was saved before anything that ran after the reply, such as an automatic summary or hiding messages, so it can hold messages the next reply will not get. Click **Show current context** to build the prompt from the chat as it is now, without sending it. Click **Show sent request** to go back.
+
 ### Copy the prompt
 
 Click the copy button next to the close button. It copies every section and message as plain text, in the order sent, including closed sections. Each message starts with a line naming its role, such as `[system]`, `[user]` or `[assistant]`. For an exact saved request, it copies the request as it was sent. Copying sends nothing.
