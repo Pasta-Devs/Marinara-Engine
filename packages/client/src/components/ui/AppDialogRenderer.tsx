@@ -42,7 +42,7 @@ export function AppDialogRenderer() {
 
   const confirmToneClass =
     dialog.tone === "destructive"
-      ? "bg-[var(--destructive)] font-semibold text-white hover:opacity-90"
+      ? "mari-chrome-control--danger border font-semibold"
       : dialog.tone === "accent"
         ? "mari-chrome-control mari-chrome-control--primary"
         : "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85";
@@ -189,7 +189,7 @@ export function AppDialogRenderer() {
                     onClick={() => resolveActiveDialog(choice.key)}
                     className={`w-full rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       choice.tone === "destructive"
-                        ? "bg-[var(--destructive)] font-semibold text-white hover:opacity-90"
+                        ? "mari-chrome-control--danger border font-semibold"
                         : choice.tone === "accent"
                           ? "mari-chrome-control mari-chrome-control--primary"
                           : i === 0 && !dialog.choices.some((c) => c.tone)

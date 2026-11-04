@@ -14,7 +14,8 @@ const SHEET_BUTTON_BASE =
   "inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-sm:min-h-12 max-sm:w-full max-sm:rounded-xl max-sm:text-[15px]";
 export const SHEET_BUTTON_PRIMARY = `${SHEET_BUTTON_BASE} bg-[var(--primary)] font-semibold text-[var(--primary-foreground)] hover:opacity-90`;
 export const SHEET_BUTTON_SECONDARY = `${SHEET_BUTTON_BASE} bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--accent)]`;
-export const SHEET_BUTTON_DESTRUCTIVE = `${SHEET_BUTTON_BASE} bg-[var(--destructive)] font-semibold text-white hover:opacity-90`;
+// Same tinted danger look as Settings; the class also keeps Accent Pulse off delete buttons.
+export const SHEET_BUTTON_DESTRUCTIVE = `${SHEET_BUTTON_BASE} mari-chrome-control--danger border font-semibold`;
 export const SHEET_BUTTON_QUIET = `${SHEET_BUTTON_BASE} text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]`;
 /** Choice list in a confirm or menu sheet: one grouped block of full-width rows. */
 export const SHEET_CHOICE_GROUP_CLASS =
