@@ -4,7 +4,8 @@
  * roster (a continuation keeps its saved one too), and a reply saved before the snapshot existed shows the
  * members its expression result names plus the live roster: it neither shrinks to one avatar nor revives
  * a member who was inactive. Continuing such a reply keeps those members, on the stream and once saved, and
- * continuing any reply keeps a member who has left the chat on its roster, hidden until they rejoin.
+ * continuing any reply keeps a member who has left the chat on its roster, hidden until they rejoin, even when
+ * their leaving takes the chat down to one member.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -248,6 +249,44 @@ try {
   assert.deepEqual(rosterIn(withoutBen, departedContinued.extra), [ana.id], "Ben stays hidden while he is out");
   await chats.update(chat.id, { characterIds: chatCharacterIds });
   assert.deepEqual(rosterIn(await members(), departedContinued.extra), [ana.id, ben.id], "and is back once he rejoins");
+
+  // The same when Ben's leaving takes a merged chat down to Ana alone, which is no longer a merged group. An older
+  // reply without a roster still gets none, so its expression result keeps deciding instead of pinning it to Ana.
+  const pairChat = await createChat([ana.id, ben.id]);
+  await chats.createMessage({ chatId: pairChat.id, role: "user", content: "We look around." });
+  const pairMessage = (extra: Record<string, unknown>) =>
+    chats.createMessage({
+      chatId: pairChat.id,
+      role: "assistant",
+      characterId: ana.id,
+      content: "Ana and Ben share a reply.",
+      extra,
+    } as never);
+  const pairReply = await pairMessage({ mergedRosterCharacterIds: [ana.id, ben.id] });
+  await chats.update(pairChat.id, { characterIds: [ana.id] });
+  const pairContinued = await generate(pairChat.id, { continueMessageId: pairReply.id });
+  assert.equal(pairContinued.id, pairReply.id);
+  assert.deepEqual(
+    pairContinued.extra.mergedRosterCharacterIds,
+    [ana.id, ben.id],
+    "Continue keeps the saved roster in a chat left with one member",
+  );
+  const pairLegacy = await pairMessage({ spriteExpressions: { [ana.id]: "smile", [ben.id]: "frown" } });
+  const pairLegacyContinued = await generate(pairChat.id, { continueMessageId: pairLegacy.id });
+  assert.equal(pairLegacyContinued.id, pairLegacy.id);
+  assert.deepEqual(pairLegacyContinued.extra.mergedRosterCharacterIds, [], "an older reply stays without a roster");
+  await chats.update(pairChat.id, { characterIds: [ana.id, ben.id] });
+  const pairMembers: string[] = JSON.parse(String((await chats.getById(pairChat.id))!.characterIds));
+  for (const [kind, extra] of [
+    ["the continued reply", pairContinued.extra],
+    ["the continued older reply", pairLegacyContinued.extra],
+  ] as const) {
+    assert.deepEqual(
+      resolveMergedAvatarRoster({ extra, chatCharacterIds: pairMembers, liveRoster: [ana.id], isLive: false }),
+      [ana.id, ben.id],
+      `${kind} shows Ben again once he rejoins`,
+    );
+  }
 
   // The roster grows again: saved replies still keep what they were written with.
   assert.deepEqual(roster(soloReply.extra, chatCharacterIds), [ana.id], "a narrowed reply does not grow back");
