@@ -291,7 +291,7 @@ export async function loadGameRulesetSheetContext(
   const playerName = persona?.name?.trim() || null;
   const built = sheetCommandCards(pinned.definition, cards);
   const clock = gameClockMinutes(meta.gameTime);
-  const away = await cardsAwayFromParty(db, chatId, meta, built, playerName);
+  const away = await cardsAwayFromParty(db, chatId, turnMeta, built, chat.personaId);
   // What each one carries, where the ruleset reads items (1.337): a rest's dice read Pell's Teapot.
   const stacks = normalizeGameInventoryStacks(meta.gameInventory);
   // And which items the reply uses heal their user, so the sheet commands do not heal them again.
@@ -359,32 +359,37 @@ function rulesetItemHealsUser(
   return use?.kind === "heal" && use.targets !== "enemy" && use.amount !== undefined;
 }
 
-/** The cards whose member was taken out of the party: a card stays when its member leaves, and a
- *  command to the whole party must not reach them (laptop pass 6, 2026-10-26: a party long rest
- *  rested two removed companions). Nobody is counted away unless every member of the stored party
- *  list could be named, so a list the Engine cannot read in full never drops anyone. */
-/** The cards of a game's party whose member left it, as its sheet context counts them. */
+/** The cards of a game's party whose member left it, as its sheet context counts them, for the chat's
+ *  persona (its `personaId`). */
 export async function gameRulesetCardsAway(
   db: DB,
   chatId: string,
   definition: RulesetDefinition,
   meta: Record<string, unknown>,
-  playerName: string | null,
+  chatPersonaId: unknown,
 ): Promise<string[]> {
   const cards = Array.isArray(meta.gameCharacterCards)
     ? (meta.gameCharacterCards as Array<Record<string, unknown>>)
     : [];
-  return cardsAwayFromParty(db, chatId, meta, sheetCommandCards(definition, cards), playerName);
+  return cardsAwayFromParty(db, chatId, meta, sheetCommandCards(definition, cards), chatPersonaId);
 }
 
+/** The cards whose member was taken out of the party: a card stays when its member leaves, and a
+ *  command to the whole party must not reach them (laptop pass 6, 2026-10-26: a party long rest
+ *  rested two removed companions). Nobody is counted away unless every member of the stored party
+ *  list could be named, so a list the Engine cannot read in full never drops anyone. The player's
+ *  own card is the one a check finds, so the checks, the sheet commands and the fight brief count
+ *  one party: a persona called "Lethariel" keeps "Lethariel Moonwhisper" in it. */
 async function cardsAwayFromParty(
   db: DB,
   chatId: string,
   meta: Record<string, unknown>,
   cards: SheetCommandCard[],
-  playerName: string | null,
+  chatPersonaId: unknown,
 ): Promise<string[]> {
-  const present = await gamePartyRoster(db, chatId, meta, playerName);
+  // Imported here: the check service reads this module's roster.
+  const { gamePlayerCardName } = await import("./skill-check-resolution.service.js");
+  const present = await gamePartyRoster(db, chatId, meta, await gamePlayerCardName(db, chatId, meta, chatPersonaId));
   if (!present) return [];
   return cards.filter((card) => !present.has(normalizeCharacterLookupName(card.name))).map((card) => card.name);
 }

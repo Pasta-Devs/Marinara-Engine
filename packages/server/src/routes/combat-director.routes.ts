@@ -1416,7 +1416,15 @@ export async function combatDirectorRoutes(
           });
           // The game's whole party fights, not only those the setup named (cheap-GM playtest
           // 2026-10-26: combat:init listed one of three heroes, accepted without a word, and he fought
-          // alone): only where its party list can be read, so who left it is known.
+          // alone): only where its party list can be read, so who left it is known. Seeded with the
+          // persona's own name, not the card a check finds (`gamePlayerCardName`); the lead is found apart
+          // from this seed, by `playerName`. With "Lethariel" in the Game Master's party for the card
+          // "Lethariel Moonwhisper", that sheetless "Lethariel" stays out ("has no ruleset sheet"), and
+          // this seed counts the card as having left, so the player's character does not fight. Seeded
+          // with the full card, the card would join (rulesetFightWholeParty), but the lead, still
+          // "lethariel", would fall to the first party member (partyIds[0]), and unless that is the card,
+          // companions on their own (the default) would hand it to the Engine. Reading the Game Master's
+          // names as cards before the fight would mend both.
           const roster = await gamePartyRoster(app.db, input.chatId, meta, persona?.name ?? null, persona?.id);
           const partyRoster = roster
             ? {

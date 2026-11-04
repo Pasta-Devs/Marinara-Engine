@@ -30,8 +30,10 @@ import {
   rulesetEncounterBudget,
   rulesetFightWorth,
   rulesetSheetBuildsByName,
+  rulesetSheetDead,
   type GameDifficulty,
   type RulesetEncounterBudget,
+  type RulesetLiveStates,
   RULESET_INVENTED_CASTER_MOST,
 } from "@marinara-engine/shared";
 import { loadGameFightItems } from "../services/game/game-inventory.service.js";
@@ -45,6 +47,7 @@ import {
   storyFightPromptText,
 } from "../services/game/story-fight.service.js";
 import { loadRulesetRegistry, resolveGameRuleset } from "../services/game/ruleset-registry.service.js";
+import { gameRulesetCardsAway } from "../services/game/ruleset-sheet-turn.service.js";
 // ──────────────────────────────────────────────
 // Routes: Combat Encounter (non-streaming JSON)
 // ──────────────────────────────────────────────
@@ -55,7 +58,8 @@ import { createCharactersStorage } from "../services/storage/characters.storage.
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { gameTtsEmotionIndicatorsEnabled, TTS_EMOTION_CUE_GUIDANCE } from "../services/tts-emotion-guidance.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
-import { createGameStateStorage } from "../services/storage/game-state.storage.js";
+import { createGameStateStorage, parseStoredRulesetLive } from "../services/storage/game-state.storage.js";
+import { resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { mapSheetAttributesToRPG } from "../services/game/skill-check.service.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
@@ -759,8 +763,9 @@ async function encounterSheetBrief(
 export async function encounterRulesetBrief(
   definition: RulesetDefinition,
   packageId: string | null,
-  /** The party's sheet cards and the game's difficulty, for the encounter budget (1.803). */
-  party?: { cards: unknown; difficulty: GameDifficulty },
+  /** The party's sheet cards and the game's difficulty, for the encounter budget (1.803), with the
+   *  cards whose member left the party and the live sheets that say who is dead. */
+  party?: { cards: unknown; difficulty: GameDifficulty; away?: readonly string[]; live?: RulesetLiveStates | null },
   /** The story's latest words (the player's message, the Game Master's reply), for the bestiary
    *  creatures they name. */
   story?: ReadonlyArray<string | undefined>,
@@ -786,13 +791,16 @@ export async function encounterRulesetBrief(
       logger.warn(error, "[game/combat:init] Could not read bestiary %s of %s", catalog.id, definition.id);
     }
   }
+  // Weighed for those who will fight, as the director weighs the fight: never one who left the party,
+  // nor the dead (a brief for a party of four, where two fought, had its enemies cut down after).
+  const away = new Set((party?.away ?? []).map((name) => normalizeCharacterLookupName(name)));
   const budget =
     party && combat.threat?.budget
       ? rulesetEncounterBudget(
           definition,
-          [...rulesetSheetBuildsByName(definition, party.cards).values()].map((build) =>
-            rulesetBudgetLevel(combat.threat!.budget!, build.fields),
-          ),
+          [...rulesetSheetBuildsByName(definition, party.cards).entries()]
+            .filter(([key, build]) => !away.has(key) && !rulesetSheetDead(definition, build, party.live?.[key]))
+            .map(([, build]) => rulesetBudgetLevel(combat.threat!.budget!, build.fields)),
           party.difficulty,
         )
       : null;
@@ -1342,10 +1350,21 @@ export async function encounterRoutes(app: FastifyInstance) {
         const latest = (role: string) =>
           [...chatMessages].reverse().find((message: { role?: unknown }) => message.role === role)?.content as
             string | undefined;
+        const liveRow = await gsStorage.getForGeneration(chatId, {
+          preferLatestVisible: true,
+          visibleAnchor: resolveVisibleGameStateAnchor(chatMessages),
+        });
         rulesetBrief = await encounterRulesetBrief(
           resolved.definition,
           resolved.packageId,
-          { cards: chatMeta.gameCharacterCards, difficulty: normalizeGameDifficulty(setupConfig?.difficulty) },
+          {
+            cards: chatMeta.gameCharacterCards,
+            difficulty: normalizeGameDifficulty(setupConfig?.difficulty),
+            // As the checks count it: a persona called by a shorter name than its card ("Lethariel" for
+            // "Lethariel Moonwhisper") is still in the party it budgets for.
+            away: await gameRulesetCardsAway(app.db, chatId, resolved.definition, chatMeta, chat.personaId),
+            live: parseStoredRulesetLive(liveRow?.rulesetLive),
+          },
           [latest("user"), latest("assistant")],
         );
         const returning = encounterReturningNames(chatMeta.gameReturningFoes);
