@@ -2,7 +2,7 @@
 // ConnectionGroup — a Connection card: a heading that folds the card (name, model count, host, one status
 // word), its ⋯ menu ("Edit connection" first) and its model well.
 // ──────────────────────────────────────────────
-import { useEffect, useState, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type HTMLAttributes, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ServiceRow } from "./ServiceRow";
 import { getConnectionIdentity, modelKindOf, modelSubtitle } from "../../lib/connection-identity";
@@ -21,6 +21,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "sonner";
 import {
   IMAGE_GENERATION_SOURCES,
@@ -51,7 +52,6 @@ import { sortByModelId } from "../../lib/connection-groups";
 import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
-import { getActiveChatResourceDrag } from "../../lib/chat-resource-drag";
 import { ContextMenu } from "../ui/ContextMenu";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { Modal } from "../ui/Modal";
@@ -144,6 +144,39 @@ export function moveBlockedKey(row: ConnectionRowData): string | null {
   return isChatProvider(row.provider) ? null : "connections.move.blockedService";
 }
 
+/** Moves `rows` to `target` one by one, toasting the outcome; returns the rows that failed. */
+export async function moveRowsTo(
+  rows: ConnectionRowData[],
+  target: ConnectionAccountListItem,
+  moveRow: (input: { id: string; accountId: string }) => Promise<unknown>,
+  t: TFunction,
+): Promise<ConnectionRowData[]> {
+  const nameOf = (row: ConnectionRowData) => row.name?.trim() || row.model || row.id;
+  const failed: ConnectionRowData[] = [];
+  let lastError: unknown;
+  for (const row of rows) {
+    try {
+      await moveRow({ id: row.id, accountId: target.id });
+    } catch (error) {
+      failed.push(row);
+      lastError = error;
+    }
+  }
+  if (rows.length > 1) {
+    if (failed.length)
+      toast.error(t("connections.accounts.select.partialFailed", { names: failed.map(nameOf).join(", ") }));
+  } else if (failed.length) {
+    toast.error(
+      t("connections.accounts.row.moveFailed", {
+        error: String(lastError instanceof Error ? lastError.message : (lastError ?? "")),
+      }),
+    );
+  } else {
+    toast.success(t("connections.accounts.row.moved", { model: nameOf(rows[0]!), connection: target.name }));
+  }
+  return failed;
+}
+
 /** What dropping `row` on `target` does: `same` moves at once, `other` opens the Move dialog, null refuses. */
 export function dropKindFor(
   row: ConnectionRowData,
@@ -160,25 +193,6 @@ export function dropKindFor(
   return same.includes(target) ? "same" : other.includes(target) ? "other" : null;
 }
 
-/** The id of the Model row being dragged (the one-Model chat-resource drag), or null. */
-function useDraggedConnectionId(): string | null {
-  const [id, setId] = useState<string | null>(null);
-  useEffect(() => {
-    const start = () => {
-      const drag = getActiveChatResourceDrag();
-      setId(drag?.kind === "connection" && drag.ids.length === 1 ? drag.ids[0]! : null);
-    };
-    const end = () => setId(null);
-    document.addEventListener("dragstart", start);
-    document.addEventListener("dragend", end);
-    return () => {
-      document.removeEventListener("dragstart", start);
-      document.removeEventListener("dragend", end);
-    };
-  }, []);
-  return id;
-}
-
 export function ConnectionGroup({
   account,
   rows,
@@ -189,7 +203,8 @@ export function ConnectionGroup({
   tile,
   onPictureClick,
   dragBindings,
-  onDropOther,
+  draggedIds,
+  modelDragProps,
 }: {
   account: ConnectionAccountListItem;
   rows: ConnectionRowData[];
@@ -203,8 +218,10 @@ export function ConnectionGroup({
   onPictureClick?: (at: MenuAt) => void;
   /** Provider identity is part of each account heading, without an enclosing family header. */
   providerName?: string;
-  /** A Model dropped on this card that needs the Move dialog (another service). */
-  onDropOther?: (row: ConnectionRowData, target: ConnectionAccountListItem) => void;
+  /** Models being dragged by the panel: valid drop cards tint while it lasts. */
+  draggedIds?: string[] | null;
+  /** Drag bindings for a Model row of this card; `pick` is the checked set in select mode. */
+  modelDragProps?: (row: ConnectionRowData, pick: string[] | null) => ComponentProps<typeof ModelRow>["rowProps"];
   dragBindings?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string | undefined>;
 }) {
   const { t, i18n } = useTranslation();
@@ -219,27 +236,14 @@ export function ConnectionGroup({
   const { data: accounts } = useConnectionAccounts();
   const allRows = useConnections().data as ConnectionRowData[] | undefined;
   const moveModel = useMoveConnection();
-  // Drag a Model row onto another card: valid cards tint, the one under the pointer firms up.
-  const draggedId = useDraggedConnectionId();
-  const [dragOver, setDragOver] = useState(false);
-  const dragRow = draggedId ? (allRows ?? []).find((row) => row.id === draggedId) : undefined;
-  const dropKind = dragRow ? dropKindFor(dragRow, account, accounts ?? [], allRows ?? []) : null;
-  const dropRow = (row: ConnectionRowData, kind: "same" | "other") => {
-    if (kind === "other") return onDropOther?.(row, account);
-    const model = row.name?.trim() || row.model;
-    moveModel.mutate(
-      { id: row.id, accountId: account.id },
-      {
-        onSuccess: () => toast.success(t("connections.accounts.row.moved", { model, connection: account.name })),
-        onError: (error) =>
-          toast.error(
-            t("connections.accounts.row.moveFailed", {
-              error: String(error instanceof Error ? error.message : (error ?? "")),
-            }),
-          ),
-      },
-    );
-  };
+  // Drag a Model row onto another card: valid cards tint while it lasts.
+  const dragRows = (draggedIds ?? []).flatMap((id) => allRows?.find((row) => row.id === id) ?? []);
+  const dropValid =
+    dragRows.length > 0 &&
+    dragRows.every((row) => {
+      const kind = dropKindFor(row, account, accounts ?? [], allRows ?? []);
+      return dragRows.length > 1 ? kind === "same" : kind;
+    });
   const deleteModel = useDeleteConnection();
   /** Select mode: the ids of the checked Models; null while the card shows its normal rows. */
   const [picked, setPicked] = useState<Set<string> | null>(null);
@@ -286,6 +290,13 @@ export function ConnectionGroup({
       toast.error(error instanceof Error ? error.message : t("connections.accounts.editor.deleteFailed"));
     }
   };
+  // A drag move takes Models out of this card: forget them, and leave select mode when none are left.
+  useEffect(() => {
+    if (!picked) return;
+    const here = new Set(rows.map((row) => row.id));
+    const kept = [...picked].filter((id) => here.has(id));
+    if (kept.length !== picked.size) setPicked(kept.length ? new Set(kept) : null);
+  }, [rows, picked]);
   const pickedRows = picked ? rows.filter((row) => picked.has(row.id)) : [];
   const nameOf = (row: ConnectionRowData) => row.name?.trim() || row.model || row.id;
   // ponytail: same-service targets only; a move to another service needs a catalog model per Model, which the
@@ -321,7 +332,14 @@ export function ConnectionGroup({
     setMoveDialogOpen(true);
   };
   const moveToAccount = async (target: ConnectionAccountListItem) => {
-    if (await runBulk((row) => moveModel.mutateAsync({ id: row.id, accountId: target.id }))) setMoveDialogOpen(false);
+    setBulkBusy(true);
+    try {
+      const failed = await moveRowsTo(pickedRows, target, moveModel.mutateAsync, t);
+      setPicked(failed.length ? new Set(failed.map((row) => row.id)) : null);
+      if (!failed.length) setMoveDialogOpen(false);
+    } finally {
+      setBulkBusy(false);
+    }
   };
   const deleteSelected = async () => {
     const ok = await showConfirmDialog({
@@ -379,24 +397,9 @@ export function ConnectionGroup({
       role="group"
       className={cn(
         "mari-connection-group flex min-w-0 flex-col transition-colors",
-        dropKind && "rounded-xl ring-1 ring-[var(--primary)]/25",
-        dropKind && dragOver && "bg-[var(--primary)]/10 ring-[var(--primary)]/60",
+        dropValid &&
+          "rounded-xl ring-1 ring-[var(--primary)]/25 hover:bg-[var(--primary)]/10 hover:ring-[var(--primary)]/60",
       )}
-      onDragOver={(event) => {
-        if (!dropKind) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        setDragOver(true);
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(false);
-      }}
-      onDrop={(event) => {
-        setDragOver(false);
-        if (!dragRow || !dropKind) return;
-        event.preventDefault();
-        dropRow(dragRow, dropKind);
-      }}
       data-connection-account-id={account.id}
       data-drag-id={account.id}
       data-drag-order-id={account.id}
@@ -599,6 +602,7 @@ export function ConnectionGroup({
               return (
                 <div key={row.id} className="mari-connection-model-slot min-w-0">
                   <ModelRow
+                    rowProps={modelDragProps?.(row, [...(picked ?? [])])}
                     role="checkbox"
                     aria-checked={checked}
                     onClick={() =>

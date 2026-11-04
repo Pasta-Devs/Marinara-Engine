@@ -29,13 +29,15 @@ import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
-import { isConnectionFlagTrue, isLanguageGenerationConnection } from "../../lib/connection-filters";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { jobLabelKey, rowJobs } from "../../lib/connection-jobs";
-import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
+import type { ComponentProps } from "react";
 import { MEDIA_KIND, ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 import { useVoiceRowId } from "../../hooks/use-tts";
+
+type ModelRowProps = ComponentProps<typeof ModelRow>["rowProps"];
 
 export type ConnectionRowData = {
   credentialsFromConnectionId?: string | null;
@@ -114,6 +116,7 @@ export function ConnectionRow({
   onMove,
   folderName,
   onChooseFolder,
+  dragProps,
   onPictureClick,
   catalog,
 }: {
@@ -137,6 +140,8 @@ export function ConnectionRow({
   /** The Model's folder (the menu hint); `onChooseFolder` asks for another. */
   folderName?: string;
   onChooseFolder?: () => void;
+  /** Mouse/touch drag bindings from the panel (chat drop and moving between Connections). */
+  dragProps?: ModelRowProps;
   /** The tile, and "Change picture" in ⋯, open the picture menu. */
   onPictureClick?: (at: MenuAt) => void;
   /** Cost and retirement from the Connection's cached catalogs. */
@@ -300,19 +305,7 @@ export function ConnectionRow({
     <ModelRow
       rowProps={{
         "data-connection-id": row.id,
-        // Desktop only: drag the Model onto a chat to use it there.
-        draggable: true,
-        onDragStart: (event) => {
-          event.dataTransfer.effectAllowed = "copy";
-          writeChatResourceDragPayload(event.dataTransfer, {
-            version: 1,
-            kind: "connection",
-            ids: [row.id],
-            label: row.name,
-            ...(isLanguageGenerationConnection(row) ? {} : { unsupported: "connection-kind" as const }),
-          });
-        },
-        onDragEnd: clearActiveChatResourceDrag,
+        ...dragProps,
       }}
       onClick={openEditor}
       aria-current={current ? "true" : undefined}
