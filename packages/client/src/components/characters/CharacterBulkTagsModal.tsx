@@ -94,6 +94,7 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
       title={t("characters.bulkTags.title", { count: selectedIds.size })}
       width="max-w-md"
       closeDisabled={bulkEdit.isPending}
+      closeButtonClassName={catalog.isPending || catalog.isError || reviewing ? undefined : "max-sm:hidden"}
       footer={
         catalog.isPending || catalog.isError ? undefined : reviewing ? (
           <>

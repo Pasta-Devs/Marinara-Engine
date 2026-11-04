@@ -61,7 +61,7 @@ export function CreatePersonaModal({ open, onClose, defaultName = "" }: Props) {
             className={SHEET_BUTTON_PRIMARY}
           >
             {createPersona.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <User size="0.75rem" />}
-            {localizeUi("ui.modals.createcharactermodal.create")}
+            {localizeUi("ui.modals.createpersonamodal.createPersona")}
           </button>
           <button
             onClick={() => {

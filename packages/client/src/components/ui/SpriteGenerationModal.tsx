@@ -2054,6 +2054,7 @@ export function SpriteGenerationModal({
         onClose={handleClose}
         title={localizeUi("ui.ui.spritegenerationmodal.generateSprites")}
         width="max-w-2xl"
+        closeButtonClassName={step === 0 ? "max-sm:hidden" : undefined}
         footer={
           step === 0 ? (
             <>

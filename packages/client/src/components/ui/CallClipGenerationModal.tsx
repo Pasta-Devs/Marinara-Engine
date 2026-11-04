@@ -96,6 +96,7 @@ export function CallClipGenerationModal({
       open={open}
       onClose={onClose}
       closeDisabled={generating}
+      closeButtonClassName="max-sm:hidden"
       title={localizeUi("ui.ui.callclipgenerationmodal.generateCallClips")}
       width="max-w-lg"
       footer={

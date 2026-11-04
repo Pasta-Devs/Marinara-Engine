@@ -14917,11 +14917,12 @@ function GameSurfaceComponent({
         <Modal
           footer={
             <button onClick={closeInterruptModal} className={SHEET_BUTTON_SECONDARY}>
-              {localizeUi("ui.game.gamesurfacecomponent.no")}
+              {localizeUi("chat.delete.dialog.cancel")}
             </button>
           }
           closeButtonClassName="max-sm:hidden"
           open={interruptModalOpen}
+          pullToClose={false}
           onClose={closeInterruptModal}
           title={localizeUi("ui.game.gamesurfacecomponent.attemptToInterrupt")}
           width="max-w-md"
@@ -15020,6 +15021,7 @@ function GameSurfaceComponent({
           closeButtonClassName="max-sm:hidden"
           closeDisabled={concludeSession.isPending}
           open={confirmEndSessionOpen}
+          pullToClose={false}
           onClose={handleCloseEndSessionDialog}
           title={
             concludeSession.isPending

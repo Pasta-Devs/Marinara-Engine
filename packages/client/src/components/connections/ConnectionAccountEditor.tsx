@@ -447,7 +447,7 @@ export function ConnectionAccountEditor({
           </>
         ) : undefined
       }
-      closeButtonClassName="max-sm:hidden"
+      closeButtonClassName={account && draft ? "max-sm:hidden" : undefined}
       width="max-w-lg"
       panelClassName="mari-connection-scope"
     >

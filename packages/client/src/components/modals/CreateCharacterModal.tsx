@@ -125,7 +125,7 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
             ) : (
               <Sparkles size="0.75rem" />
             )}
-            {localizeUi("ui.modals.createcharactermodal.create")}
+            {localizeUi("ui.modals.createcharactermodal.createCharacter")}
           </button>
           <button onClick={guardedClose} className={SHEET_BUTTON_QUIET}>
             {localizeUi("chat.delete.dialog.cancel")}

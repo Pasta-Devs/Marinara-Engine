@@ -257,7 +257,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
     />
   );
   const footer = props.multiple ? (
-    <div className="flex shrink-0 items-center gap-2 border-t border-foreground/10 p-2 max-sm:contents">
+    <div className="flex shrink-0 items-center gap-2 border-t border-foreground/10 p-2 max-md:w-full max-md:border-t-0 max-md:p-0">
       <span className="min-w-0 flex-1 truncate text-[0.6875rem] text-foreground/55">
         {t("ui.characterselect.picked", { count: items.length })}
       </span>
@@ -397,7 +397,7 @@ function CharacterSelectWindow({
         title={title}
         width="max-w-md"
         restoreFocusRef={anchorRef}
-        panelClassName="max-sm:h-[85dvh]"
+        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none"
         contentClassName="flex flex-col !overflow-hidden !p-0"
         footer={footer}
       >

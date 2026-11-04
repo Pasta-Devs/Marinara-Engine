@@ -95,6 +95,7 @@ export function AgentUpdateDialog({
         done ? "ui.agents.agentupdatedialog.agentUpdatesFinished" : "ui.agents.agentupdatedialog.agentUpdatesAvailable",
       )}
       width="max-w-lg"
+      closeButtonClassName="max-sm:hidden"
       chatFloatingPanel
       closeDisabled={running}
       footer={

@@ -6335,7 +6335,7 @@ function SpritesTab({
                   className={SHEET_BUTTON_DESTRUCTIVE}
                 >
                   {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
-                  {localizeUi("lorebook.editor.batch.delete")}
+                  {localizeUi("ui.personas.personaspritestab.deleteSprite")}
                 </button>
                 <button
                   type="button"

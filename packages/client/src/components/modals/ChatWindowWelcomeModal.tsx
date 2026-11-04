@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/ui.store";
 import { Modal } from "../ui/Modal";
-import { SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
+import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 
 /** A single introduction for new and returning users, after they actually enter a private chat. */
 export function ChatWindowWelcomeModal({
@@ -31,7 +31,7 @@ export function ChatWindowWelcomeModal({
       title={t("chatWindowIntro.title")}
       width="max-w-3xl"
       footer={
-        <button data-chat-window-intro-dismiss type="button" onClick={dismiss} className={SHEET_BUTTON_SECONDARY}>
+        <button data-chat-window-intro-dismiss type="button" onClick={dismiss} className={SHEET_BUTTON_PRIMARY}>
           {t("chatWindowIntro.gotIt")}
         </button>
       }

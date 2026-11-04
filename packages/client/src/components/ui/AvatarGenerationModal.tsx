@@ -229,6 +229,7 @@ export function AvatarGenerationModal({
         open={open}
         onClose={onClose}
         closeDisabled={generating || saving}
+        closeButtonClassName="max-sm:hidden"
         title={title}
         width="max-w-2xl"
         footer={
@@ -237,7 +238,7 @@ export function AvatarGenerationModal({
               type="button"
               onClick={handleUseAvatar}
               disabled={!generatedAvatar || generating || saving}
-              className={SHEET_BUTTON_PRIMARY}
+              className={generatedAvatar ? SHEET_BUTTON_PRIMARY : SHEET_BUTTON_SECONDARY}
             >
               {saving ? (
                 <Loader2 size="0.875rem" className="animate-spin" />
@@ -256,7 +257,7 @@ export function AvatarGenerationModal({
               type="button"
               onClick={handleGenerate}
               disabled={!effectiveConnectionId || !appearance.trim() || generating || saving}
-              className={SHEET_BUTTON_SECONDARY}
+              className={generatedAvatar ? SHEET_BUTTON_SECONDARY : SHEET_BUTTON_PRIMARY}
             >
               {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
               {generatedAvatar

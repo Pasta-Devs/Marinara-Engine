@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { BOTTOM_SHEET_CLASS, SHEET_GRABBER_CLASS } from "./neutral-surface-styles";
+import { BOTTOM_SHEET_CLASS } from "./neutral-surface-styles";
 
 export interface ContextMenuItem {
   label: string;
@@ -192,7 +192,6 @@ export function ContextMenu({
         }
         onContextMenu={(e) => e.preventDefault()}
       >
-        {sheet && <div aria-hidden="true" className={SHEET_GRABBER_CLASS} />}
         {items.map((item, i) => (
           <button
             key={`${item.label}-${i}`}
@@ -221,7 +220,11 @@ export function ContextMenu({
             <span className="min-w-0 flex-1">
               <span className="block truncate">{item.label}</span>
               {item.hint && (
-                <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{item.hint}</span>
+                <span
+                  className={`block truncate ${sheet ? "text-[13px]" : "text-[0.625rem]"} text-[var(--muted-foreground)]`}
+                >
+                  {item.hint}
+                </span>
               )}
             </span>
             {item.checked && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}

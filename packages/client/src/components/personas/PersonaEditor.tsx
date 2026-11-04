@@ -3096,14 +3096,14 @@ function PersonaSpritesTab({
                   className={SHEET_BUTTON_DESTRUCTIVE}
                 >
                   {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
-                  {localizeUi("lorebook.editor.batch.delete")}
+                  {localizeUi("ui.personas.personaspritestab.deleteSprite")}
                 </button>
                 {categorySprites.length > 1 ? (
                   <button
                     type="button"
                     onClick={() => void handleDeleteVisibleSprites()}
                     disabled={!!deletingSprites}
-                    className={SHEET_BUTTON_SECONDARY}
+                    className={SHEET_BUTTON_SECONDARY + " text-[var(--destructive)]"}
                   >
                     {deletingSprites === "all" ? (
                       <Loader2 size="0.875rem" className="animate-spin" />

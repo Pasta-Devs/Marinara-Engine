@@ -6,6 +6,7 @@ import { Check, FilePenLine, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../ui/Modal";
+import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { useAgentStore } from "../../stores/agent.store";
 import { api } from "../../lib/api-client";
 import { chatKeys } from "../../hooks/use-chats";
@@ -159,7 +160,7 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
             type="button"
             onClick={handleAccept}
             disabled={busyAction !== null || !draft.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
+            className={SHEET_BUTTON_PRIMARY}
           >
             {busyAction === "accept" ? <Loader2 size="0.75rem" className="animate-spin" /> : <Check size="0.75rem" />}
             {localizeUi("ui.modals.agentwriteapprovalmodal.accept")}
@@ -168,7 +169,7 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
             type="button"
             onClick={handleRegenerate}
             disabled={!canRegenerate || busyAction !== null}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            className={SHEET_BUTTON_SECONDARY}
             title={
               canRegenerate
                 ? localizeUi("ui.modals.agentwriteapprovalmodal.regenerateThisProposal")
@@ -182,12 +183,7 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
             )}
             {localizeUi("ui.agents.secretplotpanel.regenerate")}
           </button>
-          <button
-            type="button"
-            onClick={closeAndAdvance}
-            disabled={busyAction !== null}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-          >
+          <button type="button" onClick={closeAndAdvance} disabled={busyAction !== null} className={SHEET_BUTTON_QUIET}>
             <Trash2 size="0.75rem" />
             {localizeUi("ui.modals.agentwriteapprovalmodal.discard")}
           </button>

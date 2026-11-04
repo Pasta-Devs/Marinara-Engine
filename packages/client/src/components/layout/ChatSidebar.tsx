@@ -1935,6 +1935,7 @@ export function ChatSidebar() {
         onClose={() => setDeleteTarget(null)}
         title={localizeUi("ui.layout.chatsidebar.deleteChat")}
         width="max-w-sm"
+        pullToClose={false}
       >
         {deleteTarget && (
           <div className="flex flex-col gap-4">
@@ -1956,7 +1957,7 @@ export function ChatSidebar() {
                   if (activeChatId === deleteTarget.chatId) setActiveChatId(null);
                   setDeleteTarget(null);
                 }}
-                className={SHEET_CHOICE_ROW_CLASS}
+                className={`${SHEET_CHOICE_ROW_CLASS} text-[var(--destructive)]`}
               >
                 <Trash2 size="0.8125rem" />
                 {localizeUi("ui.layout.chatsidebar.deleteThisBranchOnly")}

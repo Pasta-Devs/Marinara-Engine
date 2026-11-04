@@ -899,6 +899,7 @@ export function SpriteWandCleanupEditor({
       title={localizeUi("ui.ui.spritewandcleanupeditor.cleanValue1", { value1: label })}
       width="max-w-6xl"
       closeDisabled={applying}
+      closeButtonClassName="max-sm:hidden"
       footer={
         <>
           <button
@@ -916,7 +917,7 @@ export function SpriteWandCleanupEditor({
         </>
       }
     >
-      <div className="flex h-[calc(100dvh-15rem)] min-h-0 flex-col gap-3 overflow-x-hidden overflow-y-auto sm:h-[min(40rem,calc(90dvh-10rem))]">
+      <div className="flex h-[calc(100dvh-15rem)] min-h-0 flex-col gap-3 overflow-x-hidden overflow-y-auto sm:h-[min(44rem,calc(90dvh-10rem))]">
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {cleanupToolOptions.map(({ tool: optionTool, label: optionLabel, title, Icon }) => (
             <button

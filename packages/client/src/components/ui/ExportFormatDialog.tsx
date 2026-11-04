@@ -64,6 +64,7 @@ export function ExportFormatDialog({
       onClose={onClose}
       title={title}
       width="max-w-lg"
+      closeButtonClassName="max-sm:hidden"
       footer={
         <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>
           <X size="0.75rem" />

@@ -81,7 +81,7 @@ export function CreatePresetModal({ open, onClose, defaultName = "" }: Props) {
             className={SHEET_BUTTON_PRIMARY}
           >
             {createPreset.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <FileText size="0.75rem" />}
-            {localizeUi("ui.modals.createcharactermodal.create")}
+            {localizeUi("ui.modals.createpresetmodal.createPreset")}
           </button>
           <button
             onClick={() => {

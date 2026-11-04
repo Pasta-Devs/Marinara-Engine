@@ -373,6 +373,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
     <Modal
       open={open}
       onClose={handleClose}
+      closeDisabled={phase === "importing"}
       title={localizeUi("ui.modals.stbulkimportmodal.importFromSillytavern")}
       width="max-w-3xl"
       footer={
