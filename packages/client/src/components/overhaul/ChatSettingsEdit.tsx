@@ -7,7 +7,7 @@
 // movable, resizable window. The arrangement is kept per chat mode.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Eye, EyeOff, GripVertical, Pencil } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, GripVertical, Pencil } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useOverhaulStore, type OverhaulChatSettingsLayout } from "../../stores/overhaul.store";
 import { OvSeg } from "./LoreEntryParts";
@@ -23,6 +23,15 @@ const MIN_WIDTH = 320;
 
 function useLayout(mode: string) {
   return useOverhaulStore((state) => state.chatSettingsLayouts[mode]) ?? EMPTY_LAYOUT;
+}
+
+/** Pops a section out into its own window through the (hidden while editing) section's own pop-out control. */
+function popOutSection(id: string) {
+  const root = document.querySelector(`.ov-cs [data-chat-settings-section="${CSS.escape(id)}"]`);
+  const button = root?.matches('[data-drawer-control="pop-out"]')
+    ? root
+    : root?.querySelector<HTMLButtonElement>('[data-drawer-control="pop-out"]');
+  (button as HTMLButtonElement | null | undefined)?.click();
 }
 
 /** Order and visibility rules, plus the docked width, as one generated style sheet. */
@@ -68,7 +77,7 @@ export function OvChatSettingsHeader({ mode }: { mode: string }) {
       ) : null}
       <button
         type="button"
-        className={cn("ov-edbtn", editing && "ov-edbtn--accent")}
+        className={cn("ov-edbtn", editing ? "ov-edbtn--accent" : "ov-edbtn--tint")}
         aria-pressed={editing}
         onClick={() => setEditing(!editing)}
       >
@@ -269,6 +278,15 @@ export function OvChatSettingsEditor({
                 }
               >
                 {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+              <button
+                type="button"
+                className="ov-cs-edit__pop"
+                title={`Open ${section.label} in its own window`}
+                aria-label={`Open ${section.label} in its own window`}
+                onClick={() => popOutSection(section.id)}
+              >
+                <ExternalLink size={13} />
               </button>
               <span className="ov-cs-edit__label">{section.label}</span>
               {hidden ? <small>Hidden</small> : null}

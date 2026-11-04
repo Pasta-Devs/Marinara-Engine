@@ -93,7 +93,8 @@ export interface FloatingWindowProps {
    * Drawers inside can pop out into their own windows, which copy this window's look. `title` names
    * this window on their close buttons; `scrollClassName` styles their scrolling body.
    */
-  drawerHost?: { title: string; scrollClassName?: string };
+  /** windowClassName: classes for popped-out section windows when they should differ from this window's. */
+  drawerHost?: { title: string; scrollClassName?: string; windowClassName?: string };
   /**
    * The window can shrink to a small button you place anywhere (its bubble), showing `icon`; `label`
    * names it. Closing it, Escape and, while unpinned, a press elsewhere shrink it back too.
@@ -498,6 +499,7 @@ export function FloatingWindow({
   // On a phone a popped-out drawer becomes a bubble, so sheets host drawers too.
   const hostTitle = drawerHost?.title;
   const hostScrollClassName = drawerHost?.scrollClassName;
+  const hostWindowClassName = drawerHost?.windowClassName ?? className;
   const drawerHostValue = useMemo<DrawerHost | null>(
     () =>
       hostTitle === undefined
@@ -505,7 +507,7 @@ export function FloatingWindow({
         : {
             id,
             title: hostTitle,
-            windowClassName: className,
+            windowClassName: hostWindowClassName,
             headerClassName,
             titleClassName,
             scrollClassName: hostScrollClassName,
@@ -513,7 +515,7 @@ export function FloatingWindow({
             ignoreOutsidePointer,
           },
     [
-      className,
+      hostWindowClassName,
       headerClassName,
       hostScrollClassName,
       hostTitle,

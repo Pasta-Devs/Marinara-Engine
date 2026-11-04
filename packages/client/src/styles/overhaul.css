@@ -1381,7 +1381,7 @@
 [data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col {
   gap: 0;
 }
-[data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > * {
+[data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > :not(.mari-chrome-control) {
   padding: 0.4375rem 0.125rem;
   border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 55%, transparent);
   border-radius: 0;
@@ -1389,8 +1389,21 @@
 [data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > *:last-child {
   border-bottom: 0;
 }
-[data-ov-settings-sections] section[id^="settings-section-"] .text-xs {
+[data-ov-settings-sections] section[id^="settings-section-"] .text-xs:not(.mari-chrome-control) {
   font-size: 0.8125rem;
+}
+/* Action buttons in a Settings section sit on one line with a little room between them. */
+[data-ov-settings-sections]
+  section[id^="settings-section-"]
+  .flex-col:has(> .mari-chrome-control + .mari-chrome-control) {
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+}
+/* Sub-blocks drawn as boxes (Automatic backups...) sit flat in the section. */
+[data-ov-settings-sections] section[id^="settings-section-"] div.rounded-lg.border.p-2\.5 {
+  padding: 0.25rem 0.125rem;
+  border: 0;
+  background: transparent;
 }
 
 /* ─── Game Mode sheet (persona / character) ─── */
@@ -6553,4 +6566,40 @@ input.ov-edhead__title:focus {
 }
 .ov-rpf-menu .mari-message-actions {
   gap: 0 !important;
+}
+/* Chat settings: pop-out lives in Edit mode (beside the eye), not on every section header. */
+.ov-cs .mari-drawer__popout {
+  display: none !important;
+}
+.ov-cs .mari-drawer__actions:not(:has(> :not(.mari-drawer__popout))) {
+  display: none;
+}
+.ov-cs-edit__pop {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 0.3125rem;
+  color: var(--ov-dim);
+}
+.ov-cs-edit__pop:hover {
+  background: var(--ov-hover);
+  color: var(--ov-text);
+}
+/* Chat settings Edit: tinted in the accent colour like the app's other Edit buttons. */
+.ov-edbtn.ov-edbtn--tint {
+  border-color: color-mix(in srgb, var(--ov-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
+  color: var(--ov-accent);
+  font-weight: 600;
+}
+.ov-edbtn.ov-edbtn--tint:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ov-accent) 22%, transparent);
+}
+
+/* Tabs size to their name: a short name never gets padded out to the long-tab minimum. */
+.ov-tab:has(.ov-tab__label[data-short]) {
+  min-width: 0;
+  flex-shrink: 0;
 }

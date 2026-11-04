@@ -290,7 +290,13 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
     const title = docsTitle(docsPath);
     label = title ? `${localize("Docs")}: ${title}` : localize("Docs");
   }
-  return <span className="ov-tab__label">{label ?? localize("Untitled")}</span>;
+  const text = label ?? localize("Untitled");
+  // Short names keep their natural width; only long names give way when the strip is full.
+  return (
+    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined}>
+      {text}
+    </span>
+  );
 }
 
 const PRESENCE_LABEL: Record<string, string> = { online: "Online", idle: "Idle", dnd: "Busy", offline: "Offline" };
@@ -394,6 +400,17 @@ export function OverhaulTopBar() {
       inline: "nearest",
     });
   }, [currentKey, tabs.length]);
+
+  // The docked Chat settings pane and the Library pane share the right edge: opening one closes the other.
+  const chatSettingsFloating = useOverhaulStore((s) => s.chatSettingsFloating);
+  const sidePanesRef = useRef({ library: rightPanelOpen, settings: chatSettingsOpen });
+  useEffect(() => {
+    const before = sidePanesRef.current;
+    sidePanesRef.current = { library: rightPanelOpen, settings: chatSettingsOpen };
+    if (chatSettingsFloating || !rightPanelOpen || !chatSettingsOpen) return;
+    if (!before.settings) useUIStore.getState().closeRightPanel();
+    else if (!before.library) useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
+  }, [chatSettingsFloating, chatSettingsOpen, rightPanelOpen]);
 
   // Opening a chat leaves the app it was opened over.
   useEffect(() => {
