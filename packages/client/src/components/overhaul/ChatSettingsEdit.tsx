@@ -105,7 +105,16 @@ function readSections(container: HTMLElement | null): SectionInfo[] {
 }
 
 /** The Edit mode list, shown in place of the sections. */
-export function OvChatSettingsEditor({ mode, container }: { mode: string; container: HTMLElement | null }) {
+export function OvChatSettingsEditor({
+  mode,
+  container,
+  onProfileSlot,
+}: {
+  mode: string;
+  container: HTMLElement | null;
+  /** Where the drawer renders its settings-profile bar while editing. */
+  onProfileSlot?: (element: HTMLDivElement | null) => void;
+}) {
   const layout = useLayout(mode);
   const setLayout = useOverhaulStore((state) => state.setChatSettingsLayout);
   const floating = useOverhaulStore((state) => state.chatSettingsFloating);
@@ -182,6 +191,12 @@ export function OvChatSettingsEditor({ mode, container }: { mode: string; contai
           </button>
         ) : null}
       </div>
+      {onProfileSlot ? (
+        <div className="ov-cs-edit__profile">
+          <span>Settings profile</span>
+          <div ref={onProfileSlot} />
+        </div>
+      ) : null}
       <ul className="ov-cs-edit__list" onDragOver={(event) => event.preventDefault()}>
         {ordered.map((section, index) => {
           const hidden = layout.hidden.includes(section.id);
