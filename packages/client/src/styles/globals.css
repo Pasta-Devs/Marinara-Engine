@@ -3,6 +3,7 @@
 @import "./themes/sillytavern.css";
 @import "./themes/stage.css";
 @import "./overhaul.css";
+@import "./overhaul-mobile.css";
 @import "./themes/chat-widgets.css";
 @import "./themes/chat-widget-surfaces.css";
 @import "./themes/seasonal-halloween.css";

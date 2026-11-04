@@ -3,8 +3,9 @@
 //
 // The overhaul layout (single tab bar, Library pane on the right, Library
 // landing pages) is a preview that can be switched off in
-// Settings > Appearance. It only applies to the desktop shell; phones keep the
-// standard layout. Everything here is per device.
+// Settings > Appearance. The desktop shell gets the tab bar and side panes;
+// phones and tablets get the mobile overhaul (top bar with the Library Stack,
+// All Tabs viewer, long-press message sheet). Everything here is per device.
 // ──────────────────────────────────────────────
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -114,6 +115,9 @@ interface OverhaulState {
   /** Where Chat settings shows the game's own tools (the game portals them in). */
   gameSettingsSlot: HTMLElement | null;
   setGameSettingsSlot: (element: HTMLElement | null) => void;
+  /** Phones and tablets: the Safari-style All Tabs viewer is open. */
+  allTabsOpen: boolean;
+  setAllTabsOpen: (open: boolean) => void;
 }
 
 export const useOverhaulStore = create<OverhaulState>()(
@@ -203,6 +207,8 @@ export const useOverhaulStore = create<OverhaulState>()(
       setGamePaneTab: (gamePaneTab) => set({ gamePaneTab }),
       gameSettingsSlot: null,
       setGameSettingsSlot: (gameSettingsSlot) => set({ gameSettingsSlot }),
+      allTabsOpen: false,
+      setAllTabsOpen: (allTabsOpen) => set({ allTabsOpen }),
     }),
     {
       name: "marinara-overhaul-layout",
@@ -235,6 +241,16 @@ export const useOverhaulStore = create<OverhaulState>()(
 /** True when the overhaul layout is on and the desktop shell is showing. */
 export function useOverhaulActive() {
   return useOverhaulStore((state) => state.enabled && state.desktop);
+}
+
+/** True when the overhaul layout is on and the phone/tablet shell is showing (the mobile overhaul). */
+export function useOverhaulMobile() {
+  return useOverhaulStore((state) => state.enabled && !state.desktop);
+}
+
+export function isOverhaulMobile() {
+  const state = useOverhaulStore.getState();
+  return state.enabled && !state.desktop;
 }
 
 export function isOverhaulActive() {

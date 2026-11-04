@@ -2,7 +2,7 @@
 // Shared utilities, helpers, and types used across
 // the ConversationMessage* family of components.
 // ──────────────────────────────────────────────
-import { isOverhaulActive } from "../../stores/overhaul.store";
+import { isOverhaulActive, isOverhaulMobile } from "../../stores/overhaul.store";
 import { Fragment, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ChevronRight, EyeOff, FileText, X } from "lucide-react";
 import {
@@ -683,6 +683,8 @@ export function ConversationMessageSwipes({ ctx }: { ctx: MessageRenderContext }
   if (hideActions || isHiddenCollapsed || (!hasSwipes && !(canRegenerate && onRegenerate))) return null;
   // UI overhaul: Regenerate lives in the hover bar, so a lone "1 / 1" pill is just noise.
   if (!hasSwipes && isOverhaulActive()) return null;
+  // Mobile overhaul: swipes live in the long-press sheet only.
+  if (isOverhaulMobile()) return null;
   return (
     <SwipeJumpControl
       alwaysShow={alwaysShow && !isUser}

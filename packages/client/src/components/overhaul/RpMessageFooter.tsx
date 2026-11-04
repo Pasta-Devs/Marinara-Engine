@@ -92,7 +92,8 @@ export function FooterPopover({
 export function closeAfterAction(close: () => void) {
   return (event: React.MouseEvent) => {
     const button = (event.target as HTMLElement).closest("button");
-    if (button && !button.hasAttribute("aria-pressed") && !button.disabled) close();
+    if (button && !button.hasAttribute("aria-pressed") && !button.disabled && !button.closest("[data-ovm-keep-open]"))
+      close();
   };
 }
 

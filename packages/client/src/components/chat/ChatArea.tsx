@@ -38,7 +38,7 @@ import { hasActiveTextSelection } from "../../lib/text-selection";
 import { readChatMetadata } from "../../lib/chat-wizard-defaults";
 import { useChatWindowLayout } from "../../hooks/use-chat-window-layout";
 import { ChatSettingsBubble } from "./ChatSettingsBubble";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulMobile } from "../../stores/overhaul.store";
 import { ChatWindowWelcomeModal } from "../modals/ChatWindowWelcomeModal";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useGenerate } from "../../hooks/use-generate";
@@ -589,7 +589,10 @@ export const ChatArea = memo(function ChatArea({
   }, [hostsChatSettings]);
   // The Chat Settings button shows while a chat that hosts Chat Settings is open.
   const chatSettingsHosted = useFloatingWindowStore((state) => (state.hosts[CHAT_SETTINGS_WINDOW_ID] ?? 0) > 0);
-  const overhaulActive = useOverhaulActive();
+  // The overhaul opens Chat settings from the top bar (desktop and mobile), so the floating bubble goes.
+  const overhaulDesktop = useOverhaulActive();
+  const overhaulMobile = useOverhaulMobile();
+  const overhaulActive = overhaulDesktop || overhaulMobile;
   // Windows and popped-out drawers follow the open chat's saved layout.
   useChatWindowLayout(activeChatId ? (chat?.id === activeChatId ? chat : undefined) : null);
   useEffect(() => {
