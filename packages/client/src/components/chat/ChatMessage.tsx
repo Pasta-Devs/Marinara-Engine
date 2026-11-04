@@ -1960,6 +1960,7 @@ export const ChatMessage = memo(function ChatMessage({
     roleplayAvatarStyle,
     roleplayAvatarScale,
     roleplayAvatarsScrollable,
+    roleplayStretchMessages,
     roleplayNarratorAvatarCycling,
     showRoleplayThinkingInMessages,
     keepRoleplayThinkingExpanded,
@@ -1985,6 +1986,7 @@ export const ChatMessage = memo(function ChatMessage({
       roleplayAvatarStyle: s.roleplayAvatarStyle,
       roleplayAvatarScale: s.roleplayAvatarScale,
       roleplayAvatarsScrollable: s.roleplayAvatarsScrollable,
+      roleplayStretchMessages: s.roleplayStretchMessages,
       roleplayNarratorAvatarCycling: s.roleplayNarratorAvatarCycling,
       showRoleplayThinkingInMessages: s.showRoleplayThinkingInMessages,
       keepRoleplayThinkingExpanded: s.keepRoleplayThinkingExpanded,
@@ -4091,6 +4093,7 @@ export const ChatMessage = memo(function ChatMessage({
             isUser ? "mari-message-user flex-row-reverse" : "mari-message-assistant",
             useCompactRectangleAvatar && "mari-roleplay-message-row--rect-avatar",
             (hideRoleplayAvatars || showRoleplayAvatarPanel) && "mari-roleplay-message-row--wide",
+            isRoleplay && roleplayStretchMessages && "mari-roleplay-message-row--stretch",
             multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
           )}
           data-message-id={message.id}

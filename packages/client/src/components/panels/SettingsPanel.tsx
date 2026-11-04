@@ -3661,6 +3661,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setRoleplayAvatarStyle = useUIStore((s) => s.setRoleplayAvatarStyle);
   const roleplayAvatarScale = useUIStore((s) => s.roleplayAvatarScale);
   const setRoleplayAvatarScale = useUIStore((s) => s.setRoleplayAvatarScale);
+  const roleplayStretchMessages = useUIStore((s) => s.roleplayStretchMessages);
+  const setRoleplayStretchMessages = useUIStore((s) => s.setRoleplayStretchMessages);
   const roleplayAvatarsScrollable = useUIStore((s) => s.roleplayAvatarsScrollable);
   const setRoleplayAvatarsScrollable = useUIStore((s) => s.setRoleplayAvatarsScrollable);
   const roleplayNarratorAvatarCycling = useUIStore((s) => s.roleplayNarratorAvatarCycling);
@@ -5017,6 +5019,13 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     text={localizeUi("ui.panels.appearancesettings.chooseHowAvatarsSitNextToRoleplayMessagesNone")}
                   />
                 </div>
+                <ToggleSetting
+                  anchorId={getSettingsControlAnchorId("stretch-roleplay-messages")}
+                  label={localizeUi("settings.controls.stretchRoleplayMessages.label")}
+                  checked={roleplayStretchMessages}
+                  onChange={setRoleplayStretchMessages}
+                  help={localizeUi("settings.controls.stretchRoleplayMessages.help")}
+                />
                 <ToggleSetting
                   anchorId={getSettingsControlAnchorId("scrollable-avatars")}
                   label={localizeUi("settings.controls.scrollableAvatars.label")}

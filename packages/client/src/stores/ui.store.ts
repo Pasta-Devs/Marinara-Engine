@@ -1074,6 +1074,7 @@ interface UIState {
   roleplayAvatarScale: number;
   /** When true, Roleplay message avatars stay visible while scrolling through long messages. */
   roleplayAvatarsScrollable: boolean;
+  roleplayStretchMessages: boolean;
   /** When true, merged-group Narrator avatars cycle instead of appearing together. */
   roleplayNarratorAvatarCycling: boolean;
   /** Default scale multiplier for Roleplay full-body sprites. */
@@ -1446,6 +1447,7 @@ interface UIState {
   setRoleplayAvatarStyle: (v: RoleplayAvatarStyle) => void;
   setRoleplayAvatarScale: (v: number) => void;
   setRoleplayAvatarsScrollable: (v: boolean) => void;
+  setRoleplayStretchMessages: (v: boolean) => void;
   setRoleplayNarratorAvatarCycling: (v: boolean) => void;
   setRoleplaySpriteScale: (v: number) => void;
   setRoleplayDisplayStyle: (v: "classic" | "visual-novel") => void;
@@ -1738,6 +1740,7 @@ export function pickSyncedSettings(state: UIState) {
     roleplayAvatarStyle: state.roleplayAvatarStyle,
     roleplayAvatarScale: state.roleplayAvatarScale,
     roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
+    roleplayStretchMessages: state.roleplayStretchMessages,
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
     roleplaySpriteScale: state.roleplaySpriteScale,
     roleplayDisplayStyle: state.roleplayDisplayStyle,
@@ -1983,6 +1986,7 @@ export function pickPersistedUIState(state: UIState) {
     roleplayAvatarStyle: state.roleplayAvatarStyle,
     roleplayAvatarScale: state.roleplayAvatarScale,
     roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
+    roleplayStretchMessages: state.roleplayStretchMessages,
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
     roleplaySpriteScale: state.roleplaySpriteScale,
     roleplayDisplayStyle: state.roleplayDisplayStyle,
@@ -2283,6 +2287,7 @@ export const useUIStore = create<UIState>()(
         roleplayAvatarStyle: "circles" as RoleplayAvatarStyle,
         roleplayAvatarScale: 1,
         roleplayAvatarsScrollable: false,
+        roleplayStretchMessages: false,
         roleplayNarratorAvatarCycling: true,
         roleplaySpriteScale: 1,
         roleplayDisplayStyle: "classic",
@@ -3242,6 +3247,7 @@ export const useUIStore = create<UIState>()(
         setRoleplayAvatarScale: (v) =>
           set({ roleplayAvatarScale: Math.max(ROLEPLAY_AVATAR_SCALE_MIN, Math.min(ROLEPLAY_AVATAR_SCALE_MAX, v)) }),
         setRoleplayAvatarsScrollable: (v) => set({ roleplayAvatarsScrollable: v }),
+        setRoleplayStretchMessages: (v) => set({ roleplayStretchMessages: v }),
         setRoleplayNarratorAvatarCycling: (v) => set({ roleplayNarratorAvatarCycling: v }),
         setRoleplaySpriteScale: (v) =>
           set({ roleplaySpriteScale: Math.max(ROLEPLAY_SPRITE_SCALE_MIN, Math.min(ROLEPLAY_SPRITE_SCALE_MAX, v)) }),
@@ -3329,6 +3335,7 @@ export const useUIStore = create<UIState>()(
             roleplayAvatarStyle: "circles" as RoleplayAvatarStyle,
             roleplayAvatarScale: 1,
             roleplayAvatarsScrollable: false,
+            roleplayStretchMessages: false,
             roleplayNarratorAvatarCycling: true,
             roleplaySpriteScale: 1,
             roleplayDisplayStyle: "classic",
@@ -3781,6 +3788,9 @@ export const useUIStore = create<UIState>()(
         }
         if (persisted.roleplayAvatarsScrollable === undefined) {
           persisted.roleplayAvatarsScrollable = false;
+        }
+        if (persisted.roleplayStretchMessages === undefined) {
+          persisted.roleplayStretchMessages = false;
         }
         // v27 -> v28: enable Up-Arrow recall of the last user message by default.
         if (version <= 27 && persisted.editLastMessageOnArrowUp === undefined) {
