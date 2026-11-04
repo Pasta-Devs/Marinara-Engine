@@ -70,11 +70,17 @@ export function connectionFieldsForModelPick(
   };
 }
 
-/** The provider's list first, then Marinara's built-in models it did not report, each ID once. */
+/**
+ * The provider's list first, then Marinara's built-in models it did not report, each ID once. A provider entry
+ * that leaves out its context window takes the built-in model's, so picking it still sets the context. With
+ * `listKnown` off, the built-in models only fill those gaps and are not listed themselves.
+ */
 export function mergeConnectionModelOptions(
   remoteModels: readonly RemoteConnectionModel[],
   knownModels: readonly KnownModel[],
+  listKnown = true,
 ): ConnectionModelOption[] {
+  const known = new Map(knownModels.map((model) => [model.id, model]));
   const seen = new Set<string>();
   const options: ConnectionModelOption[] = [];
   for (const model of remoteModels) {
@@ -83,7 +89,7 @@ export function mergeConnectionModelOptions(
     options.push({
       id: model.id,
       name: model.name || model.id,
-      context: model.context ?? 0,
+      context: model.context || known.get(model.id)?.context || 0,
       maxOutput: model.maxOutput ?? 0,
       capabilities: model.capabilities,
       subscriptionIncluded: model.subscriptionIncluded,
@@ -95,7 +101,7 @@ export function mergeConnectionModelOptions(
       isRemote: true,
     });
   }
-  for (const model of knownModels) {
+  for (const model of listKnown ? knownModels : []) {
     if (seen.has(model.id)) continue;
     seen.add(model.id);
     options.push({ ...model, subscriptionIncluded: undefined, inputTokenMultiplier: undefined, isRemote: false });

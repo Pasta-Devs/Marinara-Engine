@@ -8,18 +8,12 @@ test("fal.ai selection saves its endpoint and exposes a free configuration check
   page,
   request,
 }, testInfo) => {
-  const created = await request.post("/api/connections", {
-    data: {
-      name: "fal.ai setup fixture",
-      provider: "image_generation",
-      imageGenerationSource: "openai",
-      imageService: "openai",
-      baseUrl: "https://api.openai.com/v1",
-      model: "gpt-image-2",
-    },
-  });
-  expect(created.ok()).toBeTruthy();
-  const { id } = await created.json();
+  // A media service is chosen per account in the Add window; its account editor keeps the free check.
+  const accountsBefore = new Set(
+    ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map((a) => a.id),
+  );
+  let accountId = "";
+  let id = "";
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   try {
@@ -31,51 +25,81 @@ test("fal.ai selection saves its endpoint and exposes a free configuration check
       theme: testInfo.project.name === "desktop-chromium" ? "light" : "dark",
     });
     await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
-    const open = () =>
-      page.evaluate(async (id) => {
-        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        useUIStore.getState().openConnectionDetail(id);
-      }, id);
     await page.goto("/");
-    await open();
-    const editor = page.locator(".mari-editor-shell");
-    const fal = editor.getByRole("button", { name: /^fal\.ai Generate images/ });
+    await page.evaluate(async () => {
+      const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
+      openAddConnection();
+    });
+    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
+    const fal = dialog.locator('[data-add-connection-service="media:fal"]');
     await fal.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath("before-fal-selection.png") });
     await fal.click();
-    await expect(editor.getByRole("link", { name: "Get your fal.ai API key" })).toHaveAttribute(
+    await expect(dialog.getByRole("link", { name: /Where do I find my key\?/ })).toHaveAttribute(
       "href",
       "https://fal.ai/dashboard/keys",
     );
-    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
-    await expect(editor.getByText("Connection failed: fal.ai requires an API key", { exact: true })).toBeVisible();
-    await editor.getByPlaceholder(/leave empty to keep existing key/).fill("synthetic-fal-key");
-    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
-    await expect(
-      editor.getByText(
-        "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
-        { exact: true },
-      ),
-    ).toBeVisible();
+    // fal.ai needs a key before it can connect.
+    const connect = dialog.locator("[data-add-connection-connect]");
+    await expect(connect).toBeDisabled();
+    await dialog.getByLabel("API key", { exact: true }).fill("synthetic-fal-key");
+    await connect.click();
+    await expect(dialog).toHaveCount(0);
+
+    const accounts = (await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>;
+    accountId = accounts.find((account) => !accountsBefore.has(account.id))?.id ?? "";
+    expect(accountId).not.toBe("");
+    const rows = (await (await request.get("/api/connections")).json()) as Array<{ id: string; accountId?: string }>;
+    id = rows.find((row) => row.accountId === accountId)?.id ?? "";
     const saved = await (await request.get(`/api/connections/${id}`)).json();
     expect(saved.imageGenerationSource).toBe("fal");
     expect(saved.imageService).toBe("fal");
     expect(saved.baseUrl).toBe("https://fal.run");
-    expect(saved.model).toBe("fal-ai/flux/schnell");
     const models = await (await request.get(`/api/connections/${id}/models`)).json();
     expect(models.models.map((model: { id: string }) => model.id)).toEqual(["fal-ai/flux/schnell", "fal-ai/flux/dev"]);
+
+    // The free check only reads the configuration; Test Image is the one that spends credits.
+    await page.evaluate(async (accountId) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openModal("connection-account", { accountId });
+    }, accountId);
+    const editor = page.getByRole("dialog", { name: "Edit account", exact: true });
+    const checked = page.waitForResponse((response) => response.url().endsWith(`/api/connections/${id}/test`));
+    await editor.getByRole("button", { name: "Test account", exact: true }).click();
+    expect(await (await checked).json()).toMatchObject({
+      success: true,
+      message: "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
+    });
+    await expect(editor.locator("[data-account-test-result]")).toContainText("Ready");
+    await page.keyboard.press("Escape");
+    await expect(editor).toHaveCount(0);
+
+    // The fal.ai endpoint is the Model's model: picking one saves it, and it is still picked after a reload.
+    const openModel = () =>
+      page.evaluate(async (id) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().openConnectionDetail(id);
+      }, id);
+    const modelEditor = page.locator(".mari-editor-shell");
+    const endpoint = (model: string) => modelEditor.locator(`[data-model-id="${model}"] [data-model-option]`);
+    await openModel();
+    await endpoint("fal-ai/flux/dev").click();
+    await modelEditor.getByRole("button", { name: "Save", exact: true }).click();
+    await expect
+      .poll(async () => (await (await request.get(`/api/connections/${id}`)).json()).model)
+      .toBe("fal-ai/flux/dev");
     await page.reload();
-    await open();
-    await expect(fal).toHaveClass(/bg-sky-400/);
-    await expect(editor.getByRole("textbox", { name: "Custom Parameters", exact: true })).toBeVisible();
-    await fal.scrollIntoViewIfNeeded();
+    await openModel();
+    await expect(endpoint("fal-ai/flux/dev")).toHaveAttribute("aria-current", "true");
+    await expect(modelEditor.getByRole("textbox", { name: "Custom Parameters", exact: true })).toBeVisible();
     const screenshot = testInfo.outputPath("saved-fal-selection.png");
     await page.screenshot({ path: screenshot });
     await testInfo.attach("saved-fal-selection", { path: screenshot, contentType: "image/png" });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     expect(errors).toEqual([]);
   } finally {
-    await request.delete(`/api/connections/${id}`);
+    if (id) await request.delete(`/api/connections/${id}`);
+    if (accountId) await request.delete(`/api/connection-accounts/${accountId}`);
   }
 });
 
@@ -110,17 +134,19 @@ test("connection test results survive hydration and ignore a previous selection"
       await expect(editor.getByPlaceholder("Model name", { exact: true })).toHaveValue(name);
     };
     await open(ids[0]!, "Result scope first");
+    // A Model of an account is tested with Test image here (Test connection is on the account); a result for
+    // the previous selection never shows on the next one.
     const gate = new Promise<void>((resolve) => (release = resolve));
-    await page.route(`**/api/connections/${ids[0]}/test`, async (route) => {
+    await page.route(`**/api/connections/${ids[0]}/test-image`, async (route) => {
       await gate;
-      await route.fulfill({ json: { success: false, message: "STALE_CONNECTION_CHECK", latencyMs: 1 } });
+      await route.fulfill({ json: { success: false, error: "STALE_CONNECTION_CHECK", latencyMs: 1 } });
     });
-    const requested = page.waitForRequest((r) => r.url().endsWith(`/connections/${ids[0]}/test`));
-    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
+    const requested = page.waitForRequest((r) => r.url().endsWith(`/connections/${ids[0]}/test-image`));
+    await editor.getByRole("button", { name: "Test image", exact: true }).click();
     await requested;
     await open(ids[1]!, "Result scope second");
     release();
-    await expect(editor.getByRole("button", { name: "Test connection", exact: true })).toBeEnabled();
+    await expect(editor.getByRole("button", { name: "Test image", exact: true })).toBeEnabled();
     await expect(editor.getByText("STALE_CONNECTION_CHECK")).toHaveCount(0);
 
     await page.route(`**/api/connections/${ids[1]}/test-image`, (route) =>

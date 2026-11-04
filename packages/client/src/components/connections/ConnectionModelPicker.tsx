@@ -229,9 +229,10 @@ export function ConnectionModelPicker({
     return () => window.cancelAnimationFrame(frame);
   }, [autoFocusSearch, connection.id]);
 
-  // Marinara's built-in models fill in only when the provider lists none or cannot be reached; next to a
-  // provider's own list they are noise. A custom endpoint never gets them: its built-in list is the OpenAI
-  // and Z.AI catalog, which says nothing about what that server runs.
+  // Marinara's built-in models are listed only when the provider lists none or cannot be reached; next to a
+  // provider's own list they are noise, and only fill in a context window the provider left out. A custom
+  // endpoint never gets them: its built-in list is the OpenAI and Z.AI catalog, which says nothing about what
+  // that server runs.
   const remoteModels = modelList.data?.models;
   const fetchedAt = modelList.data?.fetchedAt;
   const updated = fetchedAt ? formatRelativeContact(fetchedAt) : null;
@@ -239,9 +240,8 @@ export function ConnectionModelPicker({
     () =>
       mergeConnectionModelOptions(
         remoteModels ?? [],
-        remoteModels?.length || modelList.isLoading || provider === "custom"
-          ? []
-          : (builtInModels ?? MODEL_LISTS[provider] ?? []),
+        provider === "custom" ? [] : (builtInModels ?? MODEL_LISTS[provider] ?? []),
+        !remoteModels?.length && !modelList.isLoading,
       ),
     [builtInModels, modelList.isLoading, provider, remoteModels],
   );
