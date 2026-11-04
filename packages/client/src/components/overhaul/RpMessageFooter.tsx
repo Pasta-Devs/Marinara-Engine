@@ -173,6 +173,8 @@ export function OvRpMessageFooter({
   onCopy,
   onBranch,
   more,
+  placement = "footer",
+  side = "end",
 }: {
   chatId: string;
   messageId: string;
@@ -190,6 +192,13 @@ export function OvRpMessageFooter({
   onBranch?: () => void;
   /** Every other action, rendered inside the More menu. */
   more: ReactNode;
+  /**
+   * "header" overlays the name row on hover, so nothing below moves; "float" is the same bar
+   * on its own small surface, for grouped messages that have no name row.
+   */
+  placement?: "footer" | "header" | "float";
+  /** Which end of the row the bar sits at (opposite the name). */
+  side?: "start" | "end";
 }) {
   const [open, setOpen] = useState<null | { kind: "more" | "swipes"; anchor: Anchor }>(null);
   const openAt = (kind: "more" | "swipes", el: HTMLElement) => {
@@ -203,7 +212,15 @@ export function OvRpMessageFooter({
   const count = Math.max(1, swipeCount);
   const hasSwipes = swipeCount > 1;
   return (
-    <div className={cn("ov-rpf", pinned && "is-pinned", open && "is-open")} data-ov-rp-footer>
+    <div
+      className={cn(
+        "ov-rpf",
+        placement !== "footer" && `ov-rpf--overlay ov-rpf--${placement} ov-rpf--${side}`,
+        pinned && "is-pinned",
+        open && "is-open",
+      )}
+      data-ov-rp-footer
+    >
       {hasSwipes || onCreateSwipe ? (
         <span className="ov-rpf__swipes">
           <button
