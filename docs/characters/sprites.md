@@ -27,15 +27,19 @@ You can upload PNG, JPEG, GIF, WebP, AVIF and SVG images. Transparent PNG files 
 
 1. Open the **Sprites** tab and pick **Facial Expressions** or **Full-body**.
 2. Click **Add sprites**.
-3. Click **Upload images** and pick your files. You can select several together.
-4. Each file name becomes the sprite's name (its label). Open a sprite to rename it later.
+3. Click **Upload images**, browse into your folder and select its images. You can select several together.
+4. Click **Import** in the Engine confirmation. **Cancel** adds nothing.
 
-The new sprites appear in the grid, outside any folder. In the persona editor, use the **Add Sprite** name field and **Upload** button for a single sprite.
+Each file name becomes the sprite's name (its label). Open a sprite to rename it later. The new sprites appear in the grid, outside any folder. Subfolders are not scanned. Use **New folder** to organize the imported sprites.
+
+In the persona editor, use the **Add Sprite** name field and **Upload** button for a single sprite.
 
 ### Upload a whole folder
 
-1. Name your image files after the expression or pose, such as `admiration.png` for an expression called admiration.
-2. Open **Add sprites** and click **Import folder**. In the persona editor, click **Upload Folder** in **Add Sprite**.
+Whole-folder upload is available in the persona editor. For characters, use **Upload images** above and select the images inside your folder.
+
+1. Open **Add Sprite** in the persona's **Sprites** tab.
+2. Click **Upload Folder**.
 3. Choose the folder that holds your images.
 
 Each file name without its suffix becomes the sprite name. A progress line reads "Uploading X/Y sprites". Subfolders become optional sprite folders. A `catalog.json` from an export also restores folders and edited labels. A bad folder entry is reported while usable images still import.

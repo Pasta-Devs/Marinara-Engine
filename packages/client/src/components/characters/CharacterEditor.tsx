@@ -347,9 +347,6 @@ const CHARACTER_ADVANCED_HELP =
 const CHARACTER_GALLERY_HELP =
   "These images belong to the character, so deleting a chat does not remove them. Use this for reference sheets, outfit variants, or imported ST-style character image packs. Chat gallery is still best for scene-specific illustrations and generated message attachments.";
 
-const CHARACTER_SPRITES_HELP =
-  "Upload sprites one by one, or use Upload Folder to bulk-import a folder of PNGs. Each filename becomes the expression name, for example admiration.png becomes admiration. To rotate variants, share a prefix before an underscore, for example happy_01.png and happy_blush.png. Enable the Expression Engine agent so roleplay can pick matching sprites from detected emotions. Sprites appear as VN-style overlays in the chat area.";
-
 const CHARACTER_STATS_HELP =
   "HP is injected into the prompt so the AI knows the character's current health. Attributes are custom stats, like STR or DEX, that define the character's capabilities. The Character Tracker agent can adjust values based on combat, healing, and narrative events. Values set here serve as the initial/default state for new conversations.";
 
@@ -5860,7 +5857,7 @@ function SpritesTab({
         <SectionHeader
           title={localizeUi("ui.characters.spritestab.characterSprites")}
           subtitle={localizeUi("ui.characters.spritestab.uploadVnStyleSpritesAndVideoCallClipsFor")}
-          helpText={CHARACTER_SPRITES_HELP}
+          helpText={localizeUi("sprites.library.help")}
         />
 
         {characterSheetSection}
@@ -5877,7 +5874,7 @@ function SpritesTab({
       <SectionHeader
         title={localizeUi("ui.characters.spritestab.characterSprites")}
         subtitle={localizeUi("sprites.library.intro")}
-        helpText={CHARACTER_SPRITES_HELP}
+        helpText={localizeUi("sprites.library.help")}
       />
       {characterSheetSection}
       <SpriteLibraryShell
