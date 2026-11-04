@@ -892,6 +892,7 @@ export function SpriteWandCleanupEditor({
 
   return (
     <Modal
+      pullToClose={false}
       open
       onClose={onClose}
       title={localizeUi("ui.ui.spritewandcleanupeditor.cleanValue1", { value1: label })}

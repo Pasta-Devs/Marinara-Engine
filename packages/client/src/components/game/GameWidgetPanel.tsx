@@ -548,7 +548,8 @@ function WidgetEditorModal({
   return createPortal(
     <Modal
       open={open}
-      onClose={isSaving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={isSaving}
       title={localizeUi("ui.game.mobilewidgetpanel.editValue1", { value1: widget.label })}
       width="max-w-lg"
       panelClassName={GAME_DIALOG_CLASS}
@@ -906,7 +907,8 @@ export function GameWidgetSessionPrepModal({
     <>
       <Modal
         open={open}
-        onClose={interactionsLocked ? () => {} : onClose}
+        onClose={onClose}
+        closeDisabled={interactionsLocked}
         title={copy.title}
         width="max-w-2xl"
         panelClassName={GAME_DIALOG_CLASS}

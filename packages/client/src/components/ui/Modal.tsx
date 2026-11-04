@@ -9,6 +9,7 @@ import { X } from "lucide-react";
 import {
   NEUTRAL_PANEL_HEADER,
   PHONE_BOTTOM_SHEET_CLASS,
+  SHEET_CLOSE_BUTTON_CLASS,
   SHEET_GRABBER_CLASS,
   NEUTRAL_PANEL_SCROLL_AREA,
   NEUTRAL_PANEL_SHELL,
@@ -45,6 +46,10 @@ interface ModalProps {
   /** Optional feature-local style variables applied to the full panel. */
   panelStyle?: CSSProperties;
   closeDisabled?: boolean;
+  /** Phone sheet closes on a downward pull and shows a grab handle. Turn off where closing loses work (review, running generation). */
+  pullToClose?: boolean;
+  /** Actions pinned under the scrolling content; main action first, stacked full-width on phones. */
+  footer?: ReactNode;
   closeButtonClassName?: string;
   /** Solid panel surface and no backdrop blur (Connections windows); other modals keep the translucent chrome. */
   opaque?: boolean;
@@ -73,6 +78,8 @@ export function Modal({
   contentClassName,
   panelStyle,
   closeDisabled = false,
+  pullToClose = true,
+  footer,
   closeButtonClassName,
   opaque = false,
   dragThrough = false,
@@ -206,12 +213,89 @@ export function Modal({
     return () => clearTimeout(timer);
   }, [animating, open]);
 
+  // Phone sheet: pull down to close. Native listeners because React's touchmove is passive.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !mounted || !panel || !pullToClose || closeDisabled || mobileFullscreen || modeless || dragThrough)
+      return;
+    if (!window.matchMedia("(max-width: 639px)").matches) return;
+    let startX = 0;
+    let startY = 0;
+    let startT = 0;
+    let dy = 0;
+    let tracking = false;
+    let dragging = false;
+    let prevTransition = "";
+    const onStart = (e: TouchEvent) => {
+      tracking = false;
+      if (e.touches.length !== 1) return;
+      const target = e.target as Element;
+      if (target.closest("input, textarea, select, [contenteditable='true']")) return;
+      // Only from the top: any scroller between the finger and the panel must be scrolled up.
+      for (let el: Element | null = target; el && el !== panel; el = el.parentElement) if (el.scrollTop > 0) return;
+      tracking = true;
+      dragging = false;
+      dy = 0;
+      startX = e.touches[0]!.clientX;
+      startY = e.touches[0]!.clientY;
+      startT = e.timeStamp;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!tracking) return;
+      const d = e.touches[0]!.clientY - startY;
+      if (!dragging) {
+        if (d < 0 || Math.abs(e.touches[0]!.clientX - startX) > d) {
+          tracking = false; // upward or sideways: leave it to scrolling
+          return;
+        }
+        if (d < 8) return;
+        dragging = true;
+        prevTransition = panel.style.transition;
+        panel.style.transition = "none";
+      }
+      e.preventDefault();
+      dy = Math.max(0, d - 8);
+      panel.style.transform = `translateY(${dy}px)`;
+    };
+    const onEnd = (e: TouchEvent) => {
+      tracking = false;
+      if (!dragging) return;
+      dragging = false;
+      panel.style.transition = prevTransition;
+      const pulled = `translateY(${dy}px)`;
+      if (dy > panel.offsetHeight * 0.25 || dy / Math.max(1, e.timeStamp - startT) > 0.4) {
+        onCloseRef.current();
+        // A guarded close (e.g. "Discard changes?") may keep the sheet open: then snap back.
+        window.setTimeout(() => {
+          if (panel.style.transform === pulled) panel.style.transform = "";
+        }, 300);
+      } else {
+        panel.style.transform = "";
+      }
+    };
+    panel.addEventListener("touchstart", onStart, { passive: true });
+    panel.addEventListener("touchmove", onMove, { passive: false });
+    panel.addEventListener("touchend", onEnd);
+    panel.addEventListener("touchcancel", onEnd);
+    return () => {
+      panel.removeEventListener("touchstart", onStart);
+      panel.removeEventListener("touchmove", onMove);
+      panel.removeEventListener("touchend", onEnd);
+      panel.removeEventListener("touchcancel", onEnd);
+    };
+  }, [open, mounted, pullToClose, closeDisabled, mobileFullscreen, modeless, dragThrough]);
+
   if (!mounted) return null;
 
   const isEntering = animating === "enter";
   // Below `sm` a plain dialog is a bottom sheet; full-screen, modeless and drag-through ones keep their shape.
   const sheet = !mobileFullscreen && !modeless && !dragThrough;
   const phoneSheet = sheet && window.matchMedia("(max-width: 639px)").matches;
+  const pullClose = phoneSheet && pullToClose && !closeDisabled;
 
   return createPortal(
     <div
@@ -270,16 +354,24 @@ export function Modal({
             : "opacity 150ms ease-out, transform 150ms ease-out",
         }}
       >
-        {sheet && <div aria-hidden="true" className={`${SHEET_GRABBER_CLASS} sm:hidden`} />}
+        {pullClose && <div aria-hidden="true" className={`${SHEET_GRABBER_CLASS} sm:hidden`} />}
         {/* Header */}
-        <div className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER}`}>
-          {titleSlot ?? <h2 className={NEUTRAL_PANEL_TITLE}>{localizedTitle}</h2>}
+        <div
+          className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER} ${sheet && !titleSlot ? "max-sm:relative max-sm:min-h-13 max-sm:justify-center max-sm:px-12" : ""}`}
+        >
+          {titleSlot ?? (
+            <h2
+              className={`${NEUTRAL_PANEL_TITLE} ${sheet ? "max-sm:justify-center max-sm:text-center max-sm:text-[17px]" : ""}`}
+            >
+              {localizedTitle}
+            </h2>
+          )}
           <button
             type="button"
             onClick={onClose}
             disabled={closeDisabled}
             aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
-            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${closeButtonClassName ?? ""}`}
+            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${sheet ? SHEET_CLOSE_BUTTON_CLASS : ""} ${sheet && !titleSlot ? "max-sm:absolute max-sm:right-3 max-sm:top-1/2 max-sm:-translate-y-1/2" : "max-sm:relative"} ${closeButtonClassName ?? ""}`}
           >
             <X size="1rem" />
           </button>
@@ -292,6 +384,11 @@ export function Modal({
         >
           {children}
         </div>
+        {footer && (
+          <div className="flex shrink-0 flex-row-reverse items-center justify-start gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3 max-sm:flex-col max-sm:items-stretch max-sm:px-4 max-sm:[&>button]:min-h-12 max-sm:[&>button]:justify-center">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body,

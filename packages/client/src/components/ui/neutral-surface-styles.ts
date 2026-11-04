@@ -9,6 +9,9 @@ export const BOTTOM_SHEET_CLASS =
 /** BOTTOM_SHEET_CLASS behind `max-sm:`, spelled out so Tailwind sees the classes. */
 export const PHONE_BOTTOM_SHEET_CLASS =
   "max-sm:max-w-none max-sm:max-h-full max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]";
+/** Phone sheet close X: 30px circle with a 44px hit area. */
+export const SHEET_CLOSE_BUTTON_CLASS =
+  "max-sm:h-[30px]! max-sm:w-[30px]! max-sm:rounded-full max-sm:bg-[var(--marinara-chat-chrome-highlight-bg)] max-sm:after:absolute max-sm:after:-inset-[7px] max-sm:after:content-['']";
 export const SHEET_GRABBER_CLASS =
   "mx-auto mt-2 mb-1 h-1 w-9 shrink-0 rounded-full bg-[var(--marinara-chat-chrome-panel-muted)] opacity-40";
 

@@ -84,7 +84,8 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
   return (
     <Modal
       open={!!request}
-      onClose={isApplying ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={isApplying}
       title={request?.title ?? "Repair JSON"}
       width="max-w-5xl"
       panelClassName={GAME_DIALOG_CLASS}

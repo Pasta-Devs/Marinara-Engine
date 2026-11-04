@@ -2048,6 +2048,7 @@ export function SpriteGenerationModal({
   return (
     <>
       <Modal
+        pullToClose={false}
         open={open}
         onClose={handleClose}
         title={localizeUi("ui.ui.spritegenerationmodal.generateSprites")}

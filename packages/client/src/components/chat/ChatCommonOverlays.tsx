@@ -92,6 +92,7 @@ function DeleteConfirmationDialog({
       open={!!messageId}
       onClose={onClose}
       title={t("chat.delete.dialog.title")}
+      pullToClose={false}
       width="max-w-sm"
       panelClassName="mari-chat-style-surface mari-chat-action-panel"
       chatFloatingPanel

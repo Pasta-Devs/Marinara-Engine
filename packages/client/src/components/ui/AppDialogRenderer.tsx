@@ -58,6 +58,7 @@ export function AppDialogRenderer() {
       width="max-w-sm"
       chatFloatingPanel
       topLayer
+      pullToClose={false}
       panelClassName={dialog.chatStyle ? "mari-chat-style-surface mari-chat-action-panel" : undefined}
     >
       <div className="space-y-4">

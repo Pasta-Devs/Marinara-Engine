@@ -224,7 +224,7 @@ export function AvatarGenerationModal({
 
   return (
     <>
-      <Modal open={open} onClose={generating || saving ? () => {} : onClose} title={title} width="max-w-2xl">
+      <Modal open={open} onClose={onClose} closeDisabled={generating || saving} title={title} width="max-w-2xl">
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_13rem]">
             <div className="space-y-4">

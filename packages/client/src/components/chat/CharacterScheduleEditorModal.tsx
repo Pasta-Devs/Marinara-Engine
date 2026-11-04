@@ -818,6 +818,7 @@ export function CharacterScheduleEditorModal({
 
   return (
     <Modal
+      pullToClose={false}
       open={open}
       onClose={handleClose}
       title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })}

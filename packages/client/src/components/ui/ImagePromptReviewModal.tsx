@@ -95,7 +95,8 @@ export function ImagePromptReviewModal({
   return (
     <Modal
       open={open}
-      onClose={isSubmitting ? () => {} : onCancel}
+      onClose={onCancel}
+      closeDisabled={isSubmitting}
       title={
         items.length === 1
           ? localizeUi("ui.ui.imagepromptreviewmodal.reviewValue1Prompt", { value1: mediaTitle })

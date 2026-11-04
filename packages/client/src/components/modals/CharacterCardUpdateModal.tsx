@@ -256,6 +256,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
 
   return (
     <Modal
+      pullToClose={false}
       open={open}
       onClose={closeAndAdvance}
       title={localizeUi("ui.modals.charactercardupdatemodal.reviewCharacterCardUpdates")}
