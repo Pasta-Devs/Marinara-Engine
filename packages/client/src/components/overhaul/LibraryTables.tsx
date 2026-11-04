@@ -794,6 +794,8 @@ export interface OvAgentRow {
   connectionId: string | null;
   imagePath: string | null;
   updatedAt?: string;
+  /** App-like agents (Noodle…) open their own screen instead of running in chats. */
+  app?: boolean;
 }
 
 /**
@@ -829,6 +831,7 @@ export function useOvAgentRows() {
           connectionId: config?.connectionId ?? null,
           imagePath: config?.imagePath ?? null,
           updatedAt: config?.updatedAt,
+          app: agent.execution === "feature",
         };
       });
     const custom = visibleConfigs
@@ -870,7 +873,8 @@ export function AgentsLanding() {
       (agent) =>
         !needle || agent.name.toLowerCase().includes(needle) || agent.description?.toLowerCase().includes(needle),
     );
-    return sortRows(list, sort);
+    // Apps first, so installed apps like Noodle are easy to find and open.
+    return sortRows(list, sort).sort((a, b) => Number(Boolean(b.app)) - Number(Boolean(a.app)));
   }, [data, search, sort]);
 
   return (
@@ -911,7 +915,10 @@ export function AgentsLanding() {
         {
           key: "phase",
           label: "Runs",
-          render: (agent) => localize(PHASE_LABEL[agent.phase] ?? agent.phase ?? "—"),
+          render: (agent) =>
+            agent.app
+              ? localize("App, opens its own screen")
+              : localize(PHASE_LABEL[agent.phase] ?? agent.phase ?? "—"),
         },
         {
           key: "connection",

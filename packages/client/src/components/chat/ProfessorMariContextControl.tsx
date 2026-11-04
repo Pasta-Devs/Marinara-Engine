@@ -277,7 +277,9 @@ export function ProfessorMariContextControl({
           setOpen((current) => !current);
         }}
         className={cn(
-          "mari-workspace-destination mari-chrome-accent-text-muted mari-accent-animated",
+          // Same pill as the Chats / Skills / Memories buttons beside it.
+          "mari-workspace-destination mari-chrome-control mari-chrome-control--compact",
+          "mari-chrome-accent-text-muted mari-accent-animated hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
           context && "text-[var(--primary)]",
         )}
         title={t("ui.chat.homeprofessormarichat.awareOfOpen")}

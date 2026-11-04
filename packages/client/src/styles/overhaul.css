@@ -2793,9 +2793,6 @@
   min-height: 0;
   flex: 1;
 }
-.ov-mari .mari-workspace-destination {
-  font-size: 0.75rem;
-}
 .ov-settings--extensions .ov-settings__sections {
   columns: 1;
 }
@@ -4989,4 +4986,220 @@ input.ov-edhead__title:focus {
 :root[data-overhaul="on"] .mari-reaction-tip {
   background: var(--background);
   backdrop-filter: none;
+}
+
+/* ─── Chat settings density pass (v1 frames 04-06, 2026-11-04) ───
+   Desktop sizes: 26px controls, one line per action group, no big empty
+   states or dashed drop zones, short textareas. */
+.ov-cs.ov-cs
+  .mari-drawer__body
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), select) {
+  height: 1.625rem !important;
+  min-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  font-size: 0.75rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body input[type="search"] {
+  padding-left: 1.75rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .relative:has(> input[type="search"]) > svg {
+  left: 0.5rem !important;
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+.ov-cs.ov-cs .mari-drawer__body :is(.h-10, .h-11, .h-12) {
+  height: 1.625rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body :is(.min-w-28, .min-w-24, .min-w-32) {
+  min-width: 0 !important;
+}
+.ov-cs.ov-cs .mari-drawer__body :is(.gap-3, .gap-4) {
+  gap: 0.5rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body :is(.space-y-3, .space-y-4) > * + * {
+  margin-top: 0.5rem !important;
+}
+/* Textareas start short and grow only while you write in them. */
+.ov-cs.ov-cs .mari-drawer__body textarea {
+  min-height: 3.25rem !important;
+  max-height: 6.5rem;
+  font-size: 0.75rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body textarea:focus {
+  max-height: 20rem;
+}
+/* A column of actions becomes one wrapping line; rows that are not actions keep a full line. */
+.ov-cs.ov-cs .mari-drawer__body .flex-col:has(> .mari-chrome-control + .mari-chrome-control) {
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ov-cs.ov-cs
+  .mari-drawer__body
+  .flex-col:has(> .mari-chrome-control + .mari-chrome-control)
+  > :not(.mari-chrome-control) {
+  flex: 1 1 100%;
+}
+.ov-cs.ov-cs .mari-drawer__body .mari-chrome-control {
+  min-height: 0 !important;
+  height: 1.5rem !important;
+  padding: 0 0.5rem !important;
+  font-size: 0.6875rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .grid:has(> button.mari-editor-action) {
+  display: flex !important;
+  gap: 0.25rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .mari-editor-action {
+  height: 1.625rem !important;
+  padding: 0 0.5rem !important;
+  font-size: 0.6875rem !important;
+}
+/* Picture rows (background, persona): smaller thumbnail. */
+.ov-cs.ov-cs .mari-drawer__body .aspect-video.w-20 {
+  width: 3.25rem !important;
+}
+/* Segmented tabs (Images / Videos…): plain inline text tabs. */
+.ov-cs.ov-cs .mari-drawer__body [role="tablist"] {
+  display: inline-flex !important;
+  gap: 0.75rem !important;
+  width: auto;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+}
+.ov-cs.ov-cs .mari-drawer__body [role="tablist"] > [role="tab"] {
+  padding: 0.125rem 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  border-bottom: 2px solid transparent !important;
+  font-size: 0.75rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body [role="tablist"] > [role="tab"][aria-selected="true"],
+.ov-cs.ov-cs .mari-drawer__body [role="tablist"] > [role="tab"].shadow-sm {
+  border-bottom-color: var(--primary) !important;
+  color: var(--foreground) !important;
+}
+/* Dashed drop zones become a normal small action. */
+.ov-cs.ov-cs .mari-drawer__body button.border-dashed {
+  align-self: flex-start;
+  height: 1.5rem;
+  padding: 0 0.5rem !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 999px !important;
+  font-size: 0.6875rem !important;
+}
+/* Empty states: one quiet line, not a centred block. */
+.ov-cs.ov-cs .mari-drawer__body :is(.py-5, .py-6, .py-8, .py-10):not(button) {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .flex-col.items-center:is(.py-5, .py-6, .py-8, .py-10) {
+  align-items: flex-start !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .flex-col.items-center:is(.py-5, .py-6, .py-8, .py-10) > svg,
+.ov-cs.ov-cs .mari-drawer__body .flex-col.items-center:is(.py-5, .py-6, .py-8, .py-10) > p + p {
+  display: none;
+}
+.ov-cs.ov-cs .mari-drawer__body .text-center:is(.border-dashed, .py-5, .py-6, .py-8) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  padding: 0.25rem 0 !important;
+  border: 0 !important;
+  background: none !important;
+  text-align: left !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .text-center:is(.border-dashed, .py-5, .py-6, .py-8) > * {
+  margin: 0 !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .text-center:is(.border-dashed, .py-5, .py-6, .py-8) > p + p {
+  display: none;
+}
+/* Boxed cards inside a section (agent cards…) lose the box. */
+.ov-cs.ov-cs .mari-drawer__body .rounded-xl.border:not([role="tablist"]):not(button) {
+  border-color: transparent !important;
+  background: none !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .rounded-xl.border:not([role="tablist"]) > .p-3 {
+  padding: 0.25rem 0 !important;
+}
+/* One line per setting: the label on the left, its control on the right. */
+.ov-cs.ov-cs .mari-drawer__body div:has(> label:first-child + :is(input:not([type="checkbox"]), select):last-child) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.ov-cs.ov-cs
+  .mari-drawer__body
+  div:has(> label:first-child + :is(input:not([type="checkbox"]), select):last-child)
+  > label {
+  margin: 0 !important;
+  color: var(--ov-text, var(--foreground));
+  font-size: 0.75rem !important;
+  font-weight: 400 !important;
+}
+.ov-cs.ov-cs
+  .mari-drawer__body
+  div:has(> label:first-child + :is(input:not([type="checkbox"]), select):last-child)
+  > :last-child {
+  margin: 0 !important;
+}
+/* Switch rows: no tinted box; the long description moves into the row's hover title. */
+.ov-cs.ov-cs .mari-drawer__body .justify-between:has(input[type="checkbox"]) {
+  padding: 0.25rem 0 !important;
+  background: none !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .justify-between:has(input[type="checkbox"]) > span:first-child > label.block {
+  display: none;
+}
+.ov-cs.ov-cs .mari-drawer__body .justify-between:has(input[type="checkbox"]) > span:first-child {
+  font-size: 0.75rem !important;
+  font-weight: 400 !important;
+}
+.ov-cs.ov-cs .mari-drawer__body .space-y-2:has(> .justify-between) > * + *,
+.ov-cs.ov-cs .mari-drawer__body .space-y-3:has(> .justify-between) > * + * {
+  margin-top: 0.125rem !important;
+}
+/* Connection is one line: the section name and its selector (v1). */
+.ov-cs.ov-cs .mari-drawer[data-chat-settings-section="connection"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  align-items: center;
+  column-gap: 0.75rem;
+}
+.ov-cs.ov-cs .mari-drawer[data-chat-settings-section="connection"] > .mari-drawer__body {
+  padding-top: 0 !important;
+}
+.ov-cs.ov-cs .mari-drawer[data-chat-settings-section="connection"] > .mari-drawer__header > svg:last-child,
+.ov-cs.ov-cs .mari-drawer[data-chat-settings-section="connection"] .mari-drawer__help {
+  display: none;
+}
+/* Quiet centred notes ("No agent activity yet") sit on the left with no padding. */
+.ov-cs.ov-cs .mari-drawer__body :is(p, div).text-center:is(.py-3, .py-4, .py-5, .py-6, .py-8):not(:has(button)) {
+  padding: 0.25rem 0 !important;
+  text-align: left !important;
+}
+/* Background: thumbnail row with Browse / Clear as text links beside it (v1 "Change  Reset"). */
+.ov-cs.ov-cs [data-chat-settings-section$="background"] .mari-drawer__body .flex-col > button:first-child {
+  flex: 1 1 10rem !important;
+  padding: 0 !important;
+}
+.ov-cs.ov-cs [data-chat-settings-section$="background"] .mari-drawer__body .mari-chrome-control {
+  padding: 0 0.25rem !important;
+  border: 0 !important;
+  background: none !important;
+  color: var(--primary) !important;
+}
+.ov-cs.ov-cs [data-chat-settings-section$="background"] .mari-drawer__body .mari-chrome-control svg {
+  display: none;
 }
