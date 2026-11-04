@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ChevronDown,
+  MoreHorizontal,
   Check,
   Download,
   ExternalLink,
@@ -33,6 +35,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { notifyDecisionImport } from "../../lib/decision-import-notice";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
 import { AgentArtwork } from "./AgentArtwork";
 import { AgentModeFilter, type AgentModeFilterValue } from "./AgentModeFilter";
 import { CustomAgentRepositoriesModal } from "./CustomAgentRepositoriesModal";
@@ -167,6 +170,18 @@ export function AgentCatalogView() {
   const [bulkProgress, setBulkProgress] = useState<BulkActionProgress | null>(null);
   const [customRepositoriesOpen, setCustomRepositoriesOpen] = useState(false);
   const hasActiveFilters = Boolean(query.trim()) || modeFilter !== "all";
+  const overhaulActive = useOverhaulActive();
+  const [ovMenuOpen, setOvMenuOpen] = useState(false);
+  const [ovClosed, setOvClosed] = useState<Record<string, boolean>>({});
+  const ovMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ovMenuOpen) return;
+    const close = (event: PointerEvent) => {
+      if (!ovMenuRef.current?.contains(event.target as Node)) setOvMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [ovMenuOpen]);
 
   const installedById = useMemo(() => new Map((installed.data ?? []).map((item) => [item.id, item])), [installed.data]);
   const packages = useMemo(() => {
@@ -385,6 +400,407 @@ export function AgentCatalogView() {
       setBulkProgress(null);
     }
   };
+
+  if (overhaulActive) {
+    const categoryLabel = (entry: CapabilityCatalogPackage) =>
+      localizeUi(
+        CATEGORY_SECTIONS.find((category) => category.id === catalogCategory(entry))?.labelKey ??
+          "ui.agents.agentcatalogview.miscAgents",
+      );
+    const hasUpdate = (entry: CapabilityCatalogPackage) => {
+      const current = installedById.get(entry.manifest.id);
+      return current ? compareCapabilityPackageVersions(entry.manifest.version, current.version) > 0 : false;
+    };
+    const modeChips = (entry: CapabilityCatalogPackage) =>
+      packageModes(entry.manifest.id).map((mode) => (
+        <span key={mode} className={cn("ov-dl__mode", `is-${mode}`)} title={localizeUi(MODE_BADGES[mode].labelKey)}>
+          {localizeUi(MODE_BADGES[mode].labelKey).slice(0, 1)}
+        </span>
+      ));
+    const renderRow = (entry: CapabilityCatalogPackage, isInstalled: boolean) => {
+      const active = entry.manifest.id === selected?.manifest.id;
+      const update = isInstalled && hasUpdate(entry);
+      return (
+        <div
+          key={entry.manifest.id}
+          role="option"
+          tabIndex={0}
+          aria-selected={active}
+          className={cn("ov-vw__row", active && "is-on")}
+          onClick={() => setSelectedId(entry.manifest.id)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setSelectedId(entry.manifest.id);
+            }
+          }}
+        >
+          <span className="ov-vw__lead">
+            <span className="ov-dl__icon">
+              <AgentArtwork imageUrl={entry.iconUrl} alt="" iconSize="0.85rem" />
+            </span>
+          </span>
+          <span className="ov-vw__text">
+            <span className="ov-vw__name">{entry.manifest.name}</span>
+            <small>{isInstalled ? categoryLabel(entry) : entry.manifest.description}</small>
+          </span>
+          <span className="ov-vw__trail ov-dl__trail">
+            {modeChips(entry)}
+            {isInstalled ? (
+              <span className={cn("ov-dl__state", update && "is-update")}>
+                {update
+                  ? localizeUi("ui.agents.agentcatalogview.update")
+                  : localizeUi("ui.agents.agentcatalogview.installed_7bb4405")}
+              </span>
+            ) : null}
+          </span>
+        </div>
+      );
+    };
+    const [installedGroup, availableGroup] = packageGroups;
+    const selectedUpdate = selected ? hasUpdate(selected) : false;
+    const busyInstall = install.isPending && install.variables?.id === selected?.manifest.id;
+    return (
+      <div data-component="AgentCatalogView" className="ov-dl">
+        <header className="ov-dl__head">
+          <div className="ov-dl__title">
+            <p className="ov-vw__crumb">
+              <button
+                type="button"
+                onClick={() => {
+                  closeAgentCatalog();
+                  useOverhaulStore.getState().setLibraryPage(null);
+                }}
+              >
+                Library
+              </button>
+              <span aria-hidden="true">›</span>
+              <button type="button" onClick={closeAgentCatalog}>
+                Agents
+              </button>
+              <span aria-hidden="true">›</span>
+              <span className="ov-dl__here">{localizeUi("ui.agents.agentcatalogview.downloadAgents")}</span>
+            </p>
+            <div className="ov-dl__titleline">
+              <h1>{localizeUi("ui.agents.agentcatalogview.downloadAgents")}</h1>
+              <small>
+                {catalog.data?.packages.length ?? 0} available · {installed.data?.length ?? 0} installed
+              </small>
+            </div>
+          </div>
+          <div className="ov-dl__actions">
+            {customRepositories.data?.enabled && (
+              <button type="button" className="ov-dl__act" onClick={() => setCustomRepositoriesOpen(true)}>
+                <GitFork size={13} aria-hidden="true" />
+                {localizeUi("ui.agents.agentcatalogview.customSources")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="ov-dl__act"
+              onClick={() => void Promise.all([catalog.refetch(), installed.refetch()])}
+              disabled={catalog.isFetching || installed.isFetching || packageActionPending}
+            >
+              <RefreshCw
+                size={13}
+                aria-hidden="true"
+                className={cn((catalog.isFetching || installed.isFetching) && "animate-spin")}
+              />
+              {localizeUi("ui.noodle.noodlehome.refresh")}
+            </button>
+            <div className="ov-menu-wrap" ref={ovMenuRef}>
+              <button
+                type="button"
+                className="ov-dl__act"
+                aria-label="More actions"
+                aria-expanded={ovMenuOpen}
+                onClick={() => setOvMenuOpen((open) => !open)}
+              >
+                <MoreHorizontal size={15} aria-hidden="true" />
+              </button>
+              {ovMenuOpen ? (
+                <div className="ov-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={
+                      installablePackageIds.length === 0 ||
+                      packageActionPending ||
+                      catalog.isLoading ||
+                      installed.isLoading
+                    }
+                    onClick={() => {
+                      setOvMenuOpen(false);
+                      void handleInstallAll();
+                    }}
+                  >
+                    <Download size={14} aria-hidden="true" />
+                    {localizeUi("ui.agents.agentcatalogview.installAll")}
+                    <small>{installablePackageIds.length}</small>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="is-danger"
+                    disabled={
+                      installedPackageIds.length === 0 ||
+                      packageActionPending ||
+                      catalog.isLoading ||
+                      installed.isLoading
+                    }
+                    onClick={() => {
+                      setOvMenuOpen(false);
+                      void handleUninstallAll();
+                    }}
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                    {localizeUi("ui.agents.agentcatalogview.uninstallAll")}
+                    <small>{installedPackageIds.length}</small>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </header>
+        <div className="ov-dl__body">
+          <aside className="ov-vw__left" aria-label={localizeUi("ui.agents.agentcatalogview.downloadAgents")}>
+            <div className="ov-dl__filters">
+              <label className="ov-vw__search">
+                <Search size={13} aria-hidden="true" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={localizeUi("ui.agents.agentcatalogview.searchAgents")}
+                  aria-label={localizeUi("ui.agents.agentcatalogview.searchDownloadableAgents")}
+                />
+              </label>
+              <AgentModeFilter className="ov-dl__modes" value={modeFilter} onChange={setModeFilter} />
+              {bulkProgress && (
+                <p className="ov-dl__progress" role="status" aria-live="polite">
+                  <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                  {bulkProgress.action === "install"
+                    ? localizeUi("ui.agents.agentcatalogview.installingValue1Value2", {
+                        value1: bulkProgress.completed,
+                        value2: bulkProgress.total,
+                      })
+                    : localizeUi("ui.agents.agentcatalogview.uninstallingValue1Value2", {
+                        value1: bulkProgress.completed,
+                        value2: bulkProgress.total,
+                      })}
+                </p>
+              )}
+            </div>
+            <div className="ov-vw__list" role="listbox">
+              {catalog.isLoading ? (
+                <p className="ov-vw__empty">
+                  <Loader2 size={13} className="mr-1.5 inline animate-spin" aria-hidden="true" />
+                  {localizeUi("ui.agents.agentcatalogview.loadingTheOfficialCatalog")}
+                </p>
+              ) : catalog.isError ? (
+                <div className="ov-vw__empty">
+                  <p className="ov-dl__err">{localizeUi("ui.agents.agentcatalogview.theAgentCatalogIsUnavailable")}</p>
+                  <p>{catalogErrorDescription(catalog.error)}</p>
+                  <button type="button" className="ov-dl__link" onClick={() => void catalog.refetch()}>
+                    {localizeUi("capabilities.actions.tryAgain")}
+                  </button>
+                </div>
+              ) : packages.length === 0 ? (
+                <p className="ov-vw__empty">
+                  {hasActiveFilters
+                    ? localizeUi("ui.agents.agentcatalogview.noMatchingAgents")
+                    : localizeUi("ui.agents.agentcatalogview.theOfficialCatalogIsEmpty")}
+                </p>
+              ) : (
+                <>
+                  <p className="ov-vw__label ov-dl__label">
+                    Installed<small>{installedGroup.entries.length}</small>
+                  </p>
+                  {installedGroup.entries.length ? (
+                    installedGroup.entries.map((entry) => renderRow(entry, true))
+                  ) : (
+                    <p className="ov-vw__empty">
+                      {localizeUi("ui.agents.agentcatalogview.noAgentsInstalledInThisView")}
+                    </p>
+                  )}
+                  <p className="ov-vw__label ov-dl__label">
+                    Available<small>{availableGroup.entries.length}</small>
+                  </p>
+                  {availableGroup.entries.length === 0 ? (
+                    <p className="ov-vw__empty">
+                      {localizeUi("ui.agents.agentcatalogview.everyMatchingAgentIsInstalled")}
+                    </p>
+                  ) : (
+                    CATEGORY_SECTIONS.map((category) => {
+                      const entries = availableGroup.entries.filter((entry) => catalogCategory(entry) === category.id);
+                      if (!entries.length) return null;
+                      const isClosed = ovClosed[category.id] && !query.trim();
+                      return (
+                        <section key={category.id} className="ov-vw__group">
+                          <button
+                            type="button"
+                            className="ov-vw__ghead"
+                            aria-expanded={!isClosed}
+                            onClick={() =>
+                              setOvClosed((current) => ({ ...current, [category.id]: !current[category.id] }))
+                            }
+                          >
+                            <ChevronDown size={13} className={cn(isClosed && "-rotate-90")} aria-hidden="true" />
+                            <span>{localizeUi(category.labelKey)}</span>
+                            <small>{entries.length}</small>
+                          </button>
+                          {isClosed ? null : entries.map((entry) => renderRow(entry, false))}
+                        </section>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </div>
+          </aside>
+          {selected ? (
+            <main className="ov-dl__detail">
+              <div className="ov-dl__top">
+                <span className="ov-dl__art">
+                  <AgentArtwork
+                    imageUrl={selected.iconUrl}
+                    alt={localizeUi("ui.agents.agentcatalogview.value1Artwork", { value1: selected.manifest.name })}
+                    iconSize="1.75rem"
+                  />
+                </span>
+                <div className="ov-dl__id">
+                  <small>{categoryLabel(selected)}</small>
+                  <h2>{selected.manifest.name}</h2>
+                  <div className="ov-dl__badges">
+                    {packageModes(selected.manifest.id).map((mode) => (
+                      <span key={mode} className={cn("ov-dl__badge", `is-${mode}`)}>
+                        {localizeUi(MODE_BADGES[mode].labelKey)}
+                      </span>
+                    ))}
+                    {selected.manifest.kind.filter(isAgentCatalogKindBadgeVisible).map((kind) => (
+                      <span key={kind} className="ov-dl__badge">
+                        {kindLabel(kind)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="ov-dl__cta">
+                  {selected.documentationUrl && (
+                    <a href={selected.documentationUrl} target="_blank" rel="noreferrer" className="ov-dl__act">
+                      <ExternalLink size={13} aria-hidden="true" />
+                      How it works
+                    </a>
+                  )}
+                  {selectedInstalled ? (
+                    <button
+                      type="button"
+                      className="ov-dl__act"
+                      disabled={packageActionPending}
+                      onClick={() => void handleUninstall(selected)}
+                    >
+                      {uninstall.isPending ? (
+                        <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Trash2 size={13} aria-hidden="true" />
+                      )}
+                      {localizeUi("ui.agents.agentcatalogview.uninstall")}
+                    </button>
+                  ) : null}
+                  {!selectedInstalled || selectedUpdate ? (
+                    <button
+                      type="button"
+                      className="ov-dl__primary"
+                      disabled={packageActionPending}
+                      onClick={() => void handleInstall(selected)}
+                    >
+                      {busyInstall ? (
+                        <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Download size={14} aria-hidden="true" />
+                      )}
+                      {selectedUpdate
+                        ? `${localizeUi("ui.agents.agentcatalogview.update")} to v${selected.manifest.version}`
+                        : localizeUi("ui.agents.agentcatalogview.install")}
+                    </button>
+                  ) : (
+                    <span className="ov-dl__state">{localizeUi("ui.agents.agentcatalogview.installed_7bb4405")}</span>
+                  )}
+                </div>
+              </div>
+              <p className="ov-dl__desc">{selected.manifest.description}</p>
+              <div className="ov-dl__meta">
+                <span>
+                  <ShieldCheck size={13} aria-hidden="true" />
+                  {catalog.data?.provenance?.kind === "custom" ? "Custom package" : "Official package"}, checksum
+                  verified on install
+                </span>
+                <span>
+                  {selectedInstalled ? (
+                    <>
+                      Installed v{selectedInstalled.version}
+                      {selectedVersionComparison !== 0 ? ` · catalog v${selected.manifest.version}` : ""}
+                    </>
+                  ) : (
+                    <>v{selected.manifest.version}</>
+                  )}
+                </span>
+                <span>
+                  <HardDrive size={13} aria-hidden="true" />
+                  {formatBytes(selected.artifact.bytes)}
+                </span>
+                <span>Needs Engine v{selected.manifest.engine.min}+</span>
+              </div>
+              <section className="ov-dl__sec">
+                <h3>
+                  {localizeUi("ui.agents.agentcatalogview.permissions")}
+                  <small>what this agent can access</small>
+                </h3>
+                {(selected.manifest.entrypoints.server || selected.manifest.entrypoints.client) && (
+                  <p className="ov-dl__note is-warn">
+                    {localizeUi("ui.agents.agentcatalogview.trustedCodeAccessNotice")}
+                  </p>
+                )}
+                {permissionGroups.map((group) => (
+                  <div key={group.kind}>
+                    {permissionGroups.length > 1 ? (
+                      <p className="ov-dl__sub">
+                        {localizeUi(
+                          group.kind === "installed"
+                            ? "ui.agents.agentcatalogview.installedPermissions"
+                            : "ui.agents.agentcatalogview.availablePermissions",
+                          { version: group.version },
+                        )}
+                      </p>
+                    ) : null}
+                    {group.permissions.length > 0 ? (
+                      <ul className="ov-dl__perms">
+                        {group.permissions.map((permission) => (
+                          <li key={permission}>
+                            <Check size={12} aria-hidden="true" />
+                            {permission === "ui" ? "UI" : permission.replaceAll("-", " ")}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="ov-dl__note">{localizeUi("ui.agents.agentcatalogview.noPermissions")}</p>
+                    )}
+                  </div>
+                ))}
+                <p className="ov-dl__note">{localizeUi("ui.agents.agentcatalogview.permissionScopeNotice")}</p>
+              </section>
+              <div className="ov-dl__history">
+                <AgentVersionHistory packageId={selected.manifest.id} />
+              </div>
+            </main>
+          ) : (
+            <main className="ov-dl__detail">
+              <p className="ov-vw__pick">{localizeUi("ui.agents.agentcatalogview.selectAnAgentToSeeItsDetails")}</p>
+            </main>
+          )}
+        </div>
+        <CustomAgentRepositoriesModal open={customRepositoriesOpen} onClose={() => setCustomRepositoriesOpen(false)} />
+      </div>
+    );
+  }
 
   return (
     <div

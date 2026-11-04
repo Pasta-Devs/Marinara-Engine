@@ -5586,3 +5586,389 @@ input.ov-edhead__title:focus {
 .ov-lv__left .ov-lore-row {
   padding: 0 !important;
 }
+
+/* ─── Download agents (mockup Agents-Download, 2026-11-04) ─── */
+.ov-dl {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--background);
+}
+.ov-dl__head {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem 0.625rem;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-dl__title {
+  min-width: 0;
+  flex: 1;
+}
+.ov-dl__here {
+  color: var(--ov-text);
+}
+.ov-dl__titleline {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+.ov-dl__titleline h1 {
+  margin: 0.125rem 0 0;
+  color: var(--ov-text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.ov-dl__titleline small {
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ov-dl__actions,
+.ov-dl__cta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.75rem;
+}
+.ov-dl__act {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.375rem;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-dl__act:hover:not(:disabled) {
+  background: var(--ov-hover);
+}
+.ov-dl__act:disabled,
+.ov-dl__primary:disabled {
+  opacity: 0.5;
+}
+.ov-dl .ov-menu button {
+  justify-content: flex-start;
+}
+.ov-dl .ov-menu button small {
+  margin-left: auto;
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+}
+.ov-dl .ov-menu button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.ov-dl__body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(17rem, 23rem) minmax(0, 1fr);
+}
+.ov-dl__filters {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 0.25rem;
+}
+.ov-dl__filters .ov-vw__search {
+  height: 1.875rem;
+}
+.ov-dl__modes.ov-dl__modes {
+  display: inline-flex;
+  width: fit-content;
+  flex-wrap: nowrap;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.375rem;
+}
+.ov-dl__modes .mari-chrome-control.mari-chrome-control {
+  height: 1.5rem;
+  min-height: 1.5rem;
+  flex: none;
+  padding: 0 0.625rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: none;
+  box-shadow: none;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-dl__modes .mari-chrome-control--selected.mari-chrome-control--selected {
+  background: color-mix(in srgb, var(--ov-text) 12%, transparent);
+  color: var(--ov-text);
+}
+.ov-dl__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-dl__label.ov-dl__label {
+  margin: 0.75rem 0.625rem 0.25rem;
+}
+.ov-dl__icon {
+  display: inline-flex;
+  width: 1.625rem;
+  height: 1.625rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--ov-accent) 22%, var(--card));
+  color: var(--ov-text);
+}
+.ov-dl__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ov-dl__trail {
+  gap: 0.25rem;
+}
+.ov-dl__mode {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.1875rem;
+  background: color-mix(in srgb, var(--ov-text) 10%, transparent);
+  color: var(--ov-muted);
+  font-size: 0.5625rem;
+  font-weight: 700;
+}
+.ov-dl__mode.is-conversation,
+.ov-dl__badge.is-conversation {
+  background: color-mix(in srgb, var(--mari-logo-cyan, #38bdf8) 22%, transparent);
+  color: color-mix(in srgb, var(--mari-logo-cyan, #38bdf8) 70%, var(--ov-text));
+}
+.ov-dl__mode.is-roleplay,
+.ov-dl__badge.is-roleplay {
+  background: color-mix(in srgb, var(--mari-logo-orange, #fb923c) 22%, transparent);
+  color: color-mix(in srgb, var(--mari-logo-orange, #fb923c) 70%, var(--ov-text));
+}
+.ov-dl__mode.is-game,
+.ov-dl__badge.is-game {
+  background: color-mix(in srgb, var(--ov-accent) 22%, transparent);
+  color: color-mix(in srgb, var(--ov-accent) 70%, var(--ov-text));
+}
+.ov-dl__state {
+  margin-left: 0.25rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, #22c55e 18%, transparent);
+  color: color-mix(in srgb, #22c55e 75%, var(--ov-text));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ov-dl__state.is-update {
+  background: color-mix(in srgb, #eab308 20%, transparent);
+  color: color-mix(in srgb, #eab308 80%, var(--ov-text));
+}
+.ov-dl__err {
+  color: var(--ov-text);
+  font-weight: 600;
+}
+.ov-dl__link {
+  margin-top: 0.375rem;
+  color: var(--ov-accent);
+  font-size: 0.8125rem;
+}
+.ov-dl__detail {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem 1.75rem 2rem;
+}
+.ov-dl__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.ov-dl__art {
+  display: inline-flex;
+  width: 4.5rem;
+  height: 4.5rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--ov-accent) 22%, var(--card));
+  color: var(--ov-text);
+}
+.ov-dl__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ov-dl__id {
+  min-width: 0;
+  flex: 1;
+}
+.ov-dl__id small {
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-dl__id h2 {
+  margin: 0.0625rem 0 0.375rem;
+  color: var(--ov-text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.ov-dl__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.ov-dl__badge {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--ov-text) 10%, transparent);
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ov-dl__primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border-radius: 0.375rem;
+  background: var(--ov-accent);
+  color: var(--primary-foreground, #fff);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ov-dl__primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.ov-dl__desc {
+  max-width: 48rem;
+  margin: 1rem 0 0;
+  color: var(--ov-text);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+.ov-dl__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 1.5rem;
+  margin-top: 1rem;
+  padding: 0.5rem 0;
+  border-block: 1px solid var(--ov-line);
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ov-dl__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-dl__sec h3,
+.ov-dl__history h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--ov-accent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ov-dl__sec h3::after,
+.ov-dl__history h3::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--ov-line);
+}
+.ov-dl__sec h3 small {
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ov-dl__sub {
+  margin: 0.5rem 0 0.25rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-dl__perms {
+  display: grid;
+  gap: 0.375rem;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+}
+.ov-dl__perms li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.625rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.375rem;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  text-transform: capitalize;
+}
+.ov-dl__perms li svg {
+  color: var(--ov-muted);
+}
+.ov-dl__note {
+  margin-top: 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.ov-dl__note.is-warn {
+  margin-bottom: 0.5rem;
+  color: var(--ov-text);
+}
+.ov-dl__history ol {
+  display: block;
+}
+.ov-dl__history ol > li {
+  display: grid;
+  margin: 0;
+  padding: 0.375rem 0;
+  border-left: 0;
+  border-bottom: 1px solid var(--ov-line);
+  align-items: baseline;
+  column-gap: 1rem;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+}
+.ov-dl__history ol > li > div:first-child {
+  flex-wrap: nowrap;
+}
+.ov-dl__history ol > li > p {
+  margin: 0;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-dl__history ol > li > :nth-child(n + 3) {
+  grid-column: 2;
+}
+.ov-dl__history section > div {
+  margin-top: 0;
+}
+.ov-dl__head {
+  position: relative;
+  z-index: 5;
+}
+.ov-dl .ov-menu {
+  background: linear-gradient(var(--card), var(--card)), var(--background);
+}
+/* Agent editor beside the Agents list: the upstream grids switch columns by window width, not by the
+   space they get, so in a narrow detail column they stack instead of squeezing. */
+@container ov-ed (max-width: 44rem) {
+  .ov-agented .ov-cf__control .grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
