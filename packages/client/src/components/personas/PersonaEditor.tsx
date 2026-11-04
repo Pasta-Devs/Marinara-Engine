@@ -4004,7 +4004,7 @@ function PersonaMetadataTab({
             placeholder={formData.name}
           />
         </label>
-        <div className="space-y-1.5">
+        <div className={cn("space-y-1.5", overhaulMeta && "order-first")}>
           <label className="block space-y-1.5">
             <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.personas.personametadatatab.creator")}{" "}
