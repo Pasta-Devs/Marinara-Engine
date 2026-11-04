@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ComponentProps } from "react";
+import { Suspense, lazy, useEffect, type ComponentProps } from "react";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { ChevronUp, ChevronDown, Download, Layers, ListChecks, Loader2, Trash2, X } from "lucide-react";
@@ -169,6 +169,16 @@ function MultiSelectBar({
   onSelectAllBelow,
 }: MultiSelectBarProps) {
   const { t } = useTranslation();
+  const deleting = open && !!onDelete;
+  // Tints the message selection in the danger colour while picking messages to delete.
+  useEffect(() => {
+    if (!deleting) return;
+    const root = document.documentElement;
+    root.dataset.messageDeleteSelect = "";
+    return () => {
+      delete root.dataset.messageDeleteSelect;
+    };
+  }, [deleting]);
   if (!open) return null;
 
   return (
@@ -199,7 +209,7 @@ function MultiSelectBar({
             type="button"
             onClick={onDelete}
             disabled={selectedCount === 0}
-            className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs"
+            className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs mari-chrome-control--danger"
           >
             <Trash2 size="0.75rem" />
             <span>{t("chat.delete.selection.delete")}</span>
