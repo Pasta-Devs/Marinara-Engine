@@ -162,11 +162,22 @@ function OvViewer({
   );
 }
 
-/** The viewer always shows an item, like the mockups: with nothing selected it opens the first one. */
-function useAutoSelect(selectedId: string | null, firstId: string | undefined, open: (id: string) => void) {
+/**
+ * The viewer always shows an item, like the mockups: with nothing selected it opens the first one.
+ * Only while its Library page is the one on screen, so leaving it (Home, a chat) closes the item
+ * instead of reopening it on the way out.
+ */
+function useAutoSelect(
+  section: "regex" | "connections" | "agents",
+  selectedId: string | null,
+  firstId: string | undefined,
+  open: (id: string) => void,
+) {
   useEffect(() => {
-    if (!selectedId && firstId) open(firstId);
-  }, [firstId, open, selectedId]);
+    if (selectedId || !firstId) return;
+    if (useOverhaulStore.getState().libraryPage !== section) return;
+    open(firstId);
+  }, [firstId, open, section, selectedId]);
 }
 
 // ── Regex scripts ──
@@ -220,7 +231,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
     ].filter((group) => group.rows.length || group.id === "global");
   }, [localize, scripts, search, updateRegex]);
 
-  useAutoSelect(selectedId, scripts[0]?.id, openRegexDetail);
+  useAutoSelect("regex", selectedId, scripts[0]?.id, openRegexDetail);
   const enabledCount = scripts.filter((script) => script.enabled === "true").length;
 
   return (
@@ -302,7 +313,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
   }, [connections, localize, search]);
 
   const firstId = groups.find((group) => group.rows.length)?.rows[0]?.id;
-  useAutoSelect(selectedId, firstId, openConnectionDetail);
+  useAutoSelect("connections", selectedId, firstId, openConnectionDetail);
 
   return (
     <OvViewer
@@ -377,7 +388,7 @@ export function OvAgentsViewer({ children }: { children: ReactNode }) {
   }, [localize, rows, search]);
 
   const firstId = groups.find((group) => group.id !== "apps")?.rows[0]?.id ?? groups[0]?.rows[0]?.id;
-  useAutoSelect(selectedId, firstId, openAgentDetail);
+  useAutoSelect("agents", selectedId, firstId, openAgentDetail);
 
   return (
     <OvViewer

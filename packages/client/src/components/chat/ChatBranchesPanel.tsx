@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   BookOpen,
   ChartColumn,
   Check,
+  ChevronDown,
   Download,
   FileText,
   Hash,
@@ -28,6 +29,7 @@ import { compareChatsByActivityDesc } from "../../lib/chat-recency";
 import { api } from "../../lib/api-client";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type BranchRow = {
@@ -55,6 +57,24 @@ export function ChatBranchesPanel({ activeChatId, activeChatName, groupId }: Cha
   const updateMetadata = useUpdateChatMetadata();
   const qc = useQueryClient();
   const [isImporting, setIsImporting] = useState(false);
+  const overhaul = useOverhaulActive();
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const onDown = (event: PointerEvent) => {
+      if (!exportMenuRef.current?.contains(event.target as Node)) setExportMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExportMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [exportMenuOpen]);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const branches = useMemo(() => {
@@ -172,64 +192,128 @@ export function ChatBranchesPanel({ activeChatId, activeChatName, groupId }: Cha
     <div data-chat-branches className="space-y-2">
       <div>
         <input ref={importInputRef} type="file" accept=".jsonl" onChange={handleImportChat} className="hidden" />
-        <div className="grid grid-cols-3 gap-1.5">
-          <button
-            type="button"
-            onClick={() => exportChat.mutate({ chatId: activeChatId, format: "jsonl" })}
-            disabled={exportChat.isPending}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            <Upload size="0.75rem" />
-            {localizeUi("ui.chat.chatbranchselector.jsonl")}
-          </button>
-          <button
-            type="button"
-            onClick={() => exportChat.mutate({ chatId: activeChatId, format: "text" })}
-            disabled={exportChat.isPending}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            <FileText size="0.75rem" />
-            {localizeUi("ui.chat.chatbranchselector.text")}
-          </button>
-          <button
-            type="button"
-            onClick={() => importInputRef.current?.click()}
-            disabled={isImporting}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            <Download size="0.75rem" />
-            {isImporting ? "..." : localizeUi("ui.chat.chatbranchselector.import")}
-          </button>
-          <button
-            type="button"
-            onClick={() => exportChat.mutate({ chatId: activeChatId, format: "markdown" })}
-            disabled={exportChat.isPending}
-            title={localizeUi("chatInsights.export.markdownTitle")}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            <Hash size="0.75rem" />
-            {localizeUi("chatInsights.export.markdown")}
-          </button>
-          <button
-            type="button"
-            onClick={() => exportChat.mutate({ chatId: activeChatId, format: "html" })}
-            disabled={exportChat.isPending}
-            title={localizeUi("chatInsights.export.htmlTitle")}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            <BookOpen size="0.75rem" />
-            {localizeUi("chatInsights.export.html")}
-          </button>
-          <button
-            type="button"
-            onClick={() => openChatStats(activeChatId)}
-            title={localizeUi("chatInsights.stats.open")}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            <ChartColumn size="0.75rem" />
-            {localizeUi("chatInsights.stats.button")}
-          </button>
-        </div>
+        {overhaul ? (
+          <div className="ov-cb-io">
+            <button
+              type="button"
+              className="ov-cb-io__btn"
+              onClick={() => importInputRef.current?.click()}
+              disabled={isImporting}
+              title={localizeUi("ui.chat.chatbranchselector.import")}
+            >
+              <Download size="0.8125rem" />
+              {isImporting ? "..." : localizeUi("ui.chat.chatbranchselector.import")}
+            </button>
+            <div className="ov-menu-wrap" ref={exportMenuRef}>
+              <button
+                type="button"
+                className="ov-cb-io__btn"
+                aria-haspopup="menu"
+                aria-expanded={exportMenuOpen}
+                disabled={exportChat.isPending}
+                onClick={() => setExportMenuOpen((open) => !open)}
+              >
+                <Upload size="0.8125rem" />
+                {exportChat.isPending ? "..." : "Export"}
+                <ChevronDown size="0.75rem" />
+              </button>
+              {exportMenuOpen ? (
+                <div className="ov-menu ov-cb-io__menu" role="menu">
+                  {(
+                    [
+                      { format: "jsonl", label: "JSONL", ext: ".jsonl", hint: "Re-importable chat file" },
+                      { format: "text", label: "Plain text", ext: ".txt", hint: "Messages as plain text" },
+                      { format: "markdown", label: "Markdown", ext: ".md", hint: "Formatted for notes and docs" },
+                      { format: "html", label: "Story", ext: ".html", hint: "Styled page to share or print" },
+                    ] as const
+                  ).map((item) => (
+                    <button
+                      key={item.format}
+                      type="button"
+                      role="menuitem"
+                      title={item.hint}
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        exportChat.mutate({ chatId: activeChatId, format: item.format });
+                      }}
+                    >
+                      <span>{item.label}</span>
+                      <small>{item.ext}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="ov-cb-io__btn"
+              onClick={() => openChatStats(activeChatId)}
+              title={localizeUi("chatInsights.stats.open")}
+            >
+              <ChartColumn size="0.8125rem" />
+              {localizeUi("chatInsights.stats.button")}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              type="button"
+              onClick={() => exportChat.mutate({ chatId: activeChatId, format: "jsonl" })}
+              disabled={exportChat.isPending}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              <Upload size="0.75rem" />
+              {localizeUi("ui.chat.chatbranchselector.jsonl")}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportChat.mutate({ chatId: activeChatId, format: "text" })}
+              disabled={exportChat.isPending}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              <FileText size="0.75rem" />
+              {localizeUi("ui.chat.chatbranchselector.text")}
+            </button>
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              disabled={isImporting}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              <Download size="0.75rem" />
+              {isImporting ? "..." : localizeUi("ui.chat.chatbranchselector.import")}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportChat.mutate({ chatId: activeChatId, format: "markdown" })}
+              disabled={exportChat.isPending}
+              title={localizeUi("chatInsights.export.markdownTitle")}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              <Hash size="0.75rem" />
+              {localizeUi("chatInsights.export.markdown")}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportChat.mutate({ chatId: activeChatId, format: "html" })}
+              disabled={exportChat.isPending}
+              title={localizeUi("chatInsights.export.htmlTitle")}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              <BookOpen size="0.75rem" />
+              {localizeUi("chatInsights.export.html")}
+            </button>
+            <button
+              type="button"
+              onClick={() => openChatStats(activeChatId)}
+              title={localizeUi("chatInsights.stats.open")}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              <ChartColumn size="0.75rem" />
+              {localizeUi("chatInsights.stats.button")}
+            </button>
+          </div>
+        )}
       </div>
 
       <div>
