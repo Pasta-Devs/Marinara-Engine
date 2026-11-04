@@ -19,6 +19,7 @@ import { cn } from "../../lib/utils";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
+import { useOverhaulActive } from "../../stores/overhaul.store";
 import { DecisionStatementNote } from "./DecisionStatementNote";
 import { MacroCompletionGhost, useMacroCompletion } from "./MacroCompletionGhost";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
@@ -231,6 +232,11 @@ interface MacrosReferenceModalProps {
 
 function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulActive = useOverhaulActive();
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
   useEffect(() => {
     if (!open) {
       return;
@@ -248,6 +254,108 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
 
   if (!open) {
     return null;
+  }
+
+  if (overhaulActive) {
+    const needle = query.trim().toLowerCase();
+    const groups = MACRO_REFERENCE.map(
+      ([category, macros]) =>
+        [
+          category,
+          needle
+            ? macros.filter(
+                (macro) =>
+                  macro.syntax.toLowerCase().includes(needle) || macro.description.toLowerCase().includes(needle),
+              )
+            : macros,
+        ] as const,
+    ).filter(([, macros]) => macros.length > 0);
+    return (
+      <MacroModalPortal>
+        <div
+          data-component="MacroReference"
+          data-macro-modal="true"
+          className={cn("ov-mref-backdrop", EDITOR_MODAL_SURFACE_VARIABLES)}
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) onClose();
+          }}
+        >
+          <div className="ov-mref" role="dialog" aria-label={localizeUi("ui.ui.macrosreferencemodal.macroReference")}>
+            <header className="ov-mref__head">
+              <div className="ov-mref__title">
+                <h3>{localizeUi("ui.ui.macrosreferencemodal.macroReference")}</h3>
+                <p>{localizeUi("ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset")}</p>
+              </div>
+              <input
+                autoFocus
+                className="ov-mref__search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={localizeUi("ui.overhaul.searchMacros", { defaultValue: "Search macros" })}
+                aria-label={localizeUi("ui.overhaul.searchMacros", { defaultValue: "Search macros" })}
+              />
+              <button
+                type="button"
+                onClick={onClose}
+                className="ov-mref__close"
+                aria-label={localizeUi("ui.ui.macrosreferencemodal.closeMacroReference")}
+                title={localizeUi("capabilities.actions.close")}
+              >
+                <X size="0.9375rem" />
+              </button>
+            </header>
+            <div className="ov-mref__body">
+              {needle ? null : (
+                <section className="ov-mref__group">
+                  <h4 className="ov-mref__cat">{localizeUi("ui.overhaul.macroSyntax", { defaultValue: "Syntax" })}</h4>
+                  <p className="ov-mref__note">
+                    <Trans
+                      i18nKey="ui.ui.macrosreferencemodal.macroUsageGuidance"
+                      values={{ macroExample: "{{macro}}" }}
+                      components={{ macroCode: <code />, or: <code />, and: <code /> }}
+                    />
+                  </p>
+                  <div className="ov-mref__row ov-mref__row--example">
+                    <span className="ov-mref__label">{localizeUi("ui.ui.macrosreferencemodal.conditionalBlock")}</span>
+                    <code className="ov-mref__code">
+                      {
+                        '{{#if character == "Dottore"}}\nWrite this for Dottore.\n{{else}}\nWrite this for anyone else.\n{{/if}}'
+                      }
+                    </code>
+                  </div>
+                  <div className="ov-mref__row ov-mref__row--example">
+                    <span className="ov-mref__label">
+                      {localizeUi("ui.ui.macrosreferencemodal.comparisonsAndLogic")}
+                    </span>
+                    <code className="ov-mref__code">
+                      {
+                        '{{#if character == "Maukie" || "Pantalone"}}\n...\n{{/if}}\n{{#if scenario && user contains "Mari"}}\n...\n{{/if}}'
+                      }
+                    </code>
+                  </div>
+                </section>
+              )}
+              {groups.map(([category, macros]) => (
+                <section key={category} className="ov-mref__group">
+                  <h4 className="ov-mref__cat">{category}</h4>
+                  {macros.map((macro) => (
+                    <div key={macro.syntax} className="ov-mref__row">
+                      <code className="ov-mref__syntax">{macro.syntax}</code>
+                      <span className="ov-mref__desc">{macro.description}</span>
+                    </div>
+                  ))}
+                </section>
+              ))}
+              {groups.length === 0 ? (
+                <p className="ov-mref__empty">
+                  {localizeUi("ui.overhaul.noMacrosMatch", { defaultValue: "No macros match." })}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </MacroModalPortal>
+    );
   }
 
   return (
