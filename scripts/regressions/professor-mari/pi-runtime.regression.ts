@@ -910,6 +910,56 @@ try {
     assert.ok(events.some((event) => event.type === "suggestions"));
   }
 
+  // #8803: Gemma's double wrapper still carries useful, passive chips. One request, including on reload.
+  {
+    const answer = "The opening is ready.";
+    const labels = ["Play from here", "Check other fields", "Start a clean chat"];
+    const suffix = [
+      "<suggestions>",
+      "<chips>",
+      "<chips>",
+      ...labels.map((label) => `<chip label="${label}" prompt="${label}, please." entity="chat" />`),
+      "</chips>",
+      "</suggestions>",
+    ].join("\n");
+    const raw = answer + "\n" + suffix;
+    for (const runtime of ["pi", "classic"] as const) {
+      const { chat, events, done } = await start(
+        "recovered chips",
+        [
+          async (options, onToken) => {
+            const stream = options.onToken ?? onToken;
+            stream?.(answer + "\n<su");
+            stream?.(suffix.slice(3));
+            return reply(raw);
+          },
+        ],
+        runtime,
+      );
+      await done;
+      assert.equal(requests.length, 1, runtime);
+      const saved = await lastAssistant(chat.id);
+      assert.equal(saved?.content, answer, runtime);
+      assert.deepEqual(
+        (saved?.extra.mariSuggestions as Array<{ label: string }>).map((chip) => chip.label),
+        labels,
+      );
+      assert.ok(events.some((event) => event.type === "suggestions"));
+      assert.doesNotMatch(
+        JSON.stringify(events.filter((event) => ["draft", "token"].includes(event.type))),
+        /<su|<chip/,
+      );
+    }
+    const fenced = "```xml\n" + suffix + "\n```";
+    const malformed = suffix.replace('label="Play from here"', 'action="open"');
+    for (const example of [fenced, malformed, suffix + "\nFurther explanation."]) {
+      const { chat, done } = await start("keep example", [reply(example)]);
+      await done;
+      assert.equal((await lastAssistant(chat.id))?.content, example);
+      assert.equal((await lastAssistant(chat.id))?.extra.mariSuggestions, undefined);
+    }
+  }
+
   // Chips with no words are not the answer yet: the run goes on, keeps the chips and stores the next text.
   {
     mode = "auto";
@@ -976,7 +1026,11 @@ try {
     assert.equal(requests[0]!.options.toolChoice, undefined);
     const system = requests[0]!.messages.find((message) => message.role === "system")?.content ?? "";
     assert.match(system, /<text_tool_calls>/u);
-    assert.ok(system.includes('<tool_call>{"name":"suggestions","arguments":{"chips":[{"label":"Play from here","prompt":"Continue from the opening."}]}}</tool_call>'));
+    assert.ok(
+      system.includes(
+        '<tool_call>{"name":"suggestions","arguments":{"chips":[{"label":"Play from here","prompt":"Continue from the opening."}]}}</tool_call>',
+      ),
+    );
     assert.match(system, /- suggestions:/u);
     for (const request of requests) {
       assert.ok(!request.messages.some((message) => message.role === "tool" || message.tool_calls));

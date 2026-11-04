@@ -1,3 +1,4 @@
+import { recoverSuggestionSuffix, suggestionSuffixIndex } from "./suggestion-suffix.js";
 // ──────────────────────────────────────────────
 // Professor Mari native command workspace runtime
 // ──────────────────────────────────────────────
@@ -1737,7 +1738,9 @@ export function scrubInternalNames(text: string): string {
  * scrubbed. Without an opener the trailing word run is held back, so a name split across deltas never shows raw.
  */
 export function draftVisibleText(raw: string): string {
-  const marker = textualCallMarkerIndex(raw);
+  const suggestion = suggestionSuffixIndex(raw);
+  const marker = textualCallMarkerIndex(suggestion < 0 ? raw : raw.slice(0, suggestion));
+  if (marker < 0 && suggestion >= 0) return scrubInternalNames(raw.slice(0, suggestion));
   let end = marker >= 0 ? marker : raw.length;
   while (marker < 0 && end > 0 && /[\w.`:]/.test(raw[end - 1]!)) end -= 1;
   return scrubInternalNames(raw.slice(0, end));
@@ -1899,7 +1902,8 @@ function stripWorkspaceCommands(content: string): string {
 }
 
 export function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceAction {
-  const { content: contentWithoutJson, matches } = removeJsonActionFrames(content);
+  const recovered = recoverSuggestionSuffix(content);
+  const { content: contentWithoutJson, matches } = removeJsonActionFrames(recovered?.text ?? content);
   const parsedFrames = matches.map((match) => ({ ...match, ...parseJsonCommandCallsFromPayload(match.payload) }));
   const jsonCommands = parsedFrames.flatMap((frame) => frame.calls);
   const hasInvalidCommands = parsedFrames.some((frame) => frame.unrecognized);
@@ -1960,8 +1964,10 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
   // Even an invalid card means she wants an answer first.
   const askCalled = matches.some((match) => Array.isArray(match.payload.ask) && match.payload.ask.length > 0);
   const commands = askCalled ? parsedCommands.filter((call) => !isMutatingWorkspaceCommand(call)) : parsedCommands;
-  const suggestions = asking ? [] : parsedSuggestions;
-  const protocolValid = matches.length > 0 && !hasInvalidCommands;
+  const suggestions =
+    asking || hasInvalidCommands ? [] : parsedSuggestions.length ? parsedSuggestions : (recovered?.chips ?? []);
+  const protocolValid =
+    (matches.length > 0 || (Boolean(recovered) && sentCommands.length === 0)) && !hasInvalidCommands;
   const explicitStop = [...matches].reverse().find((match) => jsonPayloadStopValue(match.payload) !== undefined);
   const explicitStopValue = explicitStop ? jsonPayloadStopValue(explicitStop.payload) : undefined;
   const stop = asking || (!hasInvalidCommands && (explicitStopValue ?? (commands.length === 0 && protocolValid)));
