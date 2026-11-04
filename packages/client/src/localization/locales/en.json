@@ -1293,6 +1293,7 @@
   "chat.setupStage.scene.retry": "Try again",
   "chat.setupStage.scene.send": "Write this scene",
   "chat.setupStage.scene.surprise": "Surprise me",
+  "chat.setupStage.scene.toggle": "Set the scene",
   "chat.setupStage.sentenceBegins": "It begins with <greeting>{{greeting}}</greeting>, using <preset>{{preset}}</preset>.",
   "chat.setupStage.sentenceModel_one": "{{cast}} talks through <model>no model yet</model>.",
   "chat.setupStage.sentenceModel_other": "{{cast}} talk through <model>no model yet</model>.",

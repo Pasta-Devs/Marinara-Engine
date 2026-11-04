@@ -1812,7 +1812,7 @@ export function ChatRoleplaySurface({
         <div
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute inset-0 bg-[color-mix(in_srgb,var(--background)_55%,transparent)] transition-opacity duration-500 motion-reduce:transition-none",
+            "pointer-events-none absolute inset-0 bg-[color-mix(in_srgb,var(--background)_55%,transparent)] max-md:bg-[color-mix(in_srgb,var(--background)_25%,transparent)] transition-opacity duration-500 motion-reduce:transition-none",
             setupStage.visible ? "opacity-100" : "opacity-0",
           )}
         />
