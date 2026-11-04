@@ -34,7 +34,11 @@ async function importCharacterFolder(page: Page, library: Locator, directory: st
         fullPath: `/${root}/${name}`,
         isFile: true,
         file: (resolve: (file: File) => void) =>
-          resolve(new File([Uint8Array.from(atob(contents), (c) => c.charCodeAt(0))], name)),
+          resolve(
+            new File([Uint8Array.from(atob(contents), (c) => c.charCodeAt(0))], name, {
+              type: name.endsWith(".png") ? "image/png" : "application/json",
+            }),
+          ),
       }));
       const entry = {
         isDirectory: true,
@@ -238,6 +242,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
   const errors: string[] = [];
   let releaseFrameSave = () => {};
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("dialog", async (dialog) => {
+    errors.push(`Unexpected browser ${dialog.type()}: ${dialog.message()}`);
+    await dialog.dismiss();
+  });
   try {
     for (const name of ["Front", "Alternate"])
       expect((await request.post(`${path}/folders`, { data: { name, category: "full-body" } })).ok()).toBeTruthy();
