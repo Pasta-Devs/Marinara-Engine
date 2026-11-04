@@ -1,12 +1,13 @@
 // ──────────────────────────────────────────────
 // Professor Mari image command service
 // ──────────────────────────────────────────────
-import { existsSync, lstatSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
+import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
   listSpriteCatalog,
@@ -396,21 +397,6 @@ function parseManifest(value: string): MariImageAsset[] {
   }
 }
 
-// The app folders (backgrounds, avatars, gallery, sprites, lorebook images, the preview folder) are reachable by
-// Professor Mari's shell when the data dir sits inside her workspace, so a path in them is never trusted as written.
-// A file is read, written or deleted only while its real path stays inside the real folder: the real data dir plus the
-// folder's place in it, so a linked file and a linked folder are both refused, and a data dir that is itself behind a
-// link still works. A path that does not exist yet is checked as the real path of its nearest existing folder plus the
-// rest of it, so a write never creates a file or folder through a link.
-// ponytail: checked, then used by the checked path, so a folder swapped for a link between the two is not caught;
-// opening each path part without following links (O_NOFOLLOW) would close that window.
-function realPathInAppFolder(folder: string, path: string): string {
-  let existing = path;
-  while (!lstatSync(existing, { throwIfNoEntry: false })) existing = dirname(existing);
-  const realPath = join(realpathSync(existing), relative(existing, path));
-  return assertInsideDir(join(realpathSync(DATA_DIR), relative(DATA_DIR, folder)), realPath);
-}
-
 // A write or delete acts on the file's own name in its checked real folder, so a link at that name is never followed.
 function appFileEntry(folder: string, path: string): string {
   return join(realPathInAppFolder(folder, dirname(path)), basename(path));
@@ -441,8 +427,16 @@ function spriteFolder(ownerId: string): string {
   return dir;
 }
 
+// A chat or character ID names one gallery subfolder, never a path, so an ID such as `..` cannot move a write.
+function galleryFolder(...names: string[]): string {
+  if (names.some((name) => !name || name === "." || name === ".." || /[/\\\0]/u.test(name)))
+    throw new Error(`Invalid gallery folder ID: ${names.at(-1)}`);
+  return join(GALLERY_DIR, ...names);
+}
+
+// lstat, not exists: a dangling link at the name is refused here, before any image is saved beside it.
 async function readManifest() {
-  if (!existsSync(PREVIEW_MANIFEST_PATH)) return [] as MariImageAsset[];
+  if (!lstatSync(PREVIEW_MANIFEST_PATH, { throwIfNoEntry: false })) return [] as MariImageAsset[];
   return parseManifest(await readFile(realPathInAppFolder(PREVIEW_DIR, PREVIEW_MANIFEST_PATH), "utf8"));
 }
 
@@ -499,8 +493,8 @@ async function savePreviewAsset(args: {
 }
 
 async function readBackgroundMeta(): Promise<Record<string, { tags: string[] }>> {
-  if (!existsSync(BACKGROUND_META_PATH)) return {};
-  // Checked outside the try: a linked meta.json is refused, not read as empty.
+  if (!lstatSync(BACKGROUND_META_PATH, { throwIfNoEntry: false })) return {};
+  // Checked outside the try: a linked meta.json, dangling or not, is refused, not read as empty.
   const path = realPathInAppFolder(BACKGROUND_DIR, BACKGROUND_META_PATH);
   try {
     return JSON.parse(await readFile(path, "utf8")) as Record<string, { tags: string[] }>;
@@ -1244,9 +1238,9 @@ export class MariImagesService {
     const chats = createChatsStorage(this.db);
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error(`Chat not found: ${chatId}`);
-    const dir = join(GALLERY_DIR, chatId);
+    const dir = galleryFolder(chatId);
     const filename = `${newId()}.${source.ext}`;
-    await writeAppFile(dir, join(dir, filename), source.buffer);
+    await writeAppFile(GALLERY_DIR, join(dir, filename), source.buffer);
     const image = await createGalleryStorage(this.db).create({
       chatId,
       filePath: `${chatId}/${filename}`,
@@ -1263,9 +1257,9 @@ export class MariImagesService {
     const characters = createCharactersStorage(this.db);
     const existing = await characters.getById(characterId);
     if (!existing) throw new Error(`Character not found: ${characterId}`);
-    const dir = join(GALLERY_DIR, "characters", characterId);
+    const dir = galleryFolder("characters", characterId);
     const filename = `${newId()}.${source.ext}`;
-    await writeAppFile(dir, join(dir, filename), source.buffer);
+    await writeAppFile(GALLERY_DIR, join(dir, filename), source.buffer);
     const image = await createCharacterGalleryStorage(this.db).create({
       characterId,
       filePath: `characters/${characterId}/${filename}`,
@@ -1423,6 +1417,8 @@ export class MariImagesService {
     const store = createGalleryStorage(this.db);
     const image = await store.getById(imageId, chatId);
     if (!image || image.chatId !== chatId) throw new Error(`Chat gallery image not found: ${imageId}`);
+    // Refused before the row goes; the shared cleanup also holds every file it deletes to the real gallery folder.
+    appFileEntry(GALLERY_DIR, join(GALLERY_DIR, image.filePath));
     const cleanup = await deleteChatGalleryImageEverywhere({ db: this.db, image });
     return { deleted: image, cleanup };
   }
@@ -1431,6 +1427,7 @@ export class MariImagesService {
     const store = createCharacterGalleryStorage(this.db);
     const image = await store.getById(imageId);
     if (!image || image.characterId !== characterId) throw new Error(`Character gallery image not found: ${imageId}`);
+    appFileEntry(GALLERY_DIR, join(GALLERY_DIR, image.filePath));
     await store.remove(imageId);
     await unlinkGalleryFileIfUnreferenced({ db: this.db, filePath: image.filePath });
     return { deleted: image };

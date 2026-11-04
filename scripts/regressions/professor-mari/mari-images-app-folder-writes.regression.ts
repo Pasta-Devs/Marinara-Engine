@@ -1,8 +1,10 @@
 // `mari images` writes and reads files in the app folders (the preview folder and its manifest, backgrounds and their
 // meta.json, avatars, lorebook images, sprites, chat and character galleries). Professor Mari's shell can write into
 // those folders when the data dir sits inside her workspace, so a file or folder there may be a link. Every read, write
-// and delete stays inside the real folder: a linked file or folder is refused and its target is never touched. Normal
-// work, with DATA_DIR itself reached through a link, still writes. Both mari CLI routes run this service.
+// and delete stays inside the real folder: a linked file or folder, dangling or not, is refused and its target is never
+// touched, a chat or character ID cannot move a gallery write out of its folder, and the shared gallery cleanup (also
+// used by the gallery UI) never deletes through a linked folder. Normal work, with DATA_DIR itself reached through a
+// link, still writes. Both mari CLI routes run this service.
 import assert from "node:assert/strict";
 import {
   existsSync,
@@ -56,6 +58,8 @@ const { createLorebooksStorage } = await import("../../../packages/server/src/se
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } =
   await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { unlinkGalleryFileIfUnreferenced } =
+  await import("../../../packages/server/src/services/image/gallery-file-lifecycle.js");
 const { characterDataSchema, createChatSchema, createConnectionSchema, createLorebookSchema } =
   await import("../../../packages/shared/dist/index.js");
 
@@ -77,7 +81,11 @@ try {
     const snapshot = untouched.map((path) => [path, contents(path)] as const);
     const result = await images(...args);
     assert.equal(result.ok, false, `mari images ${args.join(" ")} is refused\n${result.text}`);
-    assert.match(result.text, /escapes the allowed directory|Linked app file refused/u, args.join(" "));
+    assert.match(
+      result.text,
+      /escapes the allowed directory|Linked app file refused|ENOENT|Invalid gallery folder ID/u,
+      args.join(" "),
+    );
     assert.ok(!result.text.includes(BAIT), `${args.join(" ")} never shows the outside file:\n${result.text}`);
     for (const [path, before] of snapshot) assert.deepEqual(contents(path), before, `${args.join(" ")}: ${path}`);
   };
@@ -148,9 +156,13 @@ try {
   await ok("assign", ...sprite, "--expression", "smile", ...fromAsset);
   await ok("assign", ...sprite, "--expression", "smile", "--source", DATA_URL, "--apply");
   assert.deepEqual(files(characterSprites), ["catalog.json", "smile.png"], "a sprite is replaced under its name");
-  await ok("assign", "--target", "chat-gallery", "--chat", chat.id, ...fromAsset);
+  const imageId = (result: { output?: unknown }) =>
+    (result.output as { result: { image: { id: string } } }).result.image.id;
+  const chatImageId = imageId(await ok("assign", "--target", "chat-gallery", "--chat", chat.id, ...fromAsset));
   assert.equal(files(join(dataDir, "gallery", chat.id)).length, 1);
-  await ok("assign", "--target", "character-gallery", "--character", character.id, ...fromAsset);
+  const characterImageId = imageId(
+    await ok("assign", "--target", "character-gallery", "--character", character.id, ...fromAsset),
+  );
   assert.equal(files(join(dataDir, "gallery", "characters", character.id)).length, 1);
   await ok("delete", "--target", "background", "--filename", "dawn.png", "--apply");
   assert.ok(!existsSync(join(backgrounds, "dawn.png")));
@@ -204,6 +216,19 @@ try {
   await refused(["generate", "--prompt", "a lantern"], linkedManifest);
   assert.deepEqual(files(previewDir), ["manifest.json"], "no preview is saved beside a refused manifest");
   rmSync(join(previewDir, "manifest.json"));
+
+  // A dangling link at the manifest or meta.json name is refused before any image is saved beside it.
+  symlinkSync(join(outside, "missing-manifest.json"), join(previewDir, "manifest.json"), "file");
+  await refused(["generate", "--prompt", "a lantern"], join(outside, "missing-manifest.json"));
+  assert.deepEqual(files(previewDir), ["manifest.json"], "no preview is saved beside a dangling manifest");
+  rmSync(join(previewDir, "manifest.json"));
+  symlinkSync(join(outside, "missing-meta.json"), join(backgrounds, "meta.json"), "file");
+  await refused(
+    ["assign", "--target", "background", "--name", "noon", "--source", DATA_URL, "--apply"],
+    join(outside, "missing-meta.json"),
+  );
+  assert.ok(!existsSync(join(backgrounds, "noon.png")), "no background is saved beside a dangling meta.json");
+  rmSync(join(backgrounds, "meta.json"));
 
   // A linked app folder: nothing is written, read or deleted in the folder it points to.
   const outsidePreviews = join(outside, "previews");
@@ -268,6 +293,87 @@ try {
   ]);
   assert.deepEqual(files(outsideCharacterGallery), []);
   restore();
+
+  // A gallery delete never removes a file through a linked gallery folder, whatever file name the row was given.
+  const patchFilePath = async (table: string, id: string, filePath: string) => {
+    const result = await mari.executeCli({
+      argv: ["db", "patch", table, id, "--json", JSON.stringify({ filePath }), "--apply"],
+      sessionId: "app-folder-writes",
+    });
+    assert.equal(result.ok, true, JSON.stringify(result));
+  };
+  await patchFilePath("chat_images", chatImageId, `${chat.id}/precious.docx`);
+  const outsideChatDelete = join(outside, "chat-gallery-delete");
+  restore = linkFolder(join(dataDir, "gallery", chat.id), outsideChatDelete);
+  const chatPrecious = join(outsideChatDelete, "precious.docx");
+  writeFileSync(chatPrecious, BAIT);
+  await refused(
+    ["delete", "--target", "chat-gallery", "--chat", chat.id, "--image", chatImageId, "--apply"],
+    chatPrecious,
+  );
+  restore();
+  await patchFilePath("character_images", characterImageId, `characters/${character.id}/precious.docx`);
+  const outsideCharacterDelete = join(outside, "character-gallery-delete");
+  restore = linkFolder(join(dataDir, "gallery", "characters", character.id), outsideCharacterDelete);
+  const characterPrecious = join(outsideCharacterDelete, "precious.docx");
+  writeFileSync(characterPrecious, BAIT);
+  await refused(
+    ["delete", "--target", "character-gallery", "--character", character.id, "--image", characterImageId, "--apply"],
+    characterPrecious,
+  );
+  // The shared cleanup behind these deletes and the gallery UI's own: an unreferenced name in a linked folder stays.
+  const unreferenced = join(outsideCharacterDelete, "unreferenced.docx");
+  writeFileSync(unreferenced, BAIT);
+  assert.equal(
+    await unlinkGalleryFileIfUnreferenced({ db, filePath: `characters/${character.id}/unreferenced.docx` }),
+    false,
+  );
+  assert.ok(existsSync(unreferenced), "the shared cleanup never deletes through a linked folder");
+  restore();
+
+  // A chat or character ID is one gallery folder name, so an ID with `..` writes nothing anywhere.
+  const cli = async (...argv: string[]) => {
+    const result = await mari.executeCli({ argv, sessionId: "app-folder-writes" });
+    assert.equal(result.ok, true, JSON.stringify(result));
+  };
+  await cli("characters", "create", "--id", "../../../outside-character", "--name", "Traversal", "--apply");
+  await refused([
+    "assign",
+    "--target",
+    "character-gallery",
+    "--character",
+    "../../../outside-character",
+    "--source",
+    DATA_URL,
+    "--apply",
+  ]);
+  assert.ok(!existsSync(join(root, "outside-character")), "a character ID never names a folder outside the gallery");
+  await cli(
+    "db",
+    "insert",
+    "chats",
+    "--json",
+    JSON.stringify({
+      id: "../../outside-chat",
+      name: "Traversal chat",
+      mode: "roleplay",
+      characterIds: [],
+      metadata: "{}",
+      sortOrder: 0,
+    }),
+    "--apply",
+  );
+  await refused([
+    "assign",
+    "--target",
+    "chat-gallery",
+    "--chat",
+    "../../outside-chat",
+    "--source",
+    DATA_URL,
+    "--apply",
+  ]);
+  assert.ok(!existsSync(join(root, "outside-chat")), "a chat ID never names a folder outside the gallery");
 
   const outsideBackgrounds = join(outside, "backgrounds");
   restore = linkFolder(backgrounds, outsideBackgrounds);
