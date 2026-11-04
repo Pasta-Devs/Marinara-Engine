@@ -3663,7 +3663,7 @@ input.ov-edhead__title:focus {
   .mari-drawer__body
   button[class*="rounded"]:is([class*="ring-1"], [class*="bg-[var(--secondary)]"], [class*="border"]):not(
     [role="switch"]
-  ):not([class*="ov-"]) {
+  ):not([class*="ov-"]):not(.cursor-help) {
   min-height: 0 !important;
   height: auto !important;
   padding: 0.1875rem 0.625rem !important;
@@ -3677,7 +3677,7 @@ input.ov-edhead__title:focus {
   .mari-drawer__body
   button[class*="rounded"]:is([class*="ring-1"], [class*="bg-[var(--secondary)]"], [class*="border"]):not(
     [role="switch"]
-  ):not([class*="ov-"]):hover {
+  ):not([class*="ov-"]):not(.cursor-help):hover {
   background: var(--ov-hover) !important;
 }
 .ov-cs .mari-drawer__body .grid:has(> button) {
