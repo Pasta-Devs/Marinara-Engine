@@ -166,6 +166,10 @@ export function AdminSecretMaker({ onSaved }: { onSaved: (secret: string) => voi
   if (data.adminSecretSource === "env") {
     return <p className="text-xs text-[var(--muted-foreground)]">{t("settings.sections.adminAccess.envManaged")}</p>;
   }
+  // Only this computer or a holder of the current secret may change it.
+  if (data.needsCurrentPassword) {
+    return <p className="text-xs text-[var(--muted-foreground)]">{t("settings.sections.adminAccess.elsewhere")}</p>;
+  }
 
   const fromApp = data.adminSecretSource === "app";
   const confirmThen = async (kind: "replace" | "remove", run: () => void) => {

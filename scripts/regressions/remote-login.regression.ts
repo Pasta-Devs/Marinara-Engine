@@ -645,13 +645,20 @@ try {
     403,
     "the old secret stops working",
   );
-  process.env.ADMIN_SECRET = "env-admin-secret";
-  assert.equal((await adminSecretCall("POST", "127.0.0.1", {})).statusCode, 409, ".env manages the secret meanwhile");
-  delete process.env.ADMIN_SECRET;
   const newSecret = (rotated.json() as { secret: string }).secret;
   assert.equal(
     (await adminSecretCall("DELETE", "203.0.113.70", { ...fromBrowser, "x-admin-secret": newSecret })).statusCode,
     204,
+    "the new secret works from another device",
+  );
+  assert.equal((await adminSecretCall("POST", "127.0.0.1", {})).statusCode, 200);
+  process.env.ADMIN_SECRET = "env-admin-secret";
+  assert.equal((await adminSecretCall("POST", "127.0.0.1", {})).statusCode, 409, ".env manages the secret meanwhile");
+  assert.equal((await adminSecretCall("DELETE", "127.0.0.1", {})).statusCode, 204);
+  delete process.env.ADMIN_SECRET;
+  assert.ok(
+    !existsSync(join(DATA_DIR, ".admin-secret.json")),
+    "an old app secret cannot come back once .env is cleared",
   );
   assert.equal((await local("GET", "/api/access/status")).json().adminSecretSource, null);
 

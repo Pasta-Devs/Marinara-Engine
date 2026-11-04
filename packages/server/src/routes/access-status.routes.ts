@@ -168,7 +168,7 @@ export async function accessStatusRoutes(app: FastifyInstance) {
 
   app.delete("/admin-secret", { config: { rateLimit: ACCESS_LOGIN_RATE_LIMIT } }, async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Admin secret" })) return;
-    if (getAdminSecretSource() === "env") return reply.status(409).send(ADMIN_SECRET_ENV_MANAGED);
+    // Also while .env wins, so an old app secret cannot come back when .env is cleared.
     clearStoredAdminSecret();
     logger.info("[login] The admin secret made in the app was removed");
     return reply.status(204).send();

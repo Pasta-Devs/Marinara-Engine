@@ -263,6 +263,8 @@ Installed agents, such as the ones on the Home screen, do not need the admin sec
 
 A device that already has the secret can also make it. A device that is only signed in with the login cannot. This stops a stolen sign-in from taking over the risky actions.
 
+With Docker, your browser reaches Marinara through the Docker network, so Marinara does not treat it as the same computer. Set the first secret in `.env` instead (see below).
+
 To change the secret, click **Replace admin secret**. The old secret stops working on every device. To turn it off, click **Remove admin secret**. Marinara keeps only a fingerprint of the secret, in `.admin-secret.json` in the data folder. Deleting that file also removes the secret.
 
 ### Set the admin secret in .env
