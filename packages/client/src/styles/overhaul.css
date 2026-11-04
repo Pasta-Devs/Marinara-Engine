@@ -6063,13 +6063,14 @@ input.ov-edhead__title:focus {
   grid-column: 1 / -1;
   align-items: center;
   gap: 1rem;
-  padding: 1.25rem 2rem 0.75rem;
+  /* Same spot and size as the Library landing pages' header, so + New doesn't jump between sections. */
+  padding: 1.5rem 2rem 0.75rem;
   border-bottom: 1px solid var(--ov-line);
 }
 .ov-vw__top h1 {
   margin: 0;
   color: var(--ov-text);
-  font: 600 2rem/1 var(--ov-serif);
+  font: 600 2.25rem/1.1 var(--ov-serif);
 }
 .ov-vw__top small {
   flex: 1;
