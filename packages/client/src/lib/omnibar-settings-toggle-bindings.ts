@@ -192,6 +192,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.keepRoleplayThinkingExpanded,
     set: (value) => useUIStore.getState().setKeepRoleplayThinkingExpanded(value),
   },
+  "stretch-roleplay-messages": {
+    get: (state) => state.roleplayStretchMessages,
+    set: (value) => useUIStore.getState().setRoleplayStretchMessages(value),
+  },
   "scrollable-avatars": {
     get: (state) => state.roleplayAvatarsScrollable,
     set: (value) => useUIStore.getState().setRoleplayAvatarsScrollable(value),
