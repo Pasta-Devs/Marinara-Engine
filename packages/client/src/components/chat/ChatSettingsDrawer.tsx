@@ -258,6 +258,7 @@ import {
   OvChatSettingsHeader,
   OvChatSettingsResizeHandle,
   OvChatSettingsStyle,
+  OvChatSettingsHelpTitles,
 } from "../overhaul/ChatSettingsEdit";
 import { getChatSettingsWindowProps, useTrackerPanelClearance } from "./chat-settings-window";
 import { useMatchMedia } from "../../hooks/use-match-media";
@@ -5581,6 +5582,7 @@ export function ChatSettingsDrawer({
       >
         {/* Desktop-only: drag-and-drop hint (sidebar drag is disabled on mobile overlays) */}
         {overhaulActive && <OvChatSettingsStyle mode={chatMode} />}
+        {overhaulActive && <OvChatSettingsHelpTitles container={ovScrollEl} />}
         {ovEditing && (
           <OvChatSettingsEditor
             mode={chatMode}

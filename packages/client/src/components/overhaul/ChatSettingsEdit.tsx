@@ -109,6 +109,29 @@ function readSections(container: HTMLElement | null): SectionInfo[] {
 }
 
 /** The Edit mode list, shown in place of the sections. */
+/**
+ * Switch rows show only their label (v1: one line per setting). The hidden
+ * description becomes the row's hover title so the help is still there.
+ */
+export function OvChatSettingsHelpTitles({ container }: { container: HTMLElement | null }) {
+  useEffect(() => {
+    if (!container) return;
+    const apply = () => {
+      for (const row of container.querySelectorAll<HTMLElement>(".justify-between")) {
+        if (!row.querySelector('input[type="checkbox"]')) continue;
+        const help = row.querySelector<HTMLElement>(":scope > span:first-child > label.block");
+        const text = help?.textContent?.trim();
+        if (text && row.title !== text) row.title = text;
+      }
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(container, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [container]);
+  return null;
+}
+
 export function OvChatSettingsEditor({
   mode,
   container,
