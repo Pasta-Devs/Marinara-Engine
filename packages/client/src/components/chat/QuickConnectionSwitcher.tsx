@@ -178,10 +178,11 @@ export function QuickConnectionSwitcher({
             data-quick-connection-menu
             className={cn(
               // Two panes; a fixed size keeps the menu still while a catalog loads or is filtered.
-              "mari-chat-style-surface fixed z-[9999] flex h-[min(34rem,calc(100dvh-6rem))] w-[min(40rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
+              // The solid surface backs the translucent card with the page background (#8833).
+              "mari-chat-style-surface mari-chat-solid-surface fixed z-[9999] flex h-[min(34rem,calc(100dvh-6rem))] w-[min(40rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
               chatMode === "roleplay"
-                ? "bg-[var(--card)] [--mari-chat-existing-bg:var(--card)]"
-                : "bg-[var(--background)] [--mari-chat-existing-bg:var(--background)]",
+                ? "[--mari-chat-solid-paint:var(--card)]"
+                : "[--mari-chat-solid-paint:var(--background)]",
             )}
             style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxHeight } : { visibility: "hidden" as const }}
           >
