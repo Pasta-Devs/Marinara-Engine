@@ -11,6 +11,8 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ty
 import {
   Check,
   ChevronLeft,
+  ArrowDown,
+  ArrowUp,
   ChevronRight,
   Dices,
   House,
@@ -78,7 +80,7 @@ import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
+import { reorderStars, starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
 
 type SwitcherRow = {
@@ -659,6 +661,53 @@ export function ConnectionSwitcherBody({
     }
   };
   const starsOf = (group: SwitcherGroup) => starsOfRows(group.rows);
+  // Edit order: the Starred order is the anchor's pinnedModels order, so a move rewrites that list.
+  const [editOrder, setEditOrder] = useState(false);
+  const moveStar = (group: SwitcherGroup, model: string, by: -1 | 1) => {
+    const next = reorderStars([...starsOf(group)], model, by);
+    if (next) updateConnection.mutate({ id: anchorOf(group).id, pinnedModels: next });
+  };
+  const iconButtonClass =
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/50 outline-none transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:opacity-30 disabled:hover:bg-transparent";
+  const orderButtons = (group: SwitcherGroup, model: string, title: string) => {
+    const stars = [...starsOf(group)];
+    const at = stars.indexOf(model);
+    return (
+      <>
+        <button
+          type="button"
+          className={iconButtonClass}
+          disabled={at <= 0 || updateConnection.isPending}
+          aria-label={t("connections.switcher.moveUp", { model: title })}
+          title={t("connections.switcher.moveUp", { model: title })}
+          onClick={() => moveStar(group, model, -1)}
+        >
+          <ArrowUp size="0.875rem" aria-hidden />
+        </button>
+        <button
+          type="button"
+          className={iconButtonClass}
+          disabled={at < 0 || at >= stars.length - 1 || updateConnection.isPending}
+          aria-label={t("connections.switcher.moveDown", { model: title })}
+          title={t("connections.switcher.moveDown", { model: title })}
+          onClick={() => moveStar(group, model, 1)}
+        >
+          <ArrowDown size="0.875rem" aria-hidden />
+        </button>
+      </>
+    );
+  };
+  const orderToggle = (
+    <button
+      type="button"
+      data-switcher-edit-order
+      aria-pressed={editOrder}
+      className="mb-1 ml-auto flex min-h-11 items-center rounded-lg px-3 text-xs text-foreground/50 outline-none hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25"
+      onClick={() => setEditOrder((on) => !on)}
+    >
+      {t(editOrder ? "connections.switcher.doneOrder" : "connections.switcher.editOrder")}
+    </button>
+  );
   const starButton = (group: SwitcherGroup, model: string, title: string, starred: boolean) =>
     group.account ? (
       <button
@@ -1026,7 +1075,8 @@ export function ConnectionSwitcherBody({
         end={
           <>
             {now && unavailable && group && fixButton(group)}
-            {starred && entry.row && (
+            {editOrder && starred && group && orderButtons(group, entry.model!, entry.title)}
+            {starred && entry.row && !editOrder && (
               <button
                 type="button"
                 data-switcher-settings={entry.model}
@@ -1046,7 +1096,7 @@ export function ConnectionSwitcherBody({
                 <SlidersHorizontal size="0.875rem" aria-hidden />
               </button>
             )}
-            {showStar && starButton(group!, entry.model!, entry.title, starred)}
+            {showStar && !editOrder && starButton(group!, entry.model!, entry.title, starred)}
           </>
         }
       />
@@ -1416,6 +1466,7 @@ export function ConnectionSwitcherBody({
             {shownEntries.starred.length > 0 && (
               <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
                 {heading(t("connections.switcher.starred"), shownEntries.starred.length)}
+                {shownEntries.starred.length > 1 && orderToggle}
                 {shownEntries.starred.map((entry) => renderEntry(entry, { star: "all" }))}
               </section>
             )}
@@ -1444,7 +1495,8 @@ export function ConnectionSwitcherBody({
               </section>
             )}
             <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
-              {starredEntries.map((entry) => renderEntry(entry, { star: "all", away: true }))}
+              {starredEntries.length > 1 && orderToggle}
+                {starredEntries.map((entry) => renderEntry(entry, { star: "all", away: true }))}
             </section>
             {starredEntries.length === 0 && knownEntries.length === 0 && (
               <ListStatus>{t("connections.switcher.starredEmpty")}</ListStatus>
