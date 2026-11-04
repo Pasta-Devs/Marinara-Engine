@@ -588,7 +588,13 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         const parsedCalls = reply?.calls ?? result.toolCalls;
         const words = reply ? reply.text : (result.content ?? "");
         const recovered = !truncated && isAgentTurn ? recoverSuggestionSuffix(words) : null;
-        if (recovered && parsedCalls.length === 0 && tools.some((tool) => tool.name === "suggestions")) {
+        // Recover only an otherwise final answer. Adding a UI call beside todo, for example, would end its work early.
+        if (
+          recovered &&
+          !state.suggestions.length &&
+          parsedCalls.length === 0 &&
+          tools.some((tool) => tool.name === "suggestions")
+        ) {
           parsedCalls.push({
             id: `suggestions_${crypto.randomUUID()}`,
             type: "function",

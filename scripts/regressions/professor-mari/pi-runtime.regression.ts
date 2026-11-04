@@ -929,8 +929,8 @@ try {
         [
           async (options, onToken) => {
             const stream = options.onToken ?? onToken;
-            stream?.(answer + "\n<su");
-            stream?.(suffix.slice(3));
+            stream?.(answer + "\n");
+            for (const char of suffix) stream?.(char);
             return reply(raw);
           },
         ],
@@ -950,6 +950,17 @@ try {
         /<su|<chip/,
       );
     }
+    const real = { label: "Real", prompt: "Use this." };
+    const actual = await start("native suggestions win", [
+      reply(raw, [{ id: "real", name: "suggestions", args: { chips: [real] } }]),
+    ]);
+    await actual.done;
+    const actualRow = await lastAssistant(actual.chat.id);
+    assert.equal(actualRow?.content, answer);
+    assert.deepEqual(
+      (actualRow?.extra.mariSuggestions as Array<{ label: string }>).map((chip) => chip.label),
+      [real.label],
+    );
     const fenced = "```xml\n" + suffix + "\n```";
     const malformed = suffix.replace('label="Play from here"', 'action="open"');
     for (const example of [fenced, malformed, suffix + "\nFurther explanation."]) {

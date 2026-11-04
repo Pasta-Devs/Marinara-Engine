@@ -7,12 +7,12 @@ const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"'
 // Only a flush-left block on its own line can be UI. Markdown quotes and indented examples stay prose.
 export function suggestionSuffixIndex(text: string): number {
   const lastLine = text.lastIndexOf("\n") + 1;
-  const last = text.slice(lastLine);
-  const index = last && OPENER.startsWith(last) ? lastLine : text.lastIndexOf("\n" + OPENER) + 1;
+  let index = text.lastIndexOf("\n" + OPENER) + 1;
+  if (!text.startsWith(OPENER, index)) index = lastLine;
+  const close = text.indexOf(CLOSER, index);
+  if (close >= 0 && text.slice(close + CLOSER.length).trim()) index = lastLine;
   const tail = text.slice(index);
   if (!tail || (!tail.startsWith(OPENER) && !OPENER.startsWith(tail))) return -1;
-  const close = tail.indexOf(CLOSER);
-  if (close >= 0 && tail.slice(close + CLOSER.length).trim()) return -1;
   // A partial opener must stay hidden while it streams. Inside a fenced example it must stay visible.
   let fence = "";
   for (const match of text.slice(0, index).matchAll(/^ {0,3}(`{3,}|~{3,})([^\r\n]*)/gm)) {
