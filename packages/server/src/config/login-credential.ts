@@ -1,19 +1,21 @@
 // ──────────────────────────────────────────────
-// Config: remote login and browser sessions
+// Config: remote login, browser sessions and admin secret
 // ──────────────────────────────────────────────
 // One answer to "which login protects remote access", shared by the Basic Auth
 // gate, the access policy and the access status. BASIC_AUTH_USER and
 // BASIC_AUTH_PASS in .env win when both are set; otherwise the login saved in
 // the app at DATA_DIR/.remote-login.json applies. Signed-in browsers are kept in
-// DATA_DIR/.remote-sessions.json. Both files are read again within RECHECK_MS
-// when they change on disk, so deleting them works like an .env edit.
+// DATA_DIR/.remote-sessions.json. ADMIN_SECRET in .env likewise wins over the
+// hash of an app-made secret in DATA_DIR/.admin-secret.json. The files are read
+// again within RECHECK_MS when they change on disk, so deleting them works like
+// an .env edit.
 
 import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { logger } from "../lib/logger.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { getBasicAuthConfig } from "./runtime-config.js";
+import { getAdminSecret, getBasicAuthConfig } from "./runtime-config.js";
 
 export type StoredLogin = { user: string; salt: string; hash: string; N: number; r: number; p: number };
 export type LoginConfig = { source: "env"; user: string; pass: string } | ({ source: "app" } & StoredLogin);
@@ -388,4 +390,57 @@ export function deleteOtherSessions(loginKey: string, keepId: string | undefined
 export function deleteAllSessions(): void {
   removeFile(SESSIONS_FILE);
   sessionsFile.forget();
+}
+
+// ── Admin secret made in the app ──
+
+const ADMIN_SECRET_FILE = join(DATA_DIR, ".admin-secret.json");
+const ADMIN_SECRET_LENGTH = 24; // 24 symbols of 31 ≈ 119 bits
+
+function readAdminSecretFile(): Buffer | null {
+  try {
+    const { hash } = JSON.parse(readFileSync(ADMIN_SECRET_FILE, "utf8")) as { hash?: unknown };
+    if (typeof hash === "string" && /^[0-9a-f]{64}$/.test(hash)) return Buffer.from(hash, "hex");
+  } catch {
+    // Reported below.
+  }
+  logger.warn(
+    "[login] %s is damaged, so no app admin secret applies. Make a new one or delete the file.",
+    ADMIN_SECRET_FILE,
+  );
+  return null;
+}
+
+const adminSecretFile = watchedFile<Buffer | null>(ADMIN_SECRET_FILE, readAdminSecretFile, null);
+
+/** ADMIN_SECRET in .env wins over the secret made in the app. */
+export function getAdminSecretSource(): "env" | "app" | null {
+  if (getAdminSecret()) return "env";
+  return adminSecretFile.get() ? "app" : null;
+}
+
+/** An app secret kept on disk, even while .env wins over it. */
+export function hasStoredAdminSecret(): boolean {
+  return adminSecretFile.get() !== null;
+}
+
+/** Case, spaces and dashes do not matter for the app secret: it is typed off another screen. */
+export function matchesAdminSecret(value: string): boolean {
+  const env = getAdminSecret();
+  if (env) return sameText(value, env);
+  const stored = adminSecretFile.get();
+  return stored !== null && timingSafeEqual(hashToken(normalizeCode(value)), stored);
+}
+
+/** Makes a new secret, keeps only its hash and returns it once. Any older secret stops working. */
+export function createStoredAdminSecret(): string {
+  const secret = readableCode(ADMIN_SECRET_LENGTH);
+  writePrivateFile(ADMIN_SECRET_FILE, { hash: hashToken(normalizeCode(secret)).toString("hex") });
+  adminSecretFile.forget();
+  return secret;
+}
+
+export function clearStoredAdminSecret(): void {
+  removeFile(ADMIN_SECRET_FILE);
+  adminSecretFile.forget();
 }

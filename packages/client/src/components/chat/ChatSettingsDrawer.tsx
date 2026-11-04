@@ -42,7 +42,6 @@ import {
   Image,
   Pencil,
   AlertTriangle,
-  GripVertical,
   MessageCircle,
   MessageSquareQuote,
   Bot,
@@ -249,7 +248,7 @@ import {
 import { getConnectedChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
 import { getChatCharacterIds, resolveGreetingPreview } from "../../lib/chat-macros";
 import { cardAnswerValues } from "../../lib/onboarding-preview-highlight";
-import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
+import { insertLibraryItems } from "../../lib/library-order";
 import {
   getAgentRunIntervalMeta,
   getCadenceInputValue,
@@ -3385,78 +3384,17 @@ export function ChatSettingsDrawer({
   );
 
   // ── Character drag-and-drop reordering ──
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dropIdx, setDropIdx] = useState<number | null>(null);
-
-  const handleCharDragStart = (idx: number, e: React.DragEvent) => {
-    setDragIdx(idx);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(idx));
-  };
-
-  const handleCharDragOver = (cardIdx: number, e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    const rect = e.currentTarget.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    setDropIdx(e.clientY < midY ? cardIdx : cardIdx + 1);
-  };
-
-  const commitCharacterReorder = useCallback(
-    (sourceIdx: number, targetIdx: number) => {
-      if (sourceIdx < 0 || sourceIdx >= chatCharIds.length || targetIdx < 0 || targetIdx > chatCharIds.length) return;
-      let insertAt = targetIdx;
-      if (sourceIdx < insertAt) insertAt--;
-      if (sourceIdx === insertAt) return;
-      const ids = [...chatCharIds];
-      const [moved] = ids.splice(sourceIdx, 1);
-      if (!moved) return;
-      ids.splice(insertAt, 0, moved);
-      updateChat.mutate({ id: chat.id, characterIds: ids });
-    },
-    [chat.id, chatCharIds, updateChat],
-  );
-
-  const handleCharDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const src = dragIdx;
-    const tgt = dropIdx;
-    setDragIdx(null);
-    setDropIdx(null);
-    if (src === null || tgt === null) return;
-    commitCharacterReorder(src, tgt);
-  };
-
-  const handleCharDragEnd = () => {
-    setDragIdx(null);
-    setDropIdx(null);
-  };
-
-  const { startTouchDrag: startCharacterReorderTouchDrag } = useTouchFolderDrag({
+  const [draggedCharId, setDraggedCharId] = useState<string | null>(null);
+  const { startTouchDrag: startCharacterReorderDrag } = useTouchFolderDrag({
     autoScrollEdgePx: 0,
-    onActivate: (characterId) => {
-      const idx = chatCharIds.indexOf(characterId);
-      if (idx < 0) return;
-      setDragIdx(idx);
+    onActivate: setDraggedCharId,
+    onReorder: (ids, target, edge) => {
+      setDraggedCharId(null);
+      const next = insertLibraryItems(chatCharIds, ids, target, edge);
+      if (next.some((id, i) => id !== chatCharIds[i])) updateChat.mutate({ id: chat.id, characterIds: next });
     },
-    onDrop: (characterId, x, y) => {
-      const sourceIdx = chatCharIds.indexOf(characterId);
-      const targetIdx = getTouchReorderDropIndex({
-        x,
-        y,
-        itemSelector: '[data-touch-reorder-item="chat-settings-character"]',
-        rootSelector: "[data-chat-settings-character-root]",
-        itemCount: chatCharIds.length,
-      });
-      setDragIdx(null);
-      setDropIdx(null);
-      if (sourceIdx < 0 || targetIdx === null) return;
-      commitCharacterReorder(sourceIdx, targetIdx);
-    },
-    onCancel: () => {
-      setDragIdx(null);
-      setDropIdx(null);
-    },
+    onDrop: () => setDraggedCharId(null),
+    onCancel: () => setDraggedCharId(null),
   });
 
   const toggleLorebook = (lbId: string) => {
@@ -6411,59 +6349,32 @@ export function ChatSettingsDrawer({
                   {localizeUi("ui.chat.chatsettingsdrawer.noCharactersAddedToThisChat")}
                 </p>
               ) : (
-                <div
-                  data-chat-settings-character-root
-                  className="flex flex-col gap-1"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDropIdx(chatCharIds.length);
-                  }}
-                  onDrop={handleCharDrop}
-                >
-                  {chatCharIds.map((cid, i) => {
+                <div className="flex flex-col gap-1">
+                  {chatCharIds.map((cid) => {
                     const c = characters.find((ch) => ch.id === cid);
                     if (!c) return null;
                     const name = charName(c);
                     const title = charTitle(c);
                     return (
                       <div key={c.id}>
-                        {dropIdx === i && dragIdx !== null && dragIdx !== i && (
-                          <div className="h-0.5 rounded-full bg-[var(--primary)] mx-2 mb-1" />
-                        )}
                         <div
-                          data-touch-reorder-item="chat-settings-character"
-                          data-touch-reorder-index={i}
-                          draggable
-                          onDragStart={(e) => handleCharDragStart(i, e)}
-                          onDragOver={(e) => {
-                            e.stopPropagation();
-                            handleCharDragOver(i, e);
+                          data-drag-kind="chat-settings-character"
+                          data-drag-id={c.id}
+                          onMouseDown={(event) => startCharacterReorderDrag(event, c.id)}
+                          onTouchStart={(event) => {
+                            event.stopPropagation();
+                            startCharacterReorderDrag(event, c.id);
                           }}
-                          onDragEnd={handleCharDragEnd}
                           className={cn(
                             "flex items-center gap-2 rounded-lg bg-[var(--primary)]/10 px-2 py-2 ring-1 ring-[var(--primary)]/30 transition-opacity",
-                            dragIdx === i && "opacity-40",
+                            draggedCharId === c.id && "opacity-40",
                             inactiveCharacterIds.includes(c.id) &&
                               "bg-[var(--secondary)] opacity-70 ring-[var(--border)]",
                           )}
                         >
-                          <div
-                            className="cursor-grab touch-none text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors active:cursor-grabbing"
-                            title={localizeUi("ui.lorebooks.lorebookentryrow.dragToReorder")}
-                            onTouchStart={(event) => {
-                              event.stopPropagation();
-                              startCharacterReorderTouchDrag(event, c.id, {
-                                allowInteractiveTarget: true,
-                                sourceElement: event.currentTarget.closest<HTMLElement>(
-                                  '[data-touch-reorder-item="chat-settings-character"]',
-                                ),
-                              });
-                            }}
-                          >
-                            <GripVertical size="0.75rem" />
-                          </div>
                           <button
                             type="button"
+                            data-drag-surface
                             onClick={() => setShowCharPicker(true)}
                             className="flex items-center gap-2.5 min-w-0 flex-1 text-left transition-colors hover:opacity-80"
                             title={localizeUi("ui.chat.chatsettingsdrawer.changeCharacters")}
@@ -6572,9 +6483,6 @@ export function ChatSettingsDrawer({
                       </div>
                     );
                   })}
-                  {dropIdx === chatCharIds.length && dragIdx !== null && (
-                    <div className="h-0.5 rounded-full bg-[var(--primary)] mx-2 mt-1" />
-                  )}
                 </div>
               )}
 

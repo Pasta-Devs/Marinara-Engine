@@ -1312,10 +1312,13 @@
   padding: 0;
 }
 
-/* Row and card-heading buttons: no fill until hover or focus, so lists stay calm. */
+/* Row and card-heading buttons: no fill until hover or focus, so lists stay calm.
+   !important on purpose: theme and accent-mode rules kept outranking this and the
+   bubbles came back each time. scripts/regressions/quiet-row-buttons.regression.ts pins it. */
 .mari-chrome-control--quiet:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
-  background: transparent;
-  border-color: transparent;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* One-of-N choice card: title, description and optional preview stacked on the left.
@@ -2559,8 +2562,11 @@
   background: var(--marinara-chat-chrome-accent);
 }
 
+/* Quiet buttons keep their no-fill rest state; hover below still applies. */
 [data-marinara-chat-chrome-accent-mode="gradient"]
-  .mari-chrome-control:not(.mari-chrome-control--danger):not(.mari-chat-mode-action):not(.mari-panel-gradient-button) {
+  .mari-chrome-control:not(.mari-chrome-control--danger):not(.mari-chat-mode-action):not(
+    .mari-panel-gradient-button
+  ):not(.mari-chrome-control--quiet) {
   border-color: var(--marinara-chat-chrome-button-border);
   background: var(--marinara-chat-chrome-button-bg);
 }
