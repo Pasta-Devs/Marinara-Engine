@@ -34,7 +34,6 @@ import {
   IMAGE_SOURCE_VENDOR,
   PROVIDERS,
   isChatProvider,
-  isLocalAuthProvider,
   parsePinnedModels,
   type APIProvider,
 } from "@marinara-engine/shared";
@@ -72,7 +71,7 @@ import {
 } from "../../hooks/use-connection-folders";
 import { ConnectionRow, ROW_BUTTON, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
-import { ConnectionGroup, GROUP_SURFACE, hostOf, sameServiceTargets } from "../connections/ConnectionGroup";
+import { ConnectionGroup, GROUP_SURFACE, hostOf, moveTargetsFor } from "../connections/ConnectionGroup";
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
@@ -503,16 +502,7 @@ export function ConnectionsPanel() {
     const anchor =
       (row.accountId && starAnchorOf(connectionsList.filter((other) => other.accountId === row.accountId))) || row;
     const starred = !!row.model && parsePinnedModels(anchor.pinnedModels).includes(row.model);
-    const sameTargets = account ? sameServiceTargets(row, account, accounts ?? [], connectionsList) : [];
-    // Mirrors the server: chat Models move to chat Connections of other services; media, decision and local-login
-    // (subscription) Models and Connections never change service.
-    const portable = (provider: string) => isChatProvider(provider) && !isLocalAuthProvider(provider);
-    const otherTargets =
-      account && !row.credentialsFromConnectionId && portable(row.provider) && portable(account.provider)
-        ? (accounts ?? []).filter(
-            (item) => item.id !== account.id && portable(item.provider) && !sameTargets.includes(item),
-          )
-        : [];
+    const { same: sameTargets, other: otherTargets } = moveTargetsFor(row, account, accounts ?? [], connectionsList);
     // A Connection with more than one Model can give one to a copy of itself (same key), to split a grouping.
     const splitFrom =
       account &&

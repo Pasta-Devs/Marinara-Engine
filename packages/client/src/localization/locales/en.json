@@ -1769,6 +1769,7 @@
   "connections.accounts.select.moveTitle_one": "Move {{count}} model",
   "connections.accounts.select.moveTitle_other": "Move {{count}} models",
   "connections.accounts.select.noTarget": "No other account of this service to move to.",
+  "connections.accounts.select.partialFailed": "Some models could not be changed and stay selected: {{names}}",
   "connections.accounts.select.start": "Select models",
   "connections.accounts.showMore_one": "Show {{count}} more model",
   "connections.accounts.showMore_other": "Show {{count}} more models",
