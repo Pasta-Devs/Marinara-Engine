@@ -431,21 +431,23 @@ export function CharacterPickerList({
   );
 
   // One folder only (often just "Ungrouped") is a flat list, with no extra tap.
+  // A single real folder keeps its row, open, when the caller can add a whole folder.
+  const groupPickable = (id: string) => multiple && !!onPickGroup && id !== UNGROUPED_CHARACTER_GROUP_ID;
   const characterList =
-    characterGroups.length === 1 ? (
+    characterGroups.length === 1 && !groupPickable(characterGroups[0]!.id) ? (
       <Capped items={characterGroups[0]!.members} render={(c) => characterRow(c, false)} />
     ) : (
       characterGroups.map((group) => {
-        const addable =
-          multiple && onPickGroup && group.id !== UNGROUPED_CHARACTER_GROUP_ID
-            ? group.members.filter((c) => !characterSet.has(c.id) && !unavailable?.[c.id]).map((c) => c.id)
-            : [];
+        const open = characterGroups.length === 1 || isOpen(group.id);
+        const addable = groupPickable(group.id)
+          ? group.members.filter((c) => !characterSet.has(c.id) && !unavailable?.[c.id]).map((c) => c.id)
+          : [];
         return (
           <div key={group.id}>
             <div className="flex items-center gap-1">
               <div className="min-w-0 flex-1">
                 <FolderToggle
-                  open={isOpen(group.id)}
+                  open={open}
                   onClick={() => toggle(group.id)}
                   label={group.name}
                   count={group.members.length}
@@ -463,7 +465,7 @@ export function CharacterPickerList({
                 </button>
               )}
             </div>
-            {isOpen(group.id) && <Capped items={group.members} render={(c) => characterRow(c, true)} />}
+            {open && <Capped items={group.members} render={(c) => characterRow(c, true)} />}
           </div>
         );
       })
