@@ -535,7 +535,7 @@ export function ConnectionAccountEditor({
           )}
 
           <section>
-            <h3 className={cn("mb-2 flex items-baseline gap-1.5", SECTION_HEADING_CLASS)}>
+            <h3 className={cn("mb-2 flex items-baseline gap-1.5", SECTION_HEADING_CLASS, "max-sm:!text-[13px]")}>
               {t("connections.accounts.editor.modelsHeading")}
               <span className="font-normal text-[var(--muted-foreground)]">{models.length}</span>
             </h3>

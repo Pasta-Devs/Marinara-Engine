@@ -2372,7 +2372,7 @@ export function SpriteGenerationModal({
                           onClick={() => handlePresetChange(key)}
                           aria-pressed={preset === key}
                           className={cn(
-                            "rounded-md px-3 py-1.5 text-xs transition-colors ring-1",
+                            "rounded-md px-3 py-1.5 text-xs transition-colors ring-1 max-sm:min-h-11",
                             preset === key
                               ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/40"
                               : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:ring-[var(--primary)]/20",
@@ -2524,7 +2524,7 @@ export function SpriteGenerationModal({
                             onClick={() => handlePresetChange(key)}
                             aria-pressed={preset === key}
                             className={cn(
-                              "rounded-md px-3 py-1.5 text-xs transition-colors ring-1",
+                              "rounded-md px-3 py-1.5 text-xs transition-colors ring-1 max-sm:min-h-11",
                               preset === key
                                 ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/40"
                                 : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:ring-[var(--primary)]/20",

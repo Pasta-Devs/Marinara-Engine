@@ -224,7 +224,7 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
                 <button
                   type="button"
                   onClick={() => setRenames((current) => current.filter((_, i) => i !== index))}
-                  className="mari-chrome-control mari-chrome-control--compact shrink-0 p-1 max-sm:min-h-11 max-sm:min-w-11"
+                  className="mari-chrome-control mari-chrome-control--compact shrink-0 p-1 max-sm:!min-h-11 max-sm:!min-w-11"
                   aria-label={t("characters.bulkTags.removeRename")}
                 >
                   <X size="0.625rem" />
@@ -235,7 +235,7 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
               type="button"
               onClick={() => setRenames((current) => [...current, { from: "", to: "" }])}
               disabled={existingTags.length === 0}
-              className="mari-chrome-control mari-chrome-control--compact text-[var(--foreground)] max-sm:min-h-11 max-sm:text-[13px]"
+              className="mari-chrome-control mari-chrome-control--compact text-[var(--foreground)] max-sm:!min-h-11 max-sm:!text-[13px]"
             >
               <Plus size="0.625rem" />
               {t("characters.bulkTags.addRename")}
@@ -266,7 +266,7 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
               </li>
             ))}
           </ul>
-          <p className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+          <p className="text-[0.6875rem] max-sm:!text-[13px] text-[var(--muted-foreground)]">
             {t("characters.bulkTags.versionNote")}
           </p>
         </div>
