@@ -102,6 +102,9 @@ const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
 const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
+const OverhaulMariPage = lazy(() =>
+  import("../overhaul/MariPage").then((module) => ({ default: module.OverhaulMariPage })),
+);
 const OverhaulDocsPage = lazy(() =>
   import("../overhaul/DocsPage").then((module) => ({ default: module.OverhaulDocsPage })),
 );
@@ -511,6 +514,7 @@ export function AppShell({
   const overhaulEnabled = useOverhaulStore((s) => s.enabled);
   const overhaulLibraryPage = useOverhaulStore((s) => s.libraryPage);
   const overhaulDocsTab = useOverhaulStore((s) => s.activeDocsTab);
+  const overhaulMari = useOverhaulStore((s) => s.activeMari);
   const overhaulActive = overhaulEnabled && !shellOverlayMode;
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
@@ -882,7 +886,9 @@ export function AppShell({
   }, [overhaulDocsLeaveKey]);
 
   const detailView =
-    overhaulActive && overhaulDocsTab ? (
+    overhaulActive && overhaulMari ? (
+      <OverhaulMariPage />
+    ) : overhaulActive && overhaulDocsTab ? (
       <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
     ) : regexDetailId ? (
       <RegexScriptEditor />

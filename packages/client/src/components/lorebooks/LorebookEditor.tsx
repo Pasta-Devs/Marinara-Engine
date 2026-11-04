@@ -3368,6 +3368,16 @@ export function LorebookEditor() {
                   </div>
                 )}
 
+                {overhaulActive && entries.length > 0 ? (
+                  <div className="ov-lhead" aria-hidden="true">
+                    <span>Entry</span>
+                    <span>Keys</span>
+                    <span>Position</span>
+                    <span>Order</span>
+                    <span>Tokens</span>
+                  </div>
+                ) : null}
+
                 {/* Entries — folder-grouped view (default sort, no search) */}
                 {lorebookId && showFolderGrouping && (entries.length > 0 || folders.length > 0) && (
                   <div className="space-y-3">

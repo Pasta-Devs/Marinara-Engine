@@ -83,7 +83,7 @@ import { ChatModeIcon } from "./ChatModeIcon";
 import { HomeClockCalendar } from "./HomeClockCalendar";
 import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { isOverhaulActive, useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 
@@ -1305,14 +1305,19 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       setFocusedPackagePost((current) => (current?.packageId === tab ? current : null));
       if (sceneOriginFocus && sceneOriginFocus.packageId !== tab) setSceneOriginFocus(null);
       if (tab === "professor") {
-        requestProfessorMariOpen();
+        if (isOverhaulActive()) useOverhaulStore.getState().openMari();
+        else requestProfessorMariOpen();
         return;
       }
       setActiveTab(tab);
     },
     [sceneOriginFocus, setSceneOriginFocus],
   );
-  const openProfessor = () => requestProfessorMariOpen();
+  // UI overhaul: Home opens her in her own tab; ⌘J still opens the popover.
+  const openProfessor = () => {
+    if (isOverhaulActive()) useOverhaulStore.getState().openMari();
+    else requestProfessorMariOpen();
+  };
   // The omnibar and Command Center ask Home for a surface through `requestHome`; Home opens it here.
   const homeRequest = useUIStore((state) => state.homeRequest);
   useEffect(() => {

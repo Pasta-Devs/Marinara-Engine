@@ -11,6 +11,7 @@ import { SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shar
 import { useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { openLibrarySection } from "./library-navigation";
 
 const OverhaulSettingsSections = lazy(() =>
   import("../panels/SettingsPanel").then((m) => ({ default: m.OverhaulSettingsSections })),
@@ -86,13 +87,29 @@ function sectionLabel(id: SettingsSectionId) {
   return SECTION_LABELS[id] ?? SETTINGS_SECTIONS.find((section) => section.id === id)?.label ?? id;
 }
 
-function scrollToSection(id: SettingsSectionId) {
+/** Scrolls to a section and flashes it, so you can see which block the chip meant. */
+function scrollToSection(id: SettingsSectionId, attempt = 0) {
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
-      document.getElementById(`settings-section-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const target = document.getElementById(`settings-section-${id}`);
+      if (!target) {
+        // The tab's sections load lazily; try again for a moment after a tab switch.
+        if (attempt < 20) window.setTimeout(() => scrollToSection(id, attempt + 1), 100);
+        return;
+      }
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.classList.remove("ov-flash");
+      void target.offsetWidth;
+      target.classList.add("ov-flash");
+      window.setTimeout(() => target.classList.remove("ov-flash"), 1800);
     });
   });
 }
+
+/** Settings that live on another Library page now, still found by Settings search. */
+const ELSEWHERE: { id: SettingsSectionId; page: "extensions"; label: string }[] = [
+  { id: "personal-extensions", page: "extensions", label: "Extensions" },
+];
 
 export function OverhaulSettingsPage() {
   const localize = useLocalizedUiText();
@@ -115,7 +132,22 @@ export function OverhaulSettingsPage() {
           return haystack.includes(needle);
         })
         .map((id) => ({ tab: item, id })),
-    ).slice(0, 12);
+    )
+      .concat(
+        ELSEWHERE.filter((item) => {
+          const meta = SETTINGS_SECTIONS.find((section) => section.id === item.id);
+          return [meta?.label, meta?.description, ...(meta?.aliases ?? [])]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(needle);
+        }).map((item) => ({
+          tab: { id: item.page, label: item.label } as unknown as (typeof OVERHAUL_SETTINGS_TABS)[number],
+          id: item.id,
+          page: item.page,
+        })),
+      )
+      .slice(0, 12) as { tab: (typeof OVERHAUL_SETTINGS_TABS)[number]; id: SettingsSectionId; page?: "extensions" }[];
   }, [query]);
 
   return (
@@ -140,6 +172,10 @@ export function OverhaulSettingsPage() {
                   type="button"
                   onClick={() => {
                     setQuery("");
+                    if (result.page) {
+                      openLibrarySection(result.page);
+                      return;
+                    }
                     setTab(result.tab.id);
                     scrollToSection(result.id);
                   }}
@@ -178,6 +214,24 @@ export function OverhaulSettingsPage() {
       <div className="ov-settings__scroll">
         <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
           <OverhaulSettingsSections key={tab.id} sectionIds={tab.sections} />
+        </Suspense>
+      </div>
+    </section>
+  );
+}
+
+/** The Extensions page: Personal Extensions (moved here from Settings > Addons). */
+export function OverhaulExtensionsPage() {
+  const localize = useLocalizedUiText();
+  return (
+    <section className="ov-settings ov-settings--extensions" data-component="OverhaulExtensionsPage">
+      <header className="ov-settings__head">
+        <h1>{localize("Extensions")}</h1>
+        <p>{localize("Personal Extensions: drafts Professor Mari writes for you, and packages you import")}</p>
+      </header>
+      <div className="ov-settings__scroll">
+        <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
+          <OverhaulSettingsSections sectionIds={["personal-extensions"]} />
         </Suspense>
       </div>
     </section>
