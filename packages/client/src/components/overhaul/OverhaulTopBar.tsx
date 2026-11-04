@@ -55,7 +55,7 @@ import {
   PersonalExtensionTopbarButtons,
 } from "../layout/PersonalExtensionContributionsMenu";
 import { preloadChatSettingsDrawer } from "../chat/ChatCommonOverlays";
-import { BrowserPackageTabIcon } from "../chat/HomeBrowserHub";
+import { BrowserPackageTabIcon } from "../chat/BrowserPackageTabIcon";
 import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
 import { useTranslation } from "react-i18next";
