@@ -12,10 +12,11 @@ import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensi
 import { LIBRARY_SECTIONS } from "./library-navigation";
 
 const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType>>> = {
-  lorebooks: lazy(() => import("../panels/LorebooksPanel").then((m) => ({ default: m.LorebooksPanel }))),
-  presets: lazy(() => import("../panels/PresetsPanel").then((m) => ({ default: m.PresetsPanel }))),
-  connections: lazy(() => import("../panels/ConnectionsPanel").then((m) => ({ default: m.ConnectionsPanel }))),
-  agents: lazy(() => import("../panels/AgentsPanel").then((m) => ({ default: m.AgentsPanel }))),
+  lorebooks: lazy(() => import("./LibraryTables").then((m) => ({ default: m.LorebooksLanding }))),
+  presets: lazy(() => import("./LibraryTables").then((m) => ({ default: m.PresetsLanding }))),
+  regex: lazy(() => import("./LibraryTables").then((m) => ({ default: m.RegexLanding }))),
+  connections: lazy(() => import("./LibraryTables").then((m) => ({ default: m.ConnectionsLanding }))),
+  agents: lazy(() => import("./LibraryTables").then((m) => ({ default: m.AgentsLanding }))),
   settings: lazy(() => import("../panels/SettingsPanel").then((m) => ({ default: m.SettingsPanel }))),
   extensions: lazy(() =>
     import("../panels/PersonalExtensionPanel").then((m) => ({ default: m.PersonalExtensionPanel })),
@@ -33,9 +34,19 @@ const SURFACES = {
 /** Settings reads better wider; the lists stay at a comfortable column. */
 const PAGE_WIDTH: Partial<Record<LibrarySection, number>> = { settings: 980, agents: 1080 };
 
+/** Pages that draw their own title row and toolbar (the Library tables). */
+const SELF_HEADED = new Set<LibrarySection>(["lorebooks", "presets", "regex", "connections", "agents"]);
+
 export function LibraryLandingPage({ section }: { section: LibrarySection }) {
   const localize = useLocalizedUiText();
   const Page = PAGES[section];
+  if (Page && SELF_HEADED.has(section)) {
+    return (
+      <Suspense fallback={<div className="ov-libpage__loading">{localize("Loading…")}</div>}>
+        <Page />
+      </Suspense>
+    );
+  }
   const entry = LIBRARY_SECTIONS.find((item) => item.id === section);
   const surface = SURFACES[section as keyof typeof SURFACES];
   const width = PAGE_WIDTH[section] ?? 860;

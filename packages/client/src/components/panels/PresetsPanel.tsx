@@ -184,7 +184,7 @@ function readRegexApplyMode(entry: Record<string, unknown>): RegexApplyMode {
   return promptOnly ? "prompt" : "display";
 }
 
-function getImportEntries(parsed: unknown, envelopeKeys: string[]) {
+export function getImportEntries(parsed: unknown, envelopeKeys: string[]) {
   return getFolderImportEntries(parsed, envelopeKeys);
 }
 
@@ -227,7 +227,7 @@ function describeImportError(error: unknown): string {
   return "Failed to import";
 }
 
-function getNextRegexOrderBase(regexScripts: RegexScriptRow[] | undefined) {
+export function getNextRegexOrderBase(regexScripts: RegexScriptRow[] | undefined) {
   return (regexScripts ?? []).reduce((maxOrder, script) => Math.max(maxOrder, script.order), -1) + 1;
 }
 
@@ -239,7 +239,7 @@ function getUnsupportedStRegexPlacements(entry: unknown): number[] {
   );
 }
 
-function normalizeRegexImportEntry(entry: unknown, fallbackOrder: number) {
+export function normalizeRegexImportEntry(entry: unknown, fallbackOrder: number) {
   if (!isJsonRecord(entry)) return null;
   const name =
     typeof entry.name === "string" ? entry.name : typeof entry.scriptName === "string" ? entry.scriptName : "";
