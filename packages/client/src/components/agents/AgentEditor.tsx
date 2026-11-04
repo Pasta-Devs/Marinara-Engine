@@ -7,6 +7,8 @@ import { useDecisionCalibration, useHasDecisionModel } from "../../hooks/use-dec
 import { lazy, Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { OvEditorHead, OvSaveState } from "../overhaul/EditorChrome";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
@@ -680,6 +682,7 @@ function isCustomSecretPlotPrompt(value: string): boolean {
 }
 
 export function AgentEditor() {
+  const overhaulActive = useOverhaulActive();
   const { t: localizeUi } = useUiTranslation();
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
@@ -2082,72 +2085,74 @@ export function AgentEditor() {
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="mari-editor-header">
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label={localizeUi("ui.agents.agenteditor.backToAgents")}
-          className="mari-editor-action inline-flex"
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
-        <div className="mari-editor-icon-tile">
-          <Sparkles size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-        </div>
-        <input
-          value={localName}
-          onChange={(e) => {
-            setLocalName(e.target.value);
-            markDirty();
-          }}
-          onFocus={reportField("name", localizeUi("ui.agents.agenteditor.nameField"))}
-          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
-          placeholder={localizeUi("ui.agents.agenteditor.agentName")}
-        />
-        <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
-          {saveError && (
-            <span className="mari-editor-status mr-2 text-red-400">
-              <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
-            </span>
-          )}
-          {savedFlash && !dirty && (
-            <span className="mari-editor-status mr-2 text-emerald-400">
-              <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="mari-editor-status mr-2 text-amber-400">
-              {localizeUi("ui.agents.agenteditor.unsaved")}
-            </span>
-          )}
+      {!overhaulActive && (
+        <div className="mari-editor-header">
           <button
-            onClick={handleSave}
-            aria-label={localizeUi("ui.noodle.noodlehome.save")}
-            disabled={isPending}
-            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-          >
-            <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
-          </button>
-          <button
-            onClick={handleExportAgent}
+            type="button"
+            onClick={handleClose}
+            aria-label={localizeUi("ui.agents.agenteditor.backToAgents")}
             className="mari-editor-action inline-flex"
-            title={localizeUi("ui.agents.agenteditor.exportAgent")}
-            aria-label={localizeUi("ui.agents.agenteditor.exportAgent")}
           >
-            <Upload size="0.9375rem" />
+            <ArrowLeft size="1.125rem" />
           </button>
-          {isCustomAgent && dbConfig && (
+          <div className="mari-editor-icon-tile">
+            <Sparkles size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
+          </div>
+          <input
+            value={localName}
+            onChange={(e) => {
+              setLocalName(e.target.value);
+              markDirty();
+            }}
+            onFocus={reportField("name", localizeUi("ui.agents.agenteditor.nameField"))}
+            className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
+            placeholder={localizeUi("ui.agents.agenteditor.agentName")}
+          />
+          <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
+            {saveError && (
+              <span className="mari-editor-status mr-2 text-red-400">
+                <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
+              </span>
+            )}
+            {savedFlash && !dirty && (
+              <span className="mari-editor-status mr-2 text-emerald-400">
+                <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
+              </span>
+            )}
+            {dirty && !saveError && (
+              <span className="mari-editor-status mr-2 text-amber-400">
+                {localizeUi("ui.agents.agenteditor.unsaved")}
+              </span>
+            )}
             <button
-              onClick={handleDelete}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.agents.agenteditor.deleteAgent")}
-              aria-label={localizeUi("ui.agents.agenteditor.deleteAgent")}
+              onClick={handleSave}
+              aria-label={localizeUi("ui.noodle.noodlehome.save")}
+              disabled={isPending}
+              className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
             >
-              <Trash2 size="0.9375rem" />
+              <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
             </button>
-          )}
+            <button
+              onClick={handleExportAgent}
+              className="mari-editor-action inline-flex"
+              title={localizeUi("ui.agents.agenteditor.exportAgent")}
+              aria-label={localizeUi("ui.agents.agenteditor.exportAgent")}
+            >
+              <Upload size="0.9375rem" />
+            </button>
+            {isCustomAgent && dbConfig && (
+              <button
+                onClick={handleDelete}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.agents.agenteditor.deleteAgent")}
+                aria-label={localizeUi("ui.agents.agenteditor.deleteAgent")}
+              >
+                <Trash2 size="0.9375rem" />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Unsaved warning */}
       {showUnsavedWarning && (
@@ -2210,8 +2215,53 @@ export function AgentEditor() {
       )}
 
       {/* ── Body ── */}
-      <div className="mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4">
-        <div className="mari-editor-content-inner mari-editor-content-inner--wide w-full min-w-0 max-w-full space-y-6">
+      <div
+        className={
+          overhaulActive ? "ov-ed ov-agented" : "mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4"
+        }
+      >
+        {overhaulActive && (
+          <OvEditorHead
+            section="agents"
+            sectionLabel="Agents"
+            title={localName}
+            titlePlaceholder={localizeUi("ui.agents.agenteditor.agentName")}
+            onTitleChange={(next) => {
+              setLocalName(next);
+              markDirty();
+            }}
+            meta={builtIn ? "Built-in agent" : "Custom agent"}
+            status={<OvSaveState dirty={dirty} saving={isPending} error={!!saveError} />}
+            actions={
+              <>
+                <button type="button" className="ov-edbtn" onClick={handleExportAgent}>
+                  Export
+                </button>
+                <button
+                  type="button"
+                  className="ov-edbtn ov-edbtn--primary"
+                  onClick={handleSave}
+                  disabled={!dirty || isPending}
+                >
+                  {savedFlash && !dirty ? "Saved" : "Save"}
+                </button>
+              </>
+            }
+            menu={[
+              { label: "Back to Agents", onSelect: handleClose },
+              ...(isCustomAgent && dbConfig
+                ? [{ label: "Delete agent", danger: true, onSelect: () => void handleDelete() }]
+                : []),
+            ]}
+          />
+        )}
+        <div
+          className={
+            overhaulActive
+              ? "ov-agented__flow"
+              : "mari-editor-content-inner mari-editor-content-inner--wide w-full min-w-0 max-w-full space-y-6"
+          }
+        >
           {/* ── Description ── */}
           <FieldGroup
             label={localizeUi("chat.settings.inlineEditor.fields.description")}
@@ -4653,6 +4703,33 @@ function FieldGroup({
   children: React.ReactNode;
 }) {
   const contentVisible = !collapsible || expanded;
+  const overhaulActive = useOverhaulActive();
+  if (overhaulActive) {
+    return (
+      <div className="ov-row is-top ov-cf">
+        <div className="ov-row__label">
+          {collapsible ? (
+            <button
+              type="button"
+              className="ov-cf__toggle"
+              onClick={() => onExpandedChange?.(!expanded)}
+              aria-expanded={expanded}
+            >
+              {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {label}
+            </button>
+          ) : (
+            <span>
+              {label}
+              {help && <HelpTooltip text={help} />}
+            </span>
+          )}
+          {collapsible && summary ? <small>{summary}</small> : null}
+        </div>
+        <div className="ov-cf__control">{contentVisible ? children : <span className="ov-row__note">Hidden</span>}</div>
+      </div>
+    );
+  }
   return (
     <div className="mari-editor-panel min-w-0 max-w-full space-y-2 overflow-hidden p-3">
       <div className="flex items-center gap-1.5">

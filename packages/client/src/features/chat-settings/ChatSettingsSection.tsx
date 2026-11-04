@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Drawer } from "../../components/ui/Drawer";
 import { useUIStore } from "../../stores/ui.store";
+import { isOverhaulActive } from "../../stores/overhaul.store";
 
 interface ChatSettingsSectionProps {
   /** Stable id used to remember this section's expand/collapse state across reopens. */
@@ -34,11 +35,13 @@ export function ChatSettingsSection({
   const rememberedOpen = useUIStore((s) => (id ? s.chatSettingsExpandedSections[id] : undefined));
   const setSectionExpanded = useUIStore((s) => s.setChatSettingsSectionExpanded);
   // Remembered state wins once it exists; otherwise fall back to initialOpen.
-  const [open, setOpen] = useState(forceOpen || (rememberedOpen ?? initialOpen));
+  // The overhaul's Chat settings drawer (v1) shows sections expanded until the person collapses one.
+  const defaultOpen = initialOpen || isOverhaulActive();
+  const [open, setOpen] = useState(forceOpen || (rememberedOpen ?? defaultOpen));
   useEffect(() => {
     if (rememberedOpen !== undefined) setOpen(rememberedOpen);
-    else if (initialOpen) setOpen(true);
-  }, [initialOpen, rememberedOpen]);
+    else if (defaultOpen) setOpen(true);
+  }, [defaultOpen, rememberedOpen]);
   // Explicit navigation opens once; a later user collapse must still win.
   useEffect(() => {
     if (!forceOpen) return;
