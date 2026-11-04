@@ -5837,6 +5837,20 @@ export function ChatSettingsDrawer({
                         );
                       })()}
                       <div className="ml-auto flex shrink-0 items-center gap-1">
+                        {overhaulActive && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowPersonaPicker(true);
+                              setPersonaSearch("");
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                            title="Change persona"
+                            aria-label="Change persona"
+                          >
+                            <RefreshCw size="0.6875rem" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => toggleInlineResourceEditor("persona", chat.personaId!)}
@@ -5875,6 +5889,7 @@ export function ChatSettingsDrawer({
 
                 {!showPersonaPicker ? (
                   <button
+                    data-ov-change-persona={chat.personaId || chat.personaCharacterId ? "set" : "empty"}
                     onClick={() => {
                       setShowPersonaPicker(true);
                       setPersonaSearch("");
@@ -6143,6 +6158,20 @@ export function ChatSettingsDrawer({
                       );
                     })()}
                     <div className="ml-auto flex shrink-0 items-center gap-1">
+                      {overhaulActive && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPersonaPicker(true);
+                            setPersonaSearch("");
+                          }}
+                          className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                          title="Change persona"
+                          aria-label="Change persona"
+                        >
+                          <RefreshCw size="0.6875rem" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() =>
@@ -6188,6 +6217,7 @@ export function ChatSettingsDrawer({
               {/* Persona picker */}
               {!showPersonaPicker ? (
                 <button
+                  data-ov-change-persona={chat.personaId || chat.personaCharacterId ? "set" : "empty"}
                   onClick={() => {
                     setShowPersonaPicker(true);
                     setPersonaSearch("");
