@@ -475,7 +475,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               onClick={handleScan}
               disabled={!folderPath.trim() || phase === "scanning"}
               className={cn(
-                "flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-all",
+                "ov-stscan flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-all",
                 folderPath.trim() && phase !== "scanning"
                   ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 active:scale-95"
                   : "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-50",

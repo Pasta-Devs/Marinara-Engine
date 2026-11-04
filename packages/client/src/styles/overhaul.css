@@ -6250,3 +6250,250 @@ input.ov-edhead__title:focus {
   color: var(--ov-muted);
   font-size: 0.6875rem;
 }
+
+/* ─── Desktop density sweep: shared upstream controls lose their tablet sizing ─── */
+/* Big full-width action buttons (Download Backup, Asset Browser, Restart Server...) become
+   ordinary inline buttons sized to their label. */
+:root[data-overhaul="on"] .mari-chrome-control {
+  border-radius: 0.4375rem;
+}
+:root[data-overhaul="on"] .mari-chrome-control--primary {
+  min-height: 1.875rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+:root[data-overhaul="on"] .mari-chrome-control--small,
+:root[data-overhaul="on"] .mari-chrome-control--compact {
+  min-height: 1.625rem;
+  padding: 0.1875rem 0.5625rem;
+  border-radius: 0.375rem;
+}
+:root[data-overhaul="on"] .mari-chrome-control--compact {
+  border-color: transparent;
+  background: transparent;
+  font-size: 0.75rem;
+}
+:root[data-overhaul="on"] .mari-chrome-control--compact:hover,
+:root[data-overhaul="on"]
+  .mari-chrome-control--compact:is(
+    [aria-pressed="true"],
+    [aria-current="page"],
+    [aria-expanded="true"],
+    [data-active="true"]
+  ) {
+  border-color: transparent;
+  background: var(--ov-hover);
+}
+:root[data-overhaul="on"]
+  :is(.mari-chrome-control--primary, .mari-chrome-control--small).w-full:not([role="switch"]):not(
+    .mari-modal-panel footer *
+  ) {
+  width: auto;
+  align-self: flex-start;
+  justify-self: start;
+}
+:root[data-overhaul="on"] .mari-chrome-control--card {
+  padding: 0.4375rem 0.625rem;
+}
+:root[data-overhaul="on"] .mari-chrome-control:active {
+  transform: none;
+}
+
+/* Prompt suggestions above a composer: small flat chips, not tinted pills. */
+:root[data-overhaul="on"] .mari-suggestion-chip {
+  min-height: 1.625rem;
+  padding: 0.1875rem 0.5625rem;
+  border-radius: 0.375rem;
+  border-color: var(--ov-line);
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+:root[data-overhaul="on"] .mari-suggestion-chip:hover:not(:disabled) {
+  background: var(--ov-hover);
+  box-shadow: none;
+}
+
+/* Professor Mari tab: list rows at list density (chats, skills, memories). */
+.ov-mari {
+  --mari-card-radius: 0.375rem;
+  --mari-card-pad-block: 0.3125rem;
+  --mari-card-pad-inline: 0.5rem;
+  --mari-card-slot: 1.375rem;
+  --mari-card-gap: 0.5rem;
+}
+.ov-mari .mari-row {
+  min-height: 2.25rem;
+  border-radius: 0.375rem;
+}
+.ov-mari .mari-row--one {
+  min-height: 2rem;
+}
+.ov-mari select.h-9 {
+  height: 1.875rem;
+  border-radius: 0.4375rem;
+}
+.ov-mari .mari-link {
+  height: 1.75rem;
+  font-size: 0.8125rem;
+}
+
+/* Dialog close button: no focus halo around a big circle. */
+:root[data-overhaul="on"] .mari-modal-panel .marinara-chat-popover__header > button {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border-radius: 0.375rem;
+  box-shadow: none;
+}
+
+/* Home mode launchers: same height as the other hero buttons, plain icon. */
+.ov-home-mode > span:first-child {
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  transform: none !important;
+}
+.ov-home-hero-actions .ov-btn {
+  height: 2rem;
+}
+
+/* Home Widgets dialog: a dense list, eye toggles as small icon buttons. */
+[data-component="HomeBrowserHub.WidgetManager"] section.grid,
+[data-component="HomeBrowserHub.WidgetManager"] > .grid {
+  gap: 0.0625rem;
+}
+[data-component="HomeBrowserHub.WidgetManager"] h3 {
+  margin-bottom: 0.125rem;
+  font-size: 0.6875rem;
+}
+[data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] :is(section, .grid) > :is(div, button).min-h-12,
+[data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .grid > button.min-h-11 {
+  min-height: 2rem;
+  gap: 0.5rem;
+  padding: 0.125rem 0.25rem 0.125rem 0.5rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+[data-overhaul="on"]
+  [data-component="HomeBrowserHub.WidgetManager"]
+  :is(section, .grid)
+  > :is(div, button).min-h-12:hover {
+  background: var(--ov-hover);
+}
+[data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .min-h-12 > span.h-8 {
+  width: 1rem;
+  height: 1rem;
+  padding: 0.125rem;
+  gap: 0.0625rem;
+  border-radius: 0.1875rem;
+}
+[data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .min-h-12 > span.text-sm {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+[data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .min-h-12 > button.h-10 {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-color: transparent;
+  border-radius: 0.375rem;
+  background: transparent;
+}
+[data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .min-h-12 > button.h-10:hover {
+  background: var(--ov-hover);
+}
+[data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .min-h-12 > button.h-10 svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+[data-overhaul="on"]
+  [data-component="HomeBrowserHub.WidgetManager"]
+  .min-h-12
+  > button[role="switch"][aria-checked="false"] {
+  color: var(--ov-muted);
+}
+/* A stack of buttons becomes one wrapping line of buttons; any other row keeps its own line. */
+:root[data-overhaul="on"]
+  .flex-col:has(> .mari-chrome-control + .mari-chrome-control):not([data-component="GlobalOmnibar"] *) {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+:root[data-overhaul="on"]
+  .flex-col:has(> .mari-chrome-control + .mari-chrome-control):not([data-component="GlobalOmnibar"] *)
+  > :not(.mari-chrome-control) {
+  flex: 1 1 100%;
+}
+/* Checkbox choice cards in Settings (Danger zone...): plain checkbox rows. */
+.ov-settings label.ring-1.rounded-lg:has(input[type="checkbox"]) {
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.375rem;
+  background: transparent;
+  box-shadow: none;
+  --tw-ring-shadow: 0 0 #0000;
+}
+.ov-settings .grid.gap-2:has(> label.ring-1.rounded-lg) {
+  gap: 0;
+}
+/* Buttons used as menu rows (status picker, recent statuses...): flat rows, not stacked cards. */
+:root[data-overhaul="on"] .mari-chrome-control.w-full.justify-start:not(.mari-chrome-control--primary) {
+  min-height: 0;
+  padding: 0.3125rem 0.5rem;
+  border-color: transparent;
+  border-radius: 0.375rem;
+  background: transparent;
+  box-shadow: none;
+}
+:root[data-overhaul="on"]
+  .mari-chrome-control.w-full.justify-start:not(.mari-chrome-control--primary):is(
+    :hover,
+    .mari-chrome-control--selected
+  ) {
+  border-color: transparent;
+  background: var(--ov-hover);
+}
+/* "Choose a chat mode": a short list of rows instead of three tall cards. */
+[data-overhaul="on"] [data-component="ChatModeSelectorModal"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0.125rem;
+}
+[data-overhaul="on"] [data-component="ChatModeSelectorModal"] > button {
+  min-height: 0;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.4375rem 0.5rem;
+  border-color: transparent;
+  border-radius: 0.375rem;
+  background: transparent;
+  box-shadow: none;
+}
+[data-overhaul="on"] [data-component="ChatModeSelectorModal"] > button:hover {
+  background: var(--ov-hover);
+}
+[data-overhaul="on"] [data-component="ChatModeSelectorModal"] > button > span:first-child {
+  margin: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+}
+[data-overhaul="on"] [data-component="ChatModeSelectorModal"] > button > span:last-child > span + span {
+  margin-top: 0.0625rem;
+}
+:root[data-overhaul="on"] .mari-modal-panel .marinara-chat-popover__header > button:focus {
+  outline: none;
+}
+:root[data-overhaul="on"] .mari-modal-panel .marinara-chat-popover__header > button:focus-visible {
+  background: var(--ov-hover);
+}
+:root[data-overhaul="on"] .ov-stscan {
+  align-self: flex-start;
+  padding: 0.3125rem 0.75rem;
+  border-radius: 0.4375rem;
+}
