@@ -110,6 +110,7 @@ export function ConnectionRow({
   onToggleStar,
   onUseInChat,
   moveTargets,
+  moveBlocked,
   onMove,
   folderName,
   onChooseFolder,
@@ -131,6 +132,8 @@ export function ConnectionRow({
   /** Names of the Connections the Model can move to (the menu hint); `onMove` opens the move dialog. */
   moveTargets?: string[];
   onMove?: () => void;
+  /** Why Move is unavailable; shows it greyed out with this reason. */
+  moveBlocked?: string;
   /** The Model's folder (the menu hint); `onChooseFolder` asks for another. */
   folderName?: string;
   onChooseFolder?: () => void;
@@ -232,7 +235,17 @@ export function ConnectionRow({
             onSelect: onMove,
           },
         ]
-      : []),
+      : moveBlocked
+        ? [
+            {
+              label: t("connections.accounts.row.moveTo"),
+              hint: moveBlocked,
+              icon: <MoveRight size="0.75rem" />,
+              onSelect: () => {},
+              disabled: true,
+            },
+          ]
+        : []),
     ...(onChooseFolder
       ? [
           {

@@ -71,7 +71,7 @@ import {
 } from "../../hooks/use-connection-folders";
 import { ConnectionRow, ROW_BUTTON, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
-import { ConnectionGroup, GROUP_SURFACE, hostOf, moveTargetsFor } from "../connections/ConnectionGroup";
+import { ConnectionGroup, GROUP_SURFACE, hostOf, moveBlockedKey, moveTargetsFor } from "../connections/ConnectionGroup";
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
@@ -510,6 +510,7 @@ export function ConnectionsPanel() {
       connectionsList.filter((candidate) => candidate.accountId === account.id).length > 1
         ? account
         : null;
+    const blockedKey = moveBlockedKey(row);
     const moveTargets = [...sameTargets, ...otherTargets];
     return (
       <ConnectionRow
@@ -545,6 +546,7 @@ export function ConnectionsPanel() {
           ...(splitFrom ? [t("connections.move.newConnection")] : []),
         ]}
         onMove={() => setMoving({ row, same: sameTargets, other: otherTargets, splitFrom })}
+        moveBlocked={moveTargets.length || !blockedKey ? undefined : t(blockedKey)}
         folderName={
           (folders ?? []).find((folder) => folder.id === row.folderId)?.name ?? t("connections.folders.noFolder")
         }
