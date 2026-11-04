@@ -1,5 +1,5 @@
 import { lstatSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, sep, win32 } from "node:path";
 import { DATA_DIR } from "./data-dir.js";
 import { assertInsideDir } from "./security.js";
 
@@ -30,11 +30,44 @@ function realPathOf(path: string): string {
 export function realPathInAppFolder(folder: string, path: string): string {
   const place = relative(DATA_DIR, folder);
   if (place === ".." || place.startsWith(`..${sep}`) || isAbsolute(place)) return realPathInRealFolder(folder, path);
-  return assertInsideDir(join(realpathSync(DATA_DIR), place), realPathOf(path));
+  const realFolder = join(realpathSync(DATA_DIR), place);
+  namedInside(path, folder, realFolder);
+  return insideByAsciiCase(realFolder, realPathOf(path));
 }
 
 // The same rule for a folder the user may move behind a link of its own (game-assets on another disk): `path` is held to
 // the folder's own real path, so the folder's link is followed but a link inside it that leads out is refused.
 export function realPathInRealFolder(folder: string, path: string): string {
-  return assertInsideDir(realpathSync(folder), realPathOf(path));
+  const realFolder = realpathSync(folder);
+  namedInside(path, folder, realFolder);
+  return insideByAsciiCase(realFolder, realPathOf(path));
+}
+
+// `path` as written names a place inside the folder, spelled as configured or as its real path (callers pass either),
+// so a path that names somewhere else is refused before the real-path walk looks at anything outside the folder.
+function namedInside(path: string, ...folders: string[]): void {
+  for (const folder of folders) {
+    try {
+      assertInsideDir(folder, path);
+      return;
+    } catch {
+      // Try the folder's other spelling.
+    }
+  }
+  throw new Error("Path escapes the allowed directory");
+}
+
+// assertInsideDir, and on Windows also inside when only ASCII letters ignore case. Windows path comparison lower-cases
+// every letter, so a folder whose name differs only by a letter that lower-cases to an ASCII one (U+212A KELVIN SIGN
+// to "k") would count as the same folder, though the file system keeps the two apart.
+// ponytail: ASCII-only folding refuses a real folder whose non-ASCII letters differ in case between the data dir as
+// configured and as stored; upgrade by comparing the paths fs.realpathSync.native returns, which carry the stored case.
+export function insideByAsciiCase(root: string, candidate: string): string {
+  const inside = assertInsideDir(root, candidate);
+  if (!/^[A-Za-z]:[\\/]|^\\\\/.test(root) && !/^[A-Za-z]:[\\/]|^\\\\/.test(candidate)) return inside;
+  const fold = (value: string) => win32.resolve(value).replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+  const base = fold(root).replace(/\\+$/, "");
+  const target = fold(candidate);
+  if (target !== base && !target.startsWith(`${base}\\`)) throw new Error("Path escapes the allowed directory");
+  return inside;
 }
