@@ -208,6 +208,7 @@ import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSectio
 import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
 import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
+import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -2870,6 +2871,13 @@ function MetadataTab({
   // Read existing crop in either current or legacy shape; the widget handles both
   // and writes back the current shape on first interaction.
   const savedCrop = normalizeAvatarCrop(formData.extensions.avatarCrop);
+  const overhaulMeta = useOverhaulActive();
+  const copyCharacterId = async () => {
+    if (!characterId) return;
+    const copied = await copyToClipboard(characterId);
+    if (copied) toast.success(localizeUi("ui.characters.metadatatab.characterIdCopied"));
+    else toast.error(localizeUi("ui.characters.metadatatab.couldNotCopyTheCharacterId"));
+  };
 
   return (
     <div className="space-y-5">
@@ -2879,7 +2887,7 @@ function MetadataTab({
         helpText={CHARACTER_METADATA_HELP}
       />
 
-      {characterId && (
+      {characterId && !overhaulMeta && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 px-3 py-2">
           <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
             {localizeUi("ui.characters.metadatatab.characterId")}
@@ -2934,7 +2942,7 @@ function MetadataTab({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={cn("grid gap-4 sm:grid-cols-2", overhaulMeta && "sm:grid-flow-row-dense")}>
         <label className={cn("space-y-1.5 sm:col-span-2", compact && "hidden")}>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.characters.metadatatab.name")}{" "}
@@ -2962,19 +2970,31 @@ function MetadataTab({
             placeholder={localizeUi("ui.characters.metadatatab.modernAuVersion")}
           />
         </label>
-        <label className="space-y-1.5">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.characters.metadatatab.creator")}{" "}
-            <HelpTooltip text={localizeUi("ui.characters.metadatatab.thePersonWhoMadeThisCharacterUsefulForGiving")} />
-          </span>
-          <input
-            value={formData.creator}
-            onChange={(e) => updateField("creator", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={localizeUi("ui.characters.metadatatab.yourName")}
-          />
-        </label>
         <div className="space-y-1.5">
+          <label className="block space-y-1.5">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.characters.metadatatab.creator")}{" "}
+              <HelpTooltip
+                text={localizeUi("ui.characters.metadatatab.thePersonWhoMadeThisCharacterUsefulForGiving")}
+              />
+            </span>
+            <input
+              value={formData.creator}
+              onChange={(e) => updateField("creator", e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+              placeholder={localizeUi("ui.characters.metadatatab.yourName")}
+            />
+          </label>
+          {overhaulMeta && characterId ? (
+            <CopyIdLine
+              label={localizeUi("ui.characters.metadatatab.characterId")}
+              id={characterId}
+              copyLabel={localizeUi("ui.characters.metadatatab.copyCharacterId")}
+              onCopy={() => void copyCharacterId()}
+            />
+          ) : null}
+        </div>
+        <div className={cn("space-y-1.5", overhaulMeta && "sm:col-start-1")}>
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.characters.metadatatab.version")}{" "}

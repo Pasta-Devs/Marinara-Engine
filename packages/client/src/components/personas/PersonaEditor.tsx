@@ -127,6 +127,7 @@ import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { isOverhaulActive, useOverhaulActive } from "../../stores/overhaul.store";
 import { AddFieldChips, EditorCrumbs, EditorRail } from "../overhaul/EditorRail";
 import { MariContextChip } from "../chat/MariContextChip";
+import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { GameModeSheet } from "../overhaul/GameModeSheet";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
@@ -3887,6 +3888,8 @@ function PersonaMetadataTab({
     updateField("tags", []);
   };
 
+  const overhaulMeta = useOverhaulActive();
+
   return (
     <div className="space-y-5">
       <SectionHeader
@@ -3895,7 +3898,7 @@ function PersonaMetadataTab({
         helpText={PERSONA_METADATA_HELP}
       />
 
-      {personaId && (
+      {personaId && !overhaulMeta && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 px-3 py-2">
           <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personametadatatab.personaId")}
@@ -4000,20 +4003,33 @@ function PersonaMetadataTab({
             placeholder={formData.name}
           />
         </label>
-        <label className="space-y-1.5">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.personas.personametadatatab.creator")}{" "}
-            <HelpTooltip
-              text={localizeUi("ui.personas.personametadatatab.thePersonWhoMadeThisPersonaUsefulForCredit")}
+        <div className="space-y-1.5">
+          <label className="block space-y-1.5">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.personas.personametadatatab.creator")}{" "}
+              <HelpTooltip
+                text={localizeUi("ui.personas.personametadatatab.thePersonWhoMadeThisPersonaUsefulForCredit")}
+              />
+            </span>
+            <input
+              value={formData.creator}
+              onChange={(e) => updateField("creator", e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+              placeholder={localizeUi("ui.personas.personametadatatab.yourName")}
             />
-          </span>
-          <input
-            value={formData.creator}
-            onChange={(e) => updateField("creator", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            placeholder={localizeUi("ui.personas.personametadatatab.yourName")}
-          />
-        </label>
+          </label>
+          {overhaulMeta && personaId ? (
+            <CopyIdLine
+              label={localizeUi("ui.personas.personametadatatab.personaId")}
+              id={personaId}
+              copyLabel={localizeUi("ui.personas.personametadatatab.copyPersonaId")}
+              onCopy={() => {
+                void navigator.clipboard?.writeText(personaId);
+                toast.success(localizeUi("ui.personas.personametadatatab.personaIdCopied"));
+              }}
+            />
+          ) : null}
+        </div>
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
