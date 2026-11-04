@@ -2320,23 +2320,7 @@ try {
   assert.deepEqual(calls, [], "combined summaries within the share need no further calls");
   summaryResponse = undefined;
 
-  // The check that no private run of words reaches more readers still runs on the result. The Helper never sees
-  // Maukie's secret, so it can write it into the text both read only by chance; such a result is a failed attempt:
-  // nothing is saved, no smaller groups are tried, and the next reply sends nothing again (#8820).
-  summaryReply = () => "COMBINED_WALK. MAUKIE_SECRET hid the key.";
-  await chats.patchMetadata(combineChat.id, { summaryEntries: [privateRecap, sharedRecap] });
-  calls.length = 0;
-  await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  assert.equal(calls.length, 1, "a rejected result is neither split into smaller groups nor asked again");
-  assert.deepEqual(
-    await combineEntries(),
-    [privateRecap, sharedRecap],
-    "a result that copies a private sentence into shared text is not saved",
-  );
-  assert.doesNotMatch(await recallFor(privateB.id), /MAUKIE_SECRET/u);
-
-  // A reply that writes a condition of its own is not saved either, and is asked once.
+  // A reply that writes a condition of its own is not saved, and is asked once.
   const walkRecap = recap("walk-recap", 0, privateRecap.content);
   summaryReply = () => `SHARED_WALK ${maukieSecret}`;
   await chats.patchMetadata(combineChat.id, { summaryEntries: [walkRecap] });
@@ -2418,64 +2402,7 @@ try {
   assert(mergedCombined.find((entry) => entry.enabled)!.content.includes(maukieSecret));
   summaryResponse = undefined;
 
-  // A private sentence in Chinese or Japanese, which have no spaces, is caught when it shows up in shared text too.
-  const cjkRecap = recap(
-    "cjk-recap",
-    0,
-    `${forBoth}${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}毛奇把钥匙藏在了钟楼里。{{/if}}{{/if}}`,
-  );
-  summaryReply = (prompt) =>
-    prompt.includes("SHARED_WALK") ? "COMBINED_WALK. 毛奇把钥匙藏在了钟楼里。" : "PLAIN_COMPACTED";
-  await chats.patchMetadata(combineChat.id, { groupChatMode: "individual", summaryEntries: [cjkRecap, sharedRecap] });
-  await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-  assert.deepEqual((await combineEntries())[0], cjkRecap, "a copied private sentence without spaces is not saved");
-  assert.doesNotMatch(await recallFor(privateB.id), /钟楼/u);
-  // So is one whose full stops split it into pieces under four words: a decimal or an abbreviation.
-  for (const [index, secret] of ["Meet at 3.5 now.", "Mr. Fox hid it."].entries()) {
-    const pieceRecap = recap(
-      `piece-recap-${index}`,
-      0,
-      `${forBoth}${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}${secret}{{/if}}{{/if}}`,
-    );
-    summaryReply = (prompt) => (prompt.includes("SHARED_WALK") ? `COMBINED_WALK. ${secret}` : "PLAIN_COMPACTED");
-    await chats.patchMetadata(combineChat.id, { summaryEntries: [pieceRecap, sharedRecap] });
-    await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-    assert.deepEqual((await combineEntries())[0], pieceRecap, `copied "${secret}" is not saved`);
-    assert(!(await recallFor(privateB.id)).includes(secret));
-  }
-  // So is one copied without its quote marks, from a list without full stops, with a plain apostrophe, with a
-  // part for Maukie in the middle (a condition, which no reply may add), or shortened around a private phrase
-  // (#7454). A long run of "!" in a private section is still checked quickly.
-  for (const [index, [secret, copy, found]] of [
-    [
-      "Maukie secretly hid the brass key under the floorboards.",
-      "Maukie hid the brass key under the floor.",
-      "brass key",
-    ],
-    ['"Maukie hid the key in the attic."', "Maukie hid the key in the attic.", "hid the key"],
-    ["- Maukie hid the key in the attic\n- Maukie fears the butler", "Maukie fears the butler.", "butler"],
-    ["Maukie’s key is in the attic.", "Maukie's key is in the attic.", "key is in"],
-    [
-      "Maukie hid the key in the attic.",
-      'Maukie {{#if char == "Maukie"}}quietly {{/if}}hid the key in the attic.',
-      "hid the key",
-    ],
-    [`Maukie hid the key in the attic${"!".repeat(1000)}`, "Maukie hid the key in the attic.", "hid the key"],
-  ].entries()) {
-    const copyRecap = recap(
-      `copy-recap-${index}`,
-      0,
-      `${forBoth}${"SHARED_WALK ".repeat(300)}{{#if char == "Maukie"}}${secret}{{/if}}{{/if}}`,
-    );
-    summaryReply = (prompt) => (prompt.includes("SHARED_WALK") ? `COMBINED_WALK. ${copy}` : "PLAIN_COMPACTED");
-    await chats.patchMetadata(combineChat.id, { summaryEntries: [copyRecap, sharedRecap] });
-    const started = Date.now();
-    await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
-    assert(Date.now() - started < 5000, `checking "${copy}" takes under five seconds`);
-    assert.deepEqual((await combineEntries())[0], copyRecap, `copied "${copy}" is not saved`);
-    assert(!(await recallFor(privateB.id)).includes(found));
-  }
-  // Shared text that only reuses words from those sentences is still saved.
+  // Shared text that reuses words from Maukie's part is saved.
   const piecesRecap = recap(
     "pieces-recap",
     0,
@@ -2483,7 +2410,10 @@ try {
   );
   summaryReply = (prompt) =>
     prompt.includes("SHARED_WALK") ? "COMBINED_WALK. Mr. Fox met them at 3.5 now." : "PLAIN_COMPACTED";
-  await chats.patchMetadata(combineChat.id, { summaryEntries: [piecesRecap, sharedRecap] });
+  await chats.patchMetadata(combineChat.id, {
+    groupChatMode: "individual",
+    summaryEntries: [piecesRecap, sharedRecap],
+  });
   await memory.checkScenesAfterGeneration(combineChat.id, { blocking: false });
   assert.deepEqual(
     (await combineEntries()).filter((entry) => !entry.enabled).map((entry) => entry.id),

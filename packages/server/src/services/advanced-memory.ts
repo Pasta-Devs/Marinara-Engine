@@ -4761,52 +4761,20 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     }
     const names = ctx.characterIds.map((id) => ctx.names.get(id) ?? "Character");
     const narrator = ctx.settings.narratorCharacterId ? ctx.names.get(ctx.settings.narratorCharacterId) : undefined;
-    // The text of each group of readers in these texts, also of characters who left the chat that a condition
-    // names; "{{" stands for any macro but {{user}}, which reads the same for everyone. It is lowercased,
-    // with plain quote marks and one space or line break between words, also where a condition splits a
-    // sentence, so spacing, a condition or a curly apostrophe can't hide a copied sentence. The narrator
-    // reads every section, so a condition that names or leaves out the narrator changes no reader.
+    // Each group of readers with text in these texts, also of characters who left the chat that a condition
+    // names; "{{" stands for any macro but {{user}}, which reads the same for everyone. The narrator reads every
+    // section, so a condition that names or leaves out the narrator changes no reader.
     const otherMacros = (part: string) => part.replace(/\{\{user\}\}/giu, "").includes("{{");
     const sections = (texts: string[]) => {
-      const found = new Map<string, string>();
+      const found = new Set<string>();
       const known = [...new Set([...names, ...texts.flatMap((text) => characterConditionNames(text))])];
       for (const text of texts)
         scopeCharacterSummary(text, known, 0, (part, readers) => {
-          const key = otherMacros(part) ? "{{" : JSON.stringify(readers.filter((name) => name !== narrator).sort());
-          if (part.trim()) found.set(key, `${found.get(key) ?? ""} ${part}`);
+          if (part.trim())
+            found.add(otherMacros(part) ? "{{" : JSON.stringify(readers.filter((name) => name !== narrator).sort()));
           return part;
         });
-      for (const [key, text] of found)
-        found.set(
-          key,
-          text
-            .normalize("NFKC")
-            .toLowerCase()
-            .replace(/[‘’]/gu, "'")
-            .replace(/[“”]/gu, '"')
-            .replace(/\s*\n\s*/gu, "\n")
-            .replace(/[^\S\n]+/gu, " "),
-        );
       return found;
-    };
-    // A run of four words from a private section newly found in a section someone else can also read, also
-    // when the Helper shortened the sentence around it; a run that section's readers could already read in
-    // the inputs is no leak. Both sides are normalized sections, so quote marks, list marks, line breaks, a
-    // decimal or an abbreviation can't hide a copied run. Text with macros but {{user}} counts as read by everyone.
-    // Segmenting counts words in languages without spaces too.
-    const runs = wordRuns;
-    const leaks = (before: Map<string, string>, after: Map<string, string>) => {
-      const read = new Map([...before].map(([key, text]) => [key, runs(text)]));
-      return [...after].some(([wider, output]) => {
-        const written = runs(output);
-        return [...read].some(
-          ([key, own]) =>
-            key !== "{{" &&
-            (wider === "{{" ||
-              (JSON.parse(wider) as string[]).some((name) => !(JSON.parse(key) as string[]).includes(name))) &&
-            [...own].some((run) => written.has(run) && !read.get(wider)?.has(run)),
-        );
-      });
     };
     // Who reads each summary that may be combined. One whose text differs by character is combined too, also
     // when you wrote or edited it, each set of readers' part shortened on its own (#7270, #7454, #8820).
@@ -4874,7 +4842,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const content = conditional ? entry.content : text;
         scopeConstantSummary(ctx, content, own, named, (part, partReaders) => {
           const macros = otherMacros(part);
-          const key = JSON.stringify([partReaders, macros]);
+          // Sorted: a summary's conditions name its readers in their own order, and the same readers are one set.
+          const key = JSON.stringify([[...partReaders].sort(), macros]);
           const set = sets.get(key) ?? { readers: partReaders, texts: [], macros };
           set.texts.push(part.trim());
           sets.set(key, set);
@@ -4921,33 +4890,35 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       if (!result) continue;
       let taken = 0;
       const texts = parts.map((part, index) => (shorten[index] ? result.texts[taken++]! : part.texts.join("\n\n")));
-      // Each set's part goes back inside the condition it had, which `scopeCharacterSummary` writes from the same
-      // readers as in `inputs`, in the order the sets first appear in chat order. A reader whose sets alternate
-      // reads one set's part whole, then the next: only the order between sets changes, never which parts a reader
-      // reads. ponytail: so a later shared event can come before an earlier private one; upgrade by shortening each
-      // run of a set on its own, at the cost of a request per run.
+      // Each set's part goes back inside a condition for the readers it had, which `scopeCharacterSummary` writes
+      // from the same readers as in `inputs`, in the order the sets first appear in chat order. A reader whose sets
+      // alternate reads one set's part whole, then the next: only the order between sets changes, never which parts
+      // a reader reads. ponytail: so a later shared event can come before an earlier private one; upgrade by
+      // shortening each run of a set on its own, at the cost of a request per run.
       const scoped = combine
         ? parts.map((part, index) => scopeCharacterSummary(texts[index]!, part.readers)).join("\n\n")
         : scopeConstantSummary(ctx, texts[0]!, readers, inputs.join("\n\n"));
-      const before = combine ? sections(inputs) : new Map<string, string>();
+      const size = tokenSize(combine ? scoped : texts[0]!);
+      const before = combine ? sections(inputs) : new Set<string>();
       const after = combine ? sections([scoped]) : before;
-      // A combined group's inputs carry their conditions, so measure the result with its conditions too. Every
-      // group of readers must keep its section, none may be added, and no private run of words may reach more
-      // readers. Shortening each set alone keeps this by construction, so the check is a safety net; a result
-      // that fails it is a failed attempt like any other. ponytail: a reworded private fact in a wider section
-      // still passes; upgrade by asking a second model to compare the facts in each section.
-      if (
-        tokenSize(combine ? scoped : texts[0]!) >= groupTokens ||
-        after.size !== before.size ||
-        [...after.keys()].some((key) => !before.has(key)) ||
-        leaks(before, after)
-      ) {
+      // A combined group's inputs carry their conditions, so measure the result with its conditions too. The
+      // Helper never sees one set's text with another's, so no private part can reach more readers; every group
+      // of readers must still keep its section and none may be added, a safety net for how the result is rebuilt.
+      // A result that fails either check is a failed attempt like any other.
+      const failure =
+        size >= groupTokens
+          ? "is no shorter"
+          : after.size !== before.size || [...after].some((key) => !before.has(key))
+            ? "would change which groups of characters have a part"
+            : null;
+      if (failure) {
         if (result.fresh)
           logger.warn(
-            "[advanced-memory] Chat %s: the shortened summary (%d tokens, from %d) is no shorter or would change who can read a private part, so it was not saved. Summaries in it: %d.",
+            "[advanced-memory] Chat %s: the shortened summary (%d tokens, from %d) %s, so it was not saved. Summaries in it: %d.",
             chatId,
-            tokenSize(combine ? scoped : texts[0]!),
+            size,
             groupTokens,
+            failure,
             entries.length,
           );
         continue;

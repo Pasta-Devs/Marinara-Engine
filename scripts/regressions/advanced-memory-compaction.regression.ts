@@ -248,23 +248,72 @@ try {
     }
   });
 
-  await test("(5) a result the privacy check rejects is one failed attempt, with no smaller groups", async () => {
-    // Here the Helper writes Maukie's secret into the text both read: nothing is saved, no smaller groups are
-    // tried, and nothing is sent again.
-    answer = (text) => ({
-      content: text.startsWith("SHARED_WALK") ? `SHARED_WALK. ${"MAUKIE_SECRET ".repeat(4)}` : shorten(text),
-    });
+  await test("(5) a failed reply for one set of readers is one failed attempt, with no smaller groups", async () => {
+    // The Helper returns the text both read unchanged: nothing is saved, no smaller groups are tried, and nothing
+    // is sent again.
+    answer = (text) => ({ content: text.startsWith("SHARED_WALK") ? text : shorten(text) });
     requests.length = 0;
-    const leaky = await fixture("leaky", sections, true);
-    await update(leaky.chat.id);
-    await update(leaky.chat.id);
-    assert.equal(
-      requests.length,
-      2,
-      "one request per set of readers, none for smaller groups, none on the next update",
+    const unchanged = await fixture("unchanged-set", sections, true);
+    await update(unchanged.chat.id);
+    await update(unchanged.chat.id);
+    assert.equal(requests.length, 1, "the first set's failed reply ends the attempt, and it is not asked again");
+    assert.deepEqual(await saved(unchanged.chat.id), unchanged.entries);
+  });
+
+  await test("(6) a common phrase the shared part shares with a private part by chance is saved", async () => {
+    // The Helper only sees the text both read, so four words in a row it writes that Maukie's part also has
+    // ("at the end of") are its own wording, not Maukie's secret.
+    const together = "When the night ended, Maukie and Pantalone left the inn and talked about the harvest. ".repeat(
+      15,
     );
-    assert.deepEqual(await saved(leaky.chat.id), leaky.entries);
-    assert.doesNotMatch(await view(leaky.chat.id, pantalone.id), /MAUKIE_SECRET/u);
+    const hidden = "At the end of the night Maukie hid the brass key under the floorboard. ".repeat(10);
+    const reply = "At the end of the night, Maukie and Pantalone left the inn and talked about the harvest.";
+    answer = (text) => ({ content: text.startsWith("When the night ended") ? reply : shorten(text) });
+    requests.length = 0;
+    const phrased = await fixture("phrased", [`${forBoth}${together}{{/if}}${forMaukie}${hidden}{{/if}}`], true);
+    await update(phrased.chat.id);
+    assert.deepEqual(
+      requests.map((item) => item.messages[1]!.content),
+      [together.trim(), hidden.trim()],
+      "each set of readers is sent alone",
+    );
+    const combined = (await saved(phrased.chat.id)).find((entry) => entry.enabled)!;
+    assert.equal(combined.content, `${forBoth}${reply}{{/if}}\n\n${forMaukie}${shorten(hidden)}{{/if}}`);
+    const pantaloneView = await view(phrased.chat.id, pantalone.id);
+    assert.match(pantaloneView, /At the end of the night, Maukie and Pantalone left the inn/u);
+    assert.doesNotMatch(pantaloneView, /brass key/u);
+  });
+
+  await test("(7) the same readers are one set however each summary's conditions order them", async () => {
+    // Both summaries keep parts for Dottore and Cyno, who left the chat, named in opposite orders. The text that
+    // Maukie, Pantalone, Dottore and Cyno read is still halved in one request and rebuilt in one condition.
+    answer = shortening;
+    requests.length = 0;
+    const forDottore = '{{#if char == "Dottore"}}';
+    const forCyno = '{{#if char == "Cyno"}}';
+    const departed = await fixture(
+      "departed",
+      [
+        `${walk}${forDottore}DOTTORE_PART{{/if}}${forCyno}CYNO_PART{{/if}}`,
+        `${later}${forCyno}CYNO_LATER{{/if}}${forDottore}DOTTORE_LATER{{/if}}`,
+      ],
+      true,
+    );
+    await update(departed.chat.id);
+    assert.deepEqual(
+      requests.map((item) => item.messages[1]!.content),
+      [`${walk}\n\n${later}`],
+      "one request for the readers both summaries share",
+    );
+    const combined = (await saved(departed.chat.id)).find((entry) => entry.enabled)!;
+    assert.equal(
+      combined.content,
+      `{{#if char == "Maukie" || "Pantalone" || "Dottore" || "Cyno"}}SHARED_WALK SHARED_LATER{{/if}}\n\n` +
+        `${forDottore}DOTTORE_PART\n\nDOTTORE_LATER{{/if}}\n\n${forCyno}CYNO_PART\n\nCYNO_LATER{{/if}}`,
+    );
+    const maukieView = await view(departed.chat.id, maukie.id);
+    assert.match(maukieView, /SHARED_WALK SHARED_LATER/u);
+    assert.doesNotMatch(maukieView, /DOTTORE|CYNO/u);
   });
   console.log(
     "Advanced Memory halves continuity summaries with only the combine prompt, one set of readers at a time.",
