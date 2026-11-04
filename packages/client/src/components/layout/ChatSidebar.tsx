@@ -941,7 +941,7 @@ export function ChatSidebar() {
     // Reuses the list's existing 60s clock, so these tick without per-row timers.
     // Conversation chats only — roleplay/game rows are already busy enough.
     const relativeTime =
-      chat.mode === "conversation" && chat.lastMessageAt
+      (chat.mode === "conversation" || overhaulActive) && chat.lastMessageAt
         ? formatRelativeContact(chat.lastMessageAt, presenceNow.getTime())
         : null;
 

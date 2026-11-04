@@ -40,6 +40,7 @@ import { useCharacter, usePersona } from "../../hooks/use-characters";
 import { useLorebook } from "../../hooks/use-lorebooks";
 import { useConnection } from "../../hooks/use-connections";
 import { usePresetFull } from "../../hooks/use-presets";
+import { getChatDisplayName } from "../../lib/chat-display";
 import { useDocsIndex } from "../../hooks/use-docs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
@@ -181,6 +182,22 @@ function nameOf(record: unknown): string | null {
   return typeof name === "string" && name.trim() ? name : null;
 }
 
+/** "Universal · princess · 2 agents": the chat's preset, connection and agents at a glance. */
+function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: string }) {
+  const localize = useLocalizedUiText();
+  const preset = usePresetFull(chat.promptPresetId ?? null);
+  const connection = useConnection(chat.connectionId ?? null);
+  const presetName = nameOf((preset.data as { preset?: unknown } | undefined)?.preset ?? preset.data);
+  const connectionName = nameOf(connection.data);
+  const agents = Array.isArray(chat.metadata?.activeAgentIds) ? chat.metadata.activeAgentIds.length : 0;
+  const parts = [
+    presetName,
+    connectionName,
+    agents ? `${agents} ${localize(agents === 1 ? "agent" : "agents")}` : null,
+  ].filter(Boolean);
+  return <small>{parts.length ? parts.join(" · ") : fallback}</small>;
+}
+
 /** Resolves a tab's label with the same queries the editors use, so it is usually cached already. */
 function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const localize = useLocalizedUiText();
@@ -194,8 +211,10 @@ function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const docsTitle = (path: string | null) =>
     path ? (docsIndex.data?.docs.find((entry) => entry.path === path)?.title ?? null) : null;
   let label: string | null = null;
-  if (tab.kind === "chat") label = chats.find((chat) => chat.id === tab.id)?.name ?? null;
-  else if (tab.kind === "character") label = parseCharacterName(character.data);
+  if (tab.kind === "chat") {
+    const chat = chats.find((entry) => entry.id === tab.id);
+    label = chat ? getChatDisplayName(chat) || null : null;
+  } else if (tab.kind === "character") label = parseCharacterName(character.data);
   else if (tab.kind === "persona") label = nameOf(persona.data);
   else if (tab.kind === "lorebook") label = nameOf(lorebook.data);
   else if (tab.kind === "preset")
@@ -370,7 +389,7 @@ export function OverhaulTopBar() {
           >
             <Settings2 size={15} aria-hidden="true" />
             <span>{localize("Chat settings")}</span>
-            <small>{modeLabel}</small>
+            <ChatSettingsSummary chat={activeChat} fallback={modeLabel} />
           </button>
         ) : null}
         <span className="ov-vsep" aria-hidden="true" />

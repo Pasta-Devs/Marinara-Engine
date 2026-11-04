@@ -80,7 +80,7 @@
 .ov-tab {
   display: flex;
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: 6.5rem;
   max-width: 13rem;
   align-items: center;
   height: 1.875rem;
@@ -90,6 +90,7 @@
   white-space: nowrap;
 }
 .ov-tab--home {
+  min-width: 0;
   flex: none;
   gap: 0.4375rem;
   padding: 0 0.625rem 0 0.5625rem;
