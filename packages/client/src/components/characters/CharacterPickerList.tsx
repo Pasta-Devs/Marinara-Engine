@@ -438,7 +438,9 @@ export function CharacterPickerList({
       <Capped items={characterGroups[0]!.members} render={(c) => characterRow(c, false)} />
     ) : (
       characterGroups.map((group) => {
-        const open = characterGroups.length === 1 || isOpen(group.id);
+        // The sole folder cannot collapse, so its header is a plain label.
+        const sole = characterGroups.length === 1;
+        const open = sole || isOpen(group.id);
         const addable = groupPickable(group.id)
           ? group.members.filter((c) => !characterSet.has(c.id) && !unavailable?.[c.id]).map((c) => c.id)
           : [];
@@ -446,12 +448,20 @@ export function CharacterPickerList({
           <div key={group.id}>
             <div className="flex items-center gap-1">
               <div className="min-w-0 flex-1">
-                <FolderToggle
-                  open={open}
-                  onClick={() => toggle(group.id)}
-                  label={group.name}
-                  count={group.members.length}
-                />
+                {sole ? (
+                  <div className="flex min-h-9 items-center gap-2 px-2 text-xs">
+                    <FolderOpen size="0.875rem" className="shrink-0 text-foreground/45" />
+                    <span className="min-w-0 flex-1 truncate font-semibold">{group.name}</span>
+                    <span className="text-[0.6875rem] tabular-nums text-foreground/45">{group.members.length}</span>
+                  </div>
+                ) : (
+                  <FolderToggle
+                    open={open}
+                    onClick={() => toggle(group.id)}
+                    label={group.name}
+                    count={group.members.length}
+                  />
+                )}
               </div>
               {addable.length > 0 && (
                 <button
