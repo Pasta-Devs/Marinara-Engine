@@ -3774,21 +3774,32 @@ input.ov-edhead__title:focus {
   align-items: center;
   gap: 0.125rem;
   margin: 0 0.5rem;
-  padding: 0.25rem 0 0.375rem;
-  border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  /* Collapsed (no height) until the reply is hovered (Alyssa, 2026-11-04). */
+  max-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border-top: 1px solid transparent;
   color: color-mix(in srgb, currentColor 62%, transparent);
   font-size: 0.75rem;
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    max-height 0.12s ease,
+    padding 0.12s ease;
 }
-/* Hover-only on every reply, including the newest (Alyssa, 2026-11-04). */
 .ov-rpf.is-open,
 .group:hover .ov-rpf,
 .ov-rpf:focus-within {
+  max-height: 2.5rem;
+  padding: 0.25rem 0 0.375rem;
+  border-top-color: color-mix(in srgb, currentColor 10%, transparent);
   opacity: 1;
 }
 @media (pointer: coarse) {
   .ov-rpf {
+    max-height: 2.5rem;
+    padding: 0.25rem 0 0.375rem;
+    border-top-color: color-mix(in srgb, currentColor 10%, transparent);
     opacity: 1;
   }
 }
