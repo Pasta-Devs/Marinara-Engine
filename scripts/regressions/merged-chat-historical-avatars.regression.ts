@@ -1,9 +1,10 @@
 /**
  * Merged Roleplay narrator avatars (#8762): a saved reply keeps the active roster it was generated with,
  * so automatic or manual roster changes affect only later replies. A streaming reply follows the live
- * roster (a continuation keeps its saved one too), and a reply saved before the snapshot existed shows the
- * members its expression result names plus the live roster: it neither shrinks to one avatar nor revives
- * a member who was inactive. Continuing such a reply keeps those members, on the stream and once saved, and
+ * roster (a continuation keeps its saved one too), and a reply saved before the snapshot existed shows only the
+ * members its expression result names (#8823): it neither shrinks to one avatar, revives a member who was
+ * inactive, nor gains the members who were absent from its scene. Only a reply with no per-character data at all
+ * shows the live roster. Continuing such a reply keeps those members, on the stream and once saved, and
  * continuing any reply keeps a member who has left the chat on its roster, hidden until they rejoin, even when
  * their leaving takes the chat down to one member.
  */
@@ -306,6 +307,60 @@ try {
   // A reply outside a merged group saves an empty roster, so a swipe never inherits a stale one.
   const soloChat = await createChat([ana.id]);
   assert.deepEqual((await generate(soloChat.id)).extra.mergedRosterCharacterIds, []);
+
+  // #8823: a four-member chat whose reply was written with only Ana and Ben in the scene. Once Cal and Dee are back
+  // on the live roster, each saved reply still shows only its own scene; only a reply with no per-character data at
+  // all (no saved roster, no expression result) shows the live roster, as it did before #8762.
+  const dee = await characters.create(characterDataSchema.parse({ name: "Dee" }));
+  assert(dee);
+  const quartet = [ana.id, ben.id, cal.id, dee.id];
+  const sceneChat = await createChat(quartet);
+  await chats.patchMetadata(sceneChat.id, { inactiveCharacterIds: [cal.id, dee.id] });
+  const sceneReply = await generate(sceneChat.id);
+  assert.deepEqual(sceneReply.extra.mergedRosterCharacterIds, [ana.id, ben.id], "the reply saves only its scene");
+  const sceneMessage = async (characterId: string, extra?: Record<string, unknown>) =>
+    JSON.parse(
+      (await chats.createMessage({
+        chatId: sceneChat.id,
+        role: "assistant",
+        characterId,
+        content: "Ana and Ben talk while Cal and Dee are elsewhere.",
+        ...(extra ? { extra } : {}),
+      } as never))!.extra,
+    ) as Record<string, unknown>;
+  const sceneCases: Array<[string, Record<string, unknown>, string[]]> = [
+    ["(a) a reply saved since #8800 with its roster", sceneReply.extra, [ana.id, ben.id]],
+    [
+      "(b) an older reply whose expression result names Ana and Ben",
+      await sceneMessage(ana.id, {
+        spriteExpressions: { [ana.id]: "smile", [ben.id]: "frown" },
+        expressionSpriteIds: [ana.id, ben.id, "persona-not-a-member"],
+      }),
+      [ana.id, ben.id],
+    ],
+    [
+      "(b) an older reply with only expression keys",
+      await sceneMessage(ana.id, {
+        spriteExpressions: { [ana.id]: "smile", [ben.id]: "frown", "persona-not-a-member": "calm" },
+      }),
+      [ana.id, ben.id],
+    ],
+    ["(c) an older reply with no expression data", await sceneMessage(ana.id), quartet],
+    ["(d) a greeting created through the API", await sceneMessage(cal.id), quartet],
+  ];
+  await chats.patchMetadata(sceneChat.id, { inactiveCharacterIds: [] });
+  for (const [kind, extra, expected] of sceneCases) {
+    assert.deepEqual(
+      resolveMergedAvatarRoster({ extra, chatCharacterIds: quartet, liveRoster: quartet, isLive: false }),
+      expected,
+      `${kind} shows exactly its own scene`,
+    );
+  }
+  assert.deepEqual(
+    resolveMergedAvatarRoster({ extra: {}, chatCharacterIds: quartet, liveRoster: quartet, isLive: true }),
+    quartet,
+    "the next reply streams with everyone active",
+  );
 
   // Every merged reply in the Roleplay surface (list, Visual Novel, streaming, regenerating) renders through ChatMessage.
   const clientSource = (file: string) =>
