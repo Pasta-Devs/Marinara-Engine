@@ -176,9 +176,9 @@ runner's own account of the change, and ends with a `Dottore-Autofix` trailer th
 A repair runs in two jobs after the review job:
 
 - **`fix`** checks out the head, gives the open threads to Claude Code (`claude -p`) with only file tools (read, edit,
-  write, search; no shell) on the small model (see Models), and no GitHub write token. A patch containing the small
-  model's key is discarded. Then, without the key, it runs `autofix.validate` from the base branch's `rules.json`, such as
-  `pnpm install --frozen-lockfile && pnpm check`.
+  write, search; no shell), none of the head's own Claude Code settings, hooks or MCP servers, on the small model (see
+  Models), and no GitHub write token. A patch containing the small model's key is discarded. Then, without the key, it
+  runs `autofix.validate` from the base branch's `rules.json`, such as `pnpm install --frozen-lockfile && pnpm check`.
 - **`push`** commits a patch that passed, with a `Dottore-Autofix:` trailer, and pushes it with the Dottore GitHub
   App's token, because a push made with `GITHUB_TOKEN` starts no CI and no review. That push starts the next review,
   whose repair check resolves the threads the code confirms. A patch that changed nothing, failed the checks, met a

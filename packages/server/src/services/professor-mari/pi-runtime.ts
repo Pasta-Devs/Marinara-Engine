@@ -29,6 +29,7 @@ import {
   supportsNativeToolCalls,
 } from "@marinara-engine/shared";
 import { parseTextualToolCalls, stripTextualToolCalls } from "../llm/textual-tool-call-parser.js";
+import { recoverSuggestionSuffix } from "./suggestion-suffix.js";
 import {
   appendTraceStatus,
   appendVisibleText,
@@ -279,7 +280,9 @@ function textualToolPrompt(tools: readonly ToolDefinition[]) {
     .join("\n");
   return `<text_tool_calls>
 This connection has no native tool calls. Wherever the rules above say to call a tool, write the call as text instead: one \`<tool_call>{"name":"TOOL","arguments":{...}}</tool_call>\` tag per call, with valid JSON inside. You may write several tags in one reply, after your words. Marinara runs them and answers in the next user message with the results. Never write a tag you do not want to run.
-Example: ${textCall("ls", { path: "." })}
+Example:
+The opening is ready.
+${textCall("suggestions", { chips: [{ label: "Play from here", prompt: "Continue from the opening." }] })}
 Tools:
 ${docs}
 </text_tool_calls>`;
@@ -583,7 +586,22 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
             (result.content ?? "").lastIndexOf("<tool_call>") > (result.content ?? "").lastIndexOf("</tool_call>"));
         const reply = textualTools ? textualReply(result.content) : null;
         const parsedCalls = reply?.calls ?? result.toolCalls;
-        const shown = scrubInternalNames(reply ? reply.text : (result.content ?? ""));
+        const words = reply ? reply.text : (result.content ?? "");
+        const recovered = !truncated && isAgentTurn ? recoverSuggestionSuffix(words) : null;
+        // Recover only an otherwise final answer. Adding a UI call beside todo, for example, would end its work early.
+        if (
+          recovered &&
+          !state.suggestions.length &&
+          parsedCalls.length === 0 &&
+          tools.some((tool) => tool.name === "suggestions")
+        ) {
+          parsedCalls.push({
+            id: `suggestions_${randomUUID()}`,
+            type: "function",
+            function: { name: "suggestions", arguments: JSON.stringify({ chips: recovered.chips }) },
+          });
+        }
+        const shown = scrubInternalNames(recovered?.text ?? words);
         const text = shown.trim() ? shown : "";
         // A truncated frame never runs: its tool calls may be cut off mid-argument.
         const calls = truncated ? [] : parsedCalls;

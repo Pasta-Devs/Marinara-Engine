@@ -55,6 +55,24 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
+/** SillyTavern's selective-logic number for a Marinara value. */
+export function stSelectiveLogic(value: unknown): number {
+  if (value === "and" || value === "or") return 0;
+  if (value === "not_all") return 1;
+  if (value === "not") return 2;
+  if (value === "and_all") return 3;
+  return 0;
+}
+
+/** SillyTavern's position number for a Marinara position (At Depth is ST's @D, 4). */
+export function stPosition(value: unknown): number {
+  const position = Number(value ?? 0);
+  if (position === 7) return 7;
+  if (position === 2) return 4;
+  if (position === 1) return 1;
+  return 0;
+}
+
 /**
  * Map a standalone-lorebook entry row (post `parseEntryRow`) onto a V2
  * Character Book entry. Field mapping mirrors the inverse done by
@@ -68,10 +86,35 @@ function toCharacterBookEntry(entry: LoreEntryRow, index: number): CharacterBook
   const position =
     positionValue === 7 ? 7 : positionValue === 2 ? 4 : positionValue === 1 ? "after_char" : "before_char";
   const role = entry.role === "user" ? 1 : entry.role === "assistant" ? 2 : 0;
+  const probability = asNullableNumber(entry.probability);
+  const vectorized = !asBoolean(entry.excludeFromVectorization);
   return {
     keys: asStringArray(entry.keys),
     content: asString(entry.content),
-    extensions: Array.isArray(entry.images) && entry.images.length ? { marinaraImages: entry.images } : {},
+    extensions: {
+      ...(Array.isArray(entry.images) && entry.images.length ? { marinaraImages: entry.images } : {}),
+      // SillyTavern reads an embedded entry's settings only from here, in its numbering; Marinara
+      // reads the top-level fields. Keep both so a Compatible export keeps placement and triggers.
+      position: stPosition(positionValue),
+      depth: asNumber(entry.depth, 4),
+      role,
+      probability,
+      useProbability: probability !== null,
+      selectiveLogic: stSelectiveLogic(entry.selectiveLogic),
+      group: asString(entry.group),
+      group_weight: asNullableNumber(entry.groupWeight),
+      sticky: asNullableNumber(entry.sticky),
+      cooldown: asNullableNumber(entry.cooldown),
+      delay: asNullableNumber(entry.delay),
+      scan_depth: asNullableNumber(entry.scanDepth),
+      case_sensitive: asBoolean(entry.caseSensitive),
+      match_whole_words: asBoolean(entry.matchWholeWords),
+      prevent_recursion: asBoolean(entry.preventRecursion, true),
+      exclude_recursion: asBoolean(entry.excludeRecursion),
+      delay_until_recursion: asBoolean(entry.delayUntilRecursion),
+      vectorized,
+      outlet_name: asString(entry.outletName),
+    },
     enabled: asBoolean(entry.enabled),
     insertion_order: order,
     case_sensitive: asBoolean(entry.caseSensitive),
@@ -88,7 +131,7 @@ function toCharacterBookEntry(entry: LoreEntryRow, index: number): CharacterBook
     depth: asNumber(entry.depth, 4),
     role,
     selectiveLogic: asString(entry.selectiveLogic, "and"),
-    probability: asNullableNumber(entry.probability),
+    probability,
     scanDepth: asNullableNumber(entry.scanDepth),
     scan_depth: asNullableNumber(entry.scanDepth),
     matchWholeWords: asBoolean(entry.matchWholeWords),
@@ -106,7 +149,7 @@ function toCharacterBookEntry(entry: LoreEntryRow, index: number): CharacterBook
     preventRecursion: asBoolean(entry.preventRecursion, true),
     excludeRecursion: asBoolean(entry.excludeRecursion),
     delayUntilRecursion: asBoolean(entry.delayUntilRecursion),
-    vectorized: !asBoolean(entry.excludeFromVectorization),
+    vectorized,
     excludeFromVectorization: asBoolean(entry.excludeFromVectorization),
     // Marinara extension (#6570), passed back through on import.
     ...parseLorebookDecisionActivation(entry),

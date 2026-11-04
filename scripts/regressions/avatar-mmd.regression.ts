@@ -206,6 +206,39 @@ try {
   assert.match(bundled.data.texturePaths["..\\textures\\肌.png"]!, /^mmd\/texture-[a-f0-9]+\.png$/u);
   assert.equal(bundled.files.length, 2);
 
+  // A ZIP from Japanese Windows stores CP932 names without the UTF-8 flag (表 and ソ end in a 0x5C byte), and
+  // MMD's Windows file names ignore case. Both still find their textures; two names that fold together find neither.
+  const legacy = Buffer.from(
+    zip([
+      ["avatar.pmx", mmdPmx({ textures: ["表情\\ソ.png", "Tex\\Body.PNG"] })],
+      ["aaaa/bb.png", png],
+      ["tex/body.png", png],
+    ]),
+  );
+  for (let offset = legacy.indexOf("aaaa/bb.png"); offset !== -1; offset = legacy.indexOf("aaaa/bb.png", offset + 1))
+    Buffer.from("955c8fee2f835c2e706e67", "hex").copy(legacy, offset);
+  for (const [signature, flags] of [
+    [Buffer.from([0x50, 0x4b, 0x03, 0x04]), 6],
+    [Buffer.from([0x50, 0x4b, 0x01, 0x02]), 8],
+  ] as const)
+    for (let offset = legacy.indexOf(signature); offset !== -1; offset = legacy.indexOf(signature, offset + 1))
+      legacy.writeUInt16LE(legacy.readUInt16LE(offset + flags) & ~0x0800, offset + flags);
+  const legacyImport = await mmdImporter.extract(
+    await mmdImporter.validate(input(legacy, "model.zip")),
+    input(legacy, "model.zip"),
+  );
+  assert.deepEqual(Object.keys(legacyImport.data.texturePaths), ["表情\\ソ.png", "Tex\\Body.PNG"]);
+  assert.equal(legacyImport.files.length, 3);
+  await refuses(
+    zip([
+      ["avatar.pmx", mmdPmx({ texture: "Tex\\Body.PNG" })],
+      ["tex/body.png", png],
+      ["TEX/BODY.png", png],
+    ]),
+    "model.zip",
+    /missing/u,
+  );
+
   // Finder resource forks are not extra models, motions or textures; all archive guards still apply.
   const cleanMacEntries: [string, Buffer][] = [
     ["model/avatar.pmx", textured],

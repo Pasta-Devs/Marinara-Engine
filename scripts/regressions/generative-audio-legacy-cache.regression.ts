@@ -28,8 +28,10 @@ const bytes = Buffer.from([0xff, 0xfb, 0x90, 0, 1]);
 const prompt = "Legacy cached cue";
 const originalFetch = globalThis.fetch;
 const calls: string[] = [];
-globalThis.fetch = async (input) => {
+const bodies: unknown[] = [];
+globalThis.fetch = async (input, init) => {
   calls.push(String(input));
+  bodies.push(JSON.parse(String(init?.body)));
   return new Response(bytes, { headers: { "content-type": "audio/mpeg" } });
 };
 const seed = (kind: "music" | "sfx", identity = "") => {
@@ -127,6 +129,11 @@ try {
   assert.equal(independent.cached, false);
   assert.equal(concurrent.path, independent.path);
   assert.equal(calls.length, 1, "concurrent listeners still share one composition");
+  assert.deepEqual(
+    bodies[0],
+    { text: prompt, model_id: "eleven_text_to_sound_v2", prompt_influence: 0.3 },
+    "Game and Roleplay sound effects let ElevenLabs choose their length",
+  );
   assert.equal(
     (await generateAudioAsset(db, { kind: "sfx", prompt, audioConnectionId: otherEndpoint.id })).cached,
     true,

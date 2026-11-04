@@ -416,6 +416,13 @@ try {
       response.on("close", () => cancellationClosed.resolve());
       return;
     }
+    if (raw.includes("broken_fixture")) {
+      event(response, "content_block_start", { index: 0, content_block: { type: "text", text: "" } });
+      event(response, "content_block_delta", { index: 0, delta: { type: "text_delta", text: '{"partial":' } });
+      event(response, "error", { error: { type: "overloaded_error", message: "Overloaded" } });
+      response.end();
+      return;
+    }
     event(response, "content_block_start", { index: 0, content_block: { type: "thinking", thinking: "" } });
     after(500, () =>
       event(response, "content_block_delta", {
@@ -539,7 +546,13 @@ try {
       clearTimeout(guard);
     }
     assert.equal(requests.at(-1)?.stream, true);
-    cases += 3;
+    // A package receives only the finished reply, so a stream that breaks after partial text must reject
+    // rather than hand the cut-off text over as complete.
+    await assert.rejects(
+      model.chatComplete([{ role: "user", content: "broken_fixture" }]),
+      /stream failed before the reply finished/,
+    );
+    cases += 4;
   } finally {
     for (const timer of timers) clearTimeout(timer);
     server.closeAllConnections();

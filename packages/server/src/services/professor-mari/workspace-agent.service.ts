@@ -27,6 +27,7 @@ import { readFeatureModelConnections } from "../storage/feature-model-connection
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { createMariInstructionsStorage } from "../storage/mari-instructions.storage.js";
 import { mariDecisionContext } from "./decision-authoring.js";
+import { recoverSuggestionSuffix, suggestionSuffixIndex } from "./suggestion-suffix.js";
 import { renderMariMemoryPrompt } from "./mari-instructions-prompt.js";
 import { renderMariSkillsPrompt } from "./mari-skills-prompt.js";
 import { createMariWorkspaceContextStorage } from "../storage/mari-workspace-context.storage.js";
@@ -122,7 +123,7 @@ import type {
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
 import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
-import { getMariDbService, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
+import { getMariDbService, isMariCodeHelpArgs, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
@@ -997,10 +998,10 @@ function smallOutputLimitRule(maxOutputTokens?: number) {
 /** The pi runtime's workspace rules: the shared knowledge block plus a note that maps the JSON-frame words to native calls. */
 export function piRuntimePrompt(maxOutputTokens?: number) {
   return `<workspace_tools>
-You work through native tool calls. Wherever the rules below say \`say\`, write ordinary assistant text; wherever they say \`commands\`, call the tools. There is no JSON frame, no \`stop\` and no \`awaitingAuthorization\` field.
-Write your words as plain assistant text: never wrap them in tags such as \`<say>\`, \`<commands>\`, \`<suggestions>\` or \`<ask>\`, and never write a tool call as a tag — a tool call is a call, not text.
+Use this connection’s tool-call format. Wherever the rules below say \`say\`, write ordinary assistant text; wherever they say \`commands\`, call the tools. There is no JSON frame, no \`stop\` and no \`awaitingAuthorization\` field.
+Keep the answer itself in plain assistant text.
 - To ask the user to approve a change, write the change and your question as text in the SAME turn as the mutating tool calls; Marinara holds those calls behind an Accept action and ends the run.
-- Call the \`suggestions\` tool for quick-reply chips (at most 5; each has label and prompt). It only shows UI and changes nothing. Call it in the SAME turn as your final text.
+- Call the \`suggestions\` tool for quick-reply chips (at most 5; each has label and prompt). It only shows UI and changes nothing. Call it in the SAME turn as your final text. For example, write “The opening is ready.” and call suggestions with a chip labeled “Play from here” whose prompt is “Continue from the opening.”
 - Your first action on a surface a shipped skill covers is \`skill.get\` with its plain id (e.g. \`id: "builtin-characters"\`), before any write or multi-step answer. The skill index below names them; acting without one means guessing.
 - Immediately after you successfully create or update something, call \`suggestions\` with 2-4 follow-up chips for a natural next step: refine a field, link it to something else, or open it for full editing. Lean toward refining or connecting what already exists rather than making new items, unless the user's task is itself about creating. Tag each with the relevant entity (\`characters|lorebooks|personas|presets|connections|agents|settings|chat\`).
 - When your answer ends with a question the user can answer by picking an option, call \`suggestions\` with one chip per option.
@@ -1008,7 +1009,7 @@ Write your words as plain assistant text: never wrap them in tags such as \`<say
 - Use \`ask\` when you need the user's decisions before you can do this well and the answers fit a few clear options: a vague create or edit request ("make me a character" with no details), or a fork where the answer changes what you build. A card shows 1-4 questions, each with 2-4 options (\`label\`, optional \`detail\`). Mark your own pick \`recommended: true\` on one option, set \`multiple: true\` when several answers can apply, and never add an "Other" option: the user can always type their own answer. Put everything you need on ONE card instead of asking turn by turn. Calling \`ask\` ends your turn: changes beside it do not run, and the answer arrives as the user's next message. Say in a sentence what you are asking and why, then call it. For a vague edit, read the item first, then offer 2-4 concrete directions the same way. A named subject ("a lorebook for my pirate world") is enough detail. If the request already has enough detail, skip \`ask\` and do the work — after reading that surface's skill.
 - Do not mention tapping, clicking, chips, quick replies or buttons unless you call \`suggestions\` or \`ask\` in the same turn.
 - If you say you will do something, make the tool call in the same turn; a turn with no tool call ends the run.
-- Finish by answering in text with no tool call.${smallOutputLimitRule(maxOutputTokens)}
+- Finish with your answer, including a suggestions call when you offer next steps.${smallOutputLimitRule(maxOutputTokens)}
 
 ${workspaceCommandKnowledgePrompt()}
 </workspace_tools>`;
@@ -1737,7 +1738,9 @@ export function scrubInternalNames(text: string): string {
  * scrubbed. Without an opener the trailing word run is held back, so a name split across deltas never shows raw.
  */
 export function draftVisibleText(raw: string): string {
-  const marker = textualCallMarkerIndex(raw);
+  const suggestion = suggestionSuffixIndex(raw);
+  const marker = textualCallMarkerIndex(suggestion < 0 ? raw : raw.slice(0, suggestion));
+  if (marker < 0 && suggestion >= 0) return scrubInternalNames(raw.slice(0, suggestion));
   let end = marker >= 0 ? marker : raw.length;
   while (marker < 0 && end > 0 && /[\w.`:]/.test(raw[end - 1]!)) end -= 1;
   return scrubInternalNames(raw.slice(0, end));
@@ -1899,7 +1902,8 @@ function stripWorkspaceCommands(content: string): string {
 }
 
 export function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceAction {
-  const { content: contentWithoutJson, matches } = removeJsonActionFrames(content);
+  const recovered = recoverSuggestionSuffix(content);
+  const { content: contentWithoutJson, matches } = removeJsonActionFrames(recovered?.text ?? content);
   const parsedFrames = matches.map((match) => ({ ...match, ...parseJsonCommandCallsFromPayload(match.payload) }));
   const jsonCommands = parsedFrames.flatMap((frame) => frame.calls);
   const hasInvalidCommands = parsedFrames.some((frame) => frame.unrecognized);
@@ -1912,13 +1916,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     .filter(Boolean)
     .join("\n\n");
   const visibleText = scrubInternalNames([inlineVisibleText, frameVisibleText].filter(Boolean).join("\n\n").trim());
-  const parsedSuggestions = matches
-    .flatMap((match) => sanitizeSuggestionChips(match.payload.suggestions))
-    .map((chip) => ({
-      ...chip,
-      label: scrubInternalNames(chip.label),
-      ...(chip.detail ? { detail: scrubInternalNames(chip.detail) } : {}),
-    }));
+  const parsedSuggestions = matches.flatMap((match) => sanitizeSuggestionChips(match.payload.suggestions));
   // A frame with invalid commands is repaired, not shown, so its card is dropped with it.
   const questions = hasInvalidCommands
     ? []
@@ -1960,8 +1958,17 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
   // Even an invalid card means she wants an answer first.
   const askCalled = matches.some((match) => Array.isArray(match.payload.ask) && match.payload.ask.length > 0);
   const commands = askCalled ? parsedCommands.filter((call) => !isMutatingWorkspaceCommand(call)) : parsedCommands;
-  const suggestions = asking ? [] : parsedSuggestions;
-  const protocolValid = matches.length > 0 && !hasInvalidCommands;
+  const chosenChips = parsedSuggestions.length ? parsedSuggestions : (recovered?.chips ?? []);
+  const suggestions =
+    asking || hasInvalidCommands
+      ? []
+      : chosenChips.map((chip) => ({
+          ...chip,
+          label: scrubInternalNames(chip.label),
+          ...(chip.detail ? { detail: scrubInternalNames(chip.detail) } : {}),
+        }));
+  const protocolValid =
+    (matches.length > 0 || (Boolean(recovered) && sentCommands.length === 0)) && !hasInvalidCommands;
   const explicitStop = [...matches].reverse().find((match) => jsonPayloadStopValue(match.payload) !== undefined);
   const explicitStopValue = explicitStop ? jsonPayloadStopValue(explicitStop.payload) : undefined;
   const stop = asking || (!hasInvalidCommands && (explicitStopValue ?? (commands.length === 0 && protocolValid)));
@@ -3198,10 +3205,11 @@ export function parseDirectMariArgv(command: string, cwd: string): string[] | nu
 const QUICK_EDIT_EXPIRY_MS = 10 * 60_000;
 /**
  * `mari code check` runs pnpm check, which executes workspace scripts and configs Mari can edit, so it runs in
- * the shell sandbox like any other command instead of the direct runtime. Its help text stays direct.
+ * the shell sandbox like any other command instead of the direct runtime. Its help text stays direct, decided by the
+ * CLI's own argument reading, so an argument the CLI does not take as a help flag cannot send the check direct.
  */
 export function isMariCodeCheckArgv(argv: string[]) {
-  return argv[0] === "code" && argv[1] === "check" && !argv.includes("--help");
+  return argv[0] === "code" && argv[1] === "check" && !isMariCodeHelpArgs(argv.slice(1));
 }
 
 /**

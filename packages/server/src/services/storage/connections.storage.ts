@@ -24,6 +24,7 @@ import {
   type ModelParameterCapabilities,
 } from "@marinara-engine/shared";
 import { sweepDanglingConnectionReferences } from "./connection-reference-cleanup.js";
+import { withAllChatMetadataQueues } from "./chats.storage.js";
 import {
   ACCOUNT_MIRRORED_INPUT_KEYS,
   accountBlocksRows,
@@ -1319,7 +1320,8 @@ export function createConnectionsStorage(db: DB) {
 
     /** `keepChatPicks`: chats that use this Model keep it as a catalog pick on a sibling Model (unstar, decision 30). */
     async remove(id: string, keepChatPicks = false) {
-      const cleanup = await db.transaction(async (tx) => {
+      // The sweep rewrites chat metadata, so no metadata patch may write a merge read before it.
+      const cleanup = await withAllChatMetadataQueues(db, async (tx) => {
         const [row] = (await tx.select().from(apiConnections).where(eq(apiConnections.id, id))) as ConnectionRow[];
         // A chat's catalog pick runs on this Model's key; another chat Model of the same Connection can carry it.
         const peers = row?.accountId
@@ -1480,7 +1482,8 @@ export function createConnectionsStorage(db: DB) {
       ConnectionRow | "not_found" | "account_not_found" | "mismatch" | "review" | "model_required" | "model_not_offered"
     > {
       // Reads, checks and the write share one transaction, so a host change in between cannot slip past the checks.
-      const refused = await db.transaction(async (tx) => {
+      // A move to another service rewrites chat picks, so no metadata patch may write a merge read before it.
+      const refused = await withAllChatMetadataQueues(db, async (tx) => {
         const [row] = (await tx.select().from(apiConnections).where(eq(apiConnections.id, id))) as ConnectionRow[];
         if (!row) return "not_found" as const;
         const [account] = (await tx

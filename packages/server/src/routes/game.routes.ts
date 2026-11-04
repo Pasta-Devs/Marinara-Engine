@@ -3758,6 +3758,7 @@ export function gameGenOptions(
       maxContext: options.maxContext,
       stream: options.stream,
       onToken: options.onToken,
+      onTokenKeepaliveOnly: options.onTokenKeepaliveOnly,
       onThinking: options.onThinking,
       onResponseParts: options.onResponseParts,
       signal: options.signal,
@@ -4677,6 +4678,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
         stream: streaming,
         signal: args.signal,
         ...(streaming ? { onToken: args.onToken ?? (() => {}), onThinking: args.onToken } : {}),
+        onTokenKeepaliveOnly: true,
       },
       generationParameters,
       conn.provider,
@@ -7734,6 +7736,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       stream: streaming,
       signal: signal ? AbortSignal.any([signal, setupAbort.signal]) : setupAbort.signal,
       ...(streaming ? { onToken: () => setupAbort.touch(), onThinking: () => setupAbort.touch() } : {}),
+      onTokenKeepaliveOnly: true,
     };
     if (!setupGenerationParameters?.reasoningEffort) {
       setupOverrides.reasoningEffort = undefined;
@@ -8530,6 +8533,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           stream: streaming,
           signal: conclusionAbort.signal,
           ...(streaming ? { onToken: () => conclusionAbort.touch(), onThinking: () => conclusionAbort.touch() } : {}),
+          onTokenKeepaliveOnly: true,
         },
         conclusionGenerationParameters,
         conn.provider,
@@ -9090,6 +9094,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         stream: streaming,
         signal: conclusionAbort.signal,
         ...(streaming ? { onToken: () => conclusionAbort.touch(), onThinking: () => conclusionAbort.touch() } : {}),
+        onTokenKeepaliveOnly: true,
       },
       conclusionGenerationParameters,
       conn.provider,
@@ -9358,6 +9363,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         stream: streaming,
         signal: progressionAbort.signal,
         ...(streaming ? { onToken: () => progressionAbort.touch(), onThinking: () => progressionAbort.touch() } : {}),
+        onTokenKeepaliveOnly: true,
       },
       progressionGenerationParameters,
       conn.provider,

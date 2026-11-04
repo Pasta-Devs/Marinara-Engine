@@ -2413,11 +2413,8 @@ export async function charactersRoutes(app: FastifyInstance) {
         : {};
 
     const result = await importSTLorebook(
-      {
-        name: String(charData.name ?? "Character Lorebook"),
-        entries: book?.entries ?? [],
-        extensions: (book as Record<string, unknown> | null | undefined)?.extensions ?? {},
-      },
+      // The card book's own settings (description, scan depth, token budget, recursion) come along.
+      { ...book, name: String(charData.name ?? "Character Lorebook"), entries },
       app.db,
       {
         characterId: req.params.id,

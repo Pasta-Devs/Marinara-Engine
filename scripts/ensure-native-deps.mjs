@@ -4,7 +4,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
-import { isNativePnpmExecutable } from "./pnpm-runner.mjs";
+import { isNativePnpmExecutable, removeLegacyPnpmStore } from "./pnpm-runner.mjs";
 
 const rootRequire = createRequire(new URL("../package.json", import.meta.url));
 const serverRequire = createRequire(new URL("../packages/server/package.json", import.meta.url));
@@ -187,3 +187,9 @@ function ensureOnnxRuntime() {
 }
 
 ensureOnnxRuntime();
+try {
+  if (removeLegacyPnpmStore(repoRoot))
+    log("Removed the pnpm 10 dependency cache (.pnpm-store/v10); pnpm 12 no longer uses it.");
+} catch (error) {
+  warn(`Could not remove the pnpm 10 dependency cache (.pnpm-store/v10): ${error.message}`);
+}

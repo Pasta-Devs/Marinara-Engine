@@ -82,6 +82,11 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
             }),
           options.signal,
         );
+        // A stream that broke partway resolves with the partial text so a live chat keeps what it showed. A package
+        // only gets the finished reply, and a cut-off one would be parsed and saved as complete.
+        // ponytail: the provider's own error is only logged; carry it on the result if packages need the cause.
+        if (result.finishReason === "error")
+          throw new Error("The language model stream failed before the reply finished.");
         return { content: result.content, finishReason: result.finishReason, usage: result.usage };
       },
       fitContext(messages: CapabilityLanguageModelMessage[], options = {}) {

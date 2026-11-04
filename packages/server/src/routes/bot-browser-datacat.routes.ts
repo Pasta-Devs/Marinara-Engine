@@ -6,9 +6,15 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { logger } from "../lib/logger.js";
-import { resolveValidatedImage, safeFetch } from "../utils/security.js";
+import { resolveValidatedImage, safeFetch, type OutboundUrlPolicy } from "../utils/security.js";
 
 const DATACAT_API_BASE = "https://datacat.run";
+// API calls stay on DataCat itself, like the other Card Browser JSON catalogs.
+const DATACAT_API_POLICY: OutboundUrlPolicy = {
+  allowedProtocols: ["https:"],
+  allowedHostnames: ["datacat.run"],
+  maxRedirects: 0,
+};
 const DATACAT_IMAGE_BASE = "https://ella.janitorai.com/bot-avatars/";
 const DEFAULT_MIN_TOTAL_TOKENS = 889;
 const AVATAR_PROXY_MAX_BYTES = 10 * 1024 * 1024;
@@ -22,7 +28,7 @@ async function mintSessionToken(): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
-    const res = await fetch(`${DATACAT_API_BASE}/api/liberator/identify`, {
+    const res = await safeFetch(`${DATACAT_API_BASE}/api/liberator/identify`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -33,6 +39,7 @@ async function mintSessionToken(): Promise<string> {
       },
       body: JSON.stringify({ deviceToken: randomUUID() }),
       signal: controller.signal,
+      policy: DATACAT_API_POLICY,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -97,17 +104,19 @@ async function dcFetch(path: string): Promise<unknown> {
   const timeout = setTimeout(() => controller.abort(), 30_000);
   try {
     let token = await getSessionToken();
-    let res = await fetch(`${DATACAT_API_BASE}${path}`, {
+    let res = await safeFetch(`${DATACAT_API_BASE}${path}`, {
       headers: dcHeaders(token),
       signal: controller.signal,
+      policy: DATACAT_API_POLICY,
     });
     // Token may have expired — re-mint once and retry
     if (res.status === 401) {
       dcSessionToken = "";
       token = await getSessionToken();
-      res = await fetch(`${DATACAT_API_BASE}${path}`, {
+      res = await safeFetch(`${DATACAT_API_BASE}${path}`, {
         headers: dcHeaders(token),
         signal: controller.signal,
+        policy: DATACAT_API_POLICY,
       });
     }
     if (!res.ok) {
