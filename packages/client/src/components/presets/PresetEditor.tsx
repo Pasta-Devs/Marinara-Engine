@@ -68,10 +68,15 @@ import {
   Camera,
   Loader2,
   MessageCircleQuestion,
+  ExternalLink,
   Regex,
   Pencil,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { createPortal } from "react-dom";
+import { useOverhaulActive } from "../../stores/overhaul.store";
+import { EditorCrumbs } from "../overhaul/EditorRail";
+import { openLibrarySection } from "../overhaul/library-navigation";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { MacroTextarea } from "../ui/MacroTextarea";
@@ -163,6 +168,13 @@ function readMarkerConfig(value: unknown) {
 
 export function PresetEditor() {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulActive = useOverhaulActive();
+  const [ovPage, setOvPage] = useState<"overview" | "prompts" | "variables" | "parameters" | "regex">("overview");
+  const [ovSelected, setOvSelected] = useState<string | null>(null);
+  const [ovResetKey, setOvResetKey] = useState(0);
+  const [ovDetailEl, setOvDetailEl] = useState<HTMLElement | null>(null);
+  const [ovVarsEl, setOvVarsEl] = useState<HTMLElement | null>(null);
+  const [ovMoreOpen, setOvMoreOpen] = useState(false);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
   const presetDetailInitialTab = useUIStore((s) => s.presetDetailInitialTab) as TabId | null;
   const closePresetDetail = useUIStore((s) => s.closePresetDetail);
@@ -463,6 +475,227 @@ export function PresetEditor() {
   }
 
   const presetArtwork = resolvePresetArtwork(data.preset);
+  const ov_overview = (
+    <OverviewTab
+      preset={data.preset}
+      name={localName}
+      onNameChange={(v) => {
+        setLocalName(v);
+        markDirty();
+      }}
+      description={localDescription}
+      onDescriptionChange={(v) => {
+        setLocalDescription(formatQuotes(v));
+        markDirty();
+      }}
+      wrapFormat={localWrapFormat}
+      onWrapFormatChange={(v) => {
+        setLocalWrapFormat(v);
+        markDirty();
+      }}
+      author={localAuthor}
+      onAuthorChange={(v) => {
+        setLocalAuthor(formatQuotes(v));
+        markDirty();
+      }}
+      sectionCount={orderedSections.length}
+      groupCount={data.groups?.length ?? 0}
+    />
+  );
+  const ov_prompts = (
+    <PromptsTab
+      conversationPrompt={localConversationPrompt}
+      onConversationPromptChange={(v) => {
+        setLocalConversationPrompt(v);
+        markDirty();
+      }}
+      gamePrompt={localGamePrompt}
+      onGamePromptChange={(v) => {
+        setLocalGamePrompt(v);
+        markDirty();
+      }}
+    />
+  );
+  const ov_parameters = (
+    <>
+      <h3 className="text-sm font-semibold">{localizeUi("generationParameters.preset.title")}</h3>
+      <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("generationParameters.preset.hint")}</p>
+      <GenerationParametersFields
+        value={getEditableGenerationParameters(DEFAULT_GENERATION_PARAMS, localParameters)}
+        showServiceTier
+        onChange={(next) => {
+          setLocalParameters((previous) => ({ ...previous, ...next }));
+          markDirty();
+        }}
+      />
+    </>
+  );
+  const ov_regex = (
+    <PresetRegexTab
+      presetId={presetDetailId}
+      mode={localScopedRegexMode}
+      onModeChange={(mode) => {
+        setLocalScopedRegexMode(mode);
+        markDirty();
+      }}
+    />
+  );
+  const renderSections = (extra: Partial<Parameters<typeof SectionsTab>[0]> = {}) => (
+    <SectionsTab
+      presetId={presetDetailId}
+      sections={orderedSections}
+      groupMap={groupMap}
+      choiceBlocks={choiceBlocks}
+      wrapFormat={localWrapFormat}
+      onCreateSection={createSection}
+      onUpdateSection={updateSection}
+      onDeleteSection={deleteSection}
+      onReorderSections={reorderSections}
+      onCreateGroup={createGroup}
+      onUpdateGroup={updateGroup}
+      onDeleteGroup={deleteGroup}
+      onCreateVariable={createVariable}
+      onUpdateVariable={updateVariable}
+      onDeleteVariable={deleteVariable}
+      onReorderVariables={reorderVariables}
+      hasLorebookMarker={sectionHasLorebookMarker}
+      parentChatHasLorebook={parentChatHasLorebook}
+      {...extra}
+    />
+  );
+
+  if (overhaulActive) {
+    const pages = [
+      { id: "overview", label: "Overview" },
+      { id: "prompts", label: "Mode prompts" },
+      { id: "variables", label: "Variables" },
+      { id: "parameters", label: "Parameters" },
+      { id: "regex", label: "Regex" },
+    ] as const;
+    const totalTokens = orderedSections.reduce(
+      (sum: number, section: any) => sum + Math.ceil(String(section.content ?? "").length / 4),
+      0,
+    );
+    return (
+      <div
+        className="mari-editor-shell ov-preset flex flex-1 flex-col overflow-hidden"
+        data-component="OverhaulPresetEditor"
+      >
+        <header className="ov-preset__head">
+          <EditorCrumbs
+            items={[
+              { label: localizeUi("Library"), onClick: () => openLibrarySection("characters") },
+              { label: localizeUi("Presets"), onClick: handleClose },
+              { label: data.preset.name },
+            ]}
+          />
+          <div className="ov-bk-head__row">
+            <h1>{localName || data.preset.name}</h1>
+            <span className="ov-bk-head__spacer" />
+            <span className="ov-preset__state">
+              <span className={cn("ov-dot", dirty ? "is-dirty" : "is-saved")} />
+              {dirty ? localizeUi("Unsaved changes") : localizeUi("ui.presets.preseteditor.changesSaved")}
+            </span>
+            <button
+              type="button"
+              className="ov-btn"
+              onClick={() => useUIStore.getState().openModal("docs-viewer", { initialDoc: "prompts/macros.md" })}
+            >
+              {localizeUi("Macro Reference")}
+              <ExternalLink size={13} aria-hidden="true" />
+            </button>
+            <button type="button" className="ov-btn" onClick={handleExportPreset}>
+              {localizeUi("Export")}
+            </button>
+            <button
+              type="button"
+              className="ov-btn ov-btn--primary"
+              onClick={handleSave}
+              disabled={updatePreset.isPending || !dirty}
+            >
+              <Save size={13} aria-hidden="true" />
+              {localizeUi("ui.noodle.noodlehome.save")}
+            </button>
+            <div className="ov-bk-head__more">
+              <button
+                type="button"
+                className="ov-btn ov-btn--icon"
+                aria-label={localizeUi("More")}
+                aria-expanded={ovMoreOpen}
+                onClick={() => setOvMoreOpen((open) => !open)}
+              >
+                ···
+              </button>
+              {ovMoreOpen ? (
+                <div className="ov-menu" role="menu" onClick={() => setOvMoreOpen(false)}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      requestProfessorMariOpen({
+                        destination: "omnibar",
+                        draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+                        context: {
+                          source: "preset-editor",
+                          capability: "explain",
+                          resource: { kind: "preset", id: presetDetailId, label: data.preset.name },
+                        },
+                      })
+                    }
+                  >
+                    <MessageCircleQuestion size={13} aria-hidden="true" /> {localizeUi("professorMari.handoff.ask")}
+                  </button>
+                  <button type="button" role="menuitem" className="is-danger" onClick={handleDelete}>
+                    <Trash2 size={13} aria-hidden="true" /> {localizeUi("Delete preset")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </header>
+        <div className="ov-preset__body">
+          <aside className="ov-preset__left">
+            <p className="ov-preset__eyebrow">{localizeUi("Preset")}</p>
+            <div className="ov-preset__chips">
+              {pages.map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  className={cn("ov-chip", !ovSelected && ovPage === page.id && "is-on")}
+                  onClick={() => {
+                    setOvPage(page.id);
+                    setOvSelected(null);
+                    setOvResetKey((key) => key + 1);
+                  }}
+                >
+                  {localizeUi(page.label)}
+                </button>
+              ))}
+            </div>
+            <p className="ov-preset__eyebrow">
+              {localizeUi("Prompt order")}
+              <small>~{totalTokens.toLocaleString()} tk</small>
+            </p>
+            {renderSections({
+              compact: true,
+              detailTarget: ovDetailEl,
+              variablesTarget: !ovSelected && ovPage === "variables" ? ovVarsEl : null,
+              selectionResetKey: ovResetKey,
+              onSelectionChange: setOvSelected,
+            })}
+          </aside>
+          <main className="ov-preset__main">
+            <div ref={setOvDetailEl} hidden={!ovSelected} />
+            {!ovSelected && ovPage === "overview" ? ov_overview : null}
+            {!ovSelected && ovPage === "prompts" ? ov_prompts : null}
+            {!ovSelected && ovPage === "parameters" ? <div className="space-y-3">{ov_parameters}</div> : null}
+            {!ovSelected && ovPage === "regex" ? ov_regex : null}
+            <div ref={setOvVarsEl} hidden={Boolean(ovSelected) || ovPage !== "variables"} />
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
@@ -567,91 +800,13 @@ export function PresetEditor() {
         {/* Content area */}
         <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner space-y-6">
-            <section data-editor-section="overview">
-              <OverviewTab
-                preset={data.preset}
-                name={localName}
-                onNameChange={(v) => {
-                  setLocalName(v);
-                  markDirty();
-                }}
-                description={localDescription}
-                onDescriptionChange={(v) => {
-                  setLocalDescription(formatQuotes(v));
-                  markDirty();
-                }}
-                wrapFormat={localWrapFormat}
-                onWrapFormatChange={(v) => {
-                  setLocalWrapFormat(v);
-                  markDirty();
-                }}
-                author={localAuthor}
-                onAuthorChange={(v) => {
-                  setLocalAuthor(formatQuotes(v));
-                  markDirty();
-                }}
-                sectionCount={orderedSections.length}
-                groupCount={data.groups?.length ?? 0}
-              />
-            </section>
-            <section data-editor-section="sections">
-              <SectionsTab
-                presetId={presetDetailId}
-                sections={orderedSections}
-                groupMap={groupMap}
-                choiceBlocks={choiceBlocks}
-                wrapFormat={localWrapFormat}
-                onCreateSection={createSection}
-                onUpdateSection={updateSection}
-                onDeleteSection={deleteSection}
-                onReorderSections={reorderSections}
-                onCreateGroup={createGroup}
-                onUpdateGroup={updateGroup}
-                onDeleteGroup={deleteGroup}
-                onCreateVariable={createVariable}
-                onUpdateVariable={updateVariable}
-                onDeleteVariable={deleteVariable}
-                onReorderVariables={reorderVariables}
-                hasLorebookMarker={sectionHasLorebookMarker}
-                parentChatHasLorebook={parentChatHasLorebook}
-              />
-            </section>
-            <section data-editor-section="prompts">
-              <PromptsTab
-                conversationPrompt={localConversationPrompt}
-                onConversationPromptChange={(v) => {
-                  setLocalConversationPrompt(v);
-                  markDirty();
-                }}
-                gamePrompt={localGamePrompt}
-                onGamePromptChange={(v) => {
-                  setLocalGamePrompt(v);
-                  markDirty();
-                }}
-              />
-            </section>
+            <section data-editor-section="overview">{ov_overview}</section>
+            <section data-editor-section="sections">{renderSections()}</section>
+            <section data-editor-section="prompts">{ov_prompts}</section>
             <section data-editor-section="parameters" className="space-y-3">
-              <h3 className="text-sm font-semibold">{localizeUi("generationParameters.preset.title")}</h3>
-              <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("generationParameters.preset.hint")}</p>
-              <GenerationParametersFields
-                value={getEditableGenerationParameters(DEFAULT_GENERATION_PARAMS, localParameters)}
-                showServiceTier
-                onChange={(next) => {
-                  setLocalParameters((previous) => ({ ...previous, ...next }));
-                  markDirty();
-                }}
-              />
+              {ov_parameters}
             </section>
-            <section data-editor-section="regex">
-              <PresetRegexTab
-                presetId={presetDetailId}
-                mode={localScopedRegexMode}
-                onModeChange={(mode) => {
-                  setLocalScopedRegexMode(mode);
-                  markDirty();
-                }}
-              />
-            </section>
+            <section data-editor-section="regex">{ov_regex}</section>
           </div>
         </div>
       </div>
@@ -1199,7 +1354,17 @@ function SectionsTab({
   hasLorebookMarker,
   parentChatHasLorebook,
   compact = false,
+  detailTarget,
+  variablesTarget,
+  selectionResetKey,
+  onSelectionChange,
 }: {
+  /** UI overhaul: the open section's editor renders here (master-detail), one at a time. */
+  detailTarget?: HTMLElement | null;
+  /** UI overhaul: where the preset variables render; null hides them. */
+  variablesTarget?: HTMLElement | null;
+  selectionResetKey?: number;
+  onSelectionChange?: (id: string | null) => void;
   presetId: string;
   sections: any[];
   groupMap: Map<string, any>;
@@ -1297,7 +1462,14 @@ function SectionsTab({
       : configured;
   }, [agentConfigs, capabilityAgents]);
 
+  const masterDetail = detailTarget !== undefined;
   const toggleExpanded = (id: string) => {
+    if (masterDetail) {
+      const open = !expandedSections.has(id);
+      setExpandedSections(open ? new Set([id]) : new Set());
+      onSelectionChange?.(open ? id : null);
+      return;
+    }
     setExpandedSections((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -1305,6 +1477,14 @@ function SectionsTab({
       return next;
     });
   };
+  useEffect(() => {
+    if (selectionResetKey === undefined) return;
+    setExpandedSections(new Set());
+  }, [selectionResetKey]);
+  const ovDetail = (node: React.ReactNode) =>
+    masterDetail ? (detailTarget ? createPortal(<div className="ov-pdetail">{node}</div>, detailTarget) : null) : node;
+  const ovVariables = (node: React.ReactNode) =>
+    variablesTarget === undefined ? node : variablesTarget ? createPortal(node, variablesTarget) : null;
 
   const handleAddSection = (opts?: {
     isMarker?: boolean;
@@ -1476,7 +1656,10 @@ function SectionsTab({
         const sectionIds = sections.map((s: any) => s.id);
         sectionIds.splice(idx + 1, 0, created.id);
         await onReorderSections.mutateAsync({ presetId, sectionIds });
-        setExpandedSections((prev) => new Set(prev).add(created.id));
+        if (masterDetail) {
+          setExpandedSections(new Set([created.id]));
+          onSelectionChange?.(created.id);
+        } else setExpandedSections((prev) => new Set(prev).add(created.id));
       }
       toast.success(localizeUi("ui.presets.sectionstab.duplicatedValue1", { value1: section.name }));
     } catch (error) {
@@ -1769,6 +1952,7 @@ function SectionsTab({
                   data-touch-reorder-item="preset-section"
                   data-touch-reorder-index={idx}
                   data-preset-marker-section={compact && isMarker ? "true" : undefined}
+                  data-ov-row={masterDetail ? (isExpanded ? "selected" : "") : undefined}
                   draggable={dragReady === idx}
                   onDragStart={(e) => handleDragStart(idx, e)}
                   onDragOver={(e) => {
@@ -1939,199 +2123,200 @@ function SectionsTab({
                   </div>
 
                   {/* Expanded content */}
-                  {isExpanded && (
-                    <div
-                      className={cn(
-                        "space-y-3 border-t border-[var(--marinara-editor-divider)] px-3 py-3",
-                        compact && "max-sm:space-y-2 max-sm:px-2 max-sm:py-2",
-                      )}
-                    >
-                      {/* Name & Role */}
-                      <div className={cn("flex gap-2", compact && "flex-col max-sm:gap-1.5")}>
-                        <SectionNameInput
-                          value={section.name}
-                          onCommit={(name) =>
-                            onUpdateSection.mutate({
-                              presetId,
-                              sectionId: section.id,
-                              name,
-                            })
-                          }
-                        />
-                        <select
-                          value={role}
-                          onChange={(e) =>
-                            onUpdateSection.mutate({
-                              presetId,
-                              sectionId: section.id,
-                              role: e.target.value,
-                            })
-                          }
-                          data-preset-section-role
-                          className={cn(
-                            "mari-editor-field px-2 py-1.5 text-xs",
-                            compact &&
-                              "max-sm:h-7 max-sm:w-fit max-sm:max-w-full max-sm:self-start max-sm:px-1.5 max-sm:py-1 max-sm:text-[0.6875rem]",
-                          )}
-                        >
-                          <option value="system">{localizeUi("ui.presets.sectionstab.system")}</option>
-                          <option value="user">{localizeUi("ui.presets.sectionstab.user")}</option>
-                          <option value="assistant">{localizeUi("ui.presets.sectionstab.assistant")}</option>
-                        </select>
-                      </div>
+                  {isExpanded &&
+                    ovDetail(
+                      <div
+                        className={cn(
+                          "space-y-3 border-t border-[var(--marinara-editor-divider)] px-3 py-3",
+                          compact && "max-sm:space-y-2 max-sm:px-2 max-sm:py-2",
+                        )}
+                      >
+                        {/* Name & Role */}
+                        <div className={cn("flex gap-2", compact && "flex-col max-sm:gap-1.5")}>
+                          <SectionNameInput
+                            value={section.name}
+                            onCommit={(name) =>
+                              onUpdateSection.mutate({
+                                presetId,
+                                sectionId: section.id,
+                                name,
+                              })
+                            }
+                          />
+                          <select
+                            value={role}
+                            onChange={(e) =>
+                              onUpdateSection.mutate({
+                                presetId,
+                                sectionId: section.id,
+                                role: e.target.value,
+                              })
+                            }
+                            data-preset-section-role
+                            className={cn(
+                              "mari-editor-field px-2 py-1.5 text-xs",
+                              compact &&
+                                "max-sm:h-7 max-sm:w-fit max-sm:max-w-full max-sm:self-start max-sm:px-1.5 max-sm:py-1 max-sm:text-[0.6875rem]",
+                            )}
+                          >
+                            <option value="system">{localizeUi("ui.presets.sectionstab.system")}</option>
+                            <option value="user">{localizeUi("ui.presets.sectionstab.user")}</option>
+                            <option value="assistant">{localizeUi("ui.presets.sectionstab.assistant")}</option>
+                          </select>
+                        </div>
 
-                      {/* Content (not for markers) */}
-                      {!isMarker && (
-                        <SectionContentTextarea
-                          value={section.content}
-                          tokenCountFooter={positionControls}
-                          sectionName={section.name}
-                          onCommit={(content) =>
-                            onUpdateSection.mutate({
-                              presetId,
-                              sectionId: section.id,
-                              content,
-                            })
-                          }
-                        />
-                      )}
+                        {/* Content (not for markers) */}
+                        {!isMarker && (
+                          <SectionContentTextarea
+                            value={section.content}
+                            tokenCountFooter={positionControls}
+                            sectionName={section.name}
+                            onCommit={(content) =>
+                              onUpdateSection.mutate({
+                                presetId,
+                                sectionId: section.id,
+                                content,
+                              })
+                            }
+                          />
+                        )}
 
-                      {/* Marker config */}
-                      {isMarker &&
-                        markerConfig &&
-                        (() => {
-                          const mc = markerConfig;
-                          const isAgentMarker = mc.type === "agent_data";
-                          return isAgentMarker ? (
-                            <div className="space-y-2">
+                        {/* Marker config */}
+                        {isMarker &&
+                          markerConfig &&
+                          (() => {
+                            const mc = markerConfig;
+                            const isAgentMarker = mc.type === "agent_data";
+                            return isAgentMarker ? (
+                              <div className="space-y-2">
+                                <div
+                                  className={cn(
+                                    "mari-editor-panel mari-editor-panel--soft p-3 text-xs text-[var(--marinara-editor-text)]",
+                                    compact && "max-sm:p-2 max-sm:text-[0.6875rem]",
+                                  )}
+                                >
+                                  {localizeUi("ui.presets.sectionstab.agentSection")} <strong>{section.name}</strong>
+                                  <p className="mt-1 text-[var(--muted-foreground)]">
+                                    {localizeUi("ui.presets.sectionstab.the")}{" "}
+                                    <code className="rounded bg-black/20 px-1 py-0.5 text-[0.625rem] font-mono text-[var(--marinara-chat-chrome-panel-text)]">
+                                      {"{{agent::" + (mc.agentType ?? "agent") + "}}"}
+                                    </code>{" "}
+                                    {localizeUi("ui.presets.sectionstab.macroWillBeReplacedWithTheLatestOutputFrom")}
+                                  </p>
+                                </div>
+                                <SectionContentTextarea
+                                  value={section.content || `{{agent::${mc.agentType ?? "agent"}}}`}
+                                  tokenCountFooter={positionControls}
+                                  sectionName={section.name}
+                                  onCommit={(content) =>
+                                    onUpdateSection.mutate({
+                                      presetId,
+                                      sectionId: section.id,
+                                      content,
+                                    })
+                                  }
+                                />
+                              </div>
+                            ) : (
                               <div
                                 className={cn(
                                   "mari-editor-panel mari-editor-panel--soft p-3 text-xs text-[var(--marinara-editor-text)]",
                                   compact && "max-sm:p-2 max-sm:text-[0.6875rem]",
                                 )}
                               >
-                                {localizeUi("ui.presets.sectionstab.agentSection")} <strong>{section.name}</strong>
+                                {localizeUi("ui.presets.sectionstab.markerType")}{" "}
+                                <strong>{markerLabel(mc.type as MarkerType) || "Unknown"}</strong>
                                 <p className="mt-1 text-[var(--muted-foreground)]">
-                                  {localizeUi("ui.presets.sectionstab.the")}{" "}
-                                  <code className="rounded bg-black/20 px-1 py-0.5 text-[0.625rem] font-mono text-[var(--marinara-chat-chrome-panel-text)]">
-                                    {"{{agent::" + (mc.agentType ?? "agent") + "}}"}
-                                  </code>{" "}
-                                  {localizeUi("ui.presets.sectionstab.macroWillBeReplacedWithTheLatestOutputFrom")}
+                                  {mc.type === "id_macro_cards"
+                                    ? localizeUi("ui.presets.sectionstab.idMacroCardsDescription")
+                                    : mc.type === "current_scene_summary"
+                                      ? localizeUi("ui.presets.sectionstab.currentSceneSummaryDescription")
+                                      : mc.type === "recalled_scenes" || mc.type === "recalled_messages"
+                                        ? localizeUi("ui.presets.sectionstab.recalledScenesDescription")
+                                        : mc.type === "chat_summary"
+                                          ? localizeUi(
+                                              "ui.presets.sectionstab.rendersTheCompiledChatSummaryForThisChatIncluding",
+                                            )
+                                          : localizeUi(
+                                              "ui.presets.sectionstab.contentIsAutoGeneratedAtAssemblyTimeFromYour",
+                                            )}
                                 </p>
+                                {["lorebook", "world_info_before", "world_info_after"].includes(mc.type) && (
+                                  <p className="mt-1 text-[var(--warning)]">
+                                    {localizeUi("ui.presets.sectionstab.thisIsWhereActiveLorebookEntriesAreInserted")}
+                                  </p>
+                                )}
                               </div>
-                              <SectionContentTextarea
-                                value={section.content || `{{agent::${mc.agentType ?? "agent"}}}`}
-                                tokenCountFooter={positionControls}
-                                sectionName={section.name}
-                                onCommit={(content) =>
-                                  onUpdateSection.mutate({
-                                    presetId,
-                                    sectionId: section.id,
-                                    content,
-                                  })
-                                }
-                              />
-                            </div>
-                          ) : (
-                            <div
-                              className={cn(
-                                "mari-editor-panel mari-editor-panel--soft p-3 text-xs text-[var(--marinara-editor-text)]",
-                                compact && "max-sm:p-2 max-sm:text-[0.6875rem]",
-                              )}
-                            >
-                              {localizeUi("ui.presets.sectionstab.markerType")}{" "}
-                              <strong>{markerLabel(mc.type as MarkerType) || "Unknown"}</strong>
-                              <p className="mt-1 text-[var(--muted-foreground)]">
-                                {mc.type === "id_macro_cards"
-                                  ? localizeUi("ui.presets.sectionstab.idMacroCardsDescription")
-                                  : mc.type === "current_scene_summary"
-                                    ? localizeUi("ui.presets.sectionstab.currentSceneSummaryDescription")
-                                    : mc.type === "recalled_scenes" || mc.type === "recalled_messages"
-                                      ? localizeUi("ui.presets.sectionstab.recalledScenesDescription")
-                                      : mc.type === "chat_summary"
-                                        ? localizeUi(
-                                            "ui.presets.sectionstab.rendersTheCompiledChatSummaryForThisChatIncluding",
-                                          )
-                                        : localizeUi(
-                                            "ui.presets.sectionstab.contentIsAutoGeneratedAtAssemblyTimeFromYour",
-                                          )}
-                              </p>
-                              {["lorebook", "world_info_before", "world_info_after"].includes(mc.type) && (
-                                <p className="mt-1 text-[var(--warning)]">
-                                  {localizeUi("ui.presets.sectionstab.thisIsWhereActiveLorebookEntriesAreInserted")}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })()}
+                            );
+                          })()}
 
-                      {/* Position & Depth */}
-                      {!hasContentTextarea && positionControls}
+                        {/* Position & Depth */}
+                        {!hasContentTextarea && positionControls}
 
-                      {/* Group assignment */}
-                      <div
-                        className={cn(
-                          "flex items-center gap-3 text-xs",
-                          compact && "max-sm:flex-wrap max-sm:gap-1.5 max-sm:text-[0.6875rem]",
-                        )}
-                      >
-                        <label className={cn("text-[var(--muted-foreground)]", compact && "max-sm:text-[0.625rem]")}>
-                          {localizeUi("ui.presets.sectionstab.group")}
-                        </label>
-                        <select
-                          value={section.groupId ?? ""}
-                          onChange={(e) =>
-                            onUpdateSection.mutate({
-                              presetId,
-                              sectionId: section.id,
-                              groupId: e.target.value || null,
-                            })
-                          }
-                          data-preset-section-group
+                        {/* Group assignment */}
+                        <div
                           className={cn(
-                            "mari-editor-field px-2 py-1 text-xs",
-                            compact &&
-                              "max-sm:h-7 max-sm:min-w-0 max-sm:max-w-[12rem] max-sm:px-1.5 max-sm:py-1 max-sm:text-[0.6875rem]",
+                            "flex items-center gap-3 text-xs",
+                            compact && "max-sm:flex-wrap max-sm:gap-1.5 max-sm:text-[0.6875rem]",
                           )}
                         >
-                          <option value="">{localizeUi("ui.presets.sectionstab.noGroup")}</option>
-                          {[...groupMap.values()].map((g: any) => (
-                            <option key={g.id} value={g.id}>
-                              {g.name}
-                            </option>
-                          ))}
-                        </select>
-                        {groupMap.size === 0 && (
-                          <span
+                          <label className={cn("text-[var(--muted-foreground)]", compact && "max-sm:text-[0.625rem]")}>
+                            {localizeUi("ui.presets.sectionstab.group")}
+                          </label>
+                          <select
+                            value={section.groupId ?? ""}
+                            onChange={(e) =>
+                              onUpdateSection.mutate({
+                                presetId,
+                                sectionId: section.id,
+                                groupId: e.target.value || null,
+                              })
+                            }
+                            data-preset-section-group
                             className={cn(
-                              "text-[0.625rem] text-[var(--muted-foreground)]",
-                              compact && "max-sm:basis-full max-sm:text-[0.5625rem]",
+                              "mari-editor-field px-2 py-1 text-xs",
+                              compact &&
+                                "max-sm:h-7 max-sm:min-w-0 max-sm:max-w-[12rem] max-sm:px-1.5 max-sm:py-1 max-sm:text-[0.6875rem]",
                             )}
                           >
-                            {localizeUi("ui.presets.sectionstab.openGroupsPanelToCreateOne")}
-                          </span>
-                        )}
-                      </div>
+                            <option value="">{localizeUi("ui.presets.sectionstab.noGroup")}</option>
+                            {[...groupMap.values()].map((g: any) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </select>
+                          {groupMap.size === 0 && (
+                            <span
+                              className={cn(
+                                "text-[0.625rem] text-[var(--muted-foreground)]",
+                                compact && "max-sm:basis-full max-sm:text-[0.5625rem]",
+                              )}
+                            >
+                              {localizeUi("ui.presets.sectionstab.openGroupsPanelToCreateOne")}
+                            </span>
+                          )}
+                        </div>
 
-                      {/* Prompt-block wrap opt-out; markers keep their wrapper, and NONE wraps nothing */}
-                      {!isMarker && wrapFormat !== "none" && (
-                        <SettingsSwitch
-                          label={localizeUi("ui.presets.sectionstab.sendWithoutWrapper")}
-                          description={localizeUi("ui.presets.sectionstab.sendWithoutWrapperDescription")}
-                          checked={readBoolFlag(section.skipWrap)}
-                          onChange={(checked) =>
-                            onUpdateSection.mutate({
-                              presetId,
-                              sectionId: section.id,
-                              skipWrap: checked,
-                            })
-                          }
-                          labelClassName="text-xs"
-                          className="p-0 hover:bg-transparent"
-                        />
-                      )}
-                    </div>
-                  )}
+                        {/* Prompt-block wrap opt-out; markers keep their wrapper, and NONE wraps nothing */}
+                        {!isMarker && wrapFormat !== "none" && (
+                          <SettingsSwitch
+                            label={localizeUi("ui.presets.sectionstab.sendWithoutWrapper")}
+                            description={localizeUi("ui.presets.sectionstab.sendWithoutWrapperDescription")}
+                            checked={readBoolFlag(section.skipWrap)}
+                            onChange={(checked) =>
+                              onUpdateSection.mutate({
+                                presetId,
+                                sectionId: section.id,
+                                skipWrap: checked,
+                              })
+                            }
+                            labelClassName="text-xs"
+                            className="p-0 hover:bg-transparent"
+                          />
+                        )}
+                      </div>,
+                    )}
                 </div>
                 {showDropAfter && (
                   <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
@@ -2149,26 +2334,28 @@ function SectionsTab({
       )}
 
       {/* ── Preset Variables ── */}
-      <PresetVariablesEditor
-        variables={choiceBlocks}
-        onCreate={() =>
-          onCreateVariable.mutate({
-            presetId,
-            variableName: `VAR_${Date.now()}`,
-            question: "Choose an option",
-            options: [
-              { id: `opt_${Date.now()}_a`, label: "Option A", value: "value_a" },
-              { id: `opt_${Date.now()}_b`, label: "Option B", value: "value_b" },
-            ],
-          })
-        }
-        onUpdate={(variableId, patch) => onUpdateVariable.mutate({ presetId, variableId, ...patch })}
-        onDelete={(variableId) => onDeleteVariable.mutate({ presetId, variableId })}
-        onReorder={(variableIds) => onReorderVariables.mutate({ presetId, variableIds })}
-        isSaving={onUpdateVariable.isPending}
-        isReordering={onReorderVariables.isPending}
-        compact={compact}
-      />
+      {ovVariables(
+        <PresetVariablesEditor
+          variables={choiceBlocks}
+          onCreate={() =>
+            onCreateVariable.mutate({
+              presetId,
+              variableName: `VAR_${Date.now()}`,
+              question: "Choose an option",
+              options: [
+                { id: `opt_${Date.now()}_a`, label: "Option A", value: "value_a" },
+                { id: `opt_${Date.now()}_b`, label: "Option B", value: "value_b" },
+              ],
+            })
+          }
+          onUpdate={(variableId, patch) => onUpdateVariable.mutate({ presetId, variableId, ...patch })}
+          onDelete={(variableId) => onDeleteVariable.mutate({ presetId, variableId })}
+          onReorder={(variableIds) => onReorderVariables.mutate({ presetId, variableIds })}
+          isSaving={onUpdateVariable.isPending}
+          isReordering={onReorderVariables.isPending}
+          compact={compact}
+        />,
+      )}
     </>
   );
 }
