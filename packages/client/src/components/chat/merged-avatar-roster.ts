@@ -29,7 +29,8 @@ export function resolveMergedAvatarRoster({
   if (isLive) return inChatOrder(saved, live);
   if (saved.length > 0) return saved;
   // ponytail: a reply saved before #8762 has no roster, so it shows the chat members its expression result
-  // names (`mergedReplyRoster` falls back to them) plus the live roster. That never revives a member who was
+  // names (`mergedReplyRoster` falls back to them) plus the live roster. A saved roster whose members have all
+  // left the chat shows the live roster, as it will once continued. That never revives a member who was
   // inactive then, but such a reply still gains avatars with the live roster, and one without expression data
   // also loses them. Upgrade path: backfill `mergedRosterCharacterIds` on old replies from their speaker tags.
   return inChatOrder(mergedReplyRoster(extra, chatCharacterIds), live);

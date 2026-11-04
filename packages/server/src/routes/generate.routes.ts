@@ -11644,7 +11644,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 ]),
               ];
               // The roster this reply was written with, so its narrator avatars outlast later roster changes (#8762).
-              // Continuing keeps the reply's own, which an older reply derives from its expression result.
+              // Continuing keeps the reply's own as saved, even members who have left the chat since; only an older
+              // reply without one derives it from its expression result.
               const previousRosterIds = input.continueMessageId
                 ? mergedReplyRoster(parseExtra(savedMsg.extra), allCharacterIds)
                 : [];

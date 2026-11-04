@@ -1,23 +1,22 @@
 /**
- * The chat members a merged Roleplay reply was written with (#8762), in `memberIds` order: its saved
- * `mergedRosterCharacterIds`, or, for a reply saved before replies kept one, the members its expression result
- * names (`expressionSpriteIds`, or the `spriteExpressions` keys of an older result). Never the persona or anyone
- * outside `memberIds`. The server keeps it when the reply is continued, and the client streams that continuation with it.
+ * The roster a merged Roleplay reply was written with (#8762): its saved `mergedRosterCharacterIds` as saved, so
+ * a character who has since left the chat stays on it and gets their avatar back if they rejoin (the client shows
+ * only current members). Only a reply saved before replies kept one falls back to the members its expression result
+ * names (`expressionSpriteIds`, or the `spriteExpressions` keys of an older result), in `memberIds` order and never
+ * the persona or anyone outside `memberIds`. The server keeps it when the reply is continued, and the client streams
+ * that continuation with it.
  */
 export function mergedReplyRoster(
   extra: { mergedRosterCharacterIds?: unknown; expressionSpriteIds?: unknown; spriteExpressions?: unknown },
   memberIds: readonly string[],
 ): string[] {
-  const members = (...lists: unknown[][]) => {
-    const ids = new Set(lists.flat());
-    return memberIds.filter((id) => ids.has(id));
-  };
   const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
-  const saved = members(list(extra.mergedRosterCharacterIds));
+  const saved = list(extra.mergedRosterCharacterIds).filter((id): id is string => typeof id === "string");
   if (saved.length > 0) return saved;
   const expressions = extra.spriteExpressions;
-  return members(
-    list(extra.expressionSpriteIds),
-    expressions && typeof expressions === "object" ? Object.keys(expressions) : [],
-  );
+  const named = new Set([
+    ...list(extra.expressionSpriteIds),
+    ...(expressions && typeof expressions === "object" ? Object.keys(expressions) : []),
+  ]);
+  return memberIds.filter((id) => named.has(id));
 }

@@ -3,7 +3,8 @@
  * so automatic or manual roster changes affect only later replies. A streaming reply follows the live
  * roster (a continuation keeps its saved one too), and a reply saved before the snapshot existed shows the
  * members its expression result names plus the live roster: it neither shrinks to one avatar nor revives
- * a member who was inactive. Continuing such a reply keeps those members, on the stream and once saved.
+ * a member who was inactive. Continuing such a reply keeps those members, on the stream and once saved, and
+ * continuing any reply keeps a member who has left the chat on its roster, hidden until they rejoin.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -211,20 +212,57 @@ try {
     );
   }
 
+  // Ben leaves the chat: continuing a reply written with Ana and Ben keeps him on its saved roster, so his avatar
+  // stays hidden while he is out and comes back once he is added back. The Continue stream shows what gets saved.
+  const departed = await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    characterId: ana.id,
+    content: "Ana and Ben share a reply.",
+    extra: { mergedRosterCharacterIds: [ana.id, ben.id] },
+  } as never);
+  const members = async (): Promise<string[]> => JSON.parse(String((await chats.getById(chat.id))!.characterIds));
+  const rosterIn = (memberIds: string[], extra: unknown, isLive = false) =>
+    resolveMergedAvatarRoster({
+      extra: extra as Record<string, unknown>,
+      chatCharacterIds: memberIds,
+      liveRoster: narrowed,
+      isLive,
+    });
+  await chats.update(chat.id, { characterIds: [ana.id, cal.id] });
+  const withoutBen = await members();
+  const departedExtra = JSON.parse(departed.extra) as Record<string, unknown>;
+  const departedStream = { ...departedExtra, mergedRosterCharacterIds: mergedReplyRoster(departedExtra, withoutBen) };
+  assert.deepEqual(
+    rosterIn(withoutBen, departedStream, true),
+    [ana.id],
+    "Continue streams without Ben while he is out",
+  );
+  const departedContinued = await generate(chat.id, { continueMessageId: departed.id });
+  assert.equal(departedContinued.id, departed.id);
+  assert.deepEqual(
+    departedContinued.extra.mergedRosterCharacterIds,
+    [ana.id, ben.id],
+    "Continue keeps a departed member on the saved roster",
+  );
+  assert.deepEqual(rosterIn(withoutBen, departedContinued.extra), [ana.id], "Ben stays hidden while he is out");
+  await chats.update(chat.id, { characterIds: chatCharacterIds });
+  assert.deepEqual(rosterIn(await members(), departedContinued.extra), [ana.id, ben.id], "and is back once he rejoins");
+
   // The roster grows again: saved replies still keep what they were written with.
   assert.deepEqual(roster(soloReply.extra, chatCharacterIds), [ana.id], "a narrowed reply does not grow back");
   assert.deepEqual(roster(fullReply.extra, chatCharacterIds), [ana.id, ben.id]);
   assert.deepEqual(roster({}, chatCharacterIds, true), chatCharacterIds, "a new reply shows everyone active");
-  // A character later removed from the chat drops out; a roster with no member left falls back like a legacy reply.
-  const fallback = (mergedRosterCharacterIds: unknown) =>
-    resolveMergedAvatarRoster({
-      extra: { mergedRosterCharacterIds },
-      chatCharacterIds: [ana.id, cal.id],
-      liveRoster: [ana.id],
-      isLive: false,
-    });
-  assert.deepEqual(fallback([ben.id, ana.id]), [ana.id]);
-  assert.deepEqual(fallback([ben.id, 7, null]), [ana.id]);
+  // A character later removed from the chat drops out. A saved roster with no member left shows the live roster,
+  // as it will once continued, and never the expression result, which only stands in for a missing roster.
+  const fallback = (extra: Record<string, unknown>) =>
+    resolveMergedAvatarRoster({ extra, chatCharacterIds: [ana.id, cal.id], liveRoster: [ana.id], isLive: false });
+  assert.deepEqual(fallback({ mergedRosterCharacterIds: [ben.id, ana.id] }), [ana.id]);
+  assert.deepEqual(
+    fallback({ mergedRosterCharacterIds: [ben.id, 7, null], spriteExpressions: { [cal.id]: "calm" } }),
+    [ana.id],
+    "a roster of departed members does not fall back to the expression result",
+  );
 
   // A reply outside a merged group saves an empty roster, so a swipe never inherits a stale one.
   const soloChat = await createChat([ana.id]);
