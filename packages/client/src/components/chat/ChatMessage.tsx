@@ -4018,6 +4018,27 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
     );
 
+    const rpOverlayActions =
+      overhaulActive && !editing ? (
+        <OvRpMessageFooter
+          chatId={message.chatId}
+          messageId={message.id}
+          pinned={Boolean(isLastAssistantMessage && !isUser)}
+          swipeIndex={message.activeSwipeIndex ?? 0}
+          swipeCount={swipeCount}
+          onSetSwipe={handleSetActiveSwipe}
+          onCreateSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
+          meta={isGrouped ? genLabel : undefined}
+          placement={isGrouped ? "float" : "header"}
+          side={isUser ? "start" : "end"}
+          copied={copied}
+          onRegenerate={!isUser && onRegenerate ? () => onRegenerate(message.id) : undefined}
+          onEdit={startEditing}
+          onCopy={handleCopy}
+          onBranch={onBranch ? () => onBranch(message.id) : undefined}
+          more={rpActionsRow}
+        />
+      ) : null;
     return (
       <>
         <div
@@ -4193,30 +4214,13 @@ export const ChatMessage = memo(function ChatMessage({
                       #{messageIndex}
                     </span>
                   )}
+                {/* New layout: the actions sit on the name row, next to the name and time. */}
+                {rpOverlayActions}
               </div>
             )}
 
-            {/* New layout: message actions overlay the name row instead of opening a row in the bubble. */}
-            {overhaulActive && !editing && (
-              <OvRpMessageFooter
-                chatId={message.chatId}
-                messageId={message.id}
-                pinned={Boolean(isLastAssistantMessage && !isUser)}
-                swipeIndex={message.activeSwipeIndex ?? 0}
-                swipeCount={swipeCount}
-                onSetSwipe={handleSetActiveSwipe}
-                onCreateSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
-                meta={isGrouped ? genLabel : undefined}
-                placement={isGrouped ? "float" : "header"}
-                side={isUser ? "start" : "end"}
-                copied={copied}
-                onRegenerate={!isUser && onRegenerate ? () => onRegenerate(message.id) : undefined}
-                onEdit={startEditing}
-                onCopy={handleCopy}
-                onBranch={onBranch ? () => onBranch(message.id) : undefined}
-                more={rpActionsRow}
-              />
-            )}
+            {/* New layout, grouped message (no name row): the actions float over the bubble's top edge. */}
+            {isGrouped && rpOverlayActions}
             <ConversationStartMarkers
               memoryStartCharacterIds={memoryStartCharacterIds}
               sharedStart={isConversationStart}
