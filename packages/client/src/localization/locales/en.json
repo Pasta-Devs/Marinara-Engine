@@ -10907,7 +10907,6 @@
   "ui.chat.peekpromptmodal.turnPromptTokens": "reported prompt tokens across {{count}} requests",
   "ui.chat.personapicker.characterSource": "Character",
   "ui.chat.personapicker.playAsCharacter": "Play as a character",
-  "ui.chat.personapicker.stayAnonymous": "Stay anonymous",
   "ui.chat.personapicker.ungrouped": "Ungrouped",
   "ui.chat.personastatswidget.loadingPersonaStats": "Loading persona stats…",
   "ui.chat.personastatswidget.personaStats": "Persona Stats",

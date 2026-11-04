@@ -113,13 +113,21 @@ function TriggerAvatars({
     <span className="flex shrink-0">
       {items.slice(0, 3).map((item, index) =>
         item.src ? (
-          <img
+          // A crop positions the image absolutely and wider than the circle, so the span clips it.
+          <span
             key={item.id}
-            src={item.src}
-            alt=""
-            className={cn("h-6 w-6 rounded-full object-cover ring-2 ring-[var(--background)]", index > 0 && "-ml-2")}
-            style={getAvatarCropStyle(item.crop as Parameters<typeof getAvatarCropStyle>[0])}
-          />
+            className={cn(
+              "relative h-6 w-6 overflow-hidden rounded-full ring-2 ring-[var(--background)]",
+              index > 0 && "-ml-2",
+            )}
+          >
+            <img
+              src={item.src}
+              alt=""
+              className="h-full w-full object-cover"
+              style={getAvatarCropStyle(item.crop as Parameters<typeof getAvatarCropStyle>[0])}
+            />
+          </span>
         ) : (
           <span
             key={item.id}
