@@ -41,7 +41,8 @@ import {
   type CharacterLibrarySort,
   type ResourcePanelSort,
 } from "../../stores/ui.store";
-import { useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { CardGallery } from "../overhaul/CardGallery";
 
 const libraryToolbarButtonClass =
   "mari-chrome-control mari-chrome-control--primary h-10 min-h-10 min-w-0 px-3 text-[0.75rem]";
@@ -423,6 +424,7 @@ export function CharacterLibraryView() {
   }, [characters, initialCharacter.data, isPersonaLibrary, personas]);
 
   // UI overhaul: the Library pane's tag list filters the Characters gallery.
+  const overhaulActive = useOverhaulActive();
   const overhaulTag = useOverhaulStore((s) => (s.enabled && s.desktop && !isPersonaLibrary ? s.characterTag : null));
   const filteredCards = useMemo(() => {
     const query = parseCardLibrarySearchQuery(search);
@@ -576,6 +578,40 @@ export function CharacterLibraryView() {
     if (isPersonaLibrary) void personaPages.fetchNextPage();
     else void characterPages.fetchNextPage();
   };
+
+  if (overhaulActive) {
+    return (
+      <CardGallery
+        kind={kind}
+        title={localize(isPersonaLibrary ? "Personas" : "Characters")}
+        cards={filteredCards.map((card) => ({
+          id: card.id,
+          name: card.name,
+          avatarPath: card.avatarPath,
+          avatarStyle: getAvatarCropStyle(card.avatarCrop),
+          tags: card.tags,
+          tokens: card.tokenEstimate.toLocaleString(),
+          favorite: card.favorite,
+          createdAt: card.createdAt,
+          updatedAt: card.updatedAt,
+        }))}
+        loading={isLoading}
+        hasMore={Boolean(hasNextPage)}
+        onLoadMore={fetchNextPage}
+        onOpen={openDetailFromLibrary}
+        onChat={
+          isPersonaLibrary
+            ? undefined
+            : (id) => {
+                const card = filteredCards.find((item) => item.id === id);
+                if (card) openCharacterChat(card);
+              }
+        }
+        onNew={() => openModal(isPersonaLibrary ? "create-persona" : "create-character")}
+        onImport={() => openModal(isPersonaLibrary ? "import-persona" : "import-character")}
+      />
+    );
+  }
 
   const placeholderClass = isPersonaLibrary ? "mari-avatar-placeholder--persona" : "mari-avatar-placeholder--character";
   const newCardButtonClass = cn(

@@ -823,3 +823,163 @@
 .ov-ed .space-y-10 > * {
   margin-block: 0 !important;
 }
+
+/* ─── Characters / Personas gallery ─── */
+.ov-gallery {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 1.5rem 2rem 2.5rem;
+}
+.ov-gallery__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ov-gallery__head h1 {
+  flex: 1;
+  margin: 0;
+  color: var(--ov-text);
+  font: 400 2.25rem/1.1 var(--ov-serif);
+}
+.ov-gallery__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 1.25rem;
+}
+.ov-gallery__spacer {
+  flex: 1;
+}
+.ov-search {
+  display: flex;
+  width: min(100%, 20rem);
+  align-items: center;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--secondary) 60%, transparent);
+  color: var(--ov-muted);
+}
+.ov-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  outline: none;
+}
+.ov-select {
+  height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-select option {
+  background: var(--card);
+}
+.ov-gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.25rem, 9.75rem));
+  gap: 1.25rem 0.75rem;
+}
+.ov-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+.ov-card__art {
+  position: relative;
+  display: grid;
+  aspect-ratio: 3 / 4;
+  width: 100%;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  border-radius: 0.75rem;
+  background: var(--secondary);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.ov-card__art:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.7);
+}
+.ov-card__art--new {
+  border: 1px dashed var(--ov-line);
+  background: transparent;
+  color: var(--ov-muted);
+}
+.ov-card__ph {
+  color: rgb(255 255 255 / 0.7);
+}
+.ov-card__tokens {
+  position: absolute;
+  right: 0.375rem;
+  bottom: 0.375rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.3125rem;
+  background: rgb(0 0 0 / 0.65);
+  color: #fff;
+  font:
+    500 0.6875rem/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.ov-card__chat {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.ov-card:hover .ov-card__chat,
+.ov-card__chat:focus-visible {
+  opacity: 1;
+}
+.ov-card__name {
+  margin-top: 0.5rem;
+  overflow: hidden;
+  color: var(--ov-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-card__tags {
+  margin: 0;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.ov-gallery__note {
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ov-gallery__more {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
