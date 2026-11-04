@@ -1,12 +1,18 @@
 // Professor Mari's shell can make links inside the data dir when it sits in her workspace. The game-assets folder is
-// held to its own real path (a game-assets folder that is itself a link, e.g. to another disk, still works): the asset
-// manifest build (startup, uploads, `mari images` background assign/delete) and the game-assets routes create, scan,
-// rename, write, read and delete only inside it, a link that leads out is skipped or refused and its target is never
-// touched, a link cycle ends, and manifest.json is written as a new file, never through a link. The shared avatar
-// cleanup used by the app's own deletes keeps a file whose avatar folder's real path is outside the data dir. Normal
-// work still runs with DATA_DIR behind a link and with game-assets behind a link, and a manifest that cannot be
-// written never blocks boot. Every case runs and the failures are reported together.
+// held to its own real path (a game-assets folder that is itself a link, e.g. to another disk, still works): the
+// default assets seed and the asset manifest build (startup, uploads, `mari images` background assign/delete) and the
+// game-assets routes create, scan, copy, rename, write, read and delete only inside it, a link that leads out is
+// skipped or refused and its target is never touched, a link cycle ends, and manifest.json, meta.json and the seed's
+// hash are written as new files, never through a link, and read only when they are plain files (a FIFO would block the
+// server). Image previews are cached only in the real thumbnail folder and a link at a preview's name is never served.
+// The shared avatar cleanup used by the app's own deletes keeps a file whose avatar folder's real path is outside the
+// data dir. A category folder is never deleted through a trailing slash, dot or other case. Normal work still runs with
+// DATA_DIR behind a link and with game-assets behind a link, and a dangling link (game-assets on an unplugged disk
+// included) or a manifest that cannot be written never blocks boot. Every case runs and the failures are reported
+// together.
 import assert from "node:assert/strict";
+import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   lstatSync,
@@ -18,6 +24,7 @@ import {
   realpathSync,
   renameSync,
   rmSync,
+  statSync,
   symlinkSync,
   utimesSync,
   writeFileSync,
@@ -44,6 +51,8 @@ const { gameAssetsRoutes } = await import("../../packages/server/src/routes/game
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { deleteAbandonedAvatarFiles, mutateAvatarReferencesAndCleanup, removeUnattachedAvatarFile } =
   await import("../../packages/server/src/services/image/avatar-file-lifecycle.js");
+const { seedDefaultGameAssets } = await import("../../packages/server/src/db/seed-game-assets.js");
+const { BUNDLED_GAME_ASSETS_DIR } = await import("../../packages/server/src/services/game/native-game-assets.js");
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
@@ -103,6 +112,26 @@ function link(rel: string, target: string) {
     if (existsSync(aside)) renameSync(aside, path);
   };
 }
+// A FIFO at `path` whose writer waits for a reader: true once something opened it to read, which would block the server
+// for as long as no writer comes. The writer then reads once too, so code that writes the FIFO next cannot hang either.
+async function fifoOpened(path: string, run: () => unknown): Promise<boolean> {
+  const aside = `${path}.aside`;
+  if (lstatSync(path, { throwIfNoEntry: false })) renameSync(path, aside);
+  execFileSync("mkfifo", [path]);
+  const opened = `${path}.opened`;
+  const script = 'printf "{}" > "$1" && : > "$2" && cat "$1" > /dev/null';
+  const writer = spawn("sh", ["-c", script, "sh", path, opened], { stdio: "ignore" });
+  try {
+    await run();
+    for (let wait = 0; wait < 10 && !existsSync(opened); wait++) await new Promise((done) => setTimeout(done, 30));
+    return existsSync(opened);
+  } finally {
+    writer.kill("SIGKILL");
+    rmSync(path, { force: true });
+    rmSync(opened, { force: true });
+    if (existsSync(aside)) renameSync(aside, path);
+  }
+}
 const manifestText = () => JSON.stringify(buildAssetManifest());
 const listed = (manifest: string, ...names: string[]) => names.filter((name) => manifest.includes(name));
 
@@ -134,7 +163,11 @@ const multipartUpload = (subcategory: string, filename: string, content: Buffer,
   });
 const jsonUpload = (subcategory: string, filename: string, content = PNG, category = "sprites") =>
   inject("POST", "/upload", { category, subcategory, filename, data: content.toString("base64") });
-const status = async (response: Promise<{ statusCode: number; body: string }>, expected: number, label: string) => {
+const status = async <T extends { statusCode: number; body: string }>(
+  response: Promise<T>,
+  expected: number,
+  label: string,
+) => {
   const result = await response;
   assert.equal(result.statusCode, expected, `${label}: ${result.body}`);
   return result;
@@ -239,6 +272,111 @@ async function normalFlows(label: string, track: string) {
   });
 }
 
+// The default assets seed (startup), on a normal folder and through links that lead out.
+const SEED_MARKER = ".default-assets-seeded.sha256";
+const bundledFiles = (function list(dir: string, rel = ""): string[] {
+  return readdirSync(dir)
+    .filter((name) => !name.startsWith("."))
+    .flatMap((name) =>
+      lstatSync(join(dir, name)).isDirectory() ? list(join(dir, name), join(rel, name)) : [join(rel, name)],
+    );
+})(BUNDLED_GAME_ASSETS_DIR);
+// The link cases run once: they share realGameAssetPath with the manifest and route cases that run in both passes.
+async function seedCases(label: string, linkCases: boolean) {
+  await check(`${label}: the default assets seed installs the bundle and records its hash`, async () => {
+    rmSync(join(gameAssets, SEED_MARKER), { force: true });
+    rmSync(join(gameAssets, "sfx"), { recursive: true, force: true });
+    await seedDefaultGameAssets();
+    assert.ok(lstatSync(join(gameAssets, SEED_MARKER)).isFile(), "the hash is a plain file");
+    assert.match(readFileSync(join(gameAssets, SEED_MARKER), "utf8"), /^[0-9a-f]{64}\n$/u, "the hash is recorded");
+    for (const file of bundledFiles) assert.ok(lstatSync(join(gameAssets, file)).isFile(), `${file} is installed`);
+    assert.ok(lstatSync(join(gameAssets, "sfx", "ui", ".native")).isFile(), "native markers are written");
+  });
+  if (!linkCases) return;
+  await check(`${label}: the seed never copies into a linked folder`, async () => {
+    const target = join(outside, `${label}-seed-sfx`);
+    mkdirSync(target);
+    const restore = link("sfx", target);
+    rmSync(join(gameAssets, SEED_MARKER), { force: true });
+    try {
+      await untouched(target, () => seedDefaultGameAssets(), "seed");
+    } finally {
+      restore();
+    }
+  });
+  await check(`${label}: the seed never writes its hash or a native marker through a link`, async () => {
+    const target = bait(join(outside, `${label}-seed-marker`), { "hash.txt": BAIT });
+    const restores = [link(SEED_MARKER, join(target, "hash.txt")), link("music/.native", join(target, "native-made"))];
+    try {
+      await untouched(target, () => seedDefaultGameAssets(), "seed");
+    } finally {
+      for (const restore of restores) restore();
+    }
+  });
+  await check(`${label}: a dangling link never stops the seed`, async () => {
+    const missing = join(outside, `${label}-unplugged-ambient`);
+    const restore = link("ambient", missing);
+    try {
+      await seedDefaultGameAssets();
+      assert.ok(!existsSync(missing), "nothing is created at the link's target");
+    } finally {
+      restore();
+    }
+  });
+  await check(`${label}: a FIFO at the seed's hash is never read`, async () => {
+    rmSync(join(gameAssets, SEED_MARKER), { force: true });
+    assert.equal(await fifoOpened(join(gameAssets, SEED_MARKER), () => seedDefaultGameAssets()), false, "read");
+  });
+  await check(`${label}: a FIFO at meta.json is never read`, async () => {
+    const tree = () => status(inject("GET", "/tree"), 200, "tree");
+    assert.equal(await fifoOpened(join(gameAssets, "meta.json"), tree), false, "read");
+  });
+}
+
+// Image previews of game assets (shared with backgrounds and the gallery), cached in data/backgrounds-thumbs.
+async function thumbnailCases(label: string) {
+  const thumbs = join(dataDir, "backgrounds-thumbs");
+  const image = join(gameAssets, "sprites/generic-fantasy/thumb-source.png");
+  const url = "/file/sprites/generic-fantasy/thumb-source.png?w=320";
+  const key = () => createHash("sha1").update(realpathSync(image)).digest("hex").slice(0, 16);
+  const previewName = () => `v3-320-${statSync(image).mtimeMs}-${key()}.webp`;
+  bait(join(gameAssets, "sprites/generic-fantasy"), { "thumb-source.png": PNG });
+  await check(`${label}: a preview is cached in the real thumbnail folder`, async () => {
+    const response = await status(inject("GET", url), 200, "preview");
+    assert.equal(response.headers["content-type"], "image/webp");
+    assert.ok(lstatSync(join(thumbs, previewName())).isFile(), "the preview is cached");
+    assert.deepEqual((await inject("GET", url)).rawPayload, readFileSync(join(thumbs, previewName())), "cache hit");
+  });
+  await check(`${label}: previews are never written into a linked thumbnail folder`, async () => {
+    const target = join(outside, `${label}-thumbs`);
+    mkdirSync(target);
+    const restore = link(thumbs, target);
+    try {
+      await untouched(
+        target,
+        async () => assert.deepEqual((await status(inject("GET", url), 200, "original")).rawPayload, PNG),
+        "preview",
+      );
+    } finally {
+      restore();
+    }
+  });
+  await check(`${label}: a link at a preview's name is never served`, async () => {
+    const secret = bait(join(outside, `${label}-preview`), { "secret.webp": BAIT });
+    const restore = link(join(thumbs, previewName()), join(secret, "secret.webp"));
+    try {
+      await untouched(
+        secret,
+        async () => assert.ok(!(await inject("GET", url)).body.includes(BAIT), "the outside file is served"),
+        "preview",
+      );
+    } finally {
+      restore();
+    }
+  });
+  rmSync(image);
+}
+
 // Links in game-assets that lead out, each against its own outside folder.
 async function linkedCases(label: string) {
   await check(`${label}: a linked music/<state> folder is not migrated`, async () => {
@@ -322,7 +460,9 @@ async function linkedCases(label: string) {
     }
   });
   // Each request gets fresh links and outside files, so every one is proven on its own.
+  const ownFolders = ["sprites/generic-fantasy", "sprites/generic-scifi"].map((dir) => join(gameAssets, dir));
   const routeLinks = () => {
+    const kept = ownFolders.map((dir) => new Set(existsSync(dir) ? readdirSync(dir) : []));
     const art = bait(join(outside, `${label}-route-art`), {
       "secret-face.png": PNG,
       "readme.txt": BAIT,
@@ -335,7 +475,15 @@ async function linkedCases(label: string) {
       link("sprites/generic-fantasy/notes.txt", join(notes, "notes.txt")),
       link("sprites/generic-fantasy/picture.png", join(notes, "picture.png")),
     ];
-    return { art, restore: () => restores.forEach((restore) => restore()) };
+    // A request the old code let through can leave a copy or a renamed link behind; it is removed, so that the next
+    // case (and the next pass) starts from the same folders.
+    const restore = () => {
+      for (const restoreLink of restores) restoreLink();
+      ownFolders.forEach((dir, index) => {
+        for (const name of readdirSync(dir)) if (!kept[index]!.has(name)) rmSync(join(dir, name), { recursive: true });
+      });
+    };
+    return { art, restore };
   };
   for (const [what, request] of [
     ["JSON upload into a linked folder", () => jsonUpload("secret-art", "new.png")],
@@ -464,7 +612,10 @@ const db = await getDB();
 try {
   // A fresh install, as startup builds it: folders, the legacy flat-music migration and a plain manifest file.
   await normalFlows("data dir behind a link", "war-drums");
+  await seedCases("data dir behind a link", true);
   await linkedCases("data dir behind a link");
+  // Images are served only from inside the real data dir, so previews are proven here and not with game-assets moved out.
+  await thumbnailCases("data dir behind a link");
 
   // The avatar cleanup the app's own deletes use: an avatar folder whose real path is outside keeps its files.
   await check("avatar deletes through a linked avatar folder keep the outside file", async () => {
@@ -517,15 +668,29 @@ try {
   symlinkSync(otherDisk, gameAssets, "dir");
   gameAssets = otherDisk;
   await normalFlows("game-assets behind a link", "siege-drums");
+  await seedCases("game-assets behind a link", false);
   await linkedCases("game-assets behind a link");
 
-  // Boot: the startup manifest build runs the legacy migration, and a manifest that cannot be written does not stop it.
-  await check("boot continues when the manifest cannot be written", async () => {
+  await check("a category folder is never deleted through a trailing slash, a dot or another case", async () => {
+    bait(join(gameAssets, "sprites/mine"), { "hero.png": PNG });
+    for (const path of ["sprites/", "sprites/.", "Sprites"]) {
+      const response = await inject("DELETE", `/folders/${path}?recursive=true`);
+      assert.ok(response.statusCode >= 400, `${path}: ${response.statusCode} ${response.body}`);
+      assert.ok(existsSync(join(gameAssets, "sprites/mine/hero.png")), `${path}: the category's files stay`);
+    }
+    rmSync(join(gameAssets, "sprites/mine"), { recursive: true });
+  });
+
+  // Boot: the startup manifest build runs the legacy migration, and neither a dangling link (the seed creates folders
+  // first) nor a manifest that cannot be written stops it.
+  const { buildApp } = await import("../../packages/server/src/app.js");
+  await check("boot continues through a dangling link and a manifest that cannot be written", async () => {
     bait(join(gameAssets, "music", "travel_rest"), { "quiet-rest.mp3": "rest" });
     rmSync(join(gameAssets, "manifest.json"), { force: true });
     mkdirSync(join(gameAssets, "manifest.json"));
-    const { buildApp } = await import("../../packages/server/src/app.js");
-    const booted = await buildApp();
+    rmSync(join(gameAssets, SEED_MARKER), { force: true });
+    const restore = link("ambient", join(outside, "boot-unplugged-ambient"));
+    const booted = await buildApp().finally(restore);
     try {
       await booted.ready();
       assert.equal(
@@ -539,6 +704,18 @@ try {
       assert.ok(lstatSync(join(gameAssets, "manifest.json")).isFile(), "rescan writes the manifest");
     } finally {
       await booted.close();
+    }
+  });
+  await check("boot continues with game-assets linked to an unplugged disk", async () => {
+    renameSync(otherDisk, `${otherDisk}.unplugged`);
+    try {
+      const booted = await buildApp();
+      await booted.ready();
+      await booted.close();
+      assert.ok(!existsSync(otherDisk), "nothing is created on the missing disk");
+    } finally {
+      rmSync(otherDisk, { recursive: true, force: true });
+      renameSync(`${otherDisk}.unplugged`, otherDisk);
     }
   });
 

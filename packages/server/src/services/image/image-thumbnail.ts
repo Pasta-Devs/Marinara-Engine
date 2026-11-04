@@ -1,10 +1,11 @@
 // ──────────────────────────────────────────────
 // Shared on-disk image thumbnailer (backgrounds, gallery + game asset images)
 // ──────────────────────────────────────────────
-import { existsSync, mkdirSync, renameSync, statSync, unlinkSync } from "fs";
+import { existsSync, lstatSync, mkdirSync, renameSync, statSync, unlinkSync } from "fs";
 import { open, writeFile } from "fs/promises";
 import { createHash, randomUUID } from "crypto";
 import { extname, join } from "path";
+import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger } from "../../lib/logger.js";
 import { getSharp } from "./sharp-runtime.js";
@@ -49,9 +50,13 @@ export async function resolveThumbPath(filePath: string, width: number): Promise
     // Inside the try: the source can vanish between the caller's existsSync and this stat.
     const key = createHash("sha1").update(filePath).digest("hex").slice(0, 16);
     const source = statSync(filePath);
+    // Professor Mari's shell can make links in the data dir when it sits in her workspace, so the cache is held to its
+    // real folder (a cache folder whose real path is outside throws here and the original is served), and only a plain
+    // file at the name is a cache hit: a link there is replaced by the new preview, never served.
+    const thumbDir = realPathInAppFolder(THUMB_DIR, THUMB_DIR);
     // v3 also invalidates width-only previews that left portrait/tall images too large.
-    const thumbPath = join(THUMB_DIR, `v3-${width}-${source.mtimeMs}-${key}.webp`);
-    if (existsSync(thumbPath)) return thumbPath;
+    const thumbPath = join(thumbDir, `v3-${width}-${source.mtimeMs}-${key}.webp`);
+    if (lstatSync(thumbPath, { throwIfNoEntry: false })?.isFile()) return thumbPath;
 
     const sharp = await getSharp();
     const image = sharp(filePath);
@@ -90,15 +95,15 @@ export async function resolveThumbPath(filePath: string, width: number): Promise
       .resize({ width, height: width, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 72 })
       .toBuffer();
-    if (!existsSync(THUMB_DIR)) mkdirSync(THUMB_DIR, { recursive: true });
+    mkdirSync(thumbDir, { recursive: true });
     const temporaryPath = `${thumbPath}.${process.pid}.${randomUUID()}.tmp`;
     try {
-      await writeFile(temporaryPath, buffer);
+      await writeFile(temporaryPath, buffer, { flag: "wx" });
       try {
         renameSync(temporaryPath, thumbPath);
       } catch (error) {
         // On Windows, a concurrent winner may make rename fail because the target now exists.
-        if (!existsSync(thumbPath)) throw error;
+        if (!lstatSync(thumbPath, { throwIfNoEntry: false })?.isFile()) throw error;
       }
     } finally {
       if (existsSync(temporaryPath)) unlinkSync(temporaryPath);

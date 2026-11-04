@@ -14,7 +14,6 @@ import {
   renameSync,
   rmSync,
   writeFileSync,
-  type Dirent,
   type Stats,
 } from "fs";
 import { join, extname, relative, basename, dirname } from "path";
@@ -84,7 +83,7 @@ export interface AssetFolderEntry {
 // route never served a link that leads out, and nothing the app writes there is a link.
 function listFolder(bound: (path: string) => string, dir: string): AssetFolderEntry[] {
   let realDir: string;
-  let names: Dirent[];
+  let names: string[];
   try {
     realDir = bound(dir);
   } catch (error) {
@@ -93,25 +92,29 @@ function listFolder(bound: (path: string) => string, dir: string): AssetFolderEn
     return [];
   }
   try {
-    names = readdirSync(realDir, { withFileTypes: true });
+    names = readdirSync(realDir);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
   const entries: AssetFolderEntry[] = [];
-  for (const entry of names) {
-    if (entry.name.startsWith(".")) continue; // skip hidden files
-    const path = join(realDir, entry.name);
-    if (!entry.isSymbolicLink()) {
-      entries.push({ name: entry.name, path, stat: lstatSync(path) });
+  for (const name of names) {
+    if (name.startsWith(".")) continue; // skip hidden files
+    const path = join(realDir, name);
+    // lstat, not the readdir entry type, decides what is a link: Windows readdir can report other reparse points (cloud
+    // placeholders, for one) as links, while lstat reports only symlinks and junctions.
+    const own = lstatSync(path, { throwIfNoEntry: false });
+    if (!own) continue; // removed while listing
+    if (!own.isSymbolicLink()) {
+      entries.push({ name, path, stat: own });
       continue;
     }
     try {
       const stat = lstatSync(bound(path));
-      if (stat.isFile()) entries.push({ name: entry.name, path, stat });
-      else logger.warn("[game-assets] Skipped linked folder %s: linked folders are not scanned", join(dir, entry.name));
+      if (stat.isFile()) entries.push({ name, path, stat });
+      else logger.warn("[game-assets] Skipped linked folder %s: linked folders are not scanned", join(dir, name));
     } catch (error) {
-      logger.warn(error, "[game-assets] Skipped link %s: it leads outside its folder", join(dir, entry.name));
+      logger.warn(error, "[game-assets] Skipped link %s: it leads outside its folder", join(dir, name));
     }
   }
   return entries;

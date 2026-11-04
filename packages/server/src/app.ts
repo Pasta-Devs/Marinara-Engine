@@ -280,7 +280,12 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     app.log.warn(error, "Tripo connection migration did not complete; it will retry next startup");
   }
   await startup.phase("seed.backgrounds", () => seedDefaultBackgrounds());
-  await startup.phase("seed.game-assets", () => seedDefaultGameAssets());
+  // Guarded like the asset scan below: the seed runs again next boot, while a failed boot costs the user everything.
+  try {
+    await startup.phase("seed.game-assets", () => seedDefaultGameAssets());
+  } catch (error) {
+    logger.warn(error, "[seed] Default game assets were not fully installed; the seed runs again next boot");
+  }
 
   // ── Ensure default asset directories exist, then build manifest ──
   // Guarded like the post-activation rescan below: the manifest is rebuilt on the next rescan or upload, while a failed

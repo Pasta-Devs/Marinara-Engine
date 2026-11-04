@@ -4,10 +4,17 @@ import { DATA_DIR } from "./data-dir.js";
 import { assertInsideDir } from "./security.js";
 
 // The real path of `path`. A path that does not exist yet is the real path of its nearest existing folder plus the rest
-// of it, so a write never creates a file or folder through a link.
+// of it, so a write never creates a file or folder through a link. The walk stops at the top of the path: an offline
+// Windows drive or share has no existing part at all, and its root is its own dirname.
 function realPathOf(path: string): string {
   let existing = path;
-  while (!lstatSync(existing, { throwIfNoEntry: false })) existing = dirname(existing);
+  while (!lstatSync(existing, { throwIfNoEntry: false })) {
+    const parent = dirname(existing);
+    if (parent === existing) {
+      throw Object.assign(new Error(`No existing folder above ${path}`), { code: "ENOENT" });
+    }
+    existing = parent;
+  }
   return join(realpathSync(existing), relative(existing, path));
 }
 

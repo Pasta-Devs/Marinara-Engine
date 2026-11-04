@@ -20,7 +20,7 @@ import {
   rmSync,
   unlinkSync,
 } from "fs";
-import { join, extname, basename, dirname, resolve, sep } from "path";
+import { join, extname, basename, dirname, relative, resolve, sep } from "path";
 import { execFile } from "child_process";
 import { platform } from "os";
 import { z } from "zod";
@@ -55,8 +55,11 @@ interface FolderMeta {
  */
 function loadMeta(): Record<string, FolderMeta> {
   try {
-    // Read in its checked real path: a meta.json link that leads out reads as empty, and saveMeta refuses it.
-    return JSON.parse(readFileSync(realGameAssetPath(META_PATH), "utf-8"));
+    // Only a plain file at the name is read, as getAssetManifest reads manifest.json: a link or a FIFO there reads as
+    // empty (a FIFO would block the server), and saveMeta refuses a link.
+    const path = gameAssetEntry(META_PATH);
+    if (!lstatSync(path, { throwIfNoEntry: false })?.isFile()) return {};
+    return JSON.parse(readFileSync(path, "utf-8"));
   } catch {
     return {};
   }
@@ -825,11 +828,13 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid folder path" });
     }
 
-    if (VALID_CATEGORIES.has(wildcard)) {
+    const folderPath = join(GAME_ASSETS_DIR, wildcard);
+    // Checked on the normalized path, so "sprites/" or "sprites/." is still the sprites category. Lower-cased because a
+    // case-insensitive disk (macOS, Windows) opens "Sprites" as the same folder.
+    const folderName = relative(GAME_ASSETS_DIR, folderPath).toLowerCase();
+    if (!folderName || VALID_CATEGORIES.has(folderName)) {
       return reply.status(403).send({ error: "Cannot delete root category folders" });
     }
-
-    const folderPath = join(GAME_ASSETS_DIR, wildcard);
     let target: string;
     try {
       target = gameAssetEntry(folderPath);
