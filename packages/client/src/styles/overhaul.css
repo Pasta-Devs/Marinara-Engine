@@ -3906,10 +3906,6 @@ input.ov-edhead__title:focus {
   color: var(--ov-text);
 }
 /* Overlay bar: sits on the name row (or floats over a grouped message) so hovering moves nothing. */
-.ov-rpmsg:not(.is-grouped) {
-  /* Room for the name and the bar side by side on short messages. */
-  min-width: min(19rem, 100%);
-}
 .ov-rpf.ov-rpf--overlay {
   position: absolute;
   z-index: 3;
@@ -3922,11 +3918,21 @@ input.ov-edhead__title:focus {
   background: transparent;
   pointer-events: none;
 }
-.ov-rpf--overlay.ov-rpf--end {
+.ov-rpf--float.ov-rpf--end {
   right: 0.25rem;
 }
-.ov-rpf--overlay.ov-rpf--start {
+.ov-rpf--float.ov-rpf--start {
   left: 0.25rem;
+}
+/* On the name row the bar is part of the row, next to the name and time; the negative margin keeps
+   the row's height, so showing it moves nothing. */
+.ov-rpf.ov-rpf--header {
+  position: static;
+  align-self: center;
+  margin-block: -0.25rem;
+}
+.ov-rpf--header.ov-rpf--end {
+  margin-left: auto;
 }
 .ov-rpf--overlay .ov-rpf__grow {
   display: none;
@@ -6986,4 +6992,10 @@ input.ov-edhead__title:focus {
 [data-overhaul="on"] [data-quick-connection-menu] * {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+/* Random connection mode is on: the dice lights up in the accent color so it can't be missed. */
+[data-overhaul="on"] [data-quick-connection-menu] button[data-random-on] {
+  background: color-mix(in srgb, var(--ov-accent) 16%, transparent);
+  color: var(--ov-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ov-accent) 45%, transparent);
 }
