@@ -18,6 +18,8 @@ const png = Buffer.from(
 );
 
 async function importCharacterFolder(page: Page, library: Locator, directory: string) {
+  if (!(await library.locator("input[webkitdirectory]").count()))
+    await library.getByRole("button", { name: "Add sprites", exact: true }).click();
   await library.locator("input[webkitdirectory]").setInputFiles(directory);
   if (readdirSync(directory).some((name) => isSpriteImageFile({ name })))
     await page
