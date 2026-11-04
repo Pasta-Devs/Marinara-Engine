@@ -13,9 +13,9 @@ import { useOverhaulStore, type OverhaulChatSettingsLayout } from "../../stores/
 import { OvSeg } from "./LoreEntryParts";
 
 const MODE_LABELS: Record<string, string> = {
-  roleplay: "Roleplay chat",
+  roleplay: "Roleplay",
   conversation: "Conversation",
-  game: "Game Mode chat",
+  game: "Game Mode",
 };
 
 const EMPTY_LAYOUT: OverhaulChatSettingsLayout = { order: [], hidden: [] };

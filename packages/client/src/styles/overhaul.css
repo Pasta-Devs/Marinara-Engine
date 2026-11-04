@@ -6603,3 +6603,14 @@ input.ov-edhead__title:focus {
   min-width: 0;
   flex-shrink: 0;
 }
+/* Chat settings uses the same surface as the chat list and Library panes, not the card grey. */
+:root[data-overhaul="on"] .mari-window.ov-cs {
+  --marinara-chat-chrome-panel-bg: var(--sidebar);
+  --card: var(--sidebar);
+  --popover: var(--sidebar);
+  background: var(--sidebar);
+}
+/* Persona: with a persona chosen, the swap icon beside its name replaces the big "Change Persona" button. */
+.ov-cs [data-ov-change-persona="set"] {
+  display: none !important;
+}
