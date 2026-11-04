@@ -1052,6 +1052,7 @@ export function ChatSettingsDrawer({
   const ovEditing = useOverhaulStore((state) => state.chatSettingsEditing) && overhaulActive;
   const ovDocked = overhaulActive && !ovFloating;
   const [ovScrollEl, setOvScrollEl] = useState<HTMLDivElement | null>(null);
+  const setOvGameSettingsSlot = useOverhaulStore((state) => state.setGameSettingsSlot);
   const [ovProfileSlot, setOvProfileSlot] = useState<HTMLDivElement | null>(null);
   const trackerPanelClearance = useTrackerPanelClearance(!phoneLayout);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
@@ -5638,6 +5639,8 @@ export function ChatSettingsDrawer({
               : ovEditing && ovProfileSlot
                 ? createPortal(profileBar, ovProfileSlot)
                 : null)}
+          {/* Overhaul Game Mode: the game's own tools (session, volume, game tools) are portaled in here. */}
+          {overhaulActive && isGame && <div ref={setOvGameSettingsSlot} data-ov-contents className="contents" />}
 
           {chatTools && !isGame && (
             <Section

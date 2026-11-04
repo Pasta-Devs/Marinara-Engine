@@ -16,6 +16,7 @@ import {
   Layers,
   Link,
   PanelLeft,
+  PanelRight,
   Plus,
   Regex,
   Settings2,
@@ -265,6 +266,24 @@ function TabPresence({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   );
 }
 
+/** Game chats: show or hide the right game pane (Party, Inventory, Journal, Map, Sessions). */
+function GamePaneToggle() {
+  const open = useOverhaulStore((state) => state.gamePaneOpen);
+  const setOpen = useOverhaulStore((state) => state.setGamePaneOpen);
+  return (
+    <button
+      type="button"
+      className={cn("ov-icon-btn", open && "is-on")}
+      aria-pressed={open}
+      title={open ? "Hide game pane" : "Show game pane"}
+      aria-label={open ? "Hide game pane" : "Show game pane"}
+      onClick={() => setOpen(!open)}
+    >
+      <PanelRight size={16} />
+    </button>
+  );
+}
+
 function TabIcon({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   if (tab.kind === "chat") {
     const mode = chats.find((chat) => chat.id === tab.id)?.mode ?? "roleplay";
@@ -468,6 +487,7 @@ export function OverhaulTopBar() {
             <ChatSettingsSummary chat={activeChat} fallback={modeLabel} />
           </button>
         ) : null}
+        {chatOnScreen && activeChat?.mode === "game" ? <GamePaneToggle /> : null}
         <span className="ov-vsep" aria-hidden="true" />
         <PersonalExtensionTopbarButtons />
         <PersonalExtensionContributionsMenu />

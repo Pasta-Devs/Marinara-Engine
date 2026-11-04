@@ -34,7 +34,7 @@ export function OvChatSettingsStyle({ mode }: { mode: string }) {
     const scope = ':root[data-overhaul="on"] .ov-cs';
     const target = (id: string) => {
       const attr = `[data-chat-settings-section="${CSS.escape(id)}"]`;
-      return `${scope} .ov-cs__scroll > :is(${attr}, :has(${attr}))`;
+      return `${scope} .ov-cs__scroll > :is(${attr}, :not([data-ov-contents]):has(${attr})), ${scope} .ov-cs__scroll > [data-ov-contents] > ${attr}`;
     };
     const rules: string[] = [];
     if (width) rules.push(`${scope} { --ov-cs-width: ${Math.round(width)}px; }`);
@@ -89,7 +89,11 @@ type SectionInfo = { id: string; label: string; baseOrder: number; domIndex: num
 function readSections(container: HTMLElement | null): SectionInfo[] {
   if (!container) return [];
   const found: SectionInfo[] = [];
-  Array.from(container.children).forEach((child, domIndex) => {
+  // A display:contents slot (the game's tools) holds several sections of its own.
+  const children = Array.from(container.children).flatMap((child) =>
+    child instanceof HTMLElement && child.dataset.ovContents !== undefined ? Array.from(child.children) : [child],
+  );
+  children.forEach((child, domIndex) => {
     if (!(child instanceof HTMLElement)) return;
     // Some sections sit in a wrapper that carries the order; the id is on the section inside.
     const id =
@@ -128,7 +132,7 @@ export function OvChatSettingsEditor({
     setSections(readSections(container));
     if (!container) return;
     const observer = new MutationObserver(() => setSections(readSections(container)));
-    observer.observe(container, { childList: true });
+    observer.observe(container, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [container]);
 

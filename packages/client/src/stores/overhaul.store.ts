@@ -44,6 +44,8 @@ export type OverhaulSettingsTab = "general" | "chatting" | "appearance" | "chat-
 /** Chat settings drawer arrangement for one chat mode: section ids in order, and hidden ones. */
 export type OverhaulChatSettingsLayout = { order: string[]; hidden: string[] };
 
+export type OverhaulGamePaneTab = "party" | "inventory" | "journal" | "map" | "sessions";
+
 export function overhaulTabKey(tab: OverhaulTab) {
   return `${tab.kind}:${tab.id}`;
 }
@@ -91,6 +93,14 @@ interface OverhaulState {
   setChatSettingsFloating: (floating: boolean) => void;
   chatSettingsEditing: boolean;
   setChatSettingsEditing: (editing: boolean) => void;
+  /** Game Mode's right pane (Party, Inventory, Journal, Map, Sessions). */
+  gamePaneOpen: boolean;
+  setGamePaneOpen: (open: boolean) => void;
+  gamePaneTab: OverhaulGamePaneTab;
+  setGamePaneTab: (tab: OverhaulGamePaneTab) => void;
+  /** Where Chat settings shows the game's own tools (the game portals them in). */
+  gameSettingsSlot: HTMLElement | null;
+  setGameSettingsSlot: (element: HTMLElement | null) => void;
 }
 
 export const useOverhaulStore = create<OverhaulState>()(
@@ -157,6 +167,12 @@ export const useOverhaulStore = create<OverhaulState>()(
       setChatSettingsFloating: (chatSettingsFloating) => set({ chatSettingsFloating }),
       chatSettingsEditing: false,
       setChatSettingsEditing: (chatSettingsEditing) => set({ chatSettingsEditing }),
+      gamePaneOpen: true,
+      setGamePaneOpen: (gamePaneOpen) => set({ gamePaneOpen }),
+      gamePaneTab: "party",
+      setGamePaneTab: (gamePaneTab) => set({ gamePaneTab }),
+      gameSettingsSlot: null,
+      setGameSettingsSlot: (gameSettingsSlot) => set({ gameSettingsSlot }),
     }),
     {
       name: "marinara-overhaul-layout",
@@ -175,6 +191,8 @@ export const useOverhaulStore = create<OverhaulState>()(
         chatSettingsLayouts: state.chatSettingsLayouts,
         chatSettingsWidth: state.chatSettingsWidth,
         chatSettingsFloating: state.chatSettingsFloating,
+        gamePaneOpen: state.gamePaneOpen,
+        gamePaneTab: state.gamePaneTab,
       }),
     },
   ),

@@ -280,6 +280,10 @@ import {
 import { CHAT_HELP_CLOSE_EVENT, CHAT_HELP_OPEN_REQUEST_EVENT, readChatHelpEventMode } from "../../lib/chat-help-events";
 import { GameStoryboardBackgroundVisual, GameStoryboardInlineViewer } from "./GameStoryboardViewer";
 import { GameVolumeMixer } from "./GameVolumeMixer";
+import { createPortal } from "react-dom";
+import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { OvGamePane } from "../overhaul/GamePane";
+import { ChatSettingsSection } from "../../features/chat-settings/ChatSettingsSection";
 import {
   buildStoryboardSectionsFromMessage,
   buildStoryboardVisibleNarration,
@@ -2281,6 +2285,8 @@ function GameSurfaceComponent({
   isMessagesLoading,
   avatarStage,
 }: GameSurfaceProps) {
+  const overhaulActive = useOverhaulActive();
+  const ovGameSettingsSlot = useOverhaulStore((state) => state.gameSettingsSlot);
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   useRenderTimer("game-surface"); // [#3104 diagnostic]
@@ -12384,9 +12390,70 @@ function GameSurfaceComponent({
     handleStartNewSession();
   };
 
+  const closeSessionPanel = () => useFloatingWindowStore.getState().minimizeWindow(CHAT_CONTROL_WINDOW_IDS.session);
+  const renderSessionHistory = () => (
+    <div
+      className={cn(
+        NEUTRAL_PANEL_SCROLL_AREA,
+        "min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-2 [-webkit-overflow-scrolling:touch]",
+      )}
+    >
+      <Suspense fallback={null}>
+        <GameSessionHistory
+          summaries={sessionSummaries}
+          currentSessionNumber={displaySessionNumber}
+          currentSessionDate={
+            (chatMeta.gameCurrentSessionStartedAt as string | undefined) || chat.createdAt || chat.updatedAt
+          }
+          currentSecrets={currentSessionSecrets}
+          savingSessionNumber={savingSessionSummary}
+          savingCurrentSecrets={savingCurrentSessionSecrets}
+          regeneratingSessionNumber={
+            regenerateSessionConclusion.isPending
+              ? (regenerateSessionConclusion.variables?.sessionNumber ?? null)
+              : null
+          }
+          lorebookKeeperEnabled={chatMeta.gameLorebookKeeperEnabled === true}
+          lorebookKeeperLastRun={
+            chatMeta.gameLorebookKeeperLastRun &&
+            typeof chatMeta.gameLorebookKeeperLastRun === "object" &&
+            !Array.isArray(chatMeta.gameLorebookKeeperLastRun)
+              ? (chatMeta.gameLorebookKeeperLastRun as {
+                  sessionNumber: number;
+                  status: "running" | "success" | "failed";
+                  updatedAt: string;
+                  entryCount?: number;
+                  error?: string;
+                })
+              : null
+          }
+          regeneratingLorebookSessionNumber={
+            regenerateSessionLorebook.isPending ? (regenerateSessionLorebook.variables?.sessionNumber ?? null) : null
+          }
+          updatingPlotArcsSessionNumber={
+            updateCampaignProgression.isPending ? (updateCampaignProgression.variables?.sessionNumber ?? null) : null
+          }
+          onSaveCurrentSecrets={handleSaveCurrentSessionSecrets}
+          onSaveSession={handleSaveSessionDetails}
+          onRegenerateSession={handleRegenerateSessionConclusion}
+          onRegenerateLorebook={handleRegenerateSessionLorebook}
+          onUpdatePlotArcs={handleUpdateCampaignProgression}
+          currentSessionActionLabel={sessionActionLabel}
+          currentSessionActionIcon={sessionActionIcon}
+          currentSessionActionDisabled={sessionActionDisabled}
+          onCurrentSessionAction={handleSessionAction}
+          onReplaySession={handleReplaySession}
+          initialSetupGameName={chat.name}
+          initialSetupSnapshot={(chatMeta.gameInitialSetup as GameInitialSetupSnapshot | null | undefined) ?? null}
+          onClose={closeSessionPanel}
+          embedded
+        />
+      </Suspense>
+    </div>
+  );
+
   /** Session history and journal: the Session window's content. */
   const renderSessionPanel = () => {
-    const closeSessionPanel = () => useFloatingWindowStore.getState().minimizeWindow(CHAT_CONTROL_WINDOW_IDS.session);
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
@@ -12420,70 +12487,7 @@ function GameSurfaceComponent({
         </div>
 
         {sessionPanelTab === "history" ? (
-          <div
-            className={cn(
-              NEUTRAL_PANEL_SCROLL_AREA,
-              "min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-2 [-webkit-overflow-scrolling:touch]",
-            )}
-          >
-            <Suspense fallback={null}>
-              <GameSessionHistory
-                summaries={sessionSummaries}
-                currentSessionNumber={displaySessionNumber}
-                currentSessionDate={
-                  (chatMeta.gameCurrentSessionStartedAt as string | undefined) || chat.createdAt || chat.updatedAt
-                }
-                currentSecrets={currentSessionSecrets}
-                savingSessionNumber={savingSessionSummary}
-                savingCurrentSecrets={savingCurrentSessionSecrets}
-                regeneratingSessionNumber={
-                  regenerateSessionConclusion.isPending
-                    ? (regenerateSessionConclusion.variables?.sessionNumber ?? null)
-                    : null
-                }
-                lorebookKeeperEnabled={chatMeta.gameLorebookKeeperEnabled === true}
-                lorebookKeeperLastRun={
-                  chatMeta.gameLorebookKeeperLastRun &&
-                  typeof chatMeta.gameLorebookKeeperLastRun === "object" &&
-                  !Array.isArray(chatMeta.gameLorebookKeeperLastRun)
-                    ? (chatMeta.gameLorebookKeeperLastRun as {
-                        sessionNumber: number;
-                        status: "running" | "success" | "failed";
-                        updatedAt: string;
-                        entryCount?: number;
-                        error?: string;
-                      })
-                    : null
-                }
-                regeneratingLorebookSessionNumber={
-                  regenerateSessionLorebook.isPending
-                    ? (regenerateSessionLorebook.variables?.sessionNumber ?? null)
-                    : null
-                }
-                updatingPlotArcsSessionNumber={
-                  updateCampaignProgression.isPending
-                    ? (updateCampaignProgression.variables?.sessionNumber ?? null)
-                    : null
-                }
-                onSaveCurrentSecrets={handleSaveCurrentSessionSecrets}
-                onSaveSession={handleSaveSessionDetails}
-                onRegenerateSession={handleRegenerateSessionConclusion}
-                onRegenerateLorebook={handleRegenerateSessionLorebook}
-                onUpdatePlotArcs={handleUpdateCampaignProgression}
-                currentSessionActionLabel={sessionActionLabel}
-                currentSessionActionIcon={sessionActionIcon}
-                currentSessionActionDisabled={sessionActionDisabled}
-                onCurrentSessionAction={handleSessionAction}
-                onReplaySession={handleReplaySession}
-                initialSetupGameName={chat.name}
-                initialSetupSnapshot={
-                  (chatMeta.gameInitialSetup as GameInitialSetupSnapshot | null | undefined) ?? null
-                }
-                onClose={closeSessionPanel}
-                embedded
-              />
-            </Suspense>
-          </div>
+          renderSessionHistory()
         ) : (
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <Suspense fallback={null}>
@@ -12787,7 +12791,186 @@ function GameSurfaceComponent({
     );
   };
 
-  return (
+  /** Overhaul (Game B): the rare game tools, shown as sections inside Chat settings. */
+  const renderOvGameSettings = () => (
+    <>
+      <ChatSettingsSection
+        id="game-session"
+        label={localizeUi("game.toolbar.session")}
+        icon={<Feather size="0.875rem" />}
+        style={{ order: -1250 }}
+      >
+        <div className="ov-gset">
+          <p className="ov-gset__meta">
+            {localizeUi("game.toolbar.session")} {displaySessionNumber} · {sessionStatus}
+          </p>
+          {dungeonMapOpen || gameWorld || renderStoryboardBackgroundControls() ? (
+            <div className="ov-gset__row">
+              {dungeonMapOpen && (
+                <button type="button" onClick={handleToggleDungeonView}>
+                  {dungeonShown ? <Film size={13} /> : <MapIcon size={13} />}
+                  {dungeonShown ? t("game.dungeon.showScene") : t("game.dungeon.show")}
+                </button>
+              )}
+              {gameWorld && !dungeonShown && (
+                <button type="button" onClick={handleToggleWorldView}>
+                  {overworldShown ? <Film size={13} /> : <MapIcon size={13} />}
+                  {overworldShown ? t("game.overworld.showScene") : t("game.overworld.show")}
+                </button>
+              )}
+              {renderStoryboardBackgroundControls()}
+            </div>
+          ) : null}
+          <div className="ov-gset__row">
+            <button
+              type="button"
+              onClick={() => useUIStore.getState().openModal("game-checkpoints", { chatId: activeChatId })}
+            >
+              <History size={13} />
+              {t("game.toolbar.checkpoints")}
+            </button>
+            <button
+              type="button"
+              className={sessionStatus !== "concluded" ? "is-danger" : undefined}
+              onClick={handleSessionAction}
+              disabled={sessionActionDisabled}
+            >
+              {sessionActionIcon}
+              {sessionActionLabel}
+            </button>
+          </div>
+        </div>
+      </ChatSettingsSection>
+      <ChatSettingsSection
+        id="game-volume"
+        label={localizeUi("game.toolbar.volume")}
+        icon={audioMuted || masterVolume === 0 ? <VolumeX size="0.875rem" /> : <Volume2 size="0.875rem" />}
+        style={{ order: -1249 }}
+      >
+        <div className="ov-gset ov-gset--volume">
+          <GameVolumeMixer
+            audioMuted={audioMuted || masterVolume === 0}
+            masterVolume={masterVolume}
+            musicVolume={musicVolume}
+            sfxVolume={sfxVolume}
+            ttsVolume={ttsVolume}
+            ambientVolume={ambientVolume}
+            onMasterVolumeChange={handleMasterVolumeChange}
+            onMusicVolumeChange={(value) => handleChannelVolumeChange("musicVolume", setMusicVolume, value)}
+            onSfxVolumeChange={(value) => handleChannelVolumeChange("sfxVolume", setSfxVolume, value)}
+            onTtsVolumeChange={(value) => handleChannelVolumeChange("ttsVolume", setTtsVolume, value)}
+            onAmbientVolumeChange={(value) => handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)}
+            onToggleMute={handleToggleMute}
+            onAudioInteract={handleAudioInteract}
+          />
+        </div>
+      </ChatSettingsSection>
+      <ChatSettingsSection
+        id="game-tools"
+        label="Game tools"
+        icon={<Gamepad2 size="0.875rem" />}
+        style={{ order: -1248 }}
+      >
+        <div className="ov-gset ov-gset--tools">
+          <button
+            type="button"
+            onClick={() => useFloatingWindowStore.getState().openWindow(CHAT_CONTROL_WINDOW_IDS.assets)}
+          >
+            <Folder size={13} />
+            {t("game.toolbar.assets")}
+          </button>
+          <button
+            type="button"
+            onClick={() => useUIStore.getState().openModal("game-data-editor", { chatId: activeChatId })}
+          >
+            <Braces size={13} />
+            {t("game.toolbar.editGameData")}
+          </button>
+          {renderRetryItems()}
+        </div>
+      </ChatSettingsSection>
+    </>
+  );
+
+  const ovHeading = (
+    <>
+      <span>
+        Day {currentGameDay}
+        {gameSnapshot?.time || metaTime ? ` · ${gameSnapshot?.time ?? metaTime}` : ""}
+      </span>
+      {gameSnapshot?.location ? <b>{gameSnapshot.location}</b> : null}
+      <small>
+        {localizeUi("game.toolbar.session")} {displaySessionNumber}
+      </small>
+    </>
+  );
+
+  const ovGamePane =
+    overhaulActive && !introCinematicActive && !replayActive && !experienceOwnsGame ? (
+      <OvGamePane
+        members={partyMembers}
+        cards={partyCards}
+        inventory={inventoryItems}
+        playerName={personaInfo?.name ?? "You"}
+        onOpenInventory={activeExperienceChrome?.providesInventory ? undefined : () => setInventoryOpen(true)}
+        heading={ovHeading}
+        journal={
+          <Suspense fallback={null}>
+            <GameJournal
+              chatId={activeChatId}
+              hasWorld={Boolean(chatMeta.gameWorld)}
+              canMakeWorld={canMakeWorld}
+              worldRequest={makeWorldRequest}
+              worldKit={gameKit}
+              worldTurnKey={narrationTurnKey(latestAssistantMsg)}
+              npcs={npcs}
+              onClose={() => useOverhaulStore.getState().setGamePaneTab("party")}
+              onNpcPortraitClick={handleNpcPortraitClick}
+              onNpcPortraitGenerate={handleNpcPortraitGenerate}
+              npcPortraitGenerationEnabled={gameImageGenerationEnabled}
+              generatingNpcPortraitNames={generatingNpcPortraitNames}
+              onNpcRemove={handleRemoveNpcFromJournal}
+              embedded
+            />
+          </Suspense>
+        }
+        map={
+          <GameMapPanel
+            map={viewedMap}
+            maps={availableMaps}
+            activeMapId={activeMapId}
+            viewedMapId={effectiveViewedMapId}
+            onViewedMapChange={handleViewedMapChange}
+            onMove={handleMapMove}
+            selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
+            onGenerateMap={handleGenerateMap}
+            generateMapDisabled={isStreaming || !sessionInteractive}
+            disabled={isStreaming || !narrationDone || !sessionInteractive}
+            gameState={gameState}
+            timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
+            day={currentGameDay}
+            onDayChange={handleGameDayChange}
+            onTimeChange={handleGameTimeChange}
+            spatialContext={activeSpatialContext}
+            spatialContextLoading={activeSpatialContextLoading}
+            chatId={activeChatId}
+          />
+        }
+        sessions={renderSessionHistory()}
+      />
+    ) : null;
+
+  const ovWrap = (surface: React.ReactElement) =>
+    overhaulActive ? (
+      <div className={cn("ov-gwrap", ovGamePane && "has-pane")}>
+        {surface}
+        {ovGamePane}
+      </div>
+    ) : (
+      surface
+    );
+
+  return ovWrap(
     <div
       className={cn(
         "relative flex h-full overflow-hidden bg-black mari-card-css",
@@ -12963,8 +13146,8 @@ function GameSurfaceComponent({
                     experienceOwnsGame && "hidden",
                   )}
                 >
-                  {/* Desktop: inline minimap */}
-                  <div className="hidden md:block">
+                  {/* Desktop: inline minimap (in the overhaul it lives in the game pane's Map tab) */}
+                  <div className={overhaulActive ? "hidden" : "hidden md:block"}>
                     <GameMapPanel
                       map={viewedMap}
                       maps={availableMaps}
@@ -13962,7 +14145,7 @@ function GameSurfaceComponent({
         />
       )}
 
-      {!introCinematicActive && !replayActive && !experienceOwnsGame && (
+      {!introCinematicActive && !replayActive && !experienceOwnsGame && !overhaulActive && (
         <GamePartyBar
           key={activeChatId}
           partyMembers={partyMembers}
@@ -13974,93 +14157,103 @@ function GameSurfaceComponent({
 
       {/* The top controls are windows that minimize to bubbles in a row at the top right (below the tactical
           combat bar while it shows, as the old buttons moved down). */}
+      {overhaulActive && ovGameSettingsSlot && createPortal(renderOvGameSettings(), ovGameSettingsSlot)}
       {!introCinematicActive && !replayActive && (
         <>
-          <ChatControlWindow
-            id={CHAT_CONTROL_WINDOW_IDS.gameControls}
-            title={t("chat.controls.gameControls")}
-            icon={
-              <Gamepad2 size={14} className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-pulse" : ""} />
-            }
-            slot={4}
-            width={288}
-            height={220}
-            helpTarget="game-controls"
-          >
-            <div className="flex flex-col gap-1 p-1.5">
-              {/* The overworld and the scene (worldgen W8): a game with a world switches between them. */}
-              {/* A dungeon, cave or station map the Game Master opened, and the scene. */}
-              {dungeonMapOpen && (
-                <button onClick={handleToggleDungeonView} className={GAME_ACTION_MENU_ITEM}>
-                  {dungeonShown ? <Film size={13} /> : <MapIcon size={13} />}
-                  <span>{dungeonShown ? t("game.dungeon.showScene") : t("game.dungeon.show")}</span>
-                </button>
-              )}
-              {gameWorld && !dungeonShown && (
-                <button onClick={handleToggleWorldView} className={GAME_ACTION_MENU_ITEM}>
-                  {overworldShown ? <Film size={13} /> : <MapIcon size={13} />}
-                  <span>{overworldShown ? t("game.overworld.showScene") : t("game.overworld.show")}</span>
-                </button>
-              )}
-              {renderStoryboardBackgroundControls() && (
-                <div className={cn("flex items-center gap-0.5 px-1 pb-1", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
-                  {renderStoryboardBackgroundControls()}
+          {!overhaulActive && (
+            <>
+              <ChatControlWindow
+                id={CHAT_CONTROL_WINDOW_IDS.gameControls}
+                title={t("chat.controls.gameControls")}
+                icon={
+                  <Gamepad2
+                    size={14}
+                    className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-pulse" : ""}
+                  />
+                }
+                slot={4}
+                width={288}
+                height={220}
+                helpTarget="game-controls"
+              >
+                <div className="flex flex-col gap-1 p-1.5">
+                  {/* The overworld and the scene (worldgen W8): a game with a world switches between them. */}
+                  {/* A dungeon, cave or station map the Game Master opened, and the scene. */}
+                  {dungeonMapOpen && (
+                    <button onClick={handleToggleDungeonView} className={GAME_ACTION_MENU_ITEM}>
+                      {dungeonShown ? <Film size={13} /> : <MapIcon size={13} />}
+                      <span>{dungeonShown ? t("game.dungeon.showScene") : t("game.dungeon.show")}</span>
+                    </button>
+                  )}
+                  {gameWorld && !dungeonShown && (
+                    <button onClick={handleToggleWorldView} className={GAME_ACTION_MENU_ITEM}>
+                      {overworldShown ? <Film size={13} /> : <MapIcon size={13} />}
+                      <span>{overworldShown ? t("game.overworld.showScene") : t("game.overworld.show")}</span>
+                    </button>
+                  )}
+                  {renderStoryboardBackgroundControls() && (
+                    <div className={cn("flex items-center gap-0.5 px-1 pb-1", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
+                      {renderStoryboardBackgroundControls()}
+                    </div>
+                  )}
+                  {renderRetryItems()}
+                  <button
+                    onClick={() => useUIStore.getState().openModal("game-data-editor", { chatId: activeChatId })}
+                    className={GAME_ACTION_MENU_ITEM}
+                  >
+                    <Braces size={13} />
+                    <span>{t("game.toolbar.editGameData")}</span>
+                  </button>
+                  <button
+                    onClick={() => useUIStore.getState().openModal("game-checkpoints", { chatId: activeChatId })}
+                    className={GAME_ACTION_MENU_ITEM}
+                  >
+                    <History size={13} />
+                    <span>{t("game.toolbar.checkpoints")}</span>
+                  </button>
                 </div>
-              )}
-              {renderRetryItems()}
-              <button
-                onClick={() => useUIStore.getState().openModal("game-data-editor", { chatId: activeChatId })}
-                className={GAME_ACTION_MENU_ITEM}
+              </ChatControlWindow>
+              <ChatControlWindow
+                id={CHAT_CONTROL_WINDOW_IDS.session}
+                title={t("game.toolbar.session")}
+                icon={<Feather size={14} />}
+                slot={3}
+                width={672}
+                height={640}
+                helpTarget="session"
+                scroll={false}
               >
-                <Braces size={13} />
-                <span>{t("game.toolbar.editGameData")}</span>
-              </button>
-              <button
-                onClick={() => useUIStore.getState().openModal("game-checkpoints", { chatId: activeChatId })}
-                className={GAME_ACTION_MENU_ITEM}
-              >
-                <History size={13} />
-                <span>{t("game.toolbar.checkpoints")}</span>
-              </button>
-            </div>
-          </ChatControlWindow>
-          <ChatControlWindow
-            id={CHAT_CONTROL_WINDOW_IDS.session}
-            title={t("game.toolbar.session")}
-            icon={<Feather size={14} />}
-            slot={3}
-            width={672}
-            height={640}
-            helpTarget="session"
-            scroll={false}
-          >
-            {renderSessionPanel()}
-          </ChatControlWindow>
-          <ChatControlWindow
-            id={CHAT_CONTROL_WINDOW_IDS.volume}
-            title={t("game.toolbar.volume")}
-            icon={audioMuted || masterVolume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            slot={2}
-            width={280}
-            height={270}
-            helpTarget="volume"
-          >
-            <GameVolumeMixer
-              audioMuted={audioMuted || masterVolume === 0}
-              masterVolume={masterVolume}
-              musicVolume={musicVolume}
-              sfxVolume={sfxVolume}
-              ttsVolume={ttsVolume}
-              ambientVolume={ambientVolume}
-              onMasterVolumeChange={handleMasterVolumeChange}
-              onMusicVolumeChange={(value) => handleChannelVolumeChange("musicVolume", setMusicVolume, value)}
-              onSfxVolumeChange={(value) => handleChannelVolumeChange("sfxVolume", setSfxVolume, value)}
-              onTtsVolumeChange={(value) => handleChannelVolumeChange("ttsVolume", setTtsVolume, value)}
-              onAmbientVolumeChange={(value) => handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)}
-              onToggleMute={handleToggleMute}
-              onAudioInteract={handleAudioInteract}
-            />
-          </ChatControlWindow>
+                {renderSessionPanel()}
+              </ChatControlWindow>
+            </>
+          )}
+          {!overhaulActive && (
+            <ChatControlWindow
+              id={CHAT_CONTROL_WINDOW_IDS.volume}
+              title={t("game.toolbar.volume")}
+              icon={audioMuted || masterVolume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              slot={2}
+              width={280}
+              height={270}
+              helpTarget="volume"
+            >
+              <GameVolumeMixer
+                audioMuted={audioMuted || masterVolume === 0}
+                masterVolume={masterVolume}
+                musicVolume={musicVolume}
+                sfxVolume={sfxVolume}
+                ttsVolume={ttsVolume}
+                ambientVolume={ambientVolume}
+                onMasterVolumeChange={handleMasterVolumeChange}
+                onMusicVolumeChange={(value) => handleChannelVolumeChange("musicVolume", setMusicVolume, value)}
+                onSfxVolumeChange={(value) => handleChannelVolumeChange("sfxVolume", setSfxVolume, value)}
+                onTtsVolumeChange={(value) => handleChannelVolumeChange("ttsVolume", setTtsVolume, value)}
+                onAmbientVolumeChange={(value) => handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)}
+                onToggleMute={handleToggleMute}
+                onAudioInteract={handleAudioInteract}
+              />
+            </ChatControlWindow>
+          )}
           <ChatControlWindow
             id={CHAT_CONTROL_WINDOW_IDS.assets}
             title={t("game.toolbar.assets")}
@@ -14078,7 +14271,7 @@ function GameSurfaceComponent({
           ) : null}
         </>
       )}
-    </div>
+    </div>,
   );
 }
 
