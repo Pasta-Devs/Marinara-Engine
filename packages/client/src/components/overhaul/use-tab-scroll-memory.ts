@@ -12,6 +12,9 @@ import { useLayoutEffect, useRef } from "react";
 const IGNORED =
   '[data-component="ChatSidebar"], .ov-libnav, .ov-topbar, .mari-window, [role="dialog"], [data-component="Modal"]';
 const RESTORE_FOR_MS = 2500;
+/** How long the page may stay hidden while it waits to be put back in place. */
+const HIDE_FOR_MS = 400;
+const RESTORING_ATTR = "data-ov-restoring-scroll";
 
 const memory = new Map<string, Map<string, number>>();
 
@@ -58,34 +61,58 @@ export function useTabScrollMemory(tabKey: string | null) {
     return () => document.removeEventListener("scroll", onScroll, true);
   }, []);
 
-  // Restore when a tab becomes current again.
+  // Restore when a tab becomes current again. The page is put back before it is painted, and
+  // while a lazy section is still rendering the page stays hidden for a moment, so it appears
+  // already in place instead of showing the top first and then jumping.
   useLayoutEffect(() => {
     keyRef.current = tabKey;
     const saved = tabKey ? memory.get(tabKey) : undefined;
     if (!saved || saved.size === 0) return;
     const pending = new Map([...saved].filter(([, top]) => top > 0));
     if (pending.size === 0) return;
+    const root = document.documentElement;
     let frame = 0;
     let stopped = false;
     const started = performance.now();
+    const reveal = () => root.removeAttribute(RESTORING_ATTR);
     const stop = () => {
       stopped = true;
+      reveal();
       cancelAnimationFrame(frame);
       window.removeEventListener("wheel", stop, true);
       window.removeEventListener("touchstart", stop, true);
       window.removeEventListener("keydown", stop, true);
       window.removeEventListener("pointerdown", stop, true);
     };
-    const tick = () => {
-      if (stopped) return;
+    // Returns true when every area is in place and nothing had to move.
+    const restore = () => {
+      let settled = true;
       for (const [path, top] of pending) {
         const element = findByPath(path);
-        if (!element) continue;
-        if (element.scrollHeight - element.clientHeight >= top - 1) element.scrollTop = top;
+        if (!element || element.scrollHeight - element.clientHeight < top - 1) {
+          settled = false;
+          continue;
+        }
+        if (Math.abs(element.scrollTop - top) > 1) {
+          element.scrollTop = top;
+          settled = false;
+        }
       }
-      if (performance.now() - started < RESTORE_FOR_MS) frame = requestAnimationFrame(tick);
+      return settled;
+    };
+    // A section can re-render after the first restore and drop back to the top, so the page stays
+    // hidden until it has held its place for a few frames.
+    let calmFrames = 0;
+    const tick = () => {
+      if (stopped) return;
+      calmFrames = restore() ? calmFrames + 1 : 0;
+      const elapsed = performance.now() - started;
+      if (calmFrames >= 3 || elapsed >= HIDE_FOR_MS) reveal();
+      if (elapsed < RESTORE_FOR_MS) frame = requestAnimationFrame(tick);
       else stop();
     };
+    restore();
+    root.setAttribute(RESTORING_ATTR, "");
     window.addEventListener("wheel", stop, true);
     window.addEventListener("touchstart", stop, true);
     window.addEventListener("keydown", stop, true);
