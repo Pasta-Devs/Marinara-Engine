@@ -197,11 +197,15 @@ export const useOverhaulStore = create<OverhaulState>()(
     }),
     {
       name: "marinara-overhaul-layout",
-      version: 2,
+      version: 3,
       // v2: Library sections no longer get tabs (they are one click away in the Library pane).
+      // v3: neither do the Docs (one click away on the Docs button).
       migrate: (persisted) => {
         const state = (persisted ?? {}) as { tabs?: OverhaulTab[] };
-        return { ...state, tabs: (state.tabs ?? []).filter((tab) => tab.kind !== "library") } as never;
+        return {
+          ...state,
+          tabs: (state.tabs ?? []).filter((tab) => tab.kind !== "library" && tab.kind !== "docs"),
+        } as never;
       },
       partialize: (state) => ({
         enabled: state.enabled,
