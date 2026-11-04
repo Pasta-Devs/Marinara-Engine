@@ -8,6 +8,7 @@ import type { FastifyInstance, InjectOptions, LightMyRequestResponse as InjectRe
 import {
   registerTurnGameEngine,
   type AnyTurnGameEngine,
+  type CapabilityEventsHost,
   type CapabilityRuntimeHost,
   type CapabilityRuntimeLogArgument,
   type InstalledCapabilityPackage,
@@ -36,6 +37,13 @@ import {
   type CapabilityServiceRegistrationOptions,
 } from "./capability-service-registry.service.js";
 import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
+import {
+  capabilityEventPatternNeedsChatRead,
+  isValidCapabilityEventPattern,
+  publishCapabilityEvent,
+  publishEngineCapabilityEvent,
+  subscribeCapabilityEvents,
+} from "./capability-event-bus.service.js";
 import { assertCapabilityAgentRuntimeServiceRegistration } from "./capability-agent-runtime.service.js";
 import { assertCapabilityMariActionsServiceRegistration } from "./capability-mari-actions.service.js";
 import { createCapabilityDecisionHost } from "./capability-decision.service.js";
@@ -109,6 +117,8 @@ type CapabilityActivationContext = {
     ): Promise<Cleanup>;
     /** Run an active route owned by this package as trusted server work. */
     runInternalRoute?: (options: InjectOptions | string) => Promise<InjectResponse>;
+    /** Capability API 1.817: the package event bus. */
+    events: CapabilityEventsHost;
   };
 };
 
@@ -328,6 +338,7 @@ export async function sweepCapabilityRuntimeSnapshots(
 
 class CapabilityModuleRuntime {
   private cleanups = new Map<string, Cleanup>();
+  private versions = new Map<string, string>();
   // Last activation failure per package in this process, cleared by the next
   // successful activation. Read-only diagnostics state.
   private activationErrors = new Map<string, CapabilityActivationErrorRecord>();
@@ -521,6 +532,35 @@ class CapabilityModuleRuntime {
           registerPrivilegedRoutes: async (routes, options) =>
             trackCleanup(await registerCapabilityPrivilegedRoutes(app, installed, routes, options)),
           runInternalRoute: (options) => runCapabilityInternalRoute(app, installed.id, options),
+          events: Object.freeze<CapabilityEventsHost>({
+            publish: (type, payload, scope) => {
+              if (!activationLive) return;
+              if (typeof type !== "string" || !type.startsWith(`${installed.id}:`)) {
+                throw new Error(
+                  `Capability package ${installed.id} can only publish events under its own "${installed.id}:" prefix`,
+                );
+              }
+              publishCapabilityEvent(installed.id, type, payload, scope);
+            },
+            subscribe: (type, handler) => {
+              if (!isValidCapabilityEventPattern(type)) {
+                throw new Error(
+                  `Capability package ${installed.id} must subscribe to "<prefix>:<name>" or "<prefix>:*", not ${String(type)}`,
+                );
+              }
+              if (capabilityEventPatternNeedsChatRead(type) && !installed.manifest.permissions?.includes("chat-read")) {
+                throw new Error(
+                  `Capability package ${installed.id} must declare the "chat-read" permission to subscribe to ${type}`,
+                );
+              }
+              if (!activationLive) {
+                throw new Error(
+                  `Capability package ${installed.id} cannot subscribe to events after its activation ended`,
+                );
+              }
+              return trackCleanup(subscribeCapabilityEvents(installed.id, type, handler));
+            },
+          }),
         },
       };
       // A package that awaits runInternalRoute here during startup gets an error at once instead of hanging startup.
@@ -531,6 +571,7 @@ class CapabilityModuleRuntime {
       await failInjectFastDuring(() => module.selfCheck?.(context));
       await capabilityPackageManager.markRuntimeStatus(installed.id, "active");
       await capabilityPackageManager.markRuntimeReadiness(installed.id, "ready");
+      this.versions.set(installed.id, installed.version);
       this.cleanups.set(installed.id, async () => {
         // A module cleanup that throws must not strand the host-side registrations. A tool left in
         // the registry would be offered to a model whose package is no longer there to answer it,
@@ -548,6 +589,7 @@ class CapabilityModuleRuntime {
       });
       this.activationErrors.delete(installed.id);
       logger.info("Activated and verified capability package %s@%s", installed.id, installed.version);
+      publishEngineCapabilityEvent("package.activated", { packageId: installed.id, version: installed.version });
     } catch (error) {
       const hostLifecycleError = isHostLifecycleActivationError(error);
       const hostDependencyError = error instanceof CapabilityHostDependencyError;
@@ -635,12 +677,15 @@ class CapabilityModuleRuntime {
     const cleanup = this.cleanups.get(packageId);
     if (!cleanup) return;
     this.cleanups.delete(packageId);
+    const version = this.versions.get(packageId) ?? null;
+    this.versions.delete(packageId);
     try {
       await cleanup();
     } catch (error) {
       logger.warn(error, "Capability package %s cleanup failed during deactivation", packageId);
     }
     logger.info("Deactivated capability package %s", packageId);
+    publishEngineCapabilityEvent("package.deactivated", { packageId, version });
   }
 
   async stop(): Promise<void> {

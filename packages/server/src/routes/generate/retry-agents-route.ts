@@ -251,7 +251,8 @@ import {
   finalizeCapabilityAgentResults,
   prepareCapabilityAgentContexts,
 } from "../../services/capability-packages/capability-agent-runtime.service.js";
-import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./sse.js";
+import { isSseReplyWritable, onGenerationOutputClose, sendSseEvent, startSseKeepalive, startSseReply } from "./sse.js";
+import { attachCapabilityEventStream } from "../../services/capability-packages/capability-event-bus.service.js";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection.js";
 import {
   buildAgentConnectionUnavailableWarning,
@@ -4922,6 +4923,9 @@ export async function registerRetryAgentsRoute(
     }
 
     startSseReply(reply, { "X-Accel-Buffering": "no" });
+    // Capability API 1.817: Engine agent.result events are read from this stream's frames. Released when the stream
+    // closes; a closed stream is dropped from event forwarding on the next publish anyway.
+    onGenerationOutputClose(reply, attachCapabilityEventStream(reply, { chatId }));
 
     // Illustrator saves its output to the chat even if the mobile tab disappears.
     // Explicit Stop still cancels through activeAgentRuns; other retries retain

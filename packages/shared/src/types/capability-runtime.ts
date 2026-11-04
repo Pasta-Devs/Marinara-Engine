@@ -48,6 +48,34 @@ export type CapabilityServiceCaller = Readonly<{
   permissions: readonly string[];
 }>;
 
+/** A JSON value: what an event payload is after the Engine copies it. */
+export type CapabilityJsonValue =
+  string | number | boolean | null | CapabilityJsonValue[] | { [key: string]: CapabilityJsonValue };
+
+/** Capability API 1.817: one event on the Engine's package event bus. Frozen; a copy for each delivery. */
+export type CapabilityEvent = Readonly<{
+  type: string;
+  /** The publishing package id, or "engine". Assigned by the Engine. */
+  source: string;
+  chatId?: string;
+  payload: CapabilityJsonValue;
+  /** ISO timestamp of the publish. */
+  at: string;
+}>;
+
+export type CapabilityEventHandler = (event: CapabilityEvent) => void | Promise<void>;
+
+/**
+ * Capability API 1.817: `api.events`. A package publishes under its own `<ownId>:` namespace; the Engine publishes
+ * under `engine:`. Delivery is asynchronous and fire-and-forget, each handler has 2 seconds, payloads are JSON of at
+ * most 64 KB, and nothing is stored or replayed.
+ */
+export interface CapabilityEventsHost {
+  publish(type: string, payload: unknown, scope?: { chatId?: string }): void;
+  /** `type` is an exact type or `"<prefix>:*"`. Returns the release; activation teardown releases it too. */
+  subscribe(type: string, handler: CapabilityEventHandler): () => void;
+}
+
 /** Capability API 1.816: which other packages are running. */
 export interface CapabilityPackagesHost {
   /** Whether a package's server runtime is activated now. false during a shared-room generation. */

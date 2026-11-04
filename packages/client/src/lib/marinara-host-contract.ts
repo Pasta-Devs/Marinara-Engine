@@ -140,6 +140,11 @@ export interface MarinaraHostV1 {
   readonly data: { readonly emojiCatalog: typeof import("./emoji-catalog.generated") };
   /** The module namespace of lib/api-client.ts (api, ApiError, getApiErrorMessage, ...). */
   readonly api: typeof import("./api-client");
+  /**
+   * Capability API 1.817: the cooperative client event bus. Chat-scoped events package servers publish during a
+   * generation arrive here too. The source of a client-published event is its type's prefix; nothing enforces it.
+   */
+  readonly events?: typeof import("./capability-client-bus").capabilityClientBus;
 }
 
 /**

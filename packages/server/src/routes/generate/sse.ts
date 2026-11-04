@@ -88,15 +88,29 @@ export function startSseKeepalive(reply: GenerationOutput, intervalMs = 15_000):
 /** Outputs that have told their client how the generation ended, with a "done" or an "error" event. */
 const settledOutputs = new WeakSet<GenerationOutput>();
 
+type GenerationFrameObserver = (reply: GenerationOutput, payload: SsePayload) => void;
+let generationFrameObserver: GenerationFrameObserver | null = null;
+
+/** One observer (the capability event bus) sees each frame after it is written. It must not throw. */
+export function observeGenerationFrames(observer: GenerationFrameObserver): void {
+  generationFrameObserver = observer;
+}
+
 export function sendSseEvent(reply: GenerationOutput, payload: SsePayload): boolean {
   if (!isSseReplyWritable(reply)) return false;
   if (payload.type === "done" || payload.type === "error") settledOutputs.add(reply);
+  let written: boolean;
   try {
-    if (isEventSink(reply)) return reply.emit(payload);
-    return reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+    written = isEventSink(reply) ? reply.emit(payload) : reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
   } catch {
     return false;
   }
+  try {
+    generationFrameObserver?.(reply, payload);
+  } catch {
+    // An observer never changes what the client was sent.
+  }
+  return written;
 }
 
 /** True once the output has carried a "done" or an "error" event. */

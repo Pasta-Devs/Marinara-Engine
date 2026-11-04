@@ -33,6 +33,7 @@ import { useSidecarStore } from "../stores/sidecar.store";
 import { useUIStore } from "../stores/ui.store";
 import * as api from "./api-client";
 import * as audio from "./audio-service";
+import { capabilityClientBus } from "./capability-client-bus";
 import * as dialogs from "./app-dialogs";
 import * as emojiCatalog from "./emoji-catalog.generated";
 import {
@@ -113,6 +114,7 @@ function defineMarinaraHost(): MarinaraHostV1 {
     components: Object.freeze({ Modal }),
     data: Object.freeze({ emojiCatalog }),
     api,
+    events: capabilityClientBus,
   }) satisfies MarinaraHostV1;
   Object.defineProperty(globalThis, "__MARINARA_HOST__", {
     value: host,

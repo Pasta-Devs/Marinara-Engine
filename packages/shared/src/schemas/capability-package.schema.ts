@@ -1570,7 +1570,14 @@ const capabilityPackageManifestBaseSchema = z
 //        service. A package registers only `<ownId>:<name>` keys (the throw applies to packages declaring 1.816 or
 //        newer; older ones get a warning). `runtime.services.list(prefix)` and `runtime.packages.isActive(id)`. A
 //        soft seam: feature-detect `services.list` and `runtime.packages`. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 816 } as const);
+// 1.817: `api.events`, a package event bus: publish under the package's own `<ownId>:` prefix, subscribe to an exact
+//        type or `<prefix>:*`. Asynchronous and fire and forget, a 2 s deadline per handler, JSON payloads of at most
+//        64 KB, never stored or replayed. The Engine publishes `engine:agent.result`, `engine:generation.completed`
+//        and `engine:chat.metadata.changed` (subscribing needs `chat-read`) and `engine:package.activated` /
+//        `engine:package.deactivated`. A chat-scoped event published during that chat's generation also rides the
+//        generation stream to the client, where `__MARINARA_HOST__.events` mirrors the bus cooperatively. A soft
+//        seam: feature-detect `api.events`. No new permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 817 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

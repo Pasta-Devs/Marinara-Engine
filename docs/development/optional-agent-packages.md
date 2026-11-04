@@ -1898,6 +1898,59 @@ Both return an empty list or `false` during a shared-room generation, the same a
 Engines have neither member and ignore `forCaller`, so feature-detect them, or declare 1.816 when
 the package relies on them. No permission.
 
+### Capability API 1.817: package events
+
+`api.events` is an in-process event bus between packages and the Engine:
+
+```ts
+api.events.publish(type, payload, { chatId }); // type must start with "<ownId>:"
+const release = api.events.subscribe("long-term-memory:*", (event) => {
+  // event: { type, source, chatId?, payload, at }, frozen
+});
+```
+
+- A package publishes only under its own `<ownId>:` prefix. The Engine publishes under `engine:`.
+  `source` is the publishing package id, or `"engine"`, set by the Engine.
+- `subscribe` takes an exact type or `"<prefix>:*"`. Activation teardown releases every
+  subscription, and the returned function releases one earlier.
+- Delivery is asynchronous. `publish` returns before any handler runs, never waits for one, and a
+  handler that throws or takes longer than 2 seconds is logged with the subscriber's id. A publish
+  from inside a handler is delivered after the current event, never re-entrantly. Handler order is
+  not a contract.
+- The payload must be JSON and at most 64 KB. `publish` throws otherwise, so the mistake shows up in
+  development. Each subscriber gets a frozen copy, never the publisher's object.
+- Events are not storage. Nothing is replayed to a package that activates later. Keep durable facts
+  in package documents or `persistence.appendRoleplayEvent`.
+- Nothing is published or delivered during a shared-room generation.
+
+The Engine publishes:
+
+| Type                                                     | Payload                                                                       | Subscribing needs |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------- |
+| `engine:agent.result`                                    | `{ chatId, agentType, agentName, resultType, success, messageId, data }`      | `chat-read`       |
+| `engine:generation.completed`                            | `{ chatId, messageId, mode }`, `messageId` is the last reply saved, or `null` | `chat-read`       |
+| `engine:chat.metadata.changed`                           | `{ chatId, keys }`, the changed keys only, never their values                 | `chat-read`       |
+| `engine:package.activated`, `engine:package.deactivated` | `{ packageId, version }`                                                      | nothing           |
+
+`agent.result` and `generation.completed` fire after the Engine writes the matching frame to a
+generation stream. `chat.metadata.changed` fires when the Engine patches a chat's metadata. When
+an agent result's `data` would make the event larger than 64 KB, the event carries `data: null`
+and `dataOmitted: true`. Subscribing to `engine:*` or one of the first three types without
+`chat-read` fails activation.
+
+A publish with `{ chatId }` made while that chat is generating also reaches the client: the
+generation stream carries it, the Engine dispatches it as a `marinara-capability-server-event`
+with `detail.packageId` set to the publisher and `detail.type` to the event type, and delivers it
+through `__MARINARA_HOST__.events`. An event published outside a generation stays on the server.
+
+`__MARINARA_HOST__.events` has the same `publish(type, payload, scope?)` and
+`subscribe(type, handler)` for package clients. All package clients run in one page, so the
+client bus is cooperative: a client event's `source` is its type's prefix and nothing enforces it.
+Anything that needs a trusted sender goes through the server bus or a privileged route.
+
+Older Engines have no `api.events` and no `__MARINARA_HOST__.events`: feature-detect them, or
+declare 1.817. No new permission.
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed

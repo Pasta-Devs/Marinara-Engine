@@ -87,6 +87,10 @@ import {
 import { galleryFileHasReferences, unlinkGalleryFileIfUnreferenced } from "../image/gallery-file-lifecycle.js";
 
 import { createAppSettingsStorage } from "./app-settings.storage.js";
+import {
+  hasCapabilityEventSubscribers,
+  publishChatMetadataChanged,
+} from "../capability-packages/capability-event-bus.service.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const GAME_SCENE_VIDEOS_DIR = join(DATA_DIR, "game-scene-videos");
@@ -1883,10 +1887,14 @@ export function createChatsStorage(db: DB) {
         // A model/agent's old snapshot must never restore an ended room or overwrite its coordinator.
         return this.patchMetadata(id, () => metadata);
       }
+      const previous = hasCapabilityEventSubscribers("engine:chat.metadata.changed")
+        ? parseMetadata((await this.getById(id))?.metadata)
+        : null;
       await db
         .update(chats)
         .set({ metadata: JSON.stringify(metadata), updatedAt: now() })
         .where(eq(chats.id, id));
+      if (previous) publishChatMetadataChanged(id, previous, metadata);
       return this.getById(id);
     },
 
@@ -2015,6 +2023,7 @@ export function createChatsStorage(db: DB) {
           })
           .where(eq(chats.id, id));
         opts.afterWrite?.(current, merged);
+        publishChatMetadataChanged(id, current, merged);
         return this.getById(id);
       };
       return opts.metadataQueueHeld ? applyPatch() : withChatMetadataPatchQueue(id, applyPatch);
@@ -2069,6 +2078,7 @@ export function createChatsStorage(db: DB) {
             ...(opts.touchUpdatedAt !== false && { updatedAt: now() }),
           })
           .where(eq(chats.id, id));
+        publishChatMetadataChanged(id, current, merged);
         return this.getById(id);
       };
       // The caller may already hold the queue (a checkpoint load takes it before opening the

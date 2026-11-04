@@ -694,6 +694,7 @@ import {
   dispatchSpatialCapabilityEvent,
   resolveGameExperiencePackageId,
 } from "../lib/capability-client-events";
+import { relayCapabilityServerEvent } from "../lib/capability-client-bus";
 import { messageHasPendingPostProcessing, parseMessageExtraRecord } from "../lib/chat-message-extra";
 import { applyMessageTextRewrite } from "../lib/message-rewrite-versions";
 import type { APIConnection, Chat, GameMap, Message } from "@marinara-engine/shared";
@@ -2634,6 +2635,12 @@ export function useGenerate() {
               break;
             }
 
+            case "capability_event": {
+              // Capability API 1.817: a chat-scoped event a package server published during this generation.
+              relayCapabilityServerEvent(event.data, params.chatId);
+              break;
+            }
+
             case "gm_verb": {
               // A package-declared GM event verb (#5798). Addressed by an explicit packageId on the
               // envelope rather than by a convention field inside the payload, so nothing has to
@@ -4216,6 +4223,10 @@ export function useGenerate() {
               // mechanism — there is no second event carrying the value.
               qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
               qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+              break;
+            }
+            case "capability_event": {
+              relayCapabilityServerEvent(event.data, chatId);
               break;
             }
             case "gm_verb": {

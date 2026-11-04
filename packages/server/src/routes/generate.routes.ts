@@ -769,6 +769,7 @@ import {
   startSseReply,
   type GenerationOutput,
 } from "./generate/sse.js";
+import { attachCapabilityEventStream } from "../services/capability-packages/capability-event-bus.service.js";
 import {
   resolveSpatialGenerationOrigin,
   shouldSaveHiddenGenerationAnchor,
@@ -1864,6 +1865,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
     // Set up SSE headers
     startSseReply(reply, { "X-Accel-Buffering": "no" });
+    // Capability API 1.817: chat-scoped package events ride this stream; Engine events are read from its frames.
+    const detachCapabilityEvents = attachCapabilityEventStream(reply, {
+      chatId: input.chatId,
+      mode: requestChatMode,
+    });
     if (currentTurnUserMessage) {
       // Let the client replace its optimistic row before the user can edit it.
       sendSseEvent(reply, { type: "message_saved", data: currentTurnUserMessage });
@@ -16126,6 +16132,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       }
       stopSseKeepalive();
       detachCloseListener();
+      detachCapabilityEvents();
       releaseActiveGeneration();
       releaseActiveAgentRun();
       if (!clientDisconnected && isSseReplyWritable(reply)) {
