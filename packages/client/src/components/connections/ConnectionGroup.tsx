@@ -163,7 +163,8 @@ export async function moveRowsTo(
     }
   }
   if (rows.length > 1) {
-    if (failed.length) toast.error(t("connections.accounts.select.partialFailed", { names: failed.map(nameOf).join(", ") }));
+    if (failed.length)
+      toast.error(t("connections.accounts.select.partialFailed", { names: failed.map(nameOf).join(", ") }));
   } else if (failed.length) {
     toast.error(
       t("connections.accounts.row.moveFailed", {
@@ -397,9 +398,9 @@ export function ConnectionGroup({
       className={cn(
         "mari-connection-group flex min-w-0 flex-col transition-colors",
         dropValid &&
-            "rounded-xl ring-1 ring-[var(--primary)]/25 hover:bg-[var(--primary)]/10 hover:ring-[var(--primary)]/60",
-        )}
-        data-connection-account-id={account.id}
+          "rounded-xl ring-1 ring-[var(--primary)]/25 hover:bg-[var(--primary)]/10 hover:ring-[var(--primary)]/60",
+      )}
+      data-connection-account-id={account.id}
       data-drag-id={account.id}
       data-drag-order-id={account.id}
       data-drag-kind="connection"
@@ -602,7 +603,7 @@ export function ConnectionGroup({
                 <div key={row.id} className="mari-connection-model-slot min-w-0">
                   <ModelRow
                     rowProps={modelDragProps?.(row, [...(picked ?? [])])}
-                role="checkbox"
+                    role="checkbox"
                     aria-checked={checked}
                     onClick={() =>
                       setPicked((current) => {

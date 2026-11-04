@@ -37,7 +37,12 @@ import {
   parsePinnedModels,
   type APIProvider,
 } from "@marinara-engine/shared";
-import { useConnections, useMoveConnection, useOutsideReads, type CachedCatalogFacts } from "../../hooks/use-connections";
+import {
+  useConnections,
+  useMoveConnection,
+  useOutsideReads,
+  type CachedCatalogFacts,
+} from "../../hooks/use-connections";
 import { useConnectionAccounts, useFeatureModels } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import type { DeviceItem } from "../../hooks/use-device-setup";
@@ -72,7 +77,15 @@ import {
 } from "../../hooks/use-connection-folders";
 import { ConnectionRow, ROW_BUTTON, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
-import { ConnectionGroup, GROUP_SURFACE, dropKindFor, hostOf, moveBlockedKey, moveRowsTo, moveTargetsFor } from "../connections/ConnectionGroup";
+import {
+  ConnectionGroup,
+  GROUP_SURFACE,
+  dropKindFor,
+  hostOf,
+  moveBlockedKey,
+  moveRowsTo,
+  moveTargetsFor,
+} from "../connections/ConnectionGroup";
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
@@ -435,9 +448,8 @@ export function ConnectionsPanel() {
     onCancel: () => setDraggedModelIds(null),
     onDrop: (_id, x, y, ids) => {
       setDraggedModelIds(null);
-      const targetId = document
-        .elementFromPoint(x, y)
-        ?.closest<HTMLElement>("[data-connection-account-id]")?.dataset.connectionAccountId;
+      const targetId = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-connection-account-id]")
+        ?.dataset.connectionAccountId;
       const target = accounts?.find((item) => item.id === targetId);
       const rows = ids.flatMap((rowId) => connectionsList.find((row) => row.id === rowId) ?? []);
       if (!target || !rows.length) return;
