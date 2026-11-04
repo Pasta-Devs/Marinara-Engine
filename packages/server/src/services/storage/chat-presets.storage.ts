@@ -11,6 +11,7 @@ import { logger } from "../../lib/logger.js";
 import { createChatsStorage, withChatMetadataPatchQueue } from "./chats.storage.js";
 import { summaryHidingPatch } from "../../routes/generate/generate-route-utils.js";
 import {
+  CHAT_FOLLOWS_MAIN_KEY,
   CHAT_PRESET_EXCLUDED_METADATA_KEYS,
   CHAT_PRESET_EXCLUDED_PACKAGE_METADATA_KEYS,
   CHAT_PROFILE_FOLLOWER_SYNC_KEYS,
@@ -373,7 +374,8 @@ export function createChatPresetsStorage(db: DB) {
     async applyToChat(
       presetId: string,
       chatId: string,
-      options: { connectionId?: string | null; asFollower?: boolean } = {},
+      /** `keepPersona`: the user already picked who they play in this chat, so the profile's persona is skipped. */
+      options: { connectionId?: string | null; asFollower?: boolean; keepPersona?: boolean } = {},
     ) {
       return withChatMetadataPatchQueue(chatId, async () => {
         const preset = await storage.getById(presetId);
@@ -467,6 +469,8 @@ export function createChatPresetsStorage(db: DB) {
         );
         const nextConnectionId =
           options.connectionId !== undefined ? options.connectionId : (preset.settings.connectionId ?? null);
+        // A profile without a Model puts the chat on Main by choice; without the flag generation reports a deleted Model.
+        if (!options.asFollower) newMetadata[CHAT_FOLLOWS_MAIN_KEY] = !nextConnectionId;
 
         await db
           .update(chats)
@@ -474,7 +478,7 @@ export function createChatPresetsStorage(db: DB) {
             ...(!options.asFollower && {
               connectionId: nextConnectionId,
               promptPresetId: preset.settings.promptPresetId ?? null,
-              ...(preset.settings.personaId && (await personaExists(preset.settings.personaId))
+              ...(!options.keepPersona && preset.settings.personaId && (await personaExists(preset.settings.personaId))
                 ? { personaId: preset.settings.personaId, personaCharacterId: null }
                 : {}),
               updatedAt: now(),

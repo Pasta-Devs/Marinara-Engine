@@ -662,6 +662,18 @@ try {
   assert.equal(originalRow.accountId, copyId, "the original Model stays");
   assert.equal(originalRow.isDefault, "true");
   assert.equal((await json("POST", "/accounts/missing/duplicate")).status, 404);
+  // A copy of a Connection still under import review waits for the same review, as do Models added to the copy.
+  await db
+    .update(connectionAccounts)
+    .set({ profileImportReviewRequired: "true" })
+    .where(eq(connectionAccounts.id, dupId));
+  const reviewCopy = await json("POST", `/accounts/${dupId}/duplicate`);
+  assert.equal(reviewCopy.status, 201, reviewCopy.body);
+  assert.equal(reviewCopy.data.account.profileImportReviewRequired, true, "the copy stays under review");
+  assert.notEqual(reviewCopy.data.account.state, "ok");
+  const addedToCopy = await json("POST", `/accounts/${reviewCopy.data.account.id}/for-model`, { model: "gpt-new" });
+  assert.equal(addedToCopy.status, 201, addedToCopy.body);
+  assert.equal(await connections.getWithKey(addedToCopy.data.connectionId), null, "its new Model cannot send yet");
   console.log("connection-accounts-names-move-search: ok");
 } finally {
   await app.close();

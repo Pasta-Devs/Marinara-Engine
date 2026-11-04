@@ -226,6 +226,24 @@ export async function withChatMetadataPatchQueue<T>(chatId: string, operation: (
   return withPatchQueue(metadataPatchQueues, chatId, operation);
 }
 
+/**
+ * One transaction that rewrites chat metadata, run while every chat's metadata queue is held: a patchMetadata that
+ * read a chat before it would otherwise write its stale merge over the rewrite. Queues before the transaction, the
+ * order patchMetadata uses; a chat created while the queues were awaited is not held, so they are taken again.
+ */
+export async function withAllChatMetadataQueues<T>(db: DB, operation: (tx: DB) => Promise<T>): Promise<T> {
+  for (;;) {
+    const lockedIds = new Set((await db.select({ id: chats.id }).from(chats)).map((chat) => chat.id));
+    const result = await withPatchQueues(metadataPatchQueues, [...lockedIds], () =>
+      db.transaction(async (tx) => {
+        if ((await tx.select({ id: chats.id }).from(chats)).some((chat) => !lockedIds.has(chat.id))) return null;
+        return { value: await operation(tx) };
+      }),
+    );
+    if (result) return result.value;
+  }
+}
+
 export async function withMessageExtraPatchQueue<T>(messageId: string, operation: () => Promise<T>): Promise<T> {
   return withPatchQueue(messageExtraPatchQueues, messageId, operation);
 }
@@ -2098,44 +2116,34 @@ export function createChatsStorage(db: DB) {
     },
 
     async pruneLorebookChatMetadata(remove: (tx: DB) => Promise<string[]>, lorebookId?: string) {
-      // Match the existing queue-before-transaction order. Deletion and metadata cleanup roll back together.
-      for (;;) {
-        const lockedIds = new Set((await db.select({ id: chats.id }).from(chats)).map((chat) => chat.id));
-        const complete = await withPatchQueues(metadataPatchQueues, [...lockedIds], () =>
-          db.transaction(async (tx) => {
-            const allChats = await db.select().from(chats);
-            // A chat created while waiting may also reference this book; reacquire all queues before deleting.
-            if (allChats.some((chat) => !lockedIds.has(chat.id))) return false;
-            const removedEntryIds = new Set(await remove(tx));
-            for (const chat of allChats) {
-              const metadata = parseMetadata(chat.metadata);
-              const hasBook =
-                lorebookId &&
-                ["activeLorebookIds", "excludedLorebookIds"].some(
-                  (key) => Array.isArray(metadata[key]) && metadata[key].includes(lorebookId),
-                );
-              if (!hasBook && Object.keys(lorebookEntryStateRemovalPatch(metadata, removedEntryIds)).length === 0)
-                continue;
+      // Deletion and metadata cleanup roll back together.
+      await withAllChatMetadataQueues(db, async (tx) => {
+        const allChats = await db.select().from(chats);
+        const removedEntryIds = new Set(await remove(tx));
+        for (const chat of allChats) {
+          const metadata = parseMetadata(chat.metadata);
+          const hasBook =
+            lorebookId &&
+            ["activeLorebookIds", "excludedLorebookIds"].some(
+              (key) => Array.isArray(metadata[key]) && metadata[key].includes(lorebookId),
+            );
+          if (!hasBook && Object.keys(lorebookEntryStateRemovalPatch(metadata, removedEntryIds)).length === 0) continue;
 
-              await this.patchMetadata(
-                chat.id,
-                (current) => {
-                  const patch = lorebookEntryStateRemovalPatch(current, removedEntryIds);
-                  if (lorebookId) {
-                    for (const key of ["activeLorebookIds", "excludedLorebookIds"]) {
-                      if (Array.isArray(current[key])) patch[key] = current[key].filter((id) => id !== lorebookId);
-                    }
-                  }
-                  return patch;
-                },
-                { metadataQueueHeld: true },
-              );
-            }
-            return true;
-          }),
-        );
-        if (complete) return;
-      }
+          await this.patchMetadata(
+            chat.id,
+            (current) => {
+              const patch = lorebookEntryStateRemovalPatch(current, removedEntryIds);
+              if (lorebookId) {
+                for (const key of ["activeLorebookIds", "excludedLorebookIds"]) {
+                  if (Array.isArray(current[key])) patch[key] = current[key].filter((id) => id !== lorebookId);
+                }
+              }
+              return patch;
+            },
+            { metadataQueueHeld: true },
+          );
+        }
+      });
     },
 
     async remove(id: string) {

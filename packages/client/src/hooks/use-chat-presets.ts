@@ -91,16 +91,19 @@ export function useApplyChatPreset() {
       presetId,
       chatId,
       connectionId,
+      keepPersona,
     }: {
       presetId: string;
       chatId: string;
       connectionId?: string | null;
+      /** The user picked a persona for this chat, so it stays instead of the profile's. */
+      keepPersona?: boolean;
       initialSetupProfile?: ChatPreset;
     }) =>
-      api.post<Chat>(
-        `/chat-presets/${presetId}/apply/${chatId}`,
-        connectionId !== undefined ? { connectionId } : undefined,
-      ),
+      api.post<Chat>(`/chat-presets/${presetId}/apply/${chatId}`, {
+        ...(connectionId !== undefined && { connectionId }),
+        ...(keepPersona && { keepPersona }),
+      }),
     onMutate: ({ chatId }) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
     onSuccess: (data, variables, context) => {
       const draft = useChatStore.getState().pendingNewChatSetups[variables.chatId];
@@ -115,6 +118,10 @@ export function useApplyChatPreset() {
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
       qc.invalidateQueries({ queryKey: [...chatKeys.all, "group"] });
+      // A profile persona keeps earlier messages under their persona and can add a "now playing as" turn.
+      qc.invalidateQueries({ queryKey: chatKeys.messages(variables.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.messageCount(variables.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.messagePeek(variables.chatId) });
     },
   });
 }
