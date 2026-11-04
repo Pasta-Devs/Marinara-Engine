@@ -60,6 +60,7 @@ import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../..
 import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
 import { useTranslation } from "react-i18next";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
+import { useTabScrollMemory } from "./use-tab-scroll-memory";
 
 const TAB_ICONS: Record<Exclude<OverhaulTabKind, "chat" | "library" | "app">, LucideIcon> = {
   character: Users,
@@ -379,6 +380,8 @@ export function OverhaulTopBar() {
   const { data: chats = [] } = useChats();
   const current = useCurrentTab();
   const currentKey = current ? overhaulTabKey(current) : null;
+  // Tabs keep their scroll place. Chats are left out: they manage their own scroll (stick to the newest message).
+  useTabScrollMemory(current && current.kind !== "chat" ? currentKey : null);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const moveTab = useOverhaulStore((s) => s.moveTab);
   // Drag to reorder: the dragged tab's key, and where it would land (index in `tabs`).
