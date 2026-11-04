@@ -173,6 +173,8 @@ test("game chat inherits connection send switches after editing another value an
     const reasoning = parameters.getByRole("checkbox", { name: "Send Reasoning Effort parameter", exact: true });
     await expect(reasoning).toBeChecked();
     const output = parameters.getByRole("textbox", { name: "Max Output Tokens", exact: true });
+    // Wait for the inherited value: on WebKit a fill that races it is appended to it ("409612000").
+    await expect(output).toHaveValue("4096");
     await output.fill("12000");
     await output.press("Enter");
     await expect
