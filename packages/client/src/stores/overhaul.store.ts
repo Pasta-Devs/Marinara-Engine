@@ -29,6 +29,8 @@ export type LibrarySection =
 
 export const MAX_OVERHAUL_TABS = 8;
 
+export type OverhaulSettingsTab = "general" | "chatting" | "appearance" | "chat-modes" | "media" | "data" | "advanced";
+
 export function overhaulTabKey(tab: OverhaulTab) {
   return `${tab.kind}:${tab.id}`;
 }
@@ -43,6 +45,9 @@ interface OverhaulState {
   libraryPage: LibrarySection | null;
   /** Characters gallery filter picked from the tag list in the Library pane. */
   characterTag: string | null;
+  /** Which of the overhaul's Settings tabs is open. */
+  settingsTab: OverhaulSettingsTab;
+  setSettingsTab: (tab: OverhaulSettingsTab) => void;
   setCharacterTag: (tag: string | null) => void;
   setEnabled: (enabled: boolean) => void;
   setDesktop: (desktop: boolean) => void;
@@ -59,6 +64,8 @@ export const useOverhaulStore = create<OverhaulState>()(
       tabs: [],
       libraryPage: null,
       characterTag: null,
+      settingsTab: "general",
+      setSettingsTab: (settingsTab) => set({ settingsTab }),
       setCharacterTag: (characterTag) => set({ characterTag }),
       setEnabled: (enabled) => set({ enabled }),
       setDesktop: (desktop) => set({ desktop }),
@@ -77,7 +84,12 @@ export const useOverhaulStore = create<OverhaulState>()(
     {
       name: "marinara-overhaul-layout",
       version: 1,
-      partialize: (state) => ({ enabled: state.enabled, tabs: state.tabs, libraryPage: state.libraryPage }),
+      partialize: (state) => ({
+        enabled: state.enabled,
+        tabs: state.tabs,
+        libraryPage: state.libraryPage,
+        settingsTab: state.settingsTab,
+      }),
     },
   ),
 );
