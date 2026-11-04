@@ -111,6 +111,15 @@ const OverhaulMariPage = lazy(() =>
 const OverhaulDocsPage = lazy(() =>
   import("../overhaul/DocsPage").then((module) => ({ default: module.OverhaulDocsPage })),
 );
+const OvRegexViewer = lazy(() =>
+  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvRegexViewer })),
+);
+const OvConnectionsViewer = lazy(() =>
+  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvConnectionsViewer })),
+);
+const OvAgentsViewer = lazy(() =>
+  import("../overhaul/LibraryViewers").then((module) => ({ default: module.OvAgentsViewer })),
+);
 const LibraryLandingPage = lazy(() =>
   import("../overhaul/LibraryLandingPage").then((module) => ({ default: module.LibraryLandingPage })),
 );
@@ -889,8 +898,52 @@ export function AppShell({
     if (opened) useOverhaulStore.getState().leaveDocs();
   }, [overhaulDocsLeaveKey]);
 
+  // UI overhaul: Regex scripts, Connections and Agents open in a master-detail viewer
+  // (list on the left, the item's editor on the right), like the Preset editor.
+  const ovOtherDetail = Boolean(
+    personaDetailId ||
+    toolDetailId ||
+    presetDetailId ||
+    characterDetailId ||
+    characterLibraryOpen ||
+    agentCatalogOpen ||
+    lorebookDetailId,
+  );
+  const ovViewer: "regex" | "connections" | "agents" | null = !overhaulActive
+    ? null
+    : regexDetailId
+      ? "regex"
+      : connectionDetailId
+        ? "connections"
+        : agentDetailId
+          ? selectedFeatureAgent
+            ? null
+            : "agents"
+          : !ovOtherDetail &&
+              (overhaulLibraryPage === "regex" ||
+                overhaulLibraryPage === "connections" ||
+                overhaulLibraryPage === "agents")
+            ? overhaulLibraryPage
+            : null;
+
   const detailView =
     overhaulActive && overhaulSchedules ? (
+      <OverhaulSchedulesPage />
+    ) : overhaulActive && overhaulMari ? (
+      <OverhaulMariPage />
+    ) : overhaulActive && overhaulDocsTab ? (
+      <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
+    ) : ovViewer === "regex" ? (
+      <OvRegexViewer>{regexDetailId ? <RegexScriptEditor key={regexDetailId} /> : null}</OvRegexViewer>
+    ) : ovViewer === "connections" ? (
+      <OvConnectionsViewer>
+        {connectionDetailId ? <ConnectionEditor key={connectionDetailId} /> : null}
+      </OvConnectionsViewer>
+    ) : ovViewer === "agents" ? (
+      <OvAgentsViewer>
+        {agentDetailId ? capabilityAgents.isLoading ? <MainPaneFallback /> : <AgentEditor key={agentDetailId} /> : null}
+      </OvAgentsViewer>
+    ) : overhaulActive && overhaulSchedules ? (
       <OverhaulSchedulesPage />
     ) : overhaulActive && overhaulMari ? (
       <OverhaulMariPage />
