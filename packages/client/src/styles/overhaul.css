@@ -6786,3 +6786,24 @@ input.ov-edhead__title:focus {
   background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
   color: var(--ov-accent);
 }
+
+/* Rail name and Title / comment wrap onto more lines instead of cutting off. */
+.ov-ed .ov-rail textarea.ov-rail__wrap {
+  display: block;
+  width: 100%;
+  min-height: 0 !important;
+  max-height: none !important;
+  field-sizing: content;
+  overflow: hidden;
+  resize: none;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.ov-ed .ov-rail textarea.ov-rail__wrap:focus {
+  box-shadow: 0 1px 0 var(--ov-accent) !important;
+}
