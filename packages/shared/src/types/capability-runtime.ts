@@ -31,6 +31,27 @@ export interface CapabilityServiceLookupHost {
    * (only the Engine reads those).
    */
   get<T = unknown>(key: string): T | null;
+  /**
+   * Capability API 1.816: the keys under a prefix this package could read with `get`, sorted. Host-only keys are left
+   * out, and the list is empty during a shared-room generation.
+   */
+  list?(prefix: string): string[];
+}
+
+/**
+ * Capability API 1.816: the consumer a service's `forCaller` resolves for. The Engine assigns it from the consumer's
+ * installed manifest; a package never reports it itself.
+ */
+export type CapabilityServiceCaller = Readonly<{
+  packageId: string;
+  packageVersion: string;
+  permissions: readonly string[];
+}>;
+
+/** Capability API 1.816: which other packages are running. */
+export interface CapabilityPackagesHost {
+  /** Whether a package's server runtime is activated now. false during a shared-room generation. */
+  isActive(packageId: string): boolean;
 }
 
 /** Capability API 1.341: the conversation commands every package registered, read with the Engine's grammar. */
@@ -612,6 +633,8 @@ export interface CapabilityRuntimeHost {
   resources: CapabilityResourceHost;
   /** Capability API 1.341. */
   services?: CapabilityServiceLookupHost;
+  /** Capability API 1.816. */
+  packages?: CapabilityPackagesHost;
   /** Capability API 1.341. */
   commands?: CapabilityConversationCommandHost;
 }

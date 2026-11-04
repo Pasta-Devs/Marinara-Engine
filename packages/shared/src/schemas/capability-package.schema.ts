@@ -1565,7 +1565,12 @@ const capabilityPackageManifestBaseSchema = z
 // 1.815: a language model call's `cacheTtl` ("5m" or "1h"): how long its marked prefix stays cached on Anthropic,
 //        whatever the connection's cache time says; left out, the connection's applies. A soft seam: older Engines
 //        ignore the option. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 815 } as const);
+// 1.816: services know who is calling: `registerService(key, service, { forCaller })` resolves what each consumer
+//        package sees from the identity the Engine assigns, memoized per consumer; the Engine still reads the raw
+//        service. A package registers only `<ownId>:<name>` keys (the throw applies to packages declaring 1.816 or
+//        newer; older ones get a warning). `runtime.services.list(prefix)` and `runtime.packages.isActive(id)`. A
+//        soft seam: feature-detect `services.list` and `runtime.packages`. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 816 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

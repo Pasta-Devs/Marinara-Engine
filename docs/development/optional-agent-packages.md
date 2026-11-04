@@ -1857,6 +1857,47 @@ connection's cache time applies.
 
 Older Engines ignore the option, so a package can always pass it. Declare 1.815 when the package relies on it.
 
+### Capability API 1.816: know which package is calling a service
+
+`api.registerService(key, service, { forCaller })` lets a service decide what each consumer package
+sees. The Engine calls `forCaller(caller)` the first time a package reads the key with
+`runtime.services.get`, with the identity it assigned to that package from its installed manifest:
+
+```ts
+type CapabilityServiceCaller = Readonly<{
+  packageId: string;
+  packageVersion: string;
+  permissions: readonly string[];
+}>;
+```
+
+The result is kept for that consumer until the service is released, so `forCaller` runs once per
+consumer, not once per read. Return the full service, a narrowed view, or `null` to turn the consumer
+away. A `forCaller` that throws is logged and that read gets `null`; the next read tries again. The
+Engine's own reads always get the raw service. Use this instead of a `caller` field the consumer
+sends, which any package can fill with another package's id.
+
+```ts
+api.registerService("my-package:intake", intake, {
+  forCaller: (caller) => (allowed.has(caller.packageId) ? intakeFor(caller.packageId) : null),
+});
+```
+
+A package registers only keys that start with its own id and a colon (`my-package:intake`), plus its
+own `agent-runtime:` and `mari-actions:` keys, which keep their existing checks. A package that
+declares 1.816 or newer and registers another key fails to activate. An older package still
+activates and the Engine logs a warning.
+
+Two read-only members help a package find its peers:
+
+- `runtime.services.list(prefix)`: the keys under a prefix this package could read with `get`,
+  sorted. Host-only keys and the `agent-runtime:` and `mari-actions:` prefixes are left out.
+- `runtime.packages.isActive(packageId)`: whether that package's server runtime is activated now.
+
+Both return an empty list or `false` during a shared-room generation, the same as `get`. Older
+Engines have neither member and ignore `forCaller`, so feature-detect them, or declare 1.816 when
+the package relies on them. No permission.
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed

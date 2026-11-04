@@ -29,10 +29,13 @@ import {
   type CapabilityConversationCommandRegistration,
 } from "./capability-command-registry.service.js";
 import {
-  getCapabilityService,
+  getCapabilityServiceForCaller,
   isHostOnlyCapabilityService,
+  listCapabilityServiceKeys,
   registerCapabilityService,
+  type CapabilityServiceRegistrationOptions,
 } from "./capability-service-registry.service.js";
+import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 import { assertCapabilityAgentRuntimeServiceRegistration } from "./capability-agent-runtime.service.js";
 import { assertCapabilityMariActionsServiceRegistration } from "./capability-mari-actions.service.js";
 import { createCapabilityDecisionHost } from "./capability-decision.service.js";
@@ -88,8 +91,9 @@ type CapabilityActivationContext = {
     runtime: CapabilityRuntimeHost;
     registerTurnGameEngine(engine: AnyTurnGameEngine): Cleanup;
     registerConversationCommand(registration: CapabilityConversationCommandRegistration): Cleanup;
-    /** `hostOnly` (Capability API 1.388) keeps the service from `runtime.services.get`; only the Engine reads it. */
-    registerService<T>(key: string, service: T, options?: { hostOnly?: boolean }): Cleanup;
+    /** `hostOnly` (Capability API 1.388) keeps the service from `runtime.services.get`; only the Engine reads it.
+     *  `forCaller` (1.816) resolves what each consumer package sees, from the identity the Engine assigns. */
+    registerService<T>(key: string, service: T, options?: CapabilityServiceRegistrationOptions): Cleanup;
     /** Contribute text to each turn's system prompt. Requires the `prompt-context` permission. */
     registerPromptContext(contributor: CapabilityPromptContextContributor): Cleanup;
     /** Offer the model a tool this package handles. Requires the `tools` permission. */
@@ -110,11 +114,52 @@ type CapabilityActivationContext = {
 
 const HOST_ONLY_SERVICE_PREFIXES = ["agent-runtime:", "mari-actions:"] as const;
 
+/** The Capability API minor a manifest declares; a schemaVersion 1 manifest predates the field and declares 0. */
+export function declaredCapabilityMinor(manifest: InstalledCapabilityPackage["manifest"]): number {
+  return manifest.schemaVersion === 2 && manifest.capabilityApi.major === 1 ? manifest.capabilityApi.minor : 0;
+}
+
+/** Capability API 1.816: the minor from which ownership rules throw instead of warning. */
+export const OWNERSHIP_ENFORCED_MINOR = 816;
+
+/**
+ * Tightened ownership rules apply in full only to packages built against them. An older package that breaks one
+ * keeps working and gets a warning, so no installed package stops activating when the Engine updates.
+ */
+export function enforceCapabilityOwnership(installed: InstalledCapabilityPackage, message: string): void {
+  if (declaredCapabilityMinor(installed.manifest) >= OWNERSHIP_ENFORCED_MINOR) throw new Error(message);
+  logger.warn(
+    "%s (allowed for now: the package declares a Capability API older than 1.%d)",
+    message,
+    OWNERSHIP_ENFORCED_MINOR,
+  );
+}
+
+/** Capability API 1.816: a package registers only `<ownId>:<name>` keys, plus the two Engine-reserved prefixes. */
+export function assertCapabilityServiceKeyOwnership(installed: InstalledCapabilityPackage, key: string): void {
+  if (key.startsWith(`${installed.id}:`) && key.length > installed.id.length + 1) return;
+  // Checked by their own assertions, which already require the package's own id.
+  if (HOST_ONLY_SERVICE_PREFIXES.some((prefix) => key.startsWith(prefix))) return;
+  enforceCapabilityOwnership(
+    installed,
+    `Capability package ${installed.id} must register services under its own "${installed.id}:" prefix, not ${key}`,
+  );
+}
+
+const isPackageReadableKey = (key: string) =>
+  !HOST_ONLY_SERVICE_PREFIXES.some((prefix) => key.startsWith(prefix)) && !isHostOnlyCapabilityService(key);
+
 async function createCapabilityRuntimeHost(
   app: FastifyInstance,
-  packageId: string,
-  permissions: readonly string[],
+  installed: InstalledCapabilityPackage,
 ): Promise<CapabilityRuntimeHost> {
+  const packageId = installed.id;
+  const permissions = installed.manifest.permissions ?? [];
+  const caller = Object.freeze({
+    packageId,
+    packageVersion: installed.version,
+    permissions: Object.freeze([...permissions]),
+  });
   const canReadAgentLorebooks = permissions.includes("agent-runtime") && permissions.includes("chat-read");
   const agents = app.db ? createAgentsStorage(app.db) : null;
   const config = await agents?.getByType(packageId);
@@ -165,11 +210,14 @@ async function createCapabilityRuntimeHost(
     resources: createCapabilityResourceHost(app.db),
     services: Object.freeze({
       // Agent runtime hooks, Mari actions and services registered with `hostOnly` are read only by the Engine
-      // itself, so a package can't call another package's hooks through this lookup.
-      get: <T>(key: string) =>
-        HOST_ONLY_SERVICE_PREFIXES.some((prefix) => key.startsWith(prefix)) || isHostOnlyCapabilityService(key)
-          ? null
-          : getCapabilityService<T>(key),
+      // itself, so a package can't call another package's hooks through this lookup. The caller identity comes from
+      // this package's installed manifest, never from the request.
+      get: <T>(key: string) => (isPackageReadableKey(key) ? getCapabilityServiceForCaller<T>(key, caller) : null),
+      list: (prefix: string) =>
+        currentRoomGeneration() ? [] : listCapabilityServiceKeys(String(prefix)).filter(isPackageReadableKey),
+    }),
+    packages: Object.freeze({
+      isActive: (id: string) => !currentRoomGeneration() && capabilityModuleRuntime.isActive(String(id)),
     }),
     commands: Object.freeze({
       parse: (content: string) => parseCapabilityConversationCommands(content),
@@ -284,6 +332,11 @@ class CapabilityModuleRuntime {
   // successful activation. Read-only diagnostics state.
   private activationErrors = new Map<string, CapabilityActivationErrorRecord>();
 
+  /** Whether a package's server runtime finished activating and has not been torn down. */
+  isActive(packageId: string): boolean {
+    return this.cleanups.has(packageId);
+  }
+
   /** Read-only view for diagnostics: which package runtimes are live now, and recent activation failures. */
   runtimeState(): { live: string[]; activationErrors: Record<string, CapabilityActivationErrorRecord> } {
     return { live: [...this.cleanups.keys()].sort(), activationErrors: Object.fromEntries(this.activationErrors) };
@@ -396,7 +449,7 @@ class CapabilityModuleRuntime {
         dataDir: DATA_DIR,
         package: installed,
         api: {
-          runtime: await createCapabilityRuntimeHost(app, installed.id, installed.manifest.permissions ?? []),
+          runtime: await createCapabilityRuntimeHost(app, installed),
           registerTurnGameEngine: (engine) => trackCleanup(registerTurnGameEngine(engine)),
           registerConversationCommand: (registration) => {
             if (registration.handler && !installed.manifest.permissions?.includes("conversation-actions")) {
@@ -409,7 +462,8 @@ class CapabilityModuleRuntime {
           registerService: (key, service, options) => {
             assertCapabilityAgentRuntimeServiceRegistration(installed.id, installed.manifest.permissions ?? [], key);
             assertCapabilityMariActionsServiceRegistration(installed.id, installed.manifest.permissions ?? [], key);
-            return trackCleanup(registerCapabilityService(key, service, options));
+            assertCapabilityServiceKeyOwnership(installed, key);
+            return trackCleanup(registerCapabilityService(key, service, options, installed.id));
           },
           // Gated on the permission the manifest already declares, so a package can't reach the prompt
           // without asking for it up front. Contract in capability-prompt-context.service.ts.
