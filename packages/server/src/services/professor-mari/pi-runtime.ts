@@ -279,7 +279,9 @@ function textualToolPrompt(tools: readonly ToolDefinition[]) {
     .join("\n");
   return `<text_tool_calls>
 This connection has no native tool calls. Wherever the rules above say to call a tool, write the call as text instead: one \`<tool_call>{"name":"TOOL","arguments":{...}}</tool_call>\` tag per call, with valid JSON inside. You may write several tags in one reply, after your words. Marinara runs them and answers in the next user message with the results. Never write a tag you do not want to run.
-Example: ${textCall("ls", { path: "." })}
+Example:
+The opening is ready.
+${textCall("suggestions", { chips: [{ label: "Play from here", prompt: "Continue from the opening." }] })}
 Tools:
 ${docs}
 </text_tool_calls>`;

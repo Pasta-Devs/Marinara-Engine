@@ -976,7 +976,7 @@ try {
     assert.equal(requests[0]!.options.toolChoice, undefined);
     const system = requests[0]!.messages.find((message) => message.role === "system")?.content ?? "";
     assert.match(system, /<text_tool_calls>/u);
-    assert.match(system, /"name":"ls"/u);
+    assert.ok(system.includes('<tool_call>{"name":"suggestions","arguments":{"chips":[{"label":"Play from here","prompt":"Continue from the opening."}]}}</tool_call>'));
     assert.match(system, /- suggestions:/u);
     for (const request of requests) {
       assert.ok(!request.messages.some((message) => message.role === "tool" || message.tool_calls));
@@ -1627,6 +1627,8 @@ try {
     const system = requests[0]!.messages.find((message) => message.role === "system")?.content ?? "";
     assert.match(system, /<workspace_tools>/u);
     assert.match(system, /There is no JSON frame/u);
+    assert.match(system, /write “The opening is ready.” and call suggestions/u);
+    assert.doesNotMatch(system, /<suggestions>|<tool_call>/u);
     assert.match(system, /a turn with no tool call ends the run/u);
     assert.match(system, /peek-prompt/u);
     assert.match(system, /named subject/u);
