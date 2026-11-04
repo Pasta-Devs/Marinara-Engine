@@ -137,6 +137,13 @@ export function moveTargetsFor(
   return { same, other };
 }
 
+/** Why a Model can never move (the menu shows Move greyed out), or null. */
+export function moveBlockedKey(row: ConnectionRowData): string | null {
+  if (row.credentialsFromConnectionId) return "connections.move.blockedBorrowed";
+  if (isLocalAuthProvider(row.provider)) return "connections.move.blockedSubscription";
+  return isChatProvider(row.provider) ? null : "connections.move.blockedService";
+}
+
 /** What dropping `row` on `target` does: `same` moves at once, `other` opens the Move dialog, null refuses. */
 export function dropKindFor(
   row: ConnectionRowData,
